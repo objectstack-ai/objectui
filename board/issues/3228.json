@@ -1,0 +1,32 @@
+{
+  "number": 3228,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 检查器读写 `{ dialect, source }` 表达式信封 (#3218)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:13:57Z",
+  "updated_at": "2026-08-02T20:26:03Z",
+  "closed_at": "2026-08-02T20:26:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T20:26:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3228",
+  "body": "Fixes #3218\n\n## 缺陷\n\n`HookSchema.condition` 用的是 `ExpressionInputSchema`(和 `FlowEdgeSchema.condition` 同一个 pipe),裸字符串在 **parse 时**被规范化成 `{ dialect: 'cel', source }` —— 信封才是平台自己产出的形状。Hook 检查器只认裸字符串,于是「Run only when (optional CEL)」渲染为**空**。\n\n空框不是外观问题:`ConditionBuilder` 的 `emit` 只编译**当前 UI 里的行**,所以作者在这个看起来空的构建器里下一次编辑,提交的是**替换**掉那条他从没看见过的守卫(清空则提交 `condition: undefined`)。仅仅打开面板是安全的(`onCommit` 只在真实编辑时触发),但诱导那次编辑的正是这个空框。\n\n## 读侧:走既有的那**一个**读法\n\n全部经 `conditionText`(#3216 沉淀下来的唯一读法),包在共享的 `expressionSource` / `writeExpressionSource` 里。**没有写出第四份 `typeof c === 'string'`** —— `previews/flow-canvas-layout.ts` 未被改动,只被读取。\n\n## 写侧:按本单裁决(选项 B),含 `ast` 必须丢弃那一条\n\n原先提交路径唯一保住的键就是 `source`;其余全丢,因为它发的是裸字符串,而 spec 的 pipe 把 `dialect` **硬编码**成 `cel`。也就是说,改一个 `dialect: 'cron'` / `dialect: 'template'` 守卫的一个字符,就把它换到了另一个求值引擎上,并顺手丢掉 `ast` 与 ADR-0089 的 `meta`(`rationale` / `generatedBy` —— AI 作者最常填、也最没人会手工补回来的那份)。\n\n现在编辑 `source` 时:\n\n| 键 | 行为 |\n|:--|:--|\n| `dialect` | **保留** |\n| `meta` | **保留** |\n| `source` | 替换 |\n| `ast` | **丢弃** —— 它是**旧 source** 的派生物。留着就是「引擎按旧 AST 求值,界面显示新 source」,比原缺陷更难查;`objectstack compile` 会重新填,且 `source` 在,`ExpressionSchema` 的 `source \\|\\| ast` refine 仍满足。 |\n\n**没有原信封可保留时**(值缺失、裸字符串、或 `action.disabled` 上的布尔),提交仍是裸字符串简写 —— spec 的 pipe 把它规范化成的正是 `{ dialect: 'cel', source }`,一分不少。这条同时让同一个 helper 对**普通 `string` 谓词字段**也安全:给什么形状,还什么形状。这一点是有意为之,因为通用 SchemaForm 条件控件同时服务这两类字段。\n\n## 普查结果:同族有四处,不止一处\n\n| 位置 | 症状 |\n|:--|:--|\n| `inspectors/HookDefaultInspector.tsx` | `condition` —— 本单报告的缺陷 |\n| `inspectors/ActionDefaultInspector.tsx` | `visible` / `disabled`(spec 是 `boolean \\| ExpressionInput`),同样的空框读法 |\n| `widgets.tsx` 的 `ConditionWidget` | `SchemaForm` 把**每一个**谓词名字段(`visible` / `hidden` / `disabled` / `condition` / `predicate` / `*When`)都路由到这里,而它做的是 `String(value)` —— 信封进到编辑器里是字面量 `[object Object]`,比空框更糟 |\n| `studio-design/ObjectValidationsPanel.tsx` | 规则 `condition`;另外**类型切换器里还有第三份窄读法**(`typeof cur.condition === 'string'`),信封守卫会被直接丢掉、留下骨架里那条永不命中的 `'false'`。`ValidationRuleDraft.condition` 的本地类型由 `string` 改为 `ExpressionInput` |\n\n外加 `inspectors/FlowEdgeInspector.tsx`:#3216 只收敛了它的**读**,**写**仍是裸字符串,是上面那条 dialect 改写的同一个口子,一并按同一规则修掉。\n\n**未改动** `inspectors/PageBlockInspector.tsx` 的 `hidden`。它不是本族:`PageComponentSchema` 是 `.strict()` 且根本没有 `hidden` 这个键(canonical 是 `visibleWhen`)。那是另一个真缺陷,已按 Prime Directive #10 单独立单:#3229。\n\n## 测试(先写,改前失败)\n\n新增两个文件,**固件一律不手写信封** —— 按 #3216 的做法把作者输入喂给 `HookSchema.parse` 再断言,固件因此不可能与 spec 漂移。\n\n- `inspectors/HookDefaultInspector.condition.test.tsx` —— 真渲染检查器:① 信封条件显示出 `source`;② 编辑后 `dialect` / `meta` 原样保留;③ 原来带 `ast` 的,编辑后 `ast` 没了(并再跑一次 `HookSchema.parse` 证明结果仍然合法);④ `dialect: 'template'` 的条件编辑后**仍是 template**(A/B 分界线);外加清空仍提交 `undefined`。\n- `inspectors/expression-envelope.test.ts` —— 共享读写对的单元测试(其余调用点靠这一份契约覆盖),含 `cron`、AST-only 信封、布尔 `disabled`、不可变性。\n\n改前:`5 failed | 1 passed`,失败原因正是守卫渲染为空(找不到条件行、找不到删除按钮、raw 编辑器值为空串)。改后 `15 passed`;`packages/app-shell` 全量 `257 files / 2203 tests` 通过,`type-check` 与 `lint`(0 errors)通过。\n"
+}

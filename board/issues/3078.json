@@ -1,0 +1,35 @@
+{
+  "number": 3078,
+  "kind": "pull_request",
+  "title": "fix(list,data-objectstack,types): exporting a searched list no longer downloads the unsearched superset",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:53:38Z",
+  "updated_at": "2026-07-30T16:59:00Z",
+  "closed_at": "2026-07-30T16:58:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:58:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3078",
+  "body": "The objectui half of [objectstack#4230](https://github.com/objectstack-ai/objectstack/pull/4230). Both items came out of auditing `ListView`'s filter construction after #3072.\n\n## The bug\n\nThe server-streamed export mirrored the view's `filter` and `sort`, and the code comment claimed that made the file match the screen:\n\n> Mirrors the active view's filter + sort so the exported file matches what the user sees.\n\nIt mirrored one half. There was no way to carry the term a user had typed into the search box — `ExportDownloadRequest` had **no field for one** — so exporting during a search produced **more rows than the list showed**, in a file that looks authoritative, with nothing indicating the difference.\n\nThe client-side fallback was always correct (it serializes the already-searched `data`). Only the server path was wrong — and it is the one that handles xlsx.\n\nSame family as a dropped filter (objectstack#3948, objectstack#4181): a plausible answer that is quietly broader than the one asked for.\n\n| layer | change |\n|---|---|\n| `@object-ui/types` | `ExportDownloadRequest` gains `search` / `searchFields` |\n| `@object-ui/data-objectstack` | `exportDownload` sends `search=` / `searchFields=`, trims the term, omits both when blank (`searchFields` alone means nothing) |\n| `@object-ui/plugin-list` | `ListView` passes the active `searchTerm` + the view's `searchableFields`, both now in the export callback's dep array — a stale closure would export the wrong row set |\n\n**Requires a server with objectstack#4230.** Older servers ignore unknown query params on that route, so they keep today's behaviour rather than erroring — which is why this can land independently of the server PR.\n\n## Also: the filter merge is no longer written twice\n\nThe three filter sources (view filter, filter-panel group, per-field user filters) were merged by **verbatim copies** in the data fetch and in the export — two copies that must agree, deciding respectively what the user *sees* and what they *download*. Both now call `buildEffectiveFilter`.\n\n**This half is a pure extraction, and the tests say so:** the four parity tests added for it **pass against the old duplicated code too**. They are not fixing a divergence; they exist to keep one from appearing — the adapter's duplicated filter-shape check had already drifted apart unnoticed (#3072).\n\nThe parity tests compare the arguments of the two *real* calls (`find`'s `$filter` vs `exportDownload`'s `filter`) rather than asserting an expected AST twice — an assertion written out twice would go on passing if both copies drifted the same wrong way.\n\nOne gap preserved deliberately and documented in the helper: a MongoDB-style object `schema.filter` has no `.length` and is dropped, as it always has been. Nothing in this repo produces one for a list view (those come from dashboard widgets, which query directly), so changing it would be a behaviour change on speculation.\n\n## Verification\n\n- 9 new tests: 4 ListView export/search, 4 fetch-vs-export parity, 5 adapter query params.\n- **Reverting `ListView.tsx` fails the 2 search tests and passes the 4 parity ones** — exactly the split that tells you which half was a bug and which was a refactor. Reverting the adapter fails 4.\n- Full suite: **758 files / 8819 tests green**. `tsc` clean across all three packages; eslint 0 errors (296 pre-existing `no-explicit-any` warnings, untouched).\n\nNote: `data-objectstack` typechecks against the built `@object-ui/types` dist, so `pnpm --filter @object-ui/types build` is needed before its `tsc` sees the new fields — 7 errors there were all dist staleness, including one unrelated to this change.\n\nRefs objectstack#4230, #3072, objectstack#3948\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

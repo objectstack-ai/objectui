@@ -1,0 +1,34 @@
+{
+  "number": 3119,
+  "kind": "pull_request",
+  "title": "fix(core,list): 列身份归一到 ingestion chokepoint — 一列一个身份 (#3104 PR1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T11:15:57Z",
+  "updated_at": "2026-07-31T11:27:28Z",
+  "closed_at": "2026-07-31T11:27:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T11:27:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3119",
+  "body": "#3104 **PR1**(盘点 + 复现 + 归一器)。台账:objectstack#4115。\n\n## 复现:缺陷比 issue 描述的更严重 —— ListView 和 ObjectGrid 各自和**自己**打架\n\nissue 的框架是「两种优先序并存于 15+ 处」。逐点位读完源码后,真正的机制不是「不同文件用不同优先序」,而是**同一个文件里,请求路径和渲染路径读同一个 `schema.columns` 却解析出两个字段**:\n\n| 路径 | 代码 | 读法 |\n|---|---|---|\n| **请求** | `ListView.tsx` 的 `expandFields` / `selectFields` memo;`ObjectGrid.getSelectFields` | `f?.field`,**只读 field** |\n| **渲染** | FLS 闸门、hiddenFields 过滤、`fieldOrder` 排序、导出 ×2、hide-fields 弹层 | `f.name \\|\\| f.fieldName \\|\\| f.field`,**name 优先** |\n\n两个后果,都是静默的:\n\n- `{ field: 'account', name: 'account_name' }` → 行数据按 `account` 取(含 `$expand=account`),而**字段级权限检查、导出、hide-fields 全部按 `account_name`**。一列,两个字段。\n- `{ name: 'account' }` → 渲染路径把这列画出来,请求路径解析成 `undefined` 直接**滤掉** —— `$select` 和 `$expand` 都不带它。列在那里,后面什么都没有。\n\n这就是「**关系列显示裸 id / 列全空 / 排序不生效 / 导出缺列**」这一缺陷类的机制。\n\n`ListColumnSchema`(spec 17.0.0-rc.0)只声明了一个必填键 `field`,没有 `name`、没有 `fieldName`、没有 `accessorKey` —— 所以 `field` 不是「几种方言之一」,它是契约。\n\n## 归一:挂在已有的 chokepoint 上,不在消费端铺 `?? name`\n\n按 AGENTS.md #0.1,修法不是在读点再加一个 `?? name`。遗留接纳收进**已经在折叠这个视图词汇表的那一处**:`normalizeListViewSchema`(`@object-ui/core`,ListView 组件边界的唯一 fold,#2890 建立)。它现在多折一层列身份,且**排在 `fields` → `columns` 改名之后** —— 一个两轴都遗留的视图(遗留列表键 + 遗留条目键)一趟修完。\n\n新增 `@object-ui/core` 的 `utils/column-identity.ts`:\n\n| 导出 | 作用 |\n|---|---|\n| `columnIdentity(entry)` | **唯一读者**。`field` → `name` → `fieldName`,canonical-first,所以与 `buildExpandFields` 一致而不是和它赛跑;兼容裸字符串列 |\n| `normalizeColumnIdentity(-ies)()` | 归一器 |\n| `hasConflictingColumnIdentity(entry)` | 列的多个键互相矛盾时为 true(留给 PR3 的响亮化) |\n| `CANONICAL_COLUMN_IDENTITY_KEY` / `LEGACY_COLUMN_IDENTITY_KEYS` / `TABLE_ADAPTER_COLUMN_KEY` | 词汇表本身 |\n\n**stamp 策略 = 镜像,不删除**(与 `normalizeListViewSchema` 里其它 fold 相反,这是刻意的):\n\n- `field` 写入解析出的身份 → 请求路径永远找得到。\n- **已经存在**的遗留键被覆盖成同一个身份 → 尚未收敛的 name-first 读点解析出的,正是请求所要的那个字段。\n- **不存在**的遗留键**绝不凭空创造** —— 干净的 `{ field: 'stage' }` 原样按引用返回。归一器不去制造它正要退役的词汇。\n\n删除在仓内是可行的(每个 name-first 读法都会 fall through 到 `field`),但 `columns` 条目会越过包边界进入宿主渲染器,把 `name` 从它们脚下抽掉是一个**我们没有清单的破坏性变更**。删除留给 PR3,等仓内消费者都改读 `columnIdentity()` 之后。\n\n**`accessorKey` 刻意不碰**:它是 TanStack Table 自己的列键(`TableColumn.accessorKey`,`types/src/data-display.ts`),命名的是表格**库**列模型里的槽位,不是 ObjectStack 元数据身份。跨这条边界做归一只会把这次合并固化下来 —— 正是本战役要拆的东西。\n\n**行为**:任何只带一个身份键的列,每个读点解析出的字符串与改动前完全相同。解析结果发生变化的,恰好是那些两个读点本来就不一致的条目 —— 那是缺陷,不是回归。\n\n## 盘点(ratchet)\n\n`column-identity.ratchet.test.ts` 扫描 `packages/*/src`,把 **34 个点位**连同**每处的优先序和判定**冻结入库。新增双读、或已列文件里多出一处 → 红;**变少也红**(要求在移除读点的同一个 commit 里把数字降下来,树里的实况和台账不会漂移)。\n\n| 判定 | 数量 | 说明 |\n|---|---|---|\n| `column-identity` | **24** | 本战役的目标,PR2 收敛 |\n| `two-layer` | 6 | **两层概念,不是两种拼写** |\n| `form-cluster` | 2 | #3090 已按相反方向定案 |\n| `unrelated` | 2 | 扫描器噪音,记录在案以免藏住真的 |\n\n`column-identity` 24 处:`ListView.tsx` ×9(name-first)、`RelatedList.tsx` ×8(adapter-first)、`ObjectGrid.tsx` / `ObjectTree.tsx` ×1(name-first)、`expand-fields.ts` / `record-details.tsx` / `record-related-list.tsx` / `ViewPreview.tsx` / `SchemaForm.tsx` ×1(field-first)。\n\n### 对 issue 盘点的两处更正\n\nissue 把 `dashboard-filters.ts:146` 和 `resolveActionParams.ts` 列为优先序对立的证据。读完声明后,这两处**不是同一身份的双读**:\n\n- **`resolveActionParams.ts`(3 处)** —— 同一文件里两种优先序**都对**。`field ?? name` 选的是**从 row 上读哪个键**(行数据按对象字段做键);`name ?? field` 命名的是**动作负载里的 param**,缺省用它绑定的字段名。两个概念。\n- **`core/utils/dashboard-filters.ts`(1 处)** —— `DashboardFilterDef` 把两个键都显式声明了:`name` 是过滤器变量的句柄,`field` 是它指向的对象字段。`f.name || f.field` 是「没起名的过滤器,句柄缺省取所绑字段」,是一个**派生**,不是双读。\n\n也就是说「两种优先序对半分 ⇒ 污染已经发生」这个推论,有一部分其实是**两层概念**(正是 #3090 的判别法)。真正的污染在别处,而且更糟:ListView 和 ObjectGrid 各自和自己不一致。\n\n## 未知项(issue 要求查清)\n\n- **`fieldName` 第三键的写入方与存量** —— **全仓没有写入方**。`grep 'fieldName:'` 的每一处命中都是**函数形参**或无关的接口成员(`AIFieldSuggestion.fieldName`),没有任何代码往列对象上写 `fieldName`。它只活在**读者**里(防御性写法)。归一器仍然接纳它(宿主存量元数据可能带),ratchet 也计它,但结论是:这个键没有生产者。\n- **`accessorKey`** —— TanStack Table 的适配键,见上,不属于本战役。\n\n## 闸门 mutation-test(逐个删机制,证明会红)\n\n| 变异 | 闸门 | 结果 |\n|---|---|---|\n| M1 摘掉 `normalizeListViewSchema` 里的列身份 fold | 复现测试 + core 单测 | 🔴 5 failed(含 `expected [] to include 'account'`) |\n| M2 在未列入的文件里新写一处 `c.name ?? c.field` | ratchet | 🔴 `sort-values.ts:149` 被点名 |\n| M3 把 `expand-fields.ts` 的双读收敛成单键 | ratchet | 🔴 `0 dual reads, inventory says 1 — good news; lower the count` |\n\n## 复现测试怎么观测「一列两个身份」\n\n`ListView.columnIdentity.test.tsx` 走**真实的 ListView**,`checkField` 是最利落的观测点:**两条路径都会调它**(渲染侧来自 `effectiveFields`,请求侧来自 `selectFields`),所以两个键不一致的列会让同一列检查两个不同的字段名。断言是「恰好一个身份」,外加 `$select` / `$expand` 的正向断言。\n\n复现测试**落地即绿**(不是红着合进 main):缺陷由 M1 变异证明 —— 摘掉 fold 立刻红。\n\n## 验证\n\n```\nvitest  packages/core                                  →  60 files / 1295 tests 绿\nvitest  packages/plugin-list plugin-grid plugin-view   →  70 files /  743 tests 绿\nvitest  packages/types plugin-detail plugin-tree       →  57 files /  610 tests 绿\nvitest  packages/app-shell                             → 250 files / 2089 tests 绿\nturbo   type-check --filter=core --filter=plugin-list  →  绿\neslint  改动文件 --quiet                                →  0 error\n```\n\n（首轮 `type-check` 的 `Cannot find module '@object-ui/permissions'` 是 `packages/permissions/dist` 未构建导致的既有构建顺序问题,与本 PR 无关;构建该包后即绿。）\n\n## 破坏面\n\n`@object-ui/core` minor(按 AGENTS.md §9,objectui 的破坏性变更也标 minor)。纯新增 API + 一处 ingestion fold。单键列零行为变化。\n\n## 后续\n\n- **PR2** 消费者收敛:24 处改读 `columnIdentity()`,ratchet 计数随之下降。\n- **PR3** 闸门 + 响亮化(`hasConflictingColumnIdentity` 已就位)、fold 从镜像改为删除、台账条目处置。\n\n关联:objectstack#4115(台账)、#3090(playbook 与判别法)、#2598(chokepoint 先例)、#3103(热身件,已合)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01C2pdPmf2yZSd4wFDs1NHY5)_"
+}

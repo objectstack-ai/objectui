@@ -1,0 +1,35 @@
+{
+  "number": 3257,
+  "kind": "issue",
+  "title": "console preview-samples 的 tool 样例仍带三个已退役的 ToolSchema 键(category / active / requiresConfirmation)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:59:31Z",
+  "updated_at": "2026-08-03T09:25:17Z",
+  "closed_at": "2026-08-03T09:24:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3257",
+  "body": "在做 objectui#3236(ToolPreview 删除已退役徽标)时,三仓扫描说\"本仓最后一处残留\"其实还漏了一处 —— 不在 `packages/app-shell`,而在 console 的预览样例里,因此不在 #3236 的 scope fence 内,单独记录。\n\n## 位置\n\n`apps/console/src/preview-samples.ts`(当前 main,`tool` 样例,约 :232-247):\n\n```ts\ntool: {\n  name: 'query_orders',\n  label: 'Query Orders',\n  category: 'data',                 // ← 已退役(objectstack#3896)\n  description: 'Run a parameterized ObjectQL query against sales orders.',\n  active: true,                     // ← 已退役(objectstack#3896)\n  objectName: 'sales_order',\n  requiresConfirmation: false,      // ← 已退役(objectstack#3715 / ADR-0033 §2)\n  parameters: { … },\n  outputSchema: { type: 'array' },\n},\n```\n\n## 为什么要清\n\n对着本仓依赖的 `@objectstack/spec@17.0.0-rc.1` 实测,这三个键(以及 `builtIn`、`permissions`)都已被 `.strict()` 的 `ToolSchema` **逐个具名拒收**:\n\n```\nrequiresConfirmation  => REJECTED: Unrecognized key(s) on the tool definition: `requiresConfirmation`. …\nactive                => REJECTED: Unrecognized key(s) on the tool definition: `active`. …\ncategory              => REJECTED: Unrecognized key(s) on the tool definition: `category`. …\nbuiltIn               => REJECTED: …\npermissions           => REJECTED: …\nobjectName + outputSchema => ACCEPTED\n```\n\n即:这份样例**本身已经不是合法的 tool 元数据** —— 谁把它喂给 `ToolSchema.parse()` 都会失败。它的危害不在运行时(预览样例不过 schema 校验),而在于它是 designer 预览画廊里给作者看的**范本**:一份公开的样例教人写三个 spec 会当场拒收的键,正是 AI 生成元数据最容易照抄放大的地方。#3236 之后 `ToolPreview` 也不再渲染它们,这三行成了纯噪音。\n\n## 建议\n\n删掉 `category` / `active` / `requiresConfirmation` 三行(纯删,样例其余部分 `name`/`label`/`description`/`objectName`/`parameters`/`outputSchema` 都仍是 spec 认的键)。顺手可以考虑给 `preview-samples.ts` 加一条\"样例必须能过对应 spec schema\"的断言,这样下一次 spec 退役某个键时,样例会红给你看,而不是继续当范本传播 —— 但那属于更大的一步,可另开。\n\n## 相关\n\n- objectui#3236(本仓 `ToolPreview` 的同型残留,已在 PR 中修掉;scope fence 限定 `packages/app-shell`,故本处单独记录)\n- objectstack#3715 / ADR-0033 §2(`requiresConfirmation` 退役与裁决)\n- objectstack#3896(`category` / `active` / `builtIn` / `permissions` 审计关闭)"
+}

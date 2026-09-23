@@ -1,0 +1,30 @@
+{
+  "number": 3114,
+  "kind": "issue",
+  "title": "[console] 新建/编辑弹窗无未保存内容保护:beforeunload 无人拦截,刷新即静默丢表单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:37:58Z",
+  "updated_at": "2026-07-31T10:08:44Z",
+  "closed_at": "2026-07-31T10:08:44Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3114",
+  "body": "## 现象\n\nconsole 新建/编辑弹窗没有任何未保存内容保护:表单填到一半刷新页面(F5)或导航离开,内容**静默丢失**——既不弹 `beforeunload` 确认,也没有草稿暂存/恢复。\n\n## 实测证据(17.0.0-rc.0,真机 UI)\n\n设备记录编辑弹窗填入备注后刷新:\n1. 派发可取消的 `beforeunload` 事件 → `defaultPrevented === false`(全链路无人拦截);\n2. 刷新全程零浏览器确认框;\n3. 刷新后弹窗被 URL 复原、但已填内容丢失。\n\n## 影响\n\n长表单(下游项目里 20~28 字段的表单不少)误刷新即全部白填。弹窗生命周期与卸载拦截都在渲染层,应用层元数据(view/formViews)无对应开关,自建插件也接不进表单卸载时机——应用层无对策。\n\n## 建议\n\n表单 dirty 时注册 `beforeunload` 守卫(React Router 场景加路由离开确认);进阶:localStorage 草稿暂存+恢复提示。\n\n下游登记:os-project-titanwind-ehr PLAT-DEF-012(项目 #633 W-2)。\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3101,
+  "kind": "issue",
+  "title": "`wait` 表单仍提供已退役的 `waitEventConfig.timeoutMs` / `.onTimeout` —— 下一次 spec rc 刷新会被对账测试点名",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T06:46:46Z",
+  "updated_at": "2026-08-02T07:48:41Z",
+  "closed_at": "2026-08-02T07:48:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3101",
+  "body": "#3099(framework#4278 的 objectui 半边)新增的跨仓对账测试\n`flow-node-config.spec-reconciliation.test.ts` 已经**实测**出这个待办,记在这里以免下次\n`@objectstack/spec` 升版时才被动发现。\n\n## 事实\n\nframework#4198 退役了 `waitEventConfig.timeoutMs` 与 `.onTimeout`\n(理由:`wait` 从来就没有超时——`timeoutMs` 的唯一读者把它当时长用,`onTimeout`\n零读者)。两个键在 `FlowNodeSchema` 里以 `retiredKey()` 墓碑形式保留,只为让写入时\n的报错自带升级处方;**它们不再是可授权契约的一部分**。\n\n本仓 `FLOW_NODE_CONFIG` 的 `wait` 组仍在提供这两个字段\n(`inspectors/flow-node-config.ts`),即作者在 Studio 里填进去的值,升到新 spec 之后会\n被加载器拒绝。\n\n## 退役发生在 17.0.0,不是 18(2026-07-31 更正)\n\n本条最初写作「spec 18 已退役」,并把处置挂在「升到 18 的那个 PR」上。那个版本号是错的,\n**当前的发布机器产不出 18**,照原计划等下去就会在下一次 rc 刷新时被动踩雷 —— 正是本条\n想避免的事:\n\n| 事实 | 值 |\n|:---|:---|\n| npm dist-tags | `latest` = **16.1.0**,`rc` = 17.0.0-rc.0 —— 17.0.0 从未发布 |\n| framework `.changeset/pre.json` | `mode: \"pre\"`, `tag: \"rc\"`,`@objectstack/spec` initialVersion = **16.1.0** |\n| #4198 的 changeset | `'@objectstack/spec': major` |\n| 算出来的下一版 | pre 模式从**上一个已发布**版本起算:16.1.0 + major = **17.0.0**(发成 `17.0.0-rc.1`) |\n| framework main | 两个墓碑已在树上(`ab1633122`,2026-07-31),同一棵树上 `PROTOCOL_VERSION = '17.0.0'`,且 `protocol-version.test.ts` 把它钉死在 package.json 的 major 上 |\n| ADR-0059 §4 | 删除 → \"bump to a new **major**\";相对已发布的 16.1.0,那个 new major 就是 **17** |\n\n\"18\" 是从**在研版本号** `17.0.0-rc.0` 往上数了一位来的,而 changesets 是从 16.1.0 往上\n算的。framework main 上 9 处墓碑文案写 18、32 处写 17;那 9 处的共同点只是「在 rc.0 切出\n之后才落地」,全都还在 17 这趟车上(objectstack#3909 \"the 17.0.0 train\" 仍开着)。已装的\nrc.0 里 `spec 18` 出现 0 次,`spec 17` 出现 200 次。\n\n**所以触发点是:本仓下一次把 `@objectstack/spec` 升到新的 17.0.0-rc(rc.1 或之后)的那个\nPR。** framework 侧那 10 处写错版本号的墓碑文案另行跟踪:objectstack-ai/objectstack#4350。\n\n## 已经就位的 ratchet\n\n对账测试把 `[REMOVED]` 描述前缀的墓碑排除在契约键集之外,所以它不会「假通过」。\n在 #3099 里已用 framework#4325 的 spec 构建覆盖验证过,报错精确到位:\n\n```\n'wait': the 'waitEventConfig' fields match the spec block exactly\nAssertionError: wait: edited by the designer form but not declared by the spec block:\n  expected [ 'onTimeout', 'timeoutMs' ] to deeply equal []\n```\n\n当前安装的是 `@objectstack/spec ^17.0.0-rc.0`,**rc.0 这一份 tarball 早于墓碑落地**\n(墓碑 2026-07-31 才进 framework main),两个键在它里面仍是活键,所以测试现在是绿的。\n\n## 该做什么\n\n在把 `@objectstack/spec` 升到下一个 17.0.0-rc 的那个 PR 里一并处理(**不要**单独先删):\n\n1. 从 `flow-node-config.ts` 的 `wait` 组删掉 `waitEventConfig.timeoutMs` 与\n   `waitEventConfig.onTimeout` 两个字段;\n2. 同步删掉 `i18n.ts` 里 `FLOW_FIELD_ZH.wait` 对应的两条 zh 覆盖;\n3. 存量元数据不需要迁移动作——framework 侧的 D2 转换负责,前端只是不再提供授权入口;\n4. 跑 `flow-node-config.spec-reconciliation.test.ts`,`wait` 面板应转绿,同时\n   `script`/`subflow`/`decision` 三个 feature-detect 的面板会在这次 bump 后自动激活\n   (它们现在是 skip)。\n\n「不要单独先删」的理由不是版本号,而是 sibling-block 断言是**双向**的\n(`flow-node-config.spec-reconciliation.test.ts` L192-199):已装的 rc.0 里\n`waitEventConfig` 仍把两个键声明为活键,现在删会在反方向红\n(`declared by the spec block but absent from the designer form`)。轴是\n**已装 rc.0 vs 下一次 rc**,不是 17 vs 18。\n\n## Related\n\n- objectstack-ai/objectui#3105 —— 更正对账测试 TSDoc 里同一处 \"spec 18\" 的 PR\n- objectstack-ai/objectstack#4350 —— framework 侧 10 处墓碑文案的版本号更正\n- objectstack-ai/objectui#3099 —— 引入对账测试的 PR\n- objectstack-ai/objectstack#4325 —— framework 半边(发布执行器派生契约)\n- objectstack-ai/objectstack#4278 —— 原始 issue:schemaless 节点的表单无人对账\n- objectstack-ai/objectstack#4198 —— 退役这两个键的 framework PR\n"
+}

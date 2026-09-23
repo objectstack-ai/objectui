@@ -1,0 +1,35 @@
+{
+  "number": 3184,
+  "kind": "pull_request",
+  "title": "fix(deps): 模态表单里 lookup 搜索框聚焦即被夺回——补丁修复 focus-scope 栈驱逐竞态 (#3183)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T06:48:12Z",
+  "updated_at": "2026-08-02T12:39:28Z",
+  "closed_at": "2026-08-02T12:39:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3184",
+  "body": "## 问题\n\n产线构建的 console(如 `@objectstack/console@17.0.0-rc.1`)中,新建/编辑记录的模态表单里 lookup 字段无法搜索:\n\n- 快捷下拉的搜索框**拿不到焦点**——点击/聚焦瞬间被同步拽回「选择...」触发按钮,列表永不过滤;\n- 「浏览全部」弹出的 Record Picker 表格弹窗同样无法搜索。\n\n**仅产线 bundle 复现,`vite dev`(HMR)正常**,因此现有测试与日常开发均未暴露。Closes #3183。\n\n## 根因\n\n`@radix-ui/react-focus-scope@1.1.16`(上游最新 rc 同样存在)的栈驱逐竞态:\n\n- 焦点栈管理 effect 的 cleanup 用 `setTimeout(0)` 延迟执行 `focusScopesStack.remove(scope)`;\n- 当该 effect 因 container ref 抖动在组件**未卸载**时重跑,顺序变成「重跑先 `add` → 旧 cleanup 的延时 `remove` 后执行」,刚加回去的 scope 被永久踢出栈;\n- 此后 Dialog 的焦点陷阱监听器仍然活着,但没有任何弹层能 `pause` 它 → 弹层内输入框的焦点永远被同步夺回。\n\n排查过程(服务端排除、浏览器插桩、fiber 状态挖掘)详见 #3183。\n\n## 修复\n\n`pnpm patch`(`patches/@radix-ui__react-focus-scope.patch`):\n\n- effect 重跑(scope 仍存活)时,`clearTimeout` 取消上一次 cleanup 挂起的延时驱逐;\n- 真实卸载路径不变(autofocus-on-unmount 派发 + 栈移除照旧)。\n\n## 验证\n\n- 回归测试 `packages/components/src/__tests__/dialog-popover-focus-scope.test.tsx`:用「asChild 子元素换 key → container ref 重挂 → effect 必然重跑」确定性复现竞态,**未打补丁必红、打补丁转绿**(已双向验证);另附 Dialog+Popover 集成用例与陷阱恢复用例。\n- 真机:os-tianshun-ehr rc.1 后端 + 修复后产线 console,下拉搜索 `zzz`→「未找到选项」、`Dev`→正确过滤;Record Picker 弹窗搜索恢复;showcase 后端 + 修复版产线构建同样验证通过。\n\n## 备注\n\n- pnpm patch 只作用于**本仓构建产物**(console bundle,即产品发货路径);直接从 npm 消费 `@object-ui/components` 的第三方需等上游修复。\n- 上游 radix-ui/primitives 最新版本仍未修复该竞态,补丁需保留至上游修复;升级 radix 时须确认并迁移补丁。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

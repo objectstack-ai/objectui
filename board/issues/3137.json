@@ -1,0 +1,35 @@
+{
+  "number": 3137,
+  "kind": "pull_request",
+  "title": "fix(form): `required` is presence, not truthiness — `false` and `0` are values",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T04:46:21Z",
+  "updated_at": "2026-08-01T04:50:02Z",
+  "closed_at": "2026-08-01T04:46:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T04:46:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3137",
+  "body": "Closes the **renderer half** of objectstack-ai/cloud#972 (authoring half:\nobjectstack-ai/cloud#977, merged).\n\n## The bug\n\nAn AI-built task tracker's 任务 object has a required `是否完成` boolean. On the\ncreate form the switch showed **OFF**, submitting answered 「是否完成不能为空」 +\ntoast 「请检查表单中标记的字段:是否完成」, and turning the switch **ON** saved the\nsame form instantly. The app could only ever create ALREADY-DONE tasks — the one\nstate the control shows by default was the one value it refused to save.\n\nTwo defects stacked; either one alone breaks it.\n\n### 1. The `required` verdict read truthiness, not presence\n\n`@objectstack/spec` `FieldSchema.required` (ADR-0113) is *\"an insert must provide\na **non-null** value\"*, and objectql's record validator implements exactly that\n(`isMissing` = `undefined | null | blank string`). react-hook-form's built-in\nrule instead fails whenever `isBoolean(value) && !value` — its accept-the-terms\ncheckbox heritage — silently redefining **every** required boolean as \"must be\nTRUE\". That also catches a required `select` whose chosen option value is\n`false` (option values round-trip typed since #3090). And it disagreed in the\nother direction, letting a whitespace-only string through for the server to\nreject with a 400.\n\nThe renderer no longer hands RHF its own `required`. The check is now a\n`validate` entry keyed `required` — RHF reports an object-form validate failure\nunder its key, so the error still surfaces as `type: 'required'`, which the\nconditional-required cleanup keys on — backed by a new shared\n`isMissingForRequired` in `@object-ui/core`, a deliberate mirror of the server's\npredicate. `delete rules.required` also stops a `required` that rode in on\n`validation` from `buildValidationRules` from outliving a `requiredWhen` that\nresolved to FALSE.\n\n### 2. A boolean field held `undefined` while displaying \"off\"\n\nA two-state control has no third state, but a field with no entry in\n`defaultValues` rendered an OFF switch backed by nothing — so the form displayed\n\"false\" and submitted \"nothing\": the create payload omitted the column (it lands\nnull, which reads as unchecked but isn't) and the presence check above would\nstill refuse it. A blueprint field cannot carry a `defaultValue`, so every\nAI-authored boolean was in this state.\n\n`false` is now folded into `defaultValues` for each boolean-widget field the\ncaller left unset — in `defaultValues` itself, not per-Controller, because that\nobject is *also* the dirty-check baseline and what the defaults-reset window\nreplays; a value that only lived on the field is wiped by the first\n`form.reset`. Doing it in the shared renderer covers every surface, including\nthe modal/drawer create dialogs that start from a bare `{}` and derive no schema\ndefaults at all. An authored default (or a loaded record, `null` included)\nstill wins.\n\n## Also in scope — the same falsy-as-empty class\n\n- `WizardForm`'s cross-step gate carried its own copy of the empty-value\n  predicate (correct on `false`/`0`, but it did not trim). It now imports the\n  shared one, so the wizard and the per-field verdict cannot drift.\n- The field-demo renderer read `schema.defaultValue || schema.value`, throwing\n  away an authored default of `false` / `0` / `''` — now `??`.\n- Swept the other required-checks: `ObjectValidationEngine` already agreed;\n  `ImportWizard`'s `!raw` only ever sees CSV strings, so `\"0\"` was never at\n  risk.\n\n## Tests\n\nFull suite green (792 files / 9239 tests). New coverage in\n`form-required-falsy-values.test.tsx` and `ObjectForm.requiredBoolean.test.tsx`:\nunchecked required switch / checkbox / `false`-valued select and a required\nnumber at `0` all submit; `null`, `undefined`, `''`, whitespace-only and `[]`\nare still refused; a field-authored required message and a field-authored\n`validate` both still work. Mutation-checked — reverting either half turns the\nguards red.\n\n## Verified live\n\nLocal stack against the exact metadata `apply_blueprint` used to materialize\n(`{ type: 'boolean', required: true }`, no default). Before: the report\nreproduced verbatim. After: a 是否完成 = 否 task with 工时 = 0 creates and\npersists as `{ hours: 0, is_done: false }`; the switch ON still stores `true`; a\nblank required text is still refused.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

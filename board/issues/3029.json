@@ -1,0 +1,33 @@
+{
+  "number": 3029,
+  "kind": "pull_request",
+  "title": "fix(components): resizable is a diverged file, not a synced one — stop the sync from breaking the build, and finish the v4 migration in it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:37:38Z",
+  "updated_at": "2026-07-30T11:43:33Z",
+  "closed_at": "2026-07-30T11:43:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:43:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3029",
+  "body": "Follow-up to #3025. The plan was to re-sync `ui/resizable.tsx` from upstream Shadcn and delete the compensation wrapper #3024 added. **That turned out to be impossible, and the sync script is actively dangerous today.** This PR fixes the danger and gets the same cleanup a different way.\n\n## Re-syncing would break the build\n\n#3024's note claimed upstream had been regenerated for v4. It has not. Both registry endpoints still serve the **v3** file:\n\n| endpoint | imports | dead `data-[panel-group-direction]` |\n|---|---|---|\n| `r/styles/default/resizable.json` | `ResizablePrimitive.PanelGroup` / `PanelResizeHandle` | 8 |\n| `r/styles/new-york/resizable.json` | `ResizablePrimitive.PanelGroup` / `PanelResizeHandle` | 8 |\n\nNeither name exists in `react-resizable-panels@4.12.2` — it exports only `Group`, `Panel`, `Separator`; `PanelGroup` and `PanelResizeHandle` appear **zero times** in its declarations. So `pnpm shadcn:update-all`, an advertised script, overwrites this file with code that cannot compile.\n\n**This has already happened once.** `ui/resizable.tsx` has been diverged since `00b61d6d8` — titled *\"fix: upgrade shadcn components and fix build issues\"* — which is the hand-fix converting `import * as ResizablePrimitive` → `import { Group, Panel, Separator }` after a bulk sync ran.\n\n## Defusing it\n\n`resizable` moves from `components` to `customComponents` in `shadcn-components.json` — the manifest's existing mechanism for exactly this. Verified against the script:\n\n- `--update-all` iterates `Object.keys(manifest.components)` (line 287), which no longer contains it\n- `--update resizable` now refuses: `Component \"resizable\" not found in Shadcn registry (might be custom)`\n\n## Finishing the migration in the file itself\n\nWith the file no longer synced, the fix belongs in it rather than in a wrapper built to avoid touching it. The 8 `aria-[orientation=horizontal]` classes #3024 put in `custom/resizable.tsx` move into `ui/resizable.tsx`, replacing the 8 dead `data-[panel-group-direction=vertical]` ones they were shadowing from one import away.\n\n`custom/resizable.tsx` becomes a plain re-export. It stays as the sole public export site — `src/index.ts` star-exports `./ui` and `./custom` side by side, so exporting `Resizable*` from both would collide (TS2308). `ResizableHandleProps` is preserved rather than dropped: it has no in-repo consumers, but it is public API via the package root.\n\nThe group's `data-[panel-group-direction=vertical]:flex-col` is dropped outright — v4 writes `flexDirection: c === \"horizontal\" ? \"row\" : \"column\"` as an inline style, which outranks any class.\n\n### On AGENTS.md #7\n\nThis edits a file under `packages/components/src/ui/`. The rule scopes itself to \"upstream 3rd-party files overwritten by sync scripts\" — after this PR the file is neither. Its new header says so, loudly, along with how to undo the whole arrangement if upstream ever regenerates for v4.\n\n## Behaviour is unchanged, provably\n\nDiffing the merged class string before vs. after: **exactly the 8 dead selectors removed, 0 added**, everything else byte-identical.\n\n```\n移除的类 (8):  data-[panel-group-direction=vertical]:h-px … [&[data-panel-group-direction=vertical]>div]:rotate-90\n新增的类 (0):  (无)\n```\n\nThe one real risk in merging base and variant classes into a single `cn()` was `tailwind-merge` eating a base utility. It does not — all 23 classes survive (variant-prefixed utilities don't conflict with bare ones).\n\n## Verification\n\n- `pnpm --filter @object-ui/components type-check` — clean\n- `pnpm --filter @object-ui/app-shell type-check` — clean\n- Full components suite — **53 files, 410 tests passed**\n- `resizable-orientation` (15 tests) green unmoved, including the *\"only keys on attributes the installed library actually emits\"* guard, which proves the 8 variants still match the real DOM from their new home\n- Public surface confirmed intact in `dist/custom/resizable.d.ts` (all 4 names)\n- No browser pass: the class-string diff above is a stronger proof of no-op than a screenshot\n\nNo changeset — internal cleanup, no public API change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

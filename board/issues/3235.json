@@ -1,0 +1,34 @@
+{
+  "number": 3235,
+  "kind": "issue",
+  "title": "spec v17 下一个 rc 将移除 `@objectstack/spec/ui` 的 `HttpMethod` 导出 —— `@object-ui/types` 需迁移(一行,零形状变化)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T23:46:41Z",
+  "updated_at": "2026-08-03T18:20:35Z",
+  "closed_at": "2026-08-03T18:20:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3235",
+  "body": "## 背景\n\nobjectstack 侧 spec 双源清账 C14(objectstack-ai/objectstack#4691,#4535 v17 账最后一条)将从 `@objectstack/spec/ui` 移除 `HttpMethod` 这个**类型导出**。原因:该名字在 spec 包内指向两个不同类型 —— `./shared` / `./api` 的 7 值枚举(含 `HEAD` / `OPTIONS`)与 `./ui` 的 5 值 UI 子集 —— 拿到哪个只取决于 import 路径(#4411 陷阱),且两侧连取值集合都不同,无法用 re-export 收敛(那会让 `./ui` 的类型对 5 值的 `HttpRequestSchema.method` 运行时说谎)。5 值类型继续以既有名字 `HttpMethodType` 从 `./ui` 与 `./shared` 导出,**形状零变化**;`HttpMethodSchema`(const)不受影响。\n\n## 对本仓的影响\n\n本仓依赖 `@objectstack/spec: ^17.0.0-rc.1`(区间覆盖后续 rc),spec 发布下一个含该变更的 v17 rc 后,`packages/types` typecheck 将以 TS2305 失败:\n\n- `packages/types/src/objectql.ts:35` — `export type { HttpMethod } from '@objectstack/spec/ui';`(唯一直接消费点,type-only)\n- 经 `packages/types/src/index.ts:329` 再导出为 `@object-ui/types` 公共表面\n- 仓内下游:`packages/core/src/adapters/ApiDataSource.ts:18`(从 `@object-ui/types` 导入,用作 `method?: HttpMethod`,语义就是 5 值)\n\n`export type * as UI from '@objectstack/spec/ui'`(`index.ts:932`)不受影响(仓内无 `UI.HttpMethod` 用法);`spec-subschema-parity.test.ts` 只比较 `HttpMethodSchema` const,不受影响。`apps/console` 的 `HttpMethod` 是本地声明,无关。\n\n## 迁移选项\n\n**A(推荐,解破且零下游影响):**\n\n```ts\n// packages/types/src/objectql.ts\nexport type { HttpMethodType as HttpMethod } from '@objectstack/spec/ui';\n```\n\n`@object-ui/types` 公共表面不变,下游(`ApiDataSource` 等)零改动,类型形状逐字相同。代价:本仓继续以 `HttpMethod` 命名 5 值类型,与 spec `./shared` 的 7 值 `HttpMethod` 名同型异 —— 即把 spec 刚清掉的命名分歧保留在本仓边界上(仓内无双源,但跨包读者仍需分辨)。\n\n**B(彻底,但破坏本仓公共表面):** 跟随 spec 命名,把 `@object-ui/types` 的导出改名为 `HttpMethodType`(或将来 spec 若按 objectstack#4691 尾注改成 `ViewHttpMethod`,一并跟随),同步改 `ApiDataSource.ts` 等仓内用法。需要按本仓版本策略走破坏性发布。\n\n维护者定夺;A 可先行止血,B 可等 spec 侧 5 值命名收敛(objectstack#4691 尾注,未立项)有结论后一次到位。\n\n## 参考\n\n- objectstack-ai/objectstack#4691(裁定与完整论证)\n- spec 变更的 changeset(major)内含同样的 FROM → TO 指引"
+}

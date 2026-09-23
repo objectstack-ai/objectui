@@ -1,0 +1,32 @@
+{
+  "number": 3136,
+  "kind": "issue",
+  "title": "Dashboard '0.0%' format: a ratio of exactly 1 renders as 1.0% instead of 100.0%",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T04:29:56Z",
+  "updated_at": "2026-08-01T12:32:29Z",
+  "closed_at": "2026-08-01T12:32:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3136",
+  "body": "## Summary\n\nA dataset measure declared with `format: '0.0%'` renders **correctly for every ratio below 1, but not for a ratio of exactly 1**. `1` (i.e. 100 %) is printed as `1.0%` instead of `100.0%`. Both the dashboard **metric card** and the dataset-bound **table widget** are affected.\n\nFor an SLA / pass-rate / completion-rate dashboard this is the single worst value to get wrong: \"everything met the SLA\" is shown to management as \"1 % met the SLA\".\n\n## Repro\n\nDataset (ObjectStack app metadata):\n\n```ts\nmeasures: [\n  { name: 'sla_base_count', label: 'SLA applicable', aggregate: 'count' },\n  { name: 'met_count',      label: 'SLA met',        aggregate: 'count', filter: { sla_met: true } },\n  { name: 'sla_rate',       label: 'SLA rate',\n    derived: { op: 'ratio', of: ['met_count', 'sla_base_count'] }, format: '0.0%' },\n]\n```\n\nDashboard widgets: one `type: 'metric'` bound to `sla_rate`, one `type: 'table'` with `dimensions: ['status']`, `values: ['total_count','sla_rate', …]`.\n\n| records in the base object | ratio value | metric card shows | table cell shows | expected |\n| --- | --- | --- | --- | --- |\n| 2 of 2 met | `1` | **`1.0%`** ❌ | **`1.0%`** ❌ | `100.0%` |\n| 2 of 3 met | `0.6667` | `66.7%` ✅ | `66.7%` ✅ | `66.7%` |\n| 1 of 3 escalated | `0.3333` | `33.3%` ✅ | — | `33.3%` |\n| 0 of 2 escalated | `0` | `0.0%` ✅ | `—` (blank, see note) | `0.0%` |\n\nSame dataset, same `format` string, same dashboard — only the value differs. Verified on a clean database, `@objectstack/*@17.0.0-rc.1`, Console dashboard, Chromium.\n\n## Cause\n\nThe percent path scales by 100 only when the value is **strictly** inside `(-1, 1)`, so a ratio of exactly `1` falls through unscaled and then gets a `%` appended. From the shipped console bundle (`assets/ui-components-*.js`):\n\n```js\no = a ? i : (i > -1 && i < 1 ? i * 100 : i)\n```\n\nand the sibling implementation in `assets/plugin-dashboard-*.js` carries the same \"already a percentage?\" heuristic:\n\n```js\nreturn o ? `${(e > 1 ? e : e * 100).toFixed(c)}%` : …\n```\n\nThe heuristic is trying to accept both scales (0–1 ratios and 0–100 percentage points) on one `format` string. That is inherently ambiguous exactly at `1`, which is both \"100 %\" and \"1 %\". Today the ambiguity is resolved in favour of the reading that is almost never intended — a ratio measure can legitimately reach 1 (full compliance), while a percentage-point measure of `1` (one percent) is rare, and `sla_rate` in the example above can *only* ever be in `[0, 1]`.\n\n## Suggestion\n\nMake the scale explicit rather than guessed — the declaration already carries enough information to know which one it is (`derived: { op: 'ratio' }` is by definition 0–1). Options, roughly in order of preference:\n\n1. Honour the ratio semantics: a `%` format always multiplies by 100 (numeral.js / Excel convention, which `'0.0%'` is borrowed from). Anything already in percentage points would then declare `'0.0'` + a literal `%` suffix, or a new explicit format.\n2. Keep the heuristic but let the author override it — e.g. `scale: 'ratio' | 'percent'` on the measure.\n3. At minimum, scale on `i <= 1` rather than `i < 1`, so full compliance renders as `100.0%`. (Narrow fix; still ambiguous for percentage-point data whose value is ≤ 1.)\n\n## Related, same widget family\n\nIn the dataset-bound **table** widget a `0` ratio renders as `—` (empty), while the metric card renders `0.0%`. A measured zero and \"no data\" are different facts; the table treating `0` as blank hides real information (e.g. \"0 % of this status met the SLA\").\n"
+}

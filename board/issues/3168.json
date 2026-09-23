@@ -1,0 +1,36 @@
+{
+  "number": 3168,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump postcss from 8.5.23 to 8.5.24",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T14:15:13Z",
+  "updated_at": "2026-08-01T14:19:08Z",
+  "closed_at": "2026-08-01T14:15:48Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-01T14:15:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3168",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.23 to 8.5.24.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.24</h2>\n<ul>\n<li>Preserve the BOM after the processing (by <a href=\"https://github.com/hdimer\"><code>@​hdimer</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.24</h2>\n<ul>\n<li>Preserve the BOM after the processing (by <a href=\"https://github.com/hdimer\"><code>@​hdimer</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/0ebe8ad591621ab4e48311da47a76974617571f9\"><code>0ebe8ad</code></a> Release 8.5.24 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/73218c64245be53e25d58150e0cc7e984f1d162d\"><code>73218c6</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/9a114f62b0deb37be859102f93b414b49385805a\"><code>9a114f6</code></a> Preserve the BOM when stringifying (<a href=\"https://redirect.github.com/postcss/postcss/issues/2119\">#2119</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/90692619125cb9424f5eafd8c64bc76b2da23db1\"><code>9069261</code></a> Fix types check</li>\n<li>See full diff in <a href=\"https://github.com/postcss/postcss/compare/8.5.23...8.5.24\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.23&new-version=8.5.24)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

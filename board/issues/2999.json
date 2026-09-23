@@ -1,0 +1,33 @@
+{
+  "number": 2999,
+  "kind": "pull_request",
+  "title": "fix(plugin-list,plugin-grid): drop undeliverable formats from the export menu",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:32:53Z",
+  "updated_at": "2026-07-30T08:39:56Z",
+  "closed_at": "2026-07-30T08:39:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:39:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2999",
+  "body": "## Problem\n\nThe export popover rendered whatever `exportOptions.formats` declared, but the runtime can only deliver a subset: the server stream (`dataSource.exportDownload`) handles csv/xlsx/json, the client fallback only csv/json. A declared `pdf` — implemented nowhere, and declined platform-side in objectstack-ai/objectstack#1301 (closed NOT_PLANNED) — rendered as a menu item whose click silently did nothing: no request, no file, the popover just closed. Same for `xlsx` whenever the server stream is unavailable (no `exportDownload`, inline `provider: 'value'` data, or `streaming: false`).\n\nThis is the export row of the #2942 dead-value audit (`ListView.tsx` / `ObjectGrid.tsx`).\n\n## Fix\n\nBoth `ListView` and `ObjectGrid` now filter the menu to formats the current data source can actually produce:\n\n- `pdf` never renders;\n- `xlsx` renders only when the server stream is available;\n- when nothing survives, the export button (and its toolbar separators) hides entirely;\n- dropped declarations emit a `console.warn` so app authors find out at dev time instead of via a dead button.\n\n## Tests\n\n5 new cases (3 in `ListView.test.tsx`, 2 in `exportGate.test.tsx`): pdf hidden while xlsx stays on a server-capable source; xlsx hidden on a client-only source while csv stays; button fully hidden when only pdf is declared.\n\n`pnpm vitest run packages/plugin-list packages/plugin-grid`: 535 passed. `type-check` on both packages: clean.\n\nCloses the export row of #2942 (other rows remain).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

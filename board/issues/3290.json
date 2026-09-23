@@ -1,0 +1,35 @@
+{
+  "number": 3290,
+  "kind": "issue",
+  "title": "`aria-required` 从未到达任何输入控件——必填状态只以「可访问名的一部分」存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T11:00:47Z",
+  "updated_at": "2026-08-03T13:19:08Z",
+  "closed_at": "2026-08-03T13:19:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3290",
+  "body": "在 objectui#3222(把校验槽位改名为 spec 的 `error` 并接上生产者)中,按裁定单独评估了 `required` 是否应下沉到 widget props。结论是**不下沉**(理由见 PR #3289),但评估过程里暴露了一个独立的、真实的可访问性缺口,单独立此单。\n\n## 事实\n\n表单渲染器算出的 `required`(静态 `required` + `requiredWhen` CEL,`form.tsx` 的 `ruleState.required`)只用于一处:画 `< FormLabel >` 里的红星。\n\n```tsx\n{required && (\n  < span className=\"text-destructive ml-1\" aria-label=\"required\" >*< /span >\n)}\n```\n\n它**没有**进入 `renderFieldComponent` 的 props,`< FormControl >`(Radix `Slot`,注入 `id` / `aria-describedby` / `aria-invalid`)也不注入 `aria-required`。全仓 grep `aria-required`:0 处。\n\n也就是说必填状态今天**只**通过一条路径到达屏幕阅读器:`< label for >` 关联把那个 `aria-label=\"required\"` 的 span 并进控件的**可访问名**,于是字段被读成「Title required」。\n\n## 为什么这不够好\n\n- 它把一个**状态**塞进了**名字**。AT 有专门的 required 状态通道(`aria-required` / 原生 `required`),会用一致的方式播报;混进名字里则依赖朗读顺序,且无法被「只列必填项」这类导航功能识别。\n- 字段**没有 label** 时(紧凑布局、grid 内联编辑、`label` 为空的表单)红星根本不渲染,必填信号**完全消失**。\n- `requiredWhen` 让必填是**动态**的,状态通道能表达变化,名字不能。\n\n## 修法(便宜得出乎意料,且**不需要**改 widget 契约)\n\n`FieldWidgetComponentProps` 已经 `& AriaAttributes`,`aria-required` 本来就是这份契约里**已声明、已类型化**的键;而每个 widget 都已经把剩余 props 转发到它渲染的控件上。内置分支同理(`stripRendererOnlyProps` 不剥 `aria-*`)。\n\n所以大概是表单渲染器里的一行:\n\n```diff\n   dependentValues: ruleRecord,\n   error: fieldState.error?.message,\n+  'aria-required': required || undefined,\n```\n\n—— 48 个 widget **一个都不用改**。这正是 #3222 里拒绝把 `required` 布尔下沉的理由:下沉会给必填标记第二个作者(下一个 AI 写的 widget 自己画星号 → 双份显示),而 `aria-required` 直达 DOM,既拿到 a11y 收益又不新增契约键。\n\n## 需要确认的点\n\n1. 红星的 `aria-label=\"required\"` 是否**同时**保留?保留会让 AT 播报两次(名字里一次、状态一次)。倾向:把 span 改成 `aria-hidden=\"true\"`(它是纯视觉冗余),让状态通道成为唯一来源。这是行为变更,需要拍板。\n2. 是否顺带给内置控件上原生 `required`?**不建议** —— 会触发浏览器原生校验气泡,和 react-hook-form 的校验双轨。`aria-required` 只报状态、不触发原生校验,是正确的那个。\n\n## 边界\n\n`packages/components/src/renderers/form/form.tsx` 一行 + 测试。不动 `packages/spec`,不动任何 widget。\n\n关联:objectui#3222、PR #3289。"
+}

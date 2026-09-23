@@ -1,0 +1,30 @@
+{
+  "number": 3125,
+  "kind": "issue",
+  "title": "[console] 新建记录弹窗内 lookup 的搜索框无法聚焦:焦点被触发按钮锁死、键盘输入被吞(下拉与「浏览全部记录」两条通道全灭)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T14:54:16Z",
+  "updated_at": "2026-07-31T15:20:46Z",
+  "closed_at": "2026-07-31T15:20:46Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3125",
+  "body": "## 版本\n@objectstack/*@17.0.0-rc.0(console 资产随包)\n\n## 现象\n对象**新建记录弹窗**(RecordForm dialog)里的 lookup 字段:\n1. 点开触发器(`data-testid=lookup-trigger-<field>`)出下拉,下拉顶部有「搜索...」输入框;\n2. **鼠标点击该搜索框后,焦点不落在输入框上**——`document.activeElement` 仍是触发按钮 `lookup-trigger-<field>`;\n3. 随后所有键盘输入(中文/ASCII 均试过)被持焦的按钮吞掉,搜索框 value 恒为空、候选列表不过滤——用户视角=「不支持搜索」;\n4. 连 **programmatic `input.focus()` 都会被立刻抢回**触发按钮(疑似 Dialog 焦点陷阱/FocusScope 与嵌套 Popover 的焦点管理互搏);\n5. 点字段旁「田字格」(`data-testid=browse-all-records`)打开的「浏览全部记录」记录选择器弹窗,**其顶部搜索框同样收不到焦点与输入**(activeElement 恒为 browse-all-records 按钮)——弹窗内两条搜索通道全灭。\n\n## 关键对照(证明搜索链路本身完好,病灶仅在焦点)\n用 JS 直接把值写进搜索框并派发 input 事件:\n```js\nconst box = [...document.querySelectorAll('input')].find(i=>i.placeholder.includes('搜索'));\nObject.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(box,'卷板');\nbox.dispatchEvent(new Event('input',{bubbles:true}));\n```\n→ 候选**立即正确过滤**(3 条 → 1 条),并发出服务端搜索请求(还正确携带了字段的 lookupFilters):\n```\nGET /api/v1/data/<object>?top=50&search=%E5%8D%B7%E6%9D%BF&filter={\"status\":\"draft\"}   → 200\n```\n\n## 复现步骤\n1. 任一含 lookup 字段的对象,列表页点「新建」打开新建弹窗;\n2. 点 lookup 触发器展开下拉 → 点「搜索...」输入框 → 键盘输入任意字符;\n3. 观察:输入框 value 恒空、候选不过滤;`document.activeElement` 恒为 `lookup-trigger-*`;\n4. 点「田字格」打开浏览全部记录弹窗 → 点顶部搜索框 → 输入 → 同样无效。\n\n真实鼠标/键盘(CDP + Playwright 双复现,3/3)。\n\n## 对照组\n- 详情页**动作参数弹窗**里的 lookup 选择器搜索是好的(#3094 修复语境中实测过搜索过滤可用)——差异点疑在「新建/编辑记录弹窗」这层 Dialog 的焦点陷阱;\n- 相邻普通 input(名称等文本字段)聚焦正常,仅嵌套弹层内的搜索框中招。\n\n## 影响\n业务用户在新建/编辑表单里选引用记录时,候选一多(仅展示前 N 条)就只能肉眼翻找,lookup 搜索功能事实不可用。项目侧(os-project-titanwind-ehr#610)已登记 PLAT-DEF-032 挂起等修复,不做应用层绕行。"
+}

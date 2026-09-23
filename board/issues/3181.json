@@ -1,0 +1,35 @@
+{
+  "number": 3181,
+  "kind": "issue",
+  "title": "`spec-symbol-parity.test.ts` 的「编译期」断言从未被编译 —— 整个 tripwire 是哑的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T03:43:55Z",
+  "updated_at": "2026-08-02T08:46:40Z",
+  "closed_at": "2026-08-02T08:46:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3181",
+  "body": "> 注:本 issue 正文里的泛型都写成 `Assert< Equal< … > >`(尖括号后带空格)。这是因为 GitHub 会把 `<Equal` 这类序列当成 HTML 标签吞掉;加空格后仍是**合法 TypeScript**,可直接复制使用。\n\n## 结论\n\n`packages/app-shell/src/__tests__/spec-symbol-parity.test.ts` 里所有 `Assert< Equal< … > >` 形式的断言**没有任何 gate 会编译它们**。它们既不会在 `tsc` 里报错,也不会在 vitest 里失败(类型在运行时被擦除)。这个文件的类型部分目前**等价于注释**。\n\n## 根因\n\n`packages/app-shell/tsconfig.json`:\n\n```json\n\"include\": [\"src\"],\n\"exclude\": [\"node_modules\", \"dist\", \"**/*.test.ts\", \"**/*.test.tsx\"]\n```\n\n测试文件被 `exclude` 掉了,而 CI 的类型 gate(`.github/workflows/ci.yml` → `pnpm type-check` → turbo → 每包 `tsc --noEmit`)只跑包级 tsconfig。仓库里**绝大多数包**的 tsconfig 都有同样的 `exclude`,所以这不是 app-shell 独有。\n\n## 复现(已实测)\n\n在 `spec-symbol-parity.test.ts` 末尾追加一个必然为假的断言:\n\n```ts\ntype _ProbeShouldFail = Assert< Equal< 1, 2 > >;\n```\n\n然后:\n\n```\n$ cd packages/app-shell && pnpm type-check\n> tsc --noEmit\n$ echo $?\n0\n```\n\n**退出码 0**。连 `Assert< Equal< 1, 2 > >` 都不报错,说明文件根本没进编译单元。\n\n反过来,用一个把测试文件包含进来的临时 tsconfig(`include: [\"src\"]`,去掉 test 的 `exclude`)编译,断言确实会生效并报 `TS2344`。也就是说断言本身写得没错,只是没人跑。\n\n## 为什么这条值得单独修\n\n这个文件的**自己的文件头**就写着这一类失败:\n\n> …objectui#3009 —— where a guard file's own header falsely claimed its checks were \"the real enforcement\" for the entire interval during which nothing compiled them.\n\n以及 `scripts/check-spec-symbol-derivation.mjs` 头部的:\n\n> This guard lands the rule AS THE CHECK, not as an AGENTS.md paragraph. A prose-only rule is precisely the \"declared ≠ enforced\" landmine…\n\n所以这是同一个 landmine 又踩了一次:一份声称是编译期 tripwire 的文件,实际处于「declared ≠ enforced」状态。对 AI 主导的开发尤其贵 —— 下一个 agent 读到这些断言会当成已被强制的地面真值,并在其上继续构建。\n\n具体已经发生的后果见 objectstack-ai/objectstack#4562:该 issue 的前提是「parity 断言会在 spec 采纳 `required` 那天失败」,而实际上它永远不会失败,因为它不被编译。\n\n## 已知的修复代价(不是一行改动)\n\n直接把 `**/*.test.ts` 从 `exclude` 拿掉会立刻暴露**大量既有错误**。实测在 app-shell 上用包含测试的 tsconfig 编译:\n\n```\n189 个 error TS\n```\n\n例如:\n\n```\nsrc/console/ai/__tests__/AiChatPage.hydration.test.ts(25,16): error TS2339: Property 'toolInvocations' does not exist on type 'ChatMessage'.\nsrc/console/ai/__tests__/deriveBoundPackageId.test.ts(20,33): error TS2345: Argument of type 'ChatMessage[]' is not assignable to parameter of type 'readonly PackageBearingMessage[]'.\nsrc/context/__tests__/FavoritesProvider.test.tsx(165,7): error TS2578: Unused '@ts-expect-error' directive.\nsrc/hooks/__tests__/useConsoleActionRuntime.test.tsx(464,25): error TS2339: Property 'onModal' does not exist on type '{ … }'.\nsrc/utils/decisionOutputParams.test.ts(130,55): error TS2322: Type 'string' is not assignable to type '\"user\" | \"text\" | \"position\" | \"team\" | \"department\" | undefined'.\n```\n\n(注:`spec-symbol-parity.test.ts` 本身是**干净的** —— 0 error。)\n\n## 可选方案\n\n1. **最小、够用**:给「以类型断言为唯一价值」的文件单独建一个 `tsconfig.typetests.json`(只 include 这几个 parity/tripwire 文件),在 CI 里加一步 `tsc --noEmit -p`。代价小,立刻把 tripwire 变成真 gate。\n2. **彻底**:全仓测试文件纳入 type-check,按包分批消化那 189 个错误。收益更大但是一个独立的大工程,建议按包拆子 issue,并配一个类似 `check-type-check-coverage.mjs` 的 shrink-only DEBT 台账,避免边修边漏。\n3. 顺带考虑:让 `check-type-check-coverage.mjs` 也校验「测试文件是否被某个 tsconfig 覆盖」,否则方案 1 建的那个配置将来同样会悄悄失效。\n\n倾向方案 1 先落地(把 tripwire 救活),方案 2 作为后续。\n\n---\n\n发现于 objectstack-ai/objectstack#4562 的实施过程中,属于该 issue 范围外,故单独记录,未指派。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

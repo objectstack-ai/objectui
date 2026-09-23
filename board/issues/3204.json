@@ -1,0 +1,34 @@
+{
+  "number": 3204,
+  "kind": "pull_request",
+  "title": "feat(plugin-detail): `record:activity` 接上取数路径,11 个声明的输入不再是空 feed 上的摆设 (#3165)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T14:03:08Z",
+  "updated_at": "2026-08-02T14:29:17Z",
+  "closed_at": "2026-08-02T14:29:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T14:29:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3204",
+  "body": "Fixes #3165\n\n## 问题\n\n`record:activity` 注册时声明了 11 个输入(`types` / `filterMode` / `showFilterToggle` / `limit` / `showCompleted` / `unifiedTimeline` / `showCommentInput` / `enableMentions` / `enableReactions` / `enableThreading` / `showSubscriptionToggle`),全部是同一个 feed 上的过滤器和开关——而那个 feed 在任何路径上都恒为空:`RecordActivityRenderer` 调了 `useRecordContext()` 却丢掉结果,渲染时把 `RecordActivityTimeline` 的 `items` 写死成空数组;底层组件的 `items` 是 prop,自己从不取数;也没有宿主在喂它(`buildDefaultPageSchema` 发出的节点不带任何 props)。声明了、发布进 `sdui.manifest.json`、运行时什么都没有——objectstack#4413 的形状。\n\n## 修法\n\n### 读路径:三个来源,按优先级\n\n1. **节点上的 `items`** —— 宿主已经拥有 feed 时直接传进来(与 `record:history` 的 `entries` 同一约定);\n2. **已挂载的 `DiscussionContext`** —— app-shell `RecordDetailView` 在这里放了合并好的 `sys_comment` + `sys_activity` feed **以及**写路径 handler。有它就呈现宿主的 feed,不再自己去取一份更差的副本;\n3. **自取数** —— 否则从 `sys_activity` 按当前记录取(`{ object_name, record_id }`,`timestamp desc`,每页 `limit` 行,\"Load more\" 重新取更宽的窗口)。这条正是让 block 可以随处放置(手写 `page:tabs` 里、没有宿主喂)的那条,镜像 `record:history` 已有的路径。\n\n行到 `FeedItem` 的映射与 `RecordDetailView` 完全一致(`created`/`updated`/`deleted`/`assigned`/`shared` → `field_change`,`completed` → `task`,`system` → `system`;`commented`/`mentioned` 跳过,内容在 `sys_comment`;`login`/`logout` 不是记录活动),两个界面对\"一行是什么\"不会出现两种读法。\n\n### 读侧输入真正参与过滤\n\n过滤规则集中在新的纯模块 `recordActivityFeed.ts`,不带 DOM 也能断言——因为这个 issue 的缺陷正是\"声明了没人读\",而\"面板渲染出了东西\"恰恰是那段时间里一直绿着的证据。\n\n- `types`:feed item 类型白名单。无法识别的条目忽略;整份都是错拼时按\"没配\"处理,而不是把 feed 清空。\n- `limit`:每页条数,同时限制 `sys_activity` 的取数窗口。\n- `showCompleted`:spec 默认 `false`,即默认隐藏已完成活动。\n- `unifiedTimeline`:`false` 时把字段变更从评论流里拆出去(spec 对默认值的原话是 \"Mix field changes and comments in one timeline\",取反即为不混),面板变成纯讨论流,字段历史留在 `record:history`。\n- `filterMode`:决定下拉框初始停在哪一档,用户仍可切换;无法识别的值回落到 `all`,而不是留一个匹配不到任何项的 Select(与 #3151 的处置一致)。\n- `showFilterToggle`:显隐该下拉框。\n\n### 写侧开关接到宿主的 handler\n\n`showCommentInput` / `enableThreading` / `enableReactions` / `enableMentions` 从 `DiscussionContext` 读 `onAddComment` / `onAddReply` / `onToggleReaction` / `mentionSuggestions`——与 `record:discussion` 同样的站位。**没有宿主时 feed 保持只读、不渲染输入框**,而不是给一个打了字就被丢掉的编辑器。(本包拿不到当前用户,无法自行写 `sys_comment`,所以写路径只能走宿主。)\n\n### `showSubscriptionToggle`:明确记为已知空档\n\n铃铛需要一个 `RecordSubscription` 值和落库的地方,而平台根本没有记录订阅的后端对象可读可写。因此:\n\n- 输入声明的 description 改成 `NOT IMPLEMENTED — no record-subscription backend exists yet…`,**这段文字会进 `sdui.manifest.json`**,AI 作者在写这个 prop 之前就会读到;\n- 文档同样写明;\n- 一条测试把它钉成\"渲染不出任何东西\",等哪天订阅后端落地,这条测试会红,注册处那句 NOT IMPLEMENTED 必须跟着删。\n\n不留成\"看起来能配\"——那正是本 issue 的成因。\n\n### 台账销账\n\n`apps/console/src/__tests__/record-block-record-reach.test.tsx` 的 `NO_RECORD_REACH` 条目已删除。台账是双向断言的,现在探针把 `record:activity` 报成 \"responds to the bound record\"。\n\n## 验证\n\n```\n$ pnpm exec vitest run packages/plugin-detail --maxWorkers=2\n Test Files  36 passed (36)\n      Tests  345 passed (345)\n\n$ pnpm exec vitest run packages/plugin-detail/src/renderers/__tests__/record-activity.test.tsx \\\n    packages/plugin-detail/src/renderers/__tests__/recordActivityFeed.test.ts\n Test Files  2 passed (2)\n      Tests  38 passed (38)          # 新增:21 渲染器 + 17 纯规则\n\n$ pnpm exec vitest run apps/console/src/__tests__/record-block-record-reach.test.tsx --reporter=verbose\n ✓ record:* blocks — the bound record reaches the output (objectui#3149) > record:activity responds to the bound record 1640ms\n ✓ record:* blocks — the bound record reaches the output (objectui#3149) > record:discussion is unmoved by the bound record (ledgered) 1595ms\n Test Files  1 passed (1)\n      Tests  13 passed (13)\n\n$ pnpm exec vitest run apps/console/src/__tests__/public-contract.test.ts \\\n    apps/console/src/__tests__/public-block-binding-reach.test.tsx \\\n    packages/core/src/registry packages/types/src/__tests__/p1-spec-alignment.test.ts\n Test Files  7 passed (7)\n      Tests  156 passed (156)\n\n$ cd packages/plugin-detail && npx tsc --noEmit\nTYPECHECK_OK\n```\n\n> 注:`turbo run type-check --filter=@object-ui/plugin-detail` 会报 `Cannot find module '@object-ui/permissions'` —— 这是既有的依赖图缺口(该包在 `peerDependencies` 里但不在 `devDependencies`,`^build` 因此不构建它),与本次改动无关;先构建 `@object-ui/permissions` 后 `tsc --noEmit` 干净通过。\n\n## 变更文件\n\n- `packages/plugin-detail/src/renderers/record-activity.tsx` —— 取数 + 优先级 + 开关接线\n- `packages/plugin-detail/src/renderers/recordActivityFeed.ts`(新)—— 行映射与过滤管线(纯函数)\n- `packages/plugin-detail/src/index.tsx` —— 输入声明:补默认值、`filterMode` 收成 enum、每条 description 说清依赖什么,`showSubscriptionToggle` 标 NOT IMPLEMENTED\n- `apps/console/src/__tests__/record-block-record-reach.test.tsx` —— 销台账\n- `content/docs/plugins/plugin-detail.mdx` —— 新增 `record:activity` block 一节\n- `.changeset/record-activity-feed-has-a-source.md`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA"
+}

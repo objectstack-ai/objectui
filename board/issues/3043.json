@@ -1,0 +1,35 @@
+{
+  "number": 3043,
+  "kind": "pull_request",
+  "title": "refactor: hand-copied checklists become derivations or gated inventories (#3017)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:23:58Z",
+  "updated_at": "2026-07-30T13:30:59Z",
+  "closed_at": "2026-07-30T13:30:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:30:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3043",
+  "body": "Closes #3017. 承 framework#3786 / objectstack#4120 的修法模板:**能派生就从唯一来源派生;确实无法派生的,加集合覆盖/不相交断言当闸门;闸门必须变异测试证明会红。**\n\nIssue 六处中 #1/#2 已由 #3019 落地;本 PR 处理其余四处,并在加闸门过程中捞到**三处同种残留**(issue 表格之外)。\n\n## 逐处修法\n\n| # | 位置 | 修法 |\n|:--|:---|:---|\n| 3 | `object-fields-bridge.ts` `DESIGNER_TYPES` | `DesignerFieldType` 联合改为从新的运行时数组 `DESIGNER_FIELD_TYPES`(`@object-ui/types`)派生;bridge 直接 `new Set(DESIGNER_FIELD_TYPES)`。`FieldDesigner` 的 `FIELD_TYPE_META` 本就是 `Record<DesignerFieldType,…>`,词汇增删自动变编译错误;顺手删掉死代码 `ALL_FIELD_TYPES` |\n| 4 | `RecordMetaFooter` `AUDIT_FIELDS` ↔ `RecordDetailView` `AUDIT_FIELD_NAMES` | 单一来源 `AUDIT_FIELD_BY_ROLE` / `AUDIT_FIELD_NAMES` 落在 `@object-ui/types`(两包公共底座;app-shell 不依赖 plugin-detail,反向也不行)。`RecordDetailView` 的 `HIDDEN_SYSTEM_FIELD_NAMES` 进一步改为 **spec `FIELD_GROUP_SYSTEM_FIELDS` − 审计集** 派生 —— framework 明天新注入的 bookkeeping 列默认隐藏,而不是漏进 detail 正文等人补清单 |\n| 5 | `ImportWizard` `BOOLEAN_IMPORT_TOKENS` | spec 未导出 token 表,无法派生(framework#3786 跟踪)→ 拆成 true/false 两集,闸门:不相交 + trim/lowercase 归一化(查找路径依赖此性质)+ 清单钉扎(改动必须有意识地双处落笔) |\n| 6 | `ImportWizard` `REFERENCE_IMPORT_TYPES` | 与服务端同一条派生链:spec `REFERENCE_VALUE_TYPES` + `'reference'`(新模块 `importCoercionContract.ts`);plugin-grid 新增 `@objectstack/spec` 运行时依赖 |\n| +7 | `FieldDesigner` `FIELD_TYPE_CATEGORIES`/`CATEGORY_ORDER` | tsc 只保证成员合法,不保证**每个类型都落进某个类目**(新类型会悄悄从类型下拉里消失)→ 覆盖闸门:摊平后与 `DESIGNER_FIELD_TYPES` 集合相等、无重复、`CATEGORY_ORDER` 覆盖全部类目 |\n| +8 | `MetadataFieldsPage` `KNOWN_FIELD_TYPES` | 又一份 27 型手抄(变异测试把它炸了出来)→ 派生自 `DESIGNER_FIELD_TYPES` |\n| +9 | `multiValueFields.ts` 两个 Set | 与 spec `MULTI_OPTION_TYPES`/`MULTI_CAPABLE_TYPES` 逐项相同 → 直接消费 spec(保留 null 容错包装),锚点断言防词汇缩水复发 #2204 形状腐蚀 |\n\n## 变异测试(闸门真的会红)\n\n七处注入漂移(词汇删 `slider`、审计删 `updated_by`、hidden 派生偷排 `tenant_id`、布尔加 `'True'`/两侧同置 `'on'`、别名 `'reference'` 删除、`CATEGORY_ORDER` 掉 `date`):\n\n- **13 个测试失败,分布在全部 5 个闸门文件**,逐项可归因;\n- 编译闸门同步引爆:`FieldDesigner` TS2353/TS2322、`MetadataFieldsPage` TS2769、`RecordMetaFooter` TS2339;\n- 回滚后 10 文件 102 断言全绿,5 包 type-check + lint 全绿。\n\n## 行为不变\n\n每个派生集与被替换清单**逐值相同**(hidden 集今天恰为原 4 项字面量;spec 词汇未来增长时行为按上表设计演化)。测试内的清单钉扎是有意的第二份陈述(照 #3032 ActionDef inventory / #4120 的登记表模式):它把「静默漂移」换成「红着的、指路的测试」。\n\n沿途观察、**未**动的:`ObjectFieldInspector` 的 `SUMMARY_NUMERIC_TYPES` 是语义选择(可汇总类型)而非清单拷贝;`isPlausibleEmail`/`importJobUndoable` 等是算法镜像,不属本 issue 的清单模式。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

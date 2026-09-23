@@ -1,0 +1,33 @@
+{
+  "number": 3060,
+  "kind": "pull_request",
+  "title": "fix(plugin-form,i18n): form edit saves send If-Match and surface 409 conflicts instead of silently overwriting",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:58:58Z",
+  "updated_at": "2026-07-30T15:06:16Z",
+  "closed_at": "2026-07-30T15:06:13Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:06:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3060",
+  "body": "## 问题\n\nconsole 编辑表单保存不带条件请求头:两个基于同一版本的并发编辑双双 200,后写静默覆盖先写(EHR 真机复测 021)。服务端早已支持 `If-Match` → `409 CONCURRENT_UPDATE`,DataSource 契约也有 `opts.ifMatch`,唯独表单这一环没接——行内编辑(`InlineEditSaveBar`)接了,经典编辑表单没有。\n\n## 修复\n\n- 新增共享 `useOccSave`(`packages/plugin-form/src/occSave.tsx`):编辑保存带 `ifMatch` = 表单 `findOne` 读到的 `updated_at`;409 弹冲突对话框——**继续编辑**(不写入,表单和草稿保留)或**覆盖保存**(以 409 返回的 `currentVersion` 重试)。\n- 6 个表单变体(ObjectForm / ModalForm / DrawerForm / TabbedForm / SplitForm / WizardForm)原来各自裸调 `dataSource.update`,全部接入。\n- 无 `updated_at`(旧后端/无时间戳对象)自动降级为原无守护写入;非冲突错误走原错误路径。\n- 冲突对话框与 Modal/Drawer 的 discard guard 同样嵌在 Radix 层内,保证弹层可点击。\n- 文案补齐全部 10 个语言包(`form.conflict*`)。\n\n## 测试\n\n- 新增 `occSave.test.tsx` 8 例:ifMatch 传递、无版本降级、继续编辑不二次写入且草稿保留、覆盖用新版本号重试、非冲突错误正常抛出、Modal 冲突后不关闭。\n- plugin-form + i18n 全量 44 文件 / 419 测试通过;两包构建通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

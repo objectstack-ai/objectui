@@ -1,0 +1,35 @@
+{
+  "number": 3222,
+  "kind": "issue",
+  "title": "字段 widget 的错误提示键:spec 声明 `error`,objectui 渲染 `errorMessage`(declared ≠ enforced)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T18:48:54Z",
+  "updated_at": "2026-08-03T11:14:31Z",
+  "closed_at": "2026-08-03T11:14:13Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3222",
+  "body": "在 objectui#3161(objectstack#4115 台账批次 7)对读 `@object-ui/fields` 与 spec 的 `FieldWidgetProps` 时发现,**未在该 PR 修复**(属行为变更)。\n\n## 事实\n\n`@objectstack/spec/ui` 的 `FieldWidgetPropsSchema` 是**字段 widget 插件的 props 契约**,它声明:\n\n| spec 键 | objectui `FieldWidgetComponentProps` |\n|:--|:--|\n| `error?: string` | **无**——本地叫 `errorMessage?: string` |\n| `required: boolean`(带 `.default()`) | **无** |\n| `readonly: boolean`(带 `.default()`) | `readonly?: boolean` |\n| `field: { name?, label?, type: FieldType }` | `field: FieldMetadata`(更宽) |\n\n也就是说:**一个照着 spec 声明的 props 契约写出来的第三方字段 widget,放进 objectui 后校验消息不会显示**,因为 objectui 传的是 `errorMessage`,widget 读的是 `error`;而且没有任何东西会报错——`[key: string]: any`(objectui#3221)让 `props.error` 成为合法读取,恒为 `undefined`。\n\n## 需要拍板的是方向,不是修法\n\n三种都成立,选哪个取决于 spec 的 `FieldWidgetPropsSchema` 是不是真的想当第三方 widget 的契约:\n\n1. **objectui 改名跟随 spec**(`errorMessage` → `error`):48 个 widget + 调用点,一次性对齐,spec 成为唯一契约;\n2. **spec 改名跟随实现**(`error` → `errorMessage`):spec 侧改动小,但 `error` 这个名字在 spec 里已经发布;\n3. **spec 退掉这份 props 契约**:如果它从来不是给第三方 widget 用的(没有任何运行时读它),那它是一份\"声明了但没人执行\"的 schema,按 ADR-0049 enforce-or-remove 处理。\n\n同类问题还有 `required`——spec 声明、objectui 的 widget 一律不接收(必填标记由外层 `FieldContainer` 画)。\n\n关联:objectstack#4115、objectui#3161、objectui#3221。"
+}

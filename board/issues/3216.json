@@ -1,0 +1,35 @@
+{
+  "number": 3216,
+  "kind": "issue",
+  "title": "Flow 模拟器把 `{ dialect, source }` 信封形式的边守卫当成「没有条件」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T15:24:01Z",
+  "updated_at": "2026-08-02T17:29:28Z",
+  "closed_at": "2026-08-02T17:29:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3216",
+  "body": "做 #3202(收紧设计器边类型)时越界发现,未在该 PR 里顺手改 —— 它是**行为**变更,不是类型收紧。\n\n## 缺陷\n\n`packages/app-shell/src/views/metadata-admin/previews/simulator/` 里有两个读边守卫的地方,**都只认裸字符串**,信封形式一律返回 `undefined`:\n\n```ts\n// flow-simulator.ts:46\nconst condStr = (c: SimEdge['condition']): string | undefined => (typeof c === 'string' ? c : undefined);\n\n// flow-sim-validate.ts:18\nconst edgeCondString = (c: SimEdge['condition']): string | undefined =>\n  typeof c === 'string' ? c : undefined;\n```\n\n于是 `flow-simulator.ts:281` 处,一条守卫写成 `{ dialect: 'cel', source: 'amount > 10' }` 的决策出边,在模拟时间线上报的是 `Branch has no condition.`,并被跳过 —— 模拟结果会走到 default 分支或直接停住,而引擎在真实运行时会正常求值这条守卫。`flow-sim-validate.ts:154` 的诊断也会因此少判一类。\n\n## 为什么是真 bug 而不是设计\n\n仓内**其它每一个**读同一个字段的地方都接受两种拼写:\n\n- `previews/flow-canvas-layout.ts` 的 `conditionText` —— 字符串或 `{ source }` 都读(画布标签、`FlowEdgeInspector` 输入框、`flow-decision-edges` 的分支匹配都走它);\n- `inspectors/expression-validate.ts` 的 `validateExpressionClient` —— 注释就写着「Accept a bare string or an Expression envelope」;\n- `inspectors/flow-decision-edges.test.ts` 里已有一条用例把 `{ dialect: 'cel', source }` 的边条件当作正常存量形状匹配。\n\n而 `@objectstack/spec` 的 `ExpressionInputSchema` 是一个 `ZodPipe`:**裸字符串在 parse 时就被规范化成 `{ dialect: 'cel', source }` 信封**,信封才是 spec 眼里的规范持久化形式(`FlowEdgeSchema.condition` 用的正是它)。也就是说,模拟器读不了的那种拼写,恰恰是平台自己产出的那种。\n\n所以这不是「模拟器故意只支持简写」,而是两个读函数漏了一条分支 —— 与 #3202 同一族:**一个过窄/过宽的本地读法与 spec 不一致**。\n\n## 建议修法\n\n两处都改为走同一个读法(`conditionText` 已经是仓内的既有实现,或抽一个共享的 `expressionSource(c)`),不要各自再写第三、第四份 `typeof c === 'string'`。\n\n顺带:`flow-sim-types.ts:30` 的 `SimEdge.condition` 仍写作 `string | { source?: string }` —— 那是 #3202 收紧掉的、spec 会拒绝(缺 `dialect`)的形状的最后一份复制。修这条时一并镜像 spec 的 `ExpressionInput`(`import type` 即可,别再重述一遍)。\n\n## 验证建议\n\n一条决策节点的出边,守卫存成 `{ dialect: 'cel', source: 'amount > 10' }`,变量给 `amount = 20`:期望模拟器选中该分支;当前会得到 `Branch has no condition.`。\n\n## 相关\n\n- #3202(设计器边类型镜像 spec 的 `ExpressionInput`;本条是同一族的最后一处,但因为要改**求值行为**而单列)\n"
+}

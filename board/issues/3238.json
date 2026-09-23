@@ -1,0 +1,32 @@
+{
+  "number": 3238,
+  "kind": "issue",
+  "title": "登录/注册/忘记密码表单提交前应去除邮箱、手机号的前后空格",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T05:45:56Z",
+  "updated_at": "2026-08-03T11:36:00Z",
+  "closed_at": "2026-08-03T11:36:00Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3238",
+  "body": "## 问题描述\n\n登录页(以及注册、忘记密码页)中,用户输入的邮箱/手机号如果带有前后空格(常见于移动端自动补全、复制粘贴),提交时会原样发给服务端,导致登录报 `Invalid email` 等错误,用户很难察觉是空格问题。\n\n具体未 trim 的提交路径(`packages/auth`):\n\n- `LoginForm.tsx` — 密码模式 `signIn(email, password)`、手机号判定 `looksLikePhoneIdentifier(email)`、SSO 路径 `POST /sign-in/sso` 的 `{ email }`;\n- `RegisterForm.tsx` — `signUp(name, email, password)` 的 email;\n- `ForgotPasswordForm.tsx` — 邮箱分支 `forgotPassword(email)`。\n\n(手机 OTP 相关路径已有 `phone.trim()`,不受影响。)\n\n## 方案描述\n\n在各表单提交处统一对邮箱/手机号标识符做 `trim()` 后再消费(校验、路由判定、发请求),输入框内保持用户原始输入不变:\n\n- `LoginForm.handleSubmit`:取 `identifier = email.trim()`,后续 `looksLikePhoneIdentifier` / `signInWithPhonePassword` / `signIn` 均用 trim 后的值;`handleSso` 同样用 trim 后的 email;\n- `RegisterForm.handleSubmit`:`signUp` 传 `email.trim()`(`onVerificationRequired` 回调同样传 trim 后的值);\n- `ForgotPasswordForm.handleSubmit`:`forgotPassword(email.trim())`。\n\n补充单元测试:带前后空格的邮箱可正常登录/注册/发送重置邮件,且发出的值已去除空格。\n"
+}

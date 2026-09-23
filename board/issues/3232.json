@@ -1,0 +1,35 @@
+{
+  "number": 3232,
+  "kind": "issue",
+  "title": "`TextAreaField` 读取的 `mobileFullscreen` prop 全仓无人生产,注释却说\"宿主表单传入\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:25:51Z",
+  "updated_at": "2026-08-03T07:26:01Z",
+  "closed_at": "2026-08-03T07:25:31Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3232",
+  "body": "在 objectui#3221(给 `FieldWidgetComponentProps` 去掉 `[key: string]: any`)时发现,**不在该 PR 修**。\n\n## 现象\n\n`packages/fields/src/widgets/TextAreaField.tsx` 的文档注释声称:\n\n> Mobile UX (round 3): when the host form passes `mobileFullscreen` (or the field schema sets `mobile_fullscreen: true`), an \"expand\" affordance opens a fullscreen edit dialog\n\n实现读了四条来源:\n\n```ts\nconst showFullscreenButton = Boolean(\n  (props as any).mobileFullscreen ??      // ① camelCase prop\n  textareaField?.mobile_fullscreen ??     // ② 字段元数据\n  (props as any).mobile_fullscreen ??     // ③ snake_case prop\n  (props as any).schema?.mobile_fullscreen, // ④ schema 载体\n);\n```\n\n全仓 grep 之后:\n\n- **①`mobileFullscreen`(camelCase)没有任何生产者。** 唯一出现该拼写的地方就是 TextAreaField 自己(读取处 + 第 57 行的解构剥离)。注释里的\"宿主表单传入\"从未成立。\n- **③`mobile_fullscreen` 作为 prop 也到不了**:`form.tsx` 的 `stripRegisteredFieldProps()` 明确把 `mobile_fullscreen` 和 `fullscreen` 从转发给已注册 widget 的 props 里剔除(第 266-267 行)。\n- 真正活着的只有 **②**(以及 ④,在表单路径下与 ② 指向同一个对象)。生产者是 `packages/plugin-form/src/ObjectForm.tsx:1049`:`{ ...f, mobile_fullscreen: true }`,写在**字段元数据**上。\n\n## 后果\n\n不是运行时 bug(功能经 ② 正常工作),而是三个可维护性问题:\n\n1. 注释描述了一条不存在的契约,下一个作者会照着它去传一个被静默忽略的 prop;\n2. 三条死读取路径,其中 ③ 被上游明确剥离 —— 属于「消费者侧宽容」正在固化第二套事实契约(AGENTS.md #0.1);\n3. `mobileFullscreen` / `mobile_fullscreen` 两种拼写并存,恰好是主令 #12 说的那种应该在**生产者**收敛、而不是在消费者用 `??` 累积的情况。\n\n## 建议\n\n保留 ②(元数据是唯一真实生产者),删除 ①③④,并把注释改成描述真实来源。如果确实需要「宿主强制全屏」的 prop 覆盖能力,那就明确声明一个键并让某个宿主真的传它 —— 而不是三个拼写都读、都没人写。\n\n## 为什么现在才能看见\n\n`FieldWidgetComponentProps` 当时以 `[key: string]: any` 结尾,`(props as any).mobileFullscreen` 是完全合法的读取,类型 `any`,运行时恒 `undefined`。objectui#3221 收紧类型后,这类「读了但没人写」的键才可能被追问。\n\n关联:objectui#3221、objectui#3161。\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2997,
+  "kind": "issue",
+  "title": "SDUI `element:button` executes an `action` prop the spec does not declare",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:25:19Z",
+  "updated_at": "2026-07-30T11:40:18Z",
+  "closed_at": "2026-07-30T11:40:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2997",
+  "body": "`element:button` renders an action and dispatches it, but `ElementButtonPropsSchema` (`packages/spec/src/ui/component.zod.ts:298`) has no `action` property at all.\n\n## What runs today\n\n`packages/components/src/__tests__/element-button-action.test.tsx:33` exercises the live path:\n\n```tsx\n<ElementButton schema={{ type: 'element:button', properties: {\n  label: 'Upgrade',\n  action: { type: 'navigation', to: '/apps/cloud_control/sys_environment' },\n} }} />\n```\n\nThe click reaches the navigation handler. So both the `action` prop **and** the `navigation` action type are implemented and reachable, and neither is named in a spec schema:\n\n- `ElementButtonPropsSchema` declares `label`, `variant`, `size`, `icon`, `iconPosition`, `disabled`, `aria` — no `action`;\n- `ActionType` (`ui/action.zod.ts:226`) is `script | url | modal | flow | api | form` — no `navigation`.\n\n## Why nothing breaks, and why that is the problem\n\nPage block `properties` are `z.record(z.string(), z.unknown())` (`ui/page.zod.ts:86`), so an authored `action` is neither validated nor stripped. Nothing is losing data. What is lost is everything a declaration buys:\n\n- ~~Studio's inspector cannot offer the prop, because it derives fields from the props schema;~~\n  **Corrected** (see the analysis comment): `block-config.ts` is hand-written, so the inspector\n  needs its own edit either way. Declaring the prop buys validation and discoverability, not a field.\n- no validation, so a typo in `action.type` or a missing `to` fails silently at click time rather than at save;\n- the `type` vocabulary is undocumented, so an author cannot discover that `navigation` exists, or that it is not `url`.\n\n## The `navigation` / `url` question comes with it\n\n`ActionRunner.executeNavigation` and `executeUrl` (`packages/core/src/actions/ActionRunner.ts`) both navigate. `executeUrl` is strictly richer — `${param.X}` / `${ctx.X}` interpolation, `apiBase` promotion for `/api/...` paths, `openIn` — while `executeNavigation` adds only `replace` (and reads `to` where `url` reads `target`).\n\nSo declaring the prop means deciding one of:\n\n1. `action` accepts the spec's `ActionSchema`, and `navigation` becomes an alias `executeUrl` absorbs (`replace` moving onto `ActionSchema` if it is worth keeping) — one spelling of *navigate*;\n2. `element:button.action` gets its own narrow schema that names `navigation` + `to`, accepting a second vocabulary for this surface;\n3. `navigation` is promoted into `ActionType` as-is.\n\n(3) was considered and rejected while widening the action vocabularies for #2945 (objectstack-ai/objectstack#4070): adding a synonym to a closed vocabulary is a one-way door — members cannot be removed later — and it would not have declared the prop, which is the actual gap. (1) looks right, but it changes what an authored `element:button` may say, so it wants a decision rather than a drive-by.\n\nCross-repo: the schema lives in framework `packages/spec`, the renderer in objectui `packages/components`.\n\nRefs #2945, #2901, objectstack-ai/objectstack#4070\n"
+}

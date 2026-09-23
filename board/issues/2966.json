@@ -1,0 +1,35 @@
+{
+  "number": 2966,
+  "kind": "pull_request",
+  "title": "fix(form): a server rejection that names fields now marks those fields (objectstack#3896)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T12:19:50Z",
+  "updated_at": "2026-07-29T23:36:20Z",
+  "closed_at": "2026-07-29T23:36:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T23:36:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2966",
+  "body": "## The server always said which field\n\n`@objectstack/objectql`'s validators throw `VALIDATION_FAILED` with `fields[]` — one entry per offending field, each carrying a human `message` — and both the REST layer and the runtime dispatcher serve that as a 400 with the entries intact.\n\n**Every form dropped them.** The submit handler caught the rejection, ran the message through `extractWriteErrorMessage`, and showed one undirected toast. The user was told something was wrong but not *what* — on a surface that already knows how to mark an input, and already does exactly that for client-side validation. On a long form the offending field is usually off-screen, so the submit button appears to do nothing.\n\nThis is the general fix behind the specific one in #2962. That PR had to add a client-side hint precisely because the server's precise rejection only ever arrived as a toast, after Save.\n\n## Now both failures share one implementation\n\nThe toast naming the fields and the scroll-and-focus of the first offender (#2793) were extracted from the client-side invalid handler into `announceFieldErrors`; the server path calls it. To the person filling in the form these are the same event — only the referee differs.\n\nThree layers, each of which was dropping the detail:\n\n**`@object-ui/react`** — new `extractFieldErrors(err)`, exported beside `extractWriteErrorMessage` / `isPermissionError`. Normalises the three shapes the error can arrive in:\n\n| Shape | Where it comes from |\n|---|---|\n| `validationErrors` | a typed `ValidationError` from the ObjectStack adapter |\n| `details.fields` | the raw `@objectstack/client` error — its `details` falls back to the **whole response body**, and the validation envelope has no `details` key, so this is where `fields[]` lands |\n| `fields` | a hand-rolled error of the same shape; the server duck-types these identically, so the client must not be pickier than the server |\n\nEntries with no usable `field` are **dropped rather than guessed at** — marking an innocent input is worse than the generic toast we already show.\n\n**`@object-ui/data-objectstack`** — `normaliseClientError` maps a 400 `VALIDATION_FAILED` onto the `ValidationError` class that has sat in `errors.ts` since the package was written: **exported, and never once constructed.** Its `validationErrors: Array<{ field, message }>` shape was already exactly right for this.\n\n`create` also now normalises *at all*. Only `update` did, so a rejected insert reached callers as the raw client error with no typed shape to branch on — and a create is the path that most often trips required-field validation.\n\n**`@object-ui/components`** — the form renderer applies the entries via `form.setError` and takes over the failure, **but only when every rejected field has a visible input to carry it**. If the server also rejected something this form does not render, it falls through to the banner, whose top-level message concatenates every field's reason — so the part the user cannot see inline is still said out loud instead of silently dropped.\n\n## Why this matters beyond one form\n\nIt removes the reason for the client-side predicate mirroring added in #2962. A form should not have to guess what the server will reject in order to warn about it beforehand — mirrored predicates drift, and the copy that drifts is the one users read.\n\n## Verification\n\n- **14 new unit tests** across the two helpers — the real wire envelope, the adapter's typed error, the hand-rolled shape, the message/code fallback, entries with no field, and the non-field failures that must stay on the old path.\n- **6 form-renderer tests** driving a real rejected submit: the reason appears under the input, the first offender is scrolled to and focused, the toast names the field's *label*, every rejected field is marked, an unrenderable field falls through to the banner, and a 403 marks nothing.\n- **107 files / 1073 tests green** across `components`, `plugin-form`, `react`, `data-objectstack`. `tsc --noEmit` clean on all three changed packages. eslint 0 errors (remaining warnings are the file's pre-existing `no-explicit-any` convention).\n\nNon-field failures — 403, permission denials, anything without `fields[]` — take exactly the path they took before.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01QuViRSR1j6GJjf9qGbnqFX)_"
+}

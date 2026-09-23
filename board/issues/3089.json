@@ -1,0 +1,32 @@
+{
+  "number": 3089,
+  "kind": "pull_request",
+  "title": "chore(release): pending changesets stay minor — a major would desync from objectstack 17",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T03:49:35Z",
+  "updated_at": "2026-07-31T03:50:43Z",
+  "closed_at": "2026-07-31T03:50:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T03:50:41Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3089",
+  "body": "## 问题\n\nobjectui 的版本跟随 objectstack 的节奏(AGENTS.md §9「版本号策略」):fixed 组(39 个包)当前在 **17.0.0**,因为 `@objectstack/*` 在 17.x。待发布的 changeset 里有 **5 个文件、8 处 `major` 声明** —— fixed 组下任何一个 major 都会把全组推到 **18.0.0**,而 objectstack 还停在 17,破坏「major 相同即兼容」的约定。\n\n## 改动\n\n- 8 处 `major` 全部降为 `minor`(各 changeset 正文中的 breaking 语义描述原样保留,只改 bump 级别):\n  - `action-target-is-the-only-handler-slot.md`(types/core/components/app-shell)\n  - `action-url-identifies-by-name.md`(app-shell)\n  - `action-vocabularies-derive-from-spec.md`(types)\n  - `authoring-types-are-input-types.md`(types)\n  - `modal-actions-are-client-only.md`(app-shell)\n- AGENTS.md §9 补一条显式推论:**changeset 里不要声明 `major`**;objectui 自身的破坏性变更也标 `minor`,唯一例外是跟随 objectstack 跨 major 的同步升级。(规则原本已在,但 5 个 changeset 仍写成了 major,说明需要点名禁止。)\n\n## 验证\n\n`pnpm changeset status`:**NO packages to be bumped at major** —— 下次发版为 17.1.0。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

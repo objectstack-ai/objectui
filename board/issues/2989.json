@@ -1,0 +1,34 @@
+{
+  "number": 2989,
+  "kind": "pull_request",
+  "title": "fix(view,components): the spec→FilterBuilder operator table covers the whole view vocabulary (#2945)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:34:59Z",
+  "updated_at": "2026-07-30T07:59:18Z",
+  "closed_at": "2026-07-30T07:59:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:59:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2989",
+  "body": "Third of objectui's spec-operator translation tables. The other two were pinned to the spec in #2974; this one was still enumerating spellings by hand, and had missed nine.\n\n## The gap\n\n`view-config-utils`' `SPEC_TO_BUILDER_OP` resolved **10 of the spec's 19 canonical `VIEW_FILTER_OPERATORS`**. Executed against the real spec:\n\n```\nOLD table could not resolve 9 of 19 canonical view operators:\n  not_equals, starts_with, ends_with, greater_than, less_than,\n  greater_than_or_equal, less_than_or_equal, is_null, is_not_null\n```\n\nAll nine are canonical — `ViewFilterRuleSchema` validates a stored view against exactly this list — so each reached the FilterBuilder as a raw spelling its operator dropdown cannot select.\n\nFive have an exact FilterBuilder equivalent and were simply absent. The table is now derived from the spec's own canonical list plus `VIEW_FILTER_OPERATOR_ALIASES`, matched case- and separator-insensitively, so `not_in` / `notIn` / `'not in'` / `NOT_IN` are **one** entry instead of four chances to miss one. That is what #2974 concluded for `mapOperator`, for the same reason.\n\n## The four that stay unmapped\n\n`starts_with` / `ends_with` have no FilterBuilder operator at all. `is_null` / `is_not_null` are distinct from the `is_empty` / `is_not_empty` the builder does have.\n\nThey are recorded as explicit `null`s and asserted, **not** folded onto a near-equivalent — folding would silently rewrite the author's operator the next time the view was saved. Unmapped instead reaches the builder unchanged and shows as a condition row the author must complete: visible, and lossless until they touch it. Shrink that list by adding the operator to the FilterBuilder, never by aliasing it.\n\n## Scope, stated plainly\n\n`toFilterGroup` — the only caller of this table — is exported from `@object-ui/plugin-view` but has no caller inside this repo. So this is a **public-API defect, not a live in-repo bug**; the surfaces that translate operators today (`ListView`, `data-objectstack`, `FilterConditionField`, `datasetFilterCondition`) are unaffected. It is worth fixing because it is the last of the three tables #2901 identified, and because the guard is what keeps it fixed.\n\n## Dead write direction, retired\n\n`BUILDER_TO_SPEC_OP` and `toSpecFilter` are deleted. Zero callers anywhere in the repo — not even a test — and neither is in `@object-ui/plugin-view`'s public exports; they were left behind when the studio's spec-driven inspector replaced the legacy `buildViewConfigSchema` engine.\n\nThey matter because of what they emitted: `'not in'` **with a space**, plus `before` and `after`, as *filter-AST* operators. Those are the three spellings objectstack-ai/objectstack#3948 names as its trigger, citing this file. With this deleted and #2974 merged, **objectui no longer has a live path that emits them** — so #3948's remaining exposure is the server-side silent-drop itself, not an objectui caller. (Framework `main` has since added `before`/`after` to `AST_OPERATOR_MAP`, which removes the trigger but not the drop.)\n\n## One source of truth for the builder vocabulary\n\n`@object-ui/components` now exports `FILTER_BUILDER_OPERATORS` and the `FilterBuilderOperator` type, derived from the operators the FilterBuilder actually renders. Tables mapping onto that vocabulary assert against it rather than restating it — the guard below fails if a mapping targets an operator the dropdown does not have.\n\n## Guards\n\n`packages/plugin-view/src/config/__tests__/view-operator-builder-parity.test.ts`, asserting in both directions:\n\n- `CANONICAL_TO_BUILDER`'s keys are exactly `VIEW_FILTER_OPERATORS` (also enforced at compile time — the `Record` is keyed by `ViewFilterOperator`);\n- every non-null target is a member of `FILTER_BUILDER_OPERATORS`;\n- the unmapped set is exactly the four documented ones;\n- every canonical operator **and** every legacy alias the spec still folds resolves to a real builder id;\n- infix spellings (`=`, `!=`, `>=`, `nin`, `like`) resolve;\n- an unknown operator is returned unchanged rather than coerced to `equals`.\n\n## Verification\n\n- New guard: **9 pass**. `plugin-view` + `components/custom`: **69 pass across 4 files**.\n- Full `@objectstack/spec`-side facts re-derived by executing the published spec, not read from the audit.\n- `eslint`: 0 errors in both packages. `@object-ui/components` `type-check`: clean.\n\nRefs #2945, #2901, objectstack-ai/objectstack#3948\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

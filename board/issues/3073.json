@@ -1,0 +1,33 @@
+{
+  "number": 3073,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): bulk-action params render the shared form field widgets — lookup errors get Retry, sys_user params get the PeoplePicker (#3064, ADR-0059)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:03:09Z",
+  "updated_at": "2026-07-30T16:30:42Z",
+  "closed_at": "2026-07-30T16:30:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:30:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3073",
+  "body": "Closes #3064\n\n## 问题\n\n`BulkActionDialog` 的参数步是 2026-05 的手搓 MVP(早于 PeoplePicker #2112 和 ADR-0059),两类后果:\n\n1. **#3064**:lookup 参数打开弹窗即 `find(object, {$top:200})` 全量预取,fetch 失败被吞成空数组 → 渲染成**永久 \"Loading…\"**,且失败按参数名缓存、重开弹窗**永不重试**,只能整页刷新;同页两个按钮一死一活的\"分裂\"现象即源于此。\n2. 选人参数与表单选人字段**样式/交互完全不同**(无搜索、无头像、超 200 人选不到)。\n\n## 方案(issue 内「方案 B」)\n\n参数改走对象表单 / `ActionParamDialog` 同一套共享字段控件管线,把 ADR-0059 补完到批量面:\n\n- 新增纯适配器 `bulkParamToField()`(镜像 app-shell `paramToField`,含 drift 对齐的类型别名):`BulkActionParam` → 字段元数据,经 `getLazyFieldWidget()` 渲染;仅 picker 控件被注入 DataSource。\n- `lookup` 参数 → 真 `LookupField`(服务端搜索、分页、表格选择器;加载/错误/空态由共享 `useRecordQuery` 内核持有,**每次打开重新拉取**);指向 `sys_user` 的 lookup / `user` 类型参数 → 表单同款搜索式 **PeoplePicker**(头像、副标题、最近使用、排除停用用户)。无 `object` 目标的 lookup 降级文本框 + dev 告警。\n- 删除手搓 `ParamField` switch、`MultiSelectControl`、eager 预取与 `lookupCache` —— #3064 的\"吞错→永久 Loading…→失败缓存\"管线**从结构上不复存在**。\n- 保留语义:#2204 schema 兜底 multi 判定、必填门控、#2185 嵌套弹层误关守卫;确认页标签改为按选中 id `findOne` 惰性解析(失败仅回退显示裸 id,纯装饰性)。\n\n## 测试与验证\n\n- `tsc` 干净;plugin-grid 全套 **45 文件 / 366 用例通过**;build 通过;改动文件 eslint 0 error。\n- 新增回归:#3064 两条(打开弹窗零预取;失败显示错误+Retry、Retry 真正重发请求)+ `bulkParamToField` 13 条纯函数用例;既有 #2185/#2204 用例更新到共享控件 DOM。\n- 真浏览器(plugin-grid demo,新增 picker defs + `?failUsers=1` 故障注入)逐项走查:单/多选 PeoplePicker、确认页人名解析、patch 形态(标量/数组)、错误+重试恢复无需刷新、#2185 弹层守卫。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

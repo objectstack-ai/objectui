@@ -1,0 +1,32 @@
+{
+  "number": 3239,
+  "kind": "pull_request",
+  "title": "fix(auth): trim whitespace from email/phone identifiers before submit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T06:20:47Z",
+  "updated_at": "2026-08-03T11:36:00Z",
+  "closed_at": "2026-08-03T11:35:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T11:35:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3239",
+  "body": "## 问题\n\n登录页中,用户输入的邮箱/手机号带前后空格(移动端自动补全、复制粘贴常见)时会原样提交,服务端报 \"Invalid email\",用户很难察觉是空格问题。注册、忘记密码表单同样受影响。\n\n## 改动\n\n均在 `packages/auth`,只在提交消费处 trim,输入框内保持用户原始输入不变:\n\n- **LoginForm**:`handleSubmit` 取 `identifier = email.trim()`,后续手机号判定(`looksLikePhoneIdentifier`)、`signInWithPhonePassword`、`signIn` 均用 trim 后的值;`handleSso` 的判定与 `/sign-in/sso` 请求体同样用 trim 后的 email。手机 OTP 路径原本已 trim,不动。\n- **RegisterForm**:`signUp` 与 `onVerificationRequired` 回调改传 trim 后的 email。\n- **ForgotPasswordForm**:邮箱分支改为 `forgotPassword(email.trim())`。\n\n## 测试\n\n- 新增 5 个单测:登录 trim、SSO 请求体 trim、带空格手机号仍正确路由到 phone+password、注册 trim、忘记密码 trim。\n- auth 包 51 个单测全过,`type-check` 通过。\n\nCloses #3238\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

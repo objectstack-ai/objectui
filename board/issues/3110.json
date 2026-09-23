@@ -1,0 +1,32 @@
+{
+  "number": 3110,
+  "kind": "issue",
+  "title": "`ObjectValidationEngine` 产品拍板:接线 console 提交预检,还是明确弃用——#3103 修好了语义,但零消费者",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T08:58:10Z",
+  "updated_at": "2026-08-01T08:14:16Z",
+  "closed_at": "2026-07-31T09:31:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3110",
+  "body": "## 背景(#3103 / PR #3107 Step 0 triage 的遗留结论)\n\nPR #3107 把 `ObjectValidationEngine` 五类规则语义与服务端 `objectql/src/validation/rule-validator.ts` 逐条收敛(谓词极性、envelope condition、`when`/`then`/`otherwise`、`regex` + 4 具名格式、`initialStates`、spec 默认值、`priority` 排序),闸门 + mutation-test 钉住。但同一轮 triage 也核实了三个事实:\n\n1. **引擎在仓内零生产消费者** —— 全仓 grep 只命中它自己的测试文件;console 的提交/校验路径不经过它。它同时是 `@object-ui/core` 已发布的公共 API(`src/index.ts → validation/index.ts → validators/index.ts`),即「对外承诺、对内无人接线」。\n2. **现状 = 修对了但没人用**:用户提交后才吃服务端 `rule_violation`,没有客户端预检。#3103 定级时明写「风险全部落在未来接线时静默分歧」——分歧已消,但接线本身没发生。\n3. **这已是第二轮投入**(#3103 修语义)。不拍板,下一个 agent 还会撞上它再来第三轮。\n\n这不是代码任务,是产品决策,两条路互斥。**先拍板,再开实现 issue。**\n\n## 选项 A:接线(把客户端预检做成真的)\n\n用户价值:`script` / `cross_field` / `state_machine` / `format` / `conditional` 违规在提交前亮出来,不等 round trip。语义已对齐 + fail-open,接线本身不会拦服务端允许的写入。\n\n已核实的前置(比预想的小):\n\n- **CEL evaluator 已经在场**:`@object-ui/core` 已依赖 `@objectstack/formula`,`evaluator/fieldRules.ts` 已在 import `ExpressionEngine` —— 与服务端同一引擎,已在客户端 bundle 里。接线只需一个 CEL-backed `ValidationExpressionEvaluator` 适配器(包一层 `ExpressionEngine.evaluate`,scope 绑 `{record, previous}`),**不引新依赖**。默认的 `SimpleExpressionEvaluator` 只认单比较,复杂谓词 fail-open(不报错也不预检),不能当生产预检用。\n- **元数据通路有缺口**:客户端 `ObjectSchema` 类型未声明 `validations` 键(服务端读的是 `objectSchema.validations`)。需核实 `/meta` 是否已把 validations 带到客户端(大概率带,类型没声明而已),再补类型声明。\n- **接线点待定位**:record create/update 提交路径(表单 submit / app-shell 保存 hook),定位后写进实现 issue。\n- `json_schema` 变体引擎不实现(现在响亮 warn):接线时决定补齐(ajv 进 bundle 的代价)还是保持 warn。\n\n## 选项 B:明确弃用\n\n如果客户端预检不在路线图:引擎(`ObjectValidationEngine` / `defaultObjectValidationEngine` / `validateRecord`)标 `@deprecated`,changeset 写清楚「预检不做,以服务端错误为准」。**类型不动** —— 五个 spec 派生类型是 objectstack#4115 台账的锚,与引擎存废无关。价值:止住无消费者公共 API 的维护成本,防止第三轮投入。\n\n## 验收标准\n\n- [ ] 拍板结论写进本 issue(A 或 B + 一句话理由)\n- [ ] 选 A → 开实现 issue:CEL adapter + `/meta` validations 通路核实 + 接线点 + e2e(违规提交在客户端被拦,且与服务端结论一致)\n- [ ] 选 B → `@deprecated` 标注 + changeset\n\n关联:#3103(语义收敛,PR #3107 已合并)、objectstack#4115(台账)。\n"
+}

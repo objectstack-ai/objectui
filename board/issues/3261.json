@@ -1,0 +1,35 @@
+{
+  "number": 3261,
+  "kind": "issue",
+  "title": "lint.yml 的头部注释说「三条 object-ui/* 规则设成 error」，实际已经是四条",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T08:09:34Z",
+  "updated_at": "2026-08-03T10:03:58Z",
+  "closed_at": "2026-08-03T10:03:43Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3261",
+  "body": "在 #3212（修 `ci-cd-pipeline.md` 与 `.github/workflows/` 的脱节）的过程中发现，按 Prime Directive #10 单独记录，不夹带进那个 docs-only PR —— 而且 #3212 的 PM 明确划了硬边界：那个 PR 不许改任何 workflow YAML。\n\n`.github/workflows/lint.yml` 开头的注释写着：\n\n> `eslint.config.js` sets three `object-ui/*` rules to `error` *specifically* so a new violation fails CI (ADR-0054 Phase 5, #2879, and the objectql.ts ratchet)\n\n`eslint.config.js` 现在实际有**四条** `object-ui/*` 规则设成 `error`：\n\n| 行 | 规则 |\n|---|---|\n| 59 | `object-ui/no-synthetic-event-trigger` |\n| 65 | `object-ui/no-try-catch-around-hook` |\n| 98 | `object-ui/no-dynamic-import-in-test-hook` |\n| 111 | `object-ui/no-inline-spec-config` |\n\n括号里点名的三个来源（ADR-0054 Phase 5、#2879、objectql.ts ratchet）也和这四条对不上号了。\n\n## 这不只是数错一个数\n\n这条注释是 `lint.yml` 存在理由的唯一说明 —— 它记录的是「这些 `error` 曾经因为 workflow 是 `workflow_dispatch`-only 而全部空转」这段历史。下一个想加 `error` 级规则的人会照着它判断这道门禁管到哪儿；一个已经过期的枚举会让人以为自己新加的规则不在覆盖范围内（或者反过来，以为在）。\n\n## 建议\n\n和 #3212 同一个思路：**别再手工维护那个数字**。注释改成不点数、不逐条枚举的写法（例如「`eslint.config.js` 里所有设成 `error` 的 `object-ui/*` 规则都靠这道门禁生效」），或者反过来 —— 如果这份清单确实有价值，就加一条断言把它钉在 `eslint.config.js` 上，让它自己不会漂。\n\n注：`content/docs/guide/ci-cd-pipeline.md` 里新加的 `lint.yml` 一节已经**刻意避开了这个数字**（写的是「the rules `eslint.config.js` sets to `error`」），所以文档这一侧不会再跟着错。要修的是 YAML 里的注释本身。"
+}

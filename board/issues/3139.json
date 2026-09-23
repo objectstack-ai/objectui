@@ -1,0 +1,32 @@
+{
+  "number": 3139,
+  "kind": "issue",
+  "title": "[console/grid] 批量选择条 bulkActionDefs custom 仅逐行执行,缺「聚合一次调用」能力(勾选多行→单次打包下载类动作无法表达)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T06:45:01Z",
+  "updated_at": "2026-08-01T08:35:32Z",
+  "closed_at": "2026-08-01T08:35:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3139",
+  "body": "## 诉求\n\n列表多选(勾选 N 行)后,需要一类「**聚合批量动作**」:动作被**调用一次**,拿到**全部选中记录 id**,交给服务端产出单一聚合产物(典型场景:勾选多台设备 → 服务端逐台生成二维码并打包 → **一个 zip 一次下载**;同类还有批量打印、合并导出 PDF 等)。\n\n当前 console 的批量选择条无法表达这类动作。\n\n## 现状走读(@objectstack/console 17.0.0-rc.1,plugin-grid bundle)\n\n批量 runner(`fn(...).run`)对 `operation` 的三个分支:\n\n- `update` / `delete`:有 `bulkCall` 聚合通道(`dataSource.bulkUpdate` / `bulkDelete`,一次带全部 ids);\n- `custom`:**只有 `perRow` 分支**,逐行调 `runAction(actionDef, row, params)`,每行注入一个 `_rowRecord`。自定义动作在代码路径上拿不到选中集合。\n\n两个侧面印证:\n\n1. 内置字符串动作(如 delete)另有一条 `zt({type, params:{records: 全部选中}})` 的一次性全量调用通道——聚合语义内部存在,但未开放给元数据定义的动作;\n2. spec 17 删除 `action.bulkEnabled` 的废弃说明明示「多选工具栏仅由视图 `bulkActions` / `bulkActionDefs` 驱动」,而这套驱动对 custom 只有逐行语义。\n\n## 后果\n\n- `type:'url'` 动作放进 bulkActionDefs:逐行 `window.open` → N 个标签页,第 2 个起被浏览器弹窗拦截;\n- `type:'api'` 动作:逐行 N 次独立调用,服务端无法知道「这是同一批」,无法产出单一聚合产物,也没有完成时机做最终下载;\n- 替代路(list_toolbar 动作 + lookup 多选参数弹窗)可用但体验差:用户已在列表勾选了行,还要在弹窗里重新逐台搜索勾选一遍(toolbar 动作与 url/api 插值上下文均拿不到当前选中集)。下游 PM 实测后以体验不佳否决,项目侧已挂起等平台。\n\n## 建议方案(任一即可)\n\n1. `bulkActionDefs` 新增聚合执行模式,如 `execution: 'aggregate'`(或 `operation: 'custom_bulk'`):runner 只调用一次 `runAction`,以约定参数注入选中集(如 `params._selectedIds: string[]` / `_selectedRecords`),url 动作插值同步支持 `${selection.ids}`(数组按逗号拼接,与现有插值器 String(array) 行为一致);\n2. 或将内置的 `zt({type, params:{records}})` 聚合通道开放为可注册的自定义 handler;\n3. 或至少为 list_toolbar 动作的插值/参数上下文暴露当前列表选中集(有选中时 `${selection.ids}` 可用,未选中为空),让「勾选行 → 一次 url/api 调用」成立。\n\n## 下游被阻塞项目 issue\n\nsteedos-labs/os-project-titanwind-ehr#710(设备台账二维码批量导出:勾选多台 → 单 zip 下载),已按「平台能力受限」挂起。\n"
+}

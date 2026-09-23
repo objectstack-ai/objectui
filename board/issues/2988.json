@@ -1,0 +1,34 @@
+{
+  "number": 2988,
+  "kind": "pull_request",
+  "title": "fix(sdui): a kind:'html' page can use lazily-registered blocks, and recovers when one registers late",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:34:05Z",
+  "updated_at": "2026-07-30T07:46:43Z",
+  "closed_at": "2026-07-30T07:46:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:46:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2988",
+  "body": "#2953 had a twin one tier over, unreported. Found by checking whether the `kind:'html'` path shared the root cause — it does, with a worse blast radius.\n\n## Measured, not inferred\n\nA probe rendering `<flex><object-kanban object=\"showcase_project\" /></flex>` as a `kind:'html'` page, with `object-kanban` registered lazily (exactly how `apps/console` registers it):\n\n```\nBEFORE_LOAD >>> HTML page failed to compile (2)\n                <object-kanban> is not an allowed component\n                <object-kanban> is not a known component\nAFTER_LOAD  >>> HTML page failed to compile (2)      ← after the loader resolved\nKANBAN_RENDERED >>> false\n```\n\n## Root cause, and why it's worse here\n\n`getJsxManifest()` built the whitelist from `getAllTypes()` + `getConfig()` — both loaded-only, same as #2953. So a `registerLazy()`'d block was rejected as unknown, load-order dependently.\n\nTwo things make this worse than the react tier:\n\n1. **The whole page dies, not one block.** A compile diagnostic fails the page, so one `<object-kanban>` anywhere in the source replaced everything with an error panel — the `<flex>` wrapper included. In the react tier a missing block cost one identifier.\n2. **It never recovered.** `layoutElement` was memoised on `[schema, pageType]` with no registry signal, so the cached error panel outlived the plugin actually landing. Broken for the rest of the session.\n\nAlso spotted on the way: `getJsxManifest()`'s cache key was the type **count**. One registration plus one unregistration leaves the count untouched while the set changed.\n\n## The fix\n\nThree lazy-aware reads on `ComponentRegistry`:\n\n| Method | Answers |\n|---|---|\n| `getKnownTypes()` | \"what does this app know about\" — loaded **plus** pending stubs, deduped. What a whitelist or manifest should be built from. |\n| `getMeta(type, ns?)` | metadata from the loaded registration, else from a pending stub. |\n| `getVersion()` | monotonic counter of changes to the known set (register / unregister / registerLazy) — a cache key a count can't substitute for. |\n\n`getAllTypes()` and `getConfig()` keep their loaded-only meaning (\"what can render right now\" / \"can I render this\") and now document it — `getConfig()`'s callers read `.component` off it, and a stub has none.\n\n`getJsxManifest()` builds from the new reads; `PageRenderer` subscribes to the registry so a page that could not compile retries when the registry grows. Only the `kind:'html'` branch acts on that tick — every other branch rebuilds the same element type with the same props, which React reconciles in place, as `react-page-state.test.tsx` (#2984) pins.\n\n## On the strictness tradeoff\n\nA stub has no `inputs` yet, so its props surface as `unknown-prop` **warnings** rather than errors: the page compiles and renders, and the inner `SchemaRenderer` triggers the loader and swaps in the real block.\n\nThat is the same call made in #2979 for the manifest generators, pointing the other way — and deliberately so. The **runtime whitelist** should be permissive, because the alternative is the whole page failing over a block that is genuinely part of the app. The **build-time artifact** must be strict, and `assertFullyLoaded` enforces that `sdui.manifest.json` is generated with every plugin eagerly loaded. So authoring-time prop validation keeps its full `inputs`; only the in-browser render path relaxes.\n\n## Tests\n\n- lazy block no longer takes the page down;\n- a late registration recovers the page;\n- **negative control**: a tag nothing has registered is still rejected. Admitting stubs must not turn the whitelist into \"anything goes\" — that whitelist is what keeps a parsed page from rendering arbitrary tags.\n\nThe first two fail against the old `page.tsx`; the control passes throughout. Plus 6 unit tests for the new registry reads, including that `getVersion()` moves where a count would not.\n\n## Verification\n\n- Full suite: `701 files passed | 1 skipped`, `8234 tests passed | 24 skipped`.\n- `turbo run type-check`: 76/76.\n- `lint` on `core` / `components`: 0 errors.\n- `changeset:check`: clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3113,
+  "kind": "pull_request",
+  "title": "fix(detail): a related list has one sorting semantics instead of two (#3106)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:36:37Z",
+  "updated_at": "2026-07-31T09:48:11Z",
+  "closed_at": "2026-07-31T09:48:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T09:48:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3113",
+  "body": "> **Stacked on #3112** — base branch is `claude/datatable-server-sort`, since this uses the `manualSorting` API that PR adds. Review after it; GitHub will retarget to `main` when #3112 merges.\n\n## What was wrong\n\nA related list carried **two** sorting semantics at once:\n\n| control | scope | default |\n|---|---|---|\n| its own sort-button row | server `$orderby` over the whole child collection | opt-in (`sortable`, default **false**) |\n| the embedded `data-table`'s headers | the rows in hand — in windowed mode, **one page** | always on (table's own default) |\n\nTurning `sortable` on put both in the same card, with nothing saying they meant different things. Leaving it off — **the default** — was worse: the page-local sort was then the *only* one a user could reach, and it looked exactly like the list being sorted.\n\n## How\n\nThe table's column headers now drive **this list's** sort in both modes, so there is one order behind them:\n\n- **Windowed** — the header sort becomes the server `$orderby` and resets to page one, the same path the buttons took.\n- **Client mode** — this list keeps sorting in memory, where its key is the label resolved through its own id → name map (#3096). The table cannot see that map, so its sort was the *worse* of the two even where both were possible.\n\nThe button row survives only where there are no headers to click: a `list` (`data-list`) related list, or a caller-supplied `schema` whose contents we cannot assume. `sortable`'s doc comment now says that is what it controls, rather than implying it governs sorting as a whole (which it never did for a table list — the headers were always live).\n\nRelational columns keep #3096's rule, moved to the header: withheld while the sort is a server `$orderby` (the key would be the stored foreign-key id while the cell shows a name), live in client mode where the key is the label.\n\n## About the three modified test files\n\nWorth a look, since they are pre-existing assertions I changed rather than added:\n\n- `RelatedList.relationalSort.test.tsx` (**both** cases) — encodes #3096's guarantee, asserted by clicking sort buttons. Same guarantee, now read off the column's `sortable` flag and driven through the table's `onSortChange`.\n- `RelatedList.serverpagination.test.tsx` — one case that clicked a sort button to prove the `$orderby` + page reset. Same assertion, triggered through the header.\n- `RelatedList.systemcolumns.test.tsx` — used the button row as a *proxy* for column order. It now reads the column order directly off the schema, which is what it was actually testing.\n\nNone of them lost coverage; each moved to the control that now carries the behavior.\n\n## Tests\n\n9 new cases in `RelatedList.headerSort.test.tsx`, including the two-modes split and \"the button row is gone for a table list but stays for a `list` one\".\n\n`plugin-detail` full suite: **294 passed** (34 files). Lint: 0 errors.\n\n## Related\n\n- #3112 — the DataTable/ObjectGrid/ListView half (this PR's base).\n- #3109 — string `$orderby` serialization, independent.\n- objectstack#4367 — the server half.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

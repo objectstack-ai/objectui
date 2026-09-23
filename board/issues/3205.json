@@ -1,0 +1,35 @@
+{
+  "number": 3205,
+  "kind": "issue",
+  "title": "`RecordActivityTimeline` 收下 `loading` 却完全不读——取数中的 feed 显示的是\"暂无活动\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T14:05:02Z",
+  "updated_at": "2026-08-02T15:14:11Z",
+  "closed_at": "2026-08-02T15:14:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3205",
+  "body": "`packages/plugin-detail/src/RecordActivityTimeline.tsx` 的 props 里声明了 `loading`,解构时直接改名丢弃:\n\n```\nloading: _loading = false,\n```\n\n整个文件再没有第二处引用它。后果:feed 还在取数的那段时间,面板渲染的是空态 `DataEmptyState`(默认文案 \"No activity recorded\"),而不是加载态。用户看到的是\"这条记录没有活动\",然后数据到了再突然跳出来。\n\n这与 #3165 是同一类形状(声明了、没人读),只是发生在组件的 props 而不是 block 的 inputs 上——`RecordChatterPanel` 也把 `loading` 透传下来,`record:activity` 修好之后也会传(自取数期间为 true),所以现在这条链上确实有真实的 loading 信号可用,只差最后一段没接。\n\n## 建议\n\n在 `filtered.length === 0` 的分支前加一个 loading 分支:骨架屏或一行 spinner(`Loader2` 已在本文件导入,\"Load more\" 用的就是它)。注意别在 loading 时渲染空态文案——那正是本 issue 的现象。\n\n## 参考\n\n- `packages/plugin-detail/src/RecordActivityTimeline.tsx`(`loading: _loading` 的解构处,以及空态分支)\n- `packages/plugin-detail/src/RecordChatterPanel.tsx`(透传 `loading` 的宿主)\n- 顺路发现于 #3165(那个 PR 只把 `loading` 算出来传下去,没动这里的渲染分支)"
+}

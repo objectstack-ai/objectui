@@ -1,0 +1,33 @@
+{
+  "number": 3066,
+  "kind": "pull_request",
+  "title": "fix(list,i18n): a 400 from the server no longer reads as \"check your connection\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:27:31Z",
+  "updated_at": "2026-07-30T15:33:34Z",
+  "closed_at": "2026-07-30T15:33:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:33:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3066",
+  "body": "The one objectui follow-up needed for this session's framework changes. Found by auditing each merged framework PR against objectui rather than assuming.\n\n## The defect\n\n`classifyLoadError` (`ListView.tsx`) exists because a 403 used to render the same *\"check your connection and try again\"* panel as a genuine outage. Its own doc comment:\n\n> A 403 rendered as \"check your connection\" is indistinguishable from a real outage — users were told to debug their network when the server had (correctly) denied them access.\n\nIt made that distinction for **401 and 403**, then sent everything else — 4xx included — to the `network` branch.\n\nA **400** is the server saying it understood the request and will never accept it. Retrying resends the identical bad request, so the connection copy is advice that *cannot work*. Same mistake, one status code over.\n\n## Why now\n\nobjectstack-ai/objectstack#4121 made this reachable from ordinary stored metadata: a `$filter` array that is not a filter AST is now rejected at the protocol with `400 INVALID_FILTER`. Previously it reached a driver — and for a lone `['and']` it silently returned **every row**.\n\nSo a view saved with such a filter now answers 400 on every load, and objectui was telling the user to check their network. The server change is right; this is the client half.\n\n## The change\n\nA fourth classification, `rejected`, for `status === 400` and for the server's 400-class codes (`INVALID_FILTER`, `UNSUPPORTED_QUERY_PARAM`, `INVALID_QUERY`). Its copy points at the filter rather than the network, and says who can fix it when the view is saved that way:\n\n> **This view's query was rejected** — The server could not process this view's filter or query options. Clearing the filters usually fixes it; if the view is saved this way, an administrator needs to correct it.\n\n403/401 keep priority, so a permission denial can never read as a bad request. That ordering is pinned by a test rather than left to the reading order of the `if`s.\n\n## All ten locale packs, not just `en`\n\nThe neighbouring panels are translated, and `fallbackLng: 'en'` would have rendered this one in English beside them — visible only to a non-English user, which is how the two failure modes `all-locales-key-parity.test.ts` describes stay invisible.\n\nThat gate caught a pack I missed: my first pass added nine, because the `grep` listing them was truncated by a `head`. The test named `fr` and the exact two keys.\n\n## Verification\n\n- **5 new tests**: numeric `httpStatus`, an error `code` with no numeric status, a status embedded in the message text (`\"HTTP 400 Bad Request — {}\"`), and a 403/401 ordering guard.\n- Confirmed they have teeth: removing the 400 branch fails **4 of them**.\n- `plugin-list` + `i18n`: **403 tests across 29 files**, green. `eslint`: 0 errors.\n\n## What else was checked, and needed nothing\n\n| Framework change | objectui impact |\n|---|---|\n| objectstack-ai/objectstack#4061 — three orphan vocabularies deleted | **none** — 0 references to any deleted symbol |\n| objectstack-ai/objectstack#4070 — `combo`, `WidgetActionType` = `ActionType` | **none** — objectui already renders `combo`; the widget enum widening is what unblocks `form`, which its dispatcher already implements |\n| objectstack-ai/objectstack#4107 — `saveMeta` persists canonical operators | **none** — all three translation tables cover the full canonical vocabulary since #3022 |\n| objectstack-ai/objectstack#4153 / #4184 — analytics aggregate + measure fixes | **none** — `DatasetWidget` already renders a failed query as an error panel, so the new throws surface as a visible message instead of a wrong number |\n| objectstack-ai/objectstack#4135 — `InlineActionSchema` | **none blocking** — the `ElementButton` renderer still forwards `actionType`/`endpoint`/`navigate`/`description`, which the schema does not declare; trimming them is a narrowing that belongs with the Stage C alias removal |\n\nRefs objectstack-ai/objectstack#4121, #2945\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

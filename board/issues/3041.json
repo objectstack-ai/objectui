@@ -1,0 +1,35 @@
+{
+  "number": 3041,
+  "kind": "pull_request",
+  "title": "feat(form): SplitForm honours the spec's new `FormSection.pane`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:13:44Z",
+  "updated_at": "2026-07-30T13:21:26Z",
+  "closed_at": "2026-07-30T13:21:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:21:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3041",
+  "body": "ObjectUI half of [objectstack#4160](https://github.com/objectstack-ai/objectstack/pull/4160) — closes out the last item from the #2153 follow-up list (the hardcoded `slice(0,1)` / `slice(1)` pane split).\n\n## What\n\nSections declare their panel: `pane: 'primary' | 'secondary'` (spec `FormSection.pane`). Placement follows the **key**, not the array position; omitted keys keep the exact legacy rule (first section `primary`, rest `secondary`), so existing metadata renders unchanged.\n\nDesign rationale lives in the spec PR: the positional rule was invisible in the metadata — reordering sections silently moved them across the divider (the class of implicit rule AI authors reliably trip over), and two sections in the left pane was inexpressible. The value names map 1:1 onto `fieldPanes`' existing pane keys (#3012), so `SplitForm`'s change is a `filter` by resolved pane replacing two `slice`s.\n\nAlso:\n\n- `ObjectFormSection` (the \"aligns with spec FormSection\" runtime type in `@object-ui/types`) declares the key.\n- `ObjectForm`'s split dispatch copies it through its per-key section mapping — the path that once silently dropped `visibleOn`; there's now a test pinning the copy.\n- The spec side rejects `pane` on non-split form types at parse, so the key can never be accepted-but-ignored.\n\n## Tests\n\n3 new cases in `sectionedFormValues.test.tsx`, **verified failing against the unfixed renderer** (3 red / 9 green baseline):\n\n- sections group by declared pane, not position — two sections side by side in the primary pane, previously inexpressible;\n- reversing the section array changes nothing (the reorder hazard, pinned dead);\n- `ObjectForm` forwards the key through its mapping.\n\n39 files / 303 tests green across `plugin-form` + the form renderer; `turbo type-check` green; lint 0 errors.\n\nNo browser pass this time: the paths exercised (pane grouping → `fieldPanes`, panel rendering) are exactly the ones browser-verified in #3012; this PR changes which sections land in which group, which the DOM assertions cover.\n\n## Sequencing\n\nNo compile-time dependency on the new spec version (the key arrives as plain JSON; the type is objectui's own), so CI is green independently — but **objectstack#4160 merges first** per cross-repo convention. Server-served metadata carries `pane` only once the framework deploys the new spec.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

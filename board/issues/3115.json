@@ -1,0 +1,30 @@
+{
+  "number": 3115,
+  "kind": "issue",
+  "title": "[console] 列表导出菜单「导出为 PDF」是死按钮:菜单项渲染但点击零请求",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:38:00Z",
+  "updated_at": "2026-07-31T10:08:47Z",
+  "closed_at": "2026-07-31T10:08:47Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3115",
+  "body": "## 现象\n\n视图声明 `exportOptions:['xlsx','pdf']` 后,列表导出菜单正常渲染两项,但**「导出为 PDF」是死按钮——点了不发任何请求**。\n\n## 实测证据(17.0.0-rc.0,双请求对照)\n\n同一列表:\n- 点「导出为 XLSX」→ `GET /api/v1/data/:object/export?format=xlsx` **200**,文件正常;\n- 点「导出为 PDF」→ 网络面板捕获到的 `/export` 请求数为 **0**。\n\n## 影响\n\n菜单项存在但点了没反应,用户以为坏了;需要 PDF 交付的场景(下游说明书要求台账「导出 PDF/Excel」)只能用「打印→另存为 PDF」过渡。\n\n## 建议\n\n二选一:(a)接通 `format=pdf` 的导出链路;(b)在 pdf 尚未实现前,菜单项不渲染或置灰+提示,别渲染成可点的死按钮。\n\n下游登记:os-project-titanwind-ehr PLAT-DEF-013(项目 #633 P-2)。\n"
+}

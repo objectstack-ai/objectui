@@ -1,0 +1,30 @@
+{
+  "number": 2955,
+  "kind": "issue",
+  "title": "审批决策输出（#3447 P2 decisionOutputs）在 Console 两个决策入口都接不上：审批中心降级成填记录 ID、记录页审批按钮完全不采集",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T06:11:12Z",
+  "updated_at": "2026-07-30T02:39:29Z",
+  "closed_at": "2026-07-30T02:39:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2955",
+  "body": "## 现象\n\n#3447 P2 的 `decisionOutputs`（审批人在做决定时提交结构化数据）**服务端已经完整可用**，但两个决策入口都接不上，导致这个能力在 Console 里事实上无法使用。\n\n服务端侧确认正常（本地 17.0.0-rc.0 实测抓包）：节点声明\n\n```ts\ndecisionOutputs: [{ key: 'parallel_positions', label: '并行会审岗位', type: 'position', multiple: true }]\n```\n\n`GET /api/v1/approvals/requests` 返回的请求行上确实带着\n\n```json\n\"decision_outputs\": [\"parallel_positions\"],\n\"decision_output_defs\": [{\"key\":\"parallel_positions\",\"label\":\"并行会审岗位\",\"type\":\"position\",\"multiple\":true}]\n```\n\n### ① 审批中心（ApprovalsInboxPage）不读 `decision_output_defs`，把带类型的选择器降级成\"填记录 ID\"文本框\n\n审批中心的决策抽屉只消费旧的 `decision_outputs`（裸键名数组），为每个键渲染一个**纯文本输入框**，占位提示「<标签> 的记录 ID」。objectui#2831 的 typed 选择器（user / department / position / team 的记录选择器）只接进了 `DeclaredActionsBar`，没有接进审批中心。\n\n结果：审批人要选人 / 选岗位时只能去别处复制记录 ID 再粘回来，实际不可用；流程作者声明的 `type` / `multiple` 形同虚设。\n\n### ② 业务记录详情页的「批准 / 驳回」按钮完全不采集 `decisionOutputs`\n\n`useRecordApprovals` 的 decide 只发 `{ actorId, comment }`，既不读 `decision_output_defs` 也不发 `outputs`。审批中心侧已经有「本审批需要填写决策输出，请打开详情再决策」的快捷通道守卫（#2829），记录页侧没有对应守卫。\n\n结果：节点一旦声明了 `decisionOutputs`，审批人从业务单据详情页点「批准」会**静默跳过**这些输入 —— 后续节点读 `vars.<nodeId>.<key>` 直接缺键，`expression` 审批人抛 `EXPRESSION_FAILED` 让节点硬失败，或（若作者写了 `has()` 兜底）落进 `onEmptyApprovers`。审批人和流程作者都不会收到任何提示。\n\n## 复现\n\n1. 任一 `record_change` 流的 approval 节点上声明上面那个 `decisionOutputs`；\n2. 提交一条单据进入该节点；\n3. **审批中心** → 打开该请求 → 点「通过」：弹窗里「并行会审岗位」是纯文本框，提示填记录 ID（期望：`sys_position` 多选选择器）；\n4. **业务单据详情页** → 点页头「批准」：直接通过、没有任何弹窗，`sys_approval_action` 上没有 outputs（期望：要么弹出决策输入，要么像审批中心一样禁用并提示去详情决策）。\n\n## 期望\n\n- 审批中心的决策弹窗按 `decision_output_defs` 渲染对应的记录选择器（复用 `DeclaredActionsBar` 里已经做好的那套 widget 映射），`multiple: true` 收集 id 数组；\n- 记录详情页的审批按钮要么同样采集 `decisionOutputs`，要么在节点声明了 `decisionOutputs` 时禁用并提示\"请到审批中心决策\"，不要静默跳过。\n\n## 附带一个能力缺口（可另议）\n\n`DecisionOutputDef` 没有 `required`，Console 合成参数时也把 `required: false` 写死了，所以作者无法要求\"审批人必须选了才能通过\"。我们只能退而用 `onEmptyApprovers: 'admin_rescue'` 兜底（漏选就卡住等管理员转签），而不是在弹窗里硬拦。如果 `decisionOutputs` 的定位是\"路由下一步审批人\"，`required` 会很有用。\n\n## 环境\n\n平台 17.0.0-rc.0（`@objectstack/*` 全套），Console 随该版本内置；本地 dev（SQLite / 单租户）。\n\n发现于业务项目 QIF/NCR 三级审批回归 #3447 原始要求的过程中；我们最终绕开了 `decisionOutputs` 通道，改为\"审批人在单据字段上选 + 下一节点用 `expression` 审批人读记录实时值\"，所以不阻塞我们，但这个能力目前在 Console 里等于没有入口。\n"
+}

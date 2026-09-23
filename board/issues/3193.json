@@ -1,0 +1,35 @@
+{
+  "number": 3193,
+  "kind": "issue",
+  "title": "仓库根有一个被提交进来的截图:文件名 `--full-page`(68KB PNG),`.gitignore` 的 `/*.png` 锚点拦不住它",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T10:20:02Z",
+  "updated_at": "2026-08-02T11:31:22Z",
+  "closed_at": "2026-08-02T11:31:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3193",
+  "body": "## 现象\n\n`main` 的仓库根目录里有一个 **被 git 跟踪** 的文件,名字就叫 `--full-page`:\n\n```\n$ file -- ./--full-page\n./--full-page: PNG image data, 1280 x 577, 8-bit/color RGB, non-interlaced\n\n$ ls -la -- --full-page\n-rw-r--r-- 1 root root 68949 ... --full-page\n\n$ git log --oneline -1 -- './--full-page'\n07de839 fix(notifications): the config, position and action variant are read instead of forked or ignored (#3014 follow-up) (#3085)\n```\n\n它是一张 1280×577 的截图,显然来自某次截图命令 —— `--full-page` 这个 CLI 参数被当成了输出文件名(`... > --full-page` 或参数顺序写错),然后随 #3085 一起提交了。每个新建的 worktree 都会带上它。\n\n## 为什么没被兜住\n\nAGENTS.md「Housekeeping」写着「截图/trace 一律存 `/tmp/`,任务尾清理。**禁止写入仓库根**」,并说 `.gitignore` 已锚定 `/*.png` 防兜底。但这个文件**没有 `.png` 扩展名** —— 它叫 `--full-page` —— 所以 `/*.png` 匹配不到,兜底在这个形状上是漏的。\n\n以横杠开头的文件名还有个附带的坑:`rm --full-page`、`git rm --full-page` 都会被当成参数解析,得写 `rm -- ./--full-page`。\n\n## 建议\n\n1. 删掉它(`git rm -- './--full-page'`),纯清理,一个独立的 PR。\n2. 顺带收紧 `.gitignore` 的兜底,让「按内容是图片但没有扩展名」的根文件也进不来 —— 例如显式忽略 `/--*`(以横杠开头的根文件几乎必然是参数解析事故),或在根级只允许白名单。方案由维护者定,这里只记录漏洞形状。\n\n## 出处\n\n在 #3118 的 worktree 里发现(`git worktree add` 后根目录多出这个文件)。按 AGENTS.md「越界发现立 issue、不就地扩大范围」处理,不塞进 #3118 的 PR。未指派。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

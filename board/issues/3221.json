@@ -1,0 +1,35 @@
+{
+  "number": 3221,
+  "kind": "issue",
+  "title": "`FieldWidgetComponentProps` 的 `[key: string]: any` 让每个 widget prop 检查失效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T18:48:36Z",
+  "updated_at": "2026-08-02T20:32:10Z",
+  "closed_at": "2026-08-02T20:32:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3221",
+  "body": "在 objectui#3161(objectstack#4115 台账批次 7)把 `@object-ui/fields` 的 `FieldWidgetProps` 改名为 `FieldWidgetComponentProps` 时发现的,**未在该 PR 修复**(改名不改行为)。\n\n## 现象\n\n`packages/fields/src/widgets/types.ts`:\n\n```ts\nexport type FieldWidgetComponentProps< T = any > = {\n  value: T;\n  onChange: (val: T) => void;\n  field: FieldMetadata;\n  readonly?: boolean;\n  disabled?: boolean;\n  className?: string;\n  errorMessage?: string;\n  onUploadingChange?: (uploading: boolean) => void;\n  [key: string]: any;   // ← 这一行\n};\n```\n\n这个索引签名是 objectstack#4075 的机制:**一个声称拥有全部键的类型,永远不可能被报告\"缺了某个键\"**。具体后果:\n\n- `props.required`、`props.error`(spec 的 `FieldWidgetPropsSchema` 声明了这两个键,本地没有)都是**合法读取**,类型是 `any`,运行时恒为 `undefined`;\n- 任何 widget 拼错 prop 名(`readOnly` vs `readonly`、`onchange`)都能通过编译;\n- 任何结构比较(parity 测试)对这个类型都是**原理上无效**的——批次 7 的守卫是唯一能看见这类问题的东西。\n\n## 为什么没在 #3161 里顺手删\n\n`fields` 包内约 48 个 widget 用 `...props` 透传,删掉索引签名会在这些调用点产生真实的类型错误,需要逐个判断该 prop 到底该不该存在——这是行为/契约变更,不是符号改名。\n\n## 建议做法\n\n1. 把真正需要的透传键显式声明(`id`、`name`、`aria-*`、`data-testid` 等),或改为 `& React.HTMLAttributes< HTMLElement >` 之类有约束的交集;\n2. 逐 widget 修掉暴露出来的错误;\n3. 删掉 `packages/fields/src/__tests__/spec-symbol-batch7.test.ts` 里三条**专门为此写的、会在删除索引签名时报红**的钉扎(`_IndexSignatureStillThere` / `_RequiredSilentlyReadsAsAny` / `_ErrorSilentlyReadsAsAny`)。\n\n关联:objectstack#4115、objectstack#4075、objectui#3161。"
+}

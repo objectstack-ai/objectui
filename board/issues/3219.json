@@ -1,0 +1,35 @@
+{
+  "number": 3219,
+  "kind": "issue",
+  "title": "`plugin-calendar` 的 registration.test.tsx 在 main 上就是红的:`@object-ui/react` 的 vi.mock 缺 `subscribeDataChanges`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T17:26:40Z",
+  "updated_at": "2026-08-03T07:16:48Z",
+  "closed_at": "2026-08-03T07:16:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3219",
+  "body": "`pnpm test`(turbo 全量)在 `main` 上有一个稳定失败的测试**文件**,不是断言失败,是 suite 根本没跑起来。发现于 objectui#3160(objectstack#4115 台账批次 6)的全量验证,与该批次无关,按 AGENTS.md Prime Directive #10 单独登记。\n\n## 现象\n\n```\nFAIL  packages/plugin-calendar/src/registration.test.tsx [ src/registration.test.tsx ]\nError: [vitest] No \"subscribeDataChanges\" export is defined on the \"@object-ui/react\" mock.\n      Did you forget to return it from \"vi.mock\"?\n ❯ src/CalendarView.tsx:13:1\n```\n\n`Test Files 1 failed | 2 passed (3)` / `Tests 13 passed (13)` —— 断言全过,失败的是整份文件的加载。\n\n## 确认是既有问题,不是某个分支引入的\n\n在 objectui#3160 的工作树里把该分支的全部改动 `git stash -u` 之后,单独跑同一个文件:\n\n```\n$ pnpm --filter @object-ui/plugin-calendar exec vitest run src/registration.test.tsx\n Test Files  1 failed (1)\n      Tests  no tests\n```\n\n即基线提交(`e3aea83`)上就是红的。批次 6 只改动 `data-objectstack` / `plugin-chatbot` / `plugin-list`,`plugin-calendar` 不依赖其中任何一个。\n\n## 成因\n\n`registration.test.tsx` 用 `vi.mock('@object-ui/react', …)` 做整模块替换,而 `CalendarView.tsx` 从该模块 import 的 `subscribeDataChanges` 不在 mock 的返回对象里。vitest 4 对整模块 mock 的缺失导出是硬报错(不再静默给 `undefined`),所以这份 mock 每新增一个被消费的 `@object-ui/react` 导出就会失效一次。\n\n## 建议修法\n\n不是把缺失的名字补进去了事 —— 那只是把同一个陷阱推迟到下一个新导出。改用 `importOriginal` 的部分 mock,只覆盖这份测试真正要控制的函数:\n\n```ts\nvi.mock(import('@object-ui/react'), async (importOriginal) => ({\n  ...(await importOriginal()),\n  // 只在这里列出要替换的\n}))\n```\n\n## 附带一条观察(不确定是否同一件事)\n\n同一次全量跑里 `@object-ui/plugin-gantt` 也报了 `ELIFECYCLE`,但单独跑 `pnpm --filter @object-ui/plugin-gantt exec vitest run` 是 **35 文件 / 340 断言全绿**。形态与 objectstack#4115 批次 4 记录的「并行 worktree 内存压力导致的文件级错误漂移」一致,可能只是并发下的资源问题,与本 issue 的 mock 缺陷不是一回事。\n"
+}

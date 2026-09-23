@@ -1,0 +1,35 @@
+{
+  "number": 3201,
+  "kind": "issue",
+  "title": "ActionParam.validation / ActionParamDef.validation is declared, never read, and rejected by the spec parser",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T13:32:01Z",
+  "updated_at": "2026-08-03T10:43:46Z",
+  "closed_at": "2026-08-03T10:43:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3201",
+  "body": "Found while fixing objectui#3174 (the `referenceTo` vs `reference` spelling split). Recording only — out of scope there, because retiring it is its own decision with its own blast radius.\n\n## The gap\n\n`validation?: string` is declared on **both** halves of the action-param contract:\n\n- authoring — `@object-ui/types`' `ActionParam` (`packages/types/src/ui-action.ts`)\n- resolved — `@object-ui/core`'s `ActionParamDef` (`packages/core/src/actions/ActionRunner.ts`)\n\nNothing reads it, on either side:\n\n- `resolveActionParams()` (`packages/app-shell/src/utils/resolveActionParams.ts`) never copies it onto the resolved param — it is not in `RawActionParam` at all.\n- `paramToField()` (`packages/app-shell/src/utils/paramToField.ts`) never maps it into the field object the widgets consume.\n- `buildValidationRules()` in `@object-ui/fields` builds rules from `required` / `minLength` / `maxLength` / `pattern` / `type` field metadata. There is no `validation` branch, so even if it reached the field it would be inert.\n\nAnd it is not authorable either: `ActionParamSchema` in `@objectstack/spec/ui` is `.strict()` with a custom unknown-key error, and `validation` is not in its `ACTION_PARAM_KEYS`. So an authored `validation: '...'` is a hard parse rejection on the server, while `tsc` against the public type accepts it.\n\nThat is exactly the objectui#3174 shape — declared, inert, and blessed by a type the platform's own parser refuses — minus the second spelling that made #3174 worse.\n\n## Why it was left standing in #3174\n\n#3174's fix removed the nine resolved-side picker keys (`referenceTo`, `displayField`, `idField`, `descriptionField`, `titleFormat`, `lookupColumns`, `lookupFilters`, `lookupPageSize`, `dependsOn`) from the authoring `ActionParam`, and installed a drift guard pinning the rule **\"the authoring type declares exactly the spec's authorable keys\"**. `validation` is carried as the one named exception in that guard, so a second undeclared local key cannot appear without a decision — but the exception itself is debt, and this issue is the ledger entry for it.\n\n## The decision this needs\n\n1. **Remove it** from `ActionParam` (and probably `ActionParamDef` too), on the enforce-or-remove reading: it can never work as authored, so declaring it can only mislead. Breaking change to two published types; needs a changeset.\n2. **Implement it** — decide what an \"expression\" means here (CEL? a formula? a regex?), add it to `ActionParamSchema` in `@objectstack/spec` (cross-repo contract change), have the resolver carry it and `paramToField` lower it into a real validation rule.\n\nOption 1 is the ADR-0049 default and the cheaper honest answer; option 2 is only worth it if per-param validation is a capability we actually want, in which case the spec is where it starts. Either way the gate is a test asserting that whatever the authoring type declares, the param dialog enforces.\n\n## Acceptance\n\n- `ActionParam` and `ActionParamDef` agree with what the runtime does with `validation`.\n- The #3174 drift guard in `packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts` no longer needs a named exception (or names a different, justified one).\n"
+}

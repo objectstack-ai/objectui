@@ -1,0 +1,32 @@
+{
+  "number": 3105,
+  "kind": "pull_request",
+  "title": "docs(app-shell): the wait-key retirement lands in spec 17.0.0, not the \"18\" its tombstone claims (#3101)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T07:35:30Z",
+  "updated_at": "2026-07-31T07:42:19Z",
+  "closed_at": "2026-07-31T07:42:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T07:42:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3105",
+  "body": "#3101 记了一条待办:`wait` 表单还提供 `waitEventConfig.timeoutMs` / `.onTimeout`,而 framework#4198 已经给它们上了墓碑。待办本身成立 —— **触发时机写错了**。\n\n## 没有 18 可等\n\n`zodKeys` 的 TSDoc(以及 #3101 正文、以及 framework#4198 自己的 changeset 正文)都写着这两个键\"retired at spec 18\",于是 #3101 的处置写成「在把 `@objectstack/spec` 升到 18 的那个 PR 里一并处理」。当前的发布机器**产不出 18**:\n\n| 事实 | 值 |\n|:---|:---|\n| npm dist-tags | `latest` = **16.1.0**,`rc` = 17.0.0-rc.0 —— 17.0.0 从未发布 |\n| framework `.changeset/pre.json` | `mode: \"pre\"`, `tag: \"rc\"`,`@objectstack/spec` initialVersion = **16.1.0** |\n| #4198 的 changeset | `'@objectstack/spec': major` |\n| 算出来的下一版 | pre 模式从**上一个已发布**版本起算:16.1.0 + major = **17.0.0**(发成 `17.0.0-rc.1`) |\n| framework main | 两个墓碑已在树上(`ab1633122`),同一棵树上 `PROTOCOL_VERSION = '17.0.0'`,且 `protocol-version.test.ts` 把它钉死在 package.json 的 major 上 |\n| ADR-0059 §4 | 删除 → \"bump to a new **major**\";相对已发布的 16.1.0,那个 new major 就是 **17** |\n\n\"18\" 是从**在研版本号** `17.0.0-rc.0` 往上数了一位得来的,而 changesets 是从 16.1.0 往上算的。framework main 上 9 处墓碑文案写 18、32 处写 17;那 9 处的共同点只是\"在 rc.0 切出之后才落地\",全都还在 17 这趟车上(objectstack#3909 \"the 17.0.0 train\" 仍开着)。已装的 rc.0 里 `spec 18` 出现 0 次,`spec 17` 出现 200 次。\n\n## 这条注释为什么值得改\n\n它是这个 ratchet 的**触发条件说明**。写成\"等 18\",这条待办就会等一个不会到来的事件,然后在下一次 rc 刷新时被动踩雷 —— 正是 #3101 想避免的那件事。改后的注释把推导过程也记下来,免得下一个人重新数错一遍。\n\n仅注释;`zodKeys` 的过滤逻辑与三处断言一字未动。\n\n## 不受影响的部分\n\n`不要单独先删这两个字段` 仍然成立,只是理由要换:sibling-block 断言是**双向**的(`flow-node-config.spec-reconciliation.test.ts` L192-199),而**已装的 rc.0** 里 `waitEventConfig` 仍把两个键声明为活键,现在删会在反方向红(`declared by the spec block but absent from the designer form`)。轴是\"已装 rc.0 vs 下一次 rc\",不是\"17 vs 18\"。\n\n## 验证\n\n```\npnpm exec vitest run packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.spec-reconciliation.test.ts\n→ 1 passed | 3 passed | 5 skipped\n```\n\n(5 skipped = script/subflow/decision 三个 feature-detect 面板,已装 spec 尚未导出它们的契约 —— 与改动前一致。)\n\n## Related\n\n- #3101 —— 待办本体;正文的触发条件已同步更正\n- objectstack-ai/objectstack#4350 —— framework 侧同源的 10 处墓碑文案(含本 PR 引用的那两处)版本号更正\n- objectstack-ai/objectstack#4198 —— 退役这两个键的 framework PR\n- objectstack-ai/objectstack#4278 / #4325 —— 引入对账的两半\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3028,
+  "kind": "pull_request",
+  "title": "feat(studio): a page button created in Studio can be given an action (#2997)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:34:15Z",
+  "updated_at": "2026-07-30T11:39:33Z",
+  "closed_at": "2026-07-30T11:39:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:39:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3028",
+  "body": "The last piece of #2997. Independent of the spec work (objectstack-ai/objectstack#4135, merged) — this table is hand-written, not derived from the props schema.\n\n## The gap\n\n`element:button` renders inert without an `action`, and Studio had **no way to add one**.\n\nTwo things had to both be true, and they were:\n\n1. The curated inspector entry (`block-config.ts:216`) listed `label`, `variant`, `size`, `icon` — no `action`.\n2. The generic **\"Advanced\"** section is not a fallback for that. It enumerates the keys the block *already has*:\n\n```ts\nconst advancedKeys = Object.keys(blockProps).filter(\n  (key) => !curatedNames.has(key) && !STRUCTURAL_PROP_KEYS.has(key),\n);\n```\n\nSo Advanced could edit an `action` that source had authored, and never add one to a button dragged from the palette. (This also corrects the framing in my own analysis on #2997, which said Studio \"cannot author it\" — it can edit an existing one; what it cannot do is create one.)\n\n## The change\n\nA `json` field kind — the same `InspectorJsonField` editor Advanced already uses, made reachable for a property that does not exist yet — plus an `action` field on `element:button`:\n\n```ts\n{ name: 'action', label: 'Action', kind: 'json',\n  placeholder: '{ \"type\": \"url\", \"target\": \"/environments\" }' }\n```\n\nThe placeholder is not decoration. An empty JSON textarea is the *entire* affordance a raw-JSON editor offers, so `placeholder` is now threaded through to the `<textarea>` and **asserted for every `json` field** — a `json` field without one is a blank box, which is worse than no field.\n\n**Raw JSON rather than typed sub-fields, deliberately.** The spec declares the prop as `InlineActionSchema`, and the inspector cannot render a nested schema as fields yet. A JSON box an author can actually use beats a curated form that models `type` and `target` and silently omits `params`, `openIn`, `confirmText` and the rest. The placeholder shows the canonical pair, which covers the common case.\n\n## The existing ratchet caught the new kind\n\n`block-config.test.ts` asserts every field's `kind` is in an allowlist, and it failed on first run:\n\n```\nelement:button.action kind=json … expected false to be true\n```\n\nThat is the guard doing its job; `json` is added to the allowlist in the same change. Two new assertions go with it — `element:button` must expose an `action` field, and every `json` field must carry a placeholder.\n\n## Verification\n\n- `app-shell` `metadata-admin`: **968 tests across 111 files**, green (12 in `block-config.test.ts`, up from 10).\n- `tsc --noEmit`: **0 errors** with workspace deps built. (Without them the package reports 727, all `Cannot find module '@object-ui/*'` cascades — worth stating, because the 4 that land in `PageBlockInspector.tsx` unbuilt are of that class, not from this change.)\n- `eslint`: 0 errors on both touched files.\n\nRefs #2997, objectstack-ai/objectstack#4135\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

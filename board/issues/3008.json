@@ -1,0 +1,38 @@
+{
+  "number": 3008,
+  "kind": "pull_request",
+  "title": "fix(spec-parity): the fifteen Tier-2 spec values render instead of validating into nothing (#2942)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T09:19:57Z",
+  "updated_at": "2026-07-30T09:30:12Z",
+  "closed_at": "2026-07-30T09:30:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T09:30:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3008",
+  "body": "Closes #2942 (Tier 2 of the #2901 audit — spec values that validate and then render **nothing**; [audit doc](https://github.com/objectstack-ai/objectui/pull/2937)). Follows #2993 (Tier 1).\n\nAll 15 rows re-verified against current main before touching anything (post-#2989/#2940 the filter-operator row had narrowed to 4 tokens; everything else was live). Two rows turned out **worse** than filed: the timeline renderer read its own `timeScale` key so even day/week/month spec configs were ignored, and the report-aggregation vocabulary is the types-local `distinct`, not the issue's `unique`.\n\n## The fifteen fixes\n\n| Row | Before | Now |\n|---|---|---|\n| **`element: 'toggle'` deleted the filter bar** | `default: return null` — the spec promises stored toggle configs keep rendering, the renderer shipped the one artifact that says nothing | The existing-but-unreachable `ToggleFilters` is wired. The split is deliberate: **authoring** stays untypeable (ADR-0053's correct-by-construction removal, pinned by `phase2-schemas.test.ts`), **rendering** honors stored metadata (spec ADR-0047 §3.4a) |\n| **7 chart types drew an empty plot** | gauge/solid-gauge/metric/kpi/bullet/table/pivot fell through `\\|\\| BarChart` into a shell whose series marks all returned null — indistinguishable from an empty dataset, reachable via `ChartRenderer`'s `schema.chartType ?? spec.chartType` bypass | Single-value families render the measure as a number (the spec's own framing), table/pivot name the owning component, out-of-spec values are named — never guessed at |\n| **6 of 9 animation presets did nothing** | `PRESET_CLASSES` keyed in hyphens vs the spec's underscores; rotate/flip absent | Re-keyed to the spec vocabulary (rotate/flip classes copied from `usePageTransition`, the sibling that always had all nine); hyphen dialect + `scale-fade` stay accepted for stored configs |\n| **3 of 6 easings emitted invalid CSS** | `EASING_MAP[easing] \\|\\| easing` → `animationTimingFunction: 'ease_in_out'`, silently dropped by the browser | All six spec spellings map to real CSS; out-of-vocabulary strings are dropped unless they look like raw CSS (`cubic-bezier(…)`) |\n| **`mode: 'auto'` locked the light theme** | Both ThemeProviders branched on the pre-spec `system` only; `classList.add('auto')` matches no Tailwind variant | `auto` follows the OS preference in both providers; `system` kept for stored values |\n| **Export PDF downloaded nothing** | Every authored format was offered; picking PDF closed the popover silently (xlsx too, without the server path) | Fixed concurrently by #2999 (drop undeliverable formats + dev-time warning) — this branch rebased onto it and defers; the parallel implementation it carried was removed in the rebase |\n| **Timeline `scale` blanked the axis** | Renderer read its own `timeScale` key (spec `scale` ignored for ALL six values); hour/quarter/year generated zero headers | Spec key read first (legacy kept); every scale produces calendar-snapped gantt buckets. The vertical/horizontal variants are event feeds with no time axis — documented, not a gap |\n| **All 6 toast positions discarded** | `<SonnerToaster />` bare, `inputs: []` | Position (spec underscores + ToasterSchema hyphens) and `limit` reach sonner; registry inputs declared |\n| **All 5 notification types collapsed to toast** | `displayType` stored, never read; the union claimed spec alignment while carrying `modal` and missing `alert`/`inline` | Union + positions now match the spec enums (legacy spellings kept, `modal` presents as `alert`); `displayType` is materialized so the presenting delegate can branch. Distinct banner/inline presenters remain the documented follow-up — this PR closes the contract half |\n| **`navigation.size` ignored off app-shell** | The hook only read the deprecated `width` | Explicit buckets resolve to the same viewport-clamped widths as `plugin-view`'s `overlayWidthFor`; `width` still wins; `auto` stays host-derived (needs field counts only schema-aware hosts have) |\n| **`date-range`/`text` filters were dead controls** | Chip rendered; popover said the literal \"No options\" | A from/to date pair (emits `>=`/`<=` bounds) and a commit-on-Enter contains search |\n| **4 gesture types became tap** | `useSpecGesture` never read `config.type`; branched on sub-object presence | The declared type drives recognition; `useGesture` gains real double-tap (two taps within 350 ms — it used to fire per tap) and two-touch pinch/rotate deltas |\n| **Report `distinct` → blank cell** | `default: return ''` | Distinct count over the raw field values; extracted as `computeReportAggregation` with a `Record<ReportAggregationType, …>` guard so a new union member fails type-check until computed |\n| **8 field types got a plain text input inline** | `json`/`composite`/`record`/`repeater`/`tree`/`video`/`audio`/`autonumber` were in neither `EDIT_WIDGETS` nor the exclusion set — the guard iterated `FORM_FIELD_TYPES`, which alias-only spec spellings never enter | Inline resolution reuses the form's alias table: `json` → code editor, `tree` → lookup picker, the rest resolve to their documented exclusions — and **ObjectGrid's editability gate consults the same contract**, so a `composite` cell is read-only instead of a value-corrupting text box. New guard iterates the spec `FieldType` (49 members, all decided) |\n| **4 filter operators unreachable from the UI** | `$startsWith`/`$endsWith`/`$null`/`$exists` accepted by `FieldOperatorsSchema`, offered nowhere (post-#2940/#2989 remainder) | Six new builder operators (startsWith/endsWith/isNull/isNotNull/exists/notExists) authorable, translated both ways, and the operator guard now DERIVES the spec set from `FieldOperatorsSchema.shape` and asserts every token is emittable |\n\n## Guards\n\nTen parity/coverage suites (~100 new tests), all per the #2897 template — each pair fails the moment the spec or the renderer moves alone. Prerequisite devDeps: `fields`, `mobile`, `plugin-charts`, `providers` gain `@objectstack/spec` (lockfile checked — no second zod peer variant materialized; the components trap from #2993 did not recur).\n\n## Verification\n\n- Combined suite over the 13 touched packages: **3464 tests, all green** (the one mid-run failure was ADR-0053's toggle-rejection test, resolved by keeping the authoring contract narrow and widening only the render branch).\n- `pnpm build` 43/43; `tsc --noEmit` clean on all 13; eslint 0 errors on every touched file.\n\nRefs #2901. Remaining tiers: #2943 (loud failures), #2944/#2945 (forks & vocabularies).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

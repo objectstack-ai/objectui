@@ -1,0 +1,34 @@
+{
+  "number": 3009,
+  "kind": "pull_request",
+  "title": "build(types): type-check this package's tests, so the spec-derivation guards actually run (objectstack#4074)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T09:45:00Z",
+  "updated_at": "2026-07-30T10:18:40Z",
+  "closed_at": "2026-07-30T10:18:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:18:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3009",
+  "body": "Follow-up to #3003. While correcting a comment there I measured something worth its own change: `spec-derived-unions.test.ts` — the file that exists to stop a spec-derived union from being re-forked into a hand-written copy — was not being compiled by anything.\n\n## Measured, not assumed\n\nIts header claimed the `satisfies` checks in it \"are the real enforcement\". Reverting `ActionParamFieldType` from the spec's `FieldType` back to a hand-written subset:\n\n| | before this PR | after |\n|---|---|---|\n| `tsc` output | **0 errors** | `TS1360` on the `satisfies` line |\n\n`tsconfig.json` excludes test files — correctly, since it is the package *build* (`rootDir` / `composite` / `declaration`), so tests would emit into `dist` — and no other `tsc` invocation read them. There is no vitest `typecheck` project either.\n\nThe sibling guards over `ChartType`, `ReportType`, `ActionType` and `PageType` were inert for the same reason, so the anti-regression mechanism left behind by #2944 / #2901 was not running in CI. Those forks were each *already* drifted once when they were found; nothing would have caught a second drift.\n\n## The fix\n\n`packages/types/tsconfig.test.json`, chained from the package's `type-check` script — the shape this package **already** uses for `tsconfig.examples.json`: a separate, emit-free project.\n\nKept separate rather than deleting the exclude, for a reason that matters: the reexport guard scans sibling sources off disk, so it needs `types: [\"node\"]`. Folding that into `tsconfig.json` would let package **source** reference Node APIs and still compile, in a package that ships to browsers.\n\n## The 39 pre-existing errors it surfaced\n\n**`p2-spec-exports.test.ts` — 22.** It imported eight `…Schema` names as types from `../index`. #2561 decision (a) removed exactly those, and the sibling `spec-ui-schema-reexports.test.ts` **asserts their absence** — so this file contradicted its own guard for the whole interval. A type-only import of a nonexistent name erases at runtime, so the suite stayed green.\n\nIts fixtures were also typed as parsed *output* while being parse *input* — these schemas `.default()` several fields, so `{ enabled: true }` is valid input but the output type requires them. They now use `z.input<>`, the distinction spec draws itself with `ActionInput`. Same story for `operator: 'eq'`: a legacy alias spec folds at parse time, valid as input and absent from the canonical output union. The value-type re-exports this file exists to pin are now asserted explicitly, instead of incidentally through fixture annotations.\n\n**`app-creation-types.test.ts` / `system-fields.test.ts` — 3.** They imported the package by its own name. `turbo`'s `type-check` task is `dependsOn: [\"^build\"]` (upstream only), so the package's own `dist` does not exist when it runs. They now use the relative import all 13 sibling tests use.\n\n**`p1-spec-alignment.test.ts` — 14, declared as debt rather than fixed.** Excluded in `tsconfig.test.json` with a written reason, because these are not hygiene. Every one sits in a test named `should accept <shape>` whose entire purpose is asserting the type accepts that shape — and the type rejects it:\n\n```ts\nit('should accept sharing in ObjectUI format { visibility, enabled }', () => {\n  const schema: ListViewSchema = { …, sharing: { visibility: 'team', enabled: true } };\n  expect(schema.sharing?.visibility).toBe('team');   // can only pass: it asserts a JS\n});                                                  // object literal kept the key just written\n```\n\n`ListViewSchema.sharing` is `{ type, lockedBy }`. The legacy shape **is** real and **is** handled — `foldSharing` in core's `normalize-list-view.ts` folds `visibility` / `enabled` into the spec's `ViewSharing.type` — but only as untyped input (`normalizeListViewSchema<T>(schema: T): T`), so no type names it. That is the same \"implementation wider than the type\" shape as `execute` (objectstack#3856), `navigation` (#2944) and the param aliases (#3003).\n\nEach of the 8 sites is a separate decision — widen the type so the claim becomes true, or drop the claim — and several touch the public surface. Rewriting them silently while landing the plumbing would bury the finding, so they are tracked on objectstack#4074.\n\n## Scope\n\nDeliberately narrow: only `packages/types`, where the spec-derivation guards live. 28 other packages still exclude their tests; 5 (`fields`, `cli`, `data-objectstack`, `plugin-charts`, `plugin-editor`) already include them, so this establishes a pattern that is already load-bearing elsewhere rather than sweeping the repo.\n\nThis also corrects an overstatement in #3003, which said *every* package tsconfig excludes tests. It is 33 of 41.\n\n## Verification\n\n- **Discrimination check** — the point of the PR: revert the derived alias, get `TS1360`. Zero errors before.\n- `pnpm type-check` — **76/76** tasks.\n- `pnpm vitest run` — **717 files / 8380 tests** passed, 1 file / 24 skipped.\n- `packages/types`: all three tsconfig projects clean; 16 files / 246 tests.\n- `eslint packages/types/src` — 0 errors (249 pre-existing `any` warnings, none from this diff).\n- `node scripts/check-changeset-fixed.mjs` — clean.\n\nChangeset is `patch`: no public API changes, only build config and tests.\n\nRefs objectstack#4074, #3003, #2561, #2944, #2901, #2911\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014DBMo8gnFduzgpuSHd5Eje)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3100,
+  "kind": "pull_request",
+  "title": "fix(form): numeric/boolean option values survive selection typed (#3090 PR3b)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T06:36:39Z",
+  "updated_at": "2026-07-31T07:04:14Z",
+  "closed_at": "2026-07-31T07:04:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T07:04:12Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3100",
+  "body": "#3090 的 **PR3b(收官件)**——三件里唯一的真功能修复。\n\n## 缺陷\n\n`SelectOptionSchema.value` 自诞生起就接受 `string | number | boolean`,但底下的 Radix 控件只说 string:选中 `{ value: 2 }` 后 `onValueChange` 交回 `\"2\"`,直连 RHF —— **提交负载类型静默变形**,`\"2\"` 写进 number 字段,客户端零报告。实证还原了精确的半通半坏:数值默认值的显示匹配是通的(number === number),只有**选择动作**变形。TS 层则反向撒谎(`value: string`),让 `option.value.toLowerCase()` 这类代码带着假安全通过编译。\n\n## 修法\n\n- 新增 `option-value.ts`:`toControlValue`(进控件字符串化,absent 保持 absent)+ `matchOptionValue`(出控件按 `String(option.value)` 匹配映射回 **authored 原值**;未命中回退原 string = 改前行为,未匹配路径零变化)\n- 三处接线:表单内 select、独立 `type: 'select'` 组件、独立 `type: 'radio-group'` 组件(items/ids 字符串化)\n- **TS 停止撒谎**:`SelectOption.value`/`RadioOption.value` 及对应 `value`/`defaultValue`/`onChange` 通道拓宽到 zod 一直接受的联合 —— 把 `option.value` 当 string 用的调用点从此编译报错,点名的是真实潜在崩溃,不是误伤\n\n## 验证\n\n- **真实 Radix 交互测试**(jsdom + pointer-event polyfill,仓内首个打开 Radix Select 的测试先例):表单内 select 提交 `2`(number)、独立 select 回调收到 `false`(boolean);数值默认值显示回归钉住\n- repo-wide type-check **78/78 绿**(拓宽的下游消费点全在本 PR 内处理,零外溢)\n- repo-wide lint **45/45 绿**;1039 tests 过(components + plugin-form + types 全量)\n\n对象表单的 fields 层 widget 走 `SelectOptionMetadata`(spec 约束 value 为 machine-id string),不在本次拓宽范围。\n\nCloses 部分 #3090(PR3 最后一个复选框)—— 合入后战役收官。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

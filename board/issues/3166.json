@@ -1,0 +1,34 @@
+{
+  "number": 3166,
+  "kind": "pull_request",
+  "title": "test(console): `record:*` 家族第一次有了行为证据，抓到 `record:activity` 恒空与 `useMetadata` 的渲染死循环 (#3149)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:56:43Z",
+  "updated_at": "2026-08-01T14:07:27Z",
+  "closed_at": "2026-08-01T14:06:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T14:06:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3166",
+  "body": "#3149 的第 2 层和第 3a 层。第 1 层是 #3153，第 3b 层是明确的不做。**除 3b 外无剩余项，本 PR 合并后 #3149 可关。**\n\n## 为什么需要第二道探针\n\n#3146 的 `public-block-binding-reach.test.tsx` 问的是：声明了 `objectName` 的 block 裸挂载后，有没有一次数据调用带上这个对象名。`record:*` 家族按构造在这个问题之外——它们从 `RecordContextProvider` 取数，裸挂载**正确地**什么都不做，于是\"没有数据调用\"什么也不说明。\n\n而那恰好是 objectstack#4413 待过的地方：`record:details` / `record:highlights` / `record:path` / `record:related_list` 声明了没人读的 `objectName`+`recordId`，四个 block 在真实记录页上渲染空白，全程门禁皆绿——因为框架侧那道门禁比的是两份声明（objectstack#4472），而 binding-reach 探针根本看不见这个家族。**在本 PR 之前，\"这家族在记录页下能工作\"是个没有任何行为证据的假设。**\n\n## 探针问什么\n\n> 把 block 挂在 record context 下，绑**两条不同的、同对象的**记录，各挂一次。DOM 或数据调用**有没有变化**？\n\n两道探针的行为覆盖 14 → **24** / 57（`record:related_list` 两边都在：binding-reach 把它记成\"没有父记录就不该取数\"，本探针是第一个真让它取上数的地方——那条台账理由从声明变成了核过的事实）。\n\n### 几个刻意的设计决定\n\n这道门禁很容易写成它自己要消灭的东西，所以：\n\n- **两条记录，而不是\"绑 vs 不绑\"。** 不绑的对照组树形不同（少一层 provider），`React.useId` 整体偏移，于是每个块都\"有差异\"——探针自己制造绿。\n- **差分，而不是\"渲染非空\"。** 后者对一个无视全部输入的块也恒为真，这正是 #3149 记下**不**覆盖展示原语的理由。在这里加一道同样的东西是自毁。\n- **仪器本身也被断言。** 每个块还会**用记录 A 再挂一次**，要求和第一次逐字节相同。这条一旦失败，\"A 和 B 不同\"就不再等于\"记录到达了输出\"，整个文件的绿就是噪声——所以是断言，不是假设。\n- **崩溃按崩溃报。** SchemaRenderer 会把渲染期抛错吃掉画成错误卡片，而崩了的块对两条记录渲染的是**同一张卡片**——不单独断言就会落进\"无差异\"档，被读成关于绑定的结论。这不是假想：`sections` 的通用样本值把 `record:details` 送进过这个陷阱。\n- **无外网。** 这家族里有块直接调 `fetch('/api/v1/security/explain')`，happy-dom 下相对路径打到 `localhost:3000`——探针原本\"能跑\"只是因为连接被拒，每跑刷 24 行 ECONNREFUSED，谁本地起了 3000 端口结果就不一样。现在立即 reject，URL 进同一份调用台账（走裸 fetch 绑定记录的块照样算数）。\n\n### 结果\n\n**8 个响应绑定记录**：details / highlights / related_list / path / line_items / history / quick_actions / alert。\n\n**3 个入 `NO_RECORD_REACH` 台账**，每条必须写明宿主路径——因为\"宿主供数\"只有在真有宿主在供的时候才是理由：\n\n| block | 理由 | 核得住吗 |\n|---|---|---|\n| `record:discussion` | items 来自 DiscussionContext，由 app-shell `RecordDetailView` 挂 | ✅ |\n| `record:reference_rail` | `entries` 由 `buildDefaultPageSchema` 注入，不是作者输入 | ✅ |\n| `record:activity` | 渲染器把 `items={[]}` 写死，**没有任何路径在供数** | ❌ **#3165** |\n\n## 抓到的两个缺陷\n\n### 1. `record:activity` 的 feed 结构上不可能有内容 → #3165（本 PR 只记台账，不修）\n\n- 渲染器 `useRecordContext()` 调了就丢，`<RecordActivityTimeline items={[] as any}>` 写死；\n- 底层组件的 `items` 是 prop，全文件没有任何取数；\n- `buildDefaultPageSchema:614` 发出的节点**不带 props**，而触发它的 `options.showActivity` 在生产代码里从没被设成 `true`（每个调用点传的都是 `{ slots }` 或什么都不传）；\n- 注册处声明了 **11 个输入**，全是这个恒空 feed 上的过滤器和开关。\n\n**它自己的文件头写着 \"Real data wiring (sys_activity / sys_comment polling) lives inside that component\"——不在。那一句就是缺陷本身。**\n\n不在本 PR 修，是因为修法是个功能（镜像同目录 `record:history` 已有的 `sys_activity` 自取数），不是 #3144 那种一行桥接。台账是双向断言的：**它一旦开始响应记录，测试就会失败直到条目被删**，所以销账不会忘。\n\n### 2. `useMetadata()` 的\"优雅兜底\"是个无限渲染循环 → 本 PR 修掉\n\n它**每次调用都新建**兜底对象，于是 provider 外每渲染一次 `getItem` 就换一个身份；`useMetadataItem` 把 `getItem` 放在 effect deps 里、并在无 name 分支 `setState` 一个全新对象 → effect 重跑 → 新 state 对象 → 重渲染 → 新身份，**同步到能把 `render()` 卡住**。\n\n注释里写它存在的理由是\"让 provider 外的单测能正常渲染\"——它恰恰让那些消费者根本挂不起来。`record:alert` 和 `record:quick_actions` 都无条件调 `useMetadataItem`，各自打满一个核、涨到 8.6 GB 而一条断言都没跑到。\n\n两处改动，一处治本一处兜底：兜底对象改成**冻结的模块级单例**（身份稳定）；清空分支在**已清空时直接 bail**，覆盖同一个循环换条路来的情况——任何每渲染重建 context value 的调用方，而这个接口的注释是明确邀请这种写法的（\"hand-rolled context values in tests keep working\"）。\n\n## 第 2 层：原方案不存在，落地的是另一个\n\n原提议是\"`recordId` 在 `object-form` / `object-master-detail-form` / `embeddable-form` 三个块上\"。**这三个块都没声明 `recordId`——57 个 public block 里没有任何一个声明。** 全仓库只有 `view:detail` 和 `detail-view` 两处 `recordId`/`resourceId` 输入，都不 public。这和 objectstack#4472 方向 (d) 是同一类结果：一个从声明出发提的切片，等真去看声明的时候发现它不在。\n\n代之以同机制、同成本、但确实存在的切片：`record:related_list` 和 `record:line_items` 各自把 **required** 的 `relationshipField` + `childObject` 绑进子查询，且只有在 record context 下才观察得到。断言两次 `find()` 都带上声明的子对象名和关系字段，并 scope 到当前绑定的父记录 id。**两个都成立**：\n\n```\nfind(\"probe_child__c\", {\"$filter\":{\"parent_probe_id\":\"probe-record-aaaa\"},\"$top\":5,\"$skip\":0})\n```\n\n\"同机制换断言\"这个假设成立，成本是在本来就要发生的挂载上多加一条断言。是否继续外扩仍建议谨慎——噪声比现在是 **2 个真缺陷 : 5 个探针自造假信号**（第 3a 层新贡献了 `sections` 那个崩溃）。\n\n## 边界\n\n到达数据层 / 记录到达输出 **≠ 渲染正确**。这条链上仍然没有任何环节看渲染**结果**（ADR-0082 addendum 已写明）。本 PR 的范围是\"绑定接没接上\"。\n\n规格侧不动：ADR-0082 D1（spec 是协议）和 #3729 已经定过——`RecordActivityProps` 声明 11 个属性是**协议正确**，运行时跟不上是运行时的欠账，不是把协议削平的理由。\n\n## 验证\n\n- `record-block-record-reach.test.tsx`：13 passed，~27s，0 次外网连接\n- **模拟回归**：删掉 `record:activity` 的台账条目 → 测试失败并指名 objectstack#4413 的形状；说明这道门禁真的在检查东西\n- **本地全量 `vitest run`（AGENTS.md #10，已在 `origin/main` a889e31 上重跑）：800 个文件 / 9327 passed / 29 skipped，exit 0**\n- CI 全绿：4 个 test shard、Type Check、Lint、Build & E2E、Bundle Analysis、Build Docs、Dev-server fixture build\n\n## 变更\n\n| 文件 | |\n|---|---|\n| `apps/console/src/__tests__/record-block-record-reach.test.tsx` | 新增，第 3a 层探针 + 第 2 层切片 |\n| `packages/react/src/context/AppShellContext.tsx` | `useMetadata()` 兜底冻结成单例；`useMetadataItem` 清空分支 bail |\n| `.changeset/record-block-record-reach.md` / `.changeset/metadata-fallback-render-loop.md` | |\n\nCloses #3149"
+}

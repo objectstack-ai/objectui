@@ -1,0 +1,37 @@
+{
+  "number": 3068,
+  "kind": "pull_request",
+  "title": "refactor(types)!: rename the 15 symbols that only collided with a spec name (#4115 A 组)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:34:38Z",
+  "updated_at": "2026-07-30T15:41:17Z",
+  "closed_at": "2026-07-30T15:41:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:41:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3068",
+  "body": "按维护者指示:**A 组直接改名,不做别名过渡**。\n\n这 15 个是分诊里的 COINCIDENCE 判决 —— 本地概念与 `@objectstack/spec` 的某个导出**同名但建模的是别的东西**。名字本身就是缺陷:#4115 的核心论点正是「agent 读到熟悉的名字,默认它是 spec 的语义,然后在此之上继续写」(#2901 就是这样被填成反向前提的)。\n\n## 改名清单\n\n| 旧名 | 新名 | spec 那个同名符号其实是什么 |\n|:--|:--|:--|\n| `FilterCondition` | `FilterBuilderCondition` | 递归的 ObjectQL 过滤 AST(本地是 FilterBuilder 的一行) |\n| `FilterOperator` | `FilterBuilderOperator` | WebSocket 订阅的操作符枚举 |\n| `FilterConditionSchema` | `FilterBuilderConditionSchema` | 同上 |\n| `EventHandler` | `UIEventHandler` | 内核事件总线的**订阅注册**(本地是 SDUI 事件绑定) |\n| `CacheStrategy` | `FetchCacheStrategy` | 缓存**淘汰**策略(本地是 service-worker 取数顺序) |\n| `MutationEvent` | `DataSourceMutationEvent` | 一个**字符串枚举**(本地是对象 payload) |\n| `ExpressionSchema` | `ExpressionNodeSchema` | L1 CEL 表达式信封 |\n| `GroupByNode` | `GroupByClauseNode` | 单个分组目标(本地是整条 GROUP BY 子句) |\n| `SpanSchema` | `TextSpanSchema` | **OpenTelemetry 追踪 span**(本地是 HTML `<span>`) |\n| `BatchOperationResult` | `BatchOperationSummary` | **单条**记录的结果(本地是整批汇总) |\n| `ReportSchedule` | `ReportScheduleConfig` | 持久化的服务端行 |\n| `ReportSchema` | `ReportComponentSchema` | 报表元数据文档 |\n| `ThemeSchema` | `ThemeComponentSchema` | 主题**定义**(本地是主题切换器组件) |\n| `ValidationRule`(field-types) | `FieldConstraints` | 具名的服务端校验规则 |\n| `ValidationRule`(form) | `FieldValidationRules` | 同上 |\n\n## 改名过程中暴露的两个问题\n\n**1. objectui 自己有两个互相冲突的 `ValidationRule`。** `field-types.ts` 是扁平约束包(`minLength?: number`),`form.ts` 是 RHF 风格的包装形(`minLength?: {value, message}`)—— **键名全同、值形状不兼容**。barrel 只导出了后者(前者被刻意从导出块里省掉,正是为了躲开这个碰撞),所以深引 `field-types` 的消费者会**静默拿到另一个类型**。现在两者有了各自的名字。\n\n**2. `zod/reports.zod.ts` 里 `ReportComponentSchema` 已被判别联合占用。** 而 `zod/theme.zod.ts` 早已在用「节点 = `*ComponentSchema`、联合 = `*UnionSchema`」的约定 —— 所以把那个联合改成 `ReportUnionSchema`,顺带让两个文件的约定一致(一个三选一的判别联合叫 \"ComponentSchema\" 本来也不准确)。同样按无别名指示,`zod/theme.zod.ts` 里那个 `@deprecated` 的 `ThemeSchema` 别名**直接删除**而非保留。\n\n## 安全性:用 tsc 当裁判,不做盲目全局替换\n\n`FilterCondition`/`ValidationRule`/`ThemeSchema`/`ReportSchema`/`SpanSchema` 这些名字**两边都有**,盲替会把消费 spec 的引用也改错。做法是:先改声明与 barrel,再让编译器把所有断裂点列出来逐个判定。人工排除的真危险点包括 `app-shell/…/clientValidation.ts`(从 `@objectstack/spec/ui` 导入 `ReportSchema`/`ThemeSchema`)、`app-shell/…/report-schema.ts`、以及 `spec-report.ts:51`(`ReportSchema as SpecReportSchema_` 的导入别名)—— 这些一处未动。\n\ntsc 确实抓到了 3 处漏改(`data-protocol.ts` 的 `FilterOperator` 导入、`registry.ts` 的 `SpanSchema` 导入、以及上面那个联合重名),都已修正。\n\n## 验证\n\n- 台账 **144 → 129**,用 `--ledger` 重生成并逐条 diff:removed 恰为这 15 个、added 为空,**没有误抹其他包的债务**;\n- 变异测试:把 `FilterBuilderCondition` 改回 `FilterCondition` → 守卫按名+按文件报红;\n- 全仓 `type-check` 78/78;\n- **全量测试 8696 断言绿**(752 文件)。\n\n## BREAKING CHANGE\n\n`@object-ui/types` 的 15 个导出改名且**无别名**。仓内所有消费者已在本 PR 内更新(components / core / data-objectstack / mobile / plugin-report)。仓外消费者需要跟着改。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

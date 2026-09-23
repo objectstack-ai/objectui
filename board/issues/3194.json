@@ -1,0 +1,33 @@
+{
+  "number": 3194,
+  "kind": "pull_request",
+  "title": "fix(types): 把 objectstack#4171 三处反向 pin 对准真正的触发条件 (#3177)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T10:25:22Z",
+  "updated_at": "2026-08-02T10:29:04Z",
+  "closed_at": "2026-08-02T10:26:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T10:26:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3194",
+  "body": "Fixes #3177\n\n## 前提被修正了:pin 触发 ≠ burn-down 到期\n\nspec 17.0.0-rc.1 给 `NavigationItem` / `FormField` / `ConditionalValidation.then`·`.otherwise` 都定了型,三处 `IsAny` / `IsUnknown` 反向 pin 按设计触发。按 issue 计划第 1 步逐符号 triage 之后,结论是:**触发它们的谓词问错了问题**。\n\n`any` 从来不是这三个符号里**唯一**的阻碍,所以「不再是 any」从来就不是正确的准入条件。三个符号今天都**不该绑定**,一个都没绑。改的是探针:每条现在问那个真正说了算的条件,并且**断言当下的事实** —— 今天绿,而各自的阻碍被解除的那天就编译失败,那时才是 burn-down 真正到期。\n\n维护者决定见 #3177 的决策评论(Q1 B+C / Q2 B / Q3 B / Q4 B)。\n\n## 逐符号\n\n### `NavigationItem` —— 阻碍有三个,没有一个是 `any` 造成的\n\nspec 把导航建模成九个 `$strict` 变体的判别联合 + `superRefine` 互斥规则;objectui 是一个扁平全可选形状。除此之外,下面这些 spec 在**两个 tier 上都没有**:\n\n| 本地语义 | 谁在用 | 实测代价 |\n|---|---|---|\n| `visible: boolean` | `NavigationRenderer` 的 `evalVis`;`menuItemToNavigationItem` 把 legacy `MenuItem.hidden` 取反**生产**出布尔值 | 绑到 input tier:3 个 TS2322 |\n| `pinned` | `useNavPins` + `FavoritesProvider` | spec 无此键 |\n| `defaultOpen` | 已发布 app metadata 的兼容承诺,`navigation-spec-parity.test.ts` 有用例 | spec 无此键 |\n| separator 带 `label` | `menuItemToNavigationItem` 会发一个 | 绑定:TS2353 |\n\n四条探针,一个阻碍一条。另有一条伞形判定 `[NavigationItem] extends [SpecNavigationItem]` 记录总体结论。\n\n**注意不能用结构化 `extends` 当探针**:它对多余属性是放行的,所以看不见「spec 根本没声明 `pinned`」。这里用的是逐键、逐 tier 的 `KeysOfUnion` 探测。\n\n### `FormField` —— 两个层,不是一个概念的两种方言\n\n决定性的、机械化的形式是:**两边的必填键不相交**。objectui 必填 `name`(表单数据路径),spec 必填 `field`(对象字段引用),而且 spec **两个 tier 都没有 `name`**。同名的 `field` 一边是字符串、一边是解析后的元数据对象 —— `form.ts` 早就用 ⚠️ 标了这个双关。\n\n仓库自己已经有判词,`select-option-spec-parity.test.ts` 开头:\n\n> Unlike **the FormField pair — two genuinely different concepts on two layers** — a select option is ONE concept in two dialects …\n\n而且 `index.ts` 是**单独**导出 `SpecFormField` 的,那正是 #3090 tripwire 要强制的消歧;绑定会让 `FormField === SpecFormField`,消歧一起塌掉。顺带还会把 framework#4074 的 `dependsOn` 放宽原地退回去。\n\n### `ConditionalValidation` —— 从 `unknown` 变成了「弱一档」\n\n分支现在是 `BaseValidationRuleShape`:\n\n```ts\ninterface BaseValidationRuleShape {\n  type: string; name: string; message: string; …; [key: string]: unknown;\n}\n```\n\n比 `unknown` 强,但仍然不能派生:`type` 不是字面量联合,分支**无法按判别式收窄**;`then.condition` 读回来是 `unknown`;索引签名放行任何成员 —— 包括拼错的 `type: 'formatt'`。spec 自己在 `ValidationRuleSchema` 上就写了:\n\n> it types the KNOWN keys and accepts any others … **but it is not strictness** … Removing the index signature is the #4075 family of work, not this change.\n\n所以整体派生等于用一个带索引签名的 bag 换掉 9 成员判别联合 —— 正是当初立 pin 要防的那类倒退,只是弱了一档。探针改为钉「字面量判别式 / 无索引签名」,objectstack#4075 落地那天自动到期。\n\n**为什么这一处的代价比看上去大**:渲染器读裸对象、**从不 parse**,所以 spec 真正拒绝畸形规则的那道 parse 期联合根本不在客户端路径上。作者端(含 AI 生成)的判别式检查是这些规则运行前唯一的关。\n\n## 真正能派生的,已经派生了\n\n按决策 Q1 的 C 子集,扩展现有的 `badgeVariant` 先例:\n\n- `NavigationItemType` ← spec 导航联合的判别式。原来是手写的九成员副本,正是 objectstack#4115 那一类(`ChartType` 19 个里只有 7 个、`ActionType` 漏了 `form`)。派生还让未来 spec 新增变体在穷举消费者处**编译失败**(`plugin-designer` 的 `NAV_TYPE_META` 是 `Record< NavigationItemType, … >`),而不是掉进死的 `default:`。\n- `recordMode` / `filters` / `badge` / `target` / `params` / `actionDef` ← 各自所属的 spec 分支。`actionDef` 是结构化载荷,恰恰是最容易悄悄走样的那种 —— 它当初被 `objectui validate` 整个吃掉就是这么来的。\n\n**成员今天一个没变**,所以没有消费者受影响。\n\n`visible` / `pinned` / `defaultOpen` 保持本地,声明处都写清了「为什么不派生」以及对应探针在哪。\n\n## 顺带\n\n`scripts/check-spec-symbol-derivation.mjs` 的注释还写着这三个符号「the SPEC export resolves to `any`」—— 这已经是错的(`JoinNode` 随 framework#4286 退役,另两个 rc.1 已定型)。这个 guard 自己就警告过「a wrong canonical-claim is not stale documentation — it is a planted premise for the next session」,所以一并修正,并新增 case 2c:**spec 侧已定型但不够精确**,`any` 和 `unknown` 两个探针都报干净。\n\n## 验证\n\n- `pnpm type-check`(全仓 turbo,即 #3181 的 typetests lane —— `packages/types/tsconfig.test.json` 由该包 `type-check` 串联):**78 successful, 78 total**\n- 四个 parity/union 测试文件:**Test Files 4 passed (4) / Tests 69 passed (69)**\n- `vitest run packages/types packages/layout`:26 files / 399 tests passed\n- `vitest run packages/plugin-designer packages/plugin-form`:33 files / 332 tests passed\n- `vitest run packages/core/src/validation`:4 files / 62 tests passed\n- `pnpm --filter @object-ui/types lint`:0 errors\n- `node scripts/check-spec-symbol-derivation.mjs`:✅;`node scripts/check-changeset-fixed.mjs`:✅\n\n**Revert-proof**(改动探针的期望值必须让 typetests lane 红):\n\n```\n_specNavStillHasNoPinned false -> true\n  → error TS1360: Type 'true' does not satisfy the expected type 'false'.\n_specThenStillCarriesAnIndexSignature true -> false\n  → error TS1360: Type 'false' does not satisfy the expected type 'true'.\nNavigationItemType 退回手写联合(去掉 'action')\n  → error TS1360: Type '\"object\" | … | \"action\"' does not satisfy the expected type 'NavigationItemType'.\n    Type '\"action\"' is not assignable to type 'NavigationItemType'.\n```\n\nchangeset:patch(无用户可见形状变化)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012C2cd7tL8QDoZ2QKN3djJ5)_"
+}

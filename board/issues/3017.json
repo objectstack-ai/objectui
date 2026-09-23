@@ -1,0 +1,32 @@
+{
+  "number": 3017,
+  "kind": "issue",
+  "title": "排查「手抄 spec 清单 + \"keep in sync\" 注释」模式:objectui 侧六处,目前全部一致但零闸门(framework#3786)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:33:54Z",
+  "updated_at": "2026-07-30T13:30:58Z",
+  "closed_at": "2026-07-30T13:30:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3017",
+  "body": "承 framework#3786 —— 该 issue 点名 **objectui 是头号嫌疑**(「它消费 spec 的类型/枚举清单做渲染分发,而本轮没有覆盖它」)。framework 侧的排查已完成并落在 [objectstack#4120](https://github.com/objectstack-ai/objectstack/pull/4120):`packages/spec` 的 17 份元数据表单里查出**四份已漂移、全部静默**(表单绑到不存在的键 → 值被 `.strict()` 缺席的 schema 静默丢弃,作者看不到任何报错)。\n\n本 issue 记录 objectui 侧的扫描结果。\n\n## 结论先行:**六处候选,目前全部内容一致 —— 没有查到活的漂移**\n\n这不是「没问题」,而是「还没轮到」。framework 那四例证明了这套写法的失效方式是**静默**的:漂移发生时没有任何信号,只有用户发现某个能力凭空消失。下面六处每一处都是同样的结构 —— 两份清单、一句注释、零机制。\n\n| # | 位置 | 对照对象 | 现状 |\n|:--|:---|:---|:---|\n| 1 | `app-shell/…/inspectors/FlowReferenceField.tsx` `KIND_TO_RECORD_LOOKUP` | spec `APPROVER_VALUE_SOURCES` | ✅ 一致(4 项 object/valueField 全同) |\n| 2 | `app-shell/…/inspectors/ActionDefaultInspector.tsx` `LOCATIONS` | spec `ACTION_LOCATIONS` | ✅ 一致(7 值) |\n| 3 | `app-shell/…/previews/object-fields-bridge.ts` `DESIGNER_TYPES` | `FieldDesigner` 的 `FIELD_TYPE_META` | ✅ 一致(26 型) |\n| 4 | `plugin-detail/src/RecordMetaFooter.tsx` `AUDIT_FIELDS` | `RecordDetailView` 的 `AUDIT_FIELD_NAMES` | ✅ 一致(4 项) |\n| 5 | `plugin-grid/src/ImportWizard.tsx` `BOOLEAN_IMPORT_TOKENS` | 服务端 `import-coerce.ts` 的 `BOOL_TRUE`/`BOOL_FALSE` | ✅ 一致(20 token) |\n| 6 | `plugin-grid/src/ImportWizard.tsx` `REFERENCE_IMPORT_TYPES` | 服务端 `REFERENCE_TYPES` | ✅ 一致(5 型) |\n\n## 最扎眼的一点:#1 和 #2 抄的是「spec 已经为此导出的常量」\n\n这两处不需要闸门,**直接删掉第二份清单即可** —— 单一来源已经在那儿了:\n\n- **`ACTION_LOCATIONS`** 是 spec 的导出常量。objectui 重述了它的 7 个值(只是顺序不同)再配上友好 label。改法:`import { ACTION_LOCATIONS } from '@objectstack/spec/ui'`,label 用一张 `Record<ActionLocation, string>` 映射 —— 这样漏掉新 location 会变成**类型错误**,而不是一个悄悄缺席的下拉项。\n\n- **`APPROVER_VALUE_SOURCES`** 更值得一提:spec 里这个投影**就是为了让 objectui 别再自己推导而专门发布的**,它的文档注释白纸黑字写着这段历史 ——\n\n  > 「`xRef.map` 只说了渲染哪种 picker,从没说候选来自哪里。所以设计器不得不自带一份数据契约,而**第一份抄错了**:每个目录类 kind 都被接到了 `/api/v1/meta/:type`(元数据注册表),而它根本不存放 `sys_user`/`sys_team`/… 的**行**。候选返回空,控件退化成自由文本框(framework #3508)。…… 发布这个 binding 就是在源头堵住这个缺口:渲染器直接读该查哪个 object、该提交哪个列,而不是重新推导一遍。」\n\n  spec 侧还用 `satisfies` 保证了新增 `ApproverType` 不声明 binding 就是编译错误。**但 objectui 至今仍在手工维护 `KIND_TO_RECORD_LOOKUP`** —— 注释写的是「mirrors the spec's `APPROVER_VALUE_SOURCES`」,而它 mirror 的那个东西,本来就是造出来给人 import 的。spec 那侧的编译期保证,一步都没传导过来。\n\n  ⚠️ 注意 #3508 那次翻车正是这一处:`sales_manager` 被打进了只接受三个值的字段。这处的历史故障率不是零。\n\n## 其余四处的改法\n\n- **#3 / #4** 是 objectui 内部的两份清单,spec 无对应导出 → 加**集合覆盖断言**当闸门(或让一方从另一方派生)。#4 尤其值得一提:`created_at`/`created_by`/`updated_at`/`updated_by` 这 4 元清单,现在**跨两个仓库至少存在四份拷贝** —— framework `registry.ts` 的注入源、framework `rule-validator.ts` 的 `AUDIT_TIMELINE_FIELDS`(framework 侧也无闸门,已在 #4120 里记录为待办)、以及 objectui 这两份。\n- **#5 / #6** 跨仓对照服务端 `import-coerce.ts`。服务端的 `REFERENCE_TYPES` 本身已经是派生的(`new Set([...REFERENCE_VALUE_TYPES, 'reference'])`,来自 `@objectstack/spec/data`),所以 objectui 也可以直接消费 spec 的 `REFERENCE_VALUE_TYPES`;布尔 token 表 spec 未导出,需要先在 framework 侧导出才能派生,否则退而求其次加闸门。\n\n## 修法模板\n\n沿用 #3747 / cloud#898 / [objectstack#4120](``https://github.com/objectstack-ai/objectstack/pull/4120):**能派生就从唯一来源派生;确实无法派生的,加一条集合覆盖/不相交断言当闸门。注释不是机制。**``\n\n#4120 里的 `metadata-form-zod-reconciliation.test.ts` 可作参照,其中两个设计点值得抄:\n\n1. **两个方向刻意不对称** —— 「消费方提供了源不接受的键」永远是缺陷、不可豁免(没有任何设计理由让用户去填一个值会被丢弃的控件);「源有而消费方不提供」可登记豁免,但必须带理由。\n2. **豁免登记表本身要被校验** —— 非空、且每条仍能在两侧解析,否则登记表会腐烂成对已删除键的引用。#4120 里就抓到该模式的终末形态:一句「两侧同时更新」的注释,它指向的 `ToolCategorySchema` 早在 #3896 就被删了 —— 注释腐烂得比清单还安静。\n\n闸门写完请做**变异测试**确认它真会红(#4120 那份三个方向分别触发 1、4、4 个失败)—— 一个不会失败的对账测试,和一句注释是等价的。"
+}

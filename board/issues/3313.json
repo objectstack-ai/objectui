@@ -1,0 +1,32 @@
+{
+  "number": 3313,
+  "kind": "pull_request",
+  "title": "fix(fields): close the widget DOM prop leak with a whitelist `toDomProps`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T16:41:54Z",
+  "updated_at": "2026-08-03T18:20:35Z",
+  "closed_at": "2026-08-03T18:20:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T18:20:34Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3313",
+  "body": "Fixes #3291\n\n范围以 #3291 上「审计结果」那条评论为准（正文已过时）：14 个 widget + 2 个新文件，`form.tsx` 未改动，`SelectField` 的 `aria-invalid` 缺失留给 #3306。\n\n## 病根：不是某个具名 prop，是「作者键的开放尾巴」\n\nwidget 用裸展开把剩余 props 转发给控件，宿主给什么就落什么到 DOM 上（下方标签的 `<` 后统一加了空格，否则会被 GitHub 正文净化器当成 HTML 标签吃掉）：\n\n```\n< input placeholder=\"PH-f\" zzcanary=\"CANARY-STR\" zzcanaryobj=\"[object Object]\"\n        zzcanarynum=\"42\" id=\"…\" type=\"text\" value=\"\" name=\"f\" >\n```\n\n`zzcanaryobj=\"[object Object]\"` —— 本单命名由来的那个 `[object Object]`，换了个键仍然完整复现。它是作者写在字段配置上的普通额外键被 `String()` 到属性上。React 19 对全小写未知属性**完全静默**，所以它安静地活了很久。\n\n## 因此必须是白名单\n\n黑名单（枚举 `error` / `emptyHint` / `dataSource` / `dependentValues` / `dependsOn` / `options` / `inputType` / …）会**放行上面每一个 canary**，也挡不住 SDUI 路径上的 `label`。两条路径的形状决定了这一点：\n\n- 表单渲染器只解构固定一组已知键，其余原样转发；\n- `SchemaRenderer` 把整个作者节点摊成 props，**没有任何 strip 层** —— 该路径上 widget 自己的展开是唯一防线。\n\n## 改动\n\n- 新增 `toDomProps(props)`，从 `@object-ui/fields` 导出（理由同已导出的 `withFieldCarrier`：仓外 widget 作者要够得着，否则会重新长出裸展开）。\n- 14 个 widget 走它：`text` / `textarea` / `number` / `boolean` / `date` / `datetime` / `time` / `email` / `phone` / `url` / `password` / `currency` / `percent` / `select`。\n- 11 个 widget 开头那行 `const { inputType, ...domProps } = props as any;`（注释写着 \"Filter out non-DOM props\"）连同注释一起删除 —— `inputType` 早在宿主侧就被 strip 掉了，这行什么也没过滤，注释是**主动误导**。\n\n`SelectField` 两处展开只收口了一处：`Select.Root` 那处收口；`< MultiSelectField {...props} / >` 是 **widget 到 widget 的委托**，不是 DOM 展开，narrow 掉会把它变成空组件 —— 代码里写明了这个边界。\n\n## 白名单与 `types.ts` 声明的差异（需要 review 的一点）\n\n`toDomProps` 是 `FieldWidgetComponentProps`「DOM pass-through」段落的运行时执行体。它转发该段落声明的 7 个键 + `AriaAttributes` + `data-*`，**外加 2 个**：\n\n| 键 | 为什么加 |\n|---|---|\n| `className` | 已在契约上声明（在 controlled-input 段而非 DOM 段，因为 widget 还会**组合**它）。它就是元素上的 `class`。不转发会让 `toDomProps` 变成一个**静默丢样式**的助手 —— 而 `< Input {...toDomProps(props)} / >` 正是本改动教给未来每个 widget 作者的写法。 |\n| `disabled` | 同上（与 `readonly` OR 后使用）。不转发会静默丢交互态。 |\n\n即：**新增一个静默失败模式，来换取白名单的字面纯粹**，方向反了，所以两个都转发。若维护者认为应严格只留 7 个，我可以改为在 9 个 widget 里逐个显式传 `className`。\n\n反向的一个**故意后果**：契约没声明的 HTML 全局属性（如 `role`）不再转发。它此前只是搭着开放展开到达 DOM 的。若字段节点应当能写 `role`，正确做法是**先在 `FieldWidgetComponentProps` 上声明**再加进白名单 —— 修契约，不是放宽消费端（AGENTS.md #0.1）。\n\n## 声明 = 强制（两个方向都由编译器绑住）\n\n契约里「DOM pass-through」那一段已抽成具名类型 `FieldWidgetDomProps`，与 `FieldWidgetComponentProps` 交叉（对所有消费方是结构性 no-op）。`toDomProps.ts` 里**两条**编译期断言：\n\n| 方向 | 断言 | 抓什么 |\n|---|---|---|\n| 正 | `DomPassThroughKey extends keyof FieldWidgetComponentProps` | 助手转发了契约已不再声明的键 |\n| 反 | `keyof FieldWidgetDomProps extends DomPassThroughKey` | **声明了但没交付** —— 契约新增 DOM 键、助手没跟上 |\n\n反方向正是 PM 复核点名的缺口，也是本仓视为一等缺陷的失败形态（#3290 的 `aria-required` 声明了却没送达真实控件、#3222 的校验槽没人生产）。契约测试**结构上够不着它** —— 它查的是「属性到达了」，不是「属性没到」。\n\n实测反向断言承重：往 `FieldWidgetDomProps` 加一个 `role?: string` 而不加进 `DOM_PASS_THROUGH_KEYS`，type-check 立刻红：\n\n```\nsrc/widgets/toDomProps.ts(126,7): error TS2322: Type 'true' is not assignable to type 'never'.\n```\n\n（126 行正是 `_everyDeclaredDomKeyIsForwarded`。）还原后 11/11 type-check 通过。\n\n`className` / `disabled` **只被正方向绑住** —— 它们是 DOM 合法且确实转发，但因 widget 还会解释它们而声明在 controlled-input 段，故意留在具名类型之外。changeset 里现在如实写明每条断言各保证哪个方向，不再用「so they cannot drift」这种担保不了的措辞。\n\n## 契约测试\n\n`packages/fields/src/__tests__/widget-dom-leak-e2e.test.tsx` —— 46 个注册 widget × 5 变体（表单 plain / 表单 author-extras / 表单校验失败后 / SDUI plain / SDUI author-extras），共 **233 个断言，8.4s，连跑 4 次零 flake**，不需要进 `heavyDomTests`。\n\n审计点名的四个坑都堵了：\n\n1. **不靠 React 警告** —— 遍历真实 DOM 属性。\n2. **两条路径都渲染** —— 只测表单路径会把 SDUI 报成干净的（见下方破坏验证：`label` 只在 SDUI 侧现形）。\n3. **错误变体先自证** —— 断言错误信息确实渲染了才扫 DOM。本仓的 `required` 是**存在性**检查（`false`/`0` 是值，cloud#972），所以统一用 `null` 起始值，`boolean` 也能真触发失败。\n4. **happy-dom 判定器** —— 放行 `data-*`/`aria-*`/`cmdk-*`；一份 HTML 全局属性清单；核心是「属性名大小写不敏感地匹配 `document.createElement(tag)` 原型链上某个 IDL 属性」（自动覆盖 `readonly→readOnly` / `maxlength→maxLength` / `colspan→colSpan`，无需按标签手维护）；4 条别名；SVG 走自己的清单（IDL 那招在 happy-dom 下对 SVG 不成立）。\n\n**判定器自证 fixture 当场赚回成本**：我原以为 happy-dom 只缺 2 个 IDL（`select[size]`、`option[label]`），干净 fixture 立刻报出**另外两个**真实缺口 —— `textarea[wrap]` 和 `col[span]`，都是标准 HTML。例外表现在 5 条，每条注明理由，全部由 fixture 实测得出而非猜测。\n\n覆盖边界如实写在文件里：**不驱动 popover 打开**（Radix 需要 happy-dom 没有的 pointer-capture）。展开点在行内 trigger 上且总会渲染，所以展开点本身被覆盖了 —— 但只存在于展开后的内容没有。\n\n`FORM_FIELD_TYPES` 一致性断言让这道门**自动跟随注册表**：新增字段类型不进测试表 = 测试变红。\n\n## 破坏验证\n\n**Break A —— 把 `TextField` 换回裸展开**（`const domProps = props as any`）：4 个用例变红，精确点名 widget、标签、属性、值、`outerHTML`：\n\n- `form/authored-extras` → 5 个：`zzcanary` / `zzcanaryobj=\"[object Object]\"` / `zzcanarynum` / `zzcanarycamel` / `reference_to`\n- `form/validation-error` → `error=\"F is required\"`\n- `sdui/plain` → `label=\"F\"`\n- `sdui/authored-extras` → 6 个\n\n注意 **`form/plain` 没红、`sdui/plain` 红了** —— 这正是审计说「只测表单路径会把 SDUI 的洞报成干净」的实测复现。还原后全绿。\n\n**Break B —— 从例外表删掉 `option: label`**：干净 fixture 立刻变红并点名 `< option > label=\"L\"`。证明判定器的自检是**承重的**，将来 happy-dom 升级导致 IDL 覆盖变化时会响亮失败，而不是静默失明。\n\n## 验证\n\n| 项 | 结果 |\n|---|---|\n| 契约测试 | 233 passed，8.4s，×4 零 flake |\n| `packages/fields` 全量 | 45 files / 772 tests passed |\n| 全仓 `vitest run` | **871 files / 10300 tests passed**，0 failed |\n| 全仓 `turbo type-check` | 78/78 successful |\n| 全仓 `turbo lint` | 45/45 successful，**0 errors** |\n| 全仓 `turbo build` | 43/43 successful |\n| `changeset:check` | fixed group ✅ / 无 `major` ✅ |\n\nchangeset 标 `minor`（objectui 是 fixed group，绝不声明 `major`），行为变更写在正文：作者字段配置里的未知键不再落到 DOM 属性上。未触碰 `content/docs/releases/`。\n\n## 清单外发现（未在本 PR 修改）\n\n- `SelectField` 的 `aria-invalid` / `aria-describedby` / `aria-required` 缺失 = **#3306**，已裁决排在本单之后，本 PR 未顺手补。\n- 审计另外两条（`field:permission-facet-link` 未经 `withFieldCarrier` 注册、`capability-multiselect` 在实际路径未注册）本 PR 同样未动。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

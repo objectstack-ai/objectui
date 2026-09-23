@@ -1,0 +1,36 @@
+{
+  "number": 2953,
+  "kind": "issue",
+  "title": "kind:'react' page scope silently omits every lazily-registered public block",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "package: core",
+    "sdui"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T06:04:38Z",
+  "updated_at": "2026-07-30T04:46:24Z",
+  "closed_at": "2026-07-30T04:46:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2953",
+  "body": "## Summary\n\n`buildComponentScope` builds a `kind:'react'` page's scope from `ComponentRegistry.getPublicConfigs()`, which resolves each curated tag through `getConfig()`. `getConfig()` only reads the eager `components` map and **never consults `lazyEntries`**, so any public block registered via `registerLazy()` is absent from the scope. Writing `<ObjectKanban/>` in a react page throws `ReferenceError` even though the block is a first-class member of `PUBLIC_BLOCKS`.\n\n## Evidence\n\n- `packages/core/src/registry/Registry.ts:306-315` — `getConfig()` returns `this.components.get(type)`; `lazyEntries` (registered at `Registry.ts:209`) is never consulted.\n- `packages/core/src/registry/Registry.ts:357-377` — `getPublicConfigs()` is `for (const tag of PUBLIC_BLOCKS) add(tag, this.getConfig(tag))`, so a lazy tag resolves to `undefined` and is skipped.\n- `packages/components/src/renderers/layout/react-page.tsx:56-58` — the scope builder iterates exactly that list.\n\nIn `apps/console`, only plugin-grid/form/view/list/detail are imported eagerly (`apps/console/src/main.tsx:31-35`). These **six `PUBLIC_BLOCKS` tags are `registerLazy`'d** and therefore missing from every react page's scope:\n\n`object-kanban` · `object-calendar` · `object-gantt` · `object-timeline` · `object-map` · `markdown`\n\n## Why it's more than a missing feature\n\nThe gap is **load-order dependent**, so it is not reliably reproducible. The scope is memoised on `[schema, adapter]` (`react-page.tsx:126-138`) and `ReactKindPage` does not subscribe to registry changes (contrast `SchemaRenderer.tsx:208-217`, which does). If some earlier render happened to pull the plugin in, the tag *is* present; otherwise it is not. The same page can work in one session and throw in another.\n\n`PUBLIC_BLOCKS` is documented as the contract/AI-vocabulary surface (`public-blocks.ts:18-25`), so this also means the advertised authoring vocabulary and the vocabulary actually available to a react page disagree — which matters for AI-generated pages built against the contract.\n\n## Workaround\n\nThe `<Block type=\"…\"/>` escape hatch (`react-page.tsx:81-84`) works, because it goes through `SchemaRenderer`, which *does* trigger the lazy loader.\n\n## Possible directions\n\n1. Have `buildComponentScope` also enumerate `lazyEntries`, injecting a wrapper that renders through `SchemaRenderer` (which already handles the loading placeholder and the \"Unknown component type\" terminal state).\n2. Or make `getPublicConfigs()` lazy-aware, so the contract surface stops depending on load order — likely the more correct fix, since the same skew affects any other consumer of the public contract.\n3. At minimum, document the limitation and point authors at `<Block>`.\n\n## Context\n\nFound while adding scope-contract tests in #2951. That PR pins the eager half of the contract; this lazy half is deliberately not covered by it."
+}

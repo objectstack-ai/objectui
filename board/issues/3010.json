@@ -1,0 +1,34 @@
+{
+  "number": 3010,
+  "kind": "pull_request",
+  "title": "test: fix five load-sensitive flaky tests by moving module loads out of timed windows",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T09:53:44Z",
+  "updated_at": "2026-07-30T10:00:51Z",
+  "closed_at": "2026-07-30T10:00:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:00:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3010",
+  "body": "## The race\n\nThree `dom-heavy` tests failed intermittently under full-suite parallel load but passed in isolation. All of them turned out to be one root cause, and it is not in the code under test:\n\n**An unbounded module load sitting inside a bounded assertion window.**\n\n`DatasetPreview` and `ReportPreview` render their renderers behind `React.lazy(() => import('@object-ui/plugin-charts' | '@object-ui/plugin-report'))`. Everything the assertions wait on lives *behind* that Suspense boundary and does not exist until the chunk resolves. Under full parallelism Vite's transform pipeline is saturated — the `dom-heavy` project alone spends ~60s in transform — so the first import of the package graph can outlast RTL's **1000ms** default `waitFor`/`findBy` window.\n\n### Evidence\n\nA captured failure shows the DOM at timeout still rendering the Suspense fallback:\n\n```\nAssertionError: expected \"vi.fn()\" to be called with arguments: [ 'sales', …(1) ]\nNumber of calls: 0\n  <div class=\"flex items-center gap-2 p-4 text-xs text-muted-foreground\">\n    <svg class=\"lucide lucide-loader-circle h-4 w-4 animate-spin\" …\n     Loading report renderer…\n```\n\n`queryDataset` had 0 calls because `ReportRenderer` — the thing that calls it — had not loaded yet. The test duration was **1070ms**: the 1000ms window plus overhead.\n\nInstrumenting the import under a real full `dom-heavy` run measured `import('@object-ui/plugin-report')` at **312ms / 424ms / 976ms** across three runs. That last one consumes **97.6% of the entire assertion budget** before a single render or query can happen.\n\nThis explains exactly *which* tests flaked:\n\n| File | Flaky tests | Why those |\n|---|---|---|\n| `ReportPreview.dataset.test.tsx` | the **first two** | they run while the very first import is still in flight; tests 3–5 find the module warm |\n| `DatasetPreview.test.tsx` | only the ratio-measure one | its \"use the right axis\" caption is the one assertion in the file that sits *inside* the Suspense boundary. Earlier tests assert on the table, which renders *outside* it — so they start the import but never wait for it, leaving the last test to race a load already in flight |\n\n## The fix\n\nLoad each module at **module scope** in the test file, so the cost lands in the import phase — which no test or hook timeout applies to — instead of inside an assertion window. ESM caches by resolved specifier, so warming the same specifier makes the component's own `React.lazy` factory resolve immediately.\n\nNo timeout was raised and no file was moved to an allowlist.\n\n> Note on the idiom: the first commit used `beforeAll`, then switched to a module-scope import because `beforeAll` is bounded by `hookTimeout` (10s) — *narrower* than the 15s `testTimeout` it replaces. The import phase is effectively unbounded (a full run logs `import 1523s` cumulative across 716 files with no import-phase failure).\n\n## The two `unit`-project files\n\nBoth were reported as inconsistent. Verified: **timeouts, not genuine failures** — and one shares the exact root cause.\n\n- **`anchors.page-seed.test.ts`** — same root cause. `createSeed` reaches the page synthesizer via `await import('@object-ui/plugin-detail')` ([anchors.ts:207](packages/app-shell/src/views/metadata-admin/anchors.ts:207)), so the cold transform is billed to the test body. `unit` runs `isolate: false`, so whether the module is already warm is scheduling-dependent — which is precisely the inconsistency. Confirmed it can only be a timeout: `createSeed` swallows failures and returns `{}`, so a genuine synth failure would read as `expected false to be true`, never observed.\n\n- **`all-locales-key-parity.test.ts`** — *not* a load effect: a genuine quadratic. Line 64 called `keysOf(builtInLocales[lang])` **inside** the `.filter()` predicate, re-walking the whole locale tree once per `en` key (~2.5k keys × a full recursive walk). The sibling assertion immediately below it always hoisted the call; this one didn't. **Parity itself is clean** — all 9 non-`en` packs have 0 missing and 0 extra keys — so this was never a missing-translation failure.\n\n## One more, found while verifying\n\n`plugin-kanban/src/index.test.ts` surfaced during verification with the same root cause, and it is the anti-pattern's own cautionary tale:\n\n```js\nbeforeAll(async () => { await import('./index'); }, 15000); // Increase timeout to 15 seconds\n```\n\nAlready \"fixed\" once by raising the timeout — and it still timed out under full load (observed **15021ms**, surfacing as 8 skipped tests rather than a failed assertion). The raised timeout is **deleted**, not re-raised.\n\n## Results\n\nTimed portion of each file, isolated:\n\n| File | Before | After |\n|---|---|---|\n| `all-locales-key-parity` | 7.51s | **25ms** (~300×) |\n| `plugin-kanban/index` | 15021ms (hook timeout) | **2ms** |\n| `anchors.page-seed` + i18n combined | ~9.6s | **48ms** |\n| the two previews | 769ms | **397ms** |\n\nSuite verification:\n\n- **`--project dom-heavy`**: failed 1 run in 4 before; green **20/20 runs** after (14 on the `beforeAll` form, 6 on the final static-import form).\n- **`--project unit`**: all four files above pass. The 7 files that still fail are a pre-existing broken baseline with real `AssertionError`s (`spec-subschema-parity`, `onMutation`, `filter-operator-ast-parity` ×2, `view-config-utils`, `view-operator-builder-parity`, `clientValidation.fieldRules`) — unchanged by this PR and unrelated to timing.\n- **Full suite before vs after**: identical **19 genuine test failures**, no new failures, and no cross-file interference from the module-scope imports despite `isolate: false`.\n- Lint clean on all five files (only pre-existing `no-explicit-any` warnings).\n\nTest-only change, so no changeset per AGENTS.md.\n\n## The durable takeaway\n\nIf a test asserts on content behind a `React.lazy` / dynamic-import boundary, load that module at module scope. Otherwise the module loader competes with the assertion timeout, and the test's reliability depends on machine load rather than on the code it covers.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

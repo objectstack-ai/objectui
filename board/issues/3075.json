@@ -1,0 +1,33 @@
+{
+  "number": 3075,
+  "kind": "pull_request",
+  "title": "feat(app-shell): the console mounts the notification surfaces (#3014 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:13:03Z",
+  "updated_at": "2026-07-30T16:19:36Z",
+  "closed_at": "2026-07-30T16:19:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:19:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3075",
+  "body": "Follow-up to #3071 (which closed #3014). That PR gave each spec `NotificationTypeSchema` member its own presentation, but **no host mounted `NotificationProvider`** — the capability existed and the console could not reach it. This wires it in.\n\n## What the console mounts now\n\n| `displayType` | Surface | Mounted by |\n|---|---|---|\n| `toast` | sonner, via the new `presentNotificationToast` | `ConsoleShell` |\n| `snackbar` | `<NotificationSnackbar />` | `ConsoleShell` |\n| `alert` | `<NotificationAlerts />` | `ConsoleShell` |\n| `banner` | `<NotificationBanners />` | `ConsoleLayout`, beside the draft / unpublished bars |\n| `inline` | `<NotificationInline scope=\"…\" />` | the raising surface — **not** mounted globally |\n\n`inline` is left out on purpose: rendering in place at the raiser is the whole difference between it and a banner, so a global inline outlet would collapse the two again. `ConsoleShell`'s header documents the split so the next person doesn't \"fix\" it.\n\n## Two pieces worth reviewing\n\n**`presentNotificationToast`** — the single place a notification becomes a sonner call, so the mapping is one testable function instead of a lambda in the shell:\n- severity → sonner variant, in a `Record<NotificationSeverityLevel, …>` so a new spec severity fails type-check rather than silently rendering neutral;\n- `duration: 0` → `Infinity`. The contract's \"persistent\" passed through raw would make the toast vanish on the next tick;\n- an **absent** duration is left `undefined` so `ConsoleToaster`'s 4s default applies, rather than reinventing a number here;\n- `actions[0]` → sonner's one action slot (a notification needing more belongs on a banner or an alert).\n\n**`ConsoleNotificationBanners`** — `NotificationBanners` gated on `useHasNotificationProvider()`. `ConsoleShell` is deliberately a set of composable pieces a host assembles in its own `App.tsx`, so `ConsoleLayout` can legitimately render without the provider above it — and `useNotifications()` **throws** there, which would white-screen the whole app instead of simply showing no banners.\n\nBoth are exported for hand-assembled shells. The provider's `defaultDuration` matches `ConsoleToaster`'s 4s, so a snackbar and a toast raised together disappear together.\n\n## Verification\n\n**In the running console** (`apps/console` dev server, login route — which renders inside `ConsoleShell`): a toast, a snackbar with an Undo action, and a blocking alert dialog on screen **at once, visibly distinct** — the exact collapse #3014 was about, gone. Raising an `inline` with no outlet logs the dev warning naming the component to mount, and exactly **once** per `notify()` (measured, not assumed). No console errors on boot with the new root provider.\n\nThe `banner` placement is covered by tests rather than a screenshot: it lives in `ConsoleLayout`, which is behind auth, and standing up a backend for one strip was disproportionate — `ConsoleShell.notifications.test.tsx` renders `ConsoleNotificationBanners` inside the real `ConsoleShell` and asserts it lands on `data-notification-surface=\"banner\"` while sonner is never called.\n\n**Suites:**\n- `packages/app-shell`: **2047 tests, 247 files, all green** (includes the 15 new ones — 7 shell integration + 8 toast-mapping).\n- `tsc --noEmit` clean on `@object-ui/app-shell`; eslint 0 errors on every touched file.\n\nDocs: the [notifications guide](content/docs/guide/notifications.md) gains an \"In the console\" section, plus the `@object-ui/app-shell` README.\n\nRefs #3014, #2942.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

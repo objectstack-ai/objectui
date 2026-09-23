@@ -1,0 +1,35 @@
+{
+  "number": 3165,
+  "kind": "issue",
+  "title": "`record:activity` 的 feed 结构上不可能有内容——11 个声明的输入全是空 feed 上的过滤器（objectstack#4413 的形状，第三次）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:47:56Z",
+  "updated_at": "2026-08-02T14:29:17Z",
+  "closed_at": "2026-08-02T14:29:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3165",
+  "body": "`record:activity` 是 curated public 契约里的 57 个 block 之一，注册时声明了 **11 个输入**（`types` / `filterMode` / `limit` / `showCompleted` / `unifiedTimeline` / `showCommentInput` / `enableMentions` / `enableReactions` / `enableThreading` / `showSubscriptionToggle` / `showFilterToggle`）。它们全部是同一个 feed 上的过滤器和开关，而那个 feed **在任何路径上都恒为空**。\n\n## 证据\n\n1. **渲染器把 `items` 写死了。** `packages/plugin-detail/src/renderers/record-activity.tsx:41`：\n\n   ```tsx\n   useRecordContext();                       // 调了，结果被丢弃\n   return <RecordActivityTimeline items={[] as any} config={schema as any} />;\n   ```\n\n2. **底层组件不取数。** `RecordActivityTimeline` 的 `items` 是 prop，整个文件没有任何 `dataSource` / `sys_activity` 访问。\n\n3. **文件头的说明是假的。** 同一个文件第 10 行写着 *\"Real data wiring (sys_activity / sys_comment polling) lives inside that component\"* —— 不在。这一句就是缺陷本身。\n\n4. **没有宿主在喂它。** `buildDefaultPageSchema.ts:614` 发出的节点是 `{ type: 'record:activity' }`，**不带任何 props**；而触发这一句的 `options.showActivity` 在生产代码里从来没有被设成 `true`（只有该 builder 自己的测试设过）。对比同族的两个宿主供数 block——`record:discussion` 的 items 来自 app-shell `RecordDetailView` 挂的 `DiscussionContextProvider`，`record:reference_rail` 的 `entries` 由 `buildDefaultPageSchema:804` 注入——它们的宿主路径都是真的，这个没有。\n\n5. **行为证据。** `apps/console/src/__tests__/record-block-record-reach.test.tsx`（#3149 第 3a 层）把它挂在 `RecordContextProvider` 下、绑两条不同的记录，两次渲染 DOM 逐字节相同、数据调用都是零。\n\n## 为什么这条值得单独开\n\n声明了、发布进 `sdui.manifest.json`、AI 作者会照着写，运行时什么都没有——这正是 objectstack#4413 的形状，只不过换了个 block。而 `check:react-declaration-parity` 看不见它（那道门禁比的是两份声明，objectstack#4472），`public-block-binding-reach.test.tsx` 也看不见它（`record:*` 家族按设计从 RecordContext 取数，裸挂载探不到）。\n\n## 建议的修法\n\n镜像同目录下 `record:history` 已有的自取数路径（`record-history.tsx:77-110`）：`dataSource.find('sys_activity', { $filter: { object_name, record_id }, $orderby, $top })`，把行映射成 `FeedItem`，并让 `types` / `limit` / `showCompleted` / `unifiedTimeline` 真正参与过滤。宿主已经传 `entries` 的场合（像 `record:history` 那样）优先用宿主的。\n\n**注意别把修一半当修好**：`showCommentInput` 需要 `onAddComment`、`enableReactions` / `enableThreading` 需要各自的 handler，读路径接上之后这些写路径开关仍然是惰性的。要么一并接（走 DiscussionContext 已有的那套 handler），要么在注册处/文档里把它们记成已知空档——**不要留成\"看起来能配\"**，那就是本 issue 的成因再来一次。\n\n## 落地前的临时状态\n\n`record-block-record-reach.test.tsx` 的 `NO_RECORD_REACH` 台账里带着这一条，写明了理由。台账是双向断言的：**这个 block 一旦开始响应绑定记录，那条测试就会失败，直到把台账条目删掉**——所以修完不会忘记销账。\n\n## 参考\n\n- objectstack#4413（原案）、objectstack#4472（门禁比的是声明不是实现）、#3146 / #3147 / #3153 / #3149\n- `packages/plugin-detail/src/renderers/record-activity.tsx`、`packages/plugin-detail/src/RecordActivityTimeline.tsx`、`packages/plugin-detail/src/renderers/record-history.tsx`、`packages/plugin-detail/src/synth/buildDefaultPageSchema.ts`"
+}

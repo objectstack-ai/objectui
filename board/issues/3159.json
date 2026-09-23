@@ -1,0 +1,32 @@
+{
+  "number": 3159,
+  "kind": "issue",
+  "title": "台账燃尽批次 5/8 · auth + components + react,18 符号(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:15:11Z",
+  "updated_at": "2026-08-02T15:00:38Z",
+  "closed_at": "2026-08-02T15:00:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3159",
+  "body": "objectstack#4115 债务台账燃尽第 5 批。**动工前必读**:守卫文件头与 objectstack#4115 的跟踪评论。\n\n## 本批符号(18 条)\n\n**`@object-ui/auth`(6)**:`AuthProvider`, `AuthProviderConfig`, `AuthSession`, `AuthUser`, `DelegableScope`, `TenancyPosture`\n**`@object-ui/components`(6)**:`Field`, `FilterCondition`, `ShareLink`, `ShareLinkAudience`, `ShareLinkPermission`, `SortItem`\n**`@object-ui/react`(6)**:`ConflictResolutionStrategy`, `NavigationConfig`, `OfflineCacheConfig`, `OfflineConfig`, `OfflineStrategy`, `PerformanceConfig`\n\n## ⚠️ 关于 `FilterCondition` 的更正(2026-08-01,来自批次 3 objectui#3169)\n\n本 issue 原正文说\"`FilterCondition` 沿用 types 侧已定的 `FilterBuilderCondition`\"。**这条指引不可照搬,先分诊再决定。**\n\n批次 3 实测发现:`@object-ui/app-shell` 的 `FilterCondition` **不是** FilterBuilder 的那一行(app-shell 里那个概念已叫 `BuilderCondition`),而是被写成 `Record<string, any>` 的 ObjectQL AST——所以它的正解是**直接 re-export spec 的同名导出**,而不是改名。\n\n结论:同一个名字在不同包里可能是**不同的东西**,`@object-ui/components` 这个究竟属于哪一种,必须自己对读判定:\n- 若是 FilterBuilder 的单行条件(`{field, operator, value}` 扁平结构)→ 改名 `FilterBuilderCondition`,与 `@object-ui/types` 保持一致;\n- 若是 ObjectQL 的递归 AST → 直接从 spec 派生/re-export;\n- 判定完请在 objectstack#4115 评论记录,供后续批次参考。\n\n这条更正本身就是本 issue 要防的失效模式的现场:一条看似权威的跨包指引,如果不经分诊就照搬,会把一个本该派生的符号改成方言。\n\n## 其他已知情报\n\n- auth 六件套大概率是 spec auth 契约的手抄件(注释宣称对齐),逐条对读后优先派生。\n- `AuthProvider` 注意 React 组件(Provider)与 spec 类型撞名的可能——若是组件对类型的真撞名,走改名。\n- `OfflineConfig` 与 types 侧同名条目(批次 2)协同。\n- components 的 `Field` 极泛用,改名波及面大,先用 tsc 断裂点评估再定路线。\n\n## 每条三选一\n\n派生(spec 引用必须落在**结构位**)/ 改名(**新名字必须先跑守卫**——批次 3 一轮就撞掉三个候选名 `ObjectFieldGroup`/`FlowCanvasNode`/`FlowCanvasEdge`,它们本身都是 spec 导出;配 tripwire 测试;**禁止全局替换**,先改声明与 barrel 让 tsc 列断裂点,注意多行 import 别名与 `apps/` 消费者)/ ALLOW(理由 + parity 守卫)。\n\n## 完成定义\n\n台账移除并 `--ledger` diff 验证(removed 恰为本批、added 为空、其他包字节相同)、守卫/type-check/全量测试绿、变异测试、PR 引用本 issue 与 objectstack#4115、**PR 合入后**再更新跟踪评论并关闭本 issue。"
+}

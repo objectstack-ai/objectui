@@ -1,0 +1,32 @@
+{
+  "number": 3093,
+  "kind": "pull_request",
+  "title": "fix(app-shell,i18n): drop the developer-voiced default form subtitle",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T04:55:10Z",
+  "updated_at": "2026-07-31T05:01:41Z",
+  "closed_at": "2026-07-31T05:01:39Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T05:01:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3093",
+  "body": "## Summary\n\nEvery create/edit record form — the console dialog in `AppContent` and the full-page `RecordFormPage` — hardcoded a platform default description under the title:\n\n> Add a new {{object}} to your database. / Update details for {{object}}\n> (zh: 「向数据库添加新的{{object}}。」/「更新{{object}}的详情」)\n\nThe copy is developer-tooling voice leaking into end-user business apps — a scheduling clerk filling in a form has no business being told about \"the database\". The line carried no information the form title didn't already have, and neither call site let a form view override it.\n\n## Changes\n\n- Both call sites stop passing `description` — record forms no longer render a default subtitle.\n- The now-unused `form.createDescription` / `form.editDescription` keys are removed from all ten locale bundles (`workspace.createDescription` is unrelated and stays).\n- The four i18n assertions pinning the old strings are removed.\n- Patch changeset for `@object-ui/app-shell` + `@object-ui/i18n`.\n\n## Testing\n\n- Full worktree build: 43/43 tasks green.\n- `npx vitest run packages/i18n packages/app-shell`: 264 files, 2221 tests, all passing.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

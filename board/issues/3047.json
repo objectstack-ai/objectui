@@ -1,0 +1,32 @@
+{
+  "number": 3047,
+  "kind": "issue",
+  "title": "console: ⌘K / full-page search scope silently truncated to the first 8 nav objects",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:53:16Z",
+  "updated_at": "2026-07-30T15:02:08Z",
+  "closed_at": "2026-07-30T15:02:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3047",
+  "body": "## Symptom\n\n⌘K global search (and the full-page search) can only find records in a **subset of the app's objects**. Searching an existing record code returns \"no results\", while the same query against `GET /api/v1/search` directly (with that object in `objects`, or with no `objects` param) matches — the backend index is fine; the UI truncates the scope it requests.\n\n## Root cause\n\n`useRecordSearch` slices its candidate pool to `maxObjectsQueried` (default 8). That cap is meant to bound the per-object fanout fallback, but it was applied to the pool itself — so the `objects` whitelist sent to the single-request `/api/v1/search` only ever named the first 8 nav objects. Which sidebar group happens to come first decides which records are findable; in an app with 40+ searchable objects the rest are unsearchable no matter what the user types, and `searchableFields` configured on those views is dead weight.\n\n## Expected\n\nThe searchAll path must send the full app whitelist; the parallel-request cap applies only to the per-object fanout fallback.\n\nFound via real-app dogfooding (os-tianshun-ehr platform defect registry PLAT-DEF-023, on 17.0.0-rc.0).\n"
+}

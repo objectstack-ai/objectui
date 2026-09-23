@@ -1,0 +1,32 @@
+{
+  "number": 3048,
+  "kind": "issue",
+  "title": "console: nav visible CEL never evaluated and requiredPermissions ignores permission-set systemPermissions",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:53:19Z",
+  "updated_at": "2026-07-30T15:02:08Z",
+  "closed_at": "2026-07-30T15:02:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3048",
+  "body": "## Symptom\n\nNeither of a navigation item's two gating fields can express \"trim the menu by business role\" in the console. Four controlled UI experiments (real logins per role):\n\n1. `visible` (CEL, e.g. ``P`'org_admin' in current_user.positions` ``) is **never evaluated** — a constant-false predicate still renders for everyone.\n2. `requiredPermissions` **is** evaluated (requiring a nonexistent name hides the item), but…\n3. …it doesn't recognize capabilities granted via permission sets: requiring a capability hides the item from **everyone**, including holders of the permission set that declares it in `systemPermissions` and admins. In practice `requiredPermissions` degenerates into a \"hide from everyone\" switch.\n\nNote: the server has returned the permission-set `systemPermissions` union from `/api/v1/auth/me/permissions` since 17.0.0-rc.0 — the client never consulted it.\n\n## Root cause\n\n- `evaluateVisibility` (app-shell) only evaluates `${…}` template strings. The `{ dialect: 'cel', source }` envelopes the spec's `ExpressionInputSchema` normalizes every authored `visible` string into fall through to a blanket `return true`.\n- The sidebars' `checkPerm` maps a bare `requiredPermissions` name to `can(<name>, 'read')` — an object-CRUD check on a name that usually isn't an object — instead of the ADR-0066 capability subset check the server applies to `AppSchema.requiredPermissions`.\n\n## Expected\n\n`visible` CEL envelopes evaluate against `current_user` (positions etc. are already in the expression context); bare `requiredPermissions` names check the user's `systemPermissions` union, keeping the `object:action` form and the legacy object-read fallback.\n\nFound via real-app dogfooding (os-tianshun-ehr platform defect registry PLAT-DEF-024, on 17.0.0-rc.0).\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 3250,
+  "kind": "pull_request",
+  "title": "chore(deps): bump the react group across 1 directory with 2 updates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "configuration",
+    "dependencies",
+    "examples",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:53:34Z",
+  "updated_at": "2026-08-03T08:17:12Z",
+  "closed_at": "2026-08-03T08:13:44Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-03T08:13:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3250",
+  "body": "Bumps the react group with 2 updates in the / directory: [react-router-dom](https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom) and [react-map-gl](https://github.com/visgl/react-map-gl).\n\nUpdates `react-router-dom` from 7.18.1 to 7.18.2\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/remix-run/react-router/blob/react-router-dom@7.18.2/packages/react-router-dom/CHANGELOG.md\">react-router-dom's changelog</a>.</em></p>\n<blockquote>\n<h2>v7.18.2</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies:\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/releases/tag/react-router@7.18.2\"><code>react-router@7.18.2</code></a></li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/remix-run/react-router/commit/69a653ee6ab1ac95b13c917ec56c5f3dc17ca9c1\"><code>69a653e</code></a> Release v7.18.2 (<a href=\"https://github.com/remix-run/react-router/tree/HEAD/packages/react-router-dom/issues/15354\">#15354</a>)</li>\n<li>See full diff in <a href=\"https://github.com/remix-run/react-router/commits/react-router-dom@7.18.2/packages/react-router-dom\">compare view</a></li>\n</ul>\n</details>\n<br />\n\nUpdates `react-map-gl` from 8.1.1 to 8.1.2\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/visgl/react-map-gl/releases\">react-map-gl's releases</a>.</em></p>\n<blockquote>\n<h2>v8.1.2</h2>\n<ul>\n<li>Support MapLibre GL JS v6 (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2598\">#2598</a>)</li>\n<li>Export GlobeControl from the MapLibre entry point (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2600\">#2600</a>)</li>\n<li>Call MapLibre zoom and pitch constraint setters in a valid order (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2573\">#2573</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/visgl/react-map-gl/blob/v8.1.2/CHANGELOG.md\">react-map-gl's changelog</a>.</em></p>\n<blockquote>\n<h2>v8.1.2 (Jul 29, 2026)</h2>\n<ul>\n<li>Support MapLibre GL JS v6 (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2598\">#2598</a>)</li>\n<li>Export GlobeControl from the MapLibre entry point (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2600\">#2600</a>)</li>\n<li>Call MapLibre zoom and pitch constraint setters in a valid order (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2573\">#2573</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/b1e46fcfb9d5de9bb179ca54e7d27617caa28c65\"><code>b1e46fc</code></a> v8.1.2</li>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/bdfacee05b079f7e57710badfa00470712e6c473\"><code>bdfacee</code></a> chore: upgrade website and examples to MapLibre v6 (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2602\">#2602</a>)</li>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/146b0c20564ec483ae89e410c3e19af5efb0a678\"><code>146b0c2</code></a> fix: react-maplibre - support maplibre-gl v6 (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2598\">#2598</a>)</li>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/5bc81e6a25fd1577e349888d8cd498d72dbf4983\"><code>5bc81e6</code></a> ci: test MapLibre v4/v5 and export GlobeControl (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2600\">#2600</a>)</li>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/ea1f49afbacbb00098a3d352a76c04d1664f92fd\"><code>ea1f49a</code></a> chore: upgrade Node.js to 24 (<a href=\"https://redirect.github.com/visgl/react-map-gl/issues/2599\">#2599</a>)</li>\n<li><a href=\"https://github.com/visgl/react-map-gl/commit/dfb8942cea396070562db93007b0e5ab0b1d75fa\"><code>dfb8942</code></a> Call setMinZoom, setMaxZoom, setMinPitch and setMaxPitch in the right order t...</li>\n<li>See full diff in <a href=\"https://github.com/visgl/react-map-gl/compare/v8.1.1...v8.1.2\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

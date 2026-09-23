@@ -1,0 +1,30 @@
+{
+  "number": 3049,
+  "kind": "pull_request",
+  "title": "fix(scripts): --check reports real divergence instead of calling all 46 components \"modified\"",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:54:20Z",
+  "updated_at": "2026-07-30T14:00:48Z",
+  "closed_at": "2026-07-30T14:00:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:00:46Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3049",
+  "body": "`--check` was structurally incapable of telling you anything. The heuristic:\n\n```js\nconst isDifferent = lineDiff > 10 || localContent.includes('ObjectUI') || localContent.includes('data-slot');\n```\n\nEvery synced file carries the ObjectUI header **this script prepends**, so the second clause was true for all 46 tracked components. `--check` reported the entire set as \"modified\", every run. That is the same as reporting nothing.\n\n## Using the primitive #3035 already built\n\n`localOnlyLines` is directional — lines in the first argument the second lacks. Calling it **both ways** answers the two questions that actually decide whether to sync:\n\n- **what would a sync destroy?** → `localOnlyLines(local, upstream)`\n- **what would it gain?** → `localOnlyLines(upstream, local)`\n\nThat replaces the heuristic and splits the old \"modified\" bucket into the two states that need different actions:\n\n| | meaning | action |\n|---|---|---|\n| `↑ outdated` | upstream moved, no local edits | **safe to sync** |\n| `⚠ modified` | local edits present | `--update` refuses |\n\nBecause `--check` and the write guard now call the same function, the counts `--check` shows are exactly the counts that will stop a write.\n\n## What it says about this repo right now\n\n```\n✓ Identical: 29    ↑ Outdated: 0    ⚠ Modified: 17    ● Custom: 2\n```\n\n**Zero outdated is the headline.** Every component where upstream has moved *also* carries local edits — so there is currently no component `--update-all` could touch without deleting something. It has no safe work to do at all. That was completely invisible under the old output.\n\nThe summary also names the components per bucket with their counts, so triage doesn't need 46 `--diff` runs:\n\n```\nThese carry local edits a sync would delete:\n  badge(4), calendar(7), chart(11), command(35), context-menu(2), dropdown-menu(2),\n  form(1), hover-card(1), menubar(2), popover(1), select(32), sheet(4), sidebar(24),\n  slider(4), sonner(2), table(17), tooltip(1)\n```\n\n## Verification\n\nAgainst the live registry:\n\n- Counts reconcile: 46 tracked = 29 identical + 17 modified; +2 untracked files on disk = 48 local components\n- Per-component numbers match the #3035 guard that enforces them (`command` 35, `select` 32, `sidebar` 24 …) — same function, both sides\n- **The `outdated` bucket is the one real traffic never exercises** (it's 0), so I tested it by deleting a line from an identical component (`separator`). It flips to `↑ 1 upstream line(s) to pick up — safe to sync` and the summary offers the exact `--update separator` command. Restored after.\n- `lineDiff` had no consumers outside the function that produced it\n- `--list`, `--diff`, `--update`, and both the #3033 unmapped-path guard and #3035 local-edit guard regression-checked\n- `--check` stays **exit 0** — it's a status report, and 17 locally-modified components is the steady state here, not a failure\n- `eslint` clean; no component file changes\n\nNo changeset — tooling only.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

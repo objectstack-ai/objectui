@@ -1,0 +1,33 @@
+{
+  "number": 2991,
+  "kind": "pull_request",
+  "title": "fix(form): a defaultValues change no longer discards the field being filled (#2982)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:46:19Z",
+  "updated_at": "2026-07-30T08:29:36Z",
+  "closed_at": "2026-07-30T08:29:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:29:34Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2991",
+  "body": "Closes the product-side hole that #2983 left open (it fixed only the test).\n\n## The bug\n\nThe form renderer adopts a changed `defaultValues` with `form.reset()`, which replaces the **whole** react-hook-form record — so it also blanks every field the incoming defaults say nothing about. And it runs in a **passive effect**, one commit after those fields were committed and painted, so input landing in that window was silently discarded.\n\nThe wizard reuses ONE inner form across steps and feeds it `defaultValues={formData}` — the merge of the steps submitted **so far** — so at every step boundary the incoming defaults are missing exactly the fields now on screen:\n\n```\nRESET to {\"name\":\"Alice\"}   (values before: {\"name\":\"Alice\",\"note\":\"hello\"})\n-> create POST {\"name\":\"Alice\"}   — the last step is gone\n```\n\nIn a browser this needs a busy main thread plus typing on the first frame after new defaults arrive — unlikely by hand, but paste and autofill land in a single tick.\n\nThis is the residual of an incident already hardened once: [#1525](https://github.com/objectstack-ai/objectui/pull/1525) stopped `reset()` firing on `defaultValues` **identity** churn by comparing by value. This is the case where the value genuinely did change.\n\n## Measured behavior before the change\n\n| scenario | before |\n|---|---|\n| **A** defaults `{}` → `{name}`, user typed `note` | `note` **wiped**, POST loses it ← the bug |\n| **B** defaults `{name,note}` → `{name}`, user edited `note` | reverts to the previous default; edit dropped |\n| **C** record swap `A` → `B`, user edited `note` | record B wins outright |\n\nOnly **A** is wrong. **B** and **C** are unchanged by this PR.\n\n## The fix\n\nThe reset carries the value across instead of dropping it — deliberately narrow. Only a field the **caller has never carried** (absent from both the outgoing and the incoming defaults) whose value the user actually changed is eligible. Wherever the caller has an opinion it stays authoritative, so the three load-bearing paths are untouched:\n\n- **an edit-mode record landing after first paint** still fills every field it names. An untouched field is empty-ish against the baseline under the same comparison the dirty check uses, so a widget normalizing its own empty value on mount (`'' -> null`) is not mistaken for input.\n- **a `recordId` swap** still replaces the record outright. Drawer/modal/split forms re-fetch *without* re-entering their loading branch, so record B lands in the still-mounted form and must not inherit an abandoned edit to record A.\n- **a field the caller withdraws** from its defaults stops being the user's.\n\nA reset that carried input now also reports the form as dirty (it is, against the caller's defaults) instead of unconditionally announcing pristine, so a host's discard guard keeps hearing the truth.\n\n### Why not `keepDirtyValues` / `dirtyFields`\n\nRHF's dirty tracking flags exactly the self-normalizing widgets this file already rolled its own `computeDirty` to work around (`null !== undefined` → dirty on an untouched form). `keepDirtyValues: true` would therefore have **rejected the loaded record** for every such field — breaking the load-bearing path this reset exists for.\n\nThe broader \"keep anything the user touched\" rule was also considered and rejected: it leaks an abandoned edit to record A into record B on an in-place `recordId` swap.\n\n## Verification\n\n- **A/B, pre-#2983 harness (types the moment the input mounts, no `act()` drain), under CPU load, 400 iterations per arm:** before **5 failures** (each `{\"name\":\"Alice\"}`, `note` lost), after **0**. So the renderer change closes the real race, not just the test-side symptom.\n- New renderer-level test pins the fix and all three paths above deterministically, with no timing games.\n- `npx vitest run packages/plugin-form/ packages/components/` → **68 files / 577 tests pass**.\n- `@object-ui/components` `type-check` clean; `lint` 0 errors, no new warnings in the edited region.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

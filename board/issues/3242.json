@@ -1,0 +1,34 @@
+{
+  "number": 3242,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail,plugin-list): add missing @object-ui/permissions dev edge so turbo `^build` reaches it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:13:28Z",
+  "updated_at": "2026-08-03T07:21:47Z",
+  "closed_at": "2026-08-03T07:21:46Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T07:21:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3242",
+  "body": "Fixes objectstack-ai/objectui#3207\n\n## 问题\n\n`@object-ui/permissions` 只出现在 `plugin-detail` / `plugin-list` 的 `peerDependencies`,不在 `dependencies` / `devDependencies`。turbo 的 `type-check` 任务 `dependsOn: [\"^build\"]`,而 `^` 只沿 dependencies/devDependencies 走,所以 `permissions/dist` 永远不会为这条命令构建出来。\n\n值得强调的一点(原单没写,但它解释了为什么这是**构建图**问题而不是安装问题):**pnpm 其实已经把这个 peer 软链进了 `node_modules`** —— 改动前的 lockfile 里,`@object-ui/permissions` 被记在 importer 的 `dependencies` 下(`specifier: workspace:^`)。也就是说包的**路径**一直能解析,`tsc` 找得到那个目录,只是目录里没有 `.d.ts`,于是报 TS2307。turbo 读的是 `package.json`,不是 lockfile,两者不一致正是缺口所在。\n\n## 缺口有两处\n\n按「`peerDependencies` 里的工作区包未同时出现在 `dependencies`/`devDependencies`」逐个扫全工作区(46 个包,含 `apps/*` 与 `examples/*`),命中两个:\n\n```\n@object-ui/plugin-detail -> missing: @object-ui/permissions\n@object-ui/plugin-list   -> missing: @object-ui/permissions\n```\n\n两处都改 `package.json` 且都会动 `pnpm-lock.yaml`,分两个 PR 必然互撞,所以一并修。\n\n## 改动\n\n1. 两个包的 `devDependencies` 各补一行 `\"@object-ui/permissions\": \"workspace:*\"`(与同文件其余 peer 的写法一致),`pnpm install` 重新生成 lockfile。\n2. 新增 `scripts/__tests__/workspace-peer-dependency-edges.test.ts` —— 把这条不变量**机械化**,而不是手工修完就算。\n\n## 关于那条 guard\n\n原单的深层意思是:一个包改完后最该跑的那条 scoped typecheck,返回的却是一屏与改动无关的红。补一行依赖只恢复了今天的状态,挡不住下一个包再捅同样的窟窿 —— 所以补了 guard。\n\n判据用的是「**这个 peer 是不是工作区里的包**」,而不是「名字是不是 `@object-ui/` 开头」。后者只是巧合,前者才是 turbo 真正在乎的东西(外部 peer 如 `react` / `@objectstack/spec` 从 registry 装来就是构建好的,不需要这条边)。\n\n几个刻意的设计:\n\n- **没有豁免名单**,现在也不该有 —— 修完之后全工作区 46 个包无一违反,而一条豁免和这个 bug 本身在形态上无法区分。\n- **workspace 根从 `pnpm-workspace.yaml` 读**,不写死,新增工作区根当天就被覆盖到;解析器只认文件里实际用的两种写法,遇到看不懂的语法**抛错而不是跳过**(悄悄少看半个工作区的 guard 比没有 guard 更糟)。\n- 有一条 `discovers the workspace` 断言兜底,防止解析器坏掉后所有断言在空列表上「真空通过」。\n- 失败信息直接给出原因和修法,不用再去翻 issue。\n\n它落在 `scripts/**/*.test.ts`,`vitest.config.mts` 的 `unit` project 已经覆盖这个 glob,所以随 `pnpm test` 自动跑,不需要另外改 workflow(少一处可能忘掉的接线)。全量耗时 272ms。\n\n**反向验证过**:临时把 `plugin-detail` 那行 devDep 删掉,guard 如期变红并指名道姓;恢复后转绿。\n\n## 关于 changeset(未加,理由如下)\n\n按 AGENTS.md「纯 bug 修复不需要 changeset」,且这次改的只有 `devDependencies` —— 消费者安装依赖时**不会**装 devDependencies,`peerDependencies` / `dependencies` 一个字没动,发布物的行为零变化,属于仓库内构建图/DX 修复。加 changeset 会让 `fixed` 组 39 个包为一次消费者观察不到的改动集体 patch 发版。若维护者认为仍需留一条 changelog 记录,我可以补一个 `patch`。\n\n## 验证\n\n改动前(干净 worktree,`packages/permissions/dist` 不存在):\n\n```\n$ pnpm exec turbo run type-check --filter=@object-ui/plugin-detail\n@object-ui/plugin-detail:type-check: src/DetailView.tsx(49,32): error TS2307: Cannot find module '@object-ui/permissions' or its corresponding type declarations.\n@object-ui/plugin-detail:type-check: src/RelatedList.tsx(51,32): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-details.tsx(15,53): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-details.tsx(116,18): error TS7006: Parameter 'n' implicitly has an 'any' type.\n@object-ui/plugin-detail:type-check: src/renderers/record-highlights.tsx(15,53): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-quick-actions.tsx(21,32): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-related-list.tsx(16,53): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-related-list.tsx(161,60): error TS7006: Parameter 'n' implicitly has an 'any' type.\nFailed:    @object-ui/plugin-detail#type-check\n\n$ pnpm exec turbo run type-check --filter=@object-ui/plugin-list\n@object-ui/plugin-list:type-check: src/ListView.tsx(24,32): error TS2307: Cannot find module '@object-ui/permissions' or its corresponding type declarations.\nFailed:    @object-ui/plugin-list#type-check\n```\n\n`plugin-list` 复现的是同一类失败(只有一处 import,所以只有一条),**不是**依赖边本来就完整。\n\n改动后(先 `rm -rf packages/permissions/dist`,以证明是 turbo 自己把它构建出来的):\n\n```\n$ pnpm exec turbo run type-check --filter=@object-ui/plugin-detail\n@object-ui/permissions:build: > @object-ui/permissions@17.2.0 build\n@object-ui/permissions:build: > tsc\n@object-ui/plugin-detail:type-check: > tsc --noEmit && tsc -p tsconfig.typetests.json\n Tasks:    12 successful, 12 total\n\n$ pnpm exec turbo run type-check --filter=@object-ui/plugin-list\n@object-ui/plugin-list:type-check: > tsc --noEmit && tsc -p tsconfig.typetests.json\n Tasks:    13 successful, 13 total\n```\n\n`@object-ui/permissions:build` 出现在依赖图里 —— 这正是原先缺失的那条边。\n\n其余:\n\n```\n$ pnpm exec turbo run test --filter=@object-ui/plugin-detail --filter=@object-ui/plugin-list\n@object-ui/plugin-detail:test:  Test Files  38 passed (38)\n@object-ui/plugin-detail:test:       Tests  362 passed (362)\n Tasks:    14 successful, 14 total\n\n$ pnpm exec vitest run --project unit scripts/\n Test Files  4 passed (4)\n      Tests  34 passed (34)\n\n$ pnpm exec eslint scripts/__tests__/workspace-peer-dependency-edges.test.ts\n(exit 0)\n```\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

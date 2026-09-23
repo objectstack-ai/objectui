@@ -1,0 +1,33 @@
+{
+  "number": 3072,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): a view's own filter no longer vanishes when the user adds one",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:01:18Z",
+  "updated_at": "2026-07-30T16:08:18Z",
+  "closed_at": "2026-07-30T16:08:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:08:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3072",
+  "body": "Started as the one-line cleanup left over from the framework-followup audit — deleting a dead `?? entry.name` tolerance. Removing it properly meant consolidating the duplicated shape check that made it dead, and that turned up a live defect underneath.\n\n## The main bug\n\n`ObjectStackAdapter` translated object-form filter entries (`[{ field, operator, value }, ...]`) only at the **top level** of a `$filter`. The moment a list has both a stored view filter and a user filter, [ListView.tsx:1064](packages/plugin-list/src/ListView.tsx:1064) builds:\n\n```js\n['and', [{ field: 'stage', operator: 'eq', value: 'won' }], [['amount', '>', 1]]]\n```\n\nThe head is the string `and`, so the old top-level-only check called the whole thing \"already AST\" and sent the rules on untranslated. Both server answers to that are wrong — measured, not inferred:\n\n| | result |\n|---|---|\n| `isFilterAST(above)` | `false` — a bare rule object is not an AST child |\n| `parseFilterAST(above)` | `{\"amount\":{\"$gt\":1}}` — **`stage = won` is simply gone** |\n| after this PR | `{\"$and\":[{\"stage\":\"won\"},{\"amount\":{\"$gt\":1}}]}` |\n\nSo on a server with objectstack#4121 the `isFilterAST` gate turns it into a **400 and the list fails to load**. Before that — or anywhere `parseFilterAST` is reached without the gate — **the view's own condition is dropped silently** and the list returns records the view exists to exclude.\n\nTranslation is now recursive through `and`/`or` nodes and legacy flat child arrays.\n\n## Three related fixes in the same code\n\n**An untranslatable entry is now an error, not an omission.** Entries that failed to translate were dropped, and dropping one conjunct of an `and` returns a *superset* of the rows asked for — dropping the last one sent no `filter=` at all, so the whole table came back. That is the silent over-fetch the drivers stopped doing in objectstack#3948, one layer up. `find()` now throws `MalformedFilterError` carrying `code: 'INVALID_FILTER'` / `httpStatus: 400`, which is exactly what [`classifyLoadError`](packages/plugin-list/src/ListView.tsx:279) needs to render \"the filter is malformed\" instead of \"check your connection\" (#3066). A rule with a blank `field` passes `ViewFilterRuleSchema` (`z.string()` admits `''`), so this is reachable from real stored metadata.\n\nA *mixed* array (`[{ field, operator, value }, ['amount', '>', 1]]`) keeps both halves rather than dropping the tuple — that case was a lost condition, not a malformed one.\n\n**The two `find()` routes can no longer disagree.** The \"is this object form?\" test existed twice — once in `translateFilterToAST`, once inline in `convertQueryParams` — and the copies had **already drifted**: the inline one omitted a `!== null` guard, so `$filter: [null]` threw a `TypeError` on the plain route while the same value was handled on the `$expand` route. Same stored filter, different outcome, decided by whether the view happened to expand a lookup. One definition now serves both.\n\n**The dead tolerance itself.** `objectFilterEntryToAST` read `entry.field ?? entry.name` while the shape check keyed on `field` alone, so the `name` half was unreachable from the commit that introduced it (`4b93db4e6` added both in one diff). The spec agrees it is not a real shape: `ViewFilterRuleSchema.field` is required, so a `name`-keyed rule cannot be saved as view metadata at all. Removing it is enforce-or-remove, not a narrowing — nothing in either repo produces that shape.\n\n## Verification\n\n- **44 new tests**, every case driven down **both** `find()` routes.\n- The emitted filter is asserted against the server's own `isFilterAST` rather than a restated shape — the contract is \"the server accepts this\", so the test derives from the spec instead of duplicating it.\n- **Reverting `index.ts` fails 19 of the 44**, including the real pre-existing crash (`Cannot read properties of null (reading 'field')`) and the silent drop (`expected null to be an instance of Error`).\n- Full repo suite: **752 files / 8745 tests green**. `tsc` clean; eslint 0 errors (111 pre-existing `no-explicit-any` warnings in this file, untouched).\n\n## Note on the dead-code deletion\n\nIt has no failing-on-revert test, and cannot: it was dead, so removing it changes no behavior. The test that pins a `name`-keyed entry as *passed through* pins the decision instead — re-widening the sniff to accept `name` would fail it.\n\nRefs objectstack#3948, objectstack#4121, #2945\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

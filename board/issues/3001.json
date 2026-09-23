@@ -1,0 +1,33 @@
+{
+  "number": 3001,
+  "kind": "pull_request",
+  "title": "fix(components): apply new form defaultValues in the commit that renders them",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:39:36Z",
+  "updated_at": "2026-07-30T08:46:18Z",
+  "closed_at": "2026-07-30T08:46:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:46:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3001",
+  "body": "Closes the product-side race behind #2982. #2983 fixed the flaky *test*; this fixes the *form*.\n\n## The bug\n\nThe form applies a `defaultValues` change by resetting react-hook-form to it. While that ran in a **passive** effect there was a window: the render had already committed, so the new inputs were mounted and interactive, but the form still held the old record. Anything typed in that window was destroyed — the pending `reset()` overwrote the whole record with `defaultValues`, dropping the field the user had just filled. No error, nothing in the payload.\n\nIt surfaced as a flaky wizard test: a step transition changes `defaultValues`, and `note` typed on the new step vanished from the create body. #2983 drained pending effects in the test, which **avoids** the window; this **closes** it.\n\nMeasured with the pre-fix test pattern (no test-side drain), 1500 replays under 10 competing CPU hogs:\n\n| | failures / 1500 |\n|---|---|\n| before | **6** |\n| after | **0** |\n\n## The half-fix that wasn't\n\nMaking the reset a layout effect alone **regressed #2968**, deterministically — 3/3 fail, 3/3 pass on pristine. Worth writing down, because the reason is not obvious:\n\nThe `form_change` subscription was silent across a reset **by accident of ordering, not by design**. `onAction` is usually an inline arrow, so its identity changes every render and the subscription effect re-runs each commit — and React runs every passive DESTROY before any passive CREATE, so the watcher was already unsubscribed when the reset fired. Hoisting only the reset to the layout phase puts it *ahead* of that cleanup, so the still-live previous subscription sees it, and a record landing looks like the user having edited every field it filled:\n\n```\nchanges=[{\"category\":\"not-offered\",\"status\":\"pending\"}]   ← should be []\n```\n\nSo both `form.watch` subscriptions move to the same phase, restoring the destroy-then-create order exactly. That is the whole reason this diff touches three effects instead of one.\n\n## The regression test\n\nDeterministic, not statistical — a 1500-iteration probe is unfit for CI. It leans on a guarantee that actually holds: React flushes passive effects in **tree order**, so a probe sibling rendered *before* the form is guaranteed to run inside the window, and types from there. Fails on every run against the previous code.\n\n(My first attempt used `flushSync` to open the window and was worthless — `flushSync` also flushes pending passive effects, so it closed the very gap it meant to open and passed on buggy code. Discarded.)\n\nA second case covers the risk this change carries: defaults that arrive **late** (edit-mode record landing) must still be adopted.\n\n## Verification\n\n- Full repo suite: **8220 passed, 0 test failures**. One unrelated file, `plugin-kanban/src/index.test.ts`, hit a `beforeAll` import timeout under a fully-parallel local run; it passes 3/3 alone and never touches the form renderer.\n- `form.tsx` lint warnings unchanged (82 → 82), 0 errors; new test file 0 warnings.\n- Pure bug fix, so no changeset per AGENTS.md §9.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

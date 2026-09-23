@@ -1,0 +1,35 @@
+{
+  "number": 3081,
+  "kind": "pull_request",
+  "title": "fix(view,list,core): a view's filter no longer disappears, or arrives as a predicate on columns that don't exist",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T00:40:12Z",
+  "updated_at": "2026-07-31T02:29:18Z",
+  "closed_at": "2026-07-31T00:45:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T00:45:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3081",
+  "body": "Swept the other `$filter` producers after #3078. **`ObjectView` was the only other one merging two filter vocabularies, and it had two live defects.** Everything else came back clean — the audit table is at the bottom.\n\n## 1. An object filter was dropped — and only for non-grid views\n\n`ObjectView` fetches its own data for calendar / kanban / gallery / timeline; grid delegates to `ObjectGrid`. The merge tested `baseFilter.length > 0`, which is `undefined > 0` for an object — and [`table.defaultFilters` is declared `Record<string, any>`](packages/types/src/objectql.ts:548).\n\nSo the filter vanished and the view returned **every record**. `ObjectGrid` assigns the same value straight to `params.$filter` and was unaffected — meaning **one view definition filtered correctly as a grid and returned everything as a calendar**.\n\n## 2. Rule objects were spread into the `and`, not wrapped\n\n`['and', ...baseFilter, ...userFilter]` is only correct when the source is an array of AST nodes. `activeView.filter` is a spec `ViewFilterRule[]`, so spreading put bare rule objects where the AST expects nodes. Measured against the spec's own functions:\n\n```js\nisFilterAST(['and', {field:'stage',operator:'eq',value:'won'}, ['owner','=','me']])\n// false  → 400 since objectstack#4121\n\nparseFilterAST(same)\n// {$and:[{field:'stage',operator:'eq',value:'won'}, {owner:'me'}]}\n```\n\nThat second line is a predicate over three columns named `field`, `operator`, `value` — which don't exist. Reachable whenever a view with a filter meets a user filter value. `['and', ...x]` survived because it *is* right when `x` is an array of nodes.\n\n## The fix\n\nNew in `@object-ui/core`: `toFilterNode` normalizes one source (rule array / AST / MongoDB object), `mergeFilterNodes` combines sources as **siblings** under one `and`. `ObjectView` and `ListView.buildEffectiveFilter` both use them, so the three shapes are reconciled in one place rather than by hand at each renderer.\n\n`ObjectStackAdapter` also translates a bare rule object sitting directly under a logical node — the chokepoint defence for any producer still emitting the spread shape. Only rule-*shaped* objects are touched; a child with no `field` is a genuine MongoDB condition (`{status:'active'}`) and passes through untouched.\n\n## Correcting a comment I shipped in #3078\n\n`buildEffectiveFilter` documented the dropped-object case as unreachable — *\"nothing in this repo produces one for a list view\"*. **That was wrong.** [`ObjectView:1010`](packages/plugin-view/src/ObjectView.tsx:1010) passes `mergedFilters` straight into that schema's `filter`, and its last fallback is `table.defaultFilters`. The case is now handled instead of explained away, and a test pins it.\n\n## The rest of the sweep — no action needed\n\n| producer | verdict |\n|---|---|\n| dashboard metric / chart / pivot / data-table | one resolved filter, no cross-vocabulary merge |\n| gallery, gantt, calendar, map | forward `schema.filter` unchanged |\n| `ObjectGrid` | assigns `defaultFilters` directly — never had the `.length` bug |\n| `filter-converter`'s `['and', ...conditions]` | spreads tuples it built itself — correct |\n| `DashboardFilterBar`, lookup/field widgets, app-shell reads | single-source `$filter` objects |\n\n## Verification\n\n19 tests across the four packages. **Reverting each source file fails the tests covering it** (adapter 2, ObjectView 1, ListView 2, plus the core merge suite). Emitted filters are asserted against the spec's own `isFilterAST` / `parseFilterAST` rather than restated literals, including an executable pin on what the old spread shape produced — so the fix can't be undone by someone who finds the wrapping verbose.\n\nFull suite **761 files / 8856 tests green**; `tsc` clean across core, data-objectstack, plugin-list, plugin-view; eslint 0 errors.\n\nRefs #3078, #3072, objectstack#4121\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

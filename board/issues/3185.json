@@ -1,0 +1,32 @@
+{
+  "number": 3185,
+  "kind": "pull_request",
+  "title": "refactor(app-shell): 把 `DecisionOutputDef` 收敛成 spec 的纯 re-export,并反转 parity pin",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T08:20:42Z",
+  "updated_at": "2026-08-02T08:27:38Z",
+  "closed_at": "2026-08-02T08:27:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T08:27:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3185",
+  "body": "Fixes objectstack-ai/objectstack#4562\n\n> 注:正文里的泛型都写成 `Equal< Exclude< … > >` —— 尖括号后**故意加了空格**。GitHub 会把「`<` 紧跟字母」的序列当成 HTML 标签吞掉,加空格后仍是**合法 TypeScript**,可直接复制。仓库里的真实代码没有这些空格。\n\n## 背景\n\napp-shell 的 `DecisionOutputDef` 一直是一个**结构派生**,带着 ONE documented divergence:\n\n```ts\nexport interface DecisionOutputDef extends SpecDecisionOutputDef {\n  required?: boolean;\n}\n```\n\n`required` 之所以是本地加的,是因为服务端会强制它(`decide()` 在任何写入前就拒绝空的 required output),而 `@objectstack/spec` 当时还没建模这个字段。\n\n现在这个前提没了:spec 在 cd6b9f202 采纳了 `required`,objectstack#4561 把它钉在 schema 层,而本仓在 #3178 升到 `@objectstack/spec@17.0.0-rc.1` 之后已经解析到含 `required` 的版本。派生因此**变成纯冗余**。\n\n## 改动(三项,一个 PR)\n\n### 1. 收敛冗余派生\n\n`packages/app-shell/src/utils/decisionOutputParams.ts`\n\n```ts\nexport type DecisionOutputDef = SpecDecisionOutputDef;\n```\n\n保留 re-export(而不是让调用方直接 import spec),是因为这个模块是 approval 的 decision outputs 变成 action params 的**唯一入口**,它的消费者(`useRecordApprovals`、`DeclaredActionsBar`、`RecordDetailView`)都从这里读类型。\n\n### 2. 修掉过期的模块 TSDoc\n\n原注释仍然断言 \"**the spec does not model it yet**\" —— 已经不成立,而且**主动误导**。这正是 objectstack#4115 那一类失败:下一个 agent 读到这句会把这个 divergence 当成地面真值并在其上继续构建(#2901 就是这么被填了个反的前提)。现已改写为当前事实,并说明 `type` 的闭合枚举收窄仍然是 load-bearing 的(它才是阻止拼错的 picker kind 静默降级成裸 record-id 文本框的东西 —— objectui#2955)。\n\n### 3. 反转 parity pin\n\n`packages/app-shell/src/__tests__/spec-symbol-parity.test.ts`\n\n之前 —— `required` 是唯一的本地新增:\n\n```ts\nEqual< Exclude< keyof DecisionOutputDef, keyof SpecDecisionOutputDef >, 'required' >\n```\n\n现在 —— 排除集为空,外加一条精确同一性断言:\n\n```ts\nEqual< Exclude< keyof DecisionOutputDef, keyof SpecDecisionOutputDef >, never >\nEqual< DecisionOutputDef, SpecDecisionOutputDef >\n```\n\n这就是原注释承诺的 \"fails on that day\" —— 今天就是那天。`_TypeIsClosed` 那条保持不变。文件头的计数也从「eighteen plain re-exports + ScreenSpec 和 DecisionOutputDef 各带一处 divergence」更新为「nineteen plain re-exports + ScreenSpec 仍带一处 divergence」。\n\n## ⚠️ 关于 guard 状态(请 reviewer 注意)\n\n**这条 pin 目前不被任何 CI gate 编译。** `packages/app-shell/tsconfig.json` 的 `exclude` 含 `**/*.test.ts`,而 CI 的类型 gate 是 turbo 的逐包 `tsc --noEmit`,所以 `spec-symbol-parity.test.ts` 里所有 `Assert< Equal< … > >` 都**从未进入编译单元**。实测:往该文件追加 `type _Probe = Assert< Equal< 1, 2 > >` 之后 `pnpm type-check` 依然 **exit 0**。\n\n这一点已单独记录在 **objectui#3181**;**本 PR 的反转断言要等 #3181 落地后才真正被 CI 强制**。在那之前我用一个临时 tsconfig(`include: [\"src\"]`、去掉 test 的 exclude)显式编译验证,证据见下。这也解释了 objectstack#4562 的前提为何写成「parity 测试会在那天失败」—— 它其实永远不会失败。\n\n## 验证(实测输出)\n\n均在 merge 了 origin/main(含 #3178,spec 解析为 **17.0.0-rc.1**)之后运行。\n\n**类型检查**\n\n```\n$ cd packages/app-shell && pnpm type-check\n> tsc --noEmit\nEXIT=0\n```\n\n**反转后的断言显式编译**(绕开 test exclude)\n\n```\n$ npx tsc --noEmit -p tsconfig.paritycheck.json | grep spec-symbol-parity\n(无输出 = 干净)\n```\n\n**负向对照 —— 旧的 `'required'` pin 现在必须失败**\n\n```\n$ # 把旧断言重新加回去\nsrc/__tests__/spec-symbol-parity.test.ts(293,3): error TS2344:\n  Type 'false' does not satisfy the constraint 'true'.\n```\n\n说明反转不是把断言写松了,而是确实反了向。\n\n**测试**\n\n```\n$ npx vitest run packages/app-shell\n Test Files  252 passed (252)\n      Tests  2150 passed | 1 skipped (2151)\n   Duration  180.18s\n```\n\n**Lint**\n\n```\n$ cd packages/app-shell && pnpm lint\n✖ 2090 problems (0 errors, 2090 warnings)\nEXIT=0\n```\n\n(2090 条全是既有 warning,与本 PR 无关。)\n\n**spec 符号 guard**\n\n```\n$ pnpm check:spec-symbols\n✅  spec symbol derivation: 1200 files scanned against 4344 spec export names;\n    8 declared dialects, 75 untriaged collisions in 18 packages.\nEXIT=0\n```\n\n**changeset gate**\n\n```\n$ pnpm changeset:check\n✅  All workspace packages are in the changeset fixed group.\n```\n\n## 影响面\n\n**无行为变更。** `DecisionOutputDef` 是本包内部符号(**未**从 `src/index.ts` re-export,包只有 `.` 一个 entry),收敛前后解析出的形状逐键相同,`decisionOutputParams()` 仍然读 `d.required` —— 只是现在读的是 spec 自己的字段。调用方(`useRecordApprovals.ts`、`DeclaredActionsBar.tsx`、`RecordDetailView.tsx`)**一行都不用改**,已确认没有 ripple。\n\nchangeset 标 `patch`(内部类型重构,无 API 变更;按 AGENTS.md 版本号策略,不声明 `major`)。\n\n## 一点顺带的观察\n\n#3178 只升了 `@objectstack/spec`,`@objectstack/client` / `core` / `formula` / `lint` 仍是 `17.0.0-rc.0`,而它们对 spec 的依赖是**精确版本**,所以图里现在同时存在两份 spec:\n\n```\nspec copies in graph: @objectstack+spec@17.0.0-rc.0, @objectstack+spec@17.0.0-rc.1\nclient / core / formula / lint  ->  都仍然看到 spec 17.0.0-rc.0\n```\n\n这不影响本 PR(app-shell 侧解析到 rc.1,收敛所需的 `required` 在),但对依赖**引用同一性**的 guard(`spec-subschema-parity.test.ts`、以及用 `createRequire` 解析 spec `.d.ts` 的两处)是潜在隐患。已记录在 **objectui#3182**,不在本 PR 范围内。\n\n## 备注\n\n分支上第一个 commit(139b9df)的 message 写着 \"BLOCKED — does not compile against 17.0.0-rc.0\" —— 那是 #3178 合并**之前**的状态,现已不成立。因为分支已推送且本仓禁止 force-push,该 commit message 原样保留,以此说明。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

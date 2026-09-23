@@ -1,0 +1,32 @@
+{
+  "number": 3258,
+  "kind": "pull_request",
+  "title": "fix(app-shell): ToolPreview 不再渲染已退役的 ToolSchema 标记徽标 (#3236)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T08:00:14Z",
+  "updated_at": "2026-08-03T08:03:22Z",
+  "closed_at": "2026-08-03T08:03:20Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T08:03:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3258",
+  "body": "Fixes objectstack-ai/objectui#3236\n\n## 改了什么\n\n`packages/app-shell/src/views/metadata-admin/previews/ToolPreview.tsx` 的头部条原先直接从 raw draft 上读四个键、每个画一枚 pill。四个键全部已从 `@objectstack/spec` 的 `ToolSchema` 移除,现已删除:\n\n| 键 | 原渲染 | 退役出处 |\n|---|---|---|\n| `requiresConfirmation` | `Requires confirmation`(琥珀色 + 警告图标) | objectstack#3715 / ADR-0033 §2(16.x 线) |\n| `active` | `Active` / `Disabled` | objectstack#3896(17.0.0 审计关闭) |\n| `builtIn` | `built-in` | objectstack#3896 |\n| `category` | 分类标签 pill | objectstack#3896 |\n\n保留的头部条内容:label、机器名、以及 `objectName` pill(`objectName` 仍是 spec 认的键)。参数表、Example LLM Call、Output Schema 一律未动。`Pill` 的 `tone`(`green`/`amber`)词汇随徽标一起删掉 —— 删完已无调用者,留着正是徽标长回来的入口。\n\n## `active` / `builtIn` 的核实结论(issue 要求先核实再动)\n\n**已核实,确属同型残留,一并清理。** 不是照着 issue 猜的,是对着本仓实际安装的 `@objectstack/spec@17.0.0-rc.1` 跑出来的:\n\n```\nToolSchema present: true\nrequiresConfirmation  => REJECTED: Unrecognized key(s) on the tool definition: `requiresConfirmation`. …\nactive                => REJECTED: Unrecognized key(s) on the tool definition: `active`. …\nbuiltIn               => REJECTED: Unrecognized key(s) on the tool definition: `builtIn`. …\ncategory              => REJECTED: Unrecognized key(s) on the tool definition: `category`. …\npermissions           => REJECTED: Unrecognized key(s) on the tool definition: `permissions`. …\nobjectName+outputSchema => ACCEPTED\n```\n\nspec 源码里的注释也把这四个并列写死了:「`category`、`permissions`、`active` 和 `builtIn` 由 2026-07 #3896 安全审计关闭一并移除」。\n\n**顺带发现:`category` 也是同型残留**(issue 只点了 `active`/`builtIn`)。它由同一次 #3896 移除、在同一条头部条上渲染,是同一次核实查出来的,因此一并删,单独在这里说明。`permissions` 本预览从未读取,无需处理。\n\n## 为什么这不是\"少画个徽标\"的小事\n\nspec 已 `.strict()` 具名拒收,所以**新**元数据带不进来 —— 但退役前入库的**陈旧存量行**仍带着这些键,预览照亮不误。危害方向是明确的:\n\n- `Requires confirmation` 在宣传一个**从未存在的安全暂停**。没有任何执行路径读过它 —— 不是 LLM tool set(工具只以 name/description/parameters 到达模型)、不是 `ToolRegistry.execute`、不是 `POST /ai/tools/:name/execute`。审阅者看到一个破坏性工具被标成\"有确认门\",而它并没有。真正的门是 `action.ai.requiresConfirmation` + HITL 审批队列。\n- `Disabled` 宣称工具已被撤下,而 `ToolRegistry.getAll()` 仍在把它交给 LLM、execute 路由仍在跑它。\n\n即 objectui#2962 的同型形状:**一个 UI 徽标宣传运行时并不兑现的能力**。\n\n## 测试(objectui#3236 要求的钉子)\n\n新增 `packages/app-shell/src/views/metadata-admin/previews/ToolPreview.test.tsx`:喂一个**仍带全部四个退役键**的陈旧 draft(`requiresConfirmation: true`、`active: false`、`builtIn: true`、`category: 'data'`),断言一枚都不渲染;另有正向断言,保证 label / 机器名 / description / `objectName` pill / 参数表 / Example LLM Call 都还在。\n\n**反向验证做了**:把徽标分支临时加回去,断言确实会红(不是永远为真的空断言):\n\n```\nFAIL |dom| ToolPreview.test.tsx > renders no confirmation badge for a stale draft with requiresConfirmation: true\nAssertionError: expected < span class=\"text-foreground \"> < /span> to be null\n- Expected: null\n+ Received: < span class=\"text-foreground \"> Requires confirmation < /span>\n ❯ ToolPreview.test.tsx:62:58\n…\n Test Files  1 failed (1)\n      Tests  3 failed | 4 passed (7)\n```\n\n删掉徽标后:\n\n```\n Test Files  1 passed (1)\n      Tests  7 passed (7)\n```\n\n同目录/同视图回归(root config,含全部 metadata-admin 测试):\n\n```\npnpm vitest run packages/app-shell/src/views/metadata-admin --maxWorkers=2\n Test Files  118 passed (118)\n      Tests  1045 passed | 1 skipped (1046)\n```\n\n```\npnpm --filter @object-ui/app-shell test     → 19 files / 153 tests passed\npnpm --filter @object-ui/app-shell type-check → 通过(tsc --noEmit && tsc -p tsconfig.typetests.json)\neslint(两个改动文件)                        → 0 error(2 条既有 react-hooks/exhaustive-deps warning,与本次改动无关)\n```\n\n## Changeset\n\n已加 `.changeset/toolpreview-drop-retired-flag-pills.md`(`@object-ui/app-shell: patch`)。判断依据:虽然是纯删代码,但**用户可见** —— admin 预览里几枚徽标消失了(其中 `Active` 是以前无条件渲染的),审阅 tool 元数据的人会直接看到差别,该进 release notes。按 AGENTS.md 版本策略不声明 `major`;`check-changeset-no-major.mjs` 与 `check-changeset-fixed.mjs` 均已本地跑过通过。\n\n## 范围外发现\n\n`apps/console/src/preview-samples.ts` 的 `tool` 样例仍带 `category` / `active` / `requiresConfirmation` 三个已退役键 —— 同型残留,但在 `apps/console` 而非本次 scope fence(`packages/app-shell`)内,**未在本 PR 改动**,已另开 objectstack-ai/objectui#3257 记录。\n\n除此之外,全仓扫描(`packages/` `apps/` `content/` `examples/` `e2e/`)已无其他 `requiresConfirmation` / tool `builtIn` 残留。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 2994,
+  "kind": "pull_request",
+  "title": "refactor(actions): `navigation` becomes a declared alias of `url`, sharing one navigator (#2944)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:06:55Z",
+  "updated_at": "2026-07-30T08:13:49Z",
+  "closed_at": "2026-07-30T08:13:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:13:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2994",
+  "body": "The last open item of #2944 (item 3), and the first entry on #2945's additions-only list.\n\n`ActionRunner` dispatched a seventh action type, `navigation`, that\n`@objectstack/spec`'s `ActionType` does not contain. The issue asked for a\ndecision: promote it upstream, or delete the case. **Neither, as stated.**\n\n## Why not promote\n\nThe spec already names this operation. `type: 'url'` *is* \"go to a location\", with\n`openIn: 'self' | 'new-tab'` for the tab choice. Adding `navigation` upstream\nwould put a second spec name on one operation — which is the failure this audit\nexists to describe, committed one level up:\n\n> the recurring failure is not \"renderer forgot a name\", it is **\"a second\n> definition exists and the renderer is faithful to the wrong one.\"**\n\n## Why not delete\n\nDeleting does not surface an error. `{ type: 'navigation', to: … }` is authored\ntoday — `element:button` CTAs use it — and without the case the action falls\nthrough to `executeActionSchema`, which returns `{ success: true }`. The user gets\na green success toast and no navigation. That is #2960's trap, reached by way of a\ncleanup.\n\n## The actual finding: it had already drifted\n\nTwo implementations of one concept, and `executeNavigation` was quietly the\nweaker one:\n\n| | `url` | `navigation` (before) |\n|---|---|---|\n| `${param.X}` / `${ctx.X}` interpolation | yes | **no** |\n| `openIn` honoured | yes | **no** |\n| `/api/…` → full-page load | yes | **no** |\n| `apiBase` promotion | yes | **no** |\n| `replace` (history) | no | yes |\n\nSo `{ type: 'navigation', to: '/x?p=${param.p}' }` shipped the literal\n`${param.p}`, while the identical `url` action resolved it.\n\n## What this does\n\n`ObjectUiLocalActionType` / `OBJECTUI_LOCAL_ACTION_TYPES` declare `navigation` as\nobjectui's own alias of `url` — the treatment #2985 gave the page-visualization\nnames — and both names now route through one `navigateTo`. `url` gains `replace`\npass-through, the one modifier only the alias carried.\n\nAdditive. `replace` is omitted from the `NavigationHandler` options object when\nunset, so hosts see the shape they already saw.\n\n## The guard is structural, not another assertion\n\nBuilt-in dispatch is now a table typed `Record<RunnableActionType, …>` instead of\na `switch`. **An `ActionType` the spec adds stops compiling until an executor\nexists for it** — #2942's \"validates at save, renders nothing at run time\" class,\nconverted into a build error for actions. Verified it bites by deleting one entry:\n\n```\nActionRunner.ts(372,20): error TS2741: Property 'form' is missing in type\n'{ script: …; url: …; modal: …; flow: …; api: …; navigation: … }' but required in\ntype 'Record<RunnableActionType, (action: ActionDef) => Promise<ActionResult>>'.\n```\n\n`spec-derived-unions.test.ts` additionally asserts `navigation` is *absent* from\nthe spec enum — the inverse tripwire, so the day it is adopted upstream the test\nfails and names the alias to retire.\n\n## Coverage for two branches that had none\n\nThe `/api/` full-page short-circuit and `apiBase` promotion were untested while\n`executeUrl` was their only caller. They are what the better-auth social-login\nredirect dance depends on — pushing `/api/…` into the SPA router matches no route\nand lands on the home page, so the OAuth flow never starts — and they now have\ntwo callers. (They had no coverage because this project runs in a node\nenvironment with no `window` at all; the new tests stub the minimum and restore\nit.)\n\n## Also\n\nCorrects the audit doc's Direction B row, which still told readers to promote\n`navigation`, and adds Correction 4 explaining the general point: a\n\"renderer-local dialect\" row needs a third option next to promote and delete —\n**alias to the spec name it duplicates** — and choosing starts with asking\nwhether the spec really lacks the concept or just spells it differently.\n\n## Verification\n\n| | |\n|---|---|\n| Repo type-check | **76/76 tasks** |\n| Full test suite | **8204 pass**, 57 skipped, **0 failing tests** |\n| `packages/core` + `packages/types` eslint | 0 errors |\n\nTwo test *files* (`basic-renderers`, `page-variables`) hit a `beforeAll` timeout\non `await import('../renderers')` during the full run — the machine was loaded and\nthe run took 1050s against a normal ~285s. Both pass standalone in 11s (33/33),\nwith that import taking 2.7s rather than >30s. Not a logic failure.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

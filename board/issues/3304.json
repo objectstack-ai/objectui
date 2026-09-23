@@ -1,0 +1,33 @@
+{
+  "number": 3304,
+  "kind": "pull_request",
+  "title": "fix(console): emit maplibre's sibling worker beside its chunk (#3297)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T14:35:36Z",
+  "updated_at": "2026-08-03T14:44:27Z",
+  "closed_at": "2026-08-03T14:44:25Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T14:44:25Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3304",
+  "body": "Closes #3297\n\n## 问题\n\n`maplibre-gl` 把 worker 当作**自身脚本 URL 的兄弟文件**来解析，而不是 import 它，所以打包器看不到这条边（issue 中已给出构建产物摘录）：\n\n```js\n// maplibre-gl/dist/maplibre-gl.mjs\nlet e = import.meta.url;\nlet t = e.endsWith(`-dev.mjs`) ? `maplibre-gl-worker-dev.mjs` : `maplibre-gl-worker.mjs`;\nreturn new URL(`./${t}`, e).href;\n```\n\nvite 把 maplibre 打成 `assets/maplibre-gl-[hash].js` 后旁边什么都不产出，于是运行时算出的\n`/_console/assets/maplibre-gl-worker.mjs` 在**所有部署**里都是 404。\n\n## 改动\n\n新增 `scripts/vite-maplibre-worker.ts`（放在 `scripts/` 里，与既有的 `vite-crypto-stub.ts` 同一处），\n在 `apps/console/vite.config.ts` 里接入。\n\n**1. issue 只说了一半 —— worker 自己还有一个兄弟依赖。** maplibre 的 worker 是 *module worker*，\n第一行就 `import \"./maplibre-gl-shared.mjs\"`（479 KB）。只拷 worker 只会把 404 往里挪一跳，\n所以本 PR 拷的是 worker 的**兄弟闭包**：读 worker 源码，跟着它的相对 import 递归收集，\n一并 emit 进 `assetsDir`。maplibre 以后拆出更多兄弟文件也会自动跟上。\n\n**2. 落点。** 文件名不可哈希、不可换目录 —— 运行时算的是字面量兄弟路径。\n源文件目录取自 rollup **本次真的打进去的那个模块 id**（`transform` 钩子），\n所以拷出来的 worker 与主线程代码天然同版本，不存在二次解析选到另一份 hoist 副本的可能。\n\n**3. 构建断言（参照 `scripts/build-console.sh` 的 `CONSOLE_BUNDLE_CANARY` 姿势）。**\n三道，全部让构建**红**而不是运行时 404：\n\n| 断言 | 触发条件 |\n|---|---|\n| dist 文件缺失 | maplibre 升级改名/改布局，要拷的文件不在了 |\n| 引用漂移审计 | 产物 chunk 里请求的 worker 名不在本次 emit 的集合中 |\n| 写盘后 canary | emit 被后续插件/配置吃掉，文件没真正落到 `dist/assets` |\n\n## dev 模式（本单要求核对的第三点）\n\n**结论：dev 原本也是坏的，同一机制、隔壁目录，已一并修。**\n\n`optimizeDeps` 会把 maplibre 预打包到 `node_modules/.vite/deps/maplibre-gl-[hash].js`，\n`import.meta.url` 未被改写，于是兄弟 URL 变成 `/node_modules/.vite/deps/maplibre-gl-worker.mjs`\n—— 同样不存在。实测（修复前，console dev server）：\n\n```\nGET /node_modules/.vite/deps/maplibre-gl-ByR7Wvy-.js   200\nGET /node_modules/.vite/deps/maplibre-gl-worker.mjs    404\nGET /node_modules/.vite/deps/maplibre-gl-shared.mjs    404\n```\n\n因此插件同时挂了一个 dev 中间件，把这些请求用 maplibre 真实 dist 里的文件应答。\n它只会应答**确实存在于 maplibre dist 里**的文件名，其余一律 `next()`。修复后：\n\n```\nGET /node_modules/.vite/deps/maplibre-gl-worker.mjs    200  text/javascript; charset=utf-8  19108\nGET /node_modules/.vite/deps/maplibre-gl-shared.mjs    200  text/javascript; charset=utf-8  479327\nGET /node_modules/.vite/deps/maplibre-gl-nope.mjs      404   ← 不会凭空造文件\n```\n\n## 验证\n\n**构建产物**（`pnpm --filter @object-ui/console build`，绿）：\n\n```\nassets/maplibre-gl-DXuUDjK2.js     ← issue 里那个 chunk，hash 一致\nassets/maplibre-gl-shared.mjs\nassets/maplibre-gl-worker.mjs\n```\n\n**按 maplibre 自己的逻辑复算 URL**（从 preview 实际下发的 chunk 里正则取出那个三目表达式再算一遍）：\n\n```\nternary found in served chunk: [ 'maplibre-gl-worker-dev.mjs', 'maplibre-gl-worker.mjs' ]\nruntime-computed worker URL:   http://localhost:5399/assets/maplibre-gl-worker.mjs   -> 200, 19108 B\nworker -> sibling import:      http://localhost:5399/assets/maplibre-gl-shared.mjs   -> 200, 479055 B\n```\n\n**issue 里那条一模一样的 URL**（`vite preview --base /_console/`）：\n\n```\nGET /_console/assets/maplibre-gl-worker.mjs  ->  HTTP=200  Content-Type=text/javascript  bytes=19108\nGET /_console/assets/maplibre-gl-shared.mjs  ->  HTTP=200  Content-Type=text/javascript  bytes=479327\n```\n\n**sabotage（三道断言逐条验红，均 EXIT=1）**：\n\n1. 把 worker 名改成 maplibre 没有的文件 →\n   `maplibre dist file 'maplibre-gl-worker-v7.mjs' does not exist (required by maplibre's runtime worker URL).`\n2. 改成拷一个存在但产物并不请求的文件 →\n   `Built chunks request maplibre worker(s) this build does not emit: maplibre-gl-worker.mjs. Emitted: maplibre-gl-shared.mjs.`\n3. 直接禁掉拷贝步骤 →\n   `maplibre worker asset(s) missing from the build output: maplibre-gl-worker.mjs, maplibre-gl-shared.mjs.`\n\n**测试 / 类型 / lint**：\n\n```\nvitest --project unit           359 files / 4933 passed        （含新增 20 条）\n@object-ui/console test          20 files /  183 passed\n@object-ui/console type-check    tsc --noEmit, 0 error\n@object-ui/plugin-map type-check tsc --noEmit, 0 error\neslint（三个改动文件）             0 problem\n```\n\n新增的 20 条单测钉住了漂移审计的各个分支，并且会**读真实安装的 maplibre**：升级后\nworker 改名或不再是兄弟约定，`pnpm test` 直接红，不用等到浏览器里才发现。\n\n## ⚠️ 验证边界（如实标注）\n\n- **tile 实际渲染未验证。** 本环境 egress 受限（`demotiles.maplibre.org` 打不通），\n  容器内也没有可用浏览器（playwright 装了但没下载 browser），所以无法真的把地图画出来。\n  验证到的是「产物存在 + 运行时算出的 URL 200 + MIME 正确 + worker 自身依赖也 200」。\n- 因此 issue 里那个**严重度问题仍未确认**：worker 404 时 maplibre 究竟是主线程回退（只是慢）\n  还是彻底不出图。有外网环境时值得复看一眼。不过这不影响本 PR 的正确性 ——\n  第一方资产在自家产物里缺失，无论如何都该补。\n\n## changeset\n\n**未加**，依据两条：AGENTS.md「纯 bug 修复不需要 changeset」；以及仓库现行做法 ——\n近期 `fix(console):` 三个 PR 均未附 changeset，而改动发布库包的\n`fix(components)/fix(fields)/fix(app-shell)` 都附了。console 进部署走的是 framework 侧\n`.objectui-sha` pin + `scripts/build-console.sh` 重新构建，不依赖 npm 版本号。\n若维护者希望本次走版本发布，我再补一个（按仓规标 `minor`，绝不标 `major`）。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

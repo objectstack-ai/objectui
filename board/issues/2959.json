@@ -1,0 +1,32 @@
+{
+  "number": 2959,
+  "kind": "issue",
+  "title": "[console 17.0.0-rc.0 @4a4829d0] Tabbed create/edit modal still loses non-active-tab values (#2153 closed but explicit-sections path unfixed) — Radix unmount destroys per-tab form state",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T08:35:46Z",
+  "updated_at": "2026-07-30T08:03:08Z",
+  "closed_at": "2026-07-30T08:03:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2959",
+  "body": "Follow-up to #2153 (closed COMPLETED 2026-07-15). The fieldGroups branch from #2152/#2154 is fixed, but at `4a4829d0` (the commit pinned by ObjectStack console 17.0.0-rc.0) the **explicit-sections path still ships the bug** — `packages/plugin-form/src/ModalForm.tsx:518-525` still carries the KNOWN LIMITATION comment that says \"fixing the explicit path is tracked in #2153\".\n\n## Two compounding mechanisms (verified in source)\n1. **Per-tab form instances**: the tabbed branch (`ModalForm.tsx:550-573`) renders one SchemaRenderer (= one react-hook-form instance + one `<form>`) per section, all sharing `formId`; the footer submit associates with the FIRST form only (`:761-771`). Same in `TabbedForm.tsx:307-378`.\n2. **Tab switch destroys values**: `packages/components/src/ui/tabs.tsx` uses plain `TabsPrimitive.Content` without `forceMount`, so Radix unmounts the inactive tab and its RHF state; returning re-mounts with the original `defaultValues`.\n\n## Observed result (HotCRM, real backend)\nCreate-case modal with 3 tabs (required `description` on tab 3): fill tab 1 → submit → server 400 `description is required` (error names no tab) → switch to tab 3, fill description → submit → server now reports `subject; description; status; priority` ALL missing — the second submit's body lost every previously-entered value. (hotcrm#525)\n\nAlso worth checking (second independent path to an empty body): `ModalForm.tsx:409-415` strips the payload through `checkField(object,k,'write')` once `perms.isLoaded` flips, and `MePermissionsProvider.tsx:121-151` fails CLOSED for objects absent from `/me/permissions`.\n\n## Suggested fix\nRender ONE form and use the section-divider pattern already used by the derived field-group branch (`ModalForm.tsx:594-629`), or at minimum `forceMount` the TabsContent and hoist form state. Validation errors should also point at the tab containing the offending field."
+}

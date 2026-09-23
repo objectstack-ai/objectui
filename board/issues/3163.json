@@ -1,0 +1,34 @@
+{
+  "number": 3163,
+  "kind": "pull_request",
+  "title": "fix(app-shell,plugin-detail): 记录页审批带渲染法定人数进度与会签分组 chips",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:28:48Z",
+  "updated_at": "2026-08-01T13:39:10Z",
+  "closed_at": "2026-08-01T13:39:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T13:39:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3163",
+  "body": "## 缺陷\n\n在业务记录页（`showcase_expense_report/AyG40_bAHSP_gi8T`）上，审批面板的其它部分都是对的 —— 表头的 **批准 / 驳回**、Draft → Submitted → Approved → Reimbursed 管线、`lockRecord` 的 **审批中已锁定** 徽标、**撤回审批** —— 唯独**法定人数进度**和**按组分片**一个都不渲染。抓页面拿到的信号是：\n\n```json\n{\"lockBadge\": true, \"approveBtn\": true, \"quorumHint\": false, \"groupChips\": false}\n```\n\n后果：`quorum` 节点上审批人看不到还差几票，`per_group`（会签）节点上看不到哪些组已签、哪些还欠 —— 恰恰是决定\"我这一票是不是就把这一步走完了\"的那个事实。\n\n## 根因（与 issue 的归因**部分不符**，以实测为准）\n\nissue 说「服务端已经把需要的数据都发过来了，前端没消费」。**结论方向是对的（framework 侧确实不需要改动），但\"已经发过来了\"这半句不准确 —— 对记录页这条链路，数据根本不在响应里。**\n\n实测追下来是这样的：\n\n1. framework 确实会把节点的 `node_config_json`（`behavior` / `minApprovals` / `__approverGroups` 名单）算成一个 `decision_progress` 块 —— `{ behavior, got, need, groups? }`，见 `plugin-approvals/src/approval-service.ts` 的 `attachDecisionProgress`。**这是服务端算好的、和引擎实际裁决规则同源的计数**，客户端不该自己再推一遍。\n2. 但这个块**只在 `getRequest` 里挂**（`approval-service.ts:3634`）。`listRequests` 是**故意**跳过它的：每行都要额外查一次 `sys_approval_action` 做统计，而列表读可能返回几百行。\n3. 记录页表头走的是 `useRecordApprovals`，它读的是**列表**路由 `GET /approvals/requests?object=…&recordId=…`。**所以这条链路上 `decision_progress` 从来就没进过 payload** —— 组件不是\"忘了读\"，是拿到的对象里压根没有这个字段。\n\n顺带确认：审批中心（Approval Center 抽屉，`ApprovalsInboxPage`）**是**渲染这两样的（objectui#2811 那次做的），因为它走 `getRequest`。缺的只有记录页这一面 —— 这也解释了为什么同一条 checklist 里 `lockRecord` 那一半（#2906/#2914）好好的：`lock_record` 是列表读就带的字段。\n\n**所以这不是\"服务端契约错了\"，也不需要在消费端加兜底掩盖上游** —— 服务端契约是对的，只是把这份富化放在了单条读上。正确的修法是让消费端去服务端**实际发布它的地方**把它读回来。\n\n## 改动\n\n**1. `useRecordApprovals` 补一次单条读（`packages/app-shell/src/hooks/useRecordApprovals.ts`）**\n\n列表读之后，只针对**唯一那条 pending 记录**再发一次 `GET /approvals/requests/:id`，把单条读的富化合并回该行。只有 pending 行才有活的计数、也只有它驱动表头，所以**恒定一次**追加请求，不会随行数放大。\n\n失败必须是无害的：请求出错、或返回的 `id` 和请求的对不上，就原样保留列表行 —— 这是纯展示富化，一个 500 不能把审批面板带下去；**更不能凭空编一个计数**，错的 \"1 of 2\" 比没有更糟。\n\n**2. 把它穿到审批带上（`@object-ui/react` → `@object-ui/plugin-detail`）**\n\n`InlineEditProvider` 新增 `approvalProgress`（类型 `ApprovalProgress`），DetailView 的审批带在原徽标旁边渲染：\n\n- `quorum` / `unanimous`：带 `role=\"progressbar\"` 的标签 + 每一票一格的刻度条（`Approvals — 1 of 2`）；\n- `per_group`（会签）：`Sign-off — 1 of 2 groups`，外加**每组一个 chip** 标出谁已签（`finance 1/1` ✓ / `manager 0/1`）。\n\n渲染器保持 DataSource 无关 —— 计数由 host 从审批读里穿进来，组件不自己推导引擎的裁决规则。组名来自流程作者自己的配置（是数据不是文案），所以不需要为组名加任何 locale 字符串；新增的 3 个标签 key 已补齐全部 10 个语言包。\n\n`first_response` 节点不带 `decision_progress`，行为完全不变 —— 那种节点一票即终局，\"1 of 1\" 的进度条是噪音不是信息。\n\n## 验证证据\n\n新增回归测试，**给定真实服务端载荷**断言两样东西确实渲染 / 确实被读到：\n\n`packages/app-shell/src/hooks/useRecordApprovals.quorum.test.tsx`（6 例）—— 载荷用 `showcase_committee_quorum`（`quorum`，3 人名单 `minApprovals: 2`）与 `showcase_expense_signoff`（`per_group`，manager + finance）的真实形状：\n\n- 列表读不带的计数，hook 现在能拿到（`{ behavior: 'quorum', got: 1, need: 2 }`）；\n- 断言它确实打了**单条**端点 `/approvals/requests/req_committee_1`；\n- 单条读只做加法，`lock_record` / `pending_approvers` 等列表字段原样保留；\n- 会签的 `groups[]` 与每个待审批人的 `pending_approver_groups` 都被暴露；\n- 单条读失败时行原样保留、`decision_progress` 为 `undefined`（不编造），且 `canDecide` 等既有能力不受影响；\n- 没有 pending 行时**不发**追加请求。\n\n`packages/plugin-detail/src/__tests__/DetailView.approvalBand.test.tsx` 新增 7 例 —— 断言渲染输出本身：\n\n- `Approvals — 1 of 2` 与锁定徽标并存；\n- 计数以 `role=\"progressbar\"`（`aria-valuenow=1` / `aria-valuemax=2`）暴露，是可访问的语义而非装饰；\n- `lockRecord: false` 的可编辑节点同样渲染计数（进度关乎**决策**，不关乎锁）；\n- 会签渲染 `Sign-off — 1 of 2 groups` + `finance 1/1` / `manager 0/1` 两个 chip；\n- 会签数的是**组**不是票；\n- `first_response`（无 `decision_progress`）不渲染进度条 —— 老行为不变；\n- 审批结束后整条带子都不在，自然也没有残留的进度条。\n\n闸门：\n\n- `pnpm vitest run packages/plugin-detail packages/react` → 64 files / 682 tests 全绿\n- `pnpm vitest run packages/app-shell/src/hooks packages/app-shell/src/views/RecordDetailView` → 23 files / 210 tests 全绿\n- `pnpm vitest run packages/i18n` → 17 files / 157 tests 全绿（含 10 语言包全量 key parity）\n- `pnpm type-check` → 78/78 tasks 全绿\n- 触碰文件 `eslint` **0 error**（仅存量 `no-explicit-any` warning）\n\n## 未覆盖（另案）\n\nissue 里还提到 `sys_approval_request` 详情页把 `待审批人` 渲染成一串重复 user id 的逗号拼接。那是通用记录页渲染系统对象的问题（字段本身是 id 数组，没有 display 解析），和本 PR 的审批带是两条链路，未在此处一并处理。\n\n## 定级\n\nchangeset 定 `minor`：这是**可观察的渲染输出变化**，且在 `@object-ui/react` 上新增了公开的 `approvalProgress` prop 与 `ApprovalProgress` 类型，不是既有面内的行为纠正。\n\n## 备注：提交历史\n\n容器重启中断了本任务，协调方把当时未提交的 18 个文件抢救成了一条 `wip: rescue …` 提交并首次推送了分支。按仓库纪律**不做 force-push**，故该提交信息保留在分支上；合并走 squash，落到 `main` 的是本 PR 标题与正文。\n\nFixes objectstack-ai/objectstack#4478\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017gEHJN2NFpS9VMeURvakgD)_"
+}

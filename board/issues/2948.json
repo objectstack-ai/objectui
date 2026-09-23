@@ -1,0 +1,35 @@
+{
+  "number": 2948,
+  "kind": "pull_request",
+  "title": "feat(views): the list toolbar speaks one vocabulary — `userActions` (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T03:38:26Z",
+  "updated_at": "2026-07-29T03:45:01Z",
+  "closed_at": "2026-07-29T03:44:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T03:44:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2948",
+  "body": "#2890 scope A step 3. The seven bare `show*` toolbar flags fold into the spec's `userActions`, and the renderer reads nothing else. `showDescription` folds into `appearance.showDescription` at the same boundary.\n\n| legacy | canonical |\n| :--- | :--- |\n| `showSearch` / `showSort` / `showFilters` / `showDensity` | `userActions.search` / `.sort` / `.filter` / `.rowHeight` |\n| `showGroup` / `showHideFields` / `showColor` | `userActions.group` / `.hideFields` / `.rowColor` |\n| `showDescription` | `appearance.showDescription` |\n\n## The last three are new keys — and they close a capability hole\n\nThe spec's `UserActionsConfigSchema` documents itself as:\n\n> Controls which interactive actions are available to users in the view toolbar. **Each boolean toggles the corresponding toolbar element on/off.** *@see Airtable Interface → \"User actions\" panel*\n\n…and already carries `rowHeight` — which is objectui's `showDensity` under its spec name. Grouping, column visibility and row coloring are the same kind of toggle. The spec models all three as **configuration** (`grouping`, `hiddenFields`, `rowColor`) but has no *\"may the user change it\"* switch for any of them, so an author cannot express a complete toolbar policy.\n\n**That gap is visible in the product today.** With no `userActions` key to read, the two list surfaces hardcoded **opposite** policies:\n\n- `InterfaceListPage` (the ADR-0047 author-curated interface page) pinned `showHideFields` / `showGroup` / `showColor` **off** — an interface-page author could not turn grouping back on for end users **at all**;\n- `ObjectDataPage` pinned `showGroup` / `showHideFields` **on**.\n\nTwo surfaces, two opposite constants, neither author-controllable. Both now express their policy as `userActions` **defaults**, which an author can override. Interface mode stays closed by default — that is a default now, not an unreachable constant.\n\n## Why the keys live here for the moment\n\nUntil they land in `@objectstack/spec`, `@object-ui/types` carries them as a documented `.extend()` on `UserActionsConfigSchema` — the same shape `ListColumnSchema` already uses while waiting on objectstack#3761 — and it collapses into a plain re-export once they do. A spec PR adding `group` / `hideFields` / `rowColor` follows separately; this PR does not depend on it and does not block on the `17.0.0-rc` release window.\n\nWorth noting for the AI-authoring path: `UserActionsConfigSchema` is **not `.strict()`**, so before this an author (or a generative one, reading that docblock and the Airtable reference) writing `userActions: { group: false }` had it **silently stripped** — valid on parse, no effect at render. That is the failure mode this removes.\n\n## Defaults are unchanged\n\nDeliberately asymmetric, matching what these flags have always done: `search` / `sort` / `filter` / `rowHeight` / `group` are on unless turned off; `hideFields` / `rowColor` are off unless turned on. Making them uniform would grow two buttons on every existing view, so it is left as its own product decision rather than smuggled into a vocabulary migration. The fold applies **no** defaults — an absent flag stays absent, so the per-flag merge stays honest.\n\n## Also\n\nDrops a dead relay in app-shell's `ObjectView` that forwarded `showDescription` onto the node, although `ListView` has only ever read `appearance.showDescription`.\n\n## Verification\n\n- `normalize-list-view.test.ts` +6: full-flag fold, merge-into-existing-`userActions`, per-flag canonical precedence, no-defaults-applied, non-boolean passthrough, `showDescription` → `appearance`.\n- `ListView.test.tsx` +4 consumer regressions on the three new toggles, incl. legacy-flag-still-works and canonical-wins-over-legacy.\n- `plugin-view/ObjectView.test.tsx`: the two tests asserting the old `show*` payload now assert `userActions`.\n- 274 test files / 2685 tests across `core`, `types`, `plugin-list`, `plugin-view`, `app-shell` pass; `turbo run type-check` 32/32; ESLint 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

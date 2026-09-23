@@ -1,0 +1,30 @@
+{
+  "number": 3067,
+  "kind": "issue",
+  "title": "A row-scoped `visible` predicate is a constant `true` on the bulk selection bar",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:30:09Z",
+  "updated_at": "2026-07-30T15:47:47Z",
+  "closed_at": "2026-07-30T15:47:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3067",
+  "body": "选择栏对 `visible` 的求值没有 `record` 作用域，而宽松求值把**任何**引用 `record` 的谓词都变成 `true` —— 包括本该为 false 的那些。作者写下的门禁在批量入口上被静默忽略。\n\n## 证据\n\n直接跑 `ExpressionEvaluator`（`BulkActionButton` 走的就是不带 `throwOnError` 的这条路）：\n\n| 谓词 | 无 `record`（选择栏） | 有 `record`（行菜单） |\n|---|---|---|\n| `${!record.done}` | `true` | `true` |\n| `${record.done}` | **`true`** | `false` |\n| `${record.owner == user.id}` | **`true`** | 按实际值 |\n\n第二、三行是关键：不是「求不出来所以放行」，而是**求出了相反的答案**，且调用方无从分辨。\n\n## 两条路径的不对称\n\n`RowActionMenuItem`（[RowActionMenu.tsx:119](packages/plugin-grid/src/components/RowActionMenu.tsx:119)）：\n\n```ts\nconst isVisible = useRowPredicate(def.visible, row, { fallback: false, warnOnError: true, label: def.name });\n```\n\n行在作用域里，**失败关闭**并 warn 一次。\n\n`BulkActionButton`（[BulkActionBar.tsx:33](packages/plugin-grid/src/components/BulkActionBar.tsx:33)）：\n\n```ts\nconst isVisible = useCondition(toPredicateInput(def.visible));\n```\n\n没有 row、没有 `throwOnError`，于是走宽松分支 —— 同一个 action 的同一个 `visible`，在行菜单里是严格门禁，在选择栏里是常量 `true`。\n\n## 为什么现在才暴露\n\n机制本身不新：`BulkActionButton` 一直在求值 `def.visible`。但在 #3002 / #3031 之前，到达那里的只有 view JSON 里内联写的 `bulkActionDefs[].visible` —— 作者是照着「没有 record 的环境」写的，通常就是 `features.x` / `current_user.y`。\n\n#3031 之后 `bulkActions` 里的名字会被提升成对象 action 的 def，`resolveBulkActions` 把 `action.visible` 原样带了过去。而对象 action 的 `visible` 往往是**为行/记录界面写的**（showcase 的 `showcase_mark_done` 就是 `visible: '!record.done'`），于是行级谓词第一次流进了一个没有 record 的求值点。这个暴露面是 #3031 引入的。\n\n严重性：`visible` 是 UI 门禁不是安全边界，服务端仍会拦。但这属于「静默展示一个作者明确 gate 掉的按钮」，且作者没有任何提示。\n\n## 可选的语义\n\n按选择栏的性质，`visible` 其实混了两件事：\n\n1. **按钮级权限/特性门禁**（`features.*` / `current_user.*`）—— 与记录无关，应当求值，并且应该像行那边一样**失败关闭 + warn**。\n2. **单条记录的资格**（`record.*`）—— 选择栏上没有「那一条」，天然求不出来。\n\n因此候选方案：\n\n- **(A) 拆两段（推荐）**：按钮只按 ambient 部分 gate（失败关闭 + warn，和行一致）；记录级资格移到**执行时**逐条判定 —— 执行器本来就带着 `_rowRecord` 逐条派发，跳过不合格的记录并在结果面板里报「已跳过 N 条」。语义清楚，且不会因为选了一条不合格的记录就整个按钮消失。\n- **(B) 逐条求值决定显隐**：任一条通过就显示（或全部通过才显示）。简单，但「选了 10 条其中 1 条不合格」时的行为要么放过要么全禁，都不直观。\n- **(C) 选择栏直接忽略 `visible`**，并在 `resolveBulkActions` 里不再转发它，文档写明。行为和今天一样（按钮显示），但至少代码是诚实的，不再伪装成门禁。\n- **(D) 失败关闭**：求不出来就隐藏。和行那边最一致，但会隐藏 showcase 刚合入的 `bulk_actions` 视图里的 Mark Done（它的 `!record.done` 在无 record 时会抛），属于可见回归。\n\n倾向 (A)：它是唯一一个把「按钮门禁」和「记录资格」分开、两者都给出正确答案的方案。(C) 是它的低成本前置步骤 —— 先停止伪装，再补执行时过滤。\n\n相关：objectui#3002（`bulkActions` 提升）、objectui#3056（选择状态同步）。\n"
+}

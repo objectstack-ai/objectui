@@ -1,0 +1,32 @@
+{
+  "number": 3094,
+  "kind": "issue",
+  "title": "[console 17.0.0-rc.0] Action params dialog: lookup param always renders 'no reference object configured' helpText even when reference is set and the picker works",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T05:06:54Z",
+  "updated_at": "2026-07-31T07:24:40Z",
+  "closed_at": "2026-07-31T07:24:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3094",
+  "body": "## Summary\n\nIn the record-header action params dialog (RecordDetailView), a `lookup`-type action param renders the warning helpText **\"该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。\"** (`actionDialog.lookupHelpText`) **unconditionally** — even when `reference` IS configured and the record selector works perfectly.\n\n## Repro (17.0.0-rc.0)\n\nObject action with an inline lookup param, canonical spelling per `ActionParamSchema`:\n\n```ts\n{\n  name: 'set_manager', label: '设置管理责任人', mode: 'custom',\n  locations: ['record_header'], type: 'api', method: 'POST',\n  target: '/api/v1/ts/record-action/<object>', recordIdParam: 'recordId',\n  params: [{ name: 'manager', label: '管理责任人', type: 'lookup', reference: 'sys_user', required: true }],\n}\n```\n\nOpen the action from a record detail page → params dialog shows the lookup control (search input + grid-picker button):\n\n- ✅ Grid button opens a fully functional record selector (queries `sys_user`, search filter works, row click selects and fills the chip);\n- ❌ Below the control, `actionDialog.lookupHelpText` (\"param has no reference object, selector unusable, paste a raw record id\") is displayed anyway.\n\nSame behavior with the field-reference param style (`{ field: 'manager', required: true }`).\n\n## Root cause (from the shipped asset)\n\nIn the dialog's param renderer (RecordDetailView chunk), the helpText branch is:\n\n```js\nu && !t.helpText && jsx('p', { children: n('actionDialog.lookupHelpText') })\n// u = t.type === 'lookup' || t.type === 'reference'\n```\n\ni.e. the message claiming \"reference not configured\" is gated only on **\"param is a lookup and has no custom helpText\"** — it never checks whether `referenceTo` resolved. The degradation check that the message describes lives elsewhere (`zt()`: `Rt.has(type) && !e.referenceTo → type='text'`) and is not part of this condition.\n\n## Expected\n\nShow `lookupHelpText` only when the param actually degraded to the raw-id text input (i.e. `referenceTo` missing), mirroring the `lookupPlaceholder` branch which already checks `a.type === 'text'`.\n\n## Impact\n\nEvery record-header action with a lookup param permanently displays a scary red-herring telling users the picker is broken and to paste raw record ids; users don't discover the (working) grid picker. Registered on our side as PLAT-DEF-027.\n\n## Workaround\n\nSetting a custom `helpText` on the param suppresses the misreport (the condition includes `!t.helpText`).\n"
+}

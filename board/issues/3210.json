@@ -1,0 +1,33 @@
+{
+  "number": 3210,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): 取数中的活动 feed 显示加载态,而不是\"暂无活动\" (#3205)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T15:04:44Z",
+  "updated_at": "2026-08-02T15:14:11Z",
+  "closed_at": "2026-08-02T15:14:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T15:14:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3210",
+  "body": "Fixes #3205\n\n## 问题\n\n`RecordActivityTimeline` 的 props 声明了 `loading`,解构时却直接改名丢弃(`loading: _loading = false`),整个文件没有第二处引用。于是 feed 取数的那段时间,面板渲染的是空态 `DataEmptyState`(默认文案 \"No activity recorded\")——一句关于这条记录的**事实断言**——然后数据到了再自打脸。\n\n空态文案只有在\"本该填满 feed 的那次取数已经 settle\"之后才是真的。\n\n## 改法\n\n在 `filtered.length === 0` 分支**之前**加 loading 分支,复用文件里已导入的 `Loader2`(`Load more` 用的就是它)。下面的 JSX 标签为绕开 GitHub body 的标签清洗,每个 `<` 后面多留了一个空格:\n\n```tsx\n{loading && filtered.length === 0 ? (\n  < div role=\"status\" aria-live=\"polite\" data-testid=\"activity-loading\" … >\n    < Loader2 className=\"h-4 w-4 animate-spin\" / >\n    < span >{t('detail.loading')}< /span >\n  < /div >\n) : filtered.length === 0 ? (\n  /* 空态,原样 */\n) : (\n  /* 时间线,原样 */\n)}\n```\n\n两处判断细节,都写在代码注释里:\n\n- **守卫是 `loading && filtered.length === 0`,不是单看 `loading`**。刷新或 \"Load more\" 的往返期间,已经在屏幕上的行不能被 spinner 顶掉(那会丢掉读者的位置,而且 \"Load more\" 按钮本身已经有自己的 spinner)。\n- **`collapseWhenEmpty` 不抑制 loading 行**。那个 flag 说的是**空态**(\"没有 items 时折叠\"),而取数中我们还不知道有没有 items——\"取数中 ≠ 空\"正是本 issue 的分界线。\n\n没有新增/修改任何 prop 或签名,也没有新 i18n key(`detail.loading` 已存在):这个修复的全部内容就是\"声明了的 prop 终于有人读\"。\n\n## 链路确认(端到端)\n\n- `record:activity`:#3165 已经把 `loading` 真实算出来(自取数期间 `fetched === null` 或 `selfLoading` 为 true)并 `loading={loading}` 传下来 —— 信号是活的,本 PR 接上最后一段;\n- `RecordChatterPanel`:两处调用(sidebar 与 inline)都已透传 `loading`,已用测试钉住;\n- **但**再往上一跳没有信号源:`RecordDetailView` 与 `renderers/record-chatter.tsx` 从不给面板/context 传 `loading`,`feedItems` 的两个 `find` 期间没有任何 loading state。这属于本 issue 之外的宿主侧缺口,已按 Prime Directive #10 单独立 issue:**#3209**(未指派)。\n\n## 测试\n\n新增 `packages/plugin-detail/src/__tests__/RecordActivityTimeline.loading.test.tsx`,按三层分别钉住(bug 只在其中一层,另两层本来就是对的):\n\n1. 组件层:取数中渲染 loading 行且**不**渲染空态文案;settle 后(以及宿主根本不传 `loading` 时)恢复空态;自定义 `emptyLabel` 同理;已有 items 时刷新不清屏;`collapseWhenEmpty` 下依然不出空态文案;被 filter 过滤空 ≠ loading;\n2. 面板层:`RecordChatterPanel` 三种 position(`right`/`left`/`bottom`)都把 `loading` 透传到内嵌 timeline,`No comments yet` 与 `No activity recorded` 两种文案都不出现;\n3. block 层:`record:activity` 自取数在飞期间显示 loading 行,resolve 后显示行、loading 行消失;空结果 settle 后显示空态。\n\n反向验证过这些断言确实钉住了 bug:临时把新分支条件短路成 `false` 后,13 个用例里 **7 个失败**(正是跨三层的那 7 个),恢复后全绿。\n\n```\npnpm exec vitest run --maxWorkers=2 packages/plugin-detail\n Test Files  37 passed (37)\n      Tests  358 passed (358)\n\npnpm exec turbo run type-check --filter=@object-ui/plugin-detail  → tsc --noEmit 退出 0\neslint(改动的两个文件)                                          → 0 errors\n```\n\n## Changeset\n\n`.changeset/activity-timeline-loading-state.md`(`@object-ui/plugin-detail: patch`)。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA"
+}

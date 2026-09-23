@@ -1,0 +1,36 @@
+{
+  "number": 2949,
+  "kind": "pull_request",
+  "title": "refactor(views): ListView's `aria` and `sharing` are the spec sub-shapes (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T04:12:31Z",
+  "updated_at": "2026-07-29T04:18:56Z",
+  "closed_at": "2026-07-29T04:18:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T04:18:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2949",
+  "body": "#2890 scope A step 5 — the last rename batch.\n\n## `aria` → the spec's `AriaPropsSchema`\n\n`label` → `ariaLabel`, `describedBy` → `ariaDescribedBy`, folded at the ListView boundary like every other legacy key. Two things fall out of adopting the spec shape:\n\n- **`role` becomes authorable.** The list region hardcoded `role=\"region\"`; it now reads `aria.role` and falls back to `region`.\n- **`aria.live` stays** as a documented local extension — it has no spec counterpart, and dropping it would silently disable a shipped capability. It wants promotion, not deletion.\n\n## `sharing` → the spec's `ViewSharingSchema`\n\n`{ type, lockedBy }`, imported **by reference** — the local four-key object is gone. The legacy pair folds in:\n\n- `visibility` collapses onto the two ownership kinds the spec models: only `private` is `personal`; `team` / `organization` / `public` are all `collaborative`.\n- a bare `enabled: true` maps to `personal` — the badge the user already saw, since the old tooltip fell back to `'private'`.\n\n⚠️ **Visible change**: the share badge tooltip shows the spec ownership type, so a view authored with `visibility: 'team'` now reads *\"Sharing: collaborative\"* instead of *\"Sharing: team\"*. The four-value audience has no spec home and nothing but that tooltip consumed it — keeping a second audience enum alive would re-open the fork this issue closes.\n\n## The spec bridge was doing the opposite of its job\n\nGiven a spec-shaped `sharing`, `transformListView` **downgraded** it — inventing a legacy `visibility` audience and an `enabled` flag that the renderer then had to fold back into `type`. Both sides speak `ViewSharing` now, so it passes through. Its two tests flipped from asserting the downgrade to asserting pass-through.\n\n## What is deliberately NOT folded\n\n`conditionalFormatting` and `exportOptions`. Both objectui shapes are **supersets** carrying capability the spec cannot express — the `{ field, operator, value }` rule form, and `maxRecords` / `includeHeaders` / `fileNamePrefix`. Folding them onto the narrower spec shapes would delete working features. They want promotion upstream, not a rename; recorded as such rather than forced.\n\n## Verification\n\n- `normalize-list-view.test.ts` +6: ARIA spelling fold, canonical-wins + `role` preserved, all four visibility values → ownership type, bare `enabled: true`, `enabled: false` stays badge-less, `lockedBy` preserved with explicit `type` winning.\n- `ListView.test.tsx`: the sharing tooltip test asserts the spec vocabulary.\n- 673 test files / 7995 tests locally. One unrelated pre-existing flake (`anchors.page-seed.test.ts`) fails only in whole-repo ordering — it passes in isolation and per-package both with and without this change.\n- `turbo run type-check` 15/15; ESLint 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

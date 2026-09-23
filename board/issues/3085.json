@@ -1,0 +1,35 @@
+{
+  "number": 3085,
+  "kind": "pull_request",
+  "title": "fix(notifications): the config, position and action variant are read instead of forked or ignored (#3014 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T01:25:59Z",
+  "updated_at": "2026-07-31T01:32:13Z",
+  "closed_at": "2026-07-31T01:32:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T01:32:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3085",
+  "body": "The last of the notification contract. After `displayType` (#3071) and `icon` (#3076), four gaps of the same family were left — values that validate, are carried, and change nothing.\n\n## What was wrong\n\n- **The config was 3/4 inert.** Only `defaultDuration` was ever read. `maxVisible` and `stacking` were carried and ignored, while `NotificationBanners` capped at a hard-coded `3` of its own.\n- **Its field names forked from `NotificationConfigSchema`** — `position` vs `defaultPosition`, a renderer-local `stacking` boolean with no spec counterpart, and no `pauseOnHover` at all.\n- **A notification could not declare a `position`.** The #3008 parity guard asserted the position *vocabulary* matched the spec while nothing positioned anything by it — a guard passing over an unused value.\n- **`NotificationActionButton.variant` was the shadcn Button vocabulary** (`default | destructive | outline`) under a spec-shaped name, forking `NotificationActionSchema.variant` (`primary | secondary | link`).\n\n## The decision this PR settles: who owns position\n\n`notification.position ?? config.defaultPosition ?? nothing` — and **\"nothing\" is a real answer, not a missing one**:\n\n- **declared** → the surface pins itself there, always. `presentNotificationToast` passes it **per-toast**, so the contract beats the container;\n- **undeclared** → the surface keeps its own anchor (a snackbar's bottom edge), or defers to the host's toast chrome.\n\nThat asymmetry is the point. The sonner container also serves toasts that are **not** spec notifications — the console action runtime's own `toast.*` calls — so it stays the *fallback* authority for placement, never a competing one. A declared position that a component prop could silently override is the same \"validates, then does nothing\" shape this whole area is about.\n\nConsequence: `defaultPosition` gets **no fabricated default**. \"The host didn't say\" has to be representable, otherwise an invented `top_right` silently fights the host's own chrome. This also means **no visible change in the console** — nothing declares a position there today, so toasts stay bottom-right and snackbars stay bottom-anchored.\n\n## The rest\n\n- `maxVisible` / `stackDirection` drive every stacking surface through one shared `visibleNotificationStack` — the cap keeps the **newest**, the stack grows in the declared direction (`down` = newest below, the spec default). `NotificationBanners`' invented `max` prop is gone.\n- `pauseOnHover` holds a transient notification's timer and resumes it **with the time it had left** — which required the provider to track live timers rather than fire-and-forget `setTimeout`s. That is why the spec key had nothing to attach to before.\n- Legacy spellings still resolve rather than being fossilized: `position` folds into `defaultPosition`, and `stacking: false` reads as `maxVisible: 1` (\"show only the newest\").\n- `onToast` receives the resolved config as a second argument so the delegate can apply the parts of the contract only it can. Existing one-argument handlers are unaffected.\n- The spec-parity guard gained the **action-variant** vocabulary — the one notification enum it did not cover. Note the access path: `variant` carries `.default('primary')`, so the enum sits one wrapper down (`shape.variant.def.innerType`); reading `.options` off the field returns nothing, which would have made the guard pass by finding no spec values at all. `assertParity`'s empty-check is what catches that.\n\n## Verification\n\n**In the running console, in one frame:** an undeclared toast stays where the sonner container puts it (bottom-right), a toast declaring `position: 'top_left'` moves there, and a snackbar declaring `position: 'top_right'` leaves its bottom anchor — \"declared wins, undeclared defers\", proven end to end. No console errors.\n\n**Suites:** `packages/react` + `packages/components` + `packages/app-shell` — **2872 tests, 332 files, all green** (25 new). `tsc --noEmit` clean on all three; eslint 0 errors on every touched file.\n\nDocs: the [notifications guide](content/docs/guide/notifications.md) gains `position`, `actions` and a full config table, plus the `@object-ui/react` README.\n\nRefs #3014, #2942, #2944.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

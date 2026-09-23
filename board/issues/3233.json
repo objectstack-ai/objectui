@@ -1,0 +1,34 @@
+{
+  "number": 3233,
+  "kind": "issue",
+  "title": "`field` 与 `schema` 是同一个意思的两个载体,~25 个 widget 读 `field || schema`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:32:15Z",
+  "updated_at": "2026-08-03T12:57:10Z",
+  "closed_at": "2026-08-03T12:57:10Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3233",
+  "body": "在 objectui#3221(PR #3230,给 `FieldWidgetComponentProps` 封口)中**暴露但未解决**。封闭类型让这件事第一次可见——它一直存在,只是被 `[key: string]: any` 盖住了。\n\n## 事实\n\n`schema` 现在是一个**已声明**的 widget prop,而它携带的东西和 `field` 是同一个:\n\n- `SchemaRenderer` 走 `<Component schema={schema} {...schema} />`;\n- 表单渲染器走 `schema={props.field || props.schema || props}`,**同时**传 `field`;\n- 结果:约 25 个 widget 读 `field || schema`。\n\n一个概念、两个键、两个生产者。`field || schema` 正是 Prime Directive #12 与 AGENTS.md #0.1 点名的**消费端容忍**。\n\n## 三条路线\n\n- **A —— 维持现状**(#3230 所发)。`schema` 保持已声明并带注释。今天零风险;代价是第二套事实契约长期存在,每个新 widget 作者都得学会读 `field || schema`。\n- **B —— 在生产者侧收敛到 `field`**:改 `SchemaRenderer` 的 field-widget 路径与 `renderFieldComponent`,从 widget 契约里删掉 `schema`,删掉那约 25 处 `field || schema`。\n- **C —— 登记为 ADR-0087 式的声明别名**:大声、可测、可排期删除,而不是一个永久的第二键。\n\n## 为什么我(PM)不直接按 B 派工\n\n实施 agent 建议「B 最终、A 现在」,方向我同意。但有一个它没有展开、而我认为是决定性的点:\n\n**`schema` 不只是内部管道,它是 `SchemaRenderer` 实际传给 widget 的键。** 第三方 / AI 编写的 widget 完全可能在读 `props.schema`——那是 SDUI 渲染路径上一个看起来完全合理的读法。生产者侧删掉它,这些 widget 拿到的是 `undefined`,**静默失效**。\n\n而仓内 grep **回答不了**「有没有第三方 widget 在读 `schema`」——这与 objectui#3226 是同一个陷阱:*当一个键会到达仓外编写的代码时,仓内证据的覆盖面是零。*\n\n所以 B 若要走,应当带弃用期(先双传 + 声明弃用 + 文档,再删),或者干脆走 C。这个取舍涉及「我们对第三方 widget 契约的承诺有多硬」,属于维护者判断,故标 `needs-user-decision`。\n\n## 倾向\n\n**C**,或**带弃用期的 B**。理由按四轴:\n\n- **防 AI 犯错**:一个概念两种拼写,正是让 AI 生成的 widget 挑错一个、还能在某个宿主里\"看起来能用\"的形状。单一键在授权时就消除了这个选择——这一轴强烈支持收敛。\n- **平台长远合理性**:生产者侧修才是对的,消费端 `||` 是债。\n- **不扩边界**:C 不新增能力,只是把已存在的别名**声明出来**并给它一个删除日期。\n- **实际业务需求**:没有任何需求要求两个键,所以终点是一个键;分歧只在怎么走过去。\n\n**不阻塞任何在途工作**——A 已随 #3230 发出,现状可用。\n\n关联:objectui#3221 / PR #3230、objectui#3226(同一「仓内证据回答不了仓外消费者」陷阱)、AGENTS.md #0.1、Prime Directive #12。"
+}

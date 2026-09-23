@@ -1,0 +1,33 @@
+{
+  "number": 2957,
+  "kind": "pull_request",
+  "title": "fix(detail): multi-value lookup is selectable in inline edit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T06:41:56Z",
+  "updated_at": "2026-07-29T12:14:35Z",
+  "closed_at": "2026-07-29T12:14:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T12:14:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2957",
+  "body": "Fixes #2956\n\n## 问题\n\n详情页笔 icon 进入行内编辑后,多值 lookup 只能选中一个:选第一条即关闭浮层并**替换**值,再选只会顶掉前一个。同一字段在对象表单里多选正常。\n\n## 根因\n\n`DetailSection` 用**手写白名单**把 object schema 的字段元数据逐个拷到视图字段上,这份白名单没有 `multiple` —— `LookupField` 里 `fieldMeta?.multiple` 恒为 false,走单选分支。\n\n同时漏掉的还有 lookup picker 的其余配置(display / description / id field、快捷新建、Level-2 记录选择器的列 / 分页 / 基础过滤、people picker、`depends_on` 联动),这些表单路径都是白拿的。`HeaderHighlight` 另抄了一份同类白名单,两份已互相漂移过两次(注释里还写着 \"keep in sync with DetailSection\")。\n\n## 改动\n\n- 新增 `packages/plugin-detail/src/fieldEnrichment.ts` → `enrichDetailField(viewField, objectDefField)`:一份带文档的 key 清单,视图字段永远优先,`readonly` 故意不拷(宿主自己从 object metadata 读来做可编辑性判定)。`DetailSection` 与 `HeaderHighlight` 共用,漂移这条路堵死。\n- `InlineFieldInput`:`multiple` 真的传下来后,select 分支原来的 `String(value)` 会把数组拍扁,故多值 picklist(含 `multiselect` 别名)改走 chip 选择器、值保持数组。\n\n## 测试\n\n- `DetailSection.multiValueInlineEdit.test.tsx` — 驱动真实组件树(`DetailSection` + 真 `LookupField` + mock DataSource,真点 DOM):连点两个选项后 `onFieldChange` 依次收到 `['t1']` → `['t1','t2']`;`$expand` 数组渲染成多个 chip;多值 picklist 的 chip toggle。\n- `fieldEnrichment.test.ts` — 关系配置透传、视图字段覆盖优先、不拷 `readonly`、无 schema 时原样返回。\n- 反向验证:把 `multiple` 从 key 清单里临时摘掉,上述集成测试立刻红(2 条失败),装回即绿。\n- `plugin-detail` 全量 **32 文件 / 281 用例通过**;eslint 0 error。\n- `tsc` 有 3 条既有报错(`DetailView.tsx` / `record-details.tsx`),来自依赖包 dist 过期,与本 PR 无关。\n\n## 真机验证(framework app-showcase)\n\n本 worktree 构建 console dist 换入 `framework/packages/console/dist`,起 `objectstack dev --ui --seed-admin`,浏览器实测:\n\nField Zoo → `Specimen — Full` → 显示空字段 → `Users (multiple)` 笔 icon →\n选 Dev Admin(浮层不关,「已选择 1 项」)→ 选 Mei Phone(「已选择 2 项」,两个都打勾)→ 选 Ada Auditor(3 项)→ 保存 → 详情页显示三个头像 → **整页重载后仍在**,接口返回干净的 id 数组\n`f_users: [\"Vbom68I0yoNTG9j5YGaKqZqDILHHnrIK\",\"usr_showcase_phone_demo\",\"usr_showcase_auditor_demo\"]`,浏览器 console 无 error。\n\n说明:showcase 里没有 `Field.lookup(..., { multiple: true })` 的样本,实测用的是多值 user 字段 —— `UserField` 直接委托 `LookupField`,`multiple` 也来自同一处富化,走的是同一条代码路径。\n\n纯 bug 修复,按 AGENTS.md 不需要 changeset。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3160,
+  "kind": "issue",
+  "title": "台账燃尽批次 6/8 · data-objectstack + plugin-chatbot + plugin-list,12 符号(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:15:18Z",
+  "updated_at": "2026-08-02T18:01:26Z",
+  "closed_at": "2026-08-02T18:01:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3160",
+  "body": "objectstack#4115 债务台账燃尽第 6 批。**动工前必读**:守卫文件头与 objectstack#4115 的跟踪评论。\n\n## 本批符号(12 条)\n\n**`@object-ui/data-objectstack`(5)**:`CacheStats`, `DroppedFieldsEvent`, `MetadataSaveOptions`, `SecurityPolicy`, `ValidationError`\n**`@object-ui/plugin-chatbot`(4)**:`MessageContent`, `PendingActionRow`, `PendingActionStatus`, `Tool`\n**`@object-ui/plugin-list`(3)**:`ListView`, `UserFilters`, `ViewTab`\n\n已知情报:data-objectstack 是 spec 协议的直接客户端,`SecurityPolicy`/`DroppedFieldsEvent` 大概率是协议形状的手抄件,优先派生;`ValidationError` 与 core(批次 4)决策保持一致。plugin-chatbot 的 `Tool`/`MessageContent` 疑似与 spec AI 导出真撞名(本地是聊天 UI 概念),预计走改名。`ListView` 注意与 `ListViewSchema`(批次 1)的既有范式对齐。\n\n## 每条三选一\n\n派生(结构位)/ 改名(新名先过守卫 + tripwire;禁全局替换)/ ALLOW(理由 + parity 守卫)。\n\n## 完成定义\n\n同批次 1:台账移除并 diff 验证、守卫/type-check/全量测试绿、变异测试、PR 引用本 issue 与 objectstack#4115、更新跟踪评论后关闭本 issue。"
+}

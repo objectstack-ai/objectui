@@ -1,0 +1,30 @@
+{
+  "number": 3171,
+  "kind": "issue",
+  "title": "Flow 边检查器能产出缺 `dialect` 的 `condition` —— 写出的正是服务端自己 schema 会拒绝的形状",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T16:18:41Z",
+  "updated_at": "2026-08-02T13:36:27Z",
+  "closed_at": "2026-08-02T13:36:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3171",
+  "body": "批次 3 燃尽(objectui#3169 / objectstack#4115)时对读 `FlowEdge` 与 spec 同名导出发现,记录在案但**有意未在该 PR 修**——它改变写进元数据的内容,不该搭在一个符号派生的 PR 里。\n\n## 缺陷\n\nFlow 设计器的边检查器可以构造出只有裸表达式、**不带 `dialect` 的 `condition`**。而 ADR-0089 把 `dialect` 定为必填,服务端的 schema 会拒绝这种形状。\n\n也就是说:设计器里能正常编辑、保存、看起来一切正常的一条边,提交到服务端会被拒——**失败发生在离编辑现场最远的地方**,而且用户没有任何线索知道是哪条边、缺了什么。\n\n## 为什么值得单独修\n\n这是\"设计器写出的元数据与服务端契约不一致\"这一类,和 objectstack#4115 的撞名符号是同一个根:objectui 侧有一份自己的形状理解,与 spec 各自演化。区别在于撞名符号的后果是**类型信息失真**,这个的后果是**运行时被拒**。\n\n## 建议的修法\n\n在边检查器构造 `condition` 的位置补上 `dialect`(取 ADR-0089 的规范默认值),并加一条闸门断言:任何由检查器产出的 `condition` 都能通过 spec 的 schema 解析。闸门比修复本身重要——没有它,下一次 spec 收紧同类字段会再次静默漂移。\n\n同时建议排查是否还有别的\"设计器产出 → spec 拒绝\"的形状,方法可参考 objectstack#4115 里记过的线索:`grep \"as any).<field>\"` 能找出\"运行时已适配、契约未跟上\"的现场。"
+}

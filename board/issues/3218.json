@@ -1,0 +1,35 @@
+{
+  "number": 3218,
+  "kind": "issue",
+  "title": "Hook 检查器把 `{ dialect, source }` 信封形式的 `condition` 读成空字符串,提交时会清掉它",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T17:07:30Z",
+  "updated_at": "2026-08-02T20:26:02Z",
+  "closed_at": "2026-08-02T20:26:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3218",
+  "body": "做 #3216(模拟器读边守卫的信封形式)时越界发现,未在该 PR 里顺手改 —— 它是**另一个界面**(Hook 检查器)上的同族缺陷。\n\n## 缺陷\n\n`packages/app-shell/src/views/metadata-admin/inspectors/HookDefaultInspector.tsx:256`:\n\n```tsx\n<ConditionBuilder\n  label=\"Run only when (optional CEL)\"\n  value={typeof draft.condition === 'string' ? (draft.condition as string) : ''}\n  onCommit={(v) => onPatch({ condition: v || undefined })}\n  ...\n/>\n```\n\n只认裸字符串,信封形式落到 `''`。\n\n而 `@objectstack/spec` 的 `HookSchema.condition` 用的正是 `ExpressionInputSchema`(和 `FlowEdgeSchema.condition` 同一个 pipe)。实测:\n\n```js\nHookSchema.parse({ name:'h1', object:'lead', events:['beforeInsert'], condition:'amount > 10', handler:'x' }).condition\n// => { dialect: 'cel', source: 'amount > 10' }\n```\n\n也就是说,作者写下 `amount > 10`、平台存成信封之后,再打开这个 Hook 的检查器:\n\n1. \"Run only when (optional CEL)\" 输入框显示为**空** —— 作者据此以为这个 hook 没有条件、会无条件执行,而它其实有;\n2. 顺着这个错误认知的下一步就会丢数据:`ConditionBuilder` 的 `emit` 只编译**当前 UI 里的行**,所以作者在这个看起来空的构建器里加一条件并提交,`onPatch` 写下的是新条件**替换**掉原来那条(不是合并),而作者从头到尾没看见过原来那条。清空则提交 `condition: undefined`。\n\n**准确性说明**(先核实过再写):`onCommit` 只在用户真的编辑时触发,`ConditionBuilder` 挂载/重渲染本身不会提交,所以\"只打开看一眼\"不会改动草稿 —— 丢失需要一次编辑动作,但那次编辑正是这个空输入框在诱导的。\n\n## 为什么是真 bug 而不是设计\n\n与 #3216 / #3202 同一族:一个过窄的本地读法与 spec 不一致。仓内其它读同类字段的地方都两种拼写都认(`previews/flow-canvas-layout.ts` 的 `conditionText`、`inspectors/expression-validate.ts` 的 `validateExpressionClient`、`inspectors/flow-ref-check.ts` 的 `findUnknownRefs`),漏掉分支的只有这一处。#3216 已经把流程边守卫的两处收敛掉了,这是同族里另一个界面上的剩余项。\n\n## 建议修法\n\n读侧走仓内既有的那一个读法(`conditionText`,或 #3216 之后沉淀下来的共享读法),**不要再写第四份 `typeof c === 'string'`**。\n\n写侧要一并想清楚,这是本条真正需要决策的地方,不宜由实现者猜:`onCommit` 目前提交裸字符串。可选项大致是\n\n- **A**:继续提交裸字符串(spec 的 pipe 会在 parse 时规范化成信封),读侧只管兼容两种;\n- **B**:提交时保留原信封的 `dialect` / `meta`,只替换 `source`,这样作者手工写的 `meta`(ADR-0089 的 `rationale` / `generatedBy`)不会因为改一次条件就丢掉。\n\n倾向 B,但需要确认 `meta` 在这条路径上是否真的会被保留到保存。另外本 issue 只核实了 Hook 这一处;`ConditionBuilder` 的其它调用点是否有同样的 `typeof === 'string'` 读法,需要在动手时一并普查。\n\n## 验证建议\n\n一个 hook 的 `condition` 存成 `{ dialect: 'cel', source: 'amount > 10' }`,打开 Hook 检查器:期望输入框显示 `amount > 10`;当前显示为空,随后任一次编辑提交都会用新值替换掉那条不可见的原守卫。\n\n## 相关\n\n- #3216(模拟器的两处读法收敛到 `conditionText`)\n- #3202(设计器边类型镜像 spec 的 `ExpressionInput`)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2998,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): block page unload while a modal/drawer form has unsaved input",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:32:39Z",
+  "updated_at": "2026-07-30T08:39:04Z",
+  "closed_at": "2026-07-30T08:39:03Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:39:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2998",
+  "body": "## Problem\n\nThe in-app discard guard (#2028) only intercepts Radix close paths — backdrop click, Escape, the X. A browser refresh or tab close never reaches them: `beforeunload` fired with nobody calling `preventDefault()`, so a dirty create/edit overlay silently lost everything the user had typed. Worse, the overlay itself is restored afterwards via the `?recordId=` URL param — but empty, which reads as data loss with no warning at any point.\n\nVerified live: dispatching `beforeunload` on a dirty edit modal returned `defaultPrevented === false`; a refresh dropped all entered values with zero confirmation.\n\n## Fix\n\nRegister a `beforeunload` listener while the overlay is open **and** dirty (and `confirmOnDiscard` hasn't been opted out), in both `ModalForm` and `DrawerForm` — mirroring the existing StudioDesignSurface pillar guard (#2606). The listener is removed as soon as the form is pristine again, so normal navigation never prompts.\n\n## Tests\n\n6 new cases in `discardGuard.test.tsx` (`describe.each` over both overlays):\n- pristine form → unload not blocked\n- dirty form → unload blocked (`defaultPrevented`)\n- dirty + `confirmOnDiscard: false` → unload not blocked\n\n`pnpm vitest run packages/plugin-form`: 224 passed. `type-check`: clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

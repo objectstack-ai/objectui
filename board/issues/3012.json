@@ -1,0 +1,36 @@
+{
+  "number": 3012,
+  "kind": "pull_request",
+  "title": "fix(form): a split form keeps BOTH panels' values (#2153)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:03:09Z",
+  "updated_at": "2026-07-30T10:08:59Z",
+  "closed_at": "2026-07-30T10:08:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:08:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3012",
+  "body": "## The defect\n\n`SplitForm` had the data-loss defect that [#2987](https://github.com/objectstack-ai/objectui/pull/2987) fixed in `ModalForm` / `TabbedForm` for #2959 / #2153. `renderSections` rendered one `SchemaRenderer` — one react-hook-form instance and one `<form>` element — **per section**, and its two groups of sections live in separate `ResizablePanel` children. Each panel therefore owned isolated form state:\n\n- submitting from one panel's action bar sent only that section's fields and silently dropped everything typed on the other side of the divider;\n- a cross-panel field rule was dead: a `visibleWhen` in the right panel referencing a left-panel field never saw that field in its rule record, so the predicate faulted and failed **open** — the field the author meant to hide was always shown.\n\nThe regression test proves the first one exactly. Against `main`, filling all four fields across both panels and submitting produced:\n\n```\nAssertionError: expected { subject: 'Printer on fire' } to match object { subject: …, …(3) }\n-   \"description\": \"Smoke coming out of tray 2\",\n-   \"priority\": \"high\",\n-   \"status\": \"open\",\n    \"subject\": \"Printer on fire\",\n```\n\n## The fix\n\nA single `<form>` cannot straddle two panels from *inside* them, so the panel group became a layout the **form renderer** owns — option (b) from the issue discussion. New `FormSchema.fieldPanes` (+ `fieldPanesOrientation`, `fieldPanesResizable`) mirrors `fieldTabs`: the `<form>` wraps the whole `ResizablePanelGroup` and each pane holds only fields, so one react-hook-form instance spans the divider.\n\nSections inside a pane render behind the inline `section-divider` header, each at its own declared column density within the form's shared grid (`applyAutoColSpan(fields, formColumns, section.columns)`) — the same arrangement the stacked/tabbed hosts use.\n\nTwo behaviours fall out of moving the panels into the renderer:\n\n- `splitResizable: false` now actually **pins** the divider. It previously only hid the grip; nothing passed the panel library's `disabled`, so the separator stayed draggable.\n- each pane is its own `@container`, so a multi-column section collapses to fewer columns as its panel is dragged narrower instead of overflowing.\n\nA single-section split form is not a split, so the renderer falls back to a plain field list rather than a one-panel resizable group (same `> 1` guard `fieldTabs` uses).\n\n## Tests\n\n- `packages/plugin-form/src/sectionedFormValues.test.tsx` — 3 new SplitForm cases (both panels' values in the payload; section headers staying in the pane that owns them; a right-pane condition reading a left-pane field). **Verified failing against `main` first**, all three for the right reason.\n- `packages/components/src/renderers/form/__tests__/form-field-panes.test.tsx` — 9 renderer-level cases pinning the `fieldPanes` contract: one `<form>`, both panes' values, cross-pane rules, unclaimed fields still rendered, single-pane fallback, `fieldTabs` precedence, the divider's pinned/draggable states, and that the pane schema keys never leak onto the `<form>` DOM element (the follow-up bug #2987 hit).\n\n51 test files / 508 tests green across `plugin-form`, the form renderer and `types`; `turbo type-check` green for all three packages.\n\n## Browser verification\n\nRan the split form in a real browser against a zero-backend harness (throwaway console Vite entry, deleted before commit):\n\n- **one** `<form>`, containing both panes;\n- typing `urgent` into the **left** pane's Subject revealed the **right** pane's conditional `Escalation contact` field — the cross-panel rule working live;\n- the submit payload carried every field from both sides: `{subject, reporter, status, priority, description, escalation}`;\n- no React console warnings (no DOM prop leak), inline section headers, per-pane column grids, one action bar below the split.\n\nOne correction worth recording: I initially believed numeric pane sizes were being read as *pixels* by `react-resizable-panels` v4 (its own docs say so) and wrote that up as a third fix. A same-frame A/B in the browser showed `numeric 40/60 → 40/60%` and `string \"40\"/\"60\" → 40/60%` — identical. There was no pixel bug; that claim is out of the changeset. The renderer still passes percentage strings so the unit is explicit, and the comment says only that.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3285,
+  "kind": "pull_request",
+  "title": "fix(app-shell): previews 只读 spec 声明的键(#3275,合并 #3281)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:49:25Z",
+  "updated_at": "2026-08-03T10:57:58Z",
+  "closed_at": "2026-08-03T10:57:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T10:57:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3285",
+  "body": "Fixes objectstack-ai/objectui#3275\nFixes objectstack-ai/objectui#3281\n\n预览与样例此前是「一起错」才看起来正常。objectui#3266 把样例改对之后,画廊**反而少画了东西** —— 因为这些预览读的键 spec 现在明确拒收。本 PR 是那件事的渲染器另一半,做法照抄 objectui#3236 / PR #3258 对 `ToolPreview` 的同型修复。\n\n预览渲染一个保存时会被拒的键,等于告诉作者「这样写是对的」,直到发布才被打脸 —— 对 AI 生成的元数据,这正是过期键藏身并扩散的地方。所以下面每一处读取都是**删掉**,而不是留个兜底(AGENTS.md #0.1)。\n\n## 浏览器实测 before → after\n\n方法与 #3266 相同:`apps/console` 预览画廊 + `?only=< type >` 隔离单个设计器,Playwright headless 抓取。**after 一次,把改动 `git stash` 后再抓一次 before**,所以下表是量出来的,不是推出来的。\n\n| 设计器 | BEFORE(改动 stash 掉) | AFTER(本 PR) |\n|---|---|---|\n| **app** | `Landing: /` | `Home: home → Home`(id + 它选中的条目) |\n| **app** | `Dashboard` 徽标 = `item` | `Dashboard` 徽标 = `dashboard` ✅ #3266 记录的那条 |\n| **app** | `Docs` 徽标 = `link` | `Docs` 徽标 = `url`(spec 词汇) |\n| **app** | 每项**无**目标行 | `crm_welcome` / `account` / `sales_order` / `sales_overview` / `https://docs.example.com` ✅ 路径行回来了 |\n| **agent** | `TOOLS / No direct tools (skills can provide them)` 空态 | TOOLS 区块整体消失,改为一行说明:tools 来自已挂载的 skills |\n| **skill** | `TRIGGER CONDITIONS (1)` → `COND \\| sales_order` | `FIELD / OPERATOR / VALUE` → `objectName / eq / sales_order` ✅ |\n| **datasource** | **没有** CAPABILITIES 区块 | `CAPABILITIES: readOnly, queryAggregations` ✅ #3266 记录的那条 |\n| **validation** | `CONDITION: amount > 0` | 同上(无变化) |\n\n> validation 这行**无差异是符合预期的**:当前样例带的是合法的 `condition`,而 `?? expression` 回退对它是死代码 —— 这恰恰是单子里说的「预览照样画得出来,于是没人发现 `expression` 是假的」。样例侧属 `apps/console`(#3276 的 scope fence),本 PR 不动;该分支的行为由单测覆盖。\n\n内容与旧输出不同是正常的 —— 它现在来自 spec 合法的键;判据是**合规草稿渲染出有内容的区块,而不是空区块**。\n\n## 改了什么\n\n**删掉的退役键读取**(都是 `retiredKey()` 墓碑,按名字被拒):`agent.tools`(objectstack#3894,agent 能碰到的 tool 就是它 skills 声明的那些,ADR-0064)、`agent.knowledge`(objectstack#3896,从不 scope 检索)、`skill.triggerPhrases`(objectstack#3896,phrases 从未与用户消息匹配过)。\n\n**`AppPreview` / `AppNavCanvas`** —— `AppSchema.navigation` 是按 `type` 的判别联合且每支 `.strict()`。两处都无视了判别键:kind 靠 `it.object` / `it.dashboard` 猜,路由靠 `it.path ?? it.href ?? it.route ?? it.url`,landing 靠 `landingRoute ?? landing ?? defaultRoute ?? '/'`。这些**一个都不是键**(`landing` 已被 objectstack#4001 移除),所以读法是完全反的。现在:`type` 即徽标;目标读各分支自己的键;路由交给 `resolveHref` —— shell 自己的 nav → URL 映射(`NavigationRenderer` 写明它是唯一真源,`useNavPins` / `SearchResultsPage` 已在共用),所以预览里的链接就是运行时会走的链接。`homePageId` 按它本来的样子渲染成 nav item 的 **id**,并解析出它选中的条目,**绝不当路径画**。\n\n**`DatasourcePreview`** —— `capabilities` 是 `DatasourceCapabilities` 布尔标志**对象**,而预览判的是 `Array.isArray`,正好只对 schema 拒收的旧数组形态亮灯。改为列出置 `true` 的标志。同时删掉 `driver ?? d.type`(schema 的提示就是 `type` → `driver`)与 `isDefault ?? default` 的 default 芯片(路由在 stack 层的 `datasourceMapping` 声明,不在 datasource 上)。\n\n**`SkillPreview`** —— trigger-conditions 表原本在 `cond.type` 栏下读 `cond.expression ?? cond.value`,于是合规条件只显示出 value 一列。改为三列 `field / operator / value`,直接对应 `SkillTriggerConditionSchema`;缺必填格时明说 `missing`,而不是留个看起来「正常」的空格。\n\n**`ValidationPreview`**(#3281,PM 中途并入)—— 画了 9 个规则类型,而联合只有 6 个。`unique` / `async` / `custom` 被 `validation.zod.ts` 同一段话裁掉(规则必须是对单条记录的确定性、同步、无副作用谓词),三者现在各自指向真正负责的那一层(唯一性用 unique **索引** —— SELECT-then-INSERT 天生有 TOCTOU 竞态;async 属表单层;custom 属生命周期钩子)。随之删掉两个别名回退:`condition ?? expression`、`pattern ?? regex` —— `expression` 和 `pattern` **从来不是**任何分支的键。另有两支本来就读错了:`conditional` 读的是 `condition` 而非它的 `when`(合规规则显示「No expression set」,现在还会渲染嵌套的 `then` / `otherwise`),`json_schema` 压根没有分支(合规规则显示「Unknown rule type」)。\n\n## 一个刻意**没有**删的读取\n\n`validation.object` 保留。单子建议「确认没有别的调用方会传 object-scoped 草稿之后删掉」—— 确认结果是**有**:`anchors.ts` 注册了独立的 `validation` 资源,并以 `anchorByField('object')` 匹配,所以独立校验规则确实带这个键。联合没有的键,不等于都是残留。\n\n## 验证\n\n- `pnpm exec vitest run packages/app-shell/` → **264 files / 2272 passed, 1 skipped, 0 failed**\n- `pnpm --filter @object-ui/app-shell type-check` → 干净通过(`tsc --noEmit` + typetests)\n- `eslint` 改动的 11 个文件 → **0 errors**;warning 18 条,而 `origin/main` 上同样 6 个源文件的基线是 19 条 —— 没有新增 lint 债\n- 每个改动的预览按 PR #3258 的 `ToolPreview.test.tsx` 模板补了断言:喂**合规**草稿断言区块渲染出来,喂带**退役键**的陈旧草稿断言不渲染(agent 那条更强:合规草稿与仅多带 `tools`/`knowledge` 的草稿 DOM 完全相同)\n- 起的 vite dev server 已按记录的 PID 停掉,端口已释放\n\n## ⚠️ 给维护者的一个上游提示(本 PR 没有据此改动)\n\n本 PR 按**当前 pin 住的** `@objectstack/spec@17.0.0-rc.1` 实现 —— 在那个已发布版本里 `homePageId` 是合法的 `z.string().optional()`,且 objectui 自己的 `AppContent.resolveLandingRoute()` **确实在读它**。\n\n但 objectstack `main`(尚未发布)已用 #4667 / ADR-0049 把 `app.homePageId` 也退役了,墓碑文案写的是「no shell ever read it」—— 这与 `AppContent.tsx:876` 的实际读取相矛盾。等 objectui 升到 spec 17.0.0 正式版时,要动的**不只是**这个预览,还有 `AppContent` 的落地路由解析。已在 `out_of_scope_findings` 记录,未在本 PR 处理(超出 scope fence,且需要维护者对「谁说了算」拍板)。\n\n## 顺带记录(未在本 PR 修)\n\n`AgentPreview` 侧栏读的 `d.permissions` 是合法键;`d.access` 在 spec 里是 `array`,预览未渲染它 —— 不是缺陷,只是没覆盖。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

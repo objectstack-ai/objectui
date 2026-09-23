@@ -1,0 +1,34 @@
+{
+  "number": 3150,
+  "kind": "pull_request",
+  "title": "fix(dashboard): date 型 globalFilter 的预设名默认值应提升为区间 (objectstack#4475)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T12:09:27Z",
+  "updated_at": "2026-08-01T12:32:55Z",
+  "closed_at": "2026-08-01T12:32:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:32:54Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3150",
+  "body": "修复 objectstack#4475 —— Setup → 系统概览(System Overview)每块 KPI 都读 0。\n\n配套的 framework 侧 PR:objectstack-ai/objectstack#4494(修 #4467 / #4437,同名分支)。**framework 侧无需为本缺陷改动任何代码**,理由见下。\n\n---\n\n## 现象\n\nSetup → 系统概览,周期选择器显示 **全部时间 / All time**,而每块 KPI 都是 0:\n\n| tile | 显示 | 实际 |\n|---|---|---|\n| 用户总数 | 0 | 4 |\n| 活跃会话 | 0 | 16 |\n| 登录事件 | 0 | 非 0 |\n\n所有请求都是 `200 OK`,widget 正常渲染,UI 里没有任何失败信号——0 读起来像\"还没有数据\",而不是像错误。这是最难被发现的那一类。\n\n## 根因:一处缺失的归一化,同时造成两个症状\n\nissue 原文推测是 dataset 路径把 all-time 区间降级成了等值比较。**实测证明不是**:dataset 路径拿到真正的区间时 lowering 完全正确,它收到的本来就是一个标量。我用 curl 把 Console 实际发出的请求复现了出来(issue 里没能从 curl 复现,关键是 `dataset` 要内联传、`selection.measures` 必须非空):\n\n```\nPOST /api/v1/analytics/dataset/query\n{\"dataset\":{...,\"object\":\"sys_user\",\"measures\":[{\"name\":\"user_count\",\"aggregate\":\"count\"}]},\n \"selection\":{\"measures\":[\"user_count\"],\"runtimeFilter\":{\"created_at\":\"last_7_days\"}}}\n\n→ {\"rows\":[{\"user_count\":0}],\n   \"sql\":\"SELECT COUNT(*) AS \\\"user_count\\\" FROM \\\"sys_user\\\" WHERE created_at = $1\"}\n```\n\n**与 issue 里贴的 SQL 一字不差。** 而同一条路径拿到区间时:\n\n```\nruntimeFilter:{\"created_at\":{\"$gte\":\"{7_days_ago}\",\"$lte\":\"{today}\"}}\n→ \"… WHERE (created_at >= $1 AND created_at < $2)\"   rows: [{\"user_count\":4}]\n无 filter → rows: [{\"user_count\":4}]      /data/sys_user → total 4\n```\n\n真正的问题在 Console:**一个裸的预设名字符串被当成比较值发了出去。**\n\n链路:\n\n1. framework 的 `system_overview.dashboard.ts` 声明\n   `globalFilters: [{ field:'created_at', type:'date', defaultValue:'last_7_days' }]`。\n   这是**合规写法**——`GlobalFilterSchema.defaultValue` 是 `z.union([string, number, boolean])`,根本不允许对象形式,所以裸预设名是作者唯一能写的拼法。\n2. `resolveDashboardFilterDefs` 对**内置 `dateRange`** 声明会把预设名提升成 `{ preset }`\n   (`defaultValue: preset && preset !== 'custom' ? { preset } : undefined`),\n   但 **`globalFilters` 分支原样透传 `f.defaultValue`**。这个不对称就是本缺陷。\n3. 于是 `buildFilterCondition` 里 `typeof v === 'object'` 为 false,落到\n   \"A bare string date means equality on that day\" 那一支,原样返回字符串 →\n   `WHERE created_at = 'last_7_days'` → 恒 0。\n4. **同一个缺失也解释了为什么选择器显示\"全部时间\"**:`DateRangeFilter` 的\n   `selectValue = value?.preset ?? (value?.from || value?.to ? CUSTOM : ALL)`,\n   裸字符串上这三个属性全是 `undefined`,于是落到 ALL 哨兵显示\"全部时间\",\n   而底下发出去的却是那个字符串。\n\n**\"显示全部时间\"和\"KPI 全为 0\"不是两件事,是同一个根因的两个症状。** 这也是为什么 UI 看起来像\"刻意没有过滤、只是恰好没数据\"。\n\n## 改动\n\n`normalizeDateDefault` 给 `globalFilters` 分支补上与内置 `dateRange` **同一套**归一化:`type` 为 `date`/`dateRange`、且 `defaultValue` 是本模块**确实认识**的预设名时,提升为 `{ preset }`。\n\n这不是\"在消费端加 `??` 兜底\"(AGENTS.md Prime Directive #12):它是**同一个归一化函数对兄弟声明补齐同一个转换**,而且 spec 只允许标量,producer 侧根本没有别的写法可改。framework 的 dashboard metadata **不应该动**——它是合规的,改它只会把缺陷藏起来。\n\n保守边界:真正的 ISO 日期字符串仍然表示\"当天等值\"(既有的文档化行为),数字、布尔、以及不认识的字符串**原样保留**。\n\n## 验证\n\n**真实 dev server**(framework worktree,`pnpm dev -- --fresh -p 38101`),对比修复前后 Console 发出的两种 `runtimeFilter`:\n\n```\n--- Users ---      truth (/data) = 4\n  BEFORE (裸字符串)   [{'user_count': 0}] | … WHERE created_at = $1\n  AFTER  (提升后)     [{'user_count': 4}] | … WHERE (created_at >= $1 AND created_at < $2)\n--- Sessions ---   truth (/data) = 3\n  BEFORE             [{'session_count': 0}] | … WHERE created_at = $1\n  AFTER              [{'session_count': 3}] | … WHERE (created_at >= $1 AND created_at < $2)\n```\n\n(该环境 session 实际为 3 条,非 issue 里的 16;要点是 **0 → 与 `/data` 一致的真值**。)\n\n**回归测试**\n\n- `packages/core/src/utils/__tests__/dashboard-filters.test.ts` 新增 4 例:预设名提升为 `{preset}`、提升后产出**区间而非等值**(并断言 widget-scoped 的 `runtimeFilter` 形状)、真正的 ISO 日期仍为等值、非 date 型 filter 不受影响。\n- 新增 `packages/plugin-dashboard/src/__tests__/DashboardFilterBar.dateDefault.test.tsx`:直接用 System Overview 的声明原文断言控件显示\"Last 7 days\"而非\"All time\";并保留\"值确实为空时仍显示 All time\"。\n\n| 闸门 | 结果 |\n|:---|:---|\n| `pnpm --filter @object-ui/core test` | 17 files / **124 passed** |\n| `pnpm --filter @object-ui/plugin-dashboard test` | 17 files / **124 passed** |\n| `pnpm type-check` | 运行中,结果将在下方评论补充 |\n\n## 残留问题(已单独立项:#3151)\n\n`date` 型 filter 拿到一个既不是已知预设、也不是合法 ISO 日期的字符串时,仍会静默降级成一个永不命中的等值比较,继续产生\"看着健康的 0\"。预设名这一类由本 PR 覆盖,拼错的自定义值不会。按 Prime Directive #10 单独记录在 **#3151**(未认领),不在本 PR 扩大范围。\n\nFixes objectstack-ai/objectstack#4475"
+}

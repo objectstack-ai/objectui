@@ -1,0 +1,36 @@
+{
+  "number": 3177,
+  "kind": "issue",
+  "title": "objectstack#4171 的三处 inverted pin 在 spec 17.0.0-rc.1 翻转了 —— `NavigationItem` / `FormField` / `ConditionalValidation` 该做 burn-down 了",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "tests"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T02:03:39Z",
+  "updated_at": "2026-08-02T10:26:48Z",
+  "closed_at": "2026-08-02T10:26:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3177",
+  "body": "升到 `@objectstack/spec@17.0.0-rc.1` 的 PR 里,objectstack#4171 立的**反向 pin(inverted pin)按设计触发了**。那些 pin 的注释写得很清楚:\n\n> The day the spec types any of them properly, `IsAny<…>` flips to `false`, `true satisfies false` stops compiling, **and the failure is the instruction: re-run the triage and burn that symbol down.**\n\n升级 PR 里只把断言**翻转成记录当前事实**(`false satisfies IsAny<…>`),**没有做它要求的 burn-down**——因为那会改动被广泛使用的公共类型,不该混进一次版本升级里。本条就是那笔欠账。\n\n## 翻转了什么\n\n| 符号 | 位置 | rc.1 之前 | 现在 | pin 要求的动作 |\n|---|---|---|---|---|\n| `NavigationItem` | `packages/types/src/__tests__/spec-derived-unions.test.ts` | spec 侧 `z.infer` 出 `any` | 已正确定型 | objectui 的本地 interface 改为从 spec 派生 |\n| `FormField` | 同上 | 同上 | 已正确定型 | 同上 |\n| `ConditionalValidation.then` / `.otherwise` | `packages/types/src/__tests__/validation-rule-spec-parity.test.ts` | spec 侧擦除为 `unknown` | 已正确定型 | 「删掉分歧,整体派生 `ConditionalValidation`」 |\n\n第四处 `JoinNode` 不在此列:spec 17.0.0 把这个符号连同 `query.joins` **整体退役**了(framework#4286——查询路径上从没有引擎或驱动读过 join),所以它的 pin 已在升级 PR 里直接删除,没有「碰撞」可言了。\n\n## 为什么当初要留分歧(别重新推导一遍)\n\n`any` 会对**任何** `extends` 提问点头,所以朴素的双向可赋值探测会把这些符号报成「与 spec 完全一致」,并建议**恰好相反**的修改——直接绑过去等于用 `any` 换掉一份精确、有文档的形状,是披着 burn-down 外衣的类型安全倒退。这正是那三处要写成显式 `IsAny` / `IsUnknown` 探针的原因。现在前提没了,绑定才第一次成为正确答案。\n\n## 该做什么\n\n1. 逐个跑 triage:确认 rc.1 里这几个 spec 类型的形状确实覆盖 objectui 本地声明的用法(不只是「不再是 any」,而是**足够精确**);\n2. 把 `NavigationItem` / `FormField` 改为从 spec 派生,处理下游涟漪(这两个是公共类型,消费者不少);\n3. `ConditionalValidation` 按 pin 的原话「删掉分歧,整体派生」,同时移除 `validation-rule-spec-parity.test.ts` 里那半段 PINNED DIVERGENCE 的说明;\n4. 三处翻转后的记录性断言随之删除——它们的使命到此结束。\n\n建议一个符号一个 PR,别一次推平:`NavigationItem` 和 `FormField` 的下游面不一样大。\n\n## Related\n\n- objectstack-ai/objectstack#4171 —— 上游 issue:spec 的 4 个导出类型解析为 `any`\n- objectstack-ai/objectstack#4286 —— 退役 `query.joins` / `query.windowFunctions`(`JoinNode` 消失的原因)\n- #3101 —— 同一次 rc.1 升级里处理的 `wait` 退役字段"
+}

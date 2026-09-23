@@ -1,0 +1,32 @@
+{
+  "number": 2947,
+  "kind": "pull_request",
+  "title": "docs(types): finish the ObjectTable -> ObjectGrid rename in two stale doc comments",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T03:26:50Z",
+  "updated_at": "2026-07-29T03:33:42Z",
+  "closed_at": "2026-07-29T03:33:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T03:33:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2947",
+  "body": "Follow-up to #2938.\n\n## Context\n\nWhile fixing #2938 I traced where `ObjectTable` came from. It is **not a typo** —\nthe component genuinely existed and was renamed to `ObjectGrid` long ago. The\noriginal still sits in the package CHANGELOGs:\n\n> `ObjectTable: Auto-generates tables from ObjectQL object schemas`\n> — `packages/components/CHANGELOG.md:2321` (and 7 other packages)\n\nSome prose never followed the rename.\n\n## Why this PR is small\n\n#2938 fixed the one occurrence that **actually bit authors**: the `kind:'react'`\npage scope comment, where the prose *is* the API documentation for a scope that\nis derived at runtime, so following it produced a `ReferenceError`.\n\nThese two are lower-stakes **descriptive prose on type definitions** — nobody\nwrites `<ObjectTable>` because of them. The value is retiring a dead name from\nlive code so the next reader doesn't go digging.\n\n## Changes\n\n| File | Note |\n|---|---|\n| [`field-types.ts:15`](packages/types/src/field-types.ts:15) | module doc for the field type system |\n| [`objectql.ts:1230`](packages/types/src/objectql.ts:1230) | `ObjectViewSchema` — factually correct, not just mechanical: ObjectView renders an `object-grid` ([plugin-view/src/ObjectView.tsx:858](packages/plugin-view/src/ObjectView.tsx:858)) |\n\n## After this\n\n`ObjectTable` appears only in:\n\n- package CHANGELOGs — immutable history, correctly left alone,\n- gitignored `dist/` output — regenerates,\n- `sdui-parser` synthetic compiler fixtures — these build their own inline\n  manifests and never touch the real registry.\n\n## Not done deliberately\n\nI considered a test pinning `PUBLIC_BLOCKS` against actually-registered types to\nstop this class of drift, and decided against it: \"a component not yet registered\nis simply skipped (the list is aspirational-safe)\"\n([public-blocks.ts:20](packages/core/src/registry/public-blocks.ts:20)) is\nintentional design, since plugin packages may not be loaded. A hard assertion\nwould fight that.\n\nComment-only — no behavior change, no changeset (not a feature).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

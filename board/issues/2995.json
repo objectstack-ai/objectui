@@ -1,0 +1,32 @@
+{
+  "number": 2995,
+  "kind": "pull_request",
+  "title": "fix(console): a flow or action that failed under HTTP 200 stops reporting success (#2958)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:17:39Z",
+  "updated_at": "2026-07-30T08:23:46Z",
+  "closed_at": "2026-07-30T08:23:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:23:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2995",
+  "body": "Closes #2958.\n\nBusiness failures come back **HTTP 200** with the failure on the *inner* envelope (objectstack#3913), and a failed flow launch carries neither `status` nor `screen`. Three call sites read that response by hand and **two read it incompletely**, so a failed run was indistinguishable from a completed one: no dialog, a green \"completed successfully\" toast, a refresh, and the real error swallowed.\n\n## What changed\n\n**`utils/flowResponse.ts` (new)** — the flow trigger/resume rule, once. Classifies transport failure / flow failure / screen pause / terminal success, and guarantees `error` is a **string**.\n\nFailure is classified *before* `paused`, which is safe: the engine always stamps `success: true` alongside `status: 'paused'` (verified in framework `service-automation/src/engine.ts` — both paused returns). So a wizard can never be swallowed by the new check.\n\n| Site | Before | After |\n|---|---|---|\n| `useConsoleActionRuntime.flowHandler` | outer envelope only → failure fell into the terminal-success return | `success: false`, no refresh |\n| `RecordDetailView.flowHandler` | same, **plus** raw `json.error` passthrough | shares the interpreter; error coerced |\n| `FlowRunner.resumeWith` | correct, but toasted the raw error value | shares the interpreter; keeps retryable-vs-terminal close behaviour |\n| `useConsoleActionRuntime.apiHandler` | `res.ok` only → refreshed on a rejected call | `success: false` classified before the refresh |\n\nThe `script` handler needed no change — it was already fixed via `interpretActionResponse`. This is that same lesson on the automation route.\n\n## Defect 3 (the raw error value)\n\n`RecordDetailView` passed `json.error` straight through and `FlowRunner` passed `data.error`. The nested `{code, message}` shape reaches `toast.error()` as a React child and crashes the page (React #31) — the trap `actionErrorDetail` exists for. Both now route through it.\n\n## Tests\n\n- `utils/__tests__/flowResponse.test.ts` — 18 cases over every response shape, incl. the object-shaped-error coercion and \"paused is not a failure\".\n- `useConsoleActionRuntime.test.tsx` — 6 handler-level cases pinning the reported repro (failed launch, `errorMessage` preference, wizard still opens, nested-error coercion, `apiHandler` 200-failure, and that a payload merely *containing* a `success` key is left alone).\n- `flow-envelope.ratchet.test.ts` (new) — sibling of the existing `/actions` ratchet, so the rule cannot be hand-rolled back into three copies. Scoped to `trigger`/`resume` callers, since most automation callers just read the registry.\n\n**Verified the tests actually catch the bug**: neutralising the inner-failure branch fails 9 tests, including the *pre-existing* `FlowRunner` terminal-failure test — confirming all three sites now share one rule. Neutralising the `apiHandler` check fails its test.\n\n`unit` + `dom` + `dom-heavy` projects run clean (830 app-shell dom tests, 217 dom-heavy). Typecheck error count is unchanged from `main` (7 pre-existing `@object-ui/types` stale-dist errors, none in touched files); 0 lint errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

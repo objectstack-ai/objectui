@@ -1,0 +1,30 @@
+{
+  "number": 3295,
+  "kind": "issue",
+  "title": "`pnpm docs:check-links` reports a broken link and runs in no workflow (content/docs/core/enhanced-actions.mdx → /docs/components/form)",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T12:52:32Z",
+  "updated_at": "2026-08-03T12:56:52Z",
+  "closed_at": "2026-08-03T12:56:52Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3295",
+  "body": "发现于 #3233 的实施过程（顺手体检，非本单范围，按 Prime Directive #10 单独记录，未认领）。\n\n## 事实\n\n在 `origin/main`（f5bc4c78b）的干净 checkout 上：\n\n```\n$ node scripts/check-doc-links.mjs\nFound 1 broken docs link:\n- content/docs/core/enhanced-actions.mdx -> /docs/components/form\n```\n\n已用 `git stash` 验证过：这条链接在**未加任何改动的 main 上就是坏的**，不是某个在途分支引入的。\n\n## 为什么它一直坏着\n\n`docs:check-links` 只存在于根 `package.json` 的 scripts 里：\n\n```\n\"docs:check-links\": \"node scripts/check-doc-links.mjs\",\n```\n\n`.github/workflows/` 下**没有任何 workflow 引用它**，`pnpm test` 也不调它。所以这个检查只有人手动跑才会执行 —— 一个没有执行者的检查等于没有检查，坏链接可以无限期存活（这一条正好就是活证据）。\n\n## 两个可分开处理的动作\n\n1. **修这条链接**：`/docs/components/form` 指向的页面不存在，需要确认正确目标（大概率是 `/docs/guide/forms` 或 `/docs/components/…` 下的实际路径），改掉。\n2. **给这个检查一个执行者**：把 `docs:check-links` 挂进 CI（docs 相关 workflow，或 `lint.yml`）。注意 `ci.yml` / `lint.yml` 都把 `**/*.md` 列进了 `paths-ignore`，所以纯文档 PR 不会触发它们 —— 要么给它单独的 workflow + `content/docs/**` 触发路径（参考 `changeset-guard.yml` 的做法），要么调整 paths 过滤。\n\n只做 (1) 不做 (2)，下一条坏链接会以同样的方式静默进来。\n\n## 范围\n\n与 #3233（`field`/`schema` 单载体收敛）无关，故不并入该 PR。**未指派**，等排期。\n"
+}

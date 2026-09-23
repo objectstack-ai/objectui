@@ -1,0 +1,32 @@
+{
+  "number": 2916,
+  "kind": "issue",
+  "title": "plugin-view: `Record<ViewType, …>` is missing the `chart` key — chart view has no label or icon",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T09:33:53Z",
+  "updated_at": "2026-07-30T13:24:51Z",
+  "closed_at": "2026-07-30T13:24:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2916",
+  "body": "Found by the full type-check sweep in #2911 / #2915. `@object-ui/plugin-view` had **no type-check script**, so this was invisible to CI.\n\n## The errors\n\n```\npackages/plugin-view/src/ViewSwitcher.tsx(57,7): error TS2741:\n  Property 'chart' is missing in type '{ list: string; detail: string; grid: string;\n  kanban: string; calendar: string; timeline: string; map: string; gallery: string;\n  gantt: string; tree: string; }' but required in type 'Record<ViewType, string>'.\n\npackages/plugin-view/src/ViewSwitcher.tsx(70,7): error TS2741:\n  Property 'chart' is missing in type '{ list: ...; ... 7 more ...; tree: ... }'\n  but required in type 'Record<ViewType, LucideIcon>'.\n```\n\nTwo exhaustive maps keyed by `ViewType` — one of labels, one of Lucide icons — are each missing the `chart` entry. `chart` is a member of `ViewType`, and `plugin-charts` is a registered view, so this is a **user-visible gap**: the chart view renders in the switcher with no label and no icon.\n\nThere is also a third, separate error in the same package:\n\n```\npackages/plugin-view/src/ViewTabBar.tsx(234,43): error TS2322:\n  Type 'SyntheticListenerMap | undefined' is not assignable to\n  type 'Record<string, (...args: any[]) => void> | undefined'.\n```\n\n(dnd-kit listener type, unrelated to the `chart` gap.)\n\n## Why it needs a decision, not just a compile fix\n\nSilencing the type error is one line, but picking the label and icon is a product call — what the chart view is called in each locale, and which Lucide glyph represents it. Worth confirming against whatever `plugin-charts` already shows elsewhere so the switcher does not disagree with the rest of the UI.\n\n## Reproducing\n\n`plugin-view` has no `type-check` script yet, so add the `paths` override its type-checked peers carry, then:\n\n```\ncd packages/plugin-view && ../../node_modules/.bin/tsc --noEmit\n```\n\nWithout the `paths` override you also get ~104 TS6059 `rootDir` errors, which are tsconfig shape rather than source bugs — see #2915 for the mechanism.\n\n## Closing this out\n\n`@object-ui/plugin-view` is listed in `DEBT` in `scripts/check-type-check-coverage.mjs` with `errors: 3`. When these are fixed, add `\"type-check\": \"tsc --noEmit\"` and **delete the DEBT entry** — the guard fails if an entry outlives its gap.\n\nRefs #2911, #2915"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2941,
+  "kind": "issue",
+  "title": "Tier 1 (#2901): spec values that render silently WRONG output",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:22:49Z",
+  "updated_at": "2026-07-30T07:56:59Z",
+  "closed_at": "2026-07-30T07:56:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2941",
+  "body": "From the #2901 audit ([doc](https://github.com/objectstack-ai/objectui/pull/2937)). These are the worst class found, and a class the bug that started this (#2897) did **not** belong to.\n\nA blank cell is detectable — someone eventually asks why it's empty. A plausible wrong number is not. Every row here produces output that looks correct and isn't.\n\n| Finding | Location | What happens |\n|---|---|---|\n| Pivot aggregation falls back to **sum** | `plugin-dashboard/src/PivotTable.tsx:114` | `count_distinct`, `array_agg`, `string_agg` each return a sum. Wrong total, no signal. |\n| Report chart falls back to **bar** | `plugin-report/src/DatasetReportRenderer.tsx:370` | 10 of 19 `ChartTypeSchema` values silently draw a bar chart. |\n| `selection.type: 'single'` renders **multi-select** | `plugin-grid/src/ObjectGrid.tsx:1610` → `components/src/renderers/complex/data-table.tsx:1284` | `selectable` is treated as a bare truthy. Per-row checkboxes *and* select-all; `single` is never distinguished from `multiple`. |\n| Filter `type: 'select'` renders multi-check | `plugin-list/src/UserFilters.tsx:227` | A single-choice filter accepts many values. |\n| `addRecord.position: 'both'` collapses to `top` | `plugin-list/src/ListView.tsx:389` | `(position === 'bottom' ? 'bottom' : 'top')` — the bottom button never renders. |\n| `tabular` vs `summary` resolved from data, not type | `plugin-report/src/DatasetReportRenderer.tsx:779` | Identical branch; the difference is read from whether `report.rows` is non-empty. A `tabular` report that declares `rows` renders grouped. |\n\n### Needs a semantic decision first\n\n- `selection.type: 'single'` — radio-style single selection, or \"cap the selection at 1\"? The renderer does neither today.\n- `filter type: 'select'` vs `'multi-select'` — same question.\n\nBoth are Direction-A gaps only if we decide the spec meant something the renderer doesn't do. Worth answering before implementing.\n\n### Guard\n\nEach fix should land with a parity test on the pair, per `plugin-grid/src/__tests__/summary-spec-parity.test.ts`. Note `plugin-list`, `plugin-charts`, `plugin-dashboard`, `plugin-report` and `components` **lack the `@objectstack/spec` devDependency** and need it added first.\n\nRefs #2901"
+}

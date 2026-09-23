@@ -1,0 +1,30 @@
+{
+  "number": 3050,
+  "kind": "issue",
+  "title": "/me/permissions 的瞬时失败（冷环境 503）会把 console 永久钉在 spinner 上 —— MePermissionsProvider 不重试，且 console 没传 errorFallback",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:12:47Z",
+  "updated_at": "2026-07-30T14:23:42Z",
+  "closed_at": "2026-07-30T14:23:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3050",
+  "body": "在实施 objectstack#4159 / cloud#927（那三条 current-user 端点改由**拥有该请求的环境 kernel** 应答）时发现并核实。\n\n## 现象\n\n`MePermissionsProvider` 取 `/api/v1/auth/me/permissions` 失败时只做一件事：置 `error`。而渲染分支是：\n\n```tsx\nif (loading && !data) return <>{loadingFallback}</>;\nif (error && !data) {\n  if (errorFallback) return <>{errorFallback(error, fetchPermissions)}</>;\n  return <>{loadingFallback}</>;      // ← 没传 errorFallback 时，错误态也渲染 loading 节点\n}\n```\n\n而 `apps/console/src/AppContent.tsx` 恰恰**只传 `loadingFallback`**：\n\n```tsx\n<MePermissionsProvider endpoint={endpoint} fetcher={authFetch} loadingFallback={<LoadingScreen />}>\n```\n\n两条合起来：**任何一次取失败 → console 永远停在 LoadingScreen**，而那个本该救场的 `retry` 参数没有任何路径能被调用到。\n\n## 为什么现在才成为问题\n\n\"暂时不行\"从此是这条端点的**正常答案**。objectstack#4159 之后，多租户宿主上这条由环境 kernel 应答，而**冷 kernel** 会返回 `503` + `Retry-After`（cloud 的 `KernelWarmingError`，默认 `retryAfterSeconds = 15`）。也就是说：租户环境冷启动期间打开 console → 白屏 spinner，且不会自愈。\n\n在此之前它也可复现（网络抖动、502），只是没有一个**结构性**、会稳定发生的来源。\n\n## 两处都要修\n\n1. **`MePermissionsProvider` 不重试瞬时失败。** `408/425/429/502/503/504` 与抛出的 fetch（离线/DNS/连接中断）都属于\"请求没拿到答案\"，重试可以成功；`401/403/404/500` 是关于调用者的真实答案，不该重试。服务端给了 `Retry-After` 就用它（两种 wire 形式都要读，并夹到一个上限，否则一个恶意/错误的值能把 UI 钉住几小时）。重试期间 `loading` 必须保持 `true` —— 否则会出现\"权限还没到就先按宽松默认渲染\"的闪烁，正是 fail-closed 要避免的。\n2. **console 得传 `errorFallback`。** 重试只能收窄窗口，不能关闭它：kernel 构建比重试预算还慢时仍会落到错误态。`LoadingScreen` 本来就有 `error` / `onRetry` / `retrying` 三个 props，一直没人接。\n\n## 顺带发现的既有隐患\n\n`fetchPermissions` 没有取消机制：`endpoint` / `fetcher` 变化时，旧请求的慢响应会覆盖新请求的快响应。加了重试（中间隔着真实的等待时间）之后这个窗口会显著变宽，所以应当一并用 per-effect 取消令牌处理掉。\n\n## 关联\n\n- objectstack#4159（让 503 成为这条端点的常规答案）、cloud#927 / cloud#924；\n- `packages/permissions/src/MePermissionsProvider.tsx`、`apps/console/src/AppContent.tsx`、`packages/app-shell/src/chrome/LoadingScreen.tsx`。"
+}

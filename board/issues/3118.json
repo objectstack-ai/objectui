@@ -1,0 +1,36 @@
+{
+  "number": 3118,
+  "kind": "issue",
+  "title": "服务端分页下搜索框只搜了当前页:与 #3106 同构,只是换成了「过滤范围」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:41:02Z",
+  "updated_at": "2026-08-02T10:21:09Z",
+  "closed_at": "2026-08-02T10:21:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3118",
+  "body": "## TL;DR\n\n#3106 收口了服务端分页下**排序**的作用域。**搜索**还没有:独立 `ObjectGrid` 默认渲染的搜索框走的是 `data-table` 的客户端过滤,而它过滤的是手上那批行 —— 服务端分页下就是**当前这一页**。\n\n用户看到的是「这个列表里搜 X 只有 2 条」,实际是「这 50 行里有 2 条,另外 3075 行没参与」。分页器同时还写着 `1 / 63`,把「结果很少」和「数据很多」并排放在一屏上。\n\n## 链路\n\n- `data-table` 的 `filteredData` 过滤 `data`,即传进来的那批行(`packages/components/src/renderers/complex/data-table.tsx:594-603`)。\n- `ObjectGrid` 把 `searchable` 交给它,默认为 **true**(`packages/plugin-grid/src/ObjectGrid.tsx:1974`,`:2032`),而同一个 schema 里 `manualPagination` 也是 true —— 也就是 `data` 只有一页。\n\n两者在同一个对象字面量里相邻声明,这正是它不易被看见的原因:每一项单独看都对。\n\n## 影响面比 #3106 窄\n\n**ListView 路径不受影响**:它给子网格传 `showSearch: false`,搜索由 ListView 自己的工具栏负责(走服务端 `$search`,ADR-0061)。\n\n**独立 `ObjectGrid`** 才会命中 —— 也就是不经 ListView 直接渲染 `object-grid` 的场合(页面里嵌一个网格、Studio 预览等)。\n\n## 与 #3106 的关系\n\n同一条原则的第三次复现,只是维度从「排序键」(#3096)、「排序范围」(#3106)换成了「过滤范围」:\n\n> 一个作用于窗口的操作,不该看起来作用于集合。\n\n#3106 的修法在这里同样成立且已有先例:服务端已经支持 `$search`(ADR-0061,服务端按对象元数据决定匹配哪些字段,客户端只传词),ListView 就是这么做的。\n\n## 选项\n\n1. **接上服务端 `$search`** —— `ObjectGrid` 在服务端分页时把搜索词并进取数参数并回第 1 页,与 ListView 工具栏同一条通路。倾向此项:通路现成,和 #3106 的收口同构。\n2. **服务端分页时关闭 `data-table` 的内置搜索** —— 最小改动,先消除误导,但等于删掉一个功能。\n\n需要注意的是,#3106 修完之后这一条**更值得担心了**:列头排序现在是诚实的,用户会顺理成章认为同一张表上的搜索框也是。\n\n## 关联\n\n- #3106(排序范围;本 issue 是同一原则在过滤范围上的复现,在其实现过程中发现)\n- #3096(排序键)\n- objectstack#3948(「未生效的表达式不该看起来生效了」原则出处)\n\n按 AGENTS.md 的「越界发现立 issue、不就地扩大范围」处理,而非塞进 #3106 的 PR。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3054,
+  "kind": "pull_request",
+  "title": "docs(components): record why the eight small Shadcn divergences exist, and split --check into documented vs undocumented",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:23:01Z",
+  "updated_at": "2026-07-30T14:30:00Z",
+  "closed_at": "2026-07-30T14:29:57Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:29:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3054",
+  "body": "I proposed triaging the eight components diverging from upstream by 1–2 lines, on the theory they'd be stale cruft worth dropping to widen the safe-to-sync set.\n\n**The theory was wrong. All eight are load-bearing; none can be synced away.** The safe-to-sync count cannot go up, so the deliverable inverts: instead of removing divergence, this records *why* each one exists.\n\n## What they actually are\n\n**Six are the Tailwind v4 arbitrary-value migration** — `popover`, `tooltip`, `hover-card`, `menubar`, `dropdown-menu`, `context-menu`.\n\nUpstream still ships v3's `origin-[--radix-…]`. I compiled both forms against the installed tailwindcss 4.3.3:\n\n| syntax | compiles to | valid? |\n|---|---|---|\n| `origin-(--x)` — v4 shorthand, **ours** | `transform-origin: var(--x)` | ✅ |\n| `origin-[--x]` — v3 bracket, **upstream** | `transform-origin: --x` | ❌ browsers drop it |\n\nA bare custom-property name isn't a value, so syncing would leave every one of these popovers animating from the default origin instead of the one Radix computes. Applied repo-wide in `925051db6`, with zero v3-form occurrences left.\n\n**`form`** adds `Record<\\`data-${string}\\`, string | undefined>` to `FormItem` so callers can attach a stable `data-testid` to the field wrapper — the ADR-0054 testability contract, same family as `command`'s `contentProps`.\n\n**`sonner`** re-exports `toast` so consumers take it from `@object-ui/components` rather than depending on `sonner` directly. `plugin-form`, `plugin-kanban` and others import it that way; syncing breaks those imports.\n\n## What ships instead\n\nA `localEdits` field on each manifest entry, surfaced by the script:\n\n- printed **in full** when `--update` refuses, so the reason arrives at the moment someone is about to override it\n- reduced to a `[documented]` / `[UNDOCUMENTED]` marker in `--check`\n\n```\n⚠ popover      1 local line(s) upstream lacks — --update would refuse, 1 upstream line(s) pending  [documented]\n⚠ command     35 local line(s) upstream lacks — --update would refuse, 3 upstream line(s) pending  [UNDOCUMENTED]\n```\n\n```\nThese carry local edits a sync would delete:\n  documented (8): context-menu(2), dropdown-menu(2), form(1), hover-card(1), menubar(2), popover(1), sonner(2), tooltip(1)\n  UNDOCUMENTED (9): badge(4), calendar(7), chart(11), command(35), select(32), sheet(4), sidebar(24), slider(4), table(17)\n    → nobody has written down why these diverge. Until someone does,\n      there is no way to tell a deliberate fix from stale drift.\n```\n\nThat split is the point. Divergence with a recorded reason is a **decision**; divergence without one is an **open question** — and that ambiguity is exactly what let `resizable` rot for a major version (#3029).\n\n## Verification\n\n- Tailwind behaviour compiled and compared, not inferred from the commit message (table above). An earlier probe of mine reported the opposite; that was a malformed `grep` pattern treating `(` as a regex group, not a real result — re-run with `-F`, all five forms behave as tabled.\n- `sonner`'s `toast` re-export confirmed to have real consumers across `plugin-form` / `plugin-kanban`\n- The v4 migration confirmed complete: 10 paren-form occurrences, **0** bracket-form\n- Manifest stays canonically formatted (byte-identical to `JSON.stringify(…, null, 2)`); `--check`, `--diff`, `--update`, and the #3033 / #3035 guards all regression-checked\n- `eslint` clean. **No component source changes** — manifest and script only\n\nNo changeset.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

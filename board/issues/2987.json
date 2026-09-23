@@ -1,0 +1,36 @@
+{
+  "number": 2987,
+  "kind": "pull_request",
+  "title": "fix(form): a tabbed/sectioned modal keeps every tab's values (#2959, #2153)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:33:43Z",
+  "updated_at": "2026-07-30T08:03:09Z",
+  "closed_at": "2026-07-30T08:03:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:03:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2987",
+  "body": "Fixes #2959 (and the explicit-sections half of #2153, which was closed with only the `fieldGroups` branch fixed).\n\n## The two compounding mechanisms\n\n`ModalForm`'s explicit-`sections` path rendered one `SchemaRenderer` — **one react-hook-form instance and one `<form>` element** — *per section*, all sharing the same `formId`:\n\n1. the footer submit button (`form={formId}`) can only be associated with the **first** of those forms, so section 2+ never reached the payload (#2153); and\n2. in the `tabbed` variant Radix **unmounted** the inactive panel, destroying that tab's form state outright (#2959).\n\nReported flow (HotCRM, 3 tabs, required `description` on tab 3): fill tab 1 → submit → server 400 `description is required` → switch to tab 3, fill it → submit → the server now reports `subject; description; status; priority` **all** missing, because the second submit's body had lost every earlier value.\n\n`TabbedForm` (the full-page tabbed form) had the identical defect.\n\n## The fix\n\nBoth hosts now render **ONE form for all sections**, the pattern `ObjectForm` and `DrawerForm` have shipped for a while:\n\n- **stacked sections** → the existing inline `section-divider` virtual field carries each group's header (which now also renders the section's `description`, so no authored copy is dropped), with per-section column density applied as `colSpan` against the shared grid (#2578 parity);\n- **tabbed sections** → a new `FormSchema.fieldTabs` (+ `defaultFieldTab`, `fieldTabsPosition`) that the form renderer distributes into **force-mounted** Radix panels.\n\nForce-mounted matters twice: CSS-hidden rather than unmounted keeps the values, **and** keeps the validation — react-hook-form's `validateField` returns early for unmounted fields, which is exactly how a required field on a tab nobody opened sailed past the client and came back as a server 400.\n\nValidation feedback now points at the tab, as the issue asked: the first rejected field's tab is activated and every tab holding one is marked on its trigger (`data-error`) — for client-side rules and server `fields[]` rejections alike.\n\nThe per-field render body was hoisted out of the `fields.map(...)` JSX into a named `renderFormField` helper (mechanically, via a scripted move) so a tab panel can place the same field row without a second form instance. `git diff -w` shows the real change is +282/-84.\n\n## Verification\n\n- New `packages/plugin-form/src/sectionedFormValues.test.tsx` (6) and `packages/components/src/renderers/form/__tests__/form-field-tabs.test.tsx` (7) — all green.\n- **Discrimination check**: reverted the three source files to the pre-fix commit and re-ran both files — 9 of the 13 fail (cross-tab payload, 2nd-section payload, TabbedForm payload, validation→tab, and the whole `fieldTabs` contract). They fail for the reported reasons, not incidentally.\n- Existing suites green: `plugin-form` (sectionColumns, modalFieldGroups, discardGuard, selectOptions, subformHosts) and `components/renderers/form` (9 files, 59 tests).\n- **Real browser** (console preview gallery, offline, tabbed form view): one `<form>`, all three panels in the DOM, inactive panels computed `display: none`, and a value typed on tab 1 survives a tab round-trip. Also compiled the console's real Tailwind entry through PostCSS to confirm `data-[state=inactive]:hidden` is actually emitted (`.data-\\[state\\=inactive\\]\\:hidden[data-state=\"inactive\"]{display:none}`) — the one thing jsdom cannot prove.\n\nOne test-expectation update: `sectionColumns.test.tsx` counted the multi-column grid's raw children (4); the section header is now an inline divider inside that same grid, so it counts `:scope > [data-field]` instead. The #2128 guard it exists for — fields are direct children of the grid, not a lone `<form>` — is unchanged.\n\n## Not in scope\n\n`SplitForm` has the same per-section-form defect, but a single form cannot span two `ResizablePanel`s without a different structural approach; it needs its own change. Flagged separately.\n\nThe issue's second suspicion — `ModalForm.tsx` stripping the payload through `checkField(..., 'write')` once `perms.isLoaded` flips, with `MePermissionsProvider` failing closed — is untouched here: it is an independent path, and with the form state fixed the reported symptom is fully explained by the two mechanisms above.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

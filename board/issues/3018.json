@@ -1,0 +1,34 @@
+{
+  "number": 3018,
+  "kind": "pull_request",
+  "title": "fix(form): a tabbed/split form honours the form view's own `columns`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:49:45Z",
+  "updated_at": "2026-07-30T10:55:55Z",
+  "closed_at": "2026-07-30T10:55:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:55:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3018",
+  "body": "Follow-up to [#3012](https://github.com/objectstack-ai/objectui/pull/3012), where this inconsistency surfaced.\n\n## The gap\n\n`FormView.columns` is a **spec key** — `view.zod` declares it right next to `splitDirection` / `splitSize`. But only `ObjectForm`'s simple path ([ObjectForm.tsx:914](packages/plugin-form/src/ObjectForm.tsx#L914)) and `ModalForm` actually read it. `TabbedForm` and `SplitForm` derived the grid width from the per-section `columns` alone:\n\n```ts\nconst formColumns = declaredCols.length ? Math.max(...declaredCols) : 1;\n```\n\nSo a form view declaring `columns: 3` rendered 3 columns in a modal and **single-column** as a tab or a split — one piece of metadata laying out differently depending on which host picked it up. `ObjectForm` was already spreading `columns` through to both; it was simply dropped on arrival, so nothing downstream could tell the key had been authored.\n\nPer AGENTS.md #0 this is a compliance bug, not a preference: the renderer was silently discarding a declared spec key.\n\n## The fix\n\nBoth hosts now resolve the grid the way the others already did:\n\n```\nexplicit form `columns`  ??  widest section's `columns`  ??  1\n```\n\nThe precedence reflects that the two keys answer different questions — the view's `columns` is **how wide** the grid is; a section's `columns` is **how densely** that section fills it (via per-field `colSpan`). `columns` is declared on `TabbedFormSchema` / `SplitFormSchema` accordingly.\n\n## Tests\n\nThree cases added to `packages/plugin-form/src/sectionColumns.test.tsx` (the existing home for grouped-section layout), **verified failing first** — both host tests failed `expected null not to be null` on the 3-column grid class, while the section-fallback case passed, confirming the baseline was precisely \"view columns ignored, section columns fine\":\n\n- `TabbedForm` honours the view's `columns`\n- `SplitForm` honours the view's `columns`\n- falls back to the widest section when the view declares none (and does **not** invent a third column)\n\n38 files / 293 tests green across `plugin-form` + the form renderer; `turbo type-check` 12/12; lint 0 errors.\n\n## Deliberately out of scope\n\n`WizardForm` is the remaining host that ignores view-level `columns` ([WizardForm.tsx:531](packages/plugin-form/src/WizardForm.tsx#L531) passes only `currentSection.columns || 1`). Left out on purpose: a wizard's grid is **per-step**, and `sectionFormLayout(fields, cols)` currently collapses width and density into one number — honouring the view key there means introducing the width/density split properly (`applyAutoColSpan(body, formColumns, section.columns)` + `containerGridColsFor`), which also changes the default width of every existing wizard step. That deserves its own PR rather than being smuggled into a precedence swap. Happy to do it next.\n\nNo browser verification for this one — the change is a resolved integer feeding existing, already-verified grid classes, and the three DOM assertions cover it.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

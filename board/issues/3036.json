@@ -1,0 +1,33 @@
+{
+  "number": 3036,
+  "kind": "pull_request",
+  "title": "test(app-shell): ratchet the component-props-to-`any` cast that hid #3025's dead prop, and pin the schema.direction boundary",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:03:04Z",
+  "updated_at": "2026-07-30T13:09:36Z",
+  "closed_at": "2026-07-30T13:09:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:09:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3036",
+  "body": "Two follow-ups to #3025, both about stopping that bug from recurring rather than fixing anything new.\n\n## 1. The ratchet\n\n#3025 removed two `const PanelGroup = ResizablePanelGroup as React.FC<any>` casts. Those casts weren't incidental to the bug — **they caused it.** Erasing a component's props to `any` meant that when react-resizable-panels v4 renamed `direction` → `orientation`, the stale prop type-checked against nothing and survived an entire major version as a dead prop React forwarded to the DOM.\n\nWhat makes this worth a gate rather than review vigilance is *how both casts were justified*:\n\n> vite-plugin-dts may not resolve the direction prop type correctly\n\n> react-resizable-panels' `direction` prop type does not always narrow cleanly in our TS config\n\nNeither was true — v4's `GroupProps` has no `direction` key at all. **The cast reads as a workaround for a toolchain quirk while actually disabling the check that catches a breaking upstream rename.** That's precisely the kind of thing that gets re-added in good faith, by someone reasoning exactly as those two comments did.\n\nRepo-wide over `packages/<pkg>/src` and `apps/<app>/src`, following the existing `*.ratchet.test.ts` shape (#2269, ADR-0054) so it runs in the gating `pnpm test` job. Covers `FC` / `FunctionComponent` / `ComponentType` parameterised with `any`, `React.`-qualified or not.\n\nI chose a ratchet test over an ESLint rule deliberately: it matches existing house precedent, runs in a job that already gates, and needs no per-package ESLint config changes while the #2713 lint-gate sweep is still mid-flight.\n\n**Current count is zero** — which is exactly why now is the moment to set the gate.\n\n### It's tested against its own failure modes\n\nA ratchet has two silent ways to become worthless: a scan path that finds nothing, and a regex that quietly stops matching. Both are pinned. The regex test asserts it fires on the exact casts #3025 removed plus spelling variants, **and** that it does *not* fire on legitimate neighbours:\n\n```\nas Record<string, any>            → not flagged\nas ComponentProps<typeof Button>  → not flagged\nconst C: React.FC<Props> = …      → not flagged\n```\n\n### Proof it bites\n\nReintroducing the exact cast into `custom/navigation-overlay.tsx`:\n\n```\nAssertionError: expected [ Array(1) ] to deeply equal []\n+   \"packages/components/src/custom/navigation-overlay.tsx :: const PanelGroup = ResizablePanelGroup as React.FC<any>;\"\n Tests  1 failed | 2 passed (3)\n```\n\nReverted after testing.\n\n## 2. The `schema.direction` boundary comment\n\n`renderers/complex/resizable.tsx:24` maps `schema.direction` onto the library's `orientation`. It looks exactly like a site #3025 missed — same prop name, same file family. It isn't: `direction` is ObjectUI's own **public authoring vocabulary** and appears in stored view metadata, so renaming it to match the library would break every saved `resizable` schema.\n\nDocumented in place, because the next person to grep for `direction` will land there and reach for the wrong fix.\n\n## Verification\n\n- New ratchet: 3 tests pass; fails correctly on reintroduction (above)\n- Four sibling ratchets (`actions-envelope`, `flow-envelope`, `no-refresh-key-remount`, `adr0054`): 8 tests pass\n- `resizable-orientation` + `form-field-panes`: 15 tests pass\n- `pnpm --filter @object-ui/components type-check`: clean\n- `eslint`: exit 0 (2 pre-existing `no-explicit-any` *warnings* in `complex/resizable.tsx` on lines I didn't touch — `[key: string]: any` in the props type and `panel: any` in the map; a props index signature is a different thing from a component cast, so the ratchet correctly ignores them)\n\nNo changeset — a test and a comment.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

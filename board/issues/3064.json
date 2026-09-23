@@ -1,0 +1,30 @@
+{
+  "number": 3064,
+  "kind": "issue",
+  "title": "[console 17.0.0-rc.0] BulkActionDialog lookup param: failed or empty candidate fetch renders as permanent \"Loading…\" — error swallowed, cached per param name, never retried",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:08:45Z",
+  "updated_at": "2026-07-30T16:30:41Z",
+  "closed_at": "2026-07-30T16:30:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3064",
+  "body": "## Summary\n\nIn `packages/plugin-grid/src/components/BulkActionDialog.tsx`, a bulk action's `lookup` param loads its candidates once per param name. When that fetch **fails** (401 expired session / 403 / 500 / network) or returns **zero rows**, the select renders the permanent placeholder **\"Loading…\"** with no error surfaced, and — because the failure is cached — **reopening the dialog never retries** for the rest of the page session. A full page reload is the only recovery.\n\nConfirmed on `@objectstack/console@17.0.0-rc.0` with real-browser (Playwright + Chrome) request-interception tests in a downstream project.\n\n## Root cause (three code facts that compound)\n\n1. **Errors are swallowed into an empty options array** — load effect, `BulkActionDialog.tsx` ~L174-203:\n   ```ts\n   try {\n     const res = await dataSource.find!(p.object as string, { $top: 200 });\n     ...\n   } catch {\n     next[p.name] = [];        // ← failure becomes “no options”, no state/toast/log\n   }\n   ```\n2. **Empty options render as \"Loading…\"** — `ParamField`, ~L575-577:\n   ```ts\n   const opts = lookupOptions ?? [];\n   const loadingPlaceholder = opts.length === 0\n     ? t('grid.bulk.loading', { defaultValue: 'Loading…' })   // ← empty ⇒ forever “loading”\n     : param.placeholder ?? t('grid.bulk.selectPlaceholder', ...);\n   ```\n   \"Still loading\", \"load failed\" and \"loaded, 0 candidates\" are indistinguishable — all render as Loading….\n3. **The failure is cached per param name and never retried** — effect guard ~L177:\n   ```ts\n   const lookups = params.filter(p => p.type === 'lookup' && p.object && !lookupCache[p.name]);\n   ```\n   After the `catch`, `lookupCache[p.name]` is `[]` (truthy), so reopening the dialog issues **zero** new requests.\n\n## Reproduction (any list view with a lookup-param bulk action)\n\n1. Define a bulk action with `params: [{ name: 'manager', type: 'lookup', object: 'sys_user', required: true }]`.\n2. In DevTools, block the URL pattern `*/api/v1/data/sys_user?*` (simulates the window where a dev server is restarting / the session just expired).\n3. Select a row → open the bulk action → the select shows **\"Loading…\"** indefinitely; no error anywhere.\n4. Unblock the request (server is \"back\"). Close and reopen the dialog → **still \"Loading…\"**, and the network tab shows **no new request**.\n5. Reload the page → works normally.\n\nTimeline observed in our automated run: request #1 fails during the outage → dialog stuck; after recovery, reopening fires 0 requests (count stays 1); after `location.reload()` request #2 → 200 → healthy placeholder.\n\n## Why this is nasty in practice\n\n- The per-param-name cache produces a **split-brain page**: two person-picker buttons on the same list, one poisoned key stays dead while the other (first fetched after recovery) works — users and app developers chase a nonexistent config difference between the two buttons. Observed exactly this in production-like use: `assign_manager` + `reassign` (both param `manager`) dead, `assign_executors` (param `batch_exec_users`) fine, same page.\n- A legitimately-empty target object also permanently shows \"Loading…\" instead of an empty state.\n- Typical trigger is mundane: user keeps the SPA open across a dev-server restart / session expiry, opens the dialog once during the gap, and that button is bricked until a hard refresh.\n\n## Suggested fix\n\n- Track load state per param (`loading | loaded | error`) instead of inferring from `options.length`.\n- On error: show an error placeholder + retry affordance (and don't cache the failure — let reopening retry).\n- On loaded-but-empty: show an explicit \"no records\" placeholder.\n\n## Environment\n\n- `@objectstack/console@17.0.0-rc.0` (plugin-grid), Chrome, real-browser tests via Playwright.\n- Downstream registry: os-project-titanwind-ehr (private) PLAT-DEF-025 / issue #650 — full four-stage interception evidence available on request.\n\n---\n\n## 采纳的解决方案:参数控件迁移到共享字段控件(ADR-0059 补完)\n\n上面 \"Suggested fix\" 里的状态机方案(方案 A)**不单独做**。经排查,`BulkActionDialog` 的参数控件是 2026-05 手搓的 MVP(当时 PeoplePicker #2112 和 ADR-0059 都还不存在),是 ADR-0059 统一改造(#2704,只覆盖了 app-shell `ActionParamDialog`)漏掉的最后一座孤岛。直接补完迁移(方案 B),本 bug 随之消除:\n\n1. **删除** `BulkActionDialog` 内手搓的 `ParamField` switch 分支、`MultiSelectControl`、eager `find($top:200)` 加载和 `lookupCache` —— \"错误吞成空数组 → 永久 Loading… → 失败缓存永不重试\" 的整条管线不复存在。\n2. 每个 `BulkActionParam` 经新的 `bulkParamToField()` 适配器(镜像 app-shell `paramToField`,ADR-0059)翻译成字段元数据,由 `@object-ui/fields` 的 `getLazyFieldWidget()` 渲染**表单同款控件**:\n   - `lookup` 参数 → 真正的 `LookupField`(服务端搜索、分页、记录选择对话框、加载/错误/空态由共享 `useRecordQuery` 内核处理,弹窗重开自动重查 —— 本 issue 的三条根因逐条对应消除);\n   - 指向 `sys_user` 的 lookup / `user` 类型参数 → `UserField`/`PeoplePicker`,与表单选人字段样式、交互完全一致(头像、部门·邮箱副标题、拼音搜索、排除停用用户);\n   - 其余类型(date/datetime/boolean/select/multiselect/textarea/number/…)同样走共享控件,支持范围与表单永不漂移。\n3. 保留既有语义:`#2204` 的 schema 兜底 multi 判定、必填门控、确认页人类可读标签(lookup 标签改为按选中 id `findOne` 解析,不再依赖全量预取)、`#2185` 弹层误关守卫。\n\n收益:列表批处理弹窗与表单/单条操作弹窗三面统一;`$top:200` 全量预取(超 200 条选不到人)一并修复。\n"
+}

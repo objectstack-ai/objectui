@@ -1,0 +1,36 @@
+{
+  "number": 2990,
+  "kind": "pull_request",
+  "title": "refactor(actions)!: `target` is the only handler slot — delete the `execute` alias (objectstack#3856)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:40:40Z",
+  "updated_at": "2026-07-30T08:07:13Z",
+  "closed_at": "2026-07-30T08:07:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:07:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2990",
+  "body": "Closes objectstack-ai/objectstack#3856.\n\n## The claim, confirmed\n\n`ActionRunner.executeScript` read `action.target || action.execute`. Against `@objectstack/spec` 17 that fallback is unreachable — and by a stronger mechanism than objectstack#3856 assumed. #3742 dropped `execute` from parsed output; objectstack#3855 went further and **tombstoned** it, so the parser now *rejects* an authored `execute` with the rename prescription.\n\nVerified empirically against the resolved `17.0.0-rc.0`:\n\n```\nalias-only parse success: false\n  error: execute: `execute` was removed in @objectstack/spec 17 (#3855) — use `target`.\n         Rename the key; the value (a handler / flow / URL ref) is unchanged.\n         Run `os migrate meta --from 16` to rewrite it automatically.\ntarget-only parse success: true\n  parsed keys: name, label, type, target, refreshAfter\n  has execute on output: false\n```\n\nNo parsed action can carry the key, so `||` could only ever yield `target`. Deleted rather than left as harmless residue: two handler slots is exactly what let one action run one script server-side and a different one client-side (objectstack#3713, where this renderer preferred the alias while the spec transform preferred `target`). A dead slot still reads as a live contract to the next maintainer.\n\n## The real finding: the type, not the fallback\n\nobjectstack#3856 asked whether a TypeScript reader here should already fail to compile, \"because if it still compiles, something in objectui is reading a looser type than the spec's.\" It still compiled. Neither reader was typed against the spec's `z.infer` — both hand-declared the key:\n\n| Reader | Was | Now |\n|---|---|---|\n| `@object-ui/types` `ActionSchema` | hand-declared `execute?: string` | removed — `execute: '…'` fails `tsc` (TS2353) at the authoring site |\n| `@object-ui/core` `ActionDef` | hand-declared it too | removed — but see below |\n\n`ActionDef` carries a `[key: string]: any` index signature, so removing the declaration produces no compile error there and stale hand-authored metadata (never parsed by the spec) still type-checks. Silently binding no handler is the objectstack#2169 \"Mark Done does nothing\" shape, so for that path `executeScript` now returns the rename prescription instead of a bare \"No script provided\" — the same reasoning the spec's own tombstone gives for keeping the removal audible. This is not a tolerant fallback: the script does not run.\n\n## Changes\n\n- **`@object-ui/core`** — `executeScript` reads `target` only; `ActionDef.execute` removed; retired-key branch returns the rename prescription (ordered after the existing `body` branch, since a `body` action ignores `target` and \"rename it\" would be wrong advice there).\n- **`@object-ui/types`** — `ActionSchema.execute` removed; `target` documented as the only handler slot.\n- **`@object-ui/components`** — `action:button`, `action:icon`, `action:menu`, `action:group` stop forwarding `execute` into the runner.\n- **`@object-ui/app-shell`** — Studio's `ActionPreview` drops `?? d.execute`; previewing an alias-only draft as \"bound\" contradicted the parse that rejects it on save.\n- **Tests** — the 18 `execute:`-authored actions across 6 suites move to `target`. The \"should prefer canonical target over the deprecated execute alias\" case becomes a regression test that the alias is **not** read and that the error prescribes the rename.\n\nGrep is clean: no `execute` read on action metadata remains anywhere in `packages/`, `apps/`, or `examples/`. No docs, JSON, or example metadata authored the alias.\n\n## Verification\n\n- `pnpm type-check` — 76/76 tasks pass.\n- `pnpm test` — full suite green (action suites: 13 files / 204 tests).\n- `pnpm lint` — 45/45, 0 errors.\n- Compile channel probed both ways: `execute` on `ActionSchema` → TS2353; on `ActionDef` → still compiles (index signature), which is what the runtime prescription covers.\n\nRequires `@objectstack/spec` 17. Metadata still on the alias is rewritten by `os migrate meta --from 16`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_014DBMo8gnFduzgpuSHd5Eje\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014DBMo8gnFduzgpuSHd5Eje)_"
+}

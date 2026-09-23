@@ -1,0 +1,30 @@
+{
+  "number": 3148,
+  "kind": "pull_request",
+  "title": "fix(flow-designer): the default path is the edge marker, not the branch (framework#4414)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T11:03:10Z",
+  "updated_at": "2026-08-01T12:04:57Z",
+  "closed_at": "2026-08-01T12:04:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:04:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3148",
+  "body": "Decision 检查器上两处 help 文案描述了引擎并不具备的机制。纯文案,本侧无行为变更。\n\n配套框架侧:objectstack-ai/objectstack#4414 / #4440(`isDefault` 落地)、#4439 / #4474(表达式账本)。\n\n## ① Branches 编辑器:把「分支」和「边上的标记」混为一谈\n\n原文写「`expression` 为 `\"true\"` 的分支**就是** default/else 路径」。实际它是**申请**一条:`FlowEdgeInspector.applyBranch()` 会把这种分支接成出边上的 `isDefault: true`,真正路由的是**那条边上的标记**。\n\n这个混淆正是 framework#4414 里「守卫不守」得以出厂的读法,而且现在特别值得说准 —— **`isDefault` 在引擎里此前是零读者**。也就是说这个 designer 一直在写一个没人认领的标记,每一条 Studio 画出来的「default/else」边实际上都是无条件执行的,和真正命中的分支**并行**跑。框架侧 enforcement 落地后它们才开始只走一条。\n\n顺带补上两点原本没说的:分支是**按顺序**试、第一个命中的赢;`expression` 是**裸 CEL** —— 带花括号的谓词自 framework#4439 起是构建失败,不再是「另一种方言」。\n\n## ② Legacy 单数 `Condition`:不是「次一等」,是根本不生效\n\n原文写「Prefer Branches above」,读起来像「这个能用,只是那个更好」。它**完全不工作**:decision 执行器从不读 `config.condition`。引擎只在 **Start 节点**上认这个键(作为触发门),framework#4414 为此新增了 `flow-inert-node-condition`,`os validate` 现在会报。\n\n字段本身保持 render-only(`__legacy__` 控制器永不匹配,所以不对新建开放)—— 存量节点的值不该在界面上凭空消失 —— 但 help 现在如实说它是惰性的,以及谓词该搬去哪里。\n\n## 验证\n\n`pnpm exec vitest run --project unit flow-node-config` → 40 passed / 5 skipped;`flow-node-config.spec-reconciliation.test.ts` 一并通过(它对账的是 key 集合,文案不影响);ESLint 干净。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01Q8as8yR67v41xEdomiTba9\n"
+}

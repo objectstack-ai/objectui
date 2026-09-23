@@ -1,0 +1,33 @@
+{
+  "number": 3057,
+  "kind": "pull_request",
+  "title": "fix(types,detail): derive five spec-named symbols instead of forking them (objectstack#4115)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:37:04Z",
+  "updated_at": "2026-07-30T14:43:48Z",
+  "closed_at": "2026-07-30T14:43:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:43:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3057",
+  "body": "承上一轮 objectui#3017 的收尾结论:「#4115 的 156 条债务是同一失效类的超集,且 objectui `@object-ui/types` 占 71 条,是传播根」。本 PR 是**分诊 + 第一个增量**。\n\n## 分诊结果:不是「离漂移只差一个版本」,是**已经漂了**\n\n对 `@object-ui/types` 全部 73 条碰撞记录(71 个唯一名)逐条两边对读:\n\n| 判决 | 数量 |\n|:--|--:|\n| **FORK_DRIFTED — 本地声明与 spec 已经不一致** | **55** |\n| COINCIDENCE — 真撞名,概念不同 | 17 |\n| FORK_IDENTICAL | 1 |\n\n#4115 描述这批债务是「已漂移**或**离漂移只差一个 spec 版本」。实测偏向前者:**四分之三已经漂了**,其中若干是活的缺陷而非理论风险。完整分诊表(每条含 spec 侧定义、精确成员 delta、注释是否谎称 canonical、建议修法)见下方「分诊全表」。\n\n## 本 PR 落地的五条(149 → 144)\n\n只取**可证明安全**的一档:本地是 spec 的严格子集、或与 spec 逐成员相同。其中两条是活缺陷:\n\n- **`PageVariableSchema`** 漏了 `source` —— 整个 ADR-0049 写绑定。spec 写法 `{name:'selectedProjectId', source:'project_picker'}` 在这里解析后变成一个**谁也写不了**的变量;`type` 枚举还漏了 `record_id`,spec 合法的记录选择器变量直接被拒。最扎眼的是:**同一文件往下三行的 `PageTypeSchema` 已经改成 spec 引用了**,注释还写着「镜像漏了 `list` 导致 spec 合法页面校验失败」—— 修了一个,把隔壁那个漏了。\n- **`FeedItemType`** 只有 spec 13 个成员里的 7 个。缺的 6 个(`file`/`sharing`/`note`/`record_create`/`record_delete`/`approval`)在 `RecordActivityTimeline` 里**既没图标也没颜色**,服务端一旦发出就是渲染不出来的条目。两张表都是 `Record<FeedItemType, …>` 全键映射,所以 widen 联合类型直接把缺口变成编译错误 —— 六个条目在本 PR 补齐。\n- `PermissionAction` 8/11,漏 `execute`(跑 flow/action 的权限)、`manage`、`configure`。\n- `ObjectIndex` 漏 `fulltext`、`unique: 'global'`(全局唯一域)、`partial`。\n- `PageVariable`(TS)与 spec 逐成员相同 —— 它唯一的作用就是多一个会漂的地方。有意思的是它的 Zod 对应物漂了、它自己没漂。\n\n## 闸门与验证\n\n台账用脚本自带的 `--ledger` **重生成而非手改**,并逐条 diff 确认改动**恰好是这 5 个名字**,没有误抹其他包的债务(149→144,removed 恰为这五个、added 为空)。\n\n变异测试两个方向都验过:\n- 把 `PermissionAction` 重新 fork 成本地联合 → 守卫按名报红(`declares 1 spec-named symbol the spec already owns`);\n- 烧掉的名字留在台账里不删 → 守卫按「登记表已腐烂」报红。\n\n全仓 `type-check` 78/78 绿;`@object-ui/types` + `@object-ui/plugin-detail` 共 49 文件 535 断言绿;两包 lint 绿(仅存量 warning)。\n\n## 未纳入本 PR 的,以及为什么\n\n余下 50 条 drifted 大多需要**API 决策**,不该和安全派生混在一个 PR 里:\n\n- **重命名类**(约 17 条 COINCIDENCE + 部分 drifted):`FilterCondition`/`FilterOperator`/`EventHandler`/`CacheStrategy`/`MutationEvent`/`SpanSchema` 等都是概念不同的真撞名,正解是改本地名 —— 但它们多数从 barrel 公开导出,改名是 breaking change。\n- **渲染节点 vs 元数据文档**(`PageSchema`/`AppSchema`/`DashboardSchema`/`ReportSchema`,TS + Zod 各一份):spec 的 `type` 是页面/报表**种类**,objectui 的 `type` 是渲染器**判别式**,两者语义冲突,需要先定命名约定(`*NodeSchema`?)再动。\n- **`.passthrough()` 静默放行**:`AppSchema`/`DashboardSchema`/`PageSchema` 的 Zod 侧继承了 `BaseSchema.passthrough()`,spec 侧是 `.strict()`——spec 独有的 22/13/15 个键全部**未经校验**地穿过去,`brading:` 这种拼写错误完全隐形。这是 #4120 那个失效形态在 objectui 的等价物,值得单独一轮。\n- **已有良好范式可抄**:`zod/objectql.zod.ts` 的 `ListViewSchema` 是全场最佳实践 —— spec 字段经 `SpecListViewFields.shape` **按引用**流入,配 `list-view-spec-parity.test.ts` 漂移守卫,注释所述与代码所做一致。其余几处应向它收敛。\n\n我会把完整分诊表(55 条 drifted 的逐条 delta)发到 #4115,作为后续增量的工作清单。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

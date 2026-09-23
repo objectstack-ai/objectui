@@ -1,0 +1,37 @@
+{
+  "number": 3021,
+  "kind": "pull_request",
+  "title": "test: retire four raised hook timeouts by importing at module scope",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:55:55Z",
+  "updated_at": "2026-07-30T11:01:37Z",
+  "closed_at": "2026-07-30T11:01:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:01:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3021",
+  "body": "Follow-up to #3010 (the fix) and #3015 (the §9 rule). Sweeping for the same anti-pattern — `beforeAll(async () => { await import(…) })`, which bills a cold module transform to `hookTimeout` — turned up **36 more test files, every single one already carrying a raised timeout**, on an escalating ladder:\n\n| Raised to | Files |\n|---|---|\n| 15s | 1 |\n| 30s | 33 |\n| 60s | 2 |\n\n**That ladder is the finding.** Nobody raised a timeout once and moved on — the budgets went 15s → 30s → 60s, which is what \"raising the timeout\" looks like when it isn't actually fixing anything. One of the 30s files even leaves the escalation as advice: `// Increase timeout to 30 seconds for heavy renderer imports`.\n\nThis PR takes the four highest-risk ones. Each **drops** its raised timeout rather than raising it again — the import phase is subject to no test or hook timeout.\n\n## The four\n\n- **`plugin-markdown/src/index.test.ts`** (was 15s) — the twin of the file fixed in #3010: same shape, same budget, and the same comment *verbatim* (`// Increase timeout to 15 seconds for async import`). `plugin-kanban` proved that budget insufficient by blowing it at **15021ms**, and this file's timed portion was already **5.83s of the same 15s**. A live flake, not a theoretical one.\n- **`plugin-charts/src/index.test.ts`** (was 60s) — recharts-backed graph.\n- **`plugin-editor/src/index.test.ts`** (was 30s) — Monaco.\n- **`apps/console/src/__tests__/public-contract.test.ts`** (was 60s) — also folds the `let contract` + hook assignment into a module-scope `const`, now that the two side-effect imports are evaluated before the module body.\n\n## On the console file\n\nThis was the delicate one and worth being explicit about. Its assertions pin the **eager/lazy registration split** (#2953), so the real question was whether moving the imports changes *what is loaded when*. It does not:\n\n- static imports are evaluated **in order, before the module body**, so `getPublicConfigs()` at module scope sees exactly the registrations the hook used to produce;\n- the same two modules are loaded, so no extra plugin chunk resolves;\n- the shared setup still runs before this module is imported at all.\n\nIts order-sensitive test — *\"reaches the lazily-registered blocks before their chunks load\"* — passes unchanged.\n\n## Results\n\nTimed portion of each file, isolated:\n\n| File | before | after |\n|---|---|---|\n| `plugin-markdown` | 5.83s | **2ms** |\n| `plugin-charts` | 2.22s | **2ms** |\n| `plugin-editor` | 1.78s | **4ms** |\n| `public-contract` | 345ms | **3ms** |\n\n**Full suite is 100% green: 731 files passed / 1 skipped, 8521 tests passed / 24 skipped, zero failures.** The `unit` project alone is 297/297 files and 4084/4084 tests — which also confirms no cross-file interference from the new module-scope registrations, despite that project running `isolate: false`.\n\nLint 0 errors (only pre-existing `no-explicit-any` warnings in untouched test bodies); `type-check` 38/38 successful. Test-only change, so no changeset.\n\n## One note for anyone baselining locally\n\nThe ~19 failures this repo can show on a long-lived worktree are a **stale install**, not a regression: `node_modules/@objectstack/spec` was **14.6.0** against `^17.0.0-rc.0` declared in `package.json`. `pnpm install --prefer-offline` (9s) clears every one of them — which is why the run above is all-green where earlier local runs in this worktree showed 19 failures. Already documented in AGENTS.md §9; flagging it here because it is the single easiest way to misread this suite.\n\n## Remaining\n\nThe 33-file `packages/components` cluster (all the same `await import('../../../renderers')` on 30s) is untouched here — mechanical, but a large diff that deserves its own PR. The durable fix is mechanical enforcement: the repo already has the `eslint-rules/` local-plugin infrastructure, and a rule flagging `await import(...)` inside `beforeAll`/`beforeEach` in test files would stop this regrowing. 36 files and a 15s→30s→60s ladder are the evidence that a prose convention alone does not hold.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

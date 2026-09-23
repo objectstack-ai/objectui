@@ -1,0 +1,35 @@
+{
+  "number": 3161,
+  "kind": "issue",
+  "title": "台账燃尽批次 7/8 · 单发长尾 9 包,14 符号(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:15:27Z",
+  "updated_at": "2026-08-02T19:41:16Z",
+  "closed_at": "2026-08-02T19:41:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3161",
+  "body": "objectstack#4115 债务台账燃尽第 7 批:每包只剩 1–2 条的长尾,一次清完,让台账里的包数从 19 收敛到只剩大头。**动工前必读**:守卫文件头与 objectstack#4115 的跟踪评论。\n\n## 本批符号(14 条)\n\n**`@object-ui/fields`(2)**:`FieldWidgetProps`, `isFileIdToken`\n**`@object-ui/layout`(2)**:`Page`, `PageHeaderProps`\n**`@object-ui/plugin-detail`(2)**:`FeedFilterMode`, `ObjectFieldLike`\n**`@object-ui/plugin-grid`(2)**:`ColumnSummaryConfig`, `isMultiValueField`\n**`@object-ui/collaboration`(1)**:`RealtimeConfig`\n**`@object-ui/plugin-charts`(1)**:`ChartConfig`\n**`@object-ui/plugin-form`(1)**:`FormSection`\n**`@object-ui/providers`(1)**:`Theme`\n**`@object-ui/runner`(1)**:`App`\n**`@object-ui/sdui-parser`(1)**:`ValidationResult`\n\n## 跨包已定名字(必须沿用,勿另起)\n\n- **`PageHeaderProps`** → `@object-ui/app-shell` 在批次 3(objectui#3169)已定名为 **`PageHeaderComponentProps`**。若 layout 这个是同一概念(React 组件 props),**沿用同名**,避免同一概念分裂成两套方言。\n- `Theme` 与 types(批次 2)、`ValidationResult` 与 core(批次 4)各有同名条目——沿用先行批次的判决,不另起炉灶。\n\n## 其他情报\n\n- `Page`(layout)与 `App`(runner)是 React 组件与 spec 元数据类型撞名的典型,预计走改名或 ALLOW。\n- `isFileIdToken`/`isMultiValueField` 是函数:若语义与 spec 同名工具函数一致则改为 re-export(**按引用同一性**——批次 3 证实过,一个逐行相同的副本能通过所有行为测试,只有引用同一性能区分 re-export 与 fork),否则改名。\n\n## 每条三选一\n\n派生(spec 引用必须落在**结构位**)/ 改名(**新名字必须先跑守卫**——批次 3 一轮撞掉三个候选名,它们本身都是 spec 导出;配 tripwire 测试;禁止全局替换)/ ALLOW(理由 + parity 守卫)。\n\n## 完成定义\n\n台账移除并 `--ledger` diff 验证(removed 恰为本批、added 为空、其他包字节相同)、守卫/type-check/全量测试绿、变异测试、PR 引用本 issue 与 objectstack#4115、**PR 合入后**再更新跟踪评论并关闭本 issue。"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3025,
+  "kind": "pull_request",
+  "title": "fix(components,app-shell): the last two `direction` props follow v4's rename to `orientation`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:14:55Z",
+  "updated_at": "2026-07-30T11:23:46Z",
+  "closed_at": "2026-07-30T11:23:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:23:44Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3025",
+  "body": "Finishes the `react-resizable-panels` v3→v4 prop migration whose visible half landed in #3024.\n\n## The dead prop\n\nv4 renamed `PanelGroup`'s `direction` prop to `orientation`. Two call sites were still passing the v3 name, so v4 ignored it and React forwarded the unknown prop straight to the DOM as a stray `direction=\"horizontal\"` attribute on the group div:\n\n- [navigation-overlay.tsx:466](packages/components/src/custom/navigation-overlay.tsx)\n- [ResourceEditPage.tsx:2064](packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx)\n\nBoth groups are horizontal-only and `horizontal` is v4's default, so nothing rendered wrong. **No visual change** — this is dead-prop cleanup.\n\n## Why it survived the v4 bump\n\nEach site also carried a cast:\n\n```ts\nconst PanelGroup = ResizablePanelGroup as React.FC<any>;\n```\n\nThat cast is the reason the rename went unnoticed: it erased the props to `any`, so `direction` type-checked against nothing. Both comments blamed the toolchain — vite-plugin-dts \"not resolving the direction prop type correctly\", and a prop that \"does not always narrow cleanly in our TS config\" — but neither was a narrowing problem. `GroupProps` in v4.12.2 simply has no `direction` key; it has `orientation?: \"horizontal\" | \"vertical\"`.\n\nCasts removed, `ResizablePanelGroup` used directly. The rename is now self-enforcing — reintroducing `direction` on the un-cast component fails:\n\n```\nsrc/custom/navigation-overlay.tsx(464,28): error TS2322: Type '{ children: Element[]; direction: string; className: string; }'\nis not assignable to type 'IntrinsicAttributes & HTMLAttributes<HTMLDivElement> & { … }'.\n```\n\n## `ResizablePanel` props: all valid v4, no workaround needed\n\n`ResourceEditPage` also passes `panelRef`, `collapsible`, `collapsedSize` and `onResize`. All four are valid v4 `PanelProps` and all four type-check with no cast — they were never covered by it in the first place, since the cast only ever wrapped the *group*, not the panel. `ResizablePanel` is a bare re-export of the library's `Panel`, so those props were already being checked strictly on `main`. No narrowly-typed workaround is required.\n\nVerified against `react-resizable-panels@4.12.2`'s own `PanelProps`: `collapsedSize?: number | string`, `collapsible?: boolean`, `onResize?: (panelSize: PanelSize, id, prevPanelSize) => void`, `panelRef?: Ref<PanelImperativeHandle | null>`.\n\n## Verification\n\n- `pnpm --filter @object-ui/components type-check` — clean\n- `pnpm --filter @object-ui/app-shell type-check` — clean (0 errors)\n- Negative control: reintroducing `direction` produces the TS2322 above, then reverted\n- `resizable-orientation` + `form-field-panes` tests — 15 passed\n- `ObjectView` + `FlowObjectListField.commit` tests — 35 passed\n\nNo changeset — not a feature.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

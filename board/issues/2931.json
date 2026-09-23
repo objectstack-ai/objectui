@@ -1,0 +1,32 @@
+{
+  "number": 2931,
+  "kind": "issue",
+  "title": "console: duplicate React keys during app-shell boot — 'Encountered two children with the same key'",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T15:43:09Z",
+  "updated_at": "2026-07-30T07:27:41Z",
+  "closed_at": "2026-07-30T07:27:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2931",
+  "body": "Found while browser-verifying #2927 (PR #2930). **Pre-existing and unrelated to that change** — filed rather than left buried, per AGENTS.md #10.\n\n## Symptom\n\nA hard load of any console route logs React's duplicate-key error, four times:\n\n```\nEncountered two children with the same key, `%s`. Keys should be unique so that\ncomponents maintain their identity across updates. Non-unique keys may cause\nchildren to be duplicated and/or omitted — the behavior is unsupported and\ncould change in a future version.\n```\n\nThis is an `error`, not a warning, and React is explicit that the resulting behaviour is unsupported: siblings sharing a key can be **duplicated or omitted**, and state can attach to the wrong sibling.\n\n## Repro\n\n1. Backend on any port (`pnpm --filter @objectstack/example-showcase dev -- --fresh -p <port>` in `framework`).\n2. `DEV_PROXY_TARGET=http://localhost:<port> pnpm --filter @object-ui/console dev`.\n3. Sign in, hard-load `/system/approvals`, read the browser console.\n\n## What has already been ruled out\n\n- **Not from `ApprovalsInboxPage`.** It reproduces identically with that file swapped back to its `main` version, and both of its filter dropdowns (`processOptions` / `objectOptions`, the only index-free `.map` keys on the page) are `Set`-deduped by construction.\n- **Not from a route re-mount.** Hooking `console.error` and then SPA-navigating away from and back to `/system/approvals` produces **zero** warnings. It fires only on the initial full page load, which points at the app-shell bootstrap (nav / sidebar / topbar rendering before data settles) rather than at any one page.\n\n## Suggested next step\n\nHook `console.error` before React mounts (e.g. at the top of `main.tsx` behind a dev flag) so the owner component name in the error's trailing argument is captured, rather than truncated as it is in devtools. That should name the offending `.map` directly.\n\nRefs #2927, #2930."
+}

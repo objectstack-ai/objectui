@@ -1,0 +1,32 @@
+{
+  "number": 3103,
+  "kind": "issue",
+  "title": "`*Validation` 五件套:注释冒领 Spec v2.0.1、condition 形状已漂移——对照 spec 17 triage + 派生/闸门(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T07:27:46Z",
+  "updated_at": "2026-07-31T08:39:38Z",
+  "closed_at": "2026-07-31T08:39:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3103",
+  "body": "## 背景\n\nobjectstack#4115 台账 5 条:`ScriptValidation` / `StateMachineValidation` / `CrossFieldValidation` / `ConditionalValidation` / `FormatValidation`([data-protocol.ts:862-1006](https://github.com/objectstack-ai/objectui/blob/main/packages/types/src/data-protocol.ts) + union)。三个已核实的事实:\n\n1. **注释冒领**:每个接口都标着 \"(ObjectStack Spec v2.0.1)\",而装的 spec 是 **17.0.0-rc.0** —— 15 个大版本的漂移空间,注释还在替它作保。#4115 的核心论点:错误的 canonicity 注释不是过期文档,是**给下一个 agent 埋的错误前提**(planted premise)。\n2. **spec 17 五个全有活的对应物**:`@objectstack/spec/data` 导出全套 `*ValidationSchema`(外加 `DocumentSchemaValidationSchema` / `JSONValidationSchema` / `ValidationRuleSchema` —— 本地没有的三个,盘点时一并对照)。\n3. **已确认一处实质漂移**:`ConditionalValidation.condition: string`,spec 是 ExpressionInput envelope(`{dialect, source}`)。这与既往「condition 对象当 React child 渲染白屏」是同一缺陷家族。\n4. **有真实运行时消费者**:`packages/core/src/validation/validators/object-validation-engine.ts` —— 不是死类型。引擎若按旧形状评估,spec 17 写法的规则会静默 no-op 或崩:用户要么失去客户端预检(提交后才吃服务端拒绝),要么客户端拦了服务端允许的操作。\n\n## 开发计划(一个 PR,分步验收)\n\n- [ ] **Step 0 引擎接线 triage**:查清 `ObjectValidationEngine` 的调用链(console 客户端校验路径是否可达、何时触发)—— 决定业务价值定级与 Step 2 的力度;结论写进 PR 描述\n- [ ] **Step 1 逐个对照 spec 17 源**(读 schema 源码,不是读注释):5 接口 + `BaseValidation` + union 的键集 diff 表\n- [ ] **Step 2 按 #3090 判别法分流**:「同概念方言」→ 派生 by reference + pinned divergences + parity gate;「确有 UI 侧扩展」→ documented + gate;`condition` 收敛到 wire 形状(`string | {dialect?, source}`),引擎侧 coerce `.source`(fail-open),对 spec 17 authored 规则(envelope condition)的行为写测试钉住\n- [ ] **Step 3 注释治理**:删除所有 \"Spec v2.0.1\" 冒领 —— canonicity 由 import/gate 承载,不由注释承载(#3017:comments are not mechanisms)\n- [ ] **Step 4 台账 120 → 115**;每个闸门 mutation-test(删一处派生/映射证明测试会红)\n\n## 验收标准\n\n- 台账 -5(或个别条目转 ALLOW 带理由,总数不变则说明原因)\n- 引擎对 envelope condition 的行为有测试钉住(从静默 no-op → 正确评估或响亮报错)\n- `grep \"Spec v2\\.0\\.1\" packages/types/src/data-protocol.ts` 为空\n\n关联:objectstack#4115(台账)、#3090(判别法与 playbook)、后继 #3104(列身份双读家族 —— 本件是它的热身)。\n\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3063,
+  "kind": "pull_request",
+  "title": "fix(types): Page/App/Dashboard validate the spec's own fields instead of passing them through (#4115 C 组)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:06:18Z",
+  "updated_at": "2026-07-30T15:12:03Z",
+  "closed_at": "2026-07-30T15:12:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:12:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3063",
+  "body": "承 objectstack#4115 [分诊评论](https://github.com/objectstack-ai/objectstack/issues/4115#issuecomment-5132223353)里划出的 **C 组** —— 该组的选择理由是:它是 #4120 失效形态在 objectui 的等价物,**且不需要任何重命名决策**(A 组要改公开导出名,B 组要先定 `type` 判别式的命名约定)。\n\n## 问题:`.passthrough()` 遇上 `.strict()`\n\n`AppSchema`/`DashboardSchema`/`PageSchema` 都 `extend` 自 `BaseSchema`,而后者是 `.passthrough()`;spec 侧对应的三个是 strict。结果是 **spec 独有的键完全不经校验穿过去**:\n\n| 节点 | 未校验的 spec 键 | 数量 |\n|:--|:--|--:|\n| App | `branding` `sharing` `embed` `objects` `apis` `requiredPermissions` `homePageId` `protection` + `_lock*`/`_package*`/`_provenance` 整个包锁封套 | 23 |\n| Dashboard | `header` `refreshInterval` `performance` `aria` `protection` + 包锁封套 | 10 |\n| Page | `interfaceConfig` `kind` `slots` `source` `requires` `aria` | 6 |\n\n`brading: {…}` 和 `branding: {…}` 在校验层面无从区分 —— 这正是 #4120 抓到的那类静默失效。\n\n**Page 还带一个活的后果**:`source` 从未被声明,而 `kind: 'html' | 'react'` 的页面正是把正文放在 `source` 里的 —— 也就是说这类页面在这里**根本无法表达**。\n\n## 修法:不是 `.strict()`,是把 spec 的字段按引用引进来\n\n加 `.strict()` 是错的 —— 这三个是**组件节点**,开放封套是有意为之(渲染器属性本就该穿透)。正解是让 spec 自己的字段按引用流入,也就是 `zod/objectql.zod.ts` 的 `ListViewSchema` 已经在用的范式。\n\n新增 `specFieldsExcept()`(base.zod.ts)承载这个模式。**它读 `.shape` 而不是调 `SpecSchema.omit({…}).partial()`,因为 zod 4 拒绝对带 refinement 的对象 `.omit()`** —— spec 的 `PageSchema` 恰好有一个,惯用写法会在 import 期直接抛异常。这个坑记在 helper 的文档注释里(踩过一次就够了)。\n\n每处 omit 都在原地写明理由:\n- `name`/`label`/`description` → 组件外壳,归 `BaseSchema`;\n- **Page 的 `type` 是真冲突**:spec 的 `type` 是页面**种类**(`record|app|utility|list|home`),objectui 的是组件**判别式**(`'page'`),种类被放在 `pageType`。二者的调和是 B 组的重命名决策,本 PR 不动;\n- 各自的元素 schema(`navigation`/`areas`/`contextSelectors`、`widgets`/`globalFilters`/`dateRange`、`regions`)本身就是台账里独立的条目,保持本地、迁移另议。\n\n`.partial()` 保证**未来任何 spec 字段变成必填都不会让已存的 objectui 载荷失效**。\n\n## 闸门与变异测试\n\n新增 `page-app-dashboard-spec-parity.test.ts`(19 断言),三个方向:spec 长出未分诊字段 / spec 重命名被本地覆盖的锚点 / 有人加了未分诊的本地键。另有一组断言直接钉住「这些键现在真的被校验了」——例如 `branding: 'blue'` 从**通过**变成**拒绝**,`kind: 'nonsense'` 从通过变成拒绝,以及 `kind:'html' + source` 现在能正常表达。\n\n变异测试(两个方向都会红):\n- 从 App 的派生里偷偷 omit 掉 `branding` → **3 个测试按名报红**(`expected [ 'branding' ] to deeply equal []`、`'branding' is still undeclared`、以及 branding 校验断言);\n- 给 Page 加一个未登记的本地键 → rogue-key 断言报红(`expected [ 'myUntriagedField' ] to deeply equal []`)。\n\n## 验证\n\n全仓 `type-check` 78/78 绿;`@object-ui/types` 271 断言绿;下游消费方(app-shell / plugin-dashboard / plugin-list / core)**3626 断言绿** —— 确认收紧校验没有挡住任何现有渲染路径。另有一组断言专门守住「组件外壳仍然放行未知渲染器属性」,即这次收紧的只是 **spec 拥有的那部分**,节点本身没有被关上。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

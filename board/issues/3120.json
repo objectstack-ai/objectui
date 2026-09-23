@@ -1,0 +1,32 @@
+{
+  "number": 3120,
+  "kind": "pull_request",
+  "title": "fix(fields): lookup multi-value hydration batches via $in and shows loading instead of the empty placeholder (#3108)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T11:42:56Z",
+  "updated_at": "2026-07-31T12:12:19Z",
+  "closed_at": "2026-07-31T12:12:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T12:12:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3120",
+  "body": "Closes #3108.\n\n## Problem\n\nA multi-value lookup hydrated its committed ids with a **serial `findOne` per id** — 41 selected users meant 41 sequential HTTP round-trips. For those seconds the trigger rendered the bare \"Select…\" placeholder, indistinguishable from having no value at all: downstream users (os-project-titanwind-ehr#670) read a populated field as empty, and could clear real data by hand.\n\n## Fix (`packages/fields/src/widgets/LookupField.tsx`)\n\n- **Batched hydration**: several unresolved ids now resolve with one `$filter: { [idField]: { $in: chunk } }` query per `LOOKUP_PAGE_SIZE` chunk, chunks in parallel. The single-id case keeps the pre-existing cheap paths (primary-id `findOne` GET, equality filter for a non-primary `id_field` — #3508 behaviour preserved).\n- **Hydration loading state**: while any committed bare id is still unresolved, the trigger — and the readonly renderer — shows a spinner + \"N selected\" (raw committed count) instead of the empty placeholder. Reuses existing i18n keys (`table.selected` / `lookup.loading`); no new translations.\n- **No stuck spinner**: a settled-set marks attempted ids (found or not), so deleted records / fetch failures fall back to the pre-existing drop behaviour instead of spinning forever.\n\nOn issue point 3 (guarding against submit clearing values): the component never rewrites `value` from resolved options — `handleSelect`/`handleRemove` operate on the raw committed array — so mid-hydration submits were already lossless; the loading state removes the visual lie that invited manual clearing.\n\n## Verification\n\n- **Unit**: new `LookupField.hydration.test.tsx` (5 cases: one batched `$in` round-trip, in-flight count+spinner with no placeholder, failure settles, readonly loading, single-id `findOne` kept) + existing idField/dependsOn suites — 13/13 green.\n- **Live UI** (framework app-showcase backend + HMR console, real browser): a `field_zoo.f_lookups` record with 41 selected accounts hydrates via a single `GET /api/v1/data/showcase_account?top=41&filter=[\"id\",\"in\",[…41 ids…]]`; with simulated slow network the edit modal shows spinner + \"已选择 41 项\" during hydration (never \"选择…\"), all 41 chips render after, and the stored value stays 41 ids across repeated open/close.\n\nPure bug fix — no changeset per AGENTS.md.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

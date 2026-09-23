@@ -1,0 +1,32 @@
+{
+  "number": 3230,
+  "kind": "pull_request",
+  "title": "fix(fields)!: FieldWidgetComponentProps 不再声称拥有全部键 (#3221)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:25:04Z",
+  "updated_at": "2026-08-02T20:32:10Z",
+  "closed_at": "2026-08-02T20:32:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T20:32:09Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3230",
+  "body": "Fixes #3221\n\n`packages/fields/src/widgets/types.ts` 里的 `[key: string]: any` 是 objectstack#4075 的机制:**一个声称拥有全部键的类型,永远不可能被报告「缺了某个键」**。本 PR 把它换成一个从真实调用点推导出来的**封闭**类型。\n\n## 三个后果,逐条关掉\n\n| 现象 | 之前 | 现在 |\n|---|---|---|\n| `props.required` / `props.error`(spec 的 `FieldWidgetPropsSchema` 声明、本地没有) | 合法读取,类型 `any`,运行时恒 `undefined` | 编译错误 |\n| 拼错 prop(`readOnly` vs `readonly`、`onchange`) | 编译通过、静默失效 | 编译错误 |\n| 对该类型做结构/parity 比较 | **原理上无效**,批次 7 的符号守卫是唯一探测器 | 可比较了 |\n\n## 新类型怎么定的:先读调用点,再写类型\n\nIssue 给了两个候选。`& React.HTMLAttributes< HTMLElement >` 被排除,原因是实测的:它声明的 `onChange?: FormEventHandler` 与本契约的 `onChange: (val: T) => void` 在交集下冲突(`strictFunctionTypes` 逆变,赋值不成立),且不覆盖 `data-*`,更不覆盖 `schema` / `dataSource` / `dependentValues` 这些真正在传的键。\n\n于是走「显式声明」。**候选集不是猜的**:先只删索引签名、跑 `tsc`,让编译器把真实缺口列出来,再逐条判断该不该存在。分三组:\n\n- **受控输入契约**(原有):`value` / `onChange` / `field` / `readonly` / `disabled` / `className` / `errorMessage` / `onUploadingChange`\n- **宿主管道**(表单渲染器 `renderFieldComponent` 与内联编辑宿主确实转发的):`schema`、`dataSource`、`dependentValues`、`dependsOn`、`emptyHint`、`compact`、`onSelectRecord`、`onCreateNew`\n- **DOM 透传**:`id`、`name`、`autoFocus`、`tabIndex`、`onBlur`/`onFocus`/`onClick`、全部 `aria-*`(`React.AriaAttributes`,闭集),以及 `data-*`\n\n`data-*` 用**模板字面量索引签名**而不是 `[key: string]`。这是关键区别:模板键让 `keyof` 保持有限,所以 `props['data-testid']` 合法、`props.required` 依然报错 —— 开放的只是 HTML 本来就开放的那一族。\n\n**爆炸半径实测很小**:全仓 `turbo run type-check` 78/78 绿,`plugin-detail` 内联编辑器、`plugin-grid` 单元格编辑器、`app-shell` 的 metadata inspectors、表单渲染器全部**零改动**通过 —— 因为封闭集就是从它们身上推出来的。\n\n## 顺带:让读取侧也说实话\n\n约 20 处 `(props as any).x` 改为直接读类型(`compact`、`dataSource`、`disabled`、`name`、`id`、`onCreateNew`、`onSelectRecord`、`contextRecord`、`dependentValues`)。留着它们等于保留了「拼错也能编译」那一半缺陷,而且恰恰留在最要命的位置上。\n\n未动的是 `(field || (props as any).schema)` 这类**元数据配置读取**(约 25 处)—— 它们后面紧跟 `as any`,收紧收益低、风险高,且属于 `field`/`schema` 双载体问题,不在本 issue 范围内。\n\n## 批次 7 的三条钉扎\n\n`_IndexSignatureStillThere` / `_RequiredSilentlyReadsAsAny` / `_ErrorSilentlyReadsAsAny` 就是为本次改动写的、会在删除索引签名时报红的钉扎(#3224 已合并)。它们按预期删除了 —— 但没有留空,而是换成**反向断言**(类型现在是封闭的、两个键确实缺失),再加一条 `data-*` 仍开放的钉扎。这样把类型重新放宽回 `[key: string]` 会**失败一个测试**,而不是悄悄通过。\n\n新增 `packages/fields/src/__tests__/widget-props-contract.test.tsx`:用 `@ts-expect-error` 钉住四类拒绝(`required`、`error`、`readOnly`、`onchange`),用一个正向字面量钉住每个透传键仍被接受(过度收紧会报红),再用两个渲染断言证明 `aria-*` / `data-*` / `disabled` 真的还能到达控件 —— 封闭类型不能是靠丢掉真实行为换来的。\n\n## 范围边界:没有碰 #3222\n\n**没有**把 `errorMessage` 改名为 `error`,**没有**新增 `required`。本 PR 只让类型说实话,好让 #3222 变成编译器可判定的问题。\n\n按要求汇报:**移除索引签名后,`error`/`errorMessage` 的分歧没有在任何地方产生类型错误**(全仓 typecheck 全绿)。查证下来原因比「命名分歧」更尖锐,这条直接关系到 #3222 的选型,已同步评论到该 issue:\n\n> **全仓没有任何宿主向 field widget 传 `errorMessage`。** 表单渲染器用独立的 `< FormMessage />` 渲染校验信息,从不转发这个 prop。读它的 7 个 widget(`Email`/`Currency`/`Url`/`RichText`/`Percent`/`TextArea`/`Phone`)拿它算 `aria-invalid={!!errorMessage}`,而它恒为 `undefined` —— 所以这 7 个 widget 的 `aria-invalid` 永远是 `false`。\n\n也就是说这个槽位不只是**名字**和 spec 不一致,它在**两种拼写下都是死的**。#3222 的决策因此不只是改名,而是「谁来生产它」。\n\n> 注:上一版正文里 `< FormMessage />` 被 GitHub 的正文消毒器当成 HTML 标签吞掉了(`<` 紧跟字母)。此处及后续一律在 `<` 后留一个空格。\n\n## 验证\n\n```\npnpm --filter @object-ui/fields type-check   → exit 0\nnpx turbo run type-check --concurrency=2     → 78 successful, 78 total\nnpx turbo run build --filter=!@object-ui/site → 43 successful, 43 total\nnpx vitest run packages/fields/ (根配置)      → 38 files / 483 tests passed\npnpm --filter @object-ui/fields lint          → 0 errors\nnode scripts/check-spec-symbol-derivation.mjs → exit 0(未修改该脚本)\nnode scripts/check-changeset-fixed.mjs        → exit 0\n```\n\n## 顺带发现(已另开 issue,不在本 PR 修)\n\n- #3231 —— 表单渲染器计算的 `emptyHint` 被四个选项 widget 全部丢弃,用户看到的是硬编码英文(绕过 i18n)。\n- #3232 —— `TextAreaField` 读取的 `mobileFullscreen` 全仓无人生产,注释却声称「宿主表单传入」。\n\n两条都是同一类:索引签名在时,「读了但没人写」根本不可能被看见。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA"
+}

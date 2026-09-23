@@ -1,0 +1,33 @@
+{
+  "number": 3058,
+  "kind": "pull_request",
+  "title": "fix(grid): 批量删除 / 按名字派发也要清掉行复选框 (#3056)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:39:50Z",
+  "updated_at": "2026-07-30T14:46:35Z",
+  "closed_at": "2026-07-30T14:46:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:46:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3058",
+  "body": "Fixes #3056.\n\n## 症状\n\n批量删除成功后（或按名字派发到消费方注册的 runner handler 后），选择栏消失了，但每行复选框**还全勾着**。用户面对的是「一堆勾选的行 + 没有任何批量操作入口」，只能逐行取消或刷新页面。\n\n## 根因\n\n`ObjectGrid` 有两套必须同步移动的选择状态：\n\n- `selectedRows`（自己的 state）→ 驱动 `BulkActionBar`\n- data-table 内部的 `selectedRowIds` → 驱动行复选框，**只有**宿主 bump `selectionResetKey` 时才清空\n\n`handleBulkDialogClose`（富 def 那条路）两个都清；`dispatchBulkAction` 只清了第一个，**两条分支都漏**——走 `onBulkDelete` 的删除分支，和按名字派发的分支。\n\n这个不变量其实早就写在 `handleBulkDialogClose` 的注释里了，只是另一条路径没遵守：\n\n> Both selection sources must move together, or the checkboxes (table-internal) and the toolbar (our `selectedRows`) drift out of sync — ticked rows with no toolbar.\n\n## 改动\n\n三处调用点统一走一个 `resetSelection()` helper，把规则做成**结构性**的，而不是靠三个地方各自记得保持一致。失败语义没动：action 返回 `success: false` 时两套状态都保留，用户可以修好原因后重试同一批行。\n\n## 验证\n\n- **反向对照**：只回退 `ObjectGrid.tsx` 后，两条新增的正向断言全部失败——按名字 action 成功后、批量删除后，header 复选框仍是 `checked`（应为 `unchecked`）。\n- **新增 3 条测试**：按名字成功清空、按名字失败保留（防止矫枉过正）、批量删除清空。\n- `plugin-grid` 44 文件 / 354 测试全绿；改动文件 0 lint error。\n\n注：#3002 之后这条路径变窄了——能解析到对象 action 的名字现在会被提升成 def 走对话框，所以仍然到达 `dispatchBulkAction` 的是消费方注册的 handler 和内建的 `'delete'`。删除是其中最常见的一条。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

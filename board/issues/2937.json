@@ -1,0 +1,32 @@
+{
+  "number": 2937,
+  "kind": "pull_request",
+  "title": "docs(audit): spec enum ↔ renderer coverage audit (#2901)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:16:08Z",
+  "updated_at": "2026-07-28T17:44:27Z",
+  "closed_at": "2026-07-28T17:44:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T17:44:25Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2937",
+  "body": "Closes the first pass of #2901. **Deliverable is the table, not the fixes** — as the issue asked.\n\nAudits every named enum export in `@objectstack/spec@16.0.0-rc.0` `ui/` against its renderer counterpart in both directions, plus field types and filter operators. Five parallel auditors; every row read off the dispatch code, with the highest-stakes claims independently re-verified in source.\n\n## What it found\n\n| | |\n|---|---|\n| Direction A gaps with a user-visible defect | **24** |\n| …plus inert ones (validate, change nothing) | 11 |\n| Surfaces carrying renderer-local dialect | 10 |\n| objectui forks shadowing a spec symbol name | 5 |\n| Enum-value parity guards in the repo | **1** |\n\n## The issue's premise was inverted\n\n#2901 read `ChartTypeSchema` as a 7-value spec enum outgrown by a 13-value renderer. The spec has **19** values; the 7-value list is an objectui fork (`types/src/zod/data-display.zod.ts:209`) re-exported under **the spec's own symbol name**.\n\nThat generalises, and it is the audit's most useful result: the recurring failure is rarely \"renderer forgot a name\" — it is \"a second definition of the vocabulary exists, and the renderer is faithful to the wrong one\". Five such forks; the `PageType` trio holds three disagreeing definitions inside one package, drifting in both directions at once.\n\n## Triaged by runtime symptom, not by direction\n\nThat axis orders the work by how long a defect survives undetected:\n\n- **Tier 1 (6) — silently wrong output.** Worse than the bug that prompted this issue. `PivotTable.tsx:114` returns a **sum** for `count_distinct`; `DatasetReportRenderer.tsx:370` silently draws a **bar chart** for 10 of 19 types. A blank cell is detectable; a plausible wrong number is not.\n- **Tier 2 (15) — silently absent.** The #2897 shape, including `element: 'toggle'` deleting the whole filter bar, and 6 of 9 animation presets doing nothing because `useAnimation.ts:64` keys its lookup in hyphens where the spec enum uses underscores.\n- **Tier 3 (3) — loud red box.** Cheapest to triage precisely because it cannot hide.\n- **Tier 4 (11) — inert.** Live the moment anyone wires the surface up.\n\n## Structural finding\n\n**19 of 30 spec UI vocabularies have nothing mechanically tying them to the spec.** The repo has a mature drift-guard doctrine for schema *shape* (#2231, three tests) and exactly **one** guard for enum-value renderer *coverage* (#2897). Two tests that look like coverage guards aren't: `field-type-coverage.test.ts` hard-codes its expected list instead of importing `FieldType` — which is why the `autonumber` display gap survived — and `block-config.test.ts` asserts palette exclusions by hand, locking drift in rather than detecting it.\n\nPrerequisite for the guard work: 6 of the 13 packages that need one cannot import the spec today.\n\n## Follow-ups\n\nTwo items in the table are plain bugs with no design question and are handled separately: `$ncontains` (a token appearing zero times in the spec, which objectui's own converter throws on) and `secret` missing from `INLINE_EXCLUDED_FIELD_TYPES` two lines from `password`. Per-tier issues to follow.\n\nDocs-only. No code touched.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

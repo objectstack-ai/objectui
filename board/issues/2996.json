@@ -1,0 +1,34 @@
+{
+  "number": 2996,
+  "kind": "pull_request",
+  "title": "fix(grid): a legacy string row action runs instead of green-toasting a no-op (#2960)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:20:20Z",
+  "updated_at": "2026-07-30T08:26:27Z",
+  "closed_at": "2026-07-30T08:26:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T08:26:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2996",
+  "body": "Fixes #2960.\n\n## 症状\n\n列表视图声明 `rowActions: ['convert_lead']` 时，行菜单里的这一项点下去**零网络请求**却报成功。如果同一个 action 还声明了 `locations: ['list_item']`，菜单里会并排出现**一个能用、一个是死的**同名项。\n\n## 根因\n\n名字从来没变成 action。`ObjectGrid` 把 legacy 形式派发成 `{ type: <action 名>, params: { record } }` —— action 的**名字**落进了 runner 的 `type` 槽位，从未拿去和对象的 action def 做解析。它匹配不到任何内建类型，也匹配不到 handler（除非恰好有人用这个名字注册过），于是落到 `ActionRunner.executeActionSchema`：对一个什么都没声明的 schema，它返回 `{success: true, reload: true, close: true}`，接着 `handlePostExecution` 弹出绿色的 \"Action completed successfully\"。\n\n## 改动\n\n两处，任意一处都能让这个 bug 暴露出来：\n\n**① `ObjectGrid` 把 legacy 名字解析到 `objectDef.actions`**（新增纯函数 `resolveLegacyRowActions`）：\n\n- 命中已声明的 action → **提升**为该 def，走和 `list_item` action 完全相同的派发路径。于是它真的会执行，并且拿到 def 的 label、`visible`/`disabled` 谓词、参数弹窗和 capability gate —— 这些字符串形式一个都带不了。\n- 命中一个已经作为 def 渲染的 action → **丢弃**，死的那个副本就此消失。\n- 解析不到 → 仍按名字派发，因为消费方可能正好用这个名字注册了 runner handler。\n\n`ObjectGrid` 是三个调用方（app-shell `ObjectView`、plugin-view `ObjectView`、plugin-list `ListView`）的唯一收敛点，改一处即可覆盖。没有提升发生时该函数按引用返回原数组，`RowActionMenu` 的 `useMemo` 不会被打散。\n\n**② `ActionRunner` 的空 schema 兜底改为响亮失败**：不再为一个从未执行过的 action 报成功——没有注册 handler、也没有 `api`/`endpoint`/`navigate`/`redirect`/`onClick` 的派发，返回一条点名该 action 的失败。仅声明 schema 但**确实有内容**的形态（裸 `redirect`、显式 `reload`/`close`）行为完全不变，已注册 handler 的路径也未触碰。\n\n## 未处理（有意）\n\n同一文件里的批量 action 路径是同样的 `{type: <name>}` 形状，但 `bulkActionDefs` 从来不是由 `objectDef.actions` 推导出来的，没有可解析的对象；给它加推导是新功能而不是修这个 bug。改动 ② 让这条路径至少诚实地失败，而不是弹绿 toast。\n\n## 验证\n\n- **反向对照**：只 stash 掉两个源文件后，4 条新增的行为断言全部失败 —— `success: true`（应为 false）、绿色 toast 触发、`fetch` 调用 0 次、菜单里出现 2 项（应为 1 项）。\n- **受影响包**：`packages/core/src/actions/` + `packages/plugin-grid/src/` → 50 文件 / 506 测试全通过。\n- **全量套件**：干净 stash 树上同样有 8 文件 / 22 测试失败（`types`、`data-objectstack`、`i18n`、`plugin-kanban`、`plugin-markdown`、`plugin-list`、`metadata-admin` 的 `@objectstack/spec` dist 陈旧问题）。加不加本改动，失败**文件集合完全一致**，且都不在 `core/actions` 或 `plugin-grid`。\n\n新增测试：`resolveLegacyRowActions.test.ts`（7 条纯函数）、`legacyRowActionDispatch.test.tsx`（4 条，驱动真实 grid + runner）、`ActionRunner.test.ts`（4 条）。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

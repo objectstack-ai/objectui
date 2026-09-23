@@ -1,0 +1,37 @@
+{
+  "number": 3097,
+  "kind": "pull_request",
+  "title": "fix(form): declare the runtime field metadata slot, ban the spec FormField misimport (#3090 PR3a)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T05:58:33Z",
+  "updated_at": "2026-07-31T06:25:42Z",
+  "closed_at": "2026-07-31T06:25:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T06:25:40Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3097",
+  "body": "#3090 的 **PR3a(零破坏)**。分析阶段的两个\"待拍板改名\"经评估都以更便宜的机制达成同等防错效果,本 PR 落地。\n\n## 1. `field` 元数据槽:声明,不改名\n\n槽是三层结构:authored(spec string)→ runtime `FormField.field`(对象,此前**未声明**、靠 index signature 走私、只能 `as any` 读)→ widget prop `field: FieldMetadata`(公共契约)。改名会把槽和它喂的 widget prop 拆成两个名字或破坏第三方 widget 契约;**声明**则拿到全部牙齿:\n\n- `field?: Record<string, any>` + 承重 JSDoc(写明双关与不变量)。赋 string 即编译错;读取零摩擦(源头是 served object schema,键集比 designer 向的 `FieldMetadata` 联合更宽,故不套严格联合)\n- 3 处 `as any` cast 退役;ObjectForm 941 的边界读保留并注明「此处读 authored def,string 合法——cast 即边界,不是泄漏」\n- tripwire:枢纽对四种输入形态输出 `typeof field !== 'string'` 钉死\n\n## 2. spec `FormField` 误导入:lint tripwire,不改名\n\n修正此前一个错误判断:「误导入会被 tsc 抓」——**不会**。spec 的 `FormField` 类型在 dist 里是 `any`(objectstack#4171),误导入是静默的类型安全删除,tsc 一声不吭(checker 头注 lie #2 的活例)。改名的真实成本在已发布 API 与文档/语料长尾;`no-restricted-imports` 按 `importNames` 禁 `@objectstack/spec/ui` 的 `FormField`/`FormFieldSchema`,**报错文案即修正指令**(点名两层与枢纽)。\n\nMutation 证明是免费的:规则一落地就命中了全仓唯一的既有导入点——**parity 闸门自己**(漂移守卫是唯一合法消费者),已加带理由的行内豁免。\n\n## 3. 台账 122 → 120\n\n`FormField`/`FormFieldSchema` 从 untriaged DEBT 转 ALLOW,双层论证写死在 ALLOW reason 里(不可派生 + #4171 类型擦除 + 枢纽与闸门指针)。表单簇 6 条至此全部处置:2 烧(SelectOption 对)、4 ALLOW(含本次 2 条)。\n\n## 验证\n\n- **repo-wide type-check 78/78 全绿**(声明槽零波及)\n- 392 tests 过(枢纽 50 + components form/types 342);改动文件 eslint 0 errors\n- checker 绿:120 untriaged,5 declared dialects\n\nCloses 部分 #3090(PR3 第一个复选框)。PR3b(`SelectOption.value` 回程保型)随后。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

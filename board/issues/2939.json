@@ -1,0 +1,34 @@
+{
+  "number": 2939,
+  "kind": "pull_request",
+  "title": "fix(types): zod example teaches the Zod 4 `.issues` accessor, and `examples/` is type-checked (#2919)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:21:52Z",
+  "updated_at": "2026-07-28T17:29:13Z",
+  "closed_at": "2026-07-28T17:29:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T17:29:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2939",
+  "body": "`ZodError.errors` was removed in Zod 4; this repo is on zod 4.4.3.\n[`packages/types/examples/zod-validation-example.ts`](packages/types/examples/zod-validation-example.ts)\nread `.errors` in seven places. Six printed `undefined`; the seventh —\n`invalidButtonResult.error.errors.length` — threw, killing the example before its summary.\n\nConfirmed empirically on 4.4.3 rather than assumed:\n\n```\nzod version: 4.4.3\n.errors  -> undefined\n.issues  -> [\"invalid_value\"]\n.errors.length THREW -> TypeError: Cannot read properties of undefined (reading 'length')\n```\n\nAnd on the file itself, before the fix:\n\n```\nTypeError: Cannot read properties of undefined (reading 'length')\n    at .../packages/types/examples/zod-validation-example.ts:182:79\n```\n\nAfter: it runs clean end-to-end and prints `Expected validation errors: 2`.\n\nSame bug, same cause as the `objectui validate` fix in #2919 / #2936, used as the reference.\n\n`src/zod/README.md` carried the same dead accessor **plus** a Zod 3 issue shape\n(`code: 'invalid_enum_value'`, `\"Invalid enum value. Expected …\"`). Both corrected\nagainst what 4.4.3 actually emits: `code: 'invalid_value'` with a `values` array and\n`'Invalid option: expected one of …'`.\n\n## Decision 1 — swap *and* gate, because the swap alone would rot again\n\nNot just `.errors` -> `.issues`. The file is invisible to CI, so nothing stops the next drift.\n\nOne correction to the framing in the issue: **removing `\"examples\"` from `packages/types/tsconfig.json`'s `exclude` would have changed nothing.** That project's `include` is already `[\"src/**/*\"]`, so the `exclude` entry is belt-and-braces. Examples also cannot simply join that project — it is the package build (`tsc` -> `dist`) with `rootDir: \"./src\"`, `composite` and `declaration`, so example files are both outside `rootDir` and would emit into `dist`.\n\nSo: a separate emit-free [`tsconfig.examples.json`](packages/types/tsconfig.examples.json) over `examples/**/*.ts`, chained from the package script:\n\n```\n\"type-check\": \"tsc --noEmit && tsc -p tsconfig.examples.json\"\n```\n\nThe example also now imports `../src/zod/index.zod` instead of `../dist/zod/index.zod.js` — matching its three sibling example files (`dashboard.ts`, `login-form.ts`, `rest-data-source.ts`, all on `../src/index`) — so the check needs no prior build.\n\n**Verified the gate has teeth rather than trusting the green** (the standard set by #2936): restoring `.errors` makes `tsc -p tsconfig.examples.json` fail with seven\n\n```\nTS2339: Property 'errors' does not exist on type 'ZodError<...>'\n```\n\n## Decision 2 — other `examples/` dirs: one shares the exclusion, none share the risk\n\nGrepped `error.errors` repo-wide over tracked files. Three hits beyond this file:\n\n| Location | Verdict |\n|---|---|\n| `packages/cli/src/commands/validate.ts:87` | Already fixed in #2936 — clean on `main`. |\n| `packages/types/src/zod/README.md:246` | **Real** — same stale accessor, fixed here. |\n| `packages/data-objectstack/src/errors.test.ts:112` | **False positive.** `BulkOperationError.errors`, a custom class property, unrelated to Zod. |\n\nOn the directories themselves:\n\n- **Root `examples/*`** — not a gap. All four are real workspace packages; `byo-backend-console`, `console-starter` and `schema-catalog` each already carry `\"type-check\": \"tsc --noEmit\"`, so `turbo run type-check` covers them. `hello-world` has no build and no tsconfig and is the declared `NOT_COMPILED` exemption in `check-type-check-coverage.mjs`, re-validated on every run.\n- **`packages/plugin-charts/examples/chart-examples.ts`** — the only other package-internal examples dir, and it *does* share the exclusion (`include: [\"src\"]`). But it carries **no imports at all** — 54 lines of bare exported object literals — so there is no API surface to go stale. I deliberately did **not** add a tsconfig there: with nothing typed, the check would pass regardless of drift, and a gate that cannot fail is worse than an honest gap. Making it meaningful means typing those literals against the chart schemas, which is real work outside this fix.\n\nSo the systemic hole is narrower than \"examples are excluded\": it is *package-internal* `examples/` dirs inside a package whose `type-check` is scoped to `src`. That set is exactly two, and only one had teeth to gain.\n\n## Verification\n\n- `pnpm --filter @object-ui/types type-check` — passes (both projects)\n- `node scripts/check-type-check-coverage.mjs` — `41/45`, unchanged (no package count change)\n- `npx eslint packages/types` — 0 errors (263 pre-existing `no-explicit-any` warnings in untouched `src/`)\n- Example runs clean end-to-end under `tsx`\n\nNo runtime or published-type change — `examples/` is not in the package's `files`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

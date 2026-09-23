@@ -1,0 +1,36 @@
+{
+  "number": 3275,
+  "kind": "issue",
+  "title": "metadata-admin previews 仍在读取 spec 已拒收的键(AgentPreview/SkillPreview/AppPreview/DatasourcePreview),预览会为一份存不下去的草稿画出「正常」界面",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:58:41Z",
+  "updated_at": "2026-08-03T10:58:49Z",
+  "closed_at": "2026-08-03T10:57:58Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3275",
+  "body": "在做 objectui#3266(把 8 个 preview 样例改成能过 `ObjectStackSchema.safeParse()`)时,发现样例改对之后**画廊反而少画了东西** —— 因为几个 preview 读的是 spec 现在**明确拒收**的键。这与 objectui#3236 / PR #3258 修 `ToolPreview` 是同一件事的其余部分:预览渲染一个保存时会被拒的键,等于告诉作者「这样写是对的」,而这正是预览存在的反面。\n\n`packages/app-shell/src/views/metadata-admin/previews/` 下,#3266 逐条实测到的:\n\n| 文件 | 读的键 | spec 现状 |\n|---|---|---|\n| `AgentPreview.tsx` | `d.tools`(渲染 TOOLS 芯片)、`d.knowledge`(渲染 `KNOWLEDGE (RAG)` 区块) | 均为 `retiredKey()` 墓碑,objectstack#3894 / #3896 —— `AgentSchema` 按名字报错 |\n| `SkillPreview.tsx` | `d.triggerPhrases`(渲染 `TRIGGER PHRASES` 区块) | `retiredKey()` 墓碑,objectstack#3896 |\n| `AppPreview.tsx` | `landingRoute ?? landing ?? defaultRoute`;每项 `it.path ?? it.href ?? it.route ?? it.url`;kind 靠 `it.object`/`it.dashboard` 推断 | `landing` 已被 objectstack#4001 移除(替代是 `homePageId`);navigation 是按 `type` 的**判别联合**且每支 `.strict()`,根本没有 `path` / `object` / `dashboard` 这些键 |\n| `DatasourcePreview.tsx` | `capabilities` **只认数组**(`Array.isArray(d.capabilities) ? … : []`);`driver` 有 `?? d.type` 回退 | `DatasourceSchema` 是 `.strict()`:`capabilities` 是对象(`DatasourceCapabilities`),`type` 直接被拒(别名提示 `type` → `driver`) |\n\n另外 `SkillPreview` 的 trigger-conditions 表读 `cond.expression ?? cond.value`,而 `SkillTriggerConditionSchema` 的形态是 `{ field, operator, value }` —— 合规草稿在表里只能显示出 value 一列(实测显示成 `COND | sales_order`),field 和 operator 看不见。\n\n## 实测到的可见后果(#3266 改样例前 → 改后,同一个画廊)\n\n- agent:`TOOLS: query_orders / lookup_company` + `KNOWLEDGE (RAG): sales_playbook` → TOOLS 空态、KNOWLEDGE 区块消失(样例已按裁决删键,预览无处可读)\n- skill:`TRIGGER PHRASES (2)` 区块 → 消失\n- app:每项下面的 `/apps/crm/accounts` 路径行 → 消失;`Dashboard` 的 kind 徽标从 `dashboard` 退化成 `item`;`Landing: /apps/crm/home` → `Landing: /`(`homePageId: 'home'` 没人读)\n- datasource:`CAPABILITIES: read / aggregate` 区块 → 消失(对象形态不被 `Array.isArray` 认)\n\n也就是说:**今天画廊里好看的那部分,有一截是靠不合规的样例喂出来的。**\n\n## 建议\n\n按 AGENTS.md #0.1(contract-first,修生产者不修渲染器)与 #3258 的先例:\n\n1. 删掉对已退役键的读取路径(`tools`/`knowledge`/`triggerPhrases`),而不是保留;\n2. `AppPreview` 改为读 `type` 判别键 + `objectName`/`pageName`/`dashboardName`/`url`,`landing` 改读 `homePageId`(它是 nav item 的 `id`,不是路由字符串),路由由 shell 从元数据推导;\n3. `DatasourcePreview.capabilities` 改按对象渲染(展示为 true 的能力名),去掉 `driver ?? d.type` 回退;\n4. `SkillPreview` 的 trigger-conditions 表按 `field / operator / value` 三列渲染。\n\n这些 `??` 回退正是 AGENTS.md #0.1 说的「宽容消费者」:它们让 AI 生成的过期元数据在设计器里看起来是对的,直到发布时才被拒。\n\n## 相关\n\n- objectui#3266(样例侧已修完,本单是渲染器侧的另一半)\n- objectui#3236 / PR #3258(`ToolPreview` 的同型修复,可直接照抄做法)\n- objectstack#3894、objectstack#3896、objectstack#4001、objectstack#4158\n\n⚠️ 未指派 —— 由 #3266 顺带发现并记录(Prime Directive #10),不在那个 PR 里修:scope fence 是 `apps/console`,本单全在 `packages/app-shell`。\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3002,
+  "kind": "issue",
+  "title": "Legacy string bulkActions have nothing to resolve against — the spec has no bulk action location",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:40:54Z",
+  "updated_at": "2026-07-30T11:50:24Z",
+  "closed_at": "2026-07-30T11:50:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3002",
+  "body": "Follow-up to #2960 (fixed in #2996). Same `{type: <name>}` dead-end, different surface — and this one cannot be fixed the same way.\n\n## 现状\n\n`ObjectGrid.dispatchBulkAction` 派发字符串批量 action 的方式和修复前的行 action 完全一样：\n\n```ts\n// packages/plugin-grid/src/ObjectGrid.tsx (dispatchBulkAction)\nconst res = await executeAction({ type: action, params: { records: expanded } });\n```\n\naction 的**名字**落进 runner 的 `type` 槽位。#2996 之后这条路径不再弹绿 toast 了（`executeActionSchema` 现在会响亮失败），但 `bulkActions: ['下推']` 依然**不工作** —— 只是从\"假装成功\"变成了\"诚实报错\"。\n\n## 为什么不能照搬 #2960 的修法\n\n行 action 那边能修，是因为有东西可以解析：`objectDef.actions` 里 `locations.includes('list_item')` 的项就是行上下文的 def。批量这边没有对应物：\n\n1. **spec 的 `locations` 枚举里没有 bulk 这一档** —— 只有 `list_toolbar | list_item | record_header | record_more | record_related | record_section | global_nav`。对象 action 无法声明\"我是一个批量操作\"。\n2. **`bulkActionDefs` 从来不由 `objectDef.actions` 推导** —— app-shell `ObjectView` 只是把它从 view/list JSON 原样透传（`(viewDef).bulkActionDefs ?? (listSchema).bulkActionDefs`）。对比之下 `rowActionDefs` 是按 `list_item` 过滤 `objectDef.actions` 推导出来的。\n\n也就是说：今天想要一个能用的富批量 action，唯一途径是在 view JSON 里内联写 `bulkActionDefs`；对象级别声明一个批量 action 是**表达不出来**的。\n\n## 需要先定的设计问题\n\n这是跨仓库的（spec 在 framework），动手前得先有结论：\n\n- 是否给 spec 的 action `locations` 加一档（`list_bulk`？`mass_action`？），让对象 action 能声明自己作用于选中记录集？\n- 如果加了，`bulkActionDefs` 是否应像 `rowActionDefs` 一样从 `objectDef.actions` 按该 location 推导？\n- 单条 action 作用于 N 条记录的语义谁定 —— 服务端一次收全量 id，还是客户端 fan-out？现有的 `BulkActionDialog`（params → confirm → progress → result）已经有一套执行模型，新推导出来的 def 要接进去。\n- 老的 `bulkActions: string[]` 保留为按名字派发的兼容层（消费方可能用该名字注册过 runner handler），还是标记废弃？\n\n## 可选的临时缓解\n\n不动 spec 的前提下，可以让 `bulkActions` 里的名字去匹配 `bulkActionDefs`，至少把\"同名重复项\"这半个问题解掉——但这解决不了\"对象级批量 action 无法声明\"这个根本问题，可能不值得单独做。\n\n## 现状不是回归\n\n#2996 之前这条路径弹绿色成功 toast，之后弹红色错误。用名字注册过 runner handler 的消费方两边都正常（runner 的 handler 查找在前）。"
+}

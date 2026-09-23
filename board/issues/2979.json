@@ -1,0 +1,33 @@
+{
+  "number": 2979,
+  "kind": "pull_request",
+  "title": "feat(sdui): guard the public contract against silent drift (follow-up to #2953)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T05:16:15Z",
+  "updated_at": "2026-07-30T05:24:23Z",
+  "closed_at": "2026-07-30T05:24:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T05:24:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2979",
+  "body": "Follow-up to #2953 (merged in #2976). No behaviour change — two guards against the class of bug that one was.\n\n## Why\n\n#2953 survived because nothing compared `PUBLIC_BLOCKS` against what an app actually registers. Type-check, lint, build and the whole suite stayed green while **seven** curated blocks were unusable in every `kind:'react'` page. Both guards below fail loudly on exactly that.\n\n(Seven, not six — the issue listed `object-kanban`, `object-calendar`, `object-gantt`, `object-timeline`, `object-map`, `markdown`. Building the coverage test surfaced `object-chart` as an eighth… seventh. It is now recorded.)\n\n## 1. Console ↔ contract coverage\n\n`apps/console/src/register-plugins.ts` extracts the plugin registration out of `main.tsx` so it can be imported without booting the app (which mounts React, resolves runtime config and inits Sentry). `main.tsx` now just `import './register-plugins'` where the block was; `registerPlaceholders()` still runs after it, in `main.tsx`, since it must only fill gaps left by real registrations.\n\n`apps/console/src/__tests__/public-contract.test.ts` reads that **real** list — a hand-copied one here would reproduce the original failure by agreeing with itself — and pins, as exact lists:\n\n- the 35 curated tags the console exposes, eager or lazy;\n- the one still unimplemented (`line_items`), so an advertised-but-absent tag is a listed, reviewable gap rather than a silent one;\n- the 7 that reach the contract through a *pending lazy stub* — the exact code path #2953 broke — asserting `lazy: true` and no `component`.\n\nExact lists rather than `toContain`, because the failure mode is a **shrinking** contract: `toContain` sails right past a block that silently disappeared.\n\nVerified meaningful: patching `getContractConfig` back to loaded-only drops coverage from 35 to 28 and fails all four assertions.\n\n```\nAssertionError: expected [ 'object-grid', 'list-view', …(26) ] to deeply equal [ 'object-grid', 'list-view', …(33) ]\nAssertionError: expected [ 'object-kanban', …(7) ] to deeply equal [ 'line_items' ]\n```\n\nThe coverage assertion pins **availability, not tier** deliberately: whether a block is eager or lazy is a bundling decision that varies by host (and by test setup — the shared DOM setup imports `plugin-dashboard`, so `dashboard`/`object-metric`/`object-pivot` arrive loaded here though they are lazy in the real console). \"The author can write this tag\" must not vary.\n\n## 2. Manifests must be generated from loaded registrations\n\nNew exported `assertFullyLoaded(configs)` in `@object-ui/sdui-parser`, plus `lazy?: boolean` on `RegistryConfigLike`.\n\nA lazy stub carries metadata but no `inputs`. Written into `sdui.manifest.json` it becomes a block that *takes no props* — so every prop an author passes it turns into an `unknown-prop` diagnostic in the save gate. Wrong quietly, in the artifact everything downstream trusts. The test pins that shape explicitly before asserting the throw:\n\n```ts\nexpect(manifestFromConfigs(withStubs).components['object-kanban'].inputs).toEqual([]);\nexpect(() => assertFullyLoaded(withStubs)).toThrow(/object-kanban, object-map/);\n```\n\n- `packages/sdui-parser/scripts/gen-manifest.ts` calls it, and its doc comment no longer points at `@object-ui/console/register-all` (never a real export path).\n- `apps/console/dev/manifest-dump.tsx` calls it **and** imports the console's real registration list. Its 15 hand-maintained eager imports had no relationship to what the console ships; now a plugin the console lazy-registers but the dump forgets to import eagerly survives as a stub and fails the build. Eager registration wins over a stub, so **the manifest output itself is unchanged** — this only makes the drift detectable.\n- `scripts/dump-public-manifest.mjs` waits for `__MANIFEST ?? __MANIFEST_ERROR` and rethrows the message, instead of turning any generation failure into a silent 120s timeout.\n\n## Verification\n\n- Full suite: `696 files passed | 1 skipped`, `8191 tests passed | 24 skipped`.\n- `pnpm --filter @object-ui/console build` (tsc + vite + plugin): clean.\n- `type-check` for `@object-ui/console` + `@object-ui/sdui-parser`: clean.\n- `lint`: 0 errors.\n- `changeset:check`: clean. Changeset included (`@object-ui/sdui-parser` minor — new export; `@object-ui/console` patch).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp)_"
+}

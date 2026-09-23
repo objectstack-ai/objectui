@@ -1,0 +1,34 @@
+{
+  "number": 3259,
+  "kind": "pull_request",
+  "title": "chore(deps): bump motion from 12.42.2 to 12.43.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "automated",
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T08:00:26Z",
+  "updated_at": "2026-08-03T08:02:35Z",
+  "closed_at": "2026-08-03T08:01:30Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-03T08:01:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3259",
+  "body": "Bumps [motion](https://github.com/motiondivision/motion) from 12.42.2 to 12.43.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/motiondivision/motion/blob/main/CHANGELOG.md\">motion's changelog</a>.</em></p>\n<blockquote>\n<h2>[12.43.0] 2026-07-27</h2>\n<h3>Added</h3>\n<ul>\n<li>Hardware acceleration for <code>backgroundColor</code> in supported browsers.</li>\n<li>Hardware acceleration for SVG elements.</li>\n</ul>\n<h3>Fixed</h3>\n<ul>\n<li><code>AnimatePresence</code>: Exiting children no longer interleave with entering children, which could reorder and remount children present in both renders.</li>\n<li><code>motion</code>: Throw error when passing a custom <code>motion</code> component an incorrect <code>ref</code> type.</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/motiondivision/motion/commit/a4ef40a5dd378205a41dbb19e7fad04e3280607f\"><code>a4ef40a</code></a> v12.43.0</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/14f2d286d1b0805ca8a34b41f9c4122a36e215eb\"><code>14f2d28</code></a> adding svg acceleration</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/1f5a27b828d42574ff3dfffa29f77da613d84eb2\"><code>1f5a27b</code></a> Fixing merge</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/79f03532429c6abee2de5161e3ca1594aa2d61f0\"><code>79f0353</code></a> Updating changelog</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/57f179b1beaec64da990ca914c18697f87265b4f\"><code>57f179b</code></a> Updating changelog</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/695cb3954d4df55ca0794bc95f084b377e4f5f4f\"><code>695cb39</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3755\">#3755</a> from motiondivision/fix-issue-2777</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/33a1820f6c35e9b206eca277e059415b07ddafde\"><code>33a1820</code></a> Drop the production fallback for non-DOM refs</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/ebe35f223ddda0806af8d8335e7f053115d67d4b\"><code>ebe35f2</code></a> Throw an actionable invariant for non-DOM custom component refs</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/a6ed0946a338256f660560500861b09c2b8a20d2\"><code>a6ed094</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3754\">#3754</a> from motiondivision/fix-3745-popchild-ref-warning</li>\n<li><a href=\"https://github.com/motiondivision/motion/commit/9f251f3377766a6bf97a93c1634c4e51a7408ccf\"><code>9f251f3</code></a> Merge pull request <a href=\"https://redirect.github.com/motiondivision/motion/issues/3763\">#3763</a> from motiondivision/advisor/003-color-waapi</li>\n<li>Additional commits viewable in <a href=\"https://github.com/motiondivision/motion/compare/v12.42.2...v12.43.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=motion&package-manager=npm_and_yarn&previous-version=12.42.2&new-version=12.43.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

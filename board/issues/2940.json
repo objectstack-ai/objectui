@@ -1,0 +1,32 @@
+{
+  "number": 2940,
+  "kind": "pull_request",
+  "title": "fix(fields): emit the spec's `$notContains`, and keep `secret` out of inline edit (#2901)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:22:07Z",
+  "updated_at": "2026-07-28T17:44:41Z",
+  "closed_at": "2026-07-28T17:44:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T17:44:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2940",
+  "body": "The two defects from the #2901 audit that need no design decision. Audit doc is in #2937.\n\n## `$ncontains` was never a real operator\n\nThe sharing-rule criteria builder emitted `{ $ncontains: v }` for \"does not contain\". That token appears **zero times** in `@objectstack/spec`, and objectui's own `convertFiltersToAST` throws on it — naming the correct spelling in its own error message:\n\n```\nUnknown filter operator '$ncontains' for field 'x'. Supported operators: …, $notContains, …\n```\n\nSo every \"does not contain\" sharing rule authored in the UI validated at authoring time and was rejected downstream. Nothing caught it because the builder's operator list is hand-written and never compared against the spec vocabulary — the #2901 pattern exactly.\n\n`kvToCondition` keeps accepting `$ncontains` on read, so criteria saved before this still load. Dropping it would turn stored rules into \"criteria can't be represented\" rather than migrating them.\n\n## `secret` was inline-editable as plaintext\n\n`secret` was in neither `EDIT_WIDGETS` nor `INLINE_EXCLUDED_FIELD_TYPES`, so grid inline edit fell through to DataTable's **plain text input** — two lines below `password`, which is correctly excluded.\n\nBoth are masked on read, so that input renders the mask as if it were the value and writes it straight back. `secret` additionally round-trips through an encrypted store (ADR-0100, `data/field.zod.ts`), so the cell holds an opaque ref, not the secret.\n\n## The guard that blocked the fix\n\nAdding `secret` tripped `FieldEditWidget.test.ts`'s staleness check, which is itself mis-specified — and mis-specified in a way the audit predicted.\n\nIt treats `FORM_FIELD_TYPES` (`Object.keys(fieldWidgetMap)`) as the set of real field types. But spec spellings that reach a widget through the alias table are **not keys** — `secret` → `field:password`, `autonumber` → `field:auto_number`. `index.tsx`'s own `resolveFormWidgetType` doc comment names `secret` as exactly such an alias. So the guard rejected a genuine spec field type as \"stale\".\n\nMade the check alias-aware: an entry is real if it is a direct widget key **or** the alias table maps it explicitly. Still catches typos (`secrett` → falls back to `field:text` → fails), no longer rejects real types.\n\n## Verification\n\n- `FieldEditWidget.test.ts`, `field-type-coverage.test.ts`, and the new `FilterConditionField.operators.test.ts` — **119 tests pass**.\n- New test pins every builder token to a `FieldOperatorsSchema` spelling, pins the round trip, and pins the `$ncontains` back-compat read.\n- **Negative-checked**: reverted the source to `$ncontains` and confirmed the new test fails with `expected [ '$ncontains' ] to deeply equal []`, then restored. A guard that cannot fail is worthless.\n- `eslint`: 0 errors. `tsc`: no new errors in the touched files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3030,
+  "kind": "pull_request",
+  "title": "fix(form): a wizard with `allowSkip` no longer submits past the fields you skipped",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:39:11Z",
+  "updated_at": "2026-07-30T11:44:53Z",
+  "closed_at": "2026-07-30T11:44:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:44:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3030",
+  "body": "Two `WizardForm` items in one PR, as they touch the same file: the verified `allowSkip` validation hole, and the view-level `columns` gap left out of [#3018](https://github.com/objectstack-ai/objectui/pull/3018).\n\n## 1. `allowSkip` let required fields through unvalidated\n\n`handleStepClick` ([WizardForm.tsx:397](packages/plugin-form/src/WizardForm.tsx#L397)) jumps to any step under `allowSkip` **without validating anything on the way**. A wizard mounts one step at a time, and react-hook-form only validates the fields currently **mounted** — so a required field on a step nobody opened was never registered, never validated, and simply absent from the payload.\n\nMeasured against the unfixed component (3 steps, required `owner` on step 2, `allowSkip: true`, click step 3's indicator, fill it, hit Create):\n\n```\ncreateCalls: 1\npayload:     { subject: 'S1', notes: 'S3' }   // `owner` missing entirely\nUI mentions \"required\": false                 // nothing said so\n```\n\nAn invalid create went out and the client said nothing about why — #2959's validation half, wearing a wizard's clothes. This was the hypothesis I flagged as unverified two PRs ago; it reproduces.\n\n**Fix.** The final submit checks the whole declared field set. When something is outstanding it returns the user to the first step holding one, marks that step's indicator (`data-error=\"true\"`, destructive circle + icon), names the fields in a toast, and sends nothing.\n\nConditional rules are honoured: the check runs on the canonical `resolveFieldRuleState` from `@object-ui/core` — the same engine the form renderer and the server's rule-validator use — so a field hidden by `visibleWhen` or not yet required by `requiredWhen` is not demanded. No second dialect.\n\nThe sequential path is unaffected: a forward jump is *refused* without `allowSkip` (verified: `forwardJumpRefused: true`, `indicatorDisabled: true`), so Next already validated each step on the way.\n\n## 2. `FormView.columns` in the wizard\n\nThe spec key was being dropped, same as in Tabbed/Split before #3018. Grid width is now the view's `columns`, else the step's own. **No widest-section fallback** here, unlike the tabbed/split hosts: wizard steps never share a viewport, so there is no shared grid to size and each step keeps its authored width. That difference is documented.\n\n## A bug the browser caught that the test hadn't\n\nWhile verifying, a step declaring `columns: 2` still rendered single-column. The step grid is sized with **container queries**, and `WizardForm`'s root carried no `@container` — so every `@md:`/`@2xl:` variant was inert. `TabbedForm` and `SplitForm` both have the wrapper; the wizard never did.\n\nMy unit test had asserted only that the grid *class* was present, which it always was. The test now also asserts the grid has an `@container` ancestor — the precondition that was actually missing.\n\n## Tests\n\n`packages/plugin-form/src/wizardSkipValidation.test.tsx` — 6 cases, **run against the unfixed component first**: 3 failed, 3 passed, exactly as intended.\n\n| case | on `main` |\n|---|---|\n| refuses the submit, returns to the offending step | ❌ `expected null to be truthy` — no bounce, it submitted |\n| submits once the skipped step is filled, clears the marker | ❌ same defect |\n| honours the view's `columns` | ❌ `expected null not to be null` |\n| leaves a conditionally-required field alone while its predicate is false | ✅ guard |\n| the sequential wizard still submits (gate is not a new blocker) | ✅ guard |\n| falls back to the step's own `columns` | ✅ guard |\n\nThe three failures are the defect proofs; the three passes are regression guards against my own change. 39 files / 300 tests green across `plugin-form` + the form renderer; `turbo type-check` green; lint 0 errors.\n\n## Browser verification\n\nZero-backend harness (deleted before commit), `allowSkip` + `columns: 2` + two required fields on the middle step:\n\n- filled step 1 → jumped straight to step 3 → filled it → **Create**;\n- submit refused, back on **Step 2 of 3**, only that indicator red with the alert icon, toast reading `Please complete the required fields: Owner, Team`, and `window.__lastCreate === null` — nothing sent;\n- filled Owner + Team → Next → step 2's marker cleared to the completed tick, Notes kept its value;\n- **Create** → `{subject, notes, owner, team}` — all three steps' values;\n- no console errors; `columns: 2` renders 2-up after the `@container` fix.\n\nNote: the toast joins field names with `, ` rather than the `、` the sibling implementation in `form.tsx` uses — this is a new English string and rule #-1 wants English punctuation. I did not touch `form.tsx`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

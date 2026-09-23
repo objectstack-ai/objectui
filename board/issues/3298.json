@@ -1,0 +1,33 @@
+{
+  "number": 3298,
+  "kind": "pull_request",
+  "title": "fix(components): deliver `aria-required` to field controls (#3290)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T13:12:01Z",
+  "updated_at": "2026-08-03T13:19:08Z",
+  "closed_at": "2026-08-03T13:19:07Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T13:19:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3298",
+  "body": "Closes #3290\n\n必填状态过去只以「可访问名的一部分」存在——表单渲染器算出的 `required`（静态 `required` + `requiredWhen` CEL）只驱动 `< FormLabel >` 里的红星，而那颗红星带着 `aria-label=\"required\"`，于是状态经由 `< label for >` 关联被并进控件的**可访问名**，字段被读成「Title required」。把状态塞进名字有三处失效：按名字顺序朗读而非以状态播报、「只列必填项」这类导航看不见它、无 `label` 的字段（紧凑布局 / grid 内联编辑）根本不画星号因而信号彻底消失，且 `requiredWhen` 让必填是动态的——状态通道能表达翻转，名字不能。\n\n> 注：本文中 `< FormLabel >` / `< FormControl >` 这类写法的尖括号后有意加了空格——GitHub 正文清洗器会把「`<` 紧跟字母」当 HTML 标签删掉（本 PR 初版正文已被吃掉三处，这是修正后的版本）。\n\n## 裁决执行清单\n\n| 裁决项 | 落实 |\n|---|---|\n| 宿主一处加 `'aria-required': required \\|\\| undefined` | ✅ `form.tsx` 转发进 widget 的 props（紧接 `error: fieldState.error?.message`） |\n| 48 个 widget 零改动 | ✅ 未改任何 widget；另经实测复核（见下「前置核对」第 2 条） |\n| 红星改 `aria-hidden=\"true\"` | ✅ 同时移除 `aria-label=\"required\"`，状态通道成为唯一来源 |\n| **不**加原生 `required` | ✅ 并加了一条回归栅栏测试钉死它 |\n\n## 前置核对（三条都是复核，不是假设）\n\n1. **基线含 #3233（PR #3296）**——worktree 基于 `origin/main@6e794a19e`，`packages/fields/src/withFieldCarrier.tsx` 存在；`renderFieldComponent` 已是 field-widget / 裸名 SDUI 双路径的现状。\n2. **两条分支都收到 `aria-required`**——`stripRendererOnlyProps` 与 `stripRegisteredFieldProps` 都是定长解构，`aria-*` 不在其中，因此原样透传。不止读代码：临时跑了一个**真 widget**（EmailField / PhoneField / UrlField / TextAreaField / CurrencyField / PercentField / TextField）穿真表单渲染器的检查，七个全部把 `aria-required=\"true\"` 落到真实的 `input` / `textarea` 元素上，零 widget 改动。该临时文件已删除，未进提交。\n3. **`< FormControl >` 确实不注入 `aria-required`**——`packages/components/src/ui/form.tsx` 里的 Radix `Slot` 只注入 `id` / `aria-describedby` / `aria-invalid`。（附带更正 issue 正文一处措辞：全仓 grep `aria-required` 并非 0 处，`plugin-form` 的 `EmbeddableForm` 和 console 的 `ProfilePage` 各有手写的一处；**表单渲染器这条路径**上确为 0，结论不变。）\n\n## 为什么是 `|| undefined` 而不是 `String(required)`\n\n非必填字段应当**完全没有该属性**，而不是 `aria-required=\"false\"`。后者合法但语义更嘈杂，且 `requiredWhen` 翻成 FALSE 时必须产出的正是「属性消失」。测试里单独钉住了这个拼写。\n\n## 测试\n\n新增 `packages/components/src/renderers/form/__tests__/form-aria-required-delivery.test.tsx`（9 条）。每条都做了 sabotage 验证——改坏见红、还原见绿：\n\n| Sabotage | 结果 |\n|---|---|\n| 删掉 `'aria-required'` 一行 | 6 红 |\n| 改成 `String(required)` | 2 红（「非必填不带属性」+「requiredWhen 翻回时消失」） |\n| 红星退回 `aria-label=\"required\"` | 2 红（可访问名 + marker 断言） |\n| 补上原生 `required` | 1 红 |\n| 两个 strip 函数吃掉 `aria-required` | 6 红 |\n\n覆盖：内置分支、注册 widget 分支、非必填属性缺席、`requiredWhen` 动态翻转、**无 label 的必填字段**（老设计下信号完全不存在的那个场景）、可访问名不再含 \"required\"（用 `toHaveAccessibleName`，不是 querySelector）、红星仍渲染但在 a11y 树外、无原生 `required`。\n\n关于最后一条有个坑值得记：`toBeRequired()` **不能**用来断言「没有原生 required」——jest-dom 把 `aria-required=\"true\"` 也算作 required，那个 matcher 无论修成哪样都会绿。改为直接断言原生属性缺席 + `el.required === false`。\n\n## 顺带改到 `packages/components` 之外的一处（是本改动自身的调用点修复，非范围外顺手修）\n\n`e2e/live/field-conditional-rules.spec.ts` 的 `isRequired()` helper 用 `span[aria-label=\"required\"]` 定位红星——红星移出 a11y 树后这个选择器必然失效。红星因此获得 `data-required-marker=\"true\"` 作为显式定位钩子（ADR-0054 C4 的稳定 locator 惯例），helper 改用它。a11y 属性不该兼任测试钩子，这正是这条 `aria-label` 能活这么久的原因。这是全仓唯一一处该选择器。\n\n## 给邻接单的两条提示\n\n- **#3272（form.tsx 硬编码英文）**：清单里的 `aria-label=\"required\"` 字符串**已随本 PR 消失**——它现在是 `aria-hidden` 的纯视觉星号，不再有任何面向用户的文本需要翻译。届时请核对并从清单划掉。\n- **`packages/fields/src/widgets/types.ts:29`** 有一句注释仍在描述旧行为（「`< FormLabel >` 里带 `aria-label=\"required\"` 的 `*`」）。按本单范围栅栏未动 `packages/fields`；这是一处陈旧注释而非功能缺陷，留给维护者决定是单独收还是搭车下次改 fields 时顺手更正。\n\n## changeset\n\n已加 `.changeset/aria-required-reaches-the-control.md`（`@object-ui/components: patch`）。依据：AGENTS.md 说纯 bug 修复不必写，但本改动**用户可见**——每个必填控件多出一个 DOM 属性、可访问名从「Title required」变为「Title」——且移除 `aria-label=\"required\"` 对任何按它选择的下游是破坏性的（本仓 e2e 就是活证）。定 `patch` 而非 `minor`：无 API、无 props 契约、无 schema 变更，红星对视力用户的呈现一模一样。若维护者认为 DOM/a11y 行为变更应按仓规的「自身破坏性变更也标 `minor`」处理，改一个字即可。\n\n## 验证输出\n\n```\npnpm exec vitest run packages/components/src/renderers/form/__tests__/ packages/components/src/__tests__/form-renderers.test.tsx\n  Test Files  22 passed (22)\n       Tests  138 passed (138)\n\npnpm exec vitest run packages/components          # 全量\n  Test Files  69 passed (69)\n       Tests  530 passed (530)\n\npnpm exec vitest run packages/fields/src/__tests__/widget-aria-invalid-e2e.test.tsx   # 跨包真 widget 集成\n  Test Files  1 passed (1)\n       Tests  10 passed (10)\n\npnpm --filter @object-ui/components type-check    # 通过，无输出\npnpm --filter @object-ui/components lint          # 0 errors（760 warnings 均为既有）\nnode scripts/check-changeset-no-major.mjs         # ✅ No changeset declares a `major` bump.\n```\n\n未动 `packages/spec`、任何 widget、`packages/fields` / `types` / `react`、`content/docs/releases/`。"
+}

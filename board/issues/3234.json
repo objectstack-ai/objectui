@@ -1,0 +1,30 @@
+{
+  "number": 3234,
+  "kind": "issue",
+  "title": "@object-ui/types 从 @objectstack/spec/ui re-export 的 HttpMethod 即将失效(framework#4691,spec v17 breaking)",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T22:24:53Z",
+  "updated_at": "2026-08-03T00:54:38Z",
+  "closed_at": "2026-08-03T00:54:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3234",
+  "body": "**未指派 —— 仅记录发现,等 framework 侧定案后再动手。**\n\n## 现状\n\n`packages/types/src/objectql.ts:35`:\n\n```ts\n/**\n * HTTP Method for API requests\n * Canonical definition from @objectstack/spec/ui.\n */\nexport type { HttpMethod } from '@objectstack/spec/ui';\n```\n\n`packages/types/package.json` 依赖 `\"@objectstack/spec\": \"^17.0.0-rc.1\"` —— **caret 范围**,所以下一个 17.x RC 一发布,`pnpm install` 就会解析到它,本仓 typecheck 立即红,不是「等哪天主动 bump 才踩到」。\n\n## 上游要做什么\n\nframework 的 objectstack-ai/objectstack#4691(#4535 双源清账 C14)要把 `HttpMethod` 这个名字**从 `@objectstack/spec/ui` 移除**。原因是它在 spec 里指向两个不同的类型:\n\n| 入口 | 取值 |\n|:--|:--|\n| `@objectstack/spec/shared`、`/api` | **7 值** —— GET POST PUT DELETE PATCH **HEAD OPTIONS** |\n| `@objectstack/spec/ui`(本次移除) | **5 值** —— GET POST PUT PATCH DELETE(UI/View 数据源子集) |\n\n⚠️ **不要用「把 import 路径换成 `@objectstack/spec/shared`、名字保留 `HttpMethod`」来修。** 那里的 `HttpMethod` 是 7 值那个,会把本仓的类型悄悄放宽两个值,而 `HttpRequestSchema.method` 运行时只收 5 值 —— `method: 'HEAD'` 会通过编译、在 `.parse()` 抛错。\n\n## 影响面(本仓已实测,很小)\n\n- `packages/types/src/objectql.ts:35` —— 唯一的 import 侧引用。\n- `packages/types/src/index.ts:329` 把它并入 `@object-ui/types` 的公开 surface;`packages/core/src/adapters/ApiDataSource.ts:166` 用 `method?: HttpMethod`。这两处**都从 `@object-ui/types` 拿**,只要 `objectql.ts` 那一行改对,它们零改动、本仓对外的 `HttpMethod` 名字也不变。\n- `apps/console/src/pages/developer/hooks/useApiDiscovery.ts:13` 有一个**同名但本地自己声明**的 `HttpMethod`(`'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT'`),与 spec 无关,不受影响。\n- `HttpMethodSchema`(`packages/types/src/zod/objectql.zod.ts:26`、`index.zod.ts:244`、`__tests__/spec-subschema-parity.test.ts`)是 **const**,`./ui` 仍在导出,**本次不受影响** —— 但见下面「取决于上游定案」。\n\n## 取决于上游定案 —— 所以先不要动手\n\nframework#4691 目前有一个未决问题:5 值那一对到底叫什么。\n\n- **方案 A(#4691 现行实现)**:`./ui` 保留 `HttpMethodSchema`,类型改叫 `HttpMethodType`。本仓改一行即可,`HttpMethodSchema` 不受影响:\n\n  ```ts\n  export type { HttpMethodType as HttpMethod } from '@objectstack/spec/ui';\n  ```\n\n- **方案 B(#4691 记录、维护者未定)**:把 5 值那一对整体改名为 `ViewHttpMethod` / `ViewHttpMethodSchema`。那样本仓**还要**改 `objectql.zod.ts` / `index.zod.ts` / parity 测试里的 `HttpMethodSchema` 引用,是三四处而不是一处。\n\n两个方案的本仓改动量不同,所以等 framework#4691 定案后再开工,避免返工。\n\n关联:objectstack-ai/objectstack#4691、objectstack-ai/objectstack#4535\n"
+}

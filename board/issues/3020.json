@@ -1,0 +1,35 @@
+{
+  "number": 3020,
+  "kind": "pull_request",
+  "title": "refactor(types)!: authoring types are input types — `ActionParam` takes the spec's declaration forms, `ListViewSchema` stops promising phantom defaults (objectstack#4074)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:53:57Z",
+  "updated_at": "2026-07-30T11:02:42Z",
+  "closed_at": "2026-07-30T11:02:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:02:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3020",
+  "body": "Closes the remaining scope of objectstack-ai/objectstack#4074 (steps 2–3) and retires the `p1-spec-alignment.test.ts` debt #3009 declared. Three public types said something different from what the platform accepts; each fix below carries its runtime evidence.\n\n## 1. `ActionParam` is the authoring shape, aligned with the spec's input\n\n`name` / `label` / `type` become **optional** and `field` / `objectOverride` appear. The spec's primary way to declare a param — a bare field reference that inherits label/type/validation/options from an object field — was unrepresentable while all three were required: `{ field: 'status' }` was a type error in the very package that claims spec alignment.\n\nThe **resolved** shape the dialog consumes — after app-shell's `resolveActionParams()` inlines the reference — remains `@object-ui/core`'s `ActionParamDef`, with all three required. Authoring and resolved are different types on purpose; that separation is the whole point (and is spec's own: it exports `ResolvedActionParam` distinct from the schema input).\n\n**The new guard caught me in the act.** I typed `label` as the spec's `I18nLabel` and wrote a per-locale-record fixture, matching what I'd claimed in the issue — the now-compiled annotation immediately failed: in the current spec, `I18nLabelSchema` is `z.ZodString` (the record form is the separate `I18nObject`). The fixture was corrected, and since `label` **imports** the alias rather than restating it, objectui tracks any future widening automatically. Guards that run beat claims that don't — the PR's thesis, demonstrated against its own author mid-PR.\n\n## 2. `ListViewInferred` is `z.input`, not `z.infer`\n\nThe spec sub-schemas flowing into the list-view surface (`userActions`, `tabs` → `ViewTab`, `sharing`) carry `.default()`s, so the inferred **output** type made `userActions.refresh` or a tab's `pinned` / `visible` *required*. But nothing on the render path ever runs `.parse()`: `normalizeListViewSchema` deliberately applies no defaults — *\"an absent flag stays absent\"* is one of its own test names. So the output type simultaneously\n\n- rejected valid authored metadata (`userActions: { sort: true }`, a tab without `pinned`), and\n- promised renderers defaults that never arrive at runtime.\n\n`z.input` matches both the author and the actual runtime object. Code that trusted the phantom defaults now gets an optionality error — a latent bug surfacing, not a regression.\n\n## 3. `FormField.dependsOn` matches its runtime reader\n\n`resolveCascadingOptions` (`@object-ui/core`) has always accepted a bare name, a list of names, or lookup-parameter entries `{ field, param }` — its parameter type `DependsOnInput` says so. The public `FormField.dependsOn` said `string`, so array-authored metadata type-errored while working, and the components form renderer read the key through `(f as any).dependsOn` **to get past its own type** — the `as any` was the confession.\n\n`DependsOnInput` now lives in `@object-ui/types` next to `FormField` (single source of truth; the dependency direction types → core is the correct one), core imports and re-exports it for its existing consumers (`@object-ui/fields`' `useCascadingOptions` keeps working untouched), and both `as any` reads are typed. `form.tsx` lint warnings drop 87 → 85.\n\n## The p1 exclusion is gone\n\n`tsconfig.test.json` no longer excludes anything. The 14 errors resolved site-by-site rather than papered over:\n\n| sites | resolution |\n|---|---|\n| `userActions` / `tabs` minimal fixtures | valid under the input type (fix #2) |\n| `dependsOn: ['industry']` | valid under `DependsOnInput` (fix #3) |\n| 2× \"sharing in ObjectUI format `{ visibility, enabled }`\" + legacy-ARIA spellings | **deleted/rewritten** — these are *normalizer input* dialects, folded by `normalizeListViewSchema` and already asserted branch-by-branch in core's `normalize-list-view.test.ts` (visibility→type collapse, bare-`enabled` mapping, `lockedBy` preservation, explicit-`type` precedence). Asserting a fold's input dialect on the canonical type is the wrong seam, and only ever \"passed\" because nothing compiled the file. Widening the canonical type to advertise a dialect that already has a fold would invite new metadata to author it. |\n| tab `filter: ['owner', '=', 'current_user']` | corrected — an ObjectQL triplet as a spec `ViewTab.filter` has never been admitted by any type on this surface; the fixture now uses the rule-object form |\n\n## Verification\n\n- **Discrimination checks, 3/3 bite**: revert `ListViewInferred` to `z.infer` → `TS2739` on the exact fixtures; revert `dependsOn` to `string` → `TS2322`; revert `ActionParam.name` to required → `TS2741` on the field-backed annotation. Restored: clean.\n- `pnpm type-check` — **76/76** tasks.\n- `pnpm vitest run` — **731 files / 8516 tests** passed, 1 file / 24 skipped.\n- Affected suites directly: types (16 files/246), core normalizer + evaluator + fields cascading (26 files/552 with types), components form + plugin-form (38 files/290).\n- `eslint` on changed files: 0 errors, no new warnings (form.tsx count *drops* by 2).\n- `node scripts/check-changeset-fixed.mjs` — clean.\n\nChangeset: `@object-ui/types` **major** (the `ActionParam` optionality and `ListViewInferred` input-typing are breaking for consumers that destructured required fields), core/components patch.\n\nAlso fixes a wrong reference merged in #3009: the guard file's header said the test project landed in \"#3005\".\n\nRefs objectstack#4074, #3009, #3003, #2231, #2890, objectstack#4115, objectstack#4118\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014DBMo8gnFduzgpuSHd5Eje)_"
+}

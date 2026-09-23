@@ -1,0 +1,32 @@
+{
+  "number": 3096,
+  "kind": "issue",
+  "title": "lookup 列排序按裸外键 id 排：服务端 $orderby 发平面 FK 字段，单元格却显示 $expand 后的标签",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T05:49:04Z",
+  "updated_at": "2026-07-31T06:56:01Z",
+  "closed_at": "2026-07-31T06:56:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3096",
+  "body": "## TL;DR\n\n对 lookup / master_detail 列排序时，用户看到的是 `$expand` 展开后的**显示标签**，但排序键是**裸外键 id**（服务端路径）或**展开后的整个对象**（客户端路径）。结果是一列人名/公司名以肉眼看去随机的顺序排列——排序生效了，只是排的不是用户看到的那个值。\n\n这是在 framework#4256（点号路径 sort 收口为 `400 INVALID_SORT`）的影响面调查中确认的既有问题，与那次改动**无关也不受其影响**：objectui 全程只发平面字段名，`?sort=owner` 在收口后依然完全合法。立案记录，不阻塞任何在途工作。\n\n## 三条路径，两种错法\n\n**1. 工具栏 SortBuilder → 服务端按 FK id 排（主要问题）**\n\n- `deriveFieldOptions` 把所有非隐藏字段（含 lookup/master_detail）作为排序候选提供给 SortBuilder（`packages/plugin-view/src/config/view-config-utils.ts:268`）；\n- 用户选中 lookup 字段后 `onSortChange` 把 `{ sort }` 持久化进视图（`packages/app-shell/src/views/ObjectView.tsx:1334-1335`）；\n- ObjectGrid 把视图 sort 组装成 `$orderby = \"owner asc\"` 发给服务端（`packages/plugin-grid/src/ObjectGrid.tsx:536-547`），同时自动注入 `$expand`（`:549-553`）让单元格显示关联记录标签。\n\n服务端于是对**整个结果集**按 `owner` 列的裸 id 值（`rec_xxx` / uuid）排序，页面上显示的却是展开后的人名。分页遍历时顺序稳定但对用户毫无意义。\n\n**2. RelatedList 窗口化模式 → 同样的服务端 FK 排序**\n\n列头点击 → `handleSort(field)`（`packages/plugin-detail/src/RelatedList.tsx:572-582`）→ 窗口化时变成服务端 `$orderby`（`:356-361`，平面字段名）。lookup 列同样按裸 id 排。\n\n**3. 客户端路径 → 对展开后的对象做 `<` 比较（次要但更荒谬）**\n\n通用 data-table 的列头排序是当前行集内的客户端排序（`packages/components/src/renderers/complex/data-table.tsx:603-615`）：`a[sortColumn]` 取到的是 `$expand` 之后的**记录对象**，`aValue < bValue` 对两个对象恒为 false，比较结果退化为常量——排序按钮在转，顺序在变，语义是垃圾。RelatedList 非窗口化分支（`:536-539`）同构。\n\n## 为什么值得修\n\n排序是用户对「我看到的这一列」的操作。列里显示的是 `Alice / Bob / Carol`，点一下升序得到 `Carol / Alice / Bob`（id 序）——这在用户视角就是「排序坏了」，而且没有任何提示说明排的是别的东西。framework 侧刚刚把「看起来生效、实际没生效」的 sort 全部收口（#3948 原则）；这是同一原则在 UI 侧的镜像：**看起来在排 A，实际在排 B**。\n\n## 选项\n\n1. **禁用 lookup/master_detail 列的排序入口**（列头 + SortBuilder 候选里过滤掉 reference 类型，或标注「按 ID 排序」）——最小改动，先消除误导。`view-config-utils.ts` 的 `normalizeFieldType` 已把 reference 类型归一为 `select`，过滤点现成。\n2. **按显示值排序**——需要 framework 侧支持（关联排序 join，framework#4256 已明确不做）或引导用户建公式字段反范式化后排那一列。可以在 UI 上把「想按关联显示名排序」翻译成一个提示：建议管理员为该对象加公式字段。\n3. **客户端路径单独修**：data-table 对对象值取显示字段（name/label/title 启发式）再比较——只修第 3 条错法，1/2 不动。\n\n倾向 1 + 3 组合：入口处不再提供按 lookup 排序的错觉，客户端比较修成至少不荒谬；2 作为长期方向由公式字段承接（与 framework#4256 错误消息给出的处方一致）。\n\n## 关联\n\n- objectstack-ai/objectstack#4256（sort 点号路径收口；本 issue 是其影响面调查的副产物，行为不受该 PR 影响）\n- objectstack-ai/objectstack#3948（「未生效的表达式不该看起来生效了」原则出处）"
+}

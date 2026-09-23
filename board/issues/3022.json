@@ -1,0 +1,33 @@
+{
+  "number": 3022,
+  "kind": "pull_request",
+  "title": "fix(view): the spec→FilterBuilder map follows the four operators #2942 added",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:57:54Z",
+  "updated_at": "2026-07-30T11:05:43Z",
+  "closed_at": "2026-07-30T11:05:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:05:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3022",
+  "body": "Found while implementing objectstack-ai/objectstack#4135 — a concurrent change made a table I added in #2989 quietly wrong.\n\n## The drift\n\n`CANONICAL_TO_BUILDER` (`view-config-utils.ts`) mapped four canonical `VIEW_FILTER_OPERATORS` members to `null`, with a comment asserting the reason:\n\n> `starts_with`/`ends_with` have no FilterBuilder operator at all, and `is_null`/`is_not_null` carry a NULL/empty distinction that `isEmpty`/`isNotEmpty` erase\n\nThe first half stopped being true. **#2942 added `startsWith`, `endsWith`, `isNull` and `isNotNull` to the FilterBuilder** — its own comment says they *\"validated at the data layer but were unreachable from this dropdown\"*. This table did not follow, so a stored view carrying any of the four still reached the builder as a raw spelling it could by then have rendered, and the comment explaining why was simply false.\n\nAll four now map. `is_null`/`is_not_null` → `isNull`/`isNotNull`, **not** `isEmpty`/`isNotEmpty`: the builder draws both pairs now, so folding the NULL predicate onto the empty-string one would silently rewrite the author's operator the next time the view was saved. The unmapped set is empty — all 19 canonical members translate.\n\n## The guard could not have caught this. Now it can.\n\nThe parity test asserted that the unmapped set equalled a hand-kept list of gaps. That comparison stays true when the **builder** gains an operator, because neither side of it moves — the exact drift that happened.\n\nThe new assertion is derived rather than hand-kept:\n\n```ts\nit('leaves nothing unmapped that the builder can already draw', () => {\n  const byFolded = new Map(FILTER_BUILDER_OPERATORS.map(id => [fold(id), id]));\n  const missed = Object.entries(__CANONICAL_TO_BUILDER)\n    .filter(([, id]) => id === null)\n    .filter(([op]) => byFolded.has(fold(op)))\n    …\n```\n\n`starts_with` and `startsWith` fold to the same key, so an unmapped canonical operator whose folded name matches a folded builder id is an omission **by definition** — no list to remember.\n\nConfirmed it has teeth rather than trusting the green. Reverting the four mappings to `null` reproduces the original drift as four named failures:\n\n```\n+ \"starts_with -> startsWith exists but is unmapped\",\n+ \"ends_with -> endsWith exists but is unmapped\",\n+ \"is_null -> isNull exists but is unmapped\",\n+ \"is_not_null -> isNotNull exists but is unmapped\",\n```\n\nAlso added an explicit assertion that the NULL and empty-string pairs stay distinct, since that is the one mapping a future edit might be tempted to collapse.\n\n## Verification\n\n- `plugin-view`: **72 tests across 4 files**, green (12 in the parity guard, up from 9).\n- The guard was confirmed failing before the fix, as quoted above.\n\n## Note on scope\n\nThis is the same public-API surface as #2989 — `toFilterGroup` has no in-repo caller — so no in-repo behaviour changes. It is worth fixing because the table is the third of the three the #2901 audit identified, and because a guard that cannot detect a whole class of drift is worse than one that says so.\n\nRefs #2945, #2942, #2989\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3253,
+  "kind": "pull_request",
+  "title": "docs(ci): 工作流清单按实际枚举，ci.yml 任务表重写，并补上反向断言 (#3212)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:55:33Z",
+  "updated_at": "2026-08-03T08:10:59Z",
+  "closed_at": "2026-08-03T08:10:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T08:10:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3253",
+  "body": "Fixes objectstack-ai/objectui#3212\n\n`content/docs/guide/ci-cd-pipeline.md` 与 `.github/workflows/` 脱节：开头写着 **11 个工作流**，目录里实际有 **13** 个；其中三个从未被记录（`lint.yml`、`cross-repo-issue-closer.yml`、`changeset-guard.yml`）；`ci.yml` 一节列的五个任务里有三个根本不存在。\n\n本 PR 只改文档 + 一个测试文件，**没有动任何 workflow YAML** —— 这个 issue 是让文档去追平现实，不是改现实。\n\n## 1. 数字直接删掉，改成枚举清单\n\nissue 里那个数字本身就已经过期了：文档写 11，issue 写 12，实测 13（`changeset-guard.yml` 是在 issue 提交之后加的）。三个不同的数说明**手工维护的计数必然漂移**，所以按 issue 自己给的备选方案（「或干脆不写数字」）办 —— 开头不再声明任何数量，改为一张 **Workflow Inventory** 表逐个列出：\n\n| 列 | 为什么需要 |\n|---|---|\n| Workflow file | 反向断言按它来判定 |\n| Appears as | 文件名和 checks 列表里的显示名**不一致**（`performance-budget.yml` 显示为 **Bundle Analysis**，`changeset-guard.yml` 显示为 **Changeset Bump Policy**），只知道文件名的人在 PR 页面上找不到对应的检查 |\n| Runs on | 触发条件 |\n| Blocks a PR? | issue 抱怨的核心：读文档的人不知道 `lint.yml` 是**真的门禁** |\n\n同时**删掉了原来那张 ASCII 总览图**。它是同一份清单的第二份手工副本，而且先漂的正是它（图里同样缺三个工作流）。同一份清单不该有两处需要同步维护的地方 —— 表格里已经有触发条件这一列，图不再提供额外信息。\n\n另外补了两条最常被问的 path-filter 事实：`ci.yml` / `lint.yml` 都把 `**/*.md`、`content/**`、`docs/**`、`.changeset/**` 放进 `paths-ignore`（所以纯文档或纯 changeset 的 PR 什么都不会跑），而 `changeset-guard.yml` 用的是**反向**过滤器，这正是它必须独立成一个 workflow 的原因。\n\n## 2. `ci.yml` 一节按真实 job key 重写\n\n原文写「Runs five parallel jobs: Test / Lint / Build Core / E2E Tests / Build Docs」，其中 **Lint** 是独立的 `lint.yml`、**Build Core** 不存在、**Test** 也不是那个形态。现在按实际的 7 个 job 列表，并写明各自的运行条件：\n\n- `test` 是 **4 分片矩阵**（`fail-fast: false`），且**只在 PR 上跑**；\n- `test-coverage` 是**只在 push 上跑**的未分片任务，Codecov 上传在这里；\n- `changeset-check` 校验的是**每个包都在 changeset `fixed` 组里**，**不是**「PR 有没有带 changeset」—— issue 正文这一处的推测不成立，按脚本实际行为写；\n- `type-check`、`dev-server` 两个此前完全没被记录的任务补齐。\n\n另加一小节 **What is not in `ci.yml`**：直说 Lint 在 `lint.yml`、Build Core 不存在（包构建与体积检查归 Bundle Analysis），免得读者继续在 `ci.yml` 里找这两个不存在的东西。\n\n## 3. 补上反向断言（这一条不是可选项）\n\n#3197 只钉住了**正向**：文档提到的每个 `*.yml` 都必须真实存在。**反向**当时被有意略去，因为加了会立刻因本 issue 描述的遗漏而红。\n\n只修今天的快照没有意义 —— 下一个新增的工作流会静默地重演一遍。`changeset-guard.yml` 恰好在 issue 提交与修复之间出现，就是证据。所以 `scripts/__tests__/ci-cd-pipeline-doc.test.ts` 里加了：\n\n- **`.github/workflows/` 里的每个 `.yml` 都必须在文档的某个标题里被点名。** 要求的是**标题**而不是随便提一嘴 —— 埋在表格行或 ASCII 图里的文件名正是这一页沦落至此的方式；标题才能让工作流可被检索，也才逼作者真的写清楚它干什么。\n- 失败信息直接给出下一步该做什么：加一个包含文件名的标题（并给了范例）、补一行 inventory 表，或者在 `DOCUMENTATION_EXEMPT` 里登记豁免**并写明理由**。\n- `DOCUMENTATION_EXEMPT` **是空的**，而且另有一条测试防止它烂掉：条目指向的工作流必须仍然存在，理由字符串不能是敷衍的短句。豁免必须是一次被评审看见的显式声明，而不是悄悄跳过文档。\n\n### Sabotage 验证（断言必须真的会红）\n\n**① 新增一个未被记录的工作流** —— 临时建 `.github/workflows/zz-sabotage-check.yml`，验证后已删除：\n\n```\nFAIL  scripts/__tests__/ci-cd-pipeline-doc.test.ts\n      gives every workflow in .github/workflows/ its own section\n\nAssertionError: These workflows exist in .github/workflows/ but no heading in\ncontent/docs/guide/ci-cd-pipeline.md names them:\n  - zz-sabotage-check.yml\n\nAdd a section to that page — a heading that contains the file name\n(e.g. '### Stale Issues (`stale.yml`)'), what triggers it, and whether it can\nblock a merge — and a row in the 'Workflow Inventory' table. ...\n```\n\n**② 从文档里拿掉一个标题** —— 把 `## Lint (`lint.yml`)` 临时改成 `## Lint`，验证后已还原：\n\n```\nAssertionError: These workflows exist in .github/workflows/ but no heading in\ncontent/docs/guide/ci-cd-pipeline.md names them:\n  - lint.yml\n```\n\n**③ 豁免列表的自检** —— 临时塞入一条指向不存在文件的豁免，验证后已还原：\n\n```\nFAIL  keeps the documentation exemption list honest\nAssertionError: DOCUMENTATION_EXEMPT names gone.yml, which no longer exists — drop it\n```\n\n### 最终测试结果\n\n```\n$ pnpm exec vitest run scripts/__tests__/ci-cd-pipeline-doc.test.ts\n Test Files  1 passed (1)\n      Tests  9 passed (9)\n```\n\n`tsc --noEmit`（针对该测试文件）与 `eslint scripts/__tests__/ci-cd-pipeline-doc.test.ts` 均退出 0；`fumadocs-mdx` 重新生成通过，文档能正常解析。\n\n## 未加 changeset\n\n纯文档 + 测试改动，不改变任何已发布包的行为；`@object-ui/site` 本身在 `.changeset/config.json` 的 `ignore` 列表里。按 AGENTS.md 的约定不需要 changeset。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3033,
+  "kind": "pull_request",
+  "title": "fix(scripts): shadcn-sync rewrites the registry paths Shadcn actually serves, and refuses to write a file when it cannot",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T12:37:25Z",
+  "updated_at": "2026-07-30T12:42:00Z",
+  "closed_at": "2026-07-30T12:41:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T12:41:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3033",
+  "body": "Root-causes the landmine #3029 defused for one component. `pnpm shadcn:update-all` currently reports `✓ Updated` while writing components that cannot compile.\n\n## What was wrong\n\n`updateComponent` rewrote exactly two alias shapes — `@/lib/utils` and `@/components/ui/x`. I surveyed all 46 registry entries this manifest points at. **The second shape never appears.** Shadcn reorganised its layout, and what the endpoints serve today is:\n\n| shape | components | rewritten before? |\n|---|---|---|\n| `@/lib/utils` | 42 | ✅ |\n| `@/registry/default/ui/<name>` | 8 | ❌ |\n| `@/registry/default/hooks/<name>` | 2 | ❌ |\n| `@/registry/new-york/ui/<name>` | 1 | ❌ |\n| `@/registry/default/lib/<name>` | 1 | ❌ |\n\nSo syncing `calendar`, `carousel`, `command`, `form`, `pagination`, `sidebar`, `toggle-group` or `chart` left `@/registry/…` specifiers behind. Those don't resolve from `src/ui/`, so the script replaced working code with code that cannot compile — and reported success. That is the mechanism behind `resizable` being hand-patched and eventually reclassified in #3029.\n\n## The fix\n\n**1. The table covers what's actually served.** `ui/` → sibling (`./x`), `hooks/` → `../hooks/x`, `lib/` → `../lib/x`, across any `<style>` segment. The older `@/components/ui/x` and `@/hooks/x` forms stay in so a re-pointed source keeps working. Matching is on the quoted specifier rather than `from \"…\"`, so `export … from`, dynamic `import()` and `vi.mock()` are covered.\n\n**2. It fails closed** — the part that actually matters. Any `@/…` surviving the rewrite is now a hard refusal to write, naming the specifier and pointing at the table:\n\n```\n✗ Refusing to write sidebar.tsx — unmapped registry import path(s):\n    @/registry/tokyo/blocks/button\n  Shadcn's alias layout changed. Add a rule to IMPORT_REWRITES in this script.\n```\n\nAn enumerated list of paths goes stale the next time Shadcn reorganises — that's precisely how this bug arose. The guard converts that from a silent build break into a clear message.\n\n**3. `--check` / `--diff` rewrite before comparing**, so import-path style alone no longer reads as drift, and `--diff` warns when `--update` would refuse.\n\n**4. Multi-file entries are no longer silently truncated.** The script only writes `files[0]`; `toast` ships 3. It now names the files it isn't writing.\n\n## Verification\n\n- **All 46 live registry entries** rewrite to **zero** unmapped aliases, and every rewritten relative specifier **resolves on disk** (checked with the script's own exported helpers, not a reimplementation)\n- **Negative control**: a hypothetical future layout `@/registry/tokyo/blocks/button` is flagged, while known aliases still rewrite\n- **End-to-end `--update sidebar`** — the entry exercising all three shapes — now reproduces the import block already on `main` **exactly, zero difference**. The remaining 21/−24 line delta is genuine upstream drift in the component body, which is what a sync is for. Restored afterwards: **no component file changes in this PR**\n- `--update resizable` still refuses, so #3029's defusal is intact\n- `node --check` + `eslint` clean\n\n## Still open (not this PR)\n\nRe-syncing wholesale still discards local named-import additions — `command` has added `DialogTitle`/`DialogDescription`, `sonner` has added `toast`. Those break loudly rather than silently, but they mean `--update-all` remains unsafe to run unattended. Worth a follow-up.\n\nNo changeset — tooling only, no package output.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

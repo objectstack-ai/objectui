@@ -1,0 +1,34 @@
+{
+  "number": 3011,
+  "kind": "pull_request",
+  "title": "fix(spec-parity): the Tier-3 spec values render instead of red-boxing (#2943)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:02:56Z",
+  "updated_at": "2026-07-30T10:07:22Z",
+  "closed_at": "2026-07-30T10:07:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:07:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3011",
+  "body": "Closes #2943 (Tier 3 of the #2901 audit — spec values that fail **loudly**; [audit doc](https://github.com/objectstack-ai/objectui/pull/2937)). Follows #2993 (Tier 1) and #3008 (Tier 2).\n\nThis tier renders `SchemaRenderer`'s red `role=\"alert\"` panel naming the missing type and dumping the schema JSON. Cheaper to triage precisely because it cannot hide.\n\n## Dashboard chart dispatch\n\nThree surfaces restated the chart vocabulary independently and disagreed — `DatasetWidget` covered all 19 `ChartTypeSchema` values, `DashboardRenderer` 15, `DashboardGridLayout` 8. A type a surface didn't name fell through to `{ ...widget }`, whose `type` no component registers.\n\nThe sharpest part was already half-done, exactly as the issue observed: `METRIC_LIKE_TYPES` existed with a docstring saying gauge/solid-gauge/kpi/bullet *\"render as a metric card rather than a chart\"* — and was consulted **only to pick a grid span**. The tile was sized correctly and the widget was never routed.\n\nNew `widgetDispatch.ts` is the single classification (series / metric / table / pivot / custom / unsupported / passthrough); both renderers consume it. Net effect:\n\n| | Before | Now |\n|---|---|---|\n| `gauge` / `solid-gauge` / `kpi` / `bullet` | red box (renderer), red box (grid layout) | metric card, object-bound or static |\n| `radar` / `treemap` / `sankey` | drawn (renderer), red box (grid layout) | drawn in both |\n| `heatmap` / `candlestick` / … | placeholder (renderer), red box (grid layout) | labelled placeholder in both |\n| `list` | its own near-duplicate branch | folded into `table`, lighter chrome preserved |\n\n#3008 made this cheaper than filed: `AdvancedChartImpl` already renders single-value families as a number card, so this is routing, not a new renderer.\n\n## The trap: `ai:chat_window`\n\nOffered by the Studio palette **with a config panel** (`block-types.ts`, `block-config.ts`) while `placeholders.tsx` documents a *deliberate* exclusion so it produces a loud unknown-type error. The reasoning was sound; the palette was never told. An author dragged a block Studio advertised and got a red box.\n\nPruned from both palette artifacts per the audit's recommendation — the floating chat overlay (plugin-chatbot) stays canonical.\n\n## The soft gaps turned out to be one defect, not seven\n\nThe audit lists 7 types as \"dashed placeholder, but only in hosts that call `registerPlaceholders()`\". Tracing it: registration is entirely opt-in and **only `apps/console` calls it**, so four blocks the palette *does* offer — `nav:menu`, `nav:breadcrumb`, `global:search`, `ai:suggestion` — red-boxed in every other host purely because that host skipped an optional bootstrap.\n\nThose four now register eagerly through the `./renderers` barrel. The rest of the protocol vocabulary stays opt-in **on purpose**: auto-registering everything would mask genuinely missing renderers, which is the same reasoning that keeps `ai:chat_window` loud. The three shell singletons (`app:launcher`, `global:notifications`, `user:profile`) are not page blocks at all — a page referencing one is a misconfiguration, so the red box is correct and they're recorded as palette exclusions instead.\n\n## The guard is inverted, as the issue asked\n\n`block-config.test.ts` hand-asserted a few palette *exclusions*, which locks drift in — a new spec block type could land and never reach the palette with nothing failing. It now derives coverage from `PageComponentType` (34 values) and asserts:\n\n- every value is offered **or** listed in the new `PALETTE_EXCLUSIONS` with a reason;\n- no value is both offered and excluded;\n- no exclusion names a non-spec type (no stale entries);\n- **a block with a config panel is a block the palette offers** — the seam `ai:chat_window` hid in.\n\nInverting it immediately caught four wrong entries in my own first exclusion list (`page:sidebar`, `record:activity`, `record:chatter`, `record:reference_rail` are genuinely offered), which is the point.\n\n## Verification\n\n- Suites over the 4 touched packages: **3755 tests green** (24 skipped), including 17 new tests across two guards.\n- `pnpm build` 43/43; `tsc --noEmit` clean on all 4; eslint 0 errors on every touched file.\n\nRefs #2901. With this, all three renderer-facing tiers are done. Remaining: #2944 (forks — already in progress elsewhere) and #2945 (vocabularies; Track C still blocked on objectstack#3948).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

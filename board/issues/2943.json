@@ -1,0 +1,32 @@
+{
+  "number": 2943,
+  "kind": "issue",
+  "title": "Tier 3 (#2901): unregistered PageComponentType values, and the ai:chat_window palette trap",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:23:33Z",
+  "updated_at": "2026-07-30T10:07:22Z",
+  "closed_at": "2026-07-30T10:07:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2943",
+  "body": "From the #2901 audit ([doc](https://github.com/objectstack-ai/objectui/pull/2937)).\n\nThis tier fails **loudly** — `SchemaRenderer.tsx:365` renders a red `role=\"alert\"` panel naming the missing type and dumping the schema JSON. That makes it materially cheaper to triage than Tier 1/2: it cannot hide. Filed separately for exactly that reason.\n\n## `PageComponentType` — 24 of 34 registered\n\nDispatch is a flat `Map` with exact-key lookup (`core/src/registry/Registry.ts:288`) — no prefix stripping, so `nav:menu` will never fall back to a registered `navigation-menu`.\n\n**Hard gaps** (no renderer, no placeholder): `ai:chat_window`, `element:filter`, `element:form`.\n\n**Soft gaps** (dashed placeholder, but *only* in hosts that call `registerPlaceholders()` — today just `apps/console/src/main.tsx:166`; every other host of `@object-ui/components` gets the red box): `app:launcher`, `nav:menu`, `nav:breadcrumb`, `global:search`, `global:notifications`, `user:profile`, `ai:suggestion`.\n\n## The trap worth fixing first\n\n`ai:chat_window` is offered by the Studio page palette **with a config panel** — `app-shell/src/views/metadata-admin/previews/block-types.ts:116` (label \"AI chat window\", `Bot` icon) and `block-config.ts:352`. It has no renderer, and `components/src/renderers/placeholders.tsx:97` documents a *deliberate* decision to exclude it so it produces \"a loud Unknown component type\".\n\nThe reasoning is sound in isolation. The palette was never told. **An author drags a block Studio offers and gets a red error box.**\n\nEither prune it from `block-types.ts`/`block-config.ts`, or ship the renderer.\n\n## Dashboard chart dispatch\n\n| Renderer | Missing from `ChartTypeSchema` (19) |\n|---|---|\n| `plugin-dashboard/src/DashboardRenderer.tsx:131` | `gauge`, `solid-gauge`, `kpi`, `bullet` |\n| `plugin-dashboard/src/DashboardGridLayout.tsx:173` | 8 types |\n\nNote `DatasetWidget.tsx:136` covers **19 of 19**, and `DashboardRenderer.tsx:140` already defines `METRIC_LIKE_TYPES = ['gauge','solid-gauge','kpi','bullet']` with a docstring saying they \"render as a metric card rather than a chart\" — then consults it only to pick a grid span. The renderer sizes the tile correctly and never routes the widget. The knowledge is already there; it just isn't wired to dispatch.\n\n## Guard\n\n`block-config.test.ts:26` looks like a coverage gate but asserts palette *exclusions* by hand rather than deriving inclusion from `PageComponentType` — so it locks the drift in instead of detecting it. Invert it.\n\nRefs #2901"
+}

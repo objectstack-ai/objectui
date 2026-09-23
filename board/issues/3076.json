@@ -1,0 +1,34 @@
+{
+  "number": 3076,
+  "kind": "pull_request",
+  "title": "fix(notifications): the spec `icon` is read instead of stored and ignored (#3014 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:39:19Z",
+  "updated_at": "2026-07-30T16:46:08Z",
+  "closed_at": "2026-07-30T16:46:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:46:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3076",
+  "body": "Follow-up to #3071 / #3075. Closes the gap I flagged when wiring the console: `NotificationSchema.icon` — the spec's \"Icon name override\" — reached `NotificationItem` and stopped there. Every surface drew the severity icon, so an author writing `icon: 'rocket'` got the success checkmark. Same shape as the `displayType` collapse #3071 fixed: **a value that validates, is carried, and renders nothing.**\n\n## The fix\n\nAll five presentations resolve `icon` through one rule (`notificationIcon`): a declared Lucide name — kebab-case or PascalCase — replaces the severity icon; anything else falls back to it. That includes the console's sonner toast (`presentNotificationToast`, now `.tsx` so it can build the icon element), so the override behaves identically on a toast, a banner, a snackbar, an alert and an inline message.\n\n**The fallback is the part worth reviewing.** `getLazyIcon` degrades an unknown name to a `Database` glyph — the right default for a data-shaped schema slot, and the wrong one here: on an error notification it swaps a meaningful icon for a meaningless one. So the name is checked *first*, via a new `isLucideIconName` export on `lib/lazy-icon`, and a typo costs the author their override and nothing more.\n\nThe two `react-hooks/static-components` disables follow the repo's existing convention for this rule (`MetricCard`, `MetricWidget`, `NavigationRenderer`): `getLazyIcon` is module-cached per name, so the component identity is stable across renders and the rule is a false positive here. Only the two direct component-body call sites trip it; the banner/inline ones sit inside `.map` callbacks and are not flagged, so they carry no disable rather than an unused one.\n\n## Verification\n\n**In the running console** — a toast declaring `icon: 'rocket'` renders the rocket instead of the green success checkmark, and, side by side, a snackbar declaring `icon: 'not-a-real-icon'` renders the plain info icon rather than a stray database glyph. Both fallback directions proven in one frame; no console errors.\n\n**Suites:** `packages/components` + `packages/app-shell` — **2478 tests, 301 files, all green** (9 new: 4 pinning the resolver contract, 1 DOM smoke on a surface, 4 on the toast mapping). `tsc --noEmit` clean on both; eslint 0 errors on every touched file.\n\nDocs: the [notifications guide](content/docs/guide/notifications.md) gains an `icon` section, plus a line in the `@object-ui/components` README.\n\nRefs #3014, #2942.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

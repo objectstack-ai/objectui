@@ -1,0 +1,34 @@
+{
+  "number": 3084,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack,core): an object filter no longer depends on whether the query expands a lookup",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T01:21:34Z",
+  "updated_at": "2026-07-31T01:28:02Z",
+  "closed_at": "2026-07-31T01:27:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T01:27:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3084",
+  "body": "The last untouched half of the adapter's two `find()` routes. #3072 single-sourced the **array** branch; the object branch still had `convertQueryParams` converting a MongoDB-style filter to AST while `translateFilterToAST` returned it verbatim — so the same `$filter` went out in two formats, decided by whether the query happened to expand a lookup.\n\n## Sizing it before fixing it\n\nI measured all 21 operator shapes through both routes, comparing the **server-side predicate** each ends at. Four diverged — and most of the gap was harmless, which was not obvious beforehand and is worth recording:\n\n| shape | verdict |\n|---|---|\n| `{$and: […]}` (dashboard scope filters, via `mergeFilters`) | **benign** — survives the plain route as `['$and','=',[…]]`, which `parseFilterAST` reads back as a real `$and`. I expected this to be a third bug; it isn't. |\n| `$exists` vs `$null` | **benign** — the plain route inverts to `$null`, the server treats them identically |\n| unknown operator | **real** |\n| `$regex` | **real** |\n\n## The two that mattered\n\n**The unknown-operator guard only ran on one route.** `convertFiltersToAST` throws on an unrecognised operator, with a comment stating it does so *\"to avoid silent failure\"*. The expanded route never called it — so a typo'd operator threw on a plain read and shipped silently whenever a lookup was expanded. The guard was bypassed by exactly the condition it should have been indifferent to.\n\n**`$regex` was silently rewritten to `contains`.** The existing test's own example makes the case better than prose could:\n\n```js\n{ name: { $regex: '^John' } }   // \"starts with John\"\n// became\n['name', 'contains', '^John']   // looks for a literal caret — \"John Smith\" does NOT match\n```\n\nA *different question*, not a weaker version of the same one, and neither result looks wrong on screen. The rewrite sat behind a `console.warn` — not an error channel in a deployed app — and the function's own unknown-operator error message never listed `$regex` among the supported operators, so the code disagreed with itself. The spec has no `$regex` (`FILTER_OPERATORS`, `data/filter.zod.ts`), so there is nothing to translate it into. It is refused now, the same treatment the neighbouring unknown operator already got. Nothing in the repo depended on the conversion.\n\n## Bonus: the refusals stopped blaming the network\n\nBoth now throw `FilterOperatorError` with `code: 'INVALID_FILTER'` / `httpStatus: 400`. The pre-existing unknown-operator throw was a bare `Error`, which `classifyLoadError` classifies as a network fault — so a malformed filter told the user to *check their connection* (#3066). That was latent before this PR.\n\n## A test that asserted the old behaviour\n\n`filter-converter.test.ts` pinned `$regex → contains` including the `console.warn`. Rewritten to assert the refusal, **keeping the `'^John'` example** — it documents the harm better than any comment.\n\n## Verification\n\n9 new/changed tests. **Reverting the two source files fails 9 of them.** Both routes are driven for every case rather than the helper being called directly. Full suite **762 files / 8875 tests green**; `tsc` clean; eslint 0 errors.\n\nRefs #3072, #3081, #3066\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

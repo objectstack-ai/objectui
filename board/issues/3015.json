@@ -1,0 +1,32 @@
+{
+  "number": 3015,
+  "kind": "pull_request",
+  "title": "docs(agents): record the flaky-test discipline learned in #3010",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:27:20Z",
+  "updated_at": "2026-07-30T10:28:33Z",
+  "closed_at": "2026-07-30T10:28:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:28:31Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3015",
+  "body": "Follow-up to #3010, which fixed five load-sensitive flaky tests. They all shared one root cause — **an unbounded module load billed against a bounded window** — and one of them had already been \"fixed\" once by raising its timeout to 15s, and still blew it at **15021ms** under full parallel load:\n\n```js\nbeforeAll(async () => { await import('./index'); }, 15000); // Increase timeout to 15 seconds\n```\n\nThat comment is the whole argument for writing the rule down: without it in AGENTS.md, the next agent hitting a load-sensitive test reaches for the same band-aid, and the race just gets buried deeper.\n\n## What this adds\n\nA `测试纪律` subsection under §9, kept to the terse, actionable style of the surrounding entries:\n\n- **Assert-behind-a-lazy-boundary → import at module scope.** The import phase is subject to no test or hook timeout; the specifier must match the component's exactly, since ESM caches by resolved specifier.\n- **Don't warm in `beforeAll`.** `hookTimeout` (10s) is *narrower* than the `testTimeout` (15s) it replaces — that only moves the problem.\n- **Raising a timeout, or adding a file to `heavyDomTests`, is not a flake fix.** Both hide the race. `heavyDomTests` is for registry `<type> not registered` failures only.\n- **How to read the two tells:** a Suspense fallback still in the failure dump (`Loading report renderer…`), and a failed *file* with **0 failed tests** (the rest skipped) = a hook timeout, not an assertion failure.\n- **The measured numbers**, so the rule doesn't read as superstition: one first-time `import()` took **976ms** under a real full run — 97.6% of RTL's default 1000ms `findBy`/`waitFor` budget, before any render happens.\n- Two adjacent traps worth one line each: a whole-set computation inside a `.filter()` predicate (cost `all-locales-key-parity` 7.51s → 25ms once hoisted), and the **stale-install** trap that makes a wall of local parity failures look like a regression when CI is green.\n\nDocs only — no code, no changeset. Placed in §9 next to Housekeeping, where an agent triaging a red suite will actually scan.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3300,
+  "kind": "pull_request",
+  "title": "fix(plugin-form,types): carry `mobile_fullscreen` on the field metadata, where widgets actually read (#3245)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T13:19:20Z",
+  "updated_at": "2026-08-03T13:38:45Z",
+  "closed_at": "2026-08-03T13:38:43Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T13:38:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3300",
+  "body": "Closes #3245\n\n按 2026-08-03 维护者裁决走 **方案 A**：生产者把 flag 盖到元数据载体上；`mobile_fullscreen` **不进** `@objectstack/spec`，只在 `@object-ui/types` 的 widget 侧字段元数据类型上声明。方案 B（新增宿主 prop 契约）未采纳。\n\n## 前置核对\n\n基线含 #3233（PR #3296，`packages/fields/src/withFieldCarrier.tsx` 已在 `origin/main`）。issue 正文的六步断链在现状下**逐条复核仍然成立**（行号已漂移，以下为现状行号）：\n\n| 步骤 | 现状位置 | 事实 |\n|---|---|---|\n| 1 | `ObjectForm.tsx:567` | 自动生成字段 `type: mapFieldTypeToFormType(field.type)` → `field:textarea` |\n| 2 | `ObjectForm.tsx:584` | 同时 `field: field` 把原始元数据挂到 `.field` 槽 |\n| 3 | `ObjectForm.tsx:1049` | mobile 步骤 `({ ...f, mobile_fullscreen: true } as FormField)` —— 盖在 FormField 自己身上 |\n| 4 | `form.tsx:1826-1837` | `field:textarea` 不在 `BUILTIN_FIELD_TYPES`，走已注册 widget 分支 |\n| 5 | `form.tsx:1372` | 转发 `field: field.field || field` —— 第 2 步让 `.field` 存在，第 3 步的 flag 在这里被丢掉 |\n| 6 | `form.tsx:275-289` | `stripRegisteredFieldProps` 显式剔除 `mobile_fullscreen` prop |\n\n结论未变：**自动生成字段拿不到 flag，手写 `customFields` 拿得到**——而自动生成是绝大多数表单的路径。\n\n## 断链证明（先红后绿）\n\n按裁决指定的顺序，**先补集成用例钉住现状**。用例全链路真实：真 `ObjectForm` → 真 form 渲染器 → 真注册表 → 真 `TextAreaField`，除 dataSource 外无 mock。这个特性此前**零集成覆盖**，两端的单测各自全绿，正是它断了这么久没人发现的原因。\n\n改生产者**之前**（红）：\n\n```\n × ... > reaches the widget for an AUTO-GENERATED long-text field 1043ms\n ✓ ... > still reaches the widget for a HAND-AUTHORED customFields long-text field\n ✓ ... > does NOT render the affordance when the form did not opt in\n Tests  1 failed | 2 passed (3)\n```\n\n改生产者**之后**（绿）：\n\n```\n ✓ ... > reaches the widget for an AUTO-GENERATED long-text field 79ms\n ✓ ... > still reaches the widget for a HAND-AUTHORED customFields long-text field, without displacing its other metadata 14ms\n ✓ ... > does NOT render the affordance when the form did not opt in 28ms\n Tests  3 passed (3)\n```\n\n## 改动\n\n**生产者（`packages/plugin-form/src/ObjectForm.tsx`）** —— flag 盖到「渲染器将要转发为 `field` 的那个对象」上，即用渲染器自己的解析方式 `f.field || f` 解析载体：\n\n```ts\nif (!isTextarea) return f;\nreturn f.field\n  ? { ...f, field: { ...f.field, mobile_fullscreen: true } }\n  : { ...f, mobile_fullscreen: true };\n```\n\n`as FormField` 硬转随之消失（`FormField.field` 本就声明为 `Record< string, any >`，无需强转）。\n\n**类型（`packages/types/src/field-types.ts`）** —— `mobile_fullscreen?: boolean` 声明在 `BaseFieldMetadata` 上，因而落在 `FieldWidgetComponentProps.field` 所解析到的整个 `FieldMetadata` 联合上。注释写明：它是表单级 `ObjectFormSchema.mobile.fullscreenLongText` 向字段元数据的**投影**，生产者唯一（`ObjectForm`），消费者唯一（`TextAreaField` 读 `field`，#3233 之后没有第二个载体），**不是可书写元数据、不进 `@objectstack/spec`**。\n\n声明在 base 而非单个 `TextareaFieldMetadata` 成员上，是因为 `TextAreaField` 拿到的是**未收窄的联合**——声明在单个成员上会让那次读取变成编译错误，把下一个作者直接推回 `as any`，也就是这个 issue 要消灭的东西。\n\n## 为什么保留「无 `.field` 时盖在 FormField 上」这一支\n\n不是防御性冗余，而是被测试逼出来的。无条件写成 `{ ...f, field: { ...f.field, flag } }` 时，**手写 `customFields` 的对照用例照样绿**——因为它从 `undefined` 凭空造出一个只含 flag 的元数据对象，flag 确实到达了 widget。但渲染器随后会把这个 stub 当作 `field` 转发，而 `TextAreaField` 的 `rows` / `placeholder` 是**从元数据读的、不是从 props 读的**，于是它们静默退回默认值。\n\n所以对照用例被加强为同时断言 `rows=\"9\"` 与 `placeholder`，这条捷径才会失败而不是通过。\n\n## Sabotage 验证（每条新断言逐一验证）\n\n| # | 破坏 | 结果 |\n|---|---|---|\n| S1 | 还原为改前写法（只盖 FormField） | 仅「AUTO-GENERATED」红 ✅ |\n| S2 | 去掉无 `.field` 分支（无条件盖元数据） | 仅「HAND-AUTHORED customFields」红 ✅ |\n| S3 | 忽略 `mobile.fullscreenLongText` 开关 | 仅「did NOT render」红 ✅ |\n| S4 | 删掉 `BaseFieldMetadata` 上的声明 | `tsc -p tsconfig.test.json` 报 6 处 TS2339/TS2353 ✅ |\n\nS2 是加强对照用例前**没能**红的那一条——先失败、再据此补强断言。\n\n## 验证\n\n```\npnpm exec vitest run packages/plugin-form packages/types packages/fields --maxWorkers=2\n  Test Files  101 passed (101)\n       Tests  1225 passed (1225)\n\nturbo run type-check --filter @object-ui/types --filter @object-ui/plugin-form \\\n                     --filter @object-ui/fields --filter @object-ui/components\n  Tasks: 15 successful, 15 total\n\nturbo run lint --filter @object-ui/types --filter @object-ui/plugin-form\n  0 errors（类型断言的 unused-var warning 与既有 page-node-type-contract.test.ts 完全同形）\n\nnode scripts/check-changeset-no-major.mjs\n  ✅ No changeset declares a `major` bump.\n```\n\nchangeset：`minor`（additive 类型声明 + 行为修复），正文写明「flag 的唯一合法载体是字段元数据，生产者是 ObjectForm」。\n\n## 范围\n\n只改 `packages/plugin-form` + `packages/types` + 测试。**未触碰** `packages/components` / `packages/fields` 源码（#3233 收敛态是只读依赖，#3290 正在并行改 `form.tsx`），spec 零改动，`content/docs/releases/` 未碰。\n\n顺带发现的相邻缺陷已另开 unassigned issue，不在本 PR 修。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

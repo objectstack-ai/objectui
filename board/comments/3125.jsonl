@@ -1,0 +1,1 @@
+{"id":5144515466,"author":{"login":"baozhoutao","id":6194462,"type":"User"},"created_at":"2026-07-31T15:20:44Z","updated_at":"2026-07-31T15:20:44Z","html_url":"https://github.com/objectstack-ai/objectui/issues/3125#issuecomment-5144515466","body":"报告方复核:项目侧(os-project-titanwind-ehr#610)升级平台版本后实测,新建记录弹窗内 lookup 下拉搜索框已可正常聚焦输入、候选过滤正常,「浏览全部记录」弹窗搜索同样恢复。缺陷已不复现,关闭本 issue 留档。"}

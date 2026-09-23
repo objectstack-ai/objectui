@@ -1,0 +1,32 @@
+{
+  "number": 3144,
+  "kind": "issue",
+  "title": "`list-view` / `embeddable-form` 在 SDUI 注册表路径上拿不到 dataSource——声明为 required 的 objectName 是死的（objectstack#4413 同形）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T10:13:42Z",
+  "updated_at": "2026-08-01T11:08:42Z",
+  "closed_at": "2026-08-01T11:08:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3144",
+  "body": "发现自 objectstack#4472 的检测手段设计（方向 (b)）。新增的 `apps/console/src/__tests__/public-block-binding-reach.test.tsx` 把每个声明了 `objectName` 输入的 public block 挂载在裸 `SchemaRendererProvider` 下（`dataSource` 是一个记录所有调用的 Proxy），断言\"至少有一次数据调用带上了这个 objectName\"。八个候选里五个通过，三个没有——其中两个是真缺陷。\n\n## 缺陷\n\n`SchemaRenderer` **从不**把 `dataSource` 注入组件 props（`packages/react/src/SchemaRenderer.tsx:455` 的 `createElement` 里没有它）。它只放在 `SchemaRendererContext` 里。所以任何从 `props.dataSource` 读取的组件，都需要注册处包一层把 context 桥接到 prop 上。\n\n做了桥接的：\n\n- `object-form` → `ObjectFormRenderer`：`const dataSource = ctx?.dataSource; return <ObjectForm schema={schema} dataSource={dataSource} />`\n- `object-kanban` / `object-calendar` → 同样的小 wrapper（`plugin-kanban/src/index.tsx:346`、`plugin-calendar/src/index.tsx:29`）\n\n没做的：\n\n| block | 注册 | 后果 |\n|---|---|---|\n| `list-view` | `ComponentRegistry.register('list-view', ListView, …)` —— 裸注册，而 `ListView.tsx:585` 是 `const dataSource = props.dataSource` | `getObjectSchema` 的那个 effect 直接 return，永远不取数，渲染出 `data-testid=\"empty-state\"` 的\"Nothing here\" |\n| `embeddable-form` | `EmbeddableFormRenderer = ({ schema }) => <EmbeddableForm config={schema} />` —— 把 context 丢了，而 `EmbeddableForm.tsx:198` 收 `dataSource` prop，且自己注释写着\"ObjectForm needs `dataSource.getObjectSchema()` to render the inputs\" | 同上，渲染空壳 |\n\n两者的 registry `inputs` 都把 `objectName` 标为 **`required: true`**。也就是说：协议要求作者必须填的绑定，在这条路径上没有任何东西读得到——**objectstack#4413 的同一形状**，只不过那次断在渲染器不读 props，这次断在 props 压根没送到。\n\n## 复现\n\n```\ncd apps/console && pnpm exec vitest run src/__tests__/public-block-binding-reach.test.tsx\n```\n\n把 `list-view` / `embeddable-form` 从该文件的 `NO_DATA_REACH` 台账里删掉，两条立刻变红，失败信息里 `Calls observed: (none)`。\n\n## 为什么现在没人报\n\nconsole 里 list-view 走的是 `ObjectView` 的 `renderListView` render-prop，由宿主自己把 `dataSource` 递进去。所以**应用内是好的，注册表/SDUI 路径是坏的**——而注册表路径正是 manifest 声明的那份契约、`kind:'react'` 页面走的那条路。\n\n## 处理建议（未做，故单开）\n\n最小修法是给这两个注册补上和 `object-form` 一样的 wrapper。没有在 objectstack#4472 的 PR 里顺手改，是因为给它们接上数据源会改变它们在所有裸挂载处的渲染结果，这个 blast radius 值得单独 review。修好之后，`NO_DATA_REACH` 里对应两条会被上面那个测试**强制**删掉——台账写的是\"欠债\"，不是\"接受\"。\n\n第三个未达标的 `record:related_list` 不是缺陷：它要先从 RecordContext 拿到父记录 id 才允许取数，否则会列出整张子表；@objectstack/spec `react-blocks.ts` 的 #4413 台账已写明。它在测试里同样以台账形式带理由记录。"
+}

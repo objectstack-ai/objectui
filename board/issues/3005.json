@@ -1,0 +1,33 @@
+{
+  "number": 3005,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): swapping recordId no longer leaves the previous record on screen",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T09:10:32Z",
+  "updated_at": "2026-07-30T09:17:17Z",
+  "closed_at": "2026-07-30T09:17:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T09:17:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3005",
+  "body": "Follow-up to [#2991](https://github.com/objectstack-ai/objectui/pull/2991), which had to *defend against* this path. It turned out to be a defect of its own.\n\n## The bug\n\n`loading` in ModalForm / DrawerForm / TabbedForm / SplitForm is only ever set `true` once — by `useState(true)` — and thereafter only ever set `false`. A `recordId` change re-enters the fetch effect **without** going back through the loading branch, so:\n\n- the form stays mounted showing, **and accepting edits to**, record A's values;\n- nothing indicates a different record was asked for;\n- when B lands it replaces them in place.\n\nAnything typed in that window read as A's on screen but would have been submitted against B.\n\nReading the same effect closely surfaced a second defect: **no staleness guard**, so two overlapping reads land in *completion* order rather than request order. Ask for B then C, and a slow B arriving last leaves the form showing B while the caller asked for C.\n\nBoth are the same thing from the user's side — the form displays a record nobody asked for — so both are fixed here.\n\n`ObjectForm` already re-enters loading before its fetch ([ObjectForm.tsx:460](packages/plugin-form/src/ObjectForm.tsx:460)), which is why this only ever reproduced on the four sectioned variants.\n\n## The fix\n\n- **Re-enter the loading state** on a change of record, so the previous record is off screen while the next is in flight. Gated on the record *actually* changing — the effect also re-runs on `initialData`/`initialValues` identity churn (callers rebuild those objects every render), and flashing the loading state for that would thrash.\n- **Mark the read stale in the effect's cleanup**, so a response that is no longer awaited is dropped instead of overwriting a newer record.\n\n### Also fixed — a consequence of the above\n\nHiding the form **unmounts** the inner renderer, and that renderer is the only thing that reports dirtiness via `onDirtyChange`; it gets no chance to report `false` on the way out. Without clearing the flag, the overlay's unsaved-input guards from [#2998](https://github.com/objectstack-ai/objectui/pull/2998) would stay armed for input belonging to a record no longer on screen — a plain refresh would prompt, and closing would offer to discard nothing.\n\nI caught this only because #2998 landed hours earlier; it is exactly the kind of interaction a \"just add setLoading(true)\" change would have shipped silently.\n\n## Verification\n\n- New [recordSwapLoading.test.tsx](packages/plugin-form/src/recordSwapLoading.test.tsx) drives each of the four containers through a real swap with a `findOne` the test resolves **by record id**, so both the stale-record and the out-of-order cases are deterministic rather than timing-dependent. Against the previous code all 11 fail — the two core assertions read `expected 'Record One' not to be 'Record One'` and `expected 'Record Two' to be 'Record Three'`.\n- The dirty-flag guard is **mutation-verified**: dropping only that one line fails its two tests with `expected true to be false`.\n- `npx vitest run packages/plugin-form/ packages/components/ packages/app-shell/` → **315 files / 2627 tests pass**.\n- `@object-ui/plugin-form` type-check clean; lint 0 errors (the 2 unused-disable warnings are pre-existing, in EmbeddableForm/MasterDetailForm).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

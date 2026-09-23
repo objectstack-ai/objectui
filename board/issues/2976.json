@@ -1,0 +1,34 @@
+{
+  "number": 2976,
+  "kind": "pull_request",
+  "title": "fix(sdui): lazy public blocks reach a kind:'react' page scope; ReactRunner keeps its errors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T03:04:26Z",
+  "updated_at": "2026-07-30T04:46:25Z",
+  "closed_at": "2026-07-30T04:46:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T04:46:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2976",
+  "body": "Fixes #2953, fixes #2954.\n\nTwo defects in the trusted `kind:'react'` page tier. They're coupled — the second fix only works because of the first — so they land together.\n\n## #2953 — the public contract skipped lazily-registered blocks\n\n`getPublicConfigs()` resolved every curated `PUBLIC_BLOCKS` tag through `getConfig()`, which reads the eager `components` map and never consults `lazyEntries`. So a block registered via `registerLazy()` was absent from the contract until its plugin chunk happened to be imported.\n\nIn `apps/console` that silently dropped six `PUBLIC_BLOCKS` tags from every react page's scope — `object-kanban`, `object-calendar`, `object-gantt`, `object-timeline`, `object-map`, `markdown`. Writing `<ObjectKanban/>` threw `ReferenceError` even though the tag is a first-class contract member, and *whether* it threw depended on load order, so the same page could work in one session and fail in another.\n\nTook direction 2 from the issue (fix the contract surface, not just `buildComponentScope`), since the same skew reaches every consumer of the public tier:\n\n- New private `Registry.getContractConfig(tag)` — the loaded registration when there is one, otherwise the pending `registerLazy` stub's metadata. It mirrors `registerLazy`'s key derivation so the canonical `type` used for dedupe matches what `register()` will store once the loader runs (and doesn't double-prefix a namespace onto an already colon-shaped curated tag like `record:details`).\n- `getPublicConfigs()` now returns `PublicComponentConfig[]`: same shape as before, but a not-yet-loaded entry comes back with `lazy: true` and no `component`. The lazy `tier:'public'` opt-in is honoured too, mirroring the eager one.\n- `getConfig()` is left alone — callers read `.component` off it, and a stub has no renderer. Its doc now states that split explicitly and points at `hasLazy`/`loadLazy`.\n\n`react-page.tsx` needed no logic change: the injected wrapper already defers to `SchemaRenderer`, which fires the loader, renders the `Loading <tag>…` placeholder, and re-renders on the registry's notify.\n\n## #2954 — ReactRunner discarded the errors it caught\n\n`getDerivedStateFromProps` re-transpiled and re-evaluated the page source on **every** render and unconditionally set `error: null`. React runs it before the re-render that follows `getDerivedStateFromError`, so the boundary threw away the error it had just caught, rebuilt an identical throwing element, and the throw escaped past its own `fallback`.\n\nThe transpile+eval is now memoised on `(code, scope)` — unchanged inputs return `null` and keep the existing state. One change, three fixes:\n\n1. **`fallback` is reachable again.** `ReactKindPage`'s styled \"React page error\" panel was dead code for render-phase errors; authors saw `SchemaRenderer`'s generic `Component \"home\" failed to render` instead.\n2. **`onError` fires correctly.** It was gated on an `error` the next `getDerivedStateFromProps` had already cleared. Now it reports on the transition (once per error, not once per render), and `componentDidMount` covers compile-time errors — which previously never reported at all, since `componentDidUpdate` doesn't run for the first render.\n3. **No more remount.** Every eval mints a fresh `Page` function — a new element *type* — so recompiling per render remounted the page subtree and wiped its `useState`. That was the latent hazard flagged in the issue; memoising removes it.\n\nErrors are no longer sticky: new `code`/`scope` recompiles and clears them.\n\n## Why the two are coupled\n\nThe #2953 fix means the scope is complete at build time, so it never has to be rebuilt — which is exactly why `ReactKindPage` deliberately does **not** subscribe to `ComponentRegistry` changes the way `SchemaRenderer` does. If it did, a lazy plugin finishing registration would notify, rebuild the scope, change its identity, and (via #2954's memo key) remount every interactive react page on screen. Both call sites now carry that reasoning in comments.\n\n## Tests\n\n- **`packages/react-runtime`** had no tests at all. Adds 12 covering the boundary, recovery, `onError`, compile memoisation and mount stability. **6 of them fail against the old runner** (verified by reverting the fix and re-running).\n- **`packages/core`** — 6 new lazy-contract cases: stub included, load-order independence (same entry before and after the load), dual-key dedupe, colon-shaped tag, lazy `tier:'public'` opt-in, and `getConfig()` staying loaded-only.\n- **`packages/components`** — an end-to-end lazy block through the real scope builder + `SchemaRenderer` (**fails against the old registry**), and the negative control now pins the \"React page error\" panel directly instead of routing around the #2954 quirk it had to document.\n\n## Verification\n\n- Full suite: `692 files passed | 1 skipped`, `8138 tests passed | 24 skipped`.\n- `turbo run type-check` across the repo and for `@object-ui/console`: clean.\n- `lint` on `core` / `react-runtime` / `components`: 0 errors.\n- `changeset:check`: clean. Changeset included (`@object-ui/core`, `@object-ui/react-runtime`, `@object-ui/components` — patch).\n\nNo manifest impact: both generators (`apps/console/dev/manifest-dump.tsx`, `packages/sdui-parser/scripts/gen-manifest.ts`) import every plugin eagerly, so no lazy stubs exist at generation time. Were one to slip in, `validateTree` would downgrade a hard `unknown-component` error to an `unknown-prop` warning for a block that genuinely *is* in the contract — the correct direction, and never stricter than before.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp)_"
+}

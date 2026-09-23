@@ -1,0 +1,36 @@
+{
+  "number": 3266,
+  "kind": "issue",
+  "title": "console preview-samples: 除 tool 外还有 11 个样例过不了对应的 spec schema(其中 4 个同样带已退役的键)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:05:25Z",
+  "updated_at": "2026-08-03T10:05:24Z",
+  "closed_at": "2026-08-03T10:05:24Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3266",
+  "body": "在做 objectui#3257(清 `tool` 样例的三个已退役键)时,按派发要求逐个核对了 `apps/console/src/preview-samples.ts` 里**全部 20 个样例**。结论:`tool` 远不是唯一一个,**11 个样例当前过不了 spec 的 `.parse()`**,其中 4 个带的是和 #3257 完全同型的**已退役键**。\n\n#3257 已落地一条机器守卫(`apps/console/src/__tests__/preview-samples-spec-valid.test.ts`),把每个样例塞进整个 stack 交给 `ObjectStackSchema.safeParse()` 校验。本单列的 11 个当时**没有**一并修,而是进了该测试里的 `KNOWN_STALE` 台账 —— 台账带**反向断言**(某个样例一旦开始通过就报红,要求把它提升到 `SPEC_CLEAN`),所以这个列表只会缩短,不会烂掉。本单就是把它清空。\n\n## 核对结论(spec 17.0.0-rc.1,本仓 lockfile 里装着的版本)\n\n校验方式:`ObjectStackSchema.safeParse({ tools: [SAMPLES.tool] })` 之类,即「作者把这份样例发布进真实 stack 会怎样」。\n\n### ✅ 合法(6,已被守卫钉住)\n`view`、`job`、`tool`(#3257 修完后)、`permission`、`position`、`email_template`\n\n### ❌ 过不了(11,本单范围)\n\n| 样例 | 问题 | 是否含已退役键 |\n|---|---|---|\n| `action` | `bulkEnabled` 已退役;`type: 'server'` / `variant: 'default'` / `locations: ['record','list']` 都不在 17 的枚举里 | ✅ objectstack#3896 |\n| `agent` | `tools` 已退役(改用 `skills`)、`knowledge` 已退役 | ✅ objectstack#3894 / #3896 |\n| `skill` | `triggerPhrases` 已退役;`triggerConditions` 需要 field/operator/value | ✅ objectstack#3896 |\n| `flow` | `waitEventConfig.onTimeout` 已退役;`type: 'scheduled'` 不在枚举;`variables[].description` 不认;13 条 edge 都缺 `id` | ✅ objectstack#4158 |\n| `object` | `fields` 是数组,`ObjectSchema` 要 record(见下方注意) | — |\n| `page` | region 里的 component 带 `props`,`PageComponentSchema` 拒收(ADR-0089 D3a) | — |\n| `report` | `columns` 是对象数组,`ReportSchema` 要列名字符串 | — |\n| `dashboard` | widget 缺 `dataset`/`values`,带不认的 `value`/`format`;`chart` 不是合法 widget type | — |\n| `app` | navigation 各项缺 `type` 判别键;`landing` 已被 objectstack#4001 移除 | — |\n| `datasource` | `type`/`isDefault` 拒收;`ssl` 要对象不要布尔;`capabilities` 要对象;`healthCheck.interval` → `intervalMs` | — |\n| `validation` | `events` 用的是 17 之前的 `beforeInsert`/`beforeUpdate`,枚举现在是 `insert`/`update` | — |\n\n### ⚪ spec 里没有对应 schema(2,守卫豁免)\n`workflow`(没有 `workflows` 集合,也没有 WorkflowSchema)、`approval`(只有 `ApprovalNodeConfigSchema`,那是 flow 节点配置,不是审批流程元数据)\n\n### ⚠️ 映射本身存疑(1)\n`translation`:`ObjectStackSchema.translations` 是 `Array< Record< locale, TranslationData > >`,而 console 这份样例是 `{ name, label, locale, language, description, data }` 的**元数据记录**形态。也就是说这里更可能是**映射选错了**,而不是样例过期。修之前需要先定这个样例到底对应哪个契约。\n\n## 为什么没在 #3257 里一起修\n\n不是懒 —— 其中几项**不是机械替换**,动之前需要判断:\n\n1. **`object.fields` 的数组形态是被 app-shell 有意支持的**,不是笔误。`packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` 的 `readFields()` 显式分支 `shape: 'array' | 'record'` 并原样保留。把样例改成 record 会让画廊**不再覆盖 array 那条分支**。真正的问题其实更深:设计器编辑的是一个 spec 会拒收的形态(AGENTS.md #0.1 的典型场景),该先裁决 `readFields` 的双形态要不要留,而不是先改样例。\n2. **改 `dashboard` / `app` / `flow` 样例会改变画廊渲染出来的东西**,而预览画廊是本仓共用的浏览器验证台(`verify` skill),并行 agent 正拿它验证别的改动。\n3. #3257 的 scope fence 是「`tool` 样例 + 审计 + 守卫」,PD#3 要求越界发现另立单。\n\n## 建议做法\n\n- 4 个带退役键的(`action`/`agent`/`skill`/`flow`)可以**先删键**,和 #3257 同一性质、同一裁决依据,风险最低;`agent` 只有这两个问题,删完即可提升进 `SPEC_CLEAN`。\n- `report` / `validation` / `datasource` / `app` 基本是机械改写。\n- `object` / `page` / `dashboard` / `translation` 建议单独裁决后再动。\n- 每修好一个,把它从测试里的 `KNOWN_STALE` 移进 `SPEC_CLEAN` —— 反向断言会强制你这么做(样例一开始通过,那条「仍然如实失败」的用例就会报红)。\n\n## 附带观察(spec 侧,不在本仓)\n\n守卫的强度取决于 spec 的严格度:`tools`/`apps`/`flows`/`permissions`/`positions`/`datasources` 的元素 schema 是 `.strict()`,而 `views`/`jobs`/`emailTemplates` **不是** —— 后者会把未知键悄悄剥掉而不是报错。也就是说这三类样例即便哪天混进一个已退役的键,守卫也照样绿。这是 spec 仓的事(objectstack#4001 / #3896 同一条线),记在这里备查。\n\n## 相关\n\n- objectui#3257(本单的来源;`tool` 样例 + 守卫)\n- objectui#3236 / PR #3258(`ToolPreview` 不再渲染这三个徽标)\n- objectstack#3896、objectstack#3894、objectstack#3715 / ADR-0033 §2、objectstack#4158、objectstack#4001(各键的退役裁决)"
+}

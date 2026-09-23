@@ -1,0 +1,30 @@
+{
+  "number": 3131,
+  "kind": "issue",
+  "title": "fix(i18n): apply object _views translations to view tabs and breadcrumbs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T01:28:44Z",
+  "updated_at": "2026-08-01T01:47:42Z",
+  "closed_at": "2026-08-01T01:47:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3131",
+  "body": "## Reproduction\n\n1. Start HotCRM with `pnpm exec objectstack dev --ui --fresh -p 4057`.\n2. Sign in and open a Chinese interface, for example `/crm_opportunity/view/pipeline_kanban`.\n3. The i18n endpoint `/api/v1/i18n/translations/zh` returns `crm_opportunity._views.pipeline_kanban.label: 销售流水线` (and the new `stale_opportunities` translation).\n4. The console still renders `Sales Pipeline` and `⚠️ Stale Opportunities · Longest in Stage First` in the tab bar, more-views menu, and current-view breadcrumb.\n\n## Expected\n\nAll list-view presentation surfaces resolve `objects.{objectName}._views.{viewName}.label` for the active locale, with the metadata label only as fallback.\n\n## Notes\n\n- Object labels, navigation, fields, and much of the surrounding Chinese UI are translated successfully.\n- The issue reproduces for pre-existing translations as well as new entries, so it is not a HotCRM translation-data gap.\n- HotCRM metadata has been verified to return the expected translation payload."
+}

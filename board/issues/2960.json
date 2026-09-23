@@ -1,0 +1,32 @@
+{
+  "number": 2960,
+  "kind": "issue",
+  "title": "[console 17.0.0-rc.0 @4a4829d0] Legacy string rowActions dead-end: dispatched as {type:<name>}, falls into executeActionSchema no-op with a green success toast",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T08:36:26Z",
+  "updated_at": "2026-07-30T08:26:26Z",
+  "closed_at": "2026-07-30T08:26:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2960",
+  "body": "Found upgrading HotCRM to ObjectStack 17.0.0-rc.0 (console pinned at `4a4829d0`).\n\n## Symptom\nA list view declaring legacy string row actions (`rowActions: ['convert_lead']`) renders a menu item that, when clicked, performs **zero network requests** and reports success. Because object-level actions with `locations:['list_item']` also inject their own (working) item, the menu shows a working and a dead duplicate of the same action side by side.\n\n## Root cause\n- `packages/plugin-grid/src/ObjectGrid.tsx:1500-1506`: the legacy string path dispatches `{ type: <action name>, params: { record } }` — the action *name* lands in the `type` slot, never resolved against the object's action defs.\n- `packages/core/src/actions/ActionRunner.ts:438` + `:542-553`: unrecognized type falls to the default branch → `executeActionSchema()` (`:887-908`), which without `api`/`endpoint`/`navigate`/`onClick` returns `{success:true, reload:true, close:true}` — no fetch, then `handlePostExecution` (`:625-644`) fires a green \"Action completed successfully\" toast.\n\n## Suggested fix\nResolve string row actions against `objectDef.actions` by name (then dispatch the resolved def), and make `executeActionSchema`'s empty-schema fallthrough a loud error instead of a silent success."
+}

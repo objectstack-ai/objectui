@@ -1,0 +1,32 @@
+{
+  "number": 2978,
+  "kind": "pull_request",
+  "title": "docs(audit): the devDep count is 6, not 5",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T04:47:43Z",
+  "updated_at": "2026-07-30T04:48:18Z",
+  "closed_at": "2026-07-30T04:48:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T04:48:16Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2978",
+  "body": "My error in #2975. The addendum table said \"**5**, not 6\" and then listed **six** package names.\n\nSix is correct, verified against main: `plugin-list` and `data-objectstack` gained the devDependency in #2974, but the body's original count of 6 came from a 13-package \"needs a guard\" list that omitted `fields` — which also lacks it. So removing two and adding one leaves six.\n\n```\nplugin-charts      MISSING\nplugin-dashboard   MISSING\nplugin-report      MISSING\ncomponents         MISSING\nmobile             MISSING\nfields             MISSING\nplugin-list        HAS   (#2974)\ndata-objectstack   HAS   (#2974)\n```\n\nThe number scopes the parity-guard prerequisite in #2941/#2942, so a wrong one misplans that work.\n\nDocs-only, one line.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3109,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): a string `$orderby` reaches the server as a sort, not a list of character indices (#3106)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T08:54:16Z",
+  "updated_at": "2026-07-31T09:37:26Z",
+  "closed_at": "2026-07-31T09:37:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T09:37:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3109",
+  "body": "## What\n\n`QueryParams['$orderby']` declares four shapes — `string`, `string[]`, `SortNode[]`, `Record<field, direction>`. Both `find()` routes carried their **own copy** of the fold that serializes it, and both copies handled the same three of them.\n\nThe bare string fell through to the `Record` branch, where `Object.entries('name asc')` enumerates the string's *character indices*:\n\n```\nGET /api/v1/data/account?sort=0,1,2,3,4,5,6,7\n```\n\n(That URL is copied from a test run against the pre-fix code, not constructed by hand.)\n\n## Why it matters\n\nSince objectstack#4226 the server **refuses** a sort it cannot read (`400 INVALID_SORT`) rather than dropping it silently. So this was never a degraded ordering — it was a list that failed to load outright.\n\n`` `${field} ${order}` `` is exactly what `ObjectGrid` builds from its view metadata's `sort` ([ObjectGrid.tsx:536-547](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-grid/src/ObjectGrid.tsx#L536-L547)), so **every standalone `ObjectGrid` with a configured sort was broken**. The ListView path sends the array form and was unaffected, which is why this survived: the two callers disagreed about the shape and only one of them was ever exercised.\n\n## How\n\nOne exported `serializeOrderBy` now backs both routes — the same consolidation the filter path already has, and for the same reason ([#3713](https://github.com/objectstack-ai/objectui/issues/3713)'s \"two readers of one contract\"): two copies of a fold can only agree by inspection, and these two did not.\n\n## Tests\n\n`orderby-serialization.test.ts` runs **every declared shape down both routes** and asserts they agree — 27 cases. Verified they fail against the pre-fix code (that is where the `sort=0,1,2…` above comes from).\n\nNet typecheck effect is negative-error: the two `TS7006` implicit-`any` errors in the deleted folds are gone.\n\n## Scope\n\nFound while scoping #3106 (column-header sort under server pagination). Independent of that fix and landing first — it is broken on `main` today, with or without #3106.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

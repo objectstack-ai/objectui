@@ -1,0 +1,30 @@
+{
+  "number": 2942,
+  "kind": "issue",
+  "title": "Tier 2 (#2901): spec values that validate and then render nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:23:07Z",
+  "updated_at": "2026-07-30T09:30:10Z",
+  "closed_at": "2026-07-30T09:30:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2942",
+  "body": "From the #2901 audit ([doc](https://github.com/objectstack-ai/objectui/pull/2937)). This is the #2897 shape — validates at authoring time, renders nothing, no test fails and no warning fires.\n\n| Finding | Location | What happens |\n|---|---|---|\n| **`element: 'toggle'` removes the entire filter bar** | `plugin-list/src/UserFilters.tsx:162` | `default: return null`. See below — this one is worse than a gap. |\n| 7 chart types draw an **empty plot** | `plugin-charts/src/AdvancedChartImpl.tsx:343` | Grid, axes, tooltip and legend all render; every series mark hits `return null`. Indistinguishable from an empty dataset. Reachable because `ChartRenderer.tsx:135` reads `schema.chartType ?? spec.chartType`, bypassing `normalizeChartSchema`'s `RENDERABLE` gate. |\n| 6 of 9 animation presets do nothing | `react/src/hooks/useAnimation.ts:64` | `PRESET_CLASSES` is keyed in **hyphens** (`'slide-up'`), the spec enum in **underscores** (`slide_up`); `rotate`/`flip` absent entirely. Lookup misses → `''` → no animation. |\n| 3 of 6 easings emit **invalid CSS** | `react/src/hooks/useAnimation.ts:112` | Same split, but `EASING_MAP[easing] \\|\\| easing` falls through to the raw string: `animationTimingFunction: 'ease_in_out'`. Browser drops it; devtools shows the attribute populated. |\n| `mode: 'auto'` breaks theming | `app-shell/src/chrome/ThemeProvider.tsx:38`, `providers/src/ThemeProvider.tsx:33` | Both branch on `\"system\"`; the spec says `auto`. `root.classList.add('auto')` matches no Tailwind variant → light theme, OS preference no longer followed, no error. |\n| Export **PDF** downloads nothing | `plugin-grid/src/ObjectGrid.tsx:1258`, `plugin-list/src/ListView.tsx:1611` | Excluded from `serverEligible`, absent from the client fallback. Popover closes, no file. `xlsx` behaves the same whenever the server path is unavailable. |\n| Timeline `scale` blanks the axis | `plugin-timeline/src/renderer.tsx:270` | `hour`/`quarter`/`year` produce zero header columns. All six are ignored entirely on the default `vertical` variant. |\n| All 6 toast positions discarded | `components/src/renderers/feedback/toaster.tsx:15` | `<SonnerToaster />` with no props, `inputs: []`. |\n| All 5 notification types collapse to toast | `react/src/context/NotificationContext.tsx:155` | `displayType` is stored on the item and never read. |\n| `navigation.size` ignored off app-shell | `react/src/hooks/useNavigationOverlay.ts:27` | Hook declares `width`, no `size`. Every non-app-shell host silently uses the default width. |\n| `date-range` / `text` filters are dead controls | `plugin-list/src/UserFilters.tsx:456` | Chip renders; popover shows the literal \"No options\". |\n| 4 gesture types become **tap** | `mobile/src/useSpecGesture.ts:49` | Hook never reads `config.type`; branches on sub-object presence. `pan`/`drag`/`rotate`/`double_tap` match nothing and keep the `'tap'` initializer. |\n| Report `aggregate: 'unique'` → blank cell | `plugin-report/src/ReportViewer.tsx:102` | `default: return ''`. Textbook #2897. |\n| 9 field types get a **plain text input** inline | `fields/src/FieldEditWidget.tsx:54` | `json`, `composite`, `record`, `repeater`, `tree`, `video`, `audio`, `autonumber` — in neither `EDIT_WIDGETS` nor `INLINE_EXCLUDED_FIELD_TYPES`. (`secret` fixed in #2940.) Editing a structured value through a text box is a corruption path. |\n| 5 accepted filter operators never offered | `components/src/custom/filter-builder.tsx:58` | `$startsWith`, `$endsWith`, `$notContains`, `$null`, `$exists` are unreachable from the UI. |\n\n### The one that is worse than a gap\n\n`ui/view.zod.ts:315` says of `toggle`: *\"Kept in the enum so existing configs keep rendering; do not author new `toggle` filters.\"* The renderer returns `null` — the whole filter bar vanishes. The component's own docstring at `UserFilters.tsx:122` advertises *\"**toggle**: on/off toggle buttons per field\"*.\n\nThree artifacts describe one value; the only one that executes is the one that says nothing. Either the spec's compatibility promise is false and should be withdrawn, or `toggle` needs a branch. This is a decision, not a patch.\n\n### Cheap wins\n\n`useAnimation.ts` is a pure key-spelling fix — `usePageTransition.ts` in the same directory already uses the correct underscore vocabulary with all nine presets. Copy it.\n\nRefs #2901"
+}

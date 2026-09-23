@@ -1,0 +1,36 @@
+{
+  "number": 3026,
+  "kind": "pull_request",
+  "title": "feat(eslint): ban dynamic imports in test hooks, and convert the last 33 sites",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:26:52Z",
+  "updated_at": "2026-07-30T11:32:41Z",
+  "closed_at": "2026-07-30T11:32:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:32:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3026",
+  "body": "The prose rule added in #3015 did not hold on its own — and there is hard evidence for that. Sweeping for `beforeAll(async () => { await import(…) })` found **37 files, and every single one already carried a raised timeout**, on an escalating ladder:\n\n| Raised to | Files |\n|---|---|\n| 15s | 2 |\n| 30s | 33 |\n| 60s | 2 |\n\nOne of them even left the escalation as advice — `// Increase timeout to 30 seconds for heavy renderer imports` — and `plugin-kanban` blew its raised 15s anyway at **15021ms** (#3010). A convention that gets re-broken 37 times is a lint rule, not a paragraph.\n\n## The rule\n\n`object-ui/no-dynamic-import-in-test-hook` (**error**, scoped to test files). A module loaded inside `beforeAll`/`beforeEach` bills its cold Vite transform to `hookTimeout`, so the test passes or fails on machine load rather than on the code it covers. At module scope the same cost lands in the import phase, which no test or hook timeout applies to.\n\nThe message names the exact fix rather than just complaining:\n\n> Do not load a module inside 'beforeAll' — … Import it at module scope instead (`import './x';`) … **Raising the timeout is not the fix**: every one of the 36 files found this way already had a raised timeout, escalating 15s -> 30s -> 60s …\n\n### Kept narrow — two exemptions, both pinned in the RuleTester\n\nBoth are legitimate, and both are real code in this repo, so neither is left to judgement:\n\n- **A lazy factory** — `registerLazy('x', () => import('./x'))`. The hook installs a loader; it never runs the import. The hook frame resets inside a nested function, so this never reports. Without this the rule would flag the console's own plugin registration and be unusable.\n- **A deliberate re-import against per-run module state** — `vi.resetModules()` / `doMock` / `doUnmock` / `stubEnv` / `stubGlobal` in the same hook. There the re-import *is* the point, and hoisting it would break the test rather than speed it up.\n\n**No autofixer, on purpose.** The mechanical case is a one-line move, but the general case captures the module into a variable the tests read — hoisting that means introducing top-level await and reordering side effects, which is not a rewrite a fixer should make unattended.\n\n## Why the 33 conversions are in the same PR\n\nAn `error` ratchet has to lint clean today — that is the convention the repo's other three rules follow (*\"Error so a new violation fails CI; the existing sites were converted first\"*). A `warn` would have enforced nothing here, since this repo already tolerates hundreds of warnings. So the rule only actually gates if the backlog goes with it.\n\n- **27** were the canonical pure warm-up → fully mechanical.\n- **6** also register overrides that must run **after** the barrel, so only the import moved out. Those keep a hook — now sync and untimed — and the ordering still holds, because static imports are evaluated before any hook.\n\nThe side-effect import goes **after the last existing import**, which is the faithful equivalent of a hook that ran once every static import had already been evaluated. (I initially placed it after the first import and caught two bugs in review: one spliced into the middle of a multi-line `import { … } from`, and one reordered evaluation. Both fixed before anything was committed.)\n\n## Verification\n\n- **Rule:** 19 RuleTester cases (12 valid / 7 invalid). A deliberately planted violation fails lint as an error with the fix in the message.\n- **Sweep:** 33 violations → **0**. The only remaining error-level findings are 3 pre-existing ones under `e2e/`, which CI's per-package `turbo run lint` does not cover; untouched here.\n- **Tests:** the 33 converted files pass (209 tests). **Full suite 100% green — 733 files passed / 1 skipped, 8552 tests passed / 24 skipped.**\n- **Cost moved, not removed:** the suite's cumulative timed portion dropped **243s → 127s**, while wall clock is unchanged (~229s). The work went from timed windows into the import phase — which is exactly the intent, and worth stating plainly so the number isn't read as a speedup.\n\nAGENTS.md §9 now points at the rule instead of only describing the convention, and documents both exemptions so the next agent doesn't fight the linter.\n\nTest/lint infrastructure only — no shipped code changes, so no changeset.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

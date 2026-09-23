@@ -1,0 +1,30 @@
+{
+  "number": 3062,
+  "kind": "pull_request",
+  "title": "perf(scripts): cache registry responses so --check runs in 0.05s instead of 29s",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:01:05Z",
+  "updated_at": "2026-07-30T15:06:24Z",
+  "closed_at": "2026-07-30T15:06:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:06:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3062",
+  "body": "`--check` makes one HTTPS request per tracked component — 46 round trips for a run that is almost entirely I/O wait: **28.6s wall against 0.13s of user time**. That's enough friction that nobody runs the status command, which rather defeats having one.\n\n## Result\n\n| | wall | registry |\n|---|---|---|\n| cold (empty cache) | 26.86s | 0 cached, 46 fetched |\n| **warm** | **0.05s** | 46 cached, 0 fetched |\n| `--no-cache` | 28.74s | 0 cached, 46 fetched |\n\nResponses are cached under `node_modules/.cache/shadcn-sync/`, keyed by source URL, 60-minute TTL. That's the conventional home: already gitignored (verified with `git check-ignore`), and a clean install discards it — the right lifetime for a cache.\n\n## The load-bearing detail: reads only\n\n`allowCache` gates **reading**, and only read-only commands pass it.\n\n| command | reads cache? | writes cache? |\n|---|---|---|\n| `--check`, `--diff` | ✅ | ✅ |\n| `--update`, `--update-all` | ❌ **never** | ✅ |\n\nA stale `--check` is a slightly out-of-date status line. A stale `--update` would put hour-old code on disk under a message saying it's current. Writes still refresh the entry, so an update leaves the cache warm for the next check.\n\n**Proved it by poisoning the cache.** Overwrote the cached `button` entry with `// POISONED CACHE — this must never reach disk`:\n\n- `--check` → reported `button` as `51 local line(s) … --update would refuse`. It reads the cache, so it saw the poison. ✅\n- `--update button` → **ignored the poison entirely**, fetched live, wrote the real upstream content. Clean git tree, zero `POISONED` lines on disk, and the cache entry was write-refreshed (poison gone, `fetchedAt` 17s old). ✅\n\n## Failure modes are quiet by design\n\n- Missing / unreadable / **corrupt** entry → falls through to the network. Wrote `not json at all {{{` into one file: `45 cached, 1 fetched`, exit 0, 0 errors.\n- Cache directory unwritable → the write is swallowed; a cache is an optimisation and must never fail a run.\n- **TTL expiry** → aged every entry to 61 minutes: `0 cached, 46 fetched`. ✅\n\n## Always says where the data came from\n\n```\nRegistry: 46 cached, 0 fetched (cache TTL 60min — --no-cache to force live)\n```\n\nA run that returns in 50ms is otherwise indistinguishable from one that silently fetched nothing.\n\n## Verification\n\n- Cold / warm / `--no-cache` / expired / corrupt paths all measured above\n- `--update resizable` still refuses (#3029 reclassification intact); `--update command` still refuses (#3035 local-edit guard intact); `--diff` unaffected\n- `eslint` clean; script-only change — no manifest or component edits\n\nNo changeset — tooling only.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

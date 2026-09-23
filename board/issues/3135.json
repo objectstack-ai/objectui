@@ -1,0 +1,32 @@
+{
+  "number": 3135,
+  "kind": "issue",
+  "title": "console: 仪表盘 pie/donut 图 showLegend:true 不渲染图例——单色扇区无从辨认分类",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T04:28:41Z",
+  "updated_at": "2026-08-01T12:31:07Z",
+  "closed_at": "2026-08-01T12:31:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3135",
+  "body": "## 现象\n\n`@objectstack/console@17.0.0-rc.1`。仪表盘的饼图/环图 widget 已在 chartConfig 显式声明 `showLegend: true`,渲染出来**没有图例、也无任何分类标注**:扇区单色一片,用户不知道扇区代表什么分类。单类别数据下尤其致命——整圆一个颜色,零信息量。\n\n2026-07-31 项目全站 UI 走查(os-project-titanwind-ehr 安灯 SLA 看板)真机坐实,「按类型分布」(pie)与「按紧急程度分布」(donut)两个 widget 均复现。\n\n## widget 声明(项目源码原样)\n\n```ts\n{ id: 'by_type', type: 'pie', title: '按类型分布', dataset: 'andon_metrics',\n  dimensions: ['type'], values: ['total_count'],\n  chartConfig: { type: 'pie', xAxis: { field: 'type', showGridLines: true, logarithmic: false },\n    showLegend: true, showDataLabels: false,\n    series: [{ name: 'total_count', yAxis: 'left' }] },\n  layout: { x: 0, y: 2, w: 4, h: 4 } }\n```\n\n(donut 同构,仅 type 不同。`showDataLabels: false` 是项目有意关闭,不在本 issue 范围;问题是 `showLegend: true` 未生效。)\n\n## 复现\n\n1. 定义 dashboard,含上述 pie 或 donut widget(`showLegend: true`);\n2. dataset 返回 1~n 个分类;\n3. console 打开该仪表盘;\n4. 观察:扇区按分类着色,但无图例区,无从对应「颜色→分类名」。\n\n## 期望\n\n`showLegend: true` 时渲染图例(分类名+色块);至少在单分类数据下也应有可读的分类标注,否则饼/环图对用户是纯色块。\n\n## 环境\n\n- `@objectstack/*@17.0.0-rc.1`,console 仪表盘页\n- 数据侧正常(dataset 维度/度量返回值正确,hover 行为未见异常报错)"
+}

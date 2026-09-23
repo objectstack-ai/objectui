@@ -1,0 +1,34 @@
+{
+  "number": 3264,
+  "kind": "issue",
+  "title": "console: 清理 resolveLandingRoute 的 homePageId 死分支 —— spec 17 已退役该键(objectstack#4709 裁决 B)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T08:50:58Z",
+  "updated_at": "2026-08-03T18:20:36Z",
+  "closed_at": "2026-08-03T18:20:36Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3264",
+  "body": "跨仓联动单。上游 `objectstack-ai/objectstack#4709` 已裁决:**维持 `app.homePageId` 的退役**(方案 B),objectui 侧随之需要清理死分支。\n\n## 背景\n\n`@objectstack/spec` 17.0.0(#4667)把 `app.homePageId` 退役为 `retiredKey()` —— 编译期 `never`、解析期抛错。退役当时给的理由「no shell ever read it」**是错的**:objectui console 一直在读它,而且是唯一决定 app 内落地页的地方。上游已在 #4709 里承认并纠正该文案。\n\n但复核三轴后仍维持退役,理由是**即使将来要这个能力,`homePageId` 也是错误编码**:它是 ID 交叉引用,需要引用完整性,悬空时静默回退第一项(下面这段代码正是这么写的)。正确形状是导航项自身的标记(如 `navigation[].landing: true`),单一来源、不可能悬空。\n\n## 现状(objectui `785b8a5d`)\n\n`packages/app-shell/src/console/AppContent.tsx`:\n\n- `:875` `resolveLandingRoute()` —— `:876` 读 `activeApp?.homePageId`,`:878` `if (homePageId)` 分支,`:879` 调 `findNavItemById`\n- `:855` `findNavItemById()` —— 仅被上面那一处调用\n- `:870-871` docblock 承诺「Honors the app's explicit `homePageId` (Salesforce-style \"Default Landing\")... This is what lets the CRM example open on the Sales Dashboard instead of the Lead list」\n- `:840` 相关注释\n- `:675` 调用点(保留,`resolveLandingRoute` 本身继续存在)\n\n升到 spec 17 之后,任何 app 都无法再声明 `homePageId`,于是 `if (homePageId)` 连同 `findNavItemById` 成为**永远进不去的死分支**(ADR-0078 要清的那一类,渲染器侧)。\n\n## 要做的\n\n1. 删掉 `resolveLandingRoute` 的 `homePageId` 分支,函数退化为 `findFirstRoute(navigation, ctx)`(视情况保留函数名与调用点,便于将来接 `navigation[].landing`)。\n2. 删掉随之无引用的 `findNavItemById`。\n3. **更正 docblock**:去掉 Salesforce Default Landing 与 CRM Sales Dashboard 的承诺 —— 该能力已不存在。改写为「落地页 = 第一个可达导航项(`findFirstRoute` 跳过 `url` / `separator` / `action`);根落地由 `isDefault` 决定」。\n4. `packages/types/src/__tests__/page-app-dashboard-spec-parity.test.ts:139` 的 key 列表里有 `homePageId`,一并核对是否该随之调整(以该测试自身语义为准,别盲改)。\n\n## 时序\n\n**随 objectui 升 spec v17 的批次执行即可**,不必早于 v17 发布。升级那一刻这些分支就是死代码,清理是升级的一部分。\n\n## 关联\n\n- `objectstack-ai/objectstack#4709`(裁决单,含三轴分析与设计占位)\n- `objectstack-ai/objectstack#4667`(退役单,假前提来源)\n- `objectstack-ai/objectstack#4807`(同批 objectui 适配:metadata-admin 的 email_template 校验用错 schema)\n- ADR-0049 enforce-or-remove、ADR-0078\n\n## 将来若要恢复该能力\n\n上游已记录设计占位:正确形状是 **`navigation[].landing` 布尔标记**(或同构的导航项自身属性),不是恢复 `homePageId`;且按 enforce-first —— 先有渲染器实现与测试,再进 schema。"
+}

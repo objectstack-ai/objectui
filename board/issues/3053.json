@@ -1,0 +1,34 @@
+{
+  "number": 3053,
+  "kind": "pull_request",
+  "title": "fix(grid): 删掉 `bulkEnabled` 推导 —— 这个 spec key 已是墓碑 (#3002)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:21:21Z",
+  "updated_at": "2026-07-30T14:27:01Z",
+  "closed_at": "2026-07-30T14:26:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:26:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3053",
+  "body": "#3031 的跟进修复。**#3031 的一半设计是错的，浏览器实测把它抓出来了。**\n\n## 发生了什么\n\n#3031 让选择栏折叠两路来源：view 的 `bulkActions` 名字解析到 `objectDef.actions`，以及对象 action 上的 `ActionSchema.bulkEnabled`。**第二路是死的。**\n\n`@objectstack/spec` 17.0.0 在 #3896 审计收尾里退役了 `action.bulkEnabled`（[framework#4054](https://github.com/objectstack-ai/framework) `12a19a88a`）—— 这个提交在 #3031 进行途中落地，我定设计时读到的 spec 源码里这个 key 还在。\n\n它现在是 `retiredKey()` 墓碑，不是「被忽略」而是**硬拒绝**：\n\n```\n✗ `action.bulkEnabled` was removed in @objectstack/spec 17.0.0 (#3896 audit\n  close-out) — the multi-select toolbar is driven by the LIST VIEW's\n  `bulkActions` / `bulkActionDefs`, never by this flag, so setting it changed\n  nothing. Delete the key and declare the action in the view's `bulkActions`\n  instead.\n✗ Compile failed — fix errors above before starting dev server\n```\n\n`defineStack` 直接拒绝编译，后端起不来。所以那条推导分支永远不可能执行，而 #3031 的 changeset 还在教作者用一个会让应用启动失败的 key。\n\n**是浏览器验证发现的** —— 我在 showcase 里加 `bulkEnabled: true` 想跑端到端，后端直接拒绝启动。单测和 type-check 都抓不到：折叠函数读的是带索引签名的 `NamedActionDef`，退役 key 不会显现成 `never`（见 objectui 的 spec-tombstone 经验）。\n\n## 改动\n\n墓碑自己给的处方正是 #3031 活下来的那一半 —— *\"declare the action in the view's `bulkActions` instead\"*。所以 `resolveBulkActions` 现在只折叠两路词汇：\n\n1. view JSON 里内联写的 `bulkActionDefs`；\n2. `bulkActions` 里的名字，解析到对象 action 后**提升**成该 def。\n\n折叠之下的一切都没变：提升出的 def 照样带 action 的 label / icon / `visible` / 确认文案 / 参数，照样走 `BulkActionDialog`（params → confirm → progress → result），照样逐记录带 `_rowRecord` 派发、逐条归因失败。对象 action 上残留的 `bulkEnabled: true` 现在是惰性的，不再是进入选择栏的第二条路。\n\n`DERIVED_BULK_BATCH_SIZE` → `PROMOTED_BULK_BATCH_SIZE`（未导出到包外，只在本模块和测试里用）。\n\n## 验证\n\n**真实 console + 真实后端**（objectstack worktree 起 showcase 于 :3010，console dev 从本 worktree 起于 :5182）：\n\n- view 声明 `bulkActions: ['showcase_mark_done', 'showcase_recalc_estimate']`，两个名字都被提升 —— 选择栏显示的是 action 自己的标签 \"Mark Done\" / \"Recalculate Estimate\"（不是 humanize 出来的 \"Showcase Mark Done\"）和 action 的图标。\n- 全选 10 条点 Mark Done → **10 个 `POST /api/v1/actions/showcase_task/showcase_mark_done` 全部 200**，逐记录一次。\n- 数据侧确认：10 条记录服务端全部变成 `done: true, progress: 100`。修复前这条路径零请求、零改动。\n\n**测试**：`plugin-grid` 44 文件 / 351 测试全绿；`types` + `plugin-grid` + `app-shell` type-check 31 任务全过；改动文件 0 lint error。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

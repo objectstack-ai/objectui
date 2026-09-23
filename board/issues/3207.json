@@ -1,0 +1,35 @@
+{
+  "number": 3207,
+  "kind": "issue",
+  "title": "`turbo run type-check --filter=@object-ui/plugin-detail` 必定失败:`@object-ui/permissions` 只在 peerDependencies,`^build` 因此不构建它",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T14:05:39Z",
+  "updated_at": "2026-08-03T08:11:32Z",
+  "closed_at": "2026-08-03T07:21:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3207",
+  "body": "复现(干净 worktree,`pnpm install` 之后):\n\n```\n$ pnpm exec turbo run type-check --filter=@object-ui/plugin-detail\n@object-ui/plugin-detail:type-check: src/DetailView.tsx(49,32): error TS2307: Cannot find module '@object-ui/permissions' or its corresponding type declarations.\n@object-ui/plugin-detail:type-check: src/RelatedList.tsx(51,32): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-details.tsx(15,53): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-highlights.tsx(15,53): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-quick-actions.tsx(21,32): error TS2307: ...\n@object-ui/plugin-detail:type-check: src/renderers/record-related-list.tsx(16,53): error TS2307: ...\n```\n\n外加几条随之而来的 `TS7006 implicitly has an 'any' type`(都是因为上面 import 失败,参数推不出类型)。\n\n## 原因\n\n`packages/plugin-detail/package.json` 把 `@object-ui/permissions` 列在 `peerDependencies` 里,但 **不在 `devDependencies`**。turbo 的 `type-check` 任务 `dependsOn: [\"^build\"]`,而 `^` 只沿 dependencies/devDependencies 走,所以 `@object-ui/permissions` 的 `dist` 永远不会被这条命令构建出来。对比同文件里 `@object-ui/components` / `@object-ui/core` / `@object-ui/react` / `@object-ui/types` —— 它们既是 peer 也是 devDependency,所以能构建到。\n\n先手动 `turbo run build --filter=@object-ui/permissions` 再 `cd packages/plugin-detail && npx tsc --noEmit` 就干净通过,证实缺的只是这条依赖边。\n\n## 为什么值得修\n\n仓库全量 `pnpm type-check` 是绿的(`@object-ui/permissions` 自己那条 build 任务被别的包拖起来了),所以 CI 看不见。但任何按包做的 scoped typecheck —— 也就是 agent 改一个包时最该跑的那条命令 —— 会返回一堆与改动无关的红,只能靠人去分辨\"这是既有的还是我弄的\"。\n\n## 建议\n\n`packages/plugin-detail/package.json` 的 `devDependencies` 补 `\"@object-ui/permissions\": \"workspace:*\"`(与其余四个 peer 的写法一致)。顺手体检一下别的包有没有同样的 peer-without-dev 缺口。\n\n顺路发现于 #3165。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3087,
+  "kind": "pull_request",
+  "title": "refactor(view): remove ObjectView's filter/sort bar, which was never connected",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T02:29:04Z",
+  "updated_at": "2026-07-31T02:35:41Z",
+  "closed_at": "2026-07-31T02:35:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T02:35:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3087",
+  "body": "## The correction first\n\n**#3081 reported two `ObjectView` defects. Only one was live.** I am correcting my own claim.\n\n| what I said | what's true |\n|---|---|\n| object `table.defaultFilters` dropped | ✅ **real** — sat on the always-taken path |\n| rule objects spread into the `and`, *\"reachable whenever a view with a filter meets a user filter value\"* | ❌ **unreachable here** — the branch required a non-empty user filter, and nothing ever wrote the state it came from |\n\nThe shape itself is genuinely broken — a live server answers it with `400 INVALID_FILTER`, measured — and the adapter-level defence added alongside is still warranted for any producer that emits it. But **that site was dead code, not a live defect**, and the changeset said otherwise. #3081's changeset is unreleased, so this PR amends it rather than letting the wrong claim ship in release notes.\n\n## What was dead\n\n`ObjectView` carried its own filter and sort bar: `filterValues` / `sortConfig` state, a `filter-ui` schema, a `sort-ui` schema, ~80 lines of field introspection to build them.\n\n**None of it was wired.** `setFilterValues` and `setSortConfig` are never called; `filterSchema` and `sortSchema` are each declared once and never rendered. Both states sat at their initial empty value for the component's entire life.\n\n## Removed, not wired\n\nThe real filter and sort UI belongs to the renderer this component delegates to — `showFilters`, `showSort` and `filterableFields` are forwarded downstream and `ListView` implements them (its own filter panel, plus a `filterableFields` whitelist). Connecting the local copy would have produced a **second** filter bar competing with that one.\n\n## Why dead state wasn't harmless\n\nIt left a branch in every merge path that could never run, and those branches read as live code:\n\n- the fetch path merged `baseFilter` with a `userFilter` that was always `[]`;\n- `mergedFilters` — what the `renderListView` slot receives (Studio design surface) — opened with a branch that **replaced** the view's filter with the user's instead of combining them. That *would* have been a real bug had the state ever been written.\n\nThat is what made the #3081 misreading possible. It happened **twice in one session**: I nearly reported `{$and:[…]}` as a third defect too, before measuring showed it reaches the same server predicate on both routes. Code that looks live and cannot run is a trap for the next reader, which is the argument for deleting it.\n\n## Verification\n\n**No behaviour change** — every removed branch was unreachable. Net **-85 lines**.\n\n4 new tests pin what the component hands the delegated renderer, alongside the 5 from #3081 covering what it queries with. Full suite **763 files / 8915 tests green**; `tsc` clean; eslint 0 errors.\n\nRefs #3081, #3072\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

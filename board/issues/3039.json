@@ -1,0 +1,35 @@
+{
+  "number": 3039,
+  "kind": "pull_request",
+  "title": "fix(types,layout): nav item type `component` joins `NavigationItemType` and its zod enum",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:08:50Z",
+  "updated_at": "2026-07-30T13:15:29Z",
+  "closed_at": "2026-07-30T13:15:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:15:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3039",
+  "body": "Closes #2918.\n\n## The zod enum was the part that bit\n\nBoth renderer sites (`NavigationRenderer.tsx`, `AppSchemaRenderer.tsx`) carry a full, fleshed-out `component` nav item implementation — `componentRef` colon-split to `/component/<ns>/<name>`, `params` serialised as querystring, `metadata:*` special-cases — and the route (`component/:ns/:name` → `ComponentNavView`) exists in app-shell. But `NavigationItemType` never gained the member, and `NavigationItemTypeSchema` **rejected `type: 'component'` at validation time**, so authors could not declare one. The feature was dead on arrival rather than dead code.\n\n**Not a cross-repo change**: `@objectstack/spec` already ships `ComponentNavItemSchema` (`componentRef: string`, `params?: Record<string, unknown>`, doc example `componentRef: 'metadata:resource'`). objectui's local copy of the vocabulary was simply behind; the new fields mirror spec's shape.\n\n## What moved\n\n- **`@object-ui/types`** — `'component'` in both the TS union and the zod enum (two copies of one vocabulary, moved together). `NavigationItem` gains `componentRef` + `params` (`params` is shared with `type: 'page'`, which already forwarded it). Both are declared in zod too, so parse **keeps** them — without that, an item would validate and then render `#` because strip-mode parse dropped the fields the renderer reads.\n- **`@object-ui/layout`** — the `(item as any).componentRef` / `params` casts in the two component branches (and the page-params site) become typed access.\n- **`@object-ui/plugin-designer`** — the exhaustive `Record<NavigationItemType, …>` type-meta map gains a `component` badge entry (indigo, `Puzzle`); `appDesigner.navTypeComponent` added to the designer's English fallback and **all 10 locales** (`all-locales-key-parity` enforces the sweep).\n- **Closing out the DEBT entry** — `layout` gains `\"type-check\": \"tsc --noEmit && tsc -p tsconfig.test.json\"` with the #2915 `paths` override (verified: no TS6059 flood, and the guard's new test-coverage rule is satisfied via `tsconfig.test.json` on the `packages/types` model). The `@object-ui/layout` entry in `check-type-check-coverage.mjs` is deleted; the guard now reports **42/45 via `type-check`**.\n\n## End-to-end proof (validates → routes → renders)\n\n- **validates**: `navigation-model.test.ts` parses a component item and asserts `componentRef`/`params` survive (`safeParse` success alone would not catch strip).\n- **routes**: `resolveHref.test.ts` gains a component-targets suite — `/component/<ns>/<name>`, params querystring (non-strings as JSON), missing-ref dead link, `metadata:directory` / `metadata:resource` nested paths, and template-var params resolving via `contextValues` (dropped when unscoped).\n- **renders**: `AppSchemaRenderer.test.tsx` renders a component item through the real sidebar and asserts the anchor's href.\n\n## Verification\n\n| check | result |\n|---|---|\n| `layout` `tsc --noEmit` (was the 2 errors) | clean |\n| `layout` `tsc -p tsconfig.test.json` | clean |\n| `types` build + tests/examples tsconfigs | clean |\n| `plugin-designer` src + test tsc | clean |\n| `app-shell` `tsc --noEmit` | clean |\n| `i18n` `tsc --noEmit` | clean |\n| `node scripts/check-type-check-coverage.mjs` | ✅ 42/45 |\n| vitest: navigation-model, resolveHref, AppSchemaRenderer, full i18n suite, full types + designer suites | 62 + 155 + 269 tests, all green |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

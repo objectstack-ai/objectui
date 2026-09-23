@@ -1,0 +1,35 @@
+{
+  "number": 3231,
+  "kind": "issue",
+  "title": "表单渲染器计算的 `emptyHint` 被每个选项 widget 丢弃,用户看到的是硬编码英文",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:25:33Z",
+  "updated_at": "2026-08-03T08:49:56Z",
+  "closed_at": "2026-08-03T08:49:50Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3231",
+  "body": "在 objectui#3221(给 `FieldWidgetComponentProps` 去掉 `[key: string]: any`)时发现,**不在该 PR 修**。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx` 计算依赖门控提示并作为 prop 传给已注册的 field widget:\n\n```tsx\n// form.tsx:1351 —— #2284 的门控提示\nemptyHint: gatedHint,\n```\n\n四个选项 widget 全部把它解构掉并**丢弃**,然后渲染自己硬编码的英文:\n\n- `packages/fields/src/widgets/SelectField.tsx` — `emptyHint: _emptyHint,`\n- `packages/fields/src/widgets/MultiSelectField.tsx` — `emptyHint: _emptyHint,`\n- `packages/fields/src/widgets/RadioField.tsx` — `emptyHint: _emptyHint,`\n- `packages/fields/src/widgets/CheckboxesField.tsx` — `emptyHint: _emptyHint,`\n\n替代文案例如 `MultiSelectField`:\n\n```ts\nconst hint = gated\n  ? `Select ${dependsOnFields.join(' / ')} first`\n  : 'No options available';\n```\n\n解构本身是**正当的**(不解构就会随 `...props` 铺到 DOM 上),问题在于解构之后没有使用。\n\n## 后果\n\n1. **宿主计算的提示到不了用户**。`emptyHint` 只在**内建**(未注册)select 分支生效(`form.tsx:1824`:`{emptyHint || 'No options available'}`)。一旦该字段类型走 `field:<type>` 注册表(常态),提示就被换掉了。\n2. **绕过了 i18n**。widget 内的替代文案是硬编码英文字面量,而 `useFieldTranslation()` 在同一个文件里已经可用 —— 违反仓库 i18n 惯例。\n3. 这是一个 declared ≠ delivered 的缺口(objectstack AGENTS.md 主令 #10):prop 被声明、被生产、被传输,然后被无声丢弃。\n\n## 为什么一直没被发现\n\n`FieldWidgetComponentProps` 当时以 `[key: string]: any` 结尾,所以 `emptyHint` 既不是被声明的契约、也不会因为缺失而报错 —— 没有任何检查能看到\"生产了但没人用\"。objectui#3221 把该键显式声明了出来,这个缺口才可见。\n\n## 建议方向(需维护者定夺)\n\n- **A**:widget 优先用 `emptyHint`,自己的文案退化为兜底 —— 单一提示来源,宿主可覆盖。\n- **B**:widget 保留自有文案但改走 `useFieldTranslation()`,同时把 `emptyHint` 从表单渲染器这条路径上撤掉 —— 承认 widget 拥有该文案。\n\nA 更符合契约优先(一个生产者、一个消费者);B 更简单但要正式承认这个 prop 对已注册 widget 无效。任一方向都应有测试钉住,否则会再次静默漂移。\n\n关联:objectui#3221、objectui#3161、#2284。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3071,
+  "kind": "pull_request",
+  "title": "fix(notifications): each spec displayType gets its own presentation instead of a toast (#3014)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:48:10Z",
+  "updated_at": "2026-07-30T15:54:53Z",
+  "closed_at": "2026-07-30T15:54:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:54:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3071",
+  "body": "Closes #3014. Follow-up to #2942 / PR #3008, which closed the **contract** half and deliberately left the **presentation** half open.\n\n## The bug\n\n`NotificationProvider` called `onToast(notification)` for every item regardless of `displayType`, so a `banner` and an `inline` both surfaced as a toast. #3008 made the value *reach* the delegate — no delegate acted on it.\n\n## Each type now has a presentation of its own\n\n| `displayType` | Presentation | Rendered by | Persists |\n|---|---|---|---|\n| `toast` | transient overlay (unchanged) | the host's `onToast` delegate | no |\n| `snackbar` | bottom-anchored bar, one at a time, at most one action | `<NotificationSnackbar />` | no |\n| `banner` | page-width strip **in the content flow** | `<NotificationBanners />` | yes |\n| `alert` | blocking acknowledgement dialog, FIFO queue | `<NotificationAlerts />` | yes |\n| `inline` | in place, at the raising surface | `<NotificationInline scope=\"…\" />` | yes |\n\nThe four surface components ship from `@object-ui/components` and subscribe via `useNotificationsByPresentation(type, scope?)`; `toast` stays with the host delegate.\n\n## The three open questions, answered\n\n1. **Who owns banner/inline placement? The host.** They are not overlays — a banner takes space at the top of the content area, and an `inline` notification belongs next to the thing that raised it. So the context exposes the items and the surfaces subscribe, rather than one `onToast`-style delegate positioning everything. An `inline` notification carries a `scope` that pairs it with its outlet, so two forms on one page don't show each other's messages. `scope` is renderer-local routing metadata, not a spec field: the spec describes what a notification *is*, not which React subtree hosts it.\n\n2. **Is `alert` a modal? Modal-ish, but NOT the action system's `ModalHandler`.** That handler is `(schema, context) => Promise<ActionResult>` — it resolves a page or object, renders it, and reports the outcome back to the `ActionRunner`. A notification alert has no schema, no target and no result; routing it there would mean synthesizing a page just to say \"OK\" and requiring an action runtime to present a notification. It renders through the Radix `AlertDialog` primitive — the blocking-acknowledgement primitive — which duplicates none of the action-modal machinery. Documented at the top of `NotificationAlerts.tsx`.\n\n3. **Does `snackbar` earn a distinct component? Yes.** It supersedes rather than stacks, anchors bottom regardless of the toast `position` config, and carries at most one action (\"Undo\" being the archetype). Making it a sonner variant is precisely \"presents as a toast\", which is the bug. No spec change needed.\n\n## Also fixed\n\n- **Auto-dismiss follows the presentation.** `toast`/`snackbar` keep the transient timer; `banner`/`alert`/`inline` are persistent unless the raiser sets `duration` explicitly. A \"persistent\" banner used to evaporate on the shared 5s toast timer.\n- **`dismissible` is honored** on the persistent surfaces. An `alert` always keeps its acknowledge button — `dismissible: false` closes the Escape route, never the way out.\n- **Silent loss is now loud.** `onToast` receives only `toast` items; a provider with no `onToast` remains the supported store-only mode (a bell reading `notifications`/`unreadCount`), but raising one of the other four types with its surface unmounted warns in dev and names the component to mount.\n\n## Guards\n\n- `NOTIFICATION_PRESENTATIONS` is typed `Record<NotificationPresentation, …>`, so a new member in the spec enum fails type-check until its presentation is decided — it cannot silently fall back to a toast. `SUPPORTED_NOTIFICATION_DISPLAY_TYPES` (the #2942 parity guard) now derives from that table.\n- New `notification-surfaces.test.tsx`: the table covers `NotificationTypeSchema` exactly, **no two types share a surface**, and one notification of every spec type lands on a distinct surface in the DOM. Plus per-surface behavior — banner is in flow (never `fixed`), snackbar supersedes and is bottom-anchored, alerts queue FIFO and acknowledge, inline routes by `scope`, toasts render in no surface.\n- `NotificationContext.test.tsx` gains the routing half: the delegate sees only toasts, `modal` → `alert`, persistent types survive the transient timer, explicit `duration` still wins, and the dev warning fires only when it should.\n\n## Verification\n\n- `packages/react` + `packages/components`: **782 tests, 84 files, all green**.\n- `tsc --noEmit` clean on both; `pnpm --filter @object-ui/components build` clean; eslint 0 errors on every touched file.\n- No behavior change in the console: nothing mounts `NotificationProvider` there today (the bell reads `sys_inbox_message` directly), so this lands as renderer capability + docs. Wiring a host is a separate change.\n\nDocs: new [`content/docs/guide/notifications.md`](content/docs/guide/notifications.md) plus the `@object-ui/react` / `@object-ui/components` READMEs.\n\nRefs #2942, #2901.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

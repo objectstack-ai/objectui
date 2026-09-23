@@ -1,0 +1,34 @@
+{
+  "number": 3289,
+  "kind": "pull_request",
+  "title": "fix(fields,components): 字段 widget 的校验槽位改用 spec 的 `error`,并接上生产者 (#3222)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:59:14Z",
+  "updated_at": "2026-08-03T11:14:14Z",
+  "closed_at": "2026-08-03T11:14:12Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T11:14:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3289",
+  "body": "Fixes objectstack-ai/objectui#3222\n\n按 PM 裁定的**方向 1(objectui 跟随 spec)**,并且是「**改名 + 接上生产者**」两件一起。`packages/spec` 一个字未改。\n\n> 说明:下文所有 JSX 组件名与标签都写成 `< FormControl >` 这样**尖括号后带一个空格**的形式 —— GitHub 的正文消毒器会把 `<` 紧跟字母当成 HTML 标签在**存储时**剥掉。本 PR 正文第一版就因此被吃掉了五处组件名。\n\n## 这修的不是命名,是一个当下就存在的可访问性缺陷\n\nissue 的实测把这单的性质改了:\n\n```\n全仓 packages/ + apps/ 中 errorMessage 的生产者:0 处\npackages/fields/src 中 errorMessage 的读取  :15 处(7 个 widget)\n读 props.error 的代码                        :0 处\n```\n\n**这个槽位在两种拼写下都是死的。** 后果比「纸面不一致」严重一档 —— 而且比 issue 里描述的还要糟:\n\n`< FormControl >` 是 Radix `Slot`,它**本来就**把正确的 `aria-invalid` 递给子元素。但 widget 自己的 `aria-invalid={!!errorMessage}` 写在 `{...props}` 展开**之后**,所以它**覆盖**了 Slot 给的正确值。也就是说这 7 个 widget 不只是「没拿到信号」,而是**主动把对的值改写成了 `false`**。\n\n变异验证时抓到的真实 DOM 就是这个现场 —— `aria-describedby` 已经指向了错误消息(表单知道这个字段挂了),而 `aria-invalid` 是 `false`:\n\n```\n< input\n    aria-describedby=\"_r_0_-form-item-description _r_0_-form-item-message\"\n    aria-invalid=\"false\"      ← widget 用 !!undefined 覆盖掉了 Slot 的 true\n    type=\"email\" name=\"email\" value=\"\" >\n```\n\n反证也成立:`TextField` 从不自己算 `aria-invalid`,Slot 的值原样到达,它**一直是对的**。坏的恰好只有那 7 个自己算的。这条已作为测试钉住。\n\n## 改了什么\n\n1. **表单渲染器开始生产这个 prop**(实质工作):渲染已注册 widget 时把 react-hook-form 的 `fieldState.error?.message` 作为 `error` 传下去。\n2. **槽位采用 spec 的名字**:`errorMessage` → `error`,`FieldWidgetComponentProps` + 7 个 widget,**不保留别名**。#3221 已删索引签名,所以漏改点是编译错误 —— 改名的正确性由编译器验证,不是靠 grep。\n3. **职责划清**:widget 只用 `error` 驱动 `aria-invalid`;校验文案仍由 `< FormMessage / >` 渲染。有测试钉住「文案只出现一次」。\n4. **内置字段类型不接收 `error`**:它们直接渲染在 `< FormControl >` 里,Slot 已给 `aria-invalid`,这里没有读者,传下去只会变成 DOM 上一个多余的 `error=\"…\"` 属性 —— 所以在 `stripRendererOnlyProps` 里剥掉。\n\n## `required`:评估后**维持现状**,不下沉\n\n按要求单独评估,结论是**不接**,理由不是「工作量大」:\n\n- **必填标记今天只有一个作者** —— 渲染器的 `< FormLabel >`(那个带 `aria-label=\"required\"` 的 `*`,label 关联会把它并进控件的可访问名)。把 flag 递给 widget 就等于给这个标记**第二个作者**,下一个 AI 写的 widget 很自然会自己画一个星号 —— 这正是本 PR 里让校验**文案**留在 `< FormMessage / >` 的同一个「双份显示」理由。两处应当同一结论。\n- **它也不是拿到 `aria-required` 的必要条件**:`FieldWidgetComponentProps` 已经 `& AriaAttributes`,`aria-required` 本来就是这份契约里已声明、已类型化的键,而且每个 widget 都已经把剩余 props 转发到控件上。也就是说「让 required 状态到达 DOM」**不需要新增任何契约键**,更不需要 48 个 widget 各自记得把布尔翻译成属性。\n- 所以「接 `required`」和「拿到 `aria-required`」是两件事,只有后者是 a11y 修复,而后者是一个独立的一行改动,不依赖本 PR。已另开 issue 记录,未指派。\n\n结论:**接了会让契约更差(多一个双份显示的入口),不接也不妨碍真正的 a11y 目标。** 不为对齐而对齐。\n\n## 测试\n\n- `packages/components/src/renderers/form/__tests__/form-error-delivery.test.tsx` —— **生产者**半边(探针 widget 刻意**不**展开剩余 props,否则 Slot 的 `aria-invalid` 会让测试假绿)。\n- `packages/fields/src/__tests__/widget-aria-invalid-e2e.test.tsx` —— **端到端**:真表单 + 真 widget + 真 react-hook-form 校验,7 个 widget 各一条「失败后 `aria-invalid` 为 true、失败前为 false」。\n- 现有 `validation-feedback` / `widget-props-contract` / `spec-symbol-batch7` 的钉子随之翻面(`_ErrorIsAbsent` 撤销,新增 `_OldNameRetired` 钉住**没有**保留别名)。\n\n**变异验证**(硬要求):撤掉 `error: fieldState.error?.message` 一行后,15 条里 **12 条转红**;恢复后 61 文件 / 615 测试全绿。\n\n## 已知取舍\n\n不读 `error` 的已注册 widget 会把它当剩余 prop 展开到 DOM,失败时留下 `error=\"T is required\"` 属性(实测 **0 条 React 警告**,因为是全小写)。这是有意的:按 widget 类型做白名单会对第三方 widget 重建「声明了但没交付」,而契约恰恰是为它们存在的。同一个 DOM 上早就有更严重的一例(`schema=\"[object Object]\"`),已另开 issue。\n\n## 文档同步\n\n- `content/docs/guide/plugin-development.md` / `skills/objectui/guides/plugin-development.md`:改名 + 新增「谁渲染什么」的职责表;顺带修掉 skill 里仍在教的 `[key: string]: any`(#3221 已删)。\n- `.github/prompts/component.prompt.md`:除改名外修掉 issue 点名的另两处 —— 把 spec 的**非泛型**类型别名当泛型用(`FieldWidgetProps< number >`),以及解构一个两边都不存在的 `mode` prop。\n- `content/docs/protocol/objectui/widget-contract.mdx` **在 objectstack 仓**,不在本仓 —— 已另开 issue 跟进(它的示例目前教 widget 自己渲染文案,按本 PR 的结论应改成只驱动 `aria-invalid`)。\n\nChangeset:`minor`(按仓库版本策略,objectui 自身的破坏性变更也标 minor),正文含 FROM → TO 迁移指引。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3281,
+  "kind": "issue",
+  "title": "`ValidationPreview` 读 `expression`、`scope ?? where`,还有个 spec 里不存在的 `unique` 分支 —— #3275 漏掉的那个 preview",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:18:22Z",
+  "updated_at": "2026-08-03T10:57:58Z",
+  "closed_at": "2026-08-03T10:57:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3281",
+  "body": "objectui#3275 逐条清了 `AgentPreview` / `SkillPreview` / `AppPreview` / `DatasourcePreview` 里的宽容消费者,但 **`ValidationPreview.tsx` 不在那张表里**。在做 objectui#3276(修 `validation` 样例)时读到它,里面有同型的问题,单独记这里。\n\n## 1. `?? d.expression` —— 给一个从来不存在的键做别名回退\n\n`packages/app-shell/src/views/metadata-admin/previews/ValidationPreview.tsx`,`TypeBody()` 的 `script` / `conditional` 分支(约 176 行),Condition 区块渲染的值是:\n\n```\ncelText(d.condition) ?? celText(d.expression)\n```\n\n(原文是 JSX:一个 `Section title=\"Condition\"` 里包着 `CelBlock value={上面这个表达式}`。这里只贴表达式 —— GitHub 的 body sanitizer 会把 `<` 开头的标签整行吃掉。)\n\n`expression` **不是任何一支 validation 分支上的键** —— `script` / `cross_field` 用 `condition`,`conditional` 用 `when` + `then`。它不是被退役的键(那样至少曾经合法过),是**从来就没有过**。\n\n这个回退不是无害的:#3276 之前,`validation` 样例同时写了 `condition: 'amount <= 0'` 和 `expression: 'amount > 0'`,预览照样画得出来,于是没人发现 `expression` 是假的。#3276 把样例里的 `expression` 删了之后,这条回退成了**死代码**,但仍然在向作者承诺「写 `expression` 也行」—— 而它 parse 完就被剥掉,发布时静默失效。这正是 AGENTS.md #0.1 说的那种把错误约定固化成第二契约的 `??`。\n\n## 2. `case 'unique'` —— spec 17 没有这个 validation 类型\n\n同文件里有一整个 `unique` 分支(渲染 `fields` 芯片 + `celText(d.scope) ?? celText(d.where)` 的 Scope 区块)。而 `ValidationRuleSchema` 的判别联合只有六支:`script` / `state_machine` / `format` / `cross_field` / `json_schema` / `conditional`。\n\n`unique` 不只是「没了」,是被**明确裁掉**的 —— `validation.zod.ts` 顶部 \"Deliberately NOT validation rules\" 一节写着:\n\n> **Uniqueness** → a unique **index** (`ObjectSchema.indexes`, `{ fields, unique: true }` …). A SELECT-then-INSERT \"rule\" is inherently racy (TOCTOU); a DB unique constraint is not.\n\n所以预览里画着一个作者**永远存不下去**的规则类型,而且是个已经有正确替代品的类型。`scope ?? where` 两个键也都不存在。\n\n## 3. 顺带:`d.object` / `d.field` 的读取\n\n- `const object = d.object as string | undefined;`(约 85 行)→ 渲染 `object: xxx` 芯片。校验规则挂在宿主对象的 `validations[]` 上,自身不带 `object`(#3276 已把样例里这个键删掉),所以这个芯片对合规草稿**永远不显示**;\n- `TypeBody` 里非 script 分支读的 `d.field` 是**合法**的(`state_machine` / `format` / `json_schema` 三支确实有 `field`),这条没问题,别顺手删了。\n\n## 建议\n\n按 #3275 / #3258 的做法:\n\n1. 删掉 `?? celText(d.expression)`,只读 `condition`(`conditional` 分支应改读 `when`,并考虑渲染嵌套的 `then`);\n2. 删掉整个 `case 'unique'` 分支;如果想给作者指路,替换成一句「唯一性用 `ObjectSchema.indexes` 的 `unique: true`」的提示,而不是继续画那个界面;\n3. `d.object` 芯片:确认没有别的调用方会传 object-scoped 的草稿之后删掉;\n4. 补上缺的分支 —— 目前 `cross_field`(有 `condition` + `fields`)似乎没有专门渲染,而它恰恰是「把错误指到某个字段」的正解。\n\n## 相关\n\n- objectui#3275(同型清理,四个 preview;本单是它漏掉的第五个)\n- objectui#3276(样例侧:删掉 `expression` / `object` / `field`,修反了的 `condition`)\n- objectui#3236 / PR #3258(`ToolPreview` 的先例)\n\n⚠️ 未指派 —— 由 #3276 顺带发现并记录(Prime Directive #10),不在那个 PR 里修:scope fence 是 `apps/console`,本单全在 `packages/app-shell`(且与 #3275 同目录,建议合并处理或等它落地后再动)。\n"
+}

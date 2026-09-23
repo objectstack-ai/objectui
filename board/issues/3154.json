@@ -1,0 +1,34 @@
+{
+  "number": 3154,
+  "kind": "pull_request",
+  "title": "fix(studio): stop offering the retired `action.shortcut` / `action.bulkEnabled` keys",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T12:35:36Z",
+  "updated_at": "2026-08-01T12:58:11Z",
+  "closed_at": "2026-08-01T12:58:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:58:10Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3154",
+  "body": "## 问题\n\nspec 17 用 `retiredKey()` 退役了 `action.shortcut` 与 `action.bulkEnabled` —— **写了就是硬解析拒绝**,带这两个 key 的草稿根本存不下去。\n\n但 Studio 的动作检查器至今还给它们提供控件:一个「Bulk — apply to multiple selected rows」复选框和一个「Shortcut」文本框。也就是说,设计器**引导作者构造一份平台注定拒收的草稿**,而拒绝信息出现在保存时、离那个复选框十万八千里。\n\n## 改动\n\n- **检查器**:两个控件删除。两个 key 仍留在回退表单的隐藏名单里 —— 服务端 live schema 目前**还在**声明它们(根源在 objectstack-ai/objectstack#4501 里一并修),把它们从隐藏名单里拿掉反而会让输入框原样回来。现在它们归入一个新的 `RETIRED_FIELDS` 列表并写明缘由,免得后来者把\"缺失的控件\"补回去。\n- **预览**:`shortcut` / `bulk` 两个徽标删除 —— 它们只可能为平台已拒收的元数据渲染。\n- **`ActionEngine.registerActions`**:不再从作者元数据里采集这两个退役 key。此前的采集让两个死掉的注册选项**看起来仍在承重**。两者在单动作重载 `registerAction(action, options)` 上继续保留 —— 那是**主机**显式传入的运行期 API,与元数据 key 不是一回事。\n\n## 为什么两个 key 一起处理\n\n同一个墓碑、同一次退役、同三处表面(检查器控件 / 预览徽标 / 引擎采集)。只修 `bulkEnabled` 而把 `shortcut` 留在一行之隔,是任意的。\n\n## 替代路径\n\n`bulkEnabled` 的替代是列表视图的 `bulkActions` / `bulkActionDefs`(墓碑原文如此);`shortcut` 没有替代 —— 按墓碑说明,在 Console 键盘栈里注册按键、让其 handler 按名字调用动作。\n\n## 测试\n\n- 新增 pin:`registerActions` 不再从元数据采集这两个 key,并写清主机显式传入的路径不受影响。\n- **有意翻转**了 `useActionEngine` 的两条测试(`getBulkActions` / `handleShortcut`),它们此前正是靠这条采集才通过。翻转前先确认没有打断活的能力 —— 该 hook 的产品消费者(`record-quick-actions`、`record-alert`)只用 `getActionsForLocation` / `executeAction`,这两个能力无人调用。fixture 里的陈旧 key **特意保留**,让断言正面证明\"它们被忽略\",而不是删掉证据让测试变绿(与 plugin-grid 既有的 \"ignores a stale bulkEnabled flag\" 同一形态)。引擎自身的 bulk / shortcut 机制在 `ActionEngine.test.ts` 由主机显式传参覆盖,未损失。\n\n验证:仓根 `pnpm test` **9277 项通过 / 0 失败**(795 文件);全量构建通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01S9aiswZBzoVYsyLKRuGByE"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3138,
+  "kind": "pull_request",
+  "title": "fix(charts): pie/donut 图例给扇区标上分类名，并真正读 showLegend (#3135)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T06:08:42Z",
+  "updated_at": "2026-08-01T12:31:08Z",
+  "closed_at": "2026-08-01T12:31:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:31:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3138",
+  "body": "Closes #3135\n\n## 根因：`type` 这个维度名把图例文字吃掉了\n\n图例标签由 shadcn 的 `getPayloadConfigFromPayload` 解析：它拿 `nameKey`（= 维度字段名）**先在 recharts 的 legend item 上找**，找不到才看数据行。而 recharts 的 legend item 自带一个 `type` 字段 —— 图例**图标形状**，值是 `\"rect\"`。\n\n于是 `dimensions: ['type']`（\"按类型分布\"，看板里极常见）→ `nameKey=\"type\"` → 解析成 `\"rect\"` → `config[\"rect\"]` 查不到 → 回退 `config[\"type\"]` 也没有 → **label 为 undefined，只剩 2px 色块，一个字不渲染**。维度叫 `color` 同样受害。单类别数据下最致命：整圆一色 + 一个无字色点。\n\n改法：数据行优先于 legend item 自身的同名属性 —— `nameKey` 本来指的就是数据行的字段。\n\n## 同一份报告里的另外两个缺口\n\n- **饼/环图分支的图例是无条件渲染的**，`legendVisible` 只用在 radar/combo 上。写 `showLegend: false` 关不掉；写 `true` 也不是\"生效\"，只是撞上了默认值。\n- **`DatasetWidget` 根本不读 `widget.chartConfig`**（只读 `options`），声明的 `showLegend` 从元数据层到渲染器之间断链，是死配置。现在把这一个渲染器已支持的标志下沉进 chart schema；未声明就不带这个键，存量看板行为不变。\n\n## 验证\n\n**单测**：新增 `AdvancedChartImpl.pieLegend.test.tsx`（`type`/`color`/`urgency` 三种维度名 + 单类别 + `showLegend:false`）与 `DatasetWidget.showLegend.test.tsx`。回滚源码改动后新测试 4 失败 1 通过（通过的正是 `urgency` 对照组），修复后全绿。plugin-charts 129/129、plugin-dashboard 156/156。\n\n**真机 UI（app-showcase 真后端 + console dev，真实 seed 数据）**：按 issue 原样造 dataset 维度名 `type` + pie/donut widget，同一页面只切源码做 A/B：\n\n| 状态 | 图例 DOM |\n|---|---|\n| 修复前 | `text: \"\"` / `swatches: 5`（两个 widget 都是裸色点） |\n| 修复后 | `text: \"BacklogDoneIn ProgressIn ReviewTo Do\"` |\n| `showLegend:false` / `true` 并排 | 只剩 1 个 legend wrapper，false 那侧图例消失 |\n\n对照：原生 Chart Gallery 里 `status`/`priority` 维度的饼/环图两态都正常 —— 触发条件确实是维度名与 recharts legend item 自带属性撞名，所以 showcase 一直没盖住这个 bug。\n\n## 未动\n\n`packages/components/src/ui/chart.tsx` 有同一 helper 的副本、同样的 bug，但它没从 index 导出、无人引用，属于死代码，未顺手改以免扩大 diff。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

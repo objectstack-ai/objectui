@@ -1,0 +1,32 @@
+{
+  "number": 3108,
+  "kind": "issue",
+  "title": "[fields] Lookup multiple 回显水合逐条串行 findOne,期间无 loading 态渲染成空占位符(多值时数秒内看似没有值)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T08:37:56Z",
+  "updated_at": "2026-07-31T12:12:19Z",
+  "closed_at": "2026-07-31T12:12:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3108",
+  "body": "## 现象\n\n编辑弹窗(ModalForm)里的 lookup `multiple` 字段,当已选值较多(实测 41 个)时:\n\n1. 弹窗打开后,该字段先渲染成**空的「选择…」占位符**,和\"没有选任何值\"完全无法区分;\n2. 等待数秒后 41 个 chip 才一次性出现;\n3. 整个回显水合期间**没有任何 loading 提示**。\n\n用户(下游项目 os-project-titanwind-ehr#670)误以为班组没有组员,属于会引发误操作的缺陷:如果用户在空占位符阶段就动这个字段并保存,可能把已有多选值清掉。\n\n现场截图见下游 issue(私库):steedos-labs/os-project-titanwind-ehr#670 —— 第一张为刚打开时字段渲染成空「选择…」,第二张为数秒后 41 个 chip + 「已选择 41 项」才出现。\n\n## 根因(`packages/fields/src/widgets/LookupField.tsx` @ 3cb96469b)\n\n两个独立问题叠加:\n\n**1. 回显水合逐条串行取数 — L479 起**\n\n```ts\nfor (const id of unresolved) {\n  if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {\n    const rec = await (dataSource as any).findOne(referenceTo, id);\n    ...\n```\n\n41 个已选 id = 41 次**串行** HTTP 往返,值越多越慢(线性劣化)。\n\n**2. 水合期间无 loading 态,未解析值被直接过滤掉 — L584**\n\n```ts\n? (Array.isArray(value) ? value : []).map(resolveSelectedOption).filter(Boolean)\n```\n\n`resolveSelectedOption` 对尚未水合的 id 返回 undefined,被 `filter(Boolean)` 丢弃,`selectedOptions` 为空数组 → 触发器渲染成「选择…」空占位符。组件里唯一的 loading(`popoverQuery.loading`)只管下拉搜索,不覆盖回显水合。\n\n## 建议修复\n\n1. **批量取数**:`unresolved` 一次性用 `$filter: { [idField]: { $in: unresolved } }`(或分页分批)拉回,替代逐条 `findOne`;\n2. **水合 loading 态**:`value` 非空但存在未解析 id 时,触发器不应显示空占位符,而是显示 loading 骨架 / 「已选择 N 项(加载中…)」,水合完成后再渲染 chip;\n3. (加固)水合未完成时避免用户提交把未解析值当作空值覆盖。\n\n## 环境\n\n- @objectstack/console 17.0.0-rc.0(下游项目实测),objectui main @ 3cb96469b 代码同现\n- 复现:任意对象建 lookup multiple 字段(reference: sys_user),选 40+ 个值,重新打开编辑弹窗\n"
+}

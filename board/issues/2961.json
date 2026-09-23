@@ -1,0 +1,32 @@
+{
+  "number": 2961,
+  "kind": "pull_request",
+  "title": "fix(approvals): decision outputs reach both decision surfaces (#2955)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T10:38:02Z",
+  "updated_at": "2026-07-30T02:39:30Z",
+  "closed_at": "2026-07-30T02:39:27Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T02:39:27Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2961",
+  "body": "Fixes #2955.\n\nAn approval node can ask the approver for structured data with their decision (`decisionOutputs`, framework#3447 P2) — typically to route the next node's approvers, which the flow reads as `vars.<nodeId>.<key>`. The server has shipped this all along and surfaces the typed declaration on the request row, but **neither Console decision surface actually delivered it**.\n\n## ① The Approval Center asked for a record id instead of showing a picker\n\nThe typed pickers landed in #2831 and the drawer really did synthesize a `lookup` param per declared output — but it spelled the picker target **`referenceTo`**, and `resolveActionParams()` (which every collected param passes through before the dialog renders it) rebuilds an inline param from a fixed key list, reading the target from **`reference`**. The target was dropped there, and `paramToField()` degrades a targetless picker to a plain text input — so a `position` output rendered as a box labelled 「<label> 的记录 ID」 and the approver had to go find the record id elsewhere and paste it back.\n\n`user`-typed outputs were unaffected (that widget needs no target), which is why this survived review: `department` / `position` / `team` were the broken three.\n\n## ② The record header decided without collecting anything at all\n\nApprove / Reject on the detail page shipped their inputs under **`collectParams`** — a key nothing in the codebase reads (`ActionRunner` collects from `actionParams`). No dialog had opened on that surface since the ADR-0019 rework: the approver's comment was silently dropped on **every** record-page decision, and a node declaring `decisionOutputs` got no inputs either, so the flow resumed with `vars.<node>.<key>` missing — the next node's `expression` approver then failed with `EXPRESSION_FAILED` or fell through to `onEmptyApprovers`, with nothing surfaced to the approver or the flow author.\n\nThe header now collects through `actionParams`, renders the node's declared outputs with the same pickers the Approval Center uses, and posts them under `outputs`. The comment box works again as a side effect, and it is a real textarea (the param resolver drops `multiline`, so the intent has to ride the type).\n\n## ③ `required` (second commit — needs objectstack-ai/objectstack#3931)\n\nThe spec gained `decisionOutputs[].required`, enforced server-side. The dialog mirrors it: a required output is marked required, so the approver is stopped at the empty field with Confirm refusing, instead of by a 400 after the round trip. **Approve only**, matching the server — the reject dialog offers the same fields without blocking on them. A backend predating the flag requires nothing.\n\n## Shape of the fix\n\nThe widget mapping now lives in one place (`utils/decisionOutputParams`) so the two surfaces cannot drift apart again. Tests pin the **round trip through param resolution** — the stage that actually broke — not just the emitted shape; reverting either fix turns 11 assertions red.\n\n`app-shell` regression run: 55 files / 566 tests green, type-check clean, lint 0 errors.\n\n## Verified end to end (app-showcase runtime + this branch's console)\n\n| Check | Result |\n|---|---|\n| Approval Center, `position` multi-select output | real `sys_position` picker with live records, multi-select chips — no more \"record ID\" box |\n| Record header Approve | dialog opens (previously nothing did), comment + typed pickers; comment now persists on `sys_approval_action` |\n| outputs → `vars.*` | deciding from the record page routed the co-sign node's `expression` approver to the user picked in the dialog |\n| required output, empty approve | blocked client-side (「Next Reviewers 为必填项」) with **no** request sent; the same call via API 400s with the request untouched |\n| required output, reject | field offered, not marked, not blocked — on both surfaces |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

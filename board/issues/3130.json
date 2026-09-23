@@ -1,0 +1,32 @@
+{
+  "number": 3130,
+  "kind": "pull_request",
+  "title": "fix(environment): localize the entitlement dialog + read cloud's nested error envelope",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T01:28:34Z",
+  "updated_at": "2026-08-01T01:53:04Z",
+  "closed_at": "2026-08-01T01:49:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T01:49:47Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3130",
+  "body": "Companion to objectstack-ai/cloud#959. That issue reported the free-plan paywall as a cloud-side hardcoded string; tracing it, the sentence users actually see comes from **here**.\n\n## The reported dialog is built client-side\n\nA free-plan org that already owns its production env gets `decideEnvironmentCta → 'upgrade_for_development'`, so clicking **+ 新建环境** opens `upgradeDialogSpec()` **without ever calling cloud**. That builder concatenated:\n\n```\n`${planLabel} includes one production environment. Upgrade to add development environments — ...`\n```\n\nwith `planLabel = 'your free plan'` — which is exactly the reported text, lowercase `your` and all. (Cloud's own copy reads differently and has always been capitalized; it is the *reactive* 403 body, on a path this user never reached.)\n\n## What changed\n\n**1. Copy moved into `@object-ui/i18n`.** `upgradeDialogSpec` and `entitlementDialogFromError` now take a translator and resolve `environment.entitlement.*`. All ten locale packs carry the strings, so the objectui#2872 parity gate stays green.\n\n`entitlements.ts` keeps its \"dependency-free so it is trivially unit-testable\" property: `t` is *passed in*, not imported, and defaults to the English copy with a local `{{token}}` interpolator. Existing callers without a translator behave exactly as before.\n\n**2. The dialog renders the Console's copy, not the server's prose.** Previously `serverMessage || fallback` — the server string won. A control plane upgrades independently of the Console and only localizes these messages from cloud#959 onward, so preferring it would leave the reactive path English against every older deployment. The two paths were already meant to read identically (see the comment on `upgradeDialogSpec`); now they provably do — there's a test asserting the specs are `toEqual`. Dynamic detail is preserved: `DEV_ENV_LIMIT` interpolates the server's own `current`/`limit`.\n\n**3. Bug fix — the reactive dialog had stopped firing at all.** objectstack-ai/cloud#948 moved coded errors into a nested envelope:\n\n```jsonc\n// before                                    // after\n{ success: false, error: 'msg',              { success: false,\n  code: 'DEV_ENV_PLAN_LOCKED', ... }           error: { code: 'DEV_ENV_PLAN_LOCKED', message: 'msg', ... } }\n```\n\n`entitlementDialogFromError` read `code` off the top level, so against an up-to-date control plane it returned `null` for **every** entitlement 403 — and `useConsoleActionRuntime` fell through to a generic red error toast instead of the friendly upgrade dialog with its CTA. It now reads both shapes.\n\n## Tests\n\n- `entitlements.test.ts` — nested + legacy envelopes, plan naming, seat-count interpolation, localized output via an injected translator, proactive/reactive parity, and the capital-letter regression.\n- `useConsoleActionRuntime.test.tsx` — its `@object-ui/i18n` mock gained `useObjectTranslation`.\n- `packages/app-shell` + `packages/i18n`: 266 files / 2261 tests green (incl. the all-locale key-parity gate).\n\n## Out of scope\n\nThe chip / status labels (`Propose blueprint`, `Awaiting Approval`, `Not yet built`) tracked in #2458 item 4 — untouched here.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

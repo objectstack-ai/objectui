@@ -1,0 +1,35 @@
+{
+  "number": 2954,
+  "kind": "issue",
+  "title": "ReactRunner re-transpiles on every render, discarding its own error state",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "sdui"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T06:05:16Z",
+  "updated_at": "2026-07-30T04:46:24Z",
+  "closed_at": "2026-07-30T04:46:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2954",
+  "body": "## Summary\n\n`ReactRunner` is its own error boundary, but `getDerivedStateFromProps` re-transpiles and re-evaluates the page source on **every** render and unconditionally sets `error: null`. React runs `getDerivedStateFromProps` before the re-render that follows `getDerivedStateFromError`, so the error the boundary just caught is discarded, a fresh element is built, and the same throw happens again — escaping past `ReactRunner`'s own `fallback`.\n\n## Evidence\n\n`packages/react-runtime/src/index.tsx:69-78`:\n\n```ts\nstatic getDerivedStateFromProps(props: ReactRunnerProps): Partial<ReactRunnerState> | null {\n  try {\n    return { element: generateElement(props.code, props.scope), error: null };  // ← always clears\n  } catch (error) {\n    return { element: null, error: error as Error };\n  }\n}\nstatic getDerivedStateFromError(error: Error): Partial<ReactRunnerState> {\n  return { error };\n}\n```\n\n**Observed, not inferred.** While writing the negative-control case in #2951, a react page rendering an identifier that is absent from scope did *not* produce the \"React page error\" panel (`react-page.tsx:170-175`). The `ReferenceError` escaped to `SchemaRenderer`'s boundary instead:\n\n```\nComponent \"home\" failed to render\nTotallyNotARegisteredBlock is not defined\n```\n\nThe test therefore asserts on the error *message* rather than on the panel — pinning the panel would have pinned this quirk. See `packages/components/src/__tests__/react-page-scope.test.tsx`.\n\n## Impact\n\n1. **The `fallback` prop is dead for render-phase errors.** `ReactKindPage` passes a styled, page-specific fallback that authors never see; they get the generic renderer error instead. Only errors thrown during eval (caught by the `try` above) reach it.\n2. **`onError` may not fire as intended** — `componentDidUpdate` gates on `this.state.error`, which the next `getDerivedStateFromProps` has already cleared.\n3. **Latent state loss (not yet observed).** Every eval produces a new `Page` function identity, so if the `scope` object identity changes, the element type changes and React remounts the subtree, wiping the page's `useState`. Today `scope` is memoised on `[schema, adapter]` (`react-page.tsx:126-138`) and both are stable in the cases I exercised — I verified interactive state *does* survive in `apps/console/src/sdui-workbench-preview.tsx`. But anything that makes the adapter identity unstable would turn this into user-visible state loss with no obvious cause. Flagging it as a hazard, not a current defect.\n\n## Possible directions\n\n- Memoise the transpile+eval on `(code, scope)` instead of redoing it every render — fixes the wasted work, the identity churn, and the error reset together.\n- Only clear `error` when `code`/`scope` actually changed, rather than unconditionally.\n- Add tests for `@object-ui/react-runtime`, which currently has none.\n\n## Context\n\nFound while adding scope-contract tests in #2951."
+}

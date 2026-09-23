@@ -1,0 +1,36 @@
+{
+  "number": 2984,
+  "kind": "pull_request",
+  "title": "fix(sdui): a react page keeps its state; a source that exports nothing fails loudly",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:01:32Z",
+  "updated_at": "2026-07-30T07:09:15Z",
+  "closed_at": "2026-07-30T07:09:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:09:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2984",
+  "body": "Follow-up to #2976 / #2979. Started as \"write the regression guard for the state-loss hazard #2954 flagged\" — the guard failed on first run, because the hazard was already real on the default path.\n\n## 1. `evaluatedSchema` was memoised on values rebuilt every render\n\nTwo fallbacks minted a fresh object per call:\n\n```ts\nconst dataSource = context?.dataSource || {};        // SchemaRenderer.tsx\nreturn { variables: {}, definitions: [], ... };      // usePageVariables(), outside a provider\n```\n\nBoth feed the `evaluatedSchema` `useMemo` dependency list. So for **any tree without a `SchemaRendererProvider` / `PageVariablesProvider` above it**, that memo never hit: the schema was re-cloned and the `ExpressionEvaluator` re-run on every render, and every child got a new schema identity each time.\n\nFor a `kind:'react'` page that identity **is** the compile key. New identity → recompile → a new page function → a new element *type* → React remounts the subtree and the user's `useState` is gone. And since `SchemaRenderer` subscribes to the registry, every lazy plugin's first load fired a notify that triggered it.\n\nThis is exactly the hazard #2954 described as \"not yet observed\":\n\n> anything that makes the adapter identity unstable would turn this into user-visible state loss with no obvious cause\n\nBoth fallbacks are now module constants. The page-variables one is frozen through — sharing one instance means a stray write would leak to every consumer outside a provider instead of being scoped to one render. There is no writer today (the setters are the API, and there they are no-ops); the freeze keeps it that way.\n\nWorth noting the win is not limited to react pages: **every** `SchemaRenderer` without those providers was re-cloning its schema and re-running expression evaluation on every single render.\n\n## 2. The guard itself\n\n`packages/components/src/__tests__/react-page-state.test.tsx` pins the invariant at the **symptom**, not the memo internals — the memo is an implementation detail, \"the user's input survived\" is the contract:\n\n- state survives a parent re-render;\n- state survives a lazy block finishing its load — the case a plausible-looking `ComponentRegistry.subscribe()` in `react-page.tsx` would break, which is precisely what the comment there warns against and nothing enforced;\n- a genuinely changed `source` still recompiles (stability must not mean staleness).\n\n## 3. A source that exports nothing now throws instead of rendering blank\n\n`normalizeCode` inserts the implicit `export default` only when the source *starts with* JSX, a `function` declaration, `()` or `class`. So the form authors reach for most:\n\n```jsx\nconst Page = () => <p>hi</p>;   // exports nothing\n```\n\n…evaluated fine, exported nothing, and `generateElement` returned `null` — a blank page, no error in the console, nothing in the page error panel. It now throws with a message naming the fix, which `ReactRunner`'s panel surfaces (reachable since #2976). `export default null` still means \"render nothing\"; a default export that is not a component throws too.\n\nThis was the open question I flagged before writing docs — documenting the tier required deciding whether that behaviour is contract or bug. It's a bug.\n\n## 4. `PageSchema['kind']` matches `@objectstack/spec`\n\nThe spec has declared `full | slotted | html | jsx | react` since ADR-0080. `@object-ui/types` still said `'full' | 'slotted'`, and `page.tsx` read the field through `(schema as { kind?: string }).kind` to dispatch on values the type denied existed. Per AGENTS #0 the type follows the spec: the union now spells all five and the cast is gone.\n\n## 5. Docs\n\n`@object-ui/react-runtime` had **no README** and `content/docs` had **no page** on either source-authored kind — the injected block scope, `Block`, `useAdapter`, the capability gate and the accepted source shapes existed only in source comments. That is the tier AI-authored pages are written against.\n\n- `content/docs/guide/react-pages.md` — choosing between the executed and parsed tiers, the security gate, what's in scope (and why layout containers deliberately are not), flat props and the `type`/`specType` collision, `Block`, `useAdapter`, source shapes, error handling. Added to the guide nav.\n- `packages/react-runtime/README.md` — the API, the no-sandbox warning, and the stable-scope-identity requirement (an inline `scope={{...}}` literal remounts the tree every render — the same trap as #1, one layer up).\n\n## Verification\n\n- Full suite: `697 files passed | 1 skipped`, `8201 tests passed | 24 skipped`.\n- `turbo run type-check` across the repo (76/76) — including after removing the `kind` cast.\n- `lint` on the touched packages: 0 errors.\n- `check-doc-links`: the new page's links resolve. (One pre-existing break remains in `content/docs/core/enhanced-actions.mdx`, untouched here and not gating — that workflow is `workflow_dispatch`-only.)\n- `changeset:check`: clean. Changeset included.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01N4mrr1ihhwnfEHFSWmGoMp)_"
+}

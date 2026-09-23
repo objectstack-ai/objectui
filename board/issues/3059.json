@@ -1,0 +1,32 @@
+{
+  "number": 3059,
+  "kind": "pull_request",
+  "title": "docs(components): document the remaining nine Shadcn divergences — every tracked component now says why it diverges",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:40:48Z",
+  "updated_at": "2026-07-30T14:45:58Z",
+  "closed_at": "2026-07-30T14:45:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T14:45:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3059",
+  "body": "Completes the triage started in #3054. All 17 locally-modified components now carry a `localEdits` note, and `--check` reports **0 UNDOCUMENTED**.\n\n## None of the nine are droppable either\n\nSame result as the first eight — every one is a deliberate fix or API extension:\n\n| | why it diverges |\n|---|---|\n| `command` (35) | ADR-0054 C4 `contentProps` + the `sr-only` DialogTitle Radix requires. Upstream drops each addition *with its usages*, so a sync deletes ~38 lines and still type-checks — verified. |\n| `select` (32) | Wraps Root to swallow `onValueChange(\"\")`. Radix's hidden native mirror registers options a commit after the trigger, so a value arriving mid-hydration echoes back empty and wipes the field, latching forms whose `visibleWhen` reads it (#2968). |\n| `sidebar` (24) | Tailwind v4 syntax, a `data-collapsible`-always-present refactor, and an `eslint-disable react-hooks/purity`. |\n| `table` (17) | `containerClassName`, to stop the wrapper becoming a second height-unbounded scroll container inside DataTable. |\n| `chart` (11) | `block … w-full` instead of `flex justify-center`, or ResponsiveContainer measures no width and charts draw axes with no marks (#1634, `9b163173b`); plus hand-written Recharts prop types that actually type-check (`2e11aa72f`). |\n| `calendar` (7) | Tailwind v4 syntax on `--cell-size`. |\n| `badge` (4) | `whitespace-nowrap`, or CJK labels (待审批) break per-character in a cramped table cell (objectui#2762 P0-1). |\n| `sheet` (4) | `hideOverlay` prop. |\n| `slider` (4) | Forwards `aria-label` to the Thumb. |\n\n## Two claims I checked instead of asserting\n\nBoth could have shipped as confident wrong statements:\n\n**Sidebar's `eslint-disable` is load-bearing.** Removed it and re-ran ESLint: `react-hooks/purity` fires as an **error**, not a warning, and Lint gates CI. Claim stands.\n\n**`theme(spacing.4)` → `1rem` is cosmetic, not a fix.** I initially wrote that upstream's `theme()` is \"a v3 idiom\", implying it's broken. Compiling both against tailwindcss 4.3.3:\n\n```\n.w-\\[calc\\(var\\(--zz-icon\\)_\\+_1rem\\)\\]                    { width: calc(var(--zz-icon) + 1rem) }\n.w-\\[calc\\(var\\(--zz-icon\\)_\\+_theme\\(spacing\\.4\\)\\)\\]     { width: calc(var(--zz-icon) + 1rem) }\n```\n\nIdentical. v4 still resolves the dot-notation. The note now says so explicitly — only the `[--var]` → `(--var)` half of that migration is load-bearing.\n\n## Fixes a misleading `--check` label\n\nBoth counts are **set differences**, so a locally-edited line appears on *both* sides — once as ours, once as the upstream original it replaced. Labelling that \"N upstream line(s) pending\" reads as updates waiting to be collected.\n\nThat's exactly how I misread `sidebar`'s 21 and recommended it as the highest-value target with \"21 lines to reclaim\". There is essentially nothing to reclaim — the 21 are mostly the mirror image of sidebar's own 24 edits. Now reads **\"N not matching upstream verbatim\"**.\n\nThe `outdated` bucket keeps its original wording: there `localOnly` is 0, so the count genuinely *is* new upstream work.\n\n## Where this leaves the sync\n\n```\n✓ Identical: 29    ↑ Outdated: 0    ⚠ Modified: 17 (17 documented)    ● Custom: 2    ✗ Errors: 0\n```\n\nEvery tracked component is now either byte-identical to upstream or carries a written reason for diverging. `--update` prints that reason at the moment someone is about to `--force` past it.\n\n## Verification\n\n- All 17 annotations derived from reading the actual diffs, cross-checked against `git log -S` provenance where a commit exists (`925051db6`, `9b163173b`, `2e11aa72f`)\n- Manifest stays canonically formatted (byte-identical to `JSON.stringify(…, null, 2)`)\n- `--check` / `--diff` / `--update` and the #3033 / #3035 guards regression-checked\n- `eslint` clean; **no component source changes** — manifest and script only\n\nNo changeset.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

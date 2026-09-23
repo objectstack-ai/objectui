@@ -1,0 +1,32 @@
+{
+  "number": 2958,
+  "kind": "issue",
+  "title": "[console 17.0.0-rc.0 @4a4829d0] Action/flow failures surface as success: runtime handler ignores inner envelope; flow launch treats {success:false} as terminal success",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T08:35:42Z",
+  "updated_at": "2026-07-30T08:23:44Z",
+  "closed_at": "2026-07-30T08:23:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2958",
+  "body": "Found upgrading HotCRM to ObjectStack 17.0.0-rc.0 (console pinned at objectui `4a4829d0`). Server contract context: action/automation business failures come back **HTTP 200** with outer `{success:true, data:{success:false, error}}` (objectstack#3913), and flow failures have neither `status` nor `screen`.\n\n## Defect 1 — the main action path checks only the outer envelope\n`packages/app-shell/src/hooks/useConsoleActionRuntime.tsx:597-605` (script handler backing list toolbar / row menu / SDUI / global actions):\n```js\nif (!res.ok || (json && json.success === false)) { ... }   // outer only\n...\nreturn { success: true, data, reload: shouldRefresh };     // inner data.success===false lands here\n```\n→ business failure ⇒ green \"Action completed successfully\" toast + refresh.\n\n**The correct check already exists in the codebase** — `RecordDetailView.tsx:760-777` (`innerFailed = inner?.success === false`, with a comment naming exactly this bug). The two paths disagree; record-header actions toast red, everything else toasts green on the same failure. `apiHandler` (`useConsoleActionRuntime.tsx:343-375`) likewise inspects only `res.ok`.\n\n## Defect 2 — flow launch: failure falls into the terminal-success branch\n`useConsoleActionRuntime.tsx:479-494` (duplicated at `RecordDetailView.tsx:638-656`):\n```js\nif (data.status === 'paused' && data.screen) { ...open FlowRunner... }\nconst shouldRefresh = action.refreshAfter !== false;\n...\nreturn { success: true, data: json?.data, reload: shouldRefresh };  // {success:false,error} lands HERE\n```\nA failed launch (no `status`, no `screen`) is indistinguishable from a completed flow: no dialog, spurious green toast, refresh.\n\n## Defect 3 (minor) — FlowRunner toasts the raw error value\n`packages/app-shell/src/views/FlowRunner.tsx:106` passes `data.error` to `toast.error()` with no string coercion, unlike `errorDetail()` (`useConsoleActionRuntime.tsx:76-84`) and the React-#31 guard in `ActionRunner.ts:646-658`. An object-shaped error renders nothing.\n\n## Suggested fix\nHoist the `innerFailed` check (and `errorDetail()` coercion) into `useConsoleActionRuntime`'s script/api/flow handlers, and treat a launch/resume response lacking both `status` and `screen` with `success:false` as a failure before the terminal-success fallthrough.\n\nReal-world repro: HotCRM global action `log_call` → \"not found\" swallowed, green toast; lead-conversion screen flow with a failing CRUD node → dialog closes, no error (hotcrm#524)."
+}

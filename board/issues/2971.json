@@ -1,0 +1,32 @@
+{
+  "number": 2971,
+  "kind": "pull_request",
+  "title": "fix(actions): read objectstack#3962's single-wrapped /actions responses",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T00:15:13Z",
+  "updated_at": "2026-07-30T01:50:48Z",
+  "closed_at": "2026-07-30T01:50:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T01:50:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2971",
+  "body": "Companion to objectstack-ai/objectstack#3969 (issue objectstack-ai/objectstack#3962): `/actions` failures now speak HTTP and success is a **single wrap** — `body.data` IS the handler's return value.\n\n## Changes\n\n- `interpretActionResponse` / `readActionPayload` treat the single wrap as the primary shape. The pre-#3962 double envelope is detected **narrowly** (`isLegacyActionEnvelope`: a boolean `success` with no keys beyond the envelope's own) and unwrapped for older runtimes — so a handler value that merely *contains* a `success` key is handler-owned and passes through untouched (test pins this).\n- The 400-rejection shape (`error.details.{code, fields}`) resolves to a string toast via the existing `actionErrorDetail` path — no React #31 regression.\n- `ActionResult.data`'s depth quirk self-heals on #3962 servers: envelope and payload are the same object.\n- The `actions-envelope.ratchet.test.ts` guard is unchanged — both call sites still go through the one helper.\n\n## Also in this PR: the PeoplePicker keyboard flake, fixed at the root\n\nShard 2 flaked on `PeoplePicker.test.tsx › keyboard: ArrowDown then Enter commits the active row`. Investigated rather than re-run-and-hope: **the flake is a real component bug.** The cursor reset on new results lived in a `useEffect`; effects flush asynchronously after the render that delivered the records, so a reset queued by their arrival could land **after** a subsequent ArrowDown and wipe the just-set cursor. (The earlier signature-keyed fix in this file closed the *too-often* resets; this was the *too-late* one.) Real-world shape: rows appear, a fast user presses ArrowDown, the highlight vanishes.\n\nThe reset now runs in the render phase (React's \"adjusting state during render\" pattern) — same render that shows the new rows, so it can never race a keypress. Semantics pinned by a new test (a replaced result set does not inherit the previous set's cursor); the flaking test passes 6/6 consecutive local runs. `LookupField` keeps its own length-keyed effect reset deliberately — different semantics (reset on every count change while typing).\n\n## Testing\n\n- Full `app-shell` suite: **1937 passed** (235 files); `fields`: **453 passed** (35 files, +1 new); type-check clean both packages.\n- New cases: the #3962 single-wrap passthrough (including a success-ish handler value), the 400-rejection string resolution, the legacy double-wrap fold, and the cursor-reset semantics.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_011AvZj6cLX7APd7roh2eK4F"
+}

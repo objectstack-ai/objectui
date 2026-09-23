@@ -1,0 +1,32 @@
+{
+  "number": 2929,
+  "kind": "issue",
+  "title": "Decision: objectui keeps hand-built `/api/v1/ai/*` URLs rather than adopting `client.ai.*` (framework#3718 follow-up)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "needs-user-decision"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T15:16:07Z",
+  "updated_at": "2026-08-03T11:58:27Z",
+  "closed_at": "2026-08-03T11:58:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2929",
+  "body": "Recording a decision so the next person does not re-derive it — and so the reasoning is on file if the trade-off changes.\n\n## The context\n\nobjectstack-ai/objectstack#3888 added `ai.agents.*` and `ai.pendingActions.*` to `@objectstack/client`, closing six of the ten AI routes the SDK could not reach. objectstack-ai/cloud#909 flipped the matching ledger rows to `sdk` and drove two gap ratchets to zero.\n\nThe obvious next step looked like: replace objectui's hand-built AI URLs with `client.ai.*`. Six call sites —\n\n**agents** — `packages/plugin-chatbot/src/useAgents.ts`, `agentAliases.ts`, `packages/app-shell/src/hooks/useAiSurface.ts`, `packages/app-shell/src/console/ai/AiChatPage.tsx`, `plugin-chatbot`'s `useObjectChat`\n**pending actions** — `packages/plugin-chatbot/src/usePendingActions.ts`, `ChatbotEnhanced.tsx`, `apps/console/src/pages/system/AiPendingActionsPage.tsx`\n\n## Why we are not doing it\n\nThree facts, found while scoping it:\n\n1. **No objectui package depends on `@objectstack/client` — or on any `@objectstack/*` package.** `plugin-chatbot`'s 19 dependencies are all `@object-ui/*` and third-party. `data-objectstack` is the one adapter that bridges to the SDK, and it is a separate package *precisely* so the UI packages do not take that dependency. Adopting `client.ai.*` in the hooks would make this the first framework runtime dependency in the UI layer — inverting a deliberate boundary, not tidying one.\n\n2. **`usePendingActions.ts` documents the constraint in its own header**: *\"Pure React + fetch — no extra deps so it stays inside `plugin-chatbot`'s tiny bundle.\"* The package ships at 179.93 KB / 42.67 KB gzipped today.\n\n3. **The bridge route is not cheap either.** `plugin-chatbot`'s hooks receive no DataSource or adapter (no `useAdapter` anywhere in the package), and `data-objectstack` exposes no `ai` surface. Routing these calls through the adapter would mean adding `ai` there *and* threading a DataSource into hooks that currently take none.\n\n## What we would be buying\n\nMostly URL-drift protection: if objectui called `client.ai.*`, cloud's reachability sweep — which drives the real SDK against the routes its builders return — would transitively cover objectui's URLs too.\n\nThat is real, but it is the *second* copy of a guarantee. The routes themselves are already audited on the cloud side (`packages/service-ai/src/ai-route-ledger.ts` + its conformance test, objectstack-ai/cloud#903/#906), and the class of bug that started this work — a URL nothing mounts — is caught there for every `ai.*` method regardless of who calls it.\n\n## What is still worth doing, cheaply\n\n`usePendingActions.ts` hand-copies two wire types (`PendingActionStatus`, `PendingActionRow`) that the framework now exports as `AiPendingActionStatus` / `AiPendingAction`. A **type-only** import would delete the mirror at zero bundle cost (types are erased), though it would still be the first `@objectstack/*` entry in the package — as a `devDependency`.\n\nNot doing that here either; noting it as the cheapest available increment if the mirror ever drifts.\n\n## Revisit if\n\n- objectui's UI packages take an SDK dependency for some other reason — then this becomes free.\n- The pending-action or agent wire shapes change and the hand-copied types drift (the mirror above is the early-warning canary).\n- `data-objectstack` grows an `ai` surface for unrelated reasons — then the bridge route costs only the threading."
+}

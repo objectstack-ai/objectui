@@ -1,0 +1,34 @@
+{
+  "number": 3016,
+  "kind": "pull_request",
+  "title": "test(charts): the chart-dialect guard fails on new dialect, not on the spec adopting one (#2945)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:28:06Z",
+  "updated_at": "2026-07-30T10:33:42Z",
+  "closed_at": "2026-07-30T10:33:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T10:33:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3016",
+  "body": "A one-test follow-up to #3011, found while checking what remained of #2945.\n\n## The problem\n\nThe chart-type parity guard I added in #3011 asserted an **exact match** against the one name objectui draws that the resolved spec doesn't define:\n\n```js\nexpect(dialect).toEqual(['combo']);\n```\n\nThat's the wrong shape for a drift guard. framework#4070 has **already promoted `combo` into `ChartTypeSchema`** (it isn't in a published spec version yet, so objectui still resolves the enum without it). The moment objectui bumps to a spec carrying `combo`, `dialect` becomes `[]` and the test fails with `expected [] to deeply equal ['combo']` — a cryptic red for the *good* outcome, landing on whoever does the version bump instead of on whoever introduces dialect.\n\n## The fix\n\nThe tracked set becomes an upper bound rather than an expectation:\n\n- only **untracked** dialect fails, with a message naming the promote-or-delete decision;\n- the list shrinks silently as the spec adopts a name — a bump is green;\n- an entry the spec has since defined is reported through `console.info` so it gets pruned rather than accumulating as a stale exception.\n\nCoverage assertions (every spec chart type lands on a real branch; no silent bar collapse; single-value/tabular behavior) are untouched.\n\n## Context on #2945\n\nWhile verifying, I found **Track A and the additions-only work are both already done** framework-side, so #2945's \"safe, ready now\" section is stale:\n\n- framework#4061 — retired the three orphan vocabularies (`AggregationFunctionEnum`, websocket `FilterOperator` + `EventFilterSchema`, `ODataFilterOperatorSchema`), each with a tombstone comment. I verified zero residue in framework, and zero consumers in objectui.\n- framework#4070 — promoted `combo`, made `WidgetActionTypeSchema` *be* `ActionType`, derived `ListChartConfigSchema.chartType` via `.extract([...])`, and derived `@objectstack/lint`'s chart-family set from the taxonomy.\n- framework#4107 — `saveMeta` now persists the normalized operator spellings, which was prerequisite #2 for Track C.\n\nI've commented the same on #2945. Track C is still blocked on objectstack#3948 item 1 and shouldn't start.\n\n## Verification\n\n`vitest` 7/7 on the touched file, eslint clean. Test-only change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

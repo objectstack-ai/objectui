@@ -1,0 +1,30 @@
+{
+  "number": 2956,
+  "kind": "issue",
+  "title": "详情页笔 icon 行内编辑:多值 lookup 无法选中多个",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T06:41:15Z",
+  "updated_at": "2026-07-29T12:14:35Z",
+  "closed_at": "2026-07-29T12:14:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2956",
+  "body": "## 问题\n\n详情页(record detail)通过字段上的**笔 icon 进入行内编辑**后,**多值 lookup 字段无法选中多个**:\n\n- 选中第一条记录后,浮层直接关闭,值被**替换**而不是追加;\n- 再点第二条只会把第一条顶掉,永远只能有一个值;\n- 读态同样只显示一个 chip(值是数组时甚至可能显示异常)。\n\n同一个字段在**对象表单**里多选是正常的 —— 只有详情页行内编辑坏。\n\n复现(framework `examples/app-showcase`):\nField Zoo → `Specimen — Full` → 「显示空字段」→ `Users (multiple)`(`Field.user({ multiple: true })`)→ 点笔 icon → 试图选第二个人。\n\n## 根因\n\n详情页行内编辑的字段元数据是 `DetailSection` 从 object schema **手写白名单**逐个拷过来的(`DetailViewField` 只带 name/label/span 这类展示信息,配置控件的元数据全在 object schema 上)。\n\n这份白名单**从来没有 `multiple`**,所以 `LookupField` 里 `fieldMeta?.multiple` 恒为 `false`,走单选分支:选中即 `onChange(option.value)` 覆盖 + 关闭浮层。\n\n同一份白名单还漏掉了 lookup picker 的其余配置(`display_field` / `description_field` / `id_field`、快捷新建、Level-2 记录选择器的列 / 分页 / 基础过滤、people picker、依赖联动 `depends_on`),这些在表单路径上都是白拿的。\n\n而且 `HeaderHighlight`(高亮条的行内编辑)另抄了一份同类白名单,两份已经互相漂移过两次(代码注释里还留着 \"keep in sync with DetailSection\" 的字样)。\n\n## 方案\n\n1. 抽出共享的 `enrichDetailField(viewField, objectDefField)`(带文档的 key 清单,视图字段永远优先,`readonly` 不拷),`DetailSection` 与 `HeaderHighlight` 共用,消除漂移;清单里补齐 `multiple` + 全部关系/picker 配置键。\n2. `multiple` 真的传下来之后,`InlineFieldInput` 的 select 分支不能再用 `String(value)` 把数组拍扁 —— 多值 picklist(含 `multiselect`)改走 chip 选择器、值保持数组。\n3. 补测试:集成测试直接驱动 `DetailSection` + 真实 `LookupField`,断言连点两个选项后 `onFieldChange` 依次收到 `['t1']`、`['t1','t2']`;另加 `enrichDetailField` 单测。\n"
+}

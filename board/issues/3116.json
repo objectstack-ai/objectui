@@ -1,0 +1,30 @@
+{
+  "number": 3116,
+  "kind": "issue",
+  "title": "[console] 编辑保存不发 If-Match/If-Unmodified-Since,并发编辑静默后写覆盖(数据层 409 检测是好的)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:38:02Z",
+  "updated_at": "2026-07-31T10:08:50Z",
+  "closed_at": "2026-07-31T10:08:50Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3116",
+  "body": "## 现象\n\nconsole 编辑保存不发条件请求头(`If-Match` / `If-Unmodified-Since`),并发编辑退化为「后写覆盖先写」,且先写方拿到的是成功回执、毫不知情。\n\n## 实测证据(17.0.0-rc.0,真人实测)\n\n同一条记录:\n1. 两个基于同一版本的写入先后改 `remark` → **双双 200**,最终只留后写方的值;\n2. 同一条记录手工带 `If-Match` / `If-Unmodified-Since`(值取过期 updated_at)再写 → **409** `Record … was modified by another user`,且值未被覆盖。\n\n⇒ **数据层的版本冲突检测是好的,缺陷在 console 编辑保存链路不带条件头**。\n\n## 影响\n\n多人同时改同一单据静默丢改动(高频协作对象风险最大);凡走 console 界面的用户都受影响。保存链路在渲染层,应用层元数据无从干预。\n\n## 建议\n\nconsole 编辑保存(弹窗/内联/详情)统一带上 `If-Match: <etag>` 或 `If-Unmodified-Since: <updated_at>`,409 时提示「记录已被他人修改」并引导刷新合并。\n\n下游登记:os-project-titanwind-ehr PLAT-DEF-021。\n"
+}

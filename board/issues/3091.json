@@ -1,0 +1,34 @@
+{
+  "number": 3091,
+  "kind": "pull_request",
+  "title": "fix(form): harden the spec↔runtime form-field chokepoint, derive SelectOption, complete FormFieldSchema (#3090 PR1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T04:15:04Z",
+  "updated_at": "2026-07-31T04:21:54Z",
+  "closed_at": "2026-07-31T04:21:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T04:21:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3091",
+  "body": "#3090 的 **PR1(修缺陷,零破坏)**。三块,每块都带 mutation-tested 闸门。\n\n## 1. 枢纽补缺:`normalizeSectionField` 丢了四个 spec 17 键\n\n最恶劣的一个:ADR-0089 把视图级可见性谓词的**规范拼写**定为 `visibleWhen`,而枢纽只 attach 弃用的 `visibleOn` —— 用规范拼写写的表单视图丢谓词,用弃用拼写反而能用。修法:视图级 `visibleWhen` 路由进视图层槽位(`visibleOn`),与对象级规则(`fromObjectSchema` 拷入的 `visibleWhen` 槽)**AND 叠加**而非互相覆盖(渲染器本来就分别评估两个槽位);两个拼写同时出现时规范拼写赢(`saveMeta` 按原样持久化,线上的元数据两种都有)。\n\n连带堵住一个新暴露面:WizardForm 的最终提交重查只评估 `visibleWhen` 槽 —— 视图级谓词生效后,一个**被视图隐藏的必填字段**会在屏幕外卡死提交。重查现在与 form.tsx 一样折叠 `visibleOn` 槽(回归测试:谓词为假时提交放行)。\n\n另三个键:`dependsOn`(级联声明,渲染器读顶层)、`keyField`、`disclosure`(record/composite 控件配置,透传)。\n\n**闸门**:`sectionFields.spec-parity.test.ts` 按 spec `FormFieldSchema.in.shape` 逐键行为断言(28 键各有一行,断言落点:`helpText`→`description`、`readonly`→`disabled`、双拼写→`visibleOn` 槽……),并双向比对键集 —— spec 加键红(unmapped)、退键红(stale)。已突变验证:删掉 `keyField` 映射行,对应行即红。\n\n## 2. `SelectOptionSchema` 改为 spec 派生(台账 124 → 122)\n\n旧手抄件静默剥掉 `color`(`@object-ui/fields` 实际渲染 badge/dot 颜色)、`default`、以及逐选项 `visibleWhen` 门控 —— 一个带权限门控的选项过了 `objectui validate`,门却被扒了。现在 spec 键按引用流入,两个钉住的有意分歧(`value` 放宽到 string|number|boolean;`visibleWhen` 保持 #2212 wire 契约,不用 spec 的 envelope 规范化管道,输出形状不变)+ 两个 UI 扩展(`disabled`/`icon`)。TS `SelectOption` 补 `color`/`default`。\n\n台账:`SelectOption`/`SelectOptionSchema` 从 DEBT 移入 ALLOW(带理由与守卫指针)。parity 测试四向守卫:spec 加键、退键、认领扩展名、自行放宽 `value`,任一发生即红。\n\n## 3. `FormFieldSchema`(runtime 词汇)补齐自家契约\n\nCLI 唯一强制执行的表单字段契约此前只覆盖 TS 接口 13 个声明键、且要求接口里可选的 `type` 必填:渲染器接受的元数据过不了校验,而 `visibleWhen: 42` 这种错值被 strip 静默吞掉。补齐 `widget`/`dependsOn`/`hidden`/`readonly`/`visibleOn`/`visibleWhen`/`readonlyWhen`/`requiredWhen`/`span`,`type` 改可选。\n\n**边界钉死**:`{ field: 'email' }`(spec 词汇)**仍然拒绝** —— 双层边界属于枢纽,不属于双键读(PR2 只改错误文案,不改判定)。set-coverage 断言钉住键集(TS 接口带 index signature,两个方向的可赋值性探针都会说谎 —— 见 checker 头注 lie #3 —— 故按 #3017 模板用 pinned list)。\n\n## 验证\n\n- 592 tests 过(types + plugin-form 全量),新增 43 个断言\n- types/plugin-form/components/cli 四包 tsc 干净;改动文件 eslint 0 errors\n- 全部治理脚本绿:spec-symbols(122)、type-check-coverage、lint-coverage、changeset-fixed\n\nCloses 部分 #3090(PR1 复选框)。关联 objectstack#4115。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

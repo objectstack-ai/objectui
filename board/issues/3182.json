@@ -1,0 +1,35 @@
+{
+  "number": 3182,
+  "kind": "issue",
+  "title": "`@objectstack/spec` 仍锁在 17.0.0-rc.0:升到 rc.1 会产生双版本 spec 图,并打红 `check:spec-symbols`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T03:44:31Z",
+  "updated_at": "2026-08-02T09:13:25Z",
+  "closed_at": "2026-08-02T09:13:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3182",
+  "body": "## 结论\n\n本仓当前 lockfile 把 `@objectstack/spec` 解析到 **17.0.0-rc.0**,而 registry 上 `rc` tag 已经是 **17.0.0-rc.1**。升级不是改个 range 就完事 —— 实测有两个硬阻塞。\n\n## 现状\n\n`package.json` 里的 range 是 `^17.0.0-rc.0`(root + 24 个包),本身已经允许 rc.1,只是 lockfile 钉在 rc.0:\n\n```\n$ ls node_modules/.pnpm | grep '^@objectstack'\n@objectstack+client@17.0.0-rc.0\n@objectstack+core@17.0.0-rc.0\n@objectstack+formula@17.0.0-rc.0\n@objectstack+lint@17.0.0-rc.0\n@objectstack+sdui-parser@17.0.0-rc.0\n@objectstack+spec@17.0.0-rc.0\n```\n\n## 阻塞 1 —— 双版本 spec 图\n\n`client` / `core` / `formula` / `lint` 对 spec 的依赖是**精确版本**,不是 caret:\n\n```\n@objectstack/client@17.0.0-rc.0  -> spec \"17.0.0-rc.0\"\n@objectstack/core@17.0.0-rc.0    -> spec \"17.0.0-rc.0\"\n@objectstack/formula@17.0.0-rc.0 -> spec \"17.0.0-rc.0\"\n@objectstack/lint@17.0.0-rc.0    -> spec \"17.0.0-rc.0\"\n```\n\n所以只升 spec 之后:\n\n```\n$ pnpm update -r @objectstack/spec@17.0.0-rc.1\n$ # 图里同时存在两份 spec:\nspec copies in graph: @objectstack+spec@17.0.0-rc.0, @objectstack+spec@17.0.0-rc.1\nclient -> sees spec 17.0.0-rc.0\ncore   -> sees spec 17.0.0-rc.0\nformula-> sees spec 17.0.0-rc.0\nlint   -> sees spec 17.0.0-rc.0\n```\n\n即 objectui 自己的代码看 rc.1,`@objectstack/*` 内部看 rc.0。这对本仓特别危险,因为多处 guard 依赖 **引用同一性 / 同一份 `.d.ts`**:\n\n- `scripts/check-spec-symbol-derivation.mjs` 和 `spec-symbol-parity.test.ts` 都用 `createRequire` 去解析 spec 的 `.d.ts` 再过 TS checker —— 拿到哪一份取决于解析顺序。\n- `spec-subschema-parity.test.ts` 明确以**引用同一性**区分 re-export 与 fork(见 `check-spec-symbol-derivation.mjs` 头部关于 objectui#3003 的说明);两份 spec 会让 zod schema 对象不再是同一个引用。\n\n结论:spec 不能单独升,必须**整个 `@objectstack` 家族 rc.0 → rc.1 同步升**(client / core / formula / lint / sdui-parser 的 `rc` tag 都已是 17.0.0-rc.1)。\n\n## 阻塞 2 —— `check:spec-symbols` 由绿转红\n\nbaseline(rc.0):\n\n```\n$ pnpm check:spec-symbols\n✅  spec symbol derivation: 1200 files scanned against 4231 spec export names;\n    6 declared dialects, 77 untriaged collisions in 18 packages.\n$ echo $?\n0\n```\n\n升到 rc.1 后:\n\n```\n$ pnpm check:spec-symbols\n❌  a spec-named symbol is hand-written, not derived:\n\n    • @object-ui/app-shell declares 1 spec-named symbol the spec already owns:\n        interface `InboxNotification`  packages/app-shell/src/layout/inboxGrouping.ts:16\n        (exported by `@objectstack/spec/contracts`)\n\n    • @object-ui/types declares 1 spec-named symbol the spec already owns:\n        interface `FieldNode`  packages/types/src/data-protocol.ts:226\n        (exported by `@objectstack/spec/data`)\n\n    • @object-ui/types lists 1 symbol in DEBT that no longer collide — `JoinNode`.\n    • @object-ui/react lists 1 symbol in DEBT that no longer collide — `PerformanceConfig`.\n$ echo $?\n1\n```\n\n也就是 rc.1 **新增**了 `InboxNotification`(contracts)、`FieldNode`(data)两个导出名,同时**移除/改名**了 `JoinNode`、`PerformanceConfig`。四处都得对账(前两个 import/derive/rename/ALLOW 四选一,后两个从 DEBT 台账删除,`--ledger` 可重生成)。\n\n## 另需注意 —— rc.1 收紧了 schema 严格性\n\nrc.1 把一批 zod schema 从 `$strip` 翻成 `$strict`(strict 会**拒绝**未知键,而不是静默丢弃):\n\n| subpath | rc.0 | rc.1 |\n|---|---|---|\n| `automation` | `$strict=0` `$strip=160` | `$strict=19` `$strip=152` |\n| `ui` | `$strict=3` `$strip=286` | `$strict=6` `$strip=287` |\n\n共约 22 个 schema 变严。以前能通过的元数据现在可能直接抛错 —— 升级 PR 里需要专门验证 automation / ui 侧的解析路径,不能只看编译通过。\n\n## 建议\n\n单独开一个「`@objectstack` 家族 rc.0 → rc.1 同步升级」PR,内容至少包括:\n\n1. `client` / `core` / `formula` / `lint` / `sdui-parser` / `spec` 一并升到 17.0.0-rc.1,确认 `node_modules/.pnpm` 里只剩**一份** spec。\n2. 处理 `check:spec-symbols` 的四处对账。\n3. 针对 `$strip → $strict` 的 22 个 schema 做解析回归验证。\n4. 按 AGENTS.md「版本号策略」,changeset 标 `minor`(不要标 `major`,fixed 组会整组被推走)。\n\n## 影响\n\nobjectstack-ai/objectstack#4562(把 `DecisionOutputDef` 收敛成 spec 的纯 re-export)**被本 issue 阻塞**:`required` 只在 spec **rc.1** 才被建模,rc.0 没有。在当前解析的 rc.0 下收敛会直接编译失败:\n\n```\nsrc/utils/decisionOutputParams.ts(128,50): error TS2339:\n  Property 'required' does not exist on type\n  '{ key: string; label?: string; type?: \"text\" | \"position\" | \"user\" | \"department\" | \"team\"; multiple?: boolean; }'.\n```\n\n已备好的改动在分支 `claude/issue-4562-decision-output-collapse`(在 rc.1 下实测 app-shell `tsc --noEmit` 全绿),等本 issue 落地后即可开 PR。\n\n---\n\n发现于 objectstack-ai/objectstack#4562 的实施过程中,属于该 issue 范围外,故单独记录,未指派。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

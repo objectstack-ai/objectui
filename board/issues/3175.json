@@ -1,0 +1,33 @@
+{
+  "number": 3175,
+  "kind": "pull_request",
+  "title": "fix(studio,timeline,list): 表单设计器解析对象翻译；timeline 认它自己配置的日期字段 (#3134, #3129)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T01:30:56Z",
+  "updated_at": "2026-08-02T01:38:24Z",
+  "closed_at": "2026-08-02T01:38:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T01:38:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3175",
+  "body": "修复本批次两个渲染缺陷：**#3134**（Studio 表单布局设计器不解析对象翻译）与 **#3129**（timeline 不按配置的日期字段分桶）。\n\n> #3144 不在本 PR 内 —— 它已于今日 11:08 由另一会话在 #3147 修复并 closed，本 PR 未认领、未触碰。\n\n---\n\n## #3134 —— 表单布局设计器未解析对象字段/分组翻译\n\n### 根因（与 issue 原文一致）\n\nissue 的归因是对的，且定位精确。`ObjectFormDesigner` 自称是\"最终用户表单的预览\"，但它直接读原始草稿元数据：\n\n- 字段卡片读 `entry.def.label`\n- 分组标题读 `g.label || g.key`\n- 拖拽浮层读 `activeEntry.def.label`\n\n而同一对象的其他所有表面（`ObjectForm`、`RecordDetailView`、数据视图）都先走项目的对象翻译。于是一个已完整翻译的对象，在布局画布上显示 `Opportunity Name` / `Basic Information`，点开一层却是 `商机名称` / `基本信息`。\n\n### 改动\n\n三处显示点改走 `useSafeFieldLabel()` —— 与运行态表单同一个解析器：`fieldLabel()` 解析字段卡片与拖拽浮层，`sectionLabel()` 解析分组标题，无翻译时回落到作者写的元数据 label。查找根是对象 API 名：`StudioDesignSurface` 现在显式传 `objectName={current.name}`，草稿体尚未命名时也能解析，并保留 `draft.name` 作为回落。\n\n用 `useSafeFieldLabel`（而非 `useObjectLabel`）是因为设计器也会在无 `I18nProvider` 的测试/预览里挂载，这时它退化成恒等回落。\n\n---\n\n## #3129 —— timeline 不按配置的日期字段分桶\n\n### ⚠️ issue 的归因不完整，请以实测为准\n\nissue 说该视图声明了 `timeline.startDateField: \"start_date\"`，问题\"isolated to the timeline path\"。**这条路径实测是好的。** 我按三层做了复现：\n\n| 层 | 验证内容 | 结果 |\n|---|---|---|\n| `ObjectTimeline` 单体 | 嵌套 `timeline.startDateField` + 扁平 `startDateField` | ✅ 正确分桶 |\n| `ListView` 出参 | 转发的绑定 + `$select` 投影 | ✅ `$select` 含 `start_date`，绑定正确 |\n| `ListView` → 真实 `ObjectTimeline` 组合 | 端到端渲染出的分桶表头 | ✅ `Later`，非 `No date` |\n\n也就是说：**声明 `timeline.startDateField` 时，渲染路径本来就是对的**。照 issue 原文去改渲染器会改错地方。\n\n### 实测复现到的真正缺陷\n\n把四种产品实际接受的书写形态逐一跑出来，第四种复现了报告的症状：\n\n| # | 书写形态 | `$select` | 分桶（修复前） |\n|---|---|---|---|\n| A | `view.timeline.startDateField`（spec） | 含 `start_date` | `Later` ✅ |\n| B | `view.options.timeline.startDateField`（app-shell 产出） | 含 `start_date` | `Later` ✅ |\n| C | `view.options.timeline.dateField`（legacy 别名） | 含 `start_date` | `Later` ✅ |\n| **D** | **`view.timeline.dateField`（spec 嵌套 + legacy 键）** | **含 `start_date`** | **`No date`** ❌ |\n\n`dateField` 是 `startDateField` 的 #2231 前遗留别名。它**并非**野生形态：`@object-ui/types` 的 `ListViewTimelineConfig` 明确在嵌套配置上声明了它，app-shell 与 plugin-view 两个 `ObjectView` 读取点也都解析它。真正驱动时间轴的两个读取点却不解析：\n\n- `ObjectTimeline` 只在**扁平** prop（`schema.dateField`）上认这个别名，嵌套的 `schema.timeline` 上不认；\n- `ListView` 只从 `options.timeline` 里取，不从 spec 正典的 `schema.timeline` 取 —— **能力门禁（capability gate）也有同一个缺口**，所以这种视图可能连 Timeline 选项都不会被提供。\n\n于是形态 D 一路穿透到调用方的默认值（`created_at` / `due_date`）。该字段通常不在投影里，每行都取不到值，`dateBucket()` 收到 `undefined` → 全部落进 **No date**，而配置的日期就原封不动躺在行里。\n\n**这同时解释了 issue 里那句\"metadata-only 地把两个日期字段加进投影，行为没变\"**：投影里本来就有正确字段，渲染器读的是另一个键 —— 加字段当然没用。这个吻合度是本次归因的主要证据。\n\n### 改动\n\n两个读取点在它们**已经**用于 `options.timeline.dateField` 的同一优先级位置解析该别名；spec 键在两者同时存在时仍然胜出。能力门禁补同一个缺口。`ObjectTimeline` 的 `schema.timeline` 类型从 `TimelineConfig` 收敛到 `ListViewTimelineConfig` —— 即 types 包一直声明、而渲染器一直没读的那个形状。\n\n### 仍未证实的部分（如实标注）\n\n若 HotCRM 已发布的 `campaign_timeline` 确实带的是 `startDateField` 而非 `dateField`，那么本 PR 修的就是一个**同症状的相邻缺陷**，而非该视图的直接病因；那种情况下剩余嫌疑是 `viewDef.timeline` 根本没走到 app-shell 的 `ObjectView`（它随后把轴钉死在自己的 `'due_date'` 默认值上，crm_campaign 没有该字段，症状完全一致）。**我没有跑过 HotCRM 实例，也未取得该视图已发布的 JSON**（请求挂载 hotcrm 仓库被拒绝），所以这一支属于**未实测**。要坐实它，需要 `crm_campaign/view/campaign_timeline` 的已发布视图定义。\n\n---\n\n## 验证证据\n\n全部为本分支当前代码的真实运行输出，非誊抄。\n\n**`pnpm type-check`** —— 全绿：`Tasks: 78 successful, 78 total`。\n\n**受影响包的测试套件：**\n\n```\nnpx vitest run packages/plugin-timeline packages/plugin-list --maxWorkers=2\n  Test Files  21 passed (21)\n       Tests  292 passed (292)\n\nnpx vitest run packages/app-shell --maxWorkers=2\n  Test Files  252 passed (252)\n       Tests  2144 passed | 7 skipped (2151)\n```\n\n（app-shell 运行中打印的 `DOMException [NetworkError] ... localhost:3000` 是既有噪音：部分用例故意打不可达地址，252 个文件全通过。）\n\n**#3129 修复前后的分桶实测**（同一套探针，仅回退渲染器改动）：\n\n```\n修复前                                    修复后\nA  buckets = Later                        A  buckets = Later\nB  buckets = Later                        B  buckets = Later\nC  buckets = Later                        C  buckets = Later\nD  buckets = No date   ← 复现              D  buckets = Later\n```\n\n## 回归测试撤销后的失败条数\n\n两处都验证过\"撤掉修复后必须变红\"：\n\n- **#3134** —— 回退 `ObjectFormDesigner.tsx` + `StudioDesignSurface.tsx`：`Tests 3 failed | 7 passed (10)`，即**新增 4 条里失败 3 条**。第 4 条（无翻译时回落到元数据 label）本就该两边都通过，是有意的对照。\n- **#3129** —— 回退 `ObjectTimeline.tsx` + `ListView.tsx`：`Tests 3 failed | 5 passed (8)`，即**失败 3 条**（plugin-timeline 1 条：嵌套别名分桶；plugin-list 2 条：转发的绑定、能力门禁）。\n\n## 顺带说明：这两个缺陷当初为什么能带着绿灯发布\n\n`ObjectTimeline.test.tsx` 把 `./renderer` 替换成只渲染 `item.title` 的桩件，因此它那条\"uses spec-compliant startDateField property\"用例，**无论日期绑定有没有解析成功都会通过** —— 日期只存在于真实渲染器输出的分桶表头里。`ListView.test.tsx` 的 timeline 用例则只断言视图切换器里出现了 Timeline 选项，从未检查转发下去的绑定。所以\"整条时间轴全部落进 No date\"这件事在既有测试下是完全不可见的。\n\n新增的两套回归测试因此刻意不 mock 渲染器：plugin-timeline 那套读真实渲染器输出的分桶表头，plugin-list 那套用注册表 spy 钉住转发的绑定与 `$select`。\n\n## 边界\n\n未移除/重命名任何可作者化的 spec key，未改公开导出，无协议破坏性变更。`dateField` 仍是既有的 deprecated 别名 —— 本 PR 只是让它在两种嵌套下解析一致，spec 键始终优先。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017gEHJN2NFpS9VMeURvakgD)_"
+}

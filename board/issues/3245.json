@@ -1,0 +1,34 @@
+{
+  "number": 3245,
+  "kind": "issue",
+  "title": "ObjectForm 的 mobile.fullscreenLongText 到不了自动生成字段的 TextAreaField:flag 写在 FormField 上,form.tsx 转发的却是 field.field",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:19:13Z",
+  "updated_at": "2026-08-03T13:57:59Z",
+  "closed_at": "2026-08-03T13:38:45Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3245",
+  "body": "在实现 objectui#3232(PR #3244,把 `TextAreaField` 的 `mobile_fullscreen` 收敛到唯一生产者)时,为了确认「保留下来的那条读取确实活着」而把生产链路走了一遍,发现**对自动生成的字段这条链路是断的**。**不在 #3244 修** —— 修点在 `packages/components` / `packages/plugin-form`,#3244 的 scope 被限制在 `packages/fields`,且真正的修法要改公共契约(见下)。\n\n## 链路\n\n以一个 `type: 'textarea'` 的对象字段、表单开了 `mobile: { fullscreenLongText: true }` 为例:\n\n1. `plugin-form/src/ObjectForm.tsx:567` — 自动生成 FormField 时 `type: mapFieldTypeToFormType(field.type)`,而 `fields/src/field-type-alias.ts:21` 把 `textarea` 映射为 **`'field:textarea'`**。\n2. `plugin-form/src/ObjectForm.tsx:584` — 同时把原始元数据挂在 **`field: field`** 这个槽上(注释:\"Pass the original field metadata so widgets can access properties like precision, currency, etc.\")。\n3. `plugin-form/src/ObjectForm.tsx:1043-1049` — mobile 那一步把 flag 盖在 **FormField 自己**身上:`({ ...f, mobile_fullscreen: true })`。**没有**盖到 `f.field` 上。\n4. `components/src/renderers/form/form.tsx:1719-1727` — `'field:textarea'` 不在 `BUILTIN_FIELD_TYPES` 里,所以走已注册 widget 分支,解析到 `field:textarea` → `TextAreaField`。\n5. `components/src/renderers/form/form.tsx:1336` — 转发给 widget 的是 **`field: field.field || field`**。第 2 步让 `f.field` 存在,于是 widget 拿到的是**原始元数据**,而第 3 步的 flag 在 FormField 上,**在这里被丢掉**。\n6. `components/src/renderers/form/form.tsx:266` — 唯一还带着 flag 的载体(prop `mobile_fullscreen`)被 `stripRegisteredFieldProps()` 显式剔除。\n\n结果:`TextAreaField` 三个可能的入口(`field` / `schema` / prop)全部拿不到 flag,全屏入口不渲染。\n\n注意这**不是 #3244 引入的**:在 #3244 之前,四条读取里 ① 恒 `undefined`、③ 被剥离、④ 与 ② 同对象,所以那时同样是断的。#3244 只是把死读取删掉,没有改变这条链路的行为。\n\n## 还活着的是哪几条\n\n- **内置分支**:`customFields` 里手写 `type: 'textarea'`(不带 `:` 前缀)时 `BUILTIN_FIELD_TYPES` 命中,走 `form.tsx:1761-1763` 的 `mobile_fullscreen || fullscreen` + 它自己的 `FullscreenTextarea` —— 这条读的是 FormField props(未经 strip),**正常**。\n- **已注册 widget**:只有当 FormField **没有** `.field` 子对象时(手写 `customFields` 且 `type: 'field:textarea'`),`field.field || field` 落到 FormField 本身,flag 才到得了 `TextAreaField`。\n\n也就是说:**手写 customFields 可以工作,自动生成字段不行** —— 而自动生成正是绝大多数表单的路径。\n\n## 证据等级\n\n以上是对四处字面代码的静态推导(行号均针对 `origin/main @ ca58e45`),**未做浏览器复现**。落地修之前建议先补一个跑通 `ObjectForm` → `form.tsx` → widget 的集成用例把现状钉住 —— 现在整个 `mobile.fullscreenLongText` 特性没有任何集成测试,这也是它能一直断着没人发现的原因。\n\n## 修的方向(需维护者定夺,不要照着猜)\n\n两条路都动公共契约,所以这里只摆选项,不预设结论:\n\n**A. 生产者侧:ObjectForm 把 flag 盖到元数据载体上**(`{ ...f, field: { ...f.field, mobile_fullscreen: true } }`),让「元数据是唯一载体」这条约定真正成立。\n- 长期正确性:与 #3244 收敛出来的读取端一致 —— widget 只读元数据,宿主只写元数据,一处真相。\n- 防 AI 写错:`mobile_fullscreen` 从此只有一个合法位置,写错位置的 flag 不会有任何路径悄悄接住。\n- 代价:`mobile_fullscreen` 目前没有出现在 `@object-ui/types` 的字段元数据类型上(`FormField` 那侧是 `as FormField` 硬转进去的),要补声明;若要做到「declared = enforced」,还得决定它属不属于 `@objectstack/spec` 的字段元数据。\n\n**B. 边界侧:`form.tsx` 停止剥离 `mobile_fullscreen`,把它作为显式声明的 widget prop 转发。**\n- 代价:等于新增一个宿主 prop 契约,而 #3232 的裁决明确说了「不要凭空发明没有生产者的键」—— 这条路要成立,必须同时在 `FieldWidgetComponentProps` 上正式声明它、并说清它与元数据 flag 的优先级。两个载体并存正是 #3232 要消灭的东西。\n\n**倾向 A**:它让载体收敛为一个,而 B 会重新造出「prop 与元数据两套写法」——正是 AGENTS.md #0.1 和主令 #12 要避免的分叉。但 A 需要先回答「`mobile_fullscreen` 是不是字段元数据的一等属性」,这是 spec 层的决定,故不自行推进。\n\n关联:objectui#3232、PR #3244。\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3158,
+  "kind": "issue",
+  "title": "台账燃尽批次 4/8 · @object-ui/core,13 符号(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:14:58Z",
+  "updated_at": "2026-08-02T11:11:24Z",
+  "closed_at": "2026-08-02T11:11:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3158",
+  "body": "objectstack#4115 债务台账燃尽第 4 批。**动工前必读**:守卫文件头与 objectstack#4115 的跟踪评论。core 是渲染内核,被所有 plugin 依赖——**跨包类型影响必须先 `turbo build --filter=@object-ui/core` 重建 dist 再对下游 `type-check --force`**,否则 per-package tsc 假绿(objectui#3100 教训)。\n\n## 本批符号(`@object-ui/core`,13 条)\n\n`ActionHandler`, `CONTEXT_TOKENS`, `ChartSeries`, `CrudAffordances`, `PluginDefinition`, `ResponsiveStyles`, `RowCrudPredicates`, `RowHeight`, `StyleMap`, `ValidationError`, `ValidationResult`, `defineView`, `resolveCrudAffordances`\n\n已知情报:`ChartSeries` 与 types 侧同名条目(批次 1)协同——若那边定了新名或派生方案,这边保持一致。`ValidationError`/`ValidationResult` 在 core、data-objectstack(批次 6)、sdui-parser(批次 7)三处都有,统一决策一次、三处沿用。`defineView`/`resolveCrudAffordances`/`CONTEXT_TOKENS` 是函数/常量,重点用引用同一性判定(faithful copy 过所有值比较)。\n\n## 每条三选一\n\n派生(结构位)/ 改名(新名先过守卫 + tripwire;禁全局替换)/ ALLOW(理由 + parity 守卫)。\n\n## 完成定义\n\n同批次 1:台账移除并 diff 验证、守卫/type-check/全量测试绿、变异测试、PR 引用本 issue 与 objectstack#4115、更新跟踪评论后关闭本 issue。"
+}

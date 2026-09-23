@@ -1,0 +1,33 @@
+{
+  "number": 2986,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): a wizard that ends on a field-less review step can finish",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:25:08Z",
+  "updated_at": "2026-07-30T07:32:39Z",
+  "closed_at": "2026-07-30T07:32:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:32:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2986",
+  "body": "Follow-up to #2983. While auditing what that regression suite actually covers, I found a reachable product bug.\n\n## The bug\n\nA wizard step with no inputs — `{ label: 'Review', fields: [] }`, **the shape `WizardForm`'s own JSDoc example ends on** — rendered a bare hint div and **no `<form>`**. The footer Next/Create buttons submit the step form natively (`type=\"submit\" form={stepFormId}`), so on that step they pointed at a target that does not exist.\n\nObserved directly:\n\n```\nAUDIT form-on-review=ABSENT createBtn.form=_r_0_ createBtn.type=submit\nAUDIT create-calls=0 payload=undefined\n```\n\nClicking **Create** does nothing at all — no request, no error, no feedback. **A wizard that ends on a review step can never be completed.**\n\nThis is fallout from the very fix the regression suite guards: moving the buttons off `onClick={() => handleStepSubmit(formData)}` onto native submission is what made a missing form fatal. Fix renders a real form on the field-less step; it contributes no values of its own, so the record is whatever the earlier steps accumulated.\n\n## The docblock was overstating its coverage\n\nThe suite claimed to guard \"the MERGED payload from every step\". It doesn't. Two **redundant** mechanisms carry values across steps:\n\n1. react-hook-form retains unmounted fields (`shouldUnregister` is false)\n2. the wizard merges `{...formData, ...stepData}`\n\nBreaking **either one alone still passes** — I had to break both to make it fail. So `submits the merged payload` catches a total failure to accumulate, not a broken merge. I also confirmed RHF carries everything even across Back/Next navigation.\n\nThe new field-less-step case is what actually pins the merge down: that step has no react-hook-form instance, so `formData` is the only carrier left. Docblock rewritten to say what each case really covers.\n\n## Verification\n\nMutation-tested, each reverted after:\n\n| mutation | result |\n|---|---|\n| revert the field-less-step fix | ✗ `expected null not to be null` |\n| break **only** the merge (`mergedData = {...stepData}`) | ✗ `expected {} to deeply equal {\"name\": \"Alice\"}` |\n\nThat second one is the point — the pre-existing test could not detect it.\n\nFull `plugin-form` suite: 24 files / 218 tests pass. Product edit adds zero lint warnings; the 2 new ones are `no-explicit-any` on the new test's `as any` casts, matching the 14 pre-existing instances in that file. Pure bug fix, so no changeset per AGENTS.md §9.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

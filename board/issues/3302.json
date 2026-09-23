@@ -1,0 +1,33 @@
+{
+  "number": 3302,
+  "kind": "pull_request",
+  "title": "feat(fields): RichTextField honors `mobile_fullscreen` with a fullscreen editing dialog (#3301)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T14:32:35Z",
+  "updated_at": "2026-08-03T14:40:57Z",
+  "closed_at": "2026-08-03T14:40:56Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T14:40:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3302",
+  "body": "Closes #3301\n\n按 2026-08-03 的维护者裁决走 **A 路：兑现承诺，不收窄**。`mobile.fullscreenLongText` 对 `field:markdown` / `field:html` 从「盖了没人读」变成真的能用。\n\n## 缺陷复核（premise check，全部确证）\n\n| 断言 | 复核结果 |\n|---|---|\n| `RichTextField` 不读 flag | 确证。修改前 `grep -n \"fullscreen\\|mobile_\" packages/fields/src/widgets/RichTextField.tsx` 零命中 |\n| `field:markdown` / `field:html` 都落到 `RichTextField` | 确证（`packages/fields/src/index.tsx:2349,2353`，两处 `createFieldRenderer(RichTextField)`） |\n| `string-multiline` 无人产出 | 确证。**本仓 + `objectstack` 兄弟仓**（排除 `node_modules`/`dist`/`.git`）全类型 grep，全仓合计 **1 处命中**，就是判定式那一行本身 |\n\n## 改了什么\n\n**读取（唯一载体）**：`RichTextField` 读 `field.mobile_fullscreen`，**只此一处**。没有新 prop、没有第二载体、没有 `??` 兜底链——与 `TextAreaField` 逐字同构。拼错的 flag 在两个 widget 里都保持 inert，不会被某一侧的宽容消费悄悄接住（AGENTS #0.1）。\n\n**复用决策：抽出共享件**。展开按钮 + 对话框 + draft/commit 状态机进入新的 `packages/fields/src/widgets/FullscreenFieldEditor.tsx`，两个 widget 共用；**per-widget 的只有编辑器本身**（`children` 注入）。\n\n判断依据：`fullscreenLongText` 是**一个表单级设置**，用户打开它期待**一种行为**。手写第二份状态机就是本 issue 的缺陷再来一遍（只是多绕一步）——它会漂移，而且没有任何东西会报告漂移。抽出来之后这一点是**机械可验的**：见下方 sabotage C，改坏共享件的 commit 一处，`TextAreaField` 与 `RichTextField` 的测试**同时**变红。\n\n**对话框里是真编辑器**：`RichTextEditorSurface` 内联与全屏两处渲染同一份（同 format 指示、同编辑器），`fullHeight` 是唯一差异。若对话框内联一个裸 `Textarea`，两个界面**当场**就已经不一致（少了 format 指示），且这个 widget 每长出一个 affordance 就再不一致一次。\n\n> ⚠️ 一句实话：本 widget 今天的「富编辑器」就是一个 mono `Textarea` + format 指示行，**没有工具栏可接**（源码注释自陈 \"A full implementation would use TipTap, Lexical, or Slate\"）。所以本 PR 兑现的是「全屏里是这个 widget 真正的编辑面，不是降级副本」，而不是凭空发明一条工具栏——后者会是没有验收标准的 scope creep。等编辑器升级时，两处一起升级。\n\n**`string-multiline` 死分支删除**：证据见上表，`ObjectForm` 判定式里附了注释说明依据。剩下 4 个 type 每个都有真实 reader。无既有测试引用该字串，故无测试需要调整。\n\n**行为一致性**：draft 在打开时从已提交值播种、输入期间保持本地（RHF 不会因用户可能取消的编辑被标脏）、\"Done\" 提交一次、\"Cancel\" 丢弃。testid 沿用既有约定但按 widget 命名空间（`richtext-fullscreen-toggle` / `-dialog` / `-input` / `-save`）——一个表单里可以同时有 textarea 和 markdown 字段，共用一个 id 会让测试说不清自己找到的是谁。焦点管理 / `Esc` / overlay 沿用仓内 `Dialog`（Radix），未另行作答。\n\n## 验证证据\n\n### Sabotage（每条：改坏见红、还原见绿）\n\n| # | 破坏点 | 结果 |\n|---|---|---|\n| A | `RichTextField` 停止读 flag（还原到 #3301 之前） | **8 红**（全部 rich-text 正向断言），负向控制保持绿 |\n| B | 对话框内换成裸 `Textarea`（降级副本） | **恰好 1 红** — `puts the REAL editor in the dialog`（`expected [ span ] to have a length of 2 but got 1`） |\n| C | 共享件的 commit 不回传 draft | **3 红，跨两个 widget** — `RichTextField` + **`TextAreaField`** 的 commit 测试 + 集成链的表单状态测试 → 证明复用是真共享 |\n| D | 共享件打开时不重新播种 draft | **恰好 1 红** — `discards the draft on Cancel` |\n| E | 生产侧去掉 `fullscreenLongText` 开关（无条件盖章） | **2 红** — `TextAreaField` 与 `RichTextField` 两条负向控制 |\n\n### 测试\n\n```\npnpm exec vitest run packages/fields packages/plugin-form --maxWorkers=2\n Test Files  76 passed (76)\n      Tests  855 passed (855)\n```\n\n新增/扩展：\n- `packages/fields/src/widgets/__tests__/RichTextField.mobileFullscreen.test.tsx`（新，8 例）— 含 readonly 不出 affordance、Cancel 丢弃且重开从已提交值播种、无第二载体。\n- `packages/plugin-form/src/__tests__/ObjectForm.mobileFullscreen.test.tsx`（扩展，+4 例）— 镜像 #3300 范式，真 `ObjectForm` → 真渲染器 → 真 `RichTextField`，除 dataSource 外无 mock：自动生成的 `field:markdown` + `field:html` 双双出现 affordance；未开启则不出现；**对话框内编辑 → 关闭 → 通过内联控件观察到 react-hook-form 状态已更新**；textarea + markdown 混合表单由同一个设置同时点亮两族 widget。\n- `TextAreaField` 既有测试**未做任何修改**，全绿（回归不变）。\n\n```\nturbo run type-check --filter @object-ui/fields --filter @object-ui/plugin-form\n Tasks:    13 successful, 13 total\n\nturbo run lint --filter @object-ui/fields --filter @object-ui/plugin-form\n Tasks:    2 successful, 2 total     (0 errors；warnings 均为既有 `field as any` 等既存形态)\n```\n\n`FullscreenFieldEditor.tsx` 零 lint warning。changeset：`@object-ui/fields` + `@object-ui/plugin-form` **minor**（`pnpm changeset:check` 双绿）。\n\n## 需要维护者裁决的一处（**未擅自修改**）\n\n`packages/types/src/field-types.ts` 中 `mobile_fullscreen` 的 JSDoc 现在**过时**了：\n\n```\n* **Consumer**: `TextAreaField` (`@object-ui/fields`), which reads it off …\n```\n\n本 PR 之后消费者是**两个**。`packages/types` 在本单的范围栅栏外（指示要求「停下回报而不是直接改」），所以这行注释**原样保留**，请裁决是否另开一个 2 行 docs PR 补上 `RichTextField`。留着不改的代价正是本 issue 那类 declared-vs-actual 漂移，只不过方向反了：声明比实现**窄**。\n\n（`packages/types/src/objectql.ts:1265` 那句 `fullscreenLongText: true, // textarea/rich-text get an \"expand\" button` **不必改**——本 PR 之后它第一次成为事实。）\n\n## 未做\n\n- 浏览器 dogfood 未做（本单证据等级为测试级；集成链已无 mock 地跑通真渲染器）。\n- 未动 `apps/console`、`packages/components`、`packages/types`、`packages/spec`、`content/docs/releases/`。\n- issue 里提到的 `TextAreaField.tsx` `as any` 消费侧洞：未处理，issue 自陈「不必然与上面同单处理」，且彻底修复需先决定 widget 如何收窄 `FieldMetadata` 联合。\n"
+}

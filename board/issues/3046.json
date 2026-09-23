@@ -1,0 +1,32 @@
+{
+  "number": 3046,
+  "kind": "issue",
+  "title": "console: 403 permission denial rendered as a network-connection error in list views",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:53:13Z",
+  "updated_at": "2026-07-30T15:02:07Z",
+  "closed_at": "2026-07-30T15:02:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3046",
+  "body": "## Symptom\n\nWhen a list data fetch is denied with **403 PERMISSION_DENIED**, the console renders the same panel as a network outage: \"无法加载记录 / 加载数据时出错。请检查网络连接后重试。\" (\"Couldn't load records / …Check your connection and try again.\").\n\nReproduced with request-level evidence: a restricted role opening an object list shows the network-error panel while the network tab shows the request answered `403 Forbidden`; an admin on the same page sees a normal empty state.\n\n## Why it matters\n\nUsers are told to debug their connectivity while the server is (correctly) denying access — ops chase network ghosts, and every unauthorized menu entry produces the same misleading message.\n\n## Expected\n\n`ListView`'s error panel must classify the failure (HTTP status / error code) and show permission-denied (403) and sign-in-required (401) copy distinct from the connectivity message.\n\nFound via real-app dogfooding (os-tianshun-ehr platform defect registry PLAT-DEF-018, on 17.0.0-rc.0).\n"
+}

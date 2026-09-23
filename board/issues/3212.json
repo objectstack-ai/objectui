@@ -1,0 +1,36 @@
+{
+  "number": 3212,
+  "kind": "issue",
+  "title": "Docs:ci-cd-pipeline.md 的工作流清单与 ci.yml 一节仍与实际不符(11 vs 12、两个工作流没被记录、五个任务名里三个不存在)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T15:06:50Z",
+  "updated_at": "2026-08-03T08:11:07Z",
+  "closed_at": "2026-08-03T08:10:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3212",
+  "body": "在 #3197 的修复过程中发现(那个 PR 只改 Performance Budget / Size Check 两节,按 Prime Directive #10 拆出来单独记录,不夹带)。同一页 `content/docs/guide/ci-cd-pipeline.md` 还有两处与 `.github/workflows/` 脱节,和 #3197 是同一类问题但不同位置。\n\n## 1. 工作流数量与清单\n\n开头一句:\n\n> ObjectUI uses **11 GitHub Actions workflows** to automate testing, quality checks, security scanning, releases, and repository maintenance.\n\n`.github/workflows/` 实际有 **12** 个:`changelog.yml`、`changeset-release.yml`、`check-links.yml`、`ci.yml`、`cross-repo-issue-closer.yml`、`dependabot-auto-merge.yml`、`labeler.yml`、`lint.yml`、`performance-budget.yml`、`release.yml`、`shadcn-check.yml`、`stale.yml`。\n\n其中两个在正文和 ASCII 总览图里都完全没有出现:\n\n- **`lint.yml`** —— 这个漏得最要命,它是**真的 PR 门禁**。文件头的注释写着:`#2923` 之前它是 `workflow_dispatch`-only,导致 `eslint.config.js` 里三条设成 `error` 的 `object-ui/*` 规则(ADR-0054 Phase 5、#2879、objectql.ts ratchet)全部空转。现在它会拦 PR,但读文档的人不会知道有这么一道检查,更不会知道它只管 error 不管 warning。\n- **`cross-repo-issue-closer.yml`** —— 跨仓库关 issue 的自动化,文档里一个字都没有。\n\n## 2. `ci.yml` 一节列的五个任务,三个不存在\n\n文档:\n\n> Runs five parallel jobs:\n> Test / Lint / Build Core / E2E Tests / Build Docs\n\n`ci.yml` 实际的 job key 与 name(共 **7** 个):\n\n| job key | name |\n|---|---|\n| `changeset-check` | Changeset Fixed Group Check |\n| `type-check` | Type Check |\n| `test` | Test (shard N/4) |\n| `test-coverage` | Test (coverage) —— 仅 `push` 时跑 |\n| `e2e` | Build & E2E |\n| `docs` | Build Docs |\n| `dev-server` | Dev-server fixture build |\n\n对不上的地方:\n\n- **Lint** 根本不是 `ci.yml` 的 job,它是独立的 `lint.yml`(见上)。\n- **Build Core** 没有对应的 job。`ci.yml` 里那段注释明说包构建和体积检查是交给 Bundle Analysis 工作流的:`# package build and package-size checks are covered by the Bundle Analysis workflow`。\n- **Test** 现在是 4 分片矩阵,另有一个只在 push 上跑的 coverage 任务;文档看不出来。\n- `changeset-check`、`type-check`、`dev-server` 三个任务完全没被记录 —— `changeset-check` 会因为缺 changeset 而拦 PR,这是作者最需要提前知道的一条。\n\n## 建议\n\n一次 docs-only PR:把开头的数量改成按实际清单枚举(或干脆不写数字),补 `lint.yml` / `cross-repo-issue-closer.yml` 两节,重写 `ci.yml` 一节的任务表。\n\n顺带一提,#3197 加的 `scripts/__tests__/ci-cd-pipeline-doc.test.ts` 已经钉住了**正向**:文档提到的每个 `*.yml` 都必须真实存在。**反向**(存在的工作流都必须被记录)当时没加,正是因为加了会立刻因为本 issue 描述的这两个遗漏而红。等这一页的清单修对了,把反向断言补上就能让\"漏记一个新工作流\"也变成 CI 失败 —— 那才是这类漂移的终点。"
+}

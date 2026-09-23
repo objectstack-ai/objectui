@@ -1,0 +1,33 @@
+{
+  "number": 3077,
+  "kind": "pull_request",
+  "title": "fix(types,app-shell): 统一 ObjectPermission，并让预览不再隐藏它的三个字段 (#4115)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:40:19Z",
+  "updated_at": "2026-07-30T16:47:05Z",
+  "closed_at": "2026-07-30T16:47:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:47:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3077",
+  "body": "objectui 有**两个互不兼容、都叫 `ObjectPermission` 的类型,而且哪个都不是 spec 的**。\n\n## 一、旧的那个是死代码 → 删除,而非改名\n\n`packages/types/src/field-types.ts` 里那个是 pre-spec 形状(`profile` / `roles` / `create|read|update|delete` / `record_level` / `field_permissions`)。查证:\n\n- 唯一引用点是 `ObjectSchemaMetadata.permissions`;\n- 而 `ObjectSchemaMetadata` 在 `packages/types` 之外**零消费者**;\n- 全仓没有任何代码读 `permissions?.create` / `record_level` / `own_records_only`;\n- 连带的 `SharingRule` 也只能经 `record_level.sharing_rules` 到达 —— 同样是死的。\n\n按 A 组「不留过渡物」的同一逻辑:**改名只会把死代码换个名字留着**,所以整块删除。对象权限的模型由 spec 的 `PermissionSet` / `ObjectPermission` 承担。\n\n## 二、另一个是手抄件,而且已经悄悄过期了\n\n`app-shell/…/previews/PermissionPreview.tsx` 自己声明了一个 **9 键**的 `ObjectPermission`,而 spec 是 **12 键**。少的三个不是装饰:\n\n| 缺失字段 | 后果 |\n|:--|:--|\n| `allowExport` | **授予了导出权限的权限集,在矩阵里和没授予完全一样** |\n| `readScope` / `writeScope` | 整条 ADR-0057 访问深度轴不可见 —— 读 `own` 写 `org` 与读写都 `own` 渲染结果相同 |\n\n预览这个组件存在的意义就是让审阅者看见权限,而它恰恰看不见这三样。现在改为 `import type { ObjectPermission, FieldPermission, ObjectAccessScope } from '@objectstack/spec/security'`,矩阵新增 **Export 列**与 **Scope 列**(读/写深度)。\n\n因为 `CAPS` 是按 `keyof ObjectPermission` 索引的,**spec 以后重命名某个能力会变成编译错误**,而不是一列静默消失。\n\n### 顺带补上这条轴让人能检查的告警\n\n与既有的 \"Modify All without View All\" 同类:**写范围宽于读范围** → 可以编辑自己看不见的记录。既有的四条告警一条未动。\n\n## 验证\n\n- 台账 **126 → 124**,`--ledger` 重生成后逐条 diff:removed 恰为 `ObjectPermission` 与 `SharingRule`;\n- 新增 7 条断言(`PermissionPreview.test.tsx`)钉住三个字段与新告警;\n- **变异测试**:去掉 Export 列 → `Unable to find an element with the title: Export`;停用范围告警 → 告警文案断言报红。两处都按名失败;\n- 全仓 `type-check` 78/78;\n- **全量测试 8786 断言绿**(756 文件)。\n\n## BREAKING CHANGE\n\n`@object-ui/types` 移除 `ObjectPermission`、`SharingRule` 以及 `ObjectSchemaMetadata.permissions`。需要对象权限的消费者请用 `@objectstack/spec/security` 的 `ObjectPermission`。仓内无消费者受影响(这正是判定它为死代码的依据)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

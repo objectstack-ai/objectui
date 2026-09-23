@@ -1,0 +1,33 @@
+{
+  "number": 2985,
+  "kind": "pull_request",
+  "title": "refactor(types): retire the five forks that shadowed a @objectstack/spec vocabulary (#2944)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:02:15Z",
+  "updated_at": "2026-07-30T07:08:17Z",
+  "closed_at": "2026-07-30T07:08:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:08:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2985",
+  "body": "Closes #2944.\n\nFive declarations in `@object-ui/types` restated a spec vocabulary, four of them re-exported under **the spec's own symbol name** — so an importer of `@object-ui/types` could not tell which definition they had. Every one had already drifted.\n\n| Declaration | Was | Spec | Missing |\n|---|---|---|---|\n| `ChartTypeSchema` (`zod/data-display.zod.ts:209`) | 7 | **19** | 12 values |\n| `ChartType` (`data-display.ts:689`) | 7 | **19** | 12 values |\n| `PageTypeSchema` (`zod/layout.zod.ts:258`) | 4 | 5 | `list` |\n| `PageType` (`layout.ts:432`) | 10 | 5 + local | — *added* 5 the spec repudiates |\n| `ReportType` (`reports.ts:337`) | 3 | 4 | `joined` |\n| `ActionType` (`ui-action.ts:72`) | 5 | 6 | `form` |\n\n## Why this one mattered more than it looks\n\n**It is why #2901 was filed with an inverted premise.** That issue read the 7-value `ChartTypeSchema` as the protocol and concluded `plugin-charts` had outgrown it with 13 renderer-local names. The spec has 19 — the 7-value list was this fork, wearing the spec's name.\n\n`ActionType` is the same failure in miniature: its union carried a doc comment asserting it was *\"the canonical definition from @objectstack/spec\"* while missing `form`, which `ActionRunner.executeForm` implements. A host app typing against `@object-ui/types` got a type error on code that works.\n\nThe general shape, worth naming: **the recurring failure is not \"renderer forgot a name\", it is \"a second definition exists and the renderer is faithful to the wrong one.\"**\n\n## Widening only\n\nNothing was removed, so no existing value stops type-checking or validating. `ActionType` gains `form`, `ReportType` gains `joined`, `ChartType` goes 7 → 19, `PageTypeSchema` gains `list`.\n\nThe `ChartType` widening was the one real risk — an exhaustive `switch` would stop being exhaustive. Checked: **76/76 type-check tasks pass**, so there is none.\n\n## `PageType` is not mechanical, and is handled differently\n\nNarrowing it to the spec's 5 would drop `grid`/`gallery`/`kanban`/`calendar`/`timeline` — which `ui/page.zod.ts` explicitly says are visualizations rather than page kinds, but which a `p1-spec-alignment` test asserts and which external code may assign.\n\nSo the spec-owned half is now derived, and the objectui-only half is `PageVisualizationAlias` — a **named, documented, sanctioned local extension**, which is what #2231 actually prescribes for genuine renderer-only concerns. The union is unchanged in membership; the difference is that the spec half can no longer drift and the local half is no longer hiding. Removing it is the separate \"visualizations are not page types\" cleanup.\n\n## Guards\n\n- `spec-subschema-parity.test.ts` now pins both zod schemas **by reference** — `toBe`, so a faithful copy fails too, because a copy is a fork.\n- New `spec-derived-unions.test.ts` covers the three type aliases, which reference identity cannot reach (types erase at runtime, and a restated union that happens to match is indistinguishable from a derived one). It uses `satisfies` for compile-time coverage plus runtime assertions that the spec enum still contains the specific members each fork had dropped.\n\n## Verification\n\n| | |\n|---|---|\n| Repo type-check | **76/76 tasks** |\n| Full test suite | **8215 pass**, 24 skipped, across 700 files |\n| `packages/types` tsc | 0 errors |\n| eslint | 0 errors |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

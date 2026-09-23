@@ -1,0 +1,32 @@
+{
+  "number": 2918,
+  "kind": "issue",
+  "title": "layout: nav item type `component` is implemented but missing from `NavigationItemType` and its zod enum — authors cannot declare it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T09:35:22Z",
+  "updated_at": "2026-07-30T13:15:28Z",
+  "closed_at": "2026-07-30T13:15:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2918",
+  "body": "Found by the full type-check sweep in #2911 / #2915. `@object-ui/layout` had **no type-check script**, so this was invisible to CI.\n\n## Not a dead branch — a half-landed feature\n\nThe two type errors look like dead code, but they are the opposite:\n\n```\npackages/layout/src/AppSchemaRenderer.tsx(222,18): error TS2367:\n  This comparison appears to be unintentional because the types\n  '\"group\" | \"separator\" | \"action\"' and '\"component\"' have no overlap.\n\npackages/layout/src/NavigationRenderer.tsx(463,10): error TS2678:\n  Type '\"component\"' is not comparable to type 'NavigationItemType'.\n```\n\nBoth sites contain a **real, fleshed-out implementation** of a `component` nav item — `componentRef` is colon-split and mapped to `/component/<ns>/<name>`, with `params` serialised to a querystring, carrying a `// Phase 3b:` comment explaining the design.\n\nBut `NavigationItemType` never gained the member. `packages/types/src/app.ts:31`:\n\n```ts\nexport type NavigationItemType =\n  | 'object' | 'dashboard' | 'page' | 'report'\n  | 'url' | 'group' | 'separator' | 'action';\n```\n\nand `packages/types/src/zod/app.zod.ts:29`:\n\n```ts\nexport const NavigationItemTypeSchema = z.enum([\n  'object', 'dashboard', 'page', 'report', 'url', 'group', 'separator', 'action',\n]);\n```\n\n**The zod enum is the part that bites.** It is not just a compile-time inconvenience — `NavigationItemTypeSchema` would **reject `type: 'component'` at validation time**, so an author cannot declare a component nav item at all. The renderer code that handles it is unreachable in practice. The feature is dead on arrival rather than dead code.\n\n## Suggested fix\n\nAdd `'component'` to both the TS union and the zod enum (they are two copies of the same vocabulary and must move together), then confirm end-to-end that a `component` nav item validates, routes, and renders — the renderer half already exists. Worth checking whether `@objectstack/spec` carries the same enum, since the doc comment says this type is \"aligned with @objectstack/spec\"; if so, this is a cross-repo vocabulary change, not a local one.\n\n## Closing this out\n\n`@object-ui/layout` is listed in `DEBT` in `scripts/check-type-check-coverage.mjs` with `errors: 2`. When fixed, add `\"type-check\": \"tsc --noEmit\"` and **delete the DEBT entry** — the guard fails if an entry outlives its gap.\n\n## Reproducing\n\n`layout` has no `type-check` script yet; add the `paths` override its type-checked peers carry, then `cd packages/layout && ../../node_modules/.bin/tsc --noEmit`. Without that override you also get ~104 spurious TS6059 `rootDir` errors — see #2915 for why.\n\nRefs #2911, #2915"
+}

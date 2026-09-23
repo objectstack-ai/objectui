@@ -1,0 +1,35 @@
+{
+  "number": 3223,
+  "kind": "issue",
+  "title": "`@object-ui/layout` 的 `PageNodeRenderer` 是没人注册的死渲染器,props 还是 `… & any`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T18:49:10Z",
+  "updated_at": "2026-08-02T20:06:55Z",
+  "closed_at": "2026-08-02T20:06:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3223",
+  "body": "在 objectui#3161(objectstack#4115 台账批次 7)把 `@object-ui/layout` 的 `Page` 改名为 `PageNodeRenderer` 时发现,**未在该 PR 处理**(改名之外都是行为变更)。\n\n## 两件事\n\n**1. 它没有被注册,也没有任何调用点。**\n\n`packages/layout/src/index.ts` 的 `registerLayout()` 明确写着:\n\n> NOTE: 'page' registration is handled by @object-ui/components PageRenderer. That renderer supports page types (record/home/app/utility), named regions, and PageVariablesProvider. Do NOT re-register 'page' here to avoid conflicts.\n\n全仓 grep 也没有任何地方从 `@object-ui/layout` import 它。也就是说这个组件只通过 `export * from './Page'` 出现在公开 API 里,`ComponentRegistry` 里的 `page` 键归 `@object-ui/components` 的 `PageRenderer`。**要么它是死代码该删,要么它是一个未接线的能力**——两者的处置不同,需要知道意图的人拍板。\n\n**2. props 是 `{ schema: PageNodeSchema; className?; style?; id? } & any`。**\n\n与 `any` 求交会**吸收整个类型**:这个签名除了\"有个 schema\"以外什么都没说,任何拼错的 prop、任何类型不符的 schema 都能通过。与 objectui#3221(`[key: string]: any`)、objectstack#4075 同一机制,只是写法不同——批次 6 记录的三种\"注销编译期检查\"的写法之外的第四种。\n\n如果结论是保留,应把透传 props 收敛成显式类型(它只是把 `...props` 转发给每个子 `SchemaRenderer`);如果结论是删除,连同 `export * from './Page'` 一起删,并加 changeset(公开 API 移除)。\n\n关联:objectstack#4115、objectui#3161、objectui#3221。"
+}

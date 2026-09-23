@@ -1,0 +1,33 @@
+{
+  "number": 3038,
+  "kind": "pull_request",
+  "title": "refactor(auth): derive the org-role vocabulary from @objectstack/spec instead of mirroring it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:04:15Z",
+  "updated_at": "2026-07-30T13:11:12Z",
+  "closed_at": "2026-07-30T13:11:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:11:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3038",
+  "body": "Closes #2908 — the follow-up #2907 recorded as blocked. All three unblock conditions now hold:\n\n1. ✅ The vocabulary is closed (framework ADR-0108, objectstack-ai/objectstack#3802).\n2. ✅ `@object-ui/auth` now depends on `@objectstack/spec` (this PR, `^17.0.0-rc.0` like every other package).\n3. ✅ The constants are published: `@objectstack/spec@17.0.0-rc.0` on npm ships `BUILTIN_MEMBERSHIP_ROLES` / `MEMBERSHIP_ROLE_*`, verified against the installed dist. The `^16 → ^17` sequencing wrinkle the issue flagged resolved itself when the workspace moved to `^17.0.0-rc.0`.\n\n## What changed\n\n- The four `ORG_ROLE_*` consts are now rename-re-exports of the spec's `MEMBERSHIP_ROLE_*` literals; `OrgRole` = `BuiltinMembershipRole`; `ORG_ROLES` = `[...BUILTIN_MEMBERSHIP_ROLES]` (the spec array is already in the display order the screens use — verified identical values and order at runtime).\n- **Kept local, per the issue:** `ORG_ROLE_LABELS` and the grade ladder (`orgRoleGrade`, `invitableOrgRoles`, `assignableOrgRoles`) — console concerns (i18n keys, screen-narrowing), per ADR-0108 D4.\n- Dropped #2907's drift guard (`is EXACTLY the framework four`) — a derived list cannot drift. The #2891 `toContain(delegated_admin)` test stays, reframed: it pins a console decision (`ORG_ROLES` is the spec list *unfiltered*), which types don't enforce.\n- Public API of `@object-ui/auth` is unchanged (same names, same literal types); `app-shell` consumers type-check untouched.\n\n## Verification\n\n- `vitest run packages/auth` — 8 files, 106 tests pass\n- `@object-ui/auth` + `@object-ui/app-shell` type-check pass; lint 0 errors (no new warnings)\n- Lockfile: no second spec instance / `zod@3` peer-variant fork (`grep -c \"zod@3.25.76))\" pnpm-lock.yaml` → 0)\n- Runtime: `BUILTIN_MEMBERSHIP_ROLES` = `[\"owner\",\"admin\",\"delegated_admin\",\"member\"]` from the installed package\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3176,
+  "kind": "issue",
+  "title": "[PM] PM 派发标签初始化(接入 objectstack 主 backlog)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T01:44:10Z",
+  "updated_at": "2026-08-02T01:44:23Z",
+  "closed_at": "2026-08-02T01:44:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3176",
+  "body": "初始化 PM 派发机制的状态标签(`pm:queue` / `pm:dispatched` / `needs-user-decision`)。\n\n本仓库(前端)接入 `objectstack` 主 backlog:功能级任务统一开在 objectstack 并用 `repo:objectui` 标签路由到本仓库;仓库本地的小问题可就地开 issue,用 `/pm-dispatch repo:objectstack-ai/objectui` 派发。机制全文见 objectstack-ai/objectstack#4540。\n\n标签初始化完成后本 issue 即关闭(标签保留)。"
+}

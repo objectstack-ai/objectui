@@ -1,0 +1,32 @@
+{
+  "number": 3284,
+  "kind": "pull_request",
+  "title": "fix(app-shell): key the record feed state by objectName:recordId (#3268)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:39:14Z",
+  "updated_at": "2026-08-03T10:45:49Z",
+  "closed_at": "2026-08-03T10:45:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T10:45:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3284",
+  "body": "Fixes objectstack-ai/objectui#3268\n\n## 问题\n\n从记录 A 点到记录 B,**A 的评论和活动会留在 B 的讨论面板上**,B 自己的行归并进来排在一起。这是串数据,不是视觉瑕疵 —— 讨论区显示了另一条记录的内容。\n\n成因是三件事叠在一起:\n\n1. `RecordDetailView` 在记录间**不会重挂载** —— 任何挂载点都没有 `key=`(`console/AppContent.tsx`,以及 `ObjectView` / `ObjectDataPage` / `InterfaceListPage` 的抽屉只是换 `recordIdOverride`)。这是**有意为之**(#2269「refresh data, don't rebuild UI」:bump key 会毁掉 scroll、折叠区、tab、在途行内编辑),所以 feed 状态会跨记录存活;\n2. 两处取数回填都是**按行 id 归并到 prev**;\n3. 全文件没有任何一处把它重置回 `[]`。\n\nA 的行和 B 的行 id 不同,所以 Map 去重不掉。\n\n它还**压掉了 #3209 刚修好的东西**:记录间导航时 `feedLoading` 确实会转 true,但 `RecordActivityTimeline` 的分支是 `loading && filtered.length === 0`(#3205 有意为之 —— 刷新不该把已在屏的 feed 变成 spinner),残留行让 `filtered` 非空,于是渲染的是**上一条记录的内容**而不是加载态。两单合起来才是一个能用的功能。\n\n## 改法:按 `objectName:recordId` 键存,不加清空的 setState\n\nfeed 状态从一个扁平的 `FeedItem[]` 改成按记录键存的 map。这把钥匙就是 #3209(PR #3270)在**同一个文件**里为 loading 标志引入的那把,也正是这些行在服务端携带的 `thread_id`:\n\n```ts\nconst feedRecordKey = objectName && pureRecordId ? `${objectName}:${pureRecordId}` : null;\nconst feedItems = (feedRecordKey ? feedItemsByRecord[feedRecordKey] : undefined) ?? EMPTY_FEED;\nconst feedFetchKey =\n  dataSource && feedRecordKey && (feedsEnabled || activitiesEnabled) ? feedRecordKey : null;\n```\n\n渲染只读当前键那一份,于是:\n\n- **「换记录后是空的」是读取一个没有切片的键的自然结果**,而不是一次与取数竞速的 `setFeedItems([])`;\n- **迟到的响应写进它的 effect 闭包捕获的那把键**(两处回填都用 `threadId`),所以一条为 A 发出、在用户已经走到 B 之后才回来的读,更新的是 A 的切片,永远碰不到屏幕上的 B —— 这与 `settledFeedKey` 给 loading 标志的保证是同一条,本文件里**一种写法而不是两种**(主令 #12)。\n\n## ⛔ 乐观行怎么保证不丢(本单唯一微妙处)\n\n`handleAddComment` / `handleAddReply` / `handleToggleReaction` 往 feed 里塞的本地行,是用户刚发出、尚未落库的评论 —— 它**只存在于这份 state 里**,清空就是真的删掉了用户的输入。按键存正是保住它的原因,链条是这样闭合的:\n\n1. **写进它所属记录的切片。** 三个 handler 都改成写 `feedItemsByRecord[feedRecordKey]`,`feedRecordKey` 与 `dataSource.create('sys_comment', { thread_id })` 用的是同一个表达式,所以乐观行和它将来的持久化副本从一开始就归在同一把键下。`feedRecordKey` 进了三个 `useCallback` 的依赖数组,`handleToggleReaction` 另加了 `if (!feedRecordKey) return` 的守卫。\n2. **离开记录不会删任何切片。** 这里没有任何删除路径 —— 换记录只是去读另一把键。所以走开再回来,乐观行还在。\n3. **回来时不会变成重复行。** 回到该记录时 effect 重新取数,`mergeFeedRows` 是**按 id 求并**:落库副本和乐观行用的是同一个 id(`create` 时显式传的 `newItem.id`),于是在同一个 key 上合成一行;若还没落库(或 `create` 失败被 `.catch` 吞掉),本地行照样留着。\n\n顺带的好处:因为切片不删,回到看过的记录会立刻显示它的行、再由重读确认,而不是先闪一个 spinner —— 这正是 #3205 那条 `loading && filtered.length === 0` 想要的行为。\n\n## 测试\n\n新增 `packages/app-shell/src/views/RecordDetailView.feedRecordScope.test.tsx`(8 条),沿用 #3209 的装置,并且**用 `rerender` 复用同一棵树** —— 元素类型与位置不变,React 会复用同一个 `RecordDetailView` 实例,这才是真实导航(重新 `render()` 会重挂载,把 bug 藏掉)。断言一律落在渲染结果上,不断言「传了某个 prop」。\n\n- **原缺陷复现**(issue 正文那段的模板):`recordIdOverride=\"rec-A\"` → 出现 A 的评论 → rerender 到 `rec-B` → 出现 B 的评论,且**断言 A 的评论已经不在**;\n- 活动行(`sys_activity`)同样不许残留 —— 两处回填是独立的,只修一处仍会漏半个记录;\n- **换记录时加载态可见**:A 已结算并显示评论 → 切到读数挂起的 B → 出现 `activity-loading`,且 A 的评论不在、也没有过早断言 B「没有评论」(即 #3209 在这条路径上生效);\n- B 确实没有 feed 时落到它**自己**的空态,而不是 spin 到死;\n- 迟到响应:为 A 发出的读在用户走到 B 之后才 resolve,不许覆盖屏幕上的 B;\n- **乐观行往返**(经真实 composer 发评论,不是直接调回调):在 A 发一条 → 切到 B(**不许跟过去**)→ 切回 A(**还在,且只有一条** —— 重读拿回的落库副本按 id 合并掉了);\n- `create` 一直失败(离线/403)时,往返之后本地行依然在;\n- 在 A 发一条、在 B 发一条,各自只出现在自己的面板上,且 `create` 收到的 `thread_id` 是 B 的。\n\n### mutation 验证(退回归并写法,证明测试转红)\n\n只把**状态**的键退回扁平(`feedRecordKey` 恒为 `'FLAT'`,两处回填写 `['FLAT']`),`feedFetchKey` 保持按记录键 —— 即精确还原修复前的状态,不动 #3209:\n\n```\n❯ packages/app-shell/src/views/RecordDetailView.feedRecordScope.test.tsx (8 tests | 8 failed)\n  × drops record A's comment when the view navigates to record B 324ms\n  × drops record A's ACTIVITY rows too, not just its comments 183ms\n  × shows the LOADING state on record→record navigation, not the previous record (#3209 reaches this path)\n  × settles record B onto its own empty state when B genuinely has no feed\n  × does not let a SLOW response for the record just left overwrite the record now on screen\n  × keeps a just-posted comment on its own record across a navigation round-trip\n  × keeps an unpersisted comment when the write never lands\n  × files the optimistic comment under the record it was written on, not the one visited next\n\nAssertionError: expected < p …(1) >< /p > to be null            ← A 的评论还在 B 的面板上\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"activity-loading\"]   ← 加载态被残留行压掉\n\n Test Files  1 failed | 1 passed (2)\n      Tests  8 failed | 11 passed (19)\n```\n\n`RecordDetailView.feedLoading.test.tsx`(#3209 的 11 条)在 mutation 下**全绿** —— 说明这组新测试钉的正好是本单的缺陷,没有和 #3209 重叠。\n\n### 绿的证据\n\n```\n$ pnpm --filter @object-ui/app-shell test\n Test Files  20 passed (20)\n      Tests  183 passed (183)\n\n$ pnpm --filter @object-ui/app-shell type-check\n> tsc --noEmit && tsc -p tsconfig.typetests.json      (无输出 = 通过)\n\n$ pnpm --filter @object-ui/app-shell lint\n✖ 2125 problems (0 errors, 2125 warnings)\n# RecordDetailView.tsx:改前 122 warnings / 改后 122 warnings,0 errors —— 未新增\n\n$ node scripts/check-changeset-no-major.mjs\n✅  No changeset declares a `major` bump.\n```\n\n## scope\n\n只动了 `packages/app-shell/src/views/RecordDetailView.tsx`(+ 新测试 + changeset)。\n\n**`packages/plugin-detail` 一行没动。** `loading && filtered.length === 0` 是 #3205 刻意写的,feed 生命周期修对之后它自己就是对的 —— 放宽它属于在消费端治标,而 #3165 / #3205 / #3209 一路都在刻意避免这件事。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

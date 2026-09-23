@@ -1,0 +1,34 @@
+{
+  "number": 3301,
+  "kind": "issue",
+  "title": "`mobile.fullscreenLongText` 对 rich-text 字段是空承诺：ObjectForm 给 `field:markdown`/`field:html` 盖了 flag，RichTextField 根本不读；`string-multiline` 分支全仓无人产出",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T13:20:33Z",
+  "updated_at": "2026-08-03T14:40:57Z",
+  "closed_at": "2026-08-03T14:40:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3301",
+  "body": "在实施 #3245（PR #3300，把 `mobile_fullscreen` 从 FormField 挪到字段元数据载体上）时顺带发现，**不在 #3300 修** —— 那单的 scope 被限制在「flag 到不了自动生成字段的 TextAreaField」，且这里的修法要么动 `packages/fields` 源码、要么删一段公开文档承诺的行为，两者都需要单独裁决。\n\n## 现象\n\n`ObjectForm` 的长文本判定（`packages/plugin-form/src/ObjectForm.tsx`，#3300 之后的行号 1063-1065）对 **5 种** type 盖 `mobile_fullscreen`：\n\n```ts\nconst isTextarea = t === 'textarea' || t === 'field:textarea' ||\n  t === 'string-multiline' || t === 'field:markdown' || t === 'field:html';\n```\n\n全仓只有两个 reader：\n\n| reader | 位置 | 覆盖的 type |\n|---|---|---|\n| `TextAreaField`（读元数据 `field.mobile_fullscreen`） | `packages/fields/src/widgets/TextAreaField.tsx:63` | `field:textarea` |\n| form 渲染器内置分支（读 FormField props） | `packages/components/src/renderers/form/form.tsx:1893-1895` | 裸 `textarea` |\n\n于是 5 个里有 3 个是**盖了没人读**：\n\n1. **`field:markdown` / `field:html`** —— 两者都解析到 `RichTextField`（`packages/fields/src/index.tsx:2127-2128`，均 `import('./widgets/RichTextField')`）。`RichTextField.tsx` 里 `grep -n \"fullscreen\\|mobile_\"` **零命中**：它既不读元数据也不读 prop，全屏入口从来不渲染。\n2. **`'string-multiline'`** —— 这个字符串在整个仓库里**只出现在上面这一行**（`grep -rn \"string-multiline\"` 排除 `node_modules`/`dist` 后仅 1 处命中，就是判定式自己）。没有任何生产者产出它，也不是注册表 key，是条死分支。\n\n## 为什么这是缺陷而不是「将来再说」\n\n`ObjectFormSchema.mobile` 的 JSDoc（`packages/types/src/objectql.ts:1265`）把 rich-text 写进了承诺里：\n\n```ts\nfullscreenLongText: true,   // textarea/rich-text get an \"expand\" button\n```\n\n「rich-text 有 expand 按钮」这句话从写下起就没有实现过。这正是 ADR-0049 enforce-or-remove / AGENTS.md #0.1 针对的 declared-but-unenforced 形态：文档和类型注释各自声明了一个没有 enforcement 的行为，作者（包括 AI 生成的表单元数据）照着写、静默无效果、没有任何一处报错。#3245 的六步断链能藏这么久，也是同一个机制。\n\n## 两条路（需裁决，不要照着猜）\n\n**A. 补齐 enforcement** —— 让 `RichTextField` 也实现全屏入口（读同一个元数据 flag，与 `TextAreaField` 同一契约、同一 `data-testid` 约定），并给 `string-multiline` 一个真实生产者、或直接删掉这个分支。\n- 长期正确性：文档承诺兑现，`mobile_fullscreen` 的语义变成「所有长文本 widget 都实现的一个能力」，而不是「碰巧只有一个 widget 实现的一个键」。\n- 代价：动 `packages/fields` 源码；富文本编辑器的全屏对话框不是 textarea 那种 `<Textarea>` 搬进 Dialog 就完事，draft/commit 语义要重新想（编辑器实例是否重建、未提交内容如何搬运）。\n\n**B. 收窄声明** —— 把判定式砍到真正有 reader 的两种（`textarea` / `field:textarea`），同步删掉 JSDoc 里的 \"rich-text\" 和死掉的 `string-multiline`。\n- 长期正确性：declared = enforced 立刻成立，代价最小，没有任何行为回归（这三条今天本来就不产生效果）。\n- 代价：公开文档的能力面缩小一格。如果后续真要做 rich-text 全屏，再走 A。\n\n**倾向 B 先落地、A 另开单**：B 把「声明」拉回到「已实现」这条线上，是零风险的；A 是一个真实的 UX 特性，值得有自己的验收标准和浏览器验证，混在一起做会让「消除空承诺」这件事被富文本编辑器的复杂度拖住。但这取决于维护者是否认为 rich-text 全屏是近期要做的能力 —— 若是，直接走 A 更省一次往返。\n\n## 补充：消费侧还有一个 `as any` 洞\n\n`TextAreaField.tsx:54` 的 `const textareaField = field as any;` 让这个 widget 对元数据的**每一次**读取都不受类型检查（`rows` / `maxLength` / `placeholder` / `label` / `mobile_fullscreen`）。#3300 已经消掉了生产侧的 `as FormField`，并把 `mobile_fullscreen` 正式声明到 `BaseFieldMetadata` 上，但消费侧这一半没动 —— `packages/fields` 不在那单的 scope 内。彻底去掉它需要先决定 widget 如何收窄 `FieldMetadata` 联合（`rows`/`max_length` 只在长文本成员上）。记在这里，不必然与上面同单处理。\n\n## 证据等级\n\n静态证据（grep + 阅读四处源码），**未做浏览器复现**。`RichTextField` 无 reader 与 `string-multiline` 全仓仅一处命中都是可机械复核的事实；「用户看不到 expand 按钮」是由此推导的。\n\n关联：#3245、PR #3300、#3232、#3233。\n"
+}

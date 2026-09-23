@@ -1,0 +1,33 @@
+{
+  "number": 3045,
+  "kind": "pull_request",
+  "title": "docs(grid): point the boolean-token retirement note at objectstack#4173",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:51:55Z",
+  "updated_at": "2026-07-30T13:58:30Z",
+  "closed_at": "2026-07-30T13:58:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:58:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3045",
+  "body": "纯注释改动,两行。\n\n`importCoercionContract.ts` 及其测试的头注释原本指向 framework#3786 —— 那是「手抄 spec 清单」模式排查的**母 issue,已关闭**。这张布尔 token 表能被删掉的具体前置条件(spec 导出 `BOOL_TRUE`/`BOOL_FALSE`)跟踪在 [objectstack#4173](https://github.com/objectstack-ai/objectstack/issues/4173),指针改到那里,免得后来人顺着链接走进一个已关闭的 issue 而找不到退役路径。\n\n无行为改动;`importCoercionContract.test.ts` 6 断言仍绿。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

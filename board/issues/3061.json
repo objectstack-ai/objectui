@@ -1,0 +1,33 @@
+{
+  "number": 3061,
+  "kind": "pull_request",
+  "title": "fix(app-shell,plugin-grid,i18n): autonumber/readonly fields become match-only import targets so \"update if the record number exists\" works",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:59:09Z",
+  "updated_at": "2026-07-30T15:13:08Z",
+  "closed_at": "2026-07-30T15:13:07Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:13:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3061",
+  "body": "## 问题\n\n导入无法做「编号存在则更新」(EHR 真机复测 020):ObjectView 把 autonumber/readonly 字段整体排除出可映射字段,而匹配键只能从**已映射列**里选 → 记录编号(autonumber)永远进不了映射下拉、也永远当不了 update/upsert 匹配键。服务端导入其实不设限:任意存储列都可作 `matchFields`,引擎 update 自动剥 readonly 值、insert 尊重显式提供的编号——纯 UI 缺口。\n\n## 修复\n\n- 字段推导抽成 `packages/app-shell/src/views/importTargetFields.ts`(可单测):\n  - 可写字段照旧是写入目标;\n  - **存储型不可写字段(autonumber / readonly)保留为 match-only 目标**:可映射、下拉显示「（仅匹配）」、永不计入必填映射,FLS 按**读**权限门控;\n  - formula/summary 仍排除(无存储列,无法匹配);\n  - FLS 拒写但可读的字段降级为 match-only 而非消失。\n- `ImportWizard` fields 类型加 `matchOnly?: boolean`,映射下拉渲染后缀;匹配键沿用现有「已映射列」推导,自动纳入。\n- 新词条 `grid.import.matchOnlyField` 补齐 10 个语言包 + wizard 内置英文回退表(parity 门禁通过)。\n\n配合已有写入模式:映射编号列 → `Update existing` → Match on 勾编号,即得「编号存在则更新」。\n\n## 测试\n\n- 新增 `importTargetFields.test.ts` 4 例(写入/仅匹配/computed 排除/FLS 读写门控/无权限通道回退)。\n- plugin-grid + app-shell views 全量 196 文件 / 1625 测试通过;i18n/plugin-grid/app-shell 构建通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

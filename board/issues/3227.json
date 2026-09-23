@@ -1,0 +1,35 @@
+{
+  "number": 3227,
+  "kind": "issue",
+  "title": "全仓唯一一条 `PageNodeSchema['type'] === 'page'` 的钉扎,住在一个已不引用它的包里",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:08:05Z",
+  "updated_at": "2026-08-03T08:11:43Z",
+  "closed_at": "2026-08-03T07:43:00Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3227",
+  "body": "在 objectui#3223(删除 `@object-ui/layout` 的死渲染器 `PageNodeRenderer`)验收时记下的后续,**不在该 PR 处理**(超出那单的 `packages/layout/` 范围)。\n\n## 现状\n\n`packages/layout/src/__tests__/spec-symbol-batch7.test.ts` 里有一条编译期断言,钉住 spec 的页面节点判别式:\n\n```ts\ntype _NodeIsATaggedNode = Assert<Equal<PageNodeSchema['type'], 'page'>>;\n```\n\n它是**全仓唯一**一条钉这件事的断言,而它守的那个键正是 `@object-ui/components` 的 `PageRenderer` 注册的键。#3223 删掉 `PageNodeRenderer` 时**刻意保留**了它:被删的是组件,活下来的是 wire 契约。\n\n## 问题\n\n保留是对的,但它现在的住处不对:**`@object-ui/layout` 已经完全不引用 `PageNodeSchema` 了**。于是这条断言处在一个尴尬位置——\n\n- 它出现在一个名为 `spec-symbol-batch7`(一次已完成的改名批次)的测试文件里,文件名说的是历史,不是它现在的职责;\n- 下一个清理 `packages/layout` 测试的人,看到一个不引用 `PageNodeSchema` 的包里有一条关于 `PageNodeSchema` 的断言,合理的反应是\"这是上一轮重构的残留\",然后删掉——**全仓对这个 wire 判别式的唯一保护就没了,且没有任何东西会报红**。\n\n这就是\"守卫本身没有守卫\"的形态:一条覆盖不会被测试发现其消失。\n\n## 建议\n\n搬到 `packages/types`(它 re-export spec 的类型,是这条断言的自然归属),或搬到 `@object-ui/components` 里 `PageRenderer` 注册点旁边(它是这个键的实际拥有者)。两处都比现在合理;倾向 `packages/types`,因为这条钉的是**类型契约**而非某个渲染器的行为。\n\n搬迁时把注释写清楚它钉的是什么、为什么不能删——现在 `packages/layout` 那份注释已经被 #3223 改写过一轮(\"重命名的对象已被删除,活下来的是分层拆分本身\"),搬过去要再改一次,让它对新住处成立。\n\n**不要在搬迁中顺手放宽或删除这条断言。** 若发现别处已有等价覆盖(我查的时候没有),核实后再决定是否合并两处。\n\n关联:objectui#3223、objectui#3161 / objectstack#4115 batch 7。"
+}

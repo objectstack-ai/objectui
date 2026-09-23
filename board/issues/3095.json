@@ -1,0 +1,32 @@
+{
+  "number": 3095,
+  "kind": "pull_request",
+  "title": "fix(app-shell): lookup-param helpText only renders when the param actually degraded to a raw-id input (#3094)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T05:28:23Z",
+  "updated_at": "2026-07-31T07:24:41Z",
+  "closed_at": "2026-07-31T07:24:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T07:24:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3095",
+  "body": "Closes #3094\n\n## 问题\n\nAction 参数对话框(RecordDetailView 记录头动作)里,`lookup`/`reference` 类型参数**无条件**渲染 `actionDialog.lookupHelpText`(\"该参数未配置引用对象,无法使用记录选择器。请直接填写记录 ID…\")——即使 `reference` 已正确配置、记录选择器完全可用。用户被误导去贴裸记录 ID,而不去用旁边正常工作的选择器。\n\n## 根因\n\n`ActionParamDialog.tsx` 中该警告的渲染条件只有 `isLookupParam && !param.helpText`,从不检查参数是否真的降级。警告文案描述的降级判定在 `paramToField()` 里(lookup 且无 `referenceTo` → 降为 text 输入),但不参与该条件;同文件上方 `lookupPlaceholder` 分支是有 `field.type === 'text'` 检查的,两个分支不对称。\n\n## 修复\n\n一行改动:给 helpText 分支补上 `field.type === 'text'`,与 placeholder 分支镜像——只有参数真降级成\"贴 ID\"文本框时才显示警告。\n\n## 测试\n\n`ActionParamDialog.test.tsx` 新增三个用例钉住三种状态:\n\n- 带 `referenceTo` → 渲染真选择器(trigger 挂载)且**无**警告(本 issue 的回归用例);\n- 无 `referenceTo` → 降级为 text 输入 + 显示警告;\n- 自定义 `helpText` → 显示自定义文案,内置警告不出现。\n\n该文件 31 用例全过;相邻 `ActionParamDialog.uploading` / `paramToField` / `resolveActionParams` 套件 28 用例全过;`turbo build --filter=@object-ui/app-shell` 通过。纯 bug 修复,按 AGENTS.md 无需 changeset。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3276,
+  "kind": "issue",
+  "title": "console `validation` 预览样例的 `condition` 语义写反了(spec 里 condition 为 TRUE 表示校验失败),另带两个会被静默剥掉的键",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:59:06Z",
+  "updated_at": "2026-08-03T10:27:34Z",
+  "closed_at": "2026-08-03T10:27:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3276",
+  "body": "objectui#3266 在修 `apps/console/src/preview-samples.ts` 的 `validation` 样例(只改了 `events` 枚举)时顺手核到的,**不在那个 PR 的 scope 内**,单独记这里。\n\n## 1. `condition` 语义写反(主要问题)\n\n`ScriptValidationSchema.condition` 的契约是:\n\n> `condition: ExpressionInputSchema.describe('Predicate (CEL). **If TRUE, validation fails.** e.g. P\\`record.amount < 0\\`')`\n\n而样例是:\n\n```ts\nvalidation: {\n  name: 'amount_positive',\n  message: 'Order amount must be greater than zero.',\n  condition: 'amount > 0',\n  …\n}\n```\n\n按契约,这条规则会在金额**为正**时判定失败 —— 和它的 `name` / `message` 正好相反。正确写法是 `condition: 'amount <= 0'`。\n\n这个错误不会被 objectui#3257 建的守卫抓到(它只问「能不能 parse」,语义是对是反 schema 管不着),但危害恰恰更大:样例是设计器画廊里给作者(多数情况下是模型)照抄的那份**范例**,照抄出来的规则会静默地把合法记录拦下、把非法记录放行。spec 自己的 docstring 举的例子就是 `P\\`record.amount < 0\\``,即「不合法的情形」,方向和样例相反。\n\n## 2. 两个会被静默剥掉的键\n\n`ValidationSchema` 不是 `.strict()`,所以下面两个键 parse 能过、但在解析结果里根本不存在:\n\n- `expression: 'amount > 0'` —— `ScriptValidationSchema` 只有 `condition`,没有 `expression`;\n- `object: 'sales_order'` —— 校验规则挂在 object 的 `validations[]` 上,宿主对象就是它的作用域,规则自身不带 `object`。\n\n(顺带:`skill` 样例的 `type: 'prompt'` 同理 —— `SkillSchema` 没有 `type` 键,只有 `surface`,该值被静默剥掉。)\n\n这类键的问题在 objectui#3266 正文里已有定性:守卫的强度取决于 spec 的严格度,非 `.strict()` 的 schema 会把未知键悄悄剥掉而不是报错,所以守卫对它们照样绿。样例里留着一个「写了等于没写」的键,教的还是错的写法。\n\n## 建议\n\n1. `condition: 'amount > 0'` → `'amount <= 0'`;\n2. 删掉 `expression` 与 `object`(以及 `skill` 的 `type`);\n3. 如果希望这类语义错误将来能被机器发现,那是另一件事(需要的是规则语义的断言而非 schema 校验),不建议塞进 `preview-samples-spec-valid.test.ts` —— 那个守卫的职责是「能不能发布」,别把它变成什么都装的筐。\n\n## 相关\n\n- objectui#3266(样例 spec 合规性;本单是那次核对的越界发现)\n- objectui#3257 / PR #3269(守卫本体)\n\n⚠️ 未指派 —— Prime Directive #10 记录性建单。\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3014,
+  "kind": "issue",
+  "title": "Notification displayType is honored in the contract but every type still presents as a toast",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T10:25:21Z",
+  "updated_at": "2026-07-30T15:54:53Z",
+  "closed_at": "2026-07-30T15:54:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3014",
+  "body": "Follow-up from #2942 / PR #3008, which closed the **contract** half of this and deliberately left the **presentation** half open. Recording it so it doesn't get lost.\n\n## What #3008 fixed\n\n`NotificationContext` used to store `displayType` on the item and never read it, under a union that claimed alignment with `NotificationTypeSchema` while carrying a renderer-local `modal` and missing `alert` / `inline`. That is now correct:\n\n- the union matches the spec enum (`toast | snackbar | banner | alert | inline`), with `modal` kept as a deprecated legacy spelling that presents as `alert`;\n- `notify()` materializes the declared type (spec default `toast`), so a consumer *can* branch on it;\n- positions match `NotificationPositionSchema` (underscores), hyphens kept for stored items;\n- a parity guard fails if either vocabulary drifts.\n\n## What is still open\n\n**Nothing distinguishes the five types at render time.** `NotificationProvider` delegates every notification to the host's `onToast` callback regardless of `displayType`, so a `banner` and an `inline` notification both surface as a toast. The value is no longer *inert* — it reaches the delegate — but no delegate acts on it.\n\nConcretely, `packages/react/src/context/NotificationContext.tsx` calls `onToast(notification)` for every item. The console's handler (`useConsoleActionRuntime`) routes that to sonner.\n\n## What \"done\" would look like\n\nEach spec type gets a presentation that is actually distinct:\n\n| Type | Expected presentation |\n|---|---|\n| `toast` | transient overlay (today's behavior — already correct) |\n| `snackbar` | bottom-anchored transient with an optional single action |\n| `banner` | persistent, page-width strip at the top of the content area |\n| `alert` | modal-ish blocking acknowledgement |\n| `inline` | rendered in place by the surface that raised it, not floating |\n\nOpen questions worth settling before implementing:\n\n1. **Who owns banner/inline placement?** They are not overlays — a banner needs a slot in the app shell's content area, and `inline` needs the *raising* surface to render it. That likely means the context exposes the items and the shell/surface subscribes, rather than a single `onToast`-style delegate.\n2. **Is `alert` a modal?** If so it should probably route through the existing `ModalHandler` rather than growing a second modal path.\n3. **Does `snackbar` earn a distinct component**, or is it a sonner variant? If the latter, say so in the spec's `describe()` rather than implying a separate surface.\n\n## Why it is worth doing\n\nAn author picking `banner` gets a toast — the output is plausible and wrong, which is the #2901 Tier 1 shape rather than Tier 2. It did not rank as Tier 1 in the audit only because `displayType` was inert at the time (nothing read it at all), so the audit filed it under \"silently absent\". Now that the contract is live, the mismatch is a wrong-presentation bug.\n\nRefs #2942, #2901"
+}

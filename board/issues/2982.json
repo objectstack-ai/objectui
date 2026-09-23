@@ -1,0 +1,32 @@
+{
+  "number": 2982,
+  "kind": "issue",
+  "title": "flaky test: WizardForm.regression \"submits the merged payload\" —— fireEvent.change 后未等 state flush 就 submit,CI 上偶发丢掉最后一步的字段值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T05:24:38Z",
+  "updated_at": "2026-07-30T07:02:27Z",
+  "closed_at": "2026-07-30T07:02:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2982",
+  "body": "在 PR #2981（analytics 能力提示，改动只涉及 `data-objectstack` / `app-shell`）的 CI 上，`Test (shard 3/4)` 失败于一条与该 PR 无关的测试：\n\n```\nFAIL  dom  packages/plugin-form/src/WizardForm.regression.test.tsx\n  > WizardForm — multi-step create collects every step\n  > submits the merged payload (both steps), not an empty/last-only body\n\nAssertionError: expected { name: 'Alice', note: undefined } to deeply equal ObjectContaining{…}\n- ObjectContaining { \"name\": \"Alice\", \"note\": \"hello\" }\n+ { \"name\": \"Alice\", \"note\": undefined }\n```\n\n## 为什么判断是 flake 而非真回归\n\n- 本地单跑该文件 **2/2 通过**；本地全量 `vitest run`（8159 项）中该文件也通过；\n- 同一 CI run 的分片 1/2/4 全绿，main 近期 CI 也全绿；\n- 失败形态本身指向竞态：`name`（第一步）已正确合并，只有**刚刚输入的**第二步 `note` 丢了。\n\n## 根因（`WizardForm.regression.test.tsx:63-66`）\n\n```ts\nfireEvent.change(noteInput, { target: { value: 'hello' } });\nfireEvent.submit(container.querySelector('form') as HTMLFormElement); // final create\n```\n\n`change` 与 `submit` 之间没有任何等待。字段的 onChange → 内部 form state 更新是异步落定的（React state flush / 字段组件自身的处理），在负载高的 runner 上 submit 可能先于 state 落定发生，于是 payload 里 `note` 是 `undefined`。第一步之所以稳定，是因为中间隔了一次 `await waitFor(...)`（等第二步的 input 出现），天然给了 flush 时间。\n\n## 建议修法\n\n在 submit 前断言值已落到 DOM/state，给 flush 一个明确的同步点：\n\n```ts\nfireEvent.change(noteInput, { target: { value: 'hello' } });\nawait waitFor(() => expect((container.querySelector('input[name=\"note\"]') as HTMLInputElement).value).toBe('hello'));\nfireEvent.submit(container.querySelector('form') as HTMLFormElement);\n```\n\n（第一步的 `name` 同理加一条更稳妥，虽然它目前被后续 `waitFor` 意外保护着。）\n\n这条测试守的回归本身是有价值的（多步 payload 合并），所以倾向修稳而不是删除或标 skip。\n\n发现于 #2981 的 CI；该 PR 未改动 `plugin-form`。"
+}

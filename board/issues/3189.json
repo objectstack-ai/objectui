@@ -1,0 +1,35 @@
+{
+  "number": 3189,
+  "kind": "pull_request",
+  "title": "chore(deps): 把 @objectstack 家族同步到 17.0.0-rc.1,消除双版本 spec 图",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "data-adapter",
+    "dependencies",
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T09:10:58Z",
+  "updated_at": "2026-08-02T09:13:41Z",
+  "closed_at": "2026-08-02T09:13:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T09:13:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3189",
+  "body": "Fixes #3182\n\n## 问题\n\n#3178 只把 `@objectstack/spec` 升到了 `17.0.0-rc.1`,家族里其余包(`client` / `core` / `formula` / `lint`,以及经 `lint` 间接引入的 `sdui-parser`)仍停在 `17.0.0-rc.0`。而这几个包对 spec 的依赖是**精确版本**而非 caret:\n\n```\n@objectstack/client@17.0.0-rc.0  -> spec \"17.0.0-rc.0\"\n@objectstack/core@17.0.0-rc.0    -> spec \"17.0.0-rc.0\"\n@objectstack/formula@17.0.0-rc.0 -> spec \"17.0.0-rc.0\"\n@objectstack/lint@17.0.0-rc.0    -> spec \"17.0.0-rc.0\"\n```\n\n于是合并后的 `main` 上同时躺着**两份** spec:objectui 自己的代码读 rc.1,每个 `@objectstack/*` 包则从各自嵌套的 `node_modules` 里读 rc.0。\n\n这不只是「版本号不整齐」这么轻。本仓有多处 guard 建立在**单一契约**这个不变量上,而它们判定的依据是**同一性**、不是版本字符串,所以双份 spec 会让它们**静悄悄地**失准:\n\n- `spec-subschema-parity.test.ts` 靠 zod schema 对象的**引用同一性**来区分「真 re-export」与「fork」。两份 spec 让每个 schema 都成了不同对象,于是真正的 re-export 会开始被读成 fork —— 或者反过来漏掉一个 fork,取决于两侧各自解析到了哪一份。\n- `scripts/check-spec-symbol-derivation.mjs` 与 `spec-symbol-parity.test.ts` 用 `createRequire` 解析 spec 的 `.d.ts` 再交给 TS checker。装了两份的时候,checker 究竟看到哪一份 declaration file,取决于解析顺序而不是意图。\n\n## 改动\n\n把剩余的 `^17.0.0-rc.0` range 一并抬到 `^17.0.0-rc.1`(`packages/app-shell`、`packages/core`、`packages/data-objectstack`、`apps/console`、`apps/site`),并刷新 lockfile。\n\n原先声明的 range 其实已经允许 rc.1 —— 钉死它的是 lockfile。抬 range 的意义在于把下限**写明**:今后任何一次 install 都不可能再悄悄滑回某个会顺手把 rc.0 拖进来的家族成员。rc.1 的家族成员把 spec 精确钉在 `17.0.0-rc.1`,所以现在的图是**构造上**收敛到一份,而不是碰巧收敛。\n\n没有产品行为改动。\n\n## 验证\n\n### 单份 spec 探针\n\n```\n$ ls node_modules/.pnpm | grep '^@objectstack+'\n@objectstack+client@17.0.0-rc.1_ai@7.0.37_zod@4.4.3_\n@objectstack+core@17.0.0-rc.1_ai@7.0.37_zod@4.4.3_\n@objectstack+formula@17.0.0-rc.1_ai@7.0.37_zod@4.4.3_\n@objectstack+lint@17.0.0-rc.1_ai@7.0.37_zod@4.4.3_\n@objectstack+sdui-parser@17.0.0-rc.1\n@objectstack+spec@17.0.0-rc.1_ai@7.0.37_zod@4.4.3_\n```\n\n图里只剩**一份** spec。各家族包实际解析到的 spec:\n\n```\nclient  -> spec 17.0.0-rc.1\ncore    -> spec 17.0.0-rc.1\nformula -> spec 17.0.0-rc.1\nlint    -> spec 17.0.0-rc.1\nroot    -> spec 17.0.0-rc.1\n```\n\nlockfile 里 `@objectstack/*` 的 snapshot key 也只剩 rc.1 一档(改前是 `spec@17.0.0-rc.0` 与 `spec@17.0.0-rc.1` 并存)。\n\n### `check:spec-symbols`\n\n```\n$ pnpm check:spec-symbols\n✅  spec symbol derivation: 1200 files scanned against 4344 spec export names;\n    8 declared dialects, 75 untriaged collisions in 18 packages.\nEXIT=0\n```\n\n原正文「阻塞 2」的四处对账(`InboxNotification`、`FieldNode`、以及 `JoinNode` / `PerformanceConfig` 两条陈旧 DEBT 台账)**已由 #3178 全部处理完**,统一到单份 spec 之后依然是绿的 —— 本 PR 无需再动 `spec-symbol-parity.test.ts` 或 DEBT 台账。\n\n### `$strip` 到 `$strict` 回归\n\nrc.1 把一批 zod schema 从 `$strip` 翻成 `$strict`(strict 会**拒绝**未知键而不是静默丢弃)。这批改动早在 #3178 就随 spec 落到 main 上了,本 PR 只是在统一图之后补做回归证明。在 rc.1 上实测各 subpath 的严格面(递归遍历 shape,统计 catchall 为 `never` 的 object schema):\n\n| subpath | `$strict` | `$strip` |\n|---|---|---|\n| `automation` | 11 | 109 |\n| `ui` | 23 | 234 |\n\n翻严的 schema 根落在这些族上:\n\n- **automation** —— `FlowSchema` / `FlowNodeSchema` / `FlowEdgeSchema` / `FlowVersionHistorySchema`、`ApprovalNodeConfigSchema` / `ApprovalNodeApproverSchema` / `ApprovalEscalationSchema`\n- **ui** —— `AppSchema` / `AppBrandingSchema` / `AppContextSelectorSchema`、`DashboardSchema` / `DashboardNavItemSchema`、`FormViewSchema` / `FormButtonConfigSchema` / `FieldWidgetPropsSchema`、以及整族导航项(`NavigationContributionSchema`、`ObjectNavItemSchema`、`PageNavItemSchema`、`ActionNavItemSchema`、`ComponentNavItemSchema`、`GroupNavItemSchema`、`ReportNavItemSchema`、`UrlNavItemSchema`)\n\n对应的解析面(`packages/types` 的 zod / parity 套件、app-shell 的 flow / approval / metadata-admin 套件、plugin-dashboard、plugin-form)都在全量 vitest 里跑到了,结果见下。**没有出现「合法元数据现在被拒」的回归**;若出现,按 contract-first 原则会另开 issue 记录而不是放松 schema。\n\n### 全量结果\n\n全量 vitest(`pnpm test`,unit / dom / dom-heavy / console 四个 project 全跑):\n\n```\nTest Files  803 passed | 1 skipped (804)\n     Tests  9397 passed | 25 skipped (9422)\n  Duration  806.19s\n```\n\n针对「引用同一性」这条最容易被双份 spec 击穿的面,单独再跑一遍:\n\n```\n$ pnpm vitest run --project unit \\\n    spec-subschema-parity spec-symbol-parity spec-ui-schema-reexports spec-derived-unions\nTest Files  4 passed (4)\n     Tests  71 passed (71)\n  Duration  3.41s\nEXIT=0\n```\n\n其余 gate:\n\n```\n$ pnpm build            -> Tasks: 43 successful, 43 total\n$ pnpm type-check       -> Tasks: 78 successful, 78 total\n$ pnpm lint             -> Tasks: 45 successful, 45 total   (0 errors)\n$ pnpm changeset:check  -> ✅  All workspace packages are in the changeset fixed group.  EXIT=0\n```\n\n未运行的套件:Playwright e2e(`test:e2e` / `test:e2e:live` / `test:e2e:import-*`)—— 需要浏览器与实际后端服务栈,不在本次容器内运行(且按仓库多 agent 服务纪律不应占用共享端口)。这些是 CI 的职责。\n\n## 关于并行任务\n\n#3181 正在给 app-shell 加 `tsconfig.typetests.json` 与一条 CI lane;本 PR **未触碰**这两处文件。本次对账无需修改 `spec-symbol-parity.test.ts`,因此与 #3181 无文件重叠。\n\n## 版本策略\n\n按 AGENTS.md「版本号策略」,changeset 标 **`minor`** —— fixed 组任一 `major` 都会把全组 40 个包推上去、脱离 objectstack 的节奏。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012C2cd7tL8QDoZ2QKN3djJ5)_"
+}

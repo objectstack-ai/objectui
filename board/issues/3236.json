@@ -1,0 +1,35 @@
+{
+  "number": 3236,
+  "kind": "issue",
+  "title": "ToolPreview 仍渲染已退役的 requiresConfirmation 徽标 —— spec 侧 #3715 prune 的最后一处残留",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T01:11:17Z",
+  "updated_at": "2026-08-03T08:03:32Z",
+  "closed_at": "2026-08-03T08:03:21Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3236",
+  "body": "objectstack#3715(ADR-0033:删除从未实施的 `tool.requiresConfirmation`)的 spec 侧移除已在 `@objectstack/spec` 落地(`ToolSchema` `.strict()` + 墓碑,处方指向 `action.ai.requiresConfirmation` + 审批队列),cloud 侧 24 处声明也已清理。**2026-08-03 维护者裁决**:metadata tools(`*.tool.ts`)暂定为平台内部管线,第三方扩展面只开放 skills——per-tool 确认门不再回归。\n\n三仓扫描后的最后一处残留在本仓:\n\n- `packages/app-shell/src/views/metadata-admin/previews/ToolPreview.tsx:101` — `const requiresConfirmation = !!d.requiresConfirmation;`\n- 同文件 `:168` — 据此渲染确认徽标\n- 同文件 `:10` — 头注释仍把它列为展示项(与 `active`、`builtIn` 并列,后两者也已随 objectstack#3896 移除,建议一并核)\n\n现状危害:spec 已拒收该键,新元数据不会带它;但 admin 预览对**陈旧存量行**仍会亮出「需确认」徽标——这正是 objectui#2962 从 sharing-criteria builder 里移除过的「advertising the failure mode」形状(一个 UI 徽标宣传一个从未存在的安全暂停)。\n\n**建议**:删掉该变量与徽标分支(纯删代码,无行为损失);顺手核对同文件对 `active`/`builtIn` 的处理是否也是同型残留。\n\nRefs: objectstack#3715(裁决与全链记录)、objectstack ADR-0033、objectui#2962(同型先例)。"
+}

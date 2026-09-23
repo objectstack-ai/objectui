@@ -1,0 +1,33 @@
+{
+  "number": 3088,
+  "kind": "pull_request",
+  "title": "fix(types,layout): 导航元数据不再丢掉渲染器本就在用的 spec 字段 (#4115)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T03:01:59Z",
+  "updated_at": "2026-07-31T03:08:39Z",
+  "closed_at": "2026-07-31T03:08:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T03:08:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3088",
+  "body": "接 #4115 分诊里 `NavigationItem` 那一簇(4 条台账)。**这一轮修的是实际缺陷,不是命名问题。**\n\n## 先说一个改变影响评估的事实\n\n**objectui 的 zod schema 在生产代码里只有一条运行时路径:已发布的 `objectui validate` 命令**(`@object-ui/cli`,非 private,bin 名 `objectui`)。渲染器直接读普通对象,从不 parse。所以下面每一条都是 CLI 校验的缺陷 —— 而且因为 schema 是 strip 模式(丢弃未知键而非报错),**全部是静默失败**。\n\n## 实测出来的六处(spec 17.0.0-rc.0)\n\n| 之前 | 现在 |\n|:--|:--|\n| `requiresObject` / `requiresService` 被剥掉 | 保留 |\n| `actionDef` 被剥掉 —— 动作项校验通过却什么都不做 | 保留 |\n| `expanded`(spec 拼写)被剥掉 | 保留,类型已声明 |\n| `badgeVariant: 'secondary'` 被硬拒 | 接受,枚举从 spec 派生 |\n| `{ type: 'separator' }` 被拒 | 接受 |\n| `NavigationArea` 的 `order` / `description` 被丢 | 保留 |\n\n前两条最值得注意:\n\n- **能力门控**:`requiresObject`/`requiresService` 是 `NavigationItem` **一直声明着**、`NavigationRenderer` **一直在执行**的运行时门控。只有 schema 落后 —— 于是校验一个 app,会把它自己 nav 元数据里的门控剥掉。\n- **`expanded`**:渲染器**早就在读它**,代码写的是 `(item as any).expanded`,注释还写着「honor either so app authors don't get silently-ignored config」。作者知道 spec 用这个名字并做了处理,却因为类型没声明而被迫 cast。那个 `as any` 现在删掉了。\n\n## separator 那处我改错了一版,是既有测试拦下的\n\n为放行 spec 合法的 `{type:'separator'}`,第一版把 `id`/`label` 对**所有**类型改成可选 —— 那会让 `{type:'object'}` 这种没有标识的项也通过。`navigation-model.test.ts` 里两条既有断言立刻报红,**测试是对的、schema 是错的**。\n\n改法是用 `superRefine` 把豁免**精确限定在 separator**(它是一条分隔线,本就没有身份和文案),其余类型照旧必填;并新增一条断言钉住这个边界,免得后人把豁免放宽。\n\n## 刻意没做的事\n\nspec 把导航建模为**九个变体的判别联合**,每个变体的目标字段必填,外加一条互斥 refinement;objectui 是一个扁平全可选形状,所以仍然接受 spec 会拒绝的项(如 `type:'object'` 而无 `objectName`)。收敛过去会破坏所有不做窄化就直接读 `NavigationItem` 字段的消费者 —— 那是独立决策,没有夹带进来。\n\n## 台账不减少,如实说明\n\n**这 4 条条目仍在册(124 未变)。** spec 的 `NavigationItemSchema` 声明为 `z.ZodType<any>`(递归的 group 变体让联合类型被擦除),所以 re-export 会**删掉全部导航类型信息**。本 PR 修的是漂移,不是名字碰撞;要烧掉条目得改 `NavigationItem` 的名字,而它是高频公开类型。\n\n顺带记一条给 #4115 修法模板的经验:**spec 的联合类型擦除成 `any` 时不能 re-export,但它的各个变体类型是完整的** —— 本 PR 的 `badgeVariant` 就是从 `ObjectNavItem` 派生的,而不是再抄一遍枚举。\n\n## 验证\n\n- 新增 9 条断言(`navigation-spec-parity.test.ts`);\n- **变异测试**:逐个撤掉四处 schema 修复 → 各自按名报红;把 separator 豁免放宽成无条件 → 新断言与两条既有断言一起报红;\n- 全仓 `type-check` 78/78;\n- **全量测试 8932 断言绿**(766 文件)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

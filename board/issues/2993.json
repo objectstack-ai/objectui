@@ -1,0 +1,35 @@
+{
+  "number": 2993,
+  "kind": "pull_request",
+  "title": "fix(spec-parity): render the six Tier-1 spec values right instead of silently wrong (#2941)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T07:48:53Z",
+  "updated_at": "2026-07-30T07:57:00Z",
+  "closed_at": "2026-07-30T07:56:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:56:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2993",
+  "body": "Closes #2941 (Tier 1 of the #2901 audit — spec values that validate and then render **silently wrong** output; [audit doc](https://github.com/objectstack-ai/objectui/pull/2937)).\n\nEvery finding below produced output that looked correct and wasn't. Each fix lands with a spec-parity guard per the #2897 template (`summary-spec-parity.test.ts`) plus behavior tests, so the pair fails the moment either side moves again.\n\n## The six fixes\n\n| Finding | Before | Now |\n|---|---|---|\n| Pivot aggregation fell back to **sum** (`PivotTable.tsx`) | `count_distinct` / `array_agg` / `string_agg` (engine-level names with no client renderer) returned a sum — a plausible wrong total, no signal | Out-of-vocabulary aggregations refuse loudly with a `role=\"alert\"` notice; the implemented set is pinned to the spec's 5-name `ChartAggregateFunctionSchema` (the UI-side subset the spec carved out for exactly this reason). The `default:` branch now returns `NaN` as a tripwire, unreachable behind the gate |\n| Report chart fell back to **bar** (`DatasetReportRenderer.tsx`) | 10 of 19 `ChartTypeSchema` values silently drew a bar chart | `planReportChart` classifies all 19: the 12 series families reach the generic chart **verbatim** (`horizontal-bar` stays horizontal, `funnel`/`treemap`/`sankey` draw their real shapes — the renderer grew them since the audit); the 5 single-value families (`gauge`/`solid-gauge`/`metric`/`kpi`/`bullet`) render the measure as a number from a **dimensionless dataset query** (server-aggregated; the spec's own comment calls them \"honest single-value variants pending a real dial renderer\"); `table`/`pivot` add no duplicate chart (the grouped table beneath *is* that rendering); out-of-spec values get a visible notice instead of a guessed bar |\n| `selection.type: 'single'` rendered **multi-select** (`data-table.tsx` ← `ObjectGrid.tsx`) | `selectable` was consumed as a bare truthy: per-row checkboxes *and* select-all, `single` never distinguished | `single` is a real mode: replace-on-select (never two rows), no select-all header, and ObjectGrid stops offering the cross-page \"select all N matching\" escalation. Legacy `true` keeps meaning multi-select |\n| Filter `type: 'select'` rendered multi-check (`UserFilters.tsx`) | A single-choice filter accepted many values | The spec names both `select` and `multi-select`, which settles the semantic question: `select` is single-choice. It renders radios, picking replaces (badge × clears), and restored/default multi-value selections clamp to one. **Authored types only** — an omitted type is inferred from the field and keeps the historical multi-check UX |\n| `addRecord.position: 'both'` collapsed to `top` (`ListView.tsx`) | Binary ternary; the bottom button never rendered | `resolveAddRecordPlacement` maps all three spec values; `both` renders both buttons. (Discovered adjacent, left alone: the renderer's implicit default is `top` while the spec's declared default is `bottom` — moving stored views' button is a UX change beyond this PR; noted in the resolver's doc comment) |\n| `tabular` vs `summary` resolved from **data, not type** (`DatasetReportRenderer.tsx`) | Identical branch; the difference was whether `report.rows` happened to be non-empty | `resolveReportPresentation` makes the DECLARED type pick the branch. `summary` (\"grouped by row\") now carries a **server-computed** grand-total footer — `totals: { groupings: [[]] }`, same machinery as the matrix path, never recombined client-side (ADR-0021 red line), older servers degrade to no footer. `tabular` (\"simple list\") is the same selection as a plain list with no totals. Joined blocks get the same per-block dispatch |\n\n## Semantic decisions the issue asked for\n\n- **`selection.type: 'single'`** — replace-on-select radio semantics *and* a hard cap at one (they coincide: selecting row B deselects row A; unchecking clears). The spec's `single | multiple` contrast pair plus every mainstream grid's behavior settle this.\n- **`filter type: 'select'` vs `'multi-select'`** — the enum contains both names, so `select` must mean the thing `multi-select` isn't: one value at a time.\n\n## Guard prerequisite\n\n`components`, `plugin-dashboard`, `plugin-report` gain the `@objectstack/spec` devDependency (the issue's noted prerequisite; `plugin-list`/`plugin-grid` already had it). `components` also pins `zod@^4.4.3` — without it, shadcn's MCP SDK leaks `zod@3` into the importer context and pnpm forks a **second store instance** of the spec (`spec@17.0.0-rc.0(ai@7.0.37(zod@3.25.76))`), the exact two-instances failure mode the audit's method note warns about. The lockfile now resolves one variant repo-wide.\n\n## Verification\n\n- New guards: 5 parity suites + behavior tests (39 new tests), all green.\n- Full suites of the five touched packages: plugin-report + plugin-dashboard 211 ✓, plugin-grid 310 ✓, plugin-list 232 ✓, components 288 ✓ (+4 files that hit the known-heavy `import('../renderers')` 30 s hook timeout under a contended machine; all 73 tests pass re-run in isolation).\n- `tsc --noEmit` clean on all five packages; eslint 0 errors on every touched file.\n\nRefs #2901. Tier 2 (#2942), Tier 3 (#2943), forks (#2944) and vocabulary consolidation (#2945) stay separate.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

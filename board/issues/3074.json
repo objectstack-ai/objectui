@@ -1,0 +1,38 @@
+{
+  "number": 3074,
+  "kind": "pull_request",
+  "title": "refactor(types)!: Page/App/Dashboard 渲染节点不再占用 spec 的文档名 (#4115 B 组)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T16:06:14Z",
+  "updated_at": "2026-07-30T16:13:11Z",
+  "closed_at": "2026-07-30T16:13:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T16:13:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3074",
+  "body": "按维护者指示:**B 组沿用 A 组敲定的 `*ComponentSchema` 约定,不做别名过渡**。\n\n## B 组是什么\n\n`type` 的语义冲突:**spec 的 `type` 是页面/仪表盘的种类**(`record|app|utility|list|home`),**objectui 的 `type` 是组件判别式**(`'page'`),种类被挪到了 `pageType`。后果是 spec 写法 `{type:'list'}` 的页面在 objectui 这边直接校验失败,而 objectui 页面的 `pageType` 在 spec 那边被静默丢弃 —— 偏偏两者顶着同一个名字,读代码的人会认为它们是一回事。\n\n| 旧名 | 新名 |\n|:--|:--|\n| `AppSchema` | `AppComponentSchema` |\n| `DashboardSchema` | `DashboardComponentSchema` |\n| `PageSchema` | **`PageNodeSchema`** ← 约定的例外,见下 |\n\n## Page 为什么不叫 `PageComponentSchema`\n\n**`PageComponentSchema` 本身已经是 `@objectstack/spec/ui` 的导出**,而且它指的是**页面区域内部的一个组件**(`{type: PageComponentType, properties, …}`),不是页面本身。用这个名字等于把本 issue 要消灭的缺陷原样搬到隔壁概念上 —— 下一个读到 objectui `PageComponentSchema` 的人会以为它就是 spec 那个区域组件。\n\n这不是推演出来的:**本 PR 第一版真的用了 `PageComponentSchema`,被守卫按名拦下**。所以 Page 改用 `PageNodeSchema`(spec 未占用),`App`/`Dashboard` 两个 `*ComponentSchema` 则是空闲的,照常。\n\n## 方法:仍然让 tsc 当裁判\n\n这三个名字比 A 组那批高频得多(225 处、约 40 个文件),而且 spec 与本地引用**混在同一文件**,所以替换时跳过注释行与含 `@objectstack/spec` 的行,整份排除三个「名字指向 spec」的文件(`app-shell/…/page-schema.ts`、`dashboard-schema.ts`、`clientValidation.ts`)。\n\n过程中被 tsc / 守卫抓到两个我自己的疏漏,都已修正:\n1. **多行 import 块的洞** —— 成员行本身不含 `@objectstack/spec`(路径在结尾行),导致 4 处 spec 导入别名被误改成 `PageComponentSchema as SpecPageSchema`。特征是 `…ComponentSchema as Spec…`,已全部还原。\n2. **`apps/` 目录漏扫** —— 我的扫描只覆盖了 `packages/`,`apps/console/src/schemas/objectDetailPageSchema.ts` 被漏掉,tsc 报了出来。顺带回查确认 **A 组(#3068)在 `apps/` 下确实没有引用**,那轮的 78/78 是真绿而非侥幸。\n\n## 验证\n\n- 台账 **129 → 126**,`--ledger` 重生成并逐条 diff:removed 恰为这三个、added 为空;\n- **变异测试两个方向**:把节点改回 `PageSchema` → 守卫按名+按文件报红;改成 `PageComponentSchema`(我差点提交的陷阱名)→ 同样报红;\n- 全仓 `type-check` 78/78;\n- **全量测试 8701 断言绿**(752 文件)。\n\n## BREAKING CHANGE\n\n`@object-ui/types` 及其 `/zod` 入口的这三个导出改名且无别名。仓内所有消费者已更新,包括 `apps/console`、`packages/layout`、`packages/runner`、`packages/components`、`packages/plugin-dashboard`、`packages/plugin-designer`、`packages/app-shell`、`packages/core`。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

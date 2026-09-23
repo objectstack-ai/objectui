@@ -1,0 +1,32 @@
+{
+  "number": 3132,
+  "kind": "pull_request",
+  "title": "fix(i18n): resolve qualified list-view ids",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T01:42:17Z",
+  "updated_at": "2026-08-01T01:47:43Z",
+  "closed_at": "2026-08-01T01:47:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T01:47:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3132",
+  "body": "## Summary\n\n- resolve `objects.<object>._views.<view>.…` translations when the renderer supplies the canonical `<object>.<view>` id\n- apply the normalization to view labels, descriptions, and empty states\n- add regression coverage for qualified and unqualified list-view ids\n\n## Verification\n\n- `pnpm --filter @object-ui/i18n test -- useObjectLabel-view.test.tsx` (17 files, 124 tests)\n- `pnpm --filter @object-ui/i18n type-check`\n- `pnpm --filter @object-ui/i18n lint` (existing warnings only)\n- Browser: HotCRM Chinese `crm_opportunity.stale_opportunities` shows translated breadcrumb and view tabs without English fallbacks\n\nFixes #3131"
+}

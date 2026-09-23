@@ -1,0 +1,33 @@
+{
+  "number": 3296,
+  "kind": "pull_request",
+  "title": "refactor(types,react,components,fields)!: converge the widget metadata carrier to `field`, retiring `schema` (#3233)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T12:53:32Z",
+  "updated_at": "2026-08-03T12:57:10Z",
+  "closed_at": "2026-08-03T12:57:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T12:57:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3296",
+  "body": "Closes #3233\n\n按 2026-08-03 维护者裁决走**路线 B 直接落 v17**：生产者侧收敛到 `field`，从 widget 契约删除 `schema`，删掉全部消费端 `field || schema` 容忍。不做弃用期。\n\n## 前提核对（实施前）\n\n| 前提 | 结论 |\n|---|---|\n| `FieldWidgetComponentProps` 上 `schema` 仍是已声明键 | ✅ 成立（`packages/fields/src/widgets/types.ts`，#3221/PR #3230 封口的那版） |\n| `field \\|\\| schema` 读法仍存在 | ✅ 成立，**32 处**（issue 估「约 25 处」；主流写法是 `field \\|\\| (props as any).schema`，只有 4 处写成字面 `field \\|\\| schema`，所以按字面量 grep 会严重低估） |\n\n## 两条生产者路径\n\n### 1. 表单路径 —— `renderFieldComponent`（`packages/components/src/renderers/form/form.tsx`）\n\n原状 `schema={props.field || props.schema || props}` 与 `field` **同时**下发。唯一调用点无条件设 `field: field.field || field`（永远真值），所以链上后两项不可达，`schema` 恒 `=== props.field`。改为只传 `field`。\n\n**但这里有一个 issue 未提及、且必须区分的事实**（本单最大的一个坑，被 `form-write-error-message.test.tsx` 抓了个正着）：`renderFieldComponent` 的注册表查找会命中**两类不同的组件**——\n\n- `field:<type>` 命中 → **field widget**，契约是 `FieldWidgetComponentProps`，载体 `field`；\n- 裸名兜底命中 → **普通 SDUI 组件**（展示型 `text`、`alert`、`badge` …），契约是 `SchemaRenderer` 给每个注册组件的**通用 `schema` 节点**。这个键**不在本次退役范围内**。\n\n无差别删掉 `schema` 会让后一类渲染成 `undefined.className` 直接崩。所以查找被拆成两步并显式判定 `isFieldWidget`，只在 field widget 分支省略 `schema`，兜底分支**逐字保留**原解析。这条区分本身有专门测试钉住（见下）。\n\n### 2. SDUI 路径 —— 注册适配器（`packages/fields/src/withFieldCarrier.tsx`，新增）\n\n`SchemaRenderer` **没有** field-widget 专用分支：它给所有注册组件统一传 `schema`。而 `registerField()` 是把 widget **裸注册**进 `field:<type>`（及裸名），所以 SDUI 节点走到 widget 时只有 `schema` 没有 `field` —— 这才是那 32 处 `field || schema` 里 `schema` 分支的真实来源。\n\n翻译点收在唯一的接缝上：`withFieldCarrier`，`registerField()` / `capability-multiselect` 全部经它注册。它**按引用**转发节点（不拷贝、不裁剪、不改名），并**吃掉** `schema`（契约里没有这个键了，继续转发只会随 widget 的 `...props` 展开变成 DOM 上的野属性）。\n\n`withFieldCarrier` **已导出**为公共 API —— 这是仓外 widget 作者的迁移工具：裸注册的第三方 widget 在 SDUI 路径上拿不到 `field`，若不给它这个适配器，它们只能自己重新长出一个 `(props as any).schema` 读法，等于把刚删掉的容忍原样搬到仓外。⚠️ 这是本 PR 唯一的 API 面新增，若维护者认为超出授权范围，可以只回退这一处导出（内部仍需要该函数）。\n\n## 载荷等价性证明\n\n不变量：**过去经 `schema` 送达的每条载荷，必须以 `field` 送达完全相同的对象**。两条路径各有一个按**对象同一性**（不是结构相等）断言的测试 —— 结构相等在渲染器改为下发重建副本时依然会绿，而副本会打断按 metadata 引用做记忆化的 widget。\n\n| 路径 | 文件 | 证明方式 |\n|---|---|---|\n| 表单 | `packages/components/src/renderers/form/__tests__/form-field-carrier.test.tsx` | 探针 widget 断言 `props.field` **`toBe`** 作者写下的那个 metadata 对象（含 `.field` 已声明槽与无 `.field` 的内联 config 两种形态） |\n| SDUI | `packages/fields/src/__tests__/field-carrier-sdui.test.tsx` | 一个 spy 坐在注册表条目的位置，记录 `SchemaRenderer` 实际传下来的 `schema` 对象，再转发给被测适配器；断言 widget 的 `field` **`toBe`** 那个对象（不能对作者字面量断言 —— `SchemaRenderer` 求值时会浅拷贝节点） |\n\n另外钉住的：\n\n- 两条路径都断言 `'schema' in props === false`（**键缺失**，不是 `undefined` —— 否则 `field || schema` 在实践中依然可解，类型说没了而运行时还在）；\n- 表单字段自带 `schema:` 键也无法把第二载体从元数据侧复活；\n- **裸名兜底分支仍然收到 `schema`**（上面那条区分的反向断言）；\n- `registerField()` **真的**过了适配器 —— 用真 `SchemaRenderer` + 真 `BooleanField` 端到端跑：节点上的 `widget: 'checkbox'` / `name` 只能经载体到达，能选中 Checkbox 而非 Switch 且 id 正确，就证明节点完整落到了 `field`；\n- `props.schema` 现在是编译错误（`widget-props-contract.test.tsx` / `TextAreaField.mobileFullscreen.test.tsx` 各加一条 `@ts-expect-error`）。\n\n**每条新增/改动的测试都做了 sabotage 验证**（改坏源码或断言 → 看它红 → 还原 → 看它绿），共 6 次：还原旧的双传（2 条红）、把 `field` 改成下发副本（2 条红）、适配器改为转发 `schema`（1 条红）、适配器改为下发副本（1 条红）、`registerField` 跳过适配器（1 条红，症状正是「渲染成 Switch，找不到 checkbox」——即本次收敛被指控的静默失效）、`isFieldWidget` 恒真（1 条红）。\n\n## 迁移（面向 widget 作者，宿主元数据不受影响）\n\nSDUI JSON / 对象元数据**零改动**。变的只是 widget 的**编写契约**：\n\n```diff\n-const config = field || (props as any).schema;\n+const config = field;\n```\n\n```diff\n+import { withFieldCarrier } from '@object-ui/fields';\n+\n-ComponentRegistry.register('color', ColorField, { namespace: 'field' });\n+ComponentRegistry.register('color', withFieldCarrier(ColorField), { namespace: 'field' });\n```\n\n仓外 widget 若继续读 `props.schema` 且未经适配器重新注册，在 v17 会读到 `undefined` 并静默渲染空态 —— 该风险维护者已知并接受，缓解是大版本边界 + 变更集里的高声量迁移说明。\n\n## 变更集\n\n`.changeset/field-widget-single-metadata-carrier.md`，含完整迁移说明。\n\n⚠️ **标 `minor` 而非 `major`**，尽管这是破坏性变更：AGENTS.md「版本号策略」明令 objectui 的 changeset 不得声明 `major`（fixed 组任一 major 会把 39 个包整体推上 18，脱离 `@objectstack` 的节奏），破坏性语义写在正文里。这一条由 `scripts/check-changeset-no-major.mjs` + `changeset-guard.yml` 机械强制；本地两个 guard 均已跑过通过。\n\n## 文档\n\n`content/docs/guide/plugin-development.md` 与 `skills/objectui/guides/plugin-development.md`：删掉 `schema` 作为已声明 pass-through 键的说法，新增「`field` 是唯一载体（v17，breaking）」小节 + `withFieldCarrier` 注册示例。未触碰 `content/docs/releases/`。\n\n## 验证\n\n| 项 | 结果 |\n|---|---|\n| `vitest run packages/fields packages/components` | **111 files / 1052 tests passed** |\n| `vitest run packages/plugin-form packages/plugin-grid packages/plugin-detail packages/react` | **151 files / 1489 tests passed** |\n| `vitest run packages/app-shell packages/plugin-designer packages/sdui-parser packages/plugin-report` | **279 files / 2404 passed, 1 skipped** |\n| `vitest run packages/core packages/layout packages/mobile packages/plugin-dashboard packages/plugin-list packages/plugin-kanban packages/plugin-calendar packages/providers packages/runner packages/i18n` | **143 files / 2137 passed, 24 skipped** |\n| `turbo run type-check`（fields / components / react / plugin-form / app-shell） | **33 tasks successful** |\n| `turbo run lint`（fields / components / react） | **0 errors**（warning 数与基线一致） |\n| `turbo run build`（fields / components） | **10 tasks successful** |\n| changeset guards | 两个都通过 |\n\n测试一律从仓根用 `pnpm exec vitest run <paths>` 跑（#3288：`pnpm --filter <pkg> test -- --run <paths>` 会静默忽略路径过滤）。\n\n## 范围外发现\n\n- **#3295** —— `pnpm docs:check-links` 在干净的 `main` 上就报一条坏链接（`content/docs/core/enhanced-actions.mdx → /docs/components/form`），且该脚本**没有挂进任何 workflow**。已 `git stash` 验证与本 PR 无关，单独开 issue（未指派），未并入。\n\n未触碰 #3291（`toDomProps`）与 #3290（`aria-required`）。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3142,
+  "kind": "issue",
+  "title": "[console/actions] 无 `locations` 的动作会渲染到所有位置 —— 聚合批量动作(execution: 'aggregate')因此在列表工具栏留下一个必然失败的按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T08:42:50Z",
+  "updated_at": "2026-08-01T10:34:27Z",
+  "closed_at": "2026-08-01T10:34:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3142",
+  "body": "## 现象\n\n`packages/components/src/renderers/action/action-bar.tsx:137` 的过滤规则:\n\n```ts\na => !a.locations || a.locations.length === 0 || a.locations.includes(schema.location!)\n```\n\n即**不声明 `locations`(或声明为空数组)的动作会出现在每一个 `action:bar` 位置**,包括列表工具栏。`ObjectView` 把 `objectDef.actions` 原样交给 `action:bar`(`localizedToolbarActions`,`ObjectView.tsx:406`),由渲染器过滤,所以这条宽松规则直接决定了工具栏内容。\n\n(注意 `DeclaredActionsBar.tsx:254` 用的是**严格**规则 `Array.isArray(a.locations) && a.locations.includes(location)` —— 同一个「动作该出现在哪」的问题,仓内有两套相反的答案。)\n\n## 为什么现在成了问题\n\n#3139 / #3141 落地的聚合批量动作(`bulkActionDefs[].execution: 'aggregate'`)引入了一类**天然只对选中集有意义**的动作:它被调用一次、拿到 `params._selectedIds`,产出单一聚合产物(打包 zip / 合并 PDF / 批量打印)。这类动作没有合理的单记录位置,作者的自然写法就是**不写 `locations`**。\n\n结果(showcase 实测,浏览器验证):动作按预期出现在批量选择条(工作正常,一次调用带全部 id),**同时**出现在列表工具栏 —— 那里没有选中集,分发出去的 body 里没有 `_selectedIds`,服务端必然拒绝(实测 HTTP 400 `recordId required`)。也就是说,按最自然的方式声明一个聚合动作,就会白送一个 100% 失败的按钮。\n\n## 建议\n\n1. **让两个渲染器对齐到严格规则**(缺省 `locations` 不再等于「到处显示」)。这是 ADR-0078「不要静默无效的元数据」的同类问题:一个位置不明的动作被放到它跑不通的地方,失败发生在用户点击时,而不是发布时。需要评估存量影响(有多少现有动作靠这条宽松默认露出)。\n2. **或者**给「只服务于选中集」一个显式表达 —— 例如 `ActionLocationSchema` 增一个 `list_selection` 位置,或在 spec 侧规定聚合 def 命名的动作不参与位置渲染。这条更贴合语义,但要动 spec。\n3. 无论走哪条,`content/docs/ui/actions.mdx` 应写明 `locations` 缺省的实际含义 —— 今天完全没说。\n\n## 现状规避\n\nshowcase 的聚合 specimen(`showcase_recalc_selection`)已改为显式 `locations: ['record_more']` + `recordIdParam`,把单记录入口放在跑得通的地方、同时不落到工具栏(objectstack-ai/objectstack#4461)。"
+}

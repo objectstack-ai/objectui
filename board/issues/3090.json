@@ -1,0 +1,30 @@
+{
+  "number": 3090,
+  "kind": "issue",
+  "title": "表单字段簇:spec↔runtime 是双层词汇——枢纽补缺、覆盖闸门、边界响亮化(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T03:57:42Z",
+  "updated_at": "2026-07-31T07:04:43Z",
+  "closed_at": "2026-07-31T07:04:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3090",
+  "body": "## 背景\n\nobjectstack#4115 台账里的表单簇 4 条:`FormField` / `FormFieldSchema` / `SelectOption` / `SelectOptionSchema`。最初框架是「spec 用 `field`、objectui 用 `name`,二选一」。深挖渲染层后发现**框架错了**:这不是同一概念的两个拼写,是**两层不同概念**,且转换枢纽已经存在——[`normalizeSectionField`](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-form/src/sectionFields.ts)(Tabbed/Wizard/Split/Drawer/Modal 共用),明文承认三形态:字符串 / spec FormField(`field` 键)/ runtime FormField(`name` 键)。\n\n| | spec `FormField`(authored 层) | objectui `FormField`(runtime 层) |\n|---|---|---|\n| 身份键 | `field` = 对象字段引用(与 `ListColumn.field` 一致) | `name` = 数据路径(RHF register、提交负载键) |\n| `type` | 数据 FieldType(`text`/`currency`),widget 推断 | widget 名(`field:text`),经 `mapFieldTypeToFormType` |\n| 真相 | 只有 presentation delta,真相在对象 schema | 自足(独立表单没有对象可引) |\n| 严格性 | `.strict()`(Protocol 15) | 开放 prop 袋(`[key: string]: any` 透传 widget props) |\n\nruntime 字段 = 对象 schema × 表单视图的**物化 join**,join 收敛在枢纽一处。所以**决策:不迁 `name`、不接受到处 `field ?? name` 双读**(reference↔reference_to 的教训,#2598),而是承认双层、加固唯一枢纽、两侧上闸门。与 PageComponentSchema(spec)vs PageNodeSchema(objectui)同一 judgment(#3074)。\n\n## 现状的四个实质缺陷\n\n1. **校验器与渲染器互相矛盾**:分区渲染器经枢纽接受 spec 形态;CLI 的 `FormFieldSchema`(`types/src/zod/form.zod.ts`)硬拒它(`name`+`type` 必填)。且 zod 落后于自家 TS ~10 键(`widget`/`dependsOn`/`span`/`hidden`/`readonly`/`visibleWhen`/`readonlyWhen`/`requiredWhen`/`visibleOn`,strip 静默),还要求 TS 里可选的 `type` 必填。spec ↔ TS ↔ zod 三方两两漂移。\n2. **平面独立表单对 spec 形态静默消失**:`components/src/renderers/form/form.tsx` 全程 `f?.name` 守卫,`field` 键条目不报错、不渲染、直接蒸发。对 AI 作者是最恶劣的失败模式(零反馈)。\n3. **一词双关**:runtime FormField 把完整对象字段元数据**对象**塞在 `field` 键下(sectionFields.ts `fromObjectSchema`),与 spec 的字符串 `field` 同键异型;靠 `typeof fd.field !== 'string'` 判别 + `ObjectForm.tsx` 的 `(f as any).field ?? f.name` 双读。\n4. **枢纽零闸门,已现缺口**(对照 spec 17.0.0-rc.0 逐键盘点):视图级 `visibleWhen`(ADR-0089 **规范拼写**)未映射——只有弃用的 `visibleOn` 被 attach,即规范拼写丢谓词、弃用拼写反而能用;`keyField`、`disclosure`、视图级 `dependsOn` 未映射。spec 加键(`disclosure`/`keyField` 都是近期加的)在零闸门下必然静默丢。\n\n同构漂移:**SelectOption** —— 渲染器已消费 spec 的 `color`(`fields/src/index.tsx` badge/dot 着色),TS/zod 不声明 `color`/`default`;zod 连自家 TS 的 `visibleWhen` 都缺。反向:objectui 的 `disabled`/`icon`、`number|boolean` value 是 spec 没有的 UI 层扩展。\n\n## 分期\n\n### PR1 修缺陷,零破坏\n- [x] 枢纽补缺:视图级 `visibleWhen`(→ 视图层槽位,与对象级规则 AND)、`keyField`、`disclosure`、视图级 `dependsOn`;每键先写复现测试\n- [x] 枢纽覆盖闸门:遍历 spec `FormFieldSchema` 键集,断言每键 ∈ 已映射 ∪ 显式豁免(带理由);spec 新增键即红;mutation-test 证明闸门会响\n- [x] SelectOption 三方补齐:TS/zod 补 `color`/`default`/`visibleWhen`;zod 改为 spec 派生 + 显式扩展(`disabled`/`icon`、value 放宽)+ parity 测试\n- [x] CLI `FormFieldSchema` 补齐自家 TS 声明的键、`type` 放宽为可选 + set-coverage 断言\n\n### PR2 边界响亮化\n- [x] 独立表单渲染器识别 string-`field` 形态 → dev 响亮报错(不再静默蒸发)\n- [x] CLI 对 spec 形态给定向文案(报错文案会被 AI 当修复指令执行:不能是 `name: expected string` 这种引导改坏的提示)\n- [x] 混合词汇(`{field:'a', name:'b'}`)lint\n\n### PR3 收敛双关(有破坏面,单独拍板)\n- [x] runtime 的 `field` 元数据槽改名/typed(`(f as any).field ?? f.name` 双读收敛进枢纽)\n- [x] `FormField` 类型是否改名(全仓最热类型之一,20+ 包导入)单独决策\n\n## 台账影响(objectstack#4115)\n\n- `FormField` / `FormFieldSchema`:**不减**——双层概念不可派生;且 spec 的 `FormField` 类型 dist 里是 `any`(objectstack#4171),上游修好前 re-export 是类型回退。转 documented + tripwire。\n- `SelectOption` / `SelectOptionSchema`:**可减**——同一概念的两个方言,spec 派生 + 显式扩展即可。\n\n关联:objectstack#4115(台账)、objectstack#4171(spec 类型擦除)、#3017(手抄清单战役)、#2598(chokepoint 先例)。\n\n\n\n\n"
+}

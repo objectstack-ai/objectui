@@ -1,0 +1,33 @@
+{
+  "number": 3269,
+  "kind": "pull_request",
+  "title": "fix(console): drop retired ToolSchema keys from the tool preview sample (#3257)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:21:10Z",
+  "updated_at": "2026-08-03T09:24:45Z",
+  "closed_at": "2026-08-03T09:24:44Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-03T09:24:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3269",
+  "body": "Fixes objectstack-ai/objectui#3257\n\n## 改了什么\n\n`apps/console/src/preview-samples.ts` 的 `tool` 样例删掉三行:`category` / `active` / `requiresConfirmation`。样例其余部分(`name` / `label` / `description` / `objectName` / `parameters` / `outputSchema`)全部保留 —— 实测这份删完之后 **`ToolSchema` 直接 ACCEPT**。\n\n另外新增一条机器守卫 `apps/console/src/__tests__/preview-samples-spec-valid.test.ts`,把「样例过期」从静默腐烂变成 CI 报红。\n\n## 为什么这不只是清理\n\n这份样例不是测试夹具,是**设计器预览画廊里给作者看的范本**。范本的隐含承诺是「照抄就能用」,而它已经违约了:三个键都被 `.strict()` 的 `ToolSchema` **逐个具名拒收**,谁照抄谁就得到一份 `ToolSchema.parse()` 当场拒绝的元数据。这正是 AI 生成元数据最容易照抄并放大的位置 —— 坏范本不是错一次,是持续传播。\n\n和 #3236 是同一次三仓扫描的两半,但危害形态不同:#3236 是「UI 宣传了不存在的能力」,本单是「**范本在教人写错**」。#3236 之后 `ToolPreview` 也不再渲染这三个徽标,这三行成了纯噪音。\n\n## 守卫怎么写的(这是本 PR 的大头)\n\n校验方式是**把样例塞进一整个 stack**,交给 `ObjectStackSchema.safeParse()`:\n\n```ts\nObjectStackSchema.safeParse({ tools: [SAMPLES.tool] })\n```\n\n而不是去 import 一个手挑的 `XxxSchema`。两个理由,都是写的过程中踩出来的:\n\n1. **`ObjectStackSchema` 本身就是作者契约** —— 作者能发布的形态。按名字猜 schema 会猜错:`email_template` 最顺手的那个 `EmailTemplateSchema` 其实是**运行时发信载荷**(`id` / `body` / `bodyType`),真正可编写的记录是 `EmailTemplateDefinitionSchema`(`name` / `label` / `subject` / `bodyHtml`)。读集合不可能挑错。\n2. **不碰任何 Zod 内部**。手写 `._def` 去剥 `optional > array > …` 迟早会在 Zod 换版本时静默解错(或者更糟:空过)。让 wrapper 自己剥,这条测试问的就恰好是那个该问的问题 —— **这份样例如果被作者发布进真实 stack,会怎样?**\n\n守卫分四层:\n\n| 断言 | 作用 |\n|---|---|\n| `classifies every sample exactly once` | 每个样例必须落在 `SPEC_CLEAN` / `KNOWN_STALE` / `NO_AUTHORING_SCHEMA` 之一。**明天新加的样例逃不掉分类**,否则报红 |\n| `%s sample is valid metadata` | 6 个干净样例必须过 `.parse()`(含本次修好的 `tool`) |\n| `%s sample still fails as recorded` | **反向断言**(与 #3212 同思路):台账里的样例一旦开始通过就报红,要求提升到 `SPEC_CLEAN` —— 台账只会缩短,不会变成垃圾堆 |\n| `tool sample does not resurrect retired key %s` | 三个键按名钉死,让「别再加回来」对读代码的人可见 |\n\n### 破坏性验证(sabotage)\n\n把 `category: 'data'` 和 `requiresConfirmation: false` 加回样例后重跑,三层同时报红:\n\n```\nFAIL  tool sample is valid metadata\nAssertionError: expected [ { path: 'tools.0', …(1) } ] to deeply equal []\n\nFAIL  tool sample does not resurrect retired key `category`\nAssertionError: expected { name: 'query_orders', …(7) } to not have property \"category\"\n- Expected: undefined\n+ Received: \"data\"\n\nFAIL  tool sample does not resurrect retired key `requiresConfirmation`\n\n Tests  3 failed | 21 passed (24)\n```\n\n已还原,当前 24/24 绿。\n\n## 顺带核对了同文件其它全部 19 个样例(派发要求第 2 点)\n\n结论:**`tool` 不是唯一一个** —— 20 个样例里 12 个当前过不了 `.parse()`,其中 4 个带的是和本单完全同型的**已退役键**(`action.bulkEnabled`、`agent.tools`/`agent.knowledge`、`skill.triggerPhrases`、`flow.waitEventConfig.onTimeout`)。\n\n- ✅ **合法(6)**:`view`、`job`、`tool`(本 PR 修完)、`permission`、`position`、`email_template`\n- ❌ **过不了(12)**:`object`、`page`、`report`、`dashboard`、`app`、`action`、`flow`、`agent`、`skill`、`datasource`、`validation`、`translation`\n- ⚪ **spec 里根本没有对应 schema(2)**:`workflow`、`approval`(spec 只有 `ApprovalNodeConfigSchema`,那是 flow 节点配置)\n\n**这 12 个本 PR 没修**,而是进了测试里的 `KNOWN_STALE` 台账(每条写明具体原因),并立了 objectui#3266 跟踪。没顺手修的理由不是偷懒:\n\n1. `object.fields` 的**数组形态是 app-shell 有意支持的**,不是笔误 —— `previews/object-fields-io.ts` 的 `readFields()` 显式分支 `shape: 'array' | 'record'` 并原样保留。把样例改成 record 会让画廊**不再覆盖 array 那条分支**;真正该先裁决的是这个双形态要不要留(AGENTS.md #0.1 的典型场景),而不是先改样例。\n2. 改 `dashboard` / `app` / `flow` 样例会**改变画廊渲染出来的东西**,而预览画廊是本仓共用的浏览器验证台,并行 agent 正拿它验证别的改动。\n3. 本单 scope fence 是 `apps/console` 的 `tool` 样例 + 审计 + 守卫;PD#3 要求越界发现另立单。\n\n`translation` 那条要特别说明:`ObjectStackSchema.translations` 是 `Array< Record< locale, TranslationData > >`,而 console 这份样例是 `{ name, label, locale, language, description, data }` 的元数据记录形态 —— 更可能是**映射选错**而非样例过期,已在测试注释和 #3266 里如实标注,没有硬套。\n\n## 守卫的强度上限(如实记录,别过度信任)\n\n守卫有多严取决于 spec 有多严:`tools` / `apps` / `flows` / `permissions` / `positions` / `datasources` 的元素 schema 是 `.strict()`,而 `views` / `jobs` / `emailTemplates` **不是** —— 后者把未知键悄悄剥掉而不报错。也就是说这三类样例即便混进一个已退役的键,守卫照样绿。这一点写在测试文件头部,免得后来者误以为「绿 = 没有退役键」。这是 spec 仓的事(objectstack#4001 / #3896 同一条线),已记在 #3266 备查。\n\n## 为什么没有 changeset\n\n`preview-samples.ts` 文件头就写着 DEV-ONLY;实测 `apps/console/vite.config.ts` **没有 `input:` 配置**,Vite 默认只以 `index.html` 为入口,`preview-gallery.html` 不是生产构建入口 —— 这份样例根本进不了发布的 `dist`,对 `@object-ui/console` 的消费者不可见。加上 AGENTS.md §9「纯 bug 修复不需要 changeset」,故不加。\n\n## 验证\n\n```\npnpm --filter @object-ui/console type-check   → 0 errors(先 turbo build 了 34 个依赖包)\npnpm --filter @object-ui/console test         → Test Files 20 passed (20) / Tests 177 passed (177)\npnpm --filter @object-ui/console lint         → 0 errors(187 条既有 warning,两个改动文件一条都没有)\n```\n\n## 相关\n\n- objectui#3257(本单)\n- objectui#3266(其余 12 个过期样例,本 PR 新立)\n- objectui#3236 / PR #3258(`ToolPreview` 侧的同型残留)\n- objectstack#3896(`category` / `active` 审计关闭)、objectstack#3715 / ADR-0033 §2(`requiresConfirmation` 退役)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

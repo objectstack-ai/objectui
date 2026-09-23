@@ -1,0 +1,30 @@
+{
+  "number": 3056,
+  "kind": "issue",
+  "title": "Bulk delete / by-name bulk action clears the toolbar but leaves the row checkboxes ticked",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:35:18Z",
+  "updated_at": "2026-07-30T14:46:33Z",
+  "closed_at": "2026-07-30T14:46:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3056",
+  "body": "`ObjectGrid` 的两套选择状态在 `dispatchBulkAction` 这条路径上会**脱钩**：工具栏消失了，行复选框还全勾着。\n\n## 现状\n\n选择状态有两个来源，必须同步移动：\n\n- `selectedRows`（ObjectGrid 自己的 state）—— 驱动 `BulkActionBar`（\"已选择 N 项\" + 清除）\n- data-table 内部的 `selectedRowIds` —— 驱动行复选框，**只有**宿主 bump `selectionResetKey` 时才清空（[data-table.tsx:586](packages/components/src/renderers/complex/data-table.tsx:586)）\n\n富 def 那条路走 `handleBulkDialogClose`，两个都清：\n\n```ts\n// ObjectGrid.tsx:1797\nif (result && result.succeeded > 0) {\n  setSelectedRows([]);\n  setSelectAllMatching(false);\n  setSelectionResetKey(k => k + 1);   // ← 行复选框\n  setRefreshKey(k => k + 1);\n}\n```\n\n`dispatchBulkAction` 的**两条分支都漏了最后那半**：\n\n```ts\n// ObjectGrid.tsx:1717 —— 内建/声明的批量删除\nif (action === 'delete' && onBulkDelete) {\n  onBulkDelete(expanded);\n  setSelectedRows([]);\n  setSelectAllMatching(false);        // ← 没有 setSelectionResetKey\n  return;\n}\n// ObjectGrid.tsx:1729 —— 按名字派发（消费方注册的 runner handler）\nif (res?.success) {\n  setSelectedRows([]);\n  setSelectAllMatching(false);        // ← 同样没有\n  setRefreshKey(k => k + 1);\n}\n```\n\n于是操作成功后：工具栏消失（`selectedRows` 空了），但每行复选框仍然是勾选态。用户看到的是「一堆勾着的行 + 没有任何批量操作入口」，只能手动逐个取消或刷新页面。\n\n有意思的是，`handleBulkDialogClose` 的注释**逐字点名了这个失败模式**，只是另一条路径没有遵守：\n\n> Both selection sources must move together, or the checkboxes (table-internal) and the toolbar (our `selectedRows`) drift out of sync — ticked rows with no toolbar.\n\n## 影响面\n\n不是回归 —— `dispatchBulkAction` 一直如此。#3031 / #3053 之后这条路径变窄了（能解析到对象 action 的名字现在会被提升成 def，走对话框那条正确的路），剩下两种情况仍然命中：\n\n1. **批量删除** —— 内建的 `['delete']` 兜底，或作者显式写的 `bulkActions: ['delete']`。这是最常见的一条。\n2. **按名字派发** —— 消费方用 `runner.registerHandler('<name>', …)` 注册过、且对象没有同名 action 声明的批量操作。\n\n## 建议\n\n把两条分支都补上 `setSelectionResetKey(k => k + 1)`，和 `handleBulkDialogClose` 对齐。删除分支是无条件成功语义（`onBulkDelete` 不回传结果），按名字那条已经在 `res?.success` 里了，位置现成。\n\n值得顺手加一条断言把这个不变量钉住 —— `bulkActionRefresh.test.tsx` 里已经有一组同类测试（\"clears the row checkboxes (not just the toolbar) after a successful run\"），针对的正是富 def 那条路径，照着扩到字符串/删除路径即可。\n\n发现于 #3002 的浏览器验证过程中。\n"
+}

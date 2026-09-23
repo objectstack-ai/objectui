@@ -1,0 +1,32 @@
+{
+  "number": 2944,
+  "kind": "issue",
+  "title": "Retire the five objectui forks that shadow a @objectstack/spec symbol name (#2901)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:23:45Z",
+  "updated_at": "2026-07-30T07:08:17Z",
+  "closed_at": "2026-07-30T07:08:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2944",
+  "body": "From the #2901 audit ([doc](https://github.com/objectstack-ai/objectui/pull/2937)).\n\nThe audit's most useful structural result: the recurring failure is rarely \"renderer forgot a name\". It is **\"a second definition of the vocabulary exists, and the renderer is faithful to the wrong one\"**.\n\nFive objectui declarations re-export under the spec's own symbol name, so an importer cannot tell which one they got. All five have already drifted.\n\n| Fork | Spec | Drift |\n|---|---|---|\n| `types/src/zod/data-display.zod.ts:209` `ChartTypeSchema` | 19 | **7** |\n| `types/src/zod/layout.zod.ts:258` `PageTypeSchema` | 5 | 4 — missing `list` |\n| `types/src/layout.ts:432` `PageType` (TS) | 5 | **10** — adds the five visualizations the spec explicitly repudiates |\n| `types/src/reports.ts:337` `ReportType` | 4 | 3 — missing `joined` |\n| `types/src/ui-action.ts:72` `ActionType` | 6 | 5 — missing `form`, under a comment claiming it is canonical |\n\nThe `ChartTypeSchema` fork is why #2901 was filed with an inverted premise: the issue read the objectui copy (7 values) as the spec and concluded the renderer had outgrown it. The spec has 19.\n\nThe `PageType` trio is one package holding **three disagreeing definitions of one vocabulary, drifting in both directions at once** — the zod copy is narrower than the spec, the TS union is wider, and `ui/page.zod.ts:191` explicitly states the extra five \"are NOT page types\".\n\n## Why this is cheap\n\nAll five are currently **inert** — nothing outside `packages/types` parses with them, so no runtime behavior changes. Verified by tracing consumers.\n\nThey are also already-settled policy, not open questions. #2231 established the doctrine — *re-export by reference; a faithful copy is still a fork* — and `types/src/__tests__/spec-subschema-parity.test.ts` pins reference identity (`toBe`, not structural equality) for the schemas it covers. These five simply aren't covered.\n\n## Work\n\n1. Replace each with a by-reference re-export of the spec schema.\n2. Extend `spec-subschema-parity.test.ts`'s covered set to include them, so a future re-fork fails.\n3. `ActionType` needs one real decision: `navigation` is fully implemented at `core/src/actions/ActionRunner.ts:539` (`executeNavigation`) and named in no spec enum. Promote it upstream or delete the case — don't leave it as dialect.\n\nRelated: #2231, #2901"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 2914,
+  "kind": "pull_request",
+  "title": "fix(detail): distinguish \"in approval (editable)\" from locked, and stop losing write warnings",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T08:59:09Z",
+  "updated_at": "2026-07-28T17:33:24Z",
+  "closed_at": "2026-07-28T17:33:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T17:33:22Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2914",
+  "body": "The Console half of objectstack-ai/objectstack#3794 (framework half: objectstack-ai/objectstack#3834, which adds the `locks_record` and batch `droppedFields` this PR consumes).\n\nThe record page told the user the opposite of what the backend does, in both directions.\n\n## 1. The band claimed a lock the server does not enforce\n\n\"Locked for approval\" rendered on **any** pending request, ignoring the node's `lockRecord`. A node declaring `lockRecord: false` is pending *without* locking — the server's hook lets the write through on purpose, so the approver can amend the record as part of deciding on it — and the band told them not to bother. The mirror image was just as bad: on a genuinely **locked** record the header **Edit** button stayed live, so the user filled a whole form before the save came back `RECORD_LOCKED`.\n\nThe pending request is now authoritative for both signals:\n\n- `useRecordApprovals` reads `locks_record` (resolved server-side from the same node-config snapshot the lock hook reads);\n- `RecordDetailView` derives `approvalPending` and `approvalLocked` **separately** and threads both through `InlineEditProvider` (new `approvalPending` prop);\n- the band renders the amber lock only when the record is really locked, a neutral \"In approval (editable)\" / 审批中（可编辑）otherwise, with a recall tooltip that no longer promises to unlock;\n- the header Edit CTA is `disabled` on a locked record — visible-but-off, matching the house style for \"the affordance exists and is off\".\n\nWith no approvals-aware host (bare / legacy `DetailView`), the old `approval_status`-field fallback is unchanged and still assumes a lock — the safe direction.\n\n## 2. A stripped field vanished silently on the record form's save path\n\nThe adapter emitted a write-warning for `create` / `update` responses carrying `droppedFields`, but **not** for `batchTransaction` — which is how the record form saves a master-detail record, i.e. the one surface where a user actually edits a `readonlyWhen`-locked field. `batchTransaction` now emits one warning per event, resolving each back to its operation via the response's `index`.\n\nThe toast itself was hardcoded English and called every strip \"read-only\". It is now localized (`detail.writeStripped*`, en + zh) and worded **by reason**: `readonly_when` says the field is not editable *in this record's current state*, which is what actually happened — the field is editable in other states and the form rendered it as an ordinary input, so \"read-only\" sends the user hunting for a permission problem that does not exist.\n\n## 3. …and it stopped crying wolf\n\n`createObjectStackUserStateAdapter` hand-stamped the server-managed `updated_at` on every recents/favorites write. The server strips it and reports the strip, so the Console popped \"Some fields were not saved\" about a field no user ever touched — on ordinary page loads, drowning the signal the toast exists for. It no longer sends the column; the server stamps it anyway.\n\n## Tests\n\nNew: 4 in `DetailView.approvalBand.test.tsx` (editable variant; host signals beat the `approval_status` mirror; the lock variant survives; no band when the host reports nothing pending), 2 in `onWriteWarning.test.ts` (batch events resolve to their op; clean/malformed batches stay quiet), 1 in `userState.test.ts` (never sends `updated_at`).\n\nGreen: 931 tests across `plugin-detail` / `react` / `i18n` / `data-objectstack` / `app-shell`; `tsc` clean on every touched package.\n\n## Browser-verified against the framework showcase\n\n| scenario | result |\n|---|---|\n| invoice sign-off node (`lockRecord: false`), pending | neutral \"审批中（可编辑）\" band, Edit enabled, save lands |\n| announcement lead-review node (`lockRecord: true`), pending | amber \"审批中已锁定\" band, Edit disabled (server rejects the same write with `RECORD_LOCKED`) |\n| record form: `状态 → Paid` + `税率` changed in one save | green \"发票更新成功\" **and** amber \"部分字段未保存 — 以下字段在记录当前状态下不可编辑，未保存: tax_rate\" |\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

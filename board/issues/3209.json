@@ -1,0 +1,35 @@
+{
+  "number": 3209,
+  "kind": "issue",
+  "title": "chatter 那条链没有 loading 信号源:RecordDetailView / `record:chatter` 从不给 `RecordChatterPanel` 传 `loading`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T15:03:54Z",
+  "updated_at": "2026-08-03T09:23:48Z",
+  "closed_at": "2026-08-03T09:23:37Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3209",
+  "body": "顺路发现于 #3205(那个 PR 只修了 `RecordActivityTimeline` 不读 `loading` 的最后一段渲染分支)。\n\n#3205 修完之后,`loading` 这条链在 **`record:activity`** 上是通的:`renderers/record-activity.tsx` 自己算出 `loading`(自取数期间为 true)→ 传给 timeline → timeline 现在渲染 loading 行而不是空态。\n\n但 **chatter/discussion** 那条链上没有信号源。`RecordChatterPanel` 自己的透传是好的(`RecordChatterPanel.tsx` 两处 `loading={loading}`,sidebar 与 inline 各一),问题在它上面一跳:\n\n1. `packages/plugin-detail/src/renderers/record-chatter.tsx` —— 渲染 `RecordChatterPanel` 时只传 `items` / 各 handler,**没有** `loading={discussion?.loading}`。`DiscussionContextValue` 明明声明了 `loading?: boolean`(`packages/react/src/context/DiscussionContext.tsx`),`record:activity` 也已经在读 `discussion?.loading`。\n2. `packages/app-shell/src/views/RecordDetailView.tsx` —— 真正的宿主:\n   - `const [feedItems, setFeedItems] = useState< FeedItem[] >([])`,由两个 `dataSource.find`(`sys_comment` 与 `sys_activity`)异步填充,**期间没有任何 loading state**;\n   - `< DiscussionContextProvider items={feedItems} … >` 不传 `loading`;\n   - 自动追加的那个 `< RecordChatterPanel items={feedItems} … >` 也不传 `loading`。\n\n后果与 #3205 同类:记录详情页打开的头一段时间,讨论面板渲染的是 \"No comments yet\"(`emptyLabel`),而不是加载态——只是这次缺的不是渲染分支(#3205 已经补上),而是**没人把取数状态算出来**。所以 #3205 的修复在 `record:activity` 上立刻可见,在 chatter 上要等这个 issue。\n\n## 建议\n\n在 `RecordDetailView` 里为 feed 取数加一个 loading state(两个 `find` 都 settle 之前为 true;注意它们是两条并行的 promise,`.catch(() => {})` 也要收口),然后:\n\n- `< DiscussionContextProvider loading={feedLoading} … >`;\n- 自动追加的 `< RecordChatterPanel loading={feedLoading} … >`;\n- `renderers/record-chatter.tsx` 补上 `loading={discussion?.loading}`,让作者手工摆放的 `record:chatter` / `record:discussion` 走同一条链。\n\n不要在消费端加宽容兜底(比如 timeline 里猜\"items 为空且刚挂载就算 loading\")——信号应当由拥有取数的宿主产出,这也是 #3165/#3205 已经确立的形状。\n\n## 参考\n\n- `packages/app-shell/src/views/RecordDetailView.tsx`(`feedItems` 的 state 与两处 `find`;`DiscussionContextProvider` 与自动追加的 `RecordChatterPanel`)\n- `packages/plugin-detail/src/renderers/record-chatter.tsx`\n- `packages/react/src/context/DiscussionContext.tsx`(已声明 `loading`)\n- `packages/plugin-detail/src/renderers/record-activity.tsx`(已经在读 `discussion?.loading`,可作为参照)\n- #3205 / #3165"
+}

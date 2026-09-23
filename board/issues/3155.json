@@ -1,0 +1,32 @@
+{
+  "number": 3155,
+  "kind": "issue",
+  "title": "台账燃尽批次 1/8 · @object-ui/types 报表/图表/查询簇,11 符号(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T13:14:29Z",
+  "updated_at": "2026-08-01T15:30:15Z",
+  "closed_at": "2026-08-01T15:30:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3155",
+  "body": "objectstack#4115 债务台账(`scripts/check-spec-symbol-derivation.mjs` 的 `DEBT` 块)燃尽第 1 批。**动工前必读**:守卫文件头(分诊三说谎点、结构位派生的定义)与 objectstack#4115 的跟踪评论(施工规约与历史教训)。\n\n## 本批符号(`@object-ui/types`,11 条)\n\n`AppContextSelectorSchema`, `ChartSeries`, `ChartSeriesSchema`, `DashboardWidgetSchema`, `DatasourceSchema`, `DriverInterface`, `GlobalFilterSchema`, `JoinedReportBlock`, `ListViewSchema`, `QueryAST`, `QuerySchema`\n\n注意:`ListViewSchema` 有全场最佳范式可对照(`zod/objectql.zod.ts` 的 spec 字段按引用流入 + `list-view-spec-parity.test.ts` 漂移守卫)——本批优先向它收敛。`QueryAST`/`QuerySchema`/`DriverInterface` 涉及 ObjectQL,分诊时先用 `0 extends (1 & T)` 探针排除两侧 `any` 擦除;spec 侧为 `any` 的不能在本仓烧,移入批次 8 并在 objectstack#4171 登记。\n\n## 每条三选一\n\n1. **派生**:re-export 或 `z.infer`,spec 引用必须在结构位(类型别名右侧、`extends`、const 初始化器;copy 展开不算)。\n2. **改名为本地方言**:概念真不同时改本地名;**新名字必须先过守卫**(`PageComponentSchema` 教训),配 tripwire 测试。\n3. **进 ALLOW**:刻意分歧,写清理由 + 四向 parity 守卫(参照 `select-option-spec-parity.test.ts`)。\n\nzod 条目额外比 `_input`(`_output` 相等不代表接受同样书写输入)。\n\n## 完成定义\n\n- 本批 11 条全部从 `DEBT` 移除(`--ledger` 重生成后逐条 diff:removed 恰为本批,added 为空),或有书面理由进 ALLOW / 移批次 8;\n- 守卫绿、全仓 type-check 绿、全量测试绿,至少一组变异测试(改回一个已烧符号 → 守卫按名报红);\n- 跨包类型改动先 `turbo build --filter=<dep>` 重建依赖 dist 再 `type-check --force`;\n- PR 引用本 issue 与 objectstack#4115,合入后更新 #4115 跟踪评论,关闭本 issue。"
+}

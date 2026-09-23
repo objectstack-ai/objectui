@@ -1,0 +1,36 @@
+{
+  "number": 3268,
+  "kind": "issue",
+  "title": "RecordDetailView 切换记录时不清空 feedItems:上一条记录的评论/活动会留在下一条记录的讨论面板上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:20:12Z",
+  "updated_at": "2026-08-03T10:45:48Z",
+  "closed_at": "2026-08-03T10:45:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3268",
+  "body": "顺路发现于 #3209(那个 PR 只补了 feed 取数的 loading 信号源,没有动 `feedItems` 的生命周期)。\n\n## 现象\n\n`packages/app-shell/src/views/RecordDetailView.tsx`:\n\n- `const [feedItems, setFeedItems] = useState< FeedItem[] >([])`(约 L299);\n- 取数 effect 的依赖里有 `pureRecordId`,换记录时会重新跑两个 `find`;\n- 但两处回填都是 **按 id 归并到 prev**:`setFeedItems(prev => { const byId = new Map(...); for (const item of [...prev, ...mapped]) ... })`;\n- **全文件没有任何一处把 `feedItems` 重置回 `[]`**(`setFeedItems` 只出现在归并与乐观更新里)。\n\n`RecordDetailView` 在路由下是**不会重挂载**的(`console/AppContent.tsx` 里 `< RecordDetailView dataSource=... objects=... onEdit=... />` 没有 `key`;`ObjectView` / `ObjectDataPage` / `InterfaceListPage` 的抽屉用法同理,只换 `recordIdOverride`),所以在同一个对象里从记录 A 点到记录 B,A 的评论和活动行会**继续留在 B 的讨论面板上**,B 自己的行归并进来排在一起。id 不同 → Map 去重不掉。\n\n## 复现证据\n\n在 #3209 的测试装置上跑过一次(临时用例,未提交):\n\n```\nrender(< RecordDetailView … recordIdOverride=\"rec-A\" />)\n  → 屏幕上出现 \"comment for crm_account:rec-A\"\nrerender(< RecordDetailView … recordIdOverride=\"rec-B\" />)\n  → 屏幕上出现 \"comment for crm_account:rec-B\"\n  → 断言 screen.queryByText(\"comment for crm_account:rec-A\") 仍然为真 —— 通过\n```\n\n也就是说 A 的评论确实还在 B 的页面上。\n\n## 影响\n\n1. 用户在列表里连续点几条记录,讨论面板会越滚越长,混着别的记录的评论 —— 是**串数据**,不只是视觉问题;\n2. 顺带压掉 #3209 的 loading 态:换记录时 `feedLoading` 会正确转 true,但 `RecordActivityTimeline` 的 loading 分支条件是 `loading && filtered.length === 0`(#3205 有意为之:不要让刷新把已在屏上的 feed 变成 spinner),此时 `filtered` 里还有上一条记录的残留行,于是渲染的是**上一条记录的内容**而不是加载态。所以这条不修,#3209 在「记录间导航」这个路径上仍然看不到加载态。\n\n## 建议方向(未拍板)\n\n取数 effect 里换记录时把 `feedItems` 清空是最直接的,但要和乐观更新(`handleAddComment` / `handleAddReply` / `handleToggleReaction` 往 `feedItems` 里塞的本地行)对齐,别把用户刚发出、还没落库的评论清掉。可能的做法是把 feed 状态按 `objectName:recordId` 键存(和 #3209 的 `feedFetchKey` 同一把钥匙),读的时候只取当前键那一份 —— 这样「清空」就是自然结果而不是一次额外的 setState 竞态。请维护者定方向,#3209 的 PR 里没有顺手改。\n\n## 参考\n\n- `packages/app-shell/src/views/RecordDetailView.tsx`(`feedItems` 的 state、两处 `setFeedItems(prev => …)` 归并、取数 effect 的依赖)\n- `packages/plugin-detail/src/RecordActivityTimeline.tsx`(`loading && filtered.length === 0` 分支)\n- #3209 / #3205 / #3165\n"
+}

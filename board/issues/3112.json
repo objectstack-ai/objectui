@@ -1,0 +1,35 @@
+{
+  "number": 3112,
+  "kind": "pull_request",
+  "title": "feat(components,grid,list): a column-header sort orders the whole list, not the page you can see (#3106)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:27:10Z",
+  "updated_at": "2026-07-31T09:38:08Z",
+  "closed_at": "2026-07-31T09:38:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T09:38:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3112",
+  "body": "Closes #3106.\n\n## What was wrong\n\nClicking a column header under server pagination sorted **the current page**. The user saw *\"sorted by this column\"* and got *\"these fifty rows are in order; page 2 starts over.\"*\n\nThe sort was real. Its **scope** was not the one the screen implied — and it had no way out of `data-table` at all: it lived in two `useState`s with no callback, so the layer that issues the request could not see it even in principle.\n\n#3096 made this *more* dangerous rather than less: before it, clicking a lookup header produced garbage order that nobody believed; after it, the same click produces a convincing alphabetical page. The credibility went up while the scope stayed a lie.\n\n## The shape of the fix\n\n| layer | change |\n|---|---|\n| `DataTable` | `manualSorting` + controlled `sort` + `onSortChange`. Sorts nothing, reports the click, renders `sort` as the indicator. |\n| `ObjectGrid` | Turns it into `$orderby` in **both** server modes (own fetch, parent-driven) and returns to page 1. |\n| `ListView` | Lands it in `currentSort` — the same state the toolbar's sort builder writes. |\n\n**The table keeps no sort state of its own in manual mode.** A private copy beside a controlled prop is the exact shape the defect had, so a test asserts the indicator follows the prop and not the click.\n\n`manualSorting` is deliberately **independent of `manualPagination`**: what matters is whether `data` is one window of something larger, not who owns the pager. (A windowed related list paginates itself — that is PR 4.)\n\n## Decisions worth reviewing\n\n- **A header click replaces the order** rather than appending. The column under the cursor is the one the list is sorted by. Multi-key orders still come from the sort builder, and headers render them numbered.\n- **It cannot ask for \"no sort\".** The third click clears in client mode, which is meaningful there — the rows return to the order they arrived in. Across a server-paged collection there is no such order (objectstack#4363), so a header offering it would hand the user a *worse* lie than the one being fixed. Clearing stays with the sort builder, which can restore the view's default.\n- **Relational columns render no sort affordance** under server sorting: a `lookup` column shows a related record's name while `$orderby` can only order by the stored id (objectstack#4256) — the same reason #3096 removed them from the toolbar's picker. Client-side sorting keys off the rendered label, so those headers stay live there.\n- **One sort, two controls.** Sharing `currentSort` is what makes *\"does a header sort outrank the saved view's sort?\"* a non-question rather than a precedence rule someone has to remember.\n\n## Also fixed in passing\n\nThe header context menu's Sort Ascending/Descending items wrote internal state **directly**, bypassing the sort handler. Under `manualSorting` that would have been a menu item that highlights, closes, and changes nothing — the same class of defect one control over. Both now route through a single write path.\n\n## Tests\n\n28 new cases across the three layers, including the composition neither package's own unit tests can reach (ListView → grid, via a stub `object-grid`).\n\n| suite | result |\n|---|---|\n| `plugin-grid`, `plugin-list`, `components`, `types`, `core` | **2682 passed** (200 files) |\n| type-check on all four touched packages | clean |\n| lint | 0 errors (pre-existing warnings only) |\n\nA regression caught during the run is worth noting: the first draft put `declaredSort` behind a `useMemo` that sits below ObjectGrid's early returns — 91 tests failed with \"Rendered more hooks than during the previous render\". It is a plain expression now.\n\n## Related\n\n- PR #3109 — string `$orderby` serialization (independent; broken on `main` today).\n- objectstack#4367 — the server half: paging a sorted read is now a partition of the result set. This PR makes low-cardinality columns like `status` the *most common* sort key, which is what turns that latent property violation into a daily one.\n- Follow-up PR — RelatedList's two sorting semantics in one card.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

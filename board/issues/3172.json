@@ -1,0 +1,34 @@
+{
+  "number": 3172,
+  "kind": "issue",
+  "title": "Flow 节点几何有三种拼写(`ui:{x,y}` / spec 的 `FlowNode.position` / `FlowCanvasNode`)—— 需要定一种并收敛",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T16:18:55Z",
+  "updated_at": "2026-08-03T12:57:09Z",
+  "closed_at": "2026-08-03T12:57:09Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3172",
+  "body": "批次 3 燃尽(objectui#3169 / objectstack#4115)时发现,记录在案但**有意未修**——收敛哪一种是产品/架构决定,且会改变写进元数据的内容。\n\n## 现状\n\n同一个\"节点在画布上的位置\"概念,在三处有三种拼写:\n\n| 位置 | 拼写 |\n|:--|:--|\n| objectui 本地节点 | `ui: { x, y }` |\n| `@objectstack/spec` 的 `FlowNode` | `position` |\n| spec 的 `FlowCanvasNode` | 又一种 |\n\n三者并存意味着:同一份流程元数据在不同环节被读成不同的东西,或者某一环的位置信息被静默丢弃——用户看到的是\"我摆好的节点位置保存后跑掉了\",而没有任何报错。\n\n## 需要决定的\n\n哪一种是规范拼写。这不是实现方能自行拍板的:\n- 若以 spec 的 `FlowNode.position` 为准,objectui 需要迁移 + 兼容读旧数据;\n- 若 objectui 的 `ui:{x,y}` 有其存在理由(比如它承载的不止坐标),那 spec 侧可能需要建模,或者明确这是两层词汇(参照 objectstack#4115 里 `FormField` 的\"双层词汇\"论证:枢纽 + 键集覆盖闸门,而非派生)。\n\n判别法是问一句:**这三者描述的是同一个对象,还是管道上下游的不同阶段?**\n\n## 收敛后需要配的闸门\n\n无论选哪种,都要有一条断言把三处钉在一起,否则下一个 spec 版本会再次拉开。可参照 `zod/objectql.zod.ts` 的 `ListViewSchema` 范式:spec 字段按引用流入 + parity 测试守卫。"
+}

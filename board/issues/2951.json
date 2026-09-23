@@ -1,0 +1,33 @@
+{
+  "number": 2951,
+  "kind": "pull_request",
+  "title": "test(components): pin the kind:'react' page scope contract",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T05:47:23Z",
+  "updated_at": "2026-07-29T05:53:20Z",
+  "closed_at": "2026-07-29T05:53:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T05:53:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2951",
+  "body": "## Why\n\nA `kind:'react'` page's `source` is a **string** compiled at runtime. The public data blocks it uses (`<ListView>`, `<ObjectForm>`, …) are injected into the evaluated scope by `buildComponentScope` (`renderers/layout/react-page.tsx:50-86`) rather than imported by the authoring file.\n\nNothing about that is statically analysable, which cuts two ways:\n\n- **A real regression would be invisible.** Drop a tag from `PUBLIC_BLOCKS`, or flip it to `isContainer`, and it silently vanishes from every react page's scope — while type-check, lint and build all stay green.\n- **It reads as broken to static review.** This was found while investigating a report that `apps/console/src/sdui-workbench-preview.tsx` \"renders `<ListView>` but never imports it, so the page throws on first render\". The page is fine — those identifiers live inside a template literal, not TSX — but the only way to establish that was to run the app. There was no test for `ReactKindPage` or `@object-ui/react-runtime` at all.\n\n## What this pins\n\n| Layer | Guards against |\n|---|---|\n| **Eligibility** — `list-view` / `object-form` are in the public contract and non-container | the silent kill switch above |\n| **Mechanism** — no import needed; flat props fold into the block `schema`; `onRowClick` survives as a real prop; `dataSource` is stamped in; `useAdapter` is in scope | regressions in the generated wrapper (`react-page.tsx:71-78`) |\n| **Negative control** — an absent identifier must fail loudly | the first two passing vacuously |\n\n## Notes\n\n- **Registered stand-ins, not the real plugins.** `packages/components` sits *below* plugin-list/plugin-form in the dependency graph (neither is in its `package.json`), and the unit under test is the scope builder, not the blocks. `getPublicConfigs()` walks `PUBLIC_BLOCKS` → `getConfig(tag)`, so registering the real tags exercises the true path. Side effect: stays in the light `dom` project, **no `heavyDomTests` entry needed** (~2.3s).\n- **The negative control asserts the error *message*, not a panel.** It initially failed, informatively: the `ReferenceError` is caught by SchemaRenderer's boundary, not ReactRunner's \"React page error\" fallback — because `getDerivedStateFromProps` re-transpiles each render and unconditionally resets `error: null`, so the recovery render re-throws past its own fallback. Pinning the panel would pin that quirk; pinning the message pins the contract. Explained in-file.\n- **No changeset** — test-only, nothing ships.\n\n## Verification\n\nMutation-tested rather than merely green. Temporarily removing `'list-view'` from `PUBLIC_BLOCKS`:\n\n```\n× `list-view` is in the public contract and is not a container\n× resolves <ListView> and <ObjectForm> without the page importing them\n× folds flat props into the block schema and preserves function props\n   ReferenceError: ListView is not defined\n```\n\nThree of six go red with exactly the error the original report hypothesised, and the eligibility case names the root cause. Reverted cleanly; 6/6 green. ESLint: 0 errors.\n\n```bash\nnpx vitest run packages/components/src/__tests__/react-page-scope.test.tsx\n```\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3102,
+  "kind": "pull_request",
+  "title": "fix(list,detail): sorting a lookup column stops ordering by an invisible key (#3096)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T06:48:57Z",
+  "updated_at": "2026-07-31T06:56:03Z",
+  "closed_at": "2026-07-31T06:56:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T06:56:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3102",
+  "body": "Fixes #3096.\n\nA relational column (`lookup` / `master_detail` / `user` / `tree`) never holds the string its cell shows — it holds the `$expand`-ed record, or a raw foreign-key id whose label was resolved separately. Every sort path took that raw value as its key, so a column of names came back in an order with no relation to the names, and nothing said the key was something else.\n\nThe two halves can order by different things, so they are fixed differently — that split is the whole design:\n\n**A relational column may be sorted where the key is the label the cell shows; it may not be offered where the key would be the raw id.**\n\n### Client-side sorts — now order by the label\n\nGrid column headers, any `data-table`, and a non-windowed related list all sort rows already in memory, where the label IS available. They now key off it via the new `getSortValue` / `compareSortValues` in `@object-ui/core`, which resolves an expanded record through `getRecordDisplayName` (ADR-0079) so the sort key and the lookup cell agree on which field names a record. A raw-id cell goes through the surface's own `id → label` map (RelatedList resolves labels client-side rather than via `$expand`).\n\nThat replaces two separately-broken comparators:\n\n- `a[col] < b[col]` is always false between two objects → the comparator collapsed to the constant `1`, and the rows were permuted into an order unrelated to anything on screen (`data-table`);\n- `String(a[col])` is `\"[object Object]\"` → every row compared equal, so the sort silently did nothing (`RelatedList`).\n\n### Server `$orderby` sorts — stop offering the illusion\n\nThese cannot be fixed here: the key is the stored id by construction, and objectstack-ai/objectstack#4256 settled that no relation join is coming. So the entry points withhold them.\n\n- **ListView toolbar sort picker** drops relational fields and says why, pointing at the supported alternative (a formula field denormalizing the name onto this object, which then sorts like any text column) — the prescription objectstack#4256's own error message gives.\n- **Windowed related list** renders no sort button for them. Its client-mode branch keeps the button, because there the key is the resolved label.\n\nA relational field that the view's **current** sort already uses stays listed, labelled `(by ID)`. Without that, opening the popover on a view authored (or saved before this change) with a relational sort would render a blank row and drop the sort on the next edit.\n\nThis is issue option **1 + 3**. Option 1's \"annotate\" variant is used only for the already-in-use case above; new sorts are simply not offered.\n\n### Verification\n\nEvery regression test was run against the unfixed code first, and each failed with the exact symptom it describes:\n\n- `data-table`: the constant comparator left rows in the incoming order (fixture picked so incoming order, id order, and name order are all distinct);\n- `RelatedList`: the old raw-id order `Zoe / Alice / Mallory` instead of `Alice / Mallory / Zoe`;\n- `ListView`: all four relational fields present in the picker.\n\nLive in the console (CRM backend, this worktree's console):\n\n- `crm_lead`'s two lookups (`account`, `converted_opportunity`) are gone from the sort picker, with the hint rendered under it; `assigned_to` — a **text** field holding an email, not a lookup — correctly stays.\n- The contacts grid's 所属客户 column sorts `Acme Corp / Globex Ltd / Initech` ↔ reversed by the shown company name, and sends no `sort=` param (client-side, as designed). All list/meta requests 200.\n\nFull suites for `core`, `components`, `plugin-list`, `plugin-detail`, `plugin-grid`, `plugin-dashboard`, `plugin-report`, `i18n` and `app-shell` pass; locale parity holds across all ten packs; `tsc --noEmit` clean for every touched package.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

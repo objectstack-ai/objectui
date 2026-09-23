@@ -1,0 +1,35 @@
+{
+  "number": 3263,
+  "kind": "issue",
+  "title": "表单渲染器内建 select 分支的空状态文案仍是硬编码英文(`form.tsx:1843`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T08:20:59Z",
+  "updated_at": "2026-08-03T10:08:48Z",
+  "closed_at": "2026-08-03T10:08:48Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3263",
+  "body": "在 objectui#3231 / PR objectui#3262 期间发现,**该单已按 scope fence 明确不修**(内建分支是另一条独立活路径,PM 要求不要顺手统一)。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx` 的内建(未注册)`select` 分支:\n\n```tsx\nif (!options || options.length === 0) {\n  return (\n    <div className=\"text-sm text-muted-foreground\">\n      {emptyHint || 'No options available'}\n    </div>\n  );\n}\n```\n\n`'No options available'` 是硬编码英文字面量,而同一个组件里 `const { t } = useSafeFormTranslation();` 早已可用(`form.tsx` 顶部的 `createSafeTranslation` 工厂)。\n\n## 为什么现在才值得单独处理\n\nobjectui#3231 刚把四个已注册选项 widget 的同一句文案接到了 i18n 上,并新增了共享 key:\n\n- `fields.options.empty` = `No options available`\n- `fields.options.selectFirst` = `Select {{fields}} first`\n\n两个 key 已经补齐十个语言包,并且 `fields.options.selectFirst` 已被 `form.tsx` 的门控提示(`gatedHint`)使用 —— 也就是说这个文件里**已经有一半走了 i18n,另一半没有**。内建分支的这句 `'No options available'` 是同一个文件里唯一剩下的硬编码副本。\n\n## 建议\n\n把它改成 `t('fields.options.empty')`,并在 `useSafeFormTranslation` 的 defaults map 里补上同名英文默认值(与 `fields.options.selectFirst` 的做法一致,这样无 provider 时行为不变)。\n\n预期风险很低:`createSafeTranslation` 在没有翻译时回落到 defaults map,英文渲染结果与现状逐字相同,现有断言(如 `form-cascading-select.test.tsx`)不受影响。需要补一条测试钉住 zh locale 下渲染中文。\n\n## 注意\n\n这条**不要**顺手把内建分支和 `OptionsEmptyState`(`packages/fields`)统一 —— 两者是不同包、不同渲染路径,共享的应当只是 i18n key,不是组件。\n\n关联:objectui#3231、PR objectui#3262。"
+}

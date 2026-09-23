@@ -1,0 +1,36 @@
+{
+  "number": 3229,
+  "kind": "issue",
+  "title": "Page 块检查器提供的 `hidden` 条件框写的是 spec 不认识的键(canonical 是 `visibleWhen`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:14:30Z",
+  "updated_at": "2026-08-03T10:54:06Z",
+  "closed_at": "2026-08-03T10:54:06Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3229",
+  "body": "做 #3218(表达式信封普查)时越界发现,未在该 PR 里改 —— 它不是信封读法那一族,是「declared ≠ enforced」的另一族。\n\n## 缺陷\n\n`packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.tsx:553-558` 给选中的 page 块渲染了一个条件构建器:\n\n```tsx\n&lt;ConditionBuilder\n  label={t('engine.inspector.pageBlock.hidden', locale)}\n  value={block.hidden ?? ''}\n  onCommit={(v) =&gt; patch({ hidden: v || undefined })}\n  ...\n/&gt;\n```\n\n而 `@objectstack/spec` 的 `PageComponentSchema`(`ui/page.zod.ts`)是 `.strict()` 的,键集合里**没有 `hidden`**:条件可见性在这里的 canonical 名字是 `visibleWhen`(ADR-0089),外加一个已废弃别名 `visibility`。\n\n实测(`@objectstack/spec@17.0.0-rc.1`):\n\n```js\nPageSchema.parse({\n  name: 'p1', label: 'P', type: 'record', template: 'default',\n  regions: [{ name: 'main', components: [{ type: 'text', id: 'b1', hidden: 'record.x == 1' }] }],\n});\n```\n\n```\nZodError: unrecognized_keys, path: regions.0.components.0, keys: [\"hidden\"]\nmessage: Unrecognized key(s) on this view/page schema: `hidden`. Before ADR-0089 D3a these\nwere dropped silently, shipping inert metadata; a mis-layered or stale key is now a loud\nparse error. If this is the conditional-visibility predicate, the canonical key is\n`visibleWhen` (ADR-0089) — `visibleOn` (view form) and `visibility` (page component) are\nstill accepted as deprecated aliases.\n```\n\nspec 的报错自己把修法写出来了。\n\n## 为什么是真 bug\n\n`previews/PageBlockCanvas.tsx` 的文件头写明它「Supports only the canonical Page shape (`regions[].components[]`)」,也就是被选中的块**就是** `PageComponent`。所以这个输入框提供的是一个作者填了就存不进去的键:\n\n1. 作者在检查器里填 `hidden`,草稿保存时 page 解析在 ADR-0089 D3a 之后是**响亮失败**(不再静默丢弃),而错误信息指向的是一个作者没听说过的键名;\n2. 语义还是**反的** —— `hidden` 为真时隐藏,`visibleWhen` 为真时显示。就算把键名改过去也不能直接搬值,取反才对;\n3. 反过来,一个**合法**的块(带 `visibleWhen`)在这个检查器里没有任何控件可编辑它的可见性谓词 —— 唯一露出来的可见性控件写的是错键。\n\n这是 Prime Directive #10 的形态:界面上宣传了一个运行时/spec 并不接受的能力。\n\n## 建议修法(需要决策,不宜由实现者猜)\n\n至少两种走法,取舍不同:\n\n- **A**:把控件改成编辑 `visibleWhen`,并在 UI 上把语义从「hidden when」翻成「visible when」(标签、i18n key、以及 `engine.inspector.pageBlock.hidden` 文案都要动)。历史草稿里已存的 `hidden` 要不要读进来取反,是附带问题。\n- **B**:先把这个控件**摘掉**(它今天写的是必然存不进去的键),等 page 检查器统一按 ADR-0089 的 `*When` 词汇重做时一起补。\n\n倾向 A,但翻转语义会改变作者已经形成的心智,且涉及 i18n 双语文案,应由维护者定。\n\n## 相关\n\n- #3218(hook / action / 校验规则 / 通用条件控件的表达式信封读写;`PageBlockInspector` 的 `hidden` **不是**那一族,故未在该 PR 内改)\n- ADR-0089(表达式信封 + `*When` canonical 命名)\n"
+}

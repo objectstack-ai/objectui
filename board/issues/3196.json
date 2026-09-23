@@ -1,0 +1,33 @@
+{
+  "number": 3196,
+  "kind": "pull_request",
+  "title": "fix(core): 未知的 date filter 值改为跳过并警告,不再降级成永不命中的等值 (#3151)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T11:08:57Z",
+  "updated_at": "2026-08-02T11:31:22Z",
+  "closed_at": "2026-08-02T11:31:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T11:31:21Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3196",
+  "body": "Fixes #3151\n\n## 问题\n\n`date` / `dateRange` 型 dashboard filter 拿到一个**既不是已知预设名、也不是可解析日期**的字符串时,会掉进 `buildFilterCondition` 的「裸字符串 = 当天等值」分支。于是一个拼错的默认值 `defaultValue: 'last_7_dayz'` 原样成为比较值,widget 发出 `runtimeFilter: { created_at: 'last_7_dayz' }`,后端如实编译成 `WHERE created_at = $1` —— `200 OK`、widget 正常渲染、数字是 0,和「这个区间确实没有数据」完全无法区分。这是 objectstack#4475(已由 objectui#3150 修掉预设名那一半)旁边更隐蔽的姐妹情形:**0 看起来像一个合法答案**,没有 4xx、没有警告、没有任何 UI 信号。\n\n## 改动\n\n`buildFilterCondition` 现在只认三种日期值写法,按分诊裁决实现期望第 3 条(**跳过 + console.warn 点名 filter 与那个值**):\n\n1. 已知预设名 → 提升为区间(objectui#3150,不变);\n2. ISO 日期(`2026-01-15`、`2026-01-15T08:30:00Z`)或日期宏 token(`{today}`、`{7_days_ago}`)→ 当天等值(现有文档化行为,不变);\n3. **两者都不是 → 跳过该 filter,并 console.warn 点名 filter 名、越界的值、以及可接受的写法**。\n\n`{ preset: 某个未知预设 }` 这种对象形式一并补上警告:它原先就会丢弃该 filter,但是**静默**丢弃;现在这次丢弃会被说出来。如果对象里同时带了显式 `from`/`to`,边界仍然生效,警告会说明是哪一边胜出。\n\n第 3 条刻意与 `buildWidgetScopedFilter` 对**未知字段名**的默认绑定采用同一种严格度(跳过 + 警告),理由也是它自己写下的那一条:不要发一个后端只会空匹配或直接拒绝的查询。字段**名**早就有这道闸,字段**值**一直没有。\n\n日期宏 token 的识别直接问 `resolveDateMacros` 本人(「它认不认这个字符串」),而不是在这里把 token 语法再抄一遍 —— 一套词汇表,不产生会漂移的第二种方言;而它认不出来的 token(`{last_7_dayz}`)恰好就是这道闸要抓的拼写错误。\n\n顺带一个自洽:未知值被跳过后,`DateRangeFilter` 显示的 \"All time\" 与实际发出的查询终于一致(#4475 里两者是矛盾的 —— 控件说 All time,查询却发了一个永不命中的等值)。\n\n## 测试\n\n`packages/core/src/utils/__tests__/dashboard-filters.test.ts` 新增 `[#3151] unrecognised date values` 一组(8 例):拼错的预设字符串被跳过并警告(断言警告文本含 filter 名与该值)、合法 ISO 日期仍为等值且不警告、日期宏 token 仍为等值且不警告、只是「长得像」日期/宏的字符串(`{last_7_dayz}` / `15/01/2026` / `2026-13-45`)被拒、合法预设名仍产生区间且不警告(#3150 回归)、未知对象预设被跳过并警告、未知预设 + 显式边界时保留边界并说明,以及端到端经 `buildWidgetScopedFilter` 确认没有 `runtimeFilter` 到达 widget 查询。\n\n```\npnpm exec vitest run packages/core packages/plugin-dashboard --maxWorkers=2\n Test Files  85 passed | 1 skipped (86)\n      Tests  1532 passed | 24 skipped (1556)\n\npnpm --filter @object-ui/core type-check\n (tsc --noEmit,无输出)\n\npnpm --filter @object-ui/core exec eslint dashboard-filters.ts dashboard-filters.test.ts\n 12 problems (0 errors, 12 warnings)   # 全部是仓库既有的 no-explicit-any warning\n```\n\n## 范围\n\n- changeset:`.changeset/dashboard-date-filter-unknown-value.md`(`@object-ui/core: minor`,与 #3150 同级 —— 发出的查询形状变了)。\n- 文档(Commandment #2):`content/docs/guide/dashboard-filters.md` 补上 `date` filter 的 `defaultValue` 到底能写什么 —— 三种拼法 + 其余一律跳过并警告。此前这份指南根本没写过 `defaultValue`,拼错的预设能一路走到查询,也有这一半原因。\n- **未动 objectstack/spec**:issue 里「校验能不能上移到 spec/lint 层(`GlobalFilterSchema.defaultValue`)」属于 objectstack 侧的作者时收紧,按分诊裁决另行立项,不在本 PR 扩大范围。本次实现确认它确有价值(运行时跳过 + 警告是**放宽**方向,只有作者时拒绝才能在发布前挡住),已按越界发现另立 unassigned issue:objectstack-ai/objectstack#4614(A/B/C 三个选项 + 倾向 A,交维护者定夺)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA"
+}

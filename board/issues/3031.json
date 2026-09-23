@@ -1,0 +1,34 @@
+{
+  "number": 3031,
+  "kind": "pull_request",
+  "title": "fix(grid,types): 对象声明的批量 action 能真正跑在选中记录上 (#3002)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:45:48Z",
+  "updated_at": "2026-07-30T11:50:26Z",
+  "closed_at": "2026-07-30T11:50:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:50:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3031",
+  "body": "Fixes #3002.\n\n## 结论先行：spec 不用改\n\nissue 的前提是「spec 的 `locations` 枚举里没有 bulk 这一档，对象 action 无法声明『我是一个批量操作』」，所以这是跨仓库的、动手前得先定设计。\n\n**查下来这个前提不成立**：`ActionSchema` 一直有 `bulkEnabled`——\n\n```ts\n/** Bulk Operations */\nbulkEnabled: z.boolean().optional()\n  .describe('Whether this action can be applied to multiple selected records'),\n```\n\n缺的从来不是声明，而是**消费方**。framework 自己的 property-liveness 审计逐字记着这件事：\n\n> **`bulkEnabled`** — engine has `getBulkActions`/`executeBulk`, but no spec-driven view path calls `executeBulk`.\n\n所以本 PR **纯 objectui 改动**，framework/spec 一行没动。\n\n### 对 issue 四个设计问题的回答\n\n1. **加 `list_bulk` / `mass_action` 这一档吗？** 不加。列表选择栏是唯一「记录被多选」的界面，这正是 `bulkEnabled` 已经命名的东西；再加一档 location 等于承认 `bulkEnabled` 表达不了它。`locations` 保持正交——它安放的是 action 的**单条**入口，一个 action 可以两者都带（`locations: ['list_item'] + bulkEnabled: true` = 行菜单点一条、选择栏跑 N 条）。\n2. **`bulkActionDefs` 要不要像 `rowActionDefs` 一样推导？** 要，且推导点放在 `ObjectGrid`——它是三个列表调用方（app-shell `ObjectView`、plugin-view `ObjectView`、plugin-list `ListView`）的唯一收敛点，和 #2996 的选择一致，改一处覆盖三处。\n3. **N 条记录的语义谁定？** 客户端 fan-out。单条 action 的契约（`params` / `recordIdParam` / `visible`）本来就是逐记录的，服务端「一次收全量 id」需要自己的 spec key + endpoint 契约，那是新功能不是修 bug。\n4. **老的 `bulkActions: string[]` 保留还是废弃？** 保留为 view 级覆盖：名字先拿去和 `objectDef.actions` 解析，解析得到就**提升**成真 def；解析不到仍按名字派发（消费方可能用该名字注册过 runner handler）。\n\n## 改动\n\n**① 新增纯函数 `resolveBulkActions`**（`resolveLegacyRowActions` 的批量孪生），把三路词汇折叠成一份 def 列表：\n\n- view JSON 里内联写的 `bulkActionDefs` —— 原样保留，同名永远它赢；\n- `objectDef.actions` 里 `bulkEnabled: true` 的 —— **推导**出来，这就是「在对象上声明一个批量 action」的新含义；\n- `bulkActions` 里的名字 —— 按名字解析到对象 action 后**提升**成该 def，于是带上 label / icon / `visible` 谓词 / 确认文案 / 参数（字符串形式一个都带不了）。已在栏上的同名项直接丢弃，不再渲染死副本。\n\n**② 执行接进现有 `BulkActionDialog`**（params → confirm → progress → result，issue 里点名要求的）。推导出的 def 带 `operation: 'custom'` + `actionDef`（源 action）；`useBulkExecutor` 按这个 key 分流，逐记录经 action runner 派发，行记录挂在 `_rowRecord` 上——和 `list_item` 行 action 完全同一个键，所以 `recordIdParam` 注入行为一模一样。参数和确认由对话框收**一次**再交给 runner，runner 不会逐条再弹；逐条 toast 静音，对话框的聚合结果是唯一报告；失败的记录进错误列表 / 错误 CSV，而不是被记成成功（那正是 #2960 的批量版）。不带 `actionDef` 的 `custom` def 语义不变（consumer 自己 wire `onComplete`）。\n\n**③ 顺带修**：`BulkActionBar` 过去只在**没有任何 def 时**才渲染 legacy 字符串按钮，于是同时写了两者的 view 会**静默丢掉一半按钮**。折叠之后两个列表互斥，两边都渲染。\n\n## 验证\n\n- **新增测试**：`resolveBulkActions.test.ts`（13 条纯函数）、`objectBulkActionDispatch.test.tsx`（6 条，驱动真实 ObjectGrid + 真实 ActionProvider + 真实对话框，断言 `fetch` 真的按选中记录数发出、每条带自己的记录、失败被逐条归因）。\n- **受影响包**：`plugin-grid` 42 文件 / 342 测试全绿；`app-shell` + `plugin-list` + `plugin-view` 257 文件 / 2325 测试全绿；`types` + `core/actions` + `react/hooks` 35 文件 / 537 测试全绿。\n- **type-check**：`types` / `core` / `plugin-grid` / `app-shell` 及其依赖 32 个任务全过。\n- **lint**：改动文件 0 error（仓库既有 warning 基线未变）。\n- 未做浏览器实测：这条路径需要后端里存在一个声明了 `bulkEnabled` 的对象 action，而上面的 DOM 测试已经驱动真实 grid/runner/对话框并断言真实 `fetch`，覆盖同一条链路。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3024,
+  "kind": "pull_request",
+  "title": "fix(components): a stacked resizable group gets a divider, not a 1px sliver",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T11:03:06Z",
+  "updated_at": "2026-07-30T11:07:56Z",
+  "closed_at": "2026-07-30T11:07:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T11:07:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3024",
+  "body": "## The bug\n\n`packages/components/src/ui/resizable.tsx` is the react-resizable-panels **v3** Shadcn file: every stacked-group style on `ResizableHandle` is keyed on `data-[panel-group-direction=vertical]`. The installed major is **v4.12.2**, which never emits that attribute — the only ones it writes are `data-group`, `data-panel`, `data-separator`, `data-disabled` and `data-testid`.\n\nSo all seven variants (`h-px`, `w-full`, `after:left-0`, `after:h-1`, `after:w-full`, `after:-translate-y-1/2`, `after:translate-x-0`) plus `[&[data-panel-group-direction=vertical]>div]:rotate-90` were dead selectors, and a stacked divider kept the base `w-px`. (`ResizablePanelGroup`'s `data-[…]:flex-col` is dead too but harmless — the library writes `flex-direction` as an inline style.)\n\n## Confirmed in a browser first\n\nRendered through the unpatched `ui/resizable` in a zero-backend console Vite entry, `orientation=\"vertical\"`, in a 480px group:\n\n| | separator box | `::after` drag target | grip | grabbable off-grip |\n|---|---|---|---|---|\n| stacked, **before** | **1 × 16 px** (height is only the grip) | **4 × 16 px**, pinned to the group's left edge | not rotated | ✗ — at 85% across the split the hit target is a *panel* |\n| stacked, **after** | **478 × 1 px** | **478 × 4 px** | `rotate: 90deg` | ✓ — a real off-grip drag moves the split 50 → 75.21 |\n| side-by-side, after | 1 × 238 px | 4 × 238 px | not rotated | unchanged |\n\n`document.querySelectorAll('[data-panel-group-direction]').length` was `0` for the whole document.\n\nVisually, before: no rule at all between the stacked panels — just an orphaned, unrotated grip floating at the far-left edge. After: a full-width hairline with the grip rotated and centred on it.\n\n## The fix\n\n`packages/components/src/ui/**` is a no-touch Shadcn-sync zone (AGENTS.md #7), so this is a wrapper — `packages/components/src/custom/resizable.tsx` — that re-keys those styles onto **`aria-orientation`**, which v4 *does* emit on the separator.\n\nUpstream Shadcn has since been regenerated for v4 and moved to exactly this attribute, so the class strings here match upstream rather than being hand-rolled. (Its file is otherwise a full Tailwind-v4/`data-slot` generation that only 2 of this repo's 48 `ui/` files have adopted, so a wholesale re-sync was not the smaller change.)\n\nThe value reads backwards, deliberately — `aria-orientation` describes the **separator**, not the group:\n\n```\ngroup orientation=\"horizontal\" → panels side-by-side → separator aria-orientation=\"vertical\"\ngroup orientation=\"vertical\"   → panels stacked      → separator aria-orientation=\"horizontal\"  ← styled here\n```\n\n`ui/index.ts` no longer re-exports `./resizable`; `custom/` owns the public `Resizable*` names. That keeps a single canonical handle (no consumer can reach the unpatched one through `@object-ui/components`) and avoids a TS2308 collision, since `src/index.ts` star-exports `./ui` and `./custom` side by side. **The public export surface is unchanged** — verified by type-checking `@object-ui/app-shell` against a freshly built `dist`, since it consumes all three names via the package barrel.\n\nConsumers repointed: the form renderer (`fieldPanes`), the SDUI `resizable` renderer, and `custom/navigation-overlay.tsx`.\n\n## Affected surfaces\n\n- `FormSchema.fieldPanes` with `fieldPanesOrientation: 'vertical'` — found while fixing #2153 (PR #3012, `aa3556166`), which moved `SplitForm`'s panel group into the form renderer. Re-verified in a browser through the real form renderer: full-width rule, rotated grip.\n- The SDUI `resizable` renderer with `direction: 'vertical'`.\n- `containers.tsx`'s `isVertical` turned out **not** to be affected — it is Tabs orientation, not a panel group.\n\n## Tests\n\n`packages/components/src/__tests__/resizable-orientation.test.tsx` (5 tests) pins the class contract and the attribute it depends on, including a guard that asserts **every** `aria-[…]` variant on the handle matches the real rendered DOM — the check that would have caught the original bug and that catches the next rename. Plus one case in `form-field-panes.test.tsx` tying it to the real consumer.\n\nBoth mutations go red:\n\n- keying on `aria-[orientation=vertical]` (the plausible silent mistake — reading it as the *group's* orientation) → **4 failures**\n- reverting the wrapper to a pass-through (pre-fix state) → **3 failures**\n\nResolved geometry isn't asserted in vitest — happy-dom has no Tailwind — so that half is the browser verification above.\n\n## Verification\n\n- `packages/components`: 53 files / 410 tests pass\n- `app-shell/views/metadata-admin` + `plugin-grid` + `plugin-form`: 176 files / 1526 tests pass\n- `type-check` clean for `@object-ui/components` and `@object-ui/app-shell`\n- `eslint` clean on every changed file (0 errors; only pre-existing warnings in `form.tsx`)\n\nNo changeset — pure bug fix, per AGENTS.md.\n\n## Noted, not fixed here\n\n`custom/navigation-overlay.tsx:466` and `app-shell/.../ResourceEditPage.tsx:2064` still pass the **v3** prop name `direction=\"horizontal\"`, which v4 ignores (it wants `orientation`) and which leaks to the DOM as an attribute. Both are horizontal-only and horizontal is v4's default, so there is no visual bug today — but the `as React.FC<any>` casts at both sites, and the comment blaming `vite-plugin-dts` for \"not resolving the direction prop type\", are really this same half-finished v3→v4 migration. Left out to keep this PR to the visual defect.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

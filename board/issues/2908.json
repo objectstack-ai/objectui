@@ -1,0 +1,32 @@
+{
+  "number": 2908,
+  "kind": "issue",
+  "title": "Derive the org-role vocabulary from `@objectstack/spec` instead of mirroring it (blocked on the framework ADR-0108 release)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T07:21:08Z",
+  "updated_at": "2026-07-30T13:11:11Z",
+  "closed_at": "2026-07-30T13:11:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2908",
+  "body": "Follow-up to #2907, which corrected `packages/auth/src/org-roles.ts` but could not remove the mirror. This issue tracks the removal, and — more importantly — records the unblock condition, because it is not obvious from the code.\n\n## What is left\n\n`@object-ui/auth` restates the four membership-role names that `@objectstack/spec` already owns:\n\n```ts\nexport const ORG_ROLE_OWNER = 'owner';\nexport const ORG_ROLE_ADMIN = 'admin';\nexport const ORG_ROLE_DELEGATED_ADMIN = 'delegated_admin';\nexport const ORG_ROLE_MEMBER = 'member';\nexport const ORG_ROLES: readonly OrgRole[] = [ /* the four, in display order */ ];\n```\n\nThe server-side equivalents are `BUILTIN_MEMBERSHIP_ROLES` and `BUILTIN_MEMBERSHIP_ROLE_OPTIONS`.\n\n## Why it could not be done in #2907\n\nThree things have to be true, and today only the first is:\n\n1. ✅ **The vocabulary is closed.** Framework ADR-0108 (objectstack-ai/objectstack#3802) retired app-declared organization roles, so the list is framework-owned and finite. Before that, deriving would have been deriving a list that should not have existed.\n2. ❌ **`@object-ui/auth` depends on `@objectstack/spec`.** It does not — its dependencies are `@object-ui/types` and `better-auth`. Adding it is the small part.\n3. ❌ **The constants are published.** They are not in any released version. `@objectstack/spec@16.1.0` (latest on npm at the time of writing) was unpacked and its `dist` grepped: **zero** occurrences of `BUILTIN_MEMBERSHIP_ROLES` or `MEMBERSHIP_ROLE_DELEGATED_ADMIN`. They ship with the first release carrying ADR-0108.\n\nAdditional sequencing wrinkle: the packages that do depend on the spec pin `^16.0.0-rc.0`, and the framework is in a **v17** RC cycle. A caret range on `16.x` will not pick up `17.x`, so this needs the spec-version bump to happen first (or alongside).\n\n## The work, once unblocked\n\n1. Add `@objectstack/spec` to `packages/auth/package.json` at a version that carries ADR-0108.\n2. In `org-roles.ts`, turn the four `export const`s into re-exports and make `ORG_ROLES` `[...BUILTIN_MEMBERSHIP_ROLES]`.\n3. **Keep `ORG_ROLE_LABELS` and the grade ladder (`orgRoleGrade`, `invitableOrgRoles`, `assignableOrgRoles`) local.** They are console concerns — i18n keys and screen-narrowing rules — and folding them into the name list would be the modeling error ADR-0108 D4 explicitly warns about: *what names exist* is a list; *which names mean authority* and *how a name projects* are rules that belong next to what they govern.\n4. Drop the drift-guard assertion added in #2907 (`is EXACTLY the framework four`) — once the list is imported it cannot drift, and a test asserting a re-export against a literal is noise.\n\n## Why bother\n\nThis is the last of the copies ADR-0108 set out to collapse. The framework side already derives (the platform objects' two enforced `select`s and `@objectstack/lint`'s tier set both read the spec constant), and deriving the lint's copy immediately exposed a real bug: the hand-kept list carried `guest`, a value the `sys_member.role` select has never offered, so an approver naming it resolved to nobody while the lint whose job is to catch exactly that stayed silent. Hand-kept mirrors of a server vocabulary do not stay correct; they only look correct.\n\nRelated: objectstack-ai/objectstack#3723 · objectstack-ai/objectstack#3802 (ADR-0108) · #2891 (the original consolidation) · #2907."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3111,
+  "kind": "pull_request",
+  "title": "chore(core): 弃用 `ObjectValidationEngine` —— 规则 enforcement 单实现在服务端 (#3110)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:23:16Z",
+  "updated_at": "2026-07-31T09:30:12Z",
+  "closed_at": "2026-07-31T09:30:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T09:30:10Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3111",
+  "body": "执行 #3110 的拍板结论(**选 B**,理由见 [该 issue 的决策评论](https://github.com/objectstack-ai/objectui/issues/3110#issuecomment-5141313532))。\n\n**零行为变更,零删除。** 现有调用方原样工作,barrel 照常再导出——发布一个 deprecated API 不是接线。\n\n## 拍板一句话\n\n**规则是 enforcement,enforcement 单实现在服务端。** 要「提交前反馈」就加 validate-only(dry-run),而不是养第二个求值器。\n\n仓里这条线本来就画好了:[`evaluator/fieldRules.ts`](https://github.com/objectstack-ai/objectui/blob/main/packages/core/src/evaluator/fieldRules.ts) 的头注释明写,客户端 CEL 委托给 canonical 的 `ExpressionEngine`,*\"rather than re-implementing a parallel evaluator\"*(ADR-0036)。**presentation** 谓词(`visibleWhen`/`readonlyWhen`/`requiredWhen`)客户端评估——判错了最坏是多显示一个字段;**enforcement** 谓词单实现在服务端——判错了是数据或可用性事故。`ObjectValidationEngine` 正是那句注释说的 parallel evaluator,而且在边界的 enforcement 一侧。\n\n## 决定性证据\n\n#3103 是一轮**认真的**收敛:逐条对着服务端 `rule-validator.ts` 源码改,配 8 个 mutation-test 闸门。**它仍然留了一处分歧**——服务端带 ADR-0113 的 legacy-violation 豁免(仅当合并后状态违规**且本次写入使其恶化**时才拒,存量违规行原样放行),引擎没有。用户在一条老数据上改个无关字段,预检报红、服务端本来会接受。\n\n一轮认真收敛尚且留尾巴 ⇒ 跨仓镜像 parity 是**结构性**不可靠,不是这一轮执行力的问题。\n\n## 替代路径\n\n渲染服务端拒绝即可——它已经是结构化的(`field`/`code`/`message`,objectstack#3957 起带 label)。要提交前反馈走 **objectstack#4372**(写路径 validate-only):同样的 UX、零 parity 风险,并且覆盖客户端**永远做不到**的两类——`unique`(要查库;客户端 SELECT-then-check 本身就是 TOCTOU 竞态,正是 spec 移除它的理由)和 `json_schema`(ajv 在服务端)。\n\n## 决策做成机制,不是注释\n\n这是本 PR 的重点。#3103 删掉的是一条**冒领 spec canonicity、错了十五个大版本**的文档注释;把它的继任决策再写成一条注释,就是在上一层重犯同一个错(#3017:comments are not mechanisms)。\n\n新增 `validation-engine-stays-unwired.test.ts`,扫 `packages/*/src`,生产模块一旦引用引擎就红,失败文案点名文件 + 指向要先翻的 issue。三个设计取舍:\n\n- **可达性禁令,不是提及禁令**。先剥掉注释与字符串体再匹配——`@object-ui/types` 的文档注释里正当地提到了引擎名,那不是接线。剥字符串同时意味着报错文案里引用该名字也不算。\n- **扫代码而非扫 import 列表**,所以 `import * as core` + `core.ObjectValidationEngine` 的间接路径也会被抓到(纯 import 正则会漏)。\n- **闸门自体检**:断言扫到 >500 个文件且命中引擎自身。扫描路径写坏 ⇒ 扫到 0 个文件 ⇒ 永远报绿,那正是 objectstack#4115 的失败模式,所以闸门要守住自己。\n\n**闸门 mutation-test(3/3 红)**:\n\n| 变异 | 结果 |\n|---|---|\n| T1 生产模块直接 import 引擎 | 🔴 失败文案点名 `fieldRules.ts` |\n| T2 经 namespace 间接触达(`core.ObjectValidationEngine`) | 🔴 同上 |\n| T3 扫描路径写坏(扫到 0 文件) | 🔴 自体检先红 |\n\n## 未动的东西\n\n- **五个 spec 派生类型**(`@object-ui/types`):它们是 objectstack#4115 台账的锚,与引擎存废无关。\n- **字段/记录 shape 校验**(`schema-validator.ts` / `validation-engine.ts`):那是客户端表单校验,不是服务端规则的镜像,不在本决策范围。已在 `validation/index.ts` 头注释里点明,免得下一个 agent 误伤。\n\n## 重启条件(tripwire 写在代码里)\n\n**offline 写入进路线图之日**(`types` 里已有 `OfflineConfig`)。离线时没有服务端可问,客户端求值器从「冗余」变成「必需」。届时前置条件必须是 **spec 携带 conformance fixtures**——golden 的「规则 + 记录 + 判定」三元组,两仓 CI 各跑同一套;那是唯一能把跨仓行为 parity 从约定变成机制的办法。要翻案先翻 #3110。\n\n## 验证\n\n```\nvitest  packages/core/src/validation   →  4 files / 62 tests 全绿\ntsc     packages/core --noEmit         →  绿\neslint  packages/core/src/validation --quiet  →  0 error\nmutation 3/3 红(见上表)\n```\n\n关联:#3110(拍板)、#3103 / #3107(语义收敛与留下的 ADR-0113 分歧)、objectstack#4372(dry-run)、objectstack#4115(台账)。\n"
+}

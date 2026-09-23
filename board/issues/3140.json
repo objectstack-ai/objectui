@@ -1,0 +1,34 @@
+{
+  "number": 3140,
+  "kind": "pull_request",
+  "title": "fix(dashboard,report): honor the declared percent scale so a ratio of 1 renders as 100.0% (#3136)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T07:45:15Z",
+  "updated_at": "2026-08-01T12:32:30Z",
+  "closed_at": "2026-08-01T12:32:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:32:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3140",
+  "body": "Fixes #3136 (Console half). Server half: objectstack-ai/objectstack#4442 — **merge that first**; `formatMeasure` reads a result-column field it adds.\n\n## The bug\n\nA dataset measure declared `format: '0.0%'` rendered every ratio below 1 correctly and got the single most consequential one wrong: a rate of exactly `1` printed as **`1.0%`**. On an SLA / pass-rate dashboard that turns \"everything met the SLA\" into \"1% met the SLA\" — on both surfaces the issue names, since the KPI card and the dataset table share `formatMeasure` ([DatasetWidget.tsx:403](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-dashboard/src/DatasetWidget.tsx#L403) and [:557](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-dashboard/src/DatasetWidget.tsx#L557)).\n\nThe cause was never a bad multiplier; it was a missing fact. `formatMeasure` scaled by magnitude — `percentDisplayValue` multiplies by 100 only strictly inside `(-1, 1)` — because the column arrived carrying a `%` format string and **nothing saying what scale its numbers were on**. That guess is undecidable at exactly 1, which is both a full-compliance ratio and one percentage point, and it resolved to the reading almost nobody intends.\n\nWorth noting what the issue's option 3 (`<= 1`) would have bought: it fixes this value and leaves the guess in place for the next one. The guess is the defect.\n\n## The fix\n\nThe server now answers the question instead — `percentScaleOf` + `AnalyticsResult.fields[].percentScale`, built as the sibling of the ADR-0053 currency chain that already walks back to the source field for exactly this class of display fact. A `derived: { op: 'ratio' }` measure is a `fraction` by definition; a measure over a `percent` field inherits that field's scale.\n\n`formatMeasure` takes the declared scale as a fourth argument and, when present, scales by it — `fraction` ×100, `whole` verbatim — instead of inspecting the value. Every dataset-bound call site passes the column's `percentScale`: dashboard metric / table / pivot cells, the report renderer's cells, row and column totals, grand total and single-value KPI, and the Studio dataset preview.\n\n`percentDisplayValue` is **untouched** and remains the fallback for a column that arrives without the annotation — an older server, or a non-dataset percent cell in a list view. Nothing that renders correctly today changes.\n\n## Verification\n\nConsole dev server running this branch's `src`, proxied to a real showcase backend on the framework branch, Revenue Pulse dashboard. A/B in one running UI by intercepting the response:\n\n| Paid Rate — the Paid row (rate is exactly 1) | |\n|---|---|\n| with the server annotation | **100.0%** ✅ |\n| `percentScale` stripped from the response (pre-fix server) | **1.0%** ❌ — the reported bug |\n| annotation restored | **100.0%** ✅ |\n\nRendered DOM: `[\"Paid\", \"3\", \"3\", \"100.0%\"]`. The issue's second observation — a `0` ratio rendering as `—` in the table — is fixed on the server side in the linked PR (an empty filtered group is a measured zero for a count); that row now reads `0` / `0.0%`.\n\nTests: `dataset-format` 12 passed (declared scale beats the heuristic in both directions; non-percent formats ignore it), `DatasetWidget` 42 passed (new case asserts value `1` renders `100.0%` on the KPI card *and* the table, and a measured `0` stays `0.0%`), 254 passed across the 30 files touching these paths. `@object-ui/core` typecheck clean.\n\nConsidered and **not** taken: dropping the metric card's `?? 0` at [DatasetWidget.tsx:400](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-dashboard/src/DatasetWidget.tsx#L400), which fabricates a `0` for an absent value while the table beside it shows `—`. Two existing tests pin that as a deliberate choice (\"shows 0, not 'No rows', for a metric over an empty dataset\"), and with the server now reporting real zeros as `0` the surfaces agree on every measured value. Reversing it deserves its own discussion.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

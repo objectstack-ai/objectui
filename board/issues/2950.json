@@ -1,0 +1,42 @@
+{
+  "number": 2950,
+  "kind": "pull_request",
+  "title": "chore(deps): upgrade `@objectstack/*` to 17.0.0-rc.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "ci/cd",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T04:14:08Z",
+  "updated_at": "2026-07-29T04:21:21Z",
+  "closed_at": "2026-07-29T04:21:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T04:21:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2950",
+  "body": "`spec` / `client` / `formula` / `lint` move from `^16.x` to `^17.0.0-rc.0`.\n\nTwo groups of v17 changes reach this repo, and they pull in opposite directions: the spec **pruned** surface objectui re-exported, and **adopted** surface objectui had been carrying locally.\n\n## Pruned — dead Theme config (objectstack#3494)\n\n`ThemeSchema` dropped `spacing`, `breakpoints`, `logo`, `density`, `wcagContrast`, `rtl`, `touchTarget` and `keyboardNavigation` — authorable but never enforced, so authoring them was already a silent no-op.\n\n`@object-ui/types` re-exported those sub-schemas **by reference** (#2231), so they could not survive the prune without becoming hand-written mirrors — exactly the second de-facto contract [AGENTS.md #0.1](../blob/main/AGENTS.md) forbids. Removed from the public surface:\n\n- **Types:** `Spacing`, `Breakpoints`, `DensityMode`, `WcagContrastLevel`, `ThemeLogo`, and the deprecated `SpacingScale` alias\n- **Schemas:** `SpacingSchema`, `SpacingScaleSchema`, `BreakpointsSchema`, `ThemeLogoSchema`, plus the `SpacingSchemaType` / `BreakpointsSchemaType` helpers\n- **Theme fields:** `spacing`, `breakpoints`, `logo`\n\n`mergeThemes` no longer merges the three dropped keys. `generateThemeVars` is unaffected — it never emitted them, which is why the liveness audit called them dead.\n\n### The one real consumer\n\n`ThemeProvider` set the favicon from `theme.logo.favicon`. That path is removed: v17 strips the key at parse, so it could never arrive again. **The live favicon is unaffected** — it comes from operator branding (`getFaviconUrl()`), applied in the console's `index.html`, `main.tsx`, and on route change.\n\nList density is also untouched: `useDensityMode` / `rowHeightToDensityMode` use `@object-ui/core`'s own local `DensityMode`, which never came from the spec.\n\n## Adopted — ListColumn (objectui#2231)\n\n`ListColumnSchema` used to `.extend()` the spec with two fields, each carrying a note to promote it upstream rather than grow the extension. v17 did exactly that, so the extension **collapsed into a plain by-reference re-export**:\n\n- `summary` → the spec's `union([ColumnSummarySchema, ColumnSummaryConfigSchema])`, the same enum ∪ `{ type, field }` form `useColumnSummary` reads\n- `prefix` → the spec's `ColumnPrefixSchema`\n\nOne behavior change rides along: `prefix.type` now defaults to `'text'` on parse instead of staying `undefined`, so the cell renderer always gets a value.\n\n## Node 22 is now the floor\n\nEvery `@objectstack` package declares `engines.node: \">=22.0.0\"` (objectstack#3825; Node 20 reached EOL 2026-04-30). This repo claimed `>=20` and ran CI on Node 20.x — promising *and validating* a runtime its own core dependency does not support. `engines.node` is now `>=22`, CI runs Node 22.x across all 12 workflows, and the CI/deployment docs say so.\n\n## Tests keep their teeth\n\nRather than just deleting assertions, coverage was redirected:\n\n- The removed `ThemeLogoSchema` block is replaced by a guard that the pruned keys **stay** pruned and that objectui does not re-add local mirrors of them.\n- The ListColumn `summary` check now asserts the shared aggregation vocabulary **behaviorally** — the spec builds that arm through `lazySchema`, whose Proxy resolves `.shape.type` to the inner enum and defeats the old identity check.\n- A new `prefix` test pins the compound-cell form and the new `'text'` default.\n\n## Versioning\n\nStays major **17**: per AGENTS.md the objectui major tracks `@objectstack`'s major, which is also 17, and that convention deliberately outranks semver purity — so the removals ship as a **minor** rather than desyncing the two.\n\n## Verification\n\n- `pnpm type-check` — **76/76 green** (all 39 packages incl. console, data-objectstack, plugin-charts)\n- `pnpm test` — **672/672 files, 7956 tests, 0 failures** on a clean run\n- `pnpm lint` on types/core/react — **0 errors**\n\nAlso swept the v17 wire-level changes that a type-check cannot catch (`ChartInteraction` zoom/clickAction, SharingRule `group`→`team`, sharing `full`, ApiMethod enum, i18n route shapes): no objectui usage. The `translation` `objects.` convergence (objectstack#3778) needs no change — `transformSpecTranslations` already reads that shape.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

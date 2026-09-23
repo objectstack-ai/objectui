@@ -1,0 +1,35 @@
+{
+  "number": 3151,
+  "kind": "issue",
+  "title": "dashboard: 一个既非预设名也非 ISO 日期的 date filter 值会静默降级成永不命中的等值比较",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T12:12:11Z",
+  "updated_at": "2026-08-02T11:31:22Z",
+  "closed_at": "2026-08-02T11:31:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3151",
+  "body": "Found while fixing objectstack#4475 (Setup 系统概览 KPI 全为 0)。#4475 的修复覆盖了**预设名**这一类;这一条是它旁边没被覆盖的姐妹情形,单独立项以免扩大那个 PR 的范围。\n\n## 现象\n\n`date` / `dateRange` 型的 dashboard filter 拿到一个**既不是已知预设名、也不是合法 ISO 日期**的字符串值时,会被静默降级成一个永远命中不了任何行的等值比较。请求返回 `200 OK`,widget 正常渲染,数字是 0——和\"这个区间确实没有数据\"完全无法区分。\n\n## 复现\n\n任意 dashboard 声明一个拼错的 date filter 默认值:\n\n```ts\nglobalFilters: [\n  { field: 'created_at', type: 'date', label: 'Date Range', defaultValue: 'last_7_dayz' },\n  //                                                                              ^ 拼错\n]\n```\n\n`@object-ui/core` 的 `buildFilterCondition` 走到这一支:\n\n```ts\nif (def.type === 'dateRange' || def.type === 'date') {\n  const v = value as DateRangeValue;\n  if (typeof v === 'object') { /* 预设 / from-to → 区间 */ }\n  // A bare string date means equality on that day.\n  return value;                         // ← 'last_7_dayz' 原样成为比较值\n}\n```\n\n于是 widget 发出 `runtimeFilter: { created_at: 'last_7_dayz' }`,后端如实编译:\n\n```\nSELECT COUNT(*) AS \"user_count\" FROM \"sys_user\" WHERE created_at = $1\n```\n\n零行。同一条路径上,`'last_7_days'`(拼对)在 objectstack#4475 修好后会被提升成\n`{ $gte: '{7_days_ago}', $lte: '{today}' }`,得到正确的计数。\n\n`{ preset: 'last_7_dayz' }` 这种对象形式也一样:`PRESET_RANGES[v.preset]` 查不到 → `from`/`to` 都是 undefined → `buildFilterCondition` 返回 `undefined` → 该 filter 被整个丢弃。这一支至少是**放宽**(不过滤)而不是**归零**,但同样是静默的。\n\n## 为什么值得修\n\n和 objectstack#4475 是同一类失败模式,而且是其中更隐蔽的方向:**0 看起来像一个合法答案**。没有 4xx、没有 console 警告、没有任何 UI 信号,作者拿到的是\"这个筛选条件下没有数据\"这个完全合理的结论。objectstack#4475 花了一整轮 RC 验证才被抓到,靠的是有人去读响应里的 `sql` 字段。\n\n对比一下同一模块里已有的严格度:`buildWidgetScopedFilter` 在 `knownFields` 可用时,对默认绑定到不存在字段的 filter 会**跳过并打 console.warn**,理由正是\"不要发一个后端只会空匹配或直接拒绝的查询\"。字段名走了这条路,字段**值**没有。\n\n## 期望\n\n`date`/`dateRange` filter 的字符串值应当在三条里择一,而不是无声落到等值:\n\n1. 是已知预设名 → 提升为区间(objectstack#4475 已实现);\n2. 是可解析的 ISO 日期 → 当天等值(现有的文档化行为,保留);\n3. **两者都不是 → 拒绝或跳过,并打 console.warn 指名该 filter 与那个值**,与 `buildWidgetScopedFilter` 对未知字段名的处理保持同一种严格度。\n\n第 3 条是当前缺失的那条。至于是\"跳过 + 警告\"(与未知字段名一致,倾向放宽)还是在作者时就拒绝,需要定夺——`GlobalFilterSchema.defaultValue` 是 `string | number | boolean`,所以校验能不能上移到 spec/lint 层也是同一个决策的一部分。\n\n## 关联\n\n- objectstack-ai/objectstack#4475 —— 预设名那一半,已修(objectstack-ai/objectui#3150)\n- objectstack-ai/objectstack#4482 / #3909 —— v17 验收汇总"
+}

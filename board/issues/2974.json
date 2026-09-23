@@ -1,0 +1,35 @@
+{
+  "number": 2974,
+  "kind": "pull_request",
+  "title": "fix(list,data): bridge every spec view operator onto the filter AST (#2901)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T02:46:07Z",
+  "updated_at": "2026-07-30T04:46:04Z",
+  "closed_at": "2026-07-30T04:46:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T04:46:02Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2974",
+  "body": "A stored view filter using `before` or `after` came back **unfiltered**. Not an error — every row, silently.\n\nClient half of the defect; server hardening is objectstack-ai/objectstack#3948.\n\n## The defect\n\n`before`/`after` are **canonical** members of the spec's `VIEW_FILTER_OPERATORS` (`ui/view.zod.ts:90`), so a stored view legitimately carries them. They are absent from `VALID_AST_OPERATORS` (`data/filter.zod.ts:352`), which gates `isFilterAST()`.\n\nNeither objectui translation table had an entry, so:\n\n1. `objectFilterEntryToAST` → `normalizeFilterOperator` ends `?? op` → `before` reaches the wire verbatim\n2. `isFilterAST(['close_date','before','2024-01-01'])` → **false**\n3. `protocol.ts:2757` assigns the array to `options.where` **unconverted** (it is a conversion gate, not a validation gate)\n4. `sql-driver applyFilters` walks it — the three elements are all *strings*, so each hits the string branch and is `continue`d\n5. **No WHERE clause. Every row returned.**\n\nVerified by executing the real spec:\n\n```\n[\"close_date\",\"before\",\"2024-01-01\"]   isFilterAST=false   *** PASSED THROUGH UNCONVERTED ***\n[\"status\",\"=\",\"active\"]                isFilterAST=true    -> {\"status\":\"active\"}\n```\n\n**The trigger is the single-condition case.** `toSpecFilter` (`view-config-utils.ts:158`) returns a *bare* triple for one AND condition — the shape that vanishes. Two or more conditions produce a nested array, which reaches the driver's wider switch and throws instead. The failure mode flips on how many conditions the author happened to add.\n\nNot a permission bypass, to be precise: row-scoping `$and`-composes as a separate arm and survives. The impact is an unfiltered result set on unscoped objects, and a confusing SQL error on scoped ones.\n\n## Also fixed\n\n`mapOperator` emitted `'not in'` **with a space** — in no spec vocabulary. Arrays never reached the wire (`normalizeFilterCondition` expands them into an AND of inequalities), but a non-array value escaped as an unfiltered query.\n\n## The guard found eight more on its first run\n\n`notequals`, `greaterthan`, `lessthan`, `greaterorequal`, `greaterThanOrEqual`, `lessorequal`, `lessThanOrEqual`, `notin`.\n\nAll are spellings the spec's `VIEW_FILTER_OPERATOR_ALIASES` still folds — and all are **live in stored metadata**, because `saveMeta` persists the authored body verbatim (`protocol.ts:4481`: *\"The original `item` is kept verbatim\"*), so the spec's own `z.preprocess(normalizeFilterOperator, …)` normalizes for the validity check and then throws the result away.\n\nThe switch had been enumerating spellings by hand and had already missed eight of them, so `mapOperator` now matches **case- and underscore-insensitively** — collapsing the class rather than the instances.\n\n## Guards\n\nTwo parity tests, one per package, asserting in both directions:\n\n- every value in each translation table is a member of `VALID_AST_OPERATORS`;\n- every canonical `VIEW_FILTER_OPERATORS` member survives `isFilterAST()` in the reachable bare-triple shape;\n- every legacy alias the spec still folds also maps to a real AST operator.\n\nSo the next operator the spec adds to the view vocabulary fails a test instead of quietly returning unfiltered rows.\n\nNeeds `@objectstack/spec` as a devDependency in both packages — safe now that every importer resolves to a single spec version (#2950).\n\n## Verification\n\n- New guards: **42 pass**. Full `plugin-list` + `data-objectstack` suites: **439 pass across 29 files**.\n- `eslint`: 0 errors.\n- The guard was confirmed to fail before the fix — that is how the eight extra spellings surfaced.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

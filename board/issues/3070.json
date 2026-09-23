@@ -1,0 +1,33 @@
+{
+  "number": 3070,
+  "kind": "pull_request",
+  "title": "fix(grid): 批量 action 的 `visible` 改为逐条记录求值 (#3067)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T15:40:40Z",
+  "updated_at": "2026-07-30T15:47:47Z",
+  "closed_at": "2026-07-30T15:47:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:47:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3070",
+  "body": "Fixes #3067。按 issue 里的方案 (A) 实现。\n\n## 根因回顾\n\n选择栏用**没有绑定 record** 的 ambient 作用域求值 `visible`。这不是「求不出来所以放行」—— 宽松求值对**任何**行级谓词都返回 `true`，包括本该为 false 的：\n\n| 谓词 | 无 record（选择栏） | 有 record（行菜单） |\n|---|---|---|\n| `${!record.done}` | `true` | `true` |\n| `${record.done}` | **`true`** | `false` |\n| `${record.owner == user.id}` | **`true`** | 按实际值 |\n\n作者写的门禁不是被削弱，而是**对一半输入给出了相反答案**，且调用方无从分辨。\n\n## 方案 (A)：一次求值，回答两个问题\n\n`visible` 现在**逐条选中记录求值、record 在作用域内**，逐条失败关闭 + 首次故障 warn —— 和行菜单同一套契约。由此：\n\n- **按钮是否提供** —— 至少一条选中记录通过就提供。\n- **作用在哪些记录上** —— 通过的那些；其余在确认步骤里明说跳过了几条。\n\n关键在于**不需要**去语法嗅探谓词有没有引用 `record`：不引用 record 的谓词（`features.x` / `current_user.y`）对每一行给出相同答案，因此天然退化成「按钮级门禁」，行为与今天一致。这是我选 (A) 而不是拆解谓词的原因 —— 拆解只能靠脆弱的字符串启发式。\n\n「全选 N 条匹配」展开后会**重新**做一次资格过滤，而不是只信按钮当时能看到的当页选择 —— 否则展开进来的记录会绕过门禁。\n\n## 用户可见变化\n\n- 确认步骤新增一行「N 条所选记录不符合条件，将被跳过」（10 个语言包都补了 `grid.bulk.skippedIneligible`）。\n- 谓词故障从「静默显示」变成「隐藏 + warn 一次」。这是有意收紧，与行菜单一致。\n\n## 验证\n\n- **反向对照**：只回退 `BulkActionBar.tsx` + `ObjectGrid.tsx` 后，两条新增正向断言失败 —— 全部选中记录都被派发（应只派发合格的那条）、无合格记录时按钮仍渲染。\n- **新增 11 条测试**：8 条纯函数（逐条求值、反向谓词、host scope 绑定、record-free 谓词全行一致、故障失败关闭 + warn、`{dialect,source}` 信封、空选择），3 条驱动真实 grid（只跑合格记录 + 跳过提示、无合格记录隐藏按钮、无门禁 action 照旧全量）。\n- `plugin-grid` + `i18n` 61 文件 / 520 测试全绿；type-check 31 任务全过；改动文件 0 lint error。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2983,
+  "kind": "pull_request",
+  "title": "test(plugin-form): settle each wizard step before typing (#2982)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T06:57:16Z",
+  "updated_at": "2026-07-30T07:02:28Z",
+  "closed_at": "2026-07-30T07:02:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T07:02:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2983",
+  "body": "Fixes #2982.\n\n## The flake\n\n`WizardForm.regression` → *\"submits the merged payload\"* occasionally saw the create POST carry `{ name: 'Alice' }` only, dropping the last step's `note`.\n\nThe inner step form is **reused across steps** (one `react-hook-form` instance), and `WizardForm` feeds it `defaultValues={formData}`. When that value changes, the form applies it with `reset()` **in a passive effect** — i.e. one commit *after* the new step's inputs are already in the DOM. `waitFor(input)` can resolve inside that window, and a value typed there is lost: the pending reset replaces the whole RHF record with the earlier steps' data.\n\nCaptured interleaving (instrumented run):\n\n```\ntest: waitFor(note) RESOLVED\nform: RESET to {\"name\":\"Alice\"} (values before: {\"name\":\"Alice\",\"note\":\"hello\"})   ← wipes note\ntest: change note done\n→ payload {\"name\":\"Alice\"}\n```\n\n**The issue title's diagnosis is slightly off, and it matters:** the value is lost *before* the submit, during the `change`. Waiting *after* `fireEvent.change` — the fix the title suggests — would not have helped. The step has to be settled **before** typing.\n\n## The fix\n\nA `settledStepInput()` helper that waits for the step's input **and** drains the pending effects, so the `defaultValues` reset cannot land after the change. Applied to both steps (step 1 has the same window against the initial mount reset).\n\n## Why this doesn't weaken the guard\n\nHarness-only — nothing asserted changed. Verified by mutation: breaking **both** value carriers (RHF cross-step retention + the wizard's `{...formData, ...stepData}` merge) fails the old and the new test *identically*, with the exact `{ note: 'hello' }` \"last-only body\" the file's docblock names.\n\nWorth noting the two carriers are redundant on their own — breaking either one alone still passes.\n\n## Verification\n\nScenario replayed 1500× per arm in-process, under 10 competing CPU hogs:\n\n| arm | failures / 1500 |\n|---|---|\n| before | **7** (~0.5%) |\n| after | **0** |\n\nFull `plugin-form` suite: 24 files / 217 tests pass. No new `tsc` or `eslint` findings in the changed file.\n\n## Follow-up (not in this PR)\n\nThe same window exists in the product, narrowly: `form.tsx` commits new `defaultValues` one frame before its `reset()` runs, so input typed in that gap is silently discarded. In a browser it takes a busy main thread plus typing on the very first frame of a step, so it is far less likely than in tests — but it is the same defect, and it lives in a shared renderer every form uses. Deliberately left alone here to keep this change harness-only.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

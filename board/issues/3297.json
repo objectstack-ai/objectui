@@ -1,0 +1,35 @@
+{
+  "number": 3297,
+  "kind": "issue",
+  "title": "Console build never emits maplibre's sibling worker — /_console/assets/maplibre-gl-worker.mjs 404s on every map page",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T13:05:10Z",
+  "updated_at": "2026-08-03T14:44:27Z",
+  "closed_at": "2026-08-03T14:44:27Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3297",
+  "body": "## What happens\n\nEvery visit to a page carrying an `ObjectMap` widget fires a **404 for a local\nconsole asset**:\n\n```\n404 /_console/assets/maplibre-gl-worker.mjs\n```\n\nReproduced on `showcase_task_map`\n(`/_console/apps/com.example.showcase/page/showcase_task_map`) against a\nvendored console built from `f5bc4c78be76`.\n\n## Why\n\n`maplibre-gl`'s ESM distribution resolves its worker as a **sibling of its own\nscript URL** rather than importing it, so the bundler never sees an edge to\nfollow. From the built chunk `assets/maplibre-gl-DXuUDjK2.js`:\n\n```js\nlet t = e.endsWith(`-dev.mjs`) ? `maplibre-gl-worker-dev.mjs` : `maplibre-gl-worker.mjs`;\nreturn new URL(`./${t}`, e).href\n```\n\nVite bundles `maplibre-gl` into a hashed chunk under `assets/` and emits nothing\nbeside it, so that computed URL resolves to `/_console/assets/maplibre-gl-worker.mjs`\n— which does not exist:\n\n```\n$ ls packages/console/dist/assets | grep -i maplibre\nmaplibre-gl-DXuUDjK2.js\nmaplibre-gl-DXuUDjK2.js.br\nmaplibre-gl-DXuUDjK2.js.gz\n\n$ curl -o /dev/null -w '%{http_code}' http://localhost:3000/_console/assets/maplibre-gl-worker.mjs\n404\n```\n\n`apps/console/vite.config.ts` lists `maplibre-gl` in `optimizeDeps.include`\n(~L219) but nothing arranges for the worker file to ship.\n\n## Scope / severity\n\nThis is **not** the same thing as the external-tiles failure. On the same page\nthe demo style is also unreachable here:\n\n```\nMap failed to load (AJAXError: Failed to fetch (0): https://demotiles.maplibre.org/style.json).\nMarkers below are still listed in the search box; configure a custom map style for production use.\n```\n\nThat one is this sandbox's egress policy, and the widget degrades **gracefully**\nwith a clear message and a listed-markers fallback — working as designed.\n\nThe worker 404 is different: it is a **first-party asset missing from our own\nbuild**, so it 404s in every deployment, air-gapped or not.\n\n**What I could not determine here:** whether the missing worker alone breaks\ntile rendering, because external tiles are blocked in this environment, so I\ncould never get a map to paint. It should be confirmed against a reachable\nstyle URL (or a self-hosted one) before deciding how urgent this is — maplibre\nmay fall back to main-thread parsing, in which case the user-visible cost is a\n404 plus a slower map rather than a blank one.\n\nThat same limitation is why I am filing this rather than fixing it: I cannot\nverify a fix end-to-end from here.\n\n## Suggested direction\n\nEmit the worker next to its chunk, e.g. a small `vite-plugin` / `generateBundle`\nhook (or `viteStaticCopy`) that copies `maplibre-gl/dist/maplibre-gl-worker.mjs`\ninto `assets/`, and a build assertion so a future maplibre bump that renames it\nfails loudly instead of 404ing at runtime — the same \"no silent drift\" posture\n`scripts/build-console.sh` already takes with its `CONSOLE_BUNDLE_CANARY`.\n\n## Repro\n\n1. `os dev --ui --seed-admin` in `examples/app-showcase`\n2. Sign in, open `/_console/apps/com.example.showcase/page/showcase_task_map`\n3. Network panel → `maplibre-gl-worker.mjs` 404\n\nFound while browser-sweeping showcase + Studio for objectstack#4879."
+}

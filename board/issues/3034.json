@@ -1,0 +1,32 @@
+{
+  "number": 3034,
+  "kind": "pull_request",
+  "title": "chore(plugin-grid): 对象声明批量 action 的浏览器验证 demo (#3002)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T12:42:23Z",
+  "updated_at": "2026-07-30T12:57:34Z",
+  "closed_at": "2026-07-30T12:57:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T12:57:32Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3034",
+  "body": "#3002 的手工验证页，沿用仓库既有的 plugin 本地 vite demo 约定（`demo/index.html` 是 Import Wizard 的，`plugin-gantt/demo` 同理）。\n\n```bash\npnpm --dir packages/plugin-grid exec vite demo --port 5198\n```\n\n然后打开 `http://localhost:5198/bulk-actions.html`（`.claude/launch.json` 里也加了 `grid-bulk-demo` 配置）。\n\n## 为什么加这个\n\n#3031 合并时只跑了 DOM 测试。这个 demo 让同一条链路能在**真实浏览器**里点出来：mock 边界以下全是真实栈 —— `ObjectGrid` / `BulkActionBar` / `BulkActionDialog` / `useBulkExecutor` / `ActionRunner`。只 mock 了两样：数据源（内存 store）和 `window.fetch`（把每条 action 请求打到页面底部的日志面板，于是逐记录 fan-out 直接可见）。\n\n三条词汇全覆盖：\n\n| 按钮 | 声明方式 | 修复前 |\n|---|---|---|\n| Mark Done | 对象 action `bulkEnabled: true`，没有任何 view 声明 | 按钮**根本不存在** |\n| Recalculate Estimate | 对象声明了但没打标，view 用 legacy `bulkActions: [...]` 点名 | 派发 `{type: <名字>}`，从不执行 |\n| Legacy Only Handler | 解析不到任何 action，仍按名字派发到 runner handler | 因为存在别的 def 而被**整个隐藏** |\n\n`Recalculate Estimate` 带一个 `select` 参数，用来验证「参数只收一次」——对话框收集后随每条记录派发，runner 不会逐条再弹。记录 `t3` 固定返回 422，于是逐条归因（成功 4/5 + 错误行 + 重试 + 错误 CSV）可见，而不是一刀切的成功。\n\n## 实测结果\n\n- Mark Done：5 条请求 `/api/demo/mark-done`，`record=t1..t5` 各带自己的 `_rowRecord`；t3 → 422；结果面板「成功 4 / 5 · 失败 1」。\n- Recalculate Estimate：参数步骤渲染出 spec 的 `options`/`defaultValue`；确认步骤汇总一次；5 条请求各带 `params={\"basis\":\"points\"}`。\n- Legacy Only Handler：与两个 def 并排渲染，点击后命中注册的 runner handler。\n- 浏览器控制台与 vite 服务端日志均无错误。\n\n纯新增，不碰任何产品代码。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3117,
+  "kind": "issue",
+  "title": "[console/i18n] 内置 UI 文案「向数据库添加新的…」开发者口吻,且服务端翻译包被包进 app.* 命名空间无法覆盖内置键",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T09:38:05Z",
+  "updated_at": "2026-07-31T10:08:54Z",
+  "closed_at": "2026-07-31T10:08:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3117",
+  "body": "## 现象\n\nconsole 内置 UI 文案含开发者口吻,且服务端翻译包对内置 UI 键**没有任何覆盖通道**。\n\n典型:所有对象的「新建」弹窗/新建页副标题内置为「**向数据库添加新的{{object}}。**」(i18n 键 `form.createDescription`)——「数据库」是程序员词汇,业务用户不该看到。\n\n## 三条覆盖通道逐一实测均堵死(17.0.0-rc.0)\n\n1. 翻译元数据(`src/translations/zh-CN.ts`)注入顶层 `form` 键 → 编译器按 TranslationData zod(`$strip`)剥离,`dist/objectstack.json` 只剩 `objects/apps`;\n2. 运行时插件调 kernel `i18n` 服务 `loadTranslations('zh-CN',{form:…})` → 服务端 `/api/v1/i18n/translations/zh` 确实带出 `form` 键,**但 console 端 transform 把服务端翻译包整体包进 `app.` 命名空间**(`return {app:…}`),merge 后键路径变成 `app.form.createDescription`;\n3. 而组件 lookup(RecordFormPage 与列表弹窗)都是无前缀 `t('form.createDescription')`,永远命不中——服务端任何数据都覆盖不了非 `app.*` 的内置 UI 键。\n\n## 建议(任一即可)\n\n1. console 查 UI 键时兜底再查 `app.` 前缀,让服务端翻译包可覆盖内置 UI 文案(通用能力,所有项目受益);\n2. 直接把内置文案改成中性表述,如「填写以下信息,创建一条{{object}}。」(最省事)。\n\n下游登记:os-project-titanwind-ehr PLAT-DEF-026。\n"
+}

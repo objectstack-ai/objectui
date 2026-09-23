@@ -1,0 +1,33 @@
+{
+  "number": 2969,
+  "kind": "pull_request",
+  "title": "fix(fields): a select no longer wipes itself when its value outruns its options (#2968)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T16:13:30Z",
+  "updated_at": "2026-07-30T02:39:56Z",
+  "closed_at": "2026-07-30T02:39:54Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T02:39:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2969",
+  "body": "Closes #2968.\n\n## Root cause\n\nNot `visibleWhen`, and not the cascade-clear path — both of those write\n`undefined`, which does not match the `''` the reporter measured. The writer is\nRadix's hidden native `<select>` **mirror**.\n\nRadix renders an `aria-hidden` `<select name=…>` alongside every Select so the\nvalue takes part in native form submission. When the controlled `value` changes,\nit assigns the mirror through `HTMLSelectElement.prototype.value` and dispatches\na synthetic `change`. If the mirror carries no `<option>` for that value the\nassignment is a **no-op** — the element stays on `''` — but the `change` fires\nanyway, so `''` comes straight back out through `onValueChange` and into\nreact-hook-form, on top of the value the caller just set.\n\nThe window is not theoretical: `SelectContent` returns `null` on its first\nrender (its `DocumentFragment` is created in a layout effect), so the native\noptions register a commit **after** the trigger mounts. A record landing after\nfirst paint — an edit modal whose `findOne` is still in flight — resets the form\ninto exactly that gap.\n\nThat explains every detail of the report: the value is `''` and not `undefined`,\nonly `select` fields are hit, `_defaultValues` stays correct while `_formValues`\nis blanked, and it is timing-dependent. And because one wiped field is usually\nthe one the `visibleWhen` predicate reads, the predicate flips back to false, the\nconditional fields hide again, and the form **latches** broken.\n\nDemonstrated directly against the `Select` wrapper (pre-fix):\n\n| scenario | `onValueChange` received |\n| --- | --- |\n| `undefined` → value present in options | `[]` |\n| `undefined` → value **not** in options | `[\"\"]` |\n| value lands **before** the options | `[\"\"]` |\n| option list changes, value unchanged | `[]` |\n\n## Fix\n\n`SelectItem` rejects `value=\"\"` outright, so `''` can never be a value a user\npicked — it is always the mirror talking. Drop it at the single `Select`\nchokepoint (`packages/components/src/ui/select.tsx`), which covers every surface\nthat renders one: the object form, the inline grid editor, `ActionParamDialog`.\nClearing a select still goes through `undefined`, so the `dependsOn`\ncascade-clear is untouched.\n\n## Tests\n\nTwo regression files, red before the fix and green after (3 failed → 6 passed):\n\n- `packages/components/src/ui/__tests__/select-empty-writeback.test.tsx` — the\n  wrapper's invariant, including a positive assertion that a real selection is\n  still forwarded.\n- `packages/components/src/renderers/form/__tests__/form-select-value-survives-rules.test.tsx`\n  — the form-level shape from the issue: a record landing late keeps both\n  selects and reveals the `visibleWhen` field, and no `''` is ever recorded as a\n  user edit.\n\nFull DOM suite: **4113 passed / 24 skipped, 0 failed**. The 18 `unit`-project\nfailures on this branch are pre-existing (verified by re-running them with the\nfix stashed): spec Theme schema parity, plugin-kanban, data-objectstack\n`onMutation`, `DATEFORMAT`.\n\n## Browser verification\n\nFramework `examples/app-showcase` on a private port, driven through objectui's\nown console dev server (so the running UI is this branch's `src`, not the\nvendored bundle). Fixtures: `showcase_invoice` — two selects (`region`,\n`status`) plus `paid_on` carrying `visibleWhen: record.status == 'paid'`, the\nexact shape in the issue, and a master-detail line-item subform — and\n`showcase_cascade` for the `dependsOn` / per-option `visibleWhen` paths.\n\n- Edit modal on a paid invoice: both selects correct, `paid_on` rendered, and a\n  fiber probe of RHF reports `lostKeys: []` with `_formValues` matching\n  `_defaultValues`.\n- Live predicate flip Paid → Sent → Paid: `paid_on` hides and comes back **with\n  its value**, `readonlyWhen` on `tax_rate` follows, nothing else is touched.\n- Master-detail save (the `batchTransaction` path): renaming the invoice and\n  switching `region` APAC → EMEA both persist, with `status` / `paid_on` intact;\n  the server's `readonlyWhen` notice for `tax_rate` fires as designed.\n- Cascading select: the `dependsOn` gate (\"Select country first\") still holds,\n  changing the parent still clears the child, the option list re-filters, and\n  `cn/zj` → `us/ca` persists server-side.\n- Create form: gate → country → filtered provinces → created and persisted.\n- Escape on an untouched edit form closes with **no** \"discard changes?\" prompt.\n\nA `this.client.data.batchTransaction is not a function` failure seen mid-run was\ntraced to a stale local `node_modules` (installed `@objectstack/client` had\ndrifted to 14.6.0 while `pnpm-lock.yaml` pins `17.0.0-rc.0`). `pnpm install`\nresolved it; no lockfile or source change was needed, and the master-detail save\nabove was then verified on the correct client.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

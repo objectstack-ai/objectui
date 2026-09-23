@@ -1,0 +1,34 @@
+{
+  "number": 3167,
+  "kind": "pull_request",
+  "title": "refactor(types): 台账燃尽批次 1/8 — 报表/图表/查询簇 11 符号",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T14:13:59Z",
+  "updated_at": "2026-08-01T15:30:15Z",
+  "closed_at": "2026-08-01T15:30:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T15:30:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3167",
+  "body": "Closes #3155. Part of objectstack-ai/objectstack#4115 (台账燃尽 1/8)。\n\n`@object-ui/types` 报表/图表/查询簇 11 条碰撞逐条分诊。**台账 87 → 77,ALLOW 5 → 6。**\n\n> 数字已按合并 objectui#3169(批次 3,`@object-ui/app-shell` 28 条)后的 main 更新。本 PR 首版基于旧 main 时是 115 → 105;两批处置的符号集合互不相交,合并后仍是各减各的。\n\n分诊按守卫文件头的三说谎点先跑探针再下判断,并额外比了 zod 的 `_input`;结果是三种处置各占一部分,外加一条上游阻塞。\n\n## 每条符号的判决\n\n| 符号 | 判决 | 理由 |\n|:--|:--|:--|\n| `ChartSeries` | 改名 → `ChartDataSeries` | 本地是内联静态数据序列(`data: number[]` 必填);spec 的是数据集绑定的序列描述符(`type`/`stack`/`yAxis`/`variant`),**根本没有 `data`**。两侧互不可赋值 |\n| `ChartSeriesSchema` | 改名 → `ChartDataSeriesSchema` | 上者的 zod 孪生 |\n| `QueryAST` | 改名 → `SqlQueryAST` | 本地是编译后的 **SQL 语法树**(`select`/`from`/`join`/`group_by`);spec 的是 **ObjectQL 请求描述符**(`object`/`fields`/`where`/`expand`)。互不可赋值 |\n| `QuerySchema` | 改名 → `DriverQueryConfig` | 本地是 `QueryASTBuilder` 的输入 TS 接口;spec 把这个名字用作 **zod schema 值**,键集也不同 |\n| `DriverInterface` | 改名 → `SqlDriverInterface` | 本地是 objectui 自己的 SQL 向客户端抽象(`query(sql, params)`);spec 的是平台运行时驱动契约(`supports`/`execute`/`findStream`) |\n| `DatasourceSchema` | 改名 → `DatasourceRegistration` | 本地是 `DatasourceManager` 持有的内存注册记录(`driver` 是**活的实例**);spec 的是可编写的元数据文档(`driver` 是**名字**) |\n| `DashboardWidgetSchema` | **派生** | 同一概念,本地是漂移的子集 —— 见下方活缺陷 |\n| `GlobalFilterSchema` | **派生** | 同一概念,本地一味放宽 |\n| `AppContextSelectorSchema` | **派生** | 整份手抄件 |\n| `ListViewSchema` | zod **派生** + TS **ALLOW** | 见下方\"一对两解\" |\n| `JoinedReportBlock` | **上游阻塞,留在台账** | spec 侧类型被擦除 —— 见下方 |\n\n## 派生修好的两个活缺陷\n\n都是 `z.object()` 静默丢键那一类,也就是 Navigation 簇(#3088)已经记录过的形态:\n\n1. **`DashboardWidgetSchema` 只声明了 spec 22 个键里的 10 个**,另外 12 个被 `objectui validate` 一声不吭地删掉:`chartConfig`、`colorVariant`、`filter`、`responsive`、`aria`、`actionUrl`/`actionType`/`actionIcon`、`compareTo`、`suppressWarnings`,以及 **`requiresObject`/`requiresService` 这两个渲染器在运行时真的执行的能力门控**。`complex.ts` 的 TS 接口一直声明着其中大部分 —— 所以一个 widget 能在 objectui 里类型检查通过,却在校验时丢掉一半配置。三份表述(TS / zod / 渲染器)各自漂移的又一现场。\n2. **`GlobalFilterSchema.scope` 是自由字符串**,任何拼写错误都能通过校验;现在按引用取 spec 的 `widget | dashboard`。运行时没有任何地方读 `scope`,收紧零成本。\n\n## 钉住的有意分歧(每条都有运行时归一化器背书)\n\n- `DashboardWidgetSchema`:`id` 保持可选(存量仪表盘与 legacy 格式不带 id)、`type` 保持放宽(objectui 的 `DASHBOARD_WIDGET_TYPES` 另有 `list`/`custom`,spec 的 19 族枚举不建模)、`component` legacy 信封保留。\n- `GlobalFilterSchema`:裸字符串 `options` 简写、归一化后的 `{ preset }` 日期默认值(framework#4475)、`optionsFrom.labelField` 可选 —— 三条分别对应 `normalizeFilterOptions` / `normalizeDateDefault` / 回落到 `valueField`。\n- `AppContextSelectorSchema`:`label` 放宽到 objectui 的 i18n 信封,因为 `AppContextSelectors` 一直用 `resolveI18nLabel` 渲染它。\n\n每条都做了**双向断言** —— spec 哪天自己放宽了,断言翻红,该删的就是本地覆盖。\n\n## `ListViewSchema` 一对两解\n\n- **zod 侧**:它本来就是全场最佳范式,却仍在台账里 —— 因为 spec 引用隔着一个本地 const(`SpecListViewFields.shape`),守卫只看一层。现在把 `specFieldsExcept(SpecListViewSchema.shape, …)` 直接写进声明的初始化器,派生在声明处可见。语义不变。\n- **TS 侧**:进 ALLOW。spec 的 `ListViewSchema` 是个 **zod 值**,没有可 alias/extends 的 spec 类型;而且本地节点还要 intersect `ListViewRuntimeProps`(回调与命令式刷新触发器,不是可序列化的视图元数据,不可能存在于任何 schema)。分歧边界由 zod 派生约束,漂移守卫是既有的 `list-view-spec-parity.test.ts`。\n\n## `JoinedReportBlock`:上游阻塞,请挪到批次 8\n\nspec 把 `JoinedReportBlockSchema` 声明为 `z.ZodTypeAny`,于是导出的 `JoinedReportBlock` 类型解析为 **`unknown`**。re-export 会把本地精确的块接口(`name`/`columns`/`groupingsDown`/`groupingsAcross`/`filter`/`chart`)整个删掉。\n\n**这比 objectstack#4171 已钉住的三条宽一档,值得写进修法模板**:那三条擦除成 `any`,`0 extends (1 & T)` 探针抓得到;这条擦除成 `unknown`,**同一个探针报 `false`** —— 只筛 `any` 的分诊会把它当成\"可安全派生\"放行。已在守卫文件头补上 2b 情形与 `[unknown] extends [Spec]` 探针,并配了会在 spec 修好当天报红的反向 pin。\n\n## 跨包协同:`ChartSeries`(批次 4)\n\n`@object-ui/core` 的 `ChartSeries` 是 `{ dataKey, label }` —— `buildChartSeries` 产出的渲染器内部序列描述符,和 types 侧的内联数据序列、spec 侧的数据集绑定描述符**三者互不相同**。本 PR 把 types 侧定为 `ChartDataSeries`;core 侧建议 `ChartSeriesBinding` 之类,决定已在 objectstack#4115 评论记录,批次 4 可直接沿用。\n\n## 台账变化\n\n与 objectui#3169 的 DEBT 块冲突,按规约**整块 `--ledger` 重生成**而非逐行挑拣,再对**合并后的 main** 逐条 set-diff:\n\n```\n@object-ui/types\n  removed: AppContextSelectorSchema, ChartSeries, ChartSeriesSchema,\n           DashboardWidgetSchema, DatasourceSchema, DriverInterface,\n           GlobalFilterSchema, ListViewSchema, QueryAST, QuerySchema\n  added:   []\nTOTAL 87 → 77    (18 个包,其余 17 个逐字未动;`@object-ui/app-shell`\n                  已被 #3169 整包烧完,重生成后仍然不在表中)\n```\n\n## 验证\n\n合并 main 后全部重跑:\n\n- ✅ `node scripts/check-spec-symbol-derivation.mjs` 绿(6 declared dialects / **77** untriaged / 18 packages)\n- ✅ 先 `pnpm turbo build --filter=@object-ui/types` 重建 dist,再 `pnpm turbo type-check --force` → **78/78**\n- ✅ 全量测试 **9377 断言 / 801 文件绿**(本批新增 25 条;与 #3169 的 `spec-symbol-parity.test.ts` 同跑 50 条全绿)\n- ✅ `eslint` 改动文件 0 error\n- ✅ **变异测试三组,都按名 + 按文件报红**:\n  - 把 `GlobalFilterSchema` 改回手抄 `z.object({…})` → 守卫报 `const GlobalFilterSchema packages/types/src/zod/complex.zod.ts:331`,同时 parity 测试 `picks up the spec scope vocabulary by reference` 报红;\n  - 把 `SqlQueryAST` 改回 `QueryAST` → 守卫报 `interface QueryAST packages/types/src/data-protocol.ts:299`;\n  - 棘轮反向:把已烧的 `QueryAST` 塞回重生成后的 DEBT → 守卫报 `lists 1 symbol in DEBT that no longer collide`。\n  - 三次还原后守卫均回绿。\n\n## 施工规约遵守情况\n\n- 改名**先改声明与 barrel,让 tsc 列出断裂点逐个判定**,没有做全局字符串替换 —— `ChartSeries`/`QueryAST`/`QuerySchema` 这些名字两边都有。tsc 抓出的断点只在 `packages/core/src/query/`(SQL AST builder 及其测试),逐个确认是本地概念后才改。\n- 六个新名字**先过了一遍守卫的 spec 导出名集合**再落地,并配 tripwire 测试(用 TS 编译器视角读 `.d.ts`,类型与值都覆盖 —— 六个里有五个是类型,只查运行时命名空间会白过)。\n- 未触碰 `content/docs/releases/`;变更以 changeset 形式记录。\n\n## 需要人拍板 / 遗留\n\n1. **`JoinedReportBlock` 需要挪到批次 8**(#3162),并在 objectstack#4171 登记 `unknown` 擦除这一变体。\n2. `DashboardWidgetSchema` 的 `responsive` 仍是 `any`:渲染器读的是按断点的 record,spec 的是单个 `responsive` 对象,两者收敛需要产品决定,本轮只在声明处写明未擅自调和。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_015Jdef6ZFhJmiNRhNCd4DW3)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2975,
+  "kind": "pull_request",
+  "title": "docs(audit): re-validate the #2901 audit against spec 17, with three corrections",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T02:52:59Z",
+  "updated_at": "2026-07-30T04:46:15Z",
+  "closed_at": "2026-07-30T04:46:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T04:46:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2975",
+  "body": "The audit in #2937 was run against `@objectstack/spec@16.0.0-rc.0`. objectui has since moved to `17.0.0-rc.0` (#2950), so a reader would be applying its findings to a different spec than it examined. Re-extracted and re-diffed everything.\n\n**The enum-value findings all hold.** Of the 30 named `ui/` enum exports, **zero changed values** between 16 and 17. Only movement: `DensityModeSchema` and `WcagContrastLevelSchema` removed (which resolves a Tier 4 row upstream — enforce-or-remove was applied), `ChartAggregateFunctionSchema` added.\n\nThree corrections, though, and the first reverses something the doc asserted:\n\n1. **`before`/`after` are spec vocabulary, not renderer dialect.** The Direction B table called them objectui-local with \"no spec vocabulary defining them\". They are canonical `VIEW_FILTER_OPERATORS` members (`ui/view.zod.ts:90`). The actual defect is worse: the spec's view-authoring vocabulary and its query-layer AST vocabulary disagree on **8 of 19** members, including `equals`. Six were masked only because objectui's adapter happened to translate them; the two it missed returned unfiltered result sets silently. Fixed in #2974; server side at objectstack-ai/objectstack#3948.\n\n2. **\"Cheap while spec 16 is still RC\" was wrong twice** — no version window exists, and RC status isn't what makes narrowing risky. Narrowing is loud for new authoring and silent for stored data, and `saveMeta` persists the authored body verbatim so the schema's own normalization never reaches the row.\n\n3. **The Tier 1/Tier 2 split missed a third outcome**: a filter not applied *at all*, returning a superset. Ranks with Tier 1, not Tier 2.\n\nAlso records — so nobody re-derives it — that the \"objectui resolves two spec versions simultaneously\" finding was a stale-checkout artifact rather than a defect.\n\nDocs-only. Appended as an addendum rather than rewriting the body, so the original point-in-time audit stays readable and the corrections are attributable.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

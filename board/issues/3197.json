@@ -1,0 +1,36 @@
+{
+  "number": 3197,
+  "kind": "issue",
+  "title": "Docs:ci-cd-pipeline.md 的 Performance Budget / Size Check 两节与实际工作流不符(预算数字差 5.8 倍、记录了一个不存在的工作流)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T11:12:52Z",
+  "updated_at": "2026-08-02T15:13:53Z",
+  "closed_at": "2026-08-02T15:13:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3197",
+  "body": "`content/docs/guide/ci-cd-pipeline.md` 里描述 bundle 体积门禁的两节已经与 `.github/workflows/` 脱节,三处事实错误:\n\n## 1. 预算数字错了(60 KB vs 实际 350 KB)\n\n文档:\n\n```\n## Performance Budget (`performance-budget.yml`)\n\n**Enforced limits:**\n\n| Bundle | Max gzip size |\n|--------|---------------|\n| Console main entry | 60 KB |\n```\n\n工作流实际是 `MAX_ENTRY_GZIP_KB=350`(`.github/workflows/performance-budget.yml`)。差 5.8 倍。\n\n后果:照文档读,当前 28.1 KB 的 console 主入口离门槛只剩一半余量,像是随时会撞线;实际只用掉 350 KB 预算的 8%。任何按这份文档做体积决策的人(或 agent)都会被这个数字误导。\n\n## 2. 记录了一个不存在的工作流 `size-check.yml`\n\n```\n## Size Check (`size-check.yml`)\n\n**Triggers:** Push to `main`/`develop` with changes in `packages/`.\n```\n\n`.github/workflows/` 下没有 `size-check.yml`。该文件当前的清单是:`changelog.yml`、`changeset-release.yml`、`check-links.yml`、`ci.yml`、`cross-repo-issue-closer.yml`、`dependabot-auto-merge.yml`、`labeler.yml`、`lint.yml`、`performance-budget.yml`、`release.yml`、`shadcn-check.yml`、`stale.yml`。\n\n它显然是被并入了 `performance-budget.yml` 的 `Generate package size report` 步骤(那一步输出的正是文档里归给 size-check 的 50/100/150 KB 三档),但文档没跟着改。\n\n## 3. 那三档根本不是「Enforced limits」\n\n文档把 50 KB(core)/ 100 KB(components)/ 150 KB(plugin)列在 **Enforced limits** 标题下。实际上 `Generate package size report` 只是把这三行当作说明文字 `echo` 进 markdown 报告:\n\n```bash\necho \"### Size Limits\" >> size-report.md\necho \"- ✅ Core packages should be < 50KB gzipped\" >> size-report.md\n```\n\n没有任何比较、没有 `exit 1`。超过这些数字不会让任何检查变红。文档把「建议值」写成了「强制门槛」——这类「声明了但没强制」的描述比没有文档更危险,因为它让人以为有一道并不存在的护栏。\n\n## 建议\n\n一次 docs-only PR 修掉:把 60 KB 改成 350 KB(或改成引用工作流里的常量以免再次漂移);删掉 Size Check 一节并把包体积报告并入 Performance Budget 一节;把那三档明确标注为「建议值,不强制」。\n\n---\n\n发现于 #3152 的修复过程中(改的是同一节里描述 PR 评论行为的那条 bullet),按 Prime Directive #10 拆出来单独记录,不夹带进那个 PR。"
+}

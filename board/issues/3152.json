@@ -1,0 +1,35 @@
+{
+  "number": 3152,
+  "kind": "issue",
+  "title": "Bundle Analysis：被取消的运行会发出一条 ❌ FAIL 评论，三项指标全为空——每个连推两次的 PR 都会收到假警报",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T12:14:07Z",
+  "updated_at": "2026-08-02T11:31:40Z",
+  "closed_at": "2026-08-02T11:31:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3152",
+  "body": "`.github/workflows/performance-budget.yml` 在运行被 **取消** 时，仍会向 PR 发一条写着 **❌ Console Performance Budget / Status: FAIL** 的评论，而实际上预算从未被测量过。\n\n## 复现\n\n在一个 PR 上连续推两次提交（间隔短于一次完整构建）。工作流设了：\n\n```yaml\nconcurrency:\n  group: bundle-analysis-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\n```\n\n第二次推送取消掉第一次运行；被取消的那次仍会发出 FAIL 评论。\n\n## 实例\n\nPR #3150 收到的评论：\n\n```\n## ❌ Console Performance Budget\n\n| Metric | Value | Budget |\n|--------|-------|--------|\n| Main entry (gzip) | ** KB** |  KB |\n| Entry file | `` | — |\n| Status | **FAIL** | — |\n```\n\n对应运行 `30699128418`（head `006886f4`），其 `conclusion` 是 **`cancelled`**，不是 `failure`。同一分支上取代它的运行是 `30699202638`。`main` 上该工作流最近 8 次连续 `success`，其中包含本 PR 的 base `efd77672`。\n\n## 机制\n\n`budget` 步骤有三条退出路径，其中只有「超预算」那条会**先写 output 再** `exit 1`：\n\n```bash\necho \"gzip_kb=$GZIP_KB\" >> \"$GITHUB_OUTPUT\"\necho \"budget_kb=$MAX_ENTRY_GZIP_KB\" >> \"$GITHUB_OUTPUT\"\necho \"entry_file=$(basename $ENTRY_FILE)\" >> \"$GITHUB_OUTPUT\"\n# ... 之后才判断是否超预算并 exit 1\n```\n\n另外两条（`dist` 目录不存在、找不到 JS 文件）以及**被取消**的情况，都不会写任何 output。\n\n发评论的步骤是 `if: ... && always()`，于是在这些情况下照常执行，而渲染逻辑把「空」等同于「失败」：\n\n```js\nconst status = '${{ steps.budget.outputs.budget_status }}';   // ''\nconst icon = status === 'pass' ? '✅' : '❌';                   // ❌\n| Status | **${status === 'pass' ? 'PASS' : 'FAIL'}** | — |    // FAIL\n```\n\n三项指标同时为空，正是「从未测量」的可判别信号——真正的超预算必然带着数字。\n\n## 影响\n\n一条断言 FAIL 的评论，其正文自身就证明它什么都没测到。读者要么被误导去追一个不存在的体积回归，要么——更糟——学会无视这个门禁发出的 FAIL，那么真正的预算超标也会被一并无视。\n\n`size-report.md` 那半部分能正常生成（它读 `packages/*/dist`，包构建早已完成），使这条评论看起来更像一份可信的完整报告。\n\n## 建议方向\n\n区分「测量到了且超标」与「压根没测到」，不要让后者渲染成 FAIL。可选：发评论步骤跳过 `budget_status` 为空的情况；或在取消/构建失败时改发一条说明未测量的中性文案。两者都不应削弱真实超标时的 FAIL。\n\n（发现于 v17 验收批次；#3150 本身不受影响，权威运行另有其一。）"
+}

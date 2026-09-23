@@ -1,0 +1,32 @@
+{
+  "number": 3121,
+  "kind": "pull_request",
+  "title": "fix(console,app-shell): readable reassign hand-off + \"System\" label for svc:* audit actors",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T11:43:47Z",
+  "updated_at": "2026-07-31T12:12:34Z",
+  "closed_at": "2026-07-31T12:12:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T12:12:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3121",
+  "body": "配套 objectstack-ai/objectstack#4365 / objectstack-ai/objectstack#4366(framework 侧修复见 objectstack-ai/objectstack#4403)。\n\n- **审批中心**(`ApprovalsInboxPage`):转签时间线条目改从结构化 `reassign_from`/`reassign_to`(及服务端解析的 `*_name`)渲染「从 A 转给 B」,不再依赖把两个裸 user id 拼进用户可见文本的旧默认 comment;存量老行(无结构化字段)保留 comment 兜底。新 i18n 键 `approvalsInbox.reassignFromTo`,十个语言包齐。\n- **记录历史**(`RecordDetailView`):`actor` 列为 `svc:*` 服务主体的审计行(如 `runAs:'system'` 流的 `svc:flow:<name>`)渲染本地化「系统」标签而非裸主体串;原始值仍保留在 entry 上。\n\n验证:app-shell 124/124、console 124/124 全绿;配 framework 分支起 showcase 真机验过两处渲染(转签条目「从 Dev Admin 转给 Mei Phone (demo)」、历史页签「系统 UPDATE」)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

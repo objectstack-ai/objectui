@@ -1,0 +1,35 @@
+{
+  "number": 3202,
+  "kind": "issue",
+  "title": "Flow 分支编辑器提交时新建的边没有 `id` —— 这才是「设计器产出、spec 拒绝」的真实形状",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T13:33:00Z",
+  "updated_at": "2026-08-02T15:31:10Z",
+  "closed_at": "2026-08-02T15:31:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3202",
+  "body": "调查 #3171 时发现并核实,越界发现另立(未在 #3171 的 PR 里顺手修)。\n\n## 缺陷\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-decision-edges.ts` 的 `applyDecisionBranches`,在「某分支填了 Target、但没有可复用的出边」时会**新建**一条边:\n\n```ts\nelse created.push(mirrorBranchOntoEdge({ source: decisionId, target }, b));\n```\n\n新建的边**不带 `id`**。而 `@objectstack/spec` 的 `FlowEdgeSchema` 里 `id: z.string()` 是**必填**(不是 `.optional()`)。\n\n实测(objectui 当前锁定的 `@objectstack/spec@17.0.0-rc.1`):\n\n```\nbranch-created edge (no id)         :: FAIL [{\"p\":[\"id\"],\"m\":\"Invalid input: expected string, received undefined\"}]\nbranch-created default edge (no id) :: FAIL [{\"p\":[\"id\"],\"m\":\"Invalid input: expected string, received undefined\"}]\ncanvas-created edge (has id)        :: OK\n```\n\n服务端保存走的正是同一个 schema —— `packages/spec/src/kernel/metadata-type-schemas.ts` 里 `flow: FlowSchema`,`FlowSchema.edges` 是 `z.array(FlowEdgeSchema)`。\n\n## 为什么是真 bug 而不是设计\n\n同仓的另一个建边现场 —— `previews/FlowCanvas.tsx` 的 `addNode` / `insertOnEdge` / 一键 revise 回路 —— **都**用 `uniqueId('edge', 已有 id 列表)` 盖了 `id`。只有分支编辑器这一条路径漏了。也就是说仓库自己的约定是「提交出来的边必须有 id」,这里是个遗漏,不是有意的宽松。\n\n`flow-canvas-layout.ts` 里 `FlowDesignerEdge` 把 `id` 标成可选,注释写明理由是「正在画的边在提交前没有 id」—— 那是**编辑中**的瞬态。`applyDecisionBranches` 的输出是**已提交**状态(直接进 `onPatch` → draft → 保存),不该沿用瞬态的宽松。\n\n## 影响\n\n`clientValidation.ts` 已经拿 `FlowSchema` 做草稿实时校验,所以作者会看到一条 `edges.N.id: Invalid input: expected string, received undefined`。后果不是静默,而是:**设计器自己造出一条它自己标红的边**,而作者没做错任何事,也没有任何 UI 能补这个 `id`。不修的话保存会被服务端 422 挡下。\n\n## 建议修法\n\n`applyDecisionBranches` 新建边时按仓内既有约定盖 id:`uniqueId('edge', 现有边 id)`(`inspectors/_shared.tsx` 已导出)。注意同一次提交可能新建多条边,id 要在本次累积的集合上取,避免撞号。\n\n并补一条闸门单测:`applyDecisionBranches` / `syncDecisionEdgesByOrder` 产出的**每一条**边都要能过 `FlowEdgeSchema.safeParse` —— 这条闸门正是 #3171 正文要求的那条,只是它真正拦住的是这个形状。\n\n## 相关\n\n- #3171(同一次批次 3 燃尽记下的 follow-up;其正文断言的 `dialect` 形状经核实并不成立,详见该 issue)\n- #3172(同一次燃尽记下的另一条:节点几何三种拼写)\n"
+}

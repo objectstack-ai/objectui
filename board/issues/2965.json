@@ -1,0 +1,36 @@
+{
+  "number": 2965,
+  "kind": "pull_request",
+  "title": "fix(actions): apply the ADR-0066 D4 capability gate on every action surface (framework#3923)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T11:14:02Z",
+  "updated_at": "2026-07-29T12:15:03Z",
+  "closed_at": "2026-07-29T12:15:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T12:15:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2965",
+  "body": "Fixes the UI half of the `requiredPermissions` contract reported in [objectstack#3923](https://github.com/objectstack-ai/objectstack/issues/3923).\n\n## The bug\n\n`requiredPermissions` is meant to be one declaration with two enforcement surfaces: 403 on the server, hidden button in the UI. The UI half only ever ran inside `ActionEngine.getActionsForLocation` — and **none of the surfaces those locations actually render on go through the engine**. Each filters its own action list:\n\n| Surface | Location | Renderer | Before |\n|---|---|---|---|\n| Record header | `record_header` / `record_more` | `page:header` | no gate |\n| List toolbar | `list_toolbar` | `action:bar` | no gate |\n| Row ⋯ menu | `list_item` | `RowActionMenu` | no gate |\n| Record section | `record_section` | engine — but fed a user with no `systemPermissions` | fail-open |\n\nSo a button declaring a capability nobody holds rendered live and clickable. For a `type: 'api'` action pointed at a self-authored endpoint nothing else was checking either: the platform action route, which is where the 403 comes from, never sees that request.\n\n## The fix\n\n- **`useCapabilityGate()`** (new, `@object-ui/react`) — one rule the three self-filtering surfaces share, so they cannot drift from the engine or from each other. Hide unless the caller holds **all** declared capabilities; an empty held set means \"holds nothing\" and gates; **unknown** (no action runtime, nothing resolved) fails OPEN — the server is the authority, and hiding a permitted user's button on missing client data is the worse failure. Source is the ActionProvider runner user (what the engine reads), falling back to the ambient predicate scope.\n- **`page:header`**, **`action:bar`** (business *and* `systemActions`) and **`RowActionMenu`** now apply it.\n- **`RecordDetailView`** forwards the caller's resolved `systemPermissions` into its own `<ActionProvider>` — the one that shadows the shell's for every action on that page. It seeded identity alone, and since unknown fails open that by itself un-gated every `record_header` / `record_more` / `record_section` action on the one page those locations exist on. Only forwarded once permissions have actually resolved, so a standalone embed with no `PermissionProvider` keeps failing open instead of hiding everything.\n- **`useRecordEditable`** rides the host's authenticated fetch. Its record-level explain probe went out on a bare `fetch(..., { credentials: 'include' })`; a bearer-token session carries its credential in the `Authorization` header, not a cookie, so the probe came back 401 on a valid admin session and the verdict silently failed open — inert in exactly the deployments it was written for.\n\n## Verification\n\nReal showcase app (`objectstack dev --seed-admin`) driven through this branch's console. Two probe actions: one requiring a capability nobody holds, one requiring `setup.access` (which the admin does hold). **Both sides checked on all four surfaces** — denied hidden, allowed shown. Plus a live A/B: reverting the `RecordDetailView` seed made `PROBE Section Denied` reappear immediately, restoring it made it vanish.\n\nThe explain probe now carries `Authorization: Bearer …` + `X-Tenant-ID` + `Accept-Language` (captured at runtime), where it previously sent cookies only — on a session that has no auth cookie at all. Note the local dev server answers the bare probe with 200, so the reporter's 401 was not reproduced locally; the cause was identified and is covered by unit tests.\n\n**Tests** — 5 new files, 31 cases, each reverse-verified (reverting the fix turns them red). Touched packages: 134 files / 1235 tests green; app-shell 233 / 1921 green; full suite 8038 tests with 2 pre-existing flakes unrelated to this change (`FormulaFunctions > DATEFORMAT` fails identically on clean `main`; `ReportPreview.dataset` passes in isolation). `pnpm build` 43/43 green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

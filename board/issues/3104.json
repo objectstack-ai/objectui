@@ -1,0 +1,32 @@
+{
+  "number": 3104,
+  "kind": "issue",
+  "title": "列身份双读家族:field ?? name 两种优先序并存于 15+ 处——ingestion 归一 + 单键消费 + 禁新增闸门(objectstack#4115)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T07:28:26Z",
+  "updated_at": "2026-07-31T12:34:19Z",
+  "closed_at": "2026-07-31T12:34:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3104",
+  "body": "## 背景:同一列,两条管线解析出两个身份\n\n列/字段身份的双读 `field ?? name` 在仓内已扩散成**家族病:15+ 处、4 个键**(`field` / `name` / `fieldName` / `accessorKey`·`key`),且**两种优先序几乎对半分**:\n\n| 优先序 | 点位 |\n|---|---|\n| **name 优先** | `plugin-list/ListView.tsx` ×8(`name \\|\\| fieldName \\|\\| field`)、`plugin-grid/ObjectGrid.tsx:510`、`core/utils/dashboard-filters.ts:146` |\n| **field 优先** | `core/utils/expand-fields.ts:107`(`field ?? name ?? fieldName`)、`plugin-detail/RelatedList.tsx:646,654`(`accessorKey \\|\\| field \\|\\| name`)、`plugin-detail/renderers/record-related-list.tsx:25`(`field \\|\\| name \\|\\| key`)、`app-shell/utils/resolveActionParams.ts:161`;显示层另有 ViewPreview:58、SchemaForm:1410 |\n\nspec 里列的规范键是 **`field`**(`ListColumnSchema`),`name` 是 objectui 遗留 —— **与表单正好相反**(#3090:表单 runtime 键是 `name`)。同一个 pattern 在相邻表面语义相反,是 AI 复制粘贴必然踩雷的结构性原因;两种优先序并存说明污染已经发生过。\n\n**内建缺陷场景**(待 PR1 落成红测试):列对象同时携带两键时,渲染路径(ListView,name 优先)与 $expand 请求路径(expand-fields,field 优先)解析出**不同身份** → 展开了 A 字段、渲染的是 B 字段 → **关系列显示裸 id** —— 已知高频缺陷类。排序键与渲染列不符、导出缺列、related-list 错列同根源。\n\n## 方向(预设,PR1 开工时验证)\n\n归一方向 = 列的规范键 `field`;归一点 = 元数据 **ingestion chokepoint**(先例:#2598 `normalizeSchemaReferenceKeys` 双键 stamp;app-shell 已有 `view-item-normalize.ts` 可挂);消费者逐步收敛为单键读;新增双读被闸门拒绝。**不做**的:在消费端继续铺 `field ?? name`(reference↔reference_to 的教训)。\n\n## 分期\n\n### PR1 盘点 + 复现 + 归一器(零行为变化)\n- [ ] 点位清单入库为 **ratchet 测试**(inventory 含每处优先序;双读点位数只减不增)\n- [ ] 复现红测试:构造同时携带 `field`+`name` 的列,证明 ListView 渲染身份 ≠ expand-fields 请求身份(裸 id 场景落地)\n- [ ] 归一器 `normalizeColumnIdentity`(或挂 `view-item-normalize`):ingestion 处 stamp 规范键 —— 过渡期 **stamp 双键**(`field` 权威、`name` 镜像),行为零变化;mutation-test\n- [ ] 未知项查清并写进 PR:`fieldName` 第三键的写入方与存量;`accessorKey` 是 TanStack Table 内部键 —— 归一时区分「元数据身份」与「表格库适配键」,后者不属于本战役\n\n### PR2 消费者收敛\n- [ ] expand-fields / ListView(×8) / ObjectGrid / dashboard-filters / RelatedList / record-related-list / resolveActionParams 改读归一后的单键(归一器保证存在)\n- [ ] 每处收敛配行为测试;PR1 的复现测试转绿;ratchet 计数随之下降\n\n### PR3 闸门 + 响亮化\n- [ ] 禁新增双读闸门(优先 ratchet 测试;评估 `no-restricted-syntax` 匹配 `.field ?? .name` 模式的误报率后决定是否叠 lint)\n- [ ] 混合键元数据响亮化:warn once 说明谁赢(同 #3092 的混合词汇 lint 模式)\n- [ ] 台账相关条目处置(ListColumn 等),同步 objectstack#4115\n\n## 验收\n\n- 复现测试绿(渲染身份 === 请求身份)\n- ratchet 归零或只剩带理由豁免\n- 「关系列裸 id」缺陷类有回归钉住\n\n业务价值:列表/详情是本产品第一表面,列身份解析不一致是「关系列裸 id / 排序不生效 / 导出缺列」工单的持续工厂 —— 修的是缺陷类,不是单个缺陷。playbook 全部来自 #3090 已验证的三板斧(chokepoint → 单键消费 → 闸门+响亮化)。\n\n关联:objectstack#4115、#3090(playbook)、#2598(chokepoint 先例)、#3103(热身件,先行)。\n"
+}

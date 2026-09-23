@@ -1,0 +1,32 @@
+{
+  "number": 3128,
+  "kind": "pull_request",
+  "title": "fix(approvals): record-header Reject fires after one dialog again (#3126)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T16:30:27Z",
+  "updated_at": "2026-08-01T12:30:48Z",
+  "closed_at": "2026-08-01T12:30:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T12:30:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3128",
+  "body": "Closes #3126.\n\n## 根因(不是回调丢失)\n\n#2961 把记录页头决策动作的死键 `collectParams` 改成 runner 真读的 `actionParams` 之后,Reject 动作同时携带 `confirmText` **和** 可收集的 comment 参数。`ActionRunner` 的管线是先确认、后收参([ActionRunner.ts L517–541](https://github.com/objectstack-ai/objectui/blob/main/packages/core/src/actions/ActionRunner.ts)),于是驳回变成**串联两个弹窗**:\n\n1. 「确认操作 / 确定驳回该审批请求吗?」→ 点「继续」\n2. 又弹「操作参数 / Comment (optional)」→ 只有点它的「确认」才发 `POST …/reject`\n\n按 rc.0 契约(确认即发请求)操作的用户和 e2e 在第 1 步就停了——第 2 个弹窗没人理,请求永远不发,表现为\"零请求、无报错、无 toast 的静默哑火\"。Approve 从未声明 `confirmText`(单弹窗),所以 issue 里\"批准正常、驳回哑火、审批中心正常\"三组对照全部吻合。\n\n已在真机 Chromium harness 全链路复现:修复前确认后确实弹出第二个弹窗、其「确认」后请求正常发出——dispatch 链路本身完好,坏的是交互契约。\n\n## 修复\n\n- `buildApprovalDecisionActions`:Reject 不再声明 `confirmText`;原确认文案(同一个 `approvals.rejectConfirm` i18n key,各语言译文原样生效)改挂在 `description` 上,由参数弹窗展示。\n- 参数弹窗即确认面:标题=「驳回」,说明=「确定驳回该审批请求吗?」,意见框 + 取消/确认,点「确认」即发请求。**一次决策,一个弹窗**,与 Approve 及审批中心对齐;#2961 的 comment / decisionOutputs 收集能力原样保留。\n\n## 测试\n\n- 回归组新增:决策动作永不携带 `confirmText`(防双弹层回潮)+ 确认文案落在 `description`。\n- 相关套件全绿:RecordDetailView.approvalDecisionActions / ActionParamDialog(含 uploading)/ useRecordApprovals.decisionOutputs / decisionOutputParams,共 69 条。\n- 真机 Chromium harness 实测修复后:点「驳回」→ 单弹窗 → 「确认」→ `reject_request` 成功 dispatch,旧 alertdialog 不再出现。\n\n## Changeset\n\n`@object-ui/app-shell` patch。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 2952,
+  "kind": "pull_request",
+  "title": "refactor(fields): drop the retired `conditionalRequired` alias",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-29T05:58:49Z",
+  "updated_at": "2026-07-29T06:04:32Z",
+  "closed_at": "2026-07-29T06:04:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-29T06:04:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2952",
+  "body": "## Decision: remove\n\n`@objectstack/spec` 17 ([objectstack#3855](https://github.com/objectstack-ai/framework/issues/3855)) retired `Field.conditionalRequired`, the deprecated alias of `requiredWhen`. This drops ObjectUI's back-compat handling for it.\n\n### Why removal, and not a comment at the fallback site\n\nThe premise worth correcting: the key is **not** \"silently dropped from parsed output.\" It is tombstoned with `retiredKey()` — literally `z.never({ error: () => guidance }).optional()` — which makes the removal *audible* in two channels:\n\n- **`tsc`** — `z.input` types the key as `never`, so authoring it fails to compile.\n- **The parse** — it is **rejected**, with the prescription as the message.\n\nVerified empirically against the `17.0.0-rc.0` now on `main`:\n\n```\nFieldSchema  → success: false\nObjectSchema → success: false\n  fields.s.conditionalRequired: `conditionalRequired` was removed in\n  @objectstack/spec 17 (#3855) — use `requiredWhen`. Rename the key; the value\n  (a CEL predicate) is unchanged. Run `os migrate meta --from 16` to rewrite it\n  automatically.\n```\n\nSo spec-parsed metadata cannot carry the key — an object declaring it **fails to load**, loudly, rather than loading with the rule quietly dropped. Keeping `requiredWhen ?? conditionalRequired` in the renderer would have re-created exactly the second de-facto contract the tombstone exists to prevent: the key would keep working in the UI while being rejected everywhere else, hiding the producer's bug. That is AGENTS.md #0.1 verbatim.\n\n**The backend-agnostic counter-argument (#1) doesn't hold here.** `conditionalRequired` is an ObjectStack-spec-ism — it only means anything because the spec once defined it. A non-ObjectStack backend has no reason to emit that exact key; the only producers that do are ObjectStack producers on ≤16, and the spec ships them a converter (`os migrate meta --from 16`) plus a load-time rejection. #0.1 is explicit that Postel's law doesn't apply when we own both ends.\n\n### Scope — the original grep undercounted\n\nThe alias was live in **7 code sites across 5 packages**, not 4 in 3:\n\n| package | site |\n| :--- | :--- |\n| `@object-ui/types` | the `conditionalRequired?:` member on `FormField` |\n| `@object-ui/core` | the `??` fallback + rules-param member in `resolveFieldRuleState` |\n| `@object-ui/components` | three pass-throughs in the form renderer |\n| `@object-ui/plugin-form` | `ObjectForm`, `ModalForm`, `sectionFields`, `deriveMasterDetail` (×2) |\n| `@object-ui/app-shell` | the field inspector's legacy read/auto-migrate, and the key's entry in `clientValidation`'s CEL lint list |\n\nLeaving `plugin-form` behind would have been incoherent — `FormField` has an `[key: string]: any` index signature, so `tsc` would **not** have caught the leftovers.\n\n### The app-shell call was the one real judgment\n\nThe Studio sites are a different class from a renderer fallback: the inspector *migrates* the key away rather than honoring it forever, which is the producer-side fix #0.1 actually endorses. They're removed anyway because the spec now shadows them with something strictly better — `validateMetadataDraft` parses drafts against the spec's own `ObjectSchema`, so a draft carrying the key surfaces the **tombstone's rename prescription** under the very same `fields.<name>.conditionalRequired` path the CEL lint used to report. The author gets a better message, from the spec, that the server agrees with. That behavior is now pinned by a test rather than left implicit.\n\nTwo tests are converted from \"honors the alias\" to negative assertions so a future re-introduction fails loudly, and ADR-0036 gets a dated amendment rather than a silent rewrite — it's the record of the original decision.\n\n## Verification\n\n- **395 test files / ~4,300 tests** green (`core`, `types`, `fields`, `components`, `plugin-form`, `app-shell`)\n- `turbo type-check` — 43 tasks green\n- `turbo lint` — **0 errors** on all 5 touched packages\n- `pnpm changeset:check` — clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

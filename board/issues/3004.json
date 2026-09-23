@@ -1,0 +1,36 @@
+{
+  "number": 3004,
+  "kind": "pull_request",
+  "title": "fix(charts): a spec `series[].type` draws, and a spec-shape `series` plots at all (#2945)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T08:56:38Z",
+  "updated_at": "2026-07-30T10:52:02Z",
+  "closed_at": "2026-07-30T09:56:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T09:56:46Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3004",
+  "body": "Next item on #2945's additions-only list: `combo` (`plugin-charts`), listed as renderer-local dialect to \"promote or delete\".\n\n**Neither — and the check was one grep.** The spec already models a combo chart, per-series, and its own field comment says so:\n\n```ts\n// spec/src/ui/chart.zod.ts — ChartSeriesSchema\n/** Series type override (combo charts) */\ntype: ChartTypeSchema.optional().describe('Override chart type for this series'),\n```\n\nSame reasoning the spec applies to stacking — `ChartSeries.stack` rather than a `stacked-bar` family:\n\n> stacking is not a chart family, it is a property of the series … One `bar` family plus a series-level stack group expresses all three without multiplying the taxonomy.\n\nSo `combo` is not a name an author should have to reach for. It is what *\"the series disagree about their family\"* looks like from the renderer's side, and `effectiveChartFamily` now derives it. It stays a documented renderer-local marker because internal callers pass it explicitly today (`DatasetPreview`'s mixed-scale branch).\n\n## Chasing it turned up two live bugs, both silent\n\nBoth sit on the path a spec author takes, and neither is visible from an enum-coverage angle.\n\n**1. The per-series override was parsed, carried, and then dropped.** Only the `chartType === 'combo'` branch read `series[].chartType`, so\n\n```ts\n{ type: 'bar', series: [{ name: 'revenue' }, { name: 'margin', type: 'line' }] }\n```\n\ndrew `margin` as a bar. Nothing was wrong at any layer but the last — an existing unit test even asserted the value was carried.\n\n**2. A spec-shape `series` rendered nothing at all.** `series` is the one binding both shapes spell with the **same key**, so `ChartRenderer`'s blanket \"internal props win\" rule let the author's `[{ name }]` shadow the normalized `[{ dataKey }]` and reach a renderer that reads `dataKey`. Blank chart. Every other spec binding has a distinct name (`xAxis` vs `xAxisKey`), which is why only this one broke — and why the isolated `normalizeChartSchema` tests could all pass over a dead path. I found it by probing the real `ChartRenderer` path instead of trusting those tests.\n\nI fixed (2) here rather than filing it: shipping (1) alone would have been a fix no spec author could reach. The raw array is now preferred only when it *already* speaks the internal shape, so every internal caller is byte-for-byte unchanged, and a mixed array works too (`normalizeSeries` reads `dataKey ?? name` per entry).\n\n`ChartRendererProps.series` also now accepts both shapes. It was typed internal-only, so `series: [{ name: 'total' }]` was a **type error on an author writing the protocol correctly** — the same trap `ActionType`-missing-`form` was in #2985. My tests dropped their `as any` casts as a result, which is the proof the contract widened.\n\n**3. Found in passing:** the combo branch had an `area` arm inside a `BarChart` container, and Recharts renders an `<Area>` child of `BarChart` as **nothing** — so an authored combo with an `area` series drew a blank series, silently. The arm was unreachable. The container is now `ComposedChart`, which is what Recharts provides for mixed marks.\n\n## Widening only\n\n| | |\n|---|---|\n| Series all resolve to one family | keeps its own family |\n| Explicit `chartType: 'combo'` | untouched, including the legacy index/family default |\n| `pie` / `donut` / `funnel` / `radar` / `scatter` / `treemap` / `sankey` / `horizontal-bar` | never widened — a per-series family names nothing there, and deriving a combo would reorient or reshape the chart |\n| Single series | needs two to disagree |\n\nA **derived** combo binds series to the left axis unless one asks for `yAxis: 'right'` — the spec's own `ChartSeries.yAxis` default — so widening a bar chart changes the series' **mark and not its scale**. The `bar→left / line→right` guess is kept only for an authored `combo`, where historically it was the sole way to reach a second axis.\n\n## Guards\n\n- `effectiveChartFamily` / `comboBaseFamily` unit-tested across the family matrix.\n- DOM tests assert the **marks** rather than the derived family — the carry was already covered, and the drawing is what broke. That is the specific gap that let (1) live.\n- `spec-derived-unions.test.ts` asserts `combo` is *absent* from the spec's `ChartTypeSchema` — the same inverse tripwire #2994 added for `navigation`, so the day it is adopted upstream the derivation is named as the thing to retire.\n\n## Verification\n\n| | |\n|---|---|\n| Repo type-check | **76/76 tasks** |\n| Full test suite | **8335 pass**, 27 skipped, **0 failing tests** |\n| `plugin-charts` tests | 110/110 |\n| `plugin-charts` + `types` eslint | 0 errors |\n\n**The new tests bite.** Reverting only the two source files with the tests left in place fails 8 of 11 — and the 3 that still pass are exactly the unchanged-behavior controls (plain bar chart, authored combo, Tremor `categories`).\n\nOne test *file* (`components/html-page-lazy-blocks`) hit a `beforeAll` timeout on `await import('../renderers')` during the full run, unrelated to this change and with a zero test-failure count; it passes standalone (3/3). That is the known load-induced mode, not a logic failure.\n\nRefs #2945, #2901. Follows #2994.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

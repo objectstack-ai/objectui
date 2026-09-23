@@ -1,0 +1,32 @@
+{
+  "number": 3126,
+  "kind": "issue",
+  "title": "console: 记录详情页头「驳回」在无 decisionOutputs 参数的审批节点上静默哑火——确认弹层点「继续」后零请求",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T16:00:16Z",
+  "updated_at": "2026-08-01T12:30:47Z",
+  "closed_at": "2026-08-01T12:30:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3126",
+  "body": "## 现象\n\n`@objectstack/console@17.0.0-rc.1`。审批人在**记录详情页头**点「驳回」→ 弹 `role=alertdialog`「确认操作 / 确定驳回该审批请求吗?」→ 点「继续」→ 弹层关闭，但：\n\n- **零网络请求**（Playwright `page.on('response')` 全程监听，无 `POST /api/v1/approvals/requests/:id/reject`，连失败请求都没有）\n- 无 console 报错、无 pageerror、无 toast\n- 单据与 `sys_approval_request` 状态原地不动\n\n用户以为驳回了，实际审批被变相卡住。\n\n## 复现\n\n1. 一条 record_change 流带 approval 节点（本例：QIF 三级审批的②会审节点 `lv2_parallel`，`behavior:'per_group'`、**未声明 decisionOutputs**），单据推进到该节点 pending；\n2. 以待审人登录 console，打开业务单据详情页；\n3. 页头点「驳回」→ 确认弹层点「继续」；\n4. 观察：无请求发出，单据不动。\n\n## 三组对照（锁定病灶在记录页头驳回这一条分支）\n\n| 对照 | 结果 |\n| --- | --- |\n| 同一单据、同一账号，改走**审批中心**驳回 | ✅ `POST /approvals/requests/:id/reject` 200，流按 reject 边正常推进 |\n| 记录页头「**批准**」：有 decisionOutputs 的节点（决策弹窗）与无参数的节点（轻确认） | ✅ 均正常发请求 |\n| 17.0.0-rc.0 时代同一记录页头驳回路径（本项目 #665 e2e 曾全链实测通过） | ✅ 当时是好的 |\n\n即：**rc.0 → rc.1 引入的回归**，且仅伤「记录详情页头 驳回 → 确认操作 alertdialog」这一分支；怀疑与 #2955 / #2961 的决策面重构（`RecordDetailView.approvalDecisionActions` 合成 approve/reject 参数动作）有关——reject 无必填参数时走的轻确认路径,确认回调疑似没接到 dispatch。\n\n## 期望\n\n记录页头「驳回」确认后应与审批中心一致发出 reject 决策请求；若确认回调丢失，至少要把失败显性化（报错/toast），不能静默吞掉。\n\n## 环境与下游留档\n\n- `@objectstack/console@17.0.0-rc.1`（npm rc tag），Chromium (Playwright)\n- 下游项目已登记 PLAT-DEF-033 并留有截图证据（os-project-titanwind-ehr PR #686，`test-results/countersign-required/qif-lv2-reject-*`），业务口径暂按「驳回走审批中心」"
+}

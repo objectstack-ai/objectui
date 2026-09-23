@@ -1,0 +1,35 @@
+{
+  "number": 3291,
+  "kind": "issue",
+  "title": "字段 widget 把渲染器专用 props 原样展开到 DOM——`schema=\"[object Object]\"` 出现在真实输入框上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T11:01:11Z",
+  "updated_at": "2026-08-03T18:20:35Z",
+  "closed_at": "2026-08-03T18:20:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3291",
+  "body": "在 objectui#3222 / PR #3289 的实测中发现,**未在该 PR 修复**(影响面覆盖 ~80 个 widget,属独立重构)。\n\n## 事实\n\n表单渲染器渲染已注册 widget 时,`stripRegisteredFieldProps` 剥掉了一批渲染器专用键,但 `schema` 被剥掉后又**显式传了回去**(`< RegisteredComponent schema={fieldSchema} {...registeredProps} / >`,因为约 25 个 widget 读 `field || schema` 取配置)。\n\n而绝大多数 widget 的写法是:\n\n```tsx\nexport function TextField({ value, onChange, field, readonly, ...props }: FieldWidgetComponentProps< string >) {\n  const { inputType, ...domProps } = props as any;\n  return < Input {...domProps} … / >;   // schema 在 domProps 里\n}\n```\n\n`schema` 没被解构出来,于是原样落到 DOM 上。实测(jsdom,真表单 + 真 widget)的输出:\n\n```\n< input class=\"…\" schema=\"[object Object]\" id=\"_r_0_-form-item\"\n       aria-describedby=\"…\" aria-invalid=\"true\" type=\"text\" value=\"\" name=\"t\" >\n```\n\n`schema=\"[object Object]\"` 出现在每一个这样渲染的输入框上。React 不报警(全小写属性会被透传),所以它安静地存在了很久。\n\n## 为什么值得修\n\n- **它是一个真实的 DOM 属性**,进 HTML、进快照测试、进 DOM 序列化;`[object Object]` 还意味着一次无意义的 `String(object)`。\n- 它是 `FieldWidgetComponentProps` 注释里已经承认的「第二契约」(`schema` 与 `field` 承载同一个东西)的**可见症状**——注释原文说「converging the two is tracked separately」。\n- 同类还会随时间增加:PR #3289 起 `error` 也走同一条路(失败时留下 `error=\"T is required\"`,同样无警告)。#3289 有意保留了这个转发——按 widget 类型做白名单会对第三方 widget 重建「声明了但没交付」——但这恰恰说明**该收口的地方是 widget 的 DOM 展开,不是宿主的转发**。\n\n## 可能的方向(需要拍板,不要直接开工)\n\n1. **共享的 `toDomProps(props)` 助手**,在 `@object-ui/fields` 导出,每个 widget 用它替代裸 `...props` 展开。显式、可 grep、可测试;但要改 ~80 个文件。\n2. **收敛 `schema` 与 `field` 本身**(注释里说的那件事),让 `schema` 不再需要被传下去。更根治,但影响读 `field || schema` 的 ~25 个 widget。\n3. 什么都不做,只把它记录成已知取舍。\n\n倾向 2 → 1 的顺序,但这是架构判断,应当先定方向。\n\n## 边界\n\n`packages/fields`(+ 可能 `packages/components/src/renderers/form/`)。不动 `packages/spec`。\n\n关联:objectui#3221(封闭该类型的那一单)、objectui#3222、PR #3289。"
+}

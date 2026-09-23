@@ -1,0 +1,34 @@
+{
+  "number": 3198,
+  "kind": "pull_request",
+  "title": "fix(ci): never render a budget FAIL for a run that measured nothing",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T11:14:06Z",
+  "updated_at": "2026-08-02T11:31:40Z",
+  "closed_at": "2026-08-02T11:31:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-02T11:31:39Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3198",
+  "body": "Fixes #3152\n\n## 问题\n\n`.github/workflows/performance-budget.yml` 在运行被**取消**时仍会发一条 ❌ FAIL 评论,而预算从未被测量过。工作流设了 `concurrency: cancel-in-progress: true`,这意味着**每个连推两次提交的 PR** 都会收到这条假警报。\n\n同一份代码上的对照:运行 `30699128418`(`cancelled`)判 FAIL 且三项指标全空;运行 `30699202638`(`success`)判 PASS,实测 28.1 KB / 350 KB —— 只用掉预算的 8%。\n\n两处机制:\n\n1. 发评论的步骤条件是 `if: ... && always()`。`always()` 在运行被取消时**照样触发**;而渲染逻辑把「非 pass」等同于 FAIL(`status === 'pass' ? '✅' : '❌'`),于是「没测到」被渲染成了「测到了且超标」。\n2. `Generate package size report` 同样是 `if: always()`,取消时它对着只构建了一部分的 `packages/*/dist` 跑完并输出 —— 报告少了 7 个包(app-shell、plugin-calendar、plugin-designer、plugin-gantt、plugin-kanban、plugin-report、plugin-view)却看不出缺失,让那条假 FAIL 更像一份可信的完整报告。\n\n## 改动\n\n**门禁语义:FAIL 必须带着数字。**\n\n- 评论步骤改用 `!cancelled()` 而不是 `always()`。被取消的运行不再发任何评论 —— 取代它的那次运行几十秒后就会给出真实结论。\n- 只有「测量到了**且**超标」才渲染 FAIL:渲染器要求 `budget_status` 是 `pass`/`fail`,**并且** gzip 大小、预算、入口文件名三项都在。真实超标必然带着这三个数字,这正是 issue 里点出的可判别信号。\n- 「没测到」改发一条中性说明,正文明确写 **This is not a budget violation**,并列出 Build packages / Budget check 两步的 outcome 与失败原因。\n\n**让生产者声明结果,而不是让消费者从「空」去猜。**\n\n- `budget` 步骤原本有两条退出路径(dist 目录不存在、找不到 JS 文件)什么 output 都不写。现在它们显式写 `budget_status=error` 和一条 `budget_message`。消费者读到的是一个**声明过的结果**,而不是靠空字符串反推。同理,渲染器用的是显式白名单 `MEASURED_STATUSES`,而不是 `status !== 'pass'` 那个取反 —— 正是那个取反把「没有数据」变成了「FAIL」。\n\n**半截报告。**\n\n- `Generate package size report` 改成 `if: !cancelled() && steps.build_packages.outcome == 'success'`,只在包全部构建完成后才生成。生成不出来时评论里会写明「没有体积报告」,而不是静默省略 —— 因为一份被截断的报告读起来和完整的一模一样。\n\n**渲染逻辑搬出 YAML。**\n\n- 新增 `scripts/render-budget-comment.mjs`,评论步骤改为 `node scripts/render-budget-comment.mjs > budget-comment.md`,step outputs 经 `env:` 传入而不是插值进 JS 字符串字面量。这个 bug **本身就是**一个渲染 bug,而内联在 `script:` 块里的逻辑没有任何测试能覆盖它。现在它由 `scripts/__tests__/render-budget-comment.test.ts` 覆盖(17 个用例),其中 6 个是钉住工作流本身的 pin test(禁止 `always()`、`!cancelled()` 的三处、报告的构建门、env 契约、`budget_status` 的三种取值)。\n\n## 每条退出路径的预期行为\n\n| 场景 | Build packages | budget_status | 体积报告 | PR 评论 |\n|---|---|---|---|---|\n| 运行被取消(连推两次) | 部分完成 | 缺失(步骤没跑) | 跳过 | **不发评论** |\n| 包构建失败 | failure | 缺失(步骤 skipped) | 跳过 | ℹ️ not measured |\n| console 构建失败 | success | 缺失(步骤 skipped) | 生成 | ℹ️ not measured + 完整报告 |\n| dist 目录不存在 | success | `error` | 生成 | ℹ️ not measured + 原因 |\n| dist 里没有 JS | success | `error` | 生成 | ℹ️ not measured + 原因 |\n| 未超预算 | success | `pass` | 生成 | ✅ PASS + 实测数字 |\n| **超预算** | success | `fail` | 生成 | ❌ **FAIL + 实测数字**(行为不变) |\n\n## 验证\n\n**1. YAML 可解析,步骤条件符合预期**\n\n```\nYAML PARSE: OK, steps = 12\n- Build packages [id=build_packages]\n- Check console performance budget [id=budget]\n- Generate package size report [id=size-report]  if: ${{ !cancelled() && steps.build_packages.outcome == 'success' }}\n- Render performance budget comment [id=render_comment]  if: ${{ github.event_name == 'pull_request' && !cancelled() }}\n- Comment PR with results  if: ${{ github.event_name == 'pull_request' && !cancelled() }}\n```\n\n**2. 把 `budget` 步骤的 shell **原样**从 YAML 里抽出来执行,逐条验证 output**\n\n```\n== PATH A: dist 目录不存在 ==        exit=1   budget_status=error\n                                             budget_message=Build output not found at apps/console/dist/assets\n== PATH B: dist 存在但没有 JS ==      exit=1   budget_status=error\n                                             budget_message=No JS files found in apps/console/dist/assets\n== PATH C: 未超预算 ==                exit=0   gzip_kb=40.1 budget_kb=350\n                                             entry_file=index-abc123.js  budget_status=pass\n== PATH D: 超预算 ==                  exit=1   gzip_kb=701.8 budget_kb=350\n                                             entry_file=index-over.js    budget_status=fail\n```\n\n**3. 把 PATH D 的 output 原样喂给渲染器(端到端):真实超标信号完全保留**\n\n```\n## ❌ Console Performance Budget\n\n| Metric | Value | Budget |\n|--------|-------|--------|\n| Main entry (gzip) | **701.8 KB** | 350 KB |\n| Entry file | `index-over.js` | — |\n| Status | **FAIL** | — |\n```\n\n**4. 取消 / 未测量路径:不再有 ❌,也不再有 FAIL**\n\n```\n## ℹ️ Console Performance Budget — not measured\n\nThis run did not produce a console bundle to measure, so there is no pass/fail verdict.\n\n**This is not a budget violation.** Nothing was measured — the numbers a real violation would carry are simply absent.\n\n| Step | Outcome |\n|------|---------|\n| Build packages | `failure` |\n| Check console performance budget | `skipped` |\n```\n\n**5. 测试与静态检查**\n\n```\n$ pnpm exec vitest run --project unit scripts/__tests__/render-budget-comment.test.ts\n Test Files  1 passed (1)\n      Tests  17 passed (17)\n\n$ pnpm exec vitest run --project unit          # 确认 vitest.config.mts 的 include 改动没有影响其它文件\n Test Files  332 passed (332)\n      Tests  4657 passed | 1 skipped (4658)\n\n$ pnpm exec tsc --noEmit --ignoreConfig --strict ... scripts/__tests__/render-budget-comment.test.ts\n (无输出,0 错误)\n\n$ pnpm exec eslint scripts/render-budget-comment.mjs scripts/__tests__/render-budget-comment.test.ts\n ESLINT_EXIT=0\n\n$ node scripts/check-changeset-fixed.mjs\n ✅  All workspace packages are in the changeset fixed group.\n```\n\n注:本 PR 只改动 `.github/**`、`scripts/**`、`vitest.config.mts` 和 docs,不匹配 `performance-budget.yml` 自己的 paths 过滤器(`packages/**`、`apps/console/**`、`pnpm-lock.yaml`),所以这个工作流**不会在本 PR 上运行**。这也正是为什么渲染逻辑被搬进了可单测的文件,而不是留在 YAML 里靠 CI 碰运气。\n\n## 关于 changeset\n\n按 AGENTS.md §9「纯 bug 修复不需要 changeset」,且本次改动不触及任何已发布包的源码(只有 CI 工作流、仓库级 CI 脚本、vitest 配置和文档),没有版本需要 bump。仓库里唯一的 changeset 门禁 `scripts/check-changeset-fixed.mjs` 校验的是 fixed group 成员资格,不要求每个 PR 都带 changeset,已通过。\n\n## 顺带发现(未在本 PR 修)\n\n- #3197:`content/docs/guide/ci-cd-pipeline.md` 把 console 主入口预算写成 60 KB(实际 350 KB),记录了一个已不存在的 `size-check.yml`,并把三档「建议值」标成了 Enforced limits。按 Prime Directive #10 单独立 issue,未夹带进本 PR。本 PR 只改了同一节里描述 PR 评论行为的那条 bullet —— 那正是本次改掉的行为。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01PRJtkgUAaVG11FsJQbvZWA)_"
+}

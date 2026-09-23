@@ -1,0 +1,30 @@
+{
+  "number": 3206,
+  "kind": "issue",
+  "title": "`FeedFilterMode` 在 plugin-detail 里被手抄了一份,而 `@objectstack/spec` 已经导出同名 enum(objectstack#4115 的同一形状)",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T14:05:20Z",
+  "updated_at": "2026-08-02T16:28:44Z",
+  "closed_at": "2026-08-02T16:28:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3206",
+  "body": "`packages/plugin-detail/src/RecordActivityTimeline.tsx:36` 手写了:\n\n```ts\nexport type FeedFilterMode = 'all' | 'comments_only' | 'changes_only' | 'tasks_only';\n```\n\n而 `@objectstack/spec/data` 已经把它作为 zod enum 导出(`packages/spec/src/data/feed.zod.ts` 的 `FeedFilterMode`,值完全相同),并且同一个文件里的 `FeedItemType` **已经**改成从 spec 导入了 —— `packages/types/src/views.ts:332` 就是 `import type { FeedItemType } from '@objectstack/spec/data'`。两个同源的 enum,一个引用 spec、一个手抄,同一个文件里。\n\n这正是 objectstack#4115 修过的形状:`FEED_TYPE_ICONS` 曾经比对着一份 7 成员的手抄 union,而 spec 有 13 个,结果六种 feed 类型到了 timeline 就没有图标和颜色。手抄的那份不会因为 spec 增删而失败,只会静默落后。\n\n## 建议\n\n- `@object-ui/types` 里像 `FeedItemType` 那样 re-export spec 的 `FeedFilterMode`(类型 + 需要运行时校验的地方用 zod enum 的 `.options`);\n- `RecordActivityTimeline` 改为引用它,删掉本地 union;\n- `getFilterOptions()` 的四条 `{ value, label }` 也应当由 spec 的 `.options` 驱动(label 仍走 i18n key),这样 spec 加一档过滤模式时下拉框不会漏。\n\n改动面小,但要注意 `FeedFilterMode` 是 `@object-ui/plugin-detail` 的公开导出(见 `content/docs/plugins/plugin-detail.mdx` 的 TypeScript Support 一节),换成 re-export 时保持名字不变即可,不是破坏性变更。\n\n## 参考\n\n- `packages/plugin-detail/src/RecordActivityTimeline.tsx`(本地 union + `getFilterOptions`)\n- `packages/types/src/views.ts`(`FeedItemType` 已经是 spec 引用的范本)\n- `@objectstack/spec` `src/data/feed.zod.ts`\n- objectstack#4115(同一形状的前案);顺路发现于 #3165"
+}

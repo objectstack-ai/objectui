@@ -1,0 +1,36 @@
+{
+  "number": 3044,
+  "kind": "pull_request",
+  "title": "fix(console): 403 blamed on the network, ⌘K search capped at 8 objects, nav gating fields inert",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:47:24Z",
+  "updated_at": "2026-07-30T15:02:08Z",
+  "closed_at": "2026-07-30T15:02:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T15:02:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3044",
+  "body": "Closes #3046, closes #3047, closes #3048\n\n## Summary\n\nThree real-user console failures found via platform dogfooding (each reproduced with request-level evidence before fixing):\n\n### 1. A 403 rendered as \"check your network connection\" (`plugin-list`, `i18n`)\n\n`ListView` rendered one generic connectivity message for every failed fetch, so a permission denial was indistinguishable from an outage — users (and ops) were sent to debug their network while the server was correctly denying access. The error panel now classifies the failure via `httpStatus`/`status`/`statusCode`, the `PERMISSION_DENIED`/`FORBIDDEN`/`UNAUTHORIZED`/`UNAUTHENTICATED` codes, or an `HTTP <status>` message prefix, and renders dedicated permission-denied (403) / sign-in-required (401) copy in all nine locales. The panel exposes `data-error-kind` for tests.\n\n### 2. ⌘K / full-page search silently capped at the first 8 nav objects (`react`)\n\n`useRecordSearch` sliced its candidate pool to `maxObjectsQueried` (8) — which also truncated the `objects` whitelist sent to the single-request `/api/v1/search`. Measured symptom: in an app with 40+ searchable objects, which sidebar group happened to come first decided which records were findable; an existing record code returned \"no results\" while the same query against the API directly matched. The cap now applies only where it belongs: the per-object fanout fallback. The searchAll path sends the full whitelist.\n\n### 3. Both nav gating fields were inert (`app-shell`)\n\n- `visible` (CEL): `evaluateVisibility` only evaluated `${…}` template strings. The `{ dialect: 'cel', source }` envelopes the spec's `ExpressionInputSchema` normalizes every authored predicate into fell through to a blanket \"visible\" — a constant-false predicate still rendered for everyone. It now delegates to `ExpressionEvaluator.evaluateCondition`, which routes CEL envelopes to the canonical `@objectstack/formula` engine (`current_user.positions` etc. already in scope).\n- `requiredPermissions`: the sidebars misread a bare name as `can(<name>, 'read')` — an object-CRUD check on a name that usually isn't an object — so requiring a capability hid the item from **everyone**, including holders of the permission set that granted it and admins. A bare name is now checked as an ADR-0066 system capability against the user's permission-set `systemPermissions` union from `/me/permissions` — the same subset rule the server applies to `AppSchema.requiredPermissions` — with the `object:action` form and the legacy object-read fallback preserved. (The server has returned `systemPermissions` since 17.0.0-rc.0; the client just never consulted it.)\n\n## Tests\n\n- New: `ListView.loadErrorKind.test.tsx` (5 classification cases), `ExpressionProvider.evaluateVisibility.test.ts` (CEL envelope true/false, template, literals, fail-open), two `useRecordSearch` regressions (full whitelist to searchAll beyond the cap; fanout still capped).\n- `pnpm vitest run` — plugin-list/react/i18n: 59 files / 747 tests green; app-shell: 243 files / 2024 tests green. `pnpm build`: 43/43 tasks green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3123,
+  "kind": "pull_request",
+  "title": "fix(detail): Attachments become a peer tab with a live count badge, and their copy is translated (objectstack#4358)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-31T12:04:23Z",
+  "updated_at": "2026-07-31T12:12:48Z",
+  "closed_at": "2026-07-31T12:12:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-31T12:12:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3123",
+  "body": "Fixes objectstack-ai/objectstack#4358.\n\n## Problem\n\nOn `enable.files: true` record detail pages (console 17.0.0-rc.0):\n\n1. **The Attachments panel was buried.** `RecordDetailView` appended it AFTER the schema-rendered page tree, whose synthesized default embeds `record:discussion` as the last main component — so the panel always sat below an ever-growing feed timeline, undiscoverable without scrolling to the very bottom, with no metadata knob to move it.\n2. **Its copy was never translated.** All eleven `detail.*` keys (`attachments`, `uploadAttachment`, `loadingAttachments`, `noAttachments`, `downloadAttachment`, `deleteAttachment`, plus the five `attachment*Denied/Required` friendly errors) existed only as inline English `defaultValue`s; no locale bundle carried them, so non-English consoles always showed English.\n\n## Fix\n\n**Placement — a peer Attachments tab (per design review):**\n\n- `buildDefaultTabs` emits an **Attachments** tab (new `record:attachments` node) between Related and Activity/History for `enable.files` objects; a `hideAttachments` synthesizer option suppresses it.\n- The node is rendered by a new app-shell registration wrapping the existing `RecordAttachmentsPanel` via RecordContext (registered from the app-shell barrel so Studio's PagePreview resolves it too).\n- `PageTabsRenderer` derives the tab's **count badge** from a `sys_attachment` probe scoped to `(parent_object, parent_id)` — the probe wrapper injects the two-key filter the `RelatedCountStore` shape can't express, while a synthetic `relationshipField` keeps the cache key unique; the store's existing `sys_attachment` invalidation (MutationEvent bridge) updates the badge live on upload/delete.\n- The tab label rides the existing `KNOWN_LABEL_DICT` (→ 附件 etc.).\n- `RecordDetailView` keeps its legacy bottom append only as the fallback for authored pages that don't place the node (`hasExplicitAttachments` walker in pageSchemaIntrospect).\n\n**i18n:** all ten locales now define the eleven `detail.*` keys.\n\n## Verification\n\n- Unit: new synthesis + introspection cases; 101 files / 1065 tests green across plugin-detail, i18n, components, app-shell utils; full `pnpm build` 43/43.\n- Browser (objectui HMR console against a framework showcase backend, zh locale): tab strip renders 详情 / 相关 1 / 附件 1; the panel fills the tab with fully translated copy; creating/deleting a `sys_attachment` row updates the badge; small screens keep the tab.\n- Note: showcase's demo `showcase_project` page overrides the `tabs` slot (authored full replacement), which legitimately supersedes the synthesized tab — verified by temporarily detaching that assignment locally.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

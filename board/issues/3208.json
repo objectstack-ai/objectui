@@ -1,0 +1,32 @@
+{
+  "number": 3208,
+  "kind": "issue",
+  "title": "下次 spec pin 升级会打断 AppContextSelector 的漂移守卫 —— framework#4509 移除了 includeAll / placement",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T14:49:16Z",
+  "updated_at": "2026-08-03T18:20:35Z",
+  "closed_at": "2026-08-03T18:20:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3208",
+  "body": "**提前记录，现在不用做。** 等 `@objectstack/spec` 的下一个 rc 发布、objectui 抬 pin 的时候才会触发。\n\n## 背景\n\nframework#4509 在 17.0.0 窗口里退役了 `AppContextSelector` 的两个键：\n\n- `includeAll` —— 不是没人读，是**被故意无视**。context selector 是 mandatory-scope 语义，一个 \"All\" 行会解除作用域；对 Studio 的 package 选择器来说，那等于把平台自己的 system/cloud 内核包列给一个明明已经限定到自己包的开发者看。`ContextSelectors.tsx:244` 的注释就是这么写的，而渲染器从来没渲染过 All 行 —— 所以 `includeAll: false` 没加固任何东西，`includeAll: true` 也没解锁任何东西。\n- `placement` —— 没有任何渲染器读它，`'topbar'` 什么也没往 topbar 放。\n\n两个键都带 schema 默认值，所以活性 lint 结构上**无法**对它们告警（默认值在 parse 时物化，分不清作者写的和 schema 填的）。移除是唯一能让作者听见的通道，这也是它为什么必须赶在 17.0.0 而不是等一个弃用周期。\n\n## objectui 这边会怎么断\n\n`packages/types/src/zod/app.zod.ts` 的 `AppContextSelectorSchema` 是**按引用派生**的：\n\n```ts\nexport const AppContextSelectorSchema = SpecAppContextSelectorSchema.extend({ label: ... })\n```\n\n这正是设计意图 —— spec 增删键不会在这里悄悄分叉。所以 spec 一旦少了这两个键，派生 schema 也就少了，然后 `packages/types/src/__tests__/report-chart-query-spec-parity.test.ts` 里这两行会失败：\n\n```ts\nexpect(parsed.includeAll).toBe(true);     // :76\nexpect(parsed.placement).toBe('sidebar_header');  // :77\n```\n\n同一个文件的 `adds no local key of its own` 那条**不会**失败（localKeys 派生自 specKeys，一起收缩）。\n\n## 抬 pin 时要做的\n\n1. 删掉 parity 测试里那两行断言（`valueKey`/`labelKey`/`persist` 三条保留 —— 它们仍然是活的默认值）。\n2. `packages/app-shell/src/layout/ContextSelectors.tsx:41,44` 的手写 `ContextSelectorDef` interface 里删掉 `includeAll?: boolean` 和 `placement?: ...`。这个 interface 不是派生的，所以**不会**编译报错 —— 它只会静静地留下两个永远 undefined 的可选字段。顺手把 `:244` 那条解释「为什么无视 includeAll」的注释改写成「这两个键已经不存在了」。\n\n两处都是机械改动，加起来几行。\n\n## 为什么现在只是记录\n\nobjectui 目前 pin 的是 `^17.0.0-rc.0`（走 npm，不是 workspace），所以在新的 rc 发布之前什么都不会断。等抬 pin 的那个 PR 一并处理最省事 —— 现在改反而会让 objectui 对着一个还没发布的 spec 形状写代码。"
+}

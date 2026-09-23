@@ -1,0 +1,30 @@
+{
+  "number": 3035,
+  "kind": "pull_request",
+  "title": "fix(scripts): shadcn-sync refuses to silently delete local edits, and compiles the package after it writes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T13:00:14Z",
+  "updated_at": "2026-07-30T13:07:21Z",
+  "closed_at": "2026-07-30T13:07:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-30T13:07:18Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3035",
+  "body": "Completes the work of #3033. That PR stopped the sync writing unresolvable import paths; it did not make `--update-all` safe to run.\n\n## I was wrong about how the remaining failure mode shows up\n\n#3033's description said local named-import additions \"break loudly rather than silently.\" Building the compile check disproved that — the first thing I did with it was run `--update command`, expecting a type error. **It passed.**\n\n`command.tsx` carries local additions upstream has never had:\n\n- a `sr-only` `DialogTitle` / `DialogDescription` on `CommandDialog` — Radix requires an accessible name\n- `contentProps`, which is the **ADR-0054 C4 testability contract**: it lets callers attach a stable locator to the underlying dialog element, because a `data-testid` spread onto `CommandDialog` lands on the Radix root, which renders no DOM\n\nSyncing it deletes 38 lines, removes both, and type-checks clean — upstream drops each addition *together with its usages*, so the file stays self-consistent. A documented platform contract would have vanished with a green build.\n\n## So: two layers\n\n**1. Refuse before writing.** Any line the local file has that the incoming version lacks is listed, and the write is skipped. `--force` overrides.\n\n```\n✗ Refusing to overwrite command.tsx — 35 local line(s) upstream does not have:\n    import { Dialog, DialogContent, DialogTitle, DialogDescription } from \"./dialog\"\n    * stable locator + ARIA name to the underlying dialog element — e.g.\n    * (ADR-0054 C4). Without this, `data-testid` spread onto `CommandDialog` lands on\n    … and 27 more\n  Overwriting deletes these. Port them onto the new upstream version by hand,\n  or re-run with --force if they are genuinely obsolete.\n```\n\nComments count as local content — a comment explaining why we diverged is exactly what must not evaporate silently.\n\nMeasured across all 46 registry entries, so this discriminates rather than crying wolf:\n\n| local-only lines | components |\n|---|---|\n| 0 — syncs cleanly | **29** |\n| 1–5 | 12 |\n| 6–20 | 3 |\n| >20 (`sidebar` 24, `command` 22) | 2 |\n\n`--update-all` now reports skipped separately from failed.\n\n**2. Compile after writing.** Both `--update` and `--update-all` then run `pnpm --filter @object-ui/components type-check` and say plainly whether the package still builds, printing the rollback command on failure. `--no-verify` skips it.\n\nThis is the backstop for whatever layer 1 doesn't model. It would *not* have caught `command` — which is exactly why layer 1 exists. Keeping both is the point: line-level refusal catches deletions, compilation catches breakage.\n\nNeither layer rolls back for you. Auto-reverting would throw away a sync someone may want to fix by hand, so both print the command instead.\n\n## Verification\n\n- `--update command` → refused, lists the ADR-0054 lines\n- `--update command --force` → overrides, writes, 38 lines lost as predicted\n- `--update button` (0 local-only lines) → syncs, tree left **byte-identical**\n- #3033's unmapped-path guard and the `resizable` reclassification both still hold\n- `node --check` + `eslint` clean\n- Tree restored — **no component file changes in this PR**\n\nNo changeset — tooling only.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

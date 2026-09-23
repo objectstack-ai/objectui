@@ -1,0 +1,35 @@
+{
+  "number": 3141,
+  "kind": "pull_request",
+  "title": "feat(grid): aggregate single-call mode for bulk actions — `execution: 'aggregate'` (#3139)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T08:24:58Z",
+  "updated_at": "2026-08-01T08:35:32Z",
+  "closed_at": "2026-08-01T08:35:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-01T08:35:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3141",
+  "body": "Closes #3139.\n\n## 问题\n\n批量选择条的 `bulkActionDefs` 中,`operation: 'custom'` 只有**逐行**语义:runner 对每个选中记录各调一次 `runAction(actionDef, row, params)`(注入 `_rowRecord`)。「勾选 N 行 → **一次**调用拿到全部选中 id → 服务端产出单一聚合产物」(多台设备二维码打包成一个 zip、批量打印、合并导出 PDF)无法表达。\n\n现状还很不对称:`operation: 'update'/'delete'` 早有聚合通道(`executeBulkBatch` 的 `bulkCall`,一次带全部 ids),未解析的字符串批量动作也已有一条 `executeAction({ type, params: { records } })` 单次全量通道 —— 把动作**正确**声明为对象动作反而丢失聚合语义。\n\n## 方案\n\n`BulkActionDef` 新增 `execution?: 'perRecord' | 'aggregate'`(缺省 `'perRecord'`,存量视图零影响)。作者书写形态就是命名一个已声明的对象动作:\n\n```ts\nbulkActionDefs: [{ name: 'generate_qr_zip', operation: 'custom', execution: 'aggregate' }]\n```\n\n聚合模式下 runner **恰好调用一次**,注入 `params._selectedIds: string[]`,整记录走已类型化的 `context.selectedRecords` 通道(5000 行上限时 POST body 只带 ids,不背整记录)。能力放在**视图侧 def** 而非 `ActionSchema` —— spec 17 的 `action.bulkEnabled` 墓碑明示多选工具栏只由视图 `bulkActions`/`bulkActionDefs` 驱动,本方案不重开该退役决定,也不需要新的服务端路由。\n\n## 改动\n\n- **executor**(`useBulkExecutor.ts`):聚合调用复用 `executeBulkBatch` 现有的 `bulkCall` 槽位 —— `bulkFastPath.ts` **一字未改**。整批一次调用(忽略 `batchSize`,`maxRecords` 仍生效),单行选择也走聚合(服务端契约不同)。失败为 all-or-nothing:真实错误归因到每个 id 供结果面板/错误 CSV 使用,`perRow` 分支**只重抛不重放** —— 绝不对单次调用契约的端点扇出 N 次;未接线 dispatcher 时响亮报错而非静默降级为逐行。\n- **grid**(`ObjectGrid.tsx`):新增 `runBulkActionAggregate`,与 `runBulkActionRecord` 共用剥离 helper(防两个分发器漂移)。聚合模式**保留** `resultDialog`(逐行「N 个弹窗阻塞」的理由不成立,一次性揭示下载链接正是该场景)。\n- **dialog**:透传 `runAggregate`;逐行 Retry 对聚合隐藏(整批失败保留选中集,重跑动作即重试)。\n- **resolver**(`resolveBulkActions.ts`):仅当 def **显式** `execution: 'aggregate'` 且无内联 `actionDef` 时才解析同名对象动作并附上(authored 键胜出,丢弃逐行并发上限 `batchSize: 25`)。普通 custom def 与对象动作同名时保持历史 no-op 语义(有回归守卫)。\n- **console runtime**:`serverActionHandler` 识别 `_selectedIds`,跳过「select exactly one row」多选拦截、不合成 `recordId`(服务端读 id 数组)。flow 动作维持拦截 —— flow 只有单 `recordId` 输入变量,多选歧义。\n- **插值**:`${ctx.selection.ids}` / `${ctx.selection.count}`(逗号拼接,沿用现有 `String(array)` 行为)—— issue 建议方案 3 的低成本切片,普通 `list_toolbar` url/api 动作也能拿到当前选中集;聚合模式下 `${param._selectedIds}` 天然可用。\n\n配套的服务端契约(`_selectedIds` 进入 ADR-0104 参数白名单 + spec describe + showcase specimen)在 objectstack-ai/objectstack#4461。\n\n## 防 AI 犯错措施\n\n- 聚合分支留在现有 `executeBulkBatch` 决策树内,不开并行代码路径。\n- **两种语义的 pin 测试并排**:现有「issues one request per selected record」pin **未改动**,新增「恰好一次 + 全部 id」pin 紧邻其后。\n- `execution` 在类型、executor 分支、resolver 合并、两个分发器四处都写了决策注释。\n- demo(`demo/bulk-actions.tsx`)双语义并示:Mark Done 每行一行日志,Export Zip 一行带 `[t1,t2,t3]`。\n\n## 测试\n\n新增覆盖:恰好一次调用带全部行与参数;单行选择仍走聚合;`batchSize: 2` 对 5 行仍一次调用;失败 → N 条带真实错误的 per-id 记录且零次逐行分发;未接线 → 响亮失败;`retry()` 返回 false;`execution` 缺省时即便接线了 `runAggregate` 仍走逐行(模式由 def 决定,不由能力决定);resolver 合并的四种边界;`${ctx.selection.ids}` 空/非空;console 多选守卫放行。\n\n验证:plugin-grid 全量 **409** 测试通过、core actions **211** 通过、app-shell console runtime 套件通过;lint 0 error;types/core/plugin-grid/app-shell 构建通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01S9aiswZBzoVYsyLKRuGByE"
+}

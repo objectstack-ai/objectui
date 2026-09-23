@@ -1,0 +1,33 @@
+{
+  "number": 2756,
+  "kind": "issue",
+  "title": "bug(plugin: charts): 仪表盘柱状图首帧不渲染 — #2727 的 settle-remount 修复线上无效",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T12:40:57Z",
+  "updated_at": "2026-07-20T13:59:22Z",
+  "closed_at": "2026-07-20T13:59:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2756",
+  "body": "## 现象\n\n仪表盘的柱状图 widget **首帧不渲染柱子**:坐标轴、分类标签、Y 轴刻度都在,但一根柱子都没有,等 8s 也不出;任何一次重渲染(切主题 / 改窗口大小 / 重新进页面)才让柱子从 0 长到正确高度。数据完全正确 —— 纯前端挂载期渲染竞态。\n\n**#2727 的修复(settle 重挂)已合并,但线上无效** —— 本条即为跟进。\n\n## 复现\n\n在最新 main 上跑 AI 魔法流程(cloud `8f56643` / framework `a79120010` / objectui `a3b0ca861`),AI 搭一个带示例数据的 CRM,首页仪表盘一个 `bar` widget(dimension=status,value=count):\n\n1. 首次进仪表盘页 → 图表有坐标轴 + 分类标签(合作中/已流失/潜在)+ 0–8 Count 刻度,但**无柱子**,等 8s 无变化,无 console 报错。\n2. 切一次主题(或任意重渲染)→ 柱子出现并从 0 动画到正确高度(5/3/4)。\n3. 重新导航回仪表盘 → 首帧又是空的。稳定复现。\n\n数据路径正常:`POST /api/v1/analytics/dataset/query` 返回 200,`rows:[{status:合作中,count:5},{status:已流失,count:3},{status:潜在,count:4}]`,`sql: SELECT status, COUNT(*) ... GROUP BY status`。\n\n## #2727 确实在服务端 bundle 里(不是 stale dist)\n\nrig 服务的是 framework vendored console(`framework/packages/console/dist`),其戳 `dist/.objectui-sha = 69fa5d163a97…`,今天重建,且 `69fa5d163` **包含 #2727 的合并提交 `bef2aaeb7`**(`git merge-base --is-ancestor bef2aaeb7 69fa5d163` = true)。`check-console-sha` 也 pass(根 pin 与 dist 戳一致)。所以问题不是\"没打进包\",而是**修复本身在真实浏览器里没起作用**。\n\n这也对上了 #2727 那次修复自己的备注:它**从没在真实浏览器里目视验证过**,只在 happy-dom + 可控 ResizeObserver 下跑了单测。\n\n## 根因猜测\n\n`ChartContainerImpl.tsx` 的 settle-remount 逻辑是\"等尺寸变化**停止**在一个正尺寸(80ms debounce)后 bump 一次 `settleNonce` → 作为 `<ResponsiveContainer key={settleNonce}>` 触发一次干净重挂\"。\n\n但在仪表盘里,`react-grid-layout` 往往在**第一次** ResizeObserver 回调就给了 widget 一个确定的正尺寸 —— 没有 0→正 的尺寸**变化**可\"settle from\"。于是\"等变化停止\"这一支要么从不触发、要么在动画已经卡死在 0 之后才(不)触发 → `settleNonce` 永不 bump → 不重挂 → recharts 进场动画维持在 height 0。也就是修复赌的那个\"尺寸会先抖动再稳定\"的信号,在 grid 场景下不成立。\n\n(recharts 侧:`JavascriptAnimate` 用 `useState(isActive ? 0 : 1)` 起始 0,靠 rAF tween 长上去;被 grid 挂载抖动打断后卡在 0,只有换 `key` 重挂才重播 —— 这部分 #2727 分析正确,只是触发重挂的条件没覆盖到 grid 首帧。)\n\n## 建议方向(择一)\n\n- 挂载后**无条件**强制重挂一次(一个 rAF / next-tick 后 bump `settleNonce`,不依赖\"尺寸变化 settle\"信号),happy-dom 里可用 0×0 门槛跳过以不影响单测;\n- 或对仪表盘图表直接 `isAnimationActive={false}`(首帧即最终高度,牺牲进场动画换正确性);\n- 或把渲染 gate 在\"容器有正尺寸 **且** 已过一个 paint 帧\"上再挂 recharts。\n\n**务必这次要在真实浏览器 / 部署环境目视验证**(rig 服务 framework vendored console,单测的 happy-dom 复现不了这个 grid 时序)。\n\n## 影响\n\n用户搭完应用第一眼看到的就是空仪表盘 —— 魔法时刻的直接体验损伤。覆盖所有走 `ChartContainer` 的仪表盘图表路径。\n\n关联:#2727(本条的失败修复);后端数据侧无问题。\n"
+}

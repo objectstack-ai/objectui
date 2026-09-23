@@ -1,0 +1,32 @@
+{
+  "number": 2725,
+  "kind": "issue",
+  "title": "provider:'api' 数据源裸 fetch 不带 Authorization：自定义端点与原生请求鉴权双轨，cookie 验签失效即 401（原生 bearer 无恙）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T04:01:20Z",
+  "updated_at": "2026-07-20T07:47:54Z",
+  "closed_at": "2026-07-20T07:47:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2725",
+  "body": "## 现象\n\n视图 `data.provider: 'api'` 指向的自定义端点（例：项目仓库 os-tianshun-ehr 甘特图的 `GET /api/gantt/tree`）在 dev 服务重启后恒返回 **401**，而同一浏览器会话里所有平台原生 `/api/v1/*` 请求全部正常。用户侧表现为「只有甘特图页面炸，其他页面都好好的」。\n\n## 根因：`provider:'api'` 的请求不带会话凭证（Authorization），鉴权凭证与原生请求不同轨\n\n1. console/原生数据链路的每个请求都带 `Authorization: Bearer <token>`（查库校验，与 cookie 签名无关）。\n2. `provider:'api'` 走 `ApiDataSource`（`packages/core/src/adapters/ApiDataSource.ts`）——裸 `globalThis.fetch`，**只有浏览器自动附带的同源 cookie，没有 Authorization 头**。\n3. 服务端自定义端点用 auth 服务 `getSession(headers)` 鉴权时，收到的唯一凭证是 cookie，只能走 **cookie HMAC 验签**这条路。一旦 cookie 验签失败（最典型：dev 未设 `OS_AUTH_SECRET`，plugin-auth 兜底密钥 `'dev-secret-'+Date.now()` 每次重启轮换，旧 cookie 签名全部失效），api 数据源的请求就 401，而带 bearer 的原生请求毫发无损。\n\n对照实验（15.1.1 / 16.0.0-rc.0 均复现；坏签名 cookie 等价于「重启后浏览器里的旧 cookie」）：\n\n| 请求 | 凭证 | 结果 |\n|---|---|---|\n| `/api/gantt/tree`（自定义端点） | 有效 cookie | 200 |\n| `/api/gantt/tree` | 坏签名 cookie | **401** |\n| `/api/gantt/tree` | **bearer token** | **200** ← 服务端 getSession 本来就认 bearer |\n| `/api/v1/data/...`（原生） | 坏签名 cookie | 401 |\n| `/api/v1/data/...` | bearer token | 200 ← console 实际走的通道 |\n\n第三行说明服务端不是瓶颈：只要请求带上宿主已有的 bearer token，自定义端点鉴权与原生完全一致。缺口在**发送端没把凭证接上**。\n\n## 代码落点\n\n管线本来就预留了注入口，只是没人接线：\n\n- `ApiDataSource`（`packages/core/src/adapters/ApiDataSource.ts`）：构造参数支持 `fetch` / `defaultHeaders` ✅\n- `resolveDataSource`（`packages/core/src/adapters/resolveDataSource.ts`）：`ResolveDataSourceOptions` 会把 `fetch`/`defaultHeaders` 透传给 `ApiDataSource` ✅\n- 但调用侧全部没传：\n  - `packages/plugin-gantt/src/ObjectGantt.tsx`（~L462）：`resolveDataSource(dataConfig, dataSource ?? null)` —— 第三参缺省；\n  - `packages/react/src/hooks/useViewData.ts`（L105）：`adapterOptions` 依赖使用方显式传入，`SchemaRendererContext` 里没有任何「宿主认证 fetch」可默认取用；\n  - 宿主（console）渲染视图时也没有把自己带 token 的 fetch 注入进来。\n\n## 建议修复方向\n\n在 `SchemaRendererContext` 增加可选的宿主级认证请求能力（如 `apiFetch` 或 `getAuthHeaders`），`resolveDataSource` 的调用方（`useViewData`、`ObjectGantt` 等）在 `provider:'api'` 时默认取用；console 宿主接线为自己带 `Authorization` 的 fetch。这样：\n\n- `provider:'api'` 与原生请求的鉴权行为一致（同一 token、同一存活期）；\n- 自定义端点无需为「cookie 验签失效」做任何兜底；\n- 向后兼容：上下文没提供时维持现状（裸 fetch + cookie）。\n\n## 影响面\n\n所有用 `provider:'api'` 自定义端点的视图（甘特组合端点、报表类聚合端点等）。dev 环境重启即触发；生产环境若 cookie 过期/轮换而 token 尚在，同样会出现「原生接口好好的、api 数据源 401」的不一致。\n\n（应用侧已用「dev 脚本固定 OS_AUTH_SECRET」规避 dev 重启场景——os-tianshun-ehr PR#497——但凭证双轨的不一致仍建议平台归一。）\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2695,
+  "kind": "issue",
+  "title": "Build Docs 因远程徽章拉取(shields.io)零星失败——让 apps/site 构建对图片拉取故障健壮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T16:16:43Z",
+  "updated_at": "2026-07-20T02:59:46Z",
+  "closed_at": "2026-07-20T02:59:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2695",
+  "body": "## 现象\n\n`Build Docs`(`@object-ui/site#build`)在构建时用 fumadocs 的 `remark-image` 插件拉取远程图片(**shields.io 徽章**)以取得图片尺寸(`getImageSize`)。shields.io 一抖(Cloudflare 520 / 1200 \"Too many requests\")就会抛错并让**整个** docs 构建失败。\n\n实例:PR #2684 期间该 job 因 shields.io 抖动连续两次红(Cloudflare 520/1200),与 PR 内容无关,重跑到 shields.io 恢复后才绿。\n\n## 影响\n\n- 与代码改动无关的**外部抖动**会零星卡住任意 PR(和 main);\n- 若 `Build Docs` 是必需检查,会误阻塞合并。\n\n## 根因\n\ndocs 站构建在**构建期出网**拉远程徽章图片,把一个外部服务的可用性变成了构建的硬依赖。\n\n## 方案(任选/组合)\n\n1. 给 `remark-image` 配置**失败跳过 / 超时容忍**,远程图片拉取失败时告警而非 fail 构建;\n2. 把徽章**本地化**(下载进仓库)或在 markdown 里**内联尺寸**,避免构建期出网;\n3. 或在受影响文档里移除对远程 shields.io 徽章的构建期尺寸解析依赖。\n\n## 验收\n\n- [ ] shields.io(或任意远程图片源)不可用时,`Build Docs` 不再整体失败;\n- [ ] 定位并处理触发拉取的具体徽章引用。\n\n## 备注\n\n属 `apps/site` 基础设施,与 batchTransaction 重构(#2679 / #2684)无关,单独跟踪。"
+}

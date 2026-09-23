@@ -1,0 +1,33 @@
+{
+  "number": 2583,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): emit mutation events from batchTransaction/bulk so related lists refresh after master-detail saves (#2582)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T08:23:23Z",
+  "updated_at": "2026-07-16T13:34:46Z",
+  "closed_at": "2026-07-16T13:34:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2583",
+  "body": "Fixes #2582\n\n## 问题\n\n带子表单的对象在相关列表经 ModalForm 新建/编辑成功后,相关列表行、区块计数、「相关」tab 徽章全部不刷新,必须整页刷新。\n\n## 根因\n\nMasterDetailForm 把父+子行打包成一个 `/api/v1/batch` 事务提交,而 `ObjectStackAdapter.batchTransaction` 从不 `emitMutation`,#2269 失效总线(`onMutation` → `notifyDataChanged`)对整次写入无感知。`bulk()`(applyDetail 回退路径)同样只发进度事件不发 MutationEvent。\n\n## 改动\n\n- `batchTransaction`:事务提交成功后按每个 op 补发 MutationEvent(create 从服务端回显的 `results` 取 id/record;失败回滚时一条不发)\n- `bulk()`:create/delete/update 三分支各补发一条 resource 级事件,对齐既有 `bulkUpdate`/`bulkDelete`\n- `onMutation.test.ts`:新增 5 个回归测试(batch 新建 op 逐条发、编辑 batch 的 update/delete、失败不发、bulk create/delete 各一条)\n\n## 验证\n\n- `vitest run packages/data-objectstack`:15 文件 167 测试全过(其中 onMutation 11 个)\n- tsc `--noEmit` 错误数改动前后一致(9 个,均为预先存在于 exportDownload.test.ts,与本改动无关)\n- 真机:tianshun-ehr 真实 metadata(`objectstack dev --fresh` :3000 + console dev :5180),任务版本 detail → 任务检查项 新建/编辑——toast 弹出的同时列表行、区块计数 (1)→(2)、相关 tab 徽章 1→2 全部即时更新,零刷新;修复前同一操作稳定复现「toast 成功但列表纹丝不动」"
+}

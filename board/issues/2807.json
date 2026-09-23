@@ -1,0 +1,33 @@
+{
+  "number": 2807,
+  "kind": "issue",
+  "title": "审批人 chips 按组标注（会签 group 归属）— #2762 P1-2 后续",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "designer",
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T14:37:02Z",
+  "updated_at": "2026-07-24T15:38:10Z",
+  "closed_at": "2026-07-24T15:38:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2807",
+  "body": "Follow-up to #2762 **P1-2**. The first pass (objectstack-ai/objectui#2803) deduped the drawer's \"Waiting on\" approver chips — a person filling more than one slot now collapses to a single chip with a `×N` count instead of N identical \"Dev Admin\" chips. That removed the noise, but it does **not** yet answer the original comprehension question for 会签 (per-group / M-of-N sign-off):\n\n> **which group** (finance / legal / manager …) does each pending approver represent?\n\nToday the chip shows only the approver's display name. For a per_group request the reviewer can see group *state* from the P1-1 progress chips (Finance ✓ / Legal ○), but the \"Waiting on\" list can't say that the pending **Dev Admin** chip is standing in for the *Legal* group vs the *Finance* group.\n\n## Why it's not done in the P1-2 PR\n\nThe data isn't there. `sys_approval_request.pending_approvers` is a flat `string[]` of approver identities, and `pending_approver_names` is an `id → name` map. Neither carries the **group each pending slot belongs to**, and `decision_progress.groups` describes group *aggregate* state, not an approver→group mapping. So the console has nothing to label the chip with — hence the honest scope of #2803 (dedupe + count only).\n\n## Proposed shape (cross-repo)\n\n**Framework — objectstack-ai/objectstack (`@objectstack/plugin-approvals`)**\n- Extend the list/get enrichment so each pending approver carries its group, e.g. either:\n  - `pending_approver_groups?: Record<string, string>` (approver id → group name), or\n  - a richer `pending_approvers` shape `{ id: string; group?: string }[]` (bigger, breaks the flat-string contract — the map is the lighter option).\n- Only meaningful for `behavior === 'per_group'`; absent otherwise.\n\n**UI — objectui (`ApprovalsInboxPage` drawer)**\n- In `approverChips(...)`, when a group is known, label the chip `Dev Admin · Legal` (or a small group sub-tag), keyed by `(name, group)` so the same person in two groups is two labeled chips rather than one `×2`.\n- Degrade gracefully to today's dedupe-with-count when the group data is absent (older backends).\n\n## Acceptance\n- A finance∧legal 会签 request's drawer shows which group each waiting approver represents.\n- Non-per_group requests are visually unchanged.\n- Old backends (no group data) keep the current dedupe + `×N` behavior.\n\nRefs #2762 (P1-2), objectstack-ai/objectui#2803 (dedupe pass that this extends).\n\n_Filed as the single follow-up left open from the #2762 sweep._"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2922,
+  "kind": "pull_request",
+  "title": "fix(runner): type-check the package at all, fix the hidden `DataSource` violation (#2917)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T12:00:14Z",
+  "updated_at": "2026-07-28T12:07:43Z",
+  "closed_at": "2026-07-28T12:07:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T12:07:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2922",
+  "body": "Closes #2917. First follow-up off the #2915 sweep, taking the highest-risk item first.\n\n## It is not broken at runtime — #2917's risk assessment was wrong\n\nI wrote that issue, and its \"likely broken at runtime\" claim does not survive contact with the code. Corrected [in a comment there](https://github.com/objectstack-ai/objectui/issues/2917#issuecomment-5103808688):\n\n- The line is `import **type** { … }` — erased before it can fail.\n- The one value import, `emulateBatchTransaction`, **does** exist (`core/src/adapters/index.ts:16`, re-exported via `core/src/index.ts:24`).\n- `MockDataSource` is **unreferenced anywhere in the repo**; `App.tsx` has no data-source wiring at all.\n\nSo this is a correctness and reference-quality fix, not an outage.\n\n## What the missing type-check actually hid\n\n`DataSource` / `BatchTransactionOperation` were imported from `@object-ui/core`, which does not export them — they live in `@object-ui/types`. Because that import never resolved, **`class MockDataSource implements DataSource` was silently a no-op.**\n\nThree separate commits then maintained the class *as if* it were verified — `62b9ab510` added `batchTransaction`, `09d9669c7` made `getObjectSchema` required, `5527388b0` added input validation. With the `implements` clause inert, a real contract violation survived all three:\n\n```ts\nasync find(resource: string, params?: any): Promise<any[]> { return []; }\n```\n\n`DataSource.find` returns a `QueryResult` envelope, not a bare array. TS says it plainly once the import is fixed:\n\n```\nProperty 'data' is missing in type 'any[]' but required in type 'QueryResult<any>'\n```\n\nThe file's doc comment invites you to use it as the starting point for your own adapter (*\"在真实项目中，你会在这里使用 fetch/axios 调用你的 API\"*), so anyone who did would hand every consumer an array whose `.data` and `.total` are `undefined`. **A wrong reference implementation is worse than none** — that's the real defect.\n\n## The tsconfig, and a second correction\n\n#2917 said to mirror `packages/plugin-list`. That's a library shape. `runner` is a **Vite app**, so `apps/console` is the right peer:\n\n- `bundler` resolution + `allowImportingTsExtensions` — for `import App from './App.tsx'`\n- `types: [\"vite/client\"]` — for `import.meta.glob` in `MetadataLoader` and the `./index.css` side-effect import\n- **standalone, not extending the root config** — so the root `paths` are never inherited, workspace deps resolve through built `.d.ts`, and the TS6059 `rootDir` class of error cannot arise at all. No `paths` override needed, unlike the library packages in #2915.\n\nWith a tsconfig in place the real error count is **10, not 14** — four of the original were artifacts of having none.\n\n## Changes\n\n| | |\n|---|---|\n| `packages/runner/tsconfig.json` | new, app-shaped (see above) |\n| `mockDataSource.ts` | types imported from `@object-ui/types`; `find()` returns `Promise<QueryResult>` as `{ data: [], total: 0 }`; 6 unused params prefixed `_` |\n| `LayoutRenderer.tsx` | unused `Circle` icon import dropped |\n| `packages/runner/package.json` | `\"type-check\": \"tsc --noEmit\"` |\n| `scripts/check-type-check-coverage.mjs` | `runner` DEBT entry deleted |\n\nCoverage **35 → 36 of 45**; outstanding errors **46 → 32**.\n\n## Verification\n\nProven the gate genuinely covers the package rather than trusting the green — injecting a type error into `runner/src/App.tsx`:\n\n```\nFailed:    @object-ui/runner#type-check\n```\n\nThat was impossible before this PR. Restored via `cp` (not `git checkout`, which would clobber uncommitted work) and confirmed no residual diff.\n\n- `pnpm type-check --force` — **71/71, zero cached** (70 before; runner's task is new)\n- `pnpm build` — 43/43\n- `pnpm test` — **7847 passed**, 24 skipped, 663 files, **0 failures**\n- `node scripts/check-type-check-coverage.mjs` — green at 36/45\n\nNo changeset entry for a behaviour change to consumers: `MockDataSource` is unimported, so it is tree-shaken out of the app bundle and no published artifact changes shape.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

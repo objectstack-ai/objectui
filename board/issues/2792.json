@@ -1,0 +1,30 @@
+{
+  "number": 2792,
+  "kind": "issue",
+  "title": "kanban: 状态不匹配任何列的记录静默消失,底部计数与列内卡片数矛盾",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-23T16:01:38Z",
+  "updated_at": "2026-07-24T14:32:21Z",
+  "closed_at": "2026-07-24T14:32:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2792",
+  "body": "## 现象\n\nKanban 视图中,状态值不匹配任何看板列的记录会**静默消失**,同时底部计数仍把它算进去,形成「计数 N 条 vs 列内 0 卡」的矛盾展示。\n\n实测(showcase `showcase_task` 的 All Views 页,2026-07-23):\n\n- Grid 视图:1 条任务(App wireframes,状态「已完成」)\n- 切到 Kanban:四列(待规划/待办/进行中/评审中)全部 0 卡、显示「暂无卡片」,**底部却显示「1 条记录」** —— 那条「已完成」任务不属于任何列,整板看起来像丢数据\n- 手工新建 3 条状态匹配的任务后,看板渲染完全正常 → 渲染器没坏,缺的是列外记录的兜底\n\nHotCRM 的 Sales Pipeline(7 列)在种子缺失时同样呈现整板空 +「7 columns」空态,无任何「为什么是空的」线索。\n\n## 为什么值得修(即便种子修好)\n\n种子侧根因已有 framework#3415(FSM initialStates 静默拒绝种子,只活下来这 1 条)在跟。但**用户自己的数据**同样会出现列外状态:管理员改了 select options、导入了历史数据、或 kanban 列子集本来就是刻意设计。这些场景下记录消失且计数矛盾,用户的第一反应都是「丢数据了」。\n\n## 建议\n\n1. 列外记录给兜底列(「未分类」)或至少提示条:「N 条记录未显示:状态不在当前看板列中」;\n2. 底部计数与可见卡片语义对齐(或注明差异);\n3. live smoke(showcase-smoke)加「看板至少 1 张卡」断言,把这类空板从 marquee 页面上拦住。\n\n---\n*来源:framework 内部培训 PPT 制作过程中的 dogfood(浏览器实测)。*\n"
+}

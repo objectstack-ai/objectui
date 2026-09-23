@@ -1,0 +1,33 @@
+{
+  "number": 2751,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-mdx from 15.0.13 to 15.2.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T08:18:00Z",
+  "updated_at": "2026-07-20T08:30:59Z",
+  "closed_at": "2026-07-20T08:27:03Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-20T08:27:03Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2751",
+  "body": "Bumps [fumadocs-mdx](https://github.com/fuma-nama/fumadocs) from 15.0.13 to 15.2.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/fuma-nama/fumadocs/releases\">fumadocs-mdx's releases</a>.</em></p>\n<blockquote>\n<h2>fumadocs-mdx@15.2.0</h2>\n<h3>Support Macro API</h3>\n<p>Use <code>fumadocs-mdx/macro</code> to define collections, and enable the macro-style API from bundler plugin (e.g. <code>createMDX</code>) using the <code>include</code> option.</p>\n<h2>fumadocs-mdx@15.1.1</h2>\n<h3>Migrate from <code>js-yaml</code> to <code>yaml</code></h3>\n<h2>fumadocs-mdx@15.1.0</h2>\n<h3>Default to Base UI</h3>\n<p>Internal packages &amp; templates now use Base UI rather than Radix UI.</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/52af6cf292efe62c5d547dea1affdcdd4e92e988\"><code>52af6cf</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3416\">#3416</a> from fuma-nama/tegami/version-packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/efc9d18402ae038675bf9eda5526f0e96a0c0cad\"><code>efc9d18</code></a> chore(mdx): bake passthroughs into runtime module</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/368a92e3a26bf2a945f4af8d789c617d577bcfb1\"><code>368a92e</code></a> feat(mdx): macro collection-level last modified time</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/13dfdbc224421f8348af34e8f60a214d2572ab0d\"><code>13dfdbc</code></a> feat(mdx): no longer require include for macros</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/63623320b52c4b4412d7be2b650098b7c2ecf8fb\"><code>6362332</code></a> test macro API on vite</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/126a74d9950066757f5ca0f6e131e7dce8475e93\"><code>126a74d</code></a> fix(ui): fix accessibility of sidebar components</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/430254caaba508ef3f5961b665b7f36ed5d2b095\"><code>430254c</code></a> fix(mdx): fix file check</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/1862822aa5daeaab1115a12fd0b5ac86e797b415\"><code>1862822</code></a> feat(mdx): redesign macro infrastructure</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/d3710a9614bf04321942e8b3cdbd0a451fa8a780\"><code>d3710a9</code></a> fix(openapi): fix invalid generated request</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/ba78b0177b9e59c7f29497776d2949cf17320abb\"><code>ba78b01</code></a> fix(ui): correct prop types</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs-mdx@15.0.13...fumadocs-mdx@15.2.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

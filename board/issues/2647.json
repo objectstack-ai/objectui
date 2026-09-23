@@ -1,0 +1,32 @@
+{
+  "number": 2647,
+  "kind": "pull_request",
+  "title": "perf(test): run the `unit` project with isolate:false",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T03:56:47Z",
+  "updated_at": "2026-07-18T04:00:39Z",
+  "closed_at": "2026-07-18T04:00:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T04:00:38Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2647",
+  "body": "接 #2644。这是从 isolate 基准里跑出来的、**零风险可立即落地**的那一刀。\n\n## 背景\n\n`isolate: true` 下每个测试文件都在全新的模块注册表里重新求值自己的模块图。`dom` 系项目**必须**这样(它们会跨文件泄漏 ComponentRegistry 覆盖和 happy-dom 节点),但 `unit` 项目是 **node-env 纯逻辑**,没有这类共享可变状态。\n\n只对 `unit` 放开隔离,worker 就能在其文件间共享一张模块图。\n\n## 收益(实测,10 核本机)\n\n| unit 项目单跑 | isolate:true | isolate:false |\n|---|---|---|\n| Duration | 38s | **12s(3.2×)** |\n| import 累计 | 233s | **31s** |\n\n这是本地 `vitest run --project unit` / watch 逻辑 TDD 的实打实提速。**全套件/CI wall 几乎不动**(108 vs 124,`dom` 项目封顶且并行跑)—— 所以这是**开发体验的赢,不是 CI 的赢**;CI 的赢要靠单独跟踪的 DOM hermetic 化专项。\n\n## 验证(重点:证明是真 hermetic,不是碰巧顺序对)\n\n`isolate:false` 最大的风险是「跑一次绿、之后偶发 flake」。所以没只跑一次:\n\n- **plain + 3 个随机 seed**(`--sequence.shuffle`,seed 1 / 42 / 98765)——241 文件 / 3215 测试**每次全绿**,乱序下零失败。\n- 全套件不变:566 文件 / 6894 测试(6870 pass + 24 skip)。\n- CI 本身会在 4 个分片里以不同切分再跑一遍,等于额外的顺序扰动。\n\n`dom` / `dom-heavy` 保持 `isolate: true` 不动。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

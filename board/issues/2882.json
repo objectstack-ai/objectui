@@ -1,0 +1,34 @@
+{
+  "number": 2882,
+  "kind": "pull_request",
+  "title": "refactor(types): retire the hand-written @objectstack/spec/ui sub-schema mirrors (#2231 phase 2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T01:38:11Z",
+  "updated_at": "2026-07-28T02:07:46Z",
+  "closed_at": "2026-07-28T02:07:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T02:07:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2882",
+  "body": "## Summary\n\nPhase 2 of #2231 (after #2622 derived `ListViewSchema` and #2636 the spec-bridge types): every zod schema still carrying a *\"Mirrors @objectstack/spec/ui X\"* header is now the spec's schema **by reference**, so the mirror class of drift is structurally gone.\n\n## What changed\n\n**`packages/types/src/zod/objectql.zod.ts`**\n- `HttpMethodSchema`, `HttpRequestSchema`, `ViewDataSchema`, `SelectionConfigSchema`, `PaginationConfigSchema` → direct re-exports of the spec schemas.\n- `ListColumnSchema` → derived: spec base + the two sanctioned objectui-only extensions:\n  - `prefix` — compound-cell rendering, read by `ObjectGrid` (`packages/plugin-grid/src/ObjectGrid.tsx` reads it via `(col as any).prefix`, i.e. the TS type is already the spec's — this field should be **promoted into the spec** next);\n  - `summary` — broadened to spec `ColumnSummarySchema` ∪ the `{ type, field }` object form `useColumnSummary` supports.\n\n**`packages/types/src/zod/theme.zod.ts`**\n- `ColorPaletteSchema`, `TypographySchema`, `SpacingSchema`, `BorderRadiusSchema`, `ShadowSchema`, `BreakpointsSchema`, `AnimationSchema`, `ZIndexSchema`, `ThemeModeSchema`, `ThemeLogoSchema` (spec `ThemeSchema.shape.logo` unwrapped), `ThemeDefinitionSchema` → all resolve to the spec's schemas. The TS type side (`Theme` etc. in `theme.ts`) already came from the spec; this aligns the runtime validators with it.\n\n**Drift guard** — new `spec-subschema-parity.test.ts` asserts **reference identity** (`toBe`) for every re-export and pins `ListColumnSchema`'s derivation + sanctioned-local set. A faithful copy fails too: a copy is a fork.\n\n## Validation deltas picked up from the spec (drift the mirrors had accumulated)\n\n- `ViewDataSchema` gains the spec's 4th `provider: 'schema'` variant (schema-bound forms) and discriminated-union errors.\n- `HttpRequestSchema.body` is the spec's `z.unknown()` (superset of the old record/string/FormData/Blob union); `method` defaults to `'GET'` on parse.\n- `SelectionConfigSchema.type` defaults to `'none'`; `PaginationConfigSchema.pageSize` is positive-int, default `25` on parse.\n- `ListColumnSchema.summary` accepts the full spec aggregation vocabulary (`count_empty`, `count_unique`, `percent_filled`, …) but **no longer accepts arbitrary strings** — unknown aggregations fail validation instead of silently rendering nothing.\n- `AnimationSchema.timing` keys are the spec's snake_case (`ease_in`) — the runtime consumer (`usePageTransition`) already used snake_case; the mirror's camelCase was dead drift.\n- `ThemeDefinitionSchema` gains `density`/`wcagContrast`/`rtl`/`touchTarget`/`keyboardNavigation`; `mode` default follows the spec (`'light'` — the mirror had drifted to `'auto'`; no runtime parse-site depends on the default).\n\n## Audit of the five per-view-type configs (NOT migrated — documented for the next phase)\n\n`kanban`/`calendar`/`gantt`/`gallery`/`timeline` stay local overrides: each differs from the spec in **vocabulary or requiredness**, so they're legacy-vocabulary migrations (read-site changes + stored-metadata normalizer), not reference swaps:\n\n| config | objectui-only | spec-only / narrower |\n|---|---|---|\n| kanban | `groupField`, `titleField`, `cardFields` | `groupByField`, `summarizeField`, `columns` (required) |\n| calendar | `defaultView` | `colorField`; `titleField` required |\n| gantt | — | 13 extra fields; `titleField` required |\n| gallery | `imageField`, `subtitleField` | `coverFit`, `cardSize`, `visibleFields` |\n| timeline | `dateField` | `groupByField`, `colorField`, `scale`; `startDateField`/`titleField` required |\n\n## Verification\n\n- `@object-ui/types`: `tsc --noEmit` 0 errors; unit tests **14 files / 212 tests** green (incl. both parity guards); changed files lint-clean.\n- Consumers: unit project (app-shell `view-schema`, plugin-grid, plugin-list, core) **65 files / 1155 tests** green; dom project (plugin-grid, plugin-list, app-shell metadata-admin) **86 files / 705 tests** green.\n\n## Remaining #2231 follow-ups (not in this PR)\n\n- Promote `ListColumn.prefix` (and the `summary` object form) into `@objectstack/spec`.\n- Legacy vocabulary at read-sites (`show*`→`userActions`, `fields`→`columns`, `filters`→`filter`, `objectName`→`data.provider:'object'`); per-view-type configs per the audit above; `ObjectViewSchema`/`DetailViewSchema` (spec counterparts are not 1:1 — needs its own audit).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01V3EDGLKNvbcpDTLzyiAd3Q)_"
+}

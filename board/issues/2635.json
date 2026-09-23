@@ -1,0 +1,33 @@
+{
+  "number": 2635,
+  "kind": "pull_request",
+  "title": "feat(console): dev-seeded admin credentials hint on the login page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T09:53:47Z",
+  "updated_at": "2026-07-17T11:29:05Z",
+  "closed_at": "2026-07-17T11:29:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T11:29:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2635",
+  "body": "## 问题(framework 15.1 第三方评估 P2 #4 前端侧)\n\ndev 模式空库自动 seed `admin@objectos.ai/admin123`,但登录页毫无提示——新用户去「注册」,掉进普通角色的「还没有应用」空工作区。\n\n## 实现\n\n- `LoginPage` 复用现有 `getAuthConfig()` effect 读取新的 `devSeedAdmin` 字段(framework#3108 加入 `/api/v1/auth/config`,**服务端门控**:仅 `NODE_ENV==='development'` 且 seed 账号仍是默认密码时存在;生产由构造保证绝不出现,改密后一次重启即消失)\n- 登录卡上方渲染琥珀色 `role=\"status\"` 横幅:「开发实例 / 可使用内置的开发管理员登录:`admin@objectos.ai` / `admin123`」,凭据等宽 code 呈现\n- 可关闭,`localStorage['os.console.devAdminHintDismissed']` 按浏览器持久化\n- i18n:`auth.login.devAdminHint.*`(en + zh,其余 locale 走 defaultValue 回退)\n\n## 验证\n\n- 真浏览器(console dev :5180 → 真实 fresh 后端):横幅渲染截图 ✓ / 点击关闭消失且 reload 后仍隐藏 ✓ / 清除标记后恢复 ✓ / 无 `devSeedAdmin` 时不渲染 ✓\n- vitest 新增 3 例(渲染凭据 / 生产 config 不渲染 / 关闭+localStorage 持久化),auth 页测试 9/9 绿\n\n配套框架 PR:objectstack-ai/framework#3108(后端字段 + 终端 banner 持久化)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2902,
+  "kind": "issue",
+  "title": "DetailView「审批中已锁定」band 不读节点 lockRecord:lockRecord:false 的审批节点上照样显示锁定 + 撤回",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T05:36:26Z",
+  "updated_at": "2026-07-28T07:20:35Z",
+  "closed_at": "2026-07-28T07:20:35Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2902",
+  "body": "## 现象\n\n一条 `record_change` flow 串了多个 `approval` 节点,各节点 `lockRecord` 配置不同时:\n\n- **服务端行为是正确的** —— `lockRecord: false` 的节点上记录可以正常编辑保存(`plugin-approvals` 的 `beforeUpdate` 锁钩子里明确 `if (config?.lockRecord === false) return;`)。\n- **但 Console 记录详情页顶部的「审批中已锁定 / Locked for approval」band + 「撤回审批 / Recall approval」按钮,在所有 pending 节点上都照常渲染,不区分当前节点的 `lockRecord`。**\n\n结果是:同一个 band 在「记录能改」和「记录被锁死」两种完全相反的状态下长得一模一样,用户无法从界面区分。\n\n## 复现\n\n1. 定义一个 `record_change` flow,串两个 approval 节点:\n   - 节点 A:`lockRecord: false`\n   - 节点 B:`lockRecord: true`\n2. 提交审批,流程停在节点 A。\n3. 打开该记录的详情页。\n\n**实际**:顶部渲染「Locked for approval」band 和「Recall approval」按钮。但从「编辑」进去改任意字段并保存 —— **保存成功,值正常落库**。\n\n4. 审批通过,流程进入节点 B。再次打开详情页 —— **band 与节点 A 完全一致**,但此时编辑保存会被服务端拒绝:\n   `RECORD_LOCKED: record is locked while an approval is in progress`\n\n**预期**:当前 pending 节点的 `lockRecord` 为 `false` 时不应渲染锁定 band;或者至少让文案区分「审批中(可编辑)」与「审批中已锁定」两种状态。\n\n## 影响\n\n提示与平台自身的行为不一致 —— 平台明明支持按节点关闭锁、而且这个开关真的生效,但 UI 不读它。\n\n实际业务里的表现:审批链上的单人节点(部门负责人 / 厂长)通常配 `lockRecord: false`,本意就是允许审批人在审批时补充内容;但审批人看到「已锁定」就不会去尝试编辑,这个能力等于不存在。反过来,真正锁死的并行会审节点,用户又得点进编辑表单填完一屏,才在点保存时被服务端拒掉。\n\n我们这边测试同学据此得出了「整个审批流程都会锁记录」的结论,与实际情况不符,排查花了不少时间。\n\n## 定位线索\n\n- band 渲染在 `packages/plugin-detail`(DetailView approval band,参见 `src/__tests__/DetailView.approvalBand.test.tsx`),i18n key `detail.lockedByApproval`\n- 相关历史改动:#2618 `fix(detail): show the \"Locked for approval\" band on request-tracked backends` —— 该次修复让 band 在「存在 pending approval request」时显示,疑似未带上节点 `lockRecord` 的判定\n- 服务端权威判定在 objectstack `packages/plugins/plugin-approvals/src/lifecycle-hooks.ts`;节点配置快照已经存在 `sys_approval_request.node_config_json` 里,band 可以从同一来源读出 `lockRecord`,不需要额外接口\n\n## 环境\n\n- `@objectstack/plugin-approvals` 16.1.0\n- Console(objectui)随该版本\n"
+}

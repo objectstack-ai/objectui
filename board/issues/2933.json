@@ -1,0 +1,35 @@
+{
+  "number": 2933,
+  "kind": "pull_request",
+  "title": "refactor(views): ListView resolves density from the spec-canonical `rowHeight` (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T15:57:19Z",
+  "updated_at": "2026-07-28T16:03:35Z",
+  "closed_at": "2026-07-28T16:03:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T16:03:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2933",
+  "body": "Second rename in #2890 scope A: **`densityMode` → `rowHeight`**, folded in the same `normalizeListViewSchema` that #2932 introduced.\n\n## Not a pure alias\n\nUnlike `fields`/`columns`, the two vocabularies are **different sizes**: the spec has five row heights (`compact`/`short`/`medium`/`tall`/`extra_tall`), ListView's toolbar offers three densities (`compact`/`comfortable`/`spacious`). Both directions now live in one place —\n\n- `DENSITY_MODE_TO_ROW_HEIGHT` (widening, used by the fold and by persistence)\n- `ROW_HEIGHT_TO_DENSITY_MODE` + the tolerant `rowHeightToDensityMode()` reader (narrowing, used by the renderer)\n\n— chosen so a fold followed by a read is a **round trip** (`spacious` → `tall` → `spacious`), with the lossy collapse (`short` → `compact`, `extra_tall` → `spacious`) stated once instead of re-derived per call site. Tests pin both properties.\n\n## Two behavior fixes fall out of it\n\n1. **The precedence was inverted.** `ListView`'s `resolvedDensity` read `densityMode` *first*, so a view carrying both keys rendered the **legacy** value — backwards from every other legacy/canonical pair in the schema (`columns` beats `fields`, `userActions` beats the `show*` flags). The canonical key wins now. The test that asserted the old order (`should prefer densityMode over rowHeight`) is inverted accordingly, and a companion test pins that a legacy-only view still resolves through the fold.\n2. **The toolbar was re-seeding the legacy key.** `ObjectView`'s `onDensityChange` persisted `densityMode` into stored view metadata on *every* density toggle — so the legacy vocabulary kept regrowing underneath the migration, and stored views drifted into carrying both. It persists `rowHeight` now.\n\n`densityMode` stays declared on `ListViewSchema` and in the drift guard's sanctioned set — stored views carry it and it is still valid input — but it is **input-only**.\n\n## Verification\n\n- `normalize-list-view.test.ts` +5 tests: fold, canonical-wins, unrecognized-value passthrough, and the two vocabulary-size properties (round trip in the widening direction, total coverage in the narrowing one).\n- `ListView.test.tsx`: the precedence test inverted, plus a legacy-only fold test.\n- 274 test files / 2668 tests across `core`, `types`, `plugin-list`, `plugin-view`, `app-shell` pass; `turbo run type-check` over the four touched packages (32 tasks) passes; ESLint 0 errors.\n\nStacked on #2932 (merged); rebased onto `main`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

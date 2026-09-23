@@ -1,0 +1,32 @@
+{
+  "number": 2682,
+  "kind": "issue",
+  "title": "plugin-gantt: auto-schedule ignores self-dated summaries & writes without confirming; export draws phantom group bars, no in-bar titles, opaque filenames; charts render in the viewer's time zone",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T12:03:10Z",
+  "updated_at": "2026-07-19T14:37:48Z",
+  "closed_at": "2026-07-19T14:37:48Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2682",
+  "body": "Follow-up batch to #2676 / #2677, all reproduced live on the 4-level 排班计划 tree (project/product groups → self-dated summary plans → locked dispatch leaves).\n\n## 1. Reschedule skips every parent task — and the toolbar wand writes without asking\n\n`computeProjectReschedule` treats EVERY parent as a derived rollup (`if (summaries.has(id)) continue`), so under `summaryExtent: 'self'` a plan that has dispatch children is silently immune to auto-schedule and to the post-drag conflict cascade — the scheduling twin of the editability gap fixed in #2677. Also the toolbar auto-schedule button commits the bulk reschedule immediately, while the drag-conflict path already asks first (\"Auto-reschedule N affected tasks?\") — an in-component inconsistency for the more impactful action. And pushed starts don't snap to shift-band boundaries (班次边界), so a successor can be scheduled mid-band.\n\n## 2. Export defects (导出内容异常 + 文件名)\n\n- PNG/PDF export draws a rollup bar for every parent row including pure grouping levels (type 'group' — 项目/产品) that the live chart renders bar-less → phantom full-span bars.\n- Bars export as bare color blocks: no in-bar titles (live chart shows 计划名 on summaries, executor on leaves).\n- Filenames are an opaque `gantt-week.png` — no business context, repeated exports overwrite each other.\n\n## 3. Charts render in the viewer's browser time zone (班次错位)\n\nAll calendar math — shift bands, day columns, drag snapping, today line, date labels — uses the viewer's local zone. A plan starting 7/20 08:00 Beijing displays as \"7/19 evening\" in a UTC-7 browser, bands misalign, and drags land on misaligned instants. Business shifts are a wall-clock fact of one zone; the chart needs a project time zone (MS Project model).\n\n## Fix direction (PR follows)\n\n- `computeProjectRescheduleDetailed`: self-extent own-dates summaries shift like tasks and carry their unlocked subtree (group-drag semantics, 顺延-only max rule); locked violators reported as skipped; `snapStart` hook for band snapping; back-compat wrapper.\n- Toolbar wand: compute → confirm dialog (\"shift N task(s)? M locked skipped\") → apply; transient notice when clean.\n- Export: skip group rows, draw ellipsis-truncated in-bar titles (CJK-aware width), filenames `<gantt.exportFileName|object label|API name>-<yyyyMMdd-HHmm>.<ext>`.\n- New `gantt.timeZone` (IANA): shifted-clock shim renders the configured zone's wall time for every viewer; writes translate back to real instants; DST-safe; omitted = unchanged."
+}

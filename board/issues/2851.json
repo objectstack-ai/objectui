@@ -1,0 +1,32 @@
+{
+  "number": 2851,
+  "kind": "issue",
+  "title": "系统设置多页面未国际化 (Setup / 系统设置 i18n 缺口)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:24:31Z",
+  "updated_at": "2026-07-27T14:51:02Z",
+  "closed_at": "2026-07-27T11:05:35Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2851",
+  "body": "## 问题\n\n在中文（zh）环境下打开「系统设置 / Setup」，多个页面出现英文未翻译文案，中英混排。用户截图涵盖：Installed Apps、Cloud Connection、Connect an Agent、Settings（设置总览 Hub）、认证（Auth）设置、功能开关、Datasources、审批相关空态等。\n\n排查后发现根因分三类，横跨 **objectui（console）** 与 **framework**：\n\n---\n\n### A. framework — 内置设置翻译包过时/缺项（解析器已就绪，只差译文）\n\nconsole 的 `apps/console/src/pages/settings/SettingsView.tsx` + `useSettingsLabel.ts` 已经按约定解析 `settings.<namespace>.keys.<key>.label/help` 等；`mail`/`branding` 等能正常显示中文，说明管线是通的。缺的是 **framework `packages/services/service-settings/src/translations/{zh-CN,ja-JP,es-ES}.ts` 未跟上 manifest 新增字段**。\n\n已核实 **auth** 缺口（对应「认证」页那批英文）：\n- 缺分组：`anti_abuse`、`multi_factor`、`network`\n- 缺字段(约 15 个)：`password_reject_breached`、`password_require_complexity`、`password_min_classes`、`password_history_count`、`password_expiry_days`、`lockout_threshold`、`lockout_duration_minutes`、`rate_limit_max`、`rate_limit_window_seconds`、`mfa_required`、`mfa_grace_period_days`、`session_idle_timeout_minutes`、`session_absolute_max_hours`、`max_concurrent_sessions_per_user`、`allowed_ip_ranges`（含各自 help）\n\n> 待办：对 **所有 namespace（ai / knowledge / storage / sms / localization / company / feature_flags / auth …）× 所有 locale** 做一次 manifest↔译文 parity 审计，补齐缺口。可加脚本/测试防回归。\n\n### B. objectui(console) — 设置总览 Hub 与部分页面硬编码英文\n\n`apps/console/src/pages/settings/SettingsHub.tsx` 未接 i18n：\n- L52 标题 `Settings`、L53 副标题 `Configure your workspace, integrations, and feature flags.` 硬编码\n- L82 分类小标题直接渲染 `{category}`（manifest 的英文 `category`：Workspace/Communication/Security/Infrastructure/Beta），无翻译\n- L98 卡片标题走 `resolveLabel(m.label)`（只取 defaultValue，非 i18n）；L100 卡片描述 `m.description` 原样\n- L75 / L96(Beta) / L105 `{n} setting(s)` 等文案硬编码\n\n`apps/console/src/pages/settings/types.ts` 的 `resolveLabel` 只回退到 `defaultValue`，未查 i18n。\n\n其它 console 页面：\n- `apps/console/src/pages/.../DatasourceResourcePage.tsx`（数据源）：\"Datasources / Connect external databases… / No datasources yet…\" 硬编码\n- 需复核各 SDUI widget（InstalledListWidget / CloudConnectionPanel / ConnectAgentWidget）正文，部分已 i18n。\n\n### C. framework — 自定义 Page 的 `page:header` 无 i18n 机制（需设计）\n\n以下页面标题/副标题写死在 metadata 的 `page:header` 组件 properties 里，**当前 i18n-resolver 无 pages/组件级解析**（`packages/spec/src/system/translation.zod.ts` 有 `pages` 命名空间但无解析器落地）：\n- `packages/cloud-connection/src/marketplace-ui.ts` — Installed Apps\n- `packages/cloud-connection/src/cloud-connection-ui.ts` — Cloud Connection\n- `packages/mcp/src/connect-ui.ts` — Connect an Agent\n\n需决策：给 `page:header`（或 pages 命名空间）补一条翻译解析链路，或由 console 侧本地化已知系统页。\n\n---\n\n### 已在 framework main 修复、仅 console 过时（截图偏旧）\n\n审批空态（`sys_approval_request` / `sys_approval_action`）与 feature_flags 各 key 的 zh 译文在 framework main 已存在（`plugin-approvals` 生成包、service-settings zh-CN），screenshot 的英文是旧 console 构建所致，随 console 重建即修复，不重复改。\n\n## 方案 / 拆分\n\n- [x] **P1（framework）** 补齐 service-settings 各 locale 缺失译文（先 auth，再全 namespace parity 审计）+ 防回归测试\n- [x] **P2（objectui）** SettingsHub + Datasource 等 console 硬编码接 i18n；category 分类标题加翻译；resolveLabel 走 i18n\n- [ ] **P3（framework，需设计）** 自定义系统页 page:header i18n → 已拆分单独跟踪:objectstack-ai/objectstack#3589\n- [ ] 复核其余 SDUI widget 正文 i18n 覆盖\n\n> 平台仓库：不往仓库塞截图/测试报告等杂物；验证走各仓库正式测试/CI。\n"
+}

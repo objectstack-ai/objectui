@@ -1,0 +1,32 @@
+{
+  "number": 2614,
+  "kind": "issue",
+  "title": "Row CRUD actions (Edit/Delete) should support per-record visible/disabled CEL predicates",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T14:32:32Z",
+  "updated_at": "2026-07-16T16:33:28Z",
+  "closed_at": "2026-07-16T16:33:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2614",
+  "body": "## Summary\n\nThe built-in **row CRUD action buttons** (Edit / Delete) rendered by the list/grid view do **not** support per-record predicates. Their visibility is derived from `resolveCrudAffordances(object)` — i.e. object-level booleans (`managedBy` + `userActions.{edit,delete}`) — so an author cannot express \"hide/disable the Edit button **for this row** when a CEL condition on the record is true\".\n\nRequest: let the built-in row actions accept per-record `visibleWhen` / `disabledWhen` CEL predicates, evaluated per row against `record.*` — the same evaluation machinery already used for custom actions' `visible` / `disabled`.\n\n## Why the current channels can't cover it (two-channel gap)\n\n| Channel | per-record CEL (`visible`/`disabled`) | can open the native edit form |\n| --- | --- | --- |\n| **Built-in Edit/Delete row actions** | ❌ object-level boolean only (`resolveCrudAffordances`) | ✅ |\n| **Custom row action `type:'form'`** | ✅ supports `visible`/`disabled` CEL | ❌ `/api/v1/forms/:name` returns 404 in current builds → empty shell |\n\nNet: **the button that can edit can't be gated per-record; the button that can be gated per-record can't open the editor.** They can't be combined, so there is no author-level way to conditionally hide/disable the edit affordance for a subset of rows.\n\n## Concrete downstream case\n\nProduct: `os-project-titanwind-ehr` (single-tenant MES). Object `task_version_check_item` is a **frozen snapshot** once its parent `task_version` is `published`/`deprecated`. Server-side hooks (`beforeUpdate` / `beforeDelete`) already **reject** mutations on frozen rows, so data integrity is safe. But the list grid shows the **built-in Edit button identically enabled** on frozen and draft rows — the user only discovers the record is immutable **after** editing and clicking Save (server rejection toast), instead of the button being pre-emptively hidden/disabled.\n\nDownstream issue with full real-machine evidence (4 screenshots + DB-truth assertions): `steedos-labs/os-project-titanwind-ehr#431`.\n\n### Screenshots (from the downstream issue)\n\n1. List — draft rows (v2) and frozen rows (v3, published) look identical, same `⋯` menu.\n2. Frozen row `⋯` menu — **Edit + Delete both dark/enabled**, no difference from a draft row.\n3. Clicking Edit — the frozen record opens the **full native edit form, all fields editable**, no frozen indication.\n4. Clicking Save — server hook rejects with a toast (the only signal the record was immutable).\n\n## Proposed API\n\nAccept optional per-action predicates on the built-in CRUD affordances. Either surface works; a view-level declaration is the least intrusive:\n\n```ts\n// List/grid view\nlist: {\n  type: 'grid',\n  rowActions: {\n    edit:   { disabledWhen: P`record.frozen == true`,   // or hideWhen\n             hideWhen: P`...` },\n    delete: { hideWhen:     P`record.frozen == true` },\n  },\n}\n```\n\nor on the object's `userActions`:\n\n```ts\nuserActions: {\n  edit:   { enabled: true, disabledWhen: P`...`, visibleWhen: P`...` },\n  delete: { enabled: true, visibleWhen:  P`...` },\n}\n```\n\nSemantics:\n- `visibleWhen` / `hideWhen` false → the row's built-in button is **not rendered** for that row.\n- `disabledWhen` true → rendered but **disabled** (greyed, non-clickable) for that row.\n- Evaluated per row against `record.*`, using the existing CEL evaluator (same one already applied to custom actions).\n- **Backward compatible:** omit the predicate → today's object-level boolean behavior, zero regression.\n\n## Note on evaluation context (master_detail parent)\n\nIn the downstream case the immutability lives on the **parent** (`task_version.status`), but a `master_detail` child returns the parent as a **scalar id** (not expanded), so a predicate like `record.task_version.status == 'published'` can't traverse it. Two acceptable resolutions:\n1. Authors denormalize a boolean/status onto the child and gate on `record.<denormalized>` (works with just this feature), **or**\n2. the row-action evaluation context resolves/injects the parent record so predicates can reference `record.<parent>.<field>` (nicer, optional follow-up).\n\nFeature (1) alone unblocks the use case; (2) is a quality-of-life extension.\n\n## Acceptance\n\n- A grid row's built-in Edit/Delete button can be hidden or disabled per row via a CEL predicate.\n- Omitting the predicate preserves current object-level behavior (no regression).\n- The predicate evaluates against `record.*` with the standard CEL stdlib.\n"
+}

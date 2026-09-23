@@ -1,0 +1,33 @@
+{
+  "number": 2867,
+  "kind": "pull_request",
+  "title": "fix(page,field): consume the spec's type/label/maxLength keys (framework#1878 §3 recheck)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T13:58:36Z",
+  "updated_at": "2026-07-27T14:15:47Z",
+  "closed_at": "2026-07-27T14:15:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T14:15:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2867",
+  "body": "Companion to objectstack-ai/objectstack `docs/naming-drift-recheck`. Three FORWARD-DRIFTs found by rechecking the 2026-06 audit's §3 list — cases where objectui reads a different key than the spec declares, so **the author does everything right and nothing happens**.\n\n## 1 + 2. The page pair (coupled — must land together)\n\n`PageSchema` declares the page KIND as **`type`** (`record|home|app|utility|list`) and requires **`label`**. But:\n- `PageRenderer` reads `schema.pageType` with a `'record'` fallback (`page.tsx:391`) — and **nothing mapped `type` → `pageType`**. The boundary passed `type` only (`PageView.tsx:123`).\n- the region renderer reads only `schema.title`, never `label` (`page.tsx:503-507`).\n\nCoupled because the header is gated on `pageType !== 'record'` — pinned false by drift #1, so wiring `label` alone would still render no title.\n\n**Observable today in the showcase**: `capability_map` (`type:'home'`), `active_projects` (`type:'list'`) and `command_center_jsx` (`type:'home'`) all rendered as record pages — record max-width, `data-page-type=\"record\"`, no title.\n\n**Why it hid for a year**: the spec's `type` defaults to `'record'` *and* the renderer's fallback is `'record'`, so the most common page kind looked correct by coincidence.\n\nFix: `PageView` passes `pageType` alongside `type` (which must stay — `ComponentRegistry` dispatches on it), and `PageRenderer` dual-reads `title ?? label`, mirroring the fallback `DashboardRenderer` already uses.\n\n## 3. field `maxLength` / `minLength`\n\nValidation already dual-reads these (`fields/src/index.tsx:2013,2022`, citing the same #1878 closeout), but two readers were missed: `ObjectForm`'s HTML-attribute pass (`:607-608`) and `TextAreaField` (`:39`) read `max_length` only — so a spec-authored `maxLength` produced **no browser cap and no character counter**. Both now dual-read.\n\n## Verification\n\n- **Browser-verified** against the showcase: `capability_map` now reports `data-page-type=\"home\"`, `max-w-screen-2xl` and renders its `<h1>Capability Map` (screenshot in the framework PR thread). Record pages re-checked unchanged — still `data-page-type=\"record\"`, no duplicate title.\n- 625 tests green across components / app-shell / plugin-form / fields; all four packages build.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

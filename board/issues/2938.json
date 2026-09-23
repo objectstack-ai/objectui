@@ -1,0 +1,32 @@
+{
+  "number": 2938,
+  "kind": "pull_request",
+  "title": "docs(components): react-page scope comment says ObjectGrid, not the unregistered ObjectTable",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T17:21:04Z",
+  "updated_at": "2026-07-28T17:27:35Z",
+  "closed_at": "2026-07-28T17:27:32Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T17:27:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2938",
+  "body": "## Problem\n\nThe `kind:'react'` page renderer's header comment in\n[`react-page.tsx`](packages/components/src/renderers/layout/react-page.tsx)\nadvertised two identifiers that **do not exist**. An author following the\ncomment hit a wall either way:\n\n| Comment said | What actually happens |\n|---|---|\n| `<ObjectTable>` (line 22) | `ReferenceError` — surfaced as the red **\"React page error\"** panel |\n| `<Block type=\"object-table\" />` (line 26) | **\"Unknown component type\"** |\n\n## Why\n\n`buildComponentScope` (react-page.tsx:50-86) builds the injected scope by\nPascalCasing each **public, non-container** tag from the curated\n`PUBLIC_BLOCKS` contract. That list\n([public-blocks.ts:26-66](packages/core/src/registry/public-blocks.ts:26))\ncarries `object-grid` — **never** `object-table` — so the real injected\nidentifier has always been `ObjectGrid`.\n\n`object-grid` is genuinely registered, and without `isContainer`, so it\nsurvives the container filter and lands in the scope:\n\n- [`plugin-grid/src/index.tsx:55`](packages/plugin-grid/src/index.tsx:55) — `ComponentRegistry.register('object-grid', ObjectGridRenderer, {...})`\n\n## Verification that `object-table` has no registration\n\n`grep -rn \"object-table\" packages apps docs` returns only:\n\n- this doc comment (now fixed),\n- `packages/components/dist/...d.ts` — stale build output, regenerates,\n- `packages/sdui-parser` compiler fixtures (`__tests__/*`, `verify.ts`) — these\n  build their **own inline synthetic manifests** and a fake in-test\n  `ComponentRegistry.register`, and never touch the real product registry.\n\nSo nothing in the product registers `object-table`.\n\n## Change\n\nComment-only — two lines, no behavior change, no changeset (not a feature).\n\n```diff\n- *   - the PUBLIC data blocks — `<ObjectTable>`, `<ObjectForm>`, charts, metrics…\n+ *   - the PUBLIC data blocks — `<ObjectGrid>`, `<ObjectForm>`, charts, metrics…\n...\n- *   - `Block`                — escape hatch: `<Block type=\"object-table\" .../>`.\n+ *   - `Block`                — escape hatch: `<Block type=\"object-grid\" .../>`.\n```\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 2857,
+  "kind": "pull_request",
+  "title": "fix(dashboard,charts): resolve {current_user_id} in widget filters (framework #3574)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:44:14Z",
+  "updated_at": "2026-07-27T09:10:57Z",
+  "closed_at": "2026-07-27T09:10:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T09:10:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2857",
+  "body": "Runtime half of objectstack-ai/objectstack#3574. Authoring-time gate + spec vocabulary: objectstack-ai/objectstack#3594.\n\n## Why widgets never resolved the token\n\nA dashboard widget filtered on `{current_user_id}` rendered `0` — the token reached SQL as a literal, matched no row, and nothing was logged anywhere. The same token in a list-view filter resolved fine, so a user-scoped list and a user-scoped widget over the same data disagreed.\n\nThere was no shared resolver. Three ad-hoc implementations had grown up independently, each understanding only the filter shape its own surface used:\n\n| implementation | handles |\n|---|---|\n| `ObjectView.substituteFilterTokens` | **arrays only** — `if (!Array.isArray(filter)) return filter` |\n| `ObjectDataPage` inline ternary | URL `[field, op, value]` triples |\n| `NavigationRenderer.applyNavTemplate` | hrefs, never filters |\n\nThat first one is the crux: widget filters are MongoDB-style **objects**, so `ObjectView`'s helper would have been a silent no-op even if someone had thought to call it. Widgets therefore got nothing — `DatasetWidget` called `resolveDateMacros` alone, which is precisely why `{today}` worked in a widget and `{current_user_id}` silently did not.\n\n**Six widgets were affected**, not one: `DatasetWidget`, `ObjectMetricWidget`, `ObjectDataTable`, `ObjectPivotTable`, `ObjectChart` (dataset-bound and inline paths).\n\n## What changed\n\n- **`@object-ui/core`** — `utils/filter-tokens.ts`: `resolveContextTokens` plus `resolveFilterPlaceholders`, which expands *every* placeholder vocabulary in one call. That combined entry point is the actual fix for the class of bug: resolving only some vocabularies is what happened here. The walk handles arrays and plain objects uniformly, so one resolver covers both platform filter shapes.\n- **`@object-ui/react`** — `FilterScopeProvider` / `useFilterScope`. The renderer packages deliberately don't depend on `@object-ui/auth`, so the shell supplies the session values. Kept separate from `PredicateScopeContext`, which is the *expression* evaluation scope and carries no organization — widening it for filter resolution would couple two unrelated contracts.\n- **`plugin-dashboard` / `plugin-charts`** — all six widgets now resolve both vocabularies. The chart's `compareTo` comparison filter gets the session pass too; otherwise the overlay series silently ignored the owner clause the primary series honoured.\n- **`app-shell`** — `ObjectView` and `ObjectDataPage` now delegate to the shared resolver, gaining `{current_org_id}` and date macros. **Two of the three ad-hoc implementations are deleted rather than joined by a fourth.**\n\n## Behaviour on an unresolvable token\n\nLeft intact, not dropped. Leaving it yields an empty result; dropping the clause would **widen** the result set and show a signed-out viewer everyone's data. It is no longer silent — the resolver warns naming the token, and suggests the intended spelling for known near-misses (`{current_user}`, `{user_id}`, `{organization_id}`), each of which is a correct spelling somewhere else in the platform.\n\n## Verification\n\n**Live browser, real stack** (app-todo on a fresh wasm-SQLite DB, console dev server on workspace packages): a metric widget filtered on `{ owner: '{current_user_id}' }` reads **3** against Total Tasks **8**, matching exactly the three records assigned to the signed-in user. Console clean, no errors.\n\n**Regression test proven red.** `DatasetWidget.filterTokens.test.tsx` asserts on the `runtimeFilter` actually handed to `queryDataset` — the seam the bug lived at. Reverting `DatasetWidget` to `resolveDateMacros` turns 4 of its 5 cases red.\n\n**No regressions.** `core` + `react` + `plugin-dashboard` + `plugin-charts`: 1581 passing. `app-shell`: 1848 passing. `tsc --noEmit` clean on all five changed packages.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

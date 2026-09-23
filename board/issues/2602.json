@@ -1,0 +1,30 @@
+{
+  "number": 2602,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): follow the live app locale, not just navigator.language",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:03:59Z",
+  "updated_at": "2026-07-16T13:28:22Z",
+  "closed_at": "2026-07-16T13:28:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:28:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2602",
+  "body": "## Problem\nStudio/metadata-admin screens resolved their locale with `detectLocale()` — a one-shot `navigator.language` read memoised per component — so they **ignored the app language picked in the LocaleSwitcher**. A session with the console on English + a Chinese browser rendered Studio in Chinese while the rest of the app was English. Mixed-language item of the dogfood follow-ups in #2555.\n\n## Change\nMigrate every component call-site (**20 files, ~40 sites**) from `detectLocale()` to the existing reactive **`useMetadataLocale()`** hook, which follows the live i18next language (via `useObjectTranslation()`) and re-renders on `languageChanged`.\n\n- Mechanical swaps across 17 files (`React.useMemo(() => detectLocale(), [])` / bare `detectLocale()` at component tops → hook).\n- **`SchemaForm.tsx`**: hook hoisted **above** the no-schema early return (stable hook order — the pre-existing `useMemo` after that return was fragile); `SectionedSchemaForm` / `RepeaterField` hoist one hook each for their inline `t()`/`tFormat()` calls; `issuesByPath` memo deps now `[issues, locale]`.\n- **`AssignedUsersSection`**: the `zh` copy flag is now reactive (`useMetadataLocale() === 'zh-CN'`); its copy memo already depended on `[zh]`.\n- `detectLocale()` stays exported as a non-hook fallback with a JSDoc pointer to the hook.\n\nNo visible change when the app language already matches the browser; the fix is that switching the app language (or having them differ) now updates Studio in place instead of staying on `navigator.language`.\n\n## Verification\n- **0** remaining `detectLocale(` call-sites outside `i18n.ts` (grep).\n- Type-check: no new errors in touched files (only the pre-existing unbuilt-workspace `@object-ui/*` / implicit-any cascade, which CI resolves by building packages first).\n- Tests (20, all green): `studio-locale.i18n.test.tsx` (F1 — including *flips in place when the active language is switched at runtime*), `PackageFormDialog`, `EditPackageDialog`, `CreatePackageDialog.namespace`, `PackageIdInput`.\n\nCloses the mixed-language item of #2555.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

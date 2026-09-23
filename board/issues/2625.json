@@ -1,0 +1,30 @@
+{
+  "number": 2625,
+  "kind": "issue",
+  "title": "fix(auth): env 登录页首次加载缺 SSO 按钮 — auth config race 让 SSO-only 用户卡死在密码墙",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T00:48:52Z",
+  "updated_at": "2026-07-17T06:00:52Z",
+  "closed_at": "2026-07-17T06:00:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2625",
+  "body": "## 现象(staging E2E 2026-07-17,os-6zmft7.objectos.app)\n\n新环境**第一次**打开登录页时,只渲染了邮箱+密码表单——没有「Continue with ObjectStack」按钮、也没按 `ssoEnforced` 隐藏密码表单。刷新后才正确(SSO 按钮 + break-glass「Use a password instead」)。\n\n服务端无辜:当时 `GET /api/v1/auth/config` 返回完全正确(`socialProviders:[{id:'objectstack-cloud',type:'oidc'}]`,`ssoEnforced:true`)。\n\n## 影响\n\n平台 SSO(SSO-only)模式下,JIT 用户**没有密码**。首开即密码墙 = 新 builder 在「打开环境」的魔法时刻直接卡死,除非碰巧刷新。P1。\n\n## 疑似根因\n\n登录页在 auth config 加载完成前(或首次请求失败/超时后)fallback 渲染了纯密码表单,config 到达后不重渲染/不重试。env 刚 provision 时 kernel 冷启动,首个 config 请求容易慢/失败,放大了这个 race。\n\n## 修复方向\n\n- config 未就绪时渲染 loading 骨架,而非默认密码表单\n- config 请求失败自动重试(带退避)\n- config 到达后强制以 config 为准重渲染(ssoEnforced → 隐藏密码表单)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

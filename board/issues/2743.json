@@ -1,0 +1,30 @@
+{
+  "number": 2743,
+  "kind": "pull_request",
+  "title": "fix(app-shell): mark notifications read via the REST surface, not direct receipt writes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T07:46:57Z",
+  "updated_at": "2026-07-20T07:58:50Z",
+  "closed_at": "2026-07-20T07:58:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:58:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2743",
+  "body": "Console side of objectstack-ai/framework#3353 (framework PR objectstack-ai/framework#3354).\n\n## Problem\n\nClicking a bell notification never cleared its unread state. `AppHeader` wrote\nthe read receipt by calling the generic data API directly\n(`dataSource.create/update('sys_notification_receipt', …)`), but ADR-0103 made\n`sys_notification_receipt` engine-owned (`enable.apiMethods = get/list`), so\nthose writes are rejected. The failure was swallowed (best-effort `catch`) and\nthe 10s inbox poll flipped every row straight back to unread.\n\n## Fix\n\nMark-read now goes through the framework's dedicated REST surface —\n`POST /api/v1/notifications/read` with the notification **event** ids, and\n`/read/all` for mark-all — which upserts the receipt server-side. The optimistic\nUI update is unchanged; rows without a `notification_id` still update\noptimistically only.\n\nRequires the framework PR above, which both localizes the notification titles\n**and** wires those `/api/v1/notifications` routes (they existed as a dispatch\nhandler + discovery entry but were never mounted on the standalone server, so\nthey 404'd — ship the two together).\n\n## Verification\n\nDrove this build against a real showcase server: clicking \"全部标记为已读\" issued\n`POST /api/v1/notifications/read/all → 200`, receipts flipped `delivered → read`\nserver-side, and the bell badge stayed cleared across the inbox poll instead of\nresurfacing every notification as unread. `tsc` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

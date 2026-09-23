@@ -1,0 +1,33 @@
+{
+  "number": 2905,
+  "kind": "pull_request",
+  "title": "fix(i18n): the change card's Confirm button sent text the cloud gate rejects, + parity ratchet",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T06:58:43Z",
+  "updated_at": "2026-07-28T07:05:42Z",
+  "closed_at": "2026-07-28T07:05:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T07:05:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2905",
+  "body": "Two commits, both following from getting read access to `objectstack-ai/cloud` and being able to see `APPROVAL_RE` for the first time.\n\nCloses the residual unknown I flagged in #2900 — by confirming it was **a real bug, not a theoretical risk**.\n\n---\n\n## 1. The Confirm button was sending text the gate rejects\n\nThe English `console.ai.changesConfirmMessage` was:\n\n```\nConfirm the changes — apply what you just proposed.\n```\n\n`service-ai-studio/src/tools/confirm-gate.ts` `APPROVAL_RE` recognises `apply (this|the) change`. **Not** \"apply what\". So the message failed the gate — and failing it is *silent*: the agent re-proposes instead of applying, and the Confirm button on the change card simply looks inert. Nothing errors, nothing logs.\n\nThis hit English conversations **and all eight locales that fall back to English** for that key.\n\nVerified by executing the real regex against every outbound string:\n\n| key | English value | gate |\n|---|---|---|\n| `planApproveMessage` | \"Looks good — **build it as proposed**.\" | ✅ |\n| `planApproveDefaultsMessage` | \"**Build it with your best** assumptions…\" | ✅ |\n| `changesConfirmMessage` | \"…**apply what** you just proposed.\" | ❌ |\n| `planAnswerMessage` | `For \"…\", go with: …` | ✅ correctly no-match |\n\nNow `Confirm — apply the change you just proposed.` — **singular**, so it still matches if the gate ever tightens `change` to `change\\b`. The Chinese string always matched (`确认修改`) and is unchanged. The same literal lives in four places (locale pack, `ChatbotEnhanced` prop default, its doc comment, `AiChatPage` `defaultValue`); all four move together.\n\n### Why the existing guard was green while the feature was broken\n\n`i18n.test.ts` mirrored only the **Chinese** clause. I wrote the English half as \"starts with `Confirm`, contains `apply`\" precisely *because* nothing in this repo could see the real pattern, and said so in the #2900 body. That assertion passed against a string the gate rejects.\n\nWorth stating plainly: a guard written around the limits of what I could verify gave the *appearance* of coverage over the one thing I couldn't check. Weakening an assertion to fit the available evidence is not the same as testing the contract — and in a green CI run the two are indistinguishable.\n\nThe mirror is now **verbatim, both clauses**, driving an `it.each` over every outbound approval message in `zh` and `en`, plus two tests that keep it from rotting into a rubber stamp:\n\n- **the gate stays narrow** — `帮我搭建一个 CRM` / `Please build me a CRM app` / `我不确定这样对不对` must NOT read as approval;\n- **`planAnswerMessage` must NOT match** — it answers a structure question; reading as blanket approval would be its own bug.\n\nThe mirror duplicates a pattern across a repo boundary out of necessity (objectui cannot import from cloud). The comment says so, so whoever next edits `APPROVAL_RE` knows this copy exists.\n\n---\n\n## 2. Parity ratchet for the namespaces #2903 backfilled\n\nNothing stopped that backfill from decaying: `fallbackLng: 'en'` means dropping a key from `de` renders English, which reads as \"not translated yet\" rather than \"we lost this\", and the missing-key handler is dev-only.\n\nThis is #2872's **P3 scoped to the namespaces that are actually complete**. Full parity would fail today by ~277 keys per pack with no action attached — a broken build, not a guard. `RATCHETED_NAMESPACES` widens as each remaining namespace lands.\n\nAsserts **both directions**, because the packs have drifted both ways: every ratcheted `en` key exists in the other nine, *and* no pack defines a ratcheted key `en` lacks — #2872 part (b) was exactly that failure, 74 keys deep, hidden behind a component-private fallback so English \"happened to\" render.\n\nThe four outbound messages are excluded; `outbound-agent-messages.test.ts` owns that invariant and the two guards would otherwise contradict each other. A non-vacuity assertion pins the ratchet at >300 keys and requires every named namespace to contribute.\n\n---\n\n## Verification\n\n- **Gate guard mutation-tested against the exact string that shipped**: reverting `en.ts` fails it with `en console.ai.changesConfirmMessage does not match the cloud APPROVAL_RE`.\n- **Ratchet mutation-tested in both directions**: removing `topbar.offline` from `fr` fails one assertion; adding an `en`-less key to `fr` fails the other. My first attempt at this mutation was **vacuous** — wrong indent, so the `perl` silently matched nothing and the suite stayed green. Redone with the removal verified inside the same command.\n- i18n suite: **154 passed**. i18n + plugin-chatbot: **358 passed, 0 failed**.\n- `turbo build`: **44/44**."
+}

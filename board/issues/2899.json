@@ -1,0 +1,32 @@
+{
+  "number": 2899,
+  "kind": "pull_request",
+  "title": "fix(flow-runner): honor a screen field's `visibleWhen` — render and validation (framework#3528)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T04:09:31Z",
+  "updated_at": "2026-07-28T05:19:08Z",
+  "closed_at": "2026-07-28T05:19:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T05:19:06Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2899",
+  "body": "Console half of framework#3528. Server half: objectstack#3771 (puts the predicate on the wire — this PR is inert without it).\n\n## Why #3528 was still open\n\nThe issue was triaged as the `object-form` lazy-chunk teardown fixed in #2830. That mechanism cannot fire on the reporter's app: HotCRM's `lead_conversion` and `schedule_followup` are **flat-field** screens, and the flat path (`ScreenView.FieldInput`) renders statically-imported `Input`/`Select`/`Checkbox`/`Textarea` — nothing suspends. The `refreshAfter` race was already guarded at the 16.1.0 pin `cf2d56e`.\n\nSo I reproduced the reporter's path in Chromium against a live HotCRM dev server, **on both the console shipped with `@objectstack/*` 16.1.0 and current `main`** (HMR console pointed at the same backend). Identical:\n\n```\n→ POST /api/v1/automation/lead_conversion/trigger   200 {status: paused, screen}\n   rendered field labels: [\"Create Opportunity? *\", \"Opportunity Name *\", \"Opportunity Amount\"]\n   click Submit (checkbox untouched)\n→ (nothing)\nRESUME calls: 0     dialog still open: true\n```\n\n## The defect\n\n`FlowRunner.submit()` enforced `required` over `screenFields(screen)` — the **whole declared list** — while `ScreenView` rendered that same full list because `visibleWhen` never arrived. HotCRM's screen is the shape that turns this fatal:\n\n```ts\n{ name: 'createOpportunity', type: 'boolean', required: true },\n{ name: 'opportunityName',   type: 'text', required: true,\n  visibleWhen: 'createOpportunity == true' },\n```\n\nLeave the checkbox unticked and Submit blocks on `opportunityName` — a field that should not be on screen at all — and `return`s before any fetch. Zero requests, run paused forever.\n\nRender and enforcement disagreeing is the whole bug, so they now come from one call.\n\n## Changes\n\n- **`visibleScreenFields(screen, values)`** — the single source of truth for what is on screen. `ScreenView` renders from it; `FlowRunner.submit()` validates from it.\n- **`ScreenFieldSpec.visibleWhen`** — mirrors the contract added in objectstack#3771.\n- Predicates are **bare CEL over the screen's own field names**, evaluated through `evalFieldPredicate` (the canonical `@objectstack/formula` engine — the same verdict the server reaches for field rules). Values bind both bare and under `record.`, so either spelling resolves.\n- **Declared fields are seeded before evaluation.** This one is not obvious: an untouched checkbox holds `undefined`, and to CEL an unbound name is an *unknown identifier* — evaluation errors, `evalFieldPredicate` falls open, and the dependent field stays on screen in exactly the state where it should be hidden. Booleans seed `false`, everything else `null`. Seeding **only declared names** keeps fail-open intact for a genuinely broken predicate.\n- Fail-open on a broken predicate is deliberate and matches `resolveFieldRuleState`: hiding an input because its predicate has a typo would silently drop data the flow is waiting for.\n\nScreens with no `visibleWhen` are untouched — covered by a test.\n\n## Test plan\n\n- New `FlowRunner.visibleWhen.test.tsx` — 6 cases: hidden while false, revealed when true, **resumes with a hidden required field empty** (the regression), still blocks on a *visible* required field, fails open on a broken predicate, and a no-predicate screen unchanged.\n- Both halves verified to **bite**: reverting either the render side or the validation side fails 2 of 6.\n- `packages/app-shell/src/views/__tests__` + `ScreenPreview` — **65 passed** (11 files).\n- `pnpm --filter @object-ui/app-shell type-check` — clean (0 errors, after building workspace deps).\n- ESLint on changed files: 0 errors (15 pre-existing `any` warnings in ScreenView's object-form props, untouched).\n\n**End-to-end**, this branch's console driven against a dev server carrying objectstack#3771 plus the HotCRM authoring fixes:\n\n```\n→ POST .../lead_conversion/trigger              (paused)\n   rendered: [\"Create Opportunity? *\"]           ← conditional fields correctly hidden\n   click Submit\n→ POST .../runs/run_63d43c4c.../resume  {\"inputs\":{\"createOpportunity\":false}}\n   toast \"Done\", dialog closed, 0 server errors  ← flow ran to completion\n```\n\n## Follow-up, not in this PR\n\nHotCRM authored the predicate in the wrong dialect (`'{createOpportunity} == true'`, flow `{var}` interpolation, rather than the bare CEL the key declares). That is an app-side fix; with this PR the wrong dialect fails open — the field renders and stays fillable — rather than dead-ending, which is the correct degradation.\n\n### Correction\n\nAn earlier revision of this description claimed the blocked-Submit path surfaces no toast, and flagged it as a separate silent-failure defect. That was wrong — a measurement artifact. My probe polled 5s after the click and sonner's error toast lasts ~4s. Polling tightly shows it at ~250ms: `\"Please fill: What is the next step?, Due Date\"`. `submit()`'s feedback works; the real signal was always the zero network requests.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_0122xvfanLmniNbsAPtg5hk3"
+}

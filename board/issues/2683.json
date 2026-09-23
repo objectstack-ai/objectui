@@ -1,0 +1,33 @@
+{
+  "number": 2683,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): ownership-aware reschedule + confirm-first auto-schedule, export fixes, business time zone",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T12:03:33Z",
+  "updated_at": "2026-07-19T13:38:54Z",
+  "closed_at": "2026-07-19T12:07:49Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T12:07:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2683",
+  "body": "Delivers #2682 — the follow-up batch to #2677. These four commits were originally pushed to the #2677 branch after it was squash-merged, so they never reached main; cherry-picked clean onto main here. Each was verified live on the 4-level 排班计划 tree; suite 340 green (17 new tests across the batch).\n\n## eacde79a4 — reschedule follows date ownership + auto-schedule confirms first\n- `computeProjectRescheduleDetailed`: under `summaryExtent: 'self'`, an own-dates unlocked summary shifts like a task and carries its unlocked subtree by the same delta (group-drag semantics; descendants pushed further by their own links keep the later position — 顺延-only max rule). Locked violators are reported in `skippedLocked` instead of moving. `snapStart` hook snaps pushed starts onto shift-band boundaries. Back-compat wrapper keeps the old signature.\n- Toolbar auto-schedule now CONFIRMS before the bulk write — \"shift N task(s)? (M locked skipped)\" — mirroring the drag-conflict dialog's contract; a clean graph shows a transient \"nothing to reschedule\" notice. Both cascade paths share the semantics.\n- Live: dialog \"将顺延 4 个任务\"; cancel leaves the DB untouched; confirm pushed a child-bearing plan +10d (band-snapped, duration kept), cascaded its successor, left locked dispatch children and the predecessor in place.\n\n## 2f2334c68 — export skips group rows + business-context timestamped filenames\nPNG/PDF export drew phantom rollup bars on pure grouping rows (type 'group') the live chart renders bar-less. Filenames upgrade from `gantt-week.png` to `<base>-<yyyyMMdd-HHmm>.<ext>` with base from the new `gantt.exportFileName` view config (host schemas reach the component stripped of `label`), falling back to object label → API name.\n\n## 42718dab0 — export draws in-bar titles (条上标题)\nSummary bars show the plan title, leaf bars the executor label, ellipsis-truncated to bar width (CJK-aware per-char estimate); narrow leaf bars fall back to the progress number. Live: 甘特计划A 组焊 / 甘特计划B 涂装 in-bar, narrow bars truncate to 甘特… / Dev….\n\n## 423ce170f — business time zone rendering via `gantt.timeZone`\nThe chart rendered all calendar math in the VIEWER's browser zone — bands and dates misalign for viewers outside the business zone. New IANA `gantt.timeZone` renders the configured zone's wall time for every viewer via a shifted-clock shim; emitted date changes translate back so persisted data stays real instants; DST-safe per-instant offsets; invalid names warn and fall back; omitted = unchanged behavior. Live from a UTC-7 browser against Asia/Shanghai: task-list dates read Beijing, bar left edge aligns pixel-exact with the 7/20 白班 band start, and a +1-band drag persists 7/20 20:00 → 7/24 08:00 Beijing exactly.\n\nRefs #2682, #2676\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

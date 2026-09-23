@@ -1,0 +1,33 @@
+{
+  "number": 2849,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/formula from 16.0.0-rc.0 to 16.1.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:22:56Z",
+  "updated_at": "2026-07-27T08:39:28Z",
+  "closed_at": "2026-07-27T08:35:46Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-27T08:35:46Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2849",
+  "body": "Bumps [@objectstack/formula](https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/formula) from 16.0.0-rc.0 to 16.1.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/objectstack/releases\">@​objectstack/formula's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/formula</code><a href=\"https://github.com/16\"><code>@​16</code></a>.1.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [9e45b63]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/16\"><code>@​16</code></a>.1.0</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/objectstack/blob/main/packages/formula/CHANGELOG.md\">@​objectstack/formula's changelog</a>.</em></p>\n<blockquote>\n<h2>16.1.0</h2>\n<h3>Patch Changes</h3>\n<ul>\n<li>Updated dependencies [9e45b63]\n<ul>\n<li><code>@​objectstack/spec</code><a href=\"https://github.com/16\"><code>@​16</code></a>.1.0</li>\n</ul>\n</li>\n</ul>\n<h2>16.0.0</h2>\n<h3>Minor Changes</h3>\n<ul>\n<li>\n<p>6b51346: feat(formula): <code>dateField == today()</code> now matches — AST temporal-comparison rewrite (<a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/formula/issues/3183\">#3183</a>)</p>\n<p><strong>Behavior change (the fix):</strong> a <code>Field.date</code> compared with <code>==</code>/<code>!=</code> against a\ntemporal function now matches on the calendar day. Previously it <strong>silently\nreturned the wrong answer</strong> — <code>record.due_date == today()</code> was always <code>false</code>\n(and <code>!= today()</code> always <code>true</code>) even for a same-day record, because a\n<code>Field.date</code> reads back as a <code>YYYY-MM-DD</code> <strong>string</strong> (ADR-0053 Phase 1) and\ncel-js's equality (<code>overloads.js</code> <code>isEqual</code>) treats a string and a timestamp as\nunequal without consulting any overload.</p>\n<p><code>celEngine.evaluate</code> now rewrites the parsed AST: for each <code>==</code>/<code>!=</code> whose one\noperand is <code>today()</code>/<code>daysFromNow()</code>/<code>daysAgo()</code>/<code>now()</code>, the <strong>field operand</strong>\nis wrapped in <code>date(...)</code> (the stdlib coercion), then the expression is\nserialized and evaluated. So <code>record.due_date == today()</code> runs as\n<code>date(record.due_date) == today()</code>.</p>\n<ul>\n<li><strong>Per-occurrence</strong>, not per-field: <code>record.d == &quot;2026-06-20&quot; || record.d == today()</code>\nkeeps the string-literal comparison intact while fixing the temporal one.</li>\n<li><strong>Type-blind-safe</strong>: <code>date()</code> degrades gracefully — an already-<code>Date</code>\n(<code>Field.datetime</code>) operand passes through; a non-date string or null →\n<code>Invalid Date</code> → the comparison stays <code>false</code>, exactly as before. No\nfield-type information is needed, and no currently-correct result is worsened.</li>\n<li><strong>Cheap</strong>: the rewrite only reserializes when such a comparison is present\n(a plain-<code>includes</code> gate skips the rest), and is memoized per source string.</li>\n</ul>\n<p>Applies to every interpreter site — read-time <code>Field.formula</code>, default values,\nvalidation rules, hook conditions, and flow conditions — since all route through\n<code>celEngine.evaluate</code>. RLS/sharing conditions are unaffected: they compile via\n<code>cel-to-filter</code>, which already rejects function calls as a loud authoring error.</p>\n<p><strong>Supersedes the <a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/formula/issues/3192\">#3192</a> advisory lint.</strong> That build-time warning\n(<code>checkTemporalDateEquality</code>) flagged <code>dateField == today()</code> as a silent-miss;\nwith the runtime fixed it would be a false alarm, so it (and the\n<code>temporalEqualityFields</code> helper it used) is removed. Authors can now write the\nnatural <code>record.due_date == today()</code> directly; the <code>date(...)</code> /\n<code>daysBetween(...) == 0</code> / range idioms all keep working.</p>\n</li>\n<li>\n<p>80273c8: feat(formula): warn when a <code>date</code> field is compared to a temporal function with <code>==</code>/<code>!=</code> (<a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/formula/issues/3183\">#3183</a>)</p>\n</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/76f18c2becf5e43f5eba016bd2a01b1ec62d6840\"><code>76f18c2</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/9a43e042fae8b02ca5920aea7bac993e5dacacae\"><code>9a43e04</code></a> docs: update repo references for framework → objectstack rename (<a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/formula/issues/3380\">#3380</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/ce3780b0ca1398aa341e3629dd24e793b560155f\"><code>ce3780b</code></a> chore: version packages</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/888791d5624a2fdbbb03232dcfb17969d71e46f5\"><code>888791d</code></a> chore: version packages (rc)</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/71250070b7655827c758f1511abcaa9601f4ed69\"><code>7125007</code></a> fix(formula): null-guarded numeric formulas + floor/ceil + reject date arithm...</li>\n<li>See full diff in <a href=\"https://github.com/objectstack-ai/objectstack/commits/@objectstack/formula@16.1.0/packages/formula\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

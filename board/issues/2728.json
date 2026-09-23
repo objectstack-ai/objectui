@@ -1,0 +1,35 @@
+{
+  "number": 2728,
+  "kind": "pull_request",
+  "title": "feat(fields): RadioField visibleWhen cascading + dependsOn gating; single-source the option resolver",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:00:19Z",
+  "updated_at": "2026-07-20T05:04:41Z",
+  "closed_at": "2026-07-20T05:04:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T05:04:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2728",
+  "body": "Follow-up to #2717 (multiselect parity). Brings `RadioField` to full parity with `SelectField` / `MultiSelectField` for ADR-0058 cascading & role-gated options, and removes the duplicated gate-then-filter logic.\n\n## Why\n\n`CASCADE_OPTION_FIELD_TYPES` already lists `radio`, and the object form pre-filters its options — but the standalone `RadioField` widget rendered `config.options` raw, so **outside the form renderer** (inline grid editor, `ActionParamDialog`) a `radio` with dependent / role-gated options showed the unfiltered set. Exactly the gap #2709→#2715 closed for multiselect.\n\nWhile here, the `gated ? [] : resolveVisibleOptions(...)` pattern lived in **three** places (the widgets' hook + two sites in `form.tsx`) — a drift risk. Collapsed onto one pure core helper.\n\n## Changes\n\n- **`@object-ui/core`** — new pure `resolveCascadingOptions(rawOptions, record, dependsOn, scope)` → `{ options, gated, dependsOnFields }`, the single source of truth for `dependsOn` gating + `visibleWhen` filtering (unit tested).\n- **`@object-ui/fields`** — `RadioField` narrows offered radios against the live record + `current_user`, gates behind a \"select the parent first\" hint, and clears a value no longer offered (scalar cascade clear). Adds `radio-empty-*` / `radio-option-*` testids. `useCascadingOptions` is now a thin React wrapper over the core helper.\n- **`@object-ui/components`** — `form.tsx`'s inline option pre-filter and the cross-field cascade-clear effect call `resolveCascadingOptions` instead of re-deriving gating/filtering. **No behavior change** — human-label gate hint preserved.\n\n## Tests\n\n- New `RadioField.cascade.test.tsx` mirrors `SelectField.cascade.test.tsx` (gating, scalar cascade clear, role/context gating).\n- Core `resolveCascadingOptions` unit coverage added.\n- Verified green (**62 passed**): core `optionRules` + components `form-cascading-select` & `form-dependent-values` (the refactored form path) + fields `RadioField.cascade` / `MultiSelectField.cascade` / `SelectField.cascade` / `standard-widgets`.\n- `tsc --noEmit` clean for `@object-ui/core`, `@object-ui/components`, `@object-ui/fields`; `eslint` 0 errors.\n\n## Refs\n\n- #2717 (multiselect parity) · #2709 (delegation) · ADR-0058\n\nNote: client-side hiding remains UX only — server-side rejection of gated option values is tracked separately (icebox).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2650,
+  "kind": "pull_request",
+  "title": "feat(access): Studio Explain panel — package-scoped object dropdown (#2600 B2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T04:59:40Z",
+  "updated_at": "2026-07-18T05:04:10Z",
+  "closed_at": "2026-07-18T05:04:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T05:04:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2650",
+  "body": "## What\n\n**Issue #2600 · B2 (设计迭代 · 解释访问权限面板)** — the *\"why can this user access?\"* panel asked for the object as **free text**, with a placeholder (`crm_lead`) that isn't even in the package. You had to know the exact api-name, and the example named a non-existent object. The Access pillar already knows its package (~20 objects).\n\n### Changes\n- `AccessExplainPanel` gains an optional **`packageId`**; when set it loads that package's objects (the same `list('object', {packageId})` the matrix uses) and renders the 对象 field as a **`<select>`** of `label (api-name)`.\n- Free-text input stays as a **graceful fallback** (unscoped callers, or if the list fails to load).\n- Placeholder no longer names a non-existent object (`对象名(如:crm_lead)` → `对象 API 名称`).\n- `StudioDesignSurface` passes `packageId` to the panel.\n- The Explain button was already correctly disabled (opacity-50) until an object is chosen — the dropdown just makes choosing one obvious.\n\n## Verify (live, showcase backend)\n- Open 解释访问权限 → 对象 is a dropdown with **22 options** (placeholder + 21 package objects, `客户 (showcase_account)` …), **no `crm_lead`**.\n- 解释 button `disabled`/opacity-0.5 while empty → enabled/opacity-1 after selecting an object.\n\n## Tests\n`AccessExplainPanel.test.tsx`: dropdown renders package objects + posts the selected object; free-text fallback without a scope. Existing explain round-trip tests keep passing (added a `./useMetadata` mock). Panel suite + Studio guard suites (accessGuard/pillarNavGuard/emptyPackage): **23 tests green**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

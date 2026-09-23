@@ -1,0 +1,36 @@
+{
+  "number": 2928,
+  "kind": "pull_request",
+  "title": "feat(lint): run ESLint on PRs, and cover every package (#2923)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T14:37:40Z",
+  "updated_at": "2026-07-28T14:43:50Z",
+  "closed_at": "2026-07-28T14:43:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T14:43:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2928",
+  "body": "Closes #2923. Follow-up: #2927 for the errors this declares.\n\n## The thing I got wrong in #2923, and why this PR exists\n\nI originally filed #2923 recommending **against** wiring `lint.yml`, on the grounds that it would be a no-op gate: `pnpm lint` reports 7,724 problems but **0 errors**, and ESLint only fails on errors unless `--max-warnings` is set.\n\nThe arithmetic was right; I had missed the bottom of `eslint.config.js`. It sets **three `object-ui/*` rules to `error` specifically so a new violation fails CI**:\n\n```js\n// ADR-0054 Phase 5 ratchet — ban synthetic-event triggers (C1). Error so a\n// new violation fails CI; the existing surfaces were converted to direct\n// idempotent commands first, so this lints clean today.\n'object-ui/no-synthetic-event-trigger': 'error',\n\n// objectui#2879 ratchet — ... Error so a tenth copy fails CI; all known\n// sites were converted first, so this lints clean today.\n'object-ui/no-try-catch-around-hook': 'error',\n\n// ... Error so a new inline mirror fails CI; ...\n'object-ui/no-inline-spec-config': 'error',   // scoped to packages/types/src/objectql.ts\n```\n\nThree separate deliberate efforts, each written assuming CI enforces it, each with its existing violations pre-cleaned so the rule would \"lint clean today\". **The enforcement they were built against did not exist.** Same shape as #2911, one layer up: the rule is authored, nothing runs it.\n\n## And the same second layer, again\n\n`turbo run lint` **silently skips packages with no `lint` script** — identical to the type-check hole. **7 of 45 packages had none**, including **`apps/console`**, the largest surface in the repo. So even once wired, the three ratchets would have been blind to console.\n\n| | before | after |\n|---|---:|---:|\n| packages linted | 38 / 45 | **43 / 45** |\n| workflow runs on PRs | no | **yes** |\n| ratchets actually enforced | 0 of 3 | **3 of 3** |\n\n## Two config fixes, not code debt\n\nMeasuring the unlinted packages first turned up 25 \"errors\" — most of which were not real:\n\n**`apps/site`: 7 errors → 0.** Six were in `apps/site/.source/`, which is **fumadocs-mdx generated output and already gitignored** (`apps/site/.gitignore:5`). Linting codegen only reports on the generator's choices. The seventh was a stale `eslint-disable-next-line @next/next/no-img-element` — the Next plugin isn't in the flat config, so the *directive itself* errored as an unknown rule. Replaced with a comment saying why a plain `<img>` is right for third-party badge endpoints.\n\n**`apps/console`: 15 → 14.** One was `tailwind.config.js`, authored in TypeScript (`import type { Config }`) despite the `.js` extension; the TS parser block is scoped to `.ts`/`.tsx`, so the base JS parser choked on it. Now ignored as build config.\n\nThis is the second time `apps/site` has looked like debt purely because of generated artifacts — cf. #2924, where its 7 phantom type errors were missing `.next/types`.\n\n## What is genuinely broken, and is not fixed here\n\nPer the plan agreed for this PR, the real errors are **declared, not fixed** — they touch runtime behaviour and deserve their own review. Tracked in #2927:\n\n- **`apps/console` — 14 errors.** 8x `react-hooks/purity` (`Date.now()` during render in `ApprovalsInboxPage`), 4x `react-hooks/static-components` (components created during render — *\"will reset\"*, i.e. state loss / focus loss, and three of the four are Settings pages), plus a dead assignment on an auth path and a `prefer-const`.\n- **`packages/runner` — 3 errors.** `react-hooks/static-components` in `LayoutRenderer` at 70/106/168, same class.\n\nNote both `purity` and `static-components` are at **error** severity because `eslint.config.js` downgrades five other React Compiler rules but deliberately not these two.\n\nThese are **pre-existing and were simply invisible**. This PR does not turn them red — it records them in `DEBT` so they cannot stay invisible.\n\n## Why no `--max-warnings`\n\nMeasured composition of the 7,724 warnings:\n\n| rule | count | share |\n|---|---:|---:|\n| `@typescript-eslint/no-explicit-any` | **6,262** | 81% |\n| `react-refresh/only-export-components` | 486 | 6% |\n| `@typescript-eslint/no-unused-vars` | 322 | 4% |\n| `react-hooks/set-state-in-effect` | 252 | 3% |\n| `react-hooks/exhaustive-deps` | 177 | 2% |\n| `react-hooks/refs` | 111 | 1% |\n| four more `react-hooks/*` | 79 | |\n\nOne stylistic rule is 81% of it, and five of the `react-hooks/*` rules are downgraded on purpose (*\"codebase predates these rules\"*). A blanket cap of 7,724 would read as a health signal while tracking `no-explicit-any`. This gate is about errors; the warning question is left open in #2923's history rather than answered badly.\n\n## Verification\n\n**The ratchets now actually bite.** Planted a hook inside try/catch in `packages/i18n` (a package that was already linted):\n\n```\n4:12  error  Do not call the hook 'useMemo' inside try/catch — a caught throw\n             desyncs hook order on the next render (objectui#2879)\n             object-ui/no-try-catch-around-hook\n\npnpm lint exit=1\nFailed:    @object-ui/i18n#lint\n```\n\nImpossible before this PR, in two independent ways: the workflow never ran, and had it run, console still would not have been linted.\n\n**Coverage guard red in all three modes:**\n\n| tampering | result |\n|---|---|\n| new package with no `lint` script | exit 1 |\n| a DEBT entry outliving its gap (package gains the script) | exit 1 |\n| `lint` script removed from a covered package | exit 1 |\n\nBaseline restores green after each; restored via `cp`, no residual diff.\n\n**Green state:**\n\n```\n✅  lint coverage: 43/45 packages linted, 2 with outstanding errors (17 total)\n✅  type-check coverage: 36/45 via `type-check`, 1 via their own build, 7 known-broken (25 errors outstanding), 1 not compiled\n✅  All workspace packages are in the changeset fixed group\n$ pnpm lint   →  43/43 successful, exit 0\n```\n\nNo changeset: all five packages that gained a `lint` script are `private: true`, so no published package changes.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2919,
+  "kind": "issue",
+  "title": "plugin-grid / plugin-form / plugin-designer / cli / object-ui: remaining type-check debt from the #2911 sweep",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T09:35:52Z",
+  "updated_at": "2026-07-28T16:41:51Z",
+  "closed_at": "2026-07-28T16:41:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2919",
+  "body": "Tracking issue for the type errors surfaced by the full sweep in #2911 / #2915 that are **not** covered by #2916 (plugin-view), #2917 (runner) or #2918 (layout). None of these packages had a `type-check` script, so none of it was visible to CI.\n\nEach package below is listed in `DEBT` in `scripts/check-type-check-coverage.mjs`. When one is cleaned, add `\"type-check\": \"tsc --noEmit\"` and **delete its DEBT entry** — the guard fails if an entry outlives its gap. Reproduce with the `paths` override its type-checked peers carry (see #2915 for why bare `tsc` otherwise emits ~104 spurious TS6059 `rootDir` errors).\n\n---\n\n## `@object-ui/plugin-grid` — 4 errors\n\n**`ObjectGrid.tsx:677,678` (TS2345)** — real, and trivially fixable:\n\n```\nArgument of type '\"Yes\"' is not assignable to parameter of type\n  '(Record<string, unknown> & (\"Yes\" | ...)) | undefined'\n```\n\nTwo `t()` calls pass a bare string where i18next's overload wants an options object or a `defaultValue` — the second argument is being used as a default when it is typed as options.\n\n**`importParsers.ts:352` (TS2367 x2)** — **runtime is correct; do not \"fix\" the logic.**\n\n```ts\nlet reason: MappingReason = 'none';\nconst bump = (s: number, r: MappingReason) => { if (s > score) { score = s; reason = r; } };\n// ...\nif (reason !== 'exact' && reason !== 'normalized' && inferred !== 'text' && score > 0) {\n```\n\n`reason` is only ever reassigned **inside the `bump` closure**, and TypeScript's control-flow analysis does not track mutations through closures — so it still believes `reason` is narrowed to `'none'` at line 352 and reports the comparisons as non-overlapping. At runtime `bump` genuinely does set `'exact'` / `'normalized'` / `'synonym'`, so the type gate works as intended.\n\nThe fix is to make the narrowing visible to the checker (e.g. annotate the binding so it is not narrowed to its initialiser, or have `bump` return the new reason instead of mutating a captured `let`) — **not** to change the branch. Deleting the condition because \"it is always true\" would silently disable the type gate that stops a text column being mapped onto a number field.\n\n---\n\n## `@object-ui/plugin-form` — 10 errors\n\n**6x the same `t()` fallback-signature mismatch** (`DrawerForm.tsx:257`, `ModalForm.tsx:333`, `SplitForm.tsx:155`, `TabbedForm.tsx:240`, `WizardForm.tsx:274`):\n\n```\nType '(objectName: string, fieldName: string, fallback: string) => string' is not\nassignable to type '(objectName: string, fieldName: string, fallback?: string | undefined) => string'.\n```\n\nA required third parameter is passed where the contract declares it optional. One shared signature fix should clear all six.\n\n**3x `string | number | undefined` -> `string | undefined`** (`DrawerForm.tsx:505`, `ModalForm.tsx:693`, `ObjectForm.tsx:182`) — a numeric field value reaching a string-only prop; needs a deliberate decision about coercion vs widening the prop.\n\n**2x TS2538** (`deriveMasterDetail.ts:169`) — `Type 'undefined' cannot be used as an index type`, twice on one line. A genuine missing-guard: worth checking what happens today when the key is absent.\n\n---\n\n## `@object-ui/plugin-designer` — 1 error\n\n`src/components/HistoryPanel.tsx(57,17)` TS6133 — `'index' is declared but its value is never read`. Note the root tsconfig sets `noUnusedLocals: false` but `noUnusedParameters: true`, so this is an unused *parameter*.\n\n---\n\n## `@object-ui/cli` — 4 errors\n\nBuild is `tsup` with `dts: true`, which does **not** fail on these:\n\n```\nTS2578  Unused '@ts-expect-error' directive.\nTS2339  Property does not exist\nTS7006  Parameter implicitly has an 'any' type   (x2)\n```\n\nThe `TS2578` is worth looking at first — an `@ts-expect-error` that no longer suppresses anything usually means the code underneath it changed behaviour.\n\n---\n\n## `object-ui` — 1 error\n\n```\ntsconfig.json(12,25): error TS5107: Option 'moduleResolution=node10' is deprecated\n  and will stop functioning in TypeScript 7.0.\n```\n\nConfig-only, but it is a **deprecation with a hard deadline** — `node10` resolution stops working in TS 7. The root config already sets `\"ignoreDeprecations\": \"6.0\"`; this package overrides `moduleResolution` without it. Silencing it is one line, but migrating to `bundler`/`node16` is the actual fix and should be done before TS 7.\n\n---\n\n## `@object-ui/site` — 7 errors\n\n```\napp/(home)/layout.tsx(4,46): error TS2304: Cannot find name 'LayoutProps'.\napp/docs/[[...slug]]/page.tsx(9,43): error TS2304: Cannot find name 'PageProps'.\n...   (also RouteContext x2)\n```\n\nThese are Next.js **generated** types from `.next/types`, which only exist after a `next build`. Likely a false positive rather than debt: `site` is excluded from `pnpm build` (`--filter=!@object-ui/site`) and its docs build runs in a separate CI job. Decide whether to wire `type-check` to depend on a build, or to keep `site` permanently exempt with that reason recorded.\n\nRefs #2911, #2915"
+}

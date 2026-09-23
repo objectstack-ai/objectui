@@ -1,0 +1,30 @@
+{
+  "number": 2924,
+  "kind": "pull_request",
+  "title": "chore(type-check): `site` is not debt — its own `next build` type-checks it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T12:13:42Z",
+  "updated_at": "2026-07-28T12:20:11Z",
+  "closed_at": "2026-07-28T12:20:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T12:20:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2924",
+  "body": "Follow-up off #2915 / #2919. Closes out the `@object-ui/site` entry by measuring it instead of assuming.\n\n## It was miscategorised — zero errors, not 7\n\nThe #2911 sweep recorded `@object-ui/site` as **7 errors of debt**:\n\n```\napp/(home)/layout.tsx(4,46): error TS2304: Cannot find name 'LayoutProps'.\napp/docs/[[...slug]]/page.tsx(9,43): error TS2304: Cannot find name 'PageProps'.\napp/llms.mdx/docs/[[...slug]]/route.ts(6,54): error TS2304: Cannot find name 'RouteContext'.\n...\n```\n\nThose are Next's **generated** types. `apps/site/tsconfig.json` includes them explicitly:\n\n```json\n\"include\": [\"next-env.d.ts\", \"**/*.ts\", \"**/*.tsx\", \".next/types/**/*.ts\", \".next/dev/types/**/*.ts\"]\n```\n\n`.next/types` only exists after a build, and site is excluded from `pnpm build` (`--filter=!@object-ui/site`), so the sweep measured a package that had never been built. Build it and:\n\n```\n$ pnpm turbo run build --filter='@object-ui/site'   # generates .next/types\n$ cd apps/site && tsc --noEmit\nexit=0  errors=0\n```\n\n**Zero.** The phantom 7 were inflating the outstanding-error count by 28% (32 → 25), which matters because that number is meant to be read as a health signal.\n\n## And it doesn't need a `type-check` script\n\n`next build` runs a full type-check unless `typescript.ignoreBuildErrors` is set — and `apps/site/next.config.mjs` does not set it. The `docs` CI job already runs that build. Adding a `type-check` script would run the compiler twice and pull a Next build into the Type Check job for no new coverage.\n\nSo the honest classification isn't \"debt\" or \"exempt\" — it's **checked, by a different mechanism**. New `CHECKED_BY_OWN_BUILD` category records exactly that.\n\n## The exemption is verified, not trusted\n\n`ignoreBuildErrors: true` is a one-line flag that would silently turn this exemption into precisely the hole #2911 was about — a package that looks covered and isn't. So the guard checks it on every run. Three failure modes, each proven red before being trusted:\n\n| tampering | result |\n|---|---|\n| `ignoreBuildErrors: true` added to `next.config.mjs` | exit 1 |\n| site gains a `type-check` script (stale entry) | exit 1 |\n| build script changes out from under the exemption | exit 1 |\n\nBaseline restores green afterwards, with no residual diff (restored via `cp`, not `git checkout`).\n\n## Recorded caveat\n\nNoted in the code, because it's a genuine cost/coverage call rather than an oversight: the `docs` job runs the site build **only when `apps/site/` or `content/` changed** (plus every push to main). A PR that touches only a workspace package listed in `transpilePackages` therefore doesn't re-check the site until it lands. Closing that would mean paying a Next build on many more PRs — worth a deliberate decision, so I've left it visible rather than silently widening CI.\n\n## Verification\n\n```\n✅  type-check coverage: 36/45 via `type-check`, 1 via their own build,\n    7 known-broken (25 errors outstanding), 1 not compiled.\n```\n\n- `node scripts/check-type-check-coverage.mjs` — green, and red in all three tamper modes above\n- `node scripts/check-changeset-fixed.mjs` — green\n- No changeset: scripts-only change, no published package is affected\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2831,
+  "kind": "pull_request",
+  "title": "feat(approvals): typed output pickers, quick-path guard, expression completion (framework#3447, #2829)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T04:43:58Z",
+  "updated_at": "2026-07-27T04:48:46Z",
+  "closed_at": "2026-07-27T04:48:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T04:48:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2831",
+  "body": "Second follow-up wave for framework#3447 (pairs with framework PR objectstack-ai/objectstack#3554). Closes #2829.\n\n**1. Typed decision-output pickers.** `decision_output_defs` (`{ key, label?, type, multiple? }`, surfaced by fw#3554) renders record pickers in the decide dialog: `user` → the sys_user people picker, `department`/`position`/`team` → the matching system-object lookup; `multiple` collects an id array. Bare keys keep the free-text input; older backends (key list only) keep working.\n\n**2. Quick-path guard (#2829).** Inline `a`/`r`, hover buttons, mobile card buttons and bulk apply no longer decide a request whose node declares decision outputs — only the drawer dialog collects those fields. Buttons disable with an explanation ('This approval collects decision outputs — open it to decide.'); bulk selection excludes such rows via the existing actionable-count messaging.\n\n**3. Approval-expression completion + inline root validation.** The expression approver input gains the scope data-picker with three groups — `current.<field>` (live at node entry), `trigger.<field>` (submit snapshot), `vars.*` (flow variables) — built by `useFlowScope` from the same materials as the condition picker but with the approval root set (never `record.x`/bare fields, which the runtime rejects). `nodeOutputRefs` now models approval nodes (`<nodeId>.decision` + declared `decisionOutputs` keys) so the previous stage's outputs are pickable — including the exact `vars.lead_review.next_reviewers` the headline scenario references — and `vars.previous` is always listed, fixing a false 'not a reference in scope' warning on flows with no other variables.\n\n## Browser-verified (HMR console + framework#3554 worktree backend)\n\n- Decide dialog: Next Reviewers rendered as a multi-select people picker (search + avatars); picking two users posted an id array; the Co-sign stage's `pending_approvers` resolved to exactly those two ids; flow completed.\n- Inbox: the outputs-declaring row's hover/mobile approve+reject buttons render disabled with the hint (4 elements verified); bulk/keyboard share the same guard.\n- Designer: the expression input's picker shows all three groups with field labels; the unknown-root false positive is gone (0 warnings).\n- `turbo type-check` green; app-shell tests 89 green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

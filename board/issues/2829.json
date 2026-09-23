@@ -1,0 +1,30 @@
+{
+  "number": 2829,
+  "kind": "issue",
+  "title": "Approvals inbox: quick approve (inline a/r, bulk) silently drops declared decision outputs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T04:08:15Z",
+  "updated_at": "2026-07-27T04:48:45Z",
+  "closed_at": "2026-07-27T04:48:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2829",
+  "body": "## Problem\n\nThe approvals inbox has two decision paths:\n\n1. **Full drawer** → DeclaredActionsBar → param dialog — renders one input per author-declared decision-output key (framework#3447 P2, #2827) and POSTs nested `outputs`.\n2. **Quick paths** — inline row approve/reject (`a`/`r` keyboard, hover buttons) and bulk approve: confirmation-only AlertDialogs calling `approvalsApi.approve/reject` directly with `{actor_id}` — **no param dialog, no outputs**.\n\nFor a request whose node declares `decisionOutputs` (surfaced on the row as `decision_outputs`), a quick approve is legal (outputs are optional) but silently hands the flow nothing — the next stage's `expression` approver resolves an empty slate and falls into `onEmptyApprovers` (default: admin_rescue, i.e. a stuck request only an admin can act on). The approver never learns they skipped a field the flow author expected them to fill.\n\n## Fix\n\nRows with a non-empty `decision_outputs` should not offer the quick decision paths: disable inline `a`/`r` + hover approve/reject (tooltip: \"此审批需要填写决策输出 — 打开详情审批\") and exclude such rows from bulk apply (surface a per-row skip reason), steering the approver to the full drawer dialog.\n\nRelated: framework#3447 (P2), #2827 (dialog outputs), framework#3538 (`decision_outputs` on the row).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

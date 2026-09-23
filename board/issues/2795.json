@@ -1,0 +1,32 @@
+{
+  "number": 2795,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump postcss from 8.5.20 to 8.5.21",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T03:01:23Z",
+  "updated_at": "2026-07-24T12:16:02Z",
+  "closed_at": "2026-07-24T12:16:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-24T12:16:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2795",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.20 to 8.5.21.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.21</h2>\n<ul>\n<li>Fixed childless at-rule losing semicolon before comment (by <a href=\"https://github.com/sarathfrancis90\"><code>@​sarathfrancis90</code></a>).</li>\n<li>Fixed docs (by <a href=\"https://github.com/isker\"><code>@​isker</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.21</h2>\n<ul>\n<li>Fixed childless at-rule losing semicolon before comment (by <a href=\"https://github.com/sarathfrancis90\"><code>@​sarathfrancis90</code></a>).</li>\n<li>Fixed docs (by <a href=\"https://github.com/isker\"><code>@​isker</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/28e0daf8f2fe5ba9e19ea3f8c27c8fe176f9419e\"><code>28e0daf</code></a> Release 8.5.21 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/3d2b4e43e38274f233b5609d09687cadad8215d9\"><code>3d2b4e4</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/d197327e82e1a7d6dd9272effa3e4bfa91fdd20e\"><code>d197327</code></a> Fix childless at-rule losing its semicolon before a comment (<a href=\"https://redirect.github.com/postcss/postcss/issues/2115\">#2115</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/0e360b749aa17a5a89baccf9c8e5db3c2978c21e\"><code>0e360b7</code></a> Fix mismatched JSDoc comments on Position (<a href=\"https://redirect.github.com/postcss/postcss/issues/2114\">#2114</a>)</li>\n<li>See full diff in <a href=\"https://github.com/postcss/postcss/compare/8.5.20...8.5.21\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.20&new-version=8.5.21)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2258,
+  "kind": "issue",
+  "title": "Studio package-create UX dogfood follow-ups (mirrored from framework#2615)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-05T06:24:00Z",
+  "updated_at": "2026-07-16T15:36:50Z",
+  "closed_at": "2026-07-16T15:36:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2258",
+  "body": "Mirror of the console-side findings from [objectstack-ai/framework#2615](https://github.com/objectstack-ai/framework/issues/2615) — a 2026-07 browser dogfood of Studio's \"create a package and build in it\" flow. The one framework-side item (error-copy citing an internal ADR path) is already fixed there; everything below is `objectui` console-side.\n\n## P1\n\n- [ ] **Read-only packages accept edit gestures client-side, fail late.** \"Add field\" mutates the canvas (16→17 fields) and \"New object\" opens the create form on a Read-only package; the server rejects only at write time. Client should disable/hide edit affordances on read-only packages (courtesy gating, ADR-0057 D10).\n- [ ] **Field API name doesn't follow the label before first save.** New field stays `field_2` after relabeling to `Status`; the data column is `field_2` forever. Sync API name from label until first save, then lock — matching object/app identifier behavior.\n- [ ] **One-click Publish with no confirmation** — releases all package drafts atomically straight from the button. Show the pending-changes list with a confirm step.\n- [ ] **Changes panel has no detail** — only `repair_ticket · New`; no field-level diff or drill-in to review before publishing.\n\n## P2\n\n- [ ] **Mixed-language screens**: English chrome with embedded Chinese strings (添加字段 / 未分组 / 请选择…) and a fully-Chinese Studio landing next to an English Home. Route all studio strings through the same locale resolution.\n- [ ] **New-package wizard ergonomics**: no package-ID suggestion from the name (object/app identifiers do get one); CJK names produce no suggestion at all; illegal characters silently stripped (`bad id!!` → `badid`); disabled create button with no inline hint about the reverse-domain format.\n- [ ] **New apps scaffold no navigation** — freshly created app has zero nav items; offer \"add existing objects as menu items\" in the create-app popover.\n\n## P3\n\n- [ ] Duplicated \"Actions\" column in the Studio Records grid (data column + pinned row-actions column).\n- [ ] Record-create verb inconsistency: Studio says **Create** (adjacent to **Create app**), runtime says **New**.\n- [ ] Cold `/_console` load shows a bare unbranded \"Loading…\" for ~8s before the login redirect.\n- [ ] Picklist value-editor inputs truncate their own placeholders (\"valu\" / \"Labe\") and CJK labels (待处理 → 待处…).\n- [ ] Read-only toast can fire twice for one gesture; no \"last saved\" timestamp anywhere after Save draft.\n\nSee the full audit in `docs/audits/2026-07-studio-package-create-ux-dogfood.md` in the framework repo (added by framework#2609).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

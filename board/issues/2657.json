@@ -1,0 +1,32 @@
+{
+  "number": 2657,
+  "kind": "pull_request",
+  "title": "feat(access): localize curated capability labels client-side (#2600 B5 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T06:31:09Z",
+  "updated_at": "2026-07-18T06:35:42Z",
+  "closed_at": "2026-07-18T06:35:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T06:35:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2657",
+  "body": "## What\n\nFollow-up to #2653 (group headers). The capability chip **labels** (Manage Metadata, Studio Access, …) are served in **English** by the `sys_capability` registry, so they appeared in English even in a Chinese UI.\n\n**Why not framework**: I explored making the framework registry serve locale-aware labels, but it has **no record-data i18n convention** — the schema-translation bundles localize object/field *schema* only, and the labels are plain record data on the generic `/api/v1/data` endpoint. A backend fix would mean a **new pattern** (a read middleware + a translation store + a locale-source decision), disproportionate for the issue's lowest-priority item. The curated platform capabilities are a **fixed, known set**, so localizing them on the client is the proportionate fix.\n\n### Change\n- `CapabilityMultiSelectField` resolves labels for the **7 curated platform caps** via `capability.label.<name>` (dots → underscores); **package-/admin-authored** capabilities keep their registry-served label.\n- Keys added to `useFieldTranslation` defaults + en/zh bundles (nested under the existing top-level `capability` key, so locale-parity is unaffected; other locales fall back to en).\n\n### Test note\nThe toggle-off test now re-queries the chip at click time: the label resolves through i18n, so an async translation-settle can re-render the chips between `findBy` and `fireEvent.click`, detaching the awaited node (a re-queried node clicks fine — verified the `onChange` fires). Added a curated-vs-registry label test.\n\n## Verify (live, Chinese UI)\nCapability picker chips render localized: 管理元数据 / 管理平台设置 / 管理用户 / 访问 Setup / 访问 Studio / 管理组织用户 / 保存设置 — no raw keys, no flicker.\n\n## Tests\n`CapabilityMultiSelectField` (10) + i18n locale-parity + `useFieldTranslation` — **107 tests green**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

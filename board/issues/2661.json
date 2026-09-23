@@ -1,0 +1,30 @@
+{
+  "number": 2661,
+  "kind": "issue",
+  "title": "Renderer/action `visible`/`disabled` predicates bypass the canonical CEL engine — home-grown JS evaluator diverges from server enforcement",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T12:43:45Z",
+  "updated_at": "2026-07-18T14:15:58Z",
+  "closed_at": "2026-07-18T14:15:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2661",
+  "body": "Found while auditing the client-side blast radius of framework#3183 (the `dateField == today()` silent-miss, fixed in framework#3205).\n\n## The split\n\nObjectUI evaluates runtime predicates through **two different engines**, and they systematically diverge:\n\n| Path | Sites | Engine | CEL-correct? |\n| --- | --- | --- | --- |\n| **A — field rules** | `visibleWhen` / `readonlyWhen` / `requiredWhen` | `packages/core/src/evaluator/fieldRules.ts` → delegates to `@objectstack/formula`'s `ExpressionEngine.evaluate` | ✅ canonical — same verdict as server enforcement (its header explicitly cites the framework's *\"No private expression DSL\"* rule) |\n| **B — component/action predicates** | `visible` / `hidden` / `disabled` / `visibleOn` / `hiddenOn` / `disabledOn` (`SchemaRenderer.tsx:277-316`), action buttons via `useExpression.ts` / `useCondition`, `ExpressionProvider.tsx` | home-grown `packages/core/src/evaluator/ExpressionEvaluator.ts` — compiles the predicate as **plain JavaScript** (`ExpressionCache.compile` → `fn(...)`) | ❌ not CEL at all |\n\nPath B unwraps a `{ dialect: 'cel', source }` envelope but then **ignores the dialect** and executes the source as JS (`ExpressionEvaluator.evaluate`, comment says \"the underlying syntax is identical\" — it isn't):\n\n- `FormulaFunctions` has **no** `today` / `daysFromNow` / `daysAgo` / `now` — any date predicate an author writes per the platform's CEL catalog throws `today is not defined` → fail-open.\n- CEL-isms diverge under JS semantics: `has(record.x)`, `in`, `\"a\" in list`, single-quoted strings inside `${}` templating, `==` coercion (JS `==` is loose where CEL is typed), `size()`, `matches()`, `isBlank()` — none behave per the authoring contract that `validateExpression` / the server enforce.\n- Consequence class: an action `visible` predicate that the **server-side** ActionEngine (fail-closed, CEL) and build-time lint both accept can evaluate differently — or not at all — in the browser. The framework's whole guardrail program (ADR-0032, #1928 family, framework#3183) stops at this boundary.\n\n## Why now\n\nframework#3205 just fixed `record.due_date == today()` at the single `celEngine.evaluate` chokepoint. Path A inherits that fix with a dependency bump (objectui#&lt;bump-PR&gt;). **Path B inherits nothing** — it isn't downstream of the engine.\n\n## Proposed direction\n\nConverge Path B onto the canonical engine, exactly as `fieldRules.ts` already does:\n\n1. In `useCondition` / `SchemaRenderer` / `ExpressionProvider`, when the predicate is a `{ dialect: 'cel' }` envelope (or once spec normalizes these sites to CEL), route it to `@objectstack/formula`'s `ExpressionEngine.evaluate` with `{ record, extra: scope }` — same fail-open fallback semantics as today.\n2. Keep the legacy `${...}` JS-template path for plain strings during a deprecation window (it's a documented ObjectUI DX shorthand), but stop treating CEL envelopes as JS.\n3. Reuse `evalFieldPredicate`'s pattern (or extract a shared `evalCelPredicate`) so there is one client-side delegation point.\n4. Bundle-size note: `app-shell`'s `celAuthoring.ts` already lazy-loads `@objectstack/formula` via dynamic `import()` — the same trick applies if engine weight in the base renderer is a concern.\n\n## Acceptance\n\n- [ ] An action `visible: { dialect: 'cel', source: 'record.status == \"open\" && record.due_date == today()' }` evaluates identically in the browser and in the server ActionEngine (incl. the framework#3205 date-equality fix).\n- [ ] `has(...)`, `in`, string equality, `isBlank`, `today()`-family all behave per the CEL catalog in component/action predicates.\n- [ ] Legacy `${...}` string predicates unchanged.\n- [ ] fieldRules Path A untouched (already canonical).\n\nRefs: framework ADR-0032, framework#1928, framework#3183, framework#3205; `packages/core/src/evaluator/fieldRules.ts` (the in-repo precedent)."
+}

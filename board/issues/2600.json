@@ -1,0 +1,32 @@
+{
+  "number": 2600,
+  "kind": "issue",
+  "title": "[UX] Studio Access 权限矩阵活栈走查收敛:3 个编辑安全缺陷(已开修)+ 设计迭代清单",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T12:43:38Z",
+  "updated_at": "2026-07-18T14:27:26Z",
+  "closed_at": "2026-07-18T14:27:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2600",
+  "body": "对 Studio Access pillar(权限矩阵,`/studio/:packageId/access`)做了一次活栈 UI/UX 走查:真 framework showcase 后端(:3000)+ console dev(:5180),浏览器实操(勾选/切换/筛选/解释面板/窄宽渲染),关键行为与源码逐一对照。总体:信息架构(左栏集 → 对象×CRUD 矩阵 → 字段级展开 → 折叠分面)和包作用域(ADR-0086,矩阵 20/85 对象)是对的;问题集中在**编辑安全感**和**嵌入缝隙**两类。本 issue 跟踪全部发现的收敛。\n\n## A. 缺陷(已全部修复落地)\n\n- [x] **A1 切换权限集静默丢弃未保存改动**(🔴)——活栈复现:勾选后点左栏另一集再切回,改动无声消失。根因:rail onClick 直接 `setCurrent`,矩阵 `key={current}` 重挂载,内部 `dirty` 未上抛,无确认、无 unload 守卫(`StudioDesignSurface.tsx` ~3327/3389)。修复方向:`onDirtyChange` 上抛 + 切换前确认(同文件 `navDirty` 模式)。\n- [x] **A2 只读包下矩阵仍可编辑、保存钮高亮**(🔴)——`readOnly` 只挡了「新建权限集」,未传给 `PermissionMatrixEditPage`(props 无此口子);内部 `writable=allowOrgOverride` 是 type 级另一概念。同屏「只读」徽标 + 「可写」徽标 + 蓝色保存钮三者矛盾。修复方向:编辑器加 `readOnly` prop 与 `writable` 取与,驱动复选框 disabled / 保存隐藏 / 行内提示,并统一徽标语义。\n- [x] **A3 「历史」按钮与面包屑逃逸 Studio**(🟡)——`navigate('./history?type=permission')` 在 Studio 路由下解析为 `/studio/…/access/history`,无该路由,命中 `App.tsx:354` 的 `path=\"*\" → Navigate to \"/\"`:**点「历史」= 静默弹回平台首页**,Studio 上下文全丢。面包屑「元数据 › 权限集」同样链出 Studio 到 `/metadata`。修复方向:嵌入模式下历史改抽屉/对话框,面包屑隐藏或改包内返回。\n\n## B. 设计迭代(按优先级,待排)\n\n- [x] **B1 首屏见矩阵**——pillar 名叫「权限矩阵」,但首屏是 名称/标签表单 + 系统能力芯片,矩阵首行被推到折叠线下一屏半。名称/标签改动频率极低:压成一行摘要(名称 · 标签 · 来源徽标,点击展开),系统能力零授予时折叠为「未授予 + 添加」(现在零授予也铺满 7 个 outline 芯片,视觉上像已拥有的能力)。\n- [x] **B2 解释访问权限面板**——对象靠**手输 API 名**(`AccessExplainPanel.tsx` ~286 自由文本),本包对象仅 20 个应给下拉;占位示例 `crm_lead` 在本包不存在;「解释」未填对象时看似可点实际禁用;面板占 70% 宽大面积留白。\n- [x] **B3 窄宽(≈800px)布局**——面包屑与「安全/可写」徽标重叠;「批量」列被推出视口无滚动暗示(`<table className=\"w-full\">` 无 min-width/overflow-x 容器);不同集之间行高从 ~70px 跳到 ~200px;左栏固定 208px 不自适应。\n- [x] **B4 字段级批量与搜索**——展开后逐字段两个小复选框,几十字段的对象(field_zoo)很痛;对象行有「读/增改删/全选/清空」快捷,字段级应对齐(全部可读/可写/清空 + 字段过滤)。\n- [x] **B5 细项**——能力芯片标签与 PLATFORM/ORGANIZATION 分组标题英文硬拼在中文界面(sys_capability registry label 未走翻译束);左栏权限集按钮在可达性树读不到名称(truncate span 未兜底 aria-label,需真实读屏器复核);列头缩写 tooltip 触屏不可达(前置图例已缓解)。\n\n## 做得好的(保持)\n\n服务端包作用域(20/85 对象、8/15 集);缩写图例前置展开;破坏性变更 409 → 明细确认对话框;CEL 错误阻断保存;行内 OWD 徽标深链总览;「只看已授权」+ 计数徽标;高级分面默认折叠;移动端 rail 抽屉;矩阵复选框 aria-label 完整。\n\n## 合并注意\n\nA1/A2/A3 三个分支改**同两个文件**(`StudioDesignSurface.tsx` AccessPillar 挂载点、`PermissionMatrixEditor.tsx` props/头部),A1 与 A2 都给 `PermissionMatrixEditPage` 加新 prop,必然冲突——**串行合**:建议 A2(props 改动最大)先进,A1/A3 rebase 后再进;不要三个同时 merge-on-green。B 组刻意排在 A 组落地之后,避免同文件并行打架。\n\n## 关联\n\n- 作用域落地与实测:#2221 · #2222 · #2225 · #2229 · #2223(已闭环)· framework ADR-0086(objectstack-ai/framework#2566)\n- 评估方法:活栈浏览器走查 + 源码对照,2026-07-16\n\n\n\n"
+}

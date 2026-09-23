@@ -1,0 +1,32 @@
+{
+  "number": 2787,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 首页与消息中心的未国际化文案",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T15:21:33Z",
+  "updated_at": "2026-07-22T20:19:45Z",
+  "closed_at": "2026-07-22T20:19:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-22T20:19:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2787",
+  "body": "首页有几处文字始终显示英文，与周围的中文界面不一致（见 issue 截图红框）。\n\n## 根因\n\n两类不同的问题，看起来一样但成因无关：\n\n**1. 翻译 key 从未落地。** `home.yourApps`、`home.showMoreApps`、`home.showLess`、`home.continueEmpty`、`home.actionCenter.*` 在 10 个 locale 文件里一条都没有，所以 `t()` 全部回落到组件内联的英文 `defaultValue`。这不只影响中文——任何非英语 console 都露英文。已为全部 10 个语言补齐。\n\n**2. 相对时间根本不经过翻译。** `HomeRail` 和 `InboxPopover` 各自手写了一份 `timeAgo`，直接拼 `${n}d` / `${n}h` 字符串，没有任何翻译文件能覆盖它。改为走仓库已有的 `formatRelativeTime`（`Intl.RelativeTimeFormat`），两处共用抽出的 `utils/relativeTime.ts`。\n\n## 中文措辞\n\n`Your apps` / `Needs your attention` 直译成「你的应用」「待你处理」后，会是该页唯一带人称代词的标题——同屏的「构建应用」「最近访问」「活动动态」「浏览应用市场」都是名词短语。改用中文企业软件的惯例搭配 **我的应用** / **待办事项**，后者也与既有空态文案「全部处理完毕」呼应。其余 9 个语言不受影响。\n\n## 验证\n\n在 framework `examples/app-showcase`（`objectstack dev --seed-admin`）上跑 console 源码 dev server 实测：\n\n- 首页：`我的应用` / `待办事项` / `8分钟前`\n- 消息中心弹层：`1分钟前` … `6天前`（原为 `1m` … `6d`）\n\n新增单测 `HomeRail.i18n.test.tsx` 覆盖标题翻译与 zh 相对时间。`packages/app-shell` 216 files / 1791 tests 全绿，`packages/i18n` 106 tests 全绿。\n\n## 已知遗留（不在本 PR 范围）\n\n通知标题本身（如 `Scheduled project digest`）来自后端 `sys_inbox_message` 记录，属于 framework 侧的通知模板，前端翻译覆盖不到。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

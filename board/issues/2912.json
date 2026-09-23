@@ -1,0 +1,32 @@
+{
+  "number": 2912,
+  "kind": "pull_request",
+  "title": "fix(i18n): compose the AI-model diagnostics summary client-side (#2886)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T08:57:52Z",
+  "updated_at": "2026-07-28T09:02:25Z",
+  "closed_at": "2026-07-28T09:02:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T09:02:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2912",
+  "body": "Closes #2886.\n\n`CloudAiModelStatus` rendered `report.summary` verbatim — the most prominent line on the panel, in English for every locale.\n\n## What reading `objectstack-ai/cloud` settled\n\nThe issue left two questions open. Both now have definite answers.\n\n**1. The server does not localize it — and cannot, as currently built.**\n\n`service-ai/src/effective-model.ts:117`:\n\n```ts\nconst summary = `build/ask uses ${input.conversational ?? 'unknown'} (${pinnedNote}); structured uses …`;\n```\n\nA hard-coded English template literal, no locale parameter. And `service-ai/src/routes/ai-routes.ts:395`:\n\n```ts\nhandler: async () => {\n  const report = opts.getEffectiveModel?.();\n  return { status: 200, body: report };\n}\n```\n\nThe handler takes **no request argument**, so it cannot read `Accept-Language` even though `createAuthenticatedFetch` has been sending it since #1319.\n\n**2. No server change is needed anyway.**\n\nEvery ingredient of the sentence is already in the structured payload:\n\n| summary clause | field | |\n|---|---|---|\n| `build/ask uses X` | `conversational.model` | ✅ |\n| `(pinned by … / code default)` | `conversational.source` | ✅ |\n| `structured uses Y` | `structured.model` | ✅ |\n| `(same as build/ask)` | `structured.pinned` | ✅ |\n| `Routing policy: free → A, paid → B` | `routing.{free,paid}` | ✅ |\n\nThe issue proposed *\"return structured data instead of a whole sentence\"* as the better path. **The server was already doing that** — the client just wasn't using it. So this is client-only, and doesn't wait on cloud scheduling.\n\n`sourceLabel()` already produced exactly the clauses the server hand-rolls — `pinned by X`, `code default (no env override)`, and `same as build/ask` for an unpinned structured model — so no new source vocabulary was needed.\n\n## A dropped diagnostic, not just untranslated text\n\nThe client's `EffectiveModelReport` never declared `routing`, which the server has always sent conditionally. Its only appearance anywhere was inside the English summary string — so **non-English admins could not see the plan→model routing policy at all**. That's a diagnostic lost at the type layer, not a translation gap. Now declared and surfaced.\n\nAlso fixed: `attributeSource` emits the bare token `'unknown'` when the adapter can't report a model, and `sourceLabel` fell through to rendering it raw.\n\n## Verification\n\n- **Full suite: 7,835 passed, 24 skipped, 0 failed.**\n- **`turbo build`: 44/44.**\n- Panel tests: **5/5**, and **mutation-tested** — restoring `<p>{report.summary}</p>` fails four of the five.\n- ESLint on the changed areas: **0 errors**.\n- Four keys added to all ten packs, so the full-parity guard from #2909 stays green.\n\nThe panel had **no test coverage at all** before this.\n\n> [!NOTE]\n> Worth flagging from the process: my first test passed `<I18nProvider language=\"zh\">`. **That prop does not exist** — it's silently ignored at runtime, so the zh render produced English. My own \"zh must differ from en\" assertion caught it; the fix was `createI18n({ defaultLanguage })`. `tsc` would also have rejected it, `vitest` would not — the same gap that motivated #2911."
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2729,
+  "kind": "issue",
+  "title": "[P3][icebox] Enforce role-gated / dependent select option values on the server (visibleWhen is UX-only)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:00:43Z",
+  "updated_at": "2026-07-20T06:08:15Z",
+  "closed_at": "2026-07-20T06:08:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2729",
+  "body": "## Context\n\nPer-option `visibleWhen` cascading + `dependsOn` gating for `select` / `multiselect` / `radio` is implemented **client-side** (ADR-0058, #2284 · multiselect parity #2717 · radio parity #2728). The resolver is `resolveCascadingOptions` in `@object-ui/core`, wrapped by the `useCascadingOptions` hook and the form renderer.\n\nThe code is explicit that this is **UX only, not a security boundary** — see the header comment in `packages/core/src/evaluator/optionRules.ts`:\n\n> Client-side hiding is UX, not a security boundary: when an option is gated for access-control reasons the server must also reject writes of its value.\n\n## The gap\n\nA role-gated option (e.g. `visibleWhen: \"'admin' in current_user.positions\"`) is hidden from non-admins in the UI, but nothing stops a crafted API write from submitting that value directly. For access-control-sensitive option sets the **server must reject** a write whose value is not in the caller's offered set (evaluating the same per-option predicate + `dependsOn` against the server-side record + current user).\n\n## Why icebox\n\nNo role-gated option set is relied on as a security control today; this is a hardening / correctness follow-up. Pick up when a real access-controlled option field ships.\n\n## Scope (when actioned)\n\n- [ ] Server-side field validation for `select` / `multiselect` / `radio`: on write, reject values whose per-option `visibleWhen` evaluates FALSE (and/or whose `dependsOn` parent is unmet) against the server record + current user.\n- [ ] Reuse the same predicate semantics as the client (`optionRules` / CEL `evalFieldPredicate`) so client and server agree on the offered set.\n- [ ] This lives in **`framework`** (write-time field validation), not `objectui`.\n\n## Refs\n\n- ADR-0058 · #2284 · #2717 · #2728 · `packages/core/src/evaluator/optionRules.ts`"
+}

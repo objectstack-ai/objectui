@@ -1,0 +1,32 @@
+{
+  "number": 2718,
+  "kind": "pull_request",
+  "title": "fix(site): make docs build resilient to remote badge fetch failures (#2695)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:54:27Z",
+  "updated_at": "2026-07-20T02:59:47Z",
+  "closed_at": "2026-07-20T02:59:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T02:59:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2718",
+  "body": "Closes #2695\n\n## 问题\n\n`Build Docs`(`@object-ui/site#build`)用 fumadocs 的 `remark-image` 插件在**构建期**拉取每一张远程图片以取得尺寸(`getImageSize`)。远程徽章(shields.io / skills.sh)因此把一个外部服务的可用性变成了构建的**硬依赖**——shields.io 一抖(Cloudflare 520 / 1200 \"Too many requests\")就抛错并让整个 docs 构建失败,与 PR 内容无关(见 #2684)。\n\n## 根因定位\n\n- 全仓 `content/docs` 里唯一**活跃**触发构建期拉取的远程徽章是 `content/docs/guide/agent-skills.md:12` 的 skills.sh 徽章。\n- issue 里提到的 `shields.io` 引用都在**代码围栏内**(`plugins/plugin-markdown.mdx`),不会被 `remark-image` 处理。\n- 本地图片(`dashboard-filters.md` → `/img/*.png`)在 Next.js bundler 流程里走 `import` 解析,不经过网络。\n\n## 方案(issue 选项 1)\n\n在 `apps/site/source.config.ts` 给 `remark-image` 配置容错:\n\n- `external: { timeout: 10_000 }` —— 给每次远程拉取加超时,避免挂死的连接卡住 CI;\n- `onError` —— 远程图片取尺寸失败时**告警而非 fail 构建**;对**本地/仓内**图片仍然 `throw`(保持严格,坏路径照样卡构建)。\n\n只加安全网,不改成功路径:远程可达时行为不变,徽章照常内联尺寸。\n\n## 验收对照\n\n- [x] shields.io(或任意远程图片源)不可用时,`Build Docs` 不再整体失败;\n- [x] 定位并处理了触发拉取的具体徽章引用(skills.sh @ `agent-skills.md:12`)。\n\n## 验证\n\n直接用**改后的真实 `source.config.ts`** 驱动 `fumadocs-core` 的 `remarkImage` 跑失败 URL:\n\n| 场景 | 旧行为 | 新行为 |\n|---|---|---|\n| 远程徽章 404/DNS 失败 | **THREW**(构建失败) | **RESOLVED**(告警,构建继续)✅ |\n| 本地图片缺失 | THREW | **THREW**(仍然 fatal)✅ |\n\n`pnpm exec fumadocs-mdx` 编译配置通过(接受 `remarkImageOptions`)。\n\n> `@object-ui/site` 在 changeset `ignore` 列表且属构建基础设施 bug 修复,无需 changeset。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

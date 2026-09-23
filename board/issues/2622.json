@@ -1,0 +1,40 @@
+{
+  "number": 2622,
+  "kind": "pull_request",
+  "title": "feat(types): derive ListViewSchema from @objectstack/spec/ui (#2231)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T16:40:00Z",
+  "updated_at": "2026-07-17T00:31:16Z",
+  "closed_at": "2026-07-17T00:31:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T00:31:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2622",
+  "body": "## Summary\n\nCloses the `ListViewSchema` drift called out in #2231. `@object-ui/types` shipped a **hand-written** mirror of the spec's UI ListView zod (`packages/types/src/zod/objectql.zod.ts`) plus a parallel hand-written TS `interface` (`objectql.ts`). Both had drifted from the authoritative `@objectstack/spec/ui` `ListViewSchema`, with nothing enforcing they stay in sync.\n\nThis PR makes objectui's `ListViewSchema` **derive** from the spec's exported schema so spec-owned fields are imported (not re-typed), keeps every objectui-only/legacy field as a sanctioned local `.extend()` (zero runtime change), and adds a drift-guard test.\n\nPer the maintainer decision on this issue, scope is **ListViewSchema only**, and the legacy objectui vocabulary is **kept** as local extensions (migration to spec-canonical keys deferred).\n\n## What changed\n\n- **zod `ListViewSchema` now derives from spec** (`objectql.zod.ts`). Spec-owned fields flow in **by reference** via `BaseSchema.extend(SpecListViewFields.shape)` — `filter`, `sort`, `selection`, `navigation`, `pagination`, `grouping`, `rowColor`, `userActions`, `appearance`, `tabs`, `addRecord`, `rowHeight`, `sharing`, `chart`/`tree` configs, `responsive`, `performance`, … — so they track the protocol automatically.\n  - **Local overrides (final `.extend()` wins):** the component envelope (`type: 'list-view'` discriminator + `objectName`), the legacy objectui vocabulary (`viewType`, `fields`, `filters`, the `show*` toolbar flags, `densityMode`, `color`, …), and the configs whose objectui shape is intentionally broader than spec's (`userFilters`, `sharing`, `aria`, `conditionalFormatting`, `exportOptions`, and the per-view-type `kanban`/`calendar`/`gantt`/`gallery`/`timeline`).\n  - The view-kind enum is reused from spec (`SpecListViewSchema.shape.type.removeDefault()`) so it can't drift.\n- **TS `interface ListViewSchema` → `z.infer<typeof ListViewSchema> & ListViewRuntimeProps`** (`objectql.ts`), so the type can no longer drift from the schema (~470 hand-written lines removed). Non-serializable runtime-only props (`onNavigate`, `onDensityChange`, `refreshTrigger`) live in the new `ListViewRuntimeProps`.\n- **Drift-guard test** (`__tests__/list-view-spec-parity.test.ts`): fails if the spec grows a field objectui hasn't triaged, renames an aliased anchor (`type`/`columns`/`filter`), or an objectui-only field is added outside the sanctioned-local set.\n- **`@objectstack/spec` bumped `^14.6.0` → `^15.0.0`** across the workspace.\n- Docs: note in `packages/types/src/zod/README.md`; changeset added.\n\n## Compatibility\n\n- Existing objectui payloads keep validating (relaxed `columns`, legacy `fields`/`filters`/`show*`, legacy `userFilters` tab shapes). Spec-canonical payloads (`columns`/`filter`/`userActions`) now validate too. Verified via runtime `safeParse` checks and the existing `phase2-schemas.test.ts` cases.\n- No runtime behavior change — the ~30 renderer read-sites (`plugin-list`, `plugin-view`, `app-shell/src/views/*`, …) are untouched.\n\n## Verification\n\n- `pnpm build` — **43/43 packages** build clean.\n- Type-check clean across all ListView consumers: `@object-ui/types`, `plugin-list`, `plugin-view`, `app-shell`, `react`, `core`, `cli`, `plugin-detail/form/gantt/tree/timeline/map` (0 errors).\n- Tests green: `types` (103, incl. new drift-guard), `plugin-list` (161), `plugin-view` (60), `cli` (33), `core` (1060).\n- Pre-existing unrelated failure noted: `@object-ui/data-objectstack`'s `exportDownload.test.ts` has `vi.fn()` mock-typing errors (from the freshly-installed vitest 4.x) — reproduces identically with this PR's changes reverted; out of scope.\n\n## Deferred (follow-ups, per #2231)\n\n- Retire the SpecBridge's third `ListViewSpec` copy (`react/.../spec-bridge/bridges/list-view.ts`).\n- Migrate legacy vocabulary to spec-canonical keys (`show*`→`userActions`, `fields`→`columns`, `filters`→`filter`) and adopt spec's narrower `aria`/sub-shapes.\n- Migrate `objectName` → `data.provider:'object'`; unify the other view schemas (`FormViewSchema`, `ObjectViewSchema`, …).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01CBAuAYP5j1j5MguKYM84dW)_"
+}

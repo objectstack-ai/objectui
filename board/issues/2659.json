@@ -1,0 +1,35 @@
+{
+  "number": 2659,
+  "kind": "pull_request",
+  "title": "chore(designer): drop the inert object \"Enabled\" toggle (framework#2377)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T08:54:56Z",
+  "updated_at": "2026-07-18T11:14:41Z",
+  "closed_at": "2026-07-18T11:14:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T11:14:39Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2659",
+  "body": "Companion to framework **#3199** (ADR-0049 enforce-or-remove). That PR removes the object `active` metadata property from `@objectstack/spec` — it had no runtime consumer. The object designer surfaced it as an **Enabled** control, so this removes that false affordance.\n\n## What was removed\n- **`ObjectManager`**: the **Enabled** grid column and the editable **Enabled** boolean in the add/edit-object form (+ its read/write/initialValues).\n- **`MetadataObjectsPage`**: the `active` ↔ `enabled` mapping, the write-back of `active` on save, and the redundant-save comparison on it.\n- **`@object-ui/types`**: the `ObjectDefinition.enabled?` field.\n- **`app-shell`**: `MetadataService.toObjectPayload` no longer sends `enabled: obj.enabled`; `metadataConverters` no longer derives it. *(These two consumers were surfaced by CI — the initial scoping missed them; fixed in the second commit.)*\n- The now-unused `appDesigner.objectManager.enabled` i18n string.\n\nToggling \"Enabled\" off never disabled anything (the object stayed fully queryable/usable) — the misleading-control class ADR-0049 targets.\n\n## Explicitly NOT touched\n- **`ObjectMetadataPayload.enabled`** (the payload type field) stays — it is the **independent soft-delete marker** (`enabled: false, _deleted: true` in `MetadataService`), unrelated to the object active/enabled toggle.\n- `isSystem` — stays a live spec property.\n\n## Why it's safe\n- **Non-breaking**: the runtime registers objects via `ObjectSchema.parse()`, which strips unknown keys — a stale `active` in a payload is a no-op, not an error.\n\n## Verification\n- `@object-ui/types` `tsc --noEmit` clean; `plugin-designer` suite green (23 tests). The app-shell tsc regression from the missed consumers was caught by CI and fixed; re-running CI to confirm green.\n\n## Coordination\nIndependent of the framework merge. Best landed around the same window as #3199 so the Studio and spec stay consistent.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

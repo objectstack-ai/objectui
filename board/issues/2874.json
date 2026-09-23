@@ -1,0 +1,30 @@
+{
+  "number": 2874,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): drop the SkillPreview Required Permissions panel (framework#3686)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T15:10:11Z",
+  "updated_at": "2026-07-27T15:35:32Z",
+  "closed_at": "2026-07-27T15:35:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T15:35:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2874",
+  "body": "Companion to objectstack-ai/objectstack `feat/prune-skill-permissions`.\n\nUpstream removed `SkillSchema.permissions`: skill invocation was **never** gated by it (the cloud `SkillRegistry` selects on `active` / `triggerConditions` / `tools`). This preview was in fact the *evidence* that got the property mis-marked `live` in the liveness ledger — an authoring-side echo counted as runtime consumption.\n\nRemoves the `N required perms` header pill, the \"Required Permissions\" section and the now-orphan `ShieldCheck` import, leaving a comment that points at the surfaces where access **is** enforced: agent-level `access`/`permissions` (403 at the chat route), or the underlying actions the skill's tools call.\n\n`@object-ui/app-shell` builds green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

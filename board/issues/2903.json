@@ -1,0 +1,32 @@
+{
+  "number": 2903,
+  "kind": "pull_request",
+  "title": "feat(i18n): translate the four highest-traffic namespaces into the eight trailing locales (#2872 part a)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T05:52:26Z",
+  "updated_at": "2026-07-28T05:57:03Z",
+  "closed_at": "2026-07-28T05:57:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T05:57:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2903",
+  "body": "Implements the **\"high-frequency namespaces only\"** strategy chosen for #2872 part (a).\n\nBackfills `console`, `home`, `topbar` and `layout` — **193 keys × 8 packs = 1,544 strings** — so a ja/ko/de/fr/es/pt/ru/ar admin sees the AI console, home screen, top bar and system navigation in their own language instead of silently falling back to English.\n\n| | before | after |\n|---|---|---|\n| ja / ko / de / es | 469 missing | **277** |\n| fr / pt / ru / ar | 471 missing | **279** |\n| en ↔ zh | 2499 : 2499, 0 diff | unchanged |\n\nNot a full backfill by design: `grid` (101), `gantt` (58), `dashboard` (25) and the long tail stay on English fallback and remain tracked under #2872.\n\n## The load-bearing part: four keys deliberately left untranslated\n\n```\nconsole.ai.planApproveMessage\nconsole.ai.planApproveDefaultsMessage\nconsole.ai.planAnswerMessage\nconsole.ai.changesConfirmMessage\n```\n\nThese are **not labels**. They are text a button *transmits to the agent*, and the cloud confirm gate (`service-ai-studio` `confirm-gate.ts` `APPROVAL_RE`) decides whether that text reads as approval. It recognises Chinese and English — nothing else. `zh.ts` already documents this:\n\n> the cloud confirm gate […] only treats Chinese text as approval when it is 确认-anchored […] A bare \"…搭建吧\" silently fails the gate → the agent re-proposes and the button looks inert.\n\n`AiChatPage` therefore selects them by the language of the **conversation**, not the UI, and the `t()` call is *expected* to miss in every non-Chinese pack and fall through to its English `defaultValue`. Translating them would be an outright regression: a German user's \"Build it\" would start sending German, the gate would stop matching, and the agent would re-propose instead of building — inert button, nothing visibly erroring.\n\n> [!IMPORTANT]\n> **This fixes a regression I introduced in #2900.** That PR added `changesConfirmMessage` to all ten packs, so on `main` today a German/Japanese/Russian user clicking **Confirm** on the change card sends translated text the gate cannot match. This PR removes it from the eight and restores the English fallback.\n>\n> I found it only because this backfill forced me to classify every `console.ai` key as label-vs-outbound. Worth noting for the record — the same category error is what the new guard now prevents.\n\n`packages/i18n/src/__tests__/outbound-agent-messages.test.ts` pins the invariant **in both directions**: the four keys must be absent from the eight packs *and* present in `en`/`zh` — plus a third assertion that every **other** `console.ai` label **is** translated, so the narrow exception can't quietly become an excuse for leaving surrounding labels in English.\n\n## Verification\n\n- **Full suite: 7800 passed, 24 skipped, 0 failed.**\n- `turbo build`: **44/44** — the check that caught the #2900 build break.\n- ESLint: 25 errors, **identical to baseline**, all pre-existing.\n- The guard was **mutation-tested twice**: re-adding two outbound keys to `de` fails it, and deleting an ordinary `console.ai` label from `de` fails the non-vacuity assertion. Both restored after.\n- The merge script cross-checked its own line parser against the real parsed module for each pack and **refused to write** until they agreed — it caught two parser bugs (quoted keys like `'developer-tools'`, and values wrapping to the next line) before touching any file.\n- Placeholder sets (`{{count}}`, `{{app}}`, `{{n}}`, …) verified programmatically per string against the English source; spot-checked rendered output across all nine packs.\n\n> [!NOTE]\n> `@object-ui/plugin-map#type-check` fails locally with `maplibre-gl@6.0.0 has no default export`. It is **pre-existing** — reproduces on clean `origin/main` with my changes stashed — and is not in CI's path (`turbo build` covers this repo's build). Unrelated to i18n; flagging rather than folding an unrelated fix into this PR.\n\n## Translation quality\n\nTranslations are model-generated. Terminology follows each pack's existing conventions, and locale-appropriate quotation marks are used (`「」` ja, `„\"` de, `« »` fr, `«»` ru/es). They would still benefit from native review before anyone treats them as final — flagging plainly rather than implying they are professionally translated.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01TubWYdWquVkS9dj733sDmC)_"
+}

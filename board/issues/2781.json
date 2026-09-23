@@ -1,0 +1,32 @@
+{
+  "number": 2781,
+  "kind": "issue",
+  "title": "fix(app-shell): 通知中心「活动动态」条目空白 — sys_activity 原始行未映射成 ActivityItem",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T02:59:41Z",
+  "updated_at": "2026-07-22T05:53:47Z",
+  "closed_at": "2026-07-22T05:53:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2781",
+  "body": "## 现象\n顶栏消息中心(`InboxPopover`)的**「活动动态」** tab 每条只显示相对时间(如 `47m ·`),主行(操作人 + 摘要)和 `·` 后的对象名全空白。\n\n站内信/活动的**列表页**在当前 `main` 渲染正常(数据本身也正确),此 issue 只针对弹窗。\n\n## 根因\n`packages/app-shell/src/layout/AppHeader.tsx` 的 `fetchPresenceAndActivities` 把 `sys_activity` 的**原始行直接 cast 成 `ActivityItem`**,没有做字段改名:\n\n- 原始行(plugin-audit 列名):`summary` / `actor_name` / `object_name` / `timestamp`\n- `ActivityItem` 期望:`description` / `user` / `objectName` / `timestamp`\n\n于是 `InboxPopover` 渲染 `{a.user} {a.description}` 与 `{timeAgo(a.timestamp)} · {a.objectName}` 时,`user`/`description`/`objectName` 全为 `undefined`,只有 `timestamp` 有值 → 即 `47m ·`。\n\n旁边的 `hooks/useHomeInbox.ts` 做了正确映射,两者本应一致(注释里也这么写),AppHeader 漏了。\n\n## 取证\n- framework showcase 后端 REST 返回的 `sys_activity` 数据完整非空(`summary`/`object_name`/`type` 都在,`actor_name` 视写入方可能为 null)。\n- 用 console 连该后端复现:「活动动态」一堆 `1m ·`/`7m ·` 空条目;列表页正常。\n\n## 修复\n在 AppHeader 里按 `useHomeInbox` 的方式把原始行映射成 `ActivityItem`(字段改名 + `type` 归一化 + 时间戳兜底 + 过滤空 `summary`)。"
+}

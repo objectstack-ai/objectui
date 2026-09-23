@@ -1,0 +1,32 @@
+{
+  "number": 2819,
+  "kind": "pull_request",
+  "title": "fix(i18n): localize FileField upload widget + approvals snapshot field labels",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-26T06:25:06Z",
+  "updated_at": "2026-07-27T02:28:57Z",
+  "closed_at": "2026-07-27T02:28:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T02:28:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2819",
+  "body": "Closes #2818\n\n## 背景\n审批中心抽屉与操作弹窗在中文环境下漏英文两处:\n1. **附件上传区**:`FileField` 组件硬编码 \"Drag & drop files here\" / \"or click to browse\" 等,完全无 `t()`。\n2. **快照字段标签**:摘要用 `prettifyKey(机器名)` 生造英文,没读对象字段 label。\n\n> 操作按钮(通过/拒绝/转签…)与弹窗标题/参数名的翻译来自 framework `plugin-approvals._actions`,已在 framework main 落地,不在本 PR。\n\n## 改动\n- `FileField` 全部可见文案改走 `useObjectTranslation` + 新增 `fields.file.*` 键,翻译全部 10 个 locale。\n- `payloadSummary` / `decisionAmountEntry` 优先用 framework 新增下发的 `payload_labels`,缺失回退 `prettifyKey`;`approvalsApi` 行类型补 `payload_labels?`。\n\n## 验证(真机)\n- framework `app-showcase` 后端 + objectui console dev(HMR,因 `/_console` 是 vendored 旧包)。\n- 打开 Approve 参数弹窗,DOM 实测:`通过｜请填写以下信息以继续操作。｜审批意见｜附件｜拖拽文件到此处｜或点击浏览｜取消｜确认` —— 拖拽区已中文化。\n- 摘要卡片渲染字段 label(Invoice Number / Subtotal),来自 `payload_labels`。\n- `@object-ui/i18n` tsc 通过;`@object-ui/console` tsc 干净;FileField 组件测试 41 passed;FileField lint 0 error。\n\n依赖 framework 侧 payload_labels 富化:objectstack-ai/objectstack#3501。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

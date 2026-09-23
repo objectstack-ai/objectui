@@ -1,0 +1,33 @@
+{
+  "number": 2686,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): dependencyTypes switch — hide the link-type switcher for id-only dependency stores",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T13:44:36Z",
+  "updated_at": "2026-07-19T13:50:06Z",
+  "closed_at": "2026-07-19T13:50:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T13:50:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2686",
+  "body": "Delivers the fix for the silently-reverting link-type switcher described in the referenced issue.\n\nData sources that persist dependencies as bare predecessor ids have no slot for a link TYPE: picking ss/ff/sf optimistically updated the arrow, the persist dropped the type, and the silent refetch snapped it back to FS (线条闪一下又还原) — a misleading UI where no choice but FS can stick.\n\nNew `gantt.dependencyTypes` view config (default `true`, fully backwards compatible). Declaring `false`:\n- the link context menu hides the fs/ss/ff/sf switcher (remove-dependency stays);\n- drag-created links are always FS regardless of which endpoints were connected.\n\nWired through `ObjectGantt` view metadata. Verified live against an id-only store (排班计划甘特图, `predecessors` id comma-list): the link context menu shows only the title + 移除依赖, type items 0. plugin-gantt suite green incl. 2 new tests.\n\nRefs the issue above; follow-up to #2682 / #2683.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

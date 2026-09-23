@@ -1,0 +1,35 @@
+{
+  "number": 2723,
+  "kind": "pull_request",
+  "title": "feat(dashboard): retire pre-ADR-0021 inline-analytics renderer branches (framework#3320)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T03:51:48Z",
+  "updated_at": "2026-07-20T04:57:56Z",
+  "closed_at": "2026-07-20T04:57:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T04:57:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2723",
+  "body": "Follow-up to the dashboard analytics migration (framework#3251 · objectui#2703 · strict flip #3316). Authoring already emits only the semantic-layer shape (`dataset` + `dimensions` + `values`); this retires the renderer's now-unauthored legacy read-branches and drops the `@deprecated` type keys.\n\nCloses objectstack-ai/framework#3320.\n\n## Precondition audit (the blocking item) — clean\nNo traceable producer still emits the inline-analytics keys:\n- **framework** examples (`app-crm`, `app-todo`, `app-showcase`) + the `system_overview` platform built-in: 100% `dataset`-shaped, zero legacy widget keys.\n- **cloud**: no stored `.dashboard.ts`; the AI-studio blueprint emitter produces `dataset`/`dimensions`/`values`.\n- Runtime customer-stored metadata is not code-visible → covered by the visible-placeholder fallback below.\n- **New finding:** `plugin-designer/DashboardEditor.tsx` was a *live* authoring surface that #2703 missed (still emitted inline `object`/`valueField`/`aggregate`). Its legacy fields are stripped here so it stops producing legacy keys.\n\n## Changes\n- **types**: drop the `@deprecated` inline-analytics keys (`object`, `categoryField`, `categoryGranularity`, `valueField`, `aggregate`, `measures`) from `DashboardWidgetSchema`.\n- **plugin-dashboard**: `DashboardRenderer` no longer emits the object-bound metric/chart/pivot/table/list branches; removes the `object`-keyed `objectFieldSets` machinery. It **keeps** the renderer-internal static paths (`options.data`/`widget.data` array + `provider:'object'`) and `widget.component`. It no longer emits `object-pivot`/`pivot` — dataset pivots render via `DatasetWidget` (grouped table / cross-tab); `ObjectPivotTable`/`PivotTable` stay as public SDUI blocks. `DashboardGridLayout` gets the same treatment.\n- **graceful fallback**: a widget still carrying the retired inline shape (top-level `object`, no `dataset`, no inline `options.data`) now renders a **visible error placeholder** prompting a rebind to a dataset, rather than a blank.\n- **plugin-designer**: `DashboardEditor` drops its inline object / value-field / aggregate fields (analytics binding is authored via the dataset picker in app-shell's `DashboardWidgetInspector` / plugin-dashboard's `WidgetConfigPanel`).\n- **tests**: migrate `p1-spec-alignment` + `DashboardRenderer.filters` fixtures to the dataset shape (filters now asserts `DatasetWidget`'s `queryDataset` `runtimeFilter`); add `DashboardRenderer.legacyRetired` covering the placeholder + the kept static/dataset paths.\n\n## Two judgment calls for review\n1. **`table`/`list` object-bound branches retired too** — beyond checkbox‑1's literal enumeration (metric/chart/pivot), but forced by dropping `object` from the type. Capability is preserved via `options.data` `provider:'object'` + `DatasetWidget`; the placeholder catches stale metadata.\n2. **Static `pivot` emission stopped as well** — per checkbox 2 (\"stop the dashboard renderer from emitting them\"), a non-dataset pivot now shows the placeholder rather than a static `PivotTable`.\n\n## Verification\n- `@object-ui/types` `tsc --noEmit` clean; `plugin-dashboard` / `plugin-designer` builds (tsc dts) clean.\n- vitest green: `DashboardRenderer.filters` (5/5), `DashboardRenderer.legacyRetired` (6/6), `DatasetWidget` (41/41), `dashboard-config` (16/16), `p1-spec-alignment` dataset tests.\n- The pre-existing `data-objectstack` `exportDownload.test.ts` type-check failure is unrelated (unchanged vs `main`, no dashboard-type dependency).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

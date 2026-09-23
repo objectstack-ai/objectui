@@ -1,0 +1,32 @@
+{
+  "number": 2643,
+  "kind": "pull_request",
+  "title": "fix(studio): approver Type dropdown drops deprecated `role`, membership-tier picker (framework #3133)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T15:18:30Z",
+  "updated_at": "2026-07-17T15:29:57Z",
+  "closed_at": "2026-07-17T15:29:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T15:29:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2643",
+  "body": "The objectui half of framework **#3133** (framework PR objectstack-ai/framework#3137). Both gaps were found by **dogfooding the running console**, not by reading code — and the first one is exactly the kind of thing static reading misses.\n\n## Context\n\nFramework #3137 renames the `role` approver type to `org_membership_level` (`role` kept as a deprecated alias) and, crucially, publishes an `xEnumDeprecated` annotation on the node configSchema so pickers can drop the deprecated spelling. This PR makes Studio honor it — and fixes a second, older gap along the way.\n\n## 1. The approver `Type` was silently free text (the real bug)\n\n`FlowObjectListField` handled `boolean`, `reference`, `expression`, and **else → plain `<Input>`**. There was **no `select` branch**. The approver `Type` column is `kind: 'select'` (derived from the spec enum by `json-schema-to-fields`), so it fell through to a free-text input: the computed `options` — *including* framework's `xEnumDeprecated` filtering — were **thrown away**, and the author got no dropdown and no guidance at all.\n\nThis is why the rename alone wasn't enough: I'd wired `xEnumDeprecated` through `enumOptions`, and it was **inert**, because nothing rendered the options. Only driving the real designer in a browser revealed it.\n\n**Fix:** added the `select` branch — a real dropdown from `col.options`. A **stored** value no longer in the options (a 15.x `role` row) still renders, flagged `(deprecated)`, so editing a legacy row can't silently blank it. That mirrors the framework runtime's keep-the-authored-spelling decision.\n\n## 2. The membership-tier picker called a deleted metadata type\n\n`KIND_TO_META_TYPE.role = 'role'` → `client.list('role')`, but ADR-0090 D3 **deleted** the `role` metadata type. The call returned nothing, so the Value box degraded to free text — the picker was already dead. Replaced with a fixed `owner/admin/member` enum (`org-membership-level` kind). Both `role` and `org_membership_level` map to it, so a stored legacy row still renders its picker.\n\n## Also\n\n- `json-schema-to-fields` threads `xEnumDeprecated` from the schema into `enumOptions` on both the top-level and objectList-column paths.\n- The hardcoded fallback config (`flow-node-config.ts`) and the `ReferenceKind` union follow the rename (the fallback objectList also renders free text until a backend is present, so this is belt-and-suspenders).\n\n## Verification — driven in the browser against a live backend\n\nRan the console against a framework backend on the #3133 branch, created a writable package + flow + approval node, and opened the real approver **Type** dropdown:\n\n```\n[\"User\",\"Org Membership Level\",\"Position\",\"Team\",\"Department\",\"Manager\",\"Field\",\"Queue\"]\ncontainsRole: false · containsOrgMembership: true\n```\n\n`Role` is gone, through the entire stack: framework spec → published configSchema over HTTP → objectui's converter → the rendered dropdown.\n\n- New DOM test `FlowObjectListField.select.test.tsx` (3): renders a select column as a combobox, offers no `role`, and keeps a stored deprecated value visible+flagged.\n- `json-schema-to-fields.test.ts` updated to the new contract (options exclude `role`; picker map keeps `role → org-membership-level`).\n- Full suite: **564 files / 6858 tests pass** (+1 file, +3). type-check clean; changed files lint clean.\n\n## Merge order\n\nFramework #3137 should land (or at least be published to the version objectui resolves) so the backend actually emits `xEnumDeprecated`. Until then this PR is inert-but-safe: no `xEnumDeprecated` → dropdown simply shows all enum members, exactly as before, and gap #2 (the dead picker) is fixed regardless.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

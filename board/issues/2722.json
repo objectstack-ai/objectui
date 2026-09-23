@@ -1,0 +1,35 @@
+{
+  "number": 2722,
+  "kind": "pull_request",
+  "title": "feat(detail): related lists paginate by default with server-side $top/$skip windows (#2711)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T03:50:32Z",
+  "updated_at": "2026-07-20T04:31:32Z",
+  "closed_at": "2026-07-20T04:31:30Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T04:31:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2722",
+  "body": "Closes #2711\n\n## Problem\n\nDetail-page related lists rendered EVERY child row as one flat unpaged dump (a 114-row schedule table in production), fetched wholesale with no `$top`. The spec has always said otherwise: `RecordRelatedListProps.limit` declares `.default(5)` (\"Number of records to display initially\"), but no layer of the renderer chain ever applied it — the synthesized record page emits nodes without `limit`, the renderer passed `pageSize=undefined`, and RelatedList's long-implemented pagination controls never enabled (`effectivePageSize > 0` never held).\n\n## Changes\n\n- **Spec default enforced**: `RecordRelatedListRenderer` applies the spec default `limit` of 5 when a node doesn't declare one (zod defaults only materialize through a spec parse; synthesized pages hand the renderer raw nodes), and threads the node's `sort` through as the initial order.\n- **Server-windowed fetch**: on the auto-fetch path with pagination enabled, RelatedList requests one page per flip (`$top`/`$skip`), reads the collection size from `QueryResult.total` (`hasMore` estimate as fallback) for the count badge and page indicator, and sends user column sorts as a server `$orderby` so ordering stays global across pages. An over-shot empty page (last row of the last page deleted) steps back automatically. Caller-provided `data` keeps the historical client-side slicing; the opt-in contains-filter falls back to the full-fetch client pipeline while active.\n- **No-flash page flips**: the \"Loading\" placeholder renders only on first load; page flips keep the previous window's rows mounted (dimmed) until the next window arrives, so the related section's layout never shifts. An effect-scoped cancellation guard stops a slow earlier window from overwriting a newer page.\n- **Types**: `RecordRelatedListComponentProps.sort` now mirrors the spec union (`string | array`); `limit` documents the spec default. Docs (plugin-detail README + slotted-pages guide) and a changeset included.\n\n**Behavior change**: related lists that previously rendered all rows now show 5 per page — declare a larger `limit` on the `record:related_list` node to widen the window.\n\n## Verification\n\n- 12 new tests (windowed fetch contract, `$skip` paging, `defaultSort`/`$orderby`, `hasMore` fallback, client-mode regression, spec-default limit); plugin-detail 249 / types 89 / app-shell 89 all green; no new lint errors (5 pre-existing on HEAD).\n- Live-verified against a fresh showcase backend with **116 child contacts** under one account: badge shows 116, \"Page 1 of 24\", each flip issues exactly one `top=5&skip=N` request returning 5 records + `total`, no refetch of sibling lists or the parent record, zero console errors; 3/2-row lists stay unpaged.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

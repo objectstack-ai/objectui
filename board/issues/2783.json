@@ -1,0 +1,30 @@
+{
+  "number": 2783,
+  "kind": "pull_request",
+  "title": "fix(app-shell): i18n the \"Switch Object\" breadcrumb dropdown label",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T03:41:03Z",
+  "updated_at": "2026-07-22T05:53:30Z",
+  "closed_at": "2026-07-22T05:53:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-22T05:53:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2783",
+  "body": "## 问题\n\n顶栏面包屑里的「对象切换」下拉,其标题标签硬编码为英文 `Switch Object`,在中文界面下不跟随本地化(见用户截图:zh UI 里仍显示英文 \"Switch Object\")。\n\n## 修复\n\n- `packages/app-shell/src/layout/AppHeader.tsx`:把硬编码字符串改为 `t('topbar.switchObject', { defaultValue: 'Switch Object' })`,复用同文件既有的 `useObjectTranslation()` 与 `topbar.*` 命名空间(与紧邻的 `topbar.switchView` 写法一致)。\n- `packages/i18n/src/locales/en.ts`:新增 `topbar.switchObject: 'Switch Object'`。\n- `packages/i18n/src/locales/zh.ts`:新增 `topbar.switchObject: '切换对象'`。\n\n## 说明\n\n只补 en/zh:其余语言(ar/de/es/fr/ja/ko/pt/ru)本就不带 `topbar.switchView` 等键,靠 en 兜底;en 为 `as const` 源,其他语言允许部分覆盖,无\"所有语言必须齐全\"的类型约束——与既有约定一致。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

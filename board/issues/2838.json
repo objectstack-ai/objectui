@@ -1,0 +1,32 @@
+{
+  "number": 2838,
+  "kind": "issue",
+  "title": "FlowObjectListField.commitCell 在 setRows updater 里 flush,触发 React setState-in-render 告警",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: app-shell"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-07-27T06:28:35Z",
+  "updated_at": "2026-07-27T06:50:48Z",
+  "closed_at": "2026-07-27T06:50:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2838",
+  "body": "## 现象\n\n在流程设计器的节点 inspector 里,操作 `FlowObjectListField`(objectList repeater)中任意一个 **`commitCell` 型控件**——checkbox、select 单元格、嵌套 list 编辑器、记录 lookup、删除行——浏览器控制台会打出一条 React 告警:\n\n```\nCannot update a component (`MetadataResourceEditPageImpl`) while rendering a\ndifferent component (`FlowObjectListField`). To locate the bad setState() call\ninside `FlowObjectListField`, follow the stack trace as described in\nhttps://react.dev/link/setstate-in-render\n```\n\n在带后端的真机环境(showcase 后端 + console dev)里 100% 复现,审批节点的 Approvers repeater 是最容易碰到的入口。\n\n## 根因\n\n`packages/app-shell/src/views/metadata-admin/inspectors/FlowObjectListField.tsx`\n\n`commitCell` 把 `flush()` 放在 `setRows` 的 **updater 函数内部**执行:\n\n```tsx\n// :147\nconst flush = (nextRows: Row[]) => {\n  const list = rowsToList(nextRows, columns);\n  lastCommitted.current = JSON.stringify(list);\n  onCommit(list.length ? list : undefined);   // ← 父组件 setState\n};\n\n// :162\nconst commitCell = (id: string, key: string, v: Cell) => {\n  setRows((rs) => {\n    const next = rs.map((r) => (r.id === id ? { ...r, values: { ...r.values, [key]: v } } : r));\n    flush(next);        // ← 在 updater 里跑,即 render 阶段\n    return next;\n  });\n};\n```\n\nReact 的 updater 函数在 **render 阶段**执行。于是 `onCommit` → `FlowNodeConfigField.onCommit` → `FlowNodeInspector.setField` → `ResourceEditPage.onPatch` → `setState`,整条链路在 `FlowObjectListField` 渲染期间打到了 `MetadataResourceEditPageImpl` 上,正是 React 要拦的那种写法。\n\n抓到的调用栈:\n\n```\nat dispatchSetState (react-dom_client.js)\nat ResourceEditPage.tsx:218\nat onPatch (ResourceEditPage.tsx:2426)\nat setField (FlowNodeInspector.tsx:207)\nat onCommit (FlowNodeInspector.tsx:402)\nat onCommit (FlowNodeConfigField.tsx:91)\n```\n\n`removeRow`(:176)是同样的写法。当前所有 `commitCell` 调用点:`:225` `:227` `:248`(嵌套 list)、`:268`(checkbox)、`:319`(reference 的 picker 类提交)、`:346`(select 单元格)。\n\n代码里那条注释——「flush 留在 `setRows` updater 里(sibling 标量控件的既有写法),这样 `lastCommitted` ref 只在这里被碰,绝不在 render body 里」——初衷是保护 `lastCommitted`,但代价是把父组件的 setState 也一并搬进了 render 阶段。\n\n## 这不是某一个控件的问题\n\nReact 对**同一组件对**只告警一次,所以第一个被操作的控件会「认领」这条告警,看起来像是它引入的。把操作顺序对调即可证明是共用写法的问题——先动 `Resolve As`(普通 enum select 单元格,走 `:346`),它认领告警,随后的记录 lookup 选取就干净了:\n\n```\n⚠️  WARNS  先操作:普通 select 单元格(Resolve As)\n    clean  后操作:记录 lookup 选取\n```\n\n反过来先操作记录 lookup,则由 lookup 认领、select 干净。两边都只是 `commitCell` 的调用方。\n\n## 复现\n\n1. 起后端 + objectui console dev 指向它;\n2. 打开任一带 objectList 型配置的流程节点 inspector(审批节点的 Approvers 最直接);\n3. 动一下其中任意 checkbox / select / 记录 lookup / 删除行;\n4. 看控制台。\n\n## 建议修法\n\n把 flush 移出 updater,在 `setRows` 之后用已算好的 `next` 调用:\n\n```tsx\nconst commitCell = (id: string, key: string, v: Cell) => {\n  const next = rows.map((r) => (r.id === id ? { ...r, values: { ...r.values, [key]: v } } : r));\n  setRows(next);\n  flush(next);\n};\n```\n\n`rows` 在闭包里可用,而这些都是离散的用户交互(一次点击一次提交),不存在需要函数式 updater 来串联的连续更新。`removeRow` 同理。\n\n如果想更保守地保留函数式 updater,另一条路是用 pending-flush ref + `useEffect`:updater 只记下待提交的 `next`,effect 里再 `flush`。代价是多一次 render,收益是完全不依赖「调用点不会连发」这个假设。\n\n## 影响\n\n目前只是一条开发期告警——提交本身是生效的,值也正确落库(已在真机验证中确认 team/department 存行 id、position 存机器名、Publish 后 API 回读一致)。但它属于 React 明确点名的错误写法,在并发渲染下行为不保证,而且它会持续污染控制台、淹没其它真实告警。\n\n---\n\n发现于 #2834 的真机浏览器验证过程中;该 PR 只是新增了一个 `commitCell` 调用方(`:319`),写法本身在 main 上早已存在。"
+}

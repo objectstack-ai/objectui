@@ -1,0 +1,30 @@
+{
+  "number": 2885,
+  "kind": "issue",
+  "title": "ObjectFieldInspector 草稿字段选项无条件拼接中文「(草稿)」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T02:08:36Z",
+  "updated_at": "2026-07-28T05:01:52Z",
+  "closed_at": "2026-07-28T05:01:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2885",
+  "body": "## 问题\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx:1512`\n\n```ts\nbyName.set(name, { value: name, label: `${name} (草稿)` });\n```\n\n字段选择器里的**草稿字段**,其 label 被无条件拼上中文 `(草稿)`。没有任何语言判断,所以英文/日文/德文用户在 Studio 里也会看到 `my_field (草稿)`。\n\n值得一提的是,这是整个 1500+ 行文件里**唯一**的中文字面量——其余 101 处 UI 文案都规规矩矩走了 `t(key, locale)`。所以这大概率是当时顺手写下、后来没人注意到。\n\n## 修法\n\n该文件已经有 `locale` prop 且 `t(key, locale)` 用得很熟,所以是一行的事:在 Studio 自己的词表(`packages/app-shell/src/views/metadata-admin/i18n.ts`)加一个 key(例如 `engine.inspector.draftSuffix`),然后\n\n```ts\nlabel: `${name} ${t('engine.inspector.draftSuffix', locale)}`\n```\n\nStudio 词表是 en/zh 双语的,补两条即可。\n\n## 顺带\n\n现有测试 `ObjectFieldInspector.test.tsx` 只在 `locale={'en-US'}` 下渲染(`:57, :129, :421`),zh 分支完全没覆盖——所以这类问题不会被现有测试拦住。修的时候建议补一条断言:英文 locale 下 label **不含** CJK 字符。\n\n发现来源:objectui#2871 的分类调研。这不是语言分支问题(它连分支都没有),故单独跟踪。"
+}

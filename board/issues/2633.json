@@ -1,0 +1,34 @@
+{
+  "number": 2633,
+  "kind": "pull_request",
+  "title": "fix(auth): 注册页去掉重复的「or」分隔线(与 #2629 登录页修复对齐)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T09:29:24Z",
+  "updated_at": "2026-07-17T09:39:26Z",
+  "closed_at": "2026-07-17T09:39:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T09:39:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2633",
+  "body": "staging 现场验证(2026-07-17,cloud.objectos.app/_console/register)抓到:#2629 修好了**登录页**的双分隔线,但**注册页**仍叠着「OR CONTINUE WITH EMAIL」(来自 SocialSignInButtons)+「OR」(来自 RegisterForm)两条。\n\n删掉 RegisterForm 多余的 `AuthDivider`(与 LoginForm 同修),顺带清理已无消费者的 `hasSocialProviders` state 和 unused import。\n\n## 测试\npackages/auth 88 tests 全过,`tsc --noEmit` 干净。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

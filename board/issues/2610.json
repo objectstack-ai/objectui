@@ -1,0 +1,32 @@
+{
+  "number": 2610,
+  "kind": "pull_request",
+  "title": "fix(app-shell): guard unsaved OWD overview rows in the Access rail and Studio header nav (#2600 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:41:26Z",
+  "updated_at": "2026-07-16T13:59:45Z",
+  "closed_at": "2026-07-16T13:59:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:59:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2610",
+  "body": "## ⚠️ Stacked on PR #2606 — serial merge\n\nThis branch contains #2606's commit (rebased over #2599, which merged to main mid-flight) plus one follow-up commit. **Merge #2606 first**, then rebase this branch — the replayed #2606 patch drops out automatically and only the follow-up commit remains. Per issue #2600's 「合并注意」, `StudioDesignSurface.tsx` PRs merge serially.\n\n## Summary\n\nCloses the gap #2606 explicitly left out of scope: `PackageOwdOverviewPanel` (the Access pillar's Record Sharing Baseline batch-editor) tracked its unsaved per-object rows internally (`rowState`/`dirtyCount`) but reported them to no one, so **both** unsaved-edit guards discarded them silently:\n\n1. the Access rail guard (`confirmDiscardMatrixEdits` checked only `matrixDirty`) — switching to a permission set, opening the create flow;\n2. the surface-level header guard from #2606 (`pillarDirty`) — pillar links, Home, PackageSwitcher.\n\n### Changes\n\n- **`PackageOwdOverviewPanel` grows `onDirtyChange`** — the exact PR #2588 contract `PermissionMatrixEditPage` uses: ref-stabilized transition reports, `false` on unmount so a confirmed discard clears the host's guard by itself.\n- **`AccessPillar` folds it in as `owdDirty`** alongside `matrixDirty`. The rail confirm (`confirmDiscardEdits`, renamed) gates on the combined bit — the two main-panel surfaces never coexist, so at most one bit is set — and the combined bit mirrors up to the surface via a ref-stabilized effect with a `false`-on-unmount cleanup (replacing #2606's `reportMatrixDirty` wrapper).\n- **Re-clicking the open OWD rail entry is now a no-op** (nothing remounts → no confirm), mirroring the existing set re-click exemption. Previously it ran the (vacuously clean) guard; with `owdDirty` folded in it would have prompted spuriously.\n- **The create flow lands on the new set's matrix even from the OWD overview** (`setOwdOpen(false)` in `doCreate`) — the \"+ New\" gate warns about discarding, so the discard must actually happen; before, creating from the overview left it open with the new set silently selected underneath.\n\n## Tests\n\n- `PackageOwdOverviewPanel.test.tsx` +2: the onDirtyChange contract (edit → `true`, revert → `false`, unmount → `false`; save → `false`).\n- `StudioDesignSurface.accessGuard.test.tsx` +3 (real panel now, stub mock removed): dirty overview → set swap prompts, cancel keeps edits, confirm discards and resets the guard; OWD rail re-click never prompts; create flow gates and lands on the new set's matrix.\n- `StudioDesignSurface.pillarNavGuard.test.tsx` +1 (stub mock removed): dirty overview rows gate a header pillar switch through the real StudioDesignSurface → AccessPillar → PackageOwdOverviewPanel stack, and a confirmed discard resets the surface guard.\n\n- `vitest run packages/app-shell/src/views/studio-design/` — 17 files / 108 tests pass\n- `tsc --noEmit` in `packages/app-shell` — clean\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

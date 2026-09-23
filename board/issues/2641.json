@@ -1,0 +1,33 @@
+{
+  "number": 2641,
+  "kind": "pull_request",
+  "title": "ci(test): shard the Vitest suite across 4 runners",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T14:29:00Z",
+  "updated_at": "2026-07-17T14:37:45Z",
+  "closed_at": "2026-07-17T14:37:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T14:37:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2641",
+  "body": "## 问题\n\n`Test` job 就是 CI 的关键路径:一次 PR 跑 ~8.3 分钟,而整条 CI 的 wall clock 才 ~9 分钟(E2E 只要 1.2 分钟,dev-server 0.4 分钟,docs 在 PR 上直接跳过)。\n\n慢的不是断言本身。最近一次 PR 跑的 Vitest summary:\n\n```\nDuration 495.33s (transform 46.84s, setup 831.17s, import 198.72s,\n                  tests 177.78s, environment 155.79s)\n```\n\n真正执行测试只有 **178s**;`setup` 831s / `import` 199s / `environment` 156s 都是**按测试文件重复支付**的固定开销 —— 因为 `isolate: true` 会为每个文件重新执行整张模块图。559 个测试文件里约 305 个走 `dom` project,而 `vitest.setup.dom.tsx` 会 side-effect 导入 `@object-ui/components` / `fields` / `plugin-dashboard` / `plugin-grid` 并重注册 9 个 widget,平均每个文件白付 ~2.7s。\n\n`isolate` 必须保持开启 —— `vitest.config.mts` 里已经记录过关掉它导致上千个顺序依赖失败的历史。\n\n## 做法\n\n不动 isolation,把 559 个文件切到 4 个 runner 上:\n\n- **`test`**:4 片矩阵,仅 PR,跑 `pnpm test --shard=N/4`。这里每个 job 的固定开销只有 **~30s**(checkout + Node + 走热 pnpm store 的 install 只要 6s),所以 4 片是用 **~26% 的额外 runner 分钟换 ~3x 的 wall clock**。`fail-fast: false`,一片挂掉不掩盖其他片的失败。\n- **`test-coverage`**:原先 push 才跑的 coverage 路径拆成独立的不分片 job。没有任何东西阻塞它,所以保持给 Codecov 一份完整报告,不必引入 blob report 合并的复杂度和风险。\n\nVitest 按测试文件路径的 hash 分片,`unit` / `dom` 文件会自然交错,分片自动均衡,无需手工配平。\n\n## 验证\n\n- `vitest run --shard` 确实生效且**守恒**:同时命中 `unit` 和 `dom` 两个 project 的过滤器下,`2 + 2 = 4` 文件、`9 + 14 = 23` 测试。⚠️ 注意 `vitest list` **忽略** `--shard`(每片都返回全部 559 个文件),不能用它来验证。\n- 分片最大的风险是**静默漏跑**(测试没跑但 CI 依旧全绿),所以本 PR 自身的 CI 就是终极校验:**4 片的 Test Files 求和必须 == 559,Tests 求和必须 == 6843**。合并前会核对。\n- 全仓没有任何 branch protection / `needs:` / `workflow_run` 引用旧的 `Test` check 名(main 未开启分支保护),改名安全。\n\n## 不在本 PR 范围\n\n那 831s 的 `setup` 本身还可以根治 —— 把 `vitest.setup.dom.tsx` 拆成轻/重两档,只让真正依赖全量 ComponentRegistry 的测试付重量档的代价。那是结构性改动(需要梳理哪些测试依赖注册副作用),本地开发同样受益,单独开专项。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

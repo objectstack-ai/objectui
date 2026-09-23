@@ -1,0 +1,34 @@
+{
+  "number": 2936,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,plugin-form,cli,+2): type-check the last five unchecked packages, and fix the two runtime bugs hiding there (#2919)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T16:36:32Z",
+  "updated_at": "2026-07-28T16:41:52Z",
+  "closed_at": "2026-07-28T16:41:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T16:41:50Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2936",
+  "body": "Closes #2919. Clears the remaining `DEBT` entries from the #2911 sweep: `plugin-grid` (4), `plugin-form` (10), `cli` (4), `plugin-designer` (1), `object-ui` (1).\n\nEach package gains `\"type-check\": \"tsc --noEmit\"` and loses its `DEBT` entry in `scripts/check-type-check-coverage.mjs`. **Coverage 36 → 41 of 45; outstanding errors 25 → 5** — only #2916 (`plugin-view`, 3) and #2918 (`layout`, 2) remain.\n\n`@object-ui/site` was already out of scope per the #2924 measurement, and `@object-ui/runner` was already done in #2922.\n\n## Two of these were real, user-visible bugs\n\n### `objectui validate` could never report a validation failure\n\n`ZodError.errors` was removed in Zod 4 (this repo is on 4.4.3). So `result.error.errors` read `undefined`, `.forEach` threw a `TypeError`, and the enclosing `catch` reported it as `✗ Error reading or parsing schema file:` — swallowing the very errors the command exists to print. Now reads `.issues`.\n\nVerified against the built CLI on an invalid schema:\n\n```\n✗ Schema validation failed!\nValidation Errors:\n\n1. Invalid input\n   Code: invalid_union\n```\nexit 1. Previously: `✗ Error reading or parsing schema file: Cannot read properties of undefined (reading 'forEach')`.\n\n### Grouping a grid by a boolean column rendered a raw i18n key\n\n`t('grid.booleanTrue', 'Yes')` asked for a key present in **neither** `GRID_DEFAULT_TRANSLATIONS` nor any locale bundle, and passed the English fallback as a bare second argument — which `createSafeTranslation`'s no-provider translator reads as an *options object*, so the fallback never applied. Group headers rendered the literal `grid.booleanTrue` / `grid.booleanFalse`.\n\nSwitched to the `grid.yes` / `grid.no` keys that the boolean cell renderer (`ObjectGrid.tsx:1999`) and `BulkActionDialog.tsx:215` already use, with the fallback passed as `defaultValue`. New regression test, **confirmed to fail against the old code**:\n\n```\nAssertionError: expected [ 'grid.booleanFalse', …(1) ] to deeply equal ArrayContaining [\"Yes\", \"No\"]\n```\n\n## Type-only, runtime preserved\n\n- **plugin-grid** `importParsers.ts` — `score`/`reason` folded into one `best` record. They were captured `let`s mutated only inside the `bump` closure, which TS's control-flow analysis doesn't track, so it still believed `reason` was `'none'` and flagged the comparisons as non-overlapping (TS2367). **The type gate itself is unchanged** — as #2919 warned, deleting the branch would silently disable the guard that stops a text column being mapped onto a number field. Its two dedicated tests (`uses content type to gate a fuzzy match`, `discounts a name match when the content type is incompatible`) still pass.\n- **plugin-form** — `SectionFieldsContext.fieldLabel` now requires `fallback`, matching the `useSafeFieldLabel` producer in `@object-ui/i18n`; an omitted fallback could not satisfy the `=> string` return, and all four call sites already pass one. One signature cleared six errors. `MasterDetailFormSchema.recordId` widens to `string | number` to match `ObjectFormSchema` and the five envelopes that forward into it, narrowed with `String()` only at the batch boundary where `BatchTransactionOperation.id` is a string by protocol (the `isEdit` guard already proves it non-null). `deriveMasterDetail` gets an explicit `fillPriority` helper — `GridColumn.type` is optional, and a typeless column keeps sorting at priority 5 exactly as `TYPE_FILL_PRIORITY[undefined] ?? 5` put it.\n- **plugin-designer** — unused `index` parameter prefixed `_`, matching the `_entry` beside it.\n- **cli** — stale `@ts-expect-error` removed; `viteConfig` is typed `any`, so the line it guarded had stopped erroring.\n\n## `object-ui` (vscode-extension) was under-reported\n\nIts count of 1 was wrong: the TS5107 config error **masked four more**. Confirmed by A/B — the extra errors reproduce under the old `moduleResolution: \"node\"` too.\n\nMigrated to `node16` + `module: \"node16\"` (the real fix, not `ignoreDeprecations`): no `\"type\": \"module\"`, so node16 resolves it as the CommonJS tsup emits, and it gains the `exports`-map awareness node10 lacks. The package uses `console`/`Buffer` but sets `lib: [\"ES2020\"]` with no DOM and never declared `@types/node` — added, with an explicit `types: [\"node\", \"vscode\"]`.\n\n## tsconfig `paths`\n\n`plugin-grid` / `plugin-form` / `plugin-designer` gain the `baseUrl` + `paths` override their type-checked plugin peers already carry; `cli` gets an empty `paths`. Without it the inherited root `paths` point `@object-ui/*` at sibling `src/`, outside each project's `rootDir`, producing the ~104 spurious TS6059 errors described in #2915. Workspace deps instead resolve through node_modules to built `.d.ts`, which `type-check`'s `dependsOn: [\"^build\"]` guarantees exist.\n\n## Verification\n\n- `node scripts/check-type-check-coverage.mjs` → `✅ 41/45 via type-check, 1 via their own build, 2 known-broken (5 errors outstanding), 1 not compiled`\n- `pnpm type-check` → 76/76 tasks successful\n- `pnpm build` → 43/43 successful; `dist/index.d.ts` intact for all three packages that gained `composite`\n- `pnpm exec vitest run` over the five packages → **63 files, 574 tests passed**\n- `eslint` → 0 errors in all five\n- **Gate proof** — injecting a type error into each of the five makes `pnpm type-check --filter <pkg>` fail. All five ✅; impossible before this change.\n\nRefs #2911, #2915"
+}

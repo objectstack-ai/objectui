@@ -1,0 +1,32 @@
+{
+  "number": 2870,
+  "kind": "issue",
+  "title": "P0: 密码过期 / 强制 MFA 全屏拦截层未国际化,非英语用户无法通过 (RemediationOverlay)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T14:49:18Z",
+  "updated_at": "2026-07-27T15:48:56Z",
+  "closed_at": "2026-07-27T15:48:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2870",
+  "body": "## 问题\n\n`packages/app-shell/src/console/RemediationOverlay.tsx` **没有任何 i18n**(全文件 0 处 `@object-ui/i18n` 引用),而它是密码过期与强制 MFA 注册的**全屏硬拦截层**:\n\n- `ConsoleShell.tsx:91` **无条件挂载**,注释写明 `ADR-0069 — full-screen gate (expired password / required MFA) above all routes`\n- `RemediationOverlay.tsx:27` `fixed inset-0 z-[200] … backdrop-blur-sm`,`:25` `if (!remediationRequired) return null`\n\n也就是说:一旦触发,用户**只能**读懂这屏英文才能继续使用系统,没有绕过路径。这与\"某个页面标题没翻译\"不是一个量级——这是可用性阻断。\n\n## 硬编码文案(实测)\n\n密码过期分支:\n| 行 | 文案 |\n|---|---|\n| `:78` | `Your password has expired` |\n| `:84` | `Current password` |\n| `:89` | `New password` |\n| `:94` | `Confirm new password` |\n| `:63` | `setError('New passwords do not match.')` |\n| `:70` / `:139` / `:153` | 其余错误提示 |\n\nMFA 注册分支:\n| 行 | 文案 |\n|---|---|\n| `:162` | `Set up two-factor authentication` |\n| `:168` | `Confirm your password` |\n| `:184` | `Scan with your authenticator` |\n| `:186` | 扫码说明 |\n| `:192` | `Save your backup codes` |\n| `:193` | `Store these somewhere safe — each can be used once if you lose your device.` |\n\n共 12 条。注意 `:63` 等错误文案存进 state 后才渲染,需在**抛出处**翻译(与 objectui#2865 里 CloudConnectionPanel 的处理方式一致)。\n\n## 关联的次要项:登录页文案半英半译\n\n`packages/app-shell/src/console/auth/AuthPageLayout.tsx` 包裹全部 login / register / forgot 页,其中 2 条硬编码:\n\n- `:41` `Build powerful business applications, faster.`\n- `:44` `The universal platform for enterprise data management, workflows, and analytics.`\n\n表单本身**已经**国际化,所以呈现效果是左右分屏一半日文一半英文。两条一起修,合计 14 条。\n\n## 建议做法\n\n沿用 objectui#2865(CloudConnectionPanel)刚验证过的套路:\n\n1. 在 `packages/i18n/src/locales/{en,zh,ja,ko,de,fr,es,pt,ru,ar}.ts` 新增 `remediation.*`(与 `auth.*` 并列),10 个语言包**一次补齐**——只补 en/zh 会复现本仓库已经犯过两次的静默回退问题\n2. 组件接 `useObjectTranslation()`;state 里的错误文案在抛出处翻译\n3. 补一条 key parity 测试(可复用 `packages/i18n/src/__tests__/cloudConnection-locale-parity.test.ts` 的写法)\n\n## 发现来源\n\n在 objectstack#3589 收尾时对全仓库 SDUI widget / console 正文 i18n 覆盖率做排查发现,属 objectstack-ai/objectui#2851 \"复核其余 SDUI widget 正文 i18n 覆盖\" 那一条的延伸,但严重程度高于原议题,故单独跟踪。\n\n相关:另拆出两个 issue —— 手搓 zh 判断绕开语言包、语言包 key 缺口与缺失的 parity 测试。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2873,
+  "kind": "pull_request",
+  "title": "fix(list): show real match total in record-count bar under server pagination",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T15:01:39Z",
+  "updated_at": "2026-07-28T07:09:27Z",
+  "closed_at": "2026-07-28T07:09:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T07:09:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2873",
+  "body": "## 问题\n列表底部的记录数状态栏读的是 `data.length`。服务端分页（#2212）下 `data` 只有当前页，所以 158 行按 100/页分页时第 1 页显示「100 条记录」、第 2 页「58 条记录」，看不到真实总数——用户没有任何地方能看到查询命中的总条数。\n\n## 修复\n状态栏改为有服务端总数（`serverTotal`）时显示总数，否则回退 `data.length`（内存态/分组/非 grid 视图 `serverTotal` 为 null，行为不变）。\n\n## 验证\n- 单测：`ListView.serverPagination` 5/5、`ListView` 126/126\n- 浏览器实测 showcase 联系人列表（158 行）：状态栏显示「158 条记录」跨页稳定；切分组/清除分组正确重置，无回归。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

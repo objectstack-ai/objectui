@@ -1,0 +1,33 @@
+{
+  "number": 2642,
+  "kind": "pull_request",
+  "title": "fix(components): route internal html-page links through the SPA navigation handler",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T14:53:08Z",
+  "updated_at": "2026-07-17T14:57:39Z",
+  "closed_at": "2026-07-17T14:57:37Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T14:57:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2642",
+  "body": "## Problem\n\nAuthored `kind:'html'` pages write app-root-relative hrefs (`apps/<app>/<object>`, `docs/<name>`). The anchor passthrough rendered them as raw `<a>` tags, so where a click landed depended entirely on `document.baseURI`:\n\n- with a host-injected `<base>` tag (`/_console` deployments) the links resolved correctly;\n- without one (root-mounted consoles, vite dev) the browser nested the path under the current page URL — `/apps/<app>/page/apps/<app>/<object>` — and hit **Page not found**.\n\nOriginally reported as objectstack-ai/framework#2823 (Showcase Capability Map → \"Projects (backbone)\").\n\n## Fix\n\nThe anchor renderer now resolves internal hrefs to app-root-absolute paths and navigates through the url action's navigation handler (React Router aware, so the router basename is applied in every deployment). Full page reloads become SPA navigations as a bonus.\n\nNative browser behavior is preserved for: external schemes (`http(s)`, `mailto:`, `tel:`), protocol-relative URLs, in-page `#` fragments, `target=\"_blank\"`, modified clicks (cmd/ctrl/shift/alt), and contexts without an `ActionProvider`. Success toasts are suppressed for link follows.\n\n## Testing\n\n- 10 new unit tests covering interception, path resolution (`./`/`../`, query + hash), and every non-intercepted case — all pass\n- Full `@object-ui/components` suite: 264 tests, no regressions; typecheck and lint clean\n- Live verification against a showcase backend + console dev stack: the exact repro from the issue now lands on `/apps/com.example.showcase/showcase_project` via `pushState` (no full reload), the object grid renders, browser Back returns to the Capability Map, and `docs/…` / `page/…` links resolve correctly\n\nFixes #2638\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

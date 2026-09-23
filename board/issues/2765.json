@@ -1,0 +1,34 @@
+{
+  "number": 2765,
+  "kind": "issue",
+  "title": "消息中心:重复通知的分组/去重/折叠(scheduled digest 每分钟一条把收件箱刷屏)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T15:42:39Z",
+  "updated_at": "2026-07-22T20:49:38Z",
+  "closed_at": "2026-07-22T20:49:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2765",
+  "body": "## Problem\n\nThe message center lists every notification individually with no grouping. In the showcase, `showcase_scheduled_digest` (interval trigger) fires ~once a minute, so the inbox fills with **10+ identical \"Scheduled project digest\"** entries within minutes — unread climbed to 20, the bell badge shows `9+`. The signal-to-noise is poor and a real workspace with any recurring notification would hit the same wall.\n\nFound in the #3358 sweep (§7).\n\n## Ask\n\n- [ ] **Group / collapse** identical or same-topic notifications in the message center (e.g. `Scheduled project digest ×10`, expandable), instead of one row each.\n- [ ] **Dedup / coalesce** repeats of the same `(topic, title)` within a window.\n- [ ] Per-group affordance: **\"mark all of this type read\"**, and count the group as one unread for the badge (or a smarter badge that reflects distinct topics).\n\nCompanion (framework/showcase side, optional separate track): the showcase digest cadence (~1/min) is aggressive for a demo — dial it down so first-boot isn't a flood.\n\n## Why\nNotification grouping is table-stakes for an inbox; without it, any recurring notification drowns the actionable ones (assignments, @mentions, approvals).\n\nRefs: objectstack-ai/framework#3358 (sweep). Related console-polish umbrella: #2762.\n"
+}

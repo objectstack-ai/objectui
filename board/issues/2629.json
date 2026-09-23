@@ -1,0 +1,32 @@
+{
+  "number": 2629,
+  "kind": "pull_request",
+  "title": "fix(auth): login-page config race + sign-in watchdog — never strand SSO-only users on a password wall",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T01:02:56Z",
+  "updated_at": "2026-07-17T06:00:53Z",
+  "closed_at": "2026-07-17T06:00:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T06:00:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2629",
+  "body": "Closes #2625, closes #2626(staging E2E 2026-07-17 的两个 P1)。\n\n## 问题\n\n新 provision 的环境**首次**打开登录页:kernel 冷启动令 `/auth/config` 挂/失败,LoginForm 与 SocialSignInButtons 各自静默回退默认 → 页面只有密码表单、没有「Continue with ObjectStack」、ssoEnforced 不生效。平台 SSO 的 JIT 用户没有密码 → 魔法时刻卡死。同一窗口内点 SSO 按钮,POST 挂死后按钮永久转圈(无超时无错误)。\n\n## 修复\n\n1. **getConfig 单飞+缓存+重试**:登录页三个消费方共享一个请求(原来发 3 个);失败按 500ms/1.5s/3.5s 退避重试,每次尝试 8s AbortController 超时(挂死→可重试);最终失败清缓存,下个调用方重新开始。\n2. **LoginForm 加载 gate**:config 未决前渲染 spinner 而非密码表单默认值;resolve 后首帧即按 ssoEnforced 呈现;**最终失败仍回退密码表单**(break-glass 优先,保留原安全默认)。\n3. **signInWithProvider 20s watchdog**:挂死的登录请求转为明确超时错误,#2458 的按钮契约(pending+inline error)接住恢复;legacy oauth2 回退失败不再掩盖 social 路由错误。\n4. 顺手:删掉 LoginForm 的重复「or」分隔线(SocialSignInButtons 已自带)——staging 上双分隔线像渲染故障。\n\n## 测试\n\npackages/auth:7 files / **88 tests 全过**(新增 6:单飞缓存、退避重试、失败不投毒缓存、watchdog 超时、gate 双向)。`tsc --noEmit` 干净。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2740,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in plugin-detail (#2713 Wave 3.2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T07:19:14Z",
+  "updated_at": "2026-07-20T07:24:01Z",
+  "closed_at": "2026-07-20T07:23:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:23:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2740",
+  "body": "Wave 3 of the #2713 lint-gate restoration (Waves 1–2 in #2730 / #2737; #2738 landed plugin-dashboard). `@object-ui/plugin-detail` was **red at baseline on `main`**. **Errors only; rendered output unchanged.**\n\nAll nine are `react-hooks` errors. Eight are the same real fragility: the record renderers **called hooks after a conditional early return** — React throws \"rendered more/fewer hooks\" if that guard toggles between renders. Each is restructured so hooks run **unconditionally** while the rendered output stays identical. I verified each hook's side-effect profile first (pure `useContext`/`useMemo` vs. effect-bearing) and picked the technique accordingly:\n\n- **`record-reference-rail`** — `useState(false)` hoisted above the empty-entries early return (no dependency on it). Trivially safe.\n- **`record-related-list`** — the `!objectName` placeholder return moved **below** the four hooks (`usePermissions`, `useFieldPermissions`, `useRelatedRecordActions`, `useMemo`). Those are pure context/memo reads (`useFieldPermissions` is `usePermissions` + `useMemo`, no fetch), safe with an empty object name (`objectName || ''`). The object-level read-gate ordering is unchanged — covered by `RecordRelatedListRenderer.readgate.test`.\n- **`record-quick-actions`** — the `requiredPermissions` gate moved below `useActionEngine` (a pure `useContext` + `useMemo` engine builder, no subscribe effect).\n- **`record-highlights`** — `useId` + `useRegisterHighlightFields` now run unconditionally; the permission gate is enforced **after** them. `useRegisterHighlightFields` has a register/unregister **effect**, so when the gate denies it is passed `[]` — equivalent to not registering, so `RecordDetailsRenderer` never hides a body field for highlights that aren't rendered.\n- **`RelatedList`** `SectionIcon` (`react-hooks/static-components`) — `resolveIconComponent` is a stable registry lookup, not a component created during render → justified scoped disable.\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (9 at baseline).\n- **Type gate:** `turbo run build` → **11/11 tasks green** (confirms the `objectName` narrowing changes type-check).\n- **Tests:** full `plugin-detail` suite green — **249 passed / 28 files**, including the dedicated `RecordRelatedListRenderer.readgate` / `.hostactions` / `.speclimit` tests that exercise the restructured read gate.\n\nRefs #2713 · follows #2730, #2737, #2738 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

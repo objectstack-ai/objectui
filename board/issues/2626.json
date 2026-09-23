@@ -1,0 +1,30 @@
+{
+  "number": 2626,
+  "kind": "issue",
+  "title": "fix(auth): SSO 按钮点击后请求挂死时永久转圈 — pending 态缺超时/错误兜底",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T00:48:58Z",
+  "updated_at": "2026-07-17T06:00:52Z",
+  "closed_at": "2026-07-17T06:00:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2626",
+  "body": "## 现象(staging E2E 2026-07-17)\n\nenv kernel 冷启动窗口内点「Continue with ObjectStack」,`POST /api/v1/auth/sign-in/social` 挂死(30s+ 无响应),按钮进入 pending 转圈后**永远不恢复**——无超时、无错误提示、无法重试。同一时刻 curl 同端点 2.9s 正常返回,说明是首击撞上冷启动的偶发挂死。\n\n## 影响\n\nobjectui#2458 给按钮加了 pending 态和 inline 错误,但「请求永不返回」这条腿没有兜底。用户只能刷新页面。P1。\n\n## 修复方向\n\n`signInWithProvider`(或 SocialSignInButtons 层)加 AbortController 超时(建议 20–30s):超时后 abort 请求、按钮恢复可点、inline 显示「登录超时,请重试」。与 #2458 的错误契约一致。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

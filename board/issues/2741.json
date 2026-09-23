@@ -1,0 +1,32 @@
+{
+  "number": 2741,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in plugin-chatbot (#2713 Wave 3.3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T07:30:27Z",
+  "updated_at": "2026-07-20T07:43:30Z",
+  "closed_at": "2026-07-20T07:43:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:43:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2741",
+  "body": "Wave 3 of the #2713 lint-gate restoration. `@object-ui/plugin-chatbot` was **red at baseline on `main`**. **Errors only; no behavior change.**\n\n⚠️ **This is the highest-risk change in the sweep** — the bulk is an 8-hook restructure of `useObjectChat`, a core AI-chat hook with delicate send / reconcile / handoff flows. I'd like a closer look before merge even though CI is green.\n\n## What changed\n\n- **`useObjectChat` — 8× `react-hooks/rules-of-hooks`** — the hook called **different `useCallback`s in each of its two `isApiMode` return branches**, so both sets were conditional. That's a real bug: React throws \"rendered more/fewer hooks\" if `isApiMode` ever toggles between renders. `useChat` is *already* called unconditionally (the team's comment says so). This change:\n  - destructures `chatResult` unconditionally (it's always defined), and\n  - hoists **all eight** callbacks (3 API + 5 local) above the `isApiMode` branch,\n  so the same hooks run in the same order every render. **Only the returned object differs by mode** — every callback body is byte-identical, just de-indented; the API-mode `messages` local is renamed `apiMessages` to avoid shadowing. (See the diff: the `useObjectChat.ts` hunk is a pure move/de-indent/rename.)\n- **`FloatingChatbotTrigger`** (`rules-of-hooks`) — `useChatbotLabel` wrapped the provider-safe `useObjectTranslation` in try/catch → removed (the #2709 fix).\n- **`shimmer`** (`static-components`) — `motion.create(Component)` genuinely builds a motion component and must key off the `as` prop, so it can't be module-scoped. Memoized per `Component` (stable ref → no per-render remount) with a justified scoped disable at the render site.\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (10 at baseline).\n- **Type gate:** `turbo run build` → **9/9 tasks green** (confirms the hoisted destructure + renames type-check).\n- **Tests — both sides of `useObjectChat`:**\n  - `plugin-chatbot` full suite: **218 passed / 14 files**, incl. the delicate `useObjectChat.sendFailure`, `useObjectChat.handoffContext`, `ChatbotEnhanced.sendError`, `withTurnId`, `withHandoffContext`.\n  - app-shell consumers: `ChatDock` / `ConsoleChatbotFab` / `chatDockReturnLocation` / `useDeferredFirstSend` → **23 passed / 4 files**.\n\nRefs #2713 · follows #2730, #2737, #2738, #2740 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

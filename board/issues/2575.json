@@ -1,0 +1,35 @@
+{
+  "number": 2575,
+  "kind": "pull_request",
+  "title": "fix(actions): defuse the three action-visibility traps (#2358)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T05:46:10Z",
+  "updated_at": "2026-07-16T13:46:59Z",
+  "closed_at": "2026-07-16T13:46:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2575",
+  "body": "Closes #2358\n\n## What\n\nAll three action-visibility traps share one root cause: `visible` evaluation failure is fail-closed **silently** — the action just disappears with zero diagnostics. This PR fixes the two client-side traps outright, adds a heuristic warning for the third, and makes every fail-closed hide diagnosable.\n\n### Trap 1 — `os.user` identity alias (spec parity)\n\nThe spec's canonical CEL identity scope is `os.user.*` (server formula / validation / sharing docs all use `{{os.user.id}}`), but client predicate scopes only bound `current_user` / `user` / `ctx.user` — so a predicate authored against the server dialect threw a ReferenceError and was fail-closed hidden **for everyone**.\n\n- `ExpressionProvider` (app-shell), `ActionRunner` (and thus `ActionEngine`), and the `page:header` evaluator (components) now all expose an `os.user` alias derived from the signed-in user.\n- Consumer-provided `os` namespace keys are preserved; `updateContext` re-derives the alias when `user` changes.\n\n### Trap 2 — `record_more` never rendered\n\nActions declaring only `locations: ['record_more']` were hard-filtered out of the record page header. Per the spec, `record_more` **is** \"the overflow menu under the 'More' / ⋯ button on a record\":\n\n- `RecordDetailView` and `PageHeaderRenderer` now accept `record_more` alongside `record_header`.\n- `record_more`-only actions are always routed into the ⋯ overflow menu and never occupy an inline slot, regardless of how few actions the header has.\n\n### Unified diagnostics — no more silent fail-closed hide\n\nA throwing `visible` / `hidden` predicate still hides the action (safety semantics unchanged), but now warns **once per (action, predicate)** with the action name, the predicate source, the failure reason, and the available scope shape. Covers:\n\n- the `page:header` action evaluator (containers.tsx), and\n- `useCondition({ throwOnError })` consumers via a new `label` option — `action:button`, `action:menu`, `action:bar`.\n\nMirrors the existing `ActionEngine.warnHiddenPredicate` precedent (#2183); its message now mentions `os.user` too.\n\n### Trap 3 — predicates referencing fields absent from the payload (verified)\n\nThe issue suspected the server strips `hidden: true` fields from detail payloads. **Verified against framework source — it does not.** `field.hidden` is a UI-only semantic (\"Hide field from default UI views\"); the objectql/runtime/rest read pipeline never projects it out, and the objectui detail fetch paths (`RecordDetailView`, plugin-detail `DetailView` → `data-objectstack` adapter) request the full record (no `$select` projection). The only mechanism that actually strips fields from responses is **field-level security** — `plugin-security`'s `FieldMasker` removing fields whose `FieldPermission.readable === false` — which is intentional (Salesforce-FLS-style) and stays.\n\nThe client-side symptom is real regardless of cause: a predicate referencing an absent `record.<field>` can't throw (missing property → `undefined`), so it silently mis-evaluates and fail-closed hides. The header evaluator now warns once when a predicate references `record.<field>` keys **absent** from a non-empty record payload — covering FLS-masked fields and any other absence. Present-but-`null` fields do NOT trigger it; empty/loading records are skipped. No framework change is needed.\n\n## Tests\n\n- **core** (+3): `os.user.*` predicate resolution from `context.user`; consumer-provided `os` namespace preserved; alias refresh via `updateContext`.\n- **components** (+8): `record_more` → overflow routing (never inline, works as the only action, other locations still excluded); `os.user` show/hide via ambient scope; throwing predicate hides + warns once (deduped across re-renders); missing-record-field warning; no false positive for present-but-null fields.\n- **react** (+1): `useCondition` fail-closed warn-once with label.\n- Updated 3 `ActionRunner` exact-context assertions to include the derived alias.\n\nRegression: app-shell suite (1378 tests) and components/core/react suites all green. The only failure encountered (`FormulaFunctions` DATEFORMAT) is a pre-existing timezone-dependent test — fails identically on a clean tree.\n\nBug fix — no changeset per AGENTS.md."
+}

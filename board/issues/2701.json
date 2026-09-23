@@ -1,0 +1,32 @@
+{
+  "number": 2701,
+  "kind": "pull_request",
+  "title": "feat(console): user-import wizard defaults to `auto` password policy (tracks framework#3236)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T17:18:20Z",
+  "updated_at": "2026-07-20T01:18:15Z",
+  "closed_at": "2026-07-20T01:18:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T01:18:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2701",
+  "body": "跟进 framework#3236(objectstack-ai/framework#3307)。\n\n## 改动\n\nConsole 「导入用户」向导的「登录方式」选择器新增 **Automatic (recommended)** 选项,并设为**默认**(原为「不设密码」)。`auto` 由服务端逐行决定:可触达的用户收到邀请(邮件 / 短信),无法触达的用户拿一次性密码(结果页只显示一次)——因此无论是否配置邮件/短信服务都能用,而一次性密码揭示区现在**只列出真正回退的行**(而非 `temporary` 下的整批)。\n\n- `IdentityPasswordPolicy` 增加 `'auto'`;向导默认 state 与发送时的 policy ref 默认改为 `'auto'`。\n- `POLICY_FALLBACKS` + en/zh i18n 增加 `auto` 标签/提示;`none` 去掉「(推荐)」标记,改为「No password (identity only)」。\n- 批处理适配器(分批 / 合并 / 一次性密码揭示)本就与策略无关,无需改动——`auto` 回退行携带 `temporaryPassword` 的方式和 `temporary` 行完全一致。\n\n## ⚠️ 合并顺序\n\n向导发送 `passwordPolicy: 'auto'`,只有后端具备 framework#3236 才认识该值(旧后端会 400 `invalid_request`)。**本 PR 应在 framework#3236 发布后再合并**,避免「新 Console + 旧后端」的部署组合。\n\n## 测试\n\n- `identityImport.test.ts` 新增 1 项(默认发送 `auto`),共 **12 项**全绿。\n- `@object-ui/app-shell` + `@object-ui/i18n` type-check 通过;eslint 无 error。\n- ⚠️ 未做浏览器实测(需要平台管理员 + admin 导入特性的完整栈);组件逻辑已单测覆盖,变更本身是默认值 + 下拉标签。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

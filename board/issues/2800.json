@@ -1,0 +1,30 @@
+{
+  "number": 2800,
+  "kind": "issue",
+  "title": "Studio: surface an `enable.searchable` toggle in ObjectSettingsPanel (flag is LIVE — global-search opt-out)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T13:10:52Z",
+  "updated_at": "2026-07-24T14:03:00Z",
+  "closed_at": "2026-07-24T14:03:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2800",
+  "body": "## Context\n\nDuring framework#2377 (ADR-0049 enforce-or-remove, closed by framework#3414), `object.enable.searchable` was **corrected from dead to LIVE**: the 2026-06 audit had missed its reader — Global Search (`searchAll`, M10.5) gates on it at `packages/metadata-protocol/src/protocol.ts:2967`, so an explicit `enable.searchable: false` opts the object out of cross-object search. Evidence is recorded in framework's `packages/spec/liveness/object.json`.\n\n`ObjectSettingsPanel` currently exposes every other live capability flag (trackHistory, files, feeds, activities, clone) but not `searchable` — historically because it was believed dead. That reason is gone (see #2799, which updated the comments); whether to surface it is now a product/UX call.\n\n## Proposal\n\nAdd `searchable` to the panel's `CAPABILITIES` list as an opt-OUT flag (spec default `true`, explicit `false` disables), mirroring feeds/activities/clone:\n\n- One entry in `CAPABILITIES` in `packages/app-shell/src/views/studio-design/ObjectSettingsPanel.tsx` (`{ key: 'searchable', optIn: false, labelKey: 'engine.studio.settings.capSearchable', descKey: 'engine.studio.settings.capSearchableDesc' }`)\n- Two i18n keys (en + zh) in `packages/app-shell/src/views/metadata-admin/i18n.ts` — e.g. label \"Global search\" / desc \"Index this object's records for cross-object search; off removes it from global search results\"\n- Flip the `cap-searchable` absence assertion in `ObjectSettingsPanel.test.tsx` to a presence + default-checked assertion\n\n## Decision points\n\n1. **Should Studio expose it at all?** It's an admin-ish knob (search index membership) rather than a record-surface switch — arguably still belongs here since it's the only live `enable.*` flag not surfaced.\n2. Label wording: avoid implying per-field search config (that's `searchableFields`, ADR-0061) — this flag is the whole-object opt-out.\n\nRefs: framework#2377, framework#3414, #2799.\n\n---\n_Generated with [Claude Code](https://claude.ai/code)_"
+}

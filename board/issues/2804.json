@@ -1,0 +1,35 @@
+{
+  "number": 2804,
+  "kind": "pull_request",
+  "title": "fix(kanban): surface off-column records in an Uncategorized lane (#2792)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T14:19:52Z",
+  "updated_at": "2026-07-24T14:32:22Z",
+  "closed_at": "2026-07-24T14:32:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-24T14:32:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2804",
+  "body": "Closes #2792 — found during the framework internal-training dogfood.\n\n## The bug\n\nWhen kanban buckets flat `data` into columns by `groupBy`, records whose value maps to **no declared column** were accumulated in the `groups` map and then silently dropped (`groups[col.id]` never reads a key that isn't a column id). The board rendered empty while the list footer still counted the rows — it read as data loss. It fires whenever a record's status isn't one of the rendered columns: an edited/removed picklist option, imported legacy data, a deliberately partial column set, or an empty value.\n\n## The fix\n\n- **Extract** the flat-data→columns bucketing into a pure, exported `bucketCardsIntoColumns` — making the single choke point explicit and unit-testable (there's exactly one such site).\n- **Append** a trailing **\"Uncategorized\"** lane (sentinel id `KANBAN_UNCOLUMNED_ID`) holding every record whose key matched no column. Nothing is invisible, and the visible card total reconciles with the record count — the \"N records vs 0 cards\" contradiction is resolved at its root.\n- **Guard** the drag-persist handler in `ObjectKanban`: dragging a card *out* of the lane into a real column repairs its status (a nice recovery affordance); dropping one *in* is refused, since the sentinel isn't a real option value.\n- Add `kanban.uncategorized` to the **en/zh** bundles (other locales fall back to en; the safe-translation default hard-guarantees the English string regardless).\n\n## Verification (both red-verified against the pre-fix code)\n\n- `index.bucket.test.ts` — the pure bucketing: off-column records surface in the lane, the whole-board card total equals the input count, empty/null values are uncategorized (not lost), static per-column cards preserved, cover-image mapping applies, no lane when everything matches.\n- `KanbanRenderer.uncolumned.test.tsx` — renders the **real** board through Suspense (dom-heavy project) and asserts the lane header + orphan card actually appear in the DOM. This caught a hook-destructure bug at the call site that the pure test couldn't see; `type-check` flagged it too.\n- Full `plugin-kanban` + `i18n` suites: 106 passing; `type-check` green.\n\n## Notes\n\nThe count \"N records\" itself comes from the ListView footer (query total); this fix makes the previously-hidden rows visible so the two reconcile, rather than editing the footer. The framework-side seed root cause that first exposed this on the showcase board is fixed separately (objectstack#3415, merged) — but this guards *user* data, which will hit off-column statuses regardless.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2651,
+  "kind": "pull_request",
+  "title": "feat(access): Studio permission matrix — field-level bulk + filter (#2600 B4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T05:15:35Z",
+  "updated_at": "2026-07-18T05:19:24Z",
+  "closed_at": "2026-07-18T05:19:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T05:19:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2651",
+  "body": "## What\n\n**Issue #2600 · B4 (设计迭代 · 字段级批量与搜索)** — expanding an object with many fields (the `field_zoo` pain) meant toggling **two checkboxes per field, one at a time**. The object row already had 读/增改删/全选/清空 shortcuts; the field sub-table had none.\n\n### Changes\n- `FieldsSubTable` gains a **field filter** (name/label; appears once an object has > 6 fields) and **全部可读 / 全部可写 / 清空** shortcuts that act over the currently **visible (filtered)** fields — narrow, then bulk-apply.\n- New parent `bulkSetFields(object, action, fieldNames)`: `readable` → read-only, `writable` → R+W, `clear` → drops overrides back to the read-only default.\n- A `visible / total` count keeps the filter honest.\n- Read-only packages still hide the bulk actions (writable-gated); the per-field checkboxes and aria-labels are unchanged.\n\n## Verify (live, showcase backend)\n- Expand 客户 (showcase_account, 12 fields) → field **filter** + count `12 / 12` render; typing `name` → `1 / 12`, only the `name` row shows.\n- Bulk buttons correctly **absent** on the read-only package (writable-gated).\n- Bulk behavior (write-all, filter-scoped read-all, clear-to-default) covered by RTL — the local env has no writable package with objects to exercise the buttons in-browser.\n\n## Tests\nNew `PermissionMatrixEditor.fieldBulk.test.tsx`: Write-all grants R+W to all fields; filter narrows to `2 / 8` and Read-all revokes write only on the visible subset; Clear reverts to default. Full matrix + Studio guard + Explain suites: **47 tests green**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

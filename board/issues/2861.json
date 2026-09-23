@@ -1,0 +1,33 @@
+{
+  "number": 2861,
+  "kind": "pull_request",
+  "title": "fix(grid): localize import result errors (objectstack#3566 follow-up)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T09:28:06Z",
+  "updated_at": "2026-07-27T11:53:24Z",
+  "closed_at": "2026-07-27T11:53:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T11:53:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2861",
+  "body": "Follow-up to the merged objectstack-ai/objectui#2840 (which shipped the email-preview validation for objectstack-ai/objectstack#3566). This adds the **error-message localization** half.\n\n## Problem\nThe import **completion screen** rendered the raw English server message verbatim — e.g.\n\n```\nRow 6 (position): position: \"装配工\" matches more than one os_tianshun_ehr_position — use a unique value or the record id\n```\n\n— with the field name twice, an internal object api-name, all in English, while the **dry-run \"Validate\" panel** already localized the exact same errors. Two rendering paths, inconsistent.\n\n## Change\n- The result-list now runs through the same `formatDryRunError` path as the dry-run panel: it drives off the structured error `code`, resolves the field api-name to its label, and drops the duplicated `<api-name>:` prefix. Threaded the error `code` through `ImportResult.errors` to make this possible.\n- Added code-driven translations for the remaining structured import errors — `invalid_boolean` / `invalid_number` / `invalid_date` / `invalid_option` / `required` / `AMBIGUOUS_MATCH` — with Chinese (`zh`) copy in `@object-ui/i18n`, alongside the existing `reference_not_found` / `reference_ambiguous`.\n- `isPlausibleEmail`: spelled the ASCII range with printable bounds (`0x20-0x7e`) so the regex literal carries no control character (eslint `no-control-regex`).\n\n## Result\n`Row 6 (position): position: \"装配工\" matches more than one os_..._position — ...` → `第 6 行：职位：“装配工” 匹配到多条记录，请使用唯一值或记录 ID`\n\n## Tests\n- `importDryRun.test.ts` — new cases for `invalid_number` / `invalid_option` / `required` / `AMBIGUOUS_MATCH` (code-driven, no raw server text / api-name leaks).\n- `importAsyncPath.test.ts` — updated the `ImportResult.errors` shape assertion (now carries `code`).\n- plugin-grid import suite + i18n: 192 green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 2732,
+  "kind": "pull_request",
+  "title": "feat(data): thread the host's authenticated fetch into provider:'api' data sources (#2725)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:06:16Z",
+  "updated_at": "2026-07-20T07:47:55Z",
+  "closed_at": "2026-07-20T07:47:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:47:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2732",
+  "body": "Fixes #2725\n\n## Problem\n\n`provider: 'api'` view data sources went through a bare `globalThis.fetch`, so custom endpoints (gantt composite trees, report aggregates) carried only same-origin cookies while every native `/api/v1/*` request carried `Authorization: Bearer`. The moment cookie HMAC verification failed (dev restart rotating the fallback auth secret, cookie expiry/rotation in prod), those views 401'd while the rest of the app kept working.\n\nThe injection points existed from day one (`ApiDataSource` accepts `fetch`/`defaultHeaders`, `resolveDataSource` passes them through) but no caller ever wired them — see the [root-cause confirmation on the issue](https://github.com/objectstack-ai/objectui/issues/2725#issuecomment-5018689840).\n\n## Changes\n\n- **`@object-ui/react`** — `SchemaRendererProvider` accepts an optional `apiFetch`; nested providers inherit it from their parent, so re-wrapped subtrees (react pages, studio preview surfaces) keep the host's authentication. `useViewData` defaults the api-provider adapter's fetch to the context `apiFetch` (explicit `adapterOptions.fetch` still wins).\n- **`@object-ui/auth`** — `createAuthenticatedFetch` gains a `sameOriginOnly` option: cross-origin URLs pass through to the bare fetch with no `Authorization` / `X-Tenant-ID` / `Accept-Language`, so metadata-supplied third-party URLs never see the platform token.\n- **`@object-ui/app-shell`** — the console wires `withSettleSignal(createAuthenticatedFetch({ sameOriginOnly: true }))` as `apiFetch` on the root `SchemaRendererProvider`, so api-provider requests carry the same credentials as the native adapter channel and stay visible to the ADR-0054 C5 idle probe.\n- **`@object-ui/plugin-gantt`** — `ObjectGantt` resolves its api-provider DataSource with the context `apiFetch`, covering reads AND write-backs.\n\nBackward compatible: hosts that don't provide `apiFetch` keep the current behaviour (bare fetch + cookies).\n\n## Tests\n\n- `auth`: `sameOriginOnly` attaches on same-origin, strips all credential headers cross-origin, legacy no-option behaviour unchanged (3 new).\n- `react`: `useViewData` routes api-provider requests through the context `apiFetch` / explicit override wins (2 new); provider nesting inheritance (3 new).\n- `plugin-gantt`: `ObjectGantt` reads through `SchemaRendererContext.apiFetch` instead of the bare global fetch, and still falls back without one (2 new).\n- Full suites green: auth 89, react 89, plugin-gantt 340; `turbo run build --filter=@object-ui/app-shell` (29 packages) passes.\n\nDocs updated (`react`/`auth` READMEs, `plugin-gantt.mdx`) + changeset.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

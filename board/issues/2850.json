@@ -1,0 +1,32 @@
+{
+  "number": 2850,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fs-extra from 11.3.6 to 11.4.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:23:45Z",
+  "updated_at": "2026-07-27T08:27:33Z",
+  "closed_at": "2026-07-27T08:24:06Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-27T08:24:06Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2850",
+  "body": "Bumps [fs-extra](https://github.com/jprichardson/node-fs-extra) from 11.3.6 to 11.4.0.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/jprichardson/node-fs-extra/blob/master/CHANGELOG.md\">fs-extra's changelog</a>.</em></p>\n<blockquote>\n<h2>11.4.0 / 2026-07-23</h2>\n<ul>\n<li>Proper <code>EEXIST</code> error when trying to create a symlink and the dest already exists as a broken symlink (<a href=\"https://redirect.github.com/jprichardson/node-fs-extra/issues/925\">#925</a>, <a href=\"https://redirect.github.com/jprichardson/node-fs-extra/pull/1076\">#1076</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/jprichardson/node-fs-extra/commit/53a8d1a63c8eb30573110ed0f6528975f98801f0\"><code>53a8d1a</code></a> 11.4.0</li>\n<li><a href=\"https://github.com/jprichardson/node-fs-extra/commit/9c2d3c9736f7e7d38216259b45df0b618429661e\"><code>9c2d3c9</code></a> Throw EEXIST when ensureSymlink dest is a broken symlink (<a href=\"https://redirect.github.com/jprichardson/node-fs-extra/issues/1076\">#1076</a>)</li>\n<li>See full diff in <a href=\"https://github.com/jprichardson/node-fs-extra/compare/11.3.6...11.4.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=fs-extra&package-manager=npm_and_yarn&previous-version=11.3.6&new-version=11.4.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2880,
+  "kind": "issue",
+  "title": "ObjectChart：兑现 ChartConfig 作者形状（type / xAxis.field / yAxis[].field / series[].name）与轴表现属性（framework#3701 对齐）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T00:41:11Z",
+  "updated_at": "2026-07-28T02:00:17Z",
+  "closed_at": "2026-07-28T02:00:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2880",
+  "body": "framework 侧 umbrella：objectstack-ai/objectstack#3729（含完整评估、主流平台参照与方言对照表）。本 issue 是 objectui 侧的实施部分。\n\n## 背景\n\nspec 的 `ChartConfigSchema` 是图表协议（ADR-0082 决策 1），按 ECharts/Highcharts 表现层原型订立、词汇库中立；但 `ObjectChart` 实际读取的是 Recharts 味的内部 props（`chartType`、`xAxisKey`、`series[].dataKey`）。ChartConfig 的 `type`/`xAxis`/`yAxis`/`series` 抵达渲染器后被静默丢弃——framework#3725 已把 react 契约裁剪为诚实的现状；本 issue 实现终态：渲染器兑现 spec 形状，然后 framework 把契约切回来。实现词汇不再泄漏进作者面，也意味着未来更换图表库不动协议。\n\n## S1 — 绑定对齐（小，立即做）\n\n在 `ObjectChart` 入口做**一处**规范化（不是散落的 `??` fallback——规范化层是把作者面 spec 形状翻译到内部管线契约的唯一入口）：\n\n- `chartType ??= schema.type`（ChartType 值）\n- `xAxisKey ??= schema.xAxis?.field`\n- `series[]`：`dataKey ??= item.name`；同时接受 spec `ChartSeries` 的 `label/variant/dashArray/opacity`、`type`→`chartType`\n- 无 `series` 时，`yAxis?.[0]?.field` 作为单序列 dataKey 来源\n- dataset 页面路径（`object-chart` 组件 `properties.yAxis[].field`）同入规范化——使 framework `validate-chart-bindings` §3 的校验从 no-op 变为真实\n- 显式传入的内部 props 优先（DashboardRenderer / ObjectView / dataset 路径等内部调用方继续按现状工作，零迁移）\n\n注意配套约束（framework#3729「协议约束」节）：inline `aggregate` 保持**单测度**——结果列的原始字段名约定依赖它不碰撞，多测度是 dataset measure 的职责。\n\n## S2 — 轴表现属性（中，按需排序）\n\nRecharts 均有原生能力。优先做作者最常要的：\n\n**优先**：\n- `ChartAxis.format` → `tickFormatter`\n- `ChartAxis.min/max` → `domain`\n- 双轴：`yAxis[].position` + `series[].yAxis: 'left'|'right'`（combo 目前按 series 类型隐式分配，改为显式绑定优先）\n\n**次之**：\n- `ChartAxis.logarithmic` → `scale('log')`\n- `ChartAxis.showGridLines` → `CartesianGrid` 开关\n- `showLegend`（当前无人读）、`title/subtitle` 真实渲染（当前 `title` 仅用于下钻抽屉标题）、`showDataLabels` 盘点\n\n## S3 — 实现或上报裁减（优先级：`stack` > `annotations` > `interaction`）\n\n1. **`series.stack`（提为最优先）**：堆叠/分组柱是所有 BI 的桌面赌注；framework `chart.zod.ts` 的 taxonomy 注释自己承认 stacked-bar/stacked-area 变体被裁是因为渲染器画不出——是渲染器缺陷，不是协议取舍。实现后这些变体可回归 taxonomy。\n2. `annotations`（ReferenceLine/ReferenceArea）。\n3. `interaction`（zoom/brush/clickAction）——最可裁；实现不了就反馈到 framework#3729，按 #1475 先例从 schema 裁减（deliberate spec change）。\n\n## 验收\n\n- S1 落地后通知 framework#3729 执行契约/lint 切换\n- 每级配组件测试；S1 需覆盖「spec 形状与内部 props 并存时内部优先」「dataset 页面 yAxis[].field 生效」"
+}

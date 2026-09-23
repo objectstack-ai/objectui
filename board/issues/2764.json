@@ -1,0 +1,30 @@
+{
+  "number": 2764,
+  "kind": "issue",
+  "title": "Studio: field-type-aware operator + value editing for view filter rules (Edit View Config)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T15:35:44Z",
+  "updated_at": "2026-07-21T00:56:43Z",
+  "closed_at": "2026-07-21T00:56:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2764",
+  "body": "## Background\n\nIn the metadata admin (Studio) **Edit View Config** form, view `filter` rules (`{ field, operator, value }` rows rendered by `SchemaForm`) are edited as raw inputs today:\n\n- `operator` is a free-text string — no dropdown, no validation, no human-readable labels;\n- `value` is a plain text input regardless of the selected field's type (boolean, number, date, select, …);\n- unary operators (`is_empty`, `is_null`, …) still show a value input even though no value applies.\n\nThis is a real UX gap. PR #2760 (paired with objectstack-ai/framework#3363) attempted it but was rejected — see \"Prior art\" below. This issue tracks the redevelopment.\n\n**Depends on:** objectstack-ai/framework#3368 (canonical operator vocabulary in `ViewFilterRuleSchema` — the operator dropdown needs the spec enum, and the vocabulary the UI writes must be settled there first).\n\n## Requirements\n\n1. **Operator select** — dropdown with human-readable labels, narrowed to the operators valid for the selected field's type (text / number / boolean / date / select-like / lookup). Must stay consistent with the runtime `FilterBuilder`'s per-type operator sets.\n2. **Type-aware value input** — boolean → switch, number/currency/percent → number input, date/datetime → date(-time) picker, select/lookup → option picker where the field catalog provides options, default → text.\n3. **Operator-aware value input** — `between` → from/to range (this must also apply to date fields — operator check has to take precedence over the field-type branch); `in`/`not_in` → multi-value input; unary operators → no value input (placeholder).\n4. **Correct value typing in stored metadata** — booleans stored as real booleans (not `\"true\"`/`\"false\"` strings), numbers as numbers, `in`/`not_in` as arrays (not comma-joined strings), `between` as a `[from, to]` pair. The stored format stays spec `ViewFilterRule[]`.\n5. **Single source of truth for operator logic** — reuse or extract the existing `FilterBuilder` per-type operator lists / the `filter-builder` widget (`packages/app-shell/src/views/metadata-admin/widgets.tsx`) rather than a parallel implementation. Studio must not have two editors writing different operator vocabularies for the same stored field. Evaluate whether the filter rows should simply use the existing `filter-builder` widget for unified UX.\n6. **i18n** — all labels (operator names, \"from\"/\"to\", placeholders) go through the existing `t(...)` locale mechanism; no hardcoded English.\n7. **Scoped widget detection** — target filter-rule rows precisely (e.g. via schema context or explicit widget assignment), not broad name conventions like `/Operator$/` / `/Value$/` that can hijack unrelated fields (`defaultValue`, etc.).\n8. **Source object detection** — keep the `ResourceEditPage` improvement of reading `draft.data.object` as a source-object fallback so filter rows get the object field catalog.\n\n## Acceptance criteria\n\n- [ ] Edit View Config filter row: operator renders as a labeled dropdown filtered by the selected field's type.\n- [ ] Value input adapts to field type and operator per the matrix above, including date + `between` showing a range.\n- [ ] Stored values round-trip with correct JS types and validate against `ViewFilterRuleSchema`.\n- [ ] Operator vocabulary written by this editor matches what the existing `filter-builder` widget writes (post framework#3368 canonicalization).\n- [ ] All user-facing strings localized.\n- [ ] No widget detection regressions on unrelated `*Value` / `*Operator` fields in other metadata forms.\n\n## Prior art\n\nPR #2760 — rejected for: parallel operator/value implementation duplicating `FilterBuilder`; operator vocabulary conflicting with what `FilterBuilderWidget` writes (`gt`/`gte`/`lt`/`lte`); `between` unreachable for date fields (branch-order bug); booleans stored as strings and `in` values as comma-joined strings; literal `—` rendered in JSX; hardcoded English labels; over-broad name-convention widget detection; undeclared hard dependency on the framework spec PR."
+}

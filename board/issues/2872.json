@@ -1,0 +1,30 @@
+{
+  "number": 2872,
+  "kind": "issue",
+  "title": "语言包 key 缺口:8 个语言各缺 357–359 键,74 键只存在于 zh.ts,且没有任何 parity 测试",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T14:50:15Z",
+  "updated_at": "2026-07-28T07:49:25Z",
+  "closed_at": "2026-07-28T07:49:25Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2872",
+  "body": "## 问题\n\n`packages/i18n/src/locales/` 的 10 个语言包顶层命名空间是齐的(57 个),但**下一层已经烂了**。而 `i18n.ts:135` 设了 `fallbackLng: 'en'`,`missingKeyHandler`(`:145`)只在 dev 生效——所以线上一律静默回退,表现为\"看起来只是没翻完\"。\n\n### 实测数据\n\n用 flatten 后的 key 集合与 `en` 对比:\n\n| 包 | key 数 | 相对 en 缺失 | en 中没有的 |\n|---|---|---|---|\n| en | 2243 | — | — |\n| zh | 2313 | **4** | **74** |\n| ja / ko / de / es | 1886 | **357** | 0 |\n| fr / pt / ru / ar | 1884 | **359** | 0 |\n\n### (a) 357–359 个 en 键在 8 个非中文包里不存在\n\n按命名空间(以 ja 为例):`console` **141**、`gantt` **58**、`grid` **29**、`dashboard` **25**、`home` **19**、`list` **18**、`topbar` **12**、`layout` **12**、`marketplace` 8、`capability` 7,其余零散。\n\n实际效果:德语/日语管理员看到的整个 AI 控制台(`console.ai.*`)、Gantt 工具栏、grid 批量选择全是英文。\n\n### (b) 74 个键只存在于 `zh.ts`,从没进过 `en.ts`\n\n- **`grid.import.*` — 62 键**。`packages/plugin-grid/src/ImportWizard.tsx:39-45` 自带一份私有 `DEFAULTS` 映射兜底,所以英文\"碰巧\"能显示——但其余 8 语拿到的是那份英文兜底,**且无处可翻**;两份文案还会各自漂移。\n- **`auth.setPassword.*` — 12 键**。调用点(`apps/console/src/pages/auth/SetPasswordPage.tsx:55-108`)传 `defaultValue:` 英文,同样是 en 能显示、其余 8 语无法翻译。\n\n这两处是本仓库已经修过两次的同一形态:字符串只加进一个包,在大家日常测试的两种语言下\"一切正常\"。\n\n### (c) 4 个 en 键中文包缺失\n\n```\nconsole.commandPalette.title\nconsole.ai.suggestions.metadataAssistant.buildInventory\nconsole.ai.suggestions.metadataAssistant.buildRecruiting\nhelp.keyboardShortcuts\n```\n\n## 缺一条测试\n\n`packages/i18n/src/__tests__/` 目前**没有**任何跨语言包 parity 测试。一个 flatten + `keySet(en) === keySet(locale)` 的断言可以一次性拦下 (a)(b)(c)。\n\n写法可直接复用刚合入的 `packages/i18n/src/__tests__/cloudConnection-locale-parity.test.ts`(objectui#2865),它已按同样思路守住 `cloudConnection` 命名空间,并做过变异验证。\n\n⚠️ **注意实施顺序**:全量 parity 测试加进去会**立刻失败**(357×8 + 74 + 4)。所以必须\"补齐 + 测试\"同 PR,或者先落一份 baseline 允许列表再逐步收敛。只加测试会直接卡红 CI。\n\n## 需要先决策的一点\n\n补齐 (a) 意味着为 8 种语言生成约 **2800 条**译文。这是产品质量决策,不该默认由 agent 直接生成后发版:\n\n- 接受机器翻译先行、后续人工校订?\n- 还是只补齐高频命名空间(`console` / `home` / `topbar` / `layout`),其余保持英文回退?\n- 或者引入 TMS / 人工翻译流程?\n\n(b)(c) 与这个决策无关,可以立刻做:(b) 是把已有中文补上英文原文并让其余语言可翻,(c) 是 4 条中文补全。\n\n## 建议拆法\n\n- [ ] **P1**(无需决策):(c) 4 条 zh 补全 + (b) `grid.import.*` / `auth.setPassword.*` 归位到 `en.ts`,并消除 `ImportWizard` 的私有 `DEFAULTS` 兜底\n- [ ] **P2**(需决策):(a) 8 语 × ~357 键补齐策略\n- [ ] **P3**:全量 parity 测试落地(跟在 P1/P2 之后,或配 baseline)\n\n## 发现来源\n\nobjectstack#3589 收尾时的全仓库 i18n 覆盖排查。相关:objectui#2870(P0 全屏拦截层)、objectui#2871(手搓 zh 判断绕开语言包)。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 2358,
+  "kind": "issue",
+  "title": "[app-shell] 动作 visible 三陷阱:身份变量 user≠os.user、record_more 不入页头 ⋯、引用 hidden 字段 fail-closed 静默隐藏",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-09T03:48:57Z",
+  "updated_at": "2026-07-16T13:55:44Z",
+  "closed_at": "2026-07-16T13:55:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2358",
+  "body": "## 概述\n做「按角色/账号显隐动作按钮」时,接连踩到三个控制台**动作可见性**坑,共性是**`visible` 求值失败一律 fail-closed 静默隐藏、无任何诊断**——这才是最耗时的根源。\n\n### 1. `visible` 的 CEL 身份变量是 `user`,不是服务端的 `os.user`\n控制台给动作 `visible` 构造的作用域是 `{ record, user:{id,name,email,role,roles,...}, app }`,身份变量是 **`user`**;服务端 CEL(公式/校验/sharing)用 `os.user`。在 `visible` 里写 `os.user.*`(很自然的第一直觉)→ 求值失败 → 按钮对所有人静默消失。\n定位:`packages/app-shell/src/.../ExpressionProvider.tsx:57, 67`(无 `os.` 别名)。\n> 注:`user` 对象**已含 `id`**,`user.id` 可用。\n\n### 2. `record_more`-only 动作不在记录页头 ⋯ 菜单渲染\n记录页头只渲染 `locations` 含 `record_header` 的动作;只声明 `record_more` 的动作在详情页头**整个不显示**,须补 `record_header` 才进 ⋯,语义反直觉。\n定位:`packages/app-shell/src/views/RecordDetailView.tsx:1394`(硬性 `record_header` 过滤)。\n\n### 3. `visible` 引用 `hidden:true` 字段 → 动作静默隐藏\n详情记录 payload 剔除 hidden 字段;`visible` 引用被剔除的字段 → 求值失败 → fail-closed 隐藏,无报错。\n定位:objectui 侧不剥字段(`RecordDetailView.tsx:270-276` 只 `$expand`),疑为**服务端 payload 行为**,需服务端确认后归位。\n\n## 统一改进建议\ndev 模式下 `visible` 求值抛异常/引用不存在变量时,在浏览器 console 打警告(**动作名 + 表达式 + 失败原因**),而非静默隐藏——上述三坑有此诊断都能秒定位。\n\n---\n来源(项目 dogfood):steedos-labs/os-tianshun-mtc#26 · 相关 #40\n"
+}

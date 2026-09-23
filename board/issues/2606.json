@@ -1,0 +1,32 @@
+{
+  "number": 2606,
+  "kind": "pull_request",
+  "title": "fix(studio): confirm before header SPA nav discards unsaved pillar edits (#2600)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:20:54Z",
+  "updated_at": "2026-07-16T13:46:16Z",
+  "closed_at": "2026-07-16T13:46:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:46:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2606",
+  "body": "## Summary\n\nFollow-up to #2600 / PR #2588. The A1 fix guarded **rail-driven** swaps inside the Access pillar, but the Studio **header** was still unguarded: the pillar links (Data/Automations/Interfaces/Access) are plain react-router `<Link>`s, the Home button calls `shellNavigate('/home')`, and the PackageSwitcher calls `navigate(...)` — all pure SPA client navigation, so the editors' `beforeunload` guard never fires and a dirty pillar unmounts silently, discarding its unsaved edits (Access `matrixDirty`, Interfaces `navDirty`).\n\n- **Dirty state lifted to the surface**: `AccessPillar` and `InterfacesPillar` grow an `onDirtyChange` prop (the PR #2588 contract — report `false` on unmount so a confirmed discard clears the guard by itself). AccessPillar forwards the matrix editor's report alongside its local rail guard; InterfacesPillar mirrors `navDirty` ref-stabilized, same as `PermissionMatrixEditPage`'s own report.\n- **Every header departure gates on `window.confirm(t('engine.edit.unsavedLeaveConfirm'))`**: pillar links (`e.preventDefault()` on decline), Home, PackageSwitcher row clicks, and the post-create jump into a new package.\n- **Never prompts when nothing unmounts**: re-clicking the open pillar / open package, and modified/aux clicks (new tab) are exempt. The deleted-package eviction in `onManageChanged` stays unguarded — that navigation is forced.\n- **Bonus gap closed**: a surface-level `beforeunload` guard keyed on the lifted dirty bit — Interfaces nav edits previously had **no** reload/close guard at all (the matrix editor has its own; double registration is harmless).\n\n## Tests\n\nNew `StudioDesignSurface.pillarNavGuard.test.tsx` (6 cases), rendered through the real `StudioDesignSurface` + `AccessPillar` + `PermissionMatrixEditPage` stack with the same mock seams as `StudioDesignSurface.accessGuard.test.tsx`: dirty pillar switch (cancel keeps edits / confirm lands + guard resets), clean switch, same-pillar re-click, Home button both ways, package switch both ways, clean package switch.\n\n- `vitest run packages/app-shell/src/views/studio-design/` — 17 files / 102 tests pass\n- `tsc --noEmit` in `packages/app-shell` — clean (after building workspace deps)\n\nNot covered: driving `navDirty` end-to-end (needs a full app + nav-canvas drag setup); its mirror is the same 10-line pattern the matrix path exercises. The OWD overview panel's internal `dirtyCount` is intentionally out of scope (also not covered by the existing rail guard) — noted on #2600.\n\n## Merge note (issue #2600 「合并注意」)\n\nTouches `StudioDesignSurface.tsx` (AccessPillar mount point + props) — same file as A2 (readOnly) and PR #2599 (A3). Per the issue: **serial merge**, rebase whichever lands later.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

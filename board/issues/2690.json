@@ -1,0 +1,33 @@
+{
+  "number": 2690,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): mirror the row 「→」 slot in the task-list header — 开始/结束 columns align again",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T15:32:56Z",
+  "updated_at": "2026-07-19T15:37:14Z",
+  "closed_at": "2026-07-19T15:37:12Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T15:37:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2690",
+  "body": "## Problem\n\nEvery task-list data row reserves a trailing `w-6` (+4px gap) slot for the 「→」 open-details button whenever `onTaskClick` is live (added with the dedicated-slot design so rows don't shift during inline edit). The header row never mirrored that slot, so the 开始/结束 header labels sat **28px to the right** of the date values they caption — visibly misaligned.\n\n## Fix\n\nAdd the matching spacer to the list header under the same condition (`onTaskClick` present) and the same `hidden sm:block` gate, so header and rows share identical column geometry in every state.\n\n## Verification\n\n- Live (dev console against a real app backend): header start/end cell right edges now equal the row date cell right edges exactly (`getBoundingClientRect` 451/531 = 451/531, `aligned: true`).\n- New regression suite `GanttView.headeralign.test.tsx`: spacer renders when `onTaskClick` is live (rows reserve the slot), absent otherwise.\n- plugin-gantt 338/338, `tsc --noEmit` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

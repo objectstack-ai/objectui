@@ -1,0 +1,30 @@
+{
+  "number": 2653,
+  "kind": "pull_request",
+  "title": "feat(access): localize capability picker group headers (#2600 B5, objectui side)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T05:55:42Z",
+  "updated_at": "2026-07-18T06:00:06Z",
+  "closed_at": "2026-07-18T06:00:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T06:00:05Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2653",
+  "body": "## What\n\n**Issue #2600 · B5 (设计迭代 · 细项)** — the System Capabilities picker rendered its scope group headers (`PLATFORM` / `ORGANIZATION` / `OTHER`) as **hardcoded English**, even in a Chinese UI.\n\n### Change (objectui side)\n- Route the group headers through the field translation bundle (`capability.group.<scope>`) in `CapabilityMultiSelectField`, add the keys to `useFieldTranslation` defaults, and add the strings to **all 11 locale bundles** (zh: 平台 / 组织 / 其他; others translated, all falling back to en so the locale-parity test stays green).\n\n### Deferred to framework (per issue decision)\nThe capability **labels themselves** (Manage Metadata, Studio Access, …) come from the `sys_capability` **registry** (backend data), so their per-locale localization belongs there — tracked as a separate framework task, not in this PR. The other B5 sub-item (\"rail button has no accessible name\") was **retracted** in the issue (agent-browser's a11y tree shows the name; it was a read_page tool quirk).\n\n## Verify (live, Chinese UI)\nExpand the capability picker on a writable set → group headers now render **平台** / **组织** (were `PLATFORM` / `ORGANIZATION`); capability chip labels stay English (registry-sourced, deferred).\n\n## Tests\nExisting `CapabilityMultiSelectField` suite green (English default path via `FIELD_DEFAULTS`); i18n locale-parity + bundle tests green (**106 tests**). Live-verified the zh headers in-browser rather than adding a heavier I18nProvider unit test.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

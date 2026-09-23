@@ -1,0 +1,32 @@
+{
+  "number": 2676,
+  "kind": "issue",
+  "title": "plugin-gantt: summary bars lack resize/link affordances; last-row tooltip flicker; horizontal scrollbar unreachable (clipped + overlay engines); locked-bar cursor",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T09:04:11Z",
+  "updated_at": "2026-07-19T14:36:59Z",
+  "closed_at": "2026-07-19T14:36:59Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2676",
+  "body": "Found while building the 排班计划甘特图 (4-level tree: project/product group rows → self-dated summary plan bars → locked dispatch leaf bars) on `@objectstack/console` 15.1.1 / objectui main, all reproduced live.\n\n## 1. Self-dated summary bars are not editable (spec gap)\n\n`canDrag = !!onTaskUpdate && !row.isSummary && !isLocked` gates ALL edit affordances off for summary rows, even when the summary's own dates are authoritative (`summaryExtent: 'self'` + `hasOwnDates`). Such a bar gets no edge-resize grips and no drag-to-link connector dots — dependencies can only be created through the context menu. This breaks the standard manual-scheduling model (MS Project \"Manually Scheduled\", Bryntum `manuallyScheduled`, Syncfusion `taskMode: Manual`): a parent whose dates are its own should edit like a task bar, while rollup summaries (derived dates, nothing to persist) stay move-only.\n\nAlso missing at the component level: per-interaction switches (DHTMLX `drag_move`/`drag_resize`/`drag_progress`/`drag_links` model) and a pre-commit veto hook (`beforeTaskDrag`/`beforeTaskEdit` pattern) so hosts can express rules like \"moves allowed, durations pinned\".\n\n## 2. Last-row tooltip flickers in a loop (最后一行悬浮狂闪)\n\nThe hover tooltip renders downward (`top: rowHeight - 8`). On one of the LAST rows it pokes past the rows box, growing the scroller's scrollHeight while shown; with the user scrolled to the bottom, browser scroll clamping/anchoring re-adjusts scrollTop on every tooltip mount/unmount — the bar slides under the stationary cursor, hover re-fires, and the tooltip strobes.\n\n## 3. Horizontal scrollbar unreachable / doubled\n\nTwo stacked causes:\n- `ObjectGantt` sizes the pane with `h-[calc(100vh-200px)]`, a viewport guess that overshoots whenever the chrome above (tabs, toolbar, quick filters) exceeds 200px; the overflow-hidden host then clips the pane's bottom edge (53px in the console layout), swallowing the scrollbar area entirely.\n- The `::-webkit-scrollbar` theming intended to force a classic always-visible bar is silently ignored by overlay-scrollbar engines (macOS \"show while scrolling\", embedded Chromium): the rules match (6 rules present) yet `offsetHeight - clientHeight === 0`. Worse, once the clipping is fixed those engines still flash their own auto-hiding bar on scroll, stacking a second bar under any custom one (双滚动条).\n\n## 4. Locked summary bars advertise a grab cursor\n\n`locked` (仅查看) summary rows are unmovable — `beginDrag` rejects them — but the bar still shows `cursor: grab` instead of `not-allowed` (🚫), unlike leaf bars.\n\n## Fix direction (PR follows)\n\n- Editability follows date ownership: `summaryExtent 'self'` + own dates + !locked → resize grips, connector dots, edge-zone drag on summary bars; middle drag still group-moves the subtree; rollup summaries unchanged.\n- `interactions: { move, resize, progress, link }` view-config switches (default all on, narrow-only) + `onBeforeTaskUpdate` async veto on the central commit belt (undo/redo exempt).\n- Bottom rows flip the tooltip above the bar — upward absolute overflow never extends the scrollable area, removing the feedback loop.\n- `ObjectGantt` fills its host flex cell (`flex-1 min-h-0`) instead of the viewport calc; native timeline scrollbars fully hidden (`scrollbar-width: none`, honored by overlay engines) and replaced by self-drawn track+thumb bars on both axes (drag + track-click jump, auto-hidden when content fits, task-list lockstep preserved).\n- Locked summaries fold `!isLocked` into the movable flag → not-allowed cursor.\n\nAll verified live against a real 4-level dataset (edge-resize persists only the plan's own dates; connector-dot link writes the dependency field; group move skips locked children; conflict dialog, context menus, locked rows regress clean). plugin-gantt suite: 323 tests green."
+}

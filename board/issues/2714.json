@@ -1,0 +1,32 @@
+{
+  "number": 2714,
+  "kind": "issue",
+  "title": "[P2] Action-param value-shape parity net: assert every FORM_FIELD_TYPES param round-trips to the endpoint contract",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:40:25Z",
+  "updated_at": "2026-07-20T03:03:42Z",
+  "closed_at": "2026-07-20T03:03:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2714",
+  "body": "## Why\n\nSince #2700 / ADR-0059, `ActionParamDialog` routes **every** param through the shared form field-widget renderer (`paramToField()` → `getLazyFieldWidget`). That was the whole win — but it also means each param now emits **its widget's own value shape**, and those shapes differ:\n\n- `date`/`datetime`/`time` → ISO-ish strings\n- `number` → `number` (not string)\n- `boolean` → `boolean`\n- `select` → `string`; **`select` + `multiple` → `string[]`** (new in #2709)\n- `lookup`/`user` → id `string` or `string[]`\n- `file`/`image` → an upload descriptor object `{name, url, size, mime_type, …}` (or an array) — **not** a fileId string\n\n#2700's acceptance list explicitly called for **value-shape parity** coverage (\"confirm each round-trips to what the action runner/endpoint expects; add coverage\"), but no test net pins it today. Without one, a future widget swap can silently change a param's emitted shape and break an endpoint's input contract with no failing test.\n\n## Scope\n\n- [ ] A table/test net (mirroring the `paramToField` drift test's style) asserting, for each `FORM_FIELD_TYPES` type usable as a param, the **shape** the dialog emits on confirm (primitive vs. object vs. array; `multiple` → array).\n- [ ] Pin the known contracts that endpoints rely on: `number`→number, `boolean`→boolean, `date`→string, `select`→string, `select+multiple`→`string[]`, `lookup`→id(s).\n- [ ] Document the emitted-shape table (README / ADR-0059 addendum) so param authors know what a `type:'X'` param will POST.\n\n## Explicitly out of scope (owned elsewhere)\n\n- The **`file`/`image` → fileId** value-shape gap and its serialization at the param boundary is owned by **#2698 (Phase 1)** — reference it, don't duplicate. This issue covers the *general* net for the non-upload types and the overall contract table; it should adopt whatever `file` serialization #2698 lands.\n\n## Acceptance\n\n- [ ] A test fails if any param type's emitted value shape changes unexpectedly.\n- [ ] The emitted-shape contract is documented.\n\n## Refs\n\n- #2700 / #2704 / ADR-0059 (shared-widget param rendering; the acceptance item this closes) · #2707 (upload guard) · #2709 (`select+multiple` → `string[]`) · #2698 (owns the `file` fileId serialization — Phase 1)"
+}

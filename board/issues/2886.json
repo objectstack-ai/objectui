@@ -1,0 +1,30 @@
+{
+  "number": 2886,
+  "kind": "issue",
+  "title": "CloudAiModelStatus 直接渲染服务端 report.summary,该文案未本地化",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T02:08:53Z",
+  "updated_at": "2026-07-28T09:02:24Z",
+  "closed_at": "2026-07-28T09:02:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2886",
+  "body": "## 问题\n\n`packages/app-shell/src/console/diagnostics/CloudAiModelStatus.tsx:149`\n\n```tsx\n<p className=\"text-sm text-foreground\">{report.summary}</p>\n```\n\n这是该诊断面板最显眼的一句话(面板顶部的摘要),内容**整条来自服务端**,客户端原样渲染。服务端是否按请求语言生成这段文案没有保证——同一面板里其它文案都在客户端按 locale 选择,唯独这一条不是。\n\n## 为什么单独开\n\n这个组件里的**其它** 10 处文案是内联 `{en,zh}` 写死(手搓 `pick()`),那部分属于 objectui#2871,已在那边跟踪。\n\n`report.summary` 是**另一类问题**:它的修法不在 console 侧——要么服务端按 `Accept-Language` 返回本地化 summary,要么改为返回结构化字段让客户端自己拼。两条路都需要**先确认服务端契约归谁**(该 widget 的页面元数据在 cloud 仓库),所以不适合混在 #2871 的文案迁移里。\n\n## 建议\n\n1. 先确认 `/…/ai-model-status` 这个接口的 summary 是否已按 `Accept-Language` 本地化(如果已经是,则本 issue 只需补一条说明,关掉即可)\n2. 如果没有,倾向于**返回结构化数据**而非整句——诊断摘要通常是「模型 X,来源 Y,状态 Z」这种可组装结构,客户端拼装比服务端多语言渲染更好维护,也和该面板已有的 `sourceLabel()` 枚举→文案的做法一致\n\n发现来源:objectui#2871 的分类调研。"
+}

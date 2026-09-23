@@ -1,0 +1,30 @@
+{
+  "number": 2911,
+  "kind": "issue",
+  "title": "plugin-map 类型检查在 main 上是红的（maplibre-gl@6 移除默认导出）；根因是 CI 根本不跑 type-check，22 个包的类型错误对 CI 完全不可见",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T08:25:11Z",
+  "updated_at": "2026-07-28T11:39:56Z",
+  "closed_at": "2026-07-28T11:39:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2911",
+  "body": "## 表象\n\n`main` 上 `packages/plugin-map` 的类型检查是失败的：\n\n```\n$ pnpm type-check --filter=@object-ui/plugin-map\nsrc/ObjectMap.tsx(31,8): error TS1192:\n  Module '\".../maplibre-gl/dist/maplibre-gl\"' has no default export.\n```\n\n`maplibre-gl` 在 **6.0.0 移除了默认导出**，而 `ObjectMap.tsx:31` 仍在默认导入：\n\n```ts\nimport maplibregl from 'maplibre-gl';\n```\n\n版本是 #2848（dependabot，2026-07-27）从 `5.24.0` 升到 `^6.0.0` 带来的。\n\n**已确认这不是由近期 i18n 改动引起**：把工作区改动 stash 掉、在干净的 `origin/main` 上复现，报错一模一样。\n\n## 修法：删掉这一行\n\n`maplibregl` 这个绑定**从未被使用**。全包搜索只有 import 行本身：\n\n```\n$ grep -rn \"maplibregl\\|mapLib\" packages/plugin-map/src/\npackages/plugin-map/src/ObjectMap.tsx:31:import maplibregl from 'maplibre-gl';\n```\n\n地图实例由 `react-map-gl/maplibre` 提供（`:29-30`），CSS 由下一行的副作用导入带入（`:32`），都与这个绑定无关。所以**不需要**改成 `import * as maplibregl`，直接删除即可 —— 顺带避免了给一个没人用的名字挑选导入风格。\n\n> 建议顺手确认一下 `react-map-gl@8.1.1` 对 `maplibre-gl@6` 的 peer 兼容性（lockfile 里是 `react-map-gl 8.1.1(maplibre-gl@6.0.0)`）。运行时行为不在本 issue 的验证范围内 —— 我只核实了类型层面。\n\n## 真正值得处理的是这个：CI 看不见任何类型错误\n\n这个错误在 `main` 上活了至少一天而 CI 全绿，不是偶然。\n\n**1. `.github/workflows/` 里没有任何 `type-check` job。**\n\n```\n$ grep -rn \"type-check\" .github/workflows/\n(无结果)\n```\n\n根 `package.json` 有 `\"type-check\": \"turbo run type-check\"`，但 CI 从不调用它。\n\n**2. `turbo build` 只对一部分包起到类型检查作用**，取决于该包的 `build` 脚本：\n\n| `build` 脚本 | 包数 | 会做类型检查吗 |\n|---|---|---|\n| `vite build`（含 `+ build-css`） | **22** | ❌ 只转译，不校验类型 |\n| `tsc` / `tsc && vite build` | 13 | ✅ |\n| `tsup` | 4 | 视 `dts` 配置而定 |\n\n`plugin-map` 的 build 是 `vite build`，所以 `turbo build` 44/44 全绿，而它的类型是坏的。\n\n**这意味着那 22 个包（含 `plugin-grid`、`plugin-gantt`、`plugin-chatbot`、`plugin-detail`、`components` 等主力包）的类型错误，目前没有任何 CI 关卡能拦住。**\n\n反面例子刚好在同一周出现过：`@object-ui/i18n` 的 build 是 `tsc`，所以 #2909 里一个重复键（TS1117）被 `turbo build` 当场拦下 —— 而那次**全量 7,828 个测试全部通过**，因为运行时重复键会被折叠成一个自洽的对象，测试原理上看不见。同一类错误如果发生在 `plugin-grid` 这种 `vite build` 的包里，就会直接进 main。\n\n## 建议\n\n拆成两件事，第 2 件才是重点：\n\n- [ ] **P1** 删除 `ObjectMap.tsx:31` 的未使用 import（一行）\n- [ ] **P2** 给 CI 加一个 `type-check` job（`pnpm type-check`，turbo 已有缓存）。**需要先跑一遍全量看现存红点有多少** —— 如果不止 `plugin-map` 一处，就得先清干净或配 baseline 再设为必需检查，否则一加就长期卡红（和 #2872 P3 全量 parity 测试是同一个实施顺序问题）\n\nP2 单独做也有价值：它是唯一能覆盖那 22 个包的手段。\n\n## 发现来源\n\n#2872 收尾时跑全量验证顺带发现。与 i18n 无关，所以没有夹带进那几个 PR。"
+}

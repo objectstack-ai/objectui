@@ -1,0 +1,33 @@
+{
+  "number": 2717,
+  "kind": "pull_request",
+  "title": "feat(fields): MultiSelectField per-option visibleWhen cascading + dependsOn gating (#2715)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:53:17Z",
+  "updated_at": "2026-07-20T03:03:56Z",
+  "closed_at": "2026-07-20T03:03:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T03:03:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2717",
+  "body": "Closes #2715.\n\n## What\n\nGives the multi-value chip picker (`MultiSelectField`) the same per-option `visibleWhen` cascading and `dependsOn` gating the single `SelectField` already has (ADR-0058). This closes the parity gap #2709 opened: once a `select` + `multiple` (and the `multiselect` type) started delegating to the chip picker, a multi-select whose options depend on a sibling field or the current user showed the **unfiltered** option set.\n\n## Changes\n\n- **Extract `useCascadingOptions`** (`packages/fields/src/widgets/useCascadingOptions.ts`) — the shared hook that resolves per-option `visibleWhen` filtering, `dependsOn` gating, and the `dependentValues` + predicate-scope wiring. Both `SingleSelectField` and `MultiSelectField` now route through it instead of duplicating the resolver.\n- **`MultiSelectField`**: narrows offered chips against the live record + `current_user`; gates behind a \"select the parent first\" hint while a `dependsOn` field is empty; surfaces a legible empty state instead of a bare chip row. Adds deterministic testids (`multiselect-empty-*`, `multiselect-option-*`).\n- **Cascade-clear**: prunes only the now-invalid selections when the offered set changes (the array analogue of the single select's whole-value clear), keeping the still-offered ones.\n- Readonly rendering still labels stored values from the raw option set (a value hidden by `visibleWhen` keeps its label, not a bare id).\n- Docs (fields README) + changeset (`@object-ui/fields` minor).\n\n## Acceptance (from the issue)\n\n- [x] Share option-resolution logic between `SelectField` and `MultiSelectField` (extracted hook, no duplication).\n- [x] `MultiSelectField` applies `visibleWhen` filtering + `dependsOn` gating (empty/gated hint) like single select.\n- [x] Cascade-clear drops selected values no longer offered when the parent changes.\n- [x] Tests mirroring `SelectField.cascade.test.tsx` for the multi case.\n\n## Tests\n\n- New `MultiSelectField.cascade.test.tsx` (gating, per-element cascade clear, role/context gating) — mirrors `SelectField.cascade.test.tsx`.\n- Verified green: `MultiSelectField.cascade` + `SelectField.cascade` + `standard-widgets` (the #2709 delegation tests) + core `optionRules` — **49 passed**.\n- `tsc --noEmit` clean across `@object-ui/fields` (deps built); `eslint` 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

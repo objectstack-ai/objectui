@@ -1,0 +1,32 @@
+{
+  "number": 2891,
+  "kind": "pull_request",
+  "title": "feat(console): make `delegated_admin` reachable and narrow both role pickers (framework#3697)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T02:42:05Z",
+  "updated_at": "2026-07-28T03:44:57Z",
+  "closed_at": "2026-07-28T03:44:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T03:44:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2891",
+  "body": "Follow-on to objectstack-ai/objectstack#3722 (merged), which registered a fourth organization role. Companion to #2868, which shipped the *placement* half of this UX.\n\n## The gap\n\nobjectstack-ai/objectstack#3722 gave ADR-0105 D8's scope-bounded issuance gate its missing caller: `delegated_admin`, the membership grade that may reach `/organization/invite-member` **without** being an org admin. #2868 already narrows the unit/position pickers with `describeDelegableScope()`.\n\nBut the console couldn't select the role in the first place — `MembersPage.tsx` and `InviteMemberDialog.tsx` each inlined:\n\n```ts\ntype Role = 'owner' | 'admin' | 'member';\n```\n\nSo the capability the framework grew was unreachable from either screen. Provisioning a delegate today requires a raw API call — I had to `curl` `/organization/update-member-role` to browser-verify the framework side at all.\n\n## One vocabulary, not two\n\nRole names, labels and narrowing rules move into `@object-ui/auth`'s new `org-roles` module (`ORG_ROLES`, `ORG_ROLE_LABELS`, `orgRoleGrade`, `invitableOrgRoles`, `assignableOrgRoles`); both screens consume it.\n\n**Honest caveat, stated in the module itself:** this list still *mirrors* the server rather than deriving from it. `/auth/config` publishes feature flags but no role vocabulary, so there is no surface to read — objectstack-ai/objectstack#3723 tracks making one list the source for all of them (the framework already carries the same list twice: the better-auth roles map and two enforced `Field.select` option sets; this is the third). Until that lands, a server-side role addition means **one** console edit instead of two.\n\n## Both pickers now narrow — mirroring *different* server gates\n\nSame property #2868 established for placement: **narrows, does not decide.** The server re-checks; the only failure the console can cause is proposing something that then 403s.\n\n| Picker | Mirrors | Rule |\n|---|---|---|\n| **Invite role** | framework's `beforeCreateInvitation` role cap | Never above the issuer's own grade; a below-admin issuer may invite as `member` only |\n| **Change role** | better-auth's `update-member-role` route | Needs `member:[\"update\"]` (owner/admin only — `delegated_admin` is built from `memberAc` and holds `member: []`); only an owner may set `owner` or re-role an existing owner |\n\nConcretely: a `delegated_admin` who picked \"Admin\" was heading for a 403 from the framework's role cap — that option is simply no longer offered. An actor who may re-role nobody now gets no menu items instead of three that would fail.\n\nFails toward *less*: an unresolved membership offers `member` alone on invite, and nothing on re-role. An ordinary invitation's request body is byte-identical to before.\n\n## Changes\n\n| File | What |\n|---|---|\n| `packages/auth/src/org-roles.ts` | **New.** The vocabulary + both narrowing helpers, with the mirror-not-derive caveat and the #3723 pointer |\n| `packages/auth/src/index.ts` | Exports them |\n| `.../manage/InviteMemberDialog.tsx` | Role select driven by `invitableOrgRoles(activeMember?.role)` |\n| `.../manage/MembersPage.tsx` | Change-role menu driven by `assignableOrgRoles(activeMember?.role, member.role)` |\n| `.../__tests__/InviteMemberDialog.placement.test.tsx` | Its wholesale `@object-ui/auth` mock now spreads `importActual`, so the helpers under test are the **real** ones rather than mocked away |\n\n## Verification\n\n- `packages/auth/src/__tests__/org-roles.test.ts` — grade ladder, both narrowing rules, and the fail-closed floor for each.\n- `packages/app-shell/.../InviteMemberDialog.roleCap.test.tsx` — owner sees all four; admin gets the delegate grade but not owner; **a delegate sees `member` only** (the escalation chain has no UI entry); an unloaded membership still allows the ordinary invite; the narrowed default still submits an unchanged payload.\n- Full suite: **654 files, 7684 tests passing**, 24 skipped.\n- `turbo lint` on both packages: 0 errors (warnings are the repo's pre-existing baseline). `turbo build` (tsc): 29/29 successful.\n\n## Note for translators\n\n`organization.roles.*` has **never** been defined in any locale bundle — all four labels (owner/admin/member included) resolve through their `defaultValue` English fallback. The new role follows the same pattern rather than becoming the only localized one. Localizing the set is a separate, deliberate change.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_015s4qPrCKBvVwmFeSsFHgNp)_"
+}

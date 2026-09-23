@@ -1,0 +1,33 @@
+{
+  "number": 2860,
+  "kind": "pull_request",
+  "title": "feat(types)!: drop the ObjectStack/ObjectOS/ObjectQL/ObjectUI Capabilities re-exports",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T09:15:44Z",
+  "updated_at": "2026-07-27T09:42:42Z",
+  "closed_at": "2026-07-27T09:42:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T09:42:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2860",
+  "body": "Companion to the framework capabilities-descriptor prune (objectstack-ai/objectstack — `chore/prune-dead-capabilities-descriptor`). Upstream removed the dead static capability-descriptor cluster: a never-wired fixed-boolean platform self-portrait whose defaults contradicted the live platform (FLS/RLS/audit `default(false)` while enforced).\n\n- Drop the `ObjectStackCapabilitiesSchema` / `ObjectOSCapabilitiesSchema` / `ObjectQLCapabilitiesSchema` / `ObjectUICapabilitiesSchema` value re-exports + the four type re-exports from `@object-ui/types`.\n- Drop the two `namespace-exports.test.ts` assertions.\n- Independent of the spec bump (objectui keeps compiling against published 16.x); must land before the next spec version alignment.\n\n**Migration**: discover capabilities at runtime — `GET /api/v1/discovery` (dynamic record, declared === enforced) and the `/.well-known` `WellKnownCapabilitiesSchema` contract. No replacement re-export.\n\nVerified: `@object-ui/types` build green; `namespace-exports` + `spec-ui-schema-reexports` tests pass (7/7).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

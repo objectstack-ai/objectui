@@ -1,0 +1,30 @@
+{
+  "number": 2555,
+  "kind": "issue",
+  "title": "Studio package-create UX dogfood follow-ups (2026-07 browser walkthrough)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T01:51:06Z",
+  "updated_at": "2026-07-16T13:33:28Z",
+  "closed_at": "2026-07-16T13:33:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2555",
+  "body": "Tracking issue for the Studio **package create / edit / view** dogfood walkthrough (2026-07). Records what shipped and the remaining minor items.\n\n## Shipped\n- ✅ **Duplicate package id silently overwrites** → `POST /packages` now 409s on an existing id (with `overwrite` escape hatch). framework#2971\n- ✅ **Two divergent create UIs / id-regex split** → unified onto the spec-driven `PackageFormDialog` (create/edit/view in a modal, form generated from `ManifestSchema`). #2535\n- ✅ **Dead code cleanup** from the form migration. #2540\n- ✅ **`PATCH /packages/:id` route was never mounted** (edit silently 405'd) → route registered. framework#2995\n- ✅ **Builder top-bar name stale after rename** → switcher refetches on `objectui:packages-changed`. #2554\n- ✅ **Forced \"New Object\" modal on every package create** → auto-open removed; the empty-state panel now carries an opt-in \"New object\" CTA (hidden on read-only packages). #2569\n- ✅ **Mixed-locale rendering in one session** → metadata-admin now follows the live app language via `useMetadataLocale()` (was reading `navigator.language` only), so Studio tracks the LocaleSwitcher instead of diverging from the console. #2602\n- ✅ **(future-proof) SDK `client.packages.install()` `overwrite`** → added to the options bag, symmetric with the 409 endpoint. framework#3007\n\nAll follow-ups shipped — closing.\n\n_Environmental (not app bugs): the in-app preview browser intermittently `chrome-error`d on direct `/studio` navigation._\n"
+}

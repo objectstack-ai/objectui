@@ -1,0 +1,33 @@
+{
+  "number": 2689,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): #2688 — header Record-#id floor + raw audit user id in the meta footer",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T15:08:42Z",
+  "updated_at": "2026-07-19T15:12:35Z",
+  "closed_at": "2026-07-19T15:12:33Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T15:12:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2689",
+  "body": "## Problem (#2688)\n\nRecord surfaces opened with a partial context — e.g. the gantt row drawer, which fetches the business record + schema itself — showed two rendering defects (same record renders correctly on the normal record page):\n\n| | normal record page | gantt-opened drawer |\n|---|---|---|\n| header title | record name | `Record #LnLJIsTwXbv1E2gF` ❌ |\n| meta footer | `创建人 Dev Admin` | raw opaque user id ❌ |\n\n## Root causes & fixes\n\n**1. DetailView header** — `resolveDisplayTitle` runs the unified resolver with `deriveFromRecordKeys: false` and the drawer sets no `schema.title`, so a record whose name lives in a field the type-aware derivation deliberately skips (an `autonumber` `name`) fell through to the `Record #<id>` floor.\nFix: probe name-ish record keys (`name`/`title`/`*_name`/…) as the **last resort before the floor**. The step is only reached when `schema.title` is absent, so the existing \"guessed key must not outrank the caller's object label\" rule is preserved.\n\n**2. RecordMetaFooter** — `UserRef` degraded `created_by`/`updated_by` to `type: 'text'` (raw id string) whenever the fetched schema omitted the audit system fields.\nFix: audit fields are always user references on ObjectStack — default the reference target to `sys_user` so the reference renderer resolves a display name (or shows the muted placeholder). An explicit schema definition still wins.\n\n## Verification\n\n- Live repro + fix confirmed against a real app backend (gantt 右键 查看详情 drawer now titles with the record name; footer shows resolved creator/updater names, matching the normal record page).\n- New regression suite `DetailView.title2688.test.tsx` — 5 cases (record-key probe, floor preserved for truly nameless records, `schema.title` precedence intact, footer never leaks the opaque id, explicit schema def honoured).\n- plugin-detail 236/236, plugin-gantt (drawer consumer) 336/336, `tsc --noEmit` clean, zero new lint findings.\n\nRefs #2688\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2632,
+  "kind": "pull_request",
+  "title": "fix(chatbot): 方案确认后卡片立即翻转「正在搭建…」徽标 (#2627)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T01:26:54Z",
+  "updated_at": "2026-07-17T06:04:37Z",
+  "closed_at": "2026-07-17T06:04:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T06:04:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2632",
+  "body": "Addresses #2627(staging E2E 2026-07-17 P1)的**确认无反馈**半边。\n\n## 问题\n\n点「开始搭建」后卡片 ~10 秒毫无变化:approve 走普通消息通道,可见效果(用户气泡+流式轮次)落在线程底部、视口之外——卡片本身看起来没反应,用户会重复点击。\n\n## 修复\n\n- 本地跟踪已确认的 plan id:点击即把该卡按钮翻转为转圈「正在搭建…」徽标(结构化卡与 fallback 卡都覆盖);Built 终态仍由消息流推导(#432 语义不变)。\n- 确认消息未离开客户端(unsent error)时回滚徽标恢复按钮;此后更新的普通发送会取代 approve 成为「最后一次发送」,其失败不会误回滚已送达的确认。\n- 新增 `planBuildingLabel` prop,AiChatPage 中文会话传「正在搭建…」。\n\n## 遗留(#2627 保持 open)\n\n对话历史在构建完成/布局切换后短暂清空的 race 需要活体复现(计划在本地 rig 复测时抓),本 PR 不含。\n\n## 测试\n\nplugin-chatbot 14 files / 218 tests 全过(新增 building 徽标用例);`turbo build` chatbot+app-shell 通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

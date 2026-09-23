@@ -1,0 +1,32 @@
+{
+  "number": 2788,
+  "kind": "pull_request",
+  "title": "feat(app-shell): 消息中心重复通知分组/去重/折叠 (#2765)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T20:43:39Z",
+  "updated_at": "2026-07-22T20:49:39Z",
+  "closed_at": "2026-07-22T20:49:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-22T20:49:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2788",
+  "body": "## Problem\n\nFixes #2765. The message center listed every notification individually with no grouping — in the showcase, `showcase_scheduled_digest` (interval trigger, ~1/min) filled the inbox with 10+ identical \"Scheduled project digest\" rows within minutes and pinned the bell badge at `9+`. The demo cadence only makes the gap loud: any real workspace with a recurring notification (digests, monitors, SLA nudges) hits the same wall, so the durable fix is frontend grouping, not demo-data tuning (the 60s interval is deliberately DEMO-ONLY per its own comment; left untouched per the issue's \"optional separate track\" framing).\n\n## Changes\n\n- **`inboxGrouping.ts` (new, pure)** — coalesces a newest-first notification list into `(topic, title)` groups: NUL-composite key so distinct pairs never collide; rows with neither topic nor title stand alone instead of collapsing into a catch-all bucket; per-group unread count and newest timestamp. Exported types re-exported from `InboxPopover` for back-compat.\n- **`InboxPopover`** — a group of many renders as one expandable row titled with a `×N` count pill (chevron, newest timestamp, \"{n} unread\" line) that expands to its members; a group of one stays a plain row. Per-group **\"mark read\"** button marks all of that type read. Collapsed by default.\n- **Badge semantics** — the bell + Notifications tab badge now count **distinct unread topics** + pending approvals instead of raw rows: 10 identical digests + 2 mentions read as `3`, not `9+`.\n- **`AppHeader`** — new `markManyRead` marks a whole group read in a **single** `POST /api/v1/notifications/read` (batched event ids), optimistic like the existing single/all paths; wired via the new optional `onMarkManyRead` prop (component falls back to N single calls when unwired).\n- **i18n** — `notifications.groupCount` / `groupUnread` / `groupMarkRead` / `groupMarkReadTitle` in `en` + `zh`; other locales fall back to the English `defaultValue` (nested-key parity is not enforced by the locale tests).\n\n## Verification\n\n- `vitest --project unit inboxGrouping` — 6 new tests covering coalescing, first-seen order, unread counting, topic-collision safety, no-catch-all fallback, empty list ✓\n- `packages/i18n` i18n.test.ts (locale parity) ✓ — 48 tests total across both suites\n- `tsc --noEmit` in `@object-ui/app-shell` ✓ (post-refactor)\n- `eslint` clean on all touched files (the `react-refresh/only-export-components` warning was avoided by keeping the pure helper in its own module)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01BfkpuT9FDNYeYbTuE82dcK"
+}

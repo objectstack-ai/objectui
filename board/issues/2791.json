@@ -1,0 +1,30 @@
+{
+  "number": 2791,
+  "kind": "pull_request",
+  "title": "fix(i18n): 补齐记录详情审批按钮与弹窗的国际化文案",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-23T03:36:43Z",
+  "updated_at": "2026-07-24T14:29:13Z",
+  "closed_at": "2026-07-24T14:29:11Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-24T14:29:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2791",
+  "body": "## 问题\n记录详情页在当前用户是待审批人时,会注入 **Approve / Reject** 两个操作按钮(`RecordDetailView.tsx`)。按钮及相关弹窗的文案取自 `t('approvals.*')` key,但这些 key **在所有语言包里都不存在**,i18n 回退到英文 `defaultValue` —— 中文界面因此显示成英文 \"Approve\" / \"Reject\"。\n\n## 改动\n在全部 10 个内置语言包(`packages/i18n/src/locales`)新增顶层 `approvals` 命名空间,补齐 6 个 key:\n\n| Key | 用途 | 中文 |\n|---|---|---|\n| `approve` | 批准按钮 | 批准 |\n| `reject` | 驳回按钮 | 驳回 |\n| `comment` | 弹窗意见输入框 label | 审批意见(可选) |\n| `rejectConfirm` | 驳回确认弹窗 | 确定驳回该审批请求吗? |\n| `approveSuccess` | 批准成功 toast | 已批准 |\n| `rejectSuccess` | 驳回成功 toast | 已驳回 |\n\n中文用词与状态阶段(\"02 已批准\"\"03 已驳回\")保持一致。\n\n## 影响面\n- 纯语言包数据新增,无逻辑/组件改动;无破坏性变更。\n- 锁定条(\"审批中已锁定\"\"撤回审批\")本就走 `t('detail.*')`,已正常国际化,未改动。\n\n## 验证\n- `@object-ui/i18n` 测试全绿(89 passed),含 \"all locales have the same top-level keys\" 对齐校验。\n- `tsc` 构建通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

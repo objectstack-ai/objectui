@@ -1,0 +1,32 @@
+{
+  "number": 2599,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio Access matrix — history opens in-place sheet, breadcrumb stops escaping the pillar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T12:36:38Z",
+  "updated_at": "2026-07-16T13:35:22Z",
+  "closed_at": "2026-07-16T13:35:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:35:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2599",
+  "body": "## Problem\n\nThe `PermissionMatrixEditPage` embedded in the **Studio Access pillar** (`/studio/:packageId/access`) reuses the metadata-admin chrome (`PageShell`) verbatim, and two of its navigation targets don't exist under Studio's router:\n\n1. **History button** — `navigate('./history?type=permission')` resolves to `/studio/:packageId/access/history`. No route matches (`/studio/:packageId/:tab` is single-segment), so the app's catch-all (`<Route path=\"*\">` → `/`) **dumps the user back on Home**. Reproduced in a live browser (fresh showcase backend + console dev server): clicking 历史 in the Access pillar landed on the platform home page.\n2. **Breadcrumb** — `元数据 › 权限集` links to `/metadata`, which is also unrouted at top level (metadata admin lives under `/apps/:appName/…`), so it too falls into the catch-all and yanks the user out of Studio.\n\n## Fix\n\nAn `embedded` switch on `PageShell` + `PermissionMatrixEditPage`, following the existing `MetadataResourceEditPage#embedded` precedent; the Studio `AccessPillar` passes `embedded`:\n\n- **Embedded**: History opens a right-side **Sheet** reusing the shared `HistoryPanel` (same panel the generic edit page uses). Read-only — no rollback action, since under a `packageId` the set is package metadata whose truth moves via draft + atomic Publish (ADR-0086 D6/D7); a rollback would write a live overlay behind the draft flow's back. The breadcrumb renders as plain text (`权限集 › <name>`), no `/metadata` links.\n- **Standalone metadata-admin**: unchanged — routed history page and linked crumbs still work.\n\n## Verification\n\n- Live browser (fresh `--fresh` showcase backend :4473 + worktree console :5473, package `com.test.historyrepro`, set `sales_perms`):\n  - Before: History → kicked to Home. After: History → in-place sheet showing the real event timeline (`seq 1 · v1 · create by system`), URL stays `/studio/com.test.historyrepro/access`.\n  - Breadcrumb now plain text; no link out of Studio.\n- New unit tests (`PermissionMatrixEditor.embedded.test.tsx`, 4 cases): embedded opens sheet without navigating; embedded breadcrumb has no `/metadata` links; standalone still navigates to `./history`; standalone crumbs keep links.\n- `vitest run` over `metadata-admin` + `studio-design`: **103 files / 785 tests pass**.\n- Note: `pnpm --filter @object-ui/app-shell type-check` currently fails on **pre-existing** unrelated errors (`useAiUsage.ts`, `RecordDetailView.tsx` — stale sibling `dist` types in a fresh worktree; the exports exist in those packages' `src`). None of the four changed files produce type errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

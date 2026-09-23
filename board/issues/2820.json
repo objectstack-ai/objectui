@@ -1,0 +1,30 @@
+{
+  "number": 2820,
+  "kind": "issue",
+  "title": "fix(approvals): 审批附件在「审批动态」里看不到文件名、点击也无反应",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-26T07:05:46Z",
+  "updated_at": "2026-07-27T02:29:46Z",
+  "closed_at": "2026-07-27T02:29:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2820",
+  "body": "## 问题\n\n核准 / 拒绝时可在「审批意见」弹窗上传附件（拖拽区）。附件本应在记录详情 / 审批中心的「审批动态」时间线里，对应那条决策记录下方以 \\`📎 文件名\\` 胶囊呈现，点击在新标签页打开。实际表现：\n\n1. 胶囊只显示通用词「附件」，**看不到真实文件名**。\n2. **点击胶囊无任何反应**，也没有任何报错提示。\n\n## 根因（前端，已读码确认）\n\n`apps/console/src/pages/system/ApprovalsInboxPage.tsx`：\n\n- 文件名来自 `GET /api/v1/data/sys_file/{id}` 的 `record.name`（约 L441）；该请求失败 / 返回空即**静默回退**成「附件」（L833）。`sys_file` 是系统对象，普通审批人一般无直接读权限 → 拿不到名字。\n- 点击走 `openAttachment`（L454）：请求 `GET /api/v1/storage/files/{id}/url` 拿签名链接后 `window.open`；**任何失败都被 `catch {}` 无声吞掉**（L462），零反馈，表现即「点了没反应」。\n\n## 待复现确认（后端 / objectstack repo）\n\n`/storage/files/{id}/url` 对 `scope==='attachments'` 的文件走 `authorizeDownload → authorizeFileRead`；若审批决策上传的附件未正确挂到审批人可读的记录、或 scope 不符，将返回 403 → 被前端吞掉。需在 showcase 真机复现，确认是权限（403）还是文件缺失（404），据此决定 framework 侧改动。\n\n## 方案\n\n- **前端**：点击失败给用户可见反馈（toast / 提示）；文件名解析改用审批人可授权的来源，不再依赖对 `sys_file` 的原始 data 读。\n- **后端（若复现确认）**：让审批附件的下载授权 / 名称读取对审批人可用。\n- 交付前用 framework `app-showcase` 的「审批 + 存储」链路真机 UI 实测通过。\n\n关联 framework: objectstack-ai/objectstack（后端授权部分，复现确认后开配套 issue）。"
+}

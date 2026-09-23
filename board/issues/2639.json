@@ -1,0 +1,32 @@
+{
+  "number": 2639,
+  "kind": "issue",
+  "title": "bug(import): 向导静默降级路径不解析引用——原始自然键写入 FK 列并报成功",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T14:19:11Z",
+  "updated_at": "2026-07-18T07:19:41Z",
+  "closed_at": "2026-07-18T07:19:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2639",
+  "body": "## 问题\n\n导入向导在适配器/客户端不支持服务端 `/import` 路由时,会**静默降级**为逐行裸 `POST /api/v1/data/:object`(注释原话:\"Older adapter/client without /import — silently fall back\")。这条降级路径**不做引用解析、不做类型强转**,造成静默数据损坏:\n\n- lookup 列的**原始自然键字符串被直接写进 FK 列**(如 `parent = 'QA-2806-New-Parent'`,而非目标记录 id)——连引用**已存在**记录的行都不解析;\n- 空引用写成 `''` 而非 null;\n- 全部行报「导入成功」,损坏在网格中仅表现为引用列显示\"—\",无任何告警。\n\n位置:[packages/plugin-grid/src/ImportWizard.tsx(silently fall back 分支,~L1885/L1942)](https://github.com/objectstack-ai/objectui/blob/b4ef58866/packages/plugin-grid/src/ImportWizard.tsx#L1885)\n\n## 真机复现(2026-07-17)\n\nframework showcase(`objectstack dev --ui`,全新 SQLite)+ 走降级路径的 console 构建,对 `showcase_category`(`parent` 为指向本对象的 lookup)导入:\n\n```csv\nname,parent\nControl-Child,Existing-Parent   ← Existing-Parent 已在库中\nNew-Parent,\nNew-Child,New-Parent\n```\n\n网络面板:3 × `POST /api/v1/data/showcase_category`(未发任何 `/import` 请求);结果「已导入 3 条」全成功;数据库实查:`Control-Child.parent = 'Existing-Parent'`(字符串)、`New-Parent.parent = ''`、`New-Child.parent = 'New-Parent'`(字符串)。对照:同服务器上走 `/import` 的当前版向导,引用解析正常。\n\n## 建议修法\n\n1. 降级不得静默:进入 fallback 时向用户显式告警(降级原因 + 能力差异)。\n2. 映射中含 lookup / master_detail / user 列时,fallback 应**拒绝导入**(提示升级服务端/适配器),而非把自然键原样写入 FK。\n3. (可选)fallback 至少复用客户端已有的类型强转,空串引用应写 null。\n\n## 验收标准\n\n- `/import` 不可达 + 含 lookup 列 → 导入被阻止并给出明确提示,不产生字符串 FK。\n- `/import` 不可达 + 纯标量列 → 可降级,但界面明示已降级。\n- 组件测试覆盖上述两分支。\n\n—— 发现于 framework#2678 批量写入路径专项测试的真机 UI 环节(测试报告见该 issue 评论)。\n"
+}

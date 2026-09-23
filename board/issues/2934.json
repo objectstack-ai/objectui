@@ -1,0 +1,32 @@
+{
+  "number": 2934,
+  "kind": "pull_request",
+  "title": "docs(audit): field-level verdict for `ObjectViewSchema` / `DetailViewSchema` (#2890 scope B)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T16:01:55Z",
+  "updated_at": "2026-07-28T16:04:44Z",
+  "closed_at": "2026-07-28T16:04:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T16:04:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2934",
+  "body": "Delivers #2890 **scope B**: *\"the deliverable here is an **audit, not a swap**: field by field, decide promote-to-spec / keep-local / drop … Only then decide whether a derivation is even the right shape.\"*\n\nFull write-up: [`docs/audits/2026-07-objectview-detailview-schema.md`](docs/audits/2026-07-objectview-detailview-schema.md)\n\n**Method**: complete field dump of both schemas (zod ∪ TS interface), a read-site sweep of every field across `packages/` and `apps/`, and a field-by-field mapping against `@objectstack/spec` 16.1.0.\n\n## Answer to \"is a derivation the right shape?\" — no, for both, for different reasons\n\n### `ObjectViewSchema` — restructure, don't derive\n\nThe issue nominates spec `ObjectListViewSchema` and notes it is \"not 1:1\". It is not 1:1 because it is **not the counterpart**: `ObjectViewSchema` is a composite (list + form + named views + chrome) and `ObjectListViewSchema` covers only the list. The structural match already exists upstream — spec **`ViewSchema`** (`view.zod.ts:1135`), the ADR-0047 container `{list, form, listViews, formViews}`, which maps onto the `table`/`form`/`listViews` cluster ~1:1. *So the spec does not need to grow a composite-view schema; it has one.*\n\nBut the prerequisite is that **the declared surface is a fiction**: **28 keys are read off the `object-view` node that are declared in neither the zod schema nor the TS interface** — all relayed to the list view through `(schema as any)` at `ObjectView.tsx:1019-1060`. Deriving a schema whose declaration covers a third of its reads would encode the wrong thing.\n\nVerdicts: **drop 3** — `viewTabBar` (dead: one grep hit repo-wide, its own declaration), `showRefresh` (written by 3 producers + a designer input, **read by nobody**; the affordance already exists upstream as `userActions.refresh`), `className` (declared, passed by `SchemaRenderer`, then dropped by `ObjectViewRenderer`). **Re-export 3 by reference** — `searchableFields`, `filterableFields`, `navigation`; the last is a hand-copied duplicate of `NavigationConfigSchema` down to its `#2578` deprecation note, exactly the fork #2231 phase 2 retired. **Rename 7**, **restructure 4**, **keep 7**.\n\n### `DetailViewSchema` — freeze and retire, don't derive\n\n`FormViewSchema` is the wrong counterpart: it is the **create/edit** surface, this is a **read-only record** surface, and the shared names collide rather than align —\n\n- **`data`** — objectui: the record *payload*; spec: a data-*source descriptor*. Same key, opposite direction of dataflow.\n- **`columns`** — `z.number()` here, `z.number().int().min(1)` on `FormViewSchema`, `z.enum(['1','2','3','4'])` (a **string** enum) on `RecordDetailsProps`.\n- **`layout`** — matches two different spec fields with two different meanings (`vertical|horizontal|inline|grid` vs `auto|custom`).\n\nThe spec's real counterpart is the **`record:*` page-component family** — and **objectui already renders it**: `buildDefaultPageSchema.ts` and `RecordDetailView.tsx` build pages of `record:*` components and never touch this schema. Only **two** producers keep the `detail-view` node alive (`record-details.tsx:244`, `RecordDetailDrawer.tsx:301`), and only **11 of its 33 read fields** have any first-party producer — the other 22 are written by tests, the README, and the designer-input list.\n\nVerdicts: **drop 3** — `onBack` (never read; the `onBack` in `DetailView.tsx` is the React prop, a different channel and type), `autoDiscoverRelated` (one grep hit), `layout` (**written-only**: produced, exposed as a designer input with a `vertical|horizontal|grid` picker, and read nowhere — a user can set it and nothing happens). Keep the runtime-state cluster (`loading`, `history`, `comments`, `activities`, callbacks) local and out of any protocol — it is why this \"schema\" can't be validated, persisted, or authored. Then migrate the two producers onto the page path and delete the schema.\n\n## Cross-cutting finding\n\nNeither schema is parsed at runtime anywhere, and `BaseSchema` is `.passthrough()` — so both zod shapes are **documentation, not contract**, and nothing catches drift between zod, the TS interface, and the renderer. In both cases zod ⊂ TS ⊂ what the renderer reads; every drift has gone the same direction. Neither has a guard like `list-view-spec-parity.test.ts`, and that absence is what the 28-undeclared-keys number costs. Any work on `ObjectViewSchema` should land a guard **first**.\n\nDocs-only — no code, no schema, no behavior change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

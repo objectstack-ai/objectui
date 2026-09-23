@@ -1,0 +1,33 @@
+{
+  "number": 2738,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in plugin-dashboard (#2713 Wave 3.1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T06:14:38Z",
+  "updated_at": "2026-07-20T07:10:51Z",
+  "closed_at": "2026-07-20T07:10:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:10:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2738",
+  "body": "First package of **Wave 3** in the #2713 lint-gate restoration (Waves 1–2 landed in #2730 / #2737). `@object-ui/plugin-dashboard` was **red at baseline on `main`**. **Errors only; no behavior change.**\n\nWave 3 packages are shipped **one per PR with a review checkpoint** (they contain the genuine hook-order restructures); this is the smallest/lowest-risk of the six.\n\n## What changed (per rule)\n\n- **`react-hooks/rules-of-hooks`** (`ObjectDataTable`) — `useObjectTranslation` was wrapped in `try/catch` (making the hook conditional). Removed the wrapper — the hook is provider-safe (react-i18next falls back to the global instance, never throws), the exact #2709 fix. The English defaults still stand until a translation resolves.\n- **`react-hooks/static-components`** (`MetricCard`, `MetricWidget`) — `getLazyIcon(name)` returns a **module-cached, stable** component per name (verified: `lazy-icon.tsx` memoizes in a module-level `Map`; its own doc shows the `const Icon = getLazyIcon(name); <Icon/>` pattern). Not a component created during render → justified scoped disable.\n- **`no-irregular-whitespace`** (`DatasetWidget`) — the flagged char is a literal **U+FEFF BOM** deliberately prepended to the exported CSV blob (Excel UTF-8 detection). Rewritten as the `﻿` **escape**: byte-identical at runtime, no literal irregular-whitespace char (real fix, not a disable). Same treatment as `plugin-grid/ImportWizard` in #2737.\n- **`no-useless-escape`** (`recordFields`) — `\\$` inside a character class is redundant (`[\\$¥€£]` → `[$¥€£]`); identical regex.\n- **`no-sparse-arrays`** (`recordFields`) — the `|| [, '']` match fallback is written `[undefined, '']` so index 0 is an explicit value, not a sparse hole; `[1]` is still `''`.\n- **`no-useless-assignment`** (`PivotTable`) — `suffix` is now a single `const` at its one assignment site instead of a dead-initialized `let` (also avoids the follow-on `prefer-const`).\n- **`no-require-imports`** (`DashboardRenderer.designMode` test) — hoisted `vi.mock` factory uses an `async` factory with `await import('react')`.\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (8 at baseline).\n- **Type gate:** `turbo run build` → **11/11 tasks green**.\n- **Tests:** `plugin-dashboard` suite green — **122 passed / 24 skipped (16 files)**.\n\nRefs #2713 · follows #2730, #2737 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

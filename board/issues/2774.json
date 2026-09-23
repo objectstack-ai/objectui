@@ -1,0 +1,30 @@
+{
+  "number": 2774,
+  "kind": "issue",
+  "title": "详情页切换「相关/历史」Tab 后,顶部「返回列表」链接丢失",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-21T14:07:54Z",
+  "updated_at": "2026-07-22T02:26:39Z",
+  "closed_at": "2026-07-22T02:26:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2774",
+  "body": "## 问题\n\n从对象列表点开一条记录,详情页顶部会显示「← 全部<对象>」返回列表的链接。但在详情页把 Tab 从「详情」切到「相关」或「历史」后,这个返回链接**消失**了,用户无法一键回到列表。\n\n复现(以「质检派工单」为例):\n1. 打开列表「全部质检派工单」,点任意一条(如 QD-00043)进详情;\n2. 顶部可见「← 全部质检派工单」链接;\n3. 点「相关」或「历史」Tab;\n4. 「← 全部质检派工单」链接丢失。\n\n## 根因\n\n返回链接的数据来自列表行点击时写入的 history state(`state.from`,`ObjectView.tsx`),`RecordDetailView` 据此渲染返回链接。\n\n而切 Tab 时 `handleTabChange` 用 react-router 的 `setSearchParams` 往 URL 写 `?tab=`——这是一次导航,默认**不携带** history state,`state.from` 被清空,返回链接随之消失。\n\n## 方案\n\n切 Tab 导航时显式把当前 `location.state` 透传给 `setSearchParams`,让 `state.from` 在 Tab 切换后保留,返回链接不再丢失。改动仅限 `packages/app-shell/src/views/RecordDetailView.tsx` 的 `handleTabChange`。\n"
+}

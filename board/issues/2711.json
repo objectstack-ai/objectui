@@ -1,0 +1,32 @@
+{
+  "number": 2711,
+  "kind": "issue",
+  "title": "详情页相关列表未落实 spec 的 limit 默认值:大数据量全量平铺、无分页、无服务端窗口取数",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:04:37Z",
+  "updated_at": "2026-07-20T04:31:31Z",
+  "closed_at": "2026-07-20T04:31:31Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2711",
+  "body": "## 问题\n\n记录详情页「相关」Tab 的相关列表(`record:related_list`)在子表数据量大时(实测某项目 114 条排班计划)把所有记录一次性全量渲染:\n\n- 无分页控件,页面被撑到极长;\n- 取数请求不带 `$top`,子表记录全量拉回前端,数据量大时网络/渲染双重开销;\n- 「View All」页脚也因分页从未启用而永远不显示。\n\n## 根因\n\n1. **spec 契约本来就是\"默认截断\"**:`RecordRelatedListProps.limit` 定义为 `z.number().int().positive().default(5)`(\"Number of records to display initially\"),`showViewAll` 默认 `true`。这是 Salesforce 式\"默认显示前 N 条 + View All\"的设计。\n2. **渲染器链路从未落实该默认值**:`RecordDetailView` → `deriveRelatedLists` → `buildDefaultPageSchema` 合成的 `record:related_list` 节点不带 `limit`;`RecordRelatedListRenderer` 只透传 `schema.limit`(undefined);`RelatedList` 内 `effectivePageSize = 0`,已实现的分页控件(ccd7cdaeb 起就存在)渲染条件 `effectivePageSize > 0` 永远不成立。\n3. **取数无窗口**:`RelatedList` 自动取数走 `dataSource.find(api, { $filter })`,无 `$top`/`$skip`,全量拉取后前端内存过滤/排序/切片。主列表视图的同类问题在 #2212 已改为服务端分页,相关列表被遗漏;数据适配器(`data-objectstack`)对 `$top`/`$skip`/`$orderby` 与 `QueryResult.total`/`hasMore` 的支持已经齐备。\n\n## 方案\n\n1. **落实 spec 默认值**:`RecordRelatedListRenderer` 在 `schema.limit` 缺省时按 spec 默认取 5(`pageSize = limit ?? 5`),分页控件即刻生效。\n2. **服务端窗口分页**:`RelatedList` 自动取数路径(有 `dataSource` + `pageSize > 0`)改为按页取数 `$top`/`$skip`;计数徽章与页码改用 `QueryResult.total`(降级用 `hasMore` 估算);用户点击列排序时改传 `$orderby` 做全局服务端排序;调用方显式传 `data` 的路径保持现有客户端切片行为不变(不破坏既有嵌入场景)。\n3. **透传 spec `sort`**:`record:related_list` 的 `sort` 属性作为初始 `$orderby`,分页顺序可控。\n4. 补齐测试(spec 默认值、$top/$skip 传参、翻页交互、总数徽章、data-prop 路径回归)与文档。\n\n## Follow-up(不在本 issue 范围)\n\n「View All」跳转需要\"子对象列表视图带父过滤\"的路由契约(由 `RelatedRecordActionsBridge` 提供 `onViewAll`),另行开 issue 处理。"
+}

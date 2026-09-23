@@ -1,0 +1,32 @@
+{
+  "number": 2644,
+  "kind": "pull_request",
+  "title": "perf(test): default DOM tests to a light setup; isolate heavy registry setup",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T01:12:07Z",
+  "updated_at": "2026-07-18T01:16:07Z",
+  "closed_at": "2026-07-18T01:16:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T01:16:06Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2644",
+  "body": "接 #2641 —— 那个 PR 把 Vitest 套件分片,但只是把成本**并行**掉了。本 PR 削减成本本身。\n\n## 问题\n\n一次 CI 跑的 Vitest summary 里,`setup` 是最大单项:累计 **990s**,而真正执行测试(`tests`)只有 205s。原因是 `vitest.setup.dom.tsx` 会 side-effect 导入 `@object-ui/components` / `fields` / `plugin-dashboard` / `plugin-grid` 并重注册 9 个 widget,而在 `isolate: true` 下这张模块图**对每个 DOM 测试文件都重新执行一遍**。实测每文件约 **3.3s 纯 setup**。\n\n但把整个 `dom` 项目在精简 setup 下跑一遍后发现:~310 个 DOM 文件里只有 **~20 个**真的会通过 ComponentRegistry 渲染;其余 ~290 个白付了那 3.3s。\n\n## 做法\n\n按需求把 DOM 测试拆成两个 project:\n\n- **`dom`(默认)**:新增轻量 `vitest.setup.dom-light.tsx` —— 只有 base polyfill + jest-dom + RTL cleanup,不碰那 4 个重包的模块图。\n- **`dom-heavy`**:`heavyDomTests` 里那 ~20 个驱动注册表的文件,保留完整的 `vitest.setup.dom.tsx`(`apps/console` 也仍然用它)。\n\n`heavyDomTests` 是**实测**出来的,不是猜的:清单里每个文件都是在轻量 setup 下**失败**的那些(例如 `page:card not registered`)。这份清单**自纠错** —— 漏掉的重文件会落到轻量 `dom` 项目里并在 CI 里响亮地失败,所以覆盖不会被静默丢掉,最坏只是一个红 CI + 指向修法的报错。\n\n## 验证(守恒,同一 commit)\n\n在 base commit(`6c539601`)上,用我的改动前后各跑一次全量 `pnpm test`:\n\n| | 拆分前 | 拆分后 |\n|---|---|---|\n| Test Files | 566(565 pass + 1 skip) | 566(565 pass + 1 skip) |\n| Tests | 6892(6868 pass + 24 skip) | 6892(6868 pass + 24 skip) |\n\n**完全一致** —— 零测试丢失、零新增失败,行为保持不变。本地累计 `setup` 从 ~990s 降到 ~167s。\n\n分片(#2641)不受影响:文件总数不变(566),4 片仍按文件路径 hash 均衡。本 PR 自身的 4 片 CI 求和(Test Files == 566、Tests == 6892)即终极校验,合并前会核对。\n\n## 说明\n\n- 只改测试基础设施(config + 两个 setup 文件),不碰任何产品代码或测试断言。\n- `isolate` **保持开启**(`vitest.config.mts` 记录过关掉它导致的上千个顺序依赖失败)。\n- 一个已知的良性噪声:`dom-heavy` 跑时 happy-dom 会打印一条对 `localhost:3000` 的 `fetch()` aborted 的未处理拒绝 —— 这是既有行为(测试全 pass),非本 PR 引入。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

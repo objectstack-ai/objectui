@@ -1,0 +1,32 @@
+{
+  "number": 2640,
+  "kind": "issue",
+  "title": "ux(import): 必填字段未映射时「下一步」禁用但无任何提示",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T14:19:14Z",
+  "updated_at": "2026-07-18T07:19:40Z",
+  "closed_at": "2026-07-18T07:19:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2640",
+  "body": "## 问题\n\n导入向导第 2 步(字段映射):当对象存在**必填字段而 CSV 中没有对应列**时,「下一步」按钮被禁用——但界面上**没有任何提示**说明缺了哪个必填字段。用户面对一个灰掉的按钮无从下手。\n\n位置:[packages/plugin-grid/src/ImportWizard.tsx#L2282](https://github.com/objectstack-ai/objectui/blob/b4ef58866/packages/plugin-grid/src/ImportWizard.tsx#L2282) —— `missingRequired`(L1641 计算)**只用于禁用按钮,从不渲染**。\n\n## 真机复现(2026-07-17)\n\nframework showcase 的 `showcase_account`(`status` 必填 select)导入不含 `status` 列的 CSV:\n\n```csv\nname,industry,annual_revenue\nQA-1,technology,1000000\n```\n\n三列全部显示「已映射」、无任何错误提示,「下一步」持续禁用。实际测试中操作者(对对象 schema 不熟的典型用户)卡住数分钟,只能靠读源码才定位到缺 `status`。补上该列后按钮立即可用。\n\n## 建议修法\n\n`missingRequired.length > 0` 时,在映射表格下方(或按钮旁)渲染明确提示,例如:「以下必填字段未在文件中出现:生命周期(status)。请在文件中补充该列,或返回上一步。」字段名用 label(name)格式。禁用逻辑本身保留。\n\n## 验收标准\n\n- 缺必填列时界面列出全部缺失字段的 label,提示随映射变化实时更新。\n- 补齐后提示消失、按钮可用。\n- 组件测试覆盖。\n\n—— 发现于 framework#2678 批量写入路径专项测试的真机 UI 环节(测试报告见 framework#2678 评论)。\n"
+}

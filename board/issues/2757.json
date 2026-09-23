@@ -1,0 +1,34 @@
+{
+  "number": 2757,
+  "kind": "pull_request",
+  "title": "refactor(data-objectstack): route batchTransaction through the client SDK only (#2694)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T12:43:35Z",
+  "updated_at": "2026-07-20T13:33:17Z",
+  "closed_at": "2026-07-20T13:33:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T13:33:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2757",
+  "body": "Closes #2694 (optional cleanup half).\n\n## Context\n\n`#2694` had two parts:\n\n1. **(required) dogfood-verify the SDK path** — already realized: `@objectstack/client` is bumped to `^16.0.0-rc.0` on `main` (changeset `align-objectstack-deps-16-rc`), and `16.0.0-rc.0` ships `data.batchTransaction`. The adapter's feature-detect already routed master-detail saves through the SDK, and `onMutation.test.ts` proves *SDK path taken + one `MutationEvent` per committed op (no double-fire)*.\n2. **(optional) remove the raw-fetch branch** — this PR.\n\n## What\n\n`ObjectStackAdapter.batchTransaction` now calls the typed SDK method\n`client.data.batchTransaction(operations)` **directly**. The transitional\nhand-rolled `fetch('/api/v1/batch')` mainline — a feature-detect shim kept while\nthe SDK method was unreleased — is deleted. Per **AGENTS.md §7**, adapter data\nalways flows through `@objectstack/client`, never a raw `fetch`. The change is\nlocalized to the one method (net −40 lines) and also drops one `as any` cast (the\nmethod is now a typed part of the `@objectstack/client@^16` API).\n\n## No behavior change\n\n- The SDK still drives the server's atomic `POST /api/v1/batch`.\n- One `MutationEvent` per committed op, emitted once (no double-fire).\n- The **server-side** fallback stays: when *this backend* lacks the endpoint\n  (404/405) or its runtime can't do transactions (501), the SDK method throws a\n  status-decorated error and the adapter degrades to the non-atomic\n  `emulateBatchTransaction` — exactly as before. Every other status\n  (400/401/403/409/500) still surfaces to the caller.\n- The non-atomic emulation itself is untouched (still gated on a\n  discovery-advertised batch capability, not yet advertised).\n\n## Tests / docs\n\n- Reworked the \"no server atomicity\" fallback tests to drive the path via the SDK\n  method throwing (the raw-fetch mock is gone). **89/89 `data-objectstack` tests\n  pass; `type-check` clean.**\n- Updated the master-detail ADR (`docs/adr/0001-…`) + data-source guide to\n  describe the SDK transport; added a changeset (`patch`).\n\n## Version-policy note (resolved)\n\nThe client dep is still a pre-release (`^16.0.0-rc.0`), and the merged version-bump\nchangeset had noted *\"the raw-fetch branch stays as a defensive fallback (removal\ntracked in #2694).\"* The caret range guarantees `data.batchTransaction` for any\nresolved version and `#2694` is the tracking issue for this removal, so the\nmaintainer approved proceeding now (merge on green CI) rather than waiting for a\nstable `16.0.0`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SyjBH45icswG9FKmCestH2"
+}

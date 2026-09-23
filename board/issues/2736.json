@@ -1,0 +1,32 @@
+{
+  "number": 2736,
+  "kind": "pull_request",
+  "title": "feat(i18n): localize action result dialogs via _actions.<action>.resultDialog",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:15:34Z",
+  "updated_at": "2026-07-20T07:48:28Z",
+  "closed_at": "2026-07-20T07:48:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:48:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2736",
+  "body": "## Problem\n\nThe one-shot secret-reveal dialog (create-user temporary password, 2FA backup codes, OAuth client secrets) always rendered hardcoded English: the result-dialog handlers passed the metadata spec straight through, and the locale packs' own fallback strings (`defaultTitle` / `acknowledge`) were English in every language.\n\n## Changes\n\n- **@object-ui/i18n** — `useObjectLabel()` gains `actionResultDialog(objectName, actionName, spec)`: overlays translated `title` / `description` / `acknowledge` and per-field labels from `{ns}.objects.<obj>._actions.<action>.resultDialog.*` (`globalActions` fallback), falling back to the metadata literals. The `fields` node is keyed by the **literal** result-field path (may contain dots, e.g. `\"user.email\"`), so it is fetched whole with `returnObjects` and indexed directly — never resolved through a dotted i18next key. All ten locale packs translate the dialog's fallback `defaultTitle`/`acknowledge` and add the new `actions.resultDialog.copyAll` key. New hook test.\n- **@object-ui/app-shell** — the result-dialog handlers in `useConsoleActionRuntime` and `RecordDetailView` accept the action context (already passed by `ActionRunner`) and localize the spec before opening the dialog; `ActionResultDialog`'s hardcoded \"Copy all\" button now resolves through `actions.resultDialog.copyAll`.\n\nServer-side counterpart (translation schema slot, extractor keys, platform bundle content) lands in objectstack-ai/framework. Independent to merge: without bundle content the dialog keeps rendering the metadata literals.\n\n## Testing\n\n- i18n package 89 tests (incl. new `actionResultDialog` hook test) and targeted ActionResultDialog / useConsoleActionRuntime suites (29) pass; app-shell `tsc` green\n- End-to-end against a live showcase backend with the HMR console: create-user and set-password dialogs render fully localized in zh-CN\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

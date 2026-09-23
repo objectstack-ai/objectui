@@ -1,0 +1,36 @@
+{
+  "number": 2920,
+  "kind": "pull_request",
+  "title": "fix(fields,core,detail): make the sharing-rule dialog usable — i18n, a picker that lists people, and permission-aware CTAs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T11:03:50Z",
+  "updated_at": "2026-07-28T14:39:49Z",
+  "closed_at": "2026-07-28T14:39:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T14:39:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2920",
+  "body": "Fixes the Console's \"New sharing rule\" dialog, which could not produce a working rule. Server-side half is objectstack-ai/objectstack#3821 / objectstack-ai/objectstack PR (framework branch `claude/sharing-rules-i18n-recipient-02a623`).\n\n## What was broken\n\n| Symptom | Cause |\n|---|---|\n| Recipient picker showed **\"No matches\"** for every type | `$orderby: 'name asc'` fell into the `Object.entries` branch of `queryParamsToRecord` and was walked character by character into `0 n,1 a,2 m,…`; the server sorted by columns that don't exist and returned nothing |\n| Dialog copy was English in a Chinese Console | The three sharing-rule widgets hardcoded their strings and never used `useFieldTranslation` |\n| Reopening a saved rule **blanked the recipient** | The picker's type-change reset treated the edit form's `'' → 'user'` hydration as a type switch, and the blank was then persisted on save |\n| \"Add filter\" fired validation / could save early | No `FilterBuilder` control set `type=\"button\"`; a bare `<button>` in a `<form>` defaults to submit |\n| A rejected save showed `FORBIDDEN: insufficient privileges to update showcase_private_note pi-TgoJ4_DM55Fqz` | The form rendered `error.message` verbatim — untranslated, and leaking the object machine name and record id |\n| **\"Edit\" offered on read-only records** | Object permissions can't express \"this one record is read-only\", which is exactly what a read-only sharing grant is |\n\n`ObjectGrid` builds the same string `$orderby` from a schema-level `sort` in three places, so this also fixes grids that silently rendered an empty table.\n\n## Notable design points\n\n- **The recipient placeholder is keyed per type**, not interpolated. `` `Select a ${type.replace(/_/g,' ')}` `` is a shape no locale can translate.\n- **The record-level gate consults the explain engine** (`POST /api/v1/security/explain` with a `recordId`, ADR-0090 D6 / ADR-0095 C2) — the same pipeline the enforcement middleware runs, so button and server can't disagree. Explaining oneself needs no special permission.\n- **It fails open everywhere**: no answer yet, non-OK response, a deployment without `plugin-security` (501), a split SPA origin. A courtesy hint must never be why a permitted user can't act; the server stays the authority (ADR-0057 D10).\n- ⚠️ **Reviewer call:** the gate costs one cached `explain` request per record open (skipped when the object-level check already says no). Happy to move it behind a server-side per-record access hint on the record read instead if you'd rather not pay that.\n\n## Verification\n\nBrowser-driven against the framework showcase Console in Chinese — data, accounts, rules and checks all created through the UI, no API calls:\n\n- Copy localized throughout; picker lists real users / business units / positions (empty \"teams\" is genuinely 0 rows)\n- A rule saved end-to-end stores a real record id; reopening it keeps recipient + criteria\n- Editing the filter no longer submits the dialog\n- Read-only recipient: **no Edit button**; same recipient at `edit` level: **Edit present, save succeeds**; the user's own records keep Edit throughout\n- Denied save now reads 「您没有权限保存这条记录。」 — no machine name, no record id\n\nTests: `plugin-detail` + `permissions` 303 ✓, `components` 319 ✓, `fields`/`core`/`i18n` suites ✓. Each new test verified to fail without its fix. Two known-unrelated flakes on this machine: a TZ-dependent `DATEFORMAT` case that also fails on `main`, and `ReportPreview.dataset` timing out only under full-suite load (passes in isolation on both branches).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

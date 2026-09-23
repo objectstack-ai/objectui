@@ -1,0 +1,34 @@
+{
+  "number": 2759,
+  "kind": "pull_request",
+  "title": "fix(plugin-charts): draw dashboard chart bars on first paint via isAnimationActive=false (#2756)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T13:13:48Z",
+  "updated_at": "2026-07-20T13:59:23Z",
+  "closed_at": "2026-07-20T13:59:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T13:59:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2759",
+  "body": "## Problem\nDashboard bar/area/line/horizontal-bar widgets render **axes + category labels but not a single bar** on first mount; the bars only draw after an unrelated re-render (theme toggle / resize / re-nav). The data is fine — a pure frontend mount-time race. Fixes #2756 (the follow-up to #2727, whose settle re-mount was ineffective live).\n\n## Root cause\nThe Recharts entrance animation is a `requestAnimationFrame` tween that starts at height 0 (`JavascriptAnimate`: `useState(isActive ? 0 : 1)`). Inside a `react-grid-layout` dashboard, `ResponsiveContainer`'s mount-time 0→positive measurement churn interrupts that tween before it advances, so bars stay frozen at 0.\n\n#2727 tried to *heal* this by re-mounting `ResponsiveContainer` once the outer box settles. But the freeze lives **inside** `ResponsiveContainer`'s own measurement, and the healing re-mount can land right back in the churn — so it never reliably replays. Keying/remounting the outer div can't fix an inner-measurement race.\n\n## Fix\nDashboard chart widgets render with **`isAnimationActive={false}`** — there is no entrance tween to freeze, so bars render at their final geometry on the **first committed frame**, deterministically, regardless of grid/measurement timing. This reuses the same deterministic, export-safe render path reports already use.\n\n- Every dashboard chart schema carries the flag: `DatasetWidget` (`chart`), `DashboardRenderer` (`chart` + `object-chart`), `DashboardGridLayout` (`chart` + `object-chart`).\n- `AdvancedChartImpl` now honors `isAnimationActive` **uniformly** — `funnel`/`treemap`/`radar`/`scatter` previously hard-coded animation on; they now respect the flag like bar/line/area/pie.\n- With the animation off there is nothing to heal, so `ChartContainer` skips its settle re-mount via a new `disableSettleRemount` prop — avoids a needless 1-frame `ResponsiveContainer` reflow on first paint.\n- **Standalone chart *views* keep their entrance animation** — scope is dashboards only.\n\n## Verification — real browser, real code path (worktree console → live backend)\nThis is the step #2727 couldn't do. Ran the showcase **Chart Gallery** dashboard (`react-grid-layout`, the `DatasetWidget` path) against a live backend, with the console serving the worktree's edited plugin source:\n\n| | Result |\n|---|---|\n| **Before** (animated / `main`) | Axes, labels, Y-scale and metric cards all present (data is there) — but **every bar frozen at ~0 height for 8s+**. Reproduced the reported symptom exactly. |\n| **After** (this PR) | Bars drawn at final geometry on **first paint**; deterministic across fresh navigations and a fresh tab; **zero console errors**. |\n\nA/B done by `git stash`-toggling the fix and confirming (over HTTP) which source vite served each time.\n\n## Tests\n- `plugin-charts` + `plugin-dashboard`: **156 pass** (path-scoped `vitest run`); both packages `type-check` clean.\n- New `ChartContainerImpl.settleRemount` case: `disableSettleRemount` fully suppresses the re-mount even at a positive stable box.\n- New `DatasetWidget.animation.test.tsx`: the chart schema handed to the renderer carries `isAnimationActive: false`.\n- Existing settle-remount tests unchanged (animated path preserved for views).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 2906,
+  "kind": "pull_request",
+  "title": "fix(detail): the approval band honors the node's `lockRecord` instead of assuming every approval locks (#2902)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T07:04:19Z",
+  "updated_at": "2026-07-28T14:38:55Z",
+  "closed_at": "2026-07-28T14:38:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T14:38:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2906",
+  "body": "Closes #2902. 依赖 framework objectstack-ai/objectstack#3815（新字段 `lock_record`）。\n\n## 定性：是 bug，且是「从来没接出来」而非回归\n\n`lockRecord` 是 spec 里正式的节点配置项（`ApprovalNodeConfigSchema`，`z.boolean().default(true)`），服务端在 `plugin-approvals` 的 `beforeUpdate` 钩子里严格执行。平台自己定义、自己执行的开关，UI 不读 —— 平台内部行为不一致。\n\ngit 追溯确认不是回归：objectui 的 `approvalLocked` 由 #2572 引入时就是「`approval_status` 或有 pending request」的二值判断，#2618 只补了第二个来源，**从未有过节点粒度**；framework 侧的行投影也从第一版起就没带过锁信号。这个能力自诞生起就是 server-only。\n\n## 影响面比 issue 描述的更大\n\nissue 只提了 band 文案。实际上同一个信号还掐着 `canEdit`（`RecordDetailView.tsx`）：\n\n```ts\ncanEdit={... && !approvalLocked}\n```\n\n所以 `lockRecord: false` 的节点上**行内编辑被整个禁掉** —— 铅笔不出现、`enter()` 空转。报告人是从独立「编辑」表单路由进去才存成功的，那条路没接这个门。实际业务里审批链上的单人节点（部门负责人 / 厂长）正是配 `lockRecord: false`，本意就是让审批人在审批时补充内容 —— 这个能力在 Console 里比 issue 写的更彻底地不存在。\n\n## 改动\n\n审批状态拆成两个信号：\n\n- **`approvalPending`** —— 有审批在跑。驱动 band 和撤回按钮，两者无论记录可不可改都有意义。\n- **`locked`** —— 这个审批还禁编辑。取自当前 pending 节点的 `lock_record`。\n\nband 两态：琥珀色锁 +「审批中已锁定」，或天蓝色时钟 +「审批中 · 可编辑」，各自独立 tooltip。撤回按钮移出 locked 分支 —— 可编辑的 pending 审批一样可以撤回，原来藏在锁分支里等于不锁的节点连撤回都没了。\n\n`InlineEditProvider` 新增可选 `approvalPending`，缺省回落到 `locked`，只 thread `locked` 的老 host 行为完全不变。记录自身的 `approval_status` 仍作为无 approvals API 后端的兜底，它没有节点粒度所以只能读作锁定；老后端不返回 `lock_record` 时同样 fail closed —— 放出一个必然被服务端拒掉的编辑，比藏起一个本可放行的更糟。\n\n新增 `detail.approvalPendingEditable` / `detail.approvalPendingTooltip`，十种语言全部翻译。\n\n## 真机 UI 实测\n\nshowcase 后端 + objectui HMR console，推了一条真实审批走完两个节点（framework PR 里把 Manager Review 改成 `lockRecord: false`、Executive Review 保持 `true`）：\n\n1. Data Platform 预算 600k→620k 触发 → 停在 Manager Review，API `lock_record: false`\n2. 详情页 band = 天蓝时钟「**审批中 · 可编辑**」，撤回按钮在，编辑按钮可用\n3. 双击「已花费」行内编辑，420,000 → **431,000 保存成功**，落库\n4. 批准 → 进 Executive Review（`lock_record: true`）→ band **当场翻成琥珀色锁「审批中已锁定」**\n5. 再双击同一字段 → **不进编辑**，保持只读\n\nAPI 同步确认两条 request：`Manager Review / approved / lock_record:false`、`Executive Review / pending / lock_record:true`。\n\n## 测试\n\n新增 12 条：band 两态 5 条（可编辑态文案 / 独立 tooltip / 锁定态仍为锁 / 只给 `locked` 的老 host 不变 / 无审批不渲染）、`InlineEditContext` 3 条（两信号独立 / 缺省回落 / 可编辑态 `enter()` 仍可用）、`recordLockedByApproval` 5 条（含 fail-closed 与「flow 推进时逐节点独立读」）。\n\nplugin-detail + react + app-shell hooks 共 724 通过，i18n 91 通过。\n\n## 合并顺序\n\nframework PR 先合。没有它时 `lock_record` 为 `undefined`，本 PR 逻辑 fail closed 回落到当前行为，不会崩。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

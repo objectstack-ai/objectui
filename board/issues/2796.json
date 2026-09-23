@@ -1,0 +1,33 @@
+{
+  "number": 2796,
+  "kind": "pull_request",
+  "title": "feat(app-shell): localize the automations flow designer & inspector (en-US + zh-CN)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T09:38:17Z",
+  "updated_at": "2026-07-24T12:16:20Z",
+  "closed_at": "2026-07-24T12:16:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-24T12:16:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2796",
+  "body": "## What\n\nComprehensive **zh-CN localization** of the metadata-admin **automations** surfaces (the visual Flow designer + node/edge inspector + the shared editor panels shown on the flow screen). Client-side, following the platform's existing `translateMetadataType` precedent — **framework is untouched**, and **en-US is unchanged** (every zh overlay falls back to English, so unknown/plugin values are never hidden).\n\n## Scope\n\n- **Flow designer**: node palette (labels/hints/categories + Chinese search), canvas chrome & tooltips, header pills incl. enum values (`autolaunched`→自动启动…), preview panels, run-history & debug simulator, nested-region tray, and localized **default labels for newly-created nodes**.\n- **Node & edge inspectors**: config-field labels / help / options / column headers for the **full engine-published `configSchema` field set** (loop `indexVariable`/`maxIterations`, http `durable`/`signingSecret`, connector flat ids, notify's 11 fields, …). Keyed off the **raw** node type so aliased types (e.g. `notify`) localize correctly.\n- **Validation**: structural + unknown-reference messages (canvas banner, Problems panel, debug simulator) and the Problems-panel chrome.\n- **Shared editor chrome on the flow screen**: generic `SchemaForm` enum-option / raw-field-label localization used on the flow property form, plus the History / Audit / References / Layered-diff panels and the force-save dialog.\n\n## Out of scope (deliberate)\n\nThe remaining hardcoded English is the **generic metadata console for OTHER types** (`ActionDefaultInspector`, `DatasetDefaultInspector`, `HookDefaultInspector`, PageShell/DirectoryPage chrome) — a separate, console-wide i18n effort across all 27 metadata types, not the automations module.\n\n## Verification\n\nDriven in the running console (`@object-ui/console`) against the **app-showcase** backend in **both locales** — the real `showcase_budget_approval` flow (palette, node/edge/config inspector incl. live server `configSchema`, validation, pills, new-node labels) reads fully zh-CN, and en-US shows no key leakage.\n\n- ✅ `type-check` — 29/29 packages\n- ✅ **909** metadata-admin tests pass\n- ✅ `eslint` — 0 errors\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

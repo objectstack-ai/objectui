@@ -1,0 +1,40 @@
+{
+  "number": 2589,
+  "kind": "pull_request",
+  "title": "feat(types)!: adopt @objectstack/spec 15; drop value-erased spec/ui `…Schema` re-exports (#2561)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies",
+    "documentation",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T09:10:31Z",
+  "updated_at": "2026-07-17T12:06:22Z",
+  "closed_at": "2026-07-17T12:06:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T12:06:20Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2589",
+  "body": "Implements both halves of #2561 as one coherent types-package PR.\n\n## 1. `/ui` re-export shape — decision (a)\n\nEvidence gathered before deciding: **zero consumers** of the ~84 `…Schema` names anywhere in this repo (packages/apps/content, value- or type-level), no sibling-repo package depends on `@object-ui/types`, and since the names sat inside `export type` blocks they were **value-erased** — any import would have received `undefined` at runtime, so no working consumer can exist. Went with **(a)**: the schema names are dropped from the public surface; the inferred types (`DndConfig`, `SpecFormView`, …) are unchanged and the genuine value re-exports (`defineStack`, `ObjectStackSchema`, `SpecReportSchema`, …) keep working. `BreakpointColumnMapSchema` / `BreakpointOrderMapSchema` are dropped without a type replacement (spec exports no companion inferred type). `theme.ts`&#39;s `ThemeModeSchema` was the same class of bug and is dropped too.\n\nGuardrail: `packages/types/src/__tests__/spec-ui-schema-reexports.test.ts` pins the contract three ways — the dropped names are not runtime-exported, the genuine value exports stay defined, and a source scan fails if any spec/ui zod value ever reappears inside an `export type` block.\n\n## 2. Spec pin `^14.6` → `^15.1.1`\n\nAll 14 workspace `package.json`s + lockfile. The issue predicted the bump was low-risk *modulo strict-mode fixture fallout* — validation found something better: ADR-0089 D3a&#39;s `.strict().transform(…)` pipes crash `z.toJSONSchema` over spec&#39;s lazySchema **proxies** (`Cannot set properties of undefined (setting &#39;ref&#39;)`), which broke Studio&#39;s spec-derived **Page** inspector schema (caught by `page-schema.test.ts`) and silently degraded the **View** inspector (no test existed). Root cause + fix upstream: objectstack-ai/framework#3021, which shipped in **`@objectstack/spec@15.1.1`** (15.1.0 predates it). Hence the **15.1.1** floor.\n\nNew `view-schema.test.ts` pins the previously-untested View-inspector derivation.\n\n## Verification\n\n- `@object-ui/types` `tsc --noEmit` clean under spec 15.1.1; guardrail test + full types suite **86 passed**.\n- app-shell **Page + View inspector** schema tests **7 passed** against the real published `@objectstack/spec@15.1.1` (not a dist overlay).\n- Full workspace suite **6852 passed / 0 failed** (24 skipped) against 15.1.1.\n- Changeset: **major** on the fixed group (version-alignment policy: objectui major follows @objectstack major → next release is 15).\n\n## Status\n\n- [x] **Unblocked**: objectstack-ai/framework#3021 merged → `@objectstack/spec@15.1.1` published\n- [x] Lockfile refreshed to 15.1.1, floor pinned `^15.1.1` across all 14 package.jsons, `main` merged in, full suite re-run green → ready for review\n\nCloses #2561. Refs #2545, objectstack-ai/framework#2998.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

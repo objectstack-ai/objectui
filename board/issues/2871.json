@@ -1,0 +1,30 @@
+{
+  "number": 2871,
+  "kind": "issue",
+  "title": "14 个文件手搓 startsWith('zh') 判断绕开语言包,其余 8 种语言硬回退英文且无法翻译",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T14:49:43Z",
+  "updated_at": "2026-07-28T04:06:59Z",
+  "closed_at": "2026-07-28T04:06:59Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2871",
+  "body": "## 问题\n\n仓库里有 **14 个文件**各自手搓了一套\"中文 or 英文\"的私有解析器,完全绕开 `@object-ui/i18n` 与语言包。典型形态:\n\n```ts\n// packages/app-shell/src/console/diagnostics/CloudAiModelStatus.tsx:50-54\nfunction pick(label: I18n): string {\n  const lang = document.documentElement.getAttribute('lang') || 'en';\n  return lang.toLowerCase().startsWith('zh') ? label.zh : label.en;\n}\n```\n\n后果有两层,第二层更麻烦:\n\n1. **ja / ko / de / fr / es / pt / ru / ar 八种语言硬回退英文**——只判断了 `zh`\n2. **译文烧死在组件里,不进语言包**。也就是说不改代码就永远补不了这八种语言的翻译,翻译流程对这些文案完全失效\n\n这是本仓库近期已经修过两次的同一类缺陷(静默回退到英文、看起来\"只是没翻完\")再下沉一层。\n\n## 命中文件(实测 14 个)\n\n已确认携带 `{en, zh}` 内联文案 + 私有 `pick()` 的:\n\n| 文件 | 备注 |\n|---|---|\n| `packages/app-shell/src/console/diagnostics/CloudAiModelStatus.tsx:50` | 8 组 `{en,zh}`;`:59,61,63,137,153,158,163,170,172,179` |\n| `packages/app-shell/src/console/home/CloudOnboardingNext.tsx:66` | 5 组;`:149,153,171,176,181` |\n| `packages/app-shell/src/.../ExcelImportBar.tsx:43` | 6 组 |\n\n另有 `startsWith('zh')` / `=== 'zh'` 形态的同类判断散布在 metadata-admin / studio-design 一族:\n\n- `packages/app-shell/src/views/studio-design/StudioAiCopilot.tsx:130`\n- `packages/app-shell/src/views/metadata-admin/previews/ObjectFormCanvas.tsx:80`\n- `packages/app-shell/src/views/metadata-admin/i18n.ts:2895`\n- `packages/app-shell/src/views/metadata-admin/StudioHomePage.tsx:115`\n- `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx:61,165`\n\n完整清单:`grep -rln \"startsWith('zh')\\|startsWith(\\\"zh\\\")\\|=== 'zh'\" packages/*/src apps/console/src` → 14 个文件。\n\n> 注:`metadata-admin/i18n.ts` 是 Studio 自己的一套独立词表(`TYPE_LABELS_EN` / zh + `t(key, locale)`),有既有测试 `studio-locale.i18n.test.tsx` 覆盖。它是**有意**的双语词表还是同样该并入语言包,需要先定性——不要一刀切改掉。\n\n## 建议做法\n\n1. 先分类:哪些是\"应该进语言包的产品文案\",哪些是 Studio 刻意维护的独立词表\n2. 前者迁移到 `packages/i18n/src/locales/*.ts`,组件改用 `useObjectTranslation()`;10 个语言包一次补齐\n3. 加一条 lint 规则或测试,禁止在组件里新增 `startsWith('zh')` 式的语言分支(仓库已有 `eslint-rules/` 目录,可放这里)\n\n第 3 步是关键——否则这个模式会继续被复制。\n\n## 发现来源\n\nobjectstack#3589 收尾时的全仓库 i18n 覆盖排查。相关:objectui#2870(P0 全屏拦截层未国际化)、语言包 key 缺口 issue。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2813,
+  "kind": "pull_request",
+  "title": "fix(form): scroll+focus the first errored field on invalid submit (#2793)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-24T16:22:36Z",
+  "updated_at": "2026-07-24T17:01:24Z",
+  "closed_at": "2026-07-24T17:01:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-24T17:01:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2813",
+  "body": "Closes #2793 — found during the framework internal-training dogfood.\n\n## What #2793 actually needed\n\nThe issue asked for two things on an invalid submit: a toast naming the missing fields, **and** scroll/focus to the first errored field.\n\nVerifying at the code level first (the lesson from #3419): **the toast half already shipped** in #2329 (2026-07-06, before the 07-23 dogfood observation). The original \"no toast\" was almost certainly the framework showcase's **stale bundled console** (a prebuilt objectui artifact that lagged main), not a live bug.\n\nThe **scroll/focus half was genuinely still missing** — no `scrollIntoView`/`setFocus`/`shouldFocusError` anywhere. react-hook-form's native focus-on-error only reaches fields whose registered ref is a focusable native input; it silently no-ops for custom widgets (lookup / select / master-detail), which is exactly the reported field.\n\n## The fix\n\n- Disable RHF's unreliable `shouldFocusError` (it no-ops for custom widgets and would fight our explicit handler).\n- In the `onInvalid` handler, after the existing toast, scroll the **first errored field in visual/declared order** (not RHF's error-key order) into view via its `data-field` wrapper, and focus a focusable control inside it. Works for every field type; scoped to this form via a ref so it never reaches a sibling form.\n\n## Verification\n\n- New RTL DOM test renders the **real** form renderer through the component registry and asserts real behavior: missing required field → toast + scroll + focus the first error; picks the first *errored* field when an earlier one is valid; stays quiet on a valid submit.\n- **Red-checked** against the pre-fix code (the two scroll assertions fail without the block).\n- Full `plugin-form`/`components` form-renderer suite (15) and `type-check` pass — no regression from the `shouldFocusError` change.\n- Browser verification was blocked: the shared framework checkout's showcase won't boot right now (a concurrent composite-`externalId` migration left it mid-flight — `externalId: expected string, received array`). The DOM test renders the actual component to compensate; I did not touch the shared checkout.\n\n## Note\n\nThis closes #2793 by delivering its remaining half; the toast half pre-existed (#2329).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 2715,
+  "kind": "issue",
+  "title": "[P3][icebox] MultiSelectField: support per-option `visibleWhen` cascading (parity with single SelectField)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:40:39Z",
+  "updated_at": "2026-07-20T03:03:55Z",
+  "closed_at": "2026-07-20T03:03:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2715",
+  "body": "## Context\n\n#2709 made a `select` field/param declared `multiple: true` render the multi-value chip picker (`MultiSelectField`) by delegating inside `SelectField`. That fixed the real bug (multiple values were unstorable in the single-value dropdown).\n\n**Known gap:** the chip picker does **not** implement the per-option `visibleWhen` CEL cascading / `dependsOn` gating that single `SelectField` has (ADR-0058). So a **multi-select whose options depend on a sibling field or the current user** would show the unfiltered option set. Single selects are unaffected.\n\n## Why this is icebox (not urgent)\n\nMulti-select **combined with** per-option cascading is **not a combination in use today** — and the pre-#2709 behavior was strictly worse (a multi-value field that couldn't hold multiple values at all). This is a completeness follow-up, to be picked up only when a real multi-select-with-dependent-options need appears.\n\n## Scope (when actioned)\n\n- [ ] Share the option-resolution logic (`resolveVisibleOptions` / `isOptionGroupGated` / `resolveDependsOnFields` from `@object-ui/core`) between `SelectField` and `MultiSelectField` (extract a small hook/util rather than duplicating).\n- [ ] `MultiSelectField` applies `visibleWhen` filtering + `dependsOn` gating (empty/gated hint) like single select.\n- [ ] Cascade-clear: drop selected values no longer offered when the parent changes.\n- [ ] Tests mirroring `SelectField.cascade.test.tsx` for the multi case.\n\n## Acceptance\n\n- [ ] A `multiple` select with `dependsOn` + per-option `visibleWhen` narrows its offered chips identically to the single select, and clears now-invalid selections.\n\n## Refs\n\n- #2709 (the delegation that introduced this gap) · ADR-0058 (cascading & role-gated select options) · `SelectField.cascade.test.tsx`"
+}

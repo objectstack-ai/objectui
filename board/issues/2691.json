@@ -1,0 +1,33 @@
+{
+  "number": 2691,
+  "kind": "pull_request",
+  "title": "fix(app-shell,plugin-detail): record History tab renders display values, not raw audit payloads",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T15:40:50Z",
+  "updated_at": "2026-07-19T15:52:26Z",
+  "closed_at": "2026-07-19T15:52:25Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T15:52:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2691",
+  "body": "## 问题\n\n记录详情页历史 Tab 把 `sys_audit_log` 的原始载荷直接渲染(实测截图来自甘特 QA 项目):\n\n- 日期字段显示原始 ISO 串:`2026-07-26T00:00:00.000Z → 2026-08-04T12:00:00.000Z`\n- lookup 字段显示原始 id 数组:`[\"LnLJIsTwXbv1E2gF\"]`\n- 服务端计算的辅助字段(公式/汇总)在**每次**更新中都出现 `值 → —` 的幻影 diff(审计写入器的 before 快照走查询路径含计算值,after 是裸写入结果不含 → 见配套 framework PR)\n- 无用户会话的写入显示英文硬编码 \"Unknown user\"\n\n## 修复\n\n- 新增纯函数模块 `app-shell/src/utils/auditHistoryDisplay.ts`:union-diff 审计载荷时丢弃 formula/summary/rollup/autonumber 与 `hidden` 字段、租户系统列、空↔空(null/''/[])无效变更\n- 按字段类型格式化 diff 值:date/datetime 本地化,boolean 走 `common.yes/no`,select 映射选项 label,lookup id 按引用对象批量解析为记录名(每个目标对象一次查询,titleField 经 `resolveTitleField`;解析失败降级回原 id)\n- 归因兜底链:sys_user 名称 → `sys_audit_log.actor` 服务主体(仅当注册 schema 声明该列才 select,兼容老部署)→ 本地化\"未知用户\"(新 `unknownUserText` prop 经 `buildDefaultPageSchema` → `record:history` → `HistoryTimeline` 透传)\n\n展示层过滤与 framework 根因修复(objectstack-ai/framework 分支 `fix/audit-writer-computed-field-diff`)构成双保险:老数据的幻影行由本 PR 兜底,新数据从写入侧就干净。\n\n## 测试\n\n- 新增 19 条单测(`auditHistoryDisplay.test.ts` + `HistoryTimeline` unknownUserText 用例);plugin-detail 232、app-shell 1607 全绿;`pnpm build` 43/43\n- **新增 live UI 回归** `e2e/live/record-history-display.spec.ts`(真 Chromium + 真后端):API 播种 todo_task 并做三次带审计更新,打开历史 Tab 断言——操作人显示人名(原始 id / unknown-user 均不得出现)、select 显示选项 label、页面无任何原始 ISO 串、lookup 解析人名、boolean 显示文字。无 `todo_task` 的后端自动 skip(CI 安全)\n- 红绿闭环:该 UI 测试在修复前源码下失败(失败断言=页面渲染出原始 user id),修复后通过;并在两端修复的合栈(修复版 framework app-todo + 本分支 console)上复跑通过\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

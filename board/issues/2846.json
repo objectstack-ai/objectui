@@ -1,0 +1,34 @@
+{
+  "number": 2846,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump @testing-library/jest-dom from 6.9.1 to 7.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:20:16Z",
+  "updated_at": "2026-07-27T08:44:36Z",
+  "closed_at": "2026-07-27T08:44:34Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T08:44:34Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2846",
+  "body": "Bumps [@testing-library/jest-dom](https://github.com/testing-library/jest-dom) from 6.9.1 to 7.0.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/testing-library/jest-dom/releases\">@​testing-library/jest-dom's releases</a>.</em></p>\n<blockquote>\n<h2>v7.0.0</h2>\n<h1><a href=\"https://github.com/testing-library/jest-dom/compare/v6.10.0...v7.0.0\">7.0.0</a> (2026-07-20)</h1>\n<h3>Features</h3>\n<ul>\n<li>add toContainAnyBy* and toContainOneBy* query matchers (<a href=\"https://github.com/testing-library/jest-dom/commit/1e39089d850408a583c83495d00d8aa27078933f\">1e39089</a>)</li>\n</ul>\n<h3>BREAKING CHANGES</h3>\n<ul>\n<li><code>@​testing-library/dom</code> is now a required peer dependency. The minimum supported\nNode.js version is now 22.</li>\n</ul>\n<p>Repaired release for <a href=\"https://redirect.github.com/testing-library/jest-dom/pull/731\">testing-library/jest-dom#731</a></p>\n<h2>v6.10.0</h2>\n<h1><a href=\"https://github.com/testing-library/jest-dom/compare/v6.9.1...v6.10.0\">6.10.0</a> (2026-07-20)</h1>\n<h3>Features</h3>\n<ul>\n<li>add toContainAnyBy* and toContainOneBy* query matchers (<a href=\"https://redirect.github.com/testing-library/jest-dom/issues/731\">#731</a>) (<a href=\"https://github.com/testing-library/jest-dom/commit/cae44df901cf8e92e3febc0af6fa667b10be6d6a\">cae44df</a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/testing-library/jest-dom/commit/1e39089d850408a583c83495d00d8aa27078933f\"><code>1e39089</code></a> feat: add toContainAnyBy* and toContainOneBy* query matchers</li>\n<li><a href=\"https://github.com/testing-library/jest-dom/commit/cae44df901cf8e92e3febc0af6fa667b10be6d6a\"><code>cae44df</code></a> feat: add toContainAnyBy* and toContainOneBy* query matchers (<a href=\"https://redirect.github.com/testing-library/jest-dom/issues/731\">#731</a>)</li>\n<li><a href=\"https://github.com/testing-library/jest-dom/commit/55c07ce5f1c489b5b9dc31a770a84d83a1178072\"><code>55c07ce</code></a> ci: switch release to npm trusted publishing (<a href=\"https://redirect.github.com/testing-library/jest-dom/issues/726\">#726</a>)</li>\n<li><a href=\"https://github.com/testing-library/jest-dom/commit/213256fa8e0aff45e47920a0bc564f708d1f67de\"><code>213256f</code></a> docs: move toHaveSelection from the deprecated section (<a href=\"https://redirect.github.com/testing-library/jest-dom/issues/717\">#717</a>)</li>\n<li>See full diff in <a href=\"https://github.com/testing-library/jest-dom/compare/v6.9.1...v7.0.0\">compare view</a></li>\n</ul>\n</details>\n<details>\n<summary>Maintainer changes</summary>\n<p>This version was pushed to npm by <a href=\"https://www.npmjs.com/~GitHub%20Actions\">GitHub Actions</a>, a new releaser for <code>@​testing-library/jest-dom</code> since your current version.</p>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=@testing-library/jest-dom&package-manager=npm_and_yarn&previous-version=6.9.1&new-version=7.0.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

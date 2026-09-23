@@ -1,0 +1,34 @@
+{
+  "number": 2735,
+  "kind": "pull_request",
+  "title": "feat(fields): CheckboxesField visibleWhen cascading + dependsOn gating (completes option-widget parity)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:13:01Z",
+  "updated_at": "2026-07-20T05:23:23Z",
+  "closed_at": "2026-07-20T05:23:20Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T05:23:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2735",
+  "body": "Completes the ADR-0058 cascading / role-gated option parity across **all four** static-option widgets. `checkboxes` was the last one still rendering `config.options` raw — after #2717 (multiselect) and #2728 (radio + single-source resolver), this closes the set: `select` / `multiselect` / `radio` / `checkboxes` now behave identically.\n\n## Why\n\n`CheckboxesField` is the multi-value sibling of `MultiSelectField` (stores `string[]`, fixed option set) but had none of the per-option `visibleWhen` filtering, `dependsOn` gating, or cascade clear — so a `checkboxes` field with dependent / role-gated options showed the unfiltered set.\n\n## Changes\n\n- **`@object-ui/fields`** — `CheckboxesField` routes through the shared `useCascadingOptions` hook: offered boxes narrow against the live record + `current_user`; gates behind a \"select the parent first\" hint while a `dependsOn` field is empty; prunes offered-out selections **per-element** (the multi-value cascade clear). Adds `checkboxes-empty-*` / `checkboxes-option-*` testids.\n- **`@object-ui/components`** — adds `checkboxes` to the form renderer's option-field sets: `CASCADE_OPTION_FIELD_TYPES` (so `dependentValues` is threaded), the cross-field cascade-clear effect, and the option pre-filter (gated `disabled` + hint). Without this the widget never sees its controlling field.\n\n## Tests\n\n- New `CheckboxesField.cascade.test.tsx` mirrors `MultiSelectField.cascade.test.tsx` (gating, per-element cascade clear, role/context gating).\n- Verified green (**21 passed**): `CheckboxesField.cascade` + the refactored form path (`form-cascading-select`, `form-dependent-values`) + sibling `MultiSelectField.cascade` / `RadioField.cascade`.\n- `tsc --noEmit` clean for `@object-ui/components` + `@object-ui/fields`; `eslint` 0 errors.\n\n## Refs\n\n- #2717 (multiselect) · #2728 (radio + `resolveCascadingOptions`) · ADR-0058 · server-side enforcement tracked in #2729\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

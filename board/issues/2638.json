@@ -1,0 +1,32 @@
+{
+  "number": 2638,
+  "kind": "issue",
+  "title": "页面里的站内相对链接在没有 <base> 标签的部署下点击后 404",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T14:06:57Z",
+  "updated_at": "2026-07-17T14:57:38Z",
+  "closed_at": "2026-07-17T14:57:38Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2638",
+  "body": "## 现象\n\n1. 打开 showcase 应用的 Capability Map 页面:`/apps/com.example.showcase/page/showcase_capability_map`\n2. 点击页面上的「Projects (backbone)」链接\n3. 浏览器地址变成 `/apps/com.example.showcase/page/apps/com.example.showcase/showcase_project`,显示 **Page not found**\n\n期望打开的地址是 `/apps/com.example.showcase/showcase_project`。\n\n不止这一个链接:这个页面(以及 Start Here 等页面)上所有写成相对路径的站内链接,点了都会拼出这种错误地址。\n\n![截图](https://raw.githubusercontent.com/yinlianghui/objectstack-backup/82dd18a60b6120644945c107acb9ef9a15b8b0bf/framework/issue-2678/2026-07-11/screenshots/f-ui-002-capability-projects-page-not-found.png)\n\n## 原因(大白话)\n\n页面元数据里的链接写的是相对路径,比如 `apps/com.example.showcase/showcase_project`(开头没有 `/`)。\n\n渲染的时候,console 把它原样输出成普通 `<a>` 标签,最终跳到哪里完全由浏览器来算:\n\n- 如果部署时 HTML 里注入了 `<base href=\"...\">` 标签(framework CLI 把 console 托管在 `/_console` 下时会自动注入),浏览器按这个基准算,地址是对的;\n- 如果没有注入 `<base>`(比如 console 自己的 dev 模式、或挂在根路径的部署),浏览器就把链接**接在当前页面地址后面**,拼出嵌套地址,于是 404。\n\n也就是说:链接能不能点对,取决于部署环境里有没有 `<base>` 标签——平台从来没规定过\"页面里的链接到底相对什么来解析\",这是个设计上的缺口,不是某一行代码写错。\n\n同一个缺口还造成过另外两个问题:\n\n- 有 `<base>` 的环境里,`#锚点` 链接反而会跳回首页(DocPage 之前专门绕过过这个问题);\n- 就算地址算对了,点站内链接也是整页刷新,页面状态全丢。\n\n## 建议的修法\n\n渲染器(`packages/components/src/renderers/basic/html-elements.tsx`)识别站内链接,统一按应用根来解析地址,并走前端路由跳转(不整页刷新)。这样不管哪种部署方式,链接行为都一致,`#锚点` 的老问题也一并解决。\n\n## 关联\n\n- 原始 bug 报告:objectstack-ai/framework#2823(关闭后指向本 issue)\n"
+}

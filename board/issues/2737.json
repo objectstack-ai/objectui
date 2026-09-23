@@ -1,0 +1,35 @@
+{
+  "number": 2737,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in 9 more packages (#2713 Wave 2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T06:02:02Z",
+  "updated_at": "2026-07-20T06:07:02Z",
+  "closed_at": "2026-07-20T06:07:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T06:07:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2737",
+  "body": "Second wave of the #2713 lint-gate restoration (after #2730 landed Wave 1). Nine packages whose per-package `lint` was **red at baseline on `main`** — the gate could not catch new violations of the same class. **Errors only; no behavior change** (warnings out of scope per the issue).\n\n## What changed (per rule)\n\n- **`react-hooks/rules-of-hooks`** (`i18n`, `plugin-grid`, `plugin-view` ×2, `plugin-list`) — translation helpers (`useSafeFieldLabel`, `useRowActionTranslation`, `useViewLabel`, `useViewTabLabel`, `useMoreLabel`) wrapped a **provider-safe** hook (`useObjectTranslation` / `useObjectLabel`, which fall back to the global i18next instance and never throw) in `try/catch`. Removed the wrapper — the exact fix #2709 applied in `fields`. Verified `useObjectLabel` itself only calls the provider-safe `useObjectTranslation`.\n  - `plugin-kanban` `ObjectKanban`: moved the `if (error)` early return **below** the `useCallback` so all hooks run unconditionally (identical rendering, stable hook order).\n  - `collaboration` `__unsafe_usePresenceContext`: an unused `@internal` test helper whose `__unsafe_` prefix is a deliberate danger signal — kept the name via a **justified scoped disable** rather than renaming away the convention.\n- **`react-hooks/static-components`** (`layout` ×3, `plugin-list` ×1, `plugin-report` ×1) — dynamic-icon / registry lookups (`resolveIcon`, `useRegistryComponent`) are **stable component references**, not components created during render → scoped disable with justification.\n  - `plugin-charts` `TreemapCell` was a **genuine** inline component (defined in render). It's purely props-driven (Recharts injects cell geometry + datum), so it's **hoisted to module scope** — a real fix, not a disable.\n- **`no-irregular-whitespace`** (`plugin-grid` `ImportWizard` ×2) — the flagged char is a literal **U+FEFF BOM** deliberately prepended to exported CSV/text blobs so Excel detects UTF-8. Rewritten as the `﻿` **escape sequence**: byte-identical at runtime, no literal irregular-whitespace char in source (real fix, not a disable).\n- **`no-useless-assignment`** (`plugin-grid` `BulkActionDialog`) — dropped a dead `= null` initializer that the exhaustive `switch` (incl. `default`) overwrites before it is read.\n- **`no-unsafe-function-type`** (`plugin-view` `ViewTabBar` ×2) — the dnd-kit render-prop `listeners` map is now `Record<string, (...args: any[]) => void>` instead of bare `Function`.\n- **`no-require-imports`** (`plugin-kanban`, `plugin-view` tests) — hoisted `vi.mock` factories use an `async` factory with `await import('react')`.\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** in all 9 packages (20 errors at baseline).\n- **Type gate:** `turbo run build` (the dts build CI gates on) → **22/22 tasks green**.\n- **Tests:** all 9 package suites green — **701 tests / 69 files** (incl. the changed `vi.mock` factories, the kanban early-return move, the i18n/grid/view/list hook unwraps, and the charts `TreemapCell` hoist).\n\n## Scope\n\nWave 2 of #2713. Remaining: **Wave 3** — the heavy `rules-of-hooks` + `static-components` packages (app-shell, components, plugin-gantt, plugin-detail, plugin-dashboard, plugin-chatbot), which contain genuine hook-order restructures and will go as per-package PRs with a review checkpoint.\n\nRefs #2713 · follows #2730 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

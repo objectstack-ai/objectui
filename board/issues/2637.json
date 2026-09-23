@@ -1,0 +1,32 @@
+{
+  "number": 2637,
+  "kind": "pull_request",
+  "title": "feat(console): API 浏览器按诚实能力标记过滤服务分组（ADR-0076 D12）",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T12:22:27Z",
+  "updated_at": "2026-07-17T12:50:26Z",
+  "closed_at": "2026-07-17T12:50:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T12:50:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2637",
+  "body": "## 背景\n\nframework 侧 D12（objectstack-ai/framework#2462，ADR-0076）让 discovery 输出诚实的能力标记（`status` + `handlerReady`）。react/app-shell 侧的消费端改造已由 #2630 合入（`@object-ui/react` 提供规范版 `isServiceUsable()`，覆盖 `useDiscovery` 与 `ConditionalAuthWrapper`）。\n\n本分支最初与 #2630 并行做了重复实现，合并 main 后已收敛：删除本分支在 `data-objectstack` 里的重复谓词，只保留 #2630 未覆盖的净增量——**console API 浏览器**。\n\n## 变更\n\n- **console `useApiDiscovery`**：endpoint 分组改用 `@object-ui/react` 的共享 `isServiceUsable()` 门控 — `stub` / `unavailable` / `handlerReady:false` 的服务不再渲染 endpoint 分组（`degraded` 仍在服务，保持可见）。不在 discovery 里的服务保持本页历史上的 fail-closed 行为（无条目 → 不渲染）。\n- 本地类型转换改用 `DiscoveryServiceStatus`（来自 `@object-ui/react`），消除 ad-hoc 结构重复。\n\n## 验证\n\n- `@object-ui/react`、`@object-ui/app-shell`、`@object-ui/data-objectstack` 测试全绿（各 89）\n- `turbo run build --filter=@object-ui/console` 全绿（tsc + vite）\n\nRefs: objectstack-ai/framework#2462（ADR-0076 D12）；接续 #2630\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01A1BtxNeUaGmvUYr8FwtUNu"
+}

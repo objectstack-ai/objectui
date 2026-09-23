@@ -1,0 +1,35 @@
+{
+  "number": 2892,
+  "kind": "pull_request",
+  "title": "fix(views): the five per-view-type configs speak the spec vocabulary (#2231 phase 3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T02:49:58Z",
+  "updated_at": "2026-07-28T03:00:23Z",
+  "closed_at": "2026-07-28T03:00:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T03:00:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2892",
+  "body": "## Summary\n\nPhase 3 of #2231, after #2622/#2636 (derive `ListViewSchema`, retire the spec-bridge copy) and #2882 (reduce every remaining \"Mirrors @objectstack/spec/ui X\" sub-schema to a spec re-export).\n\n`kanban` / `calendar` / `gantt` / `gallery` / `timeline` were the last hand-written forks — and this fork was **not** cosmetic. objectui named the same concepts differently from the protocol, and the read-sites disagreed about which dialect they spoke. **Three** of those disagreements were live rendering bugs, all reachable from a view created through the product's own UI: `CreateViewDialog` emits spec vocabulary (`packages/app-shell/src/views/CreateViewDialog.tsx`).\n\n## The three bugs\n\n**1. Kanban lanes ignored the spec key.** `ListView` gated the Kanban tab on `groupByField || groupField` but rendered lanes off `groupField` **alone**. A spec-authored config offered the tab and then grouped by whatever `detectStatusField()` guessed.\n\nThe same block spread the whole config onto the component props last, so the spec's `columns` (the fields shown on each card) landed on `ObjectKanban`'s `columns` prop — which means **lanes**. `ObjectKanban` then took its object-array branch and mapped `string[]` through `localizeColumn`, producing lanes with `undefined` id and title.\n\nFixed: read the spec key first, map `columns` → `cardFields`, strip the vocabulary keys from the passthrough. `plugin-view`'s adapter already did this correctly; the three adapters now agree.\n\n**2. The `$select` collector was blind to the spec vocabulary.** Same root cause, one layer earlier. The collector that decides what the view asks the server for listed only `groupField` / `groupBy` / `cardFields`, so a spec-authored config named its lane and card fields in a vocabulary the collector could not see — the board then rendered from rows that never carried them, which reads as an *empty board* rather than a config error. Adds `groupByField`, `summarizeField` and `columns` ahead of the aliases, in both collectors.\n\n**3. Timeline lost every spec key in app-shell.** `ObjectView`'s `timeline` branch was a three-key whitelist while its `gallery` and `gantt` siblings had already been fixed to spread-first (their comments explain why). A stored `timeline: { startDateField, endDateField, groupByField, colorField, scale }` arrived with only `titleField`, axis pinned to the `'due_date'` fallback.\n\n## Also fixed\n\n- `plugin-view`'s `ObjectView` now reads `gallery.coverField` and `timeline.startDateField` — it understood only the legacy aliases.\n- Dead `gallery.subtitleField` removed. Three producers computed it; `ObjectGallery` declared the prop and **never read it** — declared ≠ delivered.\n- `defaultKanbanFromObject` no longer writes the legacy key alongside the spec one. That dual-write existed only to work around bug 1 (its comment said so).\n\n## Schema\n\nThe four remaining configs derive from the spec configs via `.partial()` — the product authors partial configs (`kanban: { groupByField }` with no `columns`) while spec marks `columns` / `titleField` / `startDateField` required, so requiring them would reject views the app itself creates. Same trade-off `SpecListViewFields` already makes. **`gantt` needs no local schema at all** and now flows in with the rest.\n\n`.passthrough()` is preserved from the pre-#2231 shapes for the reason the spec itself puts it on `GanttConfigSchema`/`TreeConfigSchema`: renderers grow config knobs ahead of the protocol (calendar's `allDayField`), and stripping them would silently disable a shipped capability.\n\nThe pre-#2231 names stay accepted as **deprecated aliases** so stored view metadata keeps validating — the spec key is canonical and wins wherever both appear:\n\n| config | local key | why |\n| :--- | :--- | :--- |\n| `kanban` | `groupField`, `cardFields` | deprecated aliases for `groupByField` / `columns` |\n| `calendar` | `defaultView` | no spec counterpart — promote rather than grow |\n| `gallery` | `imageField` | deprecated alias for `coverField` |\n| `timeline` | `dateField` | deprecated alias for `startDateField` |\n\n## Tests\n\n- `list-view-spec-parity.test.ts` gains a per-config derivation guard: every spec field present, local keys exactly the sanctioned set, spec vocabulary parses without stripping, aliases still accepted, and partial configs still valid.\n- Six `ListView` regression tests. Five pin the kanban render bugs via a `ComponentRegistry` stub that captures the resolved props (spec key groups, alias still works, spec key wins over alias, `columns` → `cardFields` with no lane leak, unrecognized spec fields still pass through). The sixth asserts the queried field set contains a spec-authored kanban's lane and card fields — **verified to fail without the collector fix**, so it is not a vacuous test.\n\n## Verification\n\n- `@object-ui/types` `tsc --noEmit`: 0 errors. Changed files lint-clean (0 errors).\n- Unit project (types / plugin-list / plugin-view / app-shell / react): **121 files, 1339 tests** green.\n- DOM project (plugin-list / plugin-view / app-shell / plugin-kanban / plugin-timeline / plugin-gantt): **154 files, 1252 tests** green.\n- Full monorepo build: **43/43 packages** successful.\n\n## Follow-ups\n\nTracked in #2890 (phases 4–5): the top-level legacy vocabulary (`show*` → `userActions`, `fields` → `columns`, `filters` → `filter`, `objectName` → `data.provider:'object'`, `aria`/`sharing` → spec sub-shapes), dropping the four aliases above once stored metadata is migrated, promoting `calendar.defaultView` into the spec, and auditing `ObjectViewSchema` / `DetailViewSchema`.\n\nobjectstack#3761 (merged) promotes `ListColumn.prefix` and the `{ type, field }` `summary` form into the spec; when it releases, `@object-ui/types` drops its last `ListColumnSchema.extend()`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

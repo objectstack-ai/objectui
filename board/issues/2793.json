@@ -1,0 +1,30 @@
+{
+  "number": 2793,
+  "kind": "issue",
+  "title": "form: 必填 lookup 缺失时点「创建」静默失败 — 无 toast、不滚动到错误字段",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-23T16:01:40Z",
+  "updated_at": "2026-07-24T17:01:23Z",
+  "closed_at": "2026-07-24T17:01:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2793",
+  "body": "## 现象\n\n新建记录对话框中,必填 lookup(master-detail)未选就点「创建」:提交静默失败——**表单不关、无 toast、无滚动**,唯一的反馈是字段下方一行小字「项目不能为空」,在视口外/长表单时完全无感知。\n\n实测(showcase `showcase_task` 新建,2026-07-23):填了标题、选了状态,漏选必填的「项目」(master-detail),点「创建」后对话框毫无动静。以浏览器自动化视角看,点击后 DOM 无显著变化,第一反应是「提交坏了」;真人用户在长表单上的体验相同。\n\n## 建议\n\n1. 提交校验失败时给全局反馈:error toast(「N 个必填项未填」)+ 自动滚动/聚焦到第一个错误字段;\n2. 「创建”按钮附近给内联汇总,而不是只在字段局部标红;\n3. 与 #2701 等表单打磨同族:成功路径已有默认 toast,失败路径同样需要可见反馈。\n\n---\n*来源:framework 内部培训 PPT 制作过程中的 dogfood(浏览器实测)。*\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2680,
+  "kind": "pull_request",
+  "title": "feat(studio): inline push-down expansion of loop/parallel/try_catch regions on the flow canvas (#2670 Phase 2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T11:48:44Z",
+  "updated_at": "2026-07-19T12:43:01Z",
+  "closed_at": "2026-07-19T12:43:00Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T12:43:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2680",
+  "body": "## Summary\n\n**Phase 2 of #2670.** A `loop`/`parallel`/`try_catch` container card now expands **in place**: the chevron grows the card to embed its region(s) as a read-only mini-canvas, and the canvas layout **pushes the layers below down** by the card's true height — real spatial nesting (the Power-Automate/BPMN-subprocess model), replacing the Phase-1 floating popover (#2675, merged but never released — the changeset is rewritten in place, so only the final behavior ever ships).\n\nChosen over keeping the popover per the product direction (long-term platform correctness + best UX): inline nesting is the durable canvas model and the substrate the upcoming nested selection/inspector increment needs; a transient popover can't host persistent selection state.\n\n## What changed (3 commits, each independently green)\n\n1. **`computeLayoutWithGeometry`** (`flow-canvas-layout.ts`) — the layered layout's fixed `l × (NODE_H + V_GAP)` pitch becomes **cumulative**: each layer starts below the tallest auto-laid card of the previous occupied layer (empty layer indices keep the historical pitch). Returns `{ positions, heights, size }`; `computeLayout` is now a thin constant-height wrapper — **byte-identical output, locked by invariance tests** over five graph shapes (linear / diamond / back-edge / cycle island / manual-ui). `bottomAnchor(p, height = NODE_H)` lets an expanded card's outgoing edge leave from its true bottom; default keeps all existing call sites + symbolic anchor tests untouched.\n2. **`flow-region-metrics.ts`** (new, pure) — the deterministic box model shared by the height **predictor** and the region **renderer** (no ResizeObserver, no measure-then-reflow): `predictRegionsHeight` / `predictExpandedNodeHeight` mirror the renderer with the same float expressions. `flow-region-view.tsx`'s height stack becomes explicit px sourced from this module (rem/font-metric drift eliminated; visual no-op at the 16px root).\n3. **Inline expansion** — `NodeCard` gains controlled `expanded`/`onToggleExpand`/`height` (the *same* number the layout used to position everything below, so DOM and layout cannot disagree) and renders the region tray below its NODE_H header band; `FlowCanvas` owns `expandedIds` (session-only view state, never written to the draft), memoized `regionsByNode`, `nodeHeights`, edge-layer true-bottom anchors (back-edges stay header-anchored so toggling never swings arcs), and height-aware reveal centering.\n\nCollapsed by default → flows with no expanded container render **exactly as before**. Legacy flat loops (no `config.body`) and ordinary nodes are untouched.\n\n## Verification\n\n- **Unit/render: 35/35** across `flow-canvas-layout.test.ts` (constant-height invariance ×5 graphs, cumulative offsets, tall-bottom sizing, manual-node exclusion), `flow-region-metrics.test.ts` (formula pinned, never-upscale), `FlowCanvas.test.tsx` (inline expand/collapse containment, parallel labels, legacy loop, and a **push-down assertion**: the layer below moves by exactly `predictExpandedNodeHeight − NODE_H` and the card renders at exactly the predicted height).\n- `turbo type-check` 29/29 · ESLint 0 errors.\n- **Browser matrix (Playwright, offline preview gallery) — 21/21 PASS**: collapsed baseline (66px cards, siblings share row) → expand all three container types (loop body / named+indexed parallel branches / Try+Catch trays) → push-down with no overlap, sibling row intact, chained containers → fit-to-view with tall cards → collapse round-trip restores pitch → dragging an expanded container → insert-on-edge still works. Measured expanded card height 274.8px == predictor output exactly.\n\n## Notes / accepted limitations\n\n- A node pinned via manual drag (`node.ui`) sitting at/below an expanded container can overlap it (manual positions are absolute; pinned nodes are deliberately excluded from row heights to avoid phantom gaps). Documented in JSDoc + changeset; drag it clear or collapse.\n- The popover's `max-h-[60vh]` scroll valve is gone — a pathological many-branch container makes a very tall card; the canvas pans/zooms and `size` grows correctly.\n- At minimum zoom the region content is double-scaled (fit-to-width × canvas zoom ≈ 29%) — acceptable for a read-only preview; noted for the Phase-3 inspector work.\n\n**Next increments on #2670** (not in this PR): nested selection + structured region inspector, nested editing, recursive expansion, side-by-side parallel branches, client-side region validation. This PR does not close #2670.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01VuvxWgoadqryqBcjs7TpVi)_"
+}

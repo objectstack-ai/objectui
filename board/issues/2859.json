@@ -1,0 +1,32 @@
+{
+  "number": 2859,
+  "kind": "pull_request",
+  "title": "feat(console): i18n the system-settings hub (objectui#2851 P2)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T09:01:21Z",
+  "updated_at": "2026-07-27T09:11:15Z",
+  "closed_at": "2026-07-27T09:11:13Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T09:11:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2859",
+  "body": "## What\n\ni18n the **System Settings hub** (`/system/settings`, `apps/console/src/pages/settings/SettingsHub.tsx`). It rendered its title/subtitle, category section headers, card titles/descriptions and the \"N settings\" count as hardcoded English, so the 系统设置总览 page stayed English under a Chinese UI.\n\nPart of objectui#2851 (P2).\n\n## Changes\n\n- Wire the hub chrome (title, subtitle, empty/error, Beta badge, count) to new `console.settingsHub.*` i18n keys (en + zh).\n- Extract a `<SettingCard>` so each card can resolve its manifest's translated **title/description** via the existing `useSettingsLabel` convention — already-translated namespaces (mail, branding, …) light up immediately.\n- Translate category section headers by the manifest `category` value (`console.settingsHub.categories.*`), falling back to the literal for plugin-authored categories.\n\n## Notes\n\n- The per-manifest settings *forms* (`SettingsView`/`SettingsField`) were already i18n-wired; the remaining English there is stale framework translation content, fixed separately in the framework PR (objectui#2851 P1).\n- Follow-ups tracked in objectui#2851: `DatasourceResourcePage` full i18n; SDUI widget body review. Custom page `page:header` titles tracked in objectstack#3589.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

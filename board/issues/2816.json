@@ -1,0 +1,34 @@
+{
+  "number": 2816,
+  "kind": "pull_request",
+  "title": "feat(report)!: drop SpecReportColumn/SpecReportGrouping re-exports + retire legacy ReportViewer chart fallback (#3463)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-25T03:07:27Z",
+  "updated_at": "2026-07-25T03:20:47Z",
+  "closed_at": "2026-07-25T03:20:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-25T03:20:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2816",
+  "body": "Companion to framework PR objectstack-ai/objectstack#3488. Refs objectstack-ai/objectstack#3463 (item 2 — the objectui-side retirement).\n\n## Context\n\nUpstream `@objectstack/spec` removed the dead `ReportColumnSchema` / `ReportGroupingSchema` and the unread report `chart.groupBy` (framework #3488). This PR drops their objectui mirrors and retires the now-orphaned legacy report chart path. Independent of the spec bump: objectui keeps compiling against published spec 16.x — it only stops *re-exporting* the removed symbols.\n\n## What changed\n\n- **types** — removed the `SpecReportColumn` / `SpecReportColumnInput` / `SpecReportGrouping` / `SpecReportGroupingInput` type re-exports and the `SpecReportColumnSchema` / `SpecReportGroupingSchema` value re-exports from `@object-ui/types`. The live report shape is dataset-bound: `SpecReport` with `dataset` + `values` (measure names) + `rows`/`columns` (dimension names).\n- **app-shell** — `ReportView` now renders every report through the spec `ReportRenderer` dispatcher (dataset → `DatasetReportRenderer`, stored pre-9.0 JSON → presentation bridge, pre-spec `{ data, columns }` → `LegacyReportRenderer`). Deleted the `ReportViewer` last-resort branch, the `mapReportForViewer` spec→legacy chart-section adapter (the sole producer of `xAxisField`/`yAxisFields`), and the now-dead data-fetch loading flag. No shipped report metadata reached the removed branch — the Studio inspector only ever writes the dataset-bound shape.\n- **plugin-report** — removed the `ReportViewer` chart-section branch. It read the invented `xAxisField`/`yAxisFields` (never the spec's `xAxis`/`yAxis`) and was only fed by the deleted `mapReportForViewer`. `ReportViewer` itself is **retained** — its table/summary/text sections still back the `report-viewer` registered component and the pre-9.0 presentation bridge.\n\nNet: −248 / +10 lines across 5 files.\n\n## Migration\n\nNothing an author writes changes. TypeScript consumers importing `SpecReportColumn*` / `SpecReportGrouping*` from `@object-ui/types` have no replacement type — model report columns as the dataset's measure names and grouping as its dimension names.\n\n## Verification\n\n- `turbo build` (types → plugin-report → app-shell + deps, 60 tasks) clean; app-shell builds via `tsc`.\n- `turbo type-check` across `@object-ui/types` + all dependents — 60/60 clean.\n- plugin-report 45 tests + the `spec-ui-schema-reexports` test pass.\n- **Browser-verified** against the showcase backend (Vite served the worktree source directly): the **summary** (Hours by Status), **matrix** (Status × Priority, with server totals), and **joined** (Task Overview) reports all render correctly through `DatasetReportRenderer`; `/api/v1/meta/report` + `/api/v1/analytics/dataset/query` all 200.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

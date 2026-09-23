@@ -1,0 +1,32 @@
+{
+  "number": 2693,
+  "kind": "issue",
+  "title": "硬删除客户端非原子 batch 模拟回退(待后端经 discovery 声明支持 /batch)——承接 #2679 验收第 4 条",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T16:16:08Z",
+  "updated_at": "2026-07-20T12:39:43Z",
+  "closed_at": "2026-07-20T12:39:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2693",
+  "body": "## 背景\n\n#2679 已把 master-detail 保存统一走 `dataSource.batchTransaction`,并把非原子回退隔离进 `@object-ui/core` 的 `emulateBatchTransaction`(适配器仅在 `POST /api/v1/batch` 返回 404/405/501 时降级)。见已合并 PR #2684。\n\n#2679 验收第 4 条明确:**任何\"硬删除\"客户端编排都卡在「最低后端版本经 discovery 声明支持 `/batch`」这个前提上。**\n\n## 现状(可接受的债,但非终态)\n\n- `ObjectStackAdapter.batchTransaction`(`packages/data-objectstack/src/index.ts`)在端点缺失/不支持事务时,靠**运行时探测**(404/405/501)降级到 `emulateBatchTransaction`(非原子、best-effort 逆序补偿)。\n- `emulateBatchTransaction` + `runBatchTransaction` 常驻 `@object-ui/core`。\n- 结果:只要还兼容\"可能没有 `/batch` 的旧后端\",就得同时维护「真原子」与「客户端模拟」两套语义(即使模拟已隔离到单点、有测试)。\n\n## 前提(阻塞)\n\n**blocked-by objectstack-ai/framework#3298** —— 服务端需先在 discovery 广播「原子 batch」能力位,客户端才能声明式确认后端支持,而非\"打了才知道\"。\n\n## 待前提满足后的方案\n\n1. 适配器在 `connect()` 时读 discovery 能力位:声明支持则**永不降级**(比现在的 404 探测更早、更明确);\n2. 移除 `ObjectStackAdapter` 的客户端补偿降级分支,直接依赖服务端原子性;\n3. `runBatchTransaction` 的\"无 `batchTransaction` 则模拟\"分支**保留**给第三方非 ObjectStack 适配器(`ValueDataSource`/`MockDataSource` 等本就无服务端事务的适配器)。\n\n## 验收\n\n- [ ] 适配器基于 discovery 能力位决策,不再对已声明支持的后端做 404 探测降级;\n- [ ] `ObjectStackAdapter` 移除非原子补偿分支;\n- [ ] core 的通用 `emulateBatchTransaction` 仅保留给无服务端事务的适配器;\n- [ ] 明确并文档化 ObjectUI 声明的最低支持后端版本。\n\n## 关联\n\n- 承接 #2679(验收第 4 条);实现基线 PR #2684(已合并)。\n- 阻塞前提:framework#3298。"
+}

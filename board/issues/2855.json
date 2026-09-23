@@ -1,0 +1,33 @@
+{
+  "number": 2855,
+  "kind": "pull_request",
+  "title": "chore(deps): bump fumadocs-ui from 16.11.5 to 16.13.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:27:26Z",
+  "updated_at": "2026-07-27T08:35:15Z",
+  "closed_at": "2026-07-27T08:32:01Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-27T08:32:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2855",
+  "body": "Bumps [fumadocs-ui](https://github.com/fuma-nama/fumadocs) from 16.11.5 to 16.13.0.\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/b939cc7c3a57694984bf8288b88586170a55f114\"><code>b939cc7</code></a> Version Packages (<a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3439\">#3439</a>)</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/5929a5c3d78d5aa22e97c546d80685b50aeaf464\"><code>5929a5c</code></a> fix(core): better negotation for Markdown</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/3085a024549ca47881d02a1d809fd700d168c6fc\"><code>3085a02</code></a> fix(ui): registry build error</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/ef278055825490afa68f9f0915e71e0a03780f2c\"><code>ef27805</code></a> feat(notion): support notion content source</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/6cbfe21b155a90fd102446ee889a917620c93d53\"><code>6cbfe21</code></a> feat(ui): shortcut for theme toggle</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/417caa544b31e2cd2fd198677124e68e45f66a3c\"><code>417caa5</code></a> feat(obsidian): css preset</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/ff3272452fc9c54e14916a90e394c0a9746414a6\"><code>ff32724</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3435\">#3435</a> from fuma-nama/tegami/version-packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/6d7ba929487d30f88bb6d86c06579393556679b2\"><code>6d7ba92</code></a> fix react router</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/31435c9dac3286eb59275a2dd1fd6aa15d43353c\"><code>31435c9</code></a> Merge pull request <a href=\"https://redirect.github.com/fuma-nama/fumadocs/issues/3432\">#3432</a> from fuma-nama/tegami/version-packages</li>\n<li><a href=\"https://github.com/fuma-nama/fumadocs/commit/e7de9a491aaaa736646f172f3c32169d35b228bb\"><code>e7de9a4</code></a> fix(obsidian): fix bugs for v1</li>\n<li>Additional commits viewable in <a href=\"https://github.com/fuma-nama/fumadocs/compare/fumadocs@16.11.5...fumadocs@16.13.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

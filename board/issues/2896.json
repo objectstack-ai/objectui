@@ -1,0 +1,30 @@
+{
+  "number": 2896,
+  "kind": "issue",
+  "title": "`ActionRunner.executeScript` doesn't recognize `action.body` — spec-valid script actions fail with a misleading error",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T03:50:10Z",
+  "updated_at": "2026-07-28T04:08:19Z",
+  "closed_at": "2026-07-28T04:08:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2896",
+  "body": "Found while fixing the `target`/`execute` precedence in #2895.\n\n## What the spec says\n\n`@objectstack/spec` `ActionSchema` carries a `body` field, and for script actions it is the **preferred** binding:\n\n```ts\n// packages/spec/src/ui/action.zod.ts:306\n// For `script` type: prefer `body` over `target`. `target` is kept only for\n// legacy bundle.functions[name] references.\n\n// :353\nbody: HookBodySchema.optional().describe('Action body — expression (L1) or sandboxed JS (L2). Only used when type is `script`.'),\n```\n\n`HookBodySchema` is a discriminated union on `language`:\n- **L1** `{ language: 'expression', source }` — pure formula, no IO.\n- **L2** `{ language: 'js', source, capabilities, timeoutMs, memoryMb }` — function body wrapped in `new AsyncFunction('input', 'ctx', source)` and run **inside an isolated VM**, with capability tokens (`api.read`, `api.write`, `api.transaction`, `crypto.*`, `log`) enforced at invocation.\n\n## What already works — and what doesn't\n\nThis is **not** broken in the console. `useConsoleActionRuntime` registers a server handler for the whole `script` type:\n\n```ts\n// packages/app-shell/src/hooks/useConsoleActionRuntime.tsx\nhandlers: { api: apiHandler, flow: flowHandler, script: serverActionHandler, modal: modalActionHandler },\n```\n\nand `ActionRunner` gives registered handlers priority over its built-ins:\n\n```ts\n// packages/core/src/actions/ActionRunner.ts:493\nif (actionType && this.handlers.has(actionType)) { … }   // handler wins\n…\ncase 'script': result = await this.executeScript(action); // built-in fallback\n```\n\nSo in the console a script action POSTs to `/api/v1/actions/{object}/{action}`, and the server runs the body through its sandbox (`packages/runtime/src/sandbox/{script-runner,quickjs-runner,body-runner}.ts` → `engine.executeAction`). Bodies work.\n\nThe gap is the **built-in fallback** at line 504 — used by every consumer that does *not* register a `script` handler (standalone `@object-ui/core`, SDUI, embedded renderers). It reads only `target`/`execute`:\n\n```ts\nconst script = action.target || action.execute;   // after #2895\nif (!script) {\n  return { success: false, error: 'No script provided for script action' };\n}\n```\n\nA perfectly spec-valid action:\n\n```json\n{ \"type\": \"script\", \"body\": { \"language\": \"expression\", \"source\": \"input.amount > 1000\" } }\n```\n\nfails there with **\"No script provided for script action\"** — which is false. A script *was* provided; this runner just can't run it. `ActionDef` doesn't even declare `body`, so nothing type-level flags it either.\n\n## The fix is NOT to execute bodies client-side\n\nWorth stating up front, because \"implement `body`\" is the tempting reading:\n\n- **L2 (`js`) must never run in the browser.** The whole contract is an isolated VM enforcing declared capabilities, a hard `timeoutMs` and `memoryMb`, and mediated `ctx.api` read/write/transaction access. In a browser there is no isolate and no enforcement boundary — \"checking\" capabilities client-side is decoration, and `api.write` from an unsandboxed page is strictly worse than not supporting it.\n- **L1 (`expression`) is a different dialect here.** The spec evaluates L1 with the formula engine (CEL — `packages/formula/src/cel-engine.ts`). This repo's `ExpressionEvaluator` is a `${…}` template-string evaluator for \"dynamic UI behavior\". The two agree on simple comparisons and diverge on the rest — silent wrong answers, which is worse than an error.\n\nBodies are a **server-side execution surface**, reached over HTTP. The client's job is to dispatch, not to interpret.\n\n## Proposed fix\n\nSmall and honest:\n\n1. Declare `body?` on `ActionDef` as an **opaque** marker (not a client-executed field), documenting that it is server-executed.\n2. In `executeScript`, when there is no client-side `target`/`execute` **and** a `body` is present, fail with an error that names the real cause and the remedy — the body runs server-side, register a `script` handler the way the console does — instead of the misleading \"No script provided\".\n3. Keep the existing message for actions that genuinely carry no source at all.\n\nThat turns a confusing dead end into a directed one, without pretending the browser can honor the L2 contract.\n\n## Out of scope\n\nWiring a *default* server dispatcher into `@object-ui/core` (so standalone consumers get body support without registering a handler) is a bigger design question — core has no opinion about auth, base URL, or object resolution today, all of which `serverActionHandler` needs. Worth its own discussion."
+}

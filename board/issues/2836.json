@@ -1,0 +1,30 @@
+{
+  "number": 2836,
+  "kind": "issue",
+  "title": "fix(fields): image 字段裂图 / 行内编辑露链接 / 文案未国际化,并支持点击放大(单图·多图)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T06:22:45Z",
+  "updated_at": "2026-07-27T08:39:09Z",
+  "closed_at": "2026-07-27T08:39:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2836",
+  "body": "## 问题\n\n`image` 类型字段(单图 / 多图)在三个界面渲染不一致,各有缺陷:\n\n1. **整表单编辑态图片裂图**:记录读回来时,`image` 字段值是 bare `sys_file` id(reference 形态),但 `readFileValue` 对 bare id 只返回 id、不返回 url(注释假设「后端 read 时会展开」,而编辑数据路径并未展开)→ `<img src=\"\">` 裂图,alt 显示 \"Image 1\"。\n2. **行内编辑显示原始链接**:`InlineFieldInput` 没有 `image/file/avatar/signature` 分支,直接落到纯文本 `<input>`,把字段值 `String()` 成 `/api/v1/storage/files/…` 链接暴露给用户,且无法重新上传。\n3. **文案未国际化**:`ImageField` 的 `Upload Image` / `Add More Images` / `Uploading…` 及 alt/aria 全为硬编码英文。\n4. **只读态无法查看大图**:详情/列表缩略图是静态 `<img>`,不能点击放大,单图/多图都不行。\n\n## 方案\n\n- **裂图**:`file-value.ts` 对 bare id / 只有 id 无 url 的对象,统一按稳定下载端点 `/api/v1/storage/files/{id}` 推导 url(该端点 302 跳转签名 URL,可直接作 `<img src>`)。一处修好,详情只读 / 编辑表单 / 行内编辑三条路径全受益。\n- **点击放大**:新增 `ImageLightbox`(基于 Dialog;单图无导航,多图带左右切换 + `n / total` 计数 + 方向键)。`ImageCellRenderer`(详情/列表)与 `ImageField` 只读态接入,单图/多图均支持;表格内 `stopPropagation` 不触发打开记录。\n- **行内编辑**:`InlineFieldInput` 增加 `image→ImageField`、`avatar→AvatarField`、`signature→SignatureField`、`file/video/audio→FileField` 分支,与表单同一套上传/预览组件。\n- **国际化**:`ImageField` 全部文案改走 `t('fields.image.*')`,补齐 en/zh 词条。\n\n## 验证\n\n- 单测:`file-value` 33 passed(更新 bare-id 契约断言)+ 新增 `ImageLightbox` 5 passed;`@object-ui/fields`、`@object-ui/plugin-detail` type-check 通过。\n- 真机:framework app-showcase 后端(存 bare id)+ objectui console dev 实测,单图/多图在详情只读(含点击放大 lightbox 翻页)、编辑表单(不裂 + 中文文案)、行内编辑(渲染上传组件而非链接)三处均正常,控制台无报错、无图片 404。\n"
+}

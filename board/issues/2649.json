@@ -1,0 +1,32 @@
+{
+  "number": 2649,
+  "kind": "pull_request",
+  "title": "feat(access): Studio permission matrix — first screen sees the matrix (#2600 B1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T04:31:28Z",
+  "updated_at": "2026-07-18T04:48:17Z",
+  "closed_at": "2026-07-18T04:48:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T04:48:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2649",
+  "body": "## What\n\n**Issue #2600 · B1 (设计迭代 · 首屏见矩阵)** — the Access pillar is called *权限矩阵 (Permission Matrix)*, but the editor opened with a name/label form plus the system-capability picker's option chips, pushing the matrix header a screen-and-a-half down. This collapses the two low-frequency, high-chrome sections so the matrix reaches the first screen.\n\n### Changes\n- **Identity (name/label) → collapsible summary.** Collapsed by default to a one-line row (`label · provenance · default/read-only badges`), expands on click. The api-name already sits in the PageShell breadcrumb (font-mono), so the summary carries the human label only — no duplication.\n- **Zero-grant capabilities → \"none · add\" affordance.** A writable set with no grants used to render all 7 capability options as outline chips, which read as *already-owned*. It now shows `系统能力 · 无附加系统能力 · + 添加能力`; the picker opens on demand. Granted sets and read-only sets keep the inline picker unchanged.\n\nNot touched: the read-only lock (#2570), the dirty-nav guards (#2588/#2606), the history sheet + breadcrumb (#2599).\n\n## Verify\nLive walkthrough on a real showcase backend (writable `com.example.writabletest` + read-only `com.example.showcase`):\n- Collapsed default → matrix header rises to ~⅓ down (was below the fold).\n- Click identity summary → name/label inputs appear; **+ 添加能力** → full picker appears.\n- Read-only package still fully locks (matrix + expand shows disabled inputs).\n\n## Tests\n- New `PermissionMatrixEditor.basics.test.tsx` (collapse default / expand identity / zero-grant capability collapse / granted stays inline).\n- Updated settle points + read-only expand in the existing matrix suites (badge / embedded / readonly) and both Studio guard suites (accessGuard / pillarNavGuard) — identity is now summary text, not an input.\n- `PermissionMatrixEditor*` + `StudioDesignSurface.accessGuard` + `StudioDesignSurface.pillarNavGuard` + OWD/emptyPackage/scope: **58 tests green**.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

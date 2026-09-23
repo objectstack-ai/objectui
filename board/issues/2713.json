@@ -1,0 +1,32 @@
+{
+  "number": 2713,
+  "kind": "issue",
+  "title": "[P3] Restore lint gates repo-wide (extend the fields/core baseline cleanup from #2709)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:40:06Z",
+  "updated_at": "2026-07-20T14:01:17Z",
+  "closed_at": "2026-07-20T14:01:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2713",
+  "body": "## Why\n\nSeveral package lints are (or were) **red at baseline on `main`** — pre-existing errors that were never blocking, so the per-package `lint` gate silently could not catch *new* violations of the same class (e.g. a fresh `react-hooks/rules-of-hooks` bug would land green). #2709 restored `@object-ui/fields` and `@object-ui/core` to **0 errors**; this issue extends that sweep to the rest of the workspace so every package's lint gate actually protects it again.\n\nConcretely, `@object-ui/core` had been red long enough that a genuine hooks-order bug in `ImageField` (a `useCallback` after an early return) shipped unnoticed — exactly the kind of thing the gate exists to stop.\n\n## Scope\n\n- [ ] Survey each package: `pnpm --filter <pkg> lint` (or `pnpm -r lint`) and record the error count + rule breakdown per package. Attach the list here as the work-plan.\n- [ ] Fix the baseline **errors** (not warnings) package-by-package, smallest first. Prefer real fixes; use a scoped `// eslint-disable-next-line <rule>` **with a justifying comment** only where the code is deliberately correct (as done in #2709 for the intentional `no-control-regex` filename range and the ES2020-lib `preserve-caught-error`).\n- [ ] Each package as its **own small PR** (or a few grouped by owner) to keep review + parallel-agent conflict surface small — do **not** bundle into one mega-diff.\n- [ ] Do not change lint **config/rules** to make errors disappear — fix the code. Rule changes, if ever warranted, are a separate deliberate decision.\n\n## Non-goals\n\n- Warnings (`no-explicit-any`, `react-refresh/only-export-components`, etc.) — out of scope; errors only.\n- Behavior changes — these are mechanical/lint-only fixes.\n\n## Acceptance\n\n- [ ] `pnpm -r lint` is clean (0 errors) across the workspace, or each remaining red package has a tracked reason.\n- [ ] No lint **config** was loosened to get there.\n\n## Refs\n\n- #2709 (fields/core baseline cleanup — the pattern to follow) · #2707 / #2700 / ADR-0059 (context)"
+}

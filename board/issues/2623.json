@@ -1,0 +1,33 @@
+{
+  "number": 2623,
+  "kind": "pull_request",
+  "title": "feat(ai-build): cold-start handoff to Studio — primary CTA + artifact pillar deep links (ADR-0080 D5)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T16:40:59Z",
+  "updated_at": "2026-07-16T16:44:09Z",
+  "closed_at": "2026-07-16T16:41:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T16:41:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2623",
+  "body": "Implements the v2 \"one workbench\" assessment's two S-sized knives: the AI build flow now ENDS at Studio's doorstep instead of a dead-end chat page.\n\n## What changed\n\n**① Cold-start handoff (primary CTA)** — a finished build's primary action is now **\"Design in Studio\" / 「进入 Studio 继续完善」** → `/studio/<pkg>/interfaces`, where direct editing and the SAME copilot conversation (shell-level dock, `(user, package, build)` scope) continue. \"Open app\" (the published front-end) demotes to a secondary action. Hosts that don't pass the new prop keep the old layout.\n\n**② Artifact pillar deep links** — every artifact row on the done card links to its direct-edit home (ADR-0080 D5: every AI product gets a no-AI edit path):\n- object → Data pillar (`?surface=object:<name>`)\n- flow → Automations (**the first producer for the reserved `?surface=flow:` consumer**)\n- dashboard/page → Interfaces surface; view → its owning object's canvas leaf; app → Interfaces home\n- seed/dataset → plain text (no direct-edit home, never a dead link)\n\n**History-safe by construction**: the package id comes from the build's OWN draft envelope (`draftReview.packageId`), threaded through `BuildProgressPanel` — reloaded conversations carry the same CTA + links without any live-canvas runtime state. This makes the reopened package conversation's \"home\" affordance Studio, without a forced entry redirect (the conversation-list metadata a true redirect needs is a cross-repo API change, deliberately out of scope).\n\n## Verification\n- plugin-chatbot **217** passed (4 new: primary/demoted actions, envelope-segment threading, artifact links + null→plain, streaming stays plain); app-shell **87** passed (7 new for `artifactStudioPath`); type-check green.\n- **Live rig (browser)**: done card renders 「进入 Studio 继续完善」 primary + demoted 打开应用 + 4 artifact links (seed/dataset plain); CTA lands `/studio/app.rmpe/interfaces`; object link lands `/studio/app.rmpe/data?surface=object:rmpe_customer`; flow deep-link opens the Automations pillar with the flow selected (trigger/status/nodes visible); the same conversation continues in the Studio dock.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

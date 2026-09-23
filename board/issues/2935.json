@@ -1,0 +1,35 @@
+{
+  "number": 2935,
+  "kind": "pull_request",
+  "title": "fix(views): ListView reads the spec-canonical `filter`, so a view's base filter reaches every visualization (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T16:14:35Z",
+  "updated_at": "2026-07-28T16:20:57Z",
+  "closed_at": "2026-07-28T16:20:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T16:20:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2935",
+  "body": "Third rename in #2890 scope A: **`filters` → `filter`**. Unlike steps 1–2 this one closes a **live bug**, because the fork was asymmetric.\n\n## The bug\n\n`ListView` was the **only** surface in the repo reading `filters`. Every child view reads `filter`:\n\n| component | reads |\n| :--- | :--- |\n| `ObjectGrid`, `ObjectGallery`, `ObjectKanban`, `ObjectCalendar`, `ObjectGantt`, `ObjectMap`, `ObjectTree`, `ObjectChart` | `schema.filter` |\n| `ListView` | `schema.filters` ← the odd one out |\n\n…and `ListView` handed its children `filters`. Wherever a child fetches its own rows instead of receiving ListView's, the view's base filter was silently dropped:\n\n- **A `chart` list view aggregated the whole object.** The chart branch built an `object-chart` node with `filters:`; `ObjectChart` reads `schema.filter` and never read `filters`, so a chart view with a base filter charted unfiltered totals.\n- Same for any of the other view components rendered standalone from a list-view-shaped config.\n\nAnd in the other direction: a **spec-authored** list view — one carrying `filter`, which is what the spec says and what `runtime-metadata-persistence` and \"Save as view\" already persist — rendered **unfiltered** in `ListView`, because nothing read that key. The app-shell hosts only avoided this by converting `filter` → `filters` on the way in.\n\n## The fix\n\nFolded in the same `normalizeListViewSchema` as steps 1–2, plus:\n\n- `ListView` reads `schema.filter` and emits `filter` to its children (grid path, chart path, and every `baseProps` consumer);\n- the four producers stop downgrading: `plugin-view/ObjectView`'s `renderListView` payload, `app-shell/ObjectView`, `InterfaceListPage`, `ObjectDataPage`, and the `list-view` registry defaults.\n\n**Key rename only — no format conversion.** Both keys carry an ObjectQL FilterNode array everywhere in objectui, and every consumer passes the value straight to `$filter`. Worth flagging separately: the spec types `filter` as `ViewFilterRule[]` (`{field, operator, value}` objects), so objectui's field is *typed from the spec but used as something else*. That mismatch is real; converting formats inside a vocabulary fold would change what reaches the data source, so it is documented in the normalizer and left alone.\n\n## Drive-by: one filter computation instead of two\n\n`app-shell`'s `ObjectView` built the same effective filter **twice** — once as `filter` for the child views, once ~140 lines later as `filters` for `ListView` — and the two copies had drifted: only the first fell back to `listSchema.filter`; only the second ran token substitution over the URL filters. There is now one computation that keeps both behaviors.\n\n## Verification\n\n- `normalize-list-view.test.ts` +4: fold, canonical-wins, verbatim value (compound `['and', …]` nodes must not be rewritten), non-array passthrough.\n- `ListView.test.tsx` +3 consumer regressions asserting the `$filter` actually sent to the data source, from `filter`, from legacy `filters`, and with both present.\n- 320 test files / 3067 tests across `core`, `types`, `plugin-list`, `plugin-view`, `plugin-grid`, `plugin-charts`, `app-shell` pass; `turbo run type-check` 32/32; ESLint 0 errors.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

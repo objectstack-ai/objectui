@@ -1,0 +1,30 @@
+{
+  "number": 2760,
+  "kind": "pull_request",
+  "title": "feat(SchemaForm): field-type-aware operator + value widgets for view filter",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T13:55:27Z",
+  "updated_at": "2026-07-21T01:03:56Z",
+  "closed_at": "2026-07-21T01:03:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2760",
+  "body": "## Summary\n- `ResourceEditPage`: reads `draft.data.object` so view filter rows get object field catalog\n- `SchemaForm`: `detectOperatorWidget` + `detectValueWidget` name-convention detectors\n- `widgets.tsx`: `OperatorWidget` (labels match FilterBuilder, per-type operator filtering) + `ValueWidget` (boolean→toggle, number→number, date→date picker, between→range, in→comma, unary→placeholder)\n\n## Test plan\n- [x] Edit View Config filter: operator shows human-readable dropdown narrowed by field type\n- [x] Value input adapts to field type (boolean toggle, number input, date picker)\n- [x] Unary operators (is_empty, is_null) show disabled placeholder\n- [x] Between operator shows from/to range inputs\n\nMade with [Cursor](https://cursor.com)"
+}

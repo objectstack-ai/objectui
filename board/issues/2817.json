@@ -1,0 +1,33 @@
+{
+  "number": 2817,
+  "kind": "pull_request",
+  "title": "refactor(spec-bridge): remove the dead page/dashboard bridges (#1892)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-25T03:32:53Z",
+  "updated_at": "2026-07-26T07:21:09Z",
+  "closed_at": "2026-07-26T07:21:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-26T07:21:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2817",
+  "body": "## What\n\nDeletes `SpecBridge`'s **page** and **dashboard** bridges — `bridgePage`, `bridgeDashboard`, and the `SpecBridge#transformPage` / `#transformDashboard` methods — plus their tests. The `list` and `form` bridges are untouched and remain the live authoring path.\n\n## Why\n\nBoth bridges are dead (flagged by the metadata-liveness audit, framework #1878 / #1892, cluster #5 \"write-only / disconnected metadata\"):\n\n- **Zero runtime consumers.** Pages render through their own renderer; dashboards render through `DashboardView → DashboardRenderer → DatasetWidget` (ADR-0021). Neither routes through `SpecBridge`. Repo-wide, the only references to the removed symbols were the bridges' own tests (verified via grep across `packages`/`apps`/`examples`).\n- **The dashboard bridge can't even receive a valid input.** Its input shape (`object` / `categoryField` / `valueField` / `aggregate`) is the pre-ADR-0021 widget model, which the strict `DashboardWidgetSchema` now rejects. Reviving it would mean building a second, parallel render path — exactly what \"enforce or remove\" (ADR-0049 spirit) says not to do.\n\n## Change\n\n| | |\n|---|---|\n| `bridges/page.ts`, `bridges/dashboard.ts` | deleted |\n| `SpecBridge.ts` | drop the 2 imports, 2 registrations, `transformPage`/`transformDashboard` methods |\n| `spec-bridge/index.ts` | drop the 2 exports |\n| tests | remove the page/dashboard blocks from `SpecBridge.test.ts` + `P1SpecBridge.test.ts`; the class-orchestration test now asserts only `list`/`form` |\n\nNet: **+24 / −931**.\n\n## Breaking change\n\nRemoves the public exports `bridgePage`, `bridgeDashboard`, and `SpecBridge#transformPage` / `#transformDashboard`. No replacement — render pages and dashboards through their renderers directly. Shipped as a `@object-ui/react` **major** (changeset included).\n\n## Verification\n\n- `pnpm --filter @object-ui/react type-check` — green (after building upstream deps)\n- spec-bridge suite (`SpecBridge.test` / `P1SpecBridge` / `FormViewSpecConformance`) — **3 files, 57 tests passing**\n\nRefs objectstack-ai/framework#1892, objectstack-ai/framework#1878.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

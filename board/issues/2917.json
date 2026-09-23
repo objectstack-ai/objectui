@@ -1,0 +1,30 @@
+{
+  "number": 2917,
+  "kind": "issue",
+  "title": "@object-ui/runner: has no tsconfig at all, and imports two exports `@object-ui/core` does not have",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T09:34:16Z",
+  "updated_at": "2026-07-28T12:07:42Z",
+  "closed_at": "2026-07-28T12:07:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2917",
+  "body": "Found by the full type-check sweep in #2911 / #2915. `@object-ui/runner` is the **worst-covered package in the repo**: `build` is `vite build` (transpile only), it has **no `type-check` script**, and — uniquely — **no `tsconfig.json` at all**. Nothing has ever type-checked it.\n\nIt is a published package (`private: false`, v16.1.0).\n\n## The likely-real bug\n\n```\npackages/runner/src/lib/mockDataSource.ts(9,15): error TS2724:\n  '\"@object-ui/core\"' has no exported member named 'DataSource'. Did you mean 'ApiDataSource'?\npackages/runner/src/lib/mockDataSource.ts(9,27): error TS2724:\n  '\"@object-ui/core\"' has no exported member named 'BatchTransactionOperation'. Did you mean 'TransactionOperation'?\npackages/runner/src/lib/mockDataSource.ts(47,36): error TS2345:\n  Argument of type 'this' is not assignable to parameter of type 'DataSource<any>'.\n```\n\nTwo imported names do not exist on `@object-ui/core`. If they are value imports rather than type-only, this throws at runtime; if type-only, the `DataSource` contract `mockDataSource` claims to implement is unenforced, which is consistent with the `TS2345` on line 47. **Worth checking whether the runner actually works** — `DataSource` is plausibly a rename of `ApiDataSource` and `BatchTransactionOperation` of `TransactionOperation`, but that should be confirmed against `@object-ui/core`'s current exports rather than assumed.\n\n## The rest (14 total)\n\nConfig-shaped, all from having no tsconfig — they need `vite/client` types and `allowImportingTsExtensions`, not source changes:\n\n```\nsrc/lib/MetadataLoader.ts(21,33) TS2339: Property 'glob' does not exist on type 'ImportMeta'.   (x3)\nsrc/main.tsx(11,17) TS5097: An import path can only end with a '.tsx' extension when\n  'allowImportingTsExtensions' is enabled.\nsrc/main.tsx(12,8) TS2882: Cannot find module or type declarations for side-effect\n  import of './index.css'.\nsrc/lib/mockDataSource.ts TS6133: 'resource' / 'id' declared but never read   (x6)\n```\n\n## Suggested order\n\n1. Author `packages/runner/tsconfig.json` mirroring a type-checked peer (e.g. `packages/plugin-list`), including the `paths` override — without it you get ~104 spurious TS6059 `rootDir` errors, and because `runner` has no tsconfig, bare `tsc` walks up to the **root** config and type-checks the entire monorepo. See #2915.\n2. Add `vite/client` types + `allowImportingTsExtensions` to clear the config-shaped errors.\n3. Resolve the two missing `@object-ui/core` imports — the actual bug.\n4. Add `\"type-check\": \"tsc --noEmit\"` and **delete the `DEBT` entry** in `scripts/check-type-check-coverage.mjs` (currently `errors: 14`); the guard fails if the entry outlives the gap.\n\nRefs #2911, #2915"
+}

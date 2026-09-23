@@ -1,0 +1,33 @@
+{
+  "number": 2631,
+  "kind": "pull_request",
+  "title": "fix(app-shell,components): welcome「创建你的环境」CTA 直达创建对话框 (#844)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T01:19:17Z",
+  "updated_at": "2026-07-17T06:04:30Z",
+  "closed_at": "2026-07-17T06:04:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-17T06:04:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2631",
+  "body": "Closes #844(staging E2E 2026-07-17 P2)。\n\n## 问题\n\nwelcome 主 CTA「创建你的环境」只是导航到环境列表,用户要再找右上角创建按钮点第二次;且列表工具栏的状态化标签(Set up your production environment / Add development environment / Add environment)是硬编码英文,混在中文控制台里。\n\n## 修复\n\n- **`action:button` 新增客户端 `autoTrigger`**:挂载即执行一次,走与点击完全相同的 execute 路径(参数对话框/确认/配额门全部生效);仅客户端组合 schema 使用,不进持久 metadata。\n- **EnvironmentListToolbar 消费 `?runAction=create_environment`**:entitlements 解析完成后才触发(setup_production/add_development → create action 标记 autoTrigger;免费档锁 dev → 打开升级提示,即「创建」在该状态下的诚实答案);参数消费即从 URL 剥离(replace),刷新/后退不复弹。实现 router-free(location+replaceState),无 Router 宿主与测试均可用。\n- **CloudOnboardingNext**:创建 CTA 导航带 `runAction` 参数。\n- **i18n**:工具栏状态化标签改 {en,zh}(与 widget 同款 pick())。\n\n## 测试\n\n新增 3 用例(deep-link 标记 autoTrigger + 参数剥离、upgrade 态转升级提示、CTA 导航断言更新);受影响包 30 tests 全过;`turbo build` 29/29(类型级验证)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

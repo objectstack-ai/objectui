@@ -1,0 +1,33 @@
+{
+  "number": 2840,
+  "kind": "pull_request",
+  "title": "fix(grid): validate email format in the import preview (objectstack#3566)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T07:02:57Z",
+  "updated_at": "2026-07-27T08:38:53Z",
+  "closed_at": "2026-07-27T08:38:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T08:38:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2840",
+  "body": "Companion UI change for objectstack-ai/objectstack#3566. Server PR: objectstack-ai/objectstack#3572.\n\n## Problem\nThe ImportWizard's per-cell `validateValue` did **no** format check for `email` columns (it fell through to `default → true`), so an obviously-bad address — e.g. a non-ASCII domain like `x@柴仟.com` — passed client validation *and* the server dry-run, and only failed at real-import time inside better-auth. A jarring \"passed validation, then failed\" experience.\n\n## Change\n- Added **`isPlausibleEmail`** — a single-pass structural + ASCII check that mirrors the server's `isLikelyEmail` — and wired it into `validateValue`'s new `email` case. Bad email cells are now flagged red in the preview step, before submit. No regex backtracking (same ReDoS-safety as the server).\n\n## Tests\n- `packages/plugin-grid/src/importEmailValidation.test.ts` — accepts normal, rejects non-ASCII (the reported bug) + structurally-broken, fast on adversarial input.\n- plugin-grid import suite (82) green.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

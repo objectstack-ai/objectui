@@ -1,0 +1,32 @@
+{
+  "number": 2655,
+  "kind": "issue",
+  "title": "[fields+plugin-detail] `attachment` 字段类型:补专用 cell renderer 并从 RelatedList SKIP_TYPES 放开",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T06:03:57Z",
+  "updated_at": "2026-07-18T06:37:48Z",
+  "closed_at": "2026-07-18T06:37:48Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2655",
+  "body": "## 背景\n\n\\#2360 / \\#2585 放开了 RelatedList 自动列里的 `file`/`image`(它们有专用 `FileCellRenderer` / `ImageCellRenderer`),但 `attachment` 仍被跳过。\n\n## 定位\n\n- `packages/plugin-detail/src/RelatedList.tsx:625` —— 自动派生列时排除 `attachment`:\n  ```ts\n  const SKIP_TYPES = new Set(['attachment', 'rich_text', 'html', 'json']);\n  ```\n- `packages/fields/src/index.tsx` `getCellRenderer` 的 `standardMap` —— **没有** `attachment` 条目,所以即使放开,`attachment` 也只会落到 `TextCellRenderer`(显示 `[object Object]` 或原始值)。\n\n## 现状\n\n`file` 有 `FileCellRenderer`(文件名 chip),`image` 有 `ImageCellRenderer`(缩略图),但 `attachment` 两者皆无。因此当前保留在 SKIP_TYPES 是**正确的**(没有可用的表格渲染),不能只删 SKIP_TYPES 就放开。\n\n## 前置问题\n\n`attachment` 是否是 `@objectstack/spec` 认可的正式字段类型?\n- **是** → 补一个 `attachment` cell renderer(大概率可复用 `FileCellRenderer`,或做一个「N 个附件」计数 chip),同时在 `GridColumn` / `deriveColumns` 里像 file 一样映射,然后从 `SKIP_TYPES` 移除。\n- **否 / 只是 file 的别名** → 在 spec 层把它规整为 `file`,renderer 侧不必新增(遵循 AGENTS.md #0.1「改元数据不改 renderer」)。\n\n## 期望\n\n先确认 spec 对 `attachment` 的定位,再决定「补 renderer 放开」还是「spec 别名归一」。\n\n来源:\\#2360 的 follow-up(见 objectui#2585 讨论)。"
+}

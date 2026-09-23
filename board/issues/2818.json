@@ -1,0 +1,30 @@
+{
+  "number": 2818,
+  "kind": "issue",
+  "title": "审批中心两处未国际化:FileField 上传组件 + 快照字段标签",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-26T06:23:13Z",
+  "updated_at": "2026-07-27T02:28:56Z",
+  "closed_at": "2026-07-27T02:28:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2818",
+  "body": "## 问题\n审批中心(ApprovalsInboxPage)的抽屉与操作弹窗有两处仍显示英文,在中文环境下很突兀:\n\n1. **附件上传区(FileField 组件)**:参数弹窗里的附件拖拽区硬编码英文 \"Drag & drop files here\" / \"or click to browse\",另有 \"Take photo / Take selfie / Uploading… / Camera capture\" 及大小超限、上传失败等校验文案。`packages/fields/src/widgets/FileField.tsx` 完全没有 `t()` 调用。\n\n2. **记录快照字段标签**:摘要卡片用 `prettifyKey(机器名)` 把 `assessment_status` 生造成 \"Assessment Status\",**根本没读目标对象的字段 label**。中文项目(如考核单)本应显示\"考核状态\"却显示英文。\n\n> 声明式操作按钮(通过/拒绝/转签…)与弹窗标题/参数名的翻译由 framework 的 `plugin-approvals._actions` 翻译包提供,已在 framework main 完整落地,不在本 issue 范围。\n\n## 方案\n1. FileField 全部可见文案改走 `useObjectTranslation` + 新增 `fields.file.*` 键,并翻译全部 10 个 locale。\n2. 消费 framework 新增下发的 `payload_labels`(字段 key→目标对象字段 label):`payloadSummary` / `decisionAmountEntry` 优先用它,缺失时回退 `prettifyKey`。需 approvalsApi 行类型补 `payload_labels?`。\n\n依赖 framework 侧 payload_labels 富化(objectstack-ai/objectstack 对应 issue)。"
+}

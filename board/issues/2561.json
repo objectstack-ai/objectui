@@ -1,0 +1,32 @@
+{
+  "number": 2561,
+  "kind": "issue",
+  "title": "@object-ui/types: decide the `@objectstack/spec/ui` re-export shape + bump spec pin to ^15",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T04:04:38Z",
+  "updated_at": "2026-07-17T12:06:21Z",
+  "closed_at": "2026-07-17T12:06:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2561",
+  "body": "Split out from #2545 Phase 3 (objectui side). These two are deliberately **not** bundled into a mechanical PR because the first is a design decision with real trade-offs; filing for a maintainer call before any code lands.\n\n## 1. `/ui` zod-schema re-exports are value-erased (design decision)\n\n`packages/types/src/index.ts` re-exports the entire `@objectstack/spec/ui` surface with `export type { … }` blocks — but those blocks include `…Schema` names, which are zod **values**, not types. Under `export type`, the values are erased, so:\n\n```ts\nimport { DndConfigSchema } from '@object-ui/types';\nDndConfigSchema; // => undefined at runtime\n```\n\nAny consumer importing a `…Schema` **value** from `@object-ui/types` silently gets `undefined`. (The one genuine value re-export block, `index.ts:948-956` — `defineStack` etc. — is unaffected.)\n\n**Two ways to resolve, pick one:**\n\n- **(a) Keep them type-only, drop the schema-name re-exports.** If nothing is meant to consume these zod schemas as runtime values through `@object-ui/types`, the `…Schema` names simply shouldn't be in the `export type` lists. Lowest blast radius, no new runtime coupling. Likely the intended design.\n- **(b) Convert to value re-exports** (`export { … }`). Makes the schemas actually usable at runtime, but gives `@object-ui/types` a real **runtime dependency** on `@objectstack/spec` for those exports — bundle-size / eager-load impact for every `@object-ui/types` consumer. Only worth it if there's a real need to hand these zod validators to consumers via the types package.\n\nRecommendation: **(a)** unless someone can name a consumer that needs the runtime schema values — but this is a maintainer call, which is why it's an issue rather than a PR.\n\nSuggested guardrail once decided: a tiny test asserting the chosen contract (either \"these names are not runtime-exported\" for (a), or \"these schema values are defined, not `undefined`\" for (b)) so it can't silently regress.\n\n## 2. Bump `@objectstack/spec` pin `^14.6` → `^15`\n\nLow-risk on the type surface — the `@objectstack/spec/ui` export-name set is **identical** between 14.6.0 and 15.0.0. The only major in v15 is ADR-0089 D3a: `FormFieldSchema` / `FormSectionSchema` / `PageComponentSchema` became `.strict()` (unknown keys → parse error). So the bump itself is safe, but it should **ride with** validating example/test metadata under v15 strict mode to catch any fixture carrying an undeclared field/section-level key.\n\nTouches: the 14 `package.json` files declaring `@objectstack/spec` + `pnpm-lock.yaml` regen.\n\nBest sequenced **after** decision (1) so the re-export changes and the pin bump land as one coherent types-package PR.\n\nRefs #2545, objectstack-ai/framework#2998."
+}

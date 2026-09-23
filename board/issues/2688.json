@@ -1,0 +1,32 @@
+{
+  "number": 2688,
+  "kind": "issue",
+  "title": "甘特右键「查看详情」浮层:标题落 Record #<id> 兜底、页脚创建人渲染裸用户 ID(正常详情页同记录均正常)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T14:30:05Z",
+  "updated_at": "2026-07-19T15:20:57Z",
+  "closed_at": "2026-07-19T15:20:57Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2688",
+  "body": "## 现象\n\n排班计划甘特(view.data provider:'api'、四级树、配 `objectField`)右键任务条 → 「查看详情」打开的记录浮层上,两处显示错误:\n\n| | 正常路由(列表→详情页) | 甘特右键「查看详情」浮层 |\n|---|---|---|\n| 页头标题 | `甘特计划A 组焊`(name 字段值)✅ | `Record #LnLJIsTwXbv1E2gF` ❌ |\n| 页脚创建人 | `创建人 Dev Admin · 47分钟前` ✅ | `创建人 g3WkZnvugj4DnYw8u5Mo6ig3ljDhiFGO` ❌ |\n\n**同一条记录、同一台服务器**(console 15.1.1,--fresh 库),仅打开路径不同。\n\n## 数据侧已排除\n\n直接查 SQLite 确认:\n\n- 记录 `name`(该对象 nameField,label 编号)= `甘特计划A 组焊`,非空;\n- `created_by = g3WkZnvugj4DnYw8u5Mo6ig3ljDhiFGO` 在 sys_user 中存在,name = `Dev Admin`(--seed-admin 账号);\n- 同一浮层内业务 lookup「管理责任人」正确解析为 Dev Admin,字段中文 label 全部正常 → 业务字段的 schema 是拿到了的。\n\n## 定位线索\n\n1. **标题**:浮层页头走记录标题解析链(displayNameField → nameField → 派生 → `Record #<id>` 兜底);记录 name 有值仍落兜底,说明甘特浮层路径喂给解析器的上下文缺 nameField/schema(api provider 的 dataSource.getObjectSchema 返回空 stub 的老路径嫌疑最大)。\n2. **创建人**:`plugin-detail/RecordMetaFooter` 的 `UserRef` 依赖 `objectSchema.fields.created_by` 的 reference 定义才走 lookup 渲染器;该路径传入的 schema 无 created_by 字段定义 → `type:'text'` → `String(value)` 裸 ID 直出(RecordMetaFooter.tsx UserRef 分支)。\n\n两处均为浮层路径的 schema/上下文供给问题,正常详情页同链路工作正常;应用侧元数据无口子可修。\n\n## 复现\n\n1. 视图:gantt + `data.provider:'api'` + `objectField` 配行级对象;\n2. 右键真实记录行 → 查看详情;\n3. 对比同记录经列表进入的详情页。"
+}

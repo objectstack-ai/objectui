@@ -1,0 +1,33 @@
+{
+  "number": 2745,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in components (#2713 Wave 3.5)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T07:58:58Z",
+  "updated_at": "2026-07-20T08:02:38Z",
+  "closed_at": "2026-07-20T08:02:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T08:02:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2745",
+  "body": "Wave 3 of the #2713 lint-gate restoration. `@object-ui/components` was **red at baseline on `main`**. **Errors only; no behavior change.**\n\n## What changed (per rule)\n\n- **`react-hooks/rules-of-hooks`**\n  - `react-page` `ReactKindPage`: a capability-gate early return sat *before* four hooks — including a `useEffect` that `import()`s `@object-ui/react-runtime`. **Naively moving the gate down would load the gated runtime even when disabled** (the gate is default-closed in OSS/untrusted builds). Instead: hoisted the hooks above the gate **and guarded the import** (`if (!capabilityEnabled) return` inside the effect, dep `[capabilityEnabled]`), with the disabled notice returned after the hooks. So hook order is stable *and* the runtime is still never loaded when disabled.\n  - `empty` / `action-bar` / `action-menu`: translation helpers unwrap a try/catch around the provider-safe `useObjectTranslation` (the #2709 fix).\n- **`react-hooks/static-components`** — dynamic renderer/icon lookups (`ComponentRegistry.get`, `resolveIcon`) in `action-bar`, `action-group` (×2), `action-menu`, and the five `__tests__` helpers that render a registry-resolved component. All stable references → justified scoped disables.\n- **`react-hooks/purity`** — `ui/sidebar` skeleton width uses `Math.random()` once per mount (`useMemo([])`) for a decorative placeholder → justified scoped disable.\n- **`@typescript-eslint/no-empty-object-type`** — `ShimmerSkeletonProps` empty extend → `type` alias.\n- **`no-useless-assignment`** — `test-utils` `maxDepth` dead initializer → single `const` at its assignment.\n- **`no-require-imports`** — `config-panel-renderer` test now uses a top-level `import React` instead of an in-test `require`.\n- **stale `eslint-disable`** — removed a `jsx-a11y/alt-text` directive in `elements` whose plugin isn't loaded (unknown-rule reference → ESLint v10 error).\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (21 at baseline).\n- **Type gate:** `turbo run build` → **8/8 tasks green**.\n- **Tests:** full `components` suite green — **304 passed / 33 files**, including the five touched test helpers, `config-panel-renderer`, and the action renderers.\n\nRefs #2713 · follows #2730, #2737, #2738, #2740, #2741, #2744 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

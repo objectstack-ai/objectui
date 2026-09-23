@@ -1,0 +1,30 @@
+{
+  "number": 2733,
+  "kind": "issue",
+  "title": "[invalid] created in error — closing",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:10:47Z",
+  "updated_at": "2026-07-20T05:10:58Z",
+  "closed_at": "2026-07-20T05:10:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2733",
+  "body": "Created by mistake (a tool mis-call). Closing as not planned. Please ignore."
+}

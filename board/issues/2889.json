@@ -1,0 +1,33 @@
+{
+  "number": 2889,
+  "kind": "pull_request",
+  "title": "feat(grid): gate list row Edit/Delete and bulk delete on the effective operation set (objectstack#3720)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T02:34:30Z",
+  "updated_at": "2026-07-28T02:47:07Z",
+  "closed_at": "2026-07-28T02:47:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T02:47:04Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2889",
+  "body": "Closes objectstack-ai/objectstack#3720 — the **fourth** surface objectstack#3391 left open.\n\n## The gap\n\nThe three earlier rounds all route through `resolveCrudAffordances`:\n\n| face | PR |\n|---|---|\n| toolbar (`ObjectView` Import, `ListView`/`ObjectGrid` Export) | #2823 |\n| detail / form (header Edit/Delete, inline-edit, form field lock) | #2832 + #2876 |\n| related lists (`RelatedRecordActionsBridge`) | #2832 |\n\nThe main list's **row CRUD** does not — it has its own resolver\n(`plugin-grid/src/rowCrudAffordances.ts`), so none of those rounds ever reached it.\nIts gate was:\n\n```\noperations ?? { update: !!onEdit, delete: !!onDelete }   ← default all-open\n  ∧ userActions.{edit,delete} explicit-false opt-out\n```\n\n`ObjectView` wires `onEdit`/`onDelete` **unconditionally** and view JSON rarely declares\n`operations`, so the gate was effectively always-on. `ObjectGrid`'s `effectiveApiOps` was\ncomputed but fed only to Export. Net effect: a caller whose effective set carried neither\n`update` nor `delete` still got the row kebab's Edit/Delete **and** the bulk delete — the\nmost destructive affordance on the list.\n\n## Changes\n\n**`plugin-grid` · `resolveRowCrudAffordances`** — takes `managedBy` and\n`effectiveApiOperations`, and resolves the object verdict through the shared\n`resolveCrudAffordances` policy, so the row gate is now the *same* decision the toolbar,\nrecord header, form and related lists make. Also returns `objectCanDelete`: bulk delete\nrides `onBulkDelete`, a different callback from the row `onDelete`, so it must not be\njudged by whether the *row* handler happens to be wired.\n\n**`plugin-grid` · `ObjectGrid`** — threads the existing `effectiveApiOps` into the row\ngate, and applies the delete verdict to bulk delete across all three entry points: the\nimplicit `['delete']`, an author-declared `bulkActions: ['delete']`, and any\n`bulkActionDefs` entry with `operation: 'delete'`. A declared bulk action is a *wiring*\ndeclaration, not a permission grant. Custom action ids and non-delete operations pass\nthrough untouched — they route through the action runner with their own gates.\n\n**`plugin-list` · `ListView`** — its own bulk bar (the non-grid views: kanban / calendar /\ngallery; the grid path delegates to `ObjectGrid`) drops its built-in `delete` under the\nsame verdict.\n\n## Checklist item 4 — the ADR-0103 bucket lock\n\nConfirmed **genuinely missing**, and fixed here. `rowCrudAffordances` documented it as\n\"applied upstream via the view's `operations.*`\", but the all-open default meant it never\nwas, and the server's `apiOperations` doesn't carry it either — `annotateEffectiveApiOperations`\nderives from `apiMethods` + the export axis, not from `managedBy`. So an engine-owned\n`system` / `append-only` / `better-auth` object leaked a generic row Edit/Delete that the\nengine rejects (`assertEngineOwnedWriteAllowed`). Running the shared policy applies it;\na `userActions` opt-in still re-opens it (e.g. `sys_user`'s `edit`).\n\n⚠️ **This is the one behavior change beyond the permission gate**: engine-owned-bucket\nobjects lose their generic row Edit/Delete kebab entries in the main list. That aligns them\nwith the toolbar, detail header, form and related lists, which already hide those.\n\n## Checklist item 3 — other `rowActions` consumers\n\n- **`ListView`** — forwards to `ObjectGrid` for the grid path (inherits the gate); its own\n  bulk bar is gated above. Note it is currently inert in the console: no first-party\n  consumer passes `onBulkAction`, so it is covered by the shared-policy unit tests rather\n  than a DOM probe.\n- **Mobile card view** — no separate face. `ObjectGrid`'s stacked-card branch filters the\n  `_actions` column out entirely, so it never surfaced row CRUD.\n- **`plugin-view/ObjectView`** — passes `onEdit`/`onDelete`/`onBulkDelete` into `ObjectGrid`\n  and inherits the gate.\n- **`components/data-table`** — the generic, object-less table; no effective set exists for it.\n\n## Tests\n\n**14 component-level probes** against the real `ObjectGrid` with `usePermissions` mocked,\nasserting the user-visible outcome (menu items / selection checkboxes / bulk button) —\nthe issue's matrix, with its control group kept:\n\n| case | effective set | row Edit/Delete + selection |\n|---|---|---|\n| A baseline | `['get','list','create','update','delete']` | shown ✅ |\n| B this issue | `['get','list']` | **hidden** ✅ |\n| C control | full, but `userActions:{edit:false,delete:false}` | hidden ✅ |\n\nplus independent update/delete gating, the `undefined` fallback, both\nintersection-never-union invariants, the bucket matrix, and the declared\n`bulkActions` / `bulkActionDefs` filters.\n\n**28 unit cases** on the resolver (the 10 pre-existing ones kept).\n\nProbes verified to actually observe the bug: reverting the wiring turns **6** red without\nthe effective-set argument and **2** red without `managedBy`.\n\nSuites run green: `plugin-grid` 279, `plugin-list` 163, `app-shell` 60, `plugin-view` 91.\nLint 0 errors; the 4 TS declaration errors `plugin-grid` emits are pre-existing on `main`\n(`ObjectGrid.tsx:677-678` i18n defaults, `importParsers.ts:352`).\n\n## Not done\n\nNo end-to-end browser check — this environment has no backend/preview stack. The evidence\nis component-level plus the server-side code walk in the issue.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01UQQ42DcujEPonLQ3hort4t)_"
+}

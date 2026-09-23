@@ -1,0 +1,33 @@
+{
+  "number": 2677,
+  "kind": "pull_request",
+  "title": "feat(plugin-gantt): manual-scheduling summary bars, interaction switches, beforeTaskUpdate veto + tooltip/scrollbar/cursor fixes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T09:04:40Z",
+  "updated_at": "2026-07-19T11:24:25Z",
+  "closed_at": "2026-07-19T09:11:20Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T09:11:20Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2677",
+  "body": "Delivers the fixes and capabilities described in #2676. Five commits, each independently verified live against a real 4-level 排班计划 dataset (project/product groups → self-dated summary plans → locked dispatch leaves) plus 323 green plugin-gantt tests.\n\n## What changed\n\n### 1b0ac32f4 — self-dated summary bars edit like tasks + interaction switches + veto hook\n- **Editability follows date ownership** (the MS-Project/Bryntum/Syncfusion manual-scheduling rule): a summary with `summaryExtent: 'self'` and its own dates grows edge-resize grips and drag-to-link connector dots; dragging its middle still group-moves the whole subtree; rollup summaries (derived dates) stay move-only.\n- **`interactions: { move, resize, progress, link }`** view-config switches — DHTMLX `drag_move`/`drag_resize`/`drag_progress`/`drag_links` model. Default all on; they only narrow what `readOnly`/row locks already allow. `link: false` removes both the connector dots and the menu create/delete entries.\n- **`onBeforeTaskUpdate`** async veto on the central commit belt (bar drag, edge resize, group move, progress, inline edit, conflict reschedule). Fail-closed on throw; per-task veto within a batch; undo/redo exempt by design. Forwarded through `ObjectGantt` along with `gantt.interactions` from view metadata.\n- Non-group drag preview now covers the dragged summary, so a summary resize tracks the pointer.\n\n### f22db0550 — last-row tooltip flicker (最后一行悬浮狂闪)\nBottom rows flip the hover tooltip above the bar. A downward tooltip on a last row grew the scroller's scrollHeight while shown; with the view scrolled to the bottom, scroll clamping/anchoring re-adjusted scrollTop on every mount/unmount and the tooltip strobed under a stationary cursor. Upward absolute overflow never extends the scrollable area, so the loop is physically gone. Top rows and short charts unchanged.\n\n### b4cf61085 — locked summary cursor\nLocked (仅查看) summary bars now show `not-allowed` (🚫) instead of `grab`, matching leaf bars — they were already unmovable, only the cursor lied.\n\n### e298de8e6 + 145ef5b43 — horizontal scrollbar unreachable / doubled\n- `ObjectGantt` now fills its host flex cell (`flex-1 min-h-0`) instead of guessing with `h-[calc(100vh-200px)]`, which overshot whenever the chrome above exceeded 200px and got the pane's bottom edge clipped by the overflow-hidden host — swallowing the scrollbar area (53px in the console layout). A min-h keeps standalone embeds usable.\n- Native timeline scrollbars are fully hidden (`scrollbar-width: none` — honored by overlay engines that ignore `::-webkit-scrollbar` theming and would otherwise flash a second auto-hiding bar) and replaced by **self-drawn track+thumb bars on both axes**: ref-driven (no per-frame React state), synced 1:1 with scrollLeft/scrollTop, thumb drag + track-click jump, auto-hidden when content fits, task-list lockstep sync preserved.\n\n## Verification\n\n- plugin-gantt: 29 files / **323 tests green** (16 new for summary editability + switch matrix + veto true/false/throw, 3 new for tooltip flip), `tsc --noEmit` clean.\n- Live against `@objectstack/runtime` 15.1.1 with a real 4-level tree: edge-resize persists only the plan's own dates (children untouched), connector-dot drag writes the dependency field (cycle guard intact), body drag group-moves skipping locked children and still raises the conflict/auto-reschedule dialog, locked leaves stay inert, link context menu (type switch + remove) works, bottom-row tooltip renders upward with scrollHeight constant, exactly one horizontal bar renders flush with the visible bottom, and both self-drawn bars pan correctly by thumb drag and track click.\n\nRefs #2676\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

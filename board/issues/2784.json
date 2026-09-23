@@ -1,0 +1,30 @@
+{
+  "number": 2784,
+  "kind": "issue",
+  "title": "列表「操作」列表头未随列固定,横向滚动时被滚走",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T04:40:36Z",
+  "updated_at": "2026-07-22T05:53:10Z",
+  "closed_at": "2026-07-22T05:53:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2784",
+  "body": "## 问题\n\n列表(ObjectGrid / DataTable)右侧的「操作」列被固定在右边缘(sticky-right),但**只有列身单元格固定,列表头(title)没有固定**。横向滚动条一滚,「操作」表头就跟着内容滚走,而它下面的按钮列却还钉在右边 —— 表头与列身错位,视觉割裂。\n\n左侧冻结列没有这个问题(表头和列身都固定)。\n\n## 根因\n\n「操作」列(`_actions`)靠往列的 `className` 注入 `sticky right-0 z-10 …` 实现右固定(`packages/plugin-grid/src/ObjectGrid.tsx`),该 className 同时下发给列身单元格和表头单元格:\n\n- **列身单元格**:`col.cellClassName` 之后没有别的定位类,`sticky` 保留 → 固定住 ✅\n- **表头单元格**(`packages/components/src/renderers/complex/data-table.tsx`):先接 `col.className`,但紧接着无条件追加了一个 `relative`(给列宽拖拽手柄做定位锚点)。由于 `cn` = `tailwind-merge`,**后出现的 `relative` 覆盖掉前面的 `sticky`**,表头因此不再固定 ❌\n\n即:同一套 sticky 类,列身活着、表头被 `relative` 吃掉。\n\n## 方案\n\n在表头渲染里识别右固定列(`col.className` 含 `sticky` + `right-0`):\n- 该列**不再追加** `relative`(sticky 元素本身即定位上下文,拖拽手柄的 `absolute` 依旧能锚定);\n- 在 `col.className` **之后**重新声明 `sticky right-0 z-20`,让 tailwind-merge 保留固定,并把 z 抬到 20 压在列身固定单元格(z-10)之上。\n\n左冻结列、拖拽手柄、非固定列均不受影响。补一条针对表头 `th` 的 sticky 断言(原测试只覆盖列身 `td`,正是这个盲区放走了本 bug)。"
+}

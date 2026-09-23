@@ -1,0 +1,33 @@
+{
+  "number": 2645,
+  "kind": "pull_request",
+  "title": "feat(plugin-list): 列表工具栏增加手动刷新按钮 (#2634)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T01:23:54Z",
+  "updated_at": "2026-07-18T02:59:18Z",
+  "closed_at": "2026-07-18T02:59:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T02:59:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2645",
+  "body": "## 背景\n\n修复 #2634。ObjectUI 渲染的列表(ListView)工具栏此前没有主动刷新入口 —— 后端数据变更后,用户只能靠浏览器整页 `reload`,导致筛选 / 排序 / 分页 / 滚动等页面状态全部丢失。\n\n调研发现底层刷新能力其实大部分已具备:命令式 `refresh()`(ref)、`onMutation` 变更后自动刷新、移动端下拉刷新、`RefreshIndicator`。**唯一缺的是桌面端工具栏那颗手动刷新按钮**,本 PR 补齐它。\n\n## 改动\n\n- **`plugin-list/ListView.tsx`**:在工具栏(导出/分享/搜索一组的最前面)新增「刷新」图标按钮。点击 `setRefreshKey(k => k + 1)` 触发重新拉取当前视图数据;移动端与桌面端均常驻;加载时图标旋转(`animate-spin`)并 `disabled`。\n- **`toolbarFlags`**:新增 `showRefresh`,**纯粹由 spec 规范的 `userActions.refresh`(`@objectstack/spec` ListView)驱动**(运行时防御读取,兼容尚未发版的 spec 类型),默认可见(opt-out,`userActions.refresh: false` 关闭),与 `search` / `sort` / `filter` / `density` 的读取方式一致。\n- **i18n**:`list.refresh` 增加中英文案(`刷新` / `Refresh`)。\n- **测试**:新增 `ListView.refreshButton.test.tsx`(默认渲染 + 点击重新 fetch + `userActions.refresh: false` 隐藏)。\n\n> 注:初版曾加了一个本地 legacy `showRefresh` 标志,但 CI 的 `list-view-spec-parity` 漂移守卫要求\"优先提升进 spec\"。既然已在 spec 增加 `userActions.refresh`,遂删除该本地标志,改为纯协议驱动 —— 更贴合\"后端协议驱动\"的架构。\n\n## 刷新时的视图状态\n\n筛选 / 排序 / 分页 / 搜索均为组件内 state,刷新仅 bump `refreshKey` 重新 `find()`,因此这些状态自动保留。\n\n## 协议侧配套\n\n`userActions.refresh` 规范开关来自 `@objectstack/spec`,对应补充见 framework PR #3158。objectui 侧防御读取,**不依赖 spec 发版即可独立生效**;待 spec 发布并升级依赖后类型层面自然对齐。\n\n## 验证\n\n- `plugin-list` type-check ✅、`packages/types` type-check ✅\n- 刷新按钮测试 3 项 ✅、`ListView.test.tsx` 126 项 ✅、漂移守卫 ✅、`i18n` parity 42 项 ✅、ESLint 0 error\n- 真实 Chromium 浏览器渲染验证:刷新按钮出现在工具栏,`title`/`aria-label` = \"Refresh\",点击无异常\n\n## 关联\n\n- Closes #2634\n- 下游:steedos-labs/os-project-titanwind-ehr#446\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01C7Z2cbcb14wb99upTD6LNw"
+}

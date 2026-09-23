@@ -1,0 +1,32 @@
+{
+  "number": 2927,
+  "kind": "issue",
+  "title": "console + runner: 17 ESLint errors that were never seen, incl. 12 React-correctness bugs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T14:35:26Z",
+  "updated_at": "2026-07-28T15:48:14Z",
+  "closed_at": "2026-07-28T15:48:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2927",
+  "body": "Split out of #2923 so the CI wiring can land without bundling runtime-behaviour changes.\n\n`apps/console` and `packages/runner` had **no `lint` script**, so `turbo run lint` skipped them silently. They carry **17 ESLint errors** — error severity under the repo's own `eslint.config.js`, not warnings — that nobody has ever seen. They are parked in `DEBT` in `scripts/check-lint-coverage.mjs` until fixed.\n\n## `apps/console` — 14 errors\n\n### `react-hooks/purity` x8 — impure call during render\n\n`Date.now()` called during render in `ApprovalsInboxPage.tsx` at lines **1397, 1399, 1400, 1401, 1601, 1605** (+2 more).\n\n> Cannot call impure function during render. `Date.now` is an impure function.\n\nRender must be pure — an impure call makes output depend on when React happens to render, which breaks under StrictMode double-render, concurrent re-render, and the React Compiler's memoisation assumptions. A relative-time display computed this way silently disagrees with itself across renders.\n\nFix shape: hoist the timestamp out of render — compute in an effect/event and hold it in state, or pass it in — rather than reading the clock mid-render.\n\n### `react-hooks/static-components` x4 — component created during render\n\n- `apps/console/src/pages/settings/SettingsField.tsx:222`\n- `apps/console/src/pages/settings/SettingsHub.tsx:46`\n- `apps/console/src/pages/settings/SettingsView.tsx:161`\n- `apps/console/src/pages/system/ApprovalsInboxPage.tsx:1585`\n\n> Cannot create components during render. Components created during render will reset.\n\n**This is the user-visible one.** A component defined inside render is a brand-new type every render, so React unmounts and remounts it: local state is lost, inputs lose focus mid-typing, animations restart. Three of the four are Settings pages — i.e. forms, where state loss is most noticeable. Worth checking whether any known Settings flakiness traces to these.\n\nFix shape: hoist the component to module scope and pass what it needs via props (or `useCallback` a render function rather than defining a component).\n\n### 2 minor\n\n- `apps/console/src/lib/auth-preflight.ts:39` — `no-useless-assignment`: the value assigned to `token` is never used in subsequent statements. Worth a look rather than a blind delete: a dead assignment on an auth path can mean an intended write went missing.\n- `apps/console/src/sdui-workbench-preview.tsx:25` — `prefer-const` on `store`.\n\n## `packages/runner` — 3 errors\n\n`react-hooks/static-components` x3 in `LayoutRenderer.tsx` at **70, 106, 168** — same class as console's.\n\n## Suggested order\n\nThe two `static-components` clusters are the same fix applied in two places and the highest value — start there. `purity` is contained to one file. The 2 minor ones are trivial but `auth-preflight` deserves a real read.\n\n## Closing this out\n\n`@object-ui/console` (14) and `@object-ui/runner` (3) are listed in `DEBT` in `scripts/check-lint-coverage.mjs`. Per package: fix the errors, add `\"lint\": \"eslint .\"`, then **delete the DEBT entry** — the guard fails if an entry outlives its gap and will remind you to close this issue.\n\nNote these are **pre-existing**, not a regression — they were simply invisible. The gate added in #2923 does not turn them red; it declares them.\n\nRefs #2911, #2923"
+}

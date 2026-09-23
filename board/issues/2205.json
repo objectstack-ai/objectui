@@ -1,0 +1,32 @@
+{
+  "number": 2205,
+  "kind": "issue",
+  "title": "BulkActionDialog single-select lookup param: no search box and options hard-capped at $top:200",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-04T01:28:15Z",
+  "updated_at": "2026-07-16T15:36:15Z",
+  "closed_at": "2026-07-16T15:36:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2205",
+  "body": "## 问题\n\n批量编辑对话框中**单选 lookup 参数**是一个无搜索的平铺 `<Select>`,且候选一次性拉取上限 200 条:\n\n- `packages/plugin-grid/src/components/BulkActionDialog.tsx:512-524`:单选分支直接渲染 `<Select>` 平铺全部选项,无搜索输入(多选分支的 `MultiSelectControl` 反而有 Command 搜索框,体验倒挂)。\n- `packages/plugin-grid/src/components/BulkActionDialog.tsx:131`:`dataSource.find!(p.object, { $top: 200 })`——引用对象超过 200 条时,第 201 条起的记录**永远无法被选到**,且无任何提示。\n\n实测(showcase `reassign_account`,8 条客户):下拉无搜索框;源码可证 200 条截断。\n\n## 建议修复\n\n1. 单选 lookup 与多选统一改为 Popover + Command 可搜索控件(单选即选完关闭)。\n2. 搜索改服务端过滤(输入触发 `$filter`/search 参数查询),而非一次拉 200 条本地过滤;至少要在候选被截断时给出提示。\n"
+}

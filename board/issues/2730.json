@@ -1,0 +1,36 @@
+{
+  "number": 2730,
+  "kind": "pull_request",
+  "title": "chore(lint): clear the mechanical baseline lint errors (8 pkgs, #2713 Wave 1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: react",
+    "plugin",
+    "plugin: markdown",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T05:04:10Z",
+  "updated_at": "2026-07-20T05:08:49Z",
+  "closed_at": "2026-07-20T05:08:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T05:08:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2730",
+  "body": "Extends the fields/core lint-gate cleanup from #2709 to the first wave of #2713 — eight packages whose per-package `lint` was **red at baseline on `main`**, so the gate could not catch new violations of the same class. **Errors only; zero behavior change** (warnings are out of scope per the issue). Grouped into one small PR because the fixes are same-class and mechanical (per the maintainer's call on #2713).\n\n## What changed (per rule)\n\n- **`no-useless-catch`** (`data-objectstack`, ×5) — unwrapped five `try { … } catch (err) { throw err }` blocks whose `catch` only re-threw. Errors still propagate identically; the 6 `catch` blocks that do real work are untouched.\n- **`preserve-caught-error`** (`cli` ×4, `data-objectstack` ×2, `react` ×1) — each caught error's message is inlined into the thrown `Error`. A **scoped disable with a justifying comment** carries each site, because all three packages target **ES2020**, whose lib types the 1-arg `Error` constructor only (so `new Error(msg, { cause })` won't compile) — the same reasoning #2709 used for the core case. Verified: none override `lib` to ES2022.\n- **`prefer-const`** (`plugin-calendar` ×3, `plugin-map` ×1) — `let`→`const` for never-reassigned bindings.\n- **`no-empty-object-type`** (`plugin-designer` ×2) — empty extend-only interfaces → equivalent `type` aliases.\n- **`no-useless-assignment`** (`react` ×1) — dropped a dead initializer that both branches overwrite before it's read (`let pool = objects` → `let pool: any[]`).\n- **`no-require-imports`** (`plugin-calendar`, `plugin-timeline` tests) — the hoisted `vi.mock` factories now use an `async` factory with `await import('react')` instead of `require('react')` (a real fix, not a disable).\n- **stale `eslint-disable` directive** (`plugin-markdown`) — removed a `react/no-danger` disable whose plugin is **not loaded** in the flat config; ESLint v10 reports the unknown-rule reference as an error. Rationale kept as a plain comment.\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** in all 8 packages (were 27 errors total at baseline).\n- **Type gate:** `turbo run build` (the dts/declaration build CI gates on) → **21/21 tasks green** across the 8 packages + their dep graph.\n- **Tests:** touched suites green — `data-objectstack` (176), `react/useRecordSearch` (10), the two changed `vi.mock` tests (7), plus `plugin-calendar`/`plugin-map`/`plugin-designer`/`cli` (60). 253 total.\n\n## Scope / follow-ups\n\nThis is **Wave 1** of #2713 (the pure-mechanical packages that go fully to 0). Remaining red packages — the `react-hooks/rules-of-hooks` + `static-components` heavy ones (app-shell, components, plugin-gantt, plugin-detail, plugin-dashboard, plugin-chatbot, and the small mixed set) — follow in later waves.\n\nRefs #2713 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

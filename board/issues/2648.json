@@ -1,0 +1,32 @@
+{
+  "number": 2648,
+  "kind": "issue",
+  "title": "perf(test): make the DOM projects hermetic so they can run isolate:false (~3-4x suite speedup)",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T03:58:17Z",
+  "updated_at": "2026-07-18T04:13:35Z",
+  "closed_at": "2026-07-18T04:13:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2648",
+  "body": "## 目标\n\n让 `dom` / `dom-heavy` 项目在 `isolate: false` 下也能全绿,从而把整个测试套件再提速 **~3-4×**。这是 #2641(分片)→ #2644(setup 分档)→ #2647(unit isolate:false)之后,测试提速的**最后一个、也是最大的一个**杠杆。\n\n## 为什么值得(实测,10 核本机,566 文件 / 6894 测试)\n\n| 配置 | 全套件 Duration | vs 基线 | 失败 |\n|---|---|---|---|\n| 基线(isolate:true) | **124s** | — | 0 |\n| 全局 isolate:false | **~30s** | **4.2×** | 19 文件 / 71 测试 |\n| pool=vmThreads | 293s | 2.4× 更慢 | 4 |\n\n关 isolate 后,吃掉一切的 `import` 阶段从 **734s 累计崩到 57s**。那 4.2× 是**带着 19 个失败**测出来的(失败文件提前 bail,省了本该跑的测试),修好后失败文件会跑全、`tests` 阶段涨回一些,**保守估计 ~3×(124→~40s)**。无论怎么算,这是本套件唯一能再上一个数量级的杠杆。\n\n`unit` 项目已在 #2647 独立拿下 isolate:false(node-env 纯逻辑,零泄漏,3.2× 单跑提速)。剩下的全部卡在 `dom` 家族的跨文件状态泄漏。\n\n## 障碍:19 个 dom 文件在 isolate:false 下泄漏\n\n关 isolate 后,worker 内模块图跨文件共享 → 模块级可变状态(ComponentRegistry 覆盖、happy-dom 节点、store/cache 单例、全局 mock)会从一个文件漏到下一个。失败信息聚类:**43× \"Unable to find\"(元素没渲染出来)+ 6× \"Cannot read\"**,是典型的顺序依赖泄漏。\n\n全部集中在 `dom` 项目 —— `dom-heavy` / `console` / `unit` 在 isolate:false 下**都干净**。\n\n<details><summary>19 个失败文件(<code>isolate:false</code> 下,基于 commit <code>0fc893544</code>)</summary>\n\n```\npackages/app-shell/src/hooks/__tests__/useNavigationSync.test.tsx\npackages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.badge.test.tsx\npackages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.dirty.test.tsx\npackages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.scope.test.tsx\npackages/components/src/__tests__/snapshot-critical.test.tsx\npackages/layout/src/__tests__/AppSchemaRenderer.test.tsx\npackages/mobile/src/__tests__/useBreakpoint.test.ts\npackages/plugin-designer/src/__tests__/ObjectManager.test.tsx\npackages/plugin-detail/src/__tests__/HeaderHighlight.editable.test.tsx\npackages/plugin-detail/src/__tests__/RecordRelatedListRenderer.hostactions.test.tsx\npackages/plugin-detail/src/__tests__/RelatedList.filecolumns.test.tsx\npackages/plugin-form/src/ObjectForm.submitBehavior.test.tsx\npackages/plugin-form/src/WizardForm.successBehavior.test.tsx\npackages/plugin-form/src/WizardForm.successMessage.test.tsx\npackages/plugin-gantt/src/ObjectGantt.writeerror.test.tsx\npackages/plugin-gantt/src/ResourceWorkload.test.tsx\npackages/plugin-grid/src/__tests__/exportServer.test.tsx\npackages/plugin-map/src/ObjectMap.styleFallback.test.tsx\npackages/plugin-view/src/__tests__/ObjectView.test.tsx\n```\n</details>\n\n## 疑似根因(需逐簇确认)\n\n- **ComponentRegistry 是模块级单例、后写覆盖**(`packages/core/src/registry/Registry.ts`,`private components = new Map`)。某个文件注册/覆盖了 widget 却没清 → 漏给下一个文件。→ 需要确定性的 `afterEach` reset(或每文件重播规范注册)。\n- **其它模块级可变单例**:store / cache / 全局 mock(`vi.mock`)、MSW handler、定时器 —— 需审计。\n- **快照测试**(`snapshot-critical`)对泄漏的 DOM 特别敏感,常是第一个暴露的。\n\n## 打法\n\n1. 先给 ComponentRegistry 加可复位能力 + `afterEach` 复位钩子,进 dom setup。\n2. `pnpm exec vitest run --project dom --no-isolate` → 修一批 → 重跑,迭代到 0 失败。\n3. 用 **`--sequence.shuffle`(多 seed)** 验证是真 hermetic,不是碰巧顺序对(这是 isolate:false 唯一靠谱的验收标准,见 #2647 的做法)。\n4. 全绿后:在 config 里给 `dom` / `dom-heavy` 项目也设 `isolate: false`。\n5. CI 收益兑现后,可考虑把分片从 4 降回 1-2 省 runner 分钟,或维持 4 片、每片压到 ~40s。\n\n## 复现\n\n```bash\npnpm exec vitest run --no-isolate --reporter=dot   # 全局关 isolate,看 19 个失败\npnpm exec vitest run --project unit --no-isolate    # 对照:unit 全绿(#2647 已落地)\n```\n\n## 范围外 / 已排除\n\n- **不要动 `isolate` 到 unit 以外之前先修泄漏** —— 直接翻会红 19 个文件。\n- **pool=vmThreads 已被数据枪毙**(慢 2.4× + 失败),不是这条路。\n- 不要用「宽容 fallback」在渲染器里绕过泄漏(违反 AGENTS.md #0.1);修的是测试的 hermetic 性,不是产品代码。\n\n_源自 #2644 之后的 isolate/pool A/B 基准。_"
+}

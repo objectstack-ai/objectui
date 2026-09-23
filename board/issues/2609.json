@@ -1,0 +1,33 @@
+{
+  "number": 2609,
+  "kind": "pull_request",
+  "title": "feat(studio): CEL formula editor with inferred result type; structured summary roll-up editor (#1582)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:33:58Z",
+  "updated_at": "2026-07-16T13:44:48Z",
+  "closed_at": "2026-07-16T13:44:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:44:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2609",
+  "body": "Follow-up to #2571 (issue #1582): the field inspector's FORMULA editor was still an unvalidated `<textarea>` — and it wrote `def.formula`, a key the engine never reads (`ObjectQL.planFormulaProjection` computes from `def.expression` only), so a Studio-authored formula silently never computed.\n\n## What changed\n\n**`celAuthoring.ts` — role option + type inference**\n- `CelSchemaHint.role?: 'predicate' | 'value'` threads through `lintCelPredicate` / `introspectCelScope` to `validateExpression` (default `'predicate'` — RLS/rules behavior unchanged).\n- New `inferCelValueType(source, hint)` → `'number' | 'text' | 'boolean' | 'date' | 'unknown' | null`, feature-detecting the engine's `inferExpressionType` — the same verdict dataset derivation keys measure eligibility off. `null` = engine unavailable/empty (no affordance), never an exception.\n\n**`CelPredicateField.tsx` — `role=\"value\"` mode**\n- Runs lint with the value role and shows the **inferred result type** under the editor once the expression parses (`Σ Result type: Number`); an unprovable type reads *Unknown* with the `double()`/`int()`/`string()` pinning hint.\n- `onInferredTypeChange` reports the verdict up so the host can stamp metadata from it.\n\n**`ObjectFieldInspector.tsx` — formula + summary**\n- `formula` fields: the CEL editor in `role=\"value\"`, `scope=\"record\"`, autocomplete roots `['record']` (formulas see neither `previous` nor `parent`), sibling-field catalog (self excluded — circular). Values round-trip both wire shapes on the spec's **`expression`** key; the legacy `formula` key seeds the editor and migrates on first edit. The proven type is stamped onto **`Field.returnType`** (spec: \"authoring stamps it from the inferred CEL type\"), cleared when unprovable — and only after a real edit this session, so selecting a field never dirties the draft.\n- `summary` fields: the spec models roll-ups as `summaryOperations` (no CEL expression), so the dead formula textarea is replaced by a structured editor — child object, aggregation (`count`/`sum`/`min`/`max`/`avg`), child field (kept visible for `count`: the spec requires the key, documented as ignored), optional relationship field.\n\n**`clientValidation.ts`** — `validateMetadataDraft('object')` now lints every formula `expression` draft-wide (role `value`, errors only) under `fields.<field>.expression`, alongside the #2571 conditional-rule lint.\n\n**i18n** — en/zh keys for the result-type affordance and the roll-up editor; README + metadata-diagnostics guide updated; feature changeset for `@object-ui/app-shell`.\n\n## Verification\n- `celAuthoring.test.ts` runs the REAL `@objectstack/formula` engine: value-role record-scope lint (bare-ref error with `record.<field>` fix, member did-you-mean) and inference verdicts (`record.amount * 0.2` → number, `upper(…)` → text, comparison → boolean, dyn+dyn → unknown, unavailable engine → null).\n- `ObjectFieldInspector.test.tsx` stubs via `__setCelFormulaLoader`: expression seeding/migration/envelope preservation, async `returnType` stamping (stateful harness), no stamping on mere selection, roll-up editor commits.\n- Full metadata-admin suite + `tsc --noEmit` green; preview-gallery browser check of the object designer.\n\nCloses nothing (follow-up); refs #1582, #2571.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 2853,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump jsdom from 29.1.1 to 30.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T08:25:35Z",
+  "updated_at": "2026-07-27T08:52:55Z",
+  "closed_at": "2026-07-27T08:52:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T08:52:53Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2853",
+  "body": "Bumps [jsdom](https://github.com/jsdom/jsdom) from 29.1.1 to 30.0.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/jsdom/jsdom/releases\">jsdom's releases</a>.</em></p>\n<blockquote>\n<h2>v30.0.0</h2>\n<p>Breaking changes:</p>\n<ul>\n<li>Node.js minimum version raised to <code>^22.22.2 || ^24.15.0 || &gt;=26.0.0</code>.</li>\n</ul>\n<p>Other changes:</p>\n<ul>\n<li>Added <code>CSS.escape()</code> and <code>CSS.supports()</code> functions. (<a href=\"https://github.com/asamuzaK\"><code>@​asamuzaK</code></a>)</li>\n<li>Added <code>'background-position-x'</code> and <code>'background-position-y'</code> CSS properties. (<a href=\"https://github.com/olagokemills\"><code>@​olagokemills</code></a>)</li>\n<li>Fixed <code>getComputedStyle()</code> to convert length values into pixels. (<a href=\"https://github.com/asamuzaK\"><code>@​asamuzaK</code></a>)</li>\n<li>Fixed CSS function serialization, e.g., in the return value of <code>getPropertyValue()</code>. (<a href=\"https://github.com/asamuzaK\"><code>@​asamuzaK</code></a>)</li>\n<li>Fixed the type of error thrown by <code>document.evaluate()</code> (<a href=\"https://github.com/dokson\"><code>@​dokson</code></a>)</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/20a01fc4a5ca1b2a48ec9c546d230624964d2f83\"><code>20a01fc</code></a> 30.0.0</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/8c8e583c4f0130f09a1f0ba2728c9aebc4f709c5\"><code>8c8e583</code></a> Precompute WPT expectation matches</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/f32245cfedf894b933bf4625b5649c284422da45\"><code>f32245c</code></a> Bump Node.js floor and dependencies</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/03ef23b4513af92d89d59b2383c5697a0a260111\"><code>03ef23b</code></a> Add background-position longhands</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/ded056f38de1a1e3709feafd0acea57377f85f35\"><code>ded056f</code></a> Test CSS.escape() with numeric IDs</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/d312832b344c8055c0d61e55bacd1a675ad5826e\"><code>d312832</code></a> Convert CSS values to pixels for computed styles</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/4e0ee415f6e1f439963d880a40663201680041e3\"><code>4e0ee41</code></a> Implement CSS.escape() and CSS.supports()</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/05eb709a6b60ea977d5a8b1429b74003c17f853b\"><code>05eb709</code></a> Fix benchmark:compare script on Windows</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/97c1b903973857c7a6bd26844bd7be6f5c43a8db\"><code>97c1b90</code></a> Fix CSS function value serialization</li>\n<li><a href=\"https://github.com/jsdom/jsdom/commit/15642baa1e43a6326570e822f26b1f63d57ebd4f\"><code>15642ba</code></a> Add benchmark comparison script</li>\n<li>Additional commits viewable in <a href=\"https://github.com/jsdom/jsdom/compare/v29.1.1...v30.0.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

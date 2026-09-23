@@ -1,0 +1,34 @@
+{
+  "number": 2739,
+  "kind": "pull_request",
+  "title": "feat(managedBy): explicit `engine-owned` lifecycle bucket (tracks framework ADR-0103 addendum)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T06:34:18Z",
+  "updated_at": "2026-07-20T07:17:42Z",
+  "closed_at": "2026-07-20T07:17:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:17:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2739",
+  "body": "Mirrors the framework's `engine-owned` enum split ([framework#3352](https://github.com/objectstack-ai/framework/pull/3352), ADR-0103 addendum, tracking #3343) in the UI type + runtime + badge.\n\n> **Stacked on #2724** (the `userActions` single-parser de-dup) — review/merge that first. The diff shown against `main` includes #2724's commit until it merges.\n\n## What changed (additive)\n\n- **`@object-ui/types`** — `ManagedByBucket` union + `MANAGED_BY_BUCKETS` gain `'engine-owned'` (canonical order: `platform, config, system, engine-owned, append-only, better-auth`). The union stays **closed**, so any consumer that missed the value is a compile error.\n- **`@object-ui/core`** — `resolveCrudAffordances` gains the `engine-owned` default row (identical all-locked matrix to `system`/`append-only`), so `isObjectInlineEditable` and the grid/form gates treat it read-only automatically.\n- **`@object-ui/app-shell`** — `ManagedByBadge` renders `engine-owned` with the same read-only \"System-managed\" copy as a locked `system` object. It deliberately **reuses the existing `managedByBadge.system` i18n key** — zero translation churn across the 11 locales, consistent UX; the distinction is at the schema level, not the user-facing string. `resolveManagedByEmptyState` likewise reuses the `system` engine-owned empty state.\n\n## Behaviour-preserving\n\n`engine-owned` resolves to the same locked affordances a locked `system` object did by default, so nothing about how a locked object renders changes — the value just makes the schema self-documenting. Type-check green across types/core/app-shell/plugin-{form,grid,detail}; core + app-shell suites green (1321); new unit coverage in `resolveCrudAffordances` / `isObjectInlineEditable` / `MANAGED_BY_BUCKETS` / the empty-state helper.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

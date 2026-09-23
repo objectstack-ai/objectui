@@ -1,0 +1,32 @@
+{
+  "number": 2752,
+  "kind": "pull_request",
+  "title": "chore(deps): bump express-rate-limit from 8.5.2 to 8.6.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T08:19:09Z",
+  "updated_at": "2026-07-20T08:23:05Z",
+  "closed_at": "2026-07-20T08:19:31Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-07-20T08:19:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2752",
+  "body": "Bumps [express-rate-limit](https://github.com/express-rate-limit/express-rate-limit) from 8.5.2 to 8.6.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/express-rate-limit/express-rate-limit/releases\">express-rate-limit's releases</a>.</em></p>\n<blockquote>\n<h2>v8.6.0</h2>\n<p>You can view the changelog <a href=\"https://express-rate-limit.mintlify.app/reference/changelog\">here</a>.</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/fffb3c4d6e614e79fcb5a6617c06cc57fd587ef0\"><code>fffb3c4</code></a> 8.6.0</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/f366b2d3602abace7e053cfb5a7e80d1f664f094\"><code>f366b2d</code></a> docs: debugging guide, time constants, &amp; v8.6.0 changelog (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/652\">#652</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/593ddd2f4fdf9111034ff81aef404d89cb07ad09\"><code>593ddd2</code></a> fix: make debug output easier to read (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/653\">#653</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/ef8c1295ff7f500717c9c0ceb099bbd873f8e9c2\"><code>ef8c129</code></a> fix: Pin safe version of <code>@​asyncapi/specs</code> dev dep (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/659\">#659</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/7b05e0dbd8b838075498af4fee7eccff4bd6c8a5\"><code>7b05e0d</code></a> feat: add time constants to support more readable values for windowMs (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/655\">#655</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/863e730c2f61e97e45315a7db8be42fc088d5234\"><code>863e730</code></a> chore(deps-dev): bump the development-dependencies group with 3 updates (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/657\">#657</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/e0e711e4c05b98d136203147cb811129fba79f81\"><code>e0e711e</code></a> fix: correct wording in usage documentation for express-rate-limit (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/656\">#656</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/fcd3aa7d5eef9d78a3609142491e9dbb4ba7d338\"><code>fcd3aa7</code></a> chore(deps-dev): bump the development-dependencies group with 3 updates (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/651\">#651</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/99d4298bda0d9cd11ba4a1d518cabc22ec74d241\"><code>99d4298</code></a> feat: use <code>debug</code> for debug logging (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/641\">#641</a>)</li>\n<li><a href=\"https://github.com/express-rate-limit/express-rate-limit/commit/23e4ddef557f300a3a6d759ab7af7de44f21ab4f\"><code>23e4dde</code></a> feat: Run validations once each (<a href=\"https://redirect.github.com/express-rate-limit/express-rate-limit/issues/650\">#650</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/express-rate-limit/express-rate-limit/compare/v8.5.2...v8.6.0\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=express-rate-limit&package-manager=npm_and_yarn&previous-version=8.5.2&new-version=8.6.0)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

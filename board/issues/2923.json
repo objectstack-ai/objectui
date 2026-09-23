@@ -1,0 +1,30 @@
+{
+  "number": 2923,
+  "kind": "issue",
+  "title": "lint never ran on PRs, and turbo skipped 7 packages — three `error` ratchets were inert",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T12:00:40Z",
+  "updated_at": "2026-07-28T14:43:49Z",
+  "closed_at": "2026-07-28T14:43:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2923",
+  "body": "> **Rewritten.** This issue originally recommended *against* wiring `lint.yml`, arguing it would be a no-op gate. That was wrong — the reasoning missed three `error`-level ratchets that were silently inert. The original analysis and the correction are preserved in the comments below; this body is the accurate statement of the defect. Fixed by #2928.\n\n## Two layers, the same shape as #2911\n\n**Layer 1 — the workflow never ran.** `lint.yml`'s only trigger was `workflow_dispatch`, so ESLint had never gated a PR.\n\n**Layer 2 — `turbo run lint` silently skips packages with no `lint` script.** 7 of 45 had none, including **`apps/console`**, the largest surface in the repo. So even a wired workflow would have been blind to it. Identical to the type-check hole in #2911.\n\n## Why layer 1 was not harmless\n\n`eslint.config.js` sets three `object-ui/*` rules to `error` **specifically so a new violation fails CI**:\n\n| rule | origin | comment in config |\n|---|---|---|\n| `object-ui/no-synthetic-event-trigger` | ADR-0054 Phase 5 | *\"Error so a new violation fails CI; the existing surfaces were converted … first, so this lints clean today.\"* |\n| `object-ui/no-try-catch-around-hook` | #2879 | *\"Error so a tenth copy fails CI; all known sites were converted first, so this lints clean today.\"* |\n| `object-ui/no-inline-spec-config` | `packages/types/src/objectql.ts` | *\"Error so a new inline mirror fails CI; the covered fields were converted first, so this lints clean today.\"* |\n\nThree separate deliberate efforts, each written on the assumption that CI enforces it, each having pre-cleaned its violations so the rule would lint clean. **All three were worthless.** The rule was authored; nothing ran it.\n\n## What it hid\n\n`apps/console` (14 errors) and `packages/runner` (3) carried **17 ESLint errors** — error severity under the repo's own config, not warnings — that nobody had ever seen. 12 are React-correctness bugs:\n\n- **`react-hooks/purity` x8** — `Date.now()` called during render in `ApprovalsInboxPage.tsx`\n- **`react-hooks/static-components` x4 in console, x3 in runner** — components created during render, which React remounts every render: state loss, focus loss. Three of console's four are Settings pages.\n\nBoth rules are at `error` because the config downgrades five *other* React Compiler rules but deliberately not these two. Split out to **#2927**; they are pre-existing, not a regression.\n\n## Also: `apps/site` was not broken\n\nOf the 25 errors first measured across the unlinted packages, 8 were artifacts:\n\n- 6 in `apps/site/.source/` — fumadocs-mdx **generated** output, already gitignored\n- 1 stale `eslint-disable-next-line @next/next/no-img-element` — the Next plugin isn't in the flat config, so the *directive itself* errored as an unknown rule\n- 1 `apps/console/tailwind.config.js` — TypeScript syntax in a `.js` file, so the base JS parser choked\n\nSecond time `apps/site` looked like debt purely because of generated artifacts (cf. #2924, where its 7 phantom *type* errors were a missing `.next/types`).\n\n## Fixed in #2928\n\n- `lint.yml` runs on `pull_request` + `push`\n- `scripts/check-lint-coverage.mjs` — every package lints or is a declared gap; the list only shrinks\n- lint scripts for the 5 already-clean packages; coverage **38 → 43 of 45**\n- console + runner declared in `DEBT`, tracked in #2927\n- the three config fixes above\n\nVerified by planting a hook inside try/catch in a linted package: `pnpm lint` exit 1, `Failed: @object-ui/i18n#lint` — impossible before.\n\n## Deliberately not done: `--max-warnings`\n\nMeasured composition of the 7,724 warnings:\n\n| rule | count | share |\n|---|---:|---:|\n| `@typescript-eslint/no-explicit-any` | 6,262 | 81% |\n| `react-refresh/only-export-components` | 486 | 6% |\n| `@typescript-eslint/no-unused-vars` | 322 | 4% |\n| `react-hooks/set-state-in-effect` | 252 | 3% |\n| `react-hooks/exhaustive-deps` | 177 | 2% |\n| `react-hooks/refs` | 111 | 1% |\n| four more `react-hooks/*` | 79 | |\n\nOne stylistic rule is 81%, and five `react-hooks/*` rules are downgraded on purpose (*\"codebase predates these rules\"*). A blanket cap of 7,724 reads as a health signal while really tracking `no-explicit-any`. Left open rather than answered badly.\n\nPromoting `no-unused-vars` to `error` (322 sites) was also dropped: #2911's actual failure mode was **TS1192**, now covered by the type-check gate from #2915. Unusedness itself has no demonstrated harm here, so the cleanup would be cosmetic.\n"
+}

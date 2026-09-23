@@ -1,0 +1,32 @@
+{
+  "number": 2548,
+  "kind": "issue",
+  "title": "Follow-up (ADR-0085 PR4): real-backend browser-verify showcase detail pages + framework renderViaSchema comment cleanup",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T01:26:11Z",
+  "updated_at": "2026-07-16T15:42:03Z",
+  "closed_at": "2026-07-16T15:42:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2548",
+  "body": "Follow-up to #2181 / PR #2546 (which removed the legacy monolith detail renderer and the `renderViaSchema` kill-switch). PR #2546 was merged on green CI (type-check, unit 3012, DOM 2904, console production build, and a Playwright console smoke all passed). Two items from the original #2181 checklist could not be completed in the CI/agent environment and are tracked here.\n\n## 1. Real-backend browser verification of detail pages (main) — ✅ DONE\n\n> Completed 2026-07-16 against framework@929efdf app-showcase + console dev on main (post-#2546). Full evidence in the comment below.\n\nThe console smoke in CI runs against a mocked build with **no `@objectstack` backend**, so the four representative detail-page shapes were never exercised against real data after the legacy branch was deleted. Now that schema-driven is the *only* path, confirm each renders correctly end-to-end:\n\n- [x] **grouped** — object with `fieldGroups`: groups render as titled cards in declared order; collapsible groups expand/collapse. *(verified via `showcase_semantic_zoo`; groups whose fields are all promoted into the highlights strip correctly collapse away, ungrouped tail auto-splits into primary + \"More details\")*\n- [x] **ungrouped** — object with no groups: falls through to the primary + collapsible \"More details\" auto-split (not one flat blob). *(verified via `showcase_contact`)*\n- [x] **stageField:false** — object that explicitly disables stage detection: **no** `record:path` stepper is emitted. *(verified via `showcase_semantic_zoo_legacy`)*\n- [x] **related-heavy** — e.g. `showcase_account`: Related tab / reference rail render, and each `record:related_list` **self-fetches lazily when its tab is shown** (no eager fan-out on page open — the removed legacy path used to preload all of them). *(verified: Invoices/Projects own tabs + Related tab; exactly 1 child-data request, fired on tab click)*\n\nFor each: no blank page, no fatal console errors, highlight strip present, audit meta footer at the bottom, and `?tab=` survives a refresh *(all verified)*. As a direct check that the kill-switch is gone, append `?renderViaSchema=0` to a detail URL and confirm it has **no effect** (still the schema page) *(verified — structure identical with and without the param)*.\n\n### Repro (per-agent isolated stack, from AGENTS.md)\n\n```bash\n# backend — showcase, fresh temp DB, seeds admin@objectos.ai / admin123\ncd framework && pnpm run setup   # NOT `pnpm setup` (that's pnpm's built-in)\npnpm exec turbo run build --filter=@objectstack/example-showcase...   # oclif CLI needs dist/commands\ncd examples/app-showcase\npnpm exec objectstack dev --seed-admin --fresh -p 4010\n\n# console pointed at it (VITE_SERVER_URL must be emptied — .env.development pins :3000)\ncd objectui/apps/console\nVITE_SERVER_URL= DEV_PROXY_TARGET=http://localhost:4010 pnpm exec vite --port 5190 --strictPort\n```\n\nThen log in at http://localhost:5190 (`admin@objectos.ai` / `admin123`), enter the showcase app via the launchpad (route by the app's `name`), and open a record for each shape above.\n\n## 2. framework: drop the stale `renderViaSchema` source comment (minor) — still open\n\n`@objectstack/spec` no longer types `renderViaSchema` / the per-object `detail.*` block (verified in the pinned `@objectstack/spec@14.6.0` — types are already clean). Only a source **comment** remains, noting the field \"retires together with the legacy monolith render path.\" Now that the render path is gone (PR #2546), that comment can be removed in the framework repo.\n\n---\n_Filed as the deferred remainder of #2181 after PR #2546 merged._"
+}

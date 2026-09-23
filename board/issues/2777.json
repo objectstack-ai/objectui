@@ -1,0 +1,33 @@
+{
+  "number": 2777,
+  "kind": "issue",
+  "title": "自动生成列表视图仍把注入的 owner_id 当裸 id 首列(#2702 只覆盖了详情,没覆盖 auto-list 列)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "designer"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-21T14:59:14Z",
+  "updated_at": "2026-07-21T15:58:28Z",
+  "closed_at": "2026-07-21T15:58:28Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2777",
+  "body": "## Problem\n\nOn an object's **auto-generated default list view** (the \"所有记录\" tabular view when the object declares no explicit list view), the injected system **`owner_id` appears as a leading, raw-id column** — the exact anti-pattern #2702 set out to remove.\n\nRepro (showcase, v16): open **Invoices** (`showcase_invoice` — it declares no `.view.ts`, so the list is auto-generated). Columns render as:\n\n`#` · **`Owner id`** (raw `1rLx7YrFprCg9I1iVkM48HwxEZ06aUtz`, *identical on every row*) · 发票号 · 客户 · 联系人 · **负责人** (`ada@example.com` …) · 操作\n\nSo the list shows **two** owner columns:\n- **`Owner id`** — the injected system ownership column, **raw id**, **leading** position, same value on all rows (all seeded by the same principal).\n- **负责人** — the business `owner` (`Field.user`), correct **display value**.\n\nConfirmed via API: `owner_id = 1rLx7Yr…` (constant), `organization_id = null`, `owner = ada@example.com`. So the leading id is genuinely `owner_id`, not `organization_id`.\n\n## Why it's a regression/gap\n#2702 (\"injected `owner_id` stays out of leading auto-derived columns and lands in the detail meta section\"):\n- **Detail page — correct**: `owner_id` is *not* shown as a field; the meta footer shows \"更新人 Dev Admin\" (display value, #2689). ✅\n- **Auto-generated list columns — not applied**: `owner_id` is still emitted as a leading raw-id column. ❌\n\nSo the exclusion covers the detail but not the **auto-list-column generator**. Result: a raw system id as the first data column, redundant with the business owner column — poor first impression on any object without a declared list view.\n\n## Fix\nApply the same injected-system-column exclusion (owner_id / organization_id / created_by / updated_by) to the **auto-generated list column set** that #2702 applied to the detail — keep them out of the default columns (still reachable via column picker if wanted).\n\nFound in the objectstack-ai/framework#3358 v16 sweep (§4 \"List polish\"). Console-polish umbrella: #2762.\n"
+}

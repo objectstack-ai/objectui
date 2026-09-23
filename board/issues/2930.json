@@ -1,0 +1,33 @@
+{
+  "number": 2930,
+  "kind": "pull_request",
+  "title": "fix(console,runner): render the approvals inbox against one ticking clock, and lint both packages (#2927)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T15:41:32Z",
+  "updated_at": "2026-07-28T15:48:15Z",
+  "closed_at": "2026-07-28T15:48:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T15:48:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2930",
+  "body": "Closes #2927. Refs #2911, #2923.\n\n`apps/console` and `packages/runner` had no `lint` script, so `turbo run lint` skipped them silently and their **17 ESLint errors had never been seen**. Both now carry `\"lint\": \"eslint .\"`, and the `DEBT` list in `scripts/check-lint-coverage.mjs` is **empty** — 45/45 workspace packages are linted.\n\nThe issue framed these as \"12 React-correctness bugs\". Read one by one they are not one class of problem, and the count is smaller than it looked:\n\n## 8x `react-hooks/purity` — real, and the fix is a behaviour fix\n\nThe approvals inbox read `Date.now()` mid-render for every age tint, \"5m ago\" label and SLA chip. Render must be pure: the output depended on when React happened to render, so it disagreed with itself under StrictMode's double render — and, more visibly, it **froze**. An inbox left open kept saying \"just now\"; an SLA countdown never counted down.\n\nThe page now renders against a single `now` held in state and advanced once a minute (the finest granularity anything here displays — \"5m ago\", \"36h\", \"3d\"). Render becomes a pure function of props+state *and* the figures actually tick. Note a mount-frozen constant would have been *worse* than the impure read, so the interval is part of the correct fix, not scope creep.\n\n`sla_due_at` now goes through a parse guard as well: a due date in a shape `Date.parse` can't read used to render as **\"SLA NaNh left\"**; it now renders nothing.\n\n## 1x `react-hooks/static-components` — real\n\n`StatusBadge` was declared inside `ApprovalsInboxPage`, so it was a brand-new component type on every render and React unmounted/remounted every status chip in the table on each re-render. Hoisted to module scope, translated label passed as a prop.\n\n## 6x `react-hooks/static-components` — false positives\n\n3 in the console's settings pages, 3 in the runner's `LayoutRenderer`. All six render the result of `getIcon` / `getLazyIcon`, which **memoises per name in a module-level cache** — the component reference is stable across renders and nothing is created during render. The rule cannot see through the call.\n\nThey carry the same targeted `eslint-disable-next-line` + justification the repo already uses at a dozen icon-registry sites (`MetricCard`, `NavigationRenderer`, `action-group`, …), and both resolvers now document the cache so the next reader doesn't have to re-derive it.\n\n**This is the part of the issue that needed checking rather than believing.** The issue called these \"the user-visible one … forms, where state loss is most noticeable\", and asked whether known Settings flakiness traced to them. It does not: typing 17 characters into the Company → Legal name field keeps focus and every character (screenshot below). Nothing was being reset.\n\n## 2 minor\n\n- `auth-preflight.ts` — dead `token` initializer. Read rather than blind-deleted, as the issue asked: no intended write is missing; every path out of the try/catch either assigns or returns. Dropped the initializer and documented why.\n- `sdui-workbench-preview.tsx` — `prefer-const`.\n\n## Verification\n\n- `apps/console` **0 errors**, `packages/runner` **0 errors** (were 14 / 3).\n- `node scripts/check-lint-coverage.mjs` → `45/45 packages linted, 0 with outstanding errors`.\n- **The gate was proved red before being trusted green**: injecting a `prefer-const` into console and a `Date.now()`-in-render into runner fails `turbo run lint` in both (`Failed: @object-ui/console#lint`, `@object-ui/runner#lint`); reverting returns both to `0 errors`.\n- `tsc --noEmit` clean in both packages; `vitest` 91/91 in console, runner green.\n- Browser-verified against a live showcase backend (console dev server on :5182):\n  - approvals list — status chips, relative time, and all three SLA branches: `SLA 已超期 2d` in red, `SLA 剩余 30h` muted, and **nothing at all** for an unparsable due date (the new guard);\n  - drawer — same three branches at the second SLA site;\n  - relative time observed ticking 3 → 4 → 5 分钟前 without any other interaction, i.e. the clock advances on its own now;\n  - settings hub / view / field render their icons, and the typing-focus check above.\n  - Pre-existing console noise (`HTTP request failed`, a duplicate-React-key warning) reproduces identically with `ApprovalsInboxPage.tsx` swapped back to its `main` version, so it is not from this change — filed separately.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

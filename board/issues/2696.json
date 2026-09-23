@@ -1,0 +1,32 @@
+{
+  "number": 2696,
+  "kind": "pull_request",
+  "title": "test(app-shell): make field-rule 'non-CEL dialect' fixture forward-compatible (framework#3278)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T16:25:08Z",
+  "updated_at": "2026-07-19T16:29:55Z",
+  "closed_at": "2026-07-19T16:29:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T16:29:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2696",
+  "body": "## What\n\n`clientValidation.fieldRules.test.ts` — the *\"skips non-CEL dialect envelopes\"* test used `{ dialect: 'js', source: '!!!' }` as its fixture. framework PR #3291 (issue #3278) retires the `js` expression dialect: `ExpressionDialect` in `@objectstack/spec` narrows to `z.enum(['cel', 'cron', 'template'])`. Once objectui bumps to that spec, `{ dialect: 'js', … }` becomes shape-invalid, and the draft validator's spec-Zod pass would emit an issue at `fields.status.visibleWhen`, breaking the `.toEqual([])` assertion.\n\n## Change\n\nSwap the fixture to `{ dialect: 'template', source: '!!!' }` — a **well-typed, non-CEL** dialect that survives the narrowing.\n\nWhy not `dialect: 'cel'` (the obvious \"bad source under a valid dialect\")? The test proves the CEL lint *skips* non-CEL envelopes. `predicateSource` only extracts source when `dialect === undefined || dialect === 'cel'`, so `dialect: 'cel'` would make the lint **own** the garbage `'!!!'` and flag it — flipping the assertion. The replacement had to stay a non-CEL dialect; `template` is safest (`'!!!'` is a valid constant template → no spec-Zod content error either).\n\n## Notes\n\n- **Behavior-neutral today.** Published spec latest is still 15.1.1 (`js` present); no shipped spec has dropped `js` yet. `{ dialect: 'template', … }` produces the identical test outcome against both the current and the future narrowed spec, so this is a safe pre-emptive hygiene change.\n- Grep confirms this was the **only** `dialect: 'js'` expression author in objectui. `language: 'js'` (L2 ScriptBody, a separate enum) is unaffected and untouched.\n- Verified: the scoped test file passes (11/11) against the real `@objectstack/formula` engine.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

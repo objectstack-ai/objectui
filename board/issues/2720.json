@@ -1,0 +1,33 @@
+{
+  "number": 2720,
+  "kind": "pull_request",
+  "title": "test(app-shell): value-shape parity net for action params (#2714)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:58:57Z",
+  "updated_at": "2026-07-20T03:03:43Z",
+  "closed_at": "2026-07-20T03:03:41Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T03:03:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2720",
+  "body": "Closes #2714.\n\n## Why\n\nSince ADR-0059 (#2700 / #2704), `ActionParamDialog` routes **every** param through the shared form field-widget renderer (`paramToField()` → `getLazyFieldWidget`). That was the whole win — but it also means each param now emits **its widget's own value shape** on confirm, and those shapes differ (`number`→number, `boolean`→boolean, `date`→string, `select`→string / `select+multiple`→`string[]`, `lookup`/`user`→id(s), `file`/`image`→fileId(s)). #2700's acceptance called for value-shape parity coverage, but no test net pinned it — so a future widget swap could silently change a param's emitted shape and break an endpoint's input contract with no failing test.\n\n## What\n\n**The contract (`packages/app-shell/src/utils/paramValueShape.ts`)**\n- `PARAM_VALUE_SHAPES` — one entry per `FORM_FIELD_TYPES` widget key, describing the shape the dialog **POSTs** (i.e. after `serializeParamValues`, so `file`/`image` are already their fileId string).\n- `expectedParamShape(param)` — resolves a concrete `ActionParamDef` to its emitted shape by reusing the **same** `paramToField()` the dialog renders with, so the contract can't drift from the dialog's own type resolution; it then folds in `multiple` and the fileId serialization.\n- `classifyValueShape(value)` — runtime classifier backing the render proofs.\n\n**The net (`paramValueShape.test.ts`, mirroring the `paramToField` drift test)**\n- **Coverage / drift guard:** every `FORM_FIELD_TYPES` key has a declared shape — a new widget can't land without stating what a param of that type POSTs.\n- **Pinned contracts:** `number`→number, `boolean`→boolean, `date`/`datetime`/`time`→string, `select`→string, `select+multiple`→`string[]` (#2709), `lookup`/`user`→id(s), `file`→fileId(s), `multiselect`/`tags`→`string[]`, `object`/`address`→object, `grid`→`object[]`, computed types (`formula`/`summary`/`auto_number`/`vector`)→none.\n\n**Reality tie (`ActionParamDialog.test.tsx`)**\n- Contract-tied render proofs that drive the **real** widget (number / datetime / time / select+multiple / file) and assert the value the dialog resolves classifies to the declared contract — so a silent widget-`onChange` swap fails at the render layer too, not just in the table.\n\n**Docs**\n- Emitted-shape table added to [ADR-0059](docs/adr/0059-action-params-shared-field-widgets.md) (replacing the earlier prose, and correcting the now-stale `file`→descriptor line to the post-#2710 fileId contract) and referenced from the app-shell README.\n\n## Out of scope (owned elsewhere)\n\nThe `file`/`image` → fileId serialization itself is **#2698 / #2710** (`serializeParamValues`). This net **adopts** that (asserts the post-serialize endpoint shape) rather than duplicating it.\n\n## Test / verify\n\n- `paramValueShape.test.ts` — 54 pass (`unit` project, node env).\n- `ActionParamDialog.test.tsx` — 28 pass (`dom` project), incl. the 5 new contract-tied proofs.\n- `paramToField.test.ts` — still green.\n- `turbo run build --filter=@object-ui/app-shell` — 29/29 successful (app-shell `tsc` executed clean); eslint clean on new lines.\n\nNo changeset: internal test-net + contract module (not exported from the package's public `index.ts`) + docs; no runtime or public-API change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

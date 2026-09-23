@@ -1,0 +1,33 @@
+{
+  "number": 2814,
+  "kind": "pull_request",
+  "title": "feat(app-shell): toast when a save silently dropped read-only fields (framework #3431/#3455)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-25T01:06:06Z",
+  "updated_at": "2026-07-25T01:10:40Z",
+  "closed_at": "2026-07-25T01:10:37Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-25T01:10:37Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2814",
+  "body": "Consumes the framework write-observability channel (framework #3431 / #3455): the backend now reports fields it LEGALLY stripped from a write — a non-system caller can't seed a `readonly` field, a `readonlyWhen` predicate locked it, the #3043 create-ingress strip removed it — as a `droppedFields` payload on the create/update response (and the `X-ObjectStack-Dropped-Fields` header). The console **discarded** it: a value the user typed into a locked field just vanished on save under a success toast, with no explanation. This surfaces it.\n\n## Changes\n\n**`@object-ui/data-objectstack` — central adapter seam.**\n`ObjectStackAdapter` gains a write-warning bus mirroring the existing `onMutation` one:\n- `onWriteWarning(cb): () => void` — subscribe; returns an unsubscribe.\n- After a `create`/`update` whose client response carried `droppedFields`, the adapter emits a `WriteWarningEvent { operation, resource, id?, droppedFields }`.\n- The payload is read **structurally** and validated (`notifyDroppedFields`), so an older `@objectstack/client` whose type predates `droppedFields`, or a backend that never drops, is a silent no-op — no version pin.\n- New exported types: `WriteWarningEvent`, `WriteWarningListener`, `DroppedFieldsEvent`.\n\n**`@object-ui/app-shell` — wiring.**\n`AdapterProvider` subscribes on adapter creation and raises a `toast.warning` (“Some fields were not saved — the read-only field … could not be changed and was not saved”), cleaning the subscription up on unmount. The write itself still succeeded — this is a warning, status/behaviour unchanged.\n\nCentral by design: the single `onWriteWarning` seam on the shared adapter covers every create/update consumer (ObjectView form save, inline edit, …) without touching each call site.\n\n## Verification\n\n- **Unit** (`packages/data-objectstack/src/onWriteWarning.test.ts`, 6 cases): emits on create/update with the dropped fields + id; **no** emit when `droppedFields` is absent / empty / malformed; unsubscribe stops delivery; a throwing listener is isolated (write still resolves). `onMutation` regression suite still green (36 tests total).\n- **Types:** `data-objectstack` (`tsc -b`) and `app-shell` (`tsc --noEmit`) both clean.\n- **Browser:** rendered the toast through the **real** ConsoleToaster in the running console — both the singular (“The read-only field “approval_status” …”) and plural (“2 read-only fields … : approval_status, locked_at”) grammar. Screenshot on request.\n\n## Notes\n\nDepends on the backend returning `droppedFields`, which lands with framework #3468 (merged). Until a deployment includes it, this is inert (no event, no toast) — safe to ship ahead.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

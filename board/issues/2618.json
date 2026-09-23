@@ -1,0 +1,30 @@
+{
+  "number": 2618,
+  "kind": "issue",
+  "title": "\"Locked for approval\" band never shows on backends that track the lock via approval requests only (no `approval_status` field)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T15:38:29Z",
+  "updated_at": "2026-07-16T16:33:53Z",
+  "closed_at": "2026-07-16T16:33:53Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2618",
+  "body": "Found during the live dogfood verification of #2572 (PR #2604 / #2615) on the showcase stack (`framework/examples/app-showcase`, Project \"Website Relaunch\", `showcase_budget_approval` flow).\n\n## Symptom\n\nWhen a record is approval-locked, `DetailView`'s approval-lock band (\"Locked for approval\" + the recall affordance) never renders on this backend — even though the lock is real: the server rejects writes with `RECORD_LOCKED`, and the inline-edit session correctly locks (pencils hidden, `enter()` no-op, save bar `locked`).\n\n## Cause\n\nThe band keys off the record's own field ONLY:\n\n- `packages/plugin-detail/src/DetailView.tsx` → `const approvalStatus = data?.approval_status; const isLocked = approvalStatus === 'pending' || approvalStatus === 'in_approval';`\n\nBut the framework does **not** materialize an `approval_status` field on the record — verified live: the record payload after the flow opened the approval carries no such key, while `GET /api/v1/approvals/requests?object=…&recordId=…` returns the request with `status: \"pending\"`. The lock signal exists only in the approvals API.\n\n`RecordDetailView` (app-shell) already handles this for the inline-edit path since #2615's base PR: its `approvalLocked` is `approval_status ∈ {pending, in_approval} OR !!approvals.pendingRequest` (`useRecordApprovals`). With the field-only signal, the lock would never have engaged on this backend at all — the dual signal is what made #2572 item 2 work.\n\n## Suggested direction\n\nEither (pick one, don't do both):\n\n1. **Renderer**: thread the host's `approvalLocked` (or the pending request) into `DetailView` so the band renders from the same signal the session lock uses — e.g. a `locked`/`lockedReason` prop supplied by `RecordDetailView`, keeping `DetailView` itself DataSource-agnostic; or\n2. **Contract-first (framework)**: decide that the platform SHOULD materialize `approval_status` on locked records (spec-level decision), in which case this is a framework issue and the renderer stays as-is.\n\nGiven AGENTS.md #0.1 (fix the producer, not the renderer), option 2 deserves a deliberate look first; option 1 is still renderer-correct because the approvals API is an official signal, not a lenient fallback.\n\n## Impact\n\nCosmetic-but-confusing: users on request-tracked backends see editing silently disabled with no explanation banner (the save-bar `lockedHint` tooltip only shows if a session was already open). Low priority — the lock behavior itself is correct.\n"
+}

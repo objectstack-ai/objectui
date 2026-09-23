@@ -1,0 +1,34 @@
+{
+  "number": 2716,
+  "kind": "pull_request",
+  "title": "fix(kanban,calendar): surface write failures instead of silently swallowing them (cloud#864 A)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "plugin",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T02:46:02Z",
+  "updated_at": "2026-07-20T05:02:11Z",
+  "closed_at": "2026-07-20T05:02:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T05:02:09Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2716",
+  "body": "## What\n\nOn a record surface, dragging a card into a different status column (Kanban) or\ndragging an event to a new date (Calendar) issues a single-field `PATCH`. When\nthat write fails — most commonly a **row-level-security 403** (`code:\nPERMISSION_DENIED`) — the drag handlers only `console.warn`/`console.error`'d\nand snapped the item back, so the user saw **no feedback at all**: the status\njust didn't change and nothing explained why.\n\nThis is part **(A)** of objectstack-ai/cloud#864 (the deterministic frontend bug).\n\n## Changes\n\n- **`@object-ui/react`**: new shared `extractWriteErrorMessage(err)` /\n  `isPermissionError(err)` (`packages/react/src/utils/error-message.ts`). They\n  normalise across both DataSource error shapes — the ObjectStack adapter's\n  structured `.details`/`.message` and `ApiDataSource`'s JSON-tail-in-message —\n  and strip `[Security] ` / `PERMISSION_DENIED:` prefixes.\n- **`ObjectKanban.handleCardMove`** and **`ObjectCalendar.handleEventDropDefault`**:\n  on failure, keep the optimistic revert but also `toast.error(...)` — a\n  permission denial shows the already-localized `errors.unauthorized`\n  (\"You are not authorized to perform this action.\" / \"您没有权限执行此操作。\"),\n  other errors show the server reason (fallback `table.saveFailed`).\n\n## Note on the issue's scope\n\nThe issue also listed inline-edit and the edit form as silently swallowing. On\ncurrent `main` those already surface (inline `role=\"alert\"` via\n`InlineEditSaveBar`, and `toast.error` + inline error in the form). The genuine\nsilent swallows were the two drag surfaces, which is what this PR fixes. The\nmatching **ownership** fix (so a member can actually edit their app's seed data)\nis option (B), handled in a separate cloud PR.\n\n## Verification\n\n- `type-check` clean for `@object-ui/react`, `@object-ui/plugin-kanban`,\n  `@object-ui/plugin-calendar`.\n- Existing kanban/calendar unit tests pass (the one failing suite,\n  `plugin-calendar/src/registration.test.tsx`, fails identically on unmodified\n  `main` — a pre-existing brittle non-spread mock of `@object-ui/react`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

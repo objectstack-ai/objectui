@@ -1,0 +1,30 @@
+{
+  "number": 2754,
+  "kind": "pull_request",
+  "title": "fix: empty view name 405 + draft views not appearing in view switcher",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "akarma-synetal",
+    "id": 112554634,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T09:56:17Z",
+  "updated_at": "2026-07-21T03:08:15Z",
+  "closed_at": "2026-07-21T03:08:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2754",
+  "body": "## Summary\n\nFixes two issues when creating views via the \"Add View\" dialog in the record list page:\n\n1. **405 Method Not Allowed** — when the dialog produced an empty view name, the client sent `PUT /api/v1/meta/view/` (no `:name` segment), which the server rejects.\n\n2. **Draft views not appearing in view switcher** — `listViews()` only fetched published views. Runtime-created draft views were invisible until the user explicitly published them, leaving no way to verify a newly created view.\n\n## Changes\n\n### 1. Empty name guards (`metadata-client.ts`, `runtime-metadata-persistence.ts`)\nEarly-exit validation in `MetadataClient.save()` and `createRuntimeMetadata()` throws a clear error instead of hitting the server with a malformed URL.\n\n### 2. Producer fix — fallback name + `object` stamp (`ObjectView.tsx`)\n- When the dialog supplies no name, generate a unique fallback (e.g. `showcase_task_grid_mrsyt56j`).\n- Stamp `object` and `data.object` on the create spec so the view passes the `listViews()` object-name filter.\n\n### 3. Reader fix — fetch draft views (`index.ts`)\n`listViews()` now fetches draft views via `GET /api/v1/meta/view?preview=draft`, filters items tagged `_draft === true`, and merges them into the view list. Users can now verify views immediately after creation, then publish when ready.\n\n## Test plan\n\n- [x] Existing tests pass: `listViews.test.ts` (4/4), `metadata-client.test.ts` (20/20), `runtime-metadata-persistence.test.ts` (15/15)\n- [ ] Verify: open a record list page → \"Add View\" → new view appears in tab bar as draft → verify columns/type → Publish\n\nMade with [Cursor](https://cursor.com)"
+}

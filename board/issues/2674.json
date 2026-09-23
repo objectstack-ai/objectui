@@ -1,0 +1,32 @@
+{
+  "number": 2674,
+  "kind": "pull_request",
+  "title": "fix(app-shell): skip resultDialog fields whose path does not resolve",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T07:24:02Z",
+  "updated_at": "2026-07-19T11:59:18Z",
+  "closed_at": "2026-07-19T11:59:16Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-07-19T11:59:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2674",
+  "body": "Fixes #2673\n\n## What\n\n`ActionResultDialog` now resolves field values while building the render plan and drops any declared field whose non-empty `path` is absent from the response payload (`readPath` → `undefined`). The empty-path whole-payload JSON fallback is unchanged. Previously such rows still rendered, and the `text`/`secret` guards degraded them to a `JsonBlock` printing the literal `undefined`.\n\nDeclared `resultDialog` fields are now safe for response-shape-dependent keys — e.g. `sys_user.create_user`'s `temporaryPassword` (absent when the admin typed the password) and the upcoming `user.phoneNumber` echo (objectstack-ai/framework#3260, absent for email-only users).\n\n## Tests\n\nNew `ActionResultDialog.test.tsx`:\n- drops a declared field whose path does not resolve (no label, no literal `undefined`)\n- renders every declared field when all paths resolve (secret stays masked)\n- still falls back to whole-payload JSON when no fields are declared\n\n`turbo run type-check --filter=@object-ui/app-shell` green; eslint clean. Pure bug fix — no changeset per AGENTS.md.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

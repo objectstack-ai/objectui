@@ -1,0 +1,33 @@
+{
+  "number": 2744,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in plugin-gantt (#2713 Wave 3.4)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T07:48:59Z",
+  "updated_at": "2026-07-20T07:53:30Z",
+  "closed_at": "2026-07-20T07:53:29Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T07:53:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2744",
+  "body": "Wave 3 of the #2713 lint-gate restoration. `@object-ui/plugin-gantt` was **red at baseline on `main`**. **Errors only; no behavior change.** 18 of the 21 were in the demo harness (`demo/main.tsx`); the other 3 in src/test.\n\n## What changed\n\n- **`react-hooks/static-components`** (demo, ×8) — the `Swatch` legend cell was defined *inside* `ManufacturingLegend`. Hoisted to module scope — it's purely props-driven (`color`/`label`/`hollow`), so nothing from render scope is captured.\n- **`react-hooks/rules-of-hooks`** (demo, ×9) — `App` had a `?quickfilter=1` early return **before** ~9 hooks (`useState`/`useMemo`/`useEffect`). Moved that route below all hooks so hook order is stable every render; the branch still renders `<QuickFilterDemo />`.\n- **`react-hooks/purity`** (demo, ×1) — the demo render-timer necessarily reads `performance.now()` during render (paired with the effect that measures elapsed ms). Justified scoped disable, demo-only.\n- **`object-ui/no-synthetic-event-trigger`** (`GanttView.interactions.test`) — the \"Escape closes the context menu\" test dispatched a raw `window` `KeyboardEvent` (the ADR-0054 C1 anti-pattern). Switched to `fireEvent.keyDown(window, { key: 'Escape' })` — **the exact pattern already used at line 521 of the same file**. The Escape listener is on `window` (`GanttView.tsx`), so behavior is identical.\n- **`no-useless-assignment`** (`GanttView`, `ObjectGantt`) — dropped two dead initializers (`ok`, `options`) that their exhaustive `try`/`catch` and `if`/`else` chains overwrite before reading (declared without initializer; multiple assignment sites, so no follow-on `prefer-const`).\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (21 at baseline).\n- **Type gate:** `turbo run build` → **12/12 tasks green**.\n- **Tests:** full `plugin-gantt` suite green — **338 passed / 34 files**, including `GanttView.interactions` (the Escape test I changed).\n\nRefs #2713 · follows #2730, #2737, #2738, #2740, #2741 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

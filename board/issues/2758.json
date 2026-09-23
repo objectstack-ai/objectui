@@ -1,0 +1,30 @@
+{
+  "number": 2758,
+  "kind": "pull_request",
+  "title": "fix(studio-design): remove false 'Read-only' badge for project-scoped…",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "aditya070299",
+    "id": 145893237,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T12:58:27Z",
+  "updated_at": "2026-07-20T14:00:19Z",
+  "closed_at": "2026-07-20T14:00:11Z",
+  "closed_by": {
+    "login": "aditya070299",
+    "id": 145893237,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2758",
+  "body": "\r\n<img width=\"571\" height=\"217\" alt=\"Screenshot 2026-07-20 182758\" src=\"https://github.com/user-attachments/assets/1d04bd13-1512-4478-9275-578a124c68bd\" />\r\n… packages\r\n\r\nThe Zod manifest schema defaults  to , which caused all app packages to display a misleading 'Read-only' badge in the UI. Kernel packages (system/cloud) are already filtered out on line 40, so all remaining packages should be marked writable.\r\n\r\nChange  to ."
+}

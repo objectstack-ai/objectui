@@ -1,0 +1,35 @@
+{
+  "number": 2604,
+  "kind": "pull_request",
+  "title": "feat(detail+fields+components+app-shell): record inline-edit polish — expanded-value passthrough, approval-lock preflight, numeric inputs, edit-CTA gate, keyboard shortcuts (#2572)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T13:15:16Z",
+  "updated_at": "2026-07-16T13:26:41Z",
+  "closed_at": "2026-07-16T13:26:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T13:26:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2604",
+  "body": "Closes #2572 — all five polish items from the live showcase verification pass of the record-level inline edit (#2407 / #2529 / #2542 / #2549).\n\n## 1. Expanded-value passthrough (no more re-fetch just to show a name)\n\n`InlineFieldInput` no longer collapses an `$expand`-ed reference record to a bare id before handing it to `LookupField` / `UserField` — the picker's `resolveSelectedOption` maps the object directly, so the display name the record page's `populate=` already delivered renders synchronously with **zero** hydration `findOne`. Complementary fix in `LookupField`: the Level-2 pickers (`PeoplePicker` / `RecordPickerDialog`) *do* operate on bare ids (seed queries, selected-row matching), so the value handed to them is collapsed via the existing `normalizeId` — an object-shaped id can no longer leak into a `$in` seed filter. `extractLookupId` stays exported for write-side callers.\n\n## 2. Approval-lock preflight\n\n`RecordDetailView` now:\n- re-runs `useRecordApprovals().refresh()` on every record invalidation (skipping the initial mount) — a save can *trigger* an approval flow (verified live: `flow:showcase_budget_approval`), and the approvals snapshot previously stayed frozen at page load;\n- derives one `approvalLocked` signal — `approval_status` `pending`/`in_approval` (what the DetailView lock band keys off) **or** an open pending request from the approvals API;\n- gates `InlineEditProvider.canEdit` with it, so a locked record hides the hover pencils and `enter()` no-ops — users can no longer type a whole draft only to be rejected with `RECORD_LOCKED` at Save;\n- drives the save bar's existing `locked` + `lockedHint` props from the same signal.\n\n## 3. Numeric field types edit with real numeric widgets\n\n`number` / `currency` / `percent` route to `NumberField` / `CurrencyField` / `PercentField` — the SAME widgets the form uses — instead of the free-text fallback: numeric keyboard, currency symbol adornment, fraction↔percent display conversion, and numbers (not strings) staged into the draft. Supporting widget fixes:\n- `NumberField` + `CurrencyField` surface metadata `min`/`max` on the input (Project.budget's `min: 0` is no longer ignored);\n- `NumberField` honors an explicit metadata `step` and steps by 1 for `scale: 0` (previously `0` was falsy → `step=\"any\"`).\n\n`decimal` / `integer` are **not** `@objectstack/spec` FieldTypes (metadata should declare `number` with `scale`), so per AGENTS.md commandment #0.1 they are deliberately not aliased in the renderer.\n\n## 4. Header Edit CTA stands down during an inline session\n\nThe synthesized `sys_edit` action carries a new `disableDuringInlineEdit` flag; the `page:header` renderer greys flagged actions out (inline buttons and overflow menu items) while `InlineEditContext.editing` is true — the classic form-edit surface can no longer be stacked on top of a live inline draft. Outside an `InlineEditProvider` the hook returns null and nothing changes.\n\n## 5. Keyboard shortcuts for the shared edit session\n\n`InlineEditSaveBar` installs record-level bindings while the session is active:\n- **Esc → cancel**, deferring to any open Radix layer (`[data-radix-popper-content-wrapper]`, open `dialog`/`alertdialog`) — popovers keep owning Escape for \"close\";\n- **Cmd/Ctrl+Enter → save**, respecting `saving` / `locked` and standing down while the conflict dialog drives the session.\n\n## Verification\n\n- New unit tests: expanded-lookup passthrough (no `findOne`, name renders), currency/number/percent inline editors (min, scale-0 step, numeric emission, % conversion), header-CTA disable under a live session, all five shortcut behaviors (commit, locked no-op, cancel, defer-to-popover, inert-when-idle), NumberField min/max/step.\n- Full suites green: plugin-detail + fields + react (546), components (246), fields + app-shell (1769).\n- `turbo run build` green for the four touched packages (includes `tsc` typecheck for app-shell/fields).\n- Pre-existing eslint error in `page-header-actions.test.tsx` (`Cannot create components during render` on the untouched `PageHeader` helper) exists on `main` and is not introduced here.\n- Item 2's end-to-end behavior (budget save → flow lock → pencils hide) follows the issue's live-verification path; this environment has no framework backend installed, so that pass is unit-covered here and worth a quick dogfood re-run on the showcase stack.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01JQjNZDdqmz2QHGQndpjZrR\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01JQjNZDdqmz2QHGQndpjZrR)_"
+}

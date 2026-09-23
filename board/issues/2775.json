@@ -1,0 +1,30 @@
+{
+  "number": 2775,
+  "kind": "pull_request",
+  "title": "fix(app-shell): keep list-origin back link when switching detail tabs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-21T14:08:13Z",
+  "updated_at": "2026-07-22T02:26:40Z",
+  "closed_at": "2026-07-22T02:26:38Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-22T02:26:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2775",
+  "body": "Closes #2774\n\n## 问题\n\n从对象列表点开一条记录,详情页顶部显示「← 全部<对象>」返回链接。切「相关」/「历史」Tab 后该链接消失,无法一键回列表。\n\n## 根因\n\n返回链接的数据来自列表行点击写入的 history state（`state.from`，见 `ObjectView.tsx`）。切 Tab 时 `handleTabChange` 用 `setSearchParams` 写 `?tab=` —— 这是一次导航,默认不携带 history state,`state.from` 被清空,链接随之消失。\n\n## 修改\n\n`RecordDetailView.tsx` 的 `handleTabChange`：切 Tab 导航时显式透传当前 `location.state`,使 `state.from` 在 Tab 切换后保留。单文件、6+/3-。\n\n## 验证\n\n- `pageTabsUrlSync` 单测 6/6 通过；`@object-ui/app-shell` type-check 干净。\n- 真机实测（showcase 后端 + 本仓 console dev）：列表 → 打开 QD-00043 → 切「相关」→ 切「历史」,返回链接全程保留且可点击回到列表。修复前正是复现丢失现象。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

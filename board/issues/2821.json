@@ -1,0 +1,32 @@
+{
+  "number": 2821,
+  "kind": "pull_request",
+  "title": "fix(console): approval timeline attachment chip shows its name and opens (#2820)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-26T07:57:02Z",
+  "updated_at": "2026-07-27T02:29:46Z",
+  "closed_at": "2026-07-27T02:29:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T02:29:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2821",
+  "body": "Fixes #2820. Backend companion: objectstack-ai/objectstack#3505 (framework #3504).\n\n## Problem\n\nA decision attachment in the approval inbox timeline (审批动态) rendered a nameless \"附件\" chip that did nothing when clicked, with no error feedback.\n\n## Changes (`apps/console` + `@object-ui/i18n`)\n\n- **No filename → real name.** The chip resolved its label from `/data/sys_file/{id}` — a system object a regular approver cannot read — and silently fell back to a generic label. The name now comes from the attachment descriptor the server returns (framework #3504), so the real filename shows for every approver, with no `sys_file` access.\n- **Dead click → opens.** `openAttachment` called `window.open` *after* an `await`, so it was no longer a user gesture and the browser blocked the popup. It now opens the tab synchronously up front, then points it at the signed URL.\n- **Wrong origin.** The local adapter's signed URL is server-relative; it is now resolved against the API origin instead of the console origin.\n- **Silent failures → toast.** Open failures were swallowed; the user now gets a toast. New `approvalsInbox.attachmentOpenFailed` across all 10 locales.\n\n## Testing\n\n- `@object-ui/i18n`: 89/89 · `apps/console` typecheck clean.\n- End-to-end against `app-showcase` (via the HMR console): chip shows `signed-contract.pdf`; clicking opens the real PDF (`window.open` blank → absolute signed URL); with the framework companion the download is `application/pdf` named `signed-contract.pdf`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2694,
+  "kind": "issue",
+  "title": "@objectstack/client 发版后:dogfood 验证 batchTransaction 走 SDK path,并可选删除适配器裸 fetch 分支",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T16:16:26Z",
+  "updated_at": "2026-07-20T13:33:15Z",
+  "closed_at": "2026-07-20T13:33:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2694",
+  "body": "## 背景\n\nframework#3271(已合并)给 `@objectstack/client` 加了 `data.batchTransaction()`。objectui 以 `@objectstack/client@^15.1.1`(npm caret)消费,该方法要等**下一个 client 版本发布**才进入 objectui。\n\n`ObjectStackAdapter.batchTransaction`(`packages/data-objectstack/src/index.ts`)已用特性探测 `typeof this.client.data.batchTransaction === 'function'`:发版前走等价裸 `fetch('/api/v1/batch')`,发版后自动切到 SDK 方法。**这不阻塞任何东西**,是一次收尾。\n\n## 发版后要做\n\n1. **dogfood 验证**:真实 console 主子表保存(父 + 子 `{ $ref: 0 }`),确认:\n   - 确实走了 SDK path(而非裸 fetch);\n   - `MutationEvent` 每 op 恰发一次、不双发(绑定视图/相关列表正确刷新)。\n2. **可选收尾(需版本策略拍板)**:把 objectui 的 client 依赖 bump 到含该方法的确切版本,并**删除适配器里的裸 fetch 分支**,再减一条冗余路径。\n   - 代价:抬高 objectui 的最低 `@objectstack/client` 版本(见 AGENTS.md 版本号策略,objectui major 需匹配 `@objectstack` major)。\n\n## 验收\n\n- [ ] 发版后 dogfood 确认走 SDK path + 事件不双发;\n- [ ] (可选)bump client 依赖并移除裸 fetch 分支。\n\n## 关联\n\n- SDK 方法:framework#3271(已合并);消费基线:#2684(已合并)。"
+}

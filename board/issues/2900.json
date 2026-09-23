@@ -1,0 +1,33 @@
+{
+  "number": 2900,
+  "kind": "pull_request",
+  "title": "fix(i18n): unconditional Chinese in the chatbot confirm card and field inspector (#2884, #2885)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T04:42:33Z",
+  "updated_at": "2026-07-28T05:01:52Z",
+  "closed_at": "2026-07-28T05:01:50Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T05:01:50Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2900",
+  "body": "Closes #2884, closes #2885.\n\nBoth were split out of the #2871 survey because neither is a language *branch* — there is no `startsWith('zh')` to fix. The copy is Chinese for **every** user, in every locale.\n\n## #2884 — the confirm-before-change card\n\nHeading, both buttons, the reply hint, and the verb column of every change row were Chinese literals, so an English user read the entire confirm gate in Chinese. They now follow the same prop-with-English-default convention the plan card already uses (`changesTitleLabel`, `changesConfirmLabel`, `changesConfirmHintLabel`, `changeVerbLabels`, …), with `AiChatPage` passing translated values from `console.ai.*`.\n\n### The outbound message needed a different fix than the issue proposed\n\nClicking Confirm called:\n\n```tsx\nonSendMessage('确认修改，应用你刚才提议的改动。')\n```\n\nunconditionally — so an English user's click told the agent, *in Chinese*, to apply the changes, and the agent answered in Chinese for the rest of the thread.\n\nI filed that issue suggesting the outbound text be **forced to fixed English**. Reading the surrounding code, that would have been wrong for this codebase. `AiChatPage` already has a deliberate rule, stated in its own comment:\n\n> Override the sent strings to Chinese when the conversation is Chinese; button LABELS stay on the UI locale.\n\nThat is what `conversationLanguage.ts` exists for, and it is one of the four `zh` branches #2871 deliberately keeps. Forcing English would have broken the Chinese case symmetrically. So `changesConfirmMessage` now routes through the same `convZh` switch as `planApproveMessage` — the message matches the language actually being spoken.\n\n### Why the Chinese string is unchanged\n\n`zh.ts` documents a constraint worth repeating: these outbound strings must match the cloud confirm gate's `APPROVAL_RE` (`service-ai-studio/confirm-gate.ts`), which anchors Chinese approval on 确认, or the agent silently re-proposes and the button looks inert. The Chinese message here is byte-for-byte the string that was already being sent, so that path is exactly what the gate already accepted. `i18n.test.ts` now asserts it against the mirrored gate regex alongside the two plan messages.\n\n> [!NOTE]\n> **One residual unknown, for whoever has cloud access.** The *English* clause of `APPROVAL_RE` is not mirrored in this repo, so I could not verify that it accepts `Confirm the changes — apply what you just proposed.` This path was never exercised before — the button always sent Chinese — so it is new ground. The existing English `planApproveMessage` is sent for English conversations today and presumably matches, which is good evidence an English clause exists, but it is evidence and not proof. If it turns out not to match, the fix is a wording change in `en.ts`, not a redesign. The test pins only the two tokens the message is built around (`^Confirm`, `apply`) so a careless reword can't silently drop the approval verb.\n\n### Also in this component\n\n- The error banner's `Response failed` / `Details` / `Hide` / `Retry` were hard-coded English → new `chatbotError` namespace.\n- That banner **and** the quota banner used a bare `t(key)`, which returns the raw key when the chat is mounted without an `I18nProvider` — the user would read `chatbotError.title`. Both now use `useSafeTranslate`, which degrades to English. This is the surface that renders when things are already broken, so a raw key there is the worst possible time for one. Two existing tests were failing on exactly this and are now green without being edited.\n- `「{targetApp}」` → `\"{targetApp}\"`, two sites. CJK corner brackets rendered for all locales.\n- `formatChangeRow`'s `（type）` full-width parens → `(type)`.\n\nDeliberately untouched: `DEFERRED_MARKERS` (`'待补'`, `'后续'`, …) at `:1001-1011`. Those are Chinese-keyword *heuristics* for parsing the agent's replies, not UI copy — the issue says don't, and existing tests cover them.\n\n## #2885 — the draft-object suffix\n\n```ts\nbyName.set(name, { value: name, label: `${name} (草稿)` });\n```\n\nThe only Chinese literal in a 1500-line file whose other 101 strings all go through `t(key, locale)`. Now reads `engine.inspector.draftSuffix` from the Studio catalog, with `locale` threaded into the hook.\n\n## Verification\n\n- **Full suite: 7762 passed, 24 skipped, 0 failed.**\n- ESLint: 25 errors — **identical to baseline**, all pre-existing.\n- `turbo type-check`: 31/31.\n- Both new guards were **mutation-tested** — I reverted each fix and confirmed the guard fails with the original symptom (`expected 'crm_quote (草稿)' to be 'crm_quote (draft)'`), then restored.\n- The confirm-before-change card had **no test coverage at all** before this; it now has five.\n\n## Locale packs\n\nThe 18 new keys went into **all ten** packs, so the #2872 part (a) gap held at 469/471 instead of widening. The eight non-Chinese packs have no `console.ai` namespace at all today, so this creates it holding just these keys — a later bulk backfill merges into the same object.\n\nen ↔ zh remain at exact parity: 2499 : 2499, zero difference in both directions.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01TubWYdWquVkS9dj733sDmC)_"
+}

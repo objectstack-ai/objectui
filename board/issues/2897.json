@@ -1,0 +1,37 @@
+{
+  "number": 2897,
+  "kind": "pull_request",
+  "title": "feat(grid): compute all eleven spec column summary aggregations (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: react",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T03:58:54Z",
+  "updated_at": "2026-07-28T04:24:17Z",
+  "closed_at": "2026-07-28T04:24:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T04:24:14Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2897",
+  "body": "Closes the `useColumnSummary` items tracked in #2890.\n\n## The gap\n\n`ColumnSummarySchema` accepts eleven aggregation names. `useColumnSummary` computed five. The other six — `none`, `count_empty`, `count_filled`, `count_unique`, `percent_empty`, `percent_filled` — **passed validation at authoring time and then rendered a blank footer cell**, with no error raised on either side.\n\nobjectstack#3761 widened the reachable surface: it promoted the `{ type, field }` object form into the spec, and that form's `type` reuses this same enum.\n\n## What changed\n\nThe computation now splits into two families:\n\n- **count/percent** read *raw* cell values, before the numeric parse. So `count_unique` works on text, select and lookup columns, and a value that does not parse as a number still counts as a filled row.\n- **sum/avg/min/max** keep the existing numeric parse and column formatting.\n\nA cell is empty when it is `null`, `undefined`, `\"\"` or an empty array — the convention already used by audit history display and form dirty-checking — so an unset multi-select reads as empty rather than as a filled `[]`. `count_unique` keys objects and arrays **by value**; a raw `Set` compares by reference and would call every row distinct.\n\n### Two behavior changes fall out of the enum carrying both names\n\n- **`count` is now every row.** `count_filled` is the non-empty variant, and with both in the enum they cannot mean the same thing. Existing tests use data whose rows are all filled, so they do not distinguish the two; the only column that renders differently than before is one whose values are all empty.\n- **A zero count renders `Empty: 0`** instead of collapsing to a blank cell. Zero is the answer to \"how many are empty\", not the absence of one — the old `count > 0 ? count : null` swallowed it.\n\n### Formatting\n\nColumn currency/percent formatting is now gated to the numeric family in one place, rather than the scattered `type !== 'count'` guards. Without this, `count_unique` on a currency column would render `$3.00` instead of `Unique: 3`.\n\n### `none`\n\n`none` and unrecognized names skip the entry entirely instead of registering a blank one, so a view whose columns all opt out renders **no footer row** rather than an empty one.\n\n## Types\n\nThe objectui-local `{ type, field }` arm of `ListColumnSchema` was stuck at the same five names, which left the per-column `field` override unavailable for the six new aggregations. It now takes its vocabulary from `SpecColumnSummarySchema` by reference, so the shorthand and the object form cannot accept different names — and the delta drops to zero when that spec release lands and the `.extend()` goes away.\n\n## Removed: the second `useColumnSummary`\n\n`@object-ui/react` exported a hook of the same name with **no callers anywhere in the repo**. Not a duplicate implementation so much as a competing one:\n\n- a different API — `(data, config, locale)` against the grid's `(columns, data, fieldMetadata)` — and a colliding `ColumnSummaryConfig` export of a different shape;\n- a doc comment claiming it implements \"ColumnSummarySchema from `@objectstack/spec` v2.0.7\", six majors behind;\n- a `distinct` aggregation **not in the spec vocabulary at all** — the spec calls that `count_unique`.\n\nThat last point is why it was worth removing rather than leaving inert: a publicly exported name the spec does not define is the second de-facto contract Commandment #0.1 warns about, and the parity guard below does not reach it.\n\n## Anti-drift guard\n\nNew `summary-spec-parity.test.ts` asserts the renderer's supported set equals the spec enum **in both directions**:\n\n- a spec name the renderer omits is the bug this PR fixes;\n- a renderer name the spec omits would be local dialect (Commandment #0).\n\nBoth new tests were verified against a deliberately broken implementation rather than assumed to work:\n\n| Sabotage | Result |\n|---|---|\n| Roll the vocabulary back to the original 5 | parity test lists the 5 unimplemented names |\n| Make `count_unique` compare by reference | array-by-value case fails (`expected 2 to be 1`) |\n\n## Docs\n\nPer Commandment #2. The footer summary was **undocumented in both** the package README and the plugin docs page; both now carry the full eleven-value table, the emptiness rule, and the formatting boundary.\n\n## Verification\n\n| Check | Result |\n|---|---|\n| unit project (full) | 271 files / 3703 tests pass |\n| DOM project (full) | 349 files / 3793 tests pass |\n| new summary tests | 55 DOM + 26 unit pass |\n| `type-check` (types + plugin-grid) | pass |\n| lint | 0 errors; new code contributes no `any` |\n| clean rebuild of `@object-ui/react` after the removal | pass, no stale exports |\n\n`@objectstack/spec` added as a **devDependency** of plugin-grid for the parity test — six other `plugin-*` packages already depend on it.\n\n## Noted, not changed\n\nThe footer renders `{col.header}: {summary.label}` while the label already carries its own prefix, producing `Amount: Sum: 600`. Pre-existing, and changing it is a design decision rather than a bug fix."
+}

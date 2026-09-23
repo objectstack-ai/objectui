@@ -1,0 +1,33 @@
+{
+  "number": 2620,
+  "kind": "pull_request",
+  "title": "fix(form): thread live dependentValues to cascading option fields (#2284)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-16T15:58:13Z",
+  "updated_at": "2026-07-16T16:33:04Z",
+  "closed_at": "2026-07-16T16:33:03Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-16T16:33:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2620",
+  "body": "## Problem\n\nThe B3 cascading-select feature (#2284 / framework #1583) is **broken in the real create/edit form**. On the showcase `showcase_cascade` fixture, picking a **Country** never unlocks the dependent **Province** — it stays gated on the \"Select country first\" hint forever.\n\n### Root cause\n\nThe form renderer injects the live form record (`dependentValues`) only into `DATA_SOURCE_FIELD_TYPES` (`lookup`/`master_detail`/`object-ref`/…). Registered **option** widgets — `field:select`/`field:radio`/`field:multiselect` — were excluded, so `stripRegisteredFieldProps` dropped `dependentValues` before it reached `SelectField`.\n\nWith no live record and **no `formValues` context fallback** (that member never existed on `SchemaRendererContext` — same gap the lookup fix #2215/#2216 called out), `SelectField`'s `dependsOn` gate never saw the controlling field. The builtin `case 'select'` fallback works (it reads `effectiveOptions` from the renderer's own `ruleRecord`), but the **registered** `field:select` path that `ObjectForm` actually uses did not.\n\n## Fix\n\nThread `dependentValues` to option field types too (one added `Set` + one spread), mirroring the lookup fix.\n\n## Verification\n\n- **Red/green regression test** in `form-dependent-values.test.tsx` drives the *registered* `field:select` path (not the builtin fallback the prior cascading-select test covered). Fails without the fix (`dependentValues` arrives `null`), passes with it.\n- **Browser, end-to-end** against the showcase B3 fixture (objectui console dev → live backend):\n  - Province gated until Country is set ✅\n  - Country = China → Province offers **Zhejiang / Guangdong** only ✅\n  - Country → United States → Province re-filters to **California / Texas** ✅\n\nSurfaced during framework 15.1 release QA (the B3 cascade is a touted 15.1 line item). The opt-in live e2e `e2e/live/cascading-options.spec.ts` is not in default CI, which is why this shipped unnoticed.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

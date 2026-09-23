@@ -1,0 +1,30 @@
+{
+  "number": 2652,
+  "kind": "pull_request",
+  "title": "fix(access): Studio permission matrix — Bulk column reachable at narrow widths (#2600 B3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T05:24:44Z",
+  "updated_at": "2026-07-18T05:46:24Z",
+  "closed_at": "2026-07-18T05:46:21Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T05:46:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2652",
+  "body": "## What\n\n**Issue #2600 · B3 (设计迭代 · 窄宽 ≈800px 布局)** — at ~800px the matrix table (`w-full`, no min-width) squished the CRUD grid and pushed the rightmost **批量 column** (读/增改删/全选/清空) off the right edge with **no scroll affordance**: the container is `overflow-auto`, but the table never grew past the viewport, so there was nothing to scroll to.\n\n### Change\n- Give the matrix table `min-w-[960px]` (object 288 + 9×56 CRUD + 176 bulk) so it keeps natural column widths and the enclosing `overflow-auto` container **scrolls horizontally** instead — a real scrollbar appears and the 批量 column becomes reachable. Wide-viewport layout is unchanged (min-width < available width).\n\n### Scope note\nThe other B3 sub-items were assessed and deliberately left:\n- **Header crowding** — B1 already collapsed the identity strip, so at 820px the breadcrumb now *truncates gracefully* rather than overlapping the 安全/可写 badges; no shared-PageShell change needed.\n- **Rail 208px** — the fixed rail is a shared Studio component with a mobile drawer; not worth the blast radius for a narrow-desktop nicety.\n\n## Verify (live, 820px)\n- Table is **960px inside a 612px scroll container** (`canScrollX: true`).\n- Scrolling right brings the full 批量 column (读/增改删/全选/清空 per row) into view — previously permanently clipped.\n\n## Tests\nCSS-class-only change; matrix + Studio guard suites still green (**38 tests**). No layout-assertion test added (brittle, low value).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

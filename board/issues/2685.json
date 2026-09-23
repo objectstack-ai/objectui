@@ -1,0 +1,32 @@
+{
+  "number": 2685,
+  "kind": "issue",
+  "title": "plugin-gantt: link-type switcher silently reverts on id-only dependency stores (线条闪一下又还原)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T13:44:33Z",
+  "updated_at": "2026-07-19T14:36:40Z",
+  "closed_at": "2026-07-19T14:36:40Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2685",
+  "body": "On data sources that persist dependencies as bare predecessor ids (no type slot — e.g. a lookup array of predecessor records), picking ss/ff/sf in the dependency-link context menu optimistically recolors the arrow, the persist drops the type, and the silent refetch snaps it back to FS: the arrow flashes and reverts (线条闪一下,又显示成「完成→开始」). The type switcher is a misleading UI for such stores — no choice other than FS can ever stick.\n\nReproduced live on a 4-level 排班计划 tree whose gantt uses an api provider with `predecessors` as an id comma-list.\n\n## Fix direction (PR follows)\n\nNew `gantt.dependencyTypes` view config (default `true`). Declaring `false`:\n- hides the fs/ss/ff/sf section of the link context menu (remove-dependency stays);\n- pins drag-created links to FS regardless of which endpoints were connected."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2748,
+  "kind": "pull_request",
+  "title": "chore(lint): clear baseline lint errors in app-shell (#2713 Wave 3.6 — final)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T08:14:33Z",
+  "updated_at": "2026-07-20T08:18:54Z",
+  "closed_at": "2026-07-20T08:18:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T08:18:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2748",
+  "body": "**Final package of the #2713 lint-gate restoration** — with this, `pnpm -r lint` is at **0 errors across the whole workspace**. `@object-ui/app-shell` was **red at baseline on `main`** (30 errors, the largest). **Errors only; no behavior change.**\n\n## What changed (per rule)\n\n- **`react-hooks/rules-of-hooks` (12)** — hooks called after conditional early returns; each restructured so hook order is stable across renders (verified each hook's side-effect profile first):\n  - `SchemaForm`: hoisted the `issuesByPath` `useMemo` above the RawJsonEditor fallback guard; hoisted `RecordField`'s five `useState` above its widget-delegation / specialized-editor early returns.\n  - `MetadataPanel`: moved `if (!open) return null` below its three hooks.\n  - `LayeredDiff`: moved the `if (code == null)` guard below the two `useMemo`s and made `rows` null-safe (`code == null ? [] : computeDiffRows(...)`) so the hoisted memo can't deref null.\n  - `ViewPreview`: hoisted the `object-view` `schema` `useMemo` above the three render branches (the earlier branches shadow it with their own local `schema`/`formSchema`).\n- **`react-hooks/static-components` (12)** — dynamic icon/inspector/preview lookups (`getIcon`, `typeIcon`, `kindIcon`, `getMetadataPreview` / `…Inspector` / `…DefaultInspector`) are stable registry references → justified scoped disables.\n- **`no-useless-assignment` (3)** — dead `= null` / `= []` initializers (`marketplaceApi`, the two `*.ratchet.test.ts`) that the only fall-through paths reassign first.\n- **`@typescript-eslint/ban-ts-comment` (2)** — the `lucide-react/dynamic.mjs` imports in `getIcon` / `widgets` **no longer error** under the build's `tsc` (confirmed: converting to `@ts-expect-error` reported TS2578 \"unused directive\"), so the stale `@ts-ignore` directives are removed outright rather than converted.\n- **stale `eslint-disable` (1)** — removed a `@next/next/no-img-element` directive in `AgentPreview` whose plugin isn't loaded (unknown-rule reference → ESLint v10 error).\n\nNo lint **config** was loosened.\n\n## Verification\n\n- **Lint:** `eslint` → **0 errors** (30 at baseline).\n- **Type gate:** `turbo run build` → **29/29 tasks green** (also caught the stale-`@ts-ignore` case above, which I then fixed).\n- **Tests:** full `app-shell` suite green — **1763 passed / 211 files**, including the `adr0054-ratchet` / `no-refresh-key-remount` ratchet tests I touched and the restructured metadata-admin components.\n\n## Closes the sweep\n\nThis is the 6th of 6 Wave-3 PRs. Across #2730, #2737, #2738, #2740, #2741, #2744, #2745 and this, all 24 packages that were red at baseline are back to 0 — **the per-package `lint` gate protects every package again** (the goal of #2713).\n\nRefs #2713 · pattern from #2709\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

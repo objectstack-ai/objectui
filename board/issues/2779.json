@@ -1,0 +1,32 @@
+{
+  "number": 2779,
+  "kind": "pull_request",
+  "title": "fix(list): keep injected owner_id out of auto-generated list columns (#2777)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-21T15:53:57Z",
+  "updated_at": "2026-07-21T15:58:30Z",
+  "closed_at": "2026-07-21T15:58:27Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-21T15:58:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2779",
+  "body": "## Problem\n\nOn a view-less object's **auto-generated default list view** (the \"所有记录\" tab), the framework-injected **`owner_id` renders as a leading, raw-id column** — same value on every row, redundant with the business `owner` (`Field.user`) column. Repro: showcase **Invoices** (`showcase_invoice` declares no `.view.ts`).\n\nThis is the exact anti-pattern #2702 set out to remove, but #2702 only covered **two** of the **three** default-column derivation sites:\n\n| Site | #2702 |\n|---|---|\n| `plugin-grid/ObjectGrid.tsx` | ✅ fixed |\n| `app-shell/InterfaceListPage.tsx` (`defaultColumnsFromObject`) | ✅ fixed |\n| `app-shell/ObjectView.tsx` (`resolveDefaultColumns` + \"Add View\" prefill) | ❌ **missed** |\n\n`ObjectView` carried its own name-based `SYSTEM_FIELDS` set that never listed `owner_id`. Since `applySystemFields` spreads injected fields to the FRONT of the field map and `owner_id` is deliberately non-hidden / non-readonly (ownership is reassignable), it leaked through as column #1.\n\n## Fix\n\nDerive both `ObjectView` paths through a single shared, exported `defaultListColumnsFromObject(objectDef, limit)` helper that classifies system fields via **`isSystemManagedField`** from `@object-ui/types` (the classifier #2702 introduced) — branching on the spec `system` flag with a name-set fallback that covers the ownership / tenancy FKs. Removes the two duplicated hardcoded lists; auto-derived lists lead with business fields again and pick up future injected fields without editing a name list.\n\n## Test / verification\n\n- New red/green unit test `ObjectView.defaultColumns.test.tsx` reproduces the `showcase_invoice` shape: reverting the classifier puts `owner_id` first (fails); the fix leads with `invoice_no` (passes). 5 tests green.\n- `@object-ui/app-shell` full build (`tsc`, 29-pkg graph) passes — no type regressions.\n\nCloses #2777.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

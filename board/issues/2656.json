@@ -1,0 +1,33 @@
+{
+  "number": 2656,
+  "kind": "pull_request",
+  "title": "fix(form+detail): single-file children stay inline grids; drop non-spec `attachment` (#2654, #2655)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T06:24:35Z",
+  "updated_at": "2026-07-18T06:37:49Z",
+  "closed_at": "2026-07-18T06:37:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-18T06:37:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2656",
+  "body": "Two follow-ups to the upload-in-grid work (#2360 / #2585), plus a codified live-verification spec for the underlying feature.\n\n## #2654 — a single file field no longer forces a per-row form\n\nNow that `file`/`image`/`avatar` fields render a compact upload cell in the line-item grid, the smart `inlineEdit` heuristic shouldn't push a child with one attachment column into the per-row form.\n\n`resolveInlineMode` splits the old catch-all `FORM_ONLY_TYPES` into two tiers:\n\n- **`FORM_ONLY_TYPES`** (textarea, richtext, html, markdown, rich-text, json, location, address) — a *single* one still tips to `form` (these genuinely read poorly in a grid cell).\n- **`GRID_CAPABLE_RICH_TYPES`** (file, image, avatar) — render in-grid now, so a *lone* one stays a `grid`; they only tip to `form` when several rich fields pile up (`RICH_FIELD_FORM_THRESHOLD`, default 2 → a cramped row).\n\nAn explicit `inlineEdit: 'grid' | 'form'` still wins over the heuristic. Net effect: \"attach a receipt per expense line\" now defaults to the inline grid instead of the form.\n\n## #2655 — `attachment` is not a spec field type → renderer stops modelling it\n\nConfirmed against `@objectstack/spec`: the media field types are `file` / `image` / `avatar` / `video` / `audio` — there is **no `attachment` type** (it appears only in a display-name hint list). No framework example declares `type: 'attachment'`.\n\nPer contract-first (AGENTS.md #0.1 — don't fossilize a non-spec dialect in the renderer), removed the stray `attachment` handling from the three renderer-side spots this issue named:\n\n- `fieldTypeToColumnType` — dropped the `case 'attachment'` (was mapping it to a `file` column).\n- `resolveInlineMode`'s type set — removed `attachment`.\n- `RelatedList` auto-column `SKIP_TYPES` — removed `attachment`.\n\nOut of scope (other subsystems, left untouched): `DataModelDesigner`, `view-config-utils`, `InterfaceListPage` also mention `attachment` but aren't part of these issues.\n\n## live e2e — codifies the #2360 dogfood pass\n\nAdds `e2e/live/grid-file-upload.spec.ts` next to the sibling `showcase_invoice` live specs: the Receipt file field auto-derives a grid column, the cell is a real `input[type=file]` upload control (not a text input), uploading shows a chip, and the resolved file object persists on the line in the atomic `/api/v1/batch`. **Live-only** (needs the storage service + a real backend) — runs under `pnpm test:e2e:live`, not the mocked PR e2e job, matching how the existing live specs are gated. This turns the one-off manual verification into a repeatable, reviewed regression procedure.\n\n## Tests\n\n- `deriveMasterDetail.test.ts`: single file/image child → grid; two file fields → form; file + textarea → form; `fieldTypeToColumnType('attachment') === 'text'` (no special-casing) + explicit file-family mapping coverage.\n- Full `@object-ui/plugin-form` + `@object-ui/plugin-detail` suites pass (46 files / 437 tests). `turbo type-check` green; touched files carry no new lint errors. New live spec typechecks and is picked up by `playwright.live.config.ts`.\n\nDocs updated (`content/docs/fields/grid.mdx`) and a changeset added (plugin-form minor, plugin-detail patch).\n\nCloses #2654\nCloses #2655\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01H5tsBSEhsDZmdcHBvfymYC"
+}

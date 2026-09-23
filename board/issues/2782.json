@@ -1,0 +1,30 @@
+{
+  "number": 2782,
+  "kind": "pull_request",
+  "title": "fix(app-shell): map raw sys_activity rows in the inbox Activity tab (#2781)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-22T03:00:52Z",
+  "updated_at": "2026-07-22T05:53:48Z",
+  "closed_at": "2026-07-22T05:53:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-22T05:53:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2782",
+  "body": "## 问题\n顶栏消息中心的**「活动动态」** tab 每条只显示相对时间(`47m ·`),操作人/摘要/对象名全空白。\n\n## 根因\n`packages/app-shell/src/layout/AppHeader.tsx` 的 `fetchPresenceAndActivities` 把 `sys_activity` 原始行直接 cast 成 `ActivityItem`,没做字段改名:\n\n| 原始行 (plugin-audit) | ActivityItem |\n|---|---|\n| `summary` | `description` |\n| `actor_name` | `user` |\n| `object_name` | `objectName` |\n\n`InboxPopover` 渲染 `{a.user} {a.description}` 与 `{timeAgo(a.timestamp)} · {a.objectName}`,除 `timestamp` 外全 `undefined` → `47m ·`。`hooks/useHomeInbox.ts` 做了正确映射,两者本应一致。\n\n## 修复\n在 AppHeader 里按 `useHomeInbox` 的方式映射:字段改名 + `type` 归一化 + `timestamp` 兜底 + 过滤空 `summary`。单文件,+29 −3。\n\n## 验证\n- framework showcase 后端 REST 确认 `sys_activity` 数据完整非空(响应 `records` 键)。\n- console 连该后端:修复前「活动动态」一堆 `1m ·`/`7m ·` 空条目;打补丁后正常显示 `Created Semantic Zoo \"activity probe row\" · 7m showcase_semantic_zoo`、`Updated User \"Dev Admin\" · 7m sys_user` 等。\n- 列表页(活动/站内消息)在 `main` 本就正常,不在本 PR 范围。\n\nCloses #2781.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

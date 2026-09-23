@@ -1,0 +1,30 @@
+{
+  "number": 2698,
+  "kind": "issue",
+  "title": "[P2] approvals: declare attachments on approve/reject and retire the inbox's hardcoded composer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T16:51:53Z",
+  "updated_at": "2026-07-20T02:40:33Z",
+  "closed_at": "2026-07-20T02:40:33Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2698",
+  "body": "✅ **Done** — shipped in **objectui#2710** (`aefcf39`) + **framework#3332** (`e412fb6`).\n\nThe approvals inbox drawer now renders every decision — approve, reject, reassign, send-back, request-info, remind, recall, resubmit — purely through `DeclaredActionsBar`, with zero hand-wired action UI. Approve/reject collect a comment **and file attachments** through the generic declared-action dialog (the declared `type:'file'` param renders the shared upload widget; `serializeParamValues` maps the value to `attachments: string[]`). The hand-written composer, `doAction`, the upload handlers, the quick-phrase chips, and the admin `actorOverride` escape hatch are gone (~240 lines net removed from the inbox).\n\nBrowser-verified end-to-end: no composer, approve/reject render in the bar, the Approve dialog shows a file-upload widget, and staging a file + confirming POSTs `{comment, attachments:[\"<fileId>\"]}`.\n\n---\n_Original plan retained below for reference._\n\n## Goal\n\nThe approvals inbox drawer renders decisions purely through `DeclaredActionsBar` — zero hand-written action UI, including approve/reject and their attachments.\n\nDelivered across:\n- **objectui#2710** — `FileField` surfaces `file_id`; `ActionParamDialog` serializes upload params to `file_id`(s); composer retired.\n- **framework#3332** — declared optional multi-file `attachments` param on `approval_approve`/`approval_reject`.\n\n## Refs\n#2700 / #2704 / #2707 · objectui#2697 · framework#3300 · framework#3268 / #3274 · #2678 (P2-4) · cloud#861"
+}

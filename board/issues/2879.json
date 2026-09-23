@@ -1,0 +1,30 @@
+{
+  "number": 2879,
+  "kind": "issue",
+  "title": "9 个文件复制了 createSafeTranslation,并保留了 #2595/#2596 已修复的 try/catch-around-hook 违规",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T00:35:30Z",
+  "updated_at": "2026-07-28T01:32:40Z",
+  "closed_at": "2026-07-28T01:32:40Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2879",
+  "body": "## 问题\n\n仓库已有官方的 provider-free 翻译机制 `createSafeTranslation(defaults, testKey)`(`packages/i18n/src/useSafeTranslation.ts:13`),8 个以上文件正常在用。但另有 **9 个文件**各自手写了一份语义等价的实现,并且**全都把 hook 调用包在 `try/catch` 里**:\n\n| 文件 | 形态 |\n|---|---|\n| `packages/plugin-detail/src/useDetailTranslation.ts:22` | `createSafeTranslationHook(defaults, testKey)` — 与官方**同签名**,内部函数甚至同名 `useSafeTranslation` |\n| `packages/plugin-timeline/src/useTimelineTranslation.ts:46` | 精确等价 |\n| `packages/plugin-list/src/ListView.tsx:285` | 精确等价 |\n| `packages/plugin-calendar/src/CalendarView.tsx:93` | 精确等价 |\n| `packages/plugin-grid/src/ObjectGrid.tsx:111` | 精确等价 |\n| `packages/plugin-designer/src/hooks/useDesignerTranslation.ts:209` | 精确等价 |\n| `packages/components/src/renderers/complex/data-table.tsx:161` | 等价 + 额外返回 `language` |\n| `packages/plugin-gantt/src/useGanttTranslation.ts:103` | 等价 + 把 `language` 传给日期格式化 |\n| `packages/plugin-grid/src/ImportWizard.tsx:211` | 等价 + 逐 key 兜底(非仅探针) |\n\n## 为什么这是 bug,而不只是重复代码\n\n官方实现的注释**明确写了为什么不能用 try/catch**:\n\n> No try/catch around the hook: `useObjectTranslation` is provider-safe (optional context read + react-i18next global-instance fallback), and wrapping a hook call in try/catch **violates rules-of-hooks** — a throw after the hook ran would desync hook order on the next render (**same fix as objectui#2595/#2596**; this factory closure just escaped the static lint).\n\n也就是说 **#2595/#2596 已经修过这一类缺陷**,但只修到了 `packages/i18n` 里的官方实现;这 9 份手写副本原样保留了它。它们躲过 lint 的原因也在注释里:工厂闭包让静态规则失效。\n\n从注释可以看出这是一路抄下来的:ImportWizard 写着 \"Mirrors the pattern in ObjectGrid.tsx\",plugin-timeline 写着 \"Mirrors the createSafeTranslationHook pattern used by plugin-detail / plugin-list\"。\n\n## 前提已核实\n\n去掉 try/catch 是安全的,两条证据:\n\n1. `useObjectTranslation`(`packages/i18n/src/provider.tsx:163`)用的是可选 context 读取(`context?.language || i18n.language || 'en'`),**不抛异常**。对比紧邻其下的 `useI18nContext:186`,那个才有 `if (!context) throw`。\n2. `packages/i18n/src/__tests__/useSafeTranslation.test.tsx` 的文件头注释把语义钉死了:\n\n   > Locks the fallback semantics of the safe-translation hooks **AFTER the try/catch-around-hook removal** (rules-of-hooks, objectui#2595/#2596 class): with no I18nProvider mounted, consumers must still get English defaults — via the testKey probe / per-key detection, **not via a caught throw**.\n\n## 建议做法\n\n1. `createSafeTranslation` 目前只从 `@object-ui/i18n` 导出,**没有**经 `@object-ui/react` 转出(而 `useSafeTranslate` 有,见 `packages/react/src/index.ts:27`)。先补上这一行,`plugin-timeline` 等就不必新增依赖。\n2. 6 个精确等价的直接换成官方实现。\n3. 3 个有额外行为的:`data-table` / `gantt` 需要 `language`——可以给官方实现的返回值**增补** `language`(纯新增,不破坏现有调用方),这样它们也能收敛;`ImportWizard` 的逐 key 兜底是真实差异,保留本地逻辑但去掉 try/catch。\n4. 加一条 lint 规则或测试,禁止再出现 `try { … useObjectTranslation() … } catch`,否则这个模式会继续被复制第 10 次。\n\n## 与 i18n 覆盖问题的关系\n\n这是 **rules-of-hooks 缺陷**,与 objectui#2871(手搓 `startsWith('zh')` 绕开语言包)不同类,故单独跟踪。但建议**先做这个**:#2871 要动的文件与这 9 个有重叠,先收敛掉重复的 hook,再迁移文案,落点会干净很多。\n\n发现来源:排查 #2871 时,顺着 objectstack#3589 收尾的 i18n 审计查到。"
+}

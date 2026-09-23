@@ -1,0 +1,32 @@
+{
+  "number": 2721,
+  "kind": "pull_request",
+  "title": "fix(plugin-view): coerce i18n tab-label helpers to string (TS2322)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-20T03:06:11Z",
+  "updated_at": "2026-07-20T03:10:10Z",
+  "closed_at": "2026-07-20T03:10:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-20T03:10:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2721",
+  "body": "## What\n\n`useViewTabLabel()` in [`ViewTabBar.tsx`](packages/plugin-view/src/ViewTabBar.tsx) and the identical `useViewLabel()` in [`ManageViewsDialog.tsx`](packages/plugin-view/src/ManageViewsDialog.tsx) returned the raw `t()` result. i18next types `t()` as `string | object` (it can resolve a key to an object), so the helper's return type was `string | object`.\n\nThat value is rendered directly as a React child and passed as `aria-label` at ~35 call sites, so `vite build`'s declaration-generation (dts) pass emitted `error TS2322: Type 'string | object' is not assignable to type 'ReactNode'` (and to `string | undefined` for aria-labels).\n\nBecause `plugin-view` builds with `vite build` (no type-check gate), these did **not** fail the build — but they are real: if `t()` ever resolves a key to an object, React throws and white-screens. This is the known \"i18n/expression value is `string | object`, rendered raw → white-screen\" class.\n\n## Fix\n\nCoerce the resolved value with `String(v)` and annotate the helper return type as `string`, in both helpers. Behavior-preserving for the normal (string) case.\n\n## Scope\n\nThe task named `ViewTabBar.tsx`; while verifying at the package level, the `vite build` dts pass surfaced the identical bug (22 TS2322s) in the sibling `ManageViewsDialog.tsx` — same copied helper, same root cause, same package. Fixed both so the package is clean of this class. Out of scope for the docs-build fix in #2718; tracked separately.\n\n## Verification\n\n- `pnpm --filter @object-ui/plugin-view build` — before: TS2322 from both files; after: **no `TS2322` / `error TS`**, declaration files build cleanly, `✓ built`.\n- `eslint` on both files reports only pre-existing warnings/errors (conditional hook, `vars as any`, `Function` type, setState-in-effect) — none introduced by this change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

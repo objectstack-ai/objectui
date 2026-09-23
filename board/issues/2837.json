@@ -1,0 +1,33 @@
+{
+  "number": 2837,
+  "kind": "pull_request",
+  "title": "fix(fields): consistent image-field rendering + click-to-zoom (#2836)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T06:23:49Z",
+  "updated_at": "2026-07-27T08:39:10Z",
+  "closed_at": "2026-07-27T08:39:08Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T08:39:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2837",
+  "body": "Closes #2836\n\n`image` 字段在三个界面渲染不一致、各有缺陷,一并修复,并新增点击放大。\n\n## 根因与修复\n\n| 界面 | 问题 | 修复 |\n|---|---|---|\n| 整表单编辑 | 值是 bare `sys_file` id,`readFileValue` 不返回 url → `<img src=\"\">` 裂图 | `file-value` 对 bare id / 仅 id 无 url 的对象,推导稳定下载端点 `/api/v1/storage/files/{id}`(302→签名 URL,可直接作 `<img src>`) |\n| 行内编辑 | `InlineFieldInput` 无 file 分支,落到纯文本框露出 `/api/v1/storage/files/…` | 增加 `image/avatar/signature/file/video/audio` 分支,复用表单上传组件 |\n| 只读态 | 缩略图静态,不能放大 | 新增 `ImageLightbox`(单图无导航;多图带 `n/total` 计数+左右箭头+方向键),`ImageCellRenderer` 与 `ImageField` 只读态接入;表格内 `stopPropagation` 不触发打开记录 |\n| 文案 | `Upload Image` / `Add More Images` / `Uploading…` 硬编码英文 | 改走 `t('fields.image.*')`,补 en/zh |\n\n## 验证\n\n- **单测**:`file-value` 33 passed(更新 bare-id 契约断言)+ 新增 `ImageLightbox` 5 passed;`@object-ui/fields`、`@object-ui/plugin-detail` type-check 通过。\n- **真机**:framework app-showcase 后端(存 bare id — 复现线上裂图形态)+ objectui console dev(HMR)实测,单图/多图在:\n  - 详情只读 — 缩略图正常 + 点击放大 lightbox(多图 `1/3` 翻页、单图无导航)\n  - 编辑表单 — 缩略图不裂 + 中文文案「添加更多图片 / 裁剪图片 / 移除图片」\n  - 行内编辑 — 渲染上传组件而非链接\n  - 控制台无报错、无图片 404\n\n## 影响范围\n\n`@object-ui/fields` / `@object-ui/plugin-detail` / `@object-ui/i18n`(changeset: patch)。`AvatarField` 的 `Upload Avatar` 文案未在本 PR 内处理(超出 image 字段范围)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2654,
+  "kind": "issue",
+  "title": "[plugin-form] resolveInlineMode 仍因 file/image 字段倾向 per-row form —— grid 已原生支持上传后需重估",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-18T06:03:41Z",
+  "updated_at": "2026-07-18T06:37:47Z",
+  "closed_at": "2026-07-18T06:37:47Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2654",
+  "body": "## 背景\n\n\\#2360 / \\#2585 之后,内联 line-item grid 已经能为 `file`/`image`/`avatar` 字段渲染真正的上传单元格(`FileCell`)。但 `resolveInlineMode` 的智能默认启发仍把这些类型算作「form-only」,从而把带附件的子对象**默认推向 per-row form**,而不是 grid。\n\n## 定位\n\n`packages/plugin-form/src/deriveMasterDetail.ts:315`\n\n```ts\nconst FORM_ONLY_TYPES = new Set([\n  'textarea', 'richtext', 'html', 'markdown', 'rich-text',\n  'file', 'image', 'avatar', 'attachment', 'json', 'location', 'address',\n]);\n```\n\n`resolveInlineMode`(同文件 :330)里 `hasRich = names.some(n => FORM_ONLY_TYPES.has(fields[n]?.type))` 命中即返回 `'form'`。\n\n## 现状与影响\n\n- **显式 `inlineEdit: 'grid'` 不受影响** —— 已经在 grid 里正常上传(见 showcase `showcase_invoice_line.receipt`)。\n- **仅影响未显式声明模式的子对象**:一个只多了个 `receipt` 附件字段的「瘦」子对象,现在因为这一个字段被判为 `form`,失去了 grid 内逐行上传的便利。\n\n## 期望 / 待决策\n\n`file`/`image`/`avatar` 现在在 grid 里能紧凑渲染(上传按钮 + chip/缩略图),是否应从 `FORM_ONLY_TYPES` 移除,让它们不再单独触发 form 倾向?\n\n考量点:\n- 单个附件列在窄 grid 里体验是 OK 的(已验证);多个附件列或 `multiple` 大量文件时,form 可能仍更合适 —— 也许阈值应看「rich 字段数量」而非「存在性」。\n- `textarea`/`richtext`/`json`/`location` 等仍应保留在 `FORM_ONLY_TYPES`(grid 里确实读不好),本 issue 只针对 file 系。\n\n来源:\\#2360 的 follow-up(见 objectui#2585 讨论)。"
+}

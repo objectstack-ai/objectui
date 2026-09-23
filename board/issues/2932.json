@@ -1,0 +1,36 @@
+{
+  "number": 2932,
+  "kind": "pull_request",
+  "title": "refactor(views): ListView reads spec-canonical `columns`, legacy `fields` folded in one normalizer (#2890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T15:45:51Z",
+  "updated_at": "2026-07-28T15:52:15Z",
+  "closed_at": "2026-07-28T15:52:12Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T15:52:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2932",
+  "body": "Closes the first rename in #2890 scope A: **`fields` → `columns`**.\n\n`ListViewSchema` has been derived from `@objectstack/spec/ui` since #2231, but the renderer still spoke objectui's own vocabulary for the same concepts. This PR moves every ListView read-site onto the spec key and puts legacy acceptance in exactly one place.\n\n## What changed\n\n- **New `normalizeListViewSchema` (`@object-ui/core`)** — folds `fields` into `columns` (canonical wins when both are present) and **drops** the legacy key, so a read-site that was missed fails loudly instead of quietly taking the legacy path. It also absorbs the `viewType` renderability default `ListView` applied inline. Non-mutating, idempotent, and returns its input **by reference** when there is nothing to fold, so ListView's downstream `useMemo`s keep a stable dependency identity on the already-canonical path.\n- **`ListView` normalizes once at the component boundary**, before anything reads the schema.\n- **Producers emit `columns`** — `ObjectView`'s `renderListView` payload, `ObjectDataPage`, `InterfaceListPage` and the `list-view` registry defaults were *downgrading* already-`columns`-keyed view config back to `fields`.\n- Drive-by: the filter builder's objectDef-not-loaded fallback resolved only `name`/`fieldName`, so `ListColumn` objects produced unnamed filter entries. It now reads `field` too.\n\n## Why not a `z.preprocess` on `ListViewSchema`\n\nThe issue suggests a spec-side preprocess, on the precedent of `normalizeFilterOperator`. That mechanism cannot work here: **nothing on the render path parses view metadata through zod.** The zod schemas serve the CLI validator, the VS Code extension and tests; `ListViewSchema` at the render site is a TypeScript type annotation, erased at compile time. A schema-level fold — spec-side or local — would never execute. The guarantee has to come from a call site, so that is where it lives. (Two more findings about the spec-side route are written up on the issue.)\n\nPer AGENTS.md Commandment #0.1 this is deliberately **not** a per-read-site `??` dual-read: those had already drifted (`ObjectGrid` preferred `columns` in one branch and `fields` in another). Like the spec's own migration bridges, the fold is expected to be dropped in a future major once stored metadata is migrated.\n\n`fields` stays declared on `ListViewSchema` and in the drift guard's sanctioned set — it is still valid input, and `@objectstack/spec`'s `react-blocks.ts` sanctions it as the React-tier `<ListView fields>` prop — but it is **input-only** now.\n\n## Verification\n\n- New `normalize-list-view.test.ts` — 13 tests (fold, precedence, drop, idempotence, reference stability, non-object input).\n- New `ListView` consumer regression — 4 tests asserting the `$select` projection is built from `columns`, from `ListColumn` objects, from legacy `fields`, and that `columns` wins when both are present.\n- Existing `ListView` suite (170 tests) authors `fields:` throughout and passes unchanged — that is the legacy-acceptance proof.\n- Full local `vitest run`, `turbo run type-check` over the 5 touched packages (32 tasks), and ESLint on every changed file (0 errors).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

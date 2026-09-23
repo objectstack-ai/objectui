@@ -1,0 +1,36 @@
+{
+  "number": 2881,
+  "kind": "pull_request",
+  "title": "fix(hooks): stop calling translation hooks inside try/catch (#2879)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T01:27:15Z",
+  "updated_at": "2026-07-28T01:32:41Z",
+  "closed_at": "2026-07-28T01:32:39Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T01:32:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2881",
+  "body": "Closes #2879.\n\n## The bug\n\nEleven call sites wrapped a React hook in `try`/`catch` to make it \"provider-safe\". `useObjectTranslation` and `useObjectLabel` already are — they read context optionally (`context?.language || i18n.language || 'en'`) and fall back to react-i18next's global instance. They never throw. Compare `useI18nContext` immediately below, which *does* throw.\n\nSo the `catch` bought nothing and cost correctness: a throw **after** the hook ran desyncs hook order on the next render, because React matches hooks positionally.\n\nThis is not a new discovery — #2595/#2596 fixed exactly this in `@object-ui/i18n`'s `createSafeTranslation`, and its test file says so explicitly:\n\n> Locks the fallback semantics of the safe-translation hooks **AFTER the try/catch-around-hook removal** … via the testKey probe / per-key detection, **not via a caught throw**.\n\nNine plugin-local re-implementations kept their own copy of the bug. `plugin-detail`'s was even named `useSafeTranslation` — the canonical name, minus the fix.\n\n## What changed\n\n| Treatment | Files |\n|---|---|\n| Delegate to `createSafeTranslation` | `plugin-detail`, `plugin-timeline`, `plugin-list`, `plugin-calendar`, `plugin-grid`/`ObjectGrid`, `plugin-designer`, `components`/`data-table` |\n| Keep local hook, drop only the `try`/`catch` | `plugin-gantt`, `plugin-grid`/`ImportWizard` |\n| Call hook directly + probe return value | `plugin-timeline`/`ObjectTimeline`, `plugin-view`/`ObjectView` |\n\n**Gantt and ImportWizard are deliberately not consolidated.** They fall back **per key**, not on a single probe — so a host dictionary that translates the common keys but lags on newer ones still resolves what it has. A single-probe factory can't express that, and both files document the reasoning. Consolidating them would have been a silent behaviour regression.\n\n`createSafeTranslation` now returns `language` alongside `t` (purely additive) so `data-table`'s `Intl.DateTimeFormat` consumer doesn't need a second hook call.\n\n## Two things this surfaced that a grep could not\n\n**1. Two more violations I'd missed.** My initial grep found 9; the lint rule found 11. `ObjectView` had an inline `eslint-disable-next-line react-hooks/rules-of-hooks` with the rationale *\"always the first call; catch only guards a missing provider\"* — which is the exact misconception the canonical comment refutes.\n\n**2. The `try`/`catch` was masking a broken test mock.** With it removed, `ObjectTimeline.test.tsx` failed: its `vi.mock('@object-ui/react')` omits `useObjectLabel`. The catch had been absorbing that — which is precisely the class of real breakage a swallowed throw hides. Mock completed.\n\n## The lint rule\n\n`object-ui/no-try-catch-around-hook`, error-level, so a twelfth copy fails CI.\n\nMy first draft was too broad and I only found out by running it repo-wide — it flagged `vi.useRealTimers()` (a vitest helper matching `use*` by coincidence) and `renderHook(() => useCondition(…))` inside a `try` (the hook runs during React's render of the harness, not in the try's flow). Both were **real code in this repo**. The rule now matches only `use*` names, accepts member calls solely on `React`, and resets its try-depth inside nested functions. Both false positives are pinned as `valid` cases in its tests.\n\n**`eslint-rules/**/*.test.js` matched no vitest project glob**, so the local plugin's specs — including the pre-existing `no-synthetic-event-trigger` and `no-inline-spec-config` ones — had never run in CI. Now included; all three files pass (25 tests).\n\n## Verification\n\n- Full suite: **7604 passed**, 1 skipped, 0 failed\n- ESLint: repo-wide error count **identical to baseline** (25, all pre-existing); 0 hits for the new rule\n- `turbo type-check`: clean except a pre-existing `maplibre-gl` default-export error in `plugin-map`, **verified identical on a stashed baseline**\n- Rule verified by construction: fails on the bad pattern, passes on the good one, and on both false-positive shapes\n\nOne nuance worth flagging: imports go to `@object-ui/i18n` **directly**, not via `@object-ui/react`. I initially routed them through the `react` barrel, which tripped a module-init cycle — `data-table` threw at import time in the combined suite while passing in isolation. Importing directly matches what the three existing `components` consumers already do.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01TubWYdWquVkS9dj733sDmC\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01TubWYdWquVkS9dj733sDmC)_"
+}

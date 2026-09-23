@@ -1,0 +1,35 @@
+{
+  "number": 2883,
+  "kind": "pull_request",
+  "title": "feat(charts): ObjectChart honors the spec `ChartConfig` author shape (#2880)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T01:49:22Z",
+  "updated_at": "2026-07-28T02:00:18Z",
+  "closed_at": "2026-07-28T02:00:16Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-28T02:00:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2883",
+  "body": "Closes #2880. Framework umbrella: objectstack-ai/objectstack#3729. Companion framework PR: objectstack-ai/objectstack#3737 (merge this one first — the contract flip depends on this behaviour).\n\n## Context\n\n`ChartConfigSchema` is the chart protocol, but the renderer only ever read a Recharts-flavoured internal shape — `chartType`, `xAxisKey`, `series[].dataKey`. Everything an author wrote in the SPEC shape reached the renderer and was silently dropped, which is exactly what ADR-0078 forbids. framework#3725 documented the gap by trimming the published contract down to the props that actually worked; this closes it the other way round.\n\n## S1 — one normalization boundary\n\n`normalizeChartSchema` translates the author shape into the internal pipeline contract in a single place, rather than scattering `??` fallbacks through the render tree. That distinction is the point (framework PD #12): one translation is a contract mapping, N fallbacks are a second de-facto dialect.\n\n- `type` → `chartType`, `xAxis: { field }` → `xAxisKey`, `series: [{ name }]` → `series: [{ dataKey }]`\n- the report surface's bare-string `xAxis`/`yAxis` resolve too\n- `yAxis: [{ field }]` alone plots, with no `series` declared\n- **internal props win**, so `DashboardRenderer`, `ObjectView` and the dataset path are byte-for-byte unaffected — there is no migration\n\n### The `type` collision\n\n`ChartConfig.type` is the chart family, but on any surface that flattens chart config into a props bag `type` is already the SDUI envelope's component discriminator (`{ type: 'object-chart', … }`). The react-page wrapper spread props last, so an author's `type=\"bar\"` **replaced the discriminator and the block stopped resolving**; stamping the discriminator last would have silently eaten the author's value instead. Neither is acceptable under ADR-0078, so the wrapper now keeps both: the discriminator wins the `type` slot and the author's value is preserved beside it as `specType`, which the normalizer reads back.\n\nThis is why framework#3729's checklist item \"`type` 取代 overlay 的 `chartType`\" could not be done as written — the collision had to be resolved at the flattening site first.\n\n## S2 — axis presentation\n\n| spec | effect |\n|---|---|\n| `ChartAxis.format` | tick formatter (via `Intl.NumberFormat` — no new dependency; an unrecognized format keeps the existing default rather than guessing) |\n| `ChartAxis.min` / `max` | `domain` + `allowDataOverflow` (so an explicit domain actually clips) |\n| `ChartAxis.logarithmic` | `scale=\"log\"` |\n| `ChartAxis.title` | axis label |\n| `ChartAxis.showGridLines` | `CartesianGrid` per orientation |\n| second `yAxis` entry / `position: 'right'` | secondary axis, bound by `series[].yAxis` — in combo charts an explicit binding now beats the family-derived bar→left/line→right guess |\n| `showLegend` | honored (was read by nothing) |\n| `title` / `subtitle` | rendered above the plot (`title` previously only titled the drill-down drawer) |\n\nHorizontal bars get the y-axis config applied to their x axis, since that is the value axis there.\n\n## S3 — stack, annotations, interaction\n\n- **`series[].stack`** (prioritized per the issue): the author's group name passes through as Recharts' `stackId`. Grouped vs stacked is a series property, not a chart family — which is why `stacked-bar`/`stacked-area` don't need to come back into the taxonomy (corrected in the framework PR).\n- **`annotations`**: `type: 'line'` → `ReferenceLine`, `type: 'region'` → `ReferenceArea`, honoring `axis`, `value`/`endValue`, `color`, `style` and `label`.\n- **`interaction`**: `tooltips: false` suppresses the hover card, `brush: true` adds the range selector. `showDataLabels` prints values on the marks.\n- **`interaction.zoom` is deliberately still unimplemented** — Recharts has no zoom primitive and faking it would be the exact declared≠delivered problem this PR exists to fix. Flagged in the framework PR by marking it declared-not-delivered in its own schema description.\n\n## Verification\n\n- `normalizeChartSchema.test.ts` — 20 tests: spec shape, internal-wins (the no-migration guarantee), the `type` collision, `formatterFor`, `domainFor`\n- `AdvancedChartImpl.specConfig.test.tsx` — 12 tests pinning the wiring at the DOM level (title/subtitle, legend off, currency ticks, axis title, second y-axis, stacked-vs-grouped bar geometry, reference line/area, brush)\n- Full suite: **7617 passed / 24 skipped**, 648 files\n- `type-check` clean on `plugin-charts` and `components`\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01UMHZBHTjH4rw8xmDYirFC7\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01UMHZBHTjH4rw8xmDYirFC7)_"
+}

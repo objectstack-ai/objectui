@@ -1,0 +1,33 @@
+{
+  "number": 2830,
+  "kind": "pull_request",
+  "title": "fix(console): make a paused screen flow completable, and stop the runner from tearing down its host (framework#3528)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T04:18:29Z",
+  "updated_at": "2026-07-27T04:23:58Z",
+  "closed_at": "2026-07-27T04:23:56Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-07-27T04:23:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/2830",
+  "body": "Console half of objectstack#3528 (\"screen-flow Submit never calls the resume endpoint\"). SDK half: objectstack#3552.\n\n## What I found\n\nI drove the reported path against a live server using the **published `@objectstack/console` 16.1.0 build** in Chromium. The record and list surfaces already resume correctly — trigger → screen → `POST .../runs/:runId/resume` → 200, including the two-step `object-form` lead-conversion wizard. But two real defects on the same path both end in \"Submit never resumes\":\n\n**1. The Flow Runs test runner has no second half.** Developer → Flow Runs triggers a flow and renders the result. For a screen flow that result is not a result — it is `{ status: 'paused', runId, screen }`, and the run sits suspended until something posts to its resume endpoint. The panel dumped that envelope as JSON and stopped: no screen, no Submit, no resume call. Every test run of a screen flow orphaned a `paused` row in Recent Runs.\n\n**2. `FlowRunner` tore down its host.** An `object-form` step mounts `ObjectForm`, whose field widgets are lazy. That suspension unwound to the *host's* nearest `<Suspense>`; where that is the route-level boundary, React swapped the whole page for the fallback and remounted it — destroying the host's state and this dialog with it. Traced live: the runner opened and was unmounted in the same tick.\n\n```\n[DBG] execute result {\"success\":true,\"status\":\"paused\",\"runId\":\"run_02a9…\"}\n[DBG] opening FlowRunner for run run_02a9…\n[DBG] FlowTestRunner UNMOUNTED          ← dialog gone, run still paused\n[DBG] FlowTestRunner MOUNTED\n```\n\nThe screen vanished before it could be filled in and no resume was ever issued — the reported symptom exactly, from a cause that has nothing to do with the Submit handler.\n\n## Changes\n\n- **console** — a paused test run opens the same `FlowRunner` the record and list surfaces use, so the screen renders for real (flat fields, multi-step wizards, `object-form` steps with their master-detail grids) and Submit posts to `/automation/:flow/runs/:runId/resume`. Dismissing the runner no longer strands the run: the suspension is durable, so a \"Continue run\" affordance reopens the pending screen. `paused` gets its own status badge instead of the unknown-status style.\n- **app-shell** — `FlowRunner` owns a `<Suspense>` boundary around its screen body, so a lazy screen body can never tear down its host. Fixed at the source rather than per-surface.\n- **app-shell** — a screen payload without `fields` no longer throws. `fields` is optional on the wire (a message-only screen, or an executor that omits it) but was read unguarded as the dialog mounted; reads go through a `screenFields()` helper, and the design-time builder keeps its exhaustive shape via `DesignedScreenSpec`.\n- **app-shell** — `FlowRunner` and its types are exported from the package so surfaces outside `views/` mount the one runner instead of reimplementing it.\n\n## Test plan\n\n- New `apps/console/src/pages/developer/FlowRunsPage.test.tsx` — asserts the pause opens the runner and that Submit posts to the run's resume endpoint, and that \"Continue run\" reopens a dismissed screen.\n- `FlowRunner.test.tsx` — two new cases: a screen payload with no `fields` renders and resumes, and the resume body carries the collected values.\n- Full affected suites: `FlowRunsPage`, `FlowRunner`, `ScreenPreview`, `FlowSimulatorPanel` — 26 passed.\n- `pnpm --filter @object-ui/app-shell type-check` clean; eslint on all changed files: 0 errors.\n- Browser, against a live `examples/app-crm` server: Flow Runs → Run Flow on `crm_convert_lead_wizard` → step 1 form renders → Save & Continue creates the account → **resume 200** → step 2 renders with the account prefilled.\n\n## Not in this PR\n\nTwo adjacent launch-side gaps found while mapping every path that dispatches a `type: 'flow'` action: `DashboardRenderer` header actions never dispatch `flow` (they fall through to `console.warn(\"Unknown header actionType\")`) and have no `ActionProvider` in their subtree; and the console-root `<ActionProvider>` in `ConsoleShell` is mounted with no `handlers` map, so any `action:button` outside ObjectView / RecordDetailView / PageView / DeclaredActionsBar hits a runner with no flow handler. Both deserve their own change.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01LX9ut3MK3KykE11S9bJmv5\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01LX9ut3MK3KykE11S9bJmv5)_"
+}

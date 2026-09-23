@@ -1,0 +1,34 @@
+{
+  "number": 2679,
+  "kind": "issue",
+  "title": "重构:master-detail 保存统一走原子 batchTransaction,把非原子回退隔离进适配器(承接 framework#1604 / framework ADR-0034 item 4)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T11:13:45Z",
+  "updated_at": "2026-07-20T14:37:55Z",
+  "closed_at": "2026-07-20T14:37:55Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2679",
+  "body": "> 术语澄清:本 issue 里的 **ADR-0034 指 framework 仓库的 ADR-0034(“Robust multi-write transactions / ambient transaction”)**,与 objectui 自己的 ADR-0034(运行时元数据持久化)无关。\n\n## 背景\n\nframework 侧的跨对象原子批量端点 `POST /api/v1/batch` 已随 **framework#1604** 落地并加固(按对象 API 权限门 + Zod 校验 + `$ref` 解析 + 原子提交/回滚),并已在真实浏览器里端到端验证:console 主子表保存 → **一次** `POST /api/v1/batch`(父 + 子 `{\"$ref\":0}`)→ HTTP 200 原子提交;不选 product 时整批回滚、不产生孤儿发票。\n\nframework ADR-0034 的收尾项(item 4)写道:\n> “Point ObjectUI `masterDetailTx` at it and **delete the client-side best-effort cleanup** (a smell that exists only because server atomicity was missing).”\n\n`masterDetailTx` → `batchTransaction` → `/api/v1/batch` 的接线**已经存在**且工作正常。本 issue 只跟踪**清理那条非原子的客户端回退路径**。\n\n## 现状:回退清理指的这三块代码\n\n1. **能力探测门** — `packages/plugin-form/src/MasterDetailForm.tsx:589`\n   ```ts\n   const canBatch = typeof (dataSource as any)?.batchTransaction === 'function';\n   ```\n   - `true` → `submitViaBatch` → `ds.batchTransaction(ops)`(原子,走 `/batch`)。\n   - `false` → `handleParentSaved` → `persistDetails` → `applyDetail`(逐子集合 createMany/update/delete + 客户端 rollup)。\n2. **best-effort 补偿删除** — `handleParentSaved` 的 catch(约 `MasterDetailForm.tsx:570-576`):父落库后若子写入失败,`Promise.allSettled([...created.map(delete), delete(parent)])` 试图删掉孤儿父 + 已建子。\n3. **为补偿而存在的簿记** — `masterDetailTx.ts` 的 `applyDetail` 返回 `ApplyDetailResult.created`(专门记已建子 id 供失败回删)。\n\n## 为什么是 smell\n\n客户端补偿式“回滚”是原子性反模式:\n\n- **有竞态**:父落库到补偿删除之间有窗口,别的读取/hook/订阅会看到孤儿父。\n- **best-effort ≠ 保证**:`allSettled` 吞掉删除失败;父建成后网络断开则补偿根本没机会跑 → 永久孤儿。\n- **副作用不可回滚**:父 create 已触发 hooks/flow/rollup/审计/webhook/邮件,删行并不能撤销这些。真事务是**根本不 commit**。\n- **逻辑重复**:服务端已做对(一个事务),再留一份客户端实现 = 两条路径两种行为。\n\n## 为什么不能现在直接删(兼容性约束)\n\n`batchTransaction` **不在 `DataSource` 契约里**(`packages/types/src/data.ts:170` 的 `DataSource` 只有 `find/create/update/delete` + 可选 `bulk?/bulkUpdate?/bulkDelete?`),只实现在 `ObjectStackAdapter`(`packages/data-objectstack/src/index.ts:935`),且以 `(dataSource as any).batchTransaction` 访问。因此 `canBatch` 门保护了两种真实场景:\n\n1. **后端版本 skew**:连到还没有 `/api/v1/batch` 的旧后端,直接删回退 = 把“能保存(不够安全)”变成“**没有保存路径**”。\n2. **非 ObjectStack 适配器**:实现了 `DataSource` 但没有 `batchTransaction` 的适配器,原子路径不存在。\n\n这正是 ADR 把它限定为 “once the endpoint is **universally available**” 的原因。\n\n## 推荐方案 A(契约先行,首选)\n\n把回退**下沉到适配器**,让表单永远走原子形态:\n\n- [ ] 把 `batchTransaction` 提升为 **`DataSource` 契约的一等方法**(类型化,去掉 `as any`),语义:“把一组跨对象有序操作原子地持久化”。\n- [ ] 每个适配器实现它:`ObjectStackAdapter` 调 `/batch`(已实现);无服务端原子性的适配器在**适配器内部**用现有客户端编排 + best-effort 补偿实现(把 `applyDetail` + 补偿搬进去,集中到一个有测试的地方)。\n- [ ] 表单侧删 `canBatch` / `handleParentSaved` / `persistDetails` / 补偿删除,一律调 `dataSource.batchTransaction(ops)`。\n\n好处:表单不再“知道”非原子这回事(对应 framework Prime Directive #12 契约先行:一个契约、N 个实现,消费端不带方言);smell 被隔离到唯一“确实做不到原子”的适配器里并显式标注。\n\n### 方案 B(更保守,可作为过渡)\n\n- [ ] 用 `discovery` 文档里的**能力信号**替代 `(as any)` 方法嗅探(适配器已缓存 discovery,`data-objectstack/src/index.ts:144` 的 `discoveryCache`)——由服务端声明支持 `batch`。\n- [ ] 等**最低支持后端版本**保证有 `/batch` 时,再删客户端编排分支。\n\n## 两个必须一起考虑的连带点\n\n- **`LineItemsPanel`**(`packages/plugin-form/src/LineItemsPanel.tsx:120`)始终用 `applyDetail` 编辑**已存在**父的明细(parentId 已知 → 无孤儿父风险,本就没补偿)。它是独立面、当前完全不走 `/batch`;可顺带迁到 `batchTransaction`(编辑态 diff 已能用 `buildMasterDetailEditBatch` 表达)让它也原子化,但属独立加分项。\n- **rollup 不能丢**:`applyDetail` 还做客户端合计(`totalField = sum(amountField)` → 更新父)。原子路径是把 rollup **并进父 payload**(`submitViaBatch` 已这么做)。删 `applyDetail` 时须确认每个剩余调用方都把 rollup 折进 batch,否则会**静默丢掉合计**。\n\n## 验收\n\n- [ ] `MasterDetailForm` 创建/编辑主子表一律经 `dataSource.batchTransaction`,无客户端补偿删除分支。\n- [ ] 无服务端原子性的适配器仍能保存(回退实现移入适配器,单点、有测试)。\n- [ ] rollup 在原子路径下不丢。\n- [ ] 任何**硬删除**客户端编排都卡在“最低后端版本经 discovery 声明支持 `/batch`”这个前提上。\n\n## 优先级 / 备注\n\n低优先级技术债清理,**非正确性问题**——当前代码有端点时原子、无端点时降级但仍可用。承接自 framework#1604 的浏览器端到端验证(报告见该 PR/issue)。相关:已修的 #2582(batchTransaction 补发 MutationEvent)。\n"
+}

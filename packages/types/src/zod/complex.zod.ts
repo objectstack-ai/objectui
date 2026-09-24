@@ -566,6 +566,11 @@ export const ChatToolInvocationSchema = z.object({
   args: z.unknown().optional().describe('Tool arguments'),
   result: z.unknown().optional().describe('Tool result'),
   errorText: z.string().optional().describe('Tool error text'),
+  // The AUTHORING state vocabulary (objectui#10018). The AI SDK's three
+  // approval states — `approval-requested`, `approval-responded` and
+  // `output-denied` — are runtime-only and are not listed: an authored claim
+  // of one is refused as an `invalid_value` at `state`, with or without an
+  // `approval` envelope. Mirrors `ChatToolInvocation.state` in ../complex.ts.
   state: z
     .enum([
       'partial-call',
@@ -573,18 +578,16 @@ export const ChatToolInvocationSchema = z.object({
       'result',
       'input-streaming',
       'input-available',
-      'approval-requested',
-      'approval-responded',
       'output-available',
       'output-error',
-      'output-denied',
     ])
     .optional()
     .describe('Tool invocation state'),
   // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
   // tool-part union requires this envelope alongside the three approval
-  // states; the pairing itself is objectui#8426's narrowing and is NOT
-  // enforced here, so this arm stays independently optional (objectui#8442).
+  // states, which the `state` enum above does not admit (objectui#10018); on
+  // the states it does admit the envelope is never required, so this arm
+  // stays independently optional (objectui#8442).
   approval: z
     .object({
       id: z.string().describe('Approval request id — the key a decision is replied on'),

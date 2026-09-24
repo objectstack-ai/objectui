@@ -23,6 +23,7 @@ import { FileCell } from './FileField.js';
 import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
+import { renderableFractionScale } from './percent-scale.js';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -319,7 +320,11 @@ export function computeRow(columns: GridColumn[], row: Row): Row {
     const v = evalArith(c.expr!, next);
     if (v === null) { next[c.name] = null; continue; }
     const scale = c.scale ?? (c.type === 'currency' ? 2 : undefined);
-    next[c.name] = scale != null ? Number(v.toFixed(scale)) : v;
+    // A width above the engine's `toFixed` ceiling is clamped and reported,
+    // never thrown out of the edit (objectui#10071, the objectui#9808 ruling).
+    next[c.name] = scale != null
+      ? Number(v.toFixed(renderableFractionScale(scale, 'grid computed column', 'objectui#10071')))
+      : v;
   }
   return next;
 }

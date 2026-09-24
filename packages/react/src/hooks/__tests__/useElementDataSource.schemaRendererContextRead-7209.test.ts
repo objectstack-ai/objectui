@@ -7,46 +7,27 @@
  */
 
 /**
- * objectui#7209 — `plugin-form`'s two registry bridges read
- * `SchemaRendererContext` AS DECLARED.
+ * objectui#7209 — `useElementDataSource` reads `SchemaRendererContext` AS
+ * DECLARED.
  *
- * Both used to read it through
- * `useContext(SchemaRendererContext as React.Context<any>)`. That cast erased
- * `SchemaRendererContextType` at the read, so a member the context does not
- * declare type-checked clean — the mechanism behind objectui#7206's phantom
- * `ctx.formValues ?? ctx.data` channel. With the declared type in place such a
- * read is a compile error on the day it is written, which is the whole card.
+ * It used to read it through `useContext(SchemaRendererContext as Context<any>)`
+ * — spelled with the bare `Context` type imported from `react`, which is why
+ * this card's first census, keyed on `React.Context`, missed it.
+ * That cast erased `SchemaRendererContextType` at the read: a member the
+ * context does not declare type-checked clean — the mechanism behind
+ * objectui#7206's phantom `ctx.formValues ?? ctx.data` channel. The hook's
+ * published signature is unchanged; its only remaining assertion is the
+ * adapter's `ViewCapableDataSource` on the way out.
  *
- * Sibling pins for the card's other sites, each over its own package's file:
- * `ListViewBlock.schemaRendererContextRead-7209.test.ts` (plugin-list),
- * `objectViewRenderer.schemaRendererContextRead-7209.test.ts` (plugin-view),
- * `useResolvedDataSource.schemaRendererContextRead-7209.test.ts` and
- * `useElementDataSource.schemaRendererContextRead-7209.test.ts` (react).
- *
- * ## Why a program, and not a `@ts-expect-error` in this file
- *
- * The value lives in a local inside each renderer. Nothing a test can import
- * carries its type, so a directive written HERE would stay satisfied with the
- * cast restored at the site. `getTypeAtLocation` on the hook call itself is the
- * instrument that reports what each read carries — the shape
- * `record-details.hideFieldsUncast-9965.test.ts` established in plugin-detail.
- *
- * ## What is derived, and what makes each verdict a reading
- *
- * - The DECLARED type is read off `@object-ui/react`'s own
- *   `SchemaRendererContext` export in the same program, never written here.
- * - Each site is located by its renderer's NAME and must hold exactly one
- *   `useContext` of the context: zero or two throws, it does not pass.
- * - CALIBRATION: the same calls with the cast planted back IN MEMORY read
- *   `any`, so "not `any`" is a verdict this instrument can actually reach.
- * - PROBE: `formValues`, the member objectui#7206 retired, is not readable off
- *   the value.
- * - LIT CONTROL: `dataSource`, a declared member, is — at its declared type.
- *
- * The program resolves `@object-ui/react` (and, through the root tsconfig's
- * `paths`, `@object-ui/types` / `@object-ui/core`) to SOURCE: the test shards
- * build nothing, so a `dist`-backed program would read the context as an
- * unresolved `any` and report a false defect.
+ * The harness, and why it is a `ts.Program` rather than a `@ts-expect-error`
+ * in a test file, is explained once in plugin-form's
+ * `schemaRendererContextRead-7209.test.ts`; this file is the same harness over
+ * this package's site. In short: the DECLARED type is read off
+ * `@object-ui/react`'s own export in the same program; the site is located by
+ * NAME and must hold exactly one read; a cast planted back IN MEMORY must read
+ * `any` (so the verdicts below can fail); `formValues`, the member
+ * objectui#7206 retired, must not be readable (PROBE); `dataSource` must read
+ * at its declared type (LIT CONTROL).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -56,13 +37,13 @@ import { dirname, join, resolve } from 'node:path';
 
 /** Rooted at THIS file, never at `process.cwd()`. */
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
+const REPO_ROOT = resolve(HERE, '..', '..', '..', '..', '..');
 const slash = (p: string): string => p.replace(/\\/g, '/');
-const SITE_FILE = slash(join(HERE, '..', 'index.tsx'));
+const SITE_FILE = slash(join(HERE, '..', 'useElementDataSource.ts'));
 const CONTEXT_FILE = slash(join(REPO_ROOT, 'packages', 'react', 'src', 'context', 'SchemaRendererContext.tsx'));
 
-/** The renderers that read the context, by the name each is declared under. */
-const SITES = ['EmbeddableFormRenderer', 'MasterDetailFormRenderer'] as const;
+/** The exported hook that reads the context, by the name it is declared under. */
+const SITES = ['useElementDataSource'] as const;
 /** The member objectui#7206 retired — it never existed on the context. */
 const PHANTOM = 'formValues';
 /** What the calibration leg plants back: the cast this card removed. */

@@ -310,8 +310,9 @@ describe('objectui#9526 -- the element types of `CommandSchema` resolve from the
   });
 
   it('each root spelling is the SAME declaration as its `/form` spelling', () => {
-    // The same reason as the objectui#9406 block above: a barrel line naming
-    // a different type would satisfy the containment reading only by accident.
+    // The containment reading ties each root name to what the root
+    // `CommandSchema` holds; this ties it to the `/form` spelling a subpath
+    // consumer already imports, so the two entry points cannot drift apart.
     const item: Eq<CommandItemFromRoot, CommandItemFromForm> = true;
     const group: Eq<CommandGroupFromRoot, CommandGroupFromForm> = true;
     expect([item, group]).toEqual([true, true]);

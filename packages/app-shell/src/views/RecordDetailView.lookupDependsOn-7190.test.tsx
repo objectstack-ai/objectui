@@ -64,10 +64,22 @@
  * saved, and clearing the parent re-gates it. The staged cases below edit the
  * parent in the strip; the body case then reads it through `DetailView`'s merge
  * and the strip case through `HeaderHighlight`'s.
+ *
+ * ## The prune path must SETTLE
+ *
+ * Handing the record to an option widget arms its cascade clear: a stored value
+ * the current parent no longer offers is dropped with `onChange(undefined)` as
+ * soon as inline edit is entered. That stages exactly one prune — IF the host
+ * then hands the widget the pruned value. A host that reads a field's own value
+ * by a different rule than the record it passes (the saved value whenever the
+ * draft entry is `undefined`) prunes again on every render, forever; the strip
+ * did exactly that at `cfd1f8c5`. The last describe pins one prune per field at
+ * both call sites, through a probe whose circuit breaker makes the regression a
+ * bounded failure rather than a hung runner.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
 
@@ -96,6 +108,51 @@ vi.mock('./MetadataInspector', () => ({
   MetadataPanel: () => null,
   useMetadataInspector: () => ({ showDebug: false, toggle: () => {} }),
 }));
+
+/**
+ * The prune probe. An option widget drops a stored value its current parent no
+ * longer admits by calling `onChange(undefined)` from an effect keyed on its
+ * offered `options`. If the host then hands the widget the SAVED value again,
+ * the next render prunes again — forever, synchronously inside `act`, which
+ * hangs the runner instead of failing it (measured on the highlights strip at
+ * `cfd1f8c5`, contract review on PR objectui#10255).
+ *
+ * So the two widgets `InlineFieldInput` reaches an option widget through —
+ * `SelectField` directly, `RadioField` / `CheckboxesField` via `FieldEditWidget`
+ * — are wrapped, never replaced: the real widget renders with the real props,
+ * and the wrapper only (a) counts prunes per field, (b) records the last value
+ * the HOST handed the widget, and (c) stops forwarding past
+ * `PRUNE_CIRCUIT_BREAKER`. (c) is what turns a would-be hang into a bounded,
+ * readable failure — a count above 1 — and it never trips on a host that
+ * settles, where the count is exactly 1.
+ */
+const probe = vi.hoisted(() => ({
+  prunes: {} as Record<string, number>,
+  lastValue: {} as Record<string, unknown>,
+}));
+const PRUNE_CIRCUIT_BREAKER = 20;
+vi.mock('@object-ui/fields', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, any>>();
+  const { createElement } = await import('react');
+  const probed = (Real: any) =>
+    function Probed(props: any) {
+      const name = String(props.field?.name ?? '');
+      probe.lastValue[name] = props.value;
+      const onChange = (v: unknown) => {
+        if (v === undefined) {
+          probe.prunes[name] = (probe.prunes[name] ?? 0) + 1;
+          if (probe.prunes[name] > PRUNE_CIRCUIT_BREAKER) return;
+        }
+        props.onChange?.(v);
+      };
+      return createElement(Real, { ...props, onChange });
+    };
+  return {
+    ...actual,
+    SelectField: probed(actual.SelectField),
+    FieldEditWidget: probed(actual.FieldEditWidget),
+  };
+});
 
 import { RecordDetailView } from './RecordDetailView';
 
@@ -158,7 +215,7 @@ function objectsWith(fields: Fields, highlightFields: string[]) {
   return [{ name: OBJECT, label: 'Task', managedBy: 'platform', highlightFields, fields }];
 }
 
-function makeDataSource(fields: Fields) {
+function makeDataSource(fields: Fields, record: Record<string, unknown> = RECORD) {
   return {
     find: vi.fn(async (objectName: string, params: any) => {
       if (objectName === REF) {
@@ -170,7 +227,7 @@ function makeDataSource(fields: Fields) {
       return { data: [] };
     }),
     findOne: vi.fn(async (objectName: string, id: string) =>
-      objectName === REF ? (PEOPLE.find((p) => p.id === id) ?? null) : { ...RECORD, id }),
+      objectName === REF ? (PEOPLE.find((p) => p.id === id) ?? null) : { ...record, id }),
     create: vi.fn(async (_o: string, row: any) => row),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
@@ -213,8 +270,12 @@ function tree(ds: any, objects: any[]) {
  * and the details body share ONE inline-edit session, so entering it anywhere
  * puts both surfaces into edit mode.
  */
-async function openInlineEdit(fields: Fields, highlightFields: string[]) {
-  const ds = makeDataSource(fields);
+async function openInlineEdit(
+  fields: Fields,
+  highlightFields: string[],
+  record: Record<string, unknown> = RECORD,
+) {
+  const ds = makeDataSource(fields, record);
   const { container } = render(tree(ds, objectsWith(fields, highlightFields)));
   await screen.findByText('Task one');
   fireEvent.doubleClick(screen.getByText('emea'));
@@ -277,6 +338,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   cleanup();
+  probe.prunes = {};
+  probe.lastValue = {};
   // Unrelated chrome (approvals, favourites…) reaches for the platform API; in
   // jsdom that is a real socket. Answer it locally.
   vi.stubGlobal('fetch', vi.fn(async () =>
@@ -411,4 +474,139 @@ describe('objectui#7190 — a `dependsOn` option list (select / multiselect) on 
       expect(chipValues(container, 'tags_any')).toEqual(['gold', 'silver']);
     },
   );
+});
+
+/**
+ * The radio reaches its widget through `FieldEditWidget`, the fourth forward in
+ * `InlineFieldInput`. Its control uses DIFFERENT values (`g2` / `s2`) because a
+ * radio option's test id is `radio-option-VALUE`, not namespaced by field.
+ */
+const RADIO_FIELDS = {
+  id: { type: 'text', label: 'Id' },
+  title: { type: 'text', label: 'Title' },
+  region: { type: 'text', label: 'Region' },
+  /** DECLARED: offered per region, gated while `region` is empty. */
+  band: { type: 'radio', label: 'Band', dependsOn: ['region'], options: REGIONAL_OPTIONS },
+  /** CONTROL: no `dependsOn`, no option rule. */
+  band_any: {
+    type: 'radio',
+    label: 'Band (any)',
+    options: [
+      { label: 'Gold (any)', value: 'g2' },
+      { label: 'Silver (any)', value: 's2' },
+    ],
+  },
+};
+
+function radioValues(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('[data-testid^="radio-option-"]')).map((el) =>
+    (el.getAttribute('data-testid') ?? '').replace('radio-option-', ''),
+  );
+}
+
+const RADIO_CALL_SITES = [
+  { site: 'DETAILS BODY (DetailSection)', highlights: ['region'] },
+  { site: 'HIGHLIGHTS STRIP (HeaderHighlight)', highlights: ['region', 'band', 'band_any'] },
+];
+
+describe('objectui#7190 — a `dependsOn` radio, through the `FieldEditWidget` forward', () => {
+  it.each(RADIO_CALL_SITES)(
+    '$site: the declared radio is scoped by the staged record, beside a live control',
+    async ({ highlights }) => {
+      const { container } = await openInlineEdit(RADIO_FIELDS, highlights);
+
+      // CONTROL first: the radio path renders in this host at all.
+      await waitFor(() => {
+        expect(radioValues(container)).toEqual(expect.arrayContaining(['g2', 's2']));
+      });
+
+      // DECLARED: ungated, and offering only the record's region.
+      expect(container.querySelector('[data-testid="radio-empty-band"]')).toBeNull();
+      expect(radioValues(container)).toContain('gold');
+      expect(radioValues(container)).not.toContain('silver');
+
+      // Staged parent: re-scoped before anything is saved.
+      stageRegion(container, 'apac');
+      await waitFor(() => {
+        expect(radioValues(container)).toContain('silver');
+      });
+      expect(radioValues(container)).not.toContain('gold');
+      expect(radioValues(container)).toEqual(expect.arrayContaining(['g2', 's2']));
+    },
+  );
+});
+
+/**
+ * A stored option value its CURRENT parent does not admit: `silver` is offered
+ * only under `apac`, and the record sits in `emea`. Entering inline edit hands
+ * the widgets the record, their cascade-clear effect prunes the value once,
+ * and the host must then hand the widget the PRUNED (empty) value so the effect
+ * finds nothing left to prune. A host that re-reads the saved value instead
+ * prunes forever — the loop the circuit breaker in the `@object-ui/fields` probe
+ * turns into a count above 1.
+ */
+const PRUNE_FIELDS = {
+  id: { type: 'text', label: 'Id' },
+  title: { type: 'text', label: 'Title' },
+  region: { type: 'text', label: 'Region' },
+  /** Single select → `InlineFieldInput`'s own `SelectField` branch. */
+  tier: { type: 'select', label: 'Tier', dependsOn: ['region'], options: REGIONAL_OPTIONS },
+  /** Radio → the `FieldEditWidget` branch. */
+  band: { type: 'radio', label: 'Band', dependsOn: ['region'], options: REGIONAL_OPTIONS },
+};
+const INADMISSIBLE = { ...RECORD, tier: 'silver', band: 'silver' };
+const ADMISSIBLE = { ...RECORD, tier: 'gold', band: 'gold' };
+
+/**
+ * A bounded settle window: long enough for every effect the entry scheduled to
+ * run, and bounded, so a host that does not settle fails on the counts below
+ * instead of holding the runner.
+ */
+async function settle() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+}
+
+describe('objectui#7190 — a stored option the current parent no longer admits', () => {
+  it('HIGHLIGHTS STRIP: each inadmissible value is pruned exactly ONCE and its editor settles empty', async () => {
+    const { container } = await openInlineEdit(PRUNE_FIELDS, ['region', 'tier', 'band'], INADMISSIBLE);
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="select-trigger-tier"]')).toBeTruthy();
+    });
+    await settle();
+
+    expect(probe.prunes.tier).toBe(1);
+    expect(probe.prunes.band).toBe(1);
+    // The host now hands each widget the pruned value: the single-select branch
+    // spells an empty value `''`, the `FieldEditWidget` branch passes it as is.
+    expect(probe.lastValue.tier).toBe('');
+    expect(probe.lastValue.band).toBeUndefined();
+  });
+
+  it('HIGHLIGHTS STRIP control: an ADMISSIBLE stored value is never pruned', async () => {
+    const { container } = await openInlineEdit(PRUNE_FIELDS, ['region', 'tier', 'band'], ADMISSIBLE);
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="select-trigger-tier"]')).toBeTruthy();
+    });
+    await settle();
+
+    expect(probe.prunes.tier ?? 0).toBe(0);
+    expect(probe.prunes.band ?? 0).toBe(0);
+    expect(probe.lastValue.tier).toBe('gold');
+    expect(probe.lastValue.band).toBe('gold');
+  });
+
+  it('DETAILS BODY: the same inadmissible record settles after exactly ONE prune per field', async () => {
+    const { container } = await openInlineEdit(PRUNE_FIELDS, ['region'], INADMISSIBLE);
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="select-trigger-tier"]')).toBeTruthy();
+    });
+    await settle();
+
+    expect(probe.prunes.tier).toBe(1);
+    expect(probe.prunes.band).toBe(1);
+    expect(probe.lastValue.tier).toBe('');
+    expect(probe.lastValue.band).toBeUndefined();
+  });
 });

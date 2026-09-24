@@ -60,6 +60,24 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   const editing = inline?.editing ?? false;
   const canEdit = inline?.canEdit ?? false;
 
+  // The STAGED record: the saved record this strip receives, overlaid with the
+  // edit session's draft by the same spread `DetailView` gives the details body
+  // (objectui#7190). It is the ONE rule for "what is this record now" on this
+  // strip — both what a `dependsOn` field scopes itself by (`dependentValues`,
+  // its only channel since objectui#7206) and each field's own live value,
+  // below. An OWN draft key wins even when its value is `undefined`: that is an
+  // emptied field, not an untouched one.
+  //
+  // Memoised on its inputs as a render-cost hint only (AGENTS.md #10) — nothing
+  // here depends on the identity it returns. Termination of an option widget's
+  // cascade clear rests on the value read below, not on this memo: the widget's
+  // offered `options` are rebuilt every render regardless.
+  const draft = inline?.draft;
+  const stagedRecord = React.useMemo<Record<string, any> | undefined>(
+    () => (data && draft ? { ...data, ...draft } : data),
+    [data, draft],
+  );
+
   if (!fields.length || !data) return null;
 
   // In read mode we hide value-less fields to keep the strip dense; WHILE
@@ -71,13 +89,6 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   const visibleFields = editing ? fields : fields.filter(hasValue);
 
   if (visibleFields.length === 0) return null;
-
-  // The record a `dependsOn` field scopes itself by — the only channel it has
-  // (objectui#7190, objectui#7206). This strip receives the SAVED record, so the
-  // draft is overlaid here with the same spread `DetailView` uses for the
-  // details body: the two call sites hand `InlineFieldInput` the same staged
-  // record, and a parent edited in either re-scopes a child in either.
-  const stagedRecord = inline?.draft ? { ...data, ...inline.draft } : data;
 
   return (
     <TooltipProvider>
@@ -107,10 +118,16 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
               objectDefField,
             );
 
-            // Live value = the user's draft edit for this field, else the record
-            // value. Read as `draft[name] ?? data[name]` (objectui#2407 P2).
-            const draftVal = inline?.draft?.[field.name];
-            const value = draftVal !== undefined ? draftVal : rawValue;
+            // Live value = the field's entry in the STAGED record (objectui#2407
+            // P2): the draft's own key when the session has one — even an
+            // `undefined` one — else the saved value. This used to read
+            // `undefined` as "untouched" and fall back to the saved value, which
+            // disagreed with the record handed to the widgets: a cascade clear
+            // that emptied a value the parent no longer offers was handed the
+            // saved value again, emptied it again, and looped forever
+            // (objectui#7190, contract review on PR #10255). Same rule as the
+            // details body, which reads `DetailView`'s merged record.
+            const value = stagedRecord ? stagedRecord[field.name] : rawValue;
 
             // Field-level editability gate — shares `isComputedFieldType` with
             // DetailSection so the strip and the body agree on which highlights

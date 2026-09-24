@@ -52,9 +52,14 @@ const PROBE_FIELD_TYPES = [
 /** The bucket the dropdown actually lists — no opt-in extras, as the inspector mounts it. */
 const offeredBy = (type: string): string[] => operatorsForFieldType(type).map((o) => o.value);
 
-/** A value each operator's row is complete with. */
+/**
+ * A value each operator's row is complete with.
+ *
+ * `between` carries two DAYS: the builder offers it on the date bucket only,
+ * and since objectui#10062 it is stored, so its bounds reach the round trip.
+ */
 function probeValue(operator: string): unknown {
-  if (operator === 'between') return [1, 5];
+  if (operator === 'between') return ['2026-01-01', '2026-03-31'];
   if (operator === 'in' || operator === 'notIn') return ['a'];
   return '2026-01-01';
 }
@@ -112,7 +117,10 @@ describe('the operator a date column reads back is one it offers (objectui#9382)
       for (const operator of offered) {
         const fields: BuilderFieldDef[] = [{ value: 'f', type }];
         const { stored, readBack } = roundTrip('f', operator, fields);
-        if (stored === undefined) continue; // `between` is unmapped by design (objectui#9372)
+        // Every operator a bucket offers is stored now — `between` was the
+        // last one skipped here, and objectui#10062 maps it — so a dropped row
+        // is a break, not something to step over.
+        if (stored === undefined) { broken.push(`${type}/${operator} -> dropped`); continue; }
         checked++;
         if (!readBack || !offered.includes(readBack)) broken.push(`${type}/${operator} -> ${String(readBack)}`);
       }
@@ -121,6 +129,37 @@ describe('the operator a date column reads back is one it offers (objectui#9382)
     // building rows could not read as a clean sweep.
     expect(checked).toBeGreaterThan(100);
     expect(broken).toEqual([]);
+  });
+});
+
+describe('a date range reopens as the range the author built (objectui#10062)', () => {
+  it.each([
+    { field: 'closed_at', type: 'date' },
+    { field: 'logged_at', type: 'datetime' },
+    { field: 'starts_at', type: 'time' },
+  ])('$type column filtered with between stores $between and reopens as between, bounds intact', ({ field, type }) => {
+    const { stored, representable, readBack } = roundTrip(field, 'between', FIELDS);
+
+    expect(stored).toEqual({ [field]: { $between: ['2026-01-01', '2026-03-31'] } });
+    expect(representable).toBe(true);
+    expect(readBack).toBe('between');
+    expect(offeredBy(type)).toContain(readBack);
+    // The bounds come back as the pair, in order — not as one bound or a string.
+    expect(conditionToGroup(stored, FIELDS).group.conditions[0].value).toEqual(['2026-01-01', '2026-03-31']);
+  });
+
+  it('the panel draws the stored range: "Between", both bounds on screen, nothing written back', () => {
+    const { group } = conditionToGroup({ closed_at: { $between: ['2026-01-01', '2026-03-31'] } }, FIELDS);
+    const onChange = vi.fn();
+    render(<FilterBuilder fields={FIELDS as never} value={group as never} onChange={onChange} />);
+
+    expect(screen.getAllByRole('combobox')[1]?.textContent).toBe('Between');
+    expect(screen.getByDisplayValue('2026-01-01')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2026-03-31')).toBeInTheDocument();
+    // A COMPLETE pair: neither bound is marked as the missing one.
+    expect(document.querySelector('[aria-invalid="true"]')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    cleanup();
   });
 });
 

@@ -301,15 +301,17 @@ describe('objectui#10199 — the authoring face declares the contract’s rule a
   }
 
   it('every authored VALUE the compiler judges, the protocol’s parse judges the same way', () => {
-    // The two faces of one key, compared on identical input. A disagreement here
-    // is the defect class this card is about, in either direction.
-    const judged = CASES.filter((c) => c.filter !== undefined).map((c) => ({
-      case: c.what,
-      tscRejects: c.rejected,
-      specRefuses: !specFilter.safeParse(c.filter).success,
-    }));
+    // The two faces of one key, compared on identical input: the compiler's
+    // ACTUAL verdict (not the case's expectation) against the protocol's parse.
+    // A disagreement here is the defect class this card is about, in either
+    // direction.
+    const judged = CASES.flatMap((c, i) =>
+      c.filter === undefined
+        ? []
+        : [{ case: c.what, tscRejects: againstReal.has(i), specRefuses: !specFilter.safeParse(c.filter).success }],
+    );
     expect(judged.length).toBeGreaterThan(0);
-    for (const row of judged) expect(row.specRefuses).toBe(row.tscRejects);
+    for (const row of judged) expect(row).toEqual({ ...row, specRefuses: row.tscRejects });
   });
 });
 

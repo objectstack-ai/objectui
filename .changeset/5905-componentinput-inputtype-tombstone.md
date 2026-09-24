@@ -29,7 +29,7 @@ over the same regions, so the instrument was not blind. The other 192 in-repo `i
 hits are a DIFFERENT face: `FormField.inputType` (`zod/form.zod.ts`), the text-input
 renderer's prop, and `SchemaBuilder.inputType`, none of which sit on a `ComponentInput`.
 The publication path is unchanged and was re-confirmed: `packages/sdui-parser/src/index.ts`
-forwards exactly six keys per input — `name`, `type`, `required`, `enum`, `binding`,
+forwards exactly seven keys per input — `name`, `type`, `of`, `required`, `enum`, `binding`,
 `description` — so an authored `inputType` could not reach the published
 `sdui.manifest.json` even in principle.
 

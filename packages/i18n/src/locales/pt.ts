@@ -146,6 +146,7 @@ const pt = {
       acknowledge: 'Eu o salvei',
       copyAll: 'Copiar tudo',
     },
+    notAvailableHere: '"{{action}}" não está disponível na página atual.',
   },
   validation: {
     required: "{{field}} é obrigatório",
@@ -1396,6 +1397,7 @@ const pt = {
     navTypeSeparator: "Separador",
     navTypeAction: "Ação",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar ícone",
     navToggleVisible: "Alternar visibilidade",
     navHidden: "Oculto",
@@ -2579,6 +2581,7 @@ const pt = {
     selectPlaceholder: "Selecionar {{label}}",
     requiredError: "{{label}} é obrigatório",
     unresolvedParam: 'Não é possível exibir este parâmetro: o campo em que ele se baseia não está nos metadados do objeto, portanto o controle necessário não pode ser construído. Peça a um administrador para corrigir a definição da ação.',
+    carryOverHint: 'Mantido sem alterações (somente leitura)',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Enviando…",

@@ -68,7 +68,12 @@ tags.forEach(tag => {
       // question here instead of silently deleting a tag from every react page.
       isContainer: true,
       inputs: [
-        { name: 'className', type: 'string' }
+        { name: 'className', type: 'string' },
+        // The child slot this factory renders, declared as an input
+        // (objectui#9910): `validateTree`'s `not-a-container` now reads this
+        // entry and nothing else, so the flag above is layout containment
+        // only and this line is what keeps the diagnostic true.
+        { name: 'children', type: 'slot' }
       ]
   });
 });

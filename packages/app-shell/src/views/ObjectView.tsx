@@ -77,7 +77,7 @@ import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLoca
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
-import { useNavRunAction } from '../hooks/useNavRunAction.js';
+import { useOfferedNavRunAction } from '../hooks/useNavRunAction.js';
 import { actionRendersAt } from '@object-ui/types';
 import { useEnvironmentEntitlements } from '../environment/useEnvironmentEntitlements.js';
 import { EnvironmentListToolbar } from '../environment/EnvironmentListToolbar.js';
@@ -1464,11 +1464,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // `sys_environment` is excluded because `EnvironmentListToolbar` owns the
     // arming there: it must additionally wait for entitlements to resolve, and
     // two consumers of one param would race to strip it.
-    const navRunAction = useNavRunAction((requested) =>
-        !isEnvironmentList &&
-        localizedToolbarActions.some(
-            (a: any) => a?.name === requested && actionRendersAt(a, 'list_toolbar'),
-        ),
+    //
+    // [objectui#4191] …and only on an action its author has not HIDDEN here:
+    // the action's own declared `visible` outranks the deep link. A hidden
+    // candidate is neither marked `autoTrigger` nor consumed, and the refusal
+    // is reported — see `useOfferedNavRunAction`, which evaluates the same
+    // predicate `action:button` does.
+    const navRunAction = useOfferedNavRunAction(
+        localizedToolbarActions,
+        (a: any) => actionRendersAt(a, 'list_toolbar'),
+        !isEnvironmentList,
     );
     // Mark exactly the requested action `autoTrigger`, leaving every other
     // action's identity untouched so the bar's ordering/overflow is unchanged.

@@ -21,20 +21,14 @@
 // is what makes the claim true, and what makes a spec change break the build
 // instead of drifting quietly.
 import type {
-  ExportJobStatus,
-  ExportFormat as ExportJobFormat,
   ImportJobStatus,
   ImportRowResult,
   ImportWriteMode,
 } from '@objectstack/spec/api';
-import type {
-  CreateExportJobInput as SpecCreateExportJobInput,
-  CreateExportJobResult,
-} from '@objectstack/spec/contracts';
 import type { FilterArray } from '@objectstack/spec/data';
 import type { ValidationError } from '@objectstack/spec/kernel';
 
-export type { ExportJobStatus, ImportJobStatus, ImportWriteMode, ValidationError };
+export type { ImportJobStatus, ImportWriteMode, ValidationError };
 
 /**
  * Query parameters for data fetching.
@@ -804,65 +798,10 @@ export interface DataSource<T = any> {
   onMutation?(callback: (event: DataSourceMutationEvent<T>) => void): () => void;
 
   /**
-   * Initiate an asynchronous export job for a resource (server-driven streaming export).
-   *
-   * When implemented, callers can fire-and-forget large exports — the data
-   * source is responsible for queueing the job, streaming records to the chosen
-   * format, and producing a downloadable file. UI consumers then poll
-   * `getExportJobProgress` until the job reaches a terminal state and use
-   * `downloadUrl` (or `getExportJobDownloadUrl`) to deliver the file.
-   *
-   * Optional — when not implemented, callers fall back to client-side export
-   * (the legacy synchronous blob path used by ObjectGrid).
-   *
-   * Aligns with the spec v4 `CreateExportJobRequest` / `CreateExportJobResponse`
-   * contracts (see `@objectstack/spec/export`).
-   *
-   * @param resource - Resource name (e.g., 'account', 'opportunity')
-   * @param request - Export request (format, fields, filter, sort, limit, …)
-   * @returns Promise resolving to job tracking info ({ jobId, status, … })
-   */
-  createExportJob?(
-    resource: string,
-    request: CreateExportJobRequest,
-  ): Promise<CreateExportJobResult>;
-
-  /**
-   * Poll the progress of a previously-created export job.
-   *
-   * Optional — required only if `createExportJob` is implemented.
-   *
-   * @param jobId - The job identifier returned by `createExportJob`.
-   * @returns Promise resolving to current progress / terminal status.
-   */
-  getExportJobProgress?(jobId: string): Promise<ExportJobProgressInfo>;
-
-  /**
-   * Cancel an in-flight export job.
-   * Optional — implementations that don't support cancellation may omit this
-   * method (the UI will hide the Cancel button).
-   *
-   * @param jobId - The job identifier to cancel.
-   */
-  cancelExportJob?(jobId: string): Promise<void>;
-
-  /**
-   * Resolve the final download URL for a completed export job.
-   *
-   * Optional — when omitted, consumers fall back to the `downloadUrl` field on
-   * the latest progress payload. Implementations may use this hook to mint
-   * a fresh signed URL just before download.
-   *
-   * @param jobId - The job identifier.
-   * @returns Promise resolving to a downloadable URL (may be short-lived).
-   */
-  getExportJobDownloadUrl?(jobId: string): Promise<string>;
-
-  /**
    * Synchronously download a server-streamed export of a resource.
    *
-   * Unlike the async `createExportJob` family, this resolves directly to the
-   * exported file as a `Blob`: the server streams matching rows in the chosen
+   * It resolves directly to the exported file as a `Blob`: the server streams
+   * matching rows in the chosen
    * format (`csv` / `json` / `xlsx`), applies type-aware value formatting
    * (lookup → name, select → label, boolean → 是/否, dates formatted) and
    * enforces object / field / row permissions. Suited to interactive
@@ -1219,85 +1158,6 @@ export interface ExportDownloadRequest {
   limit?: number;
   /** Whether to write a header row (csv / xlsx). Default true. */
   includeHeaders?: boolean;
-}
-
-/**
- * Lifecycle status of a server-driven export job. Imported from
- * `@objectstack/spec/api` at the top of this module.
- */
-
-/**
- * Output formats supported by async export jobs — the spec's `ExportFormat`,
- * re-exported by reference (objectstack#4115) instead of restated. The union it
- * replaces listed the same five members, which is exactly the state a copy is in
- * one spec release before it is wrong.
- */
-export type { ExportFormat as ExportJobFormat } from '@objectstack/spec/api';
-
-/**
- * Request payload for `DataSource.createExportJob`, DERIVED from the spec's
- * `CreateExportJobInput` (objectstack#4115).
- *
- * The hand copy this replaces carried the note "ObjectUI does not import the
- * zod schema directly to keep `@object-ui/types` zero-dependency". That reason
- * had already expired: `@objectstack/spec` is a direct dependency of this
- * package, and this very module imports `ExportJobStatus` / `ImportWriteMode`
- * from `@objectstack/spec/api` at the top. A stale reason, still stated in the
- * authoritative voice, is what keeps a fork in place long after its argument is
- * gone (the `external/api.ts` case in objectui#3169).
- *
- * `CreateExportJobInput`, not the spec's `CreateExportJobRequest`: the latter is
- * `z.infer` of the request schema, i.e. the shape AFTER `.default()` has run, so
- * `format` / `includeHeaders` / `encoding` are required there. A caller builds
- * this payload, so the authoring side is the true one (objectui#3169).
- *
- * `object` is omitted because it is the method's own `resource` argument —
- * `createExportJob(resource, request)`; it must not be authored twice.
- */
-export type CreateExportJobRequest = Omit<SpecCreateExportJobInput, 'object'>;
-
-/**
- * Result of `DataSource.createExportJob` — the spec's contract type, re-exported
- * by reference (objectstack#4115). UI consumers use `jobId` as the polling key.
- *
- * The copy this replaces declared `createdAt` optional where the spec requires
- * it, so every consumer carried a nullish branch for a field the server always
- * sends — the same optional/required skew found across `app-shell` in
- * objectui#3169.
- */
-export type { CreateExportJobResult } from '@objectstack/spec/contracts';
-
-/**
- * Progress payload returned by `DataSource.getExportJobProgress`.
- *
- * Once `status` is 'completed', `downloadUrl` (or
- * `DataSource.getExportJobDownloadUrl`) becomes available.
- */
-export interface ExportJobProgressInfo {
-  /** Job identifier. */
-  jobId: string;
-  /** Current lifecycle status. */
-  status: ExportJobStatus;
-  /** Format the file is being produced in. */
-  format?: ExportJobFormat;
-  /** Total records in the slice (may be unknown for streaming exports). */
-  totalRecords?: number;
-  /** Records written to the output stream so far. */
-  processedRecords?: number;
-  /** 0–100 progress; computed by the server when `totalRecords` is known. */
-  percentComplete?: number;
-  /** Final file size in bytes (present after completion). */
-  fileSize?: number;
-  /** Direct download URL (present after completion). */
-  downloadUrl?: string;
-  /** ISO-8601 timestamp at which `downloadUrl` expires. */
-  downloadExpiresAt?: string;
-  /** Error details when `status === 'failed'`. */
-  error?: { code: string; message: string };
-  /** ISO-8601 start timestamp. */
-  startedAt?: string;
-  /** ISO-8601 completion timestamp. */
-  completedAt?: string;
 }
 
 /**

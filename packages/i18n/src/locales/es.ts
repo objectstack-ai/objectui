@@ -146,6 +146,7 @@ const es = {
       acknowledge: 'Lo he guardado',
       copyAll: 'Copiar todo',
     },
+    notAvailableHere: '«{{action}}» no está disponible en la página actual.',
   },
   validation: {
     // "{{field}} es obligatorio" only agreed with masculine field labels —
@@ -1401,6 +1402,7 @@ const es = {
     navTypeSeparator: "Separador",
     navTypeAction: "Acción",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar icono",
     navToggleVisible: "Alternar visibilidad",
     navHidden: "Oculto",
@@ -2584,6 +2586,7 @@ const es = {
     selectPlaceholder: "Seleccionar {{label}}",
     requiredError: "{{label}} es obligatorio",
     unresolvedParam: 'No se puede mostrar este parámetro: el campo en el que se basa no está en los metadatos del objeto, por lo que no se puede construir el control necesario. Pide a un administrador que corrija la definición de la acción.',
+    carryOverHint: 'Se conserva sin cambios (solo lectura)',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Subiendo…",

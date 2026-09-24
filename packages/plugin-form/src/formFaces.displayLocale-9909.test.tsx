@@ -60,7 +60,7 @@ function masterDetailDataSource() {
     update: vi.fn(),
     delete: vi.fn(),
     bulk: vi.fn(),
-  } as any;
+  } as never;
 }
 const MASTER_DETAIL_SCHEMA = {
   objectName: PARENT,
@@ -75,7 +75,7 @@ const MASTER_DETAIL_SCHEMA = {
       columns: [{ name: 'line_total', label: 'Line Total', type: 'number' }],
     },
   ],
-} as any;
+} as never;
 
 /** The platform's 409 CONCURRENT_UPDATE, carrying the racer's SQL-style version. */
 const conflictError = () =>

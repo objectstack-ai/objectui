@@ -31,10 +31,11 @@ import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support';
 
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) => React.cloneElement(children, { width: 480, height: 320 }),
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width?: number; height?: number }> }) =>
+      React.cloneElement(children, { width: 480, height: 320 }),
   };
 });
 

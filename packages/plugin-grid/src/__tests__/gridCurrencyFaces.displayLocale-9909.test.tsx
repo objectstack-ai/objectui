@@ -41,7 +41,7 @@ registerAllFields();
 
 beforeAll(() => {
   if (!Element.prototype.scrollIntoView) {
-    Element.prototype.scrollIntoView = vi.fn() as any;
+    Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView'];
   }
 });
 
@@ -96,7 +96,7 @@ async function mobileCardUnder(locale: string): Promise<string> {
         amount: { type: 'number', label: 'Amount' },
       },
     }),
-  } as any;
+  } as never;
   const { container } = session(
     locale,
     <SchemaRendererProvider dataSource={ds}>

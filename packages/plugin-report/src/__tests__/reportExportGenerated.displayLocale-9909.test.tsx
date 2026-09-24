@@ -49,7 +49,7 @@ function renderIn(locale: string, element: React.ReactElement) {
   );
 }
 
-const VIEWER_SCHEMA: any = {
+const VIEWER_SCHEMA = {
   type: 'report-viewer',
   showToolbar: true,
   allowExport: true,
@@ -70,7 +70,7 @@ async function printDocumentUnder(locale: string): Promise<string> {
     document: { write: (html: string) => { written += html; }, close: () => {} },
     print: () => {},
   } as unknown as Window);
-  renderIn(locale, <ReportViewer schema={VIEWER_SCHEMA} />);
+  renderIn(locale, <ReportViewer schema={VIEWER_SCHEMA as never} />);
   fireEvent.click(screen.getByRole('button', { name: /PDF/ }));
   cleanup();
   return written;
@@ -85,7 +85,7 @@ async function downloadedHtmlUnder(locale: string): Promise<string> {
     return 'blob:report';
   });
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-  renderIn(locale, <ReportViewer schema={VIEWER_SCHEMA} />);
+  renderIn(locale, <ReportViewer schema={VIEWER_SCHEMA as never} />);
   fireEvent.click(screen.getByRole('button', { name: /PDF/ }));
   cleanup();
   expect(blob, 'the fallback downloaded a file').toBeDefined();
@@ -149,7 +149,7 @@ describe('the exported report stamps its "Generated:" time in the session locale
         document: { write: (html: string) => { written += html; }, close: () => {} },
         print: () => {},
       } as unknown as Window);
-      exportReport('pdf', VIEWER_SCHEMA.report, VIEWER_SCHEMA.data);
+      exportReport('pdf', VIEWER_SCHEMA.report as never, VIEWER_SCHEMA.data);
       expect(written).toMatch(/Generated: /);
     });
     expect(calls.filter(isMachineLocale)).toEqual([]);

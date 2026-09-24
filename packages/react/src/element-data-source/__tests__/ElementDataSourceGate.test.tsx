@@ -712,7 +712,7 @@ describe('ElementDataSourceGate — a saved view’s refused row cap is reported
     it('does not repeat on a re-render of the same declaration', async () => {
       const spy = warn();
       const adapter = adapterFor(viewWith({ pagination: { pageSize: 0 } }));
-      const Block = ({ schema }: { schema: any }) => <div data-testid="block">{String(schema?.objectName)}</div>;
+      const Block = ({ schema }: { schema: Record<string, unknown> }) => <div data-testid="block">{String(schema.objectName)}</div>;
       // A FRESH schema object each render, equal in content: the memo recomputes,
       // the declaration does not change, so the message must not fire again.
       const gate = () => (

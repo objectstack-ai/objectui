@@ -244,7 +244,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  PageComponentSchema,
+  PageComponentType,
+  RETIRED_PAGE_COMPONENT_TYPES,
+} from '@objectstack/spec/ui';
 import { MANIFEST_INPUT_TYPES, inputTypeArms } from '@object-ui/sdui-parser';
 import type { ComponentInput } from '@object-ui/types';
 import {
@@ -617,6 +622,33 @@ const EXPECTED_WITHOUT_INPUTS = [
 ];
 
 /**
+ * Has `@objectstack/spec` RETIRED this block, keeping its `ComponentPropsMap`
+ * row only as a refusal door? (objectui#10033)
+ *
+ * Read from the spec, never listed here. The spec retires a page component type
+ * in one of two spellings, and both drop the value from `PageComponentType`:
+ *
+ *   - REFUSED BY NAME — the type is a key of `RETIRED_PAGE_COMPONENT_TYPES`
+ *     (`page.zod.ts`), and its row is `retiredComponentProps(type)`: a `never`
+ *     that refuses every props bag, `{}` included. It lists no key at all, so
+ *     the tombstone reading below cannot see it; the table is the signal.
+ *   - ELEMENT GRAIN — no table names the type; the retirement IS the row, kept
+ *     with every key it lists a `retiredKey()` tombstone. It lists keys and
+ *     accepts none of them.
+ *
+ * Absence from `PageComponentType` is required and is not enough on its own:
+ * the enum is the page-authoring vocabulary, and live blocks sit outside it
+ * too — every `object-*` block, and empty-shaped ones such as
+ * `cloud-connection:panel`. A row that merely accepts no key is the EMPTY SPEC
+ * SHAPE class below, not a retirement.
+ */
+function isRetiredUpstream(type: string): boolean {
+  if ((PageComponentType.options as readonly string[]).includes(type)) return false;
+  if (RETIRED_PAGE_COMPONENT_TYPES.has(type)) return true;
+  return specTombstonedKeys(type).length > 0 && specTopLevelKeys(type).length === 0;
+}
+
+/**
  * The third and last place a `ComponentPropsMap` entry may land: blocks this
  * gate CANNOT judge, each with the reason it cannot (objectui#8176).
  *
@@ -632,11 +664,17 @@ const EXPECTED_WITHOUT_INPUTS = [
  * a block can no longer leave the judged population without a line here saying
  * so and a diff someone reviews.
  *
- * ## Two classes, each mechanically checked so an entry cannot rot
+ * ## Three classes, each mechanically checked so an entry cannot rot
  *
  * `every unjudged-block ledger entry still describes a block this gate cannot
  * judge` asserts the reason, not just the name:
  *
+ *   - RETIRED UPSTREAM — the spec retired the type and keeps its row only as a
+ *     refusal door, so the row accepts no authoring key and neither direction
+ *     has a question to ask. Asserted as `isRetiredUpstream(type)`, which reads
+ *     the retirement from the spec rather than from a list here, plus
+ *     `specTopLevelKeys(type).length === 0` — so the day upstream restores the
+ *     type, or gives its row a key, this entry goes red.
  *   - EMPTY SPEC SHAPE — `ComponentPropsMap[type]` accepts no top-level key at
  *     all, so neither direction has a question to ask. Whether this repo happens
  *     to register the block is irrelevant to that, which is why it is the
@@ -651,6 +689,27 @@ const EXPECTED_WITHOUT_INPUTS = [
  *     assertion cannot be satisfied by the very stub-blindness objectui#8176 is
  *     about), so registering one of them forces this entry out.
  *
+ * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
+ * from outliving a retirement (objectui#10033): an entry under either of the
+ * other two reasons FAILS when the spec retires its type. Before that check, a
+ * retirement changed what an entry was about and nothing told the entry — two
+ * rows the spec retired in the same release sat here under two unrelated
+ * reasons, neither of which mentioned the retirement, and one of which cited a
+ * palette exclusion that release's reconciliation had deleted.
+ *
+ * ## Why a retired block stays in this population
+ *
+ * The population is `Object.keys(ComponentPropsMap)`, and the spec KEEPS a
+ * retired type's row on purpose: the row is one of the retirement's refusal
+ * doors, and it is what lets every reader that dispatches on the map still
+ * recognise the name. Dropping retired rows from the population here would
+ * reopen the absence this ledger exists to close — a registration of a retired
+ * type in this repo would leave `covered` along with the row, and go unjudged.
+ * Kept in, such a registration is judged (every input it publishes is
+ * off-spec) and is accounted for twice, which the partition refuses. A ledger
+ * entry for a type the map no longer carries at all is the opposite case, and
+ * already fails twice over: in the partition's converse and in the rot check.
+ *
  * `aria` is not a member of the empty-shape reasoning: it is a key on non-empty
  * shapes and has its own uniform cover in `GLOBALLY_UNPUBLISHED_SPEC_KEYS`.
  */
@@ -662,9 +721,9 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'cloud-connection:panel':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all, so neither direction has a question to ask. It IS registered — `app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx` registers it propless — but by `@object-ui/app-shell`, which this file does not import; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#7122, ledger objectui#8176.',
   'element:filter':
-    'EMPTY SPEC SHAPE. The pin declares no top-level key for it, and no package in this repo registers the tag. Nothing to judge on either count. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.1.0 retired it at element grain (objectstack#9220, ADR-0049): out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone, so it accepts no authoring key and neither direction has a question to ask. objectui#10033, ledger objectui#8176.',
   'element:form':
-    'NOT REGISTERED, DELIBERATELY. `app-shell/src/views/metadata-admin/previews/block-types.ts` records the reason verbatim: no renderer, use the object-bound `object-form` block, which IS registered and IS judged here. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it at element grain (objectstack#9249, ADR-0049), the `element:filter` shape one element over: out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone whose prescription names the live replacement — the object-bound `object-form` block, which IS registered and IS judged here. objectui#10033, ledger objectui#8176.',
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
@@ -672,7 +731,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'user:profile':
-    'EMPTY SPEC SHAPE. Declared by the spec with no top-level key; in this repo it exists only as a `PROTOCOL_COMPONENTS` placeholder name, which is a scaffold rather than a renderer and publishes no authoring surface. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
 
 /*
@@ -3707,6 +3766,27 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         Object.keys(ComponentPropsMap),
         `${type} is ledgered but the spec no longer carries it — delete the entry`,
       ).toContain(type);
+      if (reason.startsWith('RETIRED UPSTREAM')) {
+        // Both halves, so neither can rot alone: the spec still retires the
+        // type, and its kept row still accepts nothing.
+        expect(
+          isRetiredUpstream(type),
+          `${type} is ledgered as retired upstream, and the spec does not retire it — ` +
+            'give the entry its real reason, or judge the block',
+        ).toBe(true);
+        expect(
+          specTopLevelKeys(type),
+          `${type} is ledgered as retired upstream, and its row accepts keys — judge it`,
+        ).toEqual([]);
+        continue;
+      }
+      // objectui#10033: the other two reasons may not describe a retired type,
+      // or a retirement leaves a reason in place that no longer says why.
+      expect(
+        isRetiredUpstream(type),
+        `${type} is retired upstream, and its ledger reason does not say so — ` +
+          'rewrite the entry as RETIRED UPSTREAM',
+      ).toBe(false);
       if (reason.startsWith('EMPTY SPEC SHAPE')) {
         expect(
           specTopLevelKeys(type),

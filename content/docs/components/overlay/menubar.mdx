@@ -9,6 +9,16 @@ The Menubar component provides a horizontal menu bar similar to desktop applicat
 
 <SchemaExample id="components-overlay-menubar/application-menubar" />
 
+## Icons
+
+An item's `icon` is a **kebab-case Lucide icon name**, resolved against lucide's
+runtime `icons` record — the same surface `ui:dropdown-menu`, `ui:context-menu`
+and the `action:*` family resolve against. It is read on **every** arm that draws
+an item: a top-level item, a submenu trigger, and an item inside a submenu, at any
+depth. A name that is not a live key of that record (an unknown or a retired
+spelling such as `edit`) renders **no glyph**, never a fallback glyph and never
+the literal name as text.
+
 ## Dividers
 
 An item is either a command or a divider between groups of commands — never

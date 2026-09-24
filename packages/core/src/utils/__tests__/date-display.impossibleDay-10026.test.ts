@@ -26,12 +26,16 @@
  * against the formatter's own answer for `not-a-date`, read at run time: the
  * marker is the module's, and this file does not get to design one.
  *
- * ── Directions, predicted before the run ─────────────────────────────────
- * On the unfixed tree `isRealCalendarDate` is not exported from this module,
- * so the first describe reds at import; every refusal case reds with a
- * rendered March date; the valid-leap-day controls and the two-digit-year
- * case are green on both sides — they are the guard against a refusal that
- * over-reaches.
+ * ── Directions, MEASURED on three ablated trees ───────────────────────────
+ *   pre-card sources       the first describe reds (`isRealCalendarDate` is
+ *                          not a function there); every refusal case reds
+ *                          with a rendered March date (`Mar 2`)
+ *   refusal deleted from   every refusal case reds; the first describe stays
+ *   `toDisplayDate`        green — the judgement exists, nothing asks it
+ *   `Date.UTC` restored in exactly the two year-below-100 cases red, plus the
+ *   the moved function     sibling suite's two-digit-year case
+ * The valid-leap-day controls are green in all three: they guard against a
+ * refusal that over-reaches.
  */
 
 import { describe, expect, it } from 'vitest';

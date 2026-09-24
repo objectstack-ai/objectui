@@ -28,12 +28,20 @@
  * ruling's "same visible marker" at each face: the DOM a nonexistent day
  * renders is compared with the DOM `not-a-date` renders, byte for byte.
  *
- * ── Directions, predicted before the run ─────────────────────────────────
- * On the pre-card tree every refusal case reds with a formatted March date,
- * and the due-like cell is painted red (the rolled day lies in the past).
- * With the core refusal but the old `new Date(value)` guards, the three
- * string-formatting faces red again with a bare dash in a plain span. The
- * leap-day controls are green in every state.
+ * ── Directions, MEASURED on three ablated trees ───────────────────────────
+ * Predicted first, then run; the rows are the observed runs.
+ *   pre-card sources (every refusal case)      RED — a formatted March date;
+ *                                              the due-like cell painted red
+ *   refusal deleted from `toDisplayDate`       RED — same as pre-card
+ *   refusal kept, guards back to `new Date`    RED — the three faces that
+ *                                              format a string show a bare
+ *                                              dash in a plain span
+ *   leap-day controls                          green in all three
+ * ⚠️ Two cells of the third row were not predicted. The `datetime` cell reds
+ * with a ROLLED compact face, not a bare dash: its old guard handed the
+ * formatters an already-parsed `Date`, which no parse step can refuse. And
+ * the due-like case reds on its affordance assertion while its colour
+ * assertion stays green — the overdue predicate already read the parse step.
  */
 
 import React from 'react';

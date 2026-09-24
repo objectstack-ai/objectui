@@ -95,11 +95,11 @@ describe('objectui#10069 — lane membership is decided by lane id only', () => 
 
     it('names the raw value, the grouping field and every available lane id', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      bucket(LANES, [{ id: 'r1', status: 'Open' }]);
+      bucket(LANES, [{ id: 'r1', status: 'Opened' }]);
 
       expect(warn).toHaveBeenCalledTimes(1);
       const message = String(warn.mock.calls[0][0]);
-      expect(message).toContain('"Open"');
+      expect(message).toContain('"Opened"');
       expect(message).toContain('"status"');
       expect(message).toContain('["open", "won"]');
     });
@@ -107,21 +107,21 @@ describe('objectui#10069 — lane membership is decided by lane id only', () => 
     it('fires ONCE per distinct raw value per pass, not once per record', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       bucket(LANES, [
-        { id: 'r1', status: 'Open' },
-        { id: 'r2', status: 'Open' },
-        { id: 'r3', status: 'Open' },
+        { id: 'r1', status: 'Opened' },
+        { id: 'r2', status: 'Opened' },
+        { id: 'r3', status: 'Opened' },
         { id: 'r4', status: 'Closed Won' },
-        { id: 'r5', status: 'open' }, // matched: no warn
+        { id: 'r5', status: 'OPEN' }, // matched (case-folded id): no warn
       ]);
 
       expect(warn).toHaveBeenCalledTimes(2);
       const messages = warn.mock.calls.map((c) => String(c[0]));
-      expect(messages.find((m) => m.includes('"Open"'))).toContain('3 record(s)');
+      expect(messages.find((m) => m.includes('"Opened"'))).toContain('3 record(s)');
       expect(messages.find((m) => m.includes('"Closed Won"'))).toContain('1 record(s)');
 
       // A second pass (the next render or data load) warns again: deduplication
       // is per pass, never module-wide, so a later board is not silenced.
-      bucket(LANES, [{ id: 'r1', status: 'Open' }]);
+      bucket(LANES, [{ id: 'r1', status: 'Opened' }]);
       expect(warn).toHaveBeenCalledTimes(3);
     });
 

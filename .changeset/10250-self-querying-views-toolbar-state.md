@@ -1,7 +1,7 @@
 ---
 '@object-ui/plugin-list': patch
-'@object-ui/plugin-gantt': patch
-'@object-ui/types': patch
+'@object-ui/plugin-gantt': minor
+'@object-ui/types': minor
 ---
 
 On `tree` and `chart` list views, the toolbar's Filter control and the `UserFilters`

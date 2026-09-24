@@ -106,6 +106,51 @@ export interface DateDisplayOptions {
 const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * A date that exists — the pattern alone would accept `2024-02-31`.
+ *
+ * `true` only for a date-only ISO string (`YYYY-MM-DD`, the shape
+ * {@link ISO_DATE_ONLY_RE} names) whose year, month and day read back
+ * unchanged from the calendar. Anything else — another shape, a time part, an
+ * out-of-range month, or a day its month does not have — is `false`.
+ *
+ * ## Why this lives here (objectui#10026)
+ *
+ * It used to be module-private in `@object-ui/components`' filter builder,
+ * which refused `2026-02-30` at the AUTHORING boundary, while this module — a
+ * package below it, unable to import it — ROLLED the same value into March 2nd
+ * on every display face. One concept, two answers. It moved down, exactly as
+ * `formatDate` itself moved into this package (see the header), so the filter
+ * builder and {@link toDisplayDate} now ask the one function. ⛔ A move, not a
+ * copy: `@object-ui/components` imports it from here.
+ *
+ * ## Why the engine cannot answer this on its own
+ *
+ * ECMAScript's date-string parse accepts a DAY of `01`-`31` for every month
+ * and rolls the surplus forward: `Date.parse('2026-02-30')` is March 2nd, not
+ * `NaN`. It rejects an out-of-range MONTH (`2026-13-01`), which is why a
+ * bad month was always a dash on the display path and a bad day never was.
+ * So the day is read back instead: build the date in UTC (no zone, so no DST
+ * gap can move it) and require all three parts to survive.
+ *
+ * `setUTCFullYear` rather than `Date.UTC(year, …)`: the latter maps years
+ * 0-99 onto 1900+y, so it answered `false` for `0026-08-01` — a real day,
+ * and one {@link toDisplayDate} renders (it undoes the same legacy mapping for
+ * the same reason). The move had to fix that, or refusing through this
+ * function would have dashed every year below 100.
+ */
+export function isRealCalendarDate(dateOnly: string): boolean {
+  if (!ISO_DATE_ONLY_RE.test(dateOnly)) return false;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const probe = new Date(0);
+  probe.setUTCFullYear(year, month - 1, day);
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
+/**
  * The ONE `value -> Date` step behind every function below.
  *
  * ## The defect (objectui#10110)
@@ -140,11 +185,29 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * VALUE's shape and never the field's declared type, which this module (pure,
  * no schema) cannot see.
  *
- * Acceptance is unchanged, deliberately: the engine's own parse still decides
- * what is a date at all, and only a value it already accepted is rebuilt. So
- * `2026-13-01` is still `—`, and a well-shaped impossible day still ROLLS
- * (`2026-02-30` renders March 2nd) exactly as it did — a pinned behaviour of
- * the shared display path, asserted in `dataset-format.ts`'s date suite.
+ * ## What it refuses (objectui#10026)
+ *
+ * The engine's own parse still decides what is a date at all (`2026-13-01`
+ * is an Invalid Date, and so every face below renders `—`), with ONE
+ * addition: a date-only value naming a day its month does not have. The
+ * engine accepts `2026-02-30` and rolls it into March 2nd, so before this
+ * card every date face showed a real day nobody wrote, with nothing to say
+ * so. This step hands back an Invalid Date for it instead — the same answer
+ * the engine gives a bad month — so every caller renders the face it already
+ * renders for an unparsable value: `—` from the functions below, `EmptyValue`
+ * from the field carriers that read validity here, the raw stored string from
+ * a caller whose unparsable face is the raw string. ⛔ No new marker.
+ *
+ * The maintainer's ruling on objectui#10026 (option A) placed the refusal on
+ * the SHARED path, in this step and not in any one consumer: refusing in a
+ * single face would re-create the list-cell-versus-measure split
+ * objectui#4576 recorded. {@link isRealCalendarDate} is the one judgement,
+ * shared with the filter builder's authoring boundary.
+ *
+ * ⚠️ A value that carries a TIME (`2026-02-30T10:00:00Z`) is not judged here
+ * and still rolls. The ruling names date-only values; whether an instant
+ * spelled on a nonexistent day is refused too is an open question on that
+ * card, not a decision this step makes by itself.
  *
  * ## Why it is exported (objectui#10183)
  *
@@ -167,6 +230,8 @@ export function toDisplayDate(value: string | Date | number): Date {
   if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
     return parsed;
   }
+  // The engine rolled a nonexistent day forward; refuse it (objectui#10026).
+  if (!isRealCalendarDate(value)) return new Date(NaN);
   const [year, month, day] = value.split('-').map(Number);
   const local = new Date(year, month - 1, day);
   // Years 0-99 only: the multi-argument constructor maps them onto 1900+y, so

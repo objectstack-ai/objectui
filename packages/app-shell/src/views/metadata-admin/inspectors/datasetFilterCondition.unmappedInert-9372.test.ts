@@ -40,8 +40,17 @@
  *
  * ⚠️ NOT "emit something". Emitting a filter in a spelling that means something
  * else is worse than dropping — that is the whole reason the unmapped arm
- * exists, and it survives this repair intact. `between` is still dropped
- * below, and now dropped inertly.
+ * exists, and it survives this repair intact.
+ *
+ * ## `between`, flipped (objectui#10062)
+ *
+ * This file used to pin `between` as the one offered operator still unmapped,
+ * because nothing told a half-typed pair from a finished one. The builder's
+ * own `isFilterValueComplete` does (objectui#5025), the bridge now asks it, and
+ * the last block below is the flipped pin: both bounds ⇒ `$between`, a missing
+ * bound ⇒ not emitted, and the conformance reading every other mapped operator
+ * got. The (ii) gestures above keep their meaning with `between` as the
+ * UNFINISHED-row route rather than the unmapped-operator one.
  *
  * ## Red-first
  *
@@ -55,9 +64,16 @@ import {
   FILTER_OPERATORS,
   FieldOperatorsSchema,
   FILTER_TEXT_CASES,
+  TEMPORAL_CASES,
+  TEMPORAL_TIME_CASES,
   TEXT_OPERATOR_DOOR_CASES,
 } from '@objectstack/spec/data';
-import { filterValueArity, operatorsForFieldType } from '@object-ui/components';
+import {
+  filterValueArity,
+  isFilterValueComplete,
+  operatorsForFieldType,
+  reshapeFilterValue,
+} from '@object-ui/components';
 import { groupToCondition, conditionToGroup, isClearedGroup } from './datasetFilterCondition';
 import type { BuilderGroup } from './datasetFilterCondition';
 
@@ -84,6 +100,20 @@ function commitFor(group: BuilderGroup): { hold: true } | { hold: false; filter:
   return { hold: false, filter: next };
 }
 
+/**
+ * Every `$`-operator a canonical case table's filters carry — the driver
+ * conformance reading an operator has to appear in before this bridge maps it.
+ */
+function tokensOf(cases: ReadonlyArray<{ filter: unknown }>): Set<string> {
+  const out = new Set<string>();
+  for (const c of cases) {
+    for (const ops of Object.values(c.filter as Record<string, unknown>)) {
+      if (ops && typeof ops === 'object') for (const k of Object.keys(ops)) out.add(k);
+    }
+  }
+  return out;
+}
+
 describe('(ii) an operator this bridge cannot express is inert, not destructive (objectui#9372)', () => {
   it('CONTROL: a mapped operator still serializes, so an empty answer below is about that operator', () => {
     expect(groupToCondition(row('equals', 'acme'))).toEqual({ name: { $eq: 'acme' } });
@@ -100,23 +130,39 @@ describe('(ii) an operator this bridge cannot express is inert, not destructive 
     expect(isClearedGroup({ id: 'g', logic: 'and', conditions: [{ id: 'c1', field: '', operator: 'equals', value: 'x' }] })).toBe(true);
   });
 
-  it('THE GESTURE, operator route: switching the only row to an unmapped operator commits NOTHING', () => {
+  it('THE GESTURE, operator route: switching the only row to `between` commits NOTHING until both bounds are typed', () => {
     // The exact author gesture the card describes: a dataset that already has
     // a filter, opened in the inspector, one operator change. Before this
     // repair the commit was `undefined`, which the host spreads over the draft
     // as `{ filter: undefined }` — the same patch shape `objectChangePatch`
     // uses deliberately to CLEAR the filter.
+    //
+    // objectui#10062: `between` is mapped now, so the switch no longer drops
+    // an UNMAPPED operator — it drops an UNFINISHED row. The builder re-shapes
+    // the scalar it had into a pair with the second bound blank, and that
+    // value is taken from the builder's own re-shaper rather than restated.
     const { group, representable } = conditionToGroup(STORED);
     expect(representable).toBe(true);
+    const switched = reshapeFilterValue(group.conditions[0].value as string, 'between');
+    expect(switched, 'the switch must hand the bridge a HALF pair, or this is not the gesture').toEqual(['acme', '']);
     const edited: BuilderGroup = {
       ...group,
-      conditions: [{ ...group.conditions[0], operator: 'between', value: [1, 5] }],
+      conditions: [{ ...group.conditions[0], operator: 'between', value: switched }],
     };
     expect(groupToCondition(edited)).toBeUndefined();
     expect(
       commitFor(edited),
       'this gesture used to commit `undefined`, which ERASES the stored filter',
     ).toEqual({ hold: true });
+  });
+
+  it('an operator this bridge does not map at all is still inert, not destructive', () => {
+    // The unmapped arm outlives objectui#10062 for operators this inspector
+    // does not offer — `containsCaseInsensitive` is an opt-in the builder draws
+    // only when a caller grants it, and this caller grants none.
+    expect(operatorsForFieldType('text', []).map((o) => o.value)).not.toContain('containsCaseInsensitive');
+    expect(groupToCondition(row('containsCaseInsensitive', 'ac'))).toBeUndefined();
+    expect(commitFor(row('containsCaseInsensitive', 'ac'))).toEqual({ hold: true });
   });
 
   it('THE GESTURE, blank-value route: blanking the only row\'s value commits NOTHING — no operator needed', () => {
@@ -136,14 +182,15 @@ describe('(ii) an operator this bridge cannot express is inert, not destructive 
   });
 
   it('a partly-edited group still commits the rows that DID survive', () => {
-    // Holding is only for "nothing survived". One good row and one blank one
-    // must still commit the good row, exactly as before.
+    // Holding is only for "nothing survived". One good row and one unfinished
+    // one — a `between` with its upper bound not typed yet — must still commit
+    // the good row, exactly as before.
     const mixed: BuilderGroup = {
       id: 'g',
       logic: 'and',
       conditions: [
         { id: 'c1', field: 'stage', operator: 'equals', value: 'won' },
-        { id: 'c2', field: 'name', operator: 'between', value: [1, 5] },
+        { id: 'c2', field: 'closed_at', operator: 'between', value: ['2026-01-01', ''] },
       ],
     };
     expect(commitFor(mixed)).toEqual({ hold: false, filter: { stage: { $eq: 'won' } } });
@@ -194,22 +241,27 @@ describe('(i) the three text operators this bridge now expresses (objectui#9372)
     expect(FILTER_OPERATORS).not.toContain('$beginsWith');
   });
 
-  it('CONFORMANCE: each one carries canonical driver cases, and `$between` is not in that table', () => {
+  it('CONFORMANCE: each one carries canonical driver cases — and `$between` does too, in the temporal tables', () => {
     // The reading `$null` has and these were said to lack. `FILTER_TEXT_CASES`
     // is the Filter Protocol's text-operator standard — the table every filter
     // backend is checked against — and it carries rows for all three.
-    const covered = new Set<string>();
-    for (const c of FILTER_TEXT_CASES) {
-      for (const ops of Object.values(c.filter as Record<string, unknown>)) {
-        if (ops && typeof ops === 'object') for (const k of Object.keys(ops)) covered.add(k);
-      }
-    }
-    for (const [, token] of MAPPED) expect(covered, `${token} has no text-conformance rows`).toContain(token);
-    // Negative control: this is a reading of one table, not of "every operator
-    // is covered". `$between` is a range operator and is NOT in it — which is
-    // why the conformance answer for `between` has to be sought elsewhere, and
-    // is not what this assertion supplies.
-    expect(covered).not.toContain('$between');
+    const textCovered = tokensOf(FILTER_TEXT_CASES);
+    for (const [, token] of MAPPED) expect(textCovered, `${token} has no text-conformance rows`).toContain(token);
+    // objectui#10062 — the leg that read `expect(covered).not.toContain('$between')`,
+    // inverted. `$between` is a range operator, so its canonical driver cases
+    // are not in the text table; they are in the temporal ones, which state
+    // what every backend answers for a range over a date-time and a time
+    // column (inclusive at both ends, the max widened like `$lte`).
+    const temporalCovered = tokensOf([...TEMPORAL_CASES, ...TEMPORAL_TIME_CASES]);
+    const covered = new Set([...textCovered, ...temporalCovered]);
+    expect(covered, '`$between` has no driver-conformance rows').toContain('$between');
+    // Attribution, so the union is not a set that says yes to everything:
+    // `$between` comes from the temporal tables, and the text table still does
+    // not carry it.
+    expect(temporalCovered).toContain('$between');
+    expect(textCovered).not.toContain('$between');
+    // Negative control: a plausible spelling no table carries is not covered.
+    expect(covered).not.toContain('$beginsWith');
   });
 
   it('CONFORMANCE: the spec\'s declared-type door passes all three over text and refuses them over number', () => {
@@ -252,31 +304,146 @@ describe('(i) the three text operators this bridge now expresses (objectui#9372)
   });
 });
 
-describe('`between` stays unmapped — and is now unmapped INERT (objectui#9372)', () => {
-  it('is still dropped rather than emitted', () => {
-    expect(groupToCondition(row('between', [1, 5]))).toBeUndefined();
+describe('`between` maps, with BOTH bounds required (objectui#10062 — flips the objectui#9381 pin)', () => {
+  /**
+   * One `between` row on a date column, as the builder emits it.
+   *
+   * The builder offers `between` on its date bucket only (asserted below), so
+   * the bounds are the day strings a date input writes.
+   */
+  const range = (value: unknown): BuilderGroup => ({
+    id: 'g',
+    logic: 'and',
+    conditions: [{ id: 'c1', field: 'closed_at', operator: 'between', value }],
+  });
+  const LO = '2026-01-01';
+  const HI = '2026-03-31';
+
+  /**
+   * Every pair-row value this block probes, complete and not.
+   *
+   * The incomplete ones are the shapes the builder can actually hand over: a
+   * pair padded with `''` on either side (`reshapeFilterValue`), the untouched
+   * `[]` a fresh row starts from, and a scalar or one-bound list reaching the
+   * row from outside the dropdown. `null` is the unset spelling an external
+   * group may carry.
+   */
+  const HALF_FILLED: ReadonlyArray<unknown> = [
+    [LO, ''], ['', HI], ['', ''], [], [LO], LO, '', null, undefined, [LO, null], [null, HI],
+  ];
+  const COMPLETE: ReadonlyArray<unknown> = [[LO, HI], [0, 10], [LO, LO]];
+
+  it('both bounds ⇒ the spec\'s own `$between`, carrying `[lo, hi]` in order', () => {
+    expect(groupToCondition(range([LO, HI]))).toEqual({ closed_at: { $between: [LO, HI] } });
   });
 
-  it('the reason it stays out, measured: nothing downstream catches a half-filled pair', () => {
-    // The builder pads a pair with `""` when only one bound is typed
-    // (`reshapeFilterValue`), and the row is two entries long, so this bridge's
-    // completeness check — which only rejects `null` / `''` / `[]` — would let
-    // it through. The spec's comparand door does not catch it either: a bound
-    // of `''` parses. So emitting `between` today would emit a filter that
-    // means something the author did not ask for, which is exactly what the
-    // unmapped arm exists to prevent. A both-bounds-present rule is the
-    // precondition, and it is a separate decision.
+  it('a `0` bound is a bound, not a blank', () => {
+    // `isFilterValueComplete` reads presence through `isValueUnset`, never
+    // truthiness (objectui#4873) — a local `!bound` would drop this range.
+    expect(groupToCondition(range([0, 10]))).toEqual({ closed_at: { $between: [0, 10] } });
+  });
+
+  it('a missing lo or hi ⇒ NOT emitted: the row drops as incomplete', () => {
+    for (const value of HALF_FILLED) {
+      expect(groupToCondition(range(value)), `${JSON.stringify(value)} was emitted`).toBeUndefined();
+    }
+  });
+
+  it('what a half pair emits INSTEAD: nothing — the only row holds the stored filter, beside a complete row only that row commits', () => {
+    // As the ONLY row: nothing survived, rows are still on screen, so the
+    // caller patches nothing and the stored filter stays (objectui#9372).
+    expect(commitFor(range([LO, '']))).toEqual({ hold: true });
+    // Beside a complete row: the complete row is the whole commit. Not an
+    // `$and` with a half range in it, and not a range with an invented bound.
+    expect(commitFor({
+      id: 'g',
+      logic: 'and',
+      conditions: [
+        { id: 'c1', field: 'stage', operator: 'equals', value: 'won' },
+        { id: 'c2', field: 'closed_at', operator: 'between', value: ['', HI] },
+      ],
+    })).toEqual({ hold: false, filter: { stage: { $eq: 'won' } } });
+  });
+
+  it('the completeness answer IS `isFilterValueComplete` — emitted exactly when the builder calls the pair finished', () => {
+    // Not a second rule: over every probe, "emitted" and the builder's own
+    // arity-aware answer agree. A local predicate that drifted from it — the
+    // length check this bridge used to spell inline passes `[LO, '']` — goes
+    // red here on the first disagreeing probe.
+    for (const value of [...COMPLETE, ...HALF_FILLED]) {
+      const emitted = groupToCondition(range(value)) !== undefined;
+      expect(emitted, `bridge and isFilterValueComplete disagree on ${JSON.stringify(value)}`)
+        .toBe(isFilterValueComplete('between', value as Parameters<typeof isFilterValueComplete>[1]));
+    }
+    // Controls, so the agreement above cannot be two constant answers.
+    expect(isFilterValueComplete('between', [LO, HI])).toBe(true);
+    expect(isFilterValueComplete('between', [LO, ''])).toBe(false);
+  });
+
+  it('why a local rule was ever needed: the builder really does hand over a half pair', () => {
+    // `between` takes a PAIR, and switching a row to it re-shapes whatever
+    // scalar it held into `[scalar, '']` — two entries long, so a length-only
+    // completeness check would have let it through.
     expect(filterValueArity('between')).toBe('pair');
-    expect(FieldOperatorsSchema.safeParse({ $between: [1, 5] }).success).toBe(true);
-    expect(
-      FieldOperatorsSchema.safeParse({ $between: [1, ''] }).success,
-      'if the spec refused a half-filled pair, this bridge could lean on it instead of a local rule',
-    ).toBe(true);
+    expect(reshapeFilterValue(LO, 'between')).toEqual([LO, '']);
+    expect(reshapeFilterValue('', 'between')).toEqual([]);
   });
 
-  it('but picking it no longer erases the stored filter', () => {
-    // The whole point of the (i)/(ii) split: an operator can stay unmapped
-    // without staying destructive.
-    expect(commitFor(row('between', [1, 5]))).toEqual({ hold: true });
+  it('round-trips: a stored `$between` reads back as `between` with the same bounds and writes back byte-identical', () => {
+    const stored = { closed_at: { $between: [LO, HI] } };
+    const { group, representable } = conditionToGroup(stored);
+    expect(representable, '`$between` fell back to the Source tab').toBe(true);
+    expect(group.conditions).toEqual([{ id: 'c0', field: 'closed_at', operator: 'between', value: [LO, HI] }]);
+    expect(groupToCondition(group)).toEqual(stored);
+    // Inside a flat `$and`, beside another row, too.
+    const both = { $and: [{ stage: { $eq: 'won' } }, stored] };
+    expect(groupToCondition(conditionToGroup(both).group)).toEqual(both);
+  });
+
+  it('a stored `$between` that is not a complete pair — a blank, missing or extra bound, or a scalar — reads as non-representable: the Source tab, not a silent drop', () => {
+    // Read back as a row, an incomplete pair would be dropped by the next
+    // commit of ANY row in the group, removing a stored condition the author
+    // never touched. So it goes where it went while `$between` was unmapped.
+    //
+    // ⚠️ This measures the pair's COMPLETENESS only, and reads with no field
+    // list. The other refusal — a complete pair on a column whose bucket does
+    // not offer `between` — needs the field list and is pinned in
+    // `datasetFilterCondition.dateRoundTrip-9382`.
+    for (const value of [[LO, ''], ['', HI], [LO], LO, [LO, HI, LO]]) {
+      expect(
+        conditionToGroup({ $and: [{ stage: { $eq: 'won' } }, { closed_at: { $between: value } }] }).representable,
+        `${JSON.stringify(value)} became an editable row the next commit would drop`,
+      ).toBe(false);
+    }
+  });
+
+  describe('CONFORMANCE — the reading every other mapped operator received', () => {
+    it('`$between` is a member of the spec\'s filter vocabulary', () => {
+      expect(FILTER_OPERATORS).toContain('$between');
+    });
+
+    it('the spec\'s comparand door accepts the pair this bridge emits and refuses every non-pair shape', () => {
+      const emitted = groupToCondition(range([LO, HI])) as { closed_at: Record<string, unknown> };
+      expect(FieldOperatorsSchema.safeParse(emitted.closed_at).success).toBe(true);
+      expect(FieldOperatorsSchema.safeParse({ $between: [0, 10] }).success).toBe(true);
+      // Negative controls: this door judges the VALUE's shape, so without
+      // these legs the acceptance above would pass for a schema that takes
+      // anything. The bridge never emits any of them.
+      for (const bad of [LO, [LO], [LO, HI, LO], [null, HI]]) {
+        expect(FieldOperatorsSchema.safeParse({ $between: bad }).success, `door accepted ${JSON.stringify(bad)}`)
+          .toBe(false);
+      }
+    });
+
+    it('the builder only OFFERS `between` on date-like fields, which is what the temporal driver rows speak to', () => {
+      // Read from the builder's own bucket function rather than restated.
+      const offered = (type: string | undefined) => operatorsForFieldType(type, []).map((o) => o.value);
+      for (const type of ['date', 'datetime', 'time']) {
+        expect(offered(type), `between is not offered on ${type}`).toContain('between');
+      }
+      for (const type of [undefined, 'text', 'number', 'currency', 'percent', 'rating', 'boolean', 'select', 'status', 'lookup', 'user']) {
+        expect(offered(type), `between is offered on ${String(type)}`).not.toContain('between');
+      }
+    });
   });
 });

@@ -38,6 +38,49 @@ import {
 const METRIC_DRILL_PAGE_SIZE = 25;
 
 /**
+ * The tile's aggregate vocabulary, BY REFERENCE: `ChartAggregate['function']`
+ * from `@objectstack/spec/ui`, reached through `ObjectChartSchema` exactly as
+ * `ObjectMetricWidgetProps.aggregate.groupBy` is — both dashboard relays
+ * compose this node and the `object-chart` node out of one provider block.
+ */
+type TileAggregateFunction = NonNullable<ObjectChartSchema['aggregate']>['function'];
+
+/**
+ * Does the aggregate answer IN the aggregated field's unit (objectui#10356)?
+ *
+ * The field's display unit — a currency code, a percent pattern — dresses the
+ * tile's number only when the number is a value of that field: `sum` / `avg`
+ * are amounts of it, and `min` / `max` "return a value of the field's OWN
+ * type" (the notes on `AGGREGATE_FIELD_TYPE_COMPATIBILITY` in
+ * `@objectstack/spec/data`). A `count` is a number of rows, which "reads no
+ * arithmetic off the value", so a count over a currency field reads `3`, never
+ * `$3` — the rule the grid footer already applies to a currency or percent
+ * column (`formatSummaryLabel` in `plugin-grid`'s `useColumnSummary`). That
+ * rule is keyed on its own vocabulary (`ColumnSummary`), so the two surfaces
+ * share a reading rather than a table.
+ *
+ * A total `Record` over the vocabulary, so a function the spec adds to it is a
+ * compile error here rather than a silent guess. Anything outside it — the
+ * engine-level `count_distinct`, another cardinality — answers `false`: a
+ * unit is only ever withheld on a word this table does not know, never lent.
+ */
+const ANSWERS_IN_FIELD_UNIT: Record<TileAggregateFunction, boolean> = {
+  sum: true,
+  avg: true,
+  min: true,
+  max: true,
+  count: false,
+};
+
+function answersInFieldUnit(fn: string | undefined): boolean {
+  return (
+    typeof fn === 'string' &&
+    Object.prototype.hasOwnProperty.call(ANSWERS_IN_FIELD_UNIT, fn) &&
+    ANSWERS_IN_FIELD_UNIT[fn as TileAggregateFunction]
+  );
+}
+
+/**
  * ObjectMetricWidget — Data-bound metric widget.
  *
  * When a metric widget has an `object` binding and a `dataSource` is available,
@@ -225,16 +268,21 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     return fields[fieldName] || null;
   }, [objectSchema, aggregate?.field]);
 
+  // The field's unit applies only to an aggregate that answers in it
+  // (objectui#10356, `answersInFieldUnit` above). A primitive, so the memos
+  // below key on the answer rather than on any object's identity.
+  const fieldUnitApplies = answersInFieldUnit(aggregate?.function);
+
   // Derive format/currency from the field metadata when the dashboard config
   // doesn't override them. A currency field has no pattern here: its amount is
   // rendered by the list cell's formatter below (`tileValue`).
   const inferredFormat = useMemo(() => {
     if (format) return format;
-    if (!valueFieldDef) return undefined;
+    if (!valueFieldDef || !fieldUnitApplies) return undefined;
     if (valueFieldDef.type === 'percent') return '0,0%';
     if (valueFieldDef.type === 'number' || valueFieldDef.type === 'integer') return '0,0';
     return undefined;
-  }, [format, valueFieldDef]);
+  }, [format, valueFieldDef, fieldUnitApplies]);
 
   // Tenant default currency (localization.currency, ADR-0053) backstops a
   // currency field that declares no explicit code of its own.
@@ -247,11 +295,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // value with, so a currency amount formatted here reads under one convention
   // with the rest of the dashboard.
   const displayLocale = useDisplayLocale();
+  // An authored `currency` is the dashboard author's declaration and stands as
+  // written; only the code INFERRED from the field waits on the aggregate.
   const inferredCurrency = useMemo(() => {
     if (currency) return currency;
-    if (valueFieldDef?.type !== 'currency') return undefined;
+    if (!fieldUnitApplies || valueFieldDef?.type !== 'currency') return undefined;
     return resolveFieldCurrency(valueFieldDef, tenantCurrency);
-  }, [currency, valueFieldDef, tenantCurrency]);
+  }, [currency, valueFieldDef, tenantCurrency, fieldUnitApplies]);
 
   // Stable JSON keys to prevent infinite refetch loops when callers
   // pass fresh `aggregate` / `filter` object references each render
@@ -419,9 +469,12 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // pre-formatted plain amount would be rounded again. The pattern therefore
   // carries the cell's own no-currency width — none for a whole amount, two
   // otherwise — and the tile's pin compares it against the cell in one run.
+  //
+  // The face is for an aggregate that answers in the field's unit; a count
+  // over a currency field is a plain number (objectui#10356).
   let tileValue: string | number = displayValue;
   let tileFormat = inferredFormat;
-  if (!format && valueFieldDef?.type === 'currency') {
+  if (!format && fieldUnitApplies && valueFieldDef?.type === 'currency') {
     const amount =
       typeof displayValue === 'number'
         ? displayValue

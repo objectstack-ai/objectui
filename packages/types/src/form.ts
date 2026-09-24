@@ -1146,24 +1146,49 @@ export interface DatePickerSchema extends BaseSchema {
 }
 
 /**
+ * One calendar day as authored: an ISO 8601 date string (the JSON authoring
+ * type) or a `Date` (in-process callers). The `calendar` renderer coerces a
+ * string to a `Date` at its read site; a date-only string (`2026-09-15`)
+ * selects the day it names in every zone (objectui#10293).
+ */
+type CalendarDay = Date | string;
+
+/**
+ * A `mode: 'range'` selection (objectui#10304): the `{ from, to }` pair the
+ * range picker reads. `to` is optional — a range whose end is not chosen yet.
+ */
+interface CalendarDayRange {
+  from: CalendarDay;
+  to?: CalendarDay;
+}
+
+/**
  * Calendar component
  */
 export interface CalendarSchema extends BaseSchema {
   type: 'calendar';
   /**
-   * Default selected date: an ISO 8601 date string (the JSON authoring type)
-   * or a `Date` (in-process callers). The `calendar` renderer coerces a string
-   * to a `Date` at its read site; a date-only string (`2026-09-15`) selects
-   * the day it names in every zone (objectui#10293).
+   * Default selection. Its shape follows {@link CalendarSchema.mode}
+   * (objectui#10304), because that is what the date picker reads:
+   * - `single` (and `mode` absent): one day, an ISO 8601 string or a `Date`;
+   * - `multiple`: a list of days;
+   * - `range`: `{ from, to }`, `to` optional.
+   *
+   * ⚠️ This declaration admits every shape on every mode: the pairing is a
+   * property of the node, not of this key, and the MIRROR enforces it —
+   * `zod/form.zod.ts#CalendarSchema` refuses a value whose shape does not
+   * fit its mode. The renderer coerces every string day through the shared
+   * date parse (objectui#10293).
    */
-  defaultValue?: Date | string;
+  defaultValue?: CalendarDay | CalendarDay[] | CalendarDayRange;
   /**
-   * Controlled selected date: an ISO 8601 date string or a `Date`, read as
+   * Controlled selection, shaped by {@link CalendarSchema.mode} exactly as
    * {@link CalendarSchema.defaultValue} is.
    */
-  value?: Date | string;
+  value?: CalendarDay | CalendarDay[] | CalendarDayRange;
   /**
-   * Selection mode
+   * Selection mode. It also decides the shape of `value` / `defaultValue`:
+   * one day, a list of days, or a `{ from, to }` range (objectui#10304).
    * @default 'single'
    */
   mode?: 'single' | 'multiple' | 'range';

@@ -166,3 +166,93 @@ describe('objectui#10105 — usePullToRefresh follows the element, not the mount
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
   });
 });
+
+/**
+ * Nested pull hosts: one gesture, one owner, the OUTERMOST armed host
+ * (objectui#10105, the seat's ruling on the card).
+ *
+ * A touch on an inner host bubbles to an outer one, so both hooks receive it.
+ * The inner one yields when an ARMED pull host is its ancestor. "Armed" is
+ * what the second case checks: an outer host that exists but is disabled does
+ * not take the gesture away from the inner one, and turning the outer off
+ * after it was armed hands the gesture back. A marker left behind on unbind
+ * would fail that case.
+ */
+function Inner({ onRefresh }: { onRefresh: () => Promise<void> }) {
+  const { ref, pullDistance } = usePullToRefresh<HTMLDivElement>({ onRefresh });
+  return (
+    <div ref={ref} data-testid="inner">
+      {pullDistance > 0 ? <span data-testid="inner-indicator" /> : null}
+    </div>
+  );
+}
+
+function Nest({
+  outerEnabled = true,
+  onOuter,
+  onInner,
+}: {
+  outerEnabled?: boolean;
+  onOuter: () => Promise<void>;
+  onInner: () => Promise<void>;
+}) {
+  const outer = usePullToRefresh<HTMLDivElement>({ onRefresh: onOuter, enabled: outerEnabled });
+  return (
+    <div ref={outer.ref} data-testid="outer">
+      {outer.pullDistance > 0 ? <span data-testid="outer-indicator" /> : null}
+      <Inner onRefresh={onInner} />
+    </div>
+  );
+}
+
+/** Pull 100px on `el` and wait until exactly `expectIndicator` shows, then release. */
+async function pullOn(el: HTMLElement, expectIndicator: 'outer-indicator' | 'inner-indicator') {
+  await act(async () => {});
+  fireEvent(el, touch('touchstart', 10));
+  fireEvent(el, touch('touchmove', 110));
+  await waitFor(() => expect(screen.getByTestId(expectIndicator)).toBeTruthy());
+  const indicators = [
+    screen.queryByTestId('outer-indicator'),
+    screen.queryByTestId('inner-indicator'),
+  ].filter(Boolean);
+  expect(indicators, 'one pull must draw exactly one indicator').toHaveLength(1);
+  fireEvent(el, touch('touchend', 110));
+}
+
+describe('objectui#10105 — nested pull hosts: the outermost armed host owns the gesture', () => {
+  it('a pull on the inner host is taken by the armed outer host: one indicator, one refresh', async () => {
+    const onOuter = vi.fn(async () => {});
+    const onInner = vi.fn(async () => {});
+    render(<Nest onOuter={onOuter} onInner={onInner} />);
+    await pullOn(screen.getByTestId('inner'), 'outer-indicator');
+    await waitFor(() => expect(onOuter).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(onInner).not.toHaveBeenCalled();
+  });
+
+  it('a disabled outer host does not take the gesture, and disarming an armed one hands it back', async () => {
+    const onOuter = vi.fn(async () => {});
+    const onInner = vi.fn(async () => {});
+    const { rerender } = render(<Nest outerEnabled={false} onOuter={onOuter} onInner={onInner} />);
+    await pullOn(screen.getByTestId('inner'), 'inner-indicator');
+    await waitFor(() => expect(onInner).toHaveBeenCalledTimes(1));
+
+    rerender(<Nest outerEnabled onOuter={onOuter} onInner={onInner} />);
+    await pullOn(screen.getByTestId('inner'), 'outer-indicator');
+    await waitFor(() => expect(onOuter).toHaveBeenCalledTimes(1));
+
+    rerender(<Nest outerEnabled={false} onOuter={onOuter} onInner={onInner} />);
+    await pullOn(screen.getByTestId('inner'), 'inner-indicator');
+    await waitFor(() => expect(onInner).toHaveBeenCalledTimes(2));
+    expect(onOuter).toHaveBeenCalledTimes(1);
+  });
+
+  it('a pull on the outer host itself is the outer host\'s, as before', async () => {
+    const onOuter = vi.fn(async () => {});
+    const onInner = vi.fn(async () => {});
+    render(<Nest onOuter={onOuter} onInner={onInner} />);
+    await pullOn(screen.getByTestId('outer'), 'outer-indicator');
+    await waitFor(() => expect(onOuter).toHaveBeenCalledTimes(1));
+    expect(onInner).not.toHaveBeenCalled();
+  });
+});

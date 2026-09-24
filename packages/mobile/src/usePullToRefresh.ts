@@ -138,15 +138,45 @@ interface PullBinding {
   end: () => void;
 }
 
+/**
+ * One gesture, one owner: the OUTERMOST armed pull host (objectui#10105).
+ *
+ * Pull hosts nest. `ListView` has one, and so does the view it renders inside
+ * it. A touch on the inner host bubbles to the outer one, so without a rule
+ * both hooks drew an indicator and both ran their refresh for the same pull.
+ * The outer one is the owner: its single refetch reloads the rows the inner
+ * view was handed, and an inner view fed its rows by a parent has no refresh of
+ * its own to run.
+ *
+ * While bound, the hook marks its element with this attribute. It is a DOM
+ * attribute and not module state so that two copies of this package in one
+ * page still see each other. At `touchstart` an inner host looks for a marked
+ * ANCESTOR, and if one is armed it lets the gesture go: it never records a
+ * start point, so its move and end handlers do nothing for this gesture. The
+ * native listeners and the DOM ancestry are the same relation (the outer
+ * listener receives this event because it is an ancestor), which is why the
+ * check reads the DOM and not the React tree.
+ */
+const PULL_HOST_ATTRIBUTE = 'data-pull-to-refresh-host';
+
+function armedPullHostAbove(el: HTMLElement): boolean {
+  const parent = el.parentElement;
+  return parent !== null && parent.closest(`[${PULL_HOST_ATTRIBUTE}]`) !== null;
+}
+
 function bindPullListeners(el: HTMLElement, handlers: { current: PullHandlers }): PullBinding {
   const binding: PullBinding = {
     el,
-    start: (e) => handlers.current.handleTouchStart(e),
+    start: (e) => {
+      if (armedPullHostAbove(el)) return;
+      handlers.current.handleTouchStart(e);
+    },
     move: (e) => handlers.current.handleTouchMove(e),
     end: () => {
       void handlers.current.handleTouchEnd();
     },
   };
+  el.setAttribute(PULL_HOST_ATTRIBUTE, '');
   el.addEventListener('touchstart', binding.start, { passive: true });
   el.addEventListener('touchmove', binding.move, { passive: true });
   el.addEventListener('touchend', binding.end, { passive: true });
@@ -154,6 +184,7 @@ function bindPullListeners(el: HTMLElement, handlers: { current: PullHandlers })
 }
 
 function unbindPullListeners(binding: PullBinding): void {
+  binding.el.removeAttribute(PULL_HOST_ATTRIBUTE);
   binding.el.removeEventListener('touchstart', binding.start);
   binding.el.removeEventListener('touchmove', binding.move);
   binding.el.removeEventListener('touchend', binding.end);

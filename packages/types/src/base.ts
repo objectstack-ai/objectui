@@ -1075,7 +1075,16 @@ export interface ComponentMeta {
   examples?: Record<string, any>;
 
   /**
-   * Whether the component can have children
+   * LAYOUT containment (objectui#6804, objectui#9910 Q2-A): the component is
+   * a layout region — skipped by the react-page JSX scope builder and listed
+   * in the public layout ledger.
+   *
+   * ⛔ Not "can have children". Whether a renderer puts `schema.children` on
+   * the page is declared in `inputs` as `{ name: 'children', type: 'slot' }`,
+   * and that input — never this flag — is what `sdui-parser`'s
+   * `not-a-container` diagnostic reads (objectui#9910 Q1-A). A layout
+   * container that renders a child list declares both; a label-fallback
+   * reader such as `button` or `badge` declares only the slot.
    */
   isContainer?: boolean;
 

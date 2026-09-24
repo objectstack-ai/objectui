@@ -28,11 +28,18 @@ ComponentRegistry.register('alert',
     inputs: [
       { name: 'title', type: 'string', required: true },
       { name: 'description', type: 'string' },
-      { 
-        name: 'variant', 
-        type: 'enum', 
+      {
+        name: 'variant',
+        type: 'enum',
         enum: ['default', 'destructive']      },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      // The description slot's rich form, read when `description` is not set
+      // (objectui#6771 converged it onto `children`). Declared so the tier's
+      // `not-a-container` — which reads only this input (objectui#9910) — stays
+      // silent on the one key this renderer renders. ⛔ Not `isContainer`: that
+      // flag means layout containment and would delete `Alert` from every
+      // react page's JSX scope (objectui#6804).
+      { name: 'children', type: 'slot', description: 'Rich description content, rendered when `description` is not set' }
     ],
     defaultProps: {
       title: 'Alert Title',

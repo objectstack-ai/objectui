@@ -88,7 +88,8 @@ ComponentRegistry.register('card',
     inputs: [
       { name: 'title', type: 'string' },
       { name: 'description', type: 'string' },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       title: 'Card Title',

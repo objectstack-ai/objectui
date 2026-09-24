@@ -107,7 +107,10 @@ describe('bucketCardsIntoColumns — prototype member names as group values (obj
     expect(oneRecord('a')).toBe('a:r1');
   });
 
-  it('row 1c — CONTROL: an ordinary value matching a lane LABEL still maps to its id', () => {
+  it('row 1c — CONTROL: an ordinary value matching a lane id in another CASE still maps to its id', () => {
+    // Lane `{ id: 'a', title: 'A' }`: 'A' reaches it through the case-folded id
+    // lookup. It used to be readable as a TITLE match too; objectui#10069
+    // retired title matching, and this row holds because of the folding alone.
     expect(oneRecord('A')).toBe('a:r1');
   });
 
@@ -137,9 +140,16 @@ describe('bucketCardsIntoColumns — prototype member names as group values (obj
     );
   });
 
-  it('row 4c — DECLARED LANE `toString` receives a record that reached it by LABEL', () => {
-    expect(oneRecord('Done', [{ id: 'toString', title: 'Done' }, { id: 'a', title: 'A' }])).toBe(
+  it('row 4c — DECLARED LANE `toString` receives a record that reached it through the FOLDED lookup', () => {
+    // The lookup's stored VALUE is the prototype member name. This row used to
+    // reach it by the lane's TITLE ('Done'); objectui#10069 retired title
+    // matching, so it now reaches it by a case variant of the id, and the
+    // title-valued record is asserted to be an orphan beside it.
+    expect(oneRecord('TOSTRING', [{ id: 'toString', title: 'Done' }, { id: 'a', title: 'A' }])).toBe(
       'toString:r1, a:',
+    );
+    expect(oneRecord('Done', [{ id: 'toString', title: 'Done' }, { id: 'a', title: 'A' }])).toBe(
+      `toString:, a:, ${KANBAN_UNCOLUMNED_ID}:r1`,
     );
   });
 

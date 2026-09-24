@@ -22,6 +22,14 @@ The Calendar component allows users to select dates in various modes including s
 
 <SchemaExample id="components-form-calendar/multiple-dates" />
 
+## Selected Date
+
+`value` and `defaultValue` take an ISO 8601 date string in JSON (`"2026-09-15"` or `"2026-09-15T09:00:00Z"`); a TypeScript caller may also pass a `Date`. A date-only string selects the day it names in every time zone.
+
+```json
+{ "type": "ui:calendar", "mode": "single", "defaultValue": "2026-09-15" }
+```
+
 ## Schema
 
 ```plaintext
@@ -30,8 +38,8 @@ interface CalendarSchema {
   
   // Selection
   mode?: 'single' | 'multiple' | 'range';  // Selection mode (default: 'single')
-  defaultValue?: Date | Date[];             // Default selected date(s)
-  value?: Date | Date[];                    // Controlled selected date(s)
+  defaultValue?: Date | string;             // Default selected date (ISO 8601 string in JSON)
+  value?: Date | string;                    // Controlled selected date (ISO 8601 string in JSON)
   
   // Constraints
   minDate?: Date | string;                  // Minimum selectable date

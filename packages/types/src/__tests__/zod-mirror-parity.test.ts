@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **85 keys** across them — 46 / 83 until
+ *   - **45 entries** in `KnownDrift`, **83 keys** across them — 46 / 85 until
+ *     objectui#10293 settled `form.zod.ts#CalendarSchema`'s `defaultValue` and `value`
+ *     under objectui#7759 D1-(iii): the declaration gained the ISO string the mirror
+ *     accepts and gave up the `Date[]` arm the mirror refused, so both keys measure
+ *     clean and the entry, its two keys and nothing else LEFT — entry count and key
+ *     total moved together, by one and by two. It was 46 / 83 until
  *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
  *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
  *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
@@ -395,9 +400,12 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **19 entries** in `WiderThanDeclared`, **29 keys** across them, and **36 arms**
- *     under those keys — split **5** SCHEMA-NODE, **24** CONCRETE, **0** MIXED, **7** unions.
- *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
+ *   - **18 entries** in `WiderThanDeclared`, **27 keys** across them, and **32 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **22** CONCRETE, **0** MIXED, **5** unions.
+ *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10293 made
+ *     `form.zod.ts#CalendarSchema`'s `defaultValue` and `value` declare the ISO string their
+ *     mirror accepts: the entry and both of its two-arm keys left together, so `arms` fell
+ *     by four where `keys` fell by two and `unions` by two. It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
  *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
  *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
  *     same DEPARTURE shape, but that key carried TWO arms, so CONCRETE and `arms` fell by
@@ -568,7 +576,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 45 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -2002,8 +2010,6 @@ interface KnownDrift {
    * to the DOM `<button>` (`onClick` is on `SDUI_DOM_PASS_THROUGH_KEYS`).
    */
   'form.zod.ts#ButtonSchema': 'onClick';
-  /** DISJOINT: TS `Date | Date[]`, mirror `string | Date`. The mirror refuses `Date[]`; the TS side refuses the ISO string the mirror accepts. (`onChange` is NOT here: the `calendar` renderer spreads it onto `DayPicker`, whose callback is `onSelect`, so nothing reads it — both faces retire it.) */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
   /** RUNTIME SLOT (objectui#6124): the `checkbox` renderer calls `props.onChange(checked)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#CheckboxSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): `plugin-editor` reads `onChange ?? schema.onChange`. */
@@ -3063,8 +3069,6 @@ interface WiderThanDeclared {
    * key and a different class.
    */
   'data-display.zod.ts#TableColumnSchema': 'cell';
-  /** CONCRETE and DISJOINT — the mirror admits a string, the declaration a list of dates; also in `KnownDrift`. */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
   /** FUNCTION-SLOT. */
   'form.zod.ts#FieldConditionSchema': 'custom';
   /** FUNCTION-SLOT. */
@@ -3259,8 +3263,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'data-display.zod.ts#DataTableSchema::columns': ['CONCRETE'],
   'data-display.zod.ts#DataTableSchema::renderCellEditor': ['CONCRETE'],
   'data-display.zod.ts#TableColumnSchema::cell': ['CONCRETE'],
-  'form.zod.ts#CalendarSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#CalendarSchema::value': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#FieldConditionSchema::custom': ['CONCRETE'],
   'form.zod.ts#FieldConstraintsSchema::validate': ['CONCRETE'],
   'form.zod.ts#FormFieldSchema::validation': ['CONCRETE'],

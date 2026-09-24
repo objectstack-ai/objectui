@@ -533,8 +533,13 @@ export const DatePickerSchema = BaseSchema.extend({
  */
 export const CalendarSchema = BaseSchema.extend({
   type: z.literal('calendar'),
-  defaultValue: z.union([z.string(), z.date()]).optional().describe('Default value'),
-  value: z.union([z.string(), z.date()]).optional().describe('Controlled value'),
+  // objectui#10293: the string arm is the JSON authoring type, an ISO 8601
+  // date string, which the `calendar` renderer coerces to a `Date`. The
+  // `z.date()` arm stays for in-process callers, as on `DatePickerSchema`.
+  defaultValue: z.union([z.string(), z.date()]).optional()
+    .describe('Default selected date, an ISO 8601 date string'),
+  value: z.union([z.string(), z.date()]).optional()
+    .describe('Controlled selected date, an ISO 8601 date string'),
   mode: z.enum(['single', 'multiple', 'range']).optional().describe('Selection mode'),
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),

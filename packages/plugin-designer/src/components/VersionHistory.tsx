@@ -10,6 +10,7 @@ import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { History, User, Clock } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 
 function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
@@ -48,6 +49,9 @@ export function VersionHistory({
   onRestore,
   className,
 }: VersionHistoryProps) {
+  // Each version's time is formatted in the display locale — a bare
+  // `toLocaleString()` used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   return (
     <div className={cn('flex flex-col', className)} role="region" aria-label="Version history">
       <div className="p-3 border-b font-medium text-sm flex items-center gap-2">
@@ -88,7 +92,7 @@ export function VersionHistory({
                     <User className="h-2.5 w-2.5" />
                     <span>{entry.userName}</span>
                     <Clock className="h-2.5 w-2.5 ml-1" />
-                    <span>{new Date(entry.timestamp).toLocaleString()}</span>
+                    <span>{new Date(entry.timestamp).toLocaleString(displayLocale)}</span>
                   </div>
                   {!entry.isCurrent && onRestore && (
                     <button type="button"

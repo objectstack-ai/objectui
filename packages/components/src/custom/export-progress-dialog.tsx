@@ -20,6 +20,7 @@
 
 import * as React from 'react';
 import { Download, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,10 @@ export function ExportProgressDialog({
   closeAfterDownloadMs,
 }: ExportProgressDialogProps) {
   const { progress, error, isRunning, cancel, download, reset } = job;
+  // The record counts are a number face the user reads while the export runs,
+  // so they group in the display locale — a bare `toLocaleString()` handed
+  // `Intl` the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const status = progress?.status;
   const percent = typeof progress?.percentComplete === 'number'
     ? Math.max(0, Math.min(100, progress!.percentComplete!))
@@ -151,8 +156,8 @@ export function ExportProgressDialog({
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span data-testid="export-progress-counts">
               {progress?.processedRecords != null
-                ? `${progress.processedRecords.toLocaleString()}${
-                    progress.totalRecords != null ? ` / ${progress.totalRecords.toLocaleString()}` : ''
+                ? `${progress.processedRecords.toLocaleString(displayLocale)}${
+                    progress.totalRecords != null ? ` / ${progress.totalRecords.toLocaleString(displayLocale)}` : ''
                   } records`
                 : isRunning
                 ? 'Starting…'

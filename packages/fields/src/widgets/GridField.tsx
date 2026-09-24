@@ -426,7 +426,11 @@ function displayText(c: GridColumn, value: any, locale: string): string {
   }
   if (isNumeric(c.type)) {
     const n = Number(value);
-    if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString()}` : n.toLocaleString();
+    // The numeric branch formats in the SAME declared locale the temporal
+    // branch above is handed. It used to drop it, so one grid row read a date
+    // in the session's convention beside an amount grouped and decimal-marked
+    // the machine's way (objectui#9909).
+    if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString(locale)}` : n.toLocaleString(locale);
   }
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
@@ -829,7 +833,7 @@ export function GridField({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
-                  {total.toLocaleString()}
+                  {total.toLocaleString(displayLocale)}
                 </td>
                 {columns.length - totalColIndex - 1 > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1} />
@@ -1224,7 +1228,7 @@ export function GridField({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
-                  {total.toLocaleString()}
+                  {total.toLocaleString(displayLocale)}
                 </td>
                 {(columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)) > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)} />

@@ -68,6 +68,7 @@ import {
   Clock,
   Bot,
 } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useAiApprovalsTranslation,
   type InboxTranslate,
@@ -164,11 +165,14 @@ function StatusBadge({ status, t }: { status: string; t: InboxTranslate }) {
  * break differently; unifying them is a behaviour change that needs its own
  * card, so this translates the OUTPUT where it stands.
  *
- * Past 30 days the value is a DATE, not a relative phrase, and
- * `toLocaleDateString()` already localizes it — there is no literal there to
- * key. Same reasoning, byte for byte, as the sibling helpers' own tails.
+ * Past 30 days the value is a DATE, not a relative phrase, so there is no
+ * literal there to key — but it is formatted in the DISPLAY locale the caller
+ * threads, never with a bare `toLocaleDateString`: the tail used to pass no
+ * tag, which is the MACHINE's locale, so the 30-day-old row read its date in
+ * neither of the repo's locale channels (objectui#9909). `plugin-detail`'s
+ * sibling tails were repaired the same way by objectui#9786.
  */
-function formatRelative(s: string | null | undefined, t: InboxTranslate): string {
+function formatRelative(s: string | null | undefined, t: InboxTranslate, locale: string): string {
   if (!s) return '—';
   const parsed = Date.parse(s);
   if (Number.isNaN(parsed)) return s;
@@ -181,7 +185,7 @@ function formatRelative(s: string | null | undefined, t: InboxTranslate): string
   if (hr < 24) return t('detail.hoursAgo', { count: hr });
   const day = Math.round(hr / 24);
   if (day < 30) return t('detail.daysAgo', { count: day });
-  try { return new Date(s).toLocaleDateString(); } catch { return s; }
+  try { return new Date(s).toLocaleDateString(locale); } catch { return s; }
 }
 
 function safeParseJson(input: string | null | undefined): unknown {
@@ -224,6 +228,7 @@ export function AiPendingActionsInbox({
   className,
 }: AiPendingActionsInboxProps) {
   const { t } = useAiApprovalsTranslation();
+  const displayLocale = useDisplayLocale();
   // `??`, not `||`: an explicit `description=''` still hides the line, which is
   // what the literal default used to allow.
   const resolvedTitle = title ?? t('aiApprovals.title');
@@ -400,7 +405,7 @@ export function AiPendingActionsInbox({
                     <TableCell><StatusBadge status={row.status} t={t} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {formatRelative(row.proposed_at, t)}
+                        <Clock className="h-3 w-3" /> {formatRelative(row.proposed_at, t, displayLocale)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -501,7 +506,7 @@ export function AiPendingActionsInbox({
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">{t('aiApprovals.colProposed')}</Label>
-                  <div className="mt-1 text-xs">{formatRelative(selected.proposed_at, t)}</div>
+                  <div className="mt-1 text-xs">{formatRelative(selected.proposed_at, t, displayLocale)}</div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">{t('aiApprovals.fieldProposedBy')}</Label>

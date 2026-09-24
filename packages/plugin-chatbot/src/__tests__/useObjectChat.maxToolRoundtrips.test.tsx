@@ -36,10 +36,31 @@
  * `@object-ui/types/zod` → `packages/types/src/zod/index.zod.ts`, so test 3
  * reads SOURCE and never resolves through the package's `dist/`.
  */
-import { renderHook, act, waitFor } from '@testing-library/react';
+import * as React from 'react';
+import { renderHook as rtlRenderHook, act, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { I18nProvider } from '@object-ui/i18n';
 import { ChatbotSchema } from '@object-ui/types/zod';
 import { useObjectChat, resetMaxToolRoundtripsWarning } from '../useObjectChat';
+
+/**
+ * Every hook mounts under an `I18nProvider`, as the chat surfaces always do.
+ * `useObjectChat` reads the display locale (`useDisplayLocale`, objectui#9909)
+ * for the local-mode message stamp, and a PROVIDER-LESS first
+ * `useTranslation()` prints react-i18next's once-per-module
+ * `NO_I18NEXT_INSTANCE` notice — which the `console.warn` spies below, written
+ * to count THIS hook's own warning, would otherwise count too.
+ */
+function EnSession({ children }: { children: React.ReactNode }) {
+  return (
+    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+      {children}
+    </I18nProvider>
+  );
+}
+const renderHook = (<R,>(callback: () => R) => rtlRenderHook(callback, { wrapper: EnSession })) as <R>(
+  callback: () => R,
+) => ReturnType<typeof rtlRenderHook<R, unknown>>;
 
 const API = 'https://example.test/api/v1/ai/chat';
 

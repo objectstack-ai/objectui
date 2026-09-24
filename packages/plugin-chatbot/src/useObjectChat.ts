@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ChatMessage as OuiChatMessage } from '@object-ui/types';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { generateUniqueId } from './utils';
@@ -746,6 +747,12 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
     onSend,
   } = options;
 
+  // The time stamped on a local-mode message is a face the user reads under
+  // the bubble, so it is formatted in the display locale — a bare
+  // `toLocaleTimeString()` used the MACHINE's locale (objectui#9909). Read
+  // here, at the top, for the same Rules-of-Hooks reason as the effect below.
+  const displayLocale = useDisplayLocale();
+
   // objectui#5605 — an AUTHORED `maxToolRoundtrips` is inert; say so once. The
   // check is `!== undefined`, not truthiness, so an authored `0` is reported
   // too (a cap of zero is exactly the author who most needs telling). Declared
@@ -1111,7 +1118,7 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
       id: generateUniqueId('msg'),
       role: 'user',
       content: content.trim(),
-      timestamp: showTimestamp ? new Date().toLocaleTimeString() : undefined,
+      timestamp: showTimestamp ? new Date().toLocaleTimeString(displayLocale) : undefined,
     };
 
     setLocalMessages(prev => {
@@ -1129,13 +1136,13 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
           id: generateUniqueId('msg'),
           role: 'assistant',
           content: autoResponseText || 'Thank you for your message!',
-          timestamp: showTimestamp ? new Date().toLocaleTimeString() : undefined,
+          timestamp: showTimestamp ? new Date().toLocaleTimeString(displayLocale) : undefined,
         };
         setLocalMessages(prev => [...prev, assistantMessage]);
         setLocalIsLoading(false);
       }, autoResponseDelay);
     }
-  }, [showTimestamp, autoResponse, autoResponseText, autoResponseDelay, onSend]);
+  }, [showTimestamp, displayLocale, autoResponse, autoResponseText, autoResponseDelay, onSend]);
 
   const localReload = useCallback(() => {
     // In local mode, there's no server to retry — no-op

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, Pencil, MessageSquare, Search, Check, X } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import {
   Button,
   Input,
@@ -49,6 +49,7 @@ export interface ConversationsSidebarProps {
 function formatTimestamp(
   iso: string | undefined,
   t: ReturnType<typeof useObjectTranslation>['t'],
+  locale: string,
 ): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -62,7 +63,10 @@ function formatTimestamp(
   if (diff < hour) return t('console.ai.minutesAgo', { count: Math.floor(diff / min) });
   if (diff < day) return t('console.ai.hoursAgo', { count: Math.floor(diff / hour) });
   if (diff < 7 * day) return t('console.ai.daysAgo', { count: Math.floor(diff / day) });
-  return d.toLocaleDateString();
+  // The 7-days-and-older tail is a date, in the DISPLAY locale the row threads
+  // — a bare `toLocaleDateString()` fell out of the translated buckets above
+  // straight into the MACHINE's locale (objectui#9909; objectui#3441's shape).
+  return d.toLocaleDateString(locale);
 }
 
 /**
@@ -71,10 +75,10 @@ function formatTimestamp(
  * reveals the exact moment, matching ChatGPT/Claude. Returns '' for a missing
  * or invalid timestamp so no empty tooltip appears.
  */
-function absoluteTimestamp(iso: string | undefined): string {
+function absoluteTimestamp(iso: string | undefined, locale: string): string {
   if (!iso) return '';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString(locale);
 }
 
 export type ConversationGroupKey = 'today' | 'yesterday' | 'previous7Days' | 'previous30Days' | 'older';
@@ -379,6 +383,9 @@ function ConversationRow({
   onSubmitRename,
 }: RowProps) {
   const { t } = useObjectTranslation();
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const title = conversation.title?.trim() || conversation.preview?.trim() || t('console.ai.newConversation');
   const [draft, setDraft] = useState(title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -465,9 +472,9 @@ function ConversationRow({
           ) : null}
           <span
             className="mt-0.5 block text-[10px] text-muted-foreground"
-            title={absoluteTimestamp(conversation.updatedAt ?? conversation.createdAt)}
+            title={absoluteTimestamp(conversation.updatedAt ?? conversation.createdAt, displayLocale)}
           >
-            {formatTimestamp(conversation.updatedAt ?? conversation.createdAt, t)}
+            {formatTimestamp(conversation.updatedAt ?? conversation.createdAt, t, displayLocale)}
           </span>
         </button>
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">

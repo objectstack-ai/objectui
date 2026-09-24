@@ -147,6 +147,7 @@ const fr = {
       acknowledge: 'Je l\'ai enregistrée',
       copyAll: 'Tout copier',
     },
+    notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
   },
   validation: {
     required: "{{field}} est obligatoire",

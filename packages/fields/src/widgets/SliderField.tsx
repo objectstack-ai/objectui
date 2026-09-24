@@ -1,5 +1,6 @@
 import React from 'react';
 import { Slider } from '@object-ui/components';
+import type { SliderFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
@@ -51,8 +52,11 @@ export function SliderField({
   error,
   ...props
 }: FieldWidgetComponentProps<number>) {
-  // Get slider-specific configuration from field metadata
-  const sliderField = field as any;
+  // Slider configuration, read through the keys `SliderFieldMetadata` declares
+  // (objectui#10066). A structural view rather than the full interface: this
+  // widget also serves `progress` fields, so asserting `type: 'slider'` would
+  // claim more than the carrier guarantees.
+  const sliderField = field as Pick<SliderFieldMetadata, 'min' | 'max' | 'step'>;
   const min = sliderField?.min ?? 0;
   const max = sliderField?.max ?? 100;
   const step = sliderField?.step ?? 1;

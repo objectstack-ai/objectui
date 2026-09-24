@@ -147,6 +147,7 @@ const de = {
       acknowledge: 'Ich habe ihn gespeichert',
       copyAll: 'Alle kopieren',
     },
+    notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
   },
   validation: {
     required: "{{field}} ist erforderlich",

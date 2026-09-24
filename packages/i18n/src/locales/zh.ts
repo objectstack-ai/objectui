@@ -154,6 +154,7 @@ const zh = {
       acknowledge: '我已保存',
       copyAll: '全部复制',
     },
+    notAvailableHere: '「{{action}}」在当前页面不可用。',
   },
   validation: {
     required: '{{field}}不能为空',

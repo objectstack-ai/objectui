@@ -151,6 +151,7 @@ const ar = {
       acknowledge: 'لقد حفظتها',
       copyAll: 'نسخ الكل',
     },
+    notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
   },
   validation: {
     required: "{{field}} مطلوب",

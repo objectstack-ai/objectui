@@ -49,6 +49,14 @@ const rows = (start: number, count: number) =>
 
 const columns = [{ accessorKey: 'name', header: 'Name' }];
 
+/**
+ * The `$select` every row fetch here carries since objectui#10186: the list
+ * authors one column, so the request projects to it plus `id`. Spread into each
+ * expected wire so these cases keep pinning the WHOLE query while their subject
+ * stays the paging and ordering keys beside it.
+ */
+const PROJECTION = { $select: ['id', 'name'] };
+
 /** DataSource stub serving a 12-record collection in $top/$skip windows. */
 const makeWindowedDS = (totalRecords = 12) => ({
   find: vi.fn(async (_api: string, params: any) => {
@@ -87,6 +95,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
 
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('contact', {
+        ...PROJECTION,
         $filter: { account: 'ACC-1' },
         $top: 5,
         $skip: 0,
@@ -119,6 +128,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
     fireEvent.click(nextButton());
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('contact', {
+        ...PROJECTION,
         $filter: { account: 'ACC-1' },
         $top: 5,
         $skip: 5,
@@ -163,6 +173,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
     );
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('task', {
+        ...PROJECTION,
         $filter: { project: 'P-1' },
         $top: 5,
         $skip: 0,
@@ -189,6 +200,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
     );
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('task', {
+        ...PROJECTION,
         $filter: { project: 'P-1' },
         $top: 5,
         $skip: 0,
@@ -227,6 +239,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
     });
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('contact', {
+        ...PROJECTION,
         $filter: { account: 'ACC-1' },
         $top: 5,
         $skip: 0,
@@ -305,7 +318,7 @@ describe('RelatedList — server-windowed pagination (#2711)', () => {
       />,
     );
     await waitFor(() => {
-      expect(ds.find).toHaveBeenCalledWith('contact', { $filter: { account: 'ACC-1' } });
+      expect(ds.find).toHaveBeenCalledWith('contact', { ...PROJECTION, $filter: { account: 'ACC-1' } });
     });
   });
 });

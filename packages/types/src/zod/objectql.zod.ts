@@ -315,7 +315,14 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
     + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
   ),
-  rowActions: z.array(z.string()).optional(),
+  rowActions: z.array(z.string()).optional().describe(
+    'Names of actions offered on each row\'s menu. `edit` and `delete` are canonical: they select the grid\'s generic Edit / Delete entries; '
+    + 'any other name is a custom action resolved against the object\'s declared actions. '
+    + '`operations` is the CEILING: `operations.update: false` (or `delete: false`), or a member a declared `operations` block does not name, '
+    + 'withholds that generic entry whatever this list says. Inside that ceiling a declared list NARROWS: the generic Edit / Delete are offered '
+    + 'only for the canonical names it carries, so `[]` or a list naming only custom actions offers neither. '
+    + 'Omit `rowActions` to keep the default generic entries.',
+  ),
   batchActions: z.array(z.string()).optional(),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
@@ -1691,6 +1698,15 @@ export const ObjectMapSchema = BaseSchema.extend({
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#9549 — declared in step with the twin in `../objectql.ts`
+  // (`QueryParams['$filter']`), spelled exactly as `ObjectGallerySchema.filter`
+  // below spells it (objectui#9309): the two arms of that slot, ARRAY FIRST.
+  // Before this the key rode `.passthrough()` unjudged, so a string or number
+  // parsed clean while the renderer forwarded it into `$filter`.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   parentField: z.string().optional().describe('Single-parent pointer field (auto-detected when omitted)'),
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),

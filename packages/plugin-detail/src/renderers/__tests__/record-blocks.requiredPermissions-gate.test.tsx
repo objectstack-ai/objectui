@@ -7,9 +7,9 @@
  */
 
 /**
- * `requiredPermissions` on `record:details`, `record:highlights` and
- * `record:related_list` — the BLOCK-LEVEL gate, on all three sibling blocks at
- * once (objectui#10155).
+ * `requiredPermissions` on `record:highlights` and `record:related_list` — the
+ * BLOCK-LEVEL gate (objectui#10155) — and its deliberate ABSENCE on
+ * `record:details` (objectui#10200).
  *
  * ## What this file pins
  *
@@ -17,14 +17,21 @@
  * carries on `action`, `app`, `field` and `bulkAction` — read through the
  * permission context's capability path and gating **fail-closed**: an unheld
  * or unrecognised capability hides the block. objectui#10058 settled that for
- * `record:quick_actions`; these three carried the identical call and were
- * untouched by it.
+ * `record:quick_actions`; the record blocks carried the identical call and
+ * were untouched by it.
  *
- * All three used to read `perms.can(objectName, name)`, whose second argument
+ * They used to read `perms.can(objectName, name)`, whose second argument
  * is the closed object-action enum. Under the stock `/me/permissions` provider
  * a name outside the eight mapped verbs falls through that provider's
  * `?? 'allowRead'` tail to the object's read bit — so a capability nobody
  * holds passed for every reader of the object, silently.
+ *
+ * ⚠️ `record:details` carried the same gate until objectui#10200. Its
+ * contract, `@objectstack/spec`'s strict `RecordDetailsProps`, deliberately
+ * does not declare the key, so by maintainer ruling the renderer stopped
+ * reading it there: a `record:details` document carrying the key no longer
+ * gates the block. That block is pinned below as the inverse, against the same
+ * stock provider verdict that still closes its siblings.
  *
  * ⭐ Every pin below mounts a REAL stock provider and reads its real verdicts.
  * A mocked `usePermissions` cannot discriminate the two reading paths — it IS
@@ -60,6 +67,13 @@ import { RecordRelatedListRenderer } from '../record-related-list';
  * implement.
  */
 const canSpy = vi.fn();
+/**
+ * Records what the CAPABILITY path was asked, the same way — a wrapper that
+ * delegates. The `record:details` detector below asserts it is NOT asked about
+ * that block's authored names, and the sibling control in the same render
+ * proves the wrapper fires.
+ */
+const capSpy = vi.fn();
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
   return {
@@ -70,6 +84,7 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
         ...real,
         can: (object: string, action: any) => { canSpy(object, action); return real.can(object, action); },
         cannot: (object: string, action: any) => { canSpy(object, action); return real.cannot(object, action); },
+        hasCapabilities: (names: string[]) => { capSpy(names); return real.hasCapabilities(names); },
       };
     },
   };
@@ -129,14 +144,21 @@ interface BlockCase {
   base: Record<string, unknown>;
 }
 
+/**
+ * `record:details` — NOT a gated block since objectui#10200, so it is not in
+ * {@link BLOCKS}. Kept in the same shape so its inverse pin below mounts it
+ * exactly the way the gated siblings are mounted. `refusal` is the notice it
+ * used to emit, which is what the inverse pin asserts is gone.
+ */
+const DETAILS: BlockCase = {
+  key: 'record:details',
+  shown: 'detail-view',
+  refusal: /insufficient permissions to view details/i,
+  node: (schema: Record<string, unknown>) => <RecordDetailsRenderer schema={schema as any} />,
+  base: { fields: ['name'] },
+};
+
 const BLOCKS: BlockCase[] = [
-  {
-    key: 'record:details',
-    shown: 'detail-view',
-    refusal: /insufficient permissions to view details/i,
-    node: (schema: Record<string, unknown>) => <RecordDetailsRenderer schema={schema as any} />,
-    base: { fields: ['name'] },
-  },
   {
     key: 'record:highlights',
     shown: 'header-highlight',
@@ -153,6 +175,9 @@ const BLOCKS: BlockCase[] = [
   },
 ];
 
+/** Named, so a pin below that means one block cannot drift onto another by index. */
+const [HIGHLIGHTS, RELATED_LIST] = BLOCKS;
+
 function bound(block: BlockCase, schema: Record<string, unknown>, objectName = 'crm_account') {
   return (
     <RecordContextProvider objectName={objectName} recordId="rec-1" data={{ id: 'rec-1' }} dataSource={ds as any}>
@@ -163,7 +188,66 @@ function bound(block: BlockCase, schema: Record<string, unknown>, objectName = '
 
 beforeEach(() => {
   canSpy.mockClear();
+  capSpy.mockClear();
   cleanup();
+});
+
+describe('record:details — `requiredPermissions` no longer gates the block (objectui#10200)', () => {
+  /**
+   * Maintainer ruling on objectui#10200: `@objectstack/spec`'s strict
+   * `RecordDetailsProps` deliberately does not declare `requiredPermissions`,
+   * so the renderer stops reading it there. These pins are the ruling's
+   * "a `record:details` document carrying the key no longer gates the block".
+   *
+   * ⭐ Every pin renders `record:highlights` with the SAME key under the SAME
+   * provider in the SAME tree, and asserts it is still refused. That sibling is
+   * the lit control: it proves the provider really reports the capability as
+   * unheld, so the `record:details` body rendering is about the block no longer
+   * asking — not about a provider that would have said yes anyway. On the
+   * pre-ruling renderer every `record:details` assertion below goes red.
+   */
+  const gated = { requiredPermissions: ['crm.manage'] };
+
+  it('renders the block when the declared capability is NOT held (REPORTED-empty capability set)', async () => {
+    render(
+      <MePermissionsProvider initialPermissions={me([])}>
+        {bound(DETAILS, gated)}
+        {bound(HIGHLIGHTS, gated)}
+      </MePermissionsProvider>,
+    );
+    // Control first: the same verdict still closes the gated sibling.
+    expect(await screen.findByText(HIGHLIGHTS.refusal)).toBeInTheDocument();
+    expect(screen.queryByTestId(HIGHLIGHTS.shown)).not.toBeInTheDocument();
+    // The ruling: the key is not read, so nothing hides `record:details`.
+    expect(await screen.findByTestId(DETAILS.shown)).toBeInTheDocument();
+    expect(screen.queryByText(DETAILS.refusal)).not.toBeInTheDocument();
+  });
+
+  it('renders the block with NO objectName in the record context, where it used to gate too', async () => {
+    render(
+      <MePermissionsProvider initialPermissions={me([])}>
+        {bound(DETAILS, gated, '')}
+        {bound(HIGHLIGHTS, gated, '')}
+      </MePermissionsProvider>,
+    );
+    expect(await screen.findByText(HIGHLIGHTS.refusal)).toBeInTheDocument();
+    expect(await screen.findByTestId(DETAILS.shown)).toBeInTheDocument();
+    expect(screen.queryByText(DETAILS.refusal)).not.toBeInTheDocument();
+  });
+
+  it('DETECTOR: the renderer never asks the CAPABILITY path about the authored names', async () => {
+    render(<MePermissionsProvider initialPermissions={me([])}>{bound(DETAILS, gated)}</MePermissionsProvider>);
+    expect(await screen.findByTestId(DETAILS.shown)).toBeInTheDocument();
+    expect(capSpy).not.toHaveBeenCalledWith(['crm.manage']);
+    // …nor the object-action path, which is what it asked before objectui#10155.
+    expect(canSpy).not.toHaveBeenCalledWith(expect.anything(), 'crm.manage');
+  });
+
+  it('the capability spy is WIRED — the gated sibling fires it, so the negative above is a reading', async () => {
+    render(<MePermissionsProvider initialPermissions={me([])}>{bound(HIGHLIGHTS, gated)}</MePermissionsProvider>);
+    expect(await screen.findByText(HIGHLIGHTS.refusal)).toBeInTheDocument();
+    expect(capSpy).toHaveBeenCalledWith(['crm.manage']);
+  });
 });
 
 // ⛔ `$key` must not be followed by `.` — vitest reads `$key.requiredPermissions`
@@ -294,31 +378,20 @@ describe('DISCRIMINATOR ② and the object name — which differs per block (obj
    * `allowRead: false` leg is pinned separately below as the object-read call
    * this card must NOT move.
    */
-  it('record:details — ②: holding the capability renders even with `allowRead: false`', async () => {
-    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: false })}>{bound(BLOCKS[0], { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
-    expect(await screen.findByTestId('detail-view')).toBeInTheDocument();
-  });
-
   it('record:highlights — ②: holding the capability renders even with `allowRead: false`', async () => {
-    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: false })}>{bound(BLOCKS[1], { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: false })}>{bound(HIGHLIGHTS, { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
     expect(await screen.findByTestId('header-highlight')).toBeInTheDocument();
   });
 
   it('record:related_list — ②: holding the capability renders, with the object-read gate satisfied', async () => {
-    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: true })}>{bound(BLOCKS[2], { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: true })}>{bound(RELATED_LIST, { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
     expect(await screen.findByTestId('related-list')).toBeInTheDocument();
   });
 
-  it('record:details — gates with NO objectName in the record context, a system capability is not object-scoped', async () => {
+  it('record:highlights — gates with NO objectName in the record context, a system capability is not object-scoped', async () => {
     // The `&& objectName` conjunct skipped the gate outright when the name was
     // empty, so a declared gate on a block outside a record context did nothing.
-    render(<MePermissionsProvider initialPermissions={me([])}>{bound(BLOCKS[0], { requiredPermissions: ['crm.manage'] }, '')}</MePermissionsProvider>);
-    expect(await screen.findByText(/insufficient permissions to view details/i)).toBeInTheDocument();
-    expect(screen.queryByTestId('detail-view')).not.toBeInTheDocument();
-  });
-
-  it('record:highlights — gates with NO objectName in the record context, for the same reason', async () => {
-    render(<MePermissionsProvider initialPermissions={me([])}>{bound(BLOCKS[1], { requiredPermissions: ['crm.manage'] }, '')}</MePermissionsProvider>);
+    render(<MePermissionsProvider initialPermissions={me([])}>{bound(HIGHLIGHTS, { requiredPermissions: ['crm.manage'] }, '')}</MePermissionsProvider>);
     expect(await screen.findByText(/insufficient permissions to view highlights/i)).toBeInTheDocument();
     expect(screen.queryByTestId('header-highlight')).not.toBeInTheDocument();
   });
@@ -339,7 +412,7 @@ describe('record:related_list — the OBJECT-READ call this card does not move (
   it('a denied object read hides the section entirely — no refusal node, no list', async () => {
     render(
       <MePermissionsProvider initialPermissions={me(['crm.manage'], { allowRead: false })}>
-        {bound(BLOCKS[2], {})}
+        {bound(RELATED_LIST, {})}
         {/* The block renders NOTHING when refused, so this sibling is what the
             assertions below can wait for — without it the queries would read an
             empty tree that had simply not rendered yet. */}
@@ -353,7 +426,7 @@ describe('record:related_list — the OBJECT-READ call this card does not move (
   });
 
   it('an allowed object read renders the section — the positive control for the pin above', async () => {
-    render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bound(BLOCKS[2], {})}</MePermissionsProvider>);
+    render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bound(RELATED_LIST, {})}</MePermissionsProvider>);
     expect(await screen.findByTestId('related-list')).toBeInTheDocument();
     expect(canSpy).toHaveBeenCalledWith('crm_contact', 'read');
   });

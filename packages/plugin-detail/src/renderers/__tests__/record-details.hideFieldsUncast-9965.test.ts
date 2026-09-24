@@ -23,7 +23,10 @@
  * declares them. They are LEDGERED below with the property that makes each
  * exemption expire: the ledger asserts the key is still absent from the
  * mirror, so the day it is declared this file goes red instead of the
- * exemption quietly outliving its subject.
+ * exemption quietly outliving its subject. (⚠️ The census above is this card's
+ * reading, not a live one: objectui#10200 later retired both
+ * `requiredPermissions` reads by maintainer ruling, and the key left the
+ * ledger with them.)
  *
  * ## The three instruments, and which one actually settles it
  *
@@ -146,8 +149,8 @@ type _MirrorRefusesTheMisspelling = RecordDetailsComponentProps['hideFeilds'];
  * expires the moment its premise does.
  */
 const HONEST_CASTS: Record<string, string> = {
-  requiredPermissions:
-    'the mirror declares no such key — `RecordDetailsProps` has no permission gate, so the cast is the honest spelling until one is declared',
+  // `requiredPermissions` left this ledger with objectui#10200: the renderer no
+  // longer reads it at all, so there is no cast left to call honest.
   enforceFieldSecurity:
     'the mirror declares no such key — field-level security is read off the object, not off the page block',
   redactFields:

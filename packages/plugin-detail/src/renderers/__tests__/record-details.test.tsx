@@ -24,19 +24,19 @@ import { render, cleanup } from '@testing-library/react';
 const stub = {
   recordCtx: undefined as any,
   /**
-   * The BLOCK-LEVEL gate's verdict, and nothing else.
+   * What the mocked capability path answers — flipped under a mounted
+   * renderer by the permission-flip pin below.
    *
-   * `record:details.requiredPermissions` is an ADR-0066 system capability set
-   * read through the permission context's `hasCapabilities`, fail-closed
-   * (objectui#10155). This suite only needs that verdict to FLIP under a
-   * mounted renderer, which is what produced React error #310.
+   * `record:details` used to gate its whole body on
+   * `requiredPermissions` through `hasCapabilities` (objectui#10155), and that
+   * verdict flipping under a mounted renderer is what produced React error
+   * #310. Since objectui#10200 the block does not read the key at all, so the
+   * flip must change NOTHING; the pin below says so.
    *
-   * ⛔ It pins nothing about the gate's SEMANTICS. A mocked
-   * `usePermissions` IS whichever reading path the mock implements, so it
-   * cannot discriminate the capability path from the object-action path —
-   * which is exactly how this family's earlier pins came to pass on a gate
-   * that did not gate. Those semantics are pinned on real stock providers, in
-   * `record-blocks.requiredPermissions-gate.test.tsx`.
+   * ⛔ It pins nothing about capability SEMANTICS. A mocked
+   * `usePermissions` IS whichever reading path the mock implements. The
+   * ruling's own pin, on a real stock provider with a still-gated sibling as
+   * its control, is in `record-blocks.requiredPermissions-gate.test.tsx`.
    */
   capabilities: true,
 };
@@ -123,16 +123,17 @@ describe('RecordDetailsRenderer — rules of hooks', () => {
     expect(queryByTestId('detail-view')).toBeNull();
   });
 
-  it('survives a permission flip (allowed → denied) between renders', () => {
+  it('survives a permission flip (allowed → denied) between renders — and, since objectui#10200, keeps rendering', () => {
     const schema = { fields: ['name'], requiredPermissions: ['read'] };
     const { rerender, queryByTestId } = render(<RecordDetailsRenderer schema={schema} />);
     expect(queryByTestId('detail-view')).not.toBeNull();
 
-    // Permissions (re)load and now deny — the permission-denied branch used to
-    // return before several hooks, changing the hook count → React #310.
+    // Permissions (re)load and now deny. The permission-denied branch used to
+    // return before several hooks, changing the hook count → React #310; the
+    // block no longer reads `requiredPermissions`, so the body stays.
     stub.capabilities = false;
     expect(() => rerender(<RecordDetailsRenderer schema={schema} />)).not.toThrow();
-    expect(queryByTestId('detail-view')).toBeNull();
+    expect(queryByTestId('detail-view')).not.toBeNull();
   });
 
   it('survives re-binding back to a record (null → ctx) without a hook mismatch', () => {

@@ -139,13 +139,13 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
 }) => {
   // ── Hooks (unconditional — before ANY early return) ──────────────────────
   // Rules of hooks: every hook below MUST run on every render, whether or not
-  // a record is bound and whether or not the viewer has permission. Returning
-  // early *between* hooks — the designer placeholder (`!ctx`) or the
-  // permission-denied notice — changes the hook count between renders and
+  // a record is bound. Returning early *between* hooks — the designer
+  // placeholder (`!ctx`), or the permission-denied notice this block carried
+  // until objectui#10200 — changes the hook count between renders and
   // throws React error #310 ("Rendered fewer hooks than expected"). That is
   // precisely the crash a related-list row click produced: `onRowClick` flips
-  // the bound record / permission state, `ctx` (or the capability verdict)
-  // toggles,
+  // the bound record / permission state, `ctx` (or, then, the capability
+  // verdict) toggles,
   // and the previously-mounted `record:details` re-renders with fewer hooks.
   // Keep all hooks here; move all conditional returns below them.
   const ctx = useRecordContext();
@@ -197,49 +197,22 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     );
   }
 
-  const required: string[] = Array.isArray((schema as any).requiredPermissions)
-    ? (schema as any).requiredPermissions
-    : [];
   /**
-   * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
-   * the sibling family of objectui#10058, ruling batch #192 item 5 letter B).
+   * ⛔ `requiredPermissions` is deliberately NOT read on this block
+   * (objectui#10200, maintainer ruling). `@objectstack/spec`'s
+   * `RecordDetailsProps` does not declare it — on purpose, as the family
+   * docblock on that schema says — and the schema is strict, so a document
+   * carrying the key is refused at publish. The block-level gate this renderer
+   * used to derive from it was therefore reachable only through metadata the
+   * contract rejects (AGENTS.md #0 / #0.1), so it is gone rather than kept as a
+   * second, renderer-only dialect of the contract.
    *
-   * `requiredPermissions` on a record block is a **system capability set** —
-   * the one meaning the word carries on `action`, `app`, `field` and
-   * `bulkAction` — so it is read through the permission context's capability
-   * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole block.
-   *
-   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
-   * closed object-action enum, and the stock `/me/permissions` provider maps
-   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
-   * `import`, `export`) before its `?? 'allowRead'` tail sends everything else
-   * to the object's read bit — so a capability nobody holds passed for every
-   * reader of the object, with no refusal, no warning and no log. The full
-   * reproduction behind that sentence is written once, at the same gate in
-   * `record-quick-actions.tsx`, and is not restated here.
-   *
-   * ⛔ The object name is deliberately ABSENT from the verdict. A system
-   * capability is not object-scoped, and the old `&& objectName` conjunct was
-   * a second silent fail-open: a block rendered with no `objectName` in its
-   * record context skipped its declared gate entirely.   *
-   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
-   * `undefined` — the role-based `PermissionProvider`, a backend predating
-   * ADR-0066, or no provider at all) still opens this gate. That is
-   * `hasCapabilities`'s own ruled unreported-vs-empty doctrine
-   * (objectui#4656), shared with every other capability gate in the tree; a
-   * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
-   * strictly.
+   * If the spec declares the key here under ADR-0066, the renderer reads it
+   * then, following the contract. The day that happens is announced by the
+   * per-block census in `__tests__/detailRendererUndeclaredKeys-8649.test.ts`
+   * going red. What this block does today with the key authored is pinned in
+   * `__tests__/record-blocks.requiredPermissions-gate.test.tsx`.
    */
-  if (required.length > 0 && !perms.hasCapabilities(required)) {
-    return (
-      <div className={className} {...designer} role="status" aria-live="polite">
-        <p className="text-sm text-muted-foreground italic">
-          Insufficient permissions to view details.
-        </p>
-      </div>
-    );
-  }
 
   const enforceFLS = (schema as any).enforceFieldSecurity === true;
   const redact: string[] = Array.isArray((schema as any).redactFields)

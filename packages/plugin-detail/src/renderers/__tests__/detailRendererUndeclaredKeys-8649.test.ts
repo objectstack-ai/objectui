@@ -63,7 +63,11 @@
  *     The contract DOES declare it, on the sibling block `record:quick_actions`,
  *     but NOT on the three this card covers. A word-frequency screen over the contract reads "present" and is
  *     wrong about exactly this; the per-schema census below is what separates
- *     them. ⇒ ROUTED TO THE PRODUCER, same floor.
+ *     them. ⇒ ROUTED TO THE PRODUCER, same floor. ⚠️ Since then, by maintainer
+ *     ruling on objectui#10200, `record-details.tsx` stopped reading it: its
+ *     ledger entry left {@link ROUTED_KEYS} and is pinned ABSENT below instead.
+ *     The census leg for the three blocks is what announces the day the
+ *     contract declares it on `record:details`, and the read returns then.
  *
  * ## What each leg can and cannot prove
  *
@@ -274,7 +278,18 @@ const CARD_BLOCKS = ['record:details', 'record:highlights', 'record:related_list
 const ROUTED_KEYS = {
   enforceFieldSecurity: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
   redactFields: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
-  requiredPermissions: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
+  // `record-details.tsx` left this entry with objectui#10200 — see RETIRED_READS.
+  requiredPermissions: ['record-highlights.tsx', 'record-related-list.tsx'],
+} as const;
+
+/**
+ * Reads RETIRED by ruling rather than declared — the inverse ledger. Each entry
+ * is asserted ABSENT from its file, so a read that creeps back is red here, not
+ * just in the behavioural pin (`record-blocks.requiredPermissions-gate.test.tsx`).
+ */
+const RETIRED_READS = {
+  // objectui#10200: `RecordDetailsProps` deliberately declares no such key.
+  requiredPermissions: ['record-details.tsx'],
 } as const;
 
 /** The three files whose `schema` annotation the erasure used to destroy. */
@@ -382,6 +397,17 @@ describe('objectui#8649 — the routed-key ledger is not stale', () => {
       it(`${file} still reads \`${key}\` (ledger entry stays live)`, () => {
         const source = maskedSource(file);
         expect(source).toContain(`.${key}`);
+      });
+    }
+  }
+
+  for (const [key, files] of Object.entries(RETIRED_READS)) {
+    for (const file of files) {
+      it(`${file} no longer reads \`${key}\` (retired by ruling, objectui#10200)`, () => {
+        const source = maskedSource(file);
+        // Proof the file was read and masked, so the absence is a reading.
+        expect(source).toMatch(/RecordDetailsRendererProps/);
+        expect(source).not.toContain(`.${key}`);
       });
     }
   }

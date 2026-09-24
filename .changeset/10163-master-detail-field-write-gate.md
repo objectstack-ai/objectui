@@ -4,7 +4,7 @@
 
 A master-detail form's child grid no longer offers a cell the CALLER may read but not edit (objectui#10163).
 
-**What it was.** The earlier objectui#10163 entry routed the `record:line_items` panel's columns through the render pass the record-form containers share, and named the master-detail form's own child grid (`object-master-detail-form`) as not yet covered. That grid renders through the same line-items widget and read no field-level permission, so a child column the caller's permission set marks `editable: false` rendered as a live, editable cell — inviting an edit the server refuses.
+**What it was.** The companion objectui#10163 entry routed the `record:line_items` panel's columns through the render pass the record-form containers share. The master-detail form's own child grid (`object-master-detail-form`) renders through the same line-items widget and read no field-level permission, so a child column the caller's permission set marks `editable: false` rendered as a live, editable cell — inviting an edit the server refuses.
 
 **What changed, in observable terms.**
 

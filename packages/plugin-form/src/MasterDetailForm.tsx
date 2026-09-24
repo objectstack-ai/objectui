@@ -35,6 +35,7 @@ import type { DataSource } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { ObjectForm } from './ObjectForm';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
@@ -301,6 +302,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   onAddViaForm,
   parentObjectName,
 }) => {
+  // The subtotal / tax / grand-total stack formats in the display locale; it
+  // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
+  // locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
   const parentKeyRef = useRef<string>('');
 
@@ -347,7 +352,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const taxPct = taxRate ?? 0;
   const taxAmount = subtotal * (taxPct / 100);
   const grandTotal = subtotal + taxAmount;
-  const money = (n: number) => `¥${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (n: number) => `¥${n.toLocaleString(displayLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <>

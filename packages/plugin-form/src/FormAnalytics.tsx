@@ -20,6 +20,7 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
 
 export interface FormSubmissionMetric {
   /** Total number of form submissions */
@@ -70,6 +71,9 @@ export const FormAnalytics: React.FC<FormAnalyticsProps> = ({
   metrics,
   className,
 }) => {
+  // The submission count is a number face, so it groups in the display locale
+  // — a bare `toLocaleString()` used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const fillRate = useMemo(() => {
     if (!metrics.abandonedSubmissions) return 100;
     const total = metrics.totalSubmissions + metrics.abandonedSubmissions;
@@ -102,7 +106,7 @@ export const FormAnalytics: React.FC<FormAnalyticsProps> = ({
           <CardHeader className="pb-2">
             <CardDescription>Total Submissions</CardDescription>
             <CardTitle className="text-2xl">
-              {metrics.totalSubmissions.toLocaleString()}
+              {metrics.totalSubmissions.toLocaleString(displayLocale)}
             </CardTitle>
           </CardHeader>
         </Card>

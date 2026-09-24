@@ -160,8 +160,8 @@ const onCardMove = (cardId: string, fromColumnId: string, toColumnId: string, ne
 
 // Column structure
 interface KanbanColumn {
-  id: string;
-  title: string;
+  id: string;                         // The option VALUE — the ONLY key a record is matched on
+  title: string;                      // Display only; never decides lane membership (objectui#10069)
   cards: KanbanCard[];
   limit?: number;                     // WIP limit — the count at which the lane warns
   className?: string;

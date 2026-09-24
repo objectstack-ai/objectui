@@ -1161,14 +1161,20 @@ export const GlobalFilterSchema = z.object({
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui dashboards.
  */
-const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, [
+export const DASHBOARD_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'widgets',
   'globalFilters',
   'dateRange',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `DashboardComponentSchema`
+// TypeScript twin in `../complex.ts`, which extends `Omit< Dashboard, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, DASHBOARD_SPEC_EXCLUDED);
 
 /**
  * Dashboard Schema — the objectui dashboard renderer node, derived from

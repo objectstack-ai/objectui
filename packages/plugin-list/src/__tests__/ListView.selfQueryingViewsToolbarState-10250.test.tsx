@@ -110,7 +110,6 @@ function GanttStandIn({ schema }: { schema: Record<string, any> }) {
       $filter: schema.filter,
       ...(search ? { $search: search, ...(searchFieldsKey ? { $searchFields: JSON.parse(searchFieldsKey) } : {}) } : {}),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the values ObjectGantt.reload keys on
   }, [schema.filter, search, searchFieldsKey]);
   return <div data-testid="gantt-standin" />;
 }

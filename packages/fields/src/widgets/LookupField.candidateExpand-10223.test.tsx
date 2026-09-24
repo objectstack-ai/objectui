@@ -25,6 +25,8 @@
  *  - the open costs ONE candidate query, and it carries `$expand` for exactly
  *    the previewed reference column — no per-row `findOne` follows, and the
  *    subtitle still names each related record;
+ *  - a previewed `user` column rides the same rule (`buildExpandFields` is the
+ *    one reference-bearing family), and now names the person;
  *  - the control: with no reference column previewed the query carries no
  *    `$expand` key at all;
  *  - the browse-all picker behind the dropdown, the same way;
@@ -53,6 +55,7 @@ const TASK_VERSION_FIELDS: Record<string, any> = {
   code: { type: 'text', label: 'Code' },
   task: { type: 'master_detail', label: 'Task', reference_to: 'task' },
   version: { type: 'number', label: 'Version' },
+  owner: { type: 'user', label: 'Owner', reference_to: 'sys_user' },
 };
 
 interface BackendOptions {
@@ -69,21 +72,28 @@ interface BackendOptions {
 
 function makeBackend({ prefix, highlightFields, honoursExpand = true, titleFormat }: BackendOptions) {
   const tasks: Record<string, { id: string; name: string }> = {};
+  const users: Record<string, { id: string; name: string }> = {};
   const rows: Record<string, any>[] = [];
   for (let i = 0; i < CANDIDATES; i++) {
     const taskId = `${prefix}_task_${i}`;
+    const userId = `${prefix}_user_${i}`;
     tasks[taskId] = { id: taskId, name: `Assembly step ${i}` };
-    rows.push({ id: `${prefix}_tv_${i}`, name: `TV-${i}`, code: `C-${i}`, task: taskId, version: i + 1 });
+    users[userId] = { id: userId, name: `Owner ${i}` };
+    rows.push({ id: `${prefix}_tv_${i}`, name: `TV-${i}`, code: `C-${i}`, task: taskId, version: i + 1, owner: userId });
   }
+  /** What `$expand` puts in place of each relation's key. */
+  const related: Record<string, Record<string, unknown>> = { task: tasks, owner: users };
 
   const find = vi.fn(async (objectName: string, params?: Record<string, any>) => {
     if (objectName !== 'task_version') return { data: [], total: 0 };
     const expand: string[] = honoursExpand && Array.isArray(params?.$expand) ? params!.$expand : [];
     const skip = Number(params?.$skip ?? 0);
     const top = Number(params?.$top ?? rows.length);
-    const data = rows
-      .slice(skip, skip + top)
-      .map((r) => (expand.includes('task') ? { ...r, task: tasks[r.task] } : { ...r }));
+    const data = rows.slice(skip, skip + top).map((r) => {
+      const row = { ...r };
+      for (const f of expand) if (related[f]) row[f] = related[f][r[f]];
+      return row;
+    });
     return { data, total: rows.length };
   });
   const findOne = vi.fn(async (objectName: string, id: string) =>
@@ -197,6 +207,21 @@ describe('LookupField — the dropdown expands the reference columns it previews
     expect(tasks).toHaveLength(CANDIDATES);
     expect(tasks[0]).toBe('Assembly step 0');
     expect(tasks[CANDIDATES - 1]).toBe(`Assembly step ${CANDIDATES - 1}`);
+  });
+
+  it('a previewed `user` column is expanded by the same rule, and names the person', async () => {
+    const backend = makeBackend({ prefix: 'usr', highlightFields: ['code', 'owner'] });
+    await openDropdown(backend);
+
+    const queries = candidateQueries(backend);
+    expect(queries).toHaveLength(1);
+    expect(queries[0].$expand).toEqual(['owner']);
+    expect(perRowReads(backend)).toBe(0);
+    // The user cell renderer names an expanded record; a bare id it can only
+    // mark as unresolved.
+    const owners = previewTexts('owner');
+    expect(owners[0]).toContain('Owner 0');
+    expect(owners[0]).not.toContain('usr_user_0');
   });
 
   it('control: with no reference column previewed, the query carries no `$expand` key', async () => {
@@ -334,7 +359,14 @@ describe('LookupField — expansion changes the request count and nothing else (
     expect(expanded.titles[0]).toBe('C-0 - samepick_task_0');
     expect(expanded.tasks[0]).toBe('Assembly step 0');
     expect(expanded.picked).toEqual([
-      { id: 'samepick_tv_0', name: 'TV-0', code: 'C-0', task: 'samepick_task_0', version: 1 },
+      {
+        id: 'samepick_tv_0',
+        name: 'TV-0',
+        code: 'C-0',
+        task: 'samepick_task_0',
+        version: 1,
+        owner: 'samepick_user_0',
+      },
     ]);
   });
 });

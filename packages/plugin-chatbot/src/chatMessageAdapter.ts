@@ -33,7 +33,7 @@
  * |------------------------|------------------------------------------|-----------------------------|----------|
  * | `role`                 | `'user'\|'assistant'\|'system'\|'tool'`  | `'user'\|'assistant'\|'system'` | `'tool'` renders as an **assistant** bubble — see {@link toRuntimeRole} |
  * | `timestamp`            | `string \| Date`                         | `string`                    | `Date` -> ISO 8601 — see {@link toRuntimeTimestamp} |
- * | `toolInvocations[].state` | v6 states **+ legacy** `'partial-call'\|'call'\|'result'` | v6 states only | legacy -> v6, per the authoring type's own doc comment — see {@link toRuntimeToolState} |
+ * | `toolInvocations[].state` | v6 states **minus** the three approval states, **+ legacy** `'partial-call'\|'call'\|'result'` | v6 states only | legacy -> v6, per the authoring type's own doc comment — see {@link toRuntimeToolState}. The approval states are runtime-only (objectui#10018): the seam's INPUT admits them for API-mode values — see {@link SeamToolInvocation} |
  * | `metadata`             | `any`                                    | *not declared*              | passed through untouched (see "Pass-through" below) |
  * | everything else        | same shape on both sides                 | —                           | passed through untouched |
  *
@@ -114,11 +114,22 @@ type RuntimeOnlyToolInvocationKeys = Pick<
  * plus the render-only extensions it may ALREADY be carrying when it arrives
  * from API mode.
  *
- * `AuthoredToolInvocation` stays assignable to this (every added key is
- * optional), so a host holding plain authored invocations is unaffected.
+ * `state` is the union of both vocabularies, DERIVED from the two contracts
+ * rather than listed (objectui#10018). The authoring union sheds the AI SDK's
+ * three approval states — an author may not claim one — but an API-mode value
+ * crossing this seam is a RUNTIME value and does carry them: `mapMessages`
+ * promotes `approval-requested` from a pending-action result, and app-shell's
+ * hydrated history hands the persisted approval states back in. Typing this
+ * input as the authoring state alone would make the runtime's own values
+ * unassignable to the seam that exists to carry them.
+ *
+ * `AuthoredToolInvocation` stays assignable to this (its state vocabulary is a
+ * subset, and every added key is optional), so a host holding plain authored
+ * invocations is unaffected.
  */
-export type SeamToolInvocation = AuthoredToolInvocation &
-  Partial<RuntimeOnlyToolInvocationKeys>;
+export type SeamToolInvocation = Omit<AuthoredToolInvocation, 'state'> & {
+  state?: AuthoredToolInvocation['state'] | RuntimeToolInvocation['state'];
+} & Partial<RuntimeOnlyToolInvocationKeys>;
 
 /**
  * One message as it actually crosses this seam — the seam's INPUT contract.
@@ -206,7 +217,7 @@ export function toRuntimeRole(
  * rendered result — from a blank badge to the state the author declared.
  */
 export function toRuntimeToolState(
-  state: AuthoredToolInvocation['state'],
+  state: SeamToolInvocation['state'],
 ): RuntimeToolInvocation['state'] {
   switch (state) {
     case 'partial-call':
@@ -216,8 +227,8 @@ export function toRuntimeToolState(
     case 'result':
       return 'output-available';
     default:
-      // Every remaining member of the authoring union IS a runtime state, so
-      // the compiler proves the narrowing here rather than a cast asserting it.
+      // Every remaining member of the seam's union IS a runtime state, so the
+      // compiler proves the narrowing here rather than a cast asserting it.
       return state;
   }
 }

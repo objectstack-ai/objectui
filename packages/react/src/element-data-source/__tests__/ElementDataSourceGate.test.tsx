@@ -813,3 +813,192 @@ describe('ElementDataSourceGate — a saved view’s refused row cap is reported
     });
   });
 });
+
+/**
+ * objectui#10016 — the BINDING's own refused row cap, on the renderer path.
+ *
+ * Maintainer ruling, option A: a binding `limit` the contract refuses is NOT
+ * AUTHORED. `@object-ui/core` lets the view's usable cap through in its place,
+ * and this gate treats that cap as what it is, a view-sourced BASELINE: a
+ * usable component cap still wins over it. Before the ruling the refused value
+ * was the binding's, so it was written over everything, the component's usable
+ * cap included, and the consuming renderer then dropped it and drew its own
+ * default.
+ *
+ * The truth table is binding {absent, usable, refused} × view {no cap, usable,
+ * refused}, with the component's own cap as a third axis where the ruling moves
+ * it. Only the rows with a refused binding may change what is written. The
+ * binding's refusal is reported in the core builder's words for that operand,
+ * once per declaration, from an effect.
+ */
+describe('ElementDataSourceGate — a refused binding `limit` is not authored (objectui#10016)', () => {
+  const warn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const said = (spy: ReturnType<typeof warn>) => spy.mock.calls.map((c) => String(c[0]));
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+  const viewWith = (cap: Record<string, unknown>) => ({ name: 'hot', columns: ['name', 'rating'], ...cap });
+  const adapterFor = (view: Record<string, unknown>) => makeAdapter({ hot: view });
+  const bindingOf = (limit?: unknown) =>
+    ({ object: 'account', view: 'hot', ...(limit === undefined ? {} : { limit }) });
+  const bindingSentence = (bad: unknown) =>
+    elementDataSourceRefusedLimitMessage(null, 'hot', 'account', { limit: bad }, 'binding');
+
+  const VIEW_NO_CAP = viewWith({});
+  const VIEW_USABLE = viewWith({ pagination: { pageSize: 7 } });
+  const VIEW_REFUSED = viewWith({ pagination: { pageSize: 0 } });
+
+  /** Resolve one row and let the gate's effects flush. */
+  const row = async (
+    schema: Record<string, unknown>,
+    view: Record<string, unknown>,
+    mapping: ElementDataSourceMapping = FULL,
+  ) => {
+    const spy = warn();
+    const result = await resolved(schema, mapping, adapterFor(view));
+    await waitFor(() => expect(result.current.status).toBe('resolved'));
+    return { result, spy };
+  };
+
+  describe('refused binding rows — the ones the ruling moves', () => {
+    for (const refused of [0, -10, 25.5]) {
+      it(`binding ${refused} + usable view cap ⇒ the view's cap, and ONE binding warning`, async () => {
+        const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(refused) }, VIEW_USABLE);
+        expect(result.current.schema.pagination).toEqual({ pageSize: 7 });
+        await waitFor(() => expect(said(spy)).toEqual([bindingSentence(refused)]));
+      });
+    }
+
+    it('binding 0 + view with no cap ⇒ nothing written (the block’s own default), and ONE binding warning', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(0) }, VIEW_NO_CAP);
+      expect(result.current.schema.pagination).toBeUndefined();
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('binding 0 + refused view cap ⇒ nothing written, and one warning per refused operand', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(0) }, VIEW_REFUSED);
+      expect(result.current.schema.pagination).toBeUndefined();
+      const expected = [
+        bindingSentence(0),
+        elementDataSourceRefusedLimitMessage(VIEW_REFUSED, 'hot', 'account', bindingOf(0)),
+      ];
+      expect(expected[1]).not.toBeNull();
+      await waitFor(() => expect([...said(spy)].sort()).toEqual([...expected].sort()));
+    });
+
+    it('binding 0 + usable view cap + usable COMPONENT cap ⇒ the component’s cap wins over the view baseline', async () => {
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 50 }, dataSource: bindingOf(0) },
+        VIEW_USABLE,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 50 });
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('binding 0 + view with no cap + usable COMPONENT cap ⇒ the component’s cap stays', async () => {
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 50 }, dataSource: bindingOf(0) },
+        VIEW_NO_CAP,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 50 });
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('binding 0 + usable view cap + refused COMPONENT cap ⇒ the view’s cap, one message per declaration', async () => {
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 0 }, dataSource: bindingOf(0) },
+        VIEW_USABLE,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 7 });
+      await waitFor(() => expect(said(spy)).toHaveLength(2));
+      expect(said(spy)).toContain(bindingSentence(0));
+      // The other one is objectui#10009's, about the COMPONENT's declaration.
+      expect(said(spy).find((s) => s !== bindingSentence(0))).toContain('pagination.pageSize: 0');
+    });
+
+    it('binding 0 + usable view cap ⇒ the view’s cap on the flat `limit` key too', async () => {
+      const { result, spy } = await row(
+        { type: 'object-kanban', dataSource: bindingOf(0) },
+        VIEW_USABLE,
+        { limit: 'limit' },
+      );
+      expect(result.current.schema.limit).toBe(7);
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('does not repeat the binding warning on a re-render of the same declaration', async () => {
+      const spy = warn();
+      const adapter = adapterFor(VIEW_USABLE);
+      const Block = ({ schema }: { schema: Record<string, unknown> }) => (
+        <div data-testid="block">{String((schema.pagination as { pageSize?: number } | undefined)?.pageSize)}</div>
+      );
+      const gate = () => (
+        <ElementDataSourceGate schema={{ type: 'list-view', dataSource: bindingOf(0) }} mapping={FULL} dataSource={adapter} testId="probe">
+          {(boundSchema) => <Block schema={boundSchema} />}
+        </ElementDataSourceGate>
+      );
+      const { getByTestId, rerender } = render(gate());
+      await waitFor(() => expect(getByTestId('block').textContent).toBe('7'));
+      await waitFor(() => expect(said(spy)).toHaveLength(1));
+      rerender(gate());
+      rerender(gate());
+      expect(said(spy)).toEqual([bindingSentence(0)]);
+    });
+  });
+
+  describe('CONTROLS — rows the ruling does not move', () => {
+    it('CONTROL — binding 3 + refused view cap ⇒ 3, and NO view warning (the carried defect, silent here already)', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(3) }, VIEW_REFUSED);
+      expect(result.current.schema.pagination).toEqual({ pageSize: 3 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL — binding 3 + usable view cap ⇒ 3, and nothing said', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(3) }, VIEW_USABLE);
+      expect(result.current.schema.pagination).toEqual({ pageSize: 3 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL — binding 3 + view with no cap ⇒ 3, and nothing said', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(3) }, VIEW_NO_CAP);
+      expect(result.current.schema.pagination).toEqual({ pageSize: 3 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL — binding 3 still beats a usable component cap', async () => {
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 50 }, dataSource: bindingOf(3) },
+        VIEW_USABLE,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 3 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL — no binding cap + refused view cap ⇒ nothing written, and the view warning as before', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf() }, VIEW_REFUSED);
+      expect(result.current.schema.pagination).toBeUndefined();
+      await waitFor(() =>
+        expect(said(spy)).toEqual([elementDataSourceRefusedLimitMessage(VIEW_REFUSED, 'hot', 'account')]),
+      );
+    });
+
+    it('CONTROL — no binding cap + usable view cap ⇒ 7, and nothing said', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf() }, VIEW_USABLE);
+      expect(result.current.schema.pagination).toEqual({ pageSize: 7 });
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL — no binding cap + view with no cap ⇒ nothing written, and nothing said', async () => {
+      const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf() }, VIEW_NO_CAP);
+      expect(result.current.schema.pagination).toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('SILENCE — a block that reads no row cap is not told about the binding’s', async () => {
+      const { result, spy } = await row({ type: 'object-kanban', dataSource: bindingOf(0) }, VIEW_USABLE, { filter: true });
+      expect(result.current.schema.limit).toBeUndefined();
+      expect(result.current.schema.pagination).toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+});

@@ -42,14 +42,17 @@
  * | `columns`  | view only — the binding has no such key | view                        |
  * | `filter`   | view + binding                          | AND-combined ("additional") |
  * | `sort`     | view or binding                         | binding overrides view      |
- * | `limit`    | view (`pagination.pageSize`) or binding | binding overrides view      |
- *
- * The view's half of `limit` carries one extra condition the other keys do not:
- * the destination is declared a POSITIVE INTEGER, so a view's cap the contract
- * refuses is dropped rather than lowered. See `savedViewLimit` for why dropping
- * beats clamping or throwing here, and `elementDataSourceRefusedLimitMessage`
- * for the half that tells the author.
+ * | `limit`    | view (`pagination.pageSize`) or binding | usable binding overrides view |
  * | `viewType` | view only                               | view                        |
+ *
+ * Both operands of `limit` carry one extra condition the other keys do not: the
+ * destination is declared a POSITIVE INTEGER, so a cap the contract refuses is
+ * NOT AUTHORED, whichever operand carried it. One chain, one rule for both: a
+ * usable binding cap, else a usable view cap, else none (the consumer's own
+ * default). See `savedViewLimit` for why the view's refused cap is dropped
+ * rather than clamped or thrown, `bindingLimit` for why a refused binding cap
+ * yields to the view's (objectui#10016), and `elementDataSourceRefusedLimitMessage`
+ * for the half that tells the author, about either operand.
  *
  * A lone `filter` — only the view has one, or only the binding does — is passed
  * through in the shape it was stored in; only the two-source case is lowered to
@@ -106,9 +109,10 @@ export interface ComposedElementDataSource {
   /** Binding sort if given, else the view's. */
   sort?: unknown;
   /**
-   * Binding limit if given, else the view's page size — and, from the view,
-   * only a cap the contract admits (`savedViewLimit` drops the rest, and
-   * `elementDataSourceRefusedLimitMessage` is what says so).
+   * The binding's limit if it is one the contract admits, else the view's page
+   * size under the same condition. A refused cap from either operand is not
+   * authored (`bindingLimit` and `savedViewLimit` apply the one rule), and
+   * `elementDataSourceRefusedLimitMessage` is what says so.
    */
   limit?: number;
   /** The view's render kind (grid / kanban / …), when the view declares one. */
@@ -280,7 +284,86 @@ function savedViewLimit(view: ElementSavedView | null | undefined): number | und
 }
 
 /**
- * The diagnostic half of {@link savedViewLimit}. `null` means "nothing to say".
+ * Read the binding's own row cap, and hand back only a cap the contract admits.
+ *
+ * The other operand of the `limit` chain gets the same positivity check as
+ * {@link savedViewLimit}, through the same predicate. Maintainer ruling on
+ * objectui#10016 (option A): a binding `limit` the contract refuses (`0`, a
+ * negative, a fraction, a value that is not a number at all) is NOT AUTHORED.
+ * It yields exactly as an absent one does, to the saved view's usable cap and,
+ * when that is absent too, to the consumer's own default.
+ *
+ * This is objectui#10009's precedent applied as a rule rather than re-decided:
+ * there, one layer up, a value the contract refuses was ruled not authored and
+ * the other source won. Here the same question is asked of the two operands of
+ * one resolver, and it gets the same answer. The repo therefore holds ONE
+ * precedence rule for "whose row cap is used", not one per pair of operands.
+ *
+ * The two answers the ruling refused, and why:
+ *
+ *  - ⛔ dropping the binding's cap AND skipping the view's: a bad value on the
+ *    binding would then discard the view's legitimate cap, which is the least
+ *    explicable outcome for an author;
+ *  - ⛔ refusing loudly and rendering nothing: a blank region at render time
+ *    makes an author's slip expensive without making it any harder to write.
+ *    The loud refusal belongs on the WRITE surface, not here.
+ *
+ * `null` stays what `??` always made it: absent.
+ */
+function bindingLimit(config: ElementDataSourceConfig): number | undefined {
+  return isUsableRowLimit(config.limit) ? config.limit : undefined;
+}
+
+/**
+ * The binding operand's half of {@link elementDataSourceRefusedLimitMessage}.
+ * Module-private: callers reach it through that one exported builder, so there
+ * is still exactly one channel for a refused row cap, whichever operand it was.
+ *
+ * Unlike the view's message it needs no condition on the other operand. A
+ * usable binding cap is used whatever the view carries, so a refused one is
+ * ALWAYS a cap the consumer did not get, and saying so is always true.
+ */
+function refusedBindingLimitMessage(
+  binding: { limit?: unknown } | null | undefined,
+  viewName: string | undefined | null,
+  object: string,
+): string | null {
+  const raw = binding?.limit;
+  if (raw === undefined || raw === null) return null;
+  if (isUsableRowLimit(raw)) return null;
+  const where = viewName
+    ? `dataSource binding on ${object} (view "${viewName}")`
+    : `dataSource binding on ${object}`;
+  // `String('20')` would print a string exactly like the number it is not.
+  const shown = typeof raw === 'number' ? String(raw) : String(JSON.stringify(raw));
+  return (
+    `[ObjectUI] ElementDataSource: the ${where} declares \`limit: ${shown}\`, `
+    + 'which is not a positive integer. A row cap must be a positive integer '
+    + '(the spec declares this binding’s `limit` positive), so the binding’s cap '
+    + 'was treated as not authored and ignored, exactly as if the binding declared '
+    + 'no `limit`: the cap comes from the next source that declares a usable one, '
+    + 'or else from the consumer’s own default.'
+  );
+}
+
+/**
+ * The diagnostic half of {@link savedViewLimit} and {@link bindingLimit}.
+ * `null` means "nothing to say".
+ *
+ * ## Which operand
+ *
+ * `operand` picks the refusal to describe; it defaults to `'view'`, the one
+ * this builder described before objectui#10016. Each operand gets its own
+ * sentence, and each names its operand, so the two refusals stay
+ * distinguishable when both fire. They do fire together when the binding AND
+ * the view each carry a refused cap: two declarations, one message each.
+ *
+ * `binding` is the binding as authored. The view's sentence needs it too: it
+ * says the consumer falls back to its own default, and that is only true when
+ * the binding supplied no usable cap. A usable binding cap is used whatever the
+ * view carries, so a refused view cap under one changed nothing and is not
+ * reported. That condition lives HERE, once, rather than at each caller,
+ * because every caller needs it and two copies could drift.
  *
  * ## Why a BUILDER here, and not a warning from the composer
  *
@@ -304,17 +387,24 @@ function savedViewLimit(view: ElementSavedView | null | undefined): number | und
  * reports it.
  *
  * ⛔ NOT a second guard: the predicate lives once, in {@link isUsableRowLimit},
- * and the carrier is read once, by {@link savedViewRawLimit}; this reads both.
+ * and the view's carrier is read once, by {@link savedViewRawLimit}; this reads
+ * both.
  *
  * ⚠️ It speaks only about a cap THIS layer dropped. A non-numeric
  * `pagination.pageSize` never became a limit here, before or after, so there is
- * nothing for this layer to report about it.
+ * nothing for this layer to report about it. A non-numeric binding `limit` is
+ * different: `??` used to pass it through, so this layer now drops it and says
+ * so.
  */
 export function elementDataSourceRefusedLimitMessage(
   view: ElementSavedView | null | undefined,
   viewName: string | undefined | null,
   object: string,
+  binding?: { limit?: unknown } | null,
+  operand: 'view' | 'binding' = 'view',
 ): string | null {
+  if (operand === 'binding') return refusedBindingLimitMessage(binding, viewName, object);
+  if (isUsableRowLimit(binding?.limit)) return null;
   const raw = savedViewRawLimit(view);
   if (raw === undefined) return null;
   if (isUsableRowLimit(raw)) return null;
@@ -386,7 +476,10 @@ export function composeElementDataSource(
   const sort = config.sort ?? view?.sort;
   if (sort !== undefined) composed.sort = sort;
 
-  const limit = config.limit ?? savedViewLimit(view);
+  // One rule for both operands (objectui#10016): a refused cap is not
+  // authored, so a refused binding `limit` yields to the view's cap exactly as
+  // an absent one does.
+  const limit = bindingLimit(config) ?? savedViewLimit(view);
   if (limit !== undefined) composed.limit = limit;
 
   const viewType = savedViewType(view);

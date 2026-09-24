@@ -562,35 +562,45 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
 }
 
 /**
- * The ONE resolver for this block's row cap (objectui#10096).
+ * What the contract admits as this block's row cap: a positive integer NUMBER.
  *
- * `@objectstack/spec` declares the member a POSITIVE INTEGER
- * (`RecordActivityProps.limit`: `z.number().int().positive().default(20)`,
- * described there as "Number of items to load per page"), so a fractional cap
- * is not a spelling this renderer may interpret — it is a value the contract
- * REFUSES. A refused value is therefore dropped for this block's own default.
+ * `@objectstack/spec` declares the member `z.number().int().positive()`
+ * (`RecordActivityProps.limit`, `.default(20)`, described there as "Number of
+ * items to load per page"). `z.number()` refuses every non-number outright, so
+ * a numeric STRING (`'5'`, `' 5 '`, `'0x10'`), a boolean and an array are values
+ * the contract REFUSES, not spellings this renderer may read (objectui#10145,
+ * ruled STOP). ⛔ No `Number(value)` in front of this check: that coercion
+ * admitted `'5'` -> 5, `true` -> 1, `[7]` -> 7 and `'0x10'` -> 16, a second
+ * accepted set wider than the declaration (AGENTS.md #0.1).
  *
- * ⛔ Not `Math.floor`, which is what this replaces: flooring REPAIRED an
+ * The predicate lives ONCE, here; the resolver and the diagnostic both read it,
+ * so a value refused by one cannot be admitted by the other.
+ */
+function isUsableActivityLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this block's row cap (objectui#10096, objectui#10145).
+ *
+ * A refused value is dropped for this block's own default.
+ *
+ * ⛔ Not `Math.floor`, which objectui#10096 replaced: flooring REPAIRED an
  * authored `2.5` into a two-row window and handed it back as a result, so the
- * author got a silently different number than the one they wrote and no
- * channel named it. Refusing and defaulting is the answer the sibling
- * `record:history` gives through `normalizeHistoryLimit` (objectui#10093), and
- * the answer objectui#9925 landed at three further read points.
+ * author got a silently different number than the one they wrote. Refusing and
+ * defaulting is the answer the sibling `record:history` gives through
+ * `normalizeHistoryLimit`, and the answer objectui#9925 landed at three further
+ * read points (all three test `typeof value === 'number'` first, as this does).
  *
- * `Number.isInteger` replaces `Number.isFinite` and nothing else: `NaN` and
- * both infinities were already refused by the old arm and are refused by this
- * one too. What the swap removes is the fractional ADMISSION.
+ * `NaN` and both infinities are refused (not integers); `0` and negatives are
+ * refused (not positive); `undefined` is the unauthored case and resolves to
+ * the default without being a refusal.
  *
- * ⚠️ FAIL-SOFT and SILENT, both on purpose. Fail-soft because throwing would
- * take out a record page over one declaration. Silent because the sibling this
- * block is matched to refuses silently too — the three objectui#9925 read points
- * warn instead, so the family holds two answers on loudness and that question
- * is ruled on its own card (objectui#10097), not decided here by accident. The
- * silence is pinned.
- *
- * Coercion is kept exactly where the sibling keeps it: a numeric STRING still
- * resolves (`normalizeLimit('5')` is pinned to `5`). What narrows is the
- * admitted value SET, not how a node's value is read.
+ * ⚠️ FAIL-SOFT on purpose: throwing would take out a record page over one
+ * declaration. It is NOT silent — the renderers that call this state every
+ * refusal through `describeRefusedFeedLimit` (objectui#10097 ruled "always
+ * warn" for the family; objectui#10145 extends the refused set to non-numbers).
+ * This function stays pure so it can run on every render.
  *
  * ⭐ Shared with `record:chatter` / `record:discussion`, which resolve
  * `feed.limit` through this same function — `RecordChatterProps.feed` is
@@ -598,8 +608,44 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
  * refusal.
  */
 export function normalizeLimit(value: unknown): number {
-  const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : DEFAULT_ACTIVITY_LIMIT;
+  return isUsableActivityLimit(value) ? value : DEFAULT_ACTIVITY_LIMIT;
+}
+
+/**
+ * Render an authored value so its TYPE survives into the message: `'5'` and
+ * `5` must not print identically, since the difference is the whole refusal.
+ */
+function formatAuthoredLimit(value: unknown): string {
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') return JSON.stringify(value);
+  try {
+    const json = JSON.stringify(value);
+    if (json !== undefined) return json;
+  } catch {
+    // fall through to String()
+  }
+  return String(value);
+}
+
+/**
+ * The diagnostic half of the row-cap refusal for the blocks that resolve
+ * through `normalizeLimit` (`record:activity`, `record:chatter`,
+ * `record:discussion`). `null` means "nothing to say": an absent `limit`
+ * (`undefined` / `null`) is not a mistake, and a usable one is not either.
+ *
+ * Callers fire it from an effect keyed on the declaration — the channel
+ * objectui#9925 uses at its three read points — never from render.
+ */
+export function describeRefusedFeedLimit(block: string, authored: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableActivityLimit(authored)) return null;
+  return (
+    `[ObjectUI] ${block} row cap: declared limit: ${formatAuthoredLimit(authored)} `
+    + `(${Array.isArray(authored) ? 'array' : typeof authored}), which is not a positive integer number. `
+    + 'The spec declares `limit` as z.number().int().positive() and refuses strings, '
+    + 'booleans, fractions, zero and negatives, so it was ignored and this block '
+    + `fell back to its default row cap (${DEFAULT_ACTIVITY_LIMIT}).`
+  );
 }
 
 /**

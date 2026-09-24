@@ -821,13 +821,24 @@ export interface SliderSchema extends BaseSchema {
    */
   label?: string;
   /**
-   * Default value
+   * Default value(s) — a single number or one number per thumb.
+   *
+   * READ SITE: `packages/components/src/renderers/form/slider.tsx`, which wraps
+   * a scalar into a one-element list on purpose ("Ensure defaultValue is an
+   * array for backward compatibility"). Both spellings therefore render, and
+   * this declaration states both, matching its zod mirror (objectui#10280,
+   * objectui#7759 group B: an objectui-own key follows its read site).
    */
-  defaultValue?: number[];
+  defaultValue?: number | number[];
   /**
-   * Controlled value
+   * RETIRED (objectui#10280, ADR-0049) — no read site. The `slider` renderer
+   * reads `defaultValue`, `max`, `min` and `step` off the node and nothing
+   * else; `value` reaching it through the props spread is dropped by the
+   * form-control DOM whitelist. An authored `value` rendered nothing. The zod
+   * twin refuses it by name; author `defaultValue` for the initial position.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  value?: number[];
+  value?: never;
   /**
    * Minimum value
    * @default 0

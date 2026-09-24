@@ -405,16 +405,22 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **14 entries** in `WiderThanDeclared`, **21 keys** across them, and **28 arms**
- *     under those keys — split **5** SCHEMA-NODE, **16** CONCRETE, **0** MIXED, **7** unions.
- *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#7759 group E replaced the
+ *   - **12 entries** in `WiderThanDeclared`, **18 keys** across them, and **22 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **13** CONCRETE, **0** MIXED, **4** unions.
+ *     It read 17 / 26 / 30 — 5 / 21 / 0 / 4 — until objectui#7759 group E replaced the
  *     four bare `z.function()` arms (`renderCellEditor`, `cell`, `validate`, `custom`)
  *     with `handlerKeyRefusal()`. EIGHT keys left, one CONCRETE arm each, and five whole
  *     entries with them. ⚠️ Only four of the eight were the class the card named: the
  *     other four (`DataTableSchema::columns`, `FormFieldSchema::validation`,
  *     `FormFieldSchema::condition`, `FormSchema::fields`) read wider ONLY through the
  *     function arm nested under them, and resolved clean once it went — measured, not
- *     reclassified.
+ *     reclassified. None of the eight was a union, so `unions` did not move.
+ *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10280 (objectui#7759 group B)
+ *     emptied two entries: `form.zod.ts#SliderSchema` (`defaultValue` by widening the
+ *     declaration to the single-or-list the renderer normalizes, `value` by retiring it on
+ *     both faces) and `overlay.zod.ts#TooltipSchema` (`content` by narrowing the mirror to
+ *     the declaration). Three keys, each a two-arm union, so `arms` fell by 6 and `unions`
+ *     by 3 while CONCRETE fell by 3.
  *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
  *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
  *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
@@ -2975,9 +2981,10 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  *
  * **CONCRETE** — both faces are concrete, so the comparison means what it says: an
  * author can write the spelling, `safeParse` returns green, and `tsc` refuses it.
- * `FormSchema.layout` and `SliderSchema.defaultValue` are the plainest instances,
- * and the second is the shape objectui#7069 was filed about, still alive on a pair
- * nobody had looked at.
+ * `FormSchema.layout` is the plainest instance. `SliderSchema.defaultValue` stood
+ * beside it — the shape objectui#7069 was filed about, alive on a pair nobody had
+ * looked at — until objectui#10280 widened its declaration to the single-or-list its
+ * renderer normalizes.
  *
  * **SCHEMA-NODE** — the mirror's face carries `unknown` NESTED inside an array
  * element or a property, from a recursion-breaking `z.ZodType< any >` annotation
@@ -3104,15 +3111,13 @@ interface WiderThanDeclared {
    * the nested `z.function()` arms of `FormFieldSchema`, not the element shape.)
    */
   'form.zod.ts#FormSchema': 'layout' | 'mode';
-  /**
-   * CONCRETE, and the class objectui#7069 was filed for, ALIVE: the mirror is
-   * `z.union([z.number(), z.array(z.number())])` and the declaration states the
-   * list alone, so a single number parses green and `tsc` refuses it. That is the
-   * `DataTableSchema.toolbar` shape the card measured, one accepted arm wider than
-   * its declaration — the instance died with PR #7066, and here is the class it
-   * said would outlive it, on a pair nothing had looked at.
-   */
-  'form.zod.ts#SliderSchema': 'defaultValue' | 'value';
+  // `form.zod.ts#SliderSchema` recorded `defaultValue` and `value` here (CONCRETE, the class
+  // objectui#7069 was filed for: a single-or-list mirror against a list-only declaration).
+  // objectui#10280 (objectui#7759 group B) resolved both by the read site, per the director's
+  // rule that an objectui-own key follows its read site: `defaultValue`'s renderer wraps a
+  // scalar on purpose, so the DECLARATION widened to `number | number[]`; `value` has no read
+  // site, so it was RETIRED on both faces. The entry is GONE, per clause 4 of this ledger's
+  // "when it fires" note.
   /**
    * CONCRETE: the mirror's arm is `z.boolean()` while the declaration admits the
    * false literal alone, so `true` parses green and `tsc` refuses it.
@@ -3146,17 +3151,11 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo' | 'variant';
-  /**
-   * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
-   * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
-   * `content?: string | SchemaNode` — the same union WITHOUT the list arm. So a list
-   * parses green here and `tsc` refuses it, while the sibling `body` on the same pair
-   * declares the list and agrees. ⭐ Two keys of one renderer read
-   * (`schema.content || renderChildren(schema.body)`), one declared narrower than its
-   * own mirror — the plainest instance of the class objectui#7069 was filed for, and it
-   * sat inside the region that card could not look at.
-   */
-  'overlay.zod.ts#TooltipSchema': 'content';
+  // `overlay.zod.ts#TooltipSchema` recorded `content` here (CONCRETE; ENTERED under
+  // objectui#7760): the mirror spelled it single-or-list and the declaration the single arm.
+  // The renderer places `schema.content` RAW in a React child position, so the list arm parsed
+  // green and then failed to render. objectui#10280 NARROWED the MIRROR to the declaration, and
+  // the entry is GONE.
   /** CONCRETE: an inline option shape against the named `SelectOptionMetadata`. */
   'views.zod.ts#DetailViewFieldSchema': 'options';
   /** SCHEMA-NODE. (`tabs` left under objectui#7760; `fields` and `sections` did not.) */
@@ -3285,13 +3284,10 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#CalendarSchema::value': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'form.zod.ts#FormSchema::mode': ['CONCRETE'],
-  'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'navigation.zod.ts#HeaderBarSchema::variant': ['CONCRETE'],
-  'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewSchema::sections': ['SCHEMA-NODE'],
@@ -3481,7 +3477,7 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **7 entries** carrying **101 keys**` — and ⛔ read that off the
+ * `this ledger seeds **4 entries** carrying **60 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
@@ -3491,6 +3487,13 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * direction, and the first time this seed has shrunk. The comment left where that
  * row stood says which ruling took it and why the neighbouring `operators` row
  * stayed after a ruling of its own.
+ *
+ * ⭐ Then by three entries at once, when objectui#9736 executed ruling batch #167
+ * item 4 (letter 甲): the SPEC-OWNED INFLOW rows — App, Dashboard, Page — left
+ * because the three TypeScript twins now take the spec by reference over the SAME
+ * exclusion arrays their mirrors read. That is not the "declare the keys one by
+ * one" remedy the next section refuses: no key was hand-declared, the twin and the
+ * mirror were put on one derivation, and the ruling named the mechanism.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3535,57 +3538,25 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  *     `never` and would never be caught at all.
  */
 interface MirroredUndeclared {
-  /**
-   * SPEC-OWNED INFLOW. The mirror is `BaseSchema.extend(SpecAppFields.shape).extend({…})`,
-   * so the spec's App surface — the `_lock*` / `_package*` / `_provenance` package-lock
-   * envelope, `protection`, `sharing`, `embed`, `objects`, `apis`, `homePageId`,
-   * `version`, `isDefault`, `_unpublished`, `aria`, `mobileNavigation`, `defaultAgent` —
-   * is validated here while the TypeScript interface restates only the component
-   * envelope its renderers read. `contextSelectors` is the one LOCAL arm: the spec
-   * fields deliberately omit it and the mirror's own `.extend({…})` adds it back, so
-   * it is mirrored by this file's own hand and still undeclared.
-   */
-  "app.zod.ts#AppComponentSchema":
-    | "contextSelectors"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "version"
-    | "isDefault"
-    | "_unpublished"
-    | "homePageId"
-    | "objects"
-    | "apis"
-    | "sharing"
-    | "embed"
-    | "mobileNavigation"
-    | "defaultAgent"
-    | "aria"
-    | "protection";
+  // `app.zod.ts#AppComponentSchema` HAD a row here — 20 keys of SPEC-OWNED INFLOW
+  // (the package-lock envelope, `protection`, `isDefault`, `_unpublished`,
+  // `defaultAgent`, the spec's tombstones, and the LOCAL `contextSelectors` arm) —
+  // and its DELETION is the ratchet moving in its only permitted direction.
+  // objectui#9736 (ruling batch #167 item 4, letter 甲) made the TypeScript twin take
+  // the spec BY REFERENCE the way its mirror does: `AppComponentSchema extends
+  // BaseSchema, Omit< App, … >` over `APP_SPEC_EXCLUDED`, the one `as const` array the
+  // mirror's `specFieldsExcept` call also reads, and `contextSelectors` declared on
+  // the twin over the mirror's own element schema. The pair now measures `never`;
+  // re-adding the row without re-adding the defect reddens the reconciliation below.
 
-  /**
-   * SPEC-OWNED INFLOW, same envelope as the App pair above plus this surface's own
-   * `refreshInterval` and `performance`. ⚠️ This pair already carries entries in
-   * `KnownDrift` and has carried them in `UnmirroredDeclared`; the three directions
-   * are independent measurements of one pair and an entry in one says nothing about
-   * the others.
-   */
-  "complex.zod.ts#DashboardComponentSchema":
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "aria"
-    | "protection"
-    | "refreshInterval"
-    | "performance";
+
+  // `complex.zod.ts#DashboardComponentSchema` HAD a row here — 11 keys (the envelope,
+  // `protection`, and the tombstones `aria` / `refreshInterval` / `performance`) —
+  // deleted by objectui#9736 for the reason the App note above gives: the twin
+  // extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`. Its `header`
+  // member is withheld from that projection on the TypeScript face only, and stays
+  // in `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, and a single key: the mirror states `aria` and the declaration does not.
@@ -3676,22 +3647,12 @@ interface MirroredUndeclared {
     | "minDate"
     | "maxDate";
 
-  /**
-   * SPEC-OWNED INFLOW. The package-lock envelope again, plus `source`,
-   * `interfaceConfig` and `requires` — page-level spec keys the mirror validates and
-   * the TypeScript node does not state.
-   */
-  "layout.zod.ts#PageNodeSchema":
-    | "source"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "interfaceConfig"
-    | "requires";
+  // `layout.zod.ts#PageNodeSchema` HAD a row here — 10 keys (the envelope, `source`,
+  // `interfaceConfig`, `requires`) — deleted by objectui#9736 for the same reason:
+  // the twin extends `Omit< Page, … >` over `PAGE_SPEC_EXCLUDED`. Its `slots` member
+  // is withheld from that projection on the TypeScript face only, and stays in
+  // `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
@@ -4004,6 +3965,18 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a union (`string | { dialect?, source }`) with no `.shape` of its own — the predicate WIRE shape `BaseSchema`'s `visible` / `hidden` / `disabled` and the form predicate keys carry (objectui#7530); its TS twin `ExpressionWire` (`../expression.ts`) is a type alias, not a key set, and the two faces are pinned equal in `base-schema-predicate-envelope-7530.test.ts`",
   'index.zod.ts#SCHEMA_VERSION':
     "a version string, not a schema",
+  // objectui#9736 — the three exclusion lists each spec-derived mirror's
+  // `specFieldsExcept` call reads, hoisted to one `as const` array so the
+  // TypeScript twin can `Omit` over the SAME list. Key-name tuples, not schemas;
+  // what they govern is measured on the pairs they feed
+  // (`app.zod.ts#AppComponentSchema` / `complex.zod.ts#DashboardComponentSchema` /
+  // `layout.zod.ts#PageNodeSchema`), pinned in `./twins-spec-by-reference-9736.test.ts`.
+  'app.zod.ts#APP_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecAppFields` and the `AppComponentSchema` twin both read (objectui#9736)",
+  'complex.zod.ts#DASHBOARD_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecDashboardFields` and the `DashboardComponentSchema` twin both read (objectui#9736)",
+  'layout.zod.ts#PAGE_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecPageFields` and the `PageNodeSchema` twin both read (objectui#9736)",
   'objectql.zod.ts#KanbanConditionalFormattingRuleSchema':
     "a union of two rule dialects (native `{ field, operator, value }` | spec `{ condition, style }`) with no `.shape` of its own — exported by objectui#7664 so the `'kanban'` arm (`complex.zod.ts#KanbanSchema`) and the `'object-kanban'` arm mirror `conditionalFormatting` from ONE rule declaration; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) is a type union, not a key set, and both arms' `conditionalFormatting` keys are compared where they are declared",
 };

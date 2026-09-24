@@ -1153,10 +1153,22 @@ export const GlobalFilterSchema = z.object({
  *
  * Omitted, each for a stated reason:
  *  - `name`/`label`/`description` — component-envelope keys owned by BaseSchema;
- *  - `widgets`/`globalFilters`/`dateRange` — objectui's element schemas are
- *    their own ledger entries (the local widget still carries the legacy
- *    `component` envelope the spec has no room for, and both local configs are
+ *  - `widgets`/`globalFilters` — objectui's element schemas are their own
+ *    ledger entries (the local widget still carries the legacy `component`
+ *    envelope the spec has no room for, and the local filter config is
  *    deliberately looser than spec's); migration deferred.
+ *
+ * `dateRange` was a third member of that list until objectui#10334. Its local
+ * element (`defaultRange` a bare `z.string()`, a stripping object) admitted
+ * preset names the spec's enum and the TypeScript twin both refuse — the
+ * `WiderThanDeclared` row objectui#7759 group F left behind. The spec declares
+ * the key, so by that card's rule 1 / proposal F1 both faces now take the
+ * spec's AUTHORING shape by reference through this projection: the closed
+ * `DATE_RANGE_DEFAULT_RANGES` vocabulary, the spec's strict object with its
+ * named alias refusals, and — via `stripImportedDefaults` — no authored
+ * default. The read site (`resolveDashboardFilterDefs` in `@object-ui/core`)
+ * already implements every arm: each preset, the `custom` sentinel, `field`
+ * and `allowCustomRange`.
  *
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui dashboards.
@@ -1167,7 +1179,6 @@ export const DASHBOARD_SPEC_EXCLUDED = [
   'description',
   'widgets',
   'globalFilters',
-  'dateRange',
 ] as const;
 
 // One list, two readers (objectui#9736): this call and the `DashboardComponentSchema`
@@ -1193,11 +1204,6 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
   widgets: z.array(z.union([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema]))
     .describe('Dashboard widgets'),
   globalFilters: z.array(GlobalFilterSchema).optional().describe('Dashboard-level filters'),
-  dateRange: z.object({
-    field: z.string().optional(),
-    defaultRange: z.string().optional(),
-    allowCustomRange: z.boolean().optional(),
-  }).optional().describe('Built-in date range filter'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

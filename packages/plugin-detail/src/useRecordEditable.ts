@@ -38,7 +38,13 @@
  * written for (framework#3923 ②). Cookies stay on for cookie-session hosts.
  */
 import * as React from 'react';
-import { SchemaRendererContext } from '@object-ui/react';
+import {
+  SchemaRendererContext,
+  dataChangeMatches,
+  subscribeDataChanges,
+  useDataInvalidation,
+  type DataChange,
+} from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -67,8 +73,83 @@ import { usePermissions } from '@object-ui/permissions';
  * spell another key by containing the delimiter, and so "principal unknown"
  * (`null`) is a value of its own rather than a reserved word a user id could
  * collide with.
+ *
+ * A verdict is also only reused until the record it answers CHANGES
+ * (objectui#10184) — see {@link forgetChangedRecords}.
  */
 const verdictCache = new Map<string, boolean>();
+
+/** What a {@link verdictCache} key spells, in order. */
+type VerdictKey = [principal: string | null, object: string, recordId: string, operation: RecordOperation];
+
+/**
+ * A probe on its way to the explain engine, and the records a data change has
+ * staled since it left. An answer computed before the change answers a
+ * question this hook is no longer asking, so it is neither cached nor shown.
+ * Without this, a probe in flight when its record changed would write the
+ * pre-change verdict back into the map right after the change cleared it.
+ */
+interface InFlightProbe {
+  readonly object: string;
+  readonly recordIds: readonly string[];
+  readonly staled: Set<string>;
+}
+
+const inFlight = new Set<InFlightProbe>();
+
+/**
+ * Drop every verdict a data change has made stale (objectui#10184).
+ *
+ * The verdict is a fact about the record as well as about the principal:
+ * moving `owner_id`, or any write the server's sharing rules read, can turn a
+ * `false` into a `true` or the reverse for the SAME principal. Keyed on the
+ * principal alone, the map kept answering from before the change — the
+ * record's own owner re-opening the page in the same tab after taking
+ * ownership was still told no, and a principal who had just given a record
+ * away was still offered Edit on it.
+ *
+ * So the map listens to the data-invalidation bus the writers already
+ * announce on, and forgets exactly what a change stales, by the bus's OWN
+ * matching rule (`dataChangeMatches`): a record-scoped change drops that
+ * record's entries, every operation; an object-scoped change drops the
+ * object's; `'*'` drops everything. A mounted hook then asks again through
+ * {@link useDataInvalidation} — a refetch in place, never a remount
+ * (AGENTS.md #8). The map only ever holds the current principal's entries
+ * (see {@link retainForPrincipal}), so this clears the affected record for
+ * that principal and for no one else.
+ *
+ * ⚠️ What this does NOT make fresh. Both are limits of the channel, not
+ * oversights, and neither is papered over with a lifetime constant:
+ *
+ *  - The bus carries writes THIS tab announces: every write through the
+ *    host's `DataSource` (via `useMutationInvalidationBridge`), plus the
+ *    manual `notifyDataChanged` calls of writes that bypass it. A grant or a
+ *    revocation made in another tab, by another user, or by the server on its
+ *    own is never announced here, so it lands on the next page load. (Accepted
+ *    when this route was ruled, objectui#10107 ACCEPT.)
+ *  - A change is named by the object that was WRITTEN. A grant stored as a
+ *    row of a different object — a record-share row, a permission-set
+ *    assignment — is announced, when it is announced at all, against THAT
+ *    object and not against the record it grants, so it does not match this
+ *    record's entries either, and it too lands on the next page load.
+ *
+ * Module scope on purpose, like the map it guards: an entry must be dropped
+ * even while no hook is mounted to hear the change, or the next mount would
+ * adopt it synchronously as its initial state.
+ */
+function forgetChangedRecords(change: DataChange): void {
+  for (const key of Array.from(verdictCache.keys())) {
+    const [, object, recordId] = JSON.parse(key) as VerdictKey;
+    if (dataChangeMatches(change, object, recordId)) verdictCache.delete(key);
+  }
+  for (const probe of inFlight) {
+    for (const id of probe.recordIds) {
+      if (dataChangeMatches(change, probe.object, id)) probe.staled.add(id);
+    }
+  }
+}
+
+subscribeDataChanges(forgetChangedRecords);
 
 /**
  * The principal every live entry in {@link verdictCache} was computed for.
@@ -111,8 +192,12 @@ export function useRecordEditable(
   const principal = usePermissions().userId;
   const key =
     objectName && recordId
-      ? JSON.stringify([principal, objectName, recordId, operation])
+      ? JSON.stringify([principal, objectName, recordId, operation] satisfies VerdictKey)
       : '';
+  // [objectui#10184] Bumps when a change announced on the bus stales THIS
+  // record (the same match `forgetChangedRecords` drops its entries by), so a
+  // mounted header asks again in place.
+  const invalidationNonce = useDataInvalidation(objectName, recordId);
   const [allowed, setAllowed] = React.useState<boolean>(() =>
     key && verdictCache.has(key) ? verdictCache.get(key)! : true,
   );
@@ -123,7 +208,7 @@ export function useRecordEditable(
 
   React.useEffect(() => {
     retainForPrincipal(principal);
-    if (!enabled || !key) {
+    if (!enabled || !objectName || !recordId) {
       setAllowed(true);
       return;
     }
@@ -133,11 +218,14 @@ export function useRecordEditable(
     }
     // No answer for THIS key yet. Whatever is on screen was computed for a
     // different key — another record, another operation, or (objectui#10107)
-    // another principal — and holding it across the round trip is the same
-    // reuse the cache key now forbids, just without the map. An unanswered
+    // another principal — or for this key before the record changed
+    // (objectui#10184), and holding it across the round trip is the same
+    // reuse the cache now forbids, just without the map. An unanswered
     // question fails open, as every other uncertainty in this hook does.
     setAllowed(true);
     let cancelled = false;
+    const probe: InFlightProbe = { object: objectName, recordIds: [recordId], staled: new Set() };
+    inFlight.add(probe);
     (async () => {
       try {
         const doFetch = apiFetch ?? fetch;
@@ -151,16 +239,19 @@ export function useRecordEditable(
         const decision = await res.json();
         const verdict = decision?.record?.visible;
         if (typeof verdict !== 'boolean') return; // no record verdict → fail open
+        if (probe.staled.size > 0) return; // asked before the record changed → not an answer
         verdictCache.set(key, verdict);
         if (!cancelled) setAllowed(verdict);
       } catch {
         /* network/parse failure → fail open */
+      } finally {
+        inFlight.delete(probe);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [key, principal, objectName, recordId, operation, enabled, apiFetch]);
+  }, [key, principal, objectName, recordId, operation, enabled, apiFetch, invalidationNonce]);
 
   return allowed;
 }

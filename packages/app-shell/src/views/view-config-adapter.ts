@@ -89,6 +89,42 @@ export function runtimeViewToInspectorDraft(
 }
 
 /**
+ * Read a STORED view body — what a pending-draft read hands the panel to
+ * resume — back into the runtime flat view the panel works in.
+ *
+ * Two shapes reach here, both members of the spec's `view` union:
+ *
+ * - a ViewItem envelope `{ name, object, viewKind, label, config }` — what the
+ *   runtime save and create paths write (objectui#10210). Its body is under
+ *   `config`; `name` is the row key, so it is also the runtime `id`; the
+ *   row-level keys beside `config` (`isDefault`, `isPinned`, …) ride along so
+ *   a resumed draft that is saved again carries them forward.
+ * - a flat runtime view — what the config panel wrote before objectui#10210,
+ *   still sitting as a pending draft until it is published or discarded. It
+ *   is already the runtime shape and is returned as-is.
+ *
+ * Reading the envelope as if it were flat is what broke the resume: the body
+ * nested one level too deep and the draft lost its identity, so the next Save
+ * persisted nothing.
+ */
+export function storedViewToRuntimeView(body: Record<string, unknown>): RuntimeView {
+  const config = body.config;
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return body as RuntimeView;
+  }
+  const { config: _nested, ...item } = body;
+  const name = typeof body.name === 'string' ? body.name : '';
+  const nested = config as Record<string, unknown>;
+  return {
+    ...item,
+    ...nested,
+    id: name,
+    name,
+    label: (body.label as string | undefined) ?? (nested.label as string | undefined),
+  };
+}
+
+/**
  * Flatten a studio inspector draft back into the runtime flat view the
  * ObjectView save / update / create handlers consume.
  *

@@ -36,7 +36,9 @@ import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { ObjectForm } from './ObjectForm';
+import { applyColumnPermissions } from './fieldWriteGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
@@ -306,6 +308,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
   // locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The caller's field-level grants on each CHILD object. With no provider
+  // mounted this is the fail-open answer (`isLoaded` false) and every grid below
+  // renders exactly as it did before permissions existed (objectui#10163).
+  const perms = usePermissions();
   const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
   const parentKeyRef = useRef<string>('');
 
@@ -457,7 +463,11 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               {...(d.inlineMode === 'form' ? { onAdd: () => onAddViaForm(entry.id) } : {})}
               field={
                 {
-                  columns: d.columns,
+                  // FLS gate, through the ONE render pass `LineItemsPanel` and
+                  // the record-form containers share: a child column the caller
+                  // may not read is omitted, and one they may read but not edit
+                  // renders its cells locked (objectui#10163).
+                  columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject }),
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),

@@ -978,7 +978,13 @@ export const FormSchema = BaseSchema.extend({
   columns: z.number().optional().describe('Number of columns (for grid layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),
   resetOnSubmit: z.boolean().optional().describe('Reset form on successful submit'),
-  mode: z.enum(['create', 'edit', 'view']).optional().describe('Form mode'),
+  mode: retirementTombstone(
+    'REFUSED (objectui#10286, ADR-0049; objectui#7759 ruling D1-(ii)) — the `form` node reads no `mode`: '
+    + 'the key is not in `@objectstack/spec`, the `form` renderer never reads it, and every spelling '
+    + 'rendered the same form — no error, no warning. The create / edit / view mode belongs to the '
+    + '`object-form` node (`ObjectFormSchema.mode`): author `{ "type": "object-form", "objectName": …, '
+    + '"mode": "edit", "recordId": … }` for it. To make this form non-editable, set `disabled`.',
+  ),
   actions: z.array(z.any()).optional().describe('Custom actions'),
   onSubmit: handlerKeyRefusal('onSubmit', 'runtime-slot', 'Submit handler'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),

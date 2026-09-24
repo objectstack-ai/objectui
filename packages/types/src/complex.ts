@@ -20,6 +20,7 @@ import type {
   DateRangeDefaultRange as SpecDateRangeDefaultRange,
   GlobalFilter as SpecGlobalFilter,
   Dashboard as SpecDashboard,
+  ViewFilterOperator as SpecViewFilterOperator,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { DASHBOARD_SPEC_EXCLUDED } from './zod/complex.zod.js';
@@ -717,9 +718,25 @@ export interface FilterField {
     | 'select' | 'status'
     | 'lookup' | 'master_detail' | 'user';
   /**
-   * Available operators for this field
+   * Available operators for this field.
+   *
+   * The spec's canonical filter vocabulary, taken BY REFERENCE
+   * (`ViewFilterOperator`, the element type of `VIEW_FILTER_OPERATORS` in
+   * `@objectstack/spec/ui`), so the declaration and its zod mirror state one
+   * set and cannot drift apart again (objectui#10286, applying the
+   * objectui#7759 ruling: where the spec declares a vocabulary, both faces
+   * align to it — and for filter operators the spec's canonical words win).
+   * Until then this key restated `FilterBuilderOperator` below, which declares
+   * `is_empty` / `is_not_empty` where the mirror declared `is_null` /
+   * `is_not_null`, so each face refused a spelling the other accepted.
+   *
+   * ⚠️ Nothing renders this key today: the builder draws a field's operator
+   * dropdown from its `type` alone (`operatorsForFieldType` in
+   * `packages/components/src/custom/filter-builder.tsx`). The vocabulary is
+   * settled here; whether the key should be honoured or retired is a separate
+   * question this declaration does not answer.
    */
-  operators?: FilterBuilderOperator[];
+  operators?: SpecViewFilterOperator[];
   /**
    * Options (for select type)
    */

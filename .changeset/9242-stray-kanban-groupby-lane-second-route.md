@@ -32,9 +32,9 @@ PR objectui#9236 and covers the **`list-view`** route only — the view-level
 `groupByField`, so a `list-view` document carrying the key, under `kanban` or
 under the legacy `options.kanban` bag, is refused by `safeValidateSchema`. A
 named view's `listViews.KEY.kanban.groupBy`, the route this change repairs, gets
-no door from the contract half today: `safeValidateSchema` accepts it in either
-nesting and keeps the key. `tsc` refuses the declared `kanban.groupBy` at the
-authoring site on both routes (a named view's `kanban` is typed as the
+no validating door from the contract half today: `safeValidateSchema` accepts it
+in either nesting and keeps the key. `tsc` refuses the declared `kanban.groupBy`
+at the authoring site on both routes (a named view's `kanban` is typed as the
 `list-view`'s), but not the key inside the untyped `options.kanban` bag on
 either. What this change repairs is therefore a pure **behaviour** gap, on any
 document that reaches this branch carrying the key, whether or not it passed

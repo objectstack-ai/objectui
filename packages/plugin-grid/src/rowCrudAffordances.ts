@@ -93,24 +93,28 @@
  *    neither `update` nor `delete` allows neither. That replacement is decided
  *    at the call site and pinned by `__tests__/gridOperationsMembers-8071.test.tsx`;
  *    this gate only reads the member it is handed.
- *  - `wantEditAction` / `wantDeleteAction` can no longer OPEN anything. The
- *    ruling also leaves `rowActions` the power to NARROW ("chooses among what
- *    `operations` allows"), and that half is deliberately NOT implemented here,
- *    because this gate cannot observe it: the call site collapses "`rowActions`
- *    absent" and "`rowActions` present without this name" into the same
- *    `false`. Narrowing on that `false` would close the generic Edit/Delete on
- *    every grid that declares no `rowActions` at all — precisely the outcome
- *    the same ruling forbids ("`operations` absent ⇒ today's defaults").
- *    Telling the two apart needs a caller-side signal only the call site can
- *    produce, so the ruling's `(wantEditAction OR
- *    DEFAULT-WHEN-ROWACTIONS-ABSENT)` conjunct is unconditionally its default
- *    arm — which is why no `rowActions` term appears in the gates below.
+ *  - `wantEditAction` / `wantDeleteAction` can no longer OPEN anything, and
+ *    they NARROW: the ruling leaves `rowActions` the power to choose "among
+ *    what `operations` allows", so the gate is the ruled formula
+ *    `operationsX AND (wantXAction OR DEFAULT-WHEN-ROWACTIONS-ABSENT) AND
+ *    hasOnX AND objectCanX` [objectui#10083]. The default arm is selected by
+ *    `rowActionsDeclared`, a signal only the call site can produce: a bare
+ *    `wantXAction === false` cannot tell "`rowActions` absent" from
+ *    "`rowActions` present without this name", and narrowing on the former
+ *    would close the generic Edit/Delete on every grid that declares no
+ *    `rowActions` at all — the outcome the same ruling forbids ("`operations`
+ *    absent ⇒ today's defaults"). So an absent list keeps the default, and a
+ *    DECLARED list — including an empty one, and one naming only custom
+ *    actions — offers the generic entry only for the canonical names it
+ *    carries.
  *
- * ⚠️ The direction is a NARROWING of published behaviour: a page that wrote
+ * ⚠️ Both halves NARROW published behaviour: a page that wrote
  * `operations.<op>: false` together with a `rowActions` entry for that same op
- * rendered the button before and hides it now. That is the ruled intent. ⛔ No
- * tolerant `??` / alias fallback softens it — a fallback here would rebuild the
- * second de-facto contract this ruling closed.
+ * rendered the button before and hides it now (objectui#9819), and a page that
+ * declared a `rowActions` list without `'edit'` / `'delete'` rendered the
+ * generic entry before and hides it now (objectui#10083). That is the ruled
+ * intent. ⛔ No tolerant `??` / alias fallback softens it — a fallback here
+ * would rebuild the second de-facto contract this ruling closed.
  *
  * Since objectui#2614, `userActions.edit` / `delete` also accept an object
  * form `{ enabled?, visibleWhen?, disabledWhen? }`: `enabled` carries the
@@ -154,13 +158,21 @@ export function resolveRowCrudAffordances(opts: {
   /**
    * [objectui#9819] Whether `rowActions` names the canonical `'edit'`. A
    * SELECTION inside what `operations` allows, ⛔ never a grant: since
-   * `operations` became the ceiling this can no longer open the entry. See
-   * "`operations` is the ceiling" in this module's header for why it does not
-   * narrow either, yet.
+   * `operations` became the ceiling this can no longer open the entry, and
+   * [objectui#10083] when {@link rowActionsDeclared} is true a `false` here
+   * closes it. See "`operations` is the ceiling" in this module's header.
    */
   wantEditAction?: boolean;
   /** [objectui#9819] The `'delete'` half of {@link wantEditAction}, same rule. */
   wantDeleteAction?: boolean;
+  /**
+   * [objectui#10083] Whether the view DECLARED a `rowActions` list at all
+   * (`Array.isArray(schema.rowActions)`), whatever it names. Selects the
+   * ruling's default arm: absent (`false` / omitted) ⇒ `wantEditAction` /
+   * `wantDeleteAction` are not consulted and the generic entries keep today's
+   * default; declared ⇒ only the canonical names the list carries survive.
+   */
+  rowActionsDeclared?: boolean;
   hasOnEdit?: boolean;
   hasOnDelete?: boolean;
   /** The object's ADR-0103 lifecycle bucket; absent → the `platform` default. */
@@ -210,7 +222,7 @@ export function resolveRowCrudAffordances(opts: {
    * {@link objectCanDelete} rather than to `canDelete` — the BULK bar's half.
    *
    * `deletePredicates` above rides `canDelete`, which folds in the ROW wiring
-   * (`operations.delete`/`rowActions` ∧ `onDelete`). That is right for the row
+   * (`operations.delete` ∧ the `rowActions` selection ∧ `onDelete`). That is right for the row
    * kebab and wrong for the selection bar for the same reason `objectCanDelete`
    * exists: bulk delete rides `onBulkDelete`, so a consumer that wires only the
    * bulk handler would otherwise have its author-declared `visibleWhen`
@@ -235,11 +247,14 @@ export function resolveRowCrudAffordances(opts: {
   // [objectui#9819] `operations` is the CEILING — an INTERSECTION, like every
   // layer above. `rowActions` (`wantEditAction` / `wantDeleteAction`) can no
   // longer re-open what the block withheld, and a member the authored block
-  // does not name is withheld too. The ruling and the reason no `rowActions`
-  // term appears here are in this module's header under "`operations` is the
-  // ceiling".
-  const canEdit = !!(opts.operationsUpdate && opts.hasOnEdit) && objectCanEdit;
-  const canDelete = !!(opts.operationsDelete && opts.hasOnDelete) && objectCanDelete;
+  // does not name is withheld too. [objectui#10083] Inside that ceiling a
+  // DECLARED `rowActions` list narrows to the canonical names it carries; an
+  // absent one takes the default arm. The ruling is in this module's header
+  // under "`operations` is the ceiling".
+  const selectsEdit = opts.rowActionsDeclared ? !!opts.wantEditAction : true;
+  const selectsDelete = opts.rowActionsDeclared ? !!opts.wantDeleteAction : true;
+  const canEdit = !!(opts.operationsUpdate && selectsEdit && opts.hasOnEdit) && objectCanEdit;
+  const canDelete = !!(opts.operationsDelete && selectsDelete && opts.hasOnDelete) && objectCanDelete;
   return {
     canEdit,
     canDelete,

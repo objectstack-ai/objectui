@@ -29,10 +29,14 @@ the two renderers cannot answer differently for one token.
 
 Alongside it, the two `aria-label`s that were English in *every* locale —
 `HeaderHighlight`'s `Record highlights` and `RecordActivityTimeline`'s
-`Discussion` — now route through the bundle. Both sections carry no visible
-label, so the `aria-label` is the landmark as far as assistive tech is
-concerned (the argument objectui#4024 made for the dialog `Close` label, and
-objectui#5956 made for `record:path`'s own container name). `detail.discussion`
+`Discussion` — no longer read English. `HeaderHighlight`'s now routes through
+the bundle. Its section carries no visible label, so the `aria-label` is the
+landmark as far as assistive tech is concerned (the argument objectui#4024 made
+for the dialog `Close` label, and objectui#5956 made for `record:path`'s own
+container name). `RecordActivityTimeline`'s section always had a visible
+heading, so it no longer has a fixed `Discussion` name. Its landmark is named by
+that heading's title: `detail.activity`, or an authored `titleLabel` such as
+`record:chatter`'s `detail.discussion` (objectui#9998). `detail.activity`
 already existed in all ten packs; `detail.highlightsLabel` is the single new
 key, added to all ten and mirrored byte-identically into
 `DETAIL_DEFAULT_TRANSLATIONS`.

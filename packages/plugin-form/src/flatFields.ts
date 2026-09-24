@@ -10,7 +10,7 @@
  * Shared FLAT field builder for the overlay form containers (Modal / Drawer).
  *
  * `ModalForm` and `DrawerForm` each accept `objectName` (plus an optional
- * `fields` whitelist) with NO `sections` and no `customFields`. In that shape
+ * `fields` whitelist and inline `customFields`) with NO `sections`. In that shape
  * there is no section to normalize, so both used to build the runtime
  * `FormField` list inline — two hand-copied loops over the same "object-schema
  * field to runtime FormField" mapping that `sectionFields`' `fromObjectSchema`
@@ -35,6 +35,7 @@
 
 import type { FormField } from '@object-ui/types';
 import { fromObjectSchema, warnUnresolvedTopLevelField, type SectionFieldsContext } from './sectionFields';
+import { mergeCustomFields } from './customFieldsMerge';
 
 export interface FlatFieldsContext extends SectionFieldsContext {
   /**
@@ -43,6 +44,13 @@ export interface FlatFieldsContext extends SectionFieldsContext {
    * object schema declares, in schema order.
    */
   fields?: Array<string | Record<string, any>>;
+  /**
+   * The authored inline members (`schema.customFields`), MERGED over the
+   * generated set exactly as `ObjectForm` merges them — override by name in
+   * place, keep the rest, append the unmatched in authored order
+   * (objectui#10073; the rule lives in `customFieldsMerge.ts`).
+   */
+  customFields?: FormField[];
 }
 
 /**
@@ -52,11 +60,13 @@ export interface FlatFieldsContext extends SectionFieldsContext {
  * Fields the object schema does not declare are SKIPPED — the flat containers
  * have always dropped them rather than rendering `fromObjectSchema`'s bare
  * `input` stub, and a whitelist naming a field the object does not have is an
- * authoring error the form should not paper over with an untyped control.
+ * authoring error the form should not paper over with an untyped control. A
+ * `customFields` member naming such a field is drawn in its place: the member
+ * is a whole definition, not an untyped stub.
  */
 export function buildFlatFields(ctx: FlatFieldsContext): FormField[] {
   const fieldsToShow = ctx.fields || Object.keys(ctx.objectSchema?.fields || {});
-  const generated: FormField[] = [];
+  const names: string[] = [];
 
   for (const entry of fieldsToShow) {
     const name = typeof entry === 'string' ? entry : (entry as any)?.name;
@@ -66,10 +76,14 @@ export function buildFlatFields(ctx: FlatFieldsContext): FormField[] {
       warnUnresolvedTopLevelField(entry, ctx.objectName);
       continue;
     }
-    const field = ctx.objectSchema?.fields?.[name];
-    if (!field) continue;
+    names.push(name);
+  }
 
-    generated.push({
+  return mergeCustomFields(names, ctx.customFields, (name) => {
+    const field = ctx.objectSchema?.fields?.[name];
+    if (!field) return undefined;
+
+    return {
       ...fromObjectSchema(name, ctx),
       // Field-group membership (Field.group → object.fieldGroups[].key), read
       // by `deriveFieldGroupSections` for the fieldGroups fallback. Carried
@@ -78,8 +92,6 @@ export function buildFlatFields(ctx: FlatFieldsContext): FormField[] {
       // it the moment explicit sections exist, so stamping `group` onto
       // section-built fields would add a key with no reader.
       group: (field as any).group,
-    });
-  }
-
-  return generated;
+    };
+  });
 }

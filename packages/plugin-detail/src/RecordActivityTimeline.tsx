@@ -87,7 +87,9 @@ export interface RecordActivityTimelineProps {
   /** Optional uploader for comment attachments. When provided, the composer
    *  exposes a drag-and-drop file panel. */
   onUploadAttachments?: (files: FileList) => Promise<Attachment[]>;
-  /** Override the panel title (defaults to t('detail.activity')) */
+  /** Override the panel title (defaults to t('detail.activity')). It is both
+   *  the visible heading's title and the panel landmark's accessible name
+   *  (objectui#9998). */
   titleLabel?: string;
   /** Override the empty state copy (defaults to t('detail.noActivity')) */
   emptyLabel?: string;
@@ -214,6 +216,9 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
   const [pendingAttachments, setPendingAttachments] = React.useState<Attachment[]>([]);
   const [isUploading, setIsUploading] = React.useState(false);
+  // ONE value for the visible heading's title AND the landmark's name — see the
+  // `<section>` below (objectui#9998).
+  const title = titleLabel ?? t('detail.activity');
 
   const activeFilter = controlledFilter ?? internalFilter;
   const showFilter = config?.showFilterToggle !== false;
@@ -317,13 +322,27 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
         'border-t border-border/60 pt-5',
         className,
       )}
-      aria-label={t('detail.discussion')}
+      // Named with the heading's own title value, not a second string
+      // (objectui#9998). This used to be a fixed `t('detail.discussion')`
+      // while the heading read `titleLabel ?? t('detail.activity')`, so a
+      // `record:activity` mount (no `titleLabel`) was a region spoken
+      // "Discussion" under a heading reading "Activity (N)". The repo's own
+      // rule is objectui#4118's: a speech-input user says what they see, so
+      // the landmark's spoken name must be the heading, not a paraphrase.
+      // The `(N)` count stays out of the name: it is live status that moves
+      // with the filter, not what anyone says to name the panel.
+      // ⛔ Not `aria-labelledby` + `React.useId()`: two timelines can share a
+      // page, so the id must be per instance, and a `useId` value differs on
+      // every mount. `record-block-record-reach.test.tsx` (apps/console) and
+      // `palette-discussion-alias.test.tsx` (app-shell) both compare two
+      // mounts' HTML byte for byte, and both went red on that id.
+      aria-label={title}
     >
       <header className="mb-4">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight">
             <Activity className="h-4 w-4" />
-            {titleLabel ?? t('detail.activity')}
+            {title}
             <span className="text-sm font-normal text-muted-foreground">
               ({filtered.length})
             </span>

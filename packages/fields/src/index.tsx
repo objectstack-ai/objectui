@@ -30,7 +30,7 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // deliberately NOT re-exported from the `export *` block at the end of this
 // file, so this package's published surface is unchanged. Pure, no React, so
 // it pulls no widget out of its lazy chunk (objectui#4037).
-import { renderablePercentScale } from './widgets/percent-scale.js';
+import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`.
@@ -763,7 +763,13 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // year finally shows `2026` instead of `2,026`. An ABSENT scale keeps
   // grouping: absent means "decimals unknown", not "integer". The policy and
   // its interim status live in `formatDisplayNumber`, not here.
-  const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
+  //
+  // A declared width above the engine's fraction ceiling is clamped and
+  // reported, never carried into `Intl` (objectui#10071 — the objectui#9808
+  // ruling; see `./widgets/percent-scale.js`).
+  const scale = typeof numField.scale === 'number'
+    ? renderableFractionScale(numField.scale, 'number field', 'objectui#10071')
+    : undefined;
   const num = Number(safe);
   const formatted = !isNaN(num)
     ? formatDisplayNumber(num, {

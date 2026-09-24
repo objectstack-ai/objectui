@@ -995,11 +995,13 @@ const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<
   Record<CalendarAliasSurfaceKind, string>
 > = {
   dateField: {
+    // Quotes the refusal screen's FIRST clause only — the one objectui#8170 kept.
+    // Its second clause was rewritten there, so a whole-screen quote goes false
+    // the next time that copy moves (objectui#10030).
     binding:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
-      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
-      + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
-      + 'never the key you wrote.',
+      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required", '
+      + 'a screen that names the canonical keys and never the key you wrote.',
     container:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
       + '`dateField` fails without even reaching that refusal screen: this container is read WHOLE, '
@@ -2149,9 +2151,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // as `../objectql.ts` (optional) so the zod-mirror-parity ratchet stays at
   // zero drift for this pair.
   //
-  // ⚠️ No `sort` twin here, and the absence is measured: `ObjectKanban.tsx` has
-  // ZERO `schema.sort` read sites and the spec's `object-kanban` entry declares
-  // no `sort` either. Only `ObjectCalendarSchema` above carries both.
+  // ⚠️ No `sort` twin here: the spec's `object-kanban` entry declares no
+  // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
+  // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
+  // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on

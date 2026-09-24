@@ -642,10 +642,16 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
       ru: 'элементов',
       ar: 'عناصر',
     };
+    // `ru` and `ar` state that noun inside a count label since objectui#10242,
+    // because their `common.itemCount` half serves every count but 1.
+    const ITEM_COUNT_LABEL: Partial<Record<LocaleCode, string>> = {
+      ru: 'Элементов: {{count}}',
+      ar: 'عدد العناصر: {{count}}',
+    };
     for (const [lang, unit] of Object.entries(UNIT) as [LocaleCode, string][]) {
-      // the premise, unchanged: that unit really is what common.itemCount uses
+      // the premise: that unit really is what common.itemCount uses
       expect(at(builtInLocales[lang], 'common.itemCount'), `${lang} common.itemCount`).toBe(
-        `{{count}} ${unit}`,
+        ITEM_COUNT_LABEL[lang] ?? `{{count}} ${unit}`,
       );
       expect(
         (at(builtInLocales[lang], 'preview.history.items') as string).toLowerCase(),

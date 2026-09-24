@@ -165,6 +165,18 @@ registers as `nl-query`:
 }
 ```
 
+## Localization
+
+The components read their built-in copy (button labels, headings, the empty
+and loading states, the default `placeholder` and `emptyMessage`) from the
+`ai.*` namespace of `@object-ui/i18n`, so they follow the language of the
+`I18nProvider` they are mounted under. With no provider they render English.
+
+Dates (the `nl-query` history) and percentages (confidence and score badges)
+are formatted in the display locale — `useDisplayLocale()` from
+`@object-ui/i18n`: the tenant's regional locale when one is configured, the UI
+language otherwise — never in the machine's locale (objectui#10232).
+
 ## What these components do not do
 
 They are **presentation only**: each one renders the data on its schema and

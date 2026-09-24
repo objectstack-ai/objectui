@@ -4756,6 +4756,14 @@ export function detectLocale(): SupportedLocale {
  * follows the live `useObjectTranslation().language`, so the Studio pillars
  * re-render in lock-step with the console locale — the same source the rest of
  * the app (Home, forms, list views) renders from.
+ *
+ * ⛔ Never hand this value to `Intl` (`Intl.*Format`, `toLocale*String`) as the
+ * locale a date, time or number is formatted in. It picks one of this file's
+ * TWO string tables, so it is `'en-US'` for every language that is not zh — a
+ * de-DE session would read its faces in US English (objectui#10232). Faces
+ * format with `useDisplayLocale()` from `@object-ui/i18n`, the channel every
+ * date and number renderer resolves through; keep this value for `t()` /
+ * `tFormat()` and the other lookups into the tables here.
  */
 export function useMetadataLocale(): SupportedLocale {
   const { language } = useObjectTranslation();

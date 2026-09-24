@@ -3464,7 +3464,7 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **7 entries** carrying **101 keys**` — and ⛔ read that off the
+ * `this ledger seeds **4 entries** carrying **60 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
@@ -3474,6 +3474,13 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * direction, and the first time this seed has shrunk. The comment left where that
  * row stood says which ruling took it and why the neighbouring `operators` row
  * stayed after a ruling of its own.
+ *
+ * ⭐ Then by three entries at once, when objectui#9736 executed ruling batch #167
+ * item 4 (letter 甲): the SPEC-OWNED INFLOW rows — App, Dashboard, Page — left
+ * because the three TypeScript twins now take the spec by reference over the SAME
+ * exclusion arrays their mirrors read. That is not the "declare the keys one by
+ * one" remedy the next section refuses: no key was hand-declared, the twin and the
+ * mirror were put on one derivation, and the ruling named the mechanism.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3518,57 +3525,25 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  *     `never` and would never be caught at all.
  */
 interface MirroredUndeclared {
-  /**
-   * SPEC-OWNED INFLOW. The mirror is `BaseSchema.extend(SpecAppFields.shape).extend({…})`,
-   * so the spec's App surface — the `_lock*` / `_package*` / `_provenance` package-lock
-   * envelope, `protection`, `sharing`, `embed`, `objects`, `apis`, `homePageId`,
-   * `version`, `isDefault`, `_unpublished`, `aria`, `mobileNavigation`, `defaultAgent` —
-   * is validated here while the TypeScript interface restates only the component
-   * envelope its renderers read. `contextSelectors` is the one LOCAL arm: the spec
-   * fields deliberately omit it and the mirror's own `.extend({…})` adds it back, so
-   * it is mirrored by this file's own hand and still undeclared.
-   */
-  "app.zod.ts#AppComponentSchema":
-    | "contextSelectors"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "version"
-    | "isDefault"
-    | "_unpublished"
-    | "homePageId"
-    | "objects"
-    | "apis"
-    | "sharing"
-    | "embed"
-    | "mobileNavigation"
-    | "defaultAgent"
-    | "aria"
-    | "protection";
+  // `app.zod.ts#AppComponentSchema` HAD a row here — 20 keys of SPEC-OWNED INFLOW
+  // (the package-lock envelope, `protection`, `isDefault`, `_unpublished`,
+  // `defaultAgent`, the spec's tombstones, and the LOCAL `contextSelectors` arm) —
+  // and its DELETION is the ratchet moving in its only permitted direction.
+  // objectui#9736 (ruling batch #167 item 4, letter 甲) made the TypeScript twin take
+  // the spec BY REFERENCE the way its mirror does: `AppComponentSchema extends
+  // BaseSchema, Omit< App, … >` over `APP_SPEC_EXCLUDED`, the one `as const` array the
+  // mirror's `specFieldsExcept` call also reads, and `contextSelectors` declared on
+  // the twin over the mirror's own element schema. The pair now measures `never`;
+  // re-adding the row without re-adding the defect reddens the reconciliation below.
 
-  /**
-   * SPEC-OWNED INFLOW, same envelope as the App pair above plus this surface's own
-   * `refreshInterval` and `performance`. ⚠️ This pair already carries entries in
-   * `KnownDrift` and has carried them in `UnmirroredDeclared`; the three directions
-   * are independent measurements of one pair and an entry in one says nothing about
-   * the others.
-   */
-  "complex.zod.ts#DashboardComponentSchema":
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "aria"
-    | "protection"
-    | "refreshInterval"
-    | "performance";
+
+  // `complex.zod.ts#DashboardComponentSchema` HAD a row here — 11 keys (the envelope,
+  // `protection`, and the tombstones `aria` / `refreshInterval` / `performance`) —
+  // deleted by objectui#9736 for the reason the App note above gives: the twin
+  // extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`. Its `header`
+  // member is withheld from that projection on the TypeScript face only, and stays
+  // in `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, and a single key: the mirror states `aria` and the declaration does not.
@@ -3659,22 +3634,12 @@ interface MirroredUndeclared {
     | "minDate"
     | "maxDate";
 
-  /**
-   * SPEC-OWNED INFLOW. The package-lock envelope again, plus `source`,
-   * `interfaceConfig` and `requires` — page-level spec keys the mirror validates and
-   * the TypeScript node does not state.
-   */
-  "layout.zod.ts#PageNodeSchema":
-    | "source"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "interfaceConfig"
-    | "requires";
+  // `layout.zod.ts#PageNodeSchema` HAD a row here — 10 keys (the envelope, `source`,
+  // `interfaceConfig`, `requires`) — deleted by objectui#9736 for the same reason:
+  // the twin extends `Omit< Page, … >` over `PAGE_SPEC_EXCLUDED`. Its `slots` member
+  // is withheld from that projection on the TypeScript face only, and stays in
+  // `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
@@ -3987,6 +3952,18 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a union (`string | { dialect?, source }`) with no `.shape` of its own — the predicate WIRE shape `BaseSchema`'s `visible` / `hidden` / `disabled` and the form predicate keys carry (objectui#7530); its TS twin `ExpressionWire` (`../expression.ts`) is a type alias, not a key set, and the two faces are pinned equal in `base-schema-predicate-envelope-7530.test.ts`",
   'index.zod.ts#SCHEMA_VERSION':
     "a version string, not a schema",
+  // objectui#9736 — the three exclusion lists each spec-derived mirror's
+  // `specFieldsExcept` call reads, hoisted to one `as const` array so the
+  // TypeScript twin can `Omit` over the SAME list. Key-name tuples, not schemas;
+  // what they govern is measured on the pairs they feed
+  // (`app.zod.ts#AppComponentSchema` / `complex.zod.ts#DashboardComponentSchema` /
+  // `layout.zod.ts#PageNodeSchema`), pinned in `./twins-spec-by-reference-9736.test.ts`.
+  'app.zod.ts#APP_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecAppFields` and the `AppComponentSchema` twin both read (objectui#9736)",
+  'complex.zod.ts#DASHBOARD_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecDashboardFields` and the `DashboardComponentSchema` twin both read (objectui#9736)",
+  'layout.zod.ts#PAGE_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecPageFields` and the `PageNodeSchema` twin both read (objectui#9736)",
   'objectql.zod.ts#KanbanConditionalFormattingRuleSchema':
     "a union of two rule dialects (native `{ field, operator, value }` | spec `{ condition, style }`) with no `.shape` of its own — exported by objectui#7664 so the `'kanban'` arm (`complex.zod.ts#KanbanSchema`) and the `'object-kanban'` arm mirror `conditionalFormatting` from ONE rule declaration; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) is a type union, not a key set, and both arms' `conditionalFormatting` keys are compared where they are declared",
 };

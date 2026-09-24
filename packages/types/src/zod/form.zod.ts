@@ -172,7 +172,12 @@ export const FieldConstraintsSchema = z.object({
     }).describe('Compiled RegExp — never a string; JSON authors use FieldSchema.pattern'),
     message: z.string().describe('Error message shown when the pattern fails'),
   }).optional().describe('Pattern rule (RegExp value + message)'),
-  validate: z.function().optional().describe('Custom validation function'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form
+  // renderer spreads `validation` into react-hook-form's `rules` and keeps a
+  // field-authored `validate` function running beside its own `required`
+  // entry, so the TypeScript member keeps its function type. JSON authors use
+  // the declarative rules above; the mirror refuses this key by name.
+  validate: handlerKeyRefusal('validate', 'runtime-slot', 'Custom validation function'),
 });
 
 /**
@@ -183,7 +188,12 @@ export const FieldConditionSchema = z.object({
   equals: z.any().optional().describe('Value must equal'),
   notEquals: z.any().optional().describe('Value must not equal'),
   in: z.array(z.any()).optional().describe('Value must be in array'),
-  custom: z.function().optional().describe('Custom condition function'),
+  // RETIRED (objectui#7759 group E, the objectui#6124 shape): nothing reads it.
+  // The form renderer translates `condition` to CEL through
+  // `legacyConditionToCel`, which reads `field` / `equals` / `notEquals` / `in`
+  // and never `custom`, so an authored function was inert. Refused by name; the
+  // TypeScript member is a `?: never` tombstone.
+  custom: handlerKeyRefusal('custom', 'retired', 'Custom condition function'),
 });
 
 /**

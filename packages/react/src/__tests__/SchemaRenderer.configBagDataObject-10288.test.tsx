@@ -32,7 +32,7 @@
  * named in a failure.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
@@ -59,13 +59,22 @@ const BODY = { source: 'web', campaign: 'spring' };
 
 const DATA = { status: 'draft' };
 
-/** The schema the probe was last handed: what a renderer actually reads. */
-let seen: Record<string, any> | undefined;
+/** The evaluated schema a renderer is handed: the keys this file reads off it. */
+type Seen = Record<string, unknown> & {
+  properties?: Record<string, unknown>;
+  props?: Record<string, unknown>;
+};
 
-const Probe = (props: { schema?: Record<string, any> }) => {
-  seen = props.schema;
+/** Records every schema the probe is handed; the last one is what it rendered. */
+const handed = vi.fn<(schema: Seen | undefined) => void>();
+
+const Probe = (props: { schema?: Seen }) => {
+  handed(props.schema);
   return <div data-testid="probe" />;
 };
+
+/** The schema the probe was last handed. */
+const seen = (): Seen | undefined => handed.mock.lastCall?.[0];
 
 /**
  * `DATA` is injected as the `data` ROOT of the expression scope, not as an
@@ -84,7 +93,7 @@ function mount(schema: Record<string, unknown>) {
 }
 
 beforeEach(() => {
-  seen = undefined;
+  handed.mockClear();
   ComponentRegistry.register('probe-10288', Probe as never);
 });
 
@@ -96,15 +105,15 @@ afterEach(() => {
 describe('objectui#10288: a data object carrying `source` is not collapsed to that string', () => {
   it.each(CENSUS_KEYS)('properties.%s arrives whole, in the bag and on the node', (key) => {
     mount({ properties: { [key]: BODY } });
-    expect(seen?.properties?.[key]).toEqual(BODY);
+    expect(seen()?.properties?.[key]).toEqual(BODY);
     // The hoist copies the evaluated value onto the node, which is where most
     // renderers read it.
-    expect(seen?.[key]).toEqual(BODY);
+    expect(seen()?.[key]).toEqual(BODY);
   });
 
   it.each(CENSUS_KEYS)('props.%s arrives whole', (key) => {
     mount({ props: { [key]: BODY } });
-    expect(seen?.props?.[key]).toEqual(BODY);
+    expect(seen()?.props?.[key]).toEqual(BODY);
   });
 
   it('a dialect-less `{ source }` on a non-predicate key is DATA now, and is not interpolated', () => {
@@ -113,19 +122,19 @@ describe('objectui#10288: a data object carrying `source` is not collapsed to th
     // `defaultValue` reading of the same shape.
     const authored = { source: '${data.status}' };
     mount({ properties: { caption: authored } });
-    expect(seen?.properties?.caption).toEqual(authored);
+    expect(seen()?.properties?.caption).toEqual(authored);
   });
 });
 
 describe('objectui#10288 CONTROLS: what the loops still evaluate', () => {
   it('a string template is still interpolated', () => {
     mount({ properties: { caption: 'S-${data.status}' } });
-    expect(seen?.properties?.caption).toBe('S-draft');
+    expect(seen()?.properties?.caption).toBe('S-draft');
   });
 
   it('a spec `template` envelope on a non-predicate key still collapses to its interpolated value', () => {
     mount({ properties: { caption: { dialect: 'template', source: '${data.status}' } } });
-    expect(seen?.properties?.caption).toBe('draft');
+    expect(seen()?.properties?.caption).toBe('draft');
   });
 
   it('a dialect-less `{ source }` on a PREDICATE key is still an expression (ExpressionWire, objectui#7530)', () => {
@@ -140,6 +149,6 @@ describe('objectui#10288 CONTROLS: what the loops still evaluate', () => {
   it('a CEL envelope on a predicate key is still preserved, not flattened (objectui#9100)', () => {
     const envelope = { dialect: 'cel', source: 'has(data.status) && data.status == "draft"' };
     mount({ properties: { visible: envelope } });
-    expect(seen?.properties?.visible).toEqual(envelope);
+    expect(seen()?.properties?.visible).toEqual(envelope);
   });
 });

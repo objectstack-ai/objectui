@@ -186,6 +186,39 @@ describe('the ruled widths as absolute bytes — the guard against a joint move'
 });
 
 /**
+ * Where the footer stops trusting a code. `Intl` refuses a currency only when
+ * the code is not three ASCII letters (ECMA-402 `IsWellFormedCurrencyCode`), and
+ * the footer keeps objectui#9294's tenant-locale fallback for exactly those.
+ * Everything `Intl` accepts goes to the cell's formatter, and must read what the
+ * cell reads.
+ */
+describe('the malformed-code boundary', () => {
+  it.each(['usd', 'ZZZ'])('an accepted code (%s) reads what the cell reads', (code) => {
+    const field = { type: 'currency', currency: code };
+    const tenant = { locale: 'en' };
+    expect(footer({ field: 'amount', ...field }, FRACTIONAL.rows, tenant)).toBe(
+      `Sum: ${cell(FRACTIONAL.sum, field, tenant)}`,
+    );
+  });
+
+  it.each(['US1', 'USDX', 'EU'])('a refused code (%s) keeps the tenant-locale fallback', (code) => {
+    expect(
+      footer({ field: 'amount', type: 'currency', currency: code }, FRACTIONAL.rows, { locale: 'de-DE' }),
+    ).toBe(`Sum: ${FRACTIONAL.sum.toLocaleString('de-DE')}`);
+  });
+
+  it('a malformed TENANT locale tag does not send a valid code to the fallback', () => {
+    // `en_US` (underscore) is a tag `Intl` refuses. The cell's formatter survives
+    // it; the tenant-locale fallback would throw on it.
+    const field = { type: 'currency', currency: 'USD' };
+    const tenant = { locale: 'en_US' };
+    expect(footer({ field: 'amount', ...field }, FRACTIONAL.rows, tenant)).toBe(
+      `Sum: ${cell(FRACTIONAL.sum, field, tenant)}`,
+    );
+  });
+});
+
+/**
  * ⭐ The control — `scale` is retired from CURRENCY only (mechanism assumption
  * A1 of the dispatch). The percent arm beside this one still takes its width
  * from `scale`; if this case moved, the repair reached further than its ruling.

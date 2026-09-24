@@ -254,22 +254,24 @@ function computeAggregation(type: string, rows: SummaryRow[], field: string): nu
 }
 
 /**
- * Whether `Intl` accepts `code` as a currency at all.
+ * A currency code `Intl` accepts at all: ECMA-402's `IsWellFormedCurrencyCode`,
+ * exactly three ASCII letters in any case. That is the only check
+ * `Intl.NumberFormat` makes on a currency before it throws a `RangeError`; a
+ * well-formed code CLDR does not know (`ZZZ`) is accepted and rendered with the
+ * code itself, as the cell renders it.
  *
- * Asked with NO locale, so only a malformed CODE can make it answer `false` —
- * the same probe shape `currencyFractionDigits` in `@object-ui/fields` uses.
  * It exists for one arm: `formatCurrency` swallows a code `Intl` refuses into a
  * locale-less `CODE 1234.50`, and objectui#9294 keeps this footer's bad-code
  * fallback on the tenant locale, so a refused code must never reach it.
+ *
+ * Read off the spec rather than asked of `Intl`, because an `Intl` probe needs a
+ * locale argument and neither choice asks only about the code. `undefined` is
+ * the machine's locale, which the objectui#9909 census refuses. The display
+ * locale would make a malformed TENANT tag read as a malformed code, and send a
+ * valid amount to the fallback below, which throws on that same tag;
+ * `formatCurrency` survives such a tag.
  */
-function intlAcceptsCurrency(code: string): boolean {
-  try {
-    new Intl.NumberFormat(undefined, { style: 'currency', currency: code });
-    return true;
-  } catch {
-    return false;
-  }
-}
+const WELL_FORMED_CURRENCY_CODE = /^[A-Za-z]{3}$/;
 
 /**
  * Format a summary value for display.
@@ -374,7 +376,7 @@ function formatSummaryLabel(
     // number at two decimals, as the cell renders it.
     const currency = resolveFieldCurrency(column, tenantDefault);
     formatted =
-      currency && !intlAcceptsCurrency(currency)
+      currency && !WELL_FORMED_CURRENCY_CODE.test(currency)
         ? // A malformed code: keep objectui#9294's fallback on the tenant tag.
           // Degrading to the machine's locale here would reintroduce that
           // defect on precisely the rows that already went wrong once.

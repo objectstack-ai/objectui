@@ -41,7 +41,7 @@ import * as React from 'react';
 import { render, screen, cleanup, waitFor, act } from '@testing-library/react';
 import { AggregationFunction } from '@objectstack/spec/data';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
-import { ObjectMetricWidget } from '../ObjectMetricWidget';
+import { ObjectMetricWidget, type ObjectMetricWidgetProps } from '../ObjectMetricWidget';
 
 afterEach(cleanup);
 
@@ -63,7 +63,7 @@ async function mountTile(
   field: Record<string, unknown>,
   fn: string,
   value: number,
-  extra: Record<string, unknown> = {},
+  extra: Partial<ObjectMetricWidgetProps> = {},
 ) {
   const source = {
     getObjectSchema: vi.fn(async () => ({ name: 'deal', fields: { amount: field } })),
@@ -77,8 +77,8 @@ async function mountTile(
         objectName="deal"
         label="Deals"
         aggregate={{ field: 'amount', function: fn }}
-        dataSource={source as any}
-        {...(extra as any)}
+        dataSource={source}
+        {...extra}
       />
     </Providers>,
   );

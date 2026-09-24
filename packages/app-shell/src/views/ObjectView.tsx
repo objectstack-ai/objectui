@@ -1133,12 +1133,12 @@ function getListViewConfigKeys(): ReadonlySet<string> {
  * like {@link buildPersistedViewBody} above.
  */
 export function buildViewConfigSaveBody(
-    objectName: string,
-    draft: Record<string, any>,
+    objectName: string | undefined,
+    draft: Record<string, unknown>,
 ): ViewEnvelope & Record<string, unknown> {
     const vid = String(draft?.id ?? '');
     const configKeys = getListViewConfigKeys();
-    const body: Record<string, any> = {};
+    const body: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(draft ?? {})) {
         if (value !== undefined && configKeys.has(key)) body[key] = value;
     }
@@ -1146,7 +1146,8 @@ export function buildViewConfigSaveBody(
     for (const key of VIEW_ROW_STATE_KEYS) {
         if (draft?.[key] !== undefined) rowState[key] = draft[key];
     }
-    const env = viewEnvelope(objectName, body, { name: vid, label: draft?.label });
+    const label = typeof draft?.label === 'string' ? draft.label : undefined;
+    const env = viewEnvelope(objectName, body, { name: vid, label });
     return { ...env, ...rowState, name: vid };
 }
 

@@ -12,3 +12,5 @@ TypeScript face, measured per key on the renderers:
 
 - `TableColumn.cell`, `DataTableSchema.renderCellEditor` and `FieldValidationRules.validate` stay callable (runtime slots: `data-table` calls `cell` and `renderCellEditor`, and the form renderer runs a supplied `validate`).
 - `FieldCondition.custom` is retired to `?: never`. Nothing ever read it: the form renderer translates `condition` from `field` / `equals` / `notEquals` / `in` only, so a supplied function never ran. Express the condition with those keys, or with the field's `visibleWhen` predicate.
+
+This supersedes two statements in changesets pending in the same release: objectui#6124's "the four non-`on*` `z.function()` keys stay as they are" and objectui#7188's "the zod mirror's `renderCellEditor` is `z.function()`". Both were true when written; neither is after this change.

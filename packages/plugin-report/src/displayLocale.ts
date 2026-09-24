@@ -30,8 +30,9 @@
  *
  * So this constant may become neither `'en-US'` (the tag objectui#10020 removed
  * from five display sites in this package) nor `undefined` (objectui#9909's
- * separate defect shape, which is still present in `ReportExportEngine.ts` and
- * is deliberately NOT merged into this one).
+ * separate defect shape, which `ReportExportEngine.ts`'s "Generated:" time
+ * carried until that card threaded a locale there, defaulting to this same
+ * constant).
  *
  * ⚠️ It is a local re-spelling of that literal, not an import of it:
  * `@object-ui/i18n` exports the HOOK but no constant for the tag inside it, and

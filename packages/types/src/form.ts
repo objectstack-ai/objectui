@@ -1437,6 +1437,12 @@ export interface FieldValidationRules {
   pattern?: { value: RegExp; message: string };
   /**
    * Custom validation function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because the form renderer
+   * spreads `validation` into react-hook-form's `rules` and keeps a supplied
+   * `validate` running beside its own `required` entry.
    * @param value - The field value to validate
    * @returns true if valid, false or error message if invalid
    */
@@ -1464,9 +1470,14 @@ export interface FieldCondition {
    */
   in?: any[];
   /**
-   * Custom condition function
+   * RETIRED (objectui#7759 group E, objectui#6124 shape, ADR-0049) — JSON has no
+   * function value, and nothing reads this key: the form renderer translates
+   * `condition` to CEL from `field` / `equals` / `notEquals` / `in` only, so a
+   * supplied function never ran. The zod twin refuses it by name; express the
+   * condition with those keys, or with the field's `visibleWhen` CEL predicate.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  custom?: (formData: any) => boolean;
+  custom?: never;
 }
 
 /**

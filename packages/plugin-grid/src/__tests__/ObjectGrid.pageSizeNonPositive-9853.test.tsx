@@ -53,12 +53,20 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
+import { PaginationConfigSchema } from '@objectstack/spec/ui';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider } from '@object-ui/react';
 
 registerAllFields();
+
+/**
+ * The display page size an undeclared grid falls back to — the protocol's,
+ * read the way the renderer reads it (objectui#9853, ruling C-prime). Before
+ * that ruling the flat fallback was a local ten.
+ */
+const DISPLAY_DEFAULT: number = PaginationConfigSchema.parse({}).pageSize;
 
 const OBJECT = 'duly_task';
 
@@ -143,8 +151,8 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
     });
 
     await vi.waitFor(() => expect(groupRows().length).toBeGreaterThan(0));
-    // Seven rows, seven distinct units, a default group page of ten: every
-    // group is on screen. Before this change `groups.slice(0, 0)` put NONE
+    // Seven rows, seven distinct units, a default group page larger than
+    // seven: every group is on screen. Before this change `groups.slice(0, 0)` put NONE
     // of them there.
     expect(
       groupRows().length,
@@ -258,7 +266,10 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
   //
   // The channel matters: the flat size is the table's live page size only when
   // `manualPaginationOn` is false, which is what inline `data` gives.
-  const INLINE_ROWS = Array.from({ length: 12 }, (_, i) => ({
+  //
+  // Thirty rows, so the display default leaves a second page and a refused
+  // value that slipped through would show a different count.
+  const INLINE_ROWS = Array.from({ length: 30 }, (_, i) => ({
     id: String(i + 1),
     name: `Row ${String(i + 1).padStart(2, '0')}`,
     status: 'open',
@@ -288,17 +299,19 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
   it('a negative page size does not reach the flat table', async () => {
     const { container } = renderInline({ pagination: { pageSize: -10 } });
     await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
-    // Twelve rows at the default ten: a full first page and a second one.
-    expect(bodyRows(container)).toHaveLength(10);
+    // Thirty rows at the display default: a full first page and a second one.
+    expect(bodyRows(container)).toHaveLength(DISPLAY_DEFAULT);
     expect(paginationWarnings().length).toBeGreaterThan(0);
   });
 
   it('a non-integer page size does not reach the flat table', async () => {
-    const { container } = renderInline({ pagination: { pageSize: 25.5 } });
+    // `12.5`, not the `25.5` this row used while the default was ten: a
+    // fractional size next to the new default would slice to the same count
+    // and stop telling the two spellings apart.
+    const { container } = renderInline({ pagination: { pageSize: 12.5 } });
     await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
-    // `25.5` is truthy, so the old spelling handed it to the table and every
-    // one of the twelve rows landed on a single page.
-    expect(bodyRows(container)).toHaveLength(10);
+    // `12.5` is truthy, so the old spelling handed it to the table.
+    expect(bodyRows(container)).toHaveLength(DISPLAY_DEFAULT);
     expect(paginationWarnings().length).toBeGreaterThan(0);
   });
 

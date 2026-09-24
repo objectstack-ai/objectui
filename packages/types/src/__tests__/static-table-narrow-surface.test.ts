@@ -381,10 +381,14 @@ describe('rich `TableColumn` — NOT narrowed by the split (ruling scope, object
   it('the rich zod column still accepts every interactive key it declares', () => {
     // `editable` included since objectui#5821: the rich ZOD mirror declares
     // it now, closing the drift the split had to leave tracked separately.
+    // `cell` excluded since objectui#7759 group E: it is a RUNTIME SLOT the
+    // rich mirror DECLARES and refuses by name (the objectui#6124 shape) — a
+    // function never passes the JSON validator; the TS member stays callable.
+    const { cell: _runtimeSlot, ...authorableKeys } = RETIRED_COLUMN_KEYS;
     const result = TableColumnSchema.safeParse({
       header: 'Amount',
       accessorKey: 'amount',
-      ...RETIRED_COLUMN_KEYS,
+      ...authorableKeys,
     });
     expect(result.success).toBe(true);
   });

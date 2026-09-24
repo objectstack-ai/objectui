@@ -154,7 +154,17 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **85 keys** across them — 46 / 83 until
+ *   - **49 entries** in `KnownDrift`, **90 keys** across them — 46 / 85 until
+ *     objectui#7759 group E turned the four bare `z.function()` arms into
+ *     `handlerKeyRefusal()` arms. THREE entries are NEW (`TableColumnSchema.cell`,
+ *     `FieldConstraintsSchema.validate`, and `FormFieldSchema.validation`, which
+ *     inherits that slot) and `DataTableSchema` gained two keys on its existing entry
+ *     (`renderCellEditor`, plus `columns`, inheriting `cell`) — +3 entries, +5 keys.
+ *     ⚠️ None of the five came out of an unmirrored ledger: each key was mirrored
+ *     before and after, and the move is the WIDER ledger's loss seen from the other
+ *     side — read it beside that bullet below. The retired fourth key,
+ *     `FieldConditionSchema.custom`, is `never` on both faces and joins nothing.
+ *     It was 46 / 83 until
  *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
  *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
  *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
@@ -395,8 +405,16 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **17 entries** in `WiderThanDeclared`, **26 keys** across them, and **30 arms**
- *     under those keys — split **5** SCHEMA-NODE, **21** CONCRETE, **0** MIXED, **4** unions.
+ *   - **12 entries** in `WiderThanDeclared`, **18 keys** across them, and **22 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **13** CONCRETE, **0** MIXED, **4** unions.
+ *     It read 17 / 26 / 30 — 5 / 21 / 0 / 4 — until objectui#7759 group E replaced the
+ *     four bare `z.function()` arms (`renderCellEditor`, `cell`, `validate`, `custom`)
+ *     with `handlerKeyRefusal()`. EIGHT keys left, one CONCRETE arm each, and five whole
+ *     entries with them. ⚠️ Only four of the eight were the class the card named: the
+ *     other four (`DataTableSchema::columns`, `FormFieldSchema::validation`,
+ *     `FormFieldSchema::condition`, `FormSchema::fields`) read wider ONLY through the
+ *     function arm nested under them, and resolved clean once it went — measured, not
+ *     reclassified. None of the eight was a union, so `unions` did not move.
  *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10280 (objectui#7759 group B)
  *     emptied two entries: `form.zod.ts#SliderSchema` (`defaultValue` by widening the
  *     declaration to the single-or-list the renderer normalizes, `value` by retiring it on
@@ -574,7 +592,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 49 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1952,7 +1970,14 @@ interface KnownDrift {
   'data-display.zod.ts#DataTableSchema':
     | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
     | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
-    | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
+    | 'onRowActionDef' | 'onRowClick' | 'onRowSave'
+    // objectui#7759 group E — `renderCellEditor` is a RUNTIME SLOT in the
+    // objectui#6124 shape (`data-table` reads `schema.renderCellEditor` and calls
+    // it; `ObjectGrid` supplies it). `columns` is inherited ELEMENT drift: the
+    // element's `cell` is the same class, one level down (`TableColumnSchema`).
+    | 'renderCellEditor' | 'columns';
+  /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`, `ObjectGrid` and `VirtualGrid` call `col.cell(value, row)`. */
+  'data-display.zod.ts#TableColumnSchema': 'cell';
   /**
    * RUNTIME SLOT (objectui#6124), arrived with objectui#7804's `TreeViewSchema`
    * slice — a NEW entry here, not growth on an existing one, because
@@ -2020,8 +2045,12 @@ interface KnownDrift {
   'form.zod.ts#CommandSchema': 'groups';
   /** RUNTIME SLOT (objectui#6124): the `date-picker` renderer calls `props.onChange(date)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#DatePickerSchema': 'onChange';
+  /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form renderer spreads `validation` into react-hook-form's `rules` and keeps a supplied `validate` running. */
+  'form.zod.ts#FieldConstraintsSchema': 'validate';
   /** RUNTIME SLOT (objectui#6124): the `file-upload` renderer calls `props.onChange(files)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#FileUploadSchema': 'onChange';
+  /** Inherited drift: `validation` is `FieldConstraintsSchema`, whose `validate` is the runtime slot in its own entry. (`condition`'s `custom` is RETIRED on both faces, so it measures clean.) */
+  'form.zod.ts#FormFieldSchema': 'validation';
   /**
    * `mode` — DISJOINT: TS `disabled|read|edit`, mirror `create|edit|view`. `fields` is
    * inherited element drift. (`validationMode` was a third drifted key until
@@ -3056,36 +3085,32 @@ interface WiderThanDeclared {
   'complex.zod.ts#FilterBuilderSchema': 'fields';
   /** CONCRETE: the mirror's operator enum and the declared operator union are not the same set; also in `KnownDrift`. */
   'complex.zod.ts#FilterFieldSchema': 'operators';
-  /**
-   * CONCRETE. `columns` compares an inline element shape against the named
-   * `TableColumn`; `renderCellEditor` is the FUNCTION-SLOT class — zod 4 gives
-   * `z.function()` an opaque input brand that no concrete signature equals, so the
-   * mirror accepts any callable where the declaration states one signature.
-   */
-  'data-display.zod.ts#DataTableSchema': 'columns' | 'renderCellEditor';
-  /**
-   * FUNCTION-SLOT. ⚠️ Not the key objectui#5853 closed: that card was `type`,
-   * the interface's literal set against a bare `z.string()` on the mirror, and it
-   * is absent here because the repair landed. `cell` is the same pair, a different
-   * key and a different class.
-   */
-  'data-display.zod.ts#TableColumnSchema': 'cell';
+  // ⭐ The FUNCTION-SLOT class (objectui#7759 group E) is GONE from this ledger:
+  // `DataTableSchema.renderCellEditor`, `TableColumnSchema.cell`,
+  // `FieldConstraintsSchema.validate` and `FieldConditionSchema.custom` were bare
+  // `z.function()` arms — zod 4 gives those an opaque input brand no concrete
+  // signature equals, so the mirror accepted ANY callable. They are now
+  // `handlerKeyRefusal()` arms (the objectui#6124 shape), whose `z.input` is
+  // `undefined`, and the three runtime slots among them moved to `KnownDrift`
+  // above. ⚠️ Four OTHER rows left with them, and the measurement — not this
+  // note — is why: `DataTableSchema.columns`, `FormFieldSchema.validation`,
+  // `FormFieldSchema.condition` and `FormSchema.fields` each read wider ONLY
+  // because of the function arm nested beneath them; once it went, `WiderOf`
+  // resolved to `never` on the first three pairs and dropped `fields` on the
+  // fourth. ⛔ Do not re-add them for the class labels they carried (F,
+  // "inline shape against a named declaration"; D, "disjoint") — a row this
+  // ledger records must be a measured widening.
   /** CONCRETE and DISJOINT — the mirror admits a string, the declaration a list of dates; also in `KnownDrift`. */
   'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
-  /** FUNCTION-SLOT. */
-  'form.zod.ts#FieldConditionSchema': 'custom';
-  /** FUNCTION-SLOT. */
-  'form.zod.ts#FieldConstraintsSchema': 'validate';
-  /** CONCRETE: `validation` compares an inline shape against the named declaration; `condition` carries a FUNCTION-SLOT one level down. */
-  'form.zod.ts#FormFieldSchema': 'validation' | 'condition';
   /**
    * CONCRETE. `layout` is the clearest single instance in this ledger: the mirror
    * is `z.enum(['vertical', 'horizontal', 'grid'])` and the declaration states the
-   * first two, so the third spelling parses green and `tsc` refuses it. `fields`
-   * and `mode` are the disjoint pair objectui#5927 left in `KnownDrift` — measured
-   * here from the other side.
+   * first two, so the third spelling parses green and `tsc` refuses it. `mode` is
+   * the disjoint key objectui#5927 left in `KnownDrift` — measured here from the
+   * other side. (`fields` left under objectui#7759 group E: its wider reading was
+   * the nested `z.function()` arms of `FormFieldSchema`, not the element shape.)
    */
-  'form.zod.ts#FormSchema': 'layout' | 'fields' | 'mode';
+  'form.zod.ts#FormSchema': 'layout' | 'mode';
   // `form.zod.ts#SliderSchema` recorded `defaultValue` and `value` here (CONCRETE, the class
   // objectui#7069 was filed for: a single-or-list mirror against a list-only declaration).
   // objectui#10280 (objectui#7759 group B) resolved both by the read site, per the director's
@@ -3255,17 +3280,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],
   'complex.zod.ts#FilterBuilderSchema::fields': ['CONCRETE'],
   'complex.zod.ts#FilterFieldSchema::operators': ['CONCRETE'],
-  'data-display.zod.ts#DataTableSchema::columns': ['CONCRETE'],
-  'data-display.zod.ts#DataTableSchema::renderCellEditor': ['CONCRETE'],
-  'data-display.zod.ts#TableColumnSchema::cell': ['CONCRETE'],
   'form.zod.ts#CalendarSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#CalendarSchema::value': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#FieldConditionSchema::custom': ['CONCRETE'],
-  'form.zod.ts#FieldConstraintsSchema::validate': ['CONCRETE'],
-  'form.zod.ts#FormFieldSchema::validation': ['CONCRETE'],
-  'form.zod.ts#FormFieldSchema::condition': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
-  'form.zod.ts#FormSchema::fields': ['CONCRETE'],
   'form.zod.ts#FormSchema::mode': ['CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],

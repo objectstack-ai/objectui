@@ -585,6 +585,11 @@ export interface TableColumn {
   editable?: boolean;
   /**
    * Custom cell renderer function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * calls `col.cell(cellValue, row)` (as do `ObjectGrid` and `VirtualGrid`).
    */
   cell?: (value: any, row: any) => any;
   /**
@@ -1286,6 +1291,11 @@ export interface DataTableSchema extends BaseSchema {
   singleClickEdit?: boolean;
   /**
    * Host-supplied cell editor for inline editing (objectui#6882).
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * reads `schema.renderCellEditor` and calls it; `ObjectGrid` supplies it.
    *
    * When a cell enters edit mode the table calls this FIRST and renders what it
    * returns; returning `null` means "no widget for this column" and the table

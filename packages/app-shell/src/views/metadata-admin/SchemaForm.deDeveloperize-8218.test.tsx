@@ -9,7 +9,9 @@
  * surface. These pin the three that are mechanically checkable from the
  * rendered output:
  *
- *   1. the machine-name chip's tooltip is translated, in both locales;
+ *   1. the machine-name chip's tooltip is translated, in both locales (and,
+ *      since objectui#8231, WHEN the chip shows is judged on the source label,
+ *      alike in both locales);
  *   2. a master-detail column whose item schema carries no `title` gets a
  *      humanised header instead of the raw JSON Schema key;
  *   3. a numeric field grays its schema `default` in as a PLACEHOLDER and
@@ -34,6 +36,7 @@ import { render, cleanup, screen } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaForm } from './SchemaForm';
 import { t } from './i18n';
+import { localizeMetadataForm } from './metadata-form-i18n';
 
 afterEach(cleanup);
 
@@ -47,37 +50,97 @@ function renderIn(language: 'en' | 'zh', ui: React.ReactElement) {
 
 /* ── 1. machine-name chip tooltip ─────────────────────────────────────────── */
 
-// The chip renders only when the visible label does NOT already spell the
-// machine name — which, under a localized panel, is EVERY field: `prettify
-// ('columns')` can never equal 「列数」. That is exactly the shape #8218 hit.
-const COLUMNS_SCHEMA = {
+// REWRITTEN by objectui#8231 — read this before "restoring" the old fixture.
+//
+// This block used to hand `SchemaForm` a field already labelled 「列数」 and
+// read the chip beside `columns`, with the comment: "The chip renders only
+// when the visible label does NOT already spell the machine name — which,
+// under a localized panel, is EVERY field". That was the DEFECT, used as the
+// fixture's mechanism: the chip's predicate compared `prettify(name)` with
+// the TRANSLATED label, so a localized panel showed it beside every field and
+// an English one hid it beside the same fields. objectui#8231 (ruling 1,
+// comment 5749674288) moved the predicate onto the untranslated SOURCE label,
+// which the locale overlay now carries alongside its translation. After that
+// fix the old fixture would still render a chip, but only because a
+// hand-written 「列数」 never went through the overlay and so reads as its own
+// source: it would pin nothing about when the chip shows.
+//
+// So the fixture now goes through the real overlay (`localizeMetadataForm`),
+// and the pin asserts the locale-independent predicate itself: the chip is
+// ABSENT beside `gap`, whose source label is absent and so humanizes to its
+// own name, and PRESENT beside `columns`, whose source label ("Grid width")
+// does not spell it, in BOTH locales. The tooltip assertions ride on the
+// chip that is present.
+const CHIP_SCHEMA = {
   type: 'object',
-  properties: { columns: { type: 'integer', minimum: 1, maximum: 24 } },
+  properties: {
+    columns: { type: 'integer', minimum: 1, maximum: 24 },
+    gap: { type: 'integer' },
+  },
 } as never;
 
-const COLUMNS_FORM = {
+const CHIP_SOURCE_FORM = {
   type: 'simple',
-  sections: [{ label: 'Layout', fields: [{ field: 'columns', type: 'number', label: '列数' }] }],
-} as never;
+  sections: [
+    {
+      label: 'Layout',
+      fields: [
+        { field: 'columns', type: 'number', label: 'Grid width' },
+        { field: 'gap', type: 'number' },
+      ],
+    },
+  ],
+};
+
+function chipForm(language: 'en' | 'zh') {
+  return localizeMetadataForm(CHIP_SOURCE_FORM, 'dashboard', language) as never;
+}
+
+function renderChipForm(language: 'en' | 'zh') {
+  return renderIn(
+    language,
+    <SchemaForm schema={CHIP_SCHEMA} form={chipForm(language)} value={{}} onChange={() => {}} />,
+  );
+}
 
 describe('#8218 · machine-name chip tooltip is translated', () => {
   it('reads Chinese under a Chinese provider', () => {
-    renderIn('zh', <SchemaForm schema={COLUMNS_SCHEMA} form={COLUMNS_FORM} value={{}} onChange={() => {}} />);
+    renderChipForm('zh');
+    // The overlay really translated the label — otherwise this pins nothing.
+    expect(screen.getByText('列数')).toBeTruthy();
     const chip = screen.getByText('columns');
     expect(chip.tagName).toBe('CODE');
     expect(chip).toHaveAttribute('title', '机器名');
   });
 
   it('reads English under an English provider', () => {
-    renderIn('en', <SchemaForm schema={COLUMNS_SCHEMA} form={COLUMNS_FORM} value={{}} onChange={() => {}} />);
+    renderChipForm('en');
     expect(screen.getByText('columns')).toHaveAttribute('title', 'Machine name');
   });
 
   it('never emits the untranslated literal in the Chinese panel', () => {
-    renderIn('zh', <SchemaForm schema={COLUMNS_SCHEMA} form={COLUMNS_FORM} value={{}} onChange={() => {}} />);
+    renderChipForm('zh');
     expect(document.body.innerHTML).not.toContain('Machine name');
   });
+
+  it.each(['en', 'zh'] as const)(
+    'judges the SOURCE label, not the translation, under %s (objectui#8231)',
+    (language) => {
+      renderChipForm(language);
+      // `gap` has no source label: its English label IS the humanized name.
+      expect(screen.queryByText('gap')).toBeNull();
+      // `columns` is sourced as "Grid width", which does not spell it.
+      expect(screen.getByText('columns').tagName).toBe('CODE');
+    },
+  );
 });
+
+// Section 3 below reuses this: a field hand-labelled 「列数」 that bypasses the
+// overlay. It reads the numeric control, never the chip.
+const COLUMNS_FORM = {
+  type: 'simple',
+  sections: [{ label: 'Layout', fields: [{ field: 'columns', type: 'number', label: '列数' }] }],
+} as never;
 
 /* ── 2. master-detail headers ─────────────────────────────────────────────── */
 

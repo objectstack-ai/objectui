@@ -108,26 +108,30 @@
  * `label || description`) because the SAME gate decides the ADR-0089
  * `visibleWhen` row and the objectui#6236 membership claim that gates the whole
  * group, plus the `collapsed` / `collapsible` pair whose "an untitled bucket is
- * never collapsible" rule it implements. ⇒ the member gets a BLURB-ONLY row
- * that carries nothing else, and rows 7-9 pin each half of "nothing else"
- * SEPARATELY, because one assertion that "something rendered" would be
- * satisfied by the widened gate the ruling refused:
+ * never collapsible" rule it implements. ⇒ the member got a BLURB-ONLY row
+ * that carried nothing else. objectui#9849's director ruling (letter E) then
+ * separated the two questions that gate had fused: the row stays the
+ * blurb-only row, and the group's predicate, membership claim and collapse
+ * pair attach to the GROUP whether or not it yields a heading. Rows 7-9 pin
+ * each half separately:
  *
  * - Row 7 — the blurb IS rendered, and NO divider heading comes with it. This
  *   is the row that FLIPPED: it recorded the drop as behaviour until this card
  *   (`blurbs` asserted `[]`), exactly as row 6 recorded its own drop before
  *   objectui#9779 fixed it. Its `headings` half did NOT flip — no heading is
  *   authored, so none is drawn, before and after.
- * - Row 8 — no COLLAPSE control, and `collapsed: true` does not take the
- *   member's fields out of the DOM. The live control is the same section with
- *   a `label` added: it draws the control and loses its fields, so row 8's two
- *   negatives are readings on a lit instrument.
- * - Row 9 — no PREDICATE. An authored `visibleWhen` on such a member gates
- *   nothing: blurb and fields both stay. Two live controls, same predicate
- *   text and same host scope — the titled twin under the DENYING scope loses
- *   heading, blurb and field, and under the ADMITTING scope gets all three
- *   back, so "ungated" is measured against an instrument that both hides and
- *   shows.
+ * - Rows 8-9 FLIPPED with objectui#9849 step two (director ruling letter E,
+ *   maintainer 「同意」): 「Group-level semantics are independent of the
+ *   heading … ⛔ A headingless group is never un-gated」 and 「The collapse
+ *   control lives on the row」. The blurb-only row is still the row letter B
+ *   gave this member — no heading, just the blurb — but it now carries the
+ *   group's semantics like every other row:
+ * - Row 8 — the blurb-only row IS the collapse control: `collapsed: true`
+ *   takes the member's fields out of the DOM and the row hands them back.
+ *   The absence control is the same member declaring neither key.
+ * - Row 9 — the group's PREDICATE gates it: under the DENYING scope the blurb
+ *   and the claimed member both go, under the ADMITTING scope both come back,
+ *   so "gated" is measured against an instrument that both hides and shows.
  *
  * ⭐ Row 10 is the CROSS-ARM guard the ruling implies but no single-arm pin can
  * hold: the four arms that already rendered this member's blurb must still
@@ -139,7 +143,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { PredicateScopeProvider } from '@object-ui/react';
 import { registerAllFields } from '@object-ui/fields';
@@ -413,88 +417,56 @@ describe('`object-form` — the member shape of `sections`', () => {
     ).toEqual(['Money']);
   });
 
-  it('8. the blurb-only row carries NO collapse: no control, and `collapsed` does not take the fields away', async () => {
-    // Half of "nothing else". The collapse pair is one of the three semantics
-    // letter A would have moved: a widened gate would have made this member's
-    // `collapsed: true` hide its fields, with `collapsible` deciding whether
-    // any control existed to bring them back. The ruling forbids that, so the
-    // blurb-only row copies neither key and the collapse branch below the
-    // pushes stays keyed on the heading.
+  it('8. the blurb-only row carries the collapse control: `collapsed` closes the group and the row reopens it (objectui#9849, ruling E)', async () => {
+    // ⚠️ FLIPPED by objectui#9849 step two. Until it, this row pinned letter
+    // B's 「the blurb-only row carries nothing else」: no control, and
+    // `collapsed` ignored. Director ruling letter E moved the collapse pair
+    // onto the GROUP on every arm, with the control on whatever row the group
+    // yields — and a blurb is a row.
     const headless = await mount({
       sections: [
         { description: 'Totals as invoiced', fields: ['amount'], collapsed: true, collapsible: true },
       ],
     });
-    expect(
-      collapseControls(headless),
-      '⛔ no disclosure affordance is drawn for a headingless member, even though it authored ' +
-        '`collapsible: true`',
-    ).toBe(0);
-    expect(
-      drawnFields(headless),
-      '⛔ …and its authored `collapsed: true` does NOT take the member out of the DOM — with no ' +
-        'control, that would be an unreachable field',
-    ).toEqual(['amount']);
-    expect(blurbs(headless), 'the blurb itself is unaffected').toEqual(['Totals as invoiced']);
-
-    // The lit control, same instrument, same corpus, same two members: add a
-    // `label` and BOTH negatives above turn positive — a control appears and
-    // the fields go away. So row 8 measures a difference, ⛔ not an inability.
-    cleanup();
-    const titled = await mount({
-      sections: [
-        { label: 'Money', description: 'Totals as invoiced', fields: ['amount'], collapsed: true, collapsible: true },
-      ],
+    expect(headings(headless), 'still no heading — the row is the blurb-only row').toEqual([]);
+    expect(blurbs(headless), 'the live control: the row itself is drawn').toEqual(['Totals as invoiced']);
+    expect(collapseControls(headless), 'the blurb-only row is the disclosure control').toBe(1);
+    expect(drawnFields(headless), '`collapsed: true` takes the member out of the DOM').toEqual([]);
+    fireEvent.click(headless.querySelector('[role="button"]') as HTMLElement);
+    await waitFor(() => {
+      expect(drawnFields(headless), 'and the control on the row hands it back').toEqual(['amount']);
     });
-    expect(collapseControls(titled), 'the lit control: a heading makes the row a control').toBe(1);
-    expect(drawnFields(titled), '…and `collapsed` then really does remove the fields').toEqual([]);
+
+    // The absence control, same instrument and corpus: declaring neither key
+    // draws no control and keeps the member — so the `1` above is a reading.
+    cleanup();
+    const plain = await mount({ sections: [{ description: 'Totals as invoiced', fields: ['amount'] }] });
+    expect(collapseControls(plain)).toBe(0);
+    expect(drawnFields(plain)).toEqual(['amount']);
   });
 
-  it('9. the blurb-only row carries NO predicate: an authored `visibleWhen` gates nothing', async () => {
-    // The other half of "nothing else", and the one with the sharpest edge:
-    // the ADR-0089 predicate on the divider row carries the objectui#6236
-    // membership claim, so on a TITLED member a false predicate removes the
-    // whole group. Letter A would have handed that power to a member the
-    // author never titled. The blurb-only row copies neither key, so the
-    // group is ungated — exactly as it was before this card.
-    const headless = await mountWithScope(
+  it('9. the blurb-only row carries the group predicate: a headingless group is never un-gated (objectui#9849, ruling E)', async () => {
+    // ⚠️ FLIPPED by objectui#9849 step two — ruling letter E item 1 refused
+    // exactly the un-gating this row used to pin (「B refused」). The
+    // predicate and the objectui#6236 membership claim ride the group whether
+    // or not it yields a heading.
+    const denied = await mountWithScope(
       { sections: [{ description: 'Totals as invoiced', fields: ['amount'], visibleWhen: GATE }] },
       hostScope(['sales']),
     );
-    expect(
-      drawnFields(headless),
-      '⛔ the DENYING scope does not hide this member: the blurb-only row carries no predicate ' +
-        'and no membership claim, so nothing gates the group',
-    ).toEqual(['amount']);
-    expect(blurbs(headless), '…and the blurb renders under the same scope').toEqual([
-      'Totals as invoiced',
-    ]);
+    expect(blurbs(denied), 'the DENYING scope hides the row').toEqual([]);
+    expect(drawnFields(denied), '…and the member it claims (objectui#6236)').toEqual([]);
 
-    // Live control #1 — the SAME predicate text and the SAME denying scope on
-    // the titled twin: heading, blurb and field all go. So the predicate is
-    // one this layout really evaluates, and row 9's positive is not a
-    // predicate that silently failed to arrive anywhere.
+    // The live control: the SAME predicate under the ADMITTING scope shows
+    // both — so the zeros above are a gate that evaluates, not one that hides
+    // unconditionally.
     cleanup();
-    const titledDenied = await mountWithScope(
-      { sections: [{ label: 'Money', description: 'Totals as invoiced', fields: ['amount'], visibleWhen: GATE }] },
-      hostScope(['sales']),
-    );
-    expect(headings(titledDenied), 'the lit control: the titled twin IS gated').toEqual([]);
-    expect(blurbs(titledDenied)).toEqual([]);
-    expect(drawnFields(titledDenied), '…including its claimed member (objectui#6236)').toEqual([]);
-
-    // Live control #2 — the same titled twin under the ADMITTING scope comes
-    // back. Without it, control #1 would also be satisfied by a gate that
-    // hides unconditionally.
-    cleanup();
-    const titledAllowed = await mountWithScope(
-      { sections: [{ label: 'Money', description: 'Totals as invoiced', fields: ['amount'], visibleWhen: GATE }] },
+    const allowed = await mountWithScope(
+      { sections: [{ description: 'Totals as invoiced', fields: ['amount'], visibleWhen: GATE }] },
       hostScope(['sales_manager']),
     );
-    expect(headings(titledAllowed), 'the same predicate, a scope it admits ⇒ shown again').toEqual([
-      'Money',
-    ]);
-    expect(drawnFields(titledAllowed)).toEqual(['amount']);
+    expect(blurbs(allowed)).toEqual(['Totals as invoiced']);
+    expect(drawnFields(allowed)).toEqual(['amount']);
   });
 
   it('10. cross-arm guard: the four arms that already rendered a headingless blurb still do', async () => {

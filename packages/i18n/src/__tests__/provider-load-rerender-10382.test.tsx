@@ -60,6 +60,7 @@ const LEAD = { name: 'crm_lead', label: 'Lead' };
 type I18nContextValue = ReturnType<typeof useI18nContext>;
 
 const renders = { label: 0, memo: 0, raw: 0, save: 0 };
+type Counted = keyof typeof renders;
 
 afterEach(() => {
   renders.label = 0;
@@ -68,9 +69,24 @@ afterEach(() => {
   renders.save = 0;
 });
 
-/** (a) The card's reader. */
-function LabelReader() {
-  renders.label += 1;
+/**
+ * `Profiler`'s commit callback, keyed by the profiler's `id`: how often each
+ * reader rendered, counted the way React reports it rather than by writing to
+ * module state from a render body.
+ */
+function countCommit(id: string) {
+  renders[id as Counted] += 1;
+}
+
+function Count({ id, children }: { id: Counted; children: React.ReactNode }) {
+  return (
+    <React.Profiler id={id} onRender={countCommit}>
+      {children}
+    </React.Profiler>
+  );
+}
+
+function LabelText() {
   const { objectLabel, fieldLabel } = useObjectLabel();
   return (
     <>
@@ -80,26 +96,56 @@ function LabelReader() {
   );
 }
 
-/** (a) A reader that memoises on the resolver, as `ObjectDataTable`'s column memo does. */
-function MemoReader() {
-  renders.memo += 1;
+/** (a) The card's reader. */
+function LabelReader() {
+  return (
+    <Count id="label">
+      <LabelText />
+    </Count>
+  );
+}
+
+function MemoText() {
   const { objectLabel } = useObjectLabel();
   const text = useMemo(() => objectLabel(LEAD), [objectLabel]);
   return <span data-testid="memo">{text}</span>;
 }
 
-/** (b) A raw `t()` reader. */
-function RawReader() {
-  renders.raw += 1;
+/** (a) A reader that memoises on the resolver, as `ObjectDataTable`'s column memo does. */
+function MemoReader() {
+  return (
+    <Count id="memo">
+      <MemoText />
+    </Count>
+  );
+}
+
+function RawText() {
   const { t } = useObjectTranslation();
   return <span data-testid="raw">{t('app.objects.crm_lead.label', { defaultValue: 'Lead' })}</span>;
 }
 
-/** A built-in key, for the catalogue path. */
-function SaveReader() {
-  renders.save += 1;
+/** (b) A raw `t()` reader. */
+function RawReader() {
+  return (
+    <Count id="raw">
+      <RawText />
+    </Count>
+  );
+}
+
+function SaveText() {
   const { t } = useObjectTranslation();
   return <span data-testid="save">{t('common.save')}</span>;
+}
+
+/** A built-in key, for the catalogue path. */
+function SaveReader() {
+  return (
+    <Count id="save">
+      <SaveText />
+    </Count>
+  );
 }
 
 /** Hands the test the provider's own context, so a switch goes through `changeLanguage` as a switcher's does. */

@@ -78,6 +78,37 @@ describe('FlowRunsPanel (render)', () => {
     expect(screen.getAllByText('charge')).toHaveLength(2);
   });
 
+  // objectui#7614: since objectstack#14414 a branch step of a `parallel` inside
+  // a loop body carries the branch on `branch` and the row on `iteration`. The
+  // two branches of one row must get two headers; a key on `iteration` merged
+  // them under one header numbered by the row.
+  it('gives each parallel branch inside a loop row its own header, naming branch and row', async () => {
+    const LOOP_PARALLEL_RUN = {
+      id: 'run_loop_par_01',
+      status: 'completed',
+      startedAt: '2026-07-04T13:51:13.000Z',
+      durationMs: 30,
+      trigger: { type: 'manual' },
+      steps: [
+        { nodeId: 'each_order', nodeType: 'loop', status: 'success' },
+        { nodeId: 'fan_out', nodeType: 'parallel', status: 'success', parentNodeId: 'each_order', iteration: 0, regionKind: 'loop-body' },
+        { nodeId: 'charge', nodeType: 'http', status: 'success', parentNodeId: 'fan_out', iteration: 0, branch: 0, regionKind: 'parallel-branch' },
+        { nodeId: 'notify', nodeType: 'http', status: 'success', parentNodeId: 'fan_out', iteration: 0, branch: 1, regionKind: 'parallel-branch' },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ success: true, data: { runs: [LOOP_PARALLEL_RUN] } }), { status: 200 })),
+    );
+
+    render(<FlowRunsPanel flowName="charge_orders" />);
+    fireEvent.click(await screen.findByRole('button', { expanded: false }));
+
+    expect(await screen.findByText('Iteration 1')).toBeTruthy();
+    expect(screen.getByText('Branch 1 · Iteration 1')).toBeTruthy();
+    expect(screen.getByText('Branch 2 · Iteration 1')).toBeTruthy();
+  });
+
   // #3407: a step that legally stripped a write (readonly / readonlyWhen) is
   // reported by the engine as `success` + a step `warnings[]`. The panel must
   // surface the warning text — the whole point of the fix is that the dropped

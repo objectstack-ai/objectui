@@ -22,7 +22,8 @@
  *     faces (ADR-0049, a named refusal rather than a deletion: `BaseSchema` is
  *     `.passthrough()`, and an undeclared key would be KEPT, not refused).
  *   - `TooltipSchema.content` — placed RAW in a React child position, so a list
- *     failed to render; the MIRROR narrows to the declaration.
+ *     failed to render; the MIRROR narrows to the declaration. (objectui#10295
+ *     then narrowed BOTH faces to text, for the same reason on the node arm.)
  *
  * Each block below reddens when its change is reverted. The type-level legs are
  * read by `tsc -p tsconfig.test.json` (this package's `type-check`), the runtime
@@ -121,17 +122,19 @@ describe('objectui#10280 — `TooltipSchema.content` refuses a list', () => {
     expect(issuesAt(result, 'content').length).toBeGreaterThan(0);
   });
 
-  it('still accepts every arm the declaration states', () => {
+  it('still accepts the text arm', () => {
+    // objectui#10295 narrowed `content` further, to text: the single-node arm this
+    // block used to accept failed at the same raw read. That refusal is pinned in
+    // `tooltip-content-is-text-10295.test.ts`.
     expect(TooltipZod.safeParse({ type: 'tooltip', content: 'Helpful information' }).success).toBe(true);
-    expect(TooltipZod.safeParse({ type: 'tooltip', content: NODE }).success).toBe(true);
   });
 
   it('the list spelling is still legal where the renderer renders one — under `children`', () => {
     expect(TooltipZod.safeParse({ type: 'tooltip', children: [NODE, NODE] }).success).toBe(true);
   });
 
-  it('the declaration is unchanged and refuses the list too', () => {
-    // @ts-expect-error objectui#10280 — `content` is `string | SchemaNode`, not a list
+  it('the declaration refuses the list too', () => {
+    // @ts-expect-error objectui#10280 — `content` is text (objectui#10295), not a list
     const refused: TooltipSchema = { type: 'tooltip', content: [NODE] };
     const accepted: TooltipSchema = { type: 'tooltip', content: 'x' };
 

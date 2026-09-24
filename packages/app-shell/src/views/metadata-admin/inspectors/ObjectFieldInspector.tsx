@@ -276,6 +276,22 @@ function isNumeric(type: string): boolean {
   return type === 'number' || type === 'currency' || type === 'percent';
 }
 
+/**
+ * Whether the numeric section offers a `scale` (decimal places) control.
+ *
+ * Every numeric type but `currency` (objectui#10221). `scale` is retired from
+ * the currency type (ruling B on objectstack-ai/objectstack#19629), and ruling
+ * 乙 on objectstack-ai/objectstack#19910 is that a currency's decimal places are
+ * the currency's ISO 4217 minor unit, not a setting — so no display face reads
+ * `scale` on a currency and a control for it would only write a key nothing
+ * honours. `precision` stays offered on currency: it is the field-level TOTAL
+ * digit count of the stored decimal, not a decimal-places knob, and this
+ * section writes it as that top-level key.
+ */
+function offersScale(type: string): boolean {
+  return isNumeric(type) && type !== 'currency';
+}
+
 function isTexty(type: string): boolean {
   return type === 'text' || type === 'textarea' || type === 'email' || type === 'url' || type === 'phone' || type === 'password';
 }
@@ -903,12 +919,14 @@ export function ObjectFieldInspector({
                 onCommit={(v) => patchDef({ precision: v })}
                 disabled={readOnly}
               />
-              <InspectorNumberField
-                label={tr('designer.field.scale')}
-                value={typeof def.scale === 'number' ? (def.scale as number) : undefined}
-                onCommit={(v) => patchDef({ scale: v })}
-                disabled={readOnly}
-              />
+              {offersScale(type) && (
+                <InspectorNumberField
+                  label={tr('designer.field.scale')}
+                  value={typeof def.scale === 'number' ? (def.scale as number) : undefined}
+                  onCommit={(v) => patchDef({ scale: v })}
+                  disabled={readOnly}
+                />
+              )}
               <InspectorNumberField
                 label={tr('designer.field.min')}
                 value={typeof def.min === 'number' ? (def.min as number) : undefined}

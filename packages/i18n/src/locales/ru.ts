@@ -2932,6 +2932,31 @@ const ru = {
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "Задайте вопрос о своих данных…",
+      ask: "Спросить",
+      results: "Результаты",
+      match: "Совпадение: {{percent}}",
+      simulatedSummary: "Результаты по запросу: {{query}}",
+      noResults: "Подходящие записи не найдены",
+      recentQueries: "Недавние запросы",
+    },
+    formAssist: {
+      title: "Предложения ИИ",
+      suggestionCount: "Предложений: {{count}}",
+      suggestionCountOne: "{{count}} предложение",
+      applyAll: "Применить все",
+      confidence: "Уверенность: {{percent}}",
+      appliedCount: "Применено предложений: {{count}}",
+      appliedCountOne: "Применено {{count}} предложение",
+    },
+    recommendations: {
+      title: "Рекомендации",
+      generating: "Формирование рекомендаций…",
+      empty: "Нет доступных рекомендаций",
+    },
+  },
   aiApprovals: {
     title: "Согласования ИИ",
     description: "Действия, предложенные ИИ-агентом: перед выполнением их должен проверить человек.",

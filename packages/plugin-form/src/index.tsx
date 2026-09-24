@@ -310,7 +310,15 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
   // nothing to bind it to, rendering a field-less shell. That is the
   // objectstack#4413 shape; `public-block-binding-reach.test.tsx` is what
   // catches it now.
-  const ctx = useContext(SchemaRendererContext as React.Context<any>);
+  //
+  // Read AS DECLARED (objectui#7209): no cast between the hook and the value, so
+  // a member `SchemaRendererContextType` does not declare is a compile error
+  // here rather than a silent `undefined` — pinned for both readers in this
+  // file by `schemaRendererContextRead-7209.test.ts`. The declared `null` (no
+  // adapter bound) collapses to the one absence `EmbeddableForm`'s optional
+  // prop declares, exactly as `MasterDetailFormRenderer` below already does.
+  const ctx = useContext(SchemaRendererContext);
+  const dataSource = ctx?.dataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). Same
   // standing, and the same single mapped key, as `object-form` above:
   // `EmbeddableForm` reads `config.objectName` to fetch the object's fields and
@@ -325,11 +333,11 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
   return (
     <ElementDataSourceGate
       schema={schema}
-      dataSource={ctx?.dataSource}
+      dataSource={dataSource}
       testId="embeddable-form"
       errorTitle="This form’s data source could not be resolved"
     >
-      {(bound) => <EmbeddableForm config={bound} dataSource={ctx?.dataSource} />}
+      {(bound) => <EmbeddableForm config={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
   );
 });
@@ -371,7 +379,7 @@ ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
 import { MasterDetailForm } from './MasterDetailForm';
 
 const MasterDetailFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
-  const ctx = useContext(SchemaRendererContext as React.Context<any>);
+  const ctx = useContext(SchemaRendererContext);
   const dataSource = ctx?.dataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121).
   // `schema.objectName` is the PARENT object here, and everything downstream is

@@ -85,7 +85,7 @@
  *   the compact cell face                    green  green  green
  *   midnight spelled as an instant           green  green  green
  *   out-of-range month / unparsable          green  green  green
- *   the rolled impossible day                 RED   green  green
+ *   the rolled impossible day (see below)     RED   green  green
  *   a two-digit year                          RED   green   RED
  *
  * ⭐ Column B is the reason the east zones are driven at all. The noon shift
@@ -102,6 +102,11 @@
  * case is a control rather than a repeat. And the two-digit-year case was
  * predicted to move under C alone; it also reds under A, because its `Aug 1`
  * half shifts with every other date-only face. It is still C's only red.
+ *
+ * ⚠️ One row above was measured against an assertion that no longer exists.
+ * "the rolled impossible day" pinned the ROLL (`2026-02-30` as March 2nd);
+ * objectui#10026 rewrote that case to pin the REFUSAL instead, so its A/B/C
+ * column is a historical reading of the old case, not of the case below.
  */
 import { execFileSync } from 'node:child_process';
 
@@ -170,7 +175,7 @@ process.stdout.write(JSON.stringify({
   midnightSpelledAsInstant: m.formatDate('2026-08-01T00:00:00.000Z', undefined, { locale: EN }),
   outOfRangeMonth: m.formatDate('2026-13-01', undefined, { locale: EN }),
   unparsable: m.formatDate('not-a-date', undefined, { locale: EN }),
-  rolledOverDay: m.formatDate('2026-02-30', undefined, { locale: EN }),
+  impossibleDay: m.formatDate('2026-02-30', undefined, { locale: EN }),
   twoDigitYear: m.formatDate('0026-08-01', undefined, { locale: EN }),
   // objectui#10183: the parse step itself, now exported — read with the LOCAL
   // getters its doc comment names.
@@ -317,20 +322,23 @@ describe('the exported parse step (objectui#10183)', () => {
   });
 });
 
-describe('what the shared display path accepts is unchanged (objectui#10110)', () => {
+describe('what the shared display path accepts is unchanged by the zone repair (objectui#10110)', () => {
   it('still dashes an out-of-range month and an unparsable value, in either direction', () => {
     expect(readIn(WEST).outOfRangeMonth).toBe('—');
     expect(readIn(EAST).outOfRangeMonth).toBe('—');
     expect(readIn(WEST).unparsable).toBe('—');
   });
 
-  it('still ROLLS a well-shaped impossible day, and now rolls to the same day everywhere', () => {
-    // `2026-02-30` is parseable and renders as March 2nd — pinned by the date
-    // suite next door, which reads it as agreeing with the list cell rather
-    // than second-guessing the stored value. West of UTC it used to roll onto
-    // March 1st instead, the same off-by-one this card is about.
-    expect(readIn(WEST).rolledOverDay).toBe('Mar 2');
-    expect(readIn(EAST).rolledOverDay).toBe('Mar 2');
+  it('refuses a well-shaped impossible day with the unparsable dash, in every zone (objectui#10026)', () => {
+    // This case pinned the ROLL until objectui#10026: `2026-02-30` parses and
+    // rendered March 2nd (March 1st west of UTC before this card's repair).
+    // The maintainer's ruling on #10026 made the shared path refuse it with
+    // the dash it renders for an unparsable value, so the refusal is what
+    // must agree across zones now. `impossibleDay-10026` beside this file owns
+    // the refusal itself; this case keeps the zone half of it.
+    expect(readIn(WEST).impossibleDay).toBe(readIn(WEST).unparsable);
+    expect(readIn(EAST).impossibleDay).toBe(readIn(EAST).unparsable);
+    expect(readIn(WEST).impossibleDay).toBe('—');
   });
 
   it('keeps a two-digit year out of the 1900s', () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Input, EmptyValue } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { formatDate } from '@object-ui/core';
+import { formatDate, toDisplayDate } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { openNativePicker } from './openNativePicker.js';
@@ -53,14 +53,16 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
     // this face to the raw string would REVERSE that documented, pinned
     // choice -- a maintainer-level call, not this one's.
     //
-    // Co-extensive with the dash it replaces, never wider: `new Date(value)`
-    // reproduces `formatDate`'s own parse step, so this branch answers
-    // exactly the values the shared function answers with a dash for being
-    // UNREADABLE, while the falsy guard just below still owns every value it
-    // answers with a dash for being EMPTY.
+    // Co-extensive with the dash it replaces, never wider: `toDisplayDate` IS
+    // `formatDate`'s own parse step, so this branch answers exactly the
+    // values the shared function answers with a dash for being UNREADABLE,
+    // while the falsy guard just below still owns every value it answers with
+    // a dash for being EMPTY. It read `new Date(value)` until objectui#10026
+    // made that step refuse a date-only nonexistent day (`2026-02-30`), which
+    // the engine's parse accepts — so the old spelling let exactly that input
+    // through to the bare dash this branch exists to replace.
     if (!value) return <EmptyValue />;
-    const date = new Date(value as unknown as string);
-    if (isNaN(date.getTime())) return <EmptyValue />;
+    if (isNaN(toDisplayDate(value as unknown as string).getTime())) return <EmptyValue />;
     return <span className="text-sm">{formatDate(value, undefined, { locale })}</span>;
   }
 

@@ -27,7 +27,13 @@ export interface AuthenticatedAdapterOptions {
  * so `@object-ui/auth`'s barrel, this package's tests and every consumer
  * import the same symbol from the same place they did before.
  */
-export { ActiveOrganizationStorage, SessionUserScope, purgePreviousUserClientState } from './ActiveOrganizationStorage.js';
+export {
+  ActiveOrganizationStorage,
+  SessionUserScope,
+  purgePreviousUserClientState,
+  getSessionOwnerChangeCount,
+  subscribeSessionOwnerChange,
+} from './ActiveOrganizationStorage.js';
 
 export interface CreateAuthenticatedFetchOptions {
   /**

@@ -28,7 +28,8 @@
  *  - a previewed `user` column rides the same rule (`buildExpandFields` is the
  *    one reference-bearing family), and now names the person;
  *  - the control: with no reference column previewed the query carries no
- *    `$expand` key at all;
+ *    `$expand` key at all — nor with no column previewed at all (the display
+ *    field alone), where an empty list would otherwise mean "every relation";
  *  - the browse-all picker behind the dropdown, the same way;
  *  - field-level security gates the expansion, as at every other
  *    `buildExpandFields` call site: a relation the loaded policy denies is not
@@ -74,9 +75,17 @@ interface BackendOptions {
   /** A backend that ignores `$expand` returns bare foreign keys. */
   honoursExpand?: boolean;
   titleFormat?: string;
+  /** The referenced object's declared fields (default `TASK_VERSION_FIELDS`). */
+  fields?: Record<string, any>;
 }
 
-function makeBackend({ prefix, highlightFields, honoursExpand = true, titleFormat }: BackendOptions) {
+function makeBackend({
+  prefix,
+  highlightFields,
+  honoursExpand = true,
+  titleFormat,
+  fields = TASK_VERSION_FIELDS,
+}: BackendOptions) {
   const tasks: Record<string, { id: string; name: string }> = {};
   const users: Record<string, { id: string; name: string }> = {};
   const rows: Record<string, any>[] = [];
@@ -109,7 +118,7 @@ function makeBackend({ prefix, highlightFields, honoursExpand = true, titleForma
     if (objectName === 'task_version') {
       return {
         name: 'task_version',
-        fields: TASK_VERSION_FIELDS,
+        fields,
         highlightFields,
         ...(titleFormat ? { titleFormat } : {}),
       };
@@ -273,6 +282,60 @@ describe('LookupField — the dropdown expands the reference columns it previews
     const cells = Array.from(document.querySelectorAll('[data-lookup-cell="task"]'));
     expect(cells.length).toBeGreaterThan(0);
     expect(cells[0].textContent).toBe('Assembly step 0');
+  });
+});
+
+describe('LookupField — no displayed reference column, no `$expand` (objectui#10223)', () => {
+  /**
+   * `buildExpandFields` reads an EMPTY column list as "no restriction" and
+   * returns every relation the object declares. A dropdown whose picker
+   * columns are the display field alone previews nothing, so it must not
+   * hand that function an empty list: the object below declares audit and
+   * ownership relations (`created_by`, `owner_id`) plus the master_detail
+   * `task` and the `user` field `owner`, and the dropdown renders none of them.
+   */
+  const WITH_AUDIT_RELATIONS: Record<string, any> = {
+    ...TASK_VERSION_FIELDS,
+    created_by: { type: 'user', label: 'Created By', reference_to: 'sys_user' },
+    owner_id: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
+  };
+
+  it('dropdown and recents rail: `highlightFields` naming only the display field send no `$expand` key', async () => {
+    const backend = makeBackend({ prefix: 'nameonly', highlightFields: ['name'], fields: WITH_AUDIT_RELATIONS });
+    pushRecentLookupId('task_version', 'nameonly_tv_1');
+    await openDropdown(backend);
+
+    const queries = candidateQueries(backend);
+    const recents = queries.filter((p) => JSON.stringify(p.$filter ?? {}).includes('$in'));
+    const main = queries.filter((p) => !recents.includes(p));
+    expect(main).toHaveLength(1);
+    expect(recents).toHaveLength(1);
+    expect('$expand' in main[0]).toBe(false);
+    expect('$expand' in recents[0]).toBe(false);
+    expect(previewTexts('task')).toHaveLength(0);
+  });
+
+  it('picker: no rendered column besides the id sends no `$expand` key', async () => {
+    const backend = makeBackend({ prefix: 'idonly', highlightFields: ['name'], fields: WITH_AUDIT_RELATIONS });
+    render(
+      <SchemaRendererContext.Provider value={{ dataSource: backend.dataSource } as any}>
+        <RecordPickerDialog
+          open
+          onOpenChange={() => {}}
+          dataSource={backend.dataSource}
+          objectName="task_version"
+          displayField="name"
+          columns={['id']}
+          onSelect={() => {}}
+          cellRenderer={getCellRenderer}
+          fieldsMeta={WITH_AUDIT_RELATIONS}
+        />
+      </SchemaRendererContext.Provider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('record-row-idonly_tv_0')).toBeInTheDocument());
+    const queries = candidateQueries(backend);
+    expect(queries).toHaveLength(1);
+    expect('$expand' in queries[0]).toBe(false);
   });
 });
 

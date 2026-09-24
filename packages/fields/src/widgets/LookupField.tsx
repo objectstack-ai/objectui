@@ -523,9 +523,17 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * rebuilds the list when the answer arrives. Every name judged here is one
    * the referenced object declares, so the "`checkField` answers false for an
    * undeclared key" trap cannot be reached.
+   *
+   * No previewed column ⇒ no `$expand`. `buildExpandFields` reads an EMPTY
+   * column list as "no column restriction" and returns every relation the
+   * object declares; a dropdown that previews only its display field (a
+   * `highlightFields` naming just that field, or every other field
+   * system-managed) would then ask for `created_by`, `owner_id`, … — none of
+   * which it renders.
    */
   const perms = usePermissions();
   const candidateExpand = useMemo<string[]>(() => {
+    if (previewColumns.length === 0) return [];
     const expandable = buildExpandFields(refObjectSchema?.fields, previewColumns);
     if (!perms.isLoaded || !referenceTo) return expandable;
     return expandable.filter((f) => perms.checkField(referenceTo, f, 'read'));

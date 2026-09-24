@@ -518,10 +518,15 @@ export function RecordPickerDialog({
    * Field-level security gates the OUTPUT, in the objectui#7429 sweep's shape
    * — the same gate as LookupField's `candidateExpand`: once the policy has
    * loaded, a relation the user may not read on `objectName` is not asked for.
+   *
+   * No rendered column besides the id ⇒ no `$expand`: `buildExpandFields`
+   * reads an EMPTY column list as "every relation the object declares".
    */
   const perms = usePermissions();
   const expand = useMemo<string[]>(() => {
-    const expandable = buildExpandFields(fieldsMeta, resolvedColumns.filter((c) => c.field !== idField));
+    const rendered = resolvedColumns.filter((c) => c.field !== idField);
+    if (rendered.length === 0) return [];
+    const expandable = buildExpandFields(fieldsMeta, rendered);
     if (!perms.isLoaded) return expandable;
     return expandable.filter((f) => perms.checkField(objectName, f, 'read'));
   }, [fieldsMeta, resolvedColumns, idField, perms, objectName]);

@@ -70,14 +70,15 @@ ComponentRegistry.register('box', BoxRenderer, {
   namespace: 'ui',
   label: 'Box',
   category: 'layout',
-  // Declared because the renderer above puts an authored child list on the
-  // page — `isContainer` answers the protocol question "does this node accept
-  // a child list?" (objectui#3900 / #6764; `children` is a BASE property of
-  // every node, so declaring this widens no spec surface). Leaving it off
-  // would make `validateTree` report `not-a-container` on a component whose
-  // whole job is containment.
+  // LAYOUT containment (objectui#6804 / objectui#9910 Q2): the react-page JSX
+  // scope skips this tag and the public layout ledger lists it. It no longer
+  // answers "does this node accept a child list?" — the `children` slot input
+  // below does, and it is the only thing `validateTree`'s `not-a-container`
+  // reads (objectui#9910 Q1). `children` is a BASE property of every node, so
+  // declaring the slot widens no spec surface.
   isContainer: true,
   inputs: [
-    { name: 'className', type: 'string' }
+    { name: 'className', type: 'string' },
+    { name: 'children', type: 'slot' }
   ],
 });

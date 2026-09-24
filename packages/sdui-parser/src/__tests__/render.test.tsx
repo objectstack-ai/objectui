@@ -29,9 +29,11 @@ beforeAll(() => {
   });
 });
 
+// Containment is the declared `children` slot input (objectui#9910); the two
+// containers below nest children in the source, so both declare it.
 const manifest = manifestFromConfigs([
-  { type: 'flex', namespace: 'ui', isContainer: true, inputs: [{ name: 'gap', type: 'number' }] },
-  { type: 'text', namespace: 'ui', isContainer: true, inputs: [] },
+  { type: 'flex', namespace: 'ui', isContainer: true, inputs: [{ name: 'gap', type: 'number' }, { name: 'children', type: 'slot' }] },
+  { type: 'text', namespace: 'ui', inputs: [{ name: 'children', type: 'slot' }] },
   { type: 'object-table', namespace: 'plugin-grid', inputs: [{ name: 'object', type: 'string', required: true, binding: 'object' }] },
 ]);
 

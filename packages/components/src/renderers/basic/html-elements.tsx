@@ -188,6 +188,12 @@ for (const tag of TAGS) {
     inputs: [
       { name: 'className', type: 'string' },
       ...(PER_TAG_INPUTS[tag] ?? []),
+      // The child slot, declared on exactly the tags the factory renders it
+      // for (objectui#9910): `validateTree`'s `not-a-container` reads THIS
+      // input, so a void tag must not declare it — `<br>` taking children
+      // would be the lie in the other direction — and every flow/inline tag
+      // must, or the html tier warns on the one key its authors write.
+      ...(isVoid ? [] : [{ name: 'children', type: 'slot' as const }]),
     ],
   });
 }

@@ -1362,11 +1362,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // Publish (RuntimeDraftBar) promotes it + records a version.
         const vid = draft.id;
         if (metadataClient && vid) {
-            // The local preview above keeps the FLAT tab (`activeView` merges
-            // it over the base view); the stored row is the canonical ViewItem
-            // envelope, the shape the create path already writes — a flat row
-            // on a code-defined view is read back as a personalization overlay
-            // and the view turns read-only (objectui#10210).
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
             persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {

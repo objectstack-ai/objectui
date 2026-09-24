@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, toDisplayDate, userActionPredicates } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
@@ -1169,7 +1169,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
                             }).format(num);
                       }
                     } else if (ftype === 'date' || ftype === 'datetime') {
-                      const d = new Date(val);
+                      // The shared parse step, never `new Date(val)`: a
+                      // date-only value is UTC midnight to the engine and read
+                      // back here in the viewer's zone, one day early west of
+                      // UTC (objectui#10183). The face stays this chip's own.
+                      const d = toDisplayDate(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
                           ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })

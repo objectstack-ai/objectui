@@ -9,6 +9,7 @@ import {
   renderSummary,
   declaredTypesTargets,
   satisfiesRange,
+  parseWorkspaceGlobs,
   MARKER_FILE,
 } from '../spec-main-shape-gate.mjs';
 import { pullRequestTrigger, readWorkflows, repoRoot, subscribesMergeGroup } from './workflow-checks.js';
@@ -276,9 +277,17 @@ describe('the injection reads the spec against the dependencies it was built wit
    * whose `packages/spec/node_modules` resolves the given versions. The tarball
    * declares `dependencies`.
    */
+  /** Where objectui's store keeps each dependency an importer may link to. */
+  const OBJECTUI_STORE_COPY: Record<string, string> = {
+    zod: 'zod@4.4.3/node_modules/zod',
+    'pg-connection-string': 'pg-connection-string@2.14.0/node_modules/pg-connection-string',
+  };
+
   function fixture(opts: {
     dependencies: Record<string, string>;
     upstream: Record<string, string | null>;
+    /** objectui importers under `packages/`, each with the dependencies it declares. */
+    importers?: Record<string, Record<string, string>>;
   }) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-gate-deps-'));
     made.push(root);
@@ -305,6 +314,22 @@ describe('the injection reads the spec against the dependencies it was built wit
     const consumerModules = path.join(repo, 'packages', 'app', 'node_modules', '@objectstack');
     fs.mkdirSync(consumerModules, { recursive: true });
     fs.symlinkSync(installed, path.join(consumerModules, 'spec'));
+    fs.writeFileSync(
+      path.join(repo, 'packages', 'app', 'package.json'),
+      JSON.stringify({ name: 'app', dependencies: { '@objectstack/spec': '^17.4.0' } }),
+    );
+    fs.writeFileSync(path.join(repo, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
+    fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ name: 'root', private: true }));
+    // objectui's own importers, linked the way pnpm links them: a RELATIVE
+    // symlink from the importer's node_modules into the virtual store.
+    for (const [importer, dependencies] of Object.entries(opts.importers ?? {})) {
+      const dir = path.join(repo, 'packages', importer);
+      fs.mkdirSync(path.join(dir, 'node_modules'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: importer, dependencies }));
+      for (const name of Object.keys(dependencies)) {
+        fs.symlinkSync(`../../../node_modules/.pnpm/${OBJECTUI_STORE_COPY[name]}`, path.join(dir, 'node_modules', name));
+      }
+    }
 
     const upstream = path.join(root, 'objectstack');
     writePackage(path.join(upstream, 'packages', 'spec'), '@objectstack/spec', '17.4.0');
@@ -433,6 +458,103 @@ describe('the injection reads the spec against the dependencies it was built wit
     );
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('--upstream-checkout');
+  });
+
+  it("re-points an objectui importer whose range admits the new copy, and reports it (objectui#10229 B)", () => {
+    const f = fixture({
+      dependencies: { zod: '^4.6.1' },
+      upstream: { zod: '4.6.1' },
+      importers: { types: { zod: '^4.4.3' } },
+    });
+    const upstreamZod = fs.realpathSync(path.join(f.upstream, 'packages', 'spec', 'node_modules', 'zod'));
+    const result = f.run();
+    expect(result.status, result.stderr).toBe(0);
+
+    // On disk: the importer's link now resolves the same copy the spec reads,
+    // and objectui's own store copy is intact (a link was replaced).
+    const link = path.join(f.repo, 'packages', 'types', 'node_modules', 'zod');
+    expect(fs.realpathSync(link)).toBe(upstreamZod);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(f.store, 'zod@4.4.3', 'node_modules', 'zod', 'package.json'), 'utf8'))
+        .version,
+    ).toBe('4.4.3');
+
+    const line =
+      're-pointed zod for objectui importer packages/types: declares ^4.4.3, which admits 4.6.1; ' +
+      'was zod@4.4.3 (-> ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod), ' +
+      `now -> ${upstreamZod} (zod@4.6.1`;
+    expect(result.stdout).toContain(line);
+    expect(f.summary()).toContain(line);
+    // The proof, asked of the consumer AND the importer: one copy, named.
+    expect(result.stdout).toContain(
+      `one copy of zod@4.6.1 for 1 spec consumer(s) and 1 objectui importer(s) -> ${upstreamZod}`,
+    );
+    expect(result.stdout).not.toContain('two copies');
+  });
+
+  it('leaves an importer whose range does not admit the new copy, and says two copies stay', () => {
+    const f = fixture({
+      dependencies: { zod: '^4.6.1' },
+      upstream: { zod: '4.6.1' },
+      importers: { types: { zod: '^4.4.3' }, legacy: { zod: '~4.4.0' } },
+    });
+    const upstreamZod = fs.realpathSync(path.join(f.upstream, 'packages', 'spec', 'node_modules', 'zod'));
+    const result = f.run();
+    expect(result.status, result.stderr).toBe(0);
+
+    expect(fs.readlinkSync(path.join(f.repo, 'packages', 'legacy', 'node_modules', 'zod'))).toBe(
+      '../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod',
+    );
+    const line = 'two copies of zod stay: packages/legacy declares ~4.4.0, which does not admit 4.6.1';
+    expect(result.stdout).toContain(line);
+    expect(f.summary()).toContain(line);
+    expect(result.stdout).not.toContain('re-pointed zod for objectui importer packages/legacy');
+    // The admitting importer in the same run is still re-pointed, and the
+    // proof counts it while naming the importer that keeps a second copy.
+    expect(fs.realpathSync(path.join(f.repo, 'packages', 'types', 'node_modules', 'zod'))).toBe(upstreamZod);
+    expect(result.stdout).toContain(
+      `one copy of zod@4.6.1 for 1 spec consumer(s) and 1 objectui importer(s) -> ${upstreamZod}; ` +
+        'a second copy stays for packages/legacy',
+    );
+  });
+
+  it('leaves an importer of a package the spec did NOT re-point untouched (positive control)', () => {
+    // The spec's pg-connection-string sibling satisfies its range, so the spec
+    // substitution does not re-point it -- and the checkout offers a copy the
+    // importer's range WOULD admit, so a pass that re-pointed every declared
+    // dependency regardless would be caught here.
+    const f = fixture({
+      dependencies: { zod: '^4.6.1', 'pg-connection-string': '^2.14.0' },
+      upstream: { zod: '4.6.1', 'pg-connection-string': '2.15.0' },
+      importers: { db: { 'pg-connection-string': '^2.0.0' } },
+    });
+    const result = f.run();
+    expect(result.status, result.stderr).toBe(0);
+    expect(fs.readlinkSync(path.join(f.repo, 'packages', 'db', 'node_modules', 'pg-connection-string'))).toBe(
+      '../../../node_modules/.pnpm/pg-connection-string@2.14.0/node_modules/pg-connection-string',
+    );
+    expect(result.stdout).not.toMatch(/re-pointed pg-connection-string|two copies of pg-connection-string/);
+  });
+
+  it('exits 2 when an importer declares a range it cannot read, having written nothing', () => {
+    const f = fixture({
+      dependencies: { zod: '^4.6.1' },
+      upstream: { zod: '4.6.1' },
+      importers: { odd: { zod: 'npm:zod@^4.4.3' } },
+    });
+    const result = f.run();
+    expect(result.status, result.stdout).toBe(2);
+    expect(result.stderr).toContain("objectui importer packages/odd's declared `zod: npm:zod@^4.4.3`");
+    expect(fs.readlinkSync(path.join(f.entry, 'zod'))).toBe('../../zod@4.4.3/node_modules/zod');
+    expect(fs.existsSync(path.join(f.installed, MARKER_FILE))).toBe(false);
+  });
+
+  it("reads THIS repository's pnpm-workspace.yaml, so the gate can enumerate its importers", () => {
+    // The gate refuses (exit 2) a workspace file it cannot read. Pinned here so
+    // an unsupported spelling reds in this suite, not first inside a gate run.
+    const globs = parseWorkspaceGlobs(fs.readFileSync(path.join(repoRoot, 'pnpm-workspace.yaml'), 'utf8'));
+    expect(globs).toContain('packages/*');
+    expect(() => parseWorkspaceGlobs("packages:\n  - 'packages/**'\n")).toThrow(/not a/);
   });
 
   it('judges ranges narrowly, and refuses a spelling it does not read', () => {

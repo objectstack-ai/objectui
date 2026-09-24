@@ -104,6 +104,38 @@
  * consumer proof below then asks every consumer which copy of each declared
  * dependency the injected spec resolves, and refuses one outside its range.
  *
+ * ## ...and why objectui's OWN copies of a re-pointed dependency follow it
+ *
+ * Re-pointing the spec's sibling alone leaves TWO copies of that package in one
+ * program: the spec's declarations read the new one, while every objectui
+ * package that declares it still reads the old one. For zod that was measured
+ * on this gate's own flow at a commit that raised the floor: hundreds of
+ * diagnostics across dozens of files -- non-portable inferred types, one copy's
+ * `ZodType` refused where the other's is expected -- and every one of them an
+ * artifact of the two copies, with objectui's code correct. With one copy the
+ * same compile was clean. (objectui#10229's pull request carries the figures;
+ * none are restated here.)
+ *
+ * One copy is what an install of a release from that commit gives objectui:
+ * the new floor falls inside objectui's own declared range, and objectui's
+ * `check:lockfile-dedupe` keeps the lockfile deduped, so a pin bump installs
+ * the package once. So for every dependency the spec substitution re-pointed
+ * to version V -- and only those -- each objectui workspace importer that
+ * declares the same package is judged:
+ *
+ *  - every range it declares admits V: its `node_modules/<dep>` link is removed
+ *    and re-linked to the same V copy (remove-then-link, as above);
+ *  - a range does NOT admit V: its copy stays, and the log and run summary say
+ *    `two copies of <dep> stay: <importer> declares <range>, which does not
+ *    admit <V>`. The diagnostics that follow are then genuine readings: a real
+ *    install would carry the same two copies.
+ *
+ * The importers are enumerated from `pnpm-workspace.yaml`, the file pnpm itself
+ * reads, never from a hand-kept list. Like everything else here this is runner
+ * state and moves no tracked file. The consumer proof is extended to match:
+ * every spec consumer and every admitting importer must resolve ONE copy of
+ * each re-pointed package, and the log names which.
+ *
  * Satisfaction is judged by `satisfiesRange`, a deliberately narrow reader in
  * this file, for the reason `check-spec-range-floors.mjs` gives for its own:
  * `semver` is not a dependency of this repository's root, and importing a
@@ -423,6 +455,131 @@ function describeSubstitution({ name, range, target, held, linkedFrom, upstream 
   );
 }
 
+/* ── objectui's own copies of a re-pointed dependency ───────────────────── */
+
+/** The manifest fields whose ranges pnpm links into an importer's `node_modules`. */
+const IMPORTER_DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
+
+/**
+ * The `packages:` globs of a `pnpm-workspace.yaml`, read narrowly: `- 'dir/*'`
+ * and `- 'dir'` entries only. Anything else -- a negation, a `**`, a glob inside
+ * a segment -- THROWS, because an importer the reader silently drops is one
+ * whose copy is never re-pointed, and the proof below cannot see it either.
+ */
+export function parseWorkspaceGlobs(text) {
+  const globs = [];
+  let inPackages = false;
+  for (const raw of String(text).split('\n')) {
+    const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+    if (line.length === 0 || /^\s*#/.test(line)) continue;
+    if (/^\S/.test(line)) {
+      inPackages = /^packages:\s*$/.test(line);
+      continue;
+    }
+    if (!inPackages) continue;
+    const entry = /^\s+-\s+(['"]?)([^'"]+)\1$/.exec(line);
+    if (!entry || !/^[\w.@-]+(?:\/[\w.@-]+)*(?:\/\*)?$/.test(entry[2])) {
+      throw new Error(`pnpm-workspace.yaml line "${raw.trim()}" is not a \`- 'dir'\` or \`- 'dir/*'\` entry`);
+    }
+    globs.push(entry[2]);
+  }
+  if (globs.length === 0) throw new Error('pnpm-workspace.yaml declares no `packages:` entries');
+  return globs;
+}
+
+/** The root and every workspace directory `pnpm-workspace.yaml` names that holds a manifest. */
+function workspaceImporterDirs(repoRoot) {
+  let globs;
+  try {
+    globs = parseWorkspaceGlobs(fs.readFileSync(path.join(repoRoot, 'pnpm-workspace.yaml'), 'utf8'));
+  } catch (error) {
+    return fail(
+      `cannot enumerate this repository's workspace importers: ${error.message}. Refused rather than ` +
+        `guessed -- an importer left out keeps its own copy of a re-pointed dependency, and the ` +
+        `compile reads two copies without a word.`,
+    );
+  }
+  const dirs = new Set(['.']);
+  for (const glob of globs) {
+    if (glob.endsWith('/*')) {
+      const parent = glob.slice(0, -2);
+      const parentDir = path.join(repoRoot, parent);
+      if (!fs.existsSync(parentDir)) continue;
+      for (const child of fs.readdirSync(parentDir)) dirs.add(path.posix.join(parent, child));
+    } else {
+      dirs.add(glob);
+    }
+  }
+  return [...dirs].filter((dir) => fs.existsSync(path.join(repoRoot, dir, 'package.json'))).sort();
+}
+
+/** Does `importer`'s declared `range` for `name` admit `version`? Unreadable is exit 2. */
+function importerAdmits(name, range, version, importer) {
+  try {
+    return satisfiesRange(version, range);
+  } catch (error) {
+    return fail(
+      `cannot judge whether objectui importer ${importer}'s declared \`${name}: ${range}\` admits ` +
+        `${name}@${version}, the copy the injected ${SPEC_PACKAGE_NAME} was re-pointed to: ${error.message}. ` +
+        `Refused rather than guessed -- the answer decides whether this compile reads one copy or two.`,
+    );
+  }
+}
+
+/**
+ * For each package the spec substitution re-pointed, every objectui importer
+ * declaring it, judged against the version it was re-pointed to. Decided before
+ * the first write, like the spec's own plan.
+ */
+function planImporterRepoints({ repoRoot, plan }) {
+  const repointed = new Map();
+  for (const step of plan) repointed.set(step.name, step.upstream);
+  if (repointed.size === 0) return { relink: [], twoCopies: [], importers: new Map() };
+
+  const relink = [];
+  const twoCopies = [];
+  const importers = new Map();
+  const dirs = workspaceImporterDirs(repoRoot);
+  for (const [name, upstream] of [...repointed].sort(([a], [b]) => a.localeCompare(b))) {
+    const declaring = [];
+    for (const dir of dirs) {
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, dir, 'package.json'), 'utf8'));
+      const ranges = [
+        ...new Set(
+          IMPORTER_DEPENDENCY_FIELDS.map((field) => manifest[field]?.[name]).filter((range) => typeof range === 'string'),
+        ),
+      ];
+      if (ranges.length === 0) continue;
+      const refusing = ranges.filter((range) => !importerAdmits(name, range, upstream.version, dir));
+      const link = path.join(repoRoot, dir, 'node_modules', ...name.split('/'));
+      let linkedFrom = null;
+      try {
+        linkedFrom = fs.readlinkSync(link);
+      } catch {
+        // Absent, or a directory rather than a link: nothing to print as its target.
+      }
+      const entry = { name, importer: dir, ranges, refusing, link, linkedFrom, held: installedPackageAt(link), upstream };
+      declaring.push(entry);
+      (refusing.length === 0 ? relink : twoCopies).push(entry);
+    }
+    importers.set(name, declaring);
+  }
+  return { relink, twoCopies, importers };
+}
+
+function describeImporterRepoint({ name, importer, ranges, held, linkedFrom, upstream }) {
+  const was = held ? `${name}@${held.version} (-> ${linkedFrom ?? held.realpath})` : 'absent';
+  return (
+    `re-pointed ${name} for objectui importer ${importer}: declares ${ranges.join(' and ')}, which admits ` +
+    `${upstream.version}; was ${was}, now -> ${upstream.realpath} (${name}@${upstream.version}, the copy the ` +
+    `spec substitution linked)`
+  );
+}
+
+function describeTwoCopies({ name, importer, refusing, upstream }) {
+  return `two copies of ${name} stay: ${importer} declares ${refusing.join(' and ')}, which does not admit ${upstream.version}`;
+}
+
 /**
  * Which copy of `name` code at `fromDir` resolves: the first
  * `<node_modules>/<name>` along Node's own lookup path for that directory. The
@@ -511,6 +668,9 @@ export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefa
     targets,
     upstreamCheckout,
   });
+  // objectui's own copies of what that plan re-points, judged before any write
+  // too. See "...and why objectui's OWN copies" in the header.
+  const importerPlan = planImporterRepoints({ repoRoot, plan });
 
   for (const target of targets) {
     // REMOVE, then copy. ⛔ Never copy over: the files below are hardlinks into
@@ -540,6 +700,11 @@ export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefa
     relinkSibling(step);
     return describeSubstitution(step);
   });
+  for (const entry of importerPlan.relink) {
+    relinkSibling({ sibling: entry.link, upstream: entry.upstream });
+    substitutions.push(describeImporterRepoint(entry));
+  }
+  for (const entry of importerPlan.twoCopies) substitutions.push(describeTwoCopies(entry));
 
   // The verification, asked of the consumers. See `findSpecConsumers`.
   const consumers = findSpecConsumers(repoRoot);
@@ -597,6 +762,45 @@ export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefa
     );
   }
 
+  // ONE copy of each re-pointed package: every spec consumer and every objectui
+  // importer whose range admits it must resolve the same directory. Asked of
+  // each of them, never of the plan.
+  const oneCopy = [];
+  for (const [name, declaring] of importerPlan.importers) {
+    const expected = plan.find((step) => step.name === name).upstream.realpath;
+    const readers = [
+      ...resolutions
+        .filter((r) => r.name === name)
+        .map((r) => ({ who: `spec consumer ${r.workspace}`, resolved: r.resolved, version: r.version })),
+      ...declaring
+        .filter((entry) => entry.refusing.length === 0)
+        .map((entry) => {
+          const found = resolvedDependency(path.join(repoRoot, entry.importer), name);
+          return { who: `objectui importer ${entry.importer}`, resolved: found?.realpath ?? null, version: found?.version ?? null };
+        }),
+    ];
+    const elsewhere = readers.filter((reader) => reader.resolved !== expected);
+    if (elsewhere.length > 0) {
+      fail(
+        `${elsewhere.length} reader(s) of the re-pointed \`${name}\` do not resolve the one copy at ` +
+          `${expected}:\n` +
+          elsewhere
+            .map((r) => `  - ${r.who} -> ` + (r.version ? `${name}@${r.version} (${r.resolved})` : 'nothing'))
+            .join('\n') +
+          `\n\nA compile now would read two copies of \`${name}\` in one program, and report the ` +
+          `artifacts of that as shape breaks.`,
+      );
+    }
+    oneCopy.push({
+      name,
+      version: readers[0]?.version ?? null,
+      resolved: expected,
+      consumers: readers.filter((r) => r.who.startsWith('spec consumer')).length,
+      importers: readers.length - readers.filter((r) => r.who.startsWith('spec consumer')).length,
+      twoCopies: declaring.filter((entry) => entry.refusing.length > 0).map((entry) => entry.importer),
+    });
+  }
+
   log(
     `spec-main-shape-gate: injected ${SPEC_PACKAGE_NAME}@${manifest.version} built from ` +
       `${UPSTREAM_REPO}@${sha} into ${targets.length} store copy/copies; ` +
@@ -621,8 +825,15 @@ export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefa
       `  resolves ${r.name}@${r.version} (declared ${r.range}) for ${r.consumers} consumer(s) -> ${r.resolved}`,
     );
   }
+  for (const c of oneCopy) {
+    log(
+      `  one copy of ${c.name}@${c.version} for ${c.consumers} spec consumer(s) and ${c.importers} objectui ` +
+        `importer(s) -> ${c.resolved}` +
+        (c.twoCopies.length > 0 ? `; a second copy stays for ${c.twoCopies.join(', ')}` : ''),
+    );
+  }
 
-  return { targets, consumers, version: manifest.version, sha, substitutions, resolutions };
+  return { targets, consumers, version: manifest.version, sha, substitutions, resolutions, oneCopy };
 }
 
 /**
@@ -1032,6 +1243,17 @@ function selfTest() {
       return true;
     }
   };
+  // `parseWorkspaceGlobs` decides which importers the dedupe pass can see.
+  check(
+    'reads the packages globs of a pnpm-workspace.yaml, and nothing after them',
+    parseWorkspaceGlobs("# c\npackages:\n  - 'packages/*'\n  - \"docs\"  # tail\n  - apps/*\nonlyBuiltDependencies:\n  - esbuild\n"),
+    ['packages/*', 'docs', 'apps/*'],
+  );
+  check('a glob the reader does not know throws rather than dropping importers', [
+    (() => { try { parseWorkspaceGlobs("packages:\n  - 'packages/**'\n"); return false; } catch { return true; } })(),
+    (() => { try { parseWorkspaceGlobs("packages:\n  - '!packages/x'\n"); return false; } catch { return true; } })(),
+    (() => { try { parseWorkspaceGlobs('overrides: {}\n'); return false; } catch { return true; } })(),
+  ], [true, true, true]);
   check('an unreadable spelling throws rather than guessing', [
     refuses('4.6.1', 'workspace:*'),
     refuses('4.6.1', '4.x'),

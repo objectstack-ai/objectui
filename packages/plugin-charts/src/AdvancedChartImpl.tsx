@@ -913,10 +913,12 @@ function PositionRefusal({
  *
  * A bare `Number.isFinite(v)` would refuse charts that draw. Recharts' numeric
  * domain reads a value through `makeDomain` in its axis selectors, which takes
- * a SCALAR through `makeNumber` — a number, a string or a `Date` whose
- * `Number()` is finite — and a two-element ARRAY `[lo, hi]` (a range bar or a
- * range area) when both ends pass that same scalar rule. Measured on this
- * component, per family (bar / line / area / horizontal-bar / combo / scatter):
+ * a SCALAR through `makeNumber` — a number (primitive or `Number` object), a
+ * string or a `Date` whose `Number()` is finite — and an ARRAY by its first two
+ * elements `v[0]` / `v[1]` (a range bar or range area; any further elements
+ * are ignored, so `[1, 2, 3]` draws) when both pass that same scalar rule.
+ * Measured on this component, per family (bar / line / area / horizontal-bar /
+ * combo / scatter):
  *
  *   - numeric strings (`'3'`) DRAW on every family — so they anchor;
  *   - `''` anchors at zero: a line / area / scatter draws it, while a bar /
@@ -924,7 +926,9 @@ function PositionRefusal({
  *     picture — finite data and silent, not this defect;
  *   - `Date` values anchor (scatter, 2 of 2);
  *   - a range `[1, 3]` anchors (a range bar drew 2 rectangles, a range area its
- *     path); a range with a boolean or unparseable end does not;
+ *     path), and so does `[1, 2, 3]`; an unstacked range with a boolean or
+ *     unparseable end does not (0 marks);
+ *   - `new Number(3)` anchors (bar 2 rectangles, line a path);
  *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
  *
  * ## The stacked exception, also measured
@@ -937,19 +941,45 @@ function PositionRefusal({
  * 0 bars and an empty area path). A `line` series ignores `stack` in this
  * renderer; it is still read as stacked here, which errs towards silence
  * rather than towards a refusal over marks.
+ *
+ * A stacked series is not read through `makeDomain` at all, so its ARRAYS
+ * are not ranges to Recharts either: a stacked `[true, 3]` / `[false, 5]`
+ * painted 2 full-height rectangles (a d3-stack `NaN` artefact, but marks on
+ * screen). So for a stacked series any array anchors — silent, whatever its
+ * ends (seat ruling, round 2).
  */
 function anchorsNumericAxis(v: unknown, stacked = false): boolean {
   if (typeof v === 'boolean') return stacked;
-  if (Array.isArray(v)) return v.length === 2 && isDomainScalar(v[0]) && isDomainScalar(v[1]);
+  if (Array.isArray(v)) return stacked || (isDomainScalar(v[0]) && isDomainScalar(v[1]));
   return isDomainScalar(v);
 }
 
-/** Recharts' `makeNumber`: a number, string or `Date` whose `Number()` is finite. */
+/**
+ * Recharts' `makeNumber`: `isNumber` (a primitive number or a `Number`
+ * object), a string or a `Date`, whose `Number()` is finite.
+ */
 function isDomainScalar(v: unknown): boolean {
-  if (typeof v === 'number' || typeof v === 'string' || v instanceof Date) {
+  if (typeof v === 'number' || v instanceof Number || typeof v === 'string' || v instanceof Date) {
     return Number.isFinite(Number(v));
   }
   return false;
+}
+
+/**
+ * Whether the author DECLARED an axis's whole domain — a finite numeric `min`
+ * AND `max`. Recharts then builds the scale from the spec alone (no data value
+ * needed) and d3 coerces booleans onto it, so the tile draws: measured, an
+ * all-boolean bar with `min: 0, max: 10` drew a rectangle, a line / area their
+ * path, and a scatter with `xAxis: { min: 0, max: 10 }` 2 symbols. An axis
+ * declared that way always has a scale, so it is never refused. `min` alone,
+ * `max` alone, `logarithmic`, `stepSize` and annotations do not build a scale
+ * (0 marks, measured) and do not count.
+ */
+function declaresFullDomain(axis: NormalizedAxis | undefined): boolean {
+  return (
+    typeof axis?.min === 'number' && Number.isFinite(axis.min) &&
+    typeof axis?.max === 'number' && Number.isFinite(axis.max)
+  );
 }
 
 /** Whether ANY row gives `key` a value that can anchor its axis. */
@@ -2082,7 +2112,15 @@ function AdvancedChartImplInner({
     // (measured: 0 of N marks, silent, or under a footnote claiming some drew).
     // Before the footnote, which would otherwise count booleans as placed.
     if (points.total > 0) {
-      const deadAxes = Array.from(new Set([xAxisKey, scatterYKey])).filter((key) => !axisHasScale(data, key));
+      // An axis whose spec declares both ends has a scale without any row, so
+      // it is never dead: x reads the spec `xAxis`, y the primary `yAxes[0]` —
+      // the same specs the two `<XAxis>` / `<YAxis>` below are handed.
+      const deadAxes = (
+        [[xAxisKey, xAxisSpec], [scatterYKey, yAxes?.[0]]] as Array<[string, NormalizedAxis | undefined]>
+      )
+        .filter(([key, axis]) => !declaresFullDomain(axis) && !axisHasScale(data, key))
+        .map(([key]) => key)
+        .filter((key, i, all) => all.indexOf(key) === i);
       if (deadAxes.length > 0) {
         return <NumericValueRefusal keys={deadAxes} total={points.total} className={className} />;
       }
@@ -2591,7 +2629,16 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * `a.b` beside an all-boolean `w` drew bar 3 rectangles / line 2 paths).
  * The same gate keeps a key NO row carries — the objectui#8266 shape, whose
  * own render pins keep it silent until it is re-decided as its own question —
- * out of this answer. Errs to silence, never to a refusal over marks.
+ * out of this answer. For both shapes the gate errs to silence.
+ *
+ * ## A series on an axis with a declared domain is live
+ *
+ * See `declaresFullDomain`: such an axis has a scale whatever the rows carry,
+ * so booleans are coerced onto it and draw. A series' axis is read the way the
+ * renderer binds it, over-approximated toward silence: `yAxis: 'left'` binds
+ * the primary `yAxes[0]`; anything else may land on the primary or on the
+ * secondary (`yAxes[1]`, or a lone entry positioned `right`) depending on the
+ * family and on whether the tile is dual-axis or combo, so either counts.
  */
 function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
   const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
@@ -2605,7 +2652,14 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
     ),
   );
   if (!resolved) return null;
-  const live = series.some((s) => axisHasScale(rows, String(s.dataKey), Boolean(s.stack)));
+  const yAxes = Array.isArray(props.yAxes) ? props.yAxes : [];
+  const primary = yAxes[0];
+  const secondary = yAxes.length > 1 ? yAxes[1] : primary?.position === 'right' ? primary : undefined;
+  const declared = (s: NormalizedSeries) =>
+    declaresFullDomain(primary) || (s.yAxis !== 'left' && declaresFullDomain(secondary));
+  const live = series.some(
+    (s) => declared(s) || axisHasScale(rows, String(s.dataKey), Boolean(s.stack)),
+  );
   return live ? null : keys;
 }
 

@@ -190,6 +190,32 @@ describe('objectui#7195 — scatter: what must keep DRAWING, silently', () => {
   }
 });
 
+describe('objectui#7195 — scatter: a DECLARED domain builds the scale, so booleans draw', () => {
+  it('x all-boolean with xAxis min AND max: draws, no refusal', () => {
+    const { container } = renderScatter([{ xm: true, ym: 1 }, { xm: false, ym: 2 }], { xAxis: { min: 0, max: 10 } });
+    expect(marksOf(container)).toBe(2);
+    expect(anyRefusalOf(container)).toBeNull();
+  });
+
+  it('both axes all-boolean with both domains declared: draws, no refusal', () => {
+    const { container } = renderScatter(
+      [{ xm: true, ym: true }, { xm: false, ym: false }],
+      { xAxis: { min: 0, max: 10 }, yAxes: [{ min: 0, max: 10 }] },
+    );
+    expect(marksOf(container)).toBe(2);
+    expect(anyRefusalOf(container)).toBeNull();
+  });
+
+  it('x declared, y all-boolean undeclared: only y is dead, and only y is named', () => {
+    const { container } = renderScatter(
+      [{ xm: true, ym: true }, { xm: false, ym: false }],
+      { xAxis: { min: 0, max: 10 } },
+    );
+    expect(refusalOf(container)!.textContent).toContain('numeric value for ym.');
+    expect(refusalOf(container)!.textContent).not.toContain('xm');
+  });
+});
+
 describe('objectui#7195 — scatter: the refusals it ranks BELOW keep their own codes', () => {
   it('a multi-series scatter is still a binding fault first', () => {
     const { container } = renderScatter(
@@ -225,6 +251,20 @@ describe('objectui#7195 — series families: no series has a numeric value on an
         expect(refusal).not.toBeNull();
         expect(refusal!.textContent).toContain('none of the 2 rows has a numeric value for v');
         expect(plotOf(container)).toBeNull();
+      });
+    }
+
+    for (const [label, extra] of [
+      ['min alone', { yAxes: [{ min: 0 }] }],
+      ['max alone', { yAxes: [{ max: 10 }] }],
+      ['logarithmic', { yAxes: [{ logarithmic: true }] }],
+      ['stepSize', { yAxes: [{ stepSize: 1 }] }],
+      ['a line annotation', { annotations: [{ type: 'line', value: 5 }] }],
+      ['a region annotation', { annotations: [{ type: 'region', value: 1, endValue: 5 }] }],
+    ] as Array<[string, Record<string, unknown>]>) {
+      it(`${family}, all-boolean with ${label} (no full domain): still refused`, () => {
+        const { container } = renderFamily(family, [{ k: 'a', v: true }, { k: 'b', v: false }], [{ dataKey: 'v' }], extra);
+        expect(refusalOf(container)).not.toBeNull();
       });
     }
 
@@ -293,6 +333,57 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
       expect(anyRefusalOf(container)).toBeNull();
     });
   }
+
+  for (const family of ['bar', 'area', 'horizontal-bar']) {
+    it(`${family}: a LONGER array draws by its first two elements, as makeDomain reads it`, () => {
+      const { container } = renderFamily(family, [{ k: 'a', v: [1, 2, 3] }, { k: 'b', v: [2, 5, 7] }]);
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
+  for (const family of ['bar', 'line']) {
+    it(`${family}: Number OBJECTS draw — recharts' isNumber accepts instanceof Number`, () => {
+      // eslint-disable-next-line no-new-wrappers
+      const { container } = renderFamily(family, [{ k: 'a', v: new Number(3) }, { k: 'b', v: new Number(5) }]);
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
+  it('a STACKED range with a boolean end paints marks (a d3-stack NaN artefact), so it stays silent', () => {
+    const { container } = renderFamily(
+      'bar',
+      [{ k: 'a', v: [true, 3] }, { k: 'b', v: [false, 5] }],
+      [{ dataKey: 'v', stack: 's' }],
+    );
+    expect(marksOf(container)).toBeGreaterThan(0);
+    expect(anyRefusalOf(container)).toBeNull();
+  });
+
+  for (const family of ['bar', 'line', 'area', 'horizontal-bar', 'combo']) {
+    it(`${family}: an all-boolean series on a DECLARED domain (min AND max) draws — the spec builds the scale`, () => {
+      const { container } = renderFamily(
+        family,
+        [{ k: 'a', v: true }, { k: 'b', v: false }, { k: 'c', v: true }],
+        [{ dataKey: 'v' }],
+        { yAxes: [{ min: 0, max: 1 }] },
+      );
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
+  it('bar: a series bound RIGHT draws on a declared secondary domain', () => {
+    const { container } = renderFamily(
+      'bar',
+      [{ k: 'a', v: true, w: true }, { k: 'b', v: false, w: true }],
+      [{ dataKey: 'v' }, { dataKey: 'w', yAxis: 'right' }],
+      { yAxes: [{ position: 'left' }, { position: 'right', min: 0, max: 2 }] },
+    );
+    expect(marksOf(container)).toBeGreaterThan(0);
+    expect(anyRefusalOf(container)).toBeNull();
+  });
 
   it('a range with a boolean end does not anchor, so an axis of only those is refused', () => {
     const { container } = renderFamily('bar', [{ k: 'a', v: [true, 3] }, { k: 'b', v: [false, 5] }]);

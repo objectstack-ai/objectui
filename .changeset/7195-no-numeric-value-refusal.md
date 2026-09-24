@@ -18,10 +18,14 @@ before:
   value the axis can scale: every value boolean, `null` or an unparseable string. For a stacked
   series `null` counts as nothing too.
 
-What keeps drawing, unchanged: numeric strings, `Date` values, range values `[lo, hi]` whose
-two ends are both numbers (range bars and range areas), booleans in a STACKED series (the stack
-reads them as numbers), a series that is all boolean beside a numeric one, and a dual-axis chart
-with one live axis. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
+What keeps drawing, unchanged: numeric strings, `Number` objects, `Date` values, range values
+(an array read by its first two elements, both numbers, so `[1, 3]` and `[1, 2, 3]` alike: range
+bars and range areas), booleans in a STACKED series (the stack reads them as numbers), any array
+in a STACKED series (including a range with a boolean end, which the stack paints), a series that
+is all boolean beside a numeric one, a dual-axis chart with one live axis, and any axis whose
+spec declares both a numeric `min` and a numeric `max` (the chart builds that scale from the spec
+and places booleans on it). A `min` or `max` alone, `logarithmic`, `stepSize` or an annotation
+does not build a scale, so those tiles are still refused. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
 horizontal-bar or combo paints the same zero-height picture as all-zero data, silently, exactly
 as before. A bound series key that is not a plain property of any row (a dotted path such as
 `a.b`, which Recharts resolves into nested rows, or a column no row carries) keeps the chart

@@ -2084,10 +2084,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 .map(f => columnIdentity(f))
                 .filter((v): v is string => typeof v === 'string' && v.length > 0)
             : [];
+          // [objectui#10275] "Is there a projection?" is asked of the AUTHORED
+          // columns, never of what survived the FLS gate below — the rule
+          // `hasAuthoredColumns` applies to what the grid draws. No authored
+          // column ⇒ no `$select`, as before. An authored list that FLS EMPTIES
+          // used to land here too, so the request carried no `$select` key and
+          // asked for every field, the denied ones included: an emptied list
+          // read as "no restriction", the widening objectui#7215 measured on
+          // `$expand`. It now falls through and projects to `id` plus the
+          // routes below, each already FLS-gated (the `$expand` roots, the view
+          // bindings, the grouping fields, the row predicates' operands) —
+          // the shape `ObjectGrid` (`ensureId([])` keeps `['id']`) and
+          // `RelatedList` (objectui#10186) send.
+          if (rawCols.length === 0) return undefined;
           const cols = (perms?.isLoaded && schema.objectName)
             ? rawCols.filter(c => perms.checkField(schema.objectName!, c, 'read'))
             : rawCols;
-          if (cols.length === 0) return undefined;
           // Don't speculatively add `_id` / `name` — some backends reject
           // unknown select keys with an empty result set rather than
           // ignoring them. Stick to the user-requested columns plus the

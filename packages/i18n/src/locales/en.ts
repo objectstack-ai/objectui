@@ -171,6 +171,10 @@ const en = {
       acknowledge: 'I have saved this',
       copyAll: 'Copy all',
     },
+    // The refusal notice for an action whose `autoTrigger` its own declared
+    // `visible` gate outranks (objectui#4191) — the deep link or host asked
+    // for it, but the author hid it on this surface.
+    notAvailableHere: '"{{action}}" is not available on the current page.',
   },
   validation: {
     required: '{{field}} is required',
@@ -1643,6 +1647,7 @@ const en = {
     navTypeSeparator: 'Separator',
     navTypeAction: 'Action',
     navTypeComponent: 'Component',
+    navTypeDoc: 'Doc',
     navEditIcon: 'Edit icon',
     navToggleVisible: 'Toggle visibility',
     navHidden: 'Hidden',
@@ -3034,6 +3039,7 @@ const en = {
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
     unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
+    carryOverHint: 'Carried over unchanged (read-only)',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',

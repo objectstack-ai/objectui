@@ -34,7 +34,11 @@ import {
   DialogTitle,
   Button,
   Label,
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
 } from '@object-ui/components';
+import { ChevronDown, Lock } from 'lucide-react';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { ActionParamDef } from '@object-ui/core';
 import {
@@ -193,6 +197,10 @@ export function filterVisibleParams(
  * the UI while the identical literal still 400s from REST/MCP — the worst split
  * to debug. It stays loud until the spec validates a param default against the
  * param's own value contract (objectstack#6970).
+ *
+ * A `carryOver` param is exempt from all of it (objectui#6246): the spec's
+ * contract is that its row value is submitted VERBATIM, so even a carried value
+ * bound to an upload field goes out exactly as it was seeded.
  */
 export function serializeParamValues(
   params: ActionParamDef[],
@@ -200,6 +208,7 @@ export function serializeParamValues(
 ): Record<string, any> {
   const uploadNames = new Set<string>();
   for (const p of params) {
+    if (p.carryOver) continue;
     const t = paramToField(p).type;
     if (t === 'file' || t === 'image') uploadNames.add(p.name);
   }
@@ -217,6 +226,81 @@ export function serializeParamValues(
 /** Skeleton shown while a lazy field widget's chunk loads. */
 function WidgetFallback() {
   return <div className="h-9 w-full animate-pulse rounded-md bg-muted" aria-hidden="true" />;
+}
+
+/**
+ * The text an expanded carry-over summary shows. DISPLAY ONLY: what is
+ * submitted is the dialog's `values` entry, which nothing here writes to.
+ *
+ * A string is shown exactly as it will be sent — no re-indentation of a JSON
+ * column — so what the user reads is what the action submits. Anything else is
+ * printed as JSON for reading. `null` = there is no value to show.
+ */
+function carryOverDisplayText(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value, null, 2) ?? String(value);
+}
+
+/**
+ * A param that declares `carryOver` (`@objectstack/spec`'s `ActionParamSchema`,
+ * objectstack#11753 ruling, objectui#6246): a collapsed READ-ONLY summary.
+ *
+ * ⛔ No field widget is built for it at all — not a disabled one, not a
+ * read-only one. The ruling's point is that the renderer leaves NO editing
+ * affordance, and a disabled input is still an input some host, extension or
+ * devtools session can re-enable. The value lives only in the dialog's
+ * `values`, seeded from the row, and is submitted from there verbatim.
+ *
+ * Collapsed by default because the values this serves are large: the
+ * permission-set Clone action's row-level security facet is a JSON array of
+ * many policy objects. The trigger toggles the disclosure and nothing else.
+ */
+function CarryOverParam({
+  name,
+  label,
+  required,
+  helpText,
+  value,
+  hint,
+  error,
+}: {
+  name: string;
+  label: string;
+  required?: boolean;
+  helpText?: string;
+  value: unknown;
+  hint: string;
+  error?: string;
+}) {
+  const text = carryOverDisplayText(value);
+  return (
+    <div className="grid gap-2" data-testid={`param-carry-over-${name}`}>
+      <Collapsible className="rounded-md border bg-muted/40">
+        <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm font-medium">
+          <span>
+            {label}
+            {required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
+          </span>
+          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+            <Lock className="size-3" aria-hidden="true" />
+            {hint}
+            <ChevronDown
+              className="size-4 transition-transform group-data-[state=open]:rotate-180"
+              aria-hidden="true"
+            />
+          </span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all border-t px-3 py-2 font-mono text-xs">
+            {text ?? '—'}
+          </pre>
+        </CollapsibleContent>
+      </Collapsible>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      {helpText && <p className="text-xs text-muted-foreground">{helpText}</p>}
+    </div>
+  );
 }
 
 /**
@@ -434,6 +518,23 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
                     <p className="font-mono">{rawParam.unresolvedField}</p>
                   </div>
                 </div>
+              );
+            }
+            // A declared carry-over is shown, never collected (objectui#6246):
+            // it returns BEFORE `paramToField()`, so no widget exists for it and
+            // nothing but the row seed ever writes its `values` entry.
+            if (rawParam.carryOver) {
+              return (
+                <CarryOverParam
+                  key={param.name}
+                  name={param.name}
+                  label={param.label}
+                  required={param.required}
+                  helpText={param.helpText}
+                  value={values[param.name]}
+                  hint={t('actionDialog.carryOverHint')}
+                  error={errors[param.name] ? t('actionDialog.requiredError', { label: param.label }) : undefined}
+                />
               );
             }
             const field = paramToField(param);

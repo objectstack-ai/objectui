@@ -7,8 +7,9 @@ const manifest = manifestFromConfigs([
     { name: 'direction', type: 'enum', enum: ['row', 'col'] },
     { name: 'gap', type: 'number' },
     { name: 'wrap', type: 'boolean' },
+    { name: 'children', type: 'slot' },
   ] },
-  { type: 'card', namespace: 'ui', isContainer: true, inputs: [{ name: 'title', type: 'string' }] },
+  { type: 'card', namespace: 'ui', isContainer: true, inputs: [{ name: 'title', type: 'string' }, { name: 'children', type: 'slot' }] },
   { type: 'object-table', namespace: 'plugin-grid', isContainer: false, inputs: [
     { name: 'object', type: 'string', required: true, binding: 'object' },
     { name: 'columns', type: 'array' },

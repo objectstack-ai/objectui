@@ -285,7 +285,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // spans, all runtime data, like the `ActivityTimeline` pair above. The two
     // new coordinate NOUN keys (`fields.location.latitude`/`longitude`) carry
     // no quotes at all: they are interpolated INTO those spans, not around them.
-    expect(okSpans, 'correctly paired spans').toBe(62);
+    // 63 once objectui#4191 added `actions.notAvailableHere`, the refused
+    // auto-trigger notice, which quotes the action's label („{{action}}“) —
+    // one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(63);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -313,7 +316,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // objectui#7173 added `aiApprovals.rejectPlaceholder`, one more matched pair.
     // 62 / 62 / 0 after objectui#6888 keyed `LocationField`'s residue refusal —
     // three more matched pairs across its two arity siblings, and `rdq` still 0.
-    expect({ open, close, rdq }).toEqual({ open: 62, close: 62, rdq: 0 });
+    // 63 / 63 / 0 after objectui#4191 added `actions.notAvailableHere`, one
+    // more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 63, close: 63, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

@@ -153,6 +153,7 @@ const ru = {
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
     },
+    notAvailableHere: '«{{action}}» недоступно на текущей странице.',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",
@@ -1407,6 +1408,7 @@ const ru = {
     navTypeSeparator: "Разделитель",
     navTypeAction: "Действие",
     navTypeComponent: "Компонент",
+    navTypeDoc: "Документ",
     navEditIcon: "Редактировать значок",
     navToggleVisible: "Переключить видимость",
     navHidden: "Скрыто",
@@ -2597,6 +2599,7 @@ const ru = {
     selectPlaceholder: "Выбрать {{label}}",
     requiredError: "{{label}} обязательно",
     unresolvedParam: 'Этот параметр невозможно показать: поле, на котором он основан, отсутствует в метаданных объекта, поэтому нужный элемент управления нельзя построить. Попросите администратора исправить определение действия.',
+    carryOverHint: 'Переносится без изменений (только чтение)',
     cancel: "Отмена",
     confirm: "Подтвердить",
     uploading: "Загрузка…",

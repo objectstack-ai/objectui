@@ -151,6 +151,7 @@ const ar = {
       acknowledge: 'لقد حفظتها',
       copyAll: 'نسخ الكل',
     },
+    notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
   },
   validation: {
     required: "{{field}} مطلوب",
@@ -1404,6 +1405,7 @@ const ar = {
     navTypeSeparator: "فاصل",
     navTypeAction: "إجراء",
     navTypeComponent: "مكوّن",
+    navTypeDoc: "مستند",
     navEditIcon: "تعديل الأيقونة",
     navToggleVisible: "تبديل الرؤية",
     navHidden: "مخفي",
@@ -2592,6 +2594,7 @@ const ar = {
     selectPlaceholder: "تحديد {{label}}",
     requiredError: "{{label}} مطلوب",
     unresolvedParam: 'تعذّر عرض هذه المَعلمة: الحقل الذي تستند إليه غير موجود في بيانات تعريف الكائن، لذا يتعذّر إنشاء عنصر التحكم المطلوب. اطلب من المسؤول تصحيح تعريف الإجراء.',
+    carryOverHint: 'يُنقل دون تغيير (للقراءة فقط)',
     cancel: "إلغاء",
     confirm: "تأكيد",
     uploading: "جارٍ الرفع…",

@@ -732,26 +732,28 @@ describe('P1.6 i18n & ARIA Protocol Alignment', () => {
 // NamedListView & ListViewSchema — Toolbar/Display Properties
 // ============================================================================
 describe('NamedListView toolbar and display properties', () => {
-  it('should accept showSearch, showSort, showFilters on NamedListView', () => {
+  // objectui#7924 retired the legacy `show*` spellings and the bare `color`
+  // shorthand on NamedListView's authoring face; the canonical keys carry the
+  // same toolbar toggles and row colouring. The refusal half lives in the
+  // census pin (`object-view-unmirrored-keys-7779.test.ts`).
+  it('should accept the canonical userActions toggles on NamedListView', () => {
     const view: import('../index').NamedListView = {
       label: 'My View',
       type: 'grid',
-      showSearch: false,
-      showSort: true,
-      showFilters: false,
+      userActions: { search: false, sort: true, filter: false },
     };
-    expect(view.showSearch).toBe(false);
-    expect(view.showSort).toBe(true);
-    expect(view.showFilters).toBe(false);
+    expect(view.userActions?.search).toBe(false);
+    expect(view.userActions?.sort).toBe(true);
+    expect(view.userActions?.filter).toBe(false);
   });
 
-  it('should accept color on NamedListView', () => {
+  it('should accept rowColor (the canonical form of the retired bare color) on NamedListView', () => {
     const view: import('../index').NamedListView = {
       label: 'Styled View',
       type: 'kanban',
-      color: 'status',
+      rowColor: { field: 'status' },
     };
-    expect(view.color).toBe('status');
+    expect(view.rowColor?.field).toBe('status');
   });
 
   // The other half of the retirement pinned above — `striped` / `bordered` came

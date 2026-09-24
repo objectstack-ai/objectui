@@ -43,7 +43,7 @@
  * actions carry the flag, and only the last block tells them apart.
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
@@ -56,6 +56,7 @@ import { ActionProvider } from '@object-ui/react';
 import '../action-bar';
 import '../action-button';
 import '../action-menu';
+import { toast } from '../../../ui/sonner';
 
 /** Three ordinary toolbar actions — enough to fill the desktop `maxVisible: 3`. */
 const FILLERS = [
@@ -83,6 +84,14 @@ let api: Mock<(action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>;
 beforeEach(() => {
   api = vi.fn(async () => ({ success: true }));
 });
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** The dev diagnostics the refusal branch wrote (objectui#4191), and nothing else console.warn saw. */
+const refusalDiagnostics = (spy: { mock: { calls: unknown[][] } }): string[] =>
+  spy.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('objectui#4191'));
 
 /** The names the runner was actually asked to execute, in order. */
 const executed = () => api.mock.calls.map((c) => (c[0] as any).name);
@@ -296,14 +305,18 @@ describe('what suppresses an auto-trigger, and what does not (#4162)', () => {
     expect(api).not.toHaveBeenCalled();
   });
 
-  it("the ACTION's own declared visible gate does not suppress it — and inline agrees with overflow", async () => {
-    // NOT an endorsement of the semantics — a parity pin. `action:button`
-    // declares its auto-trigger effect before its `visible` early return, so a
-    // gated-invisible action executes anyway (measured on this tree, before any
-    // change: `rendered="" execute=1`). Whether that is right is one question
-    // for BOTH renderers, filed separately as objectui#4191; what this card
-    // cannot allow is the two disagreeing, because "which renderer got the
-    // action" is decided by `maxVisible` and the viewport.
+  it("the ACTION's own declared visible gate REFUSES it, and says so — inline agrees with overflow (objectui#4191)", async () => {
+    // Inverted by objectui#4191 (ruling A). This block used to pin the
+    // opposite, as a parity pin only: `action:button` declared its auto-trigger
+    // effect before its `visible` early return, so a gated-invisible action
+    // executed anyway (`rendered="" execute=1`), and #4162 made the menu agree.
+    // The ruling settled WHAT the two agree on: the author's declared `visible`
+    // outranks the transport flag — the action is not run, and the refusal is
+    // reported (a user-facing notice plus a dev diagnostic) rather than
+    // swallowed. The parity requirement is unchanged: `maxVisible` and the
+    // viewport decide which renderer receives the action, so both must refuse.
+    const notice = vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    const diagnostic = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const hidden = { ...CREATE, visible: NEVER, autoTrigger: true };
 
     const inline = render(
@@ -311,9 +324,14 @@ describe('what suppresses an auto-trigger, and what does not (#4162)', () => {
         <Bar actions={[hidden, ...FILLERS.slice(0, 2)]} />
       </ActionProvider>,
     );
-    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
     // It really was hidden: no button of its own anywhere.
     expect(screen.queryByRole('button', { name: 'Create Environment' })).toBeNull();
+    await waitFor(() => expect(notice).toHaveBeenCalledTimes(1));
+    expect(api).not.toHaveBeenCalled();
+    // The notice names the action the user asked for.
+    expect(String(notice.mock.calls[0][0])).toContain('Create Environment');
+    expect(refusalDiagnostics(diagnostic)).toHaveLength(1);
+    expect(refusalDiagnostics(diagnostic)[0]).toContain('create_environment');
     inline.unmount();
 
     const overflowApi = vi.fn<
@@ -324,7 +342,74 @@ describe('what suppresses an auto-trigger, and what does not (#4162)', () => {
         <Bar actions={[...FILLERS, hidden]} />
       </ActionProvider>,
     );
-    await waitFor(() => expect(overflowApi).toHaveBeenCalledTimes(1));
-    expect((overflowApi.mock.calls[0][0] as any).name).toBe('create_environment');
+    // It really overflowed: the three fillers are inline, and the trigger exists.
+    expect(screen.getByRole('button', { name: 'a3' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /more actions/i })).toBeTruthy();
+    await waitFor(() => expect(notice).toHaveBeenCalledTimes(2));
+    expect(String(notice.mock.calls[1][0])).toContain('Create Environment');
+    expect(refusalDiagnostics(diagnostic)).toHaveLength(2);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(overflowApi).not.toHaveBeenCalled();
+  });
+
+  it('refusal is reported once per mounted action, however often it re-renders', async () => {
+    const notice = vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const hidden = () => ({ ...CREATE, visible: NEVER, autoTrigger: true });
+    const view = renderBar([hidden(), ...FILLERS.slice(0, 2)]);
+    await waitFor(() => expect(notice).toHaveBeenCalledTimes(1));
+    for (let i = 0; i < 3; i++) {
+      view.rerender(
+        <ActionProvider handlers={{ api }}>
+          <Bar actions={[hidden(), ...FILLERS.slice(0, 2)]} />
+        </ActionProvider>,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    expect(notice).toHaveBeenCalledTimes(1);
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('refusal does not spend the once-guard: an action that becomes visible later runs, once — in both renderers', async () => {
+    // The gate is re-judged per commit, so an ambient scope that resolves after
+    // first paint is not turned into a permanent refusal.
+    vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ALWAYS = '1 == 1';
+    for (const layout of [
+      (a: any) => [a, ...FILLERS.slice(0, 2)],
+      (a: any) => [...FILLERS, a],
+    ]) {
+      const run = vi.fn<(action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>(
+        async () => ({ success: true }),
+      );
+      const view = render(
+        <ActionProvider handlers={{ api: run }}>
+          <Bar actions={layout({ ...CREATE, visible: NEVER, autoTrigger: true })} />
+        </ActionProvider>,
+      );
+      await new Promise((r) => setTimeout(r, 0));
+      expect(run).not.toHaveBeenCalled();
+      for (let i = 0; i < 2; i++) {
+        view.rerender(
+          <ActionProvider handlers={{ api: run }}>
+            <Bar actions={layout({ ...CREATE, visible: ALWAYS, autoTrigger: true })} />
+          </ActionProvider>,
+        );
+      }
+      await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(run).toHaveBeenCalledTimes(1);
+      view.unmount();
+    }
+  });
+
+  it('an EMPTY visible predicate is no gate — it neither hides nor refuses', async () => {
+    // Same declared-gate definition as the early return (objectui#3850): an
+    // empty predicate must not be the reason an action is refused.
+    const notice = vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    renderBar([{ ...CREATE, visible: '', autoTrigger: true }, ...FILLERS.slice(0, 2)]);
+    await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+    expect(notice).not.toHaveBeenCalled();
   });
 });

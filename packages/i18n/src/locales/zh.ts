@@ -154,6 +154,7 @@ const zh = {
       acknowledge: '我已保存',
       copyAll: '全部复制',
     },
+    notAvailableHere: '「{{action}}」在当前页面不可用。',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -1462,6 +1463,7 @@ const zh = {
     navTypeSeparator: '分隔线',
     navTypeAction: '操作',
     navTypeComponent: '组件',
+    navTypeDoc: '文档',
     navEditIcon: '编辑图标',
     navToggleVisible: '切换可见性',
     navHidden: '已隐藏',
@@ -2744,6 +2746,7 @@ const zh = {
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
     unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
+    carryOverHint: '原样带入（只读）',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',

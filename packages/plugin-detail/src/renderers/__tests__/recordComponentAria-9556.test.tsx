@@ -357,10 +357,13 @@ describe('how the authored name COMPOSES with a panel that already has one', () 
     const root = rootOf(r);
     expect(root).toHaveAttribute('role', 'region');
     expect(root).toHaveAccessibleName(NAME);
-    // The panel's own section is still there, still named by the panel.
-    const inner = root.querySelector('section[aria-label]');
+    // The panel's own section is still there, still named by the panel. Since
+    // objectui#9998 the panel names it BY its heading (`aria-labelledby`), not
+    // with an `aria-label`, so the name is read off the accessibility tree.
+    const inner = root.querySelector('section');
     expect(inner).not.toBeNull();
-    expect(inner?.getAttribute('aria-label')).not.toBe(NAME);
+    expect(inner).toHaveAccessibleName();
+    expect(inner).not.toHaveAccessibleName(NAME);
   });
 });
 

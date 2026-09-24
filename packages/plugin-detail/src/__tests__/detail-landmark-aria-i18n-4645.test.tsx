@@ -15,11 +15,26 @@
  * purely-ASCII accessible names on a record detail page, measured English in
  * zh-CN, ja-JP **and** es-ES — in es-ES sitting among 30+ correctly-Spanish
  * siblings (`Copiar ID de registro`, `Filtrar actividad`, `Alternar barra
- * lateral`). Both sections carry no visible label of their own, so the
- * `aria-label` IS the landmark as far as assistive tech is concerned — the
- * argument objectui#4024 made for the dialog `Close` label, and #5956 made for
- * `record:path`'s own container name (`detail.pathLabel`, which this change
+ * lateral`). `HeaderHighlight`'s section carries no visible label of its own,
+ * so its `aria-label` IS the landmark as far as assistive tech is concerned —
+ * the argument objectui#4024 made for the dialog `Close` label, and #5956 made
+ * for `record:path`'s own container name (`detail.pathLabel`, which this change
  * copies).
+ *
+ * ⚠️ Corrected 2026-09-24 (objectui#9998). This paragraph said BOTH sections
+ * carry no visible label of their own. For `RecordActivityTimeline` that was
+ * already false on the day it was written: its section has held a visible
+ * `<h2>` reading `titleLabel ?? t('detail.activity')` plus an `(N)` count ever
+ * since the section itself was introduced (2026-05-21, the de-boxing that
+ * replaced the timeline's Card). So a `record:activity` mount, which passes no
+ * `titleLabel`, was a landmark spoken "Discussion" under a heading reading
+ * "Activity (N)" — against objectui#4118's rule that the landmark's spoken name
+ * must be the heading. The timeline's section is now named BY that heading's
+ * title text, so its cases below assert the locale's `detail.activity` where
+ * they used to assert `detail.discussion`, and they read the computed
+ * accessible name rather than an `aria-label` attribute it no longer carries.
+ * What this file pins for it is unchanged: the landmark name is the session
+ * locale's pack value, never an English literal, in all ten locales.
  *
  * Keys: `detail.discussion` already existed in all ten packs (the DetailView
  * tab reads it). `detail.highlightsLabel` is new and is the ONLY key this
@@ -28,7 +43,9 @@
  *
  * ── Direction of these assertions ─────────────────────────────────────────
  * The `en` cases were GREEN before AND after: they pin that routing the names
- * through `t()` did not change what an English session hears. The zh / ja / es
+ * through `t()` did not change what an English session hears. (For the
+ * timeline that is history: objectui#9998 changed what an English session
+ * hears there, "Discussion" to "Activity", on purpose — see above.) The zh / ja / es
  * cases were RED — both names read English in every locale, which is the whole
  * defect. The provider-less fallback is NOT asserted here: mounting an
  * `I18nProvider` installs a module-level i18next instance, so a no-provider
@@ -67,6 +84,17 @@ const timeline = <RecordActivityTimeline items={[]} />;
 const sectionLabel = (container: HTMLElement) =>
   container.querySelector('section')?.getAttribute('aria-label') ?? null;
 
+/**
+ * The timeline's one `<section>`. It is named by its heading's title since
+ * objectui#9998, so its name is read off the accessibility tree
+ * (`toHaveAccessibleName`), not off an `aria-label` attribute.
+ */
+const timelineSection = (container: HTMLElement) => {
+  const section = container.querySelector('section');
+  if (!section) throw new Error('RecordActivityTimeline rendered no <section>');
+  return section;
+};
+
 afterEach(() => cleanup());
 
 describe('record-detail landmark names (objectui#4645)', () => {
@@ -99,25 +127,28 @@ describe('record-detail landmark names (objectui#4645)', () => {
     });
   });
 
-  describe('RecordActivityTimeline — the discussion landmark', () => {
-    it('still reads English under an en session', () => {
+  // Named by its heading since objectui#9998: the values are each pack's
+  // `detail.activity` (the heading's default title), where they were
+  // `detail.discussion` while the name was a separate fixed string.
+  describe('RecordActivityTimeline — the activity landmark, named by its heading', () => {
+    it('reads English under an en session', () => {
       const { container } = renderIn('en', timeline);
-      expect(sectionLabel(container)).toBe('Discussion');
+      expect(timelineSection(container)).toHaveAccessibleName('Activity');
     });
 
     it.each([
-      ['zh', '讨论'],
-      ['ja', 'ディスカッション'],
-      ['es', 'Discusión'],
-      ['de', 'Diskussion'],
-      ['fr', 'Discussion'],
-      ['ko', '토론'],
-      ['pt', 'Discussão'],
-      ['ru', 'Обсуждение'],
-      ['ar', 'المناقشة'],
+      ['zh', '活动'],
+      ['ja', 'アクティビティ'],
+      ['es', 'Actividad'],
+      ['de', 'Aktivität'],
+      ['fr', 'Activité'],
+      ['ko', '활동'],
+      ['pt', 'Atividade'],
+      ['ru', 'Активность'],
+      ['ar', 'النشاط'],
     ])('reads the %s pack value', (language, expected) => {
       const { container } = renderIn(language, timeline);
-      expect(sectionLabel(container)).toBe(expected);
+      expect(timelineSection(container)).toHaveAccessibleName(expected);
     });
   });
 });

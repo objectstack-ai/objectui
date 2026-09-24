@@ -946,13 +946,18 @@ describe('ElementDataSourceGate — a refused binding `limit` is not authored (o
     });
   });
 
-  describe('CONTROLS — rows the ruling does not move', () => {
-    it('CONTROL — binding 3 + refused view cap ⇒ 3, and NO view warning (the carried defect, silent here already)', async () => {
+  describe('the carried defect’s condition, read from the builder on this caller too', () => {
+    // Not a CONTROL: this gate was already silent here, but the condition that
+    // keeps it silent now lives in the core builder, shared with
+    // `ViewDataProvider`, so ablating the builder's condition reddens this row.
+    it('binding 3 + refused view cap ⇒ 3, and NO view warning', async () => {
       const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(3) }, VIEW_REFUSED);
       expect(result.current.schema.pagination).toEqual({ pageSize: 3 });
       expect(spy).not.toHaveBeenCalled();
     });
+  });
 
+  describe('CONTROLS — rows the ruling does not move', () => {
     it('CONTROL — binding 3 + usable view cap ⇒ 3, and nothing said', async () => {
       const { result, spy } = await row({ type: 'list-view', dataSource: bindingOf(3) }, VIEW_USABLE);
       expect(result.current.schema.pagination).toEqual({ pageSize: 3 });

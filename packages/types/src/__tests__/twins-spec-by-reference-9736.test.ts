@@ -14,9 +14,11 @@
  * extend `Omit< App | Dashboard | Page, … >` over the SAME `as const` exclusion
  * array their mirror's `specFieldsExcept` call reads (`APP_SPEC_EXCLUDED`,
  * `DASHBOARD_SPEC_EXCLUDED`, `PAGE_SPEC_EXCLUDED`), plus — on the TypeScript
- * face only — the one twin member per pair whose hand-written type is not
- * assignable to the spec's (`header` on the dashboard, `slots` on the page;
- * both already ledgered as drift in `zod-mirror-parity.test.ts`).
+ * face only — the twin members whose hand-written type is not assignable to
+ * the spec's (`header` on the dashboard, `slots` on the page, both already
+ * ledgered as drift in `zod-mirror-parity.test.ts`), plus the page's
+ * `assignedProfiles`, which objectstack `main` retires (a forward-compat
+ * omission, objectui#9409).
  *
  * ## Why the positive pins are TYPE equalities, not assignments
  *
@@ -128,5 +130,17 @@ describe('the twin-only omissions keep the twin\'s own member, unwidened', () =>
     const headerNotSpec: Equal<DashboardComponentSchema['header'], Dashboard['header']> = false;
     const slotsNotSpec: Equal<PageNodeSchema['slots'], Page['slots']> = false;
     expect([headerLabel, headerNotSpec, slotsNotSpec]).toEqual([true, false, false]);
+  });
+
+  it('Page `assignedProfiles` keeps the hand-written `string[]` whatever the spec pin declares', () => {
+    // A FORWARD-COMPAT omission: objectstack `main` retires the key (its input
+    // type becomes `undefined`), and the hand-written member would then stop
+    // compiling in the `extends` clause. Spelling it beside the shared list keeps
+    // the twin compiling against both the installed pin and `main` (the
+    // `Spec Main Shape Gate`). Retiring it is objectui#9409's decision, ⛔ not
+    // this file's, so the member must stay exactly what it was.
+    const assignedProfiles: Equal<PageNodeSchema['assignedProfiles'], string[] | undefined> = true;
+    const declared: 'assignedProfiles' extends DeclaredKeys<PageNodeSchema> ? true : false = true;
+    expect([assignedProfiles, declared]).toEqual([true, true]);
   });
 });

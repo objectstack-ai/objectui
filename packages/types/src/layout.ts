@@ -1298,8 +1298,8 @@ export interface PageNodeRegion {
  * mirror's `specFieldsExcept` call also reads, so both faces project the same
  * spec surface and move together on a pin bump.
  *
- * ONE key is omitted from the spec projection beyond the shared list, on the
- * TypeScript face only:
+ * TWO keys are omitted from the spec projection beyond the shared list, on
+ * the TypeScript face only:
  *  - `slots` — the member below types each slot as objectui's `SchemaNode`
  *    (which admits primitives and `null`), not the spec's page-component
  *    shape, so it is not assignable to the spec's member and cannot sit beside
@@ -1308,9 +1308,19 @@ export interface PageNodeRegion {
  *    ⛔ not changed here. The mirror keeps validating the spec's `slots` — the
  *    omission is type-side only, so it is spelled beside the shared list, not
  *    inside it.
+ *  - `assignedProfiles` — a FORWARD-COMPAT omission. On the installed spec the
+ *    spec's member is `string[]` and the one below matches it, but objectstack
+ *    `main` has retired the key (`retiredKey()`, so its input type is
+ *    `undefined`), and the hand-written `string[]` is not assignable to that.
+ *    Without this omission the twin would stop compiling at the next pin bump,
+ *    which `Spec Main Shape Gate` measures today. Retiring the member here is
+ *    objectui#9409's decision, which is on hold until the installed spec
+ *    refuses the key. ⛔ It is not retired, and not widened, here. Like
+ *    `slots`, it is spelled beside the shared list, so the mirror keeps
+ *    validating whatever the installed spec declares.
  *
  * The other members this interface writes itself (`icon`, `object`,
- * `template`, `variables`, `isDefault`, `assignedProfiles`, `aria`, `kind`)
+ * `template`, `variables`, `isDefault`, `aria`, `kind`)
  * are each assignable to the spec's, so they override it without an omission.
  * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`.
  *
@@ -1323,7 +1333,7 @@ export interface PageNodeRegion {
  * `@object-ui/components` registers `PageRenderer` under, i.e. the wire key
  * authored metadata carries. Nothing else in the repo pins it.
  */
-export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots'> {
+export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots' | 'assignedProfiles'> {
   type: 'page';
   /**
    * ⛔ REFUSED BY NAME — `actions` is not a member of this node and never was

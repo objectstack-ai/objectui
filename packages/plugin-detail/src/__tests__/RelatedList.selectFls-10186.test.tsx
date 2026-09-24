@@ -41,7 +41,9 @@
  *    through the same two gates as `ObjectGrid`: declared-or-platform, and FLS
  *    on a declared one. Its fixture has no reference-bearing column, so the
  *    expand key never changes and only the projection's own key can carry
- *    the late-arriving operands onto the wire.
+ *    the late-arriving operands onto the wire. PIN 4b repeats the harvest over
+ *    the ARRAY-shaped field container, which a Record-only reader would read
+ *    as "nothing declared".
  *  - PIN 5 — the boundary, GREEN on `main` by design: a list that DERIVES its
  *    columns (no authored `columns`, or redaction emptied them) sends no
  *    projection. Those columns are only known after the fetch, and what that
@@ -236,6 +238,23 @@ describe('RelatedList row fetch — `$select` is FLS-projected (objectui#10186)'
     expect(select).not.toContain('manager_note');
     expect(select).not.toContain('typo_field');
     expect(rowFetches(ds).every((p) => p.$expand === undefined)).toBe(true);
+  });
+
+  it('PIN 4b: the same harvest reads the ARRAY-shaped field container the metadata API also serves', async () => {
+    // A reader that knows only the Record shape answers "undeclared" for every
+    // name in an array of defs, and would drop `status` from the projection —
+    // the row Edit predicate would then fault on the absent key.
+    const ds = makeDataSource({
+      name: OBJECT,
+      fields: Object.entries(baseFields).map(([name, def]) => ({ name, ...def })),
+      userActions: { edit: { visibleWhen: "record.status != 'terminated'" } },
+    });
+    renderList(ds, denying('manager_note'), { columns: ['name'] });
+
+    await waitFor(() =>
+      expect(rowFetches(ds).some((p) => (p.$select ?? []).includes('status'))).toBe(true),
+    );
+    expect(rowFetches(ds).at(-1)!.$select).toEqual(['id', 'name', 'status']);
   });
 });
 

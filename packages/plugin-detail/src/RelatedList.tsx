@@ -53,9 +53,10 @@ import {
   isEmptyValue,
   isExpandableFieldType,
   isPlatformSortableField,
-  isProjectableField,
   isUnmaterializedFieldType,
   listViewPredicates,
+  parentRelationshipFieldDef,
+  PLATFORM_RECORD_COLUMNS,
   composeParentScopeFilter,
   isMultiValueRelationship,
   mergeFilterNodes,
@@ -783,8 +784,8 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       if (key) projection.add(key);
     }
     for (const root of expandFields) projection.add(root);
-    const declared = objectSchema?.fields as Record<string, unknown> | undefined;
-    if (declared && typeof declared === 'object') {
+    const fields = objectSchema?.fields;
+    if (fields && typeof fields === 'object') {
       const operands = collectPredicateFieldRefs(
         listViewPredicates({
           rowActionDefs: rowActions,
@@ -793,9 +794,15 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         }),
       );
       for (const field of operands) {
-        if (!isProjectableField(field, declared)) continue;
-        const isDeclared = Object.prototype.hasOwnProperty.call(declared, field);
-        if (isDeclared && perms?.isLoaded && relatedObjectName
+        // Declared — looked up in EITHER container shape the metadata API
+        // serves (the Record, or the array of named defs), because a reader
+        // that knows only the Record would call every operand of an
+        // array-shaped schema undeclared and drop it — or one of the platform
+        // columns every object carries and none declares. That is core's
+        // `isProjectableField` rule, read across both shapes.
+        const declared = parentRelationshipFieldDef(fields, field) !== undefined;
+        if (!declared && !PLATFORM_RECORD_COLUMNS.has(field)) continue;
+        if (declared && perms?.isLoaded && relatedObjectName
             && !perms.checkField(relatedObjectName, field, 'read')) continue;
         projection.add(field);
       }

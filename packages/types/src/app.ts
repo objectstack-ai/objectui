@@ -51,8 +51,11 @@ import type {
   UrlNavItem as SpecUrlNavItem,
   ActionNavItem as SpecActionNavItem,
   ComponentNavItem as SpecComponentNavItem,
+  App as SpecApp,
 } from '@objectstack/spec/ui';
 import type { BaseSchema } from './base.js';
+import type { z } from 'zod';
+import type { APP_SPEC_EXCLUDED, AppContextSelectorSchema } from './zod/app.zod.js';
 
 // ============================================================================
 // Unified Navigation Model (aligned with @objectstack/spec)
@@ -366,8 +369,41 @@ export interface NavigationArea extends Omit<SpecNavigationArea, 'navigation'> {
 
 /**
  * Top-level Application Configuration (app.json)
+ *
+ * ## The spec half is taken BY REFERENCE (objectui#9736)
+ *
+ * Its zod mirror (`zod/app.zod.ts` `AppComponentSchema`) has long been
+ * `BaseSchema.extend(SpecAppFields.shape).extend({…})`: every key
+ * `@objectstack/spec/ui`'s `AppSchema` declares flows into the published
+ * validator by reference. This interface used to restate only the subset the
+ * renderers read, so the published validator admitted keys the published type
+ * did not declare — the package-lock envelope (`_lock*` / `_package*` /
+ * `_provenance`, written by the packaging pipeline, never by an author),
+ * `protection`, `isDefault`, `_unpublished`, `defaultAgent` — and the spec's
+ * retirement tombstones (`version`, `homePageId`, `objects`, `apis`,
+ * `sharing`, `embed`, `mobileNavigation`, `aria`) reached this type only as
+ * `any` through `BaseSchema`'s index signature.
+ *
+ * Now both faces project the SAME spec surface: this interface extends
+ * `Omit< App, … >` over `APP_SPEC_EXCLUDED`, the one `as const` array the
+ * mirror's `specFieldsExcept` call also reads. A key the spec adds on the next
+ * pin bump reaches both faces together; a key it retires with `retiredKey()`
+ * surfaces here as an optional member typed `undefined`, so authoring a value
+ * is a compile error — the verdict the validator gives at parse.
+ *
+ * The members this interface writes itself override the spec's where both
+ * exist (`icon`, `branding`, `active`, `hidden`, `requiredPermissions`), and
+ * each is assignable to the spec's type, so nothing beyond the shared list is
+ * omitted. The three keys the shared list withholds from the spec projection
+ * (`navigation` / `areas` / `contextSelectors`) are declared below with the
+ * same local element types the mirror re-adds; `name` / `label` /
+ * `description` are the component envelope.
+ *
+ * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`; the key-level
+ * reconciliation is the `MirroredUndeclared` ledger in
+ * `__tests__/zod-mirror-parity.test.ts`, which has no row for this pair.
  */
-export interface AppComponentSchema extends BaseSchema {
+export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof APP_SPEC_EXCLUDED)[number]> {
   type: 'app';
   
   /**
@@ -517,6 +553,18 @@ export interface AppComponentSchema extends BaseSchema {
    * the selected area's navigation tree.
    */
   areas?: NavigationArea[];
+
+  /**
+   * App-level scope dropdowns (sidebar / topbar), whose selected value is
+   * injected into navigation items as a `{<id>}` template var.
+   *
+   * Withheld from the spec projection by `APP_SPEC_EXCLUDED` because the
+   * mirror re-adds it with its own element schema (`AppContextSelectorSchema`,
+   * whose `label` also takes objectui's i18n label envelope), so this member
+   * takes that element BY REFERENCE (objectui#9736) rather than restating it —
+   * the two faces read one declaration.
+   */
+  contextSelectors?: Array<z.input<typeof AppContextSelectorSchema>>;
 
   /**
    * Global Actions (User Profile, Settings, etc)

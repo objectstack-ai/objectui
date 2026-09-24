@@ -437,8 +437,14 @@ export const SliderSchema = BaseSchema.extend({
   type: z.literal('slider'),
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Slider label'),
-  defaultValue: z.union([z.number(), z.array(z.number())]).optional().describe('Default value(s)'),
-  value: z.union([z.number(), z.array(z.number())]).optional().describe('Controlled value(s)'),
+  defaultValue: z.union([z.number(), z.array(z.number())]).optional()
+    .describe('Default value(s) — a single number or one per thumb; the renderer wraps a scalar into a list'),
+  value: retirementTombstone(
+    'REFUSED (objectui#10280, ADR-0049) — `slider` has no read site for `value`: the renderer reads '
+    + '`defaultValue`, `max`, `min`, `step` off the node, and the form-control DOM whitelist drops `value` '
+    + 'from the props it spreads, so an authored value rendered NOTHING. Author `defaultValue` for the '
+    + 'initial position.',
+  ),
   min: z.number().optional().describe('Minimum value'),
   max: z.number().optional().describe('Maximum value'),
   step: z.number().optional().describe('Step value'),

@@ -55,9 +55,12 @@ const fields: Record<string, unknown> = {
   org_id: { type: 'text', label: 'Organization' },
 };
 
+/** The slice of a row fetch's params this file reads. */
+type FetchParams = { $select?: string[] };
+
 const makeDataSource = () => ({
   getObjectSchema: vi.fn(async () => ({ name: OBJECT, fields })),
-  find: vi.fn(async () => ({
+  find: vi.fn(async (_api: string, _params?: FetchParams) => ({
     data: [{ id: 'tm_1', name: 'Ada', team_id: 'team_42', user_id: 'user_7', org_id: 'org_1' }],
     total: 1,
   })),
@@ -111,10 +114,10 @@ const renderList = (ds: ReturnType<typeof makeDataSource>, permissions: ObjectPe
   );
 
 /** The params of every row fetch this list sent for its own collection. */
-const rowFetches = (ds: ReturnType<typeof makeDataSource>): Record<string, any>[] =>
+const rowFetches = (ds: ReturnType<typeof makeDataSource>): FetchParams[] =>
   ds.find.mock.calls
-    .filter(([api]: any[]) => api === OBJECT)
-    .map(([, params]: any[]) => params ?? {});
+    .filter(([api]) => api === OBJECT)
+    .map(([, params]) => params ?? {});
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => cleanup());

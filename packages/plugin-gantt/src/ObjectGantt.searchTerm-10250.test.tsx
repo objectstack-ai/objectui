@@ -31,10 +31,11 @@
  * the object's metadata (ADR-0061), narrowed only by an authored list.
  *
  * REVERSE VERIFICATION. Delete the `$search` spread from `reload`: TERM,
- * FIELDS, CHANGE and INLINE go red; CONTROL, INERT FIELDS and STABILITY stay
- * green (they assert an absence or a count, which a query without the pair
- * satisfies). Key the effect on `schema.searchableFields` itself instead of
- * its serialised value: STABILITY goes red.
+ * FIELDS, CHANGE and INLINE go red, and so does STABILITY, whose precondition
+ * waits for the pair; CONTROL and INERT FIELDS stay green (they assert an
+ * absence, which a query without the pair satisfies). Key the effect on
+ * `schema.searchableFields` itself instead of its serialised value: STABILITY
+ * alone goes red.
  */
 
 import React from 'react';

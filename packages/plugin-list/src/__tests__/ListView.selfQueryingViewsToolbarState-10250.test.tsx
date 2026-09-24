@@ -48,8 +48,9 @@
  * tree FORWARDS and CHANGE cases go red, and so does its STABILITY case, whose
  * precondition waits for the forwarded condition; CONTROL stays green. The same
  * for the chart node. Delete the gantt node's `search` spread: the gantt
- * FORWARDS, SEARCHABLE FIELDS and STABILITY cases go red; CONTROL and CLEARED
- * stay green. Disable the payload-keyed cache in `selfQueryFilter`: the tree's
+ * FORWARDS and SEARCHABLE FIELDS cases go red, and so do CLEARED and
+ * STABILITY, whose preconditions wait for the forwarded term; CONTROL stays
+ * green. Disable the payload-keyed cache in `selfQueryFilter`: the tree's
  * STABILITY case goes red (its stand-in keys on identity); the chart's does not,
  * because `ObjectChart` keys on the serialised filter and so does its stand-in.
  */

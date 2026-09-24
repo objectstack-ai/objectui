@@ -758,6 +758,27 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // (objectui#7230, the structural note PR #7229 recorded for `ListView`).
   const perms = usePermissions();
 
+  /**
+   * The full-text search the record query carries (objectui#10250).
+   *
+   * `search` is the term, sent as `$search`; `searchableFields` narrows the
+   * server-resolved searchable set and is sent as `$searchFields` — only
+   * alongside a term, exactly as a list's own query sends the pair (ADR-0061:
+   * the client sends the term, the server decides which fields it matches). A
+   * `ListView` gantt writes both from its toolbar Search box: the chart
+   * queries for itself, so the node is the only door the term has.
+   *
+   * Both are held as PRIMITIVES for the dependency lists below. The term is a
+   * string; the field list is keyed on its serialised value, so a host handing
+   * a fresh but equal array does not refetch (AGENTS.md #10 — key on the
+   * payload, never on an identity).
+   */
+  const searchTerm = typeof schema.search === 'string' && schema.search !== '' ? schema.search : undefined;
+  const searchFields = searchTerm && Array.isArray(schema.searchableFields) && schema.searchableFields.length > 0
+    ? schema.searchableFields
+    : undefined;
+  const searchFieldsKey = searchFields ? JSON.stringify(searchFields) : '';
+
   // Load (and re-load) data through the resolved adapter. `silent: true`
   // re-reads the source WITHOUT flipping `loading`, so GanttView stays mounted
   // and keeps its scroll/collapse state — used by the write-readback below and
@@ -854,6 +875,14 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // cannot reach this query, by the same ruling.
         $top: NON_GRID_ROW_CEILING_TOP,
         ...(expand.length > 0 ? { $expand: expand } : {}),
+        // objectui#10250 — the term and its field narrowing, sent together
+        // or not at all. See `searchTerm` above.
+        ...(searchTerm
+          ? {
+              $search: searchTerm,
+              ...(searchFields ? { $searchFields: searchFields } : {}),
+            }
+          : {}),
       });
       const capped = applyNonGridRowCeiling(result);
       if (isCurrent()) {
@@ -896,7 +925,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
     // parity by exercising each entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -944,7 +973,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
     reloadRef.current();
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {

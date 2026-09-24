@@ -2919,6 +2919,31 @@ const es = {
     openProduction: "Abrir producción",
     manageEnvironments: "Gestionar entornos",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "Haga una pregunta sobre sus datos…",
+      ask: "Preguntar",
+      results: "Resultados",
+      match: "Coincidencia: {{percent}}",
+      simulatedSummary: "Resultados de: {{query}}",
+      noResults: "No se encontraron registros coincidentes",
+      recentQueries: "Consultas recientes",
+    },
+    formAssist: {
+      title: "Sugerencias de IA",
+      suggestionCount: "{{count}} sugerencias",
+      suggestionCountOne: "{{count}} sugerencia",
+      applyAll: "Aplicar todo",
+      confidence: "Confianza: {{percent}}",
+      appliedCount: "{{count}} sugerencias aplicadas",
+      appliedCountOne: "{{count}} sugerencia aplicada",
+    },
+    recommendations: {
+      title: "Recomendaciones",
+      generating: "Generando recomendaciones…",
+      empty: "No hay recomendaciones disponibles",
+    },
+  },
   aiApprovals: {
     title: "Aprobaciones de IA",
     description: "Acciones propuestas por un agente de IA que necesitan revisión humana antes de ejecutarse.",

@@ -305,6 +305,17 @@ export const PopoverSchema = BaseSchema.extend({
 });
 
 /**
+ * The prescription an author gets when a tooltip's `content` is not text.
+ *
+ * Pinned by content, not by line, in
+ * `../__tests__/tooltip-content-is-text-10295.test.ts`.
+ */
+const TOOLTIP_CONTENT_IS_TEXT_GUIDANCE =
+  'A tooltip\'s `content` is TEXT only (objectui#10295): the renderer places it directly in the '
+  + 'tooltip body, and a node there fails to render ("Objects are not valid as a React child"). '
+  + 'Author a node, or a list of nodes, under `children` instead — the same tooltip\'s rich-content slot.';
+
+/**
  * Tooltip Schema - Tooltip component
  *
  * ⚠️ This member used to REQUIRE `children` and declare neither `trigger` nor a
@@ -337,14 +348,20 @@ export const TooltipSchema = BaseSchema.extend({
   type: z.literal('tooltip'),
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Element the tooltip attaches to (objectui#6939)'),
-  // NARROWED under objectui#10280 (objectui#7759 group B): the list arm is gone.
-  // The renderer places `schema.content` RAW in a React child position — unlike
-  // `trigger` and `children`, it does not go through `renderChildren` — so a
-  // list parsed green here and then failed to render with "Objects are not
-  // valid as a React child". The mirror now states the declaration's
-  // `string | SchemaNode` and nothing wider; a list belongs under `children`.
-  content: SchemaNodeSchema.optional()
-    .describe('Tooltip content, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939). A single value, not a list: author a list under `children` (objectui#10280)'),
+  // TEXT ONLY (objectui#10295, the objectui#7759 group B residue). The renderer
+  // places `schema.content` RAW in a React child position — unlike `trigger`
+  // and `children`, it does not go through `renderChildren`. objectui#10280
+  // removed the list arm on that ground; the single-node arm failed the same
+  // way ("Objects are not valid as a React child"), so this key follows its
+  // read site (ruling 5617465269 rule 2: the spec declares no tooltip node) and
+  // accepts a string only. Rich content belongs under `children`. A non-string
+  // is refused with TOOLTIP_CONTENT_IS_TEXT_GUIDANCE rather than zod's generic
+  // `expected string` — the arm narrowed, the key did not retire, so this is
+  // the objectui#9511 string-narrowing spelling, not a tombstone.
+  content: z
+    .string({ error: (issue) => (issue.code === 'invalid_type' ? TOOLTIP_CONTENT_IS_TEXT_GUIDANCE : undefined) })
+    .optional()
+    .describe('Tooltip text, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939). Text only: author a node or a list of nodes under `children` (objectui#10295)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6939, objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),

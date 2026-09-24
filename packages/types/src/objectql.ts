@@ -3238,6 +3238,20 @@ export interface ObjectGanttSchema extends BaseSchema {
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
+  /**
+   * Full-text search term, forwarded as `$search` (objectui#10250). The server
+   * resolves which fields it matches from the object's metadata (ADR-0061).
+   * `ListView` writes it from its toolbar Search box: the chart runs its own
+   * query, so without this key the box changed the list's fetch and nothing
+   * drawn.
+   */
+  search?: string;
+  /**
+   * Narrows the fields {@link ObjectGanttSchema.search} matches, forwarded as
+   * `$searchFields` — and only alongside a term, as a list's own query sends
+   * it. Same key and meaning as {@link ObjectGridSchema.searchableFields}.
+   */
+  searchableFields?: string[];
 }
 
 /**

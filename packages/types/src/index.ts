@@ -766,8 +766,13 @@ export type {
   HTTPMethod,
   APIRequest,
   APIConfig,
-  UIEventHandler,
-  EventableSchema,
+  // `UIEventHandler` and `EventableSchema` are GONE from this block, not
+  // emptied out of it: both were RETIRED in objectui#6497 (ADR-0049
+  // enforce-or-remove, director ruling of 2026-09-24, maintainer verbatim
+  // 「同意」). Declared, unmirrored, unextended and unread, they only invited a
+  // handler dialect no runtime dispatches. The supported form is the
+  // declarative `ActionDef` object from `@object-ui/core`; the reasoning is the
+  // tombstone in `./api-types.ts`.
   DataFetchConfig,
   DataFetchableSchema,
   ExpressionContext,

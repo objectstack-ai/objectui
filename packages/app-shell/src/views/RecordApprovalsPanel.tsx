@@ -7,6 +7,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { cn, Badge, Button } from '@object-ui/components';
 import { Stamp, Check, Circle, Paperclip, Loader2, Send, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
@@ -179,9 +180,14 @@ export function approverChips(
   return order.map((k) => byKey.get(k)!);
 }
 
-function formatDate(s: string | null | undefined): string {
+/**
+ * `locale` is REQUIRED: the timeline's action times used to be formatted with
+ * no tag, i.e. in the MACHINE's locale (objectui#9909). The panel passes
+ * `useDisplayLocale()`.
+ */
+function formatDate(s: string | null | undefined, locale: string): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString(); } catch { return s; }
+  try { return new Date(s).toLocaleString(locale); } catch { return s; }
 }
 
 /**
@@ -201,6 +207,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
   className,
 }) => {
   const { t } = useObjectTranslation();
+  const displayLocale = useDisplayLocale();
   const tr = React.useCallback(
     (key: string, defaultValue: string, opts?: Record<string, unknown>) =>
       String(t(`approvalsInbox.${key}`, { defaultValue, ...opts })),
@@ -589,7 +596,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
                       <span className="text-muted-foreground">· {prettifyMachineName(a.step_name)}</span>
                     )}
                     <span className="ml-auto text-muted-foreground text-[10px]">
-                      {formatDate(a.created_at)}
+                      {formatDate(a.created_at, displayLocale)}
                     </span>
                   </div>
                   {a.action === 'reassign' && (a.reassign_from || a.reassign_to) && (

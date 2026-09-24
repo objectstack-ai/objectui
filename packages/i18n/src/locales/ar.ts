@@ -2540,7 +2540,12 @@ const ar = {
     placeholder: "ابحث في الكائنات، لوحات التحكم، الصفحات، التقارير…",
     inputAriaLabel: "ابحث في الكائنات، لوحات التحكم، الصفحات، التقارير",
     resultsCount: "{{count}} نتيجة لـ \"{{query}}\"",
-    resultsCountPlural: "{{count}} نتيجة لـ \"{{query}}\"",
+    // objectui#10024 — the page switches keys only at exactly 1, so this half
+    // serves zero, two, few (3-10), many (11-99) and other (100+), which need
+    // four different noun forms. It used to repeat the singular above byte for
+    // byte; a count label («عدد …: {{count}}», as `calendar.a11y.dayCell` does)
+    // reads correctly at every one of them.
+    resultsCountPlural: "عدد نتائج البحث عن \"{{query}}\": {{count}}",
     itemsAvailable: "{{count}} عناصر متاحة",
     itemsAvailableOne: "{{count}} عنصر متاح",
     noResults: "لم يتم العثور على نتائج",

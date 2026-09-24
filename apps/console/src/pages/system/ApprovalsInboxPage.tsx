@@ -74,7 +74,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { APPROVAL_STATUS_LABELS } from '@objectstack/spec/contracts';
 import {
   CheckCircle2,
@@ -196,9 +196,16 @@ function UnresolvableRecordReference({ label, className }: { label: string; clas
   );
 }
 
-function formatDate(s: string | null | undefined): string {
+/**
+ * The page's date helpers take the session's DISPLAY locale as a REQUIRED
+ * argument (`useDisplayLocale()` in the components below). Every one of them
+ * used to format with no tag, i.e. in the MACHINE's locale (objectui#9909);
+ * their `catch` arms are for an unparseable value, not for a tag `Intl`
+ * rejected, so the bare call was the primary leg rather than a fallback.
+ */
+function formatDate(s: string | null | undefined, locale: string): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString(); } catch { return s; }
+  try { return new Date(s).toLocaleString(locale); } catch { return s; }
 }
 
 /**
@@ -345,18 +352,18 @@ function prettifyKey(k: string): string {
   return tokens.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function formatPayloadValue(key: string, v: unknown): string {
+function formatPayloadValue(key: string, v: unknown, locale: string): string {
   if (typeof v === 'boolean') return v ? '✓' : '—';
   if (typeof v === 'number') {
     // Epoch-ms timestamps read as dates; everything else as a localized number.
     if (v > 1e12 && /(_at$|_date$|^date_|_time$)/.test(key)) {
-      try { return new Date(v).toLocaleDateString(); } catch { /* fall through */ }
+      try { return new Date(v).toLocaleDateString(locale); } catch { /* fall through */ }
     }
-    return v.toLocaleString();
+    return v.toLocaleString(locale);
   }
   const s = String(v);
   if (/^\d{4}-\d{2}-\d{2}T\d{2}/.test(s)) {
-    try { return new Date(s).toLocaleString(); } catch { /* fall through */ }
+    try { return new Date(s).toLocaleString(locale); } catch { /* fall through */ }
   }
   return s;
 }
@@ -384,6 +391,7 @@ const OPAQUE_ID_RE = /^[A-Za-z0-9_-]{15,}$/;
  */
 function payloadSummary(
   payload: unknown,
+  locale: string,
   display?: Record<string, string>,
   labels?: Record<string, string>,
   max = 6,
@@ -404,7 +412,7 @@ function payloadSummary(
     }
     // Prefer the server-resolved field label (the target object's own label,
     // already localized for a single-locale project) over a title-cased key.
-    out.push([labels?.[k] ?? prettifyKey(k), resolved ?? formatPayloadValue(k, v)]);
+    out.push([labels?.[k] ?? prettifyKey(k), resolved ?? formatPayloadValue(k, v, locale)]);
     if (out.length >= max) break;
   }
   return out;
@@ -439,6 +447,7 @@ const AMOUNT_KEY_RE = /(amount|total|price|value|cost|sum|budget|salary|fee|reve
 function decisionAmountEntry(
   r: ApprovalRequestRow,
   hiddenKeys: ReadonlySet<string>,
+  locale: string,
 ): { key: string; label: string; value: number; display: string } | null {
   const payload = r.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
@@ -454,7 +463,7 @@ function decisionAmountEntry(
       key: k,
       label: r.payload_labels?.[k] ?? prettifyKey(k),
       value: num,
-      display: r.payload_display?.[k] ?? num.toLocaleString(),
+      display: r.payload_display?.[k] ?? num.toLocaleString(locale),
     };
   }
   return null;
@@ -517,10 +526,11 @@ function RecordCell({ r, href, hiddenKeys, deadLabel, unresolvableLabel }: {
   deadLabel: string | null;
   unresolvableLabel: string | null;
 }) {
+  const displayLocale = useDisplayLocale();
   // Surface the decision-relevant amount inline so a reviewer can triage the
   // queue without opening each request (#2762 P1-3) — minus anything the
   // author declared `hidden: true` (objectui#6020).
-  const amount = decisionAmountEntry(r, hiddenKeys);
+  const amount = decisionAmountEntry(r, hiddenKeys, displayLocale);
   // objectui#5211: no link into a record this viewer cannot open. The title
   // still shows — it comes from the request's own payload snapshot, which the
   // approver was already given — it just stops being an anchor.
@@ -626,6 +636,9 @@ function InlineActions({
 
 export function ApprovalsInboxPage() {
   const { t, language } = useObjectTranslation();
+  // Every date and number face on this page is formatted in the display
+  // locale; the module helpers above take it as a required argument.
+  const displayLocale = useDisplayLocale();
   const { user } = useAuth();
   const { appName } = useParams<{ appName?: string }>();
   // Deep link (#2678 P1.5): notifications carry `/system/approvals?request=<id>`
@@ -1233,8 +1246,8 @@ export function ApprovalsInboxPage() {
       // order on a value it declines to render. Each row is asked about its
       // own object; a page spanning several objects gets several answers.
       sorted.sort((a, b) => {
-        const av = decisionAmountEntry(a, hiddenFields.forObject(a.object_name))?.value;
-        const bv = decisionAmountEntry(b, hiddenFields.forObject(b.object_name))?.value;
+        const av = decisionAmountEntry(a, hiddenFields.forObject(a.object_name), displayLocale)?.value;
+        const bv = decisionAmountEntry(b, hiddenFields.forObject(b.object_name), displayLocale)?.value;
         if (av == null && bv == null) return 0;
         if (av == null) return 1;
         if (bv == null) return -1;
@@ -1245,7 +1258,7 @@ export function ApprovalsInboxPage() {
       sorted.sort((a, b) => (submittedAt(a) || '').localeCompare(submittedAt(b) || ''));
     }
     return sorted;
-  }, [rows, query, processFilter, objectFilter, statusFilter, tab, sortKey, hiddenFields]);
+  }, [rows, query, processFilter, objectFilter, statusFilter, tab, sortKey, hiddenFields, displayLocale]);
   /** Position of the open request within the visible list (drawer prev/next). */
   const drawerIndex = useMemo(
     () => (selectedId ? filteredRows.findIndex(r => r.id === selectedId) : -1),
@@ -1786,7 +1799,7 @@ export function ApprovalsInboxPage() {
                           <TableCell><StatusBadge status={r.status} label={statusLabel(r.status)} /></TableCell>
                           <TableCell
                             className={cn('text-xs whitespace-nowrap', agingClass(r, now))}
-                            title={formatDate(submittedAt(r))}
+                            title={formatDate(submittedAt(r), displayLocale)}
                           >
                             <Clock className="h-3 w-3 inline mr-1" />
                             {formatRelative(submittedAt(r))}
@@ -1856,7 +1869,7 @@ export function ApprovalsInboxPage() {
                             )}
                             {(() => {
                               // objectui#6020: this row's OWN object decides.
-                              const amount = decisionAmountEntry(r, hiddenFields.forObject(r.object_name));
+                              const amount = decisionAmountEntry(r, hiddenFields.forObject(r.object_name), displayLocale);
                               return amount ? (
                                 <span className="text-xs ml-1.5 font-medium" title={amount.label}>· {amount.display}</span>
                               ) : null;
@@ -2023,7 +2036,7 @@ export function ApprovalsInboxPage() {
                     {tr('roundChip', 'Round {{n}}', { n: selected.round })}
                   </Badge>
                 )}
-                <span className="inline-flex items-center gap-1" title={formatDate(submittedAt(selected))}>
+                <span className="inline-flex items-center gap-1" title={formatDate(submittedAt(selected), displayLocale)}>
                   <Clock className="h-3 w-3" />
                   {tr('submittedAgo', 'Submitted {{when}}', { when: formatRelative(submittedAt(selected)) })}
                 </span>
@@ -2054,8 +2067,8 @@ export function ApprovalsInboxPage() {
               // the same `hidden` trim (objectui#5565) — otherwise a hidden
               // amount-like field would simply move from the field grid to the
               // bold lead figure at the top of the very card being fixed.
-              const drawerAmount = decisionAmountEntry(selected, hiddenPayloadKeys);
-              const summary = payloadSummary(selected.payload, selected.payload_display, selected.payload_labels, 6, drawerAmount?.key, hiddenPayloadKeys);
+              const drawerAmount = decisionAmountEntry(selected, hiddenPayloadKeys, displayLocale);
+              const summary = payloadSummary(selected.payload, displayLocale, selected.payload_display, selected.payload_labels, 6, drawerAmount?.key, hiddenPayloadKeys);
               return (
               <Card>
                 <CardContent className="p-4 space-y-3">
@@ -2356,7 +2369,7 @@ export function ApprovalsInboxPage() {
                             )}
                             <span
                               className="ml-auto text-muted-foreground text-[10px]"
-                              title={formatDate(a.created_at)}
+                              title={formatDate(a.created_at, displayLocale)}
                             >
                               {formatRelative(a.created_at)}
                             </span>

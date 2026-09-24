@@ -386,7 +386,13 @@ export function renderFieldValue(
     // to the tenant default currency.
     const symbolMap: Record<string, string> = { '$': 'USD', '¥': 'JPY', '€': 'EUR', '£': 'GBP' };
     const inferred = symbolMap[fmt[0]];
-    return formatCurrency(value, fieldMeta.currency || inferred || tenantCurrency);
+    // The display locale this function was handed goes to EVERY formatter
+    // below, not only to the percent one: the currency and date branches used
+    // to drop it, and `formatCurrency` / `formatDate` read an absent tag as
+    // "follow the runtime", i.e. the MACHINE's locale — invisible to a source
+    // scan, since the call passes an argument list that merely omits it
+    // (objectui#9909).
+    return formatCurrency(value, fieldMeta.currency || inferred || tenantCurrency, displayLocale);
   }
   if (typeof fmt === 'string' && /%/.test(fmt) && typeof value === 'number') {
     const decimals = (fmt.match(/0\.(0+)%/) || [undefined, ''] as any)[1].length;
@@ -422,7 +428,7 @@ export function renderFieldValue(
     return formatPercent(value, decimals, displayLocale);
   }
   if (typeof fmt === 'string' && /[YMDHms]/.test(fmt)) {
-    return formatDate(value, fmt);
+    return formatDate(value, fmt, { locale: displayLocale });
   }
   const Renderer = getCellRenderer(resolveCellRendererType(fieldMeta as any));
   return <Renderer value={value} field={fieldMeta as any} />;

@@ -948,7 +948,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     // single-column. Same wrapper TabbedForm / SplitForm carry.
     //
     // The gate provider wraps the whole step body so every upload widget on the
-    // CURRENT step reports in (objectui#10166).
+    // CURRENT step reports in (objectui#10166). It sits ABOVE the step body, so
+    // it survives step changes: an upload started on a step the user has left
+    // keeps holding it until the upload settles (objectui#10180), and the final
+    // commit stays gated on it even though its widget is gone.
     <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
       {/* Step Indicator */}

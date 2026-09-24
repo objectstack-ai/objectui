@@ -10,6 +10,7 @@
 
 import * as React from "react"
 import { ResponsiveContainer, Tooltip, Legend } from "recharts"
+import { useDisplayLocale } from "@object-ui/i18n"
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ')
@@ -317,6 +318,10 @@ function ChartTooltipContent({
   labelKey,
 }: any) {
   const { config } = useChart()
+  // The tooltip value is a number face a user reads off the chart, so it is
+  // formatted in the display locale like the axis ticks beside it — a bare
+  // `toLocaleString()` handed `Intl` the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale()
 
   const tooltipLabel = React.useMemo(() => {
     if (hideLabel || !payload?.length) {
@@ -424,7 +429,7 @@ function ChartTooltipContent({
                       </div>
                       {item.value && (
                         <span className="text-foreground font-mono font-medium tabular-nums">
-                          {item.value.toLocaleString()}
+                          {item.value.toLocaleString(displayLocale)}
                         </span>
                       )}
                     </div>

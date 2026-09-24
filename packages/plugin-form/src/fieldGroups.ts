@@ -132,16 +132,12 @@ export type SectionDividerGate = 'heading' | 'headingOrBlurb' | 'headingOrBlurbR
  * The section configuration a divider row is projected FROM, already resolved
  * by the arm that owns each resolution.
  *
- * ⚠️ `collapse` arrives RESOLVED, and deliberately: the three arms that emit a
- * collapse pair resolve it three different ways today — `ObjectForm` applies
- * objectui#9780 (`collapsed` implies `collapsible`, read from the DECLARATION
- * and never from the live state), `DrawerForm`'s explicit push reads
- * `section.collapsible` alone, and its derived push gates the collapsed state
- * on `section.collapsible` as well. Resolving it HERE would pick a winner among
- * them, which is the `collapsed` / `collapsible` decision this card is fenced
- * off from. So each arm keeps its own resolution and hands the result over; an
- * arm that emits no collapse pair at all (both `ModalForm` sites) passes
- * nothing and gets no keys.
+ * ⚠️ `collapse` arrives RESOLVED — by `resolveSectionCollapse` below, the one
+ * `collapsed` / `collapsible` resolution every arm that emits a collapse pair
+ * now calls. It is resolved before this projection rather than inside it
+ * because the arm needs the same answer a second time: whether to take the
+ * section's fields out of the DOM. An arm that emits no collapse pair at all
+ * (both `ModalForm` sites) passes nothing and gets no keys.
  */
 export interface SectionDividerSource {
   /** Section identity; spells the row's `name`. */
@@ -156,8 +152,73 @@ export interface SectionDividerSource {
   members: string[];
   /** Read by one arm only — see `projectSectionDivider`. */
   className?: string;
-  /** Resolved by the arm, ⛔ never here. */
+  /** Resolved by `resolveSectionCollapse`, ⛔ never here. */
   collapse?: { collapsible?: boolean; collapsed?: boolean; onToggle?: () => void };
+}
+
+/**
+ * Resolve a section's authored `collapsed` / `collapsible` pair into what the
+ * page draws: whether its row is a disclosure control, whether its fields are
+ * out of the DOM right now, and what toggles them.
+ *
+ * ⭐ THE ONE RESOLUTION (objectui#9849 step one — director ruling letter E,
+ * item 4: 「the three `collapsed` / `collapsible` resolutions converge to the
+ * declaration-based one objectui#9780 established」). Before it, the default
+ * arm applied objectui#9780 inline, `DrawerForm`'s explicit push read
+ * `collapsible` alone for the control while reading `collapsed`
+ * unconditionally for the state, and its derived push gated the state on
+ * `collapsible`. The explicit drawer push was therefore still the
+ * objectui#9780 trap: `collapsed: true` written alone drew a section that
+ * started closed, kept its fields out of the DOM, and offered nothing on the
+ * page that could bring them back.
+ *
+ * The rules, each objectui#9780's (maintainer ruling 2026-09-18, letter A):
+ *
+ *  - `collapsed` IMPLIES `collapsible`. "Collapsed by default" is an everyday
+ *    intent and `collapsed: true` its most natural spelling, so that spelling
+ *    installs the control. Refusing the combination at the declaration
+ *    (letter B) and a dev-only warning (letter C) were both refused: nobody
+ *    can depend on a section that cannot be opened.
+ *  - `collapsible: false` WITH `collapsed: true` is the same contradiction and
+ *    resolves the same way — collapsed wins, the control is present.
+ *  - The control is read off the DECLARATION, ⛔ never off the live state:
+ *    deriving it from the live state would delete the control the moment the
+ *    user opened the section.
+ *  - A section declaring neither member is untouched.
+ *  - ⭐ A section is only ever collapsed when it is collapsible, and it is only
+ *    collapsible when the row the arm draws for it can carry the control
+ *    (`hostsControl`). So fields leave the DOM only while a control that
+ *    brings them back is on the page — the default arm's 「an untitled bucket
+ *    is never collapsible」, stated once for every arm.
+ *
+ * ⚠️ `hostsControl` is the arm's to answer, because WHICH row an arm draws for
+ * a member is its gate (`SectionDividerGate`), and the gate is not converged
+ * here: the default arm hosts the control only on a heading row (its
+ * blurb-only row carries no collapse pair, objectui#9835 letter B); the
+ * drawer's explicit push draws a row for every member, which `SectionDivider`
+ * renders — and so can host a control on — only when it has a heading or a
+ * blurb to show; the drawer's derived push draws a row only for a heading.
+ * Unifying that input is the gate ruling's step, ⛔ not this one.
+ */
+export function resolveSectionCollapse(
+  declared: { collapsible?: boolean; collapsed?: boolean },
+  host: {
+    /** The live state the user has toggled this section to, if any. */
+    live: boolean | undefined;
+    /** Whether the row this arm draws for the section can carry the control. */
+    hostsControl: boolean;
+    /** Record the next live state for this section. */
+    setCollapsed: (next: boolean) => void;
+  },
+): { collapsible: boolean; collapsed: boolean; onToggle?: () => void } {
+  const collapsible =
+    host.hostsControl && (Boolean(declared.collapsible) || Boolean(declared.collapsed));
+  const collapsed = collapsible && (host.live ?? Boolean(declared.collapsed));
+  return {
+    collapsible,
+    collapsed,
+    onToggle: collapsible ? () => host.setCollapsed(!collapsed) : undefined,
+  };
 }
 
 /**

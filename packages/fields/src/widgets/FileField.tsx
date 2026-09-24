@@ -7,6 +7,7 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
+import { useUploadingScopeHold } from './uploadingScope.js';
 import { maxSizeError, type TranslateFn } from './file-size-guard.js';
 import {
   fileValueForSubmit,
@@ -39,8 +40,15 @@ function useFileUploads(opts: {
   multiple: boolean;
   maxSize?: number;
   onChange: (value: any) => void;
+  /**
+   * Holds the enclosing uploading scope for the upload's own lifetime, which
+   * can outlast this widget (objectui#10180) — see `useUploadingScopeHold`.
+   * Passed by `FileField` only: `FileCell` reports into no scope today, and
+   * whether a line-item cell should is not this pipeline's call to make.
+   */
+  holdScope?: () => () => void;
 }) {
-  const { files, multiple, maxSize, onChange } = opts;
+  const { files, multiple, maxSize, onChange, holdScope } = opts;
   const { upload } = useUpload();
   const { t } = useObjectTranslation();
   const [errors, setErrors] = useState<string[]>([]);
@@ -65,6 +73,12 @@ function useFileUploads(opts: {
 
     if (validFiles.length === 0) return;
 
+    // Taken BEFORE the widget's own `uploading` flips and released only in the
+    // `finally` below — after `onChange` has handed the value over — so the
+    // scope never reads "done" while the value is still on its way, even when
+    // this widget has been unmounted in between (a wizard step left mid-upload,
+    // objectui#10180). `setUploading` is a no-op once unmounted; this is not.
+    const releaseScope = holdScope?.();
     setUploading(true);
     try {
       const uploaded = await Promise.all(
@@ -106,10 +120,11 @@ function useFileUploads(opts: {
         onChange(nextValues[0]);
       }
     } finally {
+      releaseScope?.();
       setUploading(false);
       setUploadProgress({});
     }
-  }, [files, multiple, onChange, maxSize, upload, t]);
+  }, [files, multiple, onChange, maxSize, upload, t, holdScope]);
 
   return { processFiles, errors, uploading, uploadProgress, recent };
 }
@@ -144,8 +159,9 @@ export function FileField({ value, onChange, field, readonly, onUploadingChange,
   const [isDragOver, setIsDragOver] = useState(false);
 
   const files = value ? (Array.isArray(value) ? value : [value]) : [];
+  const holdScope = useUploadingScopeHold();
   const { processFiles, errors, uploading, uploadProgress, recent } = useFileUploads({
-    files, multiple, maxSize, onChange,
+    files, multiple, maxSize, onChange, holdScope,
   });
   const fallbackName = t('fields.file.fileFallback', { defaultValue: 'File' });
   // Normalised for display: accepts a bare reference id, the expanded

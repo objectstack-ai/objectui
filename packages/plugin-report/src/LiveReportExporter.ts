@@ -43,6 +43,13 @@ export interface LiveExportOptions {
   format?: ReportExportFormat;
   /** Export config override */
   exportConfig?: ReportExportConfig;
+  /**
+   * BCP-47 display tag for the HTML / PDF "Generated:" time — in React,
+   * whatever `useDisplayLocale()` (`@object-ui/i18n`) returned for the session.
+   * Omitted, `exportReport` falls back to the display channel's own last
+   * resort, never to the machine's locale (objectui#9909).
+   */
+  locale?: string;
 }
 
 /**
@@ -105,6 +112,7 @@ export async function exportWithLiveData(
     queryParams,
     format,
     exportConfig,
+    locale,
   } = options;
 
   const exportFormat = format || report.defaultExportFormat || 'pdf';
@@ -122,7 +130,7 @@ export async function exportWithLiveData(
     };
 
     // Route to export handler
-    exportReport(exportFormat, report, data, mergedConfig);
+    exportReport(exportFormat, report, data, mergedConfig, locale);
 
     return {
       success: true,

@@ -49,7 +49,7 @@ import {
   inferColumns,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
@@ -244,14 +244,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // inside the form renderer — see baseFormSchema.showActions below).
   const formId = useId();
 
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    schema.sections?.forEach((s, i) => {
-      const key = s.name || String(i);
-      if (s.collapsed) init[key] = true;
-    });
-    return init;
-  });
+  // Per-section LIVE collapse state, keyed by section name or index. Unseeded
+  // on purpose: an untoggled section falls back to its declared `collapsed`
+  // inside `resolveSectionCollapse`, the one reader of that member — the same
+  // shape as ObjectForm's grouped layout (objectui#9849 step one).
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   // Fetch object schema
   useEffect(() => {
@@ -612,10 +609,23 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const allFields: FormField[] = [];
       schema.sections.forEach((section, index) => {
         const sectionKey = section.name || String(index);
-        const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
         const sectionFields = applyFieldPerms(buildSectionFields(section));
+        // The ONE `collapsed` / `collapsible` resolution (objectui#9849 step
+        // one): objectui#9780's `collapsed` implies `collapsible`, read from
+        // the DECLARATION. This push used to read `collapsible` alone for the
+        // control while reading `collapsed` unconditionally for the state, so
+        // `collapsed: true` written alone drew a section that started closed
+        // with nothing on the page able to reopen it. This arm draws a row for
+        // every member, but `SectionDivider` renders that row — and so can
+        // host the control — only when it has a heading or a blurb to show;
+        // a member with neither is never collapsed, and keeps its fields.
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[sectionKey],
+          hostsControl: Boolean(section.label) || Boolean(section.description),
+          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+        });
 
         // The ONE path from a section configuration to its divider row
         // (objectui#9849) — `projectSectionDivider` owns every key this row
@@ -628,11 +638,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // predicate and the objectui#6236 membership claim this row carries —
         // see the gate union the helper hands back.
         //
-        // ⚠️ The collapse pair is resolved HERE and handed over resolved: this
-        // push reads `section.collapsible` alone, so objectui#9780's
-        // «`collapsed` implies `collapsible`» — applied on the default arm —
-        // still does not hold on this one. ⛔ Unchanged by this card on
-        // purpose; converging it is the `collapsed` / `collapsible` decision.
+        // The collapse pair is resolved ABOVE by `resolveSectionCollapse` and
+        // handed over resolved.
         allFields.push(
           ...projectSectionDivider(
             {
@@ -641,19 +648,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
               description: section.description,
               visibleWhen: (section as any).visibleWhen,
               members: sectionFields.map(f => f.name),
-              collapse: {
-                collapsible: section.collapsible,
-                collapsed: isCollapsed,
-                onToggle: section.collapsible
-                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                  : undefined,
-              },
+              collapse,
             },
             'always',
           ),
         );
 
-        if (isCollapsed) {
+        if (collapse.collapsed) {
           allFields.push(...sectionFields.map(f => ({ ...f, hidden: true })));
         } else {
           allFields.push(...sectionFields);
@@ -683,24 +684,26 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const body = applyFieldPerms(buildSectionFields(section));
         if (!body.length) return;
         const sectionKey = section.name || String(index);
-        // Only a section that declares itself collapsible can hide its fields —
-        // an untitled/non-collapsible bucket renders no header, so a `collapsed`
-        // flag there would hide fields with no control to bring them back.
-        const isCollapsed = section.collapsible
-          ? (collapsedSections[sectionKey] ?? section.collapsed ?? false)
-          : false;
         // Group headers go through the same i18n hook ObjectForm and ModalForm
         // use, so a translated group label wins over the raw metadata label.
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
+        // The same ONE resolution as the explicit push above and the default
+        // arm (objectui#9849 step one). This arm draws a row only for a
+        // heading, so only a titled group can host the control — an untitled
+        // bucket is never collapsed and never loses its fields.
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[sectionKey],
+          hostsControl: Boolean(title),
+          setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+        });
         // The ONE path (objectui#9849). ⚠️ This arm keeps its `if (title)`
         // gate, so a derived group with no heading still draws no divider and
         // still drops its blurb — the same residual the modal's derived arm
         // has. ⛔ Widening it would also decide the ADR-0089 predicate row and
         // the objectui#6236 membership claim; the helper's gate union carries
-        // that hand-back. The collapse pair is this file's SECOND resolution
-        // of the same two keys and is handed over resolved, unchanged.
+        // that hand-back.
         allFields.push(
           ...projectSectionDivider(
             {
@@ -709,19 +712,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
               description: section.description,
               visibleWhen: (section as any).visibleWhen,
               members: body.map(f => f.name),
-              collapse: {
-                collapsible: section.collapsible,
-                collapsed: isCollapsed,
-                onToggle: section.collapsible
-                  ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                  : undefined,
-              },
+              collapse,
             },
             'heading',
           ),
         );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
-        allFields.push(...(isCollapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
+        allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedFieldClass = CONTAINER_GRID_COLS[columns];
       return (

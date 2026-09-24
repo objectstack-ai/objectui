@@ -13,6 +13,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { RefreshCw, Loader2, Search, Table2, Download, Columns3 } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import {
@@ -29,6 +30,9 @@ export interface SchemaBrowserProps {
 type LoadState = 'idle' | 'loading' | 'loaded' | 'error' | 'unavailable';
 
 export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const [state, setState] = React.useState<LoadState>('idle');
   const [tables, setTables] = React.useState<RemoteTable[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -148,7 +152,7 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
                     </td>
                     <td className="px-2.5 py-1.5 text-right tabular-nums text-muted-foreground">
                       {typeof t.rowCountEstimate === 'number'
-                        ? t.rowCountEstimate.toLocaleString()
+                        ? t.rowCountEstimate.toLocaleString(displayLocale)
                         : '—'}
                     </td>
                     <td className="px-2.5 py-1.5">

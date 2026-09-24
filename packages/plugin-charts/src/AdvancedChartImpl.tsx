@@ -49,7 +49,7 @@ import {
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
 import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, type NormalizedAxis, type NormalizedSeries } from './normalizeChartSchema';
 import { buildCategoryRank, chartRowBucketId, type ChartSegmentClickEvent } from '@object-ui/core';
-import { useSafeTranslate } from '@object-ui/i18n';
+import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
 // Default color fallback for chart series
 const DEFAULT_CHART_COLOR = 'hsl(var(--primary))';
@@ -1022,6 +1022,13 @@ function AdvancedChartImplInner({
   const chartType = effectiveChartFamily(baseChartType, series);
   const comboSeriesBase = comboBaseFamily(baseChartType);
   const data = Array.isArray(rawData) ? rawData : [];
+  // The ONE locale every number and date this chart draws is formatted in —
+  // axis ticks, the single-value face and spec `format` strings alike. Each of
+  // them used to pass `Intl` nothing or an explicit `undefined`, i.e. the
+  // MACHINE's locale, which is neither of the repo's two locale channels
+  // (objectui#9909); `useDisplayLocale()` is provider-safe and never answers
+  // `undefined`.
+  const displayLocale = useDisplayLocale();
 
   // Only emit the prop when explicitly disabled, so the default (animated)
   // behavior is byte-for-byte unchanged for every existing caller.
@@ -1274,9 +1281,9 @@ function AdvancedChartImplInner({
         const days = span / (1000 * 60 * 60 * 24);
         try {
           if (days <= 62) {
-            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            return d.toLocaleDateString(displayLocale, { month: 'short', day: 'numeric' });
           }
-          return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+          return d.toLocaleDateString(displayLocale, { month: 'short', year: 'numeric' });
         } catch {
           return d.toISOString().slice(0, 10);
         }
@@ -1284,7 +1291,7 @@ function AdvancedChartImplInner({
     }
     if (isMobile && str.length > 8) return str.slice(0, 8) + '…';
     return str;
-  }, [data, xAxisKey, isMobile, config]);
+  }, [data, xAxisKey, isMobile, config, displayLocale]);
 
   // Memoize whether any X-axis label is long enough to warrant angle rotation
   const hasLongLabels = React.useMemo(
@@ -1318,11 +1325,11 @@ function AdvancedChartImplInner({
     const num = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(num)) return String(value);
     try {
-      return new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(num);
+      return new Intl.NumberFormat(displayLocale, { notation: 'compact', maximumFractionDigits: 1 }).format(num);
     } catch {
       return String(num);
     }
-  }, []);
+  }, [displayLocale]);
 
   // ── Spec ChartAxis presentation (objectui#2880 S2) ──────────────────────
   // The author's `format` wins over the compact default; `min`/`max` pin the
@@ -1341,8 +1348,8 @@ function AdvancedChartImplInner({
   const hasDualAxis = !!yAxes && (yAxes.length > 1);
 
   const xTickFormatter = React.useMemo(
-    () => formatterFor(xAxisSpec?.format) ?? formatTick,
-    [xAxisSpec?.format, formatTick],
+    () => formatterFor(xAxisSpec?.format, displayLocale) ?? formatTick,
+    [xAxisSpec?.format, displayLocale, formatTick],
   );
 
   /**
@@ -1365,12 +1372,12 @@ function AdvancedChartImplInner({
     };
   }, [labelEveryBucket, rotateXLabels, xTickFormatter]);
   const yTickFormatter = React.useMemo(
-    () => formatterFor(primaryY?.format) ?? formatYTick,
-    [primaryY?.format, formatYTick],
+    () => formatterFor(primaryY?.format, displayLocale) ?? formatYTick,
+    [primaryY?.format, displayLocale, formatYTick],
   );
   const y2TickFormatter = React.useMemo(
-    () => formatterFor(secondaryY?.format) ?? formatYTick,
-    [secondaryY?.format, formatYTick],
+    () => formatterFor(secondaryY?.format, displayLocale) ?? formatYTick,
+    [secondaryY?.format, displayLocale, formatYTick],
   );
 
   /**
@@ -1539,7 +1546,7 @@ function AdvancedChartImplInner({
       <div className={className} data-testid="advanced-chart-single-value">
         <div className="flex flex-col gap-1 py-4">
           <span className="text-3xl font-semibold tabular-nums">
-            {Number.isFinite(num) ? new Intl.NumberFormat().format(num) : String(raw ?? '—')}
+            {Number.isFinite(num) ? new Intl.NumberFormat(displayLocale).format(num) : String(raw ?? '—')}
           </span>
           <span className="text-xs text-muted-foreground">{String(label)}</span>
         </div>
@@ -1959,7 +1966,7 @@ function AdvancedChartImplInner({
     // the CATEGORY formatter (it resolves `config[value].label` and ISO dates)
     // and would be wrong on a measure; and omitted entirely when the author
     // declared no recognisable format, so the default render is untouched.
-    const scatterXTickFormatter = formatterFor(xAxisSpec?.format);
+    const scatterXTickFormatter = formatterFor(xAxisSpec?.format, displayLocale);
     if (points.total > 0 && points.plottable === 0) {
       return <PositionRefusal xKey={xAxisKey} yKey={scatterYKey} className={className} />;
     }
@@ -2121,7 +2128,7 @@ function AdvancedChartImplInner({
                 : (seriesType === 'bar' ? 'left' : 'right');
             const pres = seriesStyle(s, seriesType as any);
             const stackProps = s.stack ? { stackId: String(s.stack) } : {};
-            const valueFormatter = formatterFor((yAxisId === 'right' ? secondaryY : primaryY)?.format);
+            const valueFormatter = formatterFor((yAxisId === 'right' ? secondaryY : primaryY)?.format, displayLocale);
 
             if (seriesType === 'line') {
               return (
@@ -2253,6 +2260,7 @@ function AdvancedChartImplInner({
           const stackProps = s.stack ? { stackId: String(s.stack) } : {};
           const valueFormatter = formatterFor(
             (s.yAxis === 'right' ? secondaryY : primaryY)?.format,
+            displayLocale,
           );
 
           if (chartType === 'bar' || chartType === 'horizontal-bar') {

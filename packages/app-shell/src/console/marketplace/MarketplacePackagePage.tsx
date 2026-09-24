@@ -36,6 +36,7 @@ import {
 import { ArrowLeft, ExternalLink, Download, AlertCircle, Package, Trash2, MoreHorizontal, CheckCircle2, ArrowUpCircle, Database, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { PackageIcon } from './PackageIcon.js';
 import { MarkdownText } from './MarkdownText.js';
 import { PluginDisclosure } from './PluginDisclosure.js';
@@ -74,6 +75,9 @@ export function MarketplacePackagePage() {
   const { packageId, appName } = useParams<{ packageId?: string; appName?: string }>();
   const { isAdmin, isResolved } = useWorkspaceAdminStatus();
   const { t, language } = useObjectTranslation();
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   // ADR-0090 D5 — install-time suggested audience bindings ("this app
   // suggests granting <set> to Everyone"), surfaced right after a
   // successful install into THIS runtime. Confirm/dismiss is admin-gated
@@ -866,7 +870,7 @@ export function MarketplacePackagePage() {
                           {v.is_prerelease && <Badge variant="outline" className="text-xs">{t('marketplace.detail.prerelease')}</Badge>}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {v.published_at ? new Date(v.published_at).toLocaleDateString() : '\u2014'}
+                          {v.published_at ? new Date(v.published_at).toLocaleDateString(displayLocale) : '\u2014'}
                         </span>
                       </div>
                       {v.release_notes && v.release_notes.trim() && (

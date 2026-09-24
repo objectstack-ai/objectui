@@ -10,6 +10,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import type { DebugFlags } from '@object-ui/core';
 import { ComponentRegistry, DebugCollector } from '@object-ui/core';
 import type { PerfEntry, ExprEntry, EventEntry, DebugEntry } from '@object-ui/core';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { cn } from '../lib/utils';
 
 /* ------------------------------------------------------------------ */
@@ -179,6 +180,9 @@ function ExprTab() {
 
 function EventsTab() {
   const entries = useCollectorEntries('event');
+  // A developer surface, but still a time a person reads: the display locale,
+  // not the machine's (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const eventItems = entries.map((e) => e.data as EventEntry);
 
   if (eventItems.length === 0) {
@@ -191,7 +195,7 @@ function EventsTab() {
           <div className="flex items-center justify-between">
             <span className="font-semibold">{ev.action}</span>
             <span className="text-[10px] text-muted-foreground tabular-nums">
-              {new Date(ev.timestamp).toLocaleTimeString()}
+              {new Date(ev.timestamp).toLocaleTimeString(displayLocale)}
             </span>
           </div>
           {ev.payload !== undefined && (

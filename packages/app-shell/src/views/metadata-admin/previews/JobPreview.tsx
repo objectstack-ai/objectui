@@ -27,6 +27,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   AlarmClock,
   Calendar,
@@ -174,8 +175,9 @@ function nextIntervalFires(intervalMs: number, from: Date, count: number): Date[
   return out;
 }
 
-function formatWhen(d: Date): string {
-  return d.toLocaleString(undefined, {
+/** In the session's display locale — it passed an explicit `undefined`, the MACHINE's locale (objectui#9909). */
+function formatWhen(d: Date, locale: string): string {
+  return d.toLocaleString(locale, {
     weekday: 'short',
     month: 'short',
     day: '2-digit',
@@ -253,6 +255,7 @@ function humanizeMs(ms: number): string {
 }
 
 export function JobPreview({ name, draft }: MetadataPreviewProps) {
+  const displayLocale = useDisplayLocale();
   const d = draft as Record<string, unknown>;
   const jobName = String(d.name ?? name ?? '');
   const label = String(d.label ?? jobName);
@@ -366,7 +369,7 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
                     <li key={i} className="flex items-center gap-2 px-2.5 py-1.5">
                       <span className="w-4 text-right text-muted-foreground text-[10px]">{i + 1}</span>
                       <Clock className="h-3 w-3 text-muted-foreground" />
-                      <span className="font-mono">{formatWhen(d)}</span>
+                      <span className="font-mono">{formatWhen(d, displayLocale)}</span>
                       <span className="ml-auto text-[10px] text-muted-foreground">
                         in {deltas[i]}
                       </span>

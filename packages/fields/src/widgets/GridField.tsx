@@ -23,6 +23,7 @@ import { FileCell } from './FileField.js';
 import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
+import { renderableFractionScale } from './percent-scale.js';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -319,7 +320,11 @@ export function computeRow(columns: GridColumn[], row: Row): Row {
     const v = evalArith(c.expr!, next);
     if (v === null) { next[c.name] = null; continue; }
     const scale = c.scale ?? (c.type === 'currency' ? 2 : undefined);
-    next[c.name] = scale != null ? Number(v.toFixed(scale)) : v;
+    // A width above the engine's `toFixed` ceiling is clamped and reported,
+    // never thrown out of the edit (objectui#10071, the objectui#9808 ruling).
+    next[c.name] = scale != null
+      ? Number(v.toFixed(renderableFractionScale(scale, 'grid computed column', 'objectui#10071')))
+      : v;
   }
   return next;
 }
@@ -426,7 +431,11 @@ function displayText(c: GridColumn, value: any, locale: string): string {
   }
   if (isNumeric(c.type)) {
     const n = Number(value);
-    if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString()}` : n.toLocaleString();
+    // The numeric branch formats in the SAME declared locale the temporal
+    // branch above is handed. It used to drop it, so one grid row read a date
+    // in the session's convention beside an amount grouped and decimal-marked
+    // the machine's way (objectui#9909).
+    if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString(locale)}` : n.toLocaleString(locale);
   }
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
@@ -829,7 +838,7 @@ export function GridField({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
-                  {total.toLocaleString()}
+                  {total.toLocaleString(displayLocale)}
                 </td>
                 {columns.length - totalColIndex - 1 > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1} />
@@ -1224,7 +1233,7 @@ export function GridField({
                   Total
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
-                  {total.toLocaleString()}
+                  {total.toLocaleString(displayLocale)}
                 </td>
                 {(columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)) > 0 && (
                   <td colSpan={columns.length - totalColIndex - 1 + (hasRowActions ? 1 : 0)} />

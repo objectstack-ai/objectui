@@ -240,13 +240,12 @@ describe('record form — save while an upload is in flight (objectui#10166)', (
   });
 
   /**
-   * ⚠️ This row pins the FINAL COMMIT only. `Next` is deliberately not gated —
-   * step navigation writes nothing — but that is stated here rather than
-   * asserted, and the distinction is not pedantic: leaving a step unmounts its
-   * widgets, so an upload in flight is released by the unmount and its value
-   * never lands in `formData` at all. That loss predates this card and no gate
-   * in this file addresses it; pinning "Next still advances mid-upload" would
-   * dress it up as a decision.
+   * ⚠️ This row pins the FINAL COMMIT only, for an upload on the LAST step.
+   * `Next` is not gated — step navigation writes nothing. An upload started on
+   * an EARLIER step and still in flight when the user presses Next is
+   * objectui#10180, pinned in `WizardForm.nextMidUpload.test.tsx`: leaving the
+   * step unmounts the widget, and the gate used to lose sight of the upload
+   * with it, so Create wrote the record without the file.
    */
   it('refuses the final commit while an upload on the last step is in flight (WizardForm)', async () => {
     const { created, ds } = makeDataSource();

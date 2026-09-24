@@ -16,6 +16,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@object-ui/components';
@@ -142,6 +143,9 @@ export function HistoryPanel({
   /** Tooltip / button label — defaults to "Rollback". */
   rollbackLabel?: string;
 }) {
+  // The event time reads the DISPLAY locale — not `locale` above, which picks
+  // the badge strings (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const [events, setEvents] = React.useState<HistoryEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -277,7 +281,7 @@ export function HistoryPanel({
                     )}
                     {ts && (
                       <span className="text-xs text-muted-foreground ml-auto">
-                        {formatWhen(ts)}
+                        {formatWhen(ts, displayLocale)}
                       </span>
                     )}
                     {canRollback && (
@@ -315,11 +319,11 @@ export function HistoryPanel({
   );
 }
 
-function formatWhen(at: string | number): string {
+function formatWhen(at: string | number, locale: string): string {
   try {
     const d = typeof at === 'number' ? new Date(at) : new Date(at);
     if (Number.isNaN(d.getTime())) return String(at);
-    return d.toLocaleString();
+    return d.toLocaleString(locale);
   } catch {
     return String(at);
   }

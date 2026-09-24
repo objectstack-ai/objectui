@@ -1408,6 +1408,7 @@ const ru = {
     navTypeSeparator: "Разделитель",
     navTypeAction: "Действие",
     navTypeComponent: "Компонент",
+    navTypeDoc: "Документ",
     navEditIcon: "Редактировать значок",
     navToggleVisible: "Переключить видимость",
     navHidden: "Скрыто",

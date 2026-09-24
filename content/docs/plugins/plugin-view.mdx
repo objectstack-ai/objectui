@@ -332,6 +332,11 @@ Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
 makes rows inert.
 
+With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
+record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
+`preventNavigation`, and `operations.read: false` without a `navigation` config
+ignore a modifier click too.
+
 ## CRUD Operations
 
 All four operations are built in and run against the `dataSource` prop. You do

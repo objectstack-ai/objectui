@@ -139,7 +139,7 @@ beforeEach(() => {
 afterEach(() => warn.mockRestore());
 
 const reports = (): string[] =>
-  warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes(RULED));
+  warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((m: string) => m.includes(RULED));
 
 describe('objectui#9849 — the headingless-collapse diagnostic (ruling E item 3)', () => {
   it('1. its first sentence is the ruling’s wording, verbatim', () => {

@@ -110,6 +110,18 @@ const expectCategoryAxisRefusal = async (c: HTMLElement) => {
   expect(c.querySelector('.recharts-surface')).toBeNull();
 };
 
+/**
+ * The positive reading for a retired SERIES alias: wait for the refusal
+ * `AdvancedChartImpl` renders when a bar chart declares no series at all
+ * (objectui#4695). Same shape and same reasoning as the axis helper above.
+ */
+const expectNoSeriesRefusal = async (c: HTMLElement) => {
+  await waitFor(() =>
+    expect(c.querySelector('[data-chart-error="no-plottable-series"]')).not.toBeNull(),
+  );
+  expect(c.querySelector('.recharts-surface')).toBeNull();
+};
+
 const renderChart = (schema: Record<string, unknown>) =>
   render(<ChartRenderer schema={schema as any} />).container;
 
@@ -161,7 +173,8 @@ describe('objectui#8650 — `categories` is NOT retired: the declared key still 
     // `categories: 'revenue'` (a string, not a list) reached `.map` on a string
     // in the retired branch and threw during render. The normalizer answers
     // "no series" instead, which is the honest reading of an off-contract
-    // value: the chart mounts, and plots nothing.
+    // value: the chart mounts, and — since objectui#4695 — says it has no
+    // series to plot rather than drawing an empty frame.
     const container = renderChart({
       type: 'chart',
       chartType: 'bar',
@@ -170,8 +183,7 @@ describe('objectui#8650 — `categories` is NOT retired: the declared key still 
       categories: 'revenue',
       isAnimationActive: false,
     });
-    await waitFor(() => expect(container.querySelector('.recharts-surface')).toBeTruthy());
-    expect(marks(container)).toEqual({ bars: 0, lines: 0 });
+    await expectNoSeriesRefusal(container);
   });
 });
 
@@ -210,10 +222,10 @@ describe('objectui#8650 — the foreign dialect is retired', () => {
       isAnimationActive: false,
     });
     // The axis IS bound here, so this case isolates the series half — and the
-    // reading is positive: a bar with an empty series list reaches the plot
-    // surface with no refusal, so `plotted` waits for that surface to ARRIVE
-    // rather than for a fixed window to elapse, and then counts. Re-add the
-    // `value` read and a bar appears on it.
-    expect(await plotted(container)).toEqual({ bars: 0, lines: 0 });
+    // reading is positive: with no series declared, a bar chart refuses
+    // (objectui#4695), so this waits for that refusal to ARRIVE rather than for
+    // a fixed window to elapse. Re-add the `value` read and a bar plots
+    // instead, no refusal ever arrives, and the `waitFor` reddens on timeout.
+    await expectNoSeriesRefusal(container);
   });
 });

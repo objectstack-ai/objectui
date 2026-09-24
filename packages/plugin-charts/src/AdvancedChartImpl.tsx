@@ -2401,23 +2401,41 @@ const SERIES_ONLY_CHART_TYPES: ReadonlySet<string> = new Set([
  * and BOTH authoring causes, and the console warning carries the diagnostic pair
  * (`xAxisKey` + the keys the rows actually carry) exactly as the model does.
  *
- * ## Why `[]` and not "no series at all"
+ * ## Both "empty" and "never declared" refuse — and they say different things
  *
- * `Array.isArray(series) && series.length === 0` — a binding that was COMPUTED
- * and came out empty, which is what both `buildChartSeries` call paths hand
- * over. `series === undefined` means no binding was ever computed (a caller that
- * never went through the helper); those charts are left byte-for-byte as they
- * were.
+ * Two shapes reach here with rows and nothing to plot, and both refuse
+ * (objectui#4695, maintainer ruling A):
+ *
+ *   - **`'empty'`** — `Array.isArray(series) && series.length === 0`: a binding
+ *     was COMPUTED and came out empty, which is what both `buildChartSeries`
+ *     call paths hand over for the objectui#4683 shape above.
+ *   - **`'undeclared'`** — `series === undefined`: no binding was ever computed.
+ *     The caller never went through the helper, and the schema declared no
+ *     `series`, no `categories` and no y-axis field for `normalizeChartSchema`
+ *     to derive one from. `AdvancedChartImplInner` defaults `series` to `[]`,
+ *     so this used to draw the very same frame of zero marks, silently — the
+ *     author (often an AI) wrote a chart with nothing to draw and was never
+ *     told. That is an authoring mistake, so it is refused, not tolerated.
+ *
+ * The distinction has to be read HERE, on the raw props: past the inner
+ * component's `series = []` default the two are the same array. They share one
+ * placeholder and one `data-chart-error` code (the chart cannot plot a series
+ * either way) and differ only in the sentence, because the fix differs —
+ * project a dimension or select a measure for `'empty'`, declare a series at
+ * all for `'undeclared'`.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES} are refused, for the reason given on
+ * that set: every other family falls back to a `value` column and draws.
  */
-function hasNoPlottableSeries(props: AdvancedChartImplProps): boolean {
+type NoPlottableSeries = 'empty' | 'undeclared';
+
+function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries | null {
   const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
   const rows = Array.isArray(props.data) ? props.data : [];
-  return (
-    SERIES_ONLY_CHART_TYPES.has(chartType) &&
-    rows.length > 0 &&
-    Array.isArray(props.series) &&
-    props.series.length === 0
-  );
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
+  if (props.series === undefined) return 'undeclared';
+  if (Array.isArray(props.series) && props.series.length === 0) return 'empty';
+  return null;
 }
 
 /**
@@ -2461,7 +2479,7 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
   // category key at all cannot plot an axis, which is the more fundamental
   // failure and the more specific message. Without this gate such a chart would
   // also warn about its series, printing two diagnoses for one cause.
-  const noPlottableSeries = !missingCategoryKey && hasNoPlottableSeries(props);
+  const noPlottableSeries = missingCategoryKey ? null : hasNoPlottableSeries(props);
   const xAxisKey = props.xAxisKey ?? 'name';
   const firstRowKeys = React.useMemo(
     () => Object.keys((Array.isArray(props.data) ? props.data[0] : undefined) ?? {}),
@@ -2487,6 +2505,17 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
     // axis the chart did plot, and the keys its rows actually carry. In the
     // objectui#4683 shape that second half is the tell — bucket rows carrying
     // the category and NOTHING else say the group column was never written.
+    // For the objectui#4695 shape the row keys are the other half of the fix:
+    // they list the columns a series could have named.
+    if (noPlottableSeries === 'undeclared') {
+      console.warn(
+        `[chart] no series binding was declared for the category axis "${xAxisKey}" — rendering an ` +
+        `explanatory placeholder instead of an empty frame. Row keys: ${JSON.stringify(firstRowKeys)}. ` +
+        `A bar / line / area / combo chart draws only the columns its \`series\` (or \`categories\`, ` +
+        `or a y-axis \`field\`) names (objectui#4695).`,
+      );
+      return;
+    }
     console.warn(
       `[chart] no series to plot against the category axis "${xAxisKey}" — rendering an ` +
       `explanatory placeholder instead of an empty frame. Row keys: ${JSON.stringify(firstRowKeys)}. ` +
@@ -2504,7 +2533,16 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
     );
   }
 
-  if (noPlottableSeries) {
+  if (noPlottableSeries === 'undeclared') {
+    return (
+      <ChartRefusal code="no-plottable-series" className={props.className}>
+        This chart cannot plot any series: none was declared to draw against its{' '}
+        <code className="font-mono">{xAxisKey}</code> axis.
+      </ChartRefusal>
+    );
+  }
+
+  if (noPlottableSeries === 'empty') {
     return (
       <ChartRefusal code="no-plottable-series" className={props.className}>
         This chart cannot plot any series: no measure or group reached its{' '}

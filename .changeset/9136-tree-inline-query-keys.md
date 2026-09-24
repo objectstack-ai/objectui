@@ -1,5 +1,5 @@
 ---
-'@object-ui/plugin-tree': patch
+'@object-ui/plugin-tree': minor
 ---
 
 Honour `filter` and the platform row ceiling on a tree's inline
@@ -22,7 +22,9 @@ goes through the same `applyNonGridRowCeiling`. Two keys, not the siblings'
 three: `ObjectTree` reads `sort` on no provider, so nothing about ordering moves.
 No dependency array moves, and the `object` provider is untouched.
 
-**Behaviour you may notice.** This is a behaviour change on inline trees:
+**Behaviour you may notice.** This is a behaviour change on inline trees, and
+it is declared `minor`, as objectui#9061 declared the same change on the
+calendar and map:
 
 - An authored `filter` now narrows inline rows, on both inline spellings —
   `data: { provider: 'value', items }` and `staticData`.

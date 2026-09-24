@@ -1400,6 +1400,7 @@ const fr = {
     navTypeSeparator: "Séparateur",
     navTypeAction: "Action",
     navTypeComponent: "Composant",
+    navTypeDoc: "Document",
     navEditIcon: "Modifier l'icône",
     navToggleVisible: "Basculer la visibilité",
     navHidden: "Masqué",

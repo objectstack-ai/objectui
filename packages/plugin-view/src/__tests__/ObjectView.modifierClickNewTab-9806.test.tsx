@@ -68,7 +68,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock, type MockInstance } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -89,10 +89,10 @@ import { installExplainDouble } from './explainDouble';
 // `window.open` is spied on in every case — the subject's new-tab destination
 // is read off it, and a control that opened a tab would otherwise escape into
 // happy-dom unobserved.
-let openSpy: Mock<(...args: any[]) => Window | null>;
+let openSpy: MockInstance<typeof window.open>;
 beforeEach(() => {
   installExplainDouble();
-  openSpy = vi.spyOn(window, 'open').mockImplementation(() => null) as any;
+  openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 });
 afterEach(() => {
   openSpy.mockRestore();
@@ -164,7 +164,7 @@ async function firstDataRow(container: HTMLElement): Promise<Element> {
  */
 function renderView(
   onNavigate: NavigateSpy,
-  extra: { navigation?: Record<string, unknown>; onRowClick?: (...args: any[]) => void } = {},
+  extra: { navigation?: Record<string, unknown>; onRowClick?: (record: Record<string, unknown>, event?: unknown) => void } = {},
 ) {
   const dataSource = makeDataSource();
   return render(

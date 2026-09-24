@@ -99,13 +99,18 @@ const makeSource = () => ({
   ]),
 });
 
-const renderChart = (chartType: ObjectChartSchema['chartType'], dataSource: unknown) =>
+// `chartType` is a bare string here, cast at the one call: `funnel` is not in
+// `ObjectChartSchema['chartType']`'s declared union, yet it reaches ObjectChart at
+// run time — DashboardRenderer's object-chart path passes its resolved widget
+// type through as `chartType`, and `funnel` is one of those. The pin follows the
+// run-time population, not the declared one.
+const renderChart = (chartType: string, dataSource: unknown) =>
   render(
     <ObjectChart
       schema={{
         type: 'object-chart',
         objectName: 'deal',
-        chartType,
+        chartType: chartType as ObjectChartSchema['chartType'],
         aggregate: { field: 'amount', function: 'sum', groupBy: 'stage' },
         filter: { close_date: { $gte: '{current_quarter_start}', $lte: '{current_quarter_end}' } },
         xAxisKey: 'stage',
@@ -119,7 +124,7 @@ const renderChart = (chartType: ObjectChartSchema['chartType'], dataSource: unkn
 const overlaySeriesOf = (schema: any) =>
   (schema?.series ?? []).filter((s: any) => String(s?.dataKey).endsWith(COMPARISON_SUFFIX));
 
-describe.each(['pie', 'donut', 'funnel'] as const)('ObjectChart — %s ignores compareTo (objectui#7495)', (chartType) => {
+describe.each(['pie', 'donut', 'funnel'])('ObjectChart — %s ignores compareTo (objectui#7495)', (chartType) => {
   it('fetches only the current window and synthesises no overlay', async () => {
     const src = makeSource();
     renderChart(chartType, src);

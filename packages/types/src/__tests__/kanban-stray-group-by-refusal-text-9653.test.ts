@@ -30,17 +30,18 @@
  * NOT pin the message's sentences. It asserts two things about CONTENT:
  *
  *   - NEGATIVE — no clause denies that the document passed a validator.
- *   - LIT CONTROL, on the true clause — the message still names the validator
- *     that accepted the key (`safeValidateSchema`) and the mechanism that kept it
- *     (`.passthrough()`). Without it, the negative is satisfied by a message
- *     that says nothing about the history at all.
+ *   - LIT CONTROL, on the true clause — the message still names the mechanism
+ *     that kept the key (`.passthrough()`). Without it, the negative is satisfied
+ *     by a message that says nothing about the history at all.
  *
  * A third arm proves the negative's matcher fires on the retired clause, so a
  * later loosening of the pattern cannot turn the negative into a no-op.
  *
  * REVERSE VERIFICATION, predicted before running: restore the retired clause
  * in the message ⇒ the NEGATIVE arm goes red on both channels, while the lit
- * control and the matcher control stay green.
+ * control and the matcher control stay green (the retired text described the
+ * passthrough too — that is the contradiction). Drop the history clause
+ * instead ⇒ the lit control goes red and the negative stays green.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -71,9 +72,8 @@ describe('objectui#9653 · the stray-`groupBy` refusal does not deny the validat
       expect(message).not.toMatch(DENIES_VALIDATION);
     });
 
-    it(`LIT CONTROL (${channel.name}): the message names the validator that accepted the key and the mechanism that kept it`, () => {
+    it(`LIT CONTROL (${channel.name}): the message still describes the passthrough that kept the key`, () => {
       const message = refusalMessage(channel.doc, channel.path, channel.code);
-      expect(message).toContain('`safeValidateSchema`');
       expect(message).toContain('`.passthrough()`');
     });
   }

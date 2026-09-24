@@ -35,7 +35,8 @@ Product-visible:
 
 - Nothing changes in what renders while loading.
 - A pull inside `ListView` (calendar, grid or timeline view) shows one
-  indicator instead of two, and still triggers one refetch.
+  indicator (calendar and timeline used to show two; the grid view keeps its
+  one), and still triggers one refetch.
 - The pull gesture now works on those views when they fetch their own rows.
 
 The exported signature and return type of `usePullToRefresh` are unchanged.

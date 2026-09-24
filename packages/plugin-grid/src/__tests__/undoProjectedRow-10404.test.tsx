@@ -165,18 +165,22 @@ afterEach(() => {
 describe('ObjectGrid — Undo of an `undoable` update on a projected row (objectui#10404)', () => {
   it('PIN 1: the row carries the written field, and Undo puts the stored value back', async () => {
     const run = await closeTheRow(['name', 'status']);
-
-    // The harvest asked for the written field though no column shows it.
-    expect(run.select).toEqual(expect.arrayContaining(['id', 'name', 'status']));
-    // The write happened, and the toast offered Undo.
-    expect(run.stored.status).toBe('closed');
-    expect(run.toasts).toEqual([{ type: 'success', undo: true }]);
-    expect(globalUndoManager.peekUndo()?.undoData).toEqual({ status: 'open' });
+    const afterWrite = run.stored.status;
+    const captured = globalUndoManager.peekUndo()?.undoData;
 
     await run.undo();
 
-    expect(run.dataSource.update).toHaveBeenCalledWith(OBJECT, 't_1', { status: 'open' });
+    // The card's outcome first, so a regression reads as what the user sees:
+    // before the fix this was `null`.
     expect(run.stored.status).toBe('open');
+    expect(run.dataSource.update).toHaveBeenCalledWith(OBJECT, 't_1', { status: 'open' });
+    expect(captured).toEqual({ status: 'open' });
+    // The write happened, and the toast offered Undo.
+    expect(afterWrite).toBe('closed');
+    expect(run.toasts).toEqual([{ type: 'success', undo: true }]);
+    // Why the row carried it: the harvest asked for the written field though no
+    // column shows it.
+    expect(run.select).toEqual(expect.arrayContaining(['id', 'name', 'status']));
   });
 
   it('PIN 2: a written field the row cannot carry gets no Undo, so nothing writes `null` over it', async () => {
@@ -184,18 +188,20 @@ describe('ObjectGrid — Undo of an `undoable` update on a projected row (object
     // `status` is writable but not readable: the harvest names it and the FLS
     // gate drops it, exactly as it must (harvesting is not a read grant).
     const run = await closeTheRow(['name']);
-
-    expect(run.select).not.toContain('status');
-    expect(run.stored.status).toBe('closed');
-    // No Undo affordance on the toast, and nothing on the Undo stack.
-    expect(run.toasts).toEqual([{ type: 'success', undo: false }]);
-    expect(globalUndoManager.peekUndo()).toBeUndefined();
-    expect(warn.mock.calls.some(([, detail]) =>
-      JSON.stringify(detail) === JSON.stringify({ action: 'close_task', missing: ['status'] }))).toBe(true);
+    const pending = globalUndoManager.peekUndo();
 
     // Ctrl+Z / the Undo executor finds nothing to run, so no `null` is written.
+    // Before the fix this wrote `{ status: null }`.
     await run.undo();
-    expect(run.dataSource.update).not.toHaveBeenCalled();
     expect(run.stored.status).toBe('closed');
+    expect(run.dataSource.update).not.toHaveBeenCalled();
+
+    // No Undo affordance on the toast, nothing on the Undo stack, and the
+    // author is told which field was missing.
+    expect(pending).toBeUndefined();
+    expect(run.toasts).toEqual([{ type: 'success', undo: false }]);
+    expect(warn.mock.calls.some(([, detail]) =>
+      JSON.stringify(detail) === JSON.stringify({ action: 'close_task', missing: ['status'] }))).toBe(true);
+    expect(run.select).not.toContain('status');
   });
 });

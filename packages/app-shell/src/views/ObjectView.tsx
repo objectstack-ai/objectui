@@ -461,6 +461,7 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
 
 /**
  * objectui#10046 — is `a` the same `options` bag as `b`, compared by VALUE?
+ * (objectui#7237 holds the resolved `filter` through the same comparison.)
  *
  * `renderListView` rebuilds `fullSchema.options` as a fresh object literal on
  * every call, and `plugin-view`'s `ObjectView` calls it on every one of its
@@ -2434,6 +2435,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // fresh object (AGENTS.md #10); a ref survives every re-render, and the
     // value comparison — not the ref — is what decides a real change.
     const heldListOptions = useRef<unknown>(undefined);
+    // objectui#7237 — the same hold for the resolved `filter`, same reason:
+    // token substitution hands back a NEW array of identical content on every
+    // call, and `ListView` names `schema.filter` by identity in its fetch
+    // effect, so each host re-render re-issued the identical list query.
+    const heldListFilter = useRef<unknown>(undefined);
 
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
@@ -2656,7 +2662,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 const base = (viewDef as any).filter ?? listSchema.filter;
                 const baseArr = Array.isArray(base) ? base : base ? [base] : [];
                 const combined = urlFilters.length ? [...baseArr, ...urlFilters] : base;
-                return substituteFilterTokens(combined, filterScope);
+                const resolved = substituteFilterTokens(combined, filterScope);
+                // objectui#7237 — equal content keeps the identity `ListView`
+                // names (and hands the self-querying views); a real change —
+                // another URL filter, another session scope, a date macro that
+                // resolves differently — still hands over the new value.
+                if (isSameOptionsValue(heldListFilter.current, resolved)) {
+                    return heldListFilter.current;
+                }
+                heldListFilter.current = resolved;
+                return resolved;
             })(),
             hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,

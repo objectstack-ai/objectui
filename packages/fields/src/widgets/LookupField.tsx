@@ -539,6 +539,39 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     return expandable.filter((f) => perms.checkField(referenceTo, f, 'read'));
   }, [refObjectSchema, previewColumns, perms, referenceTo]);
 
+  /**
+   * The previewed columns the user may READ — the ones `previewOf` renders
+   * (objectui#10373). Field-level security gates the displayed OUTPUT, in the
+   * shape `RelatedList`'s `keepReadableColumns` applies under the
+   * objectui#7215 / objectui#7230 rulings: once the policy has loaded, a column
+   * the user may not read on the referenced object is not previewed; before it
+   * loads nothing is filtered, and `perms` in the deps re-derives the list when
+   * the answer arrives. The object judged is `referenceTo`, the one
+   * `candidateExpand` above judges.
+   *
+   * Gating `$expand` alone left a denied column on screen: a denied relation
+   * arrived as a bare key, and the lookup cell renderer resolved it with a read
+   * of its own.
+   *
+   * What is never filtered: the option's label, which `recordToOption` builds
+   * from the row and not from these columns, and the id column, which holds
+   * the value being committed. `candidateExpand` keeps
+   * reading the unfiltered list and gating its own output, as every
+   * `buildExpandFields` call site does; both ask `checkField` about the same
+   * names on the same object, so the two lists cannot disagree.
+   */
+  const readablePreviewColumns = useMemo<LookupColumnDef[]>(
+    () =>
+      previewColumns.filter(
+        (c) =>
+          !perms.isLoaded ||
+          !referenceTo ||
+          c.field === idField ||
+          perms.checkField(referenceTo, c.field, 'read'),
+      ),
+    [previewColumns, perms, referenceTo, idField],
+  );
+
   // Derive filter-bar columns from any typed picker columns.
   const filterColumns = useMemo<RecordPickerFilterColumn[] | undefined>(() => {
     if (!pickerColumns) return undefined;
@@ -1113,7 +1146,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       // key reads exactly as it did before `$expand` (objectui#10223).
       const served = previewRows.get(String(option.value));
       const row = served ? { ...option, ...served } : option;
-      const cols = previewColumns.filter((c) => {
+      const cols = readablePreviewColumns.filter((c) => {
         const v = (row as any)[c.field];
         return v !== null && v !== undefined && v !== '';
       });
@@ -1134,7 +1167,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         </React.Fragment>
       ));
     },
-    [previewRows, previewColumns, previewDescriptors, displayLocale],
+    [previewRows, readablePreviewColumns, previewDescriptors, displayLocale],
   );
 
   // Keyboard handler for the search input — arrow keys + Enter

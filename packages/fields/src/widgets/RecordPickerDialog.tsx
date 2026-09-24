@@ -106,7 +106,11 @@ export interface RecordPickerFilterBarProps {
  * Allows plugging in ObjectGrid or any compatible table component.
  */
 export interface RecordPickerGridSlotProps {
-  /** Resolved column definitions */
+  /**
+   * Resolved column definitions, less the ones field-level security denies
+   * once the permission policy has loaded — the columns the built-in table
+   * draws (objectui#10373).
+   */
   columns: LookupColumnDef[];
   /** Current page of records */
   records: any[];
@@ -530,6 +534,39 @@ export function RecordPickerDialog({
     if (!perms.isLoaded) return expandable;
     return expandable.filter((f) => perms.checkField(objectName, f, 'read'));
   }, [fieldsMeta, resolvedColumns, idField, perms, objectName]);
+
+  /**
+   * The columns this table DRAWS: the resolved ones the user may read
+   * (objectui#10373). Field-level security gates the displayed OUTPUT, in the
+   * shape `RelatedList`'s `keepReadableColumns` applies under the
+   * objectui#7215 / objectui#7230 rulings: once the policy has loaded, a column
+   * the user may not read on `objectName` is neither headed nor rendered;
+   * before it loads nothing is filtered, and `perms` in the deps re-derives the
+   * list when the answer arrives. `objectName` is the object `expand` above
+   * judges.
+   *
+   * Gating `$expand` alone left a denied column on screen: a denied relation
+   * arrived as a bare key, and the lookup cell renderer resolved it with a read
+   * of its own.
+   *
+   * Two columns are never filtered, because a row is chosen by them: the
+   * display column (the row's title) and the id column (the value committed).
+   * Selection reads the id from the row itself, never from a drawn column.
+   * `expand` keeps reading `resolvedColumns` and gating its own output, as
+   * every `buildExpandFields` call site does; both ask `checkField` about the
+   * same names on the same object, so the two lists cannot disagree.
+   */
+  const readableColumns = useMemo<LookupColumnDef[]>(
+    () =>
+      resolvedColumns.filter(
+        (c) =>
+          !perms.isLoaded ||
+          c.field === displayField ||
+          c.field === idField ||
+          perms.checkField(objectName, c.field, 'read'),
+      ),
+    [resolvedColumns, perms, objectName, displayField, idField],
+  );
 
   // Auto-generate filter columns from lookupFilters when no explicit filterColumns given.
   // Each LookupFilterDef becomes a filterable field with inferred type.
@@ -1080,7 +1117,7 @@ export function RecordPickerDialog({
           /* External grid component (e.g. ObjectGrid from plugin-grid) */
           <div className="flex-1 min-h-0" data-testid="record-picker-grid-slot">
             {renderGrid({
-              columns: resolvedColumns,
+              columns: readableColumns,
               records,
               loading,
               totalCount,
@@ -1107,7 +1144,7 @@ export function RecordPickerDialog({
                   <TableHeader>
                     <TableRow className="bg-muted/40">
                       {multiple && <TableHead className="w-10" />}
-                      {resolvedColumns.map(col => (
+                      {readableColumns.map(col => (
                         <TableHead key={col.field}>
                           <Skeleton className="h-4 w-20" />
                         </TableHead>
@@ -1122,7 +1159,7 @@ export function RecordPickerDialog({
                             <Skeleton className="size-4 rounded" />
                           </TableCell>
                         )}
-                        {resolvedColumns.map(col => (
+                        {readableColumns.map(col => (
                           <TableCell key={col.field}>
                             <Skeleton className="h-4 w-full" />
                           </TableCell>
@@ -1167,7 +1204,7 @@ export function RecordPickerDialog({
                       {multiple && (
                         <TableHead className="w-10" />
                       )}
-                      {resolvedColumns.map(col => {
+                      {readableColumns.map(col => {
                         const w = columnWidths[col.field];
                         const styleWidth = w ? { width: `${w}px`, minWidth: `${w}px` } : col.width ? { width: col.width } : undefined;
                         return (
@@ -1224,7 +1261,7 @@ export function RecordPickerDialog({
                               {selected && <Check className="size-4 text-primary" />}
                             </TableCell>
                           )}
-                          {resolvedColumns.map(col => (
+                          {readableColumns.map(col => (
                             // `data-lookup-cell` names the column this cell
                             // renders, so the two-surface agreement pin can
                             // compare it against the inline dropdown's

@@ -34,8 +34,10 @@
  * ── Directions on the base tree (predicted before the first run) ─────────
  *   JPY-fixed cell, each of the three paths     RED   (tenant `$`)
  *   JPY-fixed footer, grid and hook             RED   (tenant `$`)
- *   agreement rows with a `currencyConfig`      RED
+ *   agreement, cells and footers                RED   (the `currencyConfig` rows)
  *   the control field (no `currencyConfig`)     GREEN (tenant `$` is right)
+ * The controls are GREEN on the base tree by design: they fail only if the
+ * repair overshoots and stops falling back to the tenant currency.
  */
 
 import React from 'react';
@@ -163,13 +165,16 @@ const PATHS: Array<[string, Record<string, unknown>]> = [
 ];
 
 describe('a JPY-fixed field reads `¥` on the grid cell under a USD tenant (objectui#10354)', () => {
-  it.each(PATHS)('%s: the fixed field reads ¥, the control reads the tenant $', async (_path, schemaExtra) => {
+  it.each(PATHS)('%s: the JPY-fixed field reads ¥', async (_path, schemaExtra) => {
     const { container } = await renderGrid(schemaExtra);
     const cells = cellTexts(container);
     expect(cells, `cells: ${JSON.stringify(cells)}`).toContain('¥1,234');
     expect(cells).not.toContain('$1,234');
-    // Control: a field that names no currency still takes the tenant's.
-    expect(cells).toContain('$5,678');
+  });
+
+  it.each(PATHS)('%s: control, a field with no currencyConfig reads the tenant $', async (_path, schemaExtra) => {
+    const { container } = await renderGrid(schemaExtra);
+    expect(cellTexts(container)).toContain('$5,678');
   });
 
   it.each(PATHS)('%s: every currency cell reads what the whole-def cell reads', async (_path, schemaExtra) => {
@@ -184,9 +189,13 @@ describe('a JPY-fixed field reads `¥` on the grid cell under a USD tenant (obje
 });
 
 describe('the summary footer resolves the same currency as the cell above it (objectui#10354)', () => {
-  it('through ObjectGrid: the fixed footer reads ¥, the control reads the tenant $', async () => {
+  it('through ObjectGrid: the JPY-fixed footer reads ¥', async () => {
     await renderGrid(PATHS[0][1]);
     expect(screen.getByTestId('summary-amount').textContent).toBe('Yen Amount: Sum: ¥1,234');
+  });
+
+  it('through ObjectGrid: control, a footer with no currencyConfig reads the tenant $', async () => {
+    await renderGrid(PATHS[0][1]);
     expect(screen.getByTestId('summary-plain').textContent).toBe('Plain Amount: Sum: $5,678');
   });
 
@@ -201,10 +210,17 @@ describe('the summary footer resolves the same currency as the cell above it (ob
     }
   });
 
-  it('through the public hook: `fieldMetadata` carrying `currencyConfig` reaches the resolver', () => {
-    const columns: any[] = CURRENCY_FIELDS.map((field) => ({ field, summary: 'sum' }));
+  function hookLabel(field: string): string | undefined {
+    const columns: any[] = CURRENCY_FIELDS.map((f) => ({ field: f, summary: 'sum' }));
     const { result } = renderHook(() => useColumnSummary(columns, [ROW], FIELDS as any), { wrapper: Providers });
-    expect(result.current.summaries.get('amount')?.label).toBe('Sum: ¥1,234');
-    expect(result.current.summaries.get('plain')?.label).toBe('Sum: $5,678');
+    return result.current.summaries.get(field)?.label;
+  }
+
+  it('through the public hook: `fieldMetadata` carrying `currencyConfig` reaches the resolver', () => {
+    expect(hookLabel('amount')).toBe('Sum: ¥1,234');
+  });
+
+  it('through the public hook: control, a field with no currencyConfig reads the tenant $', () => {
+    expect(hookLabel('plain')).toBe('Sum: $5,678');
   });
 });

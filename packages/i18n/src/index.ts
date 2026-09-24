@@ -50,9 +50,9 @@ export {
   // reader apps that bring their own i18next instance need to honour it.
   LOCALE_STORAGE_KEY,
   readStoredLanguage,
-  // Tenant locale seed (objectui#4035) — a SEPARATE slot from the explicit
-  // choice above, and never a substitute for it. An app that fetches its
-  // tenant's server-side locale caches it here; the provider applies it at
+  // Locale seed (objectui#4035) — a SEPARATE slot from the explicit
+  // choice above, and never a substitute for it. An app that fetches the
+  // server's resolved locale for the last signed-in caller caches it here; the provider applies it at
   // bootstrap only when the user has chosen nothing themselves.
   LOCALE_SEED_STORAGE_KEY,
   readCachedLanguageSeed,

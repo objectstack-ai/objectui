@@ -3751,11 +3751,13 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * Spelled exactly as {@link ObjectGanttSchema.filter}, so the two views'
    * query keys cannot fork.
    *
-   * ⚠️ There is deliberately NO `sort` twin on this interface, and its absence
-   * is measured rather than overlooked: `ObjectKanban.tsx` has ZERO
-   * `schema.sort` read sites (the board groups records into lanes and issues no
-   * `$orderby`), and the spec's `object-kanban` entry declares no `sort`
-   * either. Only {@link ObjectCalendarSchema} declares both keys.
+   * ⚠️ There is deliberately NO `sort` twin on this interface: the spec's
+   * `object-kanban` entry declares no top-level `sort` (and refuses one). The
+   * board's ordering is authored on the per-element binding instead —
+   * `dataSource.sort`, which `ElementDataSourceGate` hands to `ObjectKanban` as
+   * `schema.sort` and the fetch lowers onto `$orderby` (objectui#10068). That
+   * read is the gate's carrier, not an authoring key. Only
+   * {@link ObjectCalendarSchema} declares both keys.
    */
   filter?: any[];
   /**

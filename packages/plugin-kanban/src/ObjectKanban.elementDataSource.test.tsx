@@ -16,8 +16,8 @@
  * A board's `columns` are its SWIMLANES (`{ id, title }` per `groupBy` value),
  * not a field projection. A saved view's `columns: ['name','rating']` written
  * there would render two empty lanes named after fields — a wrong answer that
- * looks like a rendered board. The mapping therefore takes `object`, `filter`
- * and `limit`, and the third test pins that the authored lanes survive.
+ * looks like a rendered board. The mapping therefore takes `object`, `filter`,
+ * `sort` and `limit`, and the third test pins that the authored lanes survive.
  *
  * ## The row cap (objectui#4025)
  *
@@ -249,16 +249,16 @@ describe('object-kanban — the row cap reaches the wire (objectui#4025)', () =>
  * gate, so the declaration says `type: 'object'` and nothing whatever about
  * members. The member contract is therefore entirely the read site, and the
  * read site is one line of this package —
- * `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: 'limit' }` — read by
+ * `OBJECT_KANBAN_DATA_SOURCE = { filter: true, sort: true, limit: 'limit' }` — read by
  * `ElementDataSourceGate` in `@object-ui/react`.
  *
  * The three describe blocks above were read end to end before being credited as
  * the pin's base. They already cover `object` (the bound object is queried),
  * `view` (its filter and page size arrive, an unresolvable one REPORTS rather
  * than widening) and the deliberate non-mapping of `columns`. They do not cover
- * the rest of the binding's five members, and the five are NOT alike: two are
- * mapped, one is mapped and then contested by two other sources, and two are
- * deliberately inert. That is what this block adds.
+ * the rest of the binding's five members, and the five are NOT alike: they are
+ * mapped, and some are then contested by other sources. That is what this
+ * block adds.
  *
  * | member    | disposition on THIS block                                      |
  * |-----------|----------------------------------------------------------------|
@@ -266,12 +266,13 @@ describe('object-kanban — the row cap reaches the wire (objectui#4025)', () =>
  * | `view`    | the baseline every other member is contested against           |
  * | `filter`  | mapped, and AND-combined with the block's own `filter` too     |
  * | `limit`   | mapped onto the block's `limit`; binding > block > view         |
- * | `sort`    | ⛔ NOT mapped — the board has no `$orderby` read site           |
+ * | `sort`    | mapped onto `$orderby`; binding > view; orders cards in a lane |
  *
- * ⚠️ The inert member is the one a pin must state loudest. `sort` is a member
- * the spec's binding declares and this block silently ignores; without a row
- * saying so, a later contributor "completing the mapping" would wire it onto a
- * key nothing reads and the pin would stay green.
+ * ⚠️ `sort` was the inert member until objectui#10068: the binding declared it
+ * and this block silently dropped it (no `$orderby`). It is now lowered onto
+ * `$orderby` through `convertSortToQueryParams`, and because lanes bucket
+ * records in fetch order, the declared order is also the in-lane order. The
+ * rows below pin the wire, the lane order, and an absent-sort control.
  */
 describe('object-kanban — the binding’s five members, each with its disposition (objectui#8071)', () => {
   const firstQuery = async (adapter: ReturnType<typeof makeAdapter>) => {
@@ -343,12 +344,10 @@ describe('object-kanban — the binding’s five members, each with its disposit
     expect(params.$filter).toEqual([['rating', '=', 'hot']]);
   });
 
-  it('⛔ `sort` is INERT on this block — it reaches no query key at all', async () => {
-    // The board groups cards into lanes and declares no ordering. Mapping this
-    // member onto something plausible would re-create the defect the wiring
-    // removed (a value accepted and dropped) one layer deeper, so it stays
-    // unmapped — and this row is what makes that a decision rather than an
-    // omission.
+  it('⭐ `sort` reaches the query as `$orderby` (objectui#10068)', async () => {
+    // It used to be accepted and dropped: the binding declared it and the fetch
+    // carried no ordering. `convertSortToQueryParams` lowers it onto the
+    // `field -> direction` map every sibling block sends.
     const adapter = makeAdapter({});
     renderBlock(
       {
@@ -361,12 +360,86 @@ describe('object-kanban — the binding’s five members, each with its disposit
     );
 
     const [, params] = await firstQuery(adapter);
+    expect(params.$orderby).toEqual({ name: 'desc' });
+    // LIT CONTROL, same binding and same query: the member mapped before this
+    // change still moves.
+    expect(params.$top).toBe(4);
+  });
+
+  it('`sort` from a named VIEW reaches `$orderby` too, and the binding’s own `sort` beats it', async () => {
+    // `hot` declares `sort: [{ field: 'name', order: 'desc' }]`.
+    const fromView = makeAdapter();
+    renderBlock(
+      { type: 'object-kanban', groupBy: 'status', columns: LANES, dataSource: { object: 'account', view: 'hot' } },
+      fromView,
+    );
+    const [, viewParams] = await firstQuery(fromView);
+    expect(viewParams.$orderby).toEqual({ name: 'desc' });
+
+    const bound = makeAdapter();
+    renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        dataSource: { object: 'account', view: 'hot', sort: [{ field: 'rating', order: 'asc' }] },
+      },
+      bound,
+    );
+    const [, boundParams] = await firstQuery(bound);
+    expect(boundParams.$orderby).toEqual({ rating: 'asc' });
+  });
+
+  it('CONTROL — no declared `sort` leaves the query without an ordering', async () => {
+    const adapter = makeAdapter({});
+    renderBlock(
+      { type: 'object-kanban', groupBy: 'status', columns: LANES, dataSource: { object: 'account', limit: 4 } },
+      adapter,
+    );
+
+    const [, params] = await firstQuery(adapter);
     expect(params.$orderby).toBeUndefined();
     expect(params.sort).toBeUndefined();
-    // LIT CONTROL, same binding and same query: a member that IS mapped moved,
-    // so the two negatives above are about `sort` and not about a binding that
-    // never arrived.
+    // Same query moved on a mapped member, so the absence above is a reading.
     expect(params.$top).toBe(4);
+  });
+
+  it('cards inside a lane keep the order the sorted fetch returned', async () => {
+    // The server applies `$orderby`; the board must not re-sort a lane. The
+    // adapter answers in the order a `name desc` query would, interleaving two
+    // lanes, and each lane must draw its own cards in that same order.
+    const adapter = makeAdapter({});
+    adapter.find.mockResolvedValue({
+      data: [
+        { id: '1', name: 'Zeta', status: 'open' },
+        { id: '2', name: 'Yankee', status: 'won' },
+        { id: '3', name: 'Mike', status: 'open' },
+        { id: '4', name: 'Alpha', status: 'open' },
+        { id: '5', name: 'Bravo', status: 'won' },
+      ],
+    });
+    const { container } = renderBlock(
+      {
+        type: 'object-kanban',
+        groupBy: 'status',
+        columns: LANES,
+        cardTitle: 'name',
+        dataSource: { object: 'account', sort: [{ field: 'name', order: 'desc' }] },
+      },
+      adapter,
+    );
+
+    const [, params] = await firstQuery(adapter);
+    expect(params.$orderby).toEqual({ name: 'desc' });
+    await waitFor(() => expect(container.textContent).toContain('Zeta'));
+    const text = container.textContent ?? '';
+    const at = (name: string) => text.indexOf(name);
+    for (const name of ['Zeta', 'Yankee', 'Mike', 'Alpha', 'Bravo']) expect(at(name)).toBeGreaterThanOrEqual(0);
+    // Lane `open`: Zeta, Mike, Alpha — fetch order, NOT alphabetical.
+    expect(at('Zeta')).toBeLessThan(at('Mike'));
+    expect(at('Mike')).toBeLessThan(at('Alpha'));
+    // Lane `won`: Yankee, Bravo.
+    expect(at('Yankee')).toBeLessThan(at('Bravo'));
   });
 
   it('⭐ `limit` — the binding beats the block, and the block beats the VIEW', async () => {

@@ -36,6 +36,48 @@ const useUncolumnedT = createSafeTranslation(
 );
 
 /**
+ * Names, on the console, every stored group value that matched no lane id
+ * (objectui#10069). Since lanes match by `id` only, the commonest cause is a
+ * record that stored an option's LABEL (`'In Progress'`) instead of its value
+ * (`'in_progress'`); before the ruling such a record reached its lane through
+ * the retired title key, so the warn is what makes the narrowing visible
+ * rather than a silent move into "Uncategorized".
+ *
+ * ONE warn per distinct raw value per bucketing pass — never one per record,
+ * and never deduplicated across passes. Per value, because the count of
+ * offending records is unbounded (a whole imported table can carry labels)
+ * while the count of distinct values is bounded by the vocabulary. Per pass,
+ * because a pass is one render or data load of one board: module-level
+ * deduplication would stay silent for the next board, or for this board after
+ * its picklist or data changed, which is exactly when an author looks for it.
+ * The pass count is already bounded by `KanbanRenderer`'s memo.
+ *
+ * The empty value is not warned: a record with no group value is the ordinary
+ * "not yet categorised" state (#2792), not a value/label mismatch.
+ */
+function warnUnmatchedGroupValues(
+  unmatchedKeys: string[],
+  groups: Record<string, any[]>,
+  columns: Array<any>,
+  groupBy: string,
+): void {
+  const offending = unmatchedKeys.filter((key) => key !== '');
+  if (offending.length === 0) return;
+  // `String()` for non-strings: a lane id is unvalidated input here, and
+  // `JSON.stringify` throws on a bigint — a warn must never break the board.
+  const show = (v: unknown): string => (typeof v === 'string' ? JSON.stringify(v) : String(v));
+  const laneIds = columns.map((col: any) => show(col.id)).join(', ');
+  for (const key of offending) {
+    console.warn(
+      `[plugin-kanban] ${groups[key].length} record(s) with ${JSON.stringify(groupBy)} = ` +
+        `${JSON.stringify(key)} match no lane id and are shown in the trailing "Uncategorized" lane. ` +
+        `Lanes match the stored option value by lane id only, never by lane title ` +
+        `(objectui#10069). Available lane ids: [${laneIds}].`,
+    );
+  }
+}
+
+/**
  * The single place flat `data` + `groupBy` is bucketed into per-column card
  * arrays. Kept pure (title passed in, not translated here) so it can be unit
  * tested directly — see index.bucket.test.ts. Records whose group value maps
@@ -65,28 +107,36 @@ export function bucketCardsIntoColumns(
     }));
   }
 
-  // Build label→id mapping so data values (labels like "In Progress") match
-  // column IDs (option values like "in_progress").
+  // Build the lane lookup: a record belongs to a lane when its stored group
+  // value equals that lane's `id` — the option value — and nothing else
+  // (objectui#10069, ruling A). The lane `title` is PRESENTATION only: it used
+  // to be lowercased into this map as a second, undeclared bucketing key, so
+  // renaming a lane, relabelling a picklist option, or switching locale (lane
+  // titles are translated — `localizeColumn` / `translateOptions` in
+  // `ObjectKanban.tsx`) moved records between lanes. ⛔ Do not map `title`
+  // here again: a record that stores a label instead of the option value is a
+  // DATA defect, surfaced loudly by the warn below rather than absorbed.
+  // The id comparison stays case-folded, as it was before the ruling — the
+  // ruling retires the title key, not the folding of the id key.
   // ⚠️ Null prototype, not `{}` (objectui#9043). This map and `groups` below are
   // keyed by RECORD DATA, which no schema guards — `@objectstack/spec` narrows the
   // lane `id` (objectui#8913), not the values stored in the grouped field — so a
   // stored value like 'constructor' or '__proto__' would otherwise be answered by
   // `Object.prototype` instead of by what this function actually put here:
-  //   - the READ below is `labelToColumnId[k] ?? rawKey`, and `??` only falls back
-  //     on null/undefined, so an INHERITED member is returned as if it were a
-  //     declared lane id;
-  //   - the WRITE `labelToColumnId['__proto__'] = col.id` on a prototype-bearing
+  //   - the READ below is `laneIdByFoldedId[k] ?? rawKey`, and `??` only falls
+  //     back on null/undefined, so an INHERITED member is returned as if it were
+  //     a declared lane id;
+  //   - the WRITE `laneIdByFoldedId['__proto__'] = col.id` on a prototype-bearing
   //     object invokes the `__proto__` setter, which silently ignores a string —
   //     so a lane legitimately declared with that option value loses its mapping.
   // `Object.prototype.hasOwnProperty.call(...)` would close the READ only; the
   // write hazard needs the null prototype, which is why both maps take that route.
-  const labelToColumnId: Record<string, string> = Object.create(null);
+  const laneIdByFoldedId: Record<string, string> = Object.create(null);
   columns.forEach((col: any) => {
-    if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;
-    if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;
+    if (col.id) laneIdByFoldedId[String(col.id).toLowerCase()] = col.id;
   });
 
-  // 1. Group data by key, normalizing via label→id mapping.
+  // 1. Group data by key, normalizing a case-folded match onto the lane id.
   // ⚠️ Null prototype for the same reason (objectui#9043), and this is the leg that
   // CRASHES: on a `{}` accumulator `acc['toString']` is the inherited METHOD, which
   // is truthy, so the array is never created and the next line calls `.push` on a
@@ -98,7 +148,7 @@ export function bucketCardsIntoColumns(
   // group key and still surfaces in the trailing lane, never discarded (#2792).
   const groups = data.reduce((acc, item) => {
     const rawKey = String(item[groupBy] ?? '');
-    const key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;
+    const key = laneIdByFoldedId[rawKey.toLowerCase()] ?? rawKey;
     if (!acc[key]) acc[key] = [];
     acc[key].push(mapCoverImage(item));
     return acc;
@@ -133,9 +183,9 @@ export function bucketCardsIntoColumns(
   const knownIds = new Set<PropertyKey>(
     columns.map((col: any) => (typeof col.id === 'symbol' ? col.id : String(col.id))),
   );
-  const uncolumnedCards = Object.keys(groups)
-    .filter((key) => !knownIds.has(key))
-    .flatMap((key) => groups[key]);
+  const unmatchedKeys = Object.keys(groups).filter((key) => !knownIds.has(key));
+  const uncolumnedCards = unmatchedKeys.flatMap((key) => groups[key]);
+  warnUnmatchedGroupValues(unmatchedKeys, groups, columns, groupBy);
   if (uncolumnedCards.length > 0) {
     mapped.push({ id: KANBAN_UNCOLUMNED_ID, title: uncolumnedTitle, cards: uncolumnedCards });
   }

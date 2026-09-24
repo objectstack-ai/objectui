@@ -1402,6 +1402,7 @@ const es = {
     navTypeSeparator: "Separador",
     navTypeAction: "Acción",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar icono",
     navToggleVisible: "Alternar visibilidad",
     navHidden: "Oculto",

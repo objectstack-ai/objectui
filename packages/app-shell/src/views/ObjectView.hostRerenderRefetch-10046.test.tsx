@@ -111,6 +111,14 @@ import { ExpressionProvider } from '../providers/ExpressionProvider';
 
 const OBJECT_NAME = 'duly_task';
 
+/**
+ * ONE column array for every fixture, so swapping the object definition in the
+ * real-change control moves the `options` bag and NOT `schema.columns` — which
+ * `ListView` also names by identity, and which would otherwise earn the refetch
+ * on its own and make the control unable to see an over-applied fix.
+ */
+const COLUMNS = ['name', 'stage'];
+
 function objectsWith(allView: Record<string, unknown>) {
   return [
     {
@@ -122,8 +130,8 @@ function objectsWith(allView: Record<string, unknown>) {
         stage: { type: 'select', label: 'Stage', options: [{ label: 'A', value: 'a' }] },
       },
       listViews: {
-        all: { label: 'All', type: 'grid', columns: ['name', 'stage'], ...allView },
-        board: { label: 'Board', type: 'kanban', columns: ['name', 'stage'], kanban: { groupByField: 'stage' } },
+        all: { label: 'All', type: 'grid', columns: COLUMNS, ...allView },
+        board: { label: 'Board', type: 'kanban', columns: COLUMNS, kanban: { groupByField: 'stage' } },
       },
     },
   ];

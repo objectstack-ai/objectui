@@ -615,7 +615,10 @@ describe('P1.5 Record Components', () => {
       columns: ['name', 'email', 'phone'],
       sort: [{ field: 'name', order: 'asc' }],
       limit: 5,
-      filter: [['active', '=', true]],
+      // The protocol's rule array (objectui#10199). This fixture used to write
+      // an array of `[field, op, value]` tuples, which only compiled because the
+      // key was `any`; the spec's `z.array(ViewFilterRuleSchema)` refuses it.
+      filter: [{ field: 'active', operator: 'equals', value: true }],
       title: 'Related Contacts',
       showViewAll: true,
       actions: ['new', 'edit'],

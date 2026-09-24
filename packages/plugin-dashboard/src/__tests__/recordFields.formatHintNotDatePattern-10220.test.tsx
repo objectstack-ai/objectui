@@ -35,11 +35,12 @@
  *
  * A hint-word exclusion list would be a second copy of the resolver's
  * vocabulary, kept in step by hand — and the autonumber case above shows it
- * would still be incomplete. `@objectstack/spec` already describes `format` as
- * type-dependent (`FieldSchema.format`: the `date` and `datetime` cells read it
- * as a display style; plain-text fields read a small set of renderer-hint
- * words). So the branch now asks the question that description asks: is this
- * a `date` / `datetime` field? A field whose type is unknown is not a date
+ * would still be incomplete. The `FieldSchema.format` description
+ * objectstack#19763 wrote for `@objectstack/spec` already treats `format` as
+ * type-dependent: the `date` and `datetime` cells read it as a display style,
+ * and plain-text fields read a small set of renderer-hint words. So the branch
+ * now asks the question that description asks: is this a `date` / `datetime`
+ * field? A field whose type is unknown is not a date
  * cell either — a column with no schema type declares one (`type: 'date'`) to
  * get the date face, which the last case below pins.
  *

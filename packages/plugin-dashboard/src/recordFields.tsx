@@ -69,11 +69,12 @@ export const NUMERIC_FIELD_TYPES = new Set([
  * Field types whose `format` {@link renderFieldValue} reads as a date display
  * pattern (objectui#10220).
  *
- * `format` has one key and several readers, each with its own vocabulary —
- * `@objectstack/spec` says so in `FieldSchema.format`'s own description: the
- * `date` / `datetime` cells read it as a display style, while on a plain-text
- * field the shared resolver (`resolveCellRendererType`, `@object-ui/fields`)
- * reads a small set of renderer-hint words. The date branch used to fire on any
+ * `format` has one key and several readers, each with its own vocabulary. The
+ * `FieldSchema.format` description objectstack#19763 wrote for
+ * `@objectstack/spec` says so: the `date` / `datetime` cells read it as a
+ * display style, while on a plain-text field the shared resolver
+ * (`resolveCellRendererType`, `@object-ui/fields`) reads a small set of
+ * renderer-hint words. The date branch used to fire on any
  * `format` containing a Y / M / D / H / m / s letter, whatever the field's type,
  * so `format: 'email'` (it has an `m`) sent an address to `formatDate` and
  * painted an em dash. So did an `autonumber` record-number pattern carrying
@@ -451,8 +452,8 @@ export function renderFieldValue(
   }
   // A date pattern only on a date field (objectui#10220) — see
   // `DATE_PATTERN_FIELD_TYPES` for why the gate is the type. A date field's
-  // style word with none of those letters (`relative`) still falls through to
-  // its cell renderer below, as before.
+  // style word that carries none of the Y / M / D / H / m / s letters
+  // (`relative`) still falls through to its cell renderer below, as before.
   if (
     typeof fmt === 'string'
     && DATE_PATTERN_FIELD_TYPES.has(fieldMeta.type as string)

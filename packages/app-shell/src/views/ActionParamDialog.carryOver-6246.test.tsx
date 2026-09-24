@@ -54,6 +54,7 @@ import type { ActionParamDef } from '@object-ui/core';
 import '@object-ui/fields';
 
 import { ActionParamDialog, serializeParamValues } from './ActionParamDialog';
+import { ActionPreview } from './metadata-admin/previews/ActionPreview';
 import { resolveActionParams, type RawActionParam } from '../utils/resolveActionParams';
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -306,5 +307,37 @@ describe('objectui#6246 leg C — every carried facet is submitted verbatim', ()
     expect(out.carried_file).toBe(rich);
     // CONTROL — an ordinary upload param is still reduced to its storage id.
     expect(out.picked_file).toBe('f_1');
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Leg D — the designer's dialog mock draws what the dialog draws             */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+describe('objectui#6246 leg D — the action designer previews a carry-over as read-only', () => {
+  it('a carry-over param previews as the read-only summary, and an ordinary one as its widget', () => {
+    render(
+      <ActionPreview
+        type="action"
+        name="clone_permission_set"
+        draft={{
+          name: 'clone_permission_set',
+          label: 'Clone',
+          type: 'script',
+          target: 'true',
+          params: [
+            { name: 'label', label: 'New Display Name', type: 'text' },
+            { field: 'row_level_security', label: 'Row-Level Security', type: 'textarea', defaultFromRow: true, carryOver: true },
+          ],
+        }}
+      />,
+    );
+    const carried = screen.getAllByTestId('action-preview-carry-over');
+    expect(carried).toHaveLength(1);
+    expect(carried[0].querySelectorAll(EDITABLE)).toHaveLength(0);
+    // Its declared widget (`textarea`) is NOT drawn for it…
+    expect(document.querySelectorAll('textarea')).toHaveLength(0);
+    // …while the ordinary param beside it still previews its text box.
+    expect(document.querySelectorAll('input[type="text"]')).toHaveLength(1);
   });
 });

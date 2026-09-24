@@ -29,7 +29,10 @@
  * paths, no populate/expand semantics. A lookup column whose value arrives as
  * an unresolved foreign-key id is resolved the same way the picker has always
  * resolved it — client-side, by the lookup cell renderer — so the two surfaces
- * agree without either query changing.
+ * agree whether or not the related record came back expanded: both queries ask
+ * for `$expand` on the readable reference columns they display
+ * (objectui#10223), and an expanded value renders through that same cell
+ * renderer without a fetch.
  */
 
 import React from 'react';

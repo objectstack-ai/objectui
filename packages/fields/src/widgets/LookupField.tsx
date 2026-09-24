@@ -18,7 +18,7 @@ import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
 import { useRecordQuery } from './useRecordQuery.js';
 import { deriveLookupColumns } from './deriveLookupColumns.js';
-import { getRecordDisplayName, mergeFilterNodes } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
 import { getPersonInitials } from './personDisplay.js';
 import { getCellRendererResolver } from './_cell-renderer-bridge.js';
@@ -33,6 +33,7 @@ import {
 } from './lookupColumnDisplay.js';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { SchemaRendererContext as ImportedSchemaRendererContext, useAction, useHasActionProvider } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 
 export interface LookupOption {
@@ -496,6 +497,48 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     [previewColumns, refObjectSchema, referenceTo, translateOptions],
   );
 
+  /**
+   * `$expand` for the candidate queries (objectui#10223): the reference columns
+   * among the ones this dropdown PREVIEWS, by `buildExpandFields`' rule — the
+   * same one the list views use for their visible columns.
+   *
+   * Without it every previewed `lookup` / `master_detail` column arrived as a
+   * bare foreign key, and the lookup cell renderer resolved each one with its
+   * own `findOne` — one request per candidate per such column, on every open.
+   * An expanded value is rendered by that same cell renderer with no fetch, so
+   * the preview reads the same and the per-row requests go.
+   *
+   * Expansion is a DISPLAY concern here and stays one: options are built from
+   * the row with its relations collapsed back to ids (`toPredicateRecord`), so
+   * the label, the committed value and the record `onSelectRecord` hands a host
+   * are what they were before any column was expanded. Only the preview reads
+   * the expanded row (`previewRows` below). A backend that ignores `$expand`
+   * returns bare ids, and the cell renderer's per-id resolution takes over as
+   * before.
+   *
+   * Field-level security gates the OUTPUT, in the shape the objectui#7429 sweep
+   * applied at every other `buildExpandFields` call site: once the policy has
+   * loaded, a relation the user may not read on the referenced object is not
+   * asked for; before it loads, nothing is filtered and `perms` in the deps
+   * rebuilds the list when the answer arrives. Every name judged here is one
+   * the referenced object declares, so the "`checkField` answers false for an
+   * undeclared key" trap cannot be reached.
+   *
+   * No previewed column ⇒ no `$expand`. `buildExpandFields` reads an EMPTY
+   * column list as "no column restriction" and returns every relation the
+   * object declares; a dropdown that previews only its display field (a
+   * `highlightFields` naming just that field, or every other field
+   * system-managed) would then ask for `created_by`, `owner_id`, … — none of
+   * which it renders.
+   */
+  const perms = usePermissions();
+  const candidateExpand = useMemo<string[]>(() => {
+    if (previewColumns.length === 0) return [];
+    const expandable = buildExpandFields(refObjectSchema?.fields, previewColumns);
+    if (!perms.isLoaded || !referenceTo) return expandable;
+    return expandable.filter((f) => perms.checkField(referenceTo, f, 'read'));
+  }, [refObjectSchema, previewColumns, perms, referenceTo]);
+
   // Derive filter-bar columns from any typed picker columns.
   const filterColumns = useMemo<RecordPickerFilterColumn[] | undefined>(() => {
     if (!pickerColumns) return undefined;
@@ -548,6 +591,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     enabled: isOpen && hasDataSource && !dependenciesMissing,
     pageSize: LOOKUP_PAGE_SIZE,
     filter: popoverFilter,
+    expand: candidateExpand,
   });
 
   // Re-source the popover's fetch state from the kernel; all existing read sites
@@ -556,10 +600,15 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const loading = popoverQuery.loading;
   const totalCount = popoverQuery.total;
   const error = popoverQuery.error ?? createError;
+  // Built from the row with its relations collapsed to ids — see
+  // `candidateExpand` for why the option never sees the expanded form.
   const fetchedOptions = useMemo(
     () =>
       popoverQuery.records.map(r =>
-        recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema),
+        recordToOption(
+          toPredicateRecord(r, refObjectSchema?.fields),
+          displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+        ),
       ),
     [popoverQuery.records, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
   );
@@ -894,12 +943,20 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // filtered response; ids it does not return are dropped, whether they fail
   // the filters or no longer exist. It is also one request instead of up to
   // MAX_RECENT serial round-trips.
-  const [recentOptions, setRecentOptions] = useState<LookupOption[]>([]);
+  //
+  // The rail previews the same columns as the main list, so it asks for the
+  // same `$expand` (objectui#10223). It keeps the rows it was served — the
+  // preview reads them — and derives its options from them exactly as the main
+  // list does, relations collapsed to ids.
+  const [recentRows, setRecentRows] = useState<Record<string, unknown>[]>([]);
+  // The expansion as a primitive, for the effect below: a memoised array's
+  // identity is not a dependency to key a fetch on (AGENTS.md #10).
+  const candidateExpandKey = candidateExpand.join(',');
   useEffect(() => {
     if (!isOpen || !hasDataSource || !dataSource || !referenceTo || searchQuery) return;
-    if (dependenciesMissing) { setRecentOptions([]); return; }
+    if (dependenciesMissing) { setRecentRows([]); return; }
     const ids = getRecentLookupIds(referenceTo);
-    if (!ids.length) { setRecentOptions([]); return; }
+    if (!ids.length) { setRecentRows([]); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -909,29 +966,53 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             ? mergeFilterNodes(popoverFilter, idRestriction)
             : idRestriction,
           $top: ids.length,
+          ...(candidateExpand.length > 0 ? { $expand: candidateExpand } : {}),
         } as QueryParams);
         const rows = (res as any)?.data ?? res ?? [];
         const byId = new Map<string, any>();
         if (Array.isArray(rows)) {
           for (const row of rows) {
-            const rid = row?.[idField] ?? row?.id ?? row?._id;
+            const plain = toPredicateRecord(row, refObjectSchema?.fields);
+            const rid = plain?.[idField] ?? plain?.id ?? plain?._id;
             if (rid !== undefined && rid !== null) byId.set(String(rid), row);
           }
         }
         // Most-recent-first order is preserved; the response only decides
         // WHICH ids survive, never their order.
-        const recs = ids
-          .map((id) => byId.get(String(id)))
-          .filter(Boolean)
-          .map((r) =>
-            recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema),
-          );
-        if (!cancelled) setRecentOptions(recs);
-      } catch { if (!cancelled) setRecentOptions([]); }
+        const kept = ids.map((id) => byId.get(String(id))).filter(Boolean);
+        if (!cancelled) setRecentRows(kept);
+      } catch { if (!cancelled) setRecentRows([]); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasDataSource, referenceTo, searchQuery, dependenciesMissing, popoverFilter, idField]);
+  }, [isOpen, hasDataSource, referenceTo, searchQuery, dependenciesMissing, popoverFilter, idField, candidateExpandKey]);
+  const recentOptions = useMemo(
+    () =>
+      recentRows.map((r) =>
+        recordToOption(
+          toPredicateRecord(r, refObjectSchema?.fields),
+          displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+        ),
+      ),
+    [recentRows, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+  );
+
+  /**
+   * The rows previews render from (objectui#10223): each as the server returned
+   * it, with any `$expand`-ed relation still expanded, so the lookup cell
+   * renderer names it without a fetch. Keyed by the option's value (a
+   * primitive, never an option object's identity). An option with no served
+   * row — a static option, a just-created record — previews from itself.
+   */
+  const previewRows = useMemo(() => {
+    const byValue = new Map<string, Record<string, unknown>>();
+    for (const raw of [...recentRows, ...popoverQuery.records]) {
+      const plain = toPredicateRecord(raw, refObjectSchema?.fields);
+      const v = plain?.[idField] ?? plain?.id ?? plain?._id ?? plain?.externalId;
+      if (v !== undefined && v !== null && !byValue.has(String(v))) byValue.set(String(v), raw);
+    }
+    return byValue;
+  }, [recentRows, popoverQuery.records, refObjectSchema, idField]);
 
   // Recently-used first (only before the user types), then live results — one
   // de-duped list that drives BOTH rendering and arrow-key navigation.
@@ -1028,8 +1109,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    */
   const previewOf = useCallback(
     (option: LookupOption): React.ReactNode => {
+      // The option with its relations as the server served them — every other
+      // key reads exactly as it did before `$expand` (objectui#10223).
+      const served = previewRows.get(String(option.value));
+      const row = served ? { ...option, ...served } : option;
       const cols = previewColumns.filter((c) => {
-        const v = (option as any)[c.field];
+        const v = (row as any)[c.field];
         return v !== null && v !== undefined && v !== '';
       });
       if (cols.length === 0) return null;
@@ -1039,7 +1124,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           <span className="flex min-w-0 items-center gap-1 truncate">
             <span className="shrink-0 opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
             <span className="min-w-0 truncate" data-lookup-preview={col.field}>
-              {renderLookupColumnValue(option, col, {
+              {renderLookupColumnValue(row, col, {
                 descriptors: previewDescriptors,
                 cellRenderer: getCellRendererResolver(),
                 displayLocale,
@@ -1049,7 +1134,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         </React.Fragment>
       ));
     },
-    [previewColumns, previewDescriptors, displayLocale],
+    [previewRows, previewColumns, previewDescriptors, displayLocale],
   );
 
   // Keyboard handler for the search input — arrow keys + Enter

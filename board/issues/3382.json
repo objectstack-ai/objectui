@@ -1,0 +1,35 @@
+{
+  "number": 3382,
+  "kind": "pull_request",
+  "title": "fix(types,plugin-charts): DrillDownConfig 只声明有人读的键,ObjectChart 补 target: 'navigate' (#3354)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T11:38:08Z",
+  "updated_at": "2026-08-05T11:53:43Z",
+  "closed_at": "2026-08-05T11:53:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T11:53:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3382",
+  "body": "Fixes #3354\n\n## 结论先说:三项前提独立复核,全部成立\n\n以 `origin/main` 为准逐项核过,没有一项已经过期:\n\n1. **`view` 零消费者** —— 全仓 `drillDown?.view` / `config.view` 类读取点 0 命中。\n2. **`sort` 零消费者** —— 同样 0 命中。仅有的两处 `cfg.sort` / `config.sort` 是**别的类型**:`packages/app-shell/src/views/InterfaceListPage.tsx:362`(页面 list-view 配置)与 `packages/core/src/data-scope/ViewDataProvider.ts:276`(`ElementDataSourceConfig`),与 `DrillDownConfig` 无关。\n3. **扫描面有效性(邻近词反查)** —— 同一条 grep 形状对**确实活着**的邻键立刻命中:`maxRows` 命中 `ObjectChart.tsx:781`、`ObjectPivotTable.tsx:251`;`columns` 命中 `ObjectChart.tsx:782`、`ObjectDataTable.tsx:439`、`ObjectPivotTable.tsx:250`。所以「0 命中」是真的没人读,不是扫描面写坏了。\n4. **chart 的分支结构** —— `ObjectChart.tsx` 自绘抽屉当时确实只有 `if (target === 'dialog')` 与默认 `return Sheet` 两支,`'navigate'` 落进 Sheet。\n\n## 改了什么\n\n### 一、`view` / `sort` 从 `DrillDownConfig` 删除(declared = enforced)\n\n两个键自陈 reserved / 承诺排序,却没有任何渲染器读它们 —— 作者写了等于没写,而且**没有任何提示**。按 PM 裁定删除而非实现:现在没有需求方,而这个接口正是 objectstack#5022 反推 spec 声明形状的依据,留着就会从「渲染器里的死键」升级成「协议承诺的死键」。\n\n同时在接口 JSDoc 上写下这条不变量(哪两个键被删、为什么、不要在没有读取方之前加回来)。\n\n### 二、`ObjectChart` 补 `target: 'navigate'` 分支\n\n共享接口的 JSDoc 承诺 `'navigate'` 跳过就地视图、直接进对象完整列表页,host 未提供 navigation 时回落 drawer。走 `DrillDownDrawer` 的三个 widget(table / pivot / metric)都兑现了(`navigateOnly`),唯独 ObjectChart 自绘抽屉不兑现。\n\n现在 ObjectChart 语义对齐 `DrillDownDrawer.navigateOnly`:\n\n- `target: 'navigate'` + host 提供 `DrillNavigationContext.openRecordList` ⇒ 直接跳列表页,**不渲染抽屉**,过滤条件与抽屉本会用的完全一致(widget filter ∧ 点击上下文);\n- host 未提供 ⇒ **文档化回退**到抽屉,与 JSDoc 一致;\n- `'drawer'` / `'dialog'` 行为不变;表头的 \"Open in list\" escape hatch 仍独立于 `target`。\n\n实现上把 drill filter 从抽屉块里**提升**成一个 `useMemo`(抽屉块位于本组件的条件式早返回之后,effect 不能放在那里),两条路径因此共用同一个 filter,不会各算一份。\n\n⛔ `packages/plugin-dashboard/**` 全程只读:只读它对齐语义,没有改它、没有搬它。\n\n### 三、registry input 描述:**维持** spec 声明的 `'drawer' | 'dialog'`,不擅自加 `'navigate'`\n\n这一条我先写反了,自查后改了回来,把过程留在这里以免下一个人往错的方向「修」:\n\n我一度把 `'navigate'` 加进了 `object-chart` 的 `drillDown` input 描述,理由是「渲染器兑现了就该声明」。**但 `ChartDrillDownSchema` 已经在 `@objectstack/spec` 落地**,把 chart drill 的 target 声明成 `'drawer' | 'dialog'`,strict,而且 `packages/lint/src/validate-react-page-props.ts` 会**真的 parse 它**来校验作者写的 `drillDown={{…}}` 字面量。所以在面板里列出 `'navigate'`,等于把平台权威递给一个发布闸门随后会拒绝的值 —— 正是 objectstack#5022 开单要消灭的失效模式,方向刚好相反。\n\n所以:**组件兑现 `'navigate'`,面板不广告它**。协议的联合先动,面板再跟,顺序不能反。这处不对称在读取点、registry 注释、parity 测试三处都写明了原因,免得被当成疏漏「顺手补上」。\n\n### 四、由此产生的 spec 侧缺口(已另立单,不在本 PR 修)\n\nobjectstack#5022 第二轮裁决把 target 定为两个成员,理由是「每键有 ObjectChart 读取点」——一条**测量**,而本 PR 正好把这条测量改掉了。于是渲染器交付 3 个 target、协议声明 2 个,react 页面上写 `'navigate'` 会被发布闸门拒绝。\n\n已按 Prime Directive #10 立 **objectstack#5435**(未指派),并在 objectstack#5022 留了知会。本 PR 不碰 spec。\n\n## 测试与反向验证\n\n**新增 / 更新**\n\n- `packages/plugin-charts/src/ObjectChart.drillNavigate.test.tsx`(新,4 例):navigate 跳转 + 不渲染抽屉、无 host 回退抽屉、默认 drawer 不回归、`dialog` 不回归。Sheet 与 Dialog 在 Radix 下同为 `role=\"dialog\"`,用两者各自的定位 class 区分,避免「断言通过是因为什么都没渲染」。\n- `packages/types/src/__tests__/drill-down-config-declared-keys.test.ts`(新):编译期钉住 `view` / `sort` 不再是 `DrillDownConfig` 的键,并保留活键(`filter` / `columns` / `maxRows` / `target`)与 `target` 三元联合作为对照,防止接口被整体改坏时上面两条空过。\n- `packages/plugin-charts/src/index.test.ts`:parity 测试的断言维持原样(`navigate` 仍在「不得广告」侧),但把**理由**换成上面第三节的那条 —— 原理由「chart 不读它」已经随本 PR 失效,不换就成了一条钉着正确结论的错误注释。\n\n**反向验证(方向先判后跑)**\n\n- 删除键 —— 预判 **红**:把 `view` / `sort` 加回接口,`pnpm --filter @object-ui/types type-check` 报 `drill-down-config-declared-keys.test.ts(62,31)` 与 `(63,31)` `error TS2344: Type 'false' does not satisfy the constraint 'true'`。跑出来就是红,方向一致。(这两条是纯编译期钉子 —— vitest 只剥类型不检查类型,靠的是本包 `tsconfig.test.json` 被 `type-check` 串起来。)\n- navigate 分支 —— 预判 **只有第 1 例红,另外 3 例保持绿**(它们钉的是不回归)。把 `navigateOnly` 强制成 `false`(等价于本 PR 前的行为)后:第 1 例 `AssertionError: expected \"vi.fn()\" to be called with arguments: [ 'opportunity', …(1) ]`,其余 3 例 passed。方向完全一致。\n\n**正向**\n\n- `pnpm exec vitest run packages/plugin-charts/ packages/plugin-dashboard/ packages/core/ packages/types/`(仓根,即 CI 的配置)⇒ **133 files / 2127 tests passed, 0 failed**。\n- drill 全量面(8 个文件 53 例)在第三节的修正之后**再跑一遍**仍全绿,含 plugin-dashboard 的 `DrillDownDrawer.escapeHatch` / `ObjectDataTable.drill` / `PivotTable.drill` 与 core 的 `drill-down` 工具测试。\n- `type-check`:`@object-ui/types` / `@object-ui/core` / `@object-ui/plugin-charts` / `@object-ui/plugin-dashboard` 全部 Done。\n- `lint`:两个改动包 **0 errors**。\n- changeset 门禁:`check-changeset-no-major` / `check-changeset-fixed` 均通过(本 changeset 标 `minor`,按仓库版本政策 —— objectui 自身的破坏性变更也走 `minor`,破坏语义写在正文里)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

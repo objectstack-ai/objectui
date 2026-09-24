@@ -1,0 +1,34 @@
+{
+  "number": 3530,
+  "kind": "issue",
+  "title": "[finding] 没有任何守卫断言组件 t() 引用的 key 存在于 en 包 —— parity 测试只管包际一致,调用点→包的一致性是盲区",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:58:23Z",
+  "updated_at": "2026-08-07T04:06:36Z",
+  "closed_at": "2026-08-07T04:06:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3530",
+  "body": "PM 代 #3517 的 dev 立单重新安家(该缺口原记录在 #3517 正文\"为什么没被现有门禁挡住\"一节,PR #3526 合并关闭 #3517 后失去 open 载体)。查重:以 02:07Z 全量 open 清单(61 张)+ 其后经本席位的新单为基线,无同源单;dev 侧五次 `list_issues` 因共享身份限流未能自查,特此补记。\n\n## 缺口\n\n`all-locales-key-parity.test.ts` 断言的是「每个包定义了 `en` 的每个 key」——**包与包之间**的一致性。它看不见「组件 `t()` 引用了任何包都没有的 key」:`en` 自己缺的 key 不在比较范围内,十个包一致缺失时 parity 完全绿。\n\n已发生的实例:`form.createTargetOrg` 十包全缺、内联 `defaultValue` 静默顶班数月,直到 #3469 的逐 key 实测才暴露(→ #3517,已由 PR #3526 修复)。该实例已清零,本单是**门禁面缺口**本身 —— observation-class,打 `finding` 不排队,留 triage 定夺。\n\n## 实现注意(留给认领者)\n\n- `useObjectLabel` 的约定 key 探针是**故意** miss 的,已用 `I18N_PROBE_FLAG` 标记 —— 通用守卫必须能排除它们。\n- 扫描面选择(静态 grep `t('...')` 字面量 vs 运行时注册表)与误报治理(动态拼 key 的调用点)是主要成本,值得先量再定形。\n- 与 #3512(回退插值方言面)同族但正交:那条管\"插值语义两边一致\",这条管\"key 引用有着落\"。\n\n关联:#3517 / PR #3526(实例与修复)、#3469 / PR #3516(发现路径)、`packages/i18n/src/__tests__/all-locales-key-parity.test.ts`(现有守卫的边界)。"
+}

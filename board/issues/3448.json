@@ -1,0 +1,36 @@
+{
+  "number": 3448,
+  "kind": "issue",
+  "title": "check-doc-links 挂在 ci.yml 的 docs job 上,对「纯 docs PR」永远不会触发(paths-ignore 含 content/**)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:22:09Z",
+  "updated_at": "2026-08-06T07:40:58Z",
+  "closed_at": "2026-08-06T07:40:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3448",
+  "body": "## 背景\n\n\\#3213 的维护者裁决是「A 进 PR 门禁」,落地方式为把 `node scripts/check-doc-links.mjs` 加进 `ci.yml` 的 `docs` job(已由修复 #3213 / #3292 的 PR 实现)。本 issue 记录该形态**残留的一个结构性缺口**,供维护者决定是否收口。\n\n## 问题\n\n`ci.yml` 的 `on:` 在 `push` 和 `pull_request` 两处都带 `paths-ignore`:\n\n```yaml\npaths-ignore:\n  - '**/*.md'\n  - 'content/**'\n  - 'docs/**'\n  - 'apps/site/**'\n  - '.changeset/**'\n```\n\n站点文档全部位于 `content/docs/**`,被 `content/**` 命中。GitHub 的 `paths-ignore` 语义是「改动文件**全部**命中忽略模式则整个 workflow 不启动」,且 GitHub **没有 per-job 的 path filter**。\n\n因此:**一个只改 `content/docs/**` 的 PR 根本不会启动 `ci.yml`**,`docs` job 不运行,新加的 `Check docs links` 步骤自然也不运行 —— 而「纯 docs PR」恰恰是最可能改坏文档链接的那一类 PR。\n\n当前实际覆盖面:\n\n| PR / push 类型 | 链接检查是否运行 |\n|---|---|\n| 纯 docs PR(只改 `content/**`) | ❌ 不运行(workflow 不启动) |\n| docs + 代码混合 PR | ✅ 运行 |\n| push 到 `main`(含非忽略路径) | ✅ 运行 |\n\n即坏链可以经由纯 docs PR 合进 `main`,直到下一个**不相关**作者推代码时才把 `main` 弄红 —— 归因错人。\n\n## 仓库内已有的正确答案\n\n`control-bytes.yml` 撞过同一堵墙,并在文件头把理由写清楚了:\n\n> Why this is its own workflow instead of a job in `ci.yml` or `lint.yml`: both of those list `'**/*.md'`, `content/**`, `docs/**` and `.changeset/**` under `paths-ignore`, and GitHub has no per-job path filter. (…) a gate that cannot see a markdown-only PR rebuilds the hole it exists to close.\n>\n> Hence: no `paths` and no `paths-ignore` here, deliberately.\n> `scripts/__tests__/check-control-bytes.test.ts` fails if either is ever added.\n\n`changeset-guard.yml` 是同一模式的第二个实例(它是唯一以 `.changeset/**` 为**触发**路径的 workflow,AGENTS.md 已记载)。\n\n`check-doc-links.mjs` 与 control-bytes 属于完全相同的类别:**守 markdown/content、零 install、零网络、几秒钟跑完**。\n\n## 建议方案(供裁决)\n\n**方案 A(推荐)—— 独立 workflow,仿 `control-bytes.yml`**\n新建 `.github/workflows/docs-links.yml`,`on: pull_request/push`,触发路径为 `content/**` + `scripts/check-doc-links.mjs`;步骤只有 checkout + 一行 `node scripts/check-doc-links.mjs`。\n- 收益:纯 docs PR 被真正拦住,约 15 秒,无 install 无网络。\n- 成本:多一个 workflow 文件;与仓库既有先例一致。\n\n**方案 B —— 把 `content/**` / `'**/*.md'` 从 `ci.yml` 的 `paths-ignore` 移除**\n- 代价很大:任何改一个错别字的 docs PR 都会拉起 type-check + 4 个 test shard + e2e + docs build(约 30 分钟 runner)。与仓库刻意的省 CI 决策冲突。**不推荐。**\n\n**方案 C —— 维持现状**,接受纯 docs PR 不被门禁覆盖,靠 `main` 上的后续 push 兜底。\n- 即 #3213 修完后的当前状态;缺口已写进 `ci.yml` 该步骤上方的注释。\n\n## 相关\n\n- 由 #3213 / #3292 的修复 PR 顺带发现并记录\n- 先例:`.github/workflows/control-bytes.yml`、`.github/workflows/changeset-guard.yml`\n"
+}

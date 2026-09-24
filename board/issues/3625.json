@@ -1,0 +1,35 @@
+{
+  "number": 3625,
+  "kind": "issue",
+  "title": "view.readonlyTooltip 在 8 个语言包里译的是「duplicate to customize」这句已废弃语义 —— 因为它是真译文,任何「值是英文」判据都看不见它",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:13:14Z",
+  "updated_at": "2026-08-07T17:53:49Z",
+  "closed_at": "2026-08-07T17:53:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3625",
+  "body": "在实施 #3582(`console.objectView.systemViewReadonly` / `expandToPage` 八包存英文)时,在**相邻命名空间**发现的同源缺陷。不在 #3582 的验收项内(那单只修 `console.objectView` 的两个 key),单独立单。\n\n## 现象\n\n`view.readonlyTooltip` 是视图页签上「系统视图」页签的 tooltip,消费点唯一:\n\n```\npackages/plugin-view/src/ViewTabBar.tsx:489\n  {view.readonlyReason || viewTabLabel('view.readonlyTooltip', 'System view — defined in code, read-only.')}\n```\n\n十个包在 `origin/main`(616353ad1)上的实际值:\n\n| 包 | 值 | 语义 |\n|---|---|---|\n| en | `System view — defined in code, read-only.` | read-only ✅ |\n| zh | `系统视图 — 由代码定义，只读。` | read-only ✅ |\n| ja | `システムビュー — 複製してカスタマイズしてください。` | duplicate to customize ❌ |\n| ko | `시스템 보기 — 사용자 지정하려면 복제하세요.` | duplicate to customize ❌ |\n| de | `Systemansicht — zum Anpassen duplizieren.` | duplicate to customize ❌ |\n| fr | `Vue système — dupliquer pour personnaliser.` | duplicate to customize ❌ |\n| es | `Vista del sistema — duplique para personalizar.` | duplicate to customize ❌ |\n| pt | `Exibição do sistema — duplique para personalizar.` | duplicate to customize ❌ |\n| ru | `Системное представление — скопируйте для настройки.` | duplicate to customize ❌ |\n| ar | `عرض النظام — انسخ للتخصيص.` | duplicate to customize ❌ |\n\n对应行号:`en.ts:777` / `zh.ts:752` / `ja.ts:733` / `ko.ts:733` / `de.ts:733` / `fr.ts:733` / `es.ts:738` / `pt.ts:733` / `ru.ts:733` / `ar.ts:733`。\n\n## 为什么这条比 #3582 更难被发现(这才是重点)\n\n#3582 里八个包存的是**英文原文**,所以有两条判据能抓它:\n\n1. 值 == en 原文(#3582 的 PR 已把这条写成断言);\n2. 非拉丁包里出现纯 ASCII 英文句子(#3582「建议 2」设想的抽查门禁)。\n\n这一条**两条都抓不到**。八个包的值是**地道的本语言译文** —— ja 是日文、ko 是韩文、ru 是俄文、ar 是阿拉伯文,ASCII 抽查全绿;没有一个等于英文原文,等值判据也全绿;键集合完整,`all-locales-key-parity` 全绿;key 在 `en` 里存在,调用点守卫与其棘轮全绿。它们只是**译了一句 `en` 自己已经废弃的旧话**。\n\n推论,建议在分诊时一并考虑:**#3582 建议 2 的那道 ASCII 门禁即使加了,也看不见这一条。** 唯一能表达该不变量的纪律是「`en` 改文案时,九个译文包必须同批跟改」,而仓里目前没有任何机制表达它 —— 这可能才是这一族缺陷真正缺的那道门禁。\n\n## 与 #3582 的关系\n\n两处几乎是**同一句话**(`view.readonlyTooltip` 与 `console.objectView.systemViewReadonly` 语义相同,只是一个在页签 tooltip、一个在视图提示),显然是同一次 `en` 改文案时只更新了 `en` 侧、九个包漏跟。#3582 修掉了其中露在外面的一半(值是英文,所以被看见了);这一半因为「看起来已经翻译好了」而留下来。\n\n## 影响面\n\n用户可见:八种语言的视图页签 tooltip 在指引用户走「复制一份来自定义」这条**产品已不提供**的路径。严重度请分诊裁定,我不自评。\n\n## 修法建议\n\n八个包按 `en` **当前**的 read-only 语义重译,不要照抄包里那句过期文案。各包词汇现成、无需自创:\n\n- 「只读」:同包 `view.readOnly` / `view.readonlyAriaLabel`;\n- 「由代码定义」「系统视图」:同包 `console.objectView.cannotEditMetaView`(#3583 落的)与本 key 自己的前半句。\n\n#3582 的 PR 刚好为同一句话在同样八个包里落了译文(`console.objectView.systemViewReadonly`),可直接对齐,保证两处措辞一致。\n\n关联:#3582(同源,已修 `console.objectView` 两个 key)、#3546(缺 key 存量账,不同类)、#3530 / PR #3547(调用点 key 守卫)。\n\n发现于 #3582 的实施过程,未在该 PR 中修改 —— 越界。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3243,
+  "kind": "issue",
+  "title": "AGENTS.md 的合并指引与仓库实际规则冲突:直接 `gh pr merge` 会被 405 拒绝,本仓已强制合并队列",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T07:17:11Z",
+  "updated_at": "2026-08-07T03:11:54Z",
+  "closed_at": "2026-08-07T03:11:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3243",
+  "body": "派发循环里实测撞到的:`AGENTS.md` 教给每个 agent 的合并动作,在今天的仓库规则下**必然失败**。\n\n## 实测\n\n对 PR #3241(15/15 全绿、`mergeable_state: clean`、非 draft)执行合并:\n\n```\nPUT /repos/objectstack-ai/objectui/pulls/3241/merge\n→ 405 Repository rule violations found\n   Changes must be made through the merge queue\n```\n\n即本仓已通过 ruleset 强制 **merge queue**,直接合并被 branch protection 拒绝。\n\n## 与 AGENTS.md 的冲突\n\n`AGENTS.md` 第 184–185 行(§ 分支与 PR 纪律)现在写的是:\n\n> - **合并前必须等远端 CI 全绿,绝不 `gh pr merge --auto`** —— auto-merge 可能把还红着的 PR 落到共享 `main` 上,弄脏所有并行 agent 的基线。串行合并;合下一个前先 rebase 其他在途分支。\n> - **CI 全绿即自行合并,不必等维护者确认** —— …待测试/CI 全部通过后直接 `gh pr merge --squash --delete-branch`。\n\n两条都与现状对不上:\n\n1. **`gh pr merge --squash` 这条路今天走不通**(405,见上)。照着做的 agent 会卡在这里,而错误信息不会告诉它 AGENTS.md 过期了 —— 它更可能怀疑自己权限不足,或者去试更强的手段。\n2. **「绝不 `--auto`」的禁令在有合并队列之后语义反转了**。该禁令针对的风险是「auto-merge 把还红着的 PR 落到 `main`」。合并队列恰恰消除了这个风险:队列会把 PR **在当前 `main` 上重建**,只有重建结果绿才落地 —— 这比串行手动合并更安全,因为它连\"合并时 base 已经变了\"这种情况都覆盖。而在强制队列的仓库里,enable auto-merge 正是**入队的标准手段**。于是这条禁令现在把 agent 挡在唯一可用的路径之外。\n\n## 为什么值得修而不是让每个 agent 自己撞一次\n\n这是「文档描述了一条运行时不接受的能力」的形态 —— 与 #3236、#3232 同族,只不过载体是 AGENTS.md 而不是代码。代价是每个并行 agent 都要独立踩一次 405、独立推断出真实路径,而且**推断结果可能不一致**(有的会去试 force,有的会误以为要等人工审批而空等)。\n\n## 建议\n\n改写这两条为实际路径:CI 全绿 → 标记 ready for review → **入合并队列**(auto-merge 即入队手段),由队列在当前 `main` 上重建并落地;保留「不必等维护者确认」的授权语义(那一条没有过期)。顺带核对同节里「合下一个前先 rebase 其他在途分支」是否还有必要 —— 队列自己会重建,这条可能也已经是历史。\n\n⚠️ 修之前请先确认 ruleset 的当前配置(谁能绕过、required checks 清单),别照我这条 issue 的推断写死。\n\n发现路径:objectui 分片 PM 派发循环第 1 轮,验收 #3219 / PR #3241 时。"
+}

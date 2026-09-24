@@ -1,0 +1,32 @@
+{
+  "number": 3481,
+  "kind": "pull_request",
+  "title": "fix(collaboration,i18n): 给 CommentThread 三颗纯 emoji 按钮加可访问名,并让 7 天以上的日期跟随会话语言 (#3441)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T09:15:07Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3481",
+  "body": "Fixes #3441\n\nobjectstack#5506 / #3424 在同一个组件里留下的两处尾巴。`CommentThread` 是 published exported component,**仓内无消费方** —— 两处都只有外部宿主会踩到。\n\n前提已在 `origin/main`(2a9513d81)上逐条核对:三颗按钮仍无名字,`toLocaleDateString()` 仍是裸调用,而旁边的 `+` 仍有名字 —— 最后这一点正是\"遗漏而非设计\"的证据。\n\n## 一、三颗纯 emoji 按钮的可访问名\n\n每条评论的两颗快捷回应按钮(`'👍'` / `'❤️'`)和回复提示条的关闭按钮(`'✕'`)既无 `aria-label` 也无 `title`。\n\n**用 `aria-label`,不是旁边 `+` 用的 `title`。** 对 `button` 来说 accname 先算内容(§2F name from content),`title` 是最后一档兜底(§2I) —— 所以在一颗内容是字形的按钮上挂 `title` 只装点了鼠标,名字纹丝不动。屏幕阅读器读出来的是码位本身:\"thumbs up\"、\"red heart\",不管会话是什么语言都是英文;而 U+2715 MULTIPLICATION X 则往往什么都不读。\n\n十个包各加三个 key:`collaboration.reactThumbsUp` / `reactHeart` / `cancelReply`。\n\n`reactThumbsUp` **刻意不复用 `addThumbsUp`**,尽管两者今天都派发同一个 `onReaction(id, '👍')`:`addThumbsUp` 命名的是回应条上那颗选择器入口(样式名 `reactionPicker`,是个桩),它的文案将来要跟着选择器走;而在任何已有回应的评论上,两颗控件是**同屏并存**的,共用一个 key 会让两颗外观不同的按钮顶着同一个名字。同理 `cancelReply` 而非通用的 `common.cancel` —— 可访问名必须说清取消的是**什么**(只丢弃回复目标,输入框里已经打的字不受影响)。\n\n## 二、7 天以上的时间戳不跟随会话语言\n\n`formatTimestamp` 最后一档是裸的 `date.toLocaleDateString()`,取的是**运行时**的 locale,于是 zh 会话里 6 天前显示\"6 天前\",8 天前却显示 `8/1/2026`。\n\n改成传入会话 `language`,但**不是直接传** —— 那正是 #3424 点明并绕开的坑。`toLocaleDateString(tag)` 会先 canonicalize 参数,凡不符合 BCP 47 well-formed 的一律抛 `RangeError`;而会话语言是原样到达组件的:宿主若配了 `defaultLanguage: 'en_US'`(POSIX 写法,看着像模像样,实际被拒),`Intl` 就会拒收。这个 `RangeError` 会一路落进 `formatTimestamp` 的**外层** catch,而它的兜底是 `return iso` —— 日期被换成裸的 `2026-08-01T09:30:00.000Z`,比原来那个没本地化的日期**更糟**。\n\n所以绝对日期这一档单独包了一层 `try`/`catch`,失败时回退到无参调用:畸形 tag 退化成**恰好是原来的行为**(运行时自己的 locale),跟随会话语言的最坏情况是原状,永远不会是回退。well-formed 但未知的 tag(如 `xx-YY`)根本不抛 —— `Intl` 会解析到默认值 —— 所以只有真正畸形的 tag 会走到兜底。不引日期库,locale 包里也不加月份/星期文案:`Intl` 已经拥有各 locale 的顺序与分隔符。\n\n## 验证方向(先预测,后运行)\n\n预测写在跑之前,结果与预测**完全一致**。\n\n**A. 把 `CommentThread.tsx` 退回 `origin/main`、其余全留** —— 预测 9 条红;实测 9 条红:\n\n    × names the emoji-only reaction and dismiss buttons in English\n    × names the two quick-reaction buttons in English\n    × names the two quick-reaction buttons in the session language\n    × names them in German too, so the keys are really in the packs\n    × no longer leaves a button whose accessible name is the bare emoji\n    × names the reply-banner dismiss button in the session language\n    × names the reply-banner dismiss button in English\n    × keeps the reaction-bar picker distinct from the quick thumbs-up\n    × formats a week-old comment in the session language\n    Tests  9 failed | 61 passed (70)\n\n注意可访问名这一族**连 `en` 都是红的** —— 这与本文件里既有的 copy pin 不同:这些名字在 `origin/main` 上任何语言下都不存在,不存在\"英文本来就对\"的那一半。模板预设的\"en 两侧皆绿\"在这里不成立,如实记录。\n\n**B. 畸形 tag 那条:两侧皆绿,如实上报。** 它的反向验证**不是**退回旧代码 —— `origin/main` 从没把 tag 传到任何地方,自然无从被畸形 tag 绊倒。它的反事实是**天真修法**,也确实是拿它验的:删掉 `formatAbsoluteDate` 里那层 `try`/`catch`(把 `language` 直接传进去),精确地只有这一条转红:\n\n    × falls back to the runtime locale on a malformed session tag, never to raw ISO\n    AssertionError: expected [ 'Alice Chen', …(1) ] to include '7/29/2026'\n    Tests  1 failed | 69 passed (70)\n\n即渲染出来的正是外层 catch 吐出的裸 ISO 串。\n\n**C. 探针实测**(非推演):`language` 原样透传,`toLocaleDateString('en_US')` 在本运行时确实抛 `RangeError`,且 ICU 齐全:\n\n    [probe zh] {\"lang\":\"zh\",\"bare\":\"8/1/2026\",\"tagged\":\"2026/8/1\"}\n    [probe de] {\"lang\":\"de\",\"bare\":\"8/1/2026\",\"tagged\":\"1.8.2026\"}\n    [probe en_US] {\"lang\":\"en_US\",\"bare\":\"8/1/2026\",\"tagged\":\"RANGE_ERROR\"}\n\n## 测试\n\n断言的是 `getByRole('button', { name })` 算出来的**可访问名**,而不是某个属性在不在 —— 这个区分正是本次修改的立足点(`title` 在,名字不在)。并且反向钉住:没有任何按钮的名字还是一个裸 emoji。无 provider 的英文断言留在它自己的文件里(module-global `initReactI18next` 陷阱),并新增一条属性扫描 —— 可访问名住在属性里,既有那条 `container.textContent` 的裸 key 扫描根本看不见它。\n\n    pnpm exec vitest run packages/collaboration packages/i18n --maxWorkers=2\n    Test Files  27 passed (27)\n    Tests  326 passed (326)   # 含 all-locales-key-parity\n\n    pnpm --filter @object-ui/collaboration --filter @object-ui/i18n type-check   # Done\n    pnpm --filter @object-ui/collaboration --filter @object-ui/i18n lint         # 0 errors\n    node scripts/check-control-bytes.mjs                                         # OK, 3673 files\n\n`lint` 的告警全部是既有的(`CommentThread.tsx:505` 那条 `setState in effect` 在 `origin/main` 上就有,不在本次改动行上)。控制字符另做了越过闸门的自查(`grep -naP` 扫 `\\x00-\\x08` 等)—— 本 PR 正文与代码注释都提到了 U+2715,属于闸门盲区那一类。\n\n## 消费半径\n\n`CommentThread` 与这三个 key 在仓内无其他消费方(`grep` 过全仓:仅 `ROADMAP.md` 与两个既有 changeset 提到组件名),所以不存在 PR #5046 那种\"改在 A 包、fixture 在 B 包\"的漏扫面。\n\n## 顺带发现(已另行归档,未在本 PR 修)\n\n**#3478** —— 旁边那颗 `+` 选择器的 `title` 其实从未成为它的可访问名(内容 `'+'` 优先),#3424 只翻译了 tooltip。证据就是本 PR 里现在就绿的那条断言:`getByTitle('Add thumbs up')` 找得到,而 `queryAllByRole('button', { name: 'Add thumbs up' })` 长度为 0。#3441 正文把这颗按钮当作参照物明确排除在范围外,故单开一条,未在此 PR 内修改。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

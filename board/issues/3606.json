@@ -1,0 +1,35 @@
+{
+  "number": 3606,
+  "kind": "issue",
+  "title": "metadata-admin 的 view 编辑路走 union 门后,逐字段诊断塌成一条根级「Invalid input」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:46:34Z",
+  "updated_at": "2026-08-07T16:24:24Z",
+  "closed_at": "2026-08-07T16:24:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3606",
+  "body": "发现于 objectstack#5316 实施途中(PR 见下)。**修法本身正确,这条是它的一个可测量副作用**,单独立单由 PM 定级。\n\n## 事实(实测)\n\nobjectstack#5316 把 `packages/app-shell/src/views/metadata-admin/clientValidation.ts` 的 `view` 编辑路从授权门(`ViewItemSchema`)改为 wire 门(`ViewMetadataSchema`)—— 这是对的,`ViewMetadataSchema` 正是 `view` 元数据类型注册、服务端 `saveMetaItem` 所判的那个 schema,客户端与服务端因此按构造同集。\n\n但 `ViewMetadataSchema` 是 `z.preprocess(strip, z.union([...4 个成员]))`。Zod 对 union 失败只产出**一条根级 `invalid_union`**,逐成员的真实 issue 埋在它的嵌套 `errors` 里。`validateMetadataDraft` 的映射是逐字照搬:\n\n```ts\npath: (i.path ?? []).map(String).join('.'),\nmessage: i.message,\n```\n\n于是同一份坏 body,两条路给出的诊断质量差距很大(实测,body 为一份 stored ViewItem,`config.type` 写成 `not_a_real_layout`):\n\n| 门 | path | message |\n|---|---|---|\n| `ViewItemSchema`(创建路,现状) | `config.type` | `Invalid option: expected one of \"grid\"｜\"kanban\"｜\"gallery\"｜…` |\n| `ViewItemWireSchema`(仅作对照) | `config.type` | 同上 |\n| `ViewMetadataSchema`(编辑路,#5316 之后) | `` (空) | `Invalid input` |\n\n容器路同样塌陷:一份带未知键的 container,`ViewSchema` 会给出 spec 精心撰写的那条长消息(`Unrecognized key(s) on this view container: …  Wrap it: defineView({...})`),经 `ViewMetadataSchema` 后只剩 `Invalid input`。\n\n## 影响\n\n`SchemaForm` 按 `path` 做逐字段内联高亮,Monaco 也按 path 定位。path 为空意味着:\n\n- 编辑一份 stored view 时若 body 真的坏了,用户只看到一条无字段指向的「Invalid input」;\n- spec 为这些拒绝**专门写的**引导性消息(#4001 那批)在编辑路上完全看不到。\n\n这与 `clientValidation.ts` 自己的存在理由相抵 —— 文件头写的是「so we no longer have to wait for the next save round-trip to learn the draft is invalid」。判定(ok/not ok)仍然正确,**丢的是可操作性**。\n\n触发条件:在 metadata-admin 里编辑一份 stored view 且 body 确实非法。合法 body 不受影响(#5316 之后正常通过)。\n\n## 不是什么\n\n- **不是**要求回退 #5316。`ViewItemWireSchema` 已被实测排除:它只覆盖 ViewItem 记录,且仍会以 `config.filter.0: unrecognized_keys` 误拒 console 过滤器构建器写入的行 `id` —— 那条 decoration 由 `ViewMetadataSchema` 的 `z.preprocess` 剥除,而 preprocess 跑在所有成员之前,能够到成员级 `.strip()` 够不到的嵌套块(spec 在 union 定义处自己写明了这一点)。\n- **不是** try-both 兜底的入口。判定必须仍然只有一个门;这里要动的只是**失败之后如何呈现**,不是「换个 schema 再试一次能不能过」。\n\n## 可能的方向(未实现,留给分诊)\n\n把根级 `invalid_union` 的嵌套 `errors` 展开成可用 issue。难点在于**选哪个成员的错误呈现** —— 四个成员都会报错,直接全展开会把「这不是 container」这类噪音摆到用户脸上。几个候选:\n\n1. 按 body 自身的判别式选成员(`viewKind` 在则取 ViewItem wire 成员)—— 复用本文件已有且已文档化的 `viewSchemaForDraft` 判别逻辑,但会耦合 union 的成员**顺序**(spec 内部细节)。\n2. 选 issue 数最少 / path 最深的分支 —— 顺序无关,但是启发式,容器场景实测会选错(容器带未知键时,ViewItem 分支的 `viewKind` 错误 path 更深却是错误的消息)。\n3. 由 spec 侧提供一个「诊断用」入口(例如按判别式导出成员,或让 union 附带 discriminator),让消费方不必猜。契约优先,但跨仓。\n\n倾向 3 或 1;不建议 2(启发式已实测会误选)。具体取舍请分诊裁决 —— 这是呈现层的取舍,不影响判定正确性。\n\n仓库:objectui(`packages/app-shell/src/views/metadata-admin/clientValidation.ts`)。相关:objectstack#5316、objectstack#5074、objectui#3312。"
+}

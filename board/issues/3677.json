@@ -1,0 +1,32 @@
+{
+  "number": 3677,
+  "kind": "pull_request",
+  "title": "fix(app-shell): expand the nested `config.columns` union into per-column diagnostics",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T20:07:36Z",
+  "updated_at": "2026-08-07T20:22:22Z",
+  "closed_at": "2026-08-07T20:22:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T20:22:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3677",
+  "body": "Fixes #3626\n\n## 问题\n\n`config.columns` 是 `string[] | ColumnDef[]` —— 一个**没有判别式**的 union。Zod 对 union 失败只产出一条 issue(`Invalid input`),成员的真实诊断埋在 `issue.errors` 里,于是任何 columns 错误都塌成 `config.columns` / `Invalid input`,**创建路和编辑路都是**。\n\nPR #3624 修的是**根级** union,并把这条嵌套残留写进了「已知残留」。它比 #3606 轻:path 是真的,`SchemaForm` 的内联高亮和 Monaco 定位都还能工作 —— 用户被带到出错的字段,但不知道**哪一列、哪个键、期望什么**。\n\n## 测量(先测量,后设计)\n\n把整个 `view` 家族的 Zod 树走了一遍(`@objectstack/spec` 17.0.0-rc.5):**16 个无判别式的嵌套 union**,其中 `columns` 是**唯一一个两个成员都是数组**的。这决定了规则能安全地写成什么样。\n\n判别式取**值自身的首元素**:一份 `columns` 要么是字段名列表、要么是列对象列表,首元素说了算。这与根级的 `viewKind` 是同一类规则(关于作者写了什么的事实),**不是**被 #3606 实测否决的「按 issue 数 / 深度」排序启发式 —— 后者是把各成员的错误组互相比较。\n\n### 边界,全部实测而非假设\n\n| 边界 | 实测结果 | 处置 |\n|---|---|---|\n| `columns: []` | 两个成员**都通过**,union 成功 | 空数组的判别问题**结构上不存在** —— 根本走不到失败路径 |\n| `columns: [42]` / `[null]` | 首元素既非 string 也非 object | 不判别,保留原消息(两成员本就给出对等的拒绝,选一个等于凭空发明偏好) |\n| `columns: 'nope'` | 不是数组 | 不判别(两成员确实一致,但「全体一致就提升」是 issue 的方向 1,另一套机制,本 PR 不做) |\n| 混合数组 | 首元素定变体 | `['name', {field: 1}]` 报 `config.columns.1` —— 作者正在写的那张列表里真正坏掉的那个元素 |\n\n### 收窄:必须不能替 `config.sort` 说话\n\n`config.sort` 是 `string | ColumnSort[]`,同样两个成员、同样可以是数组值。对 `sort: ['name']`,只看首元素会选中纯 `string` 成员并报「expected string, received array」—— 字面为真,却是对一个**正确写了数组**的人说的最没用的话。\n\n所以加了一条**逐组独立**的范畴判定:**在 union 节点上直接拒绝了值的类型**(自身相对根 path 为空的 `invalid_type`)的成员,压根没看过内容,内容就不能作为它的证据,因此不是候选。这条把 `sort`、`filter[].value`、`gantt.tooltipFields[]` 等全部挡在外面。它是**筛选适用范围**,不是**挑选赢家** —— 赢家只由内容决定。\n\n## 修前 / 修后(两条路逐一实测)\n\n| body | 修前 path + message(两路相同) | 修后 path + message(两路相同) |\n|---|---|---|\n| `columns: [{ field: 123 }]` | `config.columns` / `Invalid input` | `config.columns.0.field` / `expected string, received number` |\n| `columns: [{}]` | `config.columns` / `Invalid input` | `config.columns.0.field` / `expected string, received undefined` |\n| `columns: ['a','b',42]` | `config.columns` / `Invalid input` | `config.columns.2` / `expected string, received number` |\n| `columns: [{field:'a'},'b']` | `config.columns` / `Invalid input` | `config.columns.1` / `expected object, received string` |\n| `columns: [{field:'a',summary:{type:'bogus'}}]` | `config.columns` / `Invalid input` | `config.columns.0.summary` / `Invalid input` |\n| 容器 `list.columns: [{field:123}]` | `list.columns` / `Invalid input` | `list.columns.0.field` / `expected string, received number` |\n| `columns: [42]` | `config.columns` / `Invalid input` | 不变(判别不出,见上表) |\n| `sort: ['name']` | `config.sort` / `Invalid input` | 不变(收窄条款挡住) |\n\n**创建路 / 编辑路收敛一致**:修前两路都塌在 `config.columns`,修后两路逐字节相同 —— 这是测试里的 `bothGates` 断言(`expect(edited.issues).toEqual(created.issues)`),不是论证。两路走的是不同路线:创建路上这个 union 是顶层 issue,编辑路上它在根成员选中之后再下一层;path 前缀拼接正是被测的东西。\n\n倒数第二行值得单说:`columns[0].summary` 是 `enum | {type, field}`,值是对象,数组规则对它无话可说,于是保留 Zod 自己的消息 —— 但**已经被正确定位到 `config.columns.0.summary`**,而不再是 `config.columns`。这也是下降的**真实边界**:不是深度计数器,而是「规则在这里没有话说」。\n\n## 判定奇偶:只有呈现变了\n\n展开逻辑仍在 issue → `SchemaFormIssue` 的**映射内部**,位置在 `ok` 判定之后、所有既有过滤器之后 —— 驱动 `ok` 的那组 raw issues 一个都没动。判定不是「测出来没变」,而是**结构上不可能变**。仍按 #3624 的手法钉成 pin(8 个 columns 形状 × `ok`),它**修前修后都绿**,这正是它的意义。\n\n## 逆向验证(先预测,后运行)\n\n预测写在跑之前,两个方向都命中:\n\n**扰动 A —— 还原实现到 `origin/main`**:预测 **7 红**(5 CANARY + 1 噪音控制 + 1 `summary` 深度锚点),其余绿。实际:**恰好这 7 条红**,一条不多一条不少。\n\n**扰动 B —— 只删掉收窄条款那一行**(`if (groups.some(memberRejectedNodeType)) return null;`):`config.sort` 那条钉子在扰动 A 下**两个方向都是绿的**(它钉的是「不变」),所以 A 证明不了它有效 —— 需要专门的扰动。预测:**只有它一条红**。实际:\n\n```\nTests  1 failed | 37 passed (38)\n  × does NOT answer for `config.sort` — one member never accepted the array\n-     \"message\": \"Invalid input\",\n+     \"message\": \"Invalid input: expected string, received array\",\n      \"path\": \"config.sort\",\n```\n\n即被预测的那句误选原样出现。**如实注明**:边界类与收窄类钉子(`[42]`、`'nope'`、空数组、filter value、判定奇偶)在扰动 A 下修前修后都绿 —— 它们是防回归的那一半,不是「修前红修后绿」的那一半。\n\n## 测试\n\n`clientValidation.viewDiagnostics.test.ts` **只加不改**(#3624 的 18 条断言一行未动),新增 20 条:5 CANARY + 1 噪音控制 + 2 收窄 + 4 边界 + 8 判定奇偶。\n\n```\nvitest run packages/app-shell/src/views/metadata-admin/  →  128 passed, 1207 passed | 1 skipped\npnpm --filter @object-ui/app-shell type-check            →  clean\neslint(两个改动文件)                                     →  clean\nnode scripts/check-control-bytes.mjs                     →  OK (3677 files)\nnode scripts/check-changeset-no-major.mjs / -fixed.mjs   →  OK\n```\n\n`clientValidation.viewShapes.test.ts` 与 `clientValidation.viewDiagnostics.test.ts` 的现有断言原样绿。\n\n## 已知残留(未修,不在本单范围)\n\n- `sort: [{field:'n', order:'bogus'}]` 这类:只剩一个成员接受了值的类型,理论上可以无歧义地选中它,但那是「唯一候选」规则,不是本单授权的内容判别。仍保留 `config.sort` / `Invalid input`,已钉住。\n- 全体一致提升(issue 的方向 1)与 spec 侧提供判别入口(方向 2 / objectstack#6391)都未做 —— 后者是契约优先的正解,跨仓。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3634,
+  "kind": "pull_request",
+  "title": "docs(runner): README §Features 的 Hot Reload 按两个 loader 分路限定 (#3620)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:35:32Z",
+  "updated_at": "2026-08-07T16:37:38Z",
+  "closed_at": "2026-08-07T16:37:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:37:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3634",
+  "body": "Fixes #3620\n\n## 前提复核(对 `origin/main`,切点 `0e4ea07b2`)\n\n分诊已核过一轮,这里独立复核一遍,三条全部成立、行号未漂:\n\n- `packages/runner/README.md:8` 仍是 `- **Hot Reload** - Automatic reload on schema changes`。它在 PR #3629(#3603,同一文件、清死链)合并后幸存 —— 那个 PR 只动 §Links 一带,没碰 §Features。\n- `LocalBundleLoader` 一侧确实经 Vite:`packages/runner/src/lib/MetadataLoader.ts:26-28` 三个 `import.meta.glob` 全是 `.json` 模式,所以那些 JSON 是 Vite module graph 的一部分。\n- `?api=` 一侧确实不经 Vite:同文件 `:89` / `:101`,`NetworkLoader` 在**运行时** `fetch` `${base}/app.json` 与 `${base}/pages{path}.json`,后端在 Vite 视野之外,不存在任何 watch/reload 机制 —— 这一侧的否定是无条件成立的。\n\n`?api=` 不是边角情况:本文件 §Metadata Loading(#3537 / PR #3581 补)把它作为与本地路并列的加载方式正式记录,还带一张 loader 对照表。而 §Features 站在全文最前面,读者先读到它。\n\n## 改写前后对照\n\n**改前**\n\n```\n- **Hot Reload** - Automatic reload on schema changes\n```\n\n**改后**\n\n```\n- **No-Restart Edits** - Under `src/app-data/` the dev server picks metadata changes up\n  without a restart, because that JSON is part of Vite's module graph; behind `?api=` it\n  cannot, because Vite never sees your backend ([Metadata Loading](#metadata-loading))\n```\n\n措辞与 PR #3621(#3604)刚落地的 §Development Workflow 第 3 步**逐字对齐**,同一从句原样复用 —— 这条单子要的就是「同页一个声音」:\n\n```\n3. Edit the metadata. Under `src/app-data/` the dev server picks the change up without a\n   restart, because that JSON is part of Vite's module graph; behind `?api=` it cannot,\n   because Vite never sees your backend. Reload the page if the view still shows the\n   previous document.\n```\n\n改后 `grep -n \"Vite's module graph\"` 命中 `:9`(§Features)与 `:114`(§Development Workflow)两行,同一句话。第 3 步末尾那句「视图仍是旧文档就刷新页面」是操作建议,留在 workflow 一节不重复进 Features;Features 这条改为指向 §Metadata Loading,由那一节把两条路的差别和 `src/app-data/` git-ignored 的坑讲清楚(`:75-78`),正是 #3620 正文给的两个建议之一。\n\n**列表顺序与其余四条 bullet 未动**,改动严格限于这一个 bullet(diff:1 file changed, 3 insertions, 1 deletion)。\n\n## 为什么标题也从 \"Hot Reload\" 改掉\n\n派发只点名了正文那句无条件宣称,但加粗标题必须一起动,否则改不干净 —— 「Hot Reload」这个词本身就是断言「更新会自己出现在屏幕上」,而这正是 PR #3621 明确拒绝写下的那一条。#3621 的理由在本次复核里仍然成立,原样确认:\n\n- `src/App.tsx` 导出组件(`RunnerApp`)加一个空 `export {}`(`:10`),是 react-refresh 的边界;JSON 变更冒泡到这个边界后,可能是整页 reload,也可能被一次**保状态的重渲染**吸收。\n- 后者下 `pageSchema` 这个 `useState` 不变、读取它的 `useEffect` 依赖 `[currentPath, loader]` 也不变(`loader` 是 `useMemo(…, [])`,`:88-101`),重新读取不会发生,读者看到的仍是旧文档。\n\n判定这一点需要真起 dev server 在浏览器里看,本任务范围内不含实跑。所以正文只落在**能从代码确认**的那半 ——「dev server 无需重启就能读到改动」是服务端事实,不承诺屏幕行为;标题也换成同量级的 \"No-Restart Edits\"。留着 \"Hot Reload\" 而正文写限定,等于把 #3620 要消除的那个矛盾从「跨节」搬成「同一条 bullet 内部」。\n\n维护者若希望把这里强化成明确的「自动刷新」,前置是先起一次 dev server 实测,可另开一趟做 —— 与 #3621 留的口子一致。\n\n## 验证\n\n改动是单文件 markdown,如实写明每条证据的覆盖面,不拿不覆盖本文件的绿灯充当背书:\n\n| 命令 | 结果 | 覆盖面 |\n| --- | --- | --- |\n| `node scripts/check-control-bytes.mjs` | `✅ OK (scanned 3654 tracked text file(s); skipped 85 binary)` | **覆盖本文件** —— 该脚本以 `git ls-files -z` 为扫描面 |\n| `node scripts/check-doc-links.mjs` | `Links are valid across 6 scan roots.` | **不覆盖本文件** —— `SCAN_ROOTS`(`scripts/check-doc-links.mjs:355-362`)是 `content/docs`、`examples`、`README.md`、`CONTRIBUTING.md`、`ROADMAP.md`、`docs`。**已对本次基线重新确认**:PR #3629 让门禁认站内绝对 URL,但并未把 `packages/**` 加进扫描面。改前改后都绿,**不构成对本改动的背书** |\n| `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' packages/runner/README.md` | 无输出(rc=1),改前的 blob 同样干净 | 门禁盲区自扫 |\n| `grep -c $'’' packages/runner/README.md` | `0` | 新增的 `Vite's` 用 ASCII 直角撇号,与文件既有的 `:76` / `:114` 一致,未混入弯引号 |\n\n新增的 `[Metadata Loading](#metadata-loading)` 锚点:目标是本文件 `## Metadata Loading`,且同文件 `:96` / `:102` 已经在用同一个锚点,不是新拼法。\n\n**未跑 `pnpm test` / `pnpm type-check`**,这是判断不是遗漏,与 #3621 同:改动是 markdown,不被任何代码路径导入,`packages/runner` 的测试也不读 README;仓库的 `ci.yml` 与 `lint.yml` 对 `**/*.md` 走 `paths-ignore`,本 PR 在 CI 上只会触发 `control-bytes.yml`(无 path 过滤)。为一个必然无关的结果去装一整棵 `node_modules` 并构建依赖,不符合共享容器的资源纪律 —— 本 worktree 因此也未 `pnpm install`,上面两个门禁脚本都是零依赖的 node 脚本。\n\n## 无 changeset\n\n与 #3602、#3621(**同一文件、同样只改 README**)两次先例一致:包 README 的文档修正不进 changeset。`changeset-guard.yml` 的触发条件是 `paths: .changeset/**`,不会因为缺 changeset 而红。\n\n## 越界发现(未在本 PR 修改)\n\n按派发要求通读了 §Features 全列表,一条新发现,已单独立单:\n\n- **#3632** —— 同文件的插件清单两处写成开放集合:§Features 的 `(Kanban, Charts, etc.)` 在穷举了全部两个之后缀「etc.」;§Pre-installed Plugins 则把 `- **Additional plugins can be added as needed**` 这条**非插件**的能力说明,加粗排进了「comes with these plugins pre-configured」引出的列表里,形状上成了第三个预装项。实际只有 `package.json:24-38` 与 `src/App.tsx:14-15` 里的 kanban + charts 两个。属观察级,打 `finding`、不入 `pm:queue`,留给 PM 分诊。与 #3619 是同一缺陷家族但在 `content/docs/utilities/runner.mdx`,按 #3619 / #3620 自己的按文件分单先例单列,已在正文互链。\n\n§Features 其余三条一并核过,**无同类无条件宣称**,故未动:`Development Ready`(`package.json` 的 `dev: vite`,`vite` 在 devDependencies 里,属实)、`Production Build`(`build: vite build`,属实)、`Schema Development`(通用表述,不含可证伪的机制断言)。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

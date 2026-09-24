@@ -1,0 +1,36 @@
+{
+  "number": 3400,
+  "kind": "issue",
+  "title": "form.tsx 内置 textarea 的全屏路径完全绕过 readonly / disabled：只读长文本可直接编辑，禁用字段可经对话框改值并提交进表单状态",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T17:17:26Z",
+  "updated_at": "2026-08-05T18:10:54Z",
+  "closed_at": "2026-08-05T18:10:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3400",
+  "body": "在实施 #3393(PR #3399,把字段 label 转发给内置 textarea 的全屏对话框)时发现,**未在该 PR 内修改** —— 那一单的完成范围是 label 传递,这一条是 `readonly` / `disabled` 根本没往全屏路径送,属于另一条独立缺陷。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx` 的 `renderFieldComponent` 在入口把 `readonly` 从 props 里解构走了:\n\n```ts\nconst { inputType, options = [], placeholder, readonly, emptyHint, ...fieldProps } = props;\n```\n\n内置 `textarea` 分支的两条出口对它的处理并不一样:\n\n- 非全屏出口:`Textarea ... {...rest} readOnly={readonly}` + `readonlyInputClass`,正确;\n- 全屏出口:`FullscreenTextarea placeholder label className {...rest}` —— `readonly` **既不在 `rest` 里(已被解构走)也没有显式转发**,`readonlyInputClass` 也没给。\n\n`FullscreenTextarea` 内部同样有两个控件:内联的 `Textarea` 吃 `{...rest}`,而对话框里那个是**独立**的 `Textarea autoFocus value={draft} ...`,不接 `rest` 的任何东西;展开按钮 `button type=\"button\"` 也没有 `disabled`。\n\n## 实测(vitest,happy-dom,`origin/main` @ 9cbcbf478 + PR #3399 分支,两者行为相同 —— 与 label 无关)\n\n字段 `{ name: 'notes', label: 'Notes', type: 'textarea', mobile_fullscreen: true, readonly: true }`:\n\n```\nREADONLY: 展开按钮存在        = true\nREADONLY: 内联 textarea readOnly = false      ← 只读字段直接就能改,连对话框都不用开\nREADONLY: 对话框输入框 readOnly  = false / disabled = false\nREADONLY: 点「完成」后字段值   = \"EDITED WHILE READONLY\"   ← 已进表单状态\n```\n\n字段 `{ ..., mobile_fullscreen: true, disabled: true }`:\n\n```\nDISABLED: 展开按钮存在 = true,按钮 disabled = false\nDISABLED: 内联 textarea disabled = true       ← 这一路是拦住的\nDISABLED: 对话框输入框 disabled  = false\nDISABLED: 点「完成」后字段值 = \"EDITED WHILE DISABLED\"     ← 绕过禁用,值进表单状态\n```\n\n即:**只读**长文本在全屏开关打开时根本不是只读的;**禁用**长文本看起来是禁用的(内联控件灰着),但展开按钮仍可点,对话框里可以随便改,「完成」把值写回表单状态。后者尤其难被发现,因为控件外观是对的。\n\n## 可达性:这个组合是平台自己造出来的,不是刁钻写法\n\n`packages/plugin-form/src/ObjectForm.tsx:1076` 在 `mobile.fullscreenLongText` 打开时,给**每一个**长文本字段无差别盖 `mobile_fullscreen: true`,不看该字段是否 readonly/disabled。而 `readonly` 既可以静态声明,也可以由 `readonlyWhen` 的 CEL 在运行时解析出来(`resolveFieldRuleState`),`disabled` 还会因为 `isSubmitting` 而为真 —— 也就是说**表单提交进行中,长文本字段仍可通过全屏对话框改值**。\n\n## 顺带证伪了 #3398 的一句话\n\n#3398(两份全屏实现的观察类记录)写着「两份实现目前**行为一致**,用户碰不到差异」。这一条证明差异已经存在,而且正好在这里:注册路径的 `TextAreaField.tsx:40` 在 `readonly` 时**提前返回**一个只读展示,压根不渲染全屏按钮(`showFullscreenButton` 在那之后才算);内置分支不但渲染按钮,还让人改。所以 #3398 的「漂移风险」已经兑现成了实际漂移,建议 triage 时把这条与 #3398 一起看:如果最终裁决是合并实现,这条大概率随之解决;如果维持两份,这条要单独修,并且正是 #3398 选项 B 所说「加对齐测试防漂移」该覆盖的第一条差异。\n\n`FullscreenFieldEditor.tsx` 里 grep `readonly|readOnly|disabled` **零命中** —— 它本身也不认这两个状态,只是被 `TextAreaField` 的提前返回挡在前面了。所以若走「下沉合并」路线,readonly/disabled 语义要在合并时一并定义,而不是假设搬过去就有。\n\n## 修法方向(不预设结论)\n\n1. 最小修:全屏出口显式转发 `readonly`(以及把 `disabled` 送进对话框),展开按钮在 readonly/disabled 时不渲染或禁用,对话框输入框跟随。\n2. 对齐注册路径:readonly 时干脆不给全屏按钮(与 `TextAreaField` 一致),这样两条路径的用户可见行为一样。\n3. 若 #3398 裁决为合并,则在合并后的实现里一次性定义这两个状态。\n\n倾向 2 + 1 的组合(readonly 不给按钮;disabled 时按钮禁用),因为它让两条渲染路径对同一份元数据给出同一种行为 —— 但这取决于 #3398 怎么走,故本条不预设。\n\n## 证据等级\n\n动态证据:在 worktree 里跑 vitest 探针实测(上面两段输出为真实运行结果,探针为临时文件,未提交);静态证据:读 `form.tsx` 的解构与两条出口、`FullscreenTextarea` 的三个控件、`TextAreaField.tsx:39-57`、`FullscreenFieldEditor.tsx` 的 grep、`ObjectForm.tsx:1076-1086`。未做浏览器复现。\n\n## 相邻但**未验证**的一条(不要当结论用)\n\n内置分支读的是 FormField 级的 `fieldProps.mobile_fullscreen`,而 `ObjectForm` 在 `f.field` 存在时把标记盖在 `f.field` 上(#3245 为修 widget 路径而改的)。若确实存在「`type: 'textarea'` 且带 `.field`」的字段,内置分支就看不到这个标记 —— 这是 #3245 的镜像。需要一次 plugin-form 级的实测才能判定真伪,本条未做,列在这里只为不让它丢失。\n\n## 关联\n\n- #3393 / PR #3399 —— 发现来源(同一分支、同一分支代码,但与 label 无关)\n- #3398 —— 两份实现的观察类记录;本条证伪了其中「行为一致」的判断\n- #3303 / PR #3397、#3245、#3301 —— 同一分支/同一标记的历史\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3684,
+  "kind": "pull_request",
+  "title": "docs(agents): 补一条 prettier 假红护栏 —— 全局 prettier 经 PATH 兜底,删依赖不足以闭合 (#3682)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T20:46:25Z",
+  "updated_at": "2026-08-07T20:49:24Z",
+  "closed_at": "2026-08-07T20:49:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T20:49:23Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3684",
+  "body": "Fixes #3682\n\n补上 #3657 / PR #3681 缺的另一半:PR #3681 删掉的是「仓库声明了一条没人用的依赖」,**陷阱本身没消失** —— `pnpm exec prettier` 仍会沿 PATH 落到容器镜像自带的全局 prettier 上,依然对未改动内容报 `exit=1`。而且仓里现在已经 grep 不到 prettier,撞上的人更难顺藤摸瓜找到解释,所以只剩文档护栏这一条路能真正闭合。\n\n改动是 **AGENTS.md 一行**(`1 file changed, 1 insertion(+)`,零删除、零重排),插在 §9「测试纪律」小节末尾 —— 紧接同属「本地假红 + 误归因」类的 stale-install 条目,与它同一形态。\n\n## 一、护栏全文(新增行,逐字)\n\n> - **别用 `prettier` 给改动做收尾检查 —— 它对未改动内容就是红的。** 本仓没有格式化门禁:没有 `.prettierrc` / `prettier.config.*` / `.prettierignore` / `.editorconfig`,没有 workflow 跑它,`eslint.config.js` 里也没有任何格式规则(全是正确性/ratchet 规则);那条从未接线的 devDependency 已随 objectui#3657 / PR #3681 删掉,仓内(排除 `pnpm-lock.yaml`)已 grep 不到 prettier。**但命令仍然跑得通** —— 容器镜像在 `/opt/node22/lib/node_modules/` 预装了一份全局 prettier(实测 3.8.1),仓内解析不到时 `pnpm exec` 会沿 PATH 兜底,任何装有全局 prettier 的机器同理。没有配置就按 prettier **默认值**(双引号、`printWidth: 80`)判定,而本仓是单引号、行宽更宽,于是**逐字节等于 `origin/main` 的文件照样报 `exit=1`**:根因是「默认配置 ≠ 本仓约定」,**不是**「`main` 没格式化」,也不是你改坏了。**禁止**据此 `--write` —— 未改动的 `scripts/check-doc-links.mjs` 单个文件就是 389 行重排(它的测试文件 1646 行),内容是 `'x'` → `\"x\"` 与 80 列回绕这类与你无关的 diff,会一起混进你的 PR。正确动作:忽略这份输出;本仓真接了线的检查是 `pnpm lint` / `pnpm test` 与根 `package.json` 里的 `check:*` 那几条。前情 objectui#3657、#3682。\n\n## 二、断言实测表(全部在本 worktree 复测,基线 `origin/main` @ `f953b5884` = PR #3681 已落 main)\n\n| # | 护栏里的断言 | 复测命令 | 实测 |\n| --- | --- | --- | --- |\n| 1 | 无 prettier 配置 / 无 `.editorconfig` | `find . -path ./node_modules -prune -o \\( -iname '.prettierrc*' -o -iname 'prettier.config.*' -o -iname '.prettierignore' -o -iname '.editorconfig' \\) -print` | **0 命中**(仓根与任意子目录) |\n| 2 | 无 workflow 跑它 | `grep -rn -i prettier .github/` | **0**(覆盖全部 16 个 workflow) |\n| 3 | eslint 无任何格式规则 | 通读 `eslint.config.js`(113 行)+ `grep -rnE \"quotes\\|semi\\|indent\\|stylistic\\|max-len\\|comma-dangle\" eslint.config.js eslint-rules/*.js` | **0 命中**。配置只有 `js.configs.recommended` + `tseslint.configs.recommended` + `react-hooks`/`react-refresh` + 四条 `object-ui/*` ratchet;无 `eslint-config-prettier` / `eslint-plugin-prettier` |\n| 4 | 依赖已删、仓内 grep 不到 | `grep -i prettier package.json` = 0;46 个 `package.json` 全部 0;`git grep -i prettier -- . ':(exclude)pnpm-lock.yaml'` | **仅 1 命中**,且是英文形容词:`packages/app-shell/src/views/metadata-admin/previews/ValidationPreview.tsx:194`(“not a prettier view of a rule…”),与工具无关 |\n| 5 | lockfile 里没有 prettier 3.x | `grep -n 'prettier@' pnpm-lock.yaml` | 只剩 `prettier@2.8.8`(changesets 的传递依赖),两处;**无 `prettier@3`** |\n| 6 | 全局 prettier 预装在镜像里 | `command -v prettier` / `ls -l` | `/opt/node22/bin/prettier -> ../lib/node_modules/prettier/bin/prettier.cjs`,**Mar 31** 装的,`--version` = **3.8.1** |\n| 7 | `pnpm exec` 沿 PATH 兜底 | `pnpm exec prettier --version`(worktree 内**无** `node_modules`,仓内根本无可解析项) | 不报错,答 **3.8.1** = 全局那份 |\n| 8 | 未改动内容报 `exit=1` | `git diff --stat origin/main -- scripts/check-doc-links.mjs`(空)后 `pnpm exec prettier --check` | `[warn] scripts/check-doc-links.mjs` / **`exit=1`** |\n| 9 | 「几乎每个文件」不是修辞 | 对 `scripts/` 下全部 35 个跟踪的 `.mjs`/`.ts` 跑 `--check` | **35 / 35 全部 flagged** |\n| 10 | 389 / 1646 行 | `git show origin/main:F \\| prettier --stdin-filepath F \\| diff - <(git show origin/main:F) \\| wc -l` | **389** / **1646** —— 与 #3657、PR #3681 的测量逐字一致 |\n| 11 | 本仓是单引号 | `git grep -hE \"^import .* from '\"` vs `\"` ,限 `*.ts`/`*.tsx` | 单引号 **9380** 行 vs 双引号 **393** 行 |\n| 12 | prettier 默认值改单引号为双引号 | `printf \"const a = 'x';\" \\| prettier --stdin-filepath probe.ts` | 输出 `const a = \"x\";` |\n| 13 | diff 里确有 80 列回绕(不只是引号) | 真实 diff 抽样 | `if (cleanHref === … \\|\\| cleanHref.startsWith(…)) {`(89 列)被拆成 4 行;原文件最长行 145 列 |\n\n## 三、归因措辞(遵 #3656 的规矩,不复植失真特征词)\n\n护栏把根因钉在「**默认配置 ≠ 本仓约定**」,并显式否掉两个诱人的错误归因:「`main` 没格式化」和「是你改坏了」。前者会把一个「工具默认值与本仓风格不同」的事实,曲解成「仓库代码处于未格式化的待修状态」—— 那正是会诱发全仓 `--write` 的那句话。\n\n**一处必须报告的措辞订正**:派发单里给的是「本仓不用 prettier(**格式由 eslint 承担**)」。后半句在树上**不成立** —— 见断言 3:`eslint.config.js` 里一条格式规则都没有,它管的是正确性与 ratchet。若照抄,等于在共享根文档里新种一条假断言(而且会让人以为跑 `pnpm lint` 能查格式)。故护栏写的是实测版本:「本仓**没有格式化门禁**」,并把 `pnpm lint` / `pnpm test` / `check:*` 只描述为「真接了线的检查」,不声称它们覆盖格式。\n\n## 四、门禁\n\n| 门禁 | 结果 |\n| --- | --- |\n| `node scripts/check-control-bytes.mjs` | **OK**(3680 个跟踪文本文件,跳过 85 个二进制) |\n| 改动文件控制字符自扫(超出门禁扫描面)`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' AGENTS.md` | **clean**,零命中 |\n| `node scripts/check-doc-links.mjs` | `Links are valid across 7 scan roots.` —— **但 `AGENTS.md` 不在扫描面内**:`SCAN_ROOTS` 只有 `content/docs`、`examples`、`README.md`、`CONTRIBUTING.md`、`ROADMAP.md`、`docs`、`packages/*/README.md`。所以这个绿**不构成对本改动的证据**;好在新增行不含任何 markdown 链接(issue 号按邻居惯例写作纯文本 `objectui#3657`),本就没有可失效的链接 |\n| `pnpm lint` / `pnpm test` | 未跑 —— 改动是根文档单行,无代码/无测试引用它:`git grep AGENTS -- '*.ts' '*.mjs' '*.js'` 的命中全是注释与错误文案,无任何测试从磁盘解析该文件 |\n\n## 五、changeset\n\n无。`AGENTS.md` 是仓根的 agent 指令文档,不在任何包目录下、不进任何包的 `files`(46 个 `package.json` 全查,**0** 个包含),39 个包的产物与 API 零变化,零用户可见影响。按 AGENTS.md「功能改进需 changeset、纯 bug 修复不需要」的口径,此项两者皆非且零发布影响,故不写。\n\n## 六、范围\n\n只动 `AGENTS.md` 一行。没有采纳 issue 里的二号方案(全量 `.prettierignore` / 机械拦截):加一份只用于「拒绝」的 prettier 文件,会让下一个读者以为本仓在用 prettier,语义上比现状更糊涂 —— issue 作者自己也是这么判的。三号方案(不处理)被本 PR 取代。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

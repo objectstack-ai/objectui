@@ -1,0 +1,32 @@
+{
+  "number": 3718,
+  "kind": "pull_request",
+  "title": "fix(fields): 内嵌子表 date 列回显存量 ISO 值 (#3566)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T02:51:49Z",
+  "updated_at": "2026-08-08T08:45:40Z",
+  "closed_at": "2026-08-08T08:45:39Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T08:45:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3718",
+  "body": "Fixes #3566\n\n#3127 的同族缺口，落在子表面上。\n\n## 缺陷\n\n`GridField` 自己手搓单元格输入，不走 `DateField`，所以 #3127 的修复够不着它。`date` 列拿到 API 的 ISO 形状时，`String(val)` 把它原样喂进 `<input type=\"date\">`：\n\n```js\nel.getAttribute('value')  // \"2026-06-17T00:00:00.000Z\"  ← 记录里的值\nel.value                  // \"\"                          ← 用户看到的\n```\n\n该控件只接受 `YYYY-MM-DD`，其余形状**静默拒收** —— 属性照样落进 DOM，`input.value` 读回空串，于是**有值的行画出空占位**。\n\n## 改法\n\n复用 #3127 落地的 `toDateInputValue`，**不新增第二个日期归一化 helper**：\n\n```tsx\nvalue={c.type === 'date' ? toDateInputValue(val) : val != null ? String(val) : ''}\n```\n\n它对开头是 `YYYY-MM-DD` 的串原样透传，避免 date-only 被 `new Date()` 按 UTC 午夜解析后、再读本地日期分量而在格林威治以西整体差一天。\n\n**写回侧刻意不配对**：`onChange` 仍交出控件自己的 plain `YYYY-MM-DD` —— 与 `DateField` 同一约定，读写保持同一基准。\n\n## 验证\n\n**单测**（先证伪）：把修复行还原后，新测以本缺陷的精确症状失败 ——\n\n```\nFAIL packages/fields/src/widgets/GridField.test.tsx > date columns echo the stored value (#3566)\nAssertionError: expected '' to be '2026-06-17'\n```\n\n恢复后 `pnpm exec vitest run packages/fields/` → **64 files / 973 tests passed**；连同消费方 `plugin-form/` 合跑 36 files / 380 tests passed。新增 4 条：ISO 与裸日期两种形状都渲染 `2026-06-17`、空值保持空、写回仍是 plain `YYYY-MM-DD`。\n\n**真机**（framework showcase + 本分支 console dev，对象 `showcase_expense_line` 的 `incurred_on`，走 `inlineEdit: 'grid'` 的内嵌子表）：\n\n| EXP-2003 编辑表单的 Incurred On 单元格 | `attr` | `.value` |\n|---|---|---|\n| 还原修复行（对照组） | `2026-06-17T00:00:00.000Z` | **`\"\"`** ← 复现缺陷 |\n| 本分支 | `2026-06-17` | **`2026/06/17`** ✅ |\n\n- **差一天已显式排除**：本地时区 PDT（UTC−7），若按 UTC 午夜重解析会显示 06/16 —— 没有位移。\n- **写回往返**：单元格改成 `2026-06-20` 保存 → 后端与 sqlite 原始行均为 `2026-06-20`，相邻未触碰行仍是 `2026-06-18`（未被重新提交或改坏）。\n\n> 取证说明：该后端对 `date` 字段读写两侧都会规整成 `YYYY-MM-DD`（绕过 API 直写 sqlite 亦然），stock seed 复现不了本缺陷；因此用一个改写代理把文档所载的 ISO 形状真正放上线来驱动真实 UI。对照组 `datetime` 字段接口原样回 `2026-08-07T16:39:20.389Z`。上游夹具缺口已报 objectstack-ai/objectstack#6328（未擅改其 seed 数据）。\n\n## 范围\n\n无 changeset（AGENTS.md §9：纯 bug 修复不写）。\n\n同族但**故意未修**、已拆出 #3569：`deriveMasterDetail.ts` 把 `datetime`/`time` 折叠成 `date` 列，导致 datetime 子表字段的时间分量在写回时被静默丢弃；只读展示面（`displayText()`、只读表的 `String(...)`）同源。两者的修复都要先解开类型折叠并跨 `plugin-form`，在此之前 `GridField` 无从分辨该显示「日」还是「日+时间」，按日渲染会把 datetime 的时间从展示里抹掉。**本 PR 不会让 #3569 更差**：datetime 列由「空白」变为「显示日历日」。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

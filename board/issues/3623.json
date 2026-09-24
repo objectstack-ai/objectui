@@ -1,0 +1,33 @@
+{
+  "number": 3623,
+  "kind": "pull_request",
+  "title": "test(types): 删除 37 条随 spec 退役而失效的 DROPPED_SCHEMA_EXPORTS,并加棘轮断言 (#3601)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:12:09Z",
+  "updated_at": "2026-08-07T16:25:33Z",
+  "closed_at": "2026-08-07T16:25:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:25:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3623",
+  "body": "Fixes #3601\n\n按 PM 裁决的**方向 B**:删 37 条恒真条目 + 加一条棘轮断言,让「随 spec 退役而失效」从此自曝。\n\n## 背景\n\n`DROPPED_SCHEMA_EXPORTS` 是 #2561 决策 (a) 的拒绝名单:逐条断言 `@objectstack/spec/ui` 的 zod 校验器**不**从 `@object-ui/types` 导出。这条断言只在 spec **仍然发布该名**时才有意义 —— 上游一旦整个退役某个 def,没有任何东西能再导出它,该行退化为恒真,还会稀释真守卫的信噪比。\n\n## 测量(在本分支重跑,非照抄 issue 正文)\n\nworktree 装的是 lockfile 解析的 `@objectstack/spec@17.0.0-rc.5`,对 82 条逐条查 spec 是否仍发布该名(`Spec` 前缀条目按名单注释的既有语义回退到去前缀原名再查):\n\n```\ntotal: 82   INERT: 37   LIVE: 45\n```\n\n与 issue 正文的 37 条清单**逐条一致**,包括正文标为「待查」的 4 条 —— `DensityModeSchema` / `PerformanceConfigSchema` / `PageTransitionSchema` / `WcagContrastLevelSchema` 全部确认已退役。另做了近名探测(`Density` / `Performance` / `Transition` / `Wcag` / `Contrast` 在 204 个 spec/ui 导出里零命中),排除「改名而非退役」的可能。\n\n45 条真守卫一条未动。\n\n## 删除的 37 条,按退役来源分组\n\n正文表格的分组有两处需要更正,已按上游退役测试的实际名单归位:\n\n| 退役来源 | 条数 | 条目 |\n| :-- | --: | :-- |\n| objectstack#4988 / PR objectstack#5321 —— `ui/` 五个交互配置模块(touch / dnd / keyboard / animation / offline)整体退役 | 32 | `TouchTargetConfigSchema` `SpecGestureTypeSchema` `SwipeDirectionSchema` `SwipeGestureConfigSchema` `PinchGestureConfigSchema` `LongPressGestureConfigSchema` `SpecGestureConfigSchema` `TouchInteractionSchema` `TransitionPresetSchema` `EasingFunctionSchema` `TransitionConfigSchema` `AnimationTriggerSchema` `ComponentAnimationSchema` `PageTransitionSchema` `MotionConfigSchema` `DragHandleSchema` `DropEffectSchema` `DragConstraintSchema` `DropZoneSchema` `DragItemSchema` `DndConfigSchema` `FocusTrapConfigSchema` `KeyboardShortcutSchema` `FocusManagementSchema` `KeyboardNavigationConfigSchema` `OfflineStrategySchema` `ConflictResolutionSchema` `SyncConfigSchema` `PersistStorageSchema` `EvictionPolicySchema` `OfflineCacheConfigSchema` `SpecOfflineConfigSchema` |\n| objectstack#4610 —— `NotificationAction` 的两个包装器,零消费者删除 | 2 | `NotificationSchema` `NotificationConfigSchema` |\n| objectstack#3494 / PR objectstack#3516 —— Theme 侧仍然死掉的 aspirational config 清理 | 2 | `DensityModeSchema` `WcagContrastLevelSchema` |\n| objectstack#3896 audit close-out —— `performance` 块每个承载者都是 authorable 且 inert | 1 | `PerformanceConfigSchema` |\n| | **37** | |\n\n两处更正:\n\n- `PageTransitionSchema` 正文归在「其它/待查」,实际出自 `ui/animation.zod.ts`,属 #4988 那一组 —— 归位后该组正好 **32** 条,与上游 `interaction-config-retirement.test.ts` 自述的「32 emitted defs」对上。\n- `NotificationSchema` / `NotificationConfigSchema` 正文归在 #4988 组,实际 notification 不在退役的五个模块内,出自更早的 #4610。\n\n## 棘轮断言\n\n手法同 PR #3568 给 `$icontains` 排除项加的「排除项不得超期」断言:\n\n```ts\nit('every deny-list entry is still a live @objectstack/spec/ui export', () => {\n  const retired = DROPPED_SCHEMA_EXPORTS.filter(\n    (name) => resolveSpecName(name) === undefined,\n  );\n  expect(retired, `…no longer publishes…: ${retired.join(', ')}…`).toEqual([]);\n});\n```\n\n两处设计取舍:\n\n- **收集后一次性断言,而非逐条 `toBe(true)`**:退役是整族落地的(上游一个 PR 就带走 32 条),逐条断言会停在第一条、藏住其余 31 条。\n- **`Spec` 前缀回退是承重的,不是装饰**:45 条里有 **16** 条只能靠回退解析(`SpecPageSchema` → `PageSchema` 等),29 条直接命中。去掉回退这条断言会立刻误报那 16 条。\n\n## 逆向验证(先预测后运行,两个方向都如预测)\n\n在名单末尾临时塞一个 spec 从未有过的名字 `NeverExistedInSpecSchema`:\n\n| | 预测 | 实测 |\n| :-- | :-- | :-- |\n| **修前**(未改的测试) | 绿 —— 唯一断言是 `name in Types === false`,对一个谁都不导出的名字恒真 | ✅ 绿,`Tests 3 passed (3)` |\n| **修后**(本 PR) | 红,且点名该条;其余 3 条测试仍绿 | ✅ 1 failed / 3 passed(共 4),失败信息含 `no longer publishes these DROPPED_SCHEMA_EXPORTS entries: NeverExistedInSpecSchema` |\n\n修后那一轮的完整失败输出:\n\n```\nFAIL packages/types/src/__tests__/spec-ui-schema-reexports.test.ts >\n  spec/ui …Schema re-exports (#2561, decision (a)) >\n  every deny-list entry is still a live @objectstack/spec/ui export\nAssertionError: @objectstack/spec/ui no longer publishes these\nDROPPED_SCHEMA_EXPORTS entries: NeverExistedInSpecSchema. …\n  expected [ 'NeverExistedInSpecSchema' ] to deeply equal []\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)\n```\n\n修前那一轮绿就是恒真缺陷的现场演示:被删的 37 条这些年一直是这个状态。验证后假名已还原。\n\n## 顺带更正的一处注释\n\n文件头注举「dual type+value 名」的例子是 `` `Dashboard`, `DensityMode`, `ThemeMode` `` —— 而 `DensityMode` 本身已被 objectstack#3494 / PR objectstack#3516 从 spec 退役(`Dashboard` / `ThemeMode` 仍在)。同一份文件里同一类腐化,仅注释改动,已在注释里点明出处。\n\n## 验证\n\n```\n$ npx vitest run packages/types --maxWorkers=2\n Test Files  28 passed (28)\n      Tests  383 passed (383)\n\n$ pnpm --workspace-concurrency=2 --filter @object-ui/types type-check\n> tsc --noEmit && tsc -p tsconfig.examples.json && tsc -p tsconfig.test.json\n(通过,无输出)\n\n$ npx eslint packages/types/src/__tests__/spec-ui-schema-reexports.test.ts\n(exit 0,无告警)\n\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3650 tracked text file(s); skipped 85 binary).\n```\n\n**无 changeset**:测试-only 改动,不触碰任何包的公开面、运行时行为或类型导出 —— 按仓例(changeset 用于 user-visible 变更)无需 changeset。\n\n**文件面**:`packages/types/src/__tests__/spec-ui-schema-reexports.test.ts` 单文件,+50 −46。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

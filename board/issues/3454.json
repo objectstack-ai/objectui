@@ -1,0 +1,35 @@
+{
+  "number": 3454,
+  "kind": "issue",
+  "title": "[finding] preview-samples 的 page 样例没声明 `type`,按 spec 默认落成 `record` 页——但 app 样例把它当 home 用",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:42:04Z",
+  "updated_at": "2026-08-06T09:09:44Z",
+  "closed_at": "2026-08-06T09:09:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3454",
+  "body": "在做 #3446(PR #3453)时顺带发现,**不在该 PR 范围内**,单独记录。\n\n## 事实\n\n`apps/console/src/preview-samples.ts` 的 `page` 样例只声明了 `name` / `label` / `regions`,没有 `type`:\n\n```\npage: {\n  name: 'crm_welcome',\n  label: 'CRM Welcome',\n  regions: [ ... ],\n},\n```\n\n`PageSchema` 里 `type` 是 `PageTypeSchema.default('record')`(`@objectstack/spec@17.0.0-rc.2` 的 `src/ui/page.zod.ts:412`),所以这个样例一旦被 parse,就会落成一个 **`type: 'record'` 且没有 `object` 绑定**的记录页。实测(PR #3453 里让 `page` 进 SPEC_CLEAN 时跑的):\n\n```\n=== proposed VALID\n  parsed page type = \"record\" template = \"default\"\n```\n\n而同一个文件里的 `app` 样例是把它当**首页**用的:\n\n```\nnavigation: [\n  { id: 'home', type: 'page', label: 'Home', pageName: 'crm_welcome' },\n  ...\n]\n```\n\n`PageTypeSchema` 里有 `'home'` 这一档(`record | home | app | utility | list`),`home` 也确实注册了渲染器(`packages/components/src/renderers/layout/page.tsx:607`,与 `page` 共用 `PageRenderer`)。所以正确的声明大概率就是 `type: 'home'` 一行。\n\n## 为什么归为 observation 类\n\n今天没有用户会踩到:\n\n- 画廊里 `PagePreview` 读的是**未 parse 的 draft**,`draft.type` 是 `undefined`,所以 `isRecordPage` 为 false,不会去拉记录,渲染路径与现在完全一致(PR #3453 的浏览器复核可证)。\n- 默认值只在真正 `parse()` 时才具体化,而画廊不 validate。\n\n也就是说这是**素材语义**上的问题,不是运行时缺陷:样例作为\"照抄这个就能用\"的范本,把自己的页面种类说错了——抄的人(越来越多是生成元数据的模型)会得到一个没有绑定对象的记录页。\n\n## 没有顺手改的原因\n\n#3446 的范围是\"组件类型能否在注册表里解析\",而页面级 `type` 会改变运行时对这张页的**分类**(`usePageAssignment` 按 `type: 'record'` 认记录页),影响面超出那个 issue;PR #3453 的 fence 也明确只允许改组件类型那一处。留给 PM 定夺。\n\n## 可能的修法\n\n`page` 样例加 `type: 'home'` 一行,并在 `preview-samples-spec-valid.test.ts` 复跑确认仍在 SPEC_CLEAN(风险很低:`home` 有渲染器,`PagePreview` 会把它透给 SchemaRenderer,拿到的是同一个 `PageRenderer`)。\n"
+}

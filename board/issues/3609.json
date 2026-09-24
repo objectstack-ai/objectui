@@ -1,0 +1,35 @@
+{
+  "number": 3609,
+  "kind": "issue",
+  "title": "console: /home 的 Administration 组被压平成一条指向 /home 的死链——整簇 9 个系统管理入口在参考 console 上不可达",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:49:37Z",
+  "updated_at": "2026-08-07T16:39:00Z",
+  "closed_at": "2026-08-07T16:39:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3609",
+  "body": "越界发现，记录于 #3590（改三处 `sys-settings` 的目标 URL）期间。按纪律**只报不改**，单独立单，**未认领**，留给 PM 分诊。\n\n实测基线：`origin/main` @ `03f25f7a3`。\n\n## 现象\n\n工作区管理员在 `/home` 上，左侧栏出现一个 `Administration` 条目。点它 —— 什么也不会发生：它是一条指向 `/home` 的链接，也就是用户已经站着的那一页。它下面本该有的 9 个系统管理入口（System Settings / Applications / App Marketplace / Object Manager / Datasources / Users / Organizations / Roles / Configuration）**一个也没有渲染到 DOM 里**。\n\n零应用部署下这条路径尤其要命：`resolveLandingPath([])` 返回 `/home`，所以全新环境的管理员第一屏就是 `/home`，而这里是他唯一的系统管理入口。\n\n## 实测链路\n\n`packages/app-shell/src/layout/UnifiedSidebar.tsx`（行号为 `03f25f7a3`）：\n\n1. 312–341 行 `homeNavigation`：管理员额外拿到一个 `type: 'group'` 的 `sys-administration`，`children` 为上述 9 项。\n2. 437 行只有一个三元 —— `context === 'app' && activeApp ? (…) : (…)`。\n3. **app 分支**（504 行）渲染 `NavigationRenderer`，那才是会递归进 `type: 'group'` 子项、把组渲染成 Collapsible 的组件。\n4. **home 分支**（约 594 行起）是手写的：\n\n   ```\n   homeNavigation.map((item) => … Link to={item.url || '/home'} … span{item.label} …)\n   ```\n\n   —— **不递归**。组自身没有 `url`，于是 `item.url || '/home'` 回退到 `/home`；子项从未被访问。\n\n也就是说：`type: 'group'` 在 home 上下文里根本不被支持，而 home 导航偏偏是**唯一**用组来结构化的那份。\n\n## 复现\n\n以工作区管理员身份打开 `/home`，看左侧栏的 `Administration`：一条死链，展不开。\n\njsdom 侧的证据已随 #3590 的 PR 落库为一条 MEASUREMENT 钉（`packages/app-shell/src/layout/__tests__/systemNavSettingsTarget.test.tsx`）：\n\n```\nexpect(screen.getByRole('link', { name: 'Administration' })).toHaveAttribute('href', '/home');\nexpect(screen.queryByRole('link', { name: 'System Settings' })).not.toBeInTheDocument();\nexpect(screen.queryByRole('link', { name: 'Applications' })).not.toBeInTheDocument();\n```\n\n**该单一旦修好，这条钉会转红** —— 那正是它设计的信号：届时应把它换成真实的 href 断言。\n\n## 影响\n\n`console/home/HomePage.tsx:289` 的注释写着「（系统入口）已经在 nav（UnifiedSidebar）里了，所以中间不再挤一个 System 卡片」。换句话说，HomePage 主动撤掉了自己的系统入口，把职责交给了这份**渲染不出来的**侧栏导航。净效果：参考 console 的 `/home` 上，管理员**没有任何**通往系统管理的入口。\n\n## 可能的修法（留给分诊）\n\n- home 分支复用 `NavigationRenderer`（与 app 分支同一条渲染路径，组、权限门、pin 全部自动一致）；\n- 或退一步：手写 map 里补一层组递归。\n\n前者更符合「一份导航渲染器」的方向，也顺带让 home 导航拿到 app 导航已有的全部 item 级守卫。\n\n## 关联\n\n- #3590 / 本 PR —— 同一簇 `sys-settings` 的目标 URL 已在那边改对（`/apps/setup/system`），因此本单修好后**不会**连带发布一条死的 `/apps/setup` 链接。\n- 该常量修正当前处于休眠状态，正是因为本单。\n\n已就关键词（`homeNavigation` / `Administration` / UnifiedSidebar / sidebar group / 导航 组 压平）搜过三仓开放 issue 与 PR，无同源单。\n"
+}

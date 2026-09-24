@@ -2,8 +2,8 @@
   "number": 9493,
   "kind": "issue",
   "title": "finding(check-eager-closure-budget): all THREE rows of the additivity table name a sha as \"its merge\" and none is on `main` — two are branch merges pointing the other way, and the third no longer exists at all",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-try-charles",
@@ -13,7 +13,6 @@
   "labels": [
     "documentation",
     "domain:devx",
-    "pm:queue",
     "priority:p3",
     "tooling"
   ],
@@ -21,9 +20,13 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-14T11:13:18Z",
-  "updated_at": "2026-09-16T15:10:19Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T02:22:19Z",
+  "closed_at": "2026-09-24T02:22:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 4,
   "locked": false,

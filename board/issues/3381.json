@@ -1,0 +1,36 @@
+{
+  "number": 3381,
+  "kind": "issue",
+  "title": "InlineCreateRelated 的 Link 页签搜索框只有 placeholder、没有任何 label:可访问名靠 placeholder 兜底,输入后即消失",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T11:28:28Z",
+  "updated_at": "2026-08-05T21:44:59Z",
+  "closed_at": "2026-08-05T21:44:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3381",
+  "body": "实施 #3341(PR #3380,给 Create 页签的 label 补 `htmlFor`/`id`)时,在**同一文件**里核对到的相邻缺陷。按 #3341 的范围栅栏(其验收只覆盖正文枚举的两处 label→control 关联)不在该 PR 内修,单独立此单。\n\n与 #3341 不同类:#3341 是「label 存在但没和控件关联上」;本单是「**根本没有 label**」。\n\n## 现象\n\n`packages/plugin-detail/src/InlineCreateRelated.tsx`(Link Existing 页签,origin/main ~L253-L260):\n\n```\n{/* Link Existing Tab */}\n{onLinkRecord && (\n  TabsContent value=\"link\" ...\n      div className=\"relative\"\n        Search className=\"absolute left-2.5 ...\" /\n        Input\n          placeholder={`Search ${objectName}…`}\n          value={searchQuery}\n          onChange={(e) =} handleSearchChange(e.target.value)}\n          className=\"h-8 text-sm pl-8\"\n        /\n```\n\n(为避开 GitHub 正文的标签清洗,上面省略了尖括号。)\n\n该 Input **既没有关联的 label 元素,也没有 `aria-label` / `aria-labelledby`**;同段落里我已核对 `grep -c \"aria-label\\|htmlFor\"` 在该区块为 **0**。它的可访问名只能落到 placeholder 上,而 placeholder 作为可访问名是 HTML-AAM 的**最后兜底**,存在两个实际问题:\n\n1. 用户一开始输入,placeholder 就消失,控件在视觉上失去任何名称提示(WCAG 对 placeholder-as-label 的经典反对理由);\n2. 兜底行为跨实现不一致 —— 这一点在 #3341 的验证里实测到了:`dom-accessibility-api` **完全没有实现 placeholder 兜底**(0.5.16 / 0.6.3 两个版本里 `placeholder` 出现次数均为 0),因此在 jsdom 测试环境下该控件的可访问名是**空字符串**。真实浏览器会兜底到 placeholder,测试环境不会。\n\n旁证:同文件 Create 页签的字段输入框在 #3341 修复后已经是「label 文本即可访问名」,唯独这个搜索框还靠 placeholder。\n\n## 建议修法\n\n给该 Input 一个真正的可访问名,二选一(倾向前者,与本仓 Create 页签修完后的形状一致):\n\n- 加一个视觉隐藏的 label,`htmlFor` 指向 Input 的 id(id 同样需要 `React.useId` 命名空间化,理由同 #3341:一个详情页每个相关列表挂一个该组件);\n- 或直接 `aria-label={`Search ${objectName}`}`(实现最小,但把可见文本与可访问名解耦,后续 i18n 时容易漂移)。\n\n顺带可核对左侧的 `Search` 装饰图标是否需要 `aria-hidden`(本单未核实 lucide-react 当前版本的默认行为,不作断言)。\n\n## 验收建议\n\n- `getByLabelText` / `toHaveAccessibleName` 能拿到与 placeholder 无关的稳定可访问名;\n- 断言在**输入之后**(placeholder 已消失时)可访问名依然成立 —— 这是 placeholder-as-label 与真 label 的分水岭。\n\n关联:#3341(PR #3380)、#3299、#3290。\n"
+}

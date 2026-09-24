@@ -1,0 +1,32 @@
+{
+  "number": 3683,
+  "kind": "pull_request",
+  "title": "docs(ci): type-check 作业行补两道 i18n 门禁,并把该表的钉粒度降到步骤级 (#3653)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T20:37:48Z",
+  "updated_at": "2026-08-07T21:27:17Z",
+  "closed_at": "2026-08-07T21:27:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T21:27:15Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3683",
+  "body": "Fixes #3653\n\n`content/docs/guide/ci-cd-pipeline.md` 的 `type-check` 作业行只列了五条命令,而 `ci.yml` 那个作业实际还跑着 `pnpm check:i18n-keys`(#3530 / PR #3547)与 `pnpm check:i18n-drift`(#3650 / PR #3659)。两笔欠账一起清,并把这张表的钉粒度从**作业级**降到**命令级**。\n\n⛔ **未碰** `.github/workflows/ci.yml` 本体,也未碰任何门禁脚本。改动只有两文件:该页 + `scripts/__tests__/ci-cd-pipeline-doc.test.ts`。\n\n## 1. 前提复核:ci.yml 的 run 步骤全集(全量,不止那两步)\n\n行号已漂(正文写的 :69 今天仍是 :69,但 PR #3659 已把 `fetch-depth: 0` 与两个步骤落进该作业),所以按内容锚定重测了**每个作业的每一个 `run:` 步骤**:\n\n| 作业 | run 步骤全集(按 ci.yml 顺序) | 其中「本仓自己的命令」 |\n| --- | --- | --- |\n| `changeset-check` | `node scripts/check-changeset-fixed.mjs` | 1 条 |\n| `type-check` | `corepack enable` → `pnpm --version` → `node scripts/check-type-check-coverage.mjs` → `pnpm install --frozen-lockfile` → `pnpm check:spec-symbols` → **`pnpm check:i18n-keys`** → **`pnpm check:i18n-drift`** → `pnpm type-check:scripts` → `pnpm type-check` → `pnpm type-check:vitest-setup` | 7 条 |\n| `test` | `corepack enable` → `pnpm --version` → `pnpm install --frozen-lockfile` → `pnpm test --shard=…/4` | 1 条 |\n| `test-coverage` | `corepack enable` → `pnpm --version` → `pnpm install --frozen-lockfile` → `pnpm test:coverage --coverage.reporter=…` | 1 条 |\n| `e2e` | `corepack enable` → `pnpm --version` → `pnpm install --frozen-lockfile` → `pnpm --filter @object-ui/console exec vite build` → 产物校验 shell 块 → `echo \"version=…\"` → `pnpm exec playwright install --with-deps chromium` → `pnpm exec playwright install-deps chromium` → `pnpm test:e2e --project=chromium` | 1 条 |\n| `docs` | 变更探测 shell 块 → `corepack enable` → `pnpm --version` → `pnpm install --frozen-lockfile` → `pnpm turbo run build --filter='@object-ui/site'` | 1 条 |\n\n**逐行核对结论(处置第 2 条要求的「其余作业行顺带核对」)**:除 `type-check` 外,五个作业行一条都不漏、一条都不多 —— 漏报只有正文点名的那两条,**没有第三处**。反方向(文档写了作业没跑的命令)全表为 0。\n\n## 2. 文档改动\n\n`type-check` 行补两步,顺序按 ci.yml 实际(夹在 `check:spec-symbols` 与 `type-check:scripts` 之间),并写清它们为什么在这个作业里:两者都用 `typescript` 解析源码,要 install 不要 build;`check:i18n-drift` 与合并基比对,正是这个作业的 checkout 设 `fetch-depth: 0` 的原因。\n\n`## Core CI Workflow` 小节增一段,说明这张表的第三列现在也被钉住了、按什么规则钉 —— 与该页既有的「表就是那份清单」写法同源。\n\n## 3. 钉粒度:命令级,双向\n\n测量既有结构后取的最小正确形态:复用同一个 describe 里已有的 `ciWorkflow` / `ciJobKeys` / `coreCiSection` / `docJobRows`(只给 `docJobRows` 加了第三列 `runs`),新增一个嵌套 describe 与两条断言。**没有重写测试文件**,既有 13 条断言一行未动。\n\n判定面刻意窄于「每一个步骤」,而且这条边界是**推导**出来的、不是手列的白名单:一个步骤算数,当且仅当它点名了本仓拥有的东西 —— `scripts/*.mjs` 文件、根 `package.json` 的一个 script、或一个 `turbo run` 任务。环境准备因此**自己落在面外**,不需要任何豁免条目:`corepack enable`、`pnpm --version`、`pnpm install --frozen-lockfile`、`pnpm exec playwright install`、`pnpm --filter … exec vite build` 一个都不指向上面三类。这样这一列仍是**门禁摘要**而不是 YAML 的逐行誊抄 —— e2e 的产物校验与 Playwright 缓存是真步骤,但没有读者需要它们被逐条列出。\n\n**留下的空洞已写进测试头注,不当作覆盖面**:用内联 shell 块写的门禁不点名任何一类,这条钉看不见它。本仓的门禁都落成根 script 或 `scripts/*.mjs`(两类都在面内),这才是窄规则够用的唯一理由。\n\n另一处刻意的实现约束:步骤**只从 `run:` 的值里读,绝不扫原始 YAML 块** —— 光是 `type-check` 作业的注释里就出现了 `pnpm type-check`、`turbo run type-check`、`pnpm check:i18n-drift` 三条,扫原文会把注释当成步骤,这条钉就变成在描述它自己的注释。\n\n**有意不加的一条**:两步「存在于 ci.yml」的具名断言。`check-i18n-call-site-keys.test.ts:440` 与 `check-i18n-en-drift.test.ts:590` 已各自钉住自己那一步的存在;在这里再钉一遍就是一个缺陷两处报。本块只钉 YAML 与该页之间的**配对**,那才是原先没人拥有的部分。头注里写明了这个分工。\n\n## 4. 逆向验证(先写预测,后跑;六条,全部命中)\n\n⛔ 不真改 `ci.yml`:在 **fixture 树**上做 —— 把 workflows 目录、`package.json`、该页、该测试各复制一份到临时目录,测试文件从自身位置推导 `repoRoot`,所以跑的是**真测试代码**、读的是**假树**。真 `ci.yml` 全程零改动(`git diff origin/main -- .github/workflows/ci.yml` 为空)。\n\n| # | fixture 植入的形状 | 预测 | 实测 |\n| --- | --- | --- | --- |\n| baseline | 本分支的忠实副本 | 15 绿 | ✅ `Tests 15 passed (15)`,与真树同数 |\n| RV-3 | **origin/main 的旧测试 + 旧文档 + 今天的 ci.yml** | **全绿** —— 旧钉子看不见这个空档 | ✅ `Tests 13 passed (13)`:文档少报两道真门禁,旧钉一条不红 |\n| RV-1 | `type-check` 加一步 `run: pnpm check:control-bytes`,文档不动 | 正向断言**红**,点名该作业该命令 | ✅ `1 failed \\| 14 passed`,`- type-check: pnpm check:control-bytes` |\n| RV-5 | 同样一步改加到 **`e2e`** 作业 | 正向**红**,且点名的是 `e2e` 而非 `type-check`(证明是逐作业而非全文件) | ✅ `- e2e: pnpm check:control-bytes` |\n| RV-2 | 文档删掉新补的 `pnpm check:i18n-drift`,ci.yml 不动 | 正向**红** | ✅ `- type-check: pnpm check:i18n-drift` |\n| RV-6 | 文档 `docs` 行删掉 `turbo run build` | 正向**红**(证明第三类规则不是死代码) | ✅ `- docs: turbo run build` |\n| RV-4 | 文档 `type-check` 行写进 `pnpm lint`(没有任何 ci.yml 作业跑它) | **反向**断言红、正向绿 | ✅ `credits no job with a first-party command it does not run` → `- type-check: pnpm lint` |\n\nRV-3 是这条钉子值不值得的直接证据:同一棵今天的 `ci.yml`,旧测试 13 条全绿,新测试(未改文档时)正向红并点名两条。\n\n## 5. 测试\n\n```\npnpm exec vitest run --maxWorkers=2 scripts/__tests__/ci-cd-pipeline-doc.test.ts\n  Test Files  1 passed (1)        Tests  15 passed (15)      (改前 13)\n\npnpm exec vitest run --maxWorkers=2 scripts/__tests__/\n  Test Files  18 passed (18)      Tests  339 passed (339)\n\npnpm type-check:scripts               → tsc -p tsconfig.scripts.json   exit 0(无输出)\nnode scripts/check-doc-links.mjs      → Links are valid across 7 scan roots.   exit 0\nnode scripts/check-control-bytes.mjs  → OK (scanned 3678 tracked text file(s); skipped 85 binary)\npnpm exec eslint scripts/__tests__/ci-cd-pipeline-doc.test.ts → exit 0,无输出\n控制字符自查(超出门禁扫描面)grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f\\x7f]' 两文件 → 无匹配\n```\n\n`check-doc-links` 是必跑的一条:本 PR 往该页新增了两个 issue 链接与一段散文。\n\n## 6. 无 changeset\n\n纯文档订正 + 一条测试断言,不改任何已发布包的运行时行为,非用户可见特性 —— 与 PR #3656 / #3659 同款判断。未触碰 `content/docs/releases/`。\n\n## 7. 范围\n\n- **改**:`content/docs/guide/ci-cd-pipeline.md`(type-check 行补两步 + 小节增一段)、`scripts/__tests__/ci-cd-pipeline-doc.test.ts`(`docJobRows` 加第三列 + 新增嵌套 describe 两条断言)\n- **未改**:`.github/workflows/ci.yml`、任何门禁脚本、该测试文件既有的 13 条断言、`content/docs/releases/`\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

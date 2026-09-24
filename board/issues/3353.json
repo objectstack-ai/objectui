@@ -1,0 +1,32 @@
+{
+  "number": 3353,
+  "kind": "pull_request",
+  "title": "fix(app-shell): entitlement 错误上下文只读 `error.details.*`,删除平铺双方言回退(#3329)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T06:07:47Z",
+  "updated_at": "2026-08-04T06:12:23Z",
+  "closed_at": "2026-08-04T06:12:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T06:12:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3353",
+  "body": "Fixes objectstack-ai/objectui#3329\n\ncloud#1046 两仓协调变更的 **objectui 先行半边**(strict 版,按 issue 里的默认执行,否决窗口未被使用)。\n\n## 改了什么\n\n**`packages/app-shell/src/environment/entitlements.ts`**\n\n- entitlement 业务上下文(`upgrade_url` / `contact_url` / `plan` / `current` / `limit`)全部改从 **`error.details.KEY` 这一个位置**读取(原先是 `error.KEY` 顶层)。那些键坐在 `error` 上是未声明的兄弟键 —— 它们能「解析通过」纯粹是因为 `ApiErrorSchema` 是普通 `z.object`、会**剥掉**未知键,而这条路径消费的是 parse 之前的裸 wire body:合规是靠蒸发,不是靠声明。`details` 是 ADR-0112 为结构化错误上下文声明的槽(framework#4224、cloud#930 的 `AiErrorExtra` 先例)。\n- `code` / `message` 是 `ApiErrorSchema` 的**声明字段**,仍留在 `error` 自身上,未随迁。\n- **删除** `entitlementErrorFields()`(`body?.error ?? body`)。变更后**只有一种可接受形状**:\n\n  ```jsonc\n  { \"success\": false,\n    \"error\": { \"code\": \"DEV_ENV_LIMIT\", \"message\": \"…\", \"httpStatus\": 403,\n               \"details\": { \"current\": 3, \"limit\": 3, \"upgrade_url\": \"…\" } } }\n  ```\n\n  没有新增任何 `??` 跨形状回退 —— 一个宽容的消费端在这里买不到任何东西(见下方时序),却会把已退役的方言固化成第二份事实契约,正是 cloud#944 在退役的多方言漂移。\n\n## 扫读点结果(issue 第 4 条)\n\n按真实键名全仓扫了 `upgrade_url` / `contact_url` / `seatCount` / `plan` / `current` / `limit` / `entitlement` 与三个错误码。**除本 PR 改的这一条外,没有第二个错误体读点**:\n\n- `useConsoleActionRuntime.tsx:331` 是唯一调用方(喂进去的是 `res.json()` 的裸 body),不含独立读点,只更新了它的测试;\n- `EnvironmentEntitlementDialog.tsx` 渲染的是已成形的 `EntitlementDialogSpec`,不碰 wire 键;\n- `useEnvironmentEntitlements.ts` / `CloudOnboardingNext.tsx` / `provisionEnvironment.ts` 读的是 `GET /cloud/environment-entitlements` 的**成功体** `data.*`(含 `seatCount`),不是 `failWithCode` 的错误体 —— 不在本次迁移范围;它们各自的 `json?.data ?? json` 成功包络容错另行记录为 objectstack-ai/objectui#3352(未认领),**本 PR 不动**。\n- `entitlement` 一词全仓只作 i18n key 前缀(`environment.entitlement.*`),无 wire 读点。\n\n## 测试\n\n`packages/app-shell/src/environment/__tests__/entitlements.test.ts` 新增 `reads error.details and nowhere else` 一组严格性 pin,现有用例全部改写为 `details` 形状:\n\n- **正向**:`details` 里的 `upgrade_url` / `contact_url` / `plan` / `current` / `limit` 被读到;\n- **反向(证明确实严格)**:\n  - 键坐在 `code` 的兄弟位 → 弹窗照开(`code` 没搬),但每个上下文键都降级到默认值(CTA 落回 `/settings/billing`、不出「3 of 3」计数、plan 降回 free);\n  - `PRODUCTION_ENV_LIMIT` 的兄弟位 `contact_url` → CTA 直接 `undefined`;\n  - 平铺 body(`error` 是字符串、`code` 在顶层)→ **返回 `null`**,走调用方的普通报错路径;\n  - 完全没有 `error` 包络的裸 body → `null`;\n  - `details` 不是对象 → 不去别处捞,取默认值。\n\n`useConsoleActionRuntime.test.tsx` 补一条端到端 pin:退役的平铺形状 **不开**弹窗,而是返回 `{ success: false, error: '…' }`(红 toast 路径)。\n\n实跑输出:\n\n```\n$ npx vitest run packages/app-shell/src/environment/__tests__/entitlements.test.ts \\\n                 packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.test.tsx\n Test Files  2 passed (2)\n      Tests  66 passed (66)\n\n$ npx vitest run packages/app-shell        # 整包\n Test Files  270 passed (270)\n      Tests  2339 passed | 1 skipped (2340)\n   Duration  409.98s\n\n$ pnpm --filter @object-ui/app-shell type-check\n> tsc --noEmit && tsc -p tsconfig.typetests.json     # 干净退出,无输出\n\n$ pnpm --filter @object-ui/app-shell lint\n✖ 2152 problems (0 errors, 2152 warnings)           # 全部为存量 warning\n# 仅本 PR 三个文件:0 errors(123 warnings,均为该目录既有的 no-explicit-any 风格)\n```\n\n## 时序 —— 合并后请知会 cloud 分片\n\n本 PR 合入 objectui `main` 后**托管 Console 不会立刻变**:cloud 镜像按 `.objectui-sha` 钉扎。cloud#1046 的后半(收口 `extra` + 5 个调用点改 `details` + 断言重写)将与 **pin bump 同一个 PR** 落地,生产者/消费者在托管产品里原子切换,无中间窗口。本 PR 合并即解除 cloud#1046 的 Blocked-by。\n\n## Breaking(已写进 changeset)\n\n`.changeset/entitlement-error-context-reads-details.md`(`minor` —— 按 AGENTS.md 版本策略,objectui 自身的破坏性变更也标 minor,语义写在正文)。\n\n**跟踪 objectui `main` 但控制面落后于 cloud#1046 的自托管部署**:弹窗仍会打开、标题/正文不变(`code` 没搬),但会丢上下文 —— 升级 CTA 落回 `/settings/billing`、`PRODUCTION_ENV_LIMIT` 掉「Contact sales」、`DEV_ENV_PLAN_LOCKED` 一律说「free plan」、`DEV_ENV_LIMIT` 不再报「using X of Y」。把控制面升过 cloud#1046 即恢复。这是 issue 里给出否决窗口后按 strict 默认执行的结果。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_015W6nhsDrz6zWQc8je12a1t"
+}

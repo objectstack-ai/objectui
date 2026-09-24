@@ -1,0 +1,33 @@
+{
+  "number": 3468,
+  "kind": "pull_request",
+  "title": "fix(i18n): key ObjectView 的 create/edit/view 表单标题 (#3462)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:57:31Z",
+  "updated_at": "2026-08-06T08:02:47Z",
+  "closed_at": "2026-08-06T08:02:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T08:02:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3468",
+  "body": "Fixes #3462\n\n#3426 / PR #3457 与 #3459 / PR #3464 同族的又一个调用点。\n\n## 前提复核(先于实现)\n\n在 `origin/main` (84bd39e77) 上确认 issue 前提**仍然成立**:`getFormTitle()`(行号已漂到 903)仍在用模板字符串自拼三个英文动词,三个消费点也都还读它 —— `renderDrawerForm` 的 `DrawerTitle`(937)、`renderModalForm` 的 `DialogTitle`(954)、popover 分支传给 `NavigationOverlay` 的 `title` prop(1276)。\n\n```ts\ncase 'create': return `Create ${objectLabel}`;\ncase 'edit':   return `Edit ${objectLabel}`;\ncase 'view':   return `View ${objectLabel}`;\n```\n\nzh 会话打开抽屉读到的是 **\"View 联系人\"** —— 英文动词贴在本地化标签前。这不是推断:反向验证时把 `ObjectView.tsx` 还原成 main 的版本再跑新测试,渲染出的 DOM 里字面量出现了 `View 联系人` / `Create 联系人` / `Edit 联系人`,与报告人的复现完全一致。\n\n可达性门槛比 #3459 的 split 分支还低:`ObjectViewSchema.layout` 默认即 `'drawer'`,而 `navigation` 是 `object-view` 注册块上已声明的可编写输入,其 `mode` 联合类型含 `drawer` / `modal` / `popover`;任一模式下点行即 `setFormMode('view')` 并打开容器。app-shell 包装器钉 `layout: 'page'` 是宿主覆盖已注册块,不能证明分支已死。\n\n## 改法:复用既有 key 家族,而不是新造\n\n按 PM 裁定「先在十个语言包里找现成的 `Create/Edit/View` 形状的 key,找不到再造 `console.objectView.*`」—— **找到了**:\n\n- `form.createTitle` = `Create {{object}}`\n- `form.editTitle` = `Edit {{object}}`\n\n这两个 key 十包全有,而且 app-shell 的 **page 模式**记录表单标题用的正是它们(`RecordFormPage.tsx:131-132`、`AppContent.tsx:787-788`)。抽屉 / 弹窗 / 浮层的标题只是同一个标题的另一个承载面,所以解析同一组 key;另造一套 `console.objectView.*` 只会保证两处拼写迟早漂开(zh 本身就区分 新建 与 创建),而这恰是本系列 issue 要治的病。\n\n只有第三个动词没有兄弟,新增 `form.viewTitle` 到十个语言包,按各包 create/edit 双胞胎的既有语序排布,而非「翻译动词再拼标签」:\n\n| 包 | createTitle(既有) | editTitle(既有) | **viewTitle(新增)** |\n| --- | --- | --- | --- |\n| en | `Create {{object}}` | `Edit {{object}}` | `View {{object}}` |\n| zh | `新建{{object}}` | `编辑{{object}}` | `查看{{object}}` |\n| de | `{{object}} erstellen` | `{{object}} bearbeiten` | `{{object}} anzeigen` |\n| ja | `{{object}}を作成` | `{{object}}を編集` | `{{object}}を表示` |\n| ko | `{{object}} 생성` | `{{object}} 편집` | `{{object}} 보기` |\n| fr | `Créer {{object}}` | `Modifier {{object}}` | `Afficher {{object}}` |\n| es | `Crear {{object}}` | `Editar {{object}}` | `Ver {{object}}` |\n| pt | `Criar {{object}}` | `Editar {{object}}` | `Ver {{object}}` |\n| ru | `Создать {{object}}` | `Редактировать {{object}}` | `Просмотреть {{object}}` |\n| ar | `إنشاء {{object}}` | `تعديل {{object}}` | `عرض {{object}}` |\n\n`VIEW_DEFAULT_TRANSLATIONS`(#3464 在本文件建好的兜底表)补上三条英文,供无 `I18nProvider` 的宿主使用。\n\n**两个分支刻意保持原样**,并各有测试钉住:`schema.form?.title` 覆盖(作者写了标题就用作者的,任何语言下都是)、以及 `default` 分支(只回标签,没有动词可译)。\n\n工具栏那个「新建」**按钮**仍解析 `console.objectView.new`,刻意没有拿来当标题:按钮动词与标题是两种语境,把它们并成一个 key 正是下一次同形漂移的起点。\n\n## 与 PM 裁定的一处偏差(需知会)\n\n插值变量是 `{{object}}` 而非派发单里写的 `{{label}}`。这是复用既有 `form.*Title` 家族的机械后果 —— 该家族声明的就是 `{{object}}`,而 `all-locales-key-parity` 的占位符守卫是按 key 逐个比对占位符集合的;给 `viewTitle` 单独用 `{{label}}` 会让它与两个兄弟不一致。若维护者更希望另起 `console.objectView.*` 家族,改回来的成本很小,但代价是与 app-shell 的 page 模式标题分家。\n\n## 测试\n\n新增两个文件,分文件的理由沿用 #3464:`createI18n` 会把实例注册成 react-i18next 的**模块级全局默认**,该注册在 `cleanup()` 后仍在,所以「无 provider」断言必须独占一个文件。\n\n- `ObjectView.formTitleI18n.test.tsx` —— 13 例,三个动词 × en/zh/de(+ view 的 ja),外加 modal `DialogTitle`、popover `NavigationOverlay` 两个消费点,以及 `schema.form.title` 覆盖。\n- `ObjectView.formTitleNoProviderFallback.test.tsx` —— 4 例,无 provider 时三个动词的英文兜底 + 无 label 时回落到 `objectName`。\n\n**de 是承重断言**:德语动词在标签**之后**(`Kontakte anzeigen`),任何「翻译动词再拼接」的写法在任何动词取值下都产不出这个语序 —— 将来若有人把 key 退化成动词查表,这条会红。\n\n### 反向验证(方向在跑之前就定好了)\n\n预测:zh/de/ja 各动词 —— 改前红、改后绿;en、无 provider、`form.title` 覆盖 —— 两侧皆绿(逐字节钉死)。\n\n用 `git checkout origin/main -- packages/plugin-view/src/ObjectView.tsx` 还原实现、保留新测试与语言包后实测:\n\n```\n Test Files  1 failed | 1 passed (2)\n      Tests  9 failed | 8 passed (17)\n```\n\n9 条红的全部且仅为 zh/de/ja 用例(view/edit/create 三态 + modal + popover);8 条绿的是 3 条 en + 1 条 `form.title` 覆盖 + 4 条无 provider 兜底。**方向与预测完全一致**。恢复实现后 17/17 全绿。\n\n### 完整跑批(仓库根,flock 串行,`--maxWorkers=2`)\n\n```\nnpx vitest run --maxWorkers=2 packages/plugin-view packages/i18n\n Test Files  32 passed (32)\n      Tests  363 passed (363)\n```\n\n含 `all-locales-key-parity.test.ts`(十包 key 与占位符全量对齐)。\n\n```\nturbo run type-check --filter=@object-ui/plugin-view --filter=@object-ui/i18n\n Tasks:    16 successful, 16 total\n\nturbo run lint --filter=@object-ui/plugin-view --filter=@object-ui/i18n\n ✖ 138 problems (0 errors, 138 warnings)   ← 全为既有 warning\n```\n\n### 消费半径清扫\n\n按规则用 key 的消费半径而非改动包来扫 fixture:全仓 grep 旧标题字面量(`View Contacts` 等)与 `getFormTitle`,除本 PR 自己的测试外,没有任何 e2e spec 或宿主测试按旧英文串寻址这块 chrome —— 英文输出逐字节不变,所以本来也无需改动。\n\n### 字节自查\n\n`node scripts/check-control-bytes.mjs` 通过(扫 3668 个文件);另按规则做了超出闸门的自查 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'`,改动文件全部干净。\n\nChangeset:`.changeset/object-view-form-title-i18n-3462.md`(`@object-ui/plugin-view` + `@object-ui/i18n`,均为 patch)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

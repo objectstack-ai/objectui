@@ -1,0 +1,34 @@
+{
+  "number": 3461,
+  "kind": "issue",
+  "title": "console: 业务记录页看不到审批信息 —— 「等待以下审批人」与审批动态只长在审批中心,非审批人看不到任何进展",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:19:37Z",
+  "updated_at": "2026-08-06T13:38:45Z",
+  "closed_at": "2026-08-06T13:38:45Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3461",
+  "body": "## 现象(真机,os-tianshun-ehr QIF 三级审批流)\n\n一张处于「01 审批中」的业务单据,在业务应用里**任何人都看不到它在等谁审**:\n\n- **列表页**:只有一列「当前审批节点 = ① 质检部部长」(业务对象自己的 `stageField` 字段)。节点名不等于人——② 多部门并行会审这种动态节点,连是哪几个岗位在会审都看不出来。\n- **记录详情页**:顶部阶段条高亮当前节点,`详情 / 相关 / 附件 / 历史` 四个页签里,**没有任何一处显示待审批人**。\n- **`历史` 页签**:审批流以 `runAs:'system'` 回写业务字段,所以历史里全是「系统 UPDATE 当前审批节点: → ① 质检部部长」。审批动作本身落在 `sys_approval_action`,不进记录历史 ⇒ **「谁批的、什么时候批的、审批意见是什么」在业务侧零留痕展示**。\n\n提交人想催办,不知道该催谁;质量主管想盘点卡单,只能一张张翻。\n\n## 数据和组件平台其实都有,只是没接到业务记录页上\n\n1. **接口有**:记录页本来就在拉 `GET /api/v1/approvals/requests?object=<对象>&recordId=<id>`,返回的 request 里带 `pending_approvers`、`current_step`、`status`。\n2. **组件有**:审批中心抽屉里 `waitingOn: 等待以下审批人`、`审批动态`、`审批进度 — {{got}} / {{need}}`、`会签进度 — {{got}} / {{need}} 组`、`催办` 全都实装了。\n3. **但记录页拿到数据后只用来算一件事**:当前登录人是不是待审人;是就往页头塞【批准】【驳回】两个按钮。名单本身、审批动态一律不渲染;hook 返回的 `latestRequest` 在记录页没有任何消费方(空转)。\n\n(核查基于发布包 `@objectstack/console@17.0.0-rc.3` 的 `dist/assets/RecordDetailView-*.js`;对应源码位置按 objectui#3055 给出的是 `packages/app-shell/src/views/RecordDetailView.tsx` + `packages/app-shell/src/hooks/useRecordApprovals.ts`。)\n\n## 为什么「让用户去审批中心看」不成立\n\n审批中心 (`/_console/apps/setup/system/approvals`) 与 `sys_approval_request` 的导航项都挂在 **setup 应用**下(`navigationContributions: [{ app: 'setup', group: 'group_approvals', ... }]`)。业务应用的普通角色:\n\n- 没有这些平台导航能力,菜单被服务端 `filterAppForUser` 剪掉,入口根本不可达;\n- 就算放开,也意味着授予 `sys_approval_request` 读权 = **能看到全租户所有单据的审批请求**,越权面太大,不能为了看一张单的审批人而开这个口子;\n- 且通用对象列表里 `pending_approvers` 是逗号分隔的**裸 user id**(字段类型 `textarea`),直接展示是一串 UUID。\n\n业务用户要看的是「**我这张单**现在等谁」,这个信息天然属于业务记录页,不该要求他跳到平台管理应用去。\n\n## 应用侧也绕不过去\n\n想在业务对象详情页挂一个「审批请求」相关列表也不行:`sys_approval_request.record_id` 是 `text`(不是 lookup),没有关系字段可供 relatedList 关联。\n\n应用侧唯一的绕法是自己加一枚字段、再写 Hook 从 `sys_approval_request` 回写审批人姓名——等于在每个应用里重写一遍引擎的审批人解析,还会在转派 / 委托 / per_group 部分完成 / admin_rescue 这些路径上与引擎真值漂移。这是明显该由平台一次做对的事。\n\n## 建议\n\n业务记录页增加一个**审批信息区块**,对**所有对该记录有读权的人**可见(不只是当前审批人):\n\n1. 当前节点 + 状态 + **等待以下审批人**(解析成姓名,群组审批人显示为岗位/团队名 + 其可审人数,避免裸 id);\n2. **审批动态**:各级谁在何时做了什么决策、审批意见、附件 —— 与审批中心抽屉同一份数据(`sys_approval_action`);\n3. 会签/并签节点显示进度(`{{got}} / {{need}}`),复用现有文案键;\n4. 提交人可就地【催办】(`POST /api/v1/approvals/requests/{id}/remind` 已有)。\n\n组件和文案在审批中心抽屉里都现成,期望主要是**把它接到记录页**并按读权(而非审批权)控制可见性。\n\n若能顺带把 `pending_approvers` 在 API 层解析出显示名(而不是让每个消费方各自解析 id),下游会更省事。\n\n## 与既有 issue 的关系\n\n- **objectui#3055**(记录页审批入口与声明动作双实现不一致):讲的是**动作入口**残缺(转派/退回/要补充材料零入口、群组审批人看不到决策按钮)。本条讲的是**只读信息可见性**——即使 #3055 修好,非审批人依然看不到「在等谁」和「谁批过」。两条建议一起修:记录页复用声明动作(#3055)+ 补审批信息区块(本条)。\n- **objectui#2763**(把审批 UI 重建在标准 SDUI 渲染器上):若走 SDUI 重建,本条诉求应作为该架构下记录页的一个标准区块纳入。\n\n## 环境\n\n`@objectstack/*@17.0.0-rc.3`;复现对象为应用侧自定义对象 + `type:'approval'` 流节点(position 型审批人 + `behavior:'per_group'` 并行会审),非平台内置对象特有。\n"
+}

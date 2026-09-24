@@ -1,0 +1,32 @@
+{
+  "number": 3365,
+  "kind": "issue",
+  "title": "[console] 相关表 Add 记录选择器丢弃平台自己声明的 add.picker.labelField,候选行只显示机器名(sys_position → platform_admin 而非 Platform Admin)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T06:01:53Z",
+  "updated_at": "2026-08-06T00:48:44Z",
+  "closed_at": "2026-08-06T00:48:44Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3365",
+  "body": "## 症状\n\nSetup 用户记录页(`sys_user` record)的「岗位」页签点「分配岗位」,弹出的记录选择器**只有一列 `NAME`,行文本是岗位机器名**(`ehr_appr_qc_director`、`platform_admin` …),不是岗位名称(`质检部部长`、`Platform Admin`)。\n\n平台自己的页面元数据**已经声明了要显示 label**,是渲染层没接:\n\n- `@objectstack/platform-objects` → `src/pages/sys-user.page.ts`:\n  ```ts\n  add: {\n    picker: { object: 'sys_position', valueField: 'name', labelField: 'label' },\n    linkField: 'position',\n    label: { en: 'Assign position', 'zh-CN': '分配岗位', … },\n  }\n  ```\n- `@objectstack/console` → `plugins-views` 的 `record:related_list`:打开选择器时只透传\n  `{ open, onOpenChange, multiple, dataSource, objectName: x.picker.object, title, onSelect, onSelectRecords }`\n  —— **`picker.labelField` 从未传下去**(`picker.valueField` 只在 `onSelectRecords` 回调里用于取值写 linkField)。\n- 选择器组件自身的默认参数是 `displayField = 'name'`,列集合 `columns && columns.length > 0 ? columns.map(…) : [{ field: displayField, label: titleCase(displayField) }]` —— 于是表头恒为 `NAME`、行恒显 `name`。\n\n同页「权限集」页签的「授予权限集」弹窗**同症**(声明了 `picker.labelField:'label'`,显示 `admin_full_access` / `ehr_operator`),所以不是 `sys_position` 专属,而是所有 `record:related_list` 的 Add picker。\n\n## 复现步骤\n\n1. 起一个空库实例(本例 17.0.0-rc.3),`sys_position` 里内建 6 条岗位本身就有 label(`platform_admin` → `Platform Admin`);再建几条业务岗位,如 `{ name: 'ehr_appr_qc_director', label: '质检部部长', active: true }`;\n2. Setup → 用户 → 打开任意用户记录页 → 「岗位」页签 → 点「分配岗位」;\n3. 弹窗表头 `NAME`,15 条候选**全是机器名**,一个 label 都没有;\n4. 在弹窗搜索框输入 `质检部部长` → **能搜到**(请求 `GET /api/v1/data/sys_position?top=10&skip=0&search=质检部部长` 返回该记录),但命中行**仍旧渲染 `ehr_appr_qc_director`**;\n5. 同一记录页「权限集」页签 → 「授予权限集」→ 同样只显示 `admin_full_access` / `ehr_operator` 等机器名。\n\n第 4 步说明:label 就在候选数据里(服务端 `$search` 命中的正是它),纯粹是渲染层没用。\n\n## 期望\n\n`record:related_list` 的 `add.picker` 把 `labelField` 透传给记录选择器(作为 `displayField`,或据此生成默认列),让候选行显示业务可读名称;表头也应取字段 label 而不是 `titleCase(fieldName)`。\n\n## 影响\n\n给用户挂岗位 / 授权限集是管理员的日常操作,现在只能看着英文机器名猜要选哪个。挂错岗位会直接影响审批人解析与权限授予。应用侧无覆盖点——这是平台内置 Setup 页,且元数据侧已经按正字声明了 `labelField`。\n\n## 相关\n\n与 #3333(记录选择器 select 列不解析 options label)、#3330(相关列表 lookup 列闪变 API name)同属「弹窗/相关表格不走字段格式化」家族,但触发位与数据通路不同,故分开报。\n\n## 版本\n\n`@objectstack/console` / `@objectstack/platform-objects` 17.0.0-rc.3(runtime/spec/objectql/cli 同版本);macOS Chrome,zh-CN。应用侧未做任何绕行。\n\nPart of steedos-labs/os-project-titanwind-ehr#804"
+}

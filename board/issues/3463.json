@@ -1,0 +1,32 @@
+{
+  "number": 3463,
+  "kind": "issue",
+  "title": "[finding] ObjectKanban 里两处死代码:`navIsOverlay` 算了从不用,`detailTitle` 的无 objectName 分支不可达",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:22:49Z",
+  "updated_at": "2026-08-06T07:49:59Z",
+  "closed_at": "2026-08-06T07:49:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3463",
+  "body": "发现于 #3459 的可达性判定过程。两处都**不影响任何用户今天看到的东西**,故打 `finding`、不进队列 —— 记录下来是因为其中一处已经骗过了一次 issue 的立单判断。\n\n## 1. `navIsOverlay` 计算后从未被读\n\n`packages/plugin-kanban/src/ObjectKanban.tsx`(#3459 的 PR 之前约 496 行):\n\n```ts\nconst navIsOverlay = !externalClick && (navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover');\n```\n\n全仓 grep `navIsOverlay` 只在本文件命中这一行;渲染处读的是 hook 返回的 `navigation.isOverlay`。同名变量在 `plugin-calendar/src/ObjectCalendar.tsx` 与 `plugin-gantt/src/ObjectGantt.tsx` 里是**被用的**(喂 `onRowClick: navIsOverlay ? undefined : onRowClick`),kanban 这份看着像是从那两处抄来后改了写法却没删。\n\n注意两者语义并不等价:kanban 这份多了 `!externalClick`,而 `navigation.isOverlay` 只看 mode。删之前应确认没有人本打算用它做「宿主接管时不渲染浮层」的门 —— 实际的门现在写在渲染处的 `navigation.isOverlay && navigation.isOpen && navigation.selectedRecord`,而 `externalClick` 的抑制由 `useNavigationOverlay` 内部的 `onRowClick` 优先级实现,所以行为不缺。\n\n## 2. `detailTitle` 的第二分支结构性不可达\n\n```ts\nconst detailTitle = schema.objectName ? `${...} Detail` : 'Card Details';   // 修前\n...\n{navigation.isOverlay && navigation.isOpen && navigation.selectedRecord && (() => {\n  const objectName = schema.objectName;\n  ...\n  if (!objectName || recordId == null) return null;      // ← 同一个条件\n  const titleText = titleField && rec[titleField] ? String(rec[titleField]) : detailTitle;\n  return <RecordDetailDrawer title={titleText} ... />;\n})()}\n```\n\n`'Card Details'` 只在 `!schema.objectName` 时产生,而消费它的 IIFE 在**同一条件**下 `return null`。实测:不带 `objectName` 渲染看板、点卡片,`screen.queryByRole('dialog')` 为 `null`,浮层根本不开。\n\n#3459 立单时把这三处都当作同构的可见标题,这一处其实是死分支 —— 「看上去同构 ≠ 可达」的一个具体样本。\n\n**#3459 的 PR 已经把这条分支 key 化了**(`t('detail.recordDetail')`,顺手抹掉那个复数拼写),并在 `ObjectKanban.overlayTitleI18n.test.tsx` 里钉住了「无 objectName 时压根不开浮层」这个事实,所以不会有人再给它补一个「因为什么都没渲染所以通过」的幽灵断言。留下的观察是**结构本身**:要么把 `detailTitle` 的计算挪进 IIFE(那里 `objectName` 已被窄化),要么保留防御分支并接受它不可达。这是取舍,不是缺陷,所以不进队列。\n\n## 处置建议\n\n两条都属于「读代码的人会被误导」而非「用户受影响」,合并成一个小清理 PR 即可,或在下次动这个文件时顺手做掉。\n\n相关:#3426(PR #3457)、#3459。\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3501,
+  "kind": "issue",
+  "title": "fix(core/plugin-grid): lookup 等关系字段在动作/条件格式表达式里没有通用写法——展开与投影让同一条谓词在三个面得到三种结论",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T15:17:29Z",
+  "updated_at": "2026-08-07T05:08:35Z",
+  "closed_at": "2026-08-07T05:08:35Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3501",
+  "body": "`lookup` / `master_detail` / `user` 字段在动作 `visible` / `disabled` / 条件格式的表达式里**没有一种写法是通用的**：同一条谓词在列表、详情、批量三个面上会得到三种不同结论，而且两种失败都是静默的。\n\n## 复现（对着真实 runtime 实测，showcase `showcase_task.project`，master_detail → `showcase_project`）\n\n服务端 `$expand`（wire 上是 `populate=`）**把外键 id 原地替换成整条关联记录**：\n\n```\nGET /api/v1/data/showcase_task?top=1\n  → \"project\": \"MURYjcjLhoir9Vzk\"\n\nGET /api/v1/data/showcase_task?top=1&populate=project\n  → \"project\": { \"id\": \"MURYjcjLhoir9Vzk\", \"name\": \"Website Relaunch\", ... }\n```\n\n而客户端 `$expand` 的范围是 `buildExpandFields(fields, columns)` —— **视图把哪个关系字段当作「列」显示，就展开哪个**。这是一个纯展示决策，写谓词的人根本不参与。再叠加 `$select` 只按列构造（`ListView.tsx` 的 `selectFields` / `ObjectGrid.tsx` 的 `getSelectFields`），同一个字段在客户端一共有四种形态。把这四种形态喂给 CEL 引擎（`@objectstack/formula`）实测：\n\n| 记录里的值 | `record.project == \"P1\"` | `record.project.id == \"P1\"` |\n|---|---|---|\n| `'P1'`（未展开） | **true** | fault |\n| `{ id: 'P1', … }`（已展开） | **false** | true |\n| `null`（关系为空） | false | fault |\n| 缺席（不在 `$select` 里） | fault | fault |\n\n**没有一列是全对的**，作者写哪种都会在某个面上翻车。而且 fault 的后果按面而不同，两个方向都错：\n\n- 行内 kebab / 批量栏（`evalRowPredicate`，`fallback: false`）→ **fail-closed**，按钮对所有人静默消失；\n- 走 `evaluateCondition` 不带 `throwOnError` 的宽松路径 → `catch { return true }` → **fail-open**，按钮对所有人显示。\n\n服务端那一侧只有第一行：CEL 看到的是存储值，也就是 id。所以「客户端与服务端对同一条谓词得到相同结论」（ADR-0036 / ADR-0058 反复申明的目标）在关系字段上**根本不成立**。\n\n## 方案\n\n1. **谓词作用域按服务端语义绑定记录** —— 新增 `toPredicateRecord(record, fields)`（`packages/core/src/utils/predicate-record.ts`）：按对象自己的字段类型（`EXPANDABLE_FIELD_TYPES`，与决定展开的是同一个集合），把已展开的关系值折回它代表的 id；`multiple: true` 的数组逐元素折。**由 schema 驱动而不是嗅探形状** —— 「带 id 键的对象」会误伤 `json` 字段。接进四个求值口：`evalRowPredicate` / `resolveConditionalFormatting`（core）、`useRowPredicate`（react）、`partitionBulkRows`（plugin-grid）、`page:header` 的两个 `ExpressionEvaluator`（components/containers.tsx）；调用方（ObjectGrid / ListView / 详情页头）把 `objectSchema.fields` 传下去。展示侧不动 —— 详情页标题插值照旧读原始 `ctx.data`，关系字段仍然显示名称。\n\n2. **`$select` 补上谓词读到的字段** —— 新增 `collectPredicateFieldRefs` / `listViewPredicates`（`packages/core/src/utils/predicate-fields.ts`），从条件格式、`rowActionDefs`、`bulkActionDefs`、对象动作、`userActions` 覆盖里收集 `record.x` / `data.x` 引用，**与对象已声明字段取交集**后加进 `$select`（ObjectGrid 与 ListView 各自的投影处）。交集是必须的：未知列不是每个后端都会忽略，cloud runtime 会直接返回空结果集，那样一个拼错的谓词就能把整个列表清零。**不加 `$expand`** —— 谓词要的就是裸外键，只展开有列要显示的那些。\n\n3. 测试：`toPredicateRecord` 的四种形态 + 数组 + 非关系字段不受影响 + 引用返回；`collectPredicateFieldRefs` 的三种谓词形态与 `record.`/`data.` 前缀；四个面上同一条 `record.<lookup> == os.user.id` 得到同一结论。\n\n## 验收\n\n同一条 `visible: 'record.owner == os.user.id'`，在列表工具栏、行内 kebab、详情页头、批量栏，以及服务端 CEL，对同一用户给出**相同**结论；关系字段为空（`null`）时干净地求值为假而不是 fault；谓词引用的字段即使不是列也在 payload 里。\n"
+}

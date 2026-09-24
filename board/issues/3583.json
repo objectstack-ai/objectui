@@ -1,0 +1,33 @@
+{
+  "number": 3583,
+  "kind": "pull_request",
+  "title": "fix(i18n,app-shell): 补齐 8 处无兜底裸 key 调用点的十语言包文案 (#3546 切片一)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:34:35Z",
+  "updated_at": "2026-08-07T14:48:43Z",
+  "closed_at": "2026-08-07T14:48:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T14:48:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3583",
+  "body": "Fixes-part-of #3546\n\n#3546 切片一。#3547 的守卫量出 258 个 `t()` 引用但十个包都没有的 key,本切片只处理其中**没有可用内联兜底**的 8 处调用点(工单正文标出的那一批),背后是 5 个 key。其余 250 个按命名空间的批次串行开,本 PR 不碰。\n\n⛔ 没有新增任何 `defaultValue` —— 那正是让 258 个 key 藏了几个月的机制,工单明令禁止。\n\n## ⚠️ 前置核实推翻了工单对其中 2 处的定性\n\n按\"工单是线索不是规格\"的要求,动手前在 `origin/main` 上逐点实测了这 8 处**挂载 provider 后**的真实渲染值。结论是 **8 处里只有 6 处真的把 raw key 给了用户**,另外 2 处的兜底本来就是生效的:\n\n| 调用点 | 绑定 | 修复前实测(挂 provider) | 工单说法 | 判定 |\n|---|---|---|---|---|\n| `ObjectView.tsx` ×5 | `useObjectTranslation()` 裸用 | `\"console.objectView.cannotEditMetaView\"` | raw key | ✅ 成立 |\n| `RecordActivityTimeline.tsx` | `createSafeTranslation(…, 'detail.back')` | `\"detail.viewSource\"` | raw key | ✅ 成立 |\n| `WizardForm.tsx` | `createSafeTranslation(…, 'wizard.missingRequired')` | `\"Please complete the required fields: A, B\"` | raw key | ❌ **不成立** |\n| `GanttView.tsx` | `useGanttTranslation()` | `\"Refresh\"` | raw key,读屏用户听到 key | ❌ **不成立** |\n\n两处不成立的原因各不相同,都在代码里写着:\n\n- **WizardForm** 的 `testKey` 就是缺失的那个 key 本身。`createSafeTranslation` 的探针因此**正确地**判定\"翻译未配置\",交出 `fallbackT`,英文默认值照常渲染。\n- **GanttView** 走的 `useGanttTranslation` **刻意不用** `createSafeTranslation` —— 它逐 key 兜底,源码注释明写理由(宿主字典常常译了通用 key、落下新 key,单 key 探针处理不了半译字典)。所以 host 未命中时落到 `GANTT_DEFAULT_TRANSLATIONS`,`aria-label` 是英文 `Refresh`,不是 key。工单把 `createSafeTranslation` 的语义安在了一个明确规避它的钩子上。\n\n这 2 处仍然是缺陷,只是属于**较轻的 #3517 类**(英文照常渲染,十种语言译不了),不是\"用户今天看得见裸 key\"。分诊评论把 aria-label 那处当作\"反对自己定级的最强论据\",而它恰恰是被推翻的两处之一 —— 定级请据此重估。**修法不变**(5 个 key 一样要补),变的只是严重度。\n\n## 改了什么\n\n**1. 五个 key 回填十包**(`console.objectView.cannotEditMetaView` / `cannotDeleteMetaView`、`detail.viewSource`、`gantt.toolbar.refresh`、`wizard.missingRequired`)。\n\n九包逐条按邻键的语气/词汇/标点惯例写,不是照抄:fr 用法语冒号前空格(`obligatoires : {{fields}}`,与邻键 `missingRequiredHint` 一致)、de 用该包惯用的 `–`、es 用冒号代破折号(该包 `filterOrNotSavable` 就是这么写的)、pt 沿用 `exibição`(与 `deleteViewTitle` 一致)、ko 用 `보기`、ru 保留 ё 正字法(`определённое`)、ar 占位符置尾、zh 全角标点且中英文间不加空格。\n\n`detail.viewSource` / `gantt.toolbar.refresh` / `wizard.missingRequired` 的英文与各自组件 defaults map 里的字符串**逐字一致**,避免 provider 路径与无 provider 路径分叉。\n\n**2. 删掉 ObjectView 五处死兜底。** 这五个 `|| '英文'` **在 key 缺失时也永远不触发** —— i18next 未命中返回 key 本身,是非空字符串,`||` 不会落下去。它们不是\"兜底失效\",是从写下那天起就不可达的代码。\n\n一个额外事实值得记录:这**一个** key 服务四个调用点(重命名 / 置顶 / 设为默认 / 配置),四处死兜底写的是四句不同的英文。既然它们从未渲染过,本 PR 把包文案写成覆盖\"对内置视图的任何修改\"的一句,而不是挑其中一句。若维护者希望四种操作各有文案,那是拆 key 的独立改动。\n\n**3. 棘轮基线精确减 5 条**,`missingKeys` 258 → 253,`missingPrefixes` 4 条未动(那 4 个整族缺失前缀属于后续切片)。\n\n## 验证(方向都是跑之前先预测的)\n\n**守卫** `node scripts/check-i18n-call-site-keys.mjs`:\n\n| 指标 | 预测 | 实测 |\n|---|---|---|\n| 退出码 | 0 | 0 |\n| 可解析调用点 | 2043 → 2051(+8) | 2043 → **2051** |\n| en 包 key 数 | 2641 → 2646(+5) | 2641 → **2646** |\n| 基线 `missingKeys` | 258 → 253(−5) | 258 → **253** |\n\n**逆向验证 A —— 中间态(只补 en,九包回退)**,两个预测都精确命中:\n\n- 平价测试对九个语言各报 `is missing 5 key(s)`,列出的正是本切片这 5 个;\n- 棘轮**同时**转红,理由是\"条目已修好却还留着\":\n  ```\n  5 baseline entries are stale — the defect is gone, so the entry must go too\n    missingKeys: console.objectView.cannotDeleteMetaView\n    ...\n  EXIT=1\n  ```\n  这正是棘轮该有的行为 —— 只补 en 不补包、或补完不删条目,都拦得住。\n\n**逆向验证 B —— 新增的 zh 断言真的有鉴别力。** 从 zh 包单独摘掉 `gantt.toolbar.refresh` 后重跑新测:\n```\n× is labelled in Chinese under a zh provider (the pre-fix failure)\nAssertionError: expected 'Refresh' to be '刷新'\n```\n红的方式本身就是上面那张表的直接证据:修复前 zh 会话拿到的是**英文默认值**,不是 raw key。同一文件的 en 用例保持绿 —— 这也说明**光靠 en 断言等于没断言**(那两处修复前后的 en 输出完全相同),真正钉住修复的是 zh 那半边。\n\n**测试(仓库根 vitest)**\n\n```\npackages/i18n                                   23 files / 284 tests  ✅\npackages/plugin-gantt + plugin-detail + plugin-form  124 files / 1124 tests  ✅\npackages/app-shell                             285 files / 2492 passed, 1 skipped  ✅\n```\n\n`turbo run type-check`(i18n / app-shell / plugin-detail / plugin-gantt / plugin-form):**33 successful, 33 total**。\n`pnpm check:control-bytes` ✅、`pnpm changeset:check` ✅。\n\n## 新增测试为什么都挂 provider\n\n工单记录的陷阱就是这个:不挂 provider 时 defaults map 会把这几个 key 全部答对,断言全绿而控制台是坏的。三个新文件都在 `I18nProvider` 下跑,并且都用**各调用点真实的绑定形态**:\n\n- `packages/i18n/src/__tests__/raw-key-call-sites-3546.test.tsx` —— 5 个 key × 十包完整性 + en/zh 经三种真实绑定解析;含一条\"九包不得与 en 逐字相同\"的断言(防止回填时把英文复制九份:那样键平价全绿而九种语言仍是英文,现有门禁看不见)。ObjectView 的绑定就是裸 `useObjectTranslation`,中间没有任何一层,所以在绑定层断言是忠实的 —— 不必为读一句 toast 文案去渲染整个 ObjectView。\n- `packages/plugin-gantt/src/GanttView.refreshAriaLabel.i18n.test.tsx` —— DOM 级,真渲染 `GanttView`,直接读刷新按钮的 `aria-label`(该按钮只有图标,`aria-label` 就是它的全部可访问名)。\n- `packages/plugin-detail/src/__tests__/useDetailTranslation.viewSource.i18n.test.tsx` —— 用**真实**的 `useDetailTranslation` 与真实 defaults map,顺带能发现 map 与 en 包漂移;并显式钉住\"探针 key `detail.back` 仍可解析\"这个前提,否则上面两条会以错误的理由变绿。\n\n## 顺带发现,未在本 PR 修改\n\n已另立 **#3582**(未认领、未打标签,交分诊):`console.objectView` 的 `systemViewReadonly` 与 `expandToPage` 两个 key 在八个包里存的是英文原文,且前者存的还是一句 `en` 自己已经不用的**过期**文案(包里是 \"duplicate to customize\",en 现在是 \"read-only\")。键平价、#3547 守卫、棘轮三道全绿 —— 因为没有任何一道断言\"包里的值是不是该语言\"。与 #3546 的 258 个不同类(那是十包都没有 key,这是十包都有 key 但值是英文),故单独立单。\n\n## 文件面\n\n严格限定在切片一:4 个组件文件里只动了那 8 个调用点及其死兜底(实际只有 ObjectView 需要改代码,另外 3 处无死兜底构造)、十个语言包只加本切片的 5 个 key、基线只删 5 条。其余 250 个 key 的条目一条未动。已核实与 #3518 / #3548 零文件相交(两者均已合并且早于本分支起点)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

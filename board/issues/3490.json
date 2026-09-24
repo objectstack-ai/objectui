@@ -1,0 +1,36 @@
+{
+  "number": 3490,
+  "kind": "issue",
+  "title": "content/docs 有 18 条链接在站上是 404,但 check-doc-links 按设计放行(1 条相对链接跑出 docs collection + 17 条 /spec /protocol /api /examples 绝对链接)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:26:33Z",
+  "updated_at": "2026-08-07T03:11:56Z",
+  "closed_at": "2026-08-07T03:11:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3490",
+  "body": "在 #3479 / PR #3489(把 `scripts/check-doc-links.mjs` 扩到相对链接)过程中顺手发现,记在这里由 PM 定级。**不在 #3479 的完成范围内**:#3479 的口径是 lychee 实测的 16 个目标 / 33 处引用,那批已在 PR #3489 修完并且门禁绿了;下面这 18 条 lychee 与扩展后的 checker **都判绿**,因为两者都只做「文件系统能否解析」,而这 18 条的问题是「站点路由不存在」。\n\n## 根:门禁只在 docs collection 内解析\n\n`check-doc-links.mjs` 现在校验两类 href —— 相对 href(按源文件目录解析)与绝对 `/docs/...`(按路由解析)。**其余绝对 href 一律放行**,因为从 `content/docs` 无从判断 `apps/site` 的路由表。这是当时的有意取舍,不是疏漏;但代价是下面两类实际 404 无人拦。\n\n## A. 1 条相对链接跑出了 collection\n\n`content/docs/guide/data-source.md:202`\n\n```\n[adapter README](../../../packages/data-objectstack/README.md#cross-object-atomic-batch-batchtransaction)\n```\n\n文件在磁盘上真实存在,所以 lychee `--offline` 和扩展后的 checker 都判绿。但站点侧解析不了:fumadocs 的 `source.resolveHref` 只能在 docs collection 的页面索引里查,`packages/**` 不在其中,于是 href 原样落到浏览器。\n\n**构建产物实证**(`apps/site/.next/server/app/docs/guide/data-source.html`):\n\n```\nhref=\"../../../packages/data-objectstack/README.md#cross-object-atomic-batch-batchtransaction\"\n```\n\n页面 URL 是 `/docs/guide/data-source`,浏览器相对解析后落到 `/packages/data-objectstack/README.md` —— 站上无此路由,404。\n\n## B. 17 条非 `/docs` 绝对链接指向不存在的路由\n\n`apps/site/app/` 下的路由段只有:`(home)`、`docs`、`playground`、`og`、`llms.mdx`、`api/search`(route handler)。**没有** `spec`、`protocol`、`examples`;`next.config.mjs` 只有一条 `/docs/:path*.mdx` 重写,仓库里也没有 `vercel.json`。所以下列全部 404:\n\n| 文件 | href |\n|---|---|\n| `guide/component-registry.md` | `/spec/component-package.md`、`/spec/component.md`、`/api/core`、`/api/react` |\n| `guide/schema-rendering.md` | `/spec/schema-rendering`、`/spec/architecture`、`/protocol/overview`、`/api/core`、`/api/react` |\n| `guide/expressions.md` | `/protocol/overview`、`/protocol/form`、`/protocol/view`、`/api/core` |\n| `guide/fields.md` | `/protocol` |\n| `guide/plugins.md` | `/spec/component-package.md` |\n| `guide/objectos-integration.mdx` | `/examples/crm`、`/examples/kitchen-sink` |\n\n**构建产物实证**:`.next/server/app/docs/guide/plugins.html` 里是 `href=\"/spec/component-package.md\"`,`.../expressions.html` 里是 `href=\"/protocol/overview\"` 等 —— 原样输出。\n\n(同一批里的 3 条 `/img/guide/dashboard-filters/*.png` 是**好**的:`apps/site/public/img/guide/dashboard-filters/` 下三个文件都在。)\n\n顺带一提,`/spec/component-package.md` 还带着 `.md` 后缀 —— 即便将来真有 `/spec` 路由,这个写法也仍是错的。\n\n## 可能的处理方向(由 PM/维护者定,本 issue 不预设)\n\n1. **只修内容**:把这 18 条改指真实存在的目标(`/docs/...` 页面、或 GitHub 上的 `packages/**/README.md` 绝对 URL —— `plugins/*.mdx` 里的 \"Package README\" 已经是这个写法),门禁不动。\n2. **顺带补门禁**:让 `check-doc-links.mjs` 也能判非 `/docs` 绝对 href。需要一份站点路由的真值来源(枚举 `apps/site/app` 的路由段 + `public/` 静态资源),这会让脚本从「只读 `content/docs`」变成「也读 `apps/site`」,是个设计取舍;同时可考虑拒绝跑出 collection 的相对链接(A 类)。\n3. 两者都做。\n\n方向 2 是防止再次积攒的唯一办法(#3479 的教训正是「没门禁就会攒」),但它把脚本的职责扩大了一圈,值得单独定。\n"
+}

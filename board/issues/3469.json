@@ -1,0 +1,34 @@
+{
+  "number": 3469,
+  "kind": "issue",
+  "title": "[finding][i18n] RecordFormPage 给 form.createTitle 传的 defaultValue 是 `New ${label}`,与 en 包的 `Create {{object}}` 动词不一致(当前不可达)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:59:18Z",
+  "updated_at": "2026-08-07T02:14:10Z",
+  "closed_at": "2026-08-07T02:14:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3469",
+  "body": "观察类发现,**当前用户碰不到**,故只打 `finding`,不入队 —— 由 PM 分诊定级。\n\n在 #3462(PR #3468)做消费半径清扫时顺带看到的,不属于该 issue 范围,未在该 PR 中修改。\n\n## 现象\n\n`packages/app-shell/src/views/RecordFormPage.tsx:129-132`:\n\n```ts\nconst pageTitle =\n  mode === 'create'\n    ? t('form.createTitle', { object: label, defaultValue: `New ${label}` })\n    : t('form.editTitle',   { object: label, defaultValue: `Edit ${label}` });\n```\n\n`form.createTitle` 在 en 包里是 `Create {{object}}`,而这里的 `defaultValue` 写的是 `New ${label}`。同一个标题在同一个调用点上有两种英文拼法,动词还不一样(Create vs New)。`editTitle` 那条是一致的(都是 Edit)。\n\n## 为什么现在不可达\n\n`form.createTitle` 十个语言包全部定义(`en.ts:146` 等),`all-locales-key-parity.test.ts` 也在持续钉住这一点,所以 i18next 永远解析得到,`defaultValue` 这一支是死的 —— 无论有没有 provider,页面标题都是 `Create Contacts`。\n\n它属于「已声明但不被执行」的漂移:只有当 `form.createTitle` 从包里被删掉(或 key 被改名)时才会突然显形,而那一刻页面标题会从 `Create X` 变成 `New X`,且没有任何测试会红。\n\n## 与 #3462 的关系\n\n#3462 把 `ObjectView` 的抽屉/弹窗/浮层标题也接到了这同一组 key 上,所以现在有四个承载面共用 `form.createTitle`。这条 `defaultValue` 是这组 key 周围唯一一处不同拼法,清掉它能让「这个标题只有一种英文」这件事成为结构性事实,而不是巧合。\n\n顺带一提:工具栏的**创建按钮**解析的是 `console.objectView.new`(`New` / 新建),这是刻意与标题分开的另一个 key —— 按钮动词与标题是两种语境。所以这里的 `New` 并不是「跟按钮对齐」的有意设计,两处也没有任何代码关联。\n\n## 可能的处理\n\n- A. 把 `defaultValue` 改成 `Create ${label}`,与包一致(最小改动)。\n- B. 直接删掉这两个 `defaultValue` —— key 有 parity 测试保证存在,兜底本身就是冗余;同文件下面 `form.createSuccess` / `form.updateSuccess` 等也有同形 `defaultValue`,可一并评估。\n\n倾向 B:`defaultValue` 在一个由 parity 测试保证不缺 key 的仓库里,是「消费端容忍」而非契约,留着只会成为第二处会漂的拼写。但这是维护者的取舍,不在本 finding 的判断范围内。\n"
+}

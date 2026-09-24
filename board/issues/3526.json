@@ -1,0 +1,32 @@
+{
+  "number": 3526,
+  "kind": "pull_request",
+  "title": "fix(i18n): 组织写入目标徽标在十种语言下都渲染译文,而不是英文兜底",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:49:28Z",
+  "updated_at": "2026-08-07T03:11:55Z",
+  "closed_at": "2026-08-07T03:11:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T03:11:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3526",
+  "body": "Fixes #3517\n\n`form.createTargetOrg`(ADR-0105 集团租户「写入目标」徽标,`RecordFormPage` create 模式渲染)**在十个语言包里一个都没有定义,连 `en` 都没有**。i18next 是真的 miss,渲染出来的是调用点的内联 `defaultValue`,所以该徽标在十种语言下全是英文 —— 中文控制台在组织隔离对象上新建记录时,头部会出现一句 `Creates in 某某组织`。\n\n`all-locales-key-parity.test.ts` 看不见这条:它断言的是「每个包定义了 **`en`** 的每个 key」,`en` 自己没有的 key 不在比较范围内,十个包一致地缺失反而让 parity 完全绿。\n\n## 改了什么\n\n1. **`en.ts` 回填** `createTargetOrg: 'Creates in {{org}}'`,parity 门禁随即要求其余九包跟上。\n2. **九个语言实译**,按各包既有 `form` 段的语气与词汇,不是机翻占位、也不是英文复制(逐条理由见下表)。\n3. **删掉 `RecordFormPage.tsx` 的内联 `defaultValue`** 及其说明注释 —— 这是 #3469 留下的最后一条例外,现在该文件每一处 `t()` 都是裸调用。Declared = enforced:语言包是这份文案的唯一来源,key 缺失必须显形(裸 key + dev missing-key 告警),而不是在调用点糊过去。\n4. **反转 #3516 留下的两条例外钉扎**:`form.createTargetOrg` 并入 `BARE_KEYS`(钉住十包都有),渲染断言改为按**语言包**取值,并按该文件既有的写法**同时断言 zh** —— 被删掉的英文默认值无论如何都满足不了中文断言。\n\n## 九个语言的取词依据\n\n| 包 | 译文 | 依据 |\n|---|---|---|\n| zh | `创建到{{org}}` | 与 `新建{{object}}` 一致,插值前后不加空格;「创建到」表达写入方向 |\n| ja | `作成先: {{org}}` | 沿用 `相手の保存時刻: {{time}}` 的「名词 + 半角冒号 + 值」徽标句式;`作成先` 正是写入目标 |\n| ko | `{{org}}에 생성` | 与 `{{object}} 생성` 同词(생성);조사 `에` 不随收音变化,插值安全 |\n| de | `Wird in {{org}} erstellt` | 与 `{{object}} erstellen` 同词根,被动现在时对应 \"Creates in\" |\n| fr | `Création dans {{org}}` | 名词式,避免与按钮态 `Créer {{object}}` 混淆 |\n| es | `Se crea en {{org}}` | 自反被动,西语 UI 常见(\"se crea en / se guarda en\") |\n| pt | `Criação em {{org}}` | 名词式;刻意**不用** `Criado em`,它会与日期字段「Criado em 某日期」歧义 |\n| ru | `Создаётся в {{org}}` | 与 `Создать {{object}}` 同词根;用 ё,与该包 `несохранённые`/`обновлён` 的正字法一致 |\n| ar | `الإنشاء في {{org}}` | 与 `إنشاء {{object}}` 同词根;占位符置于句末,与该包 `تحرير {{label}}`、`الخطوة {{current}} من {{total}}` 的 RTL 语序一致 |\n\n## 测试方向(先预测再跑)\n\n- **改动前(fresh main)**:两条例外钉扎绿(它们断言「缺失」)—— 实测 36 passed。\n- **仅做第 1 步(只改 `en.ts`)——刻意跑的中间态**:parity 红 + 例外钉扎红,共 **10 failed**。九条形如(以 `ar` 为例,zh/ja/ko/de/fr/es/pt/ru 同形):\n\n  ```\n  ar is missing 1 key(s): expected [ 'form.createTargetOrg' ] to deeply equal []\n  ```\n\n  外加例外钉扎打出它自己写好的指令:\n\n  ```\n  form.createTargetOrg is now translated — backfill done, so remove the inline\n  defaultValue in RecordFormPage.tsx: expected [ 'en' ] to deeply equal []\n  ```\n\n  两道门禁都确实会响。\n- **全部改完**:全绿。\n\n**反向验证的方向是「无变化」,不是「变红」,这里如实记录**:把 `RecordFormPage.tsx` 从 origin/main 检出(把 `defaultValue` 装回去),测试文件 **17 passed 依旧全绿** —— 因为 key 现在能从语言包解析,i18next 根本不会去看 `defaultValue`,它又变回死代码。这正是本 issue 描述的缺陷形态(没有测试能看见的死分支),所以真正的红色方向是上面那个中间态,而不是「把删掉的肢体装回去」。\n\n## 验证\n\n```\npnpm exec vitest run packages/i18n packages/app-shell\n  Test Files  305 passed (305)\n       Tests  2732 passed | 1 skipped (2733)\n\npnpm --filter @object-ui/i18n type-check       # tsc --noEmit,无输出\npnpm --filter @object-ui/app-shell type-check  # tsc --noEmit && tsc -p tsconfig.typetests.json,无输出\nnode scripts/check-control-bytes.mjs           # OK(3690 个文本文件)\n```\n\nChangeset:`.changeset/create-target-org-translated-3517.md`,`@object-ui/i18n` 与 `@object-ui/app-shell` 各一条 patch。未触碰 `content/docs/releases/`。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

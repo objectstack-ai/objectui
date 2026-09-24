@@ -1,0 +1,32 @@
+{
+  "number": 3346,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 权限集编辑页系统能力胶囊墙加自身 max-height,对象权限矩阵不再被压到 0 高不可达 (#3332)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T05:44:30Z",
+  "updated_at": "2026-08-04T13:43:18Z",
+  "closed_at": "2026-08-04T13:43:17Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T13:43:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3346",
+  "body": "Fixes objectstack-ai/objectui#3332\n\n## 问题\n\nSetup 权限集「权限配置」页(PermissionMatrixEditPage,Setup 元数据路由与 Studio 设计面共用)中,「系统能力」区的 CapabilityMultiSelectField 胶囊墙无界渲染。它在 overflow-hidden 的弹性列里是 flex-1 对象矩阵的不收缩兄弟节点:能力注册表一多(项目实测 44+ 个导航能力 → 20+ 行胶囊),矩阵滚动容器被压到 scrollHeight=7134 / clientHeight=9,整页又无滚动条,对象级 C/R/U/D 配置在 UI 上彻底不可达。\n\n## 修复\n\n采用 issue 给出的「能力区给自身 max-height」方案:胶囊墙包进 `max-h-[30vh] overflow-y-auto overscroll-contain` 容器,能力区最多占 30% 视口、内部自滚,矩阵拿回剩余全部高度。与 objectui#2600 B1 既有约定兼容——有授权时选择器仍免点击直出(该行为已有测试钉住,本次未动)。\n\n## 测试\n\n- 新增回归测试(PermissionMatrixEditor.basics.test.tsx):44 个能力授权时,选择器必须位于带 `overflow-y-auto` + `max-h-` 的滚动容器内;\n- `pnpm vitest run packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor`:7 个测试文件 25 个用例全绿;\n- `pnpm type-check`(app-shell)通过。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

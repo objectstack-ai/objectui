@@ -2,8 +2,8 @@
   "number": 9536,
   "kind": "issue",
   "title": "finding(scripts): `--ledger` emits a blank line between the braces on an empty DEBT block — the first shape the generator has ever produced there, and the discipline forbids hand-repairing it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-14T22:24:44Z",
-  "updated_at": "2026-09-17T05:00:45Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T02:30:04Z",
+  "closed_at": "2026-09-24T02:30:04Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

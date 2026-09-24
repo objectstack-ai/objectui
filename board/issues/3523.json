@@ -1,0 +1,35 @@
+{
+  "number": 3523,
+  "kind": "issue",
+  "title": "⛔ P0:合并队列已强制但零 merge_group 订阅——队列必需集为空、不校验任何东西;今日已兑现三例带红 Type Check 合入(#3503/#3510/#3516)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:35:00Z",
+  "updated_at": "2026-08-08T08:38:40Z",
+  "closed_at": "2026-08-08T08:38:39Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3523",
+  "body": "来源:objectstack#5617 的跨仓 required-set 审计(2026-08-07,devx 座位派发,只读)。**未认领,交分诊/维护者。** 立案不靠记性:维护者今日正在做 required 集配置轮,本单是 objectui 侧的行动清单。\n\n## P0 事实(全部实测)\n\n1. **合并队列已被 ruleset 强制**(#3243 实测直接 push 返 405 `Changes must be made through the merge queue`)。\n2. **但 22 个工作流没有一个订阅 `merge_group`**,repo-wide `event=merge_group` 运行数 **total_count = 0**(历史零次)。\n3. PR 照常合入 ⇒ **队列的必需检查集必然为空** ⇒ 队列只把 PR 在当前 main 上重建后放行,**不校验任何东西**。\n4. **今日已兑现,与 objectstack#6067→#5615 逐帧同形**:#3498(scripts 类型门,08-06 13:52 合入,自身全绿)在 main 留下 TS2578 → **#3503 / #3510 / #3516 三个 PR 在 `Type Check` conclusion=failure 的状态下合入 main**(分别 02:15:26Z / 02:11:26Z / 02:14:09Z,三者其余检查全绿——红的是被毒化的基线)→ #3505 事后热修。\n5. 附带:`Lint` / `Type Check` / `Test (shard N/4)` / `Build & E2E` / `Changeset Fixed Group Check` 全部被 `paths-ignore: ['**/*.md','content/**','docs/**',(apps/site/**),'.changeset/**']` 挡住——**纯文档 PR 上零 check run**(#3509 实证)⇒ 这些 context 现状**不可**直接设为必需(会永久卡死文档 PR)。\n6. ⚠️ 叙述差:PR #3522(今日已验收)把 AGENTS.md 改写为「auto-merge 即入队、由队列重建落地」——在补上 merge_group 之前,「入队」不含任何校验语义,该叙述给出的是虚假安全感。\n\n## 必须按顺序的三步(顺序反了 = 全仓死锁,cloud PRs #994-996 已踩过)\n\n1. **先补触发器(纯增,不碰任何必需集)**:给 `ci.yml` / `lint.yml` / `control-bytes.yml` / `docs-links.yml` 加 `merge_group: types: [checks_requested]`;推一个 PR 入队,确认 `gh-readonly-queue/**` 世代上真的产生了 check run。\n2. **再拆路径过滤**:去掉 ci.yml / lint.yml 的 `paths-ignore`,路径判断挪进 job 内部短路——**仓内已有现成先例**:ci.yml 的 `Build Docs` job 的 `should_run` 写法。改完这些 context 才「必上报」。\n3. **最后才把 context 写进必需集**(分支保护 + 队列)。\n\n**今天就可以安全进分支保护的只有两条**(刻意无路径过滤,五种 PR 形态实测全上报):`Control Byte Scan`、`Internal Docs Link Check`。**队列必需集今天一条都不要加**(零 merge_group 订阅时加 = 死锁)。\n\n⛔ 结构性永不可必需:`Changeset Bump Policy`(反向 paths)、`Bundle Analysis`(paths)、`Live E2E (informational)`(`continue-on-error: true` 恒绿——顺带:它不能充当任何保障)、`Close issues referenced in other repositories`(合并后才跑)。\n\n## 关联\n\n- objectstack#5617(治理锚点,含 objectstack 侧同族审计与设置面修正)\n- objectstack#6067 / objectstack#6100(objectstack 侧同形事故的当日实例)\n- #3498 / #3503 / #3505 / #3510 / #3516(本仓今日证据链)\n- #3243(队列强制的实测出处)、#3522(AGENTS.md 叙述差)\n- cloud 对照:`build-and-test` 单 job 双集齐备 + 110 次队列重跑,零红合并——目标形态的现成样板"
+}

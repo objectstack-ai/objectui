@@ -1,0 +1,34 @@
+{
+  "number": 3515,
+  "kind": "issue",
+  "title": "The four repo-root `vitest.setup.*` files are in zero tsc programs — #3476 one directory up",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:02:28Z",
+  "updated_at": "2026-08-07T04:06:15Z",
+  "closed_at": "2026-08-07T04:06:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3515",
+  "body": "Observation-class finding, tripped over while implementing #3476 (PR #3513). Nothing a user hits today — recording it so it does not stay invisible. **Not** fixed in #3513: the fix lands in a root tsconfig, which was outside that task's file fence.\n\n## The gap\n\nFour checked-in files at the repo root are compiled by nothing:\n\n```\nvitest.setup.base.ts\nvitest.setup.dom.tsx\nvitest.setup.dom-light.tsx\nvitest.setup.tsx\n```\n\nMeasured on the #3476 branch (same result on `origin/main` @ f995a452d):\n\n```\n$ ./node_modules/.bin/tsc -p tsconfig.json        --listFilesOnly | grep -c 'objectui/vitest.setup.dom.tsx'\n0\n$ ./node_modules/.bin/tsc -p tsconfig.scripts.json --listFilesOnly | grep -c 'objectui/vitest.setup.dom.tsx'\n0\n```\n\nWhy nothing reaches them:\n\n- They sit at the repo **root**, outside every workspace package (`pnpm-workspace.yaml`: `packages/*`, `examples/*`, `apps/*`, `docs`), so `turbo run type-check` — which is driven by package.json `scripts` — structurally cannot see them. Same reason `scripts/` was uncovered until #3494.\n- Root `tsconfig.json`'s `include` is `packages` / `examples` / `apps`; `tsconfig.scripts.json`'s is `scripts/**`. Neither matches the root directory itself.\n- They are never **imported** by anything under `packages` / `examples` / `apps` either, so no gated program pulls them in transitively. Every consumer names them as a Vitest `setupFiles` **runtime path string** (`setupFiles: ['../../vitest.setup.tsx']`, `path.resolve(import.meta.dirname, '../../vitest.setup.dom.tsx')`, ...). The one real import edge is internal: `vitest.setup.dom.tsx` line 15 imports `./vitest.setup.base`.\n\nThe only program that does contain them is the root `tsconfig.node.json` (no `include`, so it defaults to the whole root directory) — and **no script anywhere runs that file**, so it is not a gate.\n\n## Why it is worth recording\n\nThis is exactly the #3476 shape one directory up, and the #3494 shape one directory over: a checked-in `.ts`/`.tsx` file that reads as ordinary maintained source while no `tsc` invocation has ever looked at it.\n\nThe content is not trivial plumbing either. `vitest.setup.dom.tsx` decides which of four side-effect package graphs get registered before the `dom-heavy` project runs, and `vitest.setup.base.ts` is imported by it. Drift there does not fail loudly with a type error — it fails as a confusing \"component not registered\" in whichever test happens to depend on the registration.\n\nImpact today: nil. They are small and currently correct; a break would surface as a red test run rather than silently. That is why this is `finding` and not queued.\n\n## Not the same as the per-package setup files\n\nChecked while measuring, so nobody re-checks it: the `./vitest.setup.ts` that seven package vitest configs reference (`plugin-kanban`, `plugin-calendar`, `plugin-detail`, `plugin-gantt`, `plugin-charts`, `plugin-form`, `plugin-designer`) **all exist**, and they live inside their package, so they are reachable by that package's own tsconfig. No ghost entries there.\n\n## Shape of a fix (for whoever picks it up)\n\nNot obvious enough to prescribe — the options differ in blast radius and want measuring, the way #3494 measured `allowJs`:\n\n1. Add the root `vitest.setup.*` files to `tsconfig.scripts.json`'s `include`. Cheap, but that project is named and documented for `scripts/`, and it sets `allowJs: true` — which is the option that turned five `@ts-expect-error` comments stale in #3498 and is still doing so in #3504. A `.tsx` also needs `jsx` and DOM lib, which that project does not set.\n2. A small dedicated root project for them, mirroring how #3494 handled `scripts/`, wired into `ci.yml` next to `type-check:scripts`. Most consistent with precedent; costs one more config and one more CI step.\n3. Widen the root `tsconfig.json` and give it a runner. Largest blast radius — that file is currently the editor config and nothing runs it; making it a gate is a separate decision with its own error backlog.\n\nWhichever route, the reverse verification is the same as #3513's: plant a real type error in one of the four files and confirm the chosen gate goes red, having predicted that direction first.\n\nRelated: #3476 / PR #3513 (this file family's neighbour), #3494 / PR #3498 (`scripts/`), #3305 (the console node project), #3504 (the live `allowJs` / TS2578 interaction option 1 would inherit).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

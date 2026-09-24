@@ -12,19 +12,19 @@
   },
   "labels": [
     "domain:ui",
-    "pm:blocked",
+    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-23T08:42:59Z",
-  "updated_at": "2026-09-23T17:25:38Z",
+  "updated_at": "2026-09-24T01:29:50Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10221",
-  "body": "Blocked-by: objectstack-ai/objectstack#19629\n\nFiled by the director seat, summon #28 (`session_01GLdRPcbaCBQCTvVmU6YEUY`), as the objectui half of ruling **batch #215 item 1 · letter B** on objectstack-ai/objectstack#19629 (the record is the `Ruling:` comment on that card). Filing gate ③ (a ruled task). ⛔ Not a claim.\n\n## What the ruling decided (spec side, lands first)\n\n`FieldSchema.scale` is retired from the `currency` field type: `@objectstack/spec` refuses `scale` on a field of `type: 'currency'` at parse with a remedy naming `currencyConfig.precision`, and the objectql record validator stops reading `scale` for currency. `currencyConfig.precision` — else the currency's ISO 4217 minor-unit count — is the ONE decimal-places knob for money. ⛔ No alias, ⛔ no grace window.\n\n## What lands here — the consumer aligns to the protocol\n\n1. `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx:905-910` — the `scale` control is not offered when the field type is `currency` (`isNumeric()` at `:275` currently admits `number | currency | percent`). Premise to verify first: which key the neighbouring `precision` control writes on a currency field (the digit-count `FieldSchema.precision` or `currencyConfig.precision`) — report it, ⛔ do not guess.\n2. `packages/plugin-grid/src/useColumnSummary.ts:343` — the currency arm derives fraction digits the way the cell does (`currencyConfig.precision`, else `currencyFractionDigits(currency)`); ⛔ no `?? 0`, ⛔ no `scale` read on a currency column.\n3. Pins for both (the control is absent on a currency field; the footer and the cell agree on a currency column with and without `currencyConfig.precision`).\n\n## Unlock\n\nWhen objectstack ships the spec refusal in a version this repo can pin (pin-lag reading applies: the pinned `@objectstack/spec` must refuse `scale` on currency).\n\nDedupe: `currency scale designer control` · `useColumnSummary currency scale ?? 0` · `currencyConfig.precision footer` · `objectstack#19629`."
+  "body": "Unblocked 2026-09-24T01:28Z by ruling batch #218 item 2 letter 乙 on objectstack-ai/objectstack#19910 (this card lands FIRST and widens to ObjectMetricWidget; the spec half waits on it). The former first line read: Blocked-by objectstack-ai/objectstack#19629.\n\nFiled by the director seat, summon #28 (`session_01GLdRPcbaCBQCTvVmU6YEUY`), as the objectui half of ruling **batch #215 item 1 · letter B** on objectstack-ai/objectstack#19629 (the record is the `Ruling:` comment on that card). Filing gate ③ (a ruled task). ⛔ Not a claim.\n\n## What the ruling decided (spec side, lands first)\n\n`FieldSchema.scale` is retired from the `currency` field type: `@objectstack/spec` refuses `scale` on a field of `type: 'currency'` at parse with a remedy naming `currencyConfig.precision`, and the objectql record validator stops reading `scale` for currency. `currencyConfig.precision` — else the currency's ISO 4217 minor-unit count — is the ONE decimal-places knob for money. ⛔ No alias, ⛔ no grace window.\n\n## What lands here — the consumer aligns to the protocol\n\n1. `packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx:905-910` — the `scale` control is not offered when the field type is `currency` (`isNumeric()` at `:275` currently admits `number | currency | percent`). Premise to verify first: which key the neighbouring `precision` control writes on a currency field (the digit-count `FieldSchema.precision` or `currencyConfig.precision`) — report it, ⛔ do not guess.\n2. `packages/plugin-grid/src/useColumnSummary.ts:343` — the currency arm derives fraction digits the way the cell does (`currencyConfig.precision`, else `currencyFractionDigits(currency)`); ⛔ no `?? 0`, ⛔ no `scale` read on a currency column.\n3. Pins for both (the control is absent on a currency field; the footer and the cell agree on a currency column with and without `currencyConfig.precision`).\n\n## Unlock\n\nWhen objectstack ships the spec refusal in a version this repo can pin (pin-lag reading applies: the pinned `@objectstack/spec` must refuse `scale` on currency).\n\nDedupe: `currency scale designer control` · `useColumnSummary currency scale ?? 0` · `currencyConfig.precision footer` · `objectstack#19629`."
 }

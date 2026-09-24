@@ -1,0 +1,34 @@
+{
+  "number": 3367,
+  "kind": "issue",
+  "title": "toPredicateInput 仍有两份实现(core canonical / react 渲染器侧),应让 react 直接 re-export core",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:03:08Z",
+  "updated_at": "2026-08-07T03:11:54Z",
+  "closed_at": "2026-08-07T03:11:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3367",
+  "body": "Filed unassigned,来自 #3314 实现期间的收尾观察。**只记录发现。**\n\n## 现状\n\n#3314 把 canonical 的谓词归一化落在 `packages/core/src/evaluator/predicateInput.ts`\n(`@object-ui/core` 是引擎侧与渲染器侧的共同依赖;`packages/core` 声明 \"Zero React\ndependencies\",不能反向依赖 `packages/react`),`ActionEngine.getActionsForLocation`\n已改为复用它。\n\n`packages/react/src/hooks/useExpression.ts` 里同名的 `toPredicateInput` 仍是一份\n**独立实现**,语义逐项相同。#3314 的 PR 用\n`packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx` 的归一化 parity 表\n(14 种输入形态)把两者钉在一起。\n\n## 为什么是 observation-class\n\n今天没有用户可见的差异 —— parity 表覆盖了全部输入形态,任何一侧单独改动都会立刻红。\n但这仍然是「两处归一化」,而 #3314 的教训恰恰是两处归一化会漂移:parity 表是护栏,\n不是单一事实源。\n\n## 建议(未验证,留给认领者判断)\n\n把 `useExpression.ts` 里的实现体换成 re-export:\n\n```ts\nexport { toPredicateInput } from '@object-ui/core';\n```\n\n依赖方向允许(`@object-ui/react` 的 `dependencies` 已含 `@object-ui/core`)。\n之后归一化 parity 表可以退化成一条「react 导出的就是 core 那一个」的断言,\n判决 parity(引擎路径 vs 渲染器路径)保留。\n\n核对过一处容易踩的坑:`packages/react/src/index.ts` 目前**不**做\n`export * from '@object-ui/core'`,仓内也没有同时 star-re-export core 与 react 的\n上层包,所以两个同名导出当下不会产生 ambiguous star-export(那会让名字在 ESM 里\n被静默剔除)。真要改前建议再核一遍这一点。\n\n## 备注\n\n#3314 的派发面把 `useExpression.ts` 定为**只读**(渲染器路径本身是对的,#2661 已修好),\n所以没有在那个 PR 里顺手做,单独记在这里。\n"
+}

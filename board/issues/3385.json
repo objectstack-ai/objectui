@@ -1,0 +1,32 @@
+{
+  "number": 3385,
+  "kind": "issue",
+  "title": "`apps/console/tsconfig.node.json` includes `vitest.setup.ts`, which does not exist",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T11:45:51Z",
+  "updated_at": "2026-08-06T07:49:57Z",
+  "closed_at": "2026-08-06T07:49:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3385",
+  "body": "Found while working #3305. **Deliberately not fixed there** — that PR kept to the three type errors plus the gate wiring, and deleting an unrelated dead path would have been scope creep. Filing per PD #10, unassigned.\n\n## What\n\n`apps/console/tsconfig.node.json` has always listed `vitest.setup.ts` in its `include`:\n\n```json\n\"include\": [\"vite.config.ts\", \"vitest.setup.ts\", \"../../scripts/vite-*.ts\"]\n```\n\nThere is no `apps/console/vitest.setup.ts`:\n\n```\n$ ls apps/console/vitest.setup.ts\nls: cannot access 'apps/console/vitest.setup.ts': No such file or directory\n```\n\nThe console's setup file is referenced from `apps/console/vitest.config.ts` as `../../vitest.setup.dom.tsx`, one directory up and under a different name.\n\n## Why it matters\n\nVery little today, which is why this is a `finding` and not a defect: an `include` entry matching nothing is silently ignored as long as **some** other pattern matches (`vite.config.ts` does), so nothing errors and nothing is mis-checked.\n\nThe reason to record it rather than drop it: it reads as though the console's vitest setup file is type-checked by this project, and it is not — there is no such file, and the real one (`vitest.setup.dom.tsx`) is not covered by this project at all. That is the same \"looks checked, isn't\" shape #3305 was about, one notch smaller. If the intent was ever to cover the setup file, the entry is pointing at the wrong path; if not, it is dead and should go.\n\nNote the empty-`include` hazard for whoever fixes it: TypeScript errors with TS18003 when `include` resolves to zero files, so this entry cannot simply be deleted from a project whose only other entries might also stop matching. In this project `vite.config.ts` and `../../scripts/vite-*.ts` both match real files, so deleting the dead entry is safe as-is.\n\n## Suggested direction (not decided)\n\nEither drop `vitest.setup.ts` from the `include`, or — if the console's setup file genuinely should be type-checked — point it at `../../vitest.setup.dom.tsx` and confirm the project stays green under `pnpm --filter @object-ui/console type-check` (which since #3305 runs this project).\n"
+}

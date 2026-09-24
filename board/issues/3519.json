@@ -1,0 +1,36 @@
+{
+  "number": 3519,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): Bump postcss from 8.5.25 to 8.5.26",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "dependencies",
+    "examples",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:13:41Z",
+  "updated_at": "2026-08-07T02:17:38Z",
+  "closed_at": "2026-08-07T02:14:09Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-07T02:14:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3519",
+  "body": "Bumps [postcss](https://github.com/postcss/postcss) from 8.5.25 to 8.5.26.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/releases\">postcss's releases</a>.</em></p>\n<blockquote>\n<h2>8.5.26</h2>\n<ul>\n<li>Fixed <code>list.split()</code> regression (by <a href=\"https://github.com/lazerg\"><code>@​lazerg</code></a>).</li>\n<li>Track symlinks in path protection in source map loading (by <a href=\"https://github.com/drengir1\"><code>@​drengir1</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/postcss/postcss/blob/main/CHANGELOG.md\">postcss's changelog</a>.</em></p>\n<blockquote>\n<h2>8.5.26</h2>\n<ul>\n<li>Fixed <code>list.split()</code> regression (by <a href=\"https://github.com/lazerg\"><code>@​lazerg</code></a>).</li>\n<li>Track symlinks in path protection in source map loading (by <a href=\"https://github.com/drengir1\"><code>@​drengir1</code></a>).</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/postcss/postcss/commit/07b25773f38f77919f2af02ae3e8896b0deb5988\"><code>07b2577</code></a> Release 8.5.26 version</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/47de6b9d7c55674cb326c5de7a734a740916defc\"><code>47de6b9</code></a> Update CI</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/1493a83db7830912316512f55ab6064e7b7dd68e\"><code>1493a83</code></a> Fix Rule#selectors losing the empty selector (<a href=\"https://redirect.github.com/postcss/postcss/issues/2129\">#2129</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/180db166e250d20e6761b224ae8d8134c9ba3e40\"><code>180db16</code></a> Typo</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/29e9e00f132c96e46e1de295b816fe88a05354e7\"><code>29e9e00</code></a> Resolve symlinks before the previous-source-map containment check (<a href=\"https://redirect.github.com/postcss/postcss/issues/2125\">#2125</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/3ba8f84703a884329b58abea579c3615684e0b7e\"><code>3ba8f84</code></a> Update dependencies</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/87e72f671fd0d401c52822b5226c656632d92ec0\"><code>87e72f6</code></a> Update lock file</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/caaeeb907e4a816c44a23b00b151882bd02325a1\"><code>caaeeb9</code></a> Upgrade nanoid to fix infinite loop on zero size (<a href=\"https://redirect.github.com/postcss/postcss/issues/2124\">#2124</a>)</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/3609b6f4296952d0b5b9ddae42c8d73ee460c041\"><code>3609b6f</code></a> Explain how to type plugin options</li>\n<li><a href=\"https://github.com/postcss/postcss/commit/fbad419cbd01cd7a9a1a46413447f2cd9b3fce4a\"><code>fbad419</code></a> docs: show ESM and TypeScript plugin declaration (<a href=\"https://redirect.github.com/postcss/postcss/issues/2118\">#2118</a>)</li>\n<li>See full diff in <a href=\"https://github.com/postcss/postcss/compare/8.5.25...8.5.26\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=postcss&package-manager=npm_and_yarn&previous-version=8.5.25&new-version=8.5.26)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\nYou can disable automated security fix PRs for this repo from the [Security Alerts page](https://github.com/objectstack-ai/objectui/network/alerts).\n\n</details>"
+}

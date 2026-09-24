@@ -1,0 +1,32 @@
+{
+  "number": 3608,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 把 System Settings 指向系统枢纽 /apps/setup/system，而非空态自己的裸 URL",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:48:58Z",
+  "updated_at": "2026-08-07T15:57:05Z",
+  "closed_at": "2026-08-07T15:57:03Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T15:57:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3608",
+  "body": "Fixes #3590\n\n## 问题\n\n`AppContent` 只在 `isSystemRoute` 成立时挂载系统枢纽，而 `isSystemRoute = location.pathname.includes('/system')`。裸 `/apps/setup` 除 `isSetupRoute` 外不满足任何伪路由判定，于是零应用部署下直接落回 `!activeApp && !isCreateAppRoute && !isSystemRoute && !isMetadataRoute` 这条守卫 —— 它**就是**「No Apps Configured」空态自己的 URL，所以空态上的 `go-to-settings-btn` 点完只是把同一屏重渲染了一遍。\n\n`/apps/setup/system` 在**两个**分支里都能解析：无 activeApp 时走 `extraRoutesNoApp`，有 activeApp 时走 `extraRoutes` —— console 把同一份 `systemRoutes`（首项即 `path=\"system\"` → `SystemHubPage`）同时传给了这两个 prop。\n\n## 三个调用点，逐点测量与处置\n\n**1. `console/AppContent.tsx` 的 `go-to-settings-btn`（主修点，已改）**\n该按钮只在空态分支里渲染，而空态只在无 activeApp 时出现 —— 也就是说它的旧目标恒等于它自身所在屏的 URL。100% 死键，无歧义。\n\n**2. `layout/AppSidebar.tsx` 的 `systemFallbackNavigation.sys-settings`（已改）**\n该簇只在 `activeApp` 为假时渲染，而此处 `activeApp = matched || activeApps[0]`，仅当部署里没有任何 active+visible 应用时才为假 —— 恰好就是零应用部署。也就是说，这个簇的**头项在这个簇唯一存在的场景里是死的**。簇内其余 8 项本就全部拼 `/apps/setup/system/...`，头项是唯一的异类。新测试直接断言其渲染出的 href。\n\n**3. `layout/UnifiedSidebar.tsx` 的 `homeNavigation` Administration 簇里的 `sys-settings`（已改，但当前休眠 —— 见下）**\n语义与 2 相同：该簇的代码注释写明它是为「fresh env（还没有 app）在 `/home` 上仍有真菜单」而加的，而 `resolveLandingPath([])` 正是把零应用用户送到 `/home`。同一个头项、同一个裸 URL、同一条死路，因此同改。\n\n> ⚠️ **越界测量披露**：改的过程中量到该项**今天根本渲染不出来**。`UnifiedSidebar` 只有一个 `context === 'app' && activeApp` 三元（约 437 行）；只有 app 分支渲染 `NavigationRenderer`（即会递归进 `type: 'group'` 子项的那个），home 分支是手写的 `homeNavigation.map(item => Link to={item.url || '/home'})`，**不递归**。于是整个 9 项 Administration 组被压成一个链接，而组本身没有 `url`，回退到 `/home` —— 管理员已经站着的那一页。本 PR 仍然把常量改对，好让日后修「压平」的人不会连带发布一条死的 `/apps/setup` 链接；测试文件里为此写的是一条诚实的 MEASUREMENT 钉，钉住「压平」这个事实本身，而不是去断言一个永远渲染不出的 href。压平问题已另单记录（#3609）。\n\n## 测试\n\n扩展 #3588 新增的 `console/__tests__/AppContent.noAppsCta.test.tsx`（未另起文件），并新增一个侧边栏目标测试文件 `layout/__tests__/systemNavSettingsTarget.test.tsx`。\n\n**被重写的那条钉**：原 `leaves the sibling go-to-settings CTA on its absolute /apps/setup target`（断言点击后 `pathname === '/apps/setup'` 且 `create-first-app-btn` 仍在）。它的注释本就写明「pinning, not blessing」—— 存在的意义只是证明 #3573 没碰这颗按钮。本 PR 整条替换为断言落到系统枢纽，并额外要求空态**必须消失**（只断 URL 的话，一个什么都不渲染的目标同样会绿）。\n\nharness 里按 console 宿主的写法接上了 `extraRoutesNoApp`，所以「点击 → 枢纽真的挂载」是端到端量出来的，不是只比对字符串。\n\n**反向验证**（方向在跑之前先写下）：把三处源码改动 `git apply -R` 掉、只保留新测试 —— 预测 3 红 6 绿，实测完全一致：\n\n```\n× AppSidebar: the no-active-app fallback cluster heads at the system hub\n× sibling go-to-settings CTA opens the system hub instead of looping onto this same empty state\n× reaches the SAME system hub from a deeper splat URL (absolute target, depth-independent)\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"system-hub-page\"]\nexpect(element).toHaveAttribute(\"href\", \"/apps/setup/system\")\n Test Files  2 failed (2)\n      Tests  3 failed | 6 passed (9)\n```\n\n其中 UnifiedSidebar 那条 MEASUREMENT 钉**按预测保持绿色**：它钉的是「home 分支压平组」，与 URL 常量无关 —— 这正是 UnifiedSidebar 那处改动休眠的原因。把它报成红色会是编造。\n\n改动后：\n\n```\n Test Files  2 passed (2)      # 定向两个文件\n      Tests  9 passed (9)\n\n Test Files  41 passed (41)    # packages/app-shell/src/{console,layout} 全量\n      Tests  215 passed (215)\n\npnpm --filter @object-ui/app-shell type-check   # tsc --noEmit + typetests，无输出即通过\nnode scripts/check-control-bytes.mjs            # OK (3640 tracked text files)\n```\n\n## 越界发现（只报不改，已另立 unassigned 单）\n\n- **#3609** —— `/home` 的 Administration 组被压平成一条指向 `/home` 的死链，整簇 9 个系统管理入口在参考 console 上完全不可达。\n- **#3610** —— 零应用下 `sys-objects` / `sys-datasources` 经 `/apps/setup/component/...` 落到无 activeApp 分支，该分支既无 `component/*` 路由也无 catch-all，渲染**空白屏**。\n- **#3611** —— 本单文件面之外仍指着裸 `/apps/setup` 的同族调用点（AppSidebar 无应用侧栏头 + 用户菜单 Settings、ConsoleShell 的 `/system` 旧链重定向、以及从未被渲染的 QuickActions）。\n\n## 备注\n\n`SystemHubPage` 自身标了 `@deprecated`（「新管理面应做成 nav 项而非手写卡片」）。这不影响本次改向：它仍是 `system` 路由上唯一挂载的页面，也是整个 `sys-*` 簇共同的前缀；而零应用恰恰是「元数据驱动左侧菜单」尚不存在、因而这个枢纽正当其用的场景。\n"
+}

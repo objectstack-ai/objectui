@@ -1,0 +1,36 @@
+{
+  "number": 3431,
+  "kind": "issue",
+  "title": "[finding] 已保存视图的 ViewFilterRule[] 被原样当 FilterNode 送进 $filter,未在客户端折成 AST",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T03:33:06Z",
+  "updated_at": "2026-08-06T08:43:38Z",
+  "closed_at": "2026-08-06T08:43:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3431",
+  "body": "发现于 #3419(把 ObjectDataPage「Save as view」的 URL 下钻三元组折成 spec rule)。**不在该 PR 的 fence 内,也没有在真后端上验证过**,故按 observation 记录,不带 `pm:queue`。\n\n## 观察\n\n已保存视图的 `filter` 落盘形状是 spec 的 `ViewFilterRule[]`(`{ field, operator, value }`)—— objectstack#5159 的修法就是让 `persistViewFilter` 写 `folded.rules`。读回来时:\n\n- `ObjectView.tsx`(约 1347 行)`const base = viewDef.filter ?? listSchema.filter`,再 `[...baseArr, ...urlFilters]` —— 这里会把 **rule 对象和 URL 三元组混在同一个数组里**;\n- 传给 `ListView` 的 `schema.filter`,`ListView.tsx:1089` 交给 `buildEffectiveFilter`;\n- `buildEffectiveFilter` → `mergeFilterNodes` → `toFilterNode`(`packages/core/src/utils/filter-converter.ts:199`),而 `toFilterNode` 对数组是**原样返回**:\n\n```ts\nif (Array.isArray(source)) return source.length > 0 ? (source as FilterNode) : undefined;\n```\n\n也就是说 `[{ field: 'stage', operator: 'equals', value: 'open' }]` 会被当成一个 FilterNode 直接进 `$filter`。客户端这一路没有任何地方把 rule 对象折成 `[field, op, value]`(`ListView.mapOperator` 只在 `convertFilterGroupToAST` 里被调用,处理的是 FilterBuilder 的 group,不覆盖 `schema.filter`)。\n\n值得注意的是 `mergeFilterNodes` **自己的注释**就警告过这个形状:\n\n> spreading a `ViewFilterRule[]` puts bare rule OBJECTS where the AST expects nodes, and the server neither understands nor rejects that cleanly —— `isFilterAST` says no (a 400 since objectstack#4121), while `parseFilterAST` reads the rule as a Mongo condition and filters on columns literally named `field` / `operator` / `value`.\n\n注释是针对 spread 写的,但 `toFilterNode` 的原样返回把同一个数组整体交出去,落到 `$filter` 上是同一类载荷。\n\n## 为什么标成 observation 而不是缺陷\n\n两种可能我没能区分,需要一个跑起来的后端才能定:\n\n1. **服务端本来就接受 `ViewFilterRule[]`** —— 那这条只是注释与实现的语气不一致,顺手补一句说明即可;\n2. **服务端不接受** —— 那么今天每一条带 filter 的已保存视图筛选都是坏的(400 或静默按字面列名过滤)。若真如此,#5159 落地后应该早就被发现,所以我更倾向 1;但「早该被发现」不是证据。\n\n## 复现方向(给接手的人)\n\n起一套栈(AGENTS.md「每个 agent 独立测试栈」),在某对象上存一条带 filter 的列表视图,打开它,看网络面板里 `$filter` 的实际载荷与返回行数:是 `[{\"field\":...}]` 且结果正确,还是 400 / 未筛选。\n\n## 相关\n\n- objectstack#5159 / objectstack#4121(`isFilterAST` 的 400)\n- #2890(ListView 遗留词汇迁移)—— 同一片区域,但那条讲的是 `show*` 与 `userActions`,不是 filter 形状\n- #3419 / PR #3427 —— 只改了 producer 侧的写入形状,读回这一路刻意没动\n"
+}

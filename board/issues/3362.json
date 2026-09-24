@@ -1,0 +1,32 @@
+{
+  "number": 3362,
+  "kind": "issue",
+  "title": "适配 spec 退役 `NotificationActionSchema` / `EmbedConfigSchema`(objectstack#5015):3 个测试文件引用将随依赖刷新变红",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T16:16:56Z",
+  "updated_at": "2026-08-07T15:30:05Z",
+  "closed_at": "2026-08-07T15:30:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3362",
+  "body": "Part of objectstack-ai/objectstack#5015\nBlocked-by: objectstack-ai/objectstack#5300\n\nspec 侧已按 ADR-0049 分诊裁决(2026-08-04,T2 退役)删除 `NotificationActionSchema`/`NotificationAction` 与 `EmbedConfigSchema`/`EmbedConfig`(PR objectstack#5300,整 def 删除 + D3 语义迁移)。objectui 下次刷新 spec 依赖(pin bump / `objectui:refresh` 链)时,实测有 **3 个文件**引用这两个符号,将变红:\n\n1. `packages/react/src/hooks/__tests__/animation-notification-spec-parity.test.tsx` —— 读 `NotificationActionSchema.shape.variant` 当词汇表,双向 pin 手写的 `NotificationActionButton` 接口。适配方向:该 pin 的 spec 侧锚点已消失;`NotificationActionButton` 是 objectui 自有接口,pin 改为本地词汇表断言或移除(注明退役出处 objectstack#5015);\n2. `packages/types/src/__tests__/spec-ui-schema-reexports.test.ts` —— re-export 面断言,移除两个已退役符号的条目;\n3. `packages/types/src/__tests__/p2-spec-exports.test.ts` —— 同上。\n\n注意:`ui/notification.zod` 的三个呈现枚举(objectui toaster 词汇表)与 `SharingConfigSchema`(公开表单分享活门)**均存活**,相关消费不受影响 —— 适配范围仅上述两个符号。\n\n依据:objectstack PR #5300 正文「不在本 PR 范围」节的逐文件清单(spec 侧 dev 实测)。\n\n_objectstack spec 车道 PM(会话 `session_01ErbEDVAg1No9gdg1pgDAGB`)按跨仓 linkage 规则立单;objectui 分片现为主 PM 代管,经队列标签移交。_"
+}

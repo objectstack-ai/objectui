@@ -1,0 +1,36 @@
+{
+  "number": 3430,
+  "kind": "issue",
+  "title": "[process] git worktree 共享 refs/stash:并行 agent 之间 stash push/pop 会互相顶掉在途改动",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T03:24:19Z",
+  "updated_at": "2026-08-06T04:42:47Z",
+  "closed_at": "2026-08-06T04:42:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3430",
+  "body": "## 症状\n\n`git stash` 的栈(`refs/stash`)存在**共用的 `.git` 目录**里,**所有 linked worktree 共享同一个栈**。AGENTS.md「多 agent 协作纪律」要求每个任务一个 worktree 做物理隔离,但这个隔离**不覆盖 stash** —— 两个 agent 在各自 worktree 里 `git stash push` / `git stash pop`,操作的是同一个后进先出栈,于是 A 的 `pop` 会把 B 刚 push 的改动取到 A 的工作树里,而 A 自己的改动留在栈上被 B 取走。\n\n## 实际发生的事(2026-08-06 03:56 UTC 前后)\n\n在 #3422 的反向验证里(只回退源码、保留测试,看诊断往哪边动),我在 `objectui-issue-3422` 里执行:\n\n```\ngit stash push -- packages/fields/src/widgets/RecordPickerDialog.tsx\n... 跑测试 ...\ngit stash pop\n```\n\n`pop` 的输出是:\n\n```\nDropped refs/stash@{0} (b52e3aa1ac0653d4b5351cdb0e5b16aa256e6b51)\n```\n\n而 `b52e3aa` 是**另一个 agent 的** stash:\n\n```\nWIP on claude/issue-5733-detaildrawer-resize-i18n: 5dd012776 …\n packages/plugin-detail/src/RecordDetailDrawer.tsx  | 7 +++++--\n packages/plugin-detail/src/useDetailTranslation.ts | 7 +++++++\n```\n\n结果:\n\n1. issue-5733 的在途 i18n 改动被取进了 **我的** worktree(与我的任务毫无关系的两个文件);\n2. 我自己那份 `RecordPickerDialog.tsx` 改动留在栈上,随后被 issue-5733 的 `pop` 取走 —— 落进了**它的** worktree;\n3. `git stash list` 归零,两份改动完全换了位置。\n\n两边都不是「丢失」(commit 对象还在),但都跑到了对方的工作树里。真正的危险在于:如果任何一方此时 `git add -A` 或按 `git status` 全量提交,就会把对方的在途改动混进自己的 PR —— 一个不改动共享文件、遵守了「一任务一 worktree」的任务,照样能污染另一个任务的 diff。\n\n我做的补救:用 `git stash store` 把 `b52e3aa` 按原 message 放回栈顶(标注了来源),再把那两个 `plugin-detail` 文件逐 hunk 恢复到 HEAD,我自己的改动重新手写一遍。**issue-5733 的 worktree 里可能仍留着我的 `RecordPickerDialog.tsx` 改动** —— 我没有去动别人的工作树(AGENTS.md 明令禁止)。\n\n## 为什么值得写进 AGENTS.md\n\n现在的规则给人的心智模型是「worktree = 完全隔离」,而 stash 是这个模型上一个**没有写明的洞**。它不像分支切换那样会被 `guard-main-checkout.sh` 拦住,失败现象也极具迷惑性:`pop` 看起来成功了,`git status` 里冒出来的却是别人的文件名,很容易被误读成「另一个 agent 在改我的树」而不是「我取错了 stash」。\n\n「反向验证」(临时回退改动看诊断方向)在本仓库是常规动作,而 `git stash` 是做这件事最顺手的工具,所以撞上的概率不低。\n\n## 建议\n\n在 AGENTS.md「多 agent 协作纪律」里加一条,并给出替代做法:\n\n- **禁止在本仓库用 `git stash`**(`refs/stash` 跨 worktree 共享,不受 worktree 隔离保护)。\n- 需要临时回退验证时,用**与 worktree 同生命周期**的方式:\n  - `git diff -- path > /tmp/my-task.patch` + `git apply -R` / `git apply` 来回切;\n  - 或先 commit 再 `git revert --no-commit` / `git reset --soft HEAD~1`;\n  - 或干脆开第二个 worktree 跑对照。\n- 若确有必要用 stash,必须 `git stash push -m \"issue-NNNN: …\"` 并**只按 SHA 取回**(`git stash apply b52e3aa`),绝不用 `stash@{0}` 这种位置引用 —— 位置会被别的 agent 的 push 顶掉。\n\n同样适用于 sibling 仓 `framework` / `cloud`(它们也是多 agent 并行 + 多 worktree)。\n\n发现于 #3422(PR #3428)的反向验证过程中,与该 issue 的代码改动无关。\n"
+}

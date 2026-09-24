@@ -2,8 +2,8 @@
   "number": 6328,
   "kind": "issue",
   "title": "Retire ObjectSchemaClientExtensions.editMode — the spec object document now declares it; derivation carries the key (release-gated on the spec version containing objectstack#11408)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-litant",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-25T13:00:07Z",
-  "updated_at": "2026-08-25T15:00:08Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T01:41:38Z",
+  "closed_at": "2026-09-24T01:41:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

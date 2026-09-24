@@ -1,0 +1,35 @@
+{
+  "number": 3299,
+  "kind": "issue",
+  "title": "对象表单之外的一批渲染器仍把必填状态画成星号而不送进 a11y 树（#3290 的同类缺陷，另外五处）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T13:16:03Z",
+  "updated_at": "2026-08-04T06:38:33Z",
+  "closed_at": "2026-08-04T06:38:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3299",
+  "body": "实施 objectui#3290（PR #3298，给对象表单渲染器 `packages/components/src/renderers/form/form.tsx` 的控件送 `aria-required`）时顺带扫到的：**同一个缺陷在别的渲染器里还有五处**，#3290 的范围栅栏只钉了 `form.tsx` 一处，所以单独立此单，不在那个 PR 里修。\n\n## 缺陷形状（与 #3290 完全同型）\n\n组件算出了 `required`，只用它画一颗红星，而**控件本身没有任何必填状态**——既没有 `aria-required`，也没有原生 `required`。屏幕阅读器要么完全不知道该字段必填，要么只能从可访问名里读到一个孤零零的 \"asterisk / star\"。\n\n## 清单（已逐处核对，非 grep 猜测）\n\n| 位置 | 星号写法 | 控件上的必填状态 |\n|---|---|---|\n| `packages/app-shell/src/views/ActionParamDialog.tsx:243,260` | `< Label htmlFor >` 内的裸 `< span >*< /span >`（无 `aria-hidden`） | 无 |\n| `packages/components/src/custom/action-param-dialog.tsx:117,137,173,202,223` | 同上，五处 | 无 |\n| `packages/app-shell/src/views/CreateViewDialog.tsx:510,557,579` | `< label htmlFor >` 内裸 `< span >*< /span >` | 无 |\n| `packages/plugin-detail/src/InlineCreateRelated.tsx:211` | 裸 `< span >*< /span >` | 无 |\n| `packages/components/src/custom/field.tsx:58` | CSS 伪元素 `after:content-['*']` | 无——`FieldContainer` 往子 Slot 注入了 `id` / `aria-describedby` / `aria-invalid`，唯独漏了 `aria-required` |\n\n裸 `< span >*< /span >` 那四处比 `form.tsx` 原来的情况更糟一点：老的 `form.tsx` 至少有 `aria-label=\"required\"` 让可访问名读作 \"Title required\"；这些只有一个 `*` 字符落进可访问名，被读成 \"Title asterisk\"。\n\n## 已经做对的参照实现\n\n`packages/plugin-form/src/EmbeddableForm.tsx:481,489` 早就是正确形状，可以直接照抄：\n\n```tsx\naria-required={consentRequired || undefined}\n…\n< span aria-hidden=\"true\" className=\"text-destructive ml-0.5\" >*< /span >\n```\n\nPR #3298 让 `form.tsx` 收敛到的正是这个形状。\n\n## 建议修法\n\n对每一处：控件加 `aria-required={required || undefined}`（**不是**原生 `required`——理由见 #3290 裁决：会和应用自己的校验双轨），星号加 `aria-hidden=\"true\"`。`custom/field.tsx` 的 `FieldContainer` 只需在已有的 Slot 注入里补一个 `aria-required`，一处就覆盖它的所有使用方。\n\n## 明确排除\n\n`packages/components/src/renderers/form/{input,textarea,select,checkbox}.tsx` 和 `basic/text-input.tsx` **不在**本单内：它们设了原生 `required={schema.required}`，浏览器会自动把它映射成必填状态，a11y 上是通的。那几个是独立 SDUI 控件、不走 react-hook-form，所以原生 `required` 在那里也不构成 #3290 说的双轨问题。\n\n## 边界\n\n不动 `packages/spec`，不动任何 field widget 的 props 契约（`aria-required` 已经在 `FieldWidgetComponentProps & AriaAttributes` 里，无需新键）。每处一到两行 + 测试。\n\n关联：objectui#3290、PR #3298。"
+}

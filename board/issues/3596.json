@@ -1,0 +1,36 @@
+{
+  "number": 3596,
+  "kind": "issue",
+  "title": "CONTRIBUTING.md:84-91「Running Development Servers」三条命令全部不存在 —— pnpm designer / prototype / docs:dev 在根 package.json 里没有对应 script",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:07:56Z",
+  "updated_at": "2026-08-07T15:56:47Z",
+  "closed_at": "2026-08-07T15:56:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3596",
+  "body": "修 #3584 时,按该单正文要求的「顺带确认紧随其后的 `pnpm site:dev` / `pnpm site:build` 两条命令仍然有效」做核验。那两条**确实有效**(根 `package.json` 里都在,#3584 的 PR 已如实记录)。但把同样的核验推到全文后,发现**更靠前的另一节**里三条命令全是死的 —— 该处不在 #3584 的文件面内(PM 认领评论把面锁死在 `### Writing Documentation` 那一句 ± 最小相邻散文),按 Prime Directive #10 未在那个 PR 里修,另立本单。\n\n## 现文(`CONTRIBUTING.md:81-92`,`### Running Development Servers`)\n\n```bash\n# Run the visual designer demo\npnpm designer\n\n# Run the prototype example\npnpm prototype\n\n# Run documentation site\npnpm docs:dev\n```\n\n## 与现状对不上\n\n根 `package.json` 的 `scripts` 里**这三个名字一个都没有**。可运行的文档站命令是 `site:dev` / `site:build` / `site:start`(即 #3584 那节里写的那两条),`docs:` 前缀下只剩 `docs:api` 与 `docs:check-links`。\n\n这一节是「Development Workflow」的开头,是新贡献者装完依赖后**第一批照抄的命令**,三条会连着报 `Command \"designer\" not found`。其中 `docs:dev` 与 #3584 是同一类搬迁滞后:`docs:` 前缀的站点脚本已改名到 `site:`,散文没跟上。\n\n## 复现(只读,离线)\n\n```bash\nsed -n '81,92p' CONTRIBUTING.md\npnpm run | grep -E '^\\s*(designer|prototype|docs:dev)\\b'   # => 无输出\nnode -e \"console.log(Object.keys(require('./package.json').scripts).filter(s=>/^(site|docs):/.test(s)))\"\n# => [ 'site:dev', 'site:build', 'site:start', 'docs:api', 'docs:check-links' ]\n```\n\n注:`grep -rl '\"designer\"' --include=package.json packages` 会命中 `packages/plugin-designer/package.json`,那只是**包名** `@object-ui/plugin-designer` 里的子串;该包的 scripts 是 `build` / `clean` / `test` / `type-check` / `lint`,没有 `designer`。也就是说没有任何 workspace 包能让 `pnpm designer` 从根跑通。\n\n## 为什么门禁抓不到\n\n与 #3584 同源:这是**围栏内的命令名断言**,不是链接。`check-doc-links.mjs` 的 `stripCode()` 在扫描前会把围栏整块抹掉(这正是相对链接检查得以安全开启的前提),所以哪怕 #3572 / PR #3589 把 `CONTRIBUTING.md` 加进 `SCAN_ROOTS`,这三行照样不可见 —— PR #3589 自己也量到过:该文件 25 条链接里 10 条在围栏内、门禁真正判定的只有 1 条。仓库里目前没有任何检查会因为散文里的 `pnpm SOMENAME` 不存在而变红。\n\n## 建议\n\n按现有 script 名改写这三条,或删掉已无对应入口的示例。**修之前需要先定**:`designer` / `prototype` 两个 demo 今天到底还有没有等价入口(可能是 `pnpm --filter ... dev`、可能已随示例应用移走、也可能确实退役了)—— 这一步是事实调查,不宜靠猜,本单未替未来的实现者做决定。`docs:dev` 一条没有歧义,直接就是 `site:dev`。\n\n顺带可考虑的根治方向(**不属于本单**,若要做请另立):给散文里的 `pnpm SOMENAME` 加一条轻量门禁,把命令名与根 `package.json` 的 `scripts` 对账 —— 上面那段 `node -e` 已经是它的雏形。这类「围栏内的事实断言」目前是整块盲区,#3584 与本单是同一盲区的两个实例。\n\n(注:上两段原写作尖括号占位符,被 GitHub 的 body sanitizer 当作 HTML 标签吞掉了,现改为 `SOMENAME`。这正是 objectstack#5140 家族那条「PR/issue 正文里避开尖括号紧跟字母,并回读存档正文」的实例。)\n\n## 关联\n\n#3584(同文件、同类过期陈述,`docs:` → `site:` 同一次改名的另一半)、#3570 / PR #3585 与 #3545 / PR #3571(同文件近期改动)、#3572 / PR #3589(`SCAN_ROOTS` 扩面 —— 即使落地也够不到围栏内)。\n\n⚠️ 本单**未认领**,留给 PM 分诊。发现于 #3584 的核验步骤,未在其 PR 中修改。"
+}

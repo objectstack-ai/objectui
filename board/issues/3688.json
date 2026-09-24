@@ -1,0 +1,42 @@
+{
+  "number": 3688,
+  "kind": "pull_request",
+  "title": "docs(packages): 退役 36 个包 README 里已死的 release-metadata §Compatibility 生成块",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "documentation",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T21:31:19Z",
+  "updated_at": "2026-08-07T21:35:43Z",
+  "closed_at": "2026-08-07T21:35:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T21:35:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3688",
+  "body": "Fixes #3645\n\n## 背景:生成器已死,块被冻结在 v3.3.0\n\n标记行 `release-metadata:v3.3.0`(HTML 注释形式)曾由发布期生成器写入,该生成器已不存在。PM 两仓实测我已独立复现:\n\n```\n$ git grep -l \"release-metadata\"      # objectui\n→ 仅命中 35 个 packages/*/README.md 自身;scripts/、.github/、其余全仓零引用\n$ (objectstack 仓)                     → 全仓零命中\n```\n\n没有任何工具会再生成或覆盖这个块 —— 所以 issue 正文「手改会被下次发版覆盖」的顾虑不成立,而块里的每一行都从 v3.3.0 起被冻结,仓库却一路走到了 17.x。\n\n一条正交证据:`packages/app-shell/README.md` 的标记行孤悬在第 616 行,与它本该界定的 §Compatibility(第 774 行)相隔 158 行,中间被插进了 `## Command palette` 等新章节。活的生成器会重新锚定或整块覆盖,不会容忍这种漂移。\n\n## 形态实测:PM 预设的「标记行 + 标题 + 5 行 bullet」有四处不成立\n\n| # | 差异 | 实测 | 处置 |\n|---|---|---|---|\n| 1 | `packages/cli/README.md` 有完整 §Compatibility 块但**无标记行**,且冒号在粗体外(`- **Node.js** ≥ 18`)、Tailwind 行无 `(for packages with UI)` 后缀 | 同一缺陷的另一种拼写 | **纳入**,文件面 35 → 36(见下「裁决二」) |\n| 2 | 29/36 个块是 **6 行** bullet,多一行 `- **React:** 18.x or 19.x`;仅 cli / core / create-plugin / data-objectstack / runner / types / vscode-extension 这 7 个是 5 行 | 六行,不是五行 | **一并删**(见下「裁决一」) |\n| 3 | `packages/types/README.md` 的 spec 行是 `^15.1.1`,**不是** `^3.3.0` | 「35 个逐字相同」不成立:该行被手改过一次,且仍然陈旧 | 同样删(处置是删版本宣称,与它宣称哪个版本无关) |\n| 4 | `packages/app-shell/README.md` 标记行与块相隔 158 行 | 标记与块已解耦 | 两处独立删除 |\n\n另有 2 个包(`plugin-tree`、`react-runtime`)本就没有这个块,**未触碰**。\n\n## engines 实测(enforce-or-remove 的输入)\n\n```\n39 个 packages/*/package.json 中声明 engines 的:1 个\n  vscode-extension → {\"vscode\":\"^1.85.0\"}     ← VS Code 引擎,与 Node 无关\n即:39 个包全部没有 engines.node\n\n根 package.json → engines: {\"node\":\">=22\",\"pnpm\":\">=9\"}   ← 全仓唯一可执行的 Node 下限\napps/* 、examples/*                                        → 全部无 engines\n```\n\n这正是 issue 派发时预留的「测量给出别的形态(如根 package.json 有 engines)」分支:真相存在,但在**根**而非包,且由 pnpm 在安装期强制。\n\n## 六行逐行处置依据 —— 全部失真,不止 issue 指出的两行\n\n| README 宣称 | 仓库真相 | 强制点 | 判定 |\n|---|---|---|---|\n| `@objectstack/spec` ^3.3.0 | 27 个包锁 `^17.0.0-rc.5`,**零**包锁 ^3.3.0 | package.json dependencies | 差一个大版本区间 → 删 |\n| `@objectstack/client` ^3.3.0 | 全仓**只有 1 个**包(`data-objectstack`)依赖它 | package.json dependencies | 36 个印这行的 README 里 35 个是幽灵行 → 删 |\n| Node.js ≥ 18 | 根 `engines.node` 为 `\">=22\"` | 根 package.json,pnpm 安装期强制 | 直接矛盾,已漂移过一次 → 删 |\n| TypeScript ≥ 5.0 (strict mode) | 全仓 39 处 typescript 声明均为 `^6.0.3` | 无 | 差一个大版本,且无处可核实 → 删 |\n| Tailwind CSS ≥ 3.4 | 实为 `^4.3.3`(6 处)/ `^4.2.1`(1 处) | 无 | 差一个大版本;`(for packages with UI)` 的括号本身就承认它不逐包为真 → 删 |\n| React 18.x or 19.x | 28 个 UI 包 peer 为 `^18.0.0 \\|\\| ^19.0.0`,但 **`plugin-report` 只有 `^18.0.0`** | package.json peerDependencies,包管理器安装期强制 | 手抄 peerDependencies 且**已漂移** → 删(见「裁决一」) |\n\n**一律不改写为 rc.5 / >=22 / ^6 / ^4。** 按仓规「版本号入散文即漂移保证 —— 删」:重写等于把同一台漂移机器重新上膛,下个 major 又错一遍。真相已在 `package.json`(engines / peerDependencies / dependencies)里,由包管理器在安装期强制,读者违反会拿到硬错误而不是一份陈旧文档。\n\n六行全删 → §Compatibility 整节空掉 → **连标题一起删**,不留空节。\n\n## 两处越出字面裁决的取舍,已由 PM 裁 A\n\n- **裁决一(React 行)**:该行落在被裁决的生成块区域内、属同一缺陷类(手抄 peerDependencies 的版本号入散文),且 `plugin-report` 已证明它不是例外。保留它会让 29 个文件留下**只剩一条 bullet** 的 §Compatibility 节 —— 此时标题反而更误导(读作「这就是全部兼容性约束」却已不含 Node/TS)。PM 裁 **A:一并删**。\n- **裁决二(文件面 35 → 36)**:issue 的「35」是按标记行计数,按**缺陷**计数是 36。PM 给出的验收判据「`grep -rn 'release-metadata|\\^3\\.3\\.0' packages/*/README.md` 零命中」只有覆盖 `cli` 才可能满足。PM 裁 **A:判据优先于估数**。\n\n## 改动形状:纯删除,算术对得上\n\n```\n36 files changed, 387 deletions(-), 0 insertions(+)\n```\n\n逐类核对:\n\n```\n29 个 6-bullet 带标记 × 11 行 = 319\n 6 个 5-bullet 带标记 × 10 行 =  60\n 1 个 cli 5-bullet 无标记      =   8\n                          合计 = 387   ✅ 与 diffstat 一致\n```\n\n(每块 = 标记 2 行【标记行 + 空行】 + 标题 2 行【标题 + 空行】 + N 行 bullet + 1 行尾随空行。)\n\n被删行去重后**只有六种**:标记行、`## Compatibility` 标题、空行、以及五类兼容 bullet —— 无任何其他内容。§Links 等其他节(#3649 刚修过)、任何 package.json 均**未触碰**;暂存区 36 个文件全部匹配 `^packages/[^/]*/README\\.md$`,越界文件数 0。\n\n## 门禁\n\n| 门禁 | 修前 | 修后 |\n|---|---|---|\n| `node scripts/check-doc-links.mjs` | `Links are valid across 7 scan roots.` exit=0 | `Links are valid across 7 scan roots.` exit=0 |\n| `node scripts/check-control-bytes.mjs` | — | `OK (scanned 3674 tracked text file(s); skipped 85 binary)` exit=0 |\n| 对 36 个改动文件自扫 `[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]` | — | 命中 0 行 |\n\ndoc-links **前后同绿**是预期方向,不是空绿:`scripts/check-doc-links.mjs:395` 的 `{ path: 'packages/*/README.md', rule: 'disk' }` 是第 7 个扫描根,门禁确实读到了这 36 个文件;本改动删除的行不含任何 markdown 链接语法,链接面按构造不变。据实记录为同绿,不套「前红后绿」的模板。\n\n验收判据计数:\n\n```\n修前:release-metadata 命中 35 文件 / ^3.3.0 命中 36 文件 / §Compatibility 36 节 / 合并 grep 106 行\n修后:0 / 0 / 0 / 0        ✅ 判据满足\n```\n\n## changeset:不加(写明判断)\n\nREADME.md 确在 `files` 内、属发布物内容,但:\n\n1. **仓内先例一致不加** —— 实测三个最近的包 README 类 PR,合并提交的 `.changeset/` 文件数均为 **0**:#3644(runner README 措辞)、#3662(plugin-tree LICENSE)、#3649(7 个包 README + 新门禁)。\n2. AGENTS.md 的门槛是「功能改进需 changeset,纯修复不需要」;本单是删除失真文档,**无 API/行为变更**。\n3. fixed 组 39 包联动,一次文档删除会把全组推版。\n\n附带提示:本 PR 全部是 `*.md`,`ci.yml` / `lint.yml` 的 `paths-ignore` 含 `**/*.md`,预期这两个 workflow 显示 **skipping** —— 按 AGENTS.md 那是跳过、不是失败。\n\n## 未在本 PR 修的越界发现(已另立单)\n\n- 站点文档侧同源失真宣称(`content/docs/utilities/cli.mdx:283`)\n- `plugin-report` 的 peerDependencies.react 与其余 28 个 UI 包不一致\n- release-metadata 生成器已死的观察记录\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

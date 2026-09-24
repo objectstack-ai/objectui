@@ -1,0 +1,35 @@
+{
+  "number": 3587,
+  "kind": "issue",
+  "title": "注释失真:两处称 Lychee 是「weekly cron with continue-on-error」,实际工作流是 `fail: true` 且根本没有 PR 触发器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:51:15Z",
+  "updated_at": "2026-08-07T18:54:50Z",
+  "closed_at": "2026-08-07T18:54:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3587",
+  "body": "观察类发现,PR #3583(#3572 扫描面第三扩)途中撞到,**未在该 PR 内修复**——它是 #3536 写下的既有注释,不属于 #3572 的改动面。\n\n## 事实\n\n两处注释把 Lychee「gates nothing」的**机制**说错了:\n\n- `scripts/check-doc-links.mjs:157` —— \"lychee … is a weekly cron with `continue-on-error`, so it gates nothing\"\n- `scripts/__tests__/check-doc-links.test.ts:853` —— \"lychee (weekly cron, continue-on-error) gates nothing\"\n\n而 `.github/workflows/check-links.yml` 的实际状态:\n\n- 第 77 行是 **`fail: true`** —— 工作流里**没有任何** `continue-on-error`;\n- `on:` 只有 `workflow_dispatch` + `schedule`(`17 4 * * 0`);`push:` 与 `pull_request:` 被**注释掉**,并附 `⛔ Do NOT enable` 的说明(#3213 ruling B:外链检查走网络,一个 502 会把作者无能为力的 PR 弄红)。\n\n## 为什么结论对、理由错\n\n「gates nothing」这个**结论**没错,但原因是**它压根不在 PR 上跑**(无 `pull_request`/`push` 触发器),不是「跑了但不 fail」。这两件事的运维含义相反:\n\n- 按注释的说法,把 `continue-on-error` 摘掉就能让它变成门禁 —— 而那行不存在,摘不掉;\n- 真实情况是它 `fail: true`,**一旦**有人取消注释 `pull_request:` 就会立刻变成硬门禁,正是 #3213 ruling B 明令不要的结果。\n\n照错误理由行事的人会往反方向走。\n\n## 影响\n\n零用户可见影响,纯注释失真;但这两句正是后来者判断「这一面有没有门禁」的依据,#3536 与 #3572 的头注释都据此论证扫描面为何要扩。归为 observation-class。\n\n## 建议修法(一行级)\n\n把两处改成机制正确的表述,例如「a `schedule` + `workflow_dispatch` workflow with no PR trigger, so it blocks nobody」。`content/docs/guide/ci-cd-pipeline.md` 对该工作流的描述(「It is deliberately **not** a PR gate」)本身是**对的**,无需改。\n\n参考:PR #3583 的新增头注释已按正确机制书写,可直接取用其措辞。"
+}

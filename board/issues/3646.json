@@ -1,0 +1,30 @@
+{
+  "number": 3646,
+  "kind": "pull_request",
+  "title": "docs(runner): §Add Custom Routes 改写为指向 Add Custom Schemas 的元数据路由说明 (#3618)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:55:55Z",
+  "updated_at": "2026-08-07T16:58:59Z",
+  "closed_at": "2026-08-07T16:58:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:58:58Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3646",
+  "body": "Fixes #3618\n\n`content/docs/utilities/runner.mdx` 的 `### Add Custom Routes` 让读者 \"Edit `src/App.tsx`\"，并给出一段 react-router 代码(`BrowserRouter` / `Routes` / `Route` 三件套，路由到 `Home`、`Dashboard`、`CustomPage` 三个组件)。这一节与实现有两处相反。\n\n## 前提复核(独立于 issue 正文，对 `origin/main` 切点 `fa3ba5bf1`)\n\nissue 正文的三条断言逐条复核，**全部成立**：\n\n1. **`react-router-dom` 不是 runner 的依赖。** `packages/runner/package.json` 的 `dependencies` 为 `@object-ui/{components,core,plugin-charts,plugin-kanban,react,types}` + `class-variance-authority` / `clsx` / `lucide-react` / `react` / `react-dom` / `tailwind-merge` / `tailwindcss-animate`；`devDependencies` 也没有。全包 `grep -rn 'react-router' packages/runner/` **零命中**。照抄这段直接 `Failed to resolve import`。\n2. **Runner 的路由模型相反。** `packages/runner/src/App.tsx`：`:83` `useState(window.location.pathname)` 持有 `currentPath`，`:120` `history.pushState` 导航，`:127` 监听 `popstate`，`:137` `loader.loadPage(currentPath)`。路由由元数据决定，**没有路由表可改**。\n3. **三个幽灵组件确实不存在。** `packages/runner/src` 全部文件只有 `App.tsx` / `LayoutRenderer.tsx` / `main.tsx` / `lib/MetadataLoader.ts` / `lib/mockDataSource.ts` 加测试；`Home` / `Dashboard` / `CustomPage` 无一存在(唯一命中是 App.tsx:194 的按钮文案 \"Go Home\")。\n\n补一条 issue 未提但对措辞有用的：`### Add Custom Schemas`(:439，本 PR 后)已经把正确做法写对了 —— 「The file name is the route: this one is served at `/my-page`」，且 `LocalBundleLoader.loadPage()` 与 `NetworkLoader` 两条路径都是「路由 → 文件/请求」的映射，`## Metadata Loading` 一节已完整覆盖。\n\n## 前后对照\n\n**修改前**(:409-427，19 行)：一句 \"Edit `src/App.tsx`:\" + 一个 15 行 typescript 代码块，内容为 `react-router-dom` 的 import 与一张 JSX 路由表。\n\n**修改后**(6 行，无代码块)：\n\n> There is no route table to edit and no router dependency to install — the Runner derives routes from metadata. `src/App.tsx` keeps the current path in state, navigates with `history.pushState`, and asks the active loader for whatever page answers that path. So adding a route means adding the page document it resolves to: see [Add Custom Schemas](#add-custom-schemas) below, and [Metadata Loading](#metadata-loading) for how a route maps to a file or a request.\n\n净 `6 insertions(+), 17 deletions(-)`，单文件。\n\n## 处置取舍：为什么保留标题改写，而不是整节删除\n\nissue 与分诊都给了「删除 或 一行指向 `### Add Custom Schemas`」两个选项。取**后者**，理由三条：\n\n1. **与 #3538 / #3633 删除的两节不是同一情形。** 那两处(`## Environment Variables`、`### 2. Environment Configuration`)描述的配置面在实现里**根本不存在** —— 读者的问题本身无解，删掉即无残留。而「怎么加一个路由」是 Runner **真实支持**的能力，只是机制不同(加一个 JSON 文件)，答案就在同页 40 行之下。此处是**问题合法、答案是编造的**，删标题等于把一个合法问题连同错误答案一起抹掉。\n2. **删掉会留下一个会被重新填上的坑。** 被删的这段主动教了反模式(改 `App.tsx`)。`## Extending the Runner` 下若只剩 Components / Schemas 两节，按 \"routes\" 检索的读者一无所获，很可能自行重新推导出同一个「改 App.tsx」的错误直觉。一句显式的「没有路由表、不要改代码」是对该直觉的免疫。\n3. **本页已有同形态先例，这是既有节奏。** `### Metadata — Supplied by You`(:59)就是「短说明 + 指向权威小节」的路标节，本身不含代码；页内 `[Metadata Loading](#metadata-loading)` 交叉引用已用过两次(:63、:87)，证明页内锚点在本页是成立且惯用的写法。\n\n⛔ 未做也不建议：把 `react-router-dom` 真加进依赖让文档成真。分诊已裁定那是产品决定，不归 docs 卡。⛔ 未发明任何新 API：改写后的每个分句都对应上面复核过的 file:line。\n\n## 锚点\n\n`#add-custom-routes` 全仓 `grep -rn 'add-custom-routes'` **零命中**(含 `content/`、`apps/`、`packages/`、README)，两种处置都不断链；保留标题额外保住了可能存在的站外深链。新引入的两个页内锚点目标均存在：`### Metadata Loading`(:91)、`### Add Custom Schemas`(:439)。\n\n## 验证(先预测后实测，三条全部命中)\n\n| 预测 | 修改前 | 修改后 |\n| --- | --- | --- |\n| `grep -c 'react-router-dom' content/docs/utilities/runner.mdx` 归零 | `1` | `0` ✅ |\n| `node scripts/check-doc-links.mjs` 前后皆绿 | `Links are valid across 6 scan roots.` exit 0 | 同左，exit 0 ✅ |\n| `node scripts/check-control-bytes.mjs` 绿 | — | `OK (scanned 3661 tracked text file(s); skipped 85 binary)` exit 0 ✅ |\n\n修改前的基线用 `git diff` 存盘 + `git checkout --` 还原后实测(未用 `git stash`，遵 CLAUDE.md 共享栈禁令)，随后 `git apply` 恢复。\n\n补充说明两点，避免误读为更强的证据：\n\n- **`check-doc-links.mjs` 对本 PR 是弱证据。** 该脚本显式把 `#fragment` 剥离后再校验(脚本注释：解析锚点需要解析目标页，明确不在范围内)，因此本 PR 新增的两个**页内锚点它并不校验**。上表的「前后皆绿」只说明没引入坏的**外链/路由链**(本 PR 也确实未新增任何外链)。锚点有效性是我按上面「锚点」一节手工核验的。\n- **控制字节自扫超出 gate**：`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' content/docs/utilities/runner.mdx` 零命中。\n\n未跑包级 `pnpm test` / `pnpm typecheck`：本 PR 是站点文档单文件改动，不触及任何 `packages/*` 源码或类型面，两者对该 diff 无信号(`ci.yml` / `lint.yml` 亦把 `**/*.md` 列入 `paths-ignore`)。\n\n## changeset\n\n**不加**，判断依据：`content/docs` 属 `@object-ui/site`(`apps/site/package.json`)，而 `.changeset/config.json` 的 `ignore` 为 `[\"@object-ui/example-*\",\"@object-ui/site\"]` —— 该包不随固定版本组发布。同文件同类先例 #3633(`d9a03fe9a`)亦为 0 个 changeset 文件。\n\n## 越界发现(只报不改)\n\n通读全页时发现同页 `### vite.config.ts`(:161)展示的配置在实现里不存在 —— 真实 `packages/runner/vite.config.ts` 没有 `server` 块(故 `port: 5173` 是 Vite 默认值而非配置项，`open: true` 纯属虚构)，而真正关键的 `resolve.alias` 传递闭包表(#3575 的硬不变量)与 `build.modulePreload: false` 被完全隐去。**已按 Prime Directive #10 另立 issue #3643(unassigned)，未在本 PR 顺手修改。** 去重已做：#3593 是真实 vite.config.ts 里 `data-objectql` 别名的代码侧问题，#3619 / #3635 / #3632 分别是 Features 清单 / Error Boundaries 导入 / README 清单，均不覆盖本节。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

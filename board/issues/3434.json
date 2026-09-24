@@ -1,0 +1,36 @@
+{
+  "number": 3434,
+  "kind": "issue",
+  "title": "[e2e] live 车道首次真跑即暴露:master-detail.spec.ts 的标题定位器命中两个 h1(strict mode violation),2/4 用例必红",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T03:50:13Z",
+  "updated_at": "2026-08-06T05:16:51Z",
+  "closed_at": "2026-08-06T05:16:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3434",
+  "body": "## 背景:这条 lane 刚刚第一次真正跑起来\n\n`.github/workflows/live-e2e.yml` 因为一处 job 级 `env:` 里的 `runner` 上下文,自 #3325 落地起就一直是 workflow 级 startup failure(0 job / 0s),**从未执行过任何一个用例**。#3425 / PR #3432 修好该启动故障后,这条 lane 在 PR #3432 上跑出了历史第一个真实 run:\n\n- run: https://github.com/objectstack-ai/objectui/actions/runs/31069352699\n- 结果:`4 tests`,**2 passed / 2 failed**(18.2s)\n\n后端、控制台、登录都是好的(`[live-e2e] authenticated as admin@objectos.ai`),`action-modal` 与 `screen-flow` 两条都过。失败集中在 `master-detail.spec.ts` 的两条,且是**同一个根因**,发生在 `beforeEach` 里。\n\n## 现象\n\n`e2e/live/master-detail.spec.ts:33`:\n\n```ts\nawait expect(page.getByRole('heading', { name: 'New Project + Tasks' })).toBeVisible();\n```\n\n报:\n\n```\nError: expect(locator).toBeVisible() failed\nLocator: getByRole('heading', { name: 'New Project + Tasks' })\nExpected: visible\nError: strict mode violation: getByRole('heading', { name: 'New Project + Tasks' })\n       resolved to 2 elements:\n    1) < h1 class=\"text-3xl font-bold tracking-tight text-foreground\" >New Project + Tasks< /h1 >\n       aka getByRole('heading', { name: 'New Project + Tasks' }).first()\n    2) < h1 class=\"text-2xl font-semibold tracking-tight\" >New Project + Tasks< /h1 >\n       aka locator('header').filter({ hasText: 'New Project + TasksMaster-' }).getByRole('heading')\n```\n\n两条受影响用例(都卡在同一个 `beforeEach`,因此用例主体一行未跑):\n\n- `master-detail.spec.ts:36` — Create submits the populated parent in one atomic batch\n- `master-detail.spec.ts:58` — Create with a task line includes the child op referencing the parent\n\n## 需要判断的是哪一侧的问题(我没有下结论)\n\n同一段文案被渲染成**两个 h1**:一个是页面级大标题(`text-3xl`),一个在 `header` 里(`text-2xl`)。这有两种可能,请在三方定夺时一并判断:\n\n1. **测试侧**:页面本来就有「页面标题 + 吸顶 header 标题」两处,属预期;那么 spec 的定位器过宽,应收窄(限定 scope,或改用更稳的语义锚点)。\n2. **应用侧**:同一标题被重复渲染成两个 `h1` 本身就是缺陷 —— 一个文档里出现两个 `h1` 对 a11y / 文档大纲也不健康,读屏会读到重复标题。若如此,该修的是渲染侧,spec 反而是正确的探针。\n\n倾向 2 值得先看一眼再决定:`h1` 重复是无障碍层面的真问题,而不只是选择器写窄一点就能了事的测试瑕疵。\n\n## 影响\n\n该 lane 是 `continue-on-error: true` 的 informational 车道,**不阻塞合并**(workflow run 结论为 `success`);但 PR checks 列表里 `Live E2E (informational)` 这一格会显示 failure。也就是说 #3425 消灭的是「假红」(startup failure),这条留下的是「真红」—— 有 Playwright 报告、截图、录像和 `live-e2e-artifacts` 制品可查,正是这条 lane 被设计出来要抓的东西。\n\n复现:`pnpm test:e2e:live:ci`(需按 `e2e/live/ci/backend.env` 起真后端)。\n\n发现于 #3425 的修复验证过程(PR #3432),按 Prime Directive #10 独立立单、不夹带修复。\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3324,
+  "kind": "pull_request",
+  "title": "feat(core): server-action dispatcher factory createServerActionHandler (#2904)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T00:01:16Z",
+  "updated_at": "2026-08-04T00:04:53Z",
+  "closed_at": "2026-08-04T00:02:47Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T00:02:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3324",
+  "body": "Fixes #2904\n\n按维护者裁决（issue 评论 2026-08-03）实施**选项 1**：`@object-ui/core` 导出服务端 action 派发工厂，消费者自行注册；顺手把 `useConsoleActionRuntime` 与 `RecordDetailView` 两处手写 POST 收敛为一处。客户端执行 `body` 依旧永久出界（#2896 论证不变）。\n\n## 变更内容\n\n### `@object-ui/core`（新公共 API，minor）\n\n- **`createServerActionHandler({ fetch, baseUrl, resolveObject, resolveRecordId, onRefresh })`** — 服务端 action 派发工厂（`packages/core/src/actions/serverActionHandler.ts`）。core 对 issue 点名的三件事保持无立场、全部注入：auth（`fetch` 传认证包装）、base URL（字符串或 thunk，不继承 `VITE_SERVER_URL` 这类打包器约定）、对象归属（`resolveObject` 兜底）。协议性的东西全部收进工厂、只此一份：\n  - **name-only 身份**（ADR-0110 D1）：URL 以声明名 `name` 定位 action，绝不回退 `target`（`target` 是绑定表达式，不是身份）；\n  - **recordId 解析舞步**（另导出 `resolveServerActionRecordId` + `isRecordScopedAction`）：`params.recordId` → `_rowRecord[recordIdField]` → 工具栏勾选兜底（多选/零选拦截，#2210），aggregate `_selectedIds` 旁路（#3139）；record 页可用 `resolveRecordId` 整体替换策略；\n  - **防重入**（同 action+record 在飞即拒）；\n  - **`/actions` 信封规则**：`interpretActionResponse` / `readActionPayload` / `actionErrorDetail` 自 app-shell 内部**上移 core 成为公共导出**（工厂在 core，规则必须随行）。\n- `executeScript` 的报错与 `ActionDef.body` 文档指向工厂；独立消费者从此有受支持的接法：`<ActionProvider handlers={{ script: createServerActionHandler({...}) }}>`。\n\n### `@object-ui/app-shell`（收敛，patch）\n\n- 新增 `utils/consoleServerAction.ts` 的 **`createConsoleServerActionHandler`**：在 core 工厂之上叠 console 独有的 DOM 编排（popup 预开 spinner tab、`newTabUrl` 零往返快路径、`redirectUrl` 约定 + 弹窗被拦 toast）。\n- `useConsoleActionRuntime` 与 `RecordDetailView` 都改为由该包装构造 handler，两份手写 POST（各 ~160 行）删除。\n- **`actions-envelope.ratchet.test.ts` 收紧**：app-shell 任何文件不得在代码中出现 `/api/v1/actions/` 路由（marketplaceApi 豁免不变），并钉住两个派发面确实经过共享包装。\n- `utils/actionResponse.ts` / `utils/actionErrorDetail.ts` 删除（迁 core），`flowResponse.ts` 改从 `@object-ui/core` 导入。\n\n### 行为收敛点（RecordDetailView 侧，属修偏而非破坏）\n\n1. **`target || name` → name-only**（ADR-0110 D1）：#3935 当时只修了共享 runtime，record 页漂移未修 —— 旧行为对 target-bound action POST 注册键，服务端解析不到声明、静默跳过 ADR-0066 D4 能力门与 ADR-0104 参数契约；\n2. **`_rowRecord` 不再漏进请求体**（客户端暂存，从不属于服务端契约）；\n3. 快路径 recordId 现在同样尊重 `action.recordId` 覆盖（旧代码在 related-list 行 action 场景会错用父记录 id）；\n4. 无名 action 的报错文案统一为共享 runtime 的版本。\n\n一处已知微差（wrapper 注释里写明）：防重入守卫随派发进了 core 工厂，位于 popup 预开之后 —— `opensInNewTab` action 被双击时第二次点击会预开一个存活一个微任务的空 tab 随即关闭；守卫防的双重 POST 依然不可能发生。\n\n### 文档 / changeset\n\n- `packages/core/README.md` 新增 “Server Action Dispatch” 一节；`content/docs/guide/architecture-overview.md` 修正 `script = Execute inline JavaScript` 的陈旧表述并补工厂用法。\n- changeset：`@object-ui/core` **minor** + `@object-ui/app-shell` patch（fixed 组，无 major）。\n- ⛔ 未触碰 `content/docs/releases/`。\n\n## 验证（全部在本提交 cfb7c1f74 上本地跑完，2026-08-03 19:27–19:51；容器其后重启，交由 PR CI 复核）\n\n| 项 | 命令 | 结果 |\n|---|---|---|\n| 聚焦基线（core 工厂 22 例 + 信封随迁用例 + console 包装 12 例 + 既有 runtime 行为钉 + 两个 ratchet） | `pnpm exec vitest run <6 个文件>` | ✅ 6 文件 / 91 用例全绿 |\n| turbo type-check | `pnpm exec turbo run type-check --concurrency=2` | ✅ 78/78 tasks |\n| turbo lint | `pnpm exec turbo run lint --concurrency=2` | ✅ 45/45 tasks |\n| turbo build | `pnpm exec turbo run build --concurrency=2` | ✅ 44/44 tasks |\n| 仓根全量 vitest | `pnpm exec vitest run --maxWorkers=2` | ✅ 874 passed \\| 1 skipped（10356 用例 passed \\| 25 skipped） |\n\n### 破坏验证实录（故意改坏 → 红 → 还原 → 绿；三处同轮注入，标记核验 1/0/1）\n\n| 断言 | 破坏方式 | 红掉的用例 |\n|---|---|---|\n| ADR-0110 name-only 身份 | 工厂 URL 改回 `target \\|\\| name` | core `dispatches by declarative name, never by target`；hook `posts the action NAME, not its target` |\n| 信封 inner-failure 规则（#3913） | `interpretActionResponse` 去掉 `innerFailed` 分支 | core `catches a LEGACY business rejection hiding under HTTP 200`；工厂 `treats an INNER success:false under HTTP 200 as a failure`；hook `#3913 no green toast` |\n| redirectUrl 双层信封读取 | wrapper 直接读 `result.data` | wrapper `drives the pre-opened tab to a handler-returned redirectUrl` + `opens lazily…toast fallback`；hook `read through BOTH envelopes` |\n\n破坏轮：4 文件 / 8 用例红（exit 1）；`git restore` 还原后 0 脏文件，同套命令 6 文件 / 91 用例全绿（exit 0）。\n\n## 清单外发现（只记录未顺手修）\n\n- #3320 — RecordDetailView.modalActionHandler 仍带 objectstack#3959 已在共享 runtime 移除的死路 server fallthrough；\n- #3321 — 弹窗被拦 toast 与 spinner tab 的中英双语文案违反 Commandment #-1（本次收敛后只剩一处，好修）。\n\n## 与在飞工单的文件交叠\n\n- #2835（CI workflow）：无交叠（未动 `.github/`）。\n- #3306（fields/SelectField）：无交叠（未动 `packages/fields`）。\n- #3311（app-shell AreaSwitcher，已随 #3322 合并）：已 rebase 到含它的 main 上验证，无共享文件。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa)_"
+}

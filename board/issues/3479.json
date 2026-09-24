@@ -1,0 +1,36 @@
+{
+  "number": 3479,
+  "kind": "issue",
+  "title": "content/docs 有 16 个失效的相对链接,且 check-doc-links.mjs 对相对链接一律放行",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T09:14:11Z",
+  "updated_at": "2026-08-06T13:52:34Z",
+  "closed_at": "2026-08-06T13:52:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3479",
+  "body": "在 #3449(PR #3477)把 Lychee 扫描范围修到 `content/docs/**` 之后,离线跑出来的**副产物**:`content/docs` 里有 16 个失效的相对链接目标(33 处引用),一直没人管。\n\n## 两件事,一因一果\n\n### 1. 门禁洞(因)\n\n`scripts/check-doc-links.mjs` 的 `routeExists()`:\n\n```js\nif (!cleanHref || !cleanHref.startsWith(DOCS_ROUTE_PREFIX)) {\n  return true;\n}\n```\n\n只要 href 不是以 `/docs` 开头就直接判过。也就是说 `docs-links.yml` 这个 PR 门禁**只校验站内绝对路由**,`../plugins/plugin-view.md` 这类相对链接一律放行 —— 它们至今由**任何**门禁都不检查(Lychee 在 #3449 之前也看不到 `content/docs`)。\n\n### 2. 累积出来的失效链接(果)\n\n`lychee 0.24.2 --offline` 实测(命令见文末),16 个失效目标:\n\n**A. 扩展名写错 —— 链接写 `.md`,文件其实是 `.mdx`(13 个)**\n\n`content/docs/plugins/` 下这些文件都存在,但都是 `.mdx`:\n\n```\nplugin-calendar.md   plugin-charts.md    plugin-chatbot.md   plugin-dashboard.md\nplugin-editor.md     plugin-form.md      plugin-gantt.md     plugin-grid.md\nplugin-kanban.md     plugin-map.md       plugin-markdown.md  plugin-timeline.md\nplugin-view.md\n```\n\n这在站点上也是坏的:fumadocs 的路由不带扩展名,`/docs/plugins/plugin-view.md` 是 404。\n\n**B. 目标根本不存在(3 个)**\n\n| 目标 | 引用处 |\n|---|---|\n| `content/docs/concepts/lazy-loading` | `plugins/plugin-charts.mdx:281`、`plugin-editor.mdx:154`、`plugin-kanban.mdx:365`、`plugin-markdown.mdx:362` |\n| `content/docs/guide/lazy-loading.md` | `guide/plugins.md:515` |\n| `content/docs/guide/examples/server` | `guide/index.md:12` |\n\n`content/docs/` 下**没有** `concepts/` 目录,全仓库也找不到任何 `lazy-loading` 文档(`find content/docs -iname '*lazy*'` 为空)。所以 A 类是改扩展名,B 类要么补文档、要么删链接 —— 需要写文档的人判断,不是机械替换。\n\n## 影响\n\n- 站点读者点这些链接会 404。\n- #3449 修好后,`check-links.yml` 的每周 cron 会持续把它们报出来(该 workflow 只报告、不拦 PR,所以不阻塞任何人)。\n\n## 建议的修法\n\n两件都做,顺序无所谓:\n\n1. 修 16 个链接(A 类改扩展名;B 类由文档作者决定补还是删)。\n2. 把 `check-doc-links.mjs` 扩到相对链接 —— 它已经在遍历 `content/docs` 的每个文件,知道每个 href 所在的文件路径,解析相对路径是几行的事;而且它是**无网络的 PR 门禁**,天然适合管仓库内链接。管住了以后这类缺陷就不会再攒起来。\n\n> 注:PR #3477 特意**没有**用 `--fallback-extensions md,mdx` 把 A 类盖掉 —— 那样错误数从 33 降到 6,但降下去的正是真缺陷。宽容的消费端把生产端的错误藏起来,是这个仓库明确要避免的方向。\n\n## 复现\n\n```bash\nlychee --offline --no-progress --config lychee.toml \\\n  'content/docs/**/*.md' 'content/docs/**/*.mdx'\n# (需要 PR #3477 的 lychee.toml —— 否则会先被 297 个站内绝对路由的硬错误淹掉)\n```\n\nBlocked-by: none(可以独立修;#3477 只是发现它的工具)\n"
+}

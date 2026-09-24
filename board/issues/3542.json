@@ -1,0 +1,32 @@
+{
+  "number": 3542,
+  "kind": "pull_request",
+  "title": "feat(scripts): check-doc-links 两向扩展 —— 扫描面扩到 examples/** 与根 README,自仓 GitHub URL 离线校验",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:33:04Z",
+  "updated_at": "2026-08-07T04:06:36Z",
+  "closed_at": "2026-08-07T04:06:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T04:06:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3542",
+  "body": "Fixes #3536\n\nPR #3506 在头注释里明确列了两个\"没有买\"的面,各自已有实证需求。本 PR 一并买下,并把那段声明按事实重写。\n\n## 扩展一:扫描面 → `examples/**` + 根 `README.md`(用**另一套**规则)\n\n关键不是\"多扫两个目录\",而是这两组文件的链接语义与 `content/docs` 根本不同:它们在 GitHub 上被阅读,相对链接是**磁盘路径**,不是 fumadocs 路由。所以新增按扫描根分流的 `SCAN_ROOTS` 表,`disk` 规则只问\"存在与否\":\n\n| | `content/docs`(`docs` 规则) | `examples/**`、根 README(`disk` 规则) |\n|---|---|---|\n| 目录 / 非 markdown 文件 / 无扩展名文件 | 需 `routeCandidates()` 命中 | 存在即可(`./packages/core`、`./vite.config.ts`、`./LICENSE`) |\n| 链接离开本目录树 | `escapes-collection` 拒绝 | 放行,唯一边界是仓库根 |\n| markdown 文件的无扩展名写法 | 放行(浏览器可能解析) | 拒绝(GitHub 供的是文件,不是路由) |\n\n**把 docs 规则硬套上去会误报 61 条当前渲染正常的链接** —— 这不是推测,是实测(见下方逆向验证 C)。\n\n**绝对 `/...` href:判为拒绝**(`example-absolute`)。这两组文件里目前一条都没有,属预防性;方向是渲染器决定的 —— GitHub 把开头的 `/` 解析到 github.com 而非本仓,根 README 里的 `/packages/core` 会指向 `https://github.com/packages/core`。提示里同时给出两种修法(写成相对路径,或真想要 github.com 就写全 URL),因为罕见的\"故意写 github.com 路径\"是真实存在的。默认放行才是 #3490 花 18 条 404 才拆掉的那种静默豁免。\n\n## 扩展二:本仓 `(blob|tree)/main/` GitHub URL 的离线路径校验\n\n这类\"写成外链的仓内引用\"卡在两个门禁之间(#3507):本脚本按 scheme 跳过,lychee 是周 cron + `continue-on-error`,不 gate PR。两条曾死了约三个月。现在在**所有**扫描面校验其路径存在于工作树 —— 包括 `content/docs`,因为 `escapes-collection` 的提示本就推荐这种写法,不校验等于推荐一种没人管的形态。\n\n刻意收窄(其余离线不可判定):只认 `main`(tag/sha 指向别的 ref)、只认本仓(别人的仓归 lychee)、只认路径(`#fragment` 不在本单范围,校验前剥离)、只认 `blob|tree`(`/issues` 与 `workflows/.../badge.svg` 是 github.com 站内路由,继续跳过)。\n\n## 真实仓运行:零新红(与预测一致)\n\n```\n$ node scripts/check-doc-links.mjs\nLinks are valid across 3 scan roots.\nEXIT=0\n```\n\n**#3507 的 25 目标复扫已重跑**(该 issue 评论区的 one-liner,对本分支 HEAD):**27 个不同目标全部 OK,零死链** —— 即 #3506 新引入的 8 条同形态链接全部是活的,与 #3509 清零后的预期一致。目标数从 25 涨到 27,是 #3506 新增 `examples/console-starter`、`packages/core`、`packages/react`,同时 #3509 移除了 `examples/crm`、`examples/todo`。\n\n## 逆向验证:先预测方向,再跑\n\n三组,都事先写下预期再执行:\n\n**A. 删掉 `SCAN_ROOTS` 里的两个 disk 根(等于撤销扩展一)** → 预测 12 红,实测 12 红。\n\n⚠️ **诚实记录一个\"空绿\"**:扩展一的**放行类**测试(`accepts a directory...`、`accepts a relative link that leaves the example`、`leaves external URLs alone`、`does not walk into an example dependency tree`)在此变异下**依旧绿** —— 不是因为逻辑对,而是因为整个面没被扫,断言 `[]` 拿到 `[]`。这正是\"因为什么都没产出所以通过\"的陷阱。挡住它的是专门加的 `really scans every surface in SCAN_ROOTS` 这条(变异下第一个红),它直接断言三个扫描根各自真的收到了文件。这条测试的存在理由就是这个,不是凑数。\n\n**B. 删掉 `judgeHref` 里的 self-repo 分支(等于撤销扩展二)** → 预测 5 红,实测 5 红。同样地,放行类测试空绿;`exposes selfRepoPath`(纯单元)与 `has no dead self-repo GitHub URLs`(直接复扫,不走门禁接线)按设计保持绿 —— 后者是把 #3507 的人工 one-liner 固化成断言,故意独立于门禁接线。\n\n**C. 把 disk 面强行改判为 `docs` 规则(检验\"分流\"本身是否承重)** → 预测真实仓测试转红,实测:\n\n```\nFound 61 broken links (54 distinct targets):\n- [escapes-collection] examples/README.md:9 -> ./hello-world\n- [escapes-collection] examples/console-starter/README.md:10 -> ./src/App.tsx\n- [escapes-collection] examples/console-starter/README.md:12 -> ../../packages/app-shell/src/console/ConsoleShell.tsx\n- [escapes-collection] examples/console-starter/README.md:29 -> ./vite.config.ts\n...\n```\n\n12 条测试红,含 `has no broken internal links in any scanned surface`。这是分流规则承重的硬证据:是**真实内容**上的 61 条误报,不是 fixture 造出来的。\n\n## 顺带的两处设计收紧\n\n- `collectBrokenLinks(docsRoot, siteRoot)` → `collectBrokenLinks(repoRoot)`。调用方不再能配置掉某个扫描面或 `apps/site` 真源,拿到一个\"其实什么都没看\"的绿;`SCAN_ROOTS` 是唯一的\"检查了什么\"清单。仅测试文件引用此函数,无其他调用方。\n- CLI 的仓库根改由脚本自身位置推导(原为 cwd)。因为 `collectFiles` 现在对不存在的根返回 `[]`,cwd 相对根会让\"从子目录运行\"变成扫不到东西却报成功 —— 假绿是这个门禁唯一不能有的失效模式。\n\n## 文档更正(AGENTS.md #2,主动披露)\n\n`content/docs/guide/ci-cd-pipeline.md` 两处被本次改动**证伪**,做了最小事实更正:第 253 行\"walks every `.md` / `.mdx` file under `content/docs/`\"与第 309 行表格里\"**Internal** links in `content/docs/`\"。改为如实描述三个扫描根、两套规则,以及跨面生效的自仓 URL 校验。未动 `content/docs/releases/`。\n\n## 验证\n\n| 命令 | 结果 |\n|---|---|\n| `pnpm exec vitest run scripts/`(仓库根,flock,`--maxWorkers=2`) | **14 files / 239 tests 全绿** |\n| 其中 `check-doc-links.test.ts` | 34 → **57**(+23,与预测一致) |\n| `node scripts/check-doc-links.mjs` | exit 0 |\n| `pnpm type-check:scripts` | exit 0(未加 `@ts-expect-error`) |\n| `pnpm exec eslint`(改动的 script/test) | 0 errors |\n| `node scripts/check-control-bytes.mjs` | OK(3695 文件);另对改动文件自查了 gate 不扫的控制字节范围,干净 |\n\n无 changeset:脚本/CI 门禁,非发布包(#3506 先例)。\n\n## 越界记录\n\n扫描过程中在**扫描面之外**发现 3 条真实死链(`CONTRIBUTING.md` 2 条、`ROADMAP.md` 1 条)。按 Prime Directive #10 **未在本 PR 修复**,另立 issue。#3533 在飞的 `runner.mdx` / `objectos-integration.mdx` 本次扫描未flag任何内容,无冲突。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

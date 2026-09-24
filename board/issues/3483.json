@@ -1,0 +1,33 @@
+{
+  "number": 3483,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): 删掉 UserFilters 的私有算子表,tab preset 走 spec 单一出口 (#3470)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:00:54Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3483",
+  "body": "Fixes #3470\n\n## 先说 before/after 的实测裁决:**IDENTICAL —— 这部分是纯修复,不是行为变更**\n\nissue 的 ⚠️ 差异点要求先测量再决定:旧表把 `before`/`after` 改写成 `&lt;`/`&gt;`,而这两个词本身也是 `VALID_AST_OPERATORS` 成员,所以「直接透传」到底是不是纯修复,取决于服务端对它们的日期语义。**按裁决用实测回答,没有假设。**\n\n独立测试栈(#3431 同法):`e2e/live/ci/start-backend.sh`,已发布 `@objectstack/*@17.0.0-rc.2` + `examples/app-showcase`,`objectstack dev --seed-admin --fresh -p 4093`;对象 `showcase_task`(`due_date` 是 `date`,`created_at` 是 `datetime`)。原始 payload:\n\n```\n[\"due_date\",\"before\",\"2026-08-01\"]                  -> 200  n=2\n[\"due_date\",\"<\",\"2026-08-01\"]                       -> 200  n=2   同一批 id\n[\"due_date\",\"after\",\"2026-08-01\"]                   -> 200  n=8\n[\"due_date\",\">\",\"2026-08-01\"]                       -> 200  n=8   同一批 id\n[\"created_at\",\"before\",\"2026-08-01T00:00:00.000Z\"]  -> 200  n=6\n[\"created_at\",\"<\",\"2026-08-01T00:00:00.000Z\"]       -> 200  n=6   同一批 id\n[\"created_at\",\"after\",\"2026-08-01T00:00:00.000Z\"]   -> 200  n=3\n[\"created_at\",\">\",\"2026-08-01T00:00:00.000Z\"]       -> 200  n=3   同一批 id\n```\n\n比对不只看行数,连返回的 record id 集合都逐个比过(探针里 `same()` 在双 200 时比较排序后的 id 数组)。`date` 与 `datetime` 两种字段类型、两个方向,**状态码与结果集完全一致**。所以旧表那次改写是个 no-op,去掉它是纯修复。spec 自己也独立印证了同一结论:`canonicalAstOperator('before') === '<'`。\n\n## 整表替换的实测:19 个算子里只有 `not_in` 的答案变了(400 → 正确的行)\n\n把「canonical 拼法」与「旧 `specOperatorToAst` 的输出」逐一对打:\n\n| 作者写的算子 | canonical 直发 | 旧表映射后 | 判定 |\n|---|---|---|---|\n| equals | 200 n=2 | `=` 200 n=2 | same |\n| not_equals | 200 n=8 | `!=` 200 n=8 | same |\n| contains | 200 n=1 | `contains` 200 n=1 | same |\n| not_contains | 200 n=9 | `notcontains` 200 n=9 | same |\n| starts_with | 200 n=1 | `startswith` 200 n=1 | same |\n| ends_with | 200 n=1 | `ends_with` 200 n=1 | same |\n| greater_than | 200 n=10 | `&gt;` 200 n=10 | same |\n| less_than | 200 n=0 | `&lt;` 200 n=0 | same |\n| greater_than_or_equal | 200 n=10 | `&gt;=` 200 n=10 | same |\n| less_than_or_equal | 200 n=0 | `&lt;=` 200 n=0 | same |\n| in | 200 n=4 | `in` 200 n=4 | same |\n| **not_in** | **200 n=8** | **`not in` 400 INVALID_FILTER** | **DIFF** |\n| is_empty / is_not_empty | 200 n=10 / n=0 | 同 | same |\n| is_null / is_not_null | 200 n=10 / n=0 | 同 | same |\n| before / after | 200 n=2 / n=8 | `&lt;` / `&gt;` 同 | same |\n| between | 200 n=1 | `between` 200 n=1 | same |\n\n`not_in` 那 8 行与基线 `[\"status\",\"!=\",\"done\"]` 的 8 行是同一批。也就是说:**整表替换对 18 个算子是无差别的,唯一变化正是被修的那个缺陷。**\n\n## ⚠️ 唯一一处「不是纯修复」的行为变更:规则**缺省 operator**\n\n上表是按 19 个 canonical 算子测的,不覆盖「作者根本没写 operator」这一格。旧表的第一行是 `case undefined: … return '='`:一条 `{field, value}` 没有 operator 的规则,会被**凭空补成等值谓词** `['status','=','x']`,isFilterAST 放行、服务端当真答一批行。\n\n改后它走 `normalizeFilterOperator`(非字符串原样返回)→ `[field, undefined, value]` → isFilterAST 判否 → 与其它 off-spec 拼法一样的响亮 400。\n\n这个方向是对的,而且有 spec 背书:`ViewFilterRuleSchema.operator` 是**裸 `z.enum`、没有 default**,缺省 operator 的规则 `safeParse` 直接 `invalid_value`(已断言),即这类 metadata 根本发布不上去 —— 旧的 `=` 补齐是消费侧替契约做主,正是 #0.1 要拆掉的宽容消费者。但它确实是本 PR 里**唯一**「改前 200、改后 400」的一格,所以单独点名、单独一条测试钉住,不并进上面的 same 表里蒙混过去。\n\n## 改了什么\n\n`specOperatorToAst` 整个删掉,`normalizeTabPresets` 改走 spec 自己的 `normalizeFilterOperator`。\n\n删表而不是补表,是因为**根本不需要表**:19 个 `VIEW_FILTER_OPERATORS` 全部已经是 `VALID_AST_OPERATORS` 成员,rule → AST 的下降纯结构性,没有任何东西需要翻译;真正需要折叠的只有存量 metadata 里的旧拼法(`gt` / `eq` / `nin` / `notEquals` …),而那正是 `normalizeFilterOperator` 的职责。这也是写入侧 `app-shell/views/viewFilterFold.ts` 和 core 侧 saved-view fold(#3431)用的**同一个出口** —— 一个出口,两个方向就不可能各自漂成一种方言。\n\n未知拼法**原样透传**,让 `isFilterAST` 继续判否、服务端继续响亮 400(AGENTS.md #0.1):把 `bfore` 悄悄读成 `before`,换来的是一个看着合理的错误结果集,而不是作者能看见的错误。\n\n## 反向验证(方向先预测,再运行)\n\n预测:把私有表放回去,新增断言里**钉 canonical 拼法的那些应该转红**,而**读 spec 词表 / 旧三元组透传 / 未知拼法透传**这几条应该保持绿(旧表的 `default:` 分支本来就透传未知拼法)。实测与预测一致:\n\n```\n（表放回去)Tests  41 failed | 22 passed (63)\nAssertionError: expected [ [ 'status', 'not in', [ 'done' ] ] ]\n              to deeply equal [ [ 'status', 'not_in', [ 'done' ] ] ]\n\n（表删掉)  Tests  64 passed (64)\n```\n\n诚实标注:「未知拼法原样透传」那条**改前改后都是绿的**,它钉的是契约不是变化,测试注释里写明了这一点 —— 不把一条不会翻转的断言粉饰成回归证据。\n\n新断言用 spec 自己的 `isFilterAST`(就是服务端那道闸)在**离线**把验收事实钉死,和 #3431 一致,以后不需要真后端也能守住。\n\n## 夹具清扫(按规则的消费半径,不是按包)\n\n全仓搜过 `'not in'` 字面量与 tab preset 夹具。受影响的只有一处:`UserFilters.test.tsx` 里那条「从 `initialSelections._tab` 恢复 tab」的用例,它顺手钉了旧映射的 `['priority','=','urgent']`。它测的是 tab 恢复、不是算子翻译,所以按「重新拼写」处置,改成 canonical 的 `equals` 并加注说明。`phase2-schemas.test.ts` 用的是**已下降的** `filters: triplet[]` 旧形状,不走这条路径,未受影响(本 PR 另加了一条断言把「旧形状不许开始被翻译」钉住)。\n\n## 验证\n\n```\npnpm exec vitest run --maxWorkers=2 packages/plugin-list\n  Test Files  23 passed (23)\n  Tests  363 passed (363)\n\npnpm --filter @object-ui/plugin-list type-check     -> tsc --noEmit && tsc -p tsconfig.typetests.json,0 error\npnpm --filter @object-ui/plugin-list lint           -> 0 errors(warning 为仓库既有)\nnode scripts/check-control-bytes.mjs                -> OK(3675 个文件)\nnode scripts/check-changeset-no-major.mjs           -> 无 major\n```\n\nchangeset:`patch`(`@object-ui/plugin-list`)。\n\n## 范围外发现(已另立,不在本 PR 修)\n\nobjectstack-ai/objectstack#5869 —— 同一轮探针发现:集合算子的比较值是**标量**时(`[\"status\",\"not_in\",\"done\"]`,而这是 spec 合法的 `ViewFilterRule`,`value` 未按算子约束形状)服务端答 **500 DATABASE_ERROR**,而不是带 ADR-0112 信封的 400。与 #5234(静默零行)同轴不同格,已在正文里说明为何先立独立条目、是否并入请对面 PM 裁决。本 PR 不在消费侧加任何形状兜底 —— 那正是 #0.1 要避免的宽容消费者。\n"
+}

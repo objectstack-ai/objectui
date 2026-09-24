@@ -1,0 +1,32 @@
+{
+  "number": 3456,
+  "kind": "pull_request",
+  "title": "docs(ci): 删掉 ci.yml 任务表里的幽灵 dev-server 行，并给任务表加双向 pin (#3451)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T06:02:41Z",
+  "updated_at": "2026-08-06T06:46:14Z",
+  "closed_at": "2026-08-06T06:46:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T06:46:13Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3456",
+  "body": "Fixes #3451\n\n## 查史结论：是被删的，但比 issue 假设的更糟\n\nissue 问「是被删了还是从未落地」。答案是**被删了**——但查完历史后，这一行的问题不只是「YAML 变了、散文没跟上」，它在写下来的当天就已经是假的。\n\n| 日期 | 事件 |\n|---|---|\n| 2026-05-24 | `apps/dev-server` 落地（`895ab27f5`），`dev-server` job 同日加入 ci.yml（`3fb31a5da`，「ci: guard the dev-server fixture build」） |\n| 2026-05-26 | **`apps/dev-server` 被移除**（`f2a03a5f8`「Remove in-repo dev-server, require external ObjectStack instance」）。job 保留下来，`pnpm --filter @object-ui/dev-server build` 自此匹配不到任何包、静默 exit 0 —— **空转绿 69 天** |\n| 2026-08-03 | #3253（修 #3212）重写这张任务表，并「补齐」了 `dev-server` 行。它描述的是一个自 5 月起就没构建过任何东西的守卫 —— 这一行在被写下的当天就是假的 |\n| 2026-08-04 | #3325 从 ci.yml 删掉这个空转 job（其 PR 正文原话：「该 job 长期『空转绿』」），**留下了文档里的这一行** |\n| 2026-08-06 | #3451 |\n\n值得单独记一笔的是：#3253 正是那个「给 workflow 清单补上反向断言」的 PR。它把 **workflow 清单**钉成了双向，却没有钉 **job 表**——于是 job 表在一天之内就漂了。这就是本 PR 补的那个洞。\n\n**是否要把这个守卫加回来：不需要，也没有缺口。** `apps/dev-server` 本身已经不在树中，所以「守护 apps/dev-server 的 objectstack.config.ts」今天没有对象可守；#3325 的裁决明确写了其意图由新的 `live-e2e.yml` lane 承接（而且换成了真后端）。因此本 PR 没有任何 CI 成本方面的升级项，纯粹是文档追平现实。\n\n## 改了什么\n\n**1. `content/docs/guide/ci-cd-pipeline.md`**\n\n- 删掉 `dev-server` 表格行。\n- 「Seven jobs, all parallel」→ 不写死数字。这不是自创，是沿用**本页对 workflow 计数已经做过的同一决定**（#3212：手工维护的计数必然漂移，过期的数字仍然读起来像权威）。改为说明表格本身就是清单，并指向钉住它的测试。\n- inventory 表里的「**Yes** — 6 of its 7 jobs run on PRs」同样含一个会漂的数字，改为按 job 名表述：「every job but `test-coverage` (push only) runs on PRs」。\n- 「What is *not* in `ci.yml`」一节补记 `dev-server` 的完整来龙去脉，并明确写出**今天既没有 `apps/dev-server` 也没有该 job**，以及其意图由 `live-e2e.yml` 承接。原来那两条（Lint / Build Core）措辞相应补上「never was / never did」以区分——三者中只有 dev-server 是真存在过的。\n\n**2. `scripts/__tests__/ci-cd-pipeline-doc.test.ts`** —— 新增 4 条断言（止血的那部分）\n\n| 断言 | 钉住什么 |\n|---|---|\n| `lists exactly the jobs ci.yml defines — in both directions` | 任务表首列 ↔ ci.yml `jobs:` keys，两个方向各自给出可执行的失败信息 |\n| `quotes each job under the name ci.yml gives it` | 「Appears as」列 ↔ ci.yml 的 `name:`。`${{ ... }}` 按通配处理，因为 `test` 是矩阵 job（`Test (shard ${{ matrix.shard }}/4)`，页面合理地写 `N`），表达式之外必须逐字相符 |\n| `states no job count, so the number cannot drift away from the table` | 本节不得再写死 job 数量 |\n| `is telling the truth: no CI job builds the retired dev-server fixture` | 反向 pin：若有人把 job 加回来，「今天没有这个 job」那段话就成了假话 |\n\n`jobs:` 的解析被**限定在 `jobs:` 映射之内**：顶层 `on:` 自己就有两空格缩进的子键（`push:` / `pull_request:`），全文件扫描会把它们读成 job。这一点连同「为什么 `jobs:` 块内除 job key 外没有别的东西能到第 2 列」都写在了代码注释里。另有一条 `length > 3` 的自检，防止解析器静默匹配为空而让测试真空变绿——这恰恰是被删的那个 job 自己演示过的失效方式。\n\n## 验证\n\n**反向验证（方向先预测，后运行）。** 预测：新断言在 origin/main 的文档上**红**，修完**绿**。实测三条红（第四条 `Appears as` 在 main 上是绿的，因为 `dev-server` 在 ci.yml 里没有对应 `name:`，代码里显式 `continue` 把 key 不匹配留给上一条断言报——这是有意设计，不是漏网）：\n\n```\nFAIL  ci-cd-pipeline.md — ci.yml job table > lists exactly the jobs ci.yml defines — in both directions\n  content/docs/guide/ci-cd-pipeline.md's job table has rows for jobs that are NOT in\n  .github/workflows/ci.yml:\n    - dev-server\n  - []\n  + [ \"dev-server\" ]\n\nFAIL  ... > states no job count, so the number cannot drift away from the table\n  the Core CI section must not hard-code how many jobs ci.yml has (found \"Seven jobs\")\n\nFAIL  ... > is telling the truth: no CI job builds the retired dev-server fixture\n\n Tests  3 failed | 10 passed (13)\n```\n\n修完（仓根全量 `scripts/__tests__/`）：\n\n```\n Test Files  8 passed (8)\n      Tests  124 passed (124)\n```\n\n**Sabotage 验证（证明每条断言都不是真空绿），改动均已还原：**\n\n- 临时删掉 `docs` 行 → 反方向红：``.github/workflows/ci.yml defines jobs with no row in the job table ... - docs``\n- 临时把 `Build & E2E` 改成 `Build and E2E` → ``the job table's \"Appears as\" for `e2e` must match ci.yml's `name: Build & E2E`: expected 'Build and E2E' to match /^Build & E2E$/``\n- 「不写死数字」那条在开发中真的抓到了我自己：初稿的散文里引用了旧措辞原文，被判红后改为不含该字面量的表述。\n\n**其它闸门：**\n\n| 项 | 结果 |\n|---|---|\n| `node scripts/check-doc-links.mjs` | ✅ `Docs links are valid.` |\n| `node scripts/check-control-bytes.mjs` | ✅ `OK (scanned 3648 tracked text file(s); skipped 85 binary)` |\n| 控制字节自查（超出闸门范围，`grep -naP` C0 区间） | ✅ 两个文件均无 |\n| `tsc --noEmit --strict`（针对该测试文件） | ✅ exit 0 |\n| `eslint scripts/__tests__/ci-cd-pipeline-doc.test.ts` | ✅ exit 0 |\n\n**关于 CI：** 本 PR 是纯文档 + 测试改动，而 `ci.yml` 把 `content/**` 和 `**/*.md` 放在 `paths-ignore` 里——所以 `docs` job（以及整个 ci.yml）**很可能不会在这个 PR 上运行**。这正是 #3448 追踪的那个洞。上面所有结论均以本地实跑为准，特此声明。\n\n## 范围\n\n- 改动文件仅两个：`content/docs/guide/ci-cd-pipeline.md`、`scripts/__tests__/ci-cd-pipeline-doc.test.ts`。\n- **未触碰 `.github/workflows/`**（按裁决，workflow 改动归 #3448）。\n- 未加 changeset：纯文档 + 测试，不改变任何已发布包的行为（先例 #3443 / #3437 / #3253）。\n\n## 顺带记录（不在本 PR 范围，也不建议在本 PR 修）\n\n`scripts/` 不在根 `tsconfig.json` 的 `include`（只有 `packages` / `examples` / `apps`），也不是任何 workspace 包，因此 `turbo run type-check` 覆盖不到 `scripts/__tests__/*.ts`——这些测试文件的类型错误在 CI 里没有闸门。本 PR 用直接跑 `tsc` 的方式自行补了这一次，但这是个结构性缺口。是否值得单独立 issue，请 PM 定夺（我未擅自开单，因为它更像 #3448 那一类 CI 覆盖面问题，可能应挂在既有条目下）。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

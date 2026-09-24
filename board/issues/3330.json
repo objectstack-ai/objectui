@@ -1,0 +1,32 @@
+{
+  "number": 3330,
+  "kind": "issue",
+  "title": "用户详情「权限集」相关列表:lookup 列先显示名称后闪变为 API name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T02:31:24Z",
+  "updated_at": "2026-08-04T13:42:59Z",
+  "closed_at": "2026-08-04T13:42:59Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3330",
+  "body": "## 问题\n\n打开用户详情页的「权限集」相关列表:权限集列先短暂显示**显示名**(如「排班员权限」),随后整列闪变为 **API name**(如 `ehr_production_planner`),并停留在 API name 上。\n\n## 根因\n\n`RelatedList` 对 lookup 列存在**两条互相打架的标签解析链**:\n\n1. 单元格自身的 `LookupCellRenderer` → `useLookupName`,走 ADR-0079 统一解析器 `getRecordDisplayName`,尊重 `sys_permission_set` 声明的 `nameField: 'label'` / `titleFormat: '{label}'`,首帧渲染出正确的显示名;\n2. `RelatedList` 自己的批量 lookup 解析 effect(`packages/plugin-detail/src/RelatedList.tsx` 的 `lookupLabels`),用硬编码优先级链 `full_name || fullname || display_name || name || subject || title || label || code || email`,`name` 排在 `label` 之前 —— 对 `sys_permission_set` 来说 `name` 恰好是 API name。\n\n批量结果落地后以 `options` 注入 field meta,而 `LookupCellRenderer.resolveLabel` 中 **options 优先级高于已解析的显示名**,于是第二次渲染整列被覆盖为 API name → 肉眼可见的闪变 + 错误的最终显示。\n\n## 修复方案\n\n`RelatedList` 的批量解析改为:同时拉取目标对象 schema(`dataSource.getObjectSchema(target)`),用统一的 `getRecordDisplayName(schema, record)` 解析显示名;当 schema 不可用或解析器落到 `Record #<id>` / `Untitled` 兜底时,才回退到原硬编码链(非回归)。两条链从此给出一致答案,闪变消失,最终显示为正确的显示名。\n"
+}

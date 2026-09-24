@@ -1,0 +1,32 @@
+{
+  "number": 3496,
+  "kind": "pull_request",
+  "title": "fix(scripts): shadcn-sync 不再把 403/非 JSON 错误响应当成注册表数据缓存",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T13:24:32Z",
+  "updated_at": "2026-08-06T13:52:54Z",
+  "closed_at": "2026-08-06T13:52:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3496",
+  "body": "Fixes objectstack-ai/objectstack#5803\n\n## 问题(已在本地复现,与 issue 描述一致)\n\n`scripts/shadcn-sync.js` 的 `fetchUrl` 从不检查 `res.statusCode`,而 `JSON.parse` 失败的响应体被 catch 后**当成功 resolve**。于是 egress 拦截返回的 `403 Forbidden` + `text/plain` 正文,被当作组件数据一路流到 `fetchRegistry`——后者又**无条件写盘**(TTL 1h)。一次网络抖动就毒化了接下来一小时的所有 `--check`。\n\n复现(修复前,origin/main,沙箱 egress 拦截):\n\n```\nrun 1:  46 × \"Registry returned no usable file content\"\n        Registry: 0 cached, 46 fetched\nrun 2:  46 × \"Registry returned no usable file content\"\n        Registry: 46 cached, 0 fetched      (整小时不再重试)\n```\n\n落盘的缓存条目正文:\n\n```json\n{\"url\":\"https://ui.shadcn.com/r/styles/default/calendar.json\",\"fetchedAt\":1786022023686,\n \"data\":\"Host not in allowlist: ui.shadcn.com. Add this host to your network egress settings to allow access.\"}\n```\n\n## 两条独立防御(按 issue 建议)\n\n1. **传输层 —— `fetchUrl` 非 2xx 直接 reject**,错误信息带状态码与净化后的正文摘要(形如 `HTTP 403 Forbidden from https://ui.shadcn.com/… — Host not in allowlist: …`)。2xx 但解析不出 JSON 同样 reject:旧代码 resolve 原始字符串,而所有消费者读的都是 `data.files?.[0]?.content`,`undefined` 让失败静默掉了——这正是 #0.1 说的「宽容消费者」把生产端错误藏起来。重定向**刻意不跟随**:3xx 落到登录页/中间页是同一类毒药,注册表端点本身是直连 JSON,真要跟随应当是一次显式决定。\n2. **语义层 —— 只有通过 `isRegistryEntry`(`files[0].content` 非空)的响应才写缓存**。200 但返回 `{\"error\":\"…\"}` 这类错误信封,依旧原样返回给调用方(`--check` 仍报 \"no usable file content\"),但**不许进磁盘**。\n\n### 读侧也校验(选择理由)\n\n同一个 `isRegistryEntry` 在**读**的时候也跑一遍,不通过就删掉该条目并重新取。只做写侧校验的话,**已经**被旧版本毒化的 checkout 仍要靠 TTL 熬满一小时才能自愈,期间除了「等」或「知道有 `--no-cache` 这个参数」没有出路。读侧校验让恢复立刻发生——这也是实测里 46 条毒条目在第一次运行就被清掉的原因。过期(TTL 到期)但格式正常的条目不算污染,照旧只是重新取,不计入 evicted。\n\n### 未改动的语义\n\n- `--update` 仍然**不读**缓存(写入路径永远看实时数据),失败时仍拒绝写文件。区别只是错误信息现在说的是真正的原因(`HTTP 403 …`)而不是误导性的 \"No files found in registry\"。\n- `--check` 的退出码语义保持 #3455 不变:只有 declared-patch 失败才非零,普通 fetch 错误仍是 exit 0。\n- 汇总行现在把 failed / evicted 单独列出,一次全失败的运行不会再显示成 \"46 fetched\"。\n- `main()` 加了 entry-point 判断(只在文件本身是进程入口时执行),这样离线测试可以 import 内部函数;这条守卫由一个真正 spawn `node scripts/shadcn-sync.js --list` 的用例钉住——写错的话 `pnpm shadcn:check` 会变成静默 no-op。\n\n## 验证\n\n`scripts/__tests__/shadcn-sync-fetch-cache.test.ts`(23 例,**全离线**:本地 `http` fixture server + 注入 `get`,真 socket / 真状态行 / 真分块)。\n\n反向验证(先预测方向再跑):只回退两条防御、保留导出与 `isRegistryEntry` 本身 → 预测 10 红,实测 10 红 13 绿,且绿的正是预测的那批(8 个 `isRegistryEntry` 断言全绿 —— 说明谓词本身被独立覆盖,不是幽灵检查;CLI 用例、正常缓存命中、TTL 过期重取、`allowCache` 关闭四例也如预期不受影响)。\n\n```\n Test Files  11 passed (11)        # pnpm exec vitest run scripts\n      Tests  167 passed (167)\n```\n\n离线端到端(沙箱 egress 拦截,先把 46 条毒条目放回缓存目录):\n\n```\nrun 1: Registry: 0 cached, 0 fetched, 46 FAILED, 46 unusable entries evicted   EXIT=0\n       ✗ button   Error fetching from registry: HTTP 403 Forbidden from … — Host not in allowlist: …\n       缓存目录条目数: 0\nrun 2: Registry: 0 cached, 0 fetched, 46 FAILED                                EXIT=0\n       缓存目录条目数: 0        (不再有 \"46 cached\")\n```\n\n健康路径未被误伤(用本地组件内容伪造 46 条**格式正确**的条目后跑真实 CLI):\n\n```\n✓ Identical: 46 components      Registry: 46 cached, 0 fetched\n```\n\n无 changeset:纯 CI/tooling 脚本,不面向用户(#3437 先例)。`node scripts/check-control-bytes.mjs` 通过,两个改动文件另做了控制字符自查(`bodySnippet` 按码位判断,源文件里不含任何控制字符字面量)。"
+}

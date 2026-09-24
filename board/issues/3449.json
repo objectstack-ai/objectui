@@ -1,0 +1,36 @@
+{
+  "number": 3449,
+  "kind": "issue",
+  "title": "check-links.yml(Lychee)扫的是 docs/**(15 个文件),不是站点文档 content/docs/**(183 个文件)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:22:31Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3449",
+  "body": "## 现象\n\n`.github/workflows/check-links.yml` 里 Lychee 的扫描目标是:\n\n```yaml\nargs: |\n  --verbose\n  --no-progress\n  --config lychee.toml\n  'docs/**/*.md'\n  'docs/**/*.mdx'\n  'README.md'\n```\n\n但**站点发布的文档并不在 `docs/`**,而在 `content/docs/`(`apps/site/source.config.ts` 里 `dir: '../../content/docs'`,`apps/site/lib/source.ts` 里 `baseUrl: '/docs'`)。\n\n实测两棵树的规模:\n\n```\n$ find docs -name '*.md' -o -name '*.mdx' | wc -l\n15          # ARCHITECTURE.md、CONSOLE-STREAMLINING-SUMMARY.md、adr/、audits/ …\n\n$ find content/docs -name '*.md' -o -name '*.mdx' | wc -l\n183         # 实际发布的站点文档\n```\n\n也就是说:**即使有人手动 `workflow_dispatch` 触发 Lychee,它也从来没有检查过发布出去的那 183 个文档文件。** 根目录 `docs/` 是内部资料(ADR、审计报告、架构说明),被扫的是它。\n\n## 为什么现在记为 finding 而不是缺陷\n\n`check-links.yml` 目前只有 `workflow_dispatch`(`push`/`pull_request` 被注释掉,见 #3213),从不自动运行 —— 属于「未被执行的配置漂移」,今天没有用户会撞到。因此按 finding 归类,不带 `pm:queue`。\n\n## 与 #3213 裁决的关系\n\n\\#3213 的裁决是「B 保持定时/手动(可选补 cron)」。修复 #3213 的 PR **有意没有加这条 cron**,理由就是本 issue:在扫描范围还指向错误目录时加 cron,只会按时产出一份「检查了内部 ADR、没检查站点文档」的绿色报告,是**加噪声不加覆盖**,并且会让人误以为已发布文档的外链已被守住。\n\n建议顺序:先修扫描范围,再谈是否加 cron。\n\n## 建议\n\n1. 把 args 的扫描目标改为 `content/docs/**/*.md`、`content/docs/**/*.mdx`(是否保留 `docs/**` 与 `README.md` 由维护者定;两棵树都扫也合理)。\n2. 范围修正后,再决定要不要补 `schedule` cron —— 届时 cron 才有意义。\n3. 注意 Lychee 是**外链**检查器(走网络、有 rate limit、天然会 flaky),与 `scripts/check-doc-links.mjs` 只校验站内 `/docs/...` 路由是互补关系,不是重复。这也是裁决把 A 放进 PR 门禁、B 留在定时/手动的原因。\n\n## 相关\n\n- 由 #3213 / #3292 的修复 PR 顺带发现\n- 站内链接门禁的残留缺口见 #3448\n"
+}

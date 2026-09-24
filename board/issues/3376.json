@@ -1,0 +1,33 @@
+{
+  "number": 3376,
+  "kind": "pull_request",
+  "title": "fix(i18n): 语言选择写入 localStorage 并在启动时恢复,刷新不再退回 en",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:47:14Z",
+  "updated_at": "2026-08-05T10:58:54Z",
+  "closed_at": "2026-08-05T10:58:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T10:58:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3376",
+  "body": "Fixes objectstack-ai/objectstack#5406\n\n## 问题\n\n控制台切换语言(头像菜单 → Preferences → Language)只改动内存里的 i18next 实例:`packages/i18n/src/provider.tsx` 与 `packages/app-shell/src/layout/LocaleSwitcher.tsx` 全无持久化写入。任何一次刷新或新开标签页都会重建 provider,UI 整个退回 `en` —— 非 `en` 语言只能演示,无法真正使用。前提已在 `origin/main` 复核成立(i18n 面零 localStorage 命中)。\n\n## 方案(PM 裁定:localStorage 持久化 + 启动时恢复)\n\n- **写入点是 provider 的 `languageChanged` 监听,不是 LocaleSwitcher 的点击回调。** i18next 对「context 的 changeLanguage」和「直接调 i18n.changeLanguage()」都会触发该事件,所以这是唯一收口点 —— 换任何一种写法的切换器都不会漏写偏好。bootstrap 不触发该事件,因此「恢复」不会反过来重写存储。据此 `LocaleSwitcher.tsx` 本身无需改动(只补了一条端到端测试)。\n- **恢复发生在实例创建时**(进 `createI18n` 的入参),而不是挂载后再 `changeLanguage`。provider 依据实例语言设置 html 的 lang 属性,`createAuthenticatedFetch` 又拿它拼 `Accept-Language`(#1319):晚一步切换会让首屏那批服务端解析的标签用错语言取回,再靠 remount 补救。\n- **优先级:已存选择 → 浏览器语言 → `defaultLanguage`。** 显式选择必须压过浏览器探测,否则「在 ja 浏览器上选了中文」的用户每次刷新都会被塞回 ja,偏好对最需要它的人反而失效。\n- **脏值静默回退并清理。** 存的语言若不在「内置语言包 + `config.resources`」内(app 换了 locale 集),回退默认语言并**删除**该键,一条陈旧记录不会把 UI 锁死在没有翻译的 locale 上。判定用 `hasOwnProperty` 而非 `in`,免得 `constructor` 这类垃圾值蒙混过关。\n- **防御式访问。** SSR 无 window;Safari 隐私模式 / 分区 iframe 下访问 localStorage 直接抛错。读写一律 try/catch 降级 —— 语言偏好不值得让应用崩掉,存不下时本次会话的切换照样生效。\n\n新增公开面(`@object-ui/i18n`):`persistLanguage`(默认 `true`;预览、demo、截图夹具等固定语言场景传 `false`,既不恢复也不写入)、`LOCALE_STORAGE_KEY`(`objectui-locale`,循 `objectui-favorites` / `objectui-recent-items` 一族命名)、`readStoredLanguage()`(自带 i18next 实例的 app 用它沿用同一偏好;这类 app 的 bootstrap 语言仍归自己决定)。\n\n## 反向验证(方向先定,再跑)\n\n预判:两条肢都是常规「红」方向 —— 新测试钉的是此前根本不存在的行为,不存在 #5018 那种反转。逐条关掉后实测与预判集合完全一致:\n\n- 关掉**恢复**一肢:`7 failed | 5 passed` —— 红的是跨重载恢复、优先级压过浏览器探测、RTL 恢复、`config.resources` locale、脏值清理(语言回退这半截仍绿,清理那半截红)、垃圾值清理,以及 LocaleSwitcher 的重载断言;写入类断言全绿。\n- 关掉**写入**一肢:`5 failed | 7 passed` —— 红的是切换写入、跨重载恢复(无可恢复之物)、直接调实例 API 的写入、`readStoredLanguage` 回读,以及 LocaleSwitcher;手工塞存储的那批恢复用例全绿。\n\n## 测试\n\n- 新增 `packages/i18n/src/__tests__/provider-locale-persistence.test.tsx`(11 例):切换写入、重载恢复且**落在首帧**(不是异步补正)、直接调 `i18n.changeLanguage` 也持久化、显式选择压过浏览器探测(先用无存储的基线钉出探测确实赢过 `defaultLanguage`)、RTL 方向、`config.resources` 提供的 locale、脏值/垃圾值回退并清理、`persistLanguage={false}` 两头都不动、存储被禁时不崩。\n- 新增 `packages/i18n/src/__tests__/locale-persistence-ssr.test.ts`:刻意用 `.test.ts` 落进 `unit` 项目的 **node** 环境 —— 这里真的没有 window,不靠 stub,SSR 读取必须返回 null 而非抛错。\n- 新增 `packages/app-shell/src/layout/__tests__/LocaleSwitcher.persistence.test.tsx`:issue 报告的那条路径端到端 —— 点 中文 → 写入 → 重载后 UI 仍是中文。将来若有人把切换器改到绕过 i18n context 的 API 上,这里会红,而不是又悄悄退回 `en`。\n- 改 `packages/i18n/src/__tests__/provider.test.tsx`:加 `beforeEach` 清 localStorage。持久化默认开启后,那条 `changeLanguage` 用例会把 `zh` 递给它后面的每个用例(包括断言 config 指定 bootstrap 语言的 ar 用例)—— 每条用例都该是一次全新的浏览器。\n\n命令与结果(全部持容器验证锁跑):\n\n- `pnpm exec vitest run --maxWorkers=2 --reporter=verbose` 四个相关文件 → `Test Files 4 passed (4) / Tests 25 passed (25)`,输出里逐条列出文件名(本仓 `--filter ... test -- --run path` 会静默忽略路径过滤,故走根 vitest)。\n- `pnpm exec vitest run --maxWorkers=2 packages/i18n` → `19 passed / 171 passed`。\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell` → `275 passed / 2382 passed | 1 skipped`(含 metadata-admin 那条直接切实例语言的 studio-locale 用例)。\n- `pnpm exec vitest run --maxWorkers=2 apps/console` → `20 passed / 184 passed`。\n- `pnpm --filter @object-ui/i18n type-check`、`pnpm --filter @object-ui/app-shell type-check`(先 `pnpm --workspace-concurrency=2 --filter \"@object-ui/app-shell^...\" build` 备齐依赖 d.ts)→ 均通过。\n- 改动文件 `eslint` → 0 error(仅测试 mock 的 `any` 与 provider 早已存在的 fast-refresh / exhaustive-deps 警告)。\n- `pnpm changeset:check` → fixed 组齐全、无 `major` 声明。\n\n## 影响半径\n\n持久化默认开启,意味着所有 `I18nProvider` 消费方(预览画廊、各 plugin demo)也会跟随同源下用户选过的语言;需要固定语言的表面传 `persistLanguage={false}` 即可。已按「规则的消费半径」而非「改动的包」清点:全仓仅 3 个测试文件调用过 `changeLanguage`,其中 2 个经由 provider(已处理/已复跑),另一个在 `packages/i18n` 内部直接操作实例;app-shell、console 两个项目全量跑绿。\n\n顺带的文档:`packages/i18n/README.md` 补了一节「Language persistence」(优先级、脏值语义、`persistLanguage` 与自带实例的用法)。\n\n## 顺手记下、未在本 PR 修的\n\n- objectstack-ai/objectstack#5418:语言菜单是硬编码的十个码,从不询问 app 实际发布了哪些 locale(`GET /api/v1/i18n/locales` 是好用的)。本 PR 的脏值校验边界(内置包 + `config.resources`)今天正确,恰恰因为菜单只给这十个;菜单一旦扩到 app 真实 locale 列表,校验必须同步扩,否则「用户选的 app locale 活不过刷新」会成为下一个同款 bug。\n- objectstack-ai/objectstack#5419:`/auth/me/localization` 已经把租户侧 `locale` 取回来了,却只喂给货币/数字格式化,从不参与 UI 语言 —— 新设备首次登录仍是浏览器语言或 `en`。这是契约问题(优先级、存哪、写入端点都缺),按 PM 的裁定另立,不在本 PR 猜。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

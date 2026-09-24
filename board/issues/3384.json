@@ -1,0 +1,35 @@
+{
+  "number": 3384,
+  "kind": "issue",
+  "title": "console vite/vitest configs rely on features `configLoader: 'native'` drops — a future Vite major turns 5 warnings into a broken config load",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T11:45:36Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3384",
+  "body": "Found while working #3305 (wiring `apps/console/tsconfig.node.json` into a gate). **Not fixed there** — orthogonal to that change, filing per PD #10. Deliberately left unassigned.\n\n## What\n\nEvery `vite build` / `vitest run` touching the console prints this, once per config load (so it repeats several times in one test run):\n\n```\n(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`,\n    which is planned to become the default in a future major version of Vite:\n  - `__dirname` (vitest.config.ts:13:33). Use `import.meta.dirname` instead\n  - import \"./vite.config\" without a file extension (vitest.config.ts:4:24). Add the file extension\n  - `__dirname` (vite.config.ts:56:35). Use `import.meta.dirname` instead\n  - import \"../../scripts/vite-crypto-stub\" without a file extension (vite.config.ts:6:32). Add the file extension\n  - import \"../../scripts/vite-maplibre-worker\" without a file extension (vite.config.ts:7:36). Add the file extension\n```\n\nTwo distinct incompatibilities, both in `apps/console`:\n\n1. **`__dirname` in an ESM config** — `apps/console/vitest.config.ts` and `apps/console/vite.config.ts`. Vite's current (bundling) loader injects a CJS-ish shim; the native loader will not. Replacement is `import.meta.dirname`.\n2. **Extensionless relative imports** — `vitest.config.ts` imports `./vite.config`, and `vite.config.ts` imports `../../scripts/vite-crypto-stub` / `../../scripts/vite-maplibre-worker`. Node's native ESM resolver does not do extension guessing.\n\n(Line numbers above are from `origin/main`. On #3305's branch the two `scripts/` imports shift to 10/11 because a comment was added above them — the imports themselves are untouched.)\n\n## Why it matters\n\nThis is dormant today — it is only a warning, and everything builds and tests green, which is why this is filed as a `finding` rather than a defect. What makes it worth recording is the failure mode when Vite flips the default: the console's config would fail to **load**, so `vite build`, `vite dev`, and the console's whole vitest project all die at once, on a dependency bump rather than on a code change. The fix is mechanical and can be done at any time; the cost of discovering it during an upgrade is a blocked upgrade.\n\nThere is also a mild interaction with #3305: `apps/console/tsconfig.node.json` now type-checks `vite.config.ts` **and** the `scripts/vite-*.ts` plugins, so whoever adds the file extensions has a gate that will confirm the specifiers still resolve. `moduleResolution: \"bundler\"` accepts both spellings, so adding `.ts` extensions there will not upset the type-check either way.\n\n## Suggested direction (not decided)\n\n- `__dirname` -> `import.meta.dirname` in both console configs.\n- Add explicit extensions to the three relative config imports.\n- Optionally set `configLoader: 'native'` explicitly afterwards so the repo pins the behaviour instead of waiting to inherit it, and any regression shows up immediately rather than at the next Vite major.\n"
+}

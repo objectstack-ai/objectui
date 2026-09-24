@@ -1,0 +1,35 @@
+{
+  "number": 3388,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 去掉让 useDatasetFields 对 grep 变 binary 的裸控制字节,并给仓库加扫描门禁",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T12:41:40Z",
+  "updated_at": "2026-08-05T12:59:08Z",
+  "closed_at": "2026-08-05T12:59:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T12:59:05Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3388",
+  "body": "Fixes objectstack-ai/objectstack#5425\n\n⚠️ 全文只用 `U+XXXX` 形式描述控制字符,不贴字节本体(issue Notes 的写作纪律;这一族五次前科里有两次就发生在写规则本身的时候)。\n\n## 问题\n\n`useDatasetFieldCatalog` 把 `include: string[]` 压成一个标量放进 `React.useEffect` 依赖数组,再在 effect 内还原。这对编解码原先是 `join` / `split` 在一个**裸 U+0000 字节**上,理由是\"字段路径里不可能出现的字符\"。\n\n一个裸 U+0000 会让 grep 和 ripgrep 把**整个文件**判为 binary —— 它们只打印 `binary file matches`,一行内容都不给:\n\n```\ngrep -rn \"includeKey\" packages/app-shell/src/views/metadata-admin/inspectors/\n# => grep: .../useDatasetFields.ts: binary file matches\n# 实际匹配行数:0\n```\n\n也就是说这个文件对所有按内容搜索的人和 agent 都是隐形的,对每一个基于 grep 的 lint 也一样,而且没有任何报错提示。git 同样不会告警:它只看前 8000 字节判断 binary,所以偏移量更靠后的控制字节会一直以普通文本形式参与 diff。\n\n## 改动一:源文件\n\n依赖键改为 `JSON.stringify(include)` / `JSON.parse(includeKey)`。\n\n选它而不是把分隔符换成转义拼写,是因为**它根本不需要\"数据里不可能出现的字符\"这个前提**。把 U+0000 换成一个可打印字符(逗号、竖线)只是把碰撞挪了个位置;JSON 没有这个假设,任何路径值都能无损往返。源文件也因此变成纯 ASCII。\n\n行为不变:这个值只做 effect 依赖比较,从不落库、不上网、不进快照。全仓 `grep -a` 确认它只有三处引用,都在本文件内。\n\n## 改动二:仓级门禁(issue 的第 2 点)\n\n新增 `scripts/check-control-bytes.mjs`,接成 `pnpm check:control-bytes` 与独立 workflow `control-bytes.yml`。\n\n**按载体划范围,而不是按后缀**(objectstack#4890):扫描每一个 tracked 的**文本**文件。危害是 grep 的性质,不是 JavaScript 的性质 —— markdown、YAML、`.claude/` 下的 agent 指令一样中招。文本/二进制只按内容判定:先剥掉被查的控制字节再做 UTF-8 严格解码,所以控制字节永远不能成为\"不检查它自己\"的理由(这正是 git 掉进去的循环)。实测扫 3573 个文本文件、跳过 85 个真二进制资源,零误判。\n\n**覆盖面超出 U+0000**,这是 issue 明确要求的。但这里有一处我把 issue 的前提测了一遍,结论需要纠正:\n\n| 字节 | 危害 | 实测(GNU grep 3.11 / ripgrep 14) |\n|---|---|---|\n| U+0000 | 代码搜索直接失效 | 两个工具都拒绝打印匹配行 |\n| 其余控制字节 | 字面量里的隐形字符,无法 review | 两个工具都**正常打印**匹配行 |\n\n每种字节单独写进 fixture 实测的结果是:**只有 U+0000 会触发 binary 判定**,U+0001 / U+0002 / U+0007 / U+0008 / U+000B / U+000C / U+000E / U+001A / U+001B / U+001F / U+007F 都不会。所以 objectstack#5157 的教训仍然成立(NUL-only 扫描器确实会漏),但漏掉的那颗的危害是\"隐形、不可 review\",不是\"grep 变瞎\"。两类都拦,报告分开说,不把一个夸大的理由套在两类上。\n\n**为什么单独一个 workflow**:`ci.yml` 和 `lint.yml` 都把 `'**/*.md'`、`content/**`、`docs/**`、`.changeset/**` 放进了 `paths-ignore`,而 GitHub 没有 job 级路径过滤。markdown 恰恰是这个 bug 最严重那次的载体(objectstack#4890:写\"禁止裸 NUL\"这条规则的那个 PR 自己往 `.claude/` skill 文件里写了一颗)。带路径过滤的门禁看不见那种 PR。`changeset-guard.yml` 在本仓就是同样理由,它的头注释也这么写。测试会在有人给这个 workflow 加 `paths` 或 `paths-ignore` 时变红。\n\n## 顺带发现:另有四个文件(未在本 PR 修)\n\n扫描一上线就报出四个既有问题文件,已按 Prime Directive #10 单独立 issue **objectstack#5450**,不在本 PR 修(超出本 issue 的文件面):\n\n- `packages/core/src/evaluator/listConditional.ts` — U+0000\n- `packages/core/src/utils/record-title.ts` — U+0000\n- `packages/fields/src/widgets/PeoplePicker.tsx` — U+0000\n- `packages/plugin-dashboard/src/DatasetWidget.tsx` — U+0001\n\n前三个今天就是 grep 隐形的。它们通过 `KNOWN_OFFENDERS` 基线放行,让门禁能以 ratchet 方式先上线。\n\n**这是基线,不是 skip-list**:条目声明了它覆盖哪些字节值,文件多出别的控制字节照样红;文件被修干净或删除而条目没删,扫描同样红。所以修 objectstack#5450 时必须在同一个 PR 里删掉对应条目,两边不可能漂移。形制照本仓 `check-lint-coverage.mjs` / `check-type-check-coverage.mjs` 的 `DEBT` 惯例(带 issue 号、注明是临时债)。\n\n## 反向验证(方向在跑之前先写死)\n\n四种情况,预测全是\"变红\",但红的原因各不相同 —— 全部命中:\n\n| 用例 | 预测 | 实测 |\n|---|---|---|\n| 干净树 | 绿 | `exit=0` |\n| 往无关文件注入 U+0000 | 红,grep 失效那一类 | `exit=1`,报在 `INVISIBLE TO CODE SEARCH` 下 |\n| 往无关文件注入 U+0001 | 红,隐形字面量那一类;NUL-only 扫描器会漏 | `exit=1`;同时确认该文件不含 U+0000,即 NUL-only 扫描器**确实看不见** |\n| 把源码改回 U+0000 分隔符 | 红,且文件重新变 binary | `exit=1`;`grep -n includeKey` 打印 0 行,回到 `binary file matches` |\n| 把某个基线文件修干净但不删条目 | 红,stale 条目那一类 | `exit=1`,报 `stale KNOWN_OFFENDERS` |\n\n第三行是这次真正想钉住的那条:证明的不是\"字节没了\",而是\"grep 又能看见这个文件了\" —— 这才是 issue 报的那个危害。测试里也是这么断言的。\n\n## 测试\n\n- `scripts/__tests__/check-control-bytes.test.ts`(28 例):分类器、覆盖字节集、载体范围、行列定位跨过 8000 字节窗口、基线 ratchet 的四个方向、仓库现状、以及接线本身。\n- `packages/app-shell/src/views/metadata-admin/inspectors/useDatasetFields.catalog.test.tsx`(7 例):往返行为 —— 单跳、多跳(ADR-0071)、多路径、空数组、内容变化才重跑而不是数组身份变化就重跑,外加一条\"路径段里带逗号仍然可用\"专门盯着这次修法本身。\n\n`pnpm check:control-bytes`、`check-changeset-fixed`、`check-lint-coverage`、`check-type-check-coverage` 全绿;app-shell `type-check` 通过;改动文件 eslint **0 error**(6 条是未触碰行上既有的 React Compiler warning,该门禁按设计只拦 error)。\n\n## 没加 changeset\n\n`.changeset/README.md` 明确列出\"内部重构、无 API 变化\"不该开 changeset。源码这处是内部 memo key 的编码方式,无任何可观测行为差异;其余都是工具链(脚本、workflow、文档、测试)。仓内也没有\"改 packages 必须带 changeset\"的门禁 —— `ci.yml` 的 changeset job 只校验 fixed group 成员资格。如果维护者希望这类修复仍然出现在 release notes 里,补一个 patch 即可。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

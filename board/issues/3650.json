@@ -1,0 +1,36 @@
+{
+  "number": 3650,
+  "kind": "issue",
+  "title": "i18n 门禁:en 文案变更时其余九包必须同批跟改(或显式挂账)——#3582/#3625 族缺陷缺的那道不变量",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "tests"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T17:04:15Z",
+  "updated_at": "2026-08-07T18:54:50Z",
+  "closed_at": "2026-08-07T18:54:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3650",
+  "body": "PM 立卡,汇总三处已有记录(#3582 正文、#3625 正文「这可能才是这一族缺陷真正缺的那道门禁」、PR #3627/#3642 正文),避免第四次以散文形态重述。\n\n## 缺陷族回顾(全部已实测)\n\n- #3582:`console.objectView` 2 个 key 八包存**过期英文**(en 改成 read-only 后八包没跟,还停在 duplicate-to-customize 的旧英文)— 已修(PR #3627)。\n- #3625:`view.readonlyTooltip` 八包存**地道译文形态的废弃语义** — 已修(PR #3642)。\n\n两案共同成因:**en 改文案的那个 PR 没有同批更新九个译文包**,而现有三道门禁(键集合 parity / 调用点 key 守卫 / 棘轮基线)全部只看键集合,对「值的语义漂移」天生失明。#3582「建议 2」的非拉丁包 ASCII 抽查只能抓第一案(英文原文残留),对第二案(地道译文承载废弃语义)同样失明 — #3625 已证明。\n\n## 缺的不变量\n\n**en 某 key 的值在一个 PR 里变了 → 其余九包该 key 的值必须在同一 PR 里也变,或显式挂账。**\n\n## 建议实现(供 dev 测量后定,非结论)\n\n新门禁脚本(如 `scripts/check-i18n-en-drift.mjs`),CI 上以 merge-base 对比:\n\n1. 计算本分支相对 origin/main merge-base 的 en 包值变更 key 集合;\n2. 对每个变更 key,要求其余九包同 key 的值也在 diff 中变更;\n3. 否则失败并逐 key 点名 — 除非该 key 出现在挂账文件(如 `scripts/i18n-en-drift-baseline.json`)里;\n4. 挂账文件本身棘轮化(#3547 同款):只许减不许增,新增挂账须在 PR 里显式改该文件,评审可见;\n5. 落地时挂账清单应为空(#3582/#3625 已清,先全量扫一遍确认没有第三案存量 — 有则先清或入账)。\n\n需要斟酌的点(dev 实测后在 PR 里裁,或报回分诊):\n- en 的纯排版修正(标点/空格)是否豁免 — 倾向不豁免,挂账机制本身就是豁免通道,保持规则简单;\n- 脚本对「同批跟改」的判定粒度是 key 级即可,不必比对语义;\n- 该门禁与 all-locales-key-parity 的分工写进两者头注,互相指认。\n\n## 关联\n\n#3582(第一案)、#3625(第二案)、#3517(defaultValue 掩盖)、#3530/PR #3547(调用点守卫与棘轮先例)、PR #3627/#3642(两案修复 + 单 key 机械化先例:钉 en 字面量)。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3547,
+  "kind": "pull_request",
+  "title": "feat(ci): assert every t() call-site key exists in the en locale pack",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:48:54Z",
+  "updated_at": "2026-08-07T04:06:36Z",
+  "closed_at": "2026-08-07T04:06:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T04:06:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3547",
+  "body": "Fixes #3530\n\n## 缺口\n\n`packages/i18n/src/__tests__/all-locales-key-parity.test.ts` 断言的是「每个包定义了 `en` 的每个 key」——**包与包之间**。它按构造看不见另一个方向:组件 `t()` 引用了一个**任何包都没有**的 key。十个包一致地缺同一个 key 就是完全一致,完全一致就是绿。\n\n运行期也不会漏出来:`fallbackLng: 'en'` 配上内联 `t(key, { defaultValue: 'English' })`,这一处调用点照常渲染正确英文,而这条字符串在十种语言里都翻不了。唯一的信号是 `i18n.ts` 里那个 dev-only 的 missing-key 警告,而 CI 从不看浏览器控制台。#3517(`form.createTargetOrg`)就是一个实例,藏了数月;本守卫首跑在 `main` 上又量出 **258 个**。\n\n## 先量再定形:为什么答案不是「所有 `t(`」\n\n裸 grep `t('...')` 在本仓命中 3485 处,其中约三分之一判错——因为 `t` 不是一个函数:\n\n| 绑定来源 | 调用点 | 处理 |\n|---|---|---|\n| `use*Translation` / `use*Translate` / `use*T` 钩子(经 i18next 到语言包) | **2370** | **判定** |\n| `import { t }` 自 `packages/app-shell/src/views/metadata-admin/i18n.ts`(模块内 `engine.*` 标签表,不是 i18next 包),含它传给下游组件的那一跳 | 1074 | 声明式排除 |\n| 根本不是翻译函数(`useCallback` 结果、`Date` 差值、`||` 链、别的对象的 `.t()`) | 41 | 按形状跳过,计数 |\n\n所以分类单位是**绑定**,不是拼写。守卫对每个 `t(...)`/`tt(...)` 解析该位置作用域内 `t` 的声明(最近作用域优先,同作用域取使用点之前最后一次声明),再判族。**实测过**:把 `forwardedScope` 那条排除删掉,`metadata-admin` 树里立刻多出 89 处(78 个不重复 key)误报,无一是真问题。\n\n## 两类失败\n\n1. `missing-key` —— 字面量 key 在 `en` 里没有叶子。i18next 复数后缀(`_one`/`_other`…)算定义了基 key;带 `returnObjects: true` 的 key 允许指向子树。\n2. `missing-prefix` —— 模板 key(`` t(`marketplace.category.${c}`) ``)的**静态前缀**在 `en` 里一条都不匹配。那么插值取任何值都是缺的。这是对动态 key 唯一能在静态期成立的判断,它多捞出 4 个整族缺失(`console.ai.group.`、`gantt.linkEnd.`、`marketplace.disclosure.runtime.`、`organization.invitations.status.`)。\n\n## 动态 key 的显式策略\n\n不是字面量的 key 静态解析不了。这些调用点**不判定、不报红**,但**计数**,并且每次运行都打印出来,让不可分析面是可见的而不是被静默吸收(62 处)。`I18N_PROBE_FLAG` 探针与被跳过的绑定族同样处理。\n\n## 探针排除是结构性的\n\n`useObjectLabel` 的约定 key 探针**本来就该 miss**——它回落到服务端给的 label。守卫按 `[I18N_PROBE_FLAG]` 这个**标记**排除,不按路径,所以写在哪里的探针都排除得掉,而 `useObjectLabel.ts` 里非探针的调用照样判。\n\n**逆向验证的方向在这里是反直觉的,如实记录**:把 `isProbe` 那段提前返回删掉,守卫**仍然绿**,只是 `probeSites` 2 → 0、`dynamicKeySites` 62 → 64。因为今天两处真实探针用的都是模板 key(`` `${ns}.${suffix}` ``),静态前缀为空,既没有字面量可缺、也触发不了 `missing-prefix`。排除对**下一个写字面量 key 探针的人**才是承重的,所以这个形状由测试里的合成 fixture 钉住:带 flag 的字面量探针被跳过,同一处去掉 flag 立刻报 `missing-key`。\n\n## 载体选择:`scripts/*.mjs`,不是包内测试\n\n- 仓内既有惯例:`check-doc-links` / `check-spec-symbol-derivation` / `check-type-check-coverage` / `check-lint-coverage` / `check-control-bytes` 五个全仓静态门禁都在 `scripts/`,每个配一份 `scripts/__tests__/` 行为测试。\n- 它扫的是**所有包**。放进 `packages/i18n` 会让 i18n 的测试因为 plugin-grid 的改动而红——责任放错地方。\n- 纯读源码 AST,不需要任何包构建产物,`node scripts/…` 约 13s 直接可跑,本地和 CI 一样。\n- 不读 `dist/`,所以不会有构建产物带来的假红。\n\n`en` 的 key 集是**解析 AST 得到**的(所以不需要构建),这买来了第二个真相源;测试里第一个 `describe` 就是防漂移的钉子:解析出的集合必须与 vitest 真正求值的模块**逐 key 相等**(2641 = 2641)。\n\n## 存量:棘轮式 baseline,不是允许清单\n\n`scripts/i18n-call-site-key-baseline.json` 记下 gate 落地时 `main` 已欠的 258 个 key + 4 个前缀,每条带 issue 号(#3546)。它**只能变小**:不在其中的 key 报红,而条目对应的缺陷已经修好却还留着,同样报红。修的方式是把 key 补进 `packages/i18n/src/locales/en.ts` —— 补进去之后 `all-locales-key-parity.test.ts` 立刻要求另外九包补齐,这正是正确的顺序。⛔ 加 `defaultValue` 不是修复,那正是让这 258 个藏了几个月的机制。\n\n本 PR **不改任何语言包与组件**(#3530 的文件面约束)。存量已立 #3546 跟踪,其中 8 处连内联兜底都没有、用户直接看到 raw key(如 `ObjectView.tsx` 的 `toast.error(t(key) || '…')` —— i18next 缺 key 返回 key 本身,是真值,`||` 永远不触发;`GanttView.tsx` 刷新按钮的 `aria-label` 就是 `gantt.toolbar.refresh` 这行字)。\n\n## 逆向验证(先写预测,再跑)\n\n| 动作 | 预测 | 实测 |\n|---|---|---|\n| 在 `close-label.tsx` 植入 `t('common.closeButtonLabelZzz')` | 红,1 条 `missing-key`,带 file:line:col + key + 指向 `en.ts` 与 parity 测试的 hint | ✅ 完全一致,exit 1 |\n| 移走 baseline | 红,281 处 / 262 个不重复 | ✅ exit 1 |\n| 加一条没人引用的 baseline 条目 | 红,\"1 baseline entry is stale\" | ✅ exit 1 |\n| 删掉探针排除 | **仍绿**,probe 2→0、dynamic 62→64 | ✅ 见上文说明 |\n| 删掉 `forwardedScope` | 红,`engine.*`/`perm.cel.*` 误报回归 | ✅ 89 处 / 78 个 |\n\n## 跑过的验证\n\n```\nnode scripts/check-i18n-call-site-keys.mjs\n  Scanned 1456 files, 3485 t()/tt() call sites: 2370 pack-backed\n  (2043/2319 literal keys resolve), 62 dynamic-key (report-only), 2 probe-flagged,\n  1074 module-local table, 33 not a translator, 8 method call.\n  Every in-scope call-site key resolves against the en pack (2641 keys).   exit 0\n\npnpm exec vitest run scripts/__tests__          15 files / 241 tests passed\npnpm exec vitest run packages/i18n              22 files / 261 tests passed\npnpm type-check:scripts                         exit 0\npnpm exec eslint <两个新文件>                    exit 0\nnode scripts/check-control-bytes.mjs            OK (3695 tracked text files)\nnode scripts/check-lint-coverage.mjs            45/45 packages linted\n```\n\n一处顺带的发现,记在这里:`scripts/__tests__/scripts-type-check.test.ts` 那条「scripts 项目不 import workspace 包」的钉子按正则找 `from '@object-ui/…'`,**分不清代码、字符串和注释**。本测试的 fixture 源码里必须出现这个 specifier(那是被分析的文本),所以改成插值写法,并在注释里说明——注释本身也得避开该模式,否则同样命中。没有去改那条钉子(不在本单文件面内)。\n\n无 changeset:门禁基础设施,非用户可见变更。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

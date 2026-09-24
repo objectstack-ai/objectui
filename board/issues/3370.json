@@ -1,0 +1,33 @@
+{
+  "number": 3370,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): gallery cover 按 file 值形状解析,而非把字段值当 URL 字符串",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:05:03Z",
+  "updated_at": "2026-08-05T10:10:47Z",
+  "closed_at": "2026-08-05T10:10:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T10:10:45Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3370",
+  "body": "Fixes #3317\n\n## 前提核验(对 `origin/main` @ 68b6a28)\n\nIssue 前提成立,行号按 PM 提示核对无误:\n\n- `packages/plugin-list/src/ObjectGallery.tsx:330` — `hasAnyCover` 用 `typeof (it as any)[coverField] === 'string'`\n- `packages/plugin-list/src/ObjectGallery.tsx:452` — `const imageUrl = item[coverField] as string | undefined;`\n\nADR-0104 D3 wave 2 之后,`file`/`image`/`avatar`/`video`/`audio` 字段的**存储**值是不透明的 `sys_file` id,读路径会就地展开成 `{ id, name, size, mimeType, url }`。于是符合规范的值到达客户端时是**对象**:`hasAnyCover` 恒为 `false`,整个画廊的封面区塌陷;而其下的卡片仍会构造出一个 src 属性等于字符串 `[object Object]` 的 img 元素。唯一还能渲染的值,正是 ADR-0104 已经淘汰的内联 `data:` URI 与外链 —— 这也是它长期不可见的原因。\n\n## 改动\n\n两处读取现在共用同一个 `resolveCoverUrl`。「有没有封面」的判定与单卡渲染再也不会各说各话 —— 那种分歧正是让**确实有封面**的记录也一起塌陷的原因。\n\n形状处理**委托**给 `@object-ui/fields` 的 `readFileValues`,而不是在画廊里重新推导一套。\n\n### 落点说明:没有新建共享模块\n\n派单允许在合适的包里抽出共享解析器,但**它已经存在**:`packages/fields/src/widgets/file-value.ts`,经 `packages/fields/src/index.tsx` 的 `export * from './widgets/file-value'` 公开导出,是平台既有的 file 值形状唯一仲裁者(`FileField` / `ImageField` / image cell renderer 都读它)。`plugin-list` 本就 peer-depend `@object-ui/fields`,且 `ObjectGallery.tsx` 本就从中 import —— 依赖方向已经成立,本 PR 只是加了一个 import 名。新造一个平行解析器反而会制造第二套真相。\n\n## ⚠️ 一处与 issue 建议的偏离(请复核)\n\nIssue 建议「把未展开的不透明 id 视为 no cover」。该建议早于 `file-value` 模块,而后者已在平台层面定了调:裸引用解析到稳定端点 `/api/v1/storage/files/:id`,该端点 302 重定向到新签发的短时 URL,可直接作为 img 元素的 src 使用。\n\nIssue 的**真实诉求**是「不要产生坏 src」—— 解析比隐藏更好地满足了它,而且在画廊里 fork 一条更窄的规则,会让画廊与读同一个值的 image cell renderer、编辑态控件互相矛盾。故本 PR **解析**而非隐藏,并把这个方向明确钉进了测试注释。真正的 no-cover 是「值不携带任何可解析 URL」(如只有 `{ name }` 的对象),该用例单独覆盖。\n\n## 测试\n\n新增 `packages/plugin-list/src/__tests__/ObjectGallery.coverValue.test.tsx`(6 例):expanded `{ url }` 对象 / legacy 裸字符串 / 未展开 id → 稳定端点 / 无可解析 URL → 塌陷且不出现 `[object Object]` / `hasAnyCover` 共用解析器的塌陷回归 / `multiple` 取首项。\n\n**反向验证**(先定方向再跑):把两处读取改回字符串假定 —— 预测 5 红 1 绿,实测一致。唯一仍绿的是 legacy 裸字符串,因为那本就是修复前唯一能工作的形态(它是保持性守卫,不是回归捕手)。不透明 id 用例报 `expected 'fileCCC333' to be '/api/v1/storage/files/fileCCC333'`,坐实原始 token 确实曾进入 `src`。\n\n```\nTest Files  20 passed (20)\n     Tests  290 passed (290)\n```\n\n`type-check` 通过;`lint` 0 errors(335 条既有 warning)。\n\n## 兄弟路径:核对后无需改动\n\n`ListView.tsx:1319/1570`、`app-shell/ObjectView.tsx:1547/1548`、`plugin-view/ObjectView.tsx:696` 传递的都是字段**名**,不是字段**值**,不存在同类 string 假定。按规则消费半径也扫了其它包的 fixture(`types` / `react` / `app-shell` 的 gallery 用例),全部是字段名配置 parity,无值形状 fixture。\n\n未触碰 `app-shell/src/views/metadata-admin/**`。\n"
+}

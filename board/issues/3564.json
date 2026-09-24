@@ -1,0 +1,32 @@
+{
+  "number": 3564,
+  "kind": "issue",
+  "title": "spec: 给视图 bulkActionDefs 开 requiredPermissions 键——console 批量条渲染层早就按它过滤了,只是 schema 不让写",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T12:23:41Z",
+  "updated_at": "2026-08-07T13:10:14Z",
+  "closed_at": "2026-08-07T12:59:00Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3564",
+  "body": "## 一句话\n\n**列表批量操作条的按钮无法按权限集显隐**,而卡点只在 spec 的 `BulkActionDefSchema` 少了 `requiredPermissions` 键 —— console 的批量条渲染层**本来就在按这个键过滤**,和行动作用的是同一套。\n\n## 三点实测(`17.0.0-rc.5`)\n\n### ① 声明侧堵死\n\n视图 `bulkActionDefs` 里内联写 `requiredPermissions`,compile **硬失败**(不是静默剥离):\n\n```\nUnrecognized key(s) on this bulk action definition: `requiredPermissions`.\nUntil #4457 the whole array was z.array(z.record(z.string(), z.any())) —\nevery key parsed, so a mis-spelled one shipped as a button that silently\nran the DEFAULT behaviour (or none at all).\n```\n\n`BulkActionDefSchema` 顶层键实测:\n\n```\nname / label / icon / variant / operation / execution / patch / params /\nconfirmText / confirmLabel / visible / maxRecords / batchSize / condition / style\n```\n\n(严格化本身是好事 —— #4457 那个动机完全成立。只是这一版把 `requiredPermissions` 漏掉了。)\n\n### ② 渲染侧其实已经支持\n\n`@objectstack/console` plugin-grid,批量条组件与行动作组件是同一套过滤:\n\n```js\n// 批量条\nconst p = useMemo(() => (actionDefs ?? []).filter(e => f(e?.requiredPermissions)), [actionDefs, f]);\n// 行动作(同一文件,同一个 hook)\nconst h = useMemo(() => (rowActionDefs ?? []).filter(e => m(e?.requiredPermissions)), [rowActionDefs, m]);\n```\n\n能力门的代码就在那儿,只是没有合法的声明能喂给它。\n\n### ③ 换声明位置能绕过去,而且确实生效\n\n把按钮定义成对象 `actions[]`(那里 `requiredPermissions` 合法),视图 `bulkActionDefs` 只写 `{ name, operation: 'custom', execution: 'aggregate' }` 同名引用 —— 合并函数会把 `requiredPermissions` 原样带进 bulk def。\n\n真机实测(设备列表,admin 勾 1 行):\n\n| 按钮 | requiredPermissions | admin 看到 |\n|---|---|---|\n| 批量导出二维码 | 无 | ✅ 显示 |\n| 探针 A | 无 | ✅ 显示 |\n| 探针 B | `['<一个不存在的能力>']` | ❌ **被挡掉** |\n\n⇒ 门确实生效,**admin 也不豁免**(与导航项 `requiredPermissions` 同语义)。\n\n## 为什么绕法不够用\n\n该合并路径要求 `operation === 'custom' && execution === 'aggregate'`,`operation` 随后被写死成 `custom`。也就是说:\n\n- **要能力门** → 按钮必须是 custom 动作,自己调接口按 `_selectedIds` 处理\n- **要 `operation: 'update' + patch` 的声明式批量改字段** → 只能内联,没有能力门\n\n二选一。我们这边四个批量按钮(批量设置责任人 / 下推 / 转派 / 批量删除)全是声明式 update 写法,为了加个显隐门要把三条已经稳定的批量写链路整体重写 + 重测 —— 收益/风险倒挂,所以没做。\n\n## 期望\n\n给 `BulkActionDefSchema` 加一个可选的 `requiredPermissions?: string[]`。渲染层不用动。\n\n这样声明式批量更新和能力门就能同时拥有,现有的 def 各加一行即可。\n\n## 实际影响\n\n排班计划列表的 4 个批量按钮对**所有能进该列表的人**全部可见,无权者点下去才被服务端 hook 逐条拒。用户反馈的就是这个体验 —— 「看得见一堆跟自己无关的操作,点了才知道不行」。\n\n## 版本\n\n- `@objectstack/*` `17.0.0-rc.5`"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3626,
+  "kind": "issue",
+  "title": "metadata-admin:嵌套 union(`config.columns`)的诊断仍塌成「Invalid input」——创建路/编辑路都中",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:13:52Z",
+  "updated_at": "2026-08-07T20:22:21Z",
+  "closed_at": "2026-08-07T20:22:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3626",
+  "body": "发现于 #3606 的实施(PR #3624)。#3606 修的是**根级** union 塌陷;这条是同族的**嵌套**残留,**先于** #3606 存在,两条路都中,因此单独立单由分诊定级。\n\n## 事实(实测,`@objectstack/spec` 17.0.0-rc.5)\n\nbody:一份 ViewItem,`config.columns` 写成 `[{ field: 123 }]`(`field` 应为 string)。\n\n```\nViewItemSchema(创建路)      → [invalid_union] path=[\"config\",\"columns\"] msg=\"Invalid input\"\nViewMetadataSchema(编辑路)  → [invalid_union] path=[]                   msg=\"Invalid input\"   ← #3606,PR #3624 已修\n```\n\nPR #3624 之后编辑路收敛到与创建路**完全一致**的状态,即 `config.columns` + `Invalid input`。也就是说:根级塌陷已消,**嵌套那层没消**,且它在创建路上一直就是这样,不是 #5316/#3607 引入的。\n\n## 为什么 #3606 没有一并修\n\n`config.columns` 是 `string[] | ColumnDef[]` 这类**没有判别式**的 union。#3606 的解法是「按 body 自身的判别式选成员」,而这里没有判别式可用;把两个成员的错误全展开正是 #3606 明确拒绝的噪音做法。PR #3624 因此只展开根上的 union,并把这条残留写进了正文的「已知残留」。\n\n另一个技术约束:成员 issue 的 `path` 是**相对于 union 节点**的,只有在根上它才等于 draft 的绝对路径;要处理嵌套层就得把父 path 前缀正确拼接进去。\n\n## 影响(比 #3606 轻)\n\n它**带着真实 path** `config.columns`,所以 `SchemaForm` 的内联高亮和 Monaco 的定位都还能工作 —— 用户能被带到出错的字段,只是不知道那个字段**哪里**错(哪一列、哪个键、期望什么类型)。这与 #3606 的空 path「指向不了任何东西」有本质区别。\n\n## 可能的方向(未实现)\n\n1. **无判别式 union 的「一致意见」展开**:若所有成员在同一 path 上给出同一条 message,那条 message 与选哪个成员无关,可以安全提升上来。是真命题而非启发式,但命中率取决于 schema 写法。\n2. **spec 侧提供诊断入口**(#3606 正文的方向 3):让 union 自带 discriminator,或导出「按判别式取成员」的入口,消费方不必猜。契约优先,跨仓,可一并覆盖根级与嵌套。\n3. 就这样不动 —— path 可用,message 泛化,判断是否值得。\n\n倾向 2;1 可作为不跨仓的兜底。定级请分诊裁决。\n\n相关:#3606、PR #3624、objectstack#5316、objectstack#5074。\n"
+}

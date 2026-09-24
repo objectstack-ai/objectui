@@ -1,0 +1,32 @@
+{
+  "number": 3489,
+  "kind": "pull_request",
+  "title": "fix(docs): check-doc-links 解析相对链接,并修掉它现在能看见的 16 个失效目标 (#3479)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:20:16Z",
+  "updated_at": "2026-08-06T13:52:34Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3489",
+  "body": "Fixes #3479\n\n两半一起落地:扩展后的门禁在本 PR 上是**绿**的(与 #3450 同一纪律 —— gate 到岸即绿,不带着自己描述的欠账进仓)。\n\n## 前提复核:成立,但 issue 的归因要改一处 —— 这一改直接决定 A 类的正确修法\n\n`routeExists()` 确实以早退开场,相对链接从未被解析过:\n\n```js\nif (!cleanHref || !cleanHref.startsWith(DOCS_ROUTE_PREFIX)) {\n  return true;\n}\n```\n\n扩展后先在 `origin/main` 的内容上跑,预期与实测**完全吻合** issue 的口径:\n\n```\nFound 33 broken docs links (16 distinct targets):\n- content/docs/guide/index.md:12 -> examples/server\n- content/docs/guide/plugins.md:23 -> ../plugins/plugin-charts.md\n  ... (27 处 A 类 + 6 处 B 类)\n- content/docs/plugins/plugin-markdown.mdx:362 -> ../concepts/lazy-loading\n```\n\n但 issue 写的原因「站上也是 404(fumadocs 路由无扩展名)」对相对链接**不成立**。站点对两种链接形态走的是两套机制:\n\n1. `apps/site/app/docs/[[...slug]]/page.tsx` 用 fumadocs 的 `createRelativeLink(source, page)` 渲染 MDX 的 a 标签;\n2. 它调 `source.resolveHref(href, page)`,而该函数**只**处理 `./` / `../` 开头的 href —— 拼到 `dirname(page.path)` 上再查页面索引;\n3. 页面索引以**带扩展名的源文件路径**为键(`createPageIndexer.scan()` 里 `pathToPage.set(path, page)`,`path` 即 `filePath`)。\n\n所以相对链接的正确形态是**真实文件名(含真实扩展名)**,不是无扩展名路由。`../plugins/plugin-charts.mdx` 能被解析成真实路由;`../plugins/plugin-charts.md` 查不到索引 → 原样落到浏览器 → 404(`next.config.mjs` 只重写 `.mdx` 后缀,且重写到 llms 原始 markdown 路由)。\n\n**实测**(本 PR 的站点构建产物 `apps/site/.next/server/app/docs/guide/plugins.html`):\n\n| 源文件里的写法 | 产物里的 href |\n|---|---|\n| `../plugins/plugin-charts.mdx`(本 PR 改后) | `/docs/plugins/plugin-charts` ✅ |\n| `./component-registry.md`(仓库原有,文件确为 `.md`) | `/docs/guide/component-registry` ✅ |\n| `../../../packages/data-objectstack/README.md#...`(解析不了) | 原样输出 `../../../packages/...` ← A 类 404 的机制,反证 |\n\n## A 类:规范判定 = 带扩展名的文件形态(`.mdx`),统一应用\n\n除上面的机制证据外,既有链接的用法也一致:仓库原有 21 条相对链接**全部**写 `./xxx.md` 且目标文件确实是 `.md` —— 同一条规范,从未破过;而 297 条绝对 `/docs/...` 链接**无一**带扩展名 —— 因为绝对链接是路由,`resolveHref` 根本不碰它。两种形态各有各的正确写法,checker 也因此分开校验。\n\n改动:13 个目标统一 `.md` → `.mdx`,共 27 处(`guide/plugins.md` 26 处 + `guide/record-edit-modes.md` 1 处)。\n\n## B 类:先查 git history,逐条给理由\n\n**1. `guide/index.md:12` `[examples/server](examples/server)` —— 整段删除**\n\n- `examples/server/` 曾真实存在(`5edecc5df` 加入),在 `88a098cf0` \"Remove example server files and configuration from the repository\" 被删除。\n- 紧跟其后的命令 `pnpm --filter @object-ui/example-objectstack-server serve` 连当年都是错的:那个包的真名是 `@object-ui/example-server`(`git show 88a098cf0^:examples/server/package.json`)。\n- 没有后继文档可以改指,PM 裁定禁止新写文档。链接和命令是同一段的两半、两头都悬空,所以删整段而不是只删链接 —— 只删链接会留下一个空的 `## Examples` 标题和一条必然失败的命令。\n\n**2. `guide/plugins.md:515` `[Lazy-Loaded Plugins Architecture](./lazy-loading.md)` —— 删除该条**\n\n- 文档历史上确实存在(`docs/concepts/lazy-loading.md`),在 `f22541271` 的 `docs/` → `content/docs/` 重排中被删,内容已并入**本文件自己**的 `### Lazy Loading Architecture`(`plugins.md:202`,含 `React.lazy`/`Suspense` 示例与 13 个插件的 bundle 影响表)。\n- 一份 \"Related Documentation\" 列表指向它自己所在的这一页是噪音:右侧 ToC 已经能到该小节,同列表其余各条都是跨文档。\n\n**3. `plugins/{charts,editor,kanban,markdown}.mdx` 的 `../concepts/lazy-loading`(4 处)—— 改指 `/docs/guide/plugins#lazy-loading-architecture`**\n\n- 同上,深度内容现存于 `guide/plugins.md` 的该小节;这里是**跨**文档,深链到具体小节仍有信息量(同列表上一条只指到页面级 `/docs/guide/plugins`)。\n- 用绝对路由形态,与同列表已有的 `/docs/guide/plugins` 保持一致。\n\n## checker 扩展(`scripts/check-doc-links.mjs`)\n\n- **相对 href**:对 `dirname(源文件)` 解析,候选依次为「文件本身」(fumadocs 真正认的形态)+ 无扩展名路由形态(`.md` / `.mdx` / `index.md` / `index.mdx`)。无扩展名相对链接**接受**:它靠浏览器 URL 相对解析恰好落对,不是断链,门禁不该越权立风格规矩(脆弱性写在文件头注释里)。\n- **绝对 `/docs/...` href**:保持路由形态**严格** —— `/docs/guide/b.md` 即便磁盘上有 `guide/b.md` 也判红,因为那个 URL 在站上就是 404。这是本 PR 特意没有放松的一处。\n- **非 `/docs` 绝对 href**(`/spec/...`、`/api/...`、`/img/...`)仍然放行:不在本 collection 内,从 `content/docs` 无从解析(见文末「顺手发现」)。\n- **先剥代码再扫**:这是必需项而非洁癖 —— 扩到相对链接后,被代码引用的 markdown 链接语法就变成误报,`main` 上现成两处:`guide/notifications.md:54`(tsx 围栏内的 `toast[n.severity](n.title, { description: n.message })`)和 `fields/rich-text.mdx:47`(行内代码里在讲语法本身)。剥离时用空格填充、保留换行,所以报出来的行号仍是真行号。\n- 报错输出新增行号与「distinct targets」计数,并附一行规范提示。\n- 脚本改为导出 `stripCode` / `routeExists` / `collectBrokenLinks`,`invokedDirectly` 守卫沿用 `scripts/check-control-bytes.mjs` 的形状,便于测试直接调真函数。\n\n## 验证(方向**先声明后运行**)\n\n| 项 | 预判 | 实测 |\n|---|---|---|\n| 扩展后 checker 跑 `origin/main` 内容 | 红,33 处引用 / 16 个目标(与 issue 对数) | 红,`Found 33 broken docs links (16 distinct targets)`,逐条与 issue 列表一致 |\n| 内容修完后 | 绿 | `Docs links are valid.` / `EXIT=0` |\n| `scripts/__tests__` 全量 | 绿 | `Test Files 11 passed (11) / Tests 166 passed (166)` |\n| Build Docs(`turbo run build --filter=@object-ui/site`,CI 在 `content/**` 变更时会跑) | 绿 | `✓ Compiled successfully in 86s` / `✓ Generating static pages (556/556)` |\n| `node scripts/check-control-bytes.mjs` | 绿 | `OK (scanned 3673 tracked text file(s))` |\n| `eslint` 改动文件 | 绿 | exit 0 |\n\n**反向验证**:把删掉的 `if (!cleanHref.startsWith(DOCS_ROUTE_PREFIX)) return true;` 那一肢装回去。**事先预判**:只有「期望报出断链」的用例转红;所有「期望空数组」的用例会**照绿**(一个全部放行的 checker 什么都不报),连带「仓库自身无断链」那条集成用例也照绿 —— 因为内容已经修好了,它压根挡不住这个回归。实测正是如此:\n\n```\nTests  6 failed | 16 passed (22)\n x reports a relative link whose target does not exist\n x reports the #3479 A-class shape: link says .md, file is .mdx\n x rejects a relative link to a directory that has no index page\n x resolves relative to the linking file, not the docs root\n x still reports a real link on a line that also contains code\n x exposes routeExists with the context the scan gives it\n```\n\n这个不对称值得写下来:真正钉住这一肢的是那 6 条,「仓库自身绿」那条是**内容**的证据,不是 checker 的证据 —— 别把它当回归网。\n\n## 无 changeset\n\n按 AGENTS.md「纯 bug 修复不需要 changeset」:这是文档链接 + CI 脚本的修复,不改任何发布包的行为。\n\n## 顺手发现(不在本 PR 修,另行开 issue)\n\n扩展后的门禁仍有一处**按设计**的盲区,同一个根:它只在 docs collection 内解析。据此有 18 条链接在站上是 404 而门禁全绿 —— 1 条相对链接跑出了 collection(`guide/data-source.md:202`),17 条非 `/docs` 绝对链接(`/spec/*`、`/protocol/*`、`/api/core`、`/examples/*`;`apps/site/app` 下并无这些路由段,构建产物里它们原样输出)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

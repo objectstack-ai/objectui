@@ -1,0 +1,36 @@
+{
+  "number": 3478,
+  "kind": "issue",
+  "title": "CommentThread 的 \"+\" 表情选择器:title 永远不会成为它的可访问名(内容 \"+\" 优先),#3424 只命名了 tooltip",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T09:13:51Z",
+  "updated_at": "2026-08-07T02:15:28Z",
+  "closed_at": "2026-08-07T02:15:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3478",
+  "body": "发现于 #3441 的实现过程,**不在该 issue 的范围内**(#3441 的正文把这颗按钮明确当作\"已有名字\"的参照物,用来证明另外三颗是遗漏),因此单独提。\n\n## 现象\n\n`packages/collaboration/src/CommentThread.tsx` 里每条评论回应条右侧的表情选择器按钮:\n\n    onReaction && React.createElement('button', {\n      style: styles.reactionPicker,\n      onClick: () => onReaction(comment.id, '👍'),\n      title: t('collaboration.addThumbsUp'),\n    }, '+'),\n\n#3424 / #3438(objectstack#5506)给它接上了 `collaboration.addThumbsUp`,走的是 `title`。但对 `button` 来说,**accname 算法先看内容(§2F \"name from content\"),`title` 是最后一档兜底(§2I)**。这颗按钮有内容 `'+'`,所以计算出来的可访问名就是 `\"+\"`,`title` 从头到尾只是鼠标 tooltip,从来没有成为过它的名字。\n\n屏幕阅读器读到的是\"加号 按钮\"/\"plus button\" —— 用户无从知道它做什么。`title` 被翻译了,可访问名没有。\n\n## 证据(实测,非推演)\n\n#3441 的 PR 里有一条现在就是绿的断言,直接钉住了这一点:\n\n    expect(screen.getByTitle('Add thumbs up')).toBeTruthy();\n    expect(screen.queryAllByRole('button', { name: 'Add thumbs up' })).toHaveLength(0);\n\n`getByRole(… { name })` 走的是 dom-accessibility-api 的 accname 实现。`title` 属性在(第一行绿),但没有任何按钮的**可访问名**是 `Add thumbs up`(第二行绿)。这两行同时成立,就是本 issue 的全部内容。\n\n那条断言在 #3441 里的用途是区分 `addThumbsUp`(选择器)与新增的 `reactThumbsUp`(快捷 👍),顺手暴露了这个副作用;#3441 修的三颗按钮用的是 `aria-label`,正因为 `aria-label` 是唯一能盖过内容的那一档。\n\n## 建议修法\n\n把 `title` 换成(或补上)`aria-label`,复用同一个 key,不新增翻译:\n\n    title: t('collaboration.addThumbsUp'),\n    'aria-label': t('collaboration.addThumbsUp'),\n\n两个都留着最稳:`aria-label` 给辅助技术,`title` 保留鼠标悬停提示(视觉用户目前唯一的线索),且仓内已有若干用例按 `getByTitle('Add thumbs up')` 定位它,不会被打断。\n\n顺带需要判断的一个语义问题(留给处理人,不预设):这颗按钮的样式名叫 `reactionPicker`,但当前实现写死 `onReaction(id, '👍')` —— 它是个\"选择器\"的桩。名字到底该是 \"Add thumbs up\"(描述当前行为)还是 \"Add reaction\"(描述控件意图),取决于这个桩是否要继续做成真的选择器。当前的 `addThumbsUp` 描述行为是准确的,不改也自洽。\n\n## 不属于本条的相邻情况\n\n同一行的回应 chip 按钮(内容 `👍 2`,`title` 是 \"2 reactions\")同样是内容优先,但它的可访问名 `\"👍 2\"` 本身就是描述性的,读作\"thumbs up 2 按钮\",可用。**不建议**一并改动。\n\n## 影响面\n\n`CommentThread` 是 published exported component,仓内无消费方 —— 只有外部宿主会碰到,和 #3441 同一族。\n"
+}

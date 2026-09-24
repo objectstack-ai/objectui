@@ -1,0 +1,35 @@
+{
+  "number": 3507,
+  "kind": "issue",
+  "title": "content/docs/guide/building-crud-app.md 有 2 条 GitHub 绝对 URL 指向不存在的 examples/ 目录(examples/todo、examples/crm),两个门禁按设计都看不见",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T01:32:17Z",
+  "updated_at": "2026-08-07T02:11:27Z",
+  "closed_at": "2026-08-07T02:11:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3507",
+  "body": "在实施 #3490(PR #3506,非 `/docs` 绝对链接按站点路由校验)时顺手发现,**不在 #3490 的完成范围内**:#3490 的口径是「站点路由不存在」的 18 条**站内**链接,这 2 条是**站外** `https://` 绝对 URL,两回事。记在这里由 PM 定级。\n\n## 现象\n\n`content/docs/guide/building-crud-app.md`:\n\n| 行 | 链接 |\n|---|---|\n| 328 | `[Todo example](https://github.com/objectstack-ai/objectui/tree/main/examples/todo)` |\n| 330 | `[CRM example](https://github.com/objectstack-ai/objectui/tree/main/examples/crm)` |\n\n`examples/` 在 `origin/main`(f995a452d)下实际只有:\n\n```\nREADME.md  byo-backend-console  console-starter  hello-world  schema-catalog\n```\n\n`examples/todo` 与 `examples/crm` 都不存在,两条都是 GitHub 404。\n\n## 为什么两个门禁都不报\n\n- `scripts/check-doc-links.mjs`(含 PR #3506 扩展后)按设计跳过一切带 scheme 的 href(`EXTERNAL_HREF_RE`)——外链归 lychee。\n- lychee(`check-links.yml`)能发现,但它是**周 cron + 手动**,且 `continue-on-error`,**从不 gate PR**(这是 #3213 的有意取舍:外链走网络,第三方 502 不该把 PR 弄红)。\n\n所以这一类「指向本仓库自己、但路径已不存在的 GitHub 绝对 URL」处在两个门禁之间:它其实是**仓库内部**的引用完整性问题(可离线判定),却因为写成了 `https://` 而被当成外链。\n\n## 可能的处理方向(不预设,由 PM/维护者定)\n\n1. **只修内容**:两条改指真实存在的 example(`console-starter` / `byo-backend-console` / `hello-world`),或改指对应的 `/docs/...` 页面。\n2. **顺带补门禁**:让 `check-doc-links.mjs` 对「指向本仓库自身 blob/tree 的 GitHub 绝对 URL」做离线路径校验(`https://github.com/objectstack-ai/objectui/(blob|tree)/main/<path>` → 断言 `<path>` 在工作树里存在)。这条能离线、能 gate,且正好覆盖 PR #3506 大量新引入的这种写法——#3506 把 8 条链接改成了这个形式,目前**没有任何 gate 校验它们**,同样会悄悄烂掉。\n\n方向 2 与 #3490 评论区已锚的「扫描面扩到 `examples/**` + 根 `README.md`」是**不同**的两件事(那条是扩*扫描面*,这条是扩*可判定的 href 形态*),但很可能适合放在同一单里做。\n"
+}

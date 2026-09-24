@@ -1,0 +1,36 @@
+{
+  "number": 3459,
+  "kind": "issue",
+  "title": "[i18n] 另外三个插件也自拼英文标题传给 NavigationOverlay 的 title prop(kanban / tree / plugin-view),#3426 的围栏没覆盖到",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T06:42:54Z",
+  "updated_at": "2026-08-06T07:39:47Z",
+  "closed_at": "2026-08-06T07:39:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3459",
+  "body": "Blocked-by: #3426(PR #3457)\n\n## 缘起\n\n#3426 修的是 `ListView` 与 `ObjectGrid` 两处「在传入侧自拼英文标题、把 `NavigationOverlay` 的 i18n 默认值挤掉」的缺陷。那个 issue 的文件围栏只圈了 `plugin-list` / `plugin-grid`。在核验 #3426 前提时按同一模式全仓 grep,发现**同一类缺陷还有三处**,都在围栏外,本次未改动:\n\n| 文件 | 传给 `title` 的东西 |\n|---|---|\n| `packages/plugin-kanban/src/ObjectKanban.tsx`(约 504 行) | ``${objectName 首字母大写并把下划线换成空格} Detail``,无 objectName 时是字面量 `'Card Details'` |\n| `packages/plugin-tree/src/ObjectTree.tsx`(约 453 行) | 裸字面量 `\"Record Details\"` |\n| `packages/plugin-view/src/ObjectView.tsx`(约 1153 行) | ``${objectLabel} Detail``(`mode=\"split\"` 的那个浮层) |\n\n行号取自 `main@112b20912`,会漂。用 `NavigationOverlay` + `title` 搜更稳。\n\n## 为什么这是缺陷而不是风格问题\n\n`NavigationOverlay` 的 `resolvedTitle` 是 `title || t('detail.recordDetail')` —— 只要宿主传了 `title`,组件自己的 i18n 默认值就永远不生效。而这个值不是无障碍名,是**可见标题**:抽屉里是 `SheetTitle`,模态里是 `DialogTitle`,split 模式是一个 `h3`,popover 是一个 `h4`。所以一个 zh/ja/de 会话会拿到一个通体本地化的浮层,顶上挂着唯一一句英文。这正是 #3426 的形状。\n\n## 可达性:本人未核验\n\n#3426 的两条路径我逐条核验过并写进了 PR #3457(公开页面块 + `navigation` 可编写键 + 行点击接 `handleClick`,并有走完整用户路径的测试作为可执行证据)。**这三处我没有做同等核验** —— 它们只是 grep 同形命中。三处看上去都挂在 `navigation.isOverlay` 门后,与 list/grid 同构,但「看上去同构」不等于可达,派发时应先做与 #3426 同样的可达性判定,可能出现某一处其实被上层覆盖/是死默认的情况。\n\n## 修法(若可达)\n\n沿用 #3426 落下的形状,**不要**在 `NavigationOverlay` 里加宽容:\n\n- 有标签的分支 → `t('detail.recordDetailWithLabel', { label })`(该键由 PR #3457 引入,已进全部十个语言包);\n- 无标签的分支 → 复用 `detail.recordDetail`;\n- 每个插件自己的英文兜底表要同时补上这两个键(`createSafeTranslation` 在无 provider 时读的是它,不是语言包),并保证英文输出逐字节不变。\n\n## 一个需要决定的点\n\nkanban 的 `'Card Details'` 和 tree 的 `\"Record Details\"` 都是**复数**拼法,语言包里没有对应键(现有的是单数 `detail.recordDetail` = `Record Detail`)。两条路:\n\n- **A. 归一到单数** `detail.recordDetail` —— 同一个控件只有一份译文,不会漂;代价是英文输出从 `Record Details` 变成 `Record Detail`(非逐字节不变,需确认没有 e2e 用旧串寻址)。\n- **B. 另铸复数键** —— 英文逐字节不变;代价是同一个浮层控件在仓里出现两份含义相同的译文,正是 #3426 明确不想要的漂移源。\n\n倾向 **A**:这是同一个组件的同一个标题槽,`plugin-detail` 里 `label: 'Record Details'` 那种别处的用法不构成保留理由;英文串的变化面很小,改前 grep 一遍 `e2e/` 即可确认。但涉及可见文案的取舍,留给维护者拍板。\n\n## 相关\n\n- #3426 / PR #3457 —— 同类缺陷的前两处,以及本 issue 复用的 `detail.recordDetailWithLabel` 键\n- #3423 —— 给 `NavigationOverlay` 的 `resolvedTitle` 接上 i18n 默认值的那个 PR\n- objectstack#5506 / objectstack#5733 —— 同一族「围栏没覆盖到的孪生字面量」前情\n"
+}

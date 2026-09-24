@@ -1,0 +1,34 @@
+{
+  "number": 3517,
+  "kind": "issue",
+  "title": "[i18n] form.createTargetOrg 在十个语言包里全部缺失,组织写入目标徽标在所有非英文语言下都渲染英文兜底",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:07:20Z",
+  "updated_at": "2026-08-07T03:11:54Z",
+  "closed_at": "2026-08-07T03:11:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3517",
+  "body": "在 #3469(PR #3516)删除 `RecordFormPage` 死 `defaultValue` 时,逐条评估同文件其余同形兜底,发现的**唯一一条真正承重**的兜底。不属于 #3469 的范围(其文件面明确排除语言包),故另行记录。\n\n## 现象\n\n`packages/app-shell/src/views/RecordFormPage.tsx`(ADR-0105 组织租户写入目标徽标):\n\n```tsx\n{t('form.createTargetOrg', {\n  org: activeOrganization.name,\n  defaultValue: `Creates in ${activeOrganization.name}`,\n})}\n```\n\n`form.createTargetOrg` 这个 key **在十个语言包里一个都没有定义,连 `en` 都没有**。实测(把 `packages/i18n/src/locales/index.ts` 打包后逐包取值):\n\n```\nform.createTargetOrg  -> missing in [en,zh,ja,ko,de,fr,es,pt,ru,ar]\n```\n\n所以 i18next 是真的 miss,渲染出来的是内联 `defaultValue`。后果:\n\n- **该徽标在十种语言下全是英文**。中文控制台里,创建记录时头部会出现一句 `Creates in 某某组织`。\n- dev 环境每次都会打一条 `[object-ui i18n] Missing translation for \"form.createTargetOrg\"` 告警。\n- `all-locales-key-parity.test.ts` 看不见它 —— 该测试断言的是「每个包定义了 `en` 的每个 key」,`en` 自己没有的 key 不在比较范围内。十个包一致地缺失,parity 完全绿。\n\n## 触发条件(用户今天碰得到,但很窄)\n\n三个条件同时成立才渲染:`features.tenancyPosture === 'group'` + 有 `activeOrganization` + 对象带 `organization_id` 字段,且处于 create 模式。即「集团租户形态下,在组织隔离对象上新建记录」。\n\n## 为什么没被现有门禁挡住\n\n仓库里没有「组件 `t()` 引用的 key 必须存在于 `en` 包」这一类守卫 —— parity 测试守的是**包与包之间**的一致性,不是**调用点与包之间**的一致性。一个组件引用了任何包都没有的 key,现有测试全绿。这条是该类漏洞的一个具体实例;是否值得补一条通用守卫,由分诊决定(注意 `useObjectLabel` 的约定 key 探针是**故意** miss 的,通用守卫需要能区分,它已用 `I18N_PROBE_FLAG` 标记)。\n\n## 建议处理\n\n把 `createTargetOrg: 'Creates in {{org}}'` 回填进 `packages/i18n/src/locales/en.ts` 的 `form` 段,parity 测试会要求其余九个包跟上;同一个改动里删掉 `RecordFormPage.tsx` 上那条内联 `defaultValue`,与 #3469 的处置保持一致。\n\nPR #3516 已在代码注释里写明这条兜底为何保留,并留了一条断言:一旦任一语言包定义了该 key,`RecordFormPage.i18n.test.tsx` 会变红并提示删除内联兜底 —— 回填时不会漏掉这一步。\n\n---\n_由 #3469 的开发过程中发现,未分诊定级。_\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

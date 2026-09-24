@@ -1,0 +1,35 @@
+{
+  "number": 3582,
+  "kind": "issue",
+  "title": "console.objectView 的 2 个 key 在 8 个语言包里是英文原文,其中 systemViewReadonly 还是与 en 不一致的旧文案(全部门禁皆绿)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:26:34Z",
+  "updated_at": "2026-08-07T16:29:53Z",
+  "closed_at": "2026-08-07T16:29:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3582",
+  "body": "在做 #3546 切片一(回填 `console.objectView.cannotEditMetaView` / `cannotDeleteMetaView`)时,在**紧邻的上下两行**发现的,与本切片无关,单独立单。\n\n## 现象\n\n`console.objectView` 里有 2 个 key,在十个包中只有 `en` 和 `zh` 是真译,其余**八个包(ja / ko / de / fr / es / pt / ru / ar)存的是英文原文**:\n\n| key | en | zh | 其余八包 |\n|---|---|---|---|\n| `console.objectView.systemViewReadonly` | `System view defined in code — read-only.` | `系统视图由代码定义，只读。` | `System view defined in code - duplicate to customize.` |\n| `console.objectView.expandToPage` | `Open as full page` | `以完整页面打开` | `Open as full page` |\n\n日文 / 韩文 / 俄文 / 阿拉伯文控制台里,这两处就是英文。\n\n### `systemViewReadonly` 还多一层:八包里的英文是**过期的**\n\n注意上表第一行三列互不相同 —— 八个包存的不是 `en` 的当前文案,而是一句 `en` 自己已经不再使用的旧话:\n\n- `en` 现在说的是 **read-only**(只读)\n- 八个包说的是 **duplicate to customize**(复制一份来自定义)\n\n也就是说这八种语言的用户看到的不只是\"没翻译\",而是一句**语义已经和产品行为对不上**的旧提示。`en` 显然在某次改动里更新过,八个包没跟。\n\n## 为什么所有门禁都是绿的\n\n这一类缺陷落在现有三道门禁的**交集空隙**里:\n\n1. `all-locales-key-parity.test.ts` —— 比的是**键集合**(每个包都定义了 `en` 的每个 key,且不多出 key)。这两个 key 十个包都有,全绿。\n2. `scripts/check-i18n-call-site-keys.mjs`(#3530 / PR #3547)—— 查的是\"`t()` 引用的 key 在 `en` 里存不存在\"。存在,绿。\n3. 该守卫的 baseline 棘轮 —— 同上,这两个 key 从来就不在 258 个缺失 key 里。\n\n没有任何一道门禁断言**包里的值本身是不是该语言**。#3546 追踪的 258 个是\"十包都没有这个 key\";这里是\"十包都有这个 key,但八个包的值是英文\",是**另一类**,不属于 #3546 的存量账,所以单独记。\n\n## 复现(离线,无需浏览器)\n\n```\nnpx tsx -e \"\nimport {builtInLocales} from './packages/i18n/src/locales/index';\nfor (const l of ['en','zh','ja','ko','ru','ar']) {\n  console.log(l, JSON.stringify(builtInLocales[l].console.objectView.systemViewReadonly));\n}\n\"\n```\n\n## 建议的修法\n\n1. 八个包补上 `systemViewReadonly` / `expandToPage` 的实译,`systemViewReadonly` 按 `en` **当前**的 read-only 语义译,不要照抄包里那句过期英文。\n2. 顺带评估要不要加一道\"非拉丁文字包里不应出现纯 ASCII 英文句子\"的抽查(zh / ja / ko / ru / ar 五个包上这个判据是无歧义的)。我用这个判据全量扫了一遍 2646 个 key,**只有上面这 2 个命中**,所以这道检查如果加,落地即绿,不是又一笔存量账。拉丁字母语言(de / fr / es / pt)没有这么干净的判据,值不值得做要另说 —— 这条只是记录,不是本单的验收项。\n\n## 影响面\n\n用户可见但轻微:两处提示文案,八种语言。`systemViewReadonly` 那句因为文案过期,严重度可能比\"未翻译\"高一点 —— 它在告诉用户一个不成立的操作路径。严重度请分诊裁定,我不自评。\n\n关联:#3546(258 个缺 key 的存量账,**不同类**)、#3530 / PR #3547(调用点 key 守卫)、#3517(内联 defaultValue 掩盖缺 key)。\n\n发现于 PR(#3546 切片一)的实施过程,未在该 PR 中修改 —— 越界。\n"
+}

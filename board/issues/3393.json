@@ -1,0 +1,36 @@
+{
+  "number": 3393,
+  "kind": "issue",
+  "title": "form.tsx 全屏文本编辑对话框拿不到字段 label：标题恒为通用「编辑文本」，展开按钮的无障碍名在同一表单上完全一样",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T15:33:19Z",
+  "updated_at": "2026-08-05T17:20:42Z",
+  "closed_at": "2026-08-05T17:20:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3393",
+  "body": "在实现 #3272(PR #3392)时发现,**未在该 PR 内修改** —— 那一单的范围是「把硬编码英文接进 i18n」,而这一条是数据没送到,属于行为缺陷,修法要动 props 传递。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx` 内置 `textarea` 分支:\n\n```ts\ncase 'textarea': {\n  const { mobile_fullscreen, fullscreen, label } = fieldProps as any;\n```\n\n这里的 `label` **恒为 `undefined`**。原因在上游 `renderFormField` 的字段解构 —— `label` 在 `...fieldProps` 之前就被单独取走了:\n\n```ts\nconst {\n  name,\n  label,\n  description,\n  type = 'input',\n  ...\n  ...fieldProps\n} = field;\n```\n\n而 `renderFieldComponent` 的**唯一**调用点展开的是 `...fieldProps`,并没有把 `label` 再补回去。那个 props 对象里显式补了 `field` / `inputType` / `options` / `placeholder` / `disabled` / `readonly` / `emptyHint` / `dataSource` / `dependentValues` / `dependsOnLabels` / `validation` 等等,唯独没有 `label`。全文件 grep,props 对象里没有任何一处 `label:`。\n\n## 后果(用户可见)\n\n`FullscreenTextarea` 里两处依赖 `label` 的分支**从来没有被走到**:\n\n1. **对话框标题** `{label ?? t('form.fullscreen.title')}` —— 一个叫「备注」的长文本字段,点开全屏编辑,标题恒为通用的「编辑文本」,而不是字段名。作者写 `label ?? …` 显然是想要字段名兜个通用词,结果通用词成了唯一结果。\n2. **展开按钮的无障碍名** `t('form.fullscreen.toggle', { label: label ?? t('form.fullscreen.textFallback') })`(#3272 之前是模板串 `Edit ${label ?? 'text'} fullscreen`)—— 屏幕阅读器恒读「全屏编辑文本」。一张有三个长文本字段的表单上,三个展开按钮的无障碍名**完全一样**,读屏用户无法区分自己要展开的是哪个字段。这是 ADR-0054 之外的一条独立可达性问题,不是纯视觉问题。\n\n旁证:ESLint 早就在同一分支的下一行报着 `'_label' is assigned a value but never used`\n\n```ts\nconst { label: _label, ...rest } = stripRendererOnlyProps(fieldProps);\n```\n\n那一行的意图是「别让 `label` 落到 DOM 属性上」,而它要防的东西根本就没来。\n\n## 修法建议\n\n把 `label` 补进调用点的 props 对象即可(和 `placeholder` / `emptyHint` 一样显式传递),然后确认 `stripRendererOnlyProps` / `stripRegisteredFieldProps` 仍把它挡在 DOM 之外 —— `_label` 那一行届时就真的开始起作用了。\n\n**建议只给内置分支补,不要顺手改注册路径**:注册型 field widget 走的是 `FieldWidgetProps` 契约,widget 已经能从 `field` 元数据里读到 label,再多送一路 `label` prop 是否合适需要对着那份契约单独确认(#3233 刚把「哪条 registry 入口决定哪份契约」收敛过一次,别在这里又开一个口)。\n\n## 证据等级\n\n静态证据(读 `form.tsx` 的三处相关源码 + 全文件 grep + 现成的 ESLint 告警),**未做浏览器复现**。「`label` 恒为 undefined」是可机械复核的事实:在 `renderFieldComponent` 入口打印 props 即可确认。\n\n## 关联\n\n- #3272 / PR #3392 —— 本条的发现来源;该 PR 已把这两处文案接进 i18n,但接的是「拿不到 label 时的通用词」这条恒真路径。PR 里 `form.fullscreen.toggle` 之所以做成带插值的句子加一个被翻译的通用名词(而不是两个句子 key),正是为了在 `label` 补通之后句子直接就对,不用再动十个语言包。\n- #3303 —— 同一个 `case 'textarea':` 分支的另一条(`mobile_fullscreen || fullscreen` 别名无生产者)。⚠️ **#3303 的改动正好落在上面第一段引用的那一行**,两单会在同一行相遇;哪个先落地,另一个 rebase 一下即可,但别在 #3303 里顺手改 `label`(那一单的完成范围是删别名,删完 `label` 的毛病还在)。\n- #3303 里另提的「`FullscreenTextarea` 是全屏编辑器的第三份实现,是否与 `packages/fields` 的 `FullscreenFieldEditor` 合并」是更大的一次裁决;若最终决定合并,本条大概率会被那次重构一并解决 —— 但那次裁决没落地之前,这个 bug 在线上一直存在。\n"
+}

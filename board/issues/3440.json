@@ -1,0 +1,36 @@
+{
+  "number": 3440,
+  "kind": "issue",
+  "title": "[i18n] PresenceAvatars 三处硬编码英文(控制台头部与记录详情实际在渲染)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T04:05:36Z",
+  "updated_at": "2026-08-06T05:16:51Z",
+  "closed_at": "2026-08-06T05:16:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3440",
+  "body": "实现 #3424(`@object-ui/collaboration` 整包接入 i18n)时发现,同包的 `PresenceAvatars.tsx` 还有三处硬编码英文。#3424 的完成范围只列了 `CommentThread`,所以没有顺手改,按 Prime Directive #10 单独记录。\n\n## 位置\n\n`packages/collaboration/src/PresenceAvatars.tsx`:\n\n- L116 `'aria-label': ` 模板字符串 `${users.length} user${users.length !== 1 ? 's' : ''} present`\n- L122 `title: ` 模板字符串 `${overflowCount} more user${overflowCount !== 1 ? 's' : ''}`\n- L133 `title: ` 模板字符串 `${user.userName} (${user.status})`\n\n## 为什么这个是用户真的会撞到的\n\n和 `CommentThread` 不同,`PresenceAvatars` 在仓内**有真实消费者**,zh 会话下的控制台就在渲染它:\n\n- `packages/app-shell/src/layout/AppHeader.tsx:55`\n- `packages/app-shell/src/views/RecordDetailView.tsx:20`\n\n前两处是头像组的无障碍名 —— 头像组本身只有图片和首字母,对屏幕阅读器来说这个 label 就是这个控件。第三处 `(${user.status})` 里的 status 也是英文枚举值(`online` / `away` / …),直接拼进 tooltip。\n\n## 顺带:复数规则同样编译进了组件\n\n两处都是 `n !== 1 ? 's' : ''`。英文输出是对的,但和 #3424 头部/tooltip 那两处一样,选单复数的语法被硬写进渲染路径,任何语言都套用不了自己的规则。修的时候应当直接用本仓的**双 key** 约定(`xxxCount` / `xxxCountOne`),不要用 i18next 的 `_one`/`_other` 后缀 —— zh/ja/ko 没有独立单数形式,那几个包会合理地缺 `_one` 半边,`all-locales-key-parity` 会把它读成丢键。\n\n## 改起来应该很轻\n\n#3424 已经把包级的 i18n 接线做完了:`@object-ui/i18n` 已是 `packages/collaboration` 的 dependency,包内也已有唯一翻译入口 `useCollaborationTranslation` / `COLLAB_DEFAULT_TRANSLATIONS`(`packages/collaboration/src/useCollaborationTranslation.ts`)。这个单只需要往那张 defaults map 和十个语言包里加键,再把三处字面量换掉。\n\nstatus 枚举值要不要一并入键(`collaboration.statusOnline` 之类),还是保持原样只翻译外层措辞,建议由维护者定 —— 它同时是数据值和展示值。\n\nRefs #3424,objectstack-ai/objectstack#5506\n"
+}

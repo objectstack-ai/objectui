@@ -1,0 +1,35 @@
+{
+  "number": 3572,
+  "kind": "issue",
+  "title": "check-doc-links 扫描面第三扩:CONTRIBUTING.md + ROADMAP.md + docs/**(实测 70 链接、今日零死链、纯配置三行)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:13:09Z",
+  "updated_at": "2026-08-07T15:55:21Z",
+  "closed_at": "2026-08-07T15:55:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3572",
+  "body": "PM 立单(#3545 的 step 2 —— 该单随 PR #3571 关闭,step 2 依分诊座位\"ship step 1 alone and re-file step 2\"的建议重新安家)。查重:承接 #3545 线程,无其它同源单。\n\n## 内容\n\n`scripts/check-doc-links.mjs` 的 `SCAN_ROOTS` 表(#3542 起为数据表)追加三行:\n\n```js\n{ path: 'CONTRIBUTING.md', rule: 'disk' },\n{ path: 'ROADMAP.md',      rule: 'disk' },\n{ path: 'docs',            rule: 'disk' },\n```\n\n## 为什么现在是纯收益(#3571 的实测,不是猜测)\n\n- 三面合计 70 条链接 / 52 条可判定;`docs/**`(15 文件 49 链接)**今日零死链**(分诊座位曾警告这一面从未量过 —— 现在量了);\n- CONTRIBUTING/ROADMAP 的三条死链已由 PR #3571 修掉 —— 扩展落地时**零清理清单**(对比 #3479 带 16 处、#3490 带 18 处的入场费);\n- 这两文件正是 #3545 三条死链能积攒的原因:两个检查器盲区的交集,不扩就会再积。\n\n## 验收\n\n- 沿用 #3542 的 fixture 风格补 reject/accept 用例(disk 规则已存在,新根不需要新规则类);\n- 真仓跑:预告零红并确认(#3571 合并后);\n- 逆向:临时植入一条 CONTRIBUTING 死链,`contributing`(或既有 `example-relative`)reason 正确拒绝;\n- 已知边界如实写进头注释:围栏内代码(stripCode 抹掉)里的链接不在覆盖面(#3570 的三条死\"正确示例\"即此类,修它是 #3570 的事,不是本单的)。\n\nBlocked-by: objectstack-ai/objectui#3571\n\n关联:#3545 / PR #3571(step 1 + 成本实测)、#3536 / PR #3542(SCAN_ROOTS 数据表)、#3570(围栏盲区实例)。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3450,
+  "kind": "pull_request",
+  "title": "ci(docs): 把 check-doc-links 接进 CI,并修好它一直在报的那条坏链 (#3213, #3292)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:24:22Z",
+  "updated_at": "2026-08-06T05:43:59Z",
+  "closed_at": "2026-08-06T05:43:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T05:43:57Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3450",
+  "body": "Fixes #3213\nFixes #3292\n\n## 前提复核(在未改动的 origin/main 上)\n\n三条前提全部复现,均成立:\n\n```\n$ node scripts/check-doc-links.mjs\nFound 1 broken docs link:\n- content/docs/core/enhanced-actions.mdx -> /docs/components/form\nEXIT=1\n\n$ grep -rn \"check-doc-links\" .github/ package.json scripts/\npackage.json:42:    \"docs:check-links\": \"node scripts/check-doc-links.mjs\",     # 仅此一处,.github/ 下零调用\n```\n\n`check-links.yml` 的 `on:` 也确认只剩 `workflow_dispatch`(`push` / `pull_request` 被注释掉)。\n即:一个能跑的检查器没人跑,另一个只能手动 —— 能力声明了但没被执行。\n\n## 改动一:坏链改指 `/docs/components/form/form`(选 retarget,不补 index 页)\n\n维护者裁决给了两个选项(补 `components/form` 索引页 / 改指 `/docs/components/form/form`,实施侧择优)。**选 retarget**,四条证据都指向它:\n\n1. **本仓约定就是分类目录不设 index。** `content/docs/components/` 下 9 个分类目录(basic、complex、data-display、disclosure、feedback、form、layout、navigation、overlay)**全部 0 个 index 文件**。补一个会是 components 树里唯一的例外。\n2. **站点自己就是这么链分类的。** `content/docs/components/index.md` 里写的是 `### [Form Components](/docs/components/form/button)`、`### [Basic Components](/docs/components/basic/text)` —— 一律用代表页,从不链裸分类路由。\n3. **`form/meta.json` 显式列出 pages 且不含 index**,补页还得同步改 meta.json,进一步偏离约定。\n4. **读者意图对得上。** 原句是 `- [Form](/docs/components/form) - Form submission actions`,讲的是表单**提交**;`content/docs/components/form/form.mdx` 的 frontmatter 正是 `title: \"Form\"` / `description: \"Form container with validation and submission handling\"`。是它,不是 `button`。\n\n路由存在性也已核对:`apps/site/source.config.ts` 的 `dir: '../../content/docs'` + `apps/site/lib/source.ts` 的 `baseUrl: '/docs'`,故 `content/docs/components/form/form.mdx` 即 `/docs/components/form/form`。\n\n```diff\n-- [Form](/docs/components/form) - Form submission actions\n++ [Form](/docs/components/form/form) - Form submission actions\n```\n\n## 改动二:`ci.yml` 的 docs job 加一步 `Check docs links`\n\n按裁决「A 进 PR 门禁」。位置放在 `Setup Node.js` 之后、`Turbo Cache` / `Install dependencies` / `Build Site` 之前:\n\n```yaml\n- name: Check docs links\n  if: steps.docs-changes.outputs.should_run == 'true'\n  run: node scripts/check-doc-links.mjs\n```\n\n- 脚本零依赖、零网络(只对 `content/docs/` 做 `existsSync` 解析),**不需要 install**,几秒跑完 —— 契合 ci.yml 既有的「便宜的结构性检查放 install 之前」写法(参考 `Verify type-check coverage` 那一步的注释)。\n- 沿用该 job 的 `should_run` 条件,与其余步骤风格一致,也避免因别人留下的坏链把无关 PR 判红。\n\n## 改动三:同步 `content/docs/guide/ci-cd-pipeline.md`\n\ncommandment #2(docs-driven)。该页的 `ci.yml` job 表格原文只写了 `turbo run build`,加了门禁就不再准确,已同步;并在 Link Checking 一节补一张对照表,写清两个检查器的分工(站内路由 / 外链、走不走网络、在哪跑)与两个已知缺口 —— 免得读者从这一页得出「文档链接已被完全守住」的结论。\n\n> 说明:该页还有一处**既存**漂移(写「Seven jobs」并列了一个 `ci.yml` 里并不存在的 `dev-server` job,实际 6 个)。**本 PR 没有顺手改**,已另立 #3451。\n\n## ⚠️ 已知缺口(**请勿据此认为文档链接已被完全守住**)—— 已记为 #3448\n\n`ci.yml` 的 `on:` 在 `push` 和 `pull_request` 两处都带 `paths-ignore`,其中含 `content/**` 与 `'**/*.md'`;GitHub 的 `paths-ignore` 是「改动文件全部命中则整个 workflow 不启动」,而且**没有 per-job path filter**。\n\n于是:\n\n| PR / push 类型 | 本步骤是否运行 |\n|---|---|\n| 纯 docs PR(只改 `content/**`) | ❌ workflow 根本不启动 |\n| docs + 代码混合 PR | ✅ |\n| push 到 `main`(含非忽略路径) | ✅ |\n\n**最可能改坏链接的那类 PR(纯 docs)恰恰不被覆盖。**\n\n仓库里已有针对同一堵墙的正确答案 —— `control-bytes.yml` 的文件头:\n\n> Why this is its own workflow instead of a job in `ci.yml` or `lint.yml`: both of those list `'**/*.md'`, `content/**`, `docs/**` and `.changeset/**` under `paths-ignore`, and GitHub has no per-job path filter. (…) a gate that cannot see a markdown-only PR rebuilds the hole it exists to close.\n\n`check-doc-links.mjs` 与 control-bytes 属于完全相同的类别(守 markdown/content、零 install、零网络)。**推荐后续按 #3448 的方案 A 把它挪成独立 workflow。** 本 PR 没有自行这么做:裁决明确写的是「加进 ci.yml 的 docs 任务」,且改 workflow 触发策略属于 CI 成本决策,应由维护者拍板。缺口已写进该步骤上方的注释,不留给下一个人踩。\n\n## check-links.yml(Lychee):维持 workflow_dispatch,**有意未加 cron** —— 已记为 #3449\n\n裁决说 cron 可选、有疑虑就跳过。这里有实证疑虑:Lychee 扫的是 `docs/**/*.md(x)` + `README.md`,而站点文档在 `content/docs/**`。\n\n```\n$ find docs -name '*.md' -o -name '*.mdx' | wc -l\n15          # ARCHITECTURE.md、adr/、audits/ 等内部资料\n$ find content/docs -name '*.md' -o -name '*.mdx' | wc -l\n183         # 实际发布的站点文档\n```\n\n范围修正之前加 cron,只会按时产出一份「检查了内部 ADR、没检查站点文档」的绿报告 —— 加噪声不加覆盖,还会让人误以为已发布文档的外链有人守。建议先修范围再谈 cron。\n\n## 验证\n\n**反向验证(方向预判:恢复坏链 → 检查器转红)。** 预判与实测一致:\n\n```\n# 改前(pristine origin/main)\n$ node scripts/check-doc-links.mjs\nFound 1 broken docs link:\n- content/docs/core/enhanced-actions.mdx -> /docs/components/form\nEXIT=1\n\n# 改后\n$ node scripts/check-doc-links.mjs\nDocs links are valid.\nEXIT=0\n```\n\n**新步骤在本 PR 上真实跑过,且是 executed 而非 skipped** —— 取 Build Docs job 的 steps(commit `3c83a59`):\n\n```\n6  Setup Node.js       success\n7  Check docs links    success     05:24:45 -> 05:24:45\n8  Turbo Cache         success\n...\n10 Build Site          success\nJob \"Build Docs\": conclusion = success\n```\n\n(skipped 的步骤 conclusion 会是 `skipped`,这里是 `success`,所以确实执行了。本 PR 能触发 `ci.yml` 是因为它改了 `.github/workflows/ci.yml`,该路径不在 `paths-ignore` 里;`docs-changes` 又因 `content/` 有改动而置 `should_run=true`。)\n\n其余:\n\n- **ci.yml YAML 解析通过**(容器内无 actionlint,改用 `python3 -c \"yaml.safe_load(...)\"`);docs job 步骤顺序为 `Checkout code → Check for docs changes → Enable Corepack → Verify pnpm version → Setup Node.js → Check docs links → Turbo Cache → Install dependencies → Build Site`。\n- **钉住被改文档的测试**:`pnpm exec vitest run scripts/__tests__/ --maxWorkers=2` → `8 passed (8) / 120 passed (120)`,其中 `ci-cd-pipeline-doc.test.ts` 9 条全绿(它正是钉 `ci-cd-pipeline.md` 的那个文件)。\n- **控制字节自查**:`node scripts/check-control-bytes.mjs` → `OK (scanned 3640 tracked text file(s); skipped 85 binary)`;另对三个改动文件单独 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` → 无命中。\n- `Build Docs` 已在本 PR 上完整构建站点(556 静态页)成功,顺带验证改后的链接在真实路由下成立。\n\n## 说明\n\n- **未加 changeset**:docs + CI,无用户可见的包变更(沿用 #3437 / #3443 先例)。\n- **未改 `scripts/check-doc-links.mjs`**:任务是把它接上,不是重写它。\n- 顺带发现一律按纪律立为独立 issue,未在本 PR 夹带修复:#3448(门禁缺口)、#3449(Lychee 扫描范围漂移)、#3451(job 表格既存漂移)。\n"
+}

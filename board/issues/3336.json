@@ -1,0 +1,36 @@
+{
+  "number": 3336,
+  "kind": "issue",
+  "title": "[fields] lookup 记录选择器筛选面板:select 类型筛选项不带 options,下拉为空",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T04:11:32Z",
+  "updated_at": "2026-08-06T02:40:22Z",
+  "closed_at": "2026-08-06T02:40:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3336",
+  "body": "## 症状\n\nlookup「浏览全部记录」记录选择器的筛选面板(Filters)中,由 typed picker columns 派生的 select 类型筛选项没有 options,下拉展开为空,无法筛选。\n\n## 定位\n\n- `packages/fields/src/widgets/LookupField.tsx` 的 `filterColumns` useMemo:对 `c.type === 'select'` 的列 push `{ field, label, type: 'select' }`,不带 `options`;\n- `packages/fields/src/widgets/RecordPickerDialog.tsx` 的 `renderFilterInput` select 分支渲染 `col.options?.map(...)` —— undefined 时 SelectContent 为空。\n\n## 期望\n\n派生 select 筛选项时从引用对象 schema 的字段定义取 options(#3333 之后 LookupField 已持有 `refObjectSchema`,列渲染已走 `fieldsMeta` 富化,筛选面板可复用同一来源,并过 i18n option 翻译)。\n\n## 备注\n\n与 #3333(选择器 select 列不解析 label,已修列渲染)同族但不同面:那是表格单元格,这里是筛选面板输入控件。"
+}

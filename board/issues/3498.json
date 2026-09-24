@@ -1,0 +1,35 @@
+{
+  "number": 3498,
+  "kind": "pull_request",
+  "title": "ci(scripts): 用独立 tsconfig.scripts.json 给 scripts/ 补上类型门 (#3494)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T13:35:15Z",
+  "updated_at": "2026-08-06T13:52:54Z",
+  "closed_at": "2026-08-06T13:52:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:53Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3498",
+  "body": "Fixes #3494\n\n## 前提核验(先于实现)\n\n用 `--listFilesOnly` 扫遍仓库 **76 个 tsconfig**,确认 `scripts/__tests__/**` 不在**任何一个** program 里。\n\n但 issue 的表述需要收窄一格 —— 「scripts/ 在零 tsconfig 覆盖内」并不完全成立:\n\n| 文件 | origin/main 上是否被编译 |\n|---|---|\n| `scripts/vite-crypto-stub.ts` | ✅ 是 —— `apps/console/tsconfig.node.json`(#3305 接进了 console 的 `type-check`) |\n| `scripts/vite-maplibre-worker.ts` | ✅ 同上 |\n| `scripts/__tests__/*.ts`(10 个门禁 pin 测试) | ❌ **零覆盖** |\n\n也就是说:**两个非测试源文件其实有门,10 个 pin 测试一个都没有**。issue 的实质结论(门禁 pin 测试自身无类型门)成立,落点不变;这里如实记下差异,避免下一个人按「整个 scripts/ 都没编译」去推断。\n\n## 错误数:实测 8 条,不是 3 条\n\n#3384 当时测得 3 条。此后 `check-control-bytes.test.ts` / `docs-links-workflow.test.ts` / `shadcn-local-patches.test.ts` 等陆续落地,现况:\n\n```\nlint-workflow.test.ts(57,37):          TS7016  ../../eslint.config.js 无声明\nshadcn-local-patches.test.ts(6,1):     TS2578  Unused '@ts-expect-error'\nshadcn-local-patches.test.ts(13,8):    TS7016  ../shadcn-local-patches.mjs 无声明\nshadcn-local-patches.test.ts(69,68):   TS2345  it.each 回调签名(any[] 溢出)\nshadcn-local-patches.test.ts(168,71):  TS2345  同上\nshadcn-local-patches.test.ts(184,79):  TS2345  同上\nvitest-invocation-guard.test.ts(6,1):  TS2578  Unused '@ts-expect-error'\nvitest-invocation-guard.test.ts(11,8): TS7016  ../vitest-invocation-guard.mjs 无声明\n```\n\n顺带查清了那两条 TS2578 的成因:多行 `import { … } from '…mjs'` 里,TS 把「缺声明」报在**说明符所在行**(13 / 11 行),而 `@ts-expect-error` 挂在 `import {` 上一行 —— **这两个指令从来就没生效过**,只是没人编译过所以没人知道。\n\n## allowJs 的取舍:两个方向都真跑了\n\nissue 提示「allowJs/checkJs 会翻转既有 `@ts-expect-error` 的成立性」。对同一批文件实测:\n\n| | 报错数 | 要付的代价 |\n|---|---|---|\n| `allowJs: false` | **8** | 得给 5 个 `.mjs` 手写 `.d.mts`。**第二份事实来源**,可以无声漂移 —— 正是 `check-spec-symbol-derivation.mjs` 存在的理由。而且 `any` 会外溢:3 条 TS2345 并非真缺陷,只是 `any` 的连带 |\n| `allowJs: true` | **5** | 全部是「删掉一行已经变假的注释」。类型**从 helper 源码本身推断**,构造上无法漂移;`patchedComponents()` 真的是 `string[]`,3 条 TS2345 自动消失 |\n\n选 `allowJs: true` + **`checkJs: false`**。后者是刻意的边界:本项目**消费** helper 的推断类型,不接管 8 个纯 JS 门禁脚本内部的类型整洁 —— 那是另一件大得多的事。\n\n副作用是这条现在更强了:**改动门禁 helper 的导出签名,它的 pin 测试会红**。\n\n> 根 `tsconfig.json` 的 `allowJs: false` 不受影响;`vitest.config.mts` 上同类的 `@ts-expect-error` 在那里依然正确,未动。\n\n## 落点\n\n- **`tsconfig.scripts.json`(新增)** —— 独立,**刻意不 `extends` `tsconfig.base.json`**:那是**包构建配置**,其 `exclude` 列了 test glob,继承过来会一个测试文件都编不到,**空转通过**,正是 `check-type-check-coverage.mjs` 5b 段在上一层要抓的形态。\n  - 按 glob 覆盖**整个目录**,不排除已被 console 覆盖的两个 `vite-*.ts`:排除清单是第二件要维护的事,而且 console 哪天不再 import 就会无声掉出所有 program。重叠的代价用**对齐 console 那份的选项集**付掉(strict / ESNext / bundler,以及**不开** `noImplicitReturns`),这样共享文件不会一个项目绿另一个红。\n  - 注释用 `//` 而非 `/* */`:glob 里的双星紧跟斜杠**会提前闭合块注释**,而解析失败的 tsconfig **不会响亮报错** —— 它退回默认值,`tsc -p` 转头去编译整个仓库。这不是假设,是写这个文件时真踩到的,已由 pin 测试钉住。\n- **`.github/workflows/ci.yml`** —— `type-check` job 加一步 `pnpm type-check:scripts`,放在 install 之后、Turbo 之前:program 里没有任何 `@object-ui/*` import,不需要 `^build`,便宜且快速失败。\n- **`package.json`** —— 加 `type-check:scripts` 根脚本。`pnpm type-check` 是 `turbo run type-check`,结构上够不到无 package.json 的目录;没有这个命名脚本,这道门就只能在 CI 上跑,而**本地复现不了的门,人会学会忽略它**。(与 `type-check:coverage` / `check:spec-symbols` / `check:control-bytes` 同一惯例。)\n- **`scripts/__tests__/scripts-type-check.test.ts`(新增)** —— 断言的是**行为**不是拼写:配置能否解析、磁盘上每个 `scripts/**/*.ts` 是否真落进 program、CI 是否真跑、是否排在 install 之后,以及「不需要 workspace 构建」这个放置前提。\n- **`content/docs/guide/ci-cd-pipeline.md`** —— job 表里 `type-check` 行**逐项列出了它跑什么**。不更新就会复刻 #3451 那种「页面少报一道门」的漂移,而钉住这张表的 pin 测试恰好就在本 PR 新覆盖的目录里。\n\n## 验证(方向先声明,再执行)\n\n**1. 主方向** —— 预测:改前 RED、改后 GREEN。\n\n```\n改前:tsc -p tsconfig.scripts.json  ->  8 errors(上表)\n改后:pnpm type-check:scripts       ->  exit 0\n```\n\n**2. 反向核验 A** —— 把删掉的某个 `@ts-expect-error` 装回去。预测 RED,且原因必须是 TS2578(证明这些指令**本就已失效**,不是我删掉了一道有效的抑制):\n\n```\nrender-budget-comment.test.ts(9,1): error TS2578: Unused '@ts-expect-error' directive.\n```\n\n**3. 反向核验 B(#3181 绊线)** —— 往 `ci-cd-pipeline-doc.test.ts` 追加一个必假的**类型层**断言(`Assert< Equal< 1, 2 > >`)。这里两个方向都要看,因为**它们方向相反**:\n\n```\n新门:  ci-cd-pipeline-doc.test.ts(381,28): error TS2344: Type 'false' does not satisfy 'true'   <- RED\nvitest: Test Files 1 passed (1) / Tests 13 passed (13)                                          <- 依旧全绿\n```\n\nvitest 那一侧的**绿**才是要点:类型断言在运行时被擦除,跑测试永远看不见它。「pin 测试全绿」+「没有任何 program 读它」= 一个可以钉住已失效契约还照样报绿的测试。\n\n**4. pin 测试自身的空转核验** —— 把 include 改窄成 `scripts/vite-*.ts`。预测 RED 并点名漏掉的文件(而不是空转变绿):\n\n```\n× resolves every TypeScript source under scripts/, with none left out\n× really does cover the gate pin tests, by name\n  - scripts/__tests__/ci-cd-pipeline-doc.test.ts\n```\n\n**5. 回归与门禁**\n\n```\npnpm exec vitest run scripts/__tests__ eslint-rules  ->  15 files / 196 tests passed\nci.yml YAML 解析                                      ->  jobs 键不变,type-check 步序:… install(5) → spec-symbols(6) → Type-check scripts/(7) → Turbo(8) → type-check(9)\nnode scripts/check-control-bytes.mjs                 ->  OK(3674 文件)\nnode scripts/check-type-check-coverage.mjs           ->  OK\nnode scripts/check-lint-coverage.mjs                 ->  OK\nnode scripts/check-doc-links.mjs                     ->  Docs links are valid\neslint(改动文件)                                     ->  exit 0\n控制字符自扫(改动文件,超出 gate 扫描面)             ->  clean\n```\n\n## ⚠️ 合并顺序:与 #3496 冲突(不是文件冲突,是门禁冲突)\n\n**#3496 新增的 `scripts/__tests__/shadcn-sync-fetch-cache.test.ts` 带着这一行:**\n\n```\n// @ts-expect-error — plain-JS CI helper, intentionally untyped\nimport { fetchUrl, … } from '../shadcn-sync.js';\n```\n\n本 PR 之后,该目录下的 `.mjs`/`.js` import 会由 `allowJs` 推断出真类型,于是这个指令变成 **TS2578(Unused）**,新加的 CI 步骤会红。两个 PR 各自都绿,**合并后才红** —— git 不会报冲突。\n\n**后合的一方删掉那一行注释即可**(与本 PR 对另外 5 处的处理一致)。#3497 只动 `shadcn-check.yml`,与本 PR 无交集。\n\n## 无 changeset\n\n纯 CI/工具链改动,不影响任何已发布包;根 `package.json` 是 private,新增的是根脚本而非依赖(先例 #3437)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

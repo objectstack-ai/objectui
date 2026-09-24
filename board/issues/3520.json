@@ -1,0 +1,34 @@
+{
+  "number": 3520,
+  "kind": "issue",
+  "title": "examples/console-starter 是唯一没有 README 的 example,而文档刚把读者指过去",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:16:11Z",
+  "updated_at": "2026-08-07T03:11:55Z",
+  "closed_at": "2026-08-07T03:11:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3520",
+  "body": "PM 补账立单(来源:此前 dev 报告披露的缺口,查重于 open issues 全量列表,无重复)。\n\n## 现象\n\n`origin/main` 上四个 example 目录的 README 状态:\n\n| 目录 | README |\n|---|---|\n| `examples/byo-backend-console` | ✅ |\n| `examples/hello-world` | ✅(#3486 / PR #3495 补齐) |\n| `examples/schema-catalog` | ✅ |\n| `examples/console-starter` | ❌ **没有** |\n\n`git ls-tree origin/main -- examples/console-starter/` 只有 `.env.development` / `.env.production` / `index.html` / `package.json` / `postcss.config.js` / `src` / `tsconfig.json` / `vite.config.ts`。\n\n## 为什么现在值得补\n\n- PR #3506(#3490)刚把 `objectos-integration.mdx` 的死链改指 `examples/console-starter` 的 GitHub tree 页 —— 读者点过去看到的是一个**没有任何说明的裸目录**。\n- `examples/README.md`(总目录)与其余三个 example 的 README 形成了\"每个 example 自带说明\"的惯例,console-starter 是唯一缺口。\n- PR #3509 的验收中还确认了它的定位:路由 + 鉴权脚手架(`ConsoleShell` / `AuthenticatedRoute` / `Default*` 页),对象与关系全部来自 ObjectStack 后端 —— 这个\"它是什么/不是什么\"的定位本身就该写进 README(#3509 那单正是因为它*不*演示关系建模而没把链接指过来)。\n\n## 建议内容(README 应回答的问题)\n\n1. 这是什么:连接真实 ObjectStack 后端的 console 起步脚手架(路由/鉴权/shell,数据与 schema 由后端提供);\n2. 它不是什么:不演示 schema/关系建模(那是 `schema-catalog` / 文档的事)—— 防止 #3507 那类\"标签夸大目标\"再次发生;\n3. 怎么跑:依赖 `.env.development` 的后端指向,启动命令,与 `objectstack dev` 的关系;\n4. 与其余三个 example 的分工(参照 `examples/README.md` 的口径,不重复枚举细节)。\n\n内容以**读 `src/` 与配置实测**为准,不写推断。"
+}

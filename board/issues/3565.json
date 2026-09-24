@@ -1,0 +1,32 @@
+{
+  "number": 3565,
+  "kind": "pull_request",
+  "title": "fix(fields): 编辑弹窗 datetime/date 字段回显存量值",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T12:59:16Z",
+  "updated_at": "2026-08-07T13:30:34Z",
+  "closed_at": "2026-08-07T13:30:33Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T13:30:32Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3565",
+  "body": "Fixes #3127（EHR #864）\n\n## 缺陷\n\n`<input type=\"datetime-local\">` 只接受**不带时区后缀的本地墙钟** `YYYY-MM-DDTHH:mm`。记录从 API 回来是完整 ISO-8601（`2026-06-17T14:30:00.000Z`）——正好是被拒的形状之一，而浏览器**静默拒收**：属性照样落进 DOM，`input.value` 读回空串，控件画出空占位。\n\n```js\nel.getAttribute('value')  // \"2026-06-17T14:30:00.000Z\"  ← 记录里的值\nel.value                  // \"\"                           ← 用户看到的\n```\n\n所以每个 datetime 字段在编辑弹窗里都是空框却握着真实值，用户当成「日期丢了」去重新输入 —— 这才是显示 bug 变成数据改动的唯一路径。\n\n`DateField` 在拿到 ISO 形状的 `date` 值时有同一个缺口。\n\n## 改法\n\n新增 `packages/fields/src/widgets/nativeDateValue.ts`，**成对**转换：\n\n- `toDateTimeInputValue` / `fromDateTimeInputValue` —— 读写必须同基准。只做「读」那一半会更糟：控件按 UTC 读、却按裸本地串写，UTC+8 用户选 08:33 会存成 `08:33Z`，详情页显示 16:33。\n- `toDateInputValue` —— 开头是 `YYYY-MM-DD` 就**原样透传**，不重新 parse：date-only 串被 `new Date()` 按 UTC 午夜解析，再读本地日期分量会让格林威治以西的所有时区**整体差一天**。\n\n表单状态里的形状不变：`datetime` 走 ISO（API 给的、显示/格式化代码已假定的那个），`date` 保持 plain `YYYY-MM-DD`（与 `data-table.tsx` 内联单元格编辑器、`plugin-detail` 的 `InlineFieldInput` 一致）。\n\n## 验证\n\n**真机**：framework showcase 后端 + 本分支 console dev，对象 `showcase_field_zoo` / 记录 `Specimen — Full`（种子 `f_datetime = 2026-06-17T14:30:00Z`）。浏览器时区 `America/Los_Angeles`。\n\n| | 本分支 | 对照组（预构建 console，无修复） |\n|---|---|---|\n| `attr` | `2026-06-17T07:30` | `2026-06-17T14:30:00.000Z` |\n| `.value` | **`2026-06-17T07:30`** ✅ | **`\"\"`** ← 复现缺陷 |\n\n对照组里 `f_date` 是正常的，只有 datetime 空 —— 说明测法本身有效，差异确实来自本次改动。\n\n**写回**：弹窗里改成本地 `2026-06-18 09:15` 保存 → PATCH body `f_datetime = \"2026-06-18T16:15:00.000Z\"`（带 Z 的 ISO，非裸本地串），落库一致，详情页显示 `2026/6/18 上午9:15`，无漂移。`f_date` 全程保持 plain `2026-06-17`。\n\n**单测**：`nativeDateValue.test.ts` + `datetime-widgets.test.tsx` 共 **23/23 绿**，`TZ` 取 `Asia/Shanghai` / `America/Los_Angeles` / `UTC` 三次都绿；把两个 widget 还原回 HEAD 时 **5 条转红**（测试确实抓得住这个缺陷）。\n\n## 说明\n\n- 纯 bug 修复，按 AGENTS.md 不带 changeset。\n- 排查中读码确认了一处**同族缺口，未并进本单**：`packages/fields/src/widgets/GridField.tsx:763` 子表 date 列是 `value={val != null ? String(val) : ''}` 配 `type=\"date\"`，ISO 形状的值会同样空掉。另立 issue 跟。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

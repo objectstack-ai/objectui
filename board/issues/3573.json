@@ -1,0 +1,36 @@
+{
+  "number": 3573,
+  "kind": "issue",
+  "title": "console: 空态「Create Your First App」CTA 跳向未声明的 /create-app,被 catch-all 弹回落地页",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:13:26Z",
+  "updated_at": "2026-08-07T14:59:14Z",
+  "closed_at": "2026-08-07T14:59:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3573",
+  "body": "越界发现,记录于 #3543(清理 console-architecture.md / console.md 的过期陈述)期间。按纪律**只报不改**,单独立单,**未认领**,留给 PM 分诊。\n\n实测基线:`origin/main` @ `b785a77b3`。\n\n## 现象\n\n一个应用都没有的用户,在 console 里看到的唯一主 CTA「Create Your First App」点下去**不会**打开建应用向导,而是被重定向回落地页 `/`。\n\n## 实测链路\n\n1. 空态渲染点(活的):`packages/app-shell/src/console/AppContent.tsx:577`\n\n   ```tsx\n   Button onClick={() => navigate('/create-app')} data-testid=\"create-first-app-btn\"\n   ```\n\n   前置条件是 `!activeApp && !isCreateAppRoute && !isSystemRoute && !isMetadataRoute`(同文件 568 行)。\n\n2. `'/create-app'` 带前导斜杠,是**绝对路径**,因此从根路由树解析,而不是当前 `/apps/:appName/*` 子树。\n\n3. `apps/console/src/App.tsx` 的根路由树里**没有** `/create-app`:\n\n   ```\n   grep -n \"create-app\" apps/console/src/App.tsx apps/console/src/AppContent.tsx\n   # 零命中\n   ```\n\n4. 于是落到根路由树最后一条兜底(`apps/console/src/App.tsx:354`):\n\n   ```tsx\n   Route path=\"*\" element={ Navigate to=\"/\" replace }\n   ```\n\n   → 用户被弹回 `/`(`RootLandingRedirect`)。\n\n真正声明 `create-app` 的是 shell 的 `AppContent.tsx`(`path=\"create-app\"`),它挂在 `/apps/:appName/*` **子树内部** —— 包括同文件里那条「无 activeApp 时仍可进 create-app」的分支。也就是说目标路由存在,只是 CTA 指错了层级:应当指向该子树内的路径,而不是根路径。\n\n## 影响\n\n这是新用户的第一屏、且是该空态里唯一指向「建应用」的按钮(旁边的 `go-to-settings-btn` → `/apps/setup` 是好的,因为它落在 `/apps/:appName/*` 内)。点击后无声地回到落地页,没有任何报错,表现像「按钮没反应」。\n\n## 备注\n\n- 该空态属于 `@object-ui/app-shell` 的 `DefaultAppContent`,是通用组件;理论上某个宿主可以在根部自行声明 `/create-app` 从而让它成立。但本仓库的参考宿主 `apps/console` 没有声明,所以在 console 里它是断的。修法(指向子树内路径 / 由宿主声明根路由 / 改用相对跳转)涉及该组件的对外行为约定,留给分诊定夺。\n- 关联:#3543 的文档面把这三个入口重写成了 AI-first 口径,该 CTA 因此**未**被写进重写后的 Entry Points 一节;本单只针对代码侧的断链。\n- 按 #3527 的席位纪律,dev 席位已就关键词(`create-app` / `createFirstApp` / `Create Your First App` / 空态)搜过开放 issue,无同源单。"
+}

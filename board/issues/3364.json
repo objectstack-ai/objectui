@@ -1,0 +1,30 @@
+{
+  "number": 3364,
+  "kind": "issue",
+  "title": "spec#4988 退役 ui/ 五个交互配置文件后的适配:5 个耦合点转红 + 3 个别名可改回自然名",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T23:43:17Z",
+  "updated_at": "2026-08-05T09:43:55Z",
+  "closed_at": "2026-08-05T09:43:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3364",
+  "body": "objectstack#4988(PR objectstack#5321,已挂 auto-merge)按 ADR-0049 整文件退役了 spec 的 `ui/touch|dnd|keyboard|animation|offline` 五个模块:32 个 def、64 个导出名、109 个 authorable 键。下一次 objectui 升级 `@objectstack/spec` 时,以下 **5 个文件**会红,记录在此供适配方认领(unassigned)。\n\n## 会红的耦合点(spec 侧实测,零 `.parse()` 调用点,全部是 import 耦合)\n\n| 文件 | 耦合方式 | 红的形态 |\n|---|---|---|\n| `packages/react/src/hooks/useOffline.ts` | **产品源码**,type import(`OfflineStrategy` / `ConflictResolution` / `PersistStorage` / `EvictionPolicy` 及两个 Schema 的 `typeof`) | typecheck,**唯一非测试耦合点** |\n| `packages/types/src/index.ts` | 32 个名字的 `export type { … } from '@objectstack/spec/ui'` | typecheck |\n| `packages/mobile/src/__tests__/gesture-spec-parity.test.tsx` | **value** import `GestureTypeSchema` | 运行时 |\n| `packages/react/src/hooks/__tests__/animation-notification-spec-parity.test.tsx` | **value** import `TransitionPresetSchema` / `EasingFunctionSchema` | 运行时 |\n| `packages/react/src/hooks/__tests__/offline-nav-performance-spec-parity.test.ts` | type import | typecheck |\n\n注意:`packages/core/src/protocols/DndProtocol.ts` / `KeyboardProtocol.ts` 等是**本地同名声明**,不 import spec,**不受影响**——名字撞车不等于耦合(spec 侧 38 个提及里只有上述 5 个真耦合)。\n\n## 顺带解锁的正向清理(不是要糊过去的红)\n\n`packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts` 的 ratchet 注释原话:*\"if the spec RETIRES one of these, the local dialect can take the natural name back. A workaround should not outlive its reason.\"* —— 该时刻已到:\n\n- `TouchGestureType` → 可改回 `GestureType`\n- `TouchGestureConfig` → 可改回 `GestureConfig`\n- `PWAOfflineConfig` → 可改回 `OfflineConfig`\n\n## 建议路径\n\n`useOffline.ts` 是唯一产品源码耦合点,策略需拍板:本地化这四个 type(客户端离线冲突语义 objectui 自有化),或随 spec 退役一并下线该 hook 的相关面。其余 4 处随 parity 测试的既有「spec 退役 → 本地方言收回自然名」纪律处理即可。\n\n关联:objectstack#4988(退役单)、objectstack#5321(实施 PR,含完整测量)、objectstack#4738(当年因 spec 占名而改名的记录)。"
+}

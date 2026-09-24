@@ -1,0 +1,35 @@
+{
+  "number": 3305,
+  "kind": "issue",
+  "title": "apps/console/tsconfig.node.json never type-checks — 5 standing errors, including two that say the compression options are typed wrong",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T14:37:42Z",
+  "updated_at": "2026-08-05T12:03:48Z",
+  "closed_at": "2026-08-05T12:03:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3305",
+  "body": "Found while working #3297 (console build config). **Not fixed there** — unrelated to that change, filing per PD #10.\n\n## What\n\n`apps/console/tsconfig.node.json` is the project that covers `vite.config.ts`. Nothing runs it:\nthe console's `build` script is `tsc && vite build && pnpm build:plugin`, and plain `tsc` reads\n`tsconfig.json` (`include: [\"src\", \"dev\", \"objectstack.config.ts\"]`), which does **not** build\nproject references. So the config file that decides how the console is bundled is the one file\nin the app that no gate reads.\n\nRunning it directly on a clean `origin/main` (`f44d8727f`):\n\n```\n$ pnpm exec tsc -b apps/console/tsconfig.node.json --force\napps/console/vite.config.ts(6,32): error TS6307: File '.../scripts/vite-crypto-stub.ts' is not listed within the file list of project '.../apps/console/tsconfig.node.json'. Projects must list all files or use an 'include' pattern.\napps/console/vite.config.ts(183,9): error TS2561: Object literal may only specify known properties, but 'algorithm' does not exist in type 'ViteCompressionPluginOption'. Did you mean to write 'algorithms'?\napps/console/vite.config.ts(188,9): error TS2561: Object literal may only specify known properties, but 'algorithm' does not exist in type 'ViteCompressionPluginOption'. Did you mean to write 'algorithms'?\napps/console/vite.config.ts(286,3): error TS2769: No overload matches this call.\n  The last overload gave the following error.\n    Object literal may only specify known properties, and 'test' does not exist in type 'UserConfigExport'.\nscripts/vite-crypto-stub.ts(1,29): error TS2307: Cannot find module 'vite' or its corresponding type declarations.\n```\n\nThree separate problems in one file:\n\n1. **`algorithm` vs `algorithms`** (x2) — the two `compression({ algorithm: 'gzip' | 'brotliCompress' })`\n   calls use a key `vite-plugin-compression2`'s current types do not declare. Empirically the\n   build still emits both `.gz` and `.br`, so the runtime honours it and this is a types/runtime\n   mismatch rather than broken compression — but nobody could tell from the config, and the day\n   the plugin drops the old key the console silently ships one algorithm twice.\n2. **`scripts/*.ts` are unresolvable from this project** — TS6307 (not in the file list) plus\n   TS2307 (`vite` itself is not resolvable from `scripts/`, which has no package.json and sits\n   outside every package that depends on Vite). Any shared vite plugin living in `scripts/`\n   inherits this, so its `Plugin`/`ResolvedConfig` types quietly degrade.\n3. **`test` on the config object** — the vitest block in `vite.config.ts` is not in\n   `UserConfigExport`; it type-checks only via `vitest/config`'s `defineConfig`.\n\n## Why it matters\n\nThis is the same shape as the gap `scripts/check-type-check-coverage.mjs` was written to close:\na file everyone assumes is checked, that no command actually checks. Its own header says a package\nwithout a `type-check` script \"is not 'passing', it is unchecked\" — that reasoning applies one\nlevel down to a project reference nothing builds.\n\n## Suggested direction (not decided)\n\n- Give the project an `include` that covers the `scripts/*.ts` plugins it imports, or move them\n  somewhere with real Vite types on the resolution path.\n- Fix `algorithm` to whatever the installed `vite-plugin-compression2` declares, and confirm both\n  algorithms still emit.\n- Import `defineConfig` from `vitest/config` in `vite.config.ts` so the `test` block is typed.\n- Then wire the project into a gate so it cannot rot again.\n\nDeliberately left unassigned.\n"
+}

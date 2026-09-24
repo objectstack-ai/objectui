@@ -1,0 +1,34 @@
+{
+  "number": 3487,
+  "kind": "pull_request",
+  "title": "test(e2e): 把 saved-view-filter.spec.ts 晋级进 live-e2e allowlist",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:06:49Z",
+  "updated_at": "2026-08-06T13:52:34Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3487",
+  "body": "Fixes #3472\n\nPR #3471 新增了 `e2e/live/saved-view-filter.spec.ts`,但按 `live-e2e.yml` 的晋级政策(spec 先证明无 flake 再入门禁)没有加进 `test:e2e:live:ci`。本 PR 完成晋级。\n\n## 前提复核\n\n在 `origin/main@d003a8828` 上确认:\n\n- `e2e/live/saved-view-filter.spec.ts` 存在(由 #3471 于 main@2a9513d81 落地);\n- `package.json` 的 `test:e2e:live:ci` 只含 `screen-flow.spec.ts action-modal.spec.ts master-detail.spec.ts`,确实未包含它。\n\n前提成立。\n\n## 证据run为什么先在本地跑\n\n`live-e2e.yml` 的 `workflow_dispatch` 执行的是 `pnpm test:e2e:live:ci`,也就是 **allowlist 本身**。在 spec 尚未入列时,dispatch 一轮不会跑到它 —— 这条 lane 无法为\"入列前\"的 spec 产生记录。所以政策要求的\"先证明无 flake\",第一手证据只能来自本地对同一 pinned pair 的连跑;入列之后再由本 PR 自己的 lane 复核(见末节)。\n\n本地栈按 `e2e/live/ci/start-backend.sh` 原样启动,pin 与 CI 完全一致(`e2e/live/ci/backend.env`):published `@objectstack/*@17.0.0-rc.2` + showcase 元数据 `89d2a4eb3f3b`,`objectstack dev --seed-admin --fresh`;console 走 CI 同款 `VITE_BASE_PATH=/` 的 `vite build` + `vite preview`,`/api` 代理到后端。\n\n一处环境偏差,如实记录:本地容器的 egress proxy 拒绝 `cdn.playwright.dev`(`403 request rejected: host not permitted`),`playwright install chromium` 无法下载 playwright@1.62.1 对应的 v1234 构建,故本地改用容器预装的 `/opt/pw-browsers/chromium-1194`(Chromium 141)经 `executablePath` 覆盖运行。该覆盖写在一个**未提交、跑完即删**的本地 config 里,分支上没有它。浏览器版本这一处差异已由下面 CI lane 的实跑补齐(CI 用的是 1.62.1 配套的 v1234)。\n\n## 本地连跑 3/3\n\n```\n✓  1 [chromium] › e2e/live/saved-view-filter.spec.ts:35:1 › a saved view filter reaches $filter as AST, and the server answers 200 (4.9s)\n  1 passed (6.3s)\n\n✓  1 [chromium] › e2e/live/saved-view-filter.spec.ts:35:1 › a saved view filter reaches $filter as AST, and the server answers 200 (4.8s)\n  1 passed (6.1s)\n\n✓  1 [chromium] › e2e/live/saved-view-filter.spec.ts:35:1 › a saved view filter reaches $filter as AST, and the server answers 200 (3.7s)\n  1 passed (5.0s)\n```\n\n三次全绿,无重试(`retries: 0`),耗时 3.7–4.9s 之间平稳,离 spec 里 20s 的超时很远。\n\n## 扩容后的 allowlist,本地一轮 5/5\n\n只证明新 spec 自己稳定还不够 —— 它进的是一条 `workers: 1`、`fullyParallel: false` 的串行 lane,与既有 spec 共享同一个后端实例和同一份 seed 数据。所以按扩容后的完整列表又跑了一轮:\n\n```\nRunning 5 tests using 1 worker\n\n  ✓  1 [chromium] › e2e/live/action-modal.spec.ts:8:1 › a row Edit action opens a modal form and closes (5.0s)\n  ✓  2 [chromium] › e2e/live/master-detail.spec.ts:36:1 › Create submits the populated parent in one atomic batch (5.3s)\n  ✓  3 [chromium] › e2e/live/master-detail.spec.ts:58:1 › Create with a task line includes the child op referencing the parent (5.7s)\n  ✓  4 [chromium] › e2e/live/saved-view-filter.spec.ts:35:1 › a saved view filter reaches $filter as AST, and the server answers 200 (3.2s)\n  ✓  5 [chromium] › e2e/live/screen-flow.spec.ts:20:1 › a row flow action renders its screen and resumes the run (4.2s)\n\n  5 passed (24.9s)\n```\n\n5 tests / 4 spec files(master-detail 有两个 test)。新 spec 只读不写(打开一个 shipped saved view 断言计数),不改 seed 数据,这一轮印证了它不干扰前面三个。\n\n## 本 PR 自己的 Live E2E lane:5/5\n\n`Live E2E (informational)`([job 92584733512](https://github.com/objectstack-ai/objectui/actions/runs/31091930811/job/92584733512))跑的正是扩容后的 allowlist,对 CI 真实后端 + CI 版本 Chromium。日志里的实跑记录:\n\n```\n> playwright test --config=playwright.live.config.ts screen-flow.spec.ts action-modal.spec.ts master-detail.spec.ts saved-view-filter.spec.ts\n\nRunning 5 tests using 1 worker\n\n  ✓  1 [chromium] › e2e/live/action-modal.spec.ts:8:1 › a row Edit action opens a modal form and closes (4.2s)\n  ✓  2 [chromium] › e2e/live/master-detail.spec.ts:36:1 › Create submits the populated parent in one atomic batch (4.3s)\n  ✓  3 [chromium] › e2e/live/master-detail.spec.ts:58:1 › Create with a task line includes the child op referencing the parent (5.1s)\n  ✓  4 [chromium] › e2e/live/saved-view-filter.spec.ts:35:1 › a saved view filter reaches $filter as AST, and the server answers 200 (3.3s)\n  ✓  5 [chromium] › e2e/live/screen-flow.spec.ts:20:1 › a row flow action renders its screen and resumes the run (3.6s)\n\n  5 passed (22.6s)\n```\n\n合起来:新 spec 在两套浏览器、两套后端实例上共 5 次连续全绿,无一次重试。\n\n复核提示:这条 lane 是 `continue-on-error: true`,**job 的 conclusion 恒为 `success`,哪怕步骤是红的** —— 所以上面这段是从 job 日志里取的逐条结果,不是拿 check 的绿勾当证据。(本次 job 只跑了 111 秒,是因为 backend fixture、Playwright 浏览器、pnpm store 三个 cache 全部命中。)\n\n## 改动\n\n- `package.json`:`test:e2e:live:ci` 末尾追加 `saved-view-filter.spec.ts`,格式与既有项一致(裸文件名、空格分隔)。\n- `e2e/live/saved-view-filter.spec.ts`:**仅改注释**。原文档块写着 \"NOT yet in the `test:e2e:live:ci` allowlist... Promote it in a follow-up\",本 PR 之后这句话就是错的,替换为晋级记录。无逻辑改动。\n\n无 changeset:纯测试/CI 配置,不面向用户(沿用 #3437 的先例)。未触碰 `.github/workflows/`。\n\n## 顺手记录的 out-of-scope 发现\n\n#3488(observation-class,未修):allowlist 的 spec 名单被逐名手抄在 `.github/workflows/live-e2e.yml` 头部注释和 `content/docs/guide/ci-cd-pipeline.md:233` 两处,本 PR 合并后这两处都会漏掉 `saved-view-filter`。两个文件都在本单的 file fence 之外,故只记录不改。\n"
+}

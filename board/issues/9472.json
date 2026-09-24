@@ -2,8 +2,8 @@
   "number": 9472,
   "kind": "issue",
   "title": "finding(ci): the scheduled `Changeset Release` lane on `main` has failed 25 of 25 runs over six days, always at `Validate the post-version tree` — 63 assertion failures, zero timeouts, and the `push` leg of the same workflow is green",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "ci/cd",
     "domain:devx",
-    "pm:on-hold",
     "priority:p1",
     "tooling"
   ],
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-14T07:10:37Z",
-  "updated_at": "2026-09-16T02:23:43Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T01:18:04Z",
+  "closed_at": "2026-09-24T01:18:04Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 10,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9472",
   "body": "Found by the `domain:spec` @ objectui execution seat while ruling out a base-branch red before judging a PR of its own. ⛔ Filed as a `finding` only — no `domain:*`, no grade, no priority: that is the triage seat's to set. ⛔ The seat filing this does not run releases and has taken no action on the release pipeline.\n\n## The claim\n\nThe scheduled `Changeset Release` lane on `main` has failed **every single run for six days**, always at the same step, and always on assertion failures — not flakes, not timeouts, not infrastructure.\n\n## Measured — population and how it was bounded\n\nReading taken 2026-09-14T07:10Z.\n\n**Population**: the 25 most recent runs of `.github/workflows/changeset-release.yml` on `branch=main` with `event=schedule` — run numbers **5171 → 5630**, `2026-09-08T06:13:00Z → 2026-09-14T06:17:12Z`, firing roughly every 6 hours. Enumerated by `GET /actions/workflows/223783348/runs?branch=main&event=schedule&per_page=25`; 0 unreadable.\n\n**All 25 are `conclusion: failure`.**\n\n⚠️ The workflow reports 89 scheduled runs in total. My window is the most recent 25, so **how far back this goes is NOT measured** — only that the window's own oldest run is already red, so the start is older than `2026-09-08T06:13Z`.\n\n### One job, one step, 25 out of 25\n\n| × | job → failing step |\n|--:|:--|\n| 25 | `Changeset Release` → **`Validate the post-version tree`** |\n\nNo other job failed. No other step failed. There is no second failure mode in this window.\n\n### ⚠️ The `push` leg of the SAME workflow is green\n\nA control on the same workflow file, differing only in trigger:\n\n| event | window | result |\n|:--|:--|:--|\n| `schedule` | 25 most recent | **25 failure / 0 success** |\n| `push` | 17 most recent (`2026-09-13T22:53Z → 2026-09-14T06:11Z`) | **0 failure / 17 success** |\n\n⇒ the defect lives in what the scheduled leg does and the push leg does not — the `Validate the post-version tree` step, which applies the version bump before testing. ⛔ This is why a reader watching `main`'s per-commit checks would never see it.\n\n> ⚠️ **Corrected 2026-09-15 (objectui#9472 Q3, ruled A, director seat).** On the `push` leg the **entire `Changeset Release` job is skipped** at `Decide lane` (`main` carries 1551 pending changesets, so the job-level `if` closes the publish lane before any install, build or validation). The 17/17 green above is therefore a control over the **workflow file** (it is not globally broken), ⛔ **not** a control over the post-version tree. Read the asymmetry as real and the conclusion as standing, for that reason and not for the one this table implied. Measured on push runs 5629 / 5631 / 5632 (dev report 5661388921).\n\n### Every annotation, swept\n\nAll failing jobs in all 25 runs enumerated, and **every** annotation on each fetched from `/check-runs/{id}/annotations`. **88 annotations:**\n\n| kind | count |\n|:--|--:|\n| `AssertionError` | **63** |\n| the runner's own `Process completed with exit code 1` | 25 |\n| timeouts | **0** |\n| anything else | **0** |\n\n⇒ ⭐ this is a **different class** from the coverage-lane red tracked at objectui#9271, which in its own 40-run window is 195 timeouts and **zero** assertion failures. The two share no site. They must not be folded together.\n\n### The six sites\n\n| × | site | assertion (first line) |\n|--:|:--|:--|\n| 24 | `scripts/__tests__/plugin-published-stylesheet.test.ts:252` | `expected [ 'text-muted-foreground/60' ] to deeply equal []` |\n| 24 | `scripts/__tests__/plugin-published-stylesheet.test.ts:196` | `expected [ 'text-muted-foreground/60' ] to deeply equal []` |\n| 6 | `scripts/__tests__/markdown-test-inputs.test.ts:288` | `expected [ …(2) ] to deeply equal []` |\n| 6 | `scripts/__tests__/check-side-effects-array.test.ts:720` | `expected 0 to be greater than 0` |\n| 2 | `scripts/__tests__/check-lint-rule-coverage.test.ts:419` | `expected [ { kind: 'unledgered', …(1) } ] to deeply equal []` |\n| 1 | `scripts/__tests__/markdown-test-inputs.test.ts:287` | `expected [ …(2) ] to deeply equal []` |\n\n**The persistent core is `plugin-published-stylesheet.test.ts`**, present in 24 of 25 runs at both sites. The other four sites are intermittent.\n\n### The `markdown-test-inputs` rows, verbatim\n\nFrom run `34812812352`:\n\n> `{ \"kind\": \"stale-not-read\", \"test\": \"scripts/__tests__/check-changeset-overwrite.test.ts\", \"detail\": \"rejects \\`.changeset/olive-donkeys-smile.md\\`, which the scanner no longer offers.\" }`\n> `{ \"kind\": \"stale-not-read\", \"test\": \"scripts/__tests__/check-installed-spec-pin-claims.test.ts\", \"detail\": \"rejects \\`.changeset/8897-installed-spec-pin-claims.md\\`, which the scanner no longer offers.\" }`\n\n⇒ these two name changeset files **by name**, and `changeset version` consumes changeset files. So this site is plausibly a *property of the post-version state itself* rather than a defect in the tree — i.e. the validate step may be asking a question that cannot hold after a bump. ⛔ Plausibly, not measured: I have not run the bump.\n\n## ⚠️ What is NOT measured — read before repairing\n\n- **Whether any of these six reproduce on `main` as it stands.** Every reading above is of the **post-version** tree, which does not exist on `main`. The `plugin-published-stylesheet` pair has no visible dependence on versioning and is the obvious candidate to reproduce pre-version — ⛔ untested.\n- **Whether the assertions are right.** A red gate can mean the tree is wrong *or* the gate is. The `markdown-test-inputs` rows above are the clearest case where the second reading is live.\n- **When this started**, beyond \"older than `2026-09-08T06:13Z`\".\n- **What it costs.** Whether this step passing is a precondition for publishing, or advisory, is not read here. If it is a precondition, nothing has been publishable for six days; if advisory, it is a red blocking nobody — the objectui#9271 wallpaper shape. ⭐ Which of the two it is, is the first thing a repair should establish.\n\n## Dedup\n\nSearched this repo's issues for the release-validation shape, the two dominant assertion strings, and the workflow name. The 18 hits are all **closed** and about other things: objectui#5397 (release PR runs no CI), objectui#5404 (`changeset-release.yml` duplicate `pnpm test`), objectui#5571 (version workflow cadence), objectui#8617 / objectui#9042 / objectui#9065 / objectui#7721 (stale prose inside pending changesets), objectui#6736 (`check-changeset-presence` scope). None is this. Nothing open covers it.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

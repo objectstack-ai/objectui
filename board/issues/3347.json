@@ -1,0 +1,32 @@
+{
+  "number": 3347,
+  "kind": "pull_request",
+  "title": "fix(fields): lookup「浏览全部记录」记录选择器 select 列按 schema options 解析 label(#3333)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T05:44:44Z",
+  "updated_at": "2026-08-04T13:44:35Z",
+  "closed_at": "2026-08-04T13:44:33Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T13:44:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3347",
+  "body": "Fixes objectstack-ai/objectui#3333\n\n## 问题\n\n新建/编辑表单里 lookup 字段打开的「浏览全部记录」记录选择器中,select 类型的列不解析 options label,直接渲染首字母大写的裸 value(`manufacturing` → `Manufacturing`),而同一字段在列表视图和记录详情页均正确显示 `03 制造`。\n\n## 根因\n\n`RecordPickerDialog.renderCellContent` 只把 `{ name, type }` 裸描述符交给共享 cell renderer;`SelectCellRenderer` 拿不到 `options`,落入 `humanizeLabel` 兜底(裸 value + title-case)。列表视图(ObjectGrid)则会从对象 schema 为列富化 `options`(并过 i18n option 翻译),两个面因此不一致。\n\n## 修复(复用列表视图同一套字段格式化,不造一次性 formatter)\n\n- `RecordPickerDialog` 新增可选 `fieldsMeta` prop(引用对象 schema 的 `fields` map),按 ObjectGrid 同样的方式为每列富化字段描述符:`options`(经 `useSafeFieldLabel().translateOptions` 走 i18n)、`currency`/`scale`/`precision`/`format`/`reference_to` 等;\n- 字符串形式的 `lookup_columns`(列 def 无 `type`)继承 schema 字段的 `type`,与 typed 列格式一致;\n- `LookupField` 把它已为 `titleFormat` 拉取的 `refObjectSchema.fields` 传入;\n- 未传 `fieldsMeta` 的调用方行为完全不变(plugin-detail RelatedList 等在途 PR #3331 涉及面未触碰)。\n\n## 验证\n\n- 新增 `RecordPickerDialog.selectLabel.test.tsx` 3 例:typed 列解析 label、字符串列继承 schema type 后解析 label、无 fieldsMeta 保持旧兜底;\n- `pnpm vitest run`(新文件 3/3,LookupField×3 + deriveLookupColumns 共 23/23 通过);`pnpm type-check`(fields)通过;eslint 0 error;\n- 附 changeset(`@object-ui/fields` patch)。\n\n## 相关\n\n- 同族 issue #3330 由在途 PR #3331 处理(RelatedList 面),本 PR 不触碰其文件;\n- 顺手发现的选择器筛选面板 select 无 options 问题已另开 #3336。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

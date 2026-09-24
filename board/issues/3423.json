@@ -1,0 +1,33 @@
+{
+  "number": 3423,
+  "kind": "pull_request",
+  "title": "fix(components,i18n): 把记录浮层与页签计数徽标的剩余硬编码英文接入 i18n (objectstack#5506)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T02:37:11Z",
+  "updated_at": "2026-08-06T02:46:45Z",
+  "closed_at": "2026-08-06T02:46:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T02:46:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3423",
+  "body": "Fixes objectstack-ai/objectstack#5506\n\n#5430 扫完之后仍留了一批同类字面量。和 #5430 不同的是,这批里有一处是**可见文案**,\n还有一处是组件**默认值** —— 只是恰好被控制台自己覆盖掉了,别的宿主拿到的就是那句英文。\n\n## 每处的处理\n\n| 字面量 | 位置 | 处理 |\n|---|---|---|\n| `` `${formatTabCount(count)} items` `` | `renderers/layout/containers.tsx` 的 `page:tabs` 计数徽标 | `common.itemCount` / `common.itemCountOne` |\n| `Resize drawer` | `custom/navigation-overlay.tsx` 拖拽改宽手柄的 `aria-label` | `common.resizeDrawer` |\n| `Open as full page` | 同文件 `expandLabel` prop **默认值** | `detail.openAsFullPage`(prop 覆盖行为不变) |\n| `Record Detail` | 同文件 `resolvedTitle = title || …`,**可见**浮层标题 | `detail.recordDetail` |\n| `Record detail overlay for {resolvedTitle}.` ×3 | 同文件 drawer / modal / popover 三份 sr-only 描述 | 合成一条带 `{{title}}` 占位符的 `detail.recordDetailOverlay` |\n\n计数徽标只渲染数字,它的 `aria-label` 对屏幕阅读器而言**就是**徽标本身;而且英文复数是\n拼接出来的,根本没有单数分支 —— 只有一条关联记录时会念成 “1 items”。\n\n### 复数:双 key,不用 `_one`/`_other`\n\n沿用本仓既有约定(`detail.reactionCount`/`reactionCountOne`、\n`detail.relatedRecords`/`relatedRecordOne`)。i18next 的 `_one`/`_other` 后缀会被\n`all-locales-key-parity` 判死:zh/ja/ko 没有独立单数形式,那几个包会合理地缺 `_one`\n半边,而 gate 只会读成丢键。\n\n插值传的是**格式化后**的计数(`1.2k`,不是 `1200`),让无障碍名和可见数字始终一致。\n这同时是安全的:i18next 只在 `count` 不是字符串时才跑自己的复数解析\n(`needsPluralHandling = opt.count !== undefined && !isString(opt.count)`,\n`i18next@26.3.6` 的 `Translator`),`formatTabCount` 恒返回字符串,所以选单复数的\n仍然是双 key 方案,不会被 i18next 抢走。\n\n### `useSafeTranslate` → `createSafeTranslation`\n\n两个组件都换了。原因是新增的两条 key 需要插值,而 `useSafeTranslate` 的签名\n(`(keyOrKeys, fallback) => string`)里没有 options bag。换过来还带来一份显式的\nEnglish defaults map —— **那份 map 就是无 provider 时英文兜底的来源**,包外消费者\n依赖这一点:\n\n- `packages/plugin-view/src/__tests__/ObjectView.test.tsx` 用 `getByLabelText('Close panel')`\n- `e2e/live/inline-edit-polish-2572.spec.ts:61` 用英文无障碍名定位表头工具条\n\n两者都没挂 `I18nProvider`。前者本 PR 实跑过,32 tests 全绿。\n\n六条新词条(`common.resizeDrawer` / `common.itemCount` / `common.itemCountOne` /\n`detail.recordDetail` / `detail.openAsFullPage` / `detail.recordDetailOverlay`)\n十个语言包全补,zh 及其余九包都写了真实译文。\n\n## 测试与方向(先预测,后跑)\n\n新增三个测试文件,共 30 个用例。反向验证:把两个源文件回滚到 `origin/main`、\n保留新测试和词条,预测 = **en 全绿、非英文全红**;实测 15 红 15 绿,与预测一致:\n\n- `navigation-overlay-chrome-i18n.test.tsx`:4 个 `en` 用例 + 2 个“宿主传值仍然赢”\n  的用例保持绿,7 个 zh/ja/ko/de 用例全红。\n- `page-tabs-count-badge-i18n.test.tsx`:`en` 用例**也红** —— 旧代码根本没有单数形式,\n  `1 item` 在**每种**语言下都拿不到。只有纯复数的格式化用例(`1.2k items`)保持绿。\n- `chrome-i18n-no-provider-fallback.test.tsx`:NavigationOverlay 的两条断言**前后都绿**。\n  这是**预期方向,不是漏测** —— 该文件钉的正是“英文兜底不许被 `t()` 吃掉”,\n  它本来就该在改动两侧都绿;该文件里唯一由红转绿的是单数徽标那条。\n\n### 为什么无 provider 的断言必须单独成一个文件\n\n`createI18n` 调 `instance.use(initReactI18next)`,而 `initReactI18next` 会把该实例\n注册成 **react-i18next 的模块级默认实例**,卸载和 `cleanup()` 都不撤销。所以同一文件里\n只要先挂过一次 `I18nProvider`,之后所有“无 provider”渲染都会静默落到那个语言上。\n第一版就撞上了:一个没挂任何 provider 的用例渲染出了 `Als ganze Seite öffnen`,\n因为同文件上一个 describe 挂过 `de`。`dom` project 是 `isolate: true`,\n所以拆成一个从不 import `I18nProvider` 的文件才是干净的(该文件的 stderr 里\n能看到 `NO_I18NEXT_INSTANCE`,正是这份干净的证据)。\n\n## 验证记录\n\n```\nvitest run --maxWorkers=2 packages/components packages/plugin-view packages/plugin-tree\n  Test Files  94 passed (94)\n       Tests  728 passed (728)\n\nvitest run --maxWorkers=2 packages/i18n/src/__tests__/   # 含 all-locales-key-parity\n  Test Files  22 passed (22)\n       Tests  256 passed (256)\n\nvitest run --maxWorkers=2 packages/plugin-view/src/__tests__/ObjectView.test.tsx\n  Test Files  1 passed (1)\n       Tests  32 passed (32)\n\npnpm --filter @object-ui/i18n --filter @object-ui/components type-check   # Done, Done\neslint <5 个改动文件>                                                      # 0 errors\nnode scripts/check-control-bytes.mjs                                      # OK\nnode scripts/check-changeset-fixed.mjs && check-changeset-no-major.mjs     # OK\n```\n\n## 越界发现(未在本 PR 修)\n\n`packages/plugin-detail/src/RecordDetailDrawer.tsx:277` 有一份**一模一样**的\n`aria-label=\"Resize drawer\"`(同样挂在 `role=\"separator\"` 的拖拽手柄上)。\n该文件已经接好了 `useDetailTranslation()`(`:136`),所以本 PR 落地\n`common.resizeDrawer` 之后那是一行的事 —— 但 `plugin-detail` 在本任务的文件围栏之外,\n单独归档。\n\n`packages/collaboration/src/CommentThread.tsx:520` 的 `'1 reaction'` / `` `${n} reactions` ``\n**未在本 PR 处理**,原因见 issue 上的说明:`@object-ui/collaboration` 当前只依赖\n`@object-ui/types`,接入 i18n 需要改它的 `package.json`(围栏之外),而且同文件还有\n另外 11 处硬编码英文 —— 只翻这一处会让文件更不自洽。已上报等决策。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

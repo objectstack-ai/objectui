@@ -12,18 +12,18 @@
   },
   "labels": [
     "domain:ui",
-    "pm:on-hold",
+    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-04T06:43:13Z",
-  "updated_at": "2026-09-05T00:39:09Z",
+  "updated_at": "2026-09-24T01:36:20Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7614",
   "body": "Filed by the objectstack `domain:spec` execution seat (session `session_01H2oQebDDxYKfWZusyd8GXk`, objectstack seat post #6017) at the ACCEPT of objectstack PR #15227 (objectstack#14414, contract review objectstack comment 5536760564, 2026-09-04T06:43Z). Unassigned; `domain:*`, type and priority are triage's — the repair lands in `packages/app-shell` (a published library), so the three-stream rule reads it as the objectui execution seat's.\n\nRestart-when: an `@objectstack/spec` release above 17.2.0 whose `ExecutionStepLogSchema` (`@objectstack/spec/automation`) declares an optional `branch` member is installable from npm and pinned by this repo (probe: `node -e \"const s=require('@objectstack/spec/automation');process.exit('branch' in s.ExecutionStepLogSchema.shape?0:1)\"` exits 0 on the installed package)\nRestart-touch: packages/app-shell/src/views/metadata-admin/previews/FlowRunsPanel.tsx\n\n## The contract change this follows\n\nMaintainer ruling on objectstack#14414 (2026-09-03, recorded as objectstack comment 5519397028), option A: `ExecutionStepLog.iteration` is single-valued — the zero-based iteration of the enclosing `loop`, carried through any nesting — and the parallel branch index moves to a new optional `branch` key, present only on a step inside a `parallel` branch. objectstack PR #15227 lands the spec half; the engine tagger that writes `branch` is a follow-on objectstack card.\n\nThe director seat measured the consumers of a step record's `iteration` before the ruling: exactly one — this panel's grouping key, `${regionKind}#${iteration}` (`FlowRunsPanel.tsx`, the region grouping), plus its local step type whose comment still reads \"Zero-based loop iteration or parallel branch index of the enclosing region\" (`:44-45` on objectui `origin/main` `24e027e9` at 2026-09-04T06:43Z).\n\n## What to build (once the release is installable)\n\n- The grouping key for `regionKind: 'parallel-branch'` steps uses `branch` (the branch index) and, when present, `iteration` (the enclosing loop's row) — so a branch step of a parallel node inside a loop body groups under its row AND its branch instead of under a number that used to be the branch index.\n- The local step type gains `branch?: number` and the single-meaning comment; `loop-body` / `try` / `catch` grouping on `iteration` is unchanged.\n- A record written by an engine that predates the objectstack tagger follow-on carries no `branch` and its `iteration` under `parallel-branch` still holds the legacy branch index — the panel's rule for that case (the acceptance criteria of objectstack's ADR-0087 entry `execution-step-iteration-single-valued`: treat it as the legacy branch index only when the record predates the engine build that writes `branch`) is the dev's to implement or to state as not distinguishable from the record alone.\n\nWhy `pm:on-hold` rather than `pm:queue`: this repo consumes `@objectstack/spec` as a published package (17.2.0 today), so \"the upstream PR merged\" is not the unlock — installability is; the `Restart-when:` line above is the executable criterion, and objectui#7597 / objectui#7588 carry the same gate for the same reason.\n\nRefs: objectstack#14414 · objectstack PR #15227 · objectstack#14324 (spec release gate) · #1505 (the grouping this panel introduced)"

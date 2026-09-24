@@ -1,0 +1,32 @@
+{
+  "number": 3334,
+  "kind": "issue",
+  "title": "main CI 红:spec 17.0.0-rc.2 撞名符号未收编 + live-e2e.yml 缺 CI 文档章节",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T03:34:17Z",
+  "updated_at": "2026-08-04T05:34:17Z",
+  "closed_at": "2026-08-04T05:34:17Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3334",
+  "body": "## 问题\n\nmain 最新提交(a415684)CI 红,两处互不相关的破损,所有基于 main 的 PR(如 #3331)都被连带挂红:\n\n**1. Type Check → `check:spec-symbols` 守卫**\n\n`@objectstack/spec` 17.0.0-rc.2(lockfile 已升级)新增导出了以下名字,与 objectui 本地手写声明撞名:\n\n- `PercentScale` — `packages/core/src/utils/dataset-format.ts`(spec/data 已导出,形状完全一致)\n- `BulkActionParam` / `BulkActionOperation` / `BulkActionDef` — `packages/types/src/objectql.ts`(spec/ui 已导出)\n\n**2. Test shard 3 → `scripts/__tests__/ci-cd-pipeline-doc.test.ts` 工作流清单**\n\n#3325 合入了 `.github/workflows/live-e2e.yml`,但 `content/docs/guide/ci-cd-pipeline.md` 没有对应章节和 Workflow Inventory 表行,文档守卫测试要求两者同步。\n\n## 修复方案\n\n1. `PercentScale`(与 spec 定义逐字一致)→ 改为从 `@objectstack/spec/data` 导入再导出;`BulkActionOperation`(与 spec 枚举一致)→ 从 `@objectstack/spec/ui` 再导出;`BulkActionParam` / `BulkActionDef` 是**有意分歧的渲染端方言**(本地 def 携带 spec strict schema 拒绝的运行时 `actionDef` 字段、param 的 `type` 为开放字符串),按守卫治理走 ALLOW 条目 + parity 测试钉住分歧。\n2. 给 `live-e2e.yml` 在 ci-cd-pipeline.md 补章节(触发条件、non-required lane 不阻塞合并)+ 清单表行。\n"
+}

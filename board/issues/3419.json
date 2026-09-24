@@ -1,0 +1,36 @@
+{
+  "number": 3419,
+  "kind": "issue",
+  "title": "ObjectDataPage「Save as view」把 URL filter 三元组原样写进 ViewItem,产出过不了 ViewItemSchema",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T02:19:20Z",
+  "updated_at": "2026-08-06T03:34:48Z",
+  "closed_at": "2026-08-06T03:34:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3419",
+  "body": "发现于 #3375(给 `viewEnvelope` 补 ViewItem spec 一致性 pin 时),**不在该 PR 的 fence 内**(属运行时行为改动),故单独记录。\n\n## 现象\n\n`packages/app-shell/src/views/ObjectDataPage.tsx` 的 `handleSaveAsView`(约 250-254 行)把当前 URL 上的下钻条件原样塞进要持久化的 view spec：\n\n```ts\nconst spec: Record< string, any > = {\n  ...config,\n  columns: ...,\n  ...(urlFilters.length ? { filter: urlFilters } : {}),\n};\nconst env = viewEnvelope(objectName ?? '', spec, { ... });\nawait createRuntimeMetadata('view', env.name, env, { metadataClient });\n```\n\n而 `urlFilters` 是 `FilterTriple[]`(`drillUrlFilters.ts:23`:`[string, string, unknown]` —— 三元组**数组**),`@objectstack/spec` 的 ViewItem list config 里 `filter` 要求的是 `ViewFilterRuleSchema` **对象**数组(`{ field, operator, value }`,且 operator 取规范枚举 `equals` 等,不是 `=`)。\n\n## 复现(spec@17.0.0-rc.2,即当前 lockfile 解析版本)\n\n把 `viewEnvelope` 在该调用点的实际产出喂给记录门:\n\n```\nconfig.filter = [['stage','=','open']]\nViewItemSchema.safeParse(env) -> false\n[{\"expected\":\"object\",\"code\":\"invalid_type\",\"path\":[\"config\",\"filter\",0],\n  \"message\":\"Invalid input: expected object, received array\"}]\n```\n\n对照:builder 那条路径是对的 —— `viewFilterFold.foldFilterGroupToSpecRules`(`viewFilterFold.ts:122`)产出 `{ field, operator, value }`,并且用 `normalizeFilterOperator` 把 operator 规范化过,产出可以过门。也就是说**同一个 `filter` 键在本仓存在两种写法,只有 fold 那条符合 spec**。\n\n## 影响\n\n带下钻条件时点「Save as view」,写出去的是一条 off-spec 的 ViewItem。ADR-0017 记录门若在发布/校验侧收紧,这条 view 会被拒;在此之前它以第二种事实方言的形式沉淀下来。\n\n## 建议方向(交由 triage 定夺)\n\n契约优先:在 **producer 侧**把三元组折成 spec 的 rule 对象再进 `viewEnvelope`(复用 `normalizeFilterOperator`,与 `viewFilterFold` 同一出口),而不是在消费侧容忍三元组。\n\n## 备注\n\n#3375 的 pin 只覆盖 `viewEnvelope` 自身的产出契约,对这条走的是「按 spec 形状的 filter rules」用例;三元组这条留给本 issue,以免把运行时改动混进纯 pin PR。\n"
+}

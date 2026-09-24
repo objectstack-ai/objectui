@@ -2,8 +2,8 @@
   "number": 4983,
   "kind": "issue",
   "title": "objectui: MetadataClient.layered() 的「非 layered 信封」兜底迁到 /layers 后已不可达,待上游关掉弃用窗口后删除",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-17T12:16:48Z",
-  "updated_at": "2026-08-23T04:20:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T01:43:03Z",
+  "closed_at": "2026-09-24T01:43:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/4983",
   "body": "发现于 #4016 实施过程中,**故意留在那个 PR 之外**:删它是对「不合规后端」的行为变更,不属于「把请求搬到新路径」这件事。未认领。\n\n## 现状\n\n`packages/data-objectstack/src/metadata-client.ts` 的 `layered()` 在 200 之后有一段容忍分支(变量名 `hasEnvelope`):当 body 里 `code` / `overlay` / `effective` **一个都没有**时,把整个 body 塞进 `effective` 返回。\n\n这段兜底的唯一生产者是**已弃用的那个查询标记**:老拼法在后端 protocol 实现没有 `getMetaItemLayered` 时会**下坠**到普通条目读,答 `{ type, name, item }` 信封,于是消费侧需要容忍。\n\n## 为什么现在不可达\n\n迁到 `GET /meta/:type/:name/layers` 之后,同样情形上游是明确拒答的 —— framework `origin/main` `packages/rest/src/rest-server.ts` 新路径挂载处:协议实现缺 `getMetaItemLayered` 时返回 **501 `NOT_IMPLEMENTED`**,注释写明「A dedicated path cannot fall through to the plain read the way the flag did … would be answering a different resource」。501 走 `!res.ok`,在 `layered()` 里抛错,到不了这段兜底。\n\n其余 200 分支都由 `GetMetaItemLayeredResponseSchema` 约束(`code` / `overlay` / `effective` 都是必填键),所以合规服务端答的 200 恒满足 `hasEnvelope`。\n\n## 建议\n\n上游关掉 `?layers=` 弃用窗口(硬切时机归维护者)后,连同这段兜底一起删,并把「501 抛错」这条钉在测试里(#4016 的 PR 已经钉了 501 抛错,所以删除时不会失去覆盖)。在窗口关掉之前删也可以,但那就要单独论证「不合规后端」的期望行为,不是白捡的清理。\n\n观察类(`finding`,不进派发池):今天没有用户能触到这段代码 —— 它是休眠分支,不是缺陷。"

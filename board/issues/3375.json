@@ -1,0 +1,35 @@
+{
+  "number": 3375,
+  "kind": "issue",
+  "title": "收尾 #3312/objectstack#4959:runtime-metadata-persistence 的 ViewItem 产出补 spec 一致性 pin;MetadataProvider docblock 撤掉 \"Legacy\" 措辞",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:38:28Z",
+  "updated_at": "2026-08-06T02:40:20Z",
+  "closed_at": "2026-08-06T02:40:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3375",
+  "body": "Part of objectui#3312(已按 objectstack#4959 裁决关闭);两条本仓侧尾巴,清理级,非缺陷。\n\n## 1. `packages/app-shell/src/views/runtime-metadata-persistence.ts:182` 产出 ViewItem,无 spec 一致性测试\n\n写侧另一个 ViewItem 生产者(`createBuildBody` 有 `view-create-body.test.ts` 守着,这里没有)。补一条与之同型的 pin:产出形状过 `ViewItemSchema.safeParse`(或 #5074 拆分后的授权门,以抬 pin 后实际导出为准)。\n\n## 2. `MetadataProvider.tsx` docblock 把 container 称 \"Legacy aggregated\"\n\nobjectstack#4959 端到端实测裁定:container 是栈级打包的**刻意契约形状**(`defineStack({ views: [...] })` 唯一入口),不是遗留物;ViewItem 是记录门(ADR-0017)形状。两个门各司其职。docblock 措辞应与该裁决对齐,避免下一个读者把 container 分支当死代码删掉。\n\n裁决依据:objectstack#4959 2026-08-04 19:21Z 关闭评论(含端到端实测);残余 spec 侧观察在 objectstack#5320。"
+}

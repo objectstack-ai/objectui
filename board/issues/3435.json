@@ -1,0 +1,35 @@
+{
+  "number": 3435,
+  "kind": "issue",
+  "title": "[finding] guard-main-checkout.sh 只挂 Edit|Write|NotebookEdit,经 Bash 写文件(sed -i / tee / heredoc)可绕过 worktree 强制",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T03:51:08Z",
+  "updated_at": "2026-08-06T05:43:59Z",
+  "closed_at": "2026-08-06T05:43:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3435",
+  "body": "在 #3430(stash 共享栈)实现过程中读 `.claude/settings.json` 的钩子注册时发现,记录一下,**不在 #3430 的范围内改**。\n\n## 现象\n\n`.claude/settings.json` 里 `guard-main-checkout.sh` 的 matcher 是:\n\n```\n\"matcher\": \"Edit|Write|NotebookEdit\"\n```\n\n也就是说它只拦**工具化的**文件写入。同一个写操作换成 Bash 就完全不经过这个钩子:\n\n```\nsed -i 's/foo/bar/' packages/fields/src/x.tsx\ncat > packages/fields/src/x.tsx  ... EOF\ntee / printf / python -c ... 同理\n```\n\n在共享主 checkout 里这样改文件,钩子一声不响,而 CLAUDE.md / AGENTS.md 给出的心智模型是「PreToolUse 钩子**强制**此规则」。#3430 记录的正是同一个心智模型的另一个洞(worktree 隔离盖不住 `refs/stash`),两者同族:**声明的强制范围 > 实际的强制范围**。\n\n## 为什么标 `finding` 而不是缺陷\n\n今天没有用户会踩到,也没有证据表明有 agent 真的靠 Bash 绕过去写过共享 checkout —— agent 写文件基本都走 Edit/Write。属于「防线比宣称的窄」这一类观察,是否值得补由 PM 定级。\n\n## 如果要补,可能的做法(未实现,仅备选)\n\n- 给 `Bash` matcher 再挂一个钩子,识别常见的写文件命令(`sed -i` / `tee` / `> path` 重定向 / `cat > path`)并按目标路径判断是否在 linked worktree 里 —— 与 #3430 新增的 `guard-shared-stash.sh` 同一形状(#3430 的 PR objectui#3433 已经把 `Bash` matcher 建起来了,可以复用其分段/引号解析)。\n- 代价:Bash 命令里的目标路径识别本质上是启发式,误拦风险比 Edit/Write 路径高得多,需要按 #3430 的同一原则「解析不了就 fail open」。\n\n## 相关\n\n- #3430 / objectui#3433 —— 同族的另一个洞(stash 共享栈),已修。\n- objectstack#5742 —— #3430 的 AGENTS.md 文字条款那一半。\n"
+}

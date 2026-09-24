@@ -1,0 +1,35 @@
+{
+  "number": 3584,
+  "kind": "issue",
+  "title": "CONTRIBUTING.md:414 「All docs are in `docs/`」与现状不符 —— 站点文档实际在 `content/docs/`,`docs/` 是内部树",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:39:48Z",
+  "updated_at": "2026-08-07T15:11:54Z",
+  "closed_at": "2026-08-07T15:11:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3584",
+  "body": "修 #3570(PR 见该单)时在**同一节**读到的第三处过期陈述。#3570 的文件面被 PM 明确限定为「Documentation 节的那两处 + 一句提示」,本处不在其中,按 Prime Directive #10 未在那个 PR 里改,另立本单。\n\n## 现文(`CONTRIBUTING.md:412-414`,`### Writing Documentation`)\n\n> We use fumadocs for documentation. All docs are in `docs/`.\n\n## 与现状对不上\n\n- 站点(fumadocs)的文档源根本不是 `docs/`。`apps/site/source.config.ts:6` 写的是 `dir: '../../content/docs'` —— 已发布的 183 篇文档全在 `content/docs/**`;\n- 仓库根的 `docs/` 是**内部材料树**(`adr/`、`audits/`、`ARCHITECTURE.md`、`screenshots/`),不进站点、没有 `/docs/...` 路由;\n- 这个区分在别处是被当作前提写死的:`.github/workflows/check-links.yml` 的头注释专门记了 #3449 的教训 —— lychee 的扫描面曾经只指向仓库根 `docs/**`,「had therefore never scanned a single published page」;`scripts/check-doc-links.mjs` 的 `SCAN_ROOTS` 也是把 `content/docs`(docs 路由语义)和其余磁盘路径分开的。\n\n也就是说:**唯独 CONTRIBUTING.md 这句还停在搬迁前**,而它恰好是新贡献者「文档该写在哪」的第一落点。照它做的人会把新页面放进 `docs/`,站点上永远不出现,链接门禁也不看那棵树(`SCAN_ROOTS` 里没有它)。\n\n## 为什么门禁抓不到\n\n这是散文里的一句**目录名断言**,不是链接 —— `check-doc-links.mjs` 只解析 markdown 链接,`docs/` 写在反引号里(反而会被 `stripCode()` 抹掉)。没有任何检查会因为这句话变假而变红,只能靠人读到。\n\n## 复现(只读,离线)\n\n```bash\ngrep -n 'All docs are in' CONTRIBUTING.md\ngrep -n 'dir:' apps/site/source.config.ts     # => dir: '../../content/docs'\nls docs/                                       # => adr audits ARCHITECTURE.md screenshots ...\nls content/docs/                               # => api blocks components core fields guide layout plugins rfcs utilities\n```\n\n## 建议\n\n把这句改成如实的两句:站点文档写在 `content/docs/**`(fumadocs collection,`baseUrl: '/docs'`);仓库根 `docs/` 放 ADR / 审计等**不发布**的内部材料。顺带确认紧随其后的 `pnpm site:dev` / `pnpm site:build` 两条命令仍然有效(本单未逐条核实这两条)。\n\n## 关联\n\n#3570(同节两处过期陈述,PR 在飞)、#3545(同节 3 条死链)、#3449(lychee 扫描面曾指错到 `docs/**` 的同源错误)、#3536 / #3572(`SCAN_ROOTS` 扫描面扩展)。\n\n⚠️ 本单**未认领**,留给 PM 分诊。"
+}

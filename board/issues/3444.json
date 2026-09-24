@@ -1,0 +1,33 @@
+{
+  "number": 3444,
+  "kind": "pull_request",
+  "title": "fix(page): one page, one h1 — page:header owns the title on every page type (#3434)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:03:48Z",
+  "updated_at": "2026-08-06T05:16:51Z",
+  "closed_at": "2026-08-06T05:16:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T05:16:50Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3444",
+  "body": "Fixes #3434\n\n## 结论:是**渲染侧**的缺陷,spec 一行未改\n\nissue 里两种可能(测试定位器过宽 vs. 应用侧重复渲染两个 h1),按 PM 的裁决用**无障碍树证据**判定 —— 证据指向渲染侧,`e2e/live/master-detail.spec.ts` 是一个诚实的探针,原样保留。\n\n## 无障碍树证据\n\n失败页面是 framework 侧的 `examples/app-showcase/src/ui/pages/project-workspace.page.ts`:\n\n```\nlabel: 'New Project + Tasks',        // 页面级标题\ntype:  'app',\nregions: [{ name: 'header', components: [\n  { type: 'page:header', properties: { title: 'New Project + Tasks', subtitle: '…' } },\n]}, …]\n```\n\n两个渲染器同时输出 level-1 标题,**名字完全相同**:\n\n1. `packages/components/src/renderers/layout/page.tsx:613`(改动前)——\n   `pageType !== 'record' && (pageTitle || schema.description)` 时渲染\n   `class=\"text-3xl font-bold tracking-tight text-foreground\"` 的页面级标题。\n   `PageView.tsx:131` 把 spec 的 `type: 'app'` 映射成 `pageType`,所以这条对 app/home/utility 页恒成立;`pageTitle = schema.title ?? schema.label` 取到 `label`。\n2. `packages/components/src/renderers/layout/containers.tsx:1359` —— `page:header` 的非 record 分支(`hasRecord === false`,create 模式下没有 RecordContext 数据)在 `header` 元素里渲染 `class=\"text-2xl font-semibold tracking-tight\"` 的标题。\n\n在新增的 DOM 测试里逐字复现了 live 现场:\n\n```\nTestingLibraryElementError: Found multiple elements with the role \"heading\"\nand name \"New Project + Tasks\"\n\n  h1 class=\"text-3xl font-bold tracking-tight text-foreground\"\n  h1 class=\"text-2xl font-semibold tracking-tight\"\n```\n\n—— 与 run 31069352699 的 strict mode violation 是同一对元素。**不是条件互斥、也不是服务不同 region 的设计形状**:两者同时出现在同一个文档、同一个页面上下文里,同名。一个文档两个 level-1 标题 = 文档大纲被打断、读屏把页面标题念两遍;当两个字符串相同时(showcase master-detail、app-showcase `my-work`)屏幕上还直接看到重复的一行。这在 showcase/crm 里共影响 5 个已授权页面(`my-work` / `contact-form` / `page-variables` / `project-workspace` / crm `welcome`)。\n\n## 修法\n\n`page.tsx` 里原本就写着设计意图:\n\n> Page header — suppressed on record pages (**the `page:header` component in the header region renders the record-bound title instead**)\n\n也就是说「作者写了 `page:header`,标题就归它渲染」这条规则**本来就存在**,只是抑制条件被写死成 `pageType === 'record'`,漏掉了其余页面类型。本 PR 把它补成完整的规则:\n\n- 页面 regions/body/children 里存在**带标题**的 `page:header` → PageRenderer 不再输出自己的隐式标题;record 页行为完全不变。\n- 判定刻意保守 —— 只有「标题会渲染出字面文本」的 header 才接管:`page:header` 会丢弃空标题、以及插值后为空的标题(如无 record 在作用域时的 `title: '{name}'`,`interpolate()` 把 `{field}` 置空)。否则抑制我们自己的标题会让页面**一个 level-1 标题都没有**,那是把一个 a11y 缺陷换成另一个。\n- 页面级 `description` 不受影响:它是页面自己的正文,不是 header `subtitle` 的副本,交出标题不等于删掉别的内容。\n\n作者可见的行为变化:同时声明 `label` 与带标题 `page:header` 的页面,只显示 header 的标题(如 crm 只剩 \"Welcome to the CRM\",不再额外显示 \"CRM Welcome\")。没有 `page:header` 的页面完全不变。\n\n## 验证\n\n新增 `packages/components/src/__tests__/page-single-h1.test.tsx` —— 断言写在**无障碍树**上(`getAllByRole('heading', { level: 1 })`),而不是 class name,钉的正是 e2e 定位器依赖的那个事实。\n\n**反向验证(方向按预期,先预测后执行)**:预测「把 `page.tsx` 还原成 origin/main → 4 条正向用例转红,4 条负向对照保持绿」。实测一致:\n\n```\n$ git checkout origin/main -- packages/components/src/renderers/layout/page.tsx\n$ pnpm exec vitest run packages/components/src/__tests__/page-single-h1.test.tsx\n × renders exactly ONE h1 when a titled page:header carries the same name\n × drops the implicit title even when the page:header names the page differently\n × honours an inline-translation map as a real header title\n × keeps the page description when the header takes over the heading\nAssertionError: expected [ h1, h1 ] to have a length of 1 but got 2\n Tests  4 failed | 4 passed (8)\n```\n\n负向对照(「无 page:header」「header 无标题」「header 标题插值为空」「record 页」)前后都绿 —— 它们是防「零个 h1」的那一半,不能被这次改动带红,也不能因为改动而空过。\n\n其余(均从仓根跑,`flock` 串行 + `NODE_OPTIONS=--max-old-space-size=4096`):\n\n| 命令 | 结果 |\n|---|---|\n| `pnpm exec vitest run packages/components/src/__tests__/page-single-h1.test.tsx` | Test Files 1 passed / **Tests 8 passed** |\n| `pnpm exec vitest run packages/components` | Test Files 88 passed / **Tests 646 passed** |\n| `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/previews packages/app-shell/src/utils/__tests__/pageSchemaIntrospect.test.ts packages/layout packages/plugin-detail/src/synth` | Test Files 40 passed / **Tests 579 passed** |\n| `pnpm --filter @object-ui/components type-check` | 通过 |\n| `pnpm --filter @object-ui/components lint` | 0 errors(801 warnings,全部为既有) |\n| `node scripts/check-control-bytes.mjs` / `check-changeset-no-major.mjs` / `check-changeset-fixed.mjs` | 通过 |\n\n**消费半径排查**:按「规则被谁消费」而不是「改了哪个包」扫了一遍 —— `page:header` 的其他消费方(app-shell metadata-admin previews、`pageSchemaIntrospect`、`plugin-detail` 的 `buildDefaultPageSchema`、`packages/layout` 的 authorable-keys、console `public-contract`)以及 `e2e/` 下所有 spec,均无断言依赖「页面级 `h1` 与 header 同时存在」。`e2e/live/showcase-smoke.spec.ts` 只断 `main` 有内容,不用 heading 定位器。\n\n真正的验收是本 PR 上 live-e2e lane 的实跑(期望 4/4 绿),会在 run 完成后回读并补充。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3321,
+  "kind": "issue",
+  "title": "Popup-blocked toast and SSO spinner tab ship bilingual Chinese/English copy, violating the English-only commandment",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T18:51:38Z",
+  "updated_at": "2026-08-04T01:48:35Z",
+  "closed_at": "2026-08-04T01:48:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3321",
+  "body": "Found while converging the server-action dispatch for #2904 (not fixed there — copy/i18n decision, and the strings are user-facing).\n\nAGENTS.md Commandment #-1 requires all user-facing text to be English. The `opensInNewTab` choreography ships hard-coded bilingual copy:\n\n- the pre-opened SSO spinner tab: `<title>正在打开… Opening…</title>` and body text `正在为你打开环境…`;\n- the popup-blocked toast: `浏览器拦截了弹窗 / Popup blocked`, description `点击在新标签页打开环境`, action label `打开环境`.\n\nHistorically this lived in two hand-rolled copies (`useConsoleActionRuntime.serverActionHandler` and `RecordDetailView`); since #2904 it is consolidated in ONE place — `packages/app-shell/src/utils/consoleServerAction.ts` — so the fix is now a single edit: route the strings through `@object-ui/i18n` (`useObjectTranslation`) or at minimum make them English-only literals per the commandment.\n\nNote the wrapper is a plain function (not a hook), so i18n plumbing needs the `t` function injected via its options, or the copy hoisted to the call sites that have hook access.\n\nRefs #2904."
+}

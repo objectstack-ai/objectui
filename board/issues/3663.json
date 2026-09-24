@@ -1,0 +1,36 @@
+{
+  "number": 3663,
+  "kind": "issue",
+  "title": "没有门禁校验「package.json 的 files 条目在磁盘上真实存在」——npm 静默跳过缺失条目,#3647 因此长期无人察觉",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding",
+    "pm:dispatched",
+    "tests"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T17:41:03Z",
+  "updated_at": "2026-08-07T18:05:06Z",
+  "closed_at": "2026-08-07T18:05:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3663",
+  "body": "发现于 #3647 的实施(PR #3662)。**观察类记录,不在该单完成范围内。**\n\n## 事实\n\nnpm 对 `package.json` `files` 里**不存在**的条目是静默跳过的:不报错、不警告、退出码 0。于是「声明要打包 X、但 X 不存在」这种 manifest 与事实不符的状态,`npm publish`、`npm pack`、CI 全都发现不了。\n\n#3647 就是这个机制的一个实例:`@object-ui/plugin-tree` 的 `files` 写着 `\"LICENSE\"`,而 `packages/plugin-tree/LICENSE` 不存在,已发布的每一个 tarball 都缺这份 MIT 文本,而 CI 从未报过任何信号。它是靠人工逐包核对 `files` 才被翻出来的(#3622 的排查副产物),不是靠门禁。\n\n实测仓库现有脚本(`origin/main`),没有任何一条覆盖这个面:\n\n```\n$ grep -rn \"LICENSE\" scripts/ .github/workflows/     # 只有 check-doc-links 的注释与测试夹具\n$ grep -rln \"\\\"files\\\"\" scripts/                     # 只有 shadcn-sync 相关,与打包无关\n```\n\n`scripts/check-doc-links.mjs` 查的是 README 里**链接**的死活,查不到这一类:plugin-tree 的 README 连指向 `./LICENSE` 的链接都没有,自然没有死链可报(见 #3664)。\n\n## 为什么记为观察类\n\n#3647 修掉的是当前唯一的实例,所以**今天没有用户会撞上**。这条记的是**同类缺陷可以再次静默发生**:任何人往 `files` 里加一个条目、或删掉一个被 `files` 点名的文件,都不会有任何东西拦住。\n\n## 可能的处置(供分诊裁决,未实施)\n\n一条很小的脚本即可闭合:遍历所有非 `private` 包,断言 `files` 里的每个条目在磁盘上能解析到(`dist` 这类构建产物需要按「构建后校验」或允许缺失来区分处理)。也可以顺带断言「每个已发布包都带 LICENSE」——但后者与 `react-runtime` / `sdui-parser` 的打包策略问题耦合,那是另一个决定。\n\n具体形态与是否值得做,请分诊裁决。"
+}

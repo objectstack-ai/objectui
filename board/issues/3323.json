@@ -1,0 +1,32 @@
+{
+  "number": 3323,
+  "kind": "pull_request",
+  "title": "fix(fields): field:select 把 aria-invalid/aria-describedby/aria-required 送达真实控件（Select trigger），并加全注册表守卫 (#3306)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T23:59:46Z",
+  "updated_at": "2026-08-04T00:04:59Z",
+  "closed_at": "2026-08-04T00:04:57Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T00:04:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3323",
+  "body": "Fixes #3306\n\n## 问题\n\n`field:select` 把 DOM pass-through（`{...toDomProps(props)}`）展开在 Radix `Select.Root` 上。`Select.Root` 自身不渲染任何 DOM 元素，不认识的 prop 一律静默丢弃——表单渲染器送下来的 `aria-invalid`、`aria-describedby`、`aria-required` 全部消失。实测：一个 `required` 的 select 提交失败后，红字错误信息视觉上正常显示，但真实控件（trigger）上没有任何 aria 状态——屏幕阅读器用户完全收不到「该字段处于错误状态」，也拿不到错误信息的关联。\n\n这与 #3222（7 个 widget 的 `aria-invalid` 从未被算出）和 #3290（`aria-required` 声明了没送达）同属本仓视为一等缺陷的「declared ≠ delivered」失败类。\n\n## 修复\n\n`packages/fields/src/widgets/SelectField.tsx`（单选分支）：\n\n- DOM pass-through 改为落在 **`SelectTrigger`** 上——真实可聚焦的 `<button role=\"combobox\">`，用户与辅助技术实际交互的元素。`aria-invalid` / `aria-describedby` / `aria-required` / `data-*` / `id` / `className` / `tabIndex` / 焦点事件由此送达真实 DOM。\n- 两个 key 刻意留在 Root 上：\n  - `name`——Root 唯一真正消费的白名单 key（转发给参与原生表单提交的隐藏 `<select>`）；放到 trigger 上只会挂在一个非 submitter 的 `<button>` 上；\n  - `disabled`——Root 是单一权威（同时禁用 trigger、选项交互与隐藏 select）；再转发给 trigger 会给这个状态第二个 OR 合并的作者。\n- spread 之后显式写 `aria-invalid={!!error}`（#3222 纪律：`error` 是 spec `FieldWidgetPropsSchema` 的发布槽位；`!!undefined` 必须产出显式的 `\"false\"`——字段有效时明说有效，而不是沉默）。\n\n**没有**放宽 `toDomProps`（白名单原样），**没有**在消费端加任何容错回退。\n\n## 顺带核查（issue 要求的同结构扫描）\n\n逐一核查了全部 46 个注册 widget 的 spread 落点：**只有 `SelectField` 把 DOM pass-through 展开到非 DOM 的 Radix Root 上**。Boolean/Date/DateTime/Time 等其余 `toDomProps` 使用者都落在真实 DOM 控件（`Input` / Radix Checkbox·Switch 的真实 `<button>`）上。\n\n## 守卫（issue 要求的「不再逐个复发」）\n\n新增全注册表 sweep `packages/fields/src/__tests__/widget-aria-invalid-registry-e2e.test.tsx`（范式同 #3291 的 DOM leak sweep）：\n\n- 46 个注册类型 × 真实表单 + 真实 react-hook-form 校验失败（presence 语义 `required` + `null`，cloud#972），**先自证 \"is required\" 消息已渲染**再读 aria（无错误的错误变体什么都测不到）；\n- 送达者断言行内存在 `aria-invalid=\"true\"`，且失败前不存在（不许提前报警）；\n- 实测 **29 个类型未送达**，登记进棘轮账本 `NOT_YET_DELIVERED` 并**按反方向断言**：修好任何一个，它的账本行变红、强制移出账本——账本只能收缩，新类型默认走正向断言，不能悄悄进账本。29 个缺口已作为独立未认领 issue 记录：#3318；\n- 注册表 parity 断言 + 账本条目存在性断言（改名/删除的 widget 不能留下守空的账本行）。\n\n同时把 `select` 补进既有 `widget-aria-invalid-e2e.test.tsx`（#3222 的守卫，当年漏掉 select 的那个），新增 3 条针对 trigger 的断言：`aria-invalid` 仅在失败后为 `\"true\"`（此前显式 `\"false\"`）、`aria-required` 在位、`aria-describedby` 的 id 链闭合到渲染出的错误信息元素。\n\n## 破坏验证实录\n\n| 步骤 | 操作 | 结果 |\n|---|---|---|\n| 改坏 | 把 spread 还原回 Root、trigger 去掉 aria-invalid | 3 条新断言全红（`3 failed \\| 10 skipped`） |\n| 还原 | `git checkout` 回修复态 | `13 passed` 全绿 |\n| 守卫自证（正向） | 全注册表 sweep 以空账本首跑 | 29 个类型逐名红（每条失败信息点名 widget） |\n| 守卫自证（棘轮） | 把已送达的 `text` 植入账本 | 其账本行红：`field:text now delivers aria-invalid — remove it from NOT_YET_DELIVERED` |\n\n## 验证\n\n| 检查 | 结果 |\n|---|---|\n| `vitest run widget-aria-invalid-e2e.test.tsx` | 13 passed |\n| `vitest run widget-aria-invalid-registry-e2e.test.tsx` | 48 passed |\n| `vitest run widget-dom-leak-e2e.test.tsx`（#3313 的 gate，46×5） | 233 passed |\n| rebase（含 #3322）后 `vitest run packages/fields` 全包 | **46 文件 / 823 测试全绿**（含上述三个文件） |\n| turbo type-check / lint / build + 仓根全量 vitest | 本容器两次重启未能在本地完成，**交由 PR CI 把关** |\n\n改动仅涉 `packages/fields`（widget + 测试）与一个 changeset（`@object-ui/fields` patch，fixed group，无 major）。未触碰 `content/docs/releases/`。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3531,
+  "kind": "pull_request",
+  "title": "fix(app-shell): derive each context selector's URL scope key from its id",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:59:08Z",
+  "updated_at": "2026-08-07T03:11:56Z",
+  "closed_at": "2026-08-07T03:11:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T03:11:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3531",
+  "body": "Fixes #3500\n\n只做**①半**(URL 作用域键)。②半 `persist` 三取值的 enforce-or-remove 裁决在 objectstack#5994,**本 PR 完全不碰** `persist` 逻辑(`if (sel.persist === 'none') continue;` 一行未动),两半由两个座位串行落地。\n\n## 问题\n\n`useAppContextSelectors` 把 URL 作用域键写死成字面量 `package`,五处读写全都是它。而 `AppContextSelectorSchema` 是数组、`id` 的 `.describe` 明说「选中值按 `id` 暴露为导航模板变量」。于是声明第二个 selector 时:切换任意一个都写同一个 query key,每个 `contextValues[id]` 又都从同一个 key 读回 —— 元数据 parse 通过、渲染出两个下拉、两个模板变量拿到同一个值。\n\n`sessionStorage` 那一半本来就是按 selector 分开的(`objectui-ctx-${appName}-${sel.id}`),所以两半是错位的。\n\n## 改法\n\n新增 `contextSelectorQueryKey(id)`,按 selector 的 `id` 派生 query key,**读写两侧一致**地替换掉全部五处硬编码(重新施加已记住的作用域 2 处、写入选中值 2 处、读回当前值 1 处)。\n\n## 兼容路径:这是迁移,不是改名\n\nStudio 现有的 `?package=` 链接**逐字节不变**。`active_package` 通过 `LEGACY_SCOPE_QUERY_KEYS` 里**唯一一条**祖父条目继续拥有 `package` 这个键 —— 因为这个键根本不归本文件命名,它是与三方的活契约:\n\n1. 已经流传在外的 `?package=…` Studio 书签/分享链接;\n2. 六个 Studio 界面直接从 query string 读 `?package`:`StudioHomePage:165`、`DirectoryPage:114`、`ResourceListPage:174`、`ResourceEditPage:259` 与 `:1076`、`AiChatPage:737`(全部在 file fence 之外,本 PR 一行未动);\n3. `@objectstack/platform-objects` 的 `studio.app.ts` 里约 15 个导航项声明了 `params: { package: '{active_package}' }` —— **目的地的 query key 是由 app 元数据选的,不是由这个渲染器选的**。只在这边改名,两半立刻错位。\n\n所以取舍是:**已存在的 selector 保留原键,此后新声明的 selector 从第一天起就拿到自己的 `?` + `id` + `=`** —— 这正是本次修复的全部意义。表里不再加第二条:新 selector 想要一个更短的键,那是 spec 侧该有一个 `queryKey` 字段,而不是渲染器侧再加别名(AGENTS #0.1)。\n\n**日落条件**(写进了代码注释):满足以下任一条即删除该条目及整张表 ——\n(a) `AppContextSelectorSchema` 增加显式的 query-key 字段,由 app 作者声明;或\n(b) Studio 的导航元数据与上面六个读取面一并迁到 `?active_package=`。\n届时纯 `id` 派生不再需要任何例外。\n\n`UnifiedSidebar.tsx:345` 的 `?package` 直读也走同一套派生(`contextSelectorQueryKey(STUDIO_PACKAGE_SELECTOR_ID)`),读和回写都用派生出来的键 —— 对 `active_package` 结果仍是 `package`,链接逐字节相同,但两半从此不可能各自漂移。\n\n额外:两个 selector 派生出同一个键时(唯一可能的形状是同时声明 `active_package` 与 `package`)dev 环境 `console.warn` 告警 —— 静默镜像正是本次要消灭的症状,渲染器拒绝不了元数据,至少要出声。祖父表用 `Map` 而非对象字面量:`constructor` / `value_of` 都是合法的 snake_case id,对象查找会走原型链把函数当成 query key 返回。\n\n## 测试与反向验证(方向**先预测后运行**)\n\n新增 `packages/app-shell/src/layout/__tests__/ContextSelectors.scopeKey.test.tsx` —— 此前仓库里**没有任何用例声明第二个 selector**,这个洞在测试里同样不可见。\n\n反向验证方式:把两个源文件 `git checkout origin/main --` 还原,只补上两个新导出的临时 shim(五处硬编码保持 origin/main 原样),跑同一个测试文件:\n\n| 用例 | 预测 | origin/main 实测 |\n|:--|:--|:--|\n| 每个 selector 从自己的 key 读值 | RED | RED — `active_env` 收到 `crm_core`(镜像了第一个) |\n| 切换一个 selector 不动另一个的作用域 | RED | RED — `active_package` 被写成 `staging` |\n| 按各自的 key 重新施加已记住的作用域 | RED | RED — `active_env` 参数为 `null` |\n| 每个 id 发布互不相同的导航模板变量 | RED | RED — 解析出 `?env=crm_core` 而非 `?env=prod` |\n| 两个 selector 撞键时告警 | RED(新诊断) | RED — `warn` 调用 0 次 |\n| `contextSelectorQueryKey` 单元(2 条) | GREEN | GREEN |\n| **legacy `?package=` 兼容(读+写)** | **GREEN,改前改后都绿** | **GREEN** |\n\n最后一条按模板会被写成「改前红」,但那是**不诚实**的:兼容路径的正确性恰恰在于它**没有**改变行为 —— 它是一条**回归钉**,防的是日后有人「顺手清理」掉祖父条目,不是本次的行为变更。这里如实标注。\n\n打完补丁后同一文件 8/8 全绿。\n\n```\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n```\n\n### 消费方逐一交代(`git grep -n \"contextValues|get('package')|set('package')\"`)\n\n| 命中 | 处置 |\n|:--|:--|\n| `ContextSelectors.tsx` 五处硬编码 | **改** —— 全部走 `contextSelectorQueryKey` |\n| `UnifiedSidebar.tsx:345/347` | **改** —— 同一套派生;`:300/:514` 的 `contextValues` 消费不变 |\n| `AppSidebar.tsx:288/421/532` | 不动 —— 本来就按 `sel.id` 透传给 `templateContext`,现在拿到的值才是对的 |\n| `NavigationRenderer.tsx:441/456` | 不动 —— `contextValues?.[name]` 本来就按变量名(= selector id)查,问题从来在生产侧 |\n| `StudioHomePage:165` / `DirectoryPage:114` / `ResourceListPage:174` / `ResourceEditPage:259,1076` / `AiChatPage:737` | 不动 —— 兼容路径保证 `?package` 语义不变;越界即停 |\n| `UnifiedSidebar.derivedAreaVisibility.test.tsx:97` 的 `vi.mock('../ContextSelectors')` | **改** —— 只导出了 `useAppContextSelectors`,新导入的两个符号会让整个 suite 在 import 期炸掉(实测 7 red),补齐 mock |\n| `AppSidebar.derivedAreaVisibility.test.tsx:91` 的同名 mock | 不动 —— `AppSidebar` 没有导入新符号,mock 仍然成立 |\n| `packages/layout/.../resolveHref.test.ts:275` | 不动 —— 钉的是 `{active_package}` 的模板解析,不受影响 |\n\n### 验证命令\n\n```\npnpm exec vitest run packages/app-shell/src/layout        -> 12 files / 66 tests passed\npnpm exec vitest run packages/app-shell                   -> 284 files / 2478 passed, 1 skipped\npnpm --filter @object-ui/app-shell type-check             -> clean\npnpm exec eslint (四个改动文件)                          -> 0 errors\n```\n\n(全新 worktree 里先跑了 `pnpm --filter '@object-ui/app-shell^...' build`,否则 type-check 会报一片 `Cannot find module '@object-ui/*'` 的假红。)\n\nChangeset:`.changeset/context-selector-per-selector-scope-key.md`(patch,`@object-ui/app-shell`)。未触碰 `content/docs/releases/`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

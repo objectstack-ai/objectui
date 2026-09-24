@@ -1,0 +1,32 @@
+{
+  "number": 3671,
+  "kind": "pull_request",
+  "title": "test(app-shell): 把 MetadataRedirectStub 同步回宿主实现,并用整链断言钉住转录真实性 (#3661)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T18:32:13Z",
+  "updated_at": "2026-08-07T18:34:10Z",
+  "closed_at": "2026-08-07T18:33:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T18:33:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3671",
+  "body": "Fixes #3661\n\n## 前提复核(先证实,再动手)\n\nissue 正文的行号与断言在最新 `origin/main`(`fe4d4da37`,含 `7883c0250`)上**逐条命中**,前提成立:\n\n- `packages/app-shell/src/console/__tests__/AppContent.noAppComponentRoutes.test.tsx:159-176` 的 `MetadataRedirectStub` docblock 自称 *\"VERBATIM transcription … Keep the regex and the target construction identical to the original\"*,而 target 构造仍是别名拼法;\n- `apps/console/src/AppContent.tsx` 的 `MetadataRedirect` 自 `7883c0250` 起已改为直接构造 `…/metadata/:type[/:name]`;\n- 二者确实已经不一致。\n\n## 失真是**实测**出来的,不是从 diff 推出来的\n\n动手前先给 `LocationProbe` 加了链记录,原样跑了一遍旧 stub,把三条链打了出来:\n\n| 用例 | 旧 stub 下实测的链 | 跳数 |\n|---|---|---|\n| `sys-datasources` | `[component/metadata/resource?type=datasource, metadata/datasource]` | 1 |\n| `sys-objects` | `[system/metadata/object, **component/metadata/resource?type=object**, metadata/object]` | **2** |\n| typeless directory | `[system/metadata, **component/metadata/directory**, metadata]` | **2** |\n\n两点比 issue 正文多出来的事实:\n\n1. 链记录器**确实能看到中间站**(否则后面的逆向验证就是个空壳,红也红得没有意义);\n2. 失真的不止 `sys-objects` **一条** —— typeless directory 那条同样在测一条生产中已不存在的两跳链。issue 只点名了前者。\n\n## 改了什么\n\n### 1. stub 同步(逐字转录恢复为真)\n\n```\n-  const base = `${prefix}/component/metadata/resource`;\n+  const base = `${prefix}/metadata`;\n   const target = !metadataType\n-    ? `${prefix}/component/metadata/directory`\n+    ? base\n     : itemName\n-      ? `${base}/${itemName}?type=${metadataType}`\n-      : `${base}?type=${metadataType}`;\n+      ? `${base}/${encodeURIComponent(metadataType)}/${itemName}`\n+      : `${base}/${encodeURIComponent(metadataType)}`;\n```\n\n机器比对过:同步后 stub 函数体与宿主 `MetadataRedirect` 函数体**可执行代码逐字节一致**,唯一差异是宿主多带的三行注释(那三行 stub 改前也没有)。\n\ndocblock 改为注明转录对象路径、出处 commit(`7883c0250` / #3658),并明说「逐字」是一句**需要持续兑现**的声明 —— 它在 `7883c0250` 到 #3661 之间就是假的。\n\n### 2. 整链断言(本单的防复发部分)\n\n`LocationProbe` 升级为链记录器,`renderConsoleAt` 返回整条链,四条重定向用例改为 `toEqual` 整个数组。\n\n这是必要的:旧断言只钉最终 pathname,而**一跳与两跳的终点逐字节相同**,所以 stub 失真时没有任何断言会红。整链断言是这个文件里唯一能发现这件事的机制。\n\n### 3. 补一条用例,接住会被本 PR 删掉的覆盖\n\n零应用分支的 `component/metadata/directory`(app-shell `AppContent.tsx:659`,#3610 加的)在改前的**唯一**运行者就是 stub 的 typeless 臂 —— 顺路经过。stub 改直达后,该路由在全仓将失去所有覆盖:`pseudoRouteSegments.test.tsx:299` 虽然直接进入该别名,但走的是 `/apps/ghost/…`,会回退到默认 app,跑的是**带 app 分支**那份声明,不是零应用分支这份。\n\n所以补了一条直接进入的用例(手法与既有的 `sys-datasources` 一致 —— 别名作为入口而非中间站)。`SystemHubPage` 的 \"Metadata\" 卡片与书签今天仍在产出这个 URL,它是活输入。\n\n## 推断兑现(issue 里那条**未实测**的推断)\n\n#3639 的记录者标注了「方向 1 改完后该用例大概率仍绿,但**这一条我没有跑过**」。实测结论:**推断成立,仍绿。**\n\n```\n Test Files  1 passed (1)\n      Tests  7 passed (7)\n```\n\n理由与记录者写的一致:零应用分支本来就声明了 `metadata` 与 `metadata/:type`,断言的落点 `/apps/setup/metadata/object` 逐字未变,变的只有到达它的路径(两跳变一跳)。\n\n## 逆向验证(先预测,后运行)\n\n**预测**:只把 stub 的 target 构造回退成别名(docblock 与断言保持不动),应当**恰好两条**用例转红 —— `sys-objects` 与 typeless host arm;`sys-datasources` 与新补的 directory 用例应当**保持绿**,因为它们自己就以别名为入口,stub 不在它们的路径上。红的形态应为链多出一个中间条目。\n\n实跑:\n\n```\n × sys-objects: /apps/setup/system/metadata/object reaches this branch's metadata/:type in ONE hop\n × the typeless host arm reaches the metadata directory in ONE hop\n Test Files  1 failed (1)\n      Tests  2 failed | 5 passed (7)\n```\n\n两条,且 diff 各只多出**一行**:\n\n```\n  [\n    \"/apps/setup/system/metadata/object\",\n+   \"/apps/setup/component/metadata/resource?type=object\",\n    \"/apps/setup/metadata/object\",\n  ]\n\n  [\n    \"/apps/setup/system/metadata\",\n+   \"/apps/setup/component/metadata/directory\",\n    \"/apps/setup/metadata\",\n  ]\n```\n\n方向与预测一致,无反转。\n\n顺带,这两张 diff 本身就是**本单为什么会静默发生**的直接证据:两条链的**首尾条目完全没动**,只有中间多了一站。旧的「只断终点」断言在结构上就不可能红。\n\n## 门禁\n\n```\npnpm exec vitest run packages/app-shell/src/console/__tests__/AppContent.noAppComponentRoutes.test.tsx\n  → Test Files 1 passed / Tests 7 passed(改前 6 passed)\n\npnpm exec vitest run packages/app-shell/src/console/__tests__\n  → Test Files 6 passed (6) / Tests 64 passed (64)\n\npnpm --workspace-concurrency=2 --filter @object-ui/app-shell type-check   → 通过(tsc --noEmit && tsc -p tsconfig.typetests.json)\npnpm exec eslint <该文件>                                                  → exit 0\nnode scripts/check-control-bytes.mjs                                      → OK(3669 个文本文件)\ngrep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' <该文件>                          → 无\n```\n\n`type-check` 前先跑了 `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build`(新 worktree 未构建依赖会报一片 `Cannot find module '@object-ui/*'`,AGENTS.md §9 陈旧产物陷阱的镜像)。\n\n## changeset\n\n**不写**,判断依据:本 PR 只改一个测试文件,零生产代码改动,对包的发布物与运行时行为没有任何影响,不属于用户可见变更。\n\n## 越界发现(只报不改)\n\n- **#3669** —— `AppContent.pseudoRouteSegments.test.tsx:218-233` 有**第二份** `MetadataRedirectStub`,同样自称逐字转录、同样在 #3658 后仍走别名,同样有两条用例在测已不存在的两跳链。同机制同来源,但**不同文件**,而本单的文件面被明确限定为单文件,故立单未改。已打 `finding`、未打 `pm:queue`(测试是绿的,无用户可撞),未认领。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

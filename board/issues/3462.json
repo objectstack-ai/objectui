@@ -1,0 +1,36 @@
+{
+  "number": 3462,
+  "kind": "issue",
+  "title": "[i18n] ObjectView 的 getFormTitle() 自拼英文 `Create/Edit/View ${label}`,喂给 Drawer/Dialog 标题与 popover 浮层 —— #3426/#3459 的同族漏网",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:22:21Z",
+  "updated_at": "2026-08-06T08:02:47Z",
+  "closed_at": "2026-08-06T08:02:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3462",
+  "body": "发现于 #3459 的实现过程(PR 待开),**不在该 issue 的围栏内**,单独立单。\n\n## 缺陷\n\n`packages/plugin-view/src/ObjectView.tsx` 的 `getFormTitle()`(main@a32c4374c 之前约 847 行)在 TypeScript 里拼英文:\n\n```ts\nconst getFormTitle = (): string => {\n  if (schema.form?.title) return schema.form.title;\n  const objectLabel = (objectSchema?.label as string) || schema.objectName;\n  switch (formMode) {\n    case 'create': return `Create ${objectLabel}`;\n    case 'edit': return `Edit ${objectLabel}`;\n    case 'view': return `View ${objectLabel}`;\n    default: return objectLabel;\n  }\n};\n```\n\n三个消费点,全是**可见标题**:\n\n| 位置 | 组件 |\n|---|---|\n| `renderDrawerForm()` | `DrawerTitle` |\n| `renderModalForm()` | `DialogTitle` |\n| `formLayout === 'popover'` 分支 | `NavigationOverlay` 的 `title` prop |\n\n第三个正是 #3426 描述的那类:宿主传了 `title`,`NavigationOverlay` 的 `resolvedTitle = title || t('detail.recordDetail')` 默认值永不生效。\n\n#3459 只修了同文件里 `mode: 'split'` 那一处 `${objectLabel} Detail`,围栏没含 `getFormTitle` —— 它是另一组字符串(动词 + 标签),不是同一个 key 家族。\n\n## 可达性:已核验,不是死默认\n\n用与 #3457/#3459 相同的标准跑了真实交互(渲染块 → 点行 → 读标题),在 zh 会话下**通过**,即缺陷成立:\n\n```tsx\n// I18nProvider defaultLanguage: 'zh';getObjectSchema 返回 label: '联系人'\n// schema: { type: 'object-view', objectName: 'contacts', navigation: { mode: 'drawer' } }\nconst cell = await screen.findByText('Alice');\nfireEvent.click(cell);\nawait waitFor(() => expect(screen.getByText('View 联系人')).toBeInTheDocument());\n// → 通过:zh 会话里抽屉标题是 \"View 联系人\",英文动词直接挂在本地化标签前面\n```\n\n门槛比 split 那处还低:`navigation.mode: 'drawer'` 与 `'modal'` 都到得了,而 `ObjectViewSchema.layout` 的默认值本身就是 `'drawer'`,`deriveRecordSurface` 也常返回 `'drawer'` —— 即 `navigation` 完全不写也可能进这条路。`navigation` 在 `object-view` 的注册 `inputs` 里是声明过的可编写键。\n\napp-shell 的 ObjectView 包装器钉了 `layout: 'page'` 并给 `onNavigate`,那条路被宿主覆盖 —— 是一个消费者的覆盖,不是分支死掉。\n\n## 修法(建议,未实现)\n\n沿 #3426/#3459 的形状:三个动词分支走 key + `{{label}}` 插值,让各语言包自己决定语序(de 的复合词、ja/zh 的助词位置都与英文不同)。需要判定的是复用现有 key 还是新增:\n\n- `console.objectView.new` 已存在(#3459 实现里 `useCreateVerb` 读的就是它),但那是**按钮动词**,不是「Create + 对象名」的标题;\n- 十包里是否已有 `Create/Edit/View {{label}}` 形状的 key 需要先查,查不到再新增三个,并同步补进 `VIEW_DEFAULT_TRANSLATIONS`(#3459 已在该文件建好这张兜底表)。\n\n英文输出可否逐字节不变取决于选定的 key 拼写,派发时应作为裁定点写清。\n\n## 相关\n\n- #3426(PR #3457):ListView / ObjectGrid\n- #3459:kanban / tree / plugin-view 的 `${objectLabel} Detail`(split)\n\n未打 `finding` 标签:这是用户今天就能看到的具体缺陷(zh/ja/de 会话的抽屉/弹窗标题),留给 PM 定级。\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 2835,
+  "kind": "issue",
+  "title": "The live e2e suite never runs in CI — 20+ specs are effectively manual, and that is how framework#3528 shipped",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-27T05:55:47Z",
+  "updated_at": "2026-08-04T00:03:42Z",
+  "closed_at": "2026-08-04T00:03:42Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2835",
+  "body": "## The gap\n\n`e2e/live/**` holds 20+ Playwright specs covering the interaction-critical paths — row actions, action modals, master-detail, inline edit, conditional rules, form subforms, Studio designers. **None of them run in CI.** They need a real ObjectStack backend from a sibling checkout, and no CI job provides one:\n\n- `playwright.config.ts` (the only config CI runs, `ci.yml` → `pnpm test:e2e --project=chromium`) serves the console production build with **no backend**. `testIgnore: ['**/live/**']`. Its 4 specs assert blank-page / bootstrap health, and `console-rendering.spec.ts:22-34` explicitly whitelists `Failed to connect to ObjectStack server` as benign noise.\n- `playwright.live.config.ts` / `import-console` / `import-harness` all require externally-started servers and are gated behind env flags. They only run when a human remembers.\n\nSo the specs exist, they pass, and they guard nothing on their own.\n\n## Why this is worth fixing now\n\nframework#3528 is the concrete cost. A paused screen flow's dialog was torn down by its own host — an `object-form` step mounts lazily-loaded field widgets, and that suspension unwound to the host's route-level `<Suspense>`, which swapped the page for a fallback and remounted it, destroying the dialog and the run with it. Symptom: dialog closes, **zero network requests**, flow paused forever. It was reported as \"Submit does nothing\" and cost a full investigation to place.\n\nUnit tests could not see it: they render the runner directly with an eagerly-imported body, so there is no suspension and no host to tear down. Only a real browser against a real backend reproduces it. #2833 added `e2e/live/screen-flow.spec.ts` covering the full trigger → screen → resume round trip — and it lands straight into the suite that CI never runs.\n\n## Proposed work\n\nGive CI a backend and run `e2e/live/**` against it. Sketch:\n\n1. A job that boots an ObjectStack example app (the live specs target `showcase_app`) — container image, or `npx objectstack dev` against a published `@objectstack/*` with a file-backed sqlite db.\n2. Serve the console dev/preview build pointed at it; reuse `e2e/live/global-setup.ts` for auth (it already mints the session token and writes `storageState`).\n3. Run `pnpm test:e2e:live`. The specs are already fully env-parameterised (`LIVE_APP_URL` / `LIVE_API_URL`), so nothing needs rewriting — I ran the new screen-flow spec this way locally and it passed in ~10s wall clock.\n\nSequencing note: if a green CI is wanted before the whole suite is trustworthy, start with a small allowlist (`screen-flow`, `action-modal`, `master-detail`) and grow it, rather than switching all 20+ on at once and inheriting whatever flake exists.\n\nOne caveat found while mapping this: the `dev-server` job in `ci.yml:283-307` (\"Dev-server fixture build\") is **stale** — there is no `apps/dev-server` in the tree and no `@object-ui/dev-server` in any package.json (`apps/console/README.md:38-41` confirms it was removed). Don't build a fixture backend around that job; it needs deleting or rewriting either way.\n\n## Related\n\n`packages/plugin-dashboard/src/__tests__/DashboardRenderer.designMode.test.tsx` is `describe.skip`'d with `TODO(#ci-hang)` since 2026-05-01 — a whole suite disabled to unblock main and never root-caused. Different mechanism, same outcome: coverage that exists on disk and protects nothing. Worth folding into the same push.\n\n## Acceptance\n\n- A CI job runs at least a subset of `e2e/live/**` against a real backend on every PR.\n- The screen-flow round trip is in that subset.\n- The stale `dev-server` job is removed or repointed."
+}

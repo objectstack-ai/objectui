@@ -1,0 +1,36 @@
+{
+  "number": 3451,
+  "kind": "issue",
+  "title": "ci-cd-pipeline.md 的 ci.yml job 表格漂移:写「Seven jobs」并列了一个不存在的 dev-server job(实际 6 个)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:29:34Z",
+  "updated_at": "2026-08-06T06:46:14Z",
+  "closed_at": "2026-08-06T06:46:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3451",
+  "body": "## 现象\n\n`content/docs/guide/ci-cd-pipeline.md` 描述 `ci.yml` 的那一节写道:\n\n> Seven jobs, all parallel — there are no `needs:` edges between them:\n\n表格里第七行是:\n\n> \\| `dev-server` \\| Dev-server fixture build \\| `pnpm --filter @object-ui/dev-server build` — guards `apps/dev-server`'s `objectstack.config.ts` against fixture / `@objectstack/spec` drift. \\| Every run \\|\n\n但 `ci.yml` 里**没有** `dev-server` 这个 job,实际只有 **6** 个:\n\n```\n$ python3 -c \"import yaml; print(list(yaml.safe_load(open('.github/workflows/ci.yml'))['jobs'].keys()))\"\n['changeset-check', 'type-check', 'test', 'test-coverage', 'e2e', 'docs']\n```\n\nPR #3450 上跑出来的 checks 也印证了这一点(`ci.yml` 贡献的是 Changeset Fixed Group Check / Type Check / Test shard 1-4 / Test (coverage) / Build & E2E / Build Docs,没有任何 dev-server 条目)。\n\n## 为什么值得记\n\n这正是 #3197 / #3212 反复处理过的那类漂移 —— 「散文与 YAML 不同步」。而且方向是**更危险**的那一种:页面**宣称存在一个并不存在的守卫**。#3197 的测试注释本身就写过这个判断:\n\n> A doc that *understates* a gate is annoying; a doc that advertises a guardrail the CI does not have is worse than no doc, because people make size decisions believing something will stop them.\n\n按这一页读,贡献者会以为 `apps/dev-server` 的 `objectstack.config.ts` 每次 CI 都有 fixture / spec 漂移守卫;实际没有。(是否**应该**有这个 job 是另一个问题 —— 可能是 job 被删了而文档没跟,也可能是文档先写了而 job 从未落地;需要查一下历史再决定是补文档还是补 job。)\n\n## 现有测试为什么没拦住\n\n`scripts/__tests__/ci-cd-pipeline-doc.test.ts` 钉的是:\n- `performance-budget.yml` 的 `MAX_ENTRY_GZIP_KB` 与三档 advisory tiers;\n- **workflow 文件**清单(每个 `.github/workflows/*.yml` 必须有对应标题,且页面提到的 `*.yml` 必须真实存在)。\n\n它**不**校验 `ci.yml` 的 **job 表格**。所以 job 数量和 job 名称的漂移是这套 pin 的盲区。\n\n## 建议\n\n1. 先查清 `dev-server` job 是被删了还是从未存在,据此决定「删表格行」还是「补 job」。\n2. 顺手把 `Seven jobs` 的字面数字改对(或改成不写死数字的表述)。\n3. 可选、也是真正止血的一步:给 `ci-cd-pipeline-doc.test.ts` 加一条 job 表格的双向 pin —— 从 `ci.yml` 解析 `jobs` 的 key,与页面表格首列互相断言。这条如果早存在,本 issue 就不会发生;与该文件已有的「反向 pin」思路一致。\n\n## 相关\n\n- 由 #3213 / #3292 的修复 PR(#3450)顺带发现;该 PR 只同步了自己改动涉及的 `docs` 行,**未**触碰这处既存漂移。\n- 同源先例:#3197、#3212\n"
+}

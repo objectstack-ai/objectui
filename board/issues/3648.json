@@ -1,0 +1,32 @@
+{
+  "number": 3648,
+  "kind": "issue",
+  "title": "check-doc-links.mjs 的 judgeHref() 里有一段 4 行注释被逐字复制了两遍(PR #3629 引入)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:57:45Z",
+  "updated_at": "2026-08-07T18:54:50Z",
+  "closed_at": "2026-08-07T18:54:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3648",
+  "body": "发现于 #3622 的实现过程(读 `judgeHref()` 确认站内绝对 URL 的处理顺序时)。**观察类,今天没有任何用户或 CI 会碰到它;不在 #3622 完成范围内,按围栏未顺手改。**\n\n## 事实\n\n`scripts/check-doc-links.mjs` 的 `judgeHref()` 里,解释「站内绝对 URL 是穿了 origin 外衣的内部路由」的那段注释出现了两遍,一字不差。`origin/main`(0e4ea07b2,即 PR #3629)上的行号 689–696:\n\n```\n  // A URL on this site is an internal route wearing an origin. Strip the origin\n  // and judge what is left with the same `routeExists()` every absolute href\n  // goes through — so `/docs` strictness and the `apps/site` route table apply\n  // here too, on every surface, `content/docs` included.\n  // A URL on this site is an internal route wearing an origin. Strip the origin\n  // and judge what is left with the same `routeExists()` every absolute href\n  // goes through — so `/docs` strictness and the `apps/site` route table apply\n  // here too, on every surface, `content/docs` included.\n  const siteRoute = siteAbsoluteRoute(href);\n```\n\n纯注释,零行为影响,无测试相关。看上去是 #3629 合并时的一次重复粘贴。\n\n## 修复\n\n删掉重复的四行即可。这个文件的头注释是它最重要的资产(每一次扩面都在里面留了论证),重复段落会让下一个读者以为自己看漏了什么,所以值得清掉——但它既不是缺陷也不阻塞任何人,由分诊决定要不要单独排期,或者搭下一次动这个文件的车。"
+}

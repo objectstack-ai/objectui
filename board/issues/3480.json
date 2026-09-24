@@ -1,0 +1,36 @@
+{
+  "number": 3480,
+  "kind": "issue",
+  "title": "README.md 推荐了 4 个不存在的 example 应用(examples/crm、todo、kitchen-sink、msw-todo)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T09:14:32Z",
+  "updated_at": "2026-08-06T13:52:33Z",
+  "closed_at": "2026-08-06T13:52:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3480",
+  "body": "`README.md` 的 **Examples** 小节列了 6 个 example,其中 **4 个在仓库里不存在**。\n\n## 现状\n\n`README.md:59-62`:\n\n```markdown\n- **[examples/crm](examples/crm)** - Full-featured CRM application with dashboards, multiple views (Grid, Kanban, Map, Gantt), and custom server implementation.\n- **[examples/todo](examples/todo)** - Simple task management app demonstrating basic ObjectStack configuration and field types.\n- **[examples/kitchen-sink](examples/kitchen-sink)** - Comprehensive component catalog showing all available field types, dashboard widgets, and view types.\n- **[examples/msw-todo](examples/msw-todo)** - Frontend-first development example using MSW (Mock Service Worker) to run ObjectStack in the browser.\n```\n\n`examples/` 实际内容:\n\n```\nexamples/README.md\nexamples/byo-backend-console\nexamples/console-starter\nexamples/hello-world\nexamples/schema-catalog\n```\n\n`crm` / `todo` / `kitchen-sink` / `msw-todo` 四个目录都不存在。README 里另外两条(`byo-backend-console`、`console-starter`)是对的,而实际存在的 `hello-world`、`schema-catalog` 反过来没被 README 提到。\n\n## 影响\n\nREADME 是仓库门面。新用户点这四个链接会撞 GitHub 404,读到的却是四段言之凿凿的功能描述(CRM、Kanban、Map、Gantt、MSW…)。这比没写更糟。\n\n## 这不是新缺陷,是一直没人跑\n\n`README.md` **本来就在** `check-links.yml` 的扫描范围里 —— 也就是说这个 workflow 只要跑一次就会报出来。它是 `workflow_dispatch`-only(#3213 裁决 B),所以显然从来没被手动触发过。#3449 / PR #3477 给它加了每周 cron,以后这类问题会自己冒出来。\n\n用 `origin/main` 当时的 args 和 config 实测(lychee 0.24.2):\n\n```\n[README.md]:\n[ERROR] file://…/examples/crm            (at 59:5) | File not found.\n[ERROR] file://…/examples/todo           (at 60:5) | File not found.\n[ERROR] file://…/examples/kitchen-sink   (at 61:5) | File not found.\n[ERROR] file://…/examples/msw-todo       (at 62:5) | File not found.\n\n🔍 129 Total  🔗 104 Unique  ✅ 95 OK  🚫 4 Errors    (exit code 2)\n```\n\n## 建议的修法\n\n需要知道这四个 example 的去向才能决定,不是机械删除:\n\n- 如果是被删了 / 合并进 `console-starter` 之类 → 删掉这四条,并把实际存在的 `hello-world`、`schema-catalog` 补进去;\n- 如果是移到了别的仓库 → 改成指向那个仓库的绝对链接;\n- 如果是计划中还没建 → 从 README 挪走,不要用现在时描述不存在的东西。\n\n顺带把 README 的 Examples 列表和 `examples/` 目录、`examples/README.md` 对一遍。\n\n## 复现\n\n```bash\nlychee --offline --no-progress --config lychee.toml 'README.md'\n```\n"
+}

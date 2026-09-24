@@ -1,0 +1,36 @@
+{
+  "number": 3504,
+  "kind": "issue",
+  "title": "main 的 Type Check job 全红:#3489 与 #3498 的语义冲突,`check-doc-links.test.ts` 的 `@ts-expect-error` 在 allowJs 下变成 TS2578",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T01:20:48Z",
+  "updated_at": "2026-08-07T02:11:25Z",
+  "closed_at": "2026-08-07T02:11:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3504",
+  "body": "`origin/main`(`f995a452d`)上 `pnpm type-check:scripts` 直接失败,因此 **每一个 PR 的 `Type Check` job 都是红的**,与 PR 内容无关。在 #3478 的开发过程中撞到(PR #3503 的 Type Check 红,排查后确认与该 PR 无关)。\n\n## 复现(干净的 origin/main,零改动)\n\n```\ngit worktree add ../probe --detach origin/main && cd ../probe && pnpm install\npnpm type-check:scripts\n\n> tsc -p tsconfig.scripts.json\nscripts/__tests__/check-doc-links.test.ts(7,1): error TS2578: Unused '@ts-expect-error' directive.\n ELIFECYCLE  Command failed with exit code 2.\n```\n\n`scripts/__tests__/check-doc-links.test.ts:7-8`:\n\n```ts\n// @ts-expect-error — plain-JS CI helper, intentionally untyped\nimport { collectBrokenLinks, routeExists, stripCode } from '../check-doc-links.mjs';\n```\n\n## 成因:两个各自为绿的 PR 的语义冲突\n\n- `449227d71`(#3479 / PR #3489)新增了 `scripts/__tests__/check-doc-links.test.ts`,在导入 `.mjs` 助手时挂了 `@ts-expect-error`。**当时是对的** —— 那时没有任何 tsconfig 覆盖 `scripts/`,这个导入确实无类型。\n- `f995a452d`(#3494 / PR #3498)新增 `tsconfig.scripts.json`,其中 `allowJs: true`。于是那个 `.mjs` 导入**能解析出类型了**,`@ts-expect-error` 变成「压制了一个不存在的错误」,`TS2578` 触发。\n\n#3498 的 commit message 里恰好记录了它处理过同一类问题:「allowJs:true left 5, each a now-false `@ts-expect-error` comment ... Comments updated accordingly」。它修掉的是**它自己 base 上存在的那 5 个**;#3489 的第六个是在两者之间落地的,双方 CI 都看不见 —— #3489 早于这个 job 存在,#3498 的 base 里没有这个文件。\n\n这正是 #3498 想要根治的那类「pin test 无人编译」问题的镜像:job 建好了,但建好的那一刻就被一个并行合并的文件绊倒。\n\n## 建议修法(未实现,超出 #3478 的 file fence)\n\n删掉 `scripts/__tests__/check-doc-links.test.ts:7` 那行 `@ts-expect-error` 即可 —— 在 `allowJs: true` 下类型是从 `.mjs` 助手自身推断出来的,与 #3498 对另外 5 处的处理一致。建议顺带确认 `scripts/__tests__/` 下是否还有别的同类残留(#3498 之后新增的文件都可能重蹈)。\n\n值得单独想一想的是**如何让这类冲突不再静默落地**:这次的失败不是任一 PR 写错了,而是「新 job 的覆盖面」与「并行 PR 新增的文件」在 merge 时才相遇。合并前对目标 `main` 跑一次 `type-check:scripts`(而不是只对 PR 的 base)是最小的堵漏点。\n\n## 影响\n\n`main` 的 CI 处于红态,所有并行 agent 的 `Type Check` 都会失败,红色信号失去区分度 —— 真实的类型回归会被淹没在这条固定的报错里。"
+}

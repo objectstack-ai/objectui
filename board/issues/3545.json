@@ -1,0 +1,35 @@
+{
+  "number": 3545,
+  "kind": "issue",
+  "title": "CONTRIBUTING.md / ROADMAP.md 共 3 条死链:处在 check-doc-links 与 lychee 的双重扫描盲区",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:36:30Z",
+  "updated_at": "2026-08-07T14:13:11Z",
+  "closed_at": "2026-08-07T14:13:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3545",
+  "body": "实现 #3536(PR #3542,把门禁扫描面扩到 `examples/**` + 根 `README.md`)时,顺手用同一套磁盘存在性判定扫了根目录其余 markdown,扫出 3 条**当前真实死链**。按 Prime Directive #10 未在 PR #3542 中修复(越界),另立本单。\n\n## 三条死链\n\n| 文件:行 | 链接文本 | 目标 | 为什么死 |\n|---|---|---|---|\n| `CONTRIBUTING.md:153` | Architecture Documentation | `./docs/spec/architecture.md` | 根本没有 `docs/spec/` 目录。真实文件是 `docs/ARCHITECTURE.md` |\n| `CONTRIBUTING.md:469` | Documentation Guide | `./docs/README.md` | 不存在。`docs/` 下只有 `ARCHITECTURE.md`、`CONSOLE-STREAMLINING-SUMMARY.md`、`adr/`、`audits/`、`screenshots/` |\n| `ROADMAP.md:1892` | Plugin Development Guide | `./content/docs/guide/plugin-development.mdx` | 扩展名错:真实文件是 `plugin-development.md`(非 `.mdx`)。GitHub 供的是文件,不是路由,所以这是实打实的 404 |\n\n复现(只读,离线):\n\n```bash\nfor l in \"CONTRIBUTING.md docs/spec/architecture.md\" \\\n         \"CONTRIBUTING.md docs/README.md\" \\\n         \"ROADMAP.md content/docs/guide/plugin-development.mdx\"; do\n  set -- $l; test -e \"$2\" && echo \"OK   $2\" || echo \"DEAD $2 (linked from $1)\"\ndone\n```\n\n## 为什么没有任何门禁抓到\n\n这两个文件落在**两个检查器的盲区交集**里:\n\n- `scripts/check-doc-links.mjs` 的 `SCAN_ROOTS`(PR #3542 扩展后)是 `content/docs`、`examples`、`README.md` —— 不含 `CONTRIBUTING.md` / `ROADMAP.md`;\n- lychee(`.github/workflows/check-links.yml:71-75`)扫的是 `content/docs/**/*.{md,mdx}`、`docs/**/*.{md,mdx}`、`README.md` —— 同样不含这两个文件。而且它是周 cron + `continue-on-error`,本来也不 gate PR。\n\n也就是说:**根目录除 `README.md` 外的所有 markdown 从来没被任何门禁看过**。这正是 #3479(33 条)、#3490(18 条)、#3486/#3507 反复证明的那条规律 —— 没有门禁的面会静默积累。\n\n## 建议的修法(两步,可拆)\n\n1. **修这 3 条**:`./docs/ARCHITECTURE.md`、删除或改指真实文档、`plugin-development.md`。第 3 条按 #3509 的先例,也可考虑改指站内路由 `/docs/guide/plugin-development`(那样反而会落进 `content/docs` 之外的面,需先确认扫描面)。\n2. **补扫描面**(可选,建议同单):PR #3542 已经把\"按扫描根分流\"的表 `SCAN_ROOTS` 做成了数据,加这几个文件是**每个一行**的事:\n\n   ```js\n   { path: 'CONTRIBUTING.md', rule: 'disk' },\n   { path: 'ROADMAP.md', rule: 'disk' },\n   { path: 'docs', rule: 'disk' },\n   ```\n\n   PR #3542 的头注释里已如实写下\"Still not bought\"一节记录了这个面,以及\"扫出来的真实死链另单处理\"这件事。注意先跑一遍再决定范围 —— `docs/**`(ADR、audits)还没量过,可能不止 3 条。\n\n## 关联\n\n#3536 / PR #3542(扫描面两向扩展,本单的发现来源)、#3479、#3490 / PR #3506(前两次同类清理)、#3507 / PR #3509(自仓 URL 那一类)、#3486 / PR #3495、PR #3485。\n\n⚠️ 本单**未认领**,留给 PM 分诊。"
+}

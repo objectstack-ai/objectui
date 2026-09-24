@@ -1,0 +1,34 @@
+{
+  "number": 3640,
+  "kind": "pull_request",
+  "title": "test(filter-parity): 给两处 spec 词表减法加排除项存活棘轮 (#3628)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:49:05Z",
+  "updated_at": "2026-08-07T17:53:49Z",
+  "closed_at": "2026-08-07T17:53:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T17:53:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3640",
+  "body": "Fixes #3628\n\n与 #3601 / PR #3623 同一手法的**预防性**棘轮:两处 filter-operator 平价测试各自从 spec 派生的 `VIEW_FILTER_OPERATORS` 里减去一个手写排除集,却没有任何一条断言被减的 token 仍然是那份词表的成员。各加一条存活断言。\n\n## 问题形状\n\n- `packages/plugin-list/src/__tests__/filter-operator-ast-parity.test.ts` —— `HANDLED_BEFORE_MAPPING`\n- `packages/data-objectstack/src/filter-operator-ast-parity.test.ts` —— `NOT_THIS_ADAPTERS_JOB`\n\n两处减的都是 `is_empty` / `is_not_empty`,排除理由都成立(视图层在 `mapOperator` / 适配器被问到之前就把它们改写成 null 比较)。缺的是排除项**自身**的存活断言。\n\n上游一旦把这两个 token 退役或改名,减法就变成一次**空减法**:平价扫描依然全绿(它对剩下的 token 仍然是完整的),但排除行成了死重,注释还会继续对下一位读者宣称「视图层会先改写这一个」—— 而那时已经没有作者能声明这个 operator 了。这正是 #3601 里 82 条拒绝名单烂掉 37 条的同一个形状:**一份手写清单挂在 spec 派生的词表旁边,却没有一条断言清单成员仍然存在于那份词表**。\n\n## 测量(在本分支 worktree 重测,非照抄 issue 正文)\n\nworktree 装的是 lockfile 解析的 `@objectstack/spec@17.0.0-rc.5`:\n\n```\nspec version: 17.0.0-rc.5\nVIEW_FILTER_OPERATORS count: 19\nis_empty       LIVE in spec\nis_not_empty   LIVE in spec\n```\n\n与 issue 正文一致:**19 项词表,两条今天都还在,排除当前是有效的** —— 这条是预防性的,不是已兑现的腐化,没有任何现存排除项需要删除。\n\n## 实现取舍\n\n```ts\nit('every HANDLED_BEFORE_MAPPING token is still in the spec view vocabulary', () => {\n  const vocabulary = new Set< string >(VIEW_FILTER_OPERATORS);\n  const retired = [...HANDLED_BEFORE_MAPPING].filter((op) => !vocabulary.has(op));\n  expect(retired, `VIEW_FILTER_OPERATORS no longer lists these … tokens: ${retired.join(', ')}…`)\n    .toEqual([]);\n});\n```\n\n- **收集后一次性断言,而非逐条 `toBe(true)`**(照抄 PR #3623 的设计取舍):词表退役是整族落地的,逐条断言会停在第一条、藏住其余。失败信息点名死项,并提示「spec 已退役,请把它从排除集删除」而不是留一次死减法。\n- **用 `new Set< string >(VIEW_FILTER_OPERATORS)` 而不是 issue 正文建议的 `VIEW_FILTER_OPERATORS.includes(op)`**:`VIEW_FILTER_OPERATORS` 在 spec 的 d.ts 里是 `readonly [\"equals\", …]` 字面量元组,`.includes()` 只接受该字面量联合,传 `Set< string >` 迭代出的 `string` 会是 TS 错误。`Set` 查表既过了类型也是 O(1)。\n- 两个文件的**既有断言一行未改**,只加了新 `it` 与排除集 doc 注释里指向棘轮的一句。\n\n## 逆向验证(先预测后运行,两个方向都如预测)\n\n在两个排除集里临时塞一个词表从未有过的 token `never_existed_op`:\n\n| | 预测 | 实测 |\n| :-- | :-- | :-- |\n| **修前**(未改的两个文件) | 绿 —— 排除集只被当作减数用,一个不在词表里的成员什么都匹配不到 | ✅ 绿:`Test Files 2 passed (2)`,`Tests 42 passed (42)` |\n| **修后**(本 PR) | 红,且点名该 token;其余断言仍绿 | ✅ 红:`Test Files 2 failed (2)`,`Tests 2 failed / 42 passed (44)` |\n\n修后那一轮的失败输出(两个文件对称,摘 plugin-list 一条):\n\n```\nFAIL |unit| packages/plugin-list/src/__tests__/filter-operator-ast-parity.test.ts >\n  mapOperator bridges the spec view vocabulary onto the AST vocabulary >\n  every HANDLED_BEFORE_MAPPING token is still in the spec view vocabulary\nAssertionError: VIEW_FILTER_OPERATORS no longer lists these HANDLED_BEFORE_MAPPING\ntokens: never_existed_op. The spec has retired them, so subtracting them from the\nsweep below excuses nothing — delete each from the set …\n  expected [ 'never_existed_op' ] to deeply equal []\n```\n\n修前那一轮绿就是恒真缺陷的现场演示:两条排除行这些年一直处在「没人能发现它失效」的状态。验证后假 token 已还原,提交里不含它(见 diff)。\n\n## 验证\n\n```\n$ npx vitest run packages/plugin-list/…/filter-operator-ast-parity.test.ts \\\n                 packages/data-objectstack/src/filter-operator-ast-parity.test.ts --maxWorkers=2\n Test Files  2 passed (2)\n      Tests  44 passed (44)          # 42 + 2 条新棘轮\n\n$ npx vitest run packages/plugin-list packages/data-objectstack --maxWorkers=2\n Test Files  46 passed (46)\n      Tests  706 passed (706)\n\n$ pnpm --workspace-concurrency=2 --filter @object-ui/plugin-list --filter @object-ui/data-objectstack type-check\npackages/data-objectstack type-check: Done\npackages/plugin-list type-check: Done\n\n$ npx eslint <两个测试文件>        # exit 0,无告警\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3655 tracked text file(s); skipped 85 binary).\n```\n\n首轮 type-check 因新 worktree 未构建依赖而报 `Cannot find module '@object-ui/components'`(AGENTS.md §9 那个陷阱),先跑 `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-list^...' --filter '@object-ui/data-objectstack^...' build` 后即通过 —— 与本改动无关。\n\n**无 changeset**:测试-only 改动,不触碰任何包的公开面、运行时行为或类型导出 —— 按仓例(changeset 用于 user-visible 变更)无需 changeset,同 PR #3623 先例。\n\n**文件面**:两个测试文件,+63 −1。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

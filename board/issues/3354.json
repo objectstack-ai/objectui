@@ -1,0 +1,36 @@
+{
+  "number": 3354,
+  "kind": "issue",
+  "title": "`DrillDownConfig` 声明了三个渲染器不读的键:`view` / `sort` 全局无消费者,`target: 'navigate'` 在 ObjectChart 上被静默降级",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T07:43:21Z",
+  "updated_at": "2026-08-05T11:53:43Z",
+  "closed_at": "2026-08-05T11:53:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3354",
+  "body": "从 objectstack#5022 的读取点测量中分离出来,**未指派**。那单在问 spec 该怎么声明这个形状;要声明就得先知道哪些键真的活着,量的过程中掉出来三个不活的。\n\n## 发现\n\n`packages/types/src/data-display.ts:897` 的 `DrillDownConfig` 是 5 个 widget 共享的 drill 配置接口(ObjectChart / ObjectDataTable / ObjectPivotTable / ObjectMetricWidget / PivotTable)。其中:\n\n### 1. `view?: string` —— 无任何消费者\n\n接口里自陈是 \"Optional list view id (**reserved**)\"。全仓 grep `drillDown?.view` / `drillDown.view` 零命中,`computeDrillFilter` / `resolveDrillTitle` / `isDrillEnabled` 也都不看它。一个作者写了它,drill 抽屉照旧渲染内联 `object-data-table`。\n\n### 2. `sort?: Array<{ field: string; dir?: 'asc' | 'desc' }>` —— 无任何消费者\n\n接口注释 \"Default sort applied to the drill list\"。全仓无读取点:ObjectChart `:756-766` 构造 drill 表格 schema 时只放 `objectName` / `filter` / `pagination` / `pageSize` / `columns` / `drillDown`,没有 sort;ObjectPivotTable `:246-252` 同样;`DrillDownDrawer` 也不接。写了不排序。\n\n### 3. `target: 'navigate'` —— 在 **ObjectChart** 上静默降级成 drawer\n\n`'navigate'` 的实现在 `packages/plugin-dashboard/src/DrillDownDrawer.tsx:84`(`navigateOnly`),所以走 `DrillDownDrawer` 的 ObjectDataTable / ObjectPivotTable / ObjectMetricWidget 都honors 它。\n\n但 **ObjectChart 不走 `DrillDownDrawer`** —— 它在 `packages/plugin-charts/src/ObjectChart.tsx:750-809` 自绘抽屉,并且只有一个分支:\n\n```\nconst target = drillDown?.target ?? 'drawer';\n…\nif (target === 'dialog') { return ( … Dialog … ); }\nreturn ( … Sheet … );          // 'navigate' 落在这里\n```\n\n`'navigate'` 落进 `return Sheet`,和 `'drawer'` 无差别。共享接口的 JSDoc 却写着 \"Requires a host that provides drill navigation …; **falls back to `'drawer'` when none is available**\" —— 在 chart 上,即使 host 提供了 navigation(console 就提供),也一样回落。作者按文档写 `target: 'navigate'` 拿不到承诺的行为,而且没有任何提示。\n\n(旁注:chart 抽屉里的 \"Open in list\" escape hatch 是**独立**于 `target` 的,`openRecordList` 在就显示 —— 所以「能跳转」这件事本身没坏,坏的是 `target: 'navigate'` 这个声明在 chart 上不兑现。)\n\n## 为什么值得单开\n\n这三个都是 declared ≠ delivered:类型声明在 `@object-ui/types` 的公共接口上,作者(以及正在照着这个接口反推 spec 形状的 objectstack#5022)会当成可写能力。objectstack 侧正在决定要不要把这个形状提升成协议声明键 —— 如果照抄全集,这三个键会被**带上协议权威**,那就从「渲染器里的死键」升级成「协议承诺的死键」,代价高一个量级。\n\n## 建议(择一)\n\n- **实现**:`view` 接 app 的 list view registry;`sort` 透传进 drill 表格 schema;ObjectChart 改走 `DrillDownDrawer`(或自己加 `navigate` 分支)。\n- **或删**:三个键从 `DrillDownConfig` 摘掉(`view`/`sort` 无人写,`target` 收窄成 chart 支持的 `'drawer' | 'dialog'` 需要按 widget 分型,不能一刀切)。\n\n无论哪条,都应该先于 objectstack#5022 的声明落地,否则协议会照着一份含死键的接口成形。\n\n## 参考\n\n- objectstack#5022(`drillDown` 是活能力却不是 spec 声明的任何键)\n- objectstack#5175(`chartConfig` 在 dashboard 面只有 `showLegend` 落地 —— 同一次测量的另一半)"
+}

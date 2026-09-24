@@ -1,0 +1,32 @@
+{
+  "number": 3624,
+  "kind": "pull_request",
+  "title": "fix(app-shell): expand `view` edit-gate union failures into per-field diagnostics",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:12:23Z",
+  "updated_at": "2026-08-07T16:24:24Z",
+  "closed_at": "2026-08-07T16:24:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:24:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3624",
+  "body": "Fixes #3606\n\n## 问题\n\n#3607(objectstack#5316)把 `view` 编辑路切到 wire 门 `ViewMetadataSchema` —— 这是对的,它正是 `view` 元数据类型注册、服务端 `saveMetaItem` 所判的那个 schema。但它是 `z.preprocess(strip, z.union([...]))`,而 Zod 对 union 失败只产出**一条根级 issue**(`code: 'invalid_union'`,`path: []`,`message: 'Invalid input'`),四个成员各自的真实诊断埋在 `issue.errors` 里(每个成员一组,按成员序)。\n\n`validateMetadataDraft` 的映射是逐字照搬那条根 issue,于是编辑路的逐字段诊断全部塌陷。`SchemaForm` 按 `path` 做内联高亮、Monaco 按 `path` 定位 —— 空 path 指向不了任何东西;spec 为这些拒绝**专门撰写**的引导消息(#4001 那批)在编辑路上完全看不到。\n\n## 改动\n\n失败之后,按 draft **自身的判别式**选定 union 成员,展开该成员的 issues。判别式复用创建路已有的 `viewKind` 判定,这次抽成单一的 `isViewItemDraft`,两条路不可能再各自漂移。\n\n**只呈现选中成员的 issues** —— 四个成员全摆出来会把「这不是 view container」摆到正在编辑 ViewItem 的人脸上。issue 里提到的启发式选支(issue 数最少 / path 最深)已被一条测试钉死为错误做法。\n\n## 实测:修前 / 修后\n\n编辑路(`mode: 'edit'`),`@objectstack/spec` 17.0.0-rc.5:\n\n| body | 修前 path | 修前 message | 修后 path | 修后 message |\n|---|---|---|---|---|\n| stored ViewItem,`config.type: 'not_a_real_layout'` | `` (空) | `Invalid input` | `config.type` | `Invalid option: expected one of \"grid\"｜\"kanban\"｜\"gallery\"｜…` |\n| stored ViewItem,缺 `name` | `` (空) | `Invalid input` | `name` | `Invalid input: expected string, received undefined` |\n| stored ViewItem,`config.filter[0].operator` 非法 | `` (空) | `Invalid input` | `config.filter.0.operator` | `Invalid option: expected one of \"equals\"｜\"not_equals\"｜…` |\n| container 带未知键 `notAContainerKey` | `` (空) | `Invalid input` | `` (根,正确) | ``Unrecognized key(s) on this view container: `notAContainerKey`. Until #4001 closed these shapes an unknown key was dropped silently — …`` |\n| container 带单视图键 `columns` | `` (空) | `Invalid input` | `` (根,正确) | 上一条 + 逐键提示:``• `columns` belongs to a single VIEW, not to the container. Wrap it: `defineView({ list: { type, data, columns, … } })`, or name it — … `` |\n\n对 issue 正文的一处事实订正:正文把容器拒绝的消息引成 `Unrecognized key(s) on this view container: … Wrap it: defineView({...})`。实测这两截**不是同一条消息** —— `Wrap it: defineView(...)` 是 spec 只挂在**属于单个 view 的那批键**(`type`/`columns`/`data`/`viewKind`/`filters`/`sort`)上的逐键提示;`notAContainerKey` 这种普通未知键拿到的是不带该提示的通用消息。表格最后两行分别钉住这两种,避免以后有人照 issue 正文去断言而扑空。\n\n## 判定奇偶性:只有呈现变了\n\n展开逻辑跑在 issue → `SchemaFormIssue` 的**映射内部**,位置在 `ok` 判定之后、且在既有的 `serverRequired` / flow 前向兼容两个过滤器之后 —— 驱动 `ok` 的那组 raw issues 一个都没动。所以判定不是「测出来没变」,而是**结构上不可能变**。\n\n这一点仍然写成了 pin(`view verdict parity` 一节):三种运行时形状 × 合法/非法 × 两种 mode,逐一断言 `ok`。它**修前修后都是绿的** —— 这正是它的意义,它是防回归的那一半,不是「修前红修后绿」的那一半。若有人日后把这里改成 try-both 兜底改判,这组期望会翻成 `true` 而爆掉。\n\n`clientValidation.viewShapes.test.ts` 的现有 pin 一行未改,原样通过。创建路(`ViewItemSchema` / `ViewSchema`,都不是根 union)行为零变化,并按精确 path+message 钉住,而不是只靠论证。\n\n## 为什么按成员序索引,而不是拿导出的成员 schema 重解一遍\n\n两条都测量过:\n\n- `ViewMetadataSchema` union 的 `options[0]` **就是**导出的 `ViewItemWireSchema`(同一个对象);但 `options[1]` **不是**导出的 `ViewSchema` —— 今天二者 shape 相同、行为相同,但那是**手工维持的相似**,正是 #5316 在本文件注释里明确拒绝依赖的东西。\n- 重解一遍还必须自己再调一次 `stripViewConsoleDecorations`,把 spec 的 preprocess 组合在第二个地方复刻出来 —— 又一处会漂移的复制品(`config.filter[].id` 那条 false positive 就是这么来的)。\n\n读「判定时那一次运行自己产出的」错误组,是唯一能保证**诊断不会描述另一个 schema**的做法。代价是耦合成员**顺序**(spec 内部细节),这个代价用 CANARY 测试兜住:它们断言选中成员的精确 path + message,spec 一旦重排/增删 union 成员,测试直接红,而不是静默误选。\n\n## 已知残留(未修,不在本 issue 范围)\n\n只展开**根**上的 union。成员 issue 的 `path` 相对于 union 节点,只有在根上它才等于 draft 绝对路径。更深处的嵌套 union(实测:`config.columns` 是 `string[] | ColumnDef[]`,无判别式)仍保留 Zod 自己的 `Invalid input` —— 但它带着真实 path `config.columns`,**是可定位的**,这与根上那条空 path 有本质区别。已在 `a rejected draft always renders at least one issue` 里覆盖到,不会静默丢诊断。\n\n## 测试\n\n新增 `packages/app-shell/src/views/metadata-admin/clientValidation.viewDiagnostics.test.ts`(18 条:5 CANARY + 2 噪音控制 + 2 兜底 + 2 创建路 + 7 判定奇偶)。\n\n反向验证(先写预测再跑):还原实现后 **7 红**(5 CANARY + 2 噪音控制),打回实现后 **0 红**;11 条判定奇偶/创建路/兜底测试**两个方向都绿**。\n\n有一处预测未命中,如实记录:两条噪音控制测试最初**修前也是绿的** —— 它们只有 `not.toContain(...)`,而塌陷后的 `Invalid input` 恰好也不含任何被禁子串,即「因为什么都没产出所以绿」。已各补一条正向锚点断言,补后两条都变成修前红、修后绿。\n\n```\nvitest run packages/app-shell/src/views/metadata-admin/   →  128 passed, 1187 passed | 1 skipped\npnpm --filter @object-ui/app-shell type-check             →  clean\neslint (两个改动文件)                                      →  clean\nnode scripts/check-control-bytes.mjs                      →  OK (3644 files)\nnode scripts/check-changeset-fixed.mjs / -no-major.mjs    →  OK\n```\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

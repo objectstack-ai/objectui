@@ -1,0 +1,33 @@
+{
+  "number": 3280,
+  "kind": "issue",
+  "title": "console preview 样例在非 strict 集合上还带着 5 个静默剥掉的键(view / job / email_template),其中 job 的 `timeoutMs` 是拼错的 `timeout`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:17:52Z",
+  "updated_at": "2026-08-04T05:03:21Z",
+  "closed_at": "2026-08-04T05:03:21Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3280",
+  "body": "在做 objectui#3276(修 `validation` 样例写反的 `condition`、删掉它 3 个被静默剥掉的键)时,按 PM 的要求把**所有**样例机械过了一遍,找出「作者写了、但 parse 之后根本不存在」的键。#3276 的 scope 只有 `validation` 和 `skill`,剩下的记这里(Prime Directive #10)。\n\n## 怎么测的\n\n把每个样例按 `preview-samples-spec-valid.test.ts` 的方式嵌进 `ObjectStackSchema`,`safeParse` 之后把**输入对象**和**输出对象**逐层 key 比对,凡是输入有、输出没有的就是被剥掉的:\n\n```\ndiff(at(stack, path), at(result.data, path))\n```\n\n这正是 #3257 那个守卫在 LIMIT 注释里自己声明**测不到**的部分 —— `views` / `jobs` / `emailTemplates` 不是 `.strict()`,未知键被剥而不是被拒,所以这三个样例现在全都「PASS」。\n\n## 结果(修完 #3276 之后的当前 main)\n\n`validation`、`skill`、`report`、`app`、`action`、`flow`、`agent`、`tool`、`permission`、`position`、`datasource` 干净;`object`/`page`/`dashboard`/`translation` 本来就 parse 失败(KNOWN_STALE),不适用。剩下三个:\n\n| 样例 | 被剥掉的键 | spec 现状 |\n|---|---|---|\n| `view` | `name`、`label`、`object`、`list.object` | `ViewSchema` 是个**容器**,只有 `list` / `form` / `listViews` / `formViews`(+ `protection`)。它**没有任何身份键** |\n| `job` | `concurrency`、`timeoutMs` | `JobSchema` 没有 `concurrency`;超时键叫 **`timeout`**(同样是毫秒),`timeoutMs` 是拼错的 |\n| `email_template` | `from`、`to` | `EmailTemplateDefinitionSchema` 的发件人覆盖键叫 **`fromOverride`**;`to` 压根不是授权期元数据 —— 收件人是 `IEmailService.sendTemplate({ template, to, … })` 的**运行时入参** |\n\n## 逐条分析\n\n### 1. `job.timeoutMs` —— 和 #3266 修过的 `datasource.interval` 是同一个错\n\n样例写 `timeoutMs: 600000`,spec 的键是 `timeout`(`'Per-attempt time limit in milliseconds'`)。照抄的人得到一个**没有超时的 job**,而且没有任何反馈 —— 键名错了就是被剥掉。这和 #3266 修 `healthCheck.interval` → `intervalMs` 完全同型,只是方向相反(那次是漏了 `Ms`,这次是多了 `Ms`)。\n\n`concurrency: 1` 则是 `JobSchema` 上不存在的概念,没有对应键可改,建议直接删。\n\n### 2. `email_template.from` / `to` —— 一个拼错、一个层级错\n\n- `from: 'sales@example.com'` → 应为 `fromOverride`(`EmailAddressInlineSchema`,注意形态可能不是裸字符串,要照 schema 写);\n- `to: '${contact.email}'` → **删掉**。收件人在发送时给,模板定义不带 `to`。这和 #3276 里 `validation.object` 被删是同一个道理:宿主/调用方才是它的作用域。\n\n顺带:样例的 `subject` / `bodyHtml` 用的是 `${var}` 占位符,而 spec 的 docstring 写的是 `{{var.path}}`。这个不影响 parse(都是字符串),但如果 `{{}}` 才是渲染器认的语法,样例现在教的是错的 —— 需要确认后一并改。\n\n### 3. `view` —— 不是「多写了键」,是**映射本身存疑**,和 KNOWN_STALE 里的 `translation` 同型\n\n`ObjectStackSchema.views` 是 `z.array( ViewSchema )`,而 `ViewSchema` 是个**没有身份键的容器**。于是样例的 `name: 'open_orders'` / `label: 'Open Orders'` / `object: 'sales_order'` 三个键全部蒸发,解析结果只剩 `{ list: { type, columns } }` —— 一个不知道自己叫什么、也不知道挂在哪个对象上的列表视图。\n\nspec 自己在 `defineView` 的 docstring 里警告过**相邻**的坑:\n\n> `ViewSchema` strips unknown top-level keys, so a *flat* list view (`{ name, label, type, columns, … }`) would parse to an empty container — zero views register and the Console silently renders nothing.\n\n我们的样例是「半扁平」:因为有 `list` 所以不是空容器,视图能注册,但身份键照样丢光。\n\n**这个不能靠删键修**。真正的问题是:一个放在 `views[]` 数组里的容器,凭什么绑定到某个对象?要么 stack 层的 `views` 应该是 `Record< objectName, ViewSchema >` 而不是数组,要么样例根本该表达成对象上的 `listViews: { open_orders: {…} }`。**先定这个契约,再改样例** —— 和 KNOWN_STALE 里 `translation` 那行留的判断是同一类。\n\n⚠️ 注意 `view` 现在在 `SPEC_CLEAN` 里。它「通过」只是因为剥掉之后剩下的东西恰好合法,不代表样例是对的。\n\n## 建议\n\n1. `job`:`timeoutMs` → `timeout`,删 `concurrency`;\n2. `email_template`:`from` → `fromOverride`(按 `EmailAddressInlineSchema` 的形态写),删 `to`;顺带确认占位符语法是 `${}` 还是 `{{}}`;\n3. `view`:**先定契约**(数组容器怎么绑对象),别急着改样例;\n4. 加一个**机械的「静默剥键」检查**(下详)。\n\n## 关于第 4 条:这不是语义断言,别和 #3276 拒掉的那件事混了\n\n#3276 明确不让把**规则语义**的断言(「condition 的方向对不对」)塞进 `preview-samples-spec-valid.test.ts` —— 那个守卫的职责是「能不能发布」,同意。\n\n但「作者写的键 parse 后还在不在」是**结构性**的,不是语义性的:它不需要理解规则的意思,只要比对 parse 前后的 key 集合,而且它恰好补上了那个守卫在自己 LIMIT 注释里承认的盲区。上面 5 个键、加上 #3276 修掉的 4 个(`validation` 的 `object`/`field`/`expression`、`skill` 的 `type`),9 个全是它一次跑出来的。\n\n要做的话,建议**单独一个 test**(可以同文件、独立 `it`,也可以独立文件),带自己的 ledger —— `view` 那三行在契约定下来之前只能挂账,不能当成 pass。做成什么形态由接手的人定,这里只提供依据和现成的比对逻辑。\n\n## 相关\n\n- objectui#3276(`validation` / `skill` 侧已修,本单是同一次审计的其余部分)\n- objectui#3257 / PR #3269(守卫本体,及其 LIMIT 注释)\n- objectui#3266 / PR #3277(`datasource.interval` → `intervalMs`,同型)\n- objectui#3275(渲染器侧的宽容消费者)\n\n⚠️ 未指派 —— 由 #3276 顺带发现并记录,不在那个 PR 里修:scope fence 是 `validation` / `skill` 两个样例。\n"
+}

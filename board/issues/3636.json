@@ -1,0 +1,32 @@
+{
+  "number": 3636,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 零应用分支补 component/metadata 别名路由与 catch-all (#3610)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:41:07Z",
+  "updated_at": "2026-08-07T16:49:25Z",
+  "closed_at": "2026-08-07T16:49:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:49:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3636",
+  "body": "Fixes #3610\n\n## 现象与成因\n\n零应用部署下,系统兜底侧栏的两项点下去是纯白屏 —— 没有 404、没有报错、没有空态:\n\n- `sys-datasources` → `/apps/setup/component/metadata/resource?type=datasource`\n- `sys-objects` → `/apps/setup/system/metadata/object`,由 console 宿主的 `MetadataRedirect` 改写成上面同一条 URL\n\n`AppContent.tsx:185` 的 `isMetadataRoute` 是对 `/metadata` 的子串判断,两条 URL 都为真,于是越过 `:568` 的「No Apps Configured」守卫,进入 `:616` 的无-activeApp 路由表。该表只声明 `create-app`、`system/marketplace*`、`metadata*` 与宿主传入的 `extraRoutesNoApp`,**没有任何 `component/*`**;而且末尾**没有 catch-all**(全文件 `path=\"*\"` 只有一处,在有-activeApp 分支的 `:775`)。无匹配的路由表渲染 `null` = 白屏。\n\n## 两种拼法的关系(实测,与派发预设相反)\n\n派发单假设 `component/metadata/resource?type=` 才是规范拼法(理由是宿主的 `MetadataRedirect` 往它改写)。**实测结论正好相反:**\n\n- `AppContent.tsx:753-754`(有-activeApp 分支)把这两条 `component/metadata/*` 声明为 `LegacyMetadataRedirect`,上方注释原文:*\"Legacy: old metadata routes built before the REST-style nesting landed. Redirect to the new /metadata/:type/... shape.\"*\n- `LegacyMetadataRedirect` 自己的 docblock(`:927-933`)写的是同一件事:把 *pre-refactor* 的 `component/metadata/resource/:name?type=:type` 翻译成 *new REST-style* 的 `metadata/:type/:name`。\n\n所以**两种拼法不是同一页面的两个入口,而是一个别名指向一个页面**:`metadata/:type` 才是规范拼法(两个分支都把它声明为真正的 `MetadataResourceListPage`),`component/metadata/resource` 是旧别名 —— 在有-app 分支里它根本不渲染页面,只做 302。\n\n这个结论**不改修法,只改叙述**:「镜像有-app 分支的 `component/metadata` 形态、渲染同一组件」落地下来就是把同样两条 `LegacyMetadataRedirect` 声明进无-app 分支,而它们转向的 `metadata/:type` 该分支本来就有。这也正是契约优先的选择:**别名保持唯一的规范落点**,不为零应用另造一个拼法。导航 URL 一个没改。\n\n## 改动\n\n`packages/app-shell/src/console/AppContent.tsx`,只动无-activeApp 分支(+22 行,全部为新增):\n\n1. 补 `component/metadata/directory` 与 `component/metadata/resource/*` 两条别名路由,element 与有-app 分支完全一致。\n2. 分支末尾补 `path=\"*\"` → `RouteNotFound`,与有-app 分支的 `:775` 对齐 —— 让这一类缺陷从「白屏不可报告」变成「可读的没找到」。\n\n零应用下的完整链路(测试逐条钉住):\n\n| 入口 URL | 链路 | 落点 |\n| --- | --- | --- |\n| `/apps/setup/component/metadata/resource?type=datasource` | 别名 302 | `/apps/setup/metadata/datasource` 资源列表页 |\n| `/apps/setup/system/metadata/object` | 宿主 `MetadataRedirect` → `…/component/metadata/resource?type=object` → 别名 302 | `/apps/setup/metadata/object` 资源列表页 |\n| `/apps/setup/system/metadata` | 宿主 → `…/component/metadata/directory` → 别名 302 | `/apps/setup/metadata` 目录页 |\n| `/apps/setup/system/no-such-page` | catch-all | RouteNotFound(原白屏) |\n\n`sys-objects` 那条绕行链穿过**三张路由表、两次重定向**,是最不显眼、最会静默回归的一条,按分诊裁定单独钉了一条测试。\n\n## 逆向验证(先预测后运行)\n\n**预测**:新测试保留、`AppContent.tsx` 停在 `origin/main` 状态 → 五条新断言全红,方向是**查无元素**(白屏),而不是渲染错误。\n\n**实测吻合** —— `Tests 5 failed | 1 passed (6)`。失败现场的 DOM dump 里 body 只剩测试自己的 `pathname` 探针,一个业务节点都没有,这是白屏的字面证据:\n\n```\nTestingLibraryElementError: Unable to find an element with the text: Page not found.\nbody\n  div\n    div data-testid=\"pathname\"\n      /apps/setup/system/no-such-page\n```\n\n第 6 条预期即为绿 —— 它是边界测量,不是回归钉子,见下一节。\n\n## 一处验收口径修正\n\n验收条目里的「访问 `/apps/setup/no-such-page` → 渲染 RouteNotFound」**这条 URL 选错了**:它不含 `/system`、不含 `/metadata`、也不以 `/create-app` 结尾,三个开关全不亮,所以它压根进不了这个分支 —— `:568` 的守卫先命中,渲染的是「No Apps Configured」空态(既有行为,`AppContent.noAppsCta.test.tsx` 已有同族钉子)。真正需要 catch-all 的,是**进得了分支却匹配不上**的 URL,例如 `/apps/setup/system/no-such-page`。测试按后者写,并把前者作为边界单独钉了一条 MEASUREMENT 用例,免得这两块屏日后被混为一谈。\n\n## 测试\n\n新增 `packages/app-shell/src/console/__tests__/AppContent.noAppComponentRoutes.test.tsx`(6 条)。宿主的 `MetadataRedirect` 是 `apps/console` 的模块私有函数、且属于另一个 vitest project,app-shell 无法 import,因此在测试里**逐字转写**了它的 `prefix` 正则与 target 构造,并在文件头注明出处 —— 没有它,`sys-objects` 那一跳在 app-shell 内不可测量。\n\n```\npnpm exec vitest run packages/app-shell/  →  Test Files 288 passed (288) / Tests 2516 passed | 1 skipped (2517)\npnpm exec vitest run apps/console/        →  Test Files  23 passed  (23) / Tests  212 passed (212)\npnpm --filter @object-ui/app-shell type-check  →  clean\nnode scripts/check-control-bytes.mjs      →  OK (3650 tracked text files)\neslint(三个改动文件)                      →  0 errors(37 warnings 均为既有 no-explicit-any)\n```\n\n有-activeApp 分支零改动,现有测试全绿。\n\n## 范围\n\n只碰 `AppContent.tsx` 的无-app 分支、其测试与 changeset。**未碰** `UnifiedSidebar.tsx`(在途 #3609)、`AppSidebar.tsx`(#3611)、`ConsoleShell.tsx`、`QuickActions.tsx`、`apps/console/**` —— 导航侧 URL 一个未改。\n\n顺带把 `AppContent.noAppsCta.test.tsx` 里两处「该分支没有 catch-all,因此渲染空白」的注释改写为现状(断言未动)—— 本 PR 正是让那句话过期的改动。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3392,
+  "kind": "pull_request",
+  "title": "fix(components,i18n): 把 form.tsx 剩余的用户可见硬编码英文接入 i18n (#3272)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T15:32:34Z",
+  "updated_at": "2026-08-05T15:42:29Z",
+  "closed_at": "2026-08-05T15:42:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T15:42:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3392",
+  "body": "Fixes #3272\n\n## 背景\n\n`packages/components/src/renderers/form/form.tsx` 顶部早有 `useSafeFormTranslation`,校验消息、门控提示、选项空态都已接 i18n,但同一文件里还剩几处用户可见的英文字面量从来没接过 —— zh/ja/ar 会话下,同一张表单里一半句子是中文、一半是英文。\n\n## 逐项复核\n\nissue 的行号基于 08-03 快照,今日 main 已被 #5407 / #3290 等改过,四条先各自对着 `origin/main` 复核:\n\n| issue 条目 | 今日 origin/main 的实际情况 | 本 PR |\n|---|---|---|\n| 1. 全屏文本编辑对话框 | **仍在** | 已修 |\n| 2. `submitLabel` / `cancelLabel` 英文默认值 | **仍在** | 已修(按 PM 裁定) |\n| 3. `aria-label=\"required\"` | **已消失** —— objectui#3290 已把必填星号整体移出无障碍树(`aria-hidden=\"true\"` + `data-required-marker`),`aria-required` 改由控件自身承载。原位置现在是一段解释这件事的注释 | 无需改动 |\n| 4. select 的 `placeholder \\|\\| 'Select an option'` | **仍在**,但 issue 说它「够不到」并不准确 —— 见下 | 已删 |\n\n第 3 条的前提已经失效,如实报告,不强凑改动。\n\n## 第 1 项 —— 全屏对话框\n\n新增 `form.fullscreen.*`,十个语言包齐:`title`(标题回落)、`description`(sr-only 描述)、`done`(底部确认按钮)。\n\n底部的 `Cancel` 复用已有的 `common.cancel`,不另起 `form.fullscreen.cancel` —— 「Cancel」这个词全仓十包早就有了,再抄一份正是 #3231 / #3263 花力气收掉的那种漂移。\n\n顺带把同一组件里展开按钮的 `aria-label`(原文是模板串 `Edit ${label ?? 'text'} fullscreen`)也接上了。issue 的条目里没逐字点到它,但它就在同一个组件里、是同一类缺陷(屏幕阅读器在任何语言下都念英文),留一处不修会很怪。\n\n这里有一个刻意的取舍:它做成**一个带插值的句子** `toggle: 'Edit {{label}} fullscreen'` **加一个被翻译的通用名词** `textFallback: 'text'`,而不是「有 label 一句 / 没 label 另一句」两个 key。原因是 `label` 目前恒为 `undefined`(见下方「顺带发现」#3393),两 key 写法会让「有 label」那个 key 在十个包里全是死翻译;插值写法则两个 key 都在活路径上,而且将来 `label` 补通了句子直接就对。\n\n## 第 2 项 —— Submit / Cancel 默认值(按 PM 裁定)\n\n组件侧 prop 默认值从字面量改为 **`undefined` 加渲染时 `t()` 回落**:\n\n- 解构处不再写 `submitLabel = 'Submit'`,渲染处写 `submitLabel ?? t('common.submit')`;\n- **作者显式写的值逐字优先**,并用测试钉住了两个方向:zh 会话下作者写的英文 `Create account` 照旧是 `Create account`;en 会话下作者写的中文「立即提交」照旧是「立即提交」;\n- 用 `??` 而不是 `||`:`submitLabel: ''` 是「作者要一个空按钮」的显式声明,不是「没写」。`||` 会把它悄悄覆盖掉 —— 那正是英文默认值当初干的事,不该换个方式再干一遍;\n- 复用已有的 `common.submit` / `common.cancel`(十包早已齐备),不新造 `form.submit` / `form.cancel` 孪生 key;\n- **不动契约面**:`FormSchema.submitLabel` / `cancelLabel` 在 `@object-ui/types` 里本来就是 `z.string().optional()`,本 PR 没改 types / zod / spec。\n\n行为变化面很窄:**只有「从来没写过 label、且在非英文会话下看」的表单**渲染文本会变 —— 那正是 bug 本身。已写进 changeset。\n\n## 第 4 项 —— select 的第二层 placeholder 兜底\n\nissue 说它是「够不到的死兜底」,复核下来**不完全准确**,这里如实修正。\n\n唯一调用点是 `placeholder: fieldProps.placeholder ?? (resolvedType === 'select' ? t('common.selectOption') : undefined)`。`??` 只在 null/undefined 时回落,所以作者写 `placeholder: ''` 时空串会原样传下去;而分支里的 `placeholder || 'Select an option'` 用的是 `||`,空串是 falsy —— 于是「作者刻意要一个空 placeholder」这条路径**真的能走到**那个英文字面量,拿到一个没被翻译的英文词覆盖掉自己的显式声明。\n\n所以它不是无害的死代码,删掉是有可观察行为的,也是本 PR 里唯一能做「装回去看它变红」的一处。\n\n## 反向验证(先定方向,再跑)\n\n把三处改动整体还原成字面量,**事先的预测**是:凡是「英文与译文字节相同」的用例应当**保持绿**(它们本来就不区分),凡是断言译文出现、或断言英文缺席的用例应当**变红**。实测 6 红 8 绿,与预测逐条吻合。\n\n变红(6,如预测):全屏对话框 zh / ja / 「Done 按钮仍然接着 handler」,动作栏 zh / ja,select 的 `placeholder: ''`。\n\n保持绿(8,如实说明为何不是漏网):\n\n- 全屏 en、动作栏 en —— 本 PR 对 en 是字节级 no-op,这两条钉的是「en 没被改坏」,天然不区分;\n- 「作者显式 label 逐字优先」两条 —— 旧代码的 `= 'Submit'` 解构默认值本来也不会覆盖显式值。这两条钉的是**新回落不许越界**,不是旧行为的回归;\n- `submitLabel: ''` 一条 —— 解构默认值只对 `undefined` 生效,空串在新旧代码下都渲染成空。它钉的是渲染处必须用 `??` 而不是 `||`,还原实验不涉及这个选择,所以它绿是对的;\n- select 的另外三条 —— 它们走的是「调用点已给了 `t()`」那条路,本来就够不到被删的字面量。它们留下来是**删除之后的续钉**:哪天有人把调用点的 `t()` 去掉,不再有第二层兜底替它遮丑,zh 那条会直接红。\n\n## 边界\n\n- 文件面:`form.tsx` 加 `packages/i18n/src/locales/*.ts`(10 个)加 3 个新测试加 1 个 changeset。\n- **没有碰** #3303 的 `mobile_fullscreen || fullscreen` 别名逻辑(同文件、串行在本单之后)。测试 fixture 一律拼 `mobile_fullscreen` 这个有生产者的规范键,所以 #3303 删掉别名之后这些测试依然绿。\n- 没有碰 `content/docs/releases/`。\n\n## 顺带发现(已另开 issue,不在本 PR 修)\n\n- **#3393** —— FullscreenTextarea 的 `label` prop 恒为 `undefined`:`label` 在 `renderFormField` 的字段解构里就被单独取走,唯一调用点展开的 `...fieldProps` 里没有它。后果是全屏对话框标题恒为通用的「编辑文本」而不是字段名,展开按钮的无障碍名也无法区分同一表单上的多个长文本字段。⚠️ 它与 #3303 会改到同一行。\n- **#3394**(`finding`)—— 组件注册元数据里的设计器默认值 `defaultProps: { submitLabel: 'Submit', cancelLabel: 'Cancel' }` 仍是英文字面量。本仓运行期没有任何地方读 `defaultProps`,所以今天不影响渲染;但若设计器把它物化进作者的 schema,新的渲染期回落就够不到了(对渲染器而言那就是「作者显式写的值」)。\n\n## 测试\n\n从**仓根**跑(包内跑 vitest 假绿 / 路径过滤被吞,见 #3288 / #3378),全程持 `flock /tmp/os-heavy-verify.lock` 加 `NODE_OPTIONS=--max-old-space-size=4096` 加 `--maxWorkers=2`。\n\n三个新测试文件:\n\n```\nTest Files  3 passed (3)\n     Tests  14 passed (14)\n```\n\nform 渲染器全部测试加 i18n 全部测试(含 `all-locales-key-parity.test.ts`,它机械校验新 key 十包齐、插值占位符与 en 一致):\n\n```\nTest Files  47 passed (47)\n     Tests  324 passed (324)\n```\n\n按**规则消费半径**(而不是被改的包)扫的下游 fixture —— plugin-form / plugin-detail / fields / app-shell FlowRunner / components 里所有按 `/submit/i`、`Cancel` 取按钮的测试:\n\n```\nTest Files  89 passed (89)\n     Tests  1190 passed (1190)\n```\n\n反向验证(三处改动整体还原):\n\n```\nTest Files  3 failed (3)\n     Tests  6 failed | 8 passed (14)\n```\n\n类型检查(先 `pnpm --filter '@object-ui/components^...' build` 建好依赖,新 worktree 不建会报一片假的 TS2307):\n\n```\npackages/i18n type-check: Done\npackages/components type-check: Done\n```\n\n其余闸门:`check-control-bytes` OK(另做了一次 `grep -naP` 自扫,changed files 无控制字节);`check-changeset-fixed` / `check-changeset-no-major` 均 OK;改动文件 eslint 0 error。\n\n远端 CI 已全绿:Lint / Type Check / Test shard 1-4 / Build & E2E / Build Docs / Control Byte Scan / Changeset Fixed Group / Changeset Bump Policy / Bundle Analysis 全部 success(`Test (coverage)` 与 `dependabot` 按 path filter skipped)。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

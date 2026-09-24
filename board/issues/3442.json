@@ -1,0 +1,35 @@
+{
+  "number": 3442,
+  "kind": "issue",
+  "title": "QUICK_REFERENCE.md 与 skills/objectui/guides/project-setup.md 仍在教「pnpm --filter PKG test」——正是 #3378 的假绿跑法",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T04:17:47Z",
+  "updated_at": "2026-08-06T04:54:02Z",
+  "closed_at": "2026-08-06T04:54:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3442",
+  "body": "（占位符写作 `PKG`,不用尖括号:GitHub 正文消毒会把「尖括号+字母」当 HTML 标签吃掉。)\n\n## 现象\n\n两处面向人和 agent 的入门文档,把 #3378 里那条会**静默假绿**的调用当作推荐用法写着:\n\n- `QUICK_REFERENCE.md:26-27`\n  ```\n  pnpm --filter @object-ui/console test     # Run just the console tests\n  pnpm --filter @object-ui/core test        # Run a single package's tests\n  ```\n- `skills/objectui/guides/project-setup.md:309`\n  ```\n  pnpm --filter @object-ui/core test        # Test single package\n  ```\n\n按 #3378 的机制,这条命令让 vitest 的 root 落在包目录,根级 projects 的 include\n(`packages/**` 等)相对它匹配不到任何文件,只有以绝对路径引进来的 `apps/console` project\n仍解析成功 —— 于是跑的是 `@object-ui/console` 的 22 个文件、报 `Test Files 22 passed (22)`,\n而文档里点名的那个包(core / console 自己的包级语义)一个都没按预期跑。**注释写的\n\"Run a single package's tests\" 与实际行为不符。**\n\n## 为什么现在必须改\n\nPR #3437(fixes #3378 / #3288)给 `vitest.config.mts` 加了 invocation guard:vitest root\n不是仓根即拒绝。该 PR 合并后,上面这三行文档命令会**直接以非零退出**,并打印指向正确跑法的\n报错。也就是说:\n\n- 合并前:文档教的命令**假绿**(更糟);\n- 合并后:文档教的命令**报错**(不再骗人,但文档仍然是错的)。\n\n两种情况下这几行都该换成仓根的正确跑法:\n\n```\npnpm exec vitest run packages/PKG/          # 只跑一个包\npnpm exec vitest run packages/PKG/src/FILE.test.ts\npnpm test                                   # 全量\n```\n\n## 范围\n\n我这次的 dispatch 文件围栏只包含 `AGENTS.md` 的测试章节(已写入正确跑法与两条陷阱),\n`QUICK_REFERENCE.md` 与 `skills/**` 不在围栏内,因此不在 PR #3437 里顺手改 —— 单开此条。\n\n顺带:`content/docs/guide/plugin-development.md:422` 的 `pnpm vitest run packages/plugin-board`\n是**正确**形状(仓根 + 路径),无需改。\n\n## 相关\n\n- #3378 包级 cwd 跑 vitest 的假绿(本条的成因)\n- #3288 路径挂在 `--` 后面被丢弃\n- #3437 加 guard + AGENTS.md 落条文的 PR\n- #3240 包级 test 脚本存废(维护者待定;本条与其结论无关 —— 无论包级脚本留不留,文档都该改成\n  仓根跑法)\n\n（说明:提交前尝试搜索重复 issue 时 GitHub API 多次返回 rate limit,只跑成功了两次关键词检索,\n均无命中。若已有孪生条目,请直接关掉这条。)\n"
+}

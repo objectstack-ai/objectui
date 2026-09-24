@@ -1,0 +1,35 @@
+{
+  "number": 3492,
+  "kind": "issue",
+  "title": "fix(plugin-grid): 批量操作按钮忽略 requiredPermissions，且布尔 visible 被判为故障导致按钮全员隐藏",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T12:19:33Z",
+  "updated_at": "2026-08-07T05:08:34Z",
+  "closed_at": "2026-08-07T05:08:34Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3492",
+  "body": "批量操作栏（`BulkActionBar`）的按钮显隐规则和其它三个动作面（列表工具栏 / 详情页头 / 行内 kebab）不一致，有两个独立缺口。\n\n## 问题 1：`requiredPermissions` 在批量按钮上完全不生效\n\nADR-0066 D4 的能力门是「服务端 403 + UI 镜像隐藏」的双面契约，`ActionSchema.requiredPermissions` 是 spec 正式属性。其它三个面都接了 `useCapabilityGate`：\n\n| 面 | 位置 |\n|---|---|\n| 列表工具栏 | `packages/components/src/renderers/action/action-bar.tsx:133` |\n| 详情页头 / ⋯ | `packages/components/src/renderers/layout/containers.tsx:1018` |\n| 行内 kebab | `packages/plugin-grid/src/components/RowActionMenu.tsx:244` |\n| ActionEngine | `packages/core/src/actions/ActionEngine.ts:222` |\n\n批量按钮两处都缺：\n\n- `packages/plugin-grid/src/resolveBulkActions.ts:135` 的 `toBulkActionDef` 把对象动作提升成 bulk def 时只转发了 `visible`，没有转发 `requiredPermissions`；\n- `packages/plugin-grid/src/components/BulkActionBar.tsx` 从未调用 `useCapabilityGate`。\n\n**后果**：同一个 `requiredPermissions: ['x']` 的动作，在行 kebab 里对无权用户隐藏，在选中记录后的批量栏里照常出现。对于 `type: 'api'` 指向自定义端点的动作，服务端也未必兜底（spec 描述里明说该端点要自己复查），等于权限门整个失效。\n\n## 问题 2：布尔 `visible` 被当成求值故障，按钮对所有人隐藏\n\n其它三面的 `visible` 走 `useCondition` / `useRowPredicate`，两者都对布尔短路。批量这条路是 `BulkActionButton` → `partitionBulkRows`（`packages/plugin-grid/src/bulkEligibility.ts:70`）→ 直调 `evalRowPredicate`，**没有布尔短路**：\n\n`evalRowPredicate(true, …)` → `toExpression(true)` → `{ dialect: 'cel', source: undefined }` → 引擎报 `AST-only evaluation not yet supported; persist 'source'` → `evalCel` 判定 fault → fallback `false` → 每条选中记录都不合格 → `def.visible && eligible.length === 0` → 按钮不渲染。\n\n**后果**：`visible: true` 的效果是「全员看不见」，语义完全反了（`visible: false` 只是碰巧结果正确）。\n\n缓解：spec 的 `BulkActionDefSchema.visible` 是 `ExpressionInputSchema`（`string | { dialect, source }`，不含 boolean），所以 `objectstack build` 走不到这条路；但手写 view JSON、或在 objectui 内部构造 `bulkActionDefs` 的调用方能踩到，且行为是静默的。\n\n## 方案\n\n1. `packages/types/src/objectql.ts` — `BulkActionDef` 增加 `requiredPermissions?: string[]`（注释说明它来自源动作，语义与 `ActionSchema.requiredPermissions` 一致）。\n2. `packages/plugin-grid/src/resolveBulkActions.ts` — `toBulkActionDef` 转发 `requiredPermissions`。\n3. `packages/plugin-grid/src/components/BulkActionBar.tsx` — 用 `useCapabilityGate` 过滤 `actionDefs`，与另外三面同一姿态：声明为空恒通过、多个取 AND、能力未知时 fail-open（服务端为准）。\n4. `packages/plugin-grid/src/bulkEligibility.ts` — `partitionBulkRows` 对布尔 `visible` 短路：`true` → 全部合格，`false` → 全部不合格，不进引擎。\n5. 测试：\n   - 提升的 def 携带 `requiredPermissions`；\n   - 持有 / 不持有能力时按钮的显隐；能力未知时 fail-open；\n   - `visible: true` 按钮渲染且 `skipped === 0`；`visible: false` 按钮消失；\n   - 现有的逐条记录求值 / skipped 计数行为不回归。\n\n## 验收\n\n同一个带 `requiredPermissions` 的对象动作，在列表工具栏、详情页头、行内 kebab、批量栏四个面对同一用户给出相同的显隐结论；批量 def 的布尔 `visible` 与另外三面语义一致。\n"
+}

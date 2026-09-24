@@ -1,0 +1,32 @@
+{
+  "number": 3412,
+  "kind": "issue",
+  "title": "ObjectStackDataSource.delete() 读 `result.deleted` —— 服务端从不返回该键,delete 的 MutationEvent 从未发出、返回值恒 undefined;测试绿是因为 fixture 自己编了这个键",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:blocked"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T22:22:54Z",
+  "updated_at": "2026-08-07T14:36:10Z",
+  "closed_at": "2026-08-07T14:36:10Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3412",
+  "body": "实现 objectstack#5638(client SDK 的 `DeleteDataResult` 把 `success` 声明成了 `deleted`)时做读取方跨仓测绘撞见。**这一条是 objectui 侧真实的运行时缺陷,不是类型问题**,故另立。\n\n## 事实\n\n`packages/data-objectstack/src/index.ts:1433-1442`:\n\n```ts\nconst result = await this.client.data.delete(\n  resource,\n  String(id),\n  opts?.ifMatch ? { ifMatch: opts.ifMatch } : undefined,\n);\nif (result.deleted) {\n  this.emitMutation({ type: 'delete', resource, id });\n}\nreturn result.deleted;\n```\n\n`client.data.delete` 是 `@objectstack/client` 里的纯直通(`unwrapResponse`,无任何运行时改写),服务端 `DELETE /api/v1/data/:object/:id` 回的是 spec 的 `DeleteDataResponse` = `{ object, id, success }`。`DeleteDataResponseSchema`(objectstack `packages/spec/src/api/protocol.zod.ts:472`)声明的第三个键就是 `success`;objectstack#5581 / PR #5641 之后,protocol 与 ObjectQL 兜底**两条路径都返回 `success`**,`deleted` 这个键从来没有任何 schema 声明过、任何服务端路径返回过。\n\n所以对真实服务端:\n\n- `result.deleted === undefined` → `if (result.deleted)` 恒假 → **单条删除的 `MutationEvent` 从来没有发出过**;\n- `return result.deleted` 在声明为 `Promise< boolean >` 的方法里**恒返回 `undefined`**,调用方拿 `if (await ds.delete(...))` 判断会一律当成删除失败。\n\n之所以编译通过:`@objectstack/client` 把这个键**声明**成了 `deleted`(objectstack#5638),TS 为错的那一种背书。\n\n## 用户可见的后果\n\n订阅 `onMutation` 的界面在单条删除后不刷新 —— 列表仍显示已删的行、计数徽章不减。批量删除面不受影响(`bulkDelete` 走 `deleteMany`,`index.ts:1525` 用 `count > 0` 判断,与本条无关);`index.ts:1549` 的兜底逐条删除**不读返回值**,也不受影响。受影响的只有单条 `delete()` 这一条路径。\n\n与 #2582(batchTransaction 不发 MutationEvent)同族但不同因:那一条是压根没调 `emitMutation`,这一条是调了、但守卫读的是一个永远 undefined 的键。\n\n## 为什么测试是绿的\n\n`packages/data-objectstack/src/onMutation.test.ts:80-95`,「emits a delete event only when the server confirms deletion」:\n\n```ts\nconst del = vi\n  .fn()\n  .mockResolvedValueOnce({ deleted: true })\n  .mockResolvedValueOnce({ deleted: false });\n```\n\nfixture 自己编造了一个服务端从不返回的键,于是这条用例证明的是「当 `deleted` 为 true 时发事件」,而 `deleted` 在生产里永远不是 true。守卫是死的,断言照样绿 —— objectstack#4984 记过的同一种形状(fixture 拼写了被拒绝的别名,于是规则已死而测试仍绿)。\n\n修的时候这条 fixture 属于「整条替换」而不是「改拼写」:把 mock 换成 spec 的 `{ object, id, success: true }` / `{ …, success: false }`,让它读的是幸存逻辑真正会读到的东西。\n\n## 建议修点\n\n1. `index.ts:1438/1441` 的 `result.deleted` → `result.success`。\n2. `onMutation.test.ts` 的 delete fixture 换成 spec 形状(见上),另建议补一条「fixture 说 `deleted: true` 时**不**发事件」的反向钉,防止再退回。\n3. ⛔ 不要写 `result.success ?? result.deleted` 之类的容错读:生产方只有一种形状,消费端同时认两种键正是 contract-first 禁止的写法(objectstack#5638 分诊已就同一问题裁定不留双键过渡)。\n\n## Blocked-by\n\nobjectstack#5638(`DeleteDataResult.deleted` → `success`)落地**并发版**之前,本仓改成 `result.success` 会因为已发布的 `@objectstack/client` 类型仍声明 `deleted` 而 TS 红;绕过它唯一的写法是 `as any`,而那正是上面第 3 条禁止的形状。**运行时**上 `success` 今天就已经是对的(protocol 路径一直返回 `success`),所以这不是等行为、只是等类型 —— 等 `@objectstack/client` 带 #5638 的版本进本仓的 pin 之后即可动手。\n\nBlocked-by: objectstack-ai/objectstack#5638"
+}

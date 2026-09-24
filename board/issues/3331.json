@@ -1,0 +1,35 @@
+{
+  "number": 3331,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): RelatedList 批量 lookup 标签走 ADR-0079 统一解析器,修复权限集列闪变为 API name (#3330)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T02:41:33Z",
+  "updated_at": "2026-08-04T13:42:59Z",
+  "closed_at": "2026-08-04T13:42:58Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T13:42:58Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3331",
+  "body": "Closes #3330\n\n## 问题\n\n用户详情「权限集」相关列表:权限集列先短暂显示显示名(「排班员权限」),随后整列闪变为 API name(`ehr_production_planner`)并停留。\n\n## 根因\n\nlookup 列存在两条互相打架的标签解析链:\n\n1. 单元格自身的 `LookupCellRenderer` → `useLookupName`,走 ADR-0079 统一解析器 `getRecordDisplayName`,尊重 `sys_permission_set` 的 `nameField: 'label'`,首帧渲染出显示名;\n2. `RelatedList` 的批量 id→label 解析用硬编码优先级链 `full_name || … || name || … || label`——`name` 排在 `label` 前,对权限集恰好取到 API name。\n\n批量结果以 `options` 注入 field meta,而 `LookupCellRenderer.resolveLabel` 中 options 优先级高于已解析的显示名,第二帧整列被覆盖为 API name。\n\n## 修复\n\n`RelatedList` 批量解析同步拉取目标对象 schema(`dataSource.getObjectSchema(target)`),改走同一个 `getRecordDisplayName`;schema 不可用或解析器落到 `Record #<id>` / `Untitled` 兜底时回退原硬编码链(非回归)。两条链答案一致,闪变消失,最终稳定显示为显示名。\n\n## 验证\n\n- 新增回归测试 `RelatedList.lookupLabelResolution.test.tsx`(nameField 生效 + 无 schema 回退两项),已确认去掉修复代码时测试不过;\n- plugin-detail 全量 40 文件 / 371 项测试全绿;`tsc --noEmit` 0 错误、eslint 0 错误。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

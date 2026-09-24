@@ -1,0 +1,36 @@
+{
+  "number": 3352,
+  "kind": "issue",
+  "title": "app-shell: `/cloud/environment-entitlements` 成功包络仍有 `json?.data ?? json` 双方言容错(3 处),与 cloud#944/#1046 的收口方向相反",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T06:06:39Z",
+  "updated_at": "2026-08-05T11:05:00Z",
+  "closed_at": "2026-08-05T11:05:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3352",
+  "body": "发现于 objectui#3329 的「全仓扫读点」环节 —— **不在该单范围内**(#3329 只动错误体 `error.details.*`),按 Prime Directive #10 单独记录,不认领。\n\n## 现象\n\ncloud 控制面的成功响应按契约一律包成 `{ success, data }`。但 Console 侧有 3 处读点写成了「两种形状都收」:\n\n- `packages/app-shell/src/environment/useEnvironmentEntitlements.ts:76`\n  `const data = (json?.data ?? json) as EnvironmentEntitlementsSummary | undefined;`\n- `packages/app-shell/src/console/home/CloudOnboardingNext.tsx:87`\n  `const data = (json?.data ?? json) as { hasProductionEnv?: boolean } | null;`\n- `packages/app-shell/src/console/organizations/provisionEnvironment.ts:76-80`\n  注释直白写着「控制面包成 `{ success, data }`;两种都容忍」,随后 `'data' in body ? body.data : body`。\n\n三处读的都是同一条链路(`GET /api/v1/cloud/environment-entitlements` / `POST /cloud/environments` 的成功体)。\n\n## 为什么值得收\n\n与 #3329 刚删掉的 `entitlementErrorFields()`(`body?.error ?? body`)是**同一族**问题:消费端的 `??` 容错把一个「事实上不存在的第二方言」固化成了第二份事实契约。后果在 AI 写元数据/AI 写调用方的场景里尤其贵 —— 一旦生产者哪天真的漏包 `data`,读点会**静默**降级成读裸 body(字段全 `undefined` → `hasProductionEnv: false` → 用户看到「还没有生产环境」而不是报错),没有任何一处会响。cloud#944 正在退役这类多方言漂移,#1046 的裁定也是「一种形状,严格读」。\n\n## 建议做法(留给认领者判断)\n\n1. 先核实控制面对这两个端点**是否 100% 包 `{ success, data }`**(cloud 仓查 route handler;若有未包的,那是生产者侧的 bug,按契约优先在 cloud 修)。\n2. 确认后删掉 `?? json` / `'data' in body` 分支,只读 `json.data`;拿不到就走各自的失败分支(`fromRows()` 派生回退 / `phase: 'unknown'` / 抛错),而不是拿裸 body 顶上。\n3. 三处读点各补一条 pin:裸 body(无 `data` 包络)**不产生**可用 summary。\n\n无用户可见行为变化(前提是第 1 步核实通过),按仓库约定属纯收敛,可不带 changeset。"
+}

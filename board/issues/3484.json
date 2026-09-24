@@ -1,0 +1,36 @@
+{
+  "number": 3484,
+  "kind": "issue",
+  "title": "console 编辑表单对 readonlyWhen 只认一半:previous.* 口径 fail-open 致锁定字段可改且被静默丢弃;record.* 口径虽渲染成只读却仍被整表回传,触发「部分字段未保存」假告警",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:03:49Z",
+  "updated_at": "2026-08-07T05:08:51Z",
+  "closed_at": "2026-08-07T05:08:51Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3484",
+  "body": "## 现象\n\n记录进入「锁定态」(字段上的 `readonlyWhen` 谓词为真)之后,在 console 记录详情页点「编辑」,**只改一个明确可编辑的字段**并提交,会同时弹出两条互相违背的 toast:\n\n| 类型 | 文案 |\n|------|------|\n| ⚠ 警告 | 部分字段未保存 —— 以下字段在记录当前状态下不可编辑,未保存:`type, source_method` |\n| ✅ 成功 | XXX 更新成功 |\n\n用户从头到尾没碰过 `type` / `source_method`。\n\n## 根因链(逐环实测)\n\n1. **编辑弹窗完全不识别 `readonlyWhen`** —— 谓词为真的字段照样渲染成可编辑控件,既不 `disabled` 也不置灰。实测 DOM:\n\n   ```js\n   document.querySelector('[role=\"dialog\"] select[name=\"type\"]').disabled  // → false\n   ```\n\n2. **提交时整表回传**,不是只传 dirty 字段。抓到的 PATCH body(节选):\n\n   ```json\n   {\"type\":\"quality_abnormal\", \"urgency\":\"flow_tracking\", ...,\n    \"description\":\"<用户唯一改动的字段>\", ...,\n    \"source_method\":\"qc_judgment\", ...}\n   ```\n\n   `type` / `source_method` 送的**就是库里的原值**。\n\n3. **服务端按 `readonlyWhen` 合法剥离**(#3042 语义),写入成功,响应回 write-observability:\n\n   ```json\n   \"droppedFields\":[{\"object\":\"<obj>\",\"fields\":[\"type\",\"source_method\"],\"reason\":\"readonly_when\"}]\n   ```\n\n4. **console 无条件告警** —— `AdapterProvider` 的 `onWriteWarning` 一收到 `droppedFields` 就弹 `detail.writeStrippedByState` 警告 toast,而保存流程照常弹成功 toast。\n\n## 四个可分别修的点\n\n| # | 问题 | 严重度 |\n|---|------|--------|\n| **D** | **锁定字段在编辑弹窗里可改,改了被静默丢弃** —— 用户把「类型」换个值 → 提交 → 一条小警告 + 一条「更新成功」→ 值其实没变。**这是静默数据丢失,比下面三条都严重** | 高 |\n| **A** | **虚假告警** —— 被剥离的值与库里现值**完全相同**(空操作),没有任何东西\"未保存\",却告警 | 中 |\n| **B** | 警告 + 成功两条并列,语义互相违背,用户无从判断到底存没存 | 中 |\n| **C** | 文案直出 API 名 `type, source_method`,而不是字段 label(「类型 / 来源方式」) | 低 |\n\n## 复现\n\n1. 建对象 A,某字段 `f` 声明 `readonlyWhen: P\\`previous.status != \"draft\"\\``\n2. 建一条记录,把 `status` 推到 `draft` 之外(锁生效)\n3. 详情页点「编辑」→ 观察 `f` 仍是可编辑控件(D)\n4. 只改另一个可编辑字段 → 提交 → 两条 toast 同时出现(A/B/C)\n\n实测环境:`@objectstack/*` `17.0.0-rc.3`,Chrome,admin 账号,与权限无关。\n\n## 建议修法\n\n1. **表单侧认 `readonlyWhen`**:元数据里 `readonlyWhen` 为真的字段,编辑弹窗按只读渲染(disabled + 置灰 + 悬浮说明为什么锁),从源头杜绝 D 的静默丢弃;\n2. **提交只传 dirty 字段**(或至少在整表回传前把服务端已知只读的键剔掉),A 随之消失;\n3. 若仍要保留 write-observability 提示,**回 `droppedFields` 前做值比对** —— 剥离值 == 现存值的空操作不该告警;\n4. 真需要告警时,**警告与成功二选一**(或合并成一条「已保存,但 N 个字段因当前状态未生效」),不要并列两条互相违背的;\n5. 文案用字段 **label**,不要裸 API 名。\n\n## 背景\n\n下游项目侧按「接受现状 + 登记」处理(`PLAT-DEF-052`),不做绕行改造 —— 该项目 10 个对象、48 处 `readonlyWhen` 声明,记录一进锁定态,编辑任何字段都会触发这套假告警;在应用层逐条把谓词收窄成「值真的变了才锁」代价与风险都不划算(共享的锁常量承载不了字段名,且动的是防篡改红线)。等平台修复后复核。\n"
+}

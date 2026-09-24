@@ -1,0 +1,34 @@
+{
+  "number": 3488,
+  "kind": "issue",
+  "title": "finding: live-e2e allowlist 的 spec 名单被手抄在两处文档里,每次晋级都会失同步",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:08:48Z",
+  "updated_at": "2026-08-07T02:11:28Z",
+  "closed_at": "2026-08-07T02:11:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3488",
+  "body": "发现于 #3472 / PR #3487(把 `saved-view-filter.spec.ts` 晋级进 `test:e2e:live:ci`)。只记录,不在该 PR 里修 —— 两处都在那单的 file fence 之外,其中 `.github/workflows/` 明确禁改。\n\n## 现象\n\nallowlist 的真身是 `package.json` 的一行:\n\n```\n\"test:e2e:live:ci\": \"playwright test --config=playwright.live.config.ts screen-flow.spec.ts action-modal.spec.ts master-detail.spec.ts saved-view-filter.spec.ts\"\n```\n\n但这份名单被**按 spec 名逐个手抄**在另外两个文件里,二者都不会随 package.json 更新:\n\n1. `.github/workflows/live-e2e.yml:3-4`(头部注释)\n\n   ```\n   # What runs: an allowlist of e2e/live specs (screen-flow, action-modal,\n   # master-detail — `pnpm test:e2e:live:ci`) against `objectstack dev` booted\n   ```\n\n2. `content/docs/guide/ci-cd-pipeline.md:233-234`\n\n   ```\n   What it does: runs the allowlisted live specs (`pnpm test:e2e:live:ci` — screen-flow,\n   action-modal, master-detail) against a real `objectstack dev` backend booted from **published**\n   ```\n\nPR #3487 合并后,这两处都会漏掉 `saved-view-filter`,即\"三个 spec\"变成事实上的四个。\n\n## 为什么值得记一笔\n\n`live-e2e.yml` 自己的政策就是\"a few at a time\"地长这份名单(见其头部 \"Growing the allowlist\" 段),也就是说**这份名单被设计为会反复变更**。把它逐名手抄在两处,等于给每次晋级都埋一次静默漂移;而 workflow 头部注释恰恰是下一个 agent 读来判断\"这条 lane 到底跑了什么\"的第一手材料 —— 它错了,判断就跟着错。目前 lane 是 `continue-on-error: true` 的非门禁 lane,漂移不会咬到用户,所以按 observation-class 归档。\n\n## 可能的处理方向(留给 triage 定夺,未做取舍)\n\n- 最省事:两处都去掉逐名枚举,改成\"名单以 `package.json` 的 `test:e2e:live:ci` 为准\"的指路,漂移源就消失了。\n- 或者:保留枚举,但加一个 check 脚本对齐 package.json 与两处文档 —— 为一条非门禁 lane 的注释新增一道门禁,成本可能不划算。\n\n## 备注\n\nfiling 前按流程搜过 open issues(关键词:allowlist / live-e2e / `ci-cd-pipeline.md` / `live-e2e.yml` / 文档 spec 列表),均 0 命中;期间 GitHub search API 间歇性返回 `API rate limit already exceeded`,所以搜索覆盖面不敢称完备,若已有重复请直接关掉这条。\n"
+}

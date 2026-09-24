@@ -1,0 +1,34 @@
+{
+  "number": 3333,
+  "kind": "issue",
+  "title": "[console] lookup「浏览全部记录」记录选择器:select 字段列不解析选项 label,显示首字母大写的裸 value(manufacturing → Manufacturing)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T03:30:06Z",
+  "updated_at": "2026-08-04T13:44:35Z",
+  "closed_at": "2026-08-04T13:44:35Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3333",
+  "body": "## 症状\n\n新建/编辑表单里 lookup 字段点「田字格」打开的「浏览全部记录」记录选择器弹窗中,**select 类型的列不按 schema options 解析 label**,直接渲染裸 value 并做了首字母大写处理。\n\n同一字段在**列表视图**和**记录详情页**都能正确显示 label——只有记录选择器这张表格不解析。\n\n## 复现步骤\n\n1. 对象 A 定义 select 字段(本例 `project_phase`,options 含 `{ label: '03 制造', value: 'manufacturing' }`),该字段在 A 的 `highlightFields` 里(因此进入选择器列);\n2. 对象 B 有 lookup 指向 A;在 B 的新建表单点该 lookup 右侧田字格,打开「浏览全部记录」;\n3. 弹窗表格「项目阶段」列显示 **`Manufacturing`**(裸 value + title-case),期望显示 `03 制造`;\n4. 对照:A 的列表视图该列、A 记录详情页头部徽章均正确显示 `03 制造`。\n\n## 期望\n\n记录选择器的列渲染与列表视图同一套字段格式化(select 走 options/i18n label,而不是裸 value)。\n\n## 相关\n\nopen 的 #3330(用户详情「权限集」相关列表 lookup 列先显示名称后闪变 API name)疑似同族「弹窗/相关表格不走字段格式化」问题,但表面不同(那是相关列表的 lookup 列,这里是记录选择器的 select 列),故分开报。\n\n## 版本\n\n`@objectstack/runtime` 17.0.0-rc.3(ConsoleUI 随包),spec/objectql/cli 同 17.0.0-rc.3;macOS Chrome。\n\n应用侧未做任何绕行。\n\nPart of steedos-labs/os-project-titanwind-ehr#758"
+}

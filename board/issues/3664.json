@@ -1,0 +1,36 @@
+{
+  "number": 3664,
+  "kind": "issue",
+  "title": "packages/plugin-tree/README.md 是 38 个已发布包里唯一没有 `## License` 小节的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T17:41:20Z",
+  "updated_at": "2026-08-07T21:56:48Z",
+  "closed_at": "2026-08-07T21:56:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3664",
+  "body": "发现于 #3647 的实施(PR #3662)。**观察类记录,不在该单完成范围内。**\n\n## 事实\n\n扫描 `origin/main` 上全部非 `private` 包的 README:\n\n```\n=== 已发布包中 README 缺少 '## License' 小节的 ===\n  packages/plugin-tree/          ← 有 README,但没有 License 小节\npackages/sdui-parser/  (NO README)\n```\n\n37 个已发布包的 README 都有 `## License` 小节,`plugin-tree` 是唯一一个有 README 却漏掉该小节的。\n\n(`sdui-parser` 压根没有 README —— 它与 `react-runtime` 的 `files` 只声明 `dist`,属于 issue #3647 正文里划出去的「打包策略」问题,不在这条记录范围内。)\n\n## 与 #3647 的关系\n\n两者同源但不是同一件事,所以分开记:\n\n- #3647 / PR #3662 修的是**文件缺失**(`packages/plugin-tree/LICENSE` 不存在,已发布 tarball 因此缺许可证文本)。已修。\n- 本条是 **README 里缺一节文档**。PR #3662 的文件面严格限定在 LICENSE 文件本身,没有动 README。\n\n顺带解释了一个疑问:#3622 / #3649 那轮把 `check-doc-links` 扫描面扩到 `packages/*/README.md`、并付清 11 条死链,为什么没能顺手发现 plugin-tree 缺 LICENSE —— 因为它的 README 连指向 `./LICENSE` 的链接都没有,死链扫描无从下手。缺的那一节,恰好正是本该暴露缺失文件的那一节。\n\n## 可能的处置(未实施)\n\n照抄兄弟包的形态补一节即可(如 `packages/plugin-timeline/README.md` 第 98 行起)。现在 `packages/plugin-tree/LICENSE` 已经存在(PR #3662),补上后的 `./LICENSE` 链接是有效的,不会给链接门禁添新死链。"
+}

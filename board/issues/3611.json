@@ -1,0 +1,35 @@
+{
+  "number": 3611,
+  "kind": "issue",
+  "title": "console: #3590 文件面之外仍有 4 个「Settings」调用点指着裸 /apps/setup——零应用下同样落回空态",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:50:38Z",
+  "updated_at": "2026-08-07T16:48:31Z",
+  "closed_at": "2026-08-07T16:48:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3611",
+  "body": "越界发现，记录于 #3590 实现期间。#3590 的文件面被 PM 明确框在「三个 `sys-settings`/CTA 调用点」上，以下几处**同族同值**但在框外，按 **越界即停** 只报不改，单独立单，**未认领**。\n\n实测基线：`origin/main` @ `03f25f7a3`。\n\n## 根因（与 #3590 同一条）\n\n`AppContent` 只在 `isSystemRoute`（`pathname.includes('/system')`）成立时挂载系统枢纽。裸 `/apps/setup` 因此在零应用部署下落回 `!activeApp && …` 守卫 —— 它就是「No Apps Configured」空态自己的 URL。#3590 已把空态 CTA 与两处 `sys-settings` 导航项改向 `/apps/setup/system`；下面几处未在其文件面内。\n\n## 剩余调用点\n\n行号均为 `origin/main` @ `03f25f7a3`：\n\n| 文件:行 | 入口 | 零应用下的落点 |\n|---|---|---|\n| `packages/app-shell/src/layout/AppSidebar.tsx:445` | 无应用侧栏头 `system-sidebar-header`（`Settings` 图标，`data-testid` 在 446 行） | 空态自身 |\n| `packages/app-shell/src/layout/AppSidebar.tsx:675` | 用户菜单 `user.settings`（「Settings」，文案在 678 行） | 空态自身 |\n| `packages/app-shell/src/console/ConsoleShell.tsx:378` | `SystemRedirect`：旧链 `/system`（**裸**，无后缀）→ `/apps/setup` | 空态自身 |\n| `packages/app-shell/src/console/home/QuickActions.tsx:49` | `id: 'system-settings'`，label「System Settings」 | 空态自身 |\n\n前三处是**具体缺陷**：都在零应用部署下真实可达（`system-sidebar-header` 恰恰只在零应用时渲染 —— 它与 #3590 改的那条 `sys-settings` 是同一个 `activeApp` 为假的分支）。\n\n第四处 `QuickActions` 是**休眠代码**：全仓 grep `QuickActions` 作为 JSX 元素零命中（只从 `console/home/index.ts` 导出，无人渲染），今天没有用户能碰到 —— 但只要有人把它挂回 HomePage，它就带着一条死链一起回来。\n\n`ConsoleShell.tsx:378` 那条值得单独看一眼，它已经有**一半是对的**：\n\n```\nconst target = suffix ? `/apps/setup/system${suffix}` : '/apps/setup';\n```\n\n带后缀的旧链（`/system/users` 等）被正确拼成 `/apps/setup/system/users`；只有**裸** `/system` 这个书签落回了裸 `/apps/setup`。改成 `/apps/setup/system` 即可与自己的另一半自洽。\n\n## 影响\n\n零应用部署的第一屏与其周边仍有多条通往「设置」的入口原地打转。#3590 修掉了空态上那颗按钮和系统兜底导航的头项，但侧栏头、用户菜单、旧 `/system` 书签仍是死键。\n\n## 可能的修法（留给分诊）\n\n四处统一改为 `/apps/setup/system`（该 URL 在有/无 activeApp 两个分支下都可解析：分别经 `extraRoutes` 与 `extraRoutesNoApp`）。全部是常量替换，无行为分叉。\n\n顺带值得一并定的问题（#3590 分诊里也提过）：**setup 的稳定入口到底是哪个 URL** —— 裸 `/apps/setup` 在有应用的部署里是有意义的（若发布了 `setup` 应用就渲染它，否则回落到默认应用），在零应用部署里则退化成空态。若认定「System Settings」语义恒等于系统枢纽，那么这些调用点就都该拼 `/system`，本单即按此收口。\n\n## 关联\n\n- #3590 / PR #3608 —— 同一根因，已修的三个调用点。\n- #2794 —— 根级 `/_console/setup` 深链，另一套机制，但同样在问「setup 的规范 URL 是什么」。\n\n已就关键词（`system-sidebar-header` / `SystemRedirect` / `QuickActions` / `apps/setup` / user.settings）搜过三仓开放 issue 与 PR，无同源单。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3604,
+  "kind": "issue",
+  "title": "packages/runner/README.md §Development Workflow 教读者写 TypeScript schema 文件,但两个 loader 都只认 JSON",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:41:54Z",
+  "updated_at": "2026-08-07T16:13:15Z",
+  "closed_at": "2026-08-07T16:13:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3604",
+  "body": "越界发现,记录于 #3576(清 runner README 的两处虚构能力面)期间通读全文时。**未在该 PR(#3602)中顺手修改** —— 该 issue 锁死在 `createRunner()` / `runner.config.js` / 404 链接这三条,这是第四处,属另一件事。\n\n## 事实(对 `origin/main` + PR #3602 改后全文复核)\n\n`packages/runner/README.md` 的 `## Development Workflow` 第 1 步:\n\n```\n1. Create a schema file (JSON or TypeScript)\n```\n\nrunner 没有任何路径能加载 TypeScript 写的 schema:\n\n- `LocalBundleLoader`(`packages/runner/src/lib/MetadataLoader.ts:26-28`)只 glob JSON:\n  ```ts\n  private appGlob   = import.meta.glob('../app-data/app.json');\n  private pagesGlob = import.meta.glob('../app-data/pages/**/*.json');\n  private rootGlob  = import.meta.glob('../app-data/*.json');\n  ```\n- `NetworkLoader`(同文件 89-103 行)只 `fetch` 固定的 `.json` 路径:`${base}/app.json`、`${base}/pages${path}.json`,并且直接 `res.json()`。\n\n同一个 README 的 `## Metadata Loading` 一节(#3537 / PR #3581 补、#3594 又改过)已经把真相写清楚了:元数据要么是 `src/app-data/**/*.json`,要么是 `?api=` 指向的后端返回的 JSON。所以第 1 步与本文件自己的另一节直接矛盾。\n\n顺带,第 1 步也没说文件该放哪 —— 按 §Metadata Loading,`src/app-data/` 是 git-ignored 且新 clone 下不存在的目录,读者照第 1 步在别处建文件不会有任何效果(每次加载返回 `null`,页面渲染成 404)。\n\n## 建议\n\n与 #3533 同源(文档不许描述实现里不存在的能力),但比那几条轻:把第 1 步改成与 §Metadata Loading 一致的说法即可,例如\"在 `src/app-data/` 下建 `app.json` 与 `pages/*.json`(或用 `?api=` 指向一个供这两类 JSON 的后端)\",而不是\"Create a schema file (JSON or TypeScript)\"。\n\n同一节第 3 步 \"Edit the schema - changes reload automatically\" 对 `LocalBundleLoader` 走 `import.meta.glob` 这条路是成立的(Vite HMR),对 `?api=` 那条不成立 —— 一并核一下更好。\n"
+}

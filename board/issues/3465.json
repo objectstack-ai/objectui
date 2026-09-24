@@ -1,0 +1,35 @@
+{
+  "number": 3465,
+  "kind": "issue",
+  "title": "[finding] `KanbanRenderer.uncolumned.test.tsx` 的两条断言落在 `React.lazy` 边界之后,未按 §测试纪律 在模块作用域预载 `./KanbanImpl`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:27:59Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3465",
+  "body": "发现于 #3459(PR #3464)的实现过程 —— 我给自己新增的两个看板测试补了这条预载,顺手发现同包里既有的一个文件没有。属于潜在 flaky,当前没见它红过,故打 `finding`、不进队列。\n\n## 事实\n\n`packages/plugin-kanban/src/index.tsx`:\n\n```ts\nconst LazyKanban = React.lazy(() => import('./KanbanImpl'));\n...\n<Suspense fallback={<Skeleton className=\"w-full h-[600px]\" />}>\n  <LazyKanban ... />\n</Suspense>\n```\n\n`packages/plugin-kanban/src/KanbanRenderer.uncolumned.test.tsx` 直接渲染 `KanbanRenderer`,两条断言都在这个 Suspense 边界**之后**:\n\n```ts\nexpect(await screen.findByText('Orphaned card')).toBeInTheDocument();   // 第 42 行\nexpect(await screen.findByText('Matches')).toBeInTheDocument();         // 第 60 行\n```\n\n文件顶部只 `import { KanbanRenderer } from './index'` —— 那只登记了 lazy 工厂,**并不执行** `import('./KanbanImpl')`。所以首次渲染时的动态 import 被记在 RTL `findBy` 默认的 **1000ms** 预算里。\n\nAGENTS.md §测试纪律 正是这一条:满并行下实测一次首包 `import()` 可达 **976ms**,已吃掉 1000ms 预算的 97.6%,红绿取决于机器负载而非被测代码。\n\n该文件在 `vitest.config.mts` 的 `heavyDomTests` 里,但这不解决问题:`vitest.setup.dom.tsx` 只 side-effect import 了 `@object-ui/components` / `fields` / `plugin-dashboard` / `plugin-grid`,**没有 plugin-kanban**;而且即使有,`./index` 也只登记工厂,不会预热 `KanbanImpl`。\n\n## 修法\n\n按 §测试纪律,在测试文件模块作用域直接 import,并加一行注释说明原因:\n\n```ts\nimport './KanbanImpl';\n```\n\nspecifier 必须与 `./index` 里的**完全一致**(ESM 按解析后的 specifier 缓存),这样组件自己的 lazy 工厂才会立刻 resolve。**不要**用 `beforeAll` 预热 —— 它受 `hookTimeout`(10s)约束,比它取代的 `testTimeout`(15s)更窄,而且已被 `object-ui/no-dynamic-import-in-test-hook` 机械禁止。\n\nPR #3464 里给 `ObjectKanban.overlayTitleI18n.test.tsx` 与 `ObjectKanban.overlayTitleNoProviderFallback.test.tsx` 做的就是这个,可直接照抄注释。\n\n## 同包其余两个文件不受影响(已核)\n\n- `registration.test.tsx` —— 断言的是注册表解析,不落在 lazy 边界之后;\n- `cardPredicateScope.test.tsx` —— 已经**静态** `import KanbanBoard from './KanbanImpl'` 并直接渲染,天然规避。\n\n## 定级说明\n\n按 §测试纪律 的判据这是「潜在竞态」而不是「已发生的失败」:目前没有记录显示该文件红过。但这类问题的症状是负载相关的偶发红,单跑永远绿,所以不宜等它真红了再修。相关前情:objectui#3010。\n"
+}

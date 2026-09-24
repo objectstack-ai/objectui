@@ -1,0 +1,36 @@
+{
+  "number": 3518,
+  "kind": "pull_request",
+  "title": "fix(form): bind `previous` for field rules and stop resubmitting read-only fields",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:11:02Z",
+  "updated_at": "2026-08-07T05:08:51Z",
+  "closed_at": "2026-08-07T05:08:50Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T05:08:49Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3518",
+  "body": "Fixes objectstack-ai/objectui#3484\n\n## 问题\n\n编辑表单只认一半 `readonlyWhen`:\n\n- 谓词写 `record.*` → 正确锁住;\n- 谓词写 `previous.*` → **没锁**。客户端 CEL 作用域里从来没有 `previous` 这个根,表达式求值失败,退回 fail-open 默认值。作者声明为冻结的字段渲染成普通可编辑控件:用户改了、提交了,改动消失(服务端剥离,保存却报成功)。**静默数据丢失。**\n\n`@object-ui/core` 的 `resolveFieldRuleState` 一直接受 `previous` 参数 —— 缺的是**没有任何生产侧调用方传它**。这是「生产者缺失」,不是求值器缺陷。\n\n## 改法\n\n**1. 补齐生产者(消掉静默数据丢失)**\n\n新增 `FormSchema.previousValues`,由每个 edit 模式宿主(`ObjectForm` / `ModalForm` / `DrawerForm` / `SplitForm` / `TabbedForm` / `WizardForm`)把它**本来就已经读到**的记录传下去,渲染器透传给 `resolveFieldRuleState` / `evalFieldPredicate`。\n\n它同时垫在实时表单值**下面**构成 `record` 绑定,与服务端自己的作用域一致(objectql `stripReadonlyWhenFields` 的 `merged = { ...previous, ...data }`),所以谓词可以引用表单没渲染的列。\n\n`WizardForm` 单独存了一份 `persistedRecord`:它的 `formData` 会被逐步合并各步答案,第一步之后就不再是原始行了。\n\n**2. 提交剔除只读键(消掉假告警)**\n\nreact-hook-form 为每个注册字段保留值,所以从整条记录 seed 的编辑表单在保存时把**整条记录**回传 —— 包括它自己刚渲染成只读纯文本的字段。服务端剥离它们并回 `droppedFields`,console 于是在一次什么都没丢的保存上弹「部分字段未保存」。\n\n现在编辑表单在提交前剔掉自己判定为只读的键。\n\n**以 `previousValues` 是否存在来区分 insert/update**:objectql 明确豁免 INSERT 不做 `readonlyWhen` 剥离,所以 create 路径不剔除 —— 否则客户端会比服务端更严,静默吃掉带默认值的字段。\n\n**3. 空操作不告警**\n\n`ObjectStackAdapter` 拿请求 payload 与响应回显的记录做值比对,值相同的剥离直接丢弃(单条 + `batchTransaction` 两条路径)。**无法证明是空操作时(响应没回显该键)仍然告警** —— 严格比较,`1` 不等于 `'1'`,宁可多报不可漏报。\n\n**4/5. Toast 合流 + label 化**\n\n- 标题改成「已保存,但部分字段未生效」/ `Saved — but some fields did not take effect`:它与保存面自己的成功 toast 并列,原文案「部分字段未保存」读起来是直接矛盾。这是**一个结果**,不是两个。10 个 locale 全部更新,key 不变。\n- 字段用 **label** 而不是裸 API 名:从 adapter 缓存的对象 schema 取 label,再过一遍与其它界面相同的约定式 i18n;schema 里查不到就退回 API 名(精确的 key 好过瞎猜的 label)。\n\n消息组装拆到独立模块 `providers/writeWarningToast.ts`,**不 import 任何渲染相关的东西**,toast sink 作为**必填入参**注入(`AdapterProvider` 传 sonner 的 `toast`)。给它一个默认值会把 sonner 重新拖进模块图,正是要避免的那条依赖 —— 详见下面「测试」。\n\n## 范围\n\n单仓落地,**不开 objectstack companion**。服务端回 `droppedFields` 语义上没说谎(客户端确实送了那些键,引擎确实没写);错的是 console 拿这个信号无条件弹「未保存」。第 2 条落地后,该路径上服务端根本不会再剥离任何东西。\n\n## 测试\n\n单测 32 条(新增/修改),全部先验证过**修复前红**:\n\n- `form-readonly-when-previous.test.tsx` — `previous.*` 口径生效、prior 值(不是实时值)说了算、无 `previousValues` 时不锁(INSERT 语义)、`record.*` 覆盖表单未渲染的列;\n- `form-readonly-submit-strip.test.tsx` — payload 不再回传只读键、谓词为假时不剔除、create 不剔除;\n- `onWriteWarning.test.ts` — 空操作抑制(单条 + batch)、真丢失仍告警且只列真丢的字段、无法证明时保留告警、`1` 不等于 `'1'`;\n- `writeWarningToast.test.ts` — label 化、翻译包路由、schema 缺失回退、元数据读取失败仍出提示、无 adapter 回退、合流文案。\n\n`writeWarningToast.test.ts` 的 sink 是**入参而非 mock**,原因值得记一笔:`vitest.config.mts` 的 `unit` project 用 `isolate: false`(每 worker 共享一份模块图),`.ts` 测试里 `vi.mock('sonner')` 只在同 worker 没有别的文件先拉真 sonner 时才成立 —— 单包跑绿、全量跑红,且报错(`mock.calls[0] is undefined`)完全不指向真因。把 sink 变成参数后,这个测试与 vitest 的隔离设置彻底无关。\n\n全量(受影响包,连跑两次均绿):\n\n```\npnpm exec vitest run packages/components/ packages/plugin-form/ packages/data-objectstack/ packages/app-shell/ packages/i18n/ packages/types/ --maxWorkers=2\n Test Files  481 passed (481)\n      Tests  4435 passed | 1 skipped (4436)\n```\n\ntype-check 30/30 successful;lint 0 errors。\n\n浏览器实测证据见本 PR 下方评论(showcase 独立端口栈,`previous.*` / `record.*` 两种口径的修复前后 DOM 读数 + PATCH body + toast 对照)。\n\n纯 bug 修复,无 changeset。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

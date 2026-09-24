@@ -1,0 +1,32 @@
+{
+  "number": 2901,
+  "kind": "issue",
+  "title": "Audit spec enum ↔ renderer coverage: names that validate but render nothing, and renderer-local dialect",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-28T05:21:12Z",
+  "updated_at": "2026-08-06T09:03:35Z",
+  "closed_at": "2026-08-06T09:03:35Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2901",
+  "body": "## The pattern\n\n`@objectstack/spec` declares a vocabulary as `z.enum([...])`. A renderer consumes it as a `switch`, a ternary chain, or a `Record` lookup. When the two drift, **neither side reports anything**:\n\n- the author's metadata validates, because the schema accepts the name;\n- the renderer hits its `default` branch and draws nothing, or silently ignores the prop.\n\nThe only symptom is a blank cell that nobody knows should be full. No test fails, no console warning fires, no type error appears — the renderer's own union type is usually hand-written, so TypeScript agrees with the narrower set.\n\nThis is not hypothetical. #2897 found it in `useColumnSummary`: `ColumnSummarySchema` accepts eleven aggregation names, the hook computed five, and configuring `count_unique` passed validation and then rendered an empty footer cell. That one is fixed and guarded. The question this issue asks is **where else the same shape exists**.\n\n## Both directions matter\n\n**A. Spec wider than renderer** — a published name renders nothing. This is the `useColumnSummary` case.\n\n**B. Renderer wider than spec** — the renderer accepts names the protocol does not define. This is renderer-local dialect, the second de-facto contract Commandment #0.1 warns about. #2897 found this too: `@object-ui/react` exported a hook with a `distinct` aggregation that is not in the spec vocabulary at all (the spec calls it `count_unique`).\n\nA third, milder shape is worth recording where it appears: the renderer restates the spec's values as a hand-written TS union instead of deriving them. Currently in sync means nothing — there is no mechanism keeping it that way.\n\n## Leads from a shallow pass\n\nThese came out of a quick grep, not an investigation. Treat them as starting points to verify, not as confirmed defects.\n\n| Enum | Spec values | Observation |\n|---|---|---|\n| `ChartTypeSchema` (`ui/chart.zod.ts`) | `bar column line area pie donut funnel` (7) | `plugin-charts/src/AdvancedChartImpl.tsx:95` declares 13, including `horizontal-bar`, `radar`, `scatter`, `combo`, `treemap`, `sankey` — none in the spec enum. Also note `horizontal-bar` is kebab-case where the spec uses snake_case. **Direction B lead.** Worth checking whether this surface is meant to be spec-driven at all before concluding anything. |\n| `RowHeightSchema` (`ui/view.zod.ts`) | `compact short medium tall extra_tall` (5) | `ObjectGrid.tsx:272` restates all five as a hand-written union; the `rowHeightCellClass` chain at :1564 does cover all five (`medium` via the else branch). **In sync today**, but mirrored rather than derived. |\n| `VisualizationTypeSchema` | `grid kanban gallery calendar timeline gantt map chart tree` (9) | Not yet checked against the view-type dispatch. |\n| `NavigationModeSchema` | `page drawer modal split popover new_window none` (7) | Not yet checked. `popover` and `new_window` are the ones to look at first. |\n\nOther named enum schemas worth sweeping, roughly in descending likelihood of having a renderer counterpart: `ui/view.zod.ts` (32 enum declarations — the densest file), `ui/component.zod.ts` (22), `ui/dashboard.zod.ts`, `ui/animation.zod.ts`, `ui/notification.zod.ts`, `ui/offline.zod.ts`, `ui/page.zod.ts`. Filter operators are also worth including even though they live outside this list.\n\n## Suggested approach\n\n1. **Enumerate the pairs.** Find spec `z.enum` exports that have a renderer counterpart. `grep -rn \"export const [A-Za-z]*Schema = lazySchema(() => z.enum\"` over `packages/spec/src/` gives the left side; the right side is a `switch`/ternary/`Record` keyed on the same concept.\n2. **Diff each pair in both directions.** Produce a table: enum, spec values, renderer values, missing, extra.\n3. **Triage before fixing.** Direction A splits into \"should render, implement it\" and \"genuinely not applicable here, and the schema should say so\". Direction B splits into \"promote into the spec\" and \"delete the dialect\". Neither is mechanical — `count` vs `count_filled` in #2897 needed an actual semantic decision about what the two names mean.\n4. **Guard what gets fixed.** `packages/plugin-grid/src/__tests__/summary-spec-parity.test.ts` is the template: it asserts the renderer's supported set equals the spec enum in both directions and fails the moment either side moves. It requires `@objectstack/spec` as a devDependency of the consuming package — six `plugin-*` packages already have it.\n\nThe deliverable for a first pass is **the table, not the fixes**. Coverage gaps and dialect are different problems with different owners, and the triage in step 3 is where the judgment is.\n\n## Why it is worth doing now\n\nThese gaps are invisible by construction — they will not surface through normal testing or bug reports, only through someone configuring the affected value and quietly getting nothing. Two instances turned up in a single PR that was not looking for them. Spec 16 is still RC, which makes both fixing coverage and retiring dialect cheap; after GA, removing a renderer-local name is a breaking change.\n\nRelated: #2890, #2897, #2231."
+}

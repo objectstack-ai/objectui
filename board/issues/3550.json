@@ -1,0 +1,35 @@
+{
+  "number": 3550,
+  "kind": "pull_request",
+  "title": "ci(root): type-check the four repo-root vitest.setup.* files via a dedicated tsconfig",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T04:00:26Z",
+  "updated_at": "2026-08-07T04:06:15Z",
+  "closed_at": "2026-08-07T04:06:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T04:06:14Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3550",
+  "body": "Fixes #3515\n\n四个仓库根文件此前不在**任何** tsc program 里:\n\n```\nvitest.setup.base.ts   vitest.setup.dom.tsx   vitest.setup.dom-light.tsx   vitest.setup.tsx\n```\n\n## 前提复核(在最新 origin/main 上重测,不是抄 issue)\n\nissue 是线索不是规格,所以先证伪:\n\n```\n$ tsc -p tsconfig.json             --listFilesOnly | grep -c 'vitest.setup'  -> 0\n$ tsc -p tsconfig.scripts.json     --listFilesOnly | grep -c 'vitest.setup'  -> 0\n$ tsc -p tsconfig.vitest-setup.json --listFilesOnly | grep -c 'vitest.setup' -> 4\n```\n\n前提成立。唯一包含它们的根 `tsconfig.node.json` 没有 `include`(默认整个仓库),实测报 **21616** 个错、且没有任何脚本运行它 —— 不是门禁。这也正是 issue 的路线 3(把编辑器配置变门禁)被否决的原因。\n\n## 方案:路线 2\n\n按 #3494 / PR #3498 处理 `scripts/` 的先例,新增专用 root project `tsconfig.vitest-setup.json`,配 `pnpm type-check:vitest-setup`,在 ci.yml 的 `type-check` job 里接一步。\n\n### 每个选项都是量出来的,不是抄的\n\n`vitest.setup.dom.tsx` 会 side-effect import 四个 `@object-ui/*` 包来做组件注册。**怎么解析这四个 import 是本 PR 唯一真正需要决策的地方**,三条路都实跑过:\n\n| 路线 | 结果 |\n|---|---|\n| 普通 node 解析 | **不可能**。根 package.json 没有声明任何 `@object-ui/*` 依赖,pnpm 因此不会在根建 `node_modules/@object-ui/` 链接;`--traceResolution` 显示查找一路走到 `/node_modules` 放弃。4 个 TS2882,**构建工作区也救不了**,因为根本没有可供解析的中转 |\n| 映射到 `src/`(镜像 vitest.config.mts 的 `resolve.alias`) | 只映射这四个:**484 错 / 318 个外部源文件**;完整镜像 42 条 alias:仍有 **30 错 / 563 个外部源文件**。且这 30 个修不掉 —— 其中 24 个是 `packages/components/src` 里的 TS7006/TS7031 隐式 any,它们在自己的门禁里绿仅仅因为 `packages/components/tsconfig.json` 设了 `noImplicitAny: false`。跟着设就等于给本项目要检查的四个文件关掉 `noImplicitAny` |\n| **映射到包目录**(采纳) | **0 错、4.5s**,且本 program 真正检查的非声明文件就是那四个 —— `paths` 拖进来的全是 `.d.ts`,被 `skipLibCheck` 跳过。TypeScript 读各包自己的 package.json 并跟随其 `exports.types`,所以映射跟着包自己声明的入口走,不写死 `dist/index.d.ts` |\n\n其余开关同样逐个消融过,注释里写了实测数字:\n\n- `lib` 去掉 DOM → 14 错(`Storage` / `document` / `Element`)。**是承重的**\n- 去掉 `jsx` → TS6142。**是承重的**,而且理由不显然:三个 `.tsx` 文件里现在一行 JSX 都没有,但 import 一个解析到 `.tsx` 的模块本身就要求 `--jsx`\n- 去掉 `skipLibCheck` → 12 错,**全部**在第三方 `node_modules` 的 `.d.ts` 里(`Cannot find name 'Buffer'`)。它不削弱本门禁对自己主体的检查:四个主体文件是 `.ts`/`.tsx`,照常全检\n- **不设 `allowJs`**:这是测出来的选择而不是遗漏 —— 四个文件既不 import `.js`/`.mjs` 也不带 `@ts-expect-error`,设了毫无收益,却会一头撞进 `apps/console/tsconfig.node.json`(#3513)记录、`tsconfig.scripts.json` 付过账的 TS2578 地雷。pin test 把这个前提钉住了\n\n### CI 接线:直跑 step,不是 turbo task\n\n**不涉及任何 turbo 缓存键,turbo.json 一个字没动。** 这一步和 `type-check:scripts` 一样是 ci.yml 里的直跑 step,没有 turbo task 参与,也就没有「缓存态决定判决」的半武装门禁问题(#3513 的教训)。\n\n位置是**在 `pnpm type-check` 之后**,而不是挨着上面的 `pnpm type-check:scripts` —— 这个差别是承重的。`tsconfig.scripts.json` 的 program 不 import 任何工作区包(它的 pin test 正是这么断言的),所以能待在 job 的便宜那一半;本项目必须在构建之后,因为它通过各包的 `exports.types` 也就是**构建产物声明**来解析那四个 side-effect import,而这些声明只有在 turbo `type-check` 任务的 `^build` 跑完后才存在。新 pin test 反过来钉住了这个顺序。\n\n## 验证(方向都是先预测再跑)\n\n### 逆向验证\n\n预测:在 `vitest.setup.base.ts` 里植入真类型错 → **新门禁变红**;`type-check:scripts` 与 `turbo run type-check` 在**同一个**植入缺陷上保持**绿**(这就是 before-green/after-red 里 before 的那一半 —— 此处没有反转,因为「改之前」的状态是**根本没有 program**,而不是一条拼写不同的规则)。\n\n实测,全部命中:\n\n```\n--- new gate:\nvitest.setup.base.ts(13,7): error TS2322: Type 'number' is not assignable to type 'string'.\n    EXIT=2\n--- scripts gate:\n    EXIT=0\n```\n\n### 一次预测失败,如实记录\n\n第一次植入的「真错误」是把 `getItem` 的返回改成 `string | undefined`。预测变红,**实测 EXIT=0**。原因:`createMemoryStorage` 结尾的 `as Storage` 断言吸收了成员类型不匹配。这不是门禁的毛病(类型断言本来就干这个),但它意味着这个 shim 的成员类型并不受 `Storage` 约束 —— 记在这里免得下一个人重踩。随后改用无歧义的 TS2322 重做。\n\n### pin test 自身的空断言\n\n新 pin test 里「只检查根 setup 文件、不检查别人的源码」这条,第一版是对 `parsedProject().fileNames` 断言的。把 `paths` 改指 `src/` 后它**仍然绿** —— 因为 `fileNames` 只是 program 的**根集合**(include 匹配到的文件),`paths` 拖进来的东西永远不会出现在里面。**绿是因为什么都没产出**,正是它要防的形状。已改为真正 `ts.createProgram` 后再看非声明文件;改完后同一个突变立刻变红。\n\n### 突变扫描(每条断言都验证过会咬)\n\n| 突变 | 预测 | 实测 |\n|---|---|---|\n| 删 `jsx` | 「能读 .tsx」红 | 一致 |\n| 收窄 `include` 到一个文件 | 两条覆盖断言红 | 一致 |\n| 删掉 ci.yml 那一步 | 「ci.yml 里在跑」+「在构建之后」红 | 一致 |\n| 把这一步挪到 `pnpm type-check` 之前 | 只有「在构建之后」红 | 一致 |\n| `paths` 改指 `src/` | 「只检查根 setup 文件」红 | 第一版空断言,修正后一致 |\n| 改 package.json 脚本名 | 只有「本地可跑」红 | 一致 |\n\n### 既有门禁未受影响\n\n```\npnpm type-check:scripts                    -> EXIT=0\nnode scripts/check-control-bytes.mjs       -> OK(扫描 3696 个文件)\nnode scripts/check-type-check-coverage.mjs -> 43/45 via type-check(计数未变)\n```\n\n`check-type-check-coverage.mjs` 的计数按**包**统计,根文件不在它的视野里,所以数字**理应不变,实测也没变** —— 这也说明为什么它当初看不见这个缺口。\n\n`scripts/__tests__/` 三个相关 pin test(新的 + `ci-cd-pipeline-doc` + `scripts-type-check`)32 项全绿。\n\n## 关于 changeset\n\n**没有 changeset**,与 #3494 / PR #3498 一致(那个 PR 也没有)。这是 CI/根配置,不改任何已发布包的产物。仓库的 changeset 守卫也不要求每个 PR 都有 changeset:`check-changeset-fixed.mjs` 只校验 fixed 组成员,`changeset-guard.yml` 只在 `.changeset/**` 变动时触发。\n\n## 一处越界,请复核\n\n`content/docs/guide/ci-cd-pipeline.md` 第 69 行那一格逐条列举了 `type-check` job 跑什么。这一格**没有任何门禁校验**(`ci-cd-pipeline-doc.test.ts` 只钉 job key,不钉 step),但 PR #3498 加 `type-check:scripts` 时正是改的这一格。不改它就会留下一段刚好漏掉新步骤的说明文字 —— 也就是那个 pin test 自己开篇痛陈的漂移。因此改了一格,并在此显式标出:超出了派发时给的文件面,若不认可可单独 revert 这一处。\n\n## 顺带发现(未在本 PR 修)\n\n**#3549** —— 根 `tsconfig.node.json` 没有 `noEmit`、没有 `outDir`、没有 `include`,跑一次就在每个源文件旁边吐出 5838 个产物,且**没有一个被 gitignore**。本次实现中真实踩到:一次 `git add -A` 吞进 402729 行,吐出的 `.js` 带 JSX,随后让 `@object-ui/components:build` 报 165 个 rolldown 错,看起来完全像是「你的改动搞坏了构建」。已按观察类(`finding` 标签、不入队)记录,本 PR 不碰。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3327,
+  "kind": "pull_request",
+  "title": "fix(app-shell): AppSidebar / UnifiedSidebar 区域切换器采用派生可见性（#3319）",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T00:43:33Z",
+  "updated_at": "2026-08-04T01:48:35Z",
+  "closed_at": "2026-08-04T01:48:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T01:48:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3327",
+  "body": "Fixes #3319\n\n## 问题\n\n`packages/app-shell` 的 `AppSidebar` 与 `UnifiedSidebar` 各自内联了一份区域切换器，均无 area 级过滤：某区域内 item 全被 gate（`visible` 表达式 / `requiredPermissions` / `requiresObject` / `requiresService`）时，区域仍出现在切换器里，点进去是空的；若第一个区域全被 gate，用户还会被默认落在空区域上。与 #3311 修掉的 `AppSchemaRenderer` 问题同型。\n\n## 修法（按 issue 评论中的 PM 裁决逐条）\n\n1. **复用共享谓词，不写第二份判定** — 两处切换器均改为调用 `@object-ui/layout` 已导出的 `hasVisibleNavigationItems`：区域可见 iff 其中至少一个 item 能通过 `NavigationRenderer` 逐条应用的 item 级守卫，切换器与实际渲染永不打架。差异只在 dispatcher：`UnifiedSidebar` 接了 `onAction={dispatchNavAction}`（framework#4509），`action` 项计为内容（`hasActionHandler: !!dispatchNavAction`）；`AppSidebar` 未接 `onAction`，`action` 项不承重（`hasActionHandler: false`）。\n2. **活动区域只在可见区域中选举** — 默认首个可见区域；当前活动区域被 gate 掉后重新选举；仅「揭示新区域」不夺用户当前选择（effect 中 `prev` 仍可见即保留）。渲染期另有 `?? visibleAreas[0]` 兜底，覆盖 gating 变化与 effect 重选举之间的那一帧。\n3. **空区域（本无 item）按 #3322 口径隐藏** — 派生口径天然一致：无可见 item 即隐藏。\n4. **`areas: any[]` 收紧为 `NavigationArea[]`**（两处）。\n5. **不引入任何 authorable key** — enforce-or-remove 之后不复活 area 级声明式 gating。\n\n顺带把两组件中 `evalVis` / `checkPerm` / `checkCap` 的定义位置上移到区域管理之前（谓词需要它们），逻辑未改动。\n\n## 测试\n\n新增两个测试文件（真实 `@object-ui/layout` + `@object-ui/components`，仅 mock console providers），两组件各自覆盖：\n\n| 场景 | AppSidebar | UnifiedSidebar |\n|---|---|---|\n| 全可见：全部区域在列，首区域激活，可切换 | ✅ | ✅ |\n| 部分 gate：区域保留且激活，仅被 gate 的 item 不渲染 | ✅ | ✅ |\n| 全 gate：区域从切换器消失，选举跳过它落到首个可见区域 | ✅ | ✅ |\n| 仅剩一个可见区域：整个切换器隐藏 | ✅ | ✅ |\n| 全部区域被 gate：无切换器、无区域导航 | ✅ | ✅ |\n| 活动区域被 gate 后重选举；仅揭示不夺选 | ✅ | ✅ |\n| `action` 项计为区域内容（本侧接了 dispatcher） | —（未接） | ✅ |\n\n**破坏验证实录**（改坏 → 红 → 还原 → 绿，每次只改一处）：\n\n| 变异 | 预期失败的测试 | 实测 |\n|---|---|---|\n| AppSidebar 切换器改回 `areas`（无派生过滤） | 全 gate 隐藏 / 单区域隐藏切换器 / 全 gate 无导航 / 重选举 | 4 失败，其余绿 |\n| AppSidebar 选举无视 gating（init/effect/activeArea 用 `areas`） | 选举跳过 / 单区域 / 重选举 | 3 失败，其余绿 |\n| AppSidebar effect 永远选第一个可见（夺选） | 仅揭示不夺选 | 1 失败，其余绿 |\n| UnifiedSidebar 切换器改回 `areas` | 同 AppSidebar 第一条 | 4 失败，其余绿 |\n| UnifiedSidebar `hasActionHandler: false` | action 项承重测试 | 1 失败，其余绿 |\n\n**验证命令（仓根，均 flock 串行 + heap 上限）**：\n\n- `pnpm exec vitest run packages/app-shell/src/layout/__tests__/AppSidebar.derivedAreaVisibility.test.tsx packages/app-shell/src/layout/__tests__/UnifiedSidebar.derivedAreaVisibility.test.tsx` → **2 files / 13 tests 全绿**\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell` → **269 files / 2328 passed, 1 skipped**\n- `turbo run build --filter=@object-ui/app-shell` → 29 tasks successful（app-shell tsc 干净）\n- `turbo run type-check --filter=!@object-ui/site` → **77 tasks successful**\n- `turbo run lint --filter=@object-ui/app-shell` → **0 errors**（2131 条既有 warning 为存量基线）\n- ⚠️ **仓根全量 vitest 本地未能跑完：容器今日三次重启，全量验证任务三次被杀（PM 裁定不再重跑本地全量），交由本 PR 的 CI 把关。** 以上 scoped 结果（含 app-shell 全包 269 文件）均为重启前真实产出。\n\n## Changeset\n\n`.changeset/app-shell-sidebars-derived-area-visibility.md` — `@object-ui/app-shell: patch`（fixed group，无 major）。未触碰 `content/docs/releases/`。\n\n## 相关\n\n- #3311（裁决与 layout 侧实现）/ #3322（同型修法与测试结构参考）\n- #3315（rc.2 跟随退役的 pin-bump）\n- framework#4509（action 项无 dispatcher 则不渲染）\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

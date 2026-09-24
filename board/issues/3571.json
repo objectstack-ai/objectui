@@ -1,0 +1,32 @@
+{
+  "number": 3571,
+  "kind": "pull_request",
+  "title": "docs: 修正 CONTRIBUTING.md / ROADMAP.md 的 3 条死链",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T14:10:27Z",
+  "updated_at": "2026-08-07T14:13:11Z",
+  "closed_at": "2026-08-07T14:13:09Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T14:13:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3571",
+  "body": "Fixes #3545\n\n只做 issue 的**第 1 步**(3 条死链)。第 2 步(把这两个文件与 `docs/**` 纳入 `SCAN_ROOTS`)**刻意留下**,见文末。\n\n## 逐条处置\n\n### 1. `CONTRIBUTING.md:153` — 改指 `content/docs/guide/architecture.md`(与 issue 的建议不同)\n\n```diff\n-See [Architecture Documentation](./docs/spec/architecture.md) for details.\n+See the [Architecture Overview](./content/docs/guide/architecture.md) guide for details.\n```\n\n`docs/spec/` 目录根本不存在。issue 建议改指 `docs/ARCHITECTURE.md` —— 该文件确实存在,但**读过之后认为它不是这句话承诺的东西**:\n\n- `docs/ARCHITECTURE.md` 的 H1 是 `# Console Streamlining - Architecture Guide`,开篇即 \"This document describes the refactored architecture that enables third-party systems to use ObjectUI components without inheriting the full console infrastructure\";它的 \"New Packages\" 一节讲的是 `app-shell` / `providers`,主体是 Before vs After、Migration Path —— 一份重构设计文档。\n- 而链接所在的 `## Architecture Overview` 一节,正文是 `packages/` 目录树(types、core、react、components、designer、plugin-*)加 5 条设计原则(Protocol Agnostic / Tailwind Native / Type Safety / Tree Shakable / Zero React in Core)。它要的 \"details\" 是**包结构与设计原则的展开**。\n- `content/docs/guide/architecture.md` 的 frontmatter title 就是 `Architecture Overview`,含 `## Core Philosophy`、`## Architecture Layers`、`## Package Structure`、`## Type Safety` —— 正是本节的展开版。\n\n链接文字同时从 \"Architecture Documentation\" 改成目标文档的真实标题 \"Architecture Overview\",避免 #3506 / #3509 反复强调的那个坑:**用旧标签包装另一个目标**。\n\n### 2. `CONTRIBUTING.md:469` — 整句删除\n\n```diff\n Link validation runs automatically via GitHub Actions on all PRs using lychee-action. This checks for broken internal and external links.\n-\n-See [Documentation Guide](./docs/README.md) for details.\n```\n\n`docs/README.md` 不存在,且仓库里**没有任何一份**叫 \"Documentation Guide\" 的文档(`docs/` 下只有 `ARCHITECTURE.md`、`CONSOLE-STREAMLINING-SUMMARY.md`、`adr/`、`audits/`、`screenshots/`)。这句承诺的细节其实就在它自己所处的 `## Documentation` 一节里(Writing Documentation / Documentation Guidelines / Documentation Link Conventions / Validating Links 四个小节),前一句也已自成完整陈述。没有可诚实改指的目标 ⇒ 按 issue 给的第二种处置删句,而不是随手指一个别的文档。\n\n### 3. `ROADMAP.md:1892` — 扩展名 `.mdx` → `.md`\n\n```diff\n-- [Plugin Development Guide](./content/docs/guide/plugin-development.mdx)\n+- [Plugin Development Guide](./content/docs/guide/plugin-development.md)\n```\n\n真实文件是 `.md`。保持**相对文件链接**的写法(而不是 issue 提到的站内路由 `/docs/guide/plugin-development`),与同一 Reference 列表里的 `./CONTRIBUTING.md`、`./QUICK_REFERENCE.md` 一致 —— 这三行是给 GitHub 上读 ROADMAP 的人看的,GitHub 供的是文件不是路由。\n\n## 验证\n\n这两个文件**在任何门禁的扫描面之外** —— 即便 PR #3542 落地之后也是:`SCAN_ROOTS` 现在是 `content/docs` / `examples` / `README.md`,lychee 扫的是 `content/docs/**`、`docs/**`、`README.md`。所以本 PR 没有\"某个门禁由红转绿\"的证据可给,**磁盘存在性就是全部证据**,如实说明:\n\n```\n$ for p in content/docs/guide/architecture.md content/docs/guide/plugin-development.md \\\n           docs/spec/architecture.md docs/README.md content/docs/guide/plugin-development.mdx; do\n    test -e \"$p\" && echo \"OK   $p\" || echo \"DEAD $p\"; done\nOK   content/docs/guide/architecture.md      ← 新目标\nOK   content/docs/guide/plugin-development.md ← 新目标\nDEAD docs/spec/architecture.md               ← 旧目标\nDEAD docs/README.md                          ← 旧目标\nDEAD content/docs/guide/plugin-development.mdx ← 旧目标\n```\n\n另外用脚本自己导出的 `collectFiles` / `stripCode` / `diskPathExists`(只读,未改脚本)按 `rule: 'disk'` 预跑了这三个候选面,改前 / 改后:\n\n```\n改前: CONTRIBUTING.md links=16 judged=2 broken=2   ROADMAP.md links=6 judged=4 broken=1   docs/ files=15 links=49 judged=47 broken=0\n改后: CONTRIBUTING.md links=15 judged=1 broken=0   ROADMAP.md links=6 judged=4 broken=0   docs/ files=15 links=49 judged=47 broken=0\n```\n\n现有门禁保持绿:\n\n```\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3631 tracked text file(s); skipped 85 binary).\n\n$ pnpm docs:check-links\nLinks are valid across 3 scan roots.\n\n$ pnpm exec vitest run scripts/ --maxWorkers=2\nTest Files  16 passed (16)\n     Tests  275 passed (275)\n```\n\n无 changeset:根仓贡献者文档,非发布产物。未触碰 `content/docs/releases/`。\n\n## 刻意未做:第 2 步(扫描面)\n\n`scripts/check-doc-links.mjs` **本 PR 一行未动**。#3545 第 2 步(给 `SCAN_ROOTS` 加 `CONTRIBUTING.md` / `ROADMAP.md` / `docs` 三行)留在 #3545 里,给下一个座位。\n\n顺带把分诊评论里\"`docs/**` 从没被量过\"这个 caveat 量掉了(见上表):`docs/**` 15 个文件、49 条链接、47 条会被 `disk` 规则判定、**0 条死链**。所以第 2 步的成本是\"3 行配置 + 0 条清理\",本 PR 落地后这三个面即刻就是绿的 —— 但这只是一次预跑,不构成实施。\n\n## 附带发现(未在本 PR 修)\n\n#3570:同一节相邻散文的两处过期陈述 —— `CONTRIBUTING.md:467` 把 lychee 说成 PR 门禁(实为周扫 + `workflow_dispatch`,真正 gate PR 的是 `docs-links.yml`),以及 \"✅ Correct Link Patterns\" 示例里 3 条路由(`/docs/reference/api/core`、`/docs/reference/protocol/overview`、`/docs/architecture/component`)用仓库自己的 `routeExists()` 判定为死。两者都不是死链,#3545 的修复不覆盖;且因为在代码围栏里被 `stripCode()` 抹掉,即便第 2 步落地也扫不到。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

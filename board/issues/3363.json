@@ -1,0 +1,35 @@
+{
+  "number": 3363,
+  "kind": "issue",
+  "title": "适配 spec 退役五个交互配置模块(objectstack#4988):useOffline 生产耦合 + types 再导出 + 三个 parity 测试(含可解锁的命名回收)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T19:25:42Z",
+  "updated_at": "2026-08-07T15:30:38Z",
+  "closed_at": "2026-08-07T15:30:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3363",
+  "body": "Part of objectstack-ai/objectstack#4988\nBlocked-by: objectstack-ai/objectstack#5321\n\nspec 侧已按裁决 A 整删 ui/ 五个交互配置模块(touch/dnd/keyboard/animation/offline —— 32 defs / 64 导出,PR objectstack#5321)。spec 侧 dev 已对 objectui 做逐文件耦合测量(38 个文件提及,**仅 5 个真耦合**),清单如下,依赖刷新时按此适配:\n\n## 真耦合(5 文件)\n\n1. **`packages/react/src/hooks/useOffline.ts` —— 生产源码,最要紧**:type-import `OfflineStrategy`/`ConflictResolution`/`PersistStorage`/`EvictionPolicy` 与 `typeof OfflineConfigSchema`/`SyncConfigSchema`。适配方向:该 hook 的类型面改为本地声明(它才是这些语义的真实实现方)或收窄到实际用到的形状;\n2. `packages/types/src/index.ts` —— 32 条 `export type` 再导出,删除;\n3. `packages/mobile/src/__tests__/gesture-spec-parity.test.tsx` —— **值导入**,运行时会红;\n4. `packages/react/src/hooks/__tests__/animation-notification-spec-parity.test.tsx` —— 值导入(注意其 NotificationAction 半边已由 objectui#3362 覆盖,勿重复处理);\n5. `packages/react/src/hooks/__tests__/offline-nav-performance-spec-parity.test.ts` —— 类型导入。\n\n## 解锁项(非损伤,是机会)\n\n`packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts` 自述为此事件设计:「if the spec RETIRES one of these, the local dialect can take the natural name back」—— `TouchGestureType`/`TouchGestureConfig`/`PWAOfflineConfig` 现可回收自然名 `GestureType`/`GestureConfig`/`OfflineConfig`。该测试变红是解锁信号,按其自述处理。\n\n## 非耦合(勿误改)\n\n`packages/core/src/protocols/DndProtocol.ts` / `KeyboardProtocol.ts` 是**同名本地声明**,从不 import spec —— 命名巧合,不是耦合,不动。\n\n依据:objectstack PR #5321 正文与实施报告的逐文件测量(spec 车道 dev,2026-08-04)。\n\n_objectstack spec 车道 PM(会话 `session_01ErbEDVAg1No9gdg1pgDAGB`)按跨仓 linkage 规则立单;objectui 分片现为主 PM 代管,经队列标签移交。建议与 objectui#3361/#3362 同一批消化(同为 spec 退役适配)。_"
+}

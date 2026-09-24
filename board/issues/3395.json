@@ -1,0 +1,34 @@
+{
+  "number": 3395,
+  "kind": "pull_request",
+  "title": "fix(components,app-shell,core): interpolate {field} tokens in record_header api action targets",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T15:58:49Z",
+  "updated_at": "2026-08-05T17:11:01Z",
+  "closed_at": "2026-08-05T17:11:00Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T17:11:00Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3395",
+  "body": "Closes #3391\n\n## Problem\n\nA `type:'api'` action declared on `locations:['record_header']` with a target like `/api/v1/data/:object/{id}` was sent with the **literal `{id}`** (`%7Bid%7D` on the wire → 400). The SAME declaration interpolated fine from `list_item` — the two executors disagreed.\n\nRoot cause: `page:header` dispatched the authored action verbatim, so the record page api handler's `{field}` interpolation guard (`params._rowRecord`) never fired — the header executor simply never stashed the current record the way ObjectGrid row actions / `DeclaredActionsBar` do.\n\n## Fix\n\n- **`page:header` (components)** — record actions now dispatch in the same shape ObjectGrid row actions and `DeclaredActionsBar` use: the record stashed under `params._rowRecord`, a spec-shaped `params` ARRAY surfaced as `actionParams`. Dispatching a fresh object also stops ActionRunner's collected-params merge from mutating the authored schema node between invocations. Non-record hosts dispatch unchanged.\n- **`RecordDetailView.apiHandler` (app-shell)** — falls back to the page record for `{field}` interpolation when no `_rowRecord` is stashed, guarded to same-object actions only (mirrors the existing `recordIdParam` fallback), so other dispatch paths on the record page are covered too.\n- **`RecordDetailView.flowHandler` (app-shell)** — strips the client-side `_rowRecord` stash from the flow trigger body, matching `useConsoleActionRuntime`'s flowHandler.\n\n(An earlier commit also stripped `_rowRecord` from core `executeAPI`'s fallback body serialization; that was reverted — it broke the pinned bulk-dispatch contract in `objectBulkActionDispatch.test.tsx`, where hosts without a custom api handler identify each per-record request by the `_rowRecord` the built-in path carries on the wire. The console handlers strip the stash themselves, so #3391 doesn't need it.)\n\n## Verification\n\n- 8 new tests: 4 on the `page:header` dispatch shape (stash, array→`actionParams`, authored-node purity, non-record passthrough) and 4 on the real view handlers via the captured-provider harness (`{id}` from page record, stash wins over page record, retargeted actions never interpolate from the parent, flow body strips the stash).\n- Full regression: components suite (49 files / 463 tests), ActionRunner + RecordDetailView + DeclaredActionsBar + useConsoleActionRuntime + objectBulkActionDispatch suites all green; `type-check` and `lint` clean on the changed packages.\n- **Browser-verified** end-to-end with a new dev-only preview harness (`/record-header-preview.html`, same pattern as `row-actions-preview`) mounting the real `RecordDetailView` with the issue's exact action declaration. Same interaction flow (复制 → confirm → required param → confirm), before/after on the same driver:\n  - before (main): `PATCH /api/v1/data/os_tianshun_ehr_production_plan/%7Bid%7D` — the issue's 400, verbatim\n  - after (this branch): `PATCH /api/v1/data/os_tianshun_ehr_production_plan/plan-42` with body `{\"copy_ovr_start\":\"2026-08-15\",\"copy_now\":true}`, no `_rowRecord` leak\n\nPure bug fix — no changeset per repo convention.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01AeCMshyrRvShuMt4dppH2N"
+}

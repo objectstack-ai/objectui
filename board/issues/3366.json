@@ -1,0 +1,37 @@
+{
+  "number": 3366,
+  "kind": "issue",
+  "title": "[console/settings] 系统设置全部命名空间页白屏「Cannot convert undefined or null to object」——settings 客户端未跟进 framework#3843 响应信封(body.data)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T06:49:28Z",
+  "updated_at": "2026-08-05T10:27:32Z",
+  "closed_at": "2026-08-05T10:27:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3366",
+  "body": "## 现象\n\nConsole「系统设置 → 配置」下**所有** settings 命名空间页(本地化/公司信息/品牌/认证/邮件/短信/存储/AI/知识库/功能开关/数据生命周期,共 11 个)打开即整页错误边界:\n\n> 出错了 — Cannot convert undefined or null to object\n\n「全部设置」列表页(`/_console/apps/setup/system/settings`)则显示假空态:「尚未注册任何设置。插件可通过 SettingsService 注册设置清单。」——而同一实例 `GET /api/settings`(带管理员会话)实际返回 11 个 manifests。\n\n空库全新实例(`os dev --fresh --seed-admin`)即 100% 复现,与业务数据无关。\n\n## 环境\n\n- `@objectstack/*` **17.0.0-rc.3**(console 打包资产 `SettingsView-HmY6cAH1.js`)\n- 复现路径:Dev Admin 登录 → `/_console/apps/setup/system/settings/localization`(任一命名空间同现)\n\n## 根因:settings 客户端未跟进 framework#3843 的响应信封\n\nframework#3843(changeset `0931185`,**breaking**)把 `service-settings/settings-routes.ts` 的全部 5 个响应体搬进声明信封 `{ success, data }`,并配了 `envelope.conformance.test.ts` + repo 级 `check:route-envelope` CI 守卫。其 changelog 明说:\n\n> Raw `fetch` callers must add one hop: `body.data`.\n\n而 console 的 settings 客户端恰是 raw fetch 调用方,至今按信封前的旧形状直读(objectui main `68b6a2855` 现行代码):\n\n- `apps/console/src/pages/settings/api.ts:65` `getSettingsNamespace()` —— `jsonOrThrow` 直接 `return res.json()`,把**整个信封**当 `SettingsNamespacePayload` 返回;\n- `apps/console/src/pages/settings/SettingsView.tsx:97` —— `Object.entries(payload.values)`,信封顶层无 `values` ⇒ `TypeError: Cannot convert undefined or null to object` ⇒ 错误边界整页接管;\n- `apps/console/src/pages/settings/api.ts:60` `listSettingsManifests()` —— 同病,列表页拿不到 `manifests` ⇒ 渲染成「尚未注册任何设置」的**软失败**(比白屏更迷惑:管理员会以为插件没注册);\n- `apps/console/src/pages/settings/api.ts:73` `saveSettingsNamespace()`(PUT)—— 返回值同样期望顶层 `{ values }`,修好 GET 后保存回读也会踩同一坑,请一并处理;\n- 附带:`invokeSettingsAction()`(POST)对 `{ok:boolean}` 的探测因信封而失手,回落到 `{ok: res.ok, message: statusText}`,动作能跑但 message 丢失——低优先,顺手可修。\n\n#3843 的 changelog 备注过「objectui's `packages` readers were already tolerant」——packages 读者确实兼容了,但 **settings 读者被漏掉了**。\n\n## 实测证据(rc.3)\n\n`GET /api/settings/localization` 实际返回(截断):\n\n```json\n{\"success\":true,\"data\":{\"manifest\":{\"namespace\":\"localization\",...},\"values\":{\"timezone\":{\"value\":\"Asia/Shanghai\",\"source\":\"env\",\"locked\":true,...},...}}}\n```\n\n浏览器崩溃栈:\n\n```\nTypeError: Cannot convert undefined or null to object\n    at Object.entries (<anonymous>)\n    at SettingsView-HmY6cAH1.js:1:8634   ← useMemo: Object.entries(payload.values)\n```\n\n## 影响\n\nSetup 的整个「配置」板块在 17.0.0-rc.3 上对所有租户/所有管理员**完全不可用**(时区、语言、品牌、邮件投递、存储等全部设置项无法从 UI 查看或修改);列表页假空态还会把排查方向带偏到「插件没注册」。\n\n## 建议修法\n\n`jsonOrThrow` 处统一容错解包,兼容信封前后两代服务端(与 `ObjectStackClient.unwrapResponse` 同判定):\n\n```ts\nconst body = await res.json();\nreturn (body && typeof body.success === 'boolean' && 'data' in body) ? body.data : body;\n```\n\n---\n*发现自下游项目 os-project-titanwind-ehr#813(该项目登记号 PLAT-DEF-047)。*\n"
+}

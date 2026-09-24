@@ -1,0 +1,35 @@
+{
+  "number": 3560,
+  "kind": "issue",
+  "title": "chore(deps): upgrade @objectstack/* to 17.0.0-rc.5 — and surface which version-locked adaptation cards it unlocks",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T11:33:48Z",
+  "updated_at": "2026-08-07T14:36:11Z",
+  "closed_at": "2026-08-07T14:36:11Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3560",
+  "body": "Maintainer-directed (2026-08-07): upgrade this repo to the framework's `17.0.0-rc.5` (published 09:39Z today via the new human-gated release lane), then report which previously version-locked cards are now unblocked.\n\n## Current state (measured on `origin/main`)\n\n36 dependency entries across the workspace pin `^17.0.0-rc.2`: `@objectstack/spec` ×31, `@objectstack/formula` ×2, `@objectstack/client` ×2, `@objectstack/lint` ×1. The lockfile resolves the old rc.\n\n## Ask\n\n1. Bump every `@objectstack/*` range to `^17.0.0-rc.5` + refresh `pnpm-lock.yaml`.\n2. Restore green: build + typecheck + full tests. rc.3→rc.5 carried real breaking surface — expect fallout from (non-exhaustive; verify against the framework changelogs on npm/main): `FieldMapping.transform` union retirement (objectstack#6078, first entries in `RETIRED_KEYS_BY_MAJOR`/`RETIRED_DEFS_BY_MAJOR`), `ctx.user.roles` retirement ledger entry (objectstack#6011), the exported `HttpServer` delegating-wrapper retirement (objectstack#6141), `undefined` filter comparands now refused with `INVALID_FILTER`/400 (objectstack#6142 — behavioral, check test fixtures), plus whatever rc.3 carried before them.\n3. **Rider discipline (binding)**: the upgrade PR contains ONLY the bumps + the MINIMUM adaptations needed to restore green (compile errors from renames/retirements; parity/pin tests that their own cards pre-declared would go red on dependency refresh, e.g. #3362's three test files). Feature-class adaptations stay on their own cards — do NOT implement them here.\n4. **Unlock survey (the second deliverable)**: for each of these known version-locked cards, state in your report whether the upstream it waits on is now in rc.5 (and therefore the card is dispatchable): #3162 (blocked on objectstack#4171), #3361 (objectstack#5021 half), #3362 (objectstack#5015 half — expects its 3 test files to go red HERE), #3363 (objectstack#4988 half), #3407 (objectstack#5176 half), #3499 (HttpMethod subset rename — 2 imports in `packages/types` must follow, likely a REQUIRED green-restoring rider), #3502 (objectstack#5164 裁 A objectui 段), #3491 (nested-envelope consumer-first). Also grep open issues for other `Blocked-by:` lines naming framework versions/PRs and include them.\n\n## Repo hazards (read before starting)\n\n- ⛔ **Never `git stash`** — the stash stack is shared across worktrees in this repo (CLAUDE.md; objectui#3430 incident).\n- ⚠️ **objectui#3523 (P0)**: the merge queue's required set is EMPTY — the queue validates nothing. Your PR's own CI must FULLY converge green before it is marked ready; nothing downstream will catch a red.\n- New user-visible strings need locale keys in all ten packs (`t()` call-site key gate, objectui#3547 landed).\n- Changeset per repo convention for a dependency refresh across published packages (read a recent framework-refresh PR for the precedent shape).\n\n## Verification\n\nFull workspace build + typecheck + test; the gate list enumerated from this repo's CI workflows (do not pick from memory); confirm the resolved versions in the lockfile are `17.0.0-rc.5` everywhere (no split-brain ranges).\n\nDeliverable: pushed DRAFT PR in objectui (`Fixes objectstack-ai/objectui#<this>`), body in English listing the bumps, every green-restoring rider with its one-line justification, and the unlock-survey table."
+}

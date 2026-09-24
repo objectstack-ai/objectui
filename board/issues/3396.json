@@ -1,0 +1,33 @@
+{
+  "number": 3396,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): related-list Add picker honours add.picker.labelField (#3365)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T16:07:04Z",
+  "updated_at": "2026-08-06T00:48:44Z",
+  "closed_at": "2026-08-06T00:48:43Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T00:48:43Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3396",
+  "body": "Closes #3365\n\n## 问题\n\n`record:related_list` 的 Add 记录选择器打开 `RecordPickerDialog` 时只透传了 `add.picker.object`,页面元数据声明的 `picker.labelField` 从未传下去。弹窗于是落回组件默认 `displayField = 'name'` + 单列 `titleCase('name')` 表头:给用户「分配岗位 / 授予权限集」只能看着机器名(`ehr_appr_qc_director`、`admin_full_access`)猜要选哪个。\n\n除 issue 点名的用户记录页「岗位 / 权限集」两个页签外,**岗位记录页「权限集」页签的「绑定权限集」**(`sys-position.page.ts` 同样声明 `labelField: 'label'`)走同一通路,必然同症——本修复一并覆盖(platform-objects 全部 5 个 `add.picker` 入口共用这一个渲染点)。\n\n## 修法\n\n- **`packages/plugin-detail/src/RelatedList.tsx`**:\n  - `displayField` 取 `add.picker.labelField`(缺省仍 `'name'`)——即使 schema 拉不到,候选行也已显示业务可读名称;\n  - 首次打开弹窗时懒加载 picker 目标对象 schema,经共享的 `deriveLookupColumns` 派生多列布局,**表头取字段声明的 label** 而非 `titleCase(fieldName)`,与 `LookupField` 的记录选择器行为完全对齐;\n  - 传入 `fieldsMeta` + `getCellRenderer`,select/日期等列走类型感知渲染(与 #3333 同路)。\n- **`packages/fields/src/index.tsx`**:导出 `deriveLookupColumns`(其文档本来就写明 \"shared with the detail-page related list\",此前仅 LookupField 内部可用)。\n\n## 测试\n\n- 新增 `RelatedList.addPickerLabelField.test.tsx`:用 `sys_permission_set` 真实形状(`name` 为机器名、`label` 为显示名)断言弹窗显示「管理员完全访问」而非 `admin_full_access`、表头取 schema 字段 label;另测 schema 拉取失败时 labelField 仍生效。已做红/绿验证(撤掉修复 2 测试全红)。\n- plugin-detail 全量 45 文件 412 测试全绿;fields 全量 20 文件 184 测试全绿;两包 tsc+build 通过;eslint 0 error。\n- 纯 bug 修复,按 AGENTS.md 不写 changeset。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3371,
+  "kind": "pull_request",
+  "title": "fix(app-shell): flow 设计器不再给 wait 种子写入 spec 17 已退役的 waitEventConfig.onTimeout (#3316)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:11:37Z",
+  "updated_at": "2026-08-05T10:17:10Z",
+  "closed_at": "2026-08-05T10:17:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T10:17:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3371",
+  "body": "Fixes #3316\n\n## 前提核验(origin/main @ 68b6a28)\n\n议题正文的两处快照已随 #3294 漂移,故一律以 `origin/main` 为准复核,**前提成立**:\n\n- `previews/flow-canvas-parts.tsx:385` `defaultNodeExtras('wait')` 仍返回 `{ eventType: 'timer', onTimeout: 'fail' }`;\n- `previews/FlowCanvas.tsx:367`(一键退回修订环)现为 `{ eventType: 'signal', signalName: 'revision', onTimeout: 'fail' }` —— 与正文快照不同,但**同样带着 `onTimeout`**。\n\n对本仓 pin 的 `@objectstack/spec@17.0.0-rc.2` 实测,`waitEventConfig.onTimeout` 确为 `retiredKey()` 墓碑(即 `z.never().optional()`),不是被静默剥离而是 `FlowNodeSchema.parse()` 的硬错误:\n\n```\ncurrent seed  { eventType: 'timer', onTimeout: 'fail' }                         -> REJECTED\n  waitEventConfig.onTimeout: `waitEventConfig.onTimeout` was removed in\n  @objectstack/spec 17 (#4158). It had no readers at all … Delete the key.\nproposed seed { eventType: 'timer' }                                            -> ACCEPTED\nrevise seed   { eventType: 'signal', signalName: 'revision', onTimeout: 'fail' } -> REJECTED\nrevise fixed  { eventType: 'signal', signalName: 'revision' }                    -> ACCEPTED\n```\n\n即:设计器**自己产出的形状**过不了 spec 的加载校验 —— 作者只是从面板拖出一个 wait 节点、或点一次「添加退回修订环」,尚未编辑任何字段,保存/发布即 422。\n\n## 改动\n\n1. `defaultNodeExtras('wait')` 改为 `{ waitEventConfig: { eventType: 'timer' } }`(`timerDuration` 由作者填,表单里已是 text 字段)。\n2. `FlowCanvas.addReviseLoop` 的 wait 节点改为 `{ eventType: 'signal', signalName: 'revision' }`。\n3. 新增防回归测试 `previews/flow-canvas-seeds.spec-parse.test.tsx`。\n\n同一次退役的另外两个消费点在本仓**早已跟上**(`i18n.ts:3519` 删了标签覆盖、`inspectors/flow-node-config.ts:766` 删了表单字段),漏的正是**产出**这个键的那一块 —— 本 PR 补齐的就是这一半。\n\n## 防回归测试的两条判据(刻意不同)\n\n- **严格兄弟块**(`waitEventConfig` / `connectorConfig` / `boundaryConfig`):种子形状完整,判据是整节点 `FlowNodeSchema.safeParse` 全绿(值判定);另加一条按名点名的 `[REMOVED]` 墓碑断言,让下一次退役**直接报出是哪个种子写了哪个键**,而不是抛一个 `invalid_type: never`。\n- **`config` 根的种子**(`approval` / `notify` / `http`):`FlowNodeSchema.config` 是宽松的 `z.record()`,根本看不见它们;且这些种子**故意是残缺的**(notify 的 `title`、http 的 `url` 留给作者填),要求整解析全绿等于断言一件种子从未承诺的事。故判据下沉到键级 —— 每个种子键必须是 spec 已发布的 `ApprovalNodeConfigSchema` / `NotifyConfigSchema` / `HttpConfigSchema` 的**在生键**(非墓碑)。\n\n覆盖面按**生产者**而非文件划:`NODE_PALETTE` 全部类型 + `start` / `end` / `http_request` / `boundary_event`,加上从**真实按钮点击**捕获的退回修订环节点(该节点写在 React 回调里,没有可直接调用的导出;两个生产者放同一文件正是因为 #3316 的失效形状就是「只改了看得见的那个」)。\n\n## 议题建议第 3 点的核验结论:无第二例\n\n`defaultNodeExtras` 其余分支逐一对 spec 跑过,**均通过**,没有第二个退役键,因此无 out-of-scope finding:\n\n```\nstart OK · connector_action OK · boundary_event OK · approval OK\nnotify OK · http OK · http_request OK · script OK · wait FAIL(本 PR 修)\n```\n\n顺带核实:议题建议第 1 点括注「`timerDuration` 接受裸数字作为毫秒」在本仓 pin 的 spec 下,该字段类型是 `z.string()`,裸数字 `60000` 被拒、字符串 `'60000'` 通过 —— 与 `flow-node-config.ts` 注释里「`timeoutMs: 60000` 与 `timerDuration: '60000'` 是同一个 wait」一致。本 PR 不种 `timerDuration`,不受影响,记录于此以免下一位读者踩空。\n\n## 验证\n\n**反向验证(先定方向再跑)。** 预判:把 `onTimeout: 'fail'` 原样塞回两个种子点,应是**标准红向** —— 墓碑键按「是否存在」直接判定,不经 `??` 链,故既非计数翻转也非反转。实跑与预判一致,4 条红,每条都点名了 offender:\n\n```\n× `wait`: a freshly added node parses as a spec FlowNode\n    waitEventConfig.onTimeout: `waitEventConfig.onTimeout` was removed in\n    @objectstack/spec 17 (#4158) … Delete the key.\n× seeds no key the spec has retired in a structured sibling block\n    + \"wait.waitEventConfig.onTimeout (retired in spec)\"\n× `wait` seeds only the timer flavor — no retired timeout keys\n    +     \"onTimeout\": \"fail\",\n× the wait node the revision-loop button creates parses as a spec FlowNode\nTests  4 failed | 21 passed (25)\n```\n\n恢复修复后复绿(输出里可见文件名,确认新测试真的跑了,规避 #3288 的静默路径过滤):\n\n```\n✓ |dom| …/previews/flow-canvas-seeds.spec-parse.test.tsx  (25 tests)\nTest Files  1 passed (1)        Tests  25 passed (25)\n\nvitest run packages/app-shell\nTest Files  275 passed (275)    Tests  2406 passed | 1 skipped (2407)\n\npnpm --filter @object-ui/app-shell type-check  -> exit 0\npnpm --filter @object-ui/app-shell lint        -> 0 errors(2160 warnings,仓库既有基线,与 #3360 记录的数字一致)\nnode scripts/check-changeset-no-major.mjs      -> No changeset declares a `major` bump.\n```\n\n**消费半径扫描**:全仓(含 e2e / examples / apps)grep `onTimeout`,除注释与 CHANGELOG 外无任何 fixture 仍拼写该键 —— `apps/console/src/preview-samples.ts` 早已删除它,并有 `preview-samples-spec-valid.test.ts` 按任意深度封禁退役键。无陈旧 fixture 需要改口。\n\n已含 changeset(`@object-ui/app-shell` patch)。未触碰 `content/docs/releases/`。文件面严格限于议题划定范围。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

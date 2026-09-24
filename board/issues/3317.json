@@ -1,0 +1,35 @@
+{
+  "number": 3317,
+  "kind": "issue",
+  "title": "Gallery `coverField` reads the raw field value as a URL, so an ADR-0104-conforming image value can never render a cover",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T17:30:23Z",
+  "updated_at": "2026-08-05T10:10:47Z",
+  "closed_at": "2026-08-05T10:10:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3317",
+  "body": "Found while fixing framework#4774 / framework#4891 (the app-showcase seeded `data:` URIs into an `image` field, which ADR-0104 rejects). Removing the bad seed data surfaced this: with a *correct* value the cover still would not render, so the gallery has no working path for the platform's current file contract.\n\n## The contract, backend side\n\nSince ADR-0104 D3 wave 2 the **stored** value of a `file` / `image` / `avatar` / `video` / `audio` field is an opaque `sys_file` id (`FileReferenceIdValueSchema` — `/^[A-Za-z0-9_-]{1,64}$/`). On read, the engine expands it **in place** into the rich form (`ObjectQLEngine.resolveFileReferences`, `packages/objectql/src/engine.ts` ~3857):\n\n> Resolve file-field id references to their expanded `FileValueSchema` form (ADR-0104 D3 wave 2). A `file`/`image`/… value stored as an opaque `sys_file` id string is enriched, in place, to `{ id, name, size, mimeType, url }` — `url` derived from the stable `/files/:fileId` resolver, never stored.\n\nSo a conforming record arrives at the client with `cover` as an **object carrying `url`**, not a string.\n\n## What the gallery does\n\n`packages/plugin-list/src/ObjectGallery.tsx`:\n\n```tsx\nconst coverField = gallery?.coverField ?? schema.imageField ?? 'image';\n// …\nconst hasAnyCover = useMemo(\n    () => items.some((it) => typeof (it as any)[coverField] === 'string' && !!(it as any)[coverField]),\n    [items, coverField],\n);\n// …\nconst imageUrl = item[coverField] as string | undefined;\n```\n\nBoth reads assume the field value **is** the URL string. Against the expanded shape:\n\n- `hasAnyCover` is `false` (the value is an object, not a string), so `showCoverArea` is false and the cover area collapses for the whole gallery;\n- were it shown, `imageUrl` would be an object and ``'&lt;img src={…}&gt;'`` would fall to the `onError` letter-avatar.\n\nNet: for a spec-correct `image` value the cover **never** appears. The only values that render today are exactly the ones ADR-0104 retired — an inline `data:` URI or an external URL — which is why this stayed invisible: the showcase was feeding it a `data:` URI.\n\n`coverField` is documented in the spec as \"Attachment/image field to display as card cover\" (`packages/spec/src/ui/view.zod.ts` ~376), so image fields are the intended input, not an edge case.\n\n## Suggested direction\n\nResolve the cover through the value shape rather than assuming a string — accept `{ url }` (the expanded read form), a bare string (legacy inline/external, still valid during the dual-mode window), and treat an opaque id with no expansion as \"no cover\" rather than a broken `src`. `hasAnyCover` has to use the same resolver or the area keeps collapsing.\n\nWorth checking the same assumption in the sibling paths that thread `imageField` around — `packages/plugin-list/src/ListView.tsx` (~1319, ~1570), `packages/app-shell/src/views/ObjectView.tsx` (~1518), `packages/plugin-view/src/ObjectView.tsx` (~696) — and any avatar/attachment cell renderer with the same shape.\n\n## Repro\n\n1. `showcase_task.cover` is `Field.image()` and `TaskViews` binds `gallery: { coverField: 'cover' }`.\n2. Upload a cover on a task (which is how a managed file is meant to come into existence), so `cover` holds a real committed `sys_file` id.\n3. Open the task Gallery view — no cover renders.\n\nObserved against framework `main` @ 6bc93dc.\n\nFiled unassigned.\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 2678,
+  "kind": "issue",
+  "title": "approvals UX: surface OOO/quorum/per_group/attachments SDUI-first — stop hand-editing the inbox per feature",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-19T11:12:23Z",
+  "updated_at": "2026-08-06T09:56:45Z",
+  "closed_at": "2026-08-06T09:56:45Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2678",
+  "body": "> 后端审批能力最近连续落地(framework#1322 OOO 委派 → #3235/#3255;framework#3266 quorum/per_group 会签 + 决策附件 → #3268),前端需要跟上。**本 issue 的核心原则:调整现有代码、最大化利用 SDUI(服务端驱动 UI)能力,让未来的审批能力以元数据下发,而不是每个特性都改一遍前端组件。**\n\n## 调研结论(代码级,file:line 均已核实)\n\n### 平台的 SDUI 底座其实很强\n\n| SDUI 面 | 现状 |\n|:--|:--|\n| **通用动作运行时** | `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx` — 服务端声明的 action 按 `locations`(record_header/list_item/list_toolbar/…)放置,按 `type` 分发执行(`flow`/`script`/`api`/`form`…),自带确认框/参数收集对话框/结果框 + token 解析。**新增一个服务端 action = 前端零代码** |\n| **通用对象 CRUD** | nav contribution(`type:'object'`)→ `ObjectView` 免费渲染 list + form;`@object-ui/fields` 已注册 `file→FileField`(真上传部件)、`lookup→LookupField`(user picker)、`datetime` 等 |\n| **流程设计器属性表单** | `FlowNodeInspector.tsx:113-120` 消费引擎发布的 `configSchema`(ADR-0018/0019),经 `json-schema-to-fields.ts` 渲染:enum→select、number、array-of-object→objectList |\n| **富递归 SchemaForm** | `views/metadata-admin/SchemaForm.tsx`(2019 行)— 支持任意嵌套/数组/union/file/lookup,但**只用于 metadata 表单,流程设计器没用它** |\n\n### 反模式根源:审批收件箱是手写的\n\n`apps/console/src/pages/system/ApprovalsInboxPage.tsx`(**1961 行**)+ 私有 REST 封装 `services/approvalsApi.ts`:Approve/Reject/Send back/Request info/Reassign/Remind/Recall/Resubmit **全部是硬编码 `<Button>` + 固定 handler**,完全没走上面的动作运行时。这就是\"每加一个审批能力都得改前端\"的原因。`SystemHubPage.tsx:1-17` 自己都注明:新管理面必须走 nav contribution,不要 bespoke page。\n\n### 四个能力的逐项判定\n\n| 能力 | 判定 | 依据 |\n|:--|:--|:--|\n| **① OOO 自助声明** | ✅ **纯 SDUI,前端零代码** | 后端已有 `sys_approval_delegation` + Setup nav 项「Delegations (OOO)」;lookup(sys_user)/datetime/file 部件全有,ObjectView 直接可用。只需验证 + 截图 |\n| **② 委派给 X** | ✅ **已存在**(但是手写的) | `ApprovalsInboxPage.tsx:1843-1849` Reassign 按钮 + sys_user picker(:1376-1408, :681-691)→ `/reassign` |\n| **③ quorum/minApprovals 设计器编辑** | ✅ **configSchema 一发布即自动渲染** | framework#3268 已把 `behavior` 枚举 + `minApprovals` 进 configSchema;`json-schema-to-fields.ts` 的 enum→select、integer→number 无需前端改动。`group` 文本列(objectList 行内可选 string)也已支持 |\n| **④ 决策附件** | ❌ **唯一真 bespoke** | 决策 composer 只有 comment Textarea(:1760-1785);`approvalsApi` 请求体只带 `{actor_id, comment}`;时间线不渲染附件(:1661-1683)。后端 REST 已支持 `attachments`(#3268) |\n\n## 方案(SDUI-first,两个阶段)\n\n### P1 — 立即可做(小)\n\n1. **验证 ① 和 ③ 端到端**(应为零代码):OOO 对象 CRUD 走 ObjectView;流程设计器审批节点属性表单出现 quorum/per_group/minApprovals/group。\n2. **修剪 stale fallback**:`flow-node-config.ts:416-509` 的硬编码审批节点 fallback 仍是 `first_response|unanimous` 两值 —— 与引擎 schema 已 drift。configSchema 存在时必须以 schema 为准;fallback 同步或标记弃用。\n3. **④ 决策附件(一次性 bespoke)**:composer 挂 `FileField`(复用 `packages/fields/src/widgets/FileField.tsx` + `RecordAttachmentsPanel` 的上传管线),`approvalsApi.approve/reject/comment` 请求体加 `attachments: string[]`,时间线渲染附件行。做成**可复用的 attachment-aware composer/timeline**,之后审批线程的 payload 扩展不再新开 UI。\n\n### P2 — 一次性通用投资(防止未来每特性改前端,本 issue 的重点)\n\n4. **收件箱动作层 SDUI 化**:把 Approve/Reject/Reassign/Recall/… 从硬编码按钮迁移为 **`sys_approval_request` 上服务端声明的 actions**(`type:'api'` 指向既有 `/approvals/requests/:id/*` 路由 + 类型化 params,如 reassign 的 `to: user` picker),由 `useConsoleActionRuntime` 渲染执行。收件箱页面保留布局/时间线,动作区改为读 action 元数据。**此后新增审批动作(例如企业版 act-as、cloud#861)= 后端声明,前端零改动。**(需 framework 侧配套:在 `sys_approval_request` 元数据声明这组 actions —— 协同小 PR)\n5. **流程设计器嵌套数组支持(二选一)**:\n   - a)`json-schema-to-fields.ts` 的 `columnsFor`/`FlowConfigColumn` 增加嵌套 `objectList`/`stringList` 列种(repeater-in-repeater);或\n   - b)更彻底:审批等复杂节点的属性表单**切换到已有的递归 `SchemaForm.tsx`**,统一两套渲染器。\n   任一使得未来引擎发布的任意嵌套节点配置(不止审批)自动可编辑。推荐先 a) 后评估 b)。\n\n## 验收\n\n- [ ] OOO 自助:普通用户经 nav 进入即可增删改自己的委派(零前端代码,截图为证)\n- [ ] 流程设计器:审批节点显示 behavior 四值 + minApprovals + 每行 group,保存往返正确;fallback 与 schema 不再 drift\n- [ ] 决策附件:composer 可上传、决定携带 `attachments`、时间线可见;复用 FileField\n- [ ] 收件箱至少 Reassign/Approve/Reject 三个动作改由服务端声明 action 驱动(运行时 dialog 收参),删除对应硬编码分支\n- [ ] 嵌套数组:设计器可编辑一个 array-in-objectList 的演示 schema,不再跌落 Advanced JSON\n- [ ] 浏览器端到端验证(对接 framework 后端 :3000,HMR console :5180)\n\n## 关联\n\n- framework#1322 / #3235 / #3255(OOO 委派,已合并)· framework#3266 / #3268(quorum/per_group/附件,进行中)· framework#3267(引擎并行 ADR)· cloud#855/#861(企业版,将直接受益于 P2-4 的动作 SDUI 化)"
+}

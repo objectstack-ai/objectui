@@ -1,0 +1,34 @@
+{
+  "number": 3647,
+  "kind": "issue",
+  "title": "@object-ui/plugin-tree 的 package.json files 声明了 LICENSE,但 packages/plugin-tree/LICENSE 不存在——已发布包缺失它自己声明要带的许可证文本",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:57:30Z",
+  "updated_at": "2026-08-07T17:45:08Z",
+  "closed_at": "2026-08-07T17:45:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3647",
+  "body": "发现于 #3622 的排查(付清包 README 死链时逐包核对 `./LICENSE` 链接的真伪)。**不在该单完成范围内,单独记录。**\n\n## 事实\n\n39 个包里 35 个有 `LICENSE` 文件,4 个没有:\n\n| 包 | `private` | `package.json` 的 `files` | 有 LICENSE 文件 |\n| --- | --- | --- | --- |\n| `packages/plugin-tree` | false(**会发布**) | `[\"dist\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]` | ❌ |\n| `packages/react-runtime` | false | `[\"dist\"]` | ❌ |\n| `packages/sdui-parser` | false | `[\"dist\"]` | ❌ |\n| `packages/vscode-extension` | true(不发 npm) | 无 | ❌ |\n\n四个包的 `package.json` 都写着 `\"license\": \"MIT\"`。\n\n## 只有 plugin-tree 这一条是「声明与事实不符」\n\n`@object-ui/plugin-tree` 是唯一**在 `files` 里点名要求打包 `LICENSE`、而该文件根本不存在**的包。npm 对 `files` 里不存在的条目是静默跳过的,所以 `npm publish` 不报错、CI 也不报错——每个已发布的 tarball 都没有它自己声明要带的 MIT 许可证文本,而 35 个兄弟包都带。\n\n`react-runtime` / `sdui-parser` 的 `files` 只有 `dist`,没有作出这个声明,所以它们是「策略问题」(要不要给所有已发布包补 LICENSE),不是「声明失真」。`vscode-extension` 不发 npm。\n\n## 建议范围\n\n最小修复是给 `packages/plugin-tree` 补一份与其他 35 个包同款的 LICENSE 文件(仓根 `LICENSE` 的副本)。是否顺带统一 `react-runtime` / `sdui-parser` 的打包策略,请分诊裁决——那是另一个决定。\n\n## 相邻但不同的事\n\n`packages/vscode-extension/README.md` 的 `MIT — see [LICENSE](./LICENSE)` 指向不存在的文件,这一条**已在 #3622 的 PR 里改指仓根 LICENSE 的 GitHub URL**,不需要在本单重复处理。"
+}

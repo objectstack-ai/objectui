@@ -1,0 +1,33 @@
+{
+  "number": 3594,
+  "kind": "pull_request",
+  "title": "fix(runner): 站内导航保留 query string,`?api=` 不再被抹掉",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T15:01:46Z",
+  "updated_at": "2026-08-07T15:18:26Z",
+  "closed_at": "2026-08-07T15:18:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T15:18:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3594",
+  "body": "Fixes #3578\n\n## 问题\n\n`packages/runner/src/App.tsx` 的 `handleNavigate` 原先是 `window.history.pushState({}, '', to)` —— `to` 是侧栏导航项给的**裸路径**,于是地址栏上的 query string 在第一次点击后就没了。\n\nloader 被 `useMemo(..., [])` memo 住,所以**当前会话**看起来一切正常;真正的代价在会话之外:\n\n- **F5** → `params.get('api')` 读到 null → 退回 `LocalBundleLoader`,而 `src/app-data/` 在正常安装里是空的(gitignore),于是页面变成 `Page not found`。\n- **复制地址栏分享** → 对方拿到的是不带后端的 URL。\n\n而且失败现场不指认根因:没有任何提示说「API 基址丢了」,控制台只打印 `📦 Using Local Bundle Loader`。\n\n## 裁定与做法\n\n按 ADR-0054 C3「可寻址状态放 URL」——「当前指向哪个后端」是典型的可寻址状态(会被分享、刷新后期待还在)——采用方向 1:**导航时把当前 query string 一并带走**。\n\n### 保留整个 query,还是只保留 `api`?先量了再定\n\n| 参数 | 谁读的 | file:line |\n| --- | --- | --- |\n| `api` | runner 自己 | `packages/runner/src/App.tsx:45-46`(`git grep` 在 `packages/runner/src` 下的**唯一**一处 query 读取) |\n| `__debug` / `__debug_schema` / `__debug_perf` / `__debug_data` / `__debug_expr` / `__debug_events` / `__debug_registry` | runner **渲染的树**里的依赖包 | `packages/core/src/utils/debug.ts:39-50`(`parseDebugFlags`)、`packages/core/src/utils/debug.ts:86`(`isDebugEnabled`)、`packages/react/src/hooks/useDebugMode.ts:51` |\n\n所以 `api` **不是**今天唯一有语义的参数 —— runner 依赖 `@object-ui/react` / `@object-ui/core`,那套 debug 开关同样直接读 `window.location.search`,同样被裸路径 pushState 抹掉。**只搬 `api` 会把第二类参数留在原地继续丢**,是同一种静默丢失,只是爆炸半径小一点。故保留**整个** query string —— 也最少惊讶,并且以后谁再开始读 query 都自动受益。\n\n### 改在哪\n\n只改 `handleNavigate` 一处。读取侧**经测量无需改动**:`currentPath` 的初值(`App.tsx:39`)和 popstate handler(`App.tsx:80`)都只读 `location.pathname`,不受 query 影响;loader 的 `useMemo` 依旧是挂载时读一次 —— 本 PR 修的正是「刷新时它还能读到」。\n\n新增的 `withPreservedQuery(to, currentSearch)`:\n\n- 常见情形(`to` 是裸路径):把当前 query string **原样**接上,不做重编码,地址栏保持用户输入的样子。\n- 无 query 时:原样返回 `to`,**不会**多出一个空的 `?`。\n- `to` 自带 query:它自己的参数保留且同名优先,其余当前参数并在其后 —— 绝不拼出 `path?a=1?b=2` 这种畸形 URL(这条分支会经 `URLSearchParams` 重建,值按标准做百分号编码,是同一批参数的规范拼法)。\n\n## 测试\n\n新增 `packages/runner/src/App.navigation.test.tsx`,4 条,**驱动真实组件**(stub 掉 loader,因为 `src/app-data/` 是 gitignore 的),所以对未修改的源码也有意义。\n\n**反向验证(先预测方向,再跑)**:预测 3 红 1 绿 —— 三条「保留」断言在旧代码下必红,而「无 query 时不多加 `?`」那条在旧代码下必**绿**(裸路径天然满足它),它防的是新逻辑过度施加,不是回归探测器。在**未修改**的 `App.tsx` 上实跑,与预测完全一致:\n\n```\n ❯ |dom| packages/runner/src/App.navigation.test.tsx (4 tests | 3 failed)\n     × carries `?api=` across a sidebar navigation …\n        Expected: \"/customers?api=https://backend.example.com/api\"\n        Received: \"/customers\"\n     × carries the WHOLE query string, not just `api` …\n     × merges into a target that declares its own query …\n        Expected: \"/orders?tab=open&api=…\"   Received: \"/orders?tab=open\"\n  Tests  3 failed | 1 passed (4)\n```\n\n改完后全绿:\n\n```\n$ pnpm exec vitest run packages/runner --maxWorkers=2\n Test Files  3 passed (3)\n      Tests  13 passed (13)\n\n$ pnpm --workspace-concurrency=2 --filter '@object-ui/runner' type-check\n> tsc --noEmit && tsc -p tsconfig.test.json\n(exit 0)\n\n$ pnpm --workspace-concurrency=2 --filter '@object-ui/runner' lint\n✖ 23 problems (0 errors, 23 warnings)   # 全部既有;App.tsx 那条 React Compiler 警告是原有的 `useMemo`,只是行号被上移的 helper 顶下去了\n\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3631 tracked text file(s); skipped 85 binary)\n```\n\n## 文档同步\n\nPR #3581 本小时刚把这个行为如实写成注意事项;修复落地后那段话就变成在描述一个**已修复的缺陷**,故一并改掉:\n\n- `content/docs/utilities/runner.mdx` —— 「Read once, at mount」那条 caveat 重写为新行为(query 跟着走、刷新/分享可用;整串 query 而不只是 `api`;目标自带 query 时的合并规则)。「挂载时读一次」这半句仍然属实(不刷新地改地址栏不生效),予以保留。\n- `packages/runner/README.md:91-92` —— 同一句缺陷描述在包 README 里还有一份(「the caveat that in-app navigation drops `?api=` from the address bar」),同步改掉。**这一处超出了派单的文件面**(派单只点了 mdx),但它和 mdx 那句是同一个事实的两份拷贝,留着就是在同一个 PR 里发布一句已知为假的话。请 review 时确认;要退回随时可以只 revert 这两行。\n\n## 越界说明\n\n`packages/runner/tsconfig.test.json` 加了一行 `\"types\": [\"vite/client\"]`。原因不是顺手清理:新测试是 runner 第一个 `import` `App.tsx` 的测试,把 `src/lib/MetadataLoader.ts` 拉进了 `tsconfig.test.json` 的 program,而该文件用了 `import.meta.glob`;`tsconfig.test.json` extends 的是**根** tsconfig(不是 Vite 应用,不带 `vite/client`),于是 `tsc -p tsconfig.test.json` 报 3 条 `TS2339: Property 'glob' does not exist on type 'ImportMeta'`。这是本 PR 引入的,不是既有问题(把新测试文件挪走后 `type-check` 立刻 exit 0,已实测)—— 修法与 `packages/{layout,plugin-calendar,plugin-report,types}/tsconfig.test.json` 既有的 `types` 声明同一形状。\n\n## Changeset\n\n`.changeset/runner-preserve-query-on-navigate.md` —— `@object-ui/runner`: patch(用户可见行为修复)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

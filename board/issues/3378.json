@@ -1,0 +1,36 @@
+{
+  "number": 3378,
+  "kind": "issue",
+  "title": "`pnpm --filter @object-ui/app-shell test` 跑的是 @object-ui/console 的 22 个文件,app-shell 自己的 276 个一个没跑,却报绿",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T11:03:09Z",
+  "updated_at": "2026-08-06T04:42:46Z",
+  "closed_at": "2026-08-06T04:42:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3378",
+  "body": "发现于 objectui#3352 的验证环节 —— **不在该单范围内**(#3352 只动 3 处成功包络读点),按 Prime Directive #10 单独记录,不认领。\n\n## 现象\n\n`packages/app-shell/package.json` 的 `test` 脚本是裸的 `vitest run`。从包目录跑时(即 `pnpm --filter @object-ui/app-shell test` 的实际行为),vitest 把 root 定为 `packages/app-shell`,根级 projects(`unit` / `dom` / `dom-heavy`)的 include 因此匹配不到任何东西,**只有以路径引用进来的 `apps/console` project 仍然解析成功**。结果:\n\n```\n$ cd packages/app-shell && pnpm exec vitest run\n RUN  v4.1.10 /home/user/objectui-issue-3352/packages/app-shell\n Test Files  22 passed (22)\n      Tests  208 passed (208)\n```\n\n这 22 个文件**全部属于 `@object-ui/console`**,不是 app-shell 的:\n\n```\n$ cd packages/app-shell && pnpm exec vitest list\n[@object-ui/console] src/LocalizationFetchProvider.test.tsx > ...\n[@object-ui/console] src/LocalizationFetchProvider.test.tsx > ...\n```\n\n而 app-shell 自己有 **276** 个测试文件(`find packages/app-shell/src -name '*.test.ts*' | wc -l` → 276)。从仓根按目录过滤才真的跑到它们:\n\n```\n$ pnpm exec vitest run packages/app-shell/\n Test Files  276 passed (276)\n      Tests  2414 passed | 1 skipped (2415)\n```\n\n## 为什么值得收\n\n**它产生的是一个假绿,而不是一个报错。** 输出格式完全正常(`22 passed`),没有任何 \"0 tests matched\" 之类的信号;一个按包级约定验证的 agent 会据此报告「app-shell 整包绿」,实际上该包**一个测试都没跑**。这与 #3288(`--run` 路径过滤被静默忽略)是同一族失效模式:命令看起来成功了,覆盖面却悄悄塌了。危险面在于它恰好跑出 208 个别的包的通过用例,数量级看着像回事。\n\n与 #3240 相关但不同:#3240 问的是「17 个**带**本地 vitest.config.ts 的包里哪些真的需要」;本单是一个**不带**本地 config 的包,正因为没有本地 config 才 fall through 到收集别人的 project。#3240 的裁定大概率会覆盖到这里的修法,但两者的完成范围不重合,故单独立案。\n\n## 复现\n\n```bash\ncd packages/app-shell && pnpm exec vitest list | head   # 全是 [@object-ui/console]\n```\n\n## 可能的方向(留给认领者判断)\n\n- 包级 `test` 脚本改成从仓根按路径跑(`vitest run --root ../.. packages/app-shell/`),或\n- 统一裁定包级 `test` 脚本的存废(与 #3240 一并),或\n- 至少让「collect 到 0 个本包文件」这件事**报错**而不是静默通过。\n\n顺带:AGENTS.md 目前只钉了 #3288 那条陷阱(路径过滤被忽略),没覆盖本条(包级 `test` 跑成别的包)。修完值得补一句。\n"
+}

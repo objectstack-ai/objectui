@@ -1,0 +1,32 @@
+{
+  "number": 3183,
+  "kind": "issue",
+  "title": "console 产线构建:模态表单里 lookup 搜索框无法聚焦/输入——focus-scope 栈竞态把 dialog scope 踢出栈",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T04:32:04Z",
+  "updated_at": "2026-08-06T07:59:26Z",
+  "closed_at": "2026-08-06T07:59:26Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3183",
+  "body": "## 现象\n\n生产构建的 console(如 `@objectstack/console@17.0.0-rc.1`)中,新建/编辑记录的模态表单里:\n\n1. lookup 字段的快捷下拉:点搜索框**无法输入**——输入框拿不到焦点,焦点被同步拽回「选择...」触发按钮,列表始终不过滤;\n2. 点「浏览全部」弹出的记录选择表格(Record Picker)同样无法搜索。\n\n「新建用户权限集」表单的 用户(sys_user)lookup 上真机复现;任意对象的 lookup 均受影响。**仅产线 bundle 复现,`vite dev`(HMR)正常**,因此长期未被本仓测试发现。\n\n## 排查(EHR rc.1 后端 + 逐层插桩坐实)\n\n- 服务端无辜:`GET /api/v1/data/sys_user?search=zzz` 正确返回 0 条(rc.1 与 main 均正常);\n- 前端链路(`useRecordQuery → $search → rawFind ?search=`)代码正确,但请求根本没发出——因为**搜索框根本打不进字**;\n- 插桩显示:`input.focus()` 时,焦点在 focusout 阶段就被外层 Dialog 的 Radix `FocusScope.handleFocusOut` 同步拽回触发按钮;\n- 弹层(Popover)的 FocusScope 挂载副作用确认执行了 `focusScopesStack.add`,但外层 dialog scope 的 `pause()` **从未被调用**——它已经不在栈里了;\n- 根因是 `@radix-ui/react-focus-scope@1.1.16`(上游最新 rc 同样存在)的竞态:栈管理 effect 的 cleanup 用 `setTimeout(0)` 延迟执行 `focusScopesStack.remove(scope)`。当该 effect 因依赖抖动(container ref 重挂)在组件**未卸载**的情况下重跑时,顺序变成「重跑先 add → 旧 cleanup 的延时 remove 后执行」,把刚加回去的 scope 永久踢出栈。此后 dialog 的陷阱监听器仍然活着,但任何弹层都无法暂停它 → 弹层内输入框永远无法聚焦。\n\n## 方案\n\n`pnpm patch @radix-ui/react-focus-scope`(`patches/@radix-ui__react-focus-scope.patch`):\n\n- effect 重跑(scope 仍存活)时,取消上一次 cleanup 挂起的延时驱逐(`clearTimeout`);\n- 真正卸载时行为不变(autofocus-on-unmount + 栈移除照旧)。\n\n回归测试 `packages/components/src/__tests__/dialog-popover-focus-scope.test.tsx`:用「asChild 子元素换 key → container ref 重挂 → effect 必然重跑」确定性复现竞态,未打补丁必红、打补丁转绿;另附 Dialog+Popover 集成用例。\n\n已在 os-tianshun-ehr rc.1 后端 + 修复后产线 console 实测:下拉搜索 `zzz`→「未找到选项」、`Dev`→正确过滤;Record Picker 表格弹窗搜索同样恢复。\n\n上游(radix-ui/primitives)最新版本仍未修复该竞态,补丁需保留至上游修复为止。\n"
+}

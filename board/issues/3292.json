@@ -1,0 +1,36 @@
+{
+  "number": 3292,
+  "kind": "issue",
+  "title": "docs: `content/docs/core/enhanced-actions.mdx` 指向不存在的 `/docs/components/form`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T11:01:19Z",
+  "updated_at": "2026-08-06T05:44:00Z",
+  "closed_at": "2026-08-06T05:44:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3292",
+  "body": "在 objectui#3222 / PR #3289 的收尾检查中,`pnpm docs:check-links` 报告一条断链,**与该 PR 无关**(该文件自 #3143 起未被改动),单独记录。\n\n```\n$ node scripts/check-doc-links.mjs\nFound 1 broken docs link:\n- content/docs/core/enhanced-actions.mdx -> /docs/components/form\n```\n\n需要确认正确目标是哪一页(`/docs/components/` 下没有 `form`;表单渲染器的文档可能在 `/docs/guide/` 或 `/docs/blocks/` 下),然后改链接或补页面。\n\n纯 docs 单,适合作为独立的 docs-only PR。"
+}

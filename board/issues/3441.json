@@ -1,0 +1,36 @@
+{
+  "number": 3441,
+  "kind": "issue",
+  "title": "[finding] CommentThread 遗留两处:纯 emoji 按钮没有无障碍名;7 天以上时间戳不跟随会话语言",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T04:05:59Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3441",
+  "body": "实现 #3424(把 `CommentThread` 全部硬编码英文接入 i18n)时看到的两处,都**不属于**该单的范围(它治的是硬编码英文),所以没有顺手改。\n\n标 `finding`:`CommentThread` 在本仓**没有任何消费者**(全仓只有 `packages/collaboration/` 内部引用它;app-shell 用的是同包的 `PresenceAvatars` / `usePresence` / `useRealtimeSubscription` / `useConflictResolution`),所以今天没有用户经由 ObjectUI 自己的应用撞到它。但它是**已发布的导出组件**,包外宿主直接用得到 —— 严重度请 PM 自行判定,不要因为我贴了 `finding` 就当成不重要。\n\n## 一、三个纯 emoji / 符号按钮没有无障碍名\n\n`packages/collaboration/src/CommentThread.tsx`:\n\n- 每条评论下的快捷回应按钮,内容分别就是 `'👍'` 和 `'❤️'`,没有 `aria-label`、没有 `title`。屏幕阅读器只能念出 emoji 本身的 Unicode 名称(还依赖 AT 实现),完全说不出这个按钮是干什么的。\n- 回复提示条右侧的关闭按钮内容是 `'✕'`,同样没有名字。\n\n注意旁边那颗**加号**按钮(表情选择器)是有名字的 —— 它走 `title`,#3424 已经把它接进了 `collaboration.addThumbsUp`。所以这三颗是明确的遗漏,不是设计如此。\n\n修的时候可以直接用 #3424 已经建好的接线:`useCollaborationTranslation` / `COLLAB_DEFAULT_TRANSLATIONS`(`packages/collaboration/src/useCollaborationTranslation.ts`),新键十个语言包全补即可。\n\n## 二、7 天以上的评论时间戳不跟随会话语言\n\n同文件 `formatTimestamp`,最后一档:\n\n```\nif (days < 7) return t('collaboration.daysAgo', { count: String(days) });\nreturn date.toLocaleDateString();\n```\n\n`toLocaleDateString()` 不带参数用的是**运行时**默认 locale(浏览器/Node 的),不是会话语言。所以 zh 会话下,同一条评论列表里 6 天前的显示\"6 天前\",8 天前的却可能显示 `8/1/2026`。\n\n这**不是**硬编码英文(它本来就跟随环境),所以 #3424 有意没动它。要修的话有个真实的坑,请在实现时考虑:整个函数体外面包着 `try { … } catch { return iso; }`,而 `toLocaleDateString(tag)` 遇到不认识的语言 tag 会抛 `RangeError` —— 直接把 `language` 传进去,会让异常静默落进那个 catch,渲染出**原始 ISO 串**,比现在更糟。要么先校验 tag,要么就地单独 try/catch 回退到无参调用。\n\n`language` 是现成的:`createSafeTranslation` 返回的对象里就带(`const { t, language } = useCollaborationTranslation()`),不需要额外的 hook,也不需要引入日期库。\n\nRefs #3424,objectstack-ai/objectstack#5506\n"
+}

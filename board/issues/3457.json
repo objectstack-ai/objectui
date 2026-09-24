@@ -1,0 +1,33 @@
+{
+  "number": 3457,
+  "kind": "pull_request",
+  "title": "fix(i18n): ListView / ObjectGrid 记录详情浮层标题改为入键,不再自拼英文 (#3426)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T06:11:07Z",
+  "updated_at": "2026-08-06T06:46:14Z",
+  "closed_at": "2026-08-06T06:46:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T06:46:13Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3457",
+  "body": "Fixes #3426\n\nPR #3423 给 `NavigationOverlay` 的 `resolvedTitle` 接上了 i18n 默认值(`detail.recordDetail`),但两个调用方在传入侧自拼英文标题、直接塞进 `title` prop —— 默认值根本轮不到生效。结果是:一个 zh/ja/de 会话拿到一个通体本地化的抽屉,顶上却挂着唯一一句英文标题。\n\n- `packages/plugin-list/src/ListView.tsx` —— `` `${schema.label} Detail` ``\n- `packages/plugin-grid/src/ObjectGrid.tsx` —— 同样的模板串,外加无 label 时的裸字面量 `'Record Detail'`\n\n## 前提核验:这两条路径确实用户可达\n\nIssue 明确把可达性留给实现者判定,这是核验结论(证据均在 `origin/main`):\n\n- `list-view` / `object-grid` 是**公开页面块**(`packages/core/src/registry/public-blocks.ts`),`navigation` 是它们 schema 上的**可编写键**(`ViewNavigationConfig`,对齐 `@objectstack/spec ListView.navigation`)。\n- `useNavigationOverlay` 把 `mode: 'drawer' | 'modal' | 'split' | 'popover'` 翻成 `isOverlay`;两个插件都把 `navigation.handleClick` 接到行点击上,并各自渲染 `NavigationOverlay`。\n- 所以任何页面元数据只要写下 `navigation: { mode: 'drawer' }`,点行就会开出这个浮层 —— 不经过 console/app-shell。\n\n唯一会**压制**它的宿主是 app-shell 的 `ObjectView`:它传自己的 `onRowClick`(在 `useNavigationOverlay` 里具有最高优先级,直接 return),并渲染自己的 `NavigationOverlay`。那是一个宿主对公开块的覆盖,不能反推分支是死的。\n\n新增的四个测试文件就是这条可达性的可执行证据:它们完全按用户路径打开浮层(点行 → 断言标题),没有任何对内部状态的直接操作。\n\n## 改法(调用方入键,不给消费方加宽容)\n\n两处都改成从 key 取标题,而不是拼字符串:\n\n- 新键 `detail.recordDetailWithLabel`(en: `'{{label}} Detail'`)用插值携带对象标签,这样限定词后置的语种(de 用连字符复合词)或需要领属助词的语种(ja/zh)可以自己排语序,而不是被英文语序焊死;\n- 无 label 的分支**复用** `detail.recordDetail` —— 正是浮层自身的默认键 —— 而不是另铸一个孪生键,避免同一个控件上的同一句话分裂成两份会各自漂移的译文。\n\n新键补进**全部十个语言包**,并且同时补进两个插件各自的英文兜底表(`LIST_DEFAULT_TRANSLATIONS` / `GRID_DEFAULT_TRANSLATIONS`)—— 那才是没有挂 `I18nProvider` 时 `createSafeTranslation` 真正读的东西。\n\n## 英文输出逐字节不变\n\n三个分支都不变:`Contacts Detail` / `Contacts Detail` / `Record Detail`,挂 provider 与不挂 provider 皆然(兜底路径里 `createSafeTranslation` 自己会替换 `{{label}}`)。既有 e2e 用英文名寻址这块 chrome 的写法照旧可用。\n\n## 验证方向(先预判,再运行)\n\n| 用例 | 改前 | 改后 |\n|---|---|---|\n| zh / ja / de(挂 provider) | RED | GREEN |\n| en(挂 provider) | GREEN | GREEN(钉住字节不变) |\n| 无 provider 兜底 | GREEN | GREEN(钉的是兜底,不是修复) |\n\n反向核验实测(用 `git checkout origin/main --` 取回原始源文件后重跑,再还原):\n\n```\nObjectGrid.overlayTitleI18n.test.tsx     Tests  5 failed | 1 passed (6)\nListView.overlayTitleI18n.test.tsx\n  + ListView.overlayTitleNoProviderFallback.test.tsx\n                                         Tests  5 failed | 4 passed (9)\n```\n\n两次唯一活下来的绿色用例,都正是 `en` 那条 —— 与预判完全一致。\n\n正向全量(仓根,`flock` + `--maxWorkers=2`):\n\n```\npnpm exec vitest run packages/i18n packages/plugin-grid packages/plugin-list\n Test Files  96 passed (96)\n      Tests  987 passed (987)\n```\n\n`all-locales-key-parity`(含 placeholder 形状比对)覆盖了新键,已在上面这 987 条里绿。\n\ntype-check / lint:\n\n```\npnpm --workspace-concurrency=2 --filter @object-ui/plugin-grid --filter @object-ui/plugin-list --filter @object-ui/i18n type-check   → Done ×3\npnpm --workspace-concurrency=2 --filter … lint   → 0 errors(仅存量 warning)\nnode scripts/check-control-bytes.mjs → OK (3648 tracked text files)\n```\n\n远端 CI 已全绿(17 项 success / skipped,含 Test 四个分片、Type Check、Lint、Control Byte Scan、Changeset Bump Policy 与 Fixed Group Check)。\n\n## 关于「为什么兜底测试要单独一个文件」\n\n`createI18n` 会 `instance.use(initReactI18next)`,而 `initReactI18next` 把该实例注册成 react-i18next 的**模块级全局默认**,这个注册在 unmount 和 `cleanup()` 之后依然存活。所以只要同一文件里有任何一个用例挂过 `I18nProvider`(哪怕 `defaultLanguage` 是 zh 且早已卸载),后面所有「不挂 provider」的渲染都会静悄悄地落到那个中文实例上 —— 看起来是绿的,其实什么都没断言。沿用 plugin-detail 在 objectstack#5733 立下的同一处理(两个文件、文件头写清原因)。\n\n## 越界未改(已记录为 out-of-scope)\n\n同一类缺陷在本 PR 文件围栏之外还有三处,均未在此 PR 触碰,已单独立为 #3459(未指派、未打标,待 PM triage):`plugin-kanban/src/ObjectKanban.tsx`(``${objectName} Detail`` 加 `'Card Details'`)、`plugin-tree/src/ObjectTree.tsx`(`title` 直接给字面量 `\"Record Details\"`)、`plugin-view/src/ObjectView.tsx`(``${objectLabel} Detail``)。\n"
+}

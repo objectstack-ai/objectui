@@ -1,0 +1,32 @@
+{
+  "number": 3621,
+  "kind": "pull_request",
+  "title": "docs(runner): README §Development Workflow 按两个 loader 的真相改写第 1、3 步 (#3604)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:09:52Z",
+  "updated_at": "2026-08-07T16:13:15Z",
+  "closed_at": "2026-08-07T16:13:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T16:13:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3621",
+  "body": "Fixes #3604\n\n> 本正文里的尖括号占位符一律写成 `pages/< route >.json` 这样**带空格**的形式,只是为了绕开 GitHub 正文里 `<`+字母 会被当成 HTML 标签吞掉的存储行为。文件里的真实拼写不带空格,以 Files 页的 diff 为准。\n\n## 前提复核(对 `origin/main`,`616353ad1`)\n\n分诊已核过一轮,这里独立复核一遍,结论一致 —— 行号也没再漂:\n\n- `packages/runner/README.md:100` 仍是 `1. Create a schema file (JSON or TypeScript)`,#3602(`622c23082`,同一文件)与 #3616 合并后均幸存。\n- runner 确实没有任何路径能加载 TypeScript 写的 schema:\n  - `packages/runner/src/lib/MetadataLoader.ts:26-28` —— `LocalBundleLoader` 的三个 `import.meta.glob` 全部是 `.json` 模式;\n  - 同文件 `:89` / `:101` —— `NetworkLoader` 只 `fetch` 固定的 `${base}/app.json`、`${base}/pages{path}.json`,并直接 `res.json()`。\n- `src/app-data/` 是 git-ignored(`packages/runner/.gitignore:1`)、`git ls-files` 下无追踪、工作区里也不存在;全仓对它的引用只有 loader 自己和 `vite.config.ts:25` 的 `@app` 别名,**没有任何脚本会创建它**(`grep -rn 'app-data'` 全仓,已核)。所以照旧文本在别处建文件的读者,每次加载都拿到 `null`,页面渲染成 404 —— 这条坑按分诊要求写进了正文。\n\n## 改写前后对照\n\n**改前**\n\n```\n1. Create a schema file (JSON or TypeScript)\n2. Start the runner with `pnpm dev`\n3. Edit the schema - changes reload automatically\n```\n\n**改后**(第 2 步未动)\n\n```\n1. Author the metadata as JSON — both loaders resolve fixed `.json` paths, and JSON is\n   the only shape either of them can load. Pick one of the two routes described under\n   [Metadata Loading](#metadata-loading):\n   - **Bundled** — create `packages/runner/src/app-data/` and put `app.json` plus one\n     `pages/< route >.json` per route in it (route `/` is `pages/index.json`). That\n     directory is git-ignored, absent from a fresh checkout, and no script in this repo\n     creates it, so making it is a step you do by hand — until it exists, every load\n     returns nothing and the page renders as a 404.\n   - **Served** — run a backend that answers `< base >/app.json` and\n     `< base >/pages/< route >.json`, then open the runner with `?api=< base >`.\n3. Edit the metadata. Under `src/app-data/` the dev server picks the change up without a\n   restart, because that JSON is part of Vite's module graph; behind `?api=` it cannot,\n   because Vite never sees your backend. Reload the page if the view still shows the\n   previous document.\n```\n\n路径拼写与本文件 §Metadata Loading 一节对齐(`app.json` + `pages/index.json` 对应路由 `/`),该节的 `?api=` 表格和 loader 的解析顺序都已经把这两种形状写清楚了,第 1 步现在指过去而不是另讲一套。\n\n## 第 3 步:为什么是这样限定的(与派发预设有出入,如实说明)\n\n派发要求「限定而非删除」,并预设 `LocalBundleLoader` 一侧「成立(Vite HMR)」。分路保留了,但**成立那一侧我没有按「自动热更新」来断言**,理由是脱离实跑无法从代码确认:\n\n- 可从代码确认的部分,已经写进正文:`src/app-data/**/*.json` 经 `import.meta.glob` 进入 Vite 的 module graph,dev server 会 watch 它 —— 所以改动**不需要重启 dev server**;而 `?api=` 那条后端完全在 Vite 的视野之外,不存在任何 watch/reload 机制,这一侧的否定是无条件成立的。\n- 无法从代码确认的部分:更新最终是否会**自己出现在屏幕上**。`src/App.tsx` 只导出组件(`RunnerApp` + 一个空的 `export {}`),因此是 react-refresh 的边界;JSON 变更沿 `MetadataLoader.ts` 冒泡到这个边界后,可能表现为整页 reload,也可能被一次**保状态的重渲染**吸收 —— 后者下 `pageSchema` 这个 `useState` 不变、`useEffect` 的依赖 `[currentPath, loader]` 也不变(`loader` 是 `useMemo(…, [])`),重新读取不会发生,读者看到的仍是旧文档。判定这一点需要真起服务在浏览器里看,本任务的范围里不含实跑。\n\n写一个未经确认的机制断言,正是本 issue(以及 #3533)要清除的那类东西,所以正文落在两种机制下都成立、且对读者可操作的说法上:「视图仍是旧文档就刷新页面」。如果维护者希望把这一句强化成明确的「自动刷新」,需要先起一次 dev server 实测,我可以另开一趟做。\n\n## 验证\n\n改动是单文件 markdown,如实写明每条证据的覆盖面:\n\n| 命令 | 结果 | 覆盖面 |\n| --- | --- | --- |\n| `node scripts/check-control-bytes.mjs` | `✅ OK (scanned 3650 tracked text file(s); skipped 85 binary)` | **覆盖本文件** —— 该脚本以 `git ls-files -z` 为扫描面 |\n| `node scripts/check-doc-links.mjs` | `Links are valid across 6 scan roots.` | **不覆盖本文件** —— `SCAN_ROOTS`(`scripts/check-doc-links.mjs:286`)是 `content/docs`、`examples`、`README.md`、`CONTRIBUTING.md`、`ROADMAP.md`、`docs`,`packages/**` 不在其中。改前改后都绿,不构成对本改动的背书 |\n| `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' packages/runner/README.md` | 无输出(rc=1),改前的 blob 同样干净 | 门禁盲区自扫 |\n| `grep -n 'TypeScript' packages/runner/README.md` | 仅剩 `:170  - **TypeScript:** ≥ 5.0 (strict mode)` | §Development Workflow 节内 0 命中;残留那条在 §Compatibility,讲的是工具链版本要求,与 schema 的书写形式无关,合法保留 |\n\n**未跑 `pnpm test` / `pnpm type-check`**,这是判断不是遗漏:改动是 markdown,不被任何代码路径导入,`packages/runner` 的测试也不读 README;仓库自己的 `ci.yml` 与 `lint.yml` 对 `**/*.md` 走 `paths-ignore`,即本 PR 在 CI 上只会触发 `control-bytes.yml`(无 path 过滤)。为一个必然无关的结果去装一整棵 `node_modules` 并构建依赖,不符合共享容器的资源纪律。\n\n## 无 changeset\n\n与 #3602(**同一文件、同样只改 README**,1 file changed)先例一致:包 README 的文档修正不进 changeset。`changeset-guard.yml` 的触发条件是 `paths: .changeset/**`,不会因为缺 changeset 而红。\n\n## 越界发现(未在本 PR 修改)\n\n- **#3620** —— 同一文件 §Features 第 8 行 `- **Hot Reload** - Automatic reload on schema changes`,和第 3 步是同一句无条件宣称,只是位置不同,`?api=` 那条同样不成立。#3604 的派发范围被明确锁死在 §Development Workflow,故另立单,未加 `pm:queue`,留给 PM 分诊。\n\n按派发要求通读了 §Development Workflow 全节,其余步骤**无同类虚构**,一并核过:第 2、5 步的 `pnpm dev` / `pnpm build` 在 `packages/runner/package.json` 的 `scripts` 里真实存在(`vite` / `vite build`);第 4 步是通用表述。顺带核了紧邻的 §Example Schema,其中 `page` / `grid` / `card` / `statistic` 四个组件类型在 `packages/components/src/renderers/` 下均有对应 renderer,不是虚构,故未动。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

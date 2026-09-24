@@ -1,0 +1,36 @@
+{
+  "number": 3422,
+  "kind": "issue",
+  "title": "[fields] 记录选择器筛选面板:select 筛选项一律按字符串下发,lookup_filters 派生的数字/布尔选项筛不出记录",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T02:32:07Z",
+  "updated_at": "2026-08-06T03:29:29Z",
+  "closed_at": "2026-08-06T03:29:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3422",
+  "body": "## 症状\n\nlookup「浏览全部记录」记录选择器的筛选面板里,`select` 筛选项被选中后,写进 `$filter` 的永远是**字符串**。当该筛选项的选项值不是字符串(数字、布尔)时,查询条件与库里存的值类型不符,筛选结果为空 —— 界面上表现为「选了一个明明有记录的选项,列表却空了」。\n\n## 定位(origin/main,commit 789fe3ee2)\n\n`packages/fields/src/widgets/RecordPickerDialog.tsx`:\n\n- `:779` `SelectItem value={String(opt.value)}` —— Radix Select 的 value 必须是 string,所以选项值在渲染时被 stringify(这一步本身没问题);\n- `:772` `onValueChange={v =` 回调拿到的就是那个 string,直接 `handleFilterChange(col.field, v)` 存进 `filterValues`,**没有再映射回作者写的原值**;\n- `:206` `filterValuesToRecord` 的 select 分支 `result[col.field] = v;` 原样透传,于是 `$filter` 里是 `\"3\"` 而不是 `3`。\n\n产生非字符串选项值的来源是筛选列的自动派生:\n\n- `:452` `effectiveFilterColumns` 从 `lookupFilters` 派生时,`in` / `notIn` 的数组值被直接当成选项值:`options: (f.value as any[]).map(v =` → `{ label: String(v), value: v }`,`v` 的类型完全由作者写的 `lookup_filters` 决定;`LookupFilterDef.value` 在 `packages/types/src/field-types.ts:443` 声明为 `unknown`。\n\n复现路径:lookup 字段声明 `lookup_filters: [{ field: 'level', operator: 'in', value: [1, 2, 3] }]` → 打开记录选择器 → 筛选面板出现 `level` 下拉(选项 1/2/3)→ 选 `1` → 下发 `$filter: { level: \"1\" }`,而记录里 `level` 是数字 1。\n\n## 影响范围与优先级说明(请 triage 复核)\n\n- 从**对象 schema** 取到的 select options 不受影响:`@objectstack/spec` 的 `SelectOptionSchema.value` 是 `string`,所以 #3336(PR #3421)新引入的「筛选项从 schema 取 options」这条路径下发的一定是字符串,是对的;\n- 受影响的只有上面这条 `lookup_filters` 自动派生路径,**在 main 上早已存在,与 #3336 无关**,不是 PR #3421 引入的。故按纪律另开而不是搭车修。\n\n## 参考修法\n\n表单侧同类问题已有先例:#3090 引入了 `matchOptionValue` / `toControlValue`(`packages/components/src/renderers/form/`),职责正是「控件说 string,payload 还作者写的类型」。筛选面板可以复用同一对语义(在 `handleFilterChange` 处按 `col.options` 反查原值),而不是在 `filterValuesToRecord` 里做类型猜测式的 coerce —— 后者会把 `\"1\"` 和 `1` 的区分权交给消费端猜。\n\n顺带可一并核对:`col.type === 'number'` 分支已经显式 `Number(raw)`,`boolean` 分支显式 `Boolean(val)`,只有 `select` 分支没有回映射,三者行为不一致本身也是个信号。\n\n## 发现来源\n\n实现 #3336(PR #3421)时顺带发现,已按 Prime Directive #10 另开、不带 `pm:queue`、未指派。\n"
+}

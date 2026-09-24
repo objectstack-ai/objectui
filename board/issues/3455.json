@@ -1,0 +1,33 @@
+{
+  "number": 3455,
+  "kind": "pull_request",
+  "title": "fix(components,i18n): Sheet/Dialog 关闭按钮接入 common.close,并让 shadcn 同步机制携带该补丁 (objectstack#5505)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:57:01Z",
+  "updated_at": "2026-08-06T06:46:14Z",
+  "closed_at": "2026-08-06T06:46:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T06:46:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3455",
+  "body": "Fixes objectstack-ai/objectstack#5505\n\n## 问题\n\n`Sheet` / `Dialog` 两个 primitive 自动渲染的关闭按钮是纯图标(lucide X),它的 `sr-only` span 不是装饰 —— 那就是该控件的可访问名称,屏幕阅读器朗读的是它,`getByRole('button', { name })` 匹配的也是它。上游 shadcn 把这个名称硬编码成英文字面量,所以在 zh/ja/es 下,控制台里每一个抽屉和模态框都朗读英文 \"Close\":约 20 个 `SheetContent` 消费方,以及全部 `DialogContent` 消费方(ChatDock、ActivityFeed、metadata-admin、AiChatPage、BuildDebugDrawer、PeoplePicker、RecordDetailDrawer、ObjectChart、AiPendingActionsInbox 等)。\n\n唯一的例外是 `NavigationOverlay`,它用 `[&>button:last-of-type]:hidden` 把 primitive 自带的关闭按钮藏掉并自渲染一个 —— 这一点在 origin/main 上仍然成立,已复核。\n\n## 为什么不能直接改那两个文件\n\n`packages/components/src/ui/**` 是 No-Touch 区(AGENTS.md 第 7 条),由 registry 重新生成。就地手改会被下一次 `pnpm shadcn:update` 静默还原,而且**type-check 抓不到**:上游会连同用法一起删掉,重新生成后的文件照样编译通过。这正是 `shadcn-sync.js` 自己在 `command.tsx` 注释里记录过的失效模式。\n\n## 方案(PM 裁定的 Route B)\n\n补丁以**数据**形式声明在 `scripts/shadcn-local-patches.mjs`,由同步流程本身负责携带,而不是靠人记得重做。\n\n**载荷放在重新生成区之外。** 真正的 i18n 实现落在 `packages/components/src/lib/close-label.tsx`(`src/lib/` 不参与重新生成),primitive 里只留一行引用。这样每个文件的补丁只有两处单行锚点 —— 加一行 import、换一个元素 —— 对上游改动的抗性远高于把 hook 内联进去。\n\n翻译走 `createSafeTranslation`,解析 `common.close`(自 objectstack#5430 起十个语言包都有),**未挂载 `I18nProvider` 时回退英文**。这一条是硬要求:仓内大量既有用例按英文名定位这些按钮且不挂 provider(`plugin-form/src/discardGuard.test.tsx`、`plugin-detail/src/__tests__/InlineCreateRelated.closeButtonName.test.tsx` 等),渲染出原始 key 会连带打挂它们。\n\n## declared = enforced\n\n声明本身不值钱,能否**大声失败**才是。三处独立强制:\n\n1. **`--update` 写入时重新施加**,包括 `--force`。补丁在本地改动拒绝逻辑**之前**施加,因此仅有已声明补丁这一处差异的组件会与上游比较为相等、正常同步,\"拒绝覆盖\"继续只对**未声明**的改动报警。\n2. **锚点失效即拒绝写入。** 锚点消失、或出现多次变得有歧义(`occurrences` 固定为 1),`--update` 报错退出而不是静默漏掉该补丁 —— 猜一个位置比停下来更糟。\n3. **`pnpm shadcn:check` 非零退出**,当补丁从磁盘文件里丢失(被 `--force`、手改或错误合并抹掉),或已无法重新施加到当前上游(上游挪了锚点,下次同步会失败 —— 提前预警)。\n\n另外:registry 返回无法解析的内容(离线、egress 403、schema 变更)时按 fetch 错误处理,**不会**把网络故障误报成补丁失效。\n\n## 验证\n\n方向在跑之前先写死,结果与预测一致。\n\n**反向验证** —— 把两个 primitive 还原成 origin/main 的英文字面量后重跑:\n\n```\n× reads the zh bundle value under a zh session   (Sheet + Dialog)\n× reads the ja bundle value under a ja session   (Sheet + Dialog)\n× reads the es bundle value under an es session  (Sheet + Dialog)\n× sheet.tsx / dialog.tsx carries its declared patches\n× sheet.tsx / dialog.tsx has no hardcoded English close label\nTest Files  2 failed | 1 passed (3)\n      Tests  10 failed | 13 passed (23)\n```\n\nen 正例与 no-provider 回退**两侧都绿**(回退语义未变,这正是它们作为 pin 的意义);非 en 正例、英文字面量负例、源码级闸门在改动前全红、改动后全绿。\n\n**大声失败路径**(补丁被还原时跑 `pnpm shadcn:check`):\n\n```\nDECLARED LOCAL PATCHES — FAILED\n✗ Required local patches are MISSING from the file on disk:\n  [dialog-i18n-close-label] declared for dialog.tsx (objectstack#5505)\n    why: DialogContent's close button is icon-only (lucide X), so this\n         sr-only span IS the control's accessible name. ...\n    missing marker: \"CloseSrLabel\"\n  Restore with: node scripts/shadcn-sync.js --update dialog\n✗ 2 component(s) with declared local patch failures — see above.\nELIFECYCLE Command failed with exit code 1.\n```\n\n补丁齐全时同一命令退出码 0 —— 且此时 46 个 registry 请求全部失败(沙箱 egress 拦截),闸门**没有**误报,证明了上面那条防误报保护。\n\n**测试命令**(均在仓根,加 flock 串行化):\n\n- `pnpm exec vitest run` 四个新增/改动测试文件 → 29 passed\n- `pnpm exec vitest run packages/components` → **89 files / 648 tests passed**\n- `pnpm exec vitest run packages/plugin-form packages/plugin-detail packages/plugin-view` → **91 files / 856 passed**\n- `pnpm exec vitest run packages/app-shell packages/plugin-dashboard` → **305 files / 2632 passed**\n- `pnpm --filter @object-ui/components type-check` → 通过\n- `eslint` 改动文件 → 0 error 0 warning\n- `node scripts/check-control-bytes.mjs` → OK;另对本次全部改动文件做了控制字符自查(gate 扫不到的范围)\n- changeset 两个 guard 均通过\n\n## 需要 reviewer 注意的两点\n\n1. **`packages/components/src/lib/close-label.tsx` 是新增文件**,严格说超出了派发单列的文件清单。这是刻意的、也是 Route B 的必要条件:载荷若留在 `src/ui/**` 内,它自己就会被重新生成掉,补丁将不得不整段重新插入实现代码。放在 `src/lib/` 才能让补丁缩到两行锚点。请确认这个取舍。\n2. **registry 联网未能实测。** 本沙箱 egress 不允许访问 `ui.shadcn.com`,因此无法真跑一次线上 `--update`。补丁引擎改为用忠实还原上游内容的 fixture 做确定性离线验证(施加 / 幂等 / 锚点消失 / 锚点有歧义 / 报错文案),并且**仓库里这两个 primitive 的当前内容就是该引擎生成的输出**。离线也是 CI 能真正设闸的唯一形态 —— 顺带说明:`.github/workflows/shadcn-check.yml` 每周跑且带 `continue-on-error: true`,吞掉退出码,所以 PR 级的实际闸门是那个离线测试(在 `ci.yml` 里跑),而不是该 workflow。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

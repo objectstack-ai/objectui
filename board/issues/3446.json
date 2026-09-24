@@ -1,0 +1,35 @@
+{
+  "number": 3446,
+  "kind": "issue",
+  "title": "[finding] preview-samples 的 page 样例用了未注册的 `heading` 组件类型,designer 预览画廊里两行标题渲染成 fallback",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T05:06:35Z",
+  "updated_at": "2026-08-06T05:44:15Z",
+  "closed_at": "2026-08-06T05:44:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3446",
+  "body": "在做 #3434(页面双 h1)时顺手读到,**不在该 PR 范围内**,单独记录。\n\n`apps/console/src/preview-samples.ts` 的 `page` 样例(metadata-designer 预览画廊的 dev-only 素材)里声明了:\n\n```\npage: {\n  name: 'crm_welcome',\n  label: 'CRM Welcome',\n  regions: [{ name: 'main', components: [\n    { type: 'heading',   props: { level: 1, text: 'Welcome to the CRM' } },   // ← 未注册\n    { type: 'text',      props: { text: '…' } },\n    { type: 'separator' },\n    { type: 'heading',   props: { level: 3, text: 'Quick links' } },          // ← 未注册\n    { type: 'text',      props: { text: '…' } },\n  ]}],\n}\n```\n\n`heading` **不是**这个仓库里注册过的组件类型 —— 全仓 `register('heading'` / `registerLazy('heading'` 零命中。最接近的是 `element:text` 的 `variant: 'heading'`(`packages/components/src/renderers/basic/elements.tsx:84`,渲染成 `h2`,而且不认 `level` 这个 prop),以及 `packages/components/src/ui/typography.tsx` 里的排版原语(不经注册表)。所以这两个节点会落到 ComponentRegistry 的 fallback,画廊里的 `page` 样例展示的不是一个真页面。\n\n同一组里的 `text` / `separator` 是好的:`ui:text`(`renderers/basic/text.tsx:12`)与 `ui:separator`(`renderers/basic/separator.tsx:37`)都带裸名别名。注意 `element:text` / `element:divider` 是 `skipFallback: true`,没有裸名别名 —— 命中的是 `ui:` 那两个,不是 `element:` 的。\n\n影响面:**dev-only**,文件头就写着「Not shipped in production builds (referenced only by preview-gallery.tsx)」,今天没有用户会碰到,所以按 observation-class 记录、不带 `pm:queue`。值得修的理由是画廊的用途本身就是「给人看一个合法页面长什么样」,而它现在示范的是两个不存在的类型;顺带这也说明预览素材没有任何东西校验其 `type` 是否在注册表里。\n\n可能的修法(未实现,留给 triage):把两行换成 `element:text` + `variant: 'heading'`/`'subheading'`,或者改用 `page:header` 承载页面标题(与 #3434 的「页面标题归 `page:header`」一致);以及考虑给预览素材加一条「每个 `type` 都能在注册表里解析」的断言,免得下次再漂。\n"
+}

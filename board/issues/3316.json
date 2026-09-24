@@ -1,0 +1,35 @@
+{
+  "number": 3316,
+  "kind": "issue",
+  "title": "Flow 设计器给每个新建 wait 节点种下 spec 17 已退役的 `waitEventConfig.onTimeout`，发布即 422",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T17:26:56Z",
+  "updated_at": "2026-08-05T10:17:10Z",
+  "closed_at": "2026-08-05T10:17:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3316",
+  "body": "发现于 framework #4001 批 11（`automation/flow.zod.ts` 的六个内层块收紧）的跨仓核验，**不在该批范围内，未修**。这条**不是**批 11 造成的 —— 它今天就已经会失败。\n\n## 事实\n\n`packages/app-shell/src/views/metadata-admin/previews/flow-canvas-parts.tsx:385`，`defaultNodeExtras()` —— 新建节点的种子字段：\n\n```ts\ncase 'wait':\n  return { waitEventConfig: { eventType: 'timer', onTimeout: 'fail' } };\n```\n\n`FlowCanvas.tsx:52` 导入并使用它，所以**在设计器里拖出来的每一个 wait 节点都带着 `onTimeout`**。另一处 `FlowCanvas.tsx:367`（approval 送回修改时自动插入的 wait 节点）同样写死了 `onTimeout: 'fail'`。\n\n`onTimeout` 在 `@objectstack/spec` 17 被 #4158 退役，实现方式是 `retiredKey()` —— 即 `z.never().optional()`。它**不是**被静默剥离，是 `FlowNodeSchema.parse()` 的硬错误，并且带着处方：\n\n> `waitEventConfig.onTimeout` was removed in @objectstack/spec 17 (#4158). It had no readers at all — no code path ever inspected it, so neither `fail` nor `continue` ever happened. Delete the key.\n\n即：设计器保存/发布一个 wait 节点时，spec 17 的 `FlowSchema.parse` 会拒绝**设计器自己生成的形状**。\n\n## 为什么值得单独记一笔\n\n同一次退役的另一半，objectui **已经跟上了**：`views/metadata-admin/i18n.ts:3519` 就地写着\n\n```\n// `waitEventConfig.timeoutMs` / `.onTimeout` 的覆盖随字段一并移除(#3101)\n```\n\n标签覆盖删了，**产出这个键的默认块没删**。一次退役、两个消费点、只改了看得见的那个 —— 和 framework #4001 反复记录的「bespoke 守卫只守一扇门」是同一形状，只是这次分岔在同一个仓的两个文件之间。\n\n## 建议\n\n1. `defaultNodeExtras('wait')` → `{ waitEventConfig: { eventType: 'timer' } }`（`timerDuration` 由作者填；它接受裸数字作为毫秒，正是 `timeoutMs` 的替代路径）。\n2. `FlowCanvas.tsx:367` 的 revision-wait 节点同样去掉 `onTimeout`。\n3. 顺带值得核一遍：`defaultNodeExtras` 里其余分支（`connector_action` / `boundary_event` / `approval` / `notify`）的键**都**在批 11 收紧后逐一比对过，均已声明，无第二例。\n\n## 相关\n\n- framework #4158（`waitEventConfig.timeoutMs` / `.onTimeout` 退役）\n- framework #4001 批 11（`waitEventConfig` 等六个内层块转 strict —— 本条是核验副产物，非其后果）\n- objectui #3101（同一退役的 i18n 侧清理）\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3678,
+  "kind": "issue",
+  "title": "metadata-admin:嵌套 union「只剩一个成员接受了值的类型」时仍塌成 Invalid input(config.sort 等)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T20:09:03Z",
+  "updated_at": "2026-08-07T21:45:42Z",
+  "closed_at": "2026-08-07T21:45:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3678",
+  "body": "发现于 #3626 的实施(PR #3677)。**观察类**,不是用户今天会撞到的回归 —— path 是真的,只是 message 泛化。分诊定级请自行裁决,本卡只负责记录测量。\n\n## 背景\n\n#3606 / PR #3624 展开了**根级** union;#3626 / PR #3677 展开了**嵌套的 `config.columns`**(`string[] | ColumnDef[]`,按值的首元素判别)。#3677 里那条规则被**刻意收窄**成「两个成员**都**接受了值的类型」的 union,即真正的「A 的数组 或 B 的数组」。\n\n收窄是必要的:`config.sort` 是 `string | ColumnSort[]`,同样两成员、同样可以是数组值。只看首元素会对 `sort: ['name']` 选中纯 `string` 成员并报「expected string, received array」—— 对一个**正确写了数组**的人说的最没用的话。这条误选在 PR #3677 里被钉成了测试(删掉收窄条款那一行,它就红)。\n\n## 这张卡记的是收窄之后留下的空档\n\n当**只剩一个**成员接受了值的类型时,选它是**无歧义**的 —— 不需要任何内容判别,也不是启发式。但 #3677 没做:它的授权范围是「按内容判别」,「唯一候选」是另一条规则,不硬凑。\n\n实测(`@objectstack/spec` 17.0.0-rc.5,两条路一致):\n\n| body | 今天的 path + message | 「唯一候选」规则本可给出 |\n|---|---|---|\n| `sort: [{field: 'n', order: 'bogus'}]` | `config.sort` / `Invalid input` | `config.sort.0.order` / `Invalid option: expected one of \"asc\"｜\"desc\"` |\n| `sort: ['name']` | `config.sort` / `Invalid input` | `config.sort.0` / `expected object, received string` |\n\n成员分组实测形态:\n\n```\n[invalid_union] path=[\"config\",\"sort\"] msg=\"Invalid input\"\n  member[0] (string)          [invalid_type]  path=[]           \"expected string, received array\"   ← 没接受类型\n  member[1] (ColumnSort[])    [invalid_value] path=[0,\"order\"]  \"Invalid option: expected one of …\"  ← 唯一候选\n```\n\n## 范围\n\n走了一遍整个 `view` 家族的 Zod 树:**16 个无判别式的嵌套 union**。`columns` 已由 #3677 覆盖;其余大多在值类型不匹配时**全体**拒绝(`filter[].value`、`gantt.tooltipFields[]`、`sections[].fields[]` ……),那种情况「唯一候选」也无话可说,仍应保留原消息。真正能被这条规则救回来的是 `sort` 这类**标量 或 数组**的两成员 union。\n\n## 判断这值不值得做\n\n- 赞成:规则是**真命题**而非启发式(唯一候选不需要猜),与 #3624/#3677 已建立的「只动呈现、不动判定、只展示选中成员」约束完全兼容,增量很小。\n- 反对:contract-first 的正解仍是 spec 侧给出判别入口(objectstack#6391),消费方不必猜。本仓再叠第三条局部规则,是在把 spec 的缺失继续摊到消费者身上。\n\n**倾向**:等 objectstack#6391 的裁决;若 spec 侧不接,这条可作为不跨仓的兜底,和 #3626 的定位一样。\n\n相关:#3606、#3626、PR #3624、PR #3677、objectstack#6391。\n"
+}

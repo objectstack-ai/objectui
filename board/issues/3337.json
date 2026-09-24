@@ -1,0 +1,35 @@
+{
+  "number": 3337,
+  "kind": "issue",
+  "title": "dashboard widget compareTo 收敛为 { kind, dimension? }:遗留内联图表路径跟改 + 删除 DatasetWidget 的字符串丢弃 workaround",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T05:06:37Z",
+  "updated_at": "2026-08-07T15:56:47Z",
+  "closed_at": "2026-08-07T15:56:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3337",
+  "body": "跨仓 follow-up,来自 framework 侧 objectstack-ai/objectstack#5011(#4876 式知会分片)。**未认领**,谁接谁 assign。\n\n## 背景\n\nframework 把 `DashboardWidgetSchema.compareTo` 从三分支联合\n\n```\n'previousPeriod' | 'previousYear' | { offset: '7d' | '1M' | '1y' }\n```\n\n收敛为**执行器已实现的那一份契约**的薄投影:\n\n```ts\ncompareTo?: { kind: 'previousPeriod' | 'previousYear'; dimension?: string }\n```\n\n即 `DatasetSelection.compareTo`(`packages/spec/src/contracts/analytics-service.ts` 的 `DatasetCompareTo`)。`dimension` 现在**可省略**,由**执行器**决议:选择集里带 `dateRange` 的时间维度恰好一个就用它;零个或多个则响亮报错并列出候选(`dataset-executor.ts` 的 `resolveCompareDimension`)。这是**生产端**决议规则,不是消费端宽容映射(PD#12)。\n\n为什么动:在 ADR-0021 dataset 路径(spec 自称「唯一面向作者的分析形态」)上,三个分支**全部**无效——两个字符串分支被 `DatasetWidget` 显式丢弃,`{ offset }` 被转发进一个根本没有 `offset` 概念的契约,执行器抛 `compareTo requires a timeDimension \"undefined\"`。同一个键两种命运,失败的那条恰是规范路径。\n\n本仓的**遗留内联 object-provider 图表路径**是 `compareTo` 三分支唯一真正能跑的地方,所以它需要跟改到新形状。framework 侧 PR **不含**本仓改动。\n\n## 需要做的映射\n\n1. **`packages/core/src/utils/compare-to.ts`** — `CompareToConfig` 由三分支联合改为 `{ kind: 'previousPeriod' | 'previousYear'; dimension?: string }`。\n2. **`shiftFilterByCompareTo(filter, compareTo)`** — 按 `compareTo.kind` 分派;删掉 `offset` 分支的时长位移。`{ offset: '1y' }` 语义上等同 `kind: 'previousYear'`(framework 侧 D2 会确定性改写);`'7d'`/`'1M'` 无忠实目标,已登记为 `dashboard-widget-compareto-offset` 语义迁移,由作者在 widget 自己的 `filter` 上重述窗口 + `kind: 'previousPeriod'`。\n3. **`compareToTrendLabelKey(compareTo, filter)`** — 从 `.kind` 推 i18n key;`vs previous 7d` 这类由 offset 派生的标签随分支一起去掉。\n4. **`packages/plugin-dashboard/src/DatasetWidget.tsx:163-168`** — 那段 `typeof widget.compareTo === 'object'` 守卫**不再需要**,删掉,`widget.compareTo` 原样转发进 `DatasetSelection.compareTo`。注释里写的理由(「forwarding it makes the executor throw」)在新形状下已不成立。\n5. ⚠️ **功能性的那一半**:执行器需要一个**带 `dateRange` 的 `timeDimensions` 条目**才有窗口可位移。`DatasetWidget` 目前只把 `widget.filter` 降成 `runtimeFilter`,不产出 `timeDimensions`,所以即使转发了结构化 `compareTo`,执行器仍会以「本选择集没有带 dateRange 的时间维度」报错。**把 widget 已解析的日期窗口(filter 日期宏 / 仪表盘 `dateRange`)降成 `selection.timeDimensions[].dateRange`** 是这条路径真正跑通的前提,也是本 issue 里唯一不是纯改型的一步。\n6. **`packages/plugin-charts/src/ObjectChart.tsx`**(`:468-477`、`:624-660`)与 **`packages/plugin-dashboard/src/ObjectMetricWidget.tsx`**(`:261-262`、`:320-337`)——读 `.kind` 而非整值判别。\n7. **`packages/plugin-dashboard/src/DashboardRenderer.tsx:495`** 只是把 `widget.compareTo` 透传进 object-chart schema,值不变,但类型跟着 `CompareToConfig` 走。\n8. **测试**:`packages/plugin-dashboard/src/__tests__/DatasetWidget.test.tsx:77-84` 现在断言的正是「结构化转发、字符串丢弃」——反转它:新形状**全部**转发,不再有可丢弃的字符串形态。\n\n## 设计上的两点(值得留在代码注释里)\n\n- **无联合**。新形状是普通 strict object,不是联合。zod 把失败的联合塌缩成一条裸 `Invalid input`,arm 里的处方到不了作者(framework#5014),所以这次收敛顺带消除了整类「写了没人读的错误信息」。\n- **`dimension` 的决议在执行器**,不在渲染器。任何一侧自己猜维度,都会把「响亮报错」换成「安静的错窗口」——正是本次收敛要终结的失败类。\n\n## 验收\n\n- 遗留内联路径(metric + cartesian chart)在新形状下 overlay 正常,i18n 趋势标签正确。\n- dataset 路径:一个带日期宏 filter 的 dataset widget 真的渲染出对比列(即上面第 5 点跑通),而不是静默无对比。\n- 多个带 dateRange 的时间维度时,执行器的歧义报错原样冒到 UI,而不是被吞。\n- framework 侧 `pnpm objectui:refresh` 后 console 构建绿。"
+}

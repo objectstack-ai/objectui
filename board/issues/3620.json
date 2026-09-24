@@ -1,0 +1,35 @@
+{
+  "number": 3620,
+  "kind": "issue",
+  "title": "packages/runner/README.md §Features 的「Hot Reload - Automatic reload on schema changes」未按 loader 分路,`?api=` 那条不成立",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:08:57Z",
+  "updated_at": "2026-08-07T16:37:38Z",
+  "closed_at": "2026-08-07T16:37:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3620",
+  "body": "越界发现,记录于 #3604(改写同文件 §Development Workflow 第 1、3 步)期间通读全文时。**未在该 PR 中顺手修改** —— #3604 的派发范围被明确锁死在 §Development Workflow 这一节,这是 §Features,属另一处改动面。\n\n## 事实(对 `origin/main` 复核)\n\n`packages/runner/README.md` 第 8 行,§Features 列表:\n\n```\n- **Hot Reload** - Automatic reload on schema changes\n```\n\n这与 #3604 处理掉的 §Development Workflow 第 3 步「Edit the schema - changes reload automatically」是同一句无条件宣称,只是换了个位置。它对两条元数据加载路线中的一条不成立:\n\n- **`src/app-data/` 路(`LocalBundleLoader`)** —— JSON 经 `import.meta.glob` 进入 Vite 的 module graph(`packages/runner/src/lib/MetadataLoader.ts:26-28`),改动不需要重启 dev server,这一侧大体成立。\n- **`?api=` 路(`NetworkLoader`)** —— 元数据由外部后端提供,`fetch` 发生在运行时(同文件 89、101 行),Vite 对该后端没有任何可见性,不存在任何 watch 或 reload 机制。改了后端返回的 JSON,页面不会自己更新。\n\n`?api=` 是本文件 §Metadata Loading 一节(#3537 / PR #3581 补)正式记录的、与本地路并列的加载方式,不是边角情况;§Features 站在全文最前面,读者先读到它。\n\n## 建议\n\n按 #3604 对第 3 步的处理口径同样处理:限定而非删除。例如把这一条改成只承诺本地那条路,或者干脆让它指向 §Metadata Loading,由那一节把两条路的差别讲清楚。\n\n顺带一并核:同节还有一处措辞值得看 —— 第 8 行说的是 schema「changes」,而真正被 watch 的是 `src/app-data/` 下的 JSON 文件;该目录 git-ignored 且新检出下不存在(见 #3604 的正文),所以对一个刚 clone 的读者,这条 Feature 在两条路上都暂时无从触发。\n\n同源:#3533(文档不许描述实现里不存在的能力)、#3604、#3576 / PR #3602。已搜开放 issue 与 PR(关键字 runner README / Hot Reload / Features,三仓),无重复;#3619 是 `content/docs/utilities/runner.mdx` 的 Features 一节,不同文件、不同断言。\n"
+}

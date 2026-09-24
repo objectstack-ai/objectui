@@ -1,0 +1,35 @@
+{
+  "number": 3303,
+  "kind": "issue",
+  "title": "form.tsx 的内置 textarea 分支用 `mobile_fullscreen || fullscreen` 读全屏开关，而 `fullscreen` 这个别名全仓无人产出（消费侧宽容兜底）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T14:35:05Z",
+  "updated_at": "2026-08-05T16:25:27Z",
+  "closed_at": "2026-08-05T16:25:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3303",
+  "body": "在实施 #3301（给 `RichTextField` 接上全屏能力，PR #3302）时顺带发现，**不在 #3302 修** —— 那单的范围栅栏明确排除 `packages/components`。\n\n## 现象\n\n`packages/components/src/renderers/form/form.tsx:1945-1947`，未注册的裸 `textarea` 类型走的内置分支：\n\n```ts\nconst { mobile_fullscreen, fullscreen, label } = fieldProps as any;\n\nif (mobile_fullscreen || fullscreen) {\n  // renders FullscreenTextarea\n```\n\n`fullscreen` 是一个**没有生产者**的别名。全仓 grep `fullscreen:`（排除 `node_modules`/`dist`，排除 `mobile_fullscreen` / `fullscreenLongText`）只有 3 类命中，没有一处是表单字段：\n\n| 命中 | 是什么 |\n|---|---|\n| `packages/types/src/zod/feedback.zod.ts:30` | `fullscreen: z.boolean()` —— **loading/feedback 遮罩**的属性，与长文本编辑无关 |\n| `packages/components/src/renderers/feedback/loading.tsx:75` | 同上，loading 组件的默认值 |\n| `form.tsx:226` / `form.tsx:283` | `stripRegisteredFieldProps` 里把这个键**丢弃**的两处（`fullscreen: _fullscreen`） |\n\n`@objectstack/spec` 侧同样为零（`objectstack` 仓 `packages/spec/src` grep `fullscreen` 无命中）。\n\n唯一真实的生产者是 `ObjectForm`，它产出的键叫 `mobile_fullscreen`（#3245 / #3300 已把它规范到字段元数据这一个载体上）。所以 `|| fullscreen` 这一项**从写下起就恒为 undefined**。\n\n## 为什么这是缺陷\n\n这正是 AGENTS.md #0.1 明令禁止的形态：**消费侧的宽容兜底**。一个键有两种拼法、其中一种没有任何生产者，后果不是「多一层保险」，而是：\n\n1. 它把一个从不成立的契约写进了代码，下一个作者（尤其是 AI 生成的表单元数据）看到 `fullscreen` 会以为这是受支持的拼法，写下去、静默无效、没有任何一处报错——和 #3301、#3245 完全同一个机制。\n2. 它让「`mobile_fullscreen` 是唯一载体」这个刚刚在 #3232 / #3233 / #3245 / #3300 一路收敛出来的结论，在这一行上不成立。`TextAreaField` 与（#3302 之后的）`RichTextField` 都已经收敛成**单读**；只有这个内置分支还留着 `||`。\n\n顺带记录一个更大的重复，供裁决时一并考虑：`FullscreenTextarea`（`form.tsx:308-`）是全屏编辑对话框的**第三份实现**——#3302 已把 widget 侧的两份合并成共享的 `FullscreenFieldEditor`（`packages/fields/src/widgets/FullscreenFieldEditor.tsx`），但内置分支这一份仍是独立的。两份实现是否要合并，取决于 `packages/components` 能否依赖 `packages/fields`（按 AGENTS.md §3 的拓扑，方向是反的，所以这不是一次简单搬运），需要单独裁决，不要顺手做。\n\n## 修法建议（需裁决）\n\n**A. 直接删掉 `|| fullscreen`**，只读 `mobile_fullscreen`。零行为回归（这一项今天本来就恒假），declared = enforced 立刻成立。这是与 #3232 / #3233 同向的收敛，我倾向这条。\n\n**B. 若认为 `fullscreen` 才是想要的拼法**，那就该在**生产者**（`ObjectForm`）改名并一次性收敛，而不是让消费者同时接受两种——但 `mobile_fullscreen` 已经声明在 `@object-ui/types` 的 `BaseFieldMetadata` 上（#3300），改名成本明显更高且没有收益。\n\n无论走哪条，都值得补一条钉死「拼错的 flag 不生效」的测试——目前这个内置分支的全屏行为没有任何测试覆盖到别名这一半。\n\n## 证据等级\n\n静态证据（全仓 + `objectstack` 仓 grep，阅读 `form.tsx` 三处相关源码），**未做浏览器复现**。「`fullscreen` 无生产者」是可机械复核的事实。\n\n关联：#3301（PR #3302）、#3245（PR #3300）、#3232、#3233。\n"
+}

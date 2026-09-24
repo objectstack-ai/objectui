@@ -1,0 +1,32 @@
+{
+  "number": 3328,
+  "kind": "pull_request",
+  "title": "fix(app-shell): localize popup-blocked toast and SSO spinner tab copy via i18n (#3321)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T00:54:26Z",
+  "updated_at": "2026-08-04T01:48:35Z",
+  "closed_at": "2026-08-04T01:48:34Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": "2026-08-04T01:48:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3328",
+  "body": "Fixes #3321\n\n## 问题\n\n`consoleServerAction.ts` 的 `opensInNewTab` 编排里硬编码了中英双语文案，违反 AGENTS.md Commandment #-1（代码库纯英文）。四处文案：\n\n1. SSO spinner tab 标题：`正在打开… Opening…`\n2. SSO spinner tab 正文：`正在为你打开环境…`\n3. popup-blocked toast 标题：`浏览器拦截了弹窗 / Popup blocked`\n4. toast 描述 `点击在新标签页打开环境` + action label `打开环境`\n\n## 方案（采用 issue 评论 PM 预裁决的**首选方案：`t` 经 options 注入**，非底线纯英文字面量方案——i18n 键位与基建顺畅，无需降级）\n\n- **`t` 经 options 注入**：`createConsoleServerActionHandler` 新增可选 `t?: ConsoleServerActionTranslate`（i18next 风格 `t(key, englishDefault)`）。包装器是普通函数不能调 hook，两个调用点（`useConsoleActionRuntime`、`RecordDetailView`）都有 hook 上下文，用 `useObjectTranslation().t` 经 env ref 注入——语言切换即时生效，且不打断 handler 实例的稳定性（in-flight guard 依赖同一实例）。\n- **英文默认值兜底**：不传 `t`（测试 / standalone）时全部落到英文默认值；代码里不再有任何非英文文案。\n- **中文进 i18n 资源文件**：新增 `console.serverAction.*` 五个键（`openingTitle` / `openingBody` / `popupBlockedTitle` / `popupBlockedDescription` / `popupBlockedAction`），**11 个 locale 包全量补齐**（en/zh/de/es/fr/ja/ko/pt/ru/ar，`all-locales-key-parity` 强制对齐）。\n- **顺手一处安全加固**：locale 字符串写入 spinner document 前做最小 HTML 转义（`escapeHtml`），有测试钉住。\n- **措辞去掉「环境」特指**：包装器是通用基建（任何 `opensInNewTab` server action 都走它），原中文「打开环境」是 cloud SSO 场景专属词汇；新文案改为通用表述（\"Open in new tab\" 等），避免把 cloud 词汇固化进 app-shell。如维护者希望保留「环境」措辞，改 locale 资源文件即可，不用动代码。\n\n## 验证\n\n| 项 | 命令 | 结果 |\n|---|---|---|\n| 落点 + 调用点 + parity 测试 | 仓根 `pnpm exec vitest run --maxWorkers=2` consoleServerAction / actions-envelope.ratchet / useConsoleActionRuntime / RecordDetailView.modalDispatch / all-locales-key-parity / en-zh-key-parity | **6 files, 83 tests 全绿**（14.75s） |\n| 新增文案测试 | 同上（含 4 个新测试：英文默认值、注入 `t` 走键位（tab + toast）、HTML 转义、无 CJK pin） | 绿 |\n| 破坏验证 | 临时把 toast 标题与 spinner 正文改回中文 → **恰好 2 个文案 pin 测试红**（`opens lazily…toast fallback`、`no CJK in code`，2 failed / 12 passed）→ 还原 → 14/14 绿 | ✅ |\n| lint（改动文件） | `pnpm exec eslint <改动文件>` | 0 errors（193 个既有 `no-explicit-any` warning，均非新增行） |\n| type-check（i18n + app-shell）+ 本地全量 | **被容器重启打断**（排队等共享验证锁时容器第三次重启，PM 裁定不再重跑本地全量），**交由本 PR 的 CI 把关** | ⚠️ CI 把关 |\n\n## Changeset\n\n`@object-ui/app-shell` + `@object-ui/i18n` 均 patch（fixed group 联动，无 major）。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

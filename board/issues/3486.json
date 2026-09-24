@@ -1,0 +1,36 @@
+{
+  "number": 3486,
+  "kind": "issue",
+  "title": "examples/hello-world/README.md 的 \"Learn more\" 指向两个已删除的示例目录(../crm/、../todo/)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:06:29Z",
+  "updated_at": "2026-08-06T13:52:54Z",
+  "closed_at": "2026-08-06T13:52:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3486",
+  "body": "在修 #3480(根 README 推荐 4 个不存在的 example)时顺带发现的同类漂移,因不在那次派发的文件围栏内,单独记录。\n\n## 现象\n\n`examples/hello-world/README.md:31-32`:\n\n```markdown\n- [CRM Example](../crm/) — full-featured reference app\n- [Todo Example](../todo/) — ObjectStack protocol basics\n- [Schema Catalog](../schema-catalog/) — canonical JSON schemas used across docs & tests\n```\n\n前两条指向的 `examples/crm/`、`examples/todo/` **都不存在**。第三条 `../schema-catalog/` 是有效的。\n\n## 成因\n\n与 #3480 同源:这两个目录在提交 `12b287d8b`(*\"refactor: remove example Todo application and related files\"*, 2026-05-02)中被删除,该提交没有同步更新任何引用它们的 README。\n\n`examples/todo/README.md` 当年也反向引用过 CRM(*\"see the CRM Example (../crm/)\"*),整组互链在删除时一起失效,只是 `hello-world` 这份活了下来。\n\n## 影响\n\n低,但是用户可见:`hello-world` 是文档和根 README 都推荐的入门示例,读者读完第一件事就是点 \"Learn more\",两条里有两条是死链。lychee 若把扫描面扩到 `examples/**/*.md` 会直接报 File-not-found。\n\n## 建议修法\n\n删掉前两条,保留 `../schema-catalog/`,并按实际情况补 `../byo-backend-console/` 与 `../console-starter/`(这正是 `examples/README.md` 里 \"rule of thumb\" 给出的进阶路径:hello-world → byo-backend-console → console-starter)。描述应取自各自 README,不要臆造。\n\n## 备注\n\n- 这不是 #3480 的子问题的修复范围之内——#3480 的完成范围被明确限定为根 `README.md` 与 `examples/README.md` 两个文件,所以按独立 issue 提。\n- `content/docs/guide/building-crud-app.md:328,330` 与 `content/docs/guide/objectos-integration.mdx:662-663` 存在同类死链,由另一个专门处理 doc links 的派发负责,不在此列。\n- `ROADMAP.md:1399-1401` 与 `CHANGELOG.md` 中对这些目录的提及属历史记录,**不应**改动。\n\n发现于 PR #3485(修 #3480)。\n"
+}

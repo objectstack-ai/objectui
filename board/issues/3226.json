@@ -1,0 +1,35 @@
+{
+  "number": 3226,
+  "kind": "issue",
+  "title": "`page-header` 与 `page:header` 对外声明了两套 authorable 键:`description` vs `subtitle`,消费端用 `??` 兜底",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T20:03:53Z",
+  "updated_at": "2026-08-05T16:12:34Z",
+  "closed_at": "2026-08-03T09:07:08Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3226",
+  "body": "在 objectui#3223(删除 `@object-ui/layout` 的死渲染器 `PageNodeRenderer`)期间在同一个包里发现,**不在该 PR 处理**(与那个 issue 无关)。\n\n## 现象\n\n同一个\"页面标题\"概念有两个已注册的渲染器,它们**声明的 authorable 键不一样**:\n\n| 注册键 | 实现 | registration `inputs` 声明 | 实际读取 |\n|:--|:--|:--|:--|\n| `page:header`(协议键,canonical) | `@object-ui/components` `containers.tsx` | `subtitle` | `schema?.subtitle ?? schema?.properties?.subtitle` |\n| `page-header`(kebab 遗留别名) | `@object-ui/layout` `PageHeader.tsx` | **`description`** | `subtitle ?? description` |\n\n`packages/layout/src/index.ts` 注册 `page-header` 时 `inputs` 里写的是 `title` + `description`;`packages/layout/src/PageHeader.tsx` 的 props 同时声明 `subtitle?` 和 `description?`,注释写着\"Spec schemas use `subtitle`,the legacy console pages use `description` — both are supported\",落地是 `const secondaryRaw = subtitle ?? description;`。\n\n而 `@objectstack/spec` 的 `PageHeaderProps` 这个 authored 节点声明的是 `subtitle`(batch 7 的 `packages/layout/src/__tests__/spec-symbol-batch7.test.ts` 就是钉这件事的)。\n\n## 为什么这是个问题\n\n这是 Prime Directive #12 的标准形状:**producer 写错了,consumer 用 `??` 兜住**。\n\n1. `description` 不是 spec 声明的键。作者(尤其是 AI 作者)写 `description` 不会在任何地方被拒绝,只会在 `page-header` 下\"碰巧能跑\",换到 `page:header` 下就静默丢失——同一份 metadata 在两个键下渲染结果不同。\n2. 更糟的是 `inputs` 声明本身在**教**作者写 `description`:`page-header` 的 registration 把它列为 input,设计器/`check:react-declaration-parity` 这类读 registry 声明的工具会把它当成合法输入。这不是\"容忍一个遗留拼写\",是**对外宣告了第二套方言**。\n3. 两个渲染器对同一概念声明不同的键,正是\"declared ≠ enforced\"在 registry 层的版本。\n\n按 #12,别名要么在 producer 侧改掉并在 authoring/publish 时**大声拒绝**,要么登记成 ADR-0087 D2 conversion-layer 条目(声明的、可测的、可排期删除的),**不应该是渲染器里的一个裸 `??`**。\n\n## 建议处置(需要拍板,故未自行动手)\n\n需要先确认一件事实:**还有没有真的在写 `description` 的 legacy console 页面**?\n\n- **若没有** → 直接删 `description` prop 与 registration `inputs` 里的那一项,`page-header` 只认 `subtitle`,与 `page:header` 对齐。最干净。\n- **若还有** → 登记为 conversion-layer 条目 `page-header-subtitle-alias`(`description` → `subtitle`,加载时改写成 canonical 键),消费端只读 `subtitle`;同时把 registration `inputs` 改成 `subtitle`,让声明面不再教人写错的键。\n\n两种路线都要求 `inputs` 不再宣告 `description`——这一点无论哪条路都成立。\n\n## 参考位置\n\n- `packages/layout/src/index.ts` — `ComponentRegistry.register('page-header', …)` 的 `inputs`\n- `packages/layout/src/PageHeader.tsx` — `PageHeaderComponentProps` 的 `subtitle?` / `description?`,以及 `subtitle ?? description`\n- `packages/components/src/renderers/layout/containers.tsx` — canonical `page:header`,只读 `subtitle`\n\n关联:objectui#3223(发现于此)、objectui#3161 / objectstack#4115 batch 7(`PageHeaderProps` 改名 `PageHeaderComponentProps` 的那次改动只动了名字,没有碰这个别名)。"
+}

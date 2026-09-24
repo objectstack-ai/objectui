@@ -1,0 +1,36 @@
+{
+  "number": 3470,
+  "kind": "issue",
+  "title": "UserFilters 的私有 specOperatorToAst 把 not_in/nin 译成 `not in`(带空格),服务端 400;且它是第二张手工算子表",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T08:39:16Z",
+  "updated_at": "2026-08-06T13:52:32Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3470",
+  "body": "发现于 #3431 的读路径排查(该 PR 只动 `packages/core/src/utils/filter-converter.ts`,本条越界,单独记录)。\n\n## 位置\n\n`packages/plugin-list/src/UserFilters.tsx`,`specOperatorToAst()`(约 105 行),被 `normalizeTabPresets()` 用来把 spec `ViewTab.filter` 的 `ViewFilterRule[]` 折成 ObjectQL 三元组:\n\n```\ncase 'not_in': case 'nin': return 'not in';\n```\n\n`'not in'`(中间带空格)**不在** `@objectstack/spec/data` 的 `VALID_AST_OPERATORS` 里 —— 该集合有 `not_in` / `notin` / `nin`,没有 `not in`。于是 `isFilterAST` 判否,协议层直接 400。\n\n## 实证(真实后端,`@objectstack/*@17.0.0-rc.2` + app-showcase)\n\n```\nGET /api/v1/data/showcase_task?$filter=[[\"status\",\"not in\",[\"done\"]]]\n  -> HTTP 400 {\"error\":\"Request failed\",\"code\":\"INVALID_FILTER\",\"object\":\"showcase_task\"}\n\nGET /api/v1/data/showcase_task?$filter=[[\"status\",\"not_in\",[\"done\"]]]\n  -> HTTP 200(正常返回)\n```\n\n即:任何作者在 `userFilters.tabs[].filter` / `ViewTab.filter` 里写 `operator: 'not_in'`(spec 的 `VIEW_FILTER_OPERATORS` canonical 拼法之一)或历史拼法 `nin`,该 tab 一点就是空列表 + 400。showcase / CRM 现有 metadata 都没用到 `not_in`,所以线上没人踩到 —— 但这是**作者面**上一个正常拼法,不是内部值。\n\n## 更根本的一层:这是第二张手工算子表\n\n`specOperatorToAst` 与 spec 自己导出的 `normalizeFilterOperator`(`@objectstack/spec/ui`)职责重叠。写入侧 `app-shell/src/views/viewFilterFold.ts` 已经明确改成只走 spec 的这一个出口,并在注释里写清了原因:Studio inspector 里那张私有表曾经比 builder 的下拉**落后四个算子**。`specOperatorToAst` 就是同一类私有表的又一份,`not in` 正是它已经漂出去的证据(另外 `ends_with` / `contains` / `between` 等只靠 `default: return op` 兜底,能过纯属巧合)。\n\n顺带说明为什么 canonical 表其实**不需要**存在:spec 的 19 个 `VIEW_FILTER_OPERATORS` 全部已经是 `VALID_AST_OPERATORS` 的成员,所以 rule → AST 的下降是纯结构性的,算子只需过一遍 `normalizeFilterOperator` 即可,不需要任何映射表。#3431 的 core 侧折叠就是这么做的。\n\n## 建议方向(不预设结论,交 PM/维护者裁决)\n\n把 `normalizeTabPresets` 里的下降改为复用 `@objectstack/spec/ui` 的 `normalizeFilterOperator`(与写入侧、与 #3431 的读侧同一个出口),删掉 `specOperatorToAst`;spec 不认识的拼法原样透传,让服务端 400 大声拒绝,而不是被 `default` 悄悄放行成别的东西。\n\n需要留意的一处差异:现表把 `before`/`after` 映射成 `<`/`>`,而 `before`/`after` 本身也在 `VALID_AST_OPERATORS` 里 —— 改成透传前要确认服务端对这两个算子的日期语义与 `<`/`>` 一致,否则是行为变更而不是纯修复。\n\n相关:#3431(读路径的 `ViewFilterRule[]` 折叠)、objectstack#5159(写入侧折叠)、objectstack#4121(数组型 `$filter` 的 400)。\n"
+}

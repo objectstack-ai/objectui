@@ -1,0 +1,34 @@
+{
+  "number": 3511,
+  "kind": "pull_request",
+  "title": "refactor(react): toPredicateInput 改为 re-export @object-ui/core,不再保留渲染器侧副本",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:00:06Z",
+  "updated_at": "2026-08-07T03:11:54Z",
+  "closed_at": "2026-08-07T03:11:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T03:11:53Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3511",
+  "body": "Fixes #3367\n\n## 做了什么\n\n`packages/react/src/hooks/useExpression.ts` 里的 `toPredicateInput` 实现体换成一行 re-export:\n\n```ts\nexport { toPredicateInput } from '@object-ui/core';\n```\n\n它与 canonical 的 `packages/core/src/evaluator/predicateInput.ts` 逐项语义相同(布尔短路;裸字符串与非 `cel` dialect 包成 `${…}`;`{ dialect: 'cel', source }` 信封保留,好让 `useCondition` 路由到 canonical 的 `@objectstack/formula` 引擎;空/缺省归一到 `undefined`),此前只靠一张 14 形态 parity 表钉在一起。**护栏不是单一事实源** —— #3314 正是两处归一化放任不管的后果:同一条 `visible:` 谓词,取决于是 `ActionEngine.getActionsForLocation` 浮出的还是独立渲染的,会得到不同判决。re-export 不会漂移。\n\n依赖方向合法:`@object-ui/core` 本就是 `@object-ui/react` 的 `dependencies`,且本文件早已从同一个 barrel import `ExpressionEvaluator` / `evalRowPredicate` —— 「hook 代码不该被迫走引擎 barrel」这条旧理由在今天的代码里已不成立。反方向才是被禁止的(core 声明 \"Zero React dependencies\")。\n\n## 测试形态变更(刻意,非静默删除)\n\n`packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx` 里两个 describe 的处理**不同**,issue 也是这么区分的:\n\n- **归一化 parity 表(14 形态)→ 退化,替换为一条同一性断言。** re-export 之后这张表的两列调用的是**同一个函数**,每一行都由构造保证通过 —— 它对任何实现都不可能红,是纯粹的表演。替换为 `expect(toPredicateInput).toBe(coreToPredicateInput)`:同一个函数对象 ⇒ 输入形态不可能分歧,这比枚举形态**更强**。逐形态行为仍有真实断言覆盖:`useExpression.test.ts`(经 react 导出)与下面的判决套件(经两条调用路径)。\n- **判决 parity(引擎路径 vs 渲染器路径,9 例)→ 原样保留。** 共用归一化本身**并不**证明两条路径判决一致 —— 它们把归一化后的谓词送进不同的调用路径。这半边与本 PR 无关,一行未动。\n\n同 describe 里那条 \"preserves the cel dialect\" 也保留:它直接读 core 的输出,从来不依赖「两份实现」这个前提,退化的不是它。\n\n## 反向验证(方向先预测,再执行)\n\n预测:把旧的两份实现状态放回去(`git checkout origin/main -- packages/react/src/hooks/useExpression.ts`,测试文件保持新版),同一性断言应当**红**,判决 parity 9 例与 cel 保留应当**绿** —— 即 1 failed / 10 passed。\n\n实测完全一致:\n\n```\nFAIL  actionPredicate.parity.test.tsx > ... > re-exports the canonical core normalizer instead of a renderer-side twin\nAssertionError: expected [Function toPredicateInput] to be [Function toPredicateInput] // Object.is equality\n\nCompared values have no visual difference.\n\n Tests  1 failed | 10 passed (11)\n```\n\n断言信息里那句 **\"Compared values have no visual difference\"** 恰好就是本 issue 要消除的漂移面本身:两份看不出差别的实现,靠人眼和一张表守着。恢复后 11 passed。\n\n## 行为与公开面\n\n行为逐字节不变;`import { toPredicateInput } from '@object-ui/react'` 的所有既有引用路径照常可用,签名未削弱(core 的返回类型 `EvaluatorPredicateInput` 与原先内联的联合类型结构相同,没有 `any` 泄漏)。**没有新增导出名** —— 类型 `EvaluatorPredicateInput` 不从 react 侧转出,公开面与改动前完全一致。`tsc` 产物是干净的 re-export:\n\n```\npackages/react/dist/hooks/useExpression.d.ts:58:export { toPredicateInput } from '@object-ui/core';\n```\n\n顺带:旧实现里的 3 处 `(value as any)` 断言随之消失(该文件 `as any` 计数 3 → 0)。\n\nstar-export 隐患已按 issue 备注复核:仓内**没有任何**文件 star-re-export `@object-ui/core` 或 `@object-ui/react`(实际上没有任何 `export * from '@object-ui/...'`),`packages/react/src/index.ts` 也不做 —— 不会产生 ambiguous star-export。\n\n## core 侧 docblock 同步(经 PM 批准的定向扩围,纯注释)\n\n`packages/core/src/evaluator/predicateInput.ts` 的 73-77 行原本写着「渲染器侧代码(`@object-ui/react` 的 `toPredicateInput`,语义相同,由 parity 测试钉住)」—— 本分支之后**两个断言都不成立**:没有副本,它所指的那张 14 形态表也没了。留着它就是在 ship 一段自相矛盾的注释,正是 #3367 要消除的那一类漂移。\n\n改写后点名 re-export 与钉住它的同一性断言,并**显式区分**判决 parity 套件仍是另一条独立主张。`1 file changed, 13 insertions(+), 5 deletions(-)`,机械核验为纯注释改动(`git diff -U0` 去掉 `* ` 开头行后无剩余)。\n\n## 验证\n\n- `pnpm exec vitest run packages/react` — 32 files / **398 passed**\n- 消费半径扫荡(所有从 `@object-ui/react` 取 `toPredicateInput` 的包):`packages/components/src/renderers/action`、`packages/plugin-detail`、`packages/app-shell/.../DeclaredActionsBar.test.tsx` — 54 files / **476 passed**\n- `pnpm exec vitest run packages/core/src/actions/__tests__/ActionEngine.visibility.test.ts packages/core/src/evaluator` — 10 files / **293 passed**\n- `pnpm --filter @object-ui/react type-check`(`tsc --noEmit` + typetests 工程)/ `build` — 均 exit 0\n- `pnpm --filter @object-ui/core type-check` — exit 0\n- `eslint` 改动文件 — 0 errors\n- `node scripts/check-control-bytes.mjs` — OK;`check-changeset-no-major.mjs` — OK\n\n**远端 CI(`c2470b274`):18 项检查全部 success/skipped,含 `Type Check` ✅。** 早先 `264a5f16e` 上的 `Type Check` 红是 #3504 的既存故障(`scripts/__tests__/check-doc-links.test.ts` TS2578,本 PR 未触碰该文件);hotfix #3505 已于 02:11Z 合入 main,本 PR 的 merge-ref 随即带上修复,**无需 rebase**。\n\n## Changeset\n\n`@object-ui/react`: patch。#3314 的既有 changeset 保持不动(它描述的是那个 PR 当时的状态,历史上准确)。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

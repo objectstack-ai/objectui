@@ -1,0 +1,35 @@
+{
+  "number": 3314,
+  "kind": "issue",
+  "title": "ActionEngine.getActionsForLocation 把 CEL 信封塌回 legacy JS 求值路径,与每个渲染器的判决不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T17:04:37Z",
+  "updated_at": "2026-08-05T10:37:08Z",
+  "closed_at": "2026-08-05T10:37:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3314",
+  "body": "Filed unassigned,来自 objectstack#4811 / PR objectstack#4951 期间的只读排查(为给 null-guard 闸门定判据而读 ActionEngine)。**只记录发现。**\n\n## 现象\n\n同一条 action `visible` 谓词,经 `ActionEngine` 与经渲染器会走**两个不同的求值引擎**。\n\n`packages/react/src/hooks/useExpression.ts` 的 `toPredicateInput` 明确保留 CEL 信封,好让 `useCondition` 路由到 `@objectstack/formula`(#2661 就是为此):\n\n```ts\n// #2661 — preserve a CEL-dialect envelope so `useCondition` routes it to the\n// canonical `@objectstack/formula` engine (identical verdict to the server),\n// instead of collapsing it to a `${source}` string on the legacy JS path.\nif ((value as any).dialect === 'cel') return { dialect: 'cel', source: src };\nreturn `\\${${src}}`;\n```\n\n而 `packages/core/src/actions/ActionEngine.ts` 的 `getActionsForLocation` 自己把信封拆开、重新包成 `${…}` 字符串:\n\n```ts\n} else if (typeof raw === 'object' && typeof raw.source === 'string') {\n  const src = raw.source;\n  if (!src) return true;\n  expr = `\\${${src}}`;          // ← dialect 被丢弃\n}\n…\nreturn evaluator.evaluateCondition(expr as any, { throwOnError: true } as any);\n```\n\n`ExpressionEvaluator.evaluateCondition` 只在**参数仍是 `{dialect:'cel'}` 对象**时才转发给 `evaluateCelCondition`;收到字符串就走 legacy JS 路径。所以这里 #2661 的路由被绕过了。\n\n方法自己的 doc comment 还写着它「matches the contract used by every individual action renderer (`action-button`, `action-menu`, `action-bar`, …)」—— 而那些渲染器走的是 `toPredicateInput`,恰恰是保留信封的那条路。\n\n## 为什么这不是无关紧要的\n\n上游 `ExpressionInputSchema`(objectstack spec)会把裸串 `visible: 'record.x > 1'` 规范成 `{ dialect: 'cel', source: … }`,所以**已发布元数据基本都是 CEL 信封**,这条分支是常走的。\n\n两个引擎的 null 语义不同:CEL 里 `null < null` 无重载 → fault → fail-closed 隐藏;JS 里 `null < null` 是 `false`,不 fault。于是同一条谓词可能在渲染器里隐藏按钮、在引擎枚举里保留它(或反之)。CEL 专有能力(如 `record.due_date == today()`,objectstack#3205)在这条路径上也不可用。\n\n顺带:`ActionRunner` 的 `disabled` 走的是 `this.evaluator.evaluateCondition(action.disabled)` —— **直接传对象**,所以 `disabled` 走真 CEL 而同一个 action 的 `visible` 经引擎走 JS。\n\n## 可能的修法(未验证,留给认领者判断)\n\n把 `getActionsForLocation` 的归一化换成复用 `toPredicateInput`,不要自己拆信封 —— 一处归一化而不是两处,这也正是 `toPredicateInput` 的注释所主张的。\n\n## 备注\n\nobjectstack 侧的 lint 闸门(objectstack#4811)因为**另一个**原因排除了 action 谓词面(客户端记录不是对已声明字段全量的,见 objectstack#4953),所以本问题不会被那道闸门捕获。\n"
+}

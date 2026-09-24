@@ -12,17 +12,18 @@
   },
   "labels": [
     "domain:ui",
-    "pm:on-hold"
+    "pm:queue",
+    "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-23T22:54:15Z",
-  "updated_at": "2026-08-24T01:30:12Z",
+  "updated_at": "2026-09-24T01:39:12Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/5920",
   "body": "Filed by the objectstack spec seat (session_01T9cDbY2NBiVJWYx3BpWfH2) at the ACCEPT stroke of objectstack#11287, per its triage ruling (\"items 2 and 3 … get their own cards from the accepting seat at ACCEPT, each Blocked-by\"). Labels/grading are this repo's triage to mint.\n\nBlocked-by: objectstack-ai/objectstack#11287 (the resolver family — PR objectstack#11484) **and** this repo's spec pin bump to a release carrying it: the family ships in `@objectstack/spec` > 17.2.0 (`translateFlow`, `resolveFlowScreenTitle`, `FLOW_SCREEN_COPY_KEYS`, `FLOW_SCREEN_FIELD_COPY_KEYS` in `system/i18n-resolver`).\n\n## What\n\n`TranslationData.flows` (screen-flow copy: per-flow `label`, per-screen `title`, per-field `label`/`placeholder`) now has its resolver family in spec, but **no shipped runner reads it** — measured on objectstack#11287 (real `AutomationEngine`, real zh-CN bundle: the string resolves by key while the wizard renders authored English in every locale). This card is the application leg.\n\n**Side pick (made by the accepting seat, as its triage delegated): client-side, in the console's screen-flow dialog.** Grounds, all measured on the parent card:\n- the client already holds the exact addressing — `ScreenSpec.nodeId` (correlates resume→pause point) and `ScreenFieldSpec.name` are on the wire today; no new identifier needed;\n- server-side localization would require a locale on the automation execution context — a wider contract change the parent card itself flagged;\n- the console's metadata-l10n hook already applies exactly this overlay pattern to objects/pages/dashboards — flows is the missing enumeration there (the hook's namespace-detection predicate does not list `flows` either, per the parent card's measurement).\n\nSuggested surfaces (verify against current head): the screen-flow dialog render path (parent card quotes the RecordDetailView chunk rendering `s.title || 'Input'` and `e.label || e.name` verbatim), via `resolveFlowScreenTitle(bundle, flowName, screen)` for the title and the per-field lists for labels/placeholders — or `translateFlow` upstream if the client holds the flow document. The spec-side key lists are the single source; import, never copy.\n\n## Also rides this card\n\n1. **The ledger flip is NOT yours but is triggered by you**: `flows` / `children.label` / `children.screens` liveness rows in objectstack `packages/spec/liveness` stay `planned` + `authorWarn` until a shipped reader exists. When this lands, comment on objectstack#11287 (or ping the objectstack spec seat) so that seat flips the rows to `live` with the evidence pointer — do not edit objectstack's ledger from here.\n2. **Screen `description` is the open measuring point**: the wire carries `ScreenSpec.description` and the console renders it, but the translation face guidance-refuses `description` (outside the #7646 ruling's enumeration; escalated on objectstack#11287 with recommendation \"leave as ruled until a ruling widens\"). While implementing, measure whether the dialog actually draws it prominently — that measurement feeds the widen-or-not ruling; do NOT translate it via off-spec keys (the resolver ignores them by design, pinned).\n\n## Out of scope\n\nRunner chrome (Cancel / Submit / Submitting… / the terminal `Done` toast) — maintainer-ruled into the console's own message catalog, not the per-app bundle (recorded on #7646). A localized terminal toast additionally has no channel at all today (`FlowSchema.successMessage` is deliberately off the translation surface) — separate concern, do not fold.\n\nRefs: objectstack#11287 (measurement + resolver family) · objectstack PR #11484 · objectstack#7646 / PR #7763 (the declared face + ruling) · #4664 (sibling non-consumption defect at the related-list derivation, unrelated surface)."

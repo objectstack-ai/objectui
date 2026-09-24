@@ -1,0 +1,30 @@
+{
+  "number": 3391,
+  "kind": "issue",
+  "title": "[console] 记录详情页头的 api 动作:target URL 的 {field} 占位符从不插值——record_header 执行器不提供 params._rowRecord,literal `{id}` 被原样发出",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T14:47:31Z",
+  "updated_at": "2026-08-05T17:11:01Z",
+  "closed_at": "2026-08-05T17:11:01Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3391",
+  "body": "## 现象\n\n对象 `actions[]` 里声明 `locations:['record_header']` 的 `type:'api'` 动作,若 target URL 带 `{id}` 占位符,console **原样把 `{id}` 三个字符发出去**,不做替换:\n\n```\nPATCH /api/v1/data/os_tianshun_ehr_production_plan/%7Bid%7D  →  400 Bad Request\n```\n\n`%7Bid%7D` 即 URL 编码后的 `{id}`。后端收到一个名为 `{id}` 的记录 id,必然打不中记录。\n\n同一份动作声明挂到 `locations:['list_item']` 上则**插值正常** —— 两个执行器行为不一致。\n\n## 复现\n\n平台 `17.0.0-rc.1`(生产)与 `17.0.0-rc.3`(本地)均复现。\n\n对象上声明:\n\n```ts\n{\n  name: 'copy_plan_row',\n  label: '复制',\n  locations: ['record_header'],\n  type: 'api',\n  method: 'PATCH',\n  target: '/api/v1/data/os_tianshun_ehr_production_plan/{id}',\n  params: [{ field: 'copy_ovr_start', required: true }],\n  bodyExtra: { copy_now: true },\n  confirmText: '…',\n}\n```\n\n浏览器打开任一条记录的详情页 → 点该按钮 → 填参数 → 确认 → DevTools Network 里即可看到上面那条 `%7Bid%7D` 的 400。\n\n## 根因\n\n`RecordDetailView` 的动作执行器里,插值被 `params._rowRecord` 守卫:\n\n```js\nlet r = t.params && !Array.isArray(t.params) ? t.params._rowRecord : void 0;\n…\nif (a.startsWith(`/`) || /^https?:\\/\\//i.test(a)) {\n  let e = a;\n  r && /\\{[a-z_][a-z0-9_]*\\}/i.test(e) && (e = e.replace(/\\{([a-z_][a-z0-9_]*)\\}/gi, (e, t) => {\n    let n = r[t];\n    return n == null ? `` : encodeURIComponent(String(n));\n  }));\n```\n\n替换动作依赖 `r`(即 `params._rowRecord`)。**但 `record_header` 执行器从不把当前记录放进 `params._rowRecord`** —— `r` 恒为 `undefined`,`r && …` 短路,整个替换被跳过,`a` 原样进入请求。\n\n对照组:`framework` 的列表执行器显式保留该键,故 `list_item` 上插值正常:\n\n```js\nlet n = Array.isArray(e.params) ? {} : e.params || {}, i = n._rowRecord;\ne.params = { ...n, ...t };\ni !== void 0 && (e.params._rowRecord = …)\n```\n\n## 版本比对\n\n`rc.1` 与 `rc.3` 的这段守卫逐字相同,未修:\n\n| 版本 | bundle | 守卫 |\n|---|---|---|\n| 17.0.0-rc.1 | `RecordDetailView-BYYpDJSj.js` | `r&&/\\{[a-z_][a-z0-9_]*\\}/i.test(e)&&(e=e.replace(…))` |\n| 17.0.0-rc.3 | `RecordDetailView-CP1b5rdr.js` | 同上,一字不差 |\n\n## 影响\n\n详情页头的 `type:'api'` 动作**无法通过 URL 路径定位当前记录**。平台侧现有的 `recordIdParam` 只能把 id 注入 **body**,而 `/api/v1/data/:object/:id` 这类 REST 端点要求 id 在**路径**上,body 里的 id 不被采纳 —— 于是详情页头动作无法直接调用平台自己的 data 端点。\n\n应用侧当前只能自建一个中转端点(从 body 取 id 再转发),这既是额外的攻击面,也把「服务端调用自身 HTTP」这种反模式引进了应用层。\n\n## 期望\n\n`record_header` 执行器与 `list_item` 执行器行为对齐:执行 `type:'api'` 动作前,把当前记录放进 `params._rowRecord`(或以其它方式让 target URL 的 `{field}` 占位符得到插值),使详情页头动作可以直接使用 `/api/v1/data/:object/{id}` 一类的原生端点。\n\n## 环境\n\n- `@objectstack/console` 17.0.0-rc.1 / 17.0.0-rc.3\n- Chrome,PC Console 记录详情页"
+}

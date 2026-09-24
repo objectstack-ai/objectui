@@ -1,0 +1,35 @@
+{
+  "number": 3464,
+  "kind": "pull_request",
+  "title": "fix(i18n): key the kanban / tree / view record-detail headings (#3459)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:24:03Z",
+  "updated_at": "2026-08-06T07:39:47Z",
+  "closed_at": "2026-08-06T07:39:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T07:39:45Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3464",
+  "body": "Fixes #3459\n\n#3426(PR #3457)修了 ListView / ObjectGrid;同一把 grep 找到的另外三处宿主同样在 TypeScript 里拼英文标题,于是 zh/ja/de 会话拿到一个通体本地化的浮层、顶上挂一句英文。\n\n## 一、先证伪:三处的可达性逐个重判(#3426 标准)\n\n立单者未核验,派发要求先做判定。三处**都在 origin/main 上跑了真实交互测试**(渲染块 → 点卡片/行 → 读标题),不是看代码推断。结论两处如立单所述,一处的前提要修正:\n\n| 站点 | 可达? | 门槛 |\n|---|---|---|\n| `ObjectKanban` | **是** | 最低。`navConfig` 在 schema 不写 `navigation` 时**默认 `{ mode: 'drawer' }`**,每张卡的 `onCardClick` 直连 `navigation.handleClick` —— 页面里放个 `object-kanban`(公开页面块)就能开出这个抽屉 |\n| `ObjectTree` | **是**,但更窄 | 必须显式编写 `navigation: { mode: 'drawer' }`(无默认),且只在独立渲染时;`ListView` 传自己的 `onRowClick`,两个宿主都不向下转发 `navigation`。`object-tree` 也不在 `PUBLIC_BLOCKS` 里 —— 是渲染能力而非编写词表 |\n| `ObjectView`(`mode: 'split'`) | **是** | `navigation` 是该注册项**声明过**的可编写输入(`{ name: 'navigation', type: 'object' }`),`handleRowClick` 在 `mode === 'split'` 下置 `isFormOpen`。`layout` 到不了:`ObjectViewSchema.layout` 是 `'drawer' | 'modal' | 'page'`,`deriveRecordSurface` 也从不返回 `'split'`,所以 `navigation.mode` 是唯一的门 |\n\napp-shell 的 ObjectView 包装器钉 `layout: 'page'` 并给 `onNavigate`,ListView 传自己的 `onRowClick` —— 都是**宿主覆盖已注册的块**,不是分支死掉(与 #3457 的判词一致)。\n\n### 立单前提的两处修正(kanban)\n\n1. **消费者不是 `NavigationOverlay`,是 `RecordDetailDrawer`**(来自 `@object-ui/plugin-detail`)。所以「`resolvedTitle = title || t('detail.recordDetail')` 默认值永不生效」这条论据对 kanban 不成立 —— 那里压根不经过 `NavigationOverlay`。\n2. **不是可见标题**。`RecordDetailDrawer` 把 `title` 渲染进 `SheetHeader className=\"sr-only\"` 的 `SheetTitle`,可见标题由 DetailView 自己的 HeaderHighlight 画。所以这串字是**浮层对读屏器的可访问名**。缺陷依然成立(zh 会话下读屏器只被告知一句英文),而且同一个文件早就因为同样的理由把 resize handle 的 `aria-label` 接进了语言包(objectstack#5733);但断言写的是 `toHaveAccessibleName`,不是「找一个可见标题」,因为代码渲染的就是前者。\n\n### `'Card Details'` 那条分支是死的\n\n```ts\nconst detailTitle = schema.objectName ? `${...} Detail` : 'Card Details';\n...\nif (!objectName || recordId == null) return null;   // ← 消费它的 IIFE,同一个条件\n```\n\n`'Card Details'` 只在 `!schema.objectName` 时产生,而消费它的 IIFE 在**同一条件**下 `return null`。实测:不带 `objectName` 渲染看板、点卡片,`queryByRole('dialog')` 为 `null`,浮层根本不开。\n\n处置:**照样 key 化,但刻意不给它写断言** —— 那样的断言会「因为什么都没渲染」而通过,不是因为逻辑对。改为把「无 objectName 时压根不开浮层」这个事实本身钉成测试。死分支本身另立观察单 #3463。\n\n## 二、改动\n\n三处都改走既有的 `detail.*` 两个 key:有标签走 `detail.recordDetailWithLabel`(`{{label}} Detail`,让各语言包自己决定语序 —— de 用连字符复合、ja/zh 需要助词),无标签复用 `detail.recordDetail`(`NavigationOverlay` 自己兜底的那个 key)。\n\n**新增语言包 key:零个。** 两个 key 在 #3457 已进十包,复用它们才能保证一个控件一句翻译、不各自漂移。\n\n每个插件各自建英文兜底表(`KANBAN_DEFAULT_TRANSLATIONS` / `TREE_DEFAULT_TRANSLATIONS` / `VIEW_DEFAULT_TRANSLATIONS`),给无 `I18nProvider` 的宿主用;`@object-ui/plugin-tree` 为此新增了对 `@object-ui/i18n` 的依赖。\n\nkanban 没有复用文件里已有的 `tt`(`useSafeTranslate`):它的签名是 `tt(key, fallback)`,没有 options 参数,`{{label}}` 会原样进 DOM。\n\n## 三、可见英文变化(明确列出)\n\n**一处,刻意的**:tree 浮层标题 `Record Details` → `Record Detail`。按维护者对 #3459 的裁定(Option A:复数拼写归一到单数 `detail.recordDetail` 家族,一个控件一句翻译,不为复数另开 key)。这也是 `NavigationOverlay` 自己兜底、以及整个 `detail.*` 家族已经在用的拼写。\n\n**依赖前先 grep 过**:全仓 `Record Details` / `Card Details` 三处命中,`e2e/` 零命中,单元测试零命中;第三处是 `plugin-detail/src/index.tsx` 的注册面板 label,与浮层标题无关,未动。\n\n**kanban 的 `Card Details` 不计入可见变化** —— 见上,那条分支不可达,用户看不到任何差别。\n\n其余每个分支英文逐字节不变(`Contacts Detail` / `Support cases Detail` / `Contacts Detail`),有无 provider 都一样。\n\n## 四、验证(仓根跑,方向先预测后执行)\n\n```\npnpm exec vitest run packages/plugin-kanban packages/plugin-tree packages/plugin-view \\\n  packages/i18n/src/__tests__/all-locales-key-parity.test.ts \\\n  packages/i18n/src/__tests__/en-zh-key-parity.test.ts --maxWorkers=2\n→ Test Files  21 passed (21)      Tests  163 passed (163)\n\npnpm --workspace-concurrency=2 --filter @object-ui/plugin-{kanban,tree,view} type-check  → 3× Done\npnpm --workspace-concurrency=2 --filter @object-ui/plugin-{kanban,tree,view} lint        → 0 errors(仅既有 warning)\npnpm --workspace-concurrency=2 --filter @object-ui/plugin-{kanban,tree,view} build       → 3× built\nnode scripts/check-control-bytes.mjs   → OK(3659 个文本文件)\nnode scripts/check-changeset-no-major.mjs → 无 major\n```\n\n### 反向验证:三份源文件 `git checkout origin/main --` 回退后重跑\n\n预测与实测**完全一致**,20 条断言 11 红 9 绿:\n\n| 断言 | 预测 | 实测(回退后) |\n|---|---|---|\n| kanban zh / ja / de | 红 | 红 —— `Expected accessible name: Contacts详情 / Received: Contacts Detail` |\n| view zh / ja / de | 红 | 红 —— `Unable to find an element with the text: 联系人详情` |\n| tree zh / ja / de | 红 | 红 |\n| **tree en**(复数→单数,刻意) | **红** | 红 —— `Unable to find an element with the text: Record Detail` |\n| **tree 无 provider en** | **红** | 红(同上,刻意) |\n| kanban en ×2 / 记录标题优先 / 死分支 | 绿 | 绿 |\n| kanban 无 provider ×2 | 绿 | 绿 |\n| view en / view 无 provider ×2 | 绿 | 绿 |\n\n注意 tree 的两条 en 断言是**本 PR 唯一「改前绿改后也该绿」不成立的地方**,而这是裁定的结果不是回归 —— 模板预设的「en 逐字节不变」在这一处不适用,如实标出。\n\n无 provider 的英文兜底按要求**每个包各自独立成文件**(`initReactI18next` 把实例注册成模块全局,活过 `cleanup()`,与 provider 用例同文件会静默解析到上一个语言)。\n\n## 五、围栏\n\n未越界。未动 `packages/components`(`NavigationOverlay` 一行没改)、`content/docs/releases/`、`packages/spec`、`packages/i18n/src/locales/*`(零新 key)。\n\n改动清单:三个插件源文件 + 六个测试文件 + `plugin-tree` 的 `package.json`/`vite.config.ts`(新依赖)+ `pnpm-lock.yaml`(仅该依赖一行)+ 一个 changeset(patch × 3,fixed 组约定,未声明 major)。\n\n## 六、顺手发现,已另立单(未在本 PR 修)\n\n- **#3462**(具体缺陷,未打标签待 PM 定级):同文件的 `getFormTitle()` 自拼 `Create/Edit/View ${objectLabel}`,喂给 `DrawerTitle` / `DialogTitle` / popover 模式的 `NavigationOverlay.title`。已用同标准核验可达:zh 会话 + `navigation: { mode: 'drawer' }`,抽屉标题实测为 `View 联系人`。门槛比 split 那处还低(`layout` 默认就是 `'drawer'`)。属于另一组字符串(动词 + 标签),不在 #3459 围栏内。\n- **#3463**(`finding`,不进队列):`ObjectKanban` 的 `navIsOverlay` 算了从不用;以及上面那条 `detailTitle` 死分支的结构本身。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

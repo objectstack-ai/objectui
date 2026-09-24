@@ -1,0 +1,35 @@
+{
+  "number": 3213,
+  "kind": "issue",
+  "title": "`pnpm docs:check-links` 在 main 上就退出 1,但没有任何工作流跑它(两个链接检查器都不拦 PR)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-02T15:07:13Z",
+  "updated_at": "2026-08-06T05:43:59Z",
+  "closed_at": "2026-08-06T05:43:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3213",
+  "body": "在 #3197 的修复过程中顺手跑检查时发现,与那个 PR 无关,按 Prime Directive #10 单独记录。\n\n## 现象\n\n在**未经修改的 `origin/main`**(`dd06bcd`)上:\n\n```\n$ node scripts/check-doc-links.mjs; echo \"exit: $?\"\nFound 1 broken docs link:\n- content/docs/core/enhanced-actions.mdx -> /docs/components/form\nexit: 1\n```\n\n链接确实是坏的:`content/docs/components/form/` 是一个目录,里面是 `button.mdx`、`input.mdx` 等 20 来个文件,**没有 `index.md`/`index.mdx`**,所以 `/docs/components/form` 这条路由没有页面。\n\n## 为什么一直没人发现\n\n因为这个检查从来没有跑过。`docs:check-links` 只出现在 `package.json` 里:\n\n```\n$ grep -rn \"check-doc-links\\|docs:check-links\" .github/ package.json turbo.json\npackage.json:41:    \"docs:check-links\": \"node scripts/check-doc-links.mjs\",\n```\n\n`.github/` 下零命中 —— 没有任何工作流调用它。\n\n而**另一个**链接检查器 `check-links.yml`(Lychee)同样不拦 PR,它的触发条件是 `workflow_dispatch:`,底下的 `push:` / `pull_request:` 是被注释掉的:\n\n```yaml\non:\n  workflow_dispatch:\n  # push:\n  #   branches:\n  #     - main\n  # pull_request:\n```\n\n所以仓库里有**两个**链接检查器,一个能跑但没人跑,一个只能手动触发。这正是 #3197 那一类问题的同款形状:能力声明了,但没有被执行(Prime Directive #10 的推论)。\n\n## 建议(需要维护者定方向,故未直接动手)\n\n先修那条坏链接(要么给 `content/docs/components/form/` 补一个索引页,要么把 `enhanced-actions.mdx` 里的链接改指到 `/docs/components/form/form`),然后二选一:\n\n- **A**:把 `node scripts/check-doc-links.mjs` 加进 `ci.yml` 的 `docs` 任务 —— 它是纯本地文件系统检查,零网络、几十毫秒,加进去几乎不花时间,且天然稳定(不会因为外站挂了而 flaky)。\n- **B**:把 `check-links.yml` 的 `pull_request` 触发放开 —— 覆盖面更大(含外链),但 Lychee 会打外部网络,PR 门禁上容易 flaky,通常需要配合 `--exclude` 和定时跑而不是 PR 跑。\n\n我倾向 **A 作为 PR 门禁 + B 保持定时/手动**:内链断裂是我们自己造成的、必然可复现的,适合当硬门禁;外链断裂是别人造成的、随机的,适合定期巡检。但这是维护者的取舍,先记录不擅自决定。"
+}

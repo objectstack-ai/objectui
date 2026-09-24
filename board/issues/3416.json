@@ -1,0 +1,32 @@
+{
+  "number": 3416,
+  "kind": "pull_request",
+  "title": "fix(fields): 字数统计不再每次击键整句重播,改用 describedby + 阈值门控的 debounce 状态区 (#3408)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T01:21:41Z",
+  "updated_at": "2026-08-06T01:49:20Z",
+  "closed_at": "2026-08-06T01:49:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T01:49:18Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3416",
+  "body": "Fixes #3408\n\n## 前提复核(动手前先复刻探针)\n\n在 `origin/main`(935ea2fe8)上按 issue 正文的探针原样跑了一遍 —— zh 会话、`maxLength: 500`、把 `Follow up with the customer about the renewal quote.` 逐字符输入,每次 change 之后采样 live region 的可访问名:\n\n```json\n{\n \"keystrokes\": 52,\n \"ariaLiveOnRegion\": \"polite\",\n \"regionIsAriaHidden\": null,\n \"textareaDescribedBy\": null,\n \"announcementsFired\": 52,\n \"distinctAnnouncements\": 52,\n \"totalCharsSpoken\": 979,\n \"first\": \"已输入 1 个字符，最多 500 个\",\n \"last\": \"已输入 52 个字符，最多 500 个\"\n}\n```\n\n与 issue 记录逐字段一致(52/52/979,`aria-hidden` 与 `aria-describedby` 双 null)。前提成立,按 PM 裁定的 **A + B + C 的 describedby 半边** 实施。\n\n## 改了什么\n\n原来那个计数块同时扮演三个角色:给眼睛看的 `{n}/{max}` 数字、#3406 键化后的整句译文载体、以及 live region 本体。三者同体,于是「重渲染」和「播报」是同一件事。现在拆成 GOV.UK character-count 组件的三节点形制:\n\n1. **可见数字** —— `aria-hidden=\"true\"`,纯装饰。不再被读屏读成「5 斜杠 500」压在下面那句正经描述上面。\n2. **描述节点** —— visually-hidden,内容仍是 `fields.textarea.characterCount`(十包原样,一个字没动),挂到 textarea 的 `aria-describedby` 上。聚焦时读一次「已输入 12 个字符，最多 500 个」,然后闭嘴。这条补掉的正是探针里 `textareaDescribedBy: null` 那一项 —— 以前读屏用户只能靠撞上限才知道有上限。\n3. **状态节点** —— 独立的 visually-hidden `aria-live=\"polite\"`(带 `aria-atomic`),承载新键 `fields.textarea.charactersRemaining`。两道闸门:\n   - **阈值门控**:剩余 ≤ 上限的 10% 或 ≤ 20 字符(先到者)之前完全静默。因为 `remaining` 只会往下走,「先到」在实现里就是两者取 `max`;500 上限从剩 50 开始警告,100 上限从剩 20 开始(它的 10% 是 10,来得更晚)。\n   - **debounce**:输入停顿 1s 之后状态节点才更新;每次击键取消上一个待播报,所以不停手打字的人一次都不会被打断。\n\n`aria-describedby` 是**追加**不是赋值:`FormControl` 是 Radix Slot,本来就会把字段描述和错误消息的 id 交到控件上(经 `toDomProps` 的 `aria-*` 透传到达这里)。覆盖它等于拿「上限没播报」换「错误没播报」,是更糟且更隐蔽的 bug。\n\n新键 `fields.textarea.charactersRemaining` 十包齐 + `FIELD_DEFAULTS` 英文默认。**刻意用冒号/后置形式**(`Characters remaining: {{count}}` / `还可输入 {{count}} 个字符`)而不是 `You have {{count}} characters remaining`:`count` 会让 i18next 先去查 `_one` / `_few` 复数键,而这批包只声明基础键 —— 语法不随数字变的句子在 count=1 时天然正确,不必给十个包各补一堆复数条目。这也正是 `characterCount` 已经依赖的那条基础键回退路径。\n\n### 第二个 commit:静默是算出来的,不是在 effect 里清出来的\n\n第一版在 effect 体里同步 `setStatus('')`,被 `react-hooks/set-state-in-effect` 点名 —— 它说得对:那意味着在「正忙着保持安静」的绝大多数击键上都白挂一次级联渲染。改成:settled 句子只由 debounce 定时器写入,渲染的是 `settledStatus === pendingStatus ? pendingStatus : ''`。退出警告带因此**立刻**静音,且没有多余渲染。\n\n刻意**不是** `pendingStatus ? settledStatus : ''`:删到警告带外面再打回来,那种写法会把出走之前的**旧计数**立刻重播一遍,一秒后才被定时器纠正。播一个错的数字比把对的数字播两遍更糟。这条单独有用例钉住。\n\n## 修后的实测\n\n同一个探针,同样 52 击键:**0 次播报**。更严苛的变体 —— 每敲一个字符就停满 1s(debounce 完全失效,只剩阈值在挡)—— 同样 0 次。最贴近真实的最坏情况(同样 52 击键,但正好打到 500 上限,每 10 字符停顿一次)是 **5 次**,全部落在警告带内:\n\n```\n还可输入 42 个字符 / 32 / 22 / 12 / 2\n```\n\n三种都写成了测试,不是一次性脚本。\n\n## 测试\n\n`packages/fields/src/widgets/__tests__/TextAreaField.characterCount.announcements.test.tsx`(新,20 例)—— 行为半边:上面三个探针、debounce 的 999ms 临界(证明静默,不是「早晚会说」)、阈值两侧各一例(500 上限的 449/450,100 上限的 79/80 —— 后者钉住 `max()`,写成 `min()` 会让警告晚来十个字符,而 500 那组看不出来)、退出警告带立刻静音、出走后回来不播旧值、超长值钳到 0 而不是倒数、live region 挂载即存在且为空(`{status && ...}` 会通过上面每一条静默断言,却恰好废掉整套门控要服务的那唯一场景)、describedby 的追加语义与两个实例 id 不撞。debounce 一律假计时器,零真实 sleep。\n\n`TextAreaField.characterCount.i18n.test.tsx` / `.no-provider.test.tsx` —— #3406 钉住 `aria-live` 的那两条 pin 按本单裁定的方向更新(live region 仍在,但已与可见数字分家,数字改带 `aria-hidden`);句子的取值改成**顺着 `aria-describedby` 解析**,和读屏一样,这样「关联真的生效」也进了断言。原有的 ja 词序、ru/ar 基础键回退、英文字面量反向断言全部原样保留 —— 期望字符串一个字没改,因为译文本身没动。两个文件各补了 `charactersRemaining` 的对应用例。\n\n`packages/i18n/src/__tests__/textarea-charactercount-locale-parity.test.ts` —— 新键的十包覆盖、只插值 `{{count}}` 不重复 `{{max}}`(上限属于聚焦时读的描述,警告里再说一遍只会拉长这唯一允许的打断)、没人偷偷塞复数后缀键、en 与 `FIELD_DEFAULTS` 对齐、其余九包没有英文原句回填。\n\n命令与结果:\n\n```\npnpm exec vitest run --maxWorkers=2 packages/fields/ packages/i18n/\n  Test Files  81 passed (81)\n       Tests  1173 passed (1173)\n\npnpm exec vitest run --maxWorkers=2 packages/plugin-form/ packages/components/src/renderers/form/ …\n  Test Files  63 passed (63)\n       Tests  509 passed (509)\n\npnpm exec turbo run type-check --filter=@object-ui/fields --filter=@object-ui/i18n\n  Tasks:    11 successful, 11 total\n\npnpm run check:control-bytes\n  ✅  OK (scanned 3615 tracked text file(s))\n```\n\n### 反向验证(方向先声明,再跑)\n\n- **A —— 整体回退**(把 `origin/main` 的 widget 放回去):预期新用例转红。实测 19 例中 **16 红**,探针那条直接报出 `[ '1/500', '2/500', … ]` 共 52 条,即 issue 记录的那个数字被测试自己复现了出来。留绿的 3 条恰是无上限 / readonly 分支 —— 它们本就不是钉修复的,是防修复越界的。\n- **B —— 只摘掉阈值门控**(保留三节点与 debounce):预期只有门控相关的转红,而「52 击键不停手」那条应当**保持绿**,因为单靠 debounce 也压得住。实测正是 4 红(含每键停顿 1s 的悲观变体,再次报出 52 条)、15 绿 —— 两套机制各自独立被钉住,不是一条断言兜住两件事。\n- **C —— 把状态遮罩换成 `pendingStatus ? settledStatus : ''`**:预期只有新增的「出走后回来不播旧值」那条转红。实测 1 红 19 绿,报 `expected 'Characters remaining: 40' to be ''`。\n\n## 不在本单范围\n\n`FullscreenFieldEditor` 的 footer 计数按裁定未动(它既无 `aria-label` 也无 live region,是另一回事)。\n"
+}

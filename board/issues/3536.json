@@ -1,0 +1,34 @@
+{
+  "number": 3536,
+  "kind": "issue",
+  "title": "check-doc-links 门禁两向扩展:扫描面扩到 examples/** + 根 README,可判定 href 形态扩到指向本仓的 GitHub 绝对 URL",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:15:19Z",
+  "updated_at": "2026-08-07T04:06:36Z",
+  "closed_at": "2026-08-07T04:06:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3536",
+  "body": "PM 立单,合并两个已锚定的后续项(PR #3506 已落 main,前置解除)。查重:两项分别锚在 #3490 评论区与 #3507 正文(方向 2 持有记录),无独立同源单。\n\n## 背景\n\nPR #3506 把 `scripts/check-doc-links.mjs` 的绝对链接校验接上了站点路由真源,但明确声明了两个「没有买」的面,各自已有实证需求:\n\n## 扩展一:扫描面 → `examples/**` 的 README + 根 `README.md`\n\n现状扫描面只有 `content/docs/`。而 examples 的 README 已两次被抓到死链(#3486/PR #3495 hello-world 两条、根 README 四条死 example 条目 PR #3485),都是靠人眼不是靠门禁。console-starter README(PR #3524)的 14 条相对链接靠 dev 手写存在性脚本核的 —— 门禁根本不看它。\n\n注意与 content/docs 的差异:examples README 的相对链接语义是**磁盘路径**(GitHub 渲染),不是 fumadocs 路由 —— 校验规则不同(存在性即可,不做 collection 约束),实现时按扫描根分流规则,别把 docs 的路由语义硬套上去。\n\n## 扩展二:可判定形态 → `https://github.com/objectstack-ai/objectui/(blob|tree)/main/<path>` 的离线路径校验\n\n#3507 实证:这类\"写成外链的仓内引用\"处在两个门禁之间(check-doc-links 按 scheme 跳过、lychee 周 cron + continue-on-error 不 gate PR),曾积累 2 条死链数月。#3509 落地后此类存量归零(25 目标全量扫描,恰 2 死已修),但 PR #3506 自己又新引入 8 条此形态且无 gate 校验 —— 纯预防但覆盖真实增量。判定方式:`git cat-file -e HEAD:<path>`(或工作树存在性),锚点(#fragment)不在本单范围。\n\n#3507 dev 留了复扫 one-liner 在该 issue 评论区,实现后跑一遍确认 #3506 的 8 条全活。\n\n## 验收\n\n- 两向扩展各带拒绝类与放行类测试(沿用 #3506 的 fixture 风格与 reason 分类,新增 reason 如 `example-relative` / `self-repo-url`);\n- 在真实仓上跑:预测并确认当前主线**零新红**(#3509/#3495/#3485 已清完存量 —— 若跑出新红,那是真死链,修进同一 PR 并逐条给 disposition);\n- 逆向验证:临时植入一条死 example 链接与一条死 self-repo URL,各自被正确 reason 拒绝。\n\n关联:#3490 / PR #3506(真源重写与\"没有买\"的声明)、#3507(方向 2 持有)、#3486 / #3485(存量证据)、PR #3524(手工核验的缺 gate 实例)。"
+}

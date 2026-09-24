@@ -1,0 +1,35 @@
+{
+  "number": 3288,
+  "kind": "issue",
+  "title": "`pnpm --filter &lt;pkg&gt; test -- --run &lt;paths&gt;` 静默忽略路径过滤:新加的测试文件根本没跑,而输出看起来正常",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:59:09Z",
+  "updated_at": "2026-08-06T04:42:47Z",
+  "closed_at": "2026-08-06T04:42:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3288",
+  "body": "在 objectui#3275(PR #3285)的验证过程中撞到,按 Prime Directive #10 单独记录。\n\n## 现象\n\n用包级过滤加路径跑测试时:\n\n```\npnpm --filter @object-ui/app-shell test -- --run <paths>\n```\n\n**路径过滤被静默忽略**。加了新测试文件之前和之后,输出都是同一个 `Test Files 20 passed (20) / Tests 183 passed (183)` —— 也就是说**新写的测试一个都没有执行**,而输出看起来完全正常:全绿、有数字、没有任何警告。\n\nvitest 按**仓库根**解析 pattern,包级 `--filter` 转发过去的相对路径匹配不到任何东西,于是退回跑该包的默认集合。\n\n## 正确的跑法\n\n从仓库根:\n\n```\npnpm exec vitest run packages/app-shell/src/views/... --maxWorkers=2\n```\n\n换过去之后立刻抓到一个**真实失败**(`AppPreview.test.tsx` 里 `getByText` 命中了重复元素)—— 那个失败在错误的调用方式下被完全隐藏了。\n\n## 为什么值得单独修\n\n这是本仓反复出现的那一类缺陷的**元层版本**:一个「看起来跑了」的验证等于没验证。\n\n危害具体在:\n\n1. **agent 与开发者会据此报告\"测试通过\"**,而实际上新增的覆盖一次都没执行 —— 本轮就发生了一次,靠换命令才发现;\n2. 它**不报错、不警告**,只是安静地跑了别的东西,所以没有任何自然的发现路径;\n3. AGENTS.md 建议本地只跑受影响的包,而包级过滤正是最自然的写法 —— 也就是说**推荐路径与陷阱重合**。\n\n与 objectui#3240(两套 vitest 配置对同一文件给出不同结论)是同一族:**门禁在特定调用方式下给出的答案不作数**。\n\n## 建议方向\n\n至少三条,不预设结论:\n\n- **A. 让它报错而不是静默退化**:若包级 `test` 脚本能检出\"传了路径但一个都没匹配上\",就 exit 非零。最小改动,直接消除\"安静跑错东西\"。\n- **B. 在 AGENTS.md / 测试文档里写明正确调用方式**,并说明包级过滤 + 路径不生效。成本最低,但只对读文档的人有效。\n- **C. 让包级 `test` 脚本正确转发路径**(把相对路径改写成仓根相对)。最彻底,但要确认不会破坏现有调用方式。\n\n倾向 A + B(让错误方式响亮失败,同时把正确方式写下来);C 更彻底但需要评估 turbo / vitest 两层的转发行为。\n\n⚠️ 排期:本条属**测试基础设施**,不是 v17 协议类或严重 bug,建议发布窗口之后处理。记在这里以免再有人踩。\n\n发现路径:objectui#3275 / PR #3285 的验证。"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3411,
+  "kind": "issue",
+  "title": "InlineCreateRelated 的关闭按钮是纯图标且无可访问名:X 图标被 lucide 默认 aria-hidden,按钮名计算为空串",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T21:38:43Z",
+  "updated_at": "2026-08-05T22:41:48Z",
+  "closed_at": "2026-08-05T22:41:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3411",
+  "body": "实施 #3381(PR #3410,给 Link 页签搜索框补真 label)时,在**同一文件**里核到的相邻缺陷。#3381 的范围栅栏只覆盖搜索框的可访问名,不在该 PR 内修,单独立此单。\n\n同族第四例,但类别又不同:#3299 是「required 状态没进 a11y 树」;#3341 是「label 存在但没关联上」;#3381 是「输入框根本没有 label」;本单是「**按钮完全没有可访问名**」——一个纯图标按钮,连兜底都没有(placeholder 至少还能在真实浏览器里兜一下,图标按钮连这个都没有)。\n\n## 现象\n\n`packages/plugin-detail/src/InlineCreateRelated.tsx`,卡片头部的关闭按钮(origin/main 2409e1d04 上约 L189-L196,PR #3410 之后行号不变):\n\n```\nButton variant=\"ghost\" size=\"icon\" className=\"h-6 w-6\" onClick={() => setIsOpen(false)}\n  X className=\"h-3.5 w-3.5\" /\n/Button\n```\n\n(为避开 GitHub 正文的标签清洗,上面省略了尖括号。)\n\n该按钮**没有文本子节点,也没有 `aria-label` / `aria-labelledby` / `title`**。唯一的子节点是 lucide 的 `X` 图标,而 lucide-react 1.25.0 对「无 children 且无 a11y prop」的图标**默认加 `aria-hidden=\"true\"`**(`dist/cjs/lucide-react.js:92`:`...!children && !hasA11yProp(rest) && { \"aria-hidden\": \"true\" }`)。图标被排除出 a11y 树之后,按钮的可访问名没有任何来源,计算结果是**空串**。\n\n屏幕阅读器用户听到的是一个「按钮」,没有名字;这也是 WCAG 4.1.2 / 2.4.6 的直接违反项。\n\n## 复核方式(在 PR #3410 的 worktree 里实测)\n\n临时探针断言「卡片展开后不存在无文本内容的按钮」:\n\n```\nconst iconOnly = screen.getAllByRole('button').filter((b) => !b.textContent?.trim());\nexpect(iconOnly).toHaveLength(0);\n```\n\n结果:\n\n```\nAssertionError: expected [ button …(1) ] to have a length of +0 but got 1\n```\n\n即展开态里恰好有一个纯图标按钮(就是这个 X)。探针已删除,未进 PR #3410。\n\n顺带核过同文件的其余按钮,都**有**文本因而有名字:折叠态的 `New {objectName}` / `Link Existing`、页签触发器、`Cancel` / `Create`、以及搜索结果行按钮。所以本单只涉及这一个关闭按钮。\n\n## 建议修法\n\n给按钮一个可访问名。与本文件已确立的形状一致的做法是 `aria-label`——注意这里和 #3381 的裁定**不冲突**:#3381 否决 `aria-label` 是因为那里存在可见文案(placeholder)、用 `aria-label` 会让可见文本与可访问名解耦;而这里**没有任何可见文案**,`aria-label` 是图标按钮的标准解法(另一种是 `sr-only` 文本子节点,效果等价)。\n\ni18n:本文件目前整体是英文硬编码(未消费 `useDetailTranslation`),而 `DETAIL_DEFAULT_TRANSLATIONS` 里已有语义相近的键可考虑(如 `detail.cancel`);是否在本单顺带把该组件接入 i18n,属于范围问题,请 PM 裁定——纯补 `aria-label`(英文字面量,与同文件其余文案同一族)是最小改动。\n\n## 验收建议\n\n- `getByRole('button', { name: … })` 能拿到该关闭按钮;\n- `toHaveAccessibleName` 非空;\n- 反向验证:去掉新加的名字来源后该断言转红(注意别写成「不存在无文本按钮」这类会被其它改动带绿的间接断言)。\n\n关联:#3381(PR #3410)、#3341(PR #3380)、#3299、#3290。\n"
+}

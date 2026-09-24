@@ -1,0 +1,30 @@
+{
+  "number": 3563,
+  "kind": "issue",
+  "title": "console: 记录详情页没有「刷新」入口——要看最新数据只能整页 reload",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T12:23:12Z",
+  "updated_at": "2026-08-07T12:59:04Z",
+  "closed_at": "2026-08-07T12:59:04Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3563",
+  "body": "## 诉求(能力补齐,非缺陷)\n\n记录详情页目前**没有任何刷新入口**:页头按钮里没有,「更多操作」(…) 菜单里也没有(实测只有「分享 / 删除」)。记录被别人改过、或被后台自动化/审批流回写过之后,当前页面上的数据就是旧的,用户只能按 F5 整页 reload。\n\n列表页是有刷新按钮的(`data-testid=\"refresh-button\"`),详情页没有对应的。\n\n## 实测\n\n`17.0.0-rc.5`,admin,1440×900,某业务单据详情页 —— 页头按钮 ∪ 展开「更多操作」菜单后合并统计:\n\n```\n页头动作     = [开始处理, 升级, 编辑]\n更多操作菜单 = [分享, 删除]\n有刷新入口   = false\n```\n\n> 说明:这里必须把页头和折叠菜单合并统计 —— 页头只渲染前 N 个动作,其余折进「更多操作」,只看页头会误判。\n\n## 为什么在意\n\n我们这边是制造业现场系统,详情页上的数据经常被别的角色或后台流程改动(派工单被接单、审批流推进节点、cron 回写状态)。用户停在详情页上看到的是打开那一刻的快照,要确认最新状态只能整页刷新 —— 而整页 reload 在这类长表单/多页签的页面上体验很差(滚动位置、展开状态、当前页签全丢)。\n\n## 期望\n\n页头或「更多操作」菜单里加一个刷新入口,重新拉当前记录 + 相关列表,不整页 reload。\n\n## 版本\n\n- `@objectstack/*` `17.0.0-rc.5`"
+}

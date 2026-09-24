@@ -1,0 +1,33 @@
+{
+  "number": 3485,
+  "kind": "pull_request",
+  "title": "docs(readme): 用真实的 examples 目录替换 4 个已删除的示例条目",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:05:22Z",
+  "updated_at": "2026-08-06T13:52:34Z",
+  "closed_at": "2026-08-06T13:52:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T13:52:32Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3485",
+  "body": "Fixes #3480\n\nREADME.md:59-62 以肯定语气推荐了四个不存在的示例目录。按 issue 要求,先查清「去向」再决定修法。\n\n## 每个目录的历史判定\n\n四个都是 **被删**,不是移仓,也不是计划未建。证据是同一个提交:\n\n| 目录 | 曾经的包名 | 判定 | 证据 |\n|---|---|---|---|\n| `examples/crm` | `@object-ui/example-crm` | 被删 | 在 `12b287d8b` 中删除(72 个文件) |\n| `examples/todo` | `@object-ui/example-todo` | 被删 | 同一提交(10 个文件) |\n| `examples/kitchen-sink` | `@object-ui/example-kitchen-sink` | 被删 | 同一提交(8 个文件) |\n| `examples/msw-todo` | `@object-ui/example-msw-todo` | 被删 | 同一提交(21 个文件) |\n\n提交 `12b287d8b` — *\"refactor: remove example Todo application and related files\"*(Jack Zhuang, 2026-05-02)。关键的三点:\n\n1. `git show --diff-filter=A --name-only 12b287d8b` 输出为空 —— 该提交**没有新增任何目录**,所以不存在「移到别处」。\n2. `git show --name-only 12b287d8b | grep '^README.md$'` 计数为 0 —— **没有同步更新 README**,这正是漂移的来源。\n3. 仓库内已无任何 ref 还持有这四个目录(遍历 `refs/remotes` + `refs/heads` 逐个 `git cat-file -e` 均未命中)。\n\n**排除「移仓」的交叉验证:** 兄弟仓库 `objectstack` 确实有 `examples/app-crm`、`examples/app-todo`,但它们的首个提交是 `1a758d042`(2026-02-03),**早于本仓库删除动作三个月**,且包名为 `@objectstack/example-*`、入口是 `objectstack.config.ts` —— 那是后端 metadata 示例,与这里被删的 `@object-ui/example-*` 前端示例是各自独立的东西,不是迁移目的地。`kitchen-sink` / `msw-todo` 在 `objectstack` 现存目录中也没有对应物。因此**不改绝对链接,直接删除四条**。\n\n## 改动\n\n**README.md**\n\n- 删除四条幽灵条目;补上真实存在却从未被提及的 `hello-world` 与 `schema-catalog`,描述全部取自它们各自的 README 与 package.json(未作臆测)。\n- 删除整节 \"Running Examples as API Servers\"。该节**已完全失效**,不只是提到了被删示例:\n  - 根 `package.json` 中不存在任何 `serve:*` 脚本(`serve:crm` / `serve:todo` / `serve:kitchen-sink` 全是死命令);\n  - 现存四个示例**没有一个**声明 `serve` 脚本(`byo-backend-console`、`console-starter` 是 `dev/build/lint/type-check/preview`;`hello-world` 只有 `lint`;`schema-catalog` 是 `build/test/...`);\n  - 因此 \"Each server provides: GraphQL API endpoint...\" 描述的服务端形态在本仓库已不存在。\n  - 替换为真实可用的 Vite dev 流程。\n\n**examples/README.md**(issue 要求一并对齐)\n\n- 该文件**没有**幽灵条目,但漏了 `schema-catalog`。补上 —— 它自己的 README 明确写着\"不是可运行应用,是 data package + smoke tests\",所以单列一节,而不是塞进 \"Runnable examples\" 表格里谎称可运行。\n- 修正 `cd examples/[示例名] && pnpm dev` 这条通用说明:对 `hello-world`(无 dev 脚本)和 `schema-catalog`(data package)都不成立。\n\n## 验证\n\nlychee 二进制在本环境不可用(未安装,`npx lychee` 亦无),因此写了一个等价的离线检查器复现它那一类 File-not-found 判定,并**先声明预期方向再运行**:origin/main 的 README.md 应恰好报 4 个错(59-62 行),examples/README.md 应本来就是 0 —— 实测与预期一致。\n\n```\n=== BEFORE(origin/main 内容,按真实仓库树解析)===\n  [ERROR] README.md:59 -> examples/crm (File not found)\n  [ERROR] README.md:60 -> examples/todo (File not found)\n  [ERROR] README.md:61 -> examples/kitchen-sink (File not found)\n  [ERROR] README.md:62 -> examples/msw-todo (File not found)\n  checked 40 relative file link(s) — FAIL: 4 File-not-found error(s)\n\n  examples/README.md: checked 3 — OK: 0 File-not-found errors\n\n=== AFTER ===\n  checked 45 relative file link(s) across 2 file(s)\n  OK: 0 File-not-found errors\n```\n\n其余检查:\n\n- `node scripts/check-doc-links.mjs` → `Docs links are valid.`(注:该脚本只扫 `content/docs/`,不覆盖 README,故为回归确认而非本改动的证据)\n- `pnpm check:control-bytes` → `OK (scanned 3673 tracked text file(s); skipped 85 binary)`\n- 控制字节自查:`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' README.md examples/README.md` → 无命中\n- markdown 结构:README.md 36 个 fence 标记(平衡)、examples/README.md 2 个(平衡);表格列数一致(5/5/5 与 2/2/2)\n\n无 changeset —— 纯文档改动。\n\n## 范围外发现(未在本 PR 修改)\n\n`examples/hello-world/README.md:31-32` 同样指向被删目录(`../crm/`、`../todo/`),但该文件不在本次派发的文件围栏内,已另行记录。`content/docs/**` 下的同类链接由另一个派发负责。`ROADMAP.md` 与 `CHANGELOG.md` 中的提及属历史记录,不应改动。"
+}

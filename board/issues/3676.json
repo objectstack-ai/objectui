@@ -1,0 +1,30 @@
+{
+  "number": 3676,
+  "kind": "pull_request",
+  "title": "docs(runner): 按实测闭合 §Features 插件断言,三处 main.tsx 订正为 App.tsx (#3619) (#3652)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T19:47:45Z",
+  "updated_at": "2026-08-07T19:50:00Z",
+  "closed_at": "2026-08-07T19:49:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T19:49:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3676",
+  "body": "Fixes #3619\nFixes #3652\n\n`content/docs/utilities/runner.mdx` 单文件。两单同为该页的插件相关虚构,按 PM 并卡派发,一 PR 双 Fixes。\n\n## 前提复核(该页被 #3616/#3633/#3646/#3651 连改四轮,按内容锚定而非行号)\n\n两单前提**均仍成立**,对 `origin/main` 切点 `2ce5c31f0` 复核:\n\n- `packages/runner/package.json` 的 `dependencies` 里只有 `@object-ui/plugin-charts` 与 `@object-ui/plugin-kanban` 两个 `plugin-*`;而 `ls -d packages/plugin-*` 有 **19** 个。\n- `packages/runner/src/main.tsx` 共 **18** 行,除 license 头外只有 `react` / `react-dom/client` / `./App.tsx` / `./index.css` 四个 import 加一个 `createRoot().render()`,**零个** `@object-ui/plugin-*`。\n- side-effect import 在 `packages/runner/src/App.tsx:13-15`(`@object-ui/components`、`plugin-kanban`、`plugin-charts`),与单里写的行号完全一致。\n\n## 各处前后对照\n\n### 1. §Features(#3619)\n\n原文与同页 §Pre-installed Plugins 自相矛盾:\n\n- 前:`- 📦 **Pre-configured** - All official plugins included`\n- 后:`- 📦 **Pre-configured** - The Kanban and Charts plugins, wired up out of the box`\n\n措辞与 PR #3644 在 `packages/runner/README.md` 侧落地的口径对齐(该文件写「Pre-configured with the Kanban and Charts plugins」),不写 popular、不留开放集合暗示。\n\n### 2. §Use Cases → 1. Plugin Development(#3652,第三处)\n\n- 前:`// src/main.tsx`\n- 后:`// src/App.tsx`\n\n单正文写「两处」,分诊评论另点出了这条代码注释(共三处)。同一句错误断言的第三次出现,属 #3652 的完成范围,一并订正 —— 留着它这页仍然自相矛盾。\n\n### 3. §Troubleshooting → Plugin Not Loading(#3652,危害最重的一处)\n\n前:\n\n```\nCheck if plugin is imported in `main.tsx`:\n\nimport '@object-ui/plugin-yourplugin'\n```\n\n读者打开 `main.tsx`,那里永远不会有插件 import(连两个预装的都不在),这一步**既不能证实也不能证伪**,排查线索到此断掉。\n\n后:改成真能证实/证伪的排查动作 —— 指向 `src/App.tsx`,并明说 `main.tsx` 只挂载根组件、看不到任何插件 import(把「为什么别去那儿看」写出来,而不是默默删掉);给出两个已知可用的 import 作对照锚点;再按两种可观察症状分叉:\n\n- 页面出现 **Unknown component type** 盒子(`packages/react/src/SchemaRenderer.tsx:381` 实际渲染的文案)→ schema 的 `type` 与插件注册的 key 不一致;\n- dev server 对该插件模块返 HTTP 500 → `vite.config.ts` 缺别名条目。\n\n### 4. §Adding Custom Plugins 的 `npm link`(#3652 附注,按实测处置)\n\n分诊评论说「若超出一行改动则应另开卡」。实测下来**这里的最小正确改动就不是一行**:仅把 `npm link` 换成 pnpm 写法,仍会留下一份跑不通的步骤 —— 同页正上方 §`vite.config.ts` 已经写明,任何 `@object-ui/*` 说明符缺别名条目就会让 dev server 对整条 import 链返 HTTP 500,即 #3575。所以按两个预装插件**实际具备**的四个接线点补齐(逐条在仓库里验证过):\n\n| 接线点 | 证据 |\n| --- | --- |\n| `package.json` 的 `workspace:*` 依赖 | `packages/runner/package.json` |\n| `src/App.tsx` 注册 import | `App.tsx:14-15` |\n| `vite.config.ts` 别名条目 | 两个插件均在别名表内 |\n| `src/index.css` 的 `@source` | `index.css:13-14` |\n\n并点明 `npm link` 不是本仓该用的工具(严格 pnpm workspace,AGENTS.md §3)。这四点与 PR #3644 已在 README 侧落地的说法一字不差地一致 —— 属口径对齐,非发明。\n\n## 验证(先预测后运行)\n\n预测与实测一致:\n\n- `grep -c \"All official plugins\"` :1 → **0** ✅\n- `npm link` 代码块:2 处 → **0**;仅余一处显式否定建议(「`npm link` is not the tool here」)。\n- `main.tsx` 提及:4 处 → **2 处**。此处如实报告偏差:预测写的是「只剩事实正确处」,实测不是「只剩 1 处」—— `:77` §Where the Code Lives 的「`main.tsx` mounts the root」本就正确保留,另一处是我**新增**的(Troubleshooting 里点明「main.tsx 只挂载根组件、不 import 插件」)。删掉三处错误断言的同时新增一处正确断言,是有意选择:该节的失效模式恰恰是读者会跑去 `main.tsx`,与其沉默不如指名并说明。\n\n门禁:\n\n```\n$ node scripts/check-doc-links.mjs\nLinks are valid across 7 scan roots.\n\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3677 tracked text file(s); skipped 85 binary).\n```\n\n修前修后均绿(7 roots,如实报)。另按控制字节纪律自扫超出门禁扫描面:`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 对该文件 0 命中,`file` 判定仍为 `Unicode text, UTF-8 text`。\n\n未跑 `pnpm test` / `type-check`:纯站点文档单文件改动,不触碰任何 TS/构建产物。\n\n## 无 changeset\n\n站点文档改动,同页前三次改动(#3633 / #3646 / #3651)均为单文件无 changeset,本 PR 沿用同一先例。\n\n## 邻接通读结果\n\n按要求通读四节邻接找同类新虚构,**未发现新的**,以下三项经核实均**非**虚构,故不另开卡:\n\n- §Use Cases 3 的 `kanban` / `bar-chart` / `data-table` 三个 type 都真实注册且在 Runner 里可用(前两者来自两个预装插件,`data-table` 来自 `@object-ui/components`,而它正是 `App.tsx:13` 那行 import)。\n- §Add Custom Components 的 `ComponentRegistry.register(...)` 属实:`packages/core/src/index.ts:10` 经 `export * from './registry/Registry.js'` 导出,`register()` 在 `Registry.ts:138`。\n- §Development Scripts 的 `pnpm test` 属实:runner 的 `scripts.test` 为 `vitest run`。\n\n另:`content/docs/utilities/create-plugin.mdx:235-238` 也有 `npm link`,但那页面向的是用 `@object-ui/create-plugin` 脚手架**在自己 app 里**做插件的外部作者,整页 `npm run build` / `npm publish` 口径自洽,**不构成同类错误**,故不开卡(已按关键词 + 文件路径搜过 open issue,无重复;#3665 是 `create-plugin` 包 `files` 声明的另一回事)。\n\n#3619 提到 §Dependencies 是插件清单的第三处重复 —— 内容本身正确,只是重复,属可选收敛建议;按范围纪律未动。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3706,
+  "kind": "pull_request",
+  "title": "test(app-shell): 测量 `invalid_value` 的范畴定性 — 两种定性各有形状受损,不放宽,钉住两个方向",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T23:39:41Z",
+  "updated_at": "2026-08-07T23:55:26Z",
+  "closed_at": "2026-08-07T23:55:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T23:55:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3706",
+  "body": "Fixes #3694\n\n## 结论先说:测量后**不放宽**,行为零改动\n\n#3694 问的是:范畴判定只认 `invalid_type`,这是规则的**本意**,还是实现细节漏进了语义?\n\n测量答案:**两种定性各有形状受损,不存在「全面改善」的再定性**。于是本 PR 不动任何判定逻辑,只把测量**钉成回归防线** + 更新注释。判定门、38+ 既有钉子、两条规则的划分全部原样。\n\n## 测量面:整个 `view` 家族里,这个问题只够得着一个 union\n\n先把 `ViewMetadataSchema` / `ViewItemSchema` / `ViewSchema` 的 Zod 树走了一遍,21 个无判别式嵌套 union。其中**成员在自身相对根上答 `invalid_value` 的只有两处**:\n\n| union | 成员 | 探针下的 k |\n|---|---|---|\n| `columns[].summary` | `enum ｜ {type, field}` | 随值而变 —— **全部变化都在这里** |\n| `sections[].columns` | `enum ｜ 1 ｜ 2 ｜ 3 ｜ 4` | 五个成员**全部**答 `invalid_value` |\n\n`sections[].columns` 两种定性下都不说话(今天 k=5 落进内容判别的格子、被五成员限制挡下;放宽后 k=0 落进空格子)—— **换了格子,同样沉默**,对结论零贡献。已钉。\n\n## 两种定性逐形状对照(51 个探针,只列有变化的)\n\nA = 今天(`invalid_value` 视作「读过值的候选」);B = 放宽(`invalid_value` 视作类型层拒绝)。\n\n| 形状 | A(今天) | B(放宽) | 方向 |\n|---|---|---|---|\n| `summary: {type:'bogus'}` | `…summary` / `Invalid input` | `…summary.type` / 具名选项 | **改善** |\n| `summary: {}` | `…summary` / `Invalid input` | `…summary.type` / 具名选项 | **改善** |\n| `summary: {type:'bogus', field:'x'}` | `…summary` / `Invalid input` | `…summary.type` / 具名选项 | **改善** |\n| 容器 `list.…summary: {type:'bogus'}` | 同上塌陷 | 同上具名 | **改善** |\n| `listViews.v1.…summary: {type:'bogus'}` | 同上塌陷 | 同上具名 | **改善** |\n| `summary: 'bogus'` | `…summary` / **具名选项** | `…summary` / `Invalid input` | **退化** ⚠️ |\n| `summary: 42` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `summary: true` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `summary: null` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `summary: []` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `summary: ['count']` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `summary: [{type:'count'}]` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| `listViews.…summary: 'bogus'` | `…summary` / **具名选项** | `Invalid input` | **退化** |\n| 其余 38 个探针 | — | — | 不变 |\n\n**5 改善 / 8 退化。** 带 ⚠️ 的那行是 PR #3693 自己的 CANARY(`CANARY: a scalar union member left standing names the options it wanted`)—— 放宽会把一条已合并的钉子改红,方向是**回归**而不是验证。\n\n### 派发单第 2 条的逐处核对:新激活处**没有误选**\n\n放宽让 k 从 2 降到 1 的 5 处,选中的都是 `{type, field}` 成员 —— 作者写的就是对象,这正是作者意图的成员。**误选零处**。B 的伤害**全部来自「去激活」**(k 从 1 降到 0),不是来自选错。这一点值得单独记下:它说明放宽的方向不算错,错的是它同时砍掉了枚举成员本来提供的那条好消息。\n\n### 还测了第三种谓词(类型感知),同样不合格\n\n`invalid_value` 只有在**没有任何允许字面量与该值 `typeof` 相同**时才算类型层拒绝(枚举值都是字符串 → 喂对象/数字属于「压根没机会」;喂字符串属于「真读过」)。结果只是把同一笔交易重新切了一刀:**6 改善 / 6 退化** —— 它救回了 `summary: 'bogus'`,还多赚一个 `sections[].columns: 'bogus'`,但 `42 / true / null / ['count']` 照样塌陷。\n\n## 内容判别的适用面:测出来**动不了**\n\n#3694 正文担心「放宽会同时改变两条规则的适用范围」。实测:**不会**。内容判别要求恰好两个成员**且**值是非空数组,全家族同时满足这两条又落在 `invalid_value` 站点的形状只有 `summary: ['count']` 一个;那里对象成员答的是 `invalid_type`,`groups.some(memberRejectedNodeType)` **今天就已经为真**,放宽只会让它更真。整个问题活在唯一候选规则里。已钉。\n\n## 逆向验证(先写预测,后运行;三个扰动)\n\n预测全文落盘于实现之前。**注意方向不是常规的「还原实现→新钉子红」** —— 本 PR 不改行为,所以扰动的是**被否决的那两个谓词**,预测它们红出各自会损坏的形状。\n\n先在**加钉之前**跑(56 条),验证既有套件能看见多少:\n\n| 扰动 | 预测 | 实际 |\n|---|---|---|\n| B(`invalid_type ｜｜ invalid_value`) | 4 红 | **4 failed / 52 passed** ✅ |\n| C(类型感知) | 2 红 | **2 failed / 54 passed** ✅ |\n| D(见下) | 2 红 | **2 failed / 54 passed** ✅ |\n\n再在**加钉之后**跑(70 条):\n\n| 扰动 | 预测 | 实际 | 红的性质 |\n|---|---|---|---|\n| B | 9 红 | **9 failed / 61 passed** ✅ | 含 5 条真回归 |\n| C | 8 红 | **8 failed / 62 passed** ✅ | 含真回归 |\n| D | 4 红 | **4 failed / 66 passed** ✅ | **全部是「钉住现状塌陷」的钉子,零回归** |\n\n三次预测逐条命中,连红的测试名都一致。\n\n**加钉的价值就在这个差值里**:加钉前,C 的四个退化形状(`summary: 42 / true / null / ['count']`)**在整个仓库里一条钉子都没有** —— 类型感知谓词本可以带着四条静默回归合进来,套件不会吭一声。\n\n## 顺带测到的一件事:存在**严格改善**的谓词,但它不是「再定性 `invalid_value`」\n\n上表的 D 是「证据深度」谓词:先取**在值内部报过位置**(相对 path 非空)的成员,恰好一个就选它;一个都没有时,回落到今天的普查。\n\n- 它**从不去激活**(可证:内部报位置的成员必然没有根上的 `invalid_type`,故 D 的候选集是 A 的子集,|tier1|=1 时 A 的 k≥1)。实测 51 形状:**5 改善 / 0 退化**。\n- 但它**根本不看 issue 的 code** —— 它回答的是另一个问题(「谁报进了值内部」),而不是派发单授权的「`invalid_value` 算不算读过值」。\n\n它同时把唯一候选规则的**理据**从「只有一个成员读过值」悄悄换成「只有一个成员报进了值内部」,两者恰好在 enum-vs-object 上分叉。#3626 / #3677 两次把「不发明偏好」写进代码注释,这一步是否要迈,是**维护者的设计裁决**,不该由本单的有界授权顺手做掉。因此:**测量、记录、不实施**,留给 #3694 后续或 objectstack#6391 一并裁。上表 D 那一行也已经把代价说清楚了 —— 若采纳,要红的是 4 条「钉住现状」的钉子,按 fixture 三分诊做**整体替换**,零回归。\n\n## 判定奇偶\n\n本 PR **一行判定逻辑都没动**,`clientValidation.ts` 的 diff 是纯注释。奇偶不是「测出来没变」,是 diff 层面不可能变。另加 8 条 parity pin(修前修后都绿 —— 这正是它们的意义)。\n\n## 测试\n\n`clientValidation.viewDiagnostics.test.ts` **只加不改**(196 增 / 0 删,`git diff --numstat` 为证),新增 14 条:6 条测量钉 + 8 条 parity。\n\n```\nvitest run packages/app-shell/src/views/metadata-admin/  →  Test Files 128 passed (128)\n                                                            Tests 1239 passed | 1 skipped (1240)\npnpm --filter @object-ui/app-shell type-check             →  exit=0(tsc --noEmit + typetests)\neslint(两个改动文件)                                       →  clean\nnode scripts/check-control-bytes.mjs                      →  OK (3682 files)\ngrep -naP 自查(网关盲区 0x01-0x1f)                          →  clean\n```\n\n新鲜 worktree 里先 `pnpm --filter '@object-ui/app-shell^...' build` 再 type-check —— 否则报的是缺 `@object-ui/react` 之类的假红。\n\n## 不做的事 / 残留\n\n- **不加 changeset**:零行为改动,非用户可见。\n- 全体一致提升(#3626 方向 1)未做。\n- contract-first 的正解仍在 spec 侧(objectstack#6391):union 自带判别式的话,这套普查连同 #3626 / #3678 / #3694 三条局部规则一起退休。本 PR 的注释把这句话留在了谓词旁边。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

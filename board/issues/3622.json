@@ -1,0 +1,35 @@
+{
+  "number": 3622,
+  "kind": "issue",
+  "title": "check-doc-links 扫描面第四扩 packages/*/README.md：入场价是另外 11 条死链（实测），不是 #3603 正文的 9 条",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T16:10:17Z",
+  "updated_at": "2026-08-07T17:06:50Z",
+  "closed_at": "2026-08-07T17:06:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3622",
+  "body": "#3603 的门禁半件有两层：`judgeHref()` 解析站内绝对 URL（第 2 层）与 `SCAN_ROOTS` 追加包 README（第 1 层）。**第 2 层已由 PR #3629 落地并测量为零死链**；**第 1 层没有落地**，本 issue 是它的入场价。\n\n原因就是 `scripts/check-doc-links.mjs` 头注释自 #3572 起写死的规矩：**先量扫描面，单独付清红账，再加那一行**（\"measure the surface first, pay its backlog separately, then add the row\"）——对照 #3479（16 个死目标）与 #3490（18 个）那种「门禁与欠账同时到货」。PR #3629 已把下面这份测量结果写进头注释的 \"Measured and NOT bought\" 一节，避免下一个人不量就加行。\n\n## 实测：加上那一行会红 11 条，且都不在 #3603 的 9 条里\n\n在 #3603 内容半件已清干净（那 9 条全部改指真实页或删除）之后，对 `origin/main` + 第 2 层解析 + 一条 `disk` 规则的包 README 扫描根实测：\n\n| 位置 | 链接 | 为什么死 |\n| --- | --- | --- |\n| `packages/components/README.md:30` | `../../docs/SHADCN_SYNC.md` | 磁盘路径，`docs/` 下只有 `ARCHITECTURE.md` / `CONSOLE-STREAMLINING-SUMMARY.md` / `adr` / `audits` / `screenshots`，没有这个文件 |\n| `packages/components/README.md:212` | `https://objectui.org/api/components` | `/api/components` 不是站点路由（`apps/site/app/api` 下只有 `search/route.ts`） |\n| `packages/core/README.md:144` | `https://objectui.org/api/core` | 同上，`/api/core` 无路由 |\n| `packages/core/README.md:158` | `https://www.objectui.org/docs/core` | `content/docs/core/` 是真目录但**没有 index 页**，fumadocs 不为它生成路由 |\n| `packages/fields/README.md:131` | `https://www.objectui.org/docs/fields` | 同上，`content/docs/fields/` 无 index |\n| `packages/layout/README.md:122` | `https://www.objectui.org/docs/layout` | 同上，`content/docs/layout/` 无 index |\n| `packages/layout/README.md:137` | `https://www.objectui.org/docs/layout` | 同一目标，同一页第二处 |\n| `packages/react/README.md:228` | `https://objectui.org/api/react` | `/api/react` 无路由（#3490 清过同款 17 条中的一条） |\n| `packages/types/README.md:329` | `https://objectui.org/docs/types` | `content/docs/types` 完全不存在 |\n| `packages/vscode-extension/README.md:190` | `https://www.objectui.org/examples` | `/examples` 不是站点路由（#3490 已确认） |\n| `packages/vscode-extension/README.md:242` | `./LICENSE` | 磁盘路径，`packages/vscode-extension/` 下没有 LICENSE 文件 |\n\n涉及 5 个 #3603 从未触及的包（components / core / fields / layout / types），外加 react、vscode-extension 各一条**不同的行**。\n\n## 值得单独点名：#3603 正文的复核脚本漏计了 3 条\n\n`/docs/core`、`/docs/fields`、`/docs/layout` 在 #3603 的复核脚本下是**绿**的，因为那段脚本把**裸目录**也算作 fumadocs 候选——候选数组的最后一项就是 `rel` 本身（目录），排在四种文件拼写之后。\n\n门禁不这么算，而且它是对的：`routeCandidates()` 只有 `.md` / `.mdx` / `index.md` / `index.mdx` 四种拼写，且既有 pin 测试 `rejects a relative link to a directory that has no index page` 就是这条规则。实测 `content/docs/` 下 `core` / `fields` / `layout` / `rfcs` 四个目录确实没有 index 页，`api` / `blocks` / `components` / `guide` / `plugins` / `utilities` 有。所以 `/docs/core` 真的 404。\n\n结论：这一类的真实规模是 **20 条**（#3603 的 9 + 本单的 11），不是 9 条。\n\n## 完成范围\n\n1. 逐条处置上表 11 条（查到真实页 → 改指；查不到 → 删该行，同 #3603 的口径）。`/docs/core`、`/docs/fields`、`/docs/layout` 这三条另有一种更好的解法值得考虑：**给这三个目录补 index 页**，那样这些链接原地就活了（见下方「顺带」）。\n2. 红账清零后，`SCAN_ROOTS` 追加一行（38 个包 README 全在内），沿用 `disk` 规则。⚠️ 注意：该 glob 里的星号加斜杠会提前闭合 `check-doc-links.mjs` 的块注释，头注释里只能用散文描述，不能原样写出来（PR #3629 踩过一次）。\n3. **`disk` vs `docs` 规则的理由要写进头注释**：包 README 在 npm 与 GitHub 上被阅读，其相对链接是磁盘路径语义（`./CHANGELOG.md`、`./LICENSE`），不是 `content/docs` 的路由语义——与 `examples/**`、`README.md`、`CONTRIBUTING.md`、`ROADMAP.md`、`docs/**` 同类，无需新规则类。\n4. 测试：`SCAN_ROOTS` 的 `toEqual` pin 会响，按新表扩写；新根加 count 下限（反空绿）。\n\n## 顺带（不在本单完成范围，供分诊判断是否另开）\n\n`content/docs/` 下 `core` / `fields` / `layout` / `rfcs` 四个目录没有 index 页，意味着侧边栏里这四个分组的标题本身不可点。补 index 页会同时修好本单的 4 条链接，属另一件事。\n\n另有一件相邻的内容欠账：#3603 的 7 个包（auth / collaboration / i18n / mobile / permissions / providers / react）共同假设了一个不存在的 `/docs/packages/PKG` 命名空间，PR #3629 只能删链接止血，因为这些包**根本没有文档页**。把它们写出来是另一件事。\n\nDepends-on: 本单红账清零是 #3603 门禁第 1 层落地的前置条件。\n"
+}

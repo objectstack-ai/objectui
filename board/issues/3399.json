@@ -1,0 +1,33 @@
+{
+  "number": 3399,
+  "kind": "pull_request",
+  "title": "fix(components): 把字段 label 转发给内置 textarea 的全屏编辑对话框 (#3393)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T17:13:04Z",
+  "updated_at": "2026-08-05T17:20:42Z",
+  "closed_at": "2026-08-05T17:20:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-05T17:20:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3399",
+  "body": "Fixes #3393\n\n## 前提复核(对 origin/main@9cbcbf478,#3392/#3397 落地之后)\n\nissue 的前提机械可复核,复核结论:**成立**。`renderFieldComponent` 唯一调用点的 props 对象里没有任何 `label:` 键 —— 它显式补了 `field` / `inputType` / `options` / `placeholder` / `disabled` / `readonly` / `emptyHint` / `dataSource` / `dependentValues` / `dependsOnLabels` / `error` / `aria-required`,唯独没有 `label`;而上游 `renderFormField` 早在 `...fieldProps` 之前就把 `label` 单独解构走了(它要渲染字段自己的 FormLabel)。于是内置 `textarea` 分支里 `const { mobile_fullscreen, label } = fieldProps` 拿到的 `label` 恒为 `undefined`,`FullscreenTextarea` 中两条依赖它的表达式从写下那天起没走到过。\n\n**但 issue 关于「strip 已经挡着 label」的那半句不成立,这一点改变了修法的形状**:`stripRendererOnlyProps` 和 `stripRegisteredFieldProps` 里**都没有** `label` 条目。真正拦着的只有内置 `textarea` 分支自己那句 `const { label: _label, ...rest }`,它只护住这一个分支。所以「只在调用点补一个 `label`」是不够的 —— 那样会让 label 立刻变成 input / textarea / checkbox / switch / 默认分支上的杂 DOM 属性 `label=\"备注\"`(每个分支都把剩余 props 直接摊到 DOM 节点上),并且会凭空多送注册型 widget 一个新 prop。\n\n## 改了什么\n\n1. **调用点显式转发 `label`**(与 `placeholder` / `emptyHint` 同法)。这是唯一的行为改动。\n2. **`label` 定性为 renderer-only,两个 strip 各加一条丢弃项**:\n   - `stripRendererOnlyProps` —— 字段的 label 由 FormLabel 渲染在控件上方,DOM 属性上不需要第二份;\n   - `stripRegisteredFieldProps` —— **注册路径的载荷与改动前逐字节相同**。自 v17 起 `field` 是 widget 唯一的元数据载体(#3233),label 本来就在那里。不加这条,注册型 widget 会突然多收到一个 `label` prop,并顺着它们的 `...props` 摊到七个 widget 的 DOM 上;要不要在 `FieldWidgetPropsSchema` 里发布 `label` prop 是另一次裁决,本单不开这个口。\n3. 删掉 textarea 分支里那句 `const { label: _label, ...rest }`。它本想拦 label 落 DOM,但既然从来没有 label 送进来,它拦的是不存在的东西(ESLint 一直报着 `'_label' is assigned a value but never used`),而且只护一个分支。现在这件事由 strip 统一负责,所有内置分支同等受护。\n4. `RenderFieldProps` 上把 `label?: string` 显式声明出来(与 `error` 同法),让「转发什么、给谁看」写在类型上而不是靠索引签名兜住。\n\n十个语言包零改动:#3272/PR #3392 把 `form.fullscreen.toggle` 做成了带 `{{label}}` 插值的整句(zh 插句尾、ja 插句首),label 一通,十个语言的句子直接就对。\n\n## 测试\n\n新增 `form-fullscreen-textarea-label.test.tsx`(9 例),覆盖两个方向:label **送到了**(标题 = 字段名而非通用词;按钮无障碍名插值;一张表单三个长文本字段的按钮名互不相同,且第二个按钮打开的是第二个字段的对话框;zh 下整句正确),以及 label **只送到了那里**(所有内置分支渲染出的 DOM 上没有任何 `label` 属性;注册型 widget 的 props 里 `props.label` 为 undefined 而 `props.field.label` 仍是「Notes」)。\n\n`form-fullscreen-textarea-i18n.test.tsx` 的 fixture 从「有 label」改成「无 label」:这一组的被测对象是两个**通用**串(`form.fullscreen.title` 与被插值的 `form.fullscreen.textFallback`),而通用串只在字段没有 label 时可达。写这组用例时字段叫 `Notes` 却仍显示通用词,正是本单修掉的缺陷 —— 把 fixture 指向 fallback 真正服务的那个栈,这十个语言包才继续被覆盖,而不是继续断言一个已修的缺陷。提交 draft 那一例仍用带 label 的 fixture(它断言的是接线而不是文案)。\n\n### 反向验证(三条肢,方向各自预先判定,结果与预判一致)\n\n| 拆掉的东西 | 预判 | 实测 |\n| --- | --- | --- |\n| 调用点的 `label,` | 对话框相关 5 例红,fallback / DOM / 注册路径 3 例保持绿,i18n 组全绿 | 5 failed / 8 passed;报错正是缺陷本身:`expected [ 'Edit text fullscreen', …(2) ] to deeply equal [ 'Edit Notes fullscreen', …(2) ]` |\n| `stripRendererOnlyProps` 的 `label` | 仅 DOM 属性一例红 | 1 failed / 8 passed:`expected input …(8) ...` |\n| `stripRegisteredFieldProps` 的 `label` | 仅注册路径探针一例红 | 1 failed / 8 passed:`expected 'Notes' to be undefined` |\n\ni18n 组在第一条肢下保持全绿,是这次 fixture 改判正确的独立证据:它已经不再依赖缺陷行为。\n\n### 跑过的命令\n\n从**仓根**跑(包内 `--root packages/components` + 相对路径过滤会命中 objectui#3288/#3378 的假绿:`No test files found, exiting with code 0`,退出码 0):\n\n- `npx vitest run --maxWorkers=2 packages/components/src/renderers/form/ packages/components/src/__tests__/form-renderers.test.tsx packages/components/src/__tests__/form-write-error-message.test.tsx` → **Test Files 30 passed (30) / Tests 177 passed (177)**\n- 消费半径扫到 `packages/fields` 的三个 e2e 门禁(其中 `widget-dom-leak-e2e` 就是注册型 widget 的 DOM 泄漏门禁): → **Test Files 3 passed (3) / Tests 294 passed (294)**\n- `pnpm --workspace-concurrency=2 --filter @object-ui/components type-check` → 通过(`tsc --noEmit && tsc -p tsconfig.typetests.json`,无输出)\n- `npx eslint packages/components/src/renderers/form/form.tsx` → 0 errors。warning 数 89 → 90:textarea 分支那条 `'_label' ...never used` 消失了,strip 两函数各多一条同类 warning。**这与 issue 的预期略有出入,如实记录**:`_label` 的告警不是消失,而是搬了家 —— 该文件里每一个 strip 绑定(`_dataSource` / `_inputType` / `_schema` …)本来就各报一条同类 warning,新增两条与既有约定完全一致。\n- `pnpm run check:control-bytes` → OK(3587 个文件);另按 AGENTS.md 对改动文件做了越过门禁的自扫 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` → 干净。\n\n## 范围\n\n只动 `packages/components/src/renderers/form/form.tsx` + 相应测试 + 一个 patch changeset。⛔ 未改注册路径的对外契约(载荷逐字节不变),⛔ 未碰 `packages/fields` 的 `FullscreenFieldEditor`(#3398 另议)。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

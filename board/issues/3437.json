@@ -1,0 +1,34 @@
+{
+  "number": 3437,
+  "kind": "pull_request",
+  "title": "fix(test): 拒绝两种静默假绿的 vitest 调用,并把正确跑法写进 AGENTS.md",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T04:04:10Z",
+  "updated_at": "2026-08-06T04:42:46Z",
+  "closed_at": "2026-08-06T04:42:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-06T04:42:45Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3437",
+  "body": "Fixes #3378\nFixes #3288\n\n（注：正文一律用 `PKG` / `PATHS` 当占位符,不写尖括号 —— GitHub 的正文消毒会把「尖括号+字母」\n当成 HTML 标签整段吃掉,第一版正文里的占位符就是这么消失的。）\n\n## 前提复核(两条都在 `origin/main` 上原样复现)\n\n**#3378 —— 包级 cwd 跑 vitest:**\n\n```\n$ cd packages/app-shell ; pnpm exec vitest list --filesOnly\n[@object-ui/console] ../../apps/console/src/LocalizationFetchProvider.test.tsx\n[@object-ui/console] ../../apps/console/src/__tests__/preview-samples-spec-valid.test.ts\n...  (22 行,全部是 @object-ui/console;app-shell 自己 281 个文件一个都没有)\n```\n\n**#3288 —— 路径挂在 `--` 后面:**\n\n```\n$ pnpm --filter @object-ui/fields test -- --run packages/fields/src/widgets/useRecordQuery.test.ts\n   实际执行: vitest run -- --run packages/fields/src/widgets/useRecordQuery.test.ts\n Test Files  22 passed (22)      # 又是 console 的 22 个;点名的那个文件零执行\n EXIT=0\n```\n\n补一条 issue 正文没写、同族的第三种:仓根跑但**路径写错/写歪**,`passWithNoTests: true`\n把它变成绿的 ——\n\n```\n$ pnpm exec vitest run packages/fields/src/does-not-exist.test.ts   # main\n EXIT=0\n```\n\n共同点是**没有任何 0-match 信号**:计数是 22 不是 0,`passWithNoTests` 甚至没参与判定。\n按「包级验证」约定干活的 agent 会据此报「整包绿」。\n\n## 机制\n\nvitest 把 `root` 定成 cwd。根级 projects(`unit`/`dom`/`dom-heavy`)的 `include` 是\n**相对 root** 的 `packages/**` / `examples/**` / `scripts/**`,从 `packages/app-shell` 里看就成了\n`packages/app-shell/packages/**`,匹配不到任何文件;唯一还解析得成功的是以**绝对路径**引进来的\n`apps/console` project。于是收集到 22 个别人的文件,跑绿,退出 0。\n\n`--` 那条是另一半:pnpm 把 `--` **原样**转发进脚本,vitest 的 CLI 解析在 `--` 处停止,后面的\n一切在 vitest 看到之前就不存在了 —— 不是「忽略并警告」,是压根没传进去。\n\n## 改了什么\n\n- **新增 `scripts/vitest-invocation-guard.mjs`**,在 `vitest.config.mts` 顶部调用。三条判定:\n  1. vitest root ≠ 仓根 → 拒绝(#3378);\n  2. `--` 之后还有参数 → 拒绝(#3288);若同时又在包目录里,报错正文一并点出 #3378;\n  3. 位置参数点名了具体 `*.test.*` 文件却不存在 → 拒绝。\n\n  每个包的 `vitest.config.ts` 都 re-export 根配置,没有自己配置的包(如 app-shell)也会向上\n  解析到它,所以这是两条陷阱唯一的收口点。报错正文写清机制 + 唯一正确跑法。\n- **`passWithNoTests` 由无条件 `true` 改为 `!cliHasTestFilters(process.argv)`**:命令行点名了\n  文件却零匹配 → 非零退出;没点名(CI 的 `--shard`、`--project` 切片)照旧容忍空集合。\n- **AGENTS.md** 新增「怎么跑测试」小节:唯一正确跑法(仓根 `pnpm exec vitest run PATHS`)、\n  两条陷阱的机制与症状、零匹配即失败、逃生阀 `OBJECTUI_VITEST_GUARD=off`。\n\n**没动**的东西:17 个 per-package `vitest.config.ts`(那是 #3240,已上抛维护者)、39 条包级\n`test` 脚本、`.github/workflows/**`、任何 package 源码。\n\n### 关于 #3288 里的方向 C(改写包级脚本转发路径)—— 评估后没做\n\n把 `test` 脚本改成 `vitest run --root ../.. packages/PKG/` 能让 `pnpm --filter PKG test` 真跑\n起来,但它要改 39 个脚本,并且会把 `turbo run test` 从「一个几乎空转的假绿」变成「39 个真跑」——\n`ci.yml` 的注释明确写着不要跑 `turbo run test`(多个包配置继承根 project 列表,会重复大段套件)。\n更关键的是:**包级脚本该不该存在本身就是 #3240 的议题**,让它们「能用」等于替维护者提前定了案。\n现在它们只是**失败**,不再撒谎 —— 这既满足本 PR 的目标,也不占 #3240 的位。\n\n## 验证矩阵(方向都是先预测再跑的)\n\n| # | 调用 | 预测 | 实际 |\n|---|---|---|---|\n| 1 | 包目录里 `pnpm exec vitest list`(#3378 的复现命令) | 拒绝 | **exit 1** + #3378 报错框 |\n| 2 | `pnpm --filter @object-ui/fields test -- --run PATH` | 拒绝,并同时点出两条 | **exit 1**,正文含 #3288 与 #3378 |\n| 3 | 仓根 `pnpm exec vitest run packages/fields/src/widgets/useRecordQuery.test.ts` | 照常绿 | `Test Files 1 passed (1)` / `Tests 10 passed` |\n| 4 | CI 形状 `pnpm test --shard=1/4 --project unit` | 不受影响 | `Test Files 94 passed (94)` / `Tests 1313 passed, 1 skipped` |\n| 5 | `pnpm --filter @object-ui/app-shell test`(无路径参数) | **应当**失败(它收集的是别人的包) | **exit 1** + #3378 报错框 |\n| 6 | 仓根 + 不存在的路径 | 由 main 的 exit 0 变 exit 1 | **exit 1**(guard) |\n| 7 | 仓根 + 零匹配的子串过滤 | 由 main 的 exit 0 变 exit 1 | **exit 1** `No test files found` |\n\n反向验证(把 guard 关掉,看是否原样退回旧行为):\n\n```\n$ OBJECTUI_VITEST_GUARD=off pnpm --filter @object-ui/app-shell exec vitest list --filesOnly\n[@object-ui/console] ../../apps/console/src/LocalizationFetchProvider.test.tsx ...\ncollected files: 22\n```\n\n—— 底层 vitest 行为一点没变,变的只是「它现在会被拦下」。\n\nguard 自身的单测:`pnpm exec vitest run scripts/__tests__/vitest-invocation-guard.test.ts`\n→ `Test Files 1 passed (1)` / `Tests 23 passed (23)`,其中两条钉住根配置确实接了线\n(`assertCanonicalVitestInvocation(...)` 在位、`passWithNoTests` 不再是硬编码 `true`),\n否则 guard 就成了「测试很齐、没人调用」的摆设。\n\n`node scripts/check-control-bytes.mjs` → OK(3630 个 tracked 文本文件);另按\n`[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]` 自查四个改动文件,无命中。\n\ntype-check:改动全部落在 `vitest.config.mts` / `scripts/` / `AGENTS.md`,而每个包的 tsconfig\n`include` 都只到 `src`,`apps/console/tsconfig.node.json` 收的是 `../../scripts/vite-*.ts`\n(匹配不到 `vitest-invocation-guard.mjs`)—— 没有任何 tsconfig 覆盖到本次改动。作为实证跑了\n`tsc -b apps/console/tsconfig.node.json --force` → exit 0。\n\nchangeset:按仓内先例(#3253 / #3273 / #3278 等纯 infra/CI 改动均无 changeset)不加 —— 本 PR\n不触及任何已发布包的源码。"
+}

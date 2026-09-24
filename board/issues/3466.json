@@ -1,0 +1,35 @@
+{
+  "number": 3466,
+  "kind": "issue",
+  "title": "记录详情页字段值超长时尾部无声消失:span.truncate 容器缺 min-width:0,ellipsis 永不触发,且无 title 兜底全文",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T07:30:27Z",
+  "updated_at": "2026-08-06T10:11:10Z",
+  "closed_at": "2026-08-06T10:11:10Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3466",
+  "body": "## 现象\n\n记录详情页(record detail)里,字段值文案较长时**尾部直接被裁掉看不见,既没有省略号,悬浮也看不到全文**。\n\nlookup 字段尤其容易中招 —— 它显示的是被引记录的标题,被引对象若以长文本作标题,值天然就长。\n\n## 根因(DOM 实测)\n\n平台给字段值套了截断容器 `span.truncate`,样式本身是齐的:\n\n```\nwhite-space: nowrap · text-overflow: ellipsis · overflow: hidden\n```\n\n但**这个容器自身没有宽度约束**(flex/grid 子项缺 `min-width: 0`,也没有 `max-width`),于是被内容撑成内容宽:\n\n| 量测项 | 实测值 |\n| --- | --- |\n| 文本排版需要的宽度(Range.getBoundingClientRect) | 611px |\n| `span.truncate` 可见宽度 | **611px** |\n| 是否触发 ellipsis | **否** —— 两者相等,`scrollWidth > clientWidth` 永不成立 |\n| 文本右缘 / 卡片右缘 / 视口宽 | 1467px / 1392px / 1440px |\n| 值元素 `title` | 有,但值是 **「双击编辑」**,不是文案全文 |\n| 值元素 `aria-label` | 无 |\n| 悬浮是否出现 `role=tooltip` | 否 |\n\n也就是说:`truncate` 类形同虚设,溢出部分改由**外层卡片**裁掉,尾部字符无声消失、连省略号都没有;而 `title` 属性被交互提示占用,用户没有任何看到全文的途径。\n\n附带表现:悬浮进入内联编辑态时,该段文本会整体溢出卡片右缘渲染(同一根因)。\n\n## 复现\n\n1. 建一个对象 A,其记录标题字段是一段长文本(≥50 个中文字符即可)\n2. 建一个对象 B,含 `lookup` 字段指向 A\n3. 打开 B 的某条记录详情页,看该 lookup 字段的值\n\n视口 1440×900、Chrome、admin 账号即可复现,与权限无关。\n\n实测环境:`@objectstack/*` `17.0.0-rc.3`。\n\n量测脚本片段(在详情页 console 里跑):\n\n```js\nconst el = [...document.querySelectorAll('*')].find(e =>\n  e.children.length === 0 && e.textContent.trim().startsWith('<长文案前几个字>'));\nconst range = document.createRange(); range.selectNodeContents(el);\nconst textW = range.getBoundingClientRect().width;\nlet clipper = null;\nfor (let n = el; n && n !== document.body; n = n.parentElement) {\n  const s = getComputedStyle(n);\n  if (s.overflow === 'hidden' || s.overflowX === 'hidden') { clipper = n; break; }\n}\nconsole.log({\n  textNeedsWidth: Math.round(textW),\n  clipperWidth: Math.round(clipper.getBoundingClientRect().width),\n  clipperClass: clipper.className,\n  titleAttr: el.getAttribute('title'),\n});\n// → { textNeedsWidth: 611, clipperWidth: 611, clipperClass: 'truncate', titleAttr: '双击编辑' }\n```\n\n## 建议修法\n\n1. 给 `span.truncate` 的 flex/grid 父链补 `min-width: 0`(或给容器本身 `max-width: 100%`),让 `text-overflow: ellipsis` 真的能触发\n2. 用 `title`(或 `aria-label` + tooltip)兜底完整文案 —— 现在 `title` 被「双击编辑」占用,建议交互提示换个承载方式,或在文案被截断时优先展示全文\n3. 可选:长文本字段允许换行展示,而不是一律 nowrap\n\n## 背景\n\n下游项目侧已按「接受现状 + 登记」处理(`PLAT-DEF-050`),不做绕行改造,等平台修复后复核。"
+}

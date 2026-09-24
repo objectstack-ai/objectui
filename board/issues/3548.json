@@ -1,0 +1,39 @@
+{
+  "number": 3548,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,core): 批量按钮补上 requiredPermissions 与布尔 visible；关系字段在谓词里按外键绑定 (#3492, #3501)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:53:00Z",
+  "updated_at": "2026-08-07T05:08:35Z",
+  "closed_at": "2026-08-07T05:08:32Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-08-07T05:08:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3548",
+  "body": "Closes #3492\nCloses #3501\n\n## #3492 — 批量选择栏与另外三个动作面不一致的两个缺口\n\n**能力门缺失。** 列表工具栏 / 记录页头 / 行内 kebab 都调 `useCapabilityGate`，但 `resolveBulkActions` 提升对象动作时丢掉了 `requiredPermissions`，`BulkActionBar` 也从没读过它 —— 同一个动作在行 kebab 里对无权用户隐藏，在选中记录后的批量栏里照常出现。`BulkActionDef` 现在带 `requiredPermissions?: string[]`，fold 转发它，bar 用与引擎逐字相同的规则过滤（声明为空恒通过、多个取 AND、能力未知 fail-open）。\n\n**布尔 `visible` 被判为故障。** `partitionBulkRows` 把布尔直接喂给 CEL 引擎 → `{ dialect: 'cel', source: undefined }` → fault → 在这条 fail-closed 路径上每条选中记录都不合格。于是 `visible: true` 对所有人隐藏按钮。\n\n> 顺带纠正 issue 里的一处判断：`visible: false` **不是**「碰巧结果正确」。渲染守卫按 `def.visible &&` 取真值，把已声明的 `false` 读成「未设门」，按钮照样渲染 —— 两个方向都是反的。「有没有设门」现在收敛成一个共享谓词 `hasVisibilityGate`。\n\n## #3501 — 关系字段在表达式里没有通用写法\n\n对着真实 runtime 实测出的根因：`$expand`（wire 上 `populate=`）**把外键 id 原地替换成整条关联记录**，而视图只展开「作为列显示」的关系，`$select` 也只按列构造。同一字段四种形态，喂给 CEL 引擎：\n\n| 记录里的值 | `record.f == \"P1\"` | `record.f.id == \"P1\"` |\n|---|---|---|\n| `'P1'`（未展开） | **真** | fault |\n| `{id:'P1',…}`（已展开） | **假** | 真 |\n| `null`（关系为空） | 假 | fault |\n| 缺席（不在 `$select`） | fault | fault |\n\n**没有一列全对。** fault 在行 kebab / 批量栏 fail-closed（按钮对所有人消失）、在宽松路径 `catch{return!0}` fail-open（按钮对所有人显示）—— 同一个写法在一个面上藏、下一个面上露，页面上没有任何痕迹。服务端只看得到 id，所以「客户端与服务端对同一条谓词得到相同结论」（ADR-0036 / ADR-0058 反复申明的目标）在关系字段上根本不成立。\n\n两处改动：\n\n- **`toPredicateRecord`**（core 新增）把展开的关系值折回它代表的 id，多值逐元素折。**由 schema 驱动而非嗅探形状** —— 「带 `id` 键的对象」会误伤 `json` 字段。接进 `evalRowPredicate` / `resolveConditionalFormatting`（新增 `fields` 选项）、`useRowPredicate`、`partitionBulkRows`、看板 `getCardStyles`、`page:header` 的两处求值；schema 由 `ObjectGrid` / `ListView` / `ObjectKanban` / 记录上下文供给。**展示不受影响** —— 详情页标题插值、单元格仍读原始 `ctx.data`，关系字段照常显示名称。\n- **`collectPredicateFieldRefs` / `listViewPredicates`**（core 新增）从条件格式、`rowActionDefs`、`bulkActionDefs`、对象动作、`userActions` 覆盖里收集 `record.x` / `data.x` 引用，与「对象已声明字段 ∪ 平台注入列」取交集（`isProjectableField`）后加进 `$select`。交集是必须的：未知列不是每个后端都会忽略，cloud runtime 直接返回空结果集，那样一个拼错的谓词就能把整个列表清零。**不加 `$expand`** —— 谓词要的就是裸外键。\n\n## 实测（framework showcase + console dev，非仅单测）\n\n配套的 showcase 夹具在 objectstack-ai/objectstack `claude/showcase-action-visible-matrix`。\n\n- `$select` 实际带上了谓词读的 34 个非列字段；\n- 行 kebab / 批量栏 / 记录页头三面结论一致；`requiredPermissions` 的四个规格（持有 / 不持有 / AND / 空）四面同结论 —— #3492 的验收现场；\n- 关键一步：`gated_columns` 视图 `populate=f_lookup,f_master_detail`（`f_lookup` 变对象、`f_lookups` 仍是 id 数组），`record.f_lookup == record.f_lookups[0]` 仍为真 —— 修复前必然为假；\n- 聚合批量弹窗正确报「1 条所选记录不符合条件，将被跳过」。\n\n## 测试\n\n- 全量 **11518 passed / 2 failed**。两条失败与本改动无关：`FormulaFunctions` 的 `DATEFORMAT` 与 `timeline-scale-spec-parity`，`TZ=UTC` 下 72 tests 全绿（本机 UTC+8，CI 跑 UTC），且两个文件本 PR 一行未动。\n- `pnpm type-check --force`（无缓存）78/78；`pnpm lint` 45/45，0 error；`pnpm build` 43/43。\n- 新增 8 个测试文件 / 段落，含回滚验证：把 #3492 的修复临时撤掉，新增的 8 条断言全红。\n\n## 顺带发现、已立单未修\n\n- #3521 — **记录页头的谓词走遗留 JS 求值器而不是 CEL**：`.size()` / `.contains()` / `.matches()` / `in` / `today()` 在详情页一律抛错并静默隐藏按钮，同一条谓词在列表里正常。本 PR 只统一了**绑定**，方言那一半是独立的行为变更，另开。showcase 里 `showcase_zoo_dialect_split` 是留下的一屏可对比现场。\n- objectstack-ai/objectstack#6113 — 平台注入列（`owner_id` 等）不在发布的对象 metadata 里，作者时校验判 `unknown field`，最常见的归属谓词编译不过。这也是本 PR 不得不硬编码一份 `PLATFORM_RECORD_COLUMNS` 的原因。\n\n## 未覆盖\n\nPlaywright e2e 未在本地跑（改动碰了 grid / list / detail / kanban 渲染路径，靠 CI）；浏览器实测未覆盖 `disabled` 门、条件格式底色、看板面（看板只有单测）。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n"
+}

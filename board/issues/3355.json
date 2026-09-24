@@ -1,0 +1,34 @@
+{
+  "number": 3355,
+  "kind": "issue",
+  "title": "An authored display `type` can WIDEN inline-edit on a computed field — `type: 'number'` on a rollup unlocks the chip",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "xuyushun441-sys"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T07:44:29Z",
+  "updated_at": "2026-08-04T10:40:53Z",
+  "closed_at": "2026-08-04T10:40:53Z",
+  "closed_by": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3355",
+  "body": "Split out of objectstack-ai/objectstack#5077 as an out-of-scope finding — filed unassigned. Found by measurement while fixing the dropped `readonly` key; not fixed in that PR because it changes the meaning of an authored `type` across two components.\n\n## What was measured\n\nProbe against `origin/main` (532cf8b), rendering `RecordHighlightsRenderer` inside an `InlineEditProvider canEdit`, reading the DOM for the inline-edit affordance (`cursor-pointer` target + hover pencil):\n\n| object field | authored entry | chip inline-editable? | |\n|---|---|---|---|\n| `supply_share: { type: 'number' }` | `'supply_share'` | yes | correct |\n| `supply_share: { type: 'number' }` | `{ name, type: 'formula' }` | **no** | correct |\n| `score: { type: 'formula' }` | `{ name: 'score' }` | **no** | correct |\n| `score: { type: 'formula' }` | `{ name: 'score', type: 'number' }` | **yes** | ❌ **wrong** |\n\nThe last row is the problem: the object declares the column computed, the author writes a *display* type to fix formatting, and the chip becomes writable.\n\n## Why it happens\n\n`HeaderHighlight.tsx`:\n\n```ts\nconst resolvedType = field.type || objectDefField?.type;\nconst isComputed = TEXTUAL_REF_FALLBACK_TYPES.has(resolvedType as string);\n```\n\n`TEXTUAL_REF_FALLBACK_TYPES` is `formula | summary | rollup | auto_number`. Because the authored `type` *replaces* the object's type rather than adding to it, an authored non-computed type erases the object's computed declaration from the gate's view.\n\n`DetailSection.tsx` has the identical shape — `inlineEditType = enrichedField.type || field.type`, and `enrichDetailField` only fills `type` from the object when the view field left it undefined. So the details body has the same hole. Any fix must land in both or the two surfaces drift, which is the drift `fieldEnrichment.ts` was created to stop.\n\n## Why it is not academic\n\nThis is the real configuration in the app that reported objectstack-ai/objectstack#5077. They ship\n\n```ts\nproperties: { fields: [ /* … */ { name: 'supply_share', type: 'number' }, /* … */ ] }\n```\n\nas a workaround for objectstack-ai/objectstack#5066 (display formatting), and `supply_share` is a hook-maintained rollup. The measured corruption there — a rollup overwritten by hand, staying wrong until an unrelated child-row touch re-fired it — goes through **this** path, not through the missing `readonly` alone. Fixing `readonly` gives them a way out; it does not close the trap for the next app that writes a display override.\n\n## The decision\n\nWhat does an authored `type` on a highlight / detail-view field mean?\n\n**Option A — narrow-only.** Treat the gate's type set as a union: non-editable if the authored type **or** the object type is computed. An authored `type` can then only ever *lock* a field, never unlock one. Display-renderer selection keeps using the authored type exactly as today, so nothing visual changes.\n\n- Long-term soundness: the object schema is the source of truth for whether a column is machine-computed; a presentation override has no business granting write access. Monotonic-in-the-safe-direction is the property you want in a gate that guards data integrity. Nobody can be legitimately relying on inline-editing a formula column — the write either bounces server-side or, worse, lands and corrupts.\n- AI-authoring safety: this is the structural fix. An authoring model writing `type: 'number'` to fix formatting cannot accidentally hand users write access to a rollup, because the two concerns stop sharing one key's authority. No new vocabulary, no way to get it wrong.\n- Cost: behaviour change for any page that today relies on a `type` override to make a computed field editable. I could not construct a case where that is desirable rather than a latent bug.\n\n**Option B — separate the concerns properly:** keep `type` as display-only and add an explicit `editable`/`readonly` declaration for the gate.\n\n- Cleaner conceptually, and `readonly` on the entry (objectstack-ai/objectstack#5077) is already half of it. But it leaves the trap open by default — the author must know to write the extra key — which is precisely the failure mode that produced the corruption. Safe defaults beat available knobs.\n\n**Option C — leave as-is,** documenting that an authored `type` fully overrides including editability.\n\n- Cheapest, and honest about current behaviour. Long-term cost: a documented footgun in a data-integrity gate, on the exact key authors are told to reach for when a chip renders wrong. Documentation does not stop an AI author who never reads it.\n\n**Recommendation: A**, with B's `readonly` key as the explicit-intent escape hatch on top (that half is already in flight). A is the option where the mistake becomes unrepresentable rather than merely avoidable, and it is the one that keeps the object schema authoritative about what is machine-owned. Land it in `HeaderHighlight` and `DetailSection` together."
+}

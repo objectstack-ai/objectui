@@ -38,9 +38,10 @@
  *    in the same run, so the modifier branch cannot grow a second URL shape.
  *    ⛔ `onNavigate` is never called with `'new_window'`: `ObjectViewSchema`
  *    declares that callback's second parameter as `'view' | 'edit'`.
- *  - INERT ROWS stay inert: `navigation.mode: 'none'` ignores a ⌘-click as it
- *    ignores a plain one. A modifier changes WHERE a record opens, never
- *    WHETHER it opens.
+ *  - INERT ROWS stay inert: `navigation.mode: 'none'`, `preventNavigation`,
+ *    and `operations: { read: false }` with no navigation config each ignore a
+ *    ⌘-click as they ignore a plain one. A modifier changes WHERE a record
+ *    opens, never WHETHER it opens.
  *  - HOST HANDLER: a host `onRowClick` receives the ⌘-click, payload intact,
  *    and no tab opens — the host keeps the whole decision (ruling: option C,
  *    inverting the hook, refused for exactly this reason).
@@ -159,12 +160,17 @@ async function firstDataRow(container: HTMLElement): Promise<Element> {
  * plus `onNavigate` is what makes a plain click observable (`handleView` hands
  * it to `onNavigate(id, 'view')` instead of opening an internal overlay), so
  * the plain/modifier pair is read on one spy and one `window.open` spy.
- * `extra` adds exactly one node key (`navigation`) and `onRowClick` exactly one
- * prop, so each variant differs from the base subject by one thing.
+ * `extra` adds exactly one node key (`navigation` or `operations`) or exactly
+ * one prop (`onRowClick`), so each variant differs from the base subject by one
+ * thing.
  */
 function renderView(
   onNavigate: NavigateSpy,
-  extra: { navigation?: Record<string, unknown>; onRowClick?: (record: Record<string, unknown>, event?: unknown) => void } = {},
+  extra: {
+    navigation?: Record<string, unknown>;
+    operations?: Record<string, unknown>;
+    onRowClick?: (record: Record<string, unknown>, event?: unknown) => void;
+  } = {},
 ) {
   const dataSource = makeDataSource();
   return render(
@@ -178,6 +184,7 @@ function renderView(
             onNavigate,
             table: { columns: ['name', 'amount'] },
             ...(extra.navigation ? { navigation: extra.navigation } : {}),
+            ...(extra.operations ? { operations: extra.operations } : {}),
           } as any}
           dataSource={dataSource}
           {...(extra.onRowClick ? { onRowClick: extra.onRowClick } : {})}
@@ -289,6 +296,29 @@ describe('objectui#9806 — BOUNDARIES: a modifier changes WHERE a record opens,
     fireEvent.click(row);
 
     expect(openedTabs(), "`mode: 'none'` rows are documented inert, and a modifier click opened a tab anyway").toEqual([]);
+    expect(navigateActions(onNavigate)).toEqual([]);
+  });
+
+  it('a row made inert by `navigation.preventNavigation` stays inert under a ⌘-click', async () => {
+    // Same harness as the SUBJECT ⌘-click case, one node key added.
+    const onNavigate = vi.fn() as NavigateSpy;
+    const { container } = renderView(onNavigate, { navigation: { preventNavigation: true } });
+
+    fireEvent.click(await firstDataRow(container), { metaKey: true });
+
+    expect(openedTabs(), '`preventNavigation` rows are documented inert, and a ⌘-click opened a tab anyway').toEqual([]);
+    expect(navigateActions(onNavigate)).toEqual([]);
+  });
+
+  it('with no navigation config, `operations: { read: false }` keeps the row inert under a ⌘-click', async () => {
+    // Same harness as the SUBJECT ⌘-click case, one node key added — and no
+    // `navigation`, which is the path this guard sits on.
+    const onNavigate = vi.fn() as NavigateSpy;
+    const { container } = renderView(onNavigate, { operations: { read: false } });
+
+    fireEvent.click(await firstDataRow(container), { metaKey: true });
+
+    expect(openedTabs(), 'reading is switched off, and a ⌘-click opened the record in a tab anyway').toEqual([]);
     expect(navigateActions(onNavigate)).toEqual([]);
   });
 

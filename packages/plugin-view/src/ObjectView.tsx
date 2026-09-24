@@ -443,7 +443,10 @@ export interface ObjectViewProps {
    *
    * Supplying it hands the host the WHOLE decision, modifier clicks included.
    * With no handler, the view answers a Cmd/Ctrl/middle-click itself by opening
-   * the record in a new browser tab (objectui#9806).
+   * the record in a new browser tab (objectui#9806). A row the view made inert
+   * stays inert: under `navigation.mode: 'none'`, `navigation.preventNavigation`,
+   * or `operations.read: false` with no navigation config, a modifier click does
+   * nothing, as a plain click does.
    */
   onRowClick?: (record: Record<string, unknown>, event?: any) => void;
 

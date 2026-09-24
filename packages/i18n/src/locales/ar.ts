@@ -2926,6 +2926,31 @@ const ar = {
     openProduction: "فتح بيئة الإنتاج",
     manageEnvironments: "إدارة البيئات",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "اطرح سؤالًا حول بياناتك…",
+      ask: "اسأل",
+      results: "النتائج",
+      match: "نسبة التطابق: {{percent}}",
+      simulatedSummary: "نتائج: {{query}}",
+      noResults: "لم يتم العثور على سجلات مطابقة",
+      recentQueries: "الاستعلامات الأخيرة",
+    },
+    formAssist: {
+      title: "اقتراحات الذكاء الاصطناعي",
+      suggestionCount: "عدد الاقتراحات: {{count}}",
+      suggestionCountOne: "عدد الاقتراحات: {{count}}",
+      applyAll: "تطبيق الكل",
+      confidence: "الثقة: {{percent}}",
+      appliedCount: "عدد الاقتراحات المطبّقة: {{count}}",
+      appliedCountOne: "عدد الاقتراحات المطبّقة: {{count}}",
+    },
+    recommendations: {
+      title: "التوصيات",
+      generating: "جارٍ إنشاء التوصيات…",
+      empty: "لا توجد توصيات متاحة",
+    },
+  },
   aiApprovals: {
     title: "موافقات الذكاء الاصطناعي",
     description: "إجراءات اقترحها وكيل ذكاء اصطناعي وتحتاج إلى مراجعة بشرية قبل تنفيذها.",

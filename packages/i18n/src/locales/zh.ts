@@ -3051,6 +3051,31 @@ const zh = {
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
   },
+  ai: {
+    nlQuery: {
+      placeholder: '就您的数据提问…',
+      ask: '提问',
+      results: '结果',
+      match: '匹配度 {{percent}}',
+      simulatedSummary: '查询结果:{{query}}',
+      noResults: '未找到匹配的记录',
+      recentQueries: '最近的查询',
+    },
+    formAssist: {
+      title: 'AI 建议',
+      suggestionCount: '{{count}} 条建议',
+      suggestionCountOne: '{{count}} 条建议',
+      applyAll: '全部应用',
+      confidence: '置信度 {{percent}}',
+      appliedCount: '已应用 {{count}} 条建议',
+      appliedCountOne: '已应用 {{count}} 条建议',
+    },
+    recommendations: {
+      title: '推荐',
+      generating: '正在生成推荐…',
+      empty: '暂无推荐',
+    },
+  },
   aiApprovals: {
     title: 'AI 审批',
     description: 'AI 智能体提出的操作，需要人工审核后才会执行。',

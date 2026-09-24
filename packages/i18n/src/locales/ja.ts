@@ -2916,6 +2916,31 @@ const ja = {
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "データについて質問してください…",
+      ask: "質問",
+      results: "結果",
+      match: "一致度 {{percent}}",
+      simulatedSummary: "検索結果: {{query}}",
+      noResults: "一致するレコードが見つかりません",
+      recentQueries: "最近のクエリ",
+    },
+    formAssist: {
+      title: "AI の提案",
+      suggestionCount: "{{count}} 件の提案",
+      suggestionCountOne: "{{count}} 件の提案",
+      applyAll: "すべて適用",
+      confidence: "信頼度 {{percent}}",
+      appliedCount: "{{count}} 件の提案を適用しました",
+      appliedCountOne: "{{count}} 件の提案を適用しました",
+    },
+    recommendations: {
+      title: "おすすめ",
+      generating: "おすすめを生成しています…",
+      empty: "おすすめはありません",
+    },
+  },
   aiApprovals: {
     title: "AI 承認",
     description: "AI エージェントが提案した操作です。実行前に人による確認が必要です。",

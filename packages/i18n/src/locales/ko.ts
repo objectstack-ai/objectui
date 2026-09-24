@@ -2913,6 +2913,31 @@ const ko = {
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "데이터에 대해 질문하세요…",
+      ask: "질문",
+      results: "결과",
+      match: "일치도 {{percent}}",
+      simulatedSummary: "검색 결과: {{query}}",
+      noResults: "일치하는 레코드가 없습니다",
+      recentQueries: "최근 쿼리",
+    },
+    formAssist: {
+      title: "AI 제안",
+      suggestionCount: "제안 {{count}}개",
+      suggestionCountOne: "제안 {{count}}개",
+      applyAll: "모두 적용",
+      confidence: "신뢰도 {{percent}}",
+      appliedCount: "제안 {{count}}개 적용됨",
+      appliedCountOne: "제안 {{count}}개 적용됨",
+    },
+    recommendations: {
+      title: "추천",
+      generating: "추천을 생성하는 중…",
+      empty: "추천 항목이 없습니다",
+    },
+  },
   aiApprovals: {
     title: "AI 승인",
     description: "AI 에이전트가 제안한 작업으로, 실행 전에 사람의 검토가 필요합니다.",

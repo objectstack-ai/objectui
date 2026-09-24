@@ -3360,6 +3360,35 @@ const en = {
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
   },
+  // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
+  // `ai-recommendations` components (objectui#10232). The `*One` rows are this
+  // repo's two-key plural convention (see `search.itemsAvailableOne`): the
+  // component picks the key at exactly one, so no CLDR category falls to `en`.
+  ai: {
+    nlQuery: {
+      placeholder: 'Ask a question about your data…',
+      ask: 'Ask',
+      results: 'Results',
+      match: '{{percent}} match',
+      simulatedSummary: 'Results for: {{query}}',
+      noResults: 'No matching records found',
+      recentQueries: 'Recent Queries',
+    },
+    formAssist: {
+      title: 'AI Suggestions',
+      suggestionCount: '{{count}} suggestions',
+      suggestionCountOne: '{{count}} suggestion',
+      applyAll: 'Apply All',
+      confidence: '{{percent}} confidence',
+      appliedCount: '{{count}} suggestions applied',
+      appliedCountOne: '{{count}} suggestion applied',
+    },
+    recommendations: {
+      title: 'Recommendations',
+      generating: 'Generating recommendations…',
+      empty: 'No recommendations available',
+    },
+  },
   // The AI HITL approval inbox (`@object-ui/plugin-chatbot`'s
   // `AiPendingActionsInbox`) — objectui#7173. Its four relative-time phrases
   // are NOT here: it borrows `detail.justNow` / `minutesAgo` / `hoursAgo` /

@@ -783,10 +783,10 @@ function unsizedRowsNote(sizable: number, total: number, dataKey: string): React
  * boolean tile would gain a correct refusal, but the mixed tile would gain a
  * footnote reading "2 of 3 rows ... are not drawn" while all three are on
  * screen — a sentence that is simply false about the picture, which is the
- * failure this whole family of answers exists to remove. Accepting it leaves
- * the all-boolean case exactly as silent as it is today: a narrow hole, not a
- * regression, and one whose real answer belongs upstream where a boolean column
- * bound to a numeric measure could be refused at authoring time.
+ * failure this whole family of answers exists to remove. So this predicate
+ * accepts it, and the all-boolean case is answered on the whole dataset
+ * instead — `anchorsNumericAxis` / `NumericValueRefusal` (objectui#7195): no
+ * row gives the axis a scale, which is true there and never of the mixed tile.
  */
 function isPlottableCoord(v: unknown): boolean {
   if (v === null || v === undefined) return false;
@@ -831,8 +831,9 @@ function isPlottableCoord(v: unknown): boolean {
  *   - `null` x, absent x, `'n/a'` x, `'Infinity'` x, boolean x, and
  *     objectui#7147's own category-column fixture — SIX datasets, ONE image
  *     (`51957063d9c2`): an axis frame with a confident y scale and no marks.
- *     Five of those six are answered below; the boolean one deliberately is
- *     not, for the reason `isPlottableCoord` gives.
+ *     Five of those six are answered below; the boolean one is not answered
+ *     HERE, for the reason `isPlottableCoord` gives — `NumericValueRefusal`
+ *     answers it on the whole axis (objectui#7195).
  *   - one plottable row among three is 99.75% pixel-identical to a genuinely
  *     one-row scatter (diff 0.250%), the same shape of collision that decided
  *     pie in objectui#7147. Two rows vanish and the picture says "one point".
@@ -890,6 +891,99 @@ function PositionRefusal({
       This chart has nothing to place: no row carries a number for both{' '}
       <code className="font-mono">{xKey}</code> and{' '}
       <code className="font-mono">{yKey}</code>.
+    </ChartRefusal>
+  );
+}
+
+/**
+ * Whether a value can ANCHOR a numeric axis's scale (objectui#7195).
+ *
+ * ## Why this asks about the axis, not about the value's type
+ *
+ * `isPlottableCoord` above accepts a boolean on purpose: beside one real number
+ * Recharts coerces `true`/`false` onto the scale and draws them (measured, 3 of
+ * 3). What it cannot do is BUILD a scale out of booleans alone — every row
+ * boolean and there is no domain, so nothing is drawn (0 of N). Whether a
+ * boolean places is a property of its neighbours; whether the AXIS has anything
+ * to build a scale from is a property of the whole dataset, and that is the
+ * question this answers. A "reject booleans" predicate was measured to put a
+ * false footnote over the mixed tile, so it is not what this is.
+ *
+ * ## Mirrors the reader Recharts builds the domain with, not `Number.isFinite`
+ *
+ * A bare `Number.isFinite(v)` would refuse charts that draw. Recharts' numeric
+ * domain reads a value through `makeNumber` in its axis selectors: a number, a
+ * string or a `Date` whose `Number()` is finite. Measured on this component,
+ * per family (bar / line / area / horizontal-bar / combo / scatter):
+ *
+ *   - numeric strings (`'3'`) DRAW on every family — so they anchor;
+ *   - `''` anchors at zero — a line / area / scatter draws it (a bar of height
+ *     zero is the all-zero picture, which is finite data, not this defect);
+ *   - `Date` values anchor (scatter, 2 of 2);
+ *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
+ *
+ * ## The stacked exception, also measured
+ *
+ * A STACKED series is read through d3's stack, whose value accessor is
+ * `Number(value)` — so a boolean there IS a number: an all-boolean stacked bar
+ * drew 2 of 2 bars and a stacked area drew its path. Refusing it would blank a
+ * chart that draws, so for a series carrying `stack` a boolean anchors too.
+ * `null` does not (the stack reads it as 0 and nothing is drawn — measured,
+ * 0 bars and an empty area path). A `line` series ignores `stack` in this
+ * renderer; it is still read as stacked here, which errs towards silence
+ * rather than towards a refusal over marks.
+ */
+function anchorsNumericAxis(v: unknown, stacked = false): boolean {
+  if (typeof v === 'boolean') return stacked;
+  if (typeof v === 'number' || typeof v === 'string' || v instanceof Date) {
+    return Number.isFinite(Number(v));
+  }
+  return false;
+}
+
+/** Whether ANY row gives `key` a value that can anchor its axis. */
+function axisHasScale(rows: unknown[], key: string, stacked = false): boolean {
+  return rows.some((row) =>
+    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key], stacked),
+  );
+}
+
+/**
+ * The refusal a cartesian tile renders when a numeric axis has rows but not one
+ * of them carries a value that axis can build a scale from (objectui#7195,
+ * ruled A).
+ *
+ * Its OWN code, `no-numeric-value`, rather than one of the neighbouring two:
+ * `no-plottable-points` says no row carries a PAIR a point needs, and
+ * `no-plottable-series` says nothing was bound at all. This one says the
+ * binding is there and every row was read, and the axis still has no scale. One
+ * code serves scatter and the series families alike because it is one
+ * diagnosis with one fix — bind a numeric column — and the family is already
+ * on the tile.
+ *
+ * The sentence is keyed on the whole dataset — "none of the N rows" — so it is
+ * true exactly when nothing can be placed and cannot fire over a mixed tile
+ * that draws. It names every dead key, and only those. English literal, no
+ * locale key, matching the `no-plottable-series` sentences. No console warning,
+ * matching the scatter answers above: the sentence already carries the key and
+ * the count.
+ */
+function NumericValueRefusal({
+  keys,
+  total,
+  className,
+}: { keys: string[]; total: number; className?: string }) {
+  return (
+    <ChartRefusal code="no-numeric-value" className={className}>
+      This chart has no scale to draw on:{' '}
+      {total === 1 ? 'its only row has no' : `none of the ${total} rows has a`} numeric value for{' '}
+      {keys.map((key, i) => (
+        <React.Fragment key={`${i}-${key}`}>
+          {i > 0 ? ' or ' : ''}
+          <code className="font-mono">{key}</code>
+        </React.Fragment>
+      ))}
+      .
     </ChartRefusal>
   );
 }
@@ -1970,6 +2064,18 @@ function AdvancedChartImplInner({
     if (points.total > 0 && points.plottable === 0) {
       return <PositionRefusal xKey={xAxisKey} yKey={scatterYKey} className={className} />;
     }
+    // objectui#7195 — see `NumericValueRefusal`. After the positional refusal,
+    // which already answers every row lacking a placeable pair; this catches
+    // what `isPlottableCoord` accepts on purpose — booleans — once the WHOLE
+    // axis carries nothing else, so there is no scale to coerce them onto
+    // (measured: 0 of N marks, silent, or under a footnote claiming some drew).
+    // Before the footnote, which would otherwise count booleans as placed.
+    if (points.total > 0) {
+      const deadAxes = Array.from(new Set([xAxisKey, scatterYKey])).filter((key) => !axisHasScale(data, key));
+      if (deadAxes.length > 0) {
+        return <NumericValueRefusal keys={deadAxes} total={points.total} className={className} />;
+      }
+    }
     return (
       <ChartFootnote
         note={unplottedPointsNote(points.plottable, points.total, xAxisKey, scatterYKey)}
@@ -2443,6 +2549,46 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
 }
 
 /**
+ * The series families' half of objectui#7195: series are bound and rows
+ * arrived, but not one row carries a value any series' axis can build a scale
+ * from. Returns the dead series keys, or `null` when anything can draw.
+ *
+ * Keyed on ALL series together, never per series, because that is what
+ * measured as drawing nothing. A second series whose every value is boolean
+ * beside a numeric one DRAWS (measured: bar 3 rectangles, line and area two
+ * paths) — the numeric series gives the shared axis its scale and the booleans
+ * are coerced onto it, the same neighbour effect as scatter's mixed tile. Only
+ * when EVERY series is dead does the tile draw zero marks (bar, column,
+ * horizontal-bar, line, area and combo alike).
+ *
+ * That includes a dual-axis tile: one dead axis beside a live one still draws
+ * the live axis's marks, so it is left drawing — measured and declined here,
+ * because a whole-tile refusal would blank marks that are on screen.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES}, for the reason given on that set; and
+ * only once `hasNoPlottableSeries` has passed, since that is the guard that
+ * owns "no series at all". A bound key that no row carries at all is left to
+ * its own question (see the `carried` gate below).
+ */
+function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
+  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const rows = Array.isArray(props.data) ? props.data : [];
+  const series = Array.isArray(props.series) ? props.series : [];
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  const keys = Array.from(new Set(series.map((s) => String(s.dataKey))));
+  const live = series.some((s) => axisHasScale(rows, String(s.dataKey), Boolean(s.stack)));
+  if (live) return null;
+  // A binding that names a column NO row carries is a different diagnosis —
+  // the objectui#8266 shape, whose own render pins keep it silent until it is
+  // re-decided as its own question — so this answers only once some row does
+  // carry a bound key and still gives the axis nothing to scale.
+  const carried = rows.some(
+    (row) => row != null && typeof row === 'object' && keys.some((key) => key in row),
+  );
+  return carried ? keys : null;
+}
+
+/**
  * The shell both refusals render — one placeholder, two diagnoses.
  *
  * Stated once so the series-axis guard cannot drift from the framework#4033 one
@@ -2484,6 +2630,12 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
   // failure and the more specific message. Without this gate such a chart would
   // also warn about its series, printing two diagnoses for one cause.
   const noPlottableSeries = missingCategoryKey ? null : hasNoPlottableSeries(props);
+  // objectui#7195 comes THIRD: it needs a category axis and a bound series to
+  // say anything true, so either guard above is the more fundamental answer.
+  // Scatter's half of the same refusal lives in its own arm, after the
+  // arity and positional refusals it ranks below.
+  const noNumericSeriesValue =
+    missingCategoryKey || noPlottableSeries ? null : hasNoNumericSeriesValue(props);
   const xAxisKey = props.xAxisKey ?? 'name';
   const firstRowKeys = React.useMemo(
     () => Object.keys((Array.isArray(props.data) ? props.data[0] : undefined) ?? {}),
@@ -2552,6 +2704,16 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
         This chart cannot plot any series: no measure or group reached its{' '}
         <code className="font-mono">{xAxisKey}</code> axis.
       </ChartRefusal>
+    );
+  }
+
+  if (noNumericSeriesValue) {
+    return (
+      <NumericValueRefusal
+        keys={noNumericSeriesValue}
+        total={Array.isArray(props.data) ? props.data.length : 0}
+        className={props.className}
+      />
     );
   }
 

@@ -89,10 +89,11 @@ const CONTEXT = { target: 'contextWins', extraFromHost: 'present' };
  * The exact key order `action:button` composes, top to bottom of its literal.
  * `params` sits where `...paramsPayload` sits — ninth, not last.
  *
- * `onSuccess` is the tail entry as of objectui#5493 (the declared post-success
- * hop). A whitelist key APPENDED moves nothing, which is exactly the reading
- * these two lists exist to give: the diff shows one added name and no
- * re-ordering of the keys the #4281 hoist was about.
+ * `onSuccess` (objectui#5493, the declared post-success hop) and then
+ * `objectName` (objectui#4202, the object the action declares it acts on) were
+ * each APPENDED at the tail. A whitelist key appended moves nothing, which is
+ * exactly the reading these two lists exist to give: the diff shows one added
+ * name and no re-ordering of the keys the #4281 hoist was about.
  *
  * `operation` / `patch` (objectui#7551) are the first pair added in the MIDDLE
  * rather than at the tail — they sit with `bodyExtra` / `bodyShape` because
@@ -106,7 +107,7 @@ const BUTTON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
   'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess',
+  'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
 /** `action:icon` has no `paramsPayload`; `params` is an ordinary explicit key. */
@@ -114,7 +115,7 @@ const ICON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
   'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'locations', 'toast', 'resultDialog', 'onSuccess',
+  'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
 // See action-bodyExtra-forward.test.tsx for why this is not

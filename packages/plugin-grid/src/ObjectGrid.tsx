@@ -5020,8 +5020,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }
       // Detect currency-like fields by name
       const currencyFields = ['amount', 'price', 'total', 'revenue', 'cost', 'value', 'budget', 'salary'];
+      // The currency sibling of the date branch above takes the SAME tag.
+      // objectui#4541 threaded it into the date branch and left this one, and
+      // `formatCurrency` reads an omitted tag as "follow the runtime", i.e. the
+      // MACHINE's locale — invisible to a source scan, since the call merely
+      // omits the argument (objectui#9909).
       if (typeof value === 'number' && currencyFields.some(f => key.toLowerCase().includes(f))) {
-        return <span className="text-sm tabular-nums font-medium">{formatCurrency(value, tenantCurrency)}</span>;
+        return <span className="text-sm tabular-nums font-medium">{formatCurrency(value, tenantCurrency, displayLocale)}</span>;
       }
       // No field-type match (e.g. a computed/untyped key): never dump a raw
       // object as a React child — extract a display name/id instead.
@@ -5195,7 +5200,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                     {amountCol && (
                       <span className="text-sm tabular-nums font-medium">
                         {typeof row[amountCol.accessorKey] === 'number'
-                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(amountCol as any, tenantCurrency))
+                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(amountCol as any, tenantCurrency), displayLocale)
                           : (coerceToSafeValue(row[amountCol.accessorKey]) ?? '—')}
                       </span>
                     )}

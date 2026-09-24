@@ -3452,6 +3452,59 @@ export const assertionUnmirroredMatchesLedger: never = 0 as unknown as {
 }[MirrorKey];
 
 /**
+ * SPEC-VERSION GATE for the `options` row and its two containers (objectui#10296): does the installed spec's
+ * `visibleWhen` input envelope admit an object with NO `source`?
+ *
+ * `views.zod.ts#DetailViewFieldSchema::options` reads the spec's `SelectOptionSchema`
+ * by reference, so its WIDER verdict follows the spec that is installed. On the
+ * pinned `@objectstack/spec` 17.4.0 the envelope's `source` is optional in the static
+ * input type (at runtime `ast` alone satisfies its refine), so an envelope with no
+ * `source` is admitted and the declaration (whose wire requires `source`) refuses it:
+ * WIDER, recorded. On objectstack `main` the key is
+ * `EvaluatedExpressionInputSchema`, whose envelope REQUIRES `source`, so the mirror is
+ * no longer wider there (the `KnownDrift` half, `dialect` required, holds on both).
+ * The Spec Main Shape Gate compiles this file against `main`, so the ledger must
+ * hold on both.
+ *
+ * Read off the MIRROR's own input face, not an import of the spec, so it measures
+ * exactly the schema the row is about. The ledger entry stays a literal (the census
+ * parses it). Only the reconciliation consults this, and only for the rows in
+ * `SpecEnvelopeGatedWider` below: on 17.4.0 they must be measured WIDER exactly as
+ * before, and on `main` they must measure absent, so neither side is waived. ⛔ At
+ * the pin bump this reads `false` for good. Then delete those rows, their
+ * `WIDER_ARMS` entries and this gate together.
+ * The runtime tripwire in `detail-view-field-options-10296.test.ts` goes red at
+ * that bump to say so.
+ */
+type DetailViewOptionVisibleWhenInput = NonNullable<
+  NonNullable< MirrorInputOf< 'views.zod.ts#DetailViewFieldSchema', 'options' > >[number]['visibleWhen']
+>;
+export type SpecEnvelopeAdmitsSourceless =
+  { dialect: 'cel' } extends DetailViewOptionVisibleWhenInput ? true : false;
+
+/**
+ * The rows that gate withholds on a spec whose envelope requires `source`. Measured
+ * against objectstack `main` `e8f163fc3a62`, not assumed: the two container pairs
+ * carry `DetailViewFieldSchema` elements, and there their WIDER reading is gone too.
+ * Their only wider member was `options` (on the base commit, the inline shape's
+ * number/boolean `value`; on 17.4.0, the source-less envelope). They are ledgered
+ * SCHEMA-NODE, but that class names the arm, not the cause, so they leave with it.
+ */
+type SpecEnvelopeGatedWider = {
+  'views.zod.ts#DetailViewFieldSchema': 'options';
+  'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
+  'views.zod.ts#DetailViewSectionSchema': 'fields';
+};
+
+/** What `WiderThanDeclared` records for a pair, with the spec-version gate above applied. */
+export type WiderRecorded< K extends MirrorKey > =
+  K extends keyof WiderThanDeclared
+    ? SpecEnvelopeAdmitsSourceless extends true
+      ? WiderThanDeclared[K]
+      : Exclude< WiderThanDeclared[K], K extends keyof SpecEnvelopeGatedWider ? SpecEnvelopeGatedWider[K] : never >
+    : never;
+
+/**
  * The THIRD direction: every pair's WIDER key set equals what `WiderThanDeclared`
  * records for it — `never` for the pairs with no entry.
  *
@@ -3467,11 +3520,7 @@ export const assertionUnmirroredMatchesLedger: never = 0 as unknown as {
  * @object-ui/types type-check` is the gate that reads it.
  */
 export type WiderLedgerMismatch = {
-  [K in MirrorKey]: ReconcileAgainstLedger<
-    K,
-    WiderOf< K >,
-    K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never
-  >;
+  [K in MirrorKey]: ReconcileAgainstLedger< K, WiderOf< K >, WiderRecorded< K > >;
 }[MirrorKey];
 
 export const assertionWiderMatchesLedger: never = 0 as unknown as WiderLedgerMismatch;
@@ -3489,8 +3538,8 @@ export const assertionWiderMatchesLedger: never = 0 as unknown as WiderLedgerMis
  */
 export type WiderLedgerKeyDrift = {
   [K in MirrorKey]:
-    | Exclude< WiderOf< K >, K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never >
-    | Exclude< K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never, WiderOf< K > >;
+    | Exclude< WiderOf< K >, WiderRecorded< K > >
+    | Exclude< WiderRecorded< K >, WiderOf< K > >;
 }[MirrorKey];
 
 export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderLedgerKeyDrift;

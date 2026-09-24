@@ -131,6 +131,24 @@ describe('DetailViewFieldSchema.options is the spec authoring option schema (obj
     });
   });
 
+  /**
+   * TRIPWIRE for the spec-version gate in `zod-mirror-parity.test.ts`
+   * (`SpecEnvelopeAdmitsSourceless`). On the installed spec 17.4.0 the envelope's
+   * `source` is OPTIONAL in the static input type, and at runtime `ast` alone
+   * satisfies its refine (`{ dialect }` with neither is refused). So an envelope
+   * with no `source` parses, which the declaration's wire refuses. That is why
+   * `options` and its two containers are ledgered WIDER. objectstack `main` requires
+   * a non-blank `source`. When the pin bump turns this red, delete the gated rows,
+   * their `WIDER_ARMS` entries and the gate, then flip this to a refusal.
+   */
+  it('accepts a source-less `{ dialect, ast }` envelope on spec 17.4.0 (the gated WIDER rows rest on this)', () => {
+    expect(optionOut({ dialect: 'cel', ast: { kind: 'ident' } })).toEqual({
+      label: 'Open',
+      value: 'open',
+      visibleWhen: { dialect: 'cel', ast: { kind: 'ident' } },
+    });
+  });
+
   it('gives the same verdict as the spec schema itself, over a spread of options', () => {
     const samples: Record<string, unknown>[] = [
       { label: 'Open', value: 'open' },

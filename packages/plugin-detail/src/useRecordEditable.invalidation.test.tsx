@@ -76,7 +76,7 @@ function explain() {
     server.calls.push(body);
     const visible = server.verdict;
     return { ok: true, json: async () => ({ allowed: true, record: { recordId: body.recordId, visible } }) };
-  }) as any;
+  });
 }
 
 const asA = signedInAs('userA');
@@ -180,7 +180,7 @@ describe('useRecordEditable — a changed record is asked again (objectui#10184)
         const visible = server.verdict; // decided when ASKED, as the server would
         if (server.calls.length === 1) await gate;
         return { ok: true, json: async () => ({ allowed: true, record: { recordId: body.recordId, visible } }) };
-      }) as any,
+      }),
     );
 
     server.verdict = false;

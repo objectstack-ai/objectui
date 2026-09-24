@@ -69,11 +69,11 @@ function explainAnswering(visible: boolean) {
         records: (body.recordIds ?? []).map((recordId) => ({ recordId, visible })),
       }),
     };
-  }) as any;
+  });
 }
 
 /** The kebab's question about one row: may this principal UPDATE `r1`? */
-const askAboutR1 = () => {
+const useR1UpdateVerdict = () => {
   const lookup = useRecordCrudVerdicts({ objectName: OBJECT, recordIds: ['r1'], update: true });
   return lookup('r1', 'update');
 };
@@ -89,14 +89,14 @@ describe('useRecordCrudVerdicts — the verdict memo is per principal (objectui#
   it('stale DENY: re-asks for the new principal, so another principal’s denial does not hide the kebab', async () => {
     const deny = explainAnswering(false);
     vi.stubGlobal('fetch', deny);
-    const first = renderHook(askAboutR1, { wrapper: signedInAs('userA') });
+    const first = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userA') });
     await waitFor(() => expect(first.result.current).toBe(false));
     first.unmount();
 
     // Same tab, new principal — the server lets this one write the row.
     const allow = explainAnswering(true);
     vi.stubGlobal('fetch', allow);
-    const second = renderHook(askAboutR1, { wrapper: signedInAs('userB') });
+    const second = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userB') });
 
     await waitFor(() => expect(second.result.current).toBe(true));
     expect(allow).toHaveBeenCalledTimes(1);
@@ -105,14 +105,14 @@ describe('useRecordCrudVerdicts — the verdict memo is per principal (objectui#
   it('stale ALLOW: re-asks for the new principal, so one principal’s allowance is not offered to another', async () => {
     const allow = explainAnswering(true);
     vi.stubGlobal('fetch', allow);
-    const first = renderHook(askAboutR1, { wrapper: signedInAs('userA') });
+    const first = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userA') });
     await waitFor(() => expect(first.result.current).toBe(true));
     first.unmount();
 
     // Same tab, new principal, no grant. The kebab's Edit must not be inherited.
     const deny = explainAnswering(false);
     vi.stubGlobal('fetch', deny);
-    const second = renderHook(askAboutR1, { wrapper: signedInAs('userB') });
+    const second = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userB') });
 
     // Not `undefined` (fail open, the kebab stays) — the server's own `false`.
     await waitFor(() => expect(second.result.current).toBe(false));
@@ -122,11 +122,11 @@ describe('useRecordCrudVerdicts — the verdict memo is per principal (objectui#
   it('control — still memoises within one principal: revisiting the page asks nothing', async () => {
     const deny = explainAnswering(false);
     vi.stubGlobal('fetch', deny);
-    const first = renderHook(askAboutR1, { wrapper: signedInAs('userA') });
+    const first = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userA') });
     await waitFor(() => expect(first.result.current).toBe(false));
     first.unmount();
 
-    const second = renderHook(askAboutR1, { wrapper: signedInAs('userA') });
+    const second = renderHook(useR1UpdateVerdict, { wrapper: signedInAs('userA') });
     await waitFor(() => expect(second.result.current).toBe(false));
     await act(async () => {});
     expect(deny).toHaveBeenCalledTimes(1);
@@ -135,11 +135,11 @@ describe('useRecordCrudVerdicts — the verdict memo is per principal (objectui#
   it('control — memoises with no provider mounted, where the principal is unknown to the client', async () => {
     const deny = explainAnswering(false);
     vi.stubGlobal('fetch', deny);
-    const first = renderHook(askAboutR1);
+    const first = renderHook(useR1UpdateVerdict);
     await waitFor(() => expect(first.result.current).toBe(false));
     first.unmount();
 
-    const second = renderHook(askAboutR1);
+    const second = renderHook(useR1UpdateVerdict);
     await waitFor(() => expect(second.result.current).toBe(false));
     await act(async () => {});
     expect(deny).toHaveBeenCalledTimes(1);

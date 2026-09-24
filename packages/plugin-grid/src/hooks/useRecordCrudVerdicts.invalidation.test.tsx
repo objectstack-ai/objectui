@@ -73,7 +73,7 @@ function explain() {
       visible: server.verdicts.get(recordId) ?? false, // decided when ASKED
     }));
     return { ok: true, json: async () => ({ allowed: true, records }) };
-  }) as any;
+  });
 }
 
 /** A page of rows, asking about both kebab verbs, answered as a plain table. */
@@ -166,7 +166,7 @@ describe('useRecordCrudVerdicts — a changed row is asked again (objectui#10184
         const res = await answer(input, init); // verdict taken when ASKED
         if (server.calls.length <= 2) await gate; // hold the first page's answers
         return res;
-      }) as any,
+      }),
     );
 
     const first = renderHook(() => usePage(PAGE), { wrapper: asA });

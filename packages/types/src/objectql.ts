@@ -905,6 +905,13 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * Enable/disable built-in operations
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `update` / `delete` are the CEILING over {@link rowActions}: `update: false`
+   * (or `delete: false`) withholds the row menu's generic Edit (or Delete)
+   * entry whatever `rowActions` says. A declared block REPLACES the default
+   * rather than merging under it, so a member the block does not name is
+   * withheld too; omit the whole block to keep the default (Edit / Delete
+   * offered wherever the host wires `onEdit` / `onDelete`).
    */
   operations?: {
     /**
@@ -912,41 +919,50 @@ export interface ObjectGridSchema extends BaseSchema {
      * @default true
      */
     create?: boolean;
-    
+
     /**
      * Enable read/view operation
      * @default true
      */
     read?: boolean;
-    
+
     /**
-     * Enable update operation
-     * @default true
+     * Enable update operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onEdit`.
      */
     update?: boolean;
-    
+
     /**
-     * Enable delete operation
-     * @default true
+     * Enable delete operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onDelete`.
      */
     delete?: boolean;
-    
+
     /**
      * Enable export operation
      * @default false
      */
     export?: boolean;
-    
+
     /**
      * Enable import operation
      * @default false
      */
     import?: boolean;
   };
-  
+
   /**
    * Custom row actions
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `'edit'` and `'delete'` are canonical: they select the row menu's generic
+   * Edit / Delete entries; any other name is a custom action resolved against
+   * the object's declared actions. {@link operations} is the CEILING: a
+   * `rowActions` entry cannot offer what `operations` withholds. Inside that
+   * ceiling a declared list NARROWS: the generic Edit / Delete are offered only
+   * for the canonical names it carries, so `[]` or a list naming only custom
+   * actions offers neither. Omit `rowActions` to keep the default generic
+   * entries.
    */
   rowActions?: string[];
   
@@ -2552,8 +2568,9 @@ export interface NamedListView {
  * (`@objectstack/spec` `ui/view.zod.ts` `NavigationConfigSchema`), and a
  * `.default()` lands on the AUTHORING side as `| undefined` — which is why the
  * spec publishes its own type as `z.input< typeof NavigationConfigSchema >`.
- * So `navigation: { view: 'summary_view' }` is legal authored metadata that
- * lets the mode default, and the hand copy refused it.
+ * So `navigation: { openNewTab: true }` is legal authored metadata that lets
+ * the mode default (to `'page'`, the mode `openNewTab` applies to), and the
+ * hand copy refused it.
  *
  * `index.ts` already re-exports that same spec type under its own name
  * (`NavigationConfig`), so this package published two disagreeing spellings of
@@ -2824,6 +2841,27 @@ export interface ObjectTreeSchema extends BaseSchema {
   type: 'object-tree';
   /** ObjectQL object name */
   objectName: string;
+  /**
+   * Query filter, forwarded verbatim as `$filter` on the tree's own fetch.
+   *
+   * Typed as that DESTINATION by an indexed access on {@link QueryParams}, the
+   * shape objectui#9309 settled for {@link ObjectGallerySchema.filter}, so the
+   * declaration cannot drift away from the slot it is forwarded into
+   * (objectui#9549). The key was already delivered and read before it was
+   * declared: `ListView` puts `filter` on the `baseProps` every child view
+   * receives, and `ObjectTree` sends `$filter: schema.filter`. Until this
+   * declaration the value survived only on `BaseSchema`'s index signature, so
+   * declaring it NARROWS: `filter: 'stage=won'` and `filter: 42` are compile
+   * errors now.
+   *
+   * ⛔ It is a query filter and nothing else. The renderer used to also read
+   * `filter.tree` as a stash for the tree block; that second dialect had no
+   * author and was removed in the same change. The tree block is `tree`.
+   *
+   * ⛔ Do not re-spell the arms here — what `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`.
+   */
+  filter?: QueryParams['$filter'];
   /**
    * Field holding the parent record reference (single-parent pointer).
    * When omitted, the renderer auto-detects the object's `tree`/self-reference field.

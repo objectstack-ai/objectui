@@ -28,11 +28,12 @@
  * to numbers: the pure function moves DOWN into the React-free engine and the
  * upper package re-exports it, so there is one home and nothing to drift.
  *
- * `@object-ui/fields` re-exports every symbol below under its original name,
- * so `formatDate` / `formatDateTime` / `formatDateTimeCompactParts` /
- * `formatRelativeDate` / `DateDisplayOptions` keep working unchanged for
- * `ObjectGrid`, `ObjectGantt`, `plugin-dashboard`'s `recordFields` and the
- * `date` cell renderer.
+ * `@object-ui/fields` re-exports the formatting symbols below under their
+ * original names, so `formatDate` / `formatDateTime` /
+ * `formatDateTimeCompactParts` / `formatRelativeDate` / `DateDisplayOptions`
+ * keep working unchanged for `ObjectGrid`, `ObjectGantt`,
+ * `plugin-dashboard`'s `recordFields` and the `date` cell renderer.
+ * `toDisplayDate` is exported from `@object-ui/core` alone (objectui#10183).
  *
  * The `datetime` CELL face joined this file in objectui#7443. It used to be a
  * second convention inlined in `DateTimeCellRenderer`: two `Intl` option bags
@@ -50,7 +51,9 @@
  * time is an instant and renders in that zone; a DATE-ONLY value names a
  * calendar day, carries no instant, and must render as that day everywhere.
  * `toDisplayDate` below is the single parse step that tells the two apart —
- * every function here goes through it (objectui#10110).
+ * every function here goes through it (objectui#10110), and so does every
+ * caller elsewhere that needs a face or a day comparison none of these
+ * functions produce (objectui#10183).
  */
 
 /**
@@ -142,8 +145,24 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * `2026-13-01` is still `—`, and a well-shaped impossible day still ROLLS
  * (`2026-02-30` renders March 2nd) exactly as it did — a pinned behaviour of
  * the shared display path, asserted in `dataset-format.ts`'s date suite.
+ *
+ * ## Why it is exported (objectui#10183)
+ *
+ * A caller that formats with its own `Intl` options — a face none of the
+ * functions below produce, such as the record summary chip's
+ * `dateStyle: 'medium'` — or that compares a value against "today" needs the
+ * `Date` itself, not a string. Such callers used to parse the value on their
+ * own (`new Date(value)`, or `Date.parse` and then a `Date` handed to
+ * `formatDate`, which this step then leaves alone), so the objectui#10110
+ * repair never reached them and each still read a date-only value one day
+ * early west of UTC. They take the `Date` from here instead.
+ *
+ * ⛔ Read the result with LOCAL getters or local-zone `Intl` formatting only.
+ * For a date-only value it is local midnight of the named day, so its
+ * `toISOString()` / UTC getters name the previous day east of UTC — hand
+ * those the stored value, never this.
  */
-function toDisplayDate(value: string | Date | number): Date {
+export function toDisplayDate(value: string | Date | number): Date {
   const parsed = value instanceof Date ? value : new Date(value as any);
   if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
     return parsed;

@@ -718,13 +718,23 @@ export interface TooltipSchema extends BaseSchema {
    */
   trigger?: SchemaNode | SchemaNode[];
   /**
-   * Tooltip content/text — the FIRST half of the content read.
+   * Tooltip text — the FIRST half of the content read.
    *
    * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx` —
    * `schema.content || renderChildren(schema.children)`. Optional because
    * {@link TooltipSchema.children} is the other half of that same read.
+   *
+   * TEXT ONLY (objectui#10295). The read places `content` raw in a React child
+   * position, never through `renderChildren`, so a node here failed to render
+   * ("Objects are not valid as a React child"). This key is objectui's own (the
+   * spec declares no tooltip node), so it follows its read site: author a node
+   * or a list of nodes under {@link TooltipSchema.children}.
+   *
+   * ⚠️ Precedence, as the read stands: a non-empty `content` WINS and an
+   * authored `children` is not rendered at all; an empty string falls through
+   * to `children`.
    */
-  content?: string | SchemaNode;
+  content?: string;
   /**
    * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
    * child-list spelling. Author {@link TooltipSchema.children}.

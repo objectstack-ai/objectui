@@ -74,6 +74,8 @@
  * The non-`on*` census (`cell` / `custom` / `renderCellEditor` / `validate`)
  * and the passthrough counter-probe are GREEN before and after — they pin the
  * ruling's scope (Q4 → B) and the reason for the arm, not this change.
+ * (objectui#7759 group E later gave those four the same arm, so that census now
+ * reads zero; their pins are in `./function-slot-keys-json-refusal-7759.test.ts`.)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -537,18 +539,20 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     expect(hits).toEqual([]);
   });
 
-  it('the four non-on* z.function() sites stay exactly as they are (Q4 → B — cell/custom/validate/renderCellEditor are out of scope)', () => {
-    // Positive control for the census instrument as well: the same regex
-    // family, anchored the same way, still finds the sites it should.
+  it('the four non-on* z.function() sites are gone too (objectui#7759 group E, after Q4 → B kept them out of THIS sweep)', () => {
+    // Q4 → B scoped objectui#6124's sweep to `on*` keys and left
+    // cell/custom/validate/renderCellEditor as `z.function()`. objectui#7759's
+    // ruling (group E, "按 #6124 直接派") then gave the four the same arm; their
+    // per-key pins live in `./function-slot-keys-json-refusal-7759.test.ts`.
     const hits = MIRROR_FILES.flatMap((file) =>
       [...readMirror(file).matchAll(NON_ON_FUNCTION)].map((m) => `${file}#${m[1]}`),
     );
-    expect(hits.sort()).toEqual([
-      'data-display.zod.ts#cell',
-      'data-display.zod.ts#renderCellEditor',
-      'form.zod.ts#custom',
-      'form.zod.ts#validate',
-    ]);
+    expect(hits).toEqual([]);
+    // Positive control for the census instrument, now that the tree holds no
+    // site: the regex, anchored the same way, still matches the spelling the
+    // four sites had.
+    const spelled = "  cell: z.function().optional().describe('Custom cell renderer'),\n";
+    expect([...spelled.matchAll(NON_ON_FUNCTION)].map((m) => m[1])).toEqual(['cell']);
   });
 
   it('82 sites are ledgered, 61 runtime slots + 21 retired, with no key filed twice', () => {

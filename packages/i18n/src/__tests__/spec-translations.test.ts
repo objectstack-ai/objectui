@@ -4,6 +4,7 @@ import {
   transformSpecTranslations,
   type SpecTranslationData,
 } from '../utils/spec-translations';
+import { builtInLocales } from '../locales';
 
 describe('isSpecTranslationData', () => {
   it('returns false for empty / non-object input', () => {
@@ -14,17 +15,66 @@ describe('isSpecTranslationData', () => {
     expect(isSpecTranslationData({ objects: [] as unknown as object })).toBe(false);
   });
 
-  it('returns true only when at least one object has nested fields', () => {
-    expect(
-      isSpecTranslationData({
-        objects: { account: { label: 'Account' } },
-      }),
-    ).toBe(false);
+  it('recognises a bundle that translates object labels and no field label (objectui#10235)', () => {
+    expect(isSpecTranslationData({ objects: { crm_lead: { label: '线索' } } })).toBe(true);
+    // The shape that was recognised before still is.
     expect(
       isSpecTranslationData({
         objects: { account: { label: 'Account', fields: {} } },
       }),
     ).toBe(true);
+  });
+
+  it('recognises a bundle by any spec group it carries, alone', () => {
+    // The groups the card names. The full list is pinned against the spec's
+    // own key list beside the console's loader, which depends on the spec.
+    expect(isSpecTranslationData({ apps: { crm: { label: '客户关系' } } })).toBe(true);
+    expect(isSpecTranslationData({ dashboards: { overview: { label: '概览' } } })).toBe(true);
+    expect(isSpecTranslationData({ pages: { home: { label: '首页' } } })).toBe(true);
+    expect(
+      isSpecTranslationData({
+        flows: { lead_conversion: { screens: { screen_1: { title: '转化详情' } } } },
+      }),
+    ).toBe(true);
+  });
+
+  describe('an already-namespaced i18next tree stays on the as-is branch', () => {
+    it('an app namespace, a built-in namespace, and the envelope-less error body', () => {
+      expect(
+        isSpecTranslationData({
+          crm: {
+            objects: { crm_lead: { label: '线索' } },
+            fields: { crm_lead: { name: '名称' } },
+          },
+        }),
+      ).toBe(false);
+      expect(isSpecTranslationData({ common: { save: '保存' } })).toBe(false);
+      expect(isSpecTranslationData({ success: true, data: {} })).toBe(false);
+    });
+
+    it("the transform's own output — so a loaded payload is never wrapped twice", () => {
+      const once = transformSpecTranslations({ objects: { crm_lead: { label: '线索' } } });
+      expect(isSpecTranslationData(once)).toBe(false);
+    });
+
+    it('a group-named key whose value is not an object', () => {
+      expect(isSpecTranslationData({ apps: 'Applications' })).toBe(false);
+      expect(isSpecTranslationData({ flows: ['lead_conversion'] })).toBe(false);
+      expect(isSpecTranslationData({ pages: null })).toBe(false);
+    });
+
+    it('no built-in pack namespace is spelled like a spec group', () => {
+      // A flat payload may override built-in strings (`{ common: { save } }`);
+      // it reaches the as-is branch only while no pack namespace collides with
+      // a spec group. Read off the packs, so a namespace added later is judged.
+      const namespaces = new Set(
+        Object.values(builtInLocales).flatMap((pack) => Object.keys(pack)),
+      );
+      expect(namespaces.has('common')).toBe(true);
+      for (const ns of namespaces) {
+        expect(isSpecTranslationData({ [ns]: { key: 'value' } }), ns).toBe(false);
+      }
+    });
   });
 });
 
@@ -128,5 +178,16 @@ describe('transformSpecTranslations', () => {
   it('omits empty top-level collections', () => {
     const out = transformSpecTranslations({ objects: {} });
     expect(out).toEqual({ app: {} });
+  });
+
+  it('namespaces an object-label-only bundle under `app` (objectui#10235)', () => {
+    expect(transformSpecTranslations({ objects: { crm_lead: { label: '线索' } } })).toEqual({
+      app: { objects: { crm_lead: { label: '线索' } } },
+    });
+  });
+
+  it('namespaces a flows-only bundle under `app`, verbatim (objectui#10235)', () => {
+    const flows = { lead_conversion: { screens: { screen_1: { title: '转化详情' } } } };
+    expect(transformSpecTranslations({ flows })).toEqual({ app: { flows } });
   });
 });

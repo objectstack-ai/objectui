@@ -2917,6 +2917,31 @@ const fr = {
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "Posez une question sur vos données…",
+      ask: "Demander",
+      results: "Résultats",
+      match: "Correspondance : {{percent}}",
+      simulatedSummary: "Résultats pour : {{query}}",
+      noResults: "Aucun enregistrement correspondant",
+      recentQueries: "Requêtes récentes",
+    },
+    formAssist: {
+      title: "Suggestions de l’IA",
+      suggestionCount: "{{count}} suggestions",
+      suggestionCountOne: "{{count}} suggestion",
+      applyAll: "Tout appliquer",
+      confidence: "Confiance : {{percent}}",
+      appliedCount: "{{count}} suggestions appliquées",
+      appliedCountOne: "{{count}} suggestion appliquée",
+    },
+    recommendations: {
+      title: "Recommandations",
+      generating: "Génération des recommandations…",
+      empty: "Aucune recommandation disponible",
+    },
+  },
   aiApprovals: {
     title: "Approbations IA",
     description: "Actions proposées par un agent IA qui nécessitent une validation humaine avant exécution.",

@@ -10,6 +10,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@object-ui/components';
 import type { AIRecommendationsSchema, AIRecommendationItem } from '@object-ui/types';
 import { Sparkles, Star, ExternalLink, X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useDisplayLocale } from '@object-ui/i18n';
+import { useAiTranslation, formatPercent } from './useAiTranslation';
 
 export interface AIRecommendationsProps {
   schema: AIRecommendationsSchema;
@@ -37,12 +39,14 @@ export interface AIRecommendationsProps {
  * pinned by `AIRecommendations.rendersEveryItem-8178.test.tsx`.
  */
 export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ schema, onSelect, onDismiss }) => {
+  const { t } = useAiTranslation();
+  const displayLocale = useDisplayLocale();
   const {
     recommendations = [],
     showScores = false,
     layout = 'list',
     loading = false,
-    emptyMessage = 'No recommendations available',
+    emptyMessage = t('ai.recommendations.empty'),
   } = schema;
 
   const handleSelect = (item: AIRecommendationItem) => {
@@ -58,7 +62,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ schema, on
       <Card>
         <CardContent className="p-8 text-center">
           <Sparkles className="h-8 w-8 text-blue-500 mx-auto mb-3 animate-pulse" />
-          <p className="text-sm text-muted-foreground">Generating recommendations...</p>
+          <p className="text-sm text-muted-foreground">{t('ai.recommendations.generating')}</p>
         </CardContent>
       </Card>
     );
@@ -76,9 +80,8 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ schema, on
 
   const renderScoreBadge = (score: number) => {
     if (!showScores) return null;
-    const percent = Math.round(score * 100);
     const variant = score >= 0.7 ? 'default' : score >= 0.4 ? 'secondary' : 'outline';
-    return <Badge variant={variant} className="text-xs">{percent}%</Badge>;
+    return <Badge variant={variant} className="text-xs">{formatPercent(score, displayLocale)}</Badge>;
   };
 
   const renderListItem = (item: AIRecommendationItem) => (
@@ -155,7 +158,7 @@ export const AIRecommendations: React.FC<AIRecommendationsProps> = ({ schema, on
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           <Sparkles className="h-4 w-4 text-blue-500" />
-          Recommendations
+          {t('ai.recommendations.title')}
           <Badge variant="secondary" className="text-xs">{recommendations.length}</Badge>
         </CardTitle>
       </CardHeader>

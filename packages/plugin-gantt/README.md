@@ -255,6 +255,11 @@ ceiling is applied to the **filtered** set, never to the raw one. Before
 objectui#8769 the inline provider skipped that query and drew every authored
 row with an authored `filter` silently dropped.
 
+The same holds for the full-text pair: `search` is sent as `$search`, and
+`searchableFields` as `$searchFields` alongside it (never without a term). A
+list view's toolbar Search box writes both onto its gantt node — the chart runs
+its own query, so the node is the only way the term reaches it.
+
 **2. How the fields map — `getGanttConfig`.** Two spellings, checked in order.
 The **`gantt` block wins whenever it is present**, and it is taken WHOLE — the
 flat top-level keys are not merged into it. The flat spelling is read only when

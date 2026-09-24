@@ -580,11 +580,11 @@ function expandViewIssues(
  *
  * The switch was then put to the maintainer on objectui#7612, with the met
  * condition measured on that card and a finished implementation beside it
- * (PR objectui#10054). The maintainer ruled option A on 2026-09-20, verbatim
- * 「7612 只需要服务端校验」 ("7612 needs server-side validation only"): the edit
- * door stays ungated, because the server is authoritative on it and that is
- * enough. The PR closed unmerged. The create door was not in question and keeps
- * its client gate.
+ * (PR objectui#10054). The maintainer ruled option A on 2026-09-20 (restated on
+ * objectui#10150), verbatim 「7612 只需要服务端校验」 ("7612 needs server-side
+ * validation only"): the edit door stays ungated, because the server is
+ * authoritative on it and that is enough. The PR closed unmerged. The create
+ * door was not in question and keeps its client gate.
  *
  * ⇒ A closed ingress is NOT a reason to take `sharing_rule` out of this set:
  * that question was asked with the condition already met, and answered. Only a

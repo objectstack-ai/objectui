@@ -22,7 +22,7 @@ import { SchemaRendererContext } from "@object-ui/react"
 // argued with: `@object-ui/fields` DEPENDS on this package, so importing it
 // here is a cycle. `core` re-homes the table and `fields` re-exports it, so
 // both spellings resolve to the SAME function and the SAME dedupe set.
-import { isRetiredFieldType, reportRetiredFieldType } from "@object-ui/core"
+import { isRealCalendarDate, isRetiredFieldType, reportRetiredFieldType } from "@object-ui/core"
 import { createSafeTranslation } from "@object-ui/i18n"
 
 import { cn } from "../lib/utils"
@@ -540,26 +540,15 @@ const FILTER_INPUT_TYPE_BY_FAMILY: Readonly<Record<FilterValueFamily, string>> =
   boolean: "text",
 }
 
-/** `YYYY-MM-DD`, the form `<input type="date">` both renders and emits. */
-const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 /** `YYYY-MM-DDTHH:mm[:ss[.sss]]` with NO zone — what `datetime-local` emits. */
 const LOCAL_DATE_TIME_PATTERN =
   /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?$/
 /** `HH:mm[:ss]`, the form `<input type="time">` both renders and emits. */
 const CLOCK_TIME_PATTERN = /^(\d{2}):(\d{2})(?::(\d{2}))?$/
 
-/** A date that exists — the pattern alone would accept `2024-02-31`. */
-function isRealCalendarDate(dateOnly: string): boolean {
-  const match = DATE_ONLY_PATTERN.exec(dateOnly)
-  if (!match) return false
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
-  const probe = new Date(Date.UTC(year, month - 1, day))
-  return (
-    probe.getUTCFullYear() === year &&
-    probe.getUTCMonth() === month - 1 &&
-    probe.getUTCDate() === day
-  )
-}
+// "A date that exists" is `isRealCalendarDate`, imported from
+// `@object-ui/core`: it moved there so the shared date DISPLAY path refuses
+// the same nonexistent day this authoring boundary refuses (objectui#10026).
 
 /** A clock reading that exists — the pattern alone would accept `29:71`. */
 function isRealClockTime(hours: string, minutes: string, seconds?: string): boolean {

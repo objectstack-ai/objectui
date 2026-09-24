@@ -158,15 +158,33 @@ describe('formatMeasure leaves every non-date value exactly where it was (object
     }
   });
 
-  it('agrees with the list cell on a rolled-over date instead of second-guessing it', () => {
-    // `Date.parse('2024-02-30')` is NOT NaN — V8 rolls it to March 1/2. Every
-    // date surface in the repo builds its `Date` the same way, so this renders
-    // as the same day a list cell shows for the same stored string. Pinned
-    // because it is the one place agreement looks like a bug.
-    const rolled = '2024-02-30';
-    expect(Number.isNaN(Date.parse(rolled))).toBe(false);
-    expect(formatMeasure(rolled, undefined, undefined, undefined, EN)).toBe(
-      formatDate(rolled, undefined, { locale: EN }),
+  it('agrees with the list cell on an impossible calendar day — on the refusal', () => {
+    // Rewritten, not deleted, by objectui#10026. This case used to be named
+    // "agrees with the list cell on a rolled-over date instead of
+    // second-guessing it", and it pinned the list cell and the measure
+    // agreeing on a ROLL: `2024-02-30` rendered as March 1st in both. It was
+    // pinned "because it is the one place agreement looks like a bug", and
+    // the maintainer's ruling on #10026 kept exactly that half — AGREEMENT —
+    // while moving what they agree on. The shared date path now refuses a
+    // day its month does not have, with the dash it renders for any
+    // unparsable value, and the measure renders that same dash.
+    //
+    // Why the measure must NOT refuse on its own: its guard still lets this
+    // value through, because `Date.parse` accepts it (asserted first, so a
+    // runtime that ever starts rejecting it reds here rather than turning the
+    // rest into a statement about nothing). Were the measure to refuse by
+    // itself — falling through to `String(v)`, as it does for `2026-13-45`
+    // above — it would print `2024-02-30` beside a list cell's dash: the
+    // objectui#4576 split this pin exists to prevent. One judgement, made in
+    // the shared path; the measure inherits it.
+    const impossible = '2024-02-30';
+    expect(Number.isNaN(Date.parse(impossible))).toBe(false);
+    const listCell = formatDate(impossible, undefined, { locale: EN });
+    expect(listCell).toBe(formatDate('not-a-date', undefined, { locale: EN }));
+    expect(formatMeasure(impossible, undefined, undefined, undefined, EN)).toBe(listCell);
+    // The pair still agrees under a `format` style, which the date arm threads.
+    expect(formatMeasure(impossible, 'short', undefined, undefined, EN)).toBe(
+      formatDate(impossible, 'short', { locale: EN }),
     );
   });
 });

@@ -3,8 +3,8 @@
  * Copyright (c) 2024-present ObjectStack Inc.
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useRecordSearch } from '../useRecordSearch';
 
 // FIXTURE TRIAGE (objectui#6557): `account` used to carry `titleField: 'name'`.
@@ -567,5 +567,97 @@ describe('candidate signature (objectui#6557)', () => {
     await waitFor(() => {
       expect(ds.find).toHaveBeenCalledWith('lead', expect.objectContaining({ $search: 'acme' }));
     });
+  });
+});
+
+/**
+ * `getDisplayName` is a published, caller-supplied option (objectui#10044). It
+ * is read INSIDE a run — to label hits — and never decides WHETHER a run
+ * happens, so its identity must not key the search effect (AGENTS.md §5
+ * commandment #10). The obvious spelling for an optional callback is an inline
+ * arrow, which is a new function on every render; keyed on it, the effect's
+ * cleanup cleared the pending debounce timer on each render.
+ *
+ * Every case here FORCES a fresh resolver identity on each render: a
+ * module-level function (the only spelling the in-repo callers use) has a
+ * stable identity and passes identically on defect and fix.
+ */
+describe('caller-supplied getDisplayName identity (objectui#10044)', () => {
+  const debounceMs = 100;
+
+  function setup() {
+    const ds = makeDataSource({ account: [{ id: 'a1', name: 'Acme Corp' }] });
+    const view = renderHook(
+      ({ query, label }: { query: string; label: string }) =>
+        useRecordSearch({
+          query,
+          objects,
+          dataSource: ds,
+          debounceMs,
+          objectNames: ['account'],
+          // Inline on purpose: a new function identity on every render.
+          getDisplayName: (_obj: any, record: any) => `${label}:${record.name}`,
+        }),
+      { initialProps: { query: 'acme', label: 'v1' } },
+    );
+    return { ds, ...view };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('re-renders faster than debounceMs still search once the debounce elapses', async () => {
+    vi.useFakeTimers();
+    const { ds, rerender } = setup();
+
+    // 10 renders, 40ms apart: 400ms of continuous re-rendering, four times the
+    // debounce window, with nothing but the resolver identity changing.
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(40);
+      });
+      rerender({ query: 'acme', label: 'v1' });
+    }
+
+    expect(ds.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('a sparse re-render issues no second identical request', async () => {
+    vi.useFakeTimers();
+    const { ds, rerender, result } = setup();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(debounceMs + 10);
+    });
+    expect(ds.find).toHaveBeenCalledTimes(1);
+    expect(result.current.results.map((h) => h.display)).toEqual(['v1:Acme Corp']);
+
+    rerender({ query: 'acme', label: 'v1' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(debounceMs * 3);
+    });
+
+    expect(ds.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: the next run labels hits with the latest resolver', async () => {
+    vi.useFakeTimers();
+    const { ds, rerender, result } = setup();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(debounceMs + 10);
+    });
+    expect(result.current.results.map((h) => h.display)).toEqual(['v1:Acme Corp']);
+
+    // A resolver swap plus a real input change: the run the query change
+    // triggers must read the resolver of the render that armed it.
+    rerender({ query: 'acme corp', label: 'v2' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(debounceMs + 10);
+    });
+
+    expect(ds.find).toHaveBeenCalledTimes(2);
+    expect(result.current.results.map((h) => h.display)).toEqual(['v2:Acme Corp']);
   });
 });

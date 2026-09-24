@@ -42,7 +42,7 @@ import {
   filterSystemFields,
   inferColumns,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
@@ -1530,28 +1530,19 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const label = section.name
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
-      const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
       // `collapsed` IMPLIES `collapsible` (objectui#9780, maintainer ruling
-      // 2026-09-18, letter A). The state read above is unconditional, while
-      // the disclosure control below used to be installed only for
-      // `collapsible` — so `collapsed: true` written ALONE (two independent
-      // members, both accepted by every declaration face) produced a section
-      // that starts closed, keeps its fields out of the DOM, and offers
-      // nothing on the page that can bring them back, with no error, warning
-      // or degradation. "Collapsed by default" is an everyday intent and
-      // `collapsed: true` is its most natural spelling, which is why the
-      // ruling made that spelling correct: refusing the combination at the
-      // declaration (letter B) and a dev-only warning (letter C) were both
-      // REFUSED — nobody can depend on a section that cannot be opened, so
-      // widening the behaviour has no loser.
-      //
-      // Read from the DECLARATION, never from `isCollapsed`: the latter is
-      // the live state, so deriving the control from it would delete the
-      // control the moment the user opened the section. `collapsible: false`
-      // together with `collapsed: true` is the same contradiction and the
-      // ruling resolves it the same way — collapsed wins, the toggle is
-      // present. A section that declares neither member is untouched.
-      const isCollapsible = Boolean(section.collapsible) || Boolean(section.collapsed);
+      // 2026-09-18, letter A), read from the DECLARATION and never from the
+      // live state — through `resolveSectionCollapse`, the ONE resolution the
+      // drawer's two pushes now call as well (objectui#9849 step one), so no
+      // arm can answer the same two keys differently again. This arm hosts
+      // the control on its heading row only (its blurb-only row carries no
+      // collapse pair, objectui#9835 letter B), so an untitled bucket is never
+      // collapsible and never loses its fields.
+      const collapse = resolveSectionCollapse(section, {
+        live: collapsedSections[sectionKey],
+        hostsControl: Boolean(label),
+        setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+      });
 
       // The ONE path from a section configuration to its divider row
       // (objectui#9849, triage ruling 「让 section 配置到 divider 的投影只有一条
@@ -1574,11 +1565,8 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // `SectionDividerGate` is the residual this card hands back, ⛔ not
       // something decided here.
       //
-      // The collapse pair is resolved ABOVE (objectui#9780: `collapsed`
-      // implies `collapsible`, read from the DECLARATION and never from the
-      // live `isCollapsed`) and handed over resolved — `DrawerForm` resolves
-      // the same two keys two other ways, and picking a winner is the fenced
-      // decision.
+      // The collapse pair is resolved ABOVE by `resolveSectionCollapse` and
+      // handed over resolved.
       groupedFields.push(
         ...projectSectionDivider(
           {
@@ -1590,13 +1578,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
             // `section.fields` entries can be spec field-defs, and a
             // perms-filtered field is not in the form at all.
             members: sectionFields.map(f => f.name),
-            collapse: {
-              collapsible: isCollapsible,
-              collapsed: isCollapsed,
-              onToggle: isCollapsible
-                ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                : undefined,
-            },
+            collapse,
           },
           'headingOrBlurb',
         ),
@@ -1608,8 +1590,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const laid = formColumns > 1 ? applyAutoColSpan(sectionFields, formColumns, secCols) : sectionFields;
 
       // Collapsed groups keep their fields registered (values preserved) but
-      // hidden from the DOM. An untitled bucket is never collapsible.
-      if (label && isCollapsed) {
+      // hidden from the DOM. An untitled bucket is never collapsible, so it is
+      // never collapsed either — `resolveSectionCollapse` answers both.
+      if (collapse.collapsed) {
         groupedFields.push(...laid.map(f => ({ ...f, hidden: true })));
       } else {
         groupedFields.push(...laid);

@@ -58,6 +58,9 @@ import {
   pivotDimensionValue,
   pivotCellKey,
   compareToTrendLabelKey,
+  // Which chart families ignore `compareTo` — ONE declaration, read by the
+  // inline chart path too (objectui#7495). See `compareTo` below.
+  chartTypeIgnoresCompareTo,
   // The authored half of the same split — moved to core beside `buildChartSeries`
   // so this widget and the report's embedded chart lower one vocabulary once
   // (objectui#4877). Re-exported below under their original names.
@@ -433,6 +436,14 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
+  const widgetType = String(widget?.type ?? '');
+  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
+  const isTable = widgetType === 'table' || widgetType === 'pivot';
+  // The chart family a widget that reaches the chart branch below renders as —
+  // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
+  // when neither `isMetric` nor `isTable` holds; resolved up here because the
+  // query needs it (see `compareTo` just below), not only the chart branch.
+  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
   // `widget.compareTo` IS the executor's contract since objectstack#5011 —
   // `{ kind, dimension? }`, the same `DatasetCompareTo` the selection carries —
   // so it forwards unchanged. It used to be a three-branch union whose two
@@ -442,10 +453,20 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // left in stored metadata is now INVALID metadata, rejected where it is
   // authored/published — not laundered here into a different query
   // (AGENTS.md #0.1).
-  const compareTo: CompareToConfig | undefined = widget?.compareTo;
-  const widgetType = String(widget?.type ?? '');
-  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
-  const isTable = widgetType === 'table' || widgetType === 'pivot';
+  //
+  // ⭐ Except on a CHART of a family that ignores `compareTo` (pie / donut /
+  // funnel / scatter, and the `bubble` / `pyramid` widget types that render as
+  // one) — `chartTypeIgnoresCompareTo`, the one declaration the inline chart
+  // path reads too (objectui#7495). There the widget asks the executor for NO
+  // comparison: no `compareTo` in the selection, no window lowered into
+  // `timeDimensions`, so the comparison pass never runs and no overlay series is
+  // appended. Before this, the dashboard carried its own narrower copy of the
+  // list (scatter only), so a compare-to pie ran a comparison query whose
+  // overlay the renderer then dropped. Gated on the CHART branch, not on the
+  // widget type: a pie widget with no dimensions renders as a metric tile
+  // (`isMetric`), which does show the comparison as a delta, so it keeps it.
+  const compareTo: CompareToConfig | undefined =
+    !isMetric && !isTable && chartTypeIgnoresCompareTo(chartType) ? undefined : widget?.compareTo;
   // pivot with ≥2 dims → a true cross-tab: last dim spreads across as columns,
   // the rest go down as rows. Computed up-front so the fetch can also request
   // the matching subtotal groupings.
@@ -1500,9 +1521,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   }
 
   // Chart — route to the advanced renderer with the widget's TRUE chart family
-  // and one series per measure. Series carry the measure display label so the
-  // legend reads "Tasks" rather than "task_count".
-  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
+  // (`chartType`, resolved at the top because the query reads it too) and one
+  // series per measure. Series carry the measure display label so the legend
+  // reads "Tasks" rather than "task_count".
   // Resolve select/enum dimension values → display labels before charting, so a
   // value-keyed group (e.g. status=`active`) shows its label (`合作中`) on the
   // axis with its count intact (cloud#667). `chartRows` stays index-aligned with
@@ -1544,22 +1565,12 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // series a comparison could pair with (the `__compare` columns are still in
   // the rows — nothing is lost, it just isn't drawn as an overlay).
   //
-  // Skipped, too, for a chart family that IGNORES `compareTo` — today just
-  // `scatter`, which both the `scatter` and `bubble` widget types map to
-  // (CHART_TYPE_MAP above). A scatter binds ONE measure to its y axis, so the
-  // overlay was drawn through the PRIMARY's `YAxis dataKey` and painted
-  // "previous period" exactly on top of "current" (objectui#7402). It returns
-  // with the multi-measure projection declined as option A of objectui#7194.
-  // The sibling declaration for the inline chart path is `supportsCompareTo`
-  // in `@object-ui/plugin-charts`' ObjectChart; this is a second, deliberately
-  // narrow copy because plugin-charts is a devDependency here, not a runtime
-  // one. ⚠️ That list also excludes pie / donut / funnel and this one does
-  // not — a divergence older than this line, filed as objectui#7495 (the
-  // renderer drops the extra series for those families, so nothing is
-  // mis-drawn; the comparison query still runs).
-  const chartIgnoresCompareTo = chartType === 'scatter';
+  // A chart family that IGNORES `compareTo` (pie / donut / funnel / scatter)
+  // needs no guard here: `compareTo` is already `undefined` for it (see its
+  // definition at the top), so no comparison was queried and `comparedValues`
+  // is empty (objectui#7495, objectui#7402).
   const pivotedSeries = dimensions.length >= 2 && values.length === 1;
-  const comparisonSeries = pivotedSeries || chartIgnoresCompareTo
+  const comparisonSeries = pivotedSeries
     ? []
     : comparedValues.map((m) => {
         // An overlay is the SAME measure one period back, so it takes its

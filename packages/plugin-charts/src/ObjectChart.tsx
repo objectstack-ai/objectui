@@ -3,7 +3,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -572,24 +572,6 @@ export const ObjectChart = (props: ObjectChartProps) => {
     [schema.dataset, schema.dimensions, schema.values],
   );
 
-  // Chart families that IGNORE `compareTo`: the comparison fetch is skipped
-  // entirely, so no `<valueKey>__comparison` column is produced and no overlay
-  // series is ever synthesised.
-  //
-  //  - pie / donut / funnel — single-distribution charts where a comparison
-  //    overlay would be meaningless.
-  //  - scatter (objectui#7402) — a scatter binds ONE measure: the renderer
-  //    reads y through the single `YAxis dataKey={series[0].dataKey}`, so the
-  //    synthesised overlay was painted on the PRIMARY's y and "previous
-  //    period" landed exactly on top of "current". Drawing it honestly needs
-  //    the multi-measure projection declined as option A of objectui#7194;
-  //    `compareTo` on a scatter returns WITH that projection. Until then the
-  //    published capability is removed rather than left drawing a wrong
-  //    picture — and because the overlay is never synthesised, a compare-to
-  //    document never reaches #7194's two-or-more-series scatter refusal.
-  const supportsCompareTo = (ct?: string) =>
-    ct !== 'pie' && ct !== 'donut' && ct !== 'funnel' && ct !== 'scatter';
-
   // Resolve the category dimension's option colors (P3). Best-effort: any
   // failure leaves categoryColors null and the chart keeps the theme palette.
   //
@@ -812,7 +794,15 @@ export const ObjectChart = (props: ObjectChartProps) => {
           // read where the shift is computed — `shiftFilterByCompareTo` — so
           // this file has no second copy of the branch table to drift from it.
           const compareTo: CompareToConfig | undefined = schema.compareTo;
-          const wantsComparison = !!compareTo && supportsCompareTo(schema.chartType);
+          // A chart family that IGNORES `compareTo` (pie / donut / funnel /
+          // scatter) skips the comparison fetch entirely, so no
+          // `<valueKey>__comparison` column is produced and no overlay series is
+          // ever synthesised — which also keeps a compare-to scatter clear of
+          // #7194's two-or-more-series scatter refusal. WHICH families is
+          // `chartTypeIgnoresCompareTo` in `@object-ui/core`'s chart-presentation:
+          // the one declaration the dashboard's DatasetWidget reads too
+          // (objectui#7495). This file keeps no list of its own.
+          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(schema.chartType);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
           // against a shifted `now`. It only understands the date vocabulary,
@@ -1109,7 +1099,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   const comparisonKey = valueKey ? `${valueKey}${COMPARISON_SUFFIX}` : undefined;
   const enableComparisonSeries =
     !!compareToConfig &&
-    supportsCompareTo(schema.chartType) &&
+    !chartTypeIgnoresCompareTo(schema.chartType) &&
     !!comparisonKey &&
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 

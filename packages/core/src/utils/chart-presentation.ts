@@ -440,3 +440,48 @@ export function chartConfigPresentation(
 
   return out;
 }
+
+/** The families {@link chartTypeIgnoresCompareTo} answers `true` for. */
+const CHART_TYPES_IGNORING_COMPARE_TO: ReadonlySet<string> = new Set(['pie', 'donut', 'funnel', 'scatter']);
+
+/**
+ * Whether a chart of this family IGNORES `compareTo` — the one declaration of
+ * that rule (objectui#7495).
+ *
+ * Every surface that turns a `compareTo` into a comparison reads this; none
+ * keeps a list of its own. The inline chart path (`@object-ui/plugin-charts`'
+ * ObjectChart) skips the comparison fetch and synthesises no overlay series for
+ * these families, and the dataset widget path (`@object-ui/plugin-dashboard`'s
+ * DatasetWidget) forwards no `compareTo` to the executor for a chart of one of
+ * them, so the comparison pass never runs and no overlay series is appended.
+ *
+ *  - `pie` / `donut` / `funnel` — single-distribution charts: a comparison
+ *    overlay has no meaning on them, and the renderer's pie and funnel arms
+ *    draw only `series[0]`.
+ *  - `scatter` (objectui#7402) — a scatter binds ONE measure: the renderer reads
+ *    y through the single `YAxis dataKey={series[0].dataKey}`, so an overlay was
+ *    painted on the PRIMARY's y and "previous period" landed exactly on top of
+ *    "current". Drawing it honestly needs the multi-measure projection declined
+ *    as option A of objectui#7194; `compareTo` on a scatter returns WITH that
+ *    projection.
+ *
+ * It reads the RENDERER's chart family (`bar`, `pie`, `scatter`, …), not a
+ * dashboard widget type: a caller whose widget types alias a family (the
+ * dashboard maps `bubble` to `scatter` and `pyramid` to `funnel`) maps first and
+ * asks about the family. An absent or unrecognised family does NOT ignore
+ * `compareTo` — the comparison runs.
+ *
+ * Why it lives here: the dashboard reaches `@object-ui/plugin-charts` only as a
+ * devDependency, so this package — a runtime dependency of both — is the one
+ * place both paths can read. Two copies were how the lists drifted apart: the
+ * dashboard's said "scatter only" while the charts package said all four, so a
+ * compare-to pie widget ran a comparison query whose overlay the renderer then
+ * dropped (objectui#7495; objectui#4389 is the precedent that a second copy of
+ * chart-presentation logic is a defect).
+ *
+ * @param chartType the chart family, or `undefined` when none is declared
+ * @returns `true` for `pie`, `donut`, `funnel` and `scatter`; `false` otherwise
+ */
+export function chartTypeIgnoresCompareTo(chartType: string | undefined): boolean {
+  return typeof chartType === 'string' && CHART_TYPES_IGNORING_COMPARE_TO.has(chartType);
+}

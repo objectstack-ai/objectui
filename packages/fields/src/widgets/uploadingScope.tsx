@@ -25,6 +25,25 @@ import * as React from 'react';
  * A widget reports nothing extra and knows nothing about the scope, and a host
  * that mounts no provider (every host on `main` today) is unaffected — the
  * context read answers `null` and the reporting hook is inert.
+ *
+ * ## The one thing a mount-bound report cannot see (objectui#10180)
+ *
+ * A widget's in-flight state is React state, so it ends when the widget
+ * unmounts — and an upload does not. `FileField` does not abort its upload
+ * when it unmounts; the promise settles later and hands the value to the
+ * `onChange` it captured, which the form still accepts. So "the widget
+ * unmounted" is not "the upload ended". A wizard step the user leaves is the
+ * everyday case: leaving the step drops the widget's report, the wizard's final
+ * gate reads `false` while the upload is still running, and a Create pressed in
+ * that window writes the record WITHOUT the attachment and reports success.
+ *
+ * The in-repo upload widgets therefore also hold the scope for the lifetime of
+ * the upload ITSELF, through {@link useUploadingScopeHold}: taken when the
+ * upload starts, released when its promise settles, whether or not the widget
+ * is still mounted by then. While the widget is mounted the two entries start
+ * and stop together, so they cannot disagree; after it unmounts the hold is the
+ * only entry left, and it is the true one. The hold is internal to this package
+ * — it is not exported from the package entry.
  */
 
 /**
@@ -158,6 +177,11 @@ export function UploadingScopeProvider({
  * ever clear it, and the form's Save would stay disabled for the rest of the
  * session. That failure mode is worse than the defect this scope fixes,
  * because it has no user-visible cause at all.
+ *
+ * This report covers the widget's MOUNTED lifetime only. The upload's own
+ * lifetime, which can outlast the widget, is covered by
+ * {@link useUploadingScopeHold} — that is what keeps the release above from
+ * also releasing an upload that is still running (objectui#10180).
  */
 export function useUploadingScopeReport(uploading: boolean): void {
   const sink = React.useContext(UploadingScopeSinkContext);
@@ -178,4 +202,62 @@ export function useUploadingScopeReport(uploading: boolean): void {
     },
     [id],
   );
+}
+
+/** Ids of upload holds; distinct from `useId` output, which is `:r…:`-shaped. */
+let holdSequence = 0;
+
+const releaseNothing = (): void => {};
+
+/**
+ * Hold the enclosing scope "uploading" for the lifetime of ONE upload
+ * (objectui#10180). The returned `hold()` is called when an upload starts and
+ * answers that upload's `release()`, to be called once its promise settles —
+ * in a `finally`, so a failed upload releases too.
+ *
+ * ## Why this is separate from the mount-bound report
+ *
+ * {@link useUploadingScopeReport} has to release on unmount (see there), and
+ * an upload keeps running after the widget that started it has unmounted —
+ * `FileField` does not abort it, and its settle still reaches the form's
+ * `onChange`. Leaving a wizard step mid-upload is exactly that: the step's
+ * widgets unmount, their reports are released, and without this hold the
+ * wizard's final gate read `false` while the file was still on its way, so a
+ * Create pressed in that window wrote the record without it.
+ *
+ * ## Why this cannot wedge the form
+ *
+ * The entry is released by the upload's own settle, not by a render, so it is
+ * cleared exactly when the upload ends, mounted widget or not. It can stay
+ * held only as long as the upload itself stays unsettled — the same bound a
+ * mounted widget's report already has — and while it is held the host shows
+ * the reason it gives for any upload in flight.
+ *
+ * The sink is captured when the upload STARTS: the scope the user picked the
+ * file under is the one whose save the file belongs to. A release that reaches
+ * a scope whose host has since unmounted is a no-op, and that host already
+ * released itself from any scope above it on the way out.
+ *
+ * Inert without a provider, like the report. Not exported from the package
+ * entry: it is how this package's own upload widgets report, not a contract.
+ */
+export function useUploadingScopeHold(): () => () => void {
+  const sink = React.useContext(UploadingScopeSinkContext);
+  const sinkRef = React.useRef(sink);
+  sinkRef.current = sink;
+  return React.useCallback(() => {
+    const target = sinkRef.current;
+    if (!target) return releaseNothing;
+    holdSequence += 1;
+    const id = `upload-hold:${holdSequence}`;
+    target.report(id, true);
+    let released = false;
+    return () => {
+      // Idempotent, so a caller that releases on two paths cannot report an
+      // unknown id's `false` twice — harmless today, but not worth relying on.
+      if (released) return;
+      released = true;
+      target.report(id, false);
+    };
+  }, []);
 }

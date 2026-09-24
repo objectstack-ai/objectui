@@ -2,9 +2,9 @@
 '@object-ui/plugin-form': minor
 ---
 
-`object-form`: one rule for section divider rows on every layout, and a section's own
-settings apply whether or not it has a heading (objectui#9849 step two, director ruling
-letter E).
+`object-form`: one rule for section divider rows on the default, modal and drawer layouts,
+and there a section's own settings apply whether or not it has a heading (objectui#9849 step
+two, director ruling letter E). The split, tabbed and wizard layouts are not changed.
 
 Before this change, the default, modal and drawer layouts gave four different answers for a
 section with no `label`. Some drew no row, some drew a row carrying only the blurb, and some
@@ -12,7 +12,7 @@ drew a full row. Whether the section's `visibleWhen` predicate and its `collapse
 `collapsible` pair were honoured depended on which of those answers the layout gave.
 There is now one rule:
 
-- A section's `visibleWhen` predicate gates its fields on every layout, heading or not. A
+- A section's `visibleWhen` predicate gates its fields on these three layouts, heading or not. A
   section with a `description` and no `label` on the default layout used to show its fields
   even when its predicate was false. That group is now hidden, like a titled one.
 - The divider row is drawn when the section has a `label` or a `description`. With a
@@ -27,5 +27,7 @@ There is now one rule:
   are never hidden without a control.
 - The modal layout now honours `collapsible` / `collapsed`, both for explicit `sections`
   (`ModalFormSectionConfig` gains the two members) and for sections derived from the
-  object's `fieldGroups`. Before, it ignored both and always drew every field. The `tabbed`
-  modal content layout draws tabs, which do not collapse, so it is unchanged.
+  object's `fieldGroups`. Before, it ignored both and always drew every field. A modal with
+  `contentLayout: 'tabbed'` and more than one explicit section draws tabs, which do not
+  collapse, so that case is unchanged; with a single section, or with sections derived from
+  `fieldGroups`, it renders stacked and honours the pair.

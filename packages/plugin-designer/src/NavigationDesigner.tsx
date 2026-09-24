@@ -17,6 +17,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import type { NavigationItem, NavigationItemType } from '@object-ui/types';
 import {
+  BookOpen,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -79,7 +80,16 @@ function createId(prefix: string): string {
   return `${prefix}_${Date.now()}_${ndCounter}`;
 }
 
-const NAV_TYPE_META: Record<NavigationItemType, { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
+// Keyed by the spec-derived union, so a nav type the spec adds stops this file
+// compiling until it has an entry -- keep it a `Record`, never `Partial` or
+// `Record<string, ...>`.
+//
+// `| 'doc'` is the published pin lagging the spec: objectstack#19789 added the
+// `doc` nav item, and the pinned `@objectstack/spec` predates it, so without
+// the extra key a `doc:` entry is an excess property against the pin while its
+// absence fails the compile against objectstack `main` (Spec Main Shape Gate).
+// Drop `| 'doc'` at the pin bump that ships `doc`; the entry itself stays.
+const NAV_TYPE_META: Record<NavigationItemType | 'doc', { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
   object: { labelKey: 'appDesigner.navTypeObject', color: 'bg-green-100 text-green-700', Icon: Database },
   dashboard: { labelKey: 'appDesigner.navTypeDashboard', color: 'bg-amber-100 text-amber-700', Icon: LayoutDashboard },
   page: { labelKey: 'appDesigner.navTypePage', color: 'bg-teal-100 text-teal-700', Icon: FileText },
@@ -89,6 +99,7 @@ const NAV_TYPE_META: Record<NavigationItemType, { labelKey: string; color: strin
   group: { labelKey: 'appDesigner.navTypeGroup', color: 'bg-purple-100 text-purple-700', Icon: FolderOpen },
   separator: { labelKey: 'appDesigner.navTypeSeparator', color: 'bg-gray-100 text-gray-600', Icon: Minus },
   action: { labelKey: 'appDesigner.navTypeAction', color: 'bg-orange-100 text-orange-700', Icon: MousePointerClick },
+  doc: { labelKey: 'appDesigner.navTypeDoc', color: 'bg-blue-100 text-blue-700', Icon: BookOpen },
 };
 
 const QUICK_ADD_TYPES: Array<{ type: NavigationItemType; labelKey: string }> = [

@@ -146,6 +146,7 @@ const pt = {
       acknowledge: 'Eu o salvei',
       copyAll: 'Copiar tudo',
     },
+    notAvailableHere: '"{{action}}" não está disponível na página atual.',
   },
   validation: {
     required: "{{field}} é obrigatório",

@@ -147,6 +147,7 @@ const ko = {
       acknowledge: '저장했습니다',
       copyAll: '모두 복사',
     },
+    notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",

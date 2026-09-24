@@ -171,6 +171,10 @@ const en = {
       acknowledge: 'I have saved this',
       copyAll: 'Copy all',
     },
+    // The refusal notice for an action whose `autoTrigger` its own declared
+    // `visible` gate outranks (objectui#4191) — the deep link or host asked
+    // for it, but the author hid it on this surface.
+    notAvailableHere: '"{{action}}" is not available on the current page.',
   },
   validation: {
     required: '{{field}} is required',

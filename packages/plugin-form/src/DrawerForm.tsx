@@ -352,9 +352,28 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   useEffect(() => {
     if (!objectSchema && dataSource) return;
 
+    // Ending the loading state here is only this effect's call when no record
+    // read is outstanding — the FIRST load as much as a swap (objectui#10190).
+    // This effect and the fetch effect above both key on `objectSchema`, so the
+    // commit that publishes the schema runs BOTH, fetch first: it enters the
+    // loading state and fires `findOne`, and an unconditional
+    // `setLoading(false)` here then won, painting an empty, EDITABLE form while
+    // the read was in flight — whose landing replaced whatever had been typed.
+    // A load the fetch effect started is ended by the fetch effect. The
+    // condition mirrors that effect's own branches: create mode, no
+    // `recordId`, or no `dataSource` never read a record.
+    const recordReadOutstanding =
+      schema.mode !== 'create' &&
+      !!schema.recordId &&
+      !!dataSource &&
+      loadedRecordIdRef.current !== schema.recordId;
+    const endLoading = () => {
+      if (!recordReadOutstanding) setLoading(false);
+    };
+
     if (schema.sections?.length) {
       // Fields are built per-section in the render
-      setLoading(false);
+      endLoading();
       return;
     }
 
@@ -379,7 +398,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         customFields: schema.customFields,
       }),
     );
-    setLoading(false);
+    endLoading();
   }, [objectSchema, schema.fields, schema.customFields, schema.sections, schema.readOnly, schema.mode, dataSource]);
 
   // Field-group fallback (object-designer metadata, objectui#4774): when the

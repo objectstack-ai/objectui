@@ -16,8 +16,9 @@
  * @packageDocumentation
  */
 
-import type { I18nLabel, PageType as SpecPageType } from '@objectstack/spec/ui';
+import type { I18nLabel, Page as SpecPage, PageType as SpecPageType } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
+import type { PAGE_SPEC_EXCLUDED } from './zod/layout.zod.js';
 import type { BreakpointName } from './mobile.js';
 
 /**
@@ -1284,6 +1285,35 @@ export interface PageNodeRegion {
  * Top-level container for a page route.
  * Aligned with @objectstack/spec PageSchema
  *
+ * ## The spec half is taken BY REFERENCE (objectui#9736)
+ *
+ * The zod mirror (`zod/layout.zod.ts` `PageNodeSchema`) is
+ * `BaseSchema.extend(SpecPageFields.shape).extend({…})`, so every key the
+ * spec's `PageSchema` declares reaches the published validator by reference.
+ * This interface used to restate only the members the renderers read, leaving
+ * the validator admitting keys the type never declared — the package-lock
+ * envelope (`_lock*` / `_package*` / `_provenance`, written by the packaging
+ * pipeline), `source`, `interfaceConfig`, `requires`. It now extends
+ * `Omit< Page, … >` over `PAGE_SPEC_EXCLUDED`, the one `as const` array the
+ * mirror's `specFieldsExcept` call also reads, so both faces project the same
+ * spec surface and move together on a pin bump.
+ *
+ * ONE key is omitted from the spec projection beyond the shared list, on the
+ * TypeScript face only:
+ *  - `slots` — the member below types each slot as objectui's `SchemaNode`
+ *    (which admits primitives and `null`), not the spec's page-component
+ *    shape, so it is not assignable to the spec's member and cannot sit beside
+ *    it. That divergence is already ledgered as `KnownDrift` and
+ *    `WiderThanDeclared` for this pair in `__tests__/zod-mirror-parity.test.ts`;
+ *    ⛔ not changed here. The mirror keeps validating the spec's `slots` — the
+ *    omission is type-side only, so it is spelled beside the shared list, not
+ *    inside it.
+ *
+ * The other members this interface writes itself (`icon`, `object`,
+ * `template`, `variables`, `isDefault`, `assignedProfiles`, `aria`, `kind`)
+ * are each assignable to the spec's, so they override it without an omission.
+ * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`.
+ *
  * This is the SDUI NODE, not the authored page DOCUMENT — the spec's `Page`
  * is that, and the two are deliberately different types (same layer split as
  * {@link PageNodeRegion}).
@@ -1293,7 +1323,7 @@ export interface PageNodeRegion {
  * `@object-ui/components` registers `PageRenderer` under, i.e. the wire key
  * authored metadata carries. Nothing else in the repo pins it.
  */
-export interface PageNodeSchema extends BaseSchema {
+export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots'> {
   type: 'page';
   /**
    * ⛔ REFUSED BY NAME — `actions` is not a member of this node and never was

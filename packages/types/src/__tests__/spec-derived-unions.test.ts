@@ -77,7 +77,7 @@ import type {
 import type { NavigationItem, NavigationItemType } from '../app';
 import type { FormField } from '../form';
 import type { BreakpointName } from '../mobile';
-import type { ExportJobStatus, ImportJobStatus, ImportWriteMode, ValidationError } from '../data';
+import type { ImportJobStatus, ImportWriteMode, ValidationError } from '../data';
 import {
   OBJECTUI_LOCAL_ACTION_TYPES,
   OBJECTUI_LOCAL_PARAM_FIELD_TYPES,
@@ -168,8 +168,7 @@ const _breakpointCovers = null as unknown as 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 
 const _importModeCovers = null as unknown as 'insert' | 'update' | 'upsert' satisfies ImportWriteMode;
 const _importStatusCovers = null as unknown as
   | 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' satisfies ImportJobStatus;
-const _exportStatusCovers = null as unknown as
-  | 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'expired' satisfies ExportJobStatus;
+// The export-job status row retired with its type (objectui#10247).
 const _validationErrorShape: ValidationError = { field: 'name', message: 'required' };
 // `JoinStrategy` / `WindowFunction` USED to be derived off the spec's zod enums
 // (objectstack#4115, "come off the spec enum, not a restatement"). Spec 17.0.0

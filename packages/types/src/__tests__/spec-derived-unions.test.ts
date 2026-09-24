@@ -365,7 +365,7 @@ const _specOutputStillDropsVisibleOn = false satisfies 'visibleOn' extends keyof
 void _chartCovers; void _reportCovers; void _actionCovers; void _pageCovers; void _vizCovers;
 void _runnableCovers; void _componentCovers; void _paramFieldCovers; void _resolvableCovers;
 void _fieldBackedParam; void _minimalTypedParam;
-void _breakpointCovers; void _importModeCovers; void _importStatusCovers; void _exportStatusCovers;
+void _breakpointCovers; void _importModeCovers; void _importStatusCovers;
 void _validationErrorShape;
 void _localNavIsNotYetTheSpecUnion; void _specNavVisibleStillRejectsBoolean;
 void _specNavStillHasNoPinned; void _specNavStillHasNoDefaultOpen;

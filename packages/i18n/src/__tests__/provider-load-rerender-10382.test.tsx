@@ -52,6 +52,8 @@ const ZH_CN_BUNDLE = {
 
 const FR_CA_BUNDLE = { app: { objects: { crm_lead: { label: 'Piste' } } } };
 
+const JA_BUNDLE = { app: { objects: { crm_lead: { label: 'リード' } } } };
+
 const LEAD = { name: 'crm_lead', label: 'Lead' };
 
 /** The provider context, as `useI18nContext` hands it over. */
@@ -200,19 +202,25 @@ describe('an app bundle that lands after mount (objectui#10382)', () => {
     await settle();
     const beforeSwitch = renders.label;
 
+    // A BUILT-IN target with its app bundle held: the switch writes the
+    // catalogue, then waits on the network before `changeLanguage`. A write
+    // that announced itself would re-render every reader in the OLD language
+    // during that wait; only `languageChanged` may re-render them. (A target
+    // with no catalogue writes once, in the same tick as `languageChanged`,
+    // and React batches the two — that sequence cannot tell them apart.)
     let switching: Promise<void> | undefined;
     await act(async () => {
-      switching = ctx.current!.changeLanguage('fr-CA');
+      switching = ctx.current!.changeLanguage('ja');
     });
-    await deliver('fr-CA', FR_CA_BUNDLE);
+    await deliver('ja', JA_BUNDLE);
     await act(async () => {
       await switching;
     });
     await settle();
 
-    expect(loadLanguage).toHaveBeenCalledWith('fr-CA');
-    expect(ctx.current!.language).toBe('fr-CA');
-    expect(screen.getByTestId('object').textContent).toBe('Piste');
+    expect(loadLanguage).toHaveBeenCalledWith('ja');
+    expect(ctx.current!.language).toBe('ja');
+    expect(screen.getByTestId('object').textContent).toBe('リード');
     expect(renders.label).toBe(beforeSwitch + 1);
   });
 

@@ -1397,6 +1397,7 @@ const pt = {
     navTypeSeparator: "Separador",
     navTypeAction: "Ação",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar ícone",
     navToggleVisible: "Alternar visibilidade",
     navHidden: "Oculto",

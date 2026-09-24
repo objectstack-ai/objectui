@@ -1398,6 +1398,7 @@ const de = {
     navTypeSeparator: "Trenner",
     navTypeAction: "Aktion",
     navTypeComponent: "Komponente",
+    navTypeDoc: "Dokument",
     navEditIcon: "Symbol bearbeiten",
     navToggleVisible: "Sichtbarkeit umschalten",
     navHidden: "Ausgeblendet",

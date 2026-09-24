@@ -1398,6 +1398,7 @@ const ja = {
     navTypeSeparator: "区切り",
     navTypeAction: "アクション",
     navTypeComponent: "コンポーネント",
+    navTypeDoc: "ドキュメント",
     navEditIcon: "アイコンを編集",
     navToggleVisible: "表示を切り替え",
     navHidden: "非表示",

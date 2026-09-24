@@ -1463,6 +1463,7 @@ const zh = {
     navTypeSeparator: '分隔线',
     navTypeAction: '操作',
     navTypeComponent: '组件',
+    navTypeDoc: '文档',
     navEditIcon: '编辑图标',
     navToggleVisible: '切换可见性',
     navHidden: '已隐藏',

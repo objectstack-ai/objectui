@@ -99,7 +99,7 @@ import { useRecordContext, useDiscussionContext } from '@object-ui/react';
 import type { FeedItem, RecordActivityComponentProps, RecordChatterComponentProps } from '@object-ui/types';
 import { RecordChatterPanel } from '../RecordChatterPanel';
 import type { FeedFilterMode } from '../RecordActivityTimeline';
-import { applyFeedConfig, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
+import { applyFeedConfig, describeRefusedFeedLimit, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
 import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
@@ -180,6 +180,15 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   // state, not the resulting size").
   const [extraPages, setExtraPages] = React.useState(0);
   const limit = normalizeLimit(feed?.limit);
+  // [objectui#10145] Same refusal, same channel as `record:activity`, named for
+  // the block that was authored (`record:chatter` or `record:discussion`).
+  const refusedLimitMessage = describeRefusedFeedLimit(
+    `${typeof schema.type === 'string' && schema.type ? schema.type : 'record:chatter'} feed`,
+    feed?.limit,
+  );
+  React.useEffect(() => {
+    if (refusedLimitMessage) console.warn(refusedLimitMessage);
+  }, [refusedLimitMessage]);
   const pageSize = limit * (extraPages + 1);
 
   // `filterMode` — the authored slice, normalized by the SAME function

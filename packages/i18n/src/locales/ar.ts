@@ -1405,6 +1405,7 @@ const ar = {
     navTypeSeparator: "فاصل",
     navTypeAction: "إجراء",
     navTypeComponent: "مكوّن",
+    navTypeDoc: "مستند",
     navEditIcon: "تعديل الأيقونة",
     navToggleVisible: "تبديل الرؤية",
     navHidden: "مخفي",

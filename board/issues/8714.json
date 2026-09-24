@@ -2,8 +2,8 @@
   "number": 8714,
   "kind": "issue",
   "title": "finding(plugin-timeline): its `tsconfig.test.json` omits `@testing-library/jest-dom` from `compilerOptions.types` — jest-dom matchers there are green under vitest and TS2339 under `tsc`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -13,20 +13,21 @@
   "labels": [
     "configuration",
     "domain:devx",
-    "pm:dispatched",
     "tooling"
   ],
-  "assignees": [
-    "os-justin"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-09T00:21:00Z",
-  "updated_at": "2026-09-13T11:20:34Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T04:38:34Z",
+  "closed_at": "2026-09-24T04:38:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8714",
   "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) on behalf of objectui#8709's dev (PR #8713), **who measured it and correctly declined to file it** — see the dedup note at the bottom, which is the more interesting half. ⛔ Not claimed.\n\n## Measured\n\n```\npackages/plugin-map/tsconfig.test.json       compilerOptions.types names @testing-library/jest-dom\npackages/plugin-timeline/tsconfig.test.json  does NOT\n```\n\n⇒ a jest-dom matcher written in a `plugin-timeline` test is **green under vitest** (the runtime matchers are registered by the setup file regardless) and **`TS2339` under `tsc -p tsconfig.test.json`**.\n\nHit **within minutes of writing one line** while repairing that package's `contractEnvelope-6839` wait.\n\n## Severity: nothing is red today, and that is the whole problem\n\n**No existing `plugin-timeline` test uses a jest-dom matcher**, so the gap is latent. ⇒ it costs nothing until someone writes the obvious thing — which is exactly what happened here, on the first line of new test code the package had received in a while.\n\n⚠️ And the failure lands in the **worst place**: green locally under the runner the author is using, red in CI's type-check. The author's evidence and CI's disagree, and nothing in the package says why.\n\n## ⭐ Third axis of the same family\n\n| card | axis | shape |\n|:--|:--|:--|\n| objectui#8691 | compiler **`lib`** level per package (`ES2020` vs `ES2022`) | `.at(-1)` compiles in 75 test files, `TS2550` in others |\n| objectui#8710 | **module resolution** (Vite alias prefix-match vs `exports` map) | dev server resolves a subpath the package forbids; `tsc` does not |\n| **this card** | **ambient type registration** per package | jest-dom matchers typed in one package's test program and not its sibling's |\n\n⇒ **three independent per-package `tsconfig` divergences**, all producing *green under one tool, red under another*, all discovered by a dev tripping over them rather than by any instrument. ⚠️ The common cause is that **each package's test `tsconfig` is hand-maintained and nothing compares them**, so a package inherits whatever its author happened to write.\n\n⭐ That suggests the tractable card is not \"add jest-dom to plugin-timeline\" but **\"nothing asserts that sibling packages' test type-programs agree\"** — a comparison anyone can write once, versus three separate one-line fixes and a fourth axis next month. ⛔ Recorded as an observation; the direction is triage's.\n\n## Workaround in place\n\nPR #8713 used `toBeTruthy` with a comment saying why, **rather than editing the config** — out of scope for that card, and it fails the bounded-in-place-fix test on defect class. ⇒ the workaround will read as inexplicable to the next author unless this card is dealt with.\n\n## ⚠️ Dedup — and why the dev could not file this themselves\n\nThey tried, and the channel was measurably dead:\n\n> `search_issues` returned a **false zero on BOTH controls** — `'contractEnvelope-6839'` (`total_count: 0`, against a card **literally full of that token**) and `'vacuous wait'` (`total_count: 0`, against text containing the word) — so **no zero from that channel is evidence of absence**; and the REST search endpoint answered **403 on all three queries including its control**. Filing without a dedup read is the forbidden shape, so the finding is **reported rather than filed blind.**\n\n⭐ That is the correct call, and it is worth more than the finding: an agent that files on a broken instrument produces duplicates that look like independent corroboration. **Escalating to a seat with a working channel is the right escape.**\n\n**My dedup, manual**: every open issue created since 2026-09-07T10:56Z listed and read by title. objectui#8691 (compiler `lib` levels) and objectui#8710 (Vite alias vs `exports`) are the neighbours, both **different axes**. Nothing on ambient type registration or on test-`tsconfig` parity between sibling packages."

@@ -1,0 +1,33 @@
+{
+  "number": 3851,
+  "kind": "pull_request",
+  "title": "fix(app-shell,components): 动作 disabled 的「已声明」判定补上 !== '' 半边,disabled: '' 不再永久置灰 (#3842)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:43:35Z",
+  "updated_at": "2026-08-08T20:54:50Z",
+  "closed_at": "2026-08-08T20:54:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T20:54:48Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3851",
+  "body": "Fixes #3842\n\n`disabled` 的「是否声明了门」判定停在 `!= null`,少了 `visible` 一族已收敛的 `hasDeclaredVisibilityGate`(`!= null && !== ''`)的另一半。两处落点改读同一处定义。\n\n## 机理:为什么这半边是缺陷,而 `visible` 那半边不是\n\n`disabled: ''` 被判成「声明了门」,verdict 交给求值入口 —— 求值入口把空谓词读成「没有条件 → `true`」(`toPredicateInput('')` → `undefined` → `evaluateCondition(undefined)` → `true`)。\n\n**方向是全部**:在 `visible` 上这个 `true` 意味着「显示」,于是过宽的「已声明」判定与宽松的空谓词**互相抵消**,`visible: ''` 两种写法都渲染(这就是 PR #3843 只能把 `''` 当文档、当不了变异探测器的原因,那边注释里写明了)。在 `disabled` 上同一个 `true` 意味着「禁用」,两个错误**叠加**:空谓词从「没有门」变成「永久置灰」。同一个空谓词,两个 key 得到相反待遇。\n\n## 两处落点前后对照\n\n**`packages/app-shell/src/views/DeclaredActionsBar.tsx:212` 一带**(最烫的一处:动作是服务端声明的 `objectDef.actions[]`,宿主是审批收件箱记录区):\n\n```\n- disabled={((action as any).disabled != null ? isDisabledPred : false) || loading}\n+ disabled={(hasDeclaredVisibilityGate((action as any).disabled) ? isDisabledPred : false) || loading}\n```\n\n**`packages/components/src/renderers/action/action-button.tsx:164`**(两条腿):\n\n```\n- (schema as any).disabled != null\n-   ? isDisabled\n-   : schema.enabled != null\n+ hasDeclaredVisibilityGate((schema as any).disabled)\n+   ? isDisabled\n+   : hasDeclaredVisibilityGate(schema.enabled)\n      ? !isEnabled\n      : false\n```\n\n命名按 #3842 的派发裁定沿用历史名(谓词与 key 无关,同一实现两个名字即轻度方言),两处各就地注释说明。\n\n## `action:button` 同形实证(改前先探针,不按拼法推断)\n\nissue 明示 `action-button.tsx:164` 未单独实证。先写 pin 测试、在**未改动的源码**上跑,得到的红正是同形证据:\n\n```\n× an empty-string `disabled` is not a declared gate — the button stays clickable\n  Error: expect(element).not.toBeDisabled()\n  Received element is disabled:  (button ... disabled=\"\" type=\"button\")\n× an empty `disabled` falls THROUGH to the legacy `enabled` leg\nTests  2 failed | 9 passed (11)\n```\n\n同一次运行里,`disabled: true` / `false` / 未声明、以及 `enabled` 四形状全绿 —— 坏的只是「已声明」的判定,不是求值。\n\n## `enabled` legacy 腿:按推演行为等价,不是修复\n\n该腿**取反**(`disabled = !isEnabled`),所以空谓词的 `true` 落成「不置灰」,与「没有门」同一结果。四形状在两种判定下逐一相同:\n\n| `enabled` | `!= null`(旧) | `hasDeclaredVisibilityGate`(新) |\n|---|---|---|\n| `''` | 有门 → `!true` = 不置灰 | 没门 → `false` = 不置灰 |\n| `true` | 有门 → `!true` = 不置灰 | 有门 → `!true` = 不置灰 |\n| `false` | 有门 → `!false` = **置灰** | 有门 → `!false` = **置灰** |\n| 未声明 | 没门 → `false` | 没门 → `false` |\n\n所以**没有任何测试能靠还原这条腿变红** —— 这一点直说,不包装成覆盖率。改它只为「已声明」在两条腿上只有一种拼法。四个 `enabled` 钉子留着,钉的是推演所断言的语义(`enabled: false` 必须仍然置灰),那才是将来重写这段链条会静默弄坏的东西。\n\n真正被这次收紧**移动**的是穿透一例:`disabled: ''` 不再是门之后,链条落到 legacy 腿而不是在空谓词上短路,所以 `disabled: '' + enabled: true` 从置灰变可点(改前红、改后绿,见上)。\n\n## 反向验证(方向先判后跑)\n\n**方向 A —— 两处落点还原 `disabled` 腿的 `!= null`。预判:红,共 4 例**(每包 2 例)。`''` 在本侧**是**真的变异探测器,与 `visible` 侧相反(#3843 的 M2 记账说明了为什么)。实跑:\n\n```\n× DeclaredActionsBar ... an empty-string `disabled` is not a declared gate — Approve stays clickable\n× DeclaredActionsBar ... an empty-string `disabled` leaves an Approve that actually DISPATCHES\n× action:button ... an empty-string `disabled` is not a declared gate — the button stays clickable\n× action:button ... an empty `disabled` falls THROUGH to the legacy `enabled` leg\nTests  4 failed | 33 passed (37)\n```\n\n预判命中:正好这 4 例,无第五例。\n\n**方向 B —— 只还原 `enabled` 腿的 `!= null`。预判:零红**(上表的推演结论)。实跑 `Tests 11 passed (11)`。推演由实测确认,而不是只被断言。\n\n## 行为变化面(刻意窄)+ 一处诚实披露\n\n只有 `disabled: ''` 改变:从置灰变可点,即「没有谓词」本来的含义。`disabled: true` 仍置灰,`disabled: false` 与未声明仍不置灰,任何表达式取值的 `disabled` 判定不变。\n\n**披露**:实测 `ActionRunner.execute` 的执行门(`ActionRunner.ts:666`,`disabled != null && disabled !== false`)对空谓词同样判「已禁用」,handler 一次不跑、回 `{\"success\":false,\"error\":\"Action is disabled\"}`。所以本 PR 之后,`disabled: ''` 的动作**按钮能点了,点下去收到 `Action is disabled` 报错**。比原来「永久置灰、无任何解释」是改善,但那半边不在 #3842 的范围内(PM 已裁范围为两处渲染落点),已另立 #3848,不在此扩范围。\n\n## 顺手发现(均已独立成单、未认领,不在本 PR)\n\n- **#3848** —— `ActionRunner.execute` 的同族半边(上面那条披露);另有渲染器/执行器对纯空白串判定相反的分歧(可点 vs 拦),#3314 同类。\n- **#3849** —— 同一 `!= null` 拼法还剩五处渲染落点:`action-icon.tsx:97`、`action-group.tsx:106` 与 `:148`、`action-menu.tsx:98`、`plugin-detail/record-quick-actions.tsx:208`。同一按钮上 `visible` 问「已声明」而 `disabled` 问 `!= null`。\n- **#3850** —— 修完 `''` 后的残留:`disabled: { dialect: 'cel', source: '' }` 仍被判成已声明的门 → 置灰(实测)。修法要动 `visible` 一族共用的那处定义,是契约范围变更,附两轴分析,请先裁。(同一批探针还证伪了一个我原本的怀疑:纯空白串在渲染侧**良性**,机制是走字符串腿包成模板求出 falsy,不是被哪处判为空。)\n\n## 验证\n\n固件扫面:全仓 `grep` 无任何既有 fixture 拼 `disabled: ''` / `enabled: ''`,所以没有 fixture 被这次收紧重新判决(无需重拼 / 补声明 / 整例替换)。\n\n```\n# 涉及面(components 动作面 + app-shell views + 谓词归一 parity)\nnpx vitest run --maxWorkers=2 packages/components/src/renderers/action/ \\\n  packages/components/src/__tests__/action-bar.test.tsx \\\n  packages/components/src/__tests__/action-group.test.tsx \\\n  packages/components/src/__tests__/page-header-actions.test.tsx \\\n  packages/app-shell/src/views/__tests__/ \\\n  packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx\n→ Test Files 18 passed (18) | Tests 195 passed (195)\n\n# 末次编辑后按 CI 同命令全仓复跑(PR #3841 教训:vitest 的 esbuild 掩盖类型红)\nnpx turbo run type-check --concurrency=2\n→ Tasks: 78 successful, 78 total\n\nnpx eslint (四个改动文件) → 0 errors(仅既有 no-explicit-any warning)\npnpm run check:control-bytes → OK(scanned 3758 tracked text files);另做 grep -naP 控制字节自扫,零命中\n```\n\n新增 11 例(`packages/components/.../__tests__/action-disabled-declared-gate.test.tsx`)+ 6 例(`DeclaredActionsBar.test.tsx`,沿用 PR #3843 收紧后的 `importOriginal` 偏 mock 桩形态:求值入口是真的,`hasDeclaredVisibilityGate` 从真源模块取)。`DeclaredActionsBar` 侧多钉一例「空谓词的按钮真的能 DISPATCH」—— 「没有 disabled 属性」只是这个论断的一半,而这个组件的点击处理器就是发出 approve 调用的那个。\n\nChangeset:`.changeset/action-declared-disabled-gate-3842.md`(`@object-ui/app-shell` + `@object-ui/components` patch,写明 `disabled: ''` 从永久置灰变可点、以及穿透到 legacy `enabled` 腿这一连带后果)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

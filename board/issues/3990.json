@@ -1,0 +1,35 @@
+{
+  "number": 3990,
+  "kind": "issue",
+  "title": "[fields] 只读 / 零选项的 group-labelled 选项 widget 提前 return,`groupDomProps` 没被展开 —— host label 的 IDREF 没有消费者,标签仍然什么都不命名(#3961 的残留,checkboxes 今天的 main 上就这样)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T21:04:51Z",
+  "updated_at": "2026-08-09T22:56:22Z",
+  "closed_at": "2026-08-09T22:56:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3990",
+  "body": "在 #3975(PR #3983)的验证过程中实测到的一条,**与那个 PR 无关也不由它引入**:`checkboxes` 在今天的 `main` 上就是这个形态。单独立单。\n\n## 实测\n\n一次性 probe(未提交),真 form renderer + 裸注册(`labelling: 'group'`),读 host label 的 `for` / 自身 id / 文档里 `aria-labelledby` 消费者的个数:\n\n```\nmultiselect  readonly:true   for=(none)  labelOwnId=…-group-label  ariaLabelledbyConsumers=0  namedGroups=0  byLabelText=0\ncheckboxes   readonly:true   for=(none)  labelOwnId=…-group-label  ariaLabelledbyConsumers=0  namedGroups=0  byLabelText=0\nmultiselect  options:[]      for=(none)  labelOwnId=…-group-label  ariaLabelledbyConsumers=0  namedGroups=0  byLabelText=0\nmultiselect  mode:'view'     for=(none)  labelOwnId=…-group-label  ariaLabelledbyConsumers=1  namedGroups=1  byLabelText=1   ← 正常\nmultiselect  可编辑(对照)  for=(none)  labelOwnId=…-group-label  ariaLabelledbyConsumers=1  namedGroups=1  byLabelText=1   ← 正常\n```\n\n即:**字段级 `readonly: true`**,以及**零个可选项**这两种状态下,可见标签是 0 个元素的可访问名。整个表单级 `mode: 'view'` 不受影响(它不走 widget 的 readonly 分支)。\n\n## 机理\n\n`labelling: 'group'` 的字段,form renderer 让 label 发布自己的 `id` 并撤掉 `for`(#3961 的正确修法),把 `aria-labelledby` 交给 widget —— 但这些 widget 的**提前 return 分支根本不展开 `groupDomProps`**:\n\n- `packages/fields/src/widgets/MultiSelectField.tsx:61-73` 的 readonly 分支,返回 `div.flex.flex-wrap.gap-1` + 一排 `Badge`,不带 id、不带 `aria-labelledby`;`CheckboxesField.tsx:60-72` 逐字同形;\n- `MultiSelectField.tsx:79-89` / `CheckboxesField.tsx:78-88` 的零选项分支返回 `OptionsEmptyState`,同样不展开。\n\n于是 IDREF 只有生产者、没有消费者。这类失效比 #3961 修的那种更安静:`for` 悬空至少还能被「每个 `for` 都要解析到可 label 元素」的扫描看见,而「label 发了 id 但没人引用它」在标记里看不出任何异常。\n\n## 与 #3961 / #3975 的关系(重要:不是回归)\n\n- #3961 之前:readonly 分支下 `for` 指向 `…-form-item`,而该 id 在 readonly 分支里没有任何元素携带 → **悬空 `for`**,同样什么都不命名;\n- #3961 / #3975 之后:没有 `for`,也没有 IDREF 消费者 → 仍然什么都不命名。\n\n两侧都是坏的,严重程度未变,只是**形状**从「悬空 `for`」变成「无人消费的 IDREF」。所以这既不是 #3961 的回归,也不是 #3983 的回归,而是那次修法**没有覆盖到的状态**。#3961 的 e2e 钉全部在可编辑态取样,这正是它漏过的原因。\n\n## 覆盖面\n\n已实测:`checkboxes`、`multiselect`(readonly + 零选项)。**未实测**:`radio` / `rating` / `file` / `address` / `geolocation` 的 readonly 分支各自写法不同,需逐个量,不要按本单推断。\n\n## 处置方向(未裁决)\n\n- 让 readonly / 空态分支也展开 `groupDomProps`(至少 `id` + `aria-labelledby`),并按需给容器 `role=\"group\"` —— 只读的一组值仍然是一组值,命名它是对的;\n- 或者由 form renderer 在字段解析为 readonly 时退回单控件路径 —— 但只读态并没有一个可 label 的控件可退,方向恐怕不成立;\n- 无论选哪个,钉子要在 **readonly 与零选项两种状态**上各取一次样,#3961 的 e2e 文件目前只在可编辑态取样。\n\n## 参考\n\n- #3961 / PR #3978(`labelling` 声明位 + 六个 widget)\n- #3975 / PR #3983(`multiselect`,本条即在其验证中实测到)\n- #3986(同一批验证里的另一条残留:`multiple: true` 的 select 走 `field:select`,按类型键入的声明碰不到它)\n"
+}

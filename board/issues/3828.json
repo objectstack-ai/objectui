@@ -1,0 +1,36 @@
+{
+  "number": 3828,
+  "kind": "issue",
+  "title": "`fieldRules.ts` 的模块头自称 readonly fail-open「与服务端一致」——#4889 之后对未绑定根这一类已不成立(服务端是 fail-CLOSED)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:02:51Z",
+  "updated_at": "2026-08-09T00:12:05Z",
+  "closed_at": "2026-08-09T00:12:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3828",
+  "body": "越界发现,来自 objectstack#6713 / #6716 的实现(PR objectstack#6798)。按 PD #10 立案,**未认领、未定级**。观察类:这是一段**注释**,今天没有用户会撞到它,但它对姊妹系统的行为做了一个**已经不成立**的断言。\n\n## 事实\n\n`packages/core/src/evaluator/fieldRules.ts` 的模块头写:\n\n> Evaluation is *fail-open* for visibility/required (a broken predicate must not hide a field or wrongly block submit) and *fail-open* for readonly (a broken predicate leaves the field editable) — **matching the server, which logs and allows the change through**.\n\n后半句在 objectstack#4889 之后对**未绑定根**这一类已经不成立。`packages/objectql/src/validation/rule-validator.ts` 的 `isReadonlyWhenLocked` 在 `unknownVariableOf(res.error)` 命中时:\n\n```\nlogger?.warn?.(\n  `readonlyWhen for '${name}' reads '${unbound}', which is not bound for this operation — ` +\n    `treating the field as LOCKED (the declared lock is not waived because it could not be evaluated). ` + …\n);\nreturn true;\n```\n\n`return true` = LOCKED,随后 `stripReadonlyWhenFields` 把该字段从 payload 中**删除**。也就是说服务端对这一类**不是**「logs and allows the change through」,而是记日志后**锁死并丢弃写入**。\n\n客户端这一侧本身没错 —— `resolveFieldRuleState` 对 `readonlyWhen` 传 `fallback: false`(字段仍可编辑)是 ADR-0057 D10「server enforces, client is courtesy」下的合理选择。**错的只是「matching the server」这半句**:两端在这一类上恰好**方向相反**,而注释把它描述成一致。\n\n## 为什么记下来\n\n这正是 objectstack#6716 那一条的同类:一句把姊妹系统失败方向讲反的说明,会让读者建立相反的心智模型。具体到这里,读注释的人会以为「客户端可编辑 + 服务端放行 = 值会落库」,而真实链路是「客户端可编辑 + 服务端锁死丢弃 = 表单能改、保存报成功、值静默不落库」—— 排障方向完全不同。\n\n`requiredWhen` 那一半仍然准确(objectstack#4977 明确没有采用 #4889 的 carve-out,两端都 fail-open),可见性那一半也准确(服务端根本不评估字段级 `visibleWhen`)。**只有 readonly 这一句需要收窄。**\n\n## 可能的修法(留给分诊,不自选)\n\n1. 把 \"matching the server, which logs and allows the change through\" 收窄为「对**大多数** fault 与服务端一致;**未绑定根**那一类服务端自 #4889 起是 fail-CLOSED(锁死并丢弃写入),两端方向相反,按 ADR-0057 D10 以服务端为准」;\n2. 只删掉 \"matching the server\" 这半句,不展开解释(成本最低,但丢掉了「两端在这里会不一致」这条对调用方有用的信息);\n3. 不动,记录为已知边界。\n\n倾向 1:这段注释的价值恰恰在于说清两端关系,而两端**在这一格不一致**本身就是调用方需要知道的事。\n\n## 查重\n\n`fieldRules fail-open readonly server`、`readonlyWhen`、`4889 fail-closed` 三次仓内检索,无同题单。\n\nRefs: objectstack#4889(fail-closed carve-out)、objectstack#4977、objectstack#6716(同类:诊断把失败方向讲反)、objectstack#6798(发现现场)、ADR-0057 D10。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3825,
+  "kind": "pull_request",
+  "title": "fix(components): 动作面成员动作的 visible 门按「已声明」判定,visible: false 不再渲染 (#3812)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:57:24Z",
+  "updated_at": "2026-08-08T18:07:29Z",
+  "closed_at": "2026-08-08T18:07:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T18:07:27Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3825",
+  "body": "Fixes #3812\n\n## 缺陷\n\n动作面成员动作的可见性**门**用真值判断,于是 `visible: false` —— 作者能写出的最明确的\n「永不显示」—— 落进「未声明门」分支,动作照样渲染:\n\n```\nif (action.visible && !isVisible) return null;   // false && … 为假 → 不 return null → 渲染\n```\n\n这三处是**成员动作**门:组件从自持的 `actions` 数组直接 `.map()` 渲染,既不经\n`SchemaRenderer`(那是按节点走的),也不经 `ActionEngine.getActionsForLocation`\n(`ActionEngine` 的布尔 `visible` 一直是对的,`packages/core/src/actions/__tests__/ActionEngine.visibility.test.ts:60`)。\n所以真值门是这条路径上唯一的门。\n\n求值入口从来没坏:`packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx:134`\n已钉「literal false → 引擎路径与渲染器路径都判隐藏」。坏的只是门前不肯问。\n\n## 三处门位前后对照(锚 `origin/main@d83f6b3de`)\n\n| 门位(锚) | 修前 | 修后(本 PR 行号) |\n| --- | --- | --- |\n| `action-group.tsx:94` — `InlineActionButton`(inline 模式成员) | `if (action.visible && !isVisible) return null;` | `if (hasDeclaredVisibilityGate(action.visible) && !isVisible) return null;` (`:97`) |\n| `action-group.tsx:141` — `DropdownActionItem`(dropdown 模式成员) | 同形 | 同上(`:146`) |\n| `action-menu.tsx:84` — `ActionMenuItem`(`action:menu` 菜单项) | 同形 | 同上(`:94`) |\n\n三处共读**一处**命名定义 `packages/components/src/renderers/action/visibility-gate.ts`\n的 `hasDeclaredVisibilityGate`(`!= null && !== ''`):同一个键在两个文件里长出三种答案\n正是 #3142 刚在这两个文件里为 `locations` 收过的形状。verdict 仍交回声明本身 ——\n布尔在求值入口(`ExpressionEvaluator.evaluateCondition`)短路成自己的 verdict,不交给\nCEL 引擎;`''` 与 `toPredicateInput` 的处理一致地不算门。\n\n`action-menu` 的 `ActionMenuItem` 由 `const` 改为 `export const`(仅为钉子可测,未进包\npublic index),与同族 `action-group.tsx` 的 `DropdownActionItem` 一致。\n\n## 这不是新决定\n\n- objectui#3492 已把这条不变量钉死在批量选择栏:`packages/plugin-grid/src/bulkEligibility.ts`\n  的 `hasVisibilityGate` 注释原文 ——\n  「Truthiness cannot answer this: `visible: false` is a declared gate that excludes everything」;\n- objectui#3758 / PR #3816 把行动作两处(`RowActionMenu` 与 `data-table` 的\n  `isCustomRowActionVisible`)收口到同一不变量;\n- 内建 `visibleWhen` 的门一直是 `!= null`。\n\n动作面这一族是同一形状里剩下的成员部分,修法已裁。\n\n## 组件级五处 `schema.visible` 复核结论(#3812 正文第 3 条 / 分诊要求)\n\n**未动其中任何一处**,复核结果是两半:\n\n- **三处确认被宿主遮住(休眠防御层)**:`action-group.tsx:230`、`action-menu.tsx:169`、\n  `action-bar.tsx:223`。经 `packages/react/src/SchemaRenderer.tsx:287-289` 路由时,\n  宿主按 `newSchema.visible !== undefined` 统一求值并隐藏,组件根本不渲染到自己的门\n  (已有钉 `packages/react/src/__tests__/SchemaRenderer.expressions.test.tsx:39`)。\n  `action:bar` 为溢出菜单合成的 `action:menu` 节点(`action-bar.tsx:234-241`)不带\n  `visible`,所以 `action-menu.tsx:169` 也不在绕过路径上。\n- **两处实证可达(不是休眠)**:`action-button.tsx:148`、`action-icon.tsx:82`。\n  `action:bar` 自己从注册表取子渲染器并直接挂载(`action-bar.tsx:261`),把成员动作对象\n  整体展开成子渲染器的 `schema`(`schema={{ ...action, type: componentType, … }}`),\n  于是作者写在成员上的 `visible` 落到子渲染器的组件级门上;`action-bar` 上游只过\n  `mayInvoke` 与 `actionRendersAt`,不过 `visible`。一次性探针(未提交)实测:\n\n  ```\n  PROBE action:button visible:false → RENDERED (reachable bug)\n  PROBE action:icon  visible:false → RENDERED (reachable bug)\n  ```\n\n  按分诊「要动须先实证可达、不许顺手改五处」,**不在本 PR**,另开 #3823 交 PM 判级。\n- 附带记录(未动):`packages/components/src/SchemaRenderer.tsx` 是一个只看 `hidden`、\n  完全不看 `visible` 的极简同名副本,既不在包 index 导出也无任何 import —— 目前是休眠\n  代码,不构成绕过宿主,已写进 #3823 备查。\n\n## 反向验证(方向先判后跑)\n\n**预判**:新钉子里 `visible: false` 的三条在旧真值门下必**红**;`visible: true`、\n未声明、`''`、表达式取值四类在旧门下**已绿且修后仍绿** —— 旧门对这些形状的 verdict\n与新门一致,本次只改「是否算声明了门」。\n\n**实跑与预判一致。** 修门之前(仅先落了测试所需的 `ActionMenuItem` 导出)跑同一文件:\n\n```\n FAIL  … > action:group inline member … > visible:false → the inline button does not render\nAssertionError: expected … to be null … Received: 一个真的渲染出来的 button 元素(文本 Ghost)\n FAIL  … > action:group dropdown member … > visible:false → the dropdown item does not render\n FAIL  … > action:menu member … > visible:false → the menu item does not render\n\n Test Files  1 failed (1)\n      Tests  3 failed | 11 passed (14)\n```\n\n3 红恰好是三处门位各自的 `visible: false` 用例,11 绿是三类对照断言 —— 既证实了 #3812\n的前提(三处都真的渲染),也证实了钉子确实钉在门上。修门之后全绿(见下)。\n\n## 行为变化面(刻意窄)\n\n只有 `visible` 为字面布尔 `false`(或其它非空 falsy 值)的**成员**动作变化 —— 从渲染变\n隐藏,即声明所要求的。`visible: true` 照旧渲染,`''` 与未声明照旧不算门,表达式取值的\n`visible` verdict 一律不变。`ActionSchema.visible` 是 `ExpressionInputSchema`(无 boolean\n成员),`objectstack build` 产不出这个形状;手写视图 JSON 与进程内构造 action def 可以\n(#3492 正文记录这两条路径确实发生过)。\n\n## 测试\n\n新增 `packages/components/src/renderers/action/__tests__/action-member-visible-gate.test.tsx`\n—— 三处门位各按 #3758/#3816 的**三形状对称**钉子:`false` 隐藏 / `true` 渲染 /\n未声明渲染,再加 `''` 不算门与表达式取值 verdict 不变,共 14 条。对称是关键:\n「恒隐藏」的错误重写能独自满足所有 `visible: false` 断言而让测试全绿。\ninline 门经真实 `action:group` 宿主观察(并带一个未声明门的同伴动作,使「未渲染」不会与\n「整组消失」混淆);两个 dropdown 叶按同目录既有范式在受控展开的菜单里渲染。\n\n```\npnpm exec vitest run packages/components/ --maxWorkers=2\n Test Files  97 passed (97)\n      Tests  746 passed (746)\n```\n\n消费半径(动作面渲染器的调用方 + 不变量同族)定向跑,7 文件 83 条全绿:`packages/react` 的\n`actionPredicate.parity` / `SchemaRenderer.expressions` / `useActionEngine.capabilityGate`、\n`packages/app-shell` 的 `MetadataTypeActions` / `EnvironmentListToolbar`、\n`packages/plugin-grid` 的 `predicate-surface-parity`、`packages/types` 的\n`spec-derived-unions`。\n\n`pnpm --filter @object-ui/components type-check`(`tsc --noEmit` + typetests)通过。\n\nChangeset:`.changeset/action-member-declared-visible-gate-3812.md`(`@object-ui/components`\npatch,与 #3816 同档)。\n\n未触 `content/docs/releases/**`。`node scripts/check-control-bytes.mjs` 通过。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

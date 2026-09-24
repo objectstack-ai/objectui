@@ -1,0 +1,33 @@
+{
+  "number": 3908,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): 相关列表 Add 选择器兑现 add.picker.filter,作者限定的候选范围真的生效 (#3831)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:31:15Z",
+  "updated_at": "2026-08-09T01:39:46Z",
+  "closed_at": "2026-08-09T01:39:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T01:39:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3908",
+  "body": "Fixes #3831\n\n`record:related_list.add.picker.filter` 被 spec 声明为「Restrict which records the picker offers」,渲染器从未读过它。`RelatedList` 挂 `RecordPickerDialog` 时传 `objectName` / `title` / `displayField` / `columns` / `cellRenderer` / `fieldsMeta` / `multiple` / `onSelect` / `onSelectRecords`,没有任何 filter。作者写下「只允许指派 active 的岗位」「只允许挂未过期的许可」,拿到的是 `picker.object` 的**全部**记录;选中后 `handleAddRecords` 直接建链接行或改父,`os validate` / `os build` 全绿,运行时零诊断 —— 作者只能靠肉眼发现对话框里多出了不该出现的记录。\n\n现在它按原样传给 `baseFilter`,**不是** `lookupFilters`:后者会把条件渲染成用户可编辑的筛选栏行,等于把作者的硬性限制降级成建议。\n\n## 更正 issue 正文的一处误述\n\n正文写「`picker.filter` 在 pin 版是宽类型」。实读 `@objectstack/spec@17.0.0-rc.5`(`src/ui/component.zod.ts:308`):\n\n```\nfilter: z.array(ViewFilterRuleSchema).optional().describe('Restrict which records the picker offers.'),\n```\n\n是**严格的 `ViewFilterRule[]`** —— `{field, operator, value?}`,operator 为 19 个 canonical 值的 enum,与 list 级 `filter`、`ListViewSchema.filter`、`ViewTab.filter` 同族。spec 侧无需任何收敛,但形状差距因此比正文预期的大,见下。\n\n## 为什么改动落到了 packages/fields\n\n派发时的围栏是「只在 RelatedList 侧接线」。复核后发现在该围栏内**无法无损接线**,已带证据上报并由维护者裁决放宽(#3831 评论)。原因:\n\n`baseFilter` 声明为 `Record< string, any >`、以对象展开合并。这个形状服务依赖型 lookup 链(#2215)恰好正确,却装不下 spec 的规则数组 —— TS **接受**数组塞进该槽位(数组满足 `any` 的字符串索引,`tsc --strict` 实测 exit 0),展开再把它压成 `{\"0\": rule, \"1\": rule}`,查询于是去过滤名为 `0` / `1` 的列:类型全绿、查询错误、无任何诊断。\n\n绕开它只剩一条路:在 objectui 里再写一份 spec-operator 词汇表。而这份词汇表已存在**两份**(spec 的 `AST_OPERATOR_MAP`、data-objectstack 的 `FILTER_OPERATOR_ALIASES`),`filter-converter.ts` 的文档块以「One lowering, one place」明确反对第三份,并引 #3948 说明两份的代价。实测记录方言确实装不下全部 operator:\n\n```\n{ amount: { $gt: 10, $lte: 100 } }        => [\"and\",[\"amount\",\">\",10],[\"amount\",\"<=\",100]]   OK\n{ expires_at: { $after: '2026-01-01' } }  => THROWS FilterOperatorError: Unknown filter operator '$after'\n{ deleted_at: { $isEmpty: true } }        => THROWS FilterOperatorError: Unknown filter operator '$isEmpty'\n```\n\n## 落地形状\n\n`baseFilter` 按结构判别(`Array.isArray`)接受两种形状。判别子是**精确**而非启发式的 —— AST 节点必是数组、规则必是普通对象,与 `toFilterNode` 同一谓词:\n\n- **记录形式**(依赖型 lookup 链)保持键覆盖语义**逐字节不变**:级联父值必须**替换**同字段上过期的 `lookupFilters` 条目,而不是与之求交。这一点承重 —— 朴素改成合取会问 `account = 'stale' AND account = 'a1'`,返回零行。`LookupField.dependsOn.test.tsx` 一行未动且保持绿。\n- **规则数组**经 `mergeFilterNodes`(仓内唯一 filter 下沉口,与 plugin-list 的 `buildEffectiveFilter`、plugin-view 的 ObjectView 共用)下沉,19 个 operator 全部无损,包括记录形式没有 `$op` 可用的 `before` / `after` / `is_empty` / `is_not_empty`。两者同时在场时,记录侧仍先合成再作为一个节点下沉,键覆盖优先级在合取中存活。\n\n槽位类型同时从 `Record< string, any >` 收紧为 `unknown`;`useRecordQuery` 的 filter 类型与空判随之数组感知(`Object.keys` 对数组返回下标,旧的记录专用判断对 AST 节点只是**碰巧**成立)。`RelatedListProps.add.picker.filter` 从 `any` 收紧为 spec 的 `ViewFilterRule[]` —— 宽类型正是错误形状的藏身处。\n\n## KNOWN GAP 句与它的钉子\n\n`record:related_list.add` 的 input description 删掉 #3808 按 #3165 先例写入的 KNOWN GAP 句 —— **在** gap 兑现之后,不是之前。`recordRelatedListInputs.spec-parity.test.ts` 原本钉着那句话(「fails the moment someone deletes the warning without doing it」),现已翻转方向:现在它在「gap 警告被放回」或「接线被回滚却仍宣称限制生效」时报红。\n\n## 反向验证(方向先判后跑)\n\n两向都跑了,预判先写:\n\n**摘掉 RelatedList 的直传** —— 预判数组路钉红、无 filter 用例绿、fields 侧钉全绿。实测吻合,3 枚红全部点名 `expected undefined to be defined`。一处**预判偏保守需如实说明**:我原判「不降级成筛选栏行」那枚会以「什么都没产出」的空原因保持绿(#5046 式假绿),实测它**也红了** —— 它的首行 `waitFor` 是对接线的真实前置条件,筛选栏断言只在限制真的生效后才执行。比预判更严,不是更松。\n\n**把合并回退成旧的对象展开**(保留直传)—— 预判两个文件的数组路钉红,且报**损坏**而非缺失;记录路钉与 #2215 全绿。实测吻合,5 枚红全部报:\n\n```\nAssertionError: expected { '0': { field: 'is_active', …(2) } } to deeply equal [ [ 'is_active', 'equals', true ] ]\n```\n\n`LookupField.dependsOn.test.tsx` 六枚钉全绿 —— 这是判别式设计的承重预判。另有一枚「空规则数组不发 `$filter`」在回退下**仍绿**(展开 `[]` 得 `{}`,空判成立),即旧代码下它是**因错误的原因而绿**;如实记录,不当作覆盖。\n\n## 验证\n\n- `pnpm exec vitest run packages/plugin-detail/ packages/fields/` → **127 files / 1481 tests passed**(含新增 10 枚钉;#2215、#3894 的 addPickerGuard、addPickerLabelField 均绿)\n- 跨包消费半径:`AssignedUsersSection` / `AccessExplainPanel`(app-shell 用 `RecordPickerDialog`)+ `apps/console` registry-inputs-spec-parity → **51 passed**\n- 末次编辑后全仓 `pnpm exec turbo run type-check --concurrency=2` → **78 successful, 78 total**\n- `pnpm check:control-bytes` → OK(3785 tracked text files)\n\n## 未做\n\n`QueryParams.$filter` 仍声明为 `Record< string, any >`,而 plugin-list / plugin-view 的下沉口早已往里送 AST 数组 —— 类型漂移先于本单存在,收敛它会波及 `packages/types` 的公共面,故在此仅于单个赋值点就地转换并注明,另立观察单。#3898(`baseFilterColumns` 命名)按分诊未顺手改。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

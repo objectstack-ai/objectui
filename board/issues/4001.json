@@ -1,0 +1,35 @@
+{
+  "number": 4001,
+  "kind": "issue",
+  "title": "examples/schema-catalog: 13 个 grid 示例用了未声明的 `cols` 键,列数被静默丢弃 —— 要 3/4 列的示例在 docs 站实际渲染成 2 列",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:35:36Z",
+  "updated_at": "2026-08-10T00:08:28Z",
+  "closed_at": "2026-08-10T00:08:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4001",
+  "body": "发现于 #3965 的实施(PR #3998),**不在该 PR 处理** —— 那一单只碰含 `div` 的文件与 `div.tsx`,这一条是另一个键、另一批文件。\n\n## 现象\n\n`GridSchema` 声明的键是 `columns`(`packages/types/src/layout.ts:209`),`grid` 渲染器也只读 `schema.columns`(`packages/components/src/renderers/layout/grid.tsx:57-73`),注册的 `inputs` 里同样只有 `columns` / `smColumns` / `mdColumns` / `lgColumns` / `xlColumns` / `gap` / `className`。\n\ncatalog 里有 **13 个文件**在 `grid` 节点上写的是 `\"cols\"` —— 一个引擎完全不认识的键。全仓 grep 过,`core` / `react` / `types` 里没有任何把 `cols` 归一到 `columns` 的处理。\n\n实测(在 `packages/components` 里跑真渲染,对比两种写法):\n\n```\ncols:4     ->  grid grid-cols-2 gap-4\ncolumns:4  ->  grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4\n```\n\n`cols` 被整个丢掉,落到 `grid.tsx:54` 的 `let baseCols = 2` 默认值上;因为 `typeof schema.columns === 'number'` 不成立,连 mobile-first 的响应式降级也不会触发,于是**在所有断点上都是死板的 2 列**。\n\n也就是说:**要 3 列或 4 列的示例,在 docs 站上渲染出来是 2 列**,而且这不是 dev-only —— production 构建里一样错。\n\n## 命中清单(13 个,全部在 `grid` 节点上)\n\n要 4 列(实际 2 列):\n- `report/report-header-with-kpis.json:56`\n- `theme/semantic-color-palette.json:3`\n- `components-layout-page/full-dashboard.json:8`\n\n要 3 列(实际 2 列):\n- `components-data-display-statistic/metrics-grid.json:3`\n- `components-layout-page/page-with-header.json:8`\n- `forms/payment-form.json:67`\n\n要 2 列(碰巧和默认值一致,肉眼看不出来,但键依然是错的):\n- `components-data-display-statistic/sales-dashboard.json:12`\n- `auth/signup.json:22`\n- `components-complex-resizable/complex-layout.json:29`\n- `components-basic-div/grid-layout.json:3`\n- `theme/theme-aware-ui-elements.json:64`\n- `plugin-view/form-view-mode.json:18`\n- `forms/contact-form.json:29`\n\n## 为什么这条比「渲染不对」更值得修\n\n- `components-basic-div/grid-layout.json` 是 `content/docs/components/basic/div.mdx:35` 的**迁移范本** —— 「div 布局请改用 grid」这一条的示范代码本身写错了键。照着它抄的作者(和 AI)会继续写 `cols`,拿到静默的默认值。\n- 「碰巧和默认值一致」的那 7 个是最坏的一类:渲染看起来对,所以没人会去查,错的键就一直传播。这正是 AGENTS.md 第二轴说的「AI 生成的 metadata 错误藏在宽容里」—— 只不过这里连宽容都没有,是纯静默丢弃。\n\n## 修法(契约优先,别加别名)\n\n改**生产者**:13 个 JSON 里 `cols` → `columns`。\n\n⛔ **不要**在 `grid.tsx` 里加 `schema.columns ?? schema.cols` 之类的兼容读取 —— AGENTS.md #0.1:宽容的 consumer 会把错写法固化成第二套事实契约。`cols` 从来没有被 spec / 类型 / 注册表声明过,它就是错的。\n\n注意:改完之后要求 3/4 列的那 6 个示例**渲染会变**(从死板 2 列变成正确的响应式降级 `grid-cols-1 sm:grid-cols-2 md:grid-cols-N`),这是修好,不是回归 —— 抽样断言要按新的正确值钉。\n\n顺带:`sdui-parser` 的 `validate.ts` 会对 html tier 里的 `cols` 报 `unknown-prop`,但 JSON 作者面没有这道门禁 —— 「catalog JSON 是否也该过一遍 manifest 的 prop 校验」是另一个更大的话题,不在本条里。\n\n## 参考位置\n\n- `packages/types/src/layout.ts:202-219`(`GridSchema`,声明 `columns`)\n- `packages/components/src/renderers/layout/grid.tsx:50-103`(只读 `columns`,`baseCols` 默认 2)\n- `content/docs/components/basic/div.mdx:35`(引用了写错键的迁移范本)\n\n关联:#3965 / PR #3998(发现于此)\n"
+}

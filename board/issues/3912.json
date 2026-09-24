@@ -2,8 +2,8 @@
   "number": 3912,
   "kind": "issue",
   "title": "页面块检查器的 `BlockPropField` 没有格式/校验能力位 —— 所有标识符类字段(section `name`、tab `key`、accordion `value`)只能靠 placeholder 陈述约定",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-09T01:54:23Z",
-  "updated_at": "2026-09-16T21:02:22Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T05:43:03Z",
+  "closed_at": "2026-09-24T05:43:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 10,
   "locked": false,

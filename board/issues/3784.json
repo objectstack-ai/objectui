@@ -1,0 +1,32 @@
+{
+  "number": 3784,
+  "kind": "pull_request",
+  "title": "docs(ci): 去掉 check-lint-coverage.mjs 头注里的 object-ui 规则点数,并把守卫扩到该文件 (#3279)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:21:46Z",
+  "updated_at": "2026-08-08T15:30:24Z",
+  "closed_at": "2026-08-08T15:30:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T15:30:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3784",
+  "body": "Fixes #3279\n\n## 前提复核(先于实施)\n\nissue 的前提在 `origin/main` 上原样成立,两处读数都显式取自 `origin/main`:\n\n```\n$ git show origin/main:scripts/check-lint-coverage.mjs | sed -n '11,14p'\n * The stakes are concrete: `eslint.config.js` sets three `object-ui/*` rules to\n * `error` specifically so a new violation fails CI (ADR-0054 Phase 5, #2879,\n * and the objectql.ts type-discipline ratchet). Those ratchets are worthless in\n * a package that never runs ESLint.\n\n$ git grep -n 'object-ui/' origin/main -- eslint.config.js\norigin/main:eslint.config.js:59:    'object-ui/no-synthetic-event-trigger': 'error',\norigin/main:eslint.config.js:65:    'object-ui/no-try-catch-around-hook': 'error',\norigin/main:eslint.config.js:98:    'object-ui/no-dynamic-import-in-test-hook': 'error',\norigin/main:eslint.config.js:111:    'object-ui/no-inline-spec-config': 'error',\n```\n\n注释说 three,配置里是四条,漏的正是 `no-dynamic-import-in-test-hook` —— 与 #3261 当初漏掉的是同一条。这不是「将来会错」,是今天就错。\n\n## 改动一:头注去数字化\n\n按 #3261 / PR #3273 在 `lint.yml` 里确立的写法改写:不点数、不在括号里列来源,改成永真表述。这段话本身正确的主张一字未动 —— 没有 `lint` script 的包不是干净而是没被 lint 过,ratchet 在那里一文不值。\n\n并按 `lint.yml` 的同构做法补一段,写下为什么这里刻意不点数也不列举、以及唯一诚实的清单是 `eslint.config.js` 本身(每条规则自己的 ADR/issue 就写在它旁边的注释里)。`lint.yml` 的对应措辞是「`eslint.config.js` is the single list of those rules, and this comment deliberately neither counts them nor names them」,本 PR 的措辞与之同构。\n\n## 改动二:守卫扫描面参数化(issue 正文授权,按判断做了)\n\n`scripts/__tests__/lint-workflow.test.ts`(#3273 新增)的两条断言 —— 不得点数、不得按名列举 —— 此前只扫 `lint.yml`,看不见这第二份副本;所以它是被人顺手读到(#3274)而不是被门禁挡下来的。现在扫描面变成一个 prose surface 列表,`lint.yml` 与 `check-lint-coverage.mjs` 各出一项,**判定逻辑原样复用**(点数正则、规则名比对、求值后 flat config 的读法都没动),只按 surface 取注释:\n\n- 注释块提取按标记参数化:YAML 的 `#` 行首标记与 docblock 的星号行首标记共用一个 `unwrap(block, marker)`,折行还原照旧 —— #3261 那句话正是断在 \"sets three\" 与 \"`object-ui/*` rules\" 之间,任何跨行匹配都必须先还原折行。\n- **点数正则只读各文件的解释性注释,不读整个文件。** 对这个脚本这条限定是必需的而非洁癖:它的 `Known gaps` 注释合法地在数**包**(「the last two …, 14 errors」),整文件扫描会把它当成规则条数误报出来。这一点写进了测试头注,免得下一个人以为是漏扫。\n- 规则名比对仍读整个文件 —— 规则名出现在这两个文件的任何位置,都是 `eslint.config.js` 的第二份拷贝。\n\n原来那条「`eslint.config.js` 确实还有 `object-ui/*` 规则设成 `error`」的前提断言现在被两份注释共用,单独提成一个 describe;`lint.yml` 专属的两条触发器断言(仍跑 `pull_request`、ignore 列表不吞 `.ts`/`.tsx`)留在原处,逻辑未动。\n\n## 验证\n\n**守卫测试**(从仓库根跑,invocation guard 拒绝 package-cwd):\n\n```\n$ flock -w 7200 /tmp/os-heavy-verify.lock -c 'NODE_OPTIONS=--max-old-space-size=4096 \\\n    pnpm vitest run scripts/__tests__/lint-workflow.test.ts --maxWorkers=2'\n RUN  v4.1.10 /home/user/objectui-3279\n Test Files  1 passed (1)\n      Tests  7 passed (7)\n```\n\n7 条 = 2 条守卫 × 2 个 surface + 1 条共用前提 + 2 条 `lint.yml` 触发器(扩面前为 5 条)。\n\n**变异自证**(方向在跑之前就定了:应当变红,且只有新增的那一条红)。把 `origin/main` 的点数句写回 mjs 头注:\n\n```\n FAIL  scripts/__tests__/lint-workflow.test.ts > scripts/check-lint-coverage.mjs — the\n       object-ui/* ratchet prose (objectui#3261, #3279) > never hand-counts the\n       object-ui/* rules again\nAssertionError: scripts/check-lint-coverage.mjs's explanatory comment counts the\n`object-ui/*` error rules again:\n  - \"three `object-ui\"\n...\n      Tests  1 failed | 6 passed (7)\n```\n\n命中项正是 ``\"three `object-ui\"``;规则名那条仍绿 —— 原句列举的是 ADR/issue 而非规则名,所以只有点数这一条该红,与预期一致。变异已 `git checkout --` 还原,还原后重跑 7 passed,**不入 commit**。\n\n**其余门禁**:\n\n```\n$ pnpm type-check:scripts          # tsc -p tsconfig.scripts.json,无输出即通过\n$ node scripts/check-lint-coverage.mjs\n✅  lint coverage: 45/45 packages linted, 0 with outstanding errors (0 total).\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3718 tracked text file(s); skipped 85 binary).\n$ grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' scripts/check-lint-coverage.mjs \\\n    scripts/__tests__/lint-workflow.test.ts    # 零命中\n```\n\n控制字节除了跑仓库门禁,另对两个改动文件单独自扫了一次(门禁的扫描面之外仍可能藏字节)。\n\n## 不带 changeset 的依据\n\n`scripts/**` 不在 `scripts/check-changeset-presence.mjs` 的守卫面内 —— 那道门禁只看 `.changeset/config.json` 的 `fixed` 组里各包的 `src` 目录。先例也一致:PR #3273(`lint.yml` + 本测试文件)与 PR #3278(`lint.yml` + 本脚本)改的正是同一批文件,均未带 changeset。这次改的是内部脚本的注释与一个仓库根测试,没有发布产物变化。\n\n## 顺带记录(不在本 PR 内)\n\n`content/docs/guide/ci-cd-pipeline.md:201-202` 括号里还有同一事实的第四份手抄清单(而且点了一条规则名)。它今天恰好是完整的,但没有任何门禁钉它,且把它加进本 PR 的 surface 列表会当场变红 —— 需要先做一个文档措辞取舍。已按 Prime Directive #10 单独记为 #3782(`finding` 标签,未指派),不夹带进本 PR。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

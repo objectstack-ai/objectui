@@ -1,0 +1,33 @@
+{
+  "number": 3886,
+  "kind": "pull_request",
+  "title": "docs(components): README §Setup 删掉 Tailwind 3 的 config 步骤,并修正预构建样式表的 specifier (#3780)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:54:06Z",
+  "updated_at": "2026-08-09T00:05:43Z",
+  "closed_at": "2026-08-09T00:05:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T00:05:41Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3886",
+  "body": "Fixes #3780\n\n`packages/components/README.md` §Setup 第 1 步教读者写一个带 `content` 数组的 `tailwind.config.js`。该包是 Tailwind 4:它自己没有这个文件,`postcss.config.js` 加载 `@tailwindcss/postcss`,`src/index.css` 首行 `@import 'tailwindcss'` 并使用 `@theme` / `@custom-variant` / `@source`。Tailwind 4 不经 CSS 里的 `@config` opt-in 不会加载 config 文件,所以照第 1 步做的读者写出的是一个没人读的文件。#3750 已把两行之上的 peer 行从 `^3.0.0` 收窄到 `^4.2.1`,底下这段散文没跟上。\n\n分支自 `origin/main` = `56ff0916e09085a5430957d5c62a7e5dc1a80d82` 显式 sha 切出。\n\n## 先量再选:这一步不能翻译,只能删\n\nissue 留了一格未定:第 1 步在 v4 下改写成 `@source`,还是整步删除。按分诊「先量再选」,对着**真实安装**测量而不是照着 v4 语法逐句翻译 —— 结论是这一步的前提在 Tailwind 4 下**不可达**,不只是拼错了。\n\n消费者形状的 fixture(`node_modules` 里装着本包,Tailwind 4.3.3 + `@tailwindcss/postcss`),四组 CSS 入口各跑一次真实编译。方向在跑之前先写进探针脚本头部,以便被证伪:\n\n| 消费者入口 | 消费者自己的 class | 库的形状类 utility | 库的**主题**类 utility |\n| --- | --- | --- | --- |\n| 第 1 步原样(v3 config,无 `@config`) | 有 | **无** | **无** |\n| v4 `@source` 指向已安装包 | 有 | 有 | **无** |\n| 第 1 步 + 显式 `@config` opt-in | 有 | 有 | **无** |\n| 第 2 步的预构建样式表 | 不归它管 | 有 | 有 |\n\n- **第 1 步原样是完全空转的**:整份产物 74 条选择器,全部来自消费者自己的源码,库的 utility 一条都没有 —— issue 的前提实测坐实。\n- **两种「忠实翻译」都到不了第 1 步想去的地方**:`bg-primary` / `bg-background` / `border-input` / `ring-ring`(整套 Shadcn 配色)只在声明其 token 的 `@theme` 块被编译处存在,而该块在 `packages/components/src/index.css` —— `files` 只发布 `dist`,不发布它。扫描已发布文件只能把形状类 utility(`inline-flex` / `rounded-md` / `h-9`)再生成一遍,永远补不回主题类。\n\n所以「改写为 `@source`」会是一条**新的错指令**:读者会得到一堆没有配色的组件,然后去排查一个不存在的路径问题。**该步整步删除**,替换它的段落明写读者接下来最可能伸手去拿的 `@source` 行为什么也不是答案。\n\n### 预构建样式表覆盖多少,也是量出来的\n\n把 `dist/index.js` + `dist/index.umd.cjs` 里所有 class 形状的 token 取出来(18099 个;这就是一个 `node_modules` glob 所能看到的**全部**表面),对着本包自己的主题编译,再与发布的 `dist/index.css` 逐选择器比对:\n\n```\nharvested 18099 distinct tokens from dist/index.js + dist/index.umd.cjs\nshipped dist/index.css : 161.98 kB, 1410 rules\nnode_modules-scan probe: 152.78 kB, 1331 rules\nrules the probe produces that the shipped CSS does NOT contain: 0\n```\n\n零缺失 —— 预构建 CSS 是扫描所能得到之物的**严格超集**。\n\n## 顺带修正:存活下来的 import 步骤 specifier 是错的\n\n测量过程中发现第 2 步自己也不成立。它写 `@object-ui/components/dist/style.css`,而 manifest 的 `exports` 映射里没有这个子路径:\n\n```\nOK   @object-ui/components/style.css      -> …/packages/components/dist/index.css\nFAIL @object-ui/components/dist/style.css -> ERR_PACKAGE_PATH_NOT_EXPORTED\nFAIL @object-ui/components/dist/index.css -> ERR_PACKAGE_PATH_NOT_EXPORTED\n```\n\n而且 `dist/style.css` 这个文件根本不存在(构建产物是 `dist/index.css`)。导出的拼法是 `@object-ui/components/style.css` —— 三个包的 demo(`plugin-gantt` / `plugin-grid` 两处)、`content/docs/guide/quick-start.md:57`,以及 `packages/components/src/index.ts:14` 里那句**把读者指向本 README** 的注释,一直用的都是它;只有 README 自己是错的。\n\n这一条**同 PR 修**而不是另立,理由是它与本 issue 的裁决直接耦合:删掉第 1 步之后,第 2 步是 §Setup 里唯一剩下的样式指令,把一条 `ERR_PACKAGE_PATH_NOT_EXPORTED` 的 specifier 留成唯一答案,比原来两步都错更糟。\n\n## 改后的 §Setup 是跑通过的\n\nPR 里写给读者的那两行,按同一套 fixture 实测(180.27 kB,1447 条选择器):形状类、主题类、以及消费者自己源码里的 class **全部**present。作为对照,`content/docs/guide/quick-start.md` 现行教法(同样两行再加一条 `@source node_modules`)是 280.25 kB / 1461 条 —— 多 100 kB,换来 14 条没人用的选择器(已另立 #3884)。\n\n## 反向验证\n\ndoc 类改动没有可回装的谓词,可测等价物取三样,方向均在跑之前写定:\n\n1. **把删掉的那一步当作被测对象跑一遍**(而不是回装进代码):v3 config 原样放进真实 Tailwind 4 编译 —— 预测「库 utility 全无」,实测 74 条选择器里库的 utility 零命中。这一步的空转是被**运行**出来的,不是从 v4 文档推出来的。\n2. **门禁前后全绿**:`check-doc-links.mjs`、`check-control-bytes.mjs`、`doc-version-claims.test.ts`(14 passed —— peer 行区块未动,restatement 断言仍在读同一行对同一 manifest)、`check-changeset-presence.mjs`、`check-changeset-no-major.mjs`、`check-changeset-fixed.mjs`、全仓 `turbo run type-check`(78/78)。\n3. **我教给读者的每条写法自己跑一遍**:见上一节。\n\n`doc-version-claims` 的 inventory 无需联动:本次改动不新增版本字面量(新增散文只写不带点、不带运算符的 `Tailwind 4`,该拼法被 `VERSION` 正则明确排除,test 自己的注释就记着这件事),peer 行区块一个字节没动。\n\n## changeset\n\n`check-changeset-presence.mjs` 判定不欠(它只守每个包的 `src/**`,README 在其守备面之外,header 里明写了这条边界)。仍按 #3749/PR3860 先例补一份**空 frontmatter** 的 changeset:不声明包,因为没有任何已发布产物改变形状、没有版本字面量移动,改好的 README 随该版本组的下一次发版一起出去。\n\n## 越界发现(均已查重后另立,本 PR 不碰)\n\n- **#3883** — `content/docs/guide/theming.md` §Tailwind Configuration 与 `troubleshooting.md` §2 仍在教 v3 `tailwind.config` `content` 数组;后者尤其致命,它正是读者「class 没生效」之后落地的页面,而实测那个处方补不回主题类 utility。\n- **#3884** — `quick-start.md` 的两条 `@source node_modules` 行冗余:实测多 100 kB / 14 条无用选择器,且它补不回它看似要补的主题 utility。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3981,
+  "kind": "pull_request",
+  "title": "fix(plugin-detail): record:related_list 的 filter 接通查询,Add 按钮门与 picker 对话框对齐 (objectstack#7118, #3895)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:19:45Z",
+  "updated_at": "2026-08-09T20:29:39Z",
+  "closed_at": "2026-08-09T20:29:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T20:29:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3981",
+  "body": "Fixes objectstack-ai/objectstack#7118\nFixes #3895\n\n两单同文件(`packages/plugin-detail/src/RelatedList.tsx`),拆开必然串行,故一 PR 双 Fixes。基 `5bfaabde0`(PR #3969 的 objectstack#6953 落地)。\n\n## 一、objectstack#7118 — `record:related_list.filter` 声明了却无人读\n\n### 前提复核(先验证,再实施)\n\nissue 正文的事实在基 sha 上逐条成立:\n\n- `packages/plugin-detail/src/index.tsx:323` 声明 `{ name: 'filter', type: 'array', label: 'Filter', description: 'Additional filter criteria' }`;\n- `RelatedList` 的取数处只有 `const filter = { [referenceField!]: parentId }`,props 里没有任何列表自身作用域的 filter 通道;\n- `renderers/record-related-list.tsx` 的 `RECORD_RELATED_LIST_DATA_SOURCE` 故意不含 `filter`,PR #3969 为此钉了一条诚实的反向断言。\n\n作者按已发布的 `inputs` 写 filter,得到该父记录下的**全部**子行 —— 不报错、`os validate` 绿、SDUI prop walk 也绿(已声明键不触发 `unknown-prop`)。objectstack#4413 的形状。\n\n### 方向枚举与选择(AGENTS.md #0.1)\n\n**决定:接通。** 两案在两条轴上的分析:\n\n| | A. 接通(本 PR) | B. 撤声明 |\n|---|---|---|\n| 长期正确性 | `filter` 是 **spec** 的键 —— `@objectstack/spec` 的 `json-schema/ui/RecordRelatedListProps.json` 明确声明它,item 形状是完整的 `ViewFilterRule`,描述 \"Additional filter criteria for related records\"。给它一个读点即是让实现追上契约。 | 只删 objectui 的 `inputs` 条目**不能**消除这条声明:spec 仍然声明、渲染器仍然不读,缺陷一字未改,只是变得**更难被发现**(反而制造 spec↔registry 的反向不一致,正是 #3808 为 `add`/`relationshipValueField` 修掉的方向 —— 声明面与运行时互相矛盾且无人报告)。真正的\"撤声明\"是在 objectstack 仓按 ADR-0049 退休一个 spec 公共属性,超出本 PR 文件面,也是一次公共契约删除。 |\n| 让 AI 写的 metadata 难写错 | 声明 = 强制:作者写的约束真的进查询;而且 `dataSource: { object, view }` 里 saved view 的 filter 不再被丢弃 —— 列表不可能再比它引用的 view 更宽(objectstack#5576 立下要禁止的方向)。 | 撤掉后作者失去唯一的合规写法,只能退回 `lookupFilters` 之类把作者约束降级成用户可编辑建议的路子(#3831 已论证过这是错的)。 |\n\n成本上 A 也不贵:合成用仓库既有的**单一 filter 汇聚点** `mergeFilterNodes`,不新增任何转换方言。\n\n### 实现\n\n- `RelatedList` 新增 `filter` prop(spec 的 `ViewFilterRule[]`,或 `ElementDataSourceGate` 合成出的 AST 节点),与 `{ [referenceField]: parentId }` 在 `mergeFilterNodes` 下 **AND 合成**。父关系条件不可协商:\"additional\" 只能收窄本父记录的子集,永远不能放宽。\n- **没写 filter 时查询逐字节不变**(仍是 MongoDB 风格对象,不是等价的新 AST)—— 差别在屏幕上看不见,在每一个钉住 wire 的调用点上看得见。\n- `filter: []`(designer 的\"未配置\")视作未声明。\n- `RECORD_RELATED_LIST_DATA_SOURCE` 加 `filter: true`;PR #3969 那条反向断言翻转为它自己注释里预告的正向断言。\n- 遗留的 raw-URL 兜底路径(无 adapter,查询语言只有 `filter[字段]=值`,连操作符都表达不了):声明了 filter 就**拒绝取数并说明原因**,而不是静默丢掉 —— 答得比 metadata 要求的更宽,正是本单要消除的那一类。\n- issue 第 4 条(核对 `inputs` 的 `type` 与实际形状):`type: 'array'` 与 spec 的 `z.array(ViewFilterRuleSchema)` 一致,无需改;description 补上成员词汇与合成规则(`ComponentInput` 是平的,数组入参的元素形状只能写在自己的 prose 里)。\n\n## 二、objectui#3895 — Add 按钮不判 `dataSource`\n\n方向按分诊席 2026-08-09 的晋级评论既定(方向 1,不重开)。`add` 链上三个消费点原本两判一不判:对话框判 `dataSource`、`handleAddRecords` 判、**按钮不判**。于是无 adapter 的宿主里按钮照常渲染,点击把 `pickerOpen` 置 true 而对话框根本不存在 —— 没有任何可见反应,也没有任何提示。补上同一条件即可,与 #3838 同一原则往前一格:能力不具备就不呈现 affordance。\n\n可达宿主是真实的一类:`renderers/record-related-list.tsx` 传 `dataSource={ctx?.dataSource}`,任何未绑定 `RecordContext` 的挂载(Studio designer 预览、无上下文嵌入)都是 `undefined`。所以第一条钉子走**渲染器**而不是组件 —— 门只在真会产生缺失 adapter 的挂载形态上才值得钉。\n\n## 反向验证(先预判方向,再跑;变异均未提交)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| 撤掉按钮门的 `dataSource` | 无-dataSource 两钉翻红,两条有-dataSource 正向钉保持绿 | `2 failed / 2 passed` —— 红的正是 `withholds the Add button…` 与 `renders neither button nor dialog…` |\n| `queryFilter = parentScope`(断开合成) | listFilter 里三条 AND 钉翻红;\"未声明\"/\"空数组\"/兜底两钉保持绿(它们断言的就是裸父作用域) | `3 failed / 12 passed`,红的三条与预判逐条一致 |\n| 从 mapping 去掉 `filter: true` | 绑定合成两钉翻红;\"无绑定按引用透传\"那条保持绿(与 mapping 无关) | `2 failed / 6 passed`,同预判 |\n\n第二个变异**不会**动到 `RecordRelatedListRenderer.elementDataSource.test.tsx`,这是预判的一部分而不是漏洞:该文件钉的是**渲染器那一跳**(什么值到达 `RelatedList` 的 props),组件内部查询合成的变异按定义碰不到它 —— 所以才需要第三个变异专门钉那一跳。\n\n另:两条无-dataSource 钉最初因 i18n 未挂载而**假绿**(默认按钮渲染的是原始 key `detail.add`,选择器 `/^Add$/` 两个方向都匹配不到 —— 绿是因为什么都没匹配上)。已把 `add.label` 显式写进 fixture 并按该名字选择,负向钉不再空转;这一点写在测试文件的注释里。\n\n## 消费半径扫查\n\n`add` prop 在仓内只有 plugin-detail(测试)与本渲染器使用;metadata-admin designer 的 `record:related_list` inspector 不含 `add`,`deriveRelatedLists` 既不产 `add` 也不产 `filter`。故本改动的 fixture 面不外溢 —— 仍按规程连 `apps/console` 的 binding-reach 一起跑了。\n\n## 验证输出\n\n```\n# 三个新增/翻转的测试文件\npnpm exec vitest run packages/plugin-detail/src/__tests__/RelatedList.listFilter.test.tsx \\\n  packages/plugin-detail/src/__tests__/RelatedList.addGateDataSource.test.tsx \\\n  packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.elementDataSource.test.tsx\n  Test Files  3 passed (3)\n       Tests  19 passed (19)\n\n# 规程指定的受影响面全量\npnpm exec vitest run packages/plugin-detail apps/console/src/__tests__/public-block-binding-reach.test.tsx --maxWorkers=2\n  Test Files  67 passed (67)\n       Tests  542 passed (542)\n\n# 仓根类型检查(末次编辑后)\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    78 successful, 78 total\n\nnode scripts/check-control-bytes.mjs\n  OK (scanned 3874 tracked text file(s); skipped 85 binary)\n\neslint(改动文件):0 errors(仅既有 no-explicit-any warning)\n```\n\n## 文档与 changeset\n\n- `content/docs/guide/data-source.md` 的逐 block 覆盖表:`record:related_list` 的 `filter` 由 \"— (see below)\" 改为 ✅,两处缺口记录减为一处(`object-form`),并写明合成是与父关系 AND 而非替换。\n- `packages/plugin-detail/README.md`:补 `filter` 的语义/词汇/兜底路径行为,以及 Add affordance 的门。\n- changeset:`@object-ui/plugin-detail` patch。\n\n## 边界\n\n只动 plugin-detail(`RelatedList.tsx`、`renderers/record-related-list.tsx`、`index.tsx` 的一条 input description、测试)+ 两处文档 + changeset。未碰共享层本体(`packages/react` 的 gate、`packages/core` 的 filter sink 一行未改),未碰 objectstack#7121 在飞的 block 外壳,未碰 `releases/`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3781,
+  "kind": "issue",
+  "title": "data-objectstack 文档页把 @objectstack/client 和 react 说成 peer dependency,而该包 peerDependencies 是空的(client 是普通 dependency,随包解析)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:41:43Z",
+  "updated_at": "2026-08-10T11:21:21Z",
+  "closed_at": "2026-08-10T11:21:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3781",
+  "body": "实施 #3750(把 peer 断言加宽到 README 的 Peer Dependencies 区块)时,为设计区块检测器而普查全仓「peer dependency」措辞得到的越界发现,据实另立。#3750 的面是 `packages/*/README.md` 的**区块**,这条在 `content/docs`,是散文而非区块,越界即停。\n\n## 事实(复核于 `origin/main` = `d229dfa7b`)\n\n`packages/data-objectstack/package.json`:\n\n```\n\"dependencies\": {\n  \"@object-ui/core\": \"workspace:*\",\n  \"@object-ui/types\": \"workspace:*\",\n  \"@objectstack/client\": \"^17.0.0-rc.5\",\n  \"@objectstack/spec\": \"^17.0.0-rc.5\"\n}\n\"peerDependencies\": {}          ← 空\n```\n\n`content/docs/utilities/data-objectstack.mdx` 三处与之不符:\n\n| 行 | 原文 | 真相 |\n|---|---|---|\n| 13 | `npm install @object-ui/data-objectstack @objectstack/client` | client 是普通 dependency,随包解析,读者不必单独装 |\n| 16 | `**Note:** The @objectstack/client package is a peer dependency and must be installed separately.` | 清单未声明任何 peer;\"must be installed separately\" 不成立 |\n| 456 | `- **@objectstack/client** (peer dependency) - ObjectStack API client` | 同上 |\n| 458 | `- **react** (peer dependency) - React library` | 清单**完全没有** react —— 既不是 peer 也不是 dependency |\n\n第 458 行最离谱:`react` 在该包的 `dependencies`、`devDependencies`、`peerDependencies` 里都不存在。\n\n## 与 #3750 的关系,以及为什么不在那个 PR 里修\n\n#3750 修的是 11 个包 README 里 `**Peer Dependencies:**` 区块的行(区块 ↔ 清单逐字比对),并把断言加宽到区块每一行。这条是**同族异面**:\n\n- 面不同 —— `content/docs/*.mdx`,不是 `packages/*/README.md`;\n- 形不同 —— 散文句子,不是可机读的 bullet 区块。#3750 新加的区块检测器 `PEER_BLOCK_HEADING` 刻意**锚定**为独占一行的 `**Peer Dependencies:**`,正是为了不把这一页的散文拖进来然后解析失败(这条已写进该 PR 的测试用例)。\n\n因此加宽后的门禁**依然看不见这一页**,这是明确的残留死角而非疏忽。\n\n## 影响\n\n读者按第 13 行多装一个 `@objectstack/client`(无害但多余,且可能装出与包内解析不同的版本);按第 458 行去找 react peer 会找不到。属于「文档声明的依赖契约与清单不符」,和 #3750 修的是同一类失真。\n\n## 修法方向(不预判)\n\n两半可以独立判:\n\n- **文档侧**:把三处措辞按清单改为普通 dependency 的描述,删掉不存在的 react 行;\n- **或清单侧**:若 `@objectstack/client` 本就**应该**是 peer(避免版本重复、让宿主统一 client 实例 —— 这在 adapter 类包里是常见且合理的设计),那错的是清单,应把它从 `dependencies` 移到 `peerDependencies`,文档反而是对的。\n\n**这一半是真正的设计决策**,不是机械替换:adapter 包让宿主提供 client 单例通常更正确,但改清单会影响所有消费者的安装面。建议由维护者裁决方向后再派发。\n\n⚠️ 与在飞的 #3774 不相交:#3774 动的是 `packages/data-objectstack/src`,本条动的是 `content/docs/utilities/data-objectstack.mdx`(以及可能的 `package.json`)。\n\n## 已搜重\n\n`data-objectstack peer dependency`、`objectstack/client peer dependency docs`、`peerDependencies README drift` 三组关键字搜过本仓开放 issue,零命中(其中两组遇 API 限流后重试)。#3750 / #3717 / #3741 均为同族但另一条面。\n"
+}

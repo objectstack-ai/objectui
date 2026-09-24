@@ -1,0 +1,32 @@
+{
+  "number": 3933,
+  "kind": "pull_request",
+  "title": "fix(app-shell): context selector 的 auto-select-first 移到 commit 阶段,pick 不再被后发的自动选中覆盖 (objectstack#6979)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T08:02:50Z",
+  "updated_at": "2026-08-09T08:16:08Z",
+  "closed_at": "2026-08-09T08:16:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T08:16:06Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3933",
+  "body": "Fixes objectstack-ai/objectstack#6979\n\n## 结论:issue 的机理判断成立,且不止是测试写法问题\n\nissue 的诊断逐字复核成立:`ContextSelectors.persist.test.tsx` 首用例在 `optionsReady()` 之后立即点击,与 `SelectorControl` 的 auto-select-first 竞速;高负载下 auto-select 后发、带过期闭包(`hasConcrete` 仍为 false、写入用的 search 仍是 pick 之前的),把用户 pick 覆盖回 `options[0]`(`billing`)。\n\n补充一层 issue 没写、但决定了修法的事实:**这个 gap 不是测试环境的产物**。auto-select 原本是 passive effect,排在「渲染出选项行的那次 commit」之后的一个 task 里执行,于是存在一个「下拉已渲染、可点,但尚无选中值」的真实窗口。选项接口慢、机器负载高、低端设备上,用户恰好在这个窗口里点选,pick 会被随后落地的 auto-select 覆盖 —— 对 `persist: 'query'` 的选择器还会连带改写 URL。测试里再怎么等,都替真实用户等不了。所以本 PR 两侧都修。\n\n## 组件侧:把 auto-select-first 移到 commit 阶段\n\n`packages/app-shell/src/layout/ContextSelectors.tsx` 里 auto-select 那条 `React.useEffect` 改为 `React.useLayoutEffect`。它与选项所在的 commit 落在同一个同步 flush 里,期间无法投递任何事件,窗口从源头消失;顺带也不再有「选项已就绪却渲染空值」的一帧。\n\n**触发条件、依赖数组、每种介质一次写入全部不变** —— 后续 nav link 把 scope 参数抹掉时,依旧从首项重新建立(objectstack#5994 删掉 storage 到 URL 的 bridge 时依赖的就是这条),该行为已单独钉住。\n\n评估过、**未采用**的另一种改法:给「用户已 pick」加一个 ref 闩,让后发的 auto-select 看到闩就放弃。它能修同一个竞态,但语义不唯一 —— 闩什么时候清很关键,清晚了(比如永久闩上)就会在 nav link 抹掉参数后把 scope 留空,正是 #5994 判定「不需要 bridge」所依赖的那条行为。相比之下换 effect 相位不引入新状态、不新增分支,风险面小得多。另外确认过「fire 时重读当前 location/params」这条 issue 提到的方向**不足以**修好:覆盖发生时,pick 触发的 re-render 还没 commit(React 在开始下一次渲染前先 flush pending passive effects),所以任何在 render 期更新的 ref 读到的仍是 pick 之前的值 —— 只有相位或闩能解决。\n\nSSR 面已核:依赖 `@object-ui/app-shell` 的只有 console SPA(Vite)与两个 console example,唯一 SSR 的 `@object-ui/site` 不依赖它;仓内 `useLayoutEffect` 已有先例(`RouteFader`、`form.tsx` 的状态修复)。\n\n## 测试侧:逐用例排查,param-less 挂载全部 settle-then-click\n\n`ContextSelectors.persist.test.tsx` 全文件 11 个用例逐条判定过:\n\n| 用例 | 判定 |\n|---|---|\n| `'query'` 写 URL / 不碰 storage | **改**:点击前先等 `?package=billing` 落定 |\n| `'query'` 从 URL 读回 | 免改:挂载即带参数,首帧就有具体值,auto-select 不触发 |\n| `'query'` 忽略过期 storage 条目 | 免改:本来就是 settle-then-assert 的正确写法(issue 引用的对照样本) |\n| `'query'` 默认值(省略 `persist`) | **改**:同首用例,默认解析为 `'query'`,auto-select 落在 URL |\n| `'session'` 写 storage / 不碰 URL | **改**:auto-select 与 pick 共用同一个 `setValue`,这里的竞态发生在 storage 里,等 storage 出现 `billing` 再点 |\n| `'session'` 从 storage 恢复 | 免改:storage 已播种,首帧就有具体值 |\n| `'session'` 不被同名 query 参数遮蔽 | 免改:同上 |\n| `'none'` 两处都不写但仍发布 pick | **改**:`'none'` 没有 store 可等,发布值本身就是要等的介质 |\n| `'none'` 不恢复上次会话 / 不读 URL | 免改:本来就在等 `billing`,且没有点击 |\n| `'none'` 重新挂载后丢弃 pick | **改**:点击前补等 `billing`(后半段本来就是 settle 形状) |\n| 冲突告警跟随 URL 介质 | 免改:告警由挂载时的冲突 effect 按声明的 id 发出,任何值写入都不影响它(已在用例里写明理由) |\n\n即:`session` / `none` 的用例**并非**「不经 auto-select 路径」,而是 auto-select 走同一个 `setValue`、只是落在各自介质里 —— 所以 param-less 挂载的那三条一并治了,免改的四条都是「首帧即有具体值,auto-select 从不触发」。\n\n顺手核过同目录的 `ContextSelectors.scopeKey.test.tsx`:6 个用例全部挂载带参数的 URL 或播种 storage,没有同形用例,不需要改。\n\n## 新增 ContextSelectors.autoSelectRace.test.tsx —— 钉住不依赖负载的那一半\n\n三条用例。前两条把点击**精确瞄进 gap**:用裸 `MutationObserver` 停在「渲染出选项行的那次 commit」,RTL 的 `waitFor` 在回调首次成功后会额外 drain 一个 macrotask、正好把 pending 的 auto-select 放过去(这也正是本 bug 表现为 flaky 而不是稳定红的原因)。URL 介质与 storage 介质各钉一条,防止将来只修一半。\n\n第三条方向相反,是故意的:它钉住「nav link 抹掉参数后仍从首项重选」,把上面那个 ref 闩式改法可能踩坏的行为提前挡住。\n\n## 验证证据\n\n反向验证(**方向先判后跑,判断成立**):把组件改回 `React.useEffect`,新增文件前两条**立刻**变红而不是超时 —— 覆盖发生在点击自己的 `act` 里,所以 `fireEvent.click` 之后那条同步断言先炸,消息与 CI 两跑一字不差:\n\n```\n× keeps a `query` pick that lands before the auto-select is done reacting 58ms\n× keeps a `session` pick the same way — the gap is not URL-specific 11ms\nAssertionError: expected 'billing' to be 'crm_core'\n Test Files  1 failed | 1 passed (2)\n      Tests  2 failed | 12 passed (14)\n```\n\n同一次反向验证里,**改好写法的 `persist.test.tsx` 12 条全绿**(上面 `1 passed`)—— settle-then-click 不依赖 effect 相位,两侧修法各自独立成立。第三条用例在这次 revert 下保持绿,与预判一致。\n\n稳定性(修后):\n\n- `pnpm exec vitest run packages/app-shell/src/layout/__tests__/ --maxWorkers=2` **连跑 5 次**:`17 passed (17) / 88 passed (88)` × 5\n- 同目录 `--maxWorkers=4` 连跑 3 次:同上全绿\n- `pnpm exec vitest run packages/app-shell --maxWorkers=2`:`306 passed (306)` / `2772 passed | 1 skipped`\n- `pnpm exec turbo run type-check --concurrency=2`:`78 successful, 78 total`\n- changeset 三道闸:presence / no-major / fixed 全 0 退出\n\n**没能复现的部分,如实说明**:修前状态在 4 核机器上加 6 个 CPU 占用进程、`--maxWorkers=4` 连跑 6 次,原用例始终是绿的 —— CI 那个 shard 的负载(约 1/4 全量 dom 文件 + 饱和的 Vite transform 管线)本地无法等价复制。红绿的实际开关是 Node 事件循环的相位竞争:React scheduler 用 `setImmediate`(check 阶段)排 passive effect flush,RTL 的 drain 用 `setTimeout(0)`(timers 阶段),两者谁先取决于当前处在循环的哪个阶段、每个阶段在负载下有多长。所以本 PR 用的是**确定性复现**而非概率复现:裸 `MutationObserver` 直接把测试放到「effect 仍 pending」这个 CI 命中的状态上,产出与 CI 完全同签名的失败,再证明修后同条件全绿。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

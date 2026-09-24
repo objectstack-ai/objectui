@@ -1,0 +1,33 @@
+{
+  "number": 3873,
+  "kind": "pull_request",
+  "title": "fix(core): ActionRunner.execute 的 disabled 门改问「有没有条件」,空谓词不再拦掉执行 (#3848)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:55:31Z",
+  "updated_at": "2026-08-08T23:11:39Z",
+  "closed_at": "2026-08-08T23:11:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T23:11:38Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3873",
+  "body": "Fixes #3848\n\n基线 `origin/main` = `f0a625aa7b00c93a48329e1c456b1aeacfceba43`(即 #3849 / PR #3861 落地那一提交)。文件面仅 `packages/core`。\n\n## 机理\n\n`ActionRunner.execute` 的执行门问的是 `action.disabled != null && action.disabled !== false`,然后把**原始值**直接交给 `evaluateCondition` —— 而那个函数对「这里没有条件」只有一个默认答案:返回 `true`,含义是 *visible/enabled*。在 `disabled` 这个键上,`true` 的意思恰好相反,是「已禁用」。于是任何空谓词都被判成禁用:handler 一次不跑,调用方收到一个元数据从未声明过的 `{ success: false, error: 'Action is disabled' }`。\n\n#3842 / #3849 修完渲染器两侧之后,这已经是**活的**用户可见行为:按钮能点了,点下去收到 `Action is disabled`。同一个谓词值,渲染器与执行入口给出相反答案 —— #3314 已经付过一次代价的形状。\n\n## 逐形状新旧对照(计数 handler,同一张探针表跑基线与改后)\n\n「拦」= handler 未被调用且返回 `Action is disabled`;「跑」= handler 被调用、`success: true`。\n\n| `disabled` | 基线(旧门) | 改后 | 动作面渲染器(#3848 正文表) |\n|---|---|---|---|\n| `''` | **拦** | 跑 | 可点 |\n| `'   '`(纯空白) | **拦** | 跑 | 可点 |\n| `{ dialect: 'cel', source: '' }` | **拦** | 跑 | 置灰(#3850 归属) |\n| 未声明 | 跑 | 跑 | 可点 |\n| `false` | 跑 | 跑 | 可点 |\n| `true` | 拦 | 拦 | 置灰 |\n| 裸 CEL 取真 `user.role == \"admin\"` | 拦 | 拦 | 置灰 |\n| 裸 CEL 取假 `user.role == \"guest\"` | 跑 | 跑 | 可点 |\n| `{ dialect: 'cel', source: 'true' }` | 拦 | 拦 | 置灰 |\n| `{ dialect: 'cel', source: 'false' }` | 跑 | 跑 | 可点 |\n| `'${user.role === \"admin\"}'`(模板取真) | 拦 | 拦 | 置灰(#3871) |\n| `'${user.role === \"guest\"}'`(模板取假) | 跑 | 跑 | 置灰(#3871,该行渲染器错) |\n| `0`(非谓词) | **拦** | 跑 | 置灰(#3871 同族) |\n| `{}`(非谓词) | **拦** | 跑 | 置灰(#3871 同族) |\n\n变化只有加粗那五行,方向一律是「拦 → 放行」。\n\n## 修法\n\n新门先问「有没有条件可判」,再求值。「没有条件」的判定取自 core 唯一的谓词归一器 `toPredicateInput`(把 `''`/`null`/空 `source` envelope/非谓词值映射为 `undefined`),外加纯空白字符串 —— 归一器对它是包裹而非折叠,而 `evaluateCondition` 自己就把空白 `trimmed` 叫做「没有条件」,`evalRowPredicate`(`evaluator/listConditional.ts`)用的也是这条 blank-source 规则。`catch { isDisabled = false }` 失败放行姿态原样保留。\n\n### 为什么求值仍读原始值,而不是归一结果\n\n派发时的优先形状是「先 `toPredicateInput` 归一,再据归一结果求值」。逐形状实测发现这个复合对**已经是 `${…}` 模板**的字符串不成立:`toPredicateInput` 假定入参是裸表达式、无条件包裹,`'${x}'` 变成 `'${${x}}'`,单模板快路 `/^\\$\\{([^}]+)\\}$/` 不再匹配,内层解析失败后 catch 里原样退回,`Boolean(非空串)` 恒为 `true`。也就是说那样求值的模板谓词**永远「已禁用」**,与表达式取值无关。实测:`disabled: '${user.role === \"guest\"}'`(admin context,取假)基线放行 → 归一求值后被拦。\n\n这是本 PR 唯一偏离派发形状的地方:归一只用于**判门**,verdict 仍读原始值,于是每个非空形状的 verdict 逐一不变,本改动只可能少拦、不可能多拦。归一器的二次包裹缺陷另立 **#3871**(动作面渲染器与 `ActionEngine` 都以该复合书写,因此都中招;而 `SchemaRenderer` 与 `page:header` 读原始值、各自有钉子钉住正确 verdict)。钉子里留了指向 #3871 的 tripwire,该单修好那天它会红,提示可以让本门改读归一结果。\n\n仍然不一致的两行都写明归属,不在本单顺手修:空 `source` envelope 的渲染器半边归 **#3850**(「空谓词」范围裁决,在队),`${…}` 拼法归 **#3871**。⛔ 未碰 `components/visibility-gate.ts`、未搬 helper 进 core、未碰 `packages/react`(#3862)。\n\n## 钉子\n\n`packages/core/src/actions/__tests__/ActionRunner.disabledGate.test.ts`(表驱动,形状抄 PR #3851 / #3861 的钉子风格):14 形状逐一断言 handler 跑没跑;一条断言空谓词**根本不该到达求值器**(门决定,不是 verdict 决定);一条断言「已声明 parity 的每一行,执行侧 verdict 等于渲染器侧 verdict」(渲染器列是从 #3848 正文表**转录**的证据 —— core 是渲染器包的被依赖方,不能反向 import,活的渲染器钉子在 #3842/#3861 的测试里),并把两行**故意不声明** parity 的形状连同归属单号一起钉住;另有机理钉:`evaluateCondition(undefined) === true` 这条反向默认值,以及 #3871 的 tripwire。\n\n### 反向验证(方向先判后跑,预判写在钉子头注释里)\n\n还原旧门(`!= null && !== false`)、求值不动 → 预判「恰好五行『没有条件』变红并各自点名形状,非空形状全绿」。实跑:\n\n```\n ❯ packages/core/src/actions/__tests__/ActionRunner.disabledGate.test.ts (20 tests | 6 failed)\n     × 'disabled: \\'\\' (empty predicate)'\n     × 'disabled: \\'   \\' (whitespace-only pr…'\n     × 'disabled: { dialect: \\'cel\\', source:…'\n     × 'disabled: 0 (not a predicate)'\n     × 'disabled: {} (not a predicate)'\n     × an empty predicate does not even reach the evaluator (the gate decides, not the verdict)\n      Tests  6 failed | 14 passed (20)\n```\n\n与预判一致(第六条红的是那条「不该到达求值器」的钉子,同属这条门)。\n\n## 验证\n\n```\npnpm exec vitest run packages/core/src/actions/__tests__/ActionRunner.disabledGate.test.ts --maxWorkers=2\n  → Test Files 1 passed (1) | Tests 20 passed (20)\n\npnpm exec vitest run packages/core/src/actions packages/core/src/evaluator --maxWorkers=2   # 消费半径\n  → Test Files 25 passed (25) | Tests 596 passed (596)\n\npnpm exec vitest run packages/core --maxWorkers=2\n  → Test Files 68 passed (68) | Tests 1489 passed (1489)\n\npnpm exec vitest run packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx --maxWorkers=2\n  → Test Files 1 passed (1) | Tests 11 passed (11)\n\npnpm exec turbo run type-check --concurrency=2\n  → Tasks: 78 successful, 78 total\n\nnode scripts/check-control-bytes.mjs\n  → OK (scanned 3768 tracked text file(s))\n```\n\n全仓扫过执行门的消费半径:`Action is disabled` 的断言只在 `packages/core`;`components` / `plugin-detail` 里的 `disabled: ''` 用例全是渲染器侧钉子,不经 `ActionRunner.execute`,未受影响。\n\n## 顺手发现(已另立,未在本 PR 修)\n\n- **#3871** —— `toPredicateInput` 对已经是 `${…}` 模板的字符串二次包裹,动作面渲染器与 `ActionEngine` 因此把模板谓词一律判成 true(`visible` 永远显示 / `disabled` 永远置灰),而 `SchemaRenderer` 与 `page:header` 对同一拼法是对的(各有绿钉子)。\n- **#3872** —— 就在本门上面一行:`condition` 门用真值判定(`if (action.condition)`),于是 `condition: false`(最明确的「永不执行」)**照样执行**,实测 handler 跑了;而同义的 `{ dialect: 'cel', source: 'false' }` 被拦。#3812 的形状,方向是过度放行。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

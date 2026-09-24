@@ -1,0 +1,33 @@
+{
+  "number": 3982,
+  "kind": "pull_request",
+  "title": "fix(sdui): PageComponentSchema.dataSource 接到剩余 7 个 object-bound block (objectstack#7121)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:36:18Z",
+  "updated_at": "2026-08-09T21:58:17Z",
+  "closed_at": "2026-08-09T21:58:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T21:58:15Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3982",
+  "body": "Fixes objectstack-ai/objectstack#7121\n\n## 这个 PR 修什么\n\nobjectstack#6953(PR #3969)把 spec 的 per-element 数据绑定(`PageComponentSchema.dataSource` = `{ object, view?, filter?, sort?, limit? }`)接到了它正文点名的 8 个 block,**同一条声明在其余 7 个 object-bound public block 上依旧无人消费**:`object-gantt` / `object-timeline` / `object-map` / `object-pivot` / `object-master-detail-form` / `embeddable-form` / `record:line_items`。\n\n每一块都把取数挂在自己的对象键上,而没有任何地方把 `dataSource.object` 映射过去 —— 按 spec 写、不额外写 `objectName` 的页面渲染出**空甘特 / 空时间轴 / 无标记的地图 / 空交叉表 / 无字段的表单**,不发请求、也没有任何诊断。spec-valid 的 metadata 渲染出空,就是 objectstack#4413 的形状。\n\n本 PR 复用 #6953 落地的共享层(`useElementDataSourceSchema` / `ElementDataSourceGate`),**共享层与 #5576 的解析层一行未改**;合成语义完全沿用 #5576(view 提供基线 → 组件显式键覆盖 view → 绑定显式键覆盖两者;`filter` 三方 `and` 合成,绑定只能收窄 view;`view` 解析不到报错、不回退全量)。\n\n## 接线清单(block → 文件 → 映射了哪些键)\n\n| block | 文件 | `object` | `view` 贡献 | `filter` | `sort` | `limit` |\n|---|---|---|---|---|---|---|\n| `object-gantt`(+ `view:gantt`) | `packages/plugin-gantt/src/index.tsx` | ✅ `objectName` | filter/sort | ✅ | ✅ | ⛔ reload 不发 `$top` |\n| `object-map`(+ `view:map`) | `packages/plugin-map/src/index.tsx` | ✅ `objectName` | filter/sort | ✅ | ✅ | ⛔ 无 `$top` |\n| `object-pivot` | `packages/plugin-dashboard/src/index.tsx` | ✅ `objectName` | filter | ✅ | ⛔ 由 row/columnField 定序 | ⛔ 截断页算不出总计 |\n| `object-timeline`(+ `view:timeline`) | `packages/plugin-timeline/src/index.tsx` | ✅ `objectName` | 仅校验名字 | ⛔ 无读点 | ⛔ 无读点 | ⛔ 硬编码窗口 |\n| `embeddable-form` | `packages/plugin-form/src/index.tsx` | ✅ `objectName` | 仅校验名字 | ⛔ 无集合查询 | ⛔ | ⛔ |\n| `object-master-detail-form` | `packages/plugin-form/src/index.tsx` | ✅ `objectName`(**父**对象) | 仅校验名字 | ⛔ 无集合查询 | ⛔ | ⛔ |\n| `record:line_items` | `packages/plugin-form/src/index.tsx` | ✅ **`childObject`** | 仅校验名字 | ⛔ 只按父 FK | ⛔ 无读点 | ⛔ 固定 `$top: 500` |\n\n**⛔ 的含义是「该 block 没有这个键的读点,所以故意不映射」,不是遗漏。** 把合成值写到 block 不读的键上,等于把本单要消除的缺陷(声明了却被丢弃)往下挪一层、看起来像接好了 —— 所以每一个 ⛔ 都各钉了一条**诚实断言**:确认那个键确实没有进到查询里。逐块读点(给行号)在各处代码注释里;逐块覆盖表连同残缺口写进了 `content/docs/guide/data-source.md`。\n\n`view` 那一列写的是「命名的 saved view 在该 block 上实际贡献了什么」。**解析不到的 view 名在这 7 块上全部渲染配置错误** —— 包括那些从 view 里什么都不取的块,所以写错名字在任何一块上都不会静默通过。\n\n### 一处需要单独说明:`record:line_items` 的 `object` 落在 `childObject`\n\n这是本批唯一一个对象键不叫 `objectName` 的块。它列的、取的、写的集合都是 `schema.childObject`(`LineItemsPanel.tsx`:`dataSource.find(schema.childObject, …)`、`getObjectSchema(schema.childObject)`、保存批次的子腿),所以 `dataSource.object` 映射到那里 —— 与 `record:related_list` 的 `objectName` 同义:两处那个键都是**该面板绑定的子对象**,正是 `dataSource.object` 的含义。`relationshipField` 不属于绑定、仍归作者(它必须是绑定子对象上的字段);`columns` 在这里是可编辑网格的 `GridColumn[]`(`{ field, type, options, computed, expr, … }`),不是字段名投影 —— view 的列表在这里是**形状不对**,不只是「答案更宽」,因此不映射。\n\n## 每块两方向钉子\n\n7 个新测试文件 31 例。每一块都同时钉住「带 `dataSource`(含 `view`)时正确映射」与「不带时行为与现状逐字一致」,并各带一条「未映射的键一定不进查询」。\n\n## 反向验证(先预判方向,再跑;变异不提交)\n\n1. **撤掉 `object-map` 的 gate**(恢复 pre-fix 渲染器)。预判:4 条带绑定的钉子翻红(无 `objectName` → `getDataConfig()` 返回 null → 压根不发 `find`、也不渲染错误面板),无绑定基线保持绿。实测 **`4 failed | 1 passed`**,红的正是那 4 条(全部卡在 `waitFor(find 被调用)` 或错误面板断言),绿的是「不带 dataSource 时行为逐字一致」。\n2. **把 `record:line_items` 的映射键从 `childObject` 改回默认 `objectName`**。预判:两条对象身份断言翻红(合成值落到没人读的键上 → 查询对象变 `undefined`),错误面板那条与无绑定基线保持绿。实测 **`2 failed | 2 passed`**,报文正是 `expected undefined to be 'invoice_line'` —— 「写到没有读点的键上」这一失败模式被直接观测到,也是这个映射键选择的证据。\n\n## 顺手记录、未在本 PR 修的发现\n\n- objectstack#7137 — `object-timeline` / `record:line_items` 的取数**没有 filter/sort 读点**(timeline 是 `find(objectName, { options: { $top: 100 } })`,line_items 只按父 FK + 固定 `$top: 500`),所以命名的 view 解析成功却贡献为零、列表可能比它引用的 view 更宽。与 objectstack#7118 同形。本 PR 刻意不映射这些键,并各钉了一条确认查询里确实没有它们的断言 —— 缺口一旦补上,那两条钉子会翻红,提醒同步更新映射与文档。\n- objectstack#7138 — `ObjectMap.getMapConfig()` 从 `schema.filter.map` / `schema.filter.map.style` 读**地图配置**(把 filter 键当配置容器;声明过的输入是 `map`)。注意其相互作用:绑定/view 带来的 filter 一旦合成成 `and` 节点,legacy 那条 stash 就找不到了 —— 已在映射旁注释写清,本 PR 不依赖该 legacy 形状。\n- objectstack#7139 — `plugin-map/src/index.tsx` 模块作用域遗留 `console.log('Registering object-map...')`(观察类)。\n\n## 边界(按派发约定)\n\n⛔ 未碰 `RelatedList.tsx` / `record-related-list.tsx`(在飞的 os#7118 + #3895 结对面);⛔ 未碰共享层本体、`SchemaRenderer`、`ChartContainerImpl`;⛔ 未碰 `content/docs/releases/`。\n\n## 验证输出\n\n```\n# 7 个新钉子\npnpm exec vitest run <7 个 elementDataSource 测试文件> --maxWorkers=2\n  Test Files  7 passed (7)\n       Tests  31 passed (31)\n\n# 受影响包 + 消费半径全量回归(分批)\npackages/plugin-gantt + plugin-timeline + plugin-map                  46 files / 381 passed\npackages/plugin-dashboard + plugin-form                               68 files / 608 passed\npackages/plugin-list + react smoke + sdui-parser tier + core registry 31 files / 508 passed\napps/console 的四个注册表探针\n  (public-block-binding-reach / record-block-record-reach /\n   public-contract / preview-samples-registry-resolvable)              4 files /  43 passed\npackages/react/src/element-data-source/ + app-shell inspector 两例      3 files /  31 passed\n\n# 仓根类型检查\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    78 successful, 78 total\n\nnode scripts/check-control-bytes.mjs\n  OK (scanned 3874 tracked text file(s); skipped 85 binary)\nnode scripts/check-changeset-presence.mjs   ✅ 5 released packages / 1 changeset\nnode scripts/check-changeset-no-major.mjs   ✅ no major\neslint(改动文件)                            0 errors(仅与同文件既有风格一致的 any/react-refresh 警告)\n```\n\nchangeset:`@object-ui/plugin-gantt` / `plugin-timeline` / `plugin-map` / `plugin-dashboard` / `plugin-form` 各 `patch` —— 用户可见的行为修复,无新增公共 API(共享层未改),按仓约定不声明 `major`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3972,
+  "kind": "issue",
+  "title": "packages/layout: registerLayout 的 inputs 声明面与组件实现不符 —— page-header 漏 icon(文档 demo 今天就吃假 unknown-prop),navigation-renderer 的 items 声明成 object 而 prop 是数组",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T18:43:07Z",
+  "updated_at": "2026-08-09T21:08:31Z",
+  "closed_at": "2026-08-09T21:08:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3972",
+  "body": "发现于 #3900 的实现(PR 见下方引用),**不在该 PR 处理** —— #3900 的完成范围被维护者明确框成「`page-header` 一行注册 flag + 钉子」,这里是同一个注册文件里**另外两个键**的声明面缺陷,属另一类动作。两条都有实测诊断输出,不是推断。\n\n## 现象一:`page-header` 的 `inputs` 漏了组件真实渲染的 `icon`\n\n注册(`packages/layout/src/index.ts`)只声明 `title` / `subtitle`。但 `icon` 三面齐全:\n\n- 渲染器读它:`packages/layout/src/PageHeader.tsx:117` 取参,`:224-226` 渲染(字符串走 `LazyIcon name={icon}`,也接受 React node)。\n- spec 声明它:`@objectstack/spec/ui` 的 `PageHeaderProps` 有 `icon`。\n- 文档 demo 写它:`examples/schema-catalog/src/schemas/layout-page-header/pageheader-with-actions.json` 里 `\"icon\": \"users\"`,而这是 `content/docs/layout/page-header.mdx` 唯一的 live demo。\n\n于是 manifest 门今天就对这份 demo 报一条假警告。实测(把该 demo 喂给按 `page.tsx` 的 `getJsxManifest()` 同样方式构造的 manifest,再走 `validateTree`):\n\n```json\n{\n  \"severity\": \"warning\",\n  \"code\": \"unknown-prop\",\n  \"message\": \"page-header has no prop \\\"icon\\\"\",\n  \"tag\": \"page-header\"\n}\n```\n\n这条与 #3900 无关、在 #3900 修复前后都存在(两次实测输出一致),所以 #3900 的钉子刻意只按 `not-a-container` 这个 code 过滤,没有把它一起钉住 —— 就是为了这一条被修时那个钉子不会翻红。\n\n**注意方向,不要无脑抄全 spec 的键。** `breadcrumb` spec 有、这个 legacy 渲染器不读(全文件只在一句注释和一个 `aria-label` 里出现过字样),声明它就变成 #3829 那种「声明了却零读点」的反向缺陷。要的是一次**按渲染器实际读点**的审计:读了且 spec 有 → 声明;读了但 spec 没有 → 按 #3226 定下的调子处理(不要在声明面开第二套方言);没读 → 不声明。\n\n同文件既有的 `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx` 那条「declares nothing `@objectstack/spec` does not」是**单向**的:补 `icon` 不会让它翻红(spec 有),但它从来管不到「漏声明」这一侧 —— 和 #3900 是同一个不对称的另一处体现。\n\n## 现象二:`navigation-renderer` 把 `items` 声明成 `type: 'object'`,而 prop 是数组\n\n注册里 `{ name: 'items', type: 'object' }`,而 `NavigationRendererProps.items` 是 `NavigationItem[]`(`packages/layout/src/NavigationRenderer.tsx:108`)。`packages/sdui-parser/src/validate.ts` 的 `checkType` 对 `'object'` 判 `typeof value === 'object' && value !== null && !Array.isArray(value)`,对 `'array'` 判 `Array.isArray` —— 所以**正确**的写法 `items: [...]` 会拿到 `type-mismatch`。实测:\n\n```json\n{\n  \"severity\": \"warning\",\n  \"code\": \"type-mismatch\",\n  \"message\": \"navigation-renderer prop \\\"items\\\" expected an object\",\n  \"tag\": \"navigation-renderer\"\n}\n```\n\n`ManifestInputType` 里有 `'array'`,所以这**不是** #3832 那个「`ComponentInput.type` 表达不了 spec 联合类型」的表达力问题,单纯是声明写错了一个可表达的类型。\n\n**可达性诚实标注:** 本仓没有任何 JSON 元数据把 `navigation-renderer` 当 schema 节点写(全仓 grep 只命中注册本身,以及 #3900 加的那条阳性对照测试)。所以这条今天的实际受害者是仓外按 `packages/layout/README.md` 列出的键作 schema 驱动的消费者,不是仓内 demo —— 与现象一「文档 demo 今天就中」不同级,分诊时请分别判。之所以放在同一条:两者是同一文件、同一族(声明面与实现不符 → manifest 门对正确写法报假诊断)、同一次审计就能扫完,分成两个孪生单没有收益。\n\n## 建议\n\n一次改动扫完 `registerLayout()` 的四个 `inputs` 块(`page-header` / `responsive-grid` / `navigation-renderer` / `app-schema-renderer`),逐键对齐三面:渲染器读点 × spec 声明 × `ManifestInputType` 表达。并按 #3900 的做法补**双向**钉子:声明的键过 manifest 门放行,未声明/写错类型的键仍报 `unknown-prop` / `type-mismatch` —— 只钉前者的话,把诊断弄哑一样是绿的。\n\n关联:#3900(发现于此实现,只处理 `isContainer`)、#3226(同文件 `inputs` 收窄的前情,建立了「声明面即作者面」的调子)、#3829(`page:header.icon`:spec 声明、渲染器零读点,同一个键的**反向**缺陷)、#3832(`ComponentInput.type` 表达力,不同根因)\n"
+}

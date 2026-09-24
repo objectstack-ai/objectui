@@ -1,0 +1,36 @@
+{
+  "number": 3871,
+  "kind": "issue",
+  "title": "toPredicateInput 对已经是 `${…}` 模板的字符串二次包裹,动作面的谓词一律判成 true(visible 永远显示 / disabled 永远置灰)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:42:15Z",
+  "updated_at": "2026-08-09T13:41:40Z",
+  "closed_at": "2026-08-09T13:41:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3871",
+  "body": "## 来源\n\n发现自 #3848 实施(`ActionRunner.execute` 的 disabled 执行门)的探针对照。#3848 的派发形状原本是「先过 `toPredicateInput` 归一,再据归一结果求值」,逐形状实测时发现该复合对**已经是 `${…}` 模板**的字符串给出恒定 `true`,于是 #3848 的执行门改为「归一只用于判门、verdict 仍读原始值」,并把这条单独立单。不在 #3848 修法面(那单只碰 `packages/core/src/actions/ActionRunner.ts`),**未认领**。\n\n## 机理\n\n`packages/core/src/evaluator/predicateInput.ts` 的 `toPredicateInput` 对字符串**无条件包裹**:\n\n```ts\nif (typeof value === 'string') return `\\${${value}}`;\n```\n\n它假定入参是**裸表达式**(`record.done == true`)。但 `${…}` 模板也是本仓文档在册的拼法(AGENTS.md §4 的 `hidden?: string; // expression: \"${data.role != 'admin'}\"`),而 `EvaluatorPredicateInput` 这个类型自己就把「`${…}` 模板字符串」列为**合法的归一输出**。于是一个已经归一好的值被再包一层:\n\n`'${x}'` → `'${${x}}'`\n\n`ExpressionEvaluator.evaluate` 的单模板快路是 `/^\\$\\{([^}]+)\\}$/`,`[^}]+` 跨不过内层的 `}`,匹配失败;落到全局 replace,内层表达式取到 `'${x'`,`evaluateExpression` 抛错,catch 里 `return match` 原样退回 —— 最终结果是**原字符串**(非空),`Boolean(非空字符串)` = `true`。\n\n所以 `evaluateCondition(toPredicateInput('${任意}'))` **恒为 true**,与表达式本身的取值无关(只留下一条 `console.warn`)。\n\n## 实测(worktree @ `origin/main` = `f0a625aa7b00c93a48329e1c456b1aeacfceba43`,一次性探针,未提交)\n\ncontext 为 `{ user: { role: 'admin' } }`,同一个谓词两条路:\n\n```\ndisabled '${user.role === \"admin\"}' (取值 TRUE)  | evaluateCondition(原始值)=true  | evaluateCondition(toPredicateInput(...))=true\ndisabled '${user.role === \"guest\"}' (取值 FALSE) | evaluateCondition(原始值)=false | evaluateCondition(toPredicateInput(...))=true   ← 恒真\ndisabled 'user.role == \"guest\"'     (裸,FALSE)  | evaluateCondition(原始值)=false | evaluateCondition(toPredicateInput(...))=false  ← 裸表达式正常\n```\n\n即:**裸表达式正常,`${…}` 拼法恒真**。\n\n## 影响面(按 `toPredicateInput` 的调用点)\n\n复合成 `useCondition(toPredicateInput(x))` / `evaluateCondition(toPredicateInput(x))` 的落点都中招:\n\n- `packages/components/src/renderers/action/action-button.tsx`(`visible` / `disabled` / `enabled`)\n- 同目录 `action-icon.tsx`、`action-group.tsx`(内联按钮 + 下拉项)、`action-menu.tsx`、`action-bar.tsx`\n- `packages/app-shell/src/views/DeclaredActionsBar.tsx`\n- `packages/plugin-detail/src/renderers/record-quick-actions.tsx`、`RelatedList.tsx`\n- `packages/core/src/actions/ActionEngine.ts:237`(`getActionsForLocation` 的 `visible` 过滤)\n\n用户可见后果按键分两向:`visible: '${…}'` → 恒真 → **永远显示**(该藏不藏);`disabled: '${…}'` → 恒真 → **永远置灰**(作者写什么都解不开)。ActionEngine 那处是 `throwOnError: true` + fail-closed,但双重包裹的失败发生在 `evaluate` 内部的 catch 里(`return match`),**不抛**,所以也是恒真=恒显示。\n\n## 对照:另两条路对同一拼法是对的(且有绿钉子)\n\n- `packages/react` 的 SchemaRenderer 走原始值:`packages/react/src/__tests__/SchemaRenderer.expressions.test.tsx:135` 钉住 `disabled: '${data.status === \"locked\"}'` 在 `status: 'active'` 下**不置灰**。\n- `page:header` 走 `evalRowPredicate`(`packages/core/src/evaluator/listConditional.ts`),legacy 拼法原样喂 `evaluateCondition`:`packages/components/src/__tests__/page-header-predicate-dialect.test.tsx:257` 钉住 `${…}` 取假时**隐藏**。\n\n所以这是 #3314 那个形状的又一实例:同一个谓词值,动作面渲染器与通用渲染路径给出相反答案。动作面这一侧的 `${…}` 用例**一个都没有**(#3842/#3849 的钉子用的是裸表达式 `features.locked == true`),所以缺陷一直没被 CI 看见。\n\n## 修法建议(未裁)\n\n生产端一处改完即全线收敛 —— 已经是归一形态的字符串不该再包一次:\n\n```ts\nif (typeof value === 'string') return value.includes('${') ? value : `\\${${value}}`;\n```\n\n但请先裁:这会让上面**所有**落点对 `${…}` 拼法从「恒真」变成「按取值判」,即 `visible: '${取假}'` 从「显示」变「隐藏」、`disabled: '${取假}'` 从「置灰」变「可点」—— 方向都是正确化,但是跨 4 个包的 verdict 变更面,且与 SchemaRenderer / page:header 收敛。另一条路是判定 `${…}` 在动作谓词上**off-spec**(`@objectstack/spec` 的 `PredicateInput` 只有裸串与 dialect envelope),那就该在发布期校验里**响亮拒绝**,而不是留在消费端静默恒真。两条路都比现状好,取舍属契约裁决。\n\n#3848 的执行门已按「归一只用于判门、verdict 读原始值」落地,并在钉子里留了指向本单的 tripwire(本单修好那天该 tripwire 会红,提示按本单更新)。\n\nRelated: #3848(执行门,本单发现出处)、#3850(「空谓词」范围的三处分歧)、#3862(SchemaRenderer 第三种拼法)、#3314(渲染路径与引擎路径判定分歧的先例)、#3521(page:header 的 legacy dialect 回退)。未认领。\n"
+}

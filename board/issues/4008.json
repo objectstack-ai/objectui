@@ -1,0 +1,33 @@
+{
+  "number": 4008,
+  "kind": "pull_request",
+  "title": "fix(schema-catalog): grid 示例的列数键 cols → columns —— 3/4 列示例不再静默渲染成 2 列 (#4001)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "examples",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T23:42:45Z",
+  "updated_at": "2026-08-10T00:08:28Z",
+  "closed_at": "2026-08-10T00:08:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T00:08:27Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4008",
+  "body": "Fixes #4001\n\n## 问题\n\n`GridSchema` 声明的列数键是 `columns`(`packages/types/src/layout.ts`),`grid` 渲染器只读 `schema.columns`(`packages/components/src/renderers/layout/grid.tsx:50-103`),注册的 designer `inputs` 也只有 `columns` / `smColumns` / `mdColumns` / `lgColumns` / `xlColumns` / `gap` / `className`。`cols` 从未被 spec、类型或注册表声明,`core` / `react` / `types` 里也没有任何把它归一到 `columns` 的处理(已 `git grep` 核实:`packages/*/src` 内除 Tailwind 的 `grid-cols-*` 字面量外无一处读 `cols`)。\n\n13 个 catalog 示例把列数写成 `cols`,于是值被整个丢弃:`baseCols` 落到字面默认 `2`,而且 mobile-first 降级的门禁是 `typeof schema.columns === 'number'`,连降级也不触发 —— **在所有断点上都是死板 2 列**,production 构建同样如此。\n\n## 修法(契约优先)\n\n改**生产者**:13 个 JSON 的 `cols` → `columns`。**没有**给渲染器加 `schema.columns ?? schema.cols` 之类的别名兼容 —— 按 AGENTS.md #0.1,宽容的 consumer 会把错拼法固化成第二套事实契约,而 `cols` 从来不是契约的一部分。\n\n## 命中清单(13 个,每个文件一行改动,均在 grid 节点上)\n\n已用脚本逐个核验:每个文件恰好一处 `cols` 键、且落在 `type: \"grid\"` 节点上、改后仍为数字。\n\n| 文件 | columns |\n|---|---|\n| `report/report-header-with-kpis.json` | 4 |\n| `theme/semantic-color-palette.json` | 4 |\n| `components-layout-page/full-dashboard.json` | 4 |\n| `components-data-display-statistic/metrics-grid.json` | 3 |\n| `components-layout-page/page-with-header.json` | 3 |\n| `forms/payment-form.json` | 3 |\n| `components-data-display-statistic/sales-dashboard.json` | 2 |\n| `auth/signup.json` | 2 |\n| `components-complex-resizable/complex-layout.json` | 2 |\n| `components-basic-div/grid-layout.json` | 2 |\n| `theme/theme-aware-ui-elements.json` | 2 |\n| `plugin-view/form-view-mode.json` | 2 |\n| `forms/contact-form.json` | 2 |\n\n## 渲染变化(是修好,不是回归)\n\n实测(经真 SchemaRenderer):\n\n- `columns: 4` → `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4`(原 `grid grid-cols-2 gap-4`)\n- `columns: 3` → `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4`(原 `grid grid-cols-2 gap-4`)\n- `columns: 2` → `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-4`(原 `grid grid-cols-2 gap-4`)\n\n**一处需要向 issue 正文更正**:正文把那 7 个「要 2 列」的示例记为「碰巧和默认值一致、渲染无变化」。实测并非如此 —— `columns: 2` 会触发 mobile-first 降级,base 断点从 2 列变成 1 列(`sm` 起才回到 2 列)。所以 **13 个示例的渲染全部变化**:6 个在 `md` 及以上从 2 列变成正确的 3/4 列,7 个只在 base(手机)断点从 2 列变成 1 列。后者正是渲染器写明的窄屏可读性意图,不是回归。\n\n## 防回潮钉\n\n新增 `examples/schema-catalog/test/grid-columns-key.test.tsx`(数据面 + 渲染面,与 #3972 / #3987 的 manifest 钉同族版位),钉三件事:\n\n1. **数据面禁令** —— catalog 全量 423 个 JSON,任何 `type: \"grid\"` 节点都不得出现 `cols` 键,失败时报出示例 id 与值。第 14 个 `cols` 进不来。\n2. **禁令非空转** —— 13 个示例各自仍声明其应有列数(只删键也能让禁令变绿,所以列数值单独钉);另有一条 grid 节点总数下限(21),保证遍历器确实看到了节点。\n3. **渲染面抽样** —— 5 个示例经真 SchemaRenderer 钉住完整 class 串(含 `className` / 非默认 `gap` 透传),值按上表的**新正确值**。抽样含 `components-basic-div/grid-layout` —— `content/docs/components/basic/div.mdx` 让作者照抄的迁移范本。\n\n注意钉的范围刻意只针对 `cols` 这一个键,没有做 grid 节点的键白名单:`type: \"grid\"` 被两个 tier 共用 —— 布局 grid 的 `columns` 是数字,而 `fields-grid/*` 的字段网格 `columns` 是列定义数组(带 `name` / `label` / `readonly`),白名单会误伤后者。\n\n## 反向验证(方向先书面预判,再跑变异,变异未提交)\n\n**变异 A** —— 把 `metrics-grid.json` 的 `columns` 改回 `cols`。预判:三条翻红(禁令列出 offender、`declares columns: 3` 因 `declared` 变空、渲染钉收到旧的错值)。实跑与预判一致:\n\n```\n× no grid node in the catalog carries an undeclared `cols` key\n  + \"components-data-display-statistic/metrics-grid (cols: 3)\"\n× components-data-display-statistic/metrics-grid declares columns: 3\n  AssertionError: expected [] to include 3\n× components-data-display-statistic/metrics-grid renders grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4\n  Expected: \"grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4\"\n  Received: \"grid grid-cols-2 gap-4\"\nTests  3 failed | 17 passed (20)\n```\n\n第三条尤其值得记:渲染钉在变异下**复现了 issue 实测的那个缺陷值**,说明它钉的是真渲染而不是恒真式。\n\n**变异 B** —— 把 `report-header-with-kpis` 的期望值改回修复前的 `grid grid-cols-2 gap-4`。预判:该条单独翻红。实跑一致(`Expected: \"grid grid-cols-2 gap-4\"` / `Received: \"grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4\"`),证明钉里写的是新正确值。\n\n**过程中踩到的一个坑,如实记录**:变异 A 的还原用了 `git checkout --`,而当时改动尚未 commit,于是它把文件还原到了 HEAD(即未修复态),连带污染了变异 B 那一跑的输出(B 的日志里同时出现 metrics-grid 的三条红)。已重新施加修复、复跑全绿后才 commit;后续变异都在 commit 之后做。B 自身的预判判据(那一条 pin 的 Expected/Received)不受影响。\n\n## 写钉时测出的一处渲染器事实\n\n`grid` 渲染器的 Tailwind 覆盖读的是 **`className` prop**,而把 `schema.className` 灌进这个 prop 的是 `SchemaRenderer`(`SchemaRenderer.tsx:479-523` 两种拼法都设)。所以渲染钉走真 SchemaRenderer,而不是 `ComponentRegistry.get('grid')` 直渲 —— 后者会静默丢掉作者写的 `className`,钉就看不见它了。这是先按直渲写、被 `full-dashboard` / `semantic-color-palette` 两条翻红纠正后的结论,注释已写进测试文件。\n\n## 验证\n\n- `pnpm exec vitest run examples/schema-catalog --maxWorkers=2` → 5 files / **1113 passed**(含新钉 20 条)\n- `pnpm exec vitest run packages/components --maxWorkers=2` → 109 files / **929 passed**\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → **78/78 successful**\n- `node scripts/check-control-bytes.mjs` → OK(3911 files);并对改动文件自查了门禁扫不到的控制字节区间,clean\n- `pnpm --filter @object-ui/example-schema-catalog lint` → 0 errors(2 条既有 warning 在我未碰的文件里)\n\n**changeset**:无。`node scripts/check-changeset-presence.mjs` 判定 `No source of a released package changed in this range, so no changeset is owed.` —— `@object-ui/example-schema-catalog` 是 `private`、且在 `.changeset/config.json` 的 `ignore` 组里;本 PR 只动 examples 数据与测试,按 AGENTS.md「纯 bug 修复不需要 changeset」处理。\n\n**测试面的一个既有缺口(未动)**:`examples/schema-catalog/tsconfig.json` 的 `exclude` 含 `test`,所以本包的 `type-check` 覆盖不到任何测试文件(含本 PR 新增的)。这正是在飞 #3968 的面,按边界不碰;新文件的类型另行用一次性 `tsc --noEmit --ignoreConfig ...` 单独核过,exit 0。\n\n## 边界\n\n未碰 `grid.tsx`(不加别名)、未碰 `div.tsx` 与 #3965 / #4003 的 div 词表面(`components-basic-div/grid-layout.json` 的根节点本就是 `grid`,只改了键)、未碰 #3968 的 tsconfig 面、未碰 `content/docs/releases/`。\n\n另有两类**超范围发现**(同一缺陷类、不同文件,未在本 PR 修、未立单,已回传 PM 定夺):`skills/objectui/rules/protocol.md` 与 `skills/objectui/guides/mobile.md`、`apps/site/app/components/ReactVsObjectUI.tsx` 仍在教 `cols`,且 AGENTS.md #5 自身的例子也写作 `cols`。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

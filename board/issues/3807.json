@@ -1,0 +1,36 @@
+{
+  "number": 3807,
+  "kind": "issue",
+  "title": "`record:details` 的 `sections` input description 还在教已被 spec 退役的「Section IDs」形状,渲染器只认对象形 —— 照 manifest 写出来的 sections 一条都不渲染",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:20:31Z",
+  "updated_at": "2026-08-08T17:53:26Z",
+  "closed_at": "2026-08-08T17:53:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3807",
+  "body": "发现于 #3797 / PR #3806 的实施过程(全仓 registry `inputs` × `ComponentPropsMap` parity 门)。该门只判**键名**,判不到 description 的内容,所以这条从旁边掉出来。未认领,交 PM triage。\n\n与 #3407 / PR #3795 修的 `record:highlights.fields` 是**同一个失效**,只是换了 block —— 那次是 description 把条目形状写成 `{name,label?,icon?,type?}`、漏了渲染器已兑现的 `readonly`;这次更重:description 写的形状**spec 已经退役、渲染器根本不认**。\n\n## 机制\n\n`packages/plugin-detail/src/index.tsx:249` 的声明:\n\n```\n{ name: 'sections', type: 'array', label: 'Sections', description: 'Section IDs to show (required when layout is \"custom\")' },\n```\n\n而 pin 版 `@objectstack/spec@17.0.0-rc.5` 的 `RecordDetailsProps.sections` 是**对象数组**,`z.array(z.object({ name?, label?, columns?, fields }))`,description 原文:`Field groups rendered as the detail body, in order. Object form: { name?, label?, columns?, fields }.`。spec 那段注释还专门写了这次收敛的理由(objectstack#5611):\n\n> 直到 17.x 这个键是 `z.array(z.string())` ——「section IDs」—— 而本仓没有任何页面、`objectui` 没有任何读路径用过它:`RecordDetailsRenderer` 把每个条目都当对象映射(`s.name` / `s.label` / `s.fields`),没有任何 string 分支;`@object-ui/types` 的 `RecordDetailsComponentProps` 镜像声明的是对象形;Studio 的 block 设计器只能写 `{label, columns, fields}`。ID 列表那种拼法是「无 producer 也无 consumer 的声明」,所以是删掉而不是 union 进来:一种形状,不是两套事实契约(Prime Directive #12)。\n\n也就是说 **spec 已经把「Section IDs」这条拼法删了**,而本仓的 `inputs` 还在把它当唯一说明发布出去。`inputs` 是 `gen-manifest.ts` 序列化进 `sdui.manifest.json` 和 `sdui-intrinsics.d.ts` 的东西 —— 读 manifest 的作者(尤其是 AI 作者)会照着写:\n\n```\n{ \"type\": \"record:details\", \"properties\": { \"layout\": \"custom\", \"sections\": [\"contact_info\", \"address\"] } }\n```\n\n后果链条,每一层都不报错:\n\n1. manifest 门只看顶层 prop 名 + 粗类型(`array`),`['contact_info','address']` 是合法 array,零诊断;\n2. `RecordDetailsProps` 是普通 strip 模式 `z.object`,不过 `.strict()`,但 `sections[]` 的元素校验会拒 —— 只有在真的走 parse 的路径上才拒(objectstack `validateComponentProps` 是 **advisory/warning** 级);\n3. `RecordDetailsRenderer`(`packages/plugin-detail/src/renderers/record-details.tsx`)对每个条目读 `s.name` / `s.label` / `s.fields`,字符串上这三个全 `undefined` → **该 section 一个字段都不渲染**;\n4. 页面看起来「就是空的」,没有任何报错指向 `sections`。\n\n`layout: 'custom'` 时 `sections` 是详情页正文的**唯一**来源,所以照 manifest 写的作者拿到的是一张空白详情页。\n\n## 建议\n\n按 PR #3795 的同一做法:description 从 spec 的形状**派生着写**,并把机器可读的那半补上 —— 至少把对象形写清(`{ name?, label?, columns?, fields }`,以及 `name` 是 i18n 锚点、`columns` 是本 section 的字段栅格宽度)。顺带看一眼同一处的 `fields`(`:250`)与 spec 的 `fields` / `hideFields` 是否也漂了。\n\n`sections` 这种「数组元素带自己形状」的 input 在门里是**看不见的**(见 PR #3806 头注的 LIMIT 段:`ComponentInput` 没有成员形状声明位,这也是 PR #3795 那条 open question 存档的原因),所以这类漂移目前只能靠人看,或者靠那条 open question 落地后才机械可查。\n\n参考位置:\n\n- `packages/plugin-detail/src/index.tsx:239-251` —— `record:details` 的 `inputs`\n- `packages/plugin-detail/src/renderers/record-details.tsx` —— 只认对象形的映射,及 `:147` 的 `hideFields` 读点\n- spec `packages/spec/src/ui/component.zod.ts` 的 `RecordDetailsProps`(objectstack#5611)\n\n关联:#3797 / PR #3806、#3407 / PR #3795(同族,`record:highlights.fields`)、objectstack#5611、objectstack#5068\n"
+}

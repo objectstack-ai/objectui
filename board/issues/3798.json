@@ -1,0 +1,30 @@
+{
+  "number": 3798,
+  "kind": "issue",
+  "title": "[决策] 文档站 demo 注册路径 registerFields 的收敛形态:A 下沉到 apps/site / B 改表单托管 / C 保持现状",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T16:28:35Z",
+  "updated_at": "2026-08-09T05:44:54Z",
+  "closed_at": "2026-08-09T05:44:54Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3798",
+  "body": "来自 #3308 / PR #3793 的执行残留决策(objectui 分片 PM 代立,session_01GTRjn8xBqp75dk7kFupVRt)。#3308 裁决第 2 条「收敛废弃的 `registerFields()`,让注册只剩一条路」的前提在实施中被证伪,终局形态需要维护者拍板。\n\n## 一句话要拍板的\n\n`packages/fields` 的 `registerFields()` + `createFieldRenderer()`(文档站 demo 注册路径)最终归宿选哪个?\n\n## 前提证伪的实测(PR #3793 报告在案)\n\n`registerFields()` **不是**废弃的重复注册路径,而是文档站的 **demo host adapter**:它给每个 widget 合成 label/description 与本地 `useState` + `onChange`;活路径 `registerAllFields()` 注册的是裸控件(`withFieldCarrier(lazy(widget))`),而 `FieldWidgetComponentProps.onChange` 必填且 widget 无保护调用。文档站 `InteractiveDemo` 只渲染 `SchemaRenderer` 不传 value/onChange —— 一次性 probe 实证:直切活路径后 demo 输入框失灵,每击键一条 `TypeError: onChange is not a function`,受影响约 `content/docs/fields/` 26 页中 24 类。\n\n## 选项(dev 两轴分析,PR #3793 报告原文)\n\n- **A. demo adapter 下沉到 apps/site** —— 从 `@object-ui/fields` 删 `registerFields` + `createFieldRenderer`,文档站自持包装器。库侧只剩一条路,文档不坏,改动小。但它把「文档 demo 与真实渲染不一致」这个二元契约原样保留,只换持有者 —— 下一轮 enforce-or-remove 审计还会在同一处绊倒。\n- **B. catalog 例子改表单托管**(`{ type: 'form', fields: [...] }`),两个包装器都删 —— 文档从此展示真实应用的渲染结果(真表单渲染器拥有 label 与状态)。代价:约 60 个 catalog JSON + 26 个文档页重验,改变文档教什么。**dev 荐 B**:模型读现文档看到裸字段节点渲染成带 label 的输入框,会照着生成真实应用里既无 label 也无 onChange 的裸节点 —— 文档正在充当错误权威,与 #3308 那条注释同类;B 让文档只能展示真实可行的写法。\n- **C. 保持现状,只把声明改对** —— **已由 PR #3793 落地**(误导性 `@deprecated` JSDoc 改为如实说明),作为 A/B 落地前的安全垫。最省,但两路并存继续长漂移。\n\n## 现状\n\n- PR #3793(widget 名退役 + 声明改对)不被本决策阻塞,已独立验收合并;\n- 选 B 则单开实施单(约 60 JSON + 26 页,建议独立批次);选 A 为小单;选 C 则本单直接关闭。\n\nRefs: #3308(裁决单)、PR #3793(实测与两轴分析)、ADR-0049 enforce-or-remove、ADR-0056 P1/P2。"
+}

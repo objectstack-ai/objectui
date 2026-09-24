@@ -2,8 +2,8 @@
   "number": 8093,
   "kind": "issue",
   "title": "finding(devx): the `BaseSchema` vocabulary pin covers the surface with one residue site and misses the two governed surfaces that held eight — extend its corpus once both repairs land",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-steve",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:devx",
-    "pm:queue",
     "priority:p3",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-06T15:19:08Z",
-  "updated_at": "2026-09-20T22:30:54Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T03:34:27Z",
+  "closed_at": "2026-09-24T03:34:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 2,
   "locked": false,

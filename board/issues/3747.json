@@ -1,0 +1,30 @@
+{
+  "number": 3747,
+  "kind": "pull_request",
+  "title": "fix(runner): 删掉 vite 别名表里指向不存在包目录的 data-objectql 条目",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:22:29Z",
+  "updated_at": "2026-08-08T11:33:31Z",
+  "closed_at": "2026-08-08T11:33:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T11:33:30Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3747",
+  "body": "Fixes objectstack-ai/objectui#3593\n\n## 前提复核(在 `origin/main` 上,按内容锚定而非行号)\n\nfetch 点 `8ad6070fb`。前提**成立且完整**:\n\n| 事实 | 实测 |\n|---|---|\n| 表里有该条目 | `packages/runner/vite.config.ts:76`(分诊时记的 `:76`,未漂移) |\n| 包目录不存在 | `git ls-tree origin/main packages/data-objectql` → 空;`packages/` 下 39 个包无此项(现存的是 `data-objectstack`) |\n| 全仓唯一引用 | `grep -rnI data-objectql`(去 node_modules/.git)→ 2 处,均在本文件:`:76` 条目本身 + `:69` #3575 那条点名本单的注释 |\n| runner 未声明依赖 | `package.json` `dependencies` 六个工作区包,无它 |\n| 零 importer | 无任何源文件 import,故 vite 别名永不被匹配 |\n\n逐条核对表内 15 个条目的目标目录,**恰好一条死的**:\n\n```\nOK   packages/components/src        OK   packages/plugin-charts/src\nOK   packages/core/src              OK   packages/plugin-detail/src\nDEAD packages/data-objectql/src     OK   packages/plugin-kanban/src\nOK   packages/data-objectstack/src  OK   packages/providers/src\nOK   packages/fields/src            OK   packages/react/src\nOK   packages/i18n/src              OK   packages/react-runtime/src\nOK   packages/permissions/src       OK   packages/sdui-parser/src\n                                    OK   packages/types/src\n```\n\n## 改动(单文件,两处)\n\n1. **删掉死条目**。按分诊席裁定走「删除是唯一读法」:条目指向空无,无论 `data-objectql` 是否被 `data-objectstack` 取代,删除都成立;该包若回归,加回一行别名是一件小事。\n2. **把 #3575 那条推导命令的 `2>/dev/null` 绕过换成不变量的显式检查**——这是本单真正的技术债所在。\n\n第 2 点的方向选择值得写明:issue 正文建议的是「换成显式的目录存在性**过滤**」,但那个建议原本挂在「保留条目」的分支下。既然条目被删,**过滤**就是错的方向——它会**静默跳过**死条目,恰好复刻本单反对的那种「不变量看起来是软的」。因此改为**失败即响**:\n\n- 移除 `2>/dev/null`,并在注释里写明 stderr 不再被吞的理由——内层 `grep -r` 走的正是本表点名的目录,所以它报 `No such file or directory` **不是噪音**,而是「表里有条目指向不存在目录」的告警;应当改表,不是消音。\n- 另补一条可单独跑的死条目检查(逐个 `[ -d ]`),表干净时无输出,与第一条命令「跑到不打印东西为止」的用法同构。\n\n于是这张表的**两个方向**现在都有机械检查:缺别名(#3575 修的方向)由 `comm -13` 报,死条目(本单方向)由新增检查报。\n\n## 验证 —— 方向在跑之前先定\n\n### 1. 不变量:表 = 闭包(两个方向都干净)\n\n改后,从仓根跑新注释里的两条命令:\n\n```\n### 推导命令(按新注释,已无 2>/dev/null) ###\n[输出 0 字节 —— stdout 无缺口,stderr 也不再有 No such file or directory]\n\n### 死条目检查 ###\n[无输出 = 表干净]\n```\n\n### 2. 反向验证 —— 三个方向,预测在前\n\n把文件恢复成 `origin/main` 版本(死条目回到表里)后:\n\n| 方向 | 预测 | 实测 |\n|---|---|---|\n| 推导命令(无绕过) | 红 | `grep: packages/data-objectql/src: No such file or directory` ✅ |\n| 新增死条目检查 | 红 | `dead table entry: packages/data-objectql/src` ✅ |\n| dev 模块图 | **不变**(非红) | **完全一致** ✅ |\n\n第三行是**诚实的方向,不是模板预设的红**:这条别名从来没被匹配过(零 importer),所以它对运行时的贡献本就是零,删除它在模块图上**必然看不出差别**。这正是本单判为「休眠」的依据,这里把它从推断变成了实测——`data-objectql` 在两次爬取里都是 0 次出现。真正会动的是**诊断**,而诊断按预测两条全红。\n\n### 3. dev server 冒烟 + 整张模块图(install-only,不 build)\n\n干净 worktree 只跑 `pnpm install`,自选空闲端口 `--strictPort`,从 `/src/main.tsx` 沿 vite 改写后的 import URL 爬全图。**改后**(:5237):\n\n```\ncrawled 2380 modules from /src/main.tsx\nworkspace packages served FROM SRC (13): components, core, fields, i18n, permissions,\n  plugin-charts, plugin-detail, plugin-kanban, providers, react, react-runtime, sdui-parser, types\nserved from dist / node_modules/@object-ui (0): (none)\nNON-200 responses: 0\ndata-objectql anywhere in graph: 0\nvite 日志里 could not be resolved / Failed to run dependency scan / Failed to resolve import:0 次\n```\n\n**改前**(同一棵树、`origin/main` 版本的 config,:5238):以上数字**逐项相同**(2380 / 13 / 0 / 0 / 0)。\n\n与 #3599 记的 2381 差 1,是其后 #3651、#3676 改 `App.tsx` / `main.tsx` 带来的,不是本次改动——因为改前基线是在**同一棵树**上重测的,两侧都是 2380。13 而非 14 仍是类型级的 `data-objectstack`(esbuild 抹除,本就不进模块图),与 #3599 的分析自洽。\n\n### 4. 静态检查\n\n- `pnpm --filter @object-ui/runner lint`:**23 problems(0 errors,23 warnings)**,与 #3599 记录的既有基线一字不差,本文件零告警。\n- `node scripts/check-control-bytes.mjs`:`OK (scanned 3691 tracked text file(s))`;另对改动文件做了越过该 gate 的自扫 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` → 无命中,`file` 判为 `Unicode text, UTF-8`。\n- **type-check 对本文件不构成证据,故未跑**:runner 的 `tsconfig.json` 是 `include: [\"src\"]`,`vite.config.ts` 不在其 program 里(#3599 的正文已点明这一点)。为它去 build 一串上游依赖换不到任何关于本改动的信号,按资源纪律略过——真正的验收证据是上面第 1/2/3 节。\n\n## 测试:为什么没有新增测试\n\n改动是删掉一条**永不被匹配**的构建期别名 + 改注释里的一条 shell 命令。没有产品代码路径可断言;能钉住的不变量已由注释里那两条可复跑命令承担(第 1、2 节即是它们的实测)。`packages/runner` 现有 13 个测试从仓根跑**全绿**:\n\n```\n$ pnpm exec vitest run --maxWorkers=2 packages/runner/src\n Test Files  3 passed (3)\n      Tests  13 passed (13)\n```\n\n⚠️ 注意 `pnpm --filter @object-ui/runner test`(包级入口)在**干净 `origin/main` 上就是 4 红**(`window is not defined`),与本改动无关——已在 `origin/main` 版本上跑同一命令复现同样的 `4 failed | 9 passed` 确认,并另开 #3746 记录。\n\n## changeset:无(与 #3599 的判据一致,结论相反)\n\n#3599 补了 patch changeset,是因为它**真的**改了发布产物(资产数 10 → 1776、`modulePreload` 关掉、首屏载荷 -86%)。本次删掉的是一条**匹配不到任何 import** 的别名条目:rollup/vite 对未命中的 alias 不产生任何输出差异,dist 逐字节不变;另按 AGENTS.md「功能改进需 changeset,纯 bug 修复不需要」,本次是后者。故不加。\n\n坦白一句:**没有**跑两次完整 `vite build` 去做 dist 字节比对——那是约 1776 个产物的两轮重构建,而「未命中的别名不影响产物」由构造即可确立,再加上第 3 节改前/改后模块图逐项相同,已足够;在共享容器里为此烧两轮重建不符合资源纪律。\n\n## 越界发现\n\n- **#3746**(本次新开):`pnpm --filter @object-ui/runner test` 在干净 main 上 4 红(包级 vitest 落到 runner 的 `vite.config.ts`、拿不到 jsdom),仓根同一批 13 全绿。未在本 PR 修。\n- 本文件第 19 行的 `__dirname` 触发 vite 8 的 `configLoader: 'native'` 告警(dev 日志里可见),**已由 #3592 覆盖**(open,`finding`,统计为 28 个 vite/vitest config 的共性问题),按「先搜再报」不另开重复单。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

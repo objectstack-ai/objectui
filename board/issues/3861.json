@@ -1,0 +1,34 @@
+{
+  "number": 3861,
+  "kind": "pull_request",
+  "title": "fix(components,plugin-detail): 动作 disabled 的「已声明」判定剩余五处改读 hasDeclaredVisibilityGate (#3849)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:07:36Z",
+  "updated_at": "2026-08-08T22:20:22Z",
+  "closed_at": "2026-08-08T22:20:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:20:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3861",
+  "body": "Fixes #3849\n\n基于 `origin/main` @ `993336f7c481e1fd724512363b8b2f15b305da86`（即 #3842 / PR #3851 的合并点）。\n\n## 落点核对（逐处，不整批假设）\n\n开工前在该 sha 上逐处核过现拼法，issue 正文的五处落点表全部成立，五处现拼法一律是 `disabled != null`：\n\n| # | 文件:行(基线 sha) | 组件 | 现拼法 | 有 `enabled` 腿 |\n|---|---|---|---|---|\n| 1 | `packages/components/src/renderers/action/action-icon.tsx:97` | `action:icon` | `disabled != null` | 有 |\n| 2 | `packages/components/src/renderers/action/action-group.tsx:106` | `InlineActionButton` | `disabled != null` | 有 |\n| 3 | `packages/components/src/renderers/action/action-group.tsx:148` | `DropdownActionItem` | `disabled != null` | 有 |\n| 4 | `packages/components/src/renderers/action/action-menu.tsx:98` | `ActionMenuItem` | `disabled != null` | 有 |\n| 5 | `packages/plugin-detail/src/renderers/record-quick-actions.tsx:208` | `QuickActionButton` | `disabled != null` | 无 |\n\n三个 `packages/components` 文件此前**已经**导入了 `hasDeclaredVisibilityGate`（`visible` 门在 #3812 / #3823 就改过），所以是同一文件同一按钮上 `visible` 问「已声明」、隔一行的 `disabled` 问 `!= null` —— 一个问题两种拼法。`record-quick-actions.tsx` 从 `@object-ui/components` barrel 新增导入（#3835 开的跨包路子）。\n\n`SchemaRenderer.tsx:323` 的第三种拼法（`!== undefined`）确认存在但**不在**本单文件面，未动，见下方「越界发现」。\n\n## 机理（与 #3842 逐字相同，方向是关键）\n\n`toPredicateInput('')` 为 `undefined`，`evaluateCondition(undefined)` 为 `true`。\n\n- 在 `visible` 上这个 `true` 意味着「显示」，与过宽的「已声明」判定互相抵消 —— 所以 `visible: ''` 前后都渲染，`''` 在那一侧不是变异探测器。\n- 在 `disabled` 上同一个 `true` 意味着「禁用」，两个错误叠加：空谓词从「没有门」变成「永久置灰」，作者写什么都解不开。\n\n五处统一改读 `hasDeclaredVisibilityGate`（`!= null && !== ''`）。按 #3842 裁定：不重命名、不加别名、不上提 core；包内三处从 `./visibility-gate` 相对取；每处落点就地注释说明名称系历史、语义为谓词通用。\n\n## 行为变更面（刻意窄）\n\n只有 `disabled: ''` 从「置灰」变「可点」—— 这正是「没有谓词」本来要求的结果。`disabled: true` 仍置灰，`disabled: false` 与未声明仍不置灰，表达式取值的 verdict 一律不变。\n\n四处带 legacy `enabled` 腿的落点多一条推论：空 `disabled` 现在**落到** `enabled` 腿，而不再在空谓词上短路，所以同时写 `disabled: ''` + `enabled: true` 的动作变为可点。`record:quick_actions` 没有 `enabled` 腿，它的链条就是单个门。\n\n`enabled` 腿本身取反（`disabled = !isEnabled`），空谓词的 `true` 到达时已是 `!true` = 「不置灰」，与「没声明门」同 verdict —— 四形状在新旧判定下完全一致，属**推演等价而非修复**。#3842 的四形状推演表连同「没有任何 `enabled` 用例能因还原该腿而变红」这句话一并抄在钉子旁，如实说明而不包装成覆盖率。\n\n## 测试\n\n新增两个钉子文件，形状抄 PR #3851 的 `action-disabled-declared-gate.test.tsx` 保持家族一致：\n\n- `packages/components/src/renderers/action/__tests__/action-member-disabled-declared-gate.test.tsx` —— 四处落点 × (`''` / `true` / `false` / 未声明 / 表达式双向) + `enabled` 腿五形状，表驱动。宿主按各自真实路径挂载：`action:icon` 按 `action:bar` 的成员方式把整个 action 摊到叶子自己的 `schema` 上；`InlineActionButton` 走真实 `action:group` 宿主；两个下拉叶子放在 controlled-open 菜单里（沿用 `action-member-visible-gate.test.tsx` 的 harness）。\n- `packages/plugin-detail/src/renderers/__tests__/record-quick-actions.disabled-declared-gate.test.tsx` —— 真实驱动宿主（`useActionEngine` 按 `locations` 过滤 → 渲染器 map 出 `QuickActionButton`），`useCondition` / `toPredicateInput` 一律用真的，不 stub —— 空谓词链条本身就是被测机理。\n\n判定探针按 DOM 形状区分：原生 button 元素读它的 `disabled` DOM 属性；Radix `DropdownMenuItem` 渲染成 `role=\"menuitem\"` 的 div，禁用时带的是 `data-disabled`（沿用 `action-group-dropdown-visible.test.tsx` 为 #1885 立的探针）。\n\n实跑（仓根、`flock` 串行、`--maxWorkers=2`）：\n\n- 两个新文件：`Test Files 2 passed (2)` / `Tests 45 passed (45)`\n- 消费半径扫面（`renderers/action/__tests__` 全量 + `components` 的 action-bar / action-group + `plugin-detail/renderers/__tests__` 全量 + `DeclaredActionsBar` + `actionPredicate.parity` + console 的 `record-block-record-reach`）：`Test Files 17 passed (17)` / `Tests 243 passed (243)`\n- 末次编辑后全仓 `turbo run type-check --concurrency=2`：`Tasks: 78 successful, 78 total`\n\n## 反向验证（方向先判后跑）\n\n预判写在跑之前：单还原 `action-icon.tsx` 一处的 `!= null`，该处 `''` 钉子必须红且点名该处；其余四处与 `record:quick_actions` 保持绿。\n\n实跑与预判一致 —— 恰好两条红，都在 `'action:icon'` 名下：\n\n```\nFAIL  'action:icon' — declared `disabled` gate (objectui#3849) :\n      an empty-string `disabled` is not a declared gate — the action stays clickable\nAssertionError: expected true to be false\nFAIL  'action:icon' — legacy `enabled` leg (objectui#3849) :\n      an empty `disabled` falls THROUGH to the legacy `enabled` leg\nAssertionError: expected true to be false\nTests  2 failed | 43 passed (45)\n```\n\n第二条红是**预判到的**同一处的另一面：`disabled: ''` 一旦重新算作「已声明」，链条就在空谓词上短路，作者的 `enabled: true` 根本没被读到。还原后已复原为 `hasDeclaredVisibilityGate`。\n\n## 越界发现\n\n`packages/react/src/SchemaRenderer.tsx:322-334` 的 `newSchema.disabled !== undefined`（第三种拼法，范围比 `!= null` 再宽一格 —— `disabled: null` 也会置灰）确认存在于 `origin/main`，不在本单文件面，本 PR 未动。已立单 #3862（未认领，附 file:line 取证：该值经 `SchemaRenderer.tsx:461` 的 `disabled: __disabled || undefined` 转发成组件 prop，不是死标记；修法涉及「共享定义放哪一层」的跨包裁定，建议与 #3850 同批裁），交 PM 分诊。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -2,8 +2,8 @@
   "number": 3394,
   "kind": "issue",
   "title": "form 组件的设计器默认值 `defaultProps: { submitLabel: 'Submit', cancelLabel: 'Cancel' }` 仍是英文字面量（本仓运行期无人读，但会绕过 #3272 的渲染期回落）",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-05T15:33:55Z",
-  "updated_at": "2026-09-16T21:03:05Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T05:45:54Z",
+  "closed_at": "2026-09-24T05:45:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 12,
   "locked": false,

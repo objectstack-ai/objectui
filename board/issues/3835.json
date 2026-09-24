@@ -1,0 +1,36 @@
+{
+  "number": 3835,
+  "kind": "issue",
+  "title": "app-shell/DeclaredActionsBar: 服务端声明动作的真值可见性门实证可达 —— `visible: false` 照样渲染（#3823 消费半径清扫发现的同族第五处）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:32:04Z",
+  "updated_at": "2026-08-08T19:38:40Z",
+  "closed_at": "2026-08-08T19:38:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3835",
+  "body": "## 来源\n\n发现自 #3823（`action:bar` 成员动作组件级真值门）的**消费半径清扫** —— 按「一个规则改了,它跑到哪里就扫到哪里」枚举 `action:button` / `action:icon` 的宿主时,在**另一个包**里撞到同一形状的第五处门。不在 #3823 的文件面(#3823 只收 `packages/components/src/renderers/action/{action-button,action-icon}.tsx`),故独立成单,**未认领**。\n\n## 机理\n\n`packages/app-shell/src/views/DeclaredActionsBar.tsx:190`:\n\n```\nif ((action as any).visible && !isVisible) return null;\n```\n\n与 #3492 / #3758 / #3812 / #3823 同一个缺陷:`false && …` 为假 → 不 `return null` → 渲染。作者写 `visible: false`(最明确的「永不显示」)被真值判读成「没声明门」。该文件自己的注释就写着它 \"Mirrors `action:button` (fail-closed `visible`)\" —— 它镜像的正是 #3823 刚修掉的那个门。\n\n**可达性不需要论证,是构造性的**:`DeclaredActionsBar` 是一个普通 React 组件(`packages/app-shell/src/views/index.ts` 导出),由宿主直接以 JSX 挂载 —— `apps/console/src/pages/system/ApprovalsInboxPage.tsx:2014` 与 `:2055`。这条路径上**没有** `packages/react` 的 `SchemaRenderer`,所以不存在「宿主先按 `newSchema.visible !== undefined` 求值并隐藏」那层遮挡(那正是 #3823 判定另三处组件级门休眠的依据)。这个门是该路径上唯一的门。\n\n## 实证(`origin/main@c8526825618f86bff6d270f70893a35992243dea`,一次性探针,未提交)\n\n探针按求值入口的真实语义打桩(`toPredicateInput` 原样透传布尔、`evaluateCondition` 对布尔短路),挂 `location: 'record_section'` 的两个声明动作,其一 `visible: false`:\n\n```\nFAIL  PROBE DeclaredActionsBar declared visible:false > visible:false member should NOT render\nAssertionError: expected  button type=\"button\" …(2)  /button  to be null\n\n+ Received:\n  button\n    data-testid=\"declared-action-ghost\"\n    type=\"button\"\n    variant=\"outline\"\n    Ghost\n  /button\n\nTests  1 failed | 1 passed (2)\n```\n\n对照组(无 `visible` 的同批动作)照常渲染 —— 坏的只是门,不是求值。\n\n## 与已有覆盖的关系(为什么现有测试全绿)\n\n`packages/app-shell/src/views/__tests__/DeclaredActionsBar.test.tsx:26-27` 把求值入口整个打桩成常真:\n\n```\n// `visible` predicate: our test actions omit `visible`, so this is unused,\n// but keep it truthy so a `visible`-carrying action would still render.\nuseCondition: () => true,\n```\n\n于是这个门在该套件里从未被行使过 —— 与 #4984 同一族的「fixture 让死掉的规则保持绿色」形态。修的时候这条桩要按真实语义收紧(至少让布尔短路),否则补的钉子会因为「什么也没产生」而空绿。\n\n## 严重度输入(请分诊裁)\n\n比 #3812 / #3823 这一族**更热的授权面**:\n\n- 这里渲染的是**服务端声明的** action def(对象元数据 / 审批请求的 `sys_approval_request` 动作),不是手写视图 JSON —— `ActionSchema.visible` 是 `ExpressionInputSchema`(无 boolean 成员)这条「`objectstack build` 产不出布尔形状」的缓解在这条路径上**不成立**:def 来自服务端 metadata 与进程内构造,布尔形状是自然可写的。\n- 宿主是审批收件箱的记录区动作条(Approve / Reject / Reassign)。一个本该被 `visible: false` 关掉的审批动作渲染成可点按钮,点下去就是一次真实的 approve/reject 调用。\n\n## 修法(与同族一致,无新决定)\n\n统一到 `packages/components/src/renderers/action/visibility-gate.ts` 的 `hasDeclaredVisibilityGate`(`!= null && !== ''`,PR #3825 落 main @ `b5980f471`),verdict 仍交给求值入口。跨包引用方向已经通(`app-shell` 已依赖 `@object-ui/components`,同文件已从它 import `Button` / `Separator` / `cn`),但该 helper 目前**未从 `@object-ui/components` 的 barrel 导出** —— 是否导出、还是在 `packages/core` 立一处共享定义,是实施者要先定的一个小决定(五处同族门分散在 components / plugin-grid / app-shell 三个包,各自抄一份就是 #3142 为 `locations` 拆过的那种漂移)。\n\n钉子按同族对称性:三形状(`false` 隐藏 / `true` 渲染 / 未声明渲染)+ `''`,并先把上面那条常真桩收紧。\n\nRelated: #3823(本单的发现来源)、#3812 / PR #3825、#3758 / PR #3816、#3492(不变量出处)、#3142(同批文件的 `locations` 漂移前情)。未认领。\n"
+}

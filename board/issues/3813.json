@@ -1,0 +1,36 @@
+{
+  "number": 3813,
+  "kind": "issue",
+  "title": "ObjectStackAdapter.queryDataset 丢掉服务端的 drillRanges,日期分桶钻取(#1752)经真实 adapter 永不可用",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:25:04Z",
+  "updated_at": "2026-08-08T18:02:10Z",
+  "closed_at": "2026-08-08T18:02:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3813",
+  "body": "在 #3752(把 `queryDataset` 返回类型的 `fields` 元素换成 spec 的 `AnalyticsResult.fields[]`)时顺手发现的**运行时**缺陷,按 PD #10 单开、不并入那个 PR(那是纯类型面改动)。\n\n## 现状\n\n`packages/data-objectstack/src/index.ts:3355` 是 `queryDataset` 的返回构造,它**逐项挑选**服务端回包的键:\n\n```ts\nreturn { rows, fields, object, dimensionFields, drillRawRows, totals };\n```\n\n`drillRanges` 不在其中,而消费端在读它:\n\n- `packages/plugin-dashboard/src/DatasetWidget.tsx:471` — `drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined`\n- `packages/plugin-dashboard/src/DatasetWidget.tsx:593` — `const canDrill = !!drillObject && (drillDims.length > 0 || !!drillRanges?.length);`\n- `packages/plugin-report/src/DatasetReportRenderer.tsx:316`(同样从 `res?.drillRanges` 取)、`:431`、`:855`\n\n服务端**确实**在回这个键。framework 侧(`objectstack` @ `ea1d9165d`):\n\n- `packages/services/service-analytics/src/analytics-service.ts:807` 起 —— `if (rangeDims.length && result.rows.length) { (result as AnalyticsResultWithDrill).drillRanges = result.rows.map(...) }`,注释写明这是 #1752 的日期区间钻取:`dateGranularity` 维度把一个**时间跨度**归成一个桶,等值 `drillRawRows` 表达不了,所以额外给一条半开区间 `[gte, lt)` 的并行数组(这也正是日期维度被排除在 `drillDims` 之外的原因)。\n- `packages/rest/src/rest-server.ts` 的 `POST /analytics/dataset/query` 直接 `res.json(result)`,原样下发,没有裁剪。\n\n## 影响\n\n`packages/data-objectstack/src/index.ts:3257` 的 `queryDataset` 是本仓**唯一**的 `queryDataset` 实现(其余命中全是消费端或注释;`apps/console/src/dataSource.ts:14` 就是它),所以经真实 adapter 取数时 `drillRanges` 恒为 `undefined`:\n\n- 只按**日期维度**分组的图表/报表:`drillDims` 为空(日期维度被服务端排除)且 `drillRanges` 为空 ⇒ `canDrill === false`,**整个钻取入口消失**。\n- 同时含日期与非日期维度时:钻取仍在,但过滤条件缺少时间区间,落到的记录集是**超集**(点 6 月的柱子,打开的是全时段)。\n\n现有测试**看不见**这条:`plugin-dashboard/src/__tests__/DatasetWidget.test.tsx:290` 与 `plugin-report/src/__tests__/DatasetReportRenderer.test.tsx:515` 都用自己 mock 的 data source 直接喂 `drillRanges`,绕过了 adapter;adapter 自己的 `queryDataset.test.ts` 从没断言过这个键。这正是\"两端各自为政\"的典型盲区。\n\n## 建议\n\n在 `queryDataset` 的返回里把 `drillRanges` 一并透传,并在返回类型上声明它(消费端 `DatasetDrillRange` 的形状是 `{ field: string; gte: string; lt: string }`);同时补 adapter 级测试,断言服务端回包里的 `drillRanges` 到达调用方。\n\n顺带一并核对 `drillRawTotals`(framework `analytics-service.ts:756` 起,#3214 的小计行钻取):同样被 adapter 丢弃,但本仓目前**没有**消费者读它,所以它只是\"将来会踩\"的漏项,优先级低于 `drillRanges`。\n\n根因与 #3613/#3752 同族:返回信封被**手工挑键**而不是按契约传递,于是服务端新增的每一个键都要有人再想起来补一次 —— 漏了不报错,只是功能静默消失。\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3870,
+  "kind": "pull_request",
+  "title": "fix(react-runtime): 给 react peer 范围补上上界 ^18.0.0 || ^19.0.0 (#3741)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:33:30Z",
+  "updated_at": "2026-08-08T22:41:05Z",
+  "closed_at": "2026-08-08T22:41:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:41:04Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3870",
+  "body": "Fixes #3741\n\n## 前提复核(先证实,再动手)\n\n基线 `origin/main` @ `7fbef94a99ad7c0c2a8d4e737065c8b443619079`。\n\n- `git show origin/main:packages/react-runtime/package.json` 确认 `\"react\": \">=18\"` 仍在。**前提成立。**\n- 实测全仓拼法分布(遍历所有 package.json 的 `peerDependencies`):**声明 `react` peer 的 31 个包中 30 个是 `^18.0.0 || ^19.0.0`**,唯一例外就是 react-runtime 的 `>=18`;另有 **25 个 `react-dom` peer,全部 25 个都是 `^18.0.0 || ^19.0.0`**。合计 56 条声明,55 条合规,越界的恰好一条。issue 正文给的数字准确,`^18.0.0 || ^19.0.0` 确是固定组规范。\n- 有没有「更宽」的正当理由?查了三处,**均无支持**:\n  - `>=18` 是建包那天(`d23d6ebfa`,PR #2105,2026-06-30)写下的,此后该行从未被任何 commit 重新审视过;\n  - 该包全部 React 面只有 `Component` / `createElement` / `isValidElement` / `ReactElement` / `ReactNode`,React 19 一个都没改,也没碰任何 React 19 移除的 API;\n  - 仓根 `pnpm.overrides` 把 react 钉在 `19.2.8`,**19 是这个包的测试唯一跑过的 major** —— 无上界的那一端从构造上就没有测试覆盖。\n\n因此按缺省方向直接对齐,不留「故意更宽」的注记。\n\n## 改动\n\n1. `packages/react-runtime/package.json`:`peerDependencies.react` 由 `>=18` 收窄为 `^18.0.0 || ^19.0.0`。同文件**没有**其它 peer(该包只声明 `react` 一条,无 `react-dom`),全仓也再无第二条无上界 peer。\n2. `packages/react-runtime/README.md`:restate 该范围的那句散文随之改写。\n3. `scripts/__tests__/doc-version-claims.test.ts`:ledger 条目与三处叙述更新(见下)。\n4. 新增 `scripts/__tests__/react-peer-range-norm-3741.test.ts` 防回归钉子。\n5. changeset:`patch`,照 #3727(同族先例,peer 范围变更)的级别。\n\n## 为什么 README 与 ledger 必须同 PR 改\n\n不是顺手扩面,是**被现存门禁强制**的联动。`doc-version-claims.test.ts` 的 peer-line 断言(#3717,#3750 扩面)逐字比对「README 的 peer 行」与「它自己的清单」。react-runtime 的 README 写着 `react >= 18`,只改清单会立刻让该门禁变红。\n\n值得一提的是:**这份门禁的文件头早就把这次改动写成了预言** —— 原文「objectui#3741, still open, proposes narrowing react-runtime's manifest range; the day someone does, this test goes red until that README follows」。反向验证里它精确地按这句话红了(见下)。该段现已改写为「历史 + 现状」两段(#3749/#3860 的写法)。\n\n同样按「历史 + 现状」改写的还有两处**原本会退化成失效断言**的叙述:\n\n- `sameRange` 的空白归一化,其**实测依据**正是 react-runtime 的 `>= 18` vs 清单 `>=18` 这一对。本次改完,实测 **21 条 peer 语句全部与清单逐字节相等,0 条依赖空白归一化** —— 该归一化如今只由自己的单元测试覆盖,不再由语料覆盖。这一点在注释里如实写明(并说清为何仍然保留而不收紧到逐字节:它等同的两种写法都是合法 npm range,收紧买不到任何新的缺陷类)。\n- 对应的单元测试注释原写「the only place in the corpus where README and manifest differ by anything at all」,已随之修正;`parsePeerStatement` 的散文用例改为现行拼法,同时**保留** `>= 18` 那条(RANGE_OPENS 仍接受 `>`,散文行最可能再被那样写)。\n\nREADME 沿用散文拼法而非改成 `**Peer Dependencies:**` 列表块:它是语料里**唯一**触发 parser 散文分支的样本,改成列表块会白掉一条真实分支覆盖,且属于无谓改动。\n\n## 防回归钉子:现有门禁看不到这一类\n\n先查:仓内既有 peer 相关门禁两处 —— `workspace-peer-dependency-edges.test.ts`(peer 是否能被 turbo `^build` 走到)与上述 peer-line 断言。**两者都覆盖不到本 issue 这一类**,而且 react-runtime 同时踩中两个盲点:\n\n1. peer-line 断言比的是「两侧互相是否一致」,**不是「是否符合规范」**。react-runtime 的 README 与清单当时都写 `>=18`,**两边一致**,于是这条无上界范围在已发布清单里躺了五周而门禁全绿。一致 ≠ 正确。\n2. 它只能看到「旁边有 README peer 行」的清单。39 个包里 11 个写了 peer 块,余下 28 个声明的 peer 无任何文档 restate,其范围**不被任何东西判定**。\n\n所以新增钉子问的是另一个问题:**清单是否声明了固定组约定的那个范围**。形状照抄近邻 `workspace-peer-dependency-edges.test.ts`(同目录、同主题、同「不设豁免名单」理由):读 `pnpm-workspace.yaml` 的 globs(遇到不认识的语法直接 throw 而非跳过)、遍历工作区清单、断言每条 `react` / `react-dom` peer 逐字等于规范值、带空转下限(包数 > 30、声明数 >= 50,实测 56),并按名钉住 #3741 修的这个包。\n\n立钉子的理由是「三次同型」而非一次:react-runtime 是**第三个**出生即不合规的包,前两个都是各自单独修掉、没留下任何东西阻止第四个 —— `plugin-dashboard` 生来过窄、2026-05-08 在一个无关构建修复里(`d2b6ecec6`)顺手改掉;`plugin-report` 生来过窄,直到 #3690 / PR #3727,期间 React 19 用户装它会撞 `ERESOLVE`。\n\n规范值写成常量并附理由:下界 `^18.0.0` 是真实支持底线,上界 `^19.0.0` 是**关键的那一半**(阻止清单承诺尚不存在的 major)。将来真支持 React 20,须**全仓 56 条一起动**否则钉子变红 —— 这正是意图:一个 39 包同发的固定组不该有 per-package 的 React 支持窗口。\n\n## 反向验证(方向先判、后跑)\n\n**预判**:仅把清单改回 `>=18`(README 与 ledger 保持已修正状态),应当是常规的「红」向 —— 新钉子红 2 条(通用规范断言 + 按名钉住的 #3741 条),空转下限那条应保持绿;peer-line 断言红 1 条(两侧不再一致)。\n\n**实跑与预判一致**,共 3 红 / 14 绿:\n\n```\n× declares every React peer as the norm, with no exemptions\n× pins the package fixed in objectui#3741\n× pins every peer statement to the range its own manifest declares\n  - packages/react-runtime/README.md:27  react: README says \"^18.0.0 || ^19.0.0\", manifest says \">=18\"\n  - @object-ui/react-runtime (packages/react-runtime/package.json) declares \"react\": \">=18\"\n  - expected '>=18' to be '^18.0.0 || ^19.0.0'\n Test Files  2 failed (2)\n      Tests  3 failed | 14 passed (17)\n```\n\n空转下限 `discovers the workspace and its React peers` 如期保持绿 —— 证明红是来自被判定的值,不是来自扫描塌缩。随后恢复,复跑全绿。\n\n## 验证\n\n全部在仓根、`flock /tmp/os-heavy-verify.lock` 下、`NODE_OPTIONS=--max-old-space-size=4096`、`--maxWorkers=2`,未用 `--` 转发形式。\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/react-runtime^...' build` → `No projects matched the filters`(该包无工作区依赖,唯一 dep 是外部 `sucrase`,如实记录)。\n- `pnpm exec vitest run packages/react-runtime/ scripts/__tests__/doc-version-claims.test.ts scripts/__tests__/react-peer-range-norm-3741.test.ts scripts/__tests__/workspace-peer-dependency-edges.test.ts` → `Test Files 4 passed (4) / Tests 39 passed (39)`。\n- 全仓 `pnpm exec turbo run type-check --concurrency=2`(CI 同命令)→ `Tasks: 78 successful, 78 total`。\n- **补跑 `pnpm type-check:scripts`** → exit 0。`turbo run type-check` 走 package.json 的 scripts,**结构上到不了没有 package.json 的 `scripts/`**(#3494 的原委),新钉子若只靠 turbo 会是编译器从未读过的钉子;另经 `tsc --listFiles` 确认该文件确实在被编译,并跑 `scripts-type-check.test.ts` → 8 passed。\n- `pnpm exec eslint` 两个 scripts 文件 → exit 0。\n- 三个 changeset 门禁 → 全 exit 0(`no-major` / `fixed` / `presence`)。\n- `node scripts/check-control-bytes.mjs` → OK(3763 文件);改动文件 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 零命中。\n- **lockfile:`pnpm install` 后 `git status --porcelain` 无 `pnpm-lock.yaml`** —— peer 范围收窄未触发 lockfile 变化(root overrides 已把 react 钉在 19.2.8,解析结果不变)。\n\n## 协调\n\n文件面与在飞 #3849 / #3546 切片六 / #3735 / #3746 零相交。#3735 同在 `scripts/`,但本 PR 只新增一个独立文件(名带 3741)并改 `doc-version-claims.test.ts`,与其面不重叠。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

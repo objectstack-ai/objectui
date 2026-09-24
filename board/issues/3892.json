@@ -1,0 +1,36 @@
+{
+  "number": 3892,
+  "kind": "issue",
+  "title": "objectui init 脚手架的清单在锚定表之外:`@object-ui/* ^2.0.0`(平台包实际 17.3.0)、vite ^7.3.1 / ts ^5.9.3 落后仓内,外加一份 v4 读不到的 tailwind.config.js",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:11:48Z",
+  "updated_at": "2026-08-10T03:01:56Z",
+  "closed_at": "2026-08-10T03:01:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3892",
+  "body": "越界发现,记录于 #3852(生成的临时 app 迁 Tailwind 4)实施期间。#3852 与 #3827 的文件面都是 `utils/app-generator.ts` 的两个生成器;`commands/init.ts` 是**第三个**生成器,写的是用户项目脚手架,不在那两单的面里,也不在 `app-generator.test.ts` 的 `DEPENDENCY_ANCHORS` 覆盖范围内。\n\n## 事实(核于 `origin/main` = `56ff0916e`)\n\n`packages/cli/src/commands/init.ts:463-479` 写给新项目的清单:\n\n| 键 | init.ts 写的 | 仓内实际 | 差 |\n| --- | --- | --- | --- |\n| `@object-ui/components` | `^2.0.0` | 17.3.0 | 15 个 major |\n| `@object-ui/react` | `^2.0.0` | 17.3.0 | 15 个 major |\n| `@vitejs/plugin-react` | `^5.1.3` | `^6.0.5` | 1 |\n| vite | `^7.3.1` | `^8.2.0` | 1 |\n| typescript | `^5.9.3` | `^6.0.3` | 1 |\n| react / react-dom | `^19.2.0` | `19.2.8`(仓根精确钉) | 范围形状不同 |\n| tailwindcss / `@tailwindcss/postcss` | `^4.1.18` | `^4.3.3` | 同 major,minor 落后 |\n| autoprefixer | `^10.4.23` | `^10.5.4` | minor |\n| postcss | `^8.5.6` | `^8.5.26` | patch |\n\n`@object-ui/* ^2.0.0` 是 #3827 修掉的那一类的同形缺陷(那边是 `^0.1.0` 对 17.x):`objectui init` 生成的项目 `npm install` 会去解析一个与当前 CLI 完全脱节的 major。#3827 给 `app-generator.ts` 的解法是**从 CLI 自身版本推导**(`platformPackageRange()`,因为 `.changeset/config.json` 把 CLI 与平台包放在同一个 `fixed` 组),这里可以直接复用同一个函数 —— 它已经导出在同一个包里。\n\n另外两条同族但独立:\n\n- **`init.ts:500-508` 仍写一份 `tailwind.config.js`**(只有 `content: ['./index.html', './src/**/*.{ts,tsx}']`)。脚手架其余部分已经是 v4(`postcss.config.js` 写 `'@tailwindcss/postcss': {}`,`src/index.css` 写 `@import 'tailwindcss'`),而 v4 在没有 `@config` 指向时不读这个文件 —— 它是一份看起来权威、实际无人消费的配置。#3852 的 PR 因此在生成的临时 app 里不再写它。\n- 这些字面量都在 `.ts` 源码里,落在 #3711 的版本声明门禁扫描面之外,而 `app-generator.test.ts` 的锚定表只判两个 app 生成器 —— 也就是说 `init.ts` 的清单今天**没有任何门禁**,与 #3742 / #3754 / #3827 一路建立的\"一个依赖一个区间、引用而非发明\"纪律脱钩。\n\n## 影响\n\n`objectui init` 是外部用户的第一条命令。`^2.0.0` 这一格是具体缺陷(装出来的项目与 CLI 不同代);其余区间落后是化石;`tailwind.config.js` 那份属于 dormant 的死文件。严重度不预设,留给 triage 定级。\n\n## 不预判修法\n\n要判的一格:init 的清单是**逐条锚回仓内**(复用 `DEPENDENCY_ANCHORS` 的判据,把 `init.ts` 也纳入那张表)还是**只把 `@object-ui/*` 改成派生、其余按需 bump**。前者一次修掉整类且有门禁,代价是要把锚定表从 app 生成器泛化到第三个生成器;后者小,但化石会再长回来。\n\n## 已搜重\n\n本仓开放 issue 搜过 `objectui init doctor scaffold`、`tailwind`、标题含 `cli` 三组:`init.ts` 无任何命中。#3827(已合)与 #3852(在实施)的文件面都只有 `app-generator.ts` 与 `commands/dev.ts`。\n"
+}

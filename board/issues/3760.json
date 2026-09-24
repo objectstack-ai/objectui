@@ -1,0 +1,30 @@
+{
+  "number": 3760,
+  "kind": "pull_request",
+  "title": "docs(create-plugin): 按 route B 收缩到不漂移的部分,产物一律指向 buildPluginFiles() (#3715)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T12:10:09Z",
+  "updated_at": "2026-08-08T12:17:56Z",
+  "closed_at": "2026-08-08T12:17:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T12:17:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3760",
+  "body": "Fixes objectstack-ai/objectui#3715\n\n按分诊裁决走 **route B(收缩)**,不做 route A 全量重写:本页每一处失真都是「把生成器产物转写成散文」造成的,重写转写等于把同一把枪重新上膛(#3645 家族)。所以「产物长什么样」的整段一律**删除并指路**,只留下不会自己变旧的那部分。\n\n真相锚:`packages/create-plugin/src/templates.ts` 与 `src/index.ts`,对 `origin/main` @ `0c28a0720` 逐条实测(#3733 已落 main,模板已在 `templates.ts`)。全页 374 行 → 181 行(+123 / -315)。\n\n## 删除(照做即坏 / 纯虚构)\n\n| 删掉的内容 | 实测真相 |\n|---|---|\n| Quick Start「This will: Install dependencies / Initialize a git repository」 | 两件都不做。`index.ts` 全文只有一处 `pnpm install` 字样,是**打印**给用户的 next step(`:132`),没有任何 exec / spawn / git 调用 |\n| Interactive Prompts 的 6 问假脚本(含 Component name / Component type / License) | 传了名字时只问 2 个(description / author,`:82-95`);不传名字才多问一个名字 |\n| Generated Structure 树(产物在 cwd 的 `my-awesome-plugin/`,列 `.gitignore`,缺示例测试) | 实际写到 `path.join(process.cwd(), 'packages', fullPackageName)`(`:97`);产物 9 个,不含 `.gitignore`,含示例测试与 `vitest.setup.ts` |\n| Generated Files 四段代码样例(`src/AwesomeComponent.tsx`、`export * from './types'`、Props/Schema 成对的 `types.ts`) | 形状全不符:入口从 `PascalImpl` 导入并在模块顶层注册,`types.ts` 只有一个 Schema 接口 |\n| §2 Start Development 的 `npm run dev` + \"starts Vite in dev mode with HMR\" | 生成 scripts 只有 build / test / lint;配置是 `build.lib`,**没有 dev server 可启**。照做得到 \"Missing script: dev\" —— 本单最重的一条 |\n| §Configuration Options 整节(`.create-plugin.config.js` 的 template / defaults / prompts) | 生成器不读任何配置文件,整节虚构 |\n| **Version:** `0.3.1` | 实际 `17.3.0`;按 #3711 的取向直接删字面量、改指 npm 页 |\n| §Dependencies(Inquirer / Ora) | 实为 chalk / commander / fs-extra / prompts;而且 CLI 自身依赖对读者无用,整节删除 |\n| Troubleshooting 的 \"Template Not Found\" / \"Dependencies Not Installing\" | 生成器没有模板目录概念、也不装依赖,两条都是虚构故障 |\n| §Features 的营销条目 | 其中 \"Documentation Template - Includes README and docs\" 只写 README;整体信息量为零,一并删 |\n| `### package.json` 一节(#3726 刚订正过) | 分诊已预告「route B 很可能删掉 #3709/#3726 刚订正的文字,这是预期、不是白干」。其中「不要从文档抄版本号,去读那份字面量」的用意保留,路径按 #3716 席位的追评从 `src/index.ts` 改成 `src/templates.ts` |\n\n## 指路(取代转写)\n\n- **§What It Generates** 明说本页不复制产物树与产物文件,指向 [`buildPluginFiles()` in `src/templates.ts`](https://github.com/objectstack-ai/objectui/blob/main/packages/create-plugin/src/templates.ts) —— 「一个插件包含哪些文件」的唯一真相,`index.ts` 只是写盘循环。**没有任何文件清单被手工维护**(#3716 席位的交接项 1)。\n- **依赖区间一个不写**,改为说明它们在那份模板字面量里、并由 `src/__tests__/templates.test.ts` 机械锚定到仓内声明(交接项 3)。\n- CLI 选项不逐条转写,改为指 `--help`;脚本清单不转写,改为「新包里跑 `pnpm run` 看它到底有哪些」—— 两句都是自更新的真相。\n- next steps 不转写,改为「生成器跑完会自己打印,照它做」。\n\n## 保留 / 新增(都是不会自己变旧的事实)\n\n- Installation、Naming Conventions、Best Practices、Example Plugins、Package Information、Next Steps、Need Help? 的骨架保留。Package Information 仿 `runner.mdx` 的写法(#3616):只留名字 / binary / license,版本改指 npm 页。\n- Best Practices 收成 4 条**建议**(lazy 边界、真实 fallback、导出 schema 类型、注册键即公开契约),并明说这是给作者的建议而非脚手架已做之事 —— 旧页把它读成了「产物长这样」。\n- 新增三条读者真正会踩、且由结构决定的事实:**必须在 pnpm workspace 根目录运行**(产物写到 cwd 的 `packages/` 下,依赖是 `workspace:*`,tsconfig 往上两级 extends);**一个名字同时决定四样东西**(目录 / 包名 / 注册 `type` 键 / PascalCase 组件名),`plugin-` 前缀会被剥掉;**发布用 `pnpm publish`**(pnpm 打包时会把 `workspace:*` 改写成真实区间,`npm publish` 会把字面量原样发出去)。\n- Troubleshooting 换成三条真实故障:目录已存在即中止、名字校验(小写字母 / 数字 / 连字符)、在 workspace 外面跑导致依赖与 tsconfig 解析不到。\n\n## 第二个 commit:被 #3742 追上的那一句\n\n`b8b219bac` 是分支开着的时候 PR #3754(#3742)落 main 触发的:那个 PR 把 `templates.test.ts` 从「三条测试区间取自仓内」升级成「**每一条** devDependency 区间都被锚定,没有未钉的」。本页原写「the testing ones are asserted…」在我的 fetch 点是准确的,合并后就变成了低估 —— 正是本次收缩要消灭的那种漂移,所以改成只说锚定这件事本身,不说子集、不说条数。因为**禁止 force-push**,这一句以追加 commit 落下而非 rebase 重写。\n\n## Ledger(#3711 双向棘轮)\n\n**无需删任何 KNOWN_CLAIMS 行:该 ledger 里本就没有 `create-plugin.mdx` 的登记行**(仅在文件头注释中作为 #3709 的案例被提及,不是条目)。原因是它的匹配需要「包名与版本同行相邻」,而旧页的 `0.3.1` 单独一行,从未被扫成 claim。改动前后各跑一次确认:\n\n```\n# 改动前(把页面 checkout 回 main 的版本)\nTest Files  1 passed (1)\n     Tests  10 passed (10)\n```\n\n新写的散文也不含任何版本字面量,所以棘轮上行方向同样不会红。\n\n## 验证\n\n```\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 3692 tracked text file(s); skipped 85 binary).\n$ grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' content/docs/utilities/create-plugin.mdx\n(clean)\n$ node scripts/check-doc-links.mjs\nLinks are valid across 7 scan roots.\n$ flock /tmp/os-heavy-verify.lock -c 'NODE_OPTIONS=--max-old-space-size=4096 pnpm exec vitest run scripts/__tests__ --maxWorkers=2'\nTest Files  20 passed (20)\n     Tests  369 passed (369)\n```\n\n本地另外单独编译过 MDX(用仓内 `@mdx-js/mdx@3.1.1` 直接 `compile()` 本页 → OK,16611 bytes JSX;对照编译未改动的 `runner.mdx` 同样 OK,证明这个检查不是空转)。\n\n**订正一处我先前写错的话**:这段最初写的是「`ci.yml` 的 `paths-ignore` 含 `content/**`,纯 docs PR 不会启动 Build Docs」。**错的**,而且错得正是本单批评的那个模式 —— 我把 Build Docs job 里一段**讲历史**的注释读成了当前事实。实际上 `ci.yml` 的 `pull_request` 触发器自 #3523 起**已经没有 `paths-ignore`**(只有 `push:` 还保留一份),路径判断移进了 job 内部;所以本 PR 确实拉起了 Build Docs,而它的 \"Check for docs changes\" 步看到 `content/` 有改动 → `should_run=true` → 真的构建站点。本地那次 MDX 编译因此只是提前一步的自检,不是 CI 缺口的补丁。\n\n**Changeset:无。** 纯文档订正,依 AGENTS.md 与同族先例(PR #3698 / #3726 / #3616 都是 docs-only 且无 changeset)。\n\n**未触碰** `packages/create-plugin/**`(#3742 在途,现已落 main)、`scripts/__tests__/doc-version-claims.test.ts`(无行可删)、`content/docs/releases/`。与 `origin/main` @ `e473b6c29` 实测无冲突(`git merge-tree`:0 处冲突标记)。\n\n## 越界发现\n\n已另开 **#3759**(`finding`,未排队、未指派):生成的 `src/types.ts` 是死产物 —— 没有任何生成源文件 import 它,生成的 `exports` map 又只暴露 `.`,那个 Schema 接口在包内无人用、包外不可达。与 #3742 / #3755 同族同文件但范围互不覆盖。有意思的是,本 PR 删掉的那段虚构文档写的 `export * from './types'` 恰好比真实模板更合理。本 PR 未改一行生成器代码。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_\n"
+}

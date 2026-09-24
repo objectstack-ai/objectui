@@ -1,0 +1,36 @@
+{
+  "number": 3876,
+  "kind": "issue",
+  "title": "de 语言包 20 个值把德语开引号 „ 和 ASCII 直引号 \" 配成一对(正确配对的只有 21 个),德语用户看到的收尾引号是错的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:23:13Z",
+  "updated_at": "2026-08-09T05:39:17Z",
+  "closed_at": "2026-08-09T05:39:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3876",
+  "body": "在 #3546 切片七回填 `empty.interfacePageSourceMissing` 时,照抄同族邻键 `empty.objectNotFoundDescription` 的引号风格,发现 de 包该值写的是 `„{{name}}\"` —— **开引号是德语低九分号 U+201E,收引号是 ASCII 直引号 U+0022**。不是孤例。\n\n## 实测\n\n`packages/i18n/src/locales/de.ts`,全包扫描:\n\n| 形态 | 数量 |\n|---|---|\n| 错配 `„…\"`(U+201E … U+0022) | **20** |\n| 正确配对 `„…“`(U+201E … U+201C) | 21 |\n\n也就是说这个包里两种写法几乎各占一半,不存在\"本包约定就是这样\"的解释 —— 21 个值证明约定是 `„…“`。\n\n错配的 20 个 key:\n\n```\nlookup.createNamed\nconsole.objectView.objectNotFoundDescription\nconsole.objectView.deleteViewConfirm\nconsole.objectView.viewTypeUnavailable\nconsole.objectView.ufShowAllRecords\nhome.gettingStarted.description\nsearch.resultsCount\nsearch.resultsCountPlural\nempty.objectNotFoundDescription\nempty.pageNotFoundDescription\nempty.dashboardNotFoundDescription\nempty.reportNotFoundDescription\nnavigationSync.addedPage\nnavigationSync.addedDashboard\nnavigationSync.removedPage\nnavigationSync.removedDashboard\nnavigationSync.renamedPage\nnavigationSync.renamedDashboard\nmarketplace.install.localSuccess\npreview.empty.notReadyTitle\n```\n\n几个现场(德语用户今天就看到收尾直引号):\n\n```\nempty.pageNotFoundDescription = \"Die Seite „{{name}}\" wurde nicht gefunden. …\"\nconsole.objectView.ufShowAllRecords = \"Registerkarte „Alle Datensätze\" anzeigen\"\nsearch.resultsCount = \"{{count}} Ergebnis für „{{query}}\"\"\nhome.gettingStarted.description = \"… wird automatisch unter „Zuletzt geöffnet\" angezeigt.\"\n```\n\n`search.resultsCount` 尤其明显:结尾是 `„{{query}}\"\"`,连着两个直引号(一个是错配的收引号,一个是 TS 字符串的结束符,源码里写成 `\\\"`)。\n\n## 为什么三道 i18n 门禁都看不见\n\n- `all-locales-key-parity.test.ts` 比键名集合与占位符形状,不读引号;\n- `check-i18n-call-site-keys.mjs` 只判 key 在不在;\n- `check-i18n-en-drift.mjs` 只在 **en 值变化**时要求九包跟着改 —— 这些值从落地起就是错的,没有\"变化\"事件。\n\n## 建议修法\n\n把 20 个值的收引号从 `\\\"` 改成 `“`。可顺带落一条断言:de 包里 `„` 的数量必须等于 `“` 的数量(今天是 41 : 21)。同类检查对其他包也成立(fr `«`/`»`、zh `“`/`”`、ja `「`/`」`),不过其余包实测未见错配。\n\n## 未在 #3546 切片七里修\n\n切片七的围栏是\"只新增 key,⛔ 不改任何既有语言包值\"(与在飞的 #3844 / #3875 共用 es/de 文件,避免合并面)。新增的 `empty.interfacePageSourceMissing` de 值刻意写成**正确配对**的 `„{{name}}“` 而不是照抄邻键的错配形态,并在测试里把这处刻意分歧写明,所以那条断言就是这一单落地时必须回头看的地方。\n\n关联:#3546(切片七)、#3866(同类\"取证方法本身出错\"的先例)。"
+}

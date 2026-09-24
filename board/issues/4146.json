@@ -1,0 +1,32 @@
+{
+  "number": 4146,
+  "kind": "pull_request",
+  "title": "fix(app-shell): tell the operator a 503 means the commit store is unreachable, not `commits HTTP 503`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T13:55:10Z",
+  "updated_at": "2026-08-10T14:05:12Z",
+  "closed_at": "2026-08-10T14:05:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T14:05:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4146",
+  "body": "Fixes #3529\n\nThe build-history panel is the **rollback** surface — an operator reads it mid-incident. It answered every failed commit-store call with a bare status code (`commits HTTP 503`), so an outage and a missing package looked identical while their dispositions differ.\n\n## What changed\n\n- `packages/app-shell/src/preview/commitHistory.ts` — `fetchCommits` and the same-shaped `revertCommit` now throw a `CommitStoreError` carrying `status`, the ADR-0112 `code`, and a `retryable` flag. Classification keys on the **HTTP status first** and treats the envelope code as a second signal.\n- `packages/app-shell/src/preview/CommitTimeline.tsx` — the panel renders a sentence rather than a number, and the revert toast gets its own sentence.\n- Two new keys across **all ten** locale packs (#3546 discipline): `preview.history.loadFailedUnavailable`, `preview.history.revertUnavailable`. Neither takes interpolation arguments.\n\n`retryable` is deliberately **not** \"any 5xx\". Only 503 / `SERVICE_UNAVAILABLE` means \"this did not happen\"; a 500 is the server saying it broke *while doing the work*, which a retry does not answer. 404, 500 and 503 stay tellable apart.\n\nThe revert half says something different on purpose. A write that could not reach the store may still have landed — a proxy can shed a 503 after forwarding — and re-issuing appends a **second** revert commit to an append-only log. So its copy asks the operator to re-read the timeline before retrying, instead of \"try again\".\n\n## Two premise details did not survive checking, and they are why the copy is authored client-side\n\nThe card's core premise holds: the retryable meaning was being flattened. Two supporting details in the body are wrong at the browser boundary, and both **strengthen** the fix rather than weaken it.\n\n**1. The code arrives at `error.code`, not `details.code`.** `HttpDispatcher.errorFromThrown` parks the thrown error's `.code` in `details` (objectstack `packages/runtime/src/http-dispatcher.ts:718`), and `buildApiError` / `splitSemanticCode` then lift it into `error.code` and drop `details` entirely when it held nothing else (`packages/runtime/src/error-envelope.ts:100-125`, objectstack#3842). The source says so itself at `http-dispatcher.ts:704`. A consumer reading `details.code` would be running a check that can only ever pass vacuously.\n\n**2. The envelope `message` for this class is withheld.** The card expects the 503 prose to say \"unknown\". `declaresServerFault` (objectstack `packages/types/src/error-leak.ts:113`) is true for exactly this error — status at or above 500 **with** a string code — so `dispatcher-plugin.ts:521` replaces the sentence with the generic `INTERNAL_ERROR_MESSAGE` (\"Internal server error\") while `error.code` survives. Rendering the envelope message would have shown the operator a generic string **and** lost the status: strictly worse than the bare code it replaced. Hence the retryable copy is authored on the client side, and the envelope message is preferred only for the statuses where it is not withheld (4xx) — which is what keeps a 404 reading differently from a 500.\n\nNo alias chain was added beside `error.code`. A tolerant read of a shape this endpoint does not send is the consumer-side leniency Prime Directive #12 removes.\n\n## Reverse verification — predicted, and the prediction has two halves\n\nPrediction recorded before running: the classification and presentation cases go red; the **fail-loud cases stay green**, because `origin/main` already failed loud (the issue body says so, and the triage comment confirmed it) — those pins are regression guards, not evidence for this change.\n\nBoth halves confirmed. Restoring both source files to `origin/main` and keeping the new tests: **27 of 37 red, 10 green.** The 10 that held green are exactly the five fail-loud cases, the two success paths, the two pre-existing `revertCommit` behaviours, and the \"three different messages\" case — that last one passes on both sides, since `commits HTTP 404/500/503` are also three distinct strings.\n\nOne honest caveat: the three fail-loud cases in `CommitTimeline.test.tsx` **did** go red on the revert, but as an artifact — they anchor on the new `data-testid=\"commit-history-error\"`, which does not exist on `origin/main`. They are genuine guards going forward; the load-bearing fail-loud evidence is the `commitHistory.test.ts` block that stayed green across the revert.\n\n## Verification\n\n- `pnpm vitest run packages/app-shell/src/preview/` — 6 files, **58 tests passed** (37 new).\n- `pnpm --filter @object-ui/app-shell --filter @object-ui/i18n type-check` — Done, after building the closure with `pnpm --filter '@object-ui/app-shell^...' build` (the first run was a stale-`dist` false red).\n- `pnpm --filter @object-ui/app-shell --filter @object-ui/i18n lint` — **0 errors**. The one warning on `CommitTimeline.tsx` is the pre-existing `useEffect` at the old line 73, untouched here.\n- `node scripts/check-i18n-call-site-keys.mjs` — green: every inline `defaultValue` matches its `en` value and every call site passes exactly the arguments that value has holes for.\n- `node scripts/check-i18n-en-drift.mjs` — green: \"2 key(s) added, 0 en value(s) changed\".\n- `packages/i18n/src/__tests__/all-locales-key-parity.test.ts` — 20 passed.\n\n## Note for the PM\n\nThe claim flagged #4118 as in flight over app-shell i18n. This PR's new keys land in `packages/i18n/src/locales/*.ts` (the i18next packs), not app-shell's module-local `metadata-admin/i18n.ts` table, so the surfaces differ; whichever lands second rebases only if #4118 also edits the ten packs.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

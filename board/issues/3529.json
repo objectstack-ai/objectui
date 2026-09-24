@@ -1,0 +1,35 @@
+{
+  "number": 3529,
+  "kind": "issue",
+  "title": "观察:commit 时间线拉取失败只显示 `commits HTTP 503`,丢掉了「commit store 不可达、可重试」这层意思",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T02:57:12Z",
+  "updated_at": "2026-08-10T14:05:12Z",
+  "closed_at": "2026-08-10T14:05:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3529",
+  "body": "**观察类(`finding`),不入队** —— 发现于 objectstack#5980 / PR objectstack#6126 的 revert 面复核,不在该 PR 文件面内,单独记录。\n\n## 事实\n\n`packages/app-shell/src/preview/commitHistory.ts:36`:\n\n```ts\nexport async function fetchCommits(packageId: string): Promise< CommitEntry[] > {\n  const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/commits`, { … });\n  if (!res.ok) throw new Error(`commits HTTP ${res.status}`);\n  …\n}\n```\n\n**正确性上没有缺口,先说清楚**:`if (!res.ok) throw` 意味着后端返回的错误**不会**被渲染成「无提交历史」。objectstack#5980 刚把 `MetadataProtocol.listCommits` 的 outage 从 `[]` 改成 503 上抛(ADR-0110 D3),这条 UI 通路对新的 503 无需任何跟进 —— 它本来就没在吞。\n\n## 可议之处\n\n抛出的文案是通用的 `commits HTTP 503`。后端在 503 的 `details.code` 里给的是 `SERVICE_UNAVAILABLE`,信封 message 也明确写着 \"unknown\"(而非 \"not found\"),即「这次读没发生,可重试」;这层意思在 UI 这一跳被压成了一个裸状态码。操作者在故障期间看到的是一个数字,而不是「commit store 暂时读不到,稍后重试」——尤其是这个界面的用途正是**回滚**,操作者此刻通常正在处理一次故障。\n\n对照:503(可重试、后端问题)与 404 / 500 在这里呈现完全一样,而它们的处置不同。\n\n## 为什么标 `finding` 而不是缺陷\n\n今天没有用户被答错事实:错误确实抛了,确实中断了渲染,没有任何虚构的「无历史」。这是**文案打磨**,不是 miss/outage 混读。严重度交由 PM 分诊裁定,不由我在提交时定价。\n\n## 落点\n\n- `packages/app-shell/src/preview/commitHistory.ts`(`fetchCommits`,以及同文件 `revertCommit` 的同形写法 `:61` 一带)\n\n## 关联\n\nobjectstack#5980(后端 503 化)、objectstack#6126(实施 PR,必答项「revert 面」一节点名了本条)、ADR-0110 D3\n"
+}

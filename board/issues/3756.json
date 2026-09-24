@@ -1,0 +1,33 @@
+{
+  "number": 3756,
+  "kind": "pull_request",
+  "title": "fix(data-table): 行「更多操作」触发器改为数「真正会渲染的项」，空则不渲染",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T12:02:02Z",
+  "updated_at": "2026-08-08T12:08:42Z",
+  "closed_at": "2026-08-08T12:08:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T12:08:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3756",
+  "body": "Part of objectstack-ai/objectui#3562（data-table 半件——本 PR 不关闭该单；报告人那一屏的 plugin-grid 孪生半件已由 PM 按同一裁定另派，落地后由该 PR 关闭 #3562）\n\n> **PM 裁定(方案 A,2026-08-08)**:本 PR 修掉的是 data-table 行菜单守卫(真实、可达、与本单同一类缺陷,生产者为详情页关联列表);报告人所在的 console 对象列表走 plugin-grid 的 `RowActionMenu`(证据见下「登陆点更正」),孪生修复同裁定另单交付。\n\n## 问题\n\n行「更多操作」触发器的守卫数的是**传入了哪些 handler**,而菜单项随后又被**逐项、逐记录**地按谓词过滤了第二遍:\n\n`packages/components/src/renderers/complex/data-table.tsx`(修改前,`origin/main@b7b05da7f`):\n\n```\nconst customActions = Array.isArray(schema.rowActionDefs) && schema.onRowActionDef ? schema.rowActionDefs : [];\nif (!schema.onRowEdit && !schema.onRowDelete && customActions.length === 0) return null;\n```\n\n而项一级的过滤在 `DataTableBuiltinRowActionItem`(`rowEditPredicates` / `rowDeletePredicates` 的 `visibleWhen`)和 `DataTableRowActionItem`(自定义动作的 `visible`)里。于是「handler 都在、但这一行的每一项都被谓词压掉」这个状态是可达的:触发器活过了守卫,菜单里却什么都不渲染 —— 一个点开是空白的按钮。\n\n## 修复(方案 2,对象无关)\n\n守卫改为数**真正会渲染的项**,零则整个触发器不渲染。\n\n- **谓词求值只有一处**:新增 `isBuiltinRowActionVisible` / `isCustomRowActionVisible`,`planDataTableRowMenu` 与两个 item 组件**都**读它们。项与触发器因此在结构上无法再各说各话(不是靠两处写法碰巧一致)。\n- **守卫落在行级,不是表级**:`visibleWhen` / `visible` 是**按记录**求值的谓词,同一张表里第一行可能保留 Edit、第二行一项不剩。表级守卫表达不了这件事,所以行菜单被抽成 per-row 组件 `DataTableRowActionsMenu`,每行各自决定。\n- **求值不用 hook**:`evalRowActionVisibility` 走 `@object-ui/core` 的 `evalRowPredicate`(`fallback: false` + `warnOnError`,与 `useRowPredicate` 同参),因为自定义动作的条数是变量,一项一个 `useRowPredicate` 会把 hook 数量绑到 `schema.rowActionDefs.length` 上。布尔短路照抄 plugin-grid `bulkEligibility` 里写明的理由(objectui#3492:布尔交给引擎会 fault 并 fail-closed)。\n- **分隔线跟着存活的分组走**:以前 `onRowDelete && (onRowEdit || custom > 0)` 会在两项都被压掉时留下一条孤立横线,现在按 plan 里存活的分组放。\n- **列对齐不变**:操作列的表头与每行的操作单元格都由表级 `rowActions` 决定,本次只改单元格**内部**的内容 —— 没有动作可显示的行渲染一个空单元格,与「完全没接 handler 的表」历来的形态一致。测试里钉住了混合行(一行有触发器、一行没有)的 `td` 数量一致。\n\n自定义动作的 `visible` 仍按**真值**判断门(`visible: false` 会渲染),与今天的项行为逐字一致 —— 本函数存在的意义是守卫和项一致,重新裁决 `visible: false` 会改变**哪些项渲染**,那是另一个问题(objectui#3492 的形状),已单独记录为 #3758。\n\n## 登陆点更正(issue 只是线索,premise 验证结果)\n\n分诊把落点定在本文件,但**报告人那块空白 ⋮ 不在这条路径上**。按 `origin/main@b7b05da7f` 逐条核:\n\n1. `packages/plugin-grid/src/ObjectGrid.tsx:2194` —— `rowActions: !!(schema.editable && hasActions)`,注释写明「RowActionMenu column (from columnsWithActions) already handles edit/delete … Only enable DataTable's built-in action column for inline-editing save/cancel」。console 的对象列表不 editable 时,data-table 的操作单元格**根本不渲染**。\n2. `ObjectGrid.tsx:1624-1660` —— 列表自己注入一列操作列,cell 渲染 `RowActionMenu`(plugin-grid),条件是 `hasActions || hasRowActions`。\n3. `grep -c 'onRowEdit\\|onRowDelete' packages/plugin-grid/src/ObjectGrid.tsx` = **0** —— ObjectGrid 从不把 `onRowEdit` / `onRowDelete` / `rowEditPredicates` 传给 data-table,所以即便操作单元格渲染了,本文件的下拉分支也拿不出任何项。\n4. `ObjectGrid.tsx:1448` 注释:「ObjectGrid is the single convergence point of all three list callers」—— console 的三种列表调用方(含 Setup 的系统对象列表)都汇到 ObjectGrid。\n5. 孪生缺陷在 `packages/plugin-grid/src/components/RowActionMenu.tsx:273-278`:`hasMenu = (canEdit && onEdit) || (canDelete && onDelete) || menuDefs.length > 0 || rowActions.length > 0` —— **同样在数 handler / 声明数**;项一级过滤在 `:130`、`:179`、`:219`。sys_approval_request 在 `list_item` 上声明的动作(approve / reject / recall 等)`visible` 是写给审批人的,admin 在「全部」视图里逐行都不满足 → `hasMenu` 为真、0 项,与报告完全吻合。\n6. 旁证:报告实测 `[role=menu]` 的 `children.length === 0`。本文件修改前,`onRowEdit` 与 `onRowDelete` 同时在场时会**无条件**渲染一条 `DropdownMenuSeparator`,那种状态下 children 至少是 1;plugin-grid 的 `RowActionMenu` 一条分隔线都没有,全压掉正好是 0。\n7. 本文件这条路径的真实生产者是 `packages/plugin-detail/src/RelatedList.tsx:1004-1042`(详情页关联列表把子对象的 `userActions.edit/delete` 谓词与 `list_item` 动作喂进 data-table)—— 缺陷在这里真实可达(子记录被父状态冻结后 Edit/Delete 双双压掉即空菜单),只是不是报告人那一屏。\n\n所以:本单描述的**缺陷类别**成立且已在本文件修掉;本单**报告人的那一屏**要修 plugin-grid 的 `RowActionMenu`,由 PM 按同一裁定另单派发。\n\n## 测试\n\n`packages/components/src/renderers/complex/__tests__/data-table-row-menu-empty-guard.test.tsx`(新增):\n\n- 整行被压掉 → 一个触发器都没有,`[role=menu]` 不存在,同时操作列表头与每行空单元格仍在(本单形状);\n- 只压掉一部分 → 触发器保留;\n- 完全没接 handler → 无触发器(旧行为不变);\n- 常规 Edit + Delete 两项 → 每行一个触发器(报告人的对照组不变);\n- 混合行(frozen 行无触发器 / draft 行有)→ 触发器数 1,两行 `td` 数量相同;\n- 全部自定义动作被 `visible` 压掉 → 无触发器;\n- `planDataTableRowMenu` 纯函数:计数、只掉被压的那一项、存活自定义动作按声明序、`disabledWhen` 的项**仍然算数**、谓词报错 fail-closed(不产生幽灵项/幽灵触发器)。\n\n既有的两套项级测试(`data-table-builtin-row-action-predicates.test.tsx` / `data-table-row-action-visible.test.tsx`)未改动即全绿 —— item 组件改成走共享谓词函数后行为等价。\n\n## 反向验证(先预测后运行)\n\n预测:把守卫换回数 handler 的旧式(`!onRowEdit && !onRowDelete && custom === 0`),则「整行被压掉 → 无触发器」、「混合行触发器数 1」、「自定义动作全被压 → 无触发器」三条**转红**,其余(部分压掉 / 无 handler / 常规两项 / 7 条纯函数用例)**保持绿** —— 它们的触发器存在性在两种守卫下相同,纯函数用例根本不经过守卫。\n\n正向(仓库根,flock 串行,`--maxWorkers=2`):\n\n```\npnpm exec vitest run packages/components/src/renderers/complex/ --maxWorkers=2\n Test Files  7 passed (7)\n      Tests  38 passed (38)\n```\n\n反向(仅把守卫那一行换回旧式):\n\n```\n × renders NO trigger on a row whose every item is predicate-suppressed\n × mixes rows with and without a trigger while keeping the column aligned\n × suppresses the trigger when every CUSTOM action is invisible for the row\n Test Files  1 failed | 4 passed (5)\n      Tests  3 failed | 30 passed (33)\nAssertionError: expected [ ... ] to have a length of +0 but got 2\n```\n\n三红三十绿,与事先写下的预测逐条一致。\n\n其余门:`pnpm --filter @object-ui/components type-check` → 0;`pnpm --filter @object-ui/components lint` → 0;`node scripts/check-control-bytes.mjs` → OK(另对改动文件手工扫过控制字符类,无命中)。\n\n消费半径清查(不是只扫本包):`data-table` 行菜单的消费者为 `plugin-detail/RelatedList`、`plugin-dashboard`、`plugin-grid`(仅 inline-edit 存/撤路径)与 SDUI 原生 `data-table`;全仓 grep 触发器断言(`Row actions`)与 `rowEditPredicates|rowDeletePredicates|onRowActionDef` 的测试,只有 `plugin-detail/src/__tests__/RelatedList.rowactions.test.tsx` 命中,而它 mock 掉了 data-table、只断言透传的 schema,不经过本次改动。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

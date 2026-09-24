@@ -1,0 +1,32 @@
+{
+  "number": 3860,
+  "kind": "pull_request",
+  "title": "docs(app-shell): 两个 AppContent 路由测试的生产端叙述改写为「历史 + 现状」两段 (#3749)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:02:04Z",
+  "updated_at": "2026-08-08T22:13:49Z",
+  "closed_at": "2026-08-08T22:13:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:13:48Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3860",
+  "body": "Fixes #3749\n\n纯注释 / 标题改写,**零行为改动**。三处叙述以现在时枚举「侧边栏 / QuickActions 现在发哪些 URL」,而这些 URL 已经被 #3660 与 #3739 改掉了。\n\n## 前提复核(动笔前,`origin/main` @ `c32323e1e`)\n\n前提仍活,两条都逐一核过:\n\n| 生产端 | 现在发的 URL | 谁改的 |\n| --- | --- | --- |\n| `AppSidebar` / `UnifiedSidebar` `sys-datasources` | `/apps/setup/metadata/datasource` | #3660(`d2fd044b7`) |\n| `AppSidebar` / `UnifiedSidebar` `sys-objects` | `/apps/setup/metadata/object` | #3739(PR #3748) |\n| `QuickActions` \"Manage Objects\" | `/apps/setup/metadata/object` | #3739 |\n\n而 `AppContent.noAppComponentRoutes.test.tsx:8-14` 仍写着 `sys-datasources -> …/component/metadata/resource?type=datasource`、`sys-objects -> …/system/metadata/object`,并以现在时说「侧边栏 offers two entries」。下一个按 grep 找生产端的 agent 会把它读成现状 —— #3661 / #3669 已经为同一族转写付过一次真实代价。\n\n## 手法(照 #3666)\n\n每处拆成两段:「#3610 当时如此」(过去时)+「#3660 / #3739 之后如此」(现在时)。现状段**正面**陈述两条别名今天的身份 —— 不再是任何导航的目标,而是书签、外部链接、以及宿主自己的别名路由所对应的**到达**路径,这正是重定向必须继续工作的理由。按 #3656,现状段不靠「不再指向 X」这类否认句复述别名 URL(那会让针对 X 的 grep 继续命中改写本想清掉的那一条)。\n\n## 三处改动\n\n**1. `packages/app-shell/src/console/__tests__/AppContent.noAppComponentRoutes.test.tsx`**\n\n- 头注 `## The defect` -> `## The defect, as it stood at objectui#3610`(整段转过去时),新增 `## What those two URLs are NOW (objectui#3660, #3739)`。\n- 两个 `it` 标题从生产端名改为它们真正所量的东西,并按各自的**改写者**区分 —— 这条区分文件正文本来就画了(「the alias here is the ENTRY」 vs 「rewritten by the HOST」):\n  - `sys-datasources: …renders the resource page` -> `shell alias: …resolves in the zero-app branch and hops ONCE to the canonical page`\n  - `sys-objects: …reaches this branch's metadata/:type in ONE hop` -> `host alias: …`(同句尾)\n- 同一头注里另两处按生产端命名的指针同步:`systemRoutesStub` 的「the `sys-objects` leg」-> 「the `system/metadata/:type` leg」;#3661 那段的「the `sys-objects` case」-> 「the `system/metadata/object` case」(标题改名后原引用会悬空)。\n\n**2. `packages/app-shell/src/console/__tests__/AppContent.pseudoRouteSegments.test.tsx:41-46`**\n\n生产端表格按**实读**重写(逐条读自 `AppSidebar` / `UnifiedSidebar` / `QuickActions` / `HomePage` / `InboxPopover`,顺带把 `QuickActions` 与 `HomePage` / `InboxPopover` 拆成两行 —— 它们发的不是同一组 URL),并补一段说明两条旧拼写并未消失,只是从 `navigation` 行**移到了上面两行的到达面**(shell 的 `component/metadata/{directory,resource/*}`、宿主的 `system/metadata{,/:type}`)。`metadata` 在两种拼写下都是完整路径段,所以本文件要证伪的论断不受这次搬家影响 —— 这一点在文中写明,免得下一个读者以为表格换了就得重跑结论。\n\n**3. `packages/app-shell/src/console/AppContent.tsx:645-661`(#3610 那段)**\n\n收尾句从「#3660 re-pointed it anyway」补成 #3660(`sys-datasources`)与 #3739(`sys-objects` + 首页卡片)都已重指,并注明 `sys-objects` 的链路早在 #3658 就离开了这两条路由。该段前半的过去时叙述原样保留,两条 `Route` 声明与其余每一行代码未动。\n\n## 越出 issue 字面范围的两小处(同文件、同一缺陷,都已在上面列出)\n\n按范围纪律说明,不是夹带:\n\n1. **用例体内两处重申同一陈旧断言的行内注释**(`:273-276` 「the zero-app fallback sidebar's `sys-datasources` item **still points straight at this spelling**」;`:304-307` 「this case **now measures what production actually does**」)。只改标题、留着正文两行继续断言同一件已不成立的事,文件会自相矛盾 —— 改名后的标题反而变得更难读。\n2. **同一段落里 `isMetadataRoute` 的现在时「substring test (`pathname.includes('/metadata')`)」**。#3638 起它是 `pathSegments.includes('metadata')` 段测试(`AppContent.tsx:198`),同属「现在时叙述被后续 PR 证伪」,且就在被转成过去时的那一句里;不动它会在同一段落留下一个新的时态矛盾。\n\n## Changeset:空 frontmatter(第二个 commit)\n\n第一版**漏了** changeset,CI 的 Changeset Declaration 门直接红,已修。记一笔为什么漏,因为这是个可复用的读错先例:\n\n我照 #3666(`bd04651ee`,同族 docblock 改写)与 #3785(`f9d70a72e`,docs-only)判断「注释-only 不带 changeset」。两条先例都不适用 —— #3666 早于这道门(#3387 引入),#3785 只动 `content/docs/**`,根本不在守护面内。而本次三个文件全在 `packages/app-shell/src` 下,正是 `scripts/check-changeset-presence.mjs` 从 `.changeset/config.json` 的 `fixed` 组**推导**出来的守护面。\n\n门自己写明了正确出口,不是绕路:「If this change really should release nothing, say so — that is a pass, not a workaround」。故 `.changeset/appcontent-route-test-headers-3749.md` 用**空 frontmatter**,写法照 `.changeset/registry-inputs-spec-parity-gate-3797.md` 先例。空而非 `patch`:确无可发布的行为改动(见下)。\n\n## 验证\n\n**改动前后同一命令、同一结果 —— 断言与用例数零改动:**\n\n```\n$ pnpm exec vitest run \\\n    packages/app-shell/src/console/__tests__/AppContent.noAppComponentRoutes.test.tsx \\\n    packages/app-shell/src/console/__tests__/AppContent.pseudoRouteSegments.test.tsx --maxWorkers=2\n\n改动前:  Test Files  2 passed (2)     Tests  43 passed (43)\n改动后:  Test Files  2 passed (2)     Tests  43 passed (43)\n```\n\n改名后的两个用例确实在跑(verbose,非空跑过):\n\n```\n✓ … > shell alias: /apps/setup/component/metadata/resource?type=datasource resolves in the\n      zero-app branch and hops ONCE to the canonical page 83ms\n✓ … > host alias: /apps/setup/system/metadata/object reaches this branch's metadata/:type in\n      ONE hop 12ms\n      Tests  7 passed (7)\n```\n\n全仓类型检查(CI 同命令):\n\n```\n$ pnpm exec turbo run type-check --concurrency=2\n Tasks:    78 successful, 78 total\n  Time:    1m9.876s\n```\n\nChangeset 两道门(本地):\n\n```\n$ node scripts/check-changeset-presence.mjs\n✅  3 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)\n    Every one of them has an EMPTY frontmatter — declared as releasing nothing, which\n    is the explicit exemption and a complete answer to this gate.\n$ node scripts/check-changeset-no-major.mjs\n✅  No changeset declares a `major` bump.\n```\n\n控制字符自查:四个改动文件 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 零命中(CI Control Byte Scan 亦 green)。未触碰 `content/docs/releases/**`。\n"
+}

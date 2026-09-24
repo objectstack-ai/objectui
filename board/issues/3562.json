@@ -1,0 +1,36 @@
+{
+  "number": 3562,
+  "kind": "issue",
+  "title": "console: 平台内置「审批请求」(sys_approval_request) 行「更多操作」菜单展开后 0 个菜单项——渲染成 128×10 的空白方块",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T12:22:54Z",
+  "updated_at": "2026-08-08T12:36:56Z",
+  "closed_at": "2026-08-08T12:36:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3562",
+  "body": "## 现象\n\n平台内置对象 **`sys_approval_request`**(`com.objectstack.account`)的列表,每行都渲染了「更多操作」(⋮) 按钮,但点开后菜单里**一个菜单项都没有** —— 视觉上就是「点了没反应 + 操作列旁边多出一小块空白」。\n\n一开始很容易误判成 z-index 被表格遮挡,**不是** —— 层级完全正常,菜单也确实打开了,就是没有内容。\n\n## 复现\n\n1. 任意业务对象提交一次审批,让 `sys_approval_request` 有数据\n2. 系统设置 → 审批请求 → 切到「全部」视图(默认「我的待办」对 admin 通常是空的)\n3. 点某一行末尾的「更多操作」(⋮)\n\n## DOM 实测\n\n`17.0.0-rc.5`,admin 账号,1440×900:\n\n```\ndata-state = open        ← 菜单确实打开了\nz-index    = 50          ← 层级正常,已 portal 到 body\n尺寸        = 128 × 10    ← 一块空白小方块\n菜单项数    = 0           ← [role=menu] 的 children.length === 0\n菜单文本    = \"\"\n```\n\n## 对照\n\n**同库、同版本、同一套行菜单组件**,业务侧自有对象(我们的设备台账)的行「更多操作」正常展开「编辑 / 删除」两项。所以问题限于这个平台内置对象 —— 像是它的行动作集合解析出来是空的,但按钮仍然无条件渲染了。\n\n## 期望\n\n二选一:\n\n1. 该列表的行级操作补齐(至少「查看详情」之类);或\n2. 行动作为空时**不渲染**「更多操作」按钮 —— 一个点开是空白的按钮比没有按钮更让人以为页面坏了\n\n## 版本\n\n- `@objectstack/*` `17.0.0-rc.5`\n- 从 `17.0.0-rc.3` 升到 rc.5 后逐条复验,此条**无任何变化**(rc.3 上的 DOM 量测与上面逐字一致)"
+}

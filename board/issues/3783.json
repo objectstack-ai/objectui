@@ -1,0 +1,36 @@
+{
+  "number": 3783,
+  "kind": "issue",
+  "title": "ApproveOutcome/RejectOutcome 是 spec approve/reject 响应的手写镜像,已漂移(id 根本不在响应里),且因改名躲过 spec-symbol 守卫",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:21:15Z",
+  "updated_at": "2026-08-08T16:47:12Z",
+  "closed_at": "2026-08-08T16:47:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3783",
+  "body": "发现于 #3293 的核验过程(那张单的前提已失效,详见其上的报告)。这是同一个文件里**残留**的一处手写 wire 类型,与 #3293 已解决的那两个是同一失败类,但因为**本地名字和 spec 名字不同**,`scripts/check-spec-symbol-derivation.mjs` 这类基于名字碰撞的守卫对它完全没有抓手。\n\n## 事实\n\n`packages/plugin-chatbot/src/usePendingActions.ts:69-80`(origin/main `00b9451d8`)手写:\n\n```ts\nexport interface ApproveOutcome {\n  id: string;\n  status: 'executed' | 'failed' | string;\n  result?: unknown;\n  error?: string;\n  [k: string]: unknown;\n}\n\nexport interface RejectOutcome {\n  id: string;\n  status: 'rejected' | string;\n}\n```\n\nspec 侧已经声明了这两个响应(objectstack `origin/main` `6029cc1bb`,`packages/spec/src/api/protocol.zod.ts:1453-1462`,类型导出在 `:1680-1681`):\n\n```ts\nexport const ApproveAiPendingActionResponseSchema = lazySchema(() => z.object({\n  status: z.enum(['executed', 'failed']),\n  result: z.unknown().optional(),\n  error: z.string().optional(),\n}));\n\nexport const RejectAiPendingActionResponseSchema = lazySchema(() => z.object({\n  status: z.literal('rejected'),\n  id: z.string(),\n}));\n```\n\n## 漂移有三处,其中一处是**当下就在跑**的错类型\n\n1. **`ApproveOutcome.id` 是必填,但 approve 响应根本不带 `id`。** spec 的 approve 响应只有 `status/result/error`;reject 响应才有 `id`。而 `useHitlInChat.ts:237` 把原始 payload 直接断言过去:\n\n   `onDecided?.(toolCallId, payload as ApproveOutcome | RejectOutcome);`\n\n   于是交给 `onDecided` 的对象在编译期承诺 `id: string`,运行期是 `undefined`。`onDecided` 是 `plugin-chatbot` 的**公开回调**(`src/index.tsx:348-349` 导出这两个类型),外部消费者读 `outcome.id` 拿到 undefined 而编译器不报。这一条不是休眠的。\n\n2. **`| string` 吸收字面量。** `'executed' | 'failed' | string` 就是 `string`,注解不携带任何信息 —— 与 #3220 从同文件另两个类型上删掉的 Drift 1 一模一样。下游后果在 `useHitlInChat.ts:217-235`:代码手写 `status` 字符串比较,并且 `else` 兜底分支把**认不出的 status 当成成功**(`succeeded = true`),进而继续对话。若用闭合枚举,这个兜底分支要么可证死、要么必须显式处理。(诚实标注:今天服务端只返回代码已处理的那几个值,所以这一条的**行为**后果目前不可达;可达的是类型层面已经零信息。)\n\n3. **`[k: string]: unknown` 索引签名。** objectstack#4075 那个机制:有它在,任何结构比较都答\"一致\",无论抄本漂多远 —— 也就是说,就算给这两个类型补一条 parity 测试,索引签名也会让它恒绿。\n\n## 为什么现有守卫抓不到\n\n`check-spec-symbol-derivation.mjs` 判的是\"本地声明占用了 spec 导出的**名字**\"。`ApproveOutcome` ≠ `ApproveAiPendingActionResponse`,名字不碰撞,守卫按设计放行。这正是名字型守卫的残留洞:**换个名字手抄**对它隐形。#3720 是同类(本地名字下手写第三套拼写)。\n\n## 建议修法(契约优先,零新依赖)\n\n`plugin-chatbot` 已经依赖 `@objectstack/spec`(`package.json` 里 `^17.0.0-rc.5`,#3220 引入),所以派生是免费的:把两个类型改成从 spec 派生(`z.infer`/re-export),删掉 `| string` 与索引签名;`id` 按 spec 归位到 reject 一侧。随后 `useHitlInChat.ts:217` 的 `else` 兜底需要重新裁决 —— 是显式处理未知 status,还是按闭合枚举证死。\n\n请 PM triage 分级:第 1 条我判为具体缺陷(公开 API 类型承诺了 wire 不返回的字段,今天就在跑),第 2、3 条按现状更接近潜伏/观察类。\n\nRefs: #3293(核验来源)、#3220(同文件另两个类型的处置范式)、#3720(同类)、objectstack#4075、objectstack#4115。"
+}

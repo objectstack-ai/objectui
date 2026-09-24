@@ -1,0 +1,35 @@
+{
+  "number": 3815,
+  "kind": "issue",
+  "title": "core 的 DatasetResultField 仍是 spec AnalyticsResult.fields[] 的手写重述(今日未漂移,但 type 已被放宽为可选)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:25:32Z",
+  "updated_at": "2026-08-10T11:51:51Z",
+  "closed_at": "2026-08-10T11:51:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3815",
+  "body": "#3752 的派单要求\"顺手核对 `packages/core/src/utils/dataset-format.ts:34` 的本地 `DatasetResultField` 是否也应派生自 spec —— 只核对不实施\"。这是核对结论,按流程立卡供 PM 分诊,**未实施任何改动**。\n\n## 事实(objectui `origin/main` @ `2a54e860c`,spec 实装版本 `@objectstack/spec@17.0.0-rc.5`)\n\n`packages/core/src/utils/dataset-format.ts:29` 起:\n\n```ts\nexport interface DatasetResultField {\n  name: string;\n  type?: string;\n  label?: string;\n  format?: string;\n  currency?: string;\n  percentScale?: PercentScale;\n}\n```\n\n与 spec `contracts` 的 `AnalyticsResult.fields[]` 元素逐项对比:\n\n- 键集合**完全一致**(六项),今日**没有漂移** —— `percentScale` 在(#3136 之后补的),而且 `PercentScale` 本身就是从 `@objectstack/spec/data` import 的真身,不是手抄的字面量联合(`dataset-format.ts:20`),第 52 行还把它原样 re-export 给既有 import 路径。\n- 唯一形状差异:**`type` 在这里是可选(`type?: string`),spec 是必填(`type: string`)**。方向是\"放宽\",所以 core 的消费者读 `field.type` 拿到 `string | undefined`,必须自己兜 undefined;反过来,凡是构造这个类型的地方都可以合法地不给 `type`,而服务端契约保证它一定在。\n\n## 为什么按 observation-class 立(`finding`,不带 `pm:queue`)\n\n- **今天没有用户能踩到**:键集合一致,`percentScale` 在,三个消费端(`plugin-dashboard` / `plugin-report` / `DatasetPreview`)行为正确。\n- 它的问题是**类别**上的:这仍是一份 spec 拥有的概念的本地重述,和 #3613(参数侧)、#3752(adapter 返回侧)完全同族。#3752 的成因正是\"重述停在了写它那天的 spec 上\",而这份重述现在只是**恰好**追平了 —— 下一次 spec 给列元信息加键时,它一样不会自己长出来,而且这次连编译错误都不会有(它是被三个消费端**当作真身**在用的那个类型)。\n- 因此这是\"休眠的漂移面\",不是当下缺陷,严重性交 PM 分诊判定。\n\n## 若要实施,需要先决的两点(所以本卡不含 patch)\n\n1. **`type` 的可选性是不是有意的**。改成 spec 元素(`type` 必填)会波及所有构造 `DatasetResultField` 的地方,包括测试 fixture;还要看它与 `ChartResultField`(注释称 `DatasetResultField` 是其超集,后者只需 name/label/format)的父子关系是否仍成立。这需要读一遍构造点再决定,不是机械替换。\n2. **导出路径的兼容**。`dataset-format.ts` 现在把 `PercentScale` re-export \"让既有 `@object-ui/core` 消费者保持 import 路径\";`DatasetResultField` 本身也是被 `plugin-dashboard`/`plugin-report` 直接 import 的公开名字。派生自 spec 时要决定是 `type DatasetResultField = AnalyticsResult['fields'][number]`(名字保留、形状收紧)还是保留 interface 只补 `type` 必填。\n\n跨包面(`packages/core`)超出 #3752 的单文件面,故只记录不动手。相关:#3752(adapter 返回侧,已修)、#3613/#3753(参数侧,已修)、#3136(`percentScale` 的由来)。\n"
+}

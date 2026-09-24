@@ -1,0 +1,33 @@
+{
+  "number": 3745,
+  "kind": "pull_request",
+  "title": "docs(ci): 删除未钉住的 .github/WORKFLOWS.md 副本清单,真内容并入 pinned 的 ci-cd-pipeline.md (#3724)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:19:14Z",
+  "updated_at": "2026-08-08T11:29:08Z",
+  "closed_at": "2026-08-08T11:29:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T11:29:07Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3745",
+  "body": "Fixes objectstack-ai/objectui#3724\n\n## 前提复核(在 `origin/main` @ `8ad6070fb` 重新测量)\n\n正文的 5/9 两份清单**逐项成立,无偏移**。按 `**File**: ...yml` 条目机械比对 `.github/workflows/`(现存 16 个 workflow):\n\n- **文档里有、仓里没有(5)**:`changeset-check.yml`、`codeql.yml`、`deploy-docs.yml`、`pr-checks.yml`、`size-check.yml`\n- **仓里有、文档里连提都没提(9)**:`changeset-guard.yml`、`check-links.yml`、`control-bytes.yml`、`cross-repo-issue-closer.yml`、`docs-links.yml`、`live-e2e.yml`、`lint.yml`、`performance-budget.yml`、`shadcn-check.yml`\n\n`skip-changeset` label 也复核了:**不存在**(labels API 返回 not found);全仓 `git grep skip-changeset` 只命中被删的那一页自身两行。两名当中只有 `dependencies` 真实存在,由 auto-labeler 打,没有任何门禁读它。\n\n## 裁决执行:路由 1(删除)\n\n按 #3261 仓规,一份没有钉住的手工副本清单**按构造**就是漂移生成器 —— `content/docs/guide/ci-cd-pipeline.md` 已经把 `.github/workflows/` 双向钉死,副本继承不到其中任何一条,却读起来一样权威。所以是删,不是再加一道棘轮。\n\n**入链引用:零。** `git grep -i 'WORKFLOWS\\.md'` 全仓(含 `docs/`、`apps/site`、`skills/`、脚本、workflow YAML)无命中;`check-doc-links.mjs` 的 `SCAN_ROOTS` 也不含 `.github/`,所以这一页既没人链、它自己的外链也从来没被检查过。删除对 check-doc-links 零影响(已实测,7 个 scan root 全绿)。\n\n## 从被删页搬走了什么(真且 guide 页缺)\n\n| 内容 | 为什么搬 |\n|---|---|\n| **Lockfile 合并驱动**(新增 `## Lockfile Merge Driver`) | `.gitattributes` 那一半、以及「新 workflow 怎么加这一步」那一半,**全仓别处都没有**。而且这条声明在**两份副本里都是错的**:guide 页写 `changeset-release.yml` + `dependabot-auto-merge.yml`,被删页写 `changeset-release.yml` + `changelog.yml` —— 实测三个都带这一步,各漏一个,且两边都没有任何检查。 |\n| **`stale.yml` 豁免 label** | guide 页原来写成一份合并列表(`pinned, security, critical, in-progress`),对 issue 和 PR **两边都错**。实测两份列表分开设置且互不包含:issue 是 `pinned, security, critical, bug, enhancement`;PR 是 `pinned, security, in-progress, blocked`。被删页的 issue 那一份是对的。 |\n| **console bundle 预算的「失败怎么办」** | 被删页唯一一条真实可用的失败指引。改写到真门禁上(350 KB 入口 chunk,而不是那三档只做参考的 tier),补齐 guide 页 performance-budget 段缺的 `**If it fails:**`(control-bytes 与 docs-links 两段都有)。 |\n| **虚构 changeset 门禁的显式否认** | 「有一道要求 PR 必带 changeset 的门禁,可以用 label 跳过」这个信念正是被删页教出来的,得留下证伪。照 size-check 的既有先例写,并说明两个名字相近的真东西各做什么。 |\n\n## 丢掉了什么(假的或纯重复)\n\n- 5 个不存在 workflow 的整节:CodeQL、PR Checks、Deploy Documentation(还说是 VitePress → GitHub Pages,本仓是 fumadocs)、Bundle Size Check(`size-check.yml`)、Changeset Check。\n- **「Issue & PR Templates」整节** —— 这是 issue 正文没数进去的**第 6 类虚构**:`.github/` 下既没有 `ISSUE_TEMPLATE/` 也没有 `pull_request_template.md`,那节描述的 bug report / feature request / config 三个模板和 PR checklist 一个都不存在。(这不是缺陷,只是文档凭空描述;随页面一起消失,未另开 issue。)\n- CodeQL badge、labeler 的 label 枚举(是 `.github/labeler.yml` 的会漂移的转述,且已经漏了 `designer` / `data-adapter` / `breaking-change` / `plugin`)、`dependabot.yml` 配置转述、泛化的 Best Practices / Troubleshooting / Maintenance、没有归属的 Future Enhancements 愿望清单、Resources 链接堆。\n- Changeset 开发者流程与「何时不用写 changeset」:**不是搬,而是本来就在** `CONTRIBUTING.md` 的 “When to Create a Changeset”(含 DON'T 列表),那才是真指引 —— 被删页的错在把它包装成一道可以用 label 跳过的门禁。\n\n## 钉子:只为搬过来的内容加,双向\n\n把一份**已经漂移过的**手工列表搬进无钉散文,等于换个地方重建漂移生成器,与本次裁决自身的理由相矛盾。所以新增两条(`scripts/__tests__/ci-cd-pipeline-doc.test.ts`):\n\n1. `lockfile merge driver` —— 表格 ↔ 真正配置了 `merge.pnpm-merge` 的 workflow 集合,**双向**;外加 `.gitattributes` 那一半仍然为真(否则页面在描述一个没人调用的驱动)。\n2. `keeps this page as the only workflow inventory` —— 断言 `.github/WORKFLOWS.md` 不复活。范围已在注释里写明其边界:它只钉住那一个曾存在的路径,换个名字的新清单绕得过去;真正的持久保护是「加 workflow 本来就必须改 guide 页」,所以第二份页面挣不到任何东西。\n\n## 反向验证(5 项,方向均**先判后跑**)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| 恢复 `.github/WORKFLOWS.md` | RED(single-home 钉) | RED `keeps this page as the only workflow inventory` |\n| 从驱动表删 `changelog.yml` 行 | RED(missing 方向) | RED `...have no row: - changelog.yml` |\n| 给驱动表加一行 `ci.yml` | RED(phantom 方向) | RED `...do NOT configure merge.pnpm-merge: - ci.yml` |\n| 从 `.gitattributes` 删 `merge=pnpm-merge` | RED(机制钉) | RED `no longer routes pnpm-lock.yaml through the pnpm-merge driver` |\n| 植入 `### Changeset Check (changeset-check.yml)` 标题 | RED(既有钉) | RED `documents changeset-check.yml, which is not in .github/workflows/` |\n\n每次都是 `1 failed | 17 passed`,还原后 `18 passed`。\n\n## 门禁实测\n\n```\nnode scripts/check-control-bytes.mjs   ->  OK (3690 tracked text files; 85 binary skipped)\nnode scripts/check-doc-links.mjs       ->  Links are valid across 7 scan roots.\nvitest run scripts/__tests__/          ->  Test Files 20 passed (20) | Tests 364 passed (364)\npnpm type-check:scripts                ->  tsc -p tsconfig.scripts.json (clean)\nnpx eslint scripts/__tests__/ci-cd-pipeline-doc.test.ts  ->  exit 0\ngrep -naP '[控制字符区间]' 两个改动文件  ->  clean\n```\n\n未跑 prettier(AGENTS.md §195:本仓无格式化门禁,全局 prettier 默认配置会对逐字节等于 `main` 的文件报红)。\n\n## Changeset\n\n**不带。** 纯文档 + 钉测试改动,不碰任何 `packages/` 源码。查了 `origin/main` 最近 40 个提交里的 16 个 `docs(...)` 提交,**16/16 都没有 changeset**,先例一致。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

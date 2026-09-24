@@ -1,0 +1,36 @@
+{
+  "number": 3723,
+  "kind": "issue",
+  "title": "`ci.yml`'s `Build Docs` path gate fails CLOSED: a failed `git diff` reads as \"nothing changed\" and skips the site build, green",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T08:22:23Z",
+  "updated_at": "2026-08-08T11:25:19Z",
+  "closed_at": "2026-08-08T11:25:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3723",
+  "body": "Found while implementing #3523 (PR #3722), which copies this job's `should_run` shape into four other jobs. Filed rather than fixed there: #3722's ruling scopes it to the `merge_group` triggers and the `ci.yml`/`lint.yml` `paths-ignore`, and this is a pre-existing defect in a different direction.\n\n## The code\n\n`.github/workflows/ci.yml`, the `docs` job (`Build Docs`), step `Check for docs changes`:\n\n```\nCHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} -- \\\n  'apps/site/' 'content/' 2>/dev/null || echo \"\")\nif [ -n \"$CHANGED\" ]; then should_run=true else should_run=false fi\n```\n\n`2>/dev/null || echo \"\"` collapses **two different facts** into one value:\n\n- \"the diff succeeded and nothing under `apps/site/` or `content/` changed\" — correctly `should_run=false`;\n- \"the diff could not be computed at all\" — a checkout that did not fetch deep enough, a transient git failure, a malformed sha — which also yields `should_run=false`.\n\nThe second case skips the entire site build and the job still reports **success**. There is no red step, no warning, nothing in the summary: the check says the docs built when nothing was built.\n\n## Measured, both directions\n\nAgainst a fixture repository, feeding an unreachable base sha into the two spellings of the same gate (PR #3722 ran this as its reverse verification):\n\n| Spelling | Unreachable base sha |\n|---|---|\n| fail-OPEN — `if ! CHANGED=$(git diff …); then should_run=true; exit 0; fi` | `should_run=true` — runs everything |\n| fail-CLOSED — `… 2>/dev/null \\|\\| echo \"\"` (today's `docs` job) | `should_run=false` — silent full skip |\n\n## Why it matters beyond this job\n\nobjectstack#4928 named this \"the filter contract\" after exactly this shape produced a fully green, zero-job pull request with no red signal anywhere — a flake in the filter, not in the code, decided that nothing ran. The rule it settled on is: **when the filter cannot tell, RUN.**\n\nToday the blast radius here is bounded — `Build Docs` is not on the list of contexts #3523 found safe to require, so a false green on it does not merge anything by itself. But the shape is the one this repository keeps paying for, and #3722 has just made this job the odd one out: the four gates it added (`type-check`, `test`, `e2e`, `lint`) all fail open, and `scripts/__tests__/merge-queue-reporting.test.ts` pins them that way. This one still does not.\n\n## Suggested fix\n\nRewrite the capture as the fail-open form the new gates use, so the job runs the site build when it cannot establish that nothing docs-related changed. One step, no new mechanism. While there, the same step's `push` branch was already corrected by #3722 to `!= 'pull_request'` so queue builds are covered — the diff itself is the only part left.\n"
+}

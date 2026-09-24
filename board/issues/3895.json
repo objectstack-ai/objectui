@@ -1,0 +1,35 @@
+{
+  "number": 3895,
+  "kind": "issue",
+  "title": "`RelatedList` 的 Add 按钮不判 `dataSource`,而 picker 对话框判 —— 无 dataSource 的宿主(Studio designer / 无 RecordContext 的嵌入)里是个点了没反应的死按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:15:19Z",
+  "updated_at": "2026-08-09T20:29:39Z",
+  "closed_at": "2026-08-09T20:29:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3895",
+  "body": "观察类发现,顺手记录,发现于 #3838 的实施(PR #3894)。**不在那一单的范围内,该 PR 未改这个行为。**\n\n## 机制\n\n`packages/plugin-detail/src/RelatedList.tsx` 里 Add 这条链上的三个消费点对 `dataSource` 的要求不一致(行号按 PR #3894 之后的树):\n\n- `:1147` Add 按钮:`{add && pickerObject && (` —— **不判 `dataSource`**,点击只做 `setPickerOpen(true)`;\n- `:1325` picker 对话框:`{add && pickerObject && dataSource && (` —— **判 `dataSource`**;\n- `:723` `handleAddRecords`:`if (!add || !dataSource || …) return` —— 判。\n\n于是当宿主没有 `dataSource` 时,按钮照常渲染,点下去 `pickerOpen` 变 true 而对话框根本不存在:**没有任何可见反应,也没有任何提示**。\n\n## 可达性\n\n`renderers/record-related-list.tsx:185` 传的是 `dataSource={ctx?.dataSource}`,所以 `undefined` 的宿主是真实存在的一类:Studio designer 预览、无 `RecordContext` 的独立嵌入(`apps/console/src/__tests__/public-block-binding-reach.test.tsx` 正是这样挂载的,且它的 fixture 带一个 spec 合法的 `add`)。正常应用运行时 `dataSource` 有值,所以**终端用户日常不会碰到** —— 这也是标 `finding` 而不是 `bug`/`pm:queue` 的原因,严重性交 triage 判。\n\n## 可能的方向(未做取舍)\n\n1. 按钮门补上 `dataSource`(与对话框/回调对齐)—— 最小、与 #3838 收紧门的思路同向:能力不具备就不呈现 affordance;\n2. 无 `dataSource` 时按钮 `disabled` 并给出原因(designer 里\"这里会有一个 Add 按钮\"的可见性比直接消失更有用);\n3. 不动,认为 designer 预览下的死按钮可接受。\n\n(1) 与 (2) 的取舍取决于 designer 预览想不想看见这个按钮 —— 那是产品判断,不是实现细节,所以只记录不动手。\n\n关联:#3838(同一条 Add 链上的门,已修渲染期崩溃)、#3831(`add.picker.filter` 未接线)\n"
+}

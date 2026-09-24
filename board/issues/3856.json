@@ -1,0 +1,30 @@
+{
+  "number": 3856,
+  "kind": "pull_request",
+  "title": "docs(skills): console-development.md 顶部注记的搬家归因改成 04-21→04-23 的 commit 链,cccdf84d7 降为其中一步 (#3737)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T21:55:19Z",
+  "updated_at": "2026-08-08T22:00:31Z",
+  "closed_at": "2026-08-08T22:00:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:00:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3856",
+  "body": "Fixes #3737\n\n## 问题\n\n`skills/objectui/guides/console-development.md` 顶部引用块(:10 起)把「shell / layouts / home pages / navigation / 整个 metadata admin 迁入 `@object-ui/app-shell`」整包记在 commit `cccdf84d7` 名下,:82 那行又复述一遍「all of it left `apps/console` in `cccdf84d7`」。照这个坐标去 `git show` 会拿到一个**不含目标符号**的 diff,白费一次查证 —— 而这句归因已经被 #3730 / #3713 两张卡的正文继承,是个会被反复引用的错坐标。\n\n## 复核(动笔前跑,基线 `origin/main` @ `c32323e1e4e5d7c72adda03dce0b46ecbe079403`)\n\n卡片的两条时间线**仍然成立**:\n\n```\n28ffe4033 EARLIER-THAN cccdf84d7      # git merge-base --is-ancestor\ncccdf84d7 EARLIER-THAN b279d80d6\n```\n\n逐符号 `--diff-filter=A` / `=D` 实测(13 个符号,无一在 `cccdf84d7`):\n\n| 批次 | app-shell 副本加入 | apps/console 副本删除 | 与 `cccdf84d7`(04-22)次序 |\n|---|---|---|---|\n| `AdapterProvider` / `MetadataProvider` / `ExpressionProvider` | `c1e105793`(04-21) | `28ffe4033`(04-22) | 都**早于** |\n| `NavigationContext` / `FavoritesProvider` / `UnifiedSidebar` / `ConsoleLayout` / `console/home/*` / 七个 hooks | `b279d80d6`(04-23) | `b279d80d6`(04-23) | **晚一天** |\n\n另外量到 `cccdf84d7` 在 `apps/console` 下**到底删了什么** —— 16 个文件:四个 designer 页(`CreateAppPage` `EditAppPage` `DashboardDesignPage` `PageDesignPage`)、五个 `pages/system/` 页、五个测试、两个 view-config 工具。shell / layout / navigation / home / hooks / providers 一个都不在里面,这就是「照注记 `git show` 会空手」的机械原因。\n\n两处与卡片正文的细微出入(结论不变,已按实测写入注记):`useObjectActions` 与 `useRecentItems` 的 app-shell 副本其实早在 `c1e105793`(04-21)就落地,只有 console 副本等到 `b279d80d6` 才删;卡片把七个 hooks 一律归给 `b279d80d6`。\n\n## 改法\n\n只改两处,`cccdf84d7` 这个名字**保留**作纠错锚:\n\n1. **顶部注记(:10)** —— 把「Commit `cccdf84d7` moved …」这半句拆成两段:第一段只陈述**今天**的归属(哪些东西现在住在 `app-shell` / `plugin-designer`),第二段以「**Don't credit that move to one commit.**」开头,明写「早先版本把整包记在 `cccdf84d7` 名下,跟着它走会落进一个不含目标符号的 diff」,再用两条 bullet 给出 04-21 → 04-23 的真实链,并点出 `b279d80d6` 的标题是「feat: Add ReportView and SearchResultsPage components」—— 一个字都没提这批符号,这正是照注记追溯的人**绝不会**往那儿找的原因。末尾给一条自查命令,让读者查具体符号而不是信任任何单 commit 归因。\n2. **:82 那行** —— 「all of it left `apps/console` in `cccdf84d7`」改为「spread across the 2026-04-21 → 04-23 `app-shell` extraction chain, **not** `cccdf84d7` alone」,指回顶部注记。\n\n保留锚而不是删名字,是为了让照旧坐标搜索(`grep cccdf84d`)的人**落在订正上**,而不是搜不到、再去别处重建一遍错误。\n\n## 边界(严格按卡片)\n\n- 注记里 **metadata admin 与 designer 两半未逐条复核、不动**:本次只撤掉「单一 commit」这个错坐标,**没有**替它们另指一个 commit,所以注记里不再残留任何未经核实的 commit 归因。\n- #3730 / PR #3734 已修的三处表/节未碰;:101-103 三行对 `cccdf84d7` 的引用(`UserManagementPage` 等确实在该 commit 删除)经核实**正确**,原样保留。\n- 顺手核实了仓内其余三处 `cccdf84d` 引用 —— `ROADMAP.md:857/871`、`apps/console/src/AppContent.tsx:110` 及其测试注释 —— 都是**正确用法**(说的是 `PermissionManagementPage` / 系统包装页在该 commit 被删),不在改动面内,也与在飞的 #3749 / #3738 零相交。\n\n## 验证\n\n- `node scripts/check-control-bytes.mjs` → `✅ OK (scanned 3762 tracked text file(s); skipped 85 binary)`;改动文件 `grep -naP` 控制字符扫描零命中。\n- `node scripts/check-doc-links.mjs` → `Links are valid across 7 scan roots.`\n- `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`。\n- `node scripts/check-changeset-presence.mjs` → `No source of a released package changed in this range, so no changeset is owed.`;同文件的前两次 docs(skills) 订正(#3734 / #3729)同样未带 changeset,照仓内先例不加。\n- 本 PR 的 16 个 check 全绿(`Test (coverage)` 与 `dependabot` 按设计 skipped)。\n\n> 附带订正一处我自己写错的前提:本 PR 正文起初写「md-only 改动 CI 的 `paths-ignore` 本不会触发」—— 那是照 `AGENTS.md:206` 写的,而 #3523 step 2 已经把 `pull_request` 的 `paths-ignore` 删掉(只留在 `push`),本 PR 起了 16 个 check 就是活体反证。该陈旧断言在 `AGENTS.md:206`、`scripts/check-changeset-presence.mjs:33-40`、`.github/workflows/changeset-guard.yml:3-8` 三处都在,已按纪律另立 #3857(`finding`,未认领),本 PR 不碰。\n"
+}

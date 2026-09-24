@@ -1,0 +1,36 @@
+{
+  "number": 3724,
+  "kind": "issue",
+  "title": "`.github/WORKFLOWS.md` documents 5 workflows that do not exist and omits 9 that do — including a changeset gate and a `skip-changeset` label neither of which is real",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T08:22:43Z",
+  "updated_at": "2026-08-08T11:29:08Z",
+  "closed_at": "2026-08-08T11:29:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3724",
+  "body": "Found while implementing #3523 (PR #3722). Filed rather than fixed there — out of that card's scope — but it cost real time in that task, which is the argument for it being a defect rather than tidiness.\n\n## Measured\n\nComparing the `**File**: ...yml` entries in `.github/WORKFLOWS.md` against `.github/workflows/`:\n\n**Documented, but does not exist (5):** `changeset-check.yml`, `codeql.yml`, `deploy-docs.yml`, `pr-checks.yml`, `size-check.yml`\n\n**Exists, but undocumented (9):** `changeset-guard.yml`, `check-links.yml`, `control-bytes.yml`, `cross-repo-issue-closer.yml`, `docs-links.yml`, `live-e2e.yml`, `lint.yml`, `performance-budget.yml`, `shadcn-check.yml`\n\n## Why this is worse than an out-of-date file\n\nThe page does not merely lag; it **advertises guardrails that do not exist**, which is the exact direction `scripts/__tests__/ci-cd-pipeline-doc.test.ts` was written to catch on the other page:\n\n- Section 9 describes a \"Changeset Check\" workflow that \"fails the check if changeset is missing\" and can \"be skipped with `skip-changeset` or `dependencies` label\". No such workflow exists. `skip-changeset` is not a label in this repository either — the API returns `label 'skip-changeset' not found in objectstack-ai/objectui`. A contributor following that instruction adds a label that cannot be created without repo permissions, to skip a check that never runs.\n- `size-check.yml` is named as a real workflow. That specific filename is the subject of a dedicated assertion on the *other* page — `it('does not resurrect the never-existent size-check.yml')` in `ci-cd-pipeline-doc.test.ts` — added because it \"has never existed in this repository\" (#3197). The pin covers `content/docs/guide/ci-cd-pipeline.md` and nothing else, so the same false claim survives untouched one directory over.\n- `lint.yml` is a **real PR gate** and is absent. That is #3212 verbatim (\"`lint.yml` gated PRs for months while this page never mentioned it\"), on the second page.\n\n## Two candidate resolutions\n\n1. **Delete `.github/WORKFLOWS.md`** and leave `content/docs/guide/ci-cd-pipeline.md` as the single home. That page is pinned in both directions — a workflow with no heading fails `pnpm test`, and a heading naming a nonexistent `.yml` fails too — so the drift cannot recur there. A second, unpinned copy of the same inventory is a drift generator by construction, which is the #3261 argument for not keeping hand-maintained enumerations at all.\n2. **Keep it and extend the pin** to cover both files. More work, and it leaves two documents saying the same thing, which is how they diverged.\n\nRecommendation: (1). The content worth keeping (the \"when to skip\" guidance, the per-workflow \"if it fails\" notes) either already exists on the guide page or can be moved there in the same change, and the guide page's pin then owns it.\n\nNot urgent, but not cosmetic either: this page is what an agent or a new contributor reads first, being in `.github/`, and it currently instructs them to do impossible things.\n"
+}

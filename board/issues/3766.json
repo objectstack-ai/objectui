@@ -1,0 +1,35 @@
+{
+  "number": 3766,
+  "kind": "issue",
+  "title": "check-i18n-en-drift 的显式 `--base` / `OS_I18N_DRIFT_BASE` 解析不出时会静默跌落到别的提交,拿错基准比对并报绿",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T13:04:32Z",
+  "updated_at": "2026-08-08T17:53:44Z",
+  "closed_at": "2026-08-08T17:53:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3766",
+  "body": "## 现象\n\n`scripts/check-i18n-en-drift.mjs` 的 `resolveBaseRef()` 把**显式指定**的基准仅当作候选链的第一环:\n\n```js\nconst candidates = [\n  explicit ? () => attempt(`--base ${explicit}`, () => gitQuiet(root, ['rev-parse', '--verify', `${explicit}^{commit}`])) : null,\n  env.OS_I18N_DRIFT_BASE ? ... : null,\n  env.GITHUB_BASE_REF ? () => attempt(`merge-base with origin/${env.GITHUB_BASE_REF}`, ...) : null,\n  () => attempt('merge-base with origin/main', ...),\n  () => attempt('merge-base with main', ...),\n].filter(Boolean);\n\nfor (const candidate of candidates) {\n  const hit = candidate();\n  if (hit) return hit;      // 第一环失败 -> 继续往下猜\n}\n```\n\n于是 `--base 某个本地 clone 里不存在的 sha`(浅 clone、未 fetch 的 sha、拼错的 sha)**不会失败**,而是继续尝试 `merge-base with main` 之类的候选,拿**另一个**提交当基准把比对做完,并打印一行自信的绿灯 —— 输出里的 `(--base …)` 也被换成了实际用的那一环,读日志的人看不出自己指的基准被忽略了。\n\n「你指的 base 不存在」和「你没指 base」是两件不同的事,只有后者可以靠猜回答。\n\n## 实测\n\n同族缺陷在新门禁 `scripts/check-changeset-presence.mjs` 上被它自己的测试抓到(PR #3762 / #3387),那里 base 解析链是照本文件抄的。修好前后在真实仓库上的测量:\n\n```\n# 缺陷版(= 本文件当前形状)\n$ node scripts/check-changeset-presence.mjs --base 0123456789abcdef0123456789abcdef01234567\nCompared the working tree with b1204af0a (merge-base with origin/main): 7 file(s) changed, 0 ...\n✅  No source of a released package changed in this range, so no changeset is owed.\nexit=0                       # 请求的 sha 被无声换掉,报绿\n\n# 修好后\n$ node scripts/check-changeset-presence.mjs --base 0123456789abcdef0123456789abcdef01234567\n❌  Cannot resolve the commit to compare against, so there is nothing to diff.\n    tried: --base 0123456789abcdef0123456789abcdef01234567 (unresolved)\n    That base was named EXPLICITLY, so it is not guessed around: ...\nexit=1\n```\n\n本 issue 只针对 `check-i18n-en-drift.mjs` —— 该文件自身没有修(PR #3762 的范围是 changeset 门禁,越界即停)。\n\n## 影响面\n\nCI 里 `pnpm check:i18n-drift` 不传 `--base`,走的是 `GITHUB_BASE_REF` 那一环,所以**今天的 CI 路径不受影响**;受影响的是该脚本对外声明支持的两个显式入口(`--base`、`OS_I18N_DRIFT_BASE`),它们正是复现历史提交、跨 worktree 比对、以及该门禁自身测试所用的入口。严重度请分诊评定 —— 提单时的自评在两个方向上都不可靠(objectstack#1004 / #897 的教训)。\n\n## 建议修法\n\n把显式来源提为**权威**:给出即只查它,解析不出直接 `{ ok: false, named: true }` 并给一条针对性的提示(\"你指的 base 在这个 clone 里不存在\",而不是\"去 fetch base 分支\")。`scripts/check-changeset-presence.mjs` 的 `resolveBaseRef` 已经是这个形状,可以直接照抄,连同 `scripts/__tests__/check-changeset-presence.test.ts` 里那条钉住它的用例(用例注释记录了反向验证的方向:恢复跌落写法后 exit 0→1)。"
+}

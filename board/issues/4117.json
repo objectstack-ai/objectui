@@ -1,0 +1,35 @@
+{
+  "number": 4117,
+  "kind": "issue",
+  "title": "[finding] The same dead i18n fallback spelled `t(key) || 'English'` — 24 sites, all on keys `en` defines, and #3810's new rule cannot see any of them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T11:05:04Z",
+  "updated_at": "2026-08-10T14:03:52Z",
+  "closed_at": "2026-08-10T14:03:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4117",
+  "body": "Measured while implementing #3810 (PR aligning 43 inline `defaultValue` strings and making the call-site gate enforce byte-equality). **Not fixed there** — the delegated ruling on #3810 took option B as written, i.e. the `defaultValue:` spelling only. This is the other spelling of the identical mechanism, filed so the measurement does not stay buried in a closed card's comments.\n\n## The measurement (first-hand, current `origin/main` @ `877385a76`)\n\nAST sweep of every `t(...)`/`tt(...)` call used as the LEFT operand of `||` or `??`, with a literal key:\n\n```\nsites: 24 | keys en defines: 24 | distinct keys: 18\n{\n  \"packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx\": 16,\n  \"packages/app-shell/src/views/ObjectView.tsx\": 5,\n  \"packages/app-shell/src/layout/ContextSelectors.tsx\": 2,\n  \"packages/app-shell/src/views/ActionResultDialog.tsx\": 1\n}\n```\n\n**24 of 24 are on keys `en` already defines**, so `t()` returns a non-empty string, so the right-hand side never evaluates. Structurally the same dead code #3810 is about, one operator away.\n\n(The earlier comments on #3810 counted 21 for two files; `ContextSelectors.tsx` and `ActionResultDialog.tsx` add the three that sweep did not cover.)\n\n## Why the new gate does not catch it\n\nThe rule that landed for #3810 reads the `defaultValue` property of a `t()` call's options argument. These sites carry no options argument at all — the fallback is a sibling expression. `scripts/check-i18n-call-site-keys.mjs` already holds the AST node, so the criterion could be written as the SEMANTIC one (\"a fallback for a key that exists must repeat its value\") rather than the syntactic one, with `node.parent` deciding whether the call is a binary operand.\n\n## What it costs, and one edge that is worse than #3810's\n\nMost of the 24 are merely redundant — the dead string equals the pack value. Five say something different, and three of those are the \"misleads the reader\" shape in full:\n\n| site | `en` renders | dead right-hand side |\n|---|---|---|\n| `MarketplacePackagePage.tsx:675` `marketplace.detail.moreOptions` | `More install options` | `'More options'` |\n| `MarketplacePackagePage.tsx:429` `marketplace.detail.purgeSuccess` | `Removed {{count}} sample record(s).` | `` `Removed ${removed} sample record(s).` `` |\n| `MarketplacePackagePage.tsx:453` `marketplace.detail.reseedLocalSuccess` | `Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.` | `` `Sample data re-seeded (inserted=${inserted}, updated=${updated}).` `` |\n| `ObjectView.tsx:939` `console.objectView.deleteViewConfirm` | `Are you sure you want to delete the view \"{{name}}\"? This cannot be undone.` | template literal inlining `viewLabel` |\n| `ContextSelectors.tsx:411` `actionDialog.selectPlaceholder` | `Select {{label}}` | `` `Select ${label}…` `` |\n\nThe edge `defaultValue` does not have: **`||` cannot rescue anything, in either direction.** With a provider, the pack wins (dead). With no provider and no initialised i18next instance, react-i18next's not-ready `t` returns **the key itself** — truthy — so the right side is still skipped and the user reads a raw `console.objectView.delete`. So on a provider-less host this spelling degrades strictly worse than the `defaultValue` spelling, which at least renders English there. Same family as #3865 (`createSafeTranslation`'s provider-less path ignoring the inline default and rendering the raw key); this is the `||` half of it.\n\n## Suggested direction\n\nWiden #3810's rule to the fallback SEMANTICS rather than adding a second rule: when `t(literalKey)` is the left operand of `||`/`??` and the key exists in `en`, require the right operand — where it is a static string — to equal the `en` value, and treat a template-literal right-hand side whose pack value uses i18next interpolation as a finding in its own right (those five rows). Non-literal right sides (`ContextSelectors.tsx:409`, whose fallback is a variable) stay counted, not judged, exactly as #3810 treats computed defaults.\n\nNot urgent: nothing a console user hits today, since every one of these keys is in the pack.\n\nRelated: #3810 (the `defaultValue` half, gate + 43 alignments), #3865 (provider-less path renders raw keys), #3546 (slice one deleted the five `||` sites whose keys were MISSING; these 24 were invisible to it precisely because their keys exist).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

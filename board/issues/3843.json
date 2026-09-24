@@ -1,0 +1,33 @@
+{
+  "number": 3843,
+  "kind": "pull_request",
+  "title": "fix(app-shell,components): 服务端声明动作的 visible 门按「已声明」判定,visible: false 不再渲染 (#3835)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T19:22:36Z",
+  "updated_at": "2026-08-08T19:38:40Z",
+  "closed_at": "2026-08-08T19:38:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T19:38:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3843",
+  "body": "Fixes #3835\n\n## 门:前后对照\n\n`packages/app-shell/src/views/DeclaredActionsBar.tsx`\n\n```\n- if ((action as any).visible && !isVisible) return null;\n+ if (hasDeclaredVisibilityGate((action as any).visible) && !isVisible) return null;\n```\n\n`false && …` 为假 → 不 `return null` → 渲染。作者写 `visible: false`(最明确的「永不显示」)被真值判读成「没声明门」,verdict 从未被查询。\n\n`hasDeclaredVisibilityGate`(`!= null && !== ''`)从 `@object-ui/components` 的 barrel **新增一行 re-export** 引入(PM 已裁),不上提 core、不抄第五份(#3142 的 `locations` 漂移形):\n\n`packages/components/src/index.ts`\n\n```\n+ export { hasDeclaredVisibilityGate } from './renderers/action/visibility-gate';\n```\n\nverdict 仍交给求值入口,一行未动:`toPredicateInput` 原样透传布尔、`useCondition` 在 `evaluateCondition` 短路,故声明的 `false` 即 `false`,表达式取值的 verdict 一律不变。\n\n## 为什么这处是同族最热的一处\n\n- 动作 def **服务端声明**(`objectDef.actions[]` / `sys_approval_request`)。「`ActionSchema.visible` 是 `ExpressionInputSchema`、无 boolean 成员,`objectstack build` 产不出布尔形状」这条族群缓解在这条路径上不成立 —— def 来自服务端 metadata 与进程内构造,布尔是自然写法。\n- 该 bar 由宿主以普通 JSX 直挂(`apps/console/src/pages/system/ApprovalsInboxPage.tsx:2014` / `:2055`),`packages/react` 的 `SchemaRenderer` 不在路径上 —— #3812 判定组件级门休眠的依据(宿主先按 `visible !== undefined` 求值并隐藏)在此不适用。**这个门是该路径上唯一的门。**\n- 宿主是审批收件箱记录区动作条:一个本该被 `visible: false` 关掉的审批动作渲染成可点的 Approve/Reject,而本组件自己的 click handler 就是 POST 审批决定的那一步。\n\n## 桩收紧(先做,否则钉子空绿 —— #4984 族)\n\n原套件把整个求值入口打桩成常真,注释还写着测试动作不带 `visible`「所以用不到」:\n\n```\n- vi.mock('@object-ui/react', () => ({\n-   useCondition: () => true,\n-   toPredicateInput: (v: unknown) => v,\n-   …\n```\n\n这让唯一挂载本组件的套件里这道门**从未被行使过**。重新拼一个「布尔短路」的桩并不能修好这点:`visible: false` 走到「隐藏」依赖 `toPredicateInput` 透传布尔 + `evaluateCondition` 短路,桩就是这套语义的第二份拷贝。改法是只替换**动作派发**,求值入口用真实实现:\n\n```\n+ vi.mock('@object-ui/react', async (importOriginal) => {\n+   const actual = await importOriginal< typeof import('@object-ui/react') >();\n+   return { ...actual, ActionProvider: …, useAction: () => ({ execute: executeSpy }) };\n+ });\n```\n\n`@object-ui/react` 的 barrel 对 light `dom` 项目是可负担的(components 自己的门套件就是不打桩地 import 它)。components 的 barrel 仍打桩(它的重图正是 light 项目故意不加载的),但 `hasDeclaredVisibilityGate` 从**真实源模块**取(纯函数、零依赖)—— 在测试替身里重拼一份 `!= null && !== ''` 会变成这条定义的第五份拷贝,并且无论出货谓词怎么变都保持绿色。\n\n## 钉子(四形状 + 同伴动作)\n\n`packages/app-shell/src/views/__tests__/DeclaredActionsBar.test.tsx` 新增 6 例,每例都带一个无门同伴动作(`approval_reassign`),使「未渲染」不会被误读成「整条 bar 返回 null」(空 located 集是两行之外的另一条码路)。\n\n## 反向验证(方向先判后跑)\n\n**判定:** 修前 `visible: false` 的钉子应红,`true` / 未声明 / `''` / 表达式两向应绿。**实跑一致** —— 修前(桩已收紧、源未改):\n\n```\n× visible:false → the declared action does not render\nAssertionError: expected  button type=\"button\" …(2)  to be null\n+ Received:\n  button\n    data-testid=\"declared-action-approval_approve\"\n    type=\"button\"\n    variant=\"outline\"\n    Approve\n  /button\n\n× a hidden action leaves NO clickable surface in the toolbar\nAssertionError: expected …(2) to have a length of 1 but got 2\n\nTests  2 failed | 18 passed (20)\n```\n\n修后:`Tests  20 passed (20)`。\n\n**抗空绿变异(#3836 范式),两个方向,一个如预期一个不如:**\n\n- M1「无条件隐藏」(`if (true) return null`)→ **15 红**(含 `visible:true` / 未声明 / `''` / 表达式为真四例,以及原有 9 例)。如预期:一个「把成员一律隐藏」的改写无法让这套钉子保持绿色。\n- M2「过紧」(`visible !== undefined`,让 `''` 算门)→ **20 全绿**。**与我事先的判定相反**,如实记录:这条路径上 `''` 被保护了两层 —— 门放过去之后,`toPredicateInput('')` 是 `undefined`,`evaluateCondition(undefined)` 读作「没有条件 → 可见」。所以 `''` 那一例记录的是意图语义,**在本面不是变异探测器**;`!== ''` 这条腿本身钉在 `packages/components` 定义旁边。这一点已写进测试的 docblock,以免下个读者把它的通过当成该腿被行使的证明。\n\n## 验证\n\n仓根 flock + `NODE_OPTIONS=--max-old-space-size=4096` + `--maxWorkers=2`:\n\n| 命令 | 结果 |\n|---|---|\n| `vitest run packages/app-shell/src/views/__tests__/DeclaredActionsBar.test.tsx` | `Tests 20 passed (20)` |\n| `vitest run packages/app-shell/src/views/__tests__/` | `Test Files 10 passed / Tests 62 passed` |\n| `vitest run packages/components/src/renderers/action packages/components/src/__tests__/snapshot-critical.test.tsx` | `Test Files 4 passed / Tests 57 passed` |\n| `pnpm --filter @object-ui/components type-check` | 通过(`tsc --noEmit` + typetests) |\n| `pnpm --filter @object-ui/app-shell type-check` | 通过(先 `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build` 起依赖 dist;`packages/components/dist/index.d.ts` 已含新导出) |\n| `eslint`(三个改动文件) | 0 error(仅本文件既有的 `no-explicit-any` warning) |\n| `node scripts/check-control-bytes.mjs` | OK(3751 tracked;另对改动文件自扫 `[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]` 零命中) |\n\n消费半径清扫:全仓仅此一处套件挂载 `DeclaredActionsBar`(`apps/console` 无 ApprovalsInboxPage 测试);barrel 改动是纯新增,无导出名冲突,components 侧无公共导出面快照断言。\n\n## 未动 / 不在本 PR 范围\n\n- `action-group.tsx:235` / `action-bar.tsx:223` / `action-menu.tsx:179` 的三处组件级真值门照旧 —— 它们只经 `SchemaRenderer` 挂载(#3823 / PR #3836 已如此裁定并写进 changeset)。\n- **清扫顺带发现(已独立立单 #3842,未认领,未在本 PR 修)**:`disabled` 的「已声明」判定停在 `!= null`(本文件按钮 props 处 + `action-button.tsx:164`),于是 `disabled: ''` 被判成已声明门、verdict 取「没有条件 → true」= **禁用**,审批按钮永久置灰(与 `visible` 侧相反的失败方向)。探针已实证,证据在 #3842。⚠️ 它与本 PR 同文件同区域,建议本 PR 落 main 后再派。\n\n## Changeset\n\n- `.changeset/declared-actions-bar-visible-gate-3835.md` — `@object-ui/app-shell` patch,写明审批面变化:`visible: false` 的服务端声明动作从可点变隐藏。\n- `.changeset/components-export-declared-visibility-gate-3835.md` — `@object-ui/components` patch,新增 barrel 导出(纯新增,本包无行为变化)。\n\n## 在飞交叠\n\n与 #3808 同触 `packages/components`,但它改 `renderers/basic/text-input.tsx` 与 `plugin-detail`,**未触** `src/index.ts`;本 PR 只在 barrel 加一行导出,取并集即可,无文本冲突。#3546 切片四(i18n)不相交。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 4073,
+  "kind": "pull_request",
+  "title": "fix(app-shell): surface the bell badge's notifications + approvals breakdown in the inbox popover",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T04:31:51Z",
+  "updated_at": "2026-08-10T04:41:47Z",
+  "closed_at": "2026-08-10T04:41:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T04:41:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4073",
+  "body": "Fixes objectstack-ai/objectstack#7233\n\n## What the badge actually was\n\n`totalBadge = unreadTopics + pendingApprovalsCount`, clamped to `9+` above nine. As one number it is unexplainable: objectstack#7213 measured Home's \"pending approvals\" card saying 8 while the bell said `9+`, and read that as the two counts disagreeing. They never did — the bell was carrying a second addend the user could not see.\n\n## Premise check against origin/main\n\nThe issue attributes the formula to `packages/app-shell/src/hooks/useHomeInbox.ts:127-138`. That is not where it lives, and worth recording:\n\n- `useHomeInbox.ts` on current `main` has no `totalBadge` at all. It is Home's one-shot hook — it returns `pendingApprovalsCount`, `notifications`, `activities` and nothing derived from them. Its lines 127-138 are the pending-approvals `fetch`, i.e. the *source* of one addend.\n- The sum is `packages/app-shell/src/layout/InboxPopover.tsx:93` — `const totalBadge = unreadTopics + pendingApprovalsCount;`.\n\nThe premise itself holds (one opaque summed number), so this is a corrected file pointer, not a dead card.\n\nThe dispatch also asked whether the popover already sections the two streams, in which case per-section counts might be the whole fix. It does — three tabs, with a count pill on the Notifications and Approvals triggers — but **that is not sufficient, and the reason is the clamp**: those pills read `unreadTopics > 9 ? '9+' : unreadTopics` and `pendingApprovalsCount > 9 ? '9+' : pendingApprovalsCount`. On the exact input the issue is about, a user sees three separate `9+`s that add up to nothing. Sectioning was never the missing half; **exact** numbers were.\n\n## The change\n\nA breakdown line under the popover header, rendered only when there is a badge to explain:\n\n`15 total · 12 notifications + 3 pending approvals`\n\n- Unclamped on all three numbers, so `total` is visibly `N + M`.\n- The approvals half is the same `pendingApprovalsCount` prop the Home card and the Approvals Inbox tab read — the number a user reconciles against is literally the one they see elsewhere.\n- The notifications half is `unreadTopics`, the deduped `(topic, title)` count from objectui#2765 — the badge's own addend, so 10 identical digests + 2 mentions read as `3`, matching the badge instead of the raw row count.\n- The badge formula, the counting APIs and the `9+` clamp on the badge itself are untouched. Display-only, per the ruling on the card.\n\nLabels go through i18n: three new keys (`notifications.badgeTotal` / `badgeNotifications` / `badgeApprovals`) in **all ten** locale packs — `all-locales-key-parity` enforces full parity now, so en+zh alone goes red. They interpolate named placeholders (`{{total}}`, `{{unread}}`, `{{approvals}}`) rather than i18next's `{{count}}`, which would additionally drive plural-key resolution these packs carry no forms for.\n\nOut of scope and deliberately untouched: the four hardcoded `/apps/setup/...` targets in this same file (objectstack#7266).\n\n## Tests\n\n`packages/app-shell/src/layout/__tests__/InboxPopover.badgeBreakdown.test.tsx` (5 cases) and `packages/i18n/src/__tests__/inboxBadgeBreakdown-i18n-7233.test.ts` (30 cases, ten packs x three keys).\n\nThe i18n stub in the component test interpolates rather than returning `defaultValue` verbatim — a passthrough stub would have asserted on the literal `{{total}}` and made every numeric case vacuous.\n\n## Reverse verification\n\nTook the component change out with `git checkout origin/main -- packages/app-shell/src/layout/InboxPopover.tsx` and re-ran the pin file. Expected direction: red on the four cases that assert the breakdown, green on the one that asserts its absence — which is what happened, and the split matters. The absence case passes either way by construction, so it is not evidence; the four reds are.\n\n```\n× explains a clamped \"9+\" badge as exact notifications + pending approvals\n× states the two addends and the total consistently (total === N + M)\n× reports the approvals half straight from pendingApprovalsCount (the count Home shows)\n× counts coalesced repeats as one topic, matching the badge formula (#2765)\n Tests  4 failed | 1 passed (5)\n```\n\nRestored, then green:\n\n```\npnpm exec vitest run --maxWorkers=2 packages/app-shell/ packages/i18n/\n Test Files  350 passed (350)\n```\n\n(The first run of that sweep was `1 failed | 349 passed` — `all-locales-key-parity` catching the three keys present only in en/zh. That is the gate doing its job, and is what sent the keys to the other eight packs.)\n\nAlso green: `packages/i18n` + `packages/app-shell` `tsc` builds after a dependency-closure build (`pnpm --filter '@object-ui/app-shell^...' build`), `node scripts/check-i18n-call-site-keys.mjs` (`Every in-scope call-site key resolves against the en pack`), `node scripts/check-i18n-en-drift.mjs` (`0 en value(s) changed (3 key(s) added)`), and eslint on the changed files (0 errors; 8 `no-explicit-any` warnings in the test's passthrough component stubs, matching the existing `WorkspaceSwitcher.test.tsx` pattern).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01L9U1G2piXmYrhYQX96XUyv)_"
+}

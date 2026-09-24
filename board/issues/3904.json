@@ -1,0 +1,35 @@
+{
+  "number": 3904,
+  "kind": "issue",
+  "title": "apps/site: Playground 未注册 layout 组件(输入 `page-header` 得红色错误面板);`transpilePackages` 还列着两个非依赖包",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:08:02Z",
+  "updated_at": "2026-08-09T13:46:30Z",
+  "closed_at": "2026-08-09T13:46:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3904",
+  "body": "发现于 #3787 的实现与实测(PR:`claude/issue-3786-3787-pageheader-docs-demo`),**不在该 PR 处理** —— 那一单的验收面是 catalog 示例的三个渲染宿主,这一条是剩下的第四个宿主 + 一处配置漂移。\n\n## 现象一:Playground 少一个注册宿主\n\n文档站有 **4 个** `SchemaRenderer` 宿主:\n\n```\napps/site/app/components/InteractiveDemo.tsx\napps/site/app/components/LiveSplitDemo.tsx\napps/site/app/components/SchemaThumbnail.tsx\napps/site/app/playground/page.tsx\n```\n\n#3787 的 PR 给前三个(渲染 catalog 示例的那三个)加了 `registerLayoutBlocks`,因为 `@object-ui/layout` 此前根本不是 `apps/site` 的依赖,`page-header` 会渲染成红色 `Unknown component type`(OBJUI-001)。第四个 —— Playground —— 渲染的是**用户手输的 schema**,不在那次验收面内,所以没动:今天在 Playground 里敲一个 `page-header`(或 `app-shell` / `sidebar-nav`)仍然得到同一块红面板,尽管文档站现在已经依赖并能渲染它们了。\n\n`page-header` 的占位符也接不住:`packages/components/src/renderers/placeholders.tsx:82` 里 `'page:header', 'page-header'` 属于 opt-in 的 `PROTOCOL_COMPONENTS`,不在 eager 注册的 `PALETTE_PLACEHOLDER_BLOCKS` 里,而 `registerPlaceholders()` 只有 `apps/console` 调。\n\n建议:Playground 也 import `./components/registerLayoutBlocks`(一行),或把注册提到一个所有宿主共用的更高位置。顺带值得一起想清楚的是,Playground 该覆盖的组件面到哪为止 —— 它现在也没有 `plugin-detail`(所以 `record:*` 全渲染不出),而 `PluginLoader` 那套按需加载只服务 MDX 页面。\n\n## 现象二:`transpilePackages` 列着非依赖包\n\n`apps/site/next.config.mjs` 的 `transpilePackages` 里有两个不是 `apps/site` 依赖、也没有任何代码 import 的包:\n\n- `@object-ui/i18n`\n- `@object-ui/plugin-aggrid`\n\n`apps/site/node_modules/@object-ui/` 下没有它们的 symlink(pnpm 严格 linker),所以这两项**不做任何事**。`@object-ui/layout` 在 #3787 之前也是这个状态 —— 列在 `transpilePackages` 里、但既非依赖也无 import,看着像已经支持、实际渲染是红面板;那次是靠浏览器实测才发现的。这类「配置声明了、依赖图里没有」的条目正好是让人误判能力已就位的东西。\n\n建议:删掉这两项,或补齐依赖(取决于是否真想在站内渲染它们)。\n\n## 参考位置\n\n- `apps/site/app/playground/page.tsx`(第四个渲染宿主)\n- `apps/site/app/components/registerLayoutBlocks.ts`(#3787 新增,含理由)\n- `apps/site/next.config.mjs`(`transpilePackages`)\n- `packages/components/src/renderers/placeholders.tsx:82`、`:118-121`\n\n关联:#3787(发现于此)\n"
+}

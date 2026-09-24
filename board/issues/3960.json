@@ -1,0 +1,35 @@
+{
+  "number": 3960,
+  "kind": "issue",
+  "title": "「空谓词」的第四种拼法:{ dialect: 'cel', source: '   ' }(source 只有空白)仍被判成已声明门 → disabled 侧仍永久置灰、执行入口仍拒执行(#3850 裁决枚举未覆盖)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:24:19Z",
+  "updated_at": "2026-08-09T19:55:06Z",
+  "closed_at": "2026-08-09T19:55:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3960",
+  "body": "## 来源\n\n发现自 #3850 / #3862 的结对实施(PR 分支 `claude/issue-3850-3862-empty-predicate-gate`)。给下沉后的唯一定义 `hasDeclaredPredicate` 写单元钉时,我先假设「空白 source 的信封也会在归一器折成 `undefined`」,**这条断言红了** —— 一路量下去发现它是同族里第四种「空」拼法,而 #3850 的裁决只枚举了三种(`''` / 纯空白串 / `{ dialect, source: '' }`),所以它在那个 PR 之后**依然是坏的**,症状与 #3850 / #3862 一字不差。\n\n按「范围外发现只立卡不顺手修」的纪律,本卡**未认领**、不在那个 PR 里修:裁决刚刚就「哪些拼法算空」做过一次显式枚举,把第四种加进共享定义会同时改到 #3848 已合入并钉住的执行门行为,那是 PM 该裁的一步,不是实施者顺手定的。严重度请分诊裁。\n\n## 机理\n\n`toPredicateInput`(`packages/core/src/evaluator/predicateInput.ts`)对信封只判 `if (!src) return undefined` —— **不 trim**:\n\n```ts\nif (typeof value === 'object' && typeof (value as { source?: unknown }).source === 'string') {\n  const src = (value as { source: string }).source;\n  if (!src) return undefined;                       // '' 折叠,'   ' 不折叠\n  if ((value as { dialect?: unknown }).dialect === 'cel') return { dialect: 'cel', source: src };\n  return wrapIfBare(src);\n}\n```\n\n于是 `{ dialect: 'cel', source: '   ' }` 原样归一成一个 cel 信封,`hasDeclaredPredicate` 判「已声明」,而求值侧 `ExpressionEvaluator.evaluateCelCondition` 第一行就是\n\n```ts\nif (!source.trim()) return true; // no predicate → visible/enabled\n```\n\n—— 也就是说 **core 自己的求值器把空白 source 明确称作「没有谓词」**(`evalRowPredicate` 在 `evaluator/listConditional.ts` 用同一条 `!source.trim()` 规则),唯独「有没有声明门」这一问答了「有」。夹缝重新出现:门说已声明、求值说没有条件(→ `true`),在 `disabled` 上就是永久置灰。这正是 #3850 正文里那张表的机理,只是空白从裸串搬进了信封。\n\n共享定义 trim 了**字符串**拼法(`typeof value === 'string' && value.trim() === ''`)却没 trim **信封的 source**,这处不对称是本卡的全部内容。\n\n## 实测(worktree @ `65bb513dc` + #3850/#3862 的 PR 已应用,一次性探针,未提交)\n\n```\nvalue                        | declared | 归一后               | evaluateCondition | action:button disabled | action:button visible | SchemaRenderer disabled prop | ActionRunner.execute\n{dialect:'cel',source:'   '} | true     | {dialect:cel,src:'   '} | true            | 置灰                   | 显示                  | true(置灰)                  | {\"success\":false,\"error\":\"Action is disabled\"},handler 未跑\n{source:'   '}(无 dialect)  | true     | \"${   }\"             | true              | 可点(良性)            | 隐藏                  | true(置灰)                  | 同上,拒执行\n{dialect:'cel',source:'\\n'}  | true     | {dialect:cel,src:'\\n'} | true            | 置灰                   | 显示                  | true(置灰)                  | 同上,拒执行\n```\n\n三个入口(动作面渲染器 / `SchemaRenderer` 通用路径 / 执行入口)在这一形状上全部落在「有门且为真」:按钮永久置灰、点了还会拿到 `Action is disabled`。`{ source: '   ' }` 那行额外把 `visible` 侧也带坏(归一成 `'${   }'`,求值 falsy → 隐藏),与纯空白裸串在 #3850 之前的表现一致。\n\n## 修法(一处,已有唯一定义)\n\n#3850 已把定义下沉为 `packages/core/src/evaluator/declaredPredicate.ts` 的 `hasDeclaredPredicate`,三个消费者都改读它了,所以这里只需把「空」的判据从「裸串 trim」扩到「谓词文本 trim,不论它是裸串还是信封里的 source」:\n\n```ts\nfunction blankPredicateText(value: unknown): boolean {\n  if (typeof value === 'string') return value.trim() === '';\n  if (value && typeof value === 'object') {\n    const src = (value as { source?: unknown }).source;\n    if (typeof src === 'string') return src.trim() === '';\n  }\n  return false;\n}\n```\n\n⛔ 不要在任何调用点补判定 —— 那是第 N 种拼法回到消费者,#3842 / #3849 / #3850 三单合掉的正是这类分身。\n\n**需要一并裁的一点**:这一改会同时改到 #3848 已合入的执行门 —— `disabled: { dialect: 'cel', source: '   ' }` 从「拒执行」变成「执行」。方向与 #3848 自己的裁决一致(没有条件不该拦),但那面已经有钉子和 changeset,应作为行为变更明确写出而不是当作等价。另一个可选方向是**在归一器处**改(`toPredicateInput` 对信封改判 `if (!src.trim()) return undefined`),那样 `evaluateCondition(toPredicateInput(x))` 的所有消费者一起对齐,但它改的是归一器契约(`EvaluatorPredicateInput` 现在声明 `source: string` 非空,#3074 / #4115 的概念分界),影响面更大 —— 两条路的取舍建议一起裁。\n\nRelated: #3850(前三种拼法的裁决与定义下沉,本卡是它枚举之外的第四种)、#3862 / #3955(`SchemaRenderer` 侧同族)、#3848 / #3872(执行入口两处门)、#3842 / #3849(动作面五处落点)、#3492(不变量出处)、#3957(`ActionEngine` 仍自带范围)。未认领。\n"
+}

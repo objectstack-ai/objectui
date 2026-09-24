@@ -2,8 +2,8 @@
   "number": 8824,
   "kind": "issue",
   "title": "[decision] 同一个 `highlightFields`,八个消费点五种上限(无 / 4 / 5 / 6 / 无界)—— 统一它、还是把每处上限显式化?其中一个上限还是已发布 API 签名的一部分",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -14,18 +14,21 @@
     "domain:ui",
     "package: app-shell",
     "plugin",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-09T12:15:32Z",
-  "updated_at": "2026-09-12T01:23:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T04:42:01Z",
+  "closed_at": "2026-09-24T04:42:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8824",
   "body": "由 `domain:ui @ objectui` 派发席开出。来源:objectui#8413 的实现方在触发 STOP 条件后交回的普查,读数全部由他们实测、派发席复测确认。⛔ 未认领。\n\n## 起因\n\nobjectui#8413 是「Studio 的 help 说 `highlightFields` 取前 4,而没有任何东西截到 4」。**普查证伪了它**:有东西截到 4,而且不止一处。⇒ 那张卡退回成一句**不枚举**的措辞修正,**真正的缺陷是本卡**。\n\n## 读数 —— 八个消费点,五种待遇\n\n派发席复测了其中两处关键的(见文末)。\n\n### 对**声明列表**不设上限(5 处)\n\n| 站点 | 未声明时的兜底 |\n|---|---|\n| `app-shell/src/views/InterfaceListPage.tsx:106-110` 默认列表列 | `.slice(0, 6)` |\n| `app-shell/src/views/ObjectView.tsx:540-544` 默认列表列 | `.slice(0, limit)`,`limit` 默认 5,**两个调用点都传 5** |\n| `plugin-grid/src/ObjectGrid.tsx:2892-2913` grid 默认列 | 全部可见字段,**无上限**(其注释自陈「unlike the two app-shell faces, which slice to 5 / 6」) |\n| `plugin-kanban/src/ObjectKanban.tsx:118-127` 卡片字段 | 过滤,无上限。⚠️ help 完全没点名这个表面 |\n| `app-shell/src/views/RecordDetailView.tsx:2023-2031` 详情顶栏 | 声明列表全用(减 title);未声明兜底是 **4** |\n\n### 对**声明列表**设上限(3 处)\n\n| 站点 | 上限 | 谁以默认值调用它 |\n|---|---|---|\n| `plugin-detail/src/synth/buildDefaultPageSchema.ts:438-459` `deriveHighlightFields(def, statusField, max = 4)` | **4** | `anchors.ts:208` · **`PagePreview.tsx:243`(Studio 自己的页面预览)** · `RecordDetailView.tsx:380`,以及两个内部调用点 `:638` / `:773` |\n| `fields/src/widgets/deriveLookupColumns.ts:67-87` `deriveLookupColumns(schema, { displayField, max = 4 })` | **4** | `LookupField.tsx:429`(每一个未授权 `lookup_columns` 的记录选择器)· `RelatedList.tsx:465` |\n| `plugin-detail/src/RelatedList.tsx:1097-1104` | **6**(`maxColumns` 默认 6,`:338`) | — |\n\n**运行时实测(带亮对照)**:`deriveHighlightFields` 声明 6 → 返回 **4**;声明 3 → 返回 **3** ⇒ 那是真上限,不是常数。`deriveLookupColumns` 声明 6 → 返回 **4**。\n\n## ⚠️ 抬高分量的一条:其中一个上限在**已发布 API 签名**里\n\n`deriveHighlightFields` 是 `@object-ui/plugin-detail` 的**已发布导出**(`index.tsx:177`),而 `max = 4` 就写在它的签名上。\n\n⇒ **那个上限是已发布表面的一部分,不是内部默认值。** 任何外部消费者按默认调用它都会拿到 4。⇒ 改动它**可能是条款②**(`needs:contract-review`),承接者必须先判这一条。\n\n## 为什么这是一张卡,而不是措辞问题\n\n作者写一个 `highlightFields`,平台在八个地方用五种方式对待它,**且没有任何一处告诉他发生了什么**。任何一句 help 都无法让这件事不令人困惑 —— objectui#8413 因此只能采用**不枚举**的措辞,那是止血,不是治愈。\n\n⚠️ 而缺陷是**静默且方向朝下**的:作者在设上限的表面上少拿字段、在无上限的表面上拿到全部,两边都不报错。**没有任何自我暴露机制。**\n\n## 待判定(⛔ 派发席不代决)\n\n1. **统一,还是显式化?** 把八处收敛到一个上限(或一条规则),还是保留差异但让每处**说出**自己的上限(签名、文档、或 help 文案分表面陈述)?\n2. **若统一,统一到什么?** 无上限?4?一个按表面容量计算的值?⚠️ 注意「详情顶栏五个 chip 时两个 badge 在 1440px 上被截断(`Pendi…`、`Full-ti…`)」是 objectui#8413 实测到的**真实密度约束** —— 无上限不是显然安全的。\n3. **`deriveHighlightFields` 的 `max = 4` 是否按条款②处理?** 它在已发布签名里。\n\n## ⚠️ 承接约束\n\n- ⛔ **先普查再动手**:上面八处是实现方读出来的,**但派发席只复测了两处**(`buildDefaultPageSchema.ts:438-459` 与 `deriveLookupColumns.ts:67-87`)。其余六处请自行复测。\n- ⚠️⚠️ **grep 会骗你,而且已经骗过三次。** 上限是施加在**改名后的派生变量**上的(`declared`、`ordered`),不是施加在含 `highlightFields` 的记号上,通常在十行之后。⇒ ⛔ **不要用「`highlightFields` 与 `slice` 共现」这类探针**:分诊席用错正则得零、派发席用对正则但问错问题也得零,**两次的亮对照都亮了**。唯一有效的做法是**读每一个消费点**。\n- ⛔ 不要在 objectui#8413 里顺手改上限,也不要在本卡里改 help 文案 —— 两张卡各管一半。\n\n## Dedup\n\n⚠️ 派发席**没有**为本卡跑带亮对照的查重 ⇒ 上面没有「未见重复」的断言,承接者请自行查重。已知相邻:objectui#8413(措辞那一半)· ats#33(实测到的受害者)。\n\n## 来源\n\nobjectui#8413 · 其重裁 comment 5601658115 · 该卡实现方的普查报告"

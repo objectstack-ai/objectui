@@ -1,0 +1,33 @@
+{
+  "number": 3836,
+  "kind": "pull_request",
+  "title": "fix(components): action:bar 成员动作声明 visible: false 时隐藏而非渲染 (#3823)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:41:04Z",
+  "updated_at": "2026-08-08T18:50:35Z",
+  "closed_at": "2026-08-08T18:50:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T18:50:34Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3836",
+  "body": "Fixes #3823\n\n## 机理\n\n`action:button` / `action:icon` 的组件级门沿用真值判读,于是 `false && …` 为假 → 不 `return null` → 渲染。作者写 `visible: false`(最明确的「永不显示」)被判读成「没声明门」。\n\n#3812 的分诊把这五处组件级 `schema.visible` 门判为**休眠**防御层 —— 经 `packages/react` 的 `SchemaRenderer` 路由时,宿主按 `newSchema.visible !== undefined` 统一求值并隐藏,组件根本不会挂载到自己的门。**五处里有两处不休眠**,差别就是本单:\n\n`action:bar` 不走 `SchemaRenderer`。它自己从 `ComponentRegistry` 取成员渲染器,并把**成员动作对象整体展开**成子渲染器的 schema(`action-bar.tsx`:`schema={{ ...action, type: componentType, actionType: action.type, … }}`),于是作者写在成员上的 `visible` 成为子渲染器**自己的** `schema.visible`,落到它自己的门上。`action:bar` 上游也**有意**不按 `visible` 过滤成员(`filteredActions` 只过 `requiredPermissions` 与 `actionRendersAt`),所以这条路径上真值门是**唯一的门**。\n\n## 两门位前后对照\n\n| 位置 | 前 | 后 |\n| --- | --- | --- |\n| `renderers/action/action-button.tsx:148` | `if (schema.visible && !isVisible) return null;` | `if (hasDeclaredVisibilityGate(schema.visible) && !isVisible) return null;` |\n| `renderers/action/action-icon.tsx:82` | 同形 | 同形收敛 |\n\n统一到同族那一处命名定义 `renderers/action/visibility-gate.ts` 的 `hasDeclaredVisibilityGate`(`!= null && !== ''`,PR #3825 落 main @ `b5980f471`)。**verdict 不动**,仍交给求值入口 —— 布尔在 `evaluateCondition` 短路,`packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx:134` 已钉「literal false → 引擎与渲染器两条路径都判隐藏」。改的只是**那个拒绝提问的门**。\n\n⛔ 按 issue 正文,另三处被遮住的门(`action-group.tsx:235` / `action-menu.tsx:179` / `action-bar.tsx:223`)与 `packages/components/src/SchemaRenderer.tsx` 那份只看 `hidden` 的休眠同名副本**均未触碰**。\n\n## 端到端钉子(可达性不必下次重新论证)\n\n新增 `renderers/action/__tests__/action-bar-member-visible-gate.test.tsx`,15 条:\n\n- **两门位各三形状对称** —— `false` 隐藏 / `true` 渲染 / 未声明渲染,外加 `''` 不是声明的门、表达式取值仍按 verdict(`false` 隐藏、`true` 显示)。对称性是要点:「无条件隐藏成员」的错误改法能独自满足所有 `visible: false` 断言,把套件留在绿色。\n- **经真实 `action:bar` 宿主的端到端钉子** 5 条 —— 从注册表取 `action:bar` 挂载(与真实宿主同一条路径),成员声明 `visible: false` → 不渲染,`action:button` 与 `action:icon` 各一条;并带一个未声明的伴随动作,使「没渲染」的断言不会与「整条 bar 消失了」混淆。`maxVisible` 钉高,免得成员被推进溢出 `action:menu`(`useIsMobile()` 的 `mobileMaxVisible` 默认是 1)。\n- `action:icon` 是纯图标,可及名来自渲染器用 `label ?? name` 构造的 `aria-label`,故按 `getByLabelText` 断言而非文本。\n\n## 反向验证(方向先判后跑)\n\n**预判**:改动只影响「已声明且 falsy」的取值(实际就是字面 `false`),故未改代码上应是**四条 `visible: false` 钉子红、其余全绿**;`true` / 未声明 / `''` 前后同绿(它们在两种写法下走同一分支)。\n\n**实跑**(`origin/main@c8526825618f86bff6d270f70893a35992243dea`,先落钉子、后改门):\n\n```\nFailed Tests 4\n FAIL  action:button — declared boolean `visible` > visible:false → the button does not render\n FAIL  action:icon — declared boolean `visible` > visible:false → the icon button does not render\n FAIL  action:bar member end-to-end > an action:button member declaring visible:false is not rendered by the bar\n FAIL  action:bar member end-to-end > an action:icon member declaring visible:false is not rendered by the bar\nAssertionError: expected  button …(2)  /button  to be null\n      Tests  4 failed | 11 passed (15)\n```\n\n端到端那两条独立复现了 issue 探针的结论 —— 经 `action:bar` spread 路径,`visible: false` 的成员实测渲染出了 `Ghost` 按钮(`action:icon` 那条连 `aria-label=\"Ghost\"` 一起)。改门后:\n\n```\n Test Files  1 passed (1)\n      Tests  15 passed (15)\n```\n\n方向与预判一致(标准 Red 方向,无反转)。\n\n## 验证\n\n仓根规范调用 + `flock` 串行 + `NODE_OPTIONS=--max-old-space-size=4096` + `--maxWorkers=2`:\n\n```\npnpm exec vitest run packages/components\n  Test Files  98 passed (98)\n      Tests  761 passed (761)\n\n# 消费半径:action:button / action:icon 的宿主与求值入口(跨 4 包 + console)\npnpm exec vitest run packages/react/.../actionPredicate.parity.test.tsx \\\n  packages/react/.../SchemaRenderer.expressions.test.tsx \\\n  packages/app-shell/.../PageView.test.tsx packages/app-shell/.../useConsoleActionRuntime.test.tsx \\\n  packages/app-shell/.../DeclaredActionsBar.test.tsx \\\n  packages/core/.../actionKeys.types.test.ts packages/types/.../spec-derived-unions.test.ts \\\n  apps/console/src/__tests__/public-contract.test.ts\n  Test Files  8 passed (8)\n      Tests  140 passed (140)\n\npnpm --filter @object-ui/components type-check   → exit 0\npnpm exec eslint <三个改动文件>                   → 0 errors(仅存量 any/react-refresh warning)\npnpm run check:control-bytes                     → OK(3748 tracked;改动文件另做 [\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f] 自扫,零命中)\n```\n\n**fixture 清扫**:按规则的消费半径(而非改动包)枚举了全仓 `visible: false` 与 `action:button` / `action:icon` 的引用面 —— 没有任何 fixture 钉住被删掉的真值分支(其余命中分属 page-nav / 行动作面 / 权限 explain 的 `record.visible` / 求值入口 parity,语义无关),故无需重拼或替换。\n\n## Changeset\n\n`.changeset/action-bar-member-declared-visible-gate-3823.md`,`@object-ui/components` **patch**(与 #3825 同档)。已写明行为变化面:**只有** `visible` 为字面布尔 `false`(或其他非空 falsy)的 `action:button` / `action:icon` 从渲染变隐藏;`visible: true` 照旧渲染,`''` 与缺省照旧不算门,表达式取值 verdict 不变。`ActionSchema.visible` 是 `ExpressionInputSchema`(无 boolean 成员),`objectstack build` 产不出这个形状;手写视图 JSON 与进程内构造 action def 可以。\n\n## 顺带发现(未在本 PR 修)\n\n清扫消费半径时在**另一个包**撞到同族第五处同形门,已按 Prime Directive #10 独立立单、**未认领**:**#3835** —— `packages/app-shell/src/views/DeclaredActionsBar.tsx:190` 同一个 `(action as any).visible && !isVisible`,该文件注释自称 \"Mirrors `action:button`\"。可达性是**构造性**的(普通 React 组件,由 `apps/console/.../ApprovalsInboxPage.tsx:2014`/`:2055` 直接以 JSX 挂载,路径上没有 `SchemaRenderer` 遮挡),已用一次性探针实证(未提交)。授权面比本族更热:那里渲染的是**服务端声明的** action def(审批 Approve/Reject),布尔形状自然可写。单里另记了一处:该文件现有套件把 `useCondition` 整个打桩成常真,所以这个门从未被行使过。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3872,
+  "kind": "issue",
+  "title": "ActionRunner.execute 的 condition 门用真值判定:condition: false(最明确的「永不执行」)照样执行(实测 handler 跑了)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:42:42Z",
+  "updated_at": "2026-08-09T02:42:23Z",
+  "closed_at": "2026-08-09T02:42:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3872",
+  "body": "## 来源\n\n发现自 #3848 实施时的邻行扫面 —— 就在 #3848 那道 `disabled` 门**上面一行**。不在 #3848 修法面(那单只改 `disabled` 门,`condition` 是另一个键、另一条门),**未认领**。\n\n## 机理\n\n`packages/core/src/actions/ActionRunner.ts`(#3848 前的行号 ~657):\n\n```ts\n// Conditional execution\nif (action.condition) {\n  const shouldExecute = this.evaluator.evaluateCondition(action.condition);\n  if (!shouldExecute) {\n    return { success: false, error: 'Action condition not met' };\n  }\n}\n```\n\n入门判定是**真值**,不是「是否声明了门」。`condition: false` 落在 `if (false)` 上 —— 整段被跳过,`evaluateCondition` 根本没被问,动作**照常执行**。这正是 #3812 已经付过一次代价的形状:真值回答不了「有没有声明门」,而 `false` 是作者能写出的最明确的一句「永远不要执行这个」。\n\n同源的还有 `0`:`condition: 0` 同样被跳过。\n\n## 实测(worktree @ `origin/main` = `f0a625aa7b00c93a48329e1c456b1aeacfceba43`,一次性探针,未提交)\n\n`new ActionRunner({ record: { id: 1, status: 'active' }, user: { role: 'admin' } })`,只改 `condition` 一个键:\n\n```\ncondition: false                     | handler ran: true  | {\"success\":true}            ← 声明了「永不执行」却执行了\ncondition: true                      | handler ran: true  | {\"success\":true}\ncondition: ''                        | handler ran: true  | {\"success\":true}            ← 空谓词放行,正确\ncondition: 'user.role == \"guest\"'    | handler ran: false | {\"error\":\"Action condition not met\"}\ncondition: {dialect:'cel',source:'false'} | handler ran: false | {\"error\":\"Action condition not met\"}\n```\n\n注意 `false` 与 `{dialect:'cel',source:'false'}` 语义相同、结论相反 —— 布尔字面量放行,同义的 envelope 拦下。\n\n## 与 disabled 门的区别(为什么这单不能顺手并进 #3848)\n\n`disabled` 门的病是**空谓词被 `evaluateCondition` 的「没有条件 → true」判成禁用**(#3848,已修);`condition` 门在空谓词上恰好是对的(`''` 被真值判定跳过 → 执行 → 与「没有条件 → 执行」同解)。这里的病在**反方向**:显式 `false` 被真值判定当成「没声明」。两处的正确改法不同(`disabled` 要「有没有条件」,`condition` 要「有没有声明」+ 布尔短路),键也不同,故独立成单。\n\n## 影响\n\n- 命中条件:元数据把 `condition` 写成布尔 `false`(或数字 `0`)。授权/模板产出 `false` 常见于「按开关关掉某个动作」。\n- 受众是所有走 `ActionRunner.execute` 的动作 —— core 的公共执行入口,不限渲染面。\n- 方向是**过度放行**:声明了不执行却执行,比过度拦截更危险(动作真跑了,可能落库)。\n\n## 修法建议(未裁)\n\n与 #3492 / #3842 家族同解:入门判定问「已声明」而不是真值,布尔在求值入口自然短路(`evaluateCondition(false)` 就是 `false`)。`ActionEngine.getActionsForLocation` 的 `visible` 过滤已经是这个写法(`if (raw == null || raw === '' || raw === true) return true; if (raw === false) return false;`),可就近取形。「空谓词算不算已声明」的范围问题请对齐 #3850 的裁决,别再添第 N 种拼法。\n\nRelated: #3812(真值回答不了「有没有门」的出处)、#3848(邻行的 `disabled` 门,本单发现出处)、#3492(不变量出处)、#3850(「空谓词」范围裁决)、#3871(同批发现的归一器双重包裹)。未认领。\n"
+}

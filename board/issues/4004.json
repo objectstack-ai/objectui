@@ -1,0 +1,34 @@
+{
+  "number": 4004,
+  "kind": "pull_request",
+  "title": "fix(scripts): test type-check 覆盖率改由解析后的 tsconfig 程序判定,schema-catalog 的测试接上编译",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "examples",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:45:20Z",
+  "updated_at": "2026-08-09T23:04:27Z",
+  "closed_at": "2026-08-09T23:04:26Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T23:04:26Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4004",
+  "body": "Fixes #3968\n\n## 结论先说\n\n门的两个盲区都不是\"少认一种写法\",而是**用文本猜程序内容**。这个 PR 把判据换成\"解析后的 tsconfig 程序到底读了哪些文件\",两个盲区就一起消失了;`examples/schema-catalog` 的 4 个测试文件同时接上 tsc 编译。\n\n基 sha `0cbdca888`。修前门是绿的(`23/38 packages compile their tests`,本包不在分母里);修后是 `24/39`。\n\n## 一、门修(`scripts/check-type-check-coverage.mjs`)\n\n**盲区 1 —— 只递归 `src/`(原 `:180`)**:`countTestFiles(resolve(root, dir, \"src\"))` 改为从**包根**枚举(`listTestFiles`,跳过 `node_modules` / `dist` / `coverage` / 点目录)。本包测试住在 `test/`,原先数到 0,于是 `:299` 的 `if (!pkg.hasScript || pkg.testFiles === 0) continue;` 把整个 5c 跳过了 —— 最该说话的检查根本没跑。\n\n**盲区 2 —— 只认 glob 形式的排除(原 `:182`)**:`buildExcludesTests = /\\*\\.test\\./.test(tsconfig)` 改为解析每个 tsconfig 的 `files` / `include` / `exclude`(并沿 `extends` 继承,按声明它的那个 config 的目录解析),逐个测试文件问\"这个程序读不读它\"。\n\n第二处特意**不是**\"再加一条识别目录形式排除的规则\"。因为按目录排除只是这一族里的一种写法,还有一种任何 glob 探测都抓不到的:`include: [\"src/**/*\"]` 且**根本没有 exclude**,测试在 `test/` —— 程序同样一个字节都没读。改成按解析后的程序判定,目录形式排除是 TS 文档语义的自然结果(无扩展名、无通配符的 pattern 就是目录,递归匹配),上面那种也一并抓到。pin 测试里两种形态各有一条。\n\n**顺带收紧 5b(如实披露,这是第三处改动)**:原判据是\"testConfig 里出现过 `*.test.` 这样的 glob\",现在要求这个 project **真的读到 build 程序漏掉的那些文件**。这不是顺手加严 —— 我自己写本包的 `tsconfig.test.json` 时第一版就踩了:`exclude` 是**沿 extends 继承**的,父配置排除了整个 `test` 目录,于是这个 project 编译了 0 个文件。`tsc` 恰好会喊 TS18003(\"No inputs were found\"),但只覆盖**一部分**测试的 project 是静默的 —— 那正是原判据放过去的形状。\n\n**另加一条 5·0**:tsconfig 解析不了时不再猜覆盖率,而是单独报错(一个解析失败的 tsconfig 会退化成包含整个仓库,本身就是缺陷;`tsconfig.scripts.json` 的头注释记过一次块注释里的 `**/` 把配置弄坏的事故)。注释剥离是**字符串感知**的:本仓每个 include/exclude pattern 里都有 `/*`,粗暴剥离会把它要保护的 glob 吃掉。\n\n脚本结构按仓内既有门的形态改(`check-skills-paths.mjs` / `check-changeset-presence.mjs`):纯函数 `export`,`main()` 收尾,`invokedDirectly` 守卫 —— 否则 pin 测试一 import 就会扫全仓并 `process.exit`。DEBT / NOT_COMPILED / CHECKED_BY_OWN_BUILD / TEST_DEBT 四张表和其余各节的判据、文案一字未动,`auditPackages(packages, tables)` 允许 fixture 传空表。\n\n## 二、补覆盖(`examples/schema-catalog`)\n\n形态取仓内既有形态(先读了 `packages/types`、`packages/sdui-parser`、`packages/layout`、`packages/plugin-report` 四个包):新增 `tsconfig.test.json` + `type-check` 串起来。\n\n与既有 23 个包的差异只在必要处,每处都写了原因:`include` 指向 `test/` 而不是 `src/`;`exclude` 必须**显式重写**(见上);`rootDir` 放宽到包根(测试在 `src` 旁边而不是里面);补 `jsx: react-jsx`(测试是 `.tsx`,build 配置没有 jsx 因为 `src/` 只有 JSON 和 `.ts`);`noEmit` / `declaration` / `composite` 归零。没有折进 `tsconfig.json` —— 那是 build 配置(`tsc` 到 `dist`、`rootDir: ./src`),测试会被 emit 进发布产物。\n\n**首次编译暴露的问题(1 条,如实披露)**:`fields-form-hosted.test.tsx` 里 `import '@object-ui/fields'`,而 `package.json` 从未声明它 —— 幻影依赖,只靠 vitest 的 alias 解析(`packages/sdui-parser/tsconfig.test.json` 的注释记着同一类发现)。已补为 devDependency,pnpm-lock 相应更新。补上之后 4 个文件**零错误**,所以不需要 TEST_DEBT 条目。\n\n⛔ 未动这 4 个测试文件的任何内容,也未动 `src/schemas/**` 与 `div.tsx`(#3965 的面)。\n\n## 三、反向钉\n\n`scripts/__tests__/check-type-check-coverage.test.ts`(21 条,全部对着 tmpdir 里的一次性包树,仓内不留刻意失效的 fixture)。除了正常判据,两条被替换掉的旧谓词**按原样重现在测试里**当断言用:本 bug 的原形态既被断言\"新门必须报 1 条 5c\",也被断言\"旧的 src-only 计数 = 0、旧的 glob 探测 = false\" —— 两个盲区变成可执行语句。\n\n实际反向验证(先定方向后跑,都是\"红\"方向):\n\n- 把 `listTestFiles(packageDir)` 改回 `listTestFiles(resolve(packageDir, \"src\"))` → **21 条里 12 条红**(含\"全仓只有本包测试在 src 外\"那条)。\n- 删掉目录形式 pattern 的展开一行 → **3 条红**,并且门对真仓库产生 4 条误报(`fields` / `plugin-charts` / `plugin-editor` / `console` 的 `include: [\"src\"]` 不再展开)—— 两个方向都证明这行是承重的。\n- 把本包的 `tsconfig.test.json` 与 `type-check` 串接临时撤掉 → 门 exit 1,正是 5c 那条,点名 4 个文件(这就是\"修后对现状必须红\"的证据)。\n- 往 `test/smoke.test.tsx` 临时塞一个类型错误 → `turbo run type-check` 红(`error TS2322`),已还原、工作树干净。顺手核了 turbo 的 `type-check` 任务 inputs 是 `$TURBO_DEFAULT$`,所以 `test/**` 在缓存键里,改测试文件不会命中旧缓存。\n\n最后一组断言是对**真仓库**的(不是 fixture):本包测试存在、全在 `src/` 外、build 程序不读它们、test project 读全了。撤销任一半都会红。\n\n## 四、孤例复核\n\n重验了一遍(`git ls-files` 独立于门自己的 walker):`*.test.ts(x)` 共 1129 个 —— packages 1070、apps 28、scripts 27(我这条之后 28)、examples 4;按包切分,测试在 `src/` 外的**只有** `examples/schema-catalog`(outside_src=4 / in_src=0)。`scripts/` 那 27 个由 `tsconfig.scripts.json` 覆盖(`pnpm type-check:scripts` 已跑绿)。dev 报告的结论成立,只是文件数是 4 而不是 5(分诊评论已记录这个漂移)。\n\n## 验证\n\n- `pnpm exec vitest run examples/schema-catalog --maxWorkers=2` → `Test Files 4 passed (4) / Tests 1090 passed`\n- `pnpm exec vitest run scripts/__tests__/check-type-check-coverage.test.ts` → `21 passed`\n- `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`(本包实跑 `tsc --noEmit && tsc -p tsconfig.test.json`)\n- `pnpm type-check:scripts` → exit 0\n- `node scripts/check-type-check-coverage.mjs` → 绿,`24/39`\n- `node scripts/check-control-bytes.mjs` → OK(另按 `grep -naP` 自查过改动文件,无匹配)\n- eslint 改动文件 → 0 problems\n\n## changeset\n\n不需要 —— 以 presence 门的实测判定为据:`node scripts/check-changeset-presence.mjs` 输出 `5 file(s) changed, 0 of them under the src/ of a package the release covers` → `No source of a released package changed in this range, so no changeset is owed.`(改动面是 CI 脚本 + 一个 private example 包的清单/配置。)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3954,
+  "kind": "pull_request",
+  "title": "fix(i18n): de approvalsInbox 三值用德语引号 „…“ 而非 ASCII 直引号 (#3919)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T16:51:56Z",
+  "updated_at": "2026-08-09T17:06:13Z",
+  "closed_at": "2026-08-09T17:06:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T17:06:11Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3954",
+  "body": "Fixes #3919\n\n## 改了什么\n\n`packages/i18n/src/locales/de.ts` 里 `approvalsInbox` 三个值,标题两侧的 ASCII 直引号改成德语引号(U+201E 低位开引号、U+201C 闭引号):\n\n| key | 前 | 后 |\n| --- | --- | --- |\n| `approvalsInbox.rejectOneTitle` | `\"{{title}}\" ablehnen?` | `„{{title}}“ ablehnen?` |\n| `approvalsInbox.inlineApproved` | `\"{{title}}\" genehmigt` | `„{{title}}“ genehmigt` |\n| `approvalsInbox.inlineRejected` | `\"{{title}}\" abgelehnt` | `„{{title}}“ abgelehnt` |\n\n同命名空间的兄弟 `approveOneTitle` 本来就是正确的 `„{{title}}“ genehmigen?`,所以德语审批者在**同一屏、同一个操作对**里看到两种引号排印:批准确认是德语引号,驳回确认和两个 inline toast 是打字机引号。`„…“` 是 de 包自己的多数派(50 处配对)也是 DUDEN R11 的规定,这三个值是离群值。\n\n**只改值域排印** —— 键名不动、`{{title}}` 占位符不动(placeholder 形状是 `all-locales-key-parity` 比对的东西),en 侧按设计两侧都是 ASCII,一个字节没碰。\n\n## 正文前提复核(与 issue 的差异)\n\nissue 正文的行号取自 main@2937bcf7d;在本 PR 的基线 `65bb513dc` 上三个值仍在 3279 / 3285 / 3286,`approveOneTitle` 仍在 3180 —— 行号恰好未漂,值域缺陷与正文描述完全一致,前提成立。\n\n一处需要写明的**度量口径**:正文说「改完 de 包的 U+0022 应为 0」。这指的是**包内值**的普查(#3876 钉子文件里 `flatten(builtInLocales.de)` 得到的 2914 个字符串叶子),不是 `de.ts` 的**文件字节** —— 该文件本身有 5000 多个 ASCII 双引号在做字符串定界符(本仓无 prettier 配置,de.ts 的定界符风格本就混用双引号和单引号)。按值域口径,改后确为 0;这也正是钉子断言的口径。\n\n## 钉子升级(#3876 的显式清单 → de 包零 U+0022)\n\n`de-quote-pairing-3876.test.ts` 原来把这三个键钉成显式清单(`expect(straight).toEqual([...三个键...])`)。三个值修完后清单塌缩成更强的形态:**de 包任何值都不含 U+0022**。\n\n更强在于它同时覆盖两种缺陷形态,而且不需要逐键维护 —— 以后新落地的值带打字机引号会直接按键名翻红,没人需要回来编辑清单:\n\n- **#3876 形态**(德语开引号配 ASCII 闭引号):原有的配对扫描器抓得到。\n- **#3919 形态**(两侧都是 ASCII):配对扫描器**结构上抓不到** —— 它从每个 `„` 向前找第一个引号字符,而这三个值里根本没有 `„`。这个盲区在下面的反向验证里被实测钉住了。\n\n两条防退化措施:\n\n1. **反空转守卫。** `toEqual([])` 恰好是「什么都没产出也会绿」的断言形状,所以谓词必须被证明仍能找到东西:en 包按设计用 ASCII 引号,同一个谓词在 en 上必须仍返回一长串(落地时 40 个值)。`flatten` 坏掉、包被清空或导出被改名都会让它归零,从而在这里翻红,而不是在上面一路绿。\n2. **四值逐字节钉子。** 清零断言刻意不再点名任何键,所以新增一个 `it` 把 approvalsInbox 四值(批准/驳回确认标题 + 两个孪生 toast)整句钉住,并逐值断言 `{{title}}` 与 `„{{title}}“` 仍在 —— 一个什么都不点名的不变量会丢掉「这次改动动了什么」的记录。\n\n包内计数 `„` 47 / `“` 47 / `”` 0 / `\"` 6 → **50 / 50 / 0 / 0**,文件里三处字面量(`okSpans`、计数恒等式、头注释普查)随之更新。#3876 自己的 20 键 / 22 span 普查表原样保留,不把后来的修复折进去。\n\n## 反向验证(先预判方向,再跑)\n\n预判:把 `inlineRejected` 单值临时改回 ASCII 引号,**4 条断言翻红、#3876 的配对扫描器保持绿** —— 后者不是遗漏,正是本卡描述的结构盲区。\n\n实测(9 个 test 里 4 红 5 绿)与预判逐条吻合:\n\n- 红 `holds pack-wide: no de value quotes with a U+0022 at all (objectui#3919)` —— 精确点名 `approvalsInbox.inlineRejected`\n- 红 `pins the approvalsInbox quartet objectui#3919 converged, byte-for-byte`\n- 红 计数恒等式 —— `open`/`close` 50 → 49\n- 红 `\\p{L}`-aware 正则 —— `okSpans` 50 → 49\n- **绿** `holds pack-wide: no „ in de is closed by anything but “ (the durable invariant)` —— 两侧 ASCII 的值里没有 `„` 可扫,#3876 的不变量按设计看不见它。这正是为什么清零断言必须存在。\n\n变异已还原,还原后 de.ts 与变异前逐字节一致(`diff` 无输出),全套 34 文件 600 test 全绿。变异不提交。\n\n## 消费半径清扫\n\n三个键在全仓的引用面:十个 locale 包各自的翻译(未动其他包)、`de-quote-pairing-3876.test.ts` 的清单(本 PR 升级)、`apps/console/src/pages/system/ApprovalsInboxPage.tsx` 的三处 `tr(key, en-fallback)` 调用(fallback 是 en 字面量,不受影响)。另外两个提到 straight quote 的 i18n 测试(`residue-namespaces-3546`、`organization-namespace-3546`)只涉及别的键,已逐个确认无关。\n\n顺带核了一遍**其他包这三个键是否也离群**:ko / pt / es / ar 用 ASCII,而这四个包按 #3920 实测的裁定就是 ASCII;fr / ru 用 `«…»`、zh 用全角弯引号、ja 用 `「」`,都与各自裁定一致。**只有 de 是离群值**,没有需要另开单的兄弟缺陷。\n\n## 一处刻意的小范围外改动(注释)\n\n`gridImportSavedMapping-i18n-3920.test.ts` 头注释里那张按包统计 `{{placeholder}}` 包裹风格的普查表,de 行写着「ASCII 3」—— 那 3 个正是本 PR 修的三个值。改完该列归零,于是给表加了一句脚注说明,免得后来人去找三个已经不存在的 ASCII 值。纯注释,不动断言。\n\n脚注里**刻意不给新的 `„…“` 计数**:该表是在排除 #3920 移除的两处英文残留的前提下测得的,在当前包上重测是另一种口径 —— 实测重算得 43,而不是 38+3=41,差额正好是那两处已翻译的 `grid.import` 值。与其写一个口径混用的数字,不如只写已核实的部分。\n\n## 验证\n\n- `pnpm exec vitest run packages/i18n --maxWorkers=2` —— **34 文件 / 600 test 全绿**\n- `pnpm exec turbo run type-check --concurrency=2` —— **78/78 successful**\n- `node scripts/check-control-bytes.mjs` —— OK(3850 个文件,零报告);另对改动文件自查了 gate 扫不到的控制字节范围,无命中\n- `pnpm changeset:check` —— fixed group / no-major 双绿\n- `pnpm check:i18n-keys` —— 2316/2316 字面量键可解析\n- `pnpm check:i18n-drift` —— 0 en 值变化(本 PR 没碰 en)\n- `pnpm exec eslint` 改动文件 —— 干净\n\nchangeset:`.changeset/de-approvals-inbox-quotes-3919.md`,`@object-ui/i18n: patch`(与 #3918 / #3936 两个同族 PR 一致)。\n"
+}

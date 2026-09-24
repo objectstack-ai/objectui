@@ -1,0 +1,35 @@
+{
+  "number": 3848,
+  "kind": "issue",
+  "title": "ActionRunner.execute 的 disabled 门把「空谓词」当已禁用,拦掉执行(实测 handler 不跑),且与渲染器判定不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:39:53Z",
+  "updated_at": "2026-08-08T23:11:39Z",
+  "closed_at": "2026-08-08T23:11:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3848",
+  "body": "## 来源\n\n发现自 #3842 实施(渲染器侧 `disabled` 的「已声明」判定补 `!== ''`)的同族扫面。不在 #3842 的修法面(PM 已裁其范围为 `DeclaredActionsBar` + `action:button` 两处渲染落点),故独立成单,**未认领**。\n\n## 机理\n\n`packages/core/src/actions/ActionRunner.ts:666` 的执行门:\n\n```ts\nif (action.disabled != null && action.disabled !== false) {\n  let isDisabled = false;\n  try { isDisabled = this.evaluator.evaluateCondition(action.disabled as never); } catch { isDisabled = false; }\n  if (isDisabled) return { success: false, error: 'Action is disabled' };\n}\n```\n\n两点都与渲染器侧不同:\n\n1. 入门判定是 `!= null && !== false`,没有 `!== ''` —— 空谓词进门;\n2. 把 **原始值**交给 `evaluateCondition`,而不是先过 `toPredicateInput`。`evaluateCondition` 对空/纯空白/空 `source` 的语义是「没有条件 → `true`」,而这里 `true` 意味着**禁用**。\n\n于是任何「空谓词」拼法都被判成「已禁用」并拦掉执行。\n\n## 实测(worktree @ `origin/main` = `aca561a77fd0dc793ea76a7b46cd037e1731eb93`,一次性探针,未提交)\n\n`new ActionRunner({})` + `registerHandler('probe')`,只改 `disabled` 一个键:\n\n```\ndisabled ''                       | handler ran: false | result: {\"success\":false,\"error\":\"Action is disabled\"}\ndisabled '   '                    | handler ran: false | result: {\"success\":false,\"error\":\"Action is disabled\"}\ndisabled {dialect:'cel',source:''}| handler ran: false | result: {\"success\":false,\"error\":\"Action is disabled\"}\ndisabled absent                   | handler ran: true  | result: {\"success\":true}\ndisabled false                    | handler ran: true  | result: {\"success\":true}\n```\n\nhandler 一次没跑 —— 不是「点了没反应」,是执行被门拦下并回了一个 `Action is disabled` 错误。\n\n## 与渲染器侧的分歧(#3314 同一类)\n\n同一个 `disabled` 值,两条路给出相反答案(渲染器侧数据取自同一批探针,PR 落地后):\n\n| `disabled` | 渲染器(修完 #3842 后) | ActionRunner.execute |\n|---|---|---|\n| `''` | 可点 | **拦** |\n| `'   '`(纯空白) | 可点(`'${   }'` 求值为 false) | **拦** |\n| `{dialect:'cel', source:''}` | 置灰(#3842 残留,另单) | **拦** |\n| `false` / 未声明 | 可点 | 放行 |\n\n所以 #3842 修完之后的用户可见行为是:`disabled: ''` 的服务端声明动作**按钮能点了,点下去收到 `Action is disabled` 报错**。比原来「永久置灰、无任何解释」是改善(至少有了消息),但这半边不修,该动作仍然执行不了。渲染器与执行入口对同一谓词不同意,正是 #3314 已经付过一次代价的形状。\n\n## 影响\n\n- 命中条件:元数据里出现空谓词(授权表单留空、模板求值成空串、编译产出空 `source`)。\n- 受众是**所有**走 `ActionRunner.execute` 的动作,不限于某个渲染面 —— 这是 core 的公共执行入口。\n- 与 #3842 相反的方向也存在:`'   '` 在渲染器侧可点、在执行侧被拦,任何用「按钮能点」推断「动作能跑」的人都会被误导。\n\n## 修法建议(未裁)\n\n契约优先:「是否声明了 `disabled` 门」这个问题在仓里已有唯一定义(`hasDeclaredVisibilityGate`,`packages/components/src/renderers/action/visibility-gate.ts`,`!= null && !== ''`),而「谓词如何归一」也已有唯一定义(`toPredicateInput`,`packages/core/src/evaluator/predicateInput.ts`)。这处执行门两个都没用。\n\n方向:入门判定改问「已声明」,并把值过 `toPredicateInput` 后再求值,使执行侧与渲染侧逐一同意。注意 `hasDeclaredVisibilityGate` 目前住在 `components`,而这里是 `core`(依赖方向相反)—— 定义大概要下沉到 `core`(与 `toPredicateInput` 同层)才谈得上复用,那是跨包动作,请先裁。⚠️ 现有 `catch { isDisabled = false }`(求值失败不误拦)的姿态应保留。\n\nRelated: #3842(渲染器侧同族,PR: `claude/issue-3842-disabled-declared-gate`)、#3492(不变量出处)、#3314(渲染路径与引擎路径判定分歧的先例)、#1885(`disabled` 首次接线)。未认领。\n"
+}

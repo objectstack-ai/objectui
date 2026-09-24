@@ -1,0 +1,36 @@
+{
+  "number": 3902,
+  "kind": "issue",
+  "title": "docs: `page-header.mdx` 的 Responsive Behavior 仍写「Spacing: Adjusts padding for different screen sizes」—— 与 #3786 修掉的 `pb-8 on desktop` 是同一个假断言",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:07:17Z",
+  "updated_at": "2026-08-09T02:36:15Z",
+  "closed_at": "2026-08-09T02:36:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3902",
+  "body": "发现于 #3786 的实现(PR:`claude/issue-3786-3787-pageheader-docs-demo`),**不在该 PR 处理** —— 那一单的判定面被明确钉在「Styling → Container 三条」,这一条在另一个小节(Responsive Behavior),是 #3786 正文没有列举的第四份副本。\n\n## 现象\n\n#3786 修掉了 Styling → Container 里的 `pb-4` on mobile / **`pb-8` on desktop`**(实际 `pb-4`,无任何断点变体)。但同一文件末尾的 Responsive Behavior 小节还留着同一个断言的另一种说法:\n\n`content/docs/layout/page-header.mdx:225-229`\n\n```\n## Responsive Behavior\n\n- **Mobile**: Actions stack below title if needed\n- **Desktop**: Actions align to right side\n- **Spacing**: Adjusts padding for different screen sizes\n```\n\n`packages/layout/src/PageHeader.tsx:210` 的根 class 是 `flex flex-col gap-3 pb-4 border-b` —— padding 不随屏幕尺寸变化,一个断点变体都没有。整个组件里唯一的响应式类是标题的 `md:text-3xl`(`:231`),那是字号,不是 padding。\n\n## 为什么值得记一笔\n\n#3786 修完后这一页是**自相矛盾**的:Container 小节说「`pb-4` at every breakpoint — there is no responsive variant」,四行之后的 Responsive Behavior 说 padding 会按屏幕尺寸调整。读者(覆盖间距的作者)看到哪一条取决于翻到哪一节。这正是 #3786 治的那个病,只是换了个小节。\n\n顺带核过、**没有**问题的两条:`Actions stack below title` 与 `align to right side` 与代码一致 —— 标题行是 `flex flex-wrap`(`:211`),右槽 `ml-auto`(`:235`),窄屏确实会换行。只有 Spacing 这一条是假的。\n\n## 建议处置\n\n删掉 Spacing 那一行,或改成如实的说法(唯一的响应式行为是标题 `text-2xl` → `md:text-3xl`)。不到 2 行。\n\n## 参考位置\n\n- `content/docs/layout/page-header.mdx:225-229`(Responsive Behavior)\n- `packages/layout/src/PageHeader.tsx:210`、`:231`\n\n关联:#3786(同一假断言的另一份副本,发现于此)、#3787\n"
+}

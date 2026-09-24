@@ -1,0 +1,35 @@
+{
+  "number": 3952,
+  "kind": "issue",
+  "title": "[fields] a boolean field's visible form label is associated with nothing — BooleanField overrides the control id with the field name, so the form's label `for` dangles",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T15:30:23Z",
+  "updated_at": "2026-08-09T17:45:45Z",
+  "closed_at": "2026-08-09T17:45:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3952",
+  "body": "Found while browser-verifying #3910 (docs field examples moved to form hosting). Out of that card's scope — pre-existing and independent of the hosting change, so filed rather than fixed.\n\n## What happens\n\nRender any `boolean` field inside a form (`{ type: 'form', fields: [{ name: 'notifications', label: 'Email Notifications', type: 'boolean' }] }`) and the form emits **two** labels carrying the same text, of which the visible one points at an element that does not exist:\n\n```\nlabels = [\n  { for: \"_r_3_-form-item\", text: \"Email Notifications\", srOnly: false },   <-- visible\n  { for: \"notifications\",   text: \"Email Notifications\", srOnly: true  }    <-- widget's own\n]\nswitch id       = \"notifications\"   role=switch\nall ids in form = [\"notifications\"]\n\nlabel for=\"_r_3_-form-item\" -> target exists? false\nlabel for=\"notifications\"   -> target exists? true\n```\n\n## Cause\n\n`packages/components/src/renderers/form/form.tsx` renders its `FormLabel` with the `for` that `FormItem`/`FormControl` generate (the `_r_N_-form-item` id). But `packages/fields/src/widgets/BooleanField.tsx:16-17` replaces the control's id with the field name:\n\n```ts\nconst generatedId = useId();\nconst id = config?.name || generatedId;\n```\n\nand then puts that id on the Switch/Checkbox (`:30`, `:44`) with its own `sr-only` label pointing at it (`:35`, `:49`). So the id the form told the control to use is discarded, the form's visible label references a now-nonexistent id, and the widget supplies a second, duplicate label.\n\n## Impact\n\n- **Clicking the visible label does not toggle the switch** — the normal affordance for a checkbox/switch row is dead. This is every boolean/checkbox field on every generated form in every app, not a docs-only artifact.\n- The accessible name survives only because the widget's `sr-only` label happens to be correctly wired; the form's own label contributes nothing. Any future change that drops the widget's internal label would silently leave the switch unnamed.\n- Duplicate label text in the DOM is also why a naive `getByText(label)` on a boolean field returns two nodes.\n\nOnly the widgets that override the id are affected. Text/number/etc. leave `FormControl`'s id alone and their visible label works.\n\n## Suggested direction (not decided here)\n\nThe host should own the control id: `BooleanField` should use the id handed to it (the `id` prop the form's `FormControl` supplies) and fall back to `useId()`/`name` only when standalone — and then its internal `sr-only` label is redundant inside a form and should not be emitted twice. Worth checking the other widgets for the same id override while in there.\n\n## Reproduce\n\n```tsx\nrender(<SchemaRenderer schema={{ type: 'form', showSubmit: false, showCancel: false,\n  fields: [{ name: 'notifications', label: 'Email Notifications', type: 'boolean' }] }} />);\n// then compare every label's `for` against the ids present in the form\n```\n\nConfirmed in jsdom and in a real browser on `/docs/fields/boolean` (all three demos).\n"
+}

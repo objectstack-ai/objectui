@@ -1,0 +1,35 @@
+{
+  "number": 3976,
+  "kind": "issue",
+  "title": "[components] 表单渲染器内建 `select` 分支把 host id 展开到 Radix Select.Root —— 手写 form schema 里 `type: 'select'` 的 label `for` 全部悬空(#3306 的内建侧同形)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T19:31:55Z",
+  "updated_at": "2026-08-09T21:58:16Z",
+  "closed_at": "2026-08-09T21:58:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3976",
+  "body": "实施 #3961 时把该单的 probe 扩到 18 个字段类型跑了一遍(probe 未提交),`select` 的一行与 #3961 正文实测表**相反** —— 正文把 select 列为阳性对照「解析成功(button)」,实测是 **MISSING**。追下去发现两条 select 路径的行为不同,悬空的是**内建分支**,与 #3961 无关,故单独立单。\n\n## 实测\n\n```\nselect   for=…-form-item   ownId=(none) -> MISSING   byLabelText=0()   byRole+name=[]\n```\n\n即:表单里一个 `{ name: 'status', label: 'Status', type: 'select', options: [...] }`,可见的「Status」标签指向一个**没有任何元素携带的 id**。点它什么都不会发生,且这个标签完全不在可访问性树里。\n\n## 成因\n\n`packages/components/src/renderers/form/form.tsx` 的 `case 'select'` 把剩余 DOM props(含 `FormControl` 的 Slot 注入的 `id`)展开到 Radix 的 `Select` 根组件上。`Select.Root` 不是 DOM 宿主,它静默丢弃不认识的 prop —— 这正是 #3306 记录过的失效机制,只不过 #3306 修的是 **widget** 侧(`SelectField` 现在把 pass-through 落到 `SelectTrigger`,一个真 `button`,所以 `field:select` 这条路径是好的)。内建分支从没跟着改。\n\n两条路径为什么会分叉,以及为什么阳性对照会读错:`BUILTIN_FIELD_TYPES` 含 `'select'`,`renderFieldComponent` 对内建类型**根本不查注册表** —— 于是\n\n- 对象驱动的表单(`mapFieldTypeToFormType` 发 `field:select`)走注册 widget,`for` 落在 `SelectTrigger` 上,正常;\n- **手写 form schema 的裸 `type: 'select'`** 走内建分支,`for` 悬空。\n\n实测时注册表里确实存在 `field:select`,内建分支依然胜出,这一点是直接测到的,不是推断。\n\n## 影响面\n\n任何手写 `{ type: 'select' }` 的 form schema:标签点不动,屏幕阅读器读不到字段名。与之相邻但**不同**的事实是 aria 状态通道 —— 同一个展开点也在丢 `aria-describedby` / `aria-invalid` / `aria-required`(#3306 在 widget 侧修掉的正是这些),所以这一个展开点同时欠着「名字」和「状态」两笔。\n\n## 修法方向(未裁决,不在本单预设)\n\n内建分支需要把 `id` / `aria-*` 落到 `SelectTrigger` 而不是 `Select` 根上,与 #3306 在 widget 侧的处置对齐。是否更该走「删掉内建 select 分支、让裸 `select` 也解析到注册 widget」这条路(一个控件一个实现,而不是两份行为要各自维护)属于设计裁决,交 PM/维护者定 —— 两条路径长期并存本身就是这个 bug 的成因。\n\n## 参考\n\n- #3306(已关闭;同一机制的 widget 侧修复,内建侧未随)\n- #3961(复合/分组 widget 的 label 关联;本单在其 probe 中被顺带测到,但不同路径、不同修法)\n- #3231(`field:select` 与 `select` 同名不同路的先例:内建/注册分叉曾让整类字段漏掉 gate hint)\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3997,
+  "kind": "issue",
+  "title": "检查器第四个字段原子 InspectorComboField 的 label 仍与 trigger 不关联 —— #3994 修了三个,这个同族站点没在围栏内",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:30:00Z",
+  "updated_at": "2026-08-10T01:22:44Z",
+  "closed_at": "2026-08-10T01:22:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3997",
+  "body": "发现于 #3994 的实施过程(PR #3996 未夹带 —— 该单范围明确是 `_shared.tsx` 的三个原子 + 测试)。未认领,交 PM triage。\n\n## 机制\n\n`packages/app-shell/src/views/metadata-admin/inspectors/InspectorComboField.tsx:170-176`(带 label 的返回分支)与 #3994 的三个原子形状完全相同:\n\n- `Label` 渲染成 trigger 的兄弟节点,没有 `htmlFor`\n- trigger 是 `PopoverTrigger asChild` 包的 `Button`(`role=\"combobox\"`),没有 `id`,也没有 `aria-label` 兜底\n\n所以标签与控件之间只有视觉邻接,没有可编程关联。`getByLabelText(label)` 到不了它;焦点落上去读到的是匿名 combobox,可见标签是一段无归属文本,点标签什么都不会发生。\n\n与 #3994 的差别只在 `label` 是可选 prop:`if (!label) return field;` —— 无 label 时这个 combobox 干脆完全无名(既没有 `for` 也没有 `aria-label`),那是同一缺陷更重的一档,值得在实施时一并想清(要么要求调用方给 `aria-label`,要么让无 label 分支也承担命名)。\n\n## 是不是 dormant\n\n不是。`InspectorComboField` 被数据集 / 流程引用等检查器消费(它就是 issue 里描述的「可搜索单选 + 允许自定义值」的选择器),打开对应检查器面板即渲染。\n\n修法与 #3994 同构、可直接照抄:`React.useId()` 生成 id,`Label` 补 `htmlFor`,id 落到**真实 trigger**(`asChild` 下 `Button` 渲染的那个 `button[role=combobox]`,不是 `Popover` Root —— Root 不渲染 DOM,给它 id 会被静默丢弃,#3976 / PR #3992 的教训)。#3994 的 `_shared.labels.test.tsx` 那组 `describe.each` 可以直接把这个原子加进去(它已经把「for 有宿主 / 命中可聚焦控件 / 可访问名 / 只有一条命名通道 / 多实例不撞车」写成了与组件无关的形状)。\n\n## 更宽的面(同一族,建议由 PM 决定是否拆)\n\n同样是「`Label` 兄弟节点、无 `htmlFor`」的站点在 metadata-admin 还有(`grep -rn '<'Label packages/app-shell/src/views/metadata-admin --include=*.tsx | grep -v htmlFor`,已排除测试与本单):\n\n- `widgets.tsx:1937` / `:1945` / `:1959`\n- `datasource/DatasourceResourcePage.tsx:445` / `:461` / `:471` / `:484` / `:579` / `:592` / `:597` / `:611`\n- `PermissionAdvancedFacets.tsx:467` / `:503`\n- `PermissionMatrixEditor.tsx:760` / `:774`\n- `previews/FieldsListEditor.tsx:163`\n- `previews/FlowSimulatorPanel.tsx:298` / `:360`\n\n这些没有逐个核过「label 下面到底是不是控件」(有几处可能是纯分组小标题,那种用 `Label` 只是取字号,本身不是缺陷),所以本单只把 `InspectorComboField` 这一个已核实的站点作为主体,列表附在这里供分诊时决定要不要另开一条 sweep。\n\n## 边界与去重\n\n- **不是 #3994(PR #3996)**:那单的三个原子在 `_shared.tsx`,已修;本单是同目录**另一个文件**的第四个原子,PR #3996 一字未动它。\n- **不是 #3991**:那条是 `packages/components` 内建 select 空选项分支把 host id 落到 `div` 上;本单在 app-shell,且根本没有 id/`htmlFor` 可言。\n- **不是 #3975(PR #3983)**:那单是 `packages/fields` 多选控件的 chip group 用 IDREF 命名;不同站点、无共享实现。\n- **不是 #3912**:那单是 `BlockPropField` 的格式/校验能力位(数据面表达力),与标签关联无关。\n- 检索过 open issues(`InspectorComboField`、`htmlFor label association`、`in:title metadata-admin Label`、`可访问名 label 关联`),无同题单。\n"
+}

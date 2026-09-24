@@ -1,0 +1,34 @@
+{
+  "number": 4070,
+  "kind": "pull_request",
+  "title": "fix(components): page container registrations publish `children`, not the retired `body` (#4027)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T03:57:29Z",
+  "updated_at": "2026-08-10T04:11:55Z",
+  "closed_at": "2026-08-10T04:11:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T04:11:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4070",
+  "body": "Fixes #4027\n\n`inputs` is the published authoring surface, not documentation: the Studio block designer builds its panel from it, `sdui-parser`'s `gen-manifest.ts` serializes it into `sdui.manifest.json` and `sdui-intrinsics.d.ts`, and `page.tsx` builds the JSX-page prop whitelist from it. Two `page:*` container declarations had drifted from the contract, in opposite directions.\n\n**Retired key still offered.** `page:card` published `{ name: 'body', type: 'slot' }`. objectstack-ai/objectstack#5775 (PR objectstack-ai/objectstack#6281, merged 2026-08-07, ADR-0087 D2) retired `PageCardProps.body` and declared `children` in its place — one composition slot with one spelling, the one `grid`, `flex`, `page:section` and `page:tabs` items already use. The designer was teaching a key the contract now rejects by name.\n\n**Declared slot not offered at all.** `page:section` / `page:footer` / `page:sidebar` registered with no `inputs` whatsoever, so nothing could authorize the child list those three components exist to render. The same upstream PR replaced their `EmptyProps` entries with the shared `PageContainerProps`, whose single key is `children`; all three now publish that slot from one shared literal, mirroring the spec's single definition.\n\n## Rendering is untouched — deliberately\n\nThe renderers keep READING `body`: `PageCardRenderer` still resolves `schema?.body ?? schema?.children`, and the three thin containers still read `schema?.children || schema?.body`. Documents stored under the old contract keep rendering until the ADR-0087 D2 conversion rewrites the key at load time; deleting the read now would blank an existing card's content silently. A back-compat read is not a second authorable spelling — the same split the `page-header-subtitle-alias` sequencing already established in `packages/layout`.\n\nNo validation verdict moves either, which is what keeps this to the authoring surface:\n\n- `sdui-parser/src/validate.ts` lists `children` in `BASE_PROPS`, so it was never an `unknown-prop` and does not become one;\n- `codegen.ts:emitInterface` filters `slot` inputs out of the generated `.d.ts`, where `SduiBaseProps.children` already types it;\n- `isContainer: true` was already set on all four blocks — that is what authorizes children to the parser's `not-a-container` check.\n\n## The pin lag, and why it did not block this\n\nThe dispatch asked this to be measured rather than assumed: objectui pins `@objectstack/spec@^17.0.0-rc.5`, and **rc.5 predates objectstack-ai/objectstack#6281**. Verified in the installed package, not inferred — `node_modules/@objectstack/spec/dist/ui/index.d.ts` declares `PageCardProps` with `body` and no `children`, exports no `PageContainerProps`, and still maps the three thin containers to `EmptyProps`.\n\nIt does not fork the fix: registration `inputs` are objectui-side designer descriptors (plain literals), so nothing here type-checks against a spec export. What the lag does reach is `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`, which derives its expectations from `ComponentPropsMap` at runtime and therefore reads all four correct declarations as off-spec. That file already carries six stale-pin entries from **this same upstream issue** (the `element:record_picker` trio, both directions), so the four `children` entries and the `page:card.body` entry follow that established discipline verbatim — each naming #4027 and the upstream PR, and each deleted by the gate's own `no stale exemption` test when the pin moves. Consistent with that file's own note: \"EXPECTATIONS ARE DERIVED, NOT RESTATED … which is also how the stale-pin exemptions below are meant to resolve themselves.\"\n\nTwo list moves follow mechanically, both pinned rather than silent: the three containers move from `EXPECTED_WITHOUT_INPUTS` to `EXPECTED_COVERED`, and out of `public-contract.test.ts`'s `PROP_LESS_CURATED` (whose \"reads nothing beyond `children`\" was doing double duty as \"therefore declares nothing\"). One new carve-out was needed and is self-clearing: the gate's non-empty-shape probe guard would otherwise accuse itself of being broken for three blocks whose pinned shape is legitimately `{}` — `SPEC_SHAPE_EMPTY_ON_THE_PIN`, with an assertion that fails the moment those shapes stop being empty.\n\n## Tests\n\nNew pin file `packages/components/src/__tests__/page-container-authorable-keys.test.tsx`, both directions, asserting the merged contract literally rather than deriving from the stale pin (with the reason written down):\n\n- `page:card` does not offer `body`; offers `children` as a `slot`; its full input list is pinned exactly (`title`, `bordered`, `children`, `footer`) so the respelling cannot widen into a second surface;\n- each thin container declares exactly `['children']`, is still `isContainer`, and all three share one literal;\n- the back-compat reads are pinned by rendering: a card and each container render content stored under `body` **and** under `children`, so the sequencing guard fails if someone \"finishes the job\" by deleting the read.\n\nReverse verification (fix removed with `git checkout origin/main -- containers.tsx`, restored after — never `git stash`): 7 of the 15 new assertions go red, and the 8 that stay green are exactly the ones that must not move (`isContainer`, both back-compat render paths). The console gates go red too — 7 failures across the two files.\n\n```\npnpm exec vitest run packages/components/ apps/console/ --maxWorkers=2\n Test Files  138 passed (138)\n      Tests  1240 passed (1240)\n```\n\n`tsc --noEmit` clean in `packages/components` and `apps/console` (after building each package's dependency closure — the stale-artifact trap otherwise reports missing `.d.ts` as if this change broke the imports). `eslint` on the four changed files: 0 errors (83 pre-existing `no-explicit-any` warnings in `containers.tsx`). `pnpm check:control-bytes` OK; `node scripts/check-changeset-presence.mjs` reports the changeset.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

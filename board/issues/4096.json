@@ -1,0 +1,35 @@
+{
+  "number": 4096,
+  "kind": "issue",
+  "title": "列表行内建【编辑】【删除】没接权限门:只与 apiOperations 求交,而它与用户无关 ⇒ 无写权账号恒可见",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T08:09:50Z",
+  "updated_at": "2026-08-10T10:24:13Z",
+  "closed_at": "2026-08-10T10:24:13Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4096",
+  "body": "## 现象\n\n对象列表页,每一行右侧「更多操作」溢出菜单里的**内建【编辑】【删除】**,对**没有 `allowEdit` / `allowDelete` 的账号照常渲染**。\n\n点【编辑】能打开字段全部预填的编辑对话框,直到点【更新】才由服务端拒掉。服务端门禁是硬的(见下「服务端是对的」一节),所以这不是越权写入,但:\n\n- 「删除」这种破坏性入口摆在无权账号面前,误点成本高;\n- 用户被引导走进一个注定失败的表单;\n- **同一个页面里另外两处权限门是对的**,所以这更像「做漏了一处」而不是「还没做」。\n\n实测于 `@objectstack/*@17.0.0-rc.5`,zh-CN Console,一个下游业务应用的自建对象上。\n\n## 根因:这一处的门用了 `apiOperations`,而它与用户无关\n\n同一份 `GET /api/v1/auth/me/permissions` 响应里,同一个对象:\n\n| 账号 | `allowCreate` | `allowEdit` | `allowDelete` | `apiOperations` |\n|---|---|---|---|---|\n| A(对该对象零写权) | false | **false** | **false** | `get,list,create,update,delete,upsert,bulk,aggregate,history,search,import` |\n| B(对该对象有 update 权) | false | **true** | false | **完全相同的 11 个 verb** |\n| C(只读) | false | **false** | false | **完全相同的 11 个 verb** |\n\n**量化判据**:把 A 与 B 的响应**逐对象**比对,**30 个共有对象的 `apiOperations` 100% 相同(差异 0 个)**,而 `allowEdit` 明确不同。\n\n这与 spec 对该字段的定义一致:\n\n> Server-resolved effective API operations for this object … Present only when the object tightens exposure via `apiMethods`\n\n即 `apiOperations` 是**对象的 API 暴露面**(「这个对象开放了哪些 verb」),**不是**「当前用户能做哪些操作」。拿它与行动作求交 ⇒ **恒 fail-open**。\n\n## 同页三处门的对照(两对一错)\n\n| 界面位置 | 用的判据 | 结果 |\n|---|---|---|\n| 列表工具栏【新建】/【导入】 | `can(obj, 'create')` → `allowCreate` | ✅ 正确隐藏 |\n| 记录详情页头【编辑】/【删除】 | 逐记录 update/delete 权限判定 | ✅ 正确隐藏 |\n| **列表行「更多操作」内建【编辑】【删除】** | **只与 `apiOperations` 求交** | ❌ 恒可见 |\n\n## 复现\n\n1. 任一对象,准备两个账号:X 的权限集给该对象 `allowEdit/allowDelete = false`(只读),Y 给 `allowEdit = true`;\n2. 两个账号分别打开该对象的列表页;\n3. 展开任意一行右侧的「更多操作」溢出菜单。\n\n**实际**:X 与 Y 看到的菜单项完全相同,都含【编辑】【删除】。\n**期望**:X 看不到【编辑】【删除】—— 与同页工具栏【新建】按 `allowCreate` 隐藏的口径一致。\n\n对照观察:同一个 X 账号,列表工具栏的【新建】【导入】**确实**是隐藏的,详情页头的【编辑】【删除】**确实**也是隐藏的。三处判据不统一。\n\n## 服务端是对的(未越权,纯 UI 门缺失)\n\n| 动作 | 账号 | HTTP | 响应 | DB |\n|---|---|---|---|---|\n| `PATCH /api/v1/data/<obj>/{id}` | X | **403** | `PERMISSION_DENIED: operation 'update' … not permitted` | 未改写 |\n| `DELETE /api/v1/data/<obj>/{id}` | X | **403** | `PERMISSION_DENIED: operation 'delete' …` | 记录仍在 |\n\n## 下游能不能自己绕过去?——实测:不能\n\n在 rc.5 上做过真实探针(验完已回滚):\n\n```ts\nuserActions: {\n  edit:   { visibleWhen: P`os.user.email == \"someone@example.test\"` },\n  delete: { visibleWhen: P`record.status == \"disabled\"` },\n}\n```\n\n结论三条:\n\n1. ✅ **内建行 Edit/Delete 确实吃 `userActions.edit/delete.visibleWhen`** —— #3758 的「声明即生效」门(`visibleWhen != null`)在 rc.5 里是通的,通道存在;\n2. ✅ 谓词上下文里有 `os.user`,rc.5 实测作用域为 `{ current_user, user, ctx.user, os.user, app, data, features }`;\n3. ❌ **但 `os.user` 里没有任何权限信息**。三个不同授权的账号,会话 user 对象**逐字相同**:\n\n   ```json\n   { \"role\": \"user\", \"positions\": [\"user\", \"org_member\"], \"isPlatformAdmin\": false }\n   ```\n\n   `roles` 键不存在;`positions` 恒为 `[\"user\",\"org_member\"]`(该项目的权限集直绑用户,不走挂岗)。\n\n⇒ CEL **表达不出**「当前用户对本对象有无写权」。唯一凑得出来的写法是把账号或角色名**硬编码进对象元数据**,等于把权限模型抄第二份、必然漂移 —— 不是可接受的解。\n\n## 期望的修法\n\n列表行内建【编辑】【删除】的可见性,改用与工具栏同一份**有效权限**判据(`allowEdit` / `allowDelete`,以及既有的逐记录权限钩子),而不是 `apiOperations`。\n\n`apiOperations` 作为「对象暴露面」仍可继续参与判定(暴露面没开 `delete` 时当然也不该显示),但它**不能单独充当用户权限门**。\n\n## 相关\n\n- #3758 行动作声明 `visible: false` 仍渲染(可见性门用真值判断)—— **不同**:那条是「声明的门失效」,本条是「压根没接权限门」;\n- #3492 批量操作按钮忽略 `requiredPermissions` —— 同一族(动作面权限门未收口)的另一处,已修;\n- #3067 行级 `visible` 谓词在批量选择条上恒为 `true`。\n\n若认为 `os.user` 该带上权限/角色信息(那样下游至少有自救通道),可另开一条;本条只针对「内建行动作没接权限门」。\n"
+}

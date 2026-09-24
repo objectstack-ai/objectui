@@ -1,0 +1,34 @@
+{
+  "number": 3938,
+  "kind": "issue",
+  "title": "grid.import.transform 在 ko/de/fr/es/pt/ru/ar 七包是英文 Transform —— 就在已存映射摘要表的第三列表头,与刚补译的 savedMappingHint 同屏",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:23:22Z",
+  "updated_at": "2026-08-09T14:31:02Z",
+  "closed_at": "2026-08-09T14:31:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3938",
+  "body": "做 #3920(五键 × 七包补译,PR #3936)时在同一个 6 行 block 里撞上的第六个键。\n\n## 实测(`origin/main` @ `230ffd875`)\n\n`grid.import.transform` 在七个非 en 包与 en **逐字节相同**,值就是英文 `Transform`:\n\n```\nko.ts:448  transform: 'Transform',\nde.ts:448  transform: 'Transform',\nfr.ts:448  transform: 'Transform',\nes.ts:452  transform: 'Transform',\npt.ts:447  transform: 'Transform',\nru.ts:454  transform: 'Transform',\nar.ts:452  transform: 'Transform',\n```\n\n对照两个译了的包(与 #3920 完全同一个控制集,所以同样排除「刻意不译的术语」这一读法):\n\n```\nzh.ts  transform: '转换',\nja.ts  transform: '変換',\n```\n\nen 侧是 `en.ts:389 transform: 'Transform'`。\n\n## 为什么它比 #3920 那五个更扎眼\n\n它不是隐藏值。`packages/plugin-grid/src/ImportWizard.tsx` 的 `SavedMappingSummary` 用它做表格**第三列表头**:该文件 **1004 行**是一个 `TableHead`(class `w-32 text-center`),内容为 `t('grid.import.transform')`;同组件 1002 / 1003 行的另两个 `TableHead` 分别是 `t('grid.import.csvColumn')` 与 `t('grid.import.mapsTo')`。\n\n而同一个组件在表格**正上方**(**996 行**)渲染 `savedMappingHint`,调用形如 `t('grid.import.savedMappingHint', { name: mapping.label || mapping.name })`。\n\n(行号里的 JSX 标签本身在 issue 正文里会被 GitHub 的正文清洗器当 HTML 标签吃掉,所以这里用文字描述而不贴原始 JSX。)\n\n也就是说 #3920 补译落地后,德语用户在这一个面板里读到的是:德语说明文字一段,紧接着下面表格三个表头 `Spalte` / `Zugeordnet zu` / **`Transform`**。前两列表头本来就是译好的(`csvColumn` / `mapsTo`,各包都有译文),只有第三列是英文 —— 同一行表头里两种语言。#3920 之前整段都是英文,反倒「一致」;补译之后这处不一致才独立可见。\n\n## 为什么三道门禁看不见\n\n与 #3920 / #3876 / #3919 同一族的值域盲区,逐条同理:`all-locales-key-parity` 只比键名集合与占位符形状(英文原文键在、无占位符,完美通过);`check-i18n-call-site-keys.mjs` 只判 key 能否解析;`check-i18n-en-drift.mjs` 只在 **en 值变化**时要求九包跟随,而这个键从落地起就带着英文进的七包,从没有过「变化」事件。\n\n## 修法\n\n按各包既有术语落 7 个值。基准依据在包内现成(与 #3920 用的是同一组锚点):\n\n| pack | 现成锚点 | 建议值 |\n|---|---|---|\n| de | `legacyFallbackNotice` \"Typkonvertierung\" 的同族动作名 | `Transformation` |\n| fr | `legacyFallbackNotice` \"conversion de type\" | `Transformation` |\n| es | `legacyFallbackNotice` \"conversión de tipos\" | `Transformación` |\n| pt | `legacyFallbackNotice` \"conversão de tipos\" | `Transformação` |\n| ru | `legacyFallbackNotice` \"приведение типов\" | `Преобразование` |\n| ar | `legacyFallbackNotice` \"تحويل الأنواع\" | `التحويل` |\n| ko | `legacyFallbackNotice` \"형 변환\" | `변환` |\n\n(ja 用 `変換`、zh 用 `转换`,即「变换/转换」这一层语义,不是「类型强转」;ar 需与 `تحويل الأنواع`「类型转换」区分开,单独一列表头用 `التحويل` 足够。落笔前仍应按 #3920 的做法在本包内实测一遍,别照抄本表。)\n\n这是列表头,不含占位符、不含引号,所以不涉及 #3876 / #3919 那套引号排印判据。\n\n## 与在飞工作的关系(重要,别撞车)\n\n- **#3920 / PR #3936** 刻意**没有**修这个键:那单的卡片枚举了 5 键 / 35 值,把第六个键塞进去会让那单自己的普查数与卡片对不上。\n- PR #3936 新增的 `packages/i18n/src/__tests__/gridImportSavedMapping-i18n-3920.test.ts` 里有一条 `it` **把这七包的 `transform` 钉成「仍是英文」**(断言 `still` 等于 `['ko','de','fr','es','pt','ru','ar']`),用途是「数目再漂会红」。**修本单的人必须回来删掉那条 `it`** —— 那条测试的注释里也写了这句。\n- 因此:若 PR #3936 已合入,本单在 main 上做并删该 `it`;若本单先动手,请等 #3936 或在其分支形态上做,否则那条钉子会与本单互红。\n- 同触 `de.ts` 的还有 #3919(`approvalsInbox` 直引号)。三单串行为宜。\n\n关联:#3920(PR #3936,同 block 的五个键)、#3919、#3876(PR #3918)、#3880(共享 en 值不能一律要求同译的分母)。\n"
+}

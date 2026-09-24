@@ -1,0 +1,36 @@
+{
+  "number": 3850,
+  "kind": "issue",
+  "title": "「空谓词」在三处有三种范围:disabled: { dialect: 'cel', source: '' } 仍被判成已声明的门 → 永久置灰(#3842 修完后的残留,需先裁)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:41:12Z",
+  "updated_at": "2026-08-09T18:25:15Z",
+  "closed_at": "2026-08-09T18:25:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3850",
+  "body": "## 来源\n\n发现自 #3842 实施时对残留形状的探针核对(#3842 的修法只覆盖 `''` 字面量)。修法要动的是 `visible` 一族共用的那处定义,属于要先裁的契约变更,故独立成单,**未认领**。\n\n## 机理\n\n「这是个空谓词吗」在仓里被回答了三次,范围各不相同:\n\n| 定义 | 位置 | 判为「空」的范围 |\n|---|---|---|\n| `hasDeclaredVisibilityGate` | `packages/components/src/renderers/action/visibility-gate.ts:43` | `null` / `undefined` / `''` |\n| `toPredicateInput` | `packages/core/src/evaluator/predicateInput.ts:87` | `null` / `undefined` / `''` / **`source` 为空的信封** |\n| `evaluateCondition` | `packages/core/src/evaluator/ExpressionEvaluator.ts:237,246` | 上面全部 + **纯空白串**(`trim()` 后为空) |\n\n`disabled` 侧的置灰判定是「门已声明 **且** 求值为真」。两个定义范围不等,夹缝里的形状就是「门说已声明、求值说没有条件(→ `true`)」→ **永久置灰**。\n\n## 实测(worktree @ `origin/main` = `aca561a77fd0dc793ea76a7b46cd037e1731eb93` + #3842 的 PR,一次性探针,未提交)\n\n```\nshape                        | 已声明? | toPredicateInput | evaluateCondition | disabled 侧\n''                           | false   | undefined        | true              | 可点   ← #3842 已修\n'   '(纯空白)               | true    | \"${   }\"         | false             | 可点   ← 良性,见下\n{dialect:'cel', source:''}   | true    | undefined        | true              | 置灰   ← 残留\n{source:''}(无 dialect)     | true    | undefined        | true              | 置灰   ← 残留\ntrue                         | true    | true             | true              | 置灰(正确)\nfalse                        | true    | false            | false            | 可点(正确)\nundefined                    | false   | undefined        | true              | 可点(正确)\n```\n\n两个结论都是量出来的,不是推的:\n\n- **纯空白串是良性的**,但机制与直觉不同 —— `toPredicateInput('   ')` 走的是字符串腿,包成 `'${   }'`,模板求值出 falsy,所以落在「不置灰」。不是因为哪一处判它为空。(它在执行入口 `ActionRunner` 那侧**不**良性,见 #3848。)\n- **`source` 为空的信封是真残留**:`toPredicateInput` 明确把它折成 `undefined`(`if (!src) return undefined`),而 `hasDeclaredVisibilityGate` 只看 `!= null && !== ''`,对象一律算已声明。\n\n## 为什么信封形状值得管\n\n`{ dialect, source }` 正是 `@objectstack/spec` 的 `ExpressionInputSchema` 对**任何**已授权谓词(含裸串)归一后的产物,也是 `objectstack build` 编译出的形状。「作者留空 → 编译出 `source: ''` 的信封」是这条链上最自然的产生路径,比手写 `disabled: ''` 更可能出现在真实元数据里。`''` 字面量反而更像是手写 JSON / 进程内构造才有的拼法。\n\n同一形状在 `visible` 侧良性(判成已声明 → 求值 `true` → 显示,与「没有门」同一结果),所以只有 `disabled` 方向亮 —— 与 #3842 完全同一个不对称。\n\n## 需要先裁(两条轴)\n\n修法只有一处合理落点(`hasDeclaredVisibilityGate` 那唯一定义),但它被 `visible` 一族六处以上落点、三个包共用,改的是契约范围而不是一个调用点,所以不该由实施者顺手定。\n\n**选项 A —— 把「空」的范围在定义处对齐(推荐)**:`hasDeclaredVisibilityGate` 也把「`source` 为空的信封」判成「没有门」,即与 `toPredicateInput` 的范围一致。\n\n- *长期健康度*:一个概念一处定义,且两处定义的**范围**也一致 —— 目前它们同名不同义,是 #3142 那类漂移的温床。对 `visible` 侧逐一推演是**行为等价**的(那侧空谓词求值为 `true` = 显示 = 没有门),所以是纯收敛,不是给一族改行为。\n- *让 AI 写的元数据难写错*:作者/生成器写出空 `source` 时,渲染侧与归一侧同意「没有条件」,不会出现「按钮永久置灰但没人能解释为什么」。\n- 代价:要给 `visible` 一族补上该形状的钉子(证明等价而不是假设),并处理 `hasDeclaredVisibilityGate` 那段文档 —— 它现在把 `!= null && !== ''` 写成 #3492 的原话。\n\n**选项 B —— 在 producer 侧拒收**:让 spec / 发布期校验直接拒绝空 `source` 的谓词信封,渲染侧不动。\n\n- *长期健康度*:更契约优先 —— 一个求不出值的谓词本就不该被发布,与「declared = enforced」一致。\n- *让 AI 写的元数据难写错*:最强 —— 发布期大声拒绝,而不是运行期靠消费者宽容。\n- 代价:落在 `@objectstack/spec`(framework 仓),跨仓;且对已在库里的历史元数据不追溯,渲染侧仍需要一个兜底姿态,所以大概是 A + B 而不是 B 单独成立。\n\n**⛔ 不推荐**:在两处 `disabled` 调用点加一个「顺便判一下空 `source`」的本地判定 —— 那就是把第四种「空」的拼法写进消费者,#3842 刚刚合掉的正是这类分身。\n\n我的建议:**A 先落**(收敛范围、`visible` 侧补等价钉子),B 作为 framework 侧独立单跟进。\n\n## 影响\n\n命中条件:元数据里出现 `source` 为空的谓词信封。表现与 #3842 一致 —— 按钮永久置灰,界面上无法与「元数据本意」区分。今天必然可见的回归尚未观察到,严重度请分诊裁。\n\nRelated: #3842(同族,`''` 字面量半边已修,PR 分支 `claude/issue-3842-disabled-declared-gate`)、#3848(执行入口的同族半边,那侧纯空白串也被拦)、#3849(其余五处渲染落点)、#3492(不变量出处)、#3074 / #4115 upstream(`PredicateInput` 与 `EvaluatorPredicateInput` 的概念分界)。未认领。\n"
+}

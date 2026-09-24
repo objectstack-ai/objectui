@@ -1,0 +1,37 @@
+{
+  "number": 4075,
+  "kind": "issue",
+  "title": "console: action:button / action:icon / action:menu bind the row only at the bare root, so a declared `visible` written as `record.*` faults and fails closed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T04:34:02Z",
+  "updated_at": "2026-08-10T05:28:58Z",
+  "closed_at": "2026-08-10T05:28:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4075",
+  "body": "Out-of-scope finding from objectui#3055 (PR pending on `claude/issue-3055-record-approval-actions`). Filed per PD #10 — **unassigned, ungraded**. Concrete defect, not observation-class: a correctly-authored predicate hides the action it guards.\n\n## Fact\n\n`useCondition(pred, recordData, { throwOnError: true })` builds its evaluator as `new ExpressionEvaluator({ ...scope, ...context })` (`packages/react/src/hooks/useExpression.ts:132`), where `context` is the row spread at the **top level**. So only the shorthand spelling resolves:\n\n| predicate | verdict |\n|---|---|\n| `status == \"pending\"` | evaluates |\n| `record.status == \"pending\"` | `record is not defined` → throws → **fail-closed → hidden** |\n\n`record.*` is not a mistaken spelling — it is the canonical one:\n\n- `ExpressionEvaluator.evaluateCelCondition` binds it explicitly: \"the `record` key as the `record` namespace and the whole context bag as top-level scope\" (`packages/core/src/evaluator/ExpressionEvaluator.ts:276-291`);\n- the record header and list rows bind the row **three** ways through `evalRowPredicate` — `record.status`, bare `status`, `data.status` (`packages/components/src/renderers/layout/containers.tsx:1074-1082`);\n- the server enforces with it.\n\nThe renderers that bind only the bare root:\n\n| renderer | line |\n|---|---|\n| `action-button.tsx` | `:59` (`visible`), `:69` (`disabled`), `:70` (`enabled`) |\n| `action-icon.tsx` | `:46`, `:50`, `:51` |\n| `action-menu.tsx` / `action-group.tsx` | pass no record context at all |\n\nMeasured (probe against the shipped evaluator, `throwOnError: true`, row `{ id, status, viewer: { can_act: true } }`):\n\n```\nROOT-CONTEXT    => threw: true,  'record is not defined'\nWITH-RECORD-KEY => threw: false, true\n```\n\n## Why it is worth fixing rather than noting\n\nThis was live, not theoretical. `DeclaredActionsBar` had the same root-only binding, and every declared action on framework `sys_approval_request` gates on `record.viewer.can_act` / `record.viewer.is_submitter` (framework#3310 / #3424) — so the **entire** server-declared approval decision set evaluated to \"hidden\" on every surface that bar renders, the approvals inbox included. objectui#3055's PR fixes it there by binding the row all three ways; the four renderers above still carry the original binding.\n\nThe failure is silent in the worst direction: fail-closed means the button simply is not there, which is indistinguishable from \"the gate said no\".\n\n## Suggested fix (left to triage, not self-selected)\n\n1. Bind the record the three canonical ways in each renderer's predicate context (what objectui#3055's PR does for the declared-action bar), or\n2. move the four renderers onto `evalRowPredicate`, the helper the header already uses, so there is one binding rule rather than two.\n\nLeaning 2 — one implementation behind one name is the standing preference in this area (objectui#3367, objectui#3842) — but 1 is the smaller step and does not disturb the objectui#3492 family's pinned evaluation entry.\n\n## Dedup\n\nSearched open issues in this repo for `visible predicate record. root`, `declared action visible record.viewer`, `predicate scope record root`, `action-button visible bare field binding useCondition`. One neighbour, **not** a duplicate: objectui#3888 is about an **ADR paragraph** asserting fail-open for server enforcement, whose unbound-root counter-example is the same family of fault but a documentation fix in another repo's rule validator. No issue covers the client renderers' binding.\n\nRefs: objectui#3055, objectui#3888, objectui#3835, objectui#3871, framework#3310, framework#3424.\n"
+}

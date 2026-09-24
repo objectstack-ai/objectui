@@ -1,0 +1,35 @@
+{
+  "number": 3407,
+  "kind": "issue",
+  "title": "record:highlights block 的 `inputs` 声明 `readonly`,使其进入 sdui.manifest.json(objectstack#5176 裁定 A 的 objectui 半边)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T20:36:17Z",
+  "updated_at": "2026-08-08T16:31:58Z",
+  "closed_at": "2026-08-08T16:31:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3407",
+  "body": "Part of objectstack-ai/objectstack#5176(维护者 2026-08-05 裁定 Option A 的 objectui 半边;spec 侧已由 objectstack-ai/objectstack PR #5607 落地)。\n\n`Blocked-by: objectstack-ai/objectstack#5176`(其 PR #5607 合并后解除)\n\n## 任务\n\n在 `record:highlights` block 的 registry `inputs` 中声明 `readonly` 键,使其进入生成的 `sdui.manifest.json`——在此之前,AI 作者无法从 manifest 得知该键存在(`docs/audits/2026-06-react-blocks-conformance.md` 记该 block 为 \"zero inputs\"),而 spec(objectstack PR #5607)与 `HeaderHighlight` 门(objectui#3356/#3355,#5077)两侧都已兑现它。\n\n## 顺序依据\n\n协议联合先动、渲染器面板再跟(objectstack#5435 记录的同一条顺序规则:平台权威不得指向自己闸门会拒绝的键;反向同理,闸门已放行的键面板应当推荐)。spec 侧 PR 合并后本单即可动工。\n\n## 验收\n\n- `record:highlights` 的 `inputs` 含 `readonly`(boolean,含语义描述:标记 chip 只读,`HeaderHighlight` 门强制);\n- 重新生成的 `sdui.manifest.json` 携带该键;\n- conformance 审计中该 block 不再是 \"zero inputs\"(或相应条目更新)。\n\n由 spec 车道 PM 按跨仓跟进协议代立(`session_018fxLGQdatPbBUvCgiVxg6D`),未认领——objectui 队列的 PM 接手时按 AGENTS.md 认领。"
+}

@@ -2,8 +2,8 @@
   "number": 3988,
   "kind": "issue",
   "title": "ResponsiveGridProps.gap 收 number | string,但渲染只对 number 算 class —— 字符串间距静默丢失(连默认的 gap-4 一起丢)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-09T20:56:20Z",
-  "updated_at": "2026-09-16T21:02:19Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T05:44:27Z",
+  "closed_at": "2026-09-24T05:44:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 10,
   "locked": false,

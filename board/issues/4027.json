@@ -1,0 +1,36 @@
+{
+  "number": 4027,
+  "kind": "issue",
+  "title": "objectui 跟进(#5775):page:card 的 registry inputs 仍把已退役的 `body` 发布为设计器槽;page:section/footer/sidebar 三个注册项没有 inputs,设计器无法授权 children",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T02:08:00Z",
+  "updated_at": "2026-08-10T04:11:55Z",
+  "closed_at": "2026-08-10T04:11:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4027",
+  "body": "> Migrated from objectstack-ai/objectstack#6325 under the file-at-destination ruling (objectstack-ai/objectstack#7167, maintainer 2026-08-10). Originally filed 2026-08-07T13:50:03Z. The full prior thread — including triage rulings and hold/restart conditions — remains on the source issue and MUST be read before acting on this card.\n\n---\n\n代 objectstack-ai/objectstack#5775 的云 dev 立卡(该会话对 objectui 仅有匿名读权限,无法在跨仓立单;PM `session_011M7UwH25Unfi73UHim7ajY` 代立)。落点在 objectui,交分诊路由(`repo:objectui`)。\n\n## 事实(来自 objectstack-ai/objectstack#5775 终报,待接手者对 objectui HEAD 复核)\n\nobjectstack-ai/objectstack#5775(spec 侧,PR objectstack-ai/objectstack#6281)把 `page:card` 的 `body` 键退役、`children` 转正,并给 `page:section` / `page:footer` / `page:sidebar` 新增共享的 `PageContainerProps.children` 声明。objectui 侧有两个随之过时的注册面:\n\n1. **`containers.tsx` 的 `ComponentRegistry.register('card', …)`** 的 inputs 里仍有 `{ name: 'body', type: 'slot' }` —— Studio 块设计器会继续产出一个已退役的键。渲染暂不坏(renderer 保留 `body ??` 兜底),但作者面在教退役拼法。\n2. **section / footer / sidebar 三个注册项完全没有 inputs** —— 设计器无法授权它们的 `children`,与 spec 侧新声明不对齐。\n\n## 处置基准\n\n与 page-header-subtitle-alias 留给 objectui 自行退役 kebab 注册项是同一处理方式 —— **不阻塞 objectstack-ai/objectstack#6281 合入**,是跟进卡不是前置卡。天然 `Blocked-by: objectstack-ai/objectstack#6281`(spec 声明先落)。\n\nRefs:objectstack-ai/objectstack#5775 终报(issue 评论内 `<!-- os-dev-report -->`)、PR objectstack-ai/objectstack#6281、ADR-0087 D2。\n\nBlocked-by: objectstack-ai/objectstack#6281"
+}

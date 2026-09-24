@@ -1,0 +1,35 @@
+{
+  "number": 3975,
+  "kind": "issue",
+  "title": "[fields] multiselect 的 host label 也落在不可 label 的包裹 div 上 —— 与 #3961 同一失效类,但不在其审计的六个 widget 内",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T19:31:28Z",
+  "updated_at": "2026-08-09T21:07:42Z",
+  "closed_at": "2026-08-09T21:07:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3975",
+  "body": "实施 #3961(复合/分组 widget 的 group 标注)时,把该单的 probe 从正文列出的字段类型扩到 18 个跑了一遍(probe 未提交),`multiselect` 落在与 `checkboxes` / `rating` **完全相同**的失效形态上,但它不在 #3961 正文实测表、也不在 PM 裁定的六个 widget 内,所以单独立单而不夹带进那个 PR。\n\nBlocked-by: #3961(它引入本单要用的 `ComponentMeta.labelling` 声明位;在它合入前本单无从修)\n\n## 实测\n\n真表单 + 每字段一行,读 host label 的 `for` 与它解析到的元素,再看 host label 文本是否成为任何元素的可访问名。#3961 的 PR **已在同一棵树上生效**,所以这是「六个 widget 修好之后」的剩余账:\n\n```\ncheckboxes   for=(none) ownId=…-group-label   byLabelText=1(div[role=group])   byRole+name=[group:1]   ← #3961 修好\nrating       for=(none) ownId=…-group-label   byLabelText=1(div[role=group])   byRole+name=[group:1]   ← #3961 修好\nmultiselect  for=…-form-item  ownId=(none) -> div   byLabelText=0()   byRole+name=[]                  ← 本单\n```\n\n`MultiSelectField` 把 host 的 `id` 保留在包裹 `div` 上(`packages/fields/src/widgets/MultiSelectField.tsx` 的 `groupDomProps` 展开点,与 CheckboxesField 逐字同形),每个选项是一个 `button[role=checkbox]` 各带自己的 label。于是 host 的 `for` 指向一个 `div`:HTML 里 `label[for]` 指向不可 label 的元素是惰性的 —— `HTMLLabelElement.control` 返回 null,既不产生点击激活,也不贡献可访问名。视觉上有「Tags」标签,屏幕阅读器只听到 \"Alpha\" / \"Beta\",不知道这一组是什么。\n\n## 为什么 #3961 没顺手带上\n\n#3961 的正文实测表覆盖的是它当时 probe 的字段集合(address / geolocation / checkboxes / radio / rating / file + 一批阳性对照),`multiselect` 不在其中;PM 的范围裁决(评论 5233281956)也按那张表逐 widget 列了处置。所以这是审计覆盖面的缺口,不是那次修法的缺陷。\n\n顺带说明它与 #3318 的关系:#3318 治的是「校验失败不播报 `aria-invalid`」,`multiselect` 在它的 29 个账本条目里 —— 但那是**另一个事实**(状态通道),修好它并不会让 host label 关联上。本单必须自己修。\n\n## 修法(#3961 的机制已就位,两处各一行)\n\n1. `packages/fields/src/index.tsx` 的 `FIELD_TYPES_GROUP_LABELLED` 加 `'multiselect'`;\n2. `MultiSelectField` 的包裹 div 补 `role={isLabelledGroup ? 'group' : undefined}`,`isLabelledGroup` 判据同 CheckboxesField(`groupDomProps['aria-labelledby'] != null`),standalone 无 host label 时不发 role。\n\n钉子两方向照 #3961 的 `composite-group-label-e2e.test.tsx` 抄:表单内 `getByRole('group', { name: hostLabel })` 接线前 0 / 后 1;standalone 不回退;`group-labelling-declaration.test.ts` 里的「恰好是审计集合」断言同时收紧(它会因为新增声明而翻红,必须一并更新 —— 那正是它存在的意义)。\n\n## 参考\n\n- #3961 / 其 PR(六个 widget 的同类修复 + 声明位)\n- #3318(同一批 widget 的 `aria-invalid` 账本,相邻但不同事实)\n- #3952 / PR #3959(单一控件形态的同类修复)\n"
+}

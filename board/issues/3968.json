@@ -1,0 +1,35 @@
+{
+  "number": 3968,
+  "kind": "issue",
+  "title": "examples/schema-catalog 的 5 个测试文件没有任何 tsc 编译过,而 check-type-check-coverage 的 countTestFiles 只走 src/ —— 看不见,于是报绿",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T18:18:42Z",
+  "updated_at": "2026-08-09T23:04:27Z",
+  "closed_at": "2026-08-09T23:04:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3968",
+  "body": "发现于 #3900 的实现(在 `examples/schema-catalog/test/` 补钉子时撞到),**不在该 PR 处理** —— #3900 的完成范围被维护者框成「一行注册 flag + 钉子」,这是构建门自身的盲区,属另一类动作。\n\n## 两处叠加的盲区\n\n**一、这个包的测试确实没人编译。**\n\n`examples/schema-catalog/tsconfig.json`:\n\n```json\n\"include\": [\"src/**/*\"],\n\"exclude\": [\"node_modules\", \"dist\", \"test\"]\n```\n\n而 `package.json` 的 `type-check` 就是 `tsc --noEmit`,包内也没有 `tsconfig.test.json`。所以 `examples/schema-catalog/test/*.test.tsx`(当前 5 个文件)没有任何 `tsc` 调用读过。\n\n**二、本该抓这件事的门抓不到,有两个独立原因。**\n\n`scripts/check-type-check-coverage.mjs`:\n\n- `:180` —— `testFiles: countTestFiles(resolve(root, dir, \"src\"))` 只递归 `src/`。这个包的测试在 `test/`,于是 `testFiles === 0`,而 `:299` 的 `if (!pkg.hasScript || pkg.testFiles === 0) continue;` 直接跳过整个 5c(「Undeclared gap — tests exist and nothing reads them」)检查。\n- `:182` —— 即使数到了文件,`buildExcludesTests` 判据是 `/\\*\\.test\\./.test(tsconfig)`,即「tsconfig 里出现过 `*.test.` 这样的 glob」。按**目录**排除(`\"exclude\": [\"test\"]`)的 tsconfig 匹配不上,于是 `testsCovered()`(`:296`)返回 true,再一次判定「已覆盖」。\n\n门当前的输出是绿的:\n\n```\n✅  test type-check coverage: 23/38 packages compile their tests, 15 declared debt (240 errors outstanding), 9 with a narrow type-assertion project.\n```\n\n这个 38 里不含本包 —— 它既不在「compile their tests」的 23 里,也不在 `TEST_DEBT` 的 15 里,而是根本没进分母。\n\n## 为什么值得记一笔\n\n这道门的自述把风险写得很清楚:「An unchecked test can assert a contract the compiler never checked, and then read as evidence that the contract holds」(`:333-337`)。对「按 glob 排除测试、测试放 `src/`」的包它成立;对「按目录排除、测试放 `test/`」的包它静默失效。而后者恰好是本仓唯一一个这样布局的包 —— 全仓扫一遍(遍历每个 `package.json` 所在目录,比较 `src/` 内外的 `*.test.ts(x)` 计数),只有 `examples/schema-catalog` 命中:`in_src=0 outside_src=5`。\n\n#3900 的钉子有一半正好落在这个盲区里(那份 demo fixture 的测试就住在这个 `test/` 目录),写的时候才发现没人在编译它 —— 也就是说这个盲区已经在影响别的单子的验证强度,只是没人量过。\n\n## 建议\n\n两侧都收:\n\n1. `countTestFiles` 从包根开始递归(排除 `node_modules` / `dist`),而不是只从 `src/` 开始 —— 否则任何把测试放包根 `test/` 的新包都会重新落进同一个洞。\n2. `buildExcludesTests` 同时识别目录形式的排除(`\"exclude\"` 里出现 `test` / `tests` 目录),不要只认 glob。\n3. 然后给 `examples/schema-catalog` 配 `tsconfig.test.json` 并从 `type-check` 串起来(门的 5a/5b 会检查它 `noEmit: true` 且真的 include 了测试 glob);若实测有错误,按门的既定做法进 `TEST_DEBT` 并附实测错误数。\n\n## 分级说明(诚实标注)\n\n按「今天有没有用户面影响」判,这是**门的假绿**,受害者是开发/CI 强度而非用户,所以我先打 `finding` 而不挂 `pm:queue`。但同时说明:本仓把假绿当一等缺陷处理过(#3288 / #3378 都是「跑了零个测试却报绿」),而这条正是同一族的第三例,只是发生在 type-check 侧。分诊时请按这个族的先例重新评级,不必受我这个标签约束。\n\n关联:#3900(发现于此实现)、objectstack#4118(`TEST_DEBT` 的总账)、#3009(「配置文件存在但没人跑」的原型)、#3288 / #3378(假绿先例)\n"
+}

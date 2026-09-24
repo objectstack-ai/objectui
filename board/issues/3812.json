@@ -1,0 +1,36 @@
+{
+  "number": 3812,
+  "kind": "issue",
+  "title": "components/action/**: 同一真值可见性门在动作面上未收口 —— `action:group` / `action:menu` 成员动作声明 `visible: false` 照样渲染（#3758 的同族部分）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:24:10Z",
+  "updated_at": "2026-08-08T18:07:29Z",
+  "closed_at": "2026-08-08T18:07:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3812",
+  "body": "## 现象与机理\n\n`packages/components/src/renderers/action/**` 的可见性门与 objectui#3758 修掉的行动作门**同形**：用真值判断，于是 `visible: false` —— 最明确的「永不显示」—— 落进「未声明门」分支，动作照样渲染。\n\n```\nif (action.visible && !isVisible) return null;   // false && … 为假 → 不 return null → 渲染\n```\n\n#3758 只裁了**行**动作两处（`plugin-grid` 的 `RowActionMenu` 与 `components` 的 `data-table`，均已收敛成 `isCustomRowActionVisible`），动作面（`action:group` / `action:menu` / `action:bar` / `action:button` / `action:icon`）这一族没有一起收口。\n\n## 锚点（`origin/main@d9ce38529`，全部在）\n\n**成员动作门（可达性最高——见下）**：\n\n- `packages/components/src/renderers/action/action-group.tsx:94` —— `InlineActionButton`（inline 模式的成员动作）\n- `packages/components/src/renderers/action/action-group.tsx:141` —— `DropdownActionItem`（dropdown 模式的成员动作）\n- `packages/components/src/renderers/action/action-menu.tsx:84` —— `action:menu` 的菜单项\n\n**组件级门**（`schema.visible`，见「可达性」第 2 条）：\n\n- `action-group.tsx:230`、`action-menu.tsx:169`、`action-bar.tsx:223`、`action-button.tsx:148`、`action-icon.tsx:82`\n\n## 可达性（老实说，两条结论不同）\n\n1. **成员动作门确实可达。** `InlineActionButton` / `DropdownActionItem` / `action:menu` 的项是从组件自己的 `actions` 数组直接 `.map()` 渲染的：既不经 `SchemaRenderer`（那是按节点走的），也不经 `ActionEngine.getActionsForLocation`（`ActionEngine` 的布尔 `visible` 是正确的，见 `packages/core/src/actions/__tests__/ActionEngine.visibility.test.ts:60`）。所以数组成员上写 `visible: false`，真值门是唯一的门，动作渲染。\n2. **组件级门大概率被上游遮住。** `packages/react/src/SchemaRenderer.tsx:288` 对 `schema.visible !== undefined` 统一求值并隐藏（`SchemaRenderer.expressions.test.tsx:39` 已钉「`visible: false` 不渲染」），所以经 `SchemaRenderer` 路由的组件根本不会渲染到自己的门。这五处更像休眠的防御层而非活缺陷——**但我没有穷举是否存在绕过 `SchemaRenderer` 直接挂载这些组件的宿主**，请分诊按此复核。\n\n与 #3758 同理：`ActionSchema.visible` 是 `ExpressionInputSchema`（无 boolean 成员），`objectstack build` 产不出这个形状；手写视图 JSON 与进程内构造 def 可以 —— #3492 正文记录了这两条路径确实发生过。故为**低可达性的具体缺陷**，严重度请分诊裁。\n\n## 与 #3492 / #3758 的关系\n\nobjectui#3492 已把这条不变量钉死在批量选择栏：声明检测用 `!= null && !== ''`，不用真值（`packages/plugin-grid/src/bulkEligibility.ts` 的 `hasVisibilityGate` 注释原文：「Truthiness cannot answer this: `visible: false` is a declared gate that excludes everything」）。#3758 把行动作两处收口到同一不变量。动作面这一族是同一形状里剩下的部分，**修法已裁，不是新决定**。\n\n## 建议\n\n1. 成员动作的三处门统一到 `!= null && !== ''`，并把布尔短路交给求值入口（`useCondition` 已按布尔短路，无需改它）；\n2. 每处加钉子测试：`visible: false` 的成员动作**不渲染**，并按对称性补 `visible: true`（声明门、恒真）与未声明（渲染）的对照断言 —— 否则「声明检测」很容易被写成「恒隐藏」而测试全绿（#3758 的三条钉子就是按这个对称性写的）；\n3. 组件级五处先按可达性第 2 条复核：若确认被 `SchemaRenderer` 完全遮住，则属休眠代码（`finding` 类），可与本单分开处置。\n\n发现自 objectui#3758 的实施过程（消费半径扫描）；未认领，未在 #3758 的 PR 里改动。\n"
+}

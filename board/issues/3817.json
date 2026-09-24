@@ -1,0 +1,33 @@
+{
+  "number": 3817,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): queryDataset 返回的 fields 元素改用 spec 的 AnalyticsResult.fields[] 类型 (#3752)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:27:48Z",
+  "updated_at": "2026-08-08T17:36:53Z",
+  "closed_at": "2026-08-08T17:36:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T17:36:52Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3817",
+  "body": "Fixes #3752\n\n## 做了什么\n\n`ObjectStackAdapter.queryDataset` 返回类型里 `fields` 的元素形状,由手写的五键改成 spec 拥有的那一个类型:\n\n```ts\n// before —— packages/data-objectstack/src/index.ts\nfields: Array< { name: string; type: string; label?: string; format?: string; currency?: string } >;\n\n// after\nimport type { AnalyticsResult, DatasetSelection } from '@objectstack/spec/contracts';\nfields: Array< AnalyticsResult['fields'][number] >;\n```\n\nJSDoc 一并改写:原来那段逐项列举(\"a display `label`…, and a measure's numeral `format` + declared `currency`\")本身就是第二方言的载体 —— 它和被删的类型犯的是同一个错,停在了写它那天的 spec 上。新注释指向 spec、不再复述键名,只留下\"为什么只有这一项派生\"的理由。\n\n## 为什么漏项不是纸面问题\n\n实装 `@objectstack/spec@17.0.0-rc.5` 的 `AnalyticsResult.fields[]` 除那五项外还有 `percentScale?: PercentScale`,spec 注释写明「renderers that receive it must scale by it instead of guessing from the value (objectui#3136)」。仓内三个消费端(`plugin-dashboard` / `plugin-report` / `DatasetPreview`)靠 `@object-ui/core` 的本地 `DatasetResultField` 读到它,所以今天不红;而按 adapter **声明的返回类型**取值的外部作者会拿到 `Property 'percentScale' does not exist` —— 声明在把作者推回 #3136 明令禁止的\"按数值大小猜刻度\"。\n\n## 取向:守 B,不升 A(实读 framework 路由后的结论)\n\n派单允许在\"实证服务端回全 `AnalyticsResult`\"时升级为 A(整体交叉类型)。实读后**结论相反,且证据在本仓自己这边**:\n\n- framework(`objectstack` @ `ea1d9165d`)`packages/rest/src/rest-server.ts` 的 `POST /analytics/dataset/query` 是 `res.json(result)`,原样下发 `svc.queryDataset(...)` 的结果;`packages/services/service-analytics/src/analytics-service.ts:614` 声明返回 `Promise< AnalyticsResult >`,并在 `:745` 起把 ADR-0021 D2 的钻取旁路(`object` / `dimensionFields` / `drillRawRows` / `drillRawTotals` / `drillRanges`)通过 `AnalyticsResultWithDrill` **加在** `AnalyticsResult` 之上。也就是说线上信封确实是「`AnalyticsResult` + 增量」。\n- **但 adapter 并不返回它收到的东西**:`packages/data-objectstack/src/index.ts:3355` 是 `return { rows, fields, object, dimensionFields, drillRawRows, totals };` —— 逐项挑键,**从不拷贝 `sql`**。所以哪怕路由回全,声明成 `AnalyticsResult & { … }` 也会向调用方广告一个本方法结构上永远不会给出的键(`sql?: string` 虽是可选,但\"可能有\"本身就是假声明)。\n\n因此 A 的前提在**本仓一侧**就不成立,和路由回不回 `sql` 无关。信封其余字段保持本地声明,并把这个事实钉成测试(`_NoSql`),下一个读者不必再重查一遍。\n\n## 类型钉子与 sabotage 自证\n\n`packages/data-objectstack/src/queryDataset.test.ts` 追加一段(沿用本包 #3613 那节的 `Assert` / `Equal` 范式;本包 tsconfig 编译自己的测试树,所以这些钉子由 `tsc --noEmit` 承载):\n\n- `_IsTheSpecField` —— 与 spec 元素**结构相等**(用 `Equal` 而非 `extends`:窄化的手抄件在漂移方向上仍然可赋值)。\n- `_HasPercentScale` / `_PercentScaleIsTheSpecUnion` / `_PercentScaleIsNotString` —— 点名那一个漏键,并钉住它是 `'fraction' | 'whole'` 而不是被放宽的 `string`。\n- `_NotTheFiveKeyCopy` —— **负向钉子**:把手写五键放回去就红,sabotage 方向写进测试而不是只写进 commit message。\n- `_NoSql` / `_HasDrillObject` / `_HasDimensionFields` / `_HasDrillRawRows` —— 钉住\"信封不是 `AnalyticsResult`\"这个取向。\n- 一个运行时测试:服务端回包里带 `percentScale: 'fraction'` 的列,**经声明类型**读出来仍是 `'fraction'`(修前这一行根本不编译)。\n\n**sabotage(临时把五键手写形状放回 `index.ts`,未入 commit)**。预判方向:vitest 只做类型擦除、不会变红,红信号必须来自 `tsc --noEmit` —— 实测如此:\n\n```\nsrc/queryDataset.test.ts(282,35): error TS2344: Type 'false' does not satisfy the constraint 'true'.\nsrc/queryDataset.test.ts(286,36): error TS2344: Type 'false' does not satisfy the constraint 'true'.\nsrc/queryDataset.test.ts(288,25): error TS2339: Property 'percentScale' does not exist on type '{ name: string; type: string; label?: string | undefined; format?: string | undefined; currency?: string | undefined; }'.\nsrc/queryDataset.test.ts(293,7): error TS2344: Type 'false' does not satisfy the constraint 'true'.\nsrc/queryDataset.test.ts(293,31): error TS2339: Property 'percentScale' does not exist on type '{ … }'.\nsrc/queryDataset.test.ts(300,7): error TS2344: Type 'false' does not satisfy the constraint 'true'.\nsrc/queryDataset.test.ts(345,20): error TS2339: Property 'percentScale' does not exist on type '{ … }'.\nsrc/queryDataset.test.ts(347,19): error TS2339: Property 'percentScale' does not exist on type '{ … }'.\n ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @object-ui/data-objectstack@17.3.0 type-check: `tsc --noEmit` Exit status 2\n```\n\n`:345` 那两条正是 issue 描述的外部作者现场:**读一列的 `percentScale` 编译不过**。还原后 `tsc --noEmit` 无输出(绿)。\n\n## 验证\n\n- `pnpm vitest run packages/data-objectstack --maxWorkers=2` —— **24 files / 359 tests passed**(含新增的 3 个断言块)。\n- `pnpm --filter @object-ui/data-objectstack type-check` —— 绿(钉子在这里生效)。\n- `pnpm --filter @object-ui/data-objectstack lint` —— 0 errors(330 个既有 `no-explicit-any` warning,与本改动无关)。\n- **消费半径**:`plugin-dashboard` / `plugin-report` / `app-shell` 三个读 `percentScale` 的包 `type-check` 全绿、零改动 —— 与预期一致,它们走 `@object-ui/core` 的本地类型,而本改动对它们是**加性**的(多一个可选键)。\n- `node scripts/check-control-bytes.mjs` —— OK(3733 个文件);改动文件另做 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 自扫,零命中。\n\n## Changeset\n\n`.changeset/dataset-result-fields-spec-type-3752.md`,`@object-ui/data-objectstack: patch` —— 类型面修正、对既有消费者加性,与同族的 #3753(`dataset-selection-spec-type-3613.md`)同档。\n\n## 顺手核对与越界发现(均已单开,本 PR 不修)\n\n- **#3815**(`finding`,只核对不实施):`packages/core/src/utils/dataset-format.ts:29` 的 `DatasetResultField` 仍是同一契约的手写重述。今天**没有**漂移(六键齐,`PercentScale` 还是从 `@objectstack/spec/data` import 的真身),唯一形状差异是 `type` 被放宽成可选而 spec 必填。属休眠漂移面,且改它要先决 `type` 可选性是否有意、以及公开名字的兼容路线,跨 `packages/core` 面 —— 超出本单文件面,故只记录。\n- **#3813**(运行时缺陷,concrete):`index.ts:3355` 的挑键式返回**丢掉了服务端的 `drillRanges`**,而 `DatasetWidget.tsx:471/593` 与 `DatasetReportRenderer.tsx:316/431/855` 都在读它 —— 只按日期维度分组的图表因此 `canDrill === false`,#1752 的日期分桶钻取经真实 adapter 永不可用。现有测试看不见,因为两边的测试都用自己 mock 的 data source 直接喂这个键。与本 PR 同一处代码但是**运行时行为**改动,按 PD #10 不并入纯类型面的这个 PR。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

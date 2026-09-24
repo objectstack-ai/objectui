@@ -2,8 +2,8 @@
   "number": 4730,
   "kind": "issue",
   "title": "Reverse i18n sweep: ~384 confirmed-dead locale keys across 58 namespaces (workflow/BPMN designer entirely unwired, console.objectView oversized, more)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-15T19:39:23Z",
-  "updated_at": "2026-09-19T03:31:26Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T06:30:24Z",
+  "closed_at": "2026-09-24T06:30:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 22,
+  "comments": 21,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/4730",
   "body": "Follow-up to #4658, which deleted five specific dead keys\n(`console.objectView.striped/bordered/virtualScroll`,\n`appDesigner.stripedRows/bordered`) and, per that card's dispatch ruling,\nbuilt the general-purpose tool: `scripts/check-i18n-dead-keys.mjs`, a\n**report-only** reverse sweep (pack key set minus referenced key set, reusing\n`check-i18n-call-site-keys.mjs`'s own AST walk plus a whole-repo text\nsafety net — see that script's header for the full mechanism). This card\nrecords what running it over the rest of the pack found, since #4658's own\nscope was five specific keys and this is clearly bigger than that.\n\n## What was measured\n\n`node scripts/check-i18n-dead-keys.mjs` on top of #4658's PR (2927 pack keys,\n13776 referenced):\n\n```\n626 candidate(s) with no call site this pass can see, across 58 namespace(s):\n384 CONFIRMED (no textual footprint anywhere else in the repo either),\n242 NEEDS-REVIEW (literal key string appears somewhere else in the repo —\n     an indirect reference the AST pass cannot see, e.g. a `labelKey:\n     'appDesigner.layoutSidebar'` property consumed through a variable).\n```\n\nThe NEEDS-REVIEW tier is doing real work — `appDesigner` itself has 20\nCONFIRMED but 34 NEEDS-REVIEW, because `AppCreationWizard.tsx` builds several\nof its labels through exactly that indirect `labelKey:` pattern, invisible to\na literal-argument AST walk but caught by the text safety net. That tier is\nNOT part of this card's claim; only CONFIRMED entries below were spot-checked\nenough to report with confidence.\n\n## The two largest, spot-verified instances\n\n**`workflow.*` — 54 of 58 keys CONFIRMED dead** (the other 4 are test-fixture\nmentions only, in `ellipsis-glyph-3878.test.ts` and\n`untranslated-identity-4376.test.ts` — not consumers). This is an entire\nBPMN/workflow-designer vocabulary (`boundaryEvent`, `serviceTask`,\n`parallelGateway`, `userTask`, `signalEvent`, `timerEvent`, `joinGateway`,\n`addNode`, `undo`/`redo`, `exportBpmn`/`importBpmn`, …) with **zero i18n\nintegration at its plausible consumer**:\n`packages/plugin-designer/src/ProcessDesigner.tsx` hardcodes English directly\n(`{ label: 'User Task', value: 'user-task' }`, `handleAddNode('start-event',\n'Start')`, …) and imports no translation hook at all — no `useTranslation`,\nno `useObjectTranslation`, nothing. Either the component predates i18n\nintegration and was never wired up, or the designer this vocabulary was\nwritten for was replaced by `ProcessDesigner.tsx`'s hardcoded-English version\nwithout the old labels being cleaned up. Either way: 58 keys × 10 packs =\n580 translated strings with no reader anywhere in the repo.\n\n**`console.objectView.*` — 116 of 154 keys CONFIRMED dead**, on top of the\nthree #4658 already removed. This namespace backs the object-view\nconfiguration surface (`ViewConfigPanel.tsx` et al.), and a working subset of\nit clearly IS live (`new`, `save`, `cancel`, `viewType*`, the create-view\ndialog fields — anything `CreateViewDialog.tsx` / `ObjectView.tsx` /\n`ViewConfigPanel.tsx` call `t()` for directly). But the CONFIRMED 116 include\nkeys naming spec fields that are very much still active — `rowActions`,\n`inlineEdit`, `hiddenFields`, `filterableFields` are current (non-retired)\n`ListViewSchema` properties per\n`packages/types/src/zod/objectql.zod.ts:396-402` — with no i18n-labelled UI\ncontrol anywhere that lets an author toggle them. That reads as a much larger\n\"config surface scaffolded ahead of the settings panel that would expose it\"\ngap than #4658's narrow \"three keys the upstream retirement killed\" framing,\nworth its own investigation into whether `console.objectView`'s intended\nsettings panel exists partially, was never finished, or was descoped without\na matching i18n cleanup.\n\n## Other namespaces worth a look (CONFIRMED / NEEDS-REVIEW, from the same run)\n\n| Namespace | Confirmed | Needs-review |\n|---|---|---|\n| `console.objectView` | 116 | 38 |\n| `workflow` | 54 | 4 |\n| `publicForm.demo` | 36 | 0 |\n| `appDesigner` | 20 | 34 |\n| `configPanel` | 16 | 0 |\n| `renderer` | 13 | 0 |\n| `table` | 10 | 2 |\n| `report` | 10 | 1 |\n| `search` | 9 | 0 |\n| `form` | 8 | 2 |\n\n`publicForm.demo` (36/36 confirmed, spot-checked: zero hits anywhere for\n`publicForm.demo.*` outside the locale packs) looks like scaffolded demo-form\ncontent for a public-form showcase page that was never built, or was removed\nwithout its i18n keys.\n\n## Suggested scope for whoever picks this up\n\nRe-run `node scripts/check-i18n-dead-keys.mjs` for the current CONFIRMED\nlist (it will have drifted since this card's measurement) and work through it\nnamespace by namespace — `workflow` and `publicForm.demo` look safe to bulk\ndelete on the same evidence standard #4658 used (zero call sites, zero\ntextual footprint, a spot-checked plausible consumer that confirms no i18n\nwiring exists). `console.objectView` needs a product decision first: is the\n`ListViewSchema`-backed settings panel meant to exist, in which case this is\na missing-feature card, not a dead-key card.\n\n## Whether to red-ify `check-i18n-dead-keys.mjs`\n\nExplicitly deferred by #4658's own ruling — it stays report-only\n(`--strict` exists but nothing calls it). This card's data point: 242/626\n(38.7%) of a naive AST-only candidate list would have been wrong without the\ntext safety net, which is the measured argument for keeping this a\nhuman-triaged report rather than a red gate for now. A gate could reasonably\nenforce \"every CONFIRMED-tier candidate needs an explicit allowlist entry or\ndeletion\" once the current backlog is worked down, since NEEDS-REVIEW already\nfilters out the indirect-reference class that would otherwise make it noisy.\n\n---\n\n〔阻塞已失效 · R+318〕原首行 `Blocked-by: #6666` 于本轮划去 —— 阻塞者 objectui#6666 现读 `closed`/`completed`。⚠️ 本卡还有第二条、与本行无关的停机条件（评论 5535225108:「不得再切片,直到 #7592 修好」）—— 该条本轮亦已核过并满足。⛔ 本行故意不写成行首可匹配的形状,以免阻塞索引把它读成一条活的阻塞。依据见评论 5735676174。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

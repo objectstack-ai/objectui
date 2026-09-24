@@ -1,0 +1,35 @@
+{
+  "number": 3561,
+  "kind": "issue",
+  "title": "clientValidation.ts: three metadata types opt out of client-side Zod validation on premises that are stale or name the wrong schema (`sharing_rule` / `translation` / `connector`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T11:48:21Z",
+  "updated_at": "2026-08-10T10:08:11Z",
+  "closed_at": "2026-08-10T10:08:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3561",
+  "body": "Found while running the read-only two-repo metadata-coverage audit for objectstack#6234 / objectstack#2657. Not fixed there (audit card, no code PR). Filed unassigned.\n\n`packages/app-shell/src/views/metadata-admin/clientValidation.ts` keeps a documented list of metadata types that deliberately fall through to server-only validation (`:77-92`). Three of those opt-outs rest on a stated reason that does not hold against framework `origin/main` (`objectstack` @ `8e2bbba24f76d56daad166b6b776c69d8c3ac0dc`).\n\n## 1. `sharing_rule` — \"declared but has empty shape\"\n\n`clientValidation.ts:88`:\n\n> `sharing_rule`: SharingRuleSchema is declared but has empty shape — server-only.\n\nAgainst framework main, `SharingRuleSchema` is `CriteriaSharingRuleSchema` (`packages/spec/src/security/sharing.zod.ts:217`), i.e. `BaseSharingRuleSchema.extend({ type, condition })` where the base (`:148-171`) is a `.strict()` object declaring `name` / `label` / `description` / `object` / `active` / `accessLevel` / `sharedWith{type,value}`, with a curated unknown-key error map. Not an empty shape.\n\n## 2. `translation` — judged by the wrong schema\n\n`clientValidation.ts:89`:\n\n> `translation`: TranslationBundleSchema is z.object({}) — accepts anything; server-only.\n\n`TranslationBundleSchema` is indeed unsuitable — but it is not this kind's schema. It is `z.record(LocaleSchema, TranslationDataSchema)` (`packages/spec/src/system/translation.zod.ts:626`), the *bundle* shape. The `translation` **metadata kind** resolves `TranslationItemSchema` (`packages/spec/src/kernel/metadata-type-schemas.ts:130`), a `strictObject` with `locale` / `name` / `label` plus the full translation-data shape (`translation.zod.ts:737-762`), complete with alias and guidance maps.\n\nThis is the same class of error the file itself documents having already paid for once, forty lines below, for `email_template` (`clientValidation.ts:130-139`): the validator named a schema that was not the one `BUILTIN_METADATA_TYPE_SCHEMAS` binds, so drafts were checked against the wrong contract.\n\n## 3. `connector` — the named blocker is not in the schema, and the schema named is not the authoring shape\n\n`clientValidation.ts:90-92`:\n\n> `connector`: ConnectorSchema requires an `id` field that's not in the on-disk metadata shape — the spec models the runtime connector instance, not the file. Wiring it would flag every valid connector definition.\n\nTwo problems. `ConnectorSchema` (`packages/spec/src/integration/connector.zod.ts:648`) opens with `name`, `label`, `type` — there is no required `id`. And the shape a stack actually declares under `connectors:` is `DeclarativeConnectorEntrySchema` (`connector.zod.ts:843`, `stack.zod.ts:477`), which is `ConnectorSchema.superRefine(...)` carrying the ADR-0097 authoring rules — that is the schema a `connector` draft should be checked against, and it is exactly the one that would catch the authoring mistakes the ADR-0097 rules exist to catch (inlined secrets, `providerConfig` without a `provider`, authored `actions` on a provider-bound instance).\n\n## Why this is worth fixing rather than re-wording\n\nThe comment block is not decoration: it is the recorded justification for why a metadata type gets no live validation, and the next reader trusts it instead of re-checking. Two of the three reasons are false and the third names a schema that was never the authoring contract, so all three types silently cost the author a save round-trip to learn about a typo — on `connector` and `sharing_rule` specifically, where the authoring rules are security-shaped (ADR-0097 credential handling; the sharing criteria whose least-validating write path objectstack#3896 had to harden after it could seed a permissive match-all).\n\n## Verification boundary\n\nRead against framework `origin/main`. `packages/app-shell/package.json` pins `@objectstack/spec: ^17.0.0-rc.2`, so whoever fixes this should re-verify each schema against the **resolved published version** before wiring a loader — some of these shapes moved during 17.x, which is plausibly how at least the `sharing_rule` note became stale in the first place. `webhook` is the worked precedent for the wiring itself (`clientValidation.ts:124`).\n\n## Suggested scope\n\nPoint the three loaders at the schemas `BUILTIN_METADATA_TYPE_SCHEMAS` / `stack.zod.ts` actually bind (`SharingRuleSchema`, `TranslationItemSchema`, `DeclarativeConnectorEntrySchema`), or — where a shape genuinely still cannot be used client-side — replace the stale reason with the real one.\n\nFiled per AGENTS.md Prime Directive #10 while auditing for objectstack#6234. Not assigned; no PR.\n"
+}

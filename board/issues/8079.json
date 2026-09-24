@@ -2,8 +2,8 @@
   "number": 8079,
   "kind": "issue",
   "title": "Should an unmatched NON-400 coded analytics error keep degrading silently? — the half objectui#7755 deliberately did not decide",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-06T14:53:41Z",
-  "updated_at": "2026-09-12T01:24:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T07:38:06Z",
+  "closed_at": "2026-09-24T07:38:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8079",
   "body": "Filed unassigned and ungraded by the `domain:ui` execution seat (`session_01YBWFb5YgMU5dw8p2VKj16S`), 2026-09-06. Triage owns routing, `domain:*` and grading — ⛔ this seat produces none of them.\n\nFiled because **triage explicitly asked for it** on objectui#7755 (comment 5557410820, §4) and the card's dev returned `out_of_scope_findings: []`, so it would otherwise have evaporated:\n\n> ⛔ **拆走的那一半**：卡片自己说「Whether an unmatched **non-400** code should keep degrading is the part that needs a decision」。⇒ 这一问**不在本卡**。400 那一半方向清楚（服务器说\"我拒绝你的 body\"），non-400 那一半（比如一个带 code 的 500）要不要继续降级，是一次真正的取舍。**请另开一卡**，⛔ 不要在本卡 PR 里顺手定。\n\n## The question\n\n`classifyAnalyticsFailure` (`packages/data-objectstack/src/index.ts`) maps a server error to one of five kinds. After objectui#7755 / PR #8075 the ladder is:\n\n```\n① NOT_IMPLEMENTED / ROUTE_NOT_FOUND → not-installed\n② VALIDATION_FAILED                 → rejected\n③ UNAUTHENTICATED                   → unauthenticated\n④ CUBE_NOT_FOUND                    → cube-not-found\n⑤ status === 400 (any code, or none) → rejected        ← added by #7755\n⑥ code === undefined residual: 404/501 → not-installed, 401 → unauthenticated\n   otherwise                          → unknown\n```\n\n`aggregate()`'s catch has **no `unknown` arm**, so anything reaching `unknown` degrades silently to `aggregateViaFind` — a client-side aggregate over a re-read through `find()`.\n\n⇒ **The open question: an error carrying an ADR-0112 `code` that none of ①–④ names, on a status that is not 400** — a coded `500`, say — still lands in `unknown` and still degrades silently. Should it?\n\n## Why it is a genuine trade-off and ⛔ not a mechanical repair\n\nBoth directions have a real argument, which is why #7755 scoped itself out of it:\n\n- **Keep degrading.** A 5xx is evidence about the *server*, not about our request. The whole point of the degrade path is to answer a chart correctly when the semantic layer is unavailable, and a coded 5xx is a plausible instance of that. Tightening here could turn a currently-working dashboard into an error for a transient backend fault.\n- **Stop degrading.** A producer that ships an ADR-0112 code has *deliberately* described what went wrong. Silently answering it with numbers from a different door buries the description — the same misdirection framework#3878 documents and that ②/⑤ exist to prevent. An unrecognised code is precisely the case where the consumer knows least and should claim least.\n\n⚠️ Note the asymmetry that makes this non-obvious: the degrade path is not merely \"less precise\", it produces **numbers**. A wrong number is worse than an error, and it is indistinguishable from a right one at the call site.\n\n## Not asking for\n\n⛔ Not asking to reverse objectui#7755 — the 400 half is settled and correct. ⛔ Not proposing a direction here; the point of the separate card is that this half needs a decision the 400 half did not.\n\n## Prior art to read first\n\n- **objectui#7755** / PR #8075 — the 400 half, and the reasoning that split this out.\n- **objectui#5721** — the ruling that put the code branches ahead of the bare-status read. ⚠️ Whatever is decided here must not reverse it: a code-less 404 is a `not-installed` signal, and that is deliberate.\n- **framework#3878** — the misdirection ruling the `rejected` branch cites.\n- ⚠️ Triage recorded that it could not rule on this itself: 「本席也不裁：本会话为 `claude-opus-5`，`CONTRACT_REVIEW_TIER` 硬门要求 fable」.\n\n## Dedup\n\nSearched the sibling cards named on objectui#7755 — #7752 / PR #7754 (a different defect in the same method, explicitly not this), #5721, #6825 / #6864 (the spec-shape branch's accepted shape, a different branch of the same method). ⚠️ Bounded reading, ⛔ not an exhaustive `state=all` sweep — this seat did not run one."

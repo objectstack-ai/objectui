@@ -1,0 +1,35 @@
+{
+  "number": 3979,
+  "kind": "issue",
+  "title": "block-config.ts 的 8 个 placeholder 仍是英文显示文本 —— #3913 只搬了 label/addLabel/option,zh-CN 面板里的输入框提示还是 \"lucide icon name\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:13:13Z",
+  "updated_at": "2026-08-09T21:56:20Z",
+  "closed_at": "2026-08-09T21:56:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3979",
+  "body": "发现于 #3963 的实施过程(围栏外,PR 未夹带 —— #3963 的范围明确排除 `block-config.ts`)。未认领,交 PM triage。\n\n## 机制\n\n#3913(PR #3970)把 `packages/app-shell/src/views/metadata-admin/previews/block-config.ts` 里的 `label` / `addLabel` / option label 全部改成翻译键,渲染处过 `t()`。**`placeholder` 不在那次范围里**,至今仍是显示文本:`PageBlockInspector.renderField` 把 `f.placeholder` 原样交给字段组件(number / json / string-list / 默认 text 四个分支),所以键全对的表照样在中文面板里渲染出英文提示。\n\n这与 #3963 是**不同面**:#3963 是 `PageBlockInspector.tsx` **自身 JSX** 的 chrome 字面量(裸 `Add`、两个 aria-label、`Invalid JSON`、它自己两个 placeholder);本单是 **`block-config.ts` 的表数据**,和 #3913 同一条机制、同一个文件,只是漏了一列。\n\n## 命中(行号以 `origin/main` @ `5bfaabde0` 为准)\n\n`block-config.ts` 共 18 个 `placeholder:`,其中 **8 个有语言内容**:\n\n| 行 | 位置 | 值 |\n|---|---|---|\n| 144 | `object-metric.icon` | `lucide icon name` |\n| 186 | `element:text.content` | `Text…` |\n| 290 | `element:button.icon` | `lucide icon name` |\n| 308 | `page:header.icon` | `lucide icon name` |\n| 375 | `record:details.sections.name` | `snake_case, e.g. contact_info` |\n| 396 | `record:alert.icon` | `lucide icon name` |\n| 413 | `record:quick_actions.actionNames` | `action name` |\n| 435 | `ai:input.agentName` | `agent name` |\n\n另外 10 个**没有**语言内容,不该被当成漏译:纯数字 `20`/`2`/`3`/`4`/`1`/`10`/`2`/`10`(101/135/180/181/227/234/346/377 行)、`https://…`(201)、以及一个 JSON 样例 `{ \"type\": \"url\", \"target\": \"/environments\" }`(300)。\n\n## 影响\n\nzh-CN 管理员今天就会看到,且**恰好在 #3913 / #3963 刚修好的同一个面板里**:打开 `page:header`,字段名「图标」是中文,它下面输入框的提示是 `lucide icon name`;打开 `record:details` 的分区编辑器,「名称(i18n 键)」下面是 `snake_case, e.g. contact_info`。不是 dormant —— 这 8 处分属 6 个常用块类型,选中即渲染。\n\n## 边界与去重\n\n- **不是 #3913**(label/addLabel/option label,已随 PR #3970 落地)。本单是同文件的 `placeholder` 列。\n- **不是 #3963**(PageBlockInspector 自身 JSX 的 chrome;那单的两个 placeholder 是组件内字面量,不读 `block-config`)。\n- **不是 #3912 的子单**。#3912 说的是 `BlockPropField` 缺格式/校验能力位,并把「`record:details.sections.name` 只能靠 placeholder 陈述 snake_case 约定」作为论据 —— 它的完成面是加能力位,不含把这些提示文本翻译掉,两者可各自独立落地,故按标准开独立单。\n- 检索过 open issues(`block-config` placeholder、inspector i18n placeholder、`lucide icon name`),无同题单。\n\n## 实施时值得先想清的一点(记录现象,不代人决定)\n\n`label` 那次能把类型改成必填、删掉裸英文兜底;`placeholder` **不能照抄**这条:它本就是可选的,而且上表说明它是**混合面** —— 8 个要翻译、10 个是数字/URL/JSON 样例。所以「placeholder 必须是键」不能一刀切,要么给非语言值一份显式的豁免台账(如 `block-config-i18n.test.ts` 里现成的 `LOCALE_INVARIANT` 那种写法),要么在 `BlockPropField` 上把「样例值」和「提示文案」分成两个字段。哪条更对属契约面小决定,留给实施者论证。\n\n若走翻译键路线,键形状可沿 #3913 的位置推导惯例(`engine.inspector.pageBlock.placeholder.` 后接 `blockType` 与字段路径),这样能直接并入 `previews/__tests__/block-config-i18n.test.ts` 里那条「存的键等于位置推导出的键」的结构钉。\n"
+}

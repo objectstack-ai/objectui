@@ -1,0 +1,36 @@
+{
+  "number": 3774,
+  "kind": "issue",
+  "title": "data-objectstack 的 listViewOverrides 读的是 `meta/{对象名}`(把对象名当 metadata type),写却落在 `type='view'` —— 两边键空间不相交,已保存的视图个性化永远读不回来",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:01:35Z",
+  "updated_at": "2026-08-08T15:03:41Z",
+  "closed_at": "2026-08-08T15:03:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3774",
+  "body": "在做 #3770(默认列表视图身份)的**存量数据测量**时端到端读了 override 的读/写两条路径,发现的相邻缺陷,不在该单范围内(不同包、不同事实),按 PD #10 单独立此单,未在 PR 里修。\n\n## 结论\n\n`ObjectView` 的「每视图配置 override」(密度、列宽、排序、隐藏列、inlineEdit…)**写在一个 metadata 命名空间,读在另一个**。批量读方法永远返回空 map,而它返回的空 map 又恰好挡住了本来正确的逐视图回落路径。结果:用户在列表上调的密度/列宽/排序,硬刷新后拿不回来。\n\n## 证据(读/写两条路径逐跳)\n\n**写(正确)** —— `packages/app-shell/src/views/ObjectView.tsx` `persistViewPatch`:\n\n```\ndataSource.updateViewConfig(objectName, viewId, cfg)\n  → packages/data-objectstack/src/index.ts  updateViewConfig\n  → client.meta.saveItem('view', viewId, { ...cfg, object: objectName, name: viewId })\n  → PUT /api/v1/meta/view/{viewId}      →  sys_metadata 行:type='view', name={viewId}\n```\n\n`updateViewConfig` 的注释本身写明了这一点:`type='view'`(NOT `type={objectName}` —— 那是 pre-overlay 的误用,服务端从没接过)。\n\n**读(命名空间错了)** —— 同文件 `listViewOverrides`:\n\n```\nclient.meta.getItems(objectName)\n  → GET /api/v1/meta/{objectName}       ← 把对象名当成 metadata TYPE\n  → protocol.getMetaItems({ type: '{objectName}' })\n  → registry.listItems('{objectName}')  +  sys_metadata WHERE type='{objectName}'\n```\n\noverride 全部写在 `type='view'` 下,这个列举因此**不可能**包含它们。异常时 `listViewOverrides` 自己 `catch` 掉并返回 `{}`。\n\n**空 map 还挡住了正确的回落。** `ObjectView` 的 `loadBatch`:\n\n```ts\nif (typeof (dataSource as any).listViewOverrides === 'function') {\n  try {\n    const all = await (dataSource as any).listViewOverrides(objectName);\n    if (all && typeof all === 'object') { /* 建 map */ return map; }   // {} 也是 object\n  } catch { /* fall through */ }\n}\nif (typeof dataSource.getView !== 'function') return {};\n// 逐视图 getView → client.meta.getItem('view', viewId) —— 命名空间是对的\n```\n\n`{}` 是 object,于是 `return map` 提前返回;而 `listViewOverrides` 内部已经把异常吃掉,所以对这个适配器来说 `catch` 分支也永不触发 —— **逐视图 `getView` 回落在 data-objectstack 上是不可达代码**,尽管它读的正是写入的那个命名空间。\n\n## 影响\n\n用户在列表视图上做的持久化偏好(密度切换、列宽拖拽、排序、隐藏列、inlineEdit 开关)写进去了、也确实存在 `sys_metadata` 里,但下次进页面读不回来,表现为「设置没保存」。与视图 id 拼写无关:**任何** id 都读不回来,#3770 改不改都一样(那单只改 id 的推导方式)。\n\n## 备注 / 方向建议(未擅自动手)\n\n批量方法的动机是好的(避免每个视图打一次 GET、对没定制过的视图刷一串 404),问题只在**类型槽填错**。可能的方向:让 `listViewOverrides` 走 `type='view'` 的列举(如按 `object` 过滤的 `/meta/view?object=`,`listViews()` 已经在用类似的过滤法),或在批量结果为空时不要吞掉逐视图回落。具体取哪条要看服务端列举端点的语义,故留给分诊。\n\n## 相关\n\n- #3770 / PR(默认列表视图身份;该 PR 的存量数据测量里记录了这条观察)\n- framework `packages/objectql/src/protocol-view-identity-overlay.test.ts`(#2555 / #3777:真实个性化 PUT 的 sys_metadata 行形状)\n- 查重已做:objectui open issues 搜 `listViewOverrides` / `updateViewConfig` / 视图 override 持久化,无同题单。"
+}

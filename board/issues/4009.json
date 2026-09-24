@@ -1,0 +1,34 @@
+{
+  "number": 4009,
+  "kind": "pull_request",
+  "title": "fix(sdui): object-timeline / record:line_items 的取数补上 filter/sort/limit 读点 (objectstack#7137)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T23:53:11Z",
+  "updated_at": "2026-08-10T00:11:33Z",
+  "closed_at": "2026-08-10T00:11:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T00:11:32Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4009",
+  "body": "Fixes objectstack-ai/objectstack#7137\n\n基线 `f3b2874e1a1a54a38d73d66684a1c0e35911e9f3`(显式 `origin/main` sha,未用 FETCH_HEAD)。方向按 PM 裁定的**路线 1(补读点)**,不重开豁免路线。\n\n## 问题\n\n这两块是 objectstack#7121 逐 block 覆盖表里剩下的两行 `— no read site`。它们都是 object-bound 的列表形态,都已经接了 spec 的 per-element `dataSource` 绑定,而整条取数里**没有任何地方读 `filter` / `sort`**:\n\n- `object-timeline` —— 整条查询就是 `find(objectName, { options: { $top: 100 } })`\n- `record:line_items` —— 只有父 FK 加固定 `$top: 500`\n\n于是在这两块上写 `dataSource: { object, view: 'hot' }`:view 名字**会**被解析(写错报配置错误,不静默回退全量),解析成功后它的 filter / sort 被整份丢掉 —— **渲染出的行可能比作者引用的 view 更宽,而且不报错**。#7121 刻意没有把合成值写到没有读点的 schema 键上(那只是把「声明了却被丢弃」往下挪一层、更难看见),而是把缺口如实写进文档并各钉了一条诚实反向断言。本 PR 从取数这一端补上读点,那两条钉子按其注释的预期翻红,已按指引改写为正向断言。\n\n## 改了什么\n\n**`object-timeline`**(`packages/plugin-timeline/src/ObjectTimeline.tsx`)\n\n```ts\nconst results = await dataSource.find(schema.objectName, {\n    $filter: schema.filter,\n    $orderby: convertSortToQueryParams(schema.sort),\n    $top: schema.limit ?? DEFAULT_TIMELINE_LIMIT,\n    ...(expand.length > 0 ? { $expand: expand } : {}),\n});\n```\n\n形态逐字对齐同仓 `object-gantt` / `object-map` / `object-calendar`(先读了三处实现再动手,没有发明新形状)。registry 映射相应补 `filter` / `sort` / `limit: 'limit'`;`columns` 仍不映射 —— 时间轴投影的是 `timeline` 配置点名的字段(title / start / end / description / color / groupBy),不是 view 的列清单。\n\n**`record:line_items`**(`packages/plugin-form/src/LineItemsPanel.tsx`)\n\n父关系条件与面板自己的 criteria 经 `mergeFilterNodes` **AND 合成,绝不替换** —— 与 objectstack#7118 之后 `record:related_list` 的做法逐字一致(同一个 sink,没有手拼对象):子面板永远被它所在的那条记录限定,spec 说的「*additional* criteria」只能 further narrow 这个父的子行,不可能翻出别的父的行。什么都没写时查询仍是那个未经改动的 MongoDB 风格对象(而不是一个语义相同、重新下降过的 AST —— 这个差别在屏幕上看不见,对每一个钉住 wire 的调用方却看得见)。`sort` 成为装载顺序(与 `RelatedList` 一样,只在有内容时才落 `$orderby` 键),`limit` 成为行上限(默认 500)。`columns` 仍**不**映射 —— 这里是可编辑网格的 `GridColumn[]`(`{ field, type, options, computed, expr, … }`),不是字段名投影,view 的列清单在这里是**形状不对**而不仅是更宽。\n\n**顺带修掉的一个行为缺陷:timeline 的默认窗口现在是真的。** `{ options: { $top: 100 } }` 把上限放在了一个不属于 `QueryParams` 的键上,仓内没有任何 adapter 读 `params.options`(`@object-ui/data-objectstack` 的 `convertQueryParams` 读的是 `params.$top`),所以作者写下的 100 从未上线 —— 大对象上的时间轴拉回的是服务端愿意给的全部行。现在以顶层 `$top` 发出,并可由 `limit` 或 view 的 `pagination.pageSize` 指定。这条已写进 changeset 的行为变化段。\n\n**`@object-ui/core` 新增 `convertSortToQueryParams`**(`packages/core/src/utils/sort-query.ts`):gantt / map / calendar 各内联了一份逐字副本,本次两个新读点若照抄就是第五、第六份,所以提为共享 sink。它比副本更贴合已声明的契约:缺 `order` 的数组项按升序处理而非丢弃(同一份副本在**字符串**写法上已经把「只有字段名」当升序,所以这是消除两种写法之间的不一致,不是新增容忍),无可排序内容返回 `undefined` 而非 truthy 的 `{}`。两点都有单测钉住。迁移三份既有副本**不在本 PR**,已立单 objectstack#7148。\n\n文档:`content/docs/guide/data-source.md` 覆盖表两行 `— no read site` 改写为已支持,并把原来的「Current gaps」段按事实重写(剩下的只有三个 form 类 block)。\n\n## 测试\n\n`flock /tmp/os-heavy-verify.lock` 串行 + `--max-old-space-size=4096` + `--maxWorkers=2`:\n\n```\npnpm exec vitest run packages/plugin-timeline packages/plugin-form \\\n  packages/core/src/utils/__tests__/sort-query.test.ts packages/react/src/element-data-source\n→ Test Files 43 passed (43) | Tests 387 passed (387)\n```\n\n仓根 `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`。\n`node scripts/check-control-bytes.mjs` → OK(3913 个 tracked 文本文件),另按规矩对本次改动文件做了 `grep -naP` 自扫,零命中。\n改动文件 eslint → `0 errors`(81 warnings 全为既有类别:`no-explicit-any` / `react-refresh` / `exhaustive-deps`)。\n\n新钉子:两块各钉「view 的 filter/sort/limit 落到 find 参数」「绑定的附加 filter 与 view 的 AND 合成、sort/limit 覆盖 view」「直接写在 block 上的 flat filter/sort/limit 生效」「block 自身 filter 与 view、绑定三方 AND」;line_items 另钉「父 FK 与 authored filter 同时生效」。\n\n## 反向验证(先预判方向,再跑变异;变异不提交)\n\n- **撤掉 timeline 的 `$filter` 接线** —— 预判:4 条 view 贡献钉翻红,3 条 #7121 钉保持绿(其中「无 dataSource 基线」本就断言 `$filter` 为 undefined,所以它**不该**红)。实测 `4 failed | 3 passed`,红的正是那 4 条,报文形如 `expected undefined to deeply equal [ [ 'stage', '=', 'live' ] ]`。\n- **把 line_items 的 AND 合成改成覆盖** —— 预判:3 条新钉翻红,3 条 #7121 钉保持绿(未写 filter 时 `listFilterNode` 为 undefined,查询仍是父 FK)。实测 `3 failed | 3 passed`,报文 `expected [ [ 'billable', '=', true ] ] to deeply equal [ 'and', …(2) ]` —— 「父 FK 从查询里消失」这一失败模式被直接观测到,也就是「显示了别的父的行」。\n\n两次变异均已还原(`git diff` 干净,提交里不含变异)。\n\n## 消费半径扫查\n\n按规则的调用方而不是被编辑的包来扫:`object-timeline` / `record:line_items` 的其余消费方 —— `apps/console` 的 `public-block-binding-reach` / `public-contract` / `record-block-record-reach`、`packages/plugin-list` 的 `ListView.timeline-binding`、`packages/plugin-view` 的 ObjectView 路径、`packages/app-shell` 的 page-block-path —— 全部检查过:它们断言的是 objectName 到达数据层 / `$select` / registry inputs,本 PR 未改 registry `inputs`(与 gantt 同样不在 inputs 里声明 filter/sort),这些 fixture 无需改动,实跑亦全绿。\n\n## 范围与边界\n\nspec 仓零改动;未碰 timeline / line_items 以外的 block;未碰 `content/docs/releases/**`。\n\n顺手记录、未在本 PR 修(均已单独立单,unassigned):\n\n- objectstack#7147 —— `object-kanban` 的行上限同样写在 `options: { $top: 100 }` 这个死键里,`$filter` 在顶层生效而 `$top` 不生效,看板对大对象取数**没有任何行上限**;文档表里 `object-kanban` 的「fixed window」一句因此不成立。附带记录 `packages/fields/src/index.tsx:232` 同形但无害(主键等值查询)。\n- objectstack#7148(`finding`)—— gantt / map / calendar 三份 `convertSortToQueryParams` 私有副本迁移到本 PR 引入的共享 sink。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

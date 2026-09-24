@@ -1,0 +1,34 @@
+{
+  "number": 3920,
+  "kind": "issue",
+  "title": "grid.import 已存映射那 5 个键在 9 个非 en 包里有 7 个原样留着英文(只有 zh/ja 译了)—— 德/法/西/葡/俄/韩/阿用户在导入弹窗看到英文",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T02:44:30Z",
+  "updated_at": "2026-08-09T13:41:41Z",
+  "closed_at": "2026-08-09T13:41:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3920",
+  "body": "在 #3876 数 de 包引号时撞上的:`de.ts` 里有两个值用**英文风格**的 `“…”` 而不是德语的 `„…“`,查下去发现它们根本没被翻译 —— 是 en 的英文原文照搬。顺着量了整个 `grid.import` 已存映射(saved mapping)簇。\n\n## 实测(main@2937bcf7d,`builtInLocales` 逐键比对,不是抽样)\n\n5 个键,每个都在 **7 / 9** 个非 en 包里与 en **逐字节相同**:\n\n| key | 与 en 逐字节相同的包 |\n|---|---|\n| `grid.import.savedMapping` | ko, de, fr, es, pt, ru, ar |\n| `grid.import.chooseSavedMapping` | ko, de, fr, es, pt, ru, ar |\n| `grid.import.manualMapping` | ko, de, fr, es, pt, ru, ar |\n| `grid.import.savedMappingHint` | ko, de, fr, es, pt, ru, ar |\n| `grid.import.savedMappingPreviewNote` | ko, de, fr, es, pt, ru, ar |\n\n只有 **zh 和 ja** 真的译了。合计 **35 个值**(5 键 × 7 包)在用户界面上是英文。\n\nde 侧原文(`packages/i18n/src/locales/de.ts` 行 445-450):\n\n```\n445:      savedMapping: 'Saved mapping:',\n446:      chooseSavedMapping: 'Choose a saved mapping…',\n447:      manualMapping: '— Map columns manually —',\n449:      savedMappingHint: 'Mapping “{{name}}” applies rename + transforms + type coercion on the server. Column mapping is read-only.',\n450:      savedMappingPreviewNote: 'The preview shows your source columns; on import, mapping “{{name}}” applies rename, transforms and type coercion on the server.',\n```\n\n对照 zh(证明这不是「刻意不译的术语」):\n\n```\nzh savedMappingHint: \"映射“{{name}}”将在服务端应用重命名 + 转换 + 类型强转,列映射为只读。\"\n```\n\n这不是占位符类的合理不译。同批扫描里 `auth.*.emailPlaceholder`(`name@example.com`)、`fields.image.counter`(`{{current}} / {{total}}`)、`grid.import.templateFileName`(`{{object}}-import-template`)、`collaboration.userStatusTitle`(`{{name}} ({{status}})`)确实在多包里相同 —— 那些是纯格式/专名,理应相同。`grid.import` 这 5 个是**完整的英文句子**,其中两句还是多子句的说明文字。\n\n## 为什么门禁看不见\n\n`all-locales-key-parity` 只比键名集合与占位符形状 —— 键在、占位符在,英文原文完美通过。`check-i18n-en-drift.mjs` 只在 **en 值变化**时要求九包跟随;这些键是**落地时**就带着英文进的九包,从没有过「变化」事件。`check-i18n-call-site-keys.mjs` 只判 key 能否解析。三道门都是值域盲的,#3876 的正文也是这么写的。\n\n## 修法与建议\n\n1. 给 ko / de / fr / es / pt / ru / ar 补这 5 个键的译文;\n2. `savedMappingHint` / `savedMappingPreviewNote` 里的引号按各包排印约定落(de → `„…“`,fr → `«…»`,zh → `“…”`,ja → `「…」`,其余 ASCII —— `residue-namespaces-3546.test.tsx` 701 行已钉住这套约定);\n3. 可考虑一条「新增键不得在非 en 包里与 en 逐字节相同」的门禁,但**分母要先量**:上面已说明有一批格式/专名值理应相同,直接上门禁会有假阳。#3880 记录过同族的另一面(共享 en 值不能一律要求同译),定门禁前值得一并读。\n\n## 副作用:它解释了 #3876 那条不变量为什么不能写成 count(„) == count(“)\n\n#3876 卡片建议钉 `count(„) === count(“)`。**在正确修完的 de 上那条是假的**(45 vs 47),多出来的 2 个 `“` 正是 `savedMappingHint` / `savedMappingPreviewNote` 这两句英文里的**开**引号。PR #3918 因此改钉配对本身 + 恒等式 `count(“) === count(„) + count(”)` —— 本单把这两个值译成德语后,那条恒等式依然成立(47 === 47 + 0),不需要回头改钉子。\n\n关联:#3876(PR #3918)、#3880(共享 en 值的同族分析)。\n"
+}

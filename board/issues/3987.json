@@ -1,0 +1,35 @@
+{
+  "number": 3987,
+  "kind": "issue",
+  "title": "navigation-renderer 的 items 是 TS 必填、声明面可选 —— 省略它时渲染器直接抛,而校验器零诊断(missing-required-prop 从不触发)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:56:03Z",
+  "updated_at": "2026-08-09T23:00:05Z",
+  "closed_at": "2026-08-09T23:00:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3987",
+  "body": "发现于 #3972 的实施(PR #3984),**不在该 PR 处理**。#3972 的判据是\"三面对齐\"(渲染器读点 × spec 声明 × `ManifestInputType` 表达),说的是键的**存在与类型**;可选/必填是第四面,而补上它会**新增 error 级诊断**,是收紧决定而非假诊断修正,所以另开。未认领,交 PM triage。\n\n## 机制\n\n`packages/layout/src/index.ts` 的 `navigation-renderer` 声明(#3972 修正类型后的样子;`required` 一直没有):\n\n```\n{ name: 'items', type: 'array' },\n```\n\n而 `NavigationRendererProps.items` 是**非可选**的 `NavigationItem[]`(`packages/layout/src/NavigationRenderer.tsx:106-108`)。`sdui-parser` 只在 `input.required` 为真时报 `missing-required-prop`(`src/validate.ts:55-64`),所以 `{ \"type\": \"navigation-renderer\" }` 这个节点:\n\n1. 校验器**零诊断**(`items` 不在节点上,而声明没说它必填);\n2. 渲染时直接抛。`NavigationRenderer` 的 `items` 无默认值(`:1204`),`searchQuery` 为空时 `filteredItems === items === undefined`,随后两处都吃 undefined:\n   - `collectPinnedItems(filteredItems)` → 内部 `for (const item of items)`(`:1410`),对 undefined 抛 TypeError;\n   - `sorted = filteredItems.slice()`(`:1247`),同样抛。\n\n即\"校验器放行 → 渲染崩\",而这正是 `missing-required-prop` 这条诊断存在的意义。\n\n**证据性质:** 以上是按 file:line 的静态读出(无默认值 + 两处无守卫的解引用),没有另跑运行期复现 —— 定级时请把这一点计入。\n\n## 修法与代价\n\n`{ name: 'items', type: 'array', required: true }` 一行。代价是它会给今天省略 `items` 的仓外 schema 新增一条 **error** 级诊断(`missing-required-prop`);方向上这是对的(declared = enforced,让 AI 作者在写出会崩的节点时当场被拦),但它是收紧,得有人拍。\n\n若选择这条,注意 `examples/schema-catalog/test/pageheader-with-actions.test.tsx` 里 #3900 的 `not-a-container` 对照会因此多出一条诊断 —— 该断言按 code 过滤,仍绿,但**注释里\"`items` 不是 required,所以省略它不画任何东西\"那句会失真**,必须同改(#3984 已经把该注释里关于类型的那半更新过一次)。\n\n替代路线(不互斥):给 `items` 一个 `= []` 默认值,让渲染器对缺 items 的节点渲染空导航而不是抛。但这只是把崩溃换成静默空白 —— 对\"作者忘了写 items\"这件事,error 级诊断比静默空导航更有用。\n\n## 可达性诚实标注\n\n仓内没有任何 JSON 元数据把 `navigation-renderer` 当 schema 节点写(全仓 grep 只命中注册本身与 #3900 加的那条阳性对照测试),React 调用侧 `items` 必填由 TS 兜住。所以今天的受害者是仓外按 `inputs` / `packages/layout/README.md` 作 schema 驱动的消费者 —— 与 #3972 现象二同级、同一句标注。\n\n## 参考位置\n\n- `packages/layout/src/index.ts` —— `navigation-renderer` 的 `items` input\n- `packages/layout/src/NavigationRenderer.tsx:106-108` —— `items: NavigationItem[]`(非可选)\n- `packages/layout/src/NavigationRenderer.tsx:1204` / `:1247` / `:1410` —— 无默认值 + 两处无守卫解引用\n- `packages/sdui-parser/src/validate.ts:55-64` —— `missing-required-prop` 只看 `input.required`\n\n关联:#3972(发现于此实施,刻意未含)、#3984(该单的 PR)、#3900(同文件声明面的前情)、#3226"
+}

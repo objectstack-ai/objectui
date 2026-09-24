@@ -2,8 +2,8 @@
   "number": 9490,
   "kind": "issue",
   "title": "finding(console,chunks): `includeDependenciesRecursively` silently empties FOUR more declared groups — `plugins-views` is declared for plugin-detail/list and holds neither; 90 modules sit in chunks their group's regex does not match",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-try-charles",
@@ -13,7 +13,6 @@
   "labels": [
     "ci/cd",
     "domain:devx",
-    "pm:blocked",
     "priority:p3",
     "tooling"
   ],
@@ -21,9 +20,13 @@
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-14T10:39:37Z",
-  "updated_at": "2026-09-16T15:10:18Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T02:40:18Z",
+  "closed_at": "2026-09-24T02:40:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 2,
   "locked": false,

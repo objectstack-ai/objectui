@@ -1,0 +1,33 @@
+{
+  "number": 3942,
+  "kind": "pull_request",
+  "title": "fix(site): Playground 注册 layout 组件，并删掉两个非依赖的 transpilePackages 死条目",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:30:14Z",
+  "updated_at": "2026-08-09T13:46:30Z",
+  "closed_at": "2026-08-09T13:46:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T13:46:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3942",
+  "body": "Fixes #3904\n\n## 背景\n\n文档站有 4 个 SchemaRenderer 宿主。#3787 给渲染 catalog 示例的三个加了 `registerLayoutBlocks`，第四个 —— Playground —— 渲染的是用户手输的 schema，不在那次验收面内，于是今天在 Playground 敲一个 `page-header` 仍然得到红色 OBJUI-001「Unknown component type」面板，而文档站其它地方都能渲染它。占位符也接不住：`page-header` 属于 `placeholders.tsx` 里 opt-in 的 `PROTOCOL_COMPONENTS`，不在 eager 注册的 `PALETTE_PLACEHOLDER_BLOCKS` 里，而 `registerPlaceholders()` 只有 `apps/console` 调。\n\n同时 `apps/site/next.config.mjs` 的 `transpilePackages` 列着两个非依赖包：`@object-ui/i18n` 与 `@object-ui/plugin-aggrid`。\n\n## 改动（三个文件）\n\n1. `apps/site/app/playground/page.tsx`：模块作用域 import `@/app/components/registerLayoutBlocks`，与另三个宿主同款。用 `@/app/...` 别名而非相对路径，是跟随该文件既有的 provider import 写法（相对路径在 `app/playground/` 下拼出来反而不同）。\n2. `apps/site/next.config.mjs`：删掉两个死条目，并把「每一项都必须是本 app 已声明的依赖」连同原因写进注释。\n3. 新增 `scripts/__tests__/site-playground-layout-registration-3904.test.ts`：把两个面都钉住。\n\n## 两个条目为什么确实是死的（自行核实，不是照抄 issue）\n\nNext 有两处消费 `transpilePackages`：\n\n- `webpack-config.js` 里建的 `node_modules/(名字)/` 路径正则；\n- `handle-externals.js` 里按**名字**把每一项解析成 `包名 + /package.json`，**解析起点是 app 目录**；解析成功才记下该包目录，之后按**目录前缀**判定资源要 bundle 而不是 externalize。\n\npnpm 严格 linker 下这两个包在 `apps/site` 根本解析不到 —— 实测 `MODULE_NOT_FOUND`，而真实依赖给的是 `ERR_PACKAGE_PATH_NOT_EXPORTED`（找到了包，只是 exports 不暴露 package.json），两者可以干净地区分开。解析不到 ⇒ 不记目录 ⇒ 退回 `node_modules/名字/` 子串匹配，而 workspace 包的真实路径是 `packages/xxx/dist/...`（webpack `symlinks: true`），也命不中。两条路径都没有，条目零作用。`packages/plugin-aggrid` 更是整个 workspace 里已经不存在了。\n\n反过来说，**剩下 19 项是有作用的**：它们能解析到，于是走目录前缀匹配，确实阻止了 externalize。所以这不是「整个数组都是装饰」，只有那两项是死的。\n\n## ⚠️ `@object-ui/i18n` 那一项当初是「有意加的」，所以单独交代为什么删它安全\n\n审阅时值得先看这一节。根 `CHANGELOG.md:565` 明确说这一项是为修 SSR 预渲染报错而加：\n\n> **Site SSR build** (`@object-ui/site`): Added `@object-ui/i18n` to `transpilePackages` in `next.config.mjs` to fix \"dynamic usage of require is not supported\" error when prerendering the tooltip docs page.\n\n所以它不是「一行装饰」，不能凭 issue 的说法一删了之。查证结果：\n\n- 加它的是 `c4489d0fa`（2026-03-31）。那个 commit 对 site **只**改了 `next.config.mjs` 这一行，**没有**同时把 `@object-ui/i18n` 加成 `apps/site` 的依赖 —— 有意思的是同一个 commit 给 console 补的是**真依赖**（`plugin-chatbot`），正好是 site 这半边漏掉的那一步；\n- `git log -S '\"@object-ui/i18n\"' -- apps/site/package.json` **零命中**：它从来没有做过 `apps/site` 的声明依赖；\n- 当时数组本来就非空，`shouldIncludeExternalDirs` 早已是开着的，所以这一行唯一可能生效的路径就是「按名字解析」，而那条路径在 pnpm 严格 linker 下解析不到。\n\n**实证**：删掉该项后完整 `next build` 预渲染 **556/556** 页全绿，其中 CHANGELOG 点名的那一页照常产出 —— `.next/server/app/docs/components/overlay/tooltip.html`，133KB 真实内容（`Tooltip` 正文在内），`dynamic usage of require` 零命中。也就是说那个报错并不靠这一项压着。\n\n一处相关细节：`@object-ui/i18n` 其实是 `components`/`react`/`fields` 的**传递**依赖，代码确实进了站点产物 —— 但它一直走的是真实路径 `packages/i18n/dist/*.js`，本来就不靠这个条目；真正让 workspace 外部目录能被编译的是「`transpilePackages` 数组非空」这个布尔，删两个名字后数组仍有 19 项，不受影响。这一点也写进了测试。\n\n## 验收 ②：剩余条目逐一核实\n\n19 项全部是 `apps/site/package.json` 的 `dependencies`，且 `apps/site/node_modules/@object-ui/` 下都有 symlink：`core`、`components`、`fields`、`layout`、`react`、`types`、`plugin-calendar`、`plugin-charts`、`plugin-chatbot`、`plugin-dashboard`、`plugin-editor`、`plugin-form`、`plugin-gantt`、`plugin-grid`、`plugin-kanban`、`plugin-map`、`plugin-markdown`、`plugin-timeline`、`plugin-view`。这条核实已经机械化，不用下次再手数一遍。\n\n## 验收 ①：验证层级（如实报告）\n\n`apps/site` 没有任何测试基建 —— 无 `test` script、无 vitest config，且根 vitest 的 `sharedExclude` 直接排除 `apps/**`。容器里也没有装 Playwright 浏览器（`~/.cache/ms-playwright` 不存在），所以**没有**做真浏览器手敲那一步。按 issue 允许的下限做，并额外补了一层构建实证：\n\n1. **静态断言（新测试，11 个 case 全绿）**：注册链三段接上 —— Playground import 了 registrar；registrar 从 `@object-ui/layout` import 并在模块作用域**调用** `registerLayout()`（该包 `sideEffects: false`，只 import 不调用可能被摇掉）；而 `registerLayout()` 真的注册 `page-header` 这一段，已经由 `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx` 钉在实现旁边，这里不重复（那个文件是它的归属，且 #3899 正在动那个包）。宿主是**发现式**枚举的，不是硬编码四个 —— 这个 bug 本来就是「谁都没想起来加的那个宿主」，第五个宿主会被同样地抓住。\n2. **构建差分实证**：`pnpm --filter @object-ui/site build` 两次（有/无本次 import），拿预渲染 `/playground` 页面实际引用的 chunk 去查只属于 `registerLayout` 的标记：\n\n   | 标记 | 无本改动 | 有本改动 |\n   |---|---|---|\n   | `responsive-grid` | 无 | `105kecdsogrnc.js` |\n   | `navigation-renderer` | 无 | `105kecdsogrnc.js` |\n   | `app-schema-renderer` | 无 | `105kecdsogrnc.js` |\n   | 页面 chunk 数 | 20 | 22 |\n\n   顺带说明一个容易被误读的现象：光查 `page-header` 字符串在两个构建里**都**命中一个 chunk —— 那是 `placeholders.tsx` 里 opt-in 名单的字符串，不是注册。所以差分用的是上面三个只出现在 `registerLayout` 里的标记；构建也证明 `sideEffects: false` 没有把它摇掉。\n\n反向验证（方向先判后跑，两边都是预期的红）：去掉 Playground 那行 import，新测试点名 `apps/site/app/playground/page.tsx` 变红、另三个宿主保持绿；把 `@object-ui/i18n` 放回 `transpilePackages`，另一组点名它变红。\n\n## 一个值得维护者知道的点\n\n`pnpm type-check`（`turbo run type-check`）**覆盖不到本 PR 改的任何文件**：`apps/site` 的脚本叫 `types:check`（不是 `type-check`），`scripts/` 也不是 workspace 包。所以除了全仓 78/78 全绿之外，另外单跑了 `pnpm --filter @object-ui/site types:check` 与 `pnpm type-check:scripts`，都是 0 错。这是既有且登记过的状况（`scripts/check-type-check-coverage.mjs` 绿，把它算作「1 not compiled」），不是本 PR 引入的，所以没有另开 issue。\n\n## 顺手记录的仓外发现\n\n已另开 #3944（`finding` 标签，未认领）：根 `vitest.config.mts` 的 alias 表有 4 个指向不存在目录的死条目（`@object-ui/engine`、`@object-ui/renderer`、`@object-ui/plugin-aggrid`、`@object-ui/ui`），是同一类「配置声明了、依赖图里没有」的漂移。实测这 4 个 specifier 的 import 数都是 0，今天没人碰到，所以按观察类记录、不在本 PR 修（`vitest.config.mts` 是共享热文件）。\n\n## 不在本单内\n\n「Playground 组件覆盖面到哪为止」按分诊定界可分割：它现在也没有 `plugin-detail`，所以 `record:*` 全渲染不出。那是 Playground 调色板的产品决定，不是这次的注册缺口，本 PR 不碰；`packages/layout` 也没碰（#3899 的面）。\n\n## changeset\n\n不需要。`@object-ui/site` 在 `.changeset/config.json` 的 `ignore` 列表里（changesets 从不给它发版），另一个改动是 `scripts/__tests__/`，不属于任何已发布包的 `src/`。`node scripts/check-changeset-presence.mjs` 输出：`No source of a released package changed in this range, so no changeset is owed.`\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n"
+}

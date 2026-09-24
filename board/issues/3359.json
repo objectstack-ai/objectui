@@ -1,0 +1,36 @@
+{
+  "number": 3359,
+  "kind": "issue",
+  "title": "DatasetWidget:metric 卡接上 `widget.colorVariant` 强调色 —— 让 spec 已声明、16 处已授权的键 declared = enforced(objectstack#5010 裁决 B)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-04T13:12:35Z",
+  "updated_at": "2026-08-08T16:37:21Z",
+  "closed_at": "2026-08-08T16:37:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3359",
+  "body": "objectstack#5010 的补充裁决(2026-08-04,维护者定 B):`DashboardWidgetSchema.widgets[].colorVariant` 保留声明,由 objectui 落实。记录不认领。\n\n## 现状(objectstack PR #5255 实测)\n\n- `colorVariant` 在 spec 已声明、在 platform-objects(system_overview,7 处)与 app-showcase(9 处)真实授权 16 次,全部 `type:'metric'` + dataset-bound;\n- 但 `dataset` 在 DashboardWidgetSchema 必填 ⇒ 所有合法 widget 经 `DashboardRenderer.tsx:653,691` 恒走 `DatasetWidget`,而它没有任何颜色能力(只有 renderer 自算的 categoryColors 与 showLegend)—— 该键从未生效过;\n- inline 旧路径的 `componentSchema` 色彩逻辑与本单无关,勿从那里搬。\n\n## 要做的\n\n1. `DatasetWidget` 的 metric 卡读取 `widget.colorVariant`,映射到既有强调色体系(以 spec 枚举为词表,不自造变体);\n2. 钉测试:各枚举值渲染差异 + 未声明时的缺省(与今日渲染一致,不引入回归);\n3. 落地后 framework 侧随 pin 提升把 `liveness/dashboard.json` 该行翻 `live`(objectstack PR #5255 在 CLI advisory 上钉了「恰好只警告 colorVariant」的正向对照,翻行时一并解除)。\n\n非 v17 窗口约束(spec 零改动),任何 17.x 可发。\n\nRefs:objectstack#5010、objectstack PR #5255、objectstack#5175。"
+}

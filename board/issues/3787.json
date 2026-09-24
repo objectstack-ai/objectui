@@ -1,0 +1,36 @@
+{
+  "number": 3787,
+  "kind": "issue",
+  "title": "docs/examples: PageHeader 文档页的唯一 live demo(`layout-page-header/pageheader-with-actions`)手搓 div,完全不用 `page-header`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:24:46Z",
+  "updated_at": "2026-08-09T01:20:28Z",
+  "closed_at": "2026-08-09T01:20:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3787",
+  "body": "在 #3267 / PR #3785(收敛 `page-header` 的文档 prop 名)期间发现,**不在该 PR 处理** —— 那一单的文件面是 `content/docs/` 里的两个文档块,这一条要改 `examples/schema-catalog/`,是另一个包、另一类动作。\n\n## 现象\n\n`content/docs/layout/page-header.mdx:23` 是这一页**唯一**的可运行示例:\n\n```mdx\n## With Actions\n\n<SchemaExample id=\"layout-page-header/pageheader-with-actions\" />\n```\n\n它指向 `examples/schema-catalog/src/schemas/layout-page-header/pageheader-with-actions.json`。那份 JSON 的全文里**没有 `page-header`**,而是用 `div` + `text` + `button` 手搓了一个长得像 header 的东西:\n\n```json\n{\n  \"type\": \"div\",\n  \"className\": \"space-y-6\",\n  \"children\": [{\n    \"type\": \"div\",\n    \"className\": \"flex flex-col gap-4 pb-4\",\n    \"children\": [{\n      \"type\": \"div\",\n      \"className\": \"flex items-center justify-between gap-4\",\n      \"children\": [\n        { \"type\": \"div\", \"className\": \"flex flex-col gap-1\", \"children\": [\n            { \"type\": \"text\", \"content\": \"Users\", \"className\": \"text-2xl font-bold tracking-tight\" },\n            { \"type\": \"text\", \"content\": \"Manage your team members and permissions\", \"className\": \"text-sm text-muted-foreground\" }\n        ]},\n        { \"type\": \"div\", \"className\": \"flex items-center gap-2\", \"children\": [\n            { \"type\": \"button\", \"label\": \"Export\", \"variant\": \"outline\" },\n            { \"type\": \"button\", \"label\": \"Add User\" }\n        ]}\n      ]\n    }]\n  }]\n}\n```\n\n## 为什么这是个问题\n\n1. **它教反了本仓库的核心命题。** 这是 SDUI 引擎的文档,`page-header` 的文档页给出的可复制 JSON 却是「不要用组件,自己拼 div 和 Tailwind」。作者(尤其是 AI 作者)照这份 demo 生成的页面拿不到 `{field.path}` 插值、`showBack`、`record:quick_actions` 委派、i18n —— 全是 `PageHeader` 已经做好的事。\n2. **它不验证任何东西。** demo 里没有 `page-header` 节点,所以 `page-header` 的渲染回归它一次也测不到;组件坏掉时这个 demo 依然绿。\n3. **它把手抄的样式数值又复制了一份。** `text-2xl font-bold tracking-tight` / `text-sm text-muted-foreground` / `gap-4 pb-4` 是从 `PageHeader.tsx` 抄来的,而且已经和实际漂了(见 #3786:实际是 `gap-3`,且有 `border-b`)。同一组数值现在有三份副本:组件、文档 Styling 小节、这份 demo。\n4. 标题叫 \"**With Actions**\",而 `PageHeader` 的第一等 `actions` prop(`PageHeader.tsx:58`、`:192-206`,委派给 `record:quick_actions`)在 demo 里完全没出现 —— 演示的是\"自己塞两个 button 到右边\"。\n\n## 建议处置\n\n把这份 JSON 换成真的 `page-header` 节点,例如:\n\n```json\n{\n  \"type\": \"page-header\",\n  \"title\": \"Users\",\n  \"subtitle\": \"Manage your team members and permissions\",\n  \"icon\": \"users\",\n  \"children\": [\n    { \"type\": \"button\", \"label\": \"Export\", \"variant\": \"outline\" },\n    { \"type\": \"button\", \"label\": \"Add User\" }\n  ]\n}\n```\n\n需要先确认的两点(所以本条只记录、不直接动手):\n\n- `children` 落 `PageHeader` 右侧槽走的是 `schema.children` 那条路(`PageHeader.tsx:182-190`、`:207`),而 `page-header` 的 registration **没有** `isContainer: true`(`packages/layout/src/index.ts:50-58`)。要确认 schema-catalog 的渲染路径能把 children 送进去,否则 demo 会空着右槽。\n- 若改用第一等的 `actions`,它委派给 `record:quick_actions`,需要 record 上下文/对象 metadata 才有东西可渲染;schema-catalog 是无后端的 gallery,得确认它能否满足,或退回 `children` 形态。\n\n这两点决定 demo 写成哪一种,属于要看一眼运行环境的活,不适合盲改。\n\n## 参考位置\n\n- `content/docs/layout/page-header.mdx:23`\n- `examples/schema-catalog/src/schemas/layout-page-header/pageheader-with-actions.json`\n- `examples/schema-catalog/src/index.ts:375`、`:3793-3794`(注册)\n- `packages/layout/src/PageHeader.tsx:58`、`:182-190`、`:192-206`、`:207`、`:210`\n- `packages/layout/src/index.ts:50-58`\n\n关联:#3267(发现于此)、PR #3785、#3786(同一组样式数值的另一份副本)\n"
+}

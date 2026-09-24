@@ -1,0 +1,36 @@
+{
+  "number": 3786,
+  "kind": "issue",
+  "title": "docs: `page-header.mdx` 的 Styling/Container 两条数值与 PageHeader.tsx 不符(`pb-8 on desktop`、`gap-4`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:24:16Z",
+  "updated_at": "2026-08-09T01:20:27Z",
+  "closed_at": "2026-08-09T01:20:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3786",
+  "body": "在 #3267 / PR #3785(把 `page-header` 两处文档的 prop 名收敛到 `subtitle`)期间发现,**不在该 PR 处理** —— 那一单的判定面是「组件真实读取的**键**」,这两条是**样式数值**断言,是另一类事实,不适合搭车(#3267 的 PM 裁定把文件面钉在 Component Props 块 + prop 拼写上)。\n\n## 现象\n\n`content/docs/layout/page-header.mdx` 的「Styling → Container」小节(PR #3785 落地后在 L143-146 附近)写:\n\n```\n### Container\n\n- Padding bottom: `pb-4` on mobile, `pb-8` on desktop\n- Gap: `gap-4` between elements\n```\n\n`packages/layout/src/PageHeader.tsx:210` 的实际根 class 是:\n\n```\ncn('flex flex-col gap-3 pb-4 border-b', className)\n```\n\n逐条对比:\n\n| 文档断言 | 代码实际(`PageHeader.tsx`) |\n|---|---|\n| `pb-4` on mobile, **`pb-8` on desktop** | `pb-4`,**无任何断点变体** —— 桌面端也是 `pb-4` |\n| Gap: **`gap-4`** between elements | 外层 flex-col 是 **`gap-3`**(`:210`);内部标题行是 `gap-x-4 gap-y-2`(`:211`) |\n| (未提) | 根节点还有 `border-b`,文档整节没写 |\n\n## 为什么值得记一笔\n\n这一节的读者是要**覆盖/对齐**这些间距的人(`className` 是 schema 里公开的 override 口子,AGENTS.md #3)。按 `pb-8` 去算桌面端留白会算错一档;`gap-4` 与实际 `gap-3` 差 0.25rem,肉眼可见。属于\"照文档做会得到错结果\"的那类失真,不是纯排版。\n\n同一小节的 Title 断言(`text-2xl` / `md:text-3xl` / `font-bold` / `tracking-tight`)与 `PageHeader.tsx:231` 一致,Subtitle 断言(`text-sm` / `text-muted-foreground`)与 `:233` 一致 —— 只有 Container 这一块漂了。\n\n## 建议处置\n\n按代码改写 Container 三条(`pb-4` 无断点、`gap-3`、补 `border-b`)。范围就这一节,不到 5 行。\n\n顺带一并考虑:这一节没有任何机制钉住它,下次改 class 还会漂。若要根治,方向是把这类\"样式数值文档\"改成指向代码而非复述数值 —— 那属于另一个决策,不必和这次修正绑在一起。\n\n## 参考位置\n\n- `content/docs/layout/page-header.mdx`(「Styling → Container」小节)\n- `packages/layout/src/PageHeader.tsx:210-211`、`:231`、`:233`\n\n关联:#3267(发现于此)、PR #3785\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3891,
+  "kind": "issue",
+  "title": "objectui doctor 把「没有 tailwind.config.js」算成一条 issue —— 在 Tailwind 4 项目上这是错的建议(本仓自己零个该文件,doctor 跑在仓根就误报)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:11:19Z",
+  "updated_at": "2026-08-10T03:10:27Z",
+  "closed_at": "2026-08-10T03:10:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3891",
+  "body": "越界发现,记录于 #3852(生成物 Tailwind 4 迁移)实施期间。#3852 的文件面是 `app-generator.ts` 的生成物与 `commands/dev.ts`;这一条是 `commands/doctor.ts` 的诊断逻辑,不同命令、不同面。\n\n## 事实(核于 `origin/main` = `56ff0916e`)\n\n`packages/cli/src/commands/doctor.ts:52-74`:\n\n```ts\n// 2. Check tailwind.config.js\nconst tailwindConfigPath = join(cwd, 'tailwind.config.js');\nconst tailwindTsPath = join(cwd, 'tailwind.config.ts');\nif (existsSync(tailwindConfigPath) || existsSync(tailwindTsPath)) {\n   ...\n   if (configContent.includes('content') && (configContent.includes('./src') || ...)) {\n     console.log(chalk.green('✓ Tailwind content paths configured'));\n   } else {\n     console.log(chalk.yellow('⚠️ Tailwind content paths may not be configured. ...'));\n     issues++;\n   }\n} else {\n  console.log(chalk.yellow('⚠️ tailwind.config.js not found'));\n  issues++;\n}\n```\n\n三点都与 Tailwind 4 相反:\n\n1. **v4 不需要这个文件**,而且没有 `@config` 指向它时它是死文件。本仓自己就是证据:`tailwind.config.*` 在 tracked 文件里 **0 个**(#3780 也记过这条),而 6 份 `postcss.config.*` 全部写 `'@tailwindcss/postcss': {}`。所以在本仓根跑 `objectui doctor` 会稳定报出一条不存在的问题并让 `issues++`。\n2. **`content` 数组在 v4 里已被 `@source` 取代**,所以第二条分支(\"content paths configured\")即使文件存在也是在检查一个 v4 不读的键。\n3. 同一函数上面几行(`doctor.ts:36-42`)只检查 `tailwindcss` 是否被声明,不看 major,也不检查 v4 真正需要的 `@tailwindcss/postcss` —— 一个 v4 项目缺了后者会 PostCSS 加载失败(#3852 记录的正是这个失败形态),doctor 却报 `✓ Tailwind CSS installed`。\n\n## 影响\n\n`objectui doctor` 的产出是\"issues 数 + 建议\"。对任何 v4 项目(含本仓),它今天:少报真问题(缺 `@tailwindcss/postcss`)、多报假问题(缺 `tailwind.config.js`),并把读者推向去补一个 v4 不会读的文件。属于用户可见的错误建议,不是 dormant。\n\n## 不预判修法\n\n要判的一格:doctor 该只支持 v4(检查 `@tailwindcss/postcss` 声明 + CSS 入口里的 `@import 'tailwindcss'`/`@source`),还是同时容忍 v3 项目(按 `tailwindcss` 的 major 分流两套检查)。前者与本仓 v4-only 的现状一致且简单;后者对仓外老项目更友好但要维护两条路径。留给维护者定。\n\n## 已搜重\n\n本仓开放 issue 搜过 `objectui init doctor scaffold`、`tailwind`、标题含 `cli` 三组:`tailwind` 一组命中 #3852(生成物,已在实施)、#3883(theming/troubleshooting 文档面)、#3884(quick-start 的 @source 行)、#3855/#3787(无关文档面),没有一条覆盖 `doctor.ts`。\n"
+}

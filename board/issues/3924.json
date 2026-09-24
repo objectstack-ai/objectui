@@ -1,0 +1,35 @@
+{
+  "number": 3924,
+  "kind": "pull_request",
+  "title": "fix(actions): forward bodyExtra end-to-end through the action chain",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T05:02:38Z",
+  "updated_at": "2026-08-09T05:39:17Z",
+  "closed_at": "2026-08-09T05:39:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T05:39:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3924",
+  "body": "Fixes objectstack-ai/objectstack#6837\n\n## 背景\n\n`bodyExtra` 是 `type: 'api'` 动作的静态请求体。spec 半边(objectstack#6819)已合入:`params` 只保留「参数定义数组」一个含义,ADR-0087 的 `inline-action-api-params-to-body-extra` 转换在**加载时**把旧的对象形 `params` 页面改写成 `bodyExtra`。\n\n而 objectui 每个动作渲染器都用一份**显式转发白名单**(刻意如此:没有渲染器读的键不该看起来像接好了),这些名单里都没有 `bodyExtra`。结果:一个已发布页面通过校验、成功发布,然后在到达 runner 前**一跳丢掉 payload**,POST 出去是空体。这是发布完整性件。\n\n## 四个落点的实况\n\n| 落点 | 实况 |\n|---|---|\n| ① `packages/components/src/renderers/basic/elements.tsx` | **已改**。`element:button` 白名单补 `bodyExtra: action.bodyExtra`。补完后该名单与 spec 的 `InlineActionSchema` pick list **逐字段对齐**(那份 pick list 正是本白名单所镜像的契约)。同文件只有这一处 `execute()` 转发。 |\n| ② `packages/core/src/actions/ActionRunner.ts` — 弃用窗 + 合并顺序 | **已改**。派发词说的 `:780/790` 分叉在实际 main 上是 `:840/850`,且那处分叉服务于**参数收集**,与 payload 组装无关 —— runner 里原本**完全没有**读 `bodyExtra` 的地方。所以合并顺序落在 runner 自己组装 body 的位置(`executeAPI`),弃用告警落在「非数组 `params`」的判定上。 |\n| ③ `executeAPI` 回退路径 | **已改**,但文件不是派发词写的 `useConsoleActionRuntime.tsx` —— issue 正文点明这一处在 `ActionRunner.executeAPI`(`body = JSON.stringify(action.params \\|\\| context.data \\|\\| {})`,两个调用点)。**`useConsoleActionRuntime.tsx` 免改**:`apiHandler` 两条分支都已经把 `bodyExtra` 最后合并(`:308`-309 绝对 HTTP 分支、`:385`-386 dataSource 分支),复核后未动一行。 |\n| ④ `packages/types/src/ui-action.ts` | **已改**。`ActionSchema` 补 `bodyExtra`,类型**从 spec 派生**而非手抄,形状不会与契约漂移。 |\n\n## 具体做了什么\n\n**转发白名单(components)。** 除 `element:button` 外,四个**声明式**动作渲染器(`action:button` / `action:group` / `action:icon` / `action:menu`)同样漏掉了 `bodyExtra`,一并补上。这是对派发范围的一次**有意扩大,在此明说请复核**:理由是落点 ④ 只有这些渲染器才是它的消费者 —— `element:button` 走 `readProps` 拿到的是无类型的对象袋,根本用不到 `ActionSchema`,所以若不补这四处,落点 ④ 就是一个「没有任何渲染器读」的死字段,恰好是 spec 注释里警告的那种失败。改动本身是同一个键、同一跳、零契约决策。`action:bar` 免改:它把成员动作整体 spread 到子渲染器上,天然带过去(已核验)。\n\n**合并顺序(core)。** `ActionRunner.executeAPI`(没有 host 注册 `api` handler 时走的路径)现在集中组装 body,`bodyExtra` **最后合并**,与 spec 对该键的描述(\"merged last (overrides user params)\")以及 console `apiHandler` 两条分支一致。顺带:数组形 `params` 不再进 body —— 它是定义列表不是 payload,把 `ActionParam` 定义当请求体 POST 出去从来不是任何端点想要的。\n\n**弃用窗(core)。** 非数组 `params` 在 `type: 'api'` 上继续被当作静态 payload 读一个版本窗口,并在 dev 下 warn-once 地点名 `bodyExtra`。判定条件与 ADR-0087 转换**逐条对齐**(`Array.isArray` 作判别式 + `api` 类型守卫),因此:\n\n- ⛔ **不碰 objectstack#6828**:url 型动作上的对象形 `params` 是**第三义**(`interpolateTarget` 的 `param` 作用域、`executeUrl` 的 `params.newTab`),`bodyExtra` 不是它的替代品,`api` 守卫正是把这条挡在外面的东西。\n- 过滤掉 host 塞进 `params` 的内部键(`_rowRecord` / `_selectedIds` / `recordId`),否则几乎每次声明式动作点击都会误报。\n\n告警是 dev-only + warn-once,与既有的 `warnOnUnknownActionKeys` 同一套约定。**响亮的那一半在生产者侧**(contract-first):spec 的 `params` 字段直接拒收对象形并在报错里点名 `bodyExtra`,转换负责改写存量源 —— 到了 runner 这一层生产者已经说过话,剩下要兜的只是 host 在代码里手搓 ActionDef 的情形,所以 warn 是正确的严重级别。\n\n## 测试\n\n新增两个文件,`pnpm exec vitest run` 全绿:\n\n- `packages/core/src/actions/__tests__/ActionRunner.bodyExtra.test.ts`(11 个)—— 合并顺序(`status` 在两边取不同值,反向合并必红)、纯 `bodyExtra` payload、`ApiConfig` 分支、无 `bodyExtra` 时的 back-compat 钉子、数组 `params` 不进 body;弃用窗的正例 + **四个负例**(url 型静默、数组静默、host stash 静默、host stash 旁边带真实作者键时仍告警)。\n- `packages/components/src/__tests__/action-bodyExtra-forward.test.tsx`(4 个)—— `element:button` / `action:button` / `action:menu` 三个渲染器转发到 runner;以及一条**端到端**:渲染 → 点击 → 断言真实 fetch 请求体里 `bodyExtra` 压过同名旧 `params` 键(不注册自定义 handler,让点击走完白名单 + runner 合并两跳)。\n\n**反向验证分三次跑,方向事先各自预测,结果全部吻合:**\n\n1. 撤掉 runner 改动 → 11 个里 **7 红**;其中三条 `stays SILENT` 负例**依旧绿** —— 因为功能不在时什么都不 warn,`not.toMatch` 空绿。这一点如实记录,撤销**无法**验证这三条。\n2. 于是改为**放宽守卫**(去掉 `api` 判定 + 去掉 host stash 过滤)→ url 负例与 host stash 负例**转红**。\n3. 再放宽 `Array.isArray` 那条 → 数组负例也**转红**。三条负例各由其对应的守卫分支单独钉住,非空绿。\n4. 剥掉三个渲染器的 `bodyExtra` 转发 → 4 个**全红**,端到端那条的请求体退回 `status: 'draft'`(旧 `params` 未被覆盖),正是预测的样子。\n\n其余验证:\n\n- `pnpm exec vitest run packages/core/ packages/types/` → **99 files / 1909 tests passed**(含 `actionKeys.pin.test.ts`)\n- `pnpm exec vitest run packages/components/` → **102 files / 823 tests passed**\n- app-shell 相关面 `useConsoleActionRuntime.test.tsx` + `RecordDetailView.headerApiInterpolation.test.tsx` → **47 passed**\n- `pnpm exec turbo run type-check --concurrency=2` → **78/78 successful,零错**\n- `check-control-bytes.mjs` OK;`check-changeset-no-major.mjs` OK;改动文件控制字节自查零命中\n- eslint 改动文件:**0 error**\n\n## changeset\n\n`.changeset/quiet-doors-forward-bodyextra.md`,`patch` 覆盖 `@object-ui/components` / `@object-ui/core` / `@object-ui/types`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

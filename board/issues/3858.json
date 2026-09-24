@@ -1,0 +1,32 @@
+{
+  "number": 3858,
+  "kind": "pull_request",
+  "title": "docs(ROADMAP): P1.12.3 / P1.16 九条同源漂移按现实改写 (#3738)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T21:58:21Z",
+  "updated_at": "2026-08-08T22:04:41Z",
+  "closed_at": "2026-08-08T22:04:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:04:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3858",
+  "body": "Fixes #3738\n\n基线:`origin/main` @ `c32323e1e4e5d7c72adda03dce0b46ecbe079403`(显式 sha 切树,非 FETCH_HEAD)。文件面仅 `ROADMAP.md`,9 行改写、9 行删除,零新增行、零删除条目。\n\n手法沿 #3700 / PR #3705、#3704 / PR #3714、#3712 / PR #3732 已确立形状:**条目一律不删、就地按现实改写、原 `[x]` 保留**(里程碑确实以另一形态交付过)、**错误名保留作纠错锚**且判词紧跟其后、引用只挂裸文本编号、**不种新计数**。\n\n> 正文刻意不写尖括号 JSX 标签(`Navigate` / `table` / `thead` 一律裸名):GitHub 的正文消毒器会把「尖括号 + 字母」当 HTML 标签在**存储时**剥掉 —— 本 PR 首版正文里的一个 `Navigate` 标签就这么消失成了一对空反引号,已订正。`ROADMAP.md` 文件内不受此影响,那里照常写标签形态。\n\n## 动笔前的前提复核:九条里有两条与卡片正文不符\n\n卡片正文是线索不是规格,九条逐条在 `origin/main` 上复核过。七条如卡片所述成立,两条不成立 —— **都按 main 的现状改写,并在此说明**:\n\n**一、`report` 并非「零注册」。** 卡片正文称 `report` 类型没有任何 `registerMetadataResource` 注册,举证是 `grep -rn \"type: 'report'\"` 只命中 spec 定义与其测试。实测该 grep 漏了命中:\n\n```\npackages/app-shell/src/views/metadata-admin/anchors.ts:485:    type: 'report',\n```\n\n且 `git show 4e93e40d7:packages/app-shell/src/views/metadata-admin/anchors.ts | grep -n \"type: 'report'\"` 同样命中 `485` —— 即**基线上就已存在**,不是此后的漂移,是卡片当时的扫描结论有误。`registerBuiltinAnchors()` 由 `views/metadata-admin/index.ts` 无条件调用,注册是活的。\n\n这不改变该行「失实」的判定:`listMode` 这档配置不存在,所以「configured with grid mode by default」依然无从成立。改的是**判词的理由** —— 从「没有注册」改成「有注册,但注册项里没有任何东西选择渲染模式,因为无模式可选;它配的是对象锚点组与建单种子(`createFields` / `createDerive` / `createDefaults`)」。\n\n**二、:1001 的前提已部分过期。** 卡片正文称三个入口里 sidebar 与 QuickActions「仍指着」legacy 别名,并把该缺陷另行立单。那张单是 #3739,**已由 PR #3748 合并**(`b7b05da7f`):\n\n- `AppSidebar.systemFallbackNavigation` 的 `sys-objects` → `/apps/setup/metadata/object`\n- `UnifiedSidebar` 的 `sys-objects` → 同上\n- `console/home/QuickActions` 的 `manage-objects` → 同上\n\n所以今天**三个入口没有一个**指向 `/system/metadata/object`:hub cards 本就没有 object 卡(瞄 `${basePath}/metadata` 与 `${basePath}/metadata/datasource`),另两个是被 #3739 主动改指。按分诊注记要求**逐入口分别判**,如实分述三者各自现状与离开的不同原因,不整句「仍然成立」、不顺手修任何路由。\n\n**三、顺带订正一处继承来的错误(未写进 ROADMAP,只在此声明)。** `skills/objectui/guides/console-development.md:104` 的「Retired names」表称 `config/metadataTypeRegistry.ts`「**Never existed under `apps/console/src/`**」—— 这一句本身失实。git 可证该文件确实以那个路径落过地:\n\n```\ngit log --oneline --all --diff-filter=AD -- '*metadataTypeRegistry*'\n  d601ef693  feat: unified metadata management with registry, generic manager page, and dynamic routing   (加入 apps/console/src/config/metadataTypeRegistry.ts,195 行)\n  ff9a0d9e9  chore: remove studio app and migrate to metadata-admin engine                                (删除,317 行)\n```\n\n故本 PR 的 :861 判词**没有**沿用那句话,而是写「该文件确实以 `apps/console/src/config/metadataTypeRegistry.ts` 落过地,在 `ff9a0d9e9` 被删,今天全仓零命中」。guide 那一行属越界发现,按纪律只报不改,已另行立单(与在飞的 #3737 不同行、不同事实:#3737 钉的是顶部注记的搬家归因)。\n\n## 九条落点\n\n### `**Unified Metadata Management (P1.12.3):**`\n\n| 行 | 核实结论 | 改写落点 |\n|---|---|---|\n| :861 `metadataTypeRegistry` | 成立(全仓零命中;唯 CHANGELOG 史料与 guide 纠错表仍拼) | 补:文件曾以 `apps/console/src/config/` 落地并在 `ff9a0d9e9` 被删;今天的等价物是引擎自己的 `MetadataResourceRegistry`(行类型 `MetadataResourceConfig`,由 `registerMetadataResource()` 填);并指出「centralized config」语义也变了 —— 未注册的类型同样可列可编,注册只覆写默认值 |\n| :863 注册表生成卡片 | 成立 | `metadataTypeCards`(`SystemHubPage.tsx`)是手写字面量 Applications / Metadata / Datasources,其上方注释自述 per-type 卡片在引擎开始自动列举全部类型后即移除;dashboard / page / report 三张卡都不存在;真正按注册表列举类型的是引擎的 `MetadataDirectoryPage`,即手写「Metadata」卡所指 |\n| :864 动态路由 | 成立,但有半句该保留 | 该拼法只在 console host fragment 声明(三种 arity),route element 均为 `MetadataRedirect`,不是页面;真正渲染的是引擎 `metadata/:type`,而「in all route contexts」对**它**成立(with-app 与 zero-app 两支都声明),故如实写明这半句存活 |\n| :866 `app` / `object` 专属页 | 部分成立 | `app` 仍成立(`system/apps` → `AppManagementPage`);`object` 已无专属页/专属路由,由引擎通用外壳列与编,配置见 `builtinComponents.tsx` 与 `views/metadata-admin/anchors.ts` 的 `registerMetadataResource({ type: 'object', … })`(列、搜索字段、建单字段、锚点组,无组件覆写);全仓唯 `permission` 的 `EditPage` 与 `datasource` 的 `ListPage` 替换外壳页 |\n\n### `**Metadata Manager Grid Mode:**`(P1.16)与 :1001\n\n| 行 | 核实结论 | 改写落点 |\n|---|---|---|\n| :987 `listMode` on `MetadataTypeConfig` | 成立(两个符号全仓零命中) | `MetadataResourceConfig` 没有任何渲染模式键;列形状只有 `listColumns`,加 `ListPage` 整页替换 |\n| :988 grid mode 下的表格渲染 | 成立(表格真,模式假) | `ResourceListPage` 对所有类型无条件渲染同一个 `table` 元素,表头由 `listColumns` 生成(缺省回落到推断的 primary + label);无分支可切,故不存在「grid mode」 |\n| :989 report 默认 grid mode | 成立,但**理由须订正**(见上文一) | `report` **有**注册(`anchors.ts`),但注册项里没有任何东西选择渲染模式(无模式可选);它配的是对象锚点组与建单种子,列表就是与所有类型相同的那张无条件表格 |\n| :990 `MetadataGrid` | 成立(零命中) | 组件随被抽取的 console 侧管理页一同退场;跨类型复用不再靠逐页 import 一个 grid,而是所有类型共用经 `metadata/:type` 抵达的同一张外壳页 |\n| :1001 三入口统一 | **前提部分过期**(见上文二) | 逐入口分述:hub cards 没有 object 卡(瞄类型目录与 `metadata/datasource`);两个 sidebar 的 `sys-objects` 与 home 的 `manage-objects` 已被 #3739 改指引擎正规路由,因为 `system/…` 拼法不是页面 —— `MetadataRedirect` 只是一个裸 `Navigate` 重定向,打到同一 URL,白付一跳与一次 re-render;统一的是**目的地**而非这个拼法,别名路由留给书签与外链 |\n\n## 刻意留在围栏外\n\n- **节标题 `**Metadata Manager Grid Mode:**` 不动** —— 依「错误名留作纠错锚」之例:标题本身就是那个锚,其下四行已逐条说清现实。\n- **:865 `MetadataService` 三个方法不动** —— 经核实真实存在(`apps/console/src/services/MetadataService.ts` 的 `getItems` / `saveMetadataItem` / `deleteMetadataItem`),该行成立,不在改写之列(顺手确认了它不是第十条漂移)。\n- **不碰任何路由代码** —— sidebar / QuickActions 的 legacy 指向已由 #3739 修完,本 PR 只记录结果。\n\n## 门禁\n\n- `node scripts/check-doc-links.mjs` → `Links are valid across 7 scan roots.`(`ROADMAP.md` 在其 SCAN_ROOTS 内)\n- 控制字符自检 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' ROADMAP.md` → 零命中(本仓无 `scripts/check-nul-bytes.mjs`)\n- 末次编辑后全仓 `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`(md-only 改动,全部 cache hit);另以 `--filter @object-ui/console --force` 强制跑出真实编译:`35 successful, 35 total / Cached: 0`\n- changeset:**无** —— docs-only,照仓内先例(PR #3705 / #3714 / #3732 三轮 ROADMAP 改写均只动 `ROADMAP.md`,无 `.changeset/`)。`content/docs/releases/**` 未触碰。"
+}

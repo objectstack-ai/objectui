@@ -1,0 +1,36 @@
+{
+  "number": 3788,
+  "kind": "issue",
+  "title": "finding: ~40 个 `content/docs/**.mdx` 仍 import 已不使用的 `{ ComponentDemo, DemoGrid }`(文件里只有 `SchemaExample`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:25:12Z",
+  "updated_at": "2026-08-10T11:36:57Z",
+  "closed_at": "2026-08-10T11:36:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3788",
+  "body": "观察类记录(observation-class),在 #3267 / PR #3785 期间顺手发现。**今天没有用户会撞到**,故加 `finding`、不加 `pm:queue`,交 PM 的 triage 轮定级 —— 但按 objectstack#4949 的纪律不压在手里。\n\n## 现象\n\n`scripts/extract-mdx-demos.mjs` 把 `<InteractiveDemo>` / `<ComponentDemo>` 块迁成 `<SchemaExample id=\"…\" />` 时,会顺手换掉 import(脚本 `:256-259`),但它只匹配 **`InteractiveDemo`** 那一种 import 形式:\n\n```js\n/import\\s*\\{\\s*InteractiveDemo[^}]*\\}\\s*from\\s*['\"]@\\/app\\/components\\/ComponentDemo['\"];?/\n```\n\n所以写成 `import { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';` 的文件,内容迁完了、import 留在原地。结果是几十个 mdx 顶部有一行谁都不用的 import。\n\n`content/docs/layout/page-header.mdx:6` 是本次撞见的那一个(文件里零个 `<ComponentDemo>` / `<DemoGrid>`,只有 `:23` 的一个 `<SchemaExample>`):\n\n```mdx\nimport { ComponentDemo, DemoGrid } from '@/app/components/ComponentDemo';\n```\n\n## 面有多大\n\n扫 `content/docs/`(对每个 import 该模块的文件数 `<ComponentDemo|DemoGrid|InteractiveDemo>` 的出现次数):\n\n```\ncontent/docs/components/overlay/tooltip.mdx        tagUses=0\ncontent/docs/components/overlay/context-menu.mdx   tagUses=0\ncontent/docs/components/overlay/hover-card.mdx     tagUses=0\ncontent/docs/components/overlay/menubar.mdx        tagUses=0\ncontent/docs/components/overlay/popover.mdx        tagUses=0\ncontent/docs/components/overlay/drawer.mdx         tagUses=0\ncontent/docs/components/overlay/dialog.mdx         tagUses=0\ncontent/docs/components/overlay/dropdown-menu.mdx  tagUses=0\ncontent/docs/components/data-display/tree-view.mdx tagUses=0\n…\n```\n\n`tagUses=0` 的文件即 import 完全无用者;粗数在 **40 上下**(另有一批 `tagUses>=1` 的是**仍在用**的,不在此列 —— 需要逐个数,不能整批删)。\n\n## 为什么现在没人撞到\n\nMDX 里一个未使用的 import 不报错也不进产物,site 构建正常(本次 `npx fumadocs-mdx` 通过)。纯噪声:唯一的实际代价是每个读这些文件的人(和 AI)会以为这一页在用 `ComponentDemo`。\n\n## 建议处置(两步,别只做前一步)\n\n1. 逐文件判定后删掉真正无用的 import(**不能整批 sed** —— 有一批文件确实还在用 `ComponentDemo` / `DemoGrid`,`tagUses>=1` 的那些)。\n2. 更值得做的是 `scripts/extract-mdx-demos.mjs:256-259` 的 import 替换正则:让它按**实际残留的用法**决定保留哪些 named import,而不是只认 `InteractiveDemo` 开头的那一种写法。不修这里,下一轮迁移会再攒一批。\n\n只做 1 是清一次噪声;做 2 才是把产生噪声的那条边修掉。\n\n## 参考位置\n\n- `scripts/extract-mdx-demos.mjs:256-259`(import 替换正则)\n- `content/docs/layout/page-header.mdx:6`(本次撞见的实例)\n- 面的枚举方式见上\n\n关联:#3267(发现于此)、PR #3785\n"
+}

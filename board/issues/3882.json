@@ -1,0 +1,30 @@
+{
+  "number": 3882,
+  "kind": "pull_request",
+  "title": "docs(scripts): 删除 scripts/README.md —— 一份无门禁覆盖、无入站链接的第二份清单",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:32:12Z",
+  "updated_at": "2026-08-08T23:34:59Z",
+  "closed_at": "2026-08-08T23:34:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T23:34:58Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3882",
+  "body": "Fixes #3767\n\n自 `origin/main` @ `56ff0916e09085a5430957d5c62a7e5dc1a80d82` 切出。按分诊缺省走**方案 1(删除)**,同型先例 #3724(删 `.github/WORKFLOWS.md`)。\n\n## 改动\n\n一个文件,只删不改:`scripts/README.md`(228 行,全删)。\n\n## 前提复核(含一处对 issue 正文的更正)\n\n在 `origin/main` 上复核,**核心前提成立**:该文件标题与主体仍是 \"Component Style Testing\",为 `scripts/test-component-styles.js` 与 `.sh` 写用法、Features、Quick Start、CI 集成;两个脚本 `git ls-tree` 零命中,全仓对 `test-component-styles` 的命中只有这份 README 自己。\n\n**但 issue 正文\"整篇 / 100% 漂移死 / 没有一行提到 scripts/ 目录今天真正装着的东西\"这一量化说法偏重,按行核对如下** —— 分诊评论说\"premise fully holds\",应该是只读了文件头:\n\n| 区段 | 行 | 占比 | 状态 |\n|---|---|---|---|\n| `# Component Style Testing`(两个不存在的脚本) | 1-172 | ~75% | **100% 死** |\n| `## Development Scripts`(setup.sh / component-analysis.js / shadcn-sync.js) | 174-228 | ~24% | **存活且准确** |\n\n尾节列的三个脚本都真实存在,且它列的 5 条 `shadcn:*` 命令与 `package.json` 逐条对得上(`shadcn:check` / `update` / `update-all` / `diff` / `list`)。\n\n**这不改变删除的结论** —— 存活那节没有独有信息,三项都在更近、且被覆盖的地方另有归属:\n\n- `setup.sh` 用法:仓根 `README.md` 的 \"Development Setup\"(在 `check-doc-links` 的 `SCAN_ROOTS` 内)+ `skills/objectui/guides/project-setup.md:316`(在 #3735 落地的 skills 路径门禁扫描面内)。\n- 5 条 `shadcn:*` 命令:`packages/components/README_SHADCN_SYNC.md` 的 Usage 一节逐条覆盖(且更准确,带参数形式)+ `packages/components/README.md:24`(`packages/*/README.md` 在 SCAN_ROOTS 内)+ `scripts/shadcn-sync.js` 自带 usage 输出 + `scripts/__tests__/` 的 pin test。\n- `component-analysis.js`:`package.json` 的 `shadcn:analyze` + 脚本自身文件头。\n\n换句话说:删掉的是\"死的 75% + 冗余的 24%\",而删除后这些事实的每一条都落在**有门禁覆盖**的载体上 —— 这比 issue 原本的理由更强。\n\n## 入站引用清零证明\n\n三层扫描,全为 0(前缀式定长匹配,故 `scripts/README_FOO.md`、`test-component-styles.ts` 之类的任何后缀变体都会命中 —— 规避裸名 grep 的子串陷阱):\n\n```\ntracked (HEAD^ 含该文件):  scripts/README      -> 0 文件\n                          test-component-styles -> 1 文件(即被删的 README 自身)\n工作树(删除已应用):       scripts/README      -> 0\n                          test-component-styles -> 0\n                          Component Style Testing -> 0\n文件系统(含 untracked):   0 命中\n```\n\n相对链接形式逐一排除(`](README.md`、`](./README.md`、`](../scripts/README`、`scripts/README.md`、`scripts/README.md#`):唯二命中的 `./README.md` 落在仓根 `QUICK_REFERENCE.md:99`(解析到仓根 README)与 `examples/console-starter/README.md:94` 的 `../README.md`(解析到 `examples/README.md`),都不可能解析到 `scripts/README.md`。\n\n**反查(证明扫描器没坏,不是零命中假绿)** —— 同一条命令形状打在确定存在的邻近词上:`scripts/check-doc-links` → 13 文件、`scripts/setup.sh` → 3、`shadcn:list` → 3、`README_SHADCN_SYNC` → 1、`Component Style Testing` → 1(且仅在被删文件内)。命中面横跨 md / yml / ts / json,并含 `skills/`。\n\n## 反向验证:方向按实报,不套模板\n\n模板预设的\"回装被删的肢体 → 诊断转红\"在这里**按构造不可能**,如实记录而不是造一个合形状的证据:这是一次纯文档删除,没有谓词可回装,而且**回装前的基线本身就是全绿**(删除前 `check-doc-links` = `Links are valid across 7 scan roots`,`check-control-bytes` = OK)。\"文件在也绿、文件不在也绿\"正是这张卡描述的缺陷本身 —— 它对 CI 完全不可见(`SCAN_ROOTS` 七项里没有 `scripts/`;`tsconfig.scripts.json` 只 include `scripts/**/*.ts`;`scripts/__tests__/scripts-type-check.test.ts` 只 walk `.tsx?`,故 `.md` 的增删对它是惰性的)。\n\n所以按分诊给定的可测等价物报:**删除后 `check-doc-links` 仍绿 + 入站引用三层零命中(含反查)**。唯一能量化确认删除已生效的读数来自 control-bytes 门禁的扫描计数:**3777 → 3776**(恰少一个 tracked 文本文件)。\n\n## 门禁与验证\n\n| 命令 | 结果 |\n|---|---|\n| `pnpm exec turbo run type-check --concurrency=2`(末次编辑后,全仓,CI 同命令) | `Tasks: 78 successful, 78 total`,exit 0,6m46s |\n| `node scripts/check-doc-links.mjs` | `Links are valid across 7 scan roots.`(删除前后一致) |\n| `node scripts/check-control-bytes.mjs` | `OK (scanned 3776 tracked text file(s); skipped 85 binary)` |\n| `node scripts/check-changeset-presence.mjs` | `✅ No source of a released package changed in this range, so no changeset is owed.` —— 按门禁判定不加 changeset |\n| 控制字节自查(commit message + diff,`grep -naP` 越过门禁盲区) | 0 命中 |\n\n没跑测试套件:改动集是一个 markdown 文件的删除,零 TS/JS 面;`scripts/__tests__/` 里没有任何用例读取 `scripts/README.md`(全仓 `README_SHADCN_SYNC`/`scripts/README` 检索已覆盖这一判断)。\n\n## 未做的事\n\n**没有走可选修法 2(改写成真实索引)。** 不带 `scripts/*.mjs` 文件集钉子的重写只是把同一个漂移生成器重新上膛,而那颗钉子属于 #3735 家族的独立卡片 —— 不在本卡范围内,也不过度建设。\n\n## 越界发现(已另立单,未在本 PR 修)\n\n实施中为证明\"存活那节在别处已有覆盖\",顺着 `packages/components/README_SHADCN_SYNC.md` 这条覆盖来源核对时撞到同族漂移,已查重后立为 #3881(`finding`,不带 `pm:queue`,未指派):该文件的组件分类清单与 `shadcn-components.json` 相互矛盾 —— `resizable` 被列为\"可从 registry 更新\"而 manifest 写明\"re-syncing would break the build\"、`chart` 缺席、custom 计数 14≠15。附带一个值得记的细节:它的 \"(46)\" 计数今天仍然对得上,因为两处成员错误刚好互相抵消,所以只钉数量的检查会绿着放过它。#3767 的删除结论不受影响(该文件里 5 条 `shadcn:*` 命令用法是准确的,漂的是分类清单)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

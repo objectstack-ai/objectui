@@ -1,0 +1,33 @@
+{
+  "number": 3930,
+  "kind": "pull_request",
+  "title": "fix(app-shell): datetime action 参数提交带显式时区的 ISO instant",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T06:45:15Z",
+  "updated_at": "2026-08-09T07:01:45Z",
+  "closed_at": "2026-08-09T07:01:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T07:01:44Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3930",
+  "body": "Fixes objectstack-ai/objectstack#5061\n\n## 问题\n\n声明 `type: 'datetime'` 参数的 action 在 Console 上**完全不可用** —— 没有任何用户能输入的值可以通过校验。\n\n对话框把参数渲染成 `datetime-local`(天然无时区),`serializeParamValues` 在提交前又把值**转回**该控件自己的无时区墙上时钟(如 `2026-08-10T15:00`)—— 而这恰好是平台 `datetime` 值契约唯一拒绝的形状。自 17.0 起 dispatcher 会在 handler 之前按 action 声明校验 params bag(ADR-0104 D2,`validateActionParams` 走 `InstantValueSchema`),于是每一次 UI 提交都拿到:\n\n```\nHTTP 400 VALIDATION_ERROR\nAction param \"start\" (datetime): expected an ISO-8601 instant with explicit zone (e.g. 2026-03-15T14:30:00.000Z)\n```\n\n渲染器与校验器要的形状不相交,app 作者在两者之间没有任何可作用的缝隙。\n\n## 修法:是删除,不是新增转换\n\n`DateTimeField` 自 objectui#3127 / objectui#3565 起就是**两向 ISO 规范**的 —— 读入记录的 ISO instant,交回 ISO instant(秒、毫秒、时区都在)。也就是说 widget 交给对话框的值**本来就满足契约**,提交边界不需要任何转换。\n\nobjectui#3565 当时为了在修显示 bug 时保持线上形状逐字节不变而加了这段回转,并在自己的 commit message 里点名了后续:「moving action params onto ISO is a contract change of its own」。本 PR 就是那个 contract change,它只是把回转删掉。\n\n顺带得到的性质:\n\n- **幂等** —— 已带时区的值原样通过,`+08:00` 偏移逐字节存活,不会被重新推导后再截到分钟;\n- **空值安全** —— 空串/未填原样通过,不会产生 Invalid Date(校验器把空串视为「缺失」而非「非法」);\n- **秒与毫秒** —— 由 `toISOString()` 天然补全;\n- **`date` 参数不受影响** —— 它的契约是日历日,加时区反而会让格林尼治以西整体错一天。\n\n## 刻意**不**兜的一种形状\n\n作者手写成无时区墙上时钟的 `defaultValue`。这是歧义元数据(按谁的时区?),在渲染器里归一化会让同一份元数据对不同用户产生不同 instant;更糟的是造成分裂 —— UI 里「能用了」,而 REST / MCP 提交同一个字面量依旧 400,这是最难排查的一种不一致。按 contract-first(AGENTS.md #0.1)正确的位置是生产端在授权期被拒绝,已另开 objectstack-ai/objectstack#6970(该洞不限于 datetime:同样允许 `number` 参数默认值写成 `'abc'`)。本 PR 用一条测试把「渲染器不掩盖它」钉住。\n\n## 测试\n\n原来那条 render proof 是**整条替换**而不是改写字面量的:它断言产出等于 `2026-07-20T14:30`,一直是绿的,而功能 100% 坏着 —— 因为它钉的形状正是无人接受的那一个。现在它驱动真实 widget,然后把对话框 resolve 出来的 bag 交给**真的** `validateActionParams`(即产生 issue 里那条 400 的同一个函数)判定。同时在 `packages/fields` 补了生产端的钉子:`fromDateTimeInputValue` 的产出必须被 `InstantValueSchema` 接受。\n\n`paramValueShape.test.ts` 的样例值改了,但注释里说明它是**文档而非守卫** —— 新旧字符串都归类成同一个 `'string'` tag,那一行本来就抓不到这个缺陷。\n\n**反向验证(方向为事先预测的「红」)**:把删掉的回转分支放回去,三条新断言转红,报错文案与 issue 里的 400 逐字一致:\n\n```\n× datetime param emits a zoned ISO instant the platform validator accepts\n× passes the widget ISO instant straight through, so the platform accepts it\n× is idempotent for a value that already carries a zone — no second conversion\nAssertionError: expected [ { param: 'when', …(2) } ] to deeply equal []\n+ \"message\": \"Action param \\\"when\\\" (datetime): expected an ISO-8601 instant with explicit zone (e.g. 2026-03-15T14:30:00.000Z)\"\n Tests  3 failed | 33 passed (36)\n```\n\n时区形状的断言**全部写成任意时区成立**(仓库既有约定,见 `nativeDateValue.test.ts` 的说明:只在 UTC 下成立的测试会在 CI 绿着,而缺陷对每一个东西向用户都活着)。三个时区各跑一遍:\n\n| 命令 | 结果 |\n|---|---|\n| `TZ=Asia/Shanghai vitest run …/ActionParamDialog.test.tsx …/nativeDateValue.test.ts` | 46 passed |\n| `TZ=UTC` 同上 | 46 passed |\n| `TZ=America/Los_Angeles` 同上 | 46 passed |\n| `TZ=Asia/Shanghai vitest run packages/app-shell/src/utils/` | 19 files / 311 passed |\n| `TZ=UTC vitest run packages/app-shell/src/utils/ packages/fields/src/widgets/` | 63 files / 739 passed |\n| 参数提交路径(ActionParamDialog + uploading + useConsoleActionRuntime + datetime-widgets + plugin-grid bulk param) | 6 files / 109 passed |\n| `turbo run type-check --concurrency=2` | 78 successful, 78 total |\n| `pnpm run check:control-bytes` | OK(3808 文件) |\n| `pnpm run changeset:check` | OK(fixed 组齐全,无 major) |\n| `eslint`(改动文件) | 0 errors(仅既有 react-refresh warning) |\n\n## ADR-0059 两向约定核对\n\n按任务要求核对了 objectui#3127 的反方向(其修复已随 objectui#3565 落地),**未**把它折叠进本单:\n\n- 记录表单:读 ISO -> 控件显示本地 -> 写回 ISO,单一基准;\n- action 参数:无「读」,写 = widget 的 ISO。\n\n本 PR 之前,action 参数是**唯一**跑在另一个基准上的表面;之后两向都以 ISO instant 为规范形式,本地墙上时钟只存在于控件内部。这是让 ADR-0059 更一致,而不是引入新分歧。\n\n## 变更文件\n\n- `packages/app-shell/src/views/ActionParamDialog.tsx` —— 删掉 datetime 回转分支与 `toDateTimeInputValue` 导入,注释改写为记录真实契约与「为什么不兜 defaultValue」\n- `packages/app-shell/src/utils/paramValueShape.ts` —— `datetime` 的契约说明改为带显式时区的 ISO instant\n- `packages/fields/src/index.tsx` —— 导出注释里已过时的理由(原文写着「app-shell 的契约是无时区墙上时钟」)\n- `packages/app-shell/README.md`、`docs/adr/0059-action-params-shared-field-widgets.md` —— 契约表\n- 测试:`ActionParamDialog.test.tsx`(替换 + 新增)、`paramValueShape.test.ts`(样例)、`packages/fields/src/widgets/nativeDateValue.test.ts`(生产端钉子)\n- `.changeset/action-param-datetime-zoned-instant-os5061.md` —— patch `@object-ui/app-shell`\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4095,
+  "kind": "pull_request",
+  "title": "test(e2e): assert a boot state the console actually settles in — `Build & E2E` main red (#4086)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T08:00:20Z",
+  "updated_at": "2026-08-10T08:15:30Z",
+  "closed_at": "2026-08-10T08:15:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T08:15:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4095",
+  "body": "Fixes #4086\n\n## The premise did not survive verification\n\nTwo of the issue's stated facts are disproven, and the third is real:\n\n| Claim | Verdict |\n|---|---|\n| `Build & E2E` red on `main` at the smoke test | **True** |\n| \"the console never reaches paint\" | **False** — it paints, and settles on the sign-in screen |\n| `9154d9e90` (#4081) is the cause | **False** — see below |\n\n**#4081 is exonerated by inclusion.** `main` is green again at `8497579db`\n([run 31366842685](https://github.com/objectstack-ai/objectui/actions/runs/31366842685),\n`Build & E2E` = success, 07:43Z) with every line of `9154d9e90` still on it —\n`toFilterNode` hop, `GRID_QUERY_INPUTS`, pin test. A commit that deterministically\nbroke the boot cannot be present on a green tip. The suspected import-cycle /\ntree-shake mechanism is also ruled out mechanically: the `toFilterNode` import was\nadded to an import statement that *already* pulled `@object-ui/core`, so the module\ngraph did not change.\n\n**The console reaches paint.** In the same red run, `should load the page without\nJavaScript errors`, `should render React content inside #root`, `should not show a\nblank page` and `should have correct page title` all **passed**. Only the shell\nassertion failed. An app that never boots cannot pass the first four.\n\n## What actually fails\n\n`e2e/smoke.spec.ts:78` asserted `nav` OR `/Initializing|Loading|Connecting/i`.\nAgainst the harness's own artifact — the CI build command byte for byte\n(`VITE_BASE_PATH=/console/ pnpm --filter @object-ui/console exec vite build`) served\nby `vite preview`, no backend — the app settles into **neither**. Measured at 30 ms\npolling granularity, three consecutive boots agreeing to within 10 ms:\n\n```text\nRUN 1\n  +   37ms nav=0 loadingText=false url=/console/ |\n  +   79ms nav=0 loadingText=true  url=/       | ObjectOS Initializing application... Connecting to data source\n  +  112ms nav=0 loadingText=false url=/login  | ObjectOS Sign in to your account ...\n  + 5646ms nav=0 loadingText=false url=/login  | ... Email Password Forgot password? Sign In\nRUN 2   +71ms splash / +104ms sign-in\nRUN 3   +70ms splash / +102ms sign-in\n```\n\nThe only state the old assertion could match was on screen for **~35 ms**. It\npassed by catching that window; it failed for the whole 30 s timeout — identically\non all three retries, because each retry re-runs the same race — whenever\nPlaywright's first poll landed after it. A coin flip on runner speed, which is\nexactly the observed history: identical code red at 06:15Z, green at 07:40Z.\n\n**The app is not at fault.** With `/api/v1/auth/get-session` unable to resolve a\nsession, the shell is never entitled to render a `nav` and `/login` is the correct\ndestination. The test simply never listed the state the app is actually in.\n\n## The fix\n\nThe assertion now names all three **recognised** boot destinations — app shell,\nboot splash, signed-out sign-in screen — each of them terminal-stable, so passing\nno longer depends on winning a race. The set stays **closed**: a blank page, a\ncrashed render or an error boundary matches none of the three and still fails. The\nsign-in screen is matched structurally (`[data-testid=\"login-config-loading\"]`,\n`#login-email`, `#login-phone`) rather than by copy, so a locale change cannot\nsilently stop matching it.\n\nRider from the issue, also fixed: CI selects Playwright's `github` reporter, which\nwrites annotations and **no** `playwright-report/` directory — hence\n`No files were found with the provided path: playwright-report/` and a red job that\ndiscarded its own evidence. Screenshot, trace and `error-context.md` land in\n`test-results/`; both paths are uploaded now.\n\n## Verification, both directions\n\nReverse verification had to be made deterministic, since the bug *is* a race — so\nthe settle step is forced (`waitForSelector('#login-email')`) and then each\nassertion is run against the settled page:\n\n```text\n✘  1 OLD assertion (nav | loading text) after settle — EXPECTED RED  (13.3s)\n✓  2 NEW assertion (+ sign-in screen) after settle — EXPECTED GREEN  (7.2s)\n\n   Error: expect(locator).toBeVisible() failed\n   Locator: locator('nav').first().or(getByText(/Initializing|Loading|Connecting/i).first())\n   Expected: visible\n   Error: element(s) not found\n```\n\nThat is the CI failure reproduced verbatim, on demand. Note the honest shape here:\nthe old test could **not** be shown red by simply running it on this container — it\nwins the race locally. What is falsifiable is the mechanism, and it is, in both\ndirections.\n\nFull suite on this branch, mirroring the CI job (build, then\n`playwright test --project=chromium`):\n\n```text\n✓  33 e2e/smoke.spec.ts:103 › should settle into a recognised boot state (app shell, loading screen or sign-in) (1.3s)\n   23 skipped\n   10 passed (19.0s)\n```\n\n#4081's pins intact — `pnpm exec vitest run --maxWorkers=2 packages/plugin-grid`:\n\n```text\nTest Files  58 passed (58)\n     Tests  533 passed (533)\n```\n\nAlso green: `pnpm exec eslint e2e/smoke.spec.ts` (exit 0),\n`node scripts/check-control-bytes.mjs` (3960 files),\n`scripts/__tests__/merge-queue-reporting.test.ts` (11 passed, the test that guards\nthis workflow's gated jobs), and `ci.yml` re-parsed as YAML.\n\n## No changeset\n\nOnly `e2e/` and `.github/workflows/` change; no source of a released package does.\n`node scripts/check-changeset-presence.mjs` agrees:\n\n```text\nCompared the working tree with 8497579db (merge-base with origin/main): 2 file(s)\nchanged, 0 of them under the src/ of a package the release covers ...\n✅  No source of a released package changed in this range, so no changeset is owed.\n```\n\nNo `skip-changeset` label is needed or possible — objectui#3724 records that neither\nthat workflow nor that label was ever real in this repo; the presence script is the\ngate.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

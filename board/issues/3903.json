@@ -1,0 +1,35 @@
+{
+  "number": 3903,
+  "kind": "issue",
+  "title": "apps/site: Schema Catalog 索引页把每个缩略图包在 `button` 里,85 个含 button 节点的示例都触发 React 嵌套按钮 hydration 报错",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:07:37Z",
+  "updated_at": "2026-08-09T17:54:33Z",
+  "closed_at": "2026-08-09T17:54:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3903",
+  "body": "发现于 #3787 的浏览器实证(PR:`claude/issue-3786-3787-pageheader-docs-demo`),**不在该 PR 处理** —— 那一单改的是一份 demo JSON,这一条是索引页的 DOM 结构问题,与哪个示例无关。**先说清:不是 #3787 引入的** —— 换 demo 之前之后都在报,且打到 85 个示例。\n\n## 现象\n\n`/docs/guide/schema-catalog` 上,`SchemaCatalogIndex.tsx:111` 把每个卡片渲染成 `button`,卡片里嵌的是 `SchemaThumbnail`(`:116`),而 `SchemaThumbnail` 会用真的 `SchemaRenderer` 渲染示例本身。任何含按钮节点的示例于是落成 button 套 button。\n\nChromium 控制台(headless、Next dev、访问该页)读数:\n\n```\nIn HTML, %s cannot be a descendant of <%s>.\nThis will cause a hydration error.%s  button  <button>\n| <%s> cannot contain a nested %s.\nSee this log for the ancestor stack trace.  button  <button>\n```\n\n命中面:`grep -rl '\"type\": \"button\"' examples/schema-catalog/src/schemas | wc -l` = **85** 个示例。\n\n## 为什么值得记一笔\n\nReact 明确把这个归为 hydration error 而不是样式瑕疵:嵌套按钮的 HTML 会被浏览器解析器**重构**(内层按钮被提到外层之外),server HTML 与 client 树因此不一致。此外它本身就是可访问性缺陷 —— 交互控件套交互控件,键盘与读屏行为不确定。\n\n## 建议处置\n\n把卡片外壳从 `button` 换成 `div` + `role=\"button\"` 之外的方案更稳:推荐外壳用非交互元素,点击目标做成覆盖层(一个绝对定位的 `button` 兄弟节点,`aria-label` 给示例名),缩略图内容 `pointer-events: none`。这样卡片可点、示例内部的按钮不再被嵌套。`SchemaThumbnail` 已经是「scaled, non-interactive preview」,`pointer-events: none` 与它的定位一致。\n\n## 参考位置\n\n- `apps/site/app/components/SchemaCatalogIndex.tsx:111`(卡片外壳 `button`)、`:116`(嵌入 `SchemaThumbnail`)\n- `apps/site/app/components/SchemaThumbnail.tsx:60-128`(内部真实 `SchemaRenderer`)\n- `content/docs/guide/schema-catalog.mdx:33`(索引页入口)\n\n关联:#3787(发现于此)\n"
+}

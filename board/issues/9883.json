@@ -2,8 +2,8 @@
   "number": 9883,
   "kind": "issue",
   "title": "finding(scripts): `CLAIM_DEBT_ISSUE` carries the same falsy-anchor guard as `DEBT_ISSUE` and has ZERO pins on its declaration — and the liveness coverage scan's own `\\d+` admits `0` too",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p2",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T13:08:31Z",
-  "updated_at": "2026-09-18T13:42:53Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T03:41:33Z",
+  "closed_at": "2026-09-24T03:41:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 2,
   "locked": false,

@@ -1,0 +1,35 @@
+{
+  "number": 3962,
+  "kind": "issue",
+  "title": "[app-shell] ActionParamDialog 的 boolean 分支不下发 `id`，于是同一个控件被两个同文本 label 引用（可访问名重复），而它自己的通用分支一直是对的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:42:03Z",
+  "updated_at": "2026-08-09T20:19:54Z",
+  "closed_at": "2026-08-09T20:19:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3962",
+  "body": "修 #3952 时为确认「BooleanField 的 id 回退链里 `config.name` 一项不能删」而实测了这个对话框，顺带量到一个既有缺陷。与 #3952 同族但不同站点、不同包，所以另立单。\n\n## 实测（在 #3952 修复之后、真 dialog 渲染）\n\n```\ncontrolId=confirmed  role=checkbox\nlabels=[\n  { \"text\": \"Confirm This\", \"for\": \"confirmed\", \"srOnly\": true,  \"resolves\": true },   <- widget 自己发的\n  { \"text\": \"Confirm This\", \"for\": \"confirmed\", \"srOnly\": false, \"resolves\": true }    <- dialog 发的可见 label\n]\n```\n\n两个 label、同一段文本、同一个目标控件。按 accname 规范，引用同一控件的多个 label 元素会**拼接**成可访问名，所以屏幕阅读器听到的是 \"Confirm This Confirm This\"。`for` 都能解析，所以这不是 #3952 那种悬空 —— 是重复。\n\n## 成因\n\n`packages/app-shell/src/views/ActionParamDialog.tsx` 的 boolean 分支渲染 `Label htmlFor={param.name}`，但**不**给 widget 传 `id`：\n\n- 通用分支（同文件，下面几十行）传的是 `id={param.name}`；\n- boolean 分支没传，全靠 `BooleanField` 的 id 回退链第二项（`config.name`，`paramToField` 设 `name: param.name`）恰好产出同一个字符串，关联才成立。\n\n也就是说这个分支的 label 关联是**隐式**成立的：它依赖 widget 内部的回退实现细节，而不是自己下发 id。同时因为 widget 收不到 host id，就无从知道 host 已经渲染了 label，于是照旧发一份自己的 sr-only label —— 重复由此产生。\n\n（#3952 之前，表单渲染器那条路径上这个重复更严重：那边可见 label 指向的 id 根本不存在。这里两个 label 都指对了，所以只是名字重复，不影响点击。）\n\n## 修法（#3952 落地后是一行）\n\nboolean 分支像它自己的通用分支那样传 `id={param.name}`：\n\n- 关联从隐式变**显式**，不再依赖 widget 的回退链实现（回退链本身在 PR #3959 里已被钉住，但一个 host 不该靠别人的回退过日子）；\n- `BooleanField` 收到 host id 后会自动**不再**发自己的 sr-only label（PR #3959 的第二半），可访问名回到单份 \"Confirm This\"。\n\n需要补一个钉子：boolean param 的可访问名恰好等于 param label（不是它的两倍），且 `getAllByLabelText` 只解析出一个控件。`packages/app-shell/src/views/ActionParamDialog.ariaRequired.test.tsx` 已经有这个 dialog 的 boolean 分支用例，是自然的落点。\n\n## 参考\n\n- #3952 / PR #3959（`BooleanField`：host 拥有控件 id；本单的一行修法依赖它已落地）\n- #3341（同一个 dialog 的 components 版 select 分支 `htmlFor` 悬空 —— 同一失效家族的先例）\n- #3961（复合/分组 widget 的组标签关联，另一层裁决）\n"
+}

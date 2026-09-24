@@ -1,0 +1,35 @@
+{
+  "number": 3957,
+  "kind": "issue",
+  "title": "[finding] ActionEngine 的 visible 过滤仍用自己的「空/非谓词」范围:visible: 0 / NaN / '   ' 在引擎面隐藏、在渲染面显示 —— #3850 收敛后剩下的最后一处分叉",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T16:57:49Z",
+  "updated_at": "2026-08-09T19:55:06Z",
+  "closed_at": "2026-08-09T19:55:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3957",
+  "body": "## 来源\n\n发现自 #3850 / #3862 结对实施(PR 分支 `claude/issue-3850-3862-empty-predicate-gate`)。#3850 把「已声明门」的唯一定义下沉到 `@object-ui/core`(`hasDeclaredPredicate`),渲染面(`hasDeclaredVisibilityGate` 保名 re-export)、`SchemaRenderer` 的 `disabled` 链、`ActionRunner` 的两处执行门都改读它。收敛后**只剩一处**仍用自己的范围回答同一个问题:`ActionEngine.getActionsForLocation` 的 `visible` 过滤。\n\n`packages/core/src/actions/__tests__/ActionRunner.conditionGate.test.ts` 里那条 `DOCUMENTED DIVERGENCE` 用例写的是「objectui#3850 的 follow-up 拥有统一它」—— #3850 落地时并没有统一(它的裁决面是「已声明门」的定义与放置,`ActionEngine` 的自有范围不在其中),所以这张卡把那个指针落成实体,而不是留一句指向不存在的 follow-up 的注释。**观察类**:需要作者写出非谓词值或纯空白谓词才命中,今天没有已知用户路径。严重度请分诊裁。\n\n## 机理\n\n`packages/core/src/actions/ActionEngine.ts:229-243`(`origin/main` @ `65bb513dc073deb4e72950c287eef32cb56bf8ce`):\n\n```ts\nconst raw = ra.action.visible;\nif (raw == null || raw === '' || raw === true) return true;\nif (raw === false) return false;\nconst expr = toPredicateInput(raw);\nif (expr === undefined) {\n  // Not an evaluable predicate: an envelope with an empty `source`\n  // (→ nothing declared → visible), or a stray non-predicate value,\n  // which keeps the historical `Boolean(raw)` coercion.\n  return typeof raw === 'object' ? true : Boolean(raw);\n}\n```\n\n三条腿各自处理了一部分「空」:`raw === ''` 显式放过、空 `source` 信封走 `typeof raw === 'object'`(与 #3850 裁决一致 → 显示)。剩下两类落到与共享定义**不同**的答案上:\n\n1. **非对象的非谓词值**:`Boolean(raw)`,于是 `visible: 0` / `NaN` = 隐藏。共享定义答「不是谓词 → 没有门 → 显示」。\n2. **纯空白串**:`toPredicateInput('   ')` 不折叠而是包成 `'${   }'`(≠ `undefined`),所以根本走不到上面那支,而是进入求值 → 求出 falsy → 隐藏。共享定义把纯空白明确列为「没有门」(它是 `toPredicateInput` 唯一不折叠、因而需要定义处点名的那一形状)。\n\n一个值,两个入口,两个答案 —— 正是 #3314 立的那条不变量所禁止的形状。\n\n## 实测(worktree @ `65bb513dc` + 本 PR 的改动,一次性探针,未提交)\n\n引擎面用 `ActionEngine.registerAction` + `getActionsForLocation('record_section')` 数结果条数;渲染面是 `action:button` 叶子渲染后 DOM 里有没有按钮。\n\n```\nvalue                     | ActionEngine  | action:button 渲染面(#3850 后)| 一致?\n0                         | 隐藏          | 显示                          | 分叉\nNaN                       | 隐藏          | 显示                          | 分叉\n'   '(纯空白)            | 隐藏          | 显示                          | 分叉\n{}                        | 显示          | 显示                          | 一致\n''                        | 显示          | 显示                          | 一致\n{dialect:'cel',source:''} | 显示          | 显示                          | 一致\n```\n\n**其中 `'   '` 一行是本 PR 造成的新分叉**,如实记录:改动前渲染面对纯空白也是隐藏(与引擎面一致),#3850 的裁决把「纯空白 = 没有门」定为语义后,渲染面变为显示,而引擎面没有跟着改(不在裁决的改读清单里)。方向上渲染面是对的 —— 一个什么都没说的谓词不该把动作从所有人面前藏起来 —— 分叉在引擎面。\n\n## 两条方向,以及为什么它需要裁而不是顺手改\n\n- **A —— 引擎面也改读 `hasDeclaredPredicate`(推荐)**:非谓词值与纯空白 = 没有门 = 显示,与渲染面、执行入口一致,`ActionEngine` 不再是最后一处自带范围的消费者。代价:这是 `visible` 方向上的 fail-open 变更(今天 `visible: 0` / `'   '` 隐藏,改后显示),而 `visible` 的既有姿态在**谓词抛错**时是刻意 fail-CLOSED 的(`throwOnError: true` + `warnHiddenPredicate`)。两者不冲突(一个说「谓词求值失败,宁可隐藏」,另一个说「这压根不是谓词/压根没有条件,不该由它决定命运」),但确实是同一个键上两种姿态并存,值得裁一次而不是由实施者顺手定。\n- **B —— 反过来,让所有面对非谓词值 fail-CLOSED**:与「declared = enforced」更近,但会推翻 `ActionRunner` 已明确承诺的 `catch { isDisabled = false }` fail-open 姿态,且 `disabled: 0` 变回置灰 —— #3850 刚裁掉的方向。不推荐。\n- ⛔ **不推荐**:在渲染面补一个「顺便把 junk / 空白也当隐藏」的本地判定 —— 那是把第 N 种范围写回消费者,#3842 / #3849 / #3850 三单合掉的正是这类分身。\n\n更彻底的方向是 producer 侧:`@objectstack/spec` 在发布期就拒绝非谓词值与空谓词(跨仓,`domain:spec`),那样运行期两个入口都不必猜。#3850 的分诊已把同类的 producer 侧半边(空 `source` 信封的拒收)判为「无需求证据前不排」,本卡同理只作记录。\n\nRelated: #3850(「已声明门」范围裁决与定义下沉,本卡是它收敛后剩下的最后一处)、#3848 / #3872(`ActionRunner` 两处执行门的 fail-open 姿态出处)、#3314(一值一答的不变量)、#3862 / #3955(`SchemaRenderer` 侧的同族)。未认领。\n"
+}

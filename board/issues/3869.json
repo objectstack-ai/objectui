@@ -1,0 +1,33 @@
+{
+  "number": 3869,
+  "kind": "pull_request",
+  "title": "fix(test): runner 的包级 test 入口指回仓根配置,不再落到 app 的 vite.config (#3746)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:33:29Z",
+  "updated_at": "2026-08-08T22:48:23Z",
+  "closed_at": "2026-08-08T22:48:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T22:48:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3869",
+  "body": "Fixes #3746\n\n## 现象与机制(在干净 worktree 的 `origin/main` @ `6402e253f` 上原样复现)\n\n```\n$ pnpm --workspace-concurrency=2 --filter @object-ui/runner test --maxWorkers=2\n Test Files  1 failed | 2 passed (3)\n      Tests  4 failed | 9 passed (13)\nReferenceError: window is not defined\n   Duration  11.47s (transform 10.81s, setup 0ms, import 21.88s, tests 27ms, environment 0ms)\n```\n\n`packages/runner` 声明了 `\"test\": \"vitest run\"` 却没有 vitest 配置。pnpm 把 cwd 定在包目录,\nvitest 于是把该目录里那份 **Vite 应用**配置 `vite.config.ts` 当成自己的配置读进来 —— 它只有\n`resolve.alias` / `build`,没有 `test` 块,所以没有 DOM 环境也没有 setup(上面那次运行自己的\n汇总就写着 `setup 0ms ... environment 0ms`),`App.navigation.test.tsx` 的 4 个用例在 node\n环境里撞死在 `window` 上。仓根入口带 projects/happy-dom/setup,所以 CI 一直是绿的。\n\n## 修法:把这个入口指回仓根配置,而不是给 runner 补一份包级配置\n\n派单缺省形状是「给 runner 补 vitest 配置」。落地时发现那条路与仓内两处既有事实冲突,故改成\n本 PR 这一行 —— 两点都有 file:line 证据:\n\n1. **#3240 的维护者裁决是 A:全删 17 份包级 vitest 配置、统一走仓根配置**\n   (2026-08-06,评论 5200265431),并在同单**重定义包级 `test` 脚本的语义为「对仓根配置传\n   路径过滤」**。再新增第 18 份是往一个已有拆除方案的债上加码;而且包级配置解析\n   `@object-ui/*` 走 runner 自己那张 15 条的 alias 表(其余落 `dist`),仓根配置则把 ~40 个\n   包名指向 `src` —— 正是 #3240 要消灭的「同一文件两套结论」。\n2. **包级配置会把这次运行从 `scripts/vitest-invocation-guard.mjs` 底下抬出去。** guard 只在\n   `vitest.config.mts` 顶部被调用(`vitest.config.mts:5`、`:23`),包级独立配置根本不加载它,\n   于是 #3288 的 `--` 转发陷阱对本包不再被拒绝。仓内已有这种独立配置的包(如\n   `packages/plugin-charts/vitest.config.ts`)就处于这个状态。\n\n所以 `packages/runner/package.json` 的脚本改成 AGENTS.md(§怎么跑测试,第 184 行)与 guard\n报错正文都明确指定的那条写法:\n\n```diff\n-    \"test\": \"vitest run\"\n+    \"test\": \"vitest run --root ../.. packages/runner/\"\n```\n\n两个入口从此是**同一份配置**,不存在漂移面;`--root` 指回仓根后 guard 依旧在链路上(root 等于\n仓根 → 放行,`--` 转发 → 照样拒绝)。\n\n## 两个入口都绿、用例数一致\n\n```\n$ pnpm --workspace-concurrency=2 --filter @object-ui/runner test --maxWorkers=2\n> vitest run --root ../.. packages/runner/ --maxWorkers=2\n RUN  v4.1.10 /home/user/objectui-3746\n Test Files  3 passed (3)\n      Tests  13 passed (13)\n   Duration  13.48s (... setup 453ms ... environment 507ms)     # 环境与 setup 真的生效了\n\n$ pnpm exec vitest run packages/runner/src --maxWorkers=2\n Test Files  3 passed (3)\n      Tests  13 passed (13)\n```\n\n仓根 projects 机制不受影响 —— 以注册面为证,runner 的 3 个文件各自**只在一个** project 注册,\n既不重复也不缺:\n\n```\n$ pnpm exec vitest list --filesOnly packages/runner/\n[unit] packages/runner/src/plugin-integration.test.ts\n[unit] packages/runner/src/__tests__/spec-symbol-batch7.test.ts\n[dom] packages/runner/src/App.navigation.test.tsx\n```\n\n⛔ 未改动仓根 `vitest.config.mts`(本 PR 只有 2 个文件)。\n\n## 防回归钉子\n\n`scripts/__tests__/runner-package-test-entry-3746.test.ts`(独立文件,与在飞单零共享),\n7 条断言分两组:\n\n- **runner 这一条入口**:目录仍是「有 `vite.config.ts` 且其中没有 `test` 块、没有 vitest\n  配置」的可劫持形状;脚本把 vitest root 指回仓根;该调用被 guard 判为放行;位置过滤解析得到\n  的目录确实在 `packages/runner` 内,且**覆盖 runner 全部测试文件**(防「悄悄只跑一部分」)。\n- **全仓棘轮**:按谓词「有 vite.config、无 vitest 配置、脚本没把 root 指回仓根」扫全仓,\n  runner 已不在其中;其余命中以**上限**方式记录(见下),断言是**子集**而非相等 —— #3240 把\n  它们修好时这条依然绿。\n\n## 顺带测到、⛔ 本 PR 不修的面\n\nissue 正文说 runner 的特殊之处是「只有它目录里有一个 `vite.config.ts` 可被 vitest 误取」。\n实测**不止它一个**:同形状(有 `vite.config.ts`、无 vitest 配置、bare `vitest run`)共 8 个包,\n除 runner 外还有 `plugin-ai`、`plugin-chatbot`、`plugin-designer`、`plugin-editor`、\n`plugin-markdown`、`plugin-report`、`plugin-tree`。是否同红取决于各自的测试是否碰 DOM\n(runner 碰了),本 PR 不声称、也不顺手改 —— 它们的整改属于 #3240 的单独批次,已把这份实测清单\n评论到 #3240 上,并作为棘轮的 baseline 记在钉子里。\n\n## 反向验证(方向先判后跑,三条全部与预判一致)\n\n把脚本还原成 `\"test\": \"vitest run\"`:\n\n| 预判 | 实测 |\n|:--|:--|\n| 包级入口红,同样 4 个 `window is not defined` | `Tests 4 failed \\| 9 passed (13)` + `ReferenceError: window is not defined` ✅ |\n| 钉子红 7 条中的 5 条并点名 runner(另 2 条 —— 形状事实与 guard 纯输入对照 —— 必须仍绿) | `Tests 5 failed \\| 2 passed (7)`,含 `expected [ 'packages/runner' ] to deeply equal []` ✅ |\n| 仓根入口保持绿 | `Test Files 3 passed (3) / Tests 13 passed (13)` ✅ |\n\n## 门禁\n\n- `pnpm exec turbo run type-check --concurrency=2`(CI 同命令):`78 successful, 78 total`。\n- `pnpm type-check:scripts`:干净 —— `turbo run type-check` 结构上到不了 `scripts/`,\n  新钉子文件由这条覆盖。\n- `pnpm exec eslint scripts/__tests__/runner-package-test-entry-3746.test.ts`:exit 0。\n- `node scripts/check-control-bytes.mjs`:OK(3762 个文件);改动文件\n  `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 零命中。\n- changeset:`node scripts/check-changeset-presence.mjs` → 「No source of a released package\n  changed in this range, so no changeset is owed.」未动任何发版包的 `src/`;仓内同类先例\n  (#3378/#3288 的 guard PR `34a3badc9`,4 个文件全是测试/配置面)也没带 changeset。\n\n## 与在飞单的关系\n\n- #3240(17 包 vitest 配置整改,裁决 A,须单独空批次):**不相交,且同向** —— 本 PR 没有新增\n  任何包级 vitest 配置,只把 runner 一条脚本改成 #3240 已裁决的那种语义;#3240 执行时对 runner\n  是幂等的。\n- #3849 / #3546 切片六 / #3749 / #3735:文件面零相交(#3735 若也落 `scripts/__tests__/`,\n  本 PR 用的是带 3746 的独立文件名)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

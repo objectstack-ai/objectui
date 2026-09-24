@@ -1,0 +1,36 @@
+{
+  "number": 3823,
+  "kind": "issue",
+  "title": "components/action/**: `action:bar` 成员动作的组件级真值可见性门实证可达 —— `action:button` / `action:icon` 声明 `visible: false` 照样渲染（#3812 第 3 条复核结论）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:51:11Z",
+  "updated_at": "2026-08-08T18:50:35Z",
+  "closed_at": "2026-08-08T18:50:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3823",
+  "body": "## 来源\n\nobjectui#3812 正文第 3 条要求实施者先复核「组件级五处 `schema.visible` 门是否被 `SchemaRenderer` 完全遮住」，分诊评论把这五处判为休眠防御层、明确划到 #3812 范围之外，并要求「要动须先实证可达」。本单是那次复核的结论：**五处里有两处不是休眠的，实证可达，且是同一个真值门缺陷。**\n\n## 现象与机理\n\n`action:bar` 不经 `@object-ui/react` 的 `SchemaRenderer`，而是自己从注册表取渲染器并直接挂载成员动作，把**成员动作对象整体展开**成子渲染器的 `schema`：\n\n```\n// packages/components/src/renderers/action/action-bar.tsx:259-277\nconst componentType: ActionComponent = action.component || 'action:button';\nconst Renderer = ComponentRegistry.get(componentType);\n...\n  schema={{ ...action, type: componentType, actionType: action.type, ... }}\n```\n\n于是作者写在成员动作上的 `visible` 成为子渲染器的 `schema.visible`，落到它自己的组件级门上：\n\n- `packages/components/src/renderers/action/action-button.tsx:148` —— `if (schema.visible && !isVisible) return null;`\n- `packages/components/src/renderers/action/action-icon.tsx:82` —— 同形\n\n`false && …` 为假 → 不 `return null` → 渲染。与 #3812 的成员门、#3758 的行动作门、#3492 的批量栏门是同一个形状。\n\n`action:bar` 上游也不按 `visible` 过滤成员：`filteredActions`（`action-bar.tsx:126-148`）只过 `mayInvoke(requiredPermissions)` 与 `actionRendersAt(a, schema.location)`，`visible` 被有意交给子渲染器。所以这条路径上真值门是唯一的门。\n\n## 实证（`origin/main@d83f6b3de`，一次性探针，未提交）\n\n用注册表直接挂 `action:bar`（与真实宿主同一条路径），成员动作声明 `visible: false`：\n\n```\nPROBE action:button visible:false → RENDERED (reachable bug)\nPROBE action:icon  visible:false → RENDERED (reachable bug)\nAssertionError: expected  button …(2) …/button  to be null\n```\n\n对照组同时通过：表达式取值的 `visible`（`features.x == true` + scope `false`）正常隐藏 —— 即求值入口没问题，坏的只是门（与 #3812 同一结论，`packages/react/src/hooks/__tests__/actionPredicate.parity.test.tsx:134` 已钉「literal false → 引擎与渲染器两条路径都判隐藏」）。\n\n## 另三处确认被遮住（不在本单，仅记录复核结论）\n\n- `action-group.tsx:230`、`action-menu.tsx:169`、`action-bar.tsx:223`（组件级 `schema.visible`）：经 `packages/react/src/SchemaRenderer.tsx:287-289` 路由时，宿主按 `newSchema.visible !== undefined` 统一求值并隐藏，组件根本不渲染到自己的门（已有钉 `packages/react/src/__tests__/SchemaRenderer.expressions.test.tsx:39`）。\n- `action:bar` 为溢出菜单合成的 `action:menu` 节点（`action-bar.tsx:234-241`）不带 `visible`，所以 `action-menu.tsx:169` 也不在这条绕过路径上。\n- 顺带记录：`packages/components/src/SchemaRenderer.tsx` 是一个只看 `hidden`、完全不看 `visible` 的极简同名副本，既不在 `packages/components/src/index.ts` 导出、也无任何 import —— 目前不是绕过宿主（休眠代码），仅备查。\n\n## 修法（已裁，无新决定）\n\n统一到 #3812 落地的那一处命名定义：`packages/components/src/renderers/action/visibility-gate.ts` 的 `hasDeclaredVisibilityGate`（`!= null && !== ''`），verdict 仍交给求值入口（布尔在 `evaluateCondition` 短路）。两处门位各按 #3758/#3816 的对称性补三形状钉子（`false` 隐藏 / `true` 渲染 / 未声明渲染），并至少一条经 `action:bar` 宿主的端到端钉子 —— 否则组件级门的可达性下次又要重新论证。\n\n## 可达性与严重度\n\n与 #3812/#3758 同一档：`ActionSchema.visible` 是 `ExpressionInputSchema`（无 boolean 成员），`objectstack build` 产不出布尔形状；手写视图 JSON 与进程内构造 action def 可以（#3492 正文记录这两条路径确实发生过）。`action:bar` 是记录页/列表工具栏的常用宿主，故该路径本身是热的，只是布尔形状冷。严重度请分诊裁。\n\nRelated: #3812（本复核的来源，其 PR 只收成员动作三处）、#3758 / PR #3816（行动作同族）、#3492（不变量出处）。发现自 #3812 的实施过程；未认领。\n"
+}

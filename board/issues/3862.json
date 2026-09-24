@@ -1,0 +1,37 @@
+{
+  "number": 3862,
+  "kind": "issue",
+  "title": "SchemaRenderer 的 disabled 门用第三种拼法 !== undefined:disabled: '' / disabled: null 在通用渲染路径上永久置灰",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:09:32Z",
+  "updated_at": "2026-08-09T18:25:15Z",
+  "closed_at": "2026-08-09T18:25:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3862",
+  "body": "## 来源\n\n发现自 #3849(PR #3861)实施时对第三种拼法的逐处核对。#3849 的正文把它列为「实施时请按落点逐一确认」的注意事项,但它**不在** #3849 的文件面(#3849 只动五个渲染器落点),也**不在** #3850 的修法面(见下「与 #3850 的关系」),故独立成单,**未认领**。\n\n## 机理\n\n「是否声明了 `disabled` 门」在仓里第三次被回答,这次的拼法是 `!== undefined`,范围比 `!= null` 还要宽一格。\n\n`packages/react/src/SchemaRenderer.tsx:322-334`(`origin/main` @ `993336f7c481e1fd724512363b8b2f15b305da86`):\n\n```ts\n// Evaluate disabled: disabled / disabledOn\nconst isDisabled = (() => {\n  if (newSchema.disabled !== undefined) {\n    return evaluator.evaluateCondition(newSchema.disabled);\n  }\n  if (newSchema.disabledOn !== undefined) {\n    return evaluator.evaluateCondition(newSchema.disabledOn);\n  }\n  return false;\n})();\n\nif (isDisabled) {\n  newSchema._disabled = true;\n}\n```\n\n`ExpressionEvaluator.evaluateCondition`(`packages/core/src/evaluator/ExpressionEvaluator.ts:238-240`)对空谓词的答复是「没有条件 → 可见/可用」:\n\n```ts\n// No condition → default to visible/enabled (undefined, null, '').\nif (!condition) {\n  return true;\n}\n```\n\n于是链条闭合:`disabled: ''` 通过 `!== undefined` 这一关 → `evaluateCondition('')` 返回 `true` → `_disabled = true`。方向不对称与 #3842 / #3849 完全相同 —— 同一个 `true` 在 `visible` 上意味着「显示」(该侧 `visible !== undefined` 因此良性,`SchemaRenderer.tsx:287` 的 `!evaluateCondition('')` = `!true` = 不隐藏),在 `disabled` 上意味着「禁用」。\n\n比 `!= null` 家族多亏一格:**`disabled: null` 也会置灰**(`null !== undefined` 为真 → `evaluateCondition(null)` 为 `true`)。`!= null` 的五处落点至少把 `null` 排在门外。\n\n## 值不是死的:它会被转发成组件 prop\n\n这一点是 #3849 正文没有建立的部分。`_disabled` 不是内部标记而已 —— `SchemaRenderer.tsx:461` 把它交给被渲染组件:\n\n```ts\ndisabled: __disabled || undefined,\n```\n\n(同一处 `SchemaRenderer.tsx:411` 把 `_disabled` 从 `componentProps` 里剥掉,正是为了改用这条显式通道。)所以任何接受 `disabled` prop 的渲染器 —— 输入控件、按钮、表单字段 —— 在元数据写了 `disabled: ''` 时会被真正置灰。\n\n求值块在 `evaluatedSchema` 的 `useMemo` 里**无条件**执行(`SchemaRenderer.tsx:285` 起的可见性块之后,不带任何 type 判定),因此覆盖的是走 `SchemaRenderer` 的**全部**节点,而不是某个渲染器。这也正是 #3823 分诊时说「组件级 `visible` 门大多休眠,因为 `SchemaRenderer` 更早一层就判了」的那一层 —— 在 `disabled` 方向上,这一层自己就是缺陷所在。\n\n严重度请分诊裁。证据取自源码链(file:line 如上),未另跑运行期探针 —— 探针属 #3849 之外的文件面,本单只做静态取证。\n\n## 修法上的岔路(需先裁,不该由实施者顺手定)\n\n想「统一改读那唯一定义」有个包依赖障碍:`hasDeclaredVisibilityGate` 定义在 `packages/components/src/renderers/action/visibility-gate.ts`,而 `SchemaRenderer` 在 `packages/react`。按仓内拓扑 `components` 依赖 `react`,反向导入是禁止的方向 —— 所以这里要么把定义上提(`@object-ui/core` 或 `@object-ui/types` 一侧),要么另想办法。#3842 已裁「不上提 core」,但那条裁定的语境是**动作面五个落点**,不是这条跨包路径;是否为了 `SchemaRenderer` 重新审视上提,是一个需要维护者裁的契约问题。\n\n⛔ 明确**不**推荐:在 `SchemaRenderer` 里就地补一个 `&& !== ''` —— 那就是把第四种「空」的拼法写进第四个消费者,#3842 / #3849 刚刚合掉的正是这类分身。\n\n## 与 #3850 的关系\n\n不是它的子集:#3850 收的是「空的范围」在 `hasDeclaredVisibilityGate` / `toPredicateInput` / `evaluateCondition` 三处不一致(空 `source` 信封那道夹缝),它的修法落点是 `hasDeclaredVisibilityGate` 那唯一定义或 producer 侧校验。`SchemaRenderer` **不调用** `hasDeclaredVisibilityGate`,自带一套内联判定,所以把 #3850 修完这一处仍然是错的 —— 按「附着而非散落」的判据,这属于**独立单**而非 #3850 的子单。但两单共享同一个「定义该放在哪一层」的裁定面,建议同批裁。\n\nRelated: #3842 / PR #3851(`action:button` + `DeclaredActionsBar` 两处,`''` 半边已修)、#3849 / PR #3861(其余五处渲染落点,`!= null` → `hasDeclaredVisibilityGate`)、#3850(空 `source` 信封的范围不一致,同一裁定面)、#3848(执行入口 `ActionRunner` 的同族半边)、#3492(不变量出处)。未认领。"
+}

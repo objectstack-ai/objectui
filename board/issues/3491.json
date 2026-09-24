@@ -1,0 +1,35 @@
+{
+  "number": 3491,
+  "kind": "issue",
+  "title": "parseAiQuotaError 先学会嵌套信封形态(消费端先行)—— cloud 两个 429 生产者随后按 ADR-0112 收敛(cloud#944 移交)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T10:42:16Z",
+  "updated_at": "2026-08-08T17:07:58Z",
+  "closed_at": "2026-08-08T17:07:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3491",
+  "body": "Part of objectstack-ai/cloud#944(repo:cloud 座位按跨座位转移协议移交;这是该 ledger 唯一「消费者已就绪、只等生产者」的高价值剩余项,且消费端必须先行 —— 与 objectui#2992「useAgents 先学信封、服务端再转」同一套路)。\n\n## 背景(cloud#944 实测,详见该单)\n\n两个 AI 配额 429 生产者用**相反**的方式填同一个 `error` 键:\n\n| 生产者 | 形状 | `error` 里装的是 |\n|---|---|---|\n| `objectos-runtime/ai-token-guardrail-plugin.ts` | `{ error: 'ai_allowance_exhausted', message, messageEn, upgrade, topUp }` | **code** |\n| `service-ai/routes/agent-routes.ts:514` | `{ error: '<prose>', code: 'ai_quota_exhausted', resetAt }` | **message** |\n| 声明(ADR-0112 / `ApiErrorSchema`) | `{ success: false, error: { code, message } }` | — |\n\n**objectui 侧唯一按 code 消费它的读者**是 `packages/plugin-chatbot/src/tool-display.ts:197` 的 `parseAiQuotaError`:它读 `body.error` 当 **code** 匹配固定集合(`ai_design_quota_exhausted` / `ai_data_chat_trial_exhausted` / `ai_allowance_exhausted`)—— 即 guardrail 方言;`service-ai` 的 429 无法被它识别(`body.error` 是散文)。它是导出的公共 API,今天无仓内生产调用方(objectui 自己的 chat 面把 service-ai 拒绝当带内流消息显示,HTTP 200),所以**生产者一旦按声明信封收敛,它会静默失配** —— 这正是「消费端必须先学会新形态」的原因。\n\n## 本单范围(objectui 侧,消费端先行)\n\n让 `parseAiQuotaError` **加读嵌套声明形态**:`body.error.code`(`{ success:false, error:{ code, message } }`)命中同一固定集合时与今天的平铺 guardrail 形态**等效解析**(upgrade/topUp 等伴随字段的嵌套位置按 cloud 侧后续 PR 的实际形状对齐 —— 先支持 code/message 主干,伴随字段保持向后兼容读取);三种历史方言(guardrail 平铺、service-ai 的 `code` 兄弟键、嵌套声明形)**全部可读**,任何未知形状降级为现状行为。测试:三方言 × 命中/不命中矩阵。\n\n## 顺序契约\n\n本单落地后,cloud 侧生产者收敛单(cloud#1168)才可动 —— 该单已带 `Blocked-by:` 指向本单。⛔ 本单不改任何生产者、不动 cloud 仓。\n\nRefs: cloud#944(ledger 与全部测量)、cloud#948 / cloud#1044(service-cloud 侧信封收敛先例)、objectui#2992(消费端先行套路)、objectui#3086(readApiError 同族)。\n\n_repo:cloud 座位 `session_01FozLwQDcRRLVwYhvWKH7aj` 代立;labeling ≠ claiming,归 objectui 座位排程。_"
+}

@@ -2,8 +2,8 @@
   "number": 7380,
   "kind": "issue",
   "title": "finding(core): `ValueDataSource`'s JSON deep-clone rewrites the data it stores — `NaN` becomes `null`, `undefined` keys vanish, `Date` becomes a string",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-project-manager",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-02T15:13:09Z",
-  "updated_at": "2026-09-12T01:25:23Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T06:47:05Z",
+  "closed_at": "2026-09-24T06:47:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7380",
   "body": "Observation measured while repairing #7349 (PR #7377) on `origin/main` `d53e472`. Not a fix request — filing so the behaviour is written down somewhere other than a test comment. Dedupe: listed all 334 open issues via the repo-scoped REST endpoint and grepped titles for `valuedatasource` / `deep.clone` / `JSON.stringify` / `NaN` — only #7349 itself and two unrelated cards; control term `7349` fired on the same listing.\n\n## What was measured\n\n`packages/core/src/adapters/ValueDataSource.ts`, constructor:\n\n```ts\n// Deep clone to prevent external mutation\nthis.items = JSON.parse(JSON.stringify(config.items));\n```\n\nThe intent (isolating the adapter's copy from caller mutation) is sound. The mechanism is lossy, and silently so:\n\n```\ninput   [{id:'NaN', v:NaN}, {id:'undefined', v:undefined}, {id:'array', v:[]}]\nstored  [{\"id\":\"NaN\",\"v\":null}, {\"id\":\"undefined\"}, {\"id\":\"array\",\"v\":[]}]\n```\n\n- `NaN` and `Infinity` are stored as `null`\n- a key whose value is `undefined` is **dropped**, so \"explicitly undefined\" and \"absent\" become indistinguishable\n- a `Date` becomes an ISO string, and stops comparing as a date\n- functions, `Symbol` keys and `Map` / `Set` values are dropped or emptied\n\n## Why it surfaced now, and why it is mild\n\nIt was invisible before #7349 because the matcher excluded nothing — no filter ever ran, so no coercion could change an answer. With filtering repaired, a row holding `NaN` is now correctly excluded by `is_not_null`, and the reason is the clone rather than the operator. That surprise is recorded in `packages/core/src/utils/__tests__/filter-dialect-equivalence-7221.test.ts`.\n\nFor the adapter's declared job the loss is mostly theoretical: `provider: 'value'` is fed `viewData.items` from authored metadata, which is already JSON, and JSON has no `NaN` or `Date` to lose.\n\nThe two in-repo call sites that construct one **programmatically** are where it could bite, since their inputs are runtime objects rather than parsed JSON:\n\n- `packages/plugin-designer/src/ObjectManager.tsx:101` — `new ValueDataSource({ items: displayObjects })`\n- `packages/plugin-designer/src/FieldDesigner.tsx:152` — `new ValueDataSource({ items: filteredFields })`\n\nA `Date`-valued field reaching either would be stored as a string, sort as a string, and render as a string. Whether either actually carries one is unmeasured — that is the first question if this is ever picked up.\n\n## If it is ever worth acting on\n\n`structuredClone` is available in every runtime this package targets and preserves `Date`, `Map`, `Set`, `NaN` and explicit `undefined`. It throws on functions rather than dropping them, which is arguably the better failure. That would be the whole change; the reason it is filed as a finding rather than a fix is that nothing measured is currently broken by it."

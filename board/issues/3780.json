@@ -1,0 +1,36 @@
+{
+  "number": 3780,
+  "kind": "issue",
+  "title": "components README §Setup 第 1 步仍是 Tailwind 3 写法(叫读者写 tailwind.config.js),而该包是 v4 CSS-first、全仓没有这个文件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:41:15Z",
+  "updated_at": "2026-08-09T00:05:42Z",
+  "closed_at": "2026-08-09T00:05:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3780",
+  "body": "实施 #3750(修 Peer Dependencies 区块 9 行失真)时,在同一个文件里紧挨着被修的那一行发现的越界问题,据实另立。#3750 的文件面只有具名的 peer **行**,§Setup 是结构性散文,越界即停。\n\n## 事实(复核于 `origin/main` = `d229dfa7b`)\n\n`packages/components/README.md` 第 41 行 `tailwindcss ^3.0.0` 已由 #3750 按实测收窄为 `^4.2.1`(该包是 Tailwind 4 专属)。**但紧接其后的 §Setup 第 1 步没跟**:\n\n```\n## Setup\n\n### 1. Configure Tailwind\n\nAdd to your `tailwind.config.js`:\n\n    module.exports = {\n      content: [\n        './src/**/*.{js,jsx,ts,tsx}',\n        './node_modules/@object-ui/components/**/*.{js,ts,jsx,tsx}'\n      ],\n      // ... your config\n    }\n```\n\n这是 Tailwind **3** 的惯用形,在 v4 下三处都不成立:\n\n1. **v4 不再自动加载 `tailwind.config.js`** —— 必须在 CSS 里显式 `@config` opt-in。读者照做会写出一个被静默忽略的文件。\n2. **`content` 数组在 v4 里由自动 source detection 取代**,额外路径用 `@source`。而 v4 的自动检测**默认排除 `node_modules`**,所以这段配置想解决的问题(扫描本包的 class)在 v4 下恰恰需要另一种写法。\n3. **本包自己就没有 `tailwind.config.js`**:`packages/components/` 下不存在该文件,`postcss.config.js` 加载 v4 专属的 `@tailwindcss/postcss`,`src/index.css` 首行 `@import 'tailwindcss'` 并使用 `@theme` / `@custom-variant` 两个 v4 专属 at-rule。\n\n本仓其它文档已经在用 v4 写法 —— `content/docs/utilities/runner.mdx:235` 教的是「Add a Tailwind `@source` line in `src/index.css`」。即 §Setup 第 1 步是相对**本仓自身现行实践**的滞留,不是待定问题。\n\n## 为什么门禁看不见\n\n#3750 把断言加宽到了 Peer Dependencies 区块的每一行,并且给 `TOOLCHAIN` 补了 `tailwindcss` 词界。两者都只判**版本字面量**与**区块内的行**。§Setup 这段既不在区块里,也不含版本字面量(`tailwind.config.js` 是文件名,`content` 是键名),因此加宽后依然完全在门禁视野之外。这属于「散文描述的 API 形状过时」,和版本棘轮是两类事实。\n\n## 影响\n\nREADME 随 npm tarball 发布(`files` 含 `README.md`),这是消费者的首份安装指南。照第 1 步做的读者会创建一个 Tailwind 4 不读的配置文件,然后在「为什么我的 class 没生成」上排查 —— 而真正需要的可能只是第 2 步(`@import '@object-ui/components/dist/style.css'`,预构建 CSS)。第 1 步很可能是**整段冗余**,不只是写法过时:值得连带判定它在 v4 + 预构建 CSS 的路径下还需不需要存在。\n\n## 修法方向(不预判)\n\n- 若第 1 步在 v4 下仍必要:改写为 `@source` 惯用形,并说清 `node_modules` 默认不被扫描;\n- 若预构建 CSS 已经覆盖:整段删除,只留 §2 §3。\n\n需要先判定「消费者到底要不要扫描本包源码」,这是文档语义决策而非机械替换,故不在 #3750 里顺手改。\n\n## 已搜重\n\n`tailwind config Setup README`、`tailwind.config.js v4` 两组关键字搜过本仓开放 issue,零命中。#3750 是同一文件的同一根因(README 停留在 tailwind 3)但**另一半面**:它修版本行,这条修散文。\n"
+}

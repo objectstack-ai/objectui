@@ -1,0 +1,36 @@
+{
+  "number": 3838,
+  "kind": "issue",
+  "title": "`record:related_list` 写了 `add` 但漏了 `add.picker`,整个相关列表被换成「Component failed to render」错误卡 —— `RelatedList.tsx:1299` 裸取 `add.picker.object`,同一文件 `:378`/`:390` 是可选链",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:50:11Z",
+  "updated_at": "2026-08-09T00:22:51Z",
+  "closed_at": "2026-08-09T00:22:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3838",
+  "body": "发现于 #3808 的实施过程(那一单给 `record:related_list.add` 补 `inputs` 声明时,`apps/console` 的 record-reach 探针按声明自动生成 fixture,`type: 'object'` 的通用样本 `{}` 直接把这个块炸了 —— 探针的报错原文见下)。围栏外,#3808 的 PR 只把 fixture 补成 spec 合法值(缺 `picker` 的 `{}` 本来就不是任何作者能发布的元数据),没有动渲染器。未认领,交 PM triage。\n\n## 机制\n\n`packages/plugin-detail/src/RelatedList.tsx` 对同一条路径有**两套**取法(objectui `origin/main` @ `c85268256`):\n\n```\n:378   const pickerObject = add?.picker?.object;              // 可选链\n:390   const pickerDisplayField = add?.picker?.labelField || 'name';   // 可选链\n...\n:1293  {add && dataSource && (                                // 只判了 add 真值\n:1299      objectName={add.picker.object}                      // 裸取 → 抛\n```\n\n`:1293` 的门只问「`add` 是不是真值」,`{}` 是真值。于是 `:1299` 抛 `TypeError: Cannot read properties of undefined (reading 'object')`,`SchemaRenderer` 捕获后把**整个块**换成错误卡:\n\n```\nComponent \"record:related_list\" failed to render\nCannot read properties of undefined (reading 'object')\n```\n\n`:724`(`add.picker.valueField`)也是裸取,但它在 `handleAddRecords` 回调里、`:723` 有 `if (!add || …) return` 前置,只在用户真的选完记录后才会走到 —— 不是渲染期崩溃点。**唯一的渲染期崩溃点是 `:1299`。**\n\n## 可达性(为什么这不是纯 dormant)\n\n前提是 `add` 存在而 `add.picker` 不存在,这是 spec **拒绝**的形状(`picker` 在 `RecordRelatedListProps.add` 里是必填,实测 `safeParse({... add: { label: 'Add' } })` 报 `invalid_type` on `add.picker`)。所以只有**不合规元数据**能触发。\n\n但渲染器拿到的是原始 schema,链路上没有任何一处对它做 Zod 解析:\n\n- `sdui-parser` 的 manifest 门只比**顶层键名**与粗类型,`add` 是个 `object`、`{}` 也是 `object` —— 零诊断(这正是 #3808 落的那道门在 LIMIT 段落里写明看不见成员形状的原因);\n- 上游 `validateComponentProps` 是 advisory;\n- `record:related_list` 的渲染器自己不校验。\n\n所以一个作者(尤其 AI 作者)写下\n\n```\n{ \"type\": \"record:related_list\", \"objectName\": \"sys_user_position\",\n  \"relationshipField\": \"user\", \"columns\": [\"position\"],\n  \"add\": { \"label\": \"指派职位\" } }\n```\n\n—— 忘了 `picker`,或者以为 `picker` 可选 —— 得到的不是「Add 按钮没出现」,而是**整段相关列表消失,换成一张红卡**,报错文案里没有 `picker` 三个字。#3808 给 `add` 补的 description 现在会把 shape 写在 manifest 里,这降低了写错的概率,但没有改变写错之后的后果。\n\n## 修法的取舍(所以只记录,不在 #3808 里顺手改)\n\n按 AGENTS.md #0.1,「消费端加宽容」是被明确反对的方向,所以 `:1299` 直接改成 `add?.picker?.object` 需要想清楚它属于哪一类:\n\n- **(a) 一致化守卫**:`:1293` 的门从 `add &&` 收紧成 `add?.picker?.object &&`,让 `:1299` 的裸取变成不可达,而不是给它加可选链。这不是\"接受不合规元数据\"——它是**不渲染**一个配置不全的 Add affordance,和 `:378`/`:390` 已有的写法同向,也不产生第二种方言(缺 `picker` 的 `add` 仍然什么都不做)。我倾向这一条。\n- **(b) 显式诊断**:缺 `picker` 时渲染 designer placeholder / console.warn,点名 `add.picker` 缺失。比静默更好,但要决定用哪套诊断通道(这个渲染器已有 `record:related_list — missing objectName` 的 placeholder 先例,见 `renderers/record-related-list.tsx`)。\n- **(c) 在产出端拦住**:让写页面元数据的路径真的跑一次 spec 解析,这是最正的方向,但范围远超本单(牵动 save-gate / `os build`),而且不改变**已在野**的坏元数据的渲染后果。\n\n(a) 与 (b) 不互斥,(b) 是 (a) 的加强版。三条都不是纯实现细节 —— (b) 定的是诊断契约,(c) 定的是校验时机。\n\n## 顺带:同族的裸取只此一处\n\n`grep -n \"add\\.picker\" packages/plugin-detail/src/RelatedList.tsx` 只有 `:724` 与 `:1299` 两处裸取,其余全部可选链;`:724` 有前置 return 且不在渲染路径。所以这是一个点的修复,不是一片。\n\n## 参考位置\n\n- `packages/plugin-detail/src/RelatedList.tsx:1293-1299`(崩溃点)、`:378` / `:390`(同一路径的可选链写法)、`:723-724`(回调里的裸取,有前置 return)\n- `packages/plugin-detail/src/renderers/record-related-list.tsx` —— `missing objectName` 的 placeholder 先例((b) 路线的现成形状)\n- `apps/console/src/__tests__/record-block-record-reach.test.tsx` —— 按声明生成 fixture 的探针;#3808 把它的 `add` 样本补成了 spec 合法的 `{ picker: { object } }`,并在注释里指向本单\n\n关联:#3808、#3809(同一道门\"只比键名\"的另一处盲区)、#3831(`add.picker.filter` 未接线)、AGENTS.md #0.1\n"
+}

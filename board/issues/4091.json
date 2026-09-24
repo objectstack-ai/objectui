@@ -1,0 +1,38 @@
+{
+  "number": 4091,
+  "kind": "pull_request",
+  "title": "chore(deps): bump lucide-react from 1.28.0 to 1.29.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "dependencies",
+    "package: components",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T07:53:28Z",
+  "updated_at": "2026-08-10T08:02:13Z",
+  "closed_at": "2026-08-10T07:59:17Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-10T07:59:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4091",
+  "body": "Bumps [lucide-react](https://github.com/lucide-icons/lucide/tree/HEAD/packages/lucide-react) from 1.28.0 to 1.29.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/lucide-icons/lucide/releases\">lucide-react's releases</a>.</em></p>\n<blockquote>\n<h2>Version 1.29.0</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>fix(<code>@​lucide/lab</code>): Fix lab build by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4618\">lucide-icons/lucide#4618</a></li>\n<li>feat(copilot): remove incorrect spaces clause from copilot instructions by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4623\">lucide-icons/lucide#4623</a></li>\n<li>feat(docs): remove Super and Noodle from showcase by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4626\">lucide-icons/lucide#4626</a></li>\n<li>chore(deps-dev): bump <code>@​angular/platform-server</code> from 21.2.18 to 21.2.19 by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4629\">lucide-icons/lucide#4629</a></li>\n<li>ci(security): improve security with adding permissions by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4619\">lucide-icons/lucide#4619</a></li>\n<li>feat(dependabot): added dependabot config, grouping PRs for each package by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4633\">lucide-icons/lucide#4633</a></li>\n<li>fix(ci): limit certain github workflows to main repository by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4628\">lucide-icons/lucide#4628</a></li>\n<li>fix(dependabot): Revert dependabot groups by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4665\">lucide-icons/lucide#4665</a></li>\n<li>chore(dependabot): Group by dependency group by <a href=\"https://github.com/ericfennis\"><code>@​ericfennis</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4666\">lucide-icons/lucide#4666</a></li>\n<li>chore(deps-dev): bump the svelte-deps group with 3 updates by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4671\">lucide-icons/lucide#4671</a></li>\n<li>chore(deps): bump the vue-deps group with 3 updates by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4670\">lucide-icons/lucide#4670</a></li>\n<li>chore(deps): bump the github-actions group with 13 updates by <a href=\"https://github.com/dependabot\"><code>@​dependabot</code></a>[bot] in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4668\">lucide-icons/lucide#4668</a></li>\n<li>feat(icons): added layer reordering icons by <a href=\"https://github.com/karsa-mistmere\"><code>@​karsa-mistmere</code></a> in <a href=\"https://redirect.github.com/lucide-icons/lucide/pull/4617\">lucide-icons/lucide#4617</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a href=\"https://github.com/lucide-icons/lucide/compare/1.28.0...1.29.0\">https://github.com/lucide-icons/lucide/compare/1.28.0...1.29.0</a></p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li>See full diff in <a href=\"https://github.com/lucide-icons/lucide/commits/1.29.0/packages/lucide-react\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3129,
+  "kind": "issue",
+  "title": "fix(timeline): honor startDateField when rendering a ListView timeline",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T01:05:26Z",
+  "updated_at": "2026-08-10T07:04:39Z",
+  "closed_at": "2026-08-10T07:04:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3129",
+  "body": "## Reproduction\n\n1. Run HotCRM with the published console and open `crm_campaign/view/campaign_timeline`.\n2. The view declares `timeline.startDateField: \"start_date\"` and `timeline.endDateField: \"end_date\"`; every campaign has both values.\n3. The timeline renders all seven records under **No date**.\n\nThe same `start_date` / `end_date` fields render correctly in the Calendar and Gantt views, so this is isolated to the timeline path.\n\n## Expected\n\nThe timeline should bucket records by their configured start date and render the corresponding date label.\n\n## Context\n\nFound while recapturing the HotCRM marketing screenshot library after objectstack-ai/hotcrm#581. A metadata-only attempt to include the two date fields in the timeline view projection did not change the published-console behavior."
+}

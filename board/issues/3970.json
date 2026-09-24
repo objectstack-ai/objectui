@@ -1,0 +1,32 @@
+{
+  "number": 3970,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): 页面块检查器 curated 属性 label 跟随会话语言 (#3913)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T18:28:57Z",
+  "updated_at": "2026-08-09T18:46:17Z",
+  "closed_at": "2026-08-09T18:46:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T18:46:16Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3970",
+  "body": "Fixes #3913\n\n## 症状与机制\n\n`PageBlockInspector` 的外围 chrome 从一开始就走翻译表(`t('engine.inspector.pageBlock.properties')` 等),但面板的**内容** —— `previews/block-config.ts` 里每个块类型的 curated 字段 label —— 是英文字面量,`renderField` 原样交给字段组件。于是 zh-CN 管理员打开任意页面块,看到的是「属性」标题下面一摞英文字段名:同一面板两种语言,任意块、无需特殊数据即可复现。\n\n## 改法:label 存翻译键,渲染处过 t()\n\n157 个字面量(152 个字段/选项 label + 5 个 `addLabel`)全部改为翻译键,`t(key, locale)` 在渲染处解析;154 个去重后的键同时补进 `views/metadata-admin/i18n.ts` 的 en-US 与 zh-CN 两侧(该表只有这两种语言)。`t()` 未命中时原样返回键,所以漏译在**每种语言**里都是显眼的键串,而不是在一种语言里静默显示英文。\n\n**键形状由 label 在 `BLOCK_CONFIG` 里的位置决定**,这一点是承重的而非命名偏好:\n\n| 位置 | 键 |\n|---|---|\n| 字段 label | `engine.inspector.pageBlock.field.{blockType}.{name}` |\n| 嵌套 item label | `engine.inspector.pageBlock.field.{blockType}.{array}.{name}` |\n| array 添加按钮 | `engine.inspector.pageBlock.add.{blockType}.{name}` |\n| select/color 选项 | `engine.inspector.pageBlock.option.{fieldName}.{value}` |\n\n选项键**故意不带**块类型,所以 `format` 的 number/currency/percent 在 `object-metric` 与 `element:number` 之间共享一份翻译(154 = 157 去掉 3 个这样的重复);字段键**故意带**块类型,因为同一个英文词在不同块里需要不同中文 —— `element:button.label` 是按钮文案「按钮文字」,`page:tabs.items.label` 是标签页标题「标签」;`Add section` 在这里是「添加分区」,而表单布局画布的 `designer.canvas.addSection` 仍是「添加分组」。一键一义,这些区分才表达得出来。\n\n## en 逐字节未变(已实测,非抽样)\n\nen-US 是本仓基准语言。把全部 157 个键按 en 值反向代回,与改动前的文件做字节比对,数据区完全一致:\n\n```\nsubstituted 157 key literals back to their en values\ndata region byte-identical to pre-change: true\n```\n\n## `addLabel` 由可选改为必填\n\n`addLabel` 原是可选的,array 分支在缺失时渲染裸英文 `'Add'` —— 一个任何翻译表都碰不到的字面量。这里**删掉这个兜底而不是翻译它**:类型改成必填,新增 array 字段不写 add 按钮键就编译不过。这条比加一个 `?? 'Add'` 的默认键更符合契约优先 —— 宽容的消费端正是漏译藏身之处。\n\n## 钉子\n\n`previews/__tests__/block-config-i18n.test.ts`(结构)+ `inspectors/PageBlockInspector.i18n.test.tsx`(渲染),两者钉的是不同的事实:一个是表数据,一个是屏幕。`renderField` 有 11 处读 `f.label`(8 处作 `label=` 属性、3 处作 Label 元素的子节点),外加两处选项列表,每一处都是一次「忘记过 t()」的机会 —— 键全对的表照样能在屏幕上渲染出裸键。\n\n结构钉的关键一条不是「键在不在」,而是**键等于位置推导出的那个键**:这些键之间只差一个 segment,新增块时现实的失误不是拼错,而是从邻块复制粘贴 —— 那样的键在两种语言里**都存在**、渲染出一个看起来合理但属于另一个属性的 label,只查存在性的断言对此全绿。所以测试从 `BLOCK_CONFIG` 的结构重新推导四种键形并与表里存的比对。\n\n渲染钉覆盖 zh-CN/en-US 同块对照、嵌套 item label、select 选项、以及 `ColorVariantPicker` 只以 `aria-label`/`title` 渲染的色板选项(文本查询看不见,恰是漏译藏身处)。\n\n## 反向验证(方向先预判,再跑;两条逐条吻合。完整输出见本 PR 首条评论)\n\n两个变异的**预判方向在写代码时就已记录**,变异不提交,跑完均已回退:\n\n- **删 1 个 zh 键**(`field.record:alert.dismissible`)—— 预判:zh 完整性断言精确翻红并指名该键;「zh 不等于 en」断言保持**绿**(`t()` 兜底返回键本身,与英文值不同);渲染钉在中文文本与裸键守卫两处翻红。\n- **把某个 label 指向邻块一个已存在的键**(`record:alert.title` 指向 `page:card.title`)—— 预判:两条完整性断言都保持**绿**(该键在两语里确实存在),**只有推导断言翻红**。这一条是本 PR 里推导断言存在的全部理由:它是「只查键在不在」结构上看不见的那类失误。\n\n实测结果与两条预判**逐条吻合**:\n\n- A 只翻红 2 条(`× every key resolves in zh-CN` 精确指名 `field.record:alert.dismissible`,渲染钉找不到「可关闭」),`Tests 2 failed | 15 passed`。「zh 不等于 en」**未翻红** —— 正如预判,`t()` 兜底返回键本身、与英文值不同,那条断言无从触发;这也说明完整性必须单独断一条,不能靠它间接覆盖。\n- B 只翻红 **1** 条(`× stores exactly the key its position implies`,消息里同时给出存的键与位置应得的键),`Tests 1 failed | 16 passed`。**两条完整性断言全绿,渲染钉也全绿** —— 两个键的英文都是 `Title`、中文都是「标题」,屏幕上看不出异常。即:只断言「键在两语里都存在」时,这个把 label 指到别的属性上的失误会**完全静默**。推导断言的存在理由由此是实测,而非论证。\n\n## 边界\n\n- ⛔ 未动 #3912(同文件另一缺陷:`BlockPropField` 的格式/校验能力位)。\n- ⛔ 未动表单布局画布(#3134 的面);`designer.canvas.addSection` 保持原状。\n- 实施中发现 `PageBlockInspector.tsx` **自身 JSX** 里还有一批硬编码英文(列表行的 `Add` 按钮、`Remove`/`Remove item` 的 aria-label、`Invalid JSON`、两个 placeholder)—— 从来不是 `block-config` 的 label,另一条机制,已另开 #3963,未夹带。这正是首轮全量跑里唯一那条失败断言暴露的:笔者原本写了 `queryByText('Add')` 为空,过头了。现在渲染钉里有一条用例**断言这些英文仍然存在**,所以 #3963 落地时它会精确翻红并被收紧,两个修复不会静默重叠。\n\n## 校验记录(全部已实测)\n\n- `pnpm exec vitest run packages/app-shell/src/views/metadata-admin`(仓根,`--maxWorkers=2`,持共享 verify 锁,`NODE_OPTIONS=--max-old-space-size=4096`)—— 首轮 **1350 passed / 1 failed**,那一条即上述写过头的断言,已改正。\n- 改正后受影响的 4 个文件重跑:`Test Files 4 passed (4)` / `Tests 41 passed (41)`(含 `PageBlockInspector.sectionName.test.tsx` 在 en-US 下对 `Add section` 的现成断言,未改一行仍绿 —— 这本身就是 en 未漂移的一个钉)。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2`:`78 successful, 78 total`。\n- `pnpm check:i18n-keys` exit=0(`2316/2316 literal keys resolve`;本表计入 `1076 module-local table`,按设计跳过),`pnpm check:i18n-drift` exit=0(`0 en value(s) changed`),两个 baseline 文件均未改动。\n- en 逐字节回代(上文);154 键在两张表里**无重复键**;en/zh 两表原有的 44 键差值未变 —— 即两侧各正好新增 154 条。\n- `node scripts/check-control-bytes.mjs` OK,另对 7 个改动文件做了 `grep -naP` 控制字节自扫(gate 有已知盲区),干净。\n\n关于两张 i18n 门:`pnpm check:i18n-keys` 把 `metadata-admin/i18n.ts` 明确列在 `EXCLUDED_TRANSLATORS`(模块内私有 label 表,按设计不进 locale pack,`forwardedScope` 覆盖整棵 metadata-admin 子树),`pnpm check:i18n-drift` 只读 `packages/i18n/src/locales/*.ts` —— **两张门都不覆盖这张表**,所以它们的绿是「未被本改动破坏」,不是「本表已被门保护」;表内的完整性由上面那两个钉负责。\n\n## 复用 spec 侧翻译面的取舍(PM 要求论证)\n\n查过复用路径,结论是维持包内新增键。`packages/i18n/src/locales/en.ts` 里确有字面重合的条目(`groupByField: 'Group by field'`、`striped: 'Striped rows'`),但它们在 `console.*` 命名空间下、属于**视图设计器**那个面,与页面块检查器只是词面撞车;复用会让这里的 label 随另一个面板的措辞改动而变,且只覆盖 154 个键里的少数几个,剩下的仍要新建 —— 反而做出一张 split-brain 的表。跨进 i18next pack 还会把 metadata-admin 子树的一部分拖进 `check-i18n-call-site-keys` 的面(而 `EXCLUDED_TRANSLATORS` 声明整棵子树是本地表),并要求给设计器内部文案凑齐 10 种语言。\n\n## 浏览器验证为何跳过\n\n`locale` prop 在真实 zh-CN 会话里确实到位这件事,**由本 issue 的症状本身证明** —— 报告说 chrome 的「属性」是中文而内容是英文,两者读的是同一个 `locale` 变量,所以管线无需浏览器再确认,变的只有内容。渲染钉用真实组件跑了 7 个块类型,含浏览器截图也看不见的 `aria-label` 色板选项。\n"
+}

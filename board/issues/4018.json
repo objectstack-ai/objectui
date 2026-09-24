@@ -2,8 +2,8 @@
   "number": 4018,
   "kind": "issue",
   "title": "[决策] objectui record:details 渲染器的双形状接缝:合成器产 title/descriptor-fields 与 spec 区块形状经裸 `??` 缝合,往哪个方向收",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -12,16 +12,19 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-10T02:06:12Z",
-  "updated_at": "2026-09-16T23:05:57Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T06:29:47Z",
+  "closed_at": "2026-09-24T06:29:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 3,
   "locked": false,

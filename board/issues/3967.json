@@ -1,0 +1,35 @@
+{
+  "number": 3967,
+  "kind": "issue",
+  "title": "[plugin-grid] BulkActionDialog 的必填 param 把裸 `*` 折进可访问名、且 `required` 从不下发到控件 —— #3299/#3290 家族里被漏掉的一个站点",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T18:14:37Z",
+  "updated_at": "2026-08-09T21:18:19Z",
+  "closed_at": "2026-08-09T21:18:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3967",
+  "body": "修 #3962(app-shell `ActionParamDialog` 的 boolean 分支不下发 `id`)时,顺手枚举了「渲染共享 field widget 的 host」这条消费半径 —— `getLazyFieldWidget` 在仓内只有两个非测试调用点。另一个是 `packages/plugin-grid/src/components/BulkActionDialog.tsx` 的 `ParamField`,它在 `id` 这件事上是对的(每种类型都传 `id={id}`),但 #3299/#3290 为 `ActionParamDialog` 定下的另外两条约定在这里都没有。与 #3962 不同包、不同站点,所以另立单;不在 #3962 的 PR 范围内。\n\n## 站点\n\n`packages/plugin-grid/src/components/BulkActionDialog.tsx`,`ParamField`(约 585-600 行):\n\n```\n  Label htmlFor={id} className=\"text-xs\"\n    {param.label ?? param.name}\n    {param.required && span className=\"text-destructive ml-0.5\" *  }\n  /Label\n  ...\n  Widget\n    id={id}\n    value={value ?? null}\n    onChange={onChange}\n    field={field}\n    {...dataSourceProps}\n```\n\n(上面为规避 GitHub 正文清洗器,尖括号已去掉 —— 以仓内实际代码为准。)\n\n## 两个缺陷\n\n**1. 裸 `*` 折进控件的可访问名(#3299 判过的同一形状)。** 那个 `span` 没有 `aria-hidden=\"true\"`。`*` 在 `Label htmlFor` 内部,按 accname 会进入被引用控件的名字,于是屏幕阅读器把每个必填 bulk param 念成「Label asterisk」。`ActionParamDialog` 的两个分支都显式加了 `aria-hidden=\"true\"` 并带注释说明理由(「Visual-only ... without `aria-hidden` the bare `*` would fold into the accessible name」),还有 `ActionParamDialog.ariaRequired.test.tsx` 的钉子;这个站点两样都没有。\n\n**2. `required` 状态从不到达控件。** `param.required` 是真实生效的声明 —— 同文件 238 行用它做提交前校验 —— 但 `Widget` 的 props 里没有 `aria-required`。所以控件本身从不宣告必填状态:视觉上有个星号,可访问性树里什么都没有。#3299 的裁决是「required 是 STATE,走 state channel 到控件」,`toDomProps` 的白名单按前缀转发 `aria-*`,通路是通的,只是这里没接。\n\n两条合起来的实测后果:必填的 bulk action param,屏幕阅读器听到的是「星号」这个装饰字符,而唯一真正携带语义的通道是空的。\n\n## 不是什么\n\n- **不是 #3318。** 那单是 widget 侧的 `aria-invalid`(29 个注册 widget,校验失败后的通道),这单是 host 侧的 `aria-required` + 装饰字符,层次和属性都不同。\n- **不是 #3962。** #3962 是 `id` 归属与重复 label(app-shell)。这个站点的 `id` 本来就下发正确,而且它给的是 `bulk-param-${param.name}` 而非 `param.name` —— 在 #3952/PR #3959 让 `BooleanField` 尊重 host id 之前,这里的 boolean param 才是真悬空;那一半已经被 #3959 修掉了。\n\n## 修法草案\n\n与 `ActionParamDialog` 对齐(不要在这里发明第二套写法):\n\n1. 星号 `span` 补 `aria-hidden=\"true\"`。\n2. `Widget` 补 `aria-required={param.required || undefined}`(`|| undefined` 使可选 param 完全不带该属性,与 `ActionParamDialog` 一致,而不是写 `\"false\"`)。\n3. 钉子:必填 bulk param 的可访问名恰好等于 param label(不含星号)、控件带 `aria-required=\"true\"`、可选 param 完全不带该属性。plugin-grid 已有 `BulkActionDialog` 的测试文件可扩展。\n\n## 参考\n\n- #3299(required 是 state,走 state channel;裸 `*` 必须 `aria-hidden`)\n- #3290(刻意不用原生 `required`:会与 dialog 自己的必填提示形成两个校验器)\n- #3962 / 本次消费半径枚举的来源\n- #3318(widget 侧 `aria-invalid`,相邻但不同)\n"
+}

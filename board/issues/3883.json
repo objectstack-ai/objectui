@@ -1,0 +1,37 @@
+{
+  "number": 3883,
+  "kind": "issue",
+  "title": "content/docs/guide 的 theming / troubleshooting 两页仍在教 Tailwind 3 的 tailwind.config content 数组,且实测那个「修法」也补不回主题化 utility",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:39:55Z",
+  "updated_at": "2026-08-10T02:56:32Z",
+  "closed_at": "2026-08-10T02:56:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3883",
+  "body": "实施 #3780(components README §Setup 第 1 步)时,在同一根因(消费者侧 Tailwind 安装说明滞留在 v3)的**另外两个文件面**上发现,据实另立。#3780 的文件面只有 `packages/components/README.md`,越界即停。\n\n## 事实(复核于 `origin/main` = `56ff0916e`)\n\n两处 site 文档页把 Tailwind 3 的 `tailwind.config` `content` 数组当作现行做法教:\n\n1. `content/docs/guide/theming.md:62-113` §Tailwind Configuration —— 「Extend your `tailwind.config.js` to map tokens to Tailwind utilities」,后面是一整个 v3 config:`darkMode: \"class\"`、`content` 里带 `./node_modules/@object-ui/components/dist/**/*.js`、以及把 `--background` / `--primary` / `--border` 逐个映射成 `theme.extend.colors` 的 30 行。\n2. `content/docs/guide/troubleshooting.md:44-66` §2 Build Errors with Tailwind CSS —— 症状写「Tailwind utility classes are not applied」,病因写「The `content` paths in your Tailwind config do not include ObjectUI package files」,处方是更新 `tailwind.config.ts` 的 `content`,列 4 条 node_modules 路径。\n\n与 #3780 同一事实基座:本仓是 Tailwind 4,`packages/components` 下不存在 `tailwind.config.js`,`postcss.config.js` 加载 `@tailwindcss/postcss`,`src/index.css` 首行 `@import 'tailwindcss'` 并用 `@theme` / `@custom-variant` / `@source`。**Tailwind 4 不会自动加载 config 文件**,必须 CSS 里 `@config` opt-in。\n\n## 实测:即使补上 @config,这个处方也修不好它声称要修的症状\n\n#3780 的实施里对着真实安装跑了四组消费者形状的 CSS 入口(Tailwind 4.3.3,`@tailwindcss/postcss`,每组一次真实编译):\n\n| 消费者入口 | 自己的 class | 库的形状类 utility | 库的**主题**类 utility |\n| --- | --- | --- | --- |\n| v3 config 原样(无 `@config`) | 有 | 无 | 无 |\n| v4 `@source` 指向已安装包 | 有 | 有 | **无** |\n| v3 config + 显式 `@config` opt-in | 有 | 有 | **无** |\n| 预构建 `style.css` | 不归它管 | 有 | 有 |\n\n`bg-primary` / `bg-background` / `border-input` / `ring-ring` —— 整套 Shadcn 配色 —— 只在声明其 token 的 `@theme` 块被编译处存在,而该块在 `packages/components/src/index.css`,`files` 不发布它。所以扫描已发布文件只能重新生成形状类 utility(`inline-flex` / `rounded-md` / `h-9`),永远补不回主题类。\n\n对 troubleshooting.md 尤其致命:那一页正是读者「class 没生效」之后落地的页面,而它给的处方在 v4 下要么完全空转(不加 `@config`),要么补回一半就停(加了 `@config`),读者会以为路径写得还不够全而继续加路径。真正的答案是 `@import '@object-ui/components/style.css'`(exports 映射到 `dist/index.css`)。\n\n## 建议修法(不预判)\n\n两页都改成 v4 CSS-first 写法,与 `content/docs/guide/quick-start.md:57`、`packages/components/README.md` §Setup(#3780 已改)、`content/docs/utilities/runner.mdx:235` 的现行教法一致;theming.md 那 30 行 token 映射在 v4 下由包自己发布的 `@theme` 承担,不需要消费者重写。\n\n## 为什么门禁看不见\n\n`scripts/check-doc-links.mjs` 只判链接,`doc-version-claims.test.ts` 只判版本字面量 —— 这两段既无坏链也无版本字面量(`tailwind.config.js` 是文件名,`content` 是键名)。同 #3780 的「散文描述的 API 形状过时」类。\n\n## 已搜重\n\n`tailwind config`、`theming.md OR quick-start.md OR @source`、`content/docs/guide tailwind style.css` 三组关键字搜过本仓开放 issue。命中仅 #3780(components README,已在实施)与 #3852(packages/cli 生成物的 Tailwind 3 全套,运行时面)—— 两者都不含 `content/docs/guide` 这两页。\n"
+}

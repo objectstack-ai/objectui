@@ -1,0 +1,35 @@
+{
+  "number": 3792,
+  "kind": "issue",
+  "title": "`evalRowPredicate` 的 fail-closed 报告丢掉引擎给的失败原因(且把每个面都称作 \"list conditional predicate\")",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T16:20:14Z",
+  "updated_at": "2026-08-10T10:04:31Z",
+  "closed_at": "2026-08-10T10:04:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3792",
+  "body": "观察记录,实施 #3521 时发现,**不是本单改动引入的**;四个动作面共同的诊断质量问题,没有功能性影响,所以只作 `finding` 记录、不排期。\n\n## 现象\n\n`packages/core/src/evaluator/listConditional.ts` 的 `evalRowPredicate` 有两条诊断路径,信息量相反:\n\n- **`warnOnError` 未开(快路)**:单次求值,由 `evalFieldPredicate` 自己 warn,消息里**带原因** —— `… Reason: [runtime] No such key: absent.`\n- **`warnOnError: true`(fail-closed 调用方走的路)**:`evalCel` 为了把 fault 和真 `false` 区分开跑两遍,两遍都传 `{ warn: false }`,于是原因被丢掉,只剩 `warnEvalError` 的一句:\n\n```\n[object-ui] A list conditional predicate failed to evaluate (<label>) and was\ntreated as its safe default: \"…\". Check the field names and CEL syntax.\n```\n\n也就是说:**越是要 fail-closed(按钮直接消失)的场合,诊断越少**。行 kebab、批量选择栏、记录页头(#3521 之后)都走 `warnOnError: true`,所以「按钮为什么不见了」在控制台里恰恰看不到原因 —— 而 `No such key: owner_id` / `no such overload: string == null` 这类原因基本一句话就能定位作者的笔误。\n\n## 另一半:措辞\n\n同一条消息把每个调用方都称作 \"**list** conditional predicate\"。这个函数早已不只服务列表面:kanban 卡片条件格式、批量选择栏,#3521 之后还有 `page:header`。页头上一个隐藏的按钮报出「a list conditional predicate」会让读者去列表视图里找错。\n\n## 为什么现在没有人踩\n\n结论方向完全正确(fault → fallback),warn-once 也在,受影响的只是排查耗时;而且 label 已经能指到具体动作/规则。所以这是观察级,不是缺陷级。\n\n## 可能的修法(留给分诊,不预设)\n\n`evalCel` 已经拿到两次 `evalFieldPredicate` 的结果,但拿不到 `res.error`。要带上原因,得让 `evalFieldPredicate` 有办法把失败原因**回传**而不是只 `console.warn`(例如可选的 `onFault(reason)` 回调,或返回富结果的姊妹函数),再由 `warnEvalError` 拼进消息;同时把 \"list conditional predicate\" 改成中性措辞(如 \"conditional predicate\")。两处都在 core,一处改动即覆盖四个面。\n\n参考:#5149(fail-open 要响不要静默,原因文本就是那一单加的)、#3521(页头接入这条路径的那一单)。\n"
+}

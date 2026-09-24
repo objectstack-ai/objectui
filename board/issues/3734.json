@@ -1,0 +1,30 @@
+{
+  "number": 3734,
+  "kind": "pull_request",
+  "title": "docs(skills): 把 console-development.md 三处表/节里 13 个符号的路径钉回真实位置 (#3730)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T10:35:26Z",
+  "updated_at": "2026-08-08T10:59:44Z",
+  "closed_at": "2026-08-08T10:59:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T10:59:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3734",
+  "body": "Fixes objectstack-ai/objectui#3730\n\n单文件改动：`skills/objectui/guides/console-development.md`。四项路径订正 + 一处授权搭改。\n所有替换后的 Location 都由本分支自己在 `origin/main` 上跑 `find`/`ls` 逐条核过，未照抄卡片\n（卡片自己也提醒过这个映射不是整体平移一层前缀）。基线 `origin/main` @ `4e93e40d7`（PR #3729\n刚重写过本文件，卡内行号已失效，全部按内容锚定）。\n\n## 一、Key contexts 表（5 行全改）\n\n`apps/console/src/context/` 这个目录整个不存在。五个符号都在 `@object-ui/app-shell`，但\napp-shell 内部有 `context/` 与 `providers/` 两个平级目录，五个符号分散在两边 —— 所以表头\n新增一句说明「按行核前缀，不要整表平移」，避免下一位读者把它当成统一前缀。\n\n| Context | 改后 Location |\n|---|---|\n| `AdapterProvider` | `packages/app-shell/src/providers/AdapterProvider.tsx` |\n| `MetadataProvider` | `packages/app-shell/src/providers/MetadataProvider.tsx` |\n| `NavigationContext` | `packages/app-shell/src/context/NavigationContext.tsx` |\n| `FavoritesProvider` | `packages/app-shell/src/context/FavoritesProvider.tsx` |\n| `ExpressionProvider` | `packages/app-shell/src/providers/ExpressionProvider.tsx` |\n\n`MetadataProvider` 是全仓唯一重名的一个，表后加了一句消歧：console 用的是 app-shell 那个\n（`ConsoleShell` / `ConnectedShell` 挂载它、`@object-ui/app-shell` 再导出它，已核 import\n与 barrel），`packages/providers/src/MetadataProvider.tsx` 是另一个无关的通用 provider。\n\n## 二、Key hooks 表（8 行里改 7 行）\n\n`useBranding` 是 `apps/console/src/hooks/` 里**唯一**一个文件，也恰好是表里唯一正确的一行；\n其余七个都在 `packages/app-shell/src/hooks/`。同样加了一句说明，免得第一行的前缀被外推。\n\n## 三、UnifiedSidebar / NavigationContext 两个小节的开篇路径\n\n- `### UnifiedSidebar`：`apps/console/src/components/UnifiedSidebar.tsx` 改为\n  `packages/app-shell/src/layout/UnifiedSidebar.tsx`（并注明与 `ConsoleLayout.tsx` 同目录）。\n  行为描述（persistent / context-aware / app switcher）按派发单只钉路径，未动。\n- `### NavigationContext`：同小节群里还有第二处同类死路径\n  `apps/console/src/context/NavigationContext.tsx`，与 Key contexts 表第三行是同一个符号、\n  同一个不存在的目录，一并改为 `packages/app-shell/src/context/NavigationContext.tsx`。\n  留着它等于把卡片自己列为错误的那个字符串原样留在文件里，故一并订正并在此单列说明。\n\n改完全文只剩一处 `apps/console/src/context/` 字样，且是新写的否定句（「这个目录并不存在」），\n是故意的。\n\n## 四、Registered custom widgets 表补第七行\n\n`registerObjectDetailWidgets.ts` 实际 `ComponentRegistry.register()` 七次，表里只列了六个，\n缺 `object-keys` / `ObjectKeysWidget`。补上该行（用途按 `ObjectKeysWidget` 实现描述：unique /\n`id` / external-id 字段），并把表头的 \"registers\" 写成 \"registers seven types\"，附一句「表与文件\n不一致时数 register 调用」。此处原有的文件路径是对的，未动。\n\n## 五、【授权搭改，单列】permissions 重定向段落已过期\n\n派发单授权的同文件搭改。原文写着该重定向「queued but **not yet on `main`**，所以今天 URL 仍会\n落到 app-shell 的 tail route」—— PR #3728（commit `cc95c2c31`）今天已合入 main，这句话现在是假的。\n已核 `origin/main` 的 `apps/console/src/AppContent.tsx`：\n\n```\nsystem/permissions -> SystemObjectRedirect objectName=\"sys_permission_set\"\n```\n\n改动两处：\n\n1. 上方路由清单补第五条 `system/permissions -> SystemObjectRedirect -> …/sys_permission_set`。\n2. 段落重写：删掉 \"Four redirects, not five\" 与 \"not yet on main\" / tail-route 兜底的描述，改成\n   「五条腿在 `origin/main` 上都能解析」，保留 ADR-0066 layer 1 / layer 2 的由来（为什么最终选\n   `sys_permission_set` 而不是 `sys_capability`），并把自查指针从「引用前先看一眼」改成「理由在\n   AppContent.tsx 的路由注释里写全了，去那里读，别自己重推；要加第六条腿时再对一遍清单」。\n\n## 与卡片事实的一处偏差（不影响本单前提）\n\n卡片（及本 guide 顶部的注记）把这批符号的成因记为 commit `cccdf84d7`（console 瘦身）。\n实测这 13 个符号都不是在 `cccdf84d7` 里搬走的：\n\n- `AdapterProvider` / `MetadataProvider` / `ExpressionProvider` —— app-shell 副本由\n  `c1e105793`（04-21）加入，console 副本由 `28ffe4033`（04-22）删除，两者都**早于** `cccdf84d7`。\n- `NavigationContext` / `FavoritesProvider` / `UnifiedSidebar` / 七个 hooks —— app-shell 副本的\n  加入与 console 副本的删除都发生在 `b279d80d6`（04-23），**晚于** `cccdf84d7` 一天。\n\n即「路径全错」这个承重前提成立（已逐条复核），只是归因写错了。因此本 PR 的两处新写引言**不**\n提任何成因 commit，只陈述今天的位置事实；顶部注记的归因不在本单文件面授权范围内（派发单明确\n不动目录树与 Retired-names 锚点），另立 finding 记账。\n\n## 验证\n\n改动是纯 markdown 文档，无代码面、无可写的单元测试；相应地跑的是门禁 + 磁盘存在性断言：\n\n- `node scripts/check-control-bytes.mjs` → `OK (scanned 3686 tracked text file(s))`\n- 控制字节自查（超出门禁扫描面）：`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 本文件 → 无命中\n- CJK 自查：本文件 0 行 CJK（英文正文约定未破）\n- `node scripts/check-doc-links.mjs` → `Links are valid across 7 scan roots.`\n  （注：`SCAN_ROOTS` 不含 `skills/`，本文件不在该门禁覆盖面内，跑它只为确认未连带破坏）\n- 卡片的复核脚本原样重跑，结论与卡片一致：`apps/console/src/` 无 `context` 项、\n  `apps/console/src/hooks/` 只有 `useBranding.ts`、`apps/console/src/components/` 无\n  `UnifiedSidebar.tsx`、register 调用数 = 7\n- 全文回归断言：抽出文件里所有反引号包裹的仓内路径逐个 `existsSync`，34 条命中 33 条存在，\n  唯一「不存在」的就是第三节末尾说明的那句故意否定句\n- 未改 `skills/objectui/evals/console-development.json`：已确认该 eval 不 pin 任何被我改动的\n  字符串（`must_contain` 只要求出现 `UnifiedSidebar` 这个词，改动后仍在）\n\n## Changeset\n\n无。已核同类先例：PR #3729（`4e93e40d7`，本文件今日的重写）、`c19ddf027`、`91e03f466` 三个\nskills-only 的 `docs(skills)` 提交都没有 `.changeset/` 条目 —— `skills/` 不是发布包，按仓内约定\n不需要。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3961,
+  "kind": "issue",
+  "title": "[fields] 复合/分组 field widget 丢弃或错投 host 下发的控件 id：address / geolocation 的表单 label `for` 悬空，checkboxes / radio / rating / file 的 `for` 落在不可 label 的 div 上",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:40:01Z",
+  "updated_at": "2026-08-09T19:56:36Z",
+  "closed_at": "2026-08-09T19:56:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3961",
+  "body": "修 #3952（`BooleanField` 覆写 host 控件 id）时按正文提示做了同类排查，逐个 grep `useId` / `config?.name` 的 id 合成点后，又用一次性 probe 在**真表单**里实测了每个 widget 的 host label 落点（probe 未提交）。结论：`BooleanField` 是唯一「单一控件 + 覆写 host id + 自带重复 label」的形态（已在 PR #3959 修掉），但复合/分组 widget 有两种**不同**的失效形态，都不在 #3952 的范围内，修法需要一次设计裁决 —— 所以单独立单。\n\n## 实测（真 form 渲染器 + 每个字段一行，读 `FormLabel` 的 `for` 与它解析到的元素）\n\n| widget | host id 落在 | host label 的 `for` | 形态 |\n|---|---|---|---|\n| address | 被 `subId('street')` 覆写 | **MISSING（悬空）** | A：id 被覆写 |\n| geolocation | 被 `subId('latitude')` 覆写 | **MISSING（悬空）** | A：id 被覆写 |\n| checkboxes | 包裹 `div` | 解析到 `div` | B：投到不可 label 的元素 |\n| radio | `RadioGroup` 根 `div[role=radiogroup]` | 解析到 `div` | B |\n| rating | 包裹 `div` | 解析到 `div` | B |\n| file | 包裹 `div[role=button]` | 解析到 `div` | B |\n| text / textarea / color / tags / date / select / user / boolean | 真控件（`input` / `textarea` / `button`） | 解析成功 | 正常（阳性反查） |\n\n`slider` 也是 MISSING，但成因不同（整行连一个 id 都没有 —— 它根本不 spread 任何 DOM pass-through），落在 #3318 的完成范围内，已在那边评论，不在本单里。\n\n## 两种形态的后果\n\n- **A（address / geolocation）**：`AddressField` / `GeolocationField` 确实把 `toDomProps(props)` spread 到了第一个子输入上，但紧接着用 `id={subId('street')}` / `id={subId('latitude')}` 覆写（objectui#3343 给子输入做唯一 id 时引入）。于是表单的可见组标签（\"Shipping Address\"）指向一个不存在的 id：点击它什么都不会发生，而这个组标签**完全不在可访问性树里** —— 屏幕阅读器只听到 \"Street Address\" / \"City\" 等子标签，不知道这一组是什么。各子标签自身的关联是正确的，所以问题只在组标签这一层。\n- **B（checkboxes / radio / rating / file）**：host id 确实被保留了，但落在一个 `div` 上。`label for` 指向不可 label 的元素在 HTML 里是无效的：不产生点击激活，也不贡献可访问名。所以 `for` 虽然「解析成功」，关联却是空的 —— 比 A 轻，但同样是「视觉上有标签、语义上没有」。\n\n## 为什么不是 #3952 的一部分\n\n#3952 的修法（用 host 下发的 id）对单一可 label 控件是唯一解、无歧义。复合/分组 widget 没有「那个控件」可以承接组标签：把组标签指到第一个子输入，会让该子输入同时被两个 label 引用（组名 + 子名，可访问名拼接成 \"Shipping Address Street Address\"）；正确解更可能是 `role=group` + `aria-labelledby`。这是 widget DOM 形状 + form 渲染器 `FormLabel` 契约的联合裁决，不该在一个 boolean 字段的修复里顺手定。\n\n## 两个选项（供裁决）\n\n**选项 1：widget 侧声明分组语义，`FormLabel` 不再对这类字段发 `for`。**\n复合/分组 widget 在它的包裹元素上渲染 `role=group`（radio 已经是 `radiogroup`）并用 `aria-labelledby` 指向 host 的 label 元素 id；`FormLabel` 对这类字段只渲染可见文本、不发 `for`（或发 `id` 供 `aria-labelledby` 引用）。\n- 长期正确：这就是 WAI-ARIA 对复合控件的标准做法，A 和 B 一次性都解决。\n- 代价：需要在 widget 契约上表达「我是分组控件」（一个声明位，而不是让 form 侧去猜 widget 的 DOM 形状），并让 `FormLabel` / `FormControl` 读它。\n- 对 AI 写元数据/widget 更难写错：分组语义变成**声明**的，新 widget 不声明就走单控件路径并被现有钉子按 `for` 解析检出，而不是静默产出一个无效关联。\n\n**选项 2：让组标签指向第一个子输入（A 的最小修法），B 不动。**\n- 便宜，A 的悬空立刻消失。\n- 长期代价：制造了「一个输入被两个 label 引用」的可访问名拼接问题，等于把一个可检出的缺陷换成一个不可检出的缺陷；B 的空关联仍然留着，且以后每个新的复合 widget 都要重犯一次同样的判断。属于 AGENTS.md #0.1 意义上的消费者侧迁就。\n\n**倾向选项 1**：两条轴都指向它 —— 长期上它是复合控件的标准语义、一次覆盖 A 和 B、不留下「两个 label 指一个输入」的隐性债；而在「让 AI 写的代码难以出错」这条轴上，把分组语义做成 widget 契约里的显式声明（声明即强制），比让 form 侧根据 widget 渲染出的 DOM 去猜要安全得多，未声明的新 widget 会被钉子按 `for` 解析当场翻红，而不是悄悄多出一个无效 `for`。\n\n## 复现\n\n`packages/fields/src/__tests__/boolean-label-association-e2e.test.tsx`（PR #3959 新增）里的 `labelTargets()` 辅助函数就是这套取证：在真表单里渲染任一字段，把每个 label 的 `for` 与 DOM 里的 id 逐个比对。把它对准 `address` / `geolocation` 就能复现 A，对准 `checkboxes` / `radio` 会看到 `for` 解析到一个 `div`。\n\n## 参考\n\n- #3952 / PR #3959（boolean 的同类修复，单一控件形态）\n- #3343（给复合 widget 的子输入做唯一 id —— 形态 A 的引入处，那次的修法本身是对的）\n- #3341（`ActionParamDialog` 的 select 分支 `htmlFor` 悬空，同一失效类的先例）\n- #3318（29 个 widget 不转发 DOM pass-through，`slider` 的 id 缺失归那边）\n"
+}

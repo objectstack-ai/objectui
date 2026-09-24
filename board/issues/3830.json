@@ -1,0 +1,35 @@
+{
+  "number": 3830,
+  "kind": "issue",
+  "title": "`element:record_picker.filter` 是渲染器实读、spec 已声明、`inputs` 不提的第 4 个 A 类缺口 —— #3808 的三类清单把它漏出了分类",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:28:09Z",
+  "updated_at": "2026-08-10T10:58:08Z",
+  "closed_at": "2026-08-10T10:58:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3830",
+  "body": "发现于 #3808 的实施过程(围栏外,本 PR 未夹带)。未认领,交 PM triage。\n\n## #3808 的分类漏了这一条\n\n#3808 的实测清单里 `element:record_picker` 那一行是 5 个键:\n\n```\nelement:record_picker  displayField, searchFields, filter, multiple, targetVariable\n```\n\n而下面的三类只交代了其中 4 个 —— C 类写了 `displayField` / `searchFields` / `multiple`(objectstack#5775 的 `retiredKey()` 墓碑)与 `targetVariable`(declarative hint),**`filter` 没有出现在 A / B / C 任何一类里**。它既不是墓碑,也不是 hint,而是标准的 A 类:**渲染器实读 + spec 已声明 + `inputs` 不发布**,和 #3808 修的那三条完全同形。\n\n(#3808 正文自称「15 条」,按 block 逐行相加实为 13 条,C 类小计写 5 条实为 6 条 —— 分类过程中掉了一条,就是这个 `filter`。)\n\n## 逐键证据(objectui `origin/main` @ `c85268256`,pin `@objectstack/spec@17.0.0-rc.5`)\n\n- **spec 声明**:`ElementRecordPickerProps` 的顶层键为 `object, displayField, searchFields, filter, multiple, targetVariable, placeholder, aria`(运行时 `Object.keys(shape)` 实测)。\n- **渲染器实读**:`packages/components/src/renderers/basic/record-picker.tsx:78`\n\n  ```\n  const filter = ds.filter ?? props.filter;\n  ```\n\n  `props` 就是 `readProps(schema)`,即节点顶层 props;`filter` 随后进 `:103` 的 `query.$filter`,并参与 `:90` 的 `filterKey` memo —— 是真正决定查什么记录的键,不是装饰。\n- **`inputs` 不提**:`record-picker.tsx:180-186` 只声明 `object` / `labelField` / `valueField` / `placeholder` / `label`。\n\n## 有害在哪\n\n`element:record_picker` 不在 `PUBLIC_BLOCKS`(`packages/core/src/registry/public-blocks.ts:78` 明确注释「record picking is a field widget, not a page block」),所以它不进 `sdui.manifest.json`。但它仍然发布一个**运行时**白名单:`packages/components/src/renderers/layout/page.tsx:462` 用 `getKnownTypes()` + 各自的 `inputs` 现搭一份 manifest 给 JSX 页面编译器。于是一个 JSX 页面写了 record picker 的 `filter`:\n\n1. `sdui-parser/src/validate.ts:74` 在 `comp.inputs` 里找不到它 → `unknown-prop` warning;\n2. 渲染器照样兑现它、照样按它过滤;\n3. 设计器面板里没有这个字段,作者也无从发现它存在。\n\n三个层面三个答案,和 #3797 / #3808 要消掉的是同一件事。\n\n## 为什么没在 #3808 里一起修\n\n#3808 的判级评论把范围钉在「正文 A 类三条」+ `record:related_list.add` 的核对,并明确「C 类不动」。`filter` 落在分类之外,不在派发范围内 —— 按 Prime Directive #10 另开本单,而不是在那个 PR 里悄悄扩面。\n\n## 落地\n\n一行 `inputs` 声明,和 #3808 的四条同形:\n\n```\n{ name: 'filter', type: 'array', label: 'Filter', description: <从 :78/:103 的实际行为取材> }\n```\n\n注意 description 要交代 `ds.filter ?? props.filter` 的优先级(节点上的 `dataSource.filter` 压过顶层 `filter`),否则作者不知道两处都写时谁生效。`type` 取 `'array'` 还是 `'object'` 需按 spec 的实际 shape 定(`filter` 在 spec 里是 `z.unknown()` 一类的宽类型时,`ComponentInput` 的粗类型会产生误报 —— 见另一单)。\n\n## 当前的兜底\n\n#3808 落的反方向门把这一条列为**带理由的显式豁免**并引用本单;门里的 `carries no stale exemption` 断言会在有人声明它的那一刻要求删掉豁免条目。\n\n## 参考位置\n\n- `packages/components/src/renderers/basic/record-picker.tsx:78` / `:90` / `:103`(读)、`:180-186`(声明)\n- `packages/components/src/renderers/layout/page.tsx:462`(运行时 JSX manifest)\n- `packages/sdui-parser/src/validate.ts:74`(`unknown-prop`)\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`(两个方向的门 + 豁免名单)\n\n关联:#3808、#3797 / PR #3806、#3407 / PR #3795、objectstack#5775\n"
+}

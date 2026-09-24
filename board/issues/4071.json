@@ -1,0 +1,33 @@
+{
+  "number": 4071,
+  "kind": "pull_request",
+  "title": "feat(approvals): register an `approvals:inbox` component ref and de-hardcode Home's approvals entry",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T03:59:53Z",
+  "updated_at": "2026-08-10T04:10:25Z",
+  "closed_at": "2026-08-10T04:10:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T04:10:23Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4071",
+  "body": "Fixes objectstack-ai/objectstack#7231\n\nPart of objectstack-ai/objectstack#7213 — entry convergence at the metadata level. This is the objectui half: give the Approvals Inbox an addressable registry key, and stop Home's only approvals entry from routing every user through the setup app.\n\n## Premise re-verified against `origin/main`\n\nEvery fact the issue states still holds, re-read at `59df371f7`:\n\n- `system/approvals` is declared in `apps/console/src/AppContent.tsx`'s `systemRoutes` fragment and passed as **both** `extraRoutes` and `extraRoutesNoApp`, so `/apps/{any app}/system/approvals` already resolves — the page was never bound to `setup`.\n- `packages/app-shell/src/console/home/HomePage.tsx` hardcoded `navigate('/apps/setup/system/approvals')`.\n- No `approvals:*` key existed in the component registry.\n\nOne PM assumption was worth measuring rather than assuming, and it held: the `component/:ns/:name/*` route and the `system/approvals` route are both relative routes under `/apps/:appName/*` (`apps/console/src/App.tsx`), so `ApprovalsInboxPage` reads the same `:appName` and the same `?request={id}` on either. `ApprovalsInboxPage` is therefore unmodified — objectui#2763's rebuild is explicitly not started here.\n\nOne assumption did **not** survive contact, and shaped the fix: Home renders at `/home`, **outside** the `/apps/:appName/*` router, so `InboxPopover`'s `currentAppName ?? params.appName` cannot be copied literally — `params.appName` does not exist there. `currentAppName` is the only signal, it is published by `ConsoleLayout` on app mount, and it is stale by construction (undefined on a cold landing at `/home`; it outlives the app it names). See below for what that made the resolution.\n\n## Changes\n\n**1. `approvals:inbox` in the component registry** — new `apps/console/src/registerApprovalsComponents.tsx`, lazy-loading `ApprovalsInboxPage`, side-effect-imported from `main.tsx` beside the developer / studio / account registrations. A `{ type: 'component', componentRef: 'approvals:inbox' }` nav item now renders the full inbox at `/apps/{app}/component/approvals/inbox`.\n\nThe standalone `system/approvals` route is untouched: server notification and email deep links carry `/system/approvals?request={id}` and `InboxPopover` app-prefixes them. The ref is purely additive indirection, which is the point — objectui#2763 repoints the key later and no nav metadata churns.\n\n**2. Home's card navigates within an app the user can actually open.** Resolution order:\n\n1. the app they last had open, **re-checked against the live active-app list** (`matchAppBySegment`), so a remembered app that has since been deactivated or hidden is not resurrected as a dead link;\n2. their first active app — arbitrary but reachable, and on a business user's workspace that is a business app rather than `setup`;\n3. `setup`, which is **not** the zero-app case: `activeApps.length === 0` returns Home's welcome empty state before the action center exists, so this producer never runs there. What is left is the degenerate app with neither `_packageId` nor `name` — nothing to build a URL from, so the historical target is the least-surprising last resort. That unreachability is pinned as a precondition case, so it goes red if it ever stops being true.\n\n`InboxPopover` is deliberately untouched — it was already correct, and rewriting it into a shared helper is not this card's scope.\n\n## Tests\n\n- `apps/console/src/__tests__/approvalsInboxComponentRef.test.tsx` — the ref resolves; `componentRefToUrlSegments` maps it to `component/approvals/inbox` (URLs in the test are **built from the ref through that helper**, so key and URL cannot drift); the page mounted via the component route sees `:appName` and `?request=`; the standalone route hands it the identical inputs. The page is stubbed at its module boundary with a probe echoing exactly those two router inputs — the entry exercised is the real registered one, Suspense wrapper included.\n- `packages/app-shell/src/console/home/__tests__/HomePage.approvalsTarget.test.tsx` — five cases: remembered app, `_packageId` spelling, cold landing at `/home`, deactivated remembered app, and the zero-app precondition.\n\n`pnpm exec vitest run apps/console/ packages/app-shell/` → **343 files, 3222 passed, 1 skipped**. `type-check` green for both packages. ESLint on the touched files: 0 errors (the `no-explicit-any` / `react-refresh` warnings are the same ones the sibling `register*Components` files and the rest of `HomePage` already carry).\n\n**Reverse verification**, direction predicted before running: reverting `HomePage.tsx` and `main.tsx` to `origin/main` turned the four Home target cases red naming `/apps/setup/system/approvals`, while the zero-app precondition stayed green (it is about the empty state, not the target). The registry cases stayed green, as expected — the registration module itself was not reverted.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01L9U1G2piXmYrhYQX96XUyv)_"
+}

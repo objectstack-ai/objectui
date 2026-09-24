@@ -1,0 +1,36 @@
+{
+  "number": 3831,
+  "kind": "issue",
+  "title": "`record:related_list.add.picker.filter` 全仓零读点:作者限定了 Add 选择器的候选范围,对话框照样提供该对象的全部记录",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:28:41Z",
+  "updated_at": "2026-08-09T01:39:45Z",
+  "closed_at": "2026-08-09T01:39:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3831",
+  "body": "发现于 #3808 的实施过程(#3808 给 `record:related_list.add` 补 `inputs` 声明时逐个成员键核对渲染器读点发现的;那个 PR 的 description 已把本条写成 KNOWN GAP,但代码没动)。未认领,交 PM triage。\n\n## 机制\n\npin 版 `@objectstack/spec@17.0.0-rc.5` 的 `RecordRelatedListProps.add.picker` 有 4 个成员键,describe 逐条为:\n\n```\npicker.object      Object to pick records from …            (required)\npicker.valueField  Field on the picked record used as the link value (default `id`)\npicker.labelField  Field shown in the picker rows …\npicker.filter      Restrict which records the picker offers.\n```\n\n前三个渲染器都兑现(objectui `origin/main` @ `c85268256`):`RelatedList.tsx:378` 读 `add.picker.object`、`:390` 读 `add.picker.labelField`、`:724` 读 `add.picker.valueField`。\n\n**`picker.filter` 全仓零读点** —— `grep -n \"picker?\\.filter\\|picker\\.filter\"` 在 `packages/plugin-detail/src/RelatedList.tsx` 零命中。`:1293-1307` 把 `RecordPickerDialog` 挂起来时传的是 `objectName` / `title` / `displayField` / `columns` / `cellRenderer` / `fieldsMeta` / `multiple` / `onSelect` / `onSelectRecords`,**没有任何 filter**。\n\n## 有害在哪(这一条是真会被用户撞到的)\n\n`RecordPickerDialog` 本身**有现成的槽位**:`packages/fields/src/widgets/RecordPickerDialog.tsx:369`\n\n```\nbaseFilter?: Record<string, any>;\n```\n\n注释原文:「Unlike `lookupFilters`, entries here never surface in the record form」—— 正是 `picker.filter` 该落的地方。所以这不是「能力缺失」,是**一段没接上的线**。\n\n后果:作者在页面元数据里写了 `add.picker.filter` 限定候选(典型场景 —— 只允许把 active 的 sys_position 指派给用户、只允许挂未过期的许可),\n\n1. spec 接受,`os validate` / `os build` 不报任何东西;\n2. 对话框提供 `picker.object` 的**全部**记录;\n3. 选中后 `handleAddRecords`(`RelatedList.tsx:723-745`)直接建链接行 / 改父,没有任何二次校验;\n4. 零诊断 —— 作者要靠肉眼看出对话框里多出了不该出现的记录。\n\n服务端规则(如 AI 席位上限)只在 insert 时才可能拦住一部分,而且是以 inline error 的形式,不是「本来就不该出现在候选里」。\n\n## 落地\n\n把 `add.picker.filter` 接到 `RecordPickerDialog` 的 `baseFilter`。要点:\n\n- **不要**接到 `lookupFilters`:那一支会把条件渲染成对话框里用户可改的筛选行,等于把作者的限制变成建议。`baseFilter` 的语义(不出现在 UI、不可撤销)才对得上 spec 的 \"Restrict which records the picker offers\"。\n- filter 形状需从 spec 实读确认(`picker.filter` 在 pin 版是宽类型),并与 `baseFilter` 期望的 `Record<string, any>` 对齐;若两者形状不一致,按 AGENTS.md #0.1 在**产出端 / spec**收敛,不要在 `RelatedList` 里加宽容转换。\n- 测试:一个 `add.picker.filter` 的相关列表,断言 picker 的查询带上了该条件(`RelatedList.addPickerLabelField.test.tsx` 是同一处的现成测试骨架)。\n\n## 现状的告知\n\n#3808 的 PR 在 `record:related_list.add` 的 input description 末尾写了:\n\n> KNOWN GAP: `picker.filter` is accepted by the spec but not applied — the dialog offers every record of `picker.object` whatever you put there.\n\n按 `record:activity.showSubscriptionToggle`(#3165)的先例,先把 gap 说出口,而不是把「限制生效」写进已发布的说明里。本单修好后应把这句删掉。\n\n## 参考位置\n\n- `packages/plugin-detail/src/RelatedList.tsx:1293-1307`(挂 dialog,缺 filter)/ `:378` `:390` `:724`(其余三个成员键的读点)\n- `packages/fields/src/widgets/RecordPickerDialog.tsx:369`(`baseFilter` 槽位)/ `:360`(`lookupFilters`,不要用这一支)\n- `packages/plugin-detail/src/index.tsx` —— `record:related_list.add` 的 input description(修好后删 KNOWN GAP 那句)\n\n关联:#3808、#3165、#3365、AGENTS.md #0.1\n"
+}

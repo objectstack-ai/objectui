@@ -1,0 +1,36 @@
+{
+  "number": 3842,
+  "kind": "issue",
+  "title": "动作 `disabled` 的「已声明」判定用 `!= null`,`disabled: ''` 把按钮永久置灰(#3492 同族的另一半 predicate,探针实证)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T19:19:49Z",
+  "updated_at": "2026-08-08T20:54:50Z",
+  "closed_at": "2026-08-08T20:54:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3842",
+  "body": "## 来源\n\n发现自 #3835 实施(`DeclaredActionsBar` 的 `visible` 真值门)的同文件清扫。不在 #3835 的修法面(PM 已裁其范围为 `visible` 门 + barrel re-export),故独立成单,**未认领**。\n\n## 机理\n\n`visible` 一族已收敛到 `hasDeclaredVisibilityGate`(`!= null && !== ''` —— 空谓词不算门),但**同一形状的 `disabled` 判定停在 `!= null`**,少了 `!== ''` 那一半:\n\n- `packages/app-shell/src/views/DeclaredActionsBar.tsx`:\n  `disabled={((action as any).disabled != null ? isDisabledPred : false) || loading}`\n- `packages/components/src/renderers/action/action-button.tsx:164`:\n  `(schema as any).disabled != null ? isDisabled : schema.enabled != null ? !isEnabled : false`\n\n于是 `disabled: ''` 被判成「声明了 disabled 门」,verdict 交给求值入口 —— 而求值入口对空谓词的语义是「没有条件 → true」:\n`toPredicateInput('')` → `undefined` → `evaluateCondition(undefined)` → `true`。\n对 `visible` 这条链上 `true` 意味着「显示」(所以 `''` 在 `visible` 侧是良性的、双重保护),对 `disabled` 则**反向**:`true` 意味着**禁用**。空谓词从「没有门」变成「永久置灰」。\n\n方向对照:`visible: ''` → 渲染(正确);`disabled: ''` → **禁用**(错误)。同一个「空谓词」,两个 key 得到相反待遇。\n\n## 实证(`origin/main@14c59c0b969c8324160071d447a4b99492dfc35f` + #3835 分支,一次性探针,未提交)\n\n`DeclaredActionsBar` 挂 `location: 'record_section'` 的声明动作,分别带 `disabled: ''` / 不带 `disabled` / `disabled: false`:\n\n```\nFAIL  PROBE 3835 declared `disabled` > disabled:'' should NOT disable the button (empty predicate is no gate)\nError: expect(element).not.toBeDisabled()\n\nReceived element is disabled:\n  button\n    data-testid=\"declared-action-approval_approve\"\n    disabled=\"\"\n    type=\"button\"\n    variant=\"outline\"\n  /\n\nTests  1 failed | 2 passed (3)\n```\n\n两个对照组(无 `disabled`、`disabled: false`)都是 enabled —— 坏的只是「已声明」的判定,不是求值。\n\n`action-button.tsx:164` 是逐字相同的拼法,**未单独探针**(推断同形,请实施者自行验证后再改)。\n\n## 影响\n\n- `DeclaredActionsBar` 的宿主是审批收件箱记录区动作条(`apps/console/src/pages/system/ApprovalsInboxPage.tsx:2014` / `:2055`),动作 def 来自服务端 metadata。一个 `disabled: ''` 的审批动作渲染成**永久不可点**的 Approve/Reject —— 与 #3835 的 `visible: false` 相反的失败方向:那边是「本该隐藏却可点」,这边是「本该可点却置灰」,都无法从界面上分辨是元数据意图还是 bug。\n- 需要元数据里确实出现 `disabled: ''`(空字符串谓词,例如授权表单留空、模板求值成空串)才会命中;不是今天必然可见的回归,严重度请分诊裁。\n\n## 修法(与同族一致,应无新决定)\n\n`disabled` 的「已声明」判定复用同一处命名定义(`hasDeclaredVisibilityGate` 的语义,或按 predicate-key 中立地重命名/新增一个 `hasDeclaredPredicateGate`,同一实现),两处一起改;`enabled` 那条 legacy 分支同理需要判断。钉子按同族对称性:`''` 不置灰 / `true` 置灰 / `false` 不置灰 / 未声明不置灰,并区分 `disabled` 与 `enabled` 两条腿。\n\n⚠️ **与 #3835 的 PR 同文件同区域**(`DeclaredActionsBar.tsx` 的按钮 props / 门附近):建议等 #3835 落 main 后再派,或在派发时说明合并顺序。命名若要中立化(`hasDeclaredVisibilityGate` → 通用名),那是一次跨包重命名(components barrel + plugin-grid + app-shell),属于要先裁的小决定。\n\nRelated: #3835(发现来源、`visible` 侧第五处)、#3492(不变量出处)、#3758 / PR #3816、#3812 / PR #3825、#3823 / PR #3836、#1885(`disabled` 首次接线)。未认领。\n"
+}

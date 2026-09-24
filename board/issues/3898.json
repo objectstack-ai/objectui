@@ -1,0 +1,30 @@
+{
+  "number": 3898,
+  "kind": "issue",
+  "title": "观察:RecordPickerDialog 的 `baseFilterColumns` memo 与 `baseFilter` prop 无关,命名误导同文件读者",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:59:29Z",
+  "updated_at": "2026-08-10T00:09:23Z",
+  "closed_at": "2026-08-10T00:09:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3898",
+  "body": "观察类发现(`finding`,不进 `pm:queue`),发现于 #3831 的前提复核过程 —— 纯命名问题,今天没有任何用户会撞到。\n\n## 机制\n\n`packages/fields/src/widgets/RecordPickerDialog.tsx` 里有两个名字挨得很近、语义完全无关的东西:\n\n- `:369` prop `baseFilter?: Record< string, any >` —— 硬约束筛选条件(依赖型 lookup 链,#2215),注释原文「never surface in the filter bar and cannot be overridden by user filter input」。\n- `:529` memo `baseFilterColumns` —— 派生自 `filterColumns` / `lookupFilters` 的**筛选栏列定义**,喂给 `effectiveFilterColumns`(`:580`)再喂 `filterValuesToRecord`。它跟 `baseFilter` prop 没有任何数据关系。\n\n`baseFilterColumns` 的 `base` 指的是「未经 i18n options 补全的原始列」(相对于 `effectiveFilterColumns`),不是 `baseFilter`。两者在同一文件里相距 160 行,而 `mergedFilter`(`:590-601`)同时读 `baseFilter` 和 `effectiveFilterColumns`,所以三个名字在同一个 memo 里交汇。\n\n## 有害在哪(只有可读性)\n\n在 `baseFilter` 这条线上改代码的人,`grep baseFilter` 会命中 `baseFilterColumns` 及其两个下游,读起来像是「`baseFilter` 也参与筛选栏列的派生」——即「作者的硬约束会显示成筛选栏里的列」,恰好是 `baseFilter` 注释明确否认的语义。运行时行为完全正确,纯粹是命名带来的误读成本。\n\n## 落地建议\n\n把 `baseFilterColumns` 改名为语义准确的名字(如 `derivedFilterColumns` / `rawFilterColumns`),`effectiveFilterColumns` 保持不变。纯局部重命名,无导出面变化(两者都是文件内 memo),无行为变化。\n\n## 参考位置\n\n- `packages/fields/src/widgets/RecordPickerDialog.tsx:369`(`baseFilter` prop)/ `:529`(`baseFilterColumns` memo)/ `:580`(`effectiveFilterColumns`)/ `:590-601`(`mergedFilter`,三者交汇处)\n\n关联:#3831(发现来源)、#2215(`baseFilter` 的来历)"
+}

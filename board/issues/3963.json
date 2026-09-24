@@ -1,0 +1,35 @@
+{
+  "number": 3963,
+  "kind": "issue",
+  "title": "PageBlockInspector 自身的 chrome 字面量未过 t() —— 列表「Add」按钮、Remove aria-label、Invalid JSON、两个 placeholder 在 zh-CN 下仍是英文",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:43:04Z",
+  "updated_at": "2026-08-09T20:37:24Z",
+  "closed_at": "2026-08-09T20:37:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3963",
+  "body": "发现于 #3913 的实施过程(围栏外,PR 未夹带)。未认领,交 PM triage。\n\n## 机制\n\n#3913 修的是 `previews/block-config.ts` 的 curated 属性 label —— 那些 label 是**表数据**,现在存翻译键、渲染处过 `t()`。本单是**另一条机制**:`PageBlockInspector.tsx` 自己 JSX 里的硬编码英文,从来不是 `block-config` 的 label,#3913 的面覆盖不到。\n\n`packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.tsx`(行号以 PR #3913 合并后为准):\n\n- `:109` `FieldListField` 的行添加按钮 —— `Plus` 图标后跟裸 `Add`\n- `:457` `string-list` 分支的行添加按钮 —— 同一个裸 `Add`\n- `:101` / `:450` `aria-label=\"Remove\"`(两处)\n- `:475` `aria-label=\"Remove item\"`\n- `:147` `setError('Invalid JSON')` —— 注意 `i18n.ts` 里**已有** `engine.form.invalidJson`,且 `translateValidationMessage()` 已经把 `'invalid json'` 映射到它,所以这里是把现成的键绕过去了\n- `:61` `placeholder=\"snake_case object\"`、`:98` `placeholder=\"field name\"`\n\n## 影响\n\nzh-CN 管理员今天就会看到,且**恰好在 #3913 修好的同一个面板里**:打开任意 `record:details` 区块的检查器,分区标题、字段名全是中文,分区内每个字段列表下面的添加按钮却是英文 `Add`。同一面板两种语言 —— 与 #3913 描述的症状同类,只是残留在 chrome 上。\n\n不是 dormant:`record:details.sections.fields`(field-list)、`record:highlights.fields`、`object-grid.columns`、`record:quick_actions.actionNames`(string-list)等都会渲染出这个按钮。\n\n## 已被钉住,不会静默\n\nPR #3913 的 `inspectors/PageBlockInspector.i18n.test.tsx` 里有一条用例 `leaves only the known non-block-config chrome in English (objectui#3958)` —— 它**断言这些英文仍然存在**。所以本单落地时那条用例会**精确翻红**,必须一并收紧,两个修复不会静默重叠。\n\n## 边界与去重\n\n- **不是 #3913**。#3913 是表数据 label(已修);本单是组件内 JSX 字面量。\n- **不是 #3912**(同文件不同缺陷:`BlockPropField` 的格式/校验能力位)。\n- 检索过 open issues(`PageBlockInspector`、inspector i18n、hardcoded English aria-label),无同题单。\n- `engine.form.invalidJson` 已存在,`Invalid JSON` 这条属于**复用现成键**而非新增翻译面 —— 修的时候别再新建键。\n\n## 一处取舍提醒\n\n两个 `Add` 按钮语义上是「给这个列表加一行」,与 #3913 里 array 分支的 `addLabel`(每个块自己命名,如「添加分区」)不同粒度。要决定是给它们一个通用键(`engine.inspector.pageBlock.field.addRow` 之类)还是像 `addLabel` 那样按位置命名 —— 前者够用且这两处本就没有 per-field 文案,倾向前者,但属契约面小决定,本单只记录现象。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3919,
+  "kind": "issue",
+  "title": "de 的 approvalsInbox 三个值用 ASCII 直引号双侧成对,同族兄弟 approveOneTitle 却是正确的 „…“ —— 审批收件箱一屏两种引号",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T02:44:00Z",
+  "updated_at": "2026-08-09T17:06:13Z",
+  "closed_at": "2026-08-09T17:06:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3919",
+  "body": "在 #3876(de 包 20 个值把德语开引号 `„` 与 ASCII 直引号配成一对)落地时,全量扫 `packages/i18n/src/locales/de.ts` 的直引号残余,发现修完那 20 处之后**还剩 6 个 U+0022**,全在 `approvalsInbox` 一个命名空间里。\n\n这是**另一种缺陷形态**,不是 #3876 的错配对:它们双侧都是 ASCII 直引号、自身是\"配平\"的,所以 #3876 落的持久不变量(每个 `„` 之后第一个引号字符必须是 `“`)按设计扫不到它们 —— 这三个值里根本没有 `„`。\n\n## 实测(main@2937bcf7d,`packages/i18n/src/locales/de.ts`)\n\n```\n3180:    approveOneTitle: '„{{title}}“ genehmigen?',     ← 正确的德语引号\n3279:    rejectOneTitle: '\"{{title}}\" ablehnen?',         ← ASCII 双侧\n3285:    inlineApproved: '\"{{title}}\" genehmigt',         ← ASCII 双侧\n3286:    inlineRejected: '\"{{title}}\" abgelehnt',         ← ASCII 双侧\n```\n\n同一个审批收件箱里,**批准**的确认标题用 `„…“`、**驳回**的确认标题用 `\"…\"`,而 `inlineApproved` / `inlineRejected` 这对孪生 toast 也是 ASCII。德语用户在同一屏、同一个操作对里看到两种引号排印。\n\nen 侧两个兄弟是对称的(`approveOneTitle: 'Approve \"{{title}}\"?'` / `rejectOneTitle: 'Reject \"{{title}}\"?'`,en 行 3401 / 3500),所以这不是 en 的形状差异带过来的,是 de 侧单侧翻译时的笔误。\n\n#3876 修完后 de 包的计数:`„` 45、`“` 47、`”` 2、`\"` **6** —— 这 6 个就是上面三个值(每值 2 个)。\n\n## 修法\n\n把这三个值的引号改成 `„…“`(U+201E … U+201C),与 3180 行的兄弟以及 de 包的多数派(45 处配对)一致。\n\n改完 de 包的 U+0022 应为 **0**,届时可以把 #3876 的钉子升级成更强的形态(de 包零直引号),那比现在的显式清单更省事。\n\n## 为什么门禁看不见\n\n与 #3876 同一族的值域盲区:`all-locales-key-parity` 比键名与占位符形状、`check-i18n-call-site-keys.mjs` 只判 key 能否解析、`check-i18n-en-drift.mjs` 只在 **en 值变化**时要求九包跟随 —— 这三个值从落地起就是这样,不存在「变化」事件。\n\n## 已有的钉子会拦住静默漂移\n\nPR #3918(#3876)已在 `packages/i18n/src/__tests__/de-quote-pairing-3876.test.ts` 里把这 3 个 key 钉成**显式清单**:\n\n```\nconst straight = DE.filter(([, v]) => v.includes(STRAIGHT)).map(([k]) => k);\nexpect(straight).toEqual([\n  'approvalsInbox.rejectOneTitle',\n  'approvalsInbox.inlineApproved',\n  'approvalsInbox.inlineRejected',\n]);\n```\n\n所以数目再漂会红;修本单的人必须回来更新这份清单(或按上面说的直接换成「零直引号」断言)。\n\n关联:#3876(错配对,PR #3918)、#3866(取证方法本身出错的先例)。\n"
+}

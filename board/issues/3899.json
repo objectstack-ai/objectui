@@ -1,0 +1,36 @@
+{
+  "number": 3899,
+  "kind": "issue",
+  "title": "packages/layout: `sideEffects: false` contradicts the load-time `registerLayout()` — a side-effect-only import can be tree-shaken away",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:06:27Z",
+  "updated_at": "2026-08-09T13:46:31Z",
+  "closed_at": "2026-08-09T13:46:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3899",
+  "body": "发现于 #3787 的实现(PR:`claude/issue-3786-3787-pageheader-docs-demo`),**不在该 PR 处理** —— 那一单的面是文档页与 demo JSON,这一条是 `packages/layout` 的打包声明,是另一类事实。PR 里只是**绕开**了它(显式调用 registrar 而非依赖 import 副作用),没有修它。\n\n## 现象\n\n`packages/layout/package.json` 声明:\n\n```json\n\"sideEffects\": false\n```\n\n而 `packages/layout/src/index.ts:126-131` 的唯一注册入口是**模块加载副作用**:\n\n```ts\n// Keep backward compatibility for now if called directly\ntry {\n  registerLayout();\n} catch (e) {\n  // Ignore registration errors during build/test cycles\n}\n```\n\n`sideEffects: false` 是给打包器的承诺:「本包任一模块只被 import 而其导出未被使用时,可以整体丢掉」。而这个包恰恰把 `page-header` / `app-shell` / `sidebar-nav` 等的注册**全部**放在模块体里。两者直接矛盾。\n\n## 影响\n\n`import '@object-ui/layout';`(纯副作用 import,注册组件的标准写法)在任何遵守该 flag 的打包器下**可以被静默删除** —— 结果是 `ComponentRegistry` 里没有 `page-header`,渲染出红色 `Unknown component type` 面板(OBJUI-001),而构建全绿、没有任何警告。\n\n对比:`PluginLoader` 动态 import 的每一个 `@object-ui/plugin-*` 包都**没有** `sideEffects` 字段(实测 `plugin-grid` / `plugin-view` / `plugin-form` 均为 `undefined`),只有 `@object-ui/layout` 独此一家声明了 `false`。\n\n今天没人被打到,是因为现存消费者(`packages/app-shell`、`apps/console`)都 import 了具名导出,模块因此一定会被求值。这是巧合,不是设计:任何新消费者按「import 一下注册组件」的直觉写法接入,就会踩中。#3787 的 PR 里我按显式 `registerLayout()` 调用规避,并在 `apps/site/app/components/registerLayoutBlocks.ts` 的模块头写明了原因 —— 那是绕行,不是修复。\n\n## 建议处置\n\n两个方向,任选其一(需要维护者定):\n\n1. **去掉 `sideEffects: false`**,或收窄成 `[\"dist/index.js\"]` 之类的数组,让声明与事实一致。最小改动,保住「import 即注册」的直觉写法。\n2. **删掉 index.ts 里的自动 `registerLayout()`**,把注册改成消费者必须显式调用(`apps/console/src/register-plugins.ts` 就是这个模式)。声明诚实了,但这是一次 breaking:任何依赖自动注册的消费者会静默失去组件 —— 需要先量清有没有这样的消费者。\n\n方向 1 与 2 语义相反(一个承认副作用、一个消灭副作用),不该由实现者随手选。\n\n## 参考位置\n\n- `packages/layout/package.json`(`sideEffects`)\n- `packages/layout/src/index.ts:23`(`registerLayout`)、`:126-131`(自动调用)\n- `apps/site/app/components/registerLayoutBlocks.ts`(#3787 里的规避与理由)\n\n关联:#3787(发现于此)\n"
+}

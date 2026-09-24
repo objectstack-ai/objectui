@@ -1,0 +1,35 @@
+{
+  "number": 3309,
+  "kind": "issue",
+  "title": "`BulkActionParam.options` is typed closed while its own runtime path and destination type are open",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T15:40:31Z",
+  "updated_at": "2026-08-08T14:07:54Z",
+  "closed_at": "2026-08-08T14:07:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3309",
+  "body": "Found while verifying the spec side of objectstack-ai/objectstack#4001 (bulk-action `options` → `.passthrough()`). **Not a runtime bug today** — the runtime already does the right thing. It is a declaration that disagrees with the code beneath it, which is the shape that makes an authoring mistake invisible later.\n\n## The three layers disagree\n\n| Layer | File:line | Says |\n|---|---|---|\n| Type | `packages/types/src/objectql.ts:271` | `options?: Array< { label: string; value: string \\| number \\| boolean } >` — **closed**, no index signature |\n| Runtime | `packages/plugin-grid/src/components/bulkParamToField.ts:131` | `options?.map(o => ({ ...o, value: String(o.value) }))` — **spreads**, every extra key survives |\n| Destination | `packages/types/src/field-types.ts:288` | `SelectOptionMetadata` declares `color` / `icon` / `disabled` / `visibleWhen` beyond the pair |\n\nAnd the destination keys are genuinely read — `option?.color` at `packages/fields/src/index.tsx:1089` and `:1101` (dot appearance and badge classes).\n\nNote the sibling key one level up gets this right: `BulkActionParam` itself declares `[key: string]: unknown` with the comment *\"Catch-all for extra widget-specific configuration (min/max/step/format/...). Forwarded to the underlying field renderer as-is.\"* The option entry inside it never got the same treatment.\n\n## Why it is worth fixing rather than leaving\n\nAn author writing `options: [{ label: 'In Review', value: 'in_review', color: '#8B5CF6' }]` in TypeScript gets an excess-property error from a type that says the key is not allowed, while the renderer would have honoured it. So the type is currently the only thing rejecting a working configuration — the reverse of the usual failure, and the kind of signal an AI author trusts absolutely.\n\nThe framework side was just corrected in the other direction: `BulkActionParamSchema`'s `options[]` entry is now `.passthrough()` (objectstack-ai/objectstack#4001, maintainer verdict A), because the spec was silently stripping those keys at parse. With that landed, the spec accepts them, the renderer forwards them, the widget reads them — and only this interface still says no.\n\n## Suggested fix (owner's call)\n\nEither give the entry the same catch-all its parent has:\n\n```ts\noptions?: Array< { label: string; value: string | number | boolean; [key: string]: unknown } >;\n```\n\n…or type it as the thing it actually becomes (`SelectOptionMetadata`-shaped), which additionally documents `color` / `icon` / `disabled` / `visibleWhen` at the authoring site instead of leaving them to be discovered in the renderer. The second is more informative; the first is the smaller change and matches the parent's existing idiom.\n\nFiled unassigned per the framework repo's Prime Directive #10 (out-of-scope finding, recorded rather than fixed in the PR that found it). No objectui code was changed by that PR — it was read-only there.\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3926,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): allowAddTab 的「新增 tab」按钮接上会话级行为(objectstack#5236)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T06:14:29Z",
+  "updated_at": "2026-08-09T06:24:58Z",
+  "closed_at": "2026-08-09T06:24:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T06:24:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3926",
+  "body": "Fixes objectstack-ai/objectstack#5236\n\n## 背景\n\n`packages/plugin-list/src/UserFilters.tsx` 的 `TabFilters` 里,`allowAddTab` 渲染的「新增 tab」按钮(`data-testid=\"filter-tab-add\"`)带 hover 态与 `title=\"Add filter tab\"`,**却没有 `onClick`**,组件也没有任何 `onAddTab` / `addTab` 回调入参 —— 一个看起来完全可点、点下去什么都不发生的控件。它比「没有这个按钮」更糟:把「未实现」伪装成「点了没反应的 bug」。\n\nobjectstack#5073 把该键提升进 spec 的 `UserFiltersSchema` 之后这更要紧:键在 JSON Schema、Studio SchemaForm、参考文档三处可见,AI 作者会照着 schema 写 `allowAddTab: true`,而运行时不兑现 —— declared ≠ enforced 的 UI 变体。\n\n**前提复核(对 `origin/main` 实测,非阅读推断)**:premise 成立,只是行号漂了 —— 按钮现在在 `UserFilters.tsx:778`(issue 正文写的 `:742`)。全仓 `git grep origin/main` 命中:`filter-tab-add` 仅 1 处(那个按钮),`onAddTab` 零命中,`allowAddTab` 4 处(prop 声明、传入、渲染 + `packages/types` 的 zod 镜像与其测试),确认无任何回调入参存在。\n\n## 本 PR 做了什么(维护者裁决 A1,评论 5200253516)\n\n- **命名输入**:点击 add 按钮弹出 Popover(复用该组件筛选 chip 与 More 溢出已在用的 Popover 原语,贴合现有交互习惯),内含名称输入框 + 「Add tab」确认按钮;空白名不可确认,回车等价于点确认。\n- **快照当前筛选**:确认后把「此刻已应用的筛选条件」快照进新 tab 并立即选中。tabs 模式下这就是该组件承载的全部筛选状态(组件不拥有第二个筛选面),所以新 tab 复现的正是用户按下 Add 时看到的那批记录。每条 condition 逐条拷贝,预设日后变动不会串到会话级 tab 上。\n- **与预设同栏**:新 tab 渲染在同一栏预设之后,可自由选中/切换。\n- **删除入口(带上了)**:会话级 tab 带一个 x;预设**不带** —— 那是元数据。删掉当前选中的会话级 tab 时,按初次挂载的同一优先级回落到作者默认 tab 并重新发出其条件,不会留下「无选中 tab、却仍套用着已删 tab 条件」的状态。实现成本确实低(一个 span 包两个 button,预设那条渲染分支一字未动)。\n\n## 会话级语义:选了**组件态**,不是 sessionStorage(理由)\n\n⛔ 不写 `sys_metadata`、不发任何 API、不碰 web storage —— ADR-0047:end-user 的筛选选择 session-scoped、从不落成元数据,渲染器保持元数据**读方**。\n\n`sessionStorage` 是可用的,刻意没用:`UserFilters` 拿不到 object/view 身份,它能自己编出的任何 storage key 都会被同一浏览器 tab 里的**所有列表**共用,把一个列表的临时 tab 显示到另一个列表的栏上 —— 那是个真 bug,换来的只是刷新后还在。要跨挂载存续,该归**已经握着筛选选择会话通道**(`onSelectionsChange` → `uf_*` URL 参数)、且能按视图分键的宿主;那需要给 `UserFiltersProps` 加公共入参,是裁决没做的契约决定,不该顺手塞进本单。\n\n合成 tab id(`__session_1__`,沿用该文件为自己发明的 `__all__` 拼法)与其它 tab 切换一样经 `onSelectionsChange` 上报,宿主镜像的真实性不被撒谎;宿主把它持久到 `uf__tab` 后下次挂载还回来时,**既有的** id 校验找不到该 tab,回落作者默认 —— 会话级 tab 没有走后门跨挂载存活的路径。这条降级被测试钉住了。\n\n## 测试\n\n新增 `packages/plugin-list/src/__tests__/UserFilters.addTab.test.tsx`(12 例):\n\n1. 点 add 出命名输入 → 输入名字 → 确认:新 tab 出现在同栏、label 已 trim、处于选中态、`onSelectionsChange` 报 `{ _tab: ['__session_1__'] }`、`onFilterChange` 最后一次调用等于创建时刻已应用的条件;空白名时确认按钮 disabled。\n2. 快照是**存下来的、不是重算的**:切走到别的预设再切回来,重新发出被捕获的那批条件。\n3. 以「All records」为当前 tab 时快照出空条件集。\n4. 回车确认;连加两个 tab 各得自己的 id。\n5. **零元数据写入**:mock dataSource(`create`/`update`/`delete`/`find`/`findOne`)+ `fetch` + `Storage.prototype.setItem` 全部断言 0 次调用。该例**先**断言新 tab 确实出现,再断言这些 0 —— 否则「加不出 tab」也能让 0 断言空转通过(objectstack PR #5046 的空转陷阱)。\n6. **会话级存续语义**:unmount 后重新 render(并模拟宿主把 `_tab: ['__session_1__']` 从 URL 还回来)→ 会话级 tab 不在了,活动 tab 回落作者默认,重新发出默认条件。\n7. 删除:删当前选中的 → 回落默认并重新发条件;删非选中的 → 已应用条件一动不动(`onFilterChange` 调用次数不变);预设**没有**删除入口。\n8. 既有行为回归:`allowAddTab: false` 与**缺省**时都完全不渲染该控件(筛选栏本体照常渲染)。\n\n命令与实测输出:\n\n```\npnpm exec vitest run packages/plugin-list/src/__tests__/UserFilters.addTab.test.tsx --maxWorkers=2\n  Test Files  1 passed (1)       Tests  12 passed (12)\n\npnpm exec vitest run packages/plugin-list/ --maxWorkers=2\n  Test Files  24 passed (24)     Tests  376 passed (376)\n\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    78 successful, 78 total\n```\n\n### 反向验证(方向是**先**预测的:红)\n\n把 `UserFilters.tsx` 整体还原成 `origin/main` 的死按钮版本再跑新测试:**9 红 / 3 绿**,与预测一致。\n\n```\n× clicking add opens a naming input; confirming snapshots the applied filters ...\n× the snapshot is stored, not recomputed ...\n× calls no data-source method, no fetch, and no web storage\n× drops the added tab and falls back to the author default ...\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"filter-tab-add-content\"]\n Tests  9 failed | 3 passed (12)\n```\n\n三个绿的是两条 `allowAddTab` 关闭回归(本就该两向都绿,它们钉的是既有行为)+「预设没有删除入口」那条(负向断言,两向都绿;它防的是将来给预设误加删除入口,不是钉本次接线)。这里如实记一笔:**零元数据写入那条是红的**,红在它自己的非空转前置断言上 —— 正是它该红的位置。\n\n## 范围之外(未做,已确认)\n\n- spec 侧 `UserFiltersSchema.allowAddTab` 的 `.describe()` 从「仅承诺渲染入口」升回真实语义 —— 裁决已归 spec 车道,渲染器不依赖该文案。本仓 `packages/types` 的 zod 镜像写的是 `'Allow adding new tabs'`,与新行为无冲突,未动。\n- 没碰 `app-shell/src/views/metadata-admin/widgets.tsx` 的 Studio 编辑期 addTab(`filter-mode-add-tab`)—— 那是另一族。\n\n## Changeset\n\n`.changeset/userfilters-allowaddtab-session-tabs-os5236.md`,`@object-ui/plugin-list: patch`。定 patch 而非 minor 的理由:公共 API 面零变化(`UserFiltersProps` 一字未动,没有新增入参),用户可见的变化是**一个已发布但失灵的控件开始按其 title 与 spec 声明工作**,属行为补全/修复;且按仓内约定 breaking 也只标 minor、`major` 被 CI 禁掉,patch 与本仓「fix(...) + patch」的既有惯例一致。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

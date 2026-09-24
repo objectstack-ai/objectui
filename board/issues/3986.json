@@ -1,0 +1,34 @@
+{
+  "number": 3986,
+  "kind": "issue",
+  "title": "[fields/components] 一个 `multiple: true` 的 select 字段在对象表单里 host label 仍然惰性 —— 按字段类型键入的 labelling 声明碰不到它(#3975 修完后的实测残留)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:55:57Z",
+  "updated_at": "2026-08-10T01:22:44Z",
+  "closed_at": "2026-08-10T01:22:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3986",
+  "body": "在 #3975(PR #3983,给 `multiselect` 加 `labelling: 'group'`)的验证过程中顺手实测到的一条,**不夹带进那个 PR**:同一失效类的另一条路径,而且它无法用「往 `FIELD_TYPES_GROUP_LABELLED` 里再加一项」来修。\n\n## 实测(在 #3975 的修复已生效的树上)\n\n一次性 probe(未提交),真表单 + `registerAllFields()` 真惰性注册路径:\n\n```\ntype: 'multiselect'                    → byRoleGroupNamed=1  role=group   ← #3975 已修\ntype: 'field:select', multiple: true   → for=…-form-item 解析到 div\n                                         byRoleGroupNamed=0  byLabelText=0  ← 本单\n```\n\n## 为什么 #3975 的修法碰不到它\n\n三段都是现成的、各自都正确的代码,拼起来漏掉一格:\n\n1. `packages/fields/src/field-type-alias.ts:45` —— `mapFieldTypeToFormType` 只按字段的 `type` 字符串映射:`select: 'field:select'`,**不看 `multiple`**;\n2. `packages/plugin-form/src/sectionFields.ts:101,109` —— 对象表单据此发出 `type: 'field:select'`,并显式把 `multiple: field.multiple` 抄进 form field(`ObjectForm.tsx:567` 同样走 `mapFieldTypeToFormType`,并以 `field: field` 携带整份元数据);\n3. `packages/fields/src/widgets/SelectField.tsx:36-41` —— `SelectField` 见到 `config.multiple` 就委派给 `MultiSelectField`,渲染出 chip 行那个包裹 `div`。\n\n于是渲染的**是** `MultiSelectField`,但决定 label 怎么关联的声明是按 `select` 这个键查的(`resolveFieldLabelling` → `getMeta('select')`),而 `select` **必须**保持未声明 —— 单选的 trigger 是可 label 的,给它剥掉 `for` 是把一个能用的字段弄坏(`form-group-label-association.test.ts` 里已有一条钉专门守这个方向:「a BUILTIN type ignores a registry declaration under the same name」)。\n\n所以 host label 照旧发 `for`,指向 chip 行的 `div`,而 `label[for]` 指向不可 label 的元素是惰性的(`HTMLLabelElement.control` 返回 null):视觉上有标签,屏幕阅读器听不到这一组是什么。与 #3975 / #3961 同一个事实,只是入口不同。\n\n## 可达性:这不是只能手写 SDUI 才碰到的死角\n\nspec 里 `multiple` 对 `select` 合法,而上面第 2 步是**对象表单的正常路径**。也就是说一个 `{ type: 'select', multiple: true }` 的普通 picklist 字段,在真实对象表单里就是这个形态。(metadata-admin 自己的 `SchemaForm.tsx:197` 走的是另一个映射器,它 `multiple ? 'multiselect' : 'select'` —— 恰好绕过了本问题,这也是它一直没被发现的原因。)\n\n## 处置需要裁决(所以不自行实施)\n\n- **A:让生产端决定 widget** —— `mapFieldTypeToFormType` 对 `select` + `multiple` 发 `field:multiselect`。声明保持「按类型的纯事实」,`SelectField` 的委派分支在这条路径上随之变成死码。契约优先、结构上不易错,但有波及面:`CASCADE_OPTION_FIELD_TYPES` / `DATA_SOURCE_FIELD_TYPES` 的匹配、以及任何按 `field:select` 判断的地方都要一起看,而且它需要一个值(不只是类型)才能算出 widget 名 —— 得确认所有调用点都拿得到 `multiple`。\n- **B:让 `resolveFieldLabelling` 读字段配置的 `multiple`** —— 改动最小,但把「labelling 是每个类型的一个事实」变成值相关的判断,声明位从此不再是纯声明;#3961 刻意把它做成声明而不是让 renderer 猜 DOM,B 是往回走一步。\n- **C:什么都不做,只在文档/测试里记下** —— 只有在认定该形态实际不可达时才成立,而上面第 2 段说明它可达。\n\n倾向 A(长期正确:一处决定「渲染哪个 widget」,声明与渲染因此不可能再错位),但它的波及面值得先量一遍再动手 —— 交给三分诊定。\n\n## 参考\n\n- #3975 / PR #3983(`multiselect` 本体,已修)\n- #3961 / PR #3978(`labelling` 声明位与六个 widget)\n- #3976(内建 `select` 分支把 host id 展开到 Radix Select.Root —— **另一条路径**:那条走内建 `Select`,本单走注册的 `SelectField` → `MultiSelectField`,两者不重叠)\n- #3231(`field:select` 与 `select` 命名同一种字段、只认裸名导致整块逻辑落空 —— 同一根源的先例)\n"
+}

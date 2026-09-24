@@ -1,0 +1,35 @@
+{
+  "number": 3910,
+  "kind": "issue",
+  "title": "docs/fields: 落地 #3798 裁决 B —— catalog 字段例子改表单托管,删 registerFields + createFieldRenderer 两个 demo 包装器",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:49:11Z",
+  "updated_at": "2026-08-09T16:19:41Z",
+  "closed_at": "2026-08-09T16:19:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3910",
+  "body": "#3798 裁决 B 的实施单(裁决记录见该单末评论;#3308 「注册只剩一条路」意图的 remove 侧落地)。\n\n## 范围\n- `content/docs/fields/` 的 catalog 例子(~60 个 JSON)从裸字段节点改为表单托管形态(`{ type: 'form', fields: [...] }`),26 个文档页逐页重验渲染(label/状态由真表单渲染器拥有,demo 展示真实应用的渲染结果)。\n- 从 `@object-ui/fields` 删除 `registerFields()` + `createFieldRenderer()`(PR #3793 已把误导性 `@deprecated` 改为如实说明,作为安全垫;本单执行 remove)。\n- 文档站 `InteractiveDemo` 相应调整;删除后全仓消费者清零证明(带阳性反查)。\n\n## 约束\n- **独立批次执行**(改动面横跨 fields + 文档站 + 60 JSON,不与任何在飞单同批),排在 #3240 空批次之后。\n- 渲染重验须浏览器实证抽样(每类 widget 至少一页),不是只看测试绿。\n- changeset:@object-ui/fields minor/patch 按导出删除的语义定(公开导出删除,查 Bump Policy 门的判法);⛔ content/docs/releases/** 不碰。\n\nRefs: #3798(裁决)、#3308(母裁决)、PR #3793(实测与两轴分析)、ADR-0049。"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 3945,
+  "kind": "pull_request",
+  "title": "docs(layout): app-shell 的 Header Bar / Content Area 两处数值按 AppShell.tsx 现状改写 (#3914)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:40:15Z",
+  "updated_at": "2026-08-09T13:46:30Z",
+  "closed_at": "2026-08-09T13:46:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T13:46:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3945",
+  "body": "Fixes #3914\n\ndocs-only。文档向代码对齐,**未改** `packages/layout/src/AppShell.tsx`。\n\n## 前提复核(origin/main @ `ebb579dbb`)\n\n两处不符都仍然成立,行号与 issue 一致(用 `git grep origin/main` 复核,非工作树):\n\n- `content/docs/layout/app-shell.mdx:64` = `- Fixed height (64px / 4rem)`\n- `content/docs/layout/app-shell.mdx:71` = `- Responsive padding (4 on mobile, 6 on desktop)`\n- `packages/layout/src/AppShell.tsx:249` header 类含 `h-14`(= 3.5rem = **56px**);`h-1[0-9]` 在该文件唯一命中此行,没有别处覆盖成 64px(`h-16` 不存在)\n- `packages/layout/src/AppShell.tsx:257` main 类为 `flex-1 min-w-0 overflow-auto p-3 sm:p-4 md:p-6 pb-20 sm:pb-4 md:pb-6`\n\n## 改了什么(2 行 → 3 行)\n\n1. **Header Bar 高度**:`64px / 4rem` → `h-14`(3.5rem / 56px),并写明「每个断点都是这个高度,没有响应式变体」。\n2. **Content Area padding**:「4 on mobile, 6 on desktop」→ 三档如实列出(`p-3` / `sm:p-4` / `md:p-6`),另起一条补上此前完全未记的移动端 `pb-20`(5rem)。\n\n`pb-20` 的用途不是猜的:移动端底部有一条 `fixed bottom-0 ... sm:hidden` 的底栏(`packages/app-shell/src/layout/AppSidebar.tsx:744`、`packages/layout/src/AppSchemaRenderer.tsx:217`),它的可见断点与 `pb-20 sm:pb-4` 的生效断点正好互补 —— 底栏只在 sm 以下出现,加高的底部留白也只在 sm 以下生效。\n\n## 措辞取向(照抄 #3786 的抗漂移写法)\n\n参照 #3786 给 `page-header.mdx` 的 Styling → Container 立的写法:**把 Tailwind 类名本身作为首要事实**、数值只作括注,并显式交代断点覆盖面(「at every breakpoint — there is no responsive variant」)。这样读者能拿文档里的类名直接去源码里对,而不是拿一个孤立数字无从验证 —— 这正是 issue 里点名的失效模式。\n\n## 验证\n\n- `node scripts/check-doc-links.mjs` → `Links are valid across 7 scan roots.`(exit 0)\n- 全仓 `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`(exit 0);因 docs-only 不触及任何 TS 输入,这一轮 78/78 全为 turbo 缓存命中,所以另跑了一次**强制**编译取真实输出:`--filter @object-ui/site --force` → `28 successful, 28 total / Cached: 0`(`@object-ui/site` 是 `content/docs` 的消费者,见 `apps/site/source.config.ts:6`)\n- `node scripts/check-changeset-presence.mjs` → `No source of a released package changed in this range, so no changeset is owed.`(exit 0)—— 按门自身判定,docs-only 不欠 changeset\n- 卫生:控制字节自查 `grep -naP` 零命中;改动文件不含 `fable`;⛔ 未碰 `content/docs/releases/`\n\n## 顺手记下、**不在本 PR 修**的同文件/同组件漂移\n\n按 Prime Directive #10 单独开卡,不夹带进这个 PR:\n\n- **#3946** —— 同一页三处(`:62`、`:106`、`:251`)声称 AppShell 自带 sidebar toggle / `SidebarTrigger`,但 `git grep -c SidebarTrigger origin/main -- packages/layout/src` 是 0 命中,header 只渲染 `{navbar}`。修法涉及「文档向代码对齐 vs 代码补 toggle」的取舍,不是换措辞能定,故留给维护者。\n- **#3947**(`finding`)—— `AppShell.tsx:2-6` 导入了 `Sidebar` 却从不使用(dead import,现有 lint 未拦)。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 3969,
+  "kind": "pull_request",
+  "title": "fix(sdui): PageComponentSchema.dataSource 逐 block 接线,record_picker 不再丢 view (objectstack#6953)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: react",
+    "plugin",
+    "plugin: charts",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T18:22:11Z",
+  "updated_at": "2026-08-09T18:50:05Z",
+  "closed_at": "2026-08-09T18:50:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T18:50:03Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3969",
+  "body": "Fixes objectstack-ai/objectstack#6953\n\n## 这个 PR 修什么\n\nobjectstack#5576 把 spec 的 per-element 数据绑定(`PageComponentSchema.dataSource` = `{ object, view?, filter?, sort?, limit? }`)接到了 `list-view`,但同一条声明**在其余每一个 page component 上依旧无人消费**。本 PR 逐 block 接线,复用 #5576 落地的公共件,并沿用它定下的合成语义。\n\n两个缺口都是静默的:\n\n1. **`element:record_picker` 读了五个键里的四个,单独丢掉 `view`。** 于是 `dataSource: { object: 'account', view: 'hot' }`(spec 自己的例子)构造出的是**全量** account 选择器,而不是 saved view 选出的行。它不抛错、不渲染错误面板 —— 只是候选列表比作者写的更宽,用户因此能选到页面声明为范围外的记录。这是 AI 生成的 metadata 里最藏得住的一类错误。\n2. **`object-grid` / `object-form` / `object-kanban` / `object-calendar` / `object-chart` / `object-metric` / `record:related_list` 整条绑定都不读。** 每一块都把 fetch 挂在自己的 `objectName` 上,而没有任何地方把 `dataSource.object` 映射过去 —— 于是按 spec 写、不额外写 `objectName` 的页面渲染出空 grid / 无字段的表单 / 无卡片的看板 / 空月历 / 空图表 / 静态数字的指标卡,**不发请求、也没有任何诊断**。spec-valid 的 metadata 渲染出空,就是 objectstack#4413 的形状。\n\n## 接线清单(block → 文件 → 映射了哪些键)\n\n| block | 文件 | `object` | `view` 贡献 | `filter` | `sort` | `limit` |\n|---|---|---|---|---|---|---|\n| `element:record_picker` | `packages/components/src/renderers/basic/record-picker.tsx` | ✅ | 全部 | ✅ | ✅ | ✅ |\n| `object-grid`(+ `view:grid`) | `packages/plugin-grid/src/index.tsx` | ✅ | 全部 | ✅ | ✅ | `pagination.pageSize` |\n| `record:related_list` | `packages/plugin-detail/src/renderers/record-related-list.tsx` | ✅ | columns/sort/limit | ⛔ 无读点 | ✅ | `limit` |\n| `object-calendar`(+ `view:calendar`) | `packages/plugin-calendar/src/index.tsx` | ✅ | filter/sort | ✅ | ✅ | ⛔ 不分页 |\n| `object-kanban`(+ `view:kanban`) | `packages/plugin-kanban/src/index.tsx` | ✅ | filter | ✅ | ⛔ 无排序 | ⛔ 固定 `$top: 100` |\n| `object-chart`(+ `view:chart`) | `packages/plugin-charts/src/ObjectChart.tsx` | ✅ | filter | ✅ | ⛔ 由聚合定序 | ⛔ 无页 |\n| `object-metric` | `packages/plugin-dashboard/src/index.tsx` | ✅ | filter | ✅ | ⛔ 单值 | ⛔ 单值 |\n| `object-form`(+ `view:form`) | `packages/plugin-form/src/index.tsx` | ✅ | 仅校验名字 | ⛔ 无集合查询 | ⛔ | ⛔ |\n\n**⛔ 的含义是「该 block 没有这个键的读点,所以故意不映射」,不是遗漏。** 把合成值写到 block 不读的键上,等于把本单要消除的缺陷(声明了却被丢弃)往下挪一层、看起来像接好了 —— 所以 kanban 的 `columns`(那是**泳道**,不是字段列表)永远不会被 view 的字段列表覆盖,没有行上限的 block 就把 `limit` 留空。逐 block 覆盖表连同两处残留缺口,写进了 `content/docs/guide/data-source.md`。\n\n`view` 那一列写的是「命名的 saved view 在该 block 上实际贡献了什么」。**解析不到的 view 名在表里每一个 block 上都渲染配置错误** —— 包括那些从 view 里什么都不取的 block,所以写错名字在任何 block 上都不会静默通过。\n\n## 公共件:一张优先级表,不是八份\n\n新增 `packages/react/src/element-data-source/ElementDataSourceGate.tsx`,导出 `useElementDataSourceSchema` / `ElementDataSourceGate` / `ElementDataSourceErrorPanel` / `ElementDataSourceLoadingPanel`。#5576 的公共件本体(`useElementDataSource`、`composeElementDataSource` 等)**一行未改**;新增的这一层只负责最后一跳:把合成结果写到某个 block 真读的那几个键上,并统一渲染 loading / 无法解析两种非终态。\n\n之所以要这一层:`dataSource` 声明在每一个 page component 上,八个 block 需要的是**同一张优先级表、只有键名不同** —— 那是一份映射描述,不是八套算法。一 block 一份副本正是「additional filter criteria」会变成两种方言的路径(一块 `and` 合成、下一块直接替换)。\n\n语义完全沿用 #5576:view 提供基线 → 组件自身显式键覆盖 view → 绑定的显式键覆盖两者;`filter` 三方 `and` 合成(绑定只能收窄 view,永远不能放宽);`view` 解析不到报错、不回退全量;空 `columns: []` 视作「未声明」。\n\n`plugin-list` 的 `ListViewBlock` 早于本层落地,仍带一份私有副本(两者当前语义一致 —— #5576 整套 60 文件 826 例在本层下未改一行全绿)。把它收敛过来是 objectstack#7120(观察类)。\n\n## 每 block 两方向钉子\n\n新增 9 个测试文件、48 例。每一块都同时钉住「带 `dataSource`(含 `view`)时按 view 选行 / 正确映射」与「不带时行为与现状完全一致」。公共层另有 19 例,单独钉两条所有 block 都依赖、而任何单块测试都看不见的性质:优先级表本身,以及**未映射的键一定不被写入**(kanban 的泳道、`object-form` 只写对象名)。\n\n## 反向验证(先预判方向,再跑)\n\n两次变异,都不提交:\n\n1. **`record_picker` 恢复 pre-fix 的读法**(直接读 `schema.dataSource`,丢 `view`)。预判:合成相关的两例翻红,其余四例保持绿。实测 `2 failed | 4 passed` —— 红的正是 view 的 filter/sort/cap 与三方 `and` 合成;绿的是「绑定显式键覆盖」(绑定键本来就赢,与 view 无关)、「无法解析的 view 报错」(那条走的是 hook 那一肢,变异没碰它)、无 view 基线、以及 `properties.object` 简写。\n2. **公共层去掉 object 映射那一行**。预判:八个 block 的「查询到达数据层」全部翻红,而无绑定基线与错误面板保持绿。实测 `18 failed | 28 passed`,跨全部 8 个测试文件,分布与预判一致。\n\n## 顺手记录、未在本 PR 修的发现\n\n- objectstack#7118 — `record:related_list.filter` 声明了却无人读(`RelatedList` 的列表查询只按父关系过滤)。因此本 PR **故意不映射** 它的 `filter`,并钉了一条诚实的反向断言:确认没有任何 filter 到达 `RelatedList`。连带后果(saved view 的 filter 被丢、列表比它引用的 view 更宽)在代码注释与文档里明写。\n- objectstack#7119 — `object-grid` 的 `inputs` 声明 `filters`(复数),渲染器只读 `filter`(单数)。\n- objectstack#7120 — `ListViewBlock` 的私有优先级表副本(观察类,`finding`)。\n- objectstack#7121 — 剩余 object-bound public block(gantt / timeline / map / pivot / master-detail-form / embeddable-form / line_items)仍未消费该绑定。\n\n## 顺带的两处\n\n1. `ElementDataSourceGate` 把 `ListViewBlock` 的「BINDING 不能被当成 adapter」防御(#5576)提到公共层,一次覆盖所有 block:host(或旧的缓存 bundle)把绑定从 adapter 参数递进来时,一个真实存在的 view 会被报成解析不到。已钉住。\n2. 一处测试修复:`packages/plugin-kanban/src/registration.test.tsx` 原本整模块替换 `@object-ui/react` 且只列两个导出,于是渲染器多用一个导出就会以「mock 上没有定义 ElementDataSourceGate 导出」失败,而不是报告它本该测的注册行为。改成 `importOriginal()` 的部分 mock —— 与 `plugin-calendar/src/registration.test.tsx` 已有的同款转换、同一理由(objectui#3219)。\n\n## 验证输出\n\n```\n# 新增钉子 + #5576 原有 list-view 钉子 + kanban 注册测试(11 文件)\npnpm exec vitest run packages/react/src/element-data-source/ ... packages/plugin-list/src/__tests__/ListView.elementDataSource.test.tsx\n  Test Files  11 passed (11)\n       Tests  67 passed (67)\n\n# 受影响包全量回归(分批)\npackages/plugin-list + packages/react + console public-contract/binding-reach   60 files / 826 passed\npackages/plugin-grid + plugin-kanban + plugin-calendar                          70 files / 586 passed\npackages/plugin-kanban/registration + plugin-charts + plugin-dashboard          51 files / 422 passed\npackages/plugin-detail + plugin-form                                            98 files / 839 passed\npackages/components + plugin-view                                              115 files / 977 passed\napps/console + packages/app-shell                                              336 files / 3126 passed, 1 skipped\n\n# 仓根类型检查\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    78 successful, 78 total\n\nnode scripts/check-control-bytes.mjs\n  OK (scanned 3860 tracked text file(s); skipped 85 binary)\n```\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

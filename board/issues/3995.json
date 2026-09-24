@@ -1,0 +1,33 @@
+{
+  "number": 3995,
+  "kind": "pull_request",
+  "title": "fix(layout): navigation-renderer 的 items 声明为 required —— 校验器不再放过必崩的节点 (#3987)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "examples",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:26:28Z",
+  "updated_at": "2026-08-09T23:00:06Z",
+  "closed_at": "2026-08-09T23:00:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T23:00:04Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3995",
+  "body": "Fixes #3987\n\n## 这一条改的是什么\n\n`navigation-renderer` 的 `items` input 补 `required: true`(`packages/layout/src/index.ts`,一行)。\n\n`NavigationRendererProps.items` 是**非可选**的 `NavigationItem[]`,渲染器也不给默认值;而\n`sdui-parser` 只在 `input.required` 为真时报 `missing-required-prop`\n(`packages/sdui-parser/src/validate.ts:55-64`)。所以在这一改动之前,\n`{ \"type\": \"navigation-renderer\" }` 这个节点是**校验零诊断 + 渲染必崩**:\n唯一保证崩溃的形状,恰好也是校验器唯一无话可说的形状。\n\n这是 #3972(键的**存在** × **类型** × `ManifestInputType` 表达力)的第四面:**可选性**。\n方向上与 #3900 / #3972 相反 —— 那两条是**删假诊断**,这条是**收紧**(新增一条 error 级诊断),\n按 issue 里的 PM 分诊裁定实施,未重开讨论。\n\n## 运行期复现(issue 正文是静态读出,这里是实测)\n\nissue 按 file:line 推断\"两处都吃 undefined\"。实测一次(省略 `items` 渲染真实组件,\n`MemoryRouter` + `SidebarProvider`,react 19.2.8 / happy-dom),结果确认崩溃,并**修正**了\n读点顺序:\n\n```\nPROBE constructor: TypeError\nPROBE message: items is not iterable\nPROBE first stack frames: TypeError: items is not iterable\n    at collectPinnedItems (packages/layout/src/NavigationRenderer.tsx:1410:22)\n    at packages/layout/src/NavigationRenderer.tsx:1242:11\n    at mountMemo (react-dom-client.development.js:8777:23)\n    at Object.useMemo (react-dom-client.development.js:26216:18)\n```\n\n- 第一处无守卫的读点是 **`pinnedItems` memo**(`:1242`)调用的 `collectPinnedItems`\n  (`:1410` 的 `for (const item of items)`)—— 抛 `TypeError: items is not iterable`,\n  白屏而非降级。\n- 它前面的 `activeNavId` memo(`resolveActiveNavItem`,`:1229`)**挡得住**:内部 `visit`\n  首行就是 `if (!nodes) return`。\n- issue 另点的 `filteredItems.slice()`(`:1247`)静态上同样会抛,但**永远走不到** ——\n  `:1242` 先崩。\n\n这次复现已经作为常驻见证进了 PR(见下),不是一次性探针。\n\n## 钉子(两方向 + 对照)\n\n**注册级 —— `packages/layout/src/__tests__/navigation-renderer-items-declaration.test.tsx`**\n(与 #3972 同一把钉子的同一个文件,按键归拢):\n\n- `items.required === true`,两个注册键(bare 与 `layout` namespace)都钉;\n- **对照:`basePath.required` 必须保持 falsy** —— 渲染器真的给了它默认值(`basePath = ''`)。\n  `required` 是逐个属性从组件读出的事实,不是一刀切;这条对照一旦翻红,就说明收紧从\n  \"缺了会崩的那个属性\"扩散成了\"所有声明的属性\";\n- **编译期镜像**:`undefined extends NavigationRendererProps['items']` 为假。`items` 哪天变成\n  `items?:`,这个文件当场 type-check 失败,声明不会悄悄漂回去;\n- **运行期见证**:省略 `items` 渲染 `toThrow(TypeError)` + `toThrow(/items is not iterable/)`;\n  配对的另一半是\"给了 `items`、省略可选的 `basePath`,渲染正常\"。\n\n**端到端 —— `examples/schema-catalog/test/pageheader-with-actions.test.tsx`**\n(#3972 的 manifest 门钉就在这里,紧邻按活注册表建 manifest 的 `diagnose()` 助手):\n\n- 省略 `items` 的节点报 `missing-required-prop`,并断言 `severity === 'error'` 与 message 里的\n  `\"items\"`(先断 `unknown-component` 为空 —— 不然 tag 掉出 manifest 时这个断言会因为根本没跑到\n  required 循环而假绿);\n- 给了数组(空数组 / 真实 item + `basePath`)零诊断;\n- 对照:可选属性省略不报 `missing-required-prop`(`navigation-renderer` 的 `basePath`,\n  以及同文件注册的 `page-header` 只写 `title`)。\n\n## 同批对照测试的同步(#3900 的 `not-a-container` 对照)\n\n`examples/schema-catalog` 里 #3900 的对照节点原本**故意省略** `items`,注释写着\n\"它不是 required,所以省略不画任何东西\" —— 这句被本改动作废。按 fixture triage 的\n\"补声明\"处置:节点补上 `items: []`,让它**只剩**那一处故意植入的缺陷(childless 组件带\nchildren),对照恢复单一事实;注释同步重写,并记下它两次是从相反方向得到同一个结论\n(先前省略是因为写 `items: []` 会撞 #3972 的 `type-mismatch`)。断言 `toContain(CONTAINMENT)`\n本来按 code 过滤、两种写法都绿 —— 所以这里改的是**注释的真实性**与 fixture 的单一事实性,\n不是为了让它变绿。文件头的\"Four things are pinned here\"同步为五条。\n\n## 反向验证(先预判后跑,变异未提交)\n\n预判:撤掉 `required: true` → 注册级 2 条 + 端到端 1 条**翻红**;三组对照\n(`basePath` 可选、给了 `items` 零诊断、`page-header` 只写 title)**保持绿**;\n**运行期崩溃见证也保持绿** —— 崩溃与声明无关,它是这条收紧的**理由**,不是它的**后果**,\n所以它在变异下不该动。实测与预判逐条一致:\n\n```\n× declares `required: true` (namespace: undefined)  → expected undefined to be true\n× declares `required: true` (namespace: layout)     → expected undefined to be true\n× reports `missing-required-prop` for a `navigation-renderer` without `items`\n  → omitting `items` drew no `missing-required-prop`: expected undefined to be truthy\n✓ leaves `basePath` optional — the renderer defaults it (both namespaces)\n✓ throws a TypeError instead of rendering an empty navigation\n✓ renders fine when `items` is supplied and the optional `basePath` is not\n✓ reports nothing once `items` is supplied\n✓ does not report the optional props the renderer defaults\n Tests  3 failed | 20 passed (23)\n```\n\n## blast radius(这是收紧,必须写清)\n\n今天省略 `items` 写 `navigation-renderer` 的 schema,会**新增**一条 error 级\n`missing-required-prop`(message 形如 `< navigation-renderer > is missing required prop \"items\"`)。\n\n- **仓内**:没有任何 JSON 元数据把 `navigation-renderer` 当 schema 节点写(全仓 grep 只命中\n  注册本身、#3900 的对照测试与这批钉子);React 调用侧的必填由 TS 兜住。\n  `validateTree` 的仓内消费者只有上面那个测试文件。\n- **仓外**:按 `inputs` / `packages/layout/README.md` 做 schema 驱动的消费者会收到这条新诊断\n  —— 与 #3972 现象二同级、同一句可达性标注。**而它新拦下的形状恰好等于渲染必然崩溃的形状**,\n  这正是 `missing-required-prop` 存在的理由:让作者(尤其 AI 作者)在发布期就听到运行期\n  注定发生的失败。\n- issue 里的替代路线(给 `items` 一个 `= []` 默认值,缺 items 就渲染空导航)与本改动**不互斥**、\n  但**未采用**:静默空导航对\"作者忘了写 items\"这件事比 error 级诊断更没用。若将来采用,\n  测试文件头已写明处置方式 —— **替换**运行期见证为\"渲染空导航\"的断言(而不是删掉它),并\n  **保留** `required: true`。\n\n## 验证\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/layout^...' build`(新树先建依赖)\n- 仓根 `pnpm exec vitest run packages/layout packages/sdui-parser examples/schema-catalog --maxWorkers=2`\n  → **16 files / 1226 tests passed**\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → **78 successful, 78 total**\n- `node scripts/check-control-bytes.mjs` → OK(3903 tracked text files);改动文件另做了\n  一次 `grep -naP` 控制字节自扫,干净\n- `pnpm exec eslint`(改动的三个文件)→ 0 errors(index.ts 上两条 warning 是既有的,\n  与本改动无关)\n\n第二个 commit 只改注释:上一版把对照写成\"两个节点都省略了 `basePath`\",而上一条测试的第二个\n节点其实供了它(两者都零诊断)—— 注释真实性正是这条改动在管的事,顺手改准;\n`examples/schema-catalog` 重跑 4 files / 1093 tests passed。\n\n## 边界\n\n只动 `packages/layout/src/index.ts`(一行 + 注释)、两个测试文件、一个 changeset\n(`@object-ui/layout` patch,正文写明 blast radius)。未动 `NavigationRenderer.tsx` 本体,\n未碰 `content/docs/releases/`,未碰同批在飞的 schemas/scripts/fields/app-shell 面。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3984,
+  "kind": "pull_request",
+  "title": "fix(layout): registerLayout 的 inputs 声明面对齐渲染器读点 —— page-header 补 icon/actions,navigation-renderer 的 items 改为 array (#3972)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "examples",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:54:50Z",
+  "updated_at": "2026-08-09T21:08:30Z",
+  "closed_at": "2026-08-09T21:08:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T21:08:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3984",
+  "body": "Fixes #3972\n\n## 前提复核(基 `cdc0e44c8`,`git merge-base --is-ancestor 82f8dfffd HEAD` 通过 —— PR #3973 在基内)\n\n正文两处锚点与\"实测\"全部成立,逐条复核:\n\n- `packages/layout/src/index.ts` 的 `page-header` 只声明 `title` / `subtitle`;`PageHeader.tsx:117` 取参、`:224-226` 渲染 `icon`(字符串走 `LazyIcon`,也接受 React node);`@objectstack/spec/ui` 的 `PageHeaderProps.shape` 实测为 `title, subtitle, icon, breadcrumb, actions, aria`,`icon` 是 optional string。\n- 文档 demo `examples/schema-catalog/src/schemas/layout-page-header/pageheader-with-actions.json` **已经**带 `\"icon\": \"users\"`(无需为造钉子改 JSON),而它是 `content/docs/layout/page-header.mdx` 唯一的 live demo。\n- 注册里 `items` 是 `type: 'object'`,`NavigationRendererProps.items` 是 `NavigationItem[]`(`NavigationRenderer.tsx:108`);`checkType` 对两者互斥判定(`sdui-parser/src/validate.ts:124-129`),`ManifestInputType` 有 `'array'`(`types.ts:51-62`)—— 确实不是 #3832 的表达力问题。\n\n## 改了什么(`packages/layout/src/index.ts`,三个键)\n\n正文要求的是\"一次按渲染器实际读点的审计\",所以 `page-header` 这一块是整块过的,结果比派发单摘要多出一个键:\n\n| 键 | 渲染器读点 | spec | 动作 |\n| --- | --- | --- | --- |\n| `icon` | `:117` / `:224-226` | 有(string) | 补 `type: 'string'` |\n| `actions` | `:119` / `:192-196`(委派 `record:quick_actions`) | 有(array) | 补 `type: 'array'` |\n| `items`(navigation-renderer) | `NavigationItem[]`,`:108` | 无对应 spec 节点 | `'object'` 改 `'array'` |\n\n`actions` 与 `icon` 是同一个判据下的同一类缺陷(渲染器真读 × spec 声明 × 类型可表达),`content/docs/layout/page-header.mdx` 的 Component Props 段落把两者一起写成公开契约,而它今天同样吃 `unknown-prop`。只修 `icon` 会让这次审计留下一个已知未修的同族实例,所以一并修了 —— 类型与 canonical `page:header` 的 `actions` 逐字一致(`containers.tsx:1585`,`type: 'array'`),不新开方言。**若维护者认为该键应单开一单,删掉那一条 input 与对应的两条断言即可,其余不受影响。**\n\n**刻意不声明**的也一并钉住(照抄 spec shape 是这条修复最容易滑进的反向缺陷):`breadcrumb`(spec 有、这个渲染器零读点 → 声明它就是 #3829 的方向)、`showBack` / `action` / `description`(渲染器读、spec 无 → 声明即第二套方言,#3226 收窄要防的正是这个)、`aria`(全仓一致的可访问性逃逸口)。\n\n顺带一处值得记下的对称:`page:header.icon` 在 `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 的 `UNPUBLISHED_EXEMPTIONS` 里(canonical 渲染器零读点,#3829),而同名键在这里被声明 —— 两个不同渲染器、相反的读点事实,不矛盾。该门只判 `ComponentPropsMap` 里的键(`page:header`),kebab 的 legacy `page-header` 不在其覆盖内,所以本 PR 不动它的任何期望值。\n\n渲染输出逐字节不变:渲染路径从不读 `inputs`。\n\n## 钉子(两方向,沿 PR #3973 的形态)\n\n注册级(`packages/layout/src/__tests__/`):\n\n- `page-header-authorable-keys.test.tsx` 新增一个 describe:`icon`/`actions` 在裸键与 namespace 两处都声明且类型正确、且\"合法的理由\"(spec 拥有该键)一起断言;反面钉 `breadcrumb` 未声明(spec 有、零读点)与 `showBack`/`action`/`description` 未声明(spec 无)。\n- `navigation-renderer-items-declaration.test.tsx`(新):运行期钉 `items` 声明为 `array`;另有一半是**编译期**的 —— `NavigationRendererProps` 的 `items` 必须仍可赋给数组,由 `pnpm type-check` 兜住(`tsconfig.test.json` 覆盖测试文件),这样 prop 被改形状时是 type-check 红,而不是声明面悄悄漂回去。\n\n端到端(`examples/schema-catalog/test/pageheader-with-actions.test.tsx`,复用 PR #3973 建的 `diagnose()`,即按 `getJsxManifest()` 同法构建 manifest):\n\n- 正向:文档 demo(带 `icon`)无 `unknown-prop`(附可达性前置:demo 必须仍写 `icon`、无 `unknown-component`);`actions: ['export']` 与数组 `items` 均无诊断。\n- 阳性对照(诊断没被弄哑):`description`(#3226 刻意不声明、渲染器却仍读的那个 legacy alias)仍报 `unknown-prop`;`actions` 写成对象报 `type-mismatch`;`items` 写成对象报 `type-mismatch` **且消息断言为 expected an array** —— 光断 code 会在\"声明根本没动\"时照绿。\n\nPR #3973 留在该文件里的两处注释(说 `icon` 的 `unknown-prop` 尚在、说 `items: []` 会另报 `type-mismatch`)已随之更新 —— 它们描述的是修复前的状态。\n\n## 反向验证(先预判,后跑;变异未提交)\n\n预判写在跑之前:把 `icon`/`actions` 删掉、`items` 改回 `'object'`(即 #3972 前的声明状态),预计 7 条红、两条**必须仍绿**。实测 `Tests 7 failed | 21 passed (28)`,与预判逐条一致:\n\n- 红(7 条):`declares icon…` / `declares actions…` / `declares type: array`(两个 namespace)/ 端到端 `draws no unknown-prop on the demo` / `accepts the actions array` / `accepts an array-valued items`。\n- 仍绿(对照有效的证据):`still draws unknown-prop for a key the declaration deliberately withholds`(`description` 对照与本改动无关,这正是它作为对照的意义)、以及 PR #3973 的全部 `not-a-container` / #3787 / #3786 断言。\n- **一条方向诚实标注:** `navigation-renderer-items-declaration` 里 `and the prop it describes is still an array` 在变异下**仍绿**,这是设计如此 —— 它钉的是 TS prop 类型,变异只动声明,不动 prop。它只在 `items` 被改形状时才红。\n- 另一条不是\"诊断消失\"而是**判定互换**:`items` 的对象形状在改动前是唯一能过的写法,改动后才是被报的那个;`toContain('type-mismatch')` 在两个方向都成立,所以真正区分前后的是数组侧的 `toEqual([])` 与那条消息断言。\n\n## 审计的其余两个 inputs 块:界内无改动,界外三条已另开单\n\n`responsive-grid` / `app-schema-renderer` 逐键过了,**没有**发现\"对正确写法报假诊断\"这一类缺陷,故本 PR 不动它们。审计顺带看到的三件事都落在本单完成范围之外,已按 Prime Directive #10 另开(未认领),不夹带:\n\n- `app-schema-renderer.mobileNavMode` 声明成自由文本 `string`,实现是三值联合,且 `'hamburger'` 在渲染器里零读点 —— 改成 `enum` 前得先定\"词表里还有几个值是真的\",属契约决定,不猜。\n- `navigation-renderer.items` 是 TS 必填、声明面可选,省略它时渲染器直接抛(`collectPinnedItems` 的 for-of 与 `sorted.slice()` 都吃 undefined),而校验器一言不发。加 `required: true` 会新增 error 级诊断,是收紧决定,不在本单\"三面对齐\"的范围里。\n- `responsive-grid.gap` 的 TS 类型收 `number | string`,但 `ResponsiveGrid.tsx:111` 只对 number 算 class,字符串静默无间距(连默认的 4 也丢)。\n\n## 验证\n\n- `pnpm exec vitest run packages/layout packages/sdui-parser examples/schema-catalog --maxWorkers=2`(仓根,shared lock 内):**16 files / 1216 tests 全绿**。\n- 三个改动文件 `--reporter=verbose`:28 条全绿,新增钉子逐条可见(反可达性:确认它们真的跑了)。\n- `pnpm exec turbo run type-check --concurrency=2`(仓根):**78/78 successful**。\n- `node scripts/check-control-bytes.mjs`:OK(3882 文件);另对本 PR 五个文件跑了 `grep -naP` 的越界自查,无控制字节。\n\n## changeset\n\n`.changeset/layout-inputs-declaration-3972.md`,`@object-ui/layout` patch(声明面修正,渲染输出不变)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3569,
+  "kind": "issue",
+  "title": "[fields,plugin-form] 内嵌子表把 datetime/time 列折叠成 date 控件：时间分量在编辑时被静默丢弃",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "baozhoutao"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T13:53:30Z",
+  "updated_at": "2026-08-10T07:29:06Z",
+  "closed_at": "2026-08-10T07:29:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3569",
+  "body": "## 现象（读码 + 真机确认接口形状）\n\n`packages/plugin-form/src/deriveMasterDetail.ts` 的 `fieldTypeToColumnType` 把三种字段类型\n折叠成同一个网格列类型：\n\n```ts\ncase 'date':\ncase 'datetime':\ncase 'time':\n  return 'date';\n```\n\n而 `GridField` 对 `type === 'date'` 只会渲染 `input[type=date]`（`GridField.tsx:764`）。于是\n一个 `datetime` 子表字段在内嵌网格里：\n\n1. **读**：控件只能显示日历日，时间分量在界面上不存在；\n2. **写**：`onChange` 交出的是控件自己的 `YYYY-MM-DD`，**时间被静默丢弃** —— 用户只是碰了一下\n   日期，记录里的 `14:30` 就没了；\n3. `time` 类型同理，被喂进一个日期控件。\n\n真机取证（framework showcase，本地 `objectstack dev`）：`date` 字段接口回 `\"2026-08-04\"`，\n`datetime` 字段接口回 `\"2026-08-07T16:39:20.389Z\"` —— 即 datetime 列拿到的一定是完整 ISO。\n\n## 为什么现在才浮出来\n\n#3566 修的是 `date` 列把 ISO 形状喂进 `input[type=date]` 导致单元格空白。那条修复顺带让\ndatetime 列从「空白」变成「显示日历日」，**不再更差，但也没变对** —— 真正的缺口是类型折叠本身。\n\n## 预期\n\n`datetime` 列应渲染 `input[type=datetime-local]`，读写各用 `toDateTimeInputValue` /\n`fromDateTimeInputValue`（`packages/fields/src/widgets/nativeDateValue.ts`，#3127 已落地并配对\n使用），与 `DateTimeField` 的约定一致；`time` 列同理需要自己的形态，而不是继续借用日期控件。\n\n## 建议改法（跨两个包，故未并进 #3566）\n\n- `packages/fields/src/widgets/GridField.tsx`：`GridColumn['type']` 联合类型加 `'datetime'`，\n  单元格按类型选择控件与读写适配器。\n- `packages/plugin-form/src/deriveMasterDetail.ts`：`fieldTypeToColumnType` 停止把 `datetime`\n  折叠到 `date`。\n- 只读展示面同一处缺口：`GridField.tsx` 的 `displayText()`（`:277` 的 `String(value)` 兜底）和\n  只读表格 `:632` 的 `String(row[c.field])`，对 date/datetime 列都会把原样 ISO 字符串印到界面上\n  （例如 `2026-06-17T00:00:00.000Z`）。修 datetime 列时应一并处理 —— 之所以不能在 #3566 里单独\n  改，正是因为在类型折叠没解开之前，`GridField` 无从分辨该显示「日」还是「日 + 时间」，按日渲染\n  会把 datetime 的时间分量从展示里抹掉。\n\n## 出处\n\n#3566（`GridField` date 列不回显 ISO 值）实施时按范围纪律排除的同族面。\n"
+}

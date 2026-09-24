@@ -2,8 +2,8 @@
   "number": 9944,
   "kind": "issue",
   "title": "finding(scripts/ci): the spec-main shape gate reports a LOWER BOUND — `&&` inside type-check and turbo fail-fast hide 19 of 20 diagnostics, so objectui#9880 is 1 of at least 7 independent sites",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:devx",
-    "pm:queue",
     "priority:p2",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T19:01:54Z",
-  "updated_at": "2026-09-18T22:28:58Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T03:51:52Z",
+  "closed_at": "2026-09-24T03:51:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 2,
   "locked": false,

@@ -1,0 +1,35 @@
+{
+  "number": 3752,
+  "kind": "issue",
+  "title": "data-objectstack 的 queryDataset 返回类型漏掉 fields[].percentScale,而 #3136 明令渲染端必须按它缩放",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:57:25Z",
+  "updated_at": "2026-08-08T17:36:54Z",
+  "closed_at": "2026-08-08T17:36:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3752",
+  "body": "在 #3613(把 `selection` 参数换成 spec 的 `DatasetSelection`)时发现的**同族、但在返回值一侧**的漂移,按 PD #10 单开、不并入那个 PR。\n\n## 现状\n\n`packages/data-objectstack/src/index.ts` 的 `queryDataset` 返回类型手写了 `fields` 元素的形状:\n\n```ts\nfields: Array< { name: string; type: string; label?: string; format?: string; currency?: string } >;\n```\n\n其 JSDoc 逐项列举了它以为服务端会送的东西(\"a display `label`…, and a measure's numeral `format` + declared `currency`\")。而 pin 的 `@objectstack/spec@17.0.0-rc.5` 里 `AnalyticsResult.fields[]`(contracts)除这几项外还有 **`percentScale?: PercentScale`**(以及 `sql?` 在结果顶层)。spec 注释写明:\n\n> The column's percent SCALE, when it is a percentage: `fraction` for a 0–1 ratio (`1` ⇒ \"100%\"), `whole` for percentage points… renderers that receive it must scale by it instead of guessing from the value (objectui#3136).\n\n## 为什么这不是纸面问题\n\n`percentScale` 在本仓是**重度消费**的,三个包都在读 `queryDataset` 结果里的这个字段:\n\n- `packages/plugin-dashboard/src/DatasetWidget.tsx:625,707,824`\n- `packages/plugin-report/src/DatasetReportRenderer.tsx:470,485,710,932,943,957,967`\n- `packages/app-shell/src/views/metadata-admin/previews/DatasetPreview.tsx:228`\n\n它们全都靠**自己本地的** `DatasetResultField` 之类的类型(`packages/core/src/utils/dataset-format.ts:34` 声明了 `percentScale`)读到它,因此今天不报错。但任何**按 adapter 返回类型**取值的作者会得到编译错误——声明在说\"这一列没有 percentScale\",而这恰好把作者推向 #3136 明确禁止的\"按数值大小猜百分比刻度\"。与 #3613 同一个 declared≠contract 形状,只是方向在返回值上。\n\n## 根因与建议\n\n和 #3613 一样:**手写重述一份别人拥有的契约,就是给同一契约开第二份方言**,漂移只是时间问题——这份 `fields` 形状就是停在了写它那天的 spec 上。\n\n但**不能**简单换成 `AnalyticsResult`:adapter 的返回是 REST 信封,它比 `AnalyticsResult` 多 `object` / `dimensionFields` / `drillRawRows`(ADR-0021 D2 钻取),又不含 `sql`。所以这里需要一个判断,而不是机械替换。两个方向:\n\n- **A**:返回类型改成 `AnalyticsResult` 与信封增量的交叉(`AnalyticsResult & { object?: …; dimensionFields?: …; drillRawRows?: … }`),`fields` 由此直接来自 spec、再不会漏项。前提是确认服务端在这条路由上确实回全 `AnalyticsResult`(含 `sql`)。\n- **B**:只把 `fields` 元素一项换成 `AnalyticsResult['fields'][number]`,其余信封字段保持本地声明。改动最小,且不对 `sql` 是否回传做任何断言。\n\n倾向 **B**:它精确消灭了这一处方言(`fields` 的列元信息本就是 spec 拥有的概念),又不需要先证明整条路由与 `AnalyticsResult` 等同——A 的那个前提没查证前就是在替服务端下断言。若维护者能确认路由确实回全 `AnalyticsResult`,A 更彻底。\n\n顺带:REST 路由的实际回包形状需要在 framework/spec 侧确认一次,所以这条可能要跨仓看一眼再动手。\n"
+}

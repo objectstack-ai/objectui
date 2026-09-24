@@ -2,8 +2,8 @@
   "number": 9610,
   "kind": "issue",
   "title": "finding(pm-gate): three cards write their unlock condition under the key `H9` reads, so `H4` reports them absent and its remedy tells the author to add a line they already wrote",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-try-charles",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:devx",
-    "pm:queue",
     "priority:p2",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-16T10:48:30Z",
-  "updated_at": "2026-09-17T14:26:59Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T03:40:11Z",
+  "closed_at": "2026-09-24T03:40:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

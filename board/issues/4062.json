@@ -1,0 +1,36 @@
+{
+  "number": 4062,
+  "kind": "issue",
+  "title": "`objectui init` writes an `src/index.css` with no `@import \"@object-ui/components/style.css\"`, so the scaffolded app gets none of the library's styles — the one import quick-start and #3884's measurement both call load-bearing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T02:48:27Z",
+  "updated_at": "2026-08-10T03:30:32Z",
+  "closed_at": "2026-08-10T03:30:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4062",
+  "body": "Out-of-scope finding, measured while implementing #3892. Filed separately: #3892's face is the scaffold's version ranges plus deleting its dead `tailwind.config.js`, and this is a missing line in a different generated file.\n\n## Facts (verified on `origin/main` = `11c1e71e8`)\n\n`packages/cli/src/commands/init.ts:545` generates the scaffold's entire stylesheet:\n\n```css\n@import 'tailwindcss';\n```\n\nThat is the whole file. It never imports the component library's published stylesheet.\n\nThe library publishes one, and it is a real export: `packages/components/package.json` declares `\"./style.css\": \"./dist/index.css\"`, with `dist` in `files`. A local build of the package emits `dist/index.css` at 161.98 kB.\n\n`content/docs/guide/quick-start.md:55-60` — the page an external consumer follows — teaches exactly that import:\n\n```css\n@import \"tailwindcss\";\n@import \"@object-ui/components/style.css\";\n@import \"@object-ui/fields/style.css\";\n```\n\nSo the CLI's own scaffold does not do what this project's documentation tells hand-rolled consumers to do.\n\n## Why the prebuilt import is the load-bearing one\n\n#3884 measured this directly, against a real install (Tailwind 4.3.3 + `@tailwindcss/postcss`), and its readings are what make this finding precise rather than speculative:\n\n- The theme utilities (`bg-primary`, `bg-background`, `border-input`, `ring-ring`) exist **only where the `@theme` block that declares their tokens is compiled**. That block lives in `packages/components/src/index.css`, which `files` does not publish. A consumer therefore cannot obtain them by scanning; the prebuilt `style.css` is the only source.\n- Scanning `node_modules` is not a substitute in the other direction either: #3884 measured the full class surface reachable by a `node_modules` glob at 1331 rules, **all** already inside the published `dist/index.css`'s 1410 — the prebuilt CSS is a strict superset of what scanning yields.\n\nI want to be explicit that this finding is **not** \"the scaffold is missing `@source` lines\". That was my first hypothesis and #3884 falsifies it: those lines are redundant, cost ~100 kB, and buy 14 selectors none of which are needed. The missing thing is the `@import`.\n\n## Impact\n\nA scaffolded project renders ObjectUI components with no ObjectUI styling — the theme utilities its templates lean on (`bg-muted/10`, `text-muted-foreground`, `bg-background`, `shadow-sm` on `card`) have no tokens behind them. Combined with #4061 (empty component registry), `objectui init` + `npm run dev` does not currently produce the app its README promises. Severity left to triage.\n\n## Not prejudging the fix\n\nTwo cells I deliberately did not decide:\n\n1. **Which stylesheets.** quick-start names `@object-ui/components/style.css` and `@object-ui/fields/style.css`; the scaffold's manifest declares neither `@object-ui/fields` nor anything that imports it, so copying both lines would declare-vs-import in the wrong direction (#3755). Probably components only, matching what the scaffold depends on.\n2. **Whether the scaffold should follow quick-start's Vite plugin shape at all.** quick-start uses `@tailwindcss/vite`; the scaffold uses `@tailwindcss/postcss` + `autoprefixer` in `postcss.config.js`. Both are valid Tailwind 4 setups and this finding does not depend on the choice — but the divergence is worth a maintainer's eye, since the two pages are read as one story by a new user.\n\nMeasurement I could not do offline: compiling a scaffolded project against real published packages to count what the missing import costs in rules. #3884's fixture is the shape that measurement would take.\n\n## Dedup\n\nSearched open issues: `init scaffold plugin register components` (0 hits), `in:title init OR scaffold OR unstyled OR \"@source\"` (#3907, #3892, #3884). #3884 is the *docs* face (quick-start teaches two redundant `@source` lines) and explicitly scopes to `content/docs/guide/quick-start.md`; #3883 is theming/troubleshooting docs; neither covers the CLI scaffold's generated CSS. #3852 migrated the temp-app generator's pipeline, not `commands/init.ts`.\n\nRelated: #3892, #4061. Evidence source: #3884.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3055,
+  "kind": "issue",
+  "title": "console: 记录页审批入口与 sys_approval_request 声明动作双实现不一致 —— 转派/退回/要补充材料零入口,群组审批人看不到决策按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-30T14:24:14Z",
+  "updated_at": "2026-08-10T04:45:04Z",
+  "closed_at": "2026-08-10T04:45:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3055",
+  "body": "## 现象(真机 UI 复测,os-tianshun-ehr QIF 审批)\n\n同一条待审批请求,两个入口看到的审批 UI 完全不同:\n\n- **业务记录页**(QIF 记录详情,当前审批人登录):页头只有「批准」「驳回」两个按钮;More actions 里全是记录操作(升级为NCR/编辑/分享/删除)。**转派 / 退回 / 要补充材料零入口**,决策也不支持附件。\n- **审批列表入口**(`sys_approval_request` 的列表/详情):有完整动作集 —— Approve / Reject / Reassign / Send back / Request info(+ 提交人的 Remind / Recall / Resubmit),批准/驳回带附件参数。\n- 两边**文案也不一致**:comment 字段 label、驳回确认语等各是一套。\n\n## 根因:同一件事两套互不相干的实现\n\n服务端能力是全的,九个动作都有 REST 路由(framework `packages/rest/src/rest-route-ledger.ts:188-199`):approve / reject / recall / revise / resubmit / reassign / remind / request-info / comment。\n\nconsole 里却有两条独立 UI 路径:\n\n1. **声明动作路径(全功能)**:`sys_approval_request` 把 8 个决策/继续动作声明为对象元数据 action(framework `packages/plugins/plugin-approvals/src/sys-approval-request.object.ts:250-405`,objectui#2678 P2-4),console 通用 action runtime 渲染。可见性走服务端算好的 `record.viewer.can_act / is_submitter / can_override`(#3310 / #3424),批准/驳回带决策附件(#3266)。\n2. **记录页硬编码路径(残缺)**:`RecordDetailView.tsx` 里手写注入 approve/reject 两个按钮(`packages/app-shell/src/views/RecordDetailView.tsx:1687-1715`),走 `useRecordApprovals` hook,该 hook 只实现了 `approve` / `reject` 两个动作(`packages/app-shell/src/hooks/useRecordApprovals.ts:74-75`),没有 reassign/revise/request-info,没有附件,文案独立维护。\n\n## 附带的功能性缺陷:群组审批人在记录页看不到任何决策按钮\n\n记录页的 `canDecide` 是**客户端**判断:\n\n```ts\n// useRecordApprovals.ts:161\nconst canDecide = !!pendingRequest && !!currentUserId\n  && (pendingRequest.pending_approvers ?? []).includes(currentUserId);\n```\n\n而 position/team/department 等群组审批人在 `pending_approvers` 里存的是 `position:xxx` 之类的 type:value 字面量(framework approval-service 注释明确此为 human-readable CSV),客户端 includes 永远判不中 → 这类审批人在业务记录页**连批准/驳回都不显示**,只能绕道审批列表。声明动作路径走服务端 `viewer.can_act`(与服务端授权同一套判定),无此问题。\n\n## 建议修复方向\n\n业务记录页废弃硬编码的两键注入,改为:\n\n1. 拉取该记录 pending 的 `sys_approval_request`(带服务端 `viewer` 块);\n2. 复用 `sys_approval_request` 上的**同一套服务端声明动作**渲染到记录页头(约定映射:`record_section`/`list_item` → 宿主记录页的 header/overflow 位置);\n3. `useRecordApprovals` 的 decide/canDecide 逻辑退役(仅保留状态徽章与 `lock_record` 读取)。\n\n这样五动作入口、附件参数、文案、权限门控一次对齐,后续新增决策动作只改元数据即可,无需再动 console。\n\n## 参考\n\n- 现场复测记录:QIF `QIF202607310002` 提交审批(01 审批中,节点=质检部部长),审批人 `qcdir@tianshun.test`\n- 相关:objectui#2678(P2-4 声明动作)、framework#3310(viewer 块)、framework#3424(can_override)、framework#3266(决策附件)\n"
+}

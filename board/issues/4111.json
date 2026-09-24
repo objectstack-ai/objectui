@@ -1,0 +1,36 @@
+{
+  "number": 4111,
+  "kind": "issue",
+  "title": "`objectui init` scaffold fails its own `npm run build`: `src/main.tsx` imports `./index.css` with no ambient declaration (TS2882)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T10:44:50Z",
+  "updated_at": "2026-08-10T11:20:21Z",
+  "closed_at": "2026-08-10T11:20:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4111",
+  "body": "Out-of-scope finding from objectui#3853 (which fixed the same defect in the *other* two generators, in `app-generator.ts`). Filed rather than fixed there: `commands/init.ts` is a third generator with its own `tsconfig` object and was outside that card's surface.\n\nUnlike #3853's temp app, **this one is live today** — the scaffold's own build script runs `tsc`.\n\n## Measured on `origin/main` @ `877385a76`\n\nGenerated `buildInitFiles('sample-app', 'simple')` to disk and ran the workspace's `tsc -p` with the scaffold's own `tsconfig.json`. One error is unrelated to module resolution:\n\n```\nsrc/main.tsx(4,8): error TS2882: Cannot find module or type declarations for\n                   side-effect import of './index.css'.\n```\n\n(The other two are `@object-ui/react` / `@object-ui/components` not being installed in the probe, which is expected and not a defect.)\n\n## Why this one bites, where #3853's did not\n\n#3853's temp app is only ever consumed by Vite, so its tsconfig was decorative. This scaffold's generated `package.json` declares:\n\n```json\n\"scripts\": {\n  \"dev\": \"vite\",\n  \"build\": \"tsc && vite build\",\n  \"preview\": \"vite preview\"\n}\n```\n\n`tsc` runs first, and the scaffold's `tsconfig` has `strict` + `noUnusedLocals` + `noUnusedParameters`. So a user who runs `objectui init` and then the `npm run build` the README tells them to run gets a type error in a file the tool generated, before Vite is ever reached. That is the follow-the-docs-and-fail shape, on the first command an external user runs.\n\n## Cause\n\n`buildInitFiles` writes `src/App.tsx`, `src/main.tsx` and `src/index.css`, but no ambient declaration for CSS modules. TypeScript has no built-in notion of a `.css` module; the declarations live in `vite/client`.\n\n## Suggested fix (same shape as #3853's)\n\nAdd `src/vite-env.d.ts` containing the triple-slash reference to `vite/client` — the file `create-vite`'s own React+TS template writes for exactly this reason. `vite` is already in the scaffold's `devDependencies` (`SCAFFOLD_DEV_DEPENDENCIES`), so nothing new is declared.\n\nWorth pairing it with the `tsc` gate #3853 added for the other two generators: `app-generator.test.ts` already builds `initFiles()` and runs the structural gates over it, so extending the new `generated app type-checks under its own tsconfig` block to the init scaffold is a small addition, and its `.d.ts` would need the same reachability exemption that PR already introduced.\n"
+}

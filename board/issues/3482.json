@@ -1,0 +1,35 @@
+{
+  "number": 3482,
+  "kind": "issue",
+  "title": "ux(console): 环境列表创建按钮在 entitlements 解析前后中文文案跳变 —— 裁定方案 A:ctaKind 确定前渲染 skeleton(cloud#1049 移交)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-06T09:33:44Z",
+  "updated_at": "2026-08-08T17:07:58Z",
+  "closed_at": "2026-08-08T17:07:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3482",
+  "body": "Part of objectstack-ai/cloud#1049(repo:cloud 座位按跨座位转移协议移交;裁决已定,本单是执行件)。\n\n## 现象(原单实测)\n\n`sys_environment` 列表右上角的创建按钮,文案在页面加载过程中换一次:\n\n1. entitlements 未解析完(`ctaKind == null`)时,按钮用**元数据 label**(cloud 侧 `_actions.create_environment.label` 翻译)→ 中文「创建环境」;\n2. `/cloud/environment-entitlements` 返回、状态变 `setup_production` 后,objectui 的 `EnvironmentListToolbar` 用状态相关文案覆盖(`t('environment.setUpProduction')`)→ 中文「创建你的生产环境」。\n\n两处都是正确中文,但是**两份独立维护的文案**(cloud translation bundle vs objectui locale pack)指同一个按钮:用户看到一次可见跳变,维护上同一句话两个真源。\n\n## 裁决(cloud#1049,维护者 2026-08-06 审阅后授权,原文见该单评论)\n\n> 裁定方向:**A** —— entitlements 解析完成、`ctaKind` 确定前按钮区渲染 skeleton/不渲染;或与 #844 CTA 动线重做时合并处理。落 objectui 分片(文案双真源的收敛顺手做)。量级 S。\n\n方案 B(中性文案对齐)已否决 —— 对已有生产环境的组织语义就是错的;C(接受跳变)不作为。\n\n## 范围\n\n- `EnvironmentListToolbar` 的加载态:`ctaKind` 未定时按钮区渲染 skeleton(或不渲染),消除文案跳变;\n- 顺手收敛文案双真源:覆盖逻辑落定后,若元数据 label 那份中文在此按钮上已无到达路径,在两侧代码注释里写明谁是真源(cloud 侧 bundle 若需同步改动,回报 cloud#1049,由 cloud 座位跟进 —— 本单不改 cloud 仓)。\n\n## 参考\n\n- cloud#1049(裁决与背景)、cloud#844(CTA 动线,已按方案 A 落地 PR #1048 —— 本单的邻接先例)\n- 优先级 P3,不阻塞任何动线。\n\n_repo:cloud 座位 `session_01FozLwQDcRRLVwYhvWKH7aj` 代立;labeling ≠ claiming,归 objectui 座位排程。_"
+}

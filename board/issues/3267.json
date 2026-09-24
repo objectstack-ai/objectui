@@ -1,0 +1,36 @@
+{
+  "number": 3267,
+  "kind": "issue",
+  "title": "docs: `page-header` 的两处文档仍在教非 spec 的 `description`(并声明了组件根本不读的 `breadcrumbs`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T09:05:44Z",
+  "updated_at": "2026-08-08T15:48:55Z",
+  "closed_at": "2026-08-08T15:48:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3267",
+  "body": "在 objectui#3226(把 `page-header` 的 registration `inputs` 从 `description` 收窄到 `subtitle`)期间发现,**不在该 PR 处理** —— 它在 `content/docs/`,超出那一单的 `packages/layout` 范围,而且这里还叠着别的 doc drift,不适合搭车。\n\n## 现象\n\n`#3226` 修掉的是**机器读的**声明面(`ComponentRegistry.register('page-header', …)` 的 `inputs`)。**人和 AI 作者读的**声明面 —— 文档 —— 还在教同一个非 spec 的键,而且教得比 `inputs` 直接得多。\n\n### 1. `content/docs/guide/layout.md` —— authored JSON 示例写了 `description`\n\n「PageHeader Component」小节(约 L200-243)的 Usage 示例:\n\n```json\n{\n  \"type\": \"page-header\",\n  \"title\": \"Customer Details\",\n  \"description\": \"View and edit customer information\",\n  \"breadcrumbs\": [ … ],\n  \"actions\": [ … ]\n}\n```\n\n紧随其后的「Schema API」块同样声明 `description?: string`。\n\n这是**authored metadata 示例** —— 复制粘贴即用的那种。`@objectstack/spec/ui` 的 `PageHeaderProps` shape 是 `title / subtitle / icon / breadcrumb / actions / aria`,**没有** `description`;canonical 的 `page:header` 也只读 `subtitle`。照这份文档写出来的 JSON,在 `page-header` 下能出副标题,换到 `page:header` 下静默丢失。\n\n### 2. `content/docs/layout/page-header.mdx` —— Component Props 块列 `description`、完全没提 `subtitle`\n\n约 L25-34:\n\n```\ninterface PageHeaderComponentProps {\n  title: string;\n  description?: string;          // Page description\n  action?: React.ReactNode;\n  children?: React.ReactNode;\n  className?: string;\n}\n```\n\n这块比上一处轻一些(组件**目前确实**还有 `description` prop,所以它没说谎),但它**只**列了 `description`、一个字没提 `subtitle`,读者会得出「这个组件的副标题键就叫 `description`」的结论。另外它漏了 `icon` / `actions` / `showBack` / `schema` 四个真实 prop。\n\n### 3. 顺带:`breadcrumbs` 在两处文档里都被声明,但 `PageHeader.tsx` 根本不读它\n\n`content/docs/guide/layout.md` 的 JSON 示例和 Schema API 都有 `breadcrumbs?: Array<{ label, href?, icon? }>`,`packages/layout/src/PageHeader.tsx` 里没有任何一处读 `breadcrumbs`。(spec 的 `PageHeaderProps` 有 `breadcrumb`,**单数、boolean**,那是 canonical `page:header` 的开关,不是这个数组。)同一段还把 `actions` 写成 `ComponentSchema[]`,而组件把它当 ActionDef 列表交给 `record:quick_actions`。\n\n## 为什么单独立一单而不是搭车\n\n- **范围**:`#3226` 的 fence 是 `packages/layout`,这些文件在 `content/docs/`。\n- **不是同一个动作**:`inputs` 收窄是**无条件成立**的(原 issue 明说两条路线都要求),而文档这里要顺带决定 §3 那些不存在的 prop 怎么写 —— 那是一次真正的文档重写,不是替换一个词。\n- **有一处要等上游**:`page-header.mdx` 的 Component Props 块描述的是**组件当前真实的 props**。`description` prop 本身要等 ADR-0087 D2 conversion 条目 `page-header-subtitle-alias` 在 objectstack 落地后才删(见 #3226 的 PM 裁定:现在删会让仓外写 `description` 的页面**静默丢副标题**)。所以那一块的终态得跟着上游走。\n\n## 建议处置\n\n1. **现在就能做、且无条件成立**:`content/docs/guide/layout.md` 的 authored JSON 示例与 Schema API 改用 `subtitle`;删掉/更正 `breadcrumbs` 与 `actions` 的类型,让文档只描述组件真实读取的键。\n2. **`page-header.mdx`**:补上 `subtitle`(标为规范键)、`icon` / `actions` / `showBack`;`description` 若保留,须明确标注为 legacy alias 且指向 `subtitle`,并在上游 conversion 落地后随 prop 一并删除。\n\n## 参考位置\n\n- `content/docs/guide/layout.md`(「PageHeader Component」小节)\n- `content/docs/layout/page-header.mdx`(「Component Props」块)\n- `packages/layout/src/PageHeader.tsx`(真实读取的 props)\n- `packages/layout/src/index.ts`(已在 #3226 / PR #3265 收窄的 `inputs`)\n\n关联:objectui#3226(发现于此)、PR #3265\n\nhttps://claude.ai/code/session_01NVPjPzmmAJ2Ngtvgg5MSRa"
+}

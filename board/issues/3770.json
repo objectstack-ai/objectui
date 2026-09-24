@@ -1,0 +1,36 @@
+{
+  "number": 3770,
+  "kind": "issue",
+  "title": "app-shell 用已退休的 `|| 'list'` 方言给默认列表视图命名,与组装器身份 `default` 不一致 —— 默认列表的译文键在 objectui 永远命不中",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T13:10:31Z",
+  "updated_at": "2026-08-08T14:07:55Z",
+  "closed_at": "2026-08-08T14:07:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3770",
+  "body": "在做 #3502(objectstack#5164 裁 A 的 objectui 段,`viewSuffixes` 去掉带前缀第二候选)时发现的**相邻缺陷,不在该单范围内**(不同包、不同事实),按 PD #10 单独立此单,未在 PR #3768 里修。\n\n## 结论\n\nobjectstack#5164 收敛的是「`_views` 翻译键的拼写」,四面清单里 objectui 只列了 `packages/i18n` 的 `viewSuffixes`。但 objectui 还有**第五个面**没进清单:`packages/app-shell` **自己推导视图名**,用的正是第 1 棒刚退休的 `?? 'list'` 方言。于是一个只声明了默认 `list`(无 `name`)的对象,它的列表视图标签在 objectui 上**永远回落英文**。\n\n## 证据\n\n**组装器身份(权威)** —— 用仓内安装的 `@objectstack/spec` 实测:\n\n```\nnode -e \"import { expandViewContainer } from '@objectstack/spec'; ...\"\nexpandViewContainer('showcase_contact', { list: { columns: ['name'] } })\n→ [ { name: 'showcase_contact.default', viewKind: 'list' } ]\n```\n\n`@objectstack/spec` 自己的 d.ts 也写着:`the default `list` implicitly claims `{object}.default``。第 1 棒(objectstack#6124,`b3c1f3cd5`)已把提取器改成**向组装器查询**这个键,所以转换后的译文包里该视图的键是 `objects.showcase_contact._views.default.label`。\n\n**objectui 侧的推导(三处,全是 `'list'`)**:\n\n- `packages/app-shell/src/providers/MetadataProvider.tsx:207` — `const k = view.list.name || 'list'; bucket.listViews[k] = view.list;`\n- `packages/app-shell/src/views/ObjectView.tsx:562` — `const primaryId = primary.name || 'list';`\n- `packages/app-shell/src/views/ObjectView.tsx:640` — `const primaryId = primary.name || 'list';`(把 primary 提到 `viewList` 首位,`id: primaryId`)\n\n**汇合点**:`ObjectView.tsx:820` / `1881` 用 `viewLabel(objectDef.name, view.name || view.id, …)`。无名 primary 的 `view.name` 是 undefined,`view.id` 就是上面推出来的 `'list'`,于是 `useObjectLabel` 探测 `objects.{obj}._views.list.label` —— 而译文包里是 `..._views.default.label`。命不中 → 回落英文。`AppHeader.tsx:695-698` 同链路。\n\n全仓 grep:objectui 没有任何一处使用组装器身份 `default`(`isAggregatedViewContainer` 只在 `spec-symbol-parity` 测试里出现,`expandViewContainer` 在 `src/` 内零调用)。\n\n## 这是回归,而非旧疾\n\n第 1 棒之前提取器写的是 `_views.list.*`,与 objectui 的 `'list'` 恰好对上,所以**在 objectui 上是能命中的**(不一致体现在 lint/注册表那一侧,即 #5164 的原始症状)。第 1 棒把键改名成 `default` 并同步迁移了 showcase / app-todo 的译文包之后,objectui 这一侧就落空了。objectui 仓内没有覆盖「默认列表视图标签解析」的测试,所以两仓 CI 都不会红。\n\n## 影响\n\n只声明默认 `list`(无 `name`)的对象 —— showcase 上有若干个 —— 在 objectui 里列表视图标签(以及 `viewDescription` / `viewEmptyState`)显示英文默认文案。**与 #3502 的收窄无关**:#3502 删掉的是「带对象前缀的全名」候选,这里落空的是**裸键本身拼错了**(`list` vs `default`),改不改 #3502 都一样。\n\n## 建议方向(contract-first,勿在消费端加 `??` 兜底)\n\n⛔ 不要在 `viewSuffixes` 里加 `list` → `default` 的双读 —— 那正是 #5164 裁 A 要消掉的第二方言。正确方向是让 objectui **别自己推**:三处 `name || 'list'` 改为向 `@objectstack/spec` 的组装器要运行时身份(`expandViewContainer` / 与之等价的单视图身份函数),与第 1 棒对提取器的修法同构(该 PR 的验收意见明确说「向组装器查询比字面改 `?? 'default'` 更忠实于裁决本义,且自动继承折叠规则」)。\n\n注意这不只是译文键:`primaryId` 同时用作 `viewList` 的 `id`、`viewOverrides` 的查询键、以及 `defaultViewId`。改名可能牵动已保存的视图 override 记录键(`listViewOverrides`),需要判断是否要带迁移 —— 这一层请分诊时评估,可能需要维护者拍板,故本单未擅自动手。\n\n## 相关\n\n- objectstack#5164(裁 A,四面收敛)、objectstack#6124(第 1 棒 cli)、objectstack#6038(第 2 棒 lint)\n- #3502 / PR #3768(第 3 棒 objectui,只动 `packages/i18n`)\n- 与 #2890(ListView 词汇迁移)不重复:那是 schema 键名项目,与视图身份命名无关。查重已做(objectui open issues:`_views` / `viewLabel` / `primaryId` / `name || 'list'`),无同题单。\n"
+}

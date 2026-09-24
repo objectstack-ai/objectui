@@ -1,0 +1,32 @@
+{
+  "number": 3776,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 默认列表视图的身份改向组装器查询,译文键 `_views.default` 不再落空 (#3770)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:03:29Z",
+  "updated_at": "2026-08-08T14:07:55Z",
+  "closed_at": "2026-08-08T14:07:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T14:07:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3776",
+  "body": "Fixes objectstack-ai/objectui#3770\n\n## 结论\n\n容器(`defineView`)把默认列表放在 `list` 这个键下面。**`list` 是授权文档里的一个槽位,不是视图的身份**:组装器 `expandViewContainer`(框架 loader 与 i18n 提取器调用的同一个函数)给未命名的默认列表分配的身份是 `{object}.default`,给具名的分配 `{object}.{list.name}`。\n\nobjectui 这一侧自己推了第三种拼法 `list.name || 'list'` —— 没有任何生产者会产出它。于是只声明默认 `list` 的对象在 objectui 上探测 `objects.{object}._views.list.label`,而译文包里(objectstack#5164 裁 A,objectstack#6124 迁移)是 `_views.default.label`,命不中 → 标签、description、emptyState 一起回落英文。\n\n修法按卡内 contract-first 方向:**不在 `viewSuffixes` 加 list→default 双读,也不写 `?? 'default'` 字面量,而是向组装器要身份**。\n\n## 改了什么\n\n- `MetadataProvider.mergeViewsIntoObjects` 的容器分支改为跑 `expandViewContainer(objName, view)`,再把结果喂给与 ViewItem(记录闸门)**同一段**路由代码(抽出的 `applyViewItem`)。两个闸门因此产出同一套 `{object}.{key}` 身份,容器还白拿了组装器的两条规则:\n  - **折叠**:`listViews` 里某项与 `list` 结构相同时,组装器把默认列表折进那一项的身份(本地推导永远做不到这件事,只会多出一个重复 tab);\n  - **改名去重**:同名冲突时的 `_2` 重命名。\n- `ObjectView` 两处 `primary.name || 'list'` 收敛成一个共享 helper `defaultListViewId`(`packages/app-shell/src/utils/viewIdentity.ts`),override 查询与视图切换器提升共用同一次推导,**不留任何字面量兜底**。已带上组装器限定名的条目直接原样返回(否则会得到 `crm_lead.crm_lead.default` 的双前缀)。\n- `AppHeader` 未改:那里是按 URL 段去 `listViews` 里查,本身没有这条推导,id 修正后它自动跟着对。`metadata-admin/inspectors/ViewInspector` 的 `?? 'list'` 也未改 —— 那是设计器编辑的**容器槽位** storeKey,属另一条轴。\n\n## 存量数据测量(派发要求的门控,先测后改)\n\n**键面与写入位置。** override 的持久化键**就是 view id**:\n`ObjectView.persistViewPatch(view.id)` → `dataSource.updateViewConfig(objectName, viewId, cfg)` → `data-objectstack`:`client.meta.saveItem('view', viewId, { ...cfg, object, name: viewId })` → `PUT /api/v1/meta/view/{viewId}` → 一行 `sys_metadata`(`type='view'`,`name=` 该 id)。**不落 localStorage**;`defaultViewId` 是每次渲染由 `views.find(v =&gt; v.isDefault)` 现算的,从不持久化,自身没有存量。\n\n**结论:改名不会让任何存量数据静默失联。** 三条证据:\n\n1. **真实后端跑的是记录闸门,那条路径的 id 早就是限定名。** 框架 `objectql/engine.ts` 对每个从 manifest 注册的容器**同时**注册容器本身与 `expandViewContainer` 展开出的 ViewItem;objectui 的 merge 见到 ViewItem 就跳过容器。framework 的 `packages/objectql/src/protocol-view-identity-overlay.test.ts` 里那行「从 3777 repro 的 sys_metadata 行捕获」的真实个性化 PUT,存的正是 `name: 'showcase_task.default'`。也就是说 showcase 默认列表的 override 早就写在 `showcase_task.default` 下 —— 本 PR 不动这条路径的 id(helper 对已限定名原样返回)。\n2. **退休的 `'list'` 根本不是一个可表示的视图身份**,因此不存在「需要迁移到新 id」的合法存量行:`ViewItemNameSchema` = `/^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$/`,裸名一律拒。(已实测:`ViewItemSchema` / `ViewItemWireSchema` 对 `'list'`、`'default'` 均 REJECT,对 `showcase_contact.default` 通过。)\n3. **URL 侧无损**:`resolveViewId` 双向解析裸名与限定名;旧的 `/view/list` 链接现在解析不到,回落到 `defaultViewId` —— 而那正是它本来指的那个视图。\n\n顺带记录一条**本 PR 不修**的相邻观察(已另立 #3774):`data-objectstack.listViewOverrides(objectName)` 读的是 `client.meta.getItems(objectName)`,即 `GET /api/v1/meta/{objectName}`(把对象名当成 metadata **type**),而写入走的是 `type='view'`,两边键空间不相交;且它失败时返回 `{}`,`ObjectView.loadBatch` 见到「是对象」就不再回落逐视图 `getView`。\n\n## 测试\n\n新增 `packages/app-shell/src/views/ObjectView.defaultViewIdentity.test.tsx`,钉住整条链路(两仓此前都没有的那条):\n\n服务端 TranslationData(键 `_views.default`)→ `transformSpecTranslations`(console `loadLanguage` 用的真实变换)→ `mergeViewsIntoObjects` → `defaultListViewId` → `useObjectLabel().viewLabel(objectName, view.name || view.id, fallback)`,断言 label / description / emptyState 三个都命中中文;具名视图仍按自己的裸键解析;记录闸门那条(本来就对的)一并钉住;`ViewItemNameSchema` 钉住「推出来的 id 是可表示的持久化键、`'list'` 不是」,以及重复推导幂等(否则每次渲染都会换名字、把上一次的 override 孤立掉)。\n\n`MetadataProvider.merge.test.ts` 的容器用例做了逐条分诊而非批量改拼写:未命名默认列表 → `{object}.default`;作者写了 `list.name` → 用作者的键;**新增**折叠用例(`listViews` 复述 `list` 时只出一个视图);form 家族路由。原「跳过容器」用例的注释改写为它现在真正的理由(容器展开后会多出第三个 `default` 列表 tab 并把 `formViews.default` 挤成 `_2`,且 ViewItem 行才是运行时把个性化 heal 上去的那一份)。\n\n**反向验证(先预测方向再跑,两个方向都出现了)**:把退休推导装回去(`primary.name || 'list'` + `bucket.listViews[view.list.name || 'list']`)后 ——\n\n```\n× resolves the default list label/... under `_views.default`\n  AssertionError: expected 'list' to be 'showcase_contact.default'\n× does NOT resolve the retired `_views.list` spelling\n  AssertionError: expected '不该命中' to be 'All Contacts'      ← 反向:死键开始命中\n✓ resolves the same key for the record gate                    ← 保持绿:这条路径本来就对\nTests  5 failed | 3 passed\n```\n\n第二条是**反向**红:退回去以后那个本该永远命不中的 `_views.list` 反而解析出来了。两个方向都断言,所以只回退其中一处调用点也无法保持绿。\n\n跑过的命令(worktree `objectui-3770`,仓根,均在 `flock /tmp/os-heavy-verify.lock` 下):\n\n```\npnpm vitest run --maxWorkers=2 packages/app-shell\n  Test Files  297 passed (297)\n  Tests  2664 passed | 1 skipped (2665)\n\npnpm vitest run --maxWorkers=2 apps/console/src/__tests__/{record-block-record-reach,public-block-binding-reach,AppContent.systemHubRoutes}.test.tsx\n  Test Files  3 passed (3)   Tests  44 passed (44)\n\npnpm --filter @object-ui/app-shell type-check     # tsc --noEmit && tsc -p tsconfig.typetests.json,0 错\npnpm --filter @object-ui/app-shell lint           # 0 errors(仅既有 warning)\nnode scripts/check-control-bytes.mjs              # OK(另做了 grep -naP 自查)\nnode scripts/check-changeset-presence.mjs         # OK\n```\n\n消费半径已按「规则被谁消费」而不是「改了哪个包」清扫:全仓 `mergeViewsIntoObjects` 的调用方只有 app-shell 这一处(`@object-ui/core` 里另有一个同名 adapter,但仓内零消费者,已作为观察类 finding 另立 #3775);plugin-view / apps/console 的 `listViews` fixture 由 schema 作者提供,不经此 merge。\n\n## Changeset\n\n`.changeset/default-list-view-identity-3770.md`(`@object-ui/app-shell`: patch,用户可见的标签解析行为)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3791,
+  "kind": "pull_request",
+  "title": "fix(components): 记录页头的动作谓词改走 CEL,与行菜单/批量栏同一入口 (#3521)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T16:19:03Z",
+  "updated_at": "2026-08-08T16:36:14Z",
+  "closed_at": "2026-08-08T16:36:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T16:36:12Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3791",
+  "body": "Fixes #3521\n\n## 问题:同一条元数据,两种方言\n\n记录页头(`page:header`)的动作谓词一直交给 objectui 的遗留 JS 求值器 —— `packages/components/src/renderers/layout/containers.tsx` 里 `new ExpressionEvaluator(evalCtx)` + `evaluator.evaluateExpression(src)` 的两处(`visible`/`hidden` 的 `evalExpr`,以及 `disabled` 的 `dEvaluator`)。而行 kebab、批量选择栏、条件格式自 #1584 / ADR-0058 起统一走 `evalRowPredicate`:裸字符串即 CEL —— 这正是 `@objectstack/spec` 给 `ActionSchema.visible` 的类型,也是服务端执行的方言。\n\n于是每一个 **CEL 独有构造**在列表里对、在详情页头抛错,而抛错是 fail-closed:按钮直接消失,页面上没有任何痕迹。\n\n## 前后对照\n\n| 谓词 | 修复前(页头) | 修复后(页头) | 行 kebab / 批量栏(一直如此) |\n|---|---|---|---|\n| `record.f_tags.size() > 0` | 抛错 → 静默隐藏 | 正常求值 | 正常求值 |\n| `record.f_textarea.contains(\"x\")` | 抛错 → 静默隐藏 | 正常求值 | 正常求值 |\n| `'\"red\" in record.f_multiselect'` | 解析失败(position 6)→ 隐藏 | 正常求值 | 正常求值 |\n| `record.f_date < today()` | `today is not a function` → 隐藏 | 正常求值 | 正常求值 |\n| `{ dialect: 'cel', source: '…' }` 信封 | 拆出 `.source` 后仍按 JS 求值 | 权威 CEL | 权威 CEL |\n| `${record.f_status === \"open\"}` | `evaluateExpression` 求不出模板 → 恒隐藏 | 经遗留引擎正确求值 | 经遗留引擎正确求值 |\n| `record.f_status === \"open\"` | 遗留引擎(结论正确) | 遗留引擎(结论不变)+ deprecation 警告 | 同 |\n\n改动落在同一处的**方言**这一半 —— #3501 刚落的**绑定**那一半(`toPredicateRecord`)完整保留:关系字段仍按服务端存的外键绑定,只是现在由 `evalRowPredicate` 的 `fields` 选项统一完成(`record.*` / 裸字段 / `data.*` 三路绑定都过同一次归一化),页头本地那份只留给引擎不构造的 `ctx.*` 命名空间。展示不受影响(标题仍读原始 `ctx.data`,关系字段照常显示名称)。\n\n谓词现在**整体**传入 `evalRowPredicate`(不再拆出 `.source`),所以 `{ dialect: 'cel' }` 信封不会被拍平成方言猜测 —— 与行 kebab 直接传 `def.visible` 的规则逐字一致。\n\n## 三面 parity 证据\n\n`packages/plugin-grid/src/__tests__/predicate-surface-parity.test.tsx`(plugin-grid 是唯一能同时看见三面的包:它拥有行 kebab 的 `isCustomRowActionVisible` 与批量栏的 `partitionBulkRows`,并依赖 `@object-ui/components` 拿到 `page:header`)。16 个 case(16 passed),每个 case 断言三面结论**逐字相等**:\n\n```\n✓ 'method call `.size()` — true' / '— false'\n✓ 'method call `.contains()` — true'\n✓ '`in` operator — true' / '— false'\n✓ 'stdlib `today()` — true' / '— false'\n✓ 'CEL envelope'\n✓ 'relation bound as its foreign key (expanded payload)' / '(unexpanded payload)' / 'on someone else's record'\n✓ 'bare field shorthand' / '`data.*` binding'\n✓ 'legacy `${…}` template — true' / 'legacy `===` — false'\n✓ 'faulting predicate fails closed'\n```\n\n**反向验证**(方向预先声明为「改动前红」):只回退 `containers.tsx`、保留两个新测试文件后重跑,20 个断言转红,红的正是页头列:\n\n```\n× 'method call `.size()` — true'   AssertionError: expected { rowKebab: true, …(2) } to deeply equal { rowKebab: true, …(2) }\n× '`in` operator — true'           (同上,recordHeader: false)\n× 'stdlib `today()` — true'\n× 'CEL envelope'\n× 'relation bound as its foreign key (expanded / unexpanded payload)'\n× 'legacy `${…}` template — true'\n× applies CEL to `hidden`, the mirror predicate      expected true to be false\n× applies CEL to `disabled` …                        (按钮未 disabled)\n```\n\n两处如实记录,免得后人误读:\n\n1. **CEL-false 的 case 在改动前也是绿的** —— 因为「抛错 → fail-closed 隐藏」和「求值为 false → 隐藏」看起来一样。所以每类构造都钉了**双向**,红的那一半才是证据。\n2. **`${…}` 模板在改动前也是红的**:老页头调的是 `evaluateExpression`,它拿不到 `${…}` 模板,按钮恒隐藏。也就是说遗留方言这条路不但没回归,`${…}` 反而从「求不出」变成「经回退正确求值」。\n\n## 遗留方言不回归\n\n`packages/components/src/__tests__/page-header-predicate-dialect.test.tsx` 里单列一组:`${…}` 模板、裸 `===`、JS-only 方法 `.includes()`、遗留 `disabled`,全部仍走遗留引擎并保留既有 deprecation 警告(`isLegacyDialectSource` 兜底,未动 spec)。\n\nfail-closed 与 warn-once 也逐条钉住:故障 `visible` 仍隐藏、故障 `disabled` 仍保持可用、故障 `hidden` 仍渲染(都是历史方向,由 `fallback: false` 保住)。\n\n## 诊断措辞的一处变化(有意)\n\n故障报告改由 `evalRowPredicate` 自己的 warn-once 机制写出,label 带 `page:header action \"…\" visible`,与行 kebab / 批量栏逐字同一措辞 —— 页头原来那条 `[page:header] … its predicate threw` 的本地实现随之删除。#2358 要的事实一件没少(隐藏的按钮报自己的名字、引用自己的谓词、只报一次),但引擎给的 reason 文本不再回显。页头本地只保留「谓词引用了 payload 里不存在的字段」这一条 —— 那是引擎看不到的**成因**(服务端会把 `hidden: true` 字段从详情 payload 里剥掉)。\n\n因此 `page-header-actions.test.tsx` 里两条断言按新事实更新:措辞从 `predicate threw` 改为 `failed to evaluate`(仍断言含 `page:header`、动作名、谓词原文、去重一次);trap 3 从「一共一条警告」改为「成因一条 + 判决一条,各一次」—— 遗留引擎对缺席键返回 `undefined` 不抛错,所以以前只有第一条,CEL 对缺席键是 fault,判决那条是新增的信号。\n\n## 验证\n\n```\npnpm vitest run packages/components packages/plugin-detail packages/react   → 182 files, 1583 passed\npnpm vitest run packages/plugin-grid packages/core/src/evaluator            →  65 files,  784 passed\npnpm vitest run packages/app-shell/src/views                               → 184 files, 1691 passed, 1 skipped\npnpm --filter @object-ui/components type-check                             → tsc --noEmit + typetests 通过\npnpm --filter @object-ui/plugin-grid type-check                            → 通过\neslint(4 个改动文件)                                                      → 0 errors(仅既有 no-explicit-any warning)\nnode scripts/check-control-bytes.mjs                                       → OK(3721 tracked files)\n新增两个文件单跑                                                            → parity 16 passed / dialect 26 passed\n```\n\n消费半径已按调用方清扫:`page:header` 的渲染方(components 自身测试、app-shell 的 `RecordDetailView.*`、plugin-detail 的 header 合成)全跑过;仓内没有别的 `record_header` 动作谓词夹具使用遗留语法(已 grep 确认)。\n\n两个新测试文件按约定登记进 `vitest.config.mts` 的 `heavyDomTests`(都经 ComponentRegistry 渲染)。\n\n⛔ 未扩进 objectstack#5970(spec 侧 `ActionSchema.visible` 统一):`isLegacyDialectSource` 回退在不动 spec 的前提下完整保住了,本单不需要 spec 变更。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

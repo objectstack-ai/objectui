@@ -1,0 +1,35 @@
+{
+  "number": 3741,
+  "kind": "issue",
+  "title": "packages/react-runtime 的 peerDependencies.react 是无上界的 `>=18`,允许尚不存在的 React 20+",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:00:50Z",
+  "updated_at": "2026-08-08T22:41:05Z",
+  "closed_at": "2026-08-08T22:41:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3741",
+  "body": "记录于 #3690(PR #3727)实施期间,dev 因当时搜索配额限流按纪律移交 PM 代立;已搜重(`react-runtime`),无同源单。\n\n## 事实\n\n`packages/react-runtime/package.json` 的 `peerDependencies.react` 拼写为 **`>=18`(无上界)**,而声明了 react peer 的其余 30 个包全部是 `^18.0.0 || ^19.0.0`(显式上界)。\n\n## 定性\n\n观察级,与 #3690 同族(peer 范围拼写),方向相反且值得对照:doc-version-claims ledger 里 layout/README.md 那条 stale 是 **README 过度承诺**(`>= 18.0.0` 允许 React 20,清单是 `^18.0.0 || ^19.0.0`,已由 #3710 收窄);本条是**清单本身过度承诺**——React 20 发布后 `>=18` 会自动宣称兼容一个从未测过的 major。\n\n## 修法方向(不预判)\n\n与固定组对齐为 `^18.0.0 || ^19.0.0`;若 react-runtime 确有理由宽于兄弟包,应在清单同文件留注记说明。\n\n## 关联\n\n#3690(同族母单)、#3710(README 侧同型修正的镜像)。"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3844,
+  "kind": "issue",
+  "title": "es 语言包的 preview.draftBar 同一条横幅两种敬称 —— messageClean 用 usted、message 用 tú，西语用户按「有无待发布变更」看到不同人称",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:08:40Z",
+  "updated_at": "2026-08-08T23:29:54Z",
+  "closed_at": "2026-08-08T23:29:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3844",
+  "body": "在 #3546 切片五(回填 `marketplace` + `preview` 两命名空间 37 个缺失 key)裁定 es 敬称时量出,**不在该 PR 范围内**(这两个 key 早已存在、值也不由本切片改动),单独记录。\n\n## 现象\n\n`packages/i18n/src/locales/es.ts` 的 `preview.draftBar` 是**同一条横幅**(`DraftPreviewBar`)的两条互斥文案 —— 有待发布变更时渲染 `message`,没有时渲染 `messageClean`。两条的第二人称不一致:\n\n| key | es 值 | 人称 |\n|---|---|---|\n| `preview.draftBar.message` | `Vista previa de borrador — estás viendo cambios sin publicar. Nada está en producción hasta que publiques.` | **tú**(`estás`、`publiques`) |\n| `preview.draftBar.messageClean` | `Vista previa del borrador: no hay cambios sin publicar; todo lo que ve aquí ya está activo.` | **usted**(`ve`) |\n| `preview.draftBar.sampleDataBody` | `Está viendo la estructura de su aplicación. Publíquela para cargar registros de ejemplo y activarla.` | **usted**(`Está`、`su`、`Publíquela`) |\n\n后果:一个西语用户在同一个预览横幅上,**发布掉手上的草稿之后**,横幅从 tú 切到 usted。同一个组件、同一个位置、同一次会话。\n\n顺带一处同类的小分歧:`message` 用长破折号 `—` 分隔,`messageClean` 用冒号 `:`(en 两条都是 `—`)。\n\n## 为什么三道 i18n 门禁都看不见\n\n- `scripts/check-i18n-call-site-keys.mjs`(#3530):只问 key 在 `en` 存不存在。\n- `all-locales-key-parity.test.ts`:只比键名集合与占位符形状,从不读值。\n- `scripts/check-i18n-en-drift.mjs`(#3650):只在 **en 值发生变化**时要求九包跟改;这两条 en 值静止不动。\n\n和 #3810 / #3582 / #3625 同属\"值域盲区\",但又是新的一类:不是与 en 不一致(两条译文都正确表达了 en 的意思),而是**同一语言包内部、同一 UI 表面上的语域不一致**。任何按值比对 en 的启发式都读不出来。\n\n## 量出来的分母\n\n| 范围 | usted 标记 | tú 标记 |\n|---|---|---|\n| es 全包 | 102 | 30 |\n| es `marketplace.*` | 9 | 0 |\n| es `preview.*` | 2(`draftBar.messageClean`、`draftBar.sampleDataBody`) | 2(`draftBar.message`、`empty.notReadyDescription`) |\n| es `home.pendingDrafts.published` | `¡Publicado! Sus cambios están activos.` → usted | — |\n\n所以 es 包的**默认语域是 usted**,tú 是有标记的例外,且集中在 auth 登录/注册、report editor、organizations 这几个邻域(#3546 切片二当时正确裁定那几个邻域一致非正式)。`preview` 邻域的 2:2 是这个模式之外的一处真正分裂,而分裂恰好落在**同一条横幅的两句话**上。\n\n## #3546 切片五对它做了什么(以及没做什么)\n\n切片五需要给 `preview.unpublishedBar.*`(ADR-0045 未发布横幅,`draftBar` 的姐妹)与 `preview.history.*` 共 19 个新 key 定一个语域。**取 usted**,依据是:(1) es 包全局默认 usted;(2) 这 19 个 key 与 `marketplace.*`(9:0 usted)同处 console 外壳;(3) 最强的一条 —— `preview.unpublishedBar.published` 的结构孪生 `home.pendingDrafts.published` 就是 usted(`Sus cambios`)。该裁定连同上面的分母写进了 PR 的测试断言,不是随手一挑。\n\n**没做的**:没有改这两个既有 key。它们不在切片围栏内(切片只新增 key),而且改哪一条是取舍 —— 见下。\n\n## 收口方向(未裁决)\n\n- **A. 把 `message` 改成 usted**,与 `messageClean` / `sampleDataBody` / `unpublishedBar.*` 对齐。最小改动,且与 es 包默认语域一致。顺带把 `messageClean` 的 `:` 改回 `—` 跟 en 对齐。\n- **B. 把 `messageClean` / `sampleDataBody` 改成 tú**,并把 `preview` 整个命名空间(含切片五新增的 19 个)划成非正式邻域。改动面大得多,且会与紧邻的 `marketplace.*` / `console.ai.*` 冲突。\n- **C. 加一道门禁**:同一命名空间(或同一组件的 key 集合)内 es 的敬称标记必须一致。判据可靠性存疑 —— 敬称需要形态学识别,正则会误报(本次量分母的正则就把 `Revisa` 误算成 tú 标记),而且 #3546 切片二已经立了\"**同一规则、不同答案**\"的先例:按邻域裁定是正确的,所以门禁只能判\"同一邻域内一致\",邻域边界本身还得人来划。\n\n倾向 **A**(单条对齐,与包默认语域和新增的 19 个 key 一致),**C 不建议现在做**。\n\n关联:#3546(切片五裁定 es 敬称时量出本条)、#3810 / #3582 / #3625(值域盲区的前几类)、#3530(调用点门禁)、#3650(en-drift 门禁)。\n"
+}

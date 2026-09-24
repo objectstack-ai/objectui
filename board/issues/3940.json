@@ -1,0 +1,34 @@
+{
+  "number": 3940,
+  "kind": "pull_request",
+  "title": "fix(layout): declare the load-time registration in `sideEffects` (#3899)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:29:17Z",
+  "updated_at": "2026-08-09T13:46:31Z",
+  "closed_at": "2026-08-09T13:46:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T13:46:29Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3940",
+  "body": "Fixes #3899\n\n执行 PM 裁决（评论 5229248921）：**只让清单说真话** —— `sideEffects` 从 `false` 收窄为点名含注册副作用的模块。⛔ 本单不动自动注册本身（「删自动注册改显式 API」语义相反、且对所有消费者破坏，留给维护者另立卡）；⛔ 未碰 `apps/site`（#3904 的面）。\n\n## 前提复核（origin/main @ 230ffd875）\n\n两个锚点逐字存在：`packages/layout/package.json:5` 是 `\"sideEffects\": false`，`packages/layout/src/index.ts` 尾部是裸的 `try { registerLayout(); } catch {}`。**premise 成立。**\n\n一处需要更正的细节：issue 正文说注册的是 `page-header / app-shell / sidebar-nav`，但本包从来没有 `sidebar-nav` 这个 key —— `SidebarNav` 组件是以 `navigation-renderer` 进注册表的。实际六个 key 是 `page-header`、`page:card`、`app-shell`、`responsive-grid`、`navigation-renderer`、`app-schema-renderer`。钉子里的 key 列表因此改成**从 `src/index.ts` 现读**而不是手写，正是为了不把这类笔误写成断言。\n\n## 实测圈定（本单交付要求 1）\n\n先构建再以**发布 tarball 会包含的文件**为准，而不是照 issue 正文的 `dist/index.js` 猜：\n\n`npm pack --dry-run` 的 14 个文件里，JS 只有两个 —— `dist/index.js`（39.5kB）和 `dist/index.umd.cjs`（32.0kB）；其余是 `*.d.ts`（类型声明会被擦除，不构成副作用面）、README / CHANGELOG / LICENSE / package.json。`files` 只发 `dist`，`src` **不在** tarball 里。`vite.config.ts` 的 lib 构建带 `inlineDynamicImports: true`，所以不存在第三个 chunk 要点名。\n\n两个 JS 产物尾部都实测带着注册副作用（`index.js` 是 `try { nt(); } catch {}`，`index.umd.cjs` 是 `try{$()}catch`）。\n\n最终值：\n\n```json\n\"sideEffects\": [\"./dist/index.js\", \"./dist/index.umd.cjs\", \"./src/index.ts\"]\n```\n\n三条都是 load-bearing，且集合是**从清单自身推导**的（`main` / `module` / `exports` 的 import+require 指向的全部 JS 文件），不是手列：\n\n- `./dist/index.js`、`./dist/index.umd.cjs` —— 发布产物的全部入口形态。\n- `./src/index.ts` —— **不发布，但真的被打包**。`apps/console/vite.config.ts:122` 与 `examples/console-starter/vite.config.ts` 都把 specifier 直接 alias 到 `packages/layout/src`，打包器对这些文件读的是同一份清单。这一条是实测出来的、不是推的：**只声明两个发布路径时，console 的 alias 形态依然产出 0 字节的 bundle**。发布不是唯一的消费面 —— 漏掉它等于 apps/console 原样留着这个 bug。\n\n## 防回归钉：真打包器实测（交付要求 2）\n\n`packages/layout/src/__tests__/side-effects-manifest.test.ts`，用仓内的 vite 8 / rolldown 1.2.1 以编程方式 build 一个只有 `import '@object-ui/layout';`（纯副作用引入）的 entry，逐个入口形态断言注册存活；每个形态配一条 `sideEffects: false` 的**对照**断言注册被摇掉 —— 没有对照，上面全绿也可能只是「打包器根本没在摇」，即「因为什么都没产出所以断言通过」。`write: false` 常驻内存，冷启 ~250ms、热 ~40ms，就是一条普通单测的成本。\n\n修前/修后，对**真实构建产物**、经 bare specifier 走 node 解析（`packages/app-shell/node_modules/@object-ui/layout` → `exports.import` → `dist/index.js`）：\n\n| | bundle | 注册 |\n|---|---|---|\n| 修前 `sideEffects: false` | **0 字节** | 无 |\n| 修后（本 PR） | 35600 字节 | page-header, page:card, app-shell, responsive-grid, navigation-renderer, app-schema-renderer 六个全在 |\n\n反向核验（把清单改回 `false` 跑新钉子）**方向与预期一致：红**。8 条里 4 红 4 绿，红的正好是清单推导 + 三个入口形态的存活探针，报的都是 `expected '' to contain …` —— 空字符串，即 0 字节 bundle 本身：\n\n```\n× names every module form a bundler can resolve, and nothing that is not one\n× keeps a side-effect-only import alive through the workspace source alias\n× keeps a side-effect-only import alive through the published entry ./dist/index.js\n× keeps a side-effect-only import alive through the published entry ./dist/index.umd.cjs\nTests  4 failed | 4 passed (8)\n```\n\n绿的 4 条正是该绿的：三条 `false` 对照（它们自己就强制 `false`，与清单无关）＋ `declaresLoadTimeRegistration`（源码侧不变量）。\n\n有一处我先写进测试、随后实测**证伪并改掉**的说法：我原本写「探针检查的是拼法」。实测 `./dist/index.js`、`dist/index.js`、`dist/*.js`、双星号 `/index.js` 四种拼法在 rolldown 下**全部命中同一文件**。所以探针对拼法并不敏感，红只意味着「这条路径根本没被覆盖」或「打包器改了对该字段的处理方式」，绝不是少个 `./` 的格式问题 —— 失败信息与文件头注释都按实测改成了这个说法。\n\n## 与另一张卡的关系（钉在测试里）\n\n`declaresLoadTimeRegistration` 断言 `src/index.ts` 仍在加载期调用 `registerLayout()`。它**不是**在保卫这个副作用，而是保卫不变量：**清单与模块体必须同时为真**。若维护者后续采纳「改显式注册 API」，这条会变红 —— 那是故意的，它的意思是「另一半也要改」（那时诚实的清单又是 `false`，本文件应随同一次改动删掉），而不是「把自动注册加回来」。失败信息里写明了这一点。\n\n## 验证\n\n- `pnpm exec vitest run packages/layout/ --maxWorkers=2` → **7 files / 100 tests passed**（新增 8 条）\n- `pnpm exec turbo run type-check --concurrency=2` → **78 successful, 78 total**\n- `pnpm --filter @object-ui/layout lint` → 0 errors（43 条既有 warning，新文件 0 条）\n- `pnpm --filter @object-ui/layout build` → 绿；产物仍为 `dist/index.js` + `dist/index.umd.cjs` 两个 JS\n- `node scripts/check-control-bytes.mjs` → OK；改动文件另做了越过该 gate 的自扫（`grep -naP` 覆盖 0x00-0x1f 全段）零命中\n- 三个 changeset gate（no-major / fixed / presence）全绿\n\n## changeset\n\n`.changeset/layout-sideeffects-registration-3899.md` —— patch `@object-ui/layout`，正文写明这是**打包契约修正**：清单曾对打包器撒谎，修后 `sideEffects` 是最窄的诚实答案（而不是 `true`，那样虽诚实却把整包交给所有打包器当不可摇）。README 补了一节 Registration，把「`import '@object-ui/layout';` 即注册」写成受支持的入口点并指明是 `sideEffects` 在兜着。\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

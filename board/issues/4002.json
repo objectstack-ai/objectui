@@ -1,0 +1,32 @@
+{
+  "number": 4002,
+  "kind": "pull_request",
+  "title": "fix(fields): group-labelled widget 的只读/零选项分支也消费 host label 的 IDREF (#3990)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:42:14Z",
+  "updated_at": "2026-08-09T22:56:22Z",
+  "closed_at": "2026-08-09T22:56:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T22:56:21Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4002",
+  "body": "Fixes #3990\n\n## 结论\n\n七个 `labelling: 'group'` widget 只在**可编辑分支**消费 host 递下来的\n`aria-labelledby` + host `id`。字段级 `readonly: true` 与零可选项两种状态走的是\n**提前 return**,渲染在那个容器之前 —— 于是 form renderer 让 label 发布了自己的\n`id`、撤掉了 `for`,而文档里没有任何元素引用这个 id。可见标签是 0 个元素的可访问名。\n\n不是 #3961 / #3975 的回归:改那两单之前,同样这些状态发的是指向「无人携带该 id」的\n`for`,一样什么都不命名。形状从悬空 `for` 变成无人消费的 IDREF,严重程度未变 ——\n是那次修法没有覆盖到的状态(#3961 的钉子全部在可编辑态取样)。\n\n## 逐 widget 实测(正文警告「写法各异不可推断」,所以七类逐个量)\n\n一次性 probe(未提交,已删),真 form renderer + 裸注册 `labelling: 'group'`,\n逐字段数「引用 host label 已发布 id 的元素个数 / byLabelText / 被命名的 role」:\n\n| widget | 只读+有值 | 只读+空值 | 零选项 | 可编辑(对照) | mode:'view'(对照) |\n| --- | --- | --- | --- | --- | --- |\n| multiselect | 0 → 1 | 0 → 1 | 0 → 1 | 1 → 1 group | 1 → 1 group |\n| checkboxes | 0 → 1 | 0 → 1 | 0 → 1 | 1 → 1 group | 1 → 1 group |\n| radio | 0 → 1 | 0 → 1 | 0 → 1 | 1 → 1 radiogroup | 1 → 1 radiogroup |\n| rating | 0 → 1 | 0 → 1 | 不适用(无选项) | 1 → 1 group | 1 → 1 group |\n| file | 0 → 1 | 0 → 1 | 不适用 | 1 → 1 button | 1 → 1 button |\n| address | 0 → 1 | 0 → 1 | 不适用 | 1 → 1 group | 1 → 1 group |\n| geolocation | 0 → 1 | 0 → 1 | 不适用 | 1 → 1 group | 1 → 1 group |\n\n即:**七类在每个只读态上读数完全一致(全 0)**,并非只有正文实测过的\nmultiselect / checkboxes;可编辑态与整表单 `mode: 'view'` 两列改前改后都是 1(view\n不走 widget 的 readonly 分支,与正文一致)。\n\n## 处置(沿既定 group 机制)\n\n新增 `packages/fields/src/widgets/toHostGroupProps.ts`:只读面统一只带**两个「整字段」\n键** —— host `id` 与 `aria-labelledby` —— 外加让它们生效的 `role=\"group\"`,一处拼写。\n\n窄化是刻意的,不是偷懒:只读面**没有可聚焦控件**,`aria-describedby` /\n`aria-required` / `disabled` / 焦点回调在那里无人宣读;而 `name` 落到 div 上正是\n#3291 在扫的泄漏;把整份 `toDomProps` 铺下去还会用 host 的 `className` 盖掉 widget\n自己的(`EmptyValue` / FileField / AddressField 的 `className` 都留在 `props` 里)。\n`role` 必须随行:role-less 的 div / span 上 `aria-labelledby` 命名的是 nothing\n(`generic` 禁止 author name),这正是本单量到的形状。\n\n逐 widget 落点:\n\n| widget | 只读+有值落点 | 只读+空值落点 | 零选项落点 |\n| --- | --- | --- | --- |\n| multiselect | chip 行容器 | `EmptyValue` 本身 | `OptionsEmptyState` 框 |\n| checkboxes | 已选 Badge 行容器 | `EmptyValue` 本身 | 同上 |\n| radio | 选中项文本 span | `EmptyValue` 本身 | 同上 |\n| rating | 星星行容器 | 同左(无空态) | 不适用 |\n| file | 文件名行容器 | `EmptyValue` 本身 | 不适用 |\n| address | 格式化单行 span | `EmptyValue` 本身 | 不适用 |\n| geolocation | 图标+坐标行容器 | 同左(占位符在容器内) | 不适用 |\n\n两处 role 与可编辑态**故意不同**,因为渲染的根本不是同一个面:`radio` 可编辑答\n`radiogroup`,只读面里一个 radio 都不剩;`file` 可编辑答 `button`(dropzone),\n只读面里没有 dropzone,只有文件名。共享的「无可选项」框对 checkboxes / radio /\nmultiselect 答 `group`;单选 `select` 不属于 group-labelled(label 仍是可用的 `for`),\n该框对它一个属性都不多发 —— 这条有阳性对照钉。\n\n顺带把 AddressField / GeolocationField 的可编辑容器也换成同一个 `toHostGroupProps`\n(它们此前手写 `id` + 条件 role + `aria-labelledby`,语义与输出完全等价),这样\n同一文件里只读面与可编辑面不可能对同一个问题给出两种答案。\n\n## 无缺口/豁免\n\n没有豁免项:七类的每个只读渲染路径都找到了现成的承载元素,**没有新增任何 DOM 节点**。\n一处如实记录的取舍:hosted 且空值时 `EmptyValue` 就是整块只读面,于是它自己带上这三个\n属性,它原有的 `aria-label`(“No value”)按 accname 被 `aria-labelledby` 压过 ——\n这是想要的结果:在它此前的 `generic` role 上 author name 本就被禁止、从未暴露,所以\n真实选择是「字段名」还是「没有名字」。standalone 时该占位符不带 role,行为不变。\n\n## 钉子(64 个,新文件 `composite-group-label-readonly-e2e.test.tsx`)\n\n- 逐 widget 只读+有值:`getAllByRole('group', { name })` 前 0 / 后 1,且 `byLabelText` 同元素;\n- 逐 widget 只读+空值:同上,并按三种真实形态分别断言(占位符即本体 / 占位符在容器内 /\n  rating 无空态);\n- 逐 widget 只读态:host id 与 name 落在**同一元素**(`id` 以 `-form-item` 结尾)、label 无\n  `for`、字段内无悬空或 inert 的 `for`、只读面不带 `name` / `aria-invalid`;\n- 三个选项 widget 零选项态:命名元素就是 `OptionsEmptyState` 框本身(testId 断言);\n  以及 readonly 与零选项同时成立时 readonly 分支胜出且仍被命名;\n- 可编辑态回归钉:逐 widget 同时断言可编辑角色(radio=radiogroup / file=button / 其余\n  group)与只读角色 group,任何「统一角色」的后续改动都必须来这里说明它改了什么;\n- standalone 回归钉:逐 widget 只读渲染无 role、无 IDREF、无 id;`SelectField` 零选项框\n  无 role / 无 IDREF / 无 id(共享组件新增 prop 的阳性对照)。\n\n## 反向验证(先预判再跑,变异未提交)\n\n- 变异 A:撤掉 MultiSelectField 只读 chip 行的展开。**预判**红在 multiselect 的 4 条\n  只读钉 + 「七类同表」+ 漂移钉 = 6 条,不动 EmptyValue / 零选项 / standalone。\n  **实测**:`Tests 6 failed | 58 passed`,失败项与预判逐条一致。\n- 变异 B:撤掉 CheckboxesField 传给 `OptionsEmptyState` 的 `hostGroupProps`。**预判**只红\n  「checkboxes: the unfillable-options box is the named group」1 条。\n  **实测**:`Tests 1 failed | 63 passed`。\n\n两次都是经典方向(撤掉即翻红),没有出现计数型或反转型的情况 —— 因为这些钉断言的是\n「被命名的元素个数从 0 到 1」这个谓词,而不是某个下游计数。\n\n## 验证\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/fields^...' build` → 通过(先行,\n  新 worktree 的依赖产物)。\n- 仓根 `pnpm exec vitest run packages/fields --maxWorkers=2` → `Test Files 73 passed (73)`,\n  `Tests 1160 passed (1160)`。\n- 消费半径:仓根 `pnpm exec vitest run packages/components/src/renderers/form --maxWorkers=2`\n  → `Test Files 33 passed (33)`,`Tests 182 passed (182)`(group-labelling 是 form renderer\n  与 widget 的联合机制,声明位那侧一并跑过)。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → `Tasks: 78 successful, 78 total`。\n- `node scripts/check-control-bytes.mjs` → OK(3902 个跟踪文本文件);另对本 PR 触碰的\n  文件做了越界自扫(`grep -naP` 控制字符类)→ 无命中。\n- eslint 触碰文件:0 error(仅既有风格 warning,`_` 前缀丢弃变量与 `any`)。\n\nchangeset:`@object-ui/fields` patch。\n\n边界:只动 `packages/fields/src/widgets/**` + 测试 + changeset;未碰 form.tsx / index.tsx\n的声明集合(机制已定型),未碰 `content/docs/releases/`。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

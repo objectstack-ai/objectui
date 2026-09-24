@@ -1,0 +1,36 @@
+{
+  "number": 3819,
+  "kind": "issue",
+  "title": "metadata-admin 的 `record:details.sections` 块设计器没有 `name` 输入位 —— Studio 搭出来的 section 结构上无法翻译,且必然挂着上游 `translation-section-name-missing`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:43:53Z",
+  "updated_at": "2026-08-09T01:59:47Z",
+  "closed_at": "2026-08-09T01:59:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3819",
+  "body": "发现于 #3807 的实施过程(围栏外,本 PR 未夹带)。未认领,交 PM triage。\n\n## 机制\n\n`packages/app-shell/src/views/metadata-admin/previews/block-config.ts:310-321`,`record:details` 的 `sections` 数组条目只给了三个 `itemFields`:\n\n```\nitemFields: [\n  { name: 'label',   label: 'Label',   kind: 'text' },\n  { name: 'columns', label: 'Columns', kind: 'number', placeholder: '2' },\n  { name: 'fields',  label: 'Fields',  kind: 'field-list', objectFrom: 'page' },\n],\n```\n\n缺的是 `name`。而 pin 版 `@objectstack/spec@17.0.0-rc.5` 的 `RecordDetailsProps.sections[].name` 的 describe 明确它是 **i18n 锚点**:`Stable section identifier for i18n lookup (snake_case) — resolves objects.{object}._sections.{name}.label; a nameless section renders its authored label in every locale`。渲染器实读也确实如此(`packages/plugin-detail/src/renderers/record-details.tsx`):\n\n```\nconst translatedTitle = s.name && objectName\n  ? sectionLabel(objectName, s.name, rawTitle ?? s.name)\n  : rawTitle;\n```\n\n`sectionLabel` 的键约定在 `packages/i18n/src/useObjectLabel.ts:419`(`{ns}.objects.{objectName}._sections.{sectionName}.label`)。`s.name` 缺失时直接退回 authored label —— 于是在设计器里搭出来的每个 section,在所有 locale 下都显示同一串作者当时敲进去的文字,而且**在 UI 里没有任何位置能补上锚点**。\n\n上游 spec 那段注释还写着:`packages/lint` 的 `translation-section-name-missing` 规则存在的目的就是提醒作者补 `name`。合起来就是:设计器产出的页面必然挂着一条作者在设计器里修不掉的诊断。\n\n## 建议\n\n给 `itemFields` 加 `name`(`kind: 'text'`),并顺带决定两件小事:\n\n- 是否做 snake_case 校验 / 从 `label` 自动派生一次(派生要避免把已翻译的 label 变成锚点);\n- 已存在的、只有 `label` 的 section 打开设计器时 `name` 留空还是回填。\n\n同一设计面 #3807 已把发布给作者的 `sections` 说明改成对象形并写清 `name` 的语义,所以\"作者知道要写 name、但设计器没有格子\"这个落差从本单开始是可见的。\n\n## 参考位置\n\n- `packages/app-shell/src/views/metadata-admin/previews/block-config.ts:310-321`\n- `packages/plugin-detail/src/renderers/record-details.tsx` —— `sectionLabel(objectName, s.name, ...)`\n- `packages/i18n/src/useObjectLabel.ts:419` —— 键约定\n- `packages/plugin-detail/src/index.tsx` —— `record:details.sections` 的 input 说明(#3807 后)\n\n关联:#3807、#3134(表单布局设计器的 i18n,邻域但另一个设计面)、objectstack#5611\n"
+}

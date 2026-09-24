@@ -1,0 +1,35 @@
+{
+  "number": 3779,
+  "kind": "pull_request",
+  "title": "fix(docs): 按清单校正 9 行 peer 陈述,并把断言加宽到整个 Peer Dependencies 区块 (#3750)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:39:54Z",
+  "updated_at": "2026-08-08T15:03:42Z",
+  "closed_at": "2026-08-08T15:03:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T15:03:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3779",
+  "body": "Fixes objectstack-ai/objectui#3750\n\n11 个包 README 的 **Peer Dependencies** 区块共 28 条 backtick 陈述,#3717 的断言只覆盖 ledger 登记的 12 条 `react` 行;无人比对的另外 16 条里 9 条与本包清单不符。本 PR 两半一起落:修 9 行,并把断言从 ledger 驱动加宽到区块每一行。\n\n## 逐行处置(全部在 `origin/main` = `d229dfa7b` 复核过,非沿用卡片的 8ad6070fb)\n\n| README | 行 | 原声明 | 清单 | 处置 | 依据 |\n|---|---|---|---|---|---|\n| `packages/components` | 41 | `tailwindcss` `^3.0.0` | `^4.2.1` | **README 收窄到 `^4.2.1`** | 实测真相侧,见下 |\n| `packages/auth` | 24 | `react-dom` `^18.0.0 \\|\\| ^19.0.0` | 未声明 | 删行 | src 零引用 + 清单未声明 |\n| `packages/collaboration` | 23 | 同上 | 未声明 | 删行 | 同上 |\n| `packages/i18n` | 24 | 同上 | 未声明 | 删行 | 同上 |\n| `packages/mobile` | 24 | 同上 | 未声明 | 删行 | 同上 |\n| `packages/permissions` | 23 | 同上 | 未声明 | 删行 | 同上 |\n| `packages/plugin-ai` | 22 | `@object-ui/core`(无区间) | 未声明为 peer | 删行 | 见「依据修正」 |\n| `packages/plugin-designer` | 28 | 同上 | 未声明为 peer | 删行 | 同上 |\n| `packages/plugin-report` | 26 | 同上 | 未声明为 peer | 删行 | 同上 |\n| `packages/plugin-designer` | — | (无) | 声明 `react-router-dom` `^6.0.0 \\|\\| ^7.0.0` | **补行** | 反向断言新发现,见下 |\n\n### tailwindcss:先测真相侧,结论是清单对\n\n按 #3690 的方法,不预判哪边错。实测 `@object-ui/components` 是 **Tailwind 4 专属**:\n\n- `postcss.config.js` 加载 `@tailwindcss/postcss` —— 该插件没有 v3 对应物(v3 的 postcss 插件就是 `tailwindcss` 本身);\n- `src/index.css` 首行 `@import 'tailwindcss'`,并使用 `@theme`、`@custom-variant` 两个 v4 专属 at-rule;\n- 整个包**没有** `tailwind.config.js`(v4 的 CSS-first 配置);\n- devDependencies 钉 `tailwindcss ^4.3.3`,store 里唯一安装版本是 `4.3.3`;\n- 用装好的 4.3.3 实跑该 postcss 管线:`TAILWIND 4 COMPILE OK — bytes: 165326`,utilities 正常生成。\n\n即 3.x 不是「未测」而是结构上跑不起来。照 README 装 tailwind 3 的读者会拿到一个装不上的 peer —— 这是本卡里**用户今天就会踩**的那一行。故收窄 README,不动清单。\n\n### 依据修正:`@object-ui/core` 三行不是「src 零引用」\n\n卡片与派发都把这三行归到「src 零引用 + 清单未声明」。**前半对不上**:三个包都确实 import `@object-ui/core`(plugin-ai 1 处、plugin-designer 3 处、plugin-report 8 处)。成立的是后半 —— 它是普通 `dependencies`(`workspace:*`),随包解析,**读者不必自己安装**;把它列进 Peer Dependencies 是在让读者去装一个已经随包来的东西。按「清单未声明为 peer」删除,结论不变但依据据实更正。\n\n5 处 `react-dom` 的零引用主张则逐包复核成立:`src` 零 react-dom 引用,`dependencies`/`devDependencies` 也都没有,清单 `peerDependencies` 只有 `react`。\n\n## 门禁侧\n\n**正向加宽**:断言输入集从「ledger 有条目的行」改为「ledger 解析出的陈述 ∪ 每个 Peer Dependencies 区块的每一条 bullet」,按行去重(12 条 `react` 行两条路都能到,去重保证一处失真只有一个报告者)。比对数从 12 升到 21,vacuity floor 相应从 10 提到 18,并新增一条「必须真的找到区块」的下限,防止 union 靠 ledger 条目独自撑过 floor。\n\n区块读取**刻意不复用** `parsePeerStatement`:后者对 `- @object-ui/core` 这种无版本区间的行返回 null(这是它的正确行为),而区块内「有包名、无区间」本身就是要报的结构缺陷 —— 上面三行正是这么藏住的。区块 walker 因此把区间当作可选,缺区间交给断言判。\n\n**反向**(清单声明的 peer 必须出现在区块里)也加了,但**限定在已经写了区块的包**,并把取舍写进注释:实测 39 个包里 11 个有区块,没有区块的 28 个里 20 个声明了 peer;全仓版本会为了让测试变绿而逼出 20 个新区块,那是给测试而不是给读者的开销。限定版本的正当性是 README 自己许下的承诺 —— 写了区块就是宣称「这就是全部 peer」。它在正向已经干净的树上找到一处真缺口:`plugin-designer` 清单声明 `react-router-dom` peer 而区块从未提及,读者照 README 装完仍会拿到 unmet-peer 警告,故补上该行。\n\n**TOOLCHAIN 词界**:补上小写包名拼写 `tailwindcss`。`\\bTailwind\\b` 在 `tailwindcss` 上没有词边界(后面紧接 `css`),该行自写下之日起从未被扫到,也就从未进 ledger。实测在 221 文件语料上**只新增匹配这一行**,已随之登记为 `restatement`。\n\n## 反向验证(先预判方向,再跑)\n\n六个扰动,方向全部与预判一致;每次跑完 revert,末次全绿:\n\n| 扰动 | 预判 | 实测 |\n|---|---|---|\n| A 还原 `tailwindcss ^3.0.0` | 棘轮上行 + 棘轮下行 + peer 断言(3 红) | 3 failed / 11 passed ✅ |\n| B 清单 `react` 改 `^19.0.0`(#3690 形状) | 只 peer 断言红,棘轮绿 | 1 failed / 13 passed ✅ |\n| C 还原被删的 `react-dom` 行 | 只 peer 断言红,棘轮绿 | 1 failed / 13 passed ✅ |\n| D 还原无区间的 `@object-ui/core` 行 | 只 peer 断言红,棘轮绿 | 1 failed / 13 passed ✅ |\n| E 删掉新补的 `react-router-dom` 行 | 只**反向**断言红 | 1 failed / 13 passed ✅ |\n| F 只回退 TOOLCHAIN 词表(README 保持正确) | 只棘轮**下行**红,peer 断言**保持绿** | 1 failed / 13 passed ✅ |\n\nC/D 是加宽本身的证明:这两类在棘轮里**恒绿**(`react-dom` 不匹配扫描正则,`@object-ui/core` 根本没有版本字面量),只有区块路径能看见。实测报文:\n\n```\npackages/auth/README.md:24  react-dom: the README lists it as a peer, but this package's\npeerDependencies does not declare react-dom at all - delete the line, or declare the peer …\npackages/plugin-ai/README.md:22  @object-ui/core: the README lists it as a peer, but this\npackage's peerDependencies does not declare @object-ui/core at all - …\n```\n\n**F 是派发问题 4 的诚实答案**:加宽之后,`tailwindcss` 那一**行**已由区块断言覆盖,与词表无关 —— 回退词表它照样绿。词表修复剩下的价值是**区块之外**的 tailwindcss 版本字面量(语料里今天没有,但正是这种休眠死角会回来);它现在由棘轮下行钉住,即 KNOWN_CLAIMS 里那条 `^4.2.1` 条目不是摆设。\n\n## 验证\n\n```\npnpm vitest run scripts/__tests__            → 21 files / 404 tests passed\npnpm run type-check:scripts                  → exit 0\npnpm run check:control-bytes                 → OK (3715 tracked text files)\npnpm run docs:check-links                    → Links are valid across 7 scan roots\nnode scripts/check-changeset-presence.mjs    → 10 files changed, 0 under any released package's src/ → 无需 changeset\ngrep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'     → 10 个改动文件零命中\n```\n\n**Changeset**:presence 门禁明确判定不欠(它按 `src/` 取面,README 与清单都不在其中,本 PR 也没动任何 `package.json`)。仓库先例一致:近 60 次涉及 `packages/*/README.md` 的提交里,6 次是纯 README 提交,**全部 0 changeset**,含本门禁自己注释引用的 PR #3688(36 个 README 的清理)。\n\n## 越界发现(已另立,未在本 PR 修)\n\n见下方评论。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 3918,
+  "kind": "pull_request",
+  "title": "fix(i18n): de 包 20 个值把德语开引号 „ 配到 ASCII 直引号,收尾引号改回 „…“ (#3876)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T02:41:58Z",
+  "updated_at": "2026-08-09T05:39:17Z",
+  "closed_at": "2026-08-09T05:39:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T05:39:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3918",
+  "body": "Fixes #3876\n\n`packages/i18n/src/locales/de.ts` 里 20 个 key 用德语低九分号开引号 `„`(U+201E)开场,却用 ASCII 直引号 `\"`(U+0022)收尾。德语用户今天读到的是 `Registerkarte „Alle Datensätze\" anzeigen`。`search.resultsCount` 最直观:值以 `„{{query}}\"\"` 结尾 —— 错配的收引号紧挨着 TS 字符串的结束符。\n\n这从来不是本包约定:修前同一文件里已有 23 处写成正确的 `„…“`,两种写法在同 namespace 的邻键里并排坐着。现在所有错配收引号统一为 `“`(U+201C),与德语正字法(DUDEN R11)和文件里的多数派一致。\n\n## 落地重数(两种单位都对,差异记进代码)\n\n卡片说「20 个值」、分诊在 `b750823` 复扫说「22 处错配」。**两者各自都对,只是单位不同**,这份差异现在写进了钉子文件的文件头,不再留给下一个人猜:\n\n| 单位 | 数 |\n|---|---|\n| 承载错配的 key | **20** |\n| 错配出现次数 | **22** |\n\n差 2 的原因:`navigationSync.renamedPage` 与 `navigationSync.renamedDashboard` 各在一句里引两个名字(\"Seite „alt“ in „neu“ umbenannt\"),各贡献 2 处。\n\n分诊当时在 `b750823` 量到 44×`„` / 24×`“`;本单在 `2937bcf7d` 实测 45 / 25 —— 切片七(#3546)那个刻意写成正确配对的 `empty.interfacePageSourceMissing` 之后又合进来一对,两边都不算错。全文件计数 修前 → 修后:\n\n| 字符 | 修前 | 修后 |\n|---|---|---|\n| `„` U+201E | 45 | 45 |\n| `“` U+201C | 25 | 47 |\n| `”` U+201D | 2 | 2 |\n| `\"` U+0022 | 28 | 6 |\n\n取证用 `\\p{L}` + `u` 的 Unicode 属性类正则(#3866 教训:`\\w` / `[A-Za-z]` 会静静漏掉德语引号里满是的 ä ö ü ß,于是方法本身少报、文件看起来是干净的),并用一个独立的「逐字符找最近引号」扫描器交叉核对,两者同为 22。20 个值逐值人工复核过:每一处被改的 `\"` 都是德语散文里的收尾引号(视图名、Tab 名、搜索词、应用名),**没有**一处是代码/JSON/CLI 引用需要保留 ASCII。\n\n## 持久不变量:没有采用卡片提议的 count(„) == count(“)\n\n卡片建议钉 `count(„) === count(“)`。**那条在正确修完的文件上是假的**(45 vs 47),照抄会让下一个读者去追一个不存在的 bug。原因:本包还有两个值是**未翻译的英文散文**,按英文风格用 `“…”` —\n\n- `grid.import.savedMappingHint`\n- `grid.import.savedMappingPreviewNote`\n\n它们的两个 `“` 是合法的**开**引号,正是 45/47 那 2 的缺口。钉子改成配对本身:**每个 `„` 之后第一个引号字符必须是 `“`**,外加算术恒等式\n\n```\ncount(“) === count(„) + count(”)\n```\n\n—— 每个德语 `„` 由 `“` 收尾,每个多出来的 `“` 是被 `”` 应答的英文开引号。那两个值将来被译成德语它依然成立(47 === 47 + 0),错配一旦回填立刻红(46 !== 47)。两条都带 presence 防空转断言(2914 个字符串值、不少于 40 个 `„`),import 坏掉或文件被改名不会静静空转变绿。\n\n## 为什么必须落钉子\n\n三道 i18n 门禁按设计都读不到值:`all-locales-key-parity` 比键名集合与占位符形状,`check-i18n-call-site-keys.mjs` 只判 key 能否解析,`check-i18n-en-drift.mjs` 只在 **en 值变化**时要求九包跟随 —— 这些值从落地起就是错的,不存在「变化」事件。没有一条值域断言,下一次回填还会从邻键把错配抄过去,这 20 个就是这么攒起来的。\n\n## ⚠️ 越过了 PM 的文件面:动了 residue-namespaces-3546.test.tsx 一行\n\n派单写的是「⛔ 不碰 3546 家族测试」,但 issue 正文明确点名这一处:\n\n> 新增的 `empty.interfacePageSourceMissing` de 值刻意写成正确配对的 `„{{name}}“` 而不是照抄邻键的错配形态,并在测试里把这处刻意分歧写明,**所以那条断言就是这一单落地时必须回头看的地方**。\n\n`residue-namespaces-3546.test.tsx:707` 原本 `toContain('„{{name}}\"')` —— 它钉住的正是本单要删掉的错配形态。切片七已经合进 main(不是在飞),不改它 CI 必红。按 fixture 三分法这是「re-spell」:改钉**收敛后**的一致形态(两个姊妹值现在都是 `„{{name}}“`),覆盖面没有减少(仍钉邻键的配对),注释里留下这段来历与指向新钉子文件的指针。共 1 行断言 + 注释,请 PM 复核这次越面。\n\n## 反向验证(方向先预判后运行)\n\n预判:把任一错配还原,配对钉必须**红**并点名 key —— 这里不存在反转或「计数归零而空过」的情形,因为断言直接钉修后字节,且缺陷计数是 0 → 1 并有 presence 兜底。\n\n实跑还原 `empty.objectNotFoundDescription` + `empty.pageNotFoundDescription` 两个值:**7 个测试红、2 个文件**,与预判逐条对上;唯一保持绿的是 en 未受影响那条(正确,它管的是 en):\n\n```\n× pins the 20 fixed keys …\n  AssertionError: de empty.objectNotFoundDescription lost the paired span „{{name}}“\n× pins the four values the issue showcased, whole and byte-for-byte\n  AssertionError: expected 'Die Seite „{{name}}\" wurde nicht gefu…' to be 'Die Seite „{{name}}“ …'\n× holds pack-wide: no „ in de is closed by anything but “ (the durable invariant)\n× holds under an independent \\p{L}-aware regex formulation (objectui#3866 lesson)\n  AssertionError: „…\" mismatches: empty.pageNotFoundDescription: „{{name}}\"\n× keeps the count identity …\n  AssertionError: expected { open: 45, close: 45, rdq: 2 } to deeply equal { open: 45, close: 47, rdq: 2 }\n× records the remaining straight quotes in de …\n× residue-namespaces-3546 … each pack keeps its own typography …\n  AssertionError: expected 'Definition des Objekts „{{name}}\" feh…' to contain '„{{name}}“'\n Tests  7 failed | 43 passed (50)\n```\n\n顺带发现:pack-wide 那条原先先跑算术、后跑点名清单,还原时先炸的是 `expected 43 to be 45`(不点名)。已把点名清单的断言提到算术之前,失败第一行就说出是哪个 key、哪句话。\n\n## 验证\n\n消费半径 = `packages/i18n` 全包:\n\n```\npnpm exec vitest run packages/i18n --maxWorkers=2\n Test Files  33 passed (33)\n      Tests  583 passed (583)\n```\n\nen-drift 门(本单的关键否证项,en 必须一字未动):\n\n```\nnode scripts/check-i18n-en-drift.mjs\nCompared the ten locale packs at 2937bcf7d (merge-base with origin/main) with the\nworking tree: 0 en value(s) changed (0 key(s) added, 0 removed …)\nNo en value changed in this range.\n```\n\n其余:`check-i18n-call-site-keys.mjs` 2320/2320 解析;全仓 `turbo run type-check --concurrency=2` **78/78 successful**;`@object-ui/i18n` lint 0 errors(33 条 warning 全在未触及文件);`scripts/check-control-bytes.mjs` OK(3794 文件),另按仓规自扫 `grep -naP` 控制字节零命中 —— 本单写钉子时确实在 `String.fromCharCode(10)` 那行落进过一个裸 NUL,导致整个文件被 grep 当二进制(零命中、无信号),自扫抓到并已清除。\n\n## 范围\n\n只改 `de`。其余九包一字未动;`es` 等按各自约定用 ASCII 双侧引号(residue 测试 701 行已钉),不是缺陷。`fr` / `zh` / `ja` 卡片已量干净,未扩包面。\n\n发现但**未**在本 PR 修(另立单):`approvalsInbox` 三个值(`rejectOneTitle` / `inlineApproved` / `inlineRejected`)用 ASCII 直引号**双侧**成对,而同族兄弟 `approvalsInbox.approveOneTitle` 是正确的 `„…“` —— 这是另一种缺陷形态(一致的 ASCII 对,不是错配对),本单的不变量按设计也扫不到它(没有 `„`)。已在钉子文件里把这 3 个 key 钉成显式清单,数目漂了会红,将来修它的人必须回来更新这份清单。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

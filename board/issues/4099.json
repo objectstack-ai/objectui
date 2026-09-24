@@ -1,0 +1,32 @@
+{
+  "number": 4099,
+  "kind": "pull_request",
+  "title": "fix(templates): move generator dependency ranges with the dependabot wave (#4098)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T08:35:36Z",
+  "updated_at": "2026-08-10T08:44:59Z",
+  "closed_at": "2026-08-10T08:44:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T08:44:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4099",
+  "body": "Fixes #4098\n\nThis morning's dependabot wave (07:45–08:03Z) moved this repo's own manifests but not the ranges hard-coded in the scaffold generators — dependabot does not know the templates exist. Two anchor ratchets went red on every PR branched off current `main`.\n\n## Premise re-verified\n\nBoth reported failures reproduce on unmodified `origin/main` (`361dfdc01`):\n\n```text\nFAIL |unit| packages/cli/src/__tests__/app-generator.test.ts\n  AssertionError: routed manifest's lucide-react must match its in-repo range:\n    expected '^1.28.0' to be '^1.29.0'\n\nFAIL |unit| packages/create-plugin/src/__tests__/templates.test.ts\n  AssertionError: vite range must match the repo root:\n    expected '^8.2.0' to be '^8.2.1'\n```\n\nDirection confirmed from the ratchets' own documentation rather than assumed — `templates.test.ts` states it outright: *\"Bumping an in-repo manifest and leaving the template behind is the drift this test exists to catch — update `src/templates.ts` in the same PR.\"* Templates follow the repo, not the reverse.\n\n## The sweep found a third drift\n\nEach ratchet aborts at its **first** failing assertion, so each file reports one drift however many it has. Rather than fix-and-re-run, I replicated both anchor rules in a throwaway script and judged all 21 anchored ranges across all four generator maps at once:\n\n| range | declared | anchor says | where | reported? |\n|---|---|---|---|---|\n| `lucide-react` | `^1.28.0` | `^1.29.0` | `app-generator.ts` routed deps (in-repo) | yes |\n| `vite` | `^8.2.0` | `^8.2.1` | `create-plugin/templates.ts` (root) | yes |\n| `vite` | `^8.2.0` | `^8.2.1` | `cli/utils/scaffold-dependencies.ts` (root) | **no** |\n\nThe third was invisible because `lucide-react` sorts before `vite` in `DEPENDENCY_ANCHORS`, so the CLI test never reached it. Fixing only the two named ranges would have turned shard 1 red again on the very next lap. The other 18 anchored ranges are already correct, and the wave's other bumps (shiki, maplibre-gl, react-hook-form, next) are not declared by any generator, so no ratchet points at them.\n\n`lucide-react` `^1.29.0` is unanimous across all 23 in-repo manifests that declare it; root `vite` is `^8.2.1`.\n\n## Reverse verification\n\nPredicted before running, and the direction is plain red — this rule compares a generated string against a repo fact, so there is no schema underneath to re-judge the same input differently (the file says as much). Restoring only the third, previously-invisible drift:\n\n```text\nAssertionError: routed manifest's vite must match the repo root:\n  expected '^8.2.0' to be '^8.2.1'\n  at packages/cli/src/__tests__/app-generator.test.ts:531:66\nTests  1 failed | 32 passed (33)\n```\n\nThat is the second red lap this PR avoids, made visible.\n\n## One test line changed, and why\n\n`app-generator.test.ts:1082` asserted `expect(manifest.dependencies?.['lucide-react']).toBe('^1.28.0')` — a hard-coded second copy of the anchor rule pointing the *other* way, which went red the moment the template was moved onto the repo's real range, i.e. it scored a correct fix as a regression. It now reads the same `inRepoRangesOf` anchor the rest of the file uses, so it cannot fossilise again. No assertion strength is lost: it still judges the manifest actually written to disk.\n\n## Verification\n\n- `pnpm test --shard=1/4` → `Test Files 289 passed (289)`, `Tests 3599 passed | 1 skipped`\n- `pnpm test --shard=2/4` → `Test Files 289 passed (289)`, `Tests 3569 passed`\n\nBoth were `1 failed | 288 passed (289)` on `main`, so each shard is green exactly where the issue reported it red.\n\n- `pnpm exec vitest run packages/cli/ packages/create-plugin/` → `5 passed (5)`, `116 passed`\n- `type-check` (both packages) → clean\n- `lint` (both packages) → 0 errors (15 pre-existing warnings in untouched files)\n- `node scripts/check-control-bytes.mjs` → OK\n\nChangeset: `patch` for `@object-ui/cli` and `@object-ui/create-plugin`. Both are published and in the `fixed` release group, and the change is user-visible — it alters the `package.json` a scaffolded project receives.\n\n## Out of scope\n\nThe issue's durable question — whether a dependabot bump touching a mirrored range could update the template in the same PR or fail its own CI — is a workflow change beyond this card and is left for triage. Filed nothing new: the sweep turned up no defect outside the three ranges above.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

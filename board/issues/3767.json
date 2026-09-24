@@ -1,0 +1,36 @@
+{
+  "number": 3767,
+  "kind": "issue",
+  "title": "scripts/README.md 整篇在讲两个不存在的脚本(test-component-styles.js/.sh),且被任何门禁与任何链接都覆盖不到",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T13:04:57Z",
+  "updated_at": "2026-08-08T23:34:59Z",
+  "closed_at": "2026-08-08T23:34:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3767",
+  "body": "## 现象\n\n`scripts/README.md` 的标题是 **\"Component Style Testing\"**,通篇为两个脚本写用法、Features、Quick Start:\n\n- `scripts/test-component-styles.js`\n- `scripts/test-component-styles.sh`\n\n两者在仓库里**都不存在**(`git ls-files scripts/` 无此二者)。这份 README 里没有一行提到 `scripts/` 目录今天真正装着的东西 —— `check-control-bytes.mjs`、`check-doc-links.mjs`、`check-i18n-*.mjs`、`check-changeset-*.mjs`、`check-type-check-coverage.mjs`、`vitest-invocation-guard.mjs` 等十余个门禁脚本,以及 `scripts/__tests__/` 里二十余个钉住 workflow 的 pin test,一个都没有。\n\n## 为什么值得记一笔\n\n这正是 objectui#3724 删掉 `.github/WORKFLOWS.md` 的同一形状:**一份没有任何门禁覆盖的第二清单,按构造就会漂移,而读起来同样权威**。那一份漂到了\"5 个不存在的 workflow + 漏掉 9 个真实的\",这一份漂得更彻底——它描述的两个文件已经 100% 不存在了。\n\n两个使它无声的因素:\n\n- **没有门禁能看到它。** `ci-cd-pipeline-doc.test.ts` 双向钉住的是 `content/docs/guide/ci-cd-pipeline.md` 与 `.github/workflows/`;`check-doc-links.mjs` 的扫描根不含 `scripts/`(实测 `Links are valid across 7 scan roots`);#3735 想加的反引号内仓内路径校验也还没落地。\n- **没有任何地方链接它**(全仓 grep `scripts/README` 零命中),所以既不会有人顺着链接发现它过期,也不会有断链门禁因它报错。\n\n## 分级\n\n按 `finding` 归档:今天没有用户会撞上它,也没有 CI 会因它变红 —— 它的成本是下一个想弄清 `scripts/` 里有什么的人(人或 agent)读到一份 100% 失效的索引。不带 `pm:queue`。\n\n## 可选修法(供分诊定向)\n\n1. **删掉**(与 #3724 对齐的一致做法):它描述的东西不存在,而 `scripts/` 的真实内容已由 `ci-cd-pipeline.md`、各脚本自己的文件头、以及 `scripts/__tests__/` 里的 pin test 覆盖;一份没被钉住的索引本身就是漂移源。\n2. **重写成真实索引**,并同时加一条把它钉在 `scripts/*.mjs` 实际文件集上的 pin test —— 否则只是把同一个漂移生成器重新上膛。\n\n如果选 2,建议连带把 #3735 想要的\"反引号内仓内路径必须存在\"的校验一起考虑,两者是同一类失效。"
+}

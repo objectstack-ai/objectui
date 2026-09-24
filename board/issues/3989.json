@@ -1,0 +1,33 @@
+{
+  "number": 3989,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): BulkActionDialog 必填 param 宣告 required 状态而非把星号念进名字 (objectui#3967)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T21:04:49Z",
+  "updated_at": "2026-08-09T21:18:20Z",
+  "closed_at": "2026-08-09T21:18:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T21:18:18Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3989",
+  "body": "Fixes #3967\n\n## 前提复核（origin/main @ c4768a760）\n\n正文两条缺陷都成立,并且比正文更具体的一点值得先写清楚:\n\n- `packages/plugin-grid/src/components/BulkActionDialog.tsx` 全文只有一处 `aria-hidden`(Suspense 骨架屏),星号 span 上没有;全文 `aria-required` 出现 **0** 次。\n- 「控件自己会从 `field.required` 推出 `aria-required`」这条可能的反驳被证伪:`bulkParamToField` 确实把 `required` 写进 field metadata,但 `packages/fields/src/widgets/BooleanField.tsx` 与 `TextField.tsx` 里 `required` 出现 0 次 —— `toDomProps` 按前缀转发 `aria-*`,它不发明属性。所以 host 不传就是没有,通路空着。\n- `param.required` 本身是活的声明:同文件的提交前 gate 读它来禁用 Next。也就是说必填语义在逻辑上生效、在可访问性树里缺席,而唯一在场的是那个装饰字符。\n\n## 改动(仅 2 处,均在 `ParamField`)\n\n1. 星号 span 补 `aria-hidden=\"true\"`。它位于 `Label htmlFor` 内部,accname 会把被引用 label 的文本折进控件名字,所以每个必填 bulk param 都被念成「Notify owner 星号」。\n2. `Widget` 补 `aria-required={param.required || undefined}`。\n\n两条都与 app-shell 的 `ActionParamDialog` 对齐(#3299 / #3290 的裁决),不在这里发明第二套写法:\n\n- 刻意不用原生 `required` —— 按 #3290,那会让浏览器的约束校验气泡与本 dialog 自己的 gating 并存,一个字段两个校验器。\n- `|| undefined` 使可选 param 完全不带该属性,而不是 `aria-required=\"false\"`。\n\n`id` 下发在本站点原本就正确(`bulk-param-${param.name}`),未动;`ActionParamDialog` 未动(PR #3971 已定型)。星号仍然可见,变的只是它是否参与可访问名。\n\n## 与派单口径的一处偏差(请复核)\n\n派单写的是「boolean 分支」,并要求「generic 分支不变作阳性对照」。实际代码里 **`ParamField` 没有类型分支** —— 它是单一路径,所有类型走同一段 JSX(与 app-shell 的 `ActionParamDialog` 不同,后者确实 fork 了一个 boolean 分支)。因此:\n\n- 两条缺陷本来就同时命中所有类型,不只 boolean;修改点也只有这一处,自然覆盖全部类型。\n- 「阳性对照」相应改写成:**非 boolean(text)param 必须呈现完全相同的形态**。这条钉子的作用方向是「保持不变」——将来若有人照 app-shell 的样子 fork 出一个 boolean-only 分支并只修那一支,它会红。\n\n## 钉子(两个方向必须一起钉)\n\n任何一条单独成立都能被错误地满足:只隐藏星号而不给 `aria-required`,则关于必填**什么都不宣告**;只给 `aria-required` 而不隐藏星号,则宣告**两次**、其中一次是噪音。所以三个用例都同时断言两侧,并额外断言星号**仍然可见**(否则「直接删掉星号」也能得到干净的名字)。\n\n- 必填 boolean:控件 `aria-required=\"true\"`、**无** `required` 原生属性、可访问名恰为 `Notify owner`;label 的 textContent 仍含 `*`,且该 `*` 在一个 `aria-hidden=\"true\"` 元素内。\n- 可选 boolean:控件**完全不带** `aria-required`,名字仍为 `Notify owner`,label 不含 `*`。\n- 非 boolean(必填 text + 可选 text):形态与上面逐条一致。\n\n探针刻意用 host 拥有的 id(`document.getElementById` 上拼 `bulk-param-` 前缀加 param 名)而不是 `*ByLabelText`:后者匹配 label 的原始 `textContent`,会悄悄依赖本 PR 正在断言的那个 `aria-hidden`,自证其成。\n\n## 反向验证(先预判,再跑;变异未提交)\n\n两个变异分别跑,方向都是**预判的红**:\n\n- 变异 A —— 删掉 `aria-required={param.required || undefined}`:预判「两条必填断言红、两条可选(断言属性缺席)保持绿」。实测 `2 failed | 5 passed`,红的正是 `:278`(boolean)与 `:311`(text)两处 `toHaveAttribute(\"aria-required\", \"true\")`。\n- 变异 B —— 删掉星号 span 的 `aria-hidden=\"true\"`:预判「可访问名断言红」。实测 `2 failed | 5 passed`,红在 `:281` 与 `:312` 的 `toHaveAccessibleName` —— 直接证明没有 `aria-hidden` 时星号确实折进了名字。\n\n复原后全绿。\n\n## 验证\n\n- `pnpm exec vitest run packages/plugin-grid --maxWorkers=2` → `Test Files 57 passed (57)` / `Tests 523 passed (523)`\n- `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`\n- `node scripts/check-control-bytes.mjs` → OK(3885 个文件);改动文件另做越界自扫,无命中\n- 消费半径已清:`BulkActionDialog` 的仓内引用只在 `plugin-grid`(`ObjectGrid.tsx`、demo、3 个测试),`bulk-param` 前缀无其它包的 fixture 依赖,plugin-grid 无快照文件\n\nchangeset:`@object-ui/plugin-grid` patch。\n"
+}

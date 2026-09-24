@@ -1,0 +1,36 @@
+{
+  "number": 3837,
+  "kind": "issue",
+  "title": "AiChatPage 的 planBuildingLabel 按「对话语言」而非 UI 语言取值 —— 英文界面 + 中文会话时,方案卡上唯一一个中文标签,且 zh 包该 key 永远读不到",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:48:59Z",
+  "updated_at": "2026-08-09T01:04:05Z",
+  "closed_at": "2026-08-09T01:04:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3837",
+  "body": "在 #3546 切片四(回填 `console` 命名空间 41 个缺失 key)顺手量出,**不在该 PR 范围内**(组件改动,与本切片\"只回填语言包\"的围栏无关),单独立项。\n\n## 现场\n\n`packages/app-shell/src/console/ai/AiChatPage.tsx:2195`:\n\n```\nplanBuildingLabel={\n  convZh ? '正在搭建…' : t('console.ai.planBuilding', { defaultValue: 'Building…' })\n}\n```\n\n`convZh`(同文件 1587 行)判定的是**会话**的语言(`isConversationZh(messages)`),不是 UI 语言。它上面 1580-1586 行的注释把规则写得很清楚,而且这条规则是对的:\n\n> #772 — the confirm-card SEND messages must match the CONVERSATION's language, not the console UI locale … **button LABELS stay on the UI locale.**\n\n同一个 `convZh` 门控的另外三个值 —— `planApproveMessage` / `planApproveDefaultsMessage` / `changesConfirmMessage` —— 都是**发给 agent 的消息**,按会话语言取值,完全符合该规则(#772/#2884 就是为它们建立的)。\n\n`planBuildingLabel` 是**标签**(名字里就写着 Label,渲染在方案卡上),却被同一个门控住了。这是那条注释自己排除掉的那一类。\n\n## 两个后果\n\n1. **混合语言的卡片。** 英文 UI + 中文会话时,方案卡上 `planTitle`(Proposed plan)、`planApprove`(Build it)、`planBuilt`(Built)、`planDeferred`(Not yet built)全是英文,中间夹一个\"正在搭建…\"。#2458 第 4 条记录的是反方向(中文界面里漏出英文),这是同一个病的另一侧。\n2. **zh 包的这个 key 永远读不到。** 中文会话恒走硬编码字面量,所以 `console.ai.planBuilding` 的 zh 值对真实中文用户无效 —— 翻译改它不产生任何效果。#3546 切片四刚把这个 key 补进十包(PR #3839),补进去的 zh 值只在\"中文 UI + 英文会话\"这种组合下才会被读到。\n\n## 已做的防护(不是修复)\n\n切片四把 zh 值写成与该字面量**逐字节相同**的 `正在搭建…`,并在 `packages/i18n/src/__tests__/console-namespace-3546.test.tsx` 里加了一条断言,读 `AiChatPage.tsx` 源码把两者钉在一起:\n\n```ts\nconst literal = src.match(/convZh \\? '([^']+)' : t\\('console\\.ai\\.planBuilding'/);\nexpect(literal, 'the convZh planBuilding branch moved — recheck the finding').not.toBeNull();\nexpect(at(builtInLocales.zh, 'console.ai.planBuilding')).toBe(literal[1]);\n// ↑ 实际代码在 literal 后带非空断言;GitHub 正文消毒器会吃掉那个字符,故此处省略\n```\n\n所以在本单修掉之前,两条路径至少不会说两种话;该断言在这个三元被删掉时会红,提示回来清理它。\n\n## 建议的修法(未裁决)\n\n把 `planBuildingLabel` 从 `convZh` 里摘出来,直接用 `t('console.ai.planBuilding', …)`,与卡上其他标签一致 —— 一行删除。顺带值得核一遍 `convZh` 门控的其余三处是否确实都是\"发送内容\"(实测是),以及是否还有别的 `*Label` 被同类门控住。\n\n关联:#772 / #2884(建立\"消息随会话、标签随 UI\"规则的两单)、#3546 / PR #3839(切片四补进这个 key 并加了字节钉子)、#2458 第 4 条(AI 面语言混杂,反方向)。\n"
+}

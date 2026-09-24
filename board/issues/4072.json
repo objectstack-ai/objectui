@@ -1,0 +1,33 @@
+{
+  "number": 4072,
+  "kind": "pull_request",
+  "title": "fix(timeline): bind the timeline to the date axis the view declares (#3129)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T04:06:41Z",
+  "updated_at": "2026-08-10T04:17:37Z",
+  "closed_at": "2026-08-10T04:17:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T04:17:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4072",
+  "body": "Part of #3129 — deliberately not `Fixes`. See \"Premise verification\" below: the card's literal premise no longer reproduces, and the re-run against the published console that triage asked for is still outstanding, so this should not auto-close the card.\n\n## Premise verification (the issue body is a lead, not a spec)\n\nThe card says the timeline ignores the view's declared `timeline.startDateField`. **On current `origin/main` that is no longer reproducible.** A probe drove `ListView` into the **real** `ObjectTimeline` and read the bucket headers for every authoring shape:\n\n| shape | bucket |\n|---|---|\n| `timeline: { startDateField, endDateField }` (the card's shape) | `Later` |\n| `options.timeline: { startDateField, endDateField }` (what app-shell emits) | `Later` |\n| `options.timeline: { dateField }` (legacy alias) | `Later` |\n| `timeline: { startDateField, scale: 'month' }` | `Later` |\n| **`options.calendar: { startDateField }`, rendered as timeline** | **`No date`** |\n\nThe declared-key path was fixed by PR #3175 (`5cb75b3`, 2026-08-02) — one day after this card was filed and four days before triage. Triage on 2026-08-06 re-verified that `startDateField` *consumers* were alive, not that the defect still reproduced, and explicitly asked for a repro re-run before dispatch.\n\n## The defect that does reproduce\n\nThe last row above is a live defect, and it is exactly the shape the report isolated: *\"the same `start_date` / `end_date` fields render correctly in the Calendar and Gantt views\"*. A view whose date axis is bound under `calendar` is **offered** the Timeline visualization and then buckets every record into \"No date\", while the calendar renders the very same field. Two read-sites disagreed about what counts as a timeline binding:\n\n- `ListView`'s **capability gate** accepted `options.calendar.startDateField` as a timeline-resolvable axis. The **render branch** never read calendar config at all, so it fell through to its `created_at` last resort.\n- app-shell's object page emitted `startDateField: 'due_date'` into `options.timeline` for **every** object view, declared or not. Downstream that is indistinguishable from a real binding, and because it is always present it shadowed the fallback entirely — which is why the calendar-bound case cannot be fixed in `ListView` alone.\n\nTreating a calendar binding as a timeline axis is not a lenient fallback added here: the capability gate has always said so, and `InterfaceListPage` derives a timeline's default binding from the very same `defaultCalendarFromObject` helper it uses for calendars. What was missing is that one of the two read-sites never honoured the promise the other made.\n\n## Change\n\n- `packages/plugin-list/src/ListView.tsx` — new `resolveTimelineDateBinding(schema)`, the **single** resolution consumed by both the capability gate and the timeline render branch. Spec key before legacy alias, `timeline` before `calendar`, both nestings at each level. The resolved axis is written onto the **nested** config as well as the flat prop, because `ObjectTimeline` prefers `timeline.startDateField` and app-shell emits a timeline config object for every object view.\n- `packages/app-shell/src/views/ObjectView.tsx` — new exported `timelineViewOptions(viewDef, objectDef)`; the object page now forwards only what the view declared, plus the object's `titleField` (the one thing this layer knows and `ListView` does not). The fabricated `due_date` is gone.\n\nAnswering the triage warning: Calendar, Gantt and Timeline each carry **their own** resolution, in three files (`ListView.tsx`, app-shell `ObjectView.tsx`, plugin-view `ObjectView.tsx`) — there is no shared resolver to wire into. No fourth copy was written: this collapses the two *timeline* read-sites into one and removes the app-shell copy outright. Calendar and Gantt were left untouched (out of scope); noted on the issue.\n\n## Both directions pinned\n\n- declared `timeline.startDateField` still wins over a calendar one;\n- a view declaring no date axis anywhere keeps today's `created_at` fallback, and nothing is invented from the object.\n\n## Reverse verification (direction predicted before running, both observed)\n\n- Drop `calendar` from the resolver's source list: 5 red, including the end-to-end bucket assertion `expected [ 'No date' ] to deeply equal [ 'Later' ]`.\n- Restore app-shell's `startDateField: … || 'due_date'`: exactly the two \"invents NO date field\" cases go red (`expected 'due_date' to be undefined`); everything else stays green, because the fabricated value is only observable when the view declared nothing.\n\n## Tests\n\n- `packages/plugin-list` + `packages/plugin-timeline`: 29 files, 424 passed.\n- `packages/app-shell`: 314 files, 2929 passed, 1 skipped.\n- `type-check`: 31 tasks successful. `lint`: 0 errors.\n\nChangeset: `.changeset/timeline-binds-to-the-calendar-date-axis.md` (`minor` — records move out of \"No date\" into real date buckets).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

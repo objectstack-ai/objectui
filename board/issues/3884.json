@@ -1,0 +1,36 @@
+{
+  "number": 3884,
+  "kind": "issue",
+  "title": "quick-start 教的两条 @source node_modules 行是冗余的:实测多产 100 kB CSS、14 条没人用的选择器,且补不回它看似要补的主题 utility",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:40:22Z",
+  "updated_at": "2026-08-10T02:56:33Z",
+  "closed_at": "2026-08-10T02:56:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3884",
+  "body": "实施 #3780 的覆盖性测量时顺带量到的越界发现,据实另立。#3780 的文件面只有 `packages/components/README.md`。\n\n## 事实(复核于 `origin/main` = `56ff0916e`)\n\n`content/docs/guide/quick-start.md:55-64` 教消费者写:\n\n```\n@import \"tailwindcss\";\n@import \"@object-ui/components/style.css\";\n@import \"@object-ui/fields/style.css\";\n\n@source \"../node_modules/@object-ui/components/**/*.{js,ts,tsx}\";\n@source \"../node_modules/@object-ui/fields/**/*.{js,ts,tsx}\";\n```\n\n紧跟一句解释:「The `@source` lines let Tailwind see the utility classes used by ObjectUI packages.」\n\n前两行 `@import` 是对的(#3780 的实测确认 `style.css` 是 exports 里真实存在的子路径)。**后两条 `@source` 行是冗余的**,而那句解释把它们的作用说反了。\n\n## 实测读数\n\n对着真实安装(Tailwind 4.3.3 + `@tailwindcss/postcss`,消费者形状的 fixture,每组一次真实编译):\n\n| 入口 | 产物 | 选择器数 |\n| --- | --- | --- |\n| `@import 'tailwindcss'` + `@import '@object-ui/components/style.css'` | 180.27 kB | 1447 |\n| 上面再加 `@source \"../node_modules/@object-ui/components/**\"`(本页现行教法) | **280.25 kB** | 1461 |\n\n**多出 100 kB,换来 14 条选择器,其中没有一条是渲染 ObjectUI 组件需要的** —— 它们是 `@source` 扫描 `dist` 时把库已经自带的形状类 utility 又生成了一遍(`inline-flex` / `rounded-md` / `h-9` 这一类),预构建 `style.css` 里本来就有。\n\n而 `@source` **补不回**读者最可能以为它在补的东西:`bg-primary` / `bg-background` / `border-input` / `ring-ring` 这些主题类 utility 只在声明其 token 的 `@theme` 块被编译处存在,该块在 `packages/components/src/index.css`,`files` 不发布。#3780 里单独量过这一格:仅 `@source`(不 import 预构建 CSS)时,形状类全有、主题类全无。\n\n覆盖性也单独量过:把 `dist/index.js` + `dist/index.umd.cjs` 里所有 class 形状的 token(即一个 node_modules glob 所能看到的全部表面)对着本包自己的主题编译,产出 1331 条规则,**全部**已在发布的 `dist/index.css` 的 1410 条之内 —— 零缺失。预构建 CSS 是扫描所能得到之物的严格超集。\n\n## 影响\n\nquick-start 是外部消费者的第一份配置指南。照它做的项目每人多背 100 kB 重复 CSS,并且携带一条把 `@source` 说成「让 Tailwind 看见 ObjectUI 的 utility class」的解释 —— 一旦样式真出问题,这句解释会把人推向「路径写得不够全」的错误方向(`content/docs/guide/troubleshooting.md` §2 正好就停在那个错误方向上,已另立 #3883)。\n\n## 建议修法(不预判)\n\n删掉两条 `@source` 行与那句解释,或改写成说明它们在什么情况下才有意义。需要留一格判断的是:消费者自建主题(自己写 `@theme` 覆盖 token)时是否需要扫描 —— #3780 的读数倾向于不需要(覆盖 `:root` 里的 `--primary` 即可整体换色,无需扫描),但这是产品向的教法取舍,不做机械替换。\n\n## 已搜重\n\n`theming.md OR quick-start.md OR @source`、`content/docs/guide tailwind style.css`、`tailwind config` 三组关键字搜过本仓开放 issue。#3780(components README,已在实施)、#3852(packages/cli 生成物)、#3883(theming / troubleshooting 两页的 v3 config,本次同批立)均不含本页这两行。\n"
+}

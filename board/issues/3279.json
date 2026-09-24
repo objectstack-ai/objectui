@@ -1,0 +1,35 @@
+{
+  "number": 3279,
+  "kind": "issue",
+  "title": "check-lint-coverage.mjs 的文件头注释是 #3261 那个「三条 object-ui/* 规则」错数的第三份副本(配置里是四条)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "xuyushun441-sys",
+    "id": 255036401,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-03T10:14:35Z",
+  "updated_at": "2026-08-08T15:30:24Z",
+  "closed_at": "2026-08-08T15:30:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3279",
+  "body": "在修 #3274(PR #3278,去掉 `lint.yml` 与 `scripts/check-lint-coverage.mjs` 里那个手工维护的 warning 数字)时,在**同一个文件**里发现的另一处缺陷。按 Prime Directive #10 单独记录,**不夹带**进那个 PR —— #3274 的 PM 划了明确边界:那单只处理 warning 计数这一个事实,而这条是**另一个数字、另一个事实**(`object-ui/*` error 规则的条数),正是 #3261 的主题。\n\n## 现象\n\n`scripts/check-lint-coverage.mjs:11-14`(文件头 docblock):\n\n```\n * The stakes are concrete: `eslint.config.js` sets three `object-ui/*` rules to\n * `error` specifically so a new violation fails CI (ADR-0054 Phase 5, #2879,\n * and the objectql.ts type-discipline ratchet). Those ratchets are worthless in\n * a package that never runs ESLint.\n```\n\n这是 #3261 修掉的那句话的**逐字副本**:同样手工点数「three」,同样括号里手工列举来源(而且同样短了一个)。#3261 只改了 `.github/workflows/lint.yml`,这一份原样留着。\n\n## 它现在就是错的(与 #3274 不同)\n\n#3274 的那个 warning 数字没有证据说它今天是错的,修的是「它注定会错」。**这一条不一样 —— 它已经错了**,和 #3261 当初错的方式一模一样。`eslint.config.js` 里设成 `error` 的 `object-ui/*` 规则有**四条**:\n\n| 行 | 规则 | 注释里给的来源 | 被这句话列到了吗 |\n|---|---|---|---|\n| 59 | `object-ui/no-synthetic-event-trigger` | ADR-0054 Phase 5 ratchet (C1) | ✅ |\n| 65 | `object-ui/no-try-catch-around-hook` | objectui#2879 ratchet | ✅ |\n| 98 | `object-ui/no-dynamic-import-in-test-hook` | 测试纪律(scoped 到测试文件) | ❌ **漏了** |\n| 111 | `object-ui/no-inline-spec-config` | objectql.ts type-discipline ratchet | ✅ |\n\n漏掉的正是 `no-dynamic-import-in-test-hook` —— 和 #3261 里漏掉的是同一条。\n\n核对方式(四条的 severity 全是 error):\n\n```\ngrep -n object-ui/ eslint.config.js\n```\n\n#3273 新增的 `scripts/__tests__/lint-workflow.test.ts` 会读求值后的 flat config 得到同一个答案,只是它**只**看 `lint.yml`,看不到这个文件。\n\n## 为什么值得单独修\n\n- 这是同一个事实的**第三份**手写副本(`lint.yml` 一份已由 #3261 去掉,`content/docs/guide/ci-cd-pipeline.md` 本来就是去数字写法)。#3212 那种「同一个事实三个数字」的形态在这里已经成立。\n- 危害与 #3261 相同:下一个新增 `error` 级规则的人读到这段,会得到一个**同样自信、但是错的**答案(「只有三条」),从而误判自己的规则在不在这道门禁里。\n- 这段话的主张本身是对的、也值得保留(「没有 `lint` script 的包不是干净,是没被 lint 过;那这些 ratchet 在那里一文不值」)—— 要去掉的只是**点数**和**列举**。\n\n## 建议\n\n改成 #3261 已经确立、且 `lint.yml` 和 `ci-cd-pipeline.md` 都在用的泛化写法:「`eslint.config.js` 里设成 `error` 的那些 `object-ui/*` 规则」—— 永远为真,无需维护;每条规则自己的来源(ADR/issue)就写在 `eslint.config.js` 里它旁边,那才是唯一诚实的清单。\n\n**顺带值得考虑**(留给处理这单的人判断,不预设结论):`scripts/__tests__/lint-workflow.test.ts` 的守卫目前只扫 `lint.yml`。它的两条断言(不得点数、不得列举规则名)已经把判定逻辑写好了,把扫描面扩到这个文件基本是把路径参数化;这样第四份副本长出来时会被机械挡住,而不是靠下一次偶然发现。成本仍是毫秒级(纯文本 + 一次已有的 flat config 求值),与 #3274 里被否掉的「跑全仓 ESLint 钉住 warning 数」不是一个量级。\n\n## 范围\n\n- `scripts/check-lint-coverage.mjs`(文件头 docblock,第 11-14 行)\n- 可选:`scripts/__tests__/lint-workflow.test.ts`(把守卫扩到这个文件)\n\n## 前情\n\n- #3261 / PR #3273 —— `lint.yml` 里的同一句话(修的就是「three 实为 four」)\n- #3274 / PR #3278 —— 同一个文件里的 warning 数字(已去数字化)\n- #3212 —— 同一个事实三个数字的先例"
+}

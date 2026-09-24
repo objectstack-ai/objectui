@@ -1,0 +1,35 @@
+{
+  "number": 3387,
+  "kind": "issue",
+  "title": "门禁:PR 改动 `packages/*/src/**` 而未新增 `.changeset/*.md` 时失败(空 frontmatter 为显式豁免)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T12:24:08Z",
+  "updated_at": "2026-08-08T13:16:52Z",
+  "closed_at": "2026-08-08T13:16:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3387",
+  "body": "Part of objectstack-ai/objectstack#4904(跨分片转移:落点在本仓,源单留主 backlog 跟踪)\n\n## 背景\n\nobjectstack 侧 #4731 / #4843 已把「哪些前端改动发版」的判据统一为**读本仓声明的 `.changeset/*.md`**。该判据的正确性依赖一个本仓前提:**改了已发布包源码就必须带 changeset** —— 目前没有门禁保证。\n\n实测区间 `7d9734d5e321..785b8a5d432c`(53 个非 merge 提交)有 7 条无 changeset,其中两条真实改了已发布包源码且为用户可见修复:\n\n| 提交 | 改动 |\n|:---|:---|\n| `19716b5bf` `fix(charts): name the slices` (#3138) | `packages/plugin-charts/src/AdvancedChartImpl.tsx`、`ChartContainerImpl.tsx`、`packages/plugin-dashboard/src/DatasetWidget.tsx` |\n| `5e7ef1141` `fix(i18n): resolve qualified view ids` (#3132) | `packages/i18n/src/useObjectLabel.ts` |\n\n后果:这两条修复不在本仓 CHANGELOG/版本号里,不在平台侧 `bump-objectui.sh` 写的 console changeset 里,不在发布页 Console 段落里 —— 搭了下一次发版的顺风车,任何发布记录都查不到。\n\n## 要做什么\n\n加一道 CI 门禁:PR 若改动 `packages/*/src/**` 且未新增 `.changeset/*.md` → 失败。\n\n- **空 frontmatter(release-nothing)是合法的显式豁免写法** —— 要的是声明一次,不是强制发版;\n- 思路对齐 objectstack 仓的 `check:changeset-*` 系列:声明即强制,不让消费侧猜;\n- 门禁自身按 #4690 反模式防御:输入缺失(diff 取不到、changeset 目录不存在)响亮失败,不静默 exit 0。\n\n## 关联\n\n- objectstack#4904(源单,含完整分析)\n- objectstack#4731 / #4843(判据统一到声明)\n- objectstack#3340(共同要防的洞)"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 3889,
+  "kind": "pull_request",
+  "title": "fix(cli): 生成的临时 app 从 Tailwind 3 全套迁到 v4,dev 的编程式 postcss 改接 @tailwindcss/postcss (#3852)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:08:29Z",
+  "updated_at": "2026-08-09T00:15:52Z",
+  "closed_at": "2026-08-09T00:15:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T00:15:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3889",
+  "body": "Fixes #3852\n\n`packages/cli` 的两个生成器写出的样式面此前是完整的 Tailwind 3 三件套,而仓内与 `@object-ui/components` 都已在 v4(components 的 `peerDependencies.tailwindcss` 是 `^4.2.1`)。#3827 / PR #3854 把这三个键钉成显式 `TAILWIND_V3_DEFERRED` 记账并指向本单 —— 本 PR 有意识地翻转那些钉子。\n\n## 实测到的两个后果\n\n**1. 仓内 `objectui dev` 的 CSS 管线今天是死的,而且比 issue 描述的更彻底。**\n`commands/dev.ts` 的 monorepo 分支把 `require('tailwindcss')(configPath)` 当 PostCSS 插件调用,v4 下这条路径只会抛 \"moved to `@tailwindcss/postcss`\";异常被 `try/catch` 吞成一行黄字警告,于是 `css.postcss` 根本没被设上,Vite 退回去搜配置文件、往上找到仓根的 `postcss.config.mjs`,而 `@tailwindcss/postcss` 从仓根解析不到 —— 浏览器拿到的是 **HTTP 500**:\n\n```\nFailed to load PostCSS config (searchPath: /home/user/objectui-3852/.objectui-tmp):\n  [Error] Loading PostCSS Plugin failed: Cannot find module '@tailwindcss/postcss'\n```\n\n终端只有一行警告,进程退出码 0,服务照常起。\n\n**2. 仓外一次干净安装 ERESOLVE。** 生成清单声明 `tailwindcss ^3.4.19`,与它依赖的 `@object-ui/components` 的 v4 peer 冲突;#3827 让 `@object-ui/*` 变成真能解析之后这条冲突就上膛了。\n\n## 改动\n\n- **`src/index.css`** 改为仓内惯用的 v4 CSS-first 写法(`@import 'tailwindcss'` + `@custom-variant dark` + `@source` + `@theme`),参照 `packages/components/src/index.css` 与 `examples/console-starter/src/index.css`。两个生成器合用一个 builder —— 此前两份 CSS 除 `body` 上三个 utility 外逐字节相同。`@theme` 的 token 集与 components 的 `@theme` 逐条对齐,含 v3 config 一直缺、而生成的 `src/Layout.tsx` 自己就在用的 8 个 `sidebar-*` token(`bg-sidebar-primary`、`data-[state=open]:bg-sidebar-accent` …)。\n- **`postcss.config.js`** 写 `'@tailwindcss/postcss': {}`(同 `packages/components/postcss.config.js`)。\n- **不再生成 `tailwind.config.js`。** v4 下没有 `@config` 指向它时它就是死文件,仓内本身零个 `tailwind.config.*`;v3 `content` 的四条扫描面等价迁为 `@source`,workspace 两条绝对 glob(components / `plugin-*`)语义不变,仓外另补 `../node_modules/@object-ui/*/dist/**/*.js` —— v4 不自动扫被 gitignore 的 `node_modules`,这是 v3 `content` 同样缺、v4 才有办法补的一条。\n- **清单**:`tailwindcss ^3.4.19` → `^4.3.3`(锚仓根),新增 `@tailwindcss/postcss ^4.3.3`(锚仓内 6 处一致声明);`DEPENDENCY_ANCHORS` 去掉 `deferred-tailwind-v4` 这一整类。\n- **`commands/dev.ts`** 改接 `@tailwindcss/postcss`,并由 `@object-ui/cli` 自己声明这两个插件包 —— 仓根只声明 `tailwindcss`、不声明 `@tailwindcss/postcss`,从 cwd 解析在本仓必然失败(实测 `MODULE_NOT_FOUND`);从 components 的 node_modules 里捞正是 #3827 点名的\"在消费端糊\"的做法,所以在生产端声明。加载失败不再吞成警告,而是带修法响亮报错并拒绝起服务。\n- `serve.ts` / `build.ts` 同路径核查:两者**没有** monorepo 分支,始终走生成的 `postcss.config.js`,因此本 PR 换掉那份配置就同时修好了它们真实被用到的仓外路径;它们在仓内另有一个与 Tailwind 无关的更深缺陷(见文末越界发现),已另行立单而不在本 PR 处理。\n\n## 浏览器实证(dogfood)\n\n同一份探针页(`h-16 bg-background border-b px-4` / `bg-sidebar-primary size-8 rounded-lg` / 只存在于 `packages/components/src` 的 `min-h-[150px]` / 只存在于 `packages/plugin-chatbot/src` 的 `sm:h-[360px]`),由同一个正在跑的 `objectui dev` 服务出,Chromium 读 computed style:\n\n| 探针 | 修前 | 修后 |\n| --- | --- | --- |\n| `/src/index.css` | **HTTP 500**,`document.styleSheets` 0 条规则 | HTTP 200,422,304 B,首行 `/*! tailwindcss v4.3.3 */`,89 条顶层规则 |\n| 终端 | 一行黄字警告,exit 0 | 无警告 |\n| `h-16` 高度 | `0px` | `64px` |\n| `bg-background` | `rgba(0, 0, 0, 0)` | `rgb(2, 8, 23)` |\n| `px-4` | `0px` | `16px` |\n| `border-b` 颜色 | `rgb(0, 0, 0)` | `rgb(30, 41, 59)` |\n| `bg-sidebar-primary` | `rgba(0, 0, 0, 0)` | `rgb(29, 78, 216)`(= `hsl(224.3 76.3% 48%)`) |\n| `size-8` / `rounded-lg` | `1264px × 0px` / `0px` | `32px × 32px` / `8px` |\n| `min-h-[150px]`(仅 components/src) | `0px` | `150px` |\n| `sm:h-[360px]`(仅 plugin-chatbot/src) | `0px` | `360px` |\n| body 背景 / 前景 / min-height / 字体平滑 | 透明 / 黑 / `0px` / `auto` | `rgb(2, 8, 23)` / `rgb(248, 250, 252)` / `900px` / `antialiased` |\n\n一处诚实的限定:这次 in-repo 运行里,`@tailwindcss/postcss` 的自动 source 检测(base = 调用时的 cwd = 仓根)也会扫到仓内其它包(探针外可见 `h-[260px]` 这类只属于 `packages/app-shell/src` 的类也被编出),所以上表最后两行不能单独证明我写的 workspace `@source` glob 生效。glob 形状是另外用离线编译 fixture 单独验的:绝对路径 glob、目录位 `plugin-*` 通配、以及 `node_modules/@object-ui/*/dist/**/*.js`(自动检测永不扫 node_modules,因此这条只能由显式 `@source` 命中)三者都实测通过。显式 `@source` 仍然必要:自动检测的 base 取决于调用时的 cwd,不保证是 workspace 根。\n\n单元测试里没有\"真编译一遍\"的门禁,原因也是实测的:`@import 'tailwindcss'` 由插件按样式表**自身所在目录**解析,fixture 旁边没有 `node_modules` 就报 `Can't resolve 'tailwindcss' in …/app/src`。这一端因此留给上面的浏览器实证,单测只钉形状与语义。\n\n## 反向验证(方向先判后跑)\n\n预判先写下再跑,跑完逐条对上:\n\n- **还原两份 pre-fix 源码** → 新增门禁 8 条转红并逐一点名:`@tailwind base;` 在、v3 插件键在、`tailwind.config.js` 被写出、`@source` 全无、`@theme` token 期望 35 个实得 0 个、`^3.4.19` 与 peer `^4.2.1` 不同 major、锚表少 `@tailwindcss/postcss`。\n- 同一次还原暴露了一条方向**不**如预期的:`resolves every theme token through a variable it declares itself` 在 pre-fix 输入上是**绿的** —— 因为那份 CSS 根本没有 `@theme`,被引用集合为空,空集没有未声明成员。这正是 #3826 说的\"因为什么都没产出而绿\",已就地补上 `referenced.length > 20` 的非空断言,并把这条原因写进注释。\n- **把 `@tailwindcss/postcss` 从 CLI 的 node_modules 移开**(模拟坏安装)→ 退出码 **1**、带修法的报错、`127.0.0.1:5854` 无人监听;此前同类失败是\"警告 + exit 0 + 无样式\"。\n\n## 验证\n\n- `pnpm exec vitest run packages/cli/src/__tests__/ --maxWorkers=2` → 3 files / **63 passed**\n- `pnpm --filter @object-ui/cli type-check` → 干净;末次编辑后全仓 `pnpm exec turbo run type-check --concurrency=2` → **78/78 successful**\n- `pnpm --filter @object-ui/cli build` 后按 #3854 先例核 dist 深度:`dist/` 里 `\"@tailwindcss/postcss\": \"^4.3.3\"`、`tailwindcss: \"^4.3.3\"`、`'@tailwindcss/postcss': {}`、`@import 'tailwindcss'` 都在;`@tailwind base`、`'tailwind.config.js'`、`3.4.19`、`require('tailwindcss')` 全部零命中(`^4.1.18` 的那处命中属 `init.ts` 的脚手架,与本单无关且本来就是 v4)\n- 改动文件控制字节 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 零命中;起过的 dev server(5852/5853/5854/5855)全部按 PID 关净,临时 fixture 与 `.objectui-tmp` 已删\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

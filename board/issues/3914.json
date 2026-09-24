@@ -1,0 +1,34 @@
+{
+  "number": 3914,
+  "kind": "issue",
+  "title": "docs: `app-shell.mdx` 的 Header Bar / Content Area 两处数值与 `AppShell.tsx` 不符(「64px / 4rem」实为 `h-14`=56px;「4 on mobile」实为 `p-3`,且 mobile 的 `pb-20` 未记)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:58:58Z",
+  "updated_at": "2026-08-09T13:46:30Z",
+  "closed_at": "2026-08-09T13:46:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3914",
+  "body": "发现于 #3902 的实现(分支 `claude/issue-3902-pageheader-responsive-claim`),**不在该 PR 处理** —— #3902 的判定面被钉在 `content/docs/layout/page-header.mdx` 的 Responsive Behavior 那一行,这两条在**另一个文件、另一个组件**(AppShell)。\n\n在 `origin/main` @ `c2ecbaed9` 核过。\n\n## 现象\n\n`content/docs/layout/app-shell.mdx:59-74`\n\n```\n### Header Bar\n\nThe header bar provides:\n- Sidebar toggle button\n- Custom navbar content area\n- Fixed height (64px / 4rem)\n- Border bottom separator\n- Background matching app theme\n\n### Content Area\n\nThe main content area features:\n- Responsive padding (4 on mobile, 6 on desktop)\n- Automatic scrolling\n- Flexible height (fills viewport)\n- Custom className support\n```\n\n**两条数值都与源码不符:**\n\n1. **`:64` 「Fixed height (64px / 4rem)」** —— `packages/layout/src/AppShell.tsx:249` 的 header class 是\n   `sticky top-0 z-30 flex h-14 w-full shrink-0 items-center gap-2 border-b bg-background px-2 sm:px-4`。\n   `h-14` = 3.5rem = **56px**。整个文件里 header 高度类只有这一处(grep `h-1[0-9]` 在 AppShell.tsx 唯一命中 :249),没有别处把它覆盖成 64px。文档写的 64px / 4rem 对应 `h-16` —— 不存在。\n\n2. **`:71` 「Responsive padding (4 on mobile, 6 on desktop)」** —— `AppShell.tsx:257` 是\n   `flex-1 min-w-0 overflow-auto p-3 sm:p-4 md:p-6 pb-20 sm:pb-4 md:pb-6`。\n   实际是三档:mobile `p-3`(**3,不是 4**)、`sm:p-4`、`md:p-6`;此外 mobile 的**底部** padding 被 `pb-20`(5rem)单独抬高(看形状是给移动端底部栏留净空),文档完全没记。覆盖 `className` 的作者按「4 on mobile」去算,在 mobile 和 sm 两档都会算错,底部那一档差得最多。\n\n## 为什么值得记一笔\n\n与 #3786 / #3902 是同一类病:文档把 Tailwind 间距/尺寸写成具体数字,而这些数字随源码漂移后,读者**无法从文档自身判断真假** —— 偏偏照这些数字算的正是要覆盖间距的作者。#3786 已修好的 page-header 「Styling → Container」节给了一个不易漂移的写法可以照抄。\n\n## 建议处置\n\n按 `AppShell.tsx:249` / `:257` 现状改写这两行:高度写 `h-14`(56px),padding 写清 mobile/sm/md 三档并记上 mobile 的 `pb-20`;或改成不重复数值、指向源码的说法。不到 4 行,无产品决策。\n\n## 参考位置\n\n- `content/docs/layout/app-shell.mdx:64`、`:71`\n- `packages/layout/src/AppShell.tsx:249`、`:257`\n\n关联:#3902(发现于此)、#3786(同类假断言的先例)\n"
+}

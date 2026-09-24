@@ -1,0 +1,33 @@
+{
+  "number": 3964,
+  "kind": "pull_request",
+  "title": "fix(site): Schema Catalog 卡片外壳去 button 化,示例预览不再嵌套按钮 (#3903)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T17:47:27Z",
+  "updated_at": "2026-08-09T17:54:33Z",
+  "closed_at": "2026-08-09T17:54:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T17:54:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3964",
+  "body": "Fixes #3903\n\n## 问题\n\n`SchemaCatalogIndex` 把每张卡片渲染成 `button`(修前 `:111`),而卡片里嵌的 `SchemaThumbnail`(`:116`)用真实 `SchemaRenderer` 渲染示例本身。目录 423 个示例里 **85** 个含 `\"type\": \"button\"` 节点,于是这些卡片在 `/docs/guide/schema-catalog` 上落成「按钮套按钮」。\n\nReact 把它判为 hydration error 而非样式瑕疵:HTML 解析器会把内层按钮**提出**外层,server HTML 与 client 树因此不一致。它同时本身就是可访问性缺陷 —— 交互控件套交互控件,键盘与读屏行为未定义。\n\n前提已在 `origin/main` @ `69becd2d1` 上复核:AST 扫描 apps/site 全部 17 个 tsx,命中恰好一处 —— `SchemaCatalogIndex.tsx:116 SchemaThumbnail inside button@111`,与 issue 正文与分诊评论完全一致。\n\n## 改法\n\n**1. 卡片外壳去 button 化。** 外壳改为非交互 `div`(加 `relative`,边框 / hover / 间距类不变),点击目标改为绝对定位的覆盖层 `button` 兄弟节点(`absolute inset-0`)。缩略图与文字都不再位于任何交互控件的子树内。正文提到的 `div role=\"button\"` 写法会把 hydration 与 a11y 两个问题都留下,因此没有采用(结构钉也把它一并禁掉)。\n\n**2. `SchemaThumbnail` 的缩放预览层加 `inert`。** 仅有覆盖层不够 —— 见下方焦点顺序实测。\n\n### a11y 论证\n\n- **焦点顺序**:覆盖层 `button` 是卡片内唯一可聚焦节点,焦点顺序 = 卡片视觉顺序,**一卡一停**。修前 DOM 顺序上缩略图在前,从第一张卡 Tab 出去依次落在示例内部的 Submit / Save Draft / Delete / Cancel 才到第二张卡(实测轨迹见下)。`inert` 同时移除聚焦与命中测试,这才让该组件文档里写的「scaled, non-interactive preview」成立;原来的 `pointer-events: none` 只管住了鼠标。另外缩略图框本身带 `aria-hidden`,子树里存在可聚焦节点本身就是 axe `aria-hidden-focus` 违规。\n- **焦点环**:`focus-visible:ring-2` 画在覆盖层上,而覆盖层 `inset-0` 解析到外壳的 padding box,因此视觉上仍是「整卡获得焦点」(修后截图里 Simple Login Form 那张卡的环即是)。\n- **可访问名**:`aria-label` 为 `Open {title} ({id})`,包含卡片上**可见**的标题与 id,满足 WCAG 2.5.3 label-in-name;role 由 `button` 元素本身提供。\n- **鼠标**:hover 仍作用在外壳(hover 沿祖先链传播),边框高亮行为不变;覆盖层带 `cursor-pointer`(Tailwind v4 preflight 不再给 button 设 pointer)。\n\n## 浏览器实证\n\nChromium(`/opt/pw-browsers/chromium`)+ `next dev`,同一 dev server 上先复现后修复;缩略图是 IntersectionObserver 懒挂载,因此滚动加载后再统计。\n\n| 读数 | 修前 | 修后 |\n|---|---|---|\n| `document.querySelectorAll('button button').length` | **136** | **0** |\n| `cannot be a descendant of` / `cannot contain a nested` 控制台报错 | **2** | **0** |\n| 其中 `This will cause a hydration error` | **1** | **0** |\n| aria-hidden 预览内可聚焦节点 | **180** | **0** |\n| `[inert]` 预览层 | 0 | 115(已挂载的) |\n| 卡片外壳是 button | 423 | 0 |\n| 覆盖层 button | 0 | 423 |\n| Next dev 指示器 Issues 计数 | 12 | 10 |\n\n修前报错样本(祖先栈直接点名 GalleryCard 的外壳 button 套住 ButtonRenderer 的 button):\n\n```\n[error] In HTML, %s cannot be a descendant of  %s .\nThis will cause a hydration error.%s  button   button\n  ...\n    GalleryCard entry={{id:\"action...\", ...}}\n>     button\n>       type=\"button\"\n>       onClick={function onClick}\n>       className=\"group flex flex-col gap-2 rounded-lg border border-fd-border bg-fd-card p-3...\"\n>     \n        ...\n          SchemaErrorBoundary componentType=\"button\"\n            ButtonRenderer schema={{type:\"button\", ...}} label=\"Submit\"\n              Button ref={null} type=\"button\" variant=\"default\"\n>               button\n>                 className={\"inline-flex items-center justify-center gap-2 whitespace-nowrap...\"}\n```\n\n点击导航实测(抽 3 张卡实点,dialog 的 aria-label 与卡片标题一致,Esc 关闭):\n\n```\nOpen Action Button Variants (actions/action-button-variants) -> dialog \"Action Button Variants\"\nOpen Action Toolbar (actions/action-toolbar)                 -> dialog \"Action Toolbar\"\nOpen Confirmation Dialog (actions/confirmation-dialog)       -> dialog \"Confirmation Dialog\"\n```\n\n焦点顺序实测(聚焦第一张卡后连按 Tab):\n\n```\n修前: 卡1外壳 -> Submit -> Save Draft -> Delete -> Cancel -> 卡2外壳 -> Reject\n修后: 卡1覆盖层 -> 卡2 -> 卡3 -> 卡4 -> 卡5 -> 卡6 -> 卡7\n```\n\n截图与完整控制台日志留在 scratchpad(`3903-before.png` / `3903-after.png` / `3903-*-console.log`)。\n\n## 测试\n\n`apps/site` **没有 vitest 面**(根 `vitest.config.mts` 的 `sharedExclude` 含 `apps/**`,`projects` 只额外注册了 `apps/console`),而这个缺陷形态是静态可判的,所以结构钉放在 `scripts/__tests__/` —— 与 `site-playground-layout-registration-3904.test.ts` 同一高度、同一理由,且它在 CI 的根 vitest 分片里真的会跑(不是只能靠一个默认被 skip 的 docs-smoke e2e)。\n\n钉子用 TS AST 遍历 apps/site 全部 tsx:任何 schema 预览宿主(`SchemaRenderer` / `SchemaThumbnail` / `InteractiveDemo` / `LiveSplitDemo` / `SchemaExample`)与任何 `button`,都不得落在 `button` 或 `role=\"button\"` 的子树里 —— **按发现而非硬编码文件清单**,明天新加的第二个宿主会被同样抓到。防空转绿三重:检测器先对四份合成样本自测(修前形状、button 套 button、`div role=button` 改写、覆盖层形状),再断言扫描确实覆盖到 ≥10 个文件且含卡片文件,并断言卡片文件里确实同时存在预览宿主与 button。最后一条 suite 钉 `inert` + `pointer-events-none`。\n\n反向验证(方向在跑之前就已预判,两条都是朴素红):\n\n```\n修前(pristine main):  Tests  2 failed | 7 passed (9)\n  × finds no schema preview nested inside an interactive control\n      + [ \"apps/site/app/components/SchemaCatalogIndex.tsx:116 SchemaThumbnail inside  button  at line 111\" ]\n  × SchemaRenderer #0 is wrapped in an inert, pointer-events-none subtree\n      no ancestor ... carries inert: expected 0 to be greater than 0\n修后:                 Test Files  1 passed (1) / Tests  9 passed (9)\n```\n\n其余门(仓根,全部在共享 verify 锁内串行):\n\n```\npnpm exec vitest run scripts/__tests__/site-catalog-card-interactive-nesting-3903.test.ts --maxWorkers=2   PIN_EXIT=0\npnpm run type-check:scripts                                                                                SCRIPTS_TC_EXIT=0\npnpm --filter @object-ui/site types:check                                                                  SITE_TC_EXIT=0\npnpm exec turbo run type-check --concurrency=2                        Tasks: 78 successful, 78 total       TURBO_TC_EXIT=0\nnode scripts/check-control-bytes.mjs        OK (3852 tracked text files)\npnpm exec eslint (三个改动文件)              0\n```\n\n## changeset\n\n无需 changeset:`.changeset/config.json` 把 `@object-ui/site` 列在 `ignore`,且 `scripts/check-changeset-presence.mjs` 只守 `fixed` 组里每个包自己的 `src` 目录(即 包名 + `/src/**`);本 PR 改的是 `apps/site/app/**` 与 `scripts/__tests__/**`,两者都不在守护面内。\n\n## 范围之外\n\n- `content/**/*.mdx` 里的 `SchemaExample` 用法不在这条 AST 规则的扫描面(只扫 tsx),跨组件边界的交互性分析也不在 —— 缺陷本身与回归都会是同一文件内的 JSX 形状,更大的全图分析是另一件工具。\n- 修后 `button [aria-hidden]` 仍有 91 处:那是页面上**其它** button(站点 chrome 与预览内部按钮)里的 aria-hidden 图标节点,与本单无关,非残留。\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3546,
+  "kind": "issue",
+  "title": "258 个 t() 调用点引用的 key 在任何语言包里都不存在(#3530 守卫首跑实测),其中 8 处直接把 raw key 渲染给用户",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T03:38:42Z",
+  "updated_at": "2026-08-09T00:06:54Z",
+  "closed_at": "2026-08-09T00:06:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3546",
+  "body": "由 #3530 的守卫(`scripts/check-i18n-call-site-keys.mjs`)在 `main@a2c8f2a29` 上首次全量扫描量出。本单是**存量缺 key 的账**,守卫本身以 baseline 落地(不修包,越界),这里立单跟踪修复。\n\n## 量出来的数\n\n扫描面:`packages/**` + `apps/**` 的非测试 `.ts/.tsx`(1456 个文件),共 3485 个 `t()`/`tt()` 调用点,其中 **2370 个是包驱动的**(绑定来自 `use*Translation`/`use*Translate`/`use*T` 钩子;另有 1074 个走 `packages/app-shell/src/views/metadata-admin/i18n.ts` 这张模块内标签表,不在本单范围)。\n\n| 项 | 数 |\n|---|---|\n| 包驱动调用点的字面量 key | 2319 |\n| 能在 `en` 解析 | 2043 |\n| **解析不到(缺 key)** | **276 处 / 258 个不重复 key** |\n| **模板 key 静态前缀在 `en` 一条都不匹配(整族缺失)** | **5 处 / 4 个前缀** |\n| 动态拼 key(仅计数,不判定) | 62 |\n\n`all-locales-key-parity.test.ts` 对这 258 个 key 全绿 —— 十个包一致地都没有,包际一致性成立。这正是 #3530 记录的门禁盲区。\n\n## 按命名空间(不重复 key 数)\n\n`organization` 90、`console` 43、`auth` 26、`marketplace` 19、`preview` 18、`oauth` 16、`acceptInvitation` 12、`perm` 9、`detail` 5、`home` 5、`common` 4、`empty` 3、`layout` 3,以及 `dashboard`/`gantt`/`kanban`/`wizard`/`workspace` 各 1。\n\n按包(调用点数):`packages/app-shell` 204、`apps/console` 54、`packages/plugin-detail` 14,`plugin-dashboard`/`plugin-form`/`plugin-gantt`/`plugin-kanban` 各 1。\n\n**建议的拆单轴 = 命名空间**:`organization`(90)、`console`(43)、`auth` + `oauth` + `acceptInvitation`(54)、`marketplace`(19)、`preview`(18)是五坨可以并行、互不冲突地补进 `en.ts` 的工作;剩下的零散 key 一单收尾。补进 `en.ts` 之后 `all-locales-key-parity.test.ts` 会立刻要求另外九包补齐 —— 那是正确的顺序,不是额外负担。\n\n## 严重度不均:8 处**没有**内联 defaultValue,用户直接看到 raw key\n\n其余 268 处都写了 `t(key, { defaultValue: '英文' })`,英文照常渲染、只是十种语言都翻不了(#3517 那一类,静默数月)。下面这 8 处连兜底都没有:\n\n```\npackages/app-shell/src/views/ObjectView.tsx:854:25   console.objectView.cannotEditMetaView\npackages/app-shell/src/views/ObjectView.tsx:872:25   console.objectView.cannotDeleteMetaView\npackages/app-shell/src/views/ObjectView.tsx:906:25   console.objectView.cannotEditMetaView\npackages/app-shell/src/views/ObjectView.tsx:923:17   console.objectView.cannotEditMetaView\npackages/app-shell/src/views/ObjectView.tsx:976:17   console.objectView.cannotEditMetaView\npackages/plugin-detail/src/RecordActivityTimeline.tsx:486:30   detail.viewSource\npackages/plugin-form/src/WizardForm.tsx:403:11   wizard.missingRequired\npackages/plugin-gantt/src/GanttView.tsx:3269:27   gantt.toolbar.refresh\n```\n\n两个已核实的现场:\n\n- `ObjectView.tsx:854` 写的是 `toast.error(t('console.objectView.cannotEditMetaView') || 'Built-in views cannot be renamed.')`。i18next 缺 key 时返回 **key 本身**(真值),`||` 兜底永远不触发 —— toast 上显示的就是 `console.objectView.cannotEditMetaView` 这行字。\n- `GanttView.tsx:3269` 是 `aria-label={t('gantt.toolbar.refresh')}`。该 key 在 `packages/plugin-gantt/src/useGanttTranslation.ts:39` 的 defaults map 里有,但 defaults map 只在**没有 provider** 时生效;console 里 provider 是挂着的,于是 `useGanttTranslation` 交出 i18next 的 `t`,刷新按钮的无障碍名就是 `gantt.toolbar.refresh`。屏幕阅读器用户听到的是这个。\n\n`useSafeTranslation`/`createSafeTranslation` 这一族的 defaults map 都有同样的语义陷阱:**map 里有、包里没有的 key,恰恰在真实 console 里退化成 raw key**,而在无 provider 的单测里是绿的。\n\n## 4 个整族缺失的模板 key\n\n`en` 里没有任何 key 以这些前缀开头,所以插值取什么值都是缺的:\n\n```\npackages/app-shell/src/console/ai/ConversationsSidebar.tsx:277:20            console.ai.group.\npackages/app-shell/src/console/marketplace/PluginDisclosure.tsx:70:14        marketplace.disclosure.runtime.\npackages/app-shell/src/console/organizations/manage/InvitationsPage.tsx:161  organization.invitations.status.\npackages/app-shell/src/console/organizations/manage/InvitationsPage.tsx:206  organization.invitations.status.\npackages/plugin-gantt/src/GanttView.tsx:4577:60                             gantt.linkEnd.\n```\n\n## 修复方式与验收\n\n对每个 key:补进 `packages/i18n/src/locales/en.ts`,再从 `scripts/i18n-call-site-key-baseline.json` 删掉对应条目(该文件是棘轮:条目已修好却还留着,守卫同样会红)。补完 `en` 后 `all-locales-key-parity.test.ts` 会要求另外九包补齐。⛔ 不要用加 `defaultValue` 的方式\"修\" —— 那正是让这 258 个 key 藏了几个月的机制。\n\n全部清零后,`scripts/i18n-call-site-key-baseline.json` 应当只剩空的 `missingKeys`/`missingPrefixes`。\n\n关联:#3530(门禁本体)、#3517 / PR #3526(单个实例与修复)、#3469 / PR #3516(发现路径)。\n"
+}

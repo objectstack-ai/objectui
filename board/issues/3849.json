@@ -1,0 +1,36 @@
+{
+  "number": 3849,
+  "kind": "issue",
+  "title": "disabled 的「已声明」判定还有五处停在 != null(action-icon / action-group ×2 / action-menu / record-quick-actions),#3842 只修了两处",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:40:27Z",
+  "updated_at": "2026-08-08T22:20:22Z",
+  "closed_at": "2026-08-08T22:20:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3849",
+  "body": "## 来源\n\n发现自 #3842 实施时的全仓扫面(`grep \"disabled != null\"`)。#3842 的正文只点了两处落点,PM 也据此把范围裁成两处;实际同形的还有五处,不在其修法面,故独立成单,**未认领**。\n\n## 机理\n\n与 #3842 逐字相同:「是否声明了 `disabled` / `enabled` 门」的判定停在 `!= null`,少了 `!== ''`。于是 `disabled: ''` 被判成「声明了门」,verdict 交给求值入口,而求值入口把空谓词读成「没有条件 → `true`」—— 在 `disabled` 方向上 `true` 意味着**禁用**,空谓词从「没有门」变成「永久置灰」。完整机理与探针见 #3842。\n\n`enabled` 那条 legacy 腿在这五处同样停在 `!= null`,但该腿取反(`disabled = !isEnabled`),空谓词的 `true` 落成「不置灰」,与「没有门」同一结果 —— 所以 `enabled` 腿是**行为等价**、不是缺陷,改它只为「已声明」在两条腿上只有一种拼法(#3842 的 PR 里有四形状推演表)。\n\n## 五处落点(`origin/main` = `aca561a77fd0dc793ea76a7b46cd037e1731eb93`)\n\n| # | 文件:行 | 组件 |\n|---|---|---|\n| 1 | `packages/components/src/renderers/action/action-icon.tsx:97` | `action:icon` |\n| 2 | `packages/components/src/renderers/action/action-group.tsx:106` | `action:group` 内联按钮(`InlineActionButton`) |\n| 3 | `packages/components/src/renderers/action/action-group.tsx:148` | `action:group` 下拉项(`DropdownActionItem`) |\n| 4 | `packages/components/src/renderers/action/action-menu.tsx:98` | `action:menu` 项 |\n| 5 | `packages/plugin-detail/src/renderers/record-quick-actions.tsx:208` | 记录快捷动作(与 `DeclaredActionsBar` 同拼法,无 `enabled` 腿) |\n\n这五处的 `visible` 门都已经在读 `hasDeclaredVisibilityGate`(#3812 / PR #3825、#3823 / PR #3836),同一文件同一按钮上,`visible` 问「已声明」而 `disabled` 问 `!= null` —— 一处组件里两种拼法。\n\n## 可达性\n\n不需要重新论证:这五处的 `visible` 门可达性已由 #3812 / #3823 建立并各自钉住(`action:bar` 绕过 `SchemaRenderer` 直接把成员铺到子渲染器的 schema 上;`action:group` / `action:menu` 自己 map 成员;`record-quick-actions` 由 plugin-detail 直接挂载)。`disabled` 与 `visible` 在同一个渲染函数体内,同一条路。\n\n差别在于 `SchemaRenderer` 对这两个键**不等价**:`packages/react/src/SchemaRenderer.tsx:323` 会读 `newSchema.disabled !== undefined`(注意是 `!== undefined`,又是第三种拼法),所以走 `SchemaRenderer` 的路径上还另有一层;`action:bar` 成员路径不走它。实施时请按落点逐一确认,不要整批假设。\n\n## 影响\n\n命中条件同 #3842(元数据里出现 `disabled: ''`)。这五处是通用动作面(工具条、下拉、记录快捷动作),不像 #3842 的审批收件箱那样有单一高价值宿主,但覆盖面更广。严重度请分诊裁。\n\n## 修法(与 #3842 一致,应无新决定)\n\n五处改读 `hasDeclaredVisibilityGate`(`@object-ui/components` barrel 已导出;`plugin-detail` 从 barrel 取,包内三处从 `./visibility-gate` 取),就地注释说明名称系历史、语义为谓词通用(#3842 已裁不重命名、不加别名)。钉子按 #3842 的形态:四形状(`''` 不置灰 / `true` 置灰 / `false` 不置灰 / 未声明不置灰)× 每处落点,`enabled` 腿按推演写明行为等价。\n\n反向验证方向可以预判:还原 `!= null` 后 `''` 一例**钉红**(`disabled` 侧 `''` 是真的变异探测器,与 `visible` 侧相反 —— 原因见 #3842)。\n\nRelated: #3842(同族,已修两处,PR 分支 `claude/issue-3842-disabled-declared-gate`)、#3848(执行入口 `ActionRunner` 的同族半边)、#3492(不变量出处)、#3812 / #3823 / #3835(`visible` 侧同批落点)。未认领。\n"
+}

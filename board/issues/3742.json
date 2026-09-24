@@ -1,0 +1,36 @@
+{
+  "number": 3742,
+  "kind": "issue",
+  "title": "create-plugin 生成产物的 build 侧 devDependencies 内部不一致且落后仓库工具链 1–2 个 major:`@vitejs/plugin-react ^4.2.1` 的 peer 结构性无法被 `vite ^7.3.1` 满足",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:01:12Z",
+  "updated_at": "2026-08-08T12:10:27Z",
+  "closed_at": "2026-08-08T12:10:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3742",
+  "body": "记录于 #3716(PR #3733)实施期间,dev 因当时搜索配额限流按纪律移交 PM 代立;已搜重(`create-plugin vite devDependencies`),除 #3715/#3716 本族外无命中。#3716 修的是测试侧三依赖;本单是 **build 侧五依赖**的同型问题,且更硬:不是\"落后\",是**结构性装不上**。\n\n## 事实(dev 实测)\n\n模板(现位于 `packages/create-plugin/src/templates.ts` 的 `DEV_DEPENDENCIES`,PR #3733 迁入)同时声明:\n\n- `'@vitejs/plugin-react': '^4.2.1'` + `'vite': '^7.3.1'`\n- `npm view @vitejs/plugin-react@4.2.1 peerDependencies` → `{\"vite\": \"^4.2.0 || ^5.0.0\"}`\n\n即声明的组合**永远无法满足该 peer**——新脚手架插件 `pnpm install` 必报 peer 冲突,`pnpm build` 有风险。\n\n完整漂移表(模板声明 vs 本仓实际):\n\n| 依赖 | 模板 | 仓库实际 |\n|---|---|---|\n| vite | ^7.3.1 | ^8.2.0(仓根) |\n| @vitejs/plugin-react | ^4.2.1 | ^6.0.5(所有仓内 plugin) |\n| vite-plugin-dts | ^4.5.4 | ^5.0.3 |\n| typescript | ^5.9.3 | ^6.0.3 |\n| vitest | ^4.0.18 | ^4.1.10 |\n\ndev 的 artifact E2E 只在仓内实际版本(vite 8.2.0 等)下验证过、声明区间对(vite 7 + plugin-react 4)从未被验证——且如上所示已可证明坏。\n\n## 修法方向\n\n把 PR #3733 加入的 parity 测试(`templates.test.ts`,现只断言三条测试区间与仓根清单逐字一致)**扩展到这五条 build 区间**——一次性封死 #3711 门禁对 `.ts` 源码字面量盲区在整个模板清单上的残余。\n\n## 附带观察(同文件,作本单一节不另立)\n\n生成的 `vite.config.ts` 用 `__dirname`,vite 的 `configLoader: 'native'`(计划中的未来默认)不支持;vite 8 下实测已出警告并指路 `import.meta.dirname`。休眠问题,顺手修即可。\n\n## 关联\n\n#3716 / PR #3733(测试侧三依赖 + parity 测试)、#3711(版本宣称门禁的扫描面边界)、#3715(文档页重写,勿在文档转抄任何版本号)。"
+}

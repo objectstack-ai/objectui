@@ -2,8 +2,8 @@
   "number": 9892,
   "kind": "issue",
   "title": "follow-up(tooling): the 14 remaining `fixture-address` rows — and 5 of them are free NOW, not waiting on objectui#9391",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-try-charles",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:devx",
-    "pm:queue",
     "priority:p3",
     "tooling"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T13:36:25Z",
-  "updated_at": "2026-09-19T00:31:38Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T03:43:01Z",
+  "closed_at": "2026-09-24T03:43:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 5,
   "locked": false,

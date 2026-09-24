@@ -1,0 +1,35 @@
+{
+  "number": 3796,
+  "kind": "issue",
+  "title": "`evalRowPredicate`:宿主 scope 里的 `record` 键会盖掉行绑定 —— CEL 路盖得掉、遗留路盖不掉,同一函数两种优先级",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T16:22:12Z",
+  "updated_at": "2026-08-10T10:04:32Z",
+  "closed_at": "2026-08-10T10:04:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3796",
+  "body": "观察记录,实施 #3521 时发现,**当前没有宿主会踩到**(唯一的真实 provider 不注入 `record`),所以只作 `finding` 记录、不排期。\n\n## 事实\n\n`packages/core/src/evaluator/listConditional.ts` 的 `evalRowPredicate` 这样合并作用域:\n\n```ts\nconst rowObj = toPredicateRecord(row && typeof row === 'object' ? row : {}, opts.fields);\nconst scope = { ...(opts.scope ?? {}), ...rowObj, data: rowObj };\n```\n\n`data` 被显式放在展开**之后**,所以宿主 scope 里的 `data` 键盖不掉行;`record` 没有同样的保护 —— 它靠两条求值路各自的引擎绑定:\n\n- **遗留路**:`new ExpressionEvaluator({ ...scope, record: rowObj })` —— `record` 在展开之后,**行胜出**。\n- **CEL 路**:`evalFieldPredicate(pred, rowObj, fallback, undefined, scope)` → 引擎收到 `{ record: rowObj, extra: scope }`。实测 `extra` **压过** `record` 绑定:\n\n```js\nExpressionEngine.evaluate({ dialect: 'cel', source: 'record.x' },\n  { record: { x: 'ROW' }, extra: { record: { x: 'SCOPE' } } })\n// → 'SCOPE'\n```\n\n于是**同一个 `evalRowPredicate` 调用,`record.x` 的含义取决于谓词是 CEL 还是遗留方言** —— 而方言路由是按字符串里有没有 `===` / `${…}` 这类标记决定的,作者完全感知不到。\n\n## 影响面(今天为零)\n\n仓内唯一注入 predicate scope 的非测试宿主是 `packages/app-shell/src/providers/ExpressionProvider.tsx`,它给的键是 `current_user` / `user` / `ctx` / `os` / `app` / `data` / `features` —— 没有 `record`,所以现在没有任何面会撞上。测试里有人这么用过(`PageBlockInspector.visibleWhen.test.tsx` 传 `scope={{ record }}`,但那条路不走 `evalRowPredicate`)。\n\n会撞上的场合是**将来**某个宿主往 predicate scope 里放 `record`(看着很自然:`ctx.record` 已经有了),那时候行谓词会静默拿到宿主的 record 而不是这一行,并且只在 CEL 谓词上如此。所有走这条入口的面都会同时中招:行 kebab、批量选择栏、条件格式、看板卡片、以及 #3521 之后的 `page:header`。\n\n## 可能的修法(留给分诊,不预设)\n\n最小一致修法是给 `record` 与 `data` 同等的保护 —— 合并时把 `record` 也钉在展开之后(或在传给引擎前从 `scope` 里删掉 `record`),使两条方言路优先级一致:**行永远胜过宿主 scope**。行是这个函数的主语,宿主 scope 是背景,这个方向没有第二种读法;但它改的是 core 的绑定语义,值得一条测试把两条路的优先级一起钉住,而不是顺手改。\n\n同时值得记一笔:`page:header` 现在(#3521 / PR #3791)会把整份宿主 scope 顶层绑定,与行 kebab 一致 —— 也就是说这条边缘从「只有行面有」变成「四个面都有」,这也是为什么单独记下来。\n"
+}

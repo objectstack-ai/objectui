@@ -1,0 +1,35 @@
+{
+  "number": 3845,
+  "kind": "issue",
+  "title": "[finding] marketplace.action.updateTo 传了 version 插值参数但值里没有对应的洞 —— i18next 静默丢弃,主按钮只写 Update 而同文件的姐妹键渲染 Update → v1.2.3(全仓 1/1055)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:09:23Z",
+  "updated_at": "2026-08-10T12:49:14Z",
+  "closed_at": "2026-08-10T12:49:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3845",
+  "body": "在 #3546 切片五(回填 `marketplace` + `preview` 命名空间)顺手量出,**不在该 PR 范围内**。观察级:传进去的参数是**休眠**的,按钮上的 `Update` 本身是个正常标签,今天没有任何东西坏掉。\n\n## 现场\n\n`packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx:555`(云端安装分支的主按钮):\n\n```\nlabel: installing\n  ? t('marketplace.action.installing')\n  : cloudInstalledVersion\n    ? (cloudUpdateAvailable\n        ? t('marketplace.action.updateTo', { defaultValue: 'Update', version: latestVersion })\n        : t('marketplace.action.installed', { defaultValue: 'Installed' }))\n    : t('marketplace.action.installToCloud'),\n```\n\n`version: latestVersion` 被传进去,但 `defaultValue` 是 `Update` —— 没有 `{{version}}` 的洞。i18next 对没有对应洞的插值参数**静默丢弃**,所以这个参数从来没有渲染过任何东西。\n\n对照:**同一个文件**的 `:852`(环境下拉里每个环境后面的版本提示)确实渲染版本:\n\n```\nt('marketplace.install.updateTo', { defaultValue: 'Update → v{{version}}', version: latestVersion })\n```\n\n两个 key 名字都叫 `updateTo`、都传 `version`、都在同一个包详情页上,只有一个有洞。作者意图看着是\"主按钮也该显示要升到哪个版本\",但那只是推测。\n\n## 全仓规模:1/1055,就是这一处\n\n对全仓所有 `t('key', { … })` 形态的调用点(key 在 `en` 能解析的,共 **1055** 个)做 AST 抽取,取出顶层参数名(剔除 i18next 保留名 `defaultValue`/`count`/`context`/`ns`/`lng`/… 与嵌套调用的参数),与 `en` 值里的 `{{hole}}` 名字集合比对:\n\n```\nchecked 1055 pack-backed t(key, {…}) call sites whose key resolves in en\ncall sites passing an option with no matching {{hole}}: 1\ndistinct keys: 1\n  packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx:555\n      marketplace.action.updateTo  inert=[version]\n      en = \"Update\"\n```\n\n**这个类是单例**。第一遍扫描曾报 2 处,第二处 `packages/fields/src/widgets/ImageField.tsx:105` 是**误报** —— 它的外层 `t('fields.image.enlarge', { name: … })` 的参数对象里**嵌了另一个 `t()` 调用**(`t('fields.image.imageAlt', { index: idx + 1 })`),我的正则把内层的 `index:` 当成了外层参数名。剔除嵌套括号跨度后复测为 1。记在这里是因为任何将来实现这道门禁的人会踩同一个坑:参数名提取必须先消掉嵌套调用。\n\n## #3546 切片五做了什么(以及为什么不修)\n\n切片五把 `marketplace.action.updateTo` 补进十个语言包。硬纪律是 **`en` 值与调用点内联 `defaultValue` 逐字节相同**(36/36),所以 `en` 落的是 `Update`,九包落各自的\"更新 / Aktualisieren / Mettre à jour / …\"(复用 `form.update` 既有译文行)。\n\n**没有**顺手给 `en` 加 `{{version}}`,两个理由:\n\n1. 那会改变用户**今天看到的字串**(`Update` → `Update → v2.1.0`),而这条纪律的整个意义就是回填不改变任何英文渲染;\n2. 该改不改是**产品裁量** —— 主按钮要不要带版本号是设计问题,不是 i18n 问题。按钮宽度、与 `Installed` / `Installing…` 三态的视觉一致性都在里面。\n\n切片五的 PR 里有一条断言把这个选择**钉住**,免得下一个读者以为是漏了:\n\n```ts\nexpect(src).toContain(\"t('marketplace.action.updateTo', { defaultValue: 'Update', version: latestVersion })\");\nfor (const lang of LANGS) expect(at(builtInLocales[lang], 'marketplace.action.updateTo')).not.toContain('{{');\nexpect(at(builtInLocales.en, 'marketplace.install.updateTo')).toContain('{{version}}');\n```\n\n也就是说:要么删掉那个休眠参数,要么给十包都加上洞 —— 无论哪条,这条断言都会红,迫使做决定的人正面处理。\n\n## 三道 i18n 门禁为什么看不见\n\n- `check-i18n-call-site-keys.mjs`(#3530):只问 key 在 `en` 存不存在。\n- `all-locales-key-parity.test.ts`:比**包与包**的占位符形状(九包必须和 en 一样),从不比\"调用点传的参数\"和\"值里的洞\"。\n- `check-i18n-en-drift.mjs`(#3650):只在 en 值变化时动作。\n\n反向的错(值里有洞、调用点**不传**参数 → 用户直接看到 `{{name}}` 花括号)同样没人管。本次扫描顺带确认了这一支目前为 0,但那是运气,不是保证。\n\n## 收口方向(未裁决)\n\n- **A. 删掉 `:555` 的 `version` 参数**。零风险,承认按钮就叫 `Update`。\n- **B. 给十包加 `{{version}}`**,与 `:852` 对齐成 `Update → v{{version}}`。是产品改动,需要设计确认三态按钮宽度。\n- **C. 加一道门禁**(建议,与 #3810 选项 B 同一个位置):`t(key, opts)` 的非保留参数名集合必须与 `en` 值的 `{{hole}}` 名集合**相等**,双向都判 —— 传了没洞的参数红(本单),值里有洞没人传也红(声明即强制)。#3530 的守卫已经把调用点解析成 AST 了,增量接近零;存量按上面的实测是 1 处 + 0 处,**不需要基线文件**,可以直接落成硬门禁。\n\n倾向 **C 落门禁 + A 清存量**(A 而非 B,因为 B 是产品决定,不该由一道门禁的存量清理顺手带上)。若维护者认为主按钮该显示版本,那就是 B,并且门禁照样成立。\n\n关联:#3546(切片五量出本条并钉住选择)、#3810(同一位置的另一道门禁提案:内联 defaultValue 必须等于 en 值;这两条判据应当同批实现)、#3530(守卫本体,已有现成 AST)、#3650(en-drift 门禁)。\n"
+}

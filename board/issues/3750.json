@@ -1,0 +1,36 @@
+{
+  "number": 3750,
+  "kind": "issue",
+  "title": "README 的 Peer Dependencies 区块只有 12 行有人比对:同区块另外 16 行里 9 行与清单不符(含 components 的 tailwindcss `^3.0.0` vs 清单 `^4.2.1` 实错)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:29:59Z",
+  "updated_at": "2026-08-08T15:03:42Z",
+  "closed_at": "2026-08-08T15:03:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3750",
+  "body": "实施 #3717(把 ledger 的 `restatement` 从记账升级成断言)时全量普查 `packages/NAME/README.md` 的 **Peer Dependencies** 区块得到的越界发现,据实另立。#3717 的文件面只有 `scripts/__tests__/doc-version-claims.test.ts` + 只读清单/README,下面这些既要改文档/清单、又要加宽门禁,两头都在界外。\n\n## 事实(普查于 `origin/main` = 8ad6070fb)\n\n28 行「backtick 包名 + 版本区间」的 peer 陈述,**只有 12 行**是 ledger 登记的 `react` 行(#3717 的断言正好覆盖这 12 行)。剩下 16 行无人比对,其中 **9 行与本包清单不符**:\n\n| README | 行 | 声明 | 清单 `peerDependencies` | 形状 |\n|---|---|---|---|---|\n| `packages/components/README.md` | 41 | `tailwindcss` `^3.0.0` | `^4.2.1` | **版本失真** |\n| `packages/auth/README.md` | 24 | `react-dom` `^18.0.0 \\|\\| ^19.0.0` | 未声明 | 多报 peer |\n| `packages/collaboration/README.md` | 23 | 同上 | 未声明 | 多报 peer |\n| `packages/i18n/README.md` | 24 | 同上 | 未声明 | 多报 peer |\n| `packages/mobile/README.md` | 24 | 同上 | 未声明 | 多报 peer |\n| `packages/permissions/README.md` | 23 | 同上 | 未声明 | 多报 peer |\n| `packages/plugin-ai/README.md` | 22 | `@object-ui/core`(无版本) | 未声明 | 多报 peer |\n| `packages/plugin-designer/README.md` | 28 | 同上 | 未声明 | 多报 peer |\n| `packages/plugin-report/README.md` | 26 | 同上 | 未声明 | 多报 peer |\n\n第一行是**用户今天就会踩**的:照 README 装 tailwindcss 3 的人,拿到的包要求 `^4.2.1`。这正是 #3690 的形状(清单动了、README 没跟),而且这次门禁两道都看不见。\n\n那 5 个 `react-dom` 多报也不是笔误级:`auth` / `collaboration` / `i18n` / `mobile` / `permissions` 的 `src` 里**没有任何 react-dom 引用**,清单也没声明——README 让读者去装一个这些包不需要的 peer。\n\n## 为什么两道门禁都漏\n\n1. **棘轮(`doc-version-claims.test.ts` 的 KNOWN_CLAIMS)漏 `tailwindcss`**:`TOOLCHAIN` 里是 `Tailwind CSS|Tailwind`,而 `\\bTailwind\\b` 在 `tailwindcss` 上没有词边界(后面接着 `css`),所以 `- \\`tailwindcss\\` ^3.0.0` 这行从来没被匹配、也就从来没进 ledger。`react-dom` 行同理不匹配(`\\bReact\\b` 命中后 SEP 消化不掉 `-dom`,VERSION 落空)。\n2. **#3717 的断言是 ledger 驱动的**:它遍历 `restatement` 条目,条目没有的行自然不判。分诊已预裁「一条规则只判一种事实」,加宽区块超范围,故按「越界即停」记于此。\n\n## 修法方向(不预判,留给分诊)\n\n两半可以独立推进:\n\n- **文档/清单侧**(立刻可做,与门禁无关):`components` 的 tailwindcss 行按清单收窄到 `^4.2.1`(或反向——若 4.x 只是当前实测值而 3.x 仍受支持,那修的是清单);5 处 `react-dom` 与 3 处 `@object-ui/core` 要么从 README 的 peer 区块删掉,要么补进清单的 `peerDependencies`——需要先定「这些包到底要不要 react-dom peer」。注意 `@object-ui/core` 那三处**没有版本字面量**,删/补是结构问题不是版本问题。\n- **门禁侧**(建在 #3717 落地的机器上):把断言从「ledger 有条目的行」加宽到「Peer Dependencies 区块的每一行」,并且双向——区块里的每一行必须在 `peerDependencies` 里逐字对得上;可选反向:清单声明的每个 peer 都得在区块里出现。#3717 已经落了 `parsePeerStatement` / `sameRange` / 清单读取三件套,加宽是复用而不是重写。\n\nBlocked-by: #3717(仅门禁加宽那半;文档/清单侧不依赖它)\n\n## 已搜重\n\n`tailwindcss README peer`、`peerDependencies README 清单`、`tailwind version drift docs`、`react-dom Peer Dependencies README` 四组关键字搜过本仓开放 issue,除 #3717 与 #3741(react-runtime 清单侧 `>=18` 无上界,同族但另一条)外无命中。"
+}

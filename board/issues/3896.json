@@ -1,0 +1,36 @@
+{
+  "number": 3896,
+  "kind": "issue",
+  "title": "AiChatPage 发给 agent 的四条确认文本仍按 UI 语言取值:zh 控制台 + 英文会话把「确认，开始搭建。」发进英文线程,planAnswerMessage 更是完全没有会话语言门控",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:30:43Z",
+  "updated_at": "2026-08-09T02:56:14Z",
+  "closed_at": "2026-08-09T02:56:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3896",
+  "body": "在 #3837(标签半边)的 PR 里写行为钉子时实测量到,**不在该单范围内**(#3837 只把 `planBuildingLabel` 从 `convZh` 摘出;这是同一个门的**发送内容**半边),单独立项。\n\n## 规则\n\n`AiChatPage.tsx:1581-1586` 的注释:发给 agent 的文本随**会话**语言(cloud 确认门 `service-ai-studio` `confirm-gate.ts` `APPROVAL_RE` 只认中英),标签随 UI 语言。#772 / #2884 就是为前者建立的。\n\n## 后果 A —— zh 控制台 + 英文会话,发出的是中文\n\n三条出站文本的三元(`AiChatPage.tsx:1591` / `1594` / `1602`)的 false 分支是 `t(key)` —— 读的是 **UI 包**,不是会话:\n\n```\nconst planApproveMessage = convZh\n  ? '确认，开始搭建。'\n  : t('console.ai.planApproveMessage', { defaultValue: 'Looks good — build it as proposed.' });\n```\n\n`packages/i18n/src/__tests__/outbound-agent-messages.test.ts:19-21` 把该设计的前提写得很清楚:\n\n&gt; That `t()` call is expected to MISS in every non-Chinese pack and fall through to its English `defaultValue`.\n\n这对八个非门控包成立(该测试正是这么守的),对 **zh 包不成立** —— 同一个测试的第二个用例恰恰**要求** zh 定义全部四个 key(`packages/i18n/src/locales/zh.ts:1649-1651`、`1656`)。于是 zh 控制台 + 英文会话点 Build it,发进英文线程的是 `确认，开始搭建。`:门认中文、构建照走,但 agent 之后整条线程转中文 —— 正是 #2884 记录的症状(英文用户点确认把 agent 翻成中文),只是触发方向相反。\n\n**实测**(#3837 的 PR 中,真渲染 `ChatPane` + 真 `I18nProvider`,`defaultLanguage: 'zh'` + 一条英文 user turn):\n\n```\nrenderPane('zh', EN_THREAD).planApproveMessage === '确认，开始搭建。'\n```\n\n因为属于发送半边,#3837 的钉子没有把它钉成现状(不钉缺陷),改用 `de` 控制台断言英文默认值,并在测试注释里指了本单。\n\n## 后果 B —— planAnswerMessage 完全没有门控\n\n`AiChatPage.tsx:2210-2216` 的一键回答芯片:\n\n```\nplanAnswerMessage={(question, option) =>\n  t('console.ai.planAnswerMessage', { question, option, defaultValue: 'For \"{{question}}\", go with: {{option}}.' })\n}\n```\n\n它是**出站**文本(`outbound-agent-messages.test.ts:35` 把它列进 `OUTBOUND_KEYS`,zh 包也定义了它:`zh.ts:1651`),却完全不过 `convZh`。所以中文会话 + 英文控制台点芯片,发进自己线程的是 `For \"…\", go with: …` —— 这就是 #772 开头那句抱怨的字面重演(a Chinese thread under an English UI was sending English into its own chat);zh 控制台 + 英文会话则相反,发出中文句子。\n\n## 根因与建议的修法(未裁决)\n\n一句话:出站文本的语言必须由**会话**解析,`t()`(UI 包)不能当兜底。四个站点、一个修法 —— 收进一个按会话语言解析出站文本的函数(会话为中文 → 中文值;否则 → **en 值**,而不是 UI 包的值),四条一起走;同时把 `outbound-agent-messages.test.ts` 的自述前提改成它实际能保证的东西(它保证的是「八个非门控包不定义」,不是「任何非中文包都会 MISS」)。\n\n关联:#772 / #2884(建立该规则)、#3837(标签半边,已修)、#3546 切片四(把这些 key 补进十包)、#2458 第 4 条(渲染层中英混杂,另一件事)。\n"
+}

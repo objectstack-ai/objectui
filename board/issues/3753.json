@@ -1,0 +1,33 @@
+{
+  "number": 3753,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): 把 queryDataset(selection) 直接声明为 spec 的 DatasetSelection",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:59:09Z",
+  "updated_at": "2026-08-08T12:06:14Z",
+  "closed_at": "2026-08-08T12:06:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T12:06:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3753",
+  "body": "Fixes objectstack-ai/objectui#3613\n\n## 前提核验(issue 只是线索)\n\n在 `origin/main` @ `28364bd` 上逐条核过,**前提成立**:\n\n- `packages/data-objectstack/src/index.ts:3202` 确实仍是 `compareTo?: { kind: 'previousPeriod' | 'previousYear'; dimension: string }` —— `dimension` **必填**。\n- `packages/data-objectstack/package.json` pin 的是 `@objectstack/spec@^17.0.0-rc.5`,lockfile 解析到 `17.0.0-rc.5`(注意:共享 checkout 当前分支的 lockfile 还停在 rc.2,所以这一条必须按 `origin/main` 读)。\n- rc.5 里 `DatasetCompareTo.dimension` 确为可选,注释原文:`**Optional since #5011, resolved by the EXECUTOR — not by any consumer.**`\n\n一处与 issue 正文的**出入**,已按裁定 1「READ the pinned spec package first」核实后照实处理:issue 说该类型在 `contracts/analytics-service.ts`,但发布出来的包里**没有** `src/contracts/`(源码只部分随包)。实际导出名与入口是 `DatasetSelection` / `DatasetCompareTo`,从 **`@objectstack/spec/contracts`** 子路径导出(本包 `spec-symbol-batch6.test.ts` 已在用这个子路径)。名字与 issue 一致,入口按实际的写。\n\n## 改了什么\n\n手写的 `selection` 内联类型换成对 spec 类型的**直接引用**:\n\n```ts\nimport type { DatasetSelection } from '@objectstack/spec/contracts';\n\nasync queryDataset(\n  dataset: Record< string, unknown > | string,\n  selection: DatasetSelection,\n): Promise< { … } >\n```\n\n删掉的那份副本一共漂了**三处**(裁定 2 的 `timeDimensions` 只是其中之一):\n\n| 字段 | 删掉的副本 | spec rc.5 |\n|---|---|---|\n| `compareTo` | `{ kind; dimension: string }`(必填) | `DatasetCompareTo`,`dimension?` |\n| `timeDimensions` | `unknown[]` | `AnalyticsQuery['timeDimensions']` |\n| `runtimeFilter` | `Record< string, unknown >` | `FilterCondition` |\n| `dateGranularity` | **整个键都没有** | `'day'｜'week'｜'month'｜'quarter'｜'year'` |\n\n前两项 issue 点到了。后两项是核验时才浮出来的:`runtimeFilter` 放宽成 `Record< string, unknown >` 抹掉了服务端要解析的 `$and`/`$or`/`$not` 词汇;而 `dateGranularity`(framework#3588)是**副本从来没长出来过**的键 —— 这条最能说明问题:**重述一份契约不只会在它有的字段上漂移,它还会停在写它那天的样子**。这也正是 issue 自己的结论(「重述一份就是给同一契约开第二份方言」),所以这里做的是**消灭方言**而不是重新同步一遍。\n\n为什么这不是纸面问题:`dimension` 必填等于让编译器向每个按类型调用的作者索要一个**执行器本该自己决议**的维度 —— 恰好是 objectstack#5011 与 AGENTS.md #0.1 明令禁止的消费端猜维度,把「零个/多个候选时响亮报错并列出候选」换成一个安静的错窗口。今天没有运行时路径撞上(`DatasetWidget` 走 `selection: unknown`),但类型声明不是 dormant code。\n\n## 钉子(裁定 4)\n\n加在 `queryDataset.test.ts`(与既有运行时用例同处),沿用本包 `spec-symbol-batch6.test.ts` 的 `Assert`/`Equal`/`HasKey` idiom:\n\n- **主钉**:`Assert< Equal< Parameters< ObjectStackAdapter['queryDataset'] >[1], SpecDatasetSelection > >` —— 用 `Equal` 而非双向 `extends` 是刻意的:必填的 `dimension` **仍然**可赋给可选的,双向 `extends` 在漂移方向上也是绿的,结构恒等才是手写副本漂移时过不去的那一条。\n- 三处漂移各自单独钉一条(附注释说明该漂移的代价),外加一条运行时用例:`compareTo: { kind: 'previousPeriod' }`(不带 dimension)必须**原样**送到服务端。这一条守的是 adapter 永远不会替执行器\"帮忙\"补一个 dimension。\n\n**key-vs-value:** 这里守的是 `compareTo` 省略 `dimension` 是否为**合法的授权/编写形状**(一个 key/shape 事实),所以用编译期可赋值性断言;真正的 value 判决(哪个维度被平移)在执行器,本仓无从断言。\n\n## 反向验证 —— 方向是先预测再跑的\n\n**预测:把旧内联方言塞回去 → `type-check` 变红,而 `vitest` 保持绿。** 因为 vitest 不做类型检查,而那条运行时透传断言测的是 JSON 序列化,类型声明动不了它。这个钉子的承重门是 `tsc --noEmit`,**不是** vitest —— 写在这里免得后来的人误以为跑一遍 vitest 就守住了。\n\n两个方向都如预测:\n\n`type-check` 红,13 条错误,每条都对得上一处具名漂移:\n\n```\nsrc/queryDataset.test.ts(168,34): error TS2344: Type 'false' does not satisfy the constraint 'true'.   # 主钉 _IsTheSpecType\nsrc/queryDataset.test.ts(185,38): error TS2344: Type 'false' does not satisfy the constraint 'true'.   # _DimensionOptional\nsrc/queryDataset.test.ts(205,50): error TS2339: Property 'dimension' does not exist on type 'unknown'. # timeDimensions 退化成 unknown[]\nsrc/queryDataset.test.ts(228,24): error TS2339: Property 'dateGranularity' does not exist on type '{ … }'.\nsrc/queryDataset.test.ts(248,7):  error TS2741: Property 'dimension' is missing in type '{ kind: \"previousPeriod\"; }' but required in type '{ kind: …; dimension: string; }'.\n```\n\nvitest 同时仍是绿的(`Test Files 1 passed (1) / Tests 12 passed (12)`),与预测一致。随后已复原。\n\n## 消费者核查(裁定 3)\n\n`queryDataset` **不在** `@object-ui/types` 的 `DataSource` 接口上,只在本包具体类上,所以类型面只有直接调用方会碰到。全仓调用点三处,**全部**经 `any`/局部 `unknown` 取值,因此没有类型耦合:\n\n- `packages/plugin-charts/src/ObjectChart.tsx:452` —— `ds: any`\n- `packages/app-shell/…/previews/DatasetPreview.tsx:73` —— 自行 cast 成 `(d: unknown, s: unknown) => …`\n- `packages/app-shell/…/previews/ReportPreview.tsx` —— 同上\n\n`--filter \"...@object-ui/data-objectstack\" type-check`(本包 + 33 个下游)**全绿,exit 0,零 error**,无需任何消费端改动 —— 文件面因此严格停在 `packages/data-objectstack/`。\n\n（首轮跑出的 `Cannot find module '@object-ui/data-objectstack'` 是新 worktree 没建产物的 §9 陷阱镜像,先 `--filter \"...@object-ui/data-objectstack...\" build` 后即消失,不是本改动引起。)\n\n## 验证\n\n```\npnpm --filter @object-ui/data-objectstack type-check          # tsc --noEmit,绿\npnpm --filter \"...@object-ui/data-objectstack\" type-check     # 34 个包全绿,exit 0\npnpm exec vitest run packages/data-objectstack/               # 23 files / 347 tests passed\npnpm --filter @object-ui/data-objectstack lint                # 0 errors(310 warnings 均为既存 no-explicit-any)\nnode scripts/check-control-bytes.mjs                          # OK(3690 files)\ngrep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' <改动文件>           # 无控制字节\nnode scripts/check-changeset-no-major.mjs                     # OK\n```\n\nChangeset:`.changeset/dataset-selection-spec-type-3613.md`,`patch`(公开类型面被修正),英文正文。\n\n## 刻意没做的事\n\n- **返回类型没动。** 它是 REST 信封(多 `object` / `dimensionFields` / `drillRawRows`,又不含 `sql`),**不是** `AnalyticsResult` 的重述,换掉它是判断题而非机械替换。但它的 `fields[]` 有同族漂移(漏了 `percentScale`,而 objectui#3136 明令渲染端必须按它缩放),已按 PD #10 单开 **#3752**(未认领、未打标,连两个方案与倾向一并写在里面),不并入本 PR。\n- **没有 re-export `DatasetSelection`。** 从本包再导出一次就是给同一类型开第二条命名路径 —— 正是本 PR 要消灭的东西;调用方直接从 `@objectstack/spec/contracts` 取。\n- **没碰 `DatasetWidget` / pivot 代码**(裁定 5,#3614 分单),也没碰 `content/docs/releases/`。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

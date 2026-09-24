@@ -1,0 +1,32 @@
+{
+  "number": 3748,
+  "kind": "pull_request",
+  "title": "fix(app-shell): sys-objects 的三个生产端直发规范 metadata 路由,不再绕 system/metadata 别名 (#3739)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:23:37Z",
+  "updated_at": "2026-08-08T11:36:58Z",
+  "closed_at": "2026-08-08T11:36:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T11:36:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3748",
+  "body": "Fixes objectstack-ai/objectui#3739\n\n## 前提核验(issue body 只是线索)\n\n在 `origin/main` @ `8ad6070fb` 上逐条复核,三处调用点全部仍在发 legacy 别名,premise 成立:\n\n```\npackages/app-shell/src/layout/AppSidebar.tsx:329      url:  '/apps/setup/system/metadata/object'\npackages/app-shell/src/layout/UnifiedSidebar.tsx:335  url:  '/apps/setup/system/metadata/object'\npackages/app-shell/src/console/home/QuickActions.tsx:39  href: '/apps/setup/system/metadata/object'\n```\n\n规范目标也核到了:`packages/app-shell/src/console/AppContent.tsx:641` 的 `metadata/:type` → `MetadataResourceListPage`,两个分支都声明。别名一侧由 `apps/console/src/AppContent.tsx:189-191` 的 `system/metadata/:metadataType` → `MetadataRedirect` 服务,它就是一个 `Navigate`,目标恰好是本 PR 写进导航项的那个 URL。另外确认在途无人改动这三个文件(PR #3728 今天只碰了 apps/console 的 AppContent)。\n\n## 改了什么\n\n三处生产端一律改指 `/apps/setup/metadata/object`,并按 #3660 在同一数组下一行留下的注释形状、逐文件沿用该文件既有注释习惯,各写一段判词。\n\n落地页面逐字节不变 —— 新 URL 就是别名跳转本来算出来的那个(`object` 百分号编码即自身,三处都不带 query/hash);消失的只有中间那一跳和随之而来的 re-render。**别名路由一行未动**,书签与外链继续能到,只是我们自己的导航不再往里喂流量。\n\n顺手修掉一句被本次改动证伪的旧注释:两个侧边栏 #3590 段末的「Every sibling below already spells `/apps/setup/system/...`」。它在 #3660 之后对 `sys-datasources` 已经不成立,本 PR 让它对 `sys-objects` 也不成立 —— 留着会诱导下一个 agent 为了「前缀一致」把 URL 改回去,所以改写为「这两个 metadata-admin 条目名的是引擎的规范路由;此处的不变量不是前缀一致,而是名字指向真正渲染的那条路由」。\n\n## 测试\n\n按这一族已有的模式加/改,分两层:\n\n- **新增** `packages/app-shell/src/layout/__tests__/systemNavObjectsHop.test.tsx` —— `systemNavDatasourcesHop.test.tsx` 的孪生件,量的是**跳数**而非终点:href 从两个侧边栏的真实渲染里读出来,丢进同时认识规范路由与别名的 router,`ChainRecorder` 记录每一个落点,一条 = 直达。两个文件分开放,因为要镜像的别名路由不同(本文件镜像 `apps/console` 的 `MetadataRedirect`,与 `AppContent.noAppComponentRoutes.test.tsx` 同源同做法)。第三个 case 是 CONTROL:别名依然能解析,且解析要付那一跳 —— 别名可用是契约的一部分,不是附带损害;它同时证明前两条断言不空转。\n- **改写** `systemNavSettingsTarget.test.tsx`:`ADMINISTRATION_ENTRIES` 的 `Object Manager` 换成规范 URL,并给 AppSidebar 那一半补上同形状断言(两个侧边栏各持一份字面量,只钉一份就能单边漂回去 —— 这正是 #3660 给 `Datasources` 补断言的理由)。\n- **改写** `QuickActions.settingsTarget.test.tsx` 第三个 case。它原本叫「REGRESSION: the sibling card that was already hub-scoped is unchanged」,钉的正是我要改的那个字面量 —— 这个前提就是本 issue 证伪的东西,所以整条重写而非并存(沿用该族「只钉修好的形状,不同时钉 bug 和 fix」的纪律)。\n\n三处都按 #3660/#3609 的做法**替换**旧期望,不与旧形状并存。\n\n### 反向验证(先预测,再运行)\n\n预测:只把三处生产端 URL 改回别名、测试不动,应有 9 条中 5 条转红 —— hop 文件两条 sidebar case、settings-target 文件 AppSidebar 与九条目循环、QuickActions 的 manage-objects;CONTROL、dormancy、system-settings、non-admin 四条保持绿。并预测 hop 文件会**先**死在 `expect(href).toBe(CANONICAL)` 这个前置断言上,因此那条「两跳链」并不会出现在 diff 里。\n\n实测与预测逐条吻合:\n\n```\n ❯ systemNavObjectsHop.test.tsx (3 tests | 2 failed)\n     × AppSidebar: the zero-app fallback cluster arrives with NO redirect\n     × UnifiedSidebar: the /home Administration cluster arrives with NO redirect\n ❯ systemNavSettingsTarget.test.tsx (3 tests | 2 failed)\n ❯ QuickActions.settingsTarget.test.tsx (3 tests | 1 failed)\nAssertionError: expected '/apps/setup/system/metadata/object' to be '/apps/setup/metadata/object'\n ❯ systemNavObjectsHop.test.tsx:241:18\n Test Files  3 failed (3)\n      Tests  5 failed | 4 passed (9)\n```\n\n随后 `git checkout --` 复原,工作树干净。\n\n### 消费半径全量(不止改动包)\n\n一条被改的 URL 在哪里被消费就在哪里可能碎,所以按调用面而非按包跑:app-shell 的 `layout/__tests__`、`console/__tests__`、`console/home/__tests__`,加上 `apps/console` 的别名钉(`AppContent.legacyRedirects.test.tsx`)与 #3660 的 System Hub 卡片钉。\n\n```\n Test Files  26 passed (26)\n      Tests  160 passed (160)\n```\n\n`apps/console` 的 legacyRedirects 测试**一行未动**,并且照旧全绿 —— 本 PR 只重指内部生产端,别名本身必须继续为外部到访服务。\n\n其余门禁:`@object-ui/app-shell` 的 `type-check` 干净;`eslint` 对六个改动文件 0 error(新测试文件单跑 0 findings);`check-control-bytes` OK,并对改动文件另跑了一次手工控制字节扫描(gate 的盲区正是这类字节藏身处)。\n\n## Changeset\n\n`.changeset/nav-sys-objects-canonical-route-3739.md`,`@object-ui/app-shell: patch`。里面如实写了:三个生产端中两个侧边栏是活的,`QuickActions` 今天没有任何 JSX 调用点(其自身测试里有一条 dormancy 前置断言在钉这件事),所以那一处是「哪天有人把它挂回 /home,死链不会跟着回来」的守卫,而非用户可见变化。\n\n## 范围\n\n只碰 issue 点名的三个文件与它们的测试。发现了一处越界项已另行开 issue 记录(见下方评论),没有在本 PR 里动:`AppContent.noAppComponentRoutes.test.tsx` / `AppContent.pseudoRouteSegments.test.tsx` 的头注释把这两个条目当作**现在**还在发别名的生产端来枚举 —— #3660 之后 `sys-datasources` 那一行已经陈旧,本 PR 让 `sys-objects` 那一行也陈旧。两处测试**断言**本身都是从 URL 直接进入、量别名路由的行为,别名保留,因此仍然正确、仍然全绿;陈旧的只有叙述。参照 #3660 把同类注释改写单独立为 #3666 的先例,归为独立 issue。\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

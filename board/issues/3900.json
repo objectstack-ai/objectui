@@ -1,0 +1,35 @@
+{
+  "number": 3900,
+  "kind": "issue",
+  "title": "packages/layout: `page-header` 注册缺 `isContainer: true`,而 `PageHeader` 有意渲染 `schema.children` —— sdui-parser 对文档认可的写法报 `not-a-container`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:06:58Z",
+  "updated_at": "2026-08-09T19:54:14Z",
+  "closed_at": "2026-08-09T19:54:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3900",
+  "body": "发现于 #3787 的实现(PR:`claude/issue-3786-3787-pageheader-docs-demo`),**不在该 PR 处理** —— 那一单是文档/示例面,这一条要改注册元数据(声明面),是另一类动作。\n\n## 现象\n\n`PageHeader` **有意**把 `schema.children` 渲染进右侧槽,`PageHeader.tsx:179-190` 的注释把这件事写得很明确:\n\n```\n// Render schema-declared children into the action slot. `SchemaRenderer`\n// strips `children` from the React tree (treats them as metadata), so\n// we re-introduce them here for components like `record:quick_actions`\n// nested under `page:header.children`.\n```\n\n`content/docs/layout/page-header.mdx` 也把它写成公开契约的一部分:「Precedence for the right-aligned slot is `action` → React `children` → `actions` → schema children」。#3787 落地后,该文档页唯一的 live demo 就是这个写法(`page-header` 节点 + 两个 button children),实测能正常渲染。\n\n但 `packages/layout/src/index.ts:50-58` 的注册**没有** `isContainer: true`。而 `packages/sdui-parser/src/validate.ts:88-96` 拿这个 flag 判定 containment:\n\n```ts\nif (node.children?.length && !comp.isContainer) {\n  diagnostics.push({\n    severity: 'warning',\n    code: 'not-a-container',\n    message: `${node.type} does not accept children`,\n    tag: node.type,\n  });\n}\n```\n\n于是同一份 JSON:组件正常渲染(`isContainer` 在渲染路径上**根本没有消费者** —— 实测它只喂 sdui-parser 这条诊断、Studio 调色板元数据 `page.tsx:464` / `react-page.tsx:66`、以及 codegen 的文档表格),但仓库自己的校验器说它不接受 children。\n\n## 为什么值得记一笔\n\n`inputs` / `isContainer` 是**声明面**,#3226 已经为同一个组件定过调子:声明面是设计器提供的字段、也是 framework `check:react-declaration-parity` 的比对对象,声明错了等于**告诉作者**(尤其 AI 作者)一件不成立的事。这里是反向的同一个病:组件支持、文档承诺、demo 演示的写法,声明面否认它,校验器据此报警。作者照文档写 → 拿到一条 warning;信了 warning 去掉 children → 右槽空掉。\n\n## 需要先定的一点(所以本条只记录)\n\n`@objectstack/spec/ui` 的 `PageHeaderProps` 声明的是 `title / subtitle / icon / breadcrumb / actions / aria`,**没有** `children`。`children` 是 objectui 自己 JSON 协议里每个节点的基础属性,不是 `PageHeaderProps` 的键。所以「补 `isContainer: true`」到底是\n\n- **A. 承认 children 是 page-header 的合法槽位** —— 补 flag,warning 消失,与组件行为和文档一致;但等于在 spec 之外确认了一个 spec 没声明的作者面。\n- **B. 认为 children 才是错的** —— 保留 flag 缺失,改文档与 demo 改用 spec 声明的 `actions`,并把 `PageHeader.tsx` 里读 `schema.children` 的分支按 ADR-0049 enforce-or-remove 处理。代价是 `record:quick_actions` 嵌在 `page:header.children` 下这个已有用法(注释里点名的那个)会被判为违规,需要先量清有多少 metadata 这样写。\n\n两个方向对「作者能写什么」给出相反答案,属于契约决定,不该由实现者顺手选。\n\n## 参考位置\n\n- `packages/layout/src/index.ts:50-58`(注册,缺 `isContainer`)\n- `packages/layout/src/PageHeader.tsx:179-190`、`:207`(有意读 `schema.children`)\n- `packages/sdui-parser/src/validate.ts:88-96`(`not-a-container` 诊断)\n- `content/docs/layout/page-header.mdx`(右槽优先级的文字承诺)\n- `examples/schema-catalog/src/schemas/layout-page-header/pageheader-with-actions.json`(#3787 落地后的 demo)\n\n关联:#3787(发现于此)、#3226(同一组件声明面的前情)\n"
+}

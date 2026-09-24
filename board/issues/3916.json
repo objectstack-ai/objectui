@@ -1,0 +1,33 @@
+{
+  "number": 3916,
+  "kind": "pull_request",
+  "title": "fix(core): ActionRunner 的 condition 门改问「有没有声明」,condition: false 真的拦住动作 (#3872)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T02:33:28Z",
+  "updated_at": "2026-08-09T02:42:23Z",
+  "closed_at": "2026-08-09T02:42:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T02:42:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3916",
+  "body": "Fixes #3872\n\n## 机理\n\n`ActionRunner.execute` —— 引擎的公共执行入口,所有动作面共用 —— 把 condition 门开在**真值**上:\n\n```ts\nif (action.condition) {\n  const shouldExecute = this.evaluator.evaluateCondition(action.condition);\n  if (!shouldExecute) return { success: false, error: 'Action condition not met' };\n}\n```\n\n真值回答不了门要问的那个问题(「作者到底声明了条件吗」),而在这个键上它答错的方向是**过度放行**:`condition: false` 落在 `if (false)`,整段被跳过,`evaluateCondition` 根本没被问过,动作照常执行。\n\n## 基线复现(worktree @ `origin/main` = `2937bcf7db0da9d27cd4f330a7033d2b380d2335`,handler 自计数,一次性探针未提交)\n\n```\ncondition: false                                     | handler ran: true  | {\"success\":true}\ncondition: 0                                         | handler ran: true  | {\"success\":true}\ncondition: true                                      | handler ran: true  | {\"success\":true}\ncondition: '' (empty)                                | handler ran: true  | {\"success\":true}\ncondition: '   ' (whitespace)                        | handler ran: true  | {\"success\":true}\ncondition: {cel,''} (empty envelope)                 | handler ran: true  | {\"success\":true}\ncondition: {} (junk object)                          | handler ran: true  | {\"success\":true}\ncondition: bare CEL true  (user.role == \"admin\")     | handler ran: true  | {\"success\":true}\ncondition: bare CEL false (user.role == \"guest\")     | handler ran: false | {\"success\":false,\"error\":\"Action condition not met\"}\ncondition: {cel,'true'}                              | handler ran: true  | {\"success\":true}\ncondition: {cel,'false'}                             | handler ran: false | {\"success\":false,\"error\":\"Action condition not met\"}\ncondition: template true  (record.status === active) | handler ran: true  | {\"success\":true}\ncondition: template false (record.status === inactive)| handler ran: false | {\"success\":false,\"error\":\"Action condition not met\"}\ncondition ABSENT                                     | handler ran: true  | {\"success\":true}\n```\n\nissue 的前提逐行成立:`false` 与语义完全相同的 `{ dialect: 'cel', source: 'false' }` 结论相反 —— 布尔字面量执行了,同义 envelope 被拦。`false` 是元数据能写出的最明确的一句「永远不要执行这个」(把动作关掉的模板产出的正是它),所以方向要紧:动作真的跑了,可能落库。\n\n## 修法\n\n门改问「有没有声明 condition 门」再求值。「没有可求值的条件」取自 core 唯一的谓词归一器 `toPredicateInput`(把 `''`、`null`、空 `source` envelope、非谓词值一律映射为 `undefined`),外加它包裹而非折叠的纯空白字符串 —— 即 #3850 对「空谓词」范围的裁决,与 `disabled` 门已经在用的同一份。门问对了问题,verdict 就不需要自己的布尔分支:`evaluateCondition` 对布尔实参原样返回(`if (typeof condition === 'boolean') return condition`),`false` 于是自然短路成「拦」。\n\n交给求值器的值刻意保持**原样**而非先归一,理由与 #3848 / PR #3873 相同、符号相反:`toPredicateInput` 无条件包裹,已经是模板的 `'${x}'` 变成 `'${${x}}'`,解析失败后原样返回并被强制为恒 `true` —— 在 `disabled` 上这拦住一切,在 `condition` 上它会**放行**一切。该归一器缺陷是 #3871;新钉子旁的 tripwire 会在它被修好那天转红。\n\n`ActionDef.condition` 随之放宽为 `string | boolean`,与门现在兑现的面一致(也与旁边的 `disabled` 一致)。这不是消费端的宽容别名:布尔本来就通过接口的索引签名在运行时被接受,只是被忽略了。\n\n## 逐形状新旧对照(变化行只有一行,方向 = 收紧)\n\n| condition | 旧 | 新 | 变化 |\n|---|---|---|---|\n| `false` | 执行 | **拦(`Action condition not met`)** | ✅ 唯一变化行 |\n| `true` | 执行 | 执行 | — |\n| 缺省 | 执行 | 执行 | — |\n| 裸 CEL 真 `user.role == \"admin\"` | 执行 | 执行 | — |\n| 裸 CEL 假 `user.role == \"guest\"` | 拦 | 拦 | — |\n| `{ dialect: 'cel', source: 'true' }` | 执行 | 执行 | — |\n| `{ dialect: 'cel', source: 'false' }` | 拦 | 拦 | — |\n| `${…}` 模板真 | 执行 | 执行 | — |\n| `${…}` 模板假 | 拦 | 拦 | — |\n| `''` | 执行 | 执行(理由换成「未声明」) | — |\n| `'   '` 纯空白 | 执行 | 执行(理由换成「未声明」) | — |\n| `{ dialect: 'cel', source: '' }` | 执行 | 执行(理由换成「未声明」) | — |\n| `0` | 执行 | 执行 | — |\n| `{}` | 执行 | 执行 | — |\n\n**`0` 这一行与派单预判不同,如实报出**:派单预判变化行在 `false` / `0` / 空形状,实测只有 `false` 变。`0` 在 `toPredicateInput` 下归一为 `undefined`(不是谓词)→ 无门 → 放行,与本文件在 `disabled` 上已落地的 `catch { isDisabled = false }` fail-open 姿态一致,也与 #3850 的「已声明 = 归一后仍有可求值条件」一致。这同时是本 PR 刻意**不**照抄 `ActionEngine.getActionsForLocation` 模板的一处:那边非谓词分支保留了历史 `Boolean(raw)` 强制,`visible: 0` 于是隐藏(对垃圾 fail-CLOSED)。差异已用一条 `DOCUMENTED DIVERGENCE` 测试钉住,免得下一个读者以为是漏看。\n\n## 反向验证(方向先写后跑)\n\n预判写在钉子文件头:把门还原成 `if (action.condition)`、求值不动,应当恰好**三个**测试转红,且都点名 `false` —— (1) `condition: false` 那一行(handler 又跑了);(2) 布尔/envelope 等价性(`false` 执行而 `{cel,'false'}` 被拦,正是本单报的分歧);(3)「已声明的布尔确实到达求值器」(真值门下它永远到不了,spy 收不到 `false`)。纯表格断言(变化行集合、真值 vs 已声明对照)与两条 tripwire 按构造全绿,其余执行行(含 `0`、`{}`、三种空形状)全绿。\n\n实跑一致:\n\n```\n × 'condition: false (declared \"never exe…' 11ms\n × a declared boolean and its envelope spelling reach the SAME verdict 2ms\n × a declared boolean DOES reach the evaluator, which short-circuits it 1ms\n Test Files  1 failed | 1 passed (2)\n      Tests  3 failed | 38 passed (41)\n```\n\n`ActionRunner.disabledGate.test.ts` 在还原态下全绿 —— 本 PR 对 `disabled` 门的语义与文案零改动,唯一共享编辑是那个 module-private 判门 helper 改成了中性名(两道门现在问同一个问题,同文件里不该有第二份同问的定义);等 #3850 / #3862 的定义下沉落地后再一并改读 core 的共享定义。\n\n## 验证\n\n- `pnpm --filter '@object-ui/core^...' build` 绿。\n- 消费半径全量:`pnpm exec vitest run packages/core/src/actions packages/core/src/evaluator --maxWorkers=2` → `Test Files 26 passed (26) / Tests 617 passed (617)`。\n- 新钉子单跑:`Tests 21 passed (21)`。\n- 全仓 `pnpm exec turbo run type-check --concurrency=2` → `78 successful, 78 total`。\n- `eslint` 变更两文件:0 error(仅既有 `no-explicit-any` warning)。\n- 消费半径扫面:全仓无任何 fixture 把动作的 `condition` 写成布尔/`0`(`\"condition\": false|true|0` 零命中),core 之外无消费者读 `ActionDef.condition`,故类型放宽与本变更均无外溢。\n- 控制字节自查:`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 三个变更文件零命中。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3758,
+  "kind": "issue",
+  "title": "行动作声明 `visible: false` 仍然渲染该菜单项——可见性门用真值判断（#3492 在行菜单上的未收口部分）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T12:03:07Z",
+  "updated_at": "2026-08-08T17:36:19Z",
+  "closed_at": "2026-08-08T17:36:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3758",
+  "body": "## 现象与机理\n\n自定义行动作（`rowActionDefs` / `list_item` 动作）的可见性**门**用的是**真值**判断，于是 `visible: false` —— 最明确的「永不显示」—— 落进「未声明门」的分支，菜单项照样渲染。\n\n`origin/main@b7b05da7f`：\n\n- `packages/plugin-grid/src/components/RowActionMenu.tsx:130`（overflow 菜单项）、`:219`（inline primary 按钮）：\n  ```\n  if (def.visible && !isVisible) return null;\n  ```\n  `def.visible === false` → `false && …` 为假 → 不 return null → **渲染**。\n- `packages/components/src/renderers/complex/data-table.tsx` 的 `isCustomRowActionVisible`（PR #3756 从 `DataTableRowActionItem` 原样提取，行为未改）：\n  ```\n  if (!action?.visible) return true;   // false / '' → 视为未声明门 → 渲染\n  ```\n\n内建 Edit/Delete 的 `visibleWhen` 不受影响：那条门是 `!= null`（`RowActionMenu.tsx:179`、data-table 的 `isBuiltinRowActionVisible`），`visibleWhen: false` 会正确隐藏。\n\n## 与 #3492 的关系\n\nobjectui#3492 已经在**批量选择栏**上把这条钉死过 —— `packages/plugin-grid/src/bulkEligibility.ts` 的 `hasVisibilityGate` 注释写明：「Truthiness cannot answer this: `visible: false` is a declared gate that excludes everything, and testing `def.visible &&` classified it as *ungated*」。行菜单这两处是同一形状里没有一起收口的部分。\n\n## 可达性（老实说）\n\n`ActionSchema.visible` 是 `ExpressionInputSchema`（无 boolean），`objectstack build` 产不出这个形状；手写视图 JSON 与进程内构造 def 可以 —— #3492 的正文说明这两条路径确实发生过（那次的后果更重：布尔 `visible: true` 交给引擎会 fault 并 fail-closed，把按钮对所有人藏了）。所以这是低可达性的具体缺陷，不是今天用户在生成式元数据里会撞到的路径；严重度请分诊裁。\n\n## 建议\n\n1. 两处的门统一到 `!= null && !== ''`（与 `hasVisibilityGate` 及内建 `visibleWhen` 一致）；\n2. 各加一条钉子测试：`visible: false` 的行动作**不渲染**（plugin-grid 的 overflow 项与 inline 按钮各一条，data-table 的自定义项一条）；\n3. 注意与 #3756 的顺序：#3756 已把 data-table 的判定收敛到 `isCustomRowActionVisible` 一处，改这一处即同时影响守卫（触发器是否渲染）与菜单项，天然一致。\n\n## 为什么不在 #3562 / PR #3756 里顺手改\n\n#3756 的裁定范围是「触发器与菜单项是否一致」（守卫改数真正会渲染的项）。重定 `visible: false` 会改变**哪些项渲染**，是另一个行为决定，故单独记录。\n\n发现自 objectui#3562 的实现过程；未认领。\n"
+}

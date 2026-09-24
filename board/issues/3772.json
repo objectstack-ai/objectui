@@ -1,0 +1,33 @@
+{
+  "number": 3772,
+  "kind": "pull_request",
+  "title": "fix(types): open the BulkActionParam.options entry the renderer already forwards (#3309)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T13:39:36Z",
+  "updated_at": "2026-08-08T14:07:55Z",
+  "closed_at": "2026-08-08T14:07:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-08T14:07:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3772",
+  "body": "Fixes objectstack-ai/objectui#3309\n\n## 问题\n\n`BulkActionParam.options` 的 **entry** 是封闭的 `{ label, value }`,而这条路径上其余每一层都不同意它:\n\n| 层 | 位置 | 现状 |\n|---|---|---|\n| 类型(本 PR 修改) | `packages/types/src/objectql.ts` | entry 封闭,无索引签名 |\n| 运行期 | `packages/plugin-grid/src/components/bulkParamToField.ts` | `options?.map(o => ({ ...o, value: String(o.value) }))` —— 整体 spread,额外键全部存活 |\n| 目的地 | `packages/types/src/field-types.ts` `SelectOptionMetadata` | 声明 `color` / `icon` / `disabled` / `visibleWhen` |\n| 消费 | `packages/fields/src/index.tsx` | `option?.color` 两处命中,这些键真被读 |\n| 规格 | `@objectstack/spec` `BulkActionParamSchema` | 同一个 entry 已是 `.passthrough()`(objectstack#4001,裁决 A) |\n| 父级 | 同文件 `BulkActionParam` 本身 | 一直有 `[key: string]: unknown` 兜底(带 catch-all 注释) |\n\n于是作者写 `options: [{ label, value, color: '#8B5CF6' }]` 会拿到一个 excess-property 编译错误,**而渲染器其实会 honour 它**。今天不是运行期 bug —— 但类型是唯一在拒绝一份能正常工作的配置的那一层,这正是 machine-readable surface 说谎的形状,对绝对信任类型的(AI)元数据作者杀伤最大。\n\n## 改动\n\n给 entry 补 `[key: string]: unknown`,注释沿用父级 catch-all 的写法。惯用形不是本 PR 发明的:#3559(PR #3764,已合 main)在一个接口之外走的正是同一条 catch-all 路线(core 导出 `ActionParamOption`),本单照同答案执行。\n\n- ⛔ **没有**动 `SelectOptionMetadata`,**没有**把 `objectql.ts` 绑到 `field-types.ts`。\n- ⛔ **没有**改成引用 core 的 `ActionParamOption`,尽管两者结构完全一致。`@object-ui/types` 是协议层,按 AGENTS.md §3 拓扑「Zero deps」,不能吃 `@object-ui/core` 的依赖(方向也反了 —— core 依赖 types)。因此是**结构等价的 inline entry + 一条交叉引用注释**,注释里点名 `ActionParamOption` 与 objectui#3559,让下一个读者看到的是刻意的并置而不是重复。\n- `label` / `value` 保持**必填**且类型不变:open 不等于 optional。注释里也写清了兜底不是新增选项键的邀请函 —— authoring gate 仍是 spec 严格的 `SelectOptionSchema`。\n\n用户可见(对 TS 作者而言),已带 `@object-ui/types` 的 patch changeset。\n\n## 前置事实(分诊要求核验,已实读)\n\nobjectstack#4001 的 `.passthrough()` **确在 objectstack `origin/main`**,不是只在 PR 里:`packages/spec/src/ui/bulk-action.zod.ts` 的 `options` 为 `z.array(z.object({ label, value }).passthrough())`,describe 文案明写「the renderer forwards unknown option keys to the field widget, which reads `color` / `icon` / `disabled` / `visibleWhen` beyond the declared pair」。本仓 `node_modules` 里已安装的 `@objectstack/spec@17.0.0-rc.5` 运行期实测也放行并保留了 `color` / `visibleWhen`(不是 stale install)。\n\n## 钉子(`packages/types/src/__tests__/bulk-action-param-options.test.ts`)\n\n这些钉子**真的会跑**:`packages/types/tsconfig.test.json` 编译本包每一个测试文件(#3009),所以 `@ts-expect-error` 与 `Assert< … >` 违反时是 `tsc` 错误 —— 与 `@object-ui/core` 把自己测试排除在 `tsc` 之外的情况不同(PR #3764 的同类钉子在头注释里如实记录了那一点)。\n\n1. 带 `color` / `visibleWhen` / `icon` / `disabled` 的 entry 通过编译(能工作的配置现在写得出来);\n2. `label` / `value` 仍必填 —— 两条必须命中的 `@ts-expect-error`(与 #3764 同款);\n3. 索引签名本身:`BulkParamOption['color']` 解析为 `unknown`;声明对 `Pick< …, 'label' | 'value' >` 未被放松;\n4. **结构兼容**:把 entry 经渲染器自己的投影(`{ ...o, value: String(o.value) }`)后赋给 `SelectOptionMetadata`,**无需 cast** 即通过 —— `objectql.ts` 自身不 import `field-types.ts`,只有测试文件同时 import 两者;\n5. spec 侧 `.passthrough()` 这个前置事实被**断言**而非假定:spec 若哪天回封,这条会失败并指名要复查的层。\n\n## 反向验证(先写预测,再跑)\n\n预测:撤掉索引签名 → 第 1 条与第 3 条转红(excess-property / 属性不存在),第 2 条的两条 `@ts-expect-error` **不受影响**(它们钉的是本次不动的声明对)。\n\n实测 `npx tsc -p packages/types/tsconfig.test.json`(已撤销索引签名):\n\n```\nbulk-action-param-options.test.ts(61,3):  error TS2353: Object literal may only specify known properties, and 'color' does not exist in type '{ label: string; value: string | number | boolean; }'.\nbulk-action-param-options.test.ts(71,49): error TS2353: ... 'color' does not exist ...\nbulk-action-param-options.test.ts(86,27): error TS2339: Property 'color' does not exist on type '{ label: string; value: string | number | boolean; }'.\nbulk-action-param-options.test.ts(87,27): error TS2339: Property 'visibleWhen' does not exist ...\nbulk-action-param-options.test.ts(110,51): error TS2339: Property 'color' does not exist ...\nbulk-action-param-options.test.ts(131,65): error TS2353: ... 'color' does not exist ...\n```\n\n方向与预测一致。两处补充说明,如实记录:\n\n- 86 / 87 行是运行期断言读 `authoredOption.color` / `.visibleWhen`,同因转红 —— 预测里没单列,但同向,不构成意外。\n- **两条 `@ts-expect-error` 在两个方向都没报错**:恢复索引签名后 `tsc` 全绿,这本身就证明它们**命中**了(未命中的 `@ts-expect-error` 会以 TS2578 报错);撤销后也未出现在错误清单里。它们对本次改动确实免疫,与预测一致。\n\n## 验证\n\n- `pnpm --filter @object-ui/types type-check`(含 `tsconfig.test.json`)—— 绿。\n- `turbo run type-check --filter @object-ui/plugin-grid --filter @object-ui/fields --filter @object-ui/app-shell --concurrency=2` —— 31 tasks successful(含整条 build 闭包)。加宽是向后兼容的,亦无 `exactOptionalPropertyTypes` 之类意外(仓库根 tsconfig 未开)。\n- `vitest run --maxWorkers=2 packages/types/src/__tests__ packages/plugin-grid/…` —— 34 files / 451 tests passed。\n- 消费半径清扫:全仓无任何 fixture 钉着**封闭**的 bulk options 形状(app-shell `resolveActionParams.test.ts:508/510` 是 #3764 的 `ActionParamOption` 必填钉,同族、不受影响,且在上面的 app-shell type-check 里一并绿)。\n- 门禁:`check-control-bytes`(OK)+ 手工 `grep -naP` 扫本次三个文件(clean);`check-changeset-presence` / `check-changeset-no-major` / `check-changeset-fixed` 全绿;`eslint` 改动文件 0 errors(两条 `_CatchAll` / `_DeclaredPair` unused 警告与 `packages/auth/src/__tests__/auth-spec-parity.test.ts` 的既有惯用形一致,该文件同类警告 23 条)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3797,
+  "kind": "issue",
+  "title": "registry `inputs` 与 spec `ComponentPropsMap` 之间没有 parity 门,4 个 block 发布了 pin 版 spec 不接受的顶层 input",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T16:26:13Z",
+  "updated_at": "2026-08-08T17:25:44Z",
+  "closed_at": "2026-08-08T17:25:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3797",
+  "body": "发现于 #3407 / PR #3795 的实施过程(该 PR 只在 `record:highlights` 一个 block 上加了这道门,\n本单是把同一检查推到全仓)。未认领,交 PM triage。\n\n## 机制\n\nregistry 的 `inputs` 就是对外发布的授权面:`packages/sdui-parser/scripts/gen-manifest.ts` 把它\n序列化进 `sdui.manifest.json`(save-gate + parser 白名单)和 `sdui-intrinsics.d.ts`(JSX 授权\n类型面)。但仓内**没有任何东西**把 `inputs` 与 `@objectstack/spec` 的 `ComponentPropsMap` 交叉\n校验过(`getPublicConfigs` / `manifestFromConfigs` 的使用点里没有这类门),于是「registry 声明\n了 spec 不接受的顶层键」这个方向是完全静默的:\n\n1. manifest 与生成的 `.d.ts` 宣告该 prop 合法;\n2. `packages/sdui-parser/src/validate.ts` 的 manifest 门只遍历节点顶层 prop 并比对\n   `comp.inputs`,该键因此被判为「已知 prop」,零诊断;\n3. spec 侧多为普通 `z.object`,parse 时把未知顶层键**无声剥掉**,不报错;\n4. renderer 拿不到它。\n\n净结果:平台自己的 manifest 指示 AI 作者写一个被静默丢弃的键,且任何一层都不产生诊断 ——\n即 objectstack#5435「平台权威不得指向自己闸门会拒绝的键」的反向违例,也是 AGENTS.md #0.1\n契约优先要防的那类第二方言。\n\n## 实测(objectui `origin/main`,pin 版 `@objectstack/spec@17.0.0-rc.5`)\n\n遍历 `ComponentPropsMap` 中本仓也注册且有 `inputs` 的 block,比对 input 名与 spec props 顶层键:\n\n```\nOFF-SPEC  page:header:            [\"recordChrome\",\"showStar\",\"showCopyId\"]\n          (spec 顶层: [\"title\",\"subtitle\",\"icon\",\"breadcrumb\",\"actions\",\"aria\"])\nOFF-SPEC  page:tabs:              [\"tabStyle\"]\n          (spec 顶层: [\"type\",\"position\",\"items\",\"aria\"])\nOFF-SPEC  page:accordion:         [\"variant\"]\n          (spec 顶层: [\"items\",\"allowMultiple\",\"aria\"])\nOFF-SPEC  element:record_picker:  [\"labelField\",\"valueField\",\"label\"]\n          (spec 顶层: [\"object\",\"displayField\",\"searchFields\",\"filter\",\"multiple\",\n                       \"targetVariable\",\"placeholder\",\"aria\"])\n4 block(s) flagged\n```\n\n`element:record_picker` 的 `labelField` 尤其像 spec `displayField` 的别名漂移(同一语义两种拼写,\n只有一种被 spec 接受),属经典 dialect 问题。\n\n## 需要逐块判断,不是一律删\n\n每条都有两个可能的正确方向,请 triage 时逐块定:\n\n- **spec 该声明它** —— 这是真实的授权键,spec 漏了 → 去 objectstack 补声明(协议联合先动);\n- **input 该撤** —— 它只是 renderer 内部/宿主注入的 prop,不该出现在授权面 → 从 `inputs` 移除\n  (`record:activity` 的 `entries`/`loading`/`actions` 就是照这个理由不声明的,\n  `packages/plugin-detail/src/index.tsx` 有现成注释)。\n\n注意 `page:header` 的 inputs 在 #3226 / PR #3265 刚被收窄过,所以那三个可能是**有意保留**的\nrenderer-only prop —— 若如此,至少需要像 `record:activity.showSubscriptionToggle` 那样在\ndescription 里写明,而不是让它看起来是普通可授权键。\n\n## 建议的门\n\nPR #3795 在 `packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts`\n里已有单块版本可直接推广:运行时从 spec 推导期望值(而非复述键表),断言\n「本 block 不得声明 `ComponentPropsMap[type]` 不接受的顶层 input」。推到全仓时需要一份\n**显式豁免名单 + 每条豁免的理由**,这样新增的偏离必须显式登记,而不是静默通过。\n\n复现脚本(临时,未提交)遍历 `ComponentPropsMap` × `ComponentRegistry.getConfig(type)`,\n逻辑与上面 PR 里的 `specTopLevelKeys()` 一致。\n"
+}

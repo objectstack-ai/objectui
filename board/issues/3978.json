@@ -1,0 +1,34 @@
+{
+  "number": 3978,
+  "kind": "pull_request",
+  "title": "fix(fields,components): 复合/分组 field widget 的组标签改用 IDREF 关联(#3961)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T19:46:44Z",
+  "updated_at": "2026-08-09T19:56:36Z",
+  "closed_at": "2026-08-09T19:56:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-09T19:56:34Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/3978",
+  "body": "Fixes #3961\n\n复合/分组 field widget 的可见组标签,今天是**零个元素**的可访问名。按 PM 的范围裁决(issue 评论 5233281956)采 B 案一次做完:widget 声明 `labelling`,form 渲染器按声明改用 IDREF 关联。\n\n## 缺陷:两种形态,同一个结局\n\n真表单 + 每字段一行,读每个 label 的 `for` 与它解析到的元素(probe 未提交)。**接线前**:\n\n```\naddress      for=…-form-item -> MISSING            byLabelText=0   byRole+name=0\ngeolocation  for=…-form-item -> MISSING            byLabelText=0   byRole+name=0\ncheckboxes   for=…-form-item -> div                byLabelText=0   byRole+name=0\nradio        for=…-form-item -> div[radiogroup]    byLabelText=0   byRole+name=0\nrating       for=…-form-item -> div                byLabelText=0   byRole+name=0\nfile         for=…-form-item -> div[role=button]   byLabelText=0   byRole+name=0\n```\n\n- **id 被覆写**(address / geolocation):host id 展开到第一个子输入后,被该输入自己的唯一 id 覆写(#3343,那次修法本身是对的),于是 `for` 指向一个没有元素携带的 id —— 点「Shipping Address」什么都不发生,组标签完全不在可访问性树里。\n- **id 保留,但落在 div 上**(checkboxes / radio / rating / file):`for` 解析成功,但 `label[for]` 指向不可 label 的元素在 HTML 里是**惰性**的 —— `HTMLLabelElement.control` 返回 null,既不激活任何东西也不贡献可访问名。\n\n所以两种形态的结局是同一个:右边两列都是 0。这比 issue 正文对 B 类「比 A 类轻」的描述更严格。\n\n**接线后**(同一 probe,同一形状):\n\n```\naddress      for=(none) ownId=…-group-label   byLabelText=1(div[role=group])      byRole+name=[group:1]\ngeolocation  for=(none) ownId=…-group-label   byLabelText=1(div[role=group])      byRole+name=[group:1]\ncheckboxes   for=(none) ownId=…-group-label   byLabelText=1(div[role=group])      byRole+name=[group:1]\nradio        for=(none) ownId=…-group-label   byLabelText=1(div[role=radiogroup]) byRole+name=[radiogroup:1]\nrating       for=(none) ownId=…-group-label   byLabelText=1(div[role=group])      byRole+name=[group:1]\nfile         for=(none) ownId=…-group-label   byLabelText=1(div[role=button])     byRole+name=[button:1]\ntext/image/location/tags/color/code/qrcode/user  ← 逐字不变(`for` 仍指向真控件)\n```\n\n## 改动\n\n**`packages/core` —— 声明位。** `ComponentMeta` 加 `labelling?: 'control' | 'group'`,可选、增量,缺省即 `'control'`(所有现存组件今天的行为)。`'group'` 的含义写在注释里:**渲染出的外层不是可 label 元素** —— 既包括真复合(一个容器下多个输入),也包括「唯一控件恰好不是可 label 元素」(file 的 `div[role=button]` dropzone)。这是**声明**而非猜测:host 无法从 widget 恰好渲染出的 DOM 推断它。\n\n**`packages/components` —— form 渲染器按声明分支。** group 字段的 `FormLabel` 发 `id`、不发 `htmlFor`;widget 收到 `aria-labelledby`。单控件路径**一个属性都没变**(两处都是条件展开,连 key 都不进 props),所以没有任何字段多出第二条命名通道 —— #3290 / #3222 / #3952 反复钉的「一个事实一个作者」。⛔ `ui/form.tsx`(Shadcn no-touch)**零触碰**:`FormLabel` 在自己的 `htmlFor` 之后才展开 props,所以「给 label 一个 id」「拿掉它的 for」两半都能以普通 prop 传入。\n\n`resolveFieldLabelling` 逐字镜像 `renderFieldComponent` 的解析:builtin 判定用**原始** type(裸 `select` 走内建分支、根本不查注册表;`field:select` 才解析到注册 widget),之后才剥 `field:` 前缀。否则一个 widget 的声明会去改一个**并不由它渲染**的内建控件的 label。\n\n**`packages/fields` —— 六个 widget。** 与 `FIELD_TYPES_SKIP_FALLBACK` 并列的 `FIELD_TYPES_GROUP_LABELLED` 声明这六个。逐 widget 处置(按 issue 评论 5233264043 的方案表):\n\n| widget | 处置 | 代码改动 |\n|---|---|---|\n| address | 只把 host `id` 与 `aria-labelledby` 从首个子输入移到组容器,补 `role=\"group\"` | 有 |\n| geolocation | 同上(latitude 保留 subId) | 有 |\n| checkboxes | 现有包裹 div 补 `role=\"group\"`(名字已随 `groupDomProps` 到达) | 有 |\n| rating | 同上 | 有 |\n| radio | **保留** Radix 的 `radiogroup`(更具体的角色,且是 `aria-invalid` 的正确承载者) | **无**(仅注释) |\n| file | 不硬套 group:唯一控件是 dropzone,它自己接 `aria-labelledby` | **无**(仅注释) |\n\nwidget props 契约**零新 key**:`aria-*` 已声明在契约上(React `AriaAttributes`),两个 strip 都不碰前缀,`toDomProps` 按前缀转发整族 —— 与 `aria-required`(#3290)同一条通道。\n\n## 刻意不改的四件事\n\n1. **子标签仍命名自己的输入。** `aria-labelledby` 会**覆盖**控件的 `label[for]`,所以把组名放到首个子输入上会把「Street Address」替换成字段名 —— issue 否掉选项 2 的那个「可访问名拼接」结局。\n2. **`aria-describedby` 留在首个可聚焦子输入**(#3318 的刻意选择):描述/错误必须在焦点落到可聚焦控件时播报,组容器不可聚焦。只挪了 `id`,没整块搬。\n3. **#3343 的子输入 id 不动。**\n4. **standalone 逐字不变**(inline grid editor、裸 SDUI 节点:没人下发 id、也没有 host label 可指):不发 role、不发 IDREF。`role` 键在 host 真的给了名字时才出现 —— 无名的 group 对辅助技术没有信息量。\n\n## 验证\n\n- `vitest run packages/core packages/components packages/fields` → **251 files / 3573 tests 全绿**。\n- 消费半径(渲染这六个 widget 的其它 host):`vitest run packages/app-shell packages/plugin-form packages/plugin-grid packages/plugin-detail packages/react` → **496 files / 4632 passed / 1 skipped,0 失败**。\n- `turbo run type-check` → 78/78 successful;`node scripts/check-control-bytes.mjs` OK。\n- 新增钉子:fields 侧 e2e 36 例(每个 widget 两方向 + 组名不吞子名 + standalone 不回退)、声明位 25 例、components 侧 form 分支 9 例。\n\n**反向验证(先预判再跑,变异均已还原)**:\n\n1. 撤掉 rating 的 `role=\"group\"` → 预判 rating 的组名断言翻红、standalone 断言保持绿 → 实测 **4 红 32 绿**,standalone 行保持绿。\n2. 把 address held-back 的两个键放回街道输入 → 预判组名断言 + 「子标签保持自己的名字」翻红 → 实测 **5 红**,其中 `sub-inputs keep their own labels` 的红因来自 RTL 的 `getLabels`:元素带 `aria-labelledby` 时它**优先**用 IDREF 作为该元素的 label 列表,于是「Street Address」不再命名街道框 —— 正是这一改动要避免的可访问名覆盖。⚠️ 同时实测到:**这个方向不会**被「无悬空 `for`」那条不变量捕获(form 侧仍不发 `for`),所以那条断言单独不足以覆盖,两组断言都必须在。\n3. 「不声明会响」演示:e2e 里让 checkboxes 漏声明 → 预判组名 3 条 + label 关联不变量翻红 → 实测 **5 红**,含 `\"labelable\": false` 的 diff —— 漏声明的复合 widget 会被 #3952 那类「label 必须解析到真控件」的钉子当场抓住,而不是静默降级。\n4. 真实声明集合里删掉 `checkboxes` → 预判声明位钉两条翻红 → 实测 `expected undefined to be 'group'` + 集合断言两条红。\n\n## 顺带发现(均已另立,不在本 PR 修)\n\n把 probe 扩到 18 个字段类型跑了一遍,发现三条**超出本单裁定六个 widget**的同族账:\n\n- **#3975** `multiselect` 与 checkboxes 逐字同形(host id 落在包裹 div 上,`for` 惰性),不在 issue 实测表与 PM 裁定的六个内 → 标 `Blocked-by: #3961`,修法是本 PR 机制上的两行。\n- **#3976** 表单渲染器**内建** `select` 分支把 host id 展开到 Radix `Select.Root`(非 DOM 宿主,静默丢弃),手写 form schema 的裸 `type: 'select'` 全部悬空。⚠️ 这条与 issue 正文把 select 列为**阳性对照**「解析成功」相矛盾 —— 实测是 MISSING;分叉点是两条 select 路径(对象驱动发 `field:select`,走已修好的注册 widget)。\n- **#3318 评论** `signature` 与 slider 同形(整行没有任何带 id 的元素,因为它不转发任何 DOM pass-through)→ 落在 #3318 完成范围,按「attach, don't scatter」在那边留实测,未另立单。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -2,8 +2,8 @@
   "number": 6058,
   "kind": "issue",
   "title": "finding: the #5684 zod-mirror-parity guard is BLIND to a key declared on the TS side but absent from the mirror — measured on ObjectGanttSchema, and it is the guard #5927 just used as authoritative",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -12,20 +12,21 @@
   },
   "labels": [
     "domain:devx",
-    "pm:blocked",
     "tooling"
   ],
-  "assignees": [
-    "yinlianghui-tw"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-24T14:53:33Z",
-  "updated_at": "2026-08-30T15:02:25Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T04:36:48Z",
+  "closed_at": "2026-09-24T04:36:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6058",
   "body": "Filed unassigned, no labels — triage owns grading and routing. Recorded by the `domain:ui` PM seat (session `session_01CSoz9uGhaaSgiq3hshtN7L`, R38), from a measurement the dev on **#5903** made while falsifying one of this seat's own dispatch assumptions.\n\n## The measurement\n\nThe dispatch for #5903 asserted, as a warning: *\"declaring a key on the TS side alone **will** turn the `zod-mirror-parity` ratchet red, and adding a `KnownDrift` entry to silence that is forbidden.\"* The dev **predicted that assumption would not hold**, and then measured it.\n\n**Ablation:** revert *only* the zod mirror to its pre-card state, leaving all ten new TS declarations on `ObjectGanttSchema` intact — i.e. manufacture exactly the drift the guard exists to detect, on ten keys at once.\n\n**Result: BOTH halves of the guard stayed GREEN.**\n\n- `zod-mirror-parity` runtime half — **5 passed, EXIT=0**\n- its compile-time half, the `LedgerMismatch` assignment that runs under `tsc -p tsconfig.test.json` — **EXIT=0**\n\nTen keys declared and unmirrored, and the ratchet said nothing.\n\n## Why, read off the construction rather than guessed\n\nTwo independent reasons, and either alone is sufficient:\n\n1. **The forward direction maps over an INTERSECTION.** The drift type compares the mirror's mirrored keys ∩ `keyof` the declaration. A key that is present in the declaration and **absent from the mirror's `.shape` is not in that intersection at all** — so it does not merely compare equal, it **leaves the comparison entirely**.\n2. **The reverse direction is erased by the index signature.** `ObjectGanttSchema` carries `BaseSchema`'s index signature, so `keyof` it is `string | number`, and every indexed lookup resolves to `any`. There is nothing left to disagree with.\n\n⚠️ Reason 2 generalises: **`BaseSchema` has an index signature, so most component schemas in this repo inherit one.** The blind spot is not specific to `ObjectGantt`.\n\n## Why this matters beyond the card it was found on\n\n⭐ **#5927 used this guard's count as the authoritative measurement of drift**, and #5927's PR (**#6032**, merged) took the `KnownDrift` ledger from **17 entries to 13** on the strength of it. The ledger is shrink-only and pinned to each pair's exact drifted key set, which makes it excellent at the drift it *can* see — but the count of **163 pairs, 17 drifted** may be **under-counting**, and specifically under-counting in one direction: *declared but not mirrored*.\n\nThat direction is the one that matters most for AI-authored metadata. A key the published TypeScript **invites an author to write** and the published validator **has never heard of** is precisely the \"declared ≠ enforced\" shape this whole family exists to close — and it is the half the guard currently cannot see.\n\n⚠️ It is worth being clear about what is **not** claimed here: the 17 (now 13) entries are real drift, the ledger's shrink-only ratchet works, and #5927's seven widenings are unaffected — each was independently verified by a parse probe. What is in question is whether the **denominator** is complete.\n\n## Evidence that the gap is reachable, not theoretical\n\n#5903's own new pin — `packages/types/src/__tests__/gantt-declared-keys.test.ts` — **does** catch the same mutation: **2 failed | 7 passed, EXIT=1**. So the drift is detectable; the guard is simply not the thing detecting it. Two instruments over one tree, one blind and one not, is the cleanest possible demonstration.\n\n## Shape of an investigation, not a prescribed fix\n\n⛔ Deliberately not prescribing one — the guard is #5684's and this is a finding, not a dispatch. But the questions a fix has to answer:\n\n1. Should the forward comparison map over the **union** of the mirror's keys and the declaration's, rather than the intersection — so an unmirrored declared key registers as drift instead of vanishing?\n2. Can the declaration side be read **without** `keyof` on an index-signature-bearing type (e.g. from the interface's own declared members rather than the resolved key set)?\n3. If (1) lands, **how many of the 163 pairs turn red**? ⚠️ That number is the actual size of this finding and nobody has it. It could be zero; it could reopen the ledger #5927 just shrank. ⛔ Measure it before deciding anything.\n4. Does `SPEC_DERIVED_PAIRS` (the 10 spec-built pairs) need different treatment under a union comparison?\n\n## Pointers\n\n- **#5684** — the guard and its derived construction over 163 registered pairs.\n- **#5927** / PR **#6032** — the Group A widenings and the 17 → 13 ledger shrink that rest on this guard's count.\n- **#5903** / PR **#6053** — where the ablation was run; its `tests` field carries the full reading, the trap discipline, and the dist-rebuild proof.\n- `packages/types/src/__tests__/zod-mirror-parity.test.ts` — `KnownDrift`, `SPEC_DERIVED_PAIRS`, and the `LedgerMismatch` compile-time half.\n- **#5155** — `BaseSchema`'s `[key: string]: any` and why it caps what any \"declare the surface\" fix can reject; the same index signature is reason 2 above.\n- **#5853** — a sibling case where a guard's measured vocabulary and the honest end-to-end vocabulary diverged by ~4×; same family of \"the instrument's number is not the world's number\"."

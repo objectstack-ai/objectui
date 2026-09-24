@@ -1,0 +1,36 @@
+{
+  "number": 4106,
+  "kind": "issue",
+  "title": "plugin-charts / plugin-dashboard 测试套件仍有真实网络逃逸(ECONNREFUSED) — 根因与 #3339 不同,需独立定位",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue",
+    "tests"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T09:56:58Z",
+  "updated_at": "2026-08-10T10:56:57Z",
+  "closed_at": "2026-08-10T10:56:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4106",
+  "body": "Re-homed from #3339 (comment 5232664054 recorded the same ECONNREFUSED noise class in these two packages) at that card's close — PR #4105 fixed the plugin-detail escape and its dev VERIFIED these two have a **different root cause**: neither package reaches `useRecordEditable` or `DetailView` at all, so the #4105 fix does not cover them and the bisect must start fresh.\n\n## Known facts (inherited from #3339 / PR #4105)\n\n- Noise shape: real `fetch` under happy-dom escaping to `127.0.0.1:3000`, tests green (fail-open), stderr polluted with `connect ECONNREFUSED`.\n- The efficient localization method is on record in PR #4105: instrument `fetch`/`XMLHttpRequest`/`EventSource` in the root setup files and attribute every escape to its file + call site — attribution beats file-by-file bisection.\n- The fix discipline is also on record: test-side doubles scoped to the escaping files, recording every URL so new escapes fail an assertion; NO global error swallowing; product fallbacks stay untouched; MSW only if the repo ever stands up a real MSW harness (it has none today — declared devDependency, zero imports).\n- Acceptance bar: the packages' suites run from repo root with **zero** ECONNREFUSED lines in stderr, no assertion weakened.\n\n## Not yet known\n\nWhich test files / call sites in plugin-charts and plugin-dashboard emit the requests, and what endpoint(s) they hit. That is this card's work.\n\nFiled unassigned for the queue; observation provenance stays on #3339's thread."
+}

@@ -2,8 +2,8 @@
   "number": 7575,
   "kind": "issue",
   "title": "finding(i18n): four more `dashboard.*` keys read as CONFIRMED dead by the reverse sweep — `addWidget`, `editLayout`, `saveLayout`, `resetLayout`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-project-manager",
@@ -13,18 +13,21 @@
   "labels": [
     "domain:ui",
     "i18n",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-03T23:56:08Z",
-  "updated_at": "2026-09-12T01:24:56Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T07:07:48Z",
+  "closed_at": "2026-09-24T07:07:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7575",
   "body": "Filed unassigned, out of scope for #7125 / PR #7573 (which retires `dashboard.noRows` and `dashboard.noDataAvailable` only). Recorded because the same namespace was measured on the way past, not because anything was fixed here.\n\n## Measurement\n\n`node scripts/check-i18n-dead-keys.mjs` on `2b343c226` (after #7125's deletion) reports the `dashboard` namespace as **4 confirmed, 1 needs-review**:\n\n```\n  dashboard (4 confirmed, 1 needs-review):\n    [confirmed]     dashboard.addWidget\n    [confirmed]     dashboard.editLayout\n    [confirmed]     dashboard.resetLayout\n    [confirmed]     dashboard.saveLayout\n    [needs-review]  dashboard.removeWidget\n```\n\n`CONFIRMED` in that report means the AST pass sees no `t()`/`tt()` call site **and** the literal key string has no textual footprint anywhere else in the repo. Cross-checked by hand, by fully-qualified key, over `packages/` + `apps/`:\n\n| key | occurrences outside the ten packs |\n|---|---|\n| `dashboard.addWidget` | 0 |\n| `dashboard.editLayout` | 0 |\n| `dashboard.saveLayout` | 0 |\n| `dashboard.resetLayout` | 0 |\n\nThat is 40 pack entries (4 keys x 10 packs) with no reader this pass can see.\n\n## The fifth one is probably a substring artifact, not a live key\n\n`dashboard.removeWidget` is listed `needs-review` — the class that means \"some other file contains the literal string\". Its four occurrences are all `engine.inspector.dashboard.removeWidget`, a **different** key in `packages/app-shell/src/views/metadata-admin/i18n.ts`'s module-local table, read by `DashboardDefaultInspector.tsx`. The dotted path `dashboard.removeWidget` happens to be a suffix of it. So the needs-review verdict here is substring-driven and does not attest to a call site — worth stating, because it is the same one-name-several-keys shape that #7125 and #7218 both turned on.\n\n## What this finding does NOT claim\n\n- ⛔ Not that these are safe to delete today. The reverse sweep is **report-only by design** (#4658) and is structurally capable of false positives — a key reached only through an indirect variable, or from `examples/`/`e2e/`, which its walk does not cover. Each key still needs the per-key confirmation #7125 got: fully-qualified sweep with a lit control, plus `check:i18n-keys` staying green across the deletion.\n- ⛔ Not a claim about the other 138 CONFIRMED candidates the same report lists across 47 namespaces. Only this namespace was looked at.\n\n## If it is taken\n\nThe deletion shape is settled by five precedents (#4145, #4392, #4730, #5504, #6310) and now a sixth in PR #7573: delete the row from all ten packs together (`all-locales-key-parity` is the gate that catches a pack left behind), add a negative pin test, and declare a `patch` changeset for `@object-ui/i18n`. ⚠️ Delete by fully-qualified key — `dashboard.addWidget` and friends are short names, and a bare-name sweep is exactly how a live key in another namespace goes with them."

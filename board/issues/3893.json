@@ -1,0 +1,32 @@
+{
+  "number": 3893,
+  "kind": "issue",
+  "title": "生成的仓外 app 取库 CSS 的路线待定:PR #3889 走 `@source node_modules/@object-ui/*/dist`,而 #3884 实测预构建 `style.css` 是扫描所得的严格超集",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:12:25Z",
+  "updated_at": "2026-08-09T01:51:21Z",
+  "closed_at": "2026-08-09T01:51:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3893",
+  "body": "观察类发现,记录于 #3852 / PR #3889 实施期间,与 #3884 的读数交叉后据实另立。**今天没有用户会因此看到坏样式** —— 两条路线都出样式,差的是覆盖率与体积的取舍,以及\"生成的 app 该不该自己拥有唯一 Tailwind 入口\"这个产品向判断。因此标 `finding`,不进队列。\n\n## 两条路线\n\nPR #3889 把生成的临时 app 迁到 Tailwind 4 时,**仓外(非 workspace)**分支写的是:\n\n```\n@import 'tailwindcss';\n@source '../src/**/*.{js,ts,jsx,tsx,json}';\n@source '../node_modules/@object-ui/*/dist/**/*.js';\n@theme { ... 与 packages/components/src/index.css 逐条对齐的 token ... }\n```\n\n即 **app 拥有唯一 Tailwind 入口**,自己声明 `@theme`,靠扫描已安装的 `dist` 认出库里用到的 class。选它的理由:v3 的 `content` 只有 `./index.html` 与 `./src/**`,库的 class 一条都扫不到 —— 仓外生成的 app 从来就没有过库样式;而 v4 不自动扫被 gitignore 的 `node_modules`,显式 `@source` 是唯一办法。glob 形状实测有效(离线 fixture:目录位通配 `@object-ui/*` 命中、`node_modules` 下的 class 编出)。\n\n另一条是本仓自己给**已发布消费者**的教法(`packages/components/src/index.ts` 顶部注释与 README):\n\n```\n@import 'tailwindcss';\n@import '@object-ui/components/style.css';\n```\n\n## #3884 的读数为什么与这条相关\n\n#3884(实施 #3780 时量的)对消费者形状 fixture 做过真实编译:\n\n- 预构建 `style.css` 的 1410 条规则,是一个 `node_modules` glob 所能看到的全部表面(`dist/index.js` + `dist/index.umd.cjs` 的 class 形状 token,编出 1331 条)的**严格超集,零缺失**。\n- 在**已经 import 了 `style.css`**的配置里再加 `@source`,只多 14 条选择器却多 100 kB —— 那种配置下它是冗余的。\n\n关键区别,写清以免被误读为直接矛盾:#3884 量的是\"import 预构建 CSS **之后**再加 @source\"(冗余),PR #3889 的仓外分支是\"**不** import 预构建 CSS,只有 @source\"(不冗余 —— 它是那份 app 唯一的库样式来源,而且因为 app 自己声明了全套 `@theme`,`bg-primary` / `bg-sidebar-primary` 这类主题 utility 在这条路线下**能**编出,这正是 #3884 指出 @source 在**消费者**配置里补不回来的那一格)。\n\n## 待定的取舍\n\n| | A. 现状(PR #3889):唯一入口 + @source dist | B. 改成 `@import '@object-ui/components/style.css'` |\n| --- | --- | --- |\n| 覆盖率 | 扫描所得(#3884 量到 1331 条),缺预构建里那些非 class 来源的规则(sidebar 覆盖等 plain CSS) | 1410 条,严格超集 |\n| 体积 | 单份 preflight | 两份 Tailwind 产物(app 自己的 + 库的),#3884 的基线是 180 kB |\n| 主题 token | app 自己的 `@theme` 说了算,换 token 即整体换色 | 库的预构建色板已固化在 `style.css` 里 |\n| 与仓内一致性 | 与 workspace app 的写法(`examples/console-starter/src/index.css`、`packages/runner/src/index.css`)同形 | 与 README 给外部消费者的教法同形 |\n| 插件包 | 7 个 `@object-ui/plugin-*` 一条 glob 覆盖 | 需要逐个确认各自是否也导出 `./style.css` |\n\n最后一行是选 B 之前必须先量的:`packages/components/package.json` 有 `\"./style.css\": \"./dist/index.css\"`,但生成的 app 还依赖 7 个 plugin 包,它们是否都发布同名子路径未核。\n\n## 影响\n\n无用户可见缺陷。真正的成本是\"生成物的样式路线\"与\"文档给消费者的样式路线\"目前会是两种形状 —— 谁先漂,另一边不会有任何门禁发现。若维护者选 B,`app-generator.ts` 的仓外分支与 PR #3889 里那条 `@source` 一起改即可;若维护者选 A,建议在 quick-start / README 那边注明两种形状各自适用的场景(#3884 已经在问相邻的问题)。\n\n## 已搜重\n\n本仓开放 issue 搜过 `tailwind`、`@source`、`objectui init doctor scaffold` 三组:#3884(quick-start 的两条 @source 行)、#3883(theming/troubleshooting 的 v3 config)、#3780(components README §Setup,在实施)、#3852(生成物迁 v4,本条来源)。没有一条在问\"生成的仓外 app 该走哪条路线\" —— 与 #3884 相邻但不同面:那边是文档教消费者,这边是 CLI 生成物自身。\n"
+}

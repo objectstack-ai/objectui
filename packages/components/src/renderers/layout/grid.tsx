@@ -205,12 +205,13 @@ ComponentRegistry.register('grid',
         type: 'number', 
         description: 'Columns at xl breakpoint (>1280px)'
       },
-      { 
-        name: 'gap', 
-        type: 'number', 
+      {
+        name: 'gap',
+        type: 'number',
         description: 'Gap between items (0-12)'
       },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       columns: 1,

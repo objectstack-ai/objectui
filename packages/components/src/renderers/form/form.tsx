@@ -3393,7 +3393,8 @@ ComponentRegistry.register('form',
       { name: 'resetOnSubmit', type: 'boolean' },
       { name: 'disabled', type: 'boolean' },
       { name: 'className', type: 'string' },
-      { name: 'fieldContainerClass', type: 'string' }
+      { name: 'fieldContainerClass', type: 'string' },
+      { name: 'children', type: 'slot', description: 'Authored form body, rendered in place of the generated field list' }
     ],
     defaultProps: {
       submitLabel: 'Submit',

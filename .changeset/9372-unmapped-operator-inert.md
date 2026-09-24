@@ -43,7 +43,7 @@ comparand door accepts `[1, '']`, so emitting it needed a both-bounds-present ru
 first. That rule already existed — the builder's own `isFilterValueComplete`
 (objectui#5025) — and objectui#10062 maps `between` behind it: a range with both
 bounds is stored as `{ $between: [lo, hi] }`, and one with a blank bound is not
-emitted and, like any unfinished row, leaves the stored filter alone.
+emitted and, like any unfinished row, as the only row, leaves the stored filter alone.
 
 Forward note for anyone pinning stored filters: a dataset filter written by this
 version may carry `$notContains` / `$startsWith` / `$endsWith`, which an older

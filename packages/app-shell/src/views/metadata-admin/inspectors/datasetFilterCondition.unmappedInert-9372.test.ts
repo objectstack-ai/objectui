@@ -400,10 +400,15 @@ describe('`between` maps, with BOTH bounds required (objectui#10062 — flips th
     expect(groupToCondition(conditionToGroup(both).group)).toEqual(both);
   });
 
-  it('a stored `$between` this bridge would NOT have written reads as non-representable — the Source tab, not a silent drop', () => {
+  it('a stored `$between` that is not a complete pair — a blank, missing or extra bound, or a scalar — reads as non-representable: the Source tab, not a silent drop', () => {
     // Read back as a row, an incomplete pair would be dropped by the next
     // commit of ANY row in the group, removing a stored condition the author
     // never touched. So it goes where it went while `$between` was unmapped.
+    //
+    // ⚠️ This measures the pair's COMPLETENESS only, and reads with no field
+    // list. The other refusal — a complete pair on a column whose bucket does
+    // not offer `between` — needs the field list and is pinned in
+    // `datasetFilterCondition.dateRoundTrip-9382`.
     for (const value of [[LO, ''], ['', HI], [LO], LO, [LO, HI, LO]]) {
       expect(
         conditionToGroup({ $and: [{ stage: { $eq: 'won' } }, { closed_at: { $between: value } }] }).representable,

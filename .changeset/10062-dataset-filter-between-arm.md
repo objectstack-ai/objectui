@@ -18,10 +18,16 @@ and never saved.
   `isFilterValueComplete` (objectui#5025), not a local check: `0` is a real bound, `''` is
   not. As the only row it commits nothing and the stored filter stays; beside other rows,
   only those rows are stored.
-- **A stored `$between` this bridge would not have written** — a blank or missing bound, a
-  scalar, a list of the wrong length — is not opened as an editable row. It still goes to
-  the Source tab, as it did while `$between` was unmapped, so an edit to another row cannot
-  silently remove it.
+- **A stored `$between` this bridge would not have written is not opened as an editable
+  row.** It still goes to the Source tab, as it did while `$between` was unmapped. That is
+  exactly two cases:
+  - it is not a complete pair: a blank or missing bound, a scalar, or a list of the wrong
+    length. As a row, it would be dropped by the next edit to any other row;
+  - its column's filter menu does not offer `Between`. Only `date`, `datetime` and `time`
+    columns offer it. Every other type is refused, and so is a column listed without a type
+    or not listed at all, because the menu draws the text operators for both. As a row, the
+    operator would show blank, and touching the row's field picker would store `$eq`
+    instead of the range.
 
 The completeness check for every other operator now calls the same function; for scalar
 and list operators its answer is the one the removed inline check gave.

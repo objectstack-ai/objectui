@@ -327,22 +327,45 @@ export function conditionToGroup(
         // builder can draw.
         conditions.push({ id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' });
       } else {
-        const op = readBackOperator(mop, fields?.find((f) => f.value === field)?.type);
+        const fieldType = fields?.find((f) => f.value === field)?.type;
+        const op = readBackOperator(mop, fieldType);
         if (!op) return { group: empty, representable: false };
-        // A stored `$between` this bridge would not have WRITTEN — a missing
-        // or blank bound, a scalar, a one- or three-element list — is not
-        // faithfully editable here (objectui#10062). Read back as a row, it
-        // would be dropped as incomplete by the very next commit of ANY row in
-        // the group, silently removing a stored condition the author never
-        // touched. So it goes to the Source tab instead, exactly as it did
-        // while `$between` was unmapped. Asked through the same rule the write
-        // half uses, so the two halves cannot disagree on what "complete" is.
+        // A stored `$between` opens as a row only if this bridge could have
+        // WRITTEN it from that row (objectui#10062). Anything else goes to the
+        // Source tab, exactly where every `$between` went while it was
+        // unmapped. Two refusals, both measured:
         //
-        // ⚠️ Scoped to the pair arity on purpose: the same question for a
-        // stored scalar or list (`{ $eq: '' }`, `{ $in: [] }`) predates this
-        // card and is not answered here.
-        if (filterValueArity(op) === 'pair' && !isFilterValueComplete(op, v[mop])) {
-          return { group: empty, representable: false };
+        //  1. NOT A COMPLETE PAIR — a missing or blank bound, a scalar, a one-
+        //     or three-element list. Read back as a row, it would be dropped as
+        //     incomplete by the very next commit of ANY row in the group,
+        //     silently removing a stored condition the author never touched.
+        //     Asked through the same rule the write half uses, so the two
+        //     halves cannot disagree on what "complete" is.
+        //  2. A COLUMN WHOSE BUCKET DOES NOT OFFER `between` — every bucket but
+        //     the date-like three. `$between` has one preimage, so
+        //     {@link readBackOperator} never consults the bucket for it; read
+        //     back on a number column, the panel draws a BLANK operator trigger
+        //     (objectui#4768 / #7561), and one touch of that row's field picker
+        //     reconciles it to `equals` and reshapes the pair, committing
+        //     `{ amount: { $eq: 1 } }` — the objectui#9382 defect.
+        //
+        // The bucket is asked exactly as the builder asks it for each row:
+        // `operatorsForFieldType` of the listed column's type, no opt-ins. A
+        // column listed WITHOUT a type, or not listed at all, is not unknown to
+        // the builder — it draws the default text bucket for both, which lacks
+        // `between` — so both are refused. Only a read with NO field list skips
+        // this: no caller that draws a panel reads that way (the inspector
+        // always passes its field list), and it is the pure spec-shape read the
+        // field-less round-trip pins rely on.
+        //
+        // ⚠️ Scoped to the pair arity on purpose: the same two questions for a
+        // stored scalar or list (`{ $eq: '' }`, `{ $in: [] }`, `$in` on a date
+        // column) predate this card and are not answered here.
+        if (filterValueArity(op) === 'pair') {
+          if (!isFilterValueComplete(op, v[mop])) return { group: empty, representable: false };
+          if (fields && !operatorsForFieldType(fieldType).some((o) => o.value === op)) {
+            return { group: empty, representable: false };
+          }
         }
         conditions.push({ id: `c${i}`, field, operator: op, value: v[mop] });
       }

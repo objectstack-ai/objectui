@@ -36,6 +36,7 @@
  *   JPY-fixed footer, grid and hook             RED   (tenant `$`)
  *   agreement, cells and footers                RED   (the `currencyConfig` rows)
  *   the control field (no `currencyConfig`)     GREEN (tenant `$` is right)
+ *   auto-generated columns (whole def, no bag)  GREEN (the reference face)
  * The controls are GREEN on the base tree by design: they fail only if the
  * repair overshoots and stops falling back to the tenant currency.
  */
@@ -184,6 +185,22 @@ describe('a JPY-fixed field reads `¥` on the grid cell under a USD tenant (obje
     for (const field of CURRENCY_FIELDS) {
       const expected = wholeDefCell(field);
       expect(cells, `${field}: whole-def cell reads ${expected}; grid cells ${JSON.stringify(cells)}`).toContain(expected);
+    }
+  });
+});
+
+describe('the reference the configured paths now match (objectui#10354)', () => {
+  // The auto-generated columns (no `columns`, no `fields`) hand the cell the
+  // WHOLE field def and build no bag, so they already read the field's own
+  // currency on the base tree. GREEN there by design: it names the face the
+  // three configured paths used to disagree with.
+  it('auto-generated columns: every currency cell reads what the whole-def cell reads', async () => {
+    const { container } = await renderGrid({});
+    const cells = cellTexts(container);
+    cleanup();
+    expect(cells).toContain('¥1,234');
+    for (const field of CURRENCY_FIELDS) {
+      expect(cells).toContain(wholeDefCell(field));
     }
   });
 });

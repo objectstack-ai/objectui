@@ -909,17 +909,22 @@ function PositionRefusal({
  * question this answers. A "reject booleans" predicate was measured to put a
  * false footnote over the mixed tile, so it is not what this is.
  *
- * ## Mirrors the reader Recharts builds the domain with, not `Number.isFinite`
+ * ## Mirrors the two readers Recharts builds the domain with, not `Number.isFinite`
  *
  * A bare `Number.isFinite(v)` would refuse charts that draw. Recharts' numeric
- * domain reads a value through `makeNumber` in its axis selectors: a number, a
- * string or a `Date` whose `Number()` is finite. Measured on this component,
- * per family (bar / line / area / horizontal-bar / combo / scatter):
+ * domain reads a value through `makeDomain` in its axis selectors, which takes
+ * a SCALAR through `makeNumber` — a number, a string or a `Date` whose
+ * `Number()` is finite — and a two-element ARRAY `[lo, hi]` (a range bar or a
+ * range area) when both ends pass that same scalar rule. Measured on this
+ * component, per family (bar / line / area / horizontal-bar / combo / scatter):
  *
  *   - numeric strings (`'3'`) DRAW on every family — so they anchor;
- *   - `''` anchors at zero — a line / area / scatter draws it (a bar of height
- *     zero is the all-zero picture, which is finite data, not this defect);
+ *   - `''` anchors at zero: a line / area / scatter draws it, while a bar /
+ *     horizontal-bar / combo paints zero-height rectangles, the all-zero
+ *     picture — finite data and silent, not this defect;
  *   - `Date` values anchor (scatter, 2 of 2);
+ *   - a range `[1, 3]` anchors (a range bar drew 2 rectangles, a range area its
+ *     path); a range with a boolean or unparseable end does not;
  *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
  *
  * ## The stacked exception, also measured
@@ -935,6 +940,12 @@ function PositionRefusal({
  */
 function anchorsNumericAxis(v: unknown, stacked = false): boolean {
   if (typeof v === 'boolean') return stacked;
+  if (Array.isArray(v)) return v.length === 2 && isDomainScalar(v[0]) && isDomainScalar(v[1]);
+  return isDomainScalar(v);
+}
+
+/** Recharts' `makeNumber`: a number, string or `Date` whose `Number()` is finite. */
+function isDomainScalar(v: unknown): boolean {
   if (typeof v === 'number' || typeof v === 'string' || v instanceof Date) {
     return Number.isFinite(Number(v));
   }
@@ -2567,8 +2578,20 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  *
  * Only {@link SERIES_ONLY_CHART_TYPES}, for the reason given on that set; and
  * only once `hasNoPlottableSeries` has passed, since that is the guard that
- * owns "no series at all". A bound key that no row carries at all is left to
- * its own question (see the `carried` gate below).
+ * owns "no series at all".
+ *
+ * ## Silent unless EVERY bound key resolves as a plain own property of a row
+ *
+ * This reads `row[key]`; Recharts reads `get(row, key)`, which also walks a
+ * dotted path (`'a.b'` into `{ a: { b: 3 } }`). Rather than re-implement that
+ * path grammar here — a second copy that could drift from the library's — a
+ * bound key that is not an own property of any row is treated as UNRESOLVED,
+ * and one unresolved key keeps the whole tile silent: this predicate cannot
+ * tell whether that series draws, so it must not claim it does not (measured:
+ * `a.b` beside an all-boolean `w` drew bar 3 rectangles / line 2 paths).
+ * The same gate keeps a key NO row carries — the objectui#8266 shape, whose
+ * own render pins keep it silent until it is re-decided as its own question —
+ * out of this answer. Errs to silence, never to a refusal over marks.
  */
 function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
   const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
@@ -2576,16 +2599,14 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
   const series = Array.isArray(props.series) ? props.series : [];
   if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
   const keys = Array.from(new Set(series.map((s) => String(s.dataKey))));
-  const live = series.some((s) => axisHasScale(rows, String(s.dataKey), Boolean(s.stack)));
-  if (live) return null;
-  // A binding that names a column NO row carries is a different diagnosis —
-  // the objectui#8266 shape, whose own render pins keep it silent until it is
-  // re-decided as its own question — so this answers only once some row does
-  // carry a bound key and still gives the axis nothing to scale.
-  const carried = rows.some(
-    (row) => row != null && typeof row === 'object' && keys.some((key) => key in row),
+  const resolved = keys.every((key) =>
+    rows.some(
+      (row) => row != null && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, key),
+    ),
   );
-  return carried ? keys : null;
+  if (!resolved) return null;
+  const live = series.some((s) => axisHasScale(rows, String(s.dataKey), Boolean(s.stack)));
+  return live ? null : keys;
 }
 
 /**

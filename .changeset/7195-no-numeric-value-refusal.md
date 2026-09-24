@@ -18,9 +18,13 @@ before:
   value the axis can scale: every value boolean, `null` or an unparseable string. For a stacked
   series `null` counts as nothing too.
 
-What keeps drawing, unchanged: numeric strings, `''` (placed at zero), `Date` values, booleans
-in a STACKED series (the stack reads them as numbers), a series that is all boolean beside a
-numeric one, and a dual-axis chart with one live axis. A series key that no row carries at all
-is not covered by this change. Rows with no placeable pair still get scatter's
+What keeps drawing, unchanged: numeric strings, `Date` values, range values `[lo, hi]` whose
+two ends are both numbers (range bars and range areas), booleans in a STACKED series (the stack
+reads them as numbers), a series that is all boolean beside a numeric one, and a dual-axis chart
+with one live axis. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
+horizontal-bar or combo paints the same zero-height picture as all-zero data, silently, exactly
+as before. A bound series key that is not a plain property of any row (a dotted path such as
+`a.b`, which Recharts resolves into nested rows, or a column no row carries) keeps the chart
+silent: the refusal fires only when every bound key is read from the rows directly. Rows with no placeable pair still get scatter's
 `no-plottable-points`, a multi-series scatter still gets `scatter-multi-series`, and
 `missing-category-key` / `no-plottable-series` still take precedence over this one.

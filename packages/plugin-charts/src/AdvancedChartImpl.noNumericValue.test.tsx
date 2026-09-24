@@ -23,10 +23,13 @@
  * ## What "a value it can build a scale from" measured as
  *
  * Not `Number.isFinite`: numeric strings draw on every family, `''` draws at
- * zero on line / area / scatter, and a STACKED series reads booleans through
- * d3's `Number(value)` and draws them. The predicate mirrors Recharts' own
- * domain reader, plus that stack exception; the cases below pin each clause
- * from the side that must keep drawing.
+ * zero on line / area / scatter, a two-number range `[lo, hi]` draws on a range
+ * bar / area, and a STACKED series reads booleans through d3's
+ * `Number(value)` and draws them. The predicate mirrors Recharts' own domain
+ * reader (`makeDomain` over `makeNumber`), plus that stack exception; the cases
+ * below pin each clause from the side that must keep drawing. A bound key that
+ * is no row's own property (a dotted path, an absent column) is unresolved and
+ * keeps the tile silent.
  */
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -282,6 +285,42 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
       expect(anyRefusalOf(container)).toBeNull();
     });
   }
+
+  for (const family of ['bar', 'area']) {
+    it(`${family}: a RANGE series ([lo, hi] per row) draws — Recharts' makeDomain anchors a two-number array`, () => {
+      const { container } = renderFamily(family, [{ k: 'a', v: [1, 3] }, { k: 'b', v: [2, 5] }]);
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
+  it('a range with a boolean end does not anchor, so an axis of only those is refused', () => {
+    const { container } = renderFamily('bar', [{ k: 'a', v: [true, 3] }, { k: 'b', v: [false, 5] }]);
+    expect(refusalOf(container)).not.toBeNull();
+  });
+
+  for (const family of ['bar', 'line']) {
+    it(`${family}: a DOTTED dataKey beside an all-boolean series draws — an unresolved key keeps the tile silent`, () => {
+      // Recharts reads `get(row, 'a.b')`; this predicate does not walk paths,
+      // so a key that is no row's own property is unresolved and it says nothing.
+      const { container } = renderFamily(
+        family,
+        [{ k: 'a', a: { b: 3 }, w: true }, { k: 'b', a: { b: 5 }, w: false }],
+        [{ dataKey: 'a.b' }, { dataKey: 'w' }],
+      );
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
+  it('one bound key no row carries keeps the tile silent even beside an all-boolean series', () => {
+    const { container } = renderFamily(
+      'bar',
+      [{ k: 'a', w: true }, { k: 'b', w: false }],
+      [{ dataKey: 'value' }, { dataKey: 'w' }],
+    );
+    expect(refusalOf(container)).toBeNull();
+  });
 
   for (const family of ['bar', 'horizontal-bar', 'area', 'combo']) {
     it(`${family}: a STACKED all-boolean series draws — d3's stack reads booleans as numbers`, () => {

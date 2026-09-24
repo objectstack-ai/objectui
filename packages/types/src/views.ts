@@ -1069,12 +1069,14 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
    * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `view-switcher` reads — nothing renders it.
    */
@@ -1094,12 +1096,14 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
    * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `view-switcher` reads — nothing renders it.
    */
@@ -1178,12 +1182,14 @@ export interface FilterUISchema extends BaseSchema {
    * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
    * `packages/plugin-view/src/FilterUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-ui` reads — nothing renders it.
    */
@@ -1202,12 +1208,14 @@ export interface FilterUISchema extends BaseSchema {
    * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
    * `packages/plugin-view/src/FilterUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-ui` reads — nothing renders it.
    */
@@ -1274,12 +1282,14 @@ export interface SortUISchema extends BaseSchema {
    * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
    * `packages/plugin-view/src/SortUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sort-ui` reads — nothing renders it.
    */
@@ -1297,12 +1307,14 @@ export interface SortUISchema extends BaseSchema {
    * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
    * `packages/plugin-view/src/SortUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sort-ui` reads — nothing renders it.
    */

@@ -277,6 +277,30 @@ It changes no behaviour — the predicate is still dropped on that one arm — i
 only stops the drop from being invisible. Nothing warns on the five arms that
 honour the key.
 
+### Section rows: heading, blurb and collapse
+
+The stacked layouts (the default layout, `formType: 'modal'` and
+`formType: 'drawer'`, with explicit `sections` or with sections derived from
+the object's `fieldGroups`) follow one rule for a section's divider row:
+
+- A section's **own settings apply whether or not it has a heading.** Its
+  `visibleWhen` hides the whole group, fields included, on every layout. A
+  section with no `label` is never un-gated.
+- The **divider row is drawn when the section has a `label` or a
+  `description`**. With a `description` alone it is a blurb-only row: no
+  heading, just the blurb.
+- The **collapse control sits on that row**, so `collapsible` / `collapsed`
+  work on a titled row and on a blurb-only row alike (`collapsed: true` implies
+  `collapsible`).
+- A section that declares `collapsible` or `collapsed` but has neither a
+  `label` nor a `description` has no row to hold the control. It renders open
+  and a console warning says so ("collapsible section has no heading or
+  description to carry its control"). Its fields are never hidden without a
+  control to bring them back.
+
+The modal's `contentLayout: 'tabbed'` draws tabs instead of rows, and tabs do
+not collapse.
+
 ### Wizard steps and `allowSkip`
 
 `allowSkip` lets the user jump to any step from the indicator instead of walking

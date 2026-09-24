@@ -25,5 +25,10 @@ All three paths now use one resolution:
   section with no heading and no description therefore keeps its fields open instead of
   hiding them behind nothing.
 
-Nothing is refused that was accepted before. The accept set is unchanged, and the only
-sections that render differently are ones whose fields could not be reached.
+Nothing is refused that was accepted before. The accept set is unchanged. The sections
+that render differently are ones whose fields could not be reached, plus two edge cases:
+
+- A section that shares its key with a collapsible sibling is no longer hidden by that
+  sibling's toggle.
+- A drawer section that was declared `collapsed` at mount, and whose declaration is later
+  removed, now follows the declaration until the user toggles it. It used to stay closed.

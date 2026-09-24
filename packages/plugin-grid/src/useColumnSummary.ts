@@ -10,7 +10,7 @@ import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
-import { formatPercent } from '@object-ui/fields';
+import { formatCurrency, formatPercent } from '@object-ui/fields';
 
 /**
  * Aggregation functions for the column footer — the spec's `ColumnSummary`
@@ -254,15 +254,33 @@ function computeAggregation(type: string, rows: SummaryRow[], field: string): nu
 }
 
 /**
+ * Whether `Intl` accepts `code` as a currency at all.
+ *
+ * Asked with NO locale, so only a malformed CODE can make it answer `false` —
+ * the same probe shape `currencyFractionDigits` in `@object-ui/fields` uses.
+ * It exists for one arm: `formatCurrency` swallows a code `Intl` refuses into a
+ * locale-less `CODE 1234.50`, and objectui#9294 keeps this footer's bad-code
+ * fallback on the tenant locale, so a refused code must never reach it.
+ */
+function intlAcceptsCurrency(code: string): boolean {
+  try {
+    new Intl.NumberFormat(undefined, { style: 'currency', currency: code });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Format a summary value for display.
  *
  * When a `column` carries type metadata (e.g. `type: 'currency'` or
  * `'percent'`) we route the numeric result through the matching
  * formatter so currency columns render as `$1,234.56` and percent
  * columns as `12%` instead of falling back to a bare `toLocaleString()`.
- * Currency code defaults to USD when neither `currency` nor
- * `defaultCurrency` is supplied — mirrors the CurrencyCellRenderer
- * behavior so cells and footer agree.
+ * The currency code is resolved by the same `resolveFieldCurrency` the
+ * CurrencyCellRenderer uses (tenant default last), and a column with no code
+ * renders a plain number, never a guessed symbol — so cells and footer agree.
  *
  * That column formatting applies to the numeric family only. Count
  * aggregations are plain cardinalities and percent aggregations carry their own
@@ -336,30 +354,32 @@ function formatSummaryLabel(
   const colType = column?.type;
   let formatted: string;
   if (colType === 'currency') {
+    // objectui#10221 — a currency's decimal places are the currency's, not a
+    // setting (ruling 乙 on objectstack-ai/objectstack#19910; `scale` is retired
+    // from the currency type by ruling B on objectstack-ai/objectstack#19629).
+    //
+    // This arm read `column.scale ?? 0`. That made the footer's width a second
+    // opinion beside the list cell's: a USD column declaring no `scale` summed
+    // `1234.5` to `$1,235` under cells reading `$1,234.50`, and a JPY column
+    // carrying a stale `scale: 4` summed to `¥1,234.5000`, cents a yen does not
+    // have. `precision` was never the answer either — it is the TOTAL digit
+    // count of a decimal(p, s) column (#2131 removed that read).
+    //
+    // The amount now goes to `formatCurrency` — the list cell's own formatter
+    // (`CurrencyCellRenderer`), the same way the percent arm below takes
+    // `formatPercent` — so footer and cell agree by reference, not by a copy
+    // of the rule. It reads neither `scale` nor `precision`: the width is the
+    // currency's ISO 4217 minor-unit count, a whole amount drops its fraction
+    // (`$1,234`, not `$1,234.00`), and with no code resolved it is a plain
+    // number at two decimals, as the cell renders it.
     const currency = resolveFieldCurrency(column, tenantDefault);
-    // Decimal places come from `scale`, not `precision` (the total digit count
-    // of a decimal(p, s) column) — see #2131. Reading `precision` padded a
-    // decimal(10, 0) sum out to "…0000000000".
-    const decimals = column?.scale ?? 0;
-    try {
-      formatted = currency
-        ? new Intl.NumberFormat(displayLocale, {
-            style: 'currency',
-            currency,
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-          }).format(value)
-        : new Intl.NumberFormat(displayLocale, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-          }).format(value);
-    } catch {
-      // The throw this catches is a bad `currency` code, not a bad locale, so
-      // the fallback keeps the tag: degrading to the machine's locale here
-      // would reintroduce the defect on precisely the rows that already went
-      // wrong once.
-      formatted = value.toLocaleString(displayLocale);
-    }
+    formatted =
+      currency && !intlAcceptsCurrency(currency)
+        ? // A malformed code: keep objectui#9294's fallback on the tenant tag.
+          // Degrading to the machine's locale here would reintroduce that
+          // defect on precisely the rows that already went wrong once.
+          value.toLocaleString(displayLocale)
+        : formatCurrency(value, currency, displayLocale);
   } else if (colType === 'percent') {
     // objectui#9269 — the percent decision is NOT made here any more.
     //
@@ -396,8 +416,10 @@ function formatSummaryLabel(
     // arm above, one type over. Both percent surfaces move together, or this
     // footer and the cell above it disagree.
     //
-    // An ABSENT `scale` stays `0`, matching the currency arm's spelling
-    // directly above and the list cell's — the three agree by construction.
+    // An ABSENT `scale` stays `0`, matching the list cell's spelling, so the
+    // two agree by construction. (The currency arm above no longer reads
+    // `scale` at all — objectui#10221 — which is a currency-only retirement;
+    // `scale` stays the percent width.)
     const decimals = column?.scale ?? 0;
     formatted = formatPercent(value, decimals, displayLocale);
   } else if (type === 'avg') {
@@ -414,8 +436,9 @@ function formatSummaryLabel(
  * @param columns - Column definitions (may include `summary` config)
  * @param data - Row data array
  * @param fieldMetadata - Optional `objectSchema.fields` map; when present
- *   the hook reads `type`/`currency`/`precision` to format the summary
- *   in the column's native unit (currency → `$1,234.56`, percent → `12%`).
+ *   the hook reads `type`/`currency`/`defaultCurrency` and, for a percent
+ *   column, `scale` to format the summary in the column's native unit
+ *   (currency → `$1,234.56`, percent → `12%`).
  * @returns Map of field name to summary result, and a flag if any summaries exist
  */
 export function useColumnSummary(

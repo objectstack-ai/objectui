@@ -48,6 +48,19 @@ function renderField(field: Record<string, unknown>, value: unknown, failing: st
   return { upload, onChange, input: document.querySelector('input[type="file"]') as HTMLInputElement };
 }
 
+/**
+ * Node's `process`, reached through `globalThis` with only the two members this
+ * file uses typed — this package's test program deliberately carries no
+ * `@types/node` (see `tsconfig.test.json`).
+ */
+type RejectionListener = (reason: unknown) => void;
+const nodeProcess = (globalThis as unknown as {
+  process: {
+    on(event: 'unhandledRejection', listener: RejectionListener): void;
+    off(event: 'unhandledRejection', listener: RejectionListener): void;
+  };
+}).process;
+
 /** Lets the event loop turn so a pending `unhandledRejection` is dispatched. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
@@ -60,10 +73,10 @@ describe('ImageField — a failed upload is reported, not swallowed (#10226)', (
   };
   beforeEach(() => {
     unhandled = [];
-    process.on('unhandledRejection', onUnhandled);
+    nodeProcess.on('unhandledRejection', onUnhandled);
   });
   afterEach(() => {
-    process.off('unhandledRejection', onUnhandled);
+    nodeProcess.off('unhandledRejection', onUnhandled);
   });
 
   it('picker: shows the translated failure, adds nothing, leaks no rejection', async () => {

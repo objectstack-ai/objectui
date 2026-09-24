@@ -916,6 +916,43 @@ describe('ElementDataSourceGate — a refused binding `limit` is not authored (o
       expect(said(spy).find((s) => s !== bindingSentence(0))).toContain('pagination.pageSize: 0');
     });
 
+    it('binding 0 + refused view cap + usable COMPONENT cap ⇒ the component’s cap, and the binding warning only', async () => {
+      // The view's refusal changed nothing here: a usable component cap wins
+      // over any view cap, so the view's sentence would not be true.
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 50 }, dataSource: bindingOf(0) },
+        VIEW_REFUSED,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 50 });
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('binding 0 + view with no cap + refused COMPONENT cap ⇒ the component’s 0 stays, and the binding warning only', async () => {
+      // Nothing usable to write, so the component's own value stays on the
+      // node for the renderer's own diagnostic; the gate speaks only for the
+      // binding.
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 0 }, dataSource: bindingOf(0) },
+        VIEW_NO_CAP,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 0 });
+      await waitFor(() => expect(said(spy)).toEqual([bindingSentence(0)]));
+    });
+
+    it('binding 0 + refused view cap + refused COMPONENT cap ⇒ the component’s 0 stays, and the view + binding warnings', async () => {
+      const { result, spy } = await row(
+        { type: 'list-view', pagination: { pageSize: 0 }, dataSource: bindingOf(0) },
+        VIEW_REFUSED,
+      );
+      expect(result.current.schema.pagination).toEqual({ pageSize: 0 });
+      const expected = [
+        bindingSentence(0),
+        elementDataSourceRefusedLimitMessage(VIEW_REFUSED, 'hot', 'account', bindingOf(0)),
+      ];
+      expect(expected[1]).not.toBeNull();
+      await waitFor(() => expect([...said(spy)].sort()).toEqual([...expected].sort()));
+    });
+
     it('binding 0 + usable view cap ⇒ the view’s cap on the flat `limit` key too', async () => {
       const { result, spy } = await row(
         { type: 'object-kanban', dataSource: bindingOf(0) },

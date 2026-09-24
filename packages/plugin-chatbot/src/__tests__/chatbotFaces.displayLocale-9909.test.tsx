@@ -92,20 +92,25 @@ const SURFACES: Surface[] = [
     en: /3\/4\/2020/,
   },
   {
-    name: 'useObjectChat — local-mode message timestamp',
+    // Both local-mode stamps: the user's message, and the auto-response the
+    // hook appends after `autoResponseDelay` — two call sites, one surface.
+    name: 'useObjectChat — local-mode message timestamps (user and auto-response)',
     read: async (locale) => {
       // 15:30:45 UTC — the suite runs in UTC; `de` is 24-hour, `en` is 12-hour.
+      // Only `Date` is faked, so the auto-response's real timer still fires.
       vi.useFakeTimers({ toFake: ['Date'] });
       vi.setSystemTime(new Date(Date.UTC(2020, 2, 4, 15, 30, 45)));
-      const { result } = renderHook(() => useObjectChat({ showTimestamp: true }), {
-        wrapper: ({ children }) => <Session locale={locale}>{children}</Session>,
-      });
+      const { result } = renderHook(
+        () => useObjectChat({ showTimestamp: true, autoResponse: true, autoResponseText: 'ok', autoResponseDelay: 0 }),
+        { wrapper: ({ children }) => <Session locale={locale}>{children}</Session> },
+      );
       act(() => result.current.sendMessage('hello'));
+      await waitFor(() => expect(result.current.messages).toHaveLength(2));
       vi.useRealTimers();
-      return result.current.messages[0]?.timestamp ?? '';
+      return result.current.messages.map((m) => m.timestamp ?? '').join(' | ');
     },
-    de: /^15:30:45$/,
-    en: /^3:30:45\sPM$/,
+    de: /^15:30:45 \| 15:30:45$/,
+    en: /^3:30:45\sPM \| 3:30:45\sPM$/,
   },
 ];
 

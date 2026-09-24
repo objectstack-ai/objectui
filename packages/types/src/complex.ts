@@ -17,7 +17,6 @@
 
 import type {
   DashboardWidget as SpecDashboardWidget,
-  DateRangeDefaultRange as SpecDateRangeDefaultRange,
   GlobalFilter as SpecGlobalFilter,
   Dashboard as SpecDashboard,
   ViewFilterOperator as SpecViewFilterOperator,
@@ -2331,31 +2330,16 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
    * value vocabularies now track the protocol instead of a snapshot of it.
    */
   globalFilters?: SpecGlobalFilter[];
-  /**
-   * Date range filter configuration.
-   * Aligned with @objectstack/spec DashboardSchema.dateRange.
-   *
-   * `defaultRange` is BOUND to the spec's `DateRangeDefaultRange` rather than
-   * restated (objectui#4984). It used to be a hand-written 14-member union —
-   * byte-faithful to the spec, but faithful only until the next spec release:
-   * a preset the spec ADDS would be a legal document that objectui's own types
-   * say cannot exist, the same "narrower than the contract it implements" shape
-   * as objectui#4163's `label`, whose consequence was that the bad reads were
-   * invisible to `tsc`. No gate could report the drift either — `check:spec-symbols`
-   * rule 1 matches by NAME and an inline union on an interface member has no
-   * symbol to collide with, while rule 2's claim heuristic was waved through by
-   * the `SpecGlobalFilter` reference a few lines up. Binding makes the "Aligned
-   * with" line above structural instead of prose.
-   *
-   * `DATE_RANGE_DEFAULT_RANGES` is `[...DATE_RANGE_PRESETS, 'custom']`, so this
-   * tracks the same vocabulary `@object-ui/core` re-exports by reference
-   * (objectui#4167) — one list, reached two ways.
-   */
-  dateRange?: {
-    field?: string;
-    defaultRange?: SpecDateRangeDefaultRange;
-    allowCustomRange?: boolean;
-  };
+  // `dateRange` was DECLARED here until objectui#10334 — a hand-written
+  // `{ field?, defaultRange?, allowCustomRange? }` whose `defaultRange` was bound
+  // to the spec's `DateRangeDefaultRange` (objectui#4984) while its Zod twin
+  // restated the key as a bare `z.string()`, so the validator admitted preset
+  // names this type refused (the `WiderThanDeclared` row objectui#7759 group F
+  // left behind). The key is spec-declared, so both faces now take the spec's
+  // AUTHORING member by reference: `dateRange` is no longer on
+  // `DASHBOARD_SPEC_EXCLUDED`, and this interface inherits it from the
+  // `Omit< Dashboard, … >` projection above. Pinned by
+  // `__tests__/dashboard-daterange-spec-10334.test.ts`.
   // `aria` was DECLARED here until objectui#5830, under a comment claiming
   // alignment with @objectstack/spec AriaPropsSchema — by then the opposite of
   // the contract: the spec removed `dashboard.aria` at the #3896 audit

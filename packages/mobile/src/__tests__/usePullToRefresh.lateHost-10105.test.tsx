@@ -196,10 +196,13 @@ function Nest({
   onOuter: () => Promise<void>;
   onInner: () => Promise<void>;
 }) {
-  const outer = usePullToRefresh<HTMLDivElement>({ onRefresh: onOuter, enabled: outerEnabled });
+  const { ref, pullDistance } = usePullToRefresh<HTMLDivElement>({
+    onRefresh: onOuter,
+    enabled: outerEnabled,
+  });
   return (
-    <div ref={outer.ref} data-testid="outer">
-      {outer.pullDistance > 0 ? <span data-testid="outer-indicator" /> : null}
+    <div ref={ref} data-testid="outer">
+      {pullDistance > 0 ? <span data-testid="outer-indicator" /> : null}
       <Inner onRefresh={onInner} />
     </div>
   );

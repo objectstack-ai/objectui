@@ -24,10 +24,14 @@
  * `validateMetadataDraft` (`clientValidation.ts`): `ViewItemSchema` for a
  * create draft that carries `viewKind`, and `ViewMetadataSchema` on edit. That
  * file's `view` loader note says why the edit gate is the schema the server's
- * save runs. Which schema each gate picks is pinned by
- * `clientValidation.viewShapes.test.ts`, and this file pins what those schemas
- * say about the root. The body is the ExpandedViewItem envelope `/forms/:name`
- * loads.
+ * save runs. The body is the ExpandedViewItem envelope `/forms/:name` loads.
+ *
+ * What this file does NOT hold: it parses those schemas directly and never
+ * calls `validateMetadataDraft`, which `@object-ui/app-shell` does not export.
+ * The gates' own behaviour is pinned in `clientValidation.viewShapes.test.ts`.
+ * The refusal was measured through `validateMetadataDraft` in both modes once,
+ * for objectui#6262, and got the same verdicts. Nothing here re-derives that
+ * half.
  *
  * The control is load-bearing. The same body with a `current_user.*` predicate
  * must parse clean, so a refused target is about the root and not about a body

@@ -31,8 +31,8 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
     ...actual,
     getCellRenderer: (type: string) => {
       const Real = actual.getCellRenderer(type);
-      const Recording = (props: any) => {
-        handedFields.push(props.field);
+      const Recording = (props: React.ComponentProps<typeof Real>) => {
+        handedFields.push(props.field as unknown as Record<string, unknown>);
         return React.createElement(Real, props);
       };
       return Recording;
@@ -67,7 +67,9 @@ const renderGallery = (visibleFields: string[]) => {
     getObjectSchema: vi.fn().mockResolvedValue(objectSchema),
   };
   return render(
-    <SchemaRendererProvider dataSource={dataSource as any}>
+    <SchemaRendererProvider
+      dataSource={dataSource as unknown as React.ComponentProps<typeof SchemaRendererProvider>['dataSource']}
+    >
       <ObjectGallery
         schema={{
           type: 'object-gallery',

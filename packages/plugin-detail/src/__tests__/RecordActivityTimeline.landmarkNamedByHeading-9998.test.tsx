@@ -24,9 +24,12 @@
  *   "A speech-input user says what they see, so the landmark's spoken name must
  *    be the heading, not a paraphrase of it."
  *
- * The section is now named BY the heading's title text (`aria-labelledby`), so
- * the name and the visible words are one node rather than two strings kept in
- * step. The `(N)` count badge beside the title is deliberately NOT part of the
+ * The section's name and the heading's title are now ONE value (`title`, read
+ * once and used for both), rather than two strings kept in step. (Not
+ * `aria-labelledby`: the per-instance id it needs comes from `React.useId()`,
+ * which differs on every mount, and two instruments elsewhere in the tree
+ * byte-compare two mounts' HTML — the component's own comment names them.)
+ * The `(N)` count badge beside the title is deliberately NOT part of the
  * name: it is live status (it moves with the filter dropdown), and it is the
  * part of the heading nobody speaks to name the panel — which is exactly why
  * the chatter mount's "Discussion" under "Discussion (N)" was the agreeing

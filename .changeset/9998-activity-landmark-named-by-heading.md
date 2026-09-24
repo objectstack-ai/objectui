@@ -14,9 +14,9 @@ the repo's own rule from objectui#4118: a speech-input user says what they see,
 so the landmark's spoken name must be the heading. `record:chatter` passes
 `titleLabel={t('detail.discussion')}`, so it happened to agree.
 
-The section now gets its name from the heading's title text through
-`aria-labelledby`. The name and the visible words are the same DOM node, so
-they cannot drift apart:
+The section's `aria-label` now uses the same value as the heading's title. The
+component reads that value once and uses it for both, so the name and the
+visible words cannot drift apart:
 
 - `record:activity` is announced "Activity", in the session locale;
 - `record:chatter` is still announced "Discussion";

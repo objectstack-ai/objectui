@@ -29,12 +29,11 @@
  * replaced the timeline's Card). So a `record:activity` mount, which passes no
  * `titleLabel`, was a landmark spoken "Discussion" under a heading reading
  * "Activity (N)" — against objectui#4118's rule that the landmark's spoken name
- * must be the heading. The timeline's section is now named BY that heading's
- * title text, so its cases below assert the locale's `detail.activity` where
- * they used to assert `detail.discussion`, and they read the computed
- * accessible name rather than an `aria-label` attribute it no longer carries.
- * What this file pins for it is unchanged: the landmark name is the session
- * locale's pack value, never an English literal, in all ten locales.
+ * must be the heading. The timeline's `aria-label` now reads the same value as
+ * that heading's title, so its cases below assert the locale's
+ * `detail.activity` where they used to assert `detail.discussion`. What this
+ * file pins for it is unchanged: the landmark name is the session locale's pack
+ * value, never an English literal, in all ten locales.
  *
  * Keys: `detail.discussion` already existed in all ten packs (the DetailView
  * tab reads it). `detail.highlightsLabel` is new and is the ONLY key this
@@ -84,17 +83,6 @@ const timeline = <RecordActivityTimeline items={[]} />;
 const sectionLabel = (container: HTMLElement) =>
   container.querySelector('section')?.getAttribute('aria-label') ?? null;
 
-/**
- * The timeline's one `<section>`. It is named by its heading's title since
- * objectui#9998, so its name is read off the accessibility tree
- * (`toHaveAccessibleName`), not off an `aria-label` attribute.
- */
-const timelineSection = (container: HTMLElement) => {
-  const section = container.querySelector('section');
-  if (!section) throw new Error('RecordActivityTimeline rendered no <section>');
-  return section;
-};
-
 afterEach(() => cleanup());
 
 describe('record-detail landmark names (objectui#4645)', () => {
@@ -133,7 +121,7 @@ describe('record-detail landmark names (objectui#4645)', () => {
   describe('RecordActivityTimeline — the activity landmark, named by its heading', () => {
     it('reads English under an en session', () => {
       const { container } = renderIn('en', timeline);
-      expect(timelineSection(container)).toHaveAccessibleName('Activity');
+      expect(sectionLabel(container)).toBe('Activity');
     });
 
     it.each([
@@ -148,7 +136,7 @@ describe('record-detail landmark names (objectui#4645)', () => {
       ['ar', 'النشاط'],
     ])('reads the %s pack value', (language, expected) => {
       const { container } = renderIn(language, timeline);
-      expect(timelineSection(container)).toHaveAccessibleName(expected);
+      expect(sectionLabel(container)).toBe(expected);
     });
   });
 });

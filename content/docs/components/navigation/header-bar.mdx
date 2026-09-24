@@ -53,6 +53,17 @@ interface HeaderBarSchema {
 }
 ```
 
+### Retired keys
+
+`nav`, `left`, `center` and `height` are retired on this node (objectui#10387,
+alongside `variant` from objectui#10286). The renderer never read any of them, so an
+authored value drew the same header as leaving it out. They now fail validation
+by name, and the TypeScript declaration types each one `never`. Delete the key:
+
+- `nav` — put links in `crumbs`, or use a `navigation-menu` / `sidebar` node.
+- `left` / `center` — put custom content in `rightContent` or `actions`.
+- `height` — the header's height is fixed (`h-14`, `sm:h-16`).
+
 ## Examples
 
 ### Application Header

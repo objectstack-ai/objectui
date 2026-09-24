@@ -64,7 +64,13 @@ export const HeaderBarSchema = BaseSchema.extend({
   type: z.literal('header-bar'),
   title: z.string().optional().describe('Header title'),
   logo: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Logo content'),
-  nav: z.array(NavLinkSchema).optional().describe('Navigation links'),
+  nav: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `nav`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
+    + '`search` off the node and takes no spread props, so an authored link list rendered nothing — '
+    + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For links use `crumbs`, or a `navigation-menu` / `sidebar` node.',
+  ),
   crumbs: z.array(BreadcrumbItemSchema).optional().describe('Breadcrumb items'),
   search: z.object({
     enabled: z.boolean().describe('Whether search is enabled'),
@@ -73,11 +79,29 @@ export const HeaderBarSchema = BaseSchema.extend({
   }).optional().describe('Search configuration'),
   actions: z.array(SchemaNodeSchema).optional().describe('Right-side action slots'),
   rightContent: SchemaNodeSchema.optional().describe('Custom right content area'),
-  left: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Left content'),
-  center: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Center content'),
+  left: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `left`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
+    + '`search` off the node and takes no spread props, so an authored node rendered nothing — '
+    + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
+  ),
+  center: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `center`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
+    + '`search` off the node and takes no spread props, so an authored node rendered nothing — '
+    + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
+  ),
   right: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Right content'),
   sticky: z.boolean().optional().describe('Whether header is sticky'),
-  height: z.union([z.string(), z.number()]).optional().describe('Header height'),
+  height: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `height`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
+    + '`search` off the node and takes no spread props, so every value drew the same fixed-height header — '
+    + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. The height is fixed by the renderer (`h-14` / `sm:h-16`).',
+  ),
   variant: retirementTombstone(
     'REFUSED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`: the key is not in '
     + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '

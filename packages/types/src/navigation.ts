@@ -65,9 +65,18 @@ export interface HeaderBarSchema extends BaseSchema {
    */
   logo?: string;
   /**
-   * Navigation links
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `nav`.
+   *
+   * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
+   * site the truth, and there is none: the renderer's one function reads
+   * `actions`, `crumbs`, `rightContent` and `search` off `schema` and takes no
+   * spread props. Through the real `SchemaRenderer` an authored link list drew
+   * the header byte-identical to its absence. No in-tree document authored it.
+   * For links, use `crumbs` here, or a `navigation-menu` / `sidebar` node.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  nav?: NavLink[];
+  nav?: never;
   /**
    * Breadcrumb items
    */
@@ -85,13 +94,25 @@ export interface HeaderBarSchema extends BaseSchema {
    */
   rightContent?: SchemaNode;
   /**
-   * Left side content
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no left slot.
+   *
+   * Not in `@objectstack/spec`; the renderer reads only `actions`, `crumbs`,
+   * `rightContent` and `search` and takes no spread props, so an authored node
+   * rendered nothing. No in-tree document authored it. For custom content use
+   * `rightContent` or `actions`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  left?: SchemaNode | SchemaNode[];
+  left?: never;
   /**
-   * Center content
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no center slot.
+   *
+   * Same reading as `left`: no read site, no spec declaration, no in-tree
+   * author. For custom content use `rightContent` or `actions`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  center?: SchemaNode | SchemaNode[];
+  center?: never;
   /**
    * Right side content
    */
@@ -102,9 +123,15 @@ export interface HeaderBarSchema extends BaseSchema {
    */
   sticky?: boolean;
   /**
-   * Header height
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `height`.
+   *
+   * The header's height is fixed by the renderer's own classes (`h-14`, and
+   * `sm:h-16` from the `sm` breakpoint); no read of this key exists, and no
+   * in-tree document authored it. Not in `@objectstack/spec`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  height?: string | number;
+  height?: never;
   /**
    * RETIRED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`.
    *

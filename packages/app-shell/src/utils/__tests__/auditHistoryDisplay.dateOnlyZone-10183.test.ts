@@ -23,29 +23,24 @@
  * on a `datetime` field reads as local midnight of its day, exactly as
  * `formatDateTime` renders the same string.
  *
- * ── Why the zone is driven in a CHILD vitest on the FORKS pool ─────────────
- * ⚠️ `process.env.TZ` written inside a test of the normal run does NOT move
- * the zone: the root config runs `pool: 'threads'`, a worker thread's
- * `process.env` is a plain copy with no native setter, and `Intl` keeps
- * reading UTC. A forked worker is a real process's MAIN thread, where Node's
- * `TZ` setter does reset the zone. So the normal run spawns one vitest over
- * this file, `--pool=forks`, filtered to {@link CHILD_CASE}; that child
- * switches the zone per reading and writes its readings to a file this run
- * asserts on. Each reading carries its own rig check (the zone `Intl`
- * resolved, and the local hour of a fixed INSTANT), so a rig that stopped
- * moving the zone reds instead of going quietly green. `Asia/Shanghai` is the
- * control an hour-offset "repair" breaks.
+ * ── ⚠️ This file runs ONLY when driven, in a FORKS child ───────────────────
+ * Every case below is skipped in the normal run. The zone is an input here,
+ * and `process.env.TZ` written inside a test of the normal run does NOT move
+ * it: the root config runs `pool: 'threads'`, a worker thread's `process.env`
+ * is a plain copy with no native setter, and `Intl` keeps reading UTC — every
+ * case would pass for the wrong reason. A forked worker is a real process's
+ * MAIN thread, where Node's `TZ` setter does reset the zone.
+ * `scripts/__tests__/date-only-zone-pins-10183.test.ts` spawns one vitest on
+ * the forks pool over this file and its three siblings, and fails unless
+ * every case here ran and passed. Each zone opens with a rig case — the zone
+ * `Intl` resolved, and the local hour of a fixed INSTANT — so a child whose
+ * zone did not move reds instead of going quietly green. `Asia/Shanghai` is
+ * the control an hour-offset "repair" breaks.
  */
-import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-
 import { describe, it, expect } from 'vitest';
-import { childVitestEnv } from '../../../../../scripts/__tests__/helpers/child-vitest-env';
 import { formatAuditValue } from '../auditHistoryDisplay';
+
+const DRIVEN = process.env.OBJECTUI_DATE_ZONE_CHILD === '1';
 
 /** UTC-7 in August — the card's zone. */
 const WEST = 'America/Los_Angeles';
@@ -55,97 +50,50 @@ const EAST = 'Asia/Shanghai';
 const DATE_ONLY = '2026-08-01';
 /** A fixed instant: 20:00 the day before in the west, 11:00 in the east. */
 const INSTANT = '2026-08-01T03:00:00.000Z';
+const EN = { locale: 'en-US' };
 
-/** The one case the spawned child runs; kept a plain string, it is a regex filter. */
-const CHILD_CASE = 'zone child reads the audit faces in each zone';
-const PROBE_OUT = process.env.OBJECTUI_ZONE_PROBE_OUT;
-const IS_CHILD = PROBE_OUT !== undefined;
+describe.runIf(DRIVEN)('audit history date faces west of UTC (objectui#10183)', () => {
+  it('rig: the zone really moved', () => {
+    process.env.TZ = WEST;
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(WEST);
+    expect(new Date(INSTANT).getHours()).toBe(20);
+  });
 
-interface Reading {
-  zone: string;
-  localHourOfInstant: number;
-  date: string;
-  datetimeInstant: string;
-  datetimeDateOnly: string;
-}
+  it('a `date` value `2026-08-01` reads 8/1/2026, where it read 7/31/2026', () => {
+    process.env.TZ = WEST;
+    expect(formatAuditValue({ type: 'date' }, DATE_ONLY, EN)).toBe('8/1/2026');
+  });
 
-function readHere(): Reading {
-  const ctx = { locale: 'en-US' };
-  return {
-    zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    localHourOfInstant: new Date(INSTANT).getHours(),
-    date: formatAuditValue({ type: 'date' }, DATE_ONLY, ctx),
-    datetimeInstant: formatAuditValue({ type: 'datetime' }, INSTANT, ctx),
-    datetimeDateOnly: formatAuditValue({ type: 'datetime' }, DATE_ONLY, ctx),
-  };
-}
+  it('a `datetime` instant keeps converting, onto the day before', () => {
+    process.env.TZ = WEST;
+    expect(formatAuditValue({ type: 'datetime' }, INSTANT, EN)).toBe('Jul 31, 2026, 8:00 PM');
+  });
 
-it.runIf(IS_CHILD)(CHILD_CASE, () => {
-  const readings: Record<string, Reading> = {};
-  for (const zone of [WEST, EAST]) {
-    process.env.TZ = zone;
-    readings[zone] = readHere();
-  }
-  fs.writeFileSync(PROBE_OUT!, JSON.stringify(readings));
+  it('a date-only value on a `datetime` field reads as local midnight of its day', () => {
+    process.env.TZ = WEST;
+    expect(formatAuditValue({ type: 'datetime' }, DATE_ONLY, EN)).toBe('Aug 1, 2026, 12:00 AM');
+  });
 });
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
-const selfPath = path.relative(repoRoot, fileURLToPath(import.meta.url));
-
-/** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */
-const vitestCli = (() => {
-  const require = createRequire(path.join(repoRoot, 'noop.js'));
-  const pkgPath = require.resolve('vitest/package.json');
-  const bin = (JSON.parse(fs.readFileSync(pkgPath, 'utf8')).bin as { vitest: string }).vitest;
-  return path.resolve(path.dirname(pkgPath), bin);
-})();
-
-let cached: Record<string, Reading> | undefined;
-
-/** One child for the whole file, memoized: the spawn is this file's entire cost. */
-function readings(): Record<string, Reading> {
-  if (cached) return cached;
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zone-10183-'));
-  const out = path.join(dir, 'readings.json');
-  try {
-    const env = childVitestEnv({ OBJECTUI_ZONE_PROBE_OUT: out });
-    const child = spawnSync(
-      process.execPath,
-      [vitestCli, 'run', selfPath, '--pool=forks', '--testNamePattern', CHILD_CASE],
-      { cwd: repoRoot, encoding: 'utf8', env, timeout: 300_000 },
-    );
-    expect(child.status, `${child.stdout ?? ''}${child.stderr ?? ''}`).toBe(0);
-    cached = JSON.parse(fs.readFileSync(out, 'utf8')) as Record<string, Reading>;
-    return cached;
-  } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-describe.skipIf(IS_CHILD)('audit history date faces, west and east of UTC (objectui#10183)', { timeout: 360_000 }, () => {
-  it('the rig: each reading comes from the zone it names, and the zone really moved', () => {
-    const r = readings();
-    expect(r[WEST].zone).toBe(WEST);
-    expect(r[EAST].zone).toBe(EAST);
-    expect(r[WEST].localHourOfInstant).toBe(20);
-    expect(r[EAST].localHourOfInstant).toBe(11);
+describe.runIf(DRIVEN)('audit history date faces east of UTC, the control (objectui#10183)', () => {
+  it('rig: the zone really moved', () => {
+    process.env.TZ = EAST;
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(EAST);
+    expect(new Date(INSTANT).getHours()).toBe(11);
   });
 
-  it('a `date` value `2026-08-01` reads 8/1/2026 west of UTC, where it read 7/31/2026', () => {
-    expect(readings()[WEST].date).toBe('8/1/2026');
+  it('a `date` value `2026-08-01` reads 8/1/2026, as it already did', () => {
+    process.env.TZ = EAST;
+    expect(formatAuditValue({ type: 'date' }, DATE_ONLY, EN)).toBe('8/1/2026');
   });
 
-  it('and east of UTC, where it was already right', () => {
-    expect(readings()[EAST].date).toBe('8/1/2026');
+  it('a `datetime` instant keeps converting', () => {
+    process.env.TZ = EAST;
+    expect(formatAuditValue({ type: 'datetime' }, INSTANT, EN)).toBe('Aug 1, 2026, 11:00 AM');
   });
 
-  it('a `datetime` instant keeps converting into the viewer zone, onto another day included', () => {
-    expect(readings()[WEST].datetimeInstant).toBe('Jul 31, 2026, 8:00 PM');
-    expect(readings()[EAST].datetimeInstant).toBe('Aug 1, 2026, 11:00 AM');
-  });
-
-  it('a date-only value on a `datetime` field reads as local midnight of its day, in both zones', () => {
-    expect(readings()[WEST].datetimeDateOnly).toBe('Aug 1, 2026, 12:00 AM');
-    expect(readings()[EAST].datetimeDateOnly).toBe('Aug 1, 2026, 12:00 AM');
+  it('a date-only value on a `datetime` field reads as local midnight of its day', () => {
+    process.env.TZ = EAST;
+    expect(formatAuditValue({ type: 'datetime' }, DATE_ONLY, EN)).toBe('Aug 1, 2026, 12:00 AM');
   });
 });

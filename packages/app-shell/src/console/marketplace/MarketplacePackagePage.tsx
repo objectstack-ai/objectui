@@ -35,7 +35,8 @@ import {
 } from '@object-ui/components';
 import { ArrowLeft, ExternalLink, Download, AlertCircle, Package, Trash2, MoreHorizontal, CheckCircle2, ArrowUpCircle, Database, Loader2 } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { PackageIcon } from './PackageIcon.js';
 import { MarkdownText } from './MarkdownText.js';
 import { PluginDisclosure } from './PluginDisclosure.js';

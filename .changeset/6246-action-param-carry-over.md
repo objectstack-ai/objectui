@@ -21,7 +21,8 @@ still valid JSON produced a clone granting more than its base.
   branches; `ActionParamDialog` renders a declared carry-over as a collapsed
   read-only summary and builds no field widget for it at all; and
   `serializeParamValues` leaves a carry-over value untouched, even on an upload
-  field.
+  field. The action designer's dialog preview draws a carry-over param as the
+  same read-only line instead of its field's input.
 - `@object-ui/i18n`: one new key, `actionDialog.carryOverHint`, in all ten packs.
 
 Params that do not declare the key render and submit exactly as before.

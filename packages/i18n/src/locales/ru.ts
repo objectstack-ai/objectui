@@ -123,7 +123,11 @@ const ru = {
     closeChat: "Закрыть чат",
     closePanel: "Закрыть панель",
     resizeDrawer: "Изменить ширину панели",
-    itemCount: "{{count}} элементов",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves one (21, 31…), few (2-4, 22-24…) AND many (5-20…). No
+    // single `{{count}} <noun>` form agrees with all three; a count label does,
+    // the same device as `detail.repeaterItemCount`.
+    itemCount: "Элементов: {{count}}",
     itemCountOne: "{{count}} элемент",
     toggleSidebar: "Переключить боковую панель",
     package: "Пакет",
@@ -936,7 +940,10 @@ const ru = {
     addReaction: "Добавить реакцию",
     pageHeaderActions: "Действия в заголовке страницы",
     emojiPicker: "Выбор эмодзи",
-    reactionCount: "{{emoji}} {{count}} реакций",
+    // objectui#10242 — the chip picks this half at every count but 1, which
+    // spans one, few and many; a count label reads right at all three, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} Реакций: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} реакция",
     recordDetail: "Сведения о записи",
     recordDetailWithLabel: "Сведения: {{label}}",

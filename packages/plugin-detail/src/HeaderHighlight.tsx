@@ -73,7 +73,7 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
   // cascade clear rests on the value read below, not on this memo: the widget's
   // offered `options` are rebuilt every render regardless.
   const draft = inline?.draft;
-  const stagedRecord = React.useMemo<Record<string, any> | undefined>(
+  const stagedRecord = React.useMemo(
     () => (data && draft ? { ...data, ...draft } : data),
     [data, draft],
   );

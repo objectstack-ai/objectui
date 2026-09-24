@@ -586,7 +586,11 @@ describe('pin 5 — the SIX non-total reads UPSTREAM of the speller (objectui#71
     // touches it, so these two now throw `IsArray` (pin 4's class) instead of
     // `get`. Same reachability argument, same exclusion; the site moved.
     ['as `items` itself (dies at `Array.isArray` in `classifyGanttRows`, upstream of U1)', () => ({ items: revokedProxy([]) }), REVOKED_ISARRAY],
-    ['as a ROW (dies at U3 — now read in `classifyGanttRows`)', () => ({ items: [revokedProxy()] }), REVOKED_GET],
+    // objectui#7364: `classifyGanttRows` now asks `Array.isArray(row)` (a row
+    // must be an object, not an array) before U3 reads `row.items`, so a
+    // revoked proxy as a ROW dies at `IsArray` too. Same exclusion; the site
+    // moved one operation up, inside the same function.
+    ['as a ROW (dies at `Array.isArray` in `classifyGanttRows`, upstream of U3)', () => ({ items: [revokedProxy()] }), REVOKED_ISARRAY],
     ["as a row's `items` (dies at `Array.isArray` in `classifyGanttRows`, upstream of U4)", () => ({ items: [{ label: 'R', items: revokedProxy([]) }] }), REVOKED_ISARRAY],
     ['as an ITEM (dies at U6)', () => ({ items: [{ label: 'R', items: [revokedProxy()] }] }), REVOKED_GET],
   ];
@@ -682,22 +686,31 @@ describe('pin 6 — `calculateDateRange`’s three reads: the DEFECT, now REPAIR
     // The live controls that make the nine rows above readings rather than a
     // broken harness, and that fence the accept set: every one of these drew
     // before the repair and draws after it. The ruling refused the three lines
-    // above and nothing wider; a non-null primitive row (`0`) and an array row
-    // (`[]`) have no `.items` and draw as an unlabelled empty row, exactly as
-    // they did — the zod mirror is the door that refuses those, at authoring.
+    // above and nothing wider.
+    //
+    // A non-null primitive row (`0`) and an array row (`[]`) stood here as
+    // controls, drawing an unlabelled empty row, until objectui#7364 (ruling
+    // 5809218505, letter A) DELIBERATELY SUPERSEDED that clause of the #7164
+    // ruling: the renderer now refuses them as `validate` already did. They
+    // are asserted as REFUSALS just below, not dropped.
     const drawn: [string, Record<string, unknown>][] = [
       ['an ordinary row', { items: [goodRow()] }],
       ['an empty items list', { items: [] }],
       ['a row with no `items` key', { items: [{ label: 'R' }] }],
       ['a row whose `items` is null', { items: [{ label: 'R', items: null }] }],
       ['a row whose `items` is an empty array', { items: [{ label: 'R', items: [] }] }],
-      ['a row that is the number 0', { items: [0] }],
-      ['a row that is an empty array', { items: [[]] }],
     ];
     for (const [label, schema] of drawn) {
       const { container } = gantt(schema);
       expect(diagnosticOf(container), `${label} was refused`).toBeNull();
       expect(axisOf(container).length, `${label} drew no axis`).toBeGreaterThan(0);
+    }
+
+    // objectui#7364 — the two former controls, now REFUSED through the row door.
+    for (const [row, spelled] of [[0, '0'], [[], 'an array']] as const) {
+      const { container } = gantt({ items: [row] });
+      expect(diagnosticOf(container) ?? '').toContain(`items[0] is ${spelled}, ${ROW_CLAUSE}`);
+      expect(barCountOf(container)).toBe(0);
     }
 
     // The string that did NOT crash before — index-readable, so the old walk

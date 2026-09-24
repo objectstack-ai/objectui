@@ -38,6 +38,20 @@ import {
   SidebarInset
 } from '../../ui';
 
+// Every registration below except `sidebar-trigger` renders
+// `renderChildren(schema.children)`, and every one of those declares the slot
+// as `{ name: 'children', type: 'slot' }` (objectui#9910). That input is the
+// ONLY thing `sdui-parser`'s `not-a-container` reads, so this is what stops
+// the tier from warning on the one child-list key this family renders — the
+// false diagnostic objectui#6771's convergence moved onto `children`.
+// ⛔ Not `isContainer`: objectui#6804 ruled that flag means LAYOUT containment
+// (the react-page JSX scope, the public layout ledger), and these chrome parts
+// are not layout regions. `sidebar` and `sidebar-menu-button` only put a child
+// on the page inside a `sidebar-provider`, which is why the census in
+// `renderers/__tests__/container-declaration-ratchet.test.tsx` probes them in
+// that context rather than bare.
+const CHILDREN_SLOT = { name: 'children', type: 'slot' } as const;
+
 ComponentRegistry.register('sidebar-provider',
   ({ schema, ...props }: { schema: BaseSchema; [key: string]: any }) => (
     <SidebarProvider {...props}>{renderChildren(schema.children)}</SidebarProvider>
@@ -46,7 +60,8 @@ ComponentRegistry.register('sidebar-provider',
     namespace: 'ui',
     label: 'Sidebar Provider',
     inputs: [
-      { name: 'defaultOpen', type: 'boolean' }
+      { name: 'defaultOpen', type: 'boolean' },
+      CHILDREN_SLOT
     ],
     defaultProps: {
       defaultOpen: true
@@ -64,7 +79,8 @@ ComponentRegistry.register('sidebar',
     inputs: [
       { name: 'collapsible', type: 'enum', enum: ['offcanvas', 'icon', 'none'] },
       { name: 'side', type: 'enum', enum: ['left', 'right'] },
-      { name: 'variant', type: 'enum', enum: ['sidebar', 'floating', 'inset'] }
+      { name: 'variant', type: 'enum', enum: ['sidebar', 'floating', 'inset'] },
+      CHILDREN_SLOT
     ],
     defaultProps: {
       collapsible: 'icon',
@@ -80,7 +96,8 @@ ComponentRegistry.register('sidebar-header',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Header'
+    label: 'Sidebar Header',
+    inputs: [CHILDREN_SLOT]
   }
 );
 
@@ -90,7 +107,8 @@ ComponentRegistry.register('sidebar-content',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Content'
+    label: 'Sidebar Content',
+    inputs: [CHILDREN_SLOT]
   }
 );
 
@@ -118,7 +136,8 @@ ComponentRegistry.register('sidebar-group',
     namespace: 'ui',
     label: 'Sidebar Group',
     inputs: [
-      { name: 'label', type: 'string' }
+      { name: 'label', type: 'string' },
+      CHILDREN_SLOT
     ],
     defaultProps: {
       label: 'Menu'
@@ -132,7 +151,8 @@ ComponentRegistry.register('sidebar-menu',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Menu'
+    label: 'Sidebar Menu',
+    inputs: [CHILDREN_SLOT]
   }
 );
 
@@ -142,7 +162,8 @@ ComponentRegistry.register('sidebar-menu-item',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Menu Item'
+    label: 'Sidebar Menu Item',
+    inputs: [CHILDREN_SLOT]
   }
 );
 
@@ -171,7 +192,8 @@ ComponentRegistry.register('sidebar-menu-button',
     inputs: [
       { name: 'active', type: 'boolean' },
       { name: 'size', type: 'enum', enum: ['default', 'sm', 'lg'] },
-      { name: 'tooltip', type: 'string' }
+      { name: 'tooltip', type: 'string' },
+      CHILDREN_SLOT
     ],
     defaultProps: {
       size: 'default'
@@ -185,7 +207,8 @@ ComponentRegistry.register('sidebar-footer',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Footer'
+    label: 'Sidebar Footer',
+    inputs: [CHILDREN_SLOT]
   }
 );
 
@@ -195,7 +218,8 @@ ComponentRegistry.register('sidebar-inset',
   ),
   { 
     namespace: 'ui',
-    label: 'Sidebar Inset'
+    label: 'Sidebar Inset',
+    inputs: [CHILDREN_SLOT]
   }
 );
 

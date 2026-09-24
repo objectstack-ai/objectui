@@ -113,7 +113,12 @@ export interface RuntimeWidgetManifest {
   /** Input schema for the widget's configurable properties */
   inputs?: WidgetInput[];
 
-  /** Whether the widget can contain child components */
+  /**
+   * LAYOUT containment, carried into `ComponentMeta.isContainer` by the
+   * widget registry. ⛔ Not "can contain child components": a widget that
+   * renders `schema.children` declares `{ name: 'children', type: 'slot' }`
+   * in `inputs` instead — see `ComponentMeta.isContainer` (objectui#9910).
+   */
   isContainer?: boolean;
 
   /** Widget capabilities */

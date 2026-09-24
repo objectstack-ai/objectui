@@ -1587,11 +1587,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     update: !!onEdit,
     delete: !!onDelete,
   };
-  // Row actions can declare 'edit' / 'delete' as canonical strings — treat
-  // them as equivalent to operations.update / operations.delete so the
-  // dropdown surfaces native Edit/Delete entries (with proper icons) and
+  // Row actions can declare 'edit' / 'delete' as canonical strings — they
+  // SELECT the native Edit/Delete entries inside what `operations` allows
+  // (objectui#9819: `operations` is the ceiling), so the dropdown surfaces
+  // native entries (with proper icons) and
   // routes them to onEdit / onDelete instead of the generic action runner
   // (which has no 'edit' handler and a parameter-shape mismatch for 'delete').
+  //
+  // [objectui#10083] Whether the list was DECLARED is its own signal, read
+  // before the `[]` below erases it: `rowActions` narrows the generic
+  // Edit/Delete to the canonical names it carries only when the view declared
+  // it; an absent list keeps the default (see `resolveRowCrudAffordances`).
+  const rowActionsDeclared = Array.isArray(schema.rowActions);
   const rowActionsList: string[] = Array.isArray(schema.rowActions) ? schema.rowActions : [];
   /**
    * NON-AUTHOR SURFACE — `rowActionDefs` is deliberately absent from
@@ -1659,6 +1666,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     operationsDelete: operations?.delete,
     wantEditAction,
     wantDeleteAction,
+    rowActionsDeclared,
     hasOnEdit: !!onEdit,
     hasOnDelete: !!onDelete,
     managedBy: (objectSchema as any)?.managedBy,

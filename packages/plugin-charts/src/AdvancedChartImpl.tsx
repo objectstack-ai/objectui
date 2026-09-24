@@ -1976,7 +1976,11 @@ function AdvancedChartImplInner({
       >
       <ChartContainer config={config} className={className} {...containerProps}>
         <ScatterChart>
-          <CartesianGrid vertical={false} />
+          {/* The same derived grid every cartesian sibling spreads, so a spec
+              `showGridLines` on either axis is honoured (objectui#9792). With
+              no axis declaring it this is horizontal lines only — what the
+              literal `vertical={false}` it replaces drew. */}
+          <CartesianGrid {...gridProps} />
           {/* Both axes carry the spec `ChartAxis` derivation every other
               family's numeric axis gets — `min`/`max` as the domain,
               `stepSize` as the ticks, `logarithmic` as the scale, `title` as

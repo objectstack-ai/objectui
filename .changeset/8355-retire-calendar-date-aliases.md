@@ -36,8 +36,8 @@ the generated `object-calendar` node where the renderer's alias ladder read them
 That ladder is gone, so the key is refused here instead of being kept and then
 ignored. Write `startDateField` for the event start. Kept rather than refused, an
 authored `dateField` binds nothing: the calendar falls through to "Calendar
-configuration required. Please specify startDateField and titleField.", a screen
-that names the canonical keys and never the key you wrote.
+configuration required", a screen that names the canonical keys and never the key
+you wrote.
 ```
 
 ⚠️ **The consequence clause is per key, because the two spellings fail

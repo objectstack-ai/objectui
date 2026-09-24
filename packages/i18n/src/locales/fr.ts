@@ -147,6 +147,7 @@ const fr = {
       acknowledge: 'Je l\'ai enregistrée',
       copyAll: 'Tout copier',
     },
+    notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
   },
   validation: {
     required: "{{field}} est obligatoire",
@@ -2582,6 +2583,7 @@ const fr = {
     selectPlaceholder: "Sélectionner {{label}}",
     requiredError: "{{label}} est obligatoire",
     unresolvedParam: 'Ce paramètre ne peut pas être affiché : le champ dont il dépend est absent des métadonnées de l’objet, le contrôle nécessaire ne peut donc pas être construit. Demandez à un administrateur de corriger la définition de l’action.',
+    carryOverHint: 'Repris tel quel (lecture seule)',
     cancel: "Annuler",
     confirm: "Confirmer",
     uploading: "Téléversement…",

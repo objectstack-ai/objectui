@@ -787,6 +787,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const formatCellValue = React.useCallback((value: unknown): unknown => {
     if (typeof value !== 'string' || value.length < 8) return value;
     if (!ISO_DATE_RE.test(value)) return value;
+    // A VALIDITY check only: an unparsable string keeps rendering as itself
+    // rather than as the shared functions' dash. The value handed on below is
+    // the STRING, never a `Date` built from `ts` — a pre-built `Date` is an
+    // instant the shared parse step leaves alone, so a date-only value reached
+    // it as UTC midnight and rendered one day early west of UTC (objectui#10183).
     const ts = Date.parse(value);
     if (Number.isNaN(ts)) return value;
     const hasTime = value.includes('T');
@@ -796,7 +801,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // independently authored `Intl.DateTimeFormat` bag here, close to but
       // not derived from the shared function. Byte-identical in en-US, zh and
       // de-DE, so no table cell changes.
-      if (hasTime) return formatDateTime(new Date(ts), { locale: language });
+      if (hasTime) return formatDateTime(value, { locale: language });
       // The DATE-only half is `formatDate`'s DEFAULT style — the same one home,
       // one type over (objectui#7620, maintainer ruling A). It used to build its
       // own `Intl.DateTimeFormat` bag here, which asked for `year: 'numeric'`
@@ -811,7 +816,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // `undefined` in the positional slot is how the published signature
       // `formatDate(value, style?, options?)` asks for the default face; the
       // positional argument outranks `options.style` (objectui#7745).
-      return formatDate(new Date(ts), undefined, { locale: language });
+      return formatDate(value, undefined, { locale: language });
     } catch {
       return value;
     }

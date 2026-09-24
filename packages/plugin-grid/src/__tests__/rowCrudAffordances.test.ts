@@ -58,6 +58,38 @@ describe('resolveRowCrudAffordances', () => {
       .toEqual({ canEdit: true, canDelete: false });
   });
 
+  // [objectui#10083] The ruling's second half: inside the ceiling a DECLARED
+  // `rowActions` list narrows to the canonical names it carries, and an absent
+  // one takes the default arm. `rowActionsDeclared` is what tells the two apart.
+  describe('#10083 `rowActions` narrows inside the ceiling', () => {
+    it('a declared list naming only `edit` withholds delete', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: true, wantEditAction: true, wantDeleteAction: false }))
+        .toEqual({ canEdit: true, canDelete: false });
+    });
+
+    it('a declared list naming neither (empty, or custom names only) withholds both', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: true, wantEditAction: false, wantDeleteAction: false }))
+        .toEqual({ canEdit: false, canDelete: false });
+    });
+
+    it('an ABSENT list keeps the default — the same `false` selections do not narrow', () => {
+      expect(rowGate({ ...wired, rowActionsDeclared: false, wantEditAction: false, wantDeleteAction: false }))
+        .toEqual({ canEdit: true, canDelete: true });
+      expect(rowGate({ ...wired })).toEqual({ canEdit: true, canDelete: true });
+    });
+
+    it('a declared selection still cannot pass the ceiling', () => {
+      expect(rowGate({ ...wired, operationsUpdate: false, rowActionsDeclared: true, wantEditAction: true, wantDeleteAction: true }))
+        .toEqual({ canEdit: false, canDelete: true });
+    });
+
+    it('narrowing leaves the bulk-delete verdict alone (it rides `onBulkDelete`, not the row selection)', () => {
+      const r = resolveRowCrudAffordances({ ...wired, rowActionsDeclared: true, wantDeleteAction: false });
+      expect(r.canDelete).toBe(false);
+      expect(r.objectCanDelete).toBe(true);
+    });
+  });
+
   describe('#2614 object form (per-record CEL predicates)', () => {
     it('passes visibleWhen/disabledWhen through untouched and keeps canEdit/canDelete on', () => {
       const res = resolveRowCrudAffordances({

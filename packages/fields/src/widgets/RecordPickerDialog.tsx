@@ -40,7 +40,7 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 // The repo's single filter sink (`packages/core/src/utils/filter-converter.ts`)
 // — shared with plugin-list's `buildEffectiveFilter` and plugin-view's
 // ObjectView, so a spec `ViewFilterRule[]` lowers in exactly one place.
-import { mergeFilterNodes } from '@object-ui/core';
+import { buildExpandFields, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
@@ -499,6 +499,26 @@ export function RecordPickerDialog({
     [resolvedColumns, fieldsMeta, objectName, translateOptions],
   );
 
+  /**
+   * `$expand` for the picker's query (objectui#10223): the reference columns
+   * among the ones this table renders, by `buildExpandFields`' rule — the one
+   * LookupField's inline dropdown applies to its previewed columns. Without it
+   * each such cell arrived as a bare foreign key and the lookup cell renderer
+   * resolved it with its own `findOne`, one request per row per column.
+   *
+   * The id column is left out: the row's identity (`getRecordId`) reads it
+   * raw, so it must stay the key it always was.
+   *
+   * The table renders the rows as served. What leaves it — the records
+   * `onSelectRecords` hands a host, and the `titleFormat` template's reading
+   * of a row — sees the row with its relations collapsed to ids
+   * (`toPredicateRecord`), as it did before any column was expanded.
+   */
+  const expand = useMemo<string[]>(
+    () => buildExpandFields(fieldsMeta, resolvedColumns.filter((c) => c.field !== idField)),
+    [fieldsMeta, resolvedColumns, idField],
+  );
+
   // Auto-generate filter columns from lookupFilters when no explicit filterColumns given.
   // Each LookupFilterDef becomes a filterable field with inferred type.
   const baseFilterColumns = useMemo<RecordPickerFilterColumn[] | undefined>(() => {
@@ -600,6 +620,7 @@ export function RecordPickerDialog({
     pageSize,
     paginate: true,
     filter: mergedFilter,
+    expand,
   });
   // Preserve the previous local names so the handlers and render below are
   // unchanged (the migration is a pure refactor).
@@ -670,6 +691,8 @@ export function RecordPickerDialog({
   const handleRowClick = useCallback(
     (record: any) => {
       const rid = getRecordId(record);
+      // A host receives the row as it was before `$expand` (objectui#10223).
+      const selected = toPredicateRecord(record, fieldsMeta);
 
       if (multiple) {
         setPendingSelection(prev => {
@@ -679,18 +702,18 @@ export function RecordPickerDialog({
             selectedRecordsMap.current.delete(rid);
           } else {
             next.add(rid);
-            selectedRecordsMap.current.set(rid, record);
+            selectedRecordsMap.current.set(rid, selected);
           }
           return next;
         });
       } else {
         // Single select — immediately close
         onSelect(rid);
-        onSelectRecords?.([record]);
+        onSelectRecords?.([selected]);
         onOpenChange(false);
       }
     },
-    [multiple, getRecordId, onSelect, onSelectRecords, onOpenChange],
+    [multiple, getRecordId, fieldsMeta, onSelect, onSelectRecords, onOpenChange],
   );
 
   // Confirm multi-select
@@ -762,16 +785,24 @@ export function RecordPickerDialog({
   // renderer (objectui#5492) — the inline dropdown in LookupField calls the
   // very same function, so this table and that popover cannot answer one
   // `lookup_columns` declaration two different ways.
+  //
+  // The display column's `titleFormat` template reads the row with its
+  // relations collapsed to ids, so an expanded reference it names prints what
+  // it printed before `$expand` rather than an object (objectui#10223).
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
-      renderLookupColumnValue(record, col, {
-        descriptors: columnFieldDescriptors,
-        cellRenderer,
-        titleFormat,
-        displayField,
-        displayLocale,
-      }),
-    [cellRenderer, titleFormat, displayField, columnFieldDescriptors, displayLocale],
+      renderLookupColumnValue(
+        titleFormat && col.field === displayField ? toPredicateRecord(record, fieldsMeta) : record,
+        col,
+        {
+          descriptors: columnFieldDescriptors,
+          cellRenderer,
+          titleFormat,
+          displayField,
+          displayLocale,
+        },
+      ),
+    [cellRenderer, titleFormat, displayField, fieldsMeta, columnFieldDescriptors, displayLocale],
   );
 
   // Render sort indicator for a column

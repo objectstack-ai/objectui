@@ -171,8 +171,12 @@ async function mountHost(filter: unknown, type: 'gantt' | 'grid') {
   function Harness() {
     const [, setTick] = React.useState(0);
     const [objects, setObjects] = React.useState<any[]>(() => objectsWith(filter, type));
-    bump = () => setTick((n) => n + 1);
-    swap = setObjects;
+    // Handles are published from an effect, not during render
+    // (react-hooks/globals); both setters are stable, so one publish holds.
+    React.useEffect(() => {
+      bump = () => setTick((n) => n + 1);
+      swap = setObjects;
+    }, []);
     // A FRESH element every Harness render, so a bump re-renders the page.
     const page = <ObjectView dataSource={dataSource} objects={objects} onEdit={() => {}} />;
     return (

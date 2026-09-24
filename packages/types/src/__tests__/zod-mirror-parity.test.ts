@@ -395,8 +395,14 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **19 entries** in `WiderThanDeclared`, **29 keys** across them, and **36 arms**
- *     under those keys — split **5** SCHEMA-NODE, **24** CONCRETE, **0** MIXED, **7** unions.
+ *   - **17 entries** in `WiderThanDeclared`, **26 keys** across them, and **30 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **21** CONCRETE, **0** MIXED, **4** unions.
+ *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10280 (objectui#7759 group B)
+ *     emptied two entries: `form.zod.ts#SliderSchema` (`defaultValue` by widening the
+ *     declaration to the single-or-list the renderer normalizes, `value` by retiring it on
+ *     both faces) and `overlay.zod.ts#TooltipSchema` (`content` by narrowing the mirror to
+ *     the declaration). Three keys, each a two-arm union, so `arms` fell by 6 and `unions`
+ *     by 3 while CONCRETE fell by 3.
  *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
  *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
  *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
@@ -2946,9 +2952,10 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  *
  * **CONCRETE** — both faces are concrete, so the comparison means what it says: an
  * author can write the spelling, `safeParse` returns green, and `tsc` refuses it.
- * `FormSchema.layout` and `SliderSchema.defaultValue` are the plainest instances,
- * and the second is the shape objectui#7069 was filed about, still alive on a pair
- * nobody had looked at.
+ * `FormSchema.layout` is the plainest instance. `SliderSchema.defaultValue` stood
+ * beside it — the shape objectui#7069 was filed about, alive on a pair nobody had
+ * looked at — until objectui#10280 widened its declaration to the single-or-list its
+ * renderer normalizes.
  *
  * **SCHEMA-NODE** — the mirror's face carries `unknown` NESTED inside an array
  * element or a property, from a recursion-breaking `z.ZodType< any >` annotation
@@ -3079,15 +3086,13 @@ interface WiderThanDeclared {
    * here from the other side.
    */
   'form.zod.ts#FormSchema': 'layout' | 'fields' | 'mode';
-  /**
-   * CONCRETE, and the class objectui#7069 was filed for, ALIVE: the mirror is
-   * `z.union([z.number(), z.array(z.number())])` and the declaration states the
-   * list alone, so a single number parses green and `tsc` refuses it. That is the
-   * `DataTableSchema.toolbar` shape the card measured, one accepted arm wider than
-   * its declaration — the instance died with PR #7066, and here is the class it
-   * said would outlive it, on a pair nothing had looked at.
-   */
-  'form.zod.ts#SliderSchema': 'defaultValue' | 'value';
+  // `form.zod.ts#SliderSchema` recorded `defaultValue` and `value` here (CONCRETE, the class
+  // objectui#7069 was filed for: a single-or-list mirror against a list-only declaration).
+  // objectui#10280 (objectui#7759 group B) resolved both by the read site, per the director's
+  // rule that an objectui-own key follows its read site: `defaultValue`'s renderer wraps a
+  // scalar on purpose, so the DECLARATION widened to `number | number[]`; `value` has no read
+  // site, so it was RETIRED on both faces. The entry is GONE, per clause 4 of this ledger's
+  // "when it fires" note.
   /**
    * CONCRETE: the mirror's arm is `z.boolean()` while the declaration admits the
    * false literal alone, so `true` parses green and `tsc` refuses it.
@@ -3121,17 +3126,11 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo' | 'variant';
-  /**
-   * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
-   * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
-   * `content?: string | SchemaNode` — the same union WITHOUT the list arm. So a list
-   * parses green here and `tsc` refuses it, while the sibling `body` on the same pair
-   * declares the list and agrees. ⭐ Two keys of one renderer read
-   * (`schema.content || renderChildren(schema.body)`), one declared narrower than its
-   * own mirror — the plainest instance of the class objectui#7069 was filed for, and it
-   * sat inside the region that card could not look at.
-   */
-  'overlay.zod.ts#TooltipSchema': 'content';
+  // `overlay.zod.ts#TooltipSchema` recorded `content` here (CONCRETE; ENTERED under
+  // objectui#7760): the mirror spelled it single-or-list and the declaration the single arm.
+  // The renderer places `schema.content` RAW in a React child position, so the list arm parsed
+  // green and then failed to render. objectui#10280 NARROWED the MIRROR to the declaration, and
+  // the entry is GONE.
   /** CONCRETE: an inline option shape against the named `SelectOptionMetadata`. */
   'views.zod.ts#DetailViewFieldSchema': 'options';
   /** SCHEMA-NODE. (`tabs` left under objectui#7760; `fields` and `sections` did not.) */
@@ -3268,13 +3267,10 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'form.zod.ts#FormSchema::fields': ['CONCRETE'],
   'form.zod.ts#FormSchema::mode': ['CONCRETE'],
-  'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'navigation.zod.ts#HeaderBarSchema::variant': ['CONCRETE'],
-  'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewSchema::sections': ['SCHEMA-NODE'],

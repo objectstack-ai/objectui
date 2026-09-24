@@ -929,7 +929,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // same `$expand` (objectui#10223). It keeps the rows it was served — the
   // preview reads them — and derives its options from them exactly as the main
   // list does, relations collapsed to ids.
-  const [recentRows, setRecentRows] = useState<any[]>([]);
+  const [recentRows, setRecentRows] = useState<Record<string, unknown>[]>([]);
   // The expansion as a primitive, for the effect below: a memoised array's
   // identity is not a dependency to key a fetch on (AGENTS.md #10).
   const candidateExpandKey = candidateExpand.join(',');
@@ -986,7 +986,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * row — a static option, a just-created record — previews from itself.
    */
   const previewRows = useMemo(() => {
-    const byValue = new Map<string, any>();
+    const byValue = new Map<string, Record<string, unknown>>();
     for (const raw of [...recentRows, ...popoverQuery.records]) {
       const plain = toPredicateRecord(raw, refObjectSchema?.fields);
       const v = plain?.[idField] ?? plain?.id ?? plain?._id ?? plain?.externalId;

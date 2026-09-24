@@ -514,8 +514,8 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             // letter E, item 1: group semantics attach 「on every arm」). The
             // spec declares both on `sections[]`; this map used to copy
             // neither, so the modal silently ignored a declared collapse.
-            collapsible: (s as any).collapsible,
-            collapsed: (s as any).collapsed,
+            collapsible: s.collapsible,
+            collapsed: s.collapsed,
             // ADR-0089 section predicate (#6111) — key-by-key rebuild, so an
             // uncopied key is silently dropped before ModalForm ever sees it.
             visibleWhen: (s as any).visibleWhen,

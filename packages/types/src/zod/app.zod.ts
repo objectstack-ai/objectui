@@ -389,14 +389,20 @@ export const AppContextSelectorSchema = stripImportedDefaults(SpecAppContextSele
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui apps.
  */
-const SpecAppFields = specFieldsExcept(stripImportedDefaults(SpecAppSchema).shape, [
+export const APP_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'navigation',
   'areas',
   'contextSelectors',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `AppComponentSchema`
+// TypeScript twin in `../app.ts`, which extends `Omit< App, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecAppFields = specFieldsExcept(stripImportedDefaults(SpecAppSchema).shape, APP_SPEC_EXCLUDED);
 
 /**
  * App Schema — the objectui app-shell renderer node, derived from

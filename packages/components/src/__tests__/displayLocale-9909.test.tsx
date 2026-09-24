@@ -7,14 +7,17 @@
  */
 
 /**
- * The export dialog's record counts and the debug panel's event times read the
- * DECLARED session locale, never the machine's (objectui#9909).
+ * The debug panel's event times read the DECLARED session locale, never the
+ * machine's (objectui#9909).
  *
  * Each surface renders the same state twice — under a declared `de-DE` tenant
  * locale and a declared `en` one, the UI language `en` on both — and must read
  * differently: a literal expectation would measure the runner, on which a
  * broken surface and a repaired one print the same bytes. The runtime tripwire
  * then checks the argument every locale-taking call received.
+ *
+ * The export-progress dialog's record-count surface left this table with the
+ * component itself: objectui#10247 retired the unimplemented async export path.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -23,9 +26,7 @@ import * as React from 'react';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { DebugCollector } from '@object-ui/core';
 import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support';
-import { ExportProgressDialog } from '../custom/export-progress-dialog';
 import { DebugPanel } from '../debug/DebugPanel';
-import type { UseExportJobReturn } from '../hooks/use-export-job';
 
 afterEach(() => {
   cleanup();
@@ -47,18 +48,6 @@ function textUnder(locale: string, node: React.ReactNode, reveal?: () => void): 
   cleanup();
   return text.replace(/\s+/g, ' ').trim();
 }
-
-const job: UseExportJobReturn = {
-  isRunning: true,
-  progress: { jobId: 'j1', status: 'processing', processedRecords: 12345, totalRecords: 67890 },
-  error: null,
-  isSupported: true,
-  start: async () => 'j1',
-  cancel: async () => {},
-  getDownloadUrl: async () => null,
-  download: async () => true,
-  reset: () => {},
-};
 
 /** 15:30:45 UTC — the suite runs in UTC; `de` is 24-hour, `en` is 12-hour. */
 const EVENT_AT = Date.UTC(2020, 2, 4, 15, 30, 45);
@@ -84,12 +73,6 @@ interface Surface {
 
 const SURFACES: Surface[] = [
   {
-    name: 'ExportProgressDialog — processed / total record counts',
-    node: () => <ExportProgressDialog open onOpenChange={() => {}} job={job} />,
-    de: /12\.345 \/ 67\.890 records/,
-    en: /12,345 \/ 67,890 records/,
-  },
-  {
     name: 'DebugPanel — Events tab timestamp',
     node: () => {
       seedEvent();
@@ -101,7 +84,7 @@ const SURFACES: Surface[] = [
   },
 ];
 
-describe('component number and time faces follow the declared session locale (objectui#9909)', () => {
+describe('component time faces follow the declared session locale (objectui#9909)', () => {
   it.each(SURFACES)('$name — says the de-DE face under a de-DE session', ({ node, reveal, de }) => {
     const text = textUnder('de-DE', node(), reveal);
     expect(text, `got: ${text}`).toMatch(de);

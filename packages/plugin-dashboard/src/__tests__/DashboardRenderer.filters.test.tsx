@@ -87,6 +87,23 @@ describe('DashboardRenderer dashboard-level filters', () => {
     });
   });
 
+  it('broadcasts the spec default range when dateRange omits defaultRange (objectui#10339)', async () => {
+    const queryDataset = makeQueryDataset();
+    const schema: DashboardComponentSchema = {
+      type: 'dashboard',
+      // No `defaultRange` — the spec defaults it, so the dashboard is filtered.
+      dateRange: { field: 'created_at' },
+      widgets: [{ id: 'w1', type: 'bar', dataset: 'invoices', values: ['count'] }],
+    };
+    render(<DashboardRenderer schema={schema} dataSource={{ queryDataset }} />);
+
+    await waitFor(() => {
+      expect(lastRuntimeFilter(queryDataset, 'invoices')).toEqual({
+        created_at: { $gte: expect.any(String), $lte: expect.any(String) },
+      });
+    });
+  });
+
   it('merges the broadcast with a widget\'s own filter and honors opt-out', async () => {
     const queryDataset = makeQueryDataset();
     const schema: DashboardComponentSchema = {

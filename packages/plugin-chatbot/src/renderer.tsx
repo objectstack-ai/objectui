@@ -33,9 +33,15 @@ import { toRuntimeMessages } from './chatMessageAdapter';
  * 
  * Both modes support the `onSend` callback:
  * - Signature: `onSend(content: string, messages: ObjectChatMessage[]): void`
- *   — the hook's own message shape (objectui#4424). A host callback that
- *   declares `@object-ui/types`' `ChatMessage[]` still type-checks; naming
- *   `ObjectChatMessage` is what lets it read the render-only keys.
+ *   — the hook's own message shape (objectui#4424). The schema's slot,
+ *   `ChatbotSchema.onSend`, types its parameter as the authoring message
+ *   widened by the three runtime-only approval states, so let a host
+ *   callback's parameter be inferred from that slot. A callback that declares
+ *   `@object-ui/types`' authoring `ChatMessage[]` no longer type-checks
+ *   (objectui#10018): the messages it receives can carry approval states that
+ *   contract refuses. `ObjectChatMessage[]` is the parameter type that fits
+ *   `useObjectChat`'s own `onSend` slot, and naming it is what lets a callback
+ *   read the render-only keys.
  *
  * ## What reaches the host element (objectui#4431)
  *

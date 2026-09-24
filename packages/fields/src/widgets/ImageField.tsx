@@ -7,6 +7,7 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { ImageLightbox } from './ImageLightbox.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
+import { useUploadingScopeHold } from './uploadingScope.js';
 import { maxSizeError, type TranslateFn } from './file-size-guard.js';
 import {
   fileValueForSubmit,
@@ -54,6 +55,9 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
   // returns the expanded form. See `file-value`.
   const [recent, setRecent] = useState<Record<string, FileValueView>>({});
   useUploadingSignal(uploading, onUploadingChange);
+  // The upload's own lifetime, which can outlast this widget — both upload
+  // paths below take it (objectui#10180). See `useUploadingScopeHold`.
+  const holdScope = useUploadingScopeHold();
 
   // Derived value + memoized handlers must run before the readonly early return
   // so hook order stays stable across renders.
@@ -80,6 +84,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         return;
       }
       setErrors([]);
+      const releaseScope = holdScope();
       setUploading(true);
       try {
         const result = await upload(blob);
@@ -93,11 +98,12 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
           onChange(next);
         }
       } finally {
+        releaseScope();
         setUploading(false);
         setCropTarget(null);
       }
     },
-    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t],
+    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t, holdScope],
   );
 
   const openCropper = useCallback(
@@ -171,6 +177,9 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
     setErrors(rejections);
     if (validFiles.length === 0) return;
 
+    // Released only after `onChange` has handed the value over, and whether or
+    // not this widget is still mounted by then — see FileField's pipeline.
+    const releaseScope = holdScope();
     setUploading(true);
     try {
       const imageObjects = await Promise.all(
@@ -187,6 +196,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         onChange(imageObjects[0]);
       }
     } finally {
+      releaseScope();
       setUploading(false);
     }
   };

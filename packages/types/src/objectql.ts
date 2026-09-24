@@ -905,6 +905,13 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * Enable/disable built-in operations
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `update` / `delete` are the CEILING over {@link rowActions}: `update: false`
+   * (or `delete: false`) withholds the row menu's generic Edit (or Delete)
+   * entry whatever `rowActions` says. A declared block REPLACES the default
+   * rather than merging under it, so a member the block does not name is
+   * withheld too; omit the whole block to keep the default (Edit / Delete
+   * offered wherever the host wires `onEdit` / `onDelete`).
    */
   operations?: {
     /**
@@ -912,41 +919,50 @@ export interface ObjectGridSchema extends BaseSchema {
      * @default true
      */
     create?: boolean;
-    
+
     /**
      * Enable read/view operation
      * @default true
      */
     read?: boolean;
-    
+
     /**
-     * Enable update operation
-     * @default true
+     * Enable update operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onEdit`.
      */
     update?: boolean;
-    
+
     /**
-     * Enable delete operation
-     * @default true
+     * Enable delete operation. Not named in a declared block ⇒ withheld;
+     * block omitted ⇒ allowed wherever the host wires `onDelete`.
      */
     delete?: boolean;
-    
+
     /**
      * Enable export operation
      * @default false
      */
     export?: boolean;
-    
+
     /**
      * Enable import operation
      * @default false
      */
     import?: boolean;
   };
-  
+
   /**
    * Custom row actions
    * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
+   *
+   * `'edit'` and `'delete'` are canonical: they select the row menu's generic
+   * Edit / Delete entries; any other name is a custom action resolved against
+   * the object's declared actions. {@link operations} is the CEILING: a
+   * `rowActions` entry cannot offer what `operations` withholds. Inside that
+   * ceiling a declared list NARROWS: the generic Edit / Delete are offered only
+   * for the canonical names it carries, so `[]` or a list naming only custom
+   * actions offers neither. Omit `rowActions` to keep the default generic
+   * entries.
    */
   rowActions?: string[];
   

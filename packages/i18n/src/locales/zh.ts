@@ -2745,6 +2745,7 @@ const zh = {
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
     unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
+    carryOverHint: '原样带入（只读）',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',

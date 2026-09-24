@@ -3038,6 +3038,7 @@ const en = {
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
     unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
+    carryOverHint: 'Carried over unchanged (read-only)',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',

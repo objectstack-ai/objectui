@@ -29,7 +29,10 @@ mutator that acts on a single row picks it with a MATCH on `id`
 row's React `key` is `condition.id`, and nothing in the file matches a row by its
 index. The file's other reads of `condition.id` pick no row; one of them builds
 the element id that a half-filled range's blank bound names in
-`aria-describedby`. No test pins this property; it is read off the source.
+`aria-describedby`. The MATCH sites and the `key` are re-derived from the
+component source by the `re-derived from the reader` block of
+`packages/types/src/__tests__/filter-builder-condition-id-8415.test.ts`; the
+rest of the property is read off the source, and no test pins it.
 
 **What that does when `id` is stripped**, simulated on the four helper bodies
 transcribed verbatim, over three id-less rows and one `crypto.randomUUID()` row

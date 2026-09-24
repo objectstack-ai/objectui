@@ -19,11 +19,17 @@ handed `undefined`, so it acts on every OTHER id-less row along with it. The
 measurement is below.
 
 Re-derived from `packages/components/src/custom/filter-builder.tsx` rather than
-inherited: `id` has **sixteen** condition-side read sites — the four MATCH sites
-that decide which row a mutation lands on (`removeCondition`'s
-`c.id !== conditionId`, `updateCondition`'s and `changeOperator`'s
-`c.id === conditionId`, `changeField`'s `c.id !== conditionId`), the React `key`
-on the row, and eleven call sites that hand `condition.id` to one of those four.
+inherited, and stated as a property rather than as a tally of read sites, since
+that file keeps gaining `condition.id` reads and a count goes stale with the next
+one: **which row an edit lands on is decided by `id` and by nothing else.** Each
+mutator that acts on a single row picks it with a MATCH on `id`
+(`removeCondition`'s `c.id !== conditionId`, `updateCondition`'s and
+`changeOperator`'s `c.id === conditionId`, `changeField`'s
+`c.id !== conditionId`), every call to one of them hands it `condition.id`, the
+row's React `key` is `condition.id`, and nothing in the file matches a row by its
+index. The file's other reads of `condition.id` pick no row; one of them builds
+the element id that a half-filled range's blank bound names in
+`aria-describedby`. No test pins this property; it is read off the source.
 
 **What that does when `id` is stripped**, simulated on the four helper bodies
 transcribed verbatim, over three id-less rows and one `crypto.randomUUID()` row
@@ -61,10 +67,13 @@ component's own exported `FilterBuilderCondition` has always declared
 now fails validation. **Where it is REPORTED is not where it logically is.**
 `value.conditions.0.id` is the LOGICAL location — the concatenation of the paths
 down the arm tree. The issue `safeValidateSchema` actually reports is a single
-root `invalid_union` at `path: []`, across **13** arms; the `id` failure sits
-three nested unions further down, inside arm 8: `invalid_union` at `["value"]`
-→ arm 1 → `invalid_union` at `["conditions", 0]` → arm 0 → `invalid_type` at
-`["id"]`, *"Invalid input: expected string, received undefined"*. Parsed against
+`invalid_union` at `path: ["value"]`. The document-level union is discriminated
+on `type` (objectui#8498), so it hands back the `filter-builder` schema's own
+issues instead of nesting them under a root union. The `id` failure sits inside
+two nested unions: that `invalid_union` → arm 1 (`FilterGroupSchema`) →
+`invalid_union` at `["conditions", 0]` → arm 0 (`FilterBuilderConditionSchema`)
+→ `invalid_type` at `["id"]`,
+*"Invalid input: expected string, received undefined"*. Parsed against
 `FilterBuilderConditionSchema` directly, the same refusal is reported flat, at
 `path: ["id"]`. Both are stated because a consumer that reads `issue.path` off
 the document-level result will not find `id` there.

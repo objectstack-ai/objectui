@@ -1,5 +1,5 @@
 ---
-'@object-ui/react': patch
+'@object-ui/react': minor
 ---
 
 fix(react): a data object in a node's `properties` / `props` bag reaches the renderer whole, even when it carries a `source` field
@@ -17,4 +17,4 @@ On a key outside the predicate chain, an object now reaches `evaluate` only when
 - the predicate keys (`visible`, `visibleWhen`, `visibleOn`, `visibility`, `hidden`, `hiddenOn`, `disabled`, `disabledOn`, `enabled`) are unchanged: a CEL envelope is still preserved for the canonical engine (objectui#9100 / #9107), and a dialect-less `{ source }` on them is still evaluated, the form `ExpressionWire` declares for `visible` / `hidden` / `disabled`;
 - `params` is still walked leaf by leaf (objectui#7867).
 
-Declared as a patch rather than a minor: nothing in the published API is added or removed, and the shape whose reading changes was never declared as an expression on these keys. The spec's envelope always carries `dialect`, and `@object-ui/core`'s `isRuntimeDefault` already reads a dialect-less `{ source }` as a literal value.
+Declared as a minor (Clause-②): nothing in the published API is added or removed, but what an authored value evaluates to changes for one shape. `ExpressionEvaluator.evaluate`'s signature admits a dialect-less `{ source }`, and these loops handed it every value except a `params` bag and a CEL envelope on a predicate key. So `{ source: '${…}' }` on a config-bag key outside the predicate chain and `params` now arrives as the object, uninterpolated, and the unevaluated-expression diagnostic does not report the `${…}` inside it. To keep such a value evaluated, write the bare string `'${…}'` or `{ dialect: 'template', source: '${…}' }`; both still interpolate on that path. The spec's envelope always carries `dialect`, and `@object-ui/core`'s `isRuntimeDefault` already reads a dialect-less `{ source }` as a literal value.

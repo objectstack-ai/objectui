@@ -33,13 +33,21 @@
  * stay green if the containment check were removed, mis-keyed, or fed a manifest
  * the tag is missing from — the three ways this fact dies without anyone
  * noticing. The reachability controls below exist for the same reason.
+ *
+ * RE-POINTED BY objectui#9910 (2026-09-24). What `validateTree` reads is no
+ * longer the flag but the declared `children` slot input (`acceptsChildren`);
+ * the four declare both. The flag keeps its OTHER consumer — the react-page
+ * JSX scope skips containers — which is what the second describe still pins,
+ * and the childless control moved from `badge` (which now declares the slot it
+ * renders as a label fallback) to `tabs` (renders `items[].content`, never
+ * `schema.children`).
  */
 
 import { describe, it, expect } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
-import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import { CHILD_LIST_KEY, manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import type { Diagnostic, SchemaElement } from '@object-ui/sdui-parser';
 
 // Module scope, not a hook: this import IS the registration (AGENTS.md
@@ -91,27 +99,39 @@ describe('the ui layout primitives accept children without warning (objectui#674
     expect(diagnostics.filter((d) => d.code === CONTAINMENT)).toEqual([]);
   });
 
+  it.each(LAYOUT_CONTAINERS)('`%s` declares the `children` slot the tier reads (objectui#9910)', (type) => {
+    // The declaration behind the silence above, asserted by name so the
+    // absence of a diagnostic cannot pass on a fallback: `validateTree` reads
+    // this input and nothing else.
+    const inputs = ComponentRegistry.getMeta(type)?.inputs ?? [];
+    expect(inputs.find((i) => i.name === CHILD_LIST_KEY)?.type).toBe('slot');
+  });
+
   it('still reports `not-a-container` for a component that genuinely takes none', () => {
     // The control that keeps every assertion above meaningful. Without it the
     // suite would stay green if the containment check were deleted outright, or
-    // if `isContainer` were defaulted on — either of which turns this file into
-    // a measurement of nothing. `badge` is a leaf: it renders its own label and
-    // never reads `schema.children`, so children under it ARE an authoring
-    // mistake the author must still hear about.
+    // if every registration declared the slot — either of which turns this file
+    // into a measurement of nothing. `tabs` renders `items[].content` and never
+    // reads `schema.children`, so children under it ARE an authoring mistake the
+    // author must still hear about. (`badge` held this role until objectui#9910,
+    // when it declared the slot it renders as its label fallback.)
     //
-    // If `badge` ever legitimately becomes a container, this goes red — move the
+    // If `tabs` ever legitimately reads `children`, this goes red — move the
     // control to another childless registration rather than deleting it.
-    const codes = diagnose(withChildren('badge')).map((d) => d.code);
+    const codes = diagnose(withChildren('tabs')).map((d) => d.code);
     expect(codes).toContain(CONTAINMENT);
+    expect((ComponentRegistry.getMeta('tabs')?.inputs ?? []).some((i) => i.name === CHILD_LIST_KEY)).toBe(false);
   });
 });
 
 describe('the declaration reaches the consumers that read it (objectui#6740)', () => {
   it.each(LAYOUT_CONTAINERS)('`%s` reports as a container on the public tier', (type) => {
-    // The second consumer, and the reason it is pinned rather than left
-    // implicit: `renderers/layout/react-page.tsx:77` builds the JSX scope of
+    // The flag's consumer, and the reason it is pinned rather than left
+    // implicit: `renderers/layout/react-page.tsx` builds the JSX scope of
     // every `kind:'react'` page with `if (!tag || cfg.isContainer) continue;`,
     // reading THIS predicate off `getPublicConfigs()` — not off `getMeta()`.
+    // Since objectui#9910 this is the flag's ONE meaning — layout containment —
+    // so this block is about the react-page scope, not about `validateTree`.
     // While `flex` omitted the flag it was the one layout primitive of the five
     // still injected there, contradicting
     // `content/docs/guide/react-pages.md` ("Layout containers are deliberately

@@ -124,14 +124,15 @@ ComponentRegistry.register('flex',
         
         description: 'Gap between items (0-8)'
       },
-      { 
-        name: 'wrap', 
-        type: 'boolean', 
-        
-        
+      {
+        name: 'wrap',
+        type: 'boolean',
+
+
         description: 'Allow flex items to wrap'
       },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       direction: 'row',
@@ -181,6 +182,11 @@ ComponentRegistry.register('flex',
     // `containers.tsx` declare `isContainer: true` on its own — so the flag is
     // independent of designer resize affordances, and minting one here would be
     // a behaviour change this card did not measure.
+    //
+    // Since objectui#9910 the flag means LAYOUT containment only (the
+    // react-page JSX scope skips it; the public layout ledger lists it). The
+    // measurement above is now held by the `children` slot in `inputs`, which
+    // is the one thing `validateTree`'s `not-a-container` reads.
     isContainer: true
   }
 );

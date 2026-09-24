@@ -9,7 +9,7 @@
 export * from './types.js';
 export { parseJsx, interpretBrace } from './parse.js';
 export { HTML_TIER_NODE, isHtmlTierNode, markHtmlTierNode } from './provenance.js';
-export { validateTree } from './validate.js';
+export { validateTree, acceptsChildren, CHILD_LIST_KEY } from './validate.js';
 export {
   checkDashboardWidgetOptions,
   CONSUMED_WIDGET_OPTION_KEYS,
@@ -69,6 +69,13 @@ export function compile(source: string, manifest: Manifest): CompileResult {
 export interface RegistryConfigLike {
   type: string;
   namespace?: string;
+  /**
+   * LAYOUT containment — the registration's `ComponentMeta.isContainer`,
+   * carried through to the manifest for the consumers that read it there.
+   * ⛔ It does not mean "accepts children" and `validateTree` does not read
+   * it: whether a component takes an authored child list is declared as an
+   * input named `children` (objectui#9910; `acceptsChildren` in `validate.ts`).
+   */
   isContainer?: boolean;
   /** ADR-0080 contract tier — only 'public' configs form the AI/contract surface. */
   tier?: 'public' | 'internal';

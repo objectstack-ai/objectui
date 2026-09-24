@@ -2,14 +2,18 @@
  * ObjectUI — SDUI tree validation against the registry manifest (ADR-0080 §3/§6)
  *
  * Shallow, author-time validation: unknown component, unknown/missing prop,
- * wrong coarse type, illegal enum value. Collects `requires` (plugin provenance)
- * and binding sites the SERVER must resolve against object schema (we cannot
- * resolve objects/fields here — that check is framework-side by design).
+ * wrong coarse type, illegal enum value, and containment — a child list under
+ * a component whose registration declares no `children` input draws
+ * `not-a-container` (objectui#9910; see `acceptsChildren`). Collects
+ * `requires` (plugin provenance) and binding sites the SERVER must resolve
+ * against object schema (we cannot resolve objects/fields here — that check is
+ * framework-side by design).
  */
 
 import type {
   Diagnostic,
   Manifest,
+  ManifestComponent,
   ManifestInput,
   ManifestInputType,
   SchemaElement,
@@ -22,6 +26,39 @@ import { checkKanbanQuickAdd } from './kanban-quick-add.js';
 import { checkRetiredBodyDialect } from './body-dialect.js';
 
 /**
+ * The protocol's ONE child-list key — `BaseSchema.children` — and therefore the
+ * name of the `inputs` entry a registration declares when its renderer puts
+ * that list on the page: `{ name: 'children', type: 'slot' }` (objectui#9910).
+ */
+export const CHILD_LIST_KEY = 'children';
+
+/**
+ * Does this component ACCEPT an authored child list? (objectui#9910)
+ *
+ * Read from exactly ONE declaration: an input named {@link CHILD_LIST_KEY} in
+ * the component's `inputs`. That is the shape ten registrations already
+ * carried when the maintainer ruled it the containment contract
+ * (2026-09-24, objectui#9910 Q1-A "declare-and-pin"), and it is held in both
+ * directions by the runtime census in
+ * `packages/components/src/renderers/__tests__/container-declaration-ratchet.test.tsx`:
+ * a renderer that puts `schema.children` on the page without declaring the
+ * input is red, and a declaration whose renderer never renders the list is
+ * red too.
+ *
+ * ⛔ `isContainer` is NOT consulted and is NOT a fallback. It used to decide
+ * this branch and it lied both ways: a hand-kept flag drifted from the code
+ * (objectui#3900 / #6740 / #6764 / #6779 found the same drift four times),
+ * and after objectui#6771 converged a dozen registrations onto `children`
+ * the flag put a FALSE `not-a-container` on the one key they read
+ * (objectui#9910). The flag now means LAYOUT containment only — the
+ * react-page JSX scope and the public layout ledger read it; this tier does
+ * not (objectui#6804, objectui#9910 Q2-A).
+ */
+export function acceptsChildren(comp: Pick<ManifestComponent, 'inputs'>): boolean {
+  return comp.inputs.some((input) => input.name === CHILD_LIST_KEY);
+}
+
+/**
  * Base props every node may carry (mirrors BaseSchema) — never "unknown prop".
  *
  * ⛔ `body` is NOT here and must not be added. It was `BaseSchema`'s second
@@ -29,6 +66,11 @@ import { checkRetiredBodyDialect } from './body-dialect.js';
  * was the option that ruling refused, because it would have blessed a second
  * permanent spelling of one concept. `./body-dialect.ts` answers it by name
  * instead.
+ *
+ * `children` IS here: the key is legal on every node, so it never draws
+ * `unknown-prop` and its declared `slot` input is never type-checked. Whether
+ * a given component RENDERS it is the containment question below, answered by
+ * {@link acceptsChildren} from the declared input.
  */
 const BASE_PROPS = new Set([
   'type',
@@ -39,7 +81,7 @@ const BASE_PROPS = new Set([
   'visibleOn',
   'disabled',
   'disabledOn',
-  'children',
+  CHILD_LIST_KEY,
 ]);
 
 const isExpr = (v: unknown): boolean =>
@@ -101,8 +143,11 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
           // rather than the bare "has no prop" every typo gets
           // (objectui#6771). Asked INSIDE this branch, so a component that
           // declares its own `body` input keeps its declared type check —
-          // mechanism in `./body-dialect.ts`.
-          const retiredBody = checkRetiredBodyDialect(node.type, key, value, comp.isContainer);
+          // mechanism in `./body-dialect.ts`. Its containment verdict is the
+          // SAME predicate the `children` branch below reads — the declared
+          // `children` input, never `isContainer` (objectui#9910) — so the two
+          // spellings cannot disagree about which components take a list.
+          const retiredBody = checkRetiredBodyDialect(node.type, key, value, acceptsChildren(comp));
           diagnostics.push(
             retiredBody ?? {
               severity: 'warning',
@@ -169,8 +214,10 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
         }
       }
 
-      // containment
-      if (node.children?.length && !comp.isContainer) {
+      // containment — decided by the declared `children` input and by NOTHING
+      // else (objectui#9910 Q1-A). ⛔ No `isContainer` fallback: see
+      // `acceptsChildren` for why the flag stopped deciding this.
+      if (node.children?.length && !acceptsChildren(comp)) {
         diagnostics.push({
           severity: 'warning',
           code: 'not-a-container',

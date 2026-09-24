@@ -31,6 +31,7 @@ import { usePredicateScope } from './hooks/useExpression.js';
 import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
+import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './utils/paramsBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
@@ -1175,6 +1176,60 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       return verdict;
     };
 
+    /**
+     * Evaluate ONE config value by its key — THE place the `params` rule is
+     * stated (objectui#7867, ruling A, maintainer 「其他同意」 2026-09-20):
+     * *an action's `params` values are templates, evaluated where `properties`
+     * are.*
+     *
+     * A `params` BAG (a plain object — {@link isParamsBag}) has every string
+     * leaf evaluated at any depth, through the same `evaluator` and so against
+     * the same scope as every other value in this memo; every other value
+     * evaluates exactly as it did (per-value and shallow, with a CEL predicate
+     * envelope preserved — {@link preservePredicateEnvelope}). The walk, and
+     * what it will not look inside (non-plain objects, keys, cycles, an ARRAY
+     * `params`, which is the `ActionParam[]` definition list), are defined once
+     * in `utils/paramsBag.ts`, which the unevaluated-expression diagnostic reads
+     * too — so what is evaluated and what is reported as left unresolved are
+     * one radius, not two.
+     *
+     * Three carriers, one rule — the ruling names two of them and the third
+     * follows its canonical bag, as every per-key rule in these loops does:
+     *
+     *   1. node-level `params`, immediately below;
+     *   2. `properties.params`, in the `properties` loop, BEFORE the hoist —
+     *      so the object the hoist copies onto the node (and the renderer
+     *      reads as `schema.params`) is the evaluated one, and
+     *      `schema.properties.params` agrees with it;
+     *   3. `props.params`, in the legacy-alias loop — the two bag loops must
+     *      not disagree about a key (objectui#5123, objectui#9100).
+     *
+     * Each authored value is evaluated exactly once: the node-level leg runs
+     * before the hoist, so when `properties.params` wins the hoist it replaces
+     * an evaluated node-level bag with an evaluated bag of its own, and nothing
+     * already evaluated is evaluated again.
+     *
+     * Before this, the node-level bag was never evaluated at all, and
+     * `properties.params` was ONE value of a shallow loop: measured through the
+     * real `SchemaRenderer` -> `action:button` -> runner on a record page bound
+     * to `{ id: 'rec_1' }`, both `params.recordId: '${record.id}'` spellings
+     * reached the handler raw while `properties.label: 'L-${record.id}'`
+     * rendered `L-rec_1`. A template that still cannot resolve keeps its source
+     * text (that is the evaluator's own contract) and is reported by the
+     * unevaluated-expression diagnostic, so a wrong template stays loud.
+     */
+    const evaluateConfigValue = (key: string, value: unknown): unknown =>
+      key === PARAMS_KEY && isParamsBag(value)
+        ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
+        : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
+
+    // Carrier 1 of the `params` rule above: the node-level bag. A non-bag
+    // node-level `params` (the `ActionParam[]` definition list, or anything
+    // degenerate) is left exactly as authored, as it always was.
+    if (isParamsBag(newSchema[PARAMS_KEY])) {
+      newSchema[PARAMS_KEY] = evaluateConfigValue(PARAMS_KEY, newSchema[PARAMS_KEY]);
+    }
+
     // Evaluate 'properties' — the SPEC spelling of a node's config bag, of
     // which `props` (evaluated below) is the legacy alias.
     //
@@ -1203,6 +1258,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // `aria: { label: '${data.total}' }` nested under EITHER key renders the raw
     // source today). Deepening that is a separate decision and would have to be
     // taken for both spellings at once — not smuggled in on one side here.
+    //
+    // ONE key is deep, by that separate decision, and on both spellings at once:
+    // `params` (objectui#7867, ruling A) — every string leaf of a `params` bag
+    // is evaluated, through {@link evaluateConfigValue} above. Every other key
+    // keeps the shallow reading this paragraph describes.
     //
     // Guarded by {@link isConfigBag}: a degenerate value must not have its shape
     // reinterpreted by an object spread. Non-objects skip evaluation and reach
@@ -1243,8 +1303,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       const newProperties: Record<string, any> = { ...rawPropertiesBag };
       for (const [key, val] of Object.entries(newProperties)) {
         // objectui#9100 — a CEL predicate envelope survives this loop; see
-        // `preservePredicateEnvelope`. Every other value evaluates as before.
-        newProperties[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
+        // `preservePredicateEnvelope`. objectui#7867 — a `params` bag has every
+        // string leaf evaluated (carrier 2 of `evaluateConfigValue`). Every
+        // other value evaluates as before.
+        newProperties[key] = evaluateConfigValue(key, val);
       }
       newSchema.properties = newProperties;
     }
@@ -1473,8 +1535,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       const newProps = { ...newSchema.props };
       for (const [key, val] of Object.entries(newProps)) {
         // objectui#9100, same guard as the `properties` branch above — the two
-        // channels must not disagree about whether a `cel` envelope survives.
-        newProps[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
+        // channels must not disagree about whether a `cel` envelope survives,
+        // nor (objectui#7867, carrier 3) about how deep a `params` bag goes.
+        newProps[key] = evaluateConfigValue(key, val);
       }
       newSchema.props = newProps;
     }

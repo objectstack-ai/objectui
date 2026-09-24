@@ -21,7 +21,7 @@ import {
 } from '@object-ui/components';
 import { Package, Search, RefreshCcw, Store, AlertCircle, CheckCircle2, Settings } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { PackageIcon } from './PackageIcon.js';
 import { MarketplaceAccessDenied } from './MarketplaceAccessDenied.js';
 import { MarketplaceResolving } from './MarketplaceResolving.js';
@@ -45,11 +45,17 @@ import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
  * Format a published-at timestamp as a localized relative string.
  *
  * Uses `Intl.RelativeTimeFormat` for proper plural/grammatical rules in
- * the active locale (e.g. "il y a 3 jours", "3 天前"). Falls back to
+ * the display locale (e.g. "il y a 3 jours", "3 天前"). Falls back to
  * translation keys for environments without RTF support.
+ *
+ * The locale is `useDisplayLocale()`, never the UI language: a regional
+ * display locale (`de-CH` under an English UI) must reach this face, and the
+ * hook already owns the last-resort tag, so no literal `'en'` belongs here
+ * (objectui#10331).
  */
 function useRelativeFormatter() {
-  const { language, t } = useObjectTranslation();
+  const { t } = useObjectTranslation();
+  const displayLocale = useDisplayLocale();
   return (iso?: string | null): string => {
     if (!iso) return '';
     const d = new Date(iso);
@@ -57,7 +63,7 @@ function useRelativeFormatter() {
     const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
     if (days < 1) return t('marketplace.relativeTime.today');
     try {
-      const rtf = new Intl.RelativeTimeFormat(language || 'en', { numeric: 'auto' });
+      const rtf = new Intl.RelativeTimeFormat(displayLocale, { numeric: 'auto' });
       if (days < 30) return rtf.format(-days, 'day');
       if (days < 365) return rtf.format(-Math.floor(days / 30), 'month');
       return rtf.format(-Math.floor(days / 365), 'year');

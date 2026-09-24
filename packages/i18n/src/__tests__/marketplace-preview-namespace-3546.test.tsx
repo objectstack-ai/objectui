@@ -755,6 +755,37 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
       ['preview.history.title', 'CommitTimeline'],
     ];
 
+    /**
+     * A named import from `@object-ui/i18n` whose list carries the bare
+     * `useObjectTranslation` — alone or beside other names from the same package
+     * (`MarketplacePage` also takes `useDisplayLocale` there, objectui#10331), on
+     * one line or several. The name must stand whole and un-aliased: a longer
+     * identifier, an `as` rename, a type-only import or another package does not
+     * count. The control below pins both directions.
+     */
+    const IMPORTS_BARE_HOOK =
+      /import\s*\{[^}]*(?<![\w$])useObjectTranslation(?![\w$])(?!\s+as\b)[^}]*\}\s*from\s*'@object-ui\/i18n'/;
+
+    it('the import matcher accepts the hook in any named list, and nothing that dropped it', () => {
+      for (const ok of [
+        "import { useObjectTranslation } from '@object-ui/i18n';",
+        "import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';",
+        "import {\n  useObjectTranslation,\n  useDisplayLocale,\n} from '@object-ui/i18n';",
+      ]) {
+        expect(IMPORTS_BARE_HOOK.test(ok), `should accept: ${ok}`).toBe(true);
+      }
+      for (const dropped of [
+        "import { useDisplayLocale } from '@object-ui/i18n';",
+        "import { useObjectTranslationSafe } from '@object-ui/i18n';",
+        "import { useObjectTranslation as useT } from '@object-ui/i18n';",
+        "import type { useObjectTranslation } from '@object-ui/i18n';",
+        "import { useObjectTranslation } from '@object-ui/i18n-extra';",
+        "import { useObjectTranslation } from './i18n';",
+      ]) {
+        expect(IMPORTS_BARE_HOOK.test(dropped), `should refuse: ${dropped}`).toBe(false);
+      }
+    });
+
     it('all five owning components bind t from a bare useObjectTranslation', () => {
       // The premise of mounting a provider at all. If one of them ever moves
       // behind a `createSafeTranslation` defaults map, the map would answer in
@@ -768,9 +799,11 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
         'packages/app-shell/src/preview/UnpublishedAppBar.tsx',
       ]) {
         const src = sourceOf(rel);
-        expect(src, `${rel} no longer imports useObjectTranslation`).toContain(
-          "import { useObjectTranslation } from '@object-ui/i18n'",
-        );
+        const i18nImports = src.match(/import[^;]*from\s*'@object-ui\/i18n'/g) ?? [];
+        expect(
+          IMPORTS_BARE_HOOK.test(src),
+          `${rel} no longer imports a bare useObjectTranslation from '@object-ui/i18n' — its imports from that package: ${JSON.stringify(i18nImports)}`,
+        ).toBe(true);
         expect(src, `${rel} gained a defaults-map translator`).not.toContain('createSafeTranslation');
       }
     });

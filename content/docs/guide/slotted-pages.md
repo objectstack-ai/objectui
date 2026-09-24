@@ -140,6 +140,14 @@ full collection size. Authors can raise the page size per list
 (`'-created_at'` or `[{ field, order }]`); a user's column sort is sent
 to the server so ordering stays global across pages.
 
+A related list that declares `columns` also asks the server only for what
+it may show: its row fetch carries a `$select` of the declared columns the
+current user can read (field-level security), plus `id` and the fields its
+row actions' `visible` / `disabled` predicates read. A column the user
+cannot read is never requested. A list without `columns` derives them from
+the fetched rows, so it still fetches whole rows; there the column layer
+alone hides a field the user cannot read.
+
 ## Header actions: inline vs. overflow
 
 `page:header` renders the record's `record_header` actions (authored

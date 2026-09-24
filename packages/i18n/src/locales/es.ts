@@ -2584,6 +2584,7 @@ const es = {
     selectPlaceholder: "Seleccionar {{label}}",
     requiredError: "{{label}} es obligatorio",
     unresolvedParam: 'No se puede mostrar este parámetro: el campo en el que se basa no está en los metadatos del objeto, por lo que no se puede construir el control necesario. Pide a un administrador que corrija la definición de la acción.',
+    carryOverHint: 'Se conserva sin cambios (solo lectura)',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Subiendo…",

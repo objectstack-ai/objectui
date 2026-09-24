@@ -135,7 +135,25 @@ async function onPageThree(store: ReturnType<typeof makeStore>) {
 describe('ListView — the pager clamps after a write empties the page (objectui#10384)', () => {
   it('bulk-deleting every row of page 3 lands on page 2 with its rows, never the first-run empty state', async () => {
     const store = makeStore(25);
-    const { queryByTestId } = await onPageThree(store);
+    const { container, queryByTestId } = await onPageThree(store);
+
+    // Record every empty state the DOM ever receives from here on, not only
+    // the one on screen when an assertion runs: the empty window would be
+    // committed for one frame and replaced by the loading state on the next,
+    // which a point-in-time query cannot see.
+    let emptyStateMounted = false;
+    const scan = (records: MutationRecord[]) => {
+      for (const r of records) {
+        for (const n of Array.from(r.addedNodes)) {
+          if (!(n instanceof Element)) continue;
+          if (n.matches('[data-testid="empty-state"]') || n.querySelector('[data-testid="empty-state"]')) {
+            emptyStateMounted = true;
+          }
+        }
+      }
+    };
+    const observer = new MutationObserver(scan);
+    observer.observe(container, { childList: true, subtree: true });
 
     // Park the clamped window's fetch so the frame between "page 3 came back
     // empty" and "page 2 arrived" is observable.
@@ -143,9 +161,7 @@ describe('ListView — the pager clamps after a write empties the page (objectui
     await act(async () => { store.deleteIds(ids(20, 25)); });
     await waitFor(() => expect(lastSkip(store.ds)).toBe(10));
 
-    // Mid-flight: the clamped window is loading, and the empty window it came
-    // from never reached the screen as an empty state.
-    expect(queryByTestId('empty-state')).toBeNull();
+    // Mid-flight: the clamped window is loading.
     expect(queryByTestId('list-loading')).not.toBeNull();
 
     await act(async () => { store.release(); });
@@ -154,6 +170,10 @@ describe('ListView — the pager clamps after a write empties the page (objectui
       expect(lastGridProps.rowCount).toBe(20);
       expect(lastGridProps.data.map((r: any) => r.id)).toEqual(ids(10, 20));
     });
+    scan(observer.takeRecords());
+    observer.disconnect();
+    // The empty page-3 window never reached the DOM as an empty state.
+    expect(emptyStateMounted).toBe(false);
     expect(queryByTestId('empty-state')).toBeNull();
   });
 

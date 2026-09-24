@@ -2160,9 +2160,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // as `../objectql.ts` (optional) so the zod-mirror-parity ratchet stays at
   // zero drift for this pair.
   //
-  // ⚠️ No `sort` twin here, and the absence is measured: `ObjectKanban.tsx` has
-  // ZERO `schema.sort` read sites and the spec's `object-kanban` entry declares
-  // no `sort` either. Only `ObjectCalendarSchema` above carries both.
+  // ⚠️ No `sort` twin here: the spec's `object-kanban` entry declares no
+  // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
+  // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
+  // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on

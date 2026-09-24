@@ -25,9 +25,6 @@ import type { ObjectMapSchema, ObjectMapConfig, DataSource, ViewData } from '@ob
 import { ObjectMapConfigSchema } from '@object-ui/types/zod';
 import {
   useNavigationOverlay,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
@@ -39,6 +36,9 @@ import {
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import MapGL, { NavigationControl, Marker, Popup } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -624,9 +624,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * query as every other provider, so the ceiling arrives with the same `$top`
    * and the same footnote. This docblock used to say both paths were exempt.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [objectSchema, setObjectSchema] = useState<any>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -788,7 +786,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         // refetch-every-render trap (objectui#5003).
         if (Array.isArray(dataProp)) {
           setData(dataProp);
-          setRowCeiling({ truncated: false });
+          setRowCeiling(null);
           setLoading(false);
           return;
         }
@@ -839,7 +837,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // an inline marker costs the browser exactly what a fetched one
             // costs and the ruling text carves out no provider.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -848,7 +846,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // quiet.
           const capped = applyNonGridRowCeiling(result);
           setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
+          setRowCeiling(capped);
           setLoading(false);
           return;
         }
@@ -920,13 +918,13 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // probe row past the ceiling makes the cut detectable;
             // `applyNonGridRowCeiling` slices it off.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
 
           const capped = applyNonGridRowCeiling(result);
           setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
+          setRowCeiling(capped);
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectMap');
           setData([]);
@@ -1390,11 +1388,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           still looks like a complete map, and its camera is fitted to a box
           that is not the data's. Placement follows objectui#7148's chart
           footnote: a muted note directly under the surface it describes. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {navigation.isOverlay && (
         <NavigationOverlay {...navigation} title="Location Details">
           {(record) => (

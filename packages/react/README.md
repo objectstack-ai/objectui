@@ -285,13 +285,15 @@ map and tree (objectui#7210). Those four fetch the whole FILTERED result set,
 because a truthful range or layout needs all of it, but the fetch is bounded:
 past the ceiling they draw the first N rows and say so.
 
+The mechanism lives in `@object-ui/core` (objectui#7508): `NON_GRID_ROW_CEILING`,
+`nonGridRowCeilingQuery` and `applyNonGridRowCeiling`, with the result type
+`NonGridCeilingResult`. This package re-exports `NON_GRID_ROW_CEILING`,
+`applyNonGridRowCeiling` and `NonGridCeilingResult`, and owns the React half —
+the footnote, `NonGridRowCeilingNote`.
+
 ```tsx
-import {
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
-  NonGridRowCeilingNote,
-} from '@object-ui/react'
+import { NonGridRowCeilingNote, applyNonGridRowCeiling } from '@object-ui/react'
+import { nonGridRowCeilingQuery } from '@object-ui/core'
 import type { DataSource, QueryParams } from '@object-ui/types'
 
 declare const dataSource: DataSource
@@ -300,19 +302,24 @@ declare const schema: { filter?: QueryParams['$filter'] }
 
 const result = await dataSource.find(objectName, {
   $filter: schema.filter,
-  $top: NON_GRID_ROW_CEILING_TOP, // the ceiling plus ONE probe row
+  ...nonGridRowCeilingQuery(), // `$top`: the ceiling plus ONE probe row
 })
 // The semicolon is load-bearing: the next statement opens with `<`, so without
 // it the call above is parsed as the left side of a relational expression.
-const { rows, total, truncated } = applyNonGridRowCeiling(result);
-// …draw `rows`, then:
-<NonGridRowCeilingNote drawn={NON_GRID_ROW_CEILING} total={total} truncated={truncated} />
+const capped = applyNonGridRowCeiling(result);
+// …draw `capped.rows`, then hand the note the whole result:
+<NonGridRowCeilingNote result={capped} />
 ```
 
-`NON_GRID_ROW_CEILING_TOP` is the ceiling plus one deliberately: the probe row
-is what makes truncation a fact about the rows in hand, since `QueryResult.total`
-is optional and a bare-array response carries none. The note renders `null` when
-nothing was truncated, so it can be mounted unconditionally.
+`nonGridRowCeilingQuery()` is the one place the probe row is written: `$top` is
+the ceiling plus one, because the extra row is what makes truncation a fact about
+the rows in hand — `QueryResult.total` is optional and a bare-array response
+carries none. Spread it into the query; never spell the `+ 1` at a call site.
+
+`NonGridRowCeilingNote` takes the `NonGridCeilingResult` and nothing else. The
+count it prints is `result.rows.length` and the total is `result.total`, so the
+footnote cannot name numbers that disagree with the rows drawn. It renders `null`
+when nothing was truncated, so it can be mounted whenever a result is in hand.
 
 ⛔ The ceiling is not authorable and must not become so. Silent truncation is
 the failure it exists to prevent — a cut-off schedule still looks like a

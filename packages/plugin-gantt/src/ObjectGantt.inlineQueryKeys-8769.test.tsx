@@ -73,8 +73,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
-import { ValueDataSource } from '@object-ui/core';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectGantt } from './ObjectGantt';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -207,7 +206,7 @@ describe('objectui#8769 — the inline `value` provider honours filter / sort / 
       <ObjectGantt
         schema={{
           ...base,
-          data: { provider: 'value', items: makeRows(NON_GRID_ROW_CEILING_TOP + 500) },
+          data: { provider: 'value', items: makeRows(nonGridRowCeilingQuery().$top + 500) },
         }}
       />,
     );
@@ -215,7 +214,7 @@ describe('objectui#8769 — the inline `value` provider honours filter / sort / 
   });
 
   it('ceilingNote: the cut is LOUD — the footnote names both numbers', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     render(
       <ObjectGantt schema={{ ...base, data: { provider: 'value', items: makeRows(total) } }} />,
     );

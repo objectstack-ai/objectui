@@ -34,9 +34,6 @@ import {
   isPermissionError,
   declaredUserMessage,
   useSettledSchema,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
 } from '@object-ui/react';
 import {
@@ -72,6 +69,9 @@ import {
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 
 /**
@@ -357,9 +357,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    * `data.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
    * apart from one that is exactly that size.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   // Disclosure state of the "unscheduled" area (objectui#7071). Collapsed by
   // default, as ruled: the count is always on screen, the list is opt-in.
@@ -568,7 +566,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // fetch whose rows are no longer on screen is a footnote about a result
       // set that is not being drawn. Every other `setData` path here already
       // resets it — this was the one that did not.
-      setRowCeiling({ truncated: false });
+      setRowCeiling(null);
     }
   }, [externalData, hasExternalData]);
 
@@ -653,7 +651,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             // an inline event costs the browser exactly what a fetched one
             // costs and the ruling text carves out no provider.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -663,7 +661,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           const capped = applyNonGridRowCeiling(result);
           if (isMounted) {
             setData(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
             setLoading(false);
           }
           return;
@@ -732,7 +730,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             // stops at a number. The one probe row past the ceiling is what
             // makes the cut detectable; `applyNonGridRowCeiling` slices it off.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
 
@@ -740,7 +738,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
           if (isMounted) {
             setData(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
           }
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
@@ -1354,11 +1352,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       {/* objectui#7210 — a month drawn from the first N rows of a larger set
           still reads as a complete month; the note is the only thing that says
           otherwise. Placement follows objectui#7148's chart footnote. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
 
       {/* The "unscheduled" containment area (objectui#7071, ruled 2026-09-01 and
           re-confirmed 2026-09-02). Records with no value in the declared start

@@ -17,6 +17,7 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
+  declaredNameField,
   deriveTitleField,
   formatTitleTemplate,
   isObjectInlineEditable,
@@ -426,16 +427,24 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   //     from this package: it is a key on the HEADER schema, which
   //     `record:details` never receives. Same shape, its own card.
   //
-  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
-  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
-  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
-  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
-  // "titleFormat still outranks nameField". Closing that divergence moves what
-  // the H1 SHOWS on existing records and retires that pin, so it is a
-  // maintainer ruling and carries its own `needs-user-decision` card. This
-  // ladder deliberately does not depend on which of the two wins: it asks
-  // whether the rendered template IS some candidate's value, which answers the
-  // dedupe under either order.
+  // ⭐ THE ORDER between those rungs is now the protocol's, in all three
+  // readers (objectui#9436, ruled C1). The ADR-0079 declared pointer
+  // (`nameField`, then its `displayNameField` alias) OUTRANKS the interpolated
+  // `titleFormat`, as `getRecordDisplayName` documents it (pointer at steps
+  // 1+2, template at step 3). `PageHeaderRenderer` used to rank the template
+  // ABOVE the pointer, and this ladder mirrored that. It checked the template
+  // first, so once the header moved it hid the wrong row and kept the real
+  // duplicate. The header pin in `@object-ui/components`'
+  // `__tests__/page-header-title.test.tsx` now asserts the protocol order.
+  //
+  // ⚠️ So this ladder DOES depend on the order, and it reads it first: when
+  // the declared pointer holds a value on this record, that field IS the H1.
+  // Its row is hidden and the template is never consulted, because the header
+  // never reaches it either. The template branch below only runs when the
+  // declared pointer is absent or blank on the record. The two halves are
+  // pinned rendered together in
+  // `__tests__/record-details.headerDedupeAgreement-9436.test.tsx`, which reads
+  // the real H1 beside the real body.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -514,36 +523,49 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
   //     case: "the H1 is not any single field's value, so there is no row to
   //     hide".
-  //   - empty (no placeholder resolved on this record) → the header has
-  //     ALREADY walked past this rung onto the declared pointer, so the
-  //     value-keyed walk below runs unchanged. Suppressing on the mere
-  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
-  //     where the template renders nothing.
+  //   - empty (no placeholder resolved on this record) → the header walks on
+  //     past this rung to the unified resolver, so the value-keyed walk below
+  //     runs unchanged. Suppressing on the mere PRESENCE of a `titleFormat`
+  //     would blind the dedupe on every record where the template renders
+  //     nothing.
   //   - collapsed onto ONE field's value (a blank placeholder was dropped with
   //     its orphan separator, or the format names a single field) → that row
-  //     IS the duplicate, and it still goes. A presence-only rule prints
-  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
-  //     is the duplication Phase P.0 exists to remove.
+  //     IS the duplicate, and it still goes. A presence-only rule prints that
+  //     field's row directly beneath an H1 showing the same value, which is
+  //     the duplication Phase P.0 exists to remove.
+  //
+  // All three outcomes are reached only when the declared pointer did not
+  // answer first (objectui#9436, see the ORDER note above).
   //
   // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
   // which asserts which row RENDERS and which row DROPS — never the heading,
   // which this package does not draw.
   //
   // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
-  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
-  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
-  // so stopping early would hide the wrong row AND leave the real duplicate.
-  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
-  if (interpolatedTitle) {
-    const shownAs = titleCandidates.find(
-      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
-    );
-    if (shownAs) hideFieldNames.add(shownAs);
+  // a value. With `titleFormat: '{subject}'` on an object that declares no
+  // pointer and derives `name`, the first resolving candidate is `name` while
+  // the H1 is `subject`'s value. Stopping early would hide the wrong row AND
+  // leave the real duplicate.
+  //
+  // The declared pointer is read through core's one exported spelling,
+  // `declaredNameField`, exactly as `PageHeaderRenderer` reads it: the same
+  // expression on both halves, never a re-typed `??` chain.
+  const declaredTitleField = declaredNameField(objSchema);
+  if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
+    hideFieldNames.add(declaredTitleField);
   } else {
-    for (const candidate of titleCandidates) {
-      if (recordDisplayValueAt(data, candidate) !== undefined) {
-        hideFieldNames.add(candidate);
-        break;
+    const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
+    if (interpolatedTitle) {
+      const shownAs = titleCandidates.find(
+        (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
+      );
+      if (shownAs) hideFieldNames.add(shownAs);
+    } else {
+      for (const candidate of titleCandidates) {
+        if (recordDisplayValueAt(data, candidate) !== undefined) {
+          hideFieldNames.add(candidate);
+          break;
+        }
       }
     }
   }

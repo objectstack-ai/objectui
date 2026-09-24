@@ -33,10 +33,11 @@
  * predicate.)
  *
  * Since objectstack#8018 the same reader also carries the non-predicate row keys
- * a view's actions read — today just `recordIdField`. The name kept the
- * "predicate" spelling because the mechanism is identical (harvest a name, gate
- * it against the declared fields, add it to `$select`); see
- * {@link listViewPredicates} for what is in the set and why.
+ * a view's actions read: `recordIdField`, and since objectui#10277 the field a
+ * `defaultFromRow` param seeds from and the `{field}` tokens of an action's
+ * `target`. The name kept the "predicate" spelling because the mechanism is
+ * identical (harvest a name, gate it against the declared fields, add it to
+ * `$select`); see {@link listViewPredicates} for what is in the set and why.
  */
 
 /**
@@ -96,6 +97,32 @@ const RECORD_REF = /\b(?:record|data)\.([A-Za-z_][A-Za-z0-9_]*)/g;
  */
 const BARE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+/**
+ * A `{field}` token in an action's `target` — the grammar the console's `api`
+ * handler (`useConsoleActionRuntime` in `@object-ui/app-shell`) substitutes from
+ * the row record, spelled exactly as that handler spells it, so the harvest
+ * reads the same tokens it fills. The capture is a bare identifier by
+ * construction: a dotted path (`{owner.name}`), an expression (`{a + b}`) and
+ * the runner's own `${param.X}` / `${ctx.X}` scopes all fall outside it and
+ * match nothing here — this grammar does not read them off the row, so they owe
+ * the projection nothing.
+ */
+const TARGET_ROW_TOKEN = /\{([a-z_][a-z0-9_]*)\}/gi;
+
+/**
+ * The row key a `defaultFromRow` param seeds its value from — `field` wins,
+ * because row data is keyed by object field; `name` is the fallback. The same
+ * precedence `resolveActionParam` (`@object-ui/app-shell`) reads, which is the
+ * point: the projection must carry the key the runtime looks up, not the
+ * param's payload name. `remove_team_member` seeds `teamId` from `team_id`.
+ */
+function defaultFromRowKey(param: unknown): unknown {
+  if (!param || typeof param !== 'object') return undefined;
+  const p = param as Record<string, unknown>;
+  if (!p.defaultFromRow) return undefined;
+  return p.field ?? p.name;
+}
+
 /** Pull the CEL source out of any of the shapes a predicate is authored in. */
 function predicateSource(pred: unknown): string | null {
   if (typeof pred === 'string') return pred.trim() || null;
@@ -145,24 +172,42 @@ export function collectPredicateFieldRefs(predicates: readonly unknown[]): strin
  * kebab (custom defs AND the built-in Edit/Delete overrides), the selection bar,
  * and the object's declared actions.
  *
- * Most entries are predicates. Two are not, and both are spelled as a synthetic
+ * Most entries are predicates. Four are not, and all are spelled as a synthetic
  * `record.<name>` so the one harvester handles them: conditional formatting's
- * native `{ field, operator, value }` shape, and an action's `recordIdField`
- * (objectstack#8018). The `recordIdField` case is the same *class* of bug the
- * predicate harvest exists to close, one surface over — the action runtime reads
+ * native `{ field, operator, value }` shape, an action's `recordIdField`
+ * (objectstack#8018), the field each `defaultFromRow` param seeds from, and each
+ * `{field}` token of the action's `target` (both objectui#10277). The
+ * `recordIdField` case is the same *class* of bug the predicate harvest exists
+ * to close, one surface over — the action runtime reads
  * `rowRecord[action.recordIdField]` to seed `recordIdParam`, so a key outside the
  * listView columns arrived absent and the injection was silently skipped, which
  * turns a record-scoped mutation into one that names no record while still
  * reporting success. The default (`id`) is already projected unconditionally, so
  * only an explicit declaration adds anything here.
  *
- * A `recordIdField` that is not a bare identifier is dropped here, and one naming
- * a field the object does not declare is dropped by the caller's
- * `isProjectableField` guard. Both drops are the safe direction: such a name is
- * not a column anywhere, and an unknown key in `$select` is not ignored by every
- * backend. The identifier gate is not decoration — without it the harvester's
- * regex would read a PREFIX of a malformed name (`record.not a field` → `not`)
- * and contribute a plausible wrong field instead of nothing.
+ * The last two are the same class again, and they were silent in the same way.
+ * `resolveActionParam` seeds a `defaultFromRow` param only when the row HAS the
+ * key (an own-property check), so an absent key opened the param dialog with the
+ * field blank; and the console's `api` handler fills a `{field}` token from the
+ * row, so an absent key put an empty path segment into the URL. The key a param
+ * seeds from is `field ?? name` — the runtime's precedence, not the param's
+ * payload name — and the token grammar is the handler's own. Neither is
+ * narrowed by the action's `type`, for the asymmetry stated below: an extra
+ * column costs bytes.
+ *
+ * A `recordIdField` or param key that is not a bare identifier is dropped here
+ * (a `target` token is one by construction of its grammar), and a name the
+ * object does not declare is dropped by the caller's `isProjectableField`
+ * guard. Both drops are the safe direction: such a name is not a column
+ * anywhere, and an unknown key in `$select` is not ignored by every backend.
+ * The identifier gate is not decoration — without it the harvester's regex would
+ * read a PREFIX of a malformed name (`record.not a field` → `not`) and
+ * contribute a plausible wrong field instead of nothing.
+ *
+ * ⛔ Harvesting is not a read grant. Every name here is a CANDIDATE: each
+ * consumer still passes it through its own field-level read filter before it
+ * reaches `$select`, so a field the principal may not read is not requested
+ * because an action names it.
  *
  * `objectActions` is deliberately the object's WHOLE action set rather than
  * only the ones this view promotes. Narrowing it would mean re-running the
@@ -199,6 +244,21 @@ export function listViewPredicates(view: {
       // harvester handles it (see the doc above).
       if (typeof d.recordIdField === 'string' && BARE_IDENTIFIER.test(d.recordIdField)) {
         preds.push(`record.${d.recordIdField}`);
+      }
+      // A `defaultFromRow` param's seed field and the `{field}` tokens of the
+      // action's `target` (objectui#10277) — two more row keys the runtime
+      // READS, by the same rule and the same identifier gate.
+      if (Array.isArray(d.params)) {
+        for (const param of d.params) {
+          const key = defaultFromRowKey(param);
+          if (typeof key === 'string' && BARE_IDENTIFIER.test(key)) preds.push(`record.${key}`);
+        }
+      }
+      if (typeof d.target === 'string') {
+        TARGET_ROW_TOKEN.lastIndex = 0;
+        for (let m = TARGET_ROW_TOKEN.exec(d.target); m; m = TARGET_ROW_TOKEN.exec(d.target)) {
+          preds.push(`record.${m[1]}`);
+        }
       }
     }
   }

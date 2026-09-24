@@ -38,3 +38,11 @@ row field through something other than a `visible` / `disabled` predicate or
 URL, only gets that field if the projection already carries it (a column, `id`,
 or another predicate's operand). `ListView` and `ObjectGrid` already behave this
 way.
+
+⇒ Narrowed in this same release by objectui#10277: the harvest now also names
+the row key a `defaultFromRow` parameter seeds from and every bare-identifier
+`{field}` token in an action's `target`, through the same declared-field and FLS
+gates, so on all three surfaces those two no longer rely on the projection
+already carrying the field. (Noted here by the objectui#10277 seat, because this
+body publishes verbatim into the CHANGELOG and the paragraph above would
+otherwise describe a gap the same release closes.)

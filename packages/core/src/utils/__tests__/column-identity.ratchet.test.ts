@@ -122,7 +122,7 @@ interface Entry {
 const INVENTORY: Record<string, Entry> = {
   // ── the column-identity family: EMPTY (was 24 in PR1; 22 after re-triage) ──
 
-  // ── two layers, not two spellings (5) ────────────────────────────────────
+  // ── two layers, not two spellings (6) ────────────────────────────────────
   'app-shell/src/utils/resolveActionParams.ts': {
     count: 2,
     verdict: 'two-layer',
@@ -142,6 +142,11 @@ const INVENTORY: Record<string, Entry> = {
     count: 1,
     verdict: 'two-layer',
     why: 'Action param name, same layering as resolveActionParams.',
+  },
+  'core/src/utils/predicate-fields.ts': {
+    count: 1,
+    verdict: 'two-layer',
+    why: 'The ROW-key half of resolveActionParams\' pair, mirrored on purpose (objectui#10277): `defaultFromRowKey` names the row key a `defaultFromRow` param seeds from, so the `$select` harvest can ask for it. `field ?? name` because row data is keyed by object field, the precedence `rowValueKey` reads. Deliberately NOT `columnIdentity()`: that reader also accepts `fieldName` and treats an empty string as absent, so it would harvest keys the runtime never looks up.',
   },
 
   // ── the form cluster — settled the other way (#3090) (3) ─────────────────
@@ -260,8 +265,9 @@ describe('column identity dual-read ratchet (#3104)', () => {
     // cannot hide a real one.
     expect(sum((e) => e.verdict === 'column-identity')).toBe(0);
     // 12 at #3104 PR2; 11 since objectui#3174 routed `resolveActionParams`'
-    // two orders through one named reader each.
-    expect(sum(() => true)).toBe(11);
+    // two orders through one named reader each; 12 again since objectui#10277
+    // mirrored that file's row-key reader into the `$select` harvest.
+    expect(sum(() => true)).toBe(12);
   });
 
   it('records a precedence for every read left in the family', () => {

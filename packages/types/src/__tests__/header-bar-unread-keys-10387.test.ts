@@ -12,13 +12,13 @@
  * rule 2 and D1-(ii): the key is objectui-own, the spec is silent, and the read
  * site is the truth).
  *
- * The four retired here are `nav`, `left`, `center` and `height`. A one-off
- * probe through the real `SchemaRenderer` and the real registry drew the header
- * byte-identical to its absence for every value tried, with `rightContent` as
- * the lit control that did change the markup. The other unread keys the card
- * names (`title`, `logo`, `right`, `sticky`) have in-tree authors and are NOT
- * touched by this card; the pin below keeps them parsing so this file cannot be
- * read as having retired them.
+ * All eight keys the card names retire: `title`, `logo`, `nav`, `left`,
+ * `center`, `right`, `sticky` and `height`. A one-off probe through the real
+ * `SchemaRenderer` and the real registry drew the header byte-identical to its
+ * absence for every value tried, with `rightContent` as the lit control that did
+ * change the markup. Four of them (`title`, `logo`, `right`, `sticky`) had
+ * documentation and type-check-example authors and no read site; the PM seat
+ * ruled they retire too, and those authors migrated to `crumbs` / `actions`.
  *
  * `BaseSchema` is `.passthrough()`: an UNDECLARED key parses green unexamined. So
  * every refusal here has a lit control on the same document, an unknown key that
@@ -34,10 +34,16 @@ const NODE = { type: 'header-bar' as const, crumbs: [{ label: 'Home' }] };
 const TEXT = { type: 'text', content: 'x' };
 
 /** Values each face used to admit for the key, one per former arm. */
-const FORMER_VALUES: Record<'nav' | 'left' | 'center' | 'height', unknown[]> = {
+const FORMER_VALUES: Record<'title' | 'logo' | 'nav' | 'left' | 'center' | 'right' | 'sticky' | 'height', unknown[]> = {
+  // `logo` is the key whose two faces disagreed: the declaration said a URL string,
+  // the mirror a node or node list. Every arm either face admitted is refused now.
+  title: ['My App'],
+  logo: ['/logo.svg', TEXT, [TEXT]],
   nav: [[{ label: 'Docs', href: '/docs' }], []],
   left: [TEXT, [TEXT], 'plain text'],
   center: [TEXT, [TEXT], 'plain text'],
+  right: [TEXT, [TEXT]],
+  sticky: [true, false],
   height: ['64px', 64],
 };
 
@@ -69,12 +75,20 @@ describe('header-bar unread keys retire on both faces (objectui#10387)', () => {
     expect(HeaderBarSchema.safeParse({ ...NODE, [UNKNOWN_KEY]: 'x' }).success).toBe(true);
   });
 
-  it('the keys with in-tree authors are untouched by this card and still parse', () => {
-    const doc = { ...NODE, title: 'App', logo: TEXT, right: [TEXT], sticky: true };
+  it('the keys the renderer DOES read still parse (what the refusals point at)', () => {
+    const doc = { ...NODE, search: { enabled: true }, actions: [TEXT], rightContent: TEXT };
     expect(HeaderBarSchema.safeParse(doc).success).toBe(true);
   });
 
   it('the declaration refuses them too (compile-time)', () => {
+    // @ts-expect-error — `title` is `never` on the TS face.
+    const e: HeaderBarSchemaType = { type: 'header-bar', title: 'My App' };
+    // @ts-expect-error — `logo` is `never` on the TS face.
+    const f: HeaderBarSchemaType = { type: 'header-bar', logo: '/logo.svg' };
+    // @ts-expect-error — `right` is `never` on the TS face.
+    const g: HeaderBarSchemaType = { type: 'header-bar', right: [] };
+    // @ts-expect-error — `sticky` is `never` on the TS face.
+    const h: HeaderBarSchemaType = { type: 'header-bar', sticky: true };
     // @ts-expect-error — `nav` is `never` on the TS face.
     const a: HeaderBarSchemaType = { type: 'header-bar', nav: [{ label: 'Docs', href: '/docs' }] };
     // @ts-expect-error — `left` is `never` on the TS face.
@@ -83,6 +97,6 @@ describe('header-bar unread keys retire on both faces (objectui#10387)', () => {
     const c: HeaderBarSchemaType = { type: 'header-bar', center: 'x' };
     // @ts-expect-error — `height` is `never` on the TS face.
     const d: HeaderBarSchemaType = { type: 'header-bar', height: 64 };
-    expect([a, b, c, d].map((n) => n.type)).toEqual(['header-bar', 'header-bar', 'header-bar', 'header-bar']);
+    expect([a, b, c, d, e, f, g, h].every((n) => n.type === 'header-bar')).toBe(true);
   });
 });

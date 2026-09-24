@@ -272,7 +272,7 @@ describe('SchemaNode slots refuse numeric-falsy authored values (objectui#9162)'
     function renderHeaderBar(value: unknown): string {
       const C = ComponentRegistry.get('header-bar', 'ui') as React.ComponentType<any>;
       if (!C) throw new Error('no renderer registered for ui:header-bar');
-      const schema: Record<string, unknown> = { type: 'header-bar', title: 'H' };
+      const schema: Record<string, unknown> = { type: 'header-bar' };
       if (value !== OMIT) schema.rightContent = value;
       render(
         <SidebarProvider>

@@ -345,8 +345,8 @@ type FieldReadPolicy = ReturnType<typeof usePermissions>;
  * resolves identity this way, because a column refused under one reading and
  * drawn under another is the defect objectui#9053 recorded.
  */
-function drawnColumnKey(c: any): string | undefined {
-  const key = c?.accessorKey || columnIdentity(c);
+function drawnColumnKey(c: unknown): string | undefined {
+  const key = (c as { accessorKey?: unknown } | null | undefined)?.accessorKey || columnIdentity(c);
   return key ? String(key) : undefined;
 }
 

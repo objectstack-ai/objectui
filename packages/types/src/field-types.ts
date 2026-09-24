@@ -1012,6 +1012,15 @@ export interface SliderFieldMetadata extends BaseFieldMetadata {
   type: 'slider';
   min?: number;
   max?: number;
+  /**
+   * Step increment for slider (default: 1).
+   *
+   * Mirrors `step` on `@objectstack/spec`'s `FieldSchema`, whose own prose is
+   * the sentence above; `SliderField` reads it and defaults it to `1`
+   * (objectui#10066). Pinned in
+   * `__tests__/number-field-step-spec-parity-9875.test.ts`.
+   */
+  step?: number;
 }
 
 export interface RatingFieldMetadata extends BaseFieldMetadata {

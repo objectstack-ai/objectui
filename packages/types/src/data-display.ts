@@ -1380,9 +1380,11 @@ export interface DataTableSchema extends BaseSchema {
    * callable here because it is called by `renderers/complex/data-table.tsx`
    * (`schema.onRowClick(row, e)`, gated on `!e.defaultPrevented`). THREE
    * suppliers, measured: `ObjectGrid` passes `navigation.handleClick`,
-   * `ObjectDataTable` passes `schema.onRowClick ?? handleRowClick` (its own
-   * forwarding face, `ObjectDataTableSchema.onRowClick`, carries the same
-   * refusal arm), and `RelatedList` forwards its own React prop of this name.
+   * `ObjectDataTable` passes
+   * `schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * (its own forwarding face, `ObjectDataTableSchema.onRowClick`, carries the
+   * same refusal arm), and `RelatedList` forwards its own React prop of this
+   * name.
    *
    * TWO parameters since objectui#9462, and the second is the reason that card
    * exists: the renderer's two call sites — the row's own click handler and the

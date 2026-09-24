@@ -421,9 +421,10 @@ export const kanbanComponents = {
  */
 
 /**
- * What `ObjectKanban` reads for its own query: `objectName`, `filter` and
- * `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
- * schema.filter`, `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`).
+ * What `ObjectKanban` reads for its own query: `objectName`, `filter`, `sort`
+ * and `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
+ * schema.filter`, `$orderby: convertSortToQueryParams(schema.sort)`, `$top:
+ * resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`).
  *
  * `limit` was unmapped until objectui#4025, on the rationale that the board
  * "fetches with a fixed `$top: 100`, so there is no key to write it to". That
@@ -439,13 +440,23 @@ export const kanbanComponents = {
  * - `columns` — a board's `columns` are its SWIMLANES (`{ id, title }` per
  *   `groupBy` value), not a field projection; a saved view's field list written
  *   there would render one empty lane per field name.
- * - `sort` — the board has no `$orderby` read site: cards are grouped into lanes
- *   by `groupBy`, and the fetch declares no ordering. Mapping it onto something
- *   plausible would re-create the defect this wiring removes — a value accepted
- *   and dropped — one layer deeper.
+ *
+ * `sort` IS mapped (objectui#10068). The binding declares it for every element
+ * (`ELEMENT_DATA_SOURCE_INPUT`, the spec's `ElementDataSourceSchema`), and it
+ * used to be accepted here and dropped: the board fetched with no `$orderby`.
+ * The fetch now lowers it onto `$orderby` the way every sibling block does
+ * (`convertSortToQueryParams`), so the order is the server's. Lanes keep that
+ * order: records are bucketed by `groupBy` in fetch order and nothing re-sorts
+ * a lane. There is no manual in-lane rank to contend with — a same-lane drop
+ * persists nothing and the board claims no position (objectui#8826).
+ *
+ * ⚠️ `schema.sort` is the GATE's carrier for `dataSource.sort`, not an authoring
+ * key on this block: the spec's `object-kanban` props declare no top-level
+ * `sort` and refuse one, and neither `ObjectKanbanSchema` face declares it.
  */
 const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
   filter: true,
+  sort: true,
   limit: 'limit',
 };
 

@@ -21,7 +21,7 @@ import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -2830,6 +2830,52 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     [schema.columns],
   );
 
+  /**
+   * The filter the GANTT CHART queries with (objectui#10037).
+   *
+   * Every other view draws the rows this component fetched, so the toolbar's
+   * Filter control and the `UserFilters` chips reach them through `data`. The
+   * registered `object-gantt` renderer forwards no host prop (see
+   * `ganttOwnsData` above) and runs its OWN query from `schema.filter` — so a
+   * node carrying only the authored `schema.filter` left both controls on
+   * screen, changing this component's fetch and nothing the user could see.
+   * The node therefore carries the SAME effective filter this component's own
+   * fetch sends (`buildEffectiveFilter`: authored filter AND toolbar group AND
+   * chips), which `ObjectGantt.reload` hands to `$filter` unchanged.
+   *
+   * ⭐ Stable for an equal payload, and keyed on the payload — not on a memo
+   * identity (AGENTS.md #10). `ObjectGantt`'s reload effect lists
+   * `schema.filter` as a dependency, so a fresh array for a byte-identical
+   * filter would refetch the chart on every density toggle or discarded memo.
+   * The ref below hands back the previous object whenever the serialised
+   * filter is unchanged.
+   *
+   * ⚠️ A filter `buildEffectiveFilter` refuses (a `FilterOperatorError`) is
+   * NOT turned into "no filter" here — that would widen the chart to every row.
+   * The node keeps the last filter it was handed (or, before any, the authored
+   * one, exactly what it carried before this change), and this component's own
+   * fetch, which throws the same refusal inside its load `try`, raises the
+   * load-error panel that replaces the chart.
+   */
+  const ganttChartFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
+  let ganttChartFilter: unknown = schema.filter;
+  if (currentView === 'gantt') {
+    try {
+      const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const key = JSON.stringify(value ?? null);
+      const cached = ganttChartFilterRef.current;
+      if (cached && cached.key === key) {
+        ganttChartFilter = cached.value;
+      } else {
+        ganttChartFilterRef.current = { key, value };
+        ganttChartFilter = value;
+      }
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      ganttChartFilter = ganttChartFilterRef.current ? ganttChartFilterRef.current.value : schema.filter;
+    }
+  }
+
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
     const densityRowHeight = density.mode === 'compact'
@@ -3159,6 +3205,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-gantt',
           ...baseProps,
+          // objectui#10037 — the EFFECTIVE filter, not the authored one: the
+          // chart queries for itself, so this key is the only way the
+          // toolbar's Filter control and the `UserFilters` chips reach it.
+          // See `ganttChartFilter` above.
+          filter: ganttChartFilter,
           // objectui#7334 — the view-level `navigation` the author wrote.
           //
           // `ObjectGantt` owns a record drawer of its own and resolves
@@ -3336,7 +3387,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef]);
+  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, ganttChartFilter]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 

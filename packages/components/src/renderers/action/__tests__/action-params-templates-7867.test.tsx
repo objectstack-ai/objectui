@@ -34,6 +34,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
 import { ActionProvider, RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 // Module-scope side-effect import so `action:button` is registered before the
 // first render - the light `dom` project does not load the components graph.
@@ -55,7 +56,7 @@ afterEach(() => {
 });
 
 /** Render `schema` on a record page bound to {@link ROW}. */
-function renderOnRecordPage(schema: Record<string, unknown>) {
+function renderOnRecordPage(schema: BaseSchema) {
   return render(
     <ActionProvider handlers={{ navigate_edit: navigateEdit }}>
       <RecordContextProvider objectName="account" recordId={ROW.id} data={ROW}>

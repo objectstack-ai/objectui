@@ -47,7 +47,8 @@ import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
-import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope } from './runtime-metadata-persistence.js';
+import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
+import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -1074,6 +1075,82 @@ export function buildPersistedViewBody(
 }
 
 /**
+ * Item-level keys a switcher tab carries that belong to the ROW, not to the
+ * view body — the ones this surface's own handlers write through `updateView`
+ * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
+ * top level), the tab's `visibility`, and `columnState`, the runtime-only key
+ * the spec declares on the ViewItem wire face rather than on the list-view
+ * body (objectstack#9933). A view-config save is a whole-document PUT, so
+ * these are carried forward at the envelope's top level; dropping them would
+ * erase the default flag, the pin and the column widths the row held.
+ */
+const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+
+/**
+ * The keys a list view's `config` may carry — read off the spec's own closed
+ * `ListViewSchema`, never hand-listed, so the set moves with the spec.
+ * Computed on first use: the schema is a lazy proxy and nothing else on this
+ * module's load path needs it materialised.
+ */
+let listViewConfigKeys: ReadonlySet<string> | undefined;
+function getListViewConfigKeys(): ReadonlySet<string> {
+    listViewConfigKeys ??= new Set(Object.keys(SpecListViewSchema.shape));
+    return listViewConfigKeys;
+}
+
+/**
+ * The body "Edit view config → Save" persists: a canonical ViewItem envelope
+ * `{ name, object, viewKind: 'list', label, config }` (objectui#10210).
+ *
+ * The panel hands its host the FLAT runtime tab, and this save used to persist
+ * it as-is. On a code-defined view the server then inherits `viewKind: 'list'`
+ * from the registry entry the row shadows (`viewIdentityPatch`), and a flat
+ * row carrying `viewKind` is exactly the shape the adapter's legacy-overlay
+ * net reads as a personalization overlay — so `listViews()` dropped the row,
+ * the tab lost its saved-view status and was stamped read-only, and publishing
+ * made that permanent. The create path never had the defect because it writes
+ * through {@link viewEnvelope}; this is the same envelope, for an existing view.
+ *
+ * Three rules, each measured against the platform's write door:
+ *
+ * - **Identity is the row key.** `name` is the tab id the save is addressed
+ *   to, verbatim, so the write lands on the row it always landed on and never
+ *   forks a second view. `viewEnvelope` re-qualifies a name it is given; for a
+ *   `<object>.<key>` id that is the same string, and pinning it here keeps that
+ *   true for any id.
+ * - **`config` carries only list-view keys.** The spec's list-view shape is
+ *   closed: an envelope whose `config` carried the tab's own `id` / `isDefault`
+ *   was refused outright (`422 INVALID_METADATA`, "Unrecognized key(s) on this
+ *   list view"). The tab also carries identity (`name`, `object`, `viewKind`),
+ *   read decorations (`_draft`, `_diagnostics`), registry bookkeeping and, when
+ *   a toolbar overlay was merged into it, the overlay marker — none of which is
+ *   view body. So `config` is the draft narrowed to the keys `ListViewSchema`
+ *   declares, with the object binding stamped by `viewEnvelope`.
+ * - **Row state is carried forward** at the top level — see
+ *   {@link VIEW_ROW_STATE_KEYS}.
+ *
+ * Extracted so the persisted shape is assertable without mounting the view,
+ * like {@link buildPersistedViewBody} above.
+ */
+export function buildViewConfigSaveBody(
+    objectName: string,
+    draft: Record<string, any>,
+): ViewEnvelope & Record<string, unknown> {
+    const vid = String(draft?.id ?? '');
+    const configKeys = getListViewConfigKeys();
+    const body: Record<string, any> = {};
+    for (const [key, value] of Object.entries(draft ?? {})) {
+        if (value !== undefined && configKeys.has(key)) body[key] = value;
+    }
+    const rowState: Record<string, unknown> = {};
+    for (const key of VIEW_ROW_STATE_KEYS) {
+        if (draft?.[key] !== undefined) rowState[key] = draft[key];
+    }
+    const env = viewEnvelope(objectName, body, { name: vid, label: draft?.label });
+    return { ...env, ...rowState, name: vid };
+}
+
+/**
  * The `filter[...]` params of a URL, selected out of the full search params as
  * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
  * above is: so the shape is assertable without mounting the view.
@@ -1285,9 +1362,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // Publish (RuntimeDraftBar) promotes it + records a version.
         const vid = draft.id;
         if (metadataClient && vid) {
+            // The local preview above keeps the FLAT tab (`activeView` merges
+            // it over the base view); the stored row is the canonical ViewItem
+            // envelope, the shape the create path already writes — a flat row
+            // on a code-defined view is read back as a personalization overlay
+            // and the view turns read-only (objectui#10210).
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
-            persistRuntimeMetadata('view', vid, draft, {
+            persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
                 metadataClient,
                 dataSource,
                 objectName,

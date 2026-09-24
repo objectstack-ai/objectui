@@ -35,8 +35,10 @@ form: a stored value the record's CURRENT parent no longer offers is dropped
 into the edit session's draft as soon as inline edit is entered, before the user
 touches that field. A single `select` or `radio` then shows empty; a multi
 `select` or `checkboxes` field keeps only its still-offered values. The next
-record-level Save writes that pruned value together with the user's own edits;
-Cancel discards it.
+record-level Save carries the pruned draft entry with the user's own edits: a
+pruned multi `select` / `checkboxes` array is written, while a single `select` /
+`radio` pruned to `undefined` is dropped by a JSON transport, so its stored
+value survives Save and reappears on refresh. Cancel discards the draft.
 
 `InlineFieldInputProps` gains the optional `dependentValues` member, spelled and
 shaped like the widgets' own prop (`Record<string, unknown>`). A host that

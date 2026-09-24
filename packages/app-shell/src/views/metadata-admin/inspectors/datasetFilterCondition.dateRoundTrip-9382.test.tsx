@@ -37,10 +37,35 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { FilterBuilder, operatorsForFieldType } from '@object-ui/components';
+import {
+  FilterBuilder,
+  operatorsForFieldType,
+  reconcileOperatorForField,
+  reshapeFilterValue,
+} from '@object-ui/components';
 import { groupToCondition, conditionToGroup, type BuilderFieldDef } from './datasetFilterCondition';
+
+// Only the inspector-level pins at the bottom of this file read this: the
+// catalog hooks stubbed so `DatasetDefaultInspector` renders without a
+// MetadataClient, with one number and one date column for its filter builder.
+// Nothing else in this file imports the hooks.
+vi.mock('./useDatasetFields', () => ({
+  useObjectOptions: () => ({ options: [], loading: false }),
+  useDatasetFieldCatalog: () => ({
+    relationships: [],
+    fieldOptions: [
+      { value: 'amount', label: 'Amount', type: 'number' },
+      { value: 'closed_at', label: 'Closed at', type: 'date' },
+    ],
+    loading: false,
+  }),
+  useDatasetUsage: () => ({ reports: 0, dashboards: 0, loading: false }),
+  fieldTypeToDimensionType: (t: string) => (t === 'date' ? 'date' : 'string'),
+}));
+
+import { DatasetDefaultInspector } from './DatasetDefaultInspector';
 
 /** Every field type whose bucket the dataset inspector can draw. */
 const PROBE_FIELD_TYPES = [
@@ -52,9 +77,14 @@ const PROBE_FIELD_TYPES = [
 /** The bucket the dropdown actually lists — no opt-in extras, as the inspector mounts it. */
 const offeredBy = (type: string): string[] => operatorsForFieldType(type).map((o) => o.value);
 
-/** A value each operator's row is complete with. */
+/**
+ * A value each operator's row is complete with.
+ *
+ * `between` carries two DAYS: the builder offers it on the date bucket only,
+ * and since objectui#10062 it is stored, so its bounds reach the round trip.
+ */
 function probeValue(operator: string): unknown {
-  if (operator === 'between') return [1, 5];
+  if (operator === 'between') return ['2026-01-01', '2026-03-31'];
   if (operator === 'in' || operator === 'notIn') return ['a'];
   return '2026-01-01';
 }
@@ -112,7 +142,10 @@ describe('the operator a date column reads back is one it offers (objectui#9382)
       for (const operator of offered) {
         const fields: BuilderFieldDef[] = [{ value: 'f', type }];
         const { stored, readBack } = roundTrip('f', operator, fields);
-        if (stored === undefined) continue; // `between` is unmapped by design (objectui#9372)
+        // Every operator a bucket offers is stored now — `between` was the
+        // last one skipped here, and objectui#10062 maps it — so a dropped row
+        // is a break, not something to step over.
+        if (stored === undefined) { broken.push(`${type}/${operator} -> dropped`); continue; }
         checked++;
         if (!readBack || !offered.includes(readBack)) broken.push(`${type}/${operator} -> ${String(readBack)}`);
       }
@@ -121,6 +154,37 @@ describe('the operator a date column reads back is one it offers (objectui#9382)
     // building rows could not read as a clean sweep.
     expect(checked).toBeGreaterThan(100);
     expect(broken).toEqual([]);
+  });
+});
+
+describe('a date range reopens as the range the author built (objectui#10062)', () => {
+  it.each([
+    { field: 'closed_at', type: 'date' },
+    { field: 'logged_at', type: 'datetime' },
+    { field: 'starts_at', type: 'time' },
+  ])('$type column filtered with between stores $between and reopens as between, bounds intact', ({ field, type }) => {
+    const { stored, representable, readBack } = roundTrip(field, 'between', FIELDS);
+
+    expect(stored).toEqual({ [field]: { $between: ['2026-01-01', '2026-03-31'] } });
+    expect(representable).toBe(true);
+    expect(readBack).toBe('between');
+    expect(offeredBy(type)).toContain(readBack);
+    // The bounds come back as the pair, in order — not as one bound or a string.
+    expect(conditionToGroup(stored, FIELDS).group.conditions[0].value).toEqual(['2026-01-01', '2026-03-31']);
+  });
+
+  it('the panel draws the stored range: "Between", both bounds on screen, nothing written back', () => {
+    const { group } = conditionToGroup({ closed_at: { $between: ['2026-01-01', '2026-03-31'] } }, FIELDS);
+    const onChange = vi.fn();
+    render(<FilterBuilder fields={FIELDS as never} value={group as never} onChange={onChange} />);
+
+    expect(screen.getAllByRole('combobox')[1]?.textContent).toBe('Between');
+    expect(screen.getByDisplayValue('2026-01-01')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('2026-03-31')).toBeInTheDocument();
+    // A COMPLETE pair: neither bound is marked as the missing one.
+    expect(document.querySelector('[aria-invalid="true"]')).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    cleanup();
   });
 });
 
@@ -186,5 +250,105 @@ describe('boundaries the repair must not cross', () => {
     // multi-operator object is still refused.
     expect(conditionToGroup({ f: { $nope: 1 } }, FIELDS).representable).toBe(false);
     expect(conditionToGroup({ f: { $gt: 1, $lt: 9 } }, FIELDS).representable).toBe(false);
+  });
+});
+
+/**
+ * A stored `$between` opens as an editable row ONLY on a column whose bucket
+ * offers `between` (objectui#10062, contract review round 2).
+ *
+ * `$between` has one preimage, so {@link readBackOperator} never consults the
+ * bucket for it. Read back on a number column, it would seed the panel with an
+ * operator that column's dropdown does not list — a BLANK trigger (the
+ * objectui#4768 / #7561 shape) — and one touch of that row's field picker
+ * reconciles it to `equals` and reshapes the pair, committing a different
+ * filter than the one stored: the objectui#9382 defect. Before objectui#10062
+ * every stored `$between` went to the Source tab, so the mapping is what opened
+ * this, and the bucket rule is what closes it again.
+ *
+ * DIRECTION, predicted before running on `83eb57f0` (the mapping without the
+ * bucket rule): every leg that expects `representable: false` on a column
+ * whose bucket lacks `between` is RED, and so is the inspector pin that
+ * expects the Source-tab note; the date control, the field-less read and the
+ * `WHY` leg are GREEN in both directions.
+ */
+describe('a stored `$between` opens as a row only where the column\'s bucket offers `between` (objectui#10062)', () => {
+  const RANGE = [1, 100];
+
+  it('a NUMBER column: `{ amount: { $between: [1, 100] } }` is not representable — the Source tab', () => {
+    expect(offeredBy('number'), 'the premise: the number bucket does not offer between').not.toContain('between');
+    const { group, representable } = conditionToGroup({ amount: { $between: RANGE } }, FIELDS);
+    expect(representable).toBe(false);
+    expect(group.conditions).toEqual([]);
+  });
+
+  it('CONTROL: the same value on a DATE column stays representable and reads back as between', () => {
+    const { group, representable } = conditionToGroup({ closed_at: { $between: RANGE } }, FIELDS);
+    expect(representable).toBe(true);
+    expect(group.conditions[0]).toMatchObject({ field: 'closed_at', operator: 'between', value: RANGE });
+  });
+
+  it('every bucket the inspector can draw: representable exactly when that bucket offers `between`', () => {
+    const answers = new Set<boolean>();
+    for (const type of PROBE_FIELD_TYPES) {
+      const offers = offeredBy(type).includes('between');
+      answers.add(offers);
+      expect(
+        conditionToGroup({ f: { $between: RANGE } }, [{ value: 'f', type }]).representable,
+        `${type}: bucket ${offers ? 'offers' : 'does not offer'} between`,
+      ).toBe(offers);
+    }
+    // Both answers occur, so the sweep cannot pass as a constant.
+    expect([...answers].sort()).toEqual([false, true]);
+  });
+
+  it('a column listed WITHOUT a type, or not listed at all, draws the builder\'s default text bucket — not representable', () => {
+    // The builder draws `operatorsForFieldType(field?.type)` for every row, so
+    // a missing type and a missing column both get the text bucket. That is
+    // the bucket the panel WOULD draw, not an unknown one.
+    expect(operatorsForFieldType(undefined).map((o) => o.value)).not.toContain('between');
+    expect(conditionToGroup({ f: { $between: RANGE } }, [{ value: 'f' }]).representable).toBe(false);
+    expect(conditionToGroup({ ghost: { $between: RANGE } }, FIELDS).representable).toBe(false);
+  });
+
+  it('no field list at all: the field-less spec-shape read is unchanged', () => {
+    // No caller that draws a panel reads without a field list, and this is
+    // the pure spec-shape read the round-trip pins rely on.
+    expect(conditionToGroup({ amount: { $between: RANGE } }).representable).toBe(true);
+  });
+
+  it('WHY: had the panel drawn it, one field-picker touch would store `$eq`, not the range', () => {
+    // The builder's own reconciliation, read rather than restated: `between`
+    // is not in the number bucket, so it falls to that bucket's first entry,
+    // and the pair is reshaped to a scalar.
+    const next = reconcileOperatorForField('between', operatorsForFieldType('number'));
+    expect(next).toBe('equals');
+    expect(reshapeFilterValue(RANGE, next)).toBe(1);
+  });
+
+  describe('the real inspector: the builder is never drawn for it', () => {
+    const baseProps = { type: 'dataset', name: 'sales', locale: 'en-US' as const };
+    const draftWith = (filter: unknown) => ({
+      name: 'sales', label: 'Sales', object: 'opportunity', include: [], dimensions: [], measures: [], filter,
+    });
+
+    it('a number-column `$between` shows the Source-tab note and no filter trigger', () => {
+      render(<DatasetDefaultInspector {...baseProps} draft={draftWith({ amount: { $between: RANGE } })} onPatch={vi.fn()} readOnly={false} />);
+      expect(screen.getByText(/Advanced filter/)).toBeInTheDocument();
+      expect(screen.queryByText('1 condition')).toBeNull();
+      cleanup();
+    });
+
+    it('CONTROL: a date-column `$between` opens the builder, drawn as "Between" with both bounds', () => {
+      const onPatch = vi.fn();
+      render(<DatasetDefaultInspector {...baseProps} draft={draftWith({ closed_at: { $between: ['2026-01-01', '2026-03-31'] } })} onPatch={onPatch} readOnly={false} />);
+      expect(screen.queryByText(/Advanced filter/)).toBeNull();
+      fireEvent.click(screen.getByText('1 condition'));
+      expect(screen.getAllByRole('combobox').some((el) => el.textContent === 'Between')).toBe(true);
+      expect(screen.getByDisplayValue('2026-01-01')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('2026-03-31')).toBeInTheDocument();
+      expect(onPatch).not.toHaveBeenCalled();
+      cleanup();
+    });
   });
 });

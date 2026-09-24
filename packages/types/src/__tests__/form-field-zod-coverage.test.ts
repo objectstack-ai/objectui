@@ -156,7 +156,10 @@ describe('FieldConstraintsSchema mirrors FieldValidationRules (#5186)', () => {
       maxLength: { value: 64, message: 'At most 64 characters' },
       min: { value: 1, message: 'Must be at least 1' },
       max: { value: 99, message: 'Must be at most 99' },
-      validate: (v: unknown) => (v ? true : 'Required'),
+      // ⛔ No `validate` here since objectui#7759 group E: it is a RUNTIME SLOT
+      // for a host-supplied function, and the mirror refuses it BY NAME (the
+      // objectui#6124 shape) — JSON has no function value. That refusal is
+      // pinned in `function-slot-keys-json-refusal-7759.test.ts`.
     };
     const parsed = FieldConstraintsSchema.safeParse(contractShaped);
     expect(parsed.success).toBe(true);

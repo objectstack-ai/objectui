@@ -400,6 +400,43 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
      */
     const isReadonly = !!view.readonly;
 
+    /**
+     * This tab's menu entries, each resolved ONCE to the handler it will run —
+     * or `undefined` when the entry will not render. Every entry, every
+     * separator and both menus' triggers read these same values, so a
+     * separator is drawn only between two groups that both rendered, and a
+     * menu opens only when at least one entry survives.
+     *
+     * Before objectui#10209 each separator stated its own condition instead of
+     * "did anything render above me", so a read-only tab's dropdown opened on
+     * a leading rule above "Manage all views…"; and the trigger asked whether
+     * a CALLBACK was wired rather than whether an ENTRY would render, so a
+     * read-only tab with no `onManageViews` opened an empty dropdown.
+     */
+    const configAction = isReadonly ? undefined : onConfigView;
+    const renameAction = onRenameView && !isReadonly ? startRename : undefined;
+    const duplicateAction = onDuplicateView;
+    const shareAction = onShareView;
+    const setDefaultAction = isReadonly ? undefined : onSetDefaultView;
+    const pinAction = isReadonly ? undefined : onPinView;
+    const changeType =
+      !isReadonly && onChangeViewType && availableViewTypes && availableViewTypes.length > 0
+        ? { run: onChangeViewType, types: availableViewTypes }
+        : undefined;
+    const deleteAction = isReadonly ? undefined : onDeleteView;
+    const manageAction = onManageViews;
+    /** Entries both menus open with. */
+    const hasCommonEntry =
+      !!(renameAction || duplicateAction || shareAction || setDefaultAction || pinAction);
+    // Dropdown groups: [config · common · change type] | [delete] | [manage].
+    const dropdownHasEntryAboveDelete = !!configAction || hasCommonEntry || !!changeType;
+    const dropdownHasEntryAboveManage = dropdownHasEntryAboveDelete || !!deleteAction;
+    const dropdownHasEntry = dropdownHasEntryAboveManage || !!manageAction;
+    // Context menu groups: [common] | [change type] | [delete] | [manage].
+    const contextHasEntryAboveDelete = hasCommonEntry || !!changeType;
+    const contextHasEntryAboveManage = contextHasEntryAboveDelete || !!deleteAction;
+    const contextHasEntry = contextHasEntryAboveManage || !!manageAction;
+
     const getVisibilityIcon = (view: ViewTabItem) => {
       if (!showVisibilityGroups) return null;
       if (view.visibility === 'private') {
@@ -509,7 +546,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
         {view.isDefault && (
           <Star className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
         )}
-        {isActive && (onConfigView || onRenameView || onDuplicateView || onDeleteView) && (
+        {isActive && dropdownHasEntry && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -529,70 +566,70 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
               className="min-w-[180px]"
               onClick={(e) => e.stopPropagation()}
             >
-              {onConfigView && !isReadonly && (
+              {configAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-config-${view.id}`}
-                  onClick={() => onConfigView(view.id)}
+                  onClick={() => configAction(view.id)}
                 >
                   <Settings2 className="h-4 w-4 mr-2" /> {viewTabLabel('view.editViewConfig', 'Edit view config')}
                 </DropdownMenuItem>
               )}
-              {onRenameView && !isReadonly && (
+              {renameAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-rename-${view.id}`}
-                  onClick={() => startRename(view.id)}
+                  onClick={() => renameAction(view.id)}
                 >
                   <Pencil className="h-4 w-4 mr-2" /> {viewTabLabel('view.rename', 'Rename')}
                 </DropdownMenuItem>
               )}
-              {onDuplicateView && (
+              {duplicateAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-duplicate-${view.id}`}
-                  onClick={() => onDuplicateView(view.id)}
+                  onClick={() => duplicateAction(view.id)}
                 >
                   <Copy className="h-4 w-4 mr-2" /> {viewTabLabel('view.duplicateView', 'Duplicate view')}
                 </DropdownMenuItem>
               )}
-              {onShareView && (
+              {shareAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-share-${view.id}`}
-                  onClick={() => onShareView(view.id)}
+                  onClick={() => shareAction(view.id)}
                 >
                   <Share2 className="h-4 w-4 mr-2" /> {viewTabLabel('view.shareView', 'Share view')}
                 </DropdownMenuItem>
               )}
-              {onSetDefaultView && !isReadonly && (
+              {setDefaultAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-default-${view.id}`}
-                  onClick={() => onSetDefaultView(view.id)}
+                  onClick={() => setDefaultAction(view.id)}
                 >
                   <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
                 </DropdownMenuItem>
               )}
-              {onPinView && !isReadonly && (
+              {pinAction && (
                 <DropdownMenuItem
                   data-testid={`view-tab-menu-pin-${view.id}`}
-                  onClick={() => onPinView(view.id, !view.isPinned)}
+                  onClick={() => pinAction(view.id, !view.isPinned)}
                 >
                   {view.isPinned
                     ? <><PinOff className="h-4 w-4 mr-2" /> {viewTabLabel('view.unpinView', 'Unpin view')}</>
                     : <><Pin className="h-4 w-4 mr-2" /> {viewTabLabel('view.pinView', 'Pin view')}</>}
                 </DropdownMenuItem>
               )}
-              {onChangeViewType && !isReadonly && availableViewTypes && availableViewTypes.length > 0 && (
+              {changeType && (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger data-testid={`view-tab-menu-change-type-${view.id}`}>
                     <LayoutGrid className="h-4 w-4 mr-2" /> {viewTabLabel('view.changeViewType', 'Change view type')}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    {availableViewTypes.map((vt) => {
+                    {changeType.types.map((vt) => {
                       const TypeIcon = viewTypeIcons[vt.type] || DefaultIcon;
                       return (
                         <DropdownMenuItem
                           key={vt.type}
                           data-testid={`view-tab-menu-type-${view.id}-${vt.type}`}
                           disabled={vt.type === view.type}
-                          onClick={() => onChangeViewType(view.id, vt.type)}
+                          onClick={() => changeType.run(view.id, vt.type)}
                         >
                           <TypeIcon className="h-4 w-4 mr-2" />
                           <span>{vt.label}</span>
@@ -602,24 +639,24 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {onDeleteView && !isReadonly && (
+              {deleteAction && (
                 <>
-                  <DropdownMenuSeparator />
+                  {dropdownHasEntryAboveDelete && <DropdownMenuSeparator />}
                   <DropdownMenuItem
                     data-testid={`view-tab-menu-delete-${view.id}`}
-                    onClick={() => onDeleteView(view.id)}
+                    onClick={() => deleteAction(view.id)}
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="h-4 w-4 mr-2" /> {viewTabLabel('view.deleteView', 'Delete view')}
                   </DropdownMenuItem>
                 </>
               )}
-              {onManageViews && (
+              {manageAction && (
                 <>
-                  <DropdownMenuSeparator />
+                  {dropdownHasEntryAboveManage && <DropdownMenuSeparator />}
                   <DropdownMenuItem
                     data-testid={`view-tab-menu-manage-${view.id}`}
-                    onClick={onManageViews}
+                    onClick={manageAction}
                   >
                     <ListOrdered className="h-4 w-4 mr-2" /> {viewTabLabel('view.manageAllViews', 'Manage all views…')}
                   </DropdownMenuItem>
@@ -632,7 +669,7 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
     );
 
     const wrapWithContextMenu = (tabContent: React.ReactElement) => {
-      if (!enableContextMenu || isRenaming) return tabContent;
+      if (!enableContextMenu || isRenaming || !contextHasEntry) return tabContent;
 
       return (
         <ContextMenu>
@@ -640,42 +677,42 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
             {tabContent}
           </ContextMenuTrigger>
           <ContextMenuContent>
-            {onRenameView && !isReadonly && (
+            {renameAction && (
               <ContextMenuItem
                 data-testid={`context-menu-rename-${view.id}`}
-                onClick={() => startRename(view.id)}
+                onClick={() => renameAction(view.id)}
               >
                 <Pencil className="h-4 w-4 mr-2" /> {viewTabLabel('view.rename', 'Rename')}
               </ContextMenuItem>
             )}
-            {onDuplicateView && (
+            {duplicateAction && (
               <ContextMenuItem
                 data-testid={`context-menu-duplicate-${view.id}`}
-                onClick={() => onDuplicateView(view.id)}
+                onClick={() => duplicateAction(view.id)}
               >
                 <Copy className="h-4 w-4 mr-2" /> {viewTabLabel('view.duplicateView', 'Duplicate view')}
               </ContextMenuItem>
             )}
-            {onShareView && (
+            {shareAction && (
               <ContextMenuItem
                 data-testid={`context-menu-share-${view.id}`}
-                onClick={() => onShareView(view.id)}
+                onClick={() => shareAction(view.id)}
               >
                 <Share2 className="h-4 w-4 mr-2" /> {viewTabLabel('view.shareView', 'Share view')}
               </ContextMenuItem>
             )}
-            {onSetDefaultView && !isReadonly && (
+            {setDefaultAction && (
               <ContextMenuItem
                 data-testid={`context-menu-default-${view.id}`}
-                onClick={() => onSetDefaultView(view.id)}
+                onClick={() => setDefaultAction(view.id)}
               >
                 <Star className="h-4 w-4 mr-2" /> {viewTabLabel('view.setAsDefault', 'Set as default')}
               </ContextMenuItem>
             )}
-            {onPinView && !isReadonly && (
+            {pinAction && (
               <ContextMenuItem
                 data-testid={`context-menu-pin-${view.id}`}
-                onClick={() => onPinView(view.id, !view.isPinned)}
+                onClick={() => pinAction(view.id, !view.isPinned)}
               >
                 {view.isPinned
                   ? <><PinOff className="h-4 w-4 mr-2" /> {viewTabLabel('view.unpinView', 'Unpin view')}</>
@@ -683,22 +720,22 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
                 }
               </ContextMenuItem>
             )}
-            {onChangeViewType && !isReadonly && availableViewTypes && availableViewTypes.length > 0 && (
+            {changeType && (
               <>
-                <ContextMenuSeparator />
+                {hasCommonEntry && <ContextMenuSeparator />}
                 <ContextMenuSub>
                   <ContextMenuSubTrigger data-testid={`context-menu-change-type-${view.id}`}>
                     <LayoutGrid className="h-4 w-4 mr-2" /> {viewTabLabel('view.changeViewType', 'Change view type')}
                   </ContextMenuSubTrigger>
                   <ContextMenuSubContent data-testid={`context-menu-type-submenu-${view.id}`}>
-                    {availableViewTypes.map((vt) => {
+                    {changeType.types.map((vt) => {
                       const TypeIcon = viewTypeIcons[vt.type] || DefaultIcon;
                       return (
                         <ContextMenuItem
                           key={vt.type}
                           data-testid={`context-menu-type-${view.id}-${vt.type}`}
                           disabled={vt.type === view.type}
-                          onClick={() => onChangeViewType(view.id, vt.type)}
+                          onClick={() => changeType.run(view.id, vt.type)}
                         >
                           <TypeIcon className="h-4 w-4 mr-2" />
                           <div className="flex flex-col">
@@ -714,24 +751,24 @@ export const ViewTabBar: React.FC<ViewTabBarProps> = ({
                 </ContextMenuSub>
               </>
             )}
-            {onDeleteView && !isReadonly && (
+            {deleteAction && (
               <>
-                <ContextMenuSeparator />
+                {contextHasEntryAboveDelete && <ContextMenuSeparator />}
                 <ContextMenuItem
                   data-testid={`context-menu-delete-${view.id}`}
-                  onClick={() => onDeleteView(view.id)}
+                  onClick={() => deleteAction(view.id)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" /> {viewTabLabel('view.deleteView', 'Delete view')}
                 </ContextMenuItem>
               </>
             )}
-            {onManageViews && (
+            {manageAction && (
               <>
-                <ContextMenuSeparator />
+                {contextHasEntryAboveManage && <ContextMenuSeparator />}
                 <ContextMenuItem
                   data-testid={`context-menu-manage-${view.id}`}
-                  onClick={onManageViews}
+                  onClick={manageAction}
                 >
                   <ListOrdered className="h-4 w-4 mr-2" /> {viewTabLabel('view.manageAllViews', 'Manage all views…')}
                 </ContextMenuItem>

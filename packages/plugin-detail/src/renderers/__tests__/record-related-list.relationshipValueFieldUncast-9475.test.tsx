@@ -27,17 +27,15 @@
  * membership-shaped and stay green on the re-cast source — measured by this
  * card's ablation, and labelled at each one rather than left to be assumed.
  *
- * ## ⚠️ What the repair does NOT buy, measured rather than assumed
+ * ## What the repair did NOT buy — and the card that bought it
  *
- * This renderer's own `schema` type is NOT `RecordRelatedListComponentProps`:
- * it is that interface, minus/plus `objectName`, INTERSECTED WITH
- * `Record<string, any>` (see `RecordRelatedListRendererProps`). An index
- * signature admits any key at `any`, so a MISSPELLED key still type-checks
- * here even un-cast — the declaration's refusal power stops one type layer
- * earlier than the cast did. What the un-cast read does buy is the declared
- * TYPE: a wrong-typed use of the correct spelling is now refused. Both halves
- * are pinned below as type-level legs, each with a control that varies only
- * the claim, so neither reading can rot into prose (AGENTS.md #9).
+ * When this card landed, the renderer's own `schema` type was that interface
+ * INTERSECTED WITH `Record<string, any>`, so a MISSPELLED key still
+ * type-checked here even un-cast; the un-cast read bought the declared TYPE
+ * only. This file pinned that limit as a ledger leg built to go red the day
+ * the intersection was narrowed. objectui#9963 narrowed it, the leg went red
+ * as designed, and the refusal — with the mirror control that used to sit
+ * here — now lives in `record-related-list.propsRefusal-9963.test.tsx`.
  *
  * ## The guard is DERIVED, not a list
  *
@@ -129,19 +127,14 @@ export type _RendererAgreesWithTheMirror = Expect<
   >
 >;
 
-/**
- * ⚠️ LEDGER — the measured limit of this repair, asserted rather than written
- * down. `Record<string, any>` in `RecordRelatedListRendererProps['schema']`
- * admits a MISSPELLED key at `any`, so un-casting does not make a typo red at
- * this site. The day that intersection is narrowed, this leg goes red and the
- * limit gets re-derived instead of quietly outliving its subject.
+/*
+ * The ledger leg that stood here — "a MISSPELLED key is still admitted at
+ * `any`" — went red when objectui#9963 narrowed the intersection, which is the
+ * signal it was written to give. Its re-derivation (the misspelling REFUSED at
+ * a read expression) and its mirror control moved to
+ * `record-related-list.propsRefusal-9963.test.tsx` rather than being flipped
+ * in place, so this file stays about the cast.
  */
-export type _MisspellingIsStillAdmittedHere = Expect<
-  Equal<Schema['relationshipValueFeild'], any>
->;
-
-// @ts-expect-error objectui#9475 — CONTROL for the ledger above: the MIRROR interface has no index signature, so it REFUSES the same misspelling (TS2551). This directive going unused (TS2578) means the control stopped firing and the ledger leg stopped being a reading.
-type _MirrorRefusesTheMisspelling = RecordRelatedListComponentProps['relationshipValueFeild'];
 
 /* ── Source-text legs ─────────────────────────────────────────────────────── */
 

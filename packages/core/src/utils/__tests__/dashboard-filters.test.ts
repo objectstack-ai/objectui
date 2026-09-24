@@ -18,6 +18,7 @@ import {
   type DashboardFilterDef,
 } from '../dashboard-filters';
 import { mergeFilters } from '../merge-filters';
+import { DashboardSchema as SpecDashboardSchema } from '@objectstack/spec/ui';
 
 const regionDef: DashboardFilterDef = {
   name: 'region',
@@ -87,6 +88,43 @@ describe('resolveDashboardFilterDefs', () => {
     });
     expect(defs[0].field).toBe('closed_at');
     expect(defs[0].defaultValue).toBeUndefined();
+  });
+
+  // objectui#10339 — the spec declares `dateRange.defaultRange` with a default,
+  // so a `dateRange` that omits it is a FILTERED dashboard, not an unfiltered one.
+  it('applies the spec default preset (this_month) when an authored dateRange omits defaultRange', () => {
+    const defs = resolveDashboardFilterDefs({ dateRange: { field: 'created_at' } });
+    expect(defs).toHaveLength(1);
+    expect(defs[0]).toMatchObject({
+      name: DATE_RANGE_FILTER_NAME,
+      field: 'created_at',
+      type: 'dateRange',
+      defaultValue: { preset: 'this_month' },
+    });
+    // The filter it seeds is a real bound, not an empty value.
+    expect(buildFilterCondition(defs[0], defs[0].defaultValue)).toEqual({
+      $gte: '{current_month_start}',
+      $lte: '{current_month_end}',
+    });
+  });
+
+  it('reads the omitted-defaultRange preset from the spec schema, not from a local copy', () => {
+    const specDefault = SpecDashboardSchema.shape.dateRange.parse({})?.defaultRange;
+    expect(specDefault).toBeDefined();
+    const defs = resolveDashboardFilterDefs({ dateRange: {} });
+    expect(defs[0].field).toBe('created_at');
+    expect(defs[0].defaultValue).toEqual({ preset: specDefault });
+  });
+
+  it('leaves an explicit defaultRange and allowCustomRange exactly as authored', () => {
+    const defs = resolveDashboardFilterDefs({
+      dateRange: { field: 'created_at', defaultRange: 'last_7_days', allowCustomRange: false },
+    });
+    expect(defs[0].defaultValue).toEqual({ preset: 'last_7_days' });
+    expect(defs[0].allowCustomRange).toBe(false);
+    // No authored dateRange ⇒ no built-in filter at all; the default applies to
+    // an authored element only.
+    expect(resolveDashboardFilterDefs({})).toEqual([]);
   });
 
   it('defaults a global filter name to its field and preserves declared names', () => {

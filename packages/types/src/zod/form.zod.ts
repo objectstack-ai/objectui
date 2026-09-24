@@ -172,7 +172,12 @@ export const FieldConstraintsSchema = z.object({
     }).describe('Compiled RegExp — never a string; JSON authors use FieldSchema.pattern'),
     message: z.string().describe('Error message shown when the pattern fails'),
   }).optional().describe('Pattern rule (RegExp value + message)'),
-  validate: z.function().optional().describe('Custom validation function'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form
+  // renderer spreads `validation` into react-hook-form's `rules` and keeps a
+  // field-authored `validate` function running beside its own `required`
+  // entry, so the TypeScript member keeps its function type. JSON authors use
+  // the declarative rules above; the mirror refuses this key by name.
+  validate: handlerKeyRefusal('validate', 'runtime-slot', 'Custom validation function'),
 });
 
 /**
@@ -183,7 +188,12 @@ export const FieldConditionSchema = z.object({
   equals: z.any().optional().describe('Value must equal'),
   notEquals: z.any().optional().describe('Value must not equal'),
   in: z.array(z.any()).optional().describe('Value must be in array'),
-  custom: z.function().optional().describe('Custom condition function'),
+  // RETIRED (objectui#7759 group E, the objectui#6124 shape): nothing reads it.
+  // The form renderer translates `condition` to CEL through
+  // `legacyConditionToCel`, which reads `field` / `equals` / `notEquals` / `in`
+  // and never `custom`, so an authored function was inert. Refused by name; the
+  // TypeScript member is a `?: never` tombstone.
+  custom: handlerKeyRefusal('custom', 'retired', 'Custom condition function'),
 });
 
 /**
@@ -437,8 +447,14 @@ export const SliderSchema = BaseSchema.extend({
   type: z.literal('slider'),
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Slider label'),
-  defaultValue: z.union([z.number(), z.array(z.number())]).optional().describe('Default value(s)'),
-  value: z.union([z.number(), z.array(z.number())]).optional().describe('Controlled value(s)'),
+  defaultValue: z.union([z.number(), z.array(z.number())]).optional()
+    .describe('Default value(s) — a single number or one per thumb; the renderer wraps a scalar into a list'),
+  value: retirementTombstone(
+    'REFUSED (objectui#10280, ADR-0049) — `slider` has no read site for `value`: the renderer reads '
+    + '`defaultValue`, `max`, `min`, `step` off the node, and the form-control DOM whitelist drops `value` '
+    + 'from the props it spreads, so an authored value rendered NOTHING. Author `defaultValue` for the '
+    + 'initial position.',
+  ),
   min: z.number().optional().describe('Minimum value'),
   max: z.number().optional().describe('Maximum value'),
   step: z.number().optional().describe('Step value'),
@@ -533,8 +549,13 @@ export const DatePickerSchema = BaseSchema.extend({
  */
 export const CalendarSchema = BaseSchema.extend({
   type: z.literal('calendar'),
-  defaultValue: z.union([z.string(), z.date()]).optional().describe('Default value'),
-  value: z.union([z.string(), z.date()]).optional().describe('Controlled value'),
+  // objectui#10293: the string arm is the JSON authoring type, an ISO 8601
+  // date string, which the `calendar` renderer coerces to a `Date`. The
+  // `z.date()` arm stays for in-process callers, as on `DatePickerSchema`.
+  defaultValue: z.union([z.string(), z.date()]).optional()
+    .describe('Default selected date, an ISO 8601 date string'),
+  value: z.union([z.string(), z.date()]).optional()
+    .describe('Controlled selected date, an ISO 8601 date string'),
   mode: z.enum(['single', 'multiple', 'range']).optional().describe('Selection mode'),
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),

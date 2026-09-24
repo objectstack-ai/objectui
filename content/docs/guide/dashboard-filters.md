@@ -100,7 +100,10 @@ appears in the filter bar above the widgets:
 - `defaultRange` — the initially selected preset: `today`, `yesterday`,
   `this_week`, `last_week`, `this_month`, `last_month`, `this_quarter`,
   `last_quarter`, `this_year`, `last_year`, `last_7_days`, `last_30_days`,
-  `last_90_days`, or `custom` (starts empty and lets the user pick).
+  `last_90_days`, or `custom` (starts empty and lets the user pick). When
+  omitted, the default `@objectstack/spec` declares for this key applies
+  (`this_month`), so a bare `dateRange: { "field": "created_at" }` opens
+  filtered to the current month, not unfiltered.
 - `allowCustomRange` — offer a "Custom…" item that opens a from/to calendar
   (default `true`).
 

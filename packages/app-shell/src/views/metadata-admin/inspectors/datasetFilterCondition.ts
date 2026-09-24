@@ -21,13 +21,18 @@
  * used to be: see {@link isClearedGroup} for why an unmapped operator is now
  * inert rather than destructive (objectui#9372).
  *
+ * Whether a row is FINISHED is not this file's rule: it is the builder's own
+ * `isFilterValueComplete`, the one arity-aware answer every write path asks
+ * (objectui#5025). That is what lets the `between` arm map at all — a pair is
+ * emitted only with both bounds present (objectui#10062).
+ *
  * The write half is deliberately NOT injective — the spec carries one token for
  * "strictly greater", which both `greaterThan` and `after` have to use — so the
  * read half cannot be a plain inverse table. {@link readBackOperator} settles
  * the ambiguous tokens against the field's own operator bucket (objectui#9382).
  */
 
-import { operatorsForFieldType } from '@object-ui/components';
+import { filterValueArity, isFilterValueComplete, operatorsForFieldType } from '@object-ui/components';
 
 /** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
 const OP_TO_MONGO: Record<string, string> = {
@@ -42,6 +47,14 @@ const OP_TO_MONGO: Record<string, string> = {
   // against the same canonical table (`FILTER_TEXT_CASES`). So mapping them is
   // a bridge to a predicate the platform already agrees on, not a new claim.
   notContains: '$notContains', startsWith: '$startsWith', endsWith: '$endsWith',
+  // objectui#10062 (ruling batch #146 item 5, letter A). A PAIR operator,
+  // offered on the builder's date bucket, stored as the spec's own
+  // `{ $between: [lo, hi] }`. It was held back only because the builder can
+  // hand this bridge a half-typed pair (`['2026-01-01', '']`) and nothing here
+  // told that apart from a finished one. The rule that does exists —
+  // `isFilterValueComplete` — and {@link groupToCondition} now asks it, so a
+  // pair missing either bound is dropped as incomplete and never emitted.
+  between: '$between',
 };
 /**
  * The DEFAULT read-back for each token — the answer when the field's declared
@@ -55,6 +68,7 @@ const MONGO_TO_OP: Record<string, string> = {
   $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
   $contains: 'contains', $in: 'in', $nin: 'notIn',
   $notContains: 'notContains', $startsWith: 'startsWith', $endsWith: 'endsWith',
+  $between: 'between',
 };
 
 /**
@@ -205,8 +219,11 @@ function liveRows(group: BuilderGroup | undefined): BuilderCondition[] {
  * Reachable two ways, and both are the same defect:
  *
  *  - switching the only row to an operator this bridge does not map
- *    (objectui#9363 closed `isNull` / `isNotNull`; `between` is still one);
- *  - blanking the VALUE of the only row, which needs no operator at all — the
+ *    (objectui#9363 closed `isNull` / `isNotNull`, objectui#9372 the three
+ *    text operators, objectui#10062 `between` — none this inspector offers is
+ *    left, so the route now needs an operator it does not offer);
+ *  - leaving the only row UNFINISHED, which needs no unmapped operator at all
+ *    — a blanked value, or a `between` pair with one bound typed: the
  *    incomplete-row `continue` drops it and the last part goes with it.
  *
  * ## What the caller does with the answer
@@ -239,21 +256,24 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
     // What changed (objectui#9372) is the COST of the drop. It used to erase
     // the author's stored filter whenever no other row survived; now
     // {@link isClearedGroup} lets the caller tell that apart from a real clear,
-    // so an unmapped operator is inert. ⚠️ Do not read the drop as "this
-    // dialect cannot express it": the spec's `FILTER_OPERATORS` carries
-    // `$notContains`, `$startsWith`, `$endsWith` AND `$between`. The three text
-    // ones are mapped above. `between` is the one still offered here (on the
-    // date bucket) and still unmapped, for a reason that is about THIS bridge
-    // rather than the vocabulary: the builder pads a half-typed pair with `''`
-    // and the spec's comparand door accepts `[1, '']`, so emitting it needs a
-    // both-bounds-present rule first. The partition is pinned in
-    // `datasetFilterCondition.nullOperators-9363`, the inertness in
-    // `datasetFilterCondition.unmappedInert-9372`.
+    // so an unmapped operator is inert. Every operator this inspector offers
+    // is mapped since objectui#10062 took `between` (the partition is pinned
+    // in `datasetFilterCondition.nullOperators-9363`), so this arm now answers
+    // only for an operator the builder would have to be GRANTED — an opt-in
+    // this caller does not pass.
     if (!mop) continue;
-    // Skip incomplete rows (no value typed yet) — emitting `{field:{$op:''}}` would
-    // be a silently-wrong filter (matches only empty), not "no filter".
+    // Skip incomplete rows — emitting `{field:{$op:''}}` would be a
+    // silently-wrong filter (matches only empty), not "no filter", and a
+    // `between` pair with a blank bound is a range with a missing end, which
+    // no reading turns into the range the author meant.
+    //
+    // ⛔ Not a local predicate. `isFilterValueComplete` is the builder's own
+    // arity-aware answer (objectui#5025): for a scalar or list it is the exact
+    // test this line used to spell inline, and for a `pair` it requires BOTH
+    // bounds present, reading `0` and `false` as real bounds rather than
+    // blanks. A second copy here is how the two came to disagree before.
     const v = c.value;
-    if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) continue;
+    if (!isFilterValueComplete(c.operator, v as Parameters<typeof isFilterValueComplete>[1])) continue;
     parts.push({ [c.field]: { [mop]: v } });
   }
   if (parts.length === 0) return undefined;
@@ -307,8 +327,46 @@ export function conditionToGroup(
         // builder can draw.
         conditions.push({ id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' });
       } else {
-        const op = readBackOperator(mop, fields?.find((f) => f.value === field)?.type);
+        const fieldType = fields?.find((f) => f.value === field)?.type;
+        const op = readBackOperator(mop, fieldType);
         if (!op) return { group: empty, representable: false };
+        // A stored `$between` opens as a row only if this bridge could have
+        // WRITTEN it from that row (objectui#10062). Anything else goes to the
+        // Source tab, exactly where every `$between` went while it was
+        // unmapped. Two refusals, both measured:
+        //
+        //  1. NOT A COMPLETE PAIR — a missing or blank bound, a scalar, a one-
+        //     or three-element list. Read back as a row, it would be dropped as
+        //     incomplete by the very next commit of ANY row in the group,
+        //     silently removing a stored condition the author never touched.
+        //     Asked through the same rule the write half uses, so the two
+        //     halves cannot disagree on what "complete" is.
+        //  2. A COLUMN WHOSE BUCKET DOES NOT OFFER `between` — every bucket but
+        //     the date-like three. `$between` has one preimage, so
+        //     {@link readBackOperator} never consults the bucket for it; read
+        //     back on a number column, the panel draws a BLANK operator trigger
+        //     (objectui#4768 / #7561), and one touch of that row's field picker
+        //     reconciles it to `equals` and reshapes the pair, committing
+        //     `{ amount: { $eq: 1 } }` — the objectui#9382 defect.
+        //
+        // The bucket is asked exactly as the builder asks it for each row:
+        // `operatorsForFieldType` of the listed column's type, no opt-ins. A
+        // column listed WITHOUT a type, or not listed at all, is not unknown to
+        // the builder — it draws the default text bucket for both, which lacks
+        // `between` — so both are refused. Only a read with NO field list skips
+        // this: no caller that draws a panel reads that way (the inspector
+        // always passes its field list), and it is the pure spec-shape read the
+        // field-less round-trip pins rely on.
+        //
+        // ⚠️ Scoped to the pair arity on purpose: the same two questions for a
+        // stored scalar or list (`{ $eq: '' }`, `{ $in: [] }`, `$in` on a date
+        // column) predate this card and are not answered here.
+        if (filterValueArity(op) === 'pair') {
+          if (!isFilterValueComplete(op, v[mop])) return { group: empty, representable: false };
+          if (fields && !operatorsForFieldType(fieldType).some((o) => o.value === op)) {
+            return { group: empty, representable: false };
+          }
+        }
         conditions.push({ id: `c${i}`, field, operator: op, value: v[mop] });
       }
     } else {

@@ -226,7 +226,12 @@ export const TableColumnSchema = z.object({
   filterable: z.boolean().optional().describe('Whether column is filterable'),
   resizable: z.boolean().optional().describe('Whether column is resizable'),
   editable: z.boolean().optional().describe('Whether column is editable (for inline editing)'),
-  cell: z.function().optional().describe('Custom cell renderer'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
+  // calls `col.cell(cellValue, row)`, and `ObjectGrid` / `VirtualGrid` call it the
+  // same way, so the TypeScript member keeps its function type. A JSON author
+  // cannot write a function, and a bare `z.function()` here accepted ANY callable
+  // where the declaration states one signature — so the mirror refuses by name.
+  cell: handlerKeyRefusal('cell', 'runtime-slot', 'Custom cell renderer'),
   // A rendered React node — a runtime slot like `cell` above, so the mirror's
   // one job is to PASS IT THROUGH: a non-strict z.object() silently STRIPS an
   // undeclared key, and a stripped `headerIcon` was exactly the second de-facto
@@ -442,7 +447,12 @@ export const DataTableSchema = BaseSchema.extend({
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
   onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
   cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
-  renderCellEditor: z.function().optional().describe('Host-supplied inline cell editor; returning null falls through to the built-in text/number/date inputs (objectui#6882). Its context carries `row` (the persisted record) and `pendingRow` (that record with the row\'s staged, unsaved edits merged over it — objectui#7188); `z.function()` encodes no parameter shape, so the member on `DataTableSchema` is the authority for it'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
+  // reads `schema.renderCellEditor` and calls it with the edit context; its
+  // supplier is `ObjectGrid` (`@object-ui/plugin-grid`). The context's shape —
+  // `row` (persisted) vs `pendingRow` (staged edits merged, objectui#7188) — is
+  // stated on the `DataTableSchema` member, the only face that can type it.
+  renderCellEditor: handlerKeyRefusal('renderCellEditor', 'runtime-slot', 'Host-supplied inline cell editor'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),
   showRowNumbers: z.boolean().optional().describe('Show row numbers'),
   emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, e.g. an "Add record" button. Lets the empty state become an actionable invitation rather than a dead end.'),

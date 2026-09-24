@@ -153,10 +153,10 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * pattern admits — such a value falls through untouched.
  *
  * ⛔ A DAY that overflows its month does NOT fall through. `2026-02-30T09:30`
- * parses and renders rolled over, exactly as the date-only arm renders
- * `2026-02-30`. See the note inside {@link formatMeasureDate} for the
- * instrument that holds that render in place, and for where the open question
- * about it lives.
+ * parses, reaches the shared date path and renders rolled over: that path
+ * refuses a nonexistent day only on a DATE-ONLY value (objectui#10026), and
+ * whether it should refuse one spelled with a time is open on that card. See
+ * the note inside {@link formatMeasureDate}.
  */
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 
@@ -233,20 +233,19 @@ function formatMeasureDate(v: unknown, format: string | undefined, locale: strin
   // out-of-range DAY. ECMAScript's Date Time String Format accepts `DD` in
   // `01`-`31` syntactically and `MakeDay` rolls the surplus into the next
   // month, so a well-shaped impossible date (`2026-02-30`) is PARSEABLE on
-  // both arms: it does not fall through to `String(v)`, it renders as the
-  // rolled-over day (`2026-03-02`). This paragraph asserted the opposite —
-  // that such a value keeps falling through — until objectui#8263 measured it.
+  // both arms: it does not fall through to `String(v)`, it reaches the shared
+  // date path. This paragraph once asserted the opposite — that such a value
+  // keeps falling through — until objectui#8263 measured it.
   //
-  // ⭐ That rolled render is not a leak in this guard; it is pinned, by
-  // `agrees with the list cell on a rolled-over date instead of second-guessing it`
-  // in this file's co-located date suite. Read that test for the argument. It
-  // is deliberately NOT restated here: a comment restating a pin is how this
-  // paragraph came to assert a behaviour that nothing implemented.
-  //
-  // ⚠️ Whether the SHARED display path should refuse an impossible calendar
-  // day at all is OPEN, and it is not this function's to answer alone — the
-  // authoring boundary already refuses such a value while the display path
-  // rolls it. objectui#10026 carries that question.
+  // ⭐ What that path answers is ITS decision, never this guard's. Since
+  // objectui#10026 it refuses a date-only nonexistent day with the dash it
+  // renders for any unparsable value, so the measure shows that same dash —
+  // agreeing with the list cell ON THE REFUSAL. This guard must not refuse
+  // on its own (by letting the value fall through to `String(v)`, say): the
+  // measure would then disagree with the list cell, the objectui#4576 split.
+  // `agrees with the list cell on an impossible calendar day — on the refusal`
+  // in this file's co-located date suite pins it; read that test for the
+  // full argument.
   if (ISO_DATE_ONLY_RE.test(v)) {
     return Number.isNaN(Date.parse(v)) ? undefined : formatDate(v, format, { locale });
   }

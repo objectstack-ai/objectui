@@ -20,8 +20,9 @@ subtracts hours — an offset that cancelled the shift would be wrong again at a
 DST boundary and wrong in the other direction east of UTC, where the old parse
 already landed on the right day. A value carrying a time is untouched: it HAS an
 instant, and rendering an instant in the viewer's zone is what a `datetime` is
-for. What the path accepts is unchanged, including the rolled render of a
-well-shaped impossible day.
+for. What the path accepts is unchanged by this fix. (A well-shaped impossible
+day such as `2026-02-30`, which the engine rolls into March, is now refused by
+the same path — objectui#10026, a separate entry in this release.)
 
 Every caller that hands these functions the wire string moves with the fix —
 the `date` cell and its readonly field face, `ObjectGrid`'s date columns and

@@ -2825,6 +2825,27 @@ export interface ObjectTreeSchema extends BaseSchema {
   /** ObjectQL object name */
   objectName: string;
   /**
+   * Query filter, forwarded verbatim as `$filter` on the tree's own fetch.
+   *
+   * Typed as that DESTINATION by an indexed access on {@link QueryParams}, the
+   * shape objectui#9309 settled for {@link ObjectGallerySchema.filter}, so the
+   * declaration cannot drift away from the slot it is forwarded into
+   * (objectui#9549). The key was already delivered and read before it was
+   * declared: `ListView` puts `filter` on the `baseProps` every child view
+   * receives, and `ObjectTree` sends `$filter: schema.filter`. Until this
+   * declaration the value survived only on `BaseSchema`'s index signature, so
+   * declaring it NARROWS: `filter: 'stage=won'` and `filter: 42` are compile
+   * errors now.
+   *
+   * ⛔ It is a query filter and nothing else. The renderer used to also read
+   * `filter.tree` as a stash for the tree block; that second dialect had no
+   * author and was removed in the same change. The tree block is `tree`.
+   *
+   * ⛔ Do not re-spell the arms here — what `QueryParams['$filter']` resolves to
+   * is stated once, in `./data.ts`.
+   */
+  filter?: QueryParams['$filter'];
+  /**
    * Field holding the parent record reference (single-parent pointer).
    * When omitted, the renderer auto-detects the object's `tree`/self-reference field.
    */

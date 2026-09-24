@@ -1691,6 +1691,15 @@ export const ObjectMapSchema = BaseSchema.extend({
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#9549 — declared in step with the twin in `../objectql.ts`
+  // (`QueryParams['$filter']`), spelled exactly as `ObjectGallerySchema.filter`
+  // below spells it (objectui#9309): the two arms of that slot, ARRAY FIRST.
+  // Before this the key rode `.passthrough()` unjudged, so a string or number
+  // parsed clean while the renderer forwarded it into `$filter`.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   parentField: z.string().optional().describe('Single-parent pointer field (auto-detected when omitted)'),
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),

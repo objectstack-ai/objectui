@@ -231,9 +231,19 @@ function fieldKey(f: any): string | undefined {
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
+ *
+ * ## The `filter`-as-block-holder arm is GONE (objectui#9549)
+ *
+ * The block used to be looked up on the node's `tree` key OR on a `tree`
+ * member of the node's `filter`. `filter` is declared as the query filter
+ * (`QueryParams['$filter']`, forwarded as `$filter` by the fetch below), so
+ * that second arm read the same key in a second dialect. Measured before the
+ * removal: no example, fixture, test or doc in this repo or in `../objectstack`
+ * authors a `tree` under `filter`, and the arm dates from the renderer's first
+ * commit with no stated reason. The block's one home is `tree`.
  */
 function getTreeConfig(schema: ObjectTreeSchema): ResolvedTreeConfig {
-  const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
+  const nested = (schema.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields
     : Array.isArray(nested.fields)

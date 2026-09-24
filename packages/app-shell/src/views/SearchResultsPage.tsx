@@ -231,6 +231,12 @@ export function SearchResultsPage() {
         base would be the plural, which is what `ar` meets at 2, 3-10 and 11-99
         and `ru` at 2-4. Picking the key here keeps `Intl.PluralRules` and
         `fallbackLng` out of the path entirely.
+
+        Two keys still give a pack only two slots. Where the language has more
+        integer categories than that (`ru`: one/few/many, `ar`: six), the pack
+        writes the count-not-one half as a count label that reads right at any
+        number (`ru`/`ar` `search.resultsCountPlural`, objectui#10024) instead of a
+        `{{count}} <noun>` form that agrees with only some of the counts it serves.
       */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>

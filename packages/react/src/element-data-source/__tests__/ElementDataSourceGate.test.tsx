@@ -25,7 +25,7 @@
  *     nicety.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, renderHook, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { elementDataSourceRefusedLimitMessage } from '@object-ui/core';
@@ -672,6 +672,12 @@ describe('useElementDataSourceSchema — a cap the contract refuses is not "auth
 describe('ElementDataSourceGate — a saved view’s refused row cap is reported once (objectui#10015)', () => {
   const warn = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
   const said = (spy: ReturnType<typeof warn>) => spy.mock.calls.map((c) => String(c[0]));
+  // A red row never reaches its own `mockRestore()`, and `vi.spyOn` on a method
+  // that is still spied returns the SAME spy — calls and all — so one failure
+  // would redden every silence control after it. Restore unconditionally.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   const BINDING = { object: 'account', view: 'hot' };
   const viewWith = (cap: Record<string, unknown>) => ({ name: 'hot', columns: ['name', 'rating'], ...cap });
   const adapterFor = (view: Record<string, unknown>) => makeAdapter({ hot: view });

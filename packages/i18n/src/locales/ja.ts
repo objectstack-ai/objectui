@@ -147,6 +147,7 @@ const ja = {
       acknowledge: '保存しました',
       copyAll: 'すべてコピー',
     },
+    notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
   },
   validation: {
     required: "{{field}}は必須です",
@@ -2582,6 +2583,7 @@ const ja = {
     selectPlaceholder: "{{label}} を選択",
     requiredError: "{{label}} は必須です",
     unresolvedParam: 'このパラメーターは表示できません。参照元のフィールドがオブジェクトのメタデータに存在しないため、必要なコントロールを生成できません。管理者にアクション定義の修正を依頼してください。',
+    carryOverHint: 'そのまま引き継ぎ（読み取り専用）',
     cancel: "キャンセル",
     confirm: "確認",
     uploading: "アップロード中…",

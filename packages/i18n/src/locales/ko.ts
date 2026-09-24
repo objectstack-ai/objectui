@@ -147,6 +147,7 @@ const ko = {
       acknowledge: '저장했습니다',
       copyAll: '모두 복사',
     },
+    notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -2579,6 +2580,7 @@ const ko = {
     selectPlaceholder: "{{label}} 선택",
     requiredError: "{{label}}은(는) 필수입니다",
     unresolvedParam: '이 매개변수는 표시할 수 없습니다. 기반이 되는 필드가 개체 메타데이터에 없어 필요한 컨트롤을 만들 수 없습니다. 관리자에게 작업 정의를 수정하도록 요청하세요.',
+    carryOverHint: '그대로 전달됨(읽기 전용)',
     cancel: "취소",
     confirm: "확인",
     uploading: "업로드 중…",

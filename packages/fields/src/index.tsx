@@ -845,7 +845,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
   // straight to the user. `NumberCellRenderer` can afford max 20 because it
-  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // does no arithmetic on the value. The grid footer's percent arm spells the
   // same absence the same way (`?? 0`), so the cell and the footer agree.
   const scale = percentField.scale ?? 0;
   const numValue = Number(safe);

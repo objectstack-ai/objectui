@@ -163,7 +163,7 @@ export function PeoplePicker({
   // that ignores `$expand`.
   const perms = usePermissions();
   const effectiveExpand = useMemo<string[] | undefined>(() => {
-    let requested: string[] = [];
+    let requested: string[];
     if (expand && expand.length) {
       requested = expand;
     } else {

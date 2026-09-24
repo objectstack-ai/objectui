@@ -230,14 +230,15 @@ describe('RecordPickerDialog — the picker draws only readable columns (objectu
 
   it('a policy answer that changes after mount re-derives the drawn columns in place', async () => {
     const ds = makeBackend('late');
-    let setPolicy: (p: ObjectPermissionConfig[]) => void = () => {};
     function Host() {
-      const [policy, set] = React.useState<ObjectPermissionConfig[]>([]);
-      setPolicy = set;
+      const [policy, setPolicy] = React.useState<ObjectPermissionConfig[]>([]);
       return (
-        <PermissionProvider roles={[]} userRoles={['viewer']} permissions={policy}>
-          <Picker ds={ds} columns={ALL} />
-        </PermissionProvider>
+        <>
+          <button type="button" data-testid="deny-secret" onClick={() => setPolicy(policyDenying('secret'))} />
+          <PermissionProvider roles={[]} userRoles={['viewer']} permissions={policy}>
+            <Picker ds={ds} columns={ALL} />
+          </PermissionProvider>
+        </>
       );
     }
     render(<Host />);
@@ -247,7 +248,7 @@ describe('RecordPickerDialog — the picker draws only readable columns (objectu
     const table = screen.getByRole('grid');
 
     await act(async () => {
-      setPolicy(policyDenying('secret'));
+      fireEvent.click(screen.getByTestId('deny-secret'));
     });
     await settle();
 

@@ -121,18 +121,15 @@ describe('objectui#10105 — usePullToRefresh follows the element, not the mount
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('under StrictMode, a late host still arms, and refreshes exactly once', async () => {
-    // StrictMode runs every effect's cleanup and then re-runs the effect on
-    // mount. The unmount effect therefore releases the binding in between, and
-    // the per-commit effect has to bind again. It must not bind twice either:
-    // two bindings would call `onRefresh` twice for one gesture.
+  it('under StrictMode, a host present at mount arms, and refreshes exactly once', async () => {
+    // On MOUNT (not on updates), StrictMode runs every effect, runs its
+    // cleanup, and runs it again. So the host has to be there at mount for
+    // this case to test anything. The unmount effect releases the binding in
+    // that simulated unmount, and the per-commit effect has to bind again. It
+    // must not bind twice either: two bindings would call `onRefresh` twice
+    // for one gesture.
     const onRefresh = vi.fn(async () => {});
-    const { rerender } = render(
-      <React.StrictMode>
-        <Host ready={false} onRefresh={onRefresh} />
-      </React.StrictMode>,
-    );
-    rerender(
+    render(
       <React.StrictMode>
         <Host ready onRefresh={onRefresh} />
       </React.StrictMode>,

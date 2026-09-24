@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   Sheet,
   SheetContent,
@@ -31,6 +32,9 @@ interface BuildDebugDrawerProps {
 }
 
 export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }: BuildDebugDrawerProps) {
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const [report, setReport] = useState<BuildDebugReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +96,7 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
                 <div className="font-medium text-foreground">{report.title ?? '(untitled)'}</div>
                 <div className="mt-1">
                   {report.summary.userTurns} turn(s) · {report.summary.messages} msgs ·{' '}
-                  {report.summary.totalTokens.toLocaleString()} tok ·{' '}
+                  {report.summary.totalTokens.toLocaleString(displayLocale)} tok ·{' '}
                   {(report.summary.llmMs / 1000).toFixed(1)}s LLM
                   {report.summary.models.length ? ` · ${report.summary.models.join(', ')}` : ''}
                 </div>

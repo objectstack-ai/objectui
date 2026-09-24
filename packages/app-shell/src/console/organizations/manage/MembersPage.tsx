@@ -27,7 +27,7 @@ import {
 } from '@object-ui/components';
 import { useAuth, assignableOrgRoles, ORG_ROLE_LABELS } from '@object-ui/auth';
 import type { AuthOrganizationMember, OrgRole } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { Loader2, MoreHorizontal, UserMinus, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrgContext } from './orgContext.js';
@@ -48,6 +48,9 @@ function getMemberInitials(name?: string): string {
 
 export function MembersPage() {
   const { t } = useObjectTranslation();
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const { org } = useOrgContext();
   const { getMembers, removeMember, updateMemberRole, activeMember } = useAuth();
 
@@ -213,7 +216,7 @@ export function MembersPage() {
 
             {member.createdAt && (
               <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                {new Date(member.createdAt).toLocaleDateString()}
+                {new Date(member.createdAt).toLocaleDateString(displayLocale)}
               </span>
             )}
 

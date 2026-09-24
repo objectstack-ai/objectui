@@ -19,6 +19,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Clock, Loader2, PauseCircle, RefreshCw, SkipForward } from 'lucide-react';
 import { EmptyDescription, cn } from '@object-ui/components';
 import { apiBase } from './useFlowNodePalette.js';
@@ -207,10 +208,15 @@ function statusMeta(status: string, locale?: string) {
   return { icon: Clock, cls: 'text-muted-foreground', label: status };
 }
 
-function fmtTime(iso?: string): string {
+/**
+ * `displayLocale` is the session's DISPLAY locale (`useDisplayLocale()`), not
+ * the `locale` the rows thread for their UI strings. The bare
+ * `toLocaleString()` this replaced used the MACHINE's locale (objectui#9909).
+ */
+function fmtTime(iso: string | undefined, displayLocale: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(displayLocale);
 }
 
 function fmtDuration(ms?: number): string | null {
@@ -309,6 +315,7 @@ function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; 
 }
 
 function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
+  const displayLocale = useDisplayLocale();
   const [open, setOpen] = React.useState(false);
   const meta = statusMeta(run.status, locale);
   const Icon = meta.icon;
@@ -330,7 +337,7 @@ function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
         <Icon className={cn('h-3.5 w-3.5 shrink-0', meta.cls, run.status === 'running' && 'animate-spin')} />
         <span className={cn('shrink-0 text-[10px] font-semibold', meta.cls)}>{meta.label}</span>
         <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={run.id}>
-          {fmtTime(run.startedAt)}
+          {fmtTime(run.startedAt, displayLocale)}
         </span>
         {fmtDuration(run.durationMs) && (
           <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{fmtDuration(run.durationMs)}</span>

@@ -14,7 +14,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@object-ui/components';
 import { useAuth } from '@object-ui/auth';
 import type { AuthInvitation } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { Loader2, Building2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { resolveOrgRoleLabel } from '../orgRoleLabel.js';
@@ -28,6 +28,9 @@ type InvitationWithOrg = AuthInvitation & {
 
 export function AcceptInvitationPage() {
   const { t } = useObjectTranslation();
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const navigate = useNavigate();
   const location = useLocation();
   const { invitationId } = useParams<{ invitationId: string }>();
@@ -228,7 +231,7 @@ export function AcceptInvitationPage() {
                     {t('organization.accept.expiresAt', { defaultValue: 'Expires' })}
                   </span>
                   <span className="font-medium">
-                    {new Date(invitation.expiresAt).toLocaleDateString()}
+                    {new Date(invitation.expiresAt).toLocaleDateString(displayLocale)}
                   </span>
                 </div>
               )}

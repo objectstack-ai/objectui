@@ -149,11 +149,20 @@ const schemaFor = (formType?: 'modal' | 'drawer') => ({
   fields: FIELDS,
 }) as any;
 
-/** Type into the ONE field the caller is allowed to edit, then submit. */
+/**
+ * Type into the ONE field the caller is allowed to edit, then submit.
+ *
+ * Waits for the RECORD to be on screen, not merely for the input to exist
+ * (objectui#10190): a container that paints its form before `findOne` lands
+ * replaces the typed value when the record arrives, and the payload then
+ * carries `RECORD.actual_value` instead of the edit — an order-dependent red
+ * about load timing, not about field-level security.
+ */
 async function editAllowedFieldAndSubmit(root: HTMLElement, update: any) {
   const input = await waitFor(() => {
     const el = root.querySelector('input[name="actual_value"]') as HTMLInputElement | null;
     if (!el) throw new Error('actual_value not rendered');
+    if (el.value !== String(RECORD.actual_value)) throw new Error('record not on screen yet');
     return el;
   });
   fireEvent.change(input, { target: { value: '5000' } });

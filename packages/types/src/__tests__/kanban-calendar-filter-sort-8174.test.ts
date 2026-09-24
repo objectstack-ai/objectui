@@ -62,7 +62,8 @@
  * that fell back to the index signature reads as `any` and therefore as a
  * failure. And every claim carries a CONTROL that is asserted to stay
  * undeclared — including the deliberate absence of `sort` on the kanban board,
- * which is measured off the renderer rather than assumed.
+ * which is measured off the spec rather than assumed (the board reads `sort`
+ * only as the binding carrier since objectui#10068).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -128,9 +129,10 @@ export type _CalendarFilterIsOptional = Expect<IsOptional<TsObjectCalendarSchema
 export type _CalendarSortIsSortConfigArray = Expect<Equal<TsObjectCalendarSchema['sort'], SortConfig[] | undefined>>;
 export type _CalendarSortIsNotAny = Expect<Equal<IsAny<TsObjectCalendarSchema['sort']>, false>>;
 export type _CalendarSortIsOptional = Expect<IsOptional<TsObjectCalendarSchema, 'sort'>>;
-// …and DELIBERATELY not on the kanban board, whose renderer issues no
-// `$orderby`. It still falls through to the index signature. Declaring it turns
-// this red — which is the point: this card declares what is read, nothing more.
+// …and DELIBERATELY not on the kanban board: the spec declares no top-level
+// `sort` there. The board's ordering is the binding's `dataSource.sort`, which
+// the gate carries in as `schema.sort` (objectui#10068) — not an authoring key.
+// It still falls through to the index signature; declaring it turns this red.
 export type _KanbanSortStaysUndeclared = Expect<IsAny<TsObjectKanbanSchema['sort']>>;
 // The control key is undeclared on both, exactly as `filter` was before this
 // card. Same instrument, opposite verdict.
@@ -207,11 +209,18 @@ describe('objectui#8174 — the renderers read these keys, which is what the dec
     expect(readRepo(KANBAN_READER)).toContain('$filter: schema.filter');
   });
 
-  it('…and reads NO `sort`: the board groups records into lanes and issues no `$orderby`', () => {
-    // The measured premise for leaving `sort` off `ObjectKanbanSchema`. If the
-    // board ever starts ordering, this turns red BEFORE the declaration faces
-    // fork again.
-    expect(rendererReads(KANBAN_READER).has('sort')).toBe(false);
+  it('…and reads `sort` ONLY as the binding carrier: `dataSource.sort` lowered onto `$orderby` (objectui#10068)', () => {
+    // Flipped by objectui#10068. The board now orders its fetch, but the key it
+    // reads is the one `ElementDataSourceGate` writes for the per-element
+    // binding's `dataSource.sort` (`OBJECT_KANBAN_DATA_SOURCE` maps `sort`). The
+    // declaration faces do NOT fork: the spec still declares no top-level
+    // `sort` on `object-kanban` (asserted below), so neither interface face
+    // gains one — `_KanbanSortStaysUndeclared` above still holds.
+    expect(rendererReads(KANBAN_READER).has('sort')).toBe(true);
+    expect(readRepo(KANBAN_READER)).toContain('$orderby: convertSortToQueryParams(schema.sort)');
+    expect(readRepo('packages/plugin-kanban/src/index.tsx')).toMatch(
+      /const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = \{[^}]*\bsort: true\b/,
+    );
   });
 
   it('the calendar renderer reads BOTH, and lowers them onto `$filter` / `$orderby`', () => {

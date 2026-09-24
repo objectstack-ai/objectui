@@ -34,6 +34,7 @@ import {
 import {
   extractRecords,
   buildExpandFields,
+  convertSortToQueryParams,
   getRecordDisplayName,
   isEmptyValue,
   resolveNameField,
@@ -554,6 +555,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     if (message) console.warn(message);
   }, [schema.limit, schema.objectName]);
 
+  // Content key for the fetch's `$orderby` input (objectui#10068): an inline or
+  // gate-rebuilt `sort` array is a new object on every render, so the fetch
+  // below re-keys on what it says, never on which array it is.
+  const sortKey = JSON.stringify(schema.sort ?? null);
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -673,6 +679,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // the query's top-level `$top` — is the same one it always held.
             const query = {
                 $filter: schema.filter,
+                // objectui#10068 — the binding's `dataSource.sort` (or its
+                // view's), delivered here by `ElementDataSourceGate`. Lanes
+                // bucket records in fetch order, so this is also the in-lane
+                // order. Absent → `undefined`, the query is unchanged.
+                $orderby: convertSortToQueryParams(schema.sort),
                 $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             };
@@ -711,7 +722,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `objectDef` stays listed because the body reads it, and with the gate in
     // place the two flip together in one commit — the pre-resolution run now
     // returns above without querying instead of issuing an unexpanded one.
-  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
+    // `schema.sort` is tracked by CONTENT (`sortKey`), not identity — the
+    // `ObjectTimeline` spelling: an array rebuilt with the same members must not
+    // refetch the board.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.sort` is tracked by CONTENT (sortKey) on purpose; see above
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;

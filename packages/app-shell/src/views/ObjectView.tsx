@@ -459,6 +459,50 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
 }
 
 /**
+ * objectui#10046 — is `a` the same `options` bag as `b`, compared by VALUE?
+ *
+ * `renderListView` rebuilds `fullSchema.options` as a fresh object literal on
+ * every call, and `plugin-view`'s `ObjectView` calls it on every one of its
+ * renders. `ListView` names `schema.options` BY IDENTITY in its fetch effect's
+ * dependency list (objectui#4567 ruled that dependency correct and put
+ * stabilisation at the PRODUCER), so each host re-render that changed nothing
+ * re-issued the identical `dataSource.find`: one extra at mount (the record
+ * count landing), two on opening a record and two on closing it.
+ *
+ * A copy of `plugin-view`'s `isStructurallyEqual` (`stableIdentity.ts`,
+ * objectui#6460), kept module-local because that one is not exported and
+ * exporting it would publish a new name. Same safety invariant: every
+ * uncertainty (an unmodelled type — function, `Map`, class instance —, a
+ * differing key count, a structure deeper than the bound) answers "not
+ * equal", which hands `ListView` a new identity and therefore a refetch. It can
+ * only ever remove a REDUNDANT query; it can never withhold a needed one.
+ * ⛔ Not `JSON.stringify`: that calls `{ a: undefined }` and `{}` equal (a
+ * missed refetch) and throws on a cycle.
+ */
+function isSameOptionsValue(a: unknown, b: unknown, depth = 0): boolean {
+    if (Object.is(a, b)) return true;
+    if (depth >= 12) return false;
+    if (a instanceof Date || b instanceof Date) {
+        return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+    }
+    if (Array.isArray(a) || Array.isArray(b)) {
+        if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+        return a.every((item, i) => isSameOptionsValue(item, b[i], depth + 1));
+    }
+    const isPlain = (v: unknown): v is Record<string, unknown> => {
+        if (v === null || typeof v !== 'object') return false;
+        const proto = Object.getPrototypeOf(v);
+        return proto === Object.prototype || proto === null;
+    };
+    if (isPlain(a) && isPlain(b)) {
+        const keys = Object.keys(a);
+        if (keys.length !== Object.keys(b).length) return false;
+        return keys.every((k) => Object.prototype.hasOwnProperty.call(b, k) && isSameOptionsValue(a[k], b[k], depth + 1));
+    }
+    return false;
+}
+
+/**
  * THE record-detail URL this list surface builds — one route shape, one place.
  *
  * Derived from the LIST's own pathname rather than re-assembled from route
@@ -2278,6 +2322,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         }
     }, [drawerRecordId]);
 
+    // objectui#10046 — the last `options` bag handed to `ListView`, so an
+    // equal-content rebuild keeps its identity (see `isSameOptionsValue`).
+    // A ref, not a `useMemo`: React may discard a memo cache and hand back a
+    // fresh object (AGENTS.md #10); a ref survives every re-render, and the
+    // value comparison — not the ref — is what decides a real change.
+    const heldListOptions = useRef<unknown>(undefined);
+
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
@@ -2741,6 +2792,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 chart: viewDef.chart,
             },
         };
+        // objectui#10046 — equal content keeps the identity `ListView`'s fetch
+        // effect names; a real change (any differing value) still hands over
+        // the new bag and still refetches. Pinned by
+        // `ObjectView.hostRerenderRefetch-10046.test.tsx`.
+        if (isSameOptionsValue(heldListOptions.current, fullSchema.options)) {
+            fullSchema.options = heldListOptions.current as ListViewSchema['options'];
+        } else {
+            heldListOptions.current = fullSchema.options;
+        }
 
         return (
             <ListView

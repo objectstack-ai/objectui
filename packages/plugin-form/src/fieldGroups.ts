@@ -162,6 +162,14 @@ export function headinglessCollapseWarning(where: string): string {
 }
 
 const warnedHeadinglessCollapse = new Set<string>();
+/**
+ * Forget which sections were already reported — for pins only, so each row
+ * observes its own first report. The dedupe is per module instance, and this
+ * module is internal (the package barrel does not re-export it).
+ */
+export function resetHeadinglessCollapseWarnings(): void {
+  warnedHeadinglessCollapse.clear();
+}
 function warnHeadinglessCollapse(where: string, dedupeKey: string): void {
   if (warnedHeadinglessCollapse.has(dedupeKey)) return;
   warnedHeadinglessCollapse.add(dedupeKey);

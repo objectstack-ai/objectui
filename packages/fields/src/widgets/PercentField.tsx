@@ -85,11 +85,9 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
    * the opposite convention and its own `scale` alias; the spec warns against
    * conflating the two at the field-face declaration itself. And ⛔ not
-   * `CurrencyField`'s read of `precision` either: there the competing source is
-   * the currency's own ISO 4217 minor-unit count, and objectui#4361 ruled an
-   * authored `precision` wins over THAT. It ruled nothing about `scale`, which
-   * a currency field's face does not carry a meaning for, and it pushed the
-   * contract question upstream rather than settling it here.
+   * `CurrencyField`'s width either: a currency's decimal places are the
+   * currency's own ISO 4217 minor-unit count, and that widget reads neither
+   * `precision` nor `scale` for them (objectui#10276).
    *
    * `typeof`, not truthiness: `scale: 0` is a valid declaration (a percent
    * field that edits whole percents) and `||` would silently drop it — the

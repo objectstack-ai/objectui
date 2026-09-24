@@ -123,12 +123,19 @@ export function mergeServerFields({
   // synthesise a form when one exists to preserve its curated layout.
   let mergedForm = bundledForm;
   if (bundledForm && typeof bundledForm === 'object') {
-    const clone = JSON.parse(JSON.stringify(bundledForm)) as FormViewSpec;
-    clone.sections = [
-      ...(clone.sections ?? []),
-      { label: sectionTitle, fields: newKeys.map((field) => ({ field })) },
-    ];
-    mergedForm = clone;
+    // A shallow copy, not a JSON round-trip: the bundled field objects are
+    // handed on as they are, because a localized form carries each field's
+    // pre-translation label under a symbol key that `JSON.stringify` drops —
+    // and without it the machine-name chip judges the translated label again
+    // (objectui#8231, `untranslatedFieldLabel`). Nothing below mutates them;
+    // the only change is the appended section, on a fresh array.
+    mergedForm = {
+      ...bundledForm,
+      sections: [
+        ...(bundledForm.sections ?? []),
+        { label: sectionTitle, fields: newKeys.map((field) => ({ field })) },
+      ],
+    };
   }
 
   return { schema: mergedSchema, form: mergedForm };

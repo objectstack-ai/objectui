@@ -2092,10 +2092,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // asked for every field, the denied ones included: an emptied list
           // read as "no restriction", the widening objectui#7215 measured on
           // `$expand`. It now falls through and projects to `id` plus the
-          // routes below, each already FLS-gated (the `$expand` roots, the view
-          // bindings, the grouping fields, the row predicates' operands) —
-          // the shape `ObjectGrid` (`ensureId([])` keeps `['id']`) and
-          // `RelatedList` (objectui#10186) send.
+          // routes below, each already FLS-gated as it enters (the `$expand`
+          // roots, the view bindings, the grouping fields, the row predicates'
+          // operands; the platform columns excepted, for the reason stated at
+          // `addSpeculative`) — the shape `ObjectGrid` (`ensureId([])` keeps
+          // `['id']`) and `RelatedList` (objectui#10186) send.
           if (rawCols.length === 0) return undefined;
           const cols = (perms?.isLoaded && schema.objectName)
             ? rawCols.filter(c => perms.checkField(schema.objectName!, c, 'read'))

@@ -427,12 +427,17 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **7 entries** in `WiderThanDeclared`, **10 keys** across them, and **10 arms**
- *     under those keys — split **5** SCHEMA-NODE, **5** CONCRETE, **0** MIXED, **0** unions.
- *     It read 8 / 11 / 12 — 5 / 6 / 0 / 1 — until objectui#10387 RETIRED
+ *   - **7 entries** in `WiderThanDeclared`, **9 keys** across them, and **9 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **4** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 8 / 10 / 11 — 5 / 5 / 0 / 1 — until objectui#10387 RETIRED
  *     `navigation.zod.ts#HeaderBarSchema::logo` on both faces: the `header-bar` renderer
  *     reads no `logo`, so the entry, its one key and BOTH its arms left together. It was
  *     the ledger's last two-arm key, which is why `unions` reached zero.
+ *     It read 8 / 11 / 12 — 5 / 6 / 0 / 1 — until objectui#10334 (objectui#7759 group F)
+ *     settled `complex.zod.ts#DashboardComponentSchema::dateRange` by rule 1: the spec
+ *     declares the key, so both faces now take the spec's authoring member by reference and
+ *     the mirror's bare-string `defaultRange` is gone. One key with one CONCRETE arm left an
+ *     entry that keeps two others, so `entries` did not move.
  *     It read 11 / 16 / 18 — 5 / 11 / 0 / 2 — until objectui#10286 closed five CONCRETE
  *     keys of objectui#7759's groups C and D: `complex.zod.ts#FilterFieldSchema::operators`
  *     and `complex.zod.ts#FilterBuilderSchema::fields` (both faces now state the spec's
@@ -3132,9 +3137,10 @@ interface WiderThanDeclared {
   // ruling beside the two runtime slots that remain.
   /**
    * CONCRETE. `header` and `globalFilters` carry the inline-locale widening one level
-   * down (a nested `label`) and `dateRange.defaultRange` is a bare string on the
-   * mirror against a closed literal set on the declaration. All three also carry a
-   * `KnownDrift` entry.
+   * down (a nested `label`). Both also carry a `KnownDrift` entry. `dateRange` was a
+   * third key until objectui#10334 — its `defaultRange` was a bare string on the mirror
+   * against the spec's closed preset set on the declaration; both faces now take the
+   * spec's authoring member by reference, so the pair measures clean on that key.
    *
    * ⚠️ `widgets` was the fourth key and made this entry MIXED — the only MIXED key
    * this ledger has held. Its verdict read "`widgets` is SCHEMA-NODE" until
@@ -3147,7 +3153,7 @@ interface WiderThanDeclared {
    * `WIDER_ARMS` below, which names one per arm; this docblock is the prose beside it
    * and ⛔ may not be the only place a split is recorded again.
    */
-  'complex.zod.ts#DashboardComponentSchema': 'header' | 'globalFilters' | 'dateRange';
+  'complex.zod.ts#DashboardComponentSchema': 'header' | 'globalFilters';
   // `complex.zod.ts#FilterBuilderSchema` (`fields`) and `complex.zod.ts#FilterFieldSchema`
   // (`operators`) LEFT under objectui#10286: the second was the operator vocabulary, each
   // face refusing a spelling the other accepted, and the first inherited it through the
@@ -3345,7 +3351,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
-  'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],

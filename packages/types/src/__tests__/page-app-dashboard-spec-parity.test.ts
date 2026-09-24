@@ -105,7 +105,8 @@ const CASES: Record<string, Case> = {
   Dashboard: {
     spec: SpecDashboardSchema,
     oui: OuiDashboardSchema,
-    omitted: ['widgets', 'globalFilters', 'dateRange'],
+    // `dateRange` left this list with objectui#10334: it now flows in by reference.
+    omitted: ['widgets', 'globalFilters'],
     local: [],
   },
 };

@@ -107,6 +107,11 @@ appears in the filter bar above the widgets:
 - `allowCustomRange` — offer a "Custom…" item that opens a from/to calendar
   (default `true`).
 
+`dateRange` is the `@objectstack/spec` `DashboardSchema.dateRange` shape, taken
+by reference on both the validator and the TypeScript type: a preset name
+outside the list above, or any other key inside the object (`preset`, `range`,
+`dateField`, …), is refused at validation rather than silently ignored.
+
 Presets stay **symbolic** until query time: they compile to date-macro tokens
 (`{30_days_ago}`, `{current_month_start}`, …) that each widget resolves
 exactly like hand-authored widget filters — so a dashboard saved today still

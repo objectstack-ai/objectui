@@ -741,9 +741,9 @@ const LOADERS: Record<string, SchemaLoader> = {
   // key in that schema at all: its required keys are `name`, `label`, `type`,
   // and a minimal `{ name, label, type: 'saas' }` entry parses clean.
   //
-  // But `ConnectorSchema` is still the wrong target, for the reason the spec
-  // states itself: the base "stays a plain object so connector subtypes
-  // (github / database / …) can still `.extend()` it", while
+  // But `ConnectorSchema` is still the wrong target, for the reason the spec's
+  // `DeclarativeConnectorEntrySchema` docblock states: the base is the shape
+  // shared with connector defs a plugin builds at runtime, while
   // `DeclarativeConnectorEntrySchema` is that base plus the ADR-0097 rules that
   // apply to a connector AUTHORED in a stack — which is what this admin writes.
   // `ObjectStackSchema.connectors` binds the entry schema element-wise.

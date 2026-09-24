@@ -7,62 +7,63 @@
  */
 
 /**
- * objectui#7190 — does a `dependsOn` lookup gate on the DETAIL page? It does.
- *
- * ## Why this file mounts the whole record page and not the widget
- *
- * `@object-ui/fields`' `LookupField` resolves the record it gates on as
- * `dependentValues ?? {}`, and `plugin-detail`'s `InlineFieldInput` does not
- * supply that prop — it renders `LookupField` directly with `field` / `value` /
- * `onChange` / `dataSource` / `error` and nothing else. #7190 filed that as a
- * supply-side census and deliberately graded it a `finding`, NOT a bug, on an
- * explicit boundary: the resolution then ended `?? ctx.formValues ?? ctx.data`,
- * and a detail page renders ONE record, so IF a host could populate that
- * "record scope" the cascade would resolve and there would be no defect at all.
- * That was never measured, and it was never possible — those members are not
- * declared on `SchemaRendererContextType`, and objectui#7206 has since retired
- * the reads. `dependentValues` is the only channel, which is what makes #7190 a
- * real supply-side defect rather than a boundary question.
- *
- * ⚠️ It still cannot be measured by mounting `InlineFieldInput` bare: a bare
- * mount reports a gated trigger TRIVIALLY and ALWAYS — an answer about the
- * harness, not about the product, and the single most likely way to reach a
- * confident false "bug" verdict here. So this file
- * mounts `RecordDetailView`, the app-shell record page, which is the host the
- * detail page actually runs in, and drives it the way a user does: the record
- * loads, a field is double-clicked to enter inline edit (#2401), and the
- * lookup's own trigger is read out of the resulting DOM.
- *
- * ## The control is load-bearing in both directions
- *
- * Each test renders TWO lookups over the SAME record and the SAME referenced
- * object, differing only in whether `dependsOn` is declared. The declared one
- * must gate and the control must NOT — the shape objectui#6875 established,
- * #7154 reused for the grid and #7165 uses in both directions. A gated reading
- * is worthless if the control is gated too (that would mean the picker path is
- * broken for an unrelated reason), and it asserts an enabled control rather
- * than merely observing one.
- *
- * ## Both of `InlineFieldInput`'s call sites are covered
- *
- * `InlineFieldInput` has exactly two non-test call sites — `DetailSection`
- * (the details body) and `HeaderHighlight` (the highlights strip) — and neither
- * passes `dependentValues`. The canonical record page routes a field to exactly
- * one of them: `buildDefaultTabs` hands the strip's field list to
- * `buildDefaultDetails` as `hideFields`, so a highlight is hidden from the body.
- * Declaring `highlightFields` therefore selects which call site renders the
- * pair, with no classname coupling and no double render — asserted below as an
- * exact trigger count of 2.
+ * objectui#7190 — a `dependsOn` field on the DETAIL page cascades off the
+ * record it is editing.
  *
  * ## What this pins
  *
- * The CURRENT behaviour, which is a defect: a `dependsOn` lookup on a detail
- * page is permanently gated ("Select region first") while the parent value it
- * asks for is on screen, in the same edit session, two fields away. It is
- * pinned rather than fixed here for the same reason #7154 pinned the grid's
- * gate rather than fixing it — the fix is a separate card, and which record the
- * host should feed (the saved record, or the inline session's in-flight staged
- * edits) is a design question this measurement does not answer.
+ * `@object-ui/fields` resolves the record a cascade gates on from ONE channel:
+ * the `dependentValues` prop its host passes (`LookupField`'s
+ * `resolvedDependentValues` and `useCascadingOptions` both read
+ * `dependentValues ?? {}`; objectui#7206 retired the context tail that used to
+ * follow it). `plugin-detail`'s `InlineFieldInput` is that host on the record
+ * page, and it used to pass nothing — so a `dependsOn` lookup read "Select
+ * region first", disabled, while the `region` it asked for sat on screen in the
+ * same edit session. This file first pinned that defect (PR #7207); it now pins
+ * the repair: both of `InlineFieldInput`'s call sites hand it the record, and it
+ * forwards that record to every widget that reads one.
+ *
+ * ## Why this file mounts the whole record page and not the widget
+ *
+ * A bare `InlineFieldInput` mount answers whatever its test passes — gated when
+ * the test passes nothing, enabled when it passes a record — which is an answer
+ * about the harness, not about the product. The defect lived in the HOSTS: which
+ * record reaches the input. So this file mounts `RecordDetailView`, the app-shell
+ * record page, and drives it the way a user does: the record loads, a field is
+ * double-clicked to enter inline edit (#2401), and each widget's own DOM is read.
+ *
+ * ## The control is load-bearing in both directions
+ *
+ * Every render carries a CONTROL beside the declared field — the same reference
+ * (or the same options) over the same record, with no `dependsOn` and no option
+ * rule. An enabled reading on the declared field is worthless if the control is
+ * broken for an unrelated reason, and a gated reading is worthless if the
+ * control is gated too — the shape objectui#6875 established and #7154 / #7165
+ * reuse. The controls are asserted, never merely observed.
+ *
+ * ## Both of `InlineFieldInput`'s call sites are covered
+ *
+ * `InlineFieldInput` has exactly two non-test call sites — `DetailSection` (the
+ * details body) and `HeaderHighlight` (the highlights strip). The canonical
+ * record page routes a field to exactly one of them: `buildDefaultTabs` hands
+ * the strip's field list to `buildDefaultDetails` as `hideFields`, so a
+ * highlight is hidden from the body. Declaring `highlightFields` therefore
+ * selects which call site renders the fields under test, with no classname
+ * coupling and no double render.
+ *
+ * The two call sites build the record differently, which is why both are pinned
+ * rather than one: `DetailView` hands `DetailSection` the saved record already
+ * merged with the inline draft, while `HeaderHighlight` receives the saved
+ * record and merges the draft itself.
+ *
+ * ## The record is the STAGED one
+ *
+ * The record handed down is the saved record overlaid with the edit session's
+ * draft — the same answer the grid's inline editor gives (`pendingRow ?? row`,
+ * objectui#7188). So editing the parent re-scopes the child before anything is
+ * saved, and clearing the parent re-gates it. The staged cases below edit the
+ * parent in the strip; the body case then reads it through `DetailView`'s merge
+ * and the strip case through `HeaderHighlight`'s.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
@@ -86,7 +87,7 @@ vi.mock('sonner', () => ({
     warning: vi.fn(), loading: vi.fn(), dismiss: vi.fn(),
   }),
 }));
-// Orthogonal chrome — stubbed so the only thing this file observes is the picker.
+// Orthogonal chrome — stubbed so the only thing this file observes is the editors.
 vi.mock('./ActionConfirmDialog', () => ({ ActionConfirmDialog: () => null }));
 vi.mock('./ActionParamDialog', () => ({ ActionParamDialog: () => null }));
 vi.mock('./ActionResultDialog', () => ({ ActionResultDialog: () => null }));
@@ -102,31 +103,62 @@ const OBJECT = 'os_7190_task';
 const REF = 'os_7190_person';
 const REC = 'rec-1';
 
-/** The referenced records. `region` is what the dependent filter would scope on. */
+/** The referenced records. `region` is what the dependent filter scopes on. */
 const PEOPLE = [
   { id: 'p1', name: 'Ana EMEA', region: 'emea' },
   { id: 'p2', name: 'Bo APAC', region: 'apac' },
 ];
 
-/** The record under test — it CARRIES the parent value the cascade asks for. */
+/** The record under test — it CARRIES the parent value the cascades ask for. */
 const RECORD = { id: REC, title: 'Task one', region: 'emea', regional_owner: null, owner: null };
 
-const FIELDS = {
+const LOOKUP_FIELDS = {
   id: { type: 'text', label: 'Id' },
   title: { type: 'text', label: 'Title' },
   region: { type: 'text', label: 'Region' },
-  /** DECLARED: gates until `region` is known. */
+  /** DECLARED: gates until `region` is known, then queries by it. */
   regional_owner: { type: 'lookup', label: 'Regional owner', reference: REF, dependsOn: ['region'] },
   /** CONTROL: same reference, same record, no `dependsOn`. */
   owner: { type: 'lookup', label: 'Owner', reference: REF },
 };
 
-/** `highlightFields` selects which `InlineFieldInput` call site renders the pair. */
-function objectsWith(highlightFields: string[]) {
-  return [{ name: OBJECT, label: 'Task', managedBy: 'platform', highlightFields, fields: FIELDS }];
+/** One option per region, each offered only while the record is in it. */
+const REGIONAL_OPTIONS = [
+  { label: 'Gold', value: 'gold', visibleWhen: "record.region == 'emea'" },
+  { label: 'Silver', value: 'silver', visibleWhen: "record.region == 'apac'" },
+];
+/** The same two values with no option rule — what the controls offer. */
+const PLAIN_OPTIONS = [
+  { label: 'Gold', value: 'gold' },
+  { label: 'Silver', value: 'silver' },
+];
+
+const OPTION_FIELDS = {
+  id: { type: 'text', label: 'Id' },
+  title: { type: 'text', label: 'Title' },
+  region: { type: 'text', label: 'Region' },
+  /** DECLARED single select: gated until `region` is known (`SelectField`). */
+  tier: { type: 'select', label: 'Tier', dependsOn: ['region'], options: REGIONAL_OPTIONS },
+  /** CONTROL single select: same values, no `dependsOn`, no option rule. */
+  tier_any: { type: 'select', label: 'Tier (any)', options: PLAIN_OPTIONS },
+  /**
+   * DECLARED multi select: `SelectField` delegates to `MultiSelectField`, which
+   * draws its offered options as chips — so the SCOPING by the record's value is
+   * readable, not only the gate.
+   */
+  tags: { type: 'select', multiple: true, label: 'Tags', dependsOn: ['region'], options: REGIONAL_OPTIONS },
+  /** CONTROL multi select: same values, no `dependsOn`, no option rule. */
+  tags_any: { type: 'select', multiple: true, label: 'Tags (any)', options: PLAIN_OPTIONS },
+};
+
+type Fields = Record<string, Record<string, unknown>>;
+
+/** `highlightFields` selects which `InlineFieldInput` call site renders the fields. */
+function objectsWith(fields: Fields, highlightFields: string[]) {
+  return [{ name: OBJECT, label: 'Task', managedBy: 'platform', highlightFields, fields }];
 }
 
-function makeDataSource() {
+function makeDataSource(fields: Fields) {
   return {
     find: vi.fn(async (objectName: string, params: any) => {
       if (objectName === REF) {
@@ -145,7 +177,7 @@ function makeDataSource() {
     getObjectSchema: async (name: string) =>
       name === REF
         ? { name, fields: { id: { type: 'text' }, name: { type: 'text' }, region: { type: 'text' } } }
-        : { name, fields: FIELDS },
+        : { name, fields },
   } as any;
 }
 
@@ -177,23 +209,64 @@ function tree(ds: any, objects: any[]) {
 }
 
 /**
- * Load the record page, enter inline edit off the `region` field, and hand back
- * the two lookup triggers. The strip and the details body share ONE inline-edit
- * session, so entering it anywhere puts both surfaces into edit mode.
+ * Load the record page and enter inline edit off the `region` field. The strip
+ * and the details body share ONE inline-edit session, so entering it anywhere
+ * puts both surfaces into edit mode.
  */
-async function openInlineEdit(objects: any[]) {
-  const { container } = render(tree(makeDataSource(), objects));
+async function openInlineEdit(fields: Fields, highlightFields: string[]) {
+  const ds = makeDataSource(fields);
+  const { container } = render(tree(ds, objectsWith(fields, highlightFields)));
   await screen.findByText('Task one');
   fireEvent.doubleClick(screen.getByText('emea'));
   await waitFor(() => {
-    expect(container.querySelectorAll('[data-testid^="lookup-trigger"]').length).toBe(2);
+    expect(regionInput(container)).toBeTruthy();
   });
+  return { ds, container };
+}
+
+/** The `region` editor: a text field, so it is the one plain text input. */
+function regionInput(container: HTMLElement): HTMLInputElement {
+  return container.querySelector('[data-testid="inline-plain-text-input"]') as HTMLInputElement;
+}
+
+/** Stage a new `region` into the edit session's draft, as typing does. */
+function stageRegion(container: HTMLElement, value: string) {
+  fireEvent.change(regionInput(container), { target: { value } });
+}
+
+function lookupTriggers(container: HTMLElement) {
   return {
-    container,
-    triggers: Array.from(container.querySelectorAll('[data-testid^="lookup-trigger"]')) as HTMLButtonElement[],
+    all: Array.from(container.querySelectorAll('[data-testid^="lookup-trigger"]')) as HTMLButtonElement[],
     gated: container.querySelector('[data-testid="lookup-trigger-gated"]') as HTMLButtonElement | null,
+    declared: container.querySelector('[data-testid="lookup-trigger-regional_owner"]') as HTMLButtonElement | null,
     control: container.querySelector('[data-testid="lookup-trigger-owner"]') as HTMLButtonElement | null,
   };
+}
+
+/** The `$filter` of every query the pickers issued against the referenced object. */
+function refFilters(ds: any): unknown[] {
+  return ds.find.mock.calls
+    .filter(([objectName]: any[]) => objectName === REF)
+    .map(([, params]: any[]) => params?.$filter ?? null);
+}
+
+/** Open the declared picker and hand back the `$filter` its query carried. */
+async function openDeclaredPicker(ds: any, declared: HTMLButtonElement): Promise<unknown> {
+  const before = refFilters(ds).length;
+  fireEvent.click(declared);
+  await waitFor(() => {
+    expect(refFilters(ds).length).toBeGreaterThan(before);
+  });
+  const filters = refFilters(ds);
+  return filters[filters.length - 1];
+}
+
+function chipValues(container: HTMLElement, fieldName: string): string[] {
+  const group = container.querySelector(`[data-testid="multiselect-${fieldName}"]`);
+  if (!group) return [];
+  return Array.from(group.querySelectorAll('[data-testid^="multiselect-option-"]')).map((el) =>
+    (el.getAttribute('data-testid') ?? '').replace('multiselect-option-', ''),
+  );
 }
 
 beforeAll(() => {
@@ -214,50 +287,128 @@ beforeEach(() => {
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
+/**
+ * The two call sites. `region` is a highlight in both, so the staged cases
+ * always edit the parent in the strip; what differs is where the dependent
+ * field renders, and therefore which host merged the draft into its record.
+ */
+const LOOKUP_CALL_SITES = [
+  { site: 'DETAILS BODY (DetailSection)', highlights: ['region'] },
+  { site: 'HIGHLIGHTS STRIP (HeaderHighlight)', highlights: ['region', 'regional_owner', 'owner'] },
+];
+
 describe('objectui#7190 — a `dependsOn` lookup on the app-shell record page', () => {
-  it('gates in the DETAILS BODY while the control is usable and the parent value is on screen', async () => {
-    // `region` alone is the strip, so both lookups fall through to the body →
-    // `DetailSection`'s `InlineFieldInput` call site.
-    const { container, triggers, gated, control } = await openInlineEdit(objectsWith(['region']));
+  it.each(LOOKUP_CALL_SITES)(
+    '$site: the declared lookup is enabled and queries by the record, beside an enabled control',
+    async ({ highlights }) => {
+      const { ds, container } = await openInlineEdit(LOOKUP_FIELDS, highlights);
+      await waitFor(() => {
+        expect(lookupTriggers(container).all.length).toBe(2);
+      });
+      const { all, gated, declared, control } = lookupTriggers(container);
 
-    // Exactly two pickers: one per declared column, no double render.
-    expect(triggers.length).toBe(2);
+      // Exactly two pickers: one per declared column, no double render.
+      expect(all.length).toBe(2);
 
-    // CONTROL — the same reference over the same record with no `dependsOn`.
-    // Asserted enabled, not merely observed: a gated reading below would mean
-    // nothing if the picker path were broken for both.
-    expect(control).toBeTruthy();
-    expect(control!.disabled).toBe(false);
+      // CONTROL — the same reference over the same record with no `dependsOn`.
+      expect(control).toBeTruthy();
+      expect(control!.disabled).toBe(false);
 
-    // The parent value the cascade asks for is RENDERED, in this very edit
-    // session — so "the record does not know its region" is excluded.
-    const regionInput = container.querySelector('[data-testid="inline-plain-text-input"]') as HTMLInputElement;
-    expect(regionInput).toBeTruthy();
-    expect(regionInput.value).toBe('emea');
+      // The parent value the cascade asks for is on screen in this edit session.
+      expect(regionInput(container).value).toBe('emea');
 
-    // THE DEFECT: gated anyway.
-    expect(gated).toBeTruthy();
-    expect(gated!.disabled).toBe(true);
-    expect(gated!.textContent).toContain('Select region first');
-  });
+      // THE REPAIR: the declared lookup is not gated…
+      expect(gated).toBeNull();
+      expect(declared).toBeTruthy();
+      expect(declared!.disabled).toBe(false);
 
-  it('gates in the HIGHLIGHTS STRIP too — the second call site, same verdict', async () => {
-    // Both lookups declared as highlights → `HeaderHighlight`'s call site, and
-    // `hideFields` keeps them out of the body, so the count stays 2.
-    const { container, triggers, gated, control } =
-      await openInlineEdit(objectsWith(['region', 'regional_owner', 'owner']));
+      // …and its query is scoped by the RECORD's value, not merely unlocked.
+      expect(await openDeclaredPicker(ds, declared!)).toEqual({ region: 'emea' });
+    },
+  );
 
-    expect(triggers.length).toBe(2);
+  it.each(LOOKUP_CALL_SITES)(
+    '$site: the lookup reads the STAGED draft — clearing the parent re-gates it, a new parent re-scopes it',
+    async ({ highlights }) => {
+      const { ds, container } = await openInlineEdit(LOOKUP_FIELDS, highlights);
+      await waitFor(() => {
+        expect(lookupTriggers(container).declared).toBeTruthy();
+      });
 
-    expect(control).toBeTruthy();
-    expect(control!.disabled).toBe(false);
+      // Clear the parent in the draft only — nothing is saved.
+      stageRegion(container, '');
+      await waitFor(() => {
+        expect(lookupTriggers(container).gated).toBeTruthy();
+      });
+      expect(lookupTriggers(container).gated!.disabled).toBe(true);
+      expect(lookupTriggers(container).gated!.textContent).toContain('Select region first');
+      // The control is untouched by the parent.
+      expect(lookupTriggers(container).control!.disabled).toBe(false);
 
-    const regionInput = container.querySelector('[data-testid="inline-plain-text-input"]') as HTMLInputElement;
-    expect(regionInput).toBeTruthy();
-    expect(regionInput.value).toBe('emea');
+      // Stage a different parent: the declared lookup unlocks and scopes by it.
+      stageRegion(container, 'apac');
+      await waitFor(() => {
+        expect(lookupTriggers(container).declared).toBeTruthy();
+      });
+      const declared = lookupTriggers(container).declared!;
+      expect(declared.disabled).toBe(false);
+      expect(await openDeclaredPicker(ds, declared)).toEqual({ region: 'apac' });
 
-    expect(gated).toBeTruthy();
-    expect(gated!.disabled).toBe(true);
-    expect(gated!.textContent).toContain('Select region first');
-  });
+      // Staged only: the record itself was never written.
+      expect(ds.update).not.toHaveBeenCalled();
+    },
+  );
+});
+
+const OPTION_CALL_SITES = [
+  { site: 'DETAILS BODY (DetailSection)', highlights: ['region'] },
+  { site: 'HIGHLIGHTS STRIP (HeaderHighlight)', highlights: ['region', 'tier', 'tier_any', 'tags', 'tags_any'] },
+];
+
+describe('objectui#7190 — a `dependsOn` option list (select / multiselect) on the app-shell record page', () => {
+  it.each(OPTION_CALL_SITES)(
+    '$site: the declared option lists open and are scoped by the record, beside ungated controls',
+    async ({ highlights }) => {
+      const { container } = await openInlineEdit(OPTION_FIELDS, highlights);
+
+      // CONTROLS — same values, no `dependsOn`, no option rule.
+      await waitFor(() => {
+        expect(container.querySelector('[data-testid="select-trigger-tier_any"]')).toBeTruthy();
+      });
+      expect(chipValues(container, 'tags_any')).toEqual(['gold', 'silver']);
+
+      // DECLARED single select: not gated.
+      expect(container.querySelector('[data-testid="select-empty-tier"]')).toBeNull();
+      expect(container.querySelector('[data-testid="select-trigger-tier"]')).toBeTruthy();
+
+      // DECLARED multi select: not gated, and offering ONLY the record's region.
+      expect(container.querySelector('[data-testid="multiselect-empty-tags"]')).toBeNull();
+      expect(chipValues(container, 'tags')).toEqual(['gold']);
+    },
+  );
+
+  it.each(OPTION_CALL_SITES)(
+    '$site: the option lists read the STAGED draft — a new parent re-scopes them, clearing it re-gates them',
+    async ({ highlights }) => {
+      const { container } = await openInlineEdit(OPTION_FIELDS, highlights);
+      await waitFor(() => {
+        expect(chipValues(container, 'tags')).toEqual(['gold']);
+      });
+
+      stageRegion(container, 'apac');
+      await waitFor(() => {
+        expect(chipValues(container, 'tags')).toEqual(['silver']);
+      });
+      expect(chipValues(container, 'tags_any')).toEqual(['gold', 'silver']);
+
+      stageRegion(container, '');
+      await waitFor(() => {
+        expect(container.querySelector('[data-testid="multiselect-empty-tags"]')).toBeTruthy();
+      });
+      expect(container.querySelector('[data-testid="select-empty-tier"]')).toBeTruthy();
+      // The controls do not depend on the parent.
+      expect(container.querySelector('[data-testid="select-trigger-tier_any"]')).toBeTruthy();
+      expect(chipValues(container, 'tags_any')).toEqual(['gold', 'silver']);
+    },
+  );
 });

@@ -72,6 +72,13 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
 
   if (visibleFields.length === 0) return null;
 
+  // The record a `dependsOn` field scopes itself by — the only channel it has
+  // (objectui#7190, objectui#7206). This strip receives the SAVED record, so the
+  // draft is overlaid here with the same spread `DetailView` uses for the
+  // details body: the two call sites hand `InlineFieldInput` the same staged
+  // record, and a parent edited in either re-scopes a child in either.
+  const stagedRecord = inline?.draft ? { ...data, ...inline.draft } : data;
+
   return (
     <TooltipProvider>
       <section
@@ -207,6 +214,7 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
                       dataSource={dataSource}
                       autoFocus={inline!.autoFocusField === field.name}
                       error={inline!.fieldErrors?.[field.name]}
+                      dependentValues={stagedRecord}
                     />
                     {/* The SERVER's reason for refusing this field, in place
                         (objectui#6868) — the highlights strip shares ONE edit

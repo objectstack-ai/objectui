@@ -337,8 +337,14 @@ export const TooltipSchema = BaseSchema.extend({
   type: z.literal('tooltip'),
   trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Element the tooltip attaches to (objectui#6939)'),
-  content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
-    .describe('Tooltip content, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939)'),
+  // NARROWED under objectui#10280 (objectui#7759 group B): the list arm is gone.
+  // The renderer places `schema.content` RAW in a React child position — unlike
+  // `trigger` and `children`, it does not go through `renderChildren` — so a
+  // list parsed green here and then failed to render with "Objects are not
+  // valid as a React child". The mirror now states the declaration's
+  // `string | SchemaNode` and nothing wider; a list belongs under `children`.
+  content: SchemaNodeSchema.optional()
+    .describe('Tooltip content, checked before `children` — optional because `children` is the fallback for the same slot (objectui#6939). A single value, not a list: author a list under `children` (objectui#10280)'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional()
     .describe('Rich tooltip content — the fallback for `content`, published by the registration as the "Rich Content" slot (objectui#6939, objectui#6771)'),
   side: z.enum(['top', 'right', 'bottom', 'left']).optional().describe('Tooltip side'),

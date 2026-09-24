@@ -19,8 +19,10 @@ import type {
   DashboardWidget as SpecDashboardWidget,
   DateRangeDefaultRange as SpecDateRangeDefaultRange,
   GlobalFilter as SpecGlobalFilter,
+  Dashboard as SpecDashboard,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
+import type { DASHBOARD_SPEC_EXCLUDED } from './zod/complex.zod.js';
 // `GroupingConfig`, `KanbanConditionalFormattingRule` and `ViewNavigationConfig`
 // were imported for `KanbanSchema`'s `grouping`, `conditionalFormatting` and
 // `navigation` members and had no other reader in this module; they left with
@@ -2132,8 +2134,41 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
 
 /**
  * Dashboard Schema
+ *
+ * ## The spec half is taken BY REFERENCE (objectui#9736)
+ *
+ * The zod mirror (`zod/complex.zod.ts` `DashboardComponentSchema`) is
+ * `BaseSchema.extend(SpecDashboardFields.shape).extend({…})`, so every key
+ * `@objectstack/spec/ui`'s `DashboardSchema` declares reaches the published
+ * validator by reference. This interface used to restate only the members the
+ * renderers read, which left the validator admitting keys the type never
+ * declared (the package-lock envelope `_lock*` / `_package*` / `_provenance`,
+ * written by the packaging pipeline, and `protection`) and the spec's
+ * tombstones (`aria`, `refreshInterval`, `performance`) typed `any` through
+ * `BaseSchema`'s index signature.
+ *
+ * Now it extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`, the one
+ * `as const` array the mirror's `specFieldsExcept` call also reads, so the two
+ * faces project the same spec surface and move together on a pin bump. A
+ * tombstone surfaces as an optional member typed `undefined`: authoring a
+ * value is a compile error, the verdict the validator gives at parse.
+ *
+ * ONE key is omitted from the spec projection beyond the shared list, on the
+ * TypeScript face only:
+ *  - `header` — the member below is a hand-written restatement that DISAGREES
+ *    with the spec's in both directions (`actions[].label` narrower: `string`
+ *    against `I18nLabel`; `actions[].actionUrl` optional where the spec
+ *    requires it; `actions[].actionType` an open `string` against the spec's
+ *    enum), so it is not assignable to the spec's member and cannot sit beside
+ *    it. That disagreement is already ledgered as `KnownDrift` and
+ *    `WiderThanDeclared` for this pair in `__tests__/zod-mirror-parity.test.ts`;
+ *    re-aligning it is that ledger's decision, ⛔ not widened here. The mirror
+ *    keeps validating the spec's `header` — the omission is type-side only,
+ *    which is why it is spelled beside the shared list, not inside it.
+ *
+ * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`.
  */
-export interface DashboardComponentSchema extends BaseSchema {
+export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard, (typeof DASHBOARD_SPEC_EXCLUDED)[number] | 'header'> {
   type: 'dashboard';
   // `title` was DECLARED here until objectui#7623, under the comment "Dashboard
   // title displayed in the header" — by then a description of behaviour that had
@@ -2260,9 +2295,9 @@ export interface DashboardComponentSchema extends BaseSchema {
   // `DashboardSchema.shape.aria` is a tombstone that refuses any value, the
   // Zod twin (`zod/complex.zod.ts`) inherits that refusal through
   // `SpecDashboardFields`, and `plugin-dashboard` has no `schema.aria` read
-  // site. Note `BaseSchema`'s index signature still types an authored `aria`
-  // as `any` — this deletion removes the type-level suggestion and the false
-  // parity claim, not a key that ever rendered. Pinned by
+  // site. Since objectui#9736 this interface inherits the same tombstone from
+  // the spec projection (`aria?: undefined`), so an authored `aria` is now a
+  // compile error rather than `any` through the index signature. Pinned by
   // `__tests__/dashboard-aria-retired-contract-twins.test.ts`.
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `dashboard` reads NEITHER

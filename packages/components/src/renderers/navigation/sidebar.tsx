@@ -38,10 +38,10 @@ import {
   SidebarInset
 } from '../../ui';
 
-// Every registration below except `sidebar-trigger` renders
-// `renderChildren(schema.children)`, and every one of those declares the slot
-// as `{ name: 'children', type: 'slot' }` (objectui#9910). That input is the
-// ONLY thing `sdui-parser`'s `not-a-container` reads, so this is what stops
+// Every registration below except `sidebar-trigger` puts the authored child
+// list on the page through `renderChildren`, and every one of those declares
+// the slot as `{ name: 'children', type: 'slot' }` (objectui#9910). That input
+// is the ONLY thing `sdui-parser`'s `not-a-container` reads, so this is what stops
 // the tier from warning on the one child-list key this family renders — the
 // false diagnostic objectui#6771's convergence moved onto `children`.
 // ⛔ Not `isContainer`: objectui#6804 ruled that flag means LAYOUT containment

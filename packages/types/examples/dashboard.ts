@@ -24,10 +24,8 @@ export const dashboardSchema: FlexSchema = {
     // Header
     {
       type: 'header-bar',
-      title: 'Object UI Dashboard',
-      logo: '/logo.svg',
-      sticky: true,
-      right: [
+      crumbs: [{ label: 'Object UI Dashboard' }],
+      actions: [
         {
           type: 'button',
           label: 'Profile',

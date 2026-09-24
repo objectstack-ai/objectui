@@ -427,8 +427,12 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **8 entries** in `WiderThanDeclared`, **10 keys** across them, and **11 arms**
- *     under those keys — split **5** SCHEMA-NODE, **5** CONCRETE, **0** MIXED, **1** unions.
+ *   - **7 entries** in `WiderThanDeclared`, **9 keys** across them, and **9 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **4** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 8 / 10 / 11 — 5 / 5 / 0 / 1 — until objectui#10387 RETIRED
+ *     `navigation.zod.ts#HeaderBarSchema::logo` on both faces: the `header-bar` renderer
+ *     reads no `logo`, so the entry, its one key and BOTH its arms left together. It was
+ *     the ledger's last two-arm key, which is why `unions` reached zero.
  *     It read 8 / 11 / 12 — 5 / 6 / 0 / 1 — until objectui#10334 (objectui#7759 group F)
  *     settled `complex.zod.ts#DashboardComponentSchema::dateRange` by rule 1: the spec
  *     declares the key, so both faces now take the spec's authoring member by reference and
@@ -3208,18 +3212,12 @@ interface WiderThanDeclared {
    * narrow.
    */
   'layout.zod.ts#PageNodeSchema': 'slots';
-  /**
-   * CONCRETE. (`variant` LEFT under objectui#10286 — retired on both faces, see the
-   * note where its `KnownDrift` entry stood.) `logo` ENTERED under objectui#7760: the mirror is
-   * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` — the single-or-list
-   * spelling objectui#7069 called systematic — and the declaration states `logo?:
-   * string`. Both arms read now, and both are wider than a bare string, so an author
-   * may write a node here, `safeParse` returns green and `tsc` refuses it. ⛔ That card
-   * did not create the divergence: it made it MEASURABLE. `Unconstrained` had been
-   * excluding the key, because the face read `unknown` at the top level and one array
-   * deep.
-   */
-  'navigation.zod.ts#HeaderBarSchema': 'logo';
+  // `navigation.zod.ts#HeaderBarSchema` recorded `logo` here (CONCRETE, two arms; ENTERED
+  // under objectui#7760): the mirror spelled it single-or-list `SchemaNode` and the
+  // declaration a bare `string`. The `header-bar` renderer reads no `logo` at all — through
+  // the real `SchemaRenderer` a URL, a node and a node list each drew the header
+  // byte-identical to its absence — and the spec does not declare the key, so objectui#10387
+  // RETIRED it on both faces (`?: never` beside a `retirementTombstone`). The entry is GONE.
   // `overlay.zod.ts#TooltipSchema` recorded `content` here (CONCRETE; ENTERED under
   // objectui#7760): the mirror spelled it single-or-list and the declaration the single arm.
   // The renderer places `schema.content` RAW in a React child position, so the list arm parsed
@@ -3355,7 +3353,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
-  'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewSchema::sections': ['SCHEMA-NODE'],
@@ -5280,7 +5277,14 @@ describe('the WIDER ledger is judged per ARM, not per key (objectui#8252)', () =
     // below would pass while measuring nothing; one that walked into object shapes
     // would report many arms everywhere and the ledger would be rewritten to match
     // an instrument rather than the mirrors. Neither is visible from the arity pin.
+    //
+    // The union direction reads a FIXED control slot beside the ledger's own rows:
+    // objectui#10387 retired the ledger's last two-arm key (`HeaderBarSchema::logo`),
+    // and a non-vacuity check that needs the LEDGER to hold a union would have gone
+    // red on a shrinking ledger rather than on a broken unwrapper. `SidebarSchema`'s
+    // `content` is the single-or-list spelling, two arms, outside the ledger.
     const measured = widerArmRows().map(({ pair, key }) => measureMirrorArms(pair, key)?.length);
+    measured.push(measureMirrorArms('navigation.zod.ts#SidebarSchema', 'content')?.length);
     expect(measured.filter((n) => n === 1).length).toBeGreaterThan(0);
     expect(measured.filter((n) => n !== undefined && n > 1).length).toBeGreaterThan(0);
   });

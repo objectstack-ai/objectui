@@ -2552,8 +2552,9 @@ export interface NamedListView {
  * (`@objectstack/spec` `ui/view.zod.ts` `NavigationConfigSchema`), and a
  * `.default()` lands on the AUTHORING side as `| undefined` — which is why the
  * spec publishes its own type as `z.input< typeof NavigationConfigSchema >`.
- * So `navigation: { view: 'summary_view' }` is legal authored metadata that
- * lets the mode default, and the hand copy refused it.
+ * So `navigation: { openNewTab: true }` is legal authored metadata that lets
+ * the mode default (to `'page'`, the mode `openNewTab` applies to), and the
+ * hand copy refused it.
  *
  * `index.ts` already re-exports that same spec type under its own name
  * (`NavigationConfig`), so this package published two disagreeing spellings of

@@ -727,7 +727,7 @@ export const ComponentMetaSchema = z.object({
   inputs: z.array(ComponentInputSchema).optional().describe('Configurable properties'),
   defaultProps: z.record(z.string(), z.any()).optional().describe('Default property values'),
   examples: z.record(z.string(), z.any()).optional().describe('Example configurations'),
-  isContainer: z.boolean().optional().describe('Can have children'),
+  isContainer: z.boolean().optional().describe('Layout container (skipped by the react-page JSX scope, listed in the public layout ledger); not "can have children" — a renderer that puts `children` on the page declares a `children` slot input (objectui#9910)'),
   resizable: z.boolean().optional().describe('Can be resized'),
   resizeConstraints: z.object({
     width: z.boolean().optional(),

@@ -104,6 +104,7 @@ export const DESIGNER_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'appDesigner.navTypeSeparator': 'Separator',
   'appDesigner.navTypeAction': 'Action',
   'appDesigner.navTypeComponent': 'Component',
+  'appDesigner.navTypeDoc': 'Doc',
   'appDesigner.navEditIcon': 'Edit icon',
   'appDesigner.navToggleVisible': 'Toggle visibility',
   'appDesigner.navHidden': 'Hidden',

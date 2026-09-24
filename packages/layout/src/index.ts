@@ -121,6 +121,11 @@ export function registerLayout() {
     namespace: 'layout',
     label: 'Page Header',
     category: 'Layout',
+    // LAYOUT containment (objectui#6804 / objectui#9910 Q2). It no longer
+    // carries the "renders a child list" fact — the `children` slot input
+    // below does, and it is the one thing `sdui-parser`'s `not-a-container`
+    // reads (objectui#9910 Q1; objectui#3900 is the card that first paid for
+    // the flag being wrong here).
     isContainer: true,
     inputs: [
       { name: 'title', type: 'string' },
@@ -131,6 +136,13 @@ export function registerLayout() {
         type: 'array',
         description: 'ActionDef list (or action ids) rendered through record:quick_actions',
       },
+      // The right-hand slot `PageHeader` renders `schema.children` into
+      // (`content/docs/layout/page-header.mdx` publishes its precedence).
+      // `children` is the protocol's base child-list key, not a
+      // `PageHeaderProps` member, so this line is licensed by the protocol
+      // rather than by spec parity — `__tests__/page-header-authorable-keys`
+      // states that carve-out by name.
+      { name: 'children', type: 'slot', description: 'Right-hand slot content; a JSX `children` prop wins over it' },
     ],
   });
 

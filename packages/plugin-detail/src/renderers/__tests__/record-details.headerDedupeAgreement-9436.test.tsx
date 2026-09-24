@@ -76,7 +76,6 @@ function renderPage(record: any, schema: any): { h1: string | null | undefined; 
         objectSchema={schema}
       >
         <div data-testid="page-header">
-          {/* eslint-disable-next-line react-hooks/static-components -- ComponentRegistry.get returns a registered component (stable), not one created during render */}
           <Header schema={{ type: 'page:header' }} />
         </div>
         <div data-testid="page-body">

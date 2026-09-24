@@ -112,12 +112,17 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
   );
 });
 
+// `objectName` is NOT a required input (objectui#7470): `getDataConfig` reads
+// `data`, then `staticData`, then `objectName`, and the `object-gantt` zod
+// schema (`requireRecordSource`, objectui#6939) is where "one of the three" is
+// enforced. The input list is a flat declaration with a boolean `required`, so
+// it states the rule in the description rather than growing a one-of form.
 ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   namespace: 'plugin-gantt',
   label: 'Object Gantt',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-gantt` schema refuses a block that declares none of them.' },
     { name: 'gantt', type: 'object', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
   ],
 });

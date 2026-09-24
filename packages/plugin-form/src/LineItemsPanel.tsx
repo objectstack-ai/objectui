@@ -29,7 +29,9 @@ import {
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { useSchemaContext, useRecordContext } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
+import { applyColumnPermissions } from './fieldWriteGate';
 import {
   runBatchTransaction,
   mergeFilterNodes,
@@ -174,6 +176,10 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   // keep hook order stable across renders. A null record just means "no parent
   // record bound", which the optional chaining below already handles.
   const record = useRecordContext();
+  // The caller's field-level grants on the CHILD object. With no provider
+  // mounted this is the fail-open answer (`isLoaded` false) and the grid below
+  // renders exactly as it did before permissions existed (objectui#10163).
+  const perms = usePermissions();
 
   const parentObject = schema.parentObject || record?.objectName;
   // No assertion: `RecordContextValue.recordId` is the protocol's `string`
@@ -401,14 +407,19 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const gridField = useMemo(
     () =>
       ({
-        columns: schema.columns,
+        // FLS gate, through the ONE render pass the record-form containers
+        // share: a column the caller may not read is omitted, and one they may
+        // read but not edit renders its cells locked — on the same page where
+        // the surrounding form already disables that field (objectui#10163).
+        // Adding and removing lines stay on `schema.readonly` below.
+        columns: applyColumnPermissions(schema.columns, { perms, objectName: schema.childObject }),
         total_field: schema.totalField ? schema.amountField || 'amount' : undefined,
         min_rows: schema.minRows,
         max_rows: schema.maxRows,
         allow_add: !schema.readonly,
         allow_delete: !schema.readonly,
       }) as any,
-    [schema],
+    [schema, perms],
   );
 
   return (

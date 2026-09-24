@@ -44,6 +44,7 @@ import type { ViewFilterRule } from '@objectstack/spec/ui';
 import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns } from '@object-ui/fields';
 import {
   buildExpandFields,
+  collectPredicateFieldRefs,
   columnIdentity,
   columnHeader,
   compareSortValues,
@@ -52,7 +53,9 @@ import {
   isEmptyValue,
   isExpandableFieldType,
   isPlatformSortableField,
+  isProjectableField,
   isUnmaterializedFieldType,
+  listViewPredicates,
   composeParentScopeFilter,
   isMultiValueRelationship,
   mergeFilterNodes,
@@ -332,6 +335,52 @@ function normalizeSortSpec(
   return sort.filter((s) => !!s?.field);
 }
 
+/** The permission context this component reads field-level security from. */
+type FieldReadPolicy = ReturnType<typeof usePermissions>;
+
+/**
+ * The key this component DRAWS a column through: the table library's
+ * `accessorKey` first, then the shared metadata reader. Every column gate below
+ * resolves identity this way, because a column refused under one reading and
+ * drawn under another is the defect objectui#9053 recorded.
+ */
+function drawnColumnKey(c: any): string | undefined {
+  const key = c?.accessorKey || columnIdentity(c);
+  return key ? String(key) : undefined;
+}
+
+/**
+ * The three column gates of the AUTHORED path, as plain functions so that the
+ * columns `effectiveColumns` draws and the `$select` the auto-fetch sends
+ * (objectui#10186) are judged by ONE spelling of each gate, not two that can
+ * drift apart. Each fails OPEN on a column it cannot name, as it always has.
+ *
+ * FLS: drop the columns the principal cannot read on the related object. An
+ * unanswered policy (`isLoaded` false) filters nothing.
+ */
+function keepReadableColumns<T>(cols: T[], perms: FieldReadPolicy, objectName: string): T[] {
+  if (!perms?.isLoaded || !objectName) return cols;
+  return cols.filter((c) => {
+    const key = drawnColumnKey(c);
+    if (!key) return true;
+    return perms.checkField(objectName, key, 'read');
+  });
+}
+
+/** Drop the parent foreign key: the parent record is already the context. */
+function dropParentKeyColumn<T>(cols: T[], referenceField: string | undefined): T[] {
+  return referenceField ? cols.filter((c) => drawnColumnKey(c) !== referenceField) : cols;
+}
+
+/** Drop the columns the block redacts (objectui#9053) — an authoring preference. */
+function dropRedactedColumns<T>(cols: T[], redacted: ReadonlySet<string>): T[] {
+  if (redacted.size === 0) return cols;
+  return cols.filter((c) => {
+    const key = drawnColumnKey(c);
+    return !(key && redacted.has(key));
+  });
+}
+
 /**
  * One `list_toolbar` action button on a related-list header (e.g. "Invite
  * User" on an organization's Invitations list). Extracted into its own
@@ -464,10 +513,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const { t } = useDetailTranslation();
   const { fieldLabel: resolveFieldLabel } = useSafeFieldLabel();
   /**
-   * Field-level security, read by BOTH projection sites: the `$expand` roots
-   * the auto-fetch below asks the server to resolve, and the column gate in
-   * `effectiveColumns` further down (which is where this call used to sit —
-   * it was hoisted here, unconditionally, so the fetch effect can name it).
+   * Field-level security, read by every projection site: the `$expand` roots
+   * the auto-fetch below asks the server to resolve, the `$select` it sends
+   * (objectui#10186), and the column gate in `effectiveColumns` further down
+   * (which is where this call used to sit — it was hoisted here,
+   * unconditionally, so the fetch effect can name it).
    */
   const perms = usePermissions();
 
@@ -653,6 +703,116 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    */
   const expandKey = expandFields.join(',');
 
+  /**
+   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
+   * identity so `effectiveColumns` keeps the reference-stable dependency the
+   * rest of this file is built around: a caller that passes no list passes
+   * `undefined`, which never changes, and one that passes its authored array
+   * passes it by reference. Declared up here because the `$select` projection
+   * below reads it too.
+   */
+  const redactedFields = React.useMemo(
+    () =>
+      new Set(
+        (Array.isArray(redactFields) ? redactFields : []).filter(
+          (f): f is string => typeof f === 'string' && f.length > 0,
+        ),
+      ),
+    [redactFields],
+  );
+
+  /**
+   * The `$select` projection for the auto-fetch below (objectui#10186) — the
+   * SELECT half of the pair objectui#10112 opened with `$expand`, ruled "per
+   * that precedent": objectui#6898's field-level security on the projection,
+   * which `ListView` and `ObjectGrid` already send.
+   *
+   * Without it this list asked for every field of every child row and dropped
+   * a denied one only at the column layer, so the value still crossed the wire
+   * into `relatedData`. Graded as objectui#6898 graded it: against ObjectStack
+   * nothing leaks today, because `plugin-security`'s `FieldMasker.maskRecord`
+   * deletes an unreadable key from every returned row; the projection is
+   * defence in depth there, and load-bearing for a backend that does not strip.
+   *
+   * WHAT IT ASKS FOR, each member mirroring the precedent:
+   *
+   *  - the authored columns that survive the SAME three gates `effectiveColumns`
+   *    applies before it draws them (redaction, the parent key, FLS) — the
+   *    shared functions above, so what is requested and what is drawn cannot
+   *    disagree about a column;
+   *  - `id`, unconditionally, as both precedents send it: row click, Edit,
+   *    Delete and every row action resolve the record through it;
+   *  - the `$expand` roots, already FLS-gated at their own site — a root the
+   *    projection omitted would have no key to resolve;
+   *  - the fields the row PREDICATES read (objectui#3501): the child object's
+   *    `userActions` Edit/Delete overrides, its actions and the host's row
+   *    actions, harvested by core's one reader. A predicate operand no column
+   *    shows would otherwise be absent from the row, and CEL faults on an
+   *    absent key, which fails the row menu CLOSED for everyone. Each operand
+   *    must be a field the object declares or a platform column (an unknown
+   *    `$select` key zeroes the list on backends that reject it), and a
+   *    DECLARED one must pass FLS — `ObjectGrid`'s `passesProjectionGate`
+   *    order. Nothing is harvested before the child schema lands, because
+   *    nothing can be validated; the key below then changes and the list is
+   *    fetched again with the operands.
+   *
+   * ⛔ `pruneEmpty` is NOT applied: it judges emptiness from the rows this
+   * request fetches, so the projection is taken before it — it only ever
+   * removes a column, never adds one.
+   *
+   * ⭐ `undefined` — no projection, the request byte-identical to before — on
+   * every path that DERIVES its columns: no authored `columns`, or redaction
+   * emptied them, so `highlightFields` or the field walk decides. Those
+   * columns are not known before the fetch: both need the child schema, which
+   * the row fetch is deliberately not gated on, and both choose among their
+   * candidates by the emptiness of the rows fetched (the walk prunes and then
+   * caps at `maxColumns`; `highlightFields` falls through to the walk when
+   * every highlight is empty). That path is the design question objectui#10186
+   * left open, and it is not answered here. An authored list whose every
+   * column FLS denies is NOT that path: it still projects, to `id` and what
+   * its row predicates need, rather than reading an emptied column list as
+   * "no restriction" — the widening objectui#7215 measured on `$expand`.
+   */
+  const selectFields = React.useMemo((): string[] | undefined => {
+    const authored = dropRedactedColumns(Array.isArray(columns) ? columns : [], redactedFields);
+    if (authored.length === 0) return undefined;
+    const relatedObjectName = objectName || api || '';
+    const projection = new Set<string>(['id']);
+    for (const col of keepReadableColumns(dropParentKeyColumn(authored, referenceField), perms, relatedObjectName)) {
+      const key = drawnColumnKey(col);
+      if (key) projection.add(key);
+    }
+    for (const root of expandFields) projection.add(root);
+    const declared = objectSchema?.fields as Record<string, unknown> | undefined;
+    if (declared && typeof declared === 'object') {
+      const operands = collectPredicateFieldRefs(
+        listViewPredicates({
+          rowActionDefs: rowActions,
+          objectActions: objectSchema?.actions,
+          userActions: objectSchema?.userActions,
+        }),
+      );
+      for (const field of operands) {
+        if (!isProjectableField(field, declared)) continue;
+        const isDeclared = Object.prototype.hasOwnProperty.call(declared, field);
+        if (isDeclared && perms?.isLoaded && relatedObjectName
+            && !perms.checkField(relatedObjectName, field, 'read')) continue;
+        projection.add(field);
+      }
+    }
+    return Array.from(projection);
+  }, [columns, redactedFields, referenceField, objectName, api, perms, expandFields, objectSchema, rowActions]);
+  /**
+   * Content key for the fetch effect, for the reason `expandKey` is one
+   * (commandment #10). It also carries the projection onto the wire when an
+   * input lands late: the permission answer (`/me/permissions` resolves
+   * asynchronously, so the first request can go out before a denied column is
+   * known — the same deferral as `ObjectGrid`) and the child schema (predicate
+   * operands). A derived-columns list keeps `''` and re-runs exactly as often
+   * as it did before.
+   */
+  const selectKey = selectFields ? selectFields.join(',') : '';
+
   // Sync internal state when data prop changes (e.g., parent fetches async data)
   React.useEffect(() => {
     if (dataProvided) {
@@ -805,6 +965,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // nothing to expand, so a child object with no reference column sends
         // the byte-identical query it always sent.
         if (expandFields.length > 0) params.$expand = expandFields;
+        // Ask only for what the principal may read and the list draws or its
+        // row predicates read (objectui#10186). Omitted on a derived-columns
+        // list — see `selectFields` for why that path sends no projection.
+        if (selectFields) params.$select = selectFields;
         if (windowed) {
           params.$top = effectivePageSize;
           params.$skip = fetchPage * effectivePageSize;
@@ -928,9 +1092,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // `expandKey` is the CONTENT of `expandFields` for the reason
     // `defaultSortKey` / `filterKey` are the content of their memos — and it is
     // the dependency that lets the schema-derived expansion reach the wire at
-    // all; see the key's own comment above.
+    // all; see the key's own comment above. `selectKey` is the same thing for
+    // the `$select` projection (objectui#10186).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey, expandKey]);
+  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey, expandKey, selectKey]);
 
   // Windowed mode: a page beyond the (shrunken) collection — e.g. the last
   // row of the last page was just deleted — comes back empty. Step back one
@@ -1215,40 +1380,12 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   //  - Prefer name-like fields (name, title, subject, ...) first.
   //  - Cap at `maxColumns` to keep the related card readable; users can
   //    click "View All" to see the full list.
-  /**
-   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
-   * identity so `effectiveColumns` keeps the reference-stable dependency the
-   * rest of this file is built around: a caller that passes no list passes
-   * `undefined`, which never changes, and one that passes its authored array
-   * passes it by reference.
-   */
-  const redactedFields = React.useMemo(
-    () =>
-      new Set(
-        (Array.isArray(redactFields) ? redactFields : []).filter(
-          (f): f is string => typeof f === 'string' && f.length > 0,
-        ),
-      ),
-    [redactFields],
-  );
   const effectiveColumns = React.useMemo(() => {
     const relatedObjectName = objectName || api || '';
     // FLS: drop columns the current user cannot read on the related object.
-    const filterFLS = (cols: any[]): any[] => {
-      if (!perms?.isLoaded || !relatedObjectName) return cols;
-      return cols.filter((c) => {
-        const key = c?.accessorKey || columnIdentity(c);
-        if (!key) return true;
-        return perms.checkField(relatedObjectName, String(key), 'read');
-      });
-    };
-    const filterFK = (cols: any[]): any[] =>
-      referenceField
-        ? cols.filter((c) => {
-            const key = c?.accessorKey || columnIdentity(c);
-            return key !== referenceField;
-          })
-        : cols;
+    // The gate is shared with the `$select` projection (objectui#10186).
+    const filterFLS = (cols: any[]): any[] => keepReadableColumns(cols, perms, relatedObjectName);
+    const filterFK = (cols: any[]): any[] => dropParentKeyColumn(cols, referenceField);
 
     /**
      * [objectui#9053] Redaction — the block-level authoring preference, asked
@@ -1266,10 +1403,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      */
     const isRedacted = (key: unknown): boolean =>
       redactedFields.size > 0 && !!key && redactedFields.has(String(key));
-    const filterRedacted = (cols: any[]): any[] =>
-      redactedFields.size > 0
-        ? cols.filter((c) => !isRedacted(c?.accessorKey || columnIdentity(c)))
-        : cols;
+    const filterRedacted = (cols: any[]): any[] => dropRedactedColumns(cols, redactedFields);
 
     /**
      * Does this cell have nothing to show? **THE** definition of emptiness on

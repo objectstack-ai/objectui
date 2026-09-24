@@ -14,7 +14,7 @@ The change is purely additive: the two names join the root barrel's existing nam
 re-export list from `./form.js`, beside `CommandSchema`. Nothing is removed, renamed or
 narrowed, the declarations stay in `form.ts`, and the `/form` subpath keeps working. It is
 the third instance of one class, repaired by the same route each time: objectui#7697 for
-`ComboboxOption`, and objectui#9406 (decision batch #133 item 2, letter (a)) for
+`ComboboxOption`, and objectui#9406 (director decision batch 133, item 2, letter (a)) for
 `InputShorthandSchema` and `UiCalendarSchema`.
 
 `form-barrel-mirror-9406.test.ts` had found these two names and ledgered them as undecided,

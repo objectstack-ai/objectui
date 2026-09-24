@@ -36,7 +36,20 @@ import { getPackageSchema, getPackageForm } from './package-schema.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
-const VERSION_RE = /^\d+\.\d+\.\d+$/;
+
+/**
+ * Is `v` a package version the INSTALLED `@objectstack/spec` accepts?
+ *
+ * Judged by `ManifestSchema`'s own `version` field schema, never by a grammar
+ * copied into this repo: a hand-copied regex drifts the moment the spec's
+ * canon moves (objectui#10207 — the spec is converging every package-version
+ * carrier on SemVer 2.0.0, objectstack#18697), leaving the dialog stricter or
+ * looser than the contract it is a form for. Reading the field schema also
+ * survives the spec renaming or retiring whatever pattern constant backs it.
+ */
+function isSpecPackageVersion(v: string): boolean {
+  return ManifestSchema.shape.version.safeParse(v).success;
+}
 
 export type PackageFormMode = 'create' | 'edit' | 'view';
 
@@ -224,7 +237,9 @@ export function PackageFormDialog({
 
   const nameOk = !!String(draft.name ?? '').trim();
   const versionStr = String(draft.version ?? '').trim();
-  const versionOk = createMode ? VERSION_RE.test(versionStr) : !versionStr || VERSION_RE.test(versionStr);
+  const versionOk = createMode
+    ? isSpecPackageVersion(versionStr)
+    : !versionStr || isSpecPackageVersion(versionStr);
   const idOk = !createMode || !!String(draft.id ?? '').trim();
   // Namespace is required on create (framework#2694): every object name is
   // prefixed with it. On edit it's immutable and not resubmitted.

@@ -982,7 +982,17 @@ export interface ChatToolInvocation {
    * Tool invocation state. The legacy `partial-call`/`call`/`result` values
    * are kept for back-compat; the AI SDK v6 lifecycle states map cleanly to
    * `input-streaming`/`input-available`/`output-available`/`output-error`
-   * and friends and are now accepted directly.
+   * and are accepted directly.
+   *
+   * ⛔ The SDK's three APPROVAL states — `approval-requested`,
+   * `approval-responded` and `output-denied` — are NOT authorable
+   * (objectui#10018, the residual clause of the objectui#8426 ruling). A chat
+   * runtime produces them: from the SDK's approval envelope, or promoted from
+   * an ObjectStack pending-action tool result. An authored claim of one — with
+   * or without an `approval` envelope — is refused here and by the Zod mirror,
+   * so a schema cannot declare an approval the runtime has nothing to back.
+   * They still reach a host on the way OUT, which is why `ChatbotSchema.onSend`
+   * does not hand back this authoring shape — see {@link ChatMessageHandedBack}.
    */
   state?:
     | 'partial-call'
@@ -990,11 +1000,8 @@ export interface ChatToolInvocation {
     | 'result'
     | 'input-streaming'
     | 'input-available'
-    | 'approval-requested'
-    | 'approval-responded'
     | 'output-available'
-    | 'output-error'
-    | 'output-denied';
+    | 'output-error';
   /**
    * AI SDK v6 approval envelope — the data a human decision on this tool call
    * is carried by, and the piece that makes the three approval states
@@ -1006,10 +1013,12 @@ export interface ChatToolInvocation {
    * part. Carrying it here is what lets a mapper hand a rehydrated pending
    * approval to a chat surface without the surface re-parsing the tool result.
    *
-   * Optional because the other seven states never carry one. Pairing the
-   * envelope with the states that require it is objectui#8426's narrowing of
-   * the `state` union above, deliberately NOT done here — this member is
-   * purely additive, so nothing an author writes today stops parsing.
+   * Optional because none of the states an author may declare REQUIRES one:
+   * the three that do are runtime-only and are shed from the `state` union
+   * above (objectui#10018), so an authored invocation cannot claim one of them
+   * with or without this envelope. Of the authorable states, the SDK's union
+   * admits an already-decided envelope (`approved: true`) on `output-available`
+   * and `output-error` only; its two input states admit none.
    */
   approval?: {
     /** Approval request id — the key a decision is replied on. */
@@ -1024,6 +1033,44 @@ export interface ChatToolInvocation {
     signature?: string;
   };
 }
+
+/**
+ * The AI SDK's three approval lifecycle states — RUNTIME-ONLY (objectui#10018).
+ *
+ * Shed from {@link ChatToolInvocation}'s authoring `state` union: a chat
+ * runtime produces them (from the SDK's approval envelope, or promoted from an
+ * ObjectStack pending-action tool result) and an author never does. They are
+ * named here for ONE reader — {@link ChatMessageHandedBack}, the shape a chat
+ * runtime hands BACK to a host — and are ⛔ deliberately NOT exported: the
+ * authoring package gives an author no name to reach for.
+ *
+ * `@object-ui/plugin-chatbot` spells the same three states on its runtime
+ * `ChatToolInvocation`. Its `chat-message-contract.test.ts` derives this alias
+ * through `ChatbotSchema['onSend']` and pins the two spellings EQUAL, so
+ * neither can move alone.
+ */
+type ChatToolRuntimeOnlyState = 'approval-requested' | 'approval-responded' | 'output-denied';
+
+/**
+ * One chat message as a chat runtime hands it BACK to a host — the element
+ * type of `ChatbotSchema.onSend`'s `messages`.
+ *
+ * The authoring {@link ChatMessage} widened by exactly one thing: its tool
+ * invocations may also be in a {@link ChatToolRuntimeOnlyState}. A runtime
+ * hands back the thread it holds, and in API mode that thread holds approval
+ * states the authoring face refuses (objectui#10018) — so typing the callback's
+ * `messages` as the authoring `ChatMessage[]` would understate the values a
+ * host receives. ⛔ Not exported, for the same reason as the states above;
+ * a host that needs to spell it reads it off the slot:
+ * `Parameters<NonNullable<ChatbotSchema['onSend']>>[1]`.
+ */
+type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
+  toolInvocations?: Array<
+    Omit<ChatToolInvocation, 'state'> & {
+      state?: ChatToolInvocation['state'] | ChatToolRuntimeOnlyState;
+    }
+  >;
+};
 
 /**
  * Chatbot component — the authoring face of the
@@ -1366,17 +1413,21 @@ export interface ChatbotSchema extends BaseSchema {
   /**
    * Called after a message is sent, in both API and local auto-response mode,
    * with the trimmed content and the full message list at that point.
-   * `messages` here is the same authoring-side {@link ChatMessage} shape as the
-   * `messages` field above; the plugin's own runtime message type is a
-   * structural superset (objectui#4424) and still satisfies a handler typed
-   * against this narrower, published shape.
+   * `messages` is the thread the chat runtime HOLDS, not the one that was
+   * authored: the authoring {@link ChatMessage} shape whose tool invocations
+   * may also carry the three runtime-only approval states
+   * ({@link ChatMessageHandedBack}). API mode produces those states and the
+   * authoring face refuses them (objectui#10018), so ⚠️ a handler that
+   * declares its parameter as the authoring `ChatMessage[]` no longer
+   * type-checks against this slot — that shape is narrower than the values
+   * the handler receives. Let the parameter be inferred from this slot.
    *
    * RUNTIME SLOT (objectui#6124) — a host-supplied function, NOT authorable
    * metadata: JSON has no function value, so the zod twin refuses this key by
    * name and points at the node-type spelling. Kept callable here because it is
    * forwarded by `plugin-chatbot` into `useObjectChat({ onSend })`.
    */
-  onSend?: (content: string, messages: ChatMessage[]) => void;
+  onSend?: (content: string, messages: ChatMessageHandedBack[]) => void;
 
   // --- Floating / FAB configuration ---
 

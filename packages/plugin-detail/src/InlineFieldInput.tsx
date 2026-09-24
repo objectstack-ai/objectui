@@ -214,6 +214,29 @@ export interface InlineFieldInputProps {
    * server already decided.
    */
   error?: string;
+  /**
+   * The record this field belongs to, as the edit session sees it — the saved
+   * record overlaid with the inline draft (objectui#7190). Forwarded unchanged
+   * to every widget that scopes itself by a record: `LookupField` / `UserField`
+   * (a `dependsOn` lookup gates on it and filters its query by it),
+   * `SelectField` (a `dependsOn` gate plus per-option `visibleWhen`, through
+   * `useCascadingOptions`), and `FieldEditWidget`, which hands it on to the
+   * option widgets it renders. Same spelling and shape as the widgets' own
+   * `dependentValues` prop.
+   *
+   * ⚠️ It is the ONLY channel. The widgets resolve `dependentValues ?? {}`:
+   * there is no context fallback (objectui#7206 retired the one that was
+   * documented and never fired), so a host that omits it renders every
+   * `dependsOn` field permanently gated — "Select region first" beside a
+   * filled `region`. The two in-repo hosts, `DetailSection` and
+   * `HeaderHighlight`, both pass it.
+   *
+   * STAGED, not saved: a parent edited in the same session re-scopes the child
+   * before anything is written, and clearing it re-gates the child — the grid
+   * inline editor's `pendingRow ?? row` (objectui#7188) and the form's live
+   * watched record.
+   */
+  dependentValues?: Record<string, unknown>;
 }
 
 /**
@@ -270,6 +293,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   dataSource,
   autoFocus,
   error,
+  dependentValues,
 }) => {
   const editType = field.type;
   // Per-field widget override (ADR-0056 P1) — honor a `widget` hint before the
@@ -333,6 +357,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
         value={Array.isArray(value) ? value : value == null || value === '' ? [] : [value]}
         onChange={(v) => onChange(v)}
         error={error}
+        dependentValues={dependentValues}
       />
     ) : (
       <SelectField
@@ -340,6 +365,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
         value={value == null ? '' : String(value)}
         onChange={(v) => onChange(v)}
         error={error}
+        dependentValues={dependentValues}
       />
     );
   }
@@ -401,6 +427,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
         onChange={(v: any) => onChange(v)}
         dataSource={dataSource}
         error={error}
+        dependentValues={dependentValues}
       />
     );
   }
@@ -484,6 +511,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
         onChange={(v: any) => onChange(v)}
         autoFocus={autoFocus}
         error={error}
+        dependentValues={dependentValues}
       />
     );
   }

@@ -23,15 +23,17 @@
  *
  * The absolute-byte rows guard against a joint move of tile and cell.
  *
- * ── Directions, predicted in writing BEFORE the first run on the base tree ──
+ * ── Directions on the base tree (predicted before the first run, then observed) ──
  *   agreement, fractional amount, USD/KWD any `scale`         RED
  *   agreement, JPY with `scale: 4`                            RED
  *   agreement, JPY with no `scale`                            GREEN (0 = JPY's width by accident)
  *   agreement, whole amount with `scale: 4`                   RED
  *   agreement, whole amount with no `scale`                   GREEN (0 = the cell's whole width)
  *   no code resolved, fractional                              RED
- *   no code resolved, whole                                   GREEN
+ *   no code resolved, whole                                   RED
  *   an authored `format` still wins (control)                 GREEN (untouched)
+ * Predicted: "no code resolved, whole" GREEN. Observed: RED — its fixture
+ * carries a stale `scale: 4`, which the base tree padded to `1,234.0000`.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';

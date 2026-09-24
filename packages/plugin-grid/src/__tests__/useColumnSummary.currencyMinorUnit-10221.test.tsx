@@ -31,13 +31,16 @@
  * together to a wrong width. The absolute-byte rows name the ruled output and
  * cannot pass by accident.
  *
- * ── Directions, predicted in writing BEFORE the first run on the base tree ──
+ * ── Directions on the base tree (predicted before the first run, then observed) ──
  *   agreement, fractional amount, no/0/4 `scale`, USD/KWD   RED   (width = scale ?? 0)
  *   agreement, JPY with no `scale` or `scale: 0`            GREEN (0 = JPY's width by accident)
  *   agreement, whole amount with no `scale` or `scale: 0`   GREEN (0 = the cell's whole width)
  *   agreement, whole amount with `scale: 4`                 RED
- *   absolute bytes                                          RED   except the whole/no-scale row
+ *   agreement, no code resolved (fixtures carry `scale: 4`) RED
+ *   absolute bytes                                          RED   (every row carries a moved case)
  *   the percent control                                     GREEN (untouched — A1)
+ * Predicted: the absolute whole-amount row GREEN. Observed: RED — it also
+ * asserts `scale: 2`, which the base tree padded to `$1,234.00`.
  * The GREEN-on-base agreement rows are overshoot detectors, not measurements
  * of the repair: they fail if the fix breaks what already agreed.
  */

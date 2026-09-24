@@ -23,8 +23,13 @@ building blocks exported by `@object-ui/app-shell`
 Auth is `AuthProvider` from `@object-ui/auth` pointed at
 `${VITE_SERVER_URL}/api/v1/auth`. [`src/main.tsx`](./src/main.tsx) registers ten view
 plugins by side-effect import (grid, kanban, calendar, charts, list, detail, view,
-form, dashboard, report) and loads UI translations from
-`${VITE_SERVER_URL}/api/v1/i18n/translations/:lang`.
+form, dashboard, report) and hands `I18nProvider` the loader in
+[`src/loadLanguage.ts`](./src/loadLanguage.ts), which fetches the app's translations
+from `${VITE_SERVER_URL}/api/v1/i18n/translations/:lang`. The server answers with a
+spec `TranslationData` document; the loader namespaces it with `@object-ui/i18n`'s
+`transformSpecTranslations` — the same branch `apps/console` takes — so
+`useObjectLabel` reads your object and field labels. A payload that is already an
+i18next namespace tree passes through unchanged.
 
 [`vite.config.ts`](./vite.config.ts) aliases 29 `@object-ui/*` specifiers to
 `packages/*/src` so plugin registration hits one `ComponentRegistry` singleton — a

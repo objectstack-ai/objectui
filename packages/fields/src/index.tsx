@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -1116,10 +1116,17 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // occurrences of `isoString` are its assignment and its one use. A
   // PARSEABLE value keeps its `title` unchanged.
   //
-  // `new Date(safe)` reproduces `formatDate`'s own parse exactly (it receives
-  // `safe`, and `coerceToSafeValue` never returns a `Date`), so this branch
+  // `new Date(safe)` ACCEPTS exactly what `formatDate` accepts (it receives
+  // `safe`, `coerceToSafeValue` never returns a `Date`, and `toDisplayDate`
+  // rebuilds only a value this same parse already accepted), so this branch
   // is co-extensive with the dash it replaces — never wider. In particular a
   // numeric timestamp stays a number through the coercion and still renders.
+  //
+  // ⚠️ It does NOT reproduce the DAY `formatDate` renders: a date-only value
+  // is UTC midnight here and local midnight there, a calendar day apart west
+  // of UTC. So this `Date` answers validity and the `title` below only; the
+  // overdue predicate takes its day from `toDisplayDate`, the step the text
+  // went through (objectui#10183).
   const date = safe != null ? new Date(safe as string | number) : null;
   if (date === null || isNaN(date.getTime())) return <EmptyValue />;
 
@@ -1131,7 +1138,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // instead of carrying a second copy (objectui#8958).
   const dueLike = resolveDueLike(field);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
-  const isOverdue = isOverdueInstant(date, dueLike);
+  const isOverdue = isOverdueInstant(toDisplayDate(safe as string | number), dueLike);
 
   return (
     <span

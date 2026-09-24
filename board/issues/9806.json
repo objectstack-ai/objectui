@@ -2,8 +2,8 @@
   "number": 9806,
   "kind": "issue",
   "title": "finding(plugin-view): `ObjectView`'s new objectui#9462 comment says the hook decides modifier clicks when no host handler is present — `handleClick` returns EARLY on the handler `ObjectView` always passes, so Cmd/Ctrl-click there still degrades to ordinary navigation",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,18 +12,23 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T06:34:40Z",
-  "updated_at": "2026-09-20T10:21:12Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T19:13:44Z",
+  "closed_at": "2026-09-24T19:10:45Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9806",
   "body": "Found by the **at-tier clause-② contract review** of PR objectui#9797 (card objectui#9462), and flagged there as ⛔ **not a re-spin cause** — the PR landed on its own merits. Re-verified line by line on merged `main` by the reviewing seat before filing.\n\n## What\n\n`packages/plugin-view/src/ObjectView.tsx`'s `handleRowClick` carries a comment, added by PR objectui#9797, whose closing sentence is false on the path it describes:\n\n> The branches below deliberately do NOT read it: what Cmd/Ctrl/middle-click should do when no host handler is present **is the hook's own decision, taken before this callback runs.**\n\nThe hook never gets to make that decision here. `packages/react/src/hooks/useNavigationOverlay.ts` — `handleClick` — **returns early** when an external `onRowClick` is present, and does so **before** its modifier branch:\n\n```\nif (onRowClick) {\n  onRowClick(record, event);\n  return;\n}\n\n// Modifier / middle-click → always open in a new browser tab as a full page.\nconst isModifierClick = !!(\n  event && (event.metaKey || event.ctrlKey || event.button === 1)\n);\n```\n\nAnd `ObjectView` hands `handleRowClick` down **unconditionally** — `:2226` `onRowClick: handleRowClick,` and `:2264` `onRowClick={handleRowClick}`. There is no arm in which the hook's modifier branch runs for this component.\n\n⇒ `handleRowClick`'s own branches read no `event`, so **in a `plugin-view` `ObjectView` with no host `onRowClick`, a Cmd / Ctrl / middle-click still degrades to an ordinary navigation** — the behaviour objectui#9360 and objectui#9462 exist to make reachable.\n\n## Why it is a card rather than a re-spin of the PR that wrote the comment\n\n⛔ Stated by the reviewer and agreed by the accepting seat:\n\n- It is **outside objectui#9462's subject**, which is hosts that DO supply a handler — and for those hosts the payload now arrives correctly.\n- It **misleads no published declaration**: the sentence is a function-body `//`, ⛔ not shipped JSDoc, so nothing in any `.d.ts` says it.\n- It changes nothing in the review's ① or ②, and the PR's verdict was PASS on its own contents.\n\n⭐ The instructive part is how it was found: the comment is **new**, written by the very PR that repaired the forwarding, and it is wrong about a file the PR did not change. A repair that explains itself by describing a neighbour's behaviour inherits the risk of being wrong about the neighbour.\n\n## Shape of the remedy — ⛔ not decided here\n\nThe reviewer's reading, recorded rather than adopted: *\"the fix would be a branch in `handleRowClick`, not a declaration change.\"* ⚠️ That is a **behaviour** change on a published component — a modifier click that today navigates in place would start opening a new tab — so it owes its own grading, and possibly its own ruling about whether `ObjectView` should mirror the hook's convention at all.\n\n⛔ **And the comment is wrong either way.** Whichever way the behaviour question is ruled, the sentence quoted above does not describe this code and should not survive unamended. Those are two separable deliverables and a taker may do only the second.\n\n## Not measured\n\n⛔ Whether any other consumer of `useNavigationOverlay` passes an unconditional `onRowClick` and therefore has the same dead modifier branch — only `ObjectView` was read. ⛔ Whether the `ObjectGrid` / `ListView` / gallery paths differ here; the reviewer's finding is scoped to `plugin-view`'s `ObjectView`. ⛔ Not driven in a browser: this is a code reading of an early return plus an unconditional hand-down, ⛔ not an observed click.\n\nRefs: objectui#9462 / PR objectui#9797 (the repair, and the comment) · the contract-review record, comment `5725942570` on that PR, where the flag was raised · objectui#9360 (the payload the hook forwards) · objectui#9357 (the channel).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

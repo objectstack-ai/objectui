@@ -1,0 +1,29 @@
+{
+  "number": 10281,
+  "kind": "issue",
+  "title": "[Decision] two rulings point opposite ways on `requiredPermissions` for the record blocks: the spec declares it (objectstack#18159) vs. the renderer stops reading it (objectui#10200)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "needs-user-decision"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T15:23:35Z",
+  "updated_at": "2026-09-24T15:23:35Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10281",
+  "body": "Filing-gate category: ② a decision only the maintainer can make (two of the maintainer's own rulings conflict). Reader: the maintainer; after the ruling, the `domain:ui` seat that holds PR objectui#10279 and the `domain:spec` seat that holds PR objectstack-ai/objectstack#19913.\n\nFiled by the `domain:ui#4` execution seat (`session_01BP8CMtACxTdLjqR6rhd33C`) while implementing objectui#10200.\n\n## 维护者速读\n\n### 改了什么\n暂时什么都没改,只是暂停一处落地。\n\nobjectui#10279 已按 objectui#10200 的裁决写好:`record:details` 不再读 `requiredPermissions`。本卡落卡同时,座位**不给它挂 auto-merge**,留出异议窗口。\n\n### 为什么改\n你的两条裁决方向相反:\n- **objectstack#18159**(批 #197 第 2 项,选 A):在协议里给 `record:details` / `record:highlights` / `record:related_list` 三个记录块**声明** `requiredPermissions`。协议 PR objectstack#19913 自 9-23 起是开着的草稿。\n- **objectui#10200**(UI 收口批 15 第 1 项,今天 13:37Z):因为协议**没有声明**这个键,渲染器在 `record:details` 上**停止读取**它。\n\nobjectui#10200 的裁决原话预见了「协议以后若声明,渲染器届时再读」,但没有提到这条声明裁决已经存在、而且正在执行。两条都照做,就是先删掉这道闸,等协议发版后再加回来:白干一轮,中间还有一段没有闸的窗口。\n\n### 风险与代价(含回滚)\n- **选 A**(以协议声明为准):\n  - 关掉 objectui#10279 不合并,objectui#10200 第 1 项撤回。\n  - 渲染器保持现状,继续读这道闸。\n  - 协议发版后,objectui 按 objectui#10224 在注册 `inputs` 上补声明。\n  - 零回滚成本。\n- **选 B**(以 objectui 裁决为准):\n  - 落地 objectui#10279。\n  - objectstack#18159 改判为「不声明」,关掉 objectstack#19913。\n  - 另外两个块(`record:highlights` / `record:related_list`)随后也停读,各需一张卡。\n\n### 席位意见\n荐 **A**,回退 B。理由见下方四轴。\n\n### 你要做的\n回一个字母:**A** 或 **B**。\n\n## 背景与 Governing text\n\n- objectui#10200 的裁决 `5815200174` 原话:「**`requiredPermissions`**: the protocol deliberately does not declare it on `record:details`, so the renderer **stops reading it** there … If the spec later declares it under ADR-0066, the renderer reads it then, following the contract.」\n- objectstack#18159:标签 `pm:dispatched` · `domain:spec` · `priority:p2`。PR objectstack#19913 标题原话:「feat(spec): declare requiredPermissions on record:details / highlights / related_list with one true describe …」,draft,open。\n- objectstack `origin/main` 上的协议现状(座位读于 2026-09-24):`packages/spec/src/ui/component.zod.ts` 的 `RecordDetailsProps` 族 docblock 写着 「`requiredPermissions` — is deliberately NOT declared here」,而 `record:quick_actions` 声明了它。\n- objectui#10224(裸卡,未定级):objectui 这一半的跟进,等 objectstack#19913 落地后在三个记录块的 `inputs` 上声明该键。\n\n## 选项 × 真实代价\n\n| 选项 | 做什么 | 客户可感知的后果 |\n|:--|:--|:--|\n| **A** 协议声明胜出 | 撤回 objectui#10200 第 1 项;关 objectui#10279;objectstack#19913 照常落地,objectui 随后补 `inputs` 声明 | 作者可以用能力集把某个记录块只给有权限的人看,发布时不被拒;行为与今天一致,无中断窗口 |\n| **B** objectui 裁决胜出 | 落地 objectui#10279;objectstack#18159 改判不声明、关 objectstack#19913;另两块随后停读 | 记录块不再有能力闸;权限只靠字段级安全和对象权限 |\n\n**业务含义直译**:A = 「页面上的每个区块都可以挂一把能力锁,而且锁的写法写进了合同」;B = 「区块不挂锁,门禁只在数据层」。\n\n## 四轴\n\n- **① 项目长远合理性**:\n  - 主流平台(如 Salesforce Lightning 的组件可见性)支持按用户权限显示或隐藏页面组件。\n  - ADR-0066 的能力集已经覆盖 `action`、`app`、`field`、`bulkAction` 和 `record:quick_actions`;A 让记录块与这个家族一致,并且写进合同(contract-first)。\n  - B 让 `record:quick_actions` 成为唯一带能力闸的块,形成一个特例。\n- **② 实际业务拉动**:今天仓内没有生产者在记录块上写这个键,dev 实测 git grep 只命中测试。拉动为零。\n- **③ 防 AI 犯错**:\n  - 今天的问题是渲染器会执行一个协议在发布时拒收的键。A 与 B 都能消除这种不一致:A 通过声明,B 通过停读。\n  - A 之后,写错能力名会被 ADR-0066 闭合词表响亮拒绝。\n- **④ 创业阶段不扩散**:B 零新增;A 在协议里新增一个键(已有同形先例,不是新机制)。\n\n<!-- os-decision-facets -->\nos-decision-facets\n- ① 长远合理性:A 让记录块并入 ADR-0066 能力集家族(缩小特例);B 让 `record:quick_actions` 成为唯一带闸的块(保留特例)。\n- ② 业务拉动:零实测拉动 —— 仓内无生产者在记录块上写该键。\n- ③ 防 AI 犯错:两者都消除「渲染器执行协议拒收的键」;A 之后错名被闭合词表响亮拒绝。\n- ④ 不扩散:B 零新增;A 新增一个已有同形先例的协议键。\nPrior rulings read: `requiredPermissions` · `record:details` · `capability` → 11 hits via REST scan of the 1000 most recently updated objectui items (objectui#10200, objectui#10224, objectui#10155 closed, objectui#9965 closed, …); ADR-0066; thread: objectui `5815200174`, objectstack#18159 (ruling batch #197 item 2)\n\n**推荐:A**(回退 B)。只看①选 A;②③④ 是否翻转:否(零拉动只影响时序:A 下无需任何 objectui 改动,协议落地后再补 `inputs`)。\n**置信缺口**:座位没有读到 objectstack#18159 裁决原文的四轴分析,只看到了它的选项字母和 PR 标题;如果当时的理由里有「记录块不应带能力闸」的判断,①的读数要重看。\n\n## 裁后执行\n\n- **A**:\n  - 座位关闭 objectui#10279(不合并),在 objectui#10200 上撤回第 1 项(第 2 项的版本钉升级照旧 on-hold)。\n  - objectui#10224 保持排队,等 objectstack#19913 发版可安装后派发。\n- **B**:\n  - 座位给 objectui#10279 挂 auto-merge 落地。\n  - 在 objectstack#18159 上留言请 spec 席改判。\n  - 为 `record:highlights` / `record:related_list` 各立一张停读卡,继承本裁决。\n\nDedupe words: `requiredPermissions record blocks conflicting rulings` · `declare vs stop reading requiredPermissions` · `objectstack#18159 objectui#10200 conflict`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

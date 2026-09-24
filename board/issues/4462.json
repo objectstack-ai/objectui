@@ -1,0 +1,38 @@
+{
+  "number": 4462,
+  "kind": "issue",
+  "title": "plugin-list: the list toolbar Print button is a bare `window.print()` — no preview, no output, silent no-op in headless/WebView",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "plugin",
+    "pm:dispatched",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T11:16:14Z",
+  "updated_at": "2026-08-12T20:10:01Z",
+  "closed_at": "2026-08-12T20:10:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4462",
+  "body": "Reported from an app project (`steedos-labs/os-project-titanwind-ehr#1161`) on `@objectstack/*@17.0.0-rc.6`.\n\n## What it does\n\nThe list view toolbar's **Print** button is a bare browser print call:\n\n```tsx\n// packages/plugin-list/src/ListView.tsx:2626\nonClick={() => window.print()}\n```\n\nNo print layout, no preview, no PDF generation, no downloaded artifact. The same bare\ncall also backs `packages/plugin-report/src/ReportViewer.tsx:115` and\n`packages/app-shell/src/views/DashboardView.tsx:101`.\n\n## Why it's a defect, not just a thin feature\n\n`window.print()` is a no-op in exactly the environments a platform gets driven in:\nheadless/automated browsers and several embedded WebViews. The click resolves normally —\nno exception, no console error, nothing rendered. Observed at the reporting project:\nthe click dispatched successfully, console clean, nothing happened. From the outside it\nis indistinguishable from a broken button, and it is being read by acceptance testers as\nthe product's \"export to PDF\" entry point.\n\nEven in a normal desktop browser the result is the browser's own dialog printing the\nwhole Console chrome — unpaginated, tables clipped, styling unsuited to paper (this is\nthe exact workaround `objectstack-ai/objectstack#1301` already documented and rejected as\ninadequate).\n\n## Repro\n\n1. Open any object list view in Console.\n2. Click **Print** in the toolbar.\n3. Headless/WebView: nothing happens, no error. Desktop browser: the browser's print\n   dialog for the whole page, including Console chrome.\n\n## What we're asking for\n\nNote that the real feature — a print/PDF primitive — was closed **NOT_PLANNED** as\n`objectstack-ai/objectstack#1301`, so we are not re-litigating that here. Given that\ndecision, the minimum fix is to stop the button from reading as an export entry point.\nIn descending order of preference:\n\n1. Give the list a print stylesheet / print-scoped render so `window.print()` produces a\n   usable page (no Console chrome, paginated, table not clipped).\n2. Document the button's semantics explicitly (\"opens your browser's print dialog\"; not a\n   PDF export), so it stops being accepted against \"export PDF\" requirements.\n3. Failing both, remove or gate the button rather than ship a control that is a silent\n   no-op in a supported runtime.\n\n## Related\n\n- `objectstack-ai/objectstack#1301` — print / PDF export, closed NOT_PLANNED\n- Spec-side twin (`exportOptions` contract mismatch): objectstack-ai/objectstack#8010\n- Project-side evidence: https://github.com/steedos-labs/os-project-titanwind-ehr/issues/1161#issuecomment-5265108797\n"
+}

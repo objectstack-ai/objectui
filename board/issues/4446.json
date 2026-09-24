@@ -1,0 +1,36 @@
+{
+  "number": 4446,
+  "kind": "issue",
+  "title": "Permission-matrix editor is read-only for a writable package — `writable` gates on `allowOrgOverride` alone while the server accepts the package-door write",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T08:31:24Z",
+  "updated_at": "2026-08-13T03:38:12Z",
+  "closed_at": "2026-08-13T03:38:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4446",
+  "body": "Split out of objectstack-ai/objectstack#7685 item (iii) per file-at-destination — the fix site is this repo. Items (i)/(ii) of that card are verify/qa tooling and stay in `objectstack`. This card is **independent of them**; no `Blocked-by:`.\n\nFiled unassigned and ungraded — routing/grading is the triage seat's call, not the filer's.\n\n## Symptom\n\nOn a **stock** boot the permission-matrix editor renders `Read-only (OS_METADATA_WRITABLE not enabled)` with every checkbox disabled — at both the metadata-admin route **and** inside Studio's Access pillar — even for a package that is **writable**.\n\nMeanwhile the server **accepts** the package-door write in that same default environment:\n\n```\nPUT /api/v1/meta/permission/<set>?package=<writable pkg>   → 200   (via allowRuntimeCreate)\n```\n\nSo the client-side type gate locks a surface the server would allow.\n\n## Anchor (read on `origin/main` @ `d8d0d66`, not inferred)\n\n`packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx:219`\n\n```ts\nconst writable = !!resolved.allowOrgOverride && !readOnly;\n```\n\nThe server returns `allowOrgOverride: false` for type `permission`, so `writable` is false regardless of the package's own writability, and every control downstream of it is disabled (`:735`, `:745`, `:800`, `:1068`, `:1079`, `:1088`, and the `writable` prop threaded at `:846`/`:862`).\n\n**The `|| allowRuntimeCreate` shape already exists in this repo** — it is the permission-matrix editor that is the outlier:\n\n- `metadata-admin/DirectoryPage.tsx:171` — `(e) => e.allowOrgOverride || e.allowRuntimeCreate`\n- `metadata-admin/DirectoryPage.tsx:175` — same disjunction for the `writableOnly` filter\n- `metadata-admin/EmbeddedItemEditor.tsx:93` — `!subEntry.allowOrgOverride && !subEntry.allowRuntimeCreate`\n\n## ⚠️ Trap for whoever takes this — the current behaviour is deliberately pinned\n\nThis is **not** a one-line change. Two existing suites pin the present computation on purpose, and one of them documents the distinction in its header:\n\n- `PermissionMatrixEditor.readonlyHeaderBadge.test.tsx:17-19` — records that the **controls** read `!!resolved.allowOrgOverride && !readOnly` while the **badge** reads `entry.allowOrgOverride` alone, and that `permission` is one of the types where those diverge.\n- `PermissionMatrixEditor.readonly.test.tsx:153` — `allowOrgOverride=false hides Save and shows the environment badge`.\n\nSo before changing `:219`, establish whether those pins encode a **decision** (the type gate is intended to be stricter than the server) or merely **describe** the current code. If it is a decision, this card is a request to reverse it and needs a ruling rather than a patch. If it is description, the pins get updated alongside the fix — and the badge/controls divergence must be resolved deliberately, not left half-migrated.\n\n## Suggested direction (from the source card)\n\nAllow editing when the server would accept the package-door write — i.e. consult `allowRuntimeCreate` for the resolved package, in line with `DirectoryPage`/`EmbeddedItemEditor` — rather than gating solely on `allowOrgOverride`. Whatever lands should also make the **banner text** honest: `OS_METADATA_WRITABLE not enabled` is the wrong explanation when the actual cause is the per-type `allowOrgOverride:false`.\n\n## Source\n\nQA run objectstack-ai/objectstack#7637 (framework `92f26f75`, console `09987b680`), consolidated into objectstack-ai/objectstack#7685; split here by the `domain:cli` PM seat (objectstack#6024)."
+}

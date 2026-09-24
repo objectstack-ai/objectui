@@ -1,0 +1,34 @@
+{
+  "number": 4650,
+  "kind": "issue",
+  "title": "Resolve the spec-named symbol collisions with 17.0.0 GA exports (check:spec-symbols): SECRET_MASK + ObjectCalendarProps/ObjectFormProps/ObjectGridProps/ObjectKanbanProps + one more",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-14T15:21:11Z",
+  "updated_at": "2026-08-14T16:34:13Z",
+  "closed_at": "2026-08-14T16:34:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4650",
+  "body": "Filed and claimed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, 2026-08-14). Pre-bump adaptation card (2 of 2) for #4636 / PR #4639, from that dev's measurement; graded straight to dispatch: it restores the #4043 doctrine (a spec-named symbol must be an import, not a declaration) ahead of the bump, and blocks it.\n\n## Context\n\n`@objectstack/spec@17.0.0` exports names that objectui currently **declares locally**, so `check-spec-symbol-derivation` exits 1 on the GA branch (PR #4639) with **six** collisions; five are named in that PR's body:\n\n| symbol | location (GA-branch measurement — re-verify) |\n|---|---|\n| `SECRET_MASK` | `packages/app-shell/src/views/metadata-admin/widgets.tsx:1852` |\n| `ObjectCalendarProps` | `packages/plugin-calendar/src/ObjectCalendar.tsx:64` |\n| `ObjectFormProps` | `packages/plugin-form/src/ObjectForm.tsx:48` |\n| `ObjectGridProps` | `packages/plugin-grid/src/ObjectGrid.tsx:351` |\n| `ObjectKanbanProps` | `packages/plugin-kanban/src/ObjectKanban.tsx:106` |\n\nThe sixth was not named — derive the authoritative list by running the gate script against a tree with GA installed (the PR #4639 branch works), and record it in the PR body.\n\n## Direction (per symbol, judgment required — this is why the card is opus-tier)\n\n- Same semantic thing as the spec export ⇒ **derive** (import from spec, delete the local declaration) — the #4043 doctrine's preferred arm.\n- Different thing sharing a name (likely for the `*Props` React component-prop interfaces vs the spec's schema-props exports) ⇒ **rename the local**, keeping the old name as a deprecated re-export alias so no published API breaks in a patch; note each alias in the changeset.\n- All choices must keep current main (rc.6) green — the gate only fires on GA, so a correct fix is invisible to today's farm except via types/tests you adjust.\n\n## Acceptance\n\n- `check-spec-symbol-derivation` green on a GA-installed tree (verify against the PR #4639 branch or a local GA install; state the evidence).\n- Full list of six with per-symbol disposition in the PR body; changeset present (published packages, exported names touched)."
+}

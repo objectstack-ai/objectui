@@ -1,0 +1,32 @@
+{
+  "number": 10334,
+  "kind": "issue",
+  "title": "finding(types): objectui#7759 group F residue — `DashboardComponentSchema.dateRange` mirror is wider than its declaration (spec exports DATE_RANGE_DEFAULT_RANGES)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T18:13:55Z",
+  "updated_at": "2026-09-24T18:48:16Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10334",
+  "body": "This card is the residue of objectstack-ai/objectui#7759 **group F**. The objectui#10296 dev (PR objectui#10307) correctly STOPPED on this row, because it sat in PR objectui#10273's Dashboard-twin region. objectui#10273 landed on `main` as `1bbaa16`, so the row is now free to settle.\n\nIt was filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. Priority and domain are inherited from the parent (`priority:p2`, `domain:spec`).\n\n## The row, on `main` `f3f4e4c`\n\n- `zod-mirror-parity.test.ts`: `WiderThanDeclared['complex.zod.ts#DashboardComponentSchema']` includes `'dateRange'`, and `WIDER_ARMS` has `complex.zod.ts#DashboardComponentSchema::dateRange: ['CONCRETE']`.\n- The mirror is `complex.zod.ts`, about `:1196`: `dateRange: z.object({ … })`. `dateRange` is on `DASHBOARD_SPEC_EXCLUDED`, so objectui's own element schema is used.\n- Measured in passing by the #10296 dev: `@objectstack/spec` 17.4.0 exports `DATE_RANGE_DEFAULT_RANGES` / `DateRangeDefaultRange` from `@objectstack/spec/ui`, so **rule 1 likely governs**. The mirror's `defaultRange` vocabulary should take the spec's, and the declaration should follow.\n\n## Rules (#7759 ruling 5617465269 + ordering note 5617614225)\n\n- rule 1: spec-declared means both faces align to the spec;\n- rule 2: an objectui-own key follows its read site (`DashboardRenderer`);\n- ordering: if the protocol is judged wrong, a spec card comes first and this card stops;\n- F1: a structural mirror points at the spec's **authoring** schema, never a read model.\n\n## Done when\n\nThe row leaves `WiderThanDeclared` / `WIDER_ARMS`, or is recorded as an expected divergence with its reason. A pin reddens on revert. One `@object-ui/types` changeset is added (`minor`, Clause-② yes)."
+}

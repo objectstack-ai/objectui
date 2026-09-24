@@ -1,0 +1,32 @@
+{
+  "number": 4715,
+  "kind": "pull_request",
+  "title": "fix(scripts): bound shadcn-sync registry requests with a 10s timeout",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T15:47:04Z",
+  "updated_at": "2026-08-15T16:01:37Z",
+  "closed_at": "2026-08-15T16:01:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T16:01:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4715",
+  "body": "Fixes #4031\n\n## What\n\n`fetchUrl()` in `scripts/shadcn-sync.js` used `https.get` with only `error`/`end` wired up, so a black-holed connection — a dropped SYN, or a peer that completes the TCP handshake and then never writes a byte — hung forever. `--check` fires 46 of these in series, so one hang stalled the whole command, bounded by nothing but the CI job's `timeout-minutes: 20` backstop from #4174.\n\n`req.setTimeout(10_000, () => req.destroy(new Error(...)))` now bounds every request: on fire it destroys the request with an error naming the URL that hung, and the existing `req.on('error', reject)` picks it up — reusing the same rejection path `--check` (marks the component `error`) and `--update` (refuses to write) already had, rather than adding a second one. `timeoutMs` is threaded through `fetchRegistry` too, defaulting to the same 10s, so tests can drive it down without waiting out the real value.\n\nPer the delegated adjudication on the issue thread (2026-08-10 measurements: healthy path ~37ms/request, 10s ≈ 270x headroom, all 30 historical runs complete in 19-49s): **10s per request, no retry** — a black hole doesn't resolve in seconds, so a retry only doubles the worst-case wait while the existing error path already degrades gracefully. The 20-minute job backstop from #4174 is unchanged; this is the real fix it was standing in for.\n\n## Why both a real socket and a double are in the test file\n\nTwo network conditions produce the hang — a dropped SYN (connection never completes) and a peer that completes the handshake and then never responds — and both are covered by the *same* `req.setTimeout` callback (Node arms that idle timer as soon as a socket is assigned to the request, before the handshake resolves).\n\nThe committed coverage uses a `get` double that mimics a stuck `ClientRequest` (deterministic, exercises the exact `setTimeout`/`destroy(error)`/`error`-listener wiring `fetchUrl` depends on). A **real** raw-`net` hung-socket server was also used and is *not* committed: it reproduced correctly and fast (~40-50ms against a 40ms `timeoutMs`) as a standalone Node script and inside a `worker_threads` Worker, including while this shared dev container had a sibling agent's heavy `pnpm build` pegging multiple cores — but the identical code run through Vitest's `threads` pool under that same load reliably failed to observe the timeout at all (not slow — silent for a 20s `it()` bound, reproducing with `-t` isolating the one test and with `--maxWorkers=1`). That's a Vitest-threads-pool-under-contention interaction with the real socket timer, not a defect in `fetchUrl`, and this repo's own flaky-test discipline (AGENTS.md, \"flaky 测试\") is explicit that widening a budget to paper over a race is the wrong fix — here even 20s didn't turn a genuine non-event into a passing one. So the real-socket path is verified manually (below) instead of committed.\n\n## Manual end-to-end verification (real CLI, real hang)\n\nTemporarily pointed the `accordion` entry in `packages/components/shadcn-components.json` at a local raw-`net` server that accepts the connection and never responds (reverted before commit — `git status` confirms the manifest is unchanged in this PR):\n\n```\n$ time node scripts/shadcn-sync.js --check\n✗ accordion   Error fetching from registry: shadcn-sync: registry request timed out after 10000ms: https://127.0.0.1:45231/hang.json\n[... other 45 components: real HTTP 403 from the sandbox's egress block, unaffected ...]\nexit=0\n\n$ time node scripts/shadcn-sync.js --update accordion\n✗ Error updating accordion: shadcn-sync: registry request timed out after 10000ms: https://127.0.0.1:45231/hang.json\n```\n\n`md5sum packages/components/src/ui/accordion.tsx` before/after `--update` is identical, and `git status` shows no write — `--update` refuses exactly as before. Both commands: fast-fail after the real 10s default, error text names the exact URL that hung, exit code and error marking unchanged from the existing error path.\n\n## Healthy-path regression check\n\nThe sandbox's egress blocker returns `HTTP 403` immediately (not a black hole) for the real `ui.shadcn.com`, so `pnpm shadcn:check`'s 46 requests can't hit the real registry here — but that's itself the useful check: all 46 fail via immediate `403`, total wall time **0.481s**, zero timeouts triggered. The new `req.setTimeout` doesn't interfere with or slow down the existing fast-response error path.\n\n## Tests\n\n`scripts/__tests__/shadcn-sync-fetch-cache.test.ts` — new `describe` block: a `get` double that never invokes its response callback times out at the configured `timeoutMs`, names the URL, and propagates through `fetchRegistry` without writing to the cache; a false-positive guard confirms a normal fast response is unaffected.\n\n```\npnpm exec vitest run scripts/__tests__/shadcn-sync-fetch-cache.test.ts --maxWorkers=2\n Test Files  1 passed (1)\n      Tests  26 passed (26)\n   Duration  766ms (at 995a6fdad)\n\npnpm run type-check:scripts   # tsc -p tsconfig.scripts.json — 0 errors\nnode scripts/check-control-bytes.mjs   # ✅ OK (4238 files scanned)\npnpm run lint:root   # 0 errors, 22 pre-existing warnings, none in changed files\nnode scripts/check-changeset-presence.mjs   # ✅ no changeset owed (scripts/ isn't a released package)\n```\n\nAll at `995a6fdad` (`git rev-parse --short HEAD` after the final commit).\n\n## Scope\n\nOnly `scripts/shadcn-sync.js` and its test file changed. No changeset: `scripts/` is repo tooling, not part of the `.changeset/config.json` `fixed` release group — `check-changeset-presence.mjs` confirms none is owed. This repo has no `skip-changeset` label, so none is applied.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

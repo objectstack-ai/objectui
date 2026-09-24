@@ -1,0 +1,36 @@
+{
+  "number": 4213,
+  "kind": "issue",
+  "title": "[console] 记录详情页头不消费 userActions.<action>.visibleWhen:同一谓词列表行已生效、记录页头照旧渲染按钮",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T01:36:21Z",
+  "updated_at": "2026-08-13T04:21:49Z",
+  "closed_at": "2026-08-13T04:21:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4213",
+  "body": "## 现象\n\n对象上声明的 `userActions.edit.visibleWhen`(逐记录谓词,spec `RowCrudActionOverrideSchema`)**只在列表「操作」列被消费,记录详情页头不消费**——详情页头的【编辑】按钮无视谓词照旧渲染。\n\n版本:`@objectstack/*@17.0.0-rc.6`(rc.5 同样表现)。\n\n## 复现\n\n对象声明(节选):\n\n```ts\nuserActions: {\n  edit: { visibleWhen: 'record.status == \"pending\" || record.status == \"in_progress\"' },\n},\n```\n\n编译产物里已确认该谓词写入元数据。实测同一账号、同一条记录(`status` 为 `reported`,谓词应判 false):\n\n| 入口 | 结果 |\n|---|---|\n| 列表视图「操作」列的行内【编辑】 | ✅ 谓词生效,按钮按状态收敛,不出现 |\n| 记录详情页头的【编辑】 | ❌ 谓词未被消费,按钮照旧渲染,可点开编辑弹窗 |\n\n## 一条定位线索:同一结构里的布尔开关两处都生效\n\n同为 `userActions` 下的声明,**对象级布尔开关 `userActions: { delete: false }` 是两处都消费的**——列表行操作菜单与记录详情页头的删除入口会一起消失(我们在另一个项目工作项里验证过)。\n\n而逐记录谓词 `visibleWhen` 只有列表消费。两者对比指向:record header 的动作渲染路径读到了 `userActions` 的静态开关,但**没有接谓词求值**这一段。\n\n## 期望\n\n记录详情页头与列表行一致地消费 `userActions.<action>.visibleWhen`,谓词判 false 时不渲染该内建动作入口。\n\n## 影响\n\n下游应用要做「按记录状态收敛编辑入口」时,只能收敛列表侧,记录页仍能点进编辑表单。功能安全可由服务端守卫兜住(提交被拒),但入口不干净,用户会先看到按钮、点开表单、填完才被拒。\n\n## 关联\n\n- #2614 —— Row CRUD actions 支持逐记录 visible/disabled CEL 谓词(该能力的实现单,已关闭);本单是该能力在 record header 侧的缺口。\n- #4096 —— 列表行内建【编辑】【删除】没接权限门(已关闭),同一片区域的另一个维度。\n\n## 备注\n\n发现于下游应用项目的真机 UI 实测(私有仓,截图不便直接引用)。如需公开可复现的最小样例,我可以在 showcase 类示例应用上构造一份,告诉我需要即可。\n"
+}

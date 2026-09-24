@@ -1,0 +1,35 @@
+{
+  "number": 4673,
+  "kind": "issue",
+  "title": "buildChartSeries' pivot branch silently drops a null SECOND-dimension group: its measure is written to the bucket but never becomes a series, so the value vanishes from the chart",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-15T07:31:30Z",
+  "updated_at": "2026-08-15T08:44:33Z",
+  "closed_at": "2026-08-15T08:44:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4673",
+  "body": "Measured while implementing #4508, filed rather than widened into it: #4508 and its two predecessors (#4466, #4497) are all about the FIRST dimension's bucket. This is the same defect one dimension over, and nothing has ever covered it.\n\n## What is wrong\n\nIn `buildChartSeries`' pivot branch (`packages/core/src/utils/chart-series.ts`):\n\n```ts\nconst gId = String(row[groupKey] ?? '');\nif (gId !== '' && !seriesKeys.includes(gId)) seriesKeys.push(gId);\nbyX.get(xId)[gId] = row[measure];\n```\n\nA row whose SECOND dimension is `null`/`undefined` (or `''`) gets `gId === ''`. The `gId !== ''` gate means it never joins `seriesKeys` — but the line below still writes the measure into the bucket under the `''` key. So the value is present in the emitted row and **no series ever binds to it**, i.e. the renderer is never told to draw it.\n\n```js\nbuildChartSeries(\n  [{ status: 'Backlog', priority: 'High', est_hours: 5 },\n   { status: 'Backlog', priority: null,   est_hours: 40 }],\n  ['status', 'priority'], ['est_hours'],\n)\n// data:   [{ status: 'Backlog', High: 5, '': 40 }]\n// series: [{ dataKey: 'High', label: 'High' }]      <- no binding for the 40\n```\n\nThe chart draws a 5-hour bar. The 40 hours are in the data and on no mark.\n\n## Why it is the same defect as #4466\n\n#4466's measured case was exactly this shape on the x-axis: `[{user_id: null, event_count: 51}, {user_id: 'Dev Admin', event_count: 2}]` drew one bar and silently dropped the dominant group while the y-axis scale still accommodated it. Quoting that card's framing: the chart \"was not merely empty, it understated its own data without saying so.\" A null second-dimension group understates it the same way, and for the same reason — no explicit bucket for \"no value\".\n\n#4466 answered it for the first dimension with `NULL_CATEGORY_LABEL`; #4497 extended that answer to the pivot's first dimension; #4508 gave that bucket an identity distinct from its label. The second dimension was never in scope of any of the three, and the `gId !== ''` gate is still the pre-#4466 answer: drop it.\n\n## Drill consequence too\n\n`findChartSeriesRow`'s pivot arm matches the series dimension as `String(r[gDim] ?? '') === s`, so a null second-dimension row is reachable only by clicking a segment that is never drawn. Dead by construction rather than by accident.\n\n## The decision the fix needs\n\nNot mechanical, which is why this is a card and not a drive-by. The first dimension's answer is a DISPLAY label supplied by the renderer (`nullCategoryLabel`, from the locale bundle — `@object-ui/core` is React-free and cannot read it). A series key, unlike an axis tick, is also a **row key** — it names a column in the emitted rows and a `dataKey` a renderer binds to. So the second dimension needs the label/identity split #4508 established for the first, but with the extra constraint that the key must not collide with a measure name or another series value. Worth deciding alongside whether `''` (a genuine empty-string group) and `null` get separate series here, which is #4508's collision 1 in the series axis.\n\nAlso worth ruling: whether a null second-dimension group should draw at all, or whether the honest answer for a grouped-bar chart is to name it the way `hasNoCategoryKey` (framework#4033) names an unprojected dimension. Both are defensible; the current behaviour — carry the number, draw nothing, say nothing — is not.\n\nRelated: #4466, #4497, #4508, #4507, #1759 (the pivot branch's origin).\n"
+}

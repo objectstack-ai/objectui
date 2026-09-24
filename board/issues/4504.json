@@ -1,0 +1,33 @@
+{
+  "number": 4504,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): optionsFrom filters commit the raw value, not the display label (#4465)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T22:02:19Z",
+  "updated_at": "2026-08-12T22:16:58Z",
+  "closed_at": "2026-08-12T22:16:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T22:16:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4504",
+  "body": "Closes #4465\n\n## Defect\n\nA dashboard global filter sourced from `optionsFrom` committed the rendered LABEL as its value, so every widget it drives queried for a value no record carries and repainted to \"No rows\".\n\nThe option source is a server GROUP BY, and that response carries both forms of every grouped value:\n\n- `rows` — server-resolved display labels: `[{status: 'Backlog'}, …, {status: 'In Review'}, …]`\n- `drillRawRows` — the index-aligned raw values: `[{status: 'backlog'}, …, {status: 'in_review'}, …]`\n\n`DashboardFilterBar.tsx` read `r?.[from.valueField]` off `rows` and never consulted `drillRawRows`, so picking \"In Review\" broadcast `runtimeFilter {status: 'In Review'}`. Statically declared `options` were never affected (Revenue Pulse's `region` shows `EMEA`, commits `emea`).\n\n## Fix\n\nOptions are paired index-wise — value from `drillRawRows[i]`, label from the displayed row — in one new module-local `pairOptionRows` helper both option paths call.\n\nThe reading discipline is mirrored from the drill path, which consumes this exact response correctly and always has: `DatasetWidget`'s `openDrill` reads `drillRawRows?.[index]` at the same index the display row was resolved at, and `buildDatasetDrillFilter` states why — \"the dimension's RAW grouped value … NOT the visible row which carries the display LABEL — a select/lookup label would mis-filter\". **No helper is shared with it**: that one builds an ObjectQL filter keyed by object FIELD, ANDing `runtimeFilter` and date ranges, which has no overlap with pairing an option list; reshaping it would have meant refactoring the drill path to serve this call site.\n\nThree abstentions, all landing on the previous read rather than on a guess:\n\n| Case | Behavior |\n| --- | --- |\n| No `drillRawRows` in the response | value and label both from `rows`, exactly as before |\n| `rows` and `drillRawRows` disagree in LENGTH | abstain to `rows` — pairing anyway commits another bucket's raw value, silently wrong in a new way and indistinguishable from a correct filter that legitimately matched nothing; labels-as-values is at least visibly wrong |\n| Raw rows carry none of `valueField` | abstain to `rows` — a `dateGranularity` dimension is excluded from `drillRawRows` by the server (it sends `drillRanges` instead), so this is the server saying \"no raw form of this dimension\" |\n\nThe client-side `find` fallback is unchanged in behavior: real records already carry the stored value, so it pairs with no raw sidecar.\n\n## Red-first — the COMMITTED value\n\nThe pre-existing `DashboardFilterBar.options.test.tsx` asserts only that the option list renders, which is true on both sides of the defect; that gap was its cover. The new `DashboardFilterBar.optionsFromRawValue.test.tsx` asserts what is committed. Against `origin/main`'s `DashboardFilterBar.tsx` with the new tests in place: **4 failed | 6 passed (10)**, verbatim —\n\n```\nFAIL … > broadcasts the RAW value into a bound widget's runtimeFilter\nAssertionError: expected { status: 'In Review' } to deeply equal { status: 'in_review' }\n- Expected\n+ Received\n  {\n-   \"status\": \"in_review\",\n+   \"status\": \"In Review\",\n  }\n\nFAIL … > hands the host the raw value\nAssertionError: expected \"vi.fn()\" to be called with arguments: [ 'st', 'in_review' ]\n  1st vi.fn() call:\n  [\n    \"st\",\n-   \"in_review\",\n+   \"In Review\",\n  ]\n\nFAIL … > pairs BY INDEX — a second position resolves to its own raw value\n  [ \"st\", -\"todo\", +\"To Do\" ]\n\nFAIL … > reads the label from `labelField` and the value from the raw row when they differ\n  [ \"st\", -\"usr_002\", +\"Alan Turing\" ]\n```\n\nThe first case goes through `DashboardRenderer` end-to-end, so the assertion is the bound widget's real re-query — the card's `runtimeFilter {\"status\":\"In Review\"}` reproduced as a test. Post-fix: **10 passed (10)**.\n\nThe 6 that pass on BOTH sides are the must-not-change pins: the trigger still displays the label and never the raw token (its own test, so it actually runs pre-fix); static metadata-declared `options` commit `emea` / display `EMEA` and never consult the data source; a response with no `drillRawRows` keeps today's read; the length-mismatch abstention; the no-such-field abstention; and the client-side `find` path.\n\n## Verification\n\n- `pnpm exec vitest run packages/plugin-dashboard/` — **46 files, 381 tests passed** (includes the #4487 flake file, green).\n- `pnpm --filter @object-ui/plugin-dashboard type-check` — clean.\n- Tests are not read by this package's tsconfig (declared `TEST_DEBT`), so they were checked separately under a temp project lifting the test exclusion: the new file contributes **0** errors (14 pre-existing, unchanged).\n- `dist/index.d.ts` built from this branch and from `origin/main` is **byte-identical** — runtime-only, hence `patch`.\n- `check-control-bytes`, `check-changeset-presence`, `check-changeset-no-major`, `check-changeset-fixed`, `check-type-check-coverage` — all green. ESLint on the changed files: 0 errors.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -10,16 +10,21 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T12:09:17Z",
-  "updated_at": "2026-09-24T12:09:17Z",
+  "updated_at": "2026-09-24T16:31:50Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10239",
   "body": "Filed by the objectstack `domain:spec` seat 5 (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357) from the #19955 dev report (`5813748776` on objectstack-ai/objectstack#19955, open question 2). ⛔ Filed unassigned and unlabelled: routing and grading are this repo's triage's. ⛔ Not a claim. This seat does not execute objectui work.\n\n## Context\n\nobjectstack-ai/objectstack PR #19968 (open, draft) makes `packages/spec/src/ui/view.form.ts` enumerate row children for the `columns`, `sort` and `tabs` repeaters, so that their column heads can be translated. `view.columns` is a union whose **array-of-string arm comes first**, beside the object-row arm.\n\n## The reading (the dev's, from source at the pinned `.objectui-sha` `62597c588072`, NOT run in a browser)\n\n- `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx` `repeaterItemSchema` (`:316` on this seat's checkout) resolves the union by value. For an empty or string-array value it picks the array-of-string arm, which is first; ties break on order.\n- Before that PR, such rows had no inputs, because a string item derives no fields. After it, they show the declared inputs, each with a `{}` sub-schema.\n- Editing one spreads the string into an object (`{0:'n', …, field}`). The strict `ListColumnSchema` refuses that at save. The failure is loud, not silent.\n- On an empty value, the first Add pushes an object row, and the object arm then renders, as before.\n- The curated designer does not reach this path: `inspectors/ViewVariantInspector.tsx` excludes `columns` via `VIEW_CURATED_FIELDS` (`:94`, `:349`). Only the generic `SchemaForm` fallback renders this repeater.\n\n## Ask\n\nA repeater whose union resolves to a scalar-items arm for the current value should not offer object-row children. Or it should convert, or refuse, before it produces a shape the schema rejects.\n\nSeam: `spec:view.form.ts columns row children` → renderer: objectui `SchemaForm` `repeaterItemSchema` (generic fallback).\n\nDedupe words: `repeater union string array object row children` · `SchemaForm repeaterItemSchema scalar arm` · `view.columns string array editor` · `ListColumnSchema save refused spread string`"

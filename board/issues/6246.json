@@ -2,8 +2,8 @@
   "number": 6246,
   "kind": "issue",
   "title": "ActionParamDialog: honour the spec carry-over param declaration — render carried JSON params as read-only summaries (objectstack#11753 ruling, ui half)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -12,21 +12,22 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-bill"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": "Feature",
   "created_at": "2026-08-25T03:59:13Z",
-  "updated_at": "2026-09-24T13:55:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T15:32:56Z",
+  "closed_at": "2026-09-24T15:31:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6246",
-  "body": "UI half of the objectstack#11753 ruling (maintainer, 2026-08-25, verbatim 「同意」 on recommendation A; full record = objectstack#11753 comment 5404887360). Filed by PM session `session_01KWRU3s15AJz7PGW7a7wdCh` per the confirmed checklist. Parent: objectstack#11753 (tracking).\n\nBlocked-by: objectstack-ai/objectstack#11992\n\n**Cross-repo unlock criterion**: not \"the spec PR merged\" — the spec change must be **installable here** (the objectui refresh/pin flow has picked it up and the installed `@objectstack/spec` accepts the new key). Verify on the installed package before starting.\n\n**Content**: `ActionParamDialog` renders a param that declares the spec carry-over key as a **collapsed read-only summary** — seeded from the row, submitted verbatim, no editing affordance. The permission-set Clone dialog is the exemplar: it returns to its two ordinary text inputs plus read-only summaries for the five carried facets (`description`, `object_permissions`, `field_permissions`, `system_permissions`, `row_level_security`, `tab_permissions` — `member_default`'s RLS is 17+ policy objects in one value, the case that motivated the ruling).\n\n**Acceptance criterion**: a dialog-level test pins what Clone **renders** (the gap objectstack#11753 names — today only the send side is pinned); the send-side contract (objectstack#11703's pin 6: what the action submits) stays green unchanged.\n\n**Notes**: the failure direction this closes is a hand-mangled-but-valid JSON blob cloning a permission set that grants MORE than its base, silently accepted — the renderer must leave no editing affordance on declared carry-over params, not merely style them."
+  "body": "Ruled: 5816940524 · letter A (land PR objectui#10271 as the 17.x mitigation; description not carried) · 2026-09-24T15:20Z\n\nUI half of the objectstack#11753 ruling (maintainer, 2026-08-25, verbatim 「同意」 on recommendation A; full record = objectstack#11753 comment 5404887360). Filed by PM session `session_01KWRU3s15AJz7PGW7a7wdCh` per the confirmed checklist. Parent: objectstack#11753 (tracking).\n\nBlocked-by: objectstack-ai/objectstack#11992\n\n**Cross-repo unlock criterion**: not \"the spec PR merged\" — the spec change must be **installable here** (the objectui refresh/pin flow has picked it up and the installed `@objectstack/spec` accepts the new key). Verify on the installed package before starting.\n\n**Content**: `ActionParamDialog` renders a param that declares the spec carry-over key as a **collapsed read-only summary** — seeded from the row, submitted verbatim, no editing affordance. The permission-set Clone dialog is the exemplar: it returns to its two ordinary text inputs plus read-only summaries for the five carried facets (`description`, `object_permissions`, `field_permissions`, `system_permissions`, `row_level_security`, `tab_permissions` — `member_default`'s RLS is 17+ policy objects in one value, the case that motivated the ruling).\n\n**Acceptance criterion**: a dialog-level test pins what Clone **renders** (the gap objectstack#11753 names — today only the send side is pinned); the send-side contract (objectstack#11703's pin 6: what the action submits) stays green unchanged.\n\n**Notes**: the failure direction this closes is a hand-mangled-but-valid JSON blob cloning a permission set that grants MORE than its base, silently accepted — the renderer must leave no editing affordance on declared carry-over params, not merely style them."
 }

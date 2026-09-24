@@ -1,0 +1,34 @@
+{
+  "number": 4642,
+  "kind": "issue",
+  "title": "main is red: QUICK_REFERENCE.md \"Current Release\" still says 17.4.0 after the 17.5.0 release commit — shard-3 gate fails on main and every open PR",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-14T12:43:41Z",
+  "updated_at": "2026-08-14T15:18:07Z",
+  "closed_at": "2026-08-14T15:18:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4642",
+  "body": "Filed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, round 1, 2026-08-14). Duplicate-searched (semantic: QUICK_REFERENCE / current release / 17.4.0): zero open cover.\n\n## The defect\n\nThe v17.5.0 release commit (`5bf5d2cb6`, current `origin/main`) moved every `@object-ui/*` manifest to `17.5.0` but did not update `QUICK_REFERENCE.md`'s \"Current Release\" block, which still states `17.4.0` (line 114). The gate built for exactly this drift — `scripts/__tests__/quick-reference-current-release-4143.test.ts` — fails with two assertions:\n\n1. `QUICK_REFERENCE.md must state the workspace version as \"17.5.0\"` (line ~195);\n2. the no-underived-literal sweep reports `[\"17.4.0\"]` as a literal no manifest produced (line ~365).\n\n## Blast radius — measured, not inferred\n\nTest (shard 3/4) is red **on the base branch itself**, so every open PR inherits the failure regardless of its diff. Confirmed by identical signature on PR #4637, whose diff touches only `scripts/regenerate-catalog-index.py` + `examples/schema-catalog` (log pulled from job 94747819897, head `7db3160`). PRs #4638 / #4639 / #4641 show the same shard red on the same base. Until this lands, nothing in this repo can go green.\n\nRe-check commands:\n- `git grep -n \"17\\.4\\.0\" origin/main -- QUICK_REFERENCE.md` (hit at :114 ⇒ still broken)\n- `git show origin/main:packages/core/package.json | grep '\"version\"'` (17.5.0)\n- `pnpm exec vitest run scripts/__tests__/quick-reference-current-release-4143.test.ts`\n\n## Scope\n\nUpdate the \"Current Release\" block to state `17.5.0` (and re-derive any other row the test flags). Nothing else — the gate did its job; this card is the doc catching up with the release. If other underived literals surface in the same block, fix them in the same pass per the test's derived-values list."
+}

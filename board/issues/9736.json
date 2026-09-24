@@ -2,8 +2,8 @@
   "number": 9736,
   "kind": "issue",
   "title": "finding(types): 41 keys reach three published zod mirrors BY REFERENCE from the spec while their hand-written TypeScript twins declare none of them — and 21 of the 41 are one packaging envelope repeated three times",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-sales",
@@ -13,7 +13,6 @@
   "labels": [
     "domain:spec",
     "package: types",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -22,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-17T22:23:13Z",
-  "updated_at": "2026-09-24T14:19:43Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T18:45:12Z",
+  "closed_at": "2026-09-24T18:12:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9736",
   "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, out of the hand-back of card objectui#9711 (the `MirroredUndeclared` instrument, landed by PR objectui#9725).\n\n⛔ **The hand-back's own figure is corrected here rather than forwarded.** It named **four** pairs and **42** keys. Three of the four carry the mechanism it describes; the fourth does not, and its one key is already another card. The corrected reading is **three pairs / 41 keys**, and the 42nd is objectui#9729's.\n\n## The mechanism — read off the declarations, not off the ledger\n\nThree published zod mirrors take the spec's surface **BY REFERENCE**:\n\n| mirror | how it is written |\n|---|---|\n| `packages/types/src/zod/app.zod.ts:406` | `BaseSchema.extend(SpecAppFields.shape).extend({…})` |\n| `packages/types/src/zod/complex.zod.ts:1140` | `BaseSchema.extend(SpecDashboardFields.shape).extend({…})` |\n| `packages/types/src/zod/layout.zod.ts:788` | `BaseSchema.extend(SpecPageFields.shape).extend({…})` |\n\n…where each `Spec*Fields` is `specFieldsExcept(stripImportedDefaults(Spec*Schema).shape, […])` (`app.zod.ts:392`, `complex.zod.ts:1126`, `layout.zod.ts:621`). ⇒ **whatever the spec declares on that document flows into the published validator on the next bump, with nobody in this repo writing a line.** That is by design and is not the finding.\n\nThe hand-written TypeScript twin next to each one restates only the subset the renderers read:\n\n| twin | declares |\n|---|---|\n| `packages/types/src/app.ts:370` `interface AppComponentSchema` | its own members only |\n| `packages/types/src/complex.ts:2136` `interface DashboardComponentSchema` | **10** members: `body children columns dateRange gap globalFilters header refreshIntervalSeconds type widgets` |\n| `packages/types/src/layout.ts:1252` `interface PageNodeSchema` | its own members only |\n\n⇒ **41 keys are validated by the published validator and declared by no published type.** Class **(b)**: the two faces are published together and disagree about the accept set.\n\n## The 41, by pair — from the landed ledger, then re-probed against the twins\n\nKey list taken from `MirroredUndeclared` in `packages/types/src/__tests__/zod-mirror-parity.test.ts` (the pin-certified ledger objectui#9711 landed), then each key re-probed **inside the twin interface's own body**, ⛔ not file-wide — a name is not a key; a key is (interface, name).\n\n| pair | keys | probed in the twin |\n|---|---|---|\n| `app.zod.ts#AppComponentSchema` | **20** | all 20 read **0**; **[LIT CTRL]** `name` = **1** |\n| `complex.zod.ts#DashboardComponentSchema` | **11** | all 11 read **0**; **[LIT CTRL]** the same instrument enumerates the twin's **10** declared members |\n| `layout.zod.ts#PageNodeSchema` | **10** | all 10 read **0**; **[LIT CTRL]** `title` = **1** |\n| **total** | **41** | |\n\n⚠️ One control was mis-drawn and is recorded rather than quietly replaced: `title` was pointed at the Dashboard twin and read **0**. It is not a broken instrument — `title` is simply not one of that interface's members. The instrument was re-lit by making it enumerate the twin's whole population (10 members), which is a control that cannot be satisfied by a stuck zero.\n\n## ⭐ 21 of the 41 are ONE envelope repeated three times\n\n`_lock` · `_lockReason` · `_lockSource` · `_provenance` · `_packageId` · `_packageVersion` · `_lockDocsUrl`\n\nSeven package-management keys, identical on all three documents. ⇒ **one decision disposes of 21 of the 41**, and it is a different decision from the other 20: this envelope is written by the packaging pipeline, not by a page author, so \"declare it on the authoring face\" may well be the wrong answer for it and the right answer for the rest.\n\nThe remaining **20** are per-document:\n\n- **App (13)** — `contextSelectors` `version` `isDefault` `_unpublished` `homePageId` `objects` `apis` `sharing` `embed` `mobileNavigation` `defaultAgent` `aria` `protection`\n- **Dashboard (4)** — `aria` `protection` `refreshInterval` `performance`\n- **Page (3)** — `source` `interfaceConfig` `requires`\n\n⭐ **`refreshInterval` is a near miss, not an omission.** The Dashboard twin declares `refreshIntervalSeconds`; the mirror validates `refreshInterval`. An author who reads the TypeScript face writes one spelling and an author who trusts the validator writes the other, and both pass their own door.\n\n⚠️ `aria` appears on **two** of these pairs and also, separately, on `complex.zod.ts#DashboardConfigSchema` in the same ledger. ⛔ Those are three different keys with one spelling. The `DashboardConfigSchema` one is **not** in this card's 41 — it belongs to objectui#9729, which reads it as a tombstone that REFUSES rather than a mirror that admits.\n\n## ⛔ The correction to the hand-back\n\n`objectql.zod.ts#ObjectGridSchema` was named as the fourth spec-derived pair. It is **not** one: `packages/types/src/zod/objectql.zod.ts:235` is `BaseSchema.extend({…})` with hand-written members, and no `specFieldsExcept` call appears anywhere inside its declaration (lines 235–319, the next top-level `export const` is at 324). Its single ledger key `operators` is a hand-written mirror member.\n\n⇒ 42 = **41 + 1**, and the 1 is a different class already carded as **objectui#9729** (in flight). Forwarding 42 under one mechanism would have attributed a hand-written key to spec inflow.\n\n## What this card is, and is not\n\n- This is the **inflow surface**, ⛔ not a remedy. Declaring any of the 41 on the published TypeScript face **enlarges an accept set** (`Clause-②: yes`) and narrowing any mirror shrinks one; each is its own card at a contract-review tier.\n- The axis is **spec alignment** — the same axis objectstack#4115 opened. Whoever rules on this should read that first.\n- ⛔ This card takes no position on which direction is right, and none of the three routes (declare · narrow · leave and document) is preferred here.\n\n## Readings\n\nAll figures taken on `origin/main` `64deb1603` at 2026-09-17T22:24Z, with `git fetch` first and every read against the `origin/main` ref — ⛔ never the shared checkout's working tree.\n\nDedupe words: `spec-owned inflow` · `specFieldsExcept` · `package-lock envelope` · `_lock _provenance` · `refreshIntervalSeconds`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -1,0 +1,32 @@
+{
+  "number": 4480,
+  "kind": "pull_request",
+  "title": "fix(app-shell): invitation links resolve through the console mount helper instead of rebuilding BASE_URL (#4472)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T19:00:11Z",
+  "updated_at": "2026-08-12T19:13:36Z",
+  "closed_at": "2026-08-12T19:13:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T19:13:35Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4480",
+  "body": "Closes #4472\n\n## The defect\n\nCopying an invitation link from the workspace **Invitations** tab produced a URL the recipient cannot open:\n\n```\nhttp://localhost:8080./accept-invitation/bgn1XAfRuCQUS1l9NBqOMGgJDUYm5l56\n```\n\nBoth copy sites carried their own `buildAcceptUrl`, glueing `${window.location.origin}` onto `import.meta.env.BASE_URL`:\n\n- `packages/app-shell/src/console/organizations/manage/InvitationsPage.tsx:32` — the Invitations tab's per-row copy button;\n- `packages/app-shell/src/console/organizations/manage/InviteMemberDialog.tsx:39` — the freshly-created invitation's \"Accept link\" field (and its copy button).\n\nIn the portable build the console ships (`base: './'`, `apps/console/vite.config.ts`) `BASE_URL` is the literal `'.'`, so the concatenation put a dot straight after the authority — a trailing-dot host. Removing the dot by hand did not rescue the link either: the resulting `/accept-invitation/:id` skips the deployment mount, and a console served under `/_console/` answers that path with `{\"error\":\"Not found\"}`. This is precisely the failure `resolveHomeUrl.ts`'s own header records as retired.\n\n## The fix\n\nBoth local copies are deleted. The two sites call `resolveConsoleUrl` from `packages/app-shell/src/console/organizations/resolveHomeUrl.ts` — the mount-aware helper `WorkspaceSwitcher` and `OrganizationsPage` already use for full-page navigations. It resolves against the base-href tag (`base href=\"/_console/\"`) the server injects when it serves the console (`objectstack packages/cli/src/utils/console.ts`), so the copied link carries the mount in every deployment shape. One resolver, one answer: no URL assembly survives in either file. The invite dialog resolves **once** into a single `acceptUrl`, so its displayed field and its clipboard cannot drift apart.\n\nNo public surface moved: the emitted `.d.ts` for both modules is byte-identical to the `origin/main` build (measured, two builds diffed) — hence `patch`.\n\n## Red-first\n\n`packages/app-shell/src/console/organizations/__tests__/acceptInvitationLink.mount.test.tsx` drives both copy sites through the real components and asserts the produced URL whole, in both deployment shapes (`/_console/` mount and root mount).\n\nAgainst the **current** builder the mount half failed exactly as reported:\n\n```\nAssertionError: expected '/accept-invitation/bgn1XAfRuCQUS1l9NB…' to be '/_console/accept-invitation/bgn1XAfRu…'\nExpected: \"/_console/accept-invitation/bgn1XAfRuCQUS1l9NBqOMGgJDUYm5l56\"\nReceived: \"/accept-invitation/bgn1XAfRuCQUS1l9NBqOMGgJDUYm5l56\"\n```\n\nThe **trailing-dot** half needed one measurement before it could be trusted, and the finding is worth recording: `vi.stubEnv('BASE_URL', '.')` reaches only the exact `import.meta.env.BASE_URL` spelling. The retired builders read `(import.meta as any).env?.BASE_URL`, and Vite inlines a bare `import.meta.env` as an object literal at transform time — so that read saw `'/'` in vitest no matter what was stubbed, and the portable-build condition could not be reproduced through it. Switching only the spelling in the two retired builders (temporarily, then reverted with `git checkout`) made the pin produce the bug report's string verbatim:\n\n```\nAssertionError: expected 'http://localhost:8080./accept-invitat…' not to match /:\\d+\\./\nReceived: \"http://localhost:8080./accept-invitation/bgn1XAfRuCQUS1l9NBqOMGgJDUYm5l56\"\n```\n\nSo the shipped pin goes red on a reintroduced local builder via the **mount** assertion; the trailing-dot assertion is carried alongside it and documented in the test as unable to fail on its own in vitest, rather than left to read as coverage it does not have.\n\nAfter the fix, all 4 cases green.\n\n## Verification\n\n- `pnpm exec vitest run packages/app-shell/` — **357 files, 3420 passed**, 1 skipped\n- `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit` **and** `tsc -p tsconfig.test.json`) — exit 0\n- `pnpm exec eslint` on the three changed files — 0 errors (26 pre-existing `set-state-in-effect` warnings in untouched code)\n- `node scripts/check-changeset-presence.mjs`, `check-changeset-no-major.mjs`, `check-control-bytes.mjs` — all green\n\n## Copy census\n\nSwept for other `accept-invitation/` assembly and `BASE_URL`-based origin concatenation in console code. No further in-family defects; two sites listed for the record, neither touched here:\n\n- `packages/app-shell/src/console/ai/AiChatPage.tsx:986` (`publicShareBase`) — a third hand-rolled mount resolution, but a **correct** one: it reads the document's base-href tag and yields `${origin}/_console/s`. Duplicated mechanism, no user-visible defect; a candidate to fold into `resolveConsoleUrl` separately.\n- `apps/console/src/utils/consoleBase.ts:42` — reads `import.meta.env.BASE_URL` deliberately and never concatenates an origin; documented for all three mount shapes and covered by its own tests. Not in family.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

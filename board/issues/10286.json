@@ -1,0 +1,32 @@
+{
+  "number": 10286,
+  "kind": "issue",
+  "title": "finding(types): objectui#7759 groups C and D, decidable subset — five mirror-vs-declaration disagreements settled by spec precedence or read-site truth",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T15:56:06Z",
+  "updated_at": "2026-09-24T16:57:15Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10286",
+  "body": "Execution split of objectstack-ai/objectui#7759, covering the keys in **groups C and D that can be decided now**. The split follows the ruling's own instruction to open one PR per group (「按组开 PR」, director ruling issuecomment-5617465269, plus ordering note 5617614225). Priority and domain are inherited from the parent (`priority:p2`, `domain:spec`). Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. Siblings: group E is on the parent, group B is objectui#10280, and group A is done (objectui#9364).\n\n## The keys (census on `origin/main` `32bf2d6f`; the dev re-derives it)\n\n| pair | key | spec declares it? | direction |\n| --- | --- | --- | --- |\n| `form.zod.ts#FormSchema` | `mode` | **yes**: `z.enum(['create','edit','view'])` (spec `component.zod.ts`); the mirror already matches | rule 1: align the **TS declaration** (`'edit' \\| 'read' \\| 'disabled'`) to the spec. The two faces share only `edit` (comment 5770951763). The dev measures whether any reader of `FormSchema.mode` (not `ObjectForm`'s own `mode`) consumes `read` / `disabled`. |\n| `complex.zod.ts#FilterFieldSchema` | `operators` | yes: the canonical operator vocabulary (objectui#7561) | rule 1: the TS face follows the spec |\n| `complex.zod.ts#FilterBuilderSchema` | `fields` | same | same |\n| `navigation.zod.ts#HeaderBarSchema` | `variant` | to be measured | spec-declared means rule 1; otherwise rule 2 (read-site truth) |\n| `layout.zod.ts#ContainerSchema` | `maxWidth` | no | rule 2: `true` renders nothing at the one read site, so **narrow the mirror** to `false`, matching the declaration |\n\n⛔ Out of this card:\n- `FormSchema.layout`: the spec declares 4 arms and 6 read sites fold two of them, so it needs a renderer feature.\n- `CalendarSchema.defaultValue` / `.value`: needs a renderer coercion.\n- `DashboardComponentSchema.header` / `.globalFilters`: these stay on #2231.\n\n## Done when\n\nThese rows leave `WiderThanDeclared` / `WIDER_ARMS` and the other ledgers. Each change has a pin that reddens on revert. There is one `@object-ui/types` changeset (`minor`, Clause-② yes)."
+}

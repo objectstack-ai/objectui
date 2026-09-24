@@ -1,0 +1,34 @@
+{
+  "number": 4503,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): the cross-page select-all banner works under external pagination (#4464)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T21:54:53Z",
+  "updated_at": "2026-08-13T03:59:18Z",
+  "closed_at": "2026-08-13T03:49:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T03:49:22Z",
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4503",
+  "body": "Closes #4464\n\n## The defect\n\n`BulkActionBar` gates the cross-page banner on `totalMatching`, and the only writer of that **state** is `setTotalMatching(...)` inside ObjectGrid's own data loader. In the console the grid never runs that loader: ListView fetches the rows itself and hands the window down as `data` plus `manualPagination` / `rowCount` / `page` / `onPageChange`, so the grid takes the inline-data path, the state stays `undefined`, and the banner condition is permanently false — for any match-set size.\n\nThe tell the issue records is exact: the pager was already correct, because it reads a *derived* total (`externalManualPagination ? rowCount : totalMatching`). The grid had the real number on the external path; it just never reached the bar.\n\n## The fix — one derived value, three consumers\n\nThe pager's derivation is hoisted to a single `resolvedTotalMatching`, and the pager plus **both** `BulkActionBar` render sites now read it. The conditional is written once and only once — two copies of the fallback is how one of them gets missed again (this defect, and #4138 before it). The `singleSelection ? undefined : ...` suppression is unchanged, and the value resolves to the SERVER total (`rowCount`, the 26 the reproduction measured), never the page window.\n\nNo public type moved: `dist/**/*.d.ts` is byte-identical built both with and without the change, so this is runtime wiring only — `patch` for `@object-ui/plugin-grid`.\n\n## Red-first\n\nThe pin is a **ListView-hosted composition test**, not an ObjectGrid unit test: ObjectGrid in isolation fetches its own rows, which runs the internal loader and populates `totalMatching` — precisely the path the console does not take, so a unit test there stays green either side of the fix. The new file renders the REAL `object-grid` under ListView with a server that pages for real (26 records, pageSize 10).\n\nBefore the fix, with `10 selected` on screen and the whole page ticked:\n\n```\n × offers the cross-page banner when the whole server page is selected\n × carries the SERVER total in the escalation, not the page window\n × escalates the selection past the page when \"Select all matching\" is clicked\n\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"bulk-cross-page-banner\"]\nTestingLibraryElementError: Unable to find an element by: [data-testid=\"bulk-select-all-matching\"]\n\n Test Files  1 failed (1)\n      Tests  3 failed | 3 passed (6)\n```\n\nThe three that PASSED pre-fix are the must-not-change cases, green on both sides: a partial page selection shows no banner, `selection.type: 'single'` suppresses, and a standalone grid on the internal-loader path still offers \"Select all 26 matching\". After the fix: `Test Files 1 passed (1) / Tests 6 passed (6)`, and `packages/plugin-grid/` + `packages/plugin-list/` are `95 passed (95) / 1100 passed (1100)`.\n\nThe file is listed in `heavyDomTests` (`vitest.config.mts`) so the setup's plugin-grid side-effect registration provides the real renderer — the alternative was a plugin-list to plugin-grid dependency purely for a test. That is the only file touched outside the fix, the test and the changeset.\n\n## Reachability note — please read before merging\n\nThe census this issue asks for turned up two more members of the same class, filed as **#4501**. One of them is not merely adjacent: `lastFindParamsRef` also has a single writer inside that same loader, and it is what `resolveBulkRows` replays when the user accepts \"Select all N matching\". On the external path it is `null`, so the fan-out queries the object with **no filter, sort or search**, and `apps/app-shell`'s `ObjectView` wires `onBulkDelete` to that result.\n\nThat path was unreachable before this PR precisely because the banner never appeared. This PR is what makes it reachable, which is what the checklist item asks for — but it means #4501 clause 1 should be graded against this merge rather than triaged at leisure. I did not fix it here: it is outside the ruled surface, and the fix needs a decision (the host has no way to hand its params down today, so it likely wants a prop rather than a fallback inside the grid).\n\n## Scope\n\n`packages/plugin-grid/src/ObjectGrid.tsx`, one new composition test in `packages/plugin-list/src/__tests__/`, one changeset, and the `heavyDomTests` entry. `plugin-list/src/ListView.tsx` source is untouched (imported read-only by the test).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

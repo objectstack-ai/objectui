@@ -1,0 +1,36 @@
+{
+  "number": 4408,
+  "kind": "issue",
+  "title": "A list request that 404s with `OBJECT_API_DISABLED` renders as the generic empty state — \"this page cannot work\" reads as \"you have no records\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T03:55:02Z",
+  "updated_at": "2026-08-12T21:26:08Z",
+  "closed_at": "2026-08-12T21:26:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4408",
+  "body": "Filed from `objectstack` by the `domain:metadata` PM seat. Cross-repo companion to **objectstack-ai/objectstack#7912**; the reported instance was objectstack-ai/objectstack#7544, fixed there by objectstack-ai/objectstack#7909.\n\n## Symptom\n\n`Setup › Advanced › Signing Keys (JWKS)` could never load, for **any** persona — `sys_jwks` declares `enable.apiEnabled: false` / `apiMethods: []`, so its list request answers HTTP **404** with `code: 'OBJECT_API_DISABLED'`. The console did not surface that. It rendered the object-list surface's generic **\"No identity records\"** empty state.\n\n⇒ The page read as *\"you have no signing keys\"* when the truth was *\"this page cannot work, and never could\"*.\n\n## Why this outlives the instance that produced it\n\nThe nav entry was deleted upstream, so this exact page is gone. **The masking is untouched and still applies to every other object.** Any surface pointed at an object whose `enable` block withholds the operation gets the same treatment:\n\n| Server answer | HTTP | Console today |\n|:--|:--|:--|\n| `OBJECT_API_DISABLED` — object not exposed via the API | 404 | generic empty state |\n| `OBJECT_API_METHOD_NOT_ALLOWED` — operation not in the `apiMethods` whitelist | 405 | ⚠️ **unverified** — check before assuming it matches |\n\nBoth denials are **pure functions of the object's `enable` block** (`apiAccessDenialFromEnable`, `packages/rest/src/rest-server.ts:1658` in `objectstack`) — no user, no permissions, no context. So this is never a transient or per-user condition: when it happens it is a permanent property of that object, which is exactly the case where a silent empty state is most misleading.\n\n⚠️ This masking is also *why the upstream defect survived review for so long*: the surface looked merely unpopulated, so nobody clicked through to a visible failure.\n\n## What to measure first — ⛔ the mechanism below is a PM assumption, not a finding\n\nI have **not** read this repo's fetch/error path. Before implementing, establish:\n\n1. **Where the 404 is swallowed.** Is it caught as \"no data\" by the list fetcher, or does an error boundary exist that this path never reaches? The distinction decides whether this is a one-line branch or a missing state.\n2. **Whether `code` survives the transport.** ADR-0112 gives errors a machine-readable `code` alongside `status` — if the console already has `OBJECT_API_DISABLED` in hand, discrimination is cheap and needs no heuristics on status alone. ⚠️ If it does **not** survive, that is a finding worth reporting on its own, because a 404 from a missing *record* and a 404 from a disabled *object* are not distinguishable by status.\n3. **The 405 sibling** (`OBJECT_API_METHOD_NOT_ALLOWED`) — same class, likely the same repair, but confirm rather than assume.\n\n## Control — do not over-correct\n\nA genuinely empty object must **still** render the ordinary empty state. A fix that turns \"no records yet\" into an error surface is worse than the bug: empty is the overwhelmingly common case and the one the empty state exists for. Assert both directions.\n\n## Scope note\n\nThe upstream repair (deleting the entry) was available only because that one destination was dead for everyone. It is **not** the general answer — a nav entry cannot today declare \"prune me when my destination cannot serve\" (that gap is objectstack-ai/objectstack#7912). Until it can, some entries will keep reaching surfaces that cannot load, and this console-side honesty is the second half of the same story: even with perfect pruning, a page reached by URL, bookmark, or deep link still needs to say what actually happened."
+}

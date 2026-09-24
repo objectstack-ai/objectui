@@ -1,0 +1,36 @@
+{
+  "number": 4466,
+  "kind": "issue",
+  "title": "A NULL-keyed group is dropped from a bar chart, leaving an axis with no marks and no empty state — the default first-boot state of System Overview's \"Events by User\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T13:37:31Z",
+  "updated_at": "2026-08-12T21:41:45Z",
+  "closed_at": "2026-08-12T21:41:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4466",
+  "body": "## Symptom\n\nWhen a chart's group-by returns a row whose **category key is `null`**, the renderer draws the axes, gridlines and axis label but **no marks**, and shows **no empty state** — the widget looks like a rendering failure with nothing to explain it.\n\nThis is not an edge case on this platform: it is the **shipped default state of a freshly provisioned instance**. Every seeded `sys_audit_log` row is written by the system with `user_id = NULL`, so the built-in System Overview board's \"Events by User\" widget groups to exactly one row — `{user_id: null, event_count: 50}` — and draws nothing.\n\n## Reproduction (3×)\n\n1. Boot the showcase fresh: `os dev -a dist/objectstack.json --seed-admin -d file:/tmp/x/data.db -p <port>`\n2. Sign in as admin at `http://localhost:<port>/_console/`\n3. Open `/_console/apps/setup/dashboard/system_overview`, let the board settle, screenshot.\n\n**Expected** bars, or a designed empty state.\n**Actual** y-axis (0/15/30/45/60), gridlines and the \"Events\" x-label with zero bars, no empty state, no error. DOM: `.recharts-bar` = 1, `.recharts-bar-rectangle` = **0**. The server answered 200 with a real row: `{\"rows\":[{\"user_id\":null,\"event_count\":50}]}`.\n\nThree independent confirmations:\n1. Organic first-boot seed state (50 events, all null) → 0 bars, screenshot-confirmed.\n2. After `UPDATE sys_audit_log SET user_id = NULL`, a fresh browser launch → 0 bars, server rows `[{user_id:null,event_count:50}]`.\n3. **The partial case, which is the sharpest** — rows `[{user_id:null,event_count:51},{user_id:'Dev Admin',event_count:2}]` renders exactly **one** bar: the null-keyed group (the *dominant* one, 51 of 53 events) is silently dropped while the y-axis scale still accommodates it. So the chart is not merely empty — it is quietly **wrong**, and the axis proves the data was there.\n\n## Root cause (located, not line-pinned)\n\n`packages/core/src/utils/chart-series.ts` (single-dimension branch) passes rows through verbatim with `xAxisKey = 'user_id'`. `hasNoCategoryKey` in `AdvancedChartImpl` does not fire, because `'user_id' in row` is **true** — the key is present, its *value* is null. The row therefore reaches recharts with a null category and no mark is drawn.\n\n## Not a stale-bundle artifact\n\n`chart-series.ts` is unchanged between the vendored console pin (`6314e87f2d49`) and current `origin/main` (`b4d3c2204`).\n\n## The renderer's two \"nothing to draw\" paths disagree\n\nWorth fixing together: an **empty result set** already gets a designed state — the same board's widgets repaint to a bordered \"No rows\" panel with a chart glyph when a filter matches nothing. Only a **non-empty result whose group key is null** falls through to the silent blank. One renderer, two answers for \"nothing to draw\".\n\n## Suggested shape (not prescriptive)\n\nEither render null-keyed groups under an explicit bucket label (the platform already has this concept — the analytics layer returns JSON `null` rather than a `'(null)'` sentinel, so the label belongs in the renderer), or treat \"every category key is null\" as the empty state that already exists. Silently dropping the row is the one option that should be off the table, because case 3 above makes the chart understate its own data without saying so.\n\n## Source\n\nFound by the platform checklist retest of `dashboards.system-overview-live-counts` (framework `279ee48a`, console pin `6314e87f2d49`). Previously noted once in passing on objectstack-ai/objectstack#7515 and carried in #7531's body without its own card; it now reproduces deterministically.\n"
+}

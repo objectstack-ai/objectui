@@ -1,0 +1,34 @@
+{
+  "number": 4607,
+  "kind": "issue",
+  "title": "finding(tooling): rule 2's tie test is symbol-agnostic, so a declaration can cite a retired spec symbol and pass because it references a different, live one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T18:40:58Z",
+  "updated_at": "2026-08-13T19:37:33Z",
+  "closed_at": "2026-08-13T19:37:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4607",
+  "body": "Observation-class finding, measured while implementing #4597 (PR #4606). Nothing is changed for it there — the fix is in `scripts/check-spec-symbol-derivation.mjs`'s rule logic, which is #4592's surface, and #4597 is a comments-and-ledger card.\n\n## What was found\n\nRule 2 flags an exported declaration when its doc comment claims spec alignment **and** the declaration `referencesSpec(...)` is false. That tie test asks:\n\n> does this declaration reference **any** identifier bound to a `@objectstack/spec` import?\n\nIt does not ask whether the declaration references **the symbol the comment actually cites**. So a declaration that cites symbol A while referencing an unrelated symbol B satisfies the tie and is never flagged — even when A does not exist in the installed spec at all.\n\n## Live specimen (now fixed, but only by accident)\n\n`FeedItem` in `packages/types/src/views.ts` carried:\n\n```\n/**\n * FeedItem — A single item in the unified activity feed.\n * Aligned with @objectstack/spec FeedItemSchema.\n */\nexport interface FeedItem {\n  type: FeedItemType;   // imported from '@objectstack/spec/data'\n  ...\n}\n```\n\n`FeedItemSchema` was **removed** from `@objectstack/spec/data` in the `16.0.0` major, alongside `MentionSchema`, `ReactionSchema`, `FieldChangeEntrySchema` and `RecordSubscriptionSchema` (the spec's own `CHANGELOG.md` records the removal and points consumers at the data API over `sys_comment` / `sys_activity`). `FeedItemType` was deliberately **kept**.\n\nSo `FeedItem` cited a symbol the pinned spec does not export — exactly the defect #4597 is about — and sat in the same file as four declarations that *were* flagged, four lines from a section banner making the same claim. It was never in `CLAIM_DEBT` and never appeared in a single gate run, purely because its `type` member references the one feed symbol that survived.\n\nPR #4606 rewrote that comment as in-file collateral, so the specimen is gone from the tree. **The hole it demonstrates is not.** Any declaration with a tie to any spec symbol currently has a free pass to cite a retired or nonexistent one.\n\n## Why it may matter\n\nThis is the same harm the guard's own header argues, reached by a different route: an agent reads \"Aligned with X\", goes looking for X, and cannot tell whether the protocol retired it, renamed it, or never had it. The tie test was built to answer \"is there something behind this claim\" — and a tie to a *different* symbol is not something behind *this* claim.\n\nNote the asymmetry that makes it easy to miss: the more spec-integrated a declaration is, the weaker the check on its prose becomes. A fully hand-written fork gets its claim scrutinised; one that imports a single live spec type for one member does not.\n\n## Cheap to close, if it is worth closing\n\nThe information is already computed. `findClaim` returns `symbols` — the capitalised identifiers named right after the spec mention — and the runner already derives `dangling` from them against `specNames`. Today both are used only to sharpen the message for declarations that have **already** failed the tie test.\n\nTwo directions, neither costed here:\n\n1. **Report dangling citations independently of the tie.** If a claim names symbols and *all* of them are absent from the spec's export set, that is reportable whether or not the declaration references something else. This catches the `FeedItem` class directly and needs no new parsing.\n2. **Make the tie symbol-aware.** Require the tie to involve the cited symbol (or a name derived from it, e.g. `XSchema` / `X`), not merely any spec binding. Stricter, but likely to need an allowance for the legitimate `type: FeedItemType` shape, where the citation and the tie are genuinely different-but-related symbols.\n\nDirection 1 looks like the honest, low-false-positive half; direction 2 is a judgement call about how much prose precision the guard should enforce.\n\n## Deliberately not established here\n\n- **How many declarations this currently hides.** Not measured. It needs a run of the claim scan with the `referencesSpec` filter removed, cross-referenced against the spec's export set — cheap, but it is the fix's own measurement and belongs with the fix.\n- **Priority.** No user hits this and no metadata is refused; it is a precision gap in a guard, which is why it is filed as an observation rather than a defect.\n\nRefs #4592, #4597, PR #4606, #4588.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

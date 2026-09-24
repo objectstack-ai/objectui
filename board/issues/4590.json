@@ -1,0 +1,32 @@
+{
+  "number": 4590,
+  "kind": "issue",
+  "title": "[fields] formatPercent rounds a tie the wrong way: a stored 1.005 renders `1.00%` where half-up is `1.01%`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T14:44:36Z",
+  "updated_at": "2026-08-13T17:17:18Z",
+  "closed_at": "2026-08-13T17:17:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4590",
+  "body": "Found and measured while implementing objectui#4576 (PR #4589). Not fixed there: `packages/fields`' `formatPercent` implementation is outside that card's declared surface, and this is a different claim from the one #4576 was making.\n\n## The defect\n\n`formatPercentBody` renders through `Intl` with `style: 'percent'`. That style expects a FRACTION, so a value already in percentage points is divided by 100 for `Intl` to multiply it straight back:\n\n```\nreturn formatDisplayNumber(displayValue / 100, {\n  locale, style: 'percent',\n  minimumFractionDigits: precision, maximumFractionDigits: precision,\n});\n```\n\nThe round trip is not value-preserving. `displayValue / 100` is a double division, and for a value sitting exactly on a rounding tie it lands just BELOW the tie, so the digit rounds down instead of up.\n\nMeasured, en-US, node v22.22.2 / ICU 78.2:\n\n| stored value | precision | `formatPercent` | half-up on the authored decimal |\n|---|---|---|---|\n| 1.005 | 2 | `1.00%` | `1.01%` |\n| 1.025 | 2 | `1.02%` | `1.03%` |\n| 1.45 | 1 | `1.4%` | `1.5%` |\n| 1.055 | 2 | `1.05%` | `1.06%` |\n\nThe mechanism, shown: `0.175` as a double is `0.174999999999999988...`, but `Intl` formats from the SHORTEST decimal representation, which is `0.175`, and rounds that half-up to `0.18`. Divide it by 100 first and the shortest representation of the result is `0.0017499999999999998`, which percent-scales to `0.17499999999999998` and rounds to `0.17`. The division, not the rounding, is what loses the digit.\n\nThis is locale-independent — it is a numeral defect, not a convention one.\n\n## Scale\n\nOn a 0.005-step grid of display magnitudes from 1 to 200, **2,999** value/precision combinations render a different last digit than half-up on the authored decimal. Across a wider tie-dense grid (0.005 steps to 2,000, precisions 0/1/2) it is **27,581 of 1,200,013** forms. Every case is a last-digit-off-by-one, which is the failure mode least likely to be noticed and most likely to be trusted.\n\nThe same round trip also loses digits at the top of the double range: `MAX_SAFE_INTEGER` percentage points render `9,007,199,254,740,990%`, and 1e23 renders `99,999,999,999,999,990,000,000%`. objectui#4577 measured that end of it (24 of its 32,760 combinations) and declined to adopt the style for it; what was not known then is that the same artefact reaches down to ordinary magnitudes.\n\n## Where it came from, and why it is filed rather than fixed\n\n`formatPercent` gained this implementation in objectui#4553 / PR #4565, which fixed a real and worse defect (it had rendered in NO locale — an ASCII decimal mark and never a grouping separator). The tie behaviour was not part of that card's measurements. Nothing here suggests #4565 was wrong to land; this is the residue.\n\n`formatMeasure` in `@object-ui/core` had the same choice to make in objectui#4576 and took the other route: it formats the percentage points DIRECTLY with `Intl`'s `style: 'unit'` / `unit: 'percent'` / `unitDisplay: 'narrow'`, which was measured to produce a byte-identical percent affix to `style: 'percent'` across all 171 locale tags tested while moving 0 of those 1,200,013 forms. It is exposed on the moved `DisplayNumberFormatOptions` as `style: 'percentPoints'`.\n\nSo the fix is available and already in the tree: point `formatPercentBody` at `style: 'percentPoints'` and drop the `/ 100`.\n\n## The consequence today\n\nThe two surfaces #4576 was about now agree on the percent CONVENTION but still disagree at ties, in opposite directions:\n\n```\nformatPercent(1.005, 2, 'en-US')                                   -> \"1.00%\"   (list cell)\nformatMeasure(1.005, '0.00%', undefined, 'whole', 'en-US')         -> \"1.01%\"   (dashboard measure)\n```\n\nThe MEASURE is the faithful one here and the CELL is the artefact, which is worth stating plainly because \"the cell is the reference\" is the natural assumption. This pair is pinned as an explicitly NOT-a-defect case in `packages/fields/src/__tests__/percent-cell-vs-measure-4576.test.ts` so it is recorded rather than rediscovered; that pin moves when this is fixed.\n\n## Acceptance criteria\n\n- `formatPercentBody` renders percentage points without a divide-and-remultiply round trip.\n- The tie cases above render half-up on the authored decimal.\n- `formatPercent`'s locale convention output is byte-identical for every locale (the affix parity is measured; this must not become a convention change).\n- objectui#4565's `formatPercent` suite stays green apart from any pin that asserts a tie, declared if so.\n- The NOT-a-defect pin in `percent-cell-vs-measure-4576.test.ts` becomes an agreement pin.\n\nBlocked-by: nothing — PR #4589 lands the `percentPoints` option this needs, so this is actionable once that merges.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

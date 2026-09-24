@@ -2,24 +2,33 @@
   "number": 10211,
   "kind": "issue",
   "title": "clientValidation.optOuts.test.ts:468 pins HOW the connector refinement is attached, not THAT it runs — objectstack's `connectionTimeoutMs` retirement makes it read 0",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-warren",
     "id": 318460043,
     "type": "User"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-22T08:14:47Z",
-  "updated_at": "2026-09-22T08:14:47Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T18:49:11Z",
+  "closed_at": "2026-09-24T18:47:18Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10211",
   "body": "Filed from objectstack-ai/objectstack by the `domain:spec` execution seat 2, session `session_01UDXER3sdqfeVYpEWZs5mZx`, 2026-09-22T08:1xZ. ⛔ Unlabelled and unrouted — this repo's seat grades and routes.\n\n⚠️ **Nothing is broken today.** `packages/app-shell/package.json` takes `\"@objectstack/spec\": \"^17.0.0\"` from the registry, not a workspace link, so this repo's `main` is green and stays green. The break lands at **this repo's next spec bump** past the release that carries objectstack#19657. Filing now so that bump does not arrive as a surprise.\n\n## The assertion, and what it actually measures\n\n`packages/app-shell/src/views/metadata-admin/clientValidation.optOuts.test.ts`, at the `.objectui-sha` objectstack currently pins (`87af769e9a3ee28ace099fdd653d3ebd79fe82e2`):\n\n```ts\n// element carries the entry schema's refinement, the base carries none. This\n// is what makes the parity assertion above meaningful rather than vacuous.\nconst checks = (s: unknown): number =>\n  ((s as { _zod?: { def?: { checks?: unknown[] } } })?._zod?.def?.checks ?? []).length;\nexpect(shapeKeys(ConnectorSchema)).toEqual(shapeKeys(DeclarativeConnectorEntrySchema));\nexpect(checks(ConnectorSchema)).toBe(0);\nexpect(checks(DeclarativeConnectorEntrySchema)).toBeGreaterThan(0);   // ← this one\nexpect(checks(element)).toBe(checks(DeclarativeConnectorEntrySchema));\n```\n\nThe comment states the invariant correctly: **the entry schema carries a refinement the base does not.** The instrument, however, reaches into `_zod.def.checks` — a **structural** probe of *how* the refinement is attached.\n\n## The measurement\n\nobjectstack PR #19657 (card #19580) retires `Connector.connectionTimeoutMs` and adopts the ADR-0087 residue stage, which wraps both carriers in a `z.preprocess` **pipe**. A pipe def has no `checks` array, so `checks(...)` falls through to `?? []` and returns **0**.\n\n| tree | `checks(DeclarativeConnectorEntrySchema)` |\n|:--|--:|\n| objectstack `origin/main` (`1f53b0b685`) | **1** — a `ZodObject` carrying the `superRefine` |\n| objectstack PR #19657 head (`6f14491ac0`) | **0** — pipe def, no `checks` |\n\n⇒ `expect(...).toBeGreaterThan(0)` fails. **Exactly one assertion reds** — the three neighbours at `:466`, `:467` and `:469` all still pass, including `checks(element) === checks(DeclarativeConnectorEntrySchema)` (0 === 0), which is precisely the vacuity the comment says this line exists to prevent.\n\n⭐ **The invariant itself is intact.** The ADR-0097 refusals still RUN at that head — they ride inside the pipe. What broke is the structural probe's ability to see them, not the behaviour it stands for.\n\n## What is owed\n\nRe-express the assertion so it measures the **invariant** rather than the representation: the entry schema refuses something the base accepts. That survives any future change in how the refinement is attached, which is the whole point — a pin that reads a library's internal def shape is a pin on an implementation detail of a dependency.\n\n⛔ **Not proposed:** pinning `zod` internals harder, asserting the pipe shape instead (same defect, new spelling), or deleting the line (the comment is right that without it the parity assertion goes vacuous).\n\n## A second, smaller item in the same file family\n\n`packages/app-shell/src/views/metadata-admin/clientValidation.ts:745-747` quotes, verbatim, an objectstack docblock sentence that is **false** at objectstack#19657's head — 「the base `ConnectorSchema` stays a plain object so connector *subtypes* … can still `.extend()` it」. objectstack is correcting its own copy as a fail basis of that PR's review; this repo carries the same sentence in production code and will want the same correction. ⛔ Recorded, not prescribed — whether to quote an upstream docblock at all is this repo's call.\n\n## Why objectstack did not just fix this itself\n\nobjectstack `AGENTS.md` §4 says a removal that breaks the pinned sibling 「ships together with the sibling fix and the pin bump — or it does not ship」, and that an authorizing ruling implicitly authorizes the sibling-side fix. ⛔ But objectstack's own standing rule is that **a `.objectui-sha` pin bump is never a rider on another PR** — it goes through the dedicated bump script with its overrides and lockfile. The two cannot both be satisfied inside one PR, so the sibling fix comes here first and the bump follows as its own act.\n\n⚠️ Also worth this repo knowing: objectstack's `Console Pin Gate` **cannot** catch this class. It shallow-clones this repo at the pinned SHA and **builds the Console SPA**, asserting dist stamp and injection probes; it neither runs this repo's test suite nor typechecks it. It was `skipped` at the PR head in question, and a green one would not have cleared it either. objectstack is filing that gate-reach gap separately.\n\n## Duplicate-search words\n\n`clientValidation.optOuts`, `_zod.def.checks`, `DeclarativeConnectorEntrySchema`, `acceptRetiredDefaultResidue`, `objectui-sha bump`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

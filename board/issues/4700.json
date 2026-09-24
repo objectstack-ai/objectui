@@ -1,0 +1,32 @@
+{
+  "number": 4700,
+  "kind": "pull_request",
+  "title": "test(app-shell): stub useMetadataClient in metadata-admin inspector suites",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T11:10:34Z",
+  "updated_at": "2026-08-15T11:27:32Z",
+  "closed_at": "2026-08-15T11:27:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T11:27:31Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4700",
+  "body": "Fixes #4697\n\n## What\n\n`packages/app-shell/src/views/metadata-admin/previews/useObjectFields.ts` and\n`useObjectOptions.ts` both call `useMetadataClient()` unconditionally in a\nmount-time `useEffect`, which escapes to the real network under happy-dom\n(`ECONNREFUSED 127.0.0.1:3000` — harmless noise, since both hooks already\ndegrade to an empty result on any transport error). Stubs `useMetadataClient`\nin the 9 files the card named, in\n`packages/app-shell/src/views/metadata-admin/inspectors/`:\n\n- `PageBlockInspector.i18n.test.tsx`\n- `PageBlockInspector.sectionName.test.tsx`\n- `ConditionBuilder.celGate.test.tsx`\n- `HookDefaultInspector.condition.test.tsx`\n- `ViewVariantInspector.celGate.test.tsx`\n- `ViewVariantInspector.homeGate.test.tsx`\n- `ActionDefaultInspector.celGate.test.tsx`\n- `ConditionBuilder.test.tsx`\n- `HookDefaultInspector.celGate.test.tsx`\n\nEach file gets its own `vi.hoisted()` + `vi.mock('../useMetadata', …)` block\n(mirroring the in-package precedent, `FlowReferenceField.lookup.test.tsx`),\nwith a **stable** stub client (`{ get, list }` both resolving to an empty\nresult) — stable identity matters because the hooks' effects key off\n`[client, …]`, so a fresh object per call would re-fire them every render.\nNo shared helper file: 9 short, self-contained blocks stayed easier to review\nthan a new cross-file abstraction for this size of change.\n\nTests-only — no production source touched. `.changeset/metadata-admin-inspector-client-doubles.md`\ndeclares an empty-frontmatter release (test-only, precedent #4641/#4666/#4671).\n\n## Acceptance = measured zero\n\nEvery file re-run **isolated** (`pnpm exec vitest run <file> --maxWorkers=1`\n— batched runs undercount, per the card):\n\n| file | ECONNREFUSED before | after |\n| --- | --- | --- |\n| `PageBlockInspector.i18n.test.tsx` | 70 | 0 |\n| `PageBlockInspector.sectionName.test.tsx` | 40 | 0 |\n| `ConditionBuilder.celGate.test.tsx` | 12 | 0 |\n| `HookDefaultInspector.condition.test.tsx` | 12 | 0 |\n| `ViewVariantInspector.celGate.test.tsx` | 12 | 0 |\n| `ViewVariantInspector.homeGate.test.tsx` | 12 | 0 |\n| `ActionDefaultInspector.celGate.test.tsx` | 8 | 0 |\n| `ConditionBuilder.test.tsx` | 8 | 0 |\n| `HookDefaultInspector.celGate.test.tsx` | 6 | 0 |\n\nSum 180 → 0, exactly matching the card's baseline. Every assertion unchanged\n(same pass counts before/after: 22, 9, 6, 6, 4, 2, 4, 4, 3 — 60 tests total).\n\nFull directory suites also re-run clean:\n`packages/app-shell/src/views/metadata-admin/inspectors/` → 53 files, 590\npassed | 1 skipped (pre-existing skip, unrelated), 0 ECONNREFUSED.\n`packages/app-shell/src/views/metadata-admin/` (the whole area) → 167 files,\n1671 passed | 1 skipped, 0 ECONNREFUSED.\n\n**Reverse verification** (direction predicted first: reverting the stub\nshould return the count to baseline with tests still green — proving the stub,\nnot something else, is what silences the noise): committed the fix, then\n`git checkout HEAD~1 -- .../PageBlockInspector.i18n.test.tsx` (the biggest\nfile) → re-ran isolated → **70** ECONNREFUSED, 22/22 still passing, confirming\nprediction. Restored with `git checkout <fix-sha> -- <path>` → back to 0.\n\n## Out-of-scope finding\n\nWhile measuring the full `metadata-admin/` suite for step 2 of the verification,\nfound a **different** escape (`ECONNRESET`/\"socket hang up\", not\n`ECONNREFUSED` — a different transport mechanism) in\n`previews/FlowCanvas.test.tsx` (19 lines isolated). Filed unassigned as #4699,\nnot touched here — out of scope for this card.\n\n## Local gate union at HEAD `b65801b2d`\n\n- `pnpm --filter '@object-ui/app-shell^...' build` — dependency closure built first (green).\n- `pnpm --filter @object-ui/app-shell run type-check` — `tsc --noEmit && tsc -p tsconfig.test.json` — green.\n- `pnpm exec eslint --quiet <the 9 files>` — clean, no output.\n- The 9 files isolated + the `inspectors/` and full `metadata-admin/` directory suites (above).\n- `node scripts/check-changeset-presence.mjs` — green (empty-frontmatter changeset declared).\n- `pnpm run check:control-bytes` — green.\n\n`scripts/pm/dispatch-gates.mjs` does not exist in this repo (checked — it\nappears to be an `objectstack` script, not `objectui`); re-derived the\nimplicated gate families by hand against the actual diff (9 `.test.tsx` files\nunder `packages/app-shell/src/views/metadata-admin/inspectors/` + one\nchangeset) — no new error codes, no `.claude/agents/**` changes, no new fake\nengine, no `t()` call-site changes, no doc changes, so no family beyond the\nones already named/run above is implicated.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

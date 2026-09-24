@@ -1,0 +1,34 @@
+{
+  "number": 4555,
+  "kind": "pull_request",
+  "title": "feat(plugin-kanban): a drop that makes fields required collects them instead of dead-ending (#4254)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T08:09:03Z",
+  "updated_at": "2026-08-13T08:17:45Z",
+  "closed_at": "2026-08-13T08:17:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T08:17:43Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4555",
+  "body": "Fixes #4254\n\nDragging a card into a column whose value flips a field's `requiredWhen` predicate to TRUE used to PATCH the column value alone. The engine refused the whole update — correctly, that is what the predicate declares — and the board had no way to finish the move: closing a won deal meant abandoning the board for the record form. HotCRM's opportunity pipeline is the reported case (`win_reason` required when stage is `closed_won`), but the dead end belonged to every board whose target column carries a conditional requirement.\n\nImplements the maintainer's approved shape (2026-08-12): **pre-evaluate, then collect, then one PATCH.**\n\n## What changed\n\nOn drop, the board evaluates the target column's predicates against the record **with the target value applied**, before writing anything. If that makes fields required while they are still empty, a small dialog collects exactly those fields and the column value plus everything collected go out as **one** PATCH — two writes would leave the record in the refused state if the second failed. A drop that triggers no predicate is untouched, PATCH body included.\n\n## Against the dispatch ruling\n\n**1. One evaluator, measured.** The record form resolves `requiredWhen` through `@object-ui/core`'s `resolveFieldRuleState` (`packages/core/src/evaluator/fieldRules.ts`), exported from the package barrel via `evaluator/index.ts`. plugin-kanban already declares `@object-ui/core`, so it is reachable with **no seam edit and no new dependency** — the same barrel `components/renderers/form/form.tsx:9` imports from. Nothing was hand-rolled.\n\nThe CEL subset was measured against the card's own predicate rather than assumed — `@objectstack/formula` 17.0.0-rc.6, `has(record.stage) && record.stage == \"closed_won\"`:\n\n```\nclosed_won present     {\"ok\":true,\"value\":true}\nother stage            {\"ok\":true,\"value\":false}\nstage absent           {\"ok\":true,\"value\":false}\nstage null             {\"ok\":true,\"value\":false}\n```\n\nAll four `ok:true` — `has()`, `==` and `&&` are genuinely evaluated, not fail-open verdicts wearing the right answer.\n\n**2. Dialog reuses the record form's renderers.** Every control is `@object-ui/fields`' `FieldEditWidget` — by its own header \"the SAME dedicated widgets the form renders\", already the basis of the grid's inline editor and the detail page's inline edit. A select edits as a select, a date as a date picker. No parallel mini-form. Local required validation before submit uses core's `isMissingForRequired`, the presence contract the form and the server share, so `false` and `0` count as answers and are not re-asked.\n\n**3. Flow.** Empty required-set leaves today's PATCH untouched and pinned byte-identical; non-empty opens the dialog and submits `{stage, ...collected}` as one PATCH. Cancel writes nothing and leaves the card in its source column. A combined PATCH still refused for some other reason surfaces the legible refusal and rolls back exactly as a plain rejected move does — the #4138 contract, unchanged — and does not loop the dialog.\n\n**4. Fallback clause not used.** Pre-evaluation is feasible; the prompt-on-reject fallback was not needed and was not silently substituted.\n\n**5. i18n.** Two new `kanban.*` keys through this package's existing `useSafeTranslate` channel, added to **all ten** packs in each pack's own quote convention and key order. `common.cancel`, `common.required` and `kanban.moveCard` are reused rather than minted twice. No `I18nProvider` is mounted in the new tests, per the #4514 trap.\n\n## Deliberate non-collection\n\nFour kinds of required-and-empty field are **not** collected, each falling through to the unchanged PATCH where the refusal is legible (objectstack#7525 closed): one that already has a value, one `visibleWhen` hides, a readonly one, and a type with no edit widget. A dialog row with no control would be a worse dead end than the one being fixed.\n\n## Red-first, predicted before running\n\nPredicted 5 red / 3 green; measured exactly that against unfixed code. The sharpest red names the defect itself rather than a missing dialog:\n\n```\nAssertionError: expected \"vi.fn()\" to not be called at all, but actually been called 1 times\nReceived:\n  1st vi.fn() call:\n    Array [ \"opportunity\", \"o1\", Object { \"stage\": \"closed_won\" } ]\n```\n\nThat lone `{stage}` PATCH is the issue.\n\n**Reverse verification** — direction predicted first: removing *only* the pre-evaluation gate limb (leaving the module and dialog in place) should turn the 5 feature tests red and leave the 3 pins green. Measured: exactly that, `5 failed | 3 passed`. Restored via patch-file plus backup copy, never `git stash`, and the restore was sha256-verified on all six touched files.\n\n## Verification\n\n| check | result |\n|---|---|\n| `vitest run packages/plugin-kanban/ packages/i18n/` | 56 files, **873 passed** |\n| plugin-kanban suite alone | 12 files, 72 passed (incl. #4138 rollback pins) |\n| `type-check` (both tsc passes, kanban + i18n) | green |\n| `eslint` | 0 errors; my lines add **0** warnings (36 to 33 after typing three of my own) |\n| `check:i18n-keys` | every call-site key resolves; every inline default matches its `en` value |\n| `check:i18n-drift` | 2 keys added, **0** `en` values changed |\n| `check:control-bytes` / `check:phantom-deps` / changeset gates | green |\n| `.d.ts` diff, both packages, measured both ways | **identical** — no public type surface change |\n\nChangeset: `@object-ui/plugin-kanban` minor (new user-facing capability), `@object-ui/i18n` patch (graded on its measured-identical `.d.ts`). Never major.\n\n## Surface\n\n`packages/plugin-kanban/**`, the ten locale packs, one changeset. No edits to `packages/fields`, `data-objectstack`, `metadata-admin`, studio inspectors, `DashboardRenderer`/`ListView`, or `content/docs/releases/`. Consumption of `@object-ui/fields` and the form machinery is read-only.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

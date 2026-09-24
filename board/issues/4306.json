@@ -1,0 +1,35 @@
+{
+  "number": 4306,
+  "kind": "issue",
+  "title": "Field inspector: Save is not gated on CEL errors — a parse-fault formula saves and publishes as the live field definition",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:26:01Z",
+  "updated_at": "2026-08-13T06:05:45Z",
+  "closed_at": "2026-08-13T06:05:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4306",
+  "body": "## Symptom\n\nIn the metadata-admin field inspector, a formula that fails to parse shows its inline error and **saves anyway**.\n\n- With `record.est_hours *` in the formula box, the inline CEL error is displayed — and **\"Save draft\" stays enabled**.\n- Clicking it PUTs → **200** with a success toast.\n- Publishing makes the malformed expression the **live field definition**: `GET` reads back `expression: 'record.est_hours *'`.\n\nReproduced twice.\n\nThe RLS editor on the same build does the right thing — it disables Save with *\"Fix the CEL syntax errors before saving.\"* — which is what makes this an inconsistency inside one console rather than a missing feature.\n\n## Root cause\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ObjectFieldInspector.tsx` mounts `CelPredicateField` four times and passes **no** `onCelErrorsChange` prop to any of them:\n\n- line 478 — the `formula` editor (`type === 'formula'`)\n- lines 615 / 628 / 641 — the three conditional rules (`visibleWhen` / `readonlyWhen` / `requiredWhen`)\n\n`onCelErrorsChange` does not appear anywhere in that file. The control is one directory over: `PermissionAdvancedFacets.tsx` declares the prop (line 178), threads it through a ref (lines 253-258) and receives `onCelErrorsChange={setCelErrorCount}` from its host — which is exactly why the RLS editor's Save is correctly gated. So the error-count channel exists and works; this inspector simply is not connected to it.\n\n**Stale-premise check:** re-verified on `objectui` `origin/main` (`33c32bf`). All four mount sites are still present at the same lines, still with no `onCelErrorsChange`; the `PermissionAdvancedFacets` control still has it. Zero-hit confirmed against a known-present neighbour, so this is an absence, not a search miss.\n\n## Context\n\nThe editor/engine parity these editors exist for is otherwise clean. Nine probes compared the editor's verdict against the framework's own `@objectstack/formula` for the same expression **and site** — type inference, unknown-field with did-you-mean, bare-ref with the `record.` fix, parse faults, the RLS pushdown warning, and the test-run allow/deny/non-boolean triple — with **no divergence in tier or text**. All five CEL sources are md5-identical between the served pin and objectui HEAD, so the verdicts apply to the running bundle. The gap is purely that the field inspector does not act on a verdict it already renders.\n\nRelated: #2413 landed the CEL authoring safety net (lint + autocomplete + test-run) for RLS policies, and #1582 brought the CEL editor to the field conditional rules. The Save gate came with the first and not with the second.\n\n## Reproduction\n\n1. Boot the showcase with a writable runtime package; open metadata-admin → an object → a `formula` field.\n2. Type `record.est_hours *` into the formula box. The inline parse error appears.\n3. Observe **\"Save draft\" is still enabled**; click it → 200 + success toast.\n4. Publish the draft; `GET` the object → `expression` reads back `record.est_hours *`.\n5. Control: do the same in the RLS policy editor — Save is disabled with \"Fix the CEL syntax errors before saving.\"\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7695 (framework 92f26f75, console 09987b680)."
+}

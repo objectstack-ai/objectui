@@ -1,0 +1,34 @@
+{
+  "number": 10346,
+  "kind": "pull_request",
+  "title": "fix(core): a dashboard dateRange that omits defaultRange takes the spec default preset (objectui#10339)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T19:06:44Z",
+  "updated_at": "2026-09-24T19:44:22Z",
+  "closed_at": "2026-09-24T19:44:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-24T19:44:20Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10346",
+  "body": "Closes #10339\nClause-②: yes. The published runtime behaviour changes: an omitted `defaultRange` now filters to `this_month`. An isolated at-tier review happens before enqueue.\n\n## What\n\n`@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` as `z.enum(DATE_RANGE_DEFAULT_RANGES).default('this_month')` (installed 17.4.0 and objectstack `main` at `fc6ddb87` both). `resolveDashboardFilterDefs` in `@object-ui/core` treated an omitted `defaultRange` as \"no filter\", so `dateRange: { field: 'created_at' }` rendered UNFILTERED while the platform's parse of the same document says `this_month`.\n\nDirection (i), per #7759 ruling 5617465269 rule 1: the read site applies the spec's default.\n\n- `packages/core/src/utils/dashboard-filters.ts`: when an authored `dateRange` has `defaultRange === undefined`, the preset is read FROM THE SPEC by parsing an empty element through `DashboardSchema.shape.dateRange` (imported from `@objectstack/spec/ui`, the same subpath this module already imports `DATE_RANGE_PRESETS` from; core already imports runtime zod schemas from the spec, e.g. `FieldSchema` in `reference-keys.ts`). No hand-copied string. Computed lazily on first use and cached, because `DashboardSchema` is a `lazySchema` and forcing it at module load would cost every importer of core.\n- An explicit `defaultRange`, `'custom'` included, is unchanged. `allowCustomRange` is untouched (already consumed as `!== false`). No authored `dateRange` still yields no built-in filter.\n- `content/docs/guide/dashboard-filters.md`: the `defaultRange` bullet now states the omitted behaviour.\n- `.changeset/10339-daterange-spec-default.md`: minor on `@object-ui/core`, with the behaviour note. plugin-dashboard source did not change (tests only), so it carries no bump.\n\n## Blast radius (dashboards that will now show this_month)\n\nEvery authored `dateRange` object in `examples/`, `content/`, `apps/` and `packages/` source was enumerated with `git grep -nE 'dateRange\"?\\s*:\\s*\\{'` plus the multi-line and YAML forms. All authored dashboards (`examples/schema-catalog/.../filtered-dashboard*.json` x3, `content/docs/guide/dashboard-filters.md`, `packages/plugin-dashboard/README.md`) set `defaultRange` explicitly. Zero authored dashboards omit it, so no example, story or E2E fixture changes what it shows. `packages/types/src/__tests__/dashboard-config.test.ts` authors a `dateRange` without `defaultRange`, but that is the separate `DashboardConfig` (enabled/presets) shape, which `resolveDashboardFilterDefs` does not read. The only in-product producer is the metadata-admin designer: a dashboard saved there with a bare `dateRange` now opens on this_month, as the spec says.\n\n## Tests\n\n- core `dashboard-filters.test.ts`: three new cases. The omitted case resolves to `{ preset: 'this_month' }` and compiles to month bounds. A second case pins that the value equals the spec schema's own parse of an empty element. A third keeps explicit `defaultRange` / `allowCustomRange: false` as authored and gives no def without `dateRange`.\n- plugin-dashboard `DashboardFilterBar.dateDefault.test.tsx`: the control for a bare `dateRange` reads \"This month\", not \"All time\".\n- plugin-dashboard `DashboardRenderer.filters.test.tsx`: a bare `dateRange` broadcasts a `created_at` range into the widget query.\n- Reverse verification (from committed `af43adbc1`, via objectstack `scripts/ablation-replace.mjs`): replaced `? specDefaultDateRangePreset()` with `? undefined` (anchor 1 to 0, blob `2761b23360ea` to `124c918877e7`). Result: `Tests 4 failed | 53 passed (57)`, and the failures are exactly the four new cases. Restore then gave blob == HEAD and an empty `git diff HEAD`.\n- Final head `9bf3ea525` (after merging origin/main): built the `@object-ui/plugin-dashboard^...` closure; `type-check` on core and plugin-dashboard green; `vitest run packages/core/src/utils/__tests__/dashboard-filters.test.ts packages/plugin-dashboard/src/__tests__/` gives `Test Files 121 passed (121)`, `Tests 1199 passed (1199)`.\n- Forward compatibility: spec built from objectstack `main` `fc6ddb87`, packed, and injected with `node scripts/spec-main-shape-gate.mjs inject`. Against it, core `tsc --noEmit` (src) exit 0, plugin-dashboard `type-check` exit 0, and the three touched test files `57 passed` (runtime parse through main's `strictObject` dateRange). Then restored the pinned install; the restored spec `dist/ui/index.mjs` hash equals the shared checkout's pinned 17.4.0 and differs from the main build.\n- eslint `--no-inline-config` on the 4 changed TS files: 0 errors (17 pre-existing `no-explicit-any` warnings, none on changed lines). `check-changeset-presence` exit 0; `check:new-line-citations` gives `0 new citation(s)`; `check-changeset-no-major` exit 0.\n\n## Acceptance notes\n\n- Against objectstack `main`, core's `tsconfig.test.json` leg fails in an untouched file: `normalize-list-view.pageResidual-8429.test.ts` TS2344, `\"page\"` does not satisfy `never`. This is spec-main drift unrelated to this diff. The `Spec Main Shape Gate` CI job owns that reading.\n- The first commit carries a model-named `Co-Authored-By` trailer that I wrote by mistake. It is not rewritten, because force-push is banned here. Squash-merge text is the seat's to trim.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"
+}

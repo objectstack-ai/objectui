@@ -1,0 +1,35 @@
+{
+  "number": 4302,
+  "kind": "issue",
+  "title": "[security] An RLS policy authored in Studio's package door is silently discarded — Save succeeds, no row filter is ever persisted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:15:58Z",
+  "updated_at": "2026-08-13T06:08:45Z",
+  "closed_at": "2026-08-13T06:08:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4302",
+  "body": "## Impact\n\nAn author fills in a row-level-security policy (name, object, USING, CHECK), clicks a **fully-enabled** Save, gets **no error**, and is told the permission set saved. **No row filter is ever persisted.**\n\nAnyone reading the Studio surface afterwards sees a permission set that looks configured. The records the policy was meant to scope are unprotected, and **the failure mode is silence** — which is worse than a refusal, because the admin now has positive (false) evidence that a control is in place.\n\n`rowLevelSecurity` is not the only casualty: **tab visibility and delegated-admin scope are reverted the same way.**\n\n## Reproduction (observed on the wire)\n\n1. Studio → Access pillar for a **writable package** → a permission set → Row-Level Security → Add policy.\n2. Fill Policy name, Object, USING (and CHECK).\n3. Save.\n\nThe PUT body is:\n\n```json\n{\"name\":\"qa_st2_rls\",\"label\":\"QA ST2 RLS\",\"objects\":{},\"fields\":{}}\n```\n\n— **no `rowLevelSecurity` key at all.** The server answers 200, and a `GET /api/v1/meta/permission/&lt;n&gt;` after publish carries no policy.\n\n**Control that isolates the door:** the **environment** door (the routed editor at `/apps/setup/metadata/permission/&lt;n&gt;`, no `packageId`) **does** send `rowLevelSecurity` in the body. So this is specific to the **package** path, not to the editor's data collection — the editor gathers the policy correctly and the package save path drops it.\n\n## Root cause (located)\n\n`PermissionMatrixEditor.doSave()` routes through `mergePermissionSlice()` whenever `packageId` is set, and `permission-slice.ts:117-124` returns:\n\n```\n{...base, name, label, isDefault, objects, fields}\n```\n\nIt carries only those **five** keys from `edited` and takes **every advanced facet from `base`** — a fresh server read. So `rowLevelSecurity`, tab visibility and delegated-admin scope are silently reverted to whatever the server already had.\n\n**The slice is a whitelist that has drifted behind the facets the editor can author.** That is the general shape worth fixing, not just the one missing key: any facet added to the editor in future is silently dropped on this door until someone remembers to widen the whitelist.\n\n## Acceptance criteria\n\n- A policy authored through the **package** door is persisted — asserted by reading `GET /api/v1/meta/permission/&lt;n&gt;` back after publish and finding the policy, **not** by asserting the save returned 200 (a 200 is exactly what this defect already produces).\n- The same assertion covers the other facets the whitelist drops: **tab visibility** and **delegated-admin scope**.\n- The **environment** door's behaviour is unchanged — assert it as a guard so the fix does not regress the path that already works.\n- Consider a structural guard rather than five more keys: if the slice must stay a whitelist, something should fail loudly when the editor can author a facet the slice does not carry. A silent drop is what made this expensive.\n\n## Companion defect, filed separately\n\nThe console also seeds a new policy with the **retired `priority` key** (`PermissionAdvancedFacets.tsx:368`), which the **environment** door rejects with a located 422 (`rowLevelSecurity[].priority` was removed in `@objectstack/spec` 17.0.0, #3896 security audit). That one is being filed from the same QA run as the public companion.\n\nTaken together: **an RLS policy cannot currently be saved from the console on either door** — the package door drops it silently (this card), and the environment door refuses it loudly over the retired key (the companion). This card is the dangerous half; a loud refusal at least tells the truth.\n\n## Provenance &amp; disclosure\n\nHeld back from the public run card objectstack-ai/objectstack#7695 pending disclosure handling; the private write-up is `docs/qa/platform-checklist/FOLLOW-UPS.md` §1a entry **D13** (objectstack branch `claude/platform-test-checklist-ocwugl` @ `1ce13eb`). Filed publicly under the maintainer's standing instruction of 2026-08-11 (verbatim): 「有问题就立卡片」.\n\n## Source\n\nQA run objectstack-ai/objectstack#7695 (`studio-authoring.expression-editors`, finding B; framework `92f26f75`, console bundle `09987b680`), private write-up FOLLOW-UPS.md §1a D13."
+}

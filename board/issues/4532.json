@@ -1,0 +1,33 @@
+{
+  "number": 4532,
+  "kind": "pull_request",
+  "title": "fix(plugin-timeline): gantt bucket labels and the Items default speak the session language (#4520)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T05:16:30Z",
+  "updated_at": "2026-08-13T06:08:45Z",
+  "closed_at": "2026-08-13T06:08:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T06:08:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4532",
+  "body": "Fixes #4520\n\n## The measured defect\n\nobjectui#4513 (PR #4523, landed as `01c918807`) routed every `Intl` call in `packages/plugin-timeline/src/renderer.tsx` through `useDisplayLocale()`, so a `zh` session renders `2026年8月` on the month axis and `2026年8月11日` on item dates. Three sibling strings in the same renderer never went through `Intl` at all, so they stayed English on that same Chinese axis:\n\n| site | rendered on a zh session | now |\n| --- | --- | --- |\n| `week` header | `Week 1` | `第 1 周` |\n| `quarter` header | `Q3 2026` | `2026年第3季度` |\n| gantt row-label default | `Items` | `条目` |\n\nVerbatim red-first evidence, before the fix:\n\n```\nAssertionError: expected 'ItemsWeek 1BackendAPI Design' to contain '第 1 周'\nAssertionError: expected 'ItemsQ3 2026BackendAPI Design' to contain '2026年第3季度'\n```\n\nThe half-fixed state is the visible one: a Chinese date axis with English bucket labels beside it.\n\n## The channel — measured, not invented\n\nThe package already owns one: `useTimelineTranslation` / `TIMELINE_DEFAULT_TRANSLATIONS` in `src/useTimelineTranslation.ts`, a `createSafeTranslation` factory that `ObjectTimeline.tsx` already uses for `timeline.bucket.*`. No new shape was introduced and no sibling plugin's pattern needed mirroring. Three keys were added there and to all ten locale packs, nested beside the existing `timeline.bucket.*`:\n\n- `timeline.scale.week` — en `Week {{n}}`\n- `timeline.scale.quarter` — en `Q{{quarter}} {{year}}`\n- `timeline.gantt.rowLabel` — en `Items`\n\nExisting spellings were reused where the packs had them (`gantt.viewMode.quarter`, `第 {{n}} 轮`), each pack in its own quoting convention.\n\nInterpolation goes through the channel's own `{{hole}}` parameter mechanism, never string concatenation, because word order belongs to the translation: `zh` puts the year first, which no `Q${q} ${year}` template can produce at all. A test drives a range across a year boundary specifically so a faked interpolation cannot pass.\n\n## The seam\n\n`generateTimeScaleHeaders` is a pure exported function and cannot host a hook, so `t` is threaded in as an optional fifth parameter — the same seam #4513 opened for the resolved `locale` string, for the same reason. Its default is the package's own defaults table, which is exactly what the channel serves with no `I18nProvider` mounted, so existing three- and four-argument call sites keep producing byte-identical English (the #2942 spec-parity pins and #4513's fallback pins stay green untouched).\n\n## Authorized pin move (declared)\n\n#4513's suite deliberately pinned `Week 1` / `Q3 2026` staying English in a `zh` session, to keep that card's scope honest, and filed the English as this issue. This card moves exactly those two expectations, in `packages/plugin-timeline/src/__tests__/timeline-date-locale.test.tsx`, case `the locale-free header vocabularies do not go through Intl — zh`:\n\n- `expect(week.container.textContent).toContain('Week 1')` becomes `'第 1 周'`\n- `expect(quarter.container.textContent).toContain('Q3 2026')` becomes `'2026年第3季度'`\n\nThe `year` expectation (`'2026'`) is unchanged — `String(getFullYear())` is a bare number with no vocabulary in it. What the case asserts is unchanged too: threading a locale did not touch these, and a locale tag is still not what spells them. Nothing else in the #4513 suite was touched.\n\n## Two channels, and why they may disagree\n\nWorth stating because it reads like a bug and is not. Dates resolve through `useDisplayLocale()` (tenant regional default first — how this org writes dates); vocabulary resolves through the translate channel (the UI language — what this user reads). A tenant configured `en` whose user reads Chinese chrome renders `Aug 2026` beside `第 1 周`. That is the repo's established split — `timeline.bucket.*` has always behaved this way — and #4513's tenant-over-UI precedence for dates is pinned unchanged here.\n\n## Must-not-change, all pinned and green both sides\n\nen output byte-identical everywhere; `dateFormat:'iso'` untouched; tenant-over-UI-language precedence for dates unchanged; the `year` bucket still a bare number; an author-supplied `rowLabel` still wins over the default; titles and descriptions unchanged.\n\nPer the #4514 trap, the provider-mounting cases and the provider-less ones are in separate files: `timeline-scale-vocabulary.test.tsx` mounts an `I18nProvider` in every case, and `timeline-scale-vocabulary-defaults.test.ts` contains no React at all.\n\n## Verification\n\n- Red-first, predicted in writing before the run: **8 red / 12 green**, matching the prediction exactly.\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-timeline packages/i18n/src/__tests__` — **52 files, 866 tests, all passing** (includes the ten-pack parity tests and the moved pins).\n- `type-check` (both `tsc` passes) green for `@object-ui/plugin-timeline` and `@object-ui/i18n`.\n- `check:i18n-keys`, `check:i18n-drift`, `check:control-bytes`, `check:phantom-deps`, `changeset:check` — all green. The i18n gate confirms every call site passes exactly the arguments its `en` value has holes for.\n- eslint: 0 errors; the one warning on the new test file is the same `as any` fixture convention as its #4513 sibling.\n- `.d.ts` diff measured both ways (dist and tsbuildinfo cleared between builds): purely additive — `generateTimeScaleHeaders` gains an **optional** parameter, i18n gains the three keys, zero removals. Graded **minor** for both packages per the entry-reachable additive precedent (#4523).\n- Reverse verification via `git diff` + `git checkout --` (never `git stash`); restore confirmed byte-exact by sha256 of `git diff` against the saved patch.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

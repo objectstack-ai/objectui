@@ -1,0 +1,34 @@
+{
+  "number": 4693,
+  "kind": "issue",
+  "title": "RecordAttachmentsPanel offers a Retry for an api-disabled sys_attachment, which no retry can fix",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T09:35:23Z",
+  "updated_at": "2026-08-15T13:11:14Z",
+  "closed_at": "2026-08-15T13:11:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4693",
+  "body": "## Finding\n\nObservation-class, found while implementing #4684 (the unavailable-vs-empty split in `RecordAttachmentsPanel`). That card's scope was the assert-vs-don't-assert distinction — stop claiming \"No attachments yet\" for a read that never answered — and it is fully served without this refinement, so this is filed rather than widened into that PR.\n\nAfter #4684 the panel classifies a failed `sys_attachment` list read two ways: `denied` (403 / `PERMISSION_DENIED` / `FORBIDDEN` / an RLS denial, via `isPermissionError`) and `unavailable` (everything else). `unavailable` renders \"We couldn't load the attachments for this record.\" **with a Retry**, which is the right affordance for what it was designed against: a network failure, a 5xx, an expired session. All three are transient and a second attempt genuinely fixes them.\n\nTwo error codes land in `unavailable` that are **not** transient:\n\n- `OBJECT_API_DISABLED` (404) — `enable.apiEnabled: false`; the object is not exposed over the data API at all.\n- `OBJECT_API_METHOD_NOT_ALLOWED` (405) — the operation is absent from the `enable.apiMethods` whitelist.\n\nBoth are pure functions of the object's metadata — no user, no session, no request body — so, as `packages/data-objectstack/src/index.ts` puts it, \"every retry of every persona gets the identical answer\". The panel offers a Retry button that is guaranteed to re-render the same state, which is the same class of wrong advice (telling the user to try again when nothing will change) that `ListView.classifyLoadError` exists to stop giving. That classifier already separates the case as its own `api-disabled` kind, precisely because neither \"try again\" nor \"ask your administrator for access\" is honest for it.\n\n## Why this is an observation, not a defect\n\nThe panel is not lying about anything after #4684 — `unavailable` correctly asserts nothing about the record's contents, which was the actual bug. What remains is **copy and affordance precision**: a useless button and a sentence less specific than the sibling surface's. Severity is also bounded by reachability — the panel only renders when the object declares `enable: { files: true }`, and `sys_attachment` is a system object, so an `enable`-block denial reaching it is an unusual deployment.\n\nRecording it because the judgement was made deliberately during #4684 rather than overlooked, and the reasoning is worth more written down than re-derived.\n\n## Suggested shape\n\nEither reuse the sibling classification wholesale (`ListView.classifyLoadError` is currently a module-local `function` in `packages/plugin-list/src/ListView.tsx`, not exported — lifting it to a shared home would serve both surfaces and is arguably the better half of this), or add a fifth panel status that drops the Retry and says the attachments list is not available on this object. The predicate already exists and is exported: `isApiAccessDeniedError` in `@object-ui/data-objectstack`.\n\nFile: `packages/app-shell/src/views/RecordAttachmentsPanel.tsx`\n\nBacklink: found during the #4684 dispatch; PR #4691 carries the note in its body. Neither is addressed by this issue, and both are tracked on their own.\n\nFiled unassigned, for PM triage.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 4513,
+  "kind": "issue",
+  "title": "plugin-timeline hardcodes 'en-US' at four date sites, so timeline headers stay English on every non-English session",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T03:00:16Z",
+  "updated_at": "2026-08-13T04:38:55Z",
+  "closed_at": "2026-08-13T04:38:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4513",
+  "body": "Found while measuring the date-locale census for #4468 (PR #4512). Out of that card's scope — different package, and the timeline view was not one of the surfaces #4468 measured — so recorded here rather than fixed on a rider.\n\n## What was measured\n\n`packages/plugin-timeline/src/renderer.tsx` passes the literal `'en-US'` to four `Intl` calls, so nothing a user or a tenant configures can change them:\n\n- `renderer.tsx:71` — `current.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' })` (hour-granularity header)\n- `renderer.tsx:77` — `current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })` (day header)\n- `renderer.tsx:108` — `current.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })` (month header)\n- `renderer.tsx:160` — `date.toLocaleDateString('en-US', { … })` (item date)\n\n`renderer.tsx:157` is the sibling case in the other direction: a bare `date.toLocaleDateString()`, which reads the *machine's* locale rather than the session's — the same defect class #4468 fixed in `@object-ui/fields`, just spelled as an omission instead of a literal.\n\n## Why it matters\n\nA `zh` console renders a fully Chinese timeline widget whose axis reads `Aug 11` / `Sep 2026`. This is user-visible on any non-English session, not dormant code.\n\n## The fix this wants\n\nThe same one #4468 used: resolve through `useDisplayLocale()` from `@object-ui/i18n` (tenant regional default → active UI language → `'en'`), which is already the single channel every field, number and currency renderer uses. `renderer.tsx`'s date helpers are module-level functions, so the locale has to be threaded from the component that calls them, the way `GridField`'s `displayText` was in PR #4512.\n\nWorth checking the whole `plugin-timeline` surface in one pass rather than only these five lines — the measurement above was a grep for `'en-US'` and bare `toLocale*`, not a review of the package.\n"
+}

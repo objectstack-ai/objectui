@@ -1,0 +1,32 @@
+{
+  "number": 4571,
+  "kind": "pull_request",
+  "title": "chore(app-shell): the dead slot refreshKey parameter is removed (#4549)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T11:19:09Z",
+  "updated_at": "2026-08-13T11:29:30Z",
+  "closed_at": "2026-08-13T11:29:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T11:29:28Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4571",
+  "body": "Fixes #4549\n\n## The premise did not survive measurement\n\nThe card says the Data pillar \"has no refreshKey path at all\". Measured on current `main`: it has one, and it works. The slot's refresh signal reaches the grid today.\n\nplugin-view's ObjectView holds **one** `refreshKey` useState and hands it to the `renderListView` slot **twice**:\n\n- `schema.refreshTrigger` — `packages/plugin-view/src/ObjectView.tsx:1057`\n- a bare `refreshKey` argument — same call, `:1063`\n\nOnly the first is a real input. `ListView` lists `schema.refreshTrigger` in its fetch effect's dependency array (`packages/plugin-list/src/ListView.tsx:1609`); `refreshKey` is a prop of neither `ListView` nor anything it renders — the dead forward #4528 measured and removed. And `renderStudioGridList` spreads the slot schema into `ListView`'s schema, so `refreshTrigger` rides that spread. The pillar has been refreshing through it since f591c5df3 (2026-03-25).\n\nSo the ruling's preference order lands on **option 1 already satisfied**: ListView's existing declarative refresh input is not merely available, it is already connected. Nothing needed wiring — no key-fold, no handle, no remount, and no `plugin-list` change. Scroll position, selection and in-progress inline edits were never at risk.\n\n### Step 0 — does the signal bump on the Studio path?\n\nYes, via one of the six increment sites. The other five are unreachable from this mount:\n\n| site | reachable in Studio |\n| --- | --- |\n| `:327` onMutation auto-subscribe | no — guarded by `if (renderListView) return;` |\n| `:586` handleDelete | no — wired only to the built-in ObjectGrid branch |\n| `:591` handleBulkDelete | no — same branch |\n| `:598` handleFormSuccess | **yes** — the slot passes `onEdit`/`onAddRecord`, Studio wires both into ListView's toolbar, and a successful submit bumps |\n| `:608` handleRefresh | no — never referenced anywhere (filed as #4568) |\n\nSince it bumps, deletion-for-never-bumping was not the outcome; deletion still is, for the corrected reason that the same number already arrives on a live channel.\n\n## What changed\n\n- The unread `refreshKey` parameter is dropped from `renderStudioGridList`'s signature.\n- The comment claiming wiring it would be a behaviour change is corrected — it asserted the opposite of what is true, and would have sent the next reader to build a second refresh path on top of the working one.\n- A comment on the spread pins why `refreshTrigger` must not be dropped or shadowed there.\n- New tests pin the channel.\n\n## Tests\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.gridRefresh.test.tsx`, driving the **real** slot function:\n\n1. bumping the slot's signal refetches;\n2. it keys off the signal **VALUE**, not renders — three re-renders each handing a fresh schema literal with an unchanged counter produce zero extra fetches (the ruling's no-storm pin);\n3. the real plugin-view ObjectView emits `schema.refreshTrigger` and `refreshKey` in lockstep, which is what makes the harness in 1 and 2 faithful rather than a fiction.\n\n### Reverse verification\n\nA behaviour-neutral deletion has no red-first direction, so the honest check is severing the live channel instead. Adding `refreshTrigger: undefined` after the spread turns test 1 red:\n\n```\nAssertionError: expected 1 to be greater than 1\n```\n\nTests 2 and 3 stay green there, correctly — no refetch at all still satisfies \"no storm\", and the producer contract is untouched. Restore verified by sha256 (`b09de723c17ed610...`).\n\n## Verification\n\n- `pnpm exec vitest run --maxWorkers=2 packages/app-shell/src/views/studio-design/` — 25 files, 144 tests passed (the #4558 panel/inspector suites among them, untouched).\n- `pnpm --filter @object-ui/app-shell type-check` — both tsc passes clean.\n- ESLint net zero on the touched files: 0 errors / 15 warnings, identical to the `origin/main` baseline. The test-only export trips `react-refresh/only-export-components` (a render-prop callback is not a component), so it carries one narrowly-scoped, justified disable.\n- `check:control-bytes`, `check:phantom-deps`, `check-changeset-presence` green; control-byte self-scan over every touched file clean.\n\n## Changeset\n\nEmpty frontmatter — the gate's documented first-class answer for a no-behaviour-change `src/` edit. Verified both ways: `@object-ui/app-shell`'s public `dist/index.d.ts` is **byte-identical** before and after (`index.ts` re-exports a named list, and `package.json` exports only `.`), so the test-only export widens nothing. Note `skip-changeset` is not a mechanism in this repo — `scripts/__tests__/ci-cd-pipeline-doc.test.ts:184` records that neither that workflow nor that label was ever real.\n\n## Findings filed, not fixed\n\n- **#4567** — the Studio grid issues a duplicate `find()` on **every render**: `ListView` depends on the `columns` array by identity, and `StudioDesignSurface:2600` rebuilds `table.fields` with `.map().filter()` each render. Measured 1 fetch to 4 across three no-op re-renders; hoisting the array to a stable identity drops it to zero extra. Upstream of this slot and orthogonal to it, so out of scope here — but it is why test 2 hoists its columns, which would otherwise mask the value-vs-render distinction.\n- **#4568** — `handleRefresh` in plugin-view's ObjectView is declared and never referenced (`finding`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

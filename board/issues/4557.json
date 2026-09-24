@@ -1,0 +1,33 @@
+{
+  "number": 4557,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): tooltip numbers and currency follow the display locale (#4553)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T08:51:19Z",
+  "updated_at": "2026-08-13T09:05:26Z",
+  "closed_at": "2026-08-13T09:05:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T09:05:24Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4557",
+  "body": "Part of #4553 — two of the card's three call sites. The third is a premise\ninversion that needs a ruling before it can be touched; details below, and this\nPR deliberately does not close the card.\n\n## What changed\n\n`formatFieldValue` (the tooltip value formatter inside ObjectGantt's `tasks`\nmemo) had its four TEMPORAL call sites threaded with `useDisplayLocale()` by\n#4272 / PR #4544. The numeric cases beside them passed no locale, so they\nreached `new Intl.NumberFormat(undefined, ...)` — the MACHINE's locale, which\nis neither of the repo's two locale channels.\n\nOne tooltip, two conventions: a German session read `5. Jan. 2024` on the date\nrow and `1,234.50` on the amount row directly below it, where German groups with\n`.` and marks the decimal with `,`. Inverted separators do not read as an\nunstyled number — they read as a **different number**.\n\n`number` / `integer` / `float` / `decimal` and `currency` now pass the\n`displayLocale` already read at component level (L435, added by PR #4544), using\neach formatter's existing locale parameter. No formatter signature changed and\nno memo dependency changed — `displayLocale` has been in that array since #4272.\n\n## The card's premise held for two of three formatters\n\nThe ruling required measuring each formatter's signature in `packages/fields`\nfirst, and treating a missing locale parameter as a premise inversion. Measured:\n\n| formatter | signature | locale? |\n|---|---|---|\n| `formatNumber` | `(value, decimals = 2, locale?)` | yes, param 3 |\n| `formatCurrency` | `(value, currency?, locale?)` | yes, param 3 |\n| `formatPercent` | `(value, precision = 0)` | **no** |\n\nThe issue states all three end up at `formatDisplayNumber` with an undefined\nlocale. `formatPercent` does not: its whole body is\n`` `${percentDisplayValue(value).toFixed(precision)}%` ``. It builds no\n`Intl.NumberFormat` and never reaches `formatDisplayNumber`, so its output is\nnot the machine's locale but **no** locale — an ASCII decimal mark, never\ngrouped, byte-identical on every machine (`1235%` where German wants\n`1.235 %`).\n\nSo the percent row is a different defect class from the other two, and threading\nis not available to it: closing it means adding a parameter to a\n`@object-ui/fields` export, which this card's ruled surface excludes\n(`packages/fields` is read-only here). Per the ruling I stopped rather than\nedited fields. The percent row is **pinned as-is** by a test in this PR, labelled\nas evidence of the inversion rather than an endorsement, so the gap cannot drift\nunnoticed and will go red the day `formatPercent` grows a locale.\n\n## Verification\n\nRed-first, directions predicted in writing before the run and recorded in the\ntest file header. Runner: node v22.22.2 / ICU 78.2 / machine locale en-US.\n\nBefore the fix — both call sites independently red (assertion order is\ndeliberate: a failing `expect` aborts its test, so with the number row asserted\nfirst everywhere the currency site would never report its own red):\n\n```\nExpected: \"Qty=1.234,50\"          Received: \"Qty=1,234.50\"\nExpected: \"Amount=1.234,50 EUR\"   Received: \"Amount=EUR1,234.50\"\nTests  3 failed | 2 passed (5)\n```\n\nAfter: `Tests 5 passed (5)`. Full package suite: `Test Files 44 passed (44)`,\n`Tests 383 passed (383)` — PR #4544's date threading and PR #4554's currency-dep\nand locale-dep cases green untouched, field-explicit currency precedence\nunchanged.\n\nReverse verification via `git diff > fix.patch` + `git checkout --` (never\n`git stash`): removing the fix restored exactly those 3 failures with the 2 pins\nstill green; restore confirmed byte-identical by sha256.\n\n`en` is pinned byte-identical at every touched site. Those `en` cases are **PINS,\ngreen on both sides** — `en` and the runner's `en-US` coincide here, so they\nassert unchanged English output and are not evidence the fix works; the `de`\ncases carry that.\n\nOther gates: both tsc passes green (`tsc --noEmit && tsc -p tsconfig.test.json`);\neslint 0 errors, and the new test file produces the same 5 warnings as its two\nsibling locale test files already on main (identical stub idiom, no drift);\n`check:control-bytes`, `check:phantom-deps`, `changeset:check` all green.\n\n## Why `patch`\n\nConsumer-side threading only, module-local: the package's 9 `dist/*.d.ts` files\nare byte-identical before and after (verified by sha256 in both directions).\n\n## Surface\n\n`packages/plugin-gantt/src/ObjectGantt.tsx`, one new test file, one changeset —\nnothing else. `packages/fields`, plugin-grid, app-shell/studio, plugin-kanban and\nthe CelPredicateField family are untouched.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

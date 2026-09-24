@@ -1,0 +1,33 @@
+{
+  "number": 4698,
+  "kind": "pull_request",
+  "title": "test(plugin-view): install the record-level explain-probe double in ObjectView split-mode suites",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T10:39:56Z",
+  "updated_at": "2026-08-15T10:49:30Z",
+  "closed_at": "2026-08-15T10:49:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T10:49:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4698",
+  "body": "Part of #4688 — this PR closes the `plugin-view` portion (96 → 0 ECONNREFUSED lines); the `app-shell` + `plugin-designer` portion of #4688 does NOT come from the same probe and is filed separately (see below), so this PR alone does not close #4688.\n\n## What this does\n\n`ObjectView.overlayTitleI18n.test.tsx` and `ObjectView.overlayTitleNoProviderFallback.test.tsx` render a real `ObjectGrid` (via `plugin-view`'s `ObjectView`, `navigation.mode: 'split'`) with `objectName: 'contacts'` and an id-carrying row, with no host `apiFetch`. `ObjectGrid` batches the record-level write-verdict probe (`POST /api/v1/security/explain`, #4296), which falls back to the global `fetch` and escapes to the real network under happy-dom — `connect ECONNREFUSED 127.0.0.1:3000`, same class as #3339 / PR #4105.\n\nPer #4105's convention (a per-package copy, not a cross-package test-dir import — no repo convention for the latter, confirmed by grep), added `packages/plugin-view/src/__tests__/explainDouble.ts` (a copy of `plugin-grid/src/__tests__/explainDouble.ts`) and wired `installExplainDouble()` in `beforeEach` / `vi.unstubAllGlobals()` in `afterEach` in both files. The double answers `visible: true` for every id — byte-identical to what the failing network call produced, since the hook fails open — so no existing assertion changes meaning, and it *records* every URL it's handed so an escape to some other endpoint stays observable rather than vanishing.\n\n## Verification\n\n- Re-measured on current `main` (`b4bccc794`, post PR #4689 merge): `packages/plugin-view/` baseline reproduced the issue's exact numbers — 11 files / 111 tests pass, **96** ECONNREFUSED lines.\n- After the fix: 11 files / 111 tests pass, **0** ECONNREFUSED lines.\n- Reverse verification (fix committed first as `3acab7458`, then reverted with `git checkout` back to the parent commit for the two test files, re-run, then restored): confirmed the predicted direction — ECONNREFUSED returned to exactly 96 with the fix removed, all 111 tests still green throughout (the escape is noise, not a test failure, in both directions).\n- `pnpm --filter @object-ui/plugin-view type-check`: green.\n- `pnpm exec eslint --quiet` on the three changed files: clean.\n- `node scripts/check-changeset-presence.mjs`: green (empty-frontmatter changeset declared, test-only precedent per #4641/#4666/#4671).\n- `node scripts/check-control-bytes.mjs`: green.\n- HEAD at the union run: `2341cd309`.\n\n## Why this PR does not also fix the `app-shell` + `plugin-designer` 180-line row\n\n#4688 attributes all three packages' ECONNREFUSED noise to the same grid explain probe (\"the same escape lands in the consumer packages\"). That holds for `plugin-view` (verified above) but **not** for `app-shell` / `plugin-designer`: bisecting the full `app-shell` + `plugin-designer` suite down to individual files (isolated single-file runs, since a batched run undercounts — some in-flight rejections don't settle before the process exits) landed all 180 lines in exactly 9 files under `packages/app-shell/src/views/metadata-admin/inspectors/` (`ConditionBuilder`/`PageBlockInspector`/`HookDefaultInspector`/`ActionDefaultInspector`/`ViewVariantInspector` suites), summing to exactly 180. None of them render `ObjectGrid`. Instrumenting the actual fetch call site (`vi.stubGlobal('fetch', …)` inside `vitest.setup.base.ts`, output via `process.stderr.write` since `console.error` is swallowed by vitest for passing tests) showed the real URLs: `GET /api/v1/meta/object` and `GET /api/v1/meta/object/contact` — the metadata-admin engine's `useObjectFields`/`useObjectOptions` hooks (object-picker / field-list config for page-block inspectors), reached through `useMetadataClient()` → `createConsoleMetadataClient()` → `createAuthenticatedFetch()` → the bare global `fetch`. Unrelated to `ObjectGrid`/`useRecordCrudVerdicts`/#4296.\n\nPer #4688's own acceptance criteria (\"a remainder from a DIFFERENT probe is a new finding, not this card's\"), filed separately as #4697, evidence and suggested remedy (the same recorded-double shape, for the metadata client) included there. `plugin-designer` needed no change — it contributes 0 lines either way.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_\n"
+}

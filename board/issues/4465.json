@@ -1,0 +1,36 @@
+{
+  "number": 4465,
+  "kind": "issue",
+  "title": "A dashboard global filter sourced from `optionsFrom` commits the display LABEL as its value — every widget it drives silently returns zero rows",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T13:37:14Z",
+  "updated_at": "2026-08-12T22:16:58Z",
+  "closed_at": "2026-08-12T22:16:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4465",
+  "body": "## Symptom\n\nA dashboard global filter whose options come from `optionsFrom` (a live server GROUP BY, rather than a static `options` list) commits the **rendered label** as the filter value. Every widget bound to that filter then queries for a value that does not exist and repaints to \"No rows\".\n\nStatic, metadata-declared options are **not** affected — Revenue Pulse's `region` filter shows the label `EMEA` on the trigger and correctly commits the value `emea`.\n\n## Reproduction (2× in the browser, 1× on the API)\n\n1. Author a dashboard with an `optionsFrom`-sourced select filter and one bound widget:\n\n```jsonc\nglobalFilters: [{\n  name: 'st', field: 'status', label: 'Status', type: 'select', scope: 'dashboard',\n  optionsFrom: { object: 'showcase_task', valueField: 'status', labelField: 'status' },\n}]\nwidgets: [{ type: 'bar', dataset: 'showcase_task_metrics',\n            dimensions: ['status'], values: ['task_count'] }]\n```\n\n2. Publish, open it as admin, open the Status select and pick **In Review**.\n\n**Expected** the widget re-queries with `status = 'in_review'` and draws 2 tasks.\n**Actual** the widget re-queries with `runtimeFilter { \"status\": \"In Review\" }` and renders \"No rows\" (0 bars). Same with **In Progress**.\n\nConfirmed on the API from both sides:\n- `runtimeFilter {status:'In Review'}` → `{\"rows\":[]}`\n- `runtimeFilter {status:'in_review'}` → `{\"rows\":[{\"status\":\"In Review\",\"task_count\":2}]}`\n\n## Root cause\n\nThe option-source response carries **both** forms, and the filter bar reads the wrong one:\n\n- `rows` → server-resolved **display labels**: `[{status:'Backlog'},{status:'Done'},{status:'In Progress'},{status:'In Review'},{status:'To Do'}]`\n- `drillRawRows` → **raw values**: `[{status:'backlog'},…,{status:'in_review'},{status:'todo'}]`\n\n`packages/plugin-dashboard/src/DashboardFilterBar.tsx` reads `r?.[from.valueField]` off `rows` (the dataset branch, ~line 204 on `main`) and never consults `drillRawRows`, so the label becomes the committed value.\n\n**Sharpening contrast on the same page:** the **drill** path consumes the same response correctly — clicking a `Backlog` bar issues `GET /api/v1/data/showcase_task?filter=[\"and\",…,[\"status\",\"=\",\"backlog\"]]` with the raw value. Two consumers of one response; one right, one wrong.\n\n## Not a stale-bundle artifact\n\n`DashboardFilterBar.tsx`'s `optionsFrom` resolution is unchanged between the vendored console pin (`6314e87f2d49`) and current `origin/main` (`b4d3c2204`) — same reads of `from.valueField` off `rows`, no `drillRawRows` consumer on either ref. Checked line by line rather than by diffing whole files.\n\n## Suggested shape (not prescriptive)\n\nPair each option as `{value: drillRawRows[i][valueField], label: rows[i][labelField ?? valueField]}` so the committed value is always the raw one, and fall back to `rows` only when `drillRawRows` is absent. Whatever the shape, the gate that keeps it fixed is a test asserting the **committed** filter value for an `optionsFrom` select equals the raw value, not the rendered label — the current tests only assert the option list renders.\n\n## Source\n\nFound by the platform checklist retest of `dashboards.global-filters-rescope` (framework `279ee48a`, console pin `6314e87f2d49`).\n"
+}

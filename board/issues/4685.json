@@ -1,0 +1,32 @@
+{
+  "number": 4685,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a denied attachment list is not an empty one",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T08:35:59Z",
+  "updated_at": "2026-08-15T08:54:54Z",
+  "closed_at": "2026-08-15T08:54:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T08:54:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4685",
+  "body": "Fixes #4269\n\nA member denied the parent record opened a record holding 2095+ attachments. The `sys_attachment` list read answered **403**, and `RecordAttachmentsPanel` rendered **\"No attachments yet. Upload a file to get started.\"** — plus an Upload affordance the server would refuse. An operator could not tell \"nothing here\" from \"not yours\".\n\n## Premises, re-derived on `origin/main` before building\n\nThe card's run was 4 days old, so all three were re-measured against current `main` (`b8818171f`):\n\n**A — how the 403 reaches the component.** It **throws**. `ObjectStackAdapter.find()` degrades only a *non-authz* 404 to `{ data: [], total: 0 }` and rethrows everything else (that carve-out is objectui#4408's, so an `enable`-block denial is not mistaken for a missing collection). So the panel's bare `catch { setRows([]) }` was exactly where \"denied\" and \"empty\" were merged. Confirmed at source, not assumed.\n\n**B — what gates the Upload affordance today.** Nothing. Its only condition was `disabled={uploading}`; it rendered unconditionally for every caller. So hiding it under a denied list disturbs no existing permission-based visibility — this is the sole condition added to a control that had none.\n\n**C — is there a house denied-state pattern?** Yes, and it is reused rather than reinvented: `isPermissionError` from `@object-ui/react` (HTTP 403 / `PERMISSION_DENIED` / `FORBIDDEN` / an RLS denial) is the same predicate `ObjectKanban`, `ObjectCalendar` and the form renderer branch on, and the `Lock`-icon denial framing mirrors `ObjectDataPage`'s route gate.\n\n## The change\n\n- `refresh()` classifies a failed list read with `isPermissionError` and sets a `listDenied` state; a successful read clears it.\n- A distinct denied state renders \"You don't have access to these attachments.\" with a `Lock` icon, checked **before** the empty state.\n- The Upload affordance (button + its file input) is withdrawn under a denied list.\n- The empty state is now reserved for a genuine 200-with-zero-rows.\n- New `detail.attachmentsAccessDenied` key in `en` + all ten locale packs (ar, de, en, es, fr, ja, ko, pt, ru, zh), matching the panel's existing `useObjectTranslation` mechanism.\n\n**No leaking.** objectui#2532's failure mode (raw error dump, status code, leaked rows) was absent before and stays absent: the denied state renders the translated sentence and nothing sourced from the error, and `setError` is deliberately not called on this path. Pinned by a test asserting the panel's text contains no `403`, no `2095`, no user id and no server message, and that no `alert` role appears.\n\n**Scope.** This is the denied-vs-empty distinction only, not a general error-state framework. Non-authz failures (network, 5xx, 401) keep their pre-existing handling, pinned as-is by a test with a comment saying it is a pin rather than an endorsement. That remaining swallow is the same defect class one status over and is filed separately as #4684 — out of scope here, not fixed in this PR.\n\n## Verification\n\nAll gates run **after** the final commit, at `6e3013925` (working tree clean).\n\n| Gate | Result |\n| --- | --- |\n| `vitest run packages/app-shell/.../RecordAttachmentsPanel.test.tsx` | **14 passed** (8 pre-existing + 6 new) |\n| `vitest run packages/i18n/` | **45 files, 804 passed** |\n| `type-check` (app-shell + i18n, closure built first) | Done, clean |\n| `eslint --quiet` (all 12 changed source files) | exit 0 |\n| `pnpm check:i18n-keys` | every call-site key resolves; inline default matches its `en` value |\n| `pnpm check:i18n-drift` | 1 key added, 0 `en` values changed |\n| `pnpm check:control-bytes` | OK (4209 files) |\n| `node scripts/check-changeset-presence.mjs` | 12 source files of 2 released packages, 1 changeset |\n\nDependency closure was built before testing (`pnpm --filter '@object-ui/app-shell^...' build`).\n\n### Reverse verification — direction predicted first\n\nPredicted: reverting **only** the component and keeping the tests turns exactly the 4 tests that require the denied state red, while the 200-empty test and the non-authz **pin** stay green (the pin asserts unchanged behavior, so it must pass on both trees).\n\nObserved, exactly: **4 failed | 10 passed**. The failure dumps reproduce the reported symptom verbatim — on a 403 the reverted component rendered `Upload` and \"No attachments yet. Upload a file to get started.\" The fix was then restored byte-identically (`git diff HEAD` empty) and re-run green.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

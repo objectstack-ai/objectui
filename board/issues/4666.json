@@ -1,0 +1,32 @@
+{
+  "number": 4666,
+  "kind": "pull_request",
+  "title": "test(app-shell): pin the built-in header Edit under a session-user relation predicate (objectstack#8499)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T06:01:30Z",
+  "updated_at": "2026-08-15T06:18:34Z",
+  "closed_at": "2026-08-15T06:18:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T06:18:33Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4666",
+  "body": "Fixes objectstack-ai/objectstack#8499\n\n## Premise falsified — the behaviour already ships; the pin did not\n\nThe card was measured on `@objectstack/*@17.0.0-rc.6`. On current `main` (17.5.0) the console record header's built-in Edit **already** honors `userActions.edit.visibleWhen`: `RecordDetailView.tsx` evaluates it into `editVisible` and consumes it as a fourth conjunct of the `sys_edit` affordance gate. So this PR adds **no behaviour change** — it adds the regression pin for the card's exact repro shape, which no test covered.\n\nProvenance — the wiring landed between rc.6 and 17.5.0, on both detail surfaces:\n\n| Surface | File | Landed by |\n|---|---|---|\n| Console record page | `packages/app-shell/src/views/RecordDetailView.tsx` | PR #4524 (objectui#4213), merged 2026-08-13 |\n| `DetailView` header | `packages/plugin-detail/src/DetailView.tsx` | PR #4515 (objectui#4419), merged 2026-08-13 |\n\nThe mobile overflow twin (`sys_edit_mobile`, plugin-detail) is gated by the same `schema.showEdit` that carries `editVisible`, so it converges too.\n\n## The real gap: the card's predicate shape was untested on the built-in path\n\nThe card's declaration reads the **session user** against a **relation field**:\n\n```ts\nuserActions: {\n  edit:   { visibleWhen: 'os.user.id != record.executor' },\n  delete: { visibleWhen: 'os.user.id != record.executor' },\n}\n```\n\nTwo existing pins bracket that shape without covering it, from opposite sides:\n\n- `RecordDetailView.userActionPredicates.test.tsx` (objectui#4213) drives the **built-in** path, but only with self-contained `record.status` string compares. It mounts no `ExpressionProvider`, so `os.user` is bound nowhere in it — a predicate reading the session user had never been evaluated on this path.\n- `RecordDetailView.headerActionLookupPredicate.test.tsx` (#4641 / objectstack#8500) drives `os.user.id` against a relation field, but only through **declared** `record_header` actions — a different consumption seam, deliberately not the built-in one.\n\nThe card sits on the intersection, which is why it could be reported against a build that already carried the fix.\n\n## Why every case is a discriminating pair\n\n`visibleWhen` fails CLOSED. An unbound `os.user`, a faulting compare, or a relation bound to the wrong side all **hide** the button — the same DOM as a correct evaluation, for the opposite reason. A pin asserting only absence would stay green if the predicate stopped being evaluated at all.\n\nSo each case pairs both directions on one declaration: the executor themself gets **no** Edit, any other session user **keeps** it. Only a genuinely-evaluated predicate produces both; the \"present\" half is what a fail-closed fault cannot fake. Both relation payload shapes (bare foreign key and `$expand`ed) are asserted to reach the same verdict, plus an explicit assertion that no fault warning was emitted under the `builtin:edit:visibleWhen` label.\n\n## Reverse verification — direction predicted before running\n\nPredicted: removing the `editVisible` conjunct (the rc.6 state) turns the five \"Edit absent\" assertions red and leaves the three \"Edit present\" controls green. Observed exactly that:\n\n```\n× hides the built-in Edit from the executor themself (BARE foreign key)\n× hides it from the executor when the payload EXPANDED the relation\n× reaches the SAME verdict whichever shape the relation arrived in\n× evaluates without faulting — no warning under the built-in edit label\n× hides BOTH from the executor in a single mount\nTests  5 failed | 3 passed (8)\n```\n\nRestored from the committed state (`git checkout` of the branch's own commit), tree clean.\n\n## Verification — all at head `3fcc3311f` (the final commit)\n\n| Gate | Result |\n|---|---|\n| `pnpm exec vitest run packages/app-shell/src/views` | 243 files, **2311 passed**, 1 skipped |\n| `pnpm --filter @object-ui/app-shell type-check` | pass (`tsc --noEmit` + `tsc -p tsconfig.test.json`) |\n| `pnpm --filter '@object-ui/app-shell^...' build` | pass (closure built before the suite) |\n| `scripts/check-changeset-presence.mjs` | pass — see below |\n| `pnpm changeset:check` | pass (fixed group, no major) |\n| `pnpm check:control-bytes` | OK (4192 tracked text files) |\n\nTests-only, so the changeset is the gate's **own** prescribed exemption — an empty frontmatter. The gate's words:\n\n> Every one of them has an EMPTY frontmatter — declared as releasing nothing, which is the explicit exemption and a complete answer to this gate.\n\n## Scope\n\nOne new test file plus that changeset. `RecordDetailView.tsx` is byte-unchanged — the ablation above was reverted.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

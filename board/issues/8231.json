@@ -2,8 +2,8 @@
   "number": 8231,
   "kind": "issue",
   "title": "finding(app-shell): the machine-name chip is unconditional in every non-English panel — its \"label already spells the name\" predicate cannot hold once the label is translated",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -15,18 +15,23 @@
     "domain:ui",
     "i18n",
     "package: app-shell",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-07T02:24:18Z",
-  "updated_at": "2026-09-20T12:04:01Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T19:24:19Z",
+  "closed_at": "2026-09-24T19:22:55Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 9,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8231",
   "body": "## 维护者速读\n\n**事情**:Studio 表单里那个显示「机器名」的小标签(chip),它的显示条件是**拿英文猜出来的名字去跟可见标签比**。于是:\n\n- **中文界面**:`prettify('columns')` = `Columns`,永远不等于「列数」⇒ **每一个字段旁边都挂着那个 chip**。\n- **英文界面**:`Columns` == `Columns` ⇒ **它几乎从不出现**。\n\n⇒ ⭐ **这个功能在它被设计的那个语言里近乎隐形,在它没被设计的语言里无条件刷屏** —— 正好反了。\n\n**为什么要你拍板**:立卡席写得很清楚 ——「**三个答案都站得住,而且不是同一个决定**」,并把它留给你。这不是修法问题,是**这个 chip 到底为谁服务**的产品问题:\n\n- **1(荐)** —— **留着它,修判据**:拿字段**未翻译**的标签去比。这样它在每种语言里都恢复「标签没告诉你机器名时才出现」的原意。⚠️ 需要本地化覆盖层**保留原字符串**(目前没有)。\n- **2** —— **在 maker 界面里直接隐藏**:机器名是 metadata-admin 的东西,一个在 Studio 里改 AI 生成仪表盘的人用不到 `refreshInterval`。⚠️ 需要从宿主传一个新 prop(同一个组件服务两类受众)。\n- **3** —— **接受它永远显示,只是让它更安静**:当作参考信息,不再当作「例外标记」。零新增面,但**永久接受噪音**。\n\n**席位意见**:荐 **1**。它是唯一让这个功能**说到做到**的选项 —— chip 的承诺是「标签没告诉你机器名」,而 1 让这句话在每种语言里都为真;2 是把问题挪走(仍然没人修好判据),3 是承认这句话不再成立。⚠️ **四棱④(创业阶段不扩散)轻微反对 1**:它和 2 都要新管线,只有 3 零新增 —— 所以如果覆盖层保留原串的代价被实测为高,**3 是诚实的回退**,⛔ 不是失败。\n\n⚠️ **无论哪个字母,有一件事必须一起做**:`SchemaForm.deDeveloperize-8218.test.tsx` 上有一条**绿着的 pin 依赖当前行为**。⛔ 它不能被删掉,要**连同它记录的理由一起改写** —— 否则下一个人会把这次的决定读成一次回归。\n\n**你要做的**:回一个数字 —— **1 / 2 / 3**。\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- **① 项目长远合理性** — chip 的语义是「可见标签没告诉你机器名」。**1** 让这条语义在所有语言下都成立;**2** 把它限制到真正需要它的受众(架构上更干净,若该组件确实服务两类人);**3** 放弃这条语义、把它降为常驻参考。⇒ 1 与 2 是终态,3 是把现状合法化。\n- **② 实际业务拉动** — **实测有,而且是反的**:zh 面板里四个字段(`columns` / `gap` / `refreshInterval` / `header`)的 chip **同时全显**,en-US 下同样四个**全隐**。⛔ **未测**的是有没有人抱怨过 —— 所以这条轴说明它**真的坏了**,⛔ 不说明它急。\n- **③ 防 AI 写代码/写元数据犯错** — 这是**面向 maker 的**可见性功能,⛔ 不是 AI 写元数据的面,所以这条轴的权重低于平常。但它的方向仍然清楚:一个**永远出现**的例外标记等于没有标记(噪音),一个**永不出现**的等于机器名不可达。**1** 是唯一保住信号的。\n- **④ 创业阶段不扩散** — **1** 要覆盖层保留原串,**2** 要宿主传新 prop,**3** 零新增面。⇒ 这条轴**唯一地**指向 3,并且它是本席把 3 列为正式回退而不是凑数选项的理由。\n\n**Governing text:** `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx` 的 `FieldRow` 判据 · `metadata-form-i18n.ts` 的覆盖层 · objectui#8218 的验收面(只要求「无未翻译英文串进入面板」,⛔ 未涉及何时显示)。\n\n---\n\nSplit out of objectui#8218, which fixed the chip's tooltip (it was a hardcoded English `title=\"Machine name\"`) but deliberately did not touch WHEN the chip renders. That is a product call, not a rendering one, so it is filed rather than decided.\n\n## The mechanism\n\n`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`, in `FieldRow`:\n\n```\nconst labelMatchesName = prettify(name).toLowerCase() === label.toLowerCase();\n...\n{!labelMatchesName && (\n  code ... {name} /code\n)}\n```\n\nThe chip exists to answer \"the visible label does not tell you the machine name, so here it is.\" That predicate compares a HUMANIZED MACHINE NAME against the VISIBLE LABEL — which is only ever a fair comparison while the label is English.\n\nStudio localizes these panels: `metadata-form-i18n.ts` overlays `metadataForms.dashboard.fields` so `columns` is labelled 「列数」, `gap` 「间距」, `refreshInterval` 「自动刷新」, `header` 「页眉」. `prettify('columns')` is `Columns`, which can never equal 「列数」 — so the guard is false for EVERY field and the chip renders beside every label in the panel.\n\nSymmetrically, in `en-US` the same four fields hide the chip (label `Columns` == `prettify('columns')`), so the affordance is near-invisible in the locale it was designed for and unconditional in the one it was not. That inversion is what objectui#8218 observed as \"columns / gap / refreshInterval / header 四个 chip\" all showing at once.\n\n## Why it was not fixed in objectui#8218\n\nThree answers are all defensible and they are not the same decision:\n\n1. **Keep it, fix the predicate** — compare against the field's UNTRANSLATED label, which `SchemaForm` does not currently receive. Needs the localization overlay to preserve the source string.\n2. **Hide it in the maker surface** — the identifier is a metadata-admin affordance; a Studio maker editing an AI-built dashboard has no use for `refreshInterval`. Needs a prop threaded from the host, since the same component serves both audiences.\n3. **Keep it unconditional and make it quieter** — accept that the identifier is always shown and treat it as reference rather than as an exception marker.\n\nobjectui#8218's acceptance only asked that no untranslated English string reach the panel, which the tooltip fix satisfies. Picking among the three above is a maintainer call.\n\nNo assignee, no `pm:queue` — triage as you see fit.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

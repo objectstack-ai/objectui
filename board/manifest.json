@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "objectstack-ai/objectui",
-  "generated_at": "2026-09-24T14:29:32.869Z",
+  "generated_at": "2026-09-24T20:28:32.932Z",
   "walk_phase": "history",
   "walk": {
     "open_set": {
@@ -10,60 +10,60 @@
       "cursor": null
     },
     "delta": {
-      "complete": true,
-      "cursor": "2026-09-24T14:26:22Z",
-      "since": "2026-09-24T08:32:47Z",
+      "complete": false,
+      "cursor": "2026-09-24T19:49:37Z",
+      "since": "2026-09-24T14:26:22Z",
       "slice": 300
     },
     "history": {
       "complete": false,
-      "cursor": "2026-08-12T10:40:20Z"
+      "cursor": "2026-08-15T16:02:06Z"
     }
   },
-  "since": "2026-08-10T14:10:08Z",
-  "since_reason": "the open set is complete — the closed history resumes at 2026-08-10T14:10:08Z",
-  "next_since": "2026-09-24T14:26:22Z",
+  "since": "2026-08-12T10:40:20Z",
+  "since_reason": "the open set is complete — the closed history resumes at 2026-08-12T10:40:20Z",
+  "next_since": "2026-09-24T19:49:37Z",
   "resume": {
-    "since": "2026-08-12T10:40:20Z",
+    "since": "2026-08-15T16:02:06Z",
     "phase": "history",
     "stopped_by": "budget",
     "reason": "the per-run budget of 800 requests is spent"
   },
   "counts": {
-    "issues_open": 288,
-    "issues_closed": 1191,
-    "pulls_open": 14,
-    "pulls_closed": 3247,
-    "records": 4740
+    "issues_open": 244,
+    "issues_closed": 1375,
+    "pulls_open": 10,
+    "pulls_closed": 3429,
+    "records": 5058
   },
   "board": {
-    "open_issues_count": 302,
-    "open_pull_requests": 14,
-    "read_at": "2026-09-24T14:26:51.095Z"
+    "open_issues_count": 271,
+    "open_pull_requests": 20,
+    "read_at": "2026-09-24T20:26:37.064Z"
   },
   "count_check": {
-    "verdict": "ok",
-    "reason": null,
-    "expected": 288,
-    "archived": 288,
-    "shortfall": 0,
-    "surplus": 0,
+    "verdict": "pending",
+    "reason": "the open set is complete but was enumerated in an earlier run and this run's delta did not catch up with the live board, and the closed history is still walking — cards closed or opened since then are archived in their old state",
+    "expected": 251,
+    "archived": 244,
+    "shortfall": null,
+    "surplus": null,
     "gone_ledger": 0,
-    "ok": true
+    "ok": null
   },
   "freshness": {
     "verdict": "fresh",
-    "pending_since": null,
-    "reason": null
+    "pending_since": "2026-09-24T20:28:32.932Z",
+    "reason": "no count-check verdict since 2026-09-24T20:28:32.932Z, still inside the 24 h this archive accepts"
   },
   "requests": 800,
   "run": {
-    "numbers_read": 439,
-    "files_written": 855,
+    "numbers_read": 423,
+    "files_written": 828,
     "walk_complete": false,
     "open_set_completed_here": false,
     "delta_ran": true,
-    "delta_completed_here": true,
-    "delta_requests": 180
+    "delta_completed_here": false,
+    "delta_requests": 300
   }
 }

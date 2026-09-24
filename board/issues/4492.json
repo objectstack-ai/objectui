@@ -1,0 +1,36 @@
+{
+  "number": 4492,
+  "kind": "issue",
+  "title": "plugin-calendar: `object-calendar` / `view:calendar` spread the authored node into ObjectCalendar — authored `onDateClick` / `onNavigate` throw uncaught, authored `locale` kills the render",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T20:55:31Z",
+  "updated_at": "2026-08-12T22:04:08Z",
+  "closed_at": "2026-08-12T22:04:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4492",
+  "body": "Measured while closing #4453 (the `calendar-view` renderer's consume-or-declare migration). That card's surface is `calendar-view`'s renderer only, so this sibling registration is filed rather than fixed.\n\n## The mechanism\n\n`ObjectCalendarRenderer` — registered as **both** `plugin-calendar:object-calendar` and `view:calendar` (`packages/plugin-calendar/src/index.tsx:45-81`) — ends in the same raw spread #4453 removed from `calendar-view` (`index.tsx:58`, JSX tag spelled with a space after `<` so GitHub's body sanitizer does not eat it):\n\n```tsx\n{(bound) => < ObjectCalendar schema={bound} dataSource={dataSource} {...props} />}\n```\n\n`props` is everything `SchemaRenderer` hands a registered widget: the node's authored keys, the contents of its `props` container, the injected runtime props and a host's trailing props. `ObjectCalendarProps` declares `onEventClick`, `onRowClick`, `onDateClick`, `onEdit`, `onDelete`, `onNavigate`, `onViewChange`, `onEventDrop` and `locale` (`ObjectCalendar.tsx:64-81`), so an authored value under any of those names lands on the declared prop — and an SDUI author writing JSON can never produce a function.\n\n## Measured on `origin/main` @ 31ab1ac9d\n\nNode: `{ type: 'plugin-calendar:object-calendar', objectName: 'accounts', startDateField: 'start_at', titleField: 'name', … }`, rendered through `SchemaRendererProvider`.\n\n| authored | gesture | result |\n|---|---|---|\n| `onDateClick: 'NOT-A-FUNCTION'` | click an empty day cell | `window.error: onDateClick is not a function` |\n| `onNavigate: 'NOT-A-FUNCTION'` | click **Next period** | `window.error: onNavigate is not a function` |\n| `locale: 'en_US'` | render | `SchemaErrorBoundary`: `Component \"plugin-calendar:object-calendar\" failed to render` / `Incorrect locale information provided` |\n\nThe first two are the #4453 failure mode: React does not route event-handler errors to `SchemaErrorBoundary`, so they surface as **uncaught** window errors while the calendar keeps looking fine and that gesture is dead. `onDateClick` is additionally the unconditional shape — `ObjectCalendar.tsx:596` tests `if (onDateClick)` and a non-empty string is truthy, so the guard passes the value straight to a call.\n\n`locale` is a render-time crash: any string `Intl` rejects throws out of `toLocaleDateString`. `en_US` (the underscore spelling a producer writes by accident) is the realistic case; `''`, `'123'` and `'a'` throw the same way, while `'garbage'` happens to be a well-formed tag and does not.\n\n**Not reproduced, recorded honestly:** authored `onEventClick` did **not** throw in the probe's default configuration. `ObjectCalendar.tsx:585-592` only calls the parent handler when the local navigation is not an overlay (`if (!navIsOverlay)`), and the probe resolved to an overlay, so the call was skipped. The exposure is in the code path; its reachability depends on the navigation mode and was not established here.\n\n## Fix shape\n\nThe #4425 phase-2 ruling applied to this renderer, exactly as #4453 did for `calendar-view`: replace the raw spread with consume-or-declare — declared registry inputs consumed, `ObjectCalendarProps`' callbacks kept as a declared function-typed host hatch (a host-passed function must keep working), `locale` accepted only when `Intl.getCanonicalLocales` takes it, everything else dropped. #4453's renderer is the worked example, including the resolvers and the pin file (`packages/plugin-calendar/src/calendar-view-renderer.propsContract.test.tsx`).\n\nNote the two registrations share one implementation, so one fix closes `object-calendar` and `view:calendar` together — and both are `plugin-calendar` targets in the #4425 DOM-leak sweep ledger, which does not measure this class (a crash-free spread onto a component that declares its props leaks nothing to the DOM).\n\nRelated: #4453 (the same defect on `calendar-view`, fixed), #4425 (the whitelist contract), #4433 / #4452 (the two earlier collisions on the same spread), #4454 (`allowCreate`, unrelated but same widget family).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

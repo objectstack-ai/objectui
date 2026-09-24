@@ -2,24 +2,34 @@
   "number": 10209,
   "kind": "issue",
   "title": "A read-only view's `…` menu in Manage views opens EMPTY (a 180×10px strip), and its tab menu opens on a leading separator",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "baozhoutao",
     "id": 6194462,
     "type": "User"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-22T06:31:11Z",
-  "updated_at": "2026-09-22T07:28:24Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T19:12:46Z",
+  "closed_at": "2026-09-24T19:09:58Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10209",
   "body": "## Symptom\n\nOn an object whose every view is code-defined (`src/views/*.view.ts` — no `sys_view` overlay row), so `ObjectView` stamps `readonly: true` on the tab:\n\n1. **Manage views → the row's `…` button opens a menu with nothing in it.** Measured in a real browser: `role=\"menu\"` bounding box `{width: 180, height: 10}`, `innerHTML === ''`. Rendered, that is a thin strip of `bg-popover` straddling the row's bottom border — it reads to a user as a menu that is *clipped or occluded and unclickable*, not as an empty one. Nothing is occluding it; there is nothing in it.\n2. **The tab's `▾` menu opens on a leading `role=\"separator\"`** above its single `Manage all views…` entry.\n\n## Cause\n\nBoth menus ask a *different question* in the guard than in the entries beneath it.\n\n- `ManageViewsDialog`'s `…` trigger renders on `(onDelete || onDuplicate || onConfigView || onSetDefault)` — whether a **callback is wired**. Every entry under it is *also* gated on `!isReadonly`. The one entry `isReadonly` does not suppress is Duplicate, and the console deliberately wires no `onDuplicate` (#1520). So on a read-only row the guard passes and every entry drops out.\n- `ViewTabBar`'s separators state their own condition (`onDeleteView && !isReadonly` opens a fragment that also holds the separator; the manage entry opened one unconditionally) rather than asking \"did anything render above me\". Its trigger guard has the same shape as the dialog's, so a read-only tab with no `onManageViews` wired opens a fully empty dropdown too.\n\n## Reproduction\n\n`ViewTabBar` / `ManageViewsDialog` with a single `{ readonly: true, isDefault: true }` view and the console's prop set (no `onDuplicate`).\n\n## Not in scope here\n\nWhether a code-defined view *should* be read-only at all is a separate product question (`ObjectView` classifies `isSystem = !saved`), as is `ViewTabBar`'s `allReadonly` rule, which suppresses the per-tab lock badge when *every* view is read-only — on an object with exactly one, code-defined view that removes the only signal explaining why the menu is nearly empty."

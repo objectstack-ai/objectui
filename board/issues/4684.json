@@ -1,0 +1,34 @@
+{
+  "number": 4684,
+  "kind": "issue",
+  "title": "RecordAttachmentsPanel renders \"No attachments yet\" for a network/5xx failure it never loaded",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-15T08:35:26Z",
+  "updated_at": "2026-08-15T09:45:07Z",
+  "closed_at": "2026-08-15T09:44:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4684",
+  "body": "## Finding\n\nFound while implementing #4269 (a 403 attachment list rendered as the empty state). That card's ruling scoped the fix to the **denied-vs-empty** distinction and explicitly left non-authorization failures at their current handling, so this is filed rather than fixed there.\n\n`RecordAttachmentsPanel.refresh()` catches **every** failed `sys_attachment` list read and falls back to `setRows([])`. After #4269 the authorization branch is split out, but everything else still lands in the empty state:\n\n- a network failure (server unreachable, DNS, aborted request)\n- a 5xx\n- a 401 (`AUTH_REQUIRED` — session expired), which is authentication, not authorization, so the denied predicate deliberately does not claim it\n\nAll three render **\"No attachments yet. Upload a file to get started.\"** — an affirmative assertion that the record holds nothing, made by a panel that never got an answer. It is the same defect class as #4269, one status over: the panel states as fact something it does not know.\n\n## Why it is a real defect, not polish\n\nThe house rule already exists elsewhere in this repo and was landed twice as a bug fix:\n\n- `HomeActionCenter` (#4235): \"You're all caught up\" is an ASSERTION about the inbox, so it may only be made once the inbox has answered — an unanswered read renders a quiet notice instead.\n- The app list (#4300): \"an unloadable app list is UNKNOWN, not 'no default app'\".\n- `ListView.classifyLoadError` carries the full five-way vocabulary (`api-disabled` / `forbidden` / `unauthorized` / `rejected` / `network`).\n\nThe attachments panel is the surface that still lacks it.\n\n## Suggested shape\n\nGive the panel the same status vocabulary the siblings use — `loading` / `loaded` / `denied` / `unavailable` — and reserve the empty state for a genuine 200-with-zero-rows. A failed-to-load state should say the list could not be loaded (and, unlike the denied state, may keep a retry).\n\nNote that #4269's test file already pins TODAY's behaviour for a non-authz failure (`pins today's behaviour for a NON-authz failure: still the empty state`), deliberately, so that changing it is a conscious edit rather than an accident. That test is the one to rewrite when this is picked up.\n\n## Scope note\n\nTouches the same `catch` block as #4269, so it is best sequenced after that PR lands. #4269 is not addressed by this issue and remains open on its own.\n\nFile: `packages/app-shell/src/views/RecordAttachmentsPanel.tsx`\n\nFiled unassigned from the #4269 dispatch, for PM triage.\n"
+}

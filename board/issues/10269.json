@@ -1,0 +1,34 @@
+{
+  "number": 10269,
+  "kind": "pull_request",
+  "title": "feat(types,plugin-tree): declare ObjectTreeSchema.filter in the settled QueryParams['$filter'] shape (objectui#9549)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T14:48:32Z",
+  "updated_at": "2026-09-24T15:16:17Z",
+  "closed_at": "2026-09-24T15:16:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-24T15:16:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10269",
+  "body": "Fixes #9549\nClause-②: no\n\n`ObjectTreeSchema.filter` is declared on both faces, in exactly the shape objectui#9309 (PR objectui#9540) settled for `ObjectGallerySchema.filter`. Drafted by an `os-dev` seat (Claude Code), session `https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S`, dispatched by the `domain:spec @ objectui` PM seat, round 5.\n\n## What changed\n\n- `packages/types/src/objectql.ts`: `ObjectTreeSchema` gains `filter?: QueryParams['$filter']`, an indexed access, the same declaration as the gallery. The docblock follows the gallery's.\n- `packages/types/src/zod/objectql.zod.ts`: the `ObjectTreeSchema` mirror gains the same two-arm union the gallery mirror uses, array arm first: `z.union([z.array(z.any()), z.record(z.string(), z.any())]).optional()`.\n- `packages/plugin-tree/src/ObjectTree.tsx`: `getTreeConfig` no longer reads the tree block from `schema.filter?.tree`. The block now comes from `schema.tree` only. The typed `filter` forced this: `.tree` does not exist on the `FilterArray` arm, so plugin-tree `tsc` refuses the old read. It was also a second dialect of `filter`. The reason for the removal is in a docblock above the function, not in its body, because the objectui#8253 reader census slices the body.\n- Tests:\n  - new `packages/types/src/__tests__/object-tree-filter-9549.test.ts`. Type-level pins: the member equals `QueryParams['$filter']` and equals the gallery's member; it is optional and not `any`; a string and a number are compile errors (`@ts-expect-error`). Mirror pins: both arms parse; a string, a number and a boolean are refused; every probe value is judged exactly as the gallery mirror judges it. Plus the bare-node and misspelling-ceiling controls.\n  - `object-gallery-filter-9309.test.ts`: the tree's row is added to the AST `filter` census.\n  - `ObjectTree.schemaTyped-8655.test.ts`: the `filter` entry is retired from the undeclared-read ledger. The row that was written to \"redden the day it is declared\" now pins the declaration.\n- `.changeset/9549-tree-filter-declared.md`: minor for `@object-ui/types` and `@object-ui/plugin-tree`. It states the narrowing and the removal of `filter.tree`.\n\n## Assumption 4, measured: zero authors and no pin, so the arm was removed\n\n- A multiline search for a `tree` key inside a `filter` object literal, across this repo and `../objectstack`, found 0 files. As a positive control, the same pattern with `status|stage|age` in place of `tree` hits 46 times in 34 files.\n- A search for `filter?.tree` / `filter.tree` found only the read itself in this repo. In `../objectstack` its only hit is a spec comment on `ObjectTreePropsSchema` that calls it \"the legacy stash ... a shape to stop writing rather than a key to declare\".\n- No test pins the arm. The objectui#8655 ledger pinned the `schema.filter` read in general, and that read still happens at the `$filter` fetch.\n- Why the arm existed: `git log -S` on an unshallowed history finds one commit, `4eb9cb6ac` (objectui#1892, the renderer's first commit). Its message gives no reason for the arm.\n\n## Verification (head `b1f1a2dee`, after merging `origin/main` at `c9e073ac8`)\n\n- `pnpm --filter @object-ui/types type-check`: VERDICT command-exit 0.\n- `pnpm --filter '@object-ui/plugin-tree^...' build`, then `pnpm --filter @object-ui/plugin-tree type-check`: exit 0 both.\n- `pnpm exec vitest run packages/types/ packages/plugin-tree/ apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`: `Test Files 232 passed (232)`, `Tests 5224 passed (5224)`.\n- eslint `--no-inline-config` on the 6 changed source and test files: exit 0, 0 errors. Warning counts per source file equal the base (34 / 1 / 22).\n- `node scripts/check-changeset-presence.mjs`: exit 0.\n- Also run, all exit 0: `check:changeset-claims`, `check:component-surface-parity`, `check:handler-key-reads`, `check:designer-field-key-parity`, `check:action-forward-parity`, `check:spec-symbols`, `check:installed-pin-claims`, and `check:new-line-citations` (0 new citations).\n- Reverse verification. Both runs used `ablation-replace.mjs` from objectstack, on the committed fix `fcb7de2b3`, and both restored to the HEAD blob with `git diff HEAD` empty afterwards:\n  - TS face with the `filter` member deleted: `tsc -p tsconfig.test.json` exit 2, with 4 errors of type TS2344 and 2 of type TS2578 (unused `@ts-expect-error`) in the new pin.\n  - Mirror with the key renamed away: 5 failed, 19 passed (3 in the new pin, 2 in the 8655 ledger file).\n\n## Acceptance notes\n\n- The pending `.changeset/8655-object-tree-props-schema-typed.md` says `filter` is \"⛔ NOT executed here\" and that the ledger row \"reddens the day it lands\". Both are still true of that change. Its text is not touched here. `check:changeset-claims` lists it as a report-only read request.\n- Upstream `@objectstack/spec` at `../objectstack` HEAD declares an `ObjectTreePropsSchema` whose `filter` is a `ViewFilterRule` array only. The installed spec here has no `object-tree` entry in `ComponentPropsMap`; the 8655 pin still asserts that. This PR follows the dispatch ruling, the gallery's `QueryParams['$filter']`. If that spec lands here, it will ask the same alignment question of the whole `filter` family.\n- Other open PRs that hold other regions of `objectql.ts` / `objectql.zod.ts` (objectui#10262, objectui#8941) do not overlap the `ObjectTreeSchema` region. PR objectui#10260 is already on main and was merged in cleanly.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"
+}

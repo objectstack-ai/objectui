@@ -1,0 +1,36 @@
+{
+  "number": 4463,
+  "kind": "issue",
+  "title": "\"Set as Default\" is dead on every saved view — `handleSetDefaultView` calls `updateView` unbound, so `this.connect()` throws before any request is issued",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T12:28:58Z",
+  "updated_at": "2026-08-12T19:25:19Z",
+  "closed_at": "2026-08-12T19:25:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4463",
+  "body": "Found by a **retest** of `records-forms.saved-view-management` (framework QA run objectstack-ai/objectstack#7439) against the console at pin `6314e87f2d49`. The fix under retest — #4139 / PR `b42558a4c` — **is verified working**; this is a separate, **pre-existing** defect on the same surface.\n\n## Symptom\n\nClicking **Set as Default** on any saved view issues **zero network requests**. The console logs:\n\n```\n[ViewTabBar] Failed to set default view: TypeError: Cannot read properties of undefined (reading 'connect')\n```\n\nand shows a toast *\"Failed to set default view\"*. The view never gains `isDefault`, and the prior defaults are untouched. Reproduced **3×** — on a draft-addressed view, on a published view, and in a repeat focused run.\n\n## Reproduction\n\n1. As the seeded admin, open `/_console/apps/com.example.showcase/showcase_task`.\n2. Create any saved view via the `+` tab (`data-testid=view-tab-add`) — e.g. a kanban, machine key `rt5_board`.\n3. Open that tab's actions menu (`data-testid=view-tab-actions-showcase_task.rt5_board`).\n4. Click **Set as Default** (`data-testid=view-tab-menu-default-showcase_task.rt5_board`).\n\n**Expected**: a `PUT /api/v1/meta/view/<name>` setting `isDefault:true` (plus PUTs unsetting the prior default); the view is default after reload.\n**Actual**: no requests at all; the console error above; server state unchanged.\n\n## Root cause\n\n`packages/app-shell/src/views/ObjectView.tsx` — `handleSetDefaultView` does:\n\n```ts\nconst updateView = (dataSource as any).updateView;\n…\nupdateView(objectName, /* … */);   // called UNBOUND\n```\n\n`this` is therefore `undefined` inside the adapter method, whose first statement is `await this.connect()`.\n\nThe cleanest confirmation is the sibling: **`handlePinView` calls `(dataSource as any).updateView(...)` as a method and works** — which is exactly why rename and pin pass in the same menu while set-default does not.\n\n**`handleReorderViews` in the same file repeats the identical unbound-call pattern** and is presumably broken the same way (not exercised in this run).\n\n## Not a regression from #4139\n\nVerified by reading the call site at `b42558a4c^` (the commit *before* the #4139 fix): the same `const updateView = (dataSource as any).updateView` call was already there, and `updateView` already began with `await this.connect()`. This is pre-existing.\n\n## Secondary defect on the same surface (lower severity)\n\n**`deleteView` was not taught the draft qualifier that `updateView` gained in #4139.** Deleting a view that exists only as a *draft* issues `DELETE /api/v1/meta/view/<name>` against the published overlay and returns `200 {\"success\":true,\"reset\":false,\"message\":\"No view '<name>' found — nothing to delete.\"}` — while the draft survives and the tab is still present after reload. Worth closing in the same pass.\n\n## What is verified working (so this card is narrowly scoped)\n\n- **#4139 itself is fixed**: `updateView` on a draft-only view now writes the full merged item to `?mode=draft` (200, `seq` advancing) with the kanban config intact — no create-equivalent flattening, no lost config. Rename and pin both round-trip on a draft and survive reload.\n- Create (draft → publish → live) works; delete on a *published* view works (`reset:true`, tab gone after reload).\n- Non-admin gating is correct: no `view-tab-add` / `view-tab-actions-*` in the DOM for a real second persona, and forged `PUT`/`DELETE` on `/api/v1/meta/view/*` answer **403** (`manage_metadata` required) with nothing persisted.\n\n## Source\n\nRetest of `records-forms.saved-view-management` at console pin `6314e87f2d49`, framework `b602d536`. The `set-default` failure blocks the item's clause 1 and makes its \"two views flagged default\" negative unexercisable."
+}

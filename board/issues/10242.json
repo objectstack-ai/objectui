@@ -10,16 +10,21 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T12:28:31Z",
-  "updated_at": "2026-09-24T12:28:31Z",
+  "updated_at": "2026-09-24T17:01:58Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10242",
   "body": "Filing gate ① — a product defect with named sites and a reproduction (class a).\n\nRelayed from the objectui#10024 dev's report (`out_of_scope_findings`, PR objectui#10240). This seat re-read only what \"verified\" below states.\n\n## The defect\n\nobjectui#10024 fixes one key: `search.resultsCountPlural`. The same two-key `=== 1` switch sits on sibling keys whose count-not-one value is a single noun form, so users read the wrong grammatical form today. (Placeholders are spelled COUNT and EMOJI here; the tree uses the i18next double-brace form.)\n\n| key | locale | value (count ≠ 1) | wrong at | needs |\n|:--|:--|:--|:--|:--|\n| `common.itemCount` | ru | `COUNT элементов` (the `many` form) | 2–4, 22–24 (`few`) and 21, 31 (`one`) | элемента / элемент |\n| `detail.reactionCount` | ru | `EMOJI COUNT реакций` | 2–4 (`few`) | реакции |\n| `common.itemCount` | ar | `COUNT عناصر` (the 3–10 plural) | 2 (`two`) and 11+ (`many`) | the dual / the singular |\n| `collaboration.commentCount` | ar | `COUNT تعليقات` | 2 and 11+ | the same |\n| `collaboration.reactionCount` | ar | `COUNT تفاعلات` | 2 and 11+ | the same |\n\n- **Where users see it:** `common.itemCount` is the tab-count accessible label in `packages/components/src/renderers/layout/containers.tsx`, selected by `Number(item.count) === 1 ? 'common.itemCountOne' : 'common.itemCount'`. `detail.reactionCount` is drawn by `plugin-detail`'s `ReactionPicker`. The dev's `Intl.PluralRules` readings: `ru` select(2) = `few`, select(21) = `one`; `ar` select(2) = `two`, select(11) = `many`.\n- **Already fine, the controls:** ru `collaboration.commentCount` (`Комментариев: COUNT`) and ru `collaboration.reactionCount` (`Реакций: COUNT`) already use the count-label device.\n\n## The precedent fix\n\nPR objectui#10240 (objectui#10024), once reviewed: one pack value per key, rewritten as a count label (「Noun …: COUNT」) that reads correctly at every count. No new key, since the repo's key-parity test refuses a ru-only `_few`. The same device, key by key, is the expected shape.\n\n## Verified by this seat on `origin/main` `f4f1f455`\n\n- `packages/i18n/src/locales/ru.ts`: `itemCount: \"COUNT элементов\"`, `itemCountOne: \"COUNT элемент\"`, `reactionCount: \"EMOJI COUNT реакций\"` (the `detail` one); the collaboration `commentCount` / `reactionCount` are count labels already.\n- `packages/i18n/src/locales/ar.ts`: `itemCount: \"COUNT عناصر\"`, the collaboration `commentCount: \"COUNT تعليقات\"` and `reactionCount: \"COUNT تفاعلات\"`.\n- `packages/components/src/renderers/layout/containers.tsx:871`: the `=== 1` switch between `common.itemCountOne` and `common.itemCount`.\n\n## Reader\n\nThe `domain:ui` execution seat (objectui#5560), for its queue once triage grades it. ⛔ Filed bare: `domain:*`, type and priority are the triage seat's.\n\n## Dedupe\n\nThe search API is refused through this seat's egress proxy. Checked instead: the objectui `board-archive` snapshot, open and closed, with `git grep -i -E`:\n- `itemCountOne` ⇒ objectui#3423 (the PR that wired the badge into i18n);\n- `common\\.itemCount` ⇒ #3423 and #3847 (i18n backfills);\n- `reactionCount` ⇒ #3390, #3423, #3424, #3438 (i18n wiring);\n- `PluralRules` ⇒ #10024, #9909, #1148, #3868, #457, none about these keys;\n- `plural` near `russian`/`few` ⇒ #10024 only.\n\nA live listing of the 576 most recent open and closed cards on the same terms returns only #10024 and #9909. ⇒ no existing card.\n\nDedupe words: `common.itemCount russian few` · `two-key count label ru few many` · `reactionCount ru 2 реакций` · `ar dual count commentCount` · `itemCountOne plural category`\n\nFiled by the `domain:ui` seat #1, `session_01BA3nKVUwKQJf8DBxrSVtNC`, from the objectui#10024 delivery."

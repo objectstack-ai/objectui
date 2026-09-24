@@ -1,0 +1,33 @@
+{
+  "number": 4711,
+  "kind": "pull_request",
+  "title": "data-objectstack: retire the four remaining v3.0.0 Deep Integration modules",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T14:56:52Z",
+  "updated_at": "2026-08-15T15:45:04Z",
+  "closed_at": "2026-08-15T15:45:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T15:45:02Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4711",
+  "body": "Fixes #4241\n\n## What\n\n`packages/data-objectstack/src/index.ts`'s `// v3.0.0 Deep Integration modules` banner introduced five modules. #4152 / PR #4239 already retired the first, `CloudOperations`, for fabricating success against a client namespace that does not exist. This retires the other four, all measured with **zero code consumers** outside this package (across `packages/`, `apps/`, `examples/`, `.ts`/`.tsx`, excluding `node_modules`) — on the family rule from #4241's 2026-08-11 triage promotion, which inherits #4152's ruling for the siblings:\n\n- `src/integration.ts` — `IntegrationManager` and its types\n- `src/security.ts` — `SecurityManager` and its types\n- `src/studio.ts` — `createDefaultCanvasConfig` / `snapToGrid` / `calculateAutoLayout` and their types\n- `src/contracts.ts` — `validatePluginContract` / `generateContractManifest` and their types\n\n**Not a repeat of #4152's urgency limb** — none of these four fabricated anything (`SecurityManager.generateCSPHeader()` really composes a header, `snapToGrid` really snaps). What they shared with `CloudOperations` was only the no-consumer limb. Re-measured on this branch; the two apparent hits were homonyms, not consumers — `PageDesigner.tsx` has its own local `snapToGrid` callback with no import from this package, and the `SecurityManager` hits outside `data-objectstack` are `CHANGELOG.md` prose.\n\n## Same shape as #4152 / PR #4239\n\n- Delete the four module files.\n- Delete their re-exports from `index.ts`; the `// v3.0.0 Deep Integration modules` banner had nothing left under it once all four were gone, so it's removed rather than retitled (its adjacent note about `CloudOperations`'s retirement stays fully documented in `cloud-surface-retired-4152.pin.test.ts`, so nothing is lost).\n- `v3-compat.test.ts`: removed the four modules' `describe` blocks and their imports. The file is **not** an empty shell — one block (`PaginatedResult API`) never depended on any of the five retired modules — so it stays, retitled to stop claiming a v3.\n- Added `v3-deep-integration-retired-4241.pin.test.ts`, a negative pin in the shape of `cloud-surface-retired-4152.pin.test.ts`: it reads both the runtime export list (catches the 7 class/function exports) and `index.ts`'s source text (the only instrument that can catch a returning `export type`, for the 23 type-only exports).\n\n## A consumer the issue's premise didn't name\n\nWhile removing `security.ts` I found `spec-symbol-batch6.test.ts` (objectui#3160 / objectstack#4115 ledger batch 6) imports `SecurityManagerPolicy` from `./security` — a real in-package reference beyond the \"index.ts re-export and `v3-compat.test.ts`\" the issue described. It's a compile-time collision guard verifying `SecurityManagerPolicy` doesn't overlap the spec's unrelated `SecurityPolicy`, not a functional consumer, so it doesn't change the zero-external-consumer conclusion — but it needed its own edit (import, `RENAMES` entry, `describe` block, header prose) to keep compiling once the type it guards is gone. Not a fork: mechanical cleanup required by the sanctioned deletion, same category as updating `v3-compat.test.ts`.\n\n## Verification\n\n- `pnpm --filter '@object-ui/data-objectstack^...' build` (dependency closure) — green\n- `pnpm exec vitest run packages/data-objectstack/ --maxWorkers=2` — **37 test files, 523 tests, all passing**, re-run at the final commit\n- `pnpm --filter '@object-ui/data-objectstack' type-check` — clean, re-run at the final commit\n- `pnpm --filter '@object-ui/data-objectstack' lint` — 0 errors (392 pre-existing warnings, unrelated to this change)\n- `pnpm --filter '@object-ui/data-objectstack' build` — rebuilt `dist/index.d.ts`; grepped it for the four retired names, 0 hits\n- **Reverse verification**: added a scratch file importing the retired `IntegrationManager` from `@object-ui/data-objectstack` in `packages/plugin-designer`, ran `tsc --noEmit`, confirmed `TS2305: Module '\"@object-ui/data-objectstack\"' has no exported member 'IntegrationManager'` against the rebuilt `.d.ts`, then removed the scratch file — proves the rebuild was read, not a cached one\n- Downstream consumer sweep (prefix direction — consumers of this package): `pnpm exec turbo run type-check --filter='...@object-ui/data-objectstack' --concurrency=2` — **69/69 tasks successful** (includes `app-shell`, `plugin-calendar`, `plugin-designer`, `plugin-form`, `plugin-grid`, `plugin-kanban`, `plugin-timeline`, `react`, `apps/console`, and their own dependency/build chains)\n- `node scripts/check-changeset-presence.mjs` — ✅ declares `.changeset/retire-v3-deep-integration-modules-4241.md`\n- `node scripts/check-changeset-no-major.mjs` — ✅ no `major` bump declared\n- Self-scan for raw control bytes on every changed file — clean\n\nAll of the above re-run at the final commit `7ccd74239`.\n\n## Changeset\n\n`minor` on `@object-ui/data-objectstack`, matching PR #4239's precedent (this repo's version policy: objectui's own breaking changes never declare `major`). Body lists all removed exports FROM → TO form.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 4460,
+  "kind": "pull_request",
+  "title": "test(plugin-detail): drop the unpublished @object-ui/fields deep subpath (#4325)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T09:37:36Z",
+  "updated_at": "2026-08-12T10:40:38Z",
+  "closed_at": "2026-08-12T10:40:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T10:40:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4460",
+  "body": "Closes #4325.\n\n## The defect\n\n`packages/fields/package.json` publishes exactly two entry points — `.` and\n`./style.css`. `packages/plugin-detail/src/__tests__/RelatedList.longFormColumns.test.tsx`\nside-effect-imported a third:\n\n```\nimport '@object-ui/fields/widgets/MarkdownContent';\n```\n\nIt resolved only because `vitest.config.mts` aliases the whole package name to\nits SOURCE directory. Under Node's own resolution it is\n`ERR_PACKAGE_PATH_NOT_EXPORTED`; under `tsc` with the standard `paths: {}`\ntemplate every wired-up package uses, it was TS2882. That is why\n`plugin-detail/tsconfig.test.json` carried the repo's **only** source-tree\n`paths` entry — restating the vitest alias so the file could be type-checked at\nall.\n\nThe import was load-bearing, not decorative: the two \"no column derived\" cases\nassert absence right after awaiting the row, and the markdown cell renderer sits\nbehind `React.lazy`, so without the preload a wrongly-derived column reads as\nabsent while its chunk is still in flight.\n\n## The ruling, and the fix\n\n#4325 ruled the subpath **out**: `@object-ui/fields`' surface is its index, and\none test's preload does not justify minting permanent public API plus a matching\n`dist` layout to maintain forever. So the import is deleted, `paths` is now `{}`\nlike every other wired-up package's, and the anti-race guarantee is **rebuilt**\nrather than dropped.\n\nThe ruling's preferred option (a) — preload through the public index — was\nmeasured and **refuted**. Importing `@object-ui/fields` only evaluates the module\nthat DECLARES `React.lazy(() => import('./widgets/MarkdownContent'))`; the\nfactory never runs, so the chunk stays cold. A probe rendering\n`MarkdownCellRenderer` straight after that import saw the Suspense fallback\nsynchronously and waited **321.8 ms** for the chunk on an idle container.\nAGENTS.md records first-`import()` latencies up to 976 ms under full parallel\nload against RTL's 1000 ms default, so any `findBy`/`waitFor` on post-boundary\ncontent is a coin flip decided by machine load.\n\nOption (b) therefore lands: the race is **removed** instead of won. Every case\nasserts through one `documentCells()` predicate, on a witness present in every\nstate of the lazy boundary — the Suspense fallback's raw value, the resolved\nmarkup, and (for a normal non-`fitContent` column) the data-table cell wrapper's\n`title=`, which is rendered outside the Suspense boundary. The fallback `paths`\noption (c) was not needed.\n\nThe positive case moved to the same predicate too. It used to be\n`findByText('Heading')`, which only ever passed because the deleted preload had\nalready resolved the chunk — leaving it would have converted the fixed flake\ninto a new one. One predicate reporting 1 there and 0 in the absence cases is\nalso what makes both directions provably non-vacuous.\n\n## Red-first — three stages, `SKIP_TYPES` scratch-broken back to the #4250 defect\n\n| stage | shape under test | result |\n|---|---|---|\n| 1 | new file, unmodified | **RED** — 2 failed, on the header assertions |\n| 2 | header assertions neutralised, witness alone | **RED** — `expected [ td, td ] to have a length of +0 but got 2` |\n| 3 | the OLD assertions restored verbatim, no preload | **GREEN — 5 passed** |\n\nStage 3 is the point of the card: with the derivation genuinely broken and the\npreload gone, `queryByText('Heading')` and `querySelector('td h1')` both pass —\nthe green-for-wrong-reason trap #4325 predicted, reproduced and now pinned shut.\nStage 2 shows the replacement catches exactly that case. Both files were restored\nfrom the commit afterwards and re-verified.\n\n## Green\n\n```\npnpm --filter @object-ui/plugin-detail test        →  78 files, 761 tests passed\npnpm --filter @object-ui/plugin-detail type-check  →  exit 0 (tsc --noEmit && tsc -p tsconfig.test.json)\npnpm --filter @object-ui/plugin-detail lint        →  0 errors\nnode scripts/check-type-check-coverage.mjs         →  OK\nnode scripts/check-changeset-presence.mjs          →  OK\nnode scripts/check-changeset-no-major.mjs          →  OK\npnpm run check:control-bytes                       →  OK\n```\n\nZero behaviour change: no package source is touched, so the changeset declares an\nempty frontmatter (releases nothing). The dispatch's default \"patch\" grade\nassumed the other branch of the ruling — publishing `./widgets/*` would have been\na real package change; ruling the subpath out leaves nothing to release.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

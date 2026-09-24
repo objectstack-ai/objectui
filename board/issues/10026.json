@@ -2,8 +2,8 @@
   "number": 10026,
   "kind": "issue",
   "title": "finding(core/components): the repo REFUSES an impossible calendar date at the authoring boundary (`isRealCalendarDate`) and ROLLS IT OVER on the shared display path (`formatDate`) — one concept, two answers, and a green pin holds the display half in place",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-19T13:05:34Z",
-  "updated_at": "2026-09-20T10:36:34Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T18:24:47Z",
+  "closed_at": "2026-09-24T18:23:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10026",
   "body": "## 维护者速读\n\n**事情**:像 `2026-02-30` 这种**日历上不存在**的日期,这个仓给出**两套相反的答案**:\n\n- **作者输入那一侧**(筛选器的 `isRealCalendarDate`)—— **拒绝**它,注释逐字写着「A date that exists — the pattern alone would accept `2024-02-31`」。\n- **显示那一侧**(`formatDate`,每个日期单元格、卡片、gantt tooltip 都走它)—— **接受并滚过去**,把 `2026-02-30` 渲染成 **`Mar 2`**。\n\n立卡席实跑的对照说明守卫是活的、只是不管这一类:`Date.parse('2026-13-01')` = **NaN**(越界的**月**被拒),而越界的**日**不被拒。\n\n**为什么要你拍板**:作者自己输不进这种日期,但它**可以从别处进来**(导入、API、种子数据)。那时用户看到的是一个**真实存在、但不是那一天**的日期 —— 没有任何提示。这不是 bug 修不修的问题,是**共享日期路径该不该拒**的产品语义。\n\n**选项**:\n- **A(荐)** —— **共享路径拒绝**它:渲染成一个**看得见的标记**(而不是空白),让「这个值坏了」在界面上说得出来。\n- **B** —— 维持现状,继续滚到下一个真实日期。⛔ 代价是用户**看到一个错的日子而毫不知情**。\n- **C** —— 只在**产生它的边界**(导入 / API)拒,显示侧保持宽容。技术上最干净,但已经落库的坏值仍然会静默显示错日子。\n\n**席位意见**:荐 **A**,理由是北极星第 4 条的 **「永不静默」**:把 `Feb 30` 显示成 `Mar 2` 是一个**静默的错答案**,而这一类的代价恰恰在于用户不知道自己被骗了。⚠️ A 的「拒绝」必须是**可见标记**,⛔ 不是空白 —— 空白只是把静默换了个形状。⚠️ 并且 C 与 A **不互斥**:真正的终态大概是两者都做,但 A 是那个今天就止血的。\n\n**⛔ 本卡不问的**:`formatMeasureDate` 要不要单独拒 —— 那条路已被本仓自己的仪器明文禁止。\n\n**你要做的**:回一个字母 —— **A / B / C**。\n\n**Governing text:** `packages/components/src/custom/filter-builder.tsx` 的 `isRealCalendarDate`(输入侧已声明的规则)· `packages/core/src/utils/date-display.ts` 的 `formatDate`(显示侧的相反行为)· 北极星「优先级」第 4 条「错的必须被响亮拒绝…永不静默落库」。\n\n---\n\nFiled by the `domain:ui#2` execution seat (session `session_018HrVaotisyhgmot9o2MLRq`) at 2026-09-19T13:05Z.\n⛔ **未定级、未路由**:`domain:*` / `type` / `priority:*` 是分诊席的唯一产出。\n⭐ 这是一张**产品面决定**卡,下面已带四棱块,⇒ 定级席可直接路进决策箱。\n\n出处:objectui#8263 的 dev 在**测量之后**停手交回(回翻条款),其派发席(本席)在同一次里公开更正了\n自己给错的方向。⭐ 下面每条读数都是**本席自己重取的**:`origin/main` 树尖 `4dbab84d4`,\n取数时刻 **2026-09-19T13:03:34Z**,外加一次本地实跑。\n\n## ⭐⭐ 一进一出,两套答案\n\n| 侧 | 谁 | 对 `2024-02-31` / `2026-02-30` 这类**不存在的日历日**的回答 |\n|:--|:--|:--|\n| **作者输入** | `packages/components/src/custom/filter-builder.tsx` 的 `isRealCalendarDate` | ⛔ **拒绝**。注释逐字:「A date that exists — the pattern alone would accept `2024-02-31`.」做的是年/月/日三元回读校验 |\n| **显示** | `packages/core/src/utils/date-display.ts` 的 `formatDate`(每个日期单元格、卡片、gantt tooltip 都走它) | ✅ **接受并滚过去**。`Date.parse('2026-02-30')` = `1772409600000`(⛔ 非 NaN),渲染成 `Mar 2` |\n\n本席实跑的控制:`Date.parse('2026-13-01')` = **NaN** ⇒ 越界的**月**被拒,越界的**日**不被拒。\n⇒ 守卫是活的,它只是不管这一类。\n\n## 这张卡问的是什么(以及它**不**问什么)\n\n⭐ **问**:那条**共享**日期路径,该不该拒绝一个不存在的日历日?\n\n⛔ **不问**「`formatMeasureDate` 要不要单独拒」——那条路已被本仓自己的仪器明文禁止:\n`packages/core/src/utils/__tests__/dataset-format.date.test.ts` 有一条绿着的 pin,\n`it('agrees with the list cell on a rolled-over date instead of second-guessing it', …)`,\n其注释逐字「Pinned because it is the one place agreement looks like a bug.」\n⇒ 把拒绝缩到一个消费者身上,会**故意重建** objectui#4576 记过的那种分歧。\n\n## 四棱卡面块\n\nos-decision-facets\n\n- **① 项目长远合理性**:今天是**同一个概念两套答案**(输入拒、显示滚),这本身就是特例增生;让共享路径给出一个答案会**缩小**它。⛔ 但代价是它触及每一个日期面。\n- **② 实际业务拉动**:用户读到一个**没人写过的日子**。⚠️ 本席 ⛔ **没有**量过这种值在真实数据里有多常见 —— 这是本卡最大的置信缺口,也是定级前该补的第一个读数。\n- **③ 防 AI 犯错**:今天的失败是**静默**的 —— 没有报错、没有红门禁,只是一个日期悄悄变成另一个日期。让共享路径**响亮拒绝**(返回它对不可解析值已经返回的那个 em dash,或原样回显)把静默变成可见。⛔ 但「响亮」的具体形状本身就是本卡要裁的一半。\n- **④ 创业阶段不扩散**:⭐ 这是**移动**而非**复制**:`isRealCalendarDate` 已经存在,只是住在 React 包 `@object-ui/components` 里,而显示路径住在 `@object-ui/core` ——⇒ core 够不到它。把它下沉到 core 正是该文件头部为 `formatDate` 与 `number-display.ts` 描述过的同一种办法。⛔ 不新增第二份实现。\n\nPrior rulings read: rolled-over date,isRealCalendarDate,formatDate impossible calendar → objectui#4576(同类分歧的在案记录)+ 上述那条绿 pin;⛔ 与「共享路径该不该拒」直接相关的裁决:none\n\n## 选项 × 真实代价\n\n| 选项 | 做什么 | 客户可感知的后果 |\n|:--|:--|:--|\n| **A** | 维持现状,只把散文改成真话(已作为 objectui#8263 的围栏内工作重新派发) | 什么都不变;用户仍然读到没人写过的日子,但文件不再撒谎 |\n| **B** | 把 `isRealCalendarDate` 下沉进 `core/date-display.ts`,让**唯一**那条共享路径拒绝溢出的日 | 每个日期面一致;⚠️ 那条绿 pin 要连同它的理由一起重写(⛔ 不是删掉),且要裁「拒绝之后显示什么」 |\n| **C** | 当作已知取舍关掉 | 与 A 的差别只有一点:**不留记录** |\n\n## ⛔ 本卡不主张什么\n\n- ⛔ 不主张 B 一定对:那条 pin 的论据(「与列表单元格一致」)是**真的**,一致性本身有价值。\n- ⛔ 不主张现状有用户报障;⛔ 也没量过发生率(见 ②)。\n- ⛔ 不主张 `filter-builder` 那侧有问题 —— 它是本卡里**做对了**的那一侧。\n\n## 承接者\n\n⭐ 说得出:objectui#8263 的围栏内工作正在改**同一个文件的注释**,并会**点名**引用那条 pin。\n⇒ 写那段注释的人就是最可能先撞上这张卡的人。\n\n## 查重词\n\n`shared date path impossible calendar day` · `isRealCalendarDate move to core` ·\n`formatDate rolled-over date list cell agreement` · `objectui#4576 divergence date surface` ·\n`date display refuses overflowing day`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

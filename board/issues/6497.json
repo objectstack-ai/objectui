@@ -2,8 +2,8 @@
   "number": 6497,
   "kind": "issue",
   "title": "finding(types): the action-object handler dialect IS already declared and exported — `EventableSchema` / `UIEventHandler`, with no mirror, no extender and no reader",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-26T05:47:44Z",
-  "updated_at": "2026-09-24T11:15:34Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T19:23:28Z",
+  "closed_at": "2026-09-24T19:22:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6497",
   "body": "Ruled: 5812987361 · letter remove (retire EventableSchema / UIEventHandler) · 2026-09-24T11:15Z\n\n〔阻塞已失效 · R+318〕原首行 `Blocked-by: #6182` 于本轮划去 —— 阻塞者 objectui#6182 现读 `closed`/`completed`,且孤岛测量已于本轮重验通过。⛔ 本行故意不写成行首可匹配的形状,以免阻塞索引把它读成一条活的阻塞。依据见评论 5735632812。\n\nFound while implementing objectui#6250. It refines that card's central claim and is material to the objectui#6182 / objectui#6124 handler-dialect decision, so it is recorded on its own rather than argued inside a fixture PR.\n\n> ## Status (2026-08-28): the fork this card waits on has been RULED — the re-pricing is already knowable\n>\n> Triage attached this card to the handler-dialect family with `Blocked-by: #6182`, and pre-registered the re-pricing: *\"if the function dialect wins, this is an ADR-0049 retirement of a dead public type (option 2, cheap); if the expression dialect wins, `EventableSchema` may become the seat of the wiring rather than a corpse.\"*\n>\n> **The function dialect won.** #6182 was ruled 2026-08-25 (maintainer, verbatim 「同意」), Option A: the handler-expression string dialect is **not** a supported authoring form; the authorable form for actions is the declarative `ActionDef` object, and runtime callbacks are the programmatic face.\n>\n> ⇒ **This card re-prices to option 2 — the cheap ADR-0049 retirement.** `EventableSchema` does not become the seat of any wiring.\n>\n> **The chain, so nobody re-derives it:** #6124 (the per-key sweep, dispatched 2026-08-28) → closes **#6182** on landing → releases **this card**. #6182's own close condition is executable: re-run its `rg` on the merged ref and confirm the 11 mirrors no longer carry the bare `z.string()` expression dialect.\n>\n> ⛔ Still blocked, correctly — #6182 is open. Unlock discipline unchanged: **re-verify the island measurement (no extender, no mirror, no reader) on the merged ref before re-queueing.** #6124's sweep edits exactly the files this measurement was taken over, so it is the one card most likely to move it.\n\n## What objectui#6250 said, and what is actually on the tree\n\nobjectui#6250 measured that `{ \"onClick\": { \"action\": \"toast\", … } }` is \"declared nowhere and executed nowhere\". The *executed* half is exact — I re-measured it independently: `ActionRunner`'s runnable vocabulary is `script | url | modal | flow | api | form | navigation` (`builtinExecutors`, `packages/core/src/actions/ActionRunner.ts`), with no `toast` and no `sonner`, and nothing in `packages/react`, `packages/core`, `packages/components` or `packages/layout` reads a handler key as an action object.\n\nThe *declared* half is narrower than it reads. `@object-ui/types` **does** ship a declaration of exactly that dialect:\n\n```ts\n// packages/types/src/api-types.ts:278\nexport interface EventableSchema extends BaseSchema {\n  events?: UIEventHandler[];                 // :282\n  onClick?: UIEventHandler | string;         // :286\n  onChange?: UIEventHandler | string;\n  onSubmit?: UIEventHandler | string;\n  onFocus?: UIEventHandler | string;\n  onBlur?: UIEventHandler | string;\n  onMouseEnter?: UIEventHandler | string;\n  onMouseLeave?: UIEventHandler | string;\n  onKeyDown?: UIEventHandler | string;\n  onKeyUp?: UIEventHandler | string;\n}\n```\n\n`UIEventHandler` is at `api-types.ts:159`. Both are re-exported from the package entry (`packages/types/src/index.ts:695-696`) and are in the built `dist/index.d.ts`, so they are public API today.\n\n## Measured: it is an island\n\n- **No component schema extends it.** Grepped `packages/`, `apps/`, `examples/` for `EventableSchema`: the only source hits are its own declaration, the `APISchema` union in the same file (`api-types.ts:470`), and the barrel re-export. `ButtonSchema` extends `BaseSchema` and declares `onClick: () => void | Promise` (`form.ts:59`) — it does not extend `EventableSchema`, and neither does any other component schema.\n- **No zod mirror.** Grepped all of `packages/types/src/zod/` for `EventableSchema` and `UIEventHandler`: zero hits. So `objectui validate` has no path to this dialect at all — the mirror that judges a `button` is `ButtonSchema` with `onClick: z.function()`.\n- **No reader.** Grepped the same three trees for `UIEventHandler` outside `api-types.ts`: only the barrel. Nothing consumes the type, and nothing dispatches its shape.\n\nPositive control for those greps: the same patterns against `schema.buttonLabel` and `schema.onClick` return the real read sites (`renderers/feedback/toast.tsx:31`, `core/src/actions/ActionRunner.ts:1067`), so a zero here is a measurement rather than an untested pattern.\n\n## Why this matters to the open decision\n\nobjectui#6250's triage fenced off \"declare an action union on `ButtonSchema.onClick` and build a dispatcher\" as a capability expansion with zero runtime, to be decided alongside objectui#6182 (is an authored handler EXPRESSION a supported dialect?) and objectui#6124 (`z.function()` mirror keys unsatisfiable by JSON). That framing is right, and this finding changes one input to it: **the declaration half is not a blank page.** `EventableSchema.onClick` is already `UIEventHandler | string` — the object dialect *and* the expression dialect objectui#6182 is deciding about, both, in one shipped exported interface with no mirror behind it.\n\nSo the decision is not only \"should we mint this\" but also \"what is this doing in the public surface already\", and the three live options are visibly different in cost:\n\n1. **Wire it** — have the component schemas extend it, mirror it in zod, build the dispatcher. Largest, and still a capability expansion with zero runtime today.\n2. **Retire it** — ADR-0049 enforce-or-remove: the type is exported, unmirrored, unextended and unread, so nothing can be relying on it beyond a name import. ⭐ **This is the ruled outcome** — see the status box.\n3. **Leave it** — but then a reader who finds `EventableSchema` in the shipped `.d.ts` is being invited to author exactly the shape objectui#6250 just removed from the demos, and no gate will tell them.\n\nUnassigned; no grading. Triage may want this attached to the objectui#6182 / objectui#6124 family rather than standing alone.\n\nRefs: objectui#6250 · objectui#6182 · objectui#6124 · objectui#5250.\n\nFiled by the objectui#6250 execution seat, session `session_011SfZeFWrhGLHmfq61xbz4q`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011SfZeFWrhGLHmfq61xbz4q)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

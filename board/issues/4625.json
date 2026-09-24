@@ -1,0 +1,30 @@
+{
+  "number": 4625,
+  "kind": "issue",
+  "title": "Docs gallery: the six components-form-calendar entries author the bare \"calendar\" keyword, which belongs to plugin-calendar's ObjectCalendar",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T02:48:10Z",
+  "updated_at": "2026-08-14T05:46:24Z",
+  "closed_at": "2026-08-14T05:46:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4625",
+  "body": "Measured while implementing #4616 (the gallery registration widening). Filed unassigned; **not** fixed there — the ruling on that card scopes it to registration and has entry-shape defects censused and filed rather than rewritten. Duplicate-searched (keyword + `ui:calendar` / `skipFallback` / the category path): no open issue covers it.\n\n## The defect\n\nAll six entries under `examples/schema-catalog/src/schemas/components-form-calendar/` author the date-picker primitive as the bare keyword:\n\n```json\n{ \"type\": \"calendar\", \"mode\": \"single\", \"className\": \"rounded-md border\" }\n```\n\nBut `packages/components/src/renderers/form/calendar.tsx` deliberately registers that primitive under `ui:calendar` **only** — `skipFallback: true`, with the reason in the file:\n\n```\n// `calendar` collides with the plugin-calendar full CRUD calendar VIEW,\n// which owns the bare `type: 'calendar'` schema keyword; this date-picker\n// primitive is reached via `ui:calendar` only.\n```\n\nSo the bare keyword resolves to `@object-ui/plugin-calendar`'s `ObjectCalendar`, which is a data-bound event calendar. The entries carry no data source, so it throws its own guard (`packages/plugin-calendar/src/ObjectCalendar.tsx:282`).\n\n## Measured, rendering all 423 entries the way the gallery does\n\n- Before #4616 (plugin-calendar not loaded on that page): 6 tiles paint `Unknown component type: calendar (OBJUI-001)`.\n- After #4616 (plugin-calendar loaded): the same 6 tiles paint `Error: DataSource required for object/api providers`.\n\nOne red tile for another — the registration widening cannot help this category, which is why these six are named as an explicit exclusion, with this issue number, in `examples/schema-catalog/test/catalog-gallery-render.test.tsx`.\n\nAffected: `custom-style`, `date-range`, `form-integration`, `multiple-dates`, `simple-calendar`, `single-date`. (`form-integration` is a `div` whose child is the offending node, so its root type resolves and only the nested one does not.)\n\n## Fix shape (not prescriptive — there is a real question here)\n\nMechanically the fix is `\"type\": \"ui:calendar\"` in six files. The question worth answering first is whether this category should demo the primitive at all: the catalog is the corpus AI authoring tools retrieve from, and an entry teaching the namespaced spelling of a keyword whose bare form means something else is a different teaching decision from dropping the category. Related: whether the bare/namespaced split is discoverable enough at authoring time, given that the only signal today is a comment in the renderer.\n\nRefs #4616, PR #4615.\n"
+}

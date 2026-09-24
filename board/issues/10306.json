@@ -1,0 +1,33 @@
+{
+  "number": 10306,
+  "kind": "pull_request",
+  "title": "fix(plugin-view): a read-only view's menus no longer open empty or on a leading separator",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T16:46:36Z",
+  "updated_at": "2026-09-24T19:09:59Z",
+  "closed_at": "2026-09-24T19:09:57Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T19:09:57Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10306",
+  "body": "Fixes #10209\nClause-②: no\n\n## What changed\n\nEach of the three menus resolves its entries once, to the handler each entry will run (or `undefined` when the entry will not render). The entries, the separators and the trigger all read those same values. So a trigger renders only when at least one entry renders, and a separator is drawn only between two groups that both rendered. One predicate per menu, no parallel condition.\n\n- `ManageViewsDialog` row `…` menu: the trigger used to render on `onDelete || onDuplicate || onConfigView || onSetDefault` (is a callback wired?), while every entry under it was also gated on `!isReadonly`. With the console's props (no `onDuplicate`, objectui#1520) a read-only row opened an empty 180px popover strip. Now a read-only row shows no `…` trigger; with `onDuplicate` wired it opens on Duplicate alone.\n- `ViewTabBar` tab dropdown (`▾`): separators before Delete and before \"Manage all views…\" now render only when something rendered above them. A read-only tab opens on \"Manage all views…\" with no leading separator. A read-only tab with no `onManageViews` shows no trigger (before: an empty dropdown).\n- `ViewTabBar` tab context menu (right-click): same defect in the same file, fixed the same way. A read-only tab's context menu no longer opens on a leading separator. A tab with no surviving entry is no longer wrapped in a context menu at all; before, it opened an empty one. This also covers every tab for a non-admin console user, who gets no callbacks.\n\nReverse control: an editable view keeps every entry it had. The dialog row with all six callbacks still shows six entries with one separator above Delete.\n\n## One deliberate adjustment, and why\n\n`ManageViewsDialog` no longer offers Rename (the menu entry or a double-click on the label) when the host wires no `onRename`. Committing a rename calls `onRename?.(…)`, so without it the entry did nothing. Before this change that no-op entry was hidden behind the callback-shaped trigger guard. With the trigger now asking whether any entry renders, an editable row on a host that wires no callbacks would otherwise gain a `…` that only offers a Rename that does nothing. The console wires `onRename`, so console behaviour is unchanged.\n\nThe existing forward control `ViewTabBar.setDefaultVisibility.test.tsx` opened a read-only tab's dropdown on a host that wired no `onManageViews`. Under this change that tab has no trigger, because nothing in its menu survives `readonly`. The test now wires `onManageViews` so the menu opens, and it still asserts that set-default, rename and delete are absent. Its header also cited two `ViewTabBar.tsx` line numbers across files; while touching the file I replaced them with the entries' test ids (AGENTS.md #11, opportunistic repair).\n\n## Evidence (head `ebc4146`)\n\n- New pins: `packages/plugin-view/src/__tests__/readonlyViewMenus-10209.test.tsx` has 10 tests over the dialog row menu, the tab dropdown and the tab context menu. They assert the menu's child roles in order (`menuitem` / `separator`) and whether each trigger is present.\n- `pnpm exec vitest run packages/plugin-view/` (repo root): `Test Files 45 passed (45)`, `Tests 414 passed (414)`.\n- `pnpm --filter @object-ui/plugin-view type-check` (after building the dependency closure `@object-ui/plugin-view^...`, 16 projects): exit 0. `tsc -p tsconfig.test.json --listFiles` includes both touched test files.\n- Reverse verification, run after the fix was committed: both source files checked out at base `8b1f066`, then the new file run again: `Tests 6 failed | 4 passed (10)`. The 6 red are the empty or leading-separator cases (dialog read-only trigger, dialog Delete-alone, tab dropdown read-only with and without manage, context menu read-only with and without manage). The 4 green are the three editable reverse controls and read-only-with-Duplicate, which were already correct. Restored with `git checkout HEAD -- …`; `git diff HEAD` is empty and both blob hashes match HEAD.\n- Gates run locally, all exit 0: `check-changeset-presence`, `check-changeset-no-major`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:new-line-citations` (0 new), `check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:unreferenced-sources`.\n- Lint, narrowed to the 4 touched source and test files: `eslint --no-inline-config --format json` reports 4 files, 0 errors and 5 warnings. All 5 warnings are on untouched pre-existing lines (`no-explicit-any` in the label helpers, `set-state-in-effect` in the existing effects). `eslint.config.js` sets no `parserOptions.project` / `projectService`, so linting is not type-aware and this diff cannot change the verdict on any untouched file. The full `pnpm lint` is left to CI.\n\n## Acceptance notes\n\n- Out of scope, per triage: whether a code-defined view should be read-only at all, and `ViewTabBar`'s `allReadonly` rule hiding the per-tab lock badge. objectui#10210 (the root cause that most often puts a view into the read-only state) remains open and is untouched here.\n- The reference branch `claude/quirky-wozniak-h2bt8o` (`68455999`) was read but not cherry-picked. Everything was re-derived on `main`. Its lock-tooltip addition was left out as out of scope.\n- `Spec Main Shape Gate` is red on every PR from upstream drift (objectui#10287, being handled by another seat). It is unrelated to this diff.\n\nSession: `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb` (seat `domain:ui#3`).\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

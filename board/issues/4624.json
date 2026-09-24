@@ -1,0 +1,32 @@
+{
+  "number": 4624,
+  "kind": "issue",
+  "title": "Docs gallery: components-disclosure-toggle-group/with-labels names root type \"single\", which no package registers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T02:47:54Z",
+  "updated_at": "2026-08-14T08:55:21Z",
+  "closed_at": "2026-08-14T05:46:23Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4624",
+  "body": "Measured while implementing #4616 (the gallery registration widening). Filed unassigned; **not** fixed there — that PR registers plugin packages, and this entry's red tile is an authoring defect in the entry, not a missing registration. Duplicate-searched (keyword + the `toggle-group` / `single` type names): no open issue covers it.\n\n## The defect\n\n`examples/schema-catalog/src/schemas/components-disclosure-toggle-group/with-labels.json` opens with:\n\n```json\n{\n  \"type\": \"single\",\n  \"items\": [\n    { \"value\": \"list\", \"icon\": \"list\", \"label\": \"List\" },\n    ...\n  ]\n}\n```\n\nNo package in the workspace registers a `single` component type, so `/docs/guide/schema-catalog` paints the registry's red panel for this tile:\n\n```\nUnknown component type: single (OBJUI-001)\n```\n\nIts two siblings in the same category spell the same idea correctly — the selection mode is a **property**, not the type:\n\n- `single-selection.json` — `\"type\": \"toggle-group\", \"selectionType\": \"single\"`\n- `multiple-selection.json` — `\"type\": \"toggle-group\", \"selectionType\": \"multiple\"`\n\nSo the value that belongs in `selectionType` ended up in `type`.\n\n## Measured\n\nRendering all 423 catalog entries the way `SchemaThumbnail` renders them, against the full registration set #4616 lands, exactly two entries still show OBJUI-001: this one, and `core-schema-renderer/unknown-component-type` (which demonstrates the panel on purpose). This is the only unintentional one.\n\n## Why it was left out of #4616\n\nThat card's ruling scopes it to registration and says entry-shape defects are censused and filed rather than rewritten. This entry is named as an explicit exclusion, with this issue number, in `examples/schema-catalog/test/catalog-gallery-render.test.tsx` — so the pin stays honest about what it does not cover, and removing the exclusion is the natural last step of fixing this.\n\n## Fix shape (not prescriptive)\n\nThe one-key correction is `\"type\": \"toggle-group\"` plus `\"selectionType\": \"single\"`, matching the siblings. Worth confirming first that `with-labels` is meant to demo the icon+label variant of a single-select toggle group rather than something else, since its `items` carry `icon` where the siblings' do not.\n\nRefs #4616, PR #4615.\n"
+}

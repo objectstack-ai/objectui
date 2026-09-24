@@ -1,0 +1,30 @@
+{
+  "number": 4626,
+  "kind": "issue",
+  "title": "Docs gallery: the basic-tooltip and basic-hover-card entries render a completely blank tile — each authors a key its renderer never reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T02:48:27Z",
+  "updated_at": "2026-08-14T05:46:24Z",
+  "closed_at": "2026-08-14T05:46:24Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4626",
+  "body": "Measured while implementing #4616 (the gallery registration widening). Filed unassigned; **not** fixed there — both types are registered by `@object-ui/components` and neither tile is a registration failure, so they fall outside that card's scope. Duplicate-searched (keyword + the two entry paths + `renderChildren`): no open issue covers it.\n\n## The defect\n\nRendering all 423 catalog entries the way `SchemaThumbnail` renders them, these two produce **no DOM of their own at all** — the harness wrapper is empty:\n\n```\n  body > div > div.group/sidebar-wrapper > div.w-full.p-4    (nothing inside)\n```\n\nThey are not red tiles, so no OBJUI-001 sweep would ever notice them; they are blank cards on a published page. Two different causes, same result.\n\n### 1. `components-overlay-tooltip/basic-tooltip`\n\nThe entry authors its trigger under `children`:\n\n```json\n{\n  \"type\": \"tooltip\",\n  \"content\": \"Helpful information\",\n  \"children\": [ { \"type\": \"button\", \"label\": \"Hover me\" } ]\n}\n```\n\n`packages/components/src/renderers/overlay/tooltip.tsx` reads `schema.trigger` and `schema.body` and never looks at `children`, so `TooltipTrigger asChild` gets nothing and the tile is empty. The registry meta for the type lists `trigger` and `body` as its slots, so the renderer is the one following the declared surface here.\n\n### 2. `components-overlay-hover-card/basic-hover-card`\n\nBoth slots author `value` where the text renderer reads `content`:\n\n```json\n{\n  \"type\": \"hover-card\",\n  \"trigger\": { \"type\": \"text\", \"value\": \"Hover over me\" },\n  \"content\": { \"type\": \"text\", \"value\": \"This is the hover card content\" }\n}\n```\n\n`packages/components/src/renderers/basic/text.tsx` renders `schema.content`; `value` is not a key it reads, so both nodes render empty and the trigger has nothing to clone.\n\n## Why this is worth a card rather than a two-line patch\n\nBoth are one-key corrections, but the class is the interesting part: nothing rejects an authored key the renderer does not read. A schema naming `children` where the component declares `trigger`, or `value` where it declares `content`, publishes clean and renders blank — which is precisely the failure mode AI-authored metadata produces most often, and the catalog is the corpus those tools retrieve from. Worth deciding whether unknown keys on a registered type should be a publish-time rejection rather than silence.\n\nBoth entries are named as explicit exclusions, with this issue number, in `examples/schema-catalog/test/catalog-gallery-render.test.tsx` — the non-vacuity control there (\"the tile drew something of its own\") is what surfaced them, and removing the exclusions is the natural last step of fixing this.\n\nRefs #4616, PR #4615.\n"
+}

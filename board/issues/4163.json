@@ -1,0 +1,34 @@
+{
+  "number": 4163,
+  "kind": "issue",
+  "title": "`I18nLabel` now admits an inline per-locale map — audit every read the compiler cannot see, and give Studio a way to author one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:on-hold"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T15:12:08Z",
+  "updated_at": "2026-08-15T06:01:05Z",
+  "closed_at": "2026-08-15T02:08:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4163",
+  "body": "Found while bumping `@objectstack/spec` to `17.0.0-rc.6` for objectstack#7100. Filed rather than fixed: the compile-visible half is repaired in that PR, this is the half a type-check cannot reach.\n\n## What changed upstream\n\n`I18nLabel` was a plain string through rc.5 and became a union in rc.6:\n\n```\nrc.5   declare const I18nLabelSchema: z.ZodString;\n       type I18nLabel = z.infer< typeof I18nLabelSchema >;            // string\n\nrc.6   declare const I18nLabelSchema: z.ZodUnion< readonly [z.ZodString, z.ZodRecord< z.ZodString, z.ZodString >] >;\n       type I18nLabel = z.input< typeof I18nLabelSchema >;            // string | Record< string, string >\n```\n\nThe standalone `I18nObject` / `I18nObjectSchema` were retired in the same release and folded into `I18nLabel`; rc.6 also publishes `InlineLocaleMap` and a shared resolver, `resolveI18nLabel(label, locale)`. So from rc.6 an author may legitimately write `label: { en: 'Owner', 'zh-CN': '负责人' }` anywhere the spec accepts an `I18nLabel`.\n\n## Part 1 — the reads the compiler cannot see\n\nBumping the pin turned up 9 sites where an `I18nLabel` flows into a `string` or `ReactNode` slot, and the compiler named every one of them. Those are fixed. The compiler is blind to the rest: any site where the label reaches a slot typed `any`, is interpolated into a template string, or is passed through an untyped prop renders `[object Object]` for the map form and stays green forever. That is the exact harm rc.6's own resolver doc comment calls out.\n\nThis needs a deliberate sweep of `I18nLabel`-typed fields (`NavigationArea.label`, `DashboardWidget.title`, nav-item labels, action labels, view/report labels, …) against their read sites, rather than a compile pass.\n\nNote this repo also has its OWN `resolveI18nLabel` (`packages/app-shell/src/utils/index.ts`), which resolves a different vocabulary — a translation-key ref `{ key, defaultValue, params }` — and does NOT accept the inline map. Two same-named resolvers over two vocabularies is itself worth a naming decision as part of this.\n\n## Part 2 — Studio cannot author the map form\n\n`DashboardWidgetInspector`'s title editor is a single-line `Input` bound straight to `widget.title`. Resolving a map into it and writing `e.target.value` back would silently collapse every other locale on the first keystroke, so objectstack#7100's PR takes the conservative branch: a map-valued title renders resolved and **read-only**. Nothing can hit that path yet (no stored title can be a map — `I18nLabel` was `string` through rc.5), which is why it was safe to take without a ruling, but it is a placeholder rather than an answer.\n\nThe real question is what the designer should offer: a per-locale editor, a \"translate this label\" affordance, or a deliberate decision that Studio only ever authors the string form and the map is API/import-only.\n\n## Why not in objectstack#7100's PR\n\nThat card is the `global_nav` retirement; it carries the rc.6 bump only because the two cannot compile apart. Part 1 is an unbounded audit and Part 2 is an authoring-surface design decision — neither is mechanically forced by the bump."
+}

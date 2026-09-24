@@ -1,0 +1,33 @@
+{
+  "number": 4304,
+  "kind": "issue",
+  "title": "Impersonation is invisible in the console — no banner, no \"Stop impersonating\" control, and no Impersonate entry point",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:24:57Z",
+  "updated_at": "2026-08-12T22:15:55Z",
+  "closed_at": "2026-08-12T22:15:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4304",
+  "body": "## Symptom\n\nWith an impersonation **server-confirmed in the very browser context** (an in-page `get-session` returns the **target's** email and a populated `session.impersonatedBy`), the console gives the operator no sign they are impersonating anyone:\n\n- `/_console/home` renders **\"Good morning, Dev Admin.\"** with avatar `DA` — the **admin's** identity, not the target's.\n- The DOM contains **no banner**, **no \"Stop impersonating\" control**, and the impersonated user's name appears **nowhere**.\n- The console also offers **no Impersonate entry point at all**.\n\nReproduced twice in fresh contexts with hard reload + `networkidle` + 3 s settle. Support sessions are silent in this build.\n\n## Root cause\n\nThe console never reads or surfaces the impersonation state on the session. Confirmed against `objectui` **`origin/main`** (checked as part of filing): a case-insensitive search for `impersonat` across `packages/**/src/**` returns exactly **one** hit — an unrelated comment in `packages/app-shell/src/views/studio-design/ObjectApiPanel.tsx`. There is **no** `impersonatedBy` handling, no impersonation banner, no \"Stop impersonating\" control, and no Impersonate entry point anywhere in the console source. The greeting itself lives in `packages/app-shell/src/console/home/HomePage.tsx` (`pickGreetingKey`) and reads the admin's own identity; the session plumbing that would carry `impersonatedBy` is in `packages/app-shell/src/console/ConsoleShell.tsx` / `packages/auth/src/AuthProvider.tsx` / `packages/auth/src/createAuthClient.ts`, none of which consult the impersonation fields.\n\nSo this is **not** already fixed upstream — it is genuinely absent on `origin/main`.\n\nExpected: while impersonating, the console should (a) show a persistent banner naming the impersonated user, (b) offer a \"Stop impersonating\" control, and (c) ideally provide an Impersonate entry point for admins.\n\n## Reproduction\n\n1. As a better-auth admin, start an impersonation of a target user (server-side).\n2. In that browser context, confirm via in-page `get-session` that the session returns the target's email and a populated `session.impersonatedBy`.\n3. Load `/_console/home` → greeting reads \"Good morning, Dev Admin.\" (the admin), no banner, no \"Stop impersonating\" control, target's name nowhere in the DOM.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7663 (framework 92f26f75, console 09987b680). This is the console half of the `admin-lifecycle-operations` FAIL; the objectstack half is filed as objectstack-ai/objectstack#7724."
+}

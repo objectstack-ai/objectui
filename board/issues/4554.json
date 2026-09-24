@@ -1,0 +1,33 @@
+{
+  "number": 4554,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): tooltip currency re-formats when the tenant currency resolves (#4542)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T08:02:21Z",
+  "updated_at": "2026-08-13T08:14:06Z",
+  "closed_at": "2026-08-13T08:14:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T08:14:05Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4554",
+  "body": "Fixes #4542\n\nThe currency twin of #4272 / PR #4544, in the same `useMemo`.\n\n## The defect, measured on `origin/main` (479cc7b46)\n\n`packages/plugin-gantt/src/ObjectGantt.tsx` — the `tasks` memo builds every tooltip string eagerly inside its callback, and the `'currency'` case resolves its code down to the tenant default:\n\n```\ncase 'currency':\n  return formatCurrency(Number(value), resolveFieldCurrency(def as any, tenantCurrency));\n```\n\n`tenantCurrency` (L432, from `useLocalization()`) was read but not watched — the array was `[data, ganttConfig, objectSchema, displayLocale]`.\n\n**Independent confirmation before writing a line:** ESLint on the unfixed file already reported it, and the fix removes exactly that one message (0 errors both sides, 99 warnings then 98):\n\n```\nline 774 | react-hooks/exhaustive-deps | React Hook useMemo has a missing dependency: 'tenantCurrency'. Either include it or remove the dependency array.\n```\n\n## Identity-stability measurement (the STOP condition in the ruling)\n\nThe ruling said to stop rather than add a dead dependency if the memo reads currency through a reference that never changes identity. It does change:\n\n- `LocalizationContext.tsx` L45-48 memoizes the context object on `[value.currency, value.locale]`, so it takes a new identity exactly when either primitive changes, which re-renders every consumer.\n- `tenantCurrency` itself is a primitive `string | undefined`. React compares deps with `Object.is`, so `undefined` to `'EUR'` is a genuine change.\n\nPremise holds; the dependency is live. Producer timing confirms the window: `apps/console/src/LocalizationFetchProvider.tsx` L89 does one async `setValue` after mount, because the endpoint is cosmetic and non-blocking.\n\n## Two masking paths, both measured — they shape the test\n\n1. **The locale channel.** The producer writes currency and locale from one response, so a tenant that configures BOTH re-runs the memo through PR #4544's `displayLocale` dep and the staleness never shows. It is observable on a tenant that configures a **currency and no locale** — the common shape, since `useDisplayLocale` documents the tenant locale as \"frequently `undefined`\", in which case it falls back to the unchanged UI language. The repro therefore resolves `{ currency: 'EUR' }` alone.\n2. **`ganttConfig` identity.** `getGanttConfig` returns a fresh object literal on the flattened top-level (console ListView) path, which invalidates this memo every render by itself; on the `schema.gantt` path it returns `schema.gantt` by reference. Only the latter is memoized in practice, so the cases use `schema.gantt` with a module-constant schema and dataSource.\n\n## Red-first: predicted split, written before the run, then measured\n\n| case | predicted | actual pre-fix | actual post-fix |\n| --- | --- | --- | --- |\n| re-formats when the tenant currency resolves after first paint | RED then GREEN | RED | GREEN |\n| plain number while the endpoint has not answered (pin) | green both | green | green |\n| currency resolved BEFORE first paint, byte-identical (pin) | green both | green | green |\n| a field's explicit currency outranks the tenant default, before and after (pin) | green both | green | green |\n| PR #4544's `displayLocale` dep still re-formats on a late tenant locale (pin) | green both | green | green |\n\nPredicted failure text, and the verbatim failure that came back — identical:\n\n```\nAssertionError: expected 'Amount=1,234.50' to be 'Amount=€1,234.50' // Object.is equality\n```\n\nReverse-verified after the fix by removing it with `git checkout origin/main -- ` (not `git stash`) and re-running: the same one case went red, the four pins stayed green, and the restore was sha256-verified byte-identical.\n\n## Verification\n\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-gantt` — 43 files, 378 tests, all green (includes `ObjectGantt.dateLocale.test.tsx`, PR #4544's pins).\n- `pnpm --filter @object-ui/plugin-gantt type-check` — both passes (`tsc --noEmit` and `tsc -p tsconfig.test.json`) green.\n- ESLint: 0 errors; one warning fewer than the `origin/main` baseline, the `exhaustive-deps` one quoted above. No other rule id changed in the multiset.\n- `check-control-bytes` OK, `changeset:check` OK, changeset presence OK, `check-phantom-dependencies` OK.\n- `.d.ts` diff both ways with `dist/` and `tsconfig.tsbuildinfo` cleared between builds: all 9 declaration files byte-identical, which is what makes `patch` the right bump. No consumer sweep was needed for the same reason — nothing crosses the package boundary.\n\n## Surface\n\n`ObjectGantt.tsx` (the dependency array plus its comment), one new test file, one changeset. Nothing else touched.\n\n## Out of scope, filed not fixed\n\n#4553 — the same tooltip formatter's number / currency / percent rows pass no locale to `formatNumber` / `formatCurrency` / `formatPercent`, so they render in the MACHINE locale right beside date rows that follow the display locale. A different defect at a different site (WHICH locale the string is built in, versus this card's WHEN it is rebuilt); this PR does not move it.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

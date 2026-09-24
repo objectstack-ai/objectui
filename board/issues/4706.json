@@ -1,0 +1,34 @@
+{
+  "number": 4706,
+  "kind": "issue",
+  "title": "flaky: DatasetWidget.drillTitleLabel's identity-keyed case pins a cumulative drawer-render count that overshoots under load",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T12:51:52Z",
+  "updated_at": "2026-08-15T13:48:26Z",
+  "closed_at": "2026-08-15T13:48:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4706",
+  "body": "Observed on an unrelated PR (#4705 — plugin-charts doc comment + new plugin-charts test file; it touches no dashboard code). `Test (shard 2/4)` went red on:\n\n```\nFAIL  dom  packages/plugin-dashboard/src/__tests__/DatasetWidget.drillTitleLabel.test.tsx\n  > DatasetWidget — the drill title reads the series LABEL (objectui#4682) > titles an identity-keyed group with what its segment said, not with its key\nAssertionError: expected 2 to be 1 // Object.is equality\n ❯ packages/plugin-dashboard/src/__tests__/DatasetWidget.drillTitleLabel.test.tsx:183:52\n```\n\nJob: https://github.com/objectstack-ai/objectui/actions/runs/31885228851/job/95013452561 (shard totals that attempt: `1 failed | 4911 passed`, duration 440.92s — a saturated run). The same run's shards 1/3/4 and every other gate were green.\n\n## Why it is not the PR under test\n\nThe failing file is not in #4705's diff, and no cross-file mechanism exists: the `dom` vitest project runs `isolate: true` (per `vitest.config.mts`'s own comment — dom/dom-heavy deliberately keep isolation because they leak otherwise), so the PR's new plugin-charts test file, including its `vi.mock('recharts')`, cannot reach a plugin-dashboard file's module graph. What the PR *did* change is the shard's file composition by one file — enough to shift load and surface a latent race.\n\n## The defect, as the failure text reads\n\nLine 183 is:\n\n```tsx\nawait waitFor(() => expect(drawerProps.length).toBe(1));\n```\n\n`drawerProps` is a recording array of drawer render props, and the pin asserts the **cumulative** count is exactly 1. That assertion can *overshoot*: if the drawer renders twice (an extra state update landing late under load — the recording only ever grows), the observed value is 2 and `waitFor` can never recover, because no amount of waiting shrinks the array. This is the inverse profile of the #4487 family (there the recording was still empty when asserted; here it grew past the pin) — but the same class: a pin bound to incidental scheduling rather than to the property the case is about (per its own title, *which title the drawer shows*, not *how many times React rendered it*).\n\n## Suggested direction (not implemented here)\n\nAssert on the **content of the last recorded props** (the drawer title string the case is actually about), or reset the recording immediately before the drill interaction so exactly-once has a clean window — and if an exactly-once invariant is genuinely intended, pin it against a stable event (e.g. drawer *open* calls), not cumulative renders. Per AGENTS.md 测试纪律, not fixable by raising timeouts.\n\nThe test landed with the #4682/#4694 drill-title work earlier today; the sibling cases in the same file share the recording-array idiom and should be swept for the same overshoot exposure by whoever takes this.\n\n## Triage\n\n`pm:queue`: S, same flaky-test class as #4487 (whose fix merged as #4704). It has already red-lighted one unrelated PR on its first day in tree; failed jobs on #4705's head were re-queued as the immediate mitigation.\n\nProvenance: PM review of #4705's shard-2 red, session `session_01RnQd8iMMUwXQEV1crFmQiQ`. Filed unassigned."
+}

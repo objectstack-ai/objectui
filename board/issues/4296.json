@@ -1,0 +1,34 @@
+{
+  "number": 4296,
+  "kind": "issue",
+  "title": "Row kebab offers Edit/Delete on records the server refuses — the list ANDs only the OBJECT-level grant, the detail header also folds the RECORD-level one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T11:58:44Z",
+  "updated_at": "2026-08-15T09:32:50Z",
+  "closed_at": "2026-08-15T09:32:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4296",
+  "body": "## Summary\n\nOn one screen, for **one record and one user**, the list row kebab and the record detail header give **opposite answers** to \"may I write this record\":\n\n* **Row kebab** — shows **Edit** and **Delete**, because it ANDs only the *object-level* verdict (`usePermissions().can(obj,'update'|'delete')`, `rowCrudAffordances.ts` layer (d), objectui#4096).\n* **Detail header** — hides both, because `useRecordEditable` also folds the **record-level** verdict (sharing model / `writeScope` / RLS).\n\nThe server agrees with the detail header: the same verbs answer **403 \"You do not have access to this record\"** for that row. So the kebab offers two buttons that cannot succeed.\n\n## Repro (real runtime, framework `examples/app-showcase`, console at the pinned SHA `6314e87`)\n\n1. Boot the showcase (`objectstack dev`), sign in as admin.\n2. Create a member and grant it a permission set carrying **object-level** `showcase_project: { allowRead, allowEdit, allowDelete: true }`. Leave `writeScope` at its default (`own`) — every seeded project row is owned by someone else.\n3. Confirm the split server-side, as that member:\n   * `GET /api/v1/auth/me/permissions` → `showcase_project: { allowRead: true, allowEdit: true, allowDelete: true, … }` (object level: **granted**)\n   * `PATCH /api/v1/data/showcase_project/<foreign row>` → **403** `PERMISSION_DENIED`, `\"You do not have access to this record…\"`\n   * `DELETE /api/v1/data/showcase_project/<foreign row>` → **403**, same record-grained message\n4. In the console as that member, on `Legacy Sunset` (owner `linus@example.com`):\n   * list → row kebab → **Edit and Delete are both offered**\n   * open the same record's detail page → **no Edit button**, and the `⋯` menu contains only **Share**\n\nMeasured cells (UI, same session, same record):\n\n| surface | Edit | Delete |\n| --- | --- | --- |\n| list row kebab | shown | shown |\n| detail header | hidden | hidden |\n| server (`PATCH` / `DELETE`) | 403 | 403 |\n\n## Why it matters\n\nThe object-level grant is *not* the write verdict on a record — `writeScope`, the sharing model and RLS narrow it per row. The kebab treating the object grant as final means a user with a legitimately broad object grant sees Edit/Delete on **every row they can read**, including rows the server will refuse. Clicking ends in a permission error dialog on a button the UI itself put there.\n\n`rowCrudAffordances.ts` documents the intersection chain (bucket → `userActions` → `apiOperations` → per-principal object permission) and notes that layer (c) \"fails OPEN for every unprivileged account\" without layer (d). The same argument applies one level down: layer (d) fails open for every record the principal does not own.\n\n## Suggested direction\n\nFeed the row kebab the same record-grained verdict the detail header uses (the list already holds each row, and `/me/permissions` already reports the scope dials), or — if a per-row check is too costly in the grid — render the entries **disabled with the reason** rather than as live actions.\n\n## Notes\n\n* Not a regression of objectui#4096 — that issue closed the *object*-level hole, which is verified working: with `allowDelete:false` the kebab Delete, the bulk Delete and the detail Delete are all correctly absent, while an entitled admin sees all three on the same screen.\n* The selection bar could not be measured for this cell on `showcase_project`: that view declares custom inline bulk defs, so the built-in bulk Delete is absent for every persona there.\n"
+}

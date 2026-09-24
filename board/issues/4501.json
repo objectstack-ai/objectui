@@ -1,0 +1,36 @@
+{
+  "number": 4501,
+  "kind": "issue",
+  "title": "Cross-page select-all fan-out ignores the view's query under external pagination — `lastFindParamsRef` and the query-change reset are written only by ObjectGrid's own loader",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T21:49:59Z",
+  "updated_at": "2026-08-13T02:05:10Z",
+  "closed_at": "2026-08-13T02:05:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4501",
+  "body": "Found by the #4464 census (the sweep that issue asks for: \"worth a sweep for other `totalMatching`-style state with a single internal writer\"). Two more members of the same #4138 / #4464 class, in the same feature. Filed unassigned for triage.\n\n**Reachability changed with #4464.** Before that fix the cross-page banner could never appear under external pagination, so neither clause below could be reached from the console. #4464 makes the affordance appear — which is correct and is what the checklist item asks for — and in doing so it makes both of these live. They are pre-existing gaps, not regressions of that PR, but the first one should probably be graded against that PR's merge.\n\n## Clause 1 (the serious one) — the fan-out re-queries with NO filter, sort or search\n\n`ObjectGrid.tsx`:\n\n```ts\nconst resolveBulkRows = async (rowsHint: any[]) => {\n  if (!selectAllMatching) return rowsHint;\n  const base = { ...(lastFindParamsRef.current ?? {}) };   // <-- null on the external path\n  delete base.$top; delete base.$skip;\n  // ... pages through dataSource.find(objectName, { ...base, $top: 500, $skip }) up to HARD_CAP 5000\n};\n```\n\n`lastFindParamsRef.current` has exactly ONE writer — inside ObjectGrid's own data loader, next to `setTotalMatching`. Under a host that fetches the rows itself (ListView passing `manualPagination` + `rowCount`, i.e. the console) that loader never runs, so the ref stays `null`, `base` is `{}`, and the fan-out asks the server for **the whole object**: the view's `$filter`, `$orderby`, `$search` and `$select` are all absent.\n\nConsequences, in order of severity:\n\n1. The collected set is not the matching set. The bar says \"All 26 matching records are selected\"; the executor receives up to 5000 records drawn from the unfiltered object.\n2. That set is then handed to a **destructive** path. `apps/app-shell` `views/ObjectView.tsx` wires `onBulkDelete` down to the grid, so select-all-matching then Delete confirms with the fanned-out count and deletes records the view never matched. The confirmation dialog does quote the count, so a user has one chance to notice that \"26 matching\" became a four-digit number — that is the only thing standing between this and data loss.\n3. It is also the reason the checklist clause \"compare the collected-id set against the filtered API count\" cannot pass even once the banner is reachable.\n\nThe fix direction is the same shape as #4464's: the query the fan-out replays must come from whichever side owns the fetch, not from a ref only one of them writes. A host-driven path has no way to hand its params down today, so this likely needs a prop (or the host performing its own fan-out) rather than a fallback inside the grid — worth a ruling rather than a guess.\n\n## Clause 2 (separable, lower severity) — the cross-page flag survives a query change\n\nSame loader, three lines further on:\n\n```ts\nlastFindParamsRef.current = { ...params };\n// Reset cross-page flag whenever the underlying query changes.\nsetSelectAllMatching(false);\n```\n\nThat reset is the only query-driven writer of `selectAllMatching` (the others are `resetSelection()` and the bar's own button). On the external path it never fires, so a user who escalates to \"all matching\", then changes the filter, the search term or the page from ListView's toolbar, keeps `selectAllMatching === true` — and with #4464 landed the bar now re-renders \"All N matching records are selected\" against the NEW total without the user ever confirming that set.\n\n## Not filed, recorded here for the next reader\n\n- Under external pagination `hasInlineData` is true, so `handleExport`'s `serverEligible` branch is skipped and the grid's own export falls back to client-side export of the current window while the count bar reports the full total. This is adjacent to the in-flight ListView export work (#4408) and may already be covered there, so no separate issue.\n- `setError` has only the loader's writer too, but ListView owns the error surface on that path, so nothing is lost.\n\n## Source\n\nCensus performed while implementing #4464 (see that PR's \"reachability note\"). Verified by reading `packages/plugin-grid/src/ObjectGrid.tsx` on `origin/main` at `c5756ff40`: single writer of `lastFindParamsRef` at the loader, single reader in `resolveBulkRows`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

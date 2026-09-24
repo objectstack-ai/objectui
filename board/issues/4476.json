@@ -1,0 +1,32 @@
+{
+  "number": 4476,
+  "kind": "issue",
+  "title": "audit-log: drop retired action values (`permission_change` / `export` / `import`) from console `ACTION_OPTIONS` and the `HistoryTimeline` badge maps",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T17:58:26Z",
+  "updated_at": "2026-08-15T15:09:28Z",
+  "closed_at": "2026-08-15T15:09:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4476",
+  "body": "Provenance: sub-issue of objectstack-ai/objectstack#7675 (audit-log action census), split by the objectstack triage seat (session `session_01GiG1DfMysjbbFLZErAo93G`, 2026-08-12) carrying the maintainer ruling of 2026-08-12 (comment 5261744983 on that issue). Filed at destination per the repo-routing rule — the fix lands entirely in objectui.\n\nBlocked-by: objectstack-ai/objectstack#8147\n\n⚠️ Do not dispatch while the Blocked-by is open: the enum retirement (objectstack#8147) must land first — contract first, consumers behind it. When it unlocks, re-verify these code sites on current `main` before dispatch.\n\n## Ruling carried (verbatim, binding — not re-adjudicable)\n\n> **退役(3 个)**:`export` / `import`(无此 feature)与 `permission_change`(权限对象的写入已以 create/update 行入账,语义重复行不再造)从 enum、两个 list view、两个 dashboard widget、console `ACTION_OPTIONS` 中一并摘除。\n> 原则记录:空 widget + 永远查不到东西的过滤器是可见产品缺陷;审计面宁窄勿谎。\n\n## Code sites (verified on objectui `origin/main`, 2026-08-12)\n\n- `apps/console/src/pages/system/AuditLogPage.tsx:61` — `ACTION_OPTIONS` includes `'permission_change', 'config_change'` (line 64); drop `permission_change` (and `export`/`import` if present); `config_change` **stays** — it becomes truthful via objectstack#8145. Also the badge-variant map at lines 75–76: drop the `permission_change` entry, keep `config_change`.\n- `packages/plugin-detail/src/HistoryTimeline.tsx:71-72` — same badge map shape; drop `permission_change`, keep `config_change`.\n- Sweep both files (and any i18n keys for the dropped options) for other references to the three retired values.\n\n## Context\n\nThese values are filters/badges for `sys_audit_log` rows the server has never written and, after objectstack#8147, no longer declares. `login` / `config_change` options become truthful via objectstack#8144 / #8145 (writers being added) — they are not part of this card."
+}

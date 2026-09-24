@@ -1,0 +1,32 @@
+{
+  "number": 4135,
+  "kind": "issue",
+  "title": "[finding] Two spellings for \"a hole i18next must NOT fill\": `auth.forgotPassword.successDescription` uses `{{email}}`, its sibling three lines away uses `{seconds}`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T12:03:48Z",
+  "updated_at": "2026-08-15T16:02:06Z",
+  "closed_at": "2026-08-15T16:01:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4135",
+  "body": "Measured while building objectui#3845's `interpolation-parity` gate — **not in that PR's scope**, and observation-class: the current behaviour is correct in all ten languages and nothing a user hits today is broken.\n\n## The pattern\n\nSome translated strings are **labels handed to a component as a prop**, and the component substitutes into them itself, after `t()` has already returned. The call site cannot do the substitution because it renders before the value exists. `ForgotPasswordForm` is the case: it takes `labels.successDescription` and fills in the address only once the user has submitted the form.\n\n`packages/auth/src/ForgotPasswordForm.tsx:286`\n\n```js\nconst successMsg = l.successDescription.includes('{{email}}')\n  ? l.successDescription.replace('{{email}}', email)\n  : `${l.successDescription} ${email}`;\n```\n\nThat works because i18next leaves an **unmatched** `{{name}}` in its output verbatim, so the string travels through `t()` with its hole intact and arrives at the component still fillable. All ten packs carry the hole (`en`: `We've sent a password reset link to {{email}}. Please check your inbox.`), so this is the shape in every language, not an `en` quirk.\n\n## The finding: the repo already has a *different* spelling for exactly this\n\nThree lines away in the same labels object, `apps/console/src/pages/auth/ForgotPasswordPage.tsx`, the same pattern is spelled with **single** braces, with a comment saying why:\n\n```\n// `{seconds}` (single braces) is the component's own hole — kept out\n// of i18next's `{{…}}` interpolation on purpose.\nresendOtpCountdownText: t('auth.forgotPassword.resendOtpCountdownText', {\n  defaultValue: 'Resend in {seconds}s',\n```\n\nSo the same concept — *a hole whose filler is downstream of i18next* — has two spellings inside one form's label list, and only one of them is documented as deliberate. The `{{email}}` spelling is indistinguishable, at a glance and to every static tool, from an ordinary i18next hole that somebody simply forgot to pass an argument for.\n\n## Why it matters, and why it is dormant rather than broken\n\nIt cost the objectui#3845 census two false positives (both `auth.forgotPassword.successDescription` call sites), which is now handled by an explicit `EXTERNALLY_INTERPOLATED_HOLES` registry in `scripts/check-i18n-call-site-keys.mjs` — an entry with a reason, whose premise is re-verified against both the pack and `ForgotPasswordForm.tsx` by the self-test. That closes the tooling half.\n\nWhat stays open is the authoring half, and it is a live trap in one specific direction: **passing `email` at the call site would break it.** i18next would consume the hole, `includes('{{email}}')` would then be false, and the fallback branch would append the address a **second** time — `...link to a@b.com. Please check your inbox. a@b.com`. That is precisely the \"fix\" a reader who does not know about the second stage would reach for on seeing a `{{email}}` with no argument. The gate now reports that argument, so the trap is guarded; the ambiguity that invites it is not removed.\n\n## Options\n\n- **A. Converge on single braces.** Move `{{email}}` to `{email}` in all ten packs and update `ForgotPasswordForm`'s marker. Makes the two spellings one, and makes \"this is not i18next's hole\" true by construction rather than by convention. Cost: a ten-pack value change, so it moves through `scripts/check-i18n-en-drift.mjs`, and it is a value edit on a string users read.\n- **B. Leave the spelling, document it in the pack.** Cheapest; keeps the ambiguity, and a pack comment is not visible from the call site where the mistake gets made.\n- **C. Pass the value properly.** Give `ForgotPasswordForm` an `email` prop it interpolates through i18next rather than by string replacement — arguably the contract-first shape, since the two-stage substitution exists only because the label is computed too early. Largest change; touches the auth component's public props.\n\nNo recommendation attached — the axes here are a public-prop contract in `@object-ui/auth` and a ten-pack copy edit, both outside what a gate finding should decide.\n\nRelated: objectui#3845 (the gate and its registry), objectui#3512 (`createSafeTranslation`'s provider-less interpolation recognises only one of i18next's four hole spellings — same family, different face), objectui#3650 (the en-drift gate option A would move through).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

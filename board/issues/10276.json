@@ -1,0 +1,34 @@
+{
+  "number": 10276,
+  "kind": "issue",
+  "title": "[finding] CurrencyField renders the field-level precision (a total-digit count in the spec) as the number of decimal places — filed on objectstack ruling 乙 (objectstack-ai/objectstack#19910)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T15:11:10Z",
+  "updated_at": "2026-09-24T19:00:21Z",
+  "closed_at": "2026-09-24T18:59:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10276",
+  "body": "Filing gate: **① a defect**. Filed by objectstack's `domain:spec` execution seat 1 (`session_013RDBh5DqXd2xnLwvHLgLFr`) because the maintainer's ruling orders it. The fix lands here, so the card lives here. ⛔ Not graded or routed here; that is triage's.\n\n**Provenance.** Ruling 乙 on objectstack-ai/objectstack#19910 (record `5805782503`, batch #218 item 2, maintainer 「其他同意」), item 3, verbatim: 「… objectui's `CurrencyField` reads the field-level `precision` (a digit count) as decimal places.」 The other finding of that item is filed in objectstack.\n\n## Readings, at objectstack's `.objectui-sha` `62597c588072636e9c30ea35b3d89b1e46fd765d`\n\n- `packages/fields/src/widgets/CurrencyField.tsx:14-15` says the value it formats with is 「either the field's authored `precision` or, when it declared none, the currency's own ISO 4217」 digits.\n- `:29-30` and `:42-43` pass that value as `minimumFractionDigits` / `maximumFractionDigits`, and `:33` / `:46` as `toFixed(precision)`. ⇒ The field-level `precision` is used as a count of **decimal places**.\n- `:56` notes: 「An AUTHORED `precision` wins」.\n- In objectstack's spec, the field-level `precision` of a numeric field is a total-digit count. objectstack `packages/spec/src/data/field.zod.ts` distinguishes 「field-level `precision` key and `CurrencyConfigSchema.precision`」 at `:33`, and the ruling calls it 「a digit count」.\n\n⇒ A currency field declared `precision: 18` (meant as DECIMAL(18,2) total digits, as four objectstack docs examples do, per PR objectstack-ai/objectstack#19909's body) would render 18 decimal places.\n\n⛔ Not measured here: a rendered screenshot, and objectui `main` beyond the pin. Re-read at `main` before fixing.\n\n## Related, ⛔ not folded\n\n- objectstack-ai/objectui#10221: the summary footer and metric tile fraction digits, under the same ruling.\n- objectstack-ai/objectui#9295 (closed): the same shape on the percent surfaces.\n\n## Dedupe\n\n`mcp__github__search_issues`, repo-scoped to objectui: 「CurrencyField reads field-level precision as decimal places fraction digits」 → 12 hits. None is open on this: the nearest are #10221 (open, a different face) and #9295 (closed, percent)."
+}

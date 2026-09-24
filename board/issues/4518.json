@@ -1,0 +1,36 @@
+{
+  "number": 4518,
+  "kind": "issue",
+  "title": "PermissionMatrixEditor does not model the artifact-backed write tier that ResourceEditPage does — an env-scope edit of a code-declared permission set can offer Save and get 403",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T03:27:38Z",
+  "updated_at": "2026-08-13T04:23:41Z",
+  "closed_at": "2026-08-13T04:23:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4518",
+  "body": "Filed unassigned and ungraded while implementing #4446 — routing/grading is the triage seat's call, not the filer's. Independent of #4446 (which is correct as it stands); no `Blocked-by:`.\n\n> Placeholders below are written `{set}` / `{pkg}` rather than in angle brackets: GitHub's body sanitizer strips an angle bracket followed by a letter as an HTML tag at rest, which silently ate them on the first save of this issue.\n\n## What was measured\n\nThe server's metadata write gate is **two tiers**, not one. From `packages/metadata-protocol/src/protocol.ts` (objectstack, `5d24f4b94`):\n\n1. **Type tier** — refuse only when BOTH flags are false:\n\n   ```ts\n   if (!overlayAllowed && !runtimeCreateAllowed) { ... }\n   ```\n\n2. **Artifact tier** — for an item that IS artifact-backed, `allowRuntimeCreate` is not enough:\n\n   ```ts\n   if (this.environmentId !== undefined) {\n       const artifactBacked = this.isArtifactBacked(request.type, request.name);\n       if (artifactBacked && !overlayAllowed) {\n           // [not_overridable] ... provided by a code package\n           // and the type has not opted into per-org overlay writes\n           // status 403\n       }\n   }\n   ```\n\n   The method doc states the split directly: distinguish \"overlaying a packaged item\" (requires `allowOrgOverride`) from \"authoring a DB-only item\" (requires only `allowRuntimeCreate`).\n\n`ResourceEditPage.tsx:1332` models both tiers, including the `sys_metadata` provenance sentinel that keeps a published org item editable:\n\n```ts\nconst isArtifactItem =\n  !createMode\n  && layered?.code != null\n  && (layered.code as { _packageId?: string } | null)?._packageId !== 'sys_metadata';\nconst canWriteByType = createMode\n  ? !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate)\n  : isArtifactItem\n    ? !!entry?.allowOrgOverride\n    : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);\n```\n\n`PermissionMatrixEditor.tsx` models only the type tier. It already loads the layered envelope (`client.layered()` returns `code` / `overlay` / `overlayScope`) but never reads `code` for a writability decision.\n\n## Why this is not a defect in #4446, and where it could bite\n\nTwo of the three surfaces are already covered by something else:\n\n- **Studio Access pillar** — the pillar passes the package-level `readOnly` prop for a read-only (code-defined) package, which dominates every type flag. Locked, correctly.\n- **Single-kernel deployments** (the showcase: a host config with instantiated plugins boots with no `environmentId`) — the artifact tier is deliberately disengaged there, which is exactly why the #4446 QA run measured `PUT /api/v1/meta/permission/{set}?package={pkg}` returning 200 for a code-declared set. Offering the edit is correct.\n\nThe uncovered one is the **metadata-admin route at environment scope on a multi-environment kernel**: no `readOnly` prop is passed there, and after #4446 the type tier alone says writable for `permission` (`allowOrgOverride: false`, `allowRuntimeCreate: true`). For a code-declared, artifact-backed set the artifact tier then refuses the save with 403 `not_overridable`. Result: live checkboxes and a Save button that fails at the end instead of a surface that explains itself up front.\n\nPre-#4446 this state was unreachable only by accident — the surface was locked for the wrong reason (the overlay flag), so the artifact tier never got a chance to matter.\n\n## Not fixed in #4446 on purpose\n\nThe #4446 ruling scoped that card to the type-tier disjunction and said explicitly: trust the directory entry's flags exactly as the sibling sites do, do not invent a new server probe. Adding artifact awareness there would also have made the card's own headline case (a code-declared set on the showcase, measured 200) render read-only again — the opposite of what was asked for. So it is recorded here rather than folded in silently.\n\n## Suggested direction\n\nMirror `ResourceEditPage`'s three-way rule in `PermissionMatrixEditor`, including the `sys_metadata` sentinel, but keep it scoped to the environment-scope path — under a `packageId` the write is a package-door draft (ADR-0086 P0/P2) and the measured behaviour there is 200. Worth confirming first whether an artifact-backed permission set is reachable at env scope in the metadata-admin route in practice, since that decides whether this is a real user path or a latent one.\n\n## Source\n\nFound while implementing #4446 (PR #4519). Server behaviour read on objectstack `5d24f4b94`; client sites on objectui `5cc847c31`.\n"
+}

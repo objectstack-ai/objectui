@@ -1,0 +1,34 @@
+{
+  "number": 4006,
+  "kind": "issue",
+  "title": "@object-ui/fields 与 plugin-editor 的 build 程序把测试文件一起编译,73 个 *.test.d.ts 落进已发布的 dist/",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:46:51Z",
+  "updated_at": "2026-08-13T06:56:20Z",
+  "closed_at": "2026-08-13T06:56:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4006",
+  "body": "发现于 #3968 的实现(PR #4004,把 type-check 覆盖率判据换成\"解析后的 tsconfig 程序读了哪些文件\"时,顺手看到哪些包的 build 程序**包含**测试),**不在该 PR 处理** —— 那张单子的范围是门的两个盲区 + `examples/schema-catalog` 接线。\n\n## 事实\n\n这两个包的 build tsconfig 里 `include` 是 `[\"src\"]`,而**没有任何测试排除**:\n\n- `packages/fields/tsconfig.json` —— `\"include\": [\"src\"]`,无 `exclude`;build 是 `tsc && vite build`\n- `packages/plugin-editor/tsconfig.json` —— `\"include\": [\"src\"]`,无 `exclude`;build 是 `vite build`(dts 由插件产出,读同一个 include)\n\n于是测试文件进了 emit 程序,声明文件被写进 `dist/`。本地一次 `pnpm --filter ... build` 之后实测:\n\n```\n$ find packages/fields/dist packages/plugin-editor/dist -name '*.test.d.ts' | wc -l\n73\n```\n\n例如 `packages/fields/dist/__tests__/DateCellRenderer.test.d.ts`、`packages/fields/dist/standard-widgets.test.d.ts`、`packages/plugin-editor/dist/index.test.d.ts`。两个包都是 `private=false`,`files` 都含 `dist` —— 也就是说这 73 个文件是**随包发布**的。\n\n## 为什么标 `finding` 而不是 `pm:queue`(诚实标注)\n\n按\"今天有没有用户面影响\"判,几乎没有:没人 import `dist/__tests__/*.d.ts`,类型上也不造成错误。而且 `@object-ui/fields` 的 `files` 本来就含 `src`,测试**源码**已经在发布内容里了 —— 所以这 73 个 `.d.ts` 只是增量,不是新暴露。所以我先打 `finding`。\n\n同时说明两点,分诊时请一并考虑:\n\n1. 这两个包在 `scripts/check-type-check-coverage.mjs` 里之所以算\"测试已被编译\",正是因为 build 程序读了测试。这个判定是**真的**(`tsc --noEmit` 确实检查了这些测试文件),只是它同时带来了没人想要的 emit —— 也就是\"覆盖率对了,是靠一个副作用对的\"。修法要小心:直接给 build 配置加 `exclude: [\"**/*.test.ts\", \"**/*.test.tsx\"]`(其余 20 多个包的写法)会让这两个包**失去** test type-check 覆盖,必须同时补 `tsconfig.test.json` 并从 `type-check` 串起来,否则门会立刻(正确地)报 5c。这是一次\"两侧一起动\"的改动,不是一行 exclude。\n2. 顺带记一笔,不确定是否有意:`packages/fields/tsconfig.json` 的 `compilerOptions.rootDir` 是 `\"..\"`(不是 `\"src\"`),这跟同组其它包不一致,我没有查它的来历,也没有动它。\n\n## 复现\n\n```\npnpm --filter @object-ui/fields build\nfind packages/fields/dist -name '*.test.d.ts' | wc -l     # 72\npnpm --filter @object-ui/plugin-editor build\nfind packages/plugin-editor/dist -name '*.test.d.ts'      # dist/index.test.d.ts\n```\n\n关联:#3968 / PR #4004(发现于此)、objectstack#4118(`TEST_DEBT` 总账)"
+}

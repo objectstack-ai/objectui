@@ -1,0 +1,32 @@
+{
+  "number": 10296,
+  "kind": "issue",
+  "title": "finding(types): objectui#7759 group F (STRUCTURAL) plus `ChatbotSchema.body` — the remaining CONCRETE mirror-wider-than-declaration rows, settled per ruling F1 and rules 1/2",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T16:20:30Z",
+  "updated_at": "2026-09-24T17:43:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10296",
+  "body": "Execution split of objectstack-ai/objectui#7759, covering the **last CONCRETE rows**: group **F (STRUCTURAL)** and the group-D key **`ChatbotSchema.body`**. Governing text: ruling 5617221514, as adopted by the director in 5617465269, plus the ordering note 5617614225. Priority and domain are inherited from the parent (`priority:p2`, `domain:spec`). Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`.\n\n## Siblings (this card's exclusions)\n\n| group | where |\n| --- | --- |\n| A | done (objectui#9364) |\n| B | objectui#10280, PR objectui#10292 |\n| E | PR objectui#10294. It also cleared `DataTableSchema::columns` (F) and `FormSchema::fields` (D) through their nested function arm |\n| C/D decidable subset | objectui#10286 |\n| D date values | objectui#10293 |\n| D `DashboardComponentSchema.header` / `.globalFilters` | stay on #2231, and the twin region is PR objectui#10273 |\n| C `FormSchema.layout` | a renderer feature, not this card |\n\n## Rules\n\n- **F1:** a structural mirror points at the spec's **authoring** schema (for example `SelectOptionSchema`), ⛔ never at a runtime read model. Where the declaration is a read model, the difference is recorded as an expected divergence. The comment at 5596511491 warns that `DetailViewFieldSchema.options` must NOT be \"fixed\" by mirroring `SelectOptionMetadata`.\n- **`ChatbotSchema.body`:** it has a live read site. Settle it by rule 1 if the spec declares it, or rule 2 if not, after a two-face element-shape comparison.\n- **Ordering 5617614225:** where the protocol is judged wrong, a spec card goes first and the key STOPS here.\n\n## Done when\n\nThe dev re-derives the remaining CONCRETE `WiderThanDeclared` rows on `main` after the sibling PRs land, or against their branches. Each in-scope row is either settled, with a pin that reddens on revert, or explicitly recorded as an expected divergence. There is one `minor` changeset. Clause-② yes."
+}

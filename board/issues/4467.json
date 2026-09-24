@@ -1,0 +1,36 @@
+{
+  "number": 4467,
+  "kind": "issue",
+  "title": "Impersonation is invisible in the console — no indicator, no way out, and the shell keeps showing the ADMIN's identity while the session is the impersonated user",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T13:38:59Z",
+  "updated_at": "2026-08-13T02:23:05Z",
+  "closed_at": "2026-08-13T02:23:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4467",
+  "body": "## Symptom\n\nAfter an admin starts impersonation through the real product affordance, the console shows **no sign of it anywhere** and keeps rendering the **admin's** identity, while the session on the server is the impersonated user.\n\nServer-side impersonation is **correct** — this is console-only. `POST /api/v1/auth/admin/impersonate-user` returns 200, `GET /auth/get-session` reports the impersonated user with `session.impersonatedBy = <admin id>`, the `sys_session` row records `{user: <target>, by: <admin>}`, and `stop-impersonating` works over the cookie lane.\n\nWhat the console does with that:\n\n- Full page reload of the Users page, `/_console/home` and the Setup app each re-rendered fresh: page text matched `/impersonat/i` → **false**, and `/stop impersonat|exit impersonat|return to/i` → **false**. There is no indicator and no way to stop.\n- `/_console/home` greets **\"Good afternoon, Dev Admin.\"** with the `DA` avatar — while that same page's own `fetch('/api/v1/auth/get-session')` returns `user.email = rt8-dave@example.com`, `role: user`, `isPlatformAdmin: false`.\n- The platform-admin Setup navigation still renders for that non-admin session.\n\nReproduced twice with two independent drivers (row-action + reload; in-page fetch + three fresh navigations).\n\n## Why this matters beyond cosmetics\n\n**Every write made during impersonation is attributed to the impersonated user** — that is the point of the feature. An admin who cannot tell they are impersonating will do ordinary work believing they are acting as themselves, and the audit trail will say someone else did it. There is also no affordance to get out, so the only exits are clearing cookies or knowing the API call.\n\n## Reproduction\n\n1. Sign in to `/_console/` as `admin@objectos.ai` / `admin123` (use `localhost`, not `127.0.0.1` — sign-in enforces a trusted-origin check).\n2. Setup → Users → switch to the **All Users** view → row menu on any other user → **Impersonate User** → Continue. Network confirms `200 POST /api/v1/auth/admin/impersonate-user` and a toast \"Now impersonating user\".\n3. Navigate to `/_console/home` (a fresh SPA boot, not a client-side route change).\n\n**Expected** a visible impersonation indicator naming the impersonated user, plus a stop/exit affordance; and the shell showing the impersonated identity.\n**Actual** the admin's name and avatar, admin navigation, no indicator, no exit — over a session that `get-session` reports as a non-admin user.\n\n## Note on scope\n\n`session.impersonatedBy` is already on the wire, so the shell has everything it needs to render both the banner and the correct identity; this looks like the client identity state simply never being refreshed after the impersonation call, rather than missing server data.\n\n## Source\n\nFound by the platform checklist retest of `identity-auth.admin-lifecycle-operations` clause 7 (framework `279ee48a`, console pin `6314e87f2d49`).\n"
+}

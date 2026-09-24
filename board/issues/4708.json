@@ -1,0 +1,33 @@
+{
+  "number": 4708,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): bind drill-title drawer assertions to content, not a cumulative render count",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T13:27:45Z",
+  "updated_at": "2026-08-15T13:48:16Z",
+  "closed_at": "2026-08-15T13:48:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T13:48:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4708",
+  "body": "Fixes #4706\n\n## What was wrong\n\n`DatasetWidget.drillTitleLabel.test.tsx` pinned `drawerProps.length` to exactly `1`\nafter a single drill click, in five places. `drawerProps` is a recording array of the\nmocked `DrillDownDrawer`'s render props — it only ever grows. `useDatasetDimensionMeta`\nissues its own dimension-metadata fetch independently of the click; when that fetch's\n`setMeta` lands its React commit strictly AFTER the click's own commit (a real\npossibility under a saturated event loop, since the two updates are only incidentally\nordered), `DrillDownDrawer` renders a second time with the SAME title/filter, and\n`drawerProps.length` overshoots to `2`. Once it overshoots, `waitFor` can never recover\n— nothing shrinks the array. This is what CI observed on an unrelated PR's shard 2\n(run 31885228851): `expected 2 to be 1`.\n\n## The fix\n\nEach site now waits for the drawer to have opened AT LEAST once\n(`toBeGreaterThan(0)`) instead of pinning the exact cumulative count. The content\nassertions immediately after (`lastDrawer().title` / `.filter`) are unchanged and\nremain the substantive check — each case's own name states what it verifies (which\ntitle the drawer shows), never how many times React chose to render it. A drawer that\nnever opens still times out exactly as before; only the overshoot-vulnerable exact-count\npin is relaxed.\n\nSites fixed (all in `DatasetWidget.drillTitleLabel.test.tsx`, same isomorphic\n`await waitFor(() => expect(drawerProps.length).toBe(1))` idiom immediately followed by\ncontent assertions):\n- `:193` — \"titles an identity-keyed group…\" (the issue's named site)\n- `:223` — \"titles the OTHER colliding group…\"\n- `:253` — BOUNDARY \"an ordinary group's title is byte-identical to before\"\n- `:280` — BOUNDARY \"a click carrying no label still titles from the key\"\n- `:324` — BOUNDARY \"a NON-pivoted widget still omits the series from its title\"\n\nAll five share byte-identical exposure (confirmed empirically, not just by inspection —\nsee Verification below), so all five were fixed the same way.\n\n## Verification\n\n**Deterministic reproduction (pre-fix, all 5 sites red).** Temporarily gated the\ndimension-metadata `fetch` mock behind a manually-releasable promise, wrapped the drill\nclick in its own `act()` so its render fully commits first, then released the gate and\nflushed inside a second `act()` — forcing the click's commit and the metadata commit\ninto two SEPARATE React passes instead of letting React 18 automatic batching coalesce\nthem into one (which is why a naive forced-delay attempt without the `act()` boundary\ndid not reproduce it: both updates landed in the same commit). With the OLD assertion,\nall 5 sites failed with the exact CI failure text — `expected 2 to be 1`.\n\n**Fix re-verified under the same forced race.** With the fix applied and the forced\novershoot still active, all 7 tests in the file pass.\n\n**Positive control (assertion bite-check).** With the fix in place, temporarily reverted\nobjectui#4682's production fix (`ev?.seriesLabel ?? ev?.series` → `ev?.series`) in\n`DatasetWidget.tsx`'s `handleChartDrill`. The two identity-collision cases correctly\nwent red on the WRONG title (`Backlog / [null]` / `Backlog / [\"(None)\"]` instead of\n`Backlog / (None)`), while the three ordinary-group boundary cases correctly stayed\ngreen (label equals key there, so the reverted line can't move their title) —\nconfirming the rebound assertions still catch the real defect the file exists to pin.\n\nAll temporary repro/gate/positive-control changes were reverted before the commit in\nthis PR — `git diff` against `origin/main` is the fix alone (test file + changeset).\n\n## Gates run (final HEAD `83da6212d`)\n\n- `pnpm --filter '@object-ui/plugin-dashboard' lint` — 0 errors (334 pre-existing\n  `any`/fast-refresh warnings, none introduced by this change; the changed file's own\n  warnings are all pre-existing, outside the edited lines)\n- `pnpm --filter '@object-ui/plugin-dashboard' type-check` — clean\n- `pnpm exec vitest run packages/plugin-dashboard/` — **58 files / 462 tests passed**\n- `node scripts/check-control-bytes.mjs` — OK\n- `node scripts/check-changeset-presence.mjs` — OK (empty-frontmatter changeset declared)\n- `node scripts/check-changeset-fixed.mjs` / `check-changeset-no-major.mjs` — OK\n\n## Changeset\n\nTest-only change → empty-frontmatter changeset\n(`.changeset/dataset-widget-drill-title-render-count.md`). No published behaviour\nchanges.\n\n## Not in scope\n\n#4705 and #4682 are unrelated to this change (#4705 only triggered the shard-2 red that\nsurfaced this issue; #4682 is the drill-title feature these tests pin, untouched here\nbeyond the temporary, reverted positive control). #4694 is also unrelated. None of them\nare addressed or closed by this PR.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

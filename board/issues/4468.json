@@ -1,0 +1,36 @@
+{
+  "number": 4468,
+  "kind": "issue",
+  "title": "Dates are half-localized on a zh-CN session — past-relative forms translate, future-relative forms and absolute timestamps stay en-US, on the same row",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T13:39:15Z",
+  "updated_at": "2026-08-13T03:12:40Z",
+  "closed_at": "2026-08-13T03:12:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4468",
+  "body": "## Symptom\n\nOn a zh-CN session, the date formatter localizes only some of its branches. Both forms appear **on the same rendered rows**:\n\n**Localized:** `逾期 6 天` · `创建于 1天前` · `刚刚` · `3分钟前` · `13分钟前` · `47秒钟前`\n**Not localized:** `In 2 days` · `In 3 days` · `In 5 days` · `6 days ago` — and absolute timestamps render en-US: `8/11/2026 12:00 am`, `8/4/2026 12:00 am`\n\nSo a single task row can show `逾期 6 天` in one column and `In 3 days` in the next.\n\nThis is not a missing translation and not a raw key: the surrounding chrome and every field label on those pages are fully Chinese (`标题/项目/负责人/状态/优先级/截止日期/进度`), and a regex scan for raw dotted translation keys across 20+ captured surfaces returned zero hits.\n\n## Reproduction\n\n1. Boot the showcase: `node packages/cli/bin/run.js dev -a dist/objectstack.json --seed-admin -d file:/tmp/x.db -p <port>`\n2. Open `http://localhost:<port>/_console/`, sign in as `admin@objectos.ai` / `admin123` (use `localhost`, not `127.0.0.1`).\n3. Set `localStorage['objectui-locale'] = 'zh'` and reload. **Note:** language-only `'zh'` — `'zh-CN'` is rejected by `isKnownLanguage()`.\n4. Open `/_console/apps/com.example.showcase/showcase_task` and `/_console/apps/com.example.showcase/page/showcase_task_all_views`.\n\n**Expected** every relative and absolute date renders in zh-CN.\n**Actual** the past-relative branch localizes; the future-relative branch and `Intl.DateTimeFormat` output do not.\n\nReproduced in three independent browser sessions in one run, and previously observed on objectstack-ai/objectstack#7640.\n\n## Suspected cause\n\nThe formatter appears to thread the active locale into the past-relative branch only, leaving the future-relative branch and the absolute `Intl.DateTimeFormat` calls on the default locale. `6 days ago` also appearing untranslated on the `start_date`/`end_date` columns suggests more than one call site rather than a single missing argument.\n\n## Source\n\nFound by the platform checklist retest of `i18n.studio-follows-app-locale` clause 2 (framework `279ee48a`, console pin `6314e87f2d49`). Recorded in prose on objectstack-ai/objectstack#7640 but never extracted into a card; a search for an existing card found none.\n"
+}

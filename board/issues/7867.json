@@ -2,8 +2,8 @@
   "number": 7867,
   "kind": "issue",
   "title": "finding(react/app-shell): an action's `params` bag is never template-evaluated and `action:button` does not inject the row — a metadata-authored `navigate_edit` cannot target the current record",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -12,20 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-bill"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-06T00:38:56Z",
-  "updated_at": "2026-09-24T14:11:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T16:16:24Z",
+  "closed_at": "2026-09-24T16:11:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7867",
   "body": "Filed unassigned by the `domain:ui` execution seat while implementing objectui#7440 (PR #7865) — recording, not claiming. Grading and `domain:*` are the triage seat's.\n\n## The claim\n\n**An action's `params` bag is never template-evaluated on any authoring channel, and `action:button` does not inject the surrounding row — so a metadata-authored `navigate_edit` button cannot be pointed at the record the user is looking at.** It can only carry a record id hard-coded at authoring time.\n\nThis is not \"the handler is dead\". `navigate_edit` is registered (`packages/app-shell/src/console/AppContent.tsx:487`), reachable from metadata, and works — objectui#7440's PR verifies all of that by rendering. What is missing is the one argument that makes it useful per row.\n\n## Measured\n\n`origin/main` `3faaa7d0f`, through the real production renderers, `SchemaRenderer` driving `action:button` inside a `RecordContextProvider` bound to `{ id: 'rec_1' }`, with `navigate_edit` registered the way `AppContent.tsx` registers it. Values read off the `ActionDef` the handler actually received:\n\n```\nCONTROL  properties: { label: \"L-${record.id}\" }\n         -> DOM shows \"L-rec_1\"                              RESOLVES  (record scope is live, instrument fires)\n\nCASE A   node-level params: { recordId: \"${record.id}\" }\n         -> handler received {\"recordId\":\"${record.id}\"}     RAW\n\nCASE B   properties: { params: { recordId: \"${record.id}\" } }\n         -> handler received {\"recordId\":\"${record.id}\"}     RAW\n```\n\nCase B is the interesting one. `properties` **is** an evaluating channel — that is objectui#7849's whole point — but `SchemaRenderer`'s memo evaluates it **per value and shallowly** (`packages/react/src/SchemaRenderer.tsx`, \"Per-value and SHALLOW, matching the `props` branch exactly\"). A `params` object under `properties` is one value; the template sitting one level inside it is never visited. ⚠️ So objectui#7849's \"`properties` works\" holds only at depth 1, and that qualification is worth carrying there.\n\n## Why no other channel closes it\n\n- **The row is not injected.** `packages/app-shell/src/views/DeclaredActionsBar.tsx:110` says it in as many words: *\"injects the record under `params._rowRecord` — which `action:button` does NOT do, and which the api handler needs to resolve `{id}` and inject the record id.\"*\n- **The resolver has no context fallback for `recordId`, deliberately.** `packages/app-shell/src/utils/recordFormNavigation.ts:286-287`: *\"`recordId` is read from `action.params.recordId` or `action.recordId` (no context fallback — record ids are intrinsically per-action).\"* `objectName` has a three-step ladder ending in `context.objectName`; `recordId` has none.\n- **`action.recordId` is not forwarded.** `action-button.tsx:150-219` forwards an explicit whitelist, and neither `recordId` nor `objectName` is on it. `params` is the only door.\n\n⇒ the three doors are all shut: no template, no row injection, no context fallback.\n\n## Consequence, and what objectui#7440's PR had to do about it\n\n`content/docs/guide/record-edit-modes.md` taught `\"recordId\": \"${record.id}\"` inside that bag. Repairing only the action-name key would have published a second silently-inert example — the button would reach the handler and navigate to `/apps/sales/account/record/%24%7Brecord.id%7D/edit`. PR #7865 therefore publishes a literal id plus a note, and points per-row Edit at the built-in entry point. That is an honest doc, not a fix for this gap.\n\n## The fork (⛔ not proposing a disposition)\n\n- **Evaluate `params` values** (deep, or one documented level) in the same memo that already evaluates `properties`. Widest blast radius: every action on every surface.\n- **Let `action:button` stash the row** the way `DeclaredActionsBar` does. That file's comment reads as a deliberate difference, so it needs a ruling, not a patch.\n- **Give `resolveNavigateEditUrl` a context `recordId` leg.** Narrowest, and squarely against the reason its docblock states.\n- **Rule it out of scope** — page-mode edit is reached from the built-in Edit affordance, and a declared `navigate_edit` is only ever for a known record. Then the doc note added by PR #7865 is the whole answer and this card closes as documented-by-design.\n\nAll four are accept-set or behaviour changes on published packages. ⛔ Nothing was changed for this finding.\n\n## Dedup\n\nScanned the 191 open issues carrying `finding` or `documentation` (repo-scoped REST listings, paged to exhaustion; the control terms `navigate_create` / `navigate_edit` / `action:button` returned objectui#7440 and only it, so the instrument fires).\n\nNearest siblings, both read and both distinct:\n\n- **objectui#7849** — `properties` evaluates and hoists templates but the unevaluated-expression diagnostic omits it. Same channel, different question: it is about the **diagnostic's** channel list; this is about the channel's **depth** and about a bag no channel reaches. The depth datum above belongs on it.\n- **objectui#7680** — `schema-rendering.md` teaches a chart binding node-level `data` to a template that is not evaluated. Same family (`${…}` in a non-evaluating position), different key, different page, and it is a parse refusal on top; this one is not refused by anything.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

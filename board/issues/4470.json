@@ -1,0 +1,34 @@
+{
+  "number": 4470,
+  "kind": "pull_request",
+  "title": "chore(lint): bring e2e/ under the lint gate; fix the 3 errors it exposes (#4456)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T14:15:02Z",
+  "updated_at": "2026-08-12T14:28:37Z",
+  "closed_at": "2026-08-12T14:28:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T14:28:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4470",
+  "body": "Closes #4456\n\n## The gap\n\n`pnpm lint` is `turbo run lint`, and turbo's `lint` task runs each **workspace package's** own `lint` script. Anything that is not inside a workspace package is therefore linted by nothing. Measured on `main` at b4d3c2204:\n\n```\n$ pnpm exec eslint .\n✖ 9898 problems (3 errors, 9895 warnings)\n\n$ pnpm exec turbo run lint\n Tasks:    45 successful, 45 total     <- green\n```\n\nAll 3 errors sat under `e2e/`. The gap is wider than the errors: `e2e/` (30 files), `scripts/` (70), `eslint-rules/` (11) and the root config files — 111 lintable files in total — are outside every package's `lint` script. They happen to be error-free apart from those 3, so the invariant held only by luck.\n\n## The invariant\n\nRoot `eslint .` and `turbo run lint` agree on what is clean — one resolver, one answer.\n\n## The landing\n\nA root turbo task, `//#lint:root`, that lints **the repo minus the workspace globs declared in `pnpm-workspace.yaml`**, with turbo's `lint` task depending on it:\n\n```json\n\"lint\":         { \"dependsOn\": [\"//#lint:root\"], ... },\n\"//#lint:root\": { \"outputs\": [], \"cache\": false }\n```\n\n```\n\"lint:root\": \"eslint . --ignore-pattern 'packages/*/**' --ignore-pattern 'examples/*/**' --ignore-pattern 'apps/*/**' --ignore-pattern 'docs/**'\"\n```\n\nThree properties this shape was chosen for:\n\n1. **Derived by subtraction, not by listing.** The four ignore patterns map 1:1 onto `pnpm-workspace.yaml`'s four entries, so the *covered* set is \"everything else\". A new root-level directory is linted the day it is added — no enumeration to keep in step, which is what made this a coverage gap in the first place. Drift in the ignore list is fail-safe: a workspace group missing from it gets linted twice, never zero times.\n2. **`dependsOn`, so bare `turbo run lint` covers it.** Chaining `eslint` onto the root `lint` *script* would have fixed `pnpm lint` while leaving plain `turbo run lint` green over `e2e/` — the same discrepancy one level up.\n3. **`cache: false` is deliberate, not an omission.** `scripts/__tests__/turbo-task-guard-coverage.test.ts` partitions turbo tasks into \"cached, therefore guarded by a derived inputs list\" and \"never cached, therefore exempt\". This task belongs on the uncached side: its file set is *the repo minus the workspaces*, so any `inputs` list enumerating it goes stale the moment a root directory is added — and a stale inputs list on a cached task replays a green verdict over a directory nothing linted, which is this issue one level up. Cost is about 4 seconds; package `lint` tasks stay cached (45/46 cached on a warm run).\n\n## Red first\n\nCoverage added, fix not yet applied — `turbo run lint` reds with exactly the 3 known errors:\n\n```\n//:lint:root:   34:9  error  The value assigned to 'jobsSupported' is not used in subsequent statements  no-useless-assignment\n//:lint:root:   24:9  error  The value assigned to 'reachable' is not used in subsequent statements      no-useless-assignment\n//:lint:root:   26:5  error  There is no `cause` attached to the symptom error being thrown              preserve-caught-error\n Failed:    //#lint:root\n```\n\nThen green on both sides, which is the invariant asserted directly:\n\n```\nFINAL turbo run lint EXIT=0     Tasks: 46 successful, 46 total\nFINAL root eslint .  EXIT=0     ✖ 9895 problems (0 errors, 9895 warnings)\n```\n\n## The wiring is load-bearing\n\nChecked in the direction that matters for a *coverage* change, which is the inverse of the usual one: removing the wiring must make an existing error **invisible**, not red. With `//#lint:root` reverted and the `reachable` violation restored:\n\n```\n$ pnpm exec turbo run lint\n Tasks:    45 successful, 45 total       <- EXIT 0, green\n\n$ pnpm exec eslint e2e/import-harness/import-undo.spec.ts\n  24:9  error  The value assigned to 'reachable' is not used ...  no-useless-assignment\n✖ 1 problem (1 error, 0 warnings)\n```\n\nThat pair of commands is issue #4456 reproduced exactly. With the wiring present the same violation reds the run, so the coverage is what does the work.\n\n## The 3 fixes are style-only\n\n- **`no-useless-assignment` (x2)** — `let flag = false; try { flag = ... } catch { flag = false }`. The catch reassigns the initialiser to the value it already holds, so the two paths are indistinguishable. Dropped the reassignment and kept the initialiser (which is now the value the throw path uses). Behaviour identical on both paths.\n- **`preserve-caught-error` (x1)** — `e2e/live/global-setup.ts` rethrows a friendlier \"live backend unreachable\" error and dropped the original. Added `{ cause: e }`. The message is byte-identical; the original error is now attached rather than discarded. Nothing asserts on this error — it is Playwright `globalSetup` for the live suite, and it fails the run either way.\n\nNo behaviour change in any of the three, so none of them hit the stop-and-report clause.\n\n## Notes\n\n- **No changeset owed**, confirmed by the gate rather than by judgement: `node scripts/check-changeset-presence.mjs` reports `6 file(s) changed, 0 of them under the src/ of a package the release covers ... no changeset is owed`.\n- `scripts/__tests__/turbo-task-guard-coverage.test.ts` is edited for its docblock only — the partition table there enumerates turbo's tasks, and this PR adds one. No assertion changed; all 169 tests across the six turbo/lint guard suites pass.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

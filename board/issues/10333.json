@@ -1,0 +1,33 @@
+{
+  "number": 10333,
+  "kind": "pull_request",
+  "title": "test(app-shell): assert the connector refinement by behaviour, not by zod def shape",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T18:10:15Z",
+  "updated_at": "2026-09-24T18:47:19Z",
+  "closed_at": "2026-09-24T18:47:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-24T18:47:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10333",
+  "body": "Closes #10211\n\n## What\n\nThe `connector` binding-parity pin in `clientValidation.optOuts.test.ts` counted `_zod.def.checks` on `DeclarativeConnectorEntrySchema`. That reads HOW the refinement is attached. objectstack#19657 (merged on objectstack `main`, not yet released) wraps both connector carriers in a `z.preprocess` pipe. A pipe def has no `checks`, so the count reads 0 at this repo's next spec bump. The element-vs-entry comparison next to it then degrades to `0 === 0`.\n\nThis PR replaces that probe with a behavioural assertion of the same invariant: **the entry schema, and the stack element, refuse a draft the base accepts.**\n\n- The draft is the file's own `CONNECTOR` fixture plus `providerConfig: { model: 'gpt-4' }` and no `provider`. This is the ADR-0097 \"`providerConfig` requires a `provider`\" refusal from the entry schema's `superRefine`, on both spec 17.4.0 and objectstack `main`.\n- `ConnectorSchema.safeParse(draft).success === true` is asserted first. That proves the refusal comes from the refinement, not from the shape.\n- `DeclarativeConnectorEntrySchema` and the `ObjectStackSchema.connectors` element must both refuse the draft with a `custom` issue on the `providerConfig` path.\n- The `shapeKeys` parity assertions and the \"no `id` key\" premise pin stay unchanged.\n\nA comment change in `clientValidation.ts`: the sentence quoting the upstream docblock (\"the base stays a plain object so connector subtypes can still `.extend()` it\") is not true on objectstack `main`. objectstack corrected its own copy there. The sentence is now version-neutral and points at the `DeclarativeConnectorEntrySchema` docblock by symbol. I touched only that sentence, not the docblock region objectui#10316 edits.\n\n## Evidence\n\nAll test runs are `pnpm exec vitest run` from the repo root, run through the shared verify lock.\n\n| run | tree | result |\n|:--|:--|:--|\n| new pin, installed spec 17.4.0 | branch head | `Tests 156 passed (156)` over the 9 clientValidation files |\n| new pin, spec built from objectstack `main` `1f05ea4fb2` and injected | branch | optOuts file `Tests 21 passed (21)` |\n| OLD pin (base test file), same injected `main` spec | base `8b1f06619` test file | `AssertionError: expected 0 to be greater than 0` on `checks(DeclarativeConnectorEntrySchema)`, `1 failed / 20 passed` |\n| reverse-verify: entry leg pointed at `ConnectorSchema` | 17.4.0 and injected `main` | red both times: `the refinement must refuse this draft: expected true to be false` |\n| reverse-verify: `element` replaced by `ConnectorSchema` | 17.4.0 and injected `main` | red both times, same message |\n\nHow the injection was done: `@objectstack/spec` was built from objectstack `origin/main` (`1f05ea4fb2`), packed with `pnpm pack`, and injected with `node scripts/spec-main-shape-gate.mjs inject`. A probe on the injected spec confirmed `DeclarativeConnectorEntrySchema._zod.def.type === 'pipe'` with 0 `checks`. Afterwards the pinned install was restored: `node_modules` removed and `pnpm install` rerun. The probe then read `object` with 1 check, and zod was back to 4.4.3.\n\nEvery mutation ran from a committed state. Each run had a `trap` that restored the file with `git checkout HEAD --`, and the restore was proven by comparing the HEAD blob hash and by an empty `git diff HEAD`.\n\nGates:\n- `pnpm --filter '@object-ui/app-shell^...' build`: exit 0.\n- `pnpm --filter @object-ui/app-shell type-check`: exit 0. The script runs `tsc --noEmit && tsc -p tsconfig.test.json`, and `--listFilesOnly` confirms the test file is in the test program. This was measured at `fd4c9cfa8`, before the merge of `origin/main`. The merge brought only i18n locale strings and plugin-designer files, and type-check was not re-measured after it.\n- `eslint --no-inline-config` on the 2 changed source files: 0 errors, 0 warnings. The file count comes from `--format json`.\n- `node scripts/check-changeset-presence.mjs`: exit 0 with an empty-frontmatter changeset, because nothing published changes.\n- `pnpm check:new-line-citations`: `0 new citation(s)`.\n\n## Acceptance notes\n\n- On the injected objectstack `main` spec, 3 tests in `clientValidation.viewDiagnostics.test.ts` also go red: the sole-candidate `view.sort` cases. Upstream retired the bare-string `view.sort` clause (\"removed from `view.sort` in @objectstack/spec 17.5.0\"). That is a separate break that arrives at the next spec bump. It is unrelated to this change and not addressed here.\n- The same `clientValidation.ts` docblock still says \"The rules fire only for provider-bound instances\". Since upstream's #7990 the `authentication` rule binds every entry. I left it untouched because it is outside this card's sentence.\n\nSession: `https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"
+}

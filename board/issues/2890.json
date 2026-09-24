@@ -2,8 +2,8 @@
   "number": 2890,
   "kind": "issue",
   "title": "Migrate the remaining ListView legacy vocabulary to spec-canonical keys, and audit ObjectView/DetailView (#2231 phases 4–5)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -13,19 +13,21 @@
   "labels": [
     "domain:spec",
     "enhancement",
-    "package: types",
-    "pm:blocking",
-    "pm:on-hold"
+    "package: types"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-07-28T02:36:10Z",
-  "updated_at": "2026-09-08T21:03:04Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T15:03:25Z",
+  "closed_at": "2026-09-24T15:02:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 15,
+  "comments": 12,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/2890",
   "body": "## Context\n\n#2231 has been closing the `@object-ui/types` ↔ `@objectstack/spec/ui` fork in phases:\n\n| phase | PR | what it closed |\n| :--- | :--- | :--- |\n| 1 | #2622, #2636 | `ListViewSchema` derived from the spec; the spec-bridge's third hand-written copy retired |\n| 2 | #2882 | every remaining *\"Mirrors @objectstack/spec/ui X\"* sub-schema (`ViewDataSchema`, `ListColumnSchema`, `SelectionConfigSchema`, `PaginationConfigSchema`, `HttpRequestSchema`, the whole theme family) reduced to spec re-exports, guarded by a reference-identity test |\n| 3 | (in flight) | the five per-view-type configs (`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) derived from the spec, plus the two rendering bugs the fork had been hiding |\n\nWhat remains is the part that was never a reference swap: objectui still uses a **different vocabulary** from the protocol for the same concepts at the ListView top level, and two view schemas have never been audited at all.\n\n---\n\n## Scope A — the remaining legacy ListView vocabulary\n\n`ListViewSchema`'s drift guard (`packages/types/src/__tests__/list-view-spec-parity.test.ts`) sanctions ~50 local keys. Most are renames of a spec key, not genuine objectui concerns:\n\n| objectui (legacy) | spec (canonical) |\n| :--- | :--- |\n| `viewType` | `type` (the view *kind*; objectui's `type` is the component discriminator) |\n| `fields` | `columns` |\n| `filters` (tuple/CEL array) | `filter` (`ViewFilterRuleSchema[]`) |\n| `showSearch` / `showSort` / `showFilters` / `showGroup` / `showHideFields` / `showColor` / `showDensity` | `userActions` |\n| `densityMode` | `rowHeight` |\n| `objectName` | `data: { provider: 'object', object }` |\n| `aria: { label, describedBy, live }` | `AriaPropsSchema` (`ariaLabel`, `ariaDescribedBy`, `role`) |\n| `sharing: { visibility, enabled, … }` | `ViewSharingSchema` (`{ type, lockedBy }`) |\n| `conditionalFormatting`, `exportOptions` | the spec shapes are narrower |\n\n**Why this needs its own project.** Unlike phases 1–3 this is not type-level. Read-sites consume the legacy names (`packages/plugin-list/src/ListView.tsx`, `components/ViewSettingsPopover.tsx`, `packages/plugin-view/src/ObjectView.tsx`, `packages/app-shell/src/views/{ObjectDataPage,ObjectView,InterfaceListPage}.tsx`, `packages/react/src/hooks/useDensityMode.ts`), and stored view metadata in user databases carries the legacy keys. A rename with no migration path silently invalidates or strips existing views.\n\nPer AGENTS.md Commandment #0.1 the answer is **not** a renderer-side `??` dual-read. The sanctioned precedent is a normalizer **at the contract**, the way `@objectstack/spec` folds legacy filter-operator spellings on parse (`VIEW_FILTER_OPERATOR_ALIASES` + `normalizeFilterOperator`, documented there as \"a migration bridge … may be dropped in a future major\"). So each rename wants: spec-side preprocess → objectui read-sites moved to the canonical key → legacy key dropped from the sanctioned set.\n\n**Timing matters.** `@objectstack/spec` is at `16.x` RC. Vocabulary alignment is cheap inside the RC window and a breaking major afterwards.\n\n### Suggested order — one PR each, green build + consumer regression per step\n\n1. `fields` → `columns` (pure alias, smallest read-site surface)\n2. `densityMode` → `rowHeight`\n3. the `show*` family → `userActions`\n4. `filters` → `filter`\n5. `aria` / `sharing` / `conditionalFormatting` / `exportOptions` → the spec sub-shapes\n6. `objectName` → `data.provider: 'object'` (largest — touches every ObjectQL component)\n\n### Carried over from phase 3\n\n- Drop the four deprecated aliases phase 3 kept for back-compat once stored metadata has been migrated: `kanban.groupField`, `kanban.cardFields`, `gallery.imageField`, `timeline.dateField`.\n- Promote `calendar.defaultView` into `@objectstack/spec` — it is the one per-view-type field with no spec counterpart, so it is still a local extension.\n\n---\n\n## Scope B — audit `ObjectViewSchema` / `DetailViewSchema`\n\nNever touched by #2231. Both are still hand-written `BaseSchema.extend({ … })`:\n\n- `ObjectViewSchema` (`packages/types/src/zod/objectql.zod.ts`) — a composite (grid + form + toolbar flags). The nearest spec counterpart, `ObjectListViewSchema` (`packages/spec/src/ui/view.zod.ts`), is **not 1:1**.\n- `DetailViewSchema` (`packages/types/src/zod/views.zod.ts`) — nearest counterpart is spec `FormViewSchema`, also not 1:1.\n\nThe deliverable here is an **audit, not a swap**: field by field, decide promote-to-spec / keep-local / drop — the same triage that made the ListView derivation safe. Only then decide whether a derivation is even the right shape, or whether the spec should grow a genuine composite-view schema.\n\n---\n\n## Also surfaced (small, independent)\n\n`useColumnSummary`'s `computeAggregation` (`packages/plugin-grid/src/useColumnSummary.ts`) implements only `count` / `sum` / `avg` / `min` / `max`. The spec's `ColumnSummarySchema` declares **eleven** functions, so `count_empty`, `count_filled`, `count_unique`, `percent_empty`, `percent_filled` and `none` currently compute `null` and render an empty footer — a declared ≠ enforced gap. Either implement the six or trim the spec enum.\n\n---\n\n## Definition of done\n\n- The sanctioned-local set in `list-view-spec-parity.test.ts` contains only fields that are genuinely objectui renderer concerns (target: near-empty).\n- No renderer reads a legacy key; whatever legacy acceptance remains lives in one documented normalizer, not scattered `??` fallbacks.\n- `ObjectViewSchema` / `DetailViewSchema` have a written field-level verdict.\n\n## Related\n\n- objectstack#3761 promotes `ListColumn.prefix` and the `{ type, field }` `summary` form into the spec. When it releases, `@object-ui/types` drops its last `ListColumnSchema.extend()` and that schema becomes a plain re-export.\n"

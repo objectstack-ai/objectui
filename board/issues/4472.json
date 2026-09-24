@@ -1,0 +1,36 @@
+{
+  "number": 4472,
+  "kind": "issue",
+  "title": "console: copied invitation link is unusable — buildAcceptUrl rebuilds the trailing-dot host that resolveHomeUrl already retired",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T15:54:23Z",
+  "updated_at": "2026-08-12T19:13:36Z",
+  "closed_at": "2026-08-12T19:13:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4472",
+  "body": "> Moved from objectstack-ai/objectstack#8090 at triage (file-at-destination: the fix is entirely in this repo). Filed 2026-08-12 by @baozhoutao from a multi-org console walkthrough, original grading `priority:p1`. Batch siblings: objectstack-ai/objectstack#8091 #8092 #8093 #8094 (see that thread).\n\nCopying an invitation link from the workspace **Invitations** tab yields a URL that cannot be opened. The recipient of an invitation therefore has no working way in.\n\n## Repro\n\n1. Multi-org runtime, zh console, sign up and create a workspace (owner).\n2. Users → **Invite user** → invite `lisi@acme-test.com` as `member`.\n3. Workspace switcher → **Manage members** → **Invitations** tab → click **Copy invitation link**.\n4. Paste the clipboard content.\n\n## Actual\n\n```\nhttp://localhost:8080./accept-invitation/bgn1XAfRuCQUS1l9NBqOMGgJDUYm5l56\n```\n\nTwo defects in one string:\n\n- **trailing-dot host** — `localhost:8080.` (the port is followed by `.`);\n- **the console mount is missing** — the console is served under `/_console/`, and `GET /accept-invitation/` (dot removed) is answered by the server with `{\"error\":\"Not found\"}`.\n\nThe only URL that renders the accept page is `http://localhost:8080/_console/accept-invitation/<id>` — verified working, the page loads and the invitation can be accepted.\n\n## Expected\n\nThe copied link is the one the recipient can open: `<console mount>accept-invitation/<id>`.\n\n## Cause\n\n`buildAcceptUrl` rebuilds the URL from `import.meta.env.BASE_URL`, which is `'.'` in a portable (`base: './'`) build:\n\n```ts\n// packages/app-shell/src/console/organizations/manage/InvitationsPage.tsx:32\nfunction buildAcceptUrl(invitationId: string): string {\n  const base = (import.meta as any).env?.BASE_URL ?? '/';\n  const normalized = base.endsWith('/') ? base : `${base}/`;\n  return `${window.location.origin}${normalized}accept-invitation/${invitationId}`;\n}\n```\n\nDuplicated verbatim in `packages/app-shell/src/console/organizations/manage/InviteMemberDialog.tsx:39` (the \"share link\" view of the invite dialog), so the freshly-created-invitation link is broken the same way.\n\nThis is the exact failure mode `resolveHomeUrl.ts` was written to retire — its header documents it:\n\n> `${origin}${import.meta.env.BASE_URL}home` broke portable builds (`base: './'`), producing `https://host./home` — trailing-dot host.\n\n## Suggested fix\n\nDrop both local `buildAcceptUrl` copies and call the existing mount-aware helper:\n\n```ts\nimport { resolveConsoleUrl } from '../resolveHomeUrl';\nconst url = resolveConsoleUrl(`accept-invitation/${invitationId}`);\n```\n\n`resolveConsoleUrl` resolves against the deployment mount, which is what both `WorkspaceSwitcher` and `OrganizationsPage` already use for full-page navigations. A regression test asserting the copied URL contains no `:.` and starts with the console mount would pin it.\n\n## Environment\n\nLocal dev server `http://localhost:8080`, multi-org enabled, zh locale, observed 2026-08-12. The server was started by the maintainer and its exact commit is not verified; the source quoted above is the `objectui` main checkout at filing time."
+}

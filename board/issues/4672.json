@@ -1,0 +1,35 @@
+{
+  "number": 4672,
+  "kind": "issue",
+  "title": "AdvancedChartImpl's cartesian click reads `activePayload`, which recharts 3 does not send — every cartesian drill loses its series and value, killing the pivoted drill outright",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-15T07:31:09Z",
+  "updated_at": "2026-08-15T09:55:59Z",
+  "closed_at": "2026-08-15T09:55:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4672",
+  "body": "Measured while implementing #4508 (bucket identity), and deliberately not widened into that card: different defect class, different verification surface.\n\n## What is wrong\n\n`AdvancedChartImpl.handleCartesianClick` builds the drill event from `payload.activePayload`:\n\n```ts\nconst ap = Array.isArray(payload.activePayload) ? payload.activePayload[0] : undefined;\nonChartClick({\n  category: payload.activeLabel != null ? String(payload.activeLabel) : undefined,\n  series: ap?.dataKey ? String(ap.dataKey) : undefined,\n  value: typeof ap?.value === 'number' ? ap.value : undefined,\n});\n```\n\n`activePayload` is a **recharts 2** field. In recharts 3 (this repo is on `^3.10.1`) the chart-level `onClick` receives a `MouseHandlerDataParam`, whose published type is exactly:\n\n```\nactiveCoordinate, activeDataKey, activeIndex, activeLabel, activeTooltipIndex, isTooltipActive\n```\n\n(`node_modules/recharts/types/synchronisation/types.d.ts`, and the object is assembled verbatim in `lib/state/externalEventsMiddleware.js`. `activePayload` appears nowhere in the shipped `lib/` or `types/` except an unrelated local in `component/Cursor.js`.)\n\nSo `ap` is **always** `undefined`, and every cartesian drill event is `{ category, series: undefined, value: undefined }`. This is a v2 to v3 migration leftover: no type error, because the payload is typed `any` at the call site.\n\n## Why it matters\n\n`series` is not cosmetic on the dataset path. `DatasetWidget.handleChartDrill` feeds it to `findChartSeriesRow`, whose **pivot arm requires it**:\n\n```ts\nreturn safeRows.findIndex((r) => matchesX(r) && String(r[gDim] ?? '') === s);\n```\n\nWith `seriesKey` undefined, `s` is `''`, which matches only rows whose second dimension is null or empty. For an ordinary pivoted dataset chart (2 dimensions, 1 measure — grouped bars, the shape ADR-0021 / #1759 introduced) **no row matches, the lookup returns -1, and `handleChartDrill` returns without opening the drawer**. Every segment of every pivoted bar/line/area dashboard chart is a dead click.\n\nSingle-dimension charts are unaffected for `series` (the lookup does not read it there), but they still lose `value`, and the drawer title loses its series half (`handleChartDrill` composes the title from `ev.category` and `ev.series`).\n\nPie/donut and funnel are unaffected — they build their events from the sector/segment entry, not from this payload.\n\n## Repro sketch\n\nA dataset widget with `dimensions: ['status', 'priority'], values: ['est_hours']`, drill enabled. Click any bar segment: nothing opens. The same click composed by hand with the series name resolves fine, which is what `AdvancedChartImpl.pivotNullBucket.test.tsx` and #4508's new tests do — they call `findChartSeriesRow` directly, so none of them can see this.\n\n## Likely shape of the fix (not measured, deliberately)\n\nThe payload does carry what is needed, under different names: `activeDataKey` for the series, and `activeTooltipIndex` (an index into the chart's own `data`) for the row, from which the measure can be read. #4508 already added the index read on this path for the bucket identity, so the row is in hand at the point the event is built. What needs measuring first is `activeDataKey`'s value under a SHARED cartesian tooltip (several series under one cursor), where \"the clicked series\" may genuinely not be a single answer — that judgement is why this is filed rather than patched inside #4508.\n\n## Test gap this leaves\n\nNo test asserts the payload shape this handler is fed. The existing chart drill tests either call the pure lookup directly or stub the chart component, so the one seam that broke is the one nothing covers. Whatever the fix, it wants a case pinned against the recharts payload as recharts 3 actually sends it.\n\nRelated: #4508 (bucket identity, in flight — touches the same handler but not this field), #4497, #4466.\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4280,
+  "kind": "issue",
+  "title": "app-shell: export `resolveHostAppSegment` from the package root — apps/console carries a documented local subset that must become a pure deletion",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:on-hold"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T11:01:32Z",
+  "updated_at": "2026-08-15T06:01:09Z",
+  "closed_at": "2026-08-15T01:59:52Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4280",
+  "body": "Follow-up from #4109 / PR #4279, filed per the PM ruling there (2026-08-11). Unassigned — queued, not started.\n\n## Fact\n\n`resolveHostAppSegment` / `appRouteSegment` / `filterActiveApps` live in `packages/app-shell/src/utils/appRoute.ts` (landed via #4074), but `packages/app-shell/package.json` publishes only the `.` export and `src/index.ts` re-exports `./utils` nowhere — so `apps/console` cannot reach the resolver.\n\nConsequence, disclosed in PR #4279 rather than smuggled: `apps/console/src/components/createdRecordPath.ts` implements **only steps 1–2** of that resolver (preferred-app re-checked against the live openable list, else first openable app) and returns `null` instead of the upstream `setup` last resort. The divergence and its reason are documented in that module's docblock and pinned by tests.\n\n## Why this is worth a card\n\nThe resolver's own docblock argues its resolution order is one hard-won definition. A console-local subset is the \"two readers of one prose contract\" failure shape this repo repeatedly pays for (#3367 / #3842 family): the next change to the resolution order lands on one copy. The fix is mechanical:\n\n1. Re-export the resolver from app-shell's package root (one barrel line).\n2. Delete the local subset in `createdRecordPath.ts` and import the shared resolver — a **pure deletion** of the duplicated logic; its tests move to pin the shared resolver's behavior at this call site.\n\n## Optional rider — maintainer decision, explicitly NOT ruled\n\nWith the export in place, mounting `ConsoleLayout` (sidebar + breadcrumb) on the internal `/forms/:name` route becomes a small change (option B of the #4109 ruling). It was deliberately NOT shipped: on a cold deep-link nothing has published a current app, so host-app resolution picks an arbitrary app, wraps the form in that app's sidebar, and writes the guess into shared `NavigationContext` — a silent-wrong-chrome failure mode. If the sidebar is wanted there, this card is where that decision lands; the default remains `DefaultHomeLayout` (the chrome `/home` and `/organizations` use).\n\n## Surface\n\n`packages/app-shell/src/index.ts` (barrel line), `apps/console/src/components/createdRecordPath.ts` (+ its tests). Coordinate with any in-flight holder of app-shell surfaces at dispatch time.\n\nRefs #4109, PR #4279, #4074, #3367, #3842."
+}

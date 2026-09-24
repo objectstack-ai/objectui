@@ -1,0 +1,35 @@
+{
+  "number": 4271,
+  "kind": "issue",
+  "title": "permission-matrix-edit-loop: the field-level half of the permission matrix is dead for every object (MetadataClient.get() does not unwrap the envelope)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T10:13:22Z",
+  "updated_at": "2026-08-13T07:32:35Z",
+  "closed_at": "2026-08-13T07:32:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4271",
+  "body": "## Symptom\nThe object-verb permission loop works, but the **field-level** half is dead for every object. Open `/_console/apps/&lt;app&gt;/metadata/permission/&lt;set&gt;` and expand any object row.\n\n- **Expected** a field sub-table listing that object's fields with a readable/editable checkbox pair each.\n- **Actual** \"No fields registered for this object.\" and **zero** field checkboxes — for every object. Reproduced twice on fresh loads for two objects.\n\nNot a data problem: the network shows `GET /api/v1/meta/object/showcase_project` → 200 carrying **21 fields**.\n\n## Root cause\nLocated by the run. `PermissionMatrixEditor.tsx` `ensureFields()` does `const obj = await client.get('object', objectName); const raw = obj?.fields;` — but `MetadataClient.get()` (`packages/data-objectstack/src/metadata-client.ts`, ~L495-512) returns the **raw server envelope** with no unwrapping, and the framework answers `{type, name, item:{…fields}}`. So `obj.fields` is always `undefined` and every object reports zero fields. The client's own docblock (~metadata-client.ts:522) asserts the opposite (\"the legacy `get()` returns the unwrapped body\") — that is where the two sides disagree.\n\nNot a stale bundle — the same code is on objectui `origin/main` (`6d01319dd`); the files live at `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx` and `packages/data-objectstack/src/metadata-client.ts`, both present on the default branch.\n\nCollateral: the RLS CEL editor's field lint/autocomplete (`loadObjectFields`) is empty for the same reason.\n\n## Reproduction\n1. Boot showcase + console; open `/_console/apps/&lt;app&gt;/metadata/permission/&lt;set&gt;`.\n2. Expand any object row (e.g. `showcase_project`).\n3. Observe \"No fields registered for this object.\" with zero checkboxes, while the underlying `GET /api/v1/meta/object/showcase_project` returns 21 fields.\n\n## Suggested fix\nUnwrap the envelope in `ensureFields()` (read `obj.item.fields`) or have `MetadataClient.get()` unwrap `{type,name,item}` to the body as its docblock at :522 already claims. Fix `loadObjectFields` in the RLS CEL editor the same way.\n\n## Source\nExtracted from the QA run objectstack-ai/objectstack#7637 (framework 92f26f75, console 09987b680)."
+}

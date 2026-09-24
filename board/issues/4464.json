@@ -1,0 +1,36 @@
+{
+  "number": 4464,
+  "kind": "issue",
+  "title": "Cross-page \"Select all N matching\" can never appear in the console — `totalMatching` is only written by ObjectGrid's own loader, which never runs under ListView's external pagination",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T12:29:23Z",
+  "updated_at": "2026-08-13T03:49:24Z",
+  "closed_at": "2026-08-13T03:49:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4464",
+  "body": "Found by a **retest** of `records-forms.bulk-select-all-matching` (framework QA run objectstack-ai/objectstack#7439) against the console at pin `6314e87f2d49`. The fix under retest — #4140 (the `selectionResetKey` bump) — **is verified working**; this is a separate, **pre-existing** gap that the retest was able to reach for the first time.\n\n## Symptom\n\nSelecting an entire page in a genuinely server-paginated grid shows only `N selected | Delete | Clear`. The cross-page banner never renders: `[data-testid=bulk-cross-page-banner]` and `[data-testid=bulk-select-all-matching]` are both absent, for **any** match-set size. Reproduced on two fresh loads.\n\n## Reproduction\n\n1. As admin, author a paginated view:\n   `PUT /api/v1/meta/view/showcase_contact.rt5_paged` with\n   `config {type:'grid', data:{provider:'object',object:'showcase_contact'}, filter:[{field:'account',operator:'equals',value:'<Northwind id>'}], pagination:{pageSize:10}}`\n2. Open `/_console/apps/com.example.showcase/showcase_contact?view=showcase_contact.rt5_paged`.\n   The grid pages server-side for real — `GET /api/v1/data/showcase_contact?top=10&filter=…` → `total=26`, 10 rows, count bar \"26 records\", pager **\"Page 1 of 3\"**.\n3. Click the header select-all checkbox to select the whole visible page.\n\n**Expected**: `BulkActionBar` shows *\"All 10 on this page are selected.\"* plus a **\"Select all 26 matching\"** button.\n**Actual**: no banner — only `10 selected | Delete | Clear`.\n\n## Root cause\n\n`BulkActionBar` gates the banner on:\n\n```ts\nconst showCrossPageAffordance =\n  !allMatchingSelected &&\n  typeof totalMatching === 'number' &&\n  typeof pageSize === 'number' && pageSize > 0 &&\n  selectedRows.length >= pageSize &&\n  totalMatching > pageSize;\n```\n\n`ObjectGrid` passes `totalMatching={singleSelection ? undefined : totalMatching}`, and the **only writer** of that state is `setTotalMatching(...)` inside **ObjectGrid's own data loader** (`ObjectGrid.tsx` ~:710).\n\nIn the console the grid is hosted by **`ListView`**, which fetches rows itself and passes `manualPagination:true, rowCount:serverTotal, page, pageSize, onPageChange` down (`plugin-list/src/ListView.tsx` ~:2859-2864). So `externalManualPagination` is true, ObjectGrid's loader **never runs**, `totalMatching` stays `undefined`, and the banner condition is **permanently false**.\n\nThe tell that the data is right there: the pager shows the correct page count because it reads\n`manualRowCount = externalManualPagination ? rest.rowCount : totalMatching`\n— **the grid has the real total on the external path; it just never reaches `BulkActionBar`.**\n\n**Suggested fix**: fall back to `rest.rowCount` when `externalManualPagination` is on.\n\nThis is the same shape as #4138 (fixed): a feature gated on internal-data state that the console's external-data path never populates. Worth a sweep for other `totalMatching`-style state with a single internal writer.\n\n## Consequence for the checklist item\n\nWith the affordance unreachable, three further clauses cannot run at all: the collected-id set can't be compared against the filtered API count, the aggregate-vs-per-record distinction over the matching set is undefined, and the HARD_CAP (5000) path is doubly out of reach. Only the clause #4140 addressed is green.\n\n## Two scope notes, stated plainly\n\n- **Not caused by #4140.** That fix only rewrote `resetSelection`; this gap predates it. #4140 itself is verified: select-all-page → `checkedBoxes 33 / \"32 selected\"`, then **Clear** → `checkedBoxes 0` and the bar gone, twice — the #3056 drift where the toolbar emptied while row checkboxes stayed ticked is absent.\n- **The unit tests cannot see this.** `automated.ref` exercises `ObjectGrid` in isolation, where the internal loader *does* run — precisely the path the console does not take. A regression test for this needs the ListView-hosted composition.\n\n## Fixture correction worth recording\n\nThe previous run recorded these clauses `blocked(fixture)` believing no object exceeds the page window. Half of that is true — the stock console fetches `top=100` and `showcase_contact`'s 32 rows fit one page — but the blocker is **not** a hard 100-row limit: authoring a view with `config.pagination.pageSize` turns on real server-side paging, which is what made this defect reachable. (The probe view was deleted afterwards; no repo file was touched.)\n\n## Source\n\nRetest of `records-forms.bulk-select-all-matching` at console pin `6314e87f2d49`, framework `b602d536`."
+}

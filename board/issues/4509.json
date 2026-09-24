@@ -1,0 +1,33 @@
+{
+  "number": 4509,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): DatasetWidget localizes the null-bucket label (#4500)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T22:40:38Z",
+  "updated_at": "2026-08-13T00:12:48Z",
+  "closed_at": "2026-08-13T00:12:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T00:12:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4509",
+  "body": "Closes #4500\n\n## The gap\n\n`buildChartSeries` (core) buckets a null-keyed category under `options.nullCategoryLabel`, falling back to the English constant `NULL_CATEGORY_LABEL = '(None)'` when the caller passes none. `@object-ui/core` is React-free and cannot read the locale bundle, so the resolved label has to come from the renderer. `ObjectChart` (plugin-charts) passes `tt('chart.nullCategory', '(None)')` and localizes; **DatasetWidget called the same helper with no options at all**, so a dashboard widget in a zh app labelled the bucket `(None)` while the standalone chart one panel over labelled it `(未指定)`.\n\nThe failure is quiet by construction: the bar draws, the count is right, only the word is wrong.\n\n## The fix\n\nBoth call sites in `DatasetWidget.tsx` now read **one** binding:\n\n- `buildChartSeries(chartRows, dimensions, values, state.fields, { nullCategoryLabel })`\n- `findChartSeriesRow(chartRows, dimensions, values, ev?.category, ev?.series, { nullCategoryLabel })`\n\nwhere `nullCategoryLabel = tt('chart.nullCategory', '(None)')`. `tt` was already in the component; the `chart.nullCategory` key already exists in all ten locale packs (PR #4498).\n\n**The second call site is the sharp edge, not a symmetry nicety.** `findChartSeriesRow` is the inverse map behind segment-click drill-through: it compares the clicked category against its own `nullCategoryLabel`, defaulting to the same English floor. Localizing only the forward call draws a bar reading `(未指定)` while the drill matches `(None)` — the click resolves to `-1`, `handleChartDrill` returns before `openDrill`, and the drawer never opens. That is a strictly worse outcome than the untranslated label this card is about (the dead-click rule from #4498). One binding, so the pair cannot drift.\n\nGrep confirms these are the only two call sites in the file, and the only two in plugin-dashboard.\n\n## Red-first\n\nNew pin: `packages/plugin-dashboard/src/__tests__/DatasetWidget.nullCategoryI18n.test.tsx` — 7 cases, 3 red before the change, 4 green on both sides.\n\nPre-fix, verbatim:\n\n```\nFAIL packages/plugin-dashboard/src/__tests__/DatasetWidget.nullCategoryI18n.test.tsx\n  > labels the null group `(未指定)` under `zh`, not the English floor\nAssertionError: expected [ 'Ada Lovelace', '(None)' ] to include '(未指定)'\n\n  > keeps the measure attached to the (now translated) bucket\nAssertionError: expected { 'Ada Lovelace': 5, '(None)': 3 } to match object { '(未指定)': 3 }\n\n Test Files  1 failed (1)\n      Tests  3 failed | 4 passed (7)\n```\n\nPost-fix: `Test Files 1 passed (1) / Tests 7 passed (7)`.\n\n**Reverse verification of the pair property.** The interesting direction is not pre/post — it is the *half-fix* a reviewer would most plausibly ship. Applying only the forward argument and re-running isolates the dead click exactly:\n\n```\n ✓ labels the null group `(未指定)` under `zh`, not the English floor\n ✓ keeps the measure attached to the (now translated) bucket\n × PAIR — a click on the localized bucket bar still drills to ITS row 1025ms\nAssertionError: expected 0 to be greater than 0\n\n Tests  1 failed | 6 passed (7)\n```\n\nThe labels go green and only the drill dies — `drillFilters` stays empty because the drawer never opened. Both call sites restored afterwards, verified byte-identical against the pre-revert patch.\n\n## Must-not-change (green on both sides)\n\n- the non-null group charts byte-identically: `{ owner_name: 'Ada Lovelace', deals: 5 }`\n- a click on the non-null bar still drills by the stored id (`{ owner_id: 'user-ada' }`), not the display label\n- `en` still reads `(None)` — through the locale pack after the change rather than core's hardcoded floor, same bytes\n- a widget over data with **no** null group is untouched in either locale\n\n## Verification\n\n- `pnpm exec vitest run packages/plugin-dashboard/` — **47 files, 388 tests passed**. The known #4487 flake (`DatasetWidget.dottedDimensionTable`) did not fire.\n- `pnpm --filter @object-ui/plugin-dashboard type-check` — clean.\n- `eslint` on both changed files — 0 errors.\n- `.d.ts` diffed **both ways** (built from this branch and from `origin/main`): `index.d.ts` and `DatasetWidget.d.ts` **identical**. No public surface movement — hence `patch`.\n- `check-changeset-presence` and `check-control-bytes` green.\n\n## Scope\n\n`DatasetWidget.tsx` + one test file + one changeset. The multi-dimension **pivot** arm is #4497's in-flight surface and is deliberately untouched — this card is the single-dimension label argument, and core is consumed read-only. Branched from `origin/main` after confirming PR #4504 had landed (it is the tip commit).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

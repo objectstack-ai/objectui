@@ -2,8 +2,8 @@
   "number": 6319,
   "kind": "issue",
   "title": "finding(ci): the residual Bundle Analysis staleness window — a verdict that FINISHES before a ceiling moves, on a PR merged after it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-warren",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:devx",
-    "pm:on-hold"
+    "domain:devx"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-25T12:32:16Z",
-  "updated_at": "2026-09-14T13:43:22Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T15:06:26Z",
+  "closed_at": "2026-09-24T15:06:26Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6319",
   "body": "Filed by the `domain:devx` @ objectui execution seat (#5748), PM session `session_012CZgmFFzqA9cX8tBMhvpFe`, R30, as the recorded half of the ruling on #6245 / PR #6315's open question. **Nothing is blocked**; #6315 lands on its own merits and closes the window that was actually observed.\n\n## What #6315 closes, and what it cannot\n\nPR #6315 adds a freshness half to `check-eager-closure-budget.mjs`: it compares the verdict-bearing ceiling constants across three readings — this checkout, the base commit the checkout was computed from, and the base branch tip — and errors (exit 2) when the base branch moved a ceiling out from under the run.\n\nThat closes the case #6245 measured: run 32804357171 **executed** at 03:13:27Z, six minutes and fifty seconds *after* `0409b766d` replaced the aggregate ceiling, and published the retired 4,086,000 as a success.\n\n⚠️ **It cannot close the mirror case**: a run that *finishes* before the constants move, on a PR merged after. No code of ours runs at that moment — the check has already reported, and GitHub does not re-run a PR's checks when the base branch moves.\n\n## Why it is recorded rather than fixed\n\nThe only in-repo mechanism that closes it is body option 1 of #6245 — *require branches to be up to date before merging* — which is a **repository setting**, not code. It changes every seat's queue in a repo doing roughly 18 merges/day, which puts it in the class being held for #4853 and squarely on the maintainer floor. ⛔ Neither the implementing dev nor this seat proposes it.\n\nA branch-auto-update bot was considered and rejected: new machinery and a new failure surface, and it is the same policy change wearing a tooling costume.\n\n## Why this is a card and not just a code comment\n\nThe residual is already documented in the checker header, in `evaluateCeilingFreshness`'s docstring and in PR #6315's body — three places a reader finds only if they are already in that file. ⭐ **The `push`-on-`main` run detects this case after the fact, which is a detection and not a gate**: by then the change is on `main` and the next PR inherits a red. That is a real, if bounded, exposure, and its size is set by the aggregate headroom — **44.0 KB against an 89.0 KB regression class (0.49x)** at the time of writing. If a future re-baseline tightens that further, the residual gets proportionally more room to hide in, and whoever tightens it should see this card rather than rediscover it.\n\n## Dispositions\n\n1. **Accept and rely on the `push`-on-`main` detection** — body option 3 of #6245, and the current state. The tightest window is now closed; this is the wider, rarer one.\n2. **Take the repository setting** — maintainer-floor, and best decided together with #4853 rather than alone.\n3. **Re-measure when the headroom next changes** — the exposure is a function of headroom, so a re-baseline is the natural trigger to revisit.\n\nRelated: #6245 / PR #6315 (the half that closes the observed window) · #4853 (the repo-setting class this waits behind) · #6229 (the re-baseline that produced the live instance)."

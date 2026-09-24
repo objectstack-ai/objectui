@@ -1,0 +1,34 @@
+{
+  "number": 4529,
+  "kind": "issue",
+  "title": "finding(plugin-charts): two deep subpaths resolve only through the repo vitest alias — the #4325 shape again, and this one has a value import",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T04:54:40Z",
+  "updated_at": "2026-08-13T06:15:56Z",
+  "closed_at": "2026-08-13T06:15:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4529",
+  "body": "Observation-class finding, surfaced while wiring `@object-ui/plugin-dashboard`'s tests into `tsc` for #4040 (closing tranche). Nothing a user meets today — both live consumers are tests, and they pass.\n\nThis is the same class as #4325 (`@object-ui/fields` deep subpaths), one package over. It is filed separately rather than as a comment there because #4325 is closed, and because the resolution that closed it does not transfer cleanly — see \"Why the #4325 remedy does not just apply\" below.\n\n## What\n\n`packages/plugin-charts/package.json` publishes exactly one entry point:\n\n```json\n\"exports\": {\n  \".\": { \"types\": \"./dist/index.d.ts\", \"import\": \"./dist/index.js\", \"require\": \"./dist/index.umd.cjs\" }\n}\n```\n\nTwo `plugin-dashboard` tests import subpaths of it:\n\n```\npackages/plugin-dashboard/src/__tests__/DatasetWidget.chartConfig.dom.test.tsx:38\n    import '@object-ui/plugin-charts/AdvancedChartImpl';\npackages/plugin-dashboard/src/__tests__/DatasetWidget.comboPresentation.test.tsx:52\n    import { normalizeChartSchema } from '@object-ui/plugin-charts/normalizeChartSchema';\n```\n\nBoth resolve only because `vitest.config.mts:262` aliases the whole package name to its source directory:\n\n```\n'@object-ui/plugin-charts': path.resolve(__dirname, './packages/plugin-charts/src')\n```\n\nNeither name is exported from the barrel either — `packages/plugin-charts/src/index.tsx` exports `ChartBarRenderer`, `ChartRenderer`, `ObjectChart`, `ObjectChartBlock`, `chartComponents` and the `BarChartSchema` type, and nothing else. Under Node's own resolution, or from any consumer outside this repo's vitest config, both specifiers are `ERR_PACKAGE_PATH_NOT_EXPORTED`.\n\n## How it surfaced\n\nType-checking plugin-dashboard's tests puts both files in front of `tsc`, which asks the same question Node would:\n\n```\nsrc/__tests__/DatasetWidget.chartConfig.dom.test.tsx(38,8): error TS2882: Cannot find module or type declarations for side-effect import of '@object-ui/plugin-charts/AdvancedChartImpl'.\nsrc/__tests__/DatasetWidget.comboPresentation.test.tsx(52,38): error TS2307: Cannot find module '@object-ui/plugin-charts/normalizeChartSchema' or its corresponding type declarations.\n```\n\nThese were 2 of the 14 errors that package's tests carried.\n\n## Why the #4325 remedy does not just apply\n\n#4325 was closed by PR #4460, \"drop the unpublished deep subpath\" — the test's anti-race guarantee was rebuilt on a witness that did not need it. That answer fits the FIRST import here and not the second:\n\n- `AdvancedChartImpl` is a **side-effect** import. Its job is to pre-load, at module scope, the chunk `ChartRenderer` reaches through `React.lazy`, so the unbounded first import is paid in the import phase instead of inside RTL's 1000 ms `waitFor`. Structurally identical to #4325's `MarkdownContent` case, so #4460's approach plausibly transfers.\n- `normalizeChartSchema` is a **value** import, and the assertions run the widget's emitted schema through it. That is the whole point of the file: what it pins is what `AdvancedChartImpl` actually receives, rather than a restatement of the renderer's translation layer. Dropping the import does not relocate the guarantee — it deletes it and replaces the test with a copy of the thing under test. So \"drop the subpath\" is not available here without a different witness that does not exist yet.\n\n## What the #4040 PR did, and why it is not the answer\n\nPR for #4040's closing tranche keeps both imports and restates the vitest alias as one narrow `paths` entry in the new `packages/plugin-dashboard/tsconfig.test.json`:\n\n```json\n\"paths\": { \"@object-ui/plugin-charts/*\": [\"packages/plugin-charts/src/*\"] }\n```\n\nThat points `tsc` at the very files vitest loads, so the compiler checks the real modules rather than a hand-written shim, and no test semantics changed. It is commented in that file as a workaround for this gap, with the instruction to delete it once the gap is closed either way. It is worth recording precisely because that config now carries a source-tree path every other wired-up package avoided on purpose — the same debt #4325 recorded, with the same wording, before its ruling removed it.\n\n## Why it is `finding` and not queued\n\nNo user-visible behaviour depends on it, and the fix is a product call about what `@object-ui/plugin-charts` publishes, not a code one:\n\n- **The subpaths are intended** — a renderer's normalization layer is a reasonable thing to test against directly. Then `plugin-charts` should publish them in its `exports` map with the matching `dist` layout, and the `paths` entry goes away.\n- **They are not intended** — the package's surface is its index. Then `normalizeChartSchema` needs to be re-exported from the barrel (a one-line surface decision) or the test needs a different witness, and the lazy-chunk pre-load needs #4460's treatment.\n\nNote the second bullet is not symmetrical with #4325: there, \"not intended\" meant the import could simply go. Here it still requires a decision about `normalizeChartSchema`'s reachability, because the test cannot make its assertion without the real translation layer.\n\nA general question worth asking once instead of per-package: this is the second instance in two tranches, and the vitest alias makes the mistake invisible until a package's tests reach `tsc`. Now that #4040 has every package type-checking its tests, a gate over `exports` maps versus the deep specifiers actually imported would catch the third one at authoring time.\n\nRefs #4325, #4460, #4040.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

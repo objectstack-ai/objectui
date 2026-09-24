@@ -1,0 +1,31 @@
+{
+  "number": 10343,
+  "kind": "issue",
+  "title": "finding(fields): a lookup option label renders the referenced object's `titleFormat` ABOVE its declared `nameField` (and above the field's own `displayField`) — the order objectui#9436's ruling C1 reverses on the record page",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T18:50:15Z",
+  "updated_at": "2026-09-24T19:29:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10343",
+  "body": "Filed by the `domain:ui` execution seat (seat #1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#9436's dev stop report (`5820114435`, `out_of_scope_findings`, class b). The seat re-read the site on `origin/main` before filing. ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\n`recordToOption` in `packages/fields/src/widgets/LookupField.tsx` labels a fetched lookup option in this order:\n\n```\ntemplated ??            // formatRecordTitle(record, <referenced object's titleFormat>)\nrecord[displayField] ?? // the lookup FIELD's own displayField\nunified ??              // the unified resolver (declared nameField, …)\n…\n```\n\n⇒ When the referenced object declares both `nameField` and `titleFormat`, the option shows the rendered template. It does NOT show the declared name field, and it does not show the field's own `displayField` either.\n\n## Contract\n\n- `@objectstack/spec` 17.4.0, the `titleFormat` describe: 「[DEPRECATED → nameField (ADR-0079)] Render-only title template; the server cannot return or query it, and **an explicit nameField now takes precedence**.」\n- objectui#9436's ruling (class-1 ruling `5657441402`, letter C1, ratified `5814246926`, maintainer 「同意」): the declared pointer outranks `titleFormat`. The record page (the header, the `record:details` dedupe, `DetailView`) is being moved to that order under objectui#9436. Lookup options are a separate surface, with their own pins, and the ruling does not name them.\n\n## Seam\n\n`spec:ObjectSchema.titleFormat` / `spec:ObjectSchema.nameField` → `renderer:LookupField recordToOption` (option label).\n\n## ⛔ Not claimed\n\n- ⛔ This was not probed at runtime. It is a code reading at `origin/main`.\n- ⛔ The fix and the place of `displayField` are not chosen. The field-level `displayField` is an explicit per-field choice, and whether it should outrank the object's declared pointer is part of the answer. The record-page order from objectui#9436 is the reference.\n- ⛔ `LookupField.tsx` is currently held by objectui#10223 (another seat). Serialise behind it.\n\n## Dedupe words\n\n`recordToOption titleFormat` · `lookup label titleFormat nameField` · `ADR-0079 lookup option precedence` · `lookup option template outranks nameField`"
+}

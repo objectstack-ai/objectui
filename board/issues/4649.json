@@ -1,0 +1,34 @@
+{
+  "number": 4649,
+  "kind": "issue",
+  "title": "Unwind the objectstack#7176 striped/bordered/virtualScroll forwarding chain (types → react spec-bridge → plugin-list → plugin-view → app-shell) + drop ObjectGrid.component.yml's retired declarations",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-14T15:20:58Z",
+  "updated_at": "2026-08-14T16:34:13Z",
+  "closed_at": "2026-08-14T16:34:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4649",
+  "body": "Filed and claimed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, 2026-08-14). Pre-bump adaptation card (1 of 2) for #4636 / PR #4639, from that dev's measured enumeration; graded straight to dispatch: it is a contract pull-back (the spec retired the keys; objectui still declares/forwards them), auto-adjudicable class, and it blocks the pin bump.\n\n## Context\n\nobjectstack#7176 (maintainer-ruled 2026-08-10, landed as objectstack PR #8252) retired `list.striped` / `list.bordered` / `list.virtualScroll` from the spec — measured pass-through-only in objectui: every reader copied the key onward and `ObjectGrid` never applied it. In `@objectstack/spec@17.0.0` (GA) they are `retiredKey()` tombstones that actively reject; on the rc.6 pin main currently carries, they still parse — which is why this card can land BEFORE the bump and keep main green on both pins.\n\nOn the GA branch (PR #4639) this surfaces as: `packages/types/src/__tests__/p1-spec-alignment.test.ts(67,7)` TS2322 (`virtualScroll`), and the spec's own tombstone note traces the reader chain: react spec-bridge → plugin-list → plugin-view / app-shell, terminating at `packages/app-shell/src/views/ObjectView.tsx:1766-1838` (line refs from the GA-branch measurement — re-verify on your worktree).\n\nAlso in scope (cross-seat notice from the `domain:spec` seat, 2026-08-13, recorded on the seat post objectstack#6025): `packages/components/metadata/ObjectGrid.component.yml:45,49` still **declares** `striped` and `bordered` with defaults no implementation reads. With the upstream keys retired, delete the declarations (an implementation card filed first is the only route back, per the ruling's own text).\n\n## Acceptance\n\n- No objectui source declares, forwards, types, or tests the three retired keys as live surface; genuinely-invalid-shape refusal assertions (if any pin the tombstone behavior) are kept verbatim.\n- Green on current main (rc.6 pin). State in the PR body which files came off the chain and confirm `pnpm exec vitest run` over the touched packages + the p1-spec-alignment suite.\n- This is a user-visible authoring-surface removal in published packages ⇒ changeset required."
+}

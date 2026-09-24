@@ -1,0 +1,37 @@
+{
+  "number": 10322,
+  "kind": "pull_request",
+  "title": "fix(auth,app-shell,console): re-resolve the UI language when the browser changes owner (objectui#10193)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: app-shell",
+    "package: auth",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T17:51:16Z",
+  "updated_at": "2026-09-24T19:32:34Z",
+  "closed_at": "2026-09-24T19:32:33Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T19:32:33Z",
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10322",
+  "body": "Fixes #10193\nClause-②: yes\n\n## What changed (ruling B, comment 5818448506)\n\nA browser that changes hands no longer keeps the previous account's UI language. The boot resolves the language before anyone is signed in, from two device slots that hold the last owner's language: `objectui-locale` (since objectui#10059 a cache of that owner's `sys_user.locale`) and `objectui-locale-seed`. When the session resolves to someone else, `SessionUserScope.adopt` already purged both slots (objectui#5664), but the live i18next language had been derived from them and survived in memory. A new owner with no column of their own read the previous owner's language for the whole session. Reachable on any boot whose cookie session belongs to the new owner while the persisted pointer still names the old one: an SSO redirect back into the console, or a sign-in in another window.\n\n- **`@object-ui/auth`**: `SessionUserScope.adopt` now returns `true` when it purged a previous owner, and notifies subscribers after the adopt settles. The report is in memory only, with ⛔ no new storage key.\n- **`@object-ui/app-shell`**: `useSignedInUserLocale` re-resolves the language on an owner change, via `resolveBootstrapLanguage()` over the swept storage (browser language, then `en`). It then clears the explicit slot that switch persisted, because the reset is nobody's choice. It also re-reads the new owner's column. Both switches go through one queue, so the column lands after the reset, even when it equals the previous owner's language. A shell that mounts after the purge still sees it (count, not only an event), and a remount does not reset twice.\n- **`@object-ui/console`**: `LocalizationFetchProvider`'s out-of-guard seed write, and the boot-time seed fetch in `languageSeed.ts`, drop an answer that was requested before an owner change.\n- **`@object-ui/i18n` and console comments (prose only)**: the seed was documented as \"the tenant's\" locale. It is the server's resolved locale for the signed-in caller: own `sys_user.locale`, else `Accept-Language`, else the deployment default. Repaired in:\n  - `provider.tsx`: the `LOCALE_SEED_STORAGE_KEY` docblock (now also declaring what a not-signed-in visitor reads), the `LOCALE_STORAGE_KEY` bullet, the `readCachedLanguageSeed` / `cacheLanguageSeed` docblocks, the `resolveSeedLanguage` and `resolveSeedBootstrap` docblocks and comment, the three `resolveBootstrapConfig` comments with the chain line and tier paragraph, and the `resolveBootstrapLanguage` summary;\n  - the `@object-ui/i18n` barrel comment at the `LOCALE_SEED_STORAGE_KEY` re-export;\n  - console: the `languageSeed.ts` header, the two `main.tsx` boot comments, and the `ProfilePage.tsx` module comment;\n  - app-shell: the `useUserLocale.ts` module header. The `seedTenantLanguage` identifier, test names and fixtures, and the display-formatting locale prose (`useDisplayLocale` / `LocalizationContext`) keep the word by design (patch rounds 1 and 2: `8b50a635b`, `def37fd38`).\n\nAcceptance item 2 (scopedKey) is retired by the ruling; the slot stays one device slot. objectui#10051's profile-card copy question is not touched.\n\n## Exports changed\n\n- `@object-ui/auth` barrel, **added**: `getSessionOwnerChangeCount(): number` and `subscribeSessionOwnerChange(listener): () => void`.\n- `SessionUserScope.adopt(userId)`: return type `void` becomes `boolean`. The object is reachable through the module, not the barrel.\n- No `@object-ui/i18n` export changed shape. `useSignedInUserLocale`'s signature is unchanged.\n\n## Evidence\n\nThe pin is `packages/app-shell/src/hooks/__tests__/userLocaleOwnerChange-10193.test.tsx`. Setup: pointer at A, `ja` in both slots, cookie session for B with no column. Then `adopt(B)` must leave B's language not equal to A's. The pin asserts the live language, not the slots: the slots were already emptied before this change, which is exactly why a slot-only pin proves nothing.\n\n**Red at base.** The seven touched source files were checked out from `8b1f066` onto the committed tests. Headline pin: `AssertionError: expected 'ja' not to be 'ja'`. This measures the previously code-read claim that the purge clears storage but not the live language. Totals: 9 failed / 12 passed across the three new-test files. The other reds at base are the missing return value or exports, and the console guard test.\n\n**Restore.** `git checkout HEAD -- PATH` for each file, with a trap. `git diff HEAD` came back 0 bytes.\n\n**Green** (suites ran at `371d7df`; `096419758` (README), `8b50a635b` and `def37fd38` (comments) are prose-only; i18n, app-shell and console type-check re-run green at `8b50a635b` / `def37fd38`):\n- `vitest run packages/auth/ packages/i18n/ packages/app-shell/src/hooks/ packages/app-shell/src/layout/`: 176 files, 2082 tests passed.\n- `vitest run apps/console/` plus `anonSeedScope-5746`: 109 files, 1213 tests passed.\n- `type-check`: exit 0 for auth, i18n, app-shell and console, after building the console dependency closure.\n\n**Gates** (exit codes captured to files):\n- exit 0: `check:new-line-citations`, `check:control-bytes`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:test-path-roots`, `check:unreferenced-sources`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:phantom-deps`, `check:pre-install-import-graph`, `check-changeset-presence`, `check-changeset-no-major`.\n- eslint on the 10 changed TS files: exit 0, warnings only.\n- `check:readme-exports`: exit 1 on 8 unbuilt-package prerequisites in `@object-ui/cli` and `@object-ui/plugin-ai`, which are untouched here. The judged set reads 0 fabricated, and the two new README imports are judged real.\n\n## Acceptance notes\n\n- The reset cannot see the host's `I18nProvider` `config`. It resolves as a host that passes none, which is what the console does. This is stated in the hook's docblock.\n- New react-compiler lint warnings in `useUserLocale.ts` follow the file's existing ref-during-render idiom. There are also two new ones: the module-level handled counter, and the queue's pending flag. The lint workflow sets no `--max-warnings`.\n- `packages/auth/README.md` gained a section for the two new exports (AGENTS.md #2). That file is outside the claimed `packages/auth/src/` surface; the report states this.\n\nSession: `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

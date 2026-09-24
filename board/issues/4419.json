@@ -1,0 +1,36 @@
+{
+  "number": 4419,
+  "kind": "issue",
+  "title": "Record detail header ignores `userActions.delete.visibleWhen` — the BOOLEAN form of the same key reaches all three delete surfaces, the predicate form only reaches the row kebab",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T05:20:20Z",
+  "updated_at": "2026-08-13T03:22:43Z",
+  "closed_at": "2026-08-13T03:22:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4419",
+  "body": "## Summary\n\n`userActions.delete` reaches the record detail header in its **boolean** form but not in its **predicate** form. Same key, same button, two different scopes — and nothing warns the author.\n\n* `userActions: { delete: false }` → Delete disappears from the row kebab, the selection bar **and** the detail header.\n* `userActions: { delete: { visibleWhen: … } }` → the row kebab honours the predicate; the detail header keeps rendering Delete on records the predicate excludes.\n\nSo an author who upgrades from \"nobody may delete this object\" to \"these rows may not be deleted\" — the exact reason the object form exists — silently loses two of the three surfaces they had.\n\n## Repro (framework `examples/app-showcase`, console at pinned `6314e87`, signed in as ADMIN so permissions are not a variable)\n\n`showcase_invoice` already ships the declaration (`src/data/objects/invoice.object.ts:58`):\n\n```ts\nuserActions: {\n  edit:   { disabledWhen: P`record.status == 'paid'` },\n  delete: { visibleWhen:  P`record.status != 'paid'` },\n}\n```\n\nOn a **paid** invoice (`INV-1011`, predicate false):\n\n| surface | Delete |\n| --- | --- |\n| list row kebab | **hidden** ✅ (and Edit correctly renders greyed via `disabledWhen`) |\n| record detail header `⋯` | **still offered** ❌ |\n| selection bar with only that row ticked | **still offered** ❌ (filed separately) |\n\nControl on a non-paid invoice (`INV-1001`, predicate true): Delete present on all three — so the absence above is the predicate, not a render failure.\n\nControl on the boolean form — temporarily `delete: false`, artifact rebuilt:\n\n```\n{\"form\":\"boolean false\",\"rowDelete\":0,\"bulkDelete\":0,\"detailDelete\":0}\n```\n\nAll three gone. That asymmetry is the finding.\n\n## Where it diverges\n\n* Row kebab evaluates the predicates: `plugin-grid/src/components/RowActionMenu.tsx:299-301` → `isBuiltinRowActionVisible(input.deletePredicates, 'delete', row, scope, objectFields)`, fed by `resolveRowCrudAffordances` (`ObjectGrid.tsx:1659`). The child-row menu does the same in `plugin-detail/src/RelatedList.tsx:1111-1112`.\n* Detail header does not: `plugin-detail/src/DetailView.tsx:306-307` resolves\n  `showDelete: gatedSchema.showDelete && objectAllowsDelete && canDeleteRecord` — bucket ∧ object affordance ∧ record writability. `userActionPredicates(objectSchema?.userActions?.delete)` is never called on this path, even though `RelatedList` in the same package already imports it.\n\nThe record is in hand on this surface and the CEL evaluator is already in context (the header renders `readonlyWhen`-driven field states from the same record), so the input the predicate needs is present.\n\n## Why this is a defect and not \"per spec\"\n\nThe predicate block's doc-comment (`spec/src/data/object.zod.ts:1053-1070`) says \"the **row's** button\", which the current implementation matches literally. But the key it modifies is documented one level up as governing \"the generic CRUD affordances that **the UI** surfaces\" (`object.zod.ts:1410-1421`), and its boolean form demonstrably does reach all three. A key whose *scope shrinks when you add a predicate to it* is not something an author can predict, and the failure is silent — ADR-0078 (no silently-inert metadata) is the rule this lands on.\n\nConsequence in practice: `visibleWhen` is advisory UI gating (the spec says so — enforcement stays with permissions/hooks), so a hidden-on-the-list record stays deletable from its own detail page. An author who tested the list believes it is gated.\n\n## Suggested fix\n\nFold `userActionPredicates(objectSchema?.userActions?.delete / .edit)` into `DetailView`'s `showDelete` / `showEdit` the way `RelatedList` already does, evaluated against the open record. `disabledWhen` should map to a disabled header button for symmetry with the kebab.\n\n## Related\n\n* Selection-bar half, split out because it needs a semantics decision first: objectstack-ai/objectui#4420\n* objectstack-ai/objectui#4296 — a different layer of the same surface (the row kebab ANDs only the OBJECT-level permission and ignores the record-level verdict).\n\n"
+}

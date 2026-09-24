@@ -1,0 +1,34 @@
+{
+  "number": 4640,
+  "kind": "issue",
+  "title": "[app-shell] ActionParamDialog `filterVisibleParams` resolves a broken param `visible` SILENTLY, and in a direction decided by the predicate's dialect",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-14T11:14:31Z",
+  "updated_at": "2026-08-15T07:51:41Z",
+  "closed_at": "2026-08-15T07:51:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4640",
+  "body": "Found while verifying objectstack-ai/objectstack#8500. Filed unassigned for triage — it is a\n**different evaluation face** from that card (action *param* visibility, not action\nvisibility), and either way of fixing it flips a deliberately-pinned test, so it wants its\nown decision rather than a rider.\n\n## Where\n\n`packages/app-shell/src/views/ActionParamDialog.tsx`, `filterVisibleParams` — the gate in\nfront of every param the action param-collection dialog offers:\n\n```ts\nreturn params.filter((p) => {\n  if (!p.visible) return true;\n  try {\n    return evaluator.evaluateCondition(p.visible);\n  } catch {\n    return true;\n  }\n});\n```\n\nThis is also, almost certainly, the site objectstack#8500 quoted out of the minified\n`RecordDetailView-*.js` chunk as `try { return n.evaluateCondition(e.visible) } catch { return true }`\n— `.visible` read off a loop variable matches here literally, and the dialog is in that\nchunk. (The header-action path that card is *about* is a different one and behaves\ncorrectly; see the report on that card.)\n\n## Measured\n\nProbed directly against `filterVisibleParams` on `main` (`5bf5d2cb6`), scope\n`{ os: { user: { id: 'u1' } }, record: { manager: 'u1' } }`, one param:\n\n| `visible` | param kept? | warnings |\n|---|---|---|\n| `record.@@@ bad` (unparseable) | **kept (fail-open)** | **0 — silent** |\n| `nope_undeclared == 1` (undeclared identifier) | **kept (fail-open)** | **0 — silent** |\n| `${record.missing.id == 1}` (legacy dialect, faults) | **dropped (fail-closed)** | **0 — silent** |\n| `{ dialect: 'cel', source: 'not ] valid (' }` | kept (fail-open) | 1 |\n| `{ dialect: 'cel', source: 'os.user.id == record.manager.id' }` | kept (fail-open) | 1 |\n| `os.user.id == \"u1\"` / `== \"u2\"` | kept / dropped | 0 (genuine verdicts) |\n\nTwo things fall out:\n\n1. **Silence.** Three of the fault rows emit nothing at all. That is the state the standing\n   2026-08-06 ruling on #4051 / objectstack#5149 names as the one option that is not\n   available: fail-open or fail-closed may be chosen, **silent may not**. Only the\n   `{ dialect, source }` envelope rows are loud, and they are loud by accident — the\n   canonical helper one layer down warns for them, not this function.\n2. **The fail direction is decided by the predicate's dialect, not by the surface.** A bare\n   string routes to the legacy JS evaluator (lenient, returns falsy, param silently\n   DROPPED); an envelope routes to CEL (faults, param silently KEPT). One `visible` key,\n   two opposite outcomes, chosen by whether the authored text happens to contain `${…}` /\n   `===` — which is the objectui#3314 shape, on a function that never got the\n   `toPredicateInput` / `evalRowPredicate` conversion the rest of the predicate faces did.\n\nImpact is asymmetric and both halves are bad: a silently DROPPED param means the dialog\nnever collects a value the server requires, so the action fails on submit with nothing\npointing at the predicate; a silently KEPT one offers a field the backend rejects, which is\nthe exact case `create_user`'s `features.phoneNumber == true` gate exists to prevent.\n\n## Why this needs a decision rather than a patch\n\nNeither obvious fix is verdict-neutral, and each flips a test that was pinned on purpose in\n`ActionParamDialog.test.tsx`:\n\n- **`throwOnError: true` + fail-open + warn** flips *\"hides a feature-gated param when the\n  flag is absent (conservative)\"* — under CEL a missing key is a fault, so\n  `features.phoneNumber == true` against `features: {}` would start SHOWING the param.\n- **`throwOnError: true` + fail-closed + warn** keeps that one but flips *\"defaults to\n  visible when the predicate is malformed (fail-open)\"*, and fail-closed on a param can\n  hide a field the user must fill.\n- **Routing through the canonical `evalRowPredicate`** (which is what would end the dialect\n  split and get the warn-once + label for free) additionally re-pins `record` / `data` to\n  the row, and this surface's scope is the host predicate scope, which carries its own\n  `data`. That shadowing is a behaviour change on its own.\n\nMy recommendation, for what it is worth: **fail-open + loud**, on the canonical entry, with\nthe `data` shadowing handled explicitly — a hidden required param is the harder failure to\ndiagnose than an extra field the server rejects with a message. But the conservative\nfeature-flag case is a real requirement pulling the other way and should be ruled on, not\nguessed.\n\nBlocked-by: nothing. Related: #4051 (the funnel that was loudened in rc.5),\nobjectstack-ai/objectstack#8500 (where this was measured), #3314 (one value, one answer).\n"
+}

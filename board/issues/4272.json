@@ -1,0 +1,35 @@
+{
+  "number": 4272,
+  "kind": "issue",
+  "title": "Date formatter is half-localized: future relative forms and absolute timestamps stay en-US on a non-English locale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T10:14:03Z",
+  "updated_at": "2026-08-13T07:25:28Z",
+  "closed_at": "2026-08-13T07:25:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4272",
+  "body": "## Symptom\n\nOn a Chinese session (app locale `zh-CN`), the date formatter is only half-localized. **Past** relative forms localize (`逾期 6 天`, `刚刚`), but **future** relative forms stay English on the same page (`In 3 days`, `In 2 days`), and absolute timestamps render `en-US` (`8/11/2026 9:25 am`). (Studio itself correctly follows the app locale — that half passes; this card is only the formatter gap.)\n\n## Root cause\n\nLocated in `packages/fields/src/index.tsx`.\n\n- **Absolute timestamps.** `formatDateTime(value)` (lines 551-563) takes **no** `locale`/options parameter and calls `date.toLocaleDateString(undefined, {...})`. The `undefined` locale renders in the runtime default (en-US &rarr; `8/11/2026 9:25 am`). Its sibling `formatDate()` (line 541) correctly threads `options?.locale` — `formatDateTime` is the un-localized outlier and cannot be localized by any caller as written.\n- **Relative forms.** `formatRelativeDate()` &rarr; `formatRelativeDays(diffDays, options?.locale)` (line 512, body 469-480) localizes via `Intl.RelativeTimeFormat(locale, {numeric:'auto'})` in **both** directions when a locale is threaded; the English `In ${diffDays} days` / `Tomorrow` / `Yesterday` strings live only in the `catch` fallback (lines 475-478), and the past `dueLike`/overdue phrase resolves through `options.t` (`fields.relativeDate.overdue`). The observed past-localizes / future-English asymmetry points at the call sites feeding the app `locale`/`t` to the overdue-past path but not to the plain future-relative path, which then falls back to the environment locale.\n\n## Reproduction\n\nOn a Chinese session (app locale `zh-CN`), view a list/detail with a future-dated field (e.g. a due date 2-3 days out) and any datetime field. The future relative renders `In 3 days`; the datetime renders `8/11/2026 9:25 am` (en-US), sitting next to correctly localized past/overdue forms (`逾期 6 天`, `刚刚`).\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7640 (framework 92f26f75, console 09987b680)."
+}

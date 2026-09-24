@@ -1,0 +1,32 @@
+{
+  "number": 4487,
+  "kind": "issue",
+  "title": "flaky: DatasetWidget.dottedDimensionTable's \"issues the ONE read\" case asserts a fetch AFTER waiting only on the rendered cell",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-12T19:35:05Z",
+  "updated_at": "2026-08-15T12:51:05Z",
+  "closed_at": "2026-08-15T12:49:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4487",
+  "body": "Observed on an unrelated PR (#4485, the plugin-chatbot DOM-prop whitelist — it touches no dashboard code). `Test (shard 1/4)` went red on:\n\n```\nFAIL dom packages/plugin-dashboard/src/__tests__/DatasetWidget.dottedDimensionTable.test.tsx\n  > renders a LOCAL-only table exactly as the server sent it, and issues the ONE read (#4330)\nAssertionError: expected [] to deeply equal [ 'crm_opportunity' ]\n- [ \"crm_opportunity\" ]\n+ []\n ❯ packages/plugin-dashboard/src/__tests__/DatasetWidget.dottedDimensionTable.test.tsx:207:23\n Test Files  1 failed | 331 passed (332)\n```\n\nJob: https://github.com/objectstack-ai/objectui/actions/runs/31632075546/job/94233072634 (shard duration 329.91s, `import 650.16s` — a saturated run).\n\nNot the change under test, and not reproducible in isolation:\n\n- the same file on that branch, run alone: `Test Files 1 passed (1) · Tests 6 passed (6)`;\n- re-running the failed job on the identical commit: green (https://github.com/objectstack-ai/objectui/actions/runs/31632075546/job/94235316788).\n\n## The race, as the source reads\n\n```tsx\nawait waitFor(() => expect(firstRowCells()[0]).toBe('Education'));\nexpect(requested).toEqual(['crm_opportunity']);\n```\n\nThe wait is on the RENDERED CELL, but the assertion is about a metadata READ recorded by `installMetaRouter`. On the local path the row renders from the server's own rows — it does not depend on that read having resolved or even having been issued — so the two are only incidentally ordered. Under load the render wins and `requested` is still empty. This is AGENTS.md 测试纪律's profile exactly: an unbounded async step judged inside a window bounded by something else.\n\n## Not a timeout bump\n\nAGENTS.md forbids fixing this class by raising a timeout or moving the file into `heavyDomTests` — both hide the race. The fix is to wait on the thing being asserted, e.g. `await waitFor(() => expect(requested).toEqual(['crm_opportunity']))`, keeping the rendered-cell assertion as its own step. The \"exactly ONE read\" property (the point of the case, per #4330) is preserved: a `waitFor` on set equality still fails on a second read.\n\nFiled unassigned while implementing #4431; not fixed there — out of that card's surface.\n"
+}

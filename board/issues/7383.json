@@ -2,8 +2,8 @@
   "number": 7383,
   "kind": "issue",
   "title": "finding(core): `like` / `ilike` are spec-valid AST operators that `ValueDataSource`'s in-memory matcher does not implement — now refused loudly instead of matching every row",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-project-manager",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:on-hold",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-02T15:20:09Z",
-  "updated_at": "2026-09-13T11:19:52Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T15:04:54Z",
+  "closed_at": "2026-09-24T15:04:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7383",
   "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) out of the review of PR #7377 (#7349), so the decision taken there is visible to a query instead of living in a PR body and a `default` arm.\n\nDedupe: semantic search for the in-memory matcher not implementing `like` / `ilike` returns only #7379 (a different operator defect — `contains` executing `icontains` semantics) and #7349 itself; control query on the same endpoint fires with 4 hits including #7349, #6948 and #4744. No card names this.\n\n## The state\n\n`like` and `ilike` are **members of the spec's published AST operator vocabulary**. They survive canonicalisation as themselves, pinned in the spec's own suite:\n\n```\npackages/spec/src/data/filter-like-wire-lowering.test.ts:146\n  expect(canonicalAstOperator('like')).toBe('like');\n  expect(canonicalAstOperator('ilike')).toBe('ilike');\n  expect(canonicalAstOperator('like')).not.toBe(canonicalAstOperator('contains'));\n```\n\n`@object-ui/core`'s `ValueDataSource.matchesASTFilter` does **not** implement them. It has no pattern engine.\n\n⚠️ **This is not a regression introduced by PR #7377, and reading it as one would be wrong.** The matcher never implemented them. What #7377 changed is the *failure mode*:\n\n| | before #7377 | after #7377 |\n|---|---|---|\n| authored `['role', 'like', '%admin%']` | matched **every row**, silently | matches **no row**, with one `console.warn` naming the operator |\n\nBoth answers are wrong; the second one says so. The gap between \"the spec declares it\" and \"this consumer executes it\" is unchanged and pre-existing.\n\n## Why it was left refused rather than implemented\n\nRuled by the seat on #7349 (comment 5511900935), as open question 2 of that dispatch, recommendation A from the implementing lane and accepted:\n\n- **Zero measured pull.** No producer in this repo emits `like` or `ilike` into a filter. The card that would justify implementing them does not exist yet.\n- **The spec already exports `matchesLikePattern`**, so the day a producer appears the implementation is a small, well-defined piece of work — declining now costs almost nothing later.\n- **The refusal is loud.** A silent wrong answer needs someone to notice a result set is too large; a refusal names the operator in the console and returns an empty set, so the first producer to emit one surfaces the gap by itself.\n- Startup scope discipline: implementing a published-but-unconsumed operator is speculative surface.\n\n## What would change the answer\n\nAny producer emitting `like` or `ilike` into a `$filter` that can reach a `provider: 'value'` data source. At that point this stops being an observation and becomes a defect with a user behind it, and the repair is bounded: canonicalise as today, add two arms backed by the spec's `matchesLikePattern`, pin both against the wire-side lowering.\n\n⛔ Deliberately **not** proposed here: implementing them now. That is the decision already taken; this card exists so the decision is findable, and so a future producer has somewhere to land.\n\nRefs: #7349 / PR #7377 (where the refusal arm landed and this was ruled) · #7379 (the sibling operator defect in the same switch — `contains` computing `icontains`) · #7380 (the constructor's JSON round-trip, same file)."

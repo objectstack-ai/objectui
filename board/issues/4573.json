@@ -1,0 +1,32 @@
+{
+  "number": 4573,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the Studio grid's columns keep a stable identity — no duplicate find() per render (#4567)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T12:05:51Z",
+  "updated_at": "2026-08-13T12:25:39Z",
+  "closed_at": "2026-08-13T12:25:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T12:25:37Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4573",
+  "body": "Fixes #4567\n\n## The chain — all three legs verified on `origin/main` at ffca56f98\n\n1. **Producer** — `StudioDesignSurface` built the object-view `table.fields` with `readFields(objDraft.fields).entries.map(...).filter(...)` inline, allocating a fresh array on every render of the pillar.\n2. **Forward** — plugin-view's ObjectView hands that array to the `renderListView` slot as `columns` **by reference** (`packages/plugin-view/src/ObjectView.tsx:997` — no map/filter of its own). In design mode there is no saved view, so it falls through to `schema.table?.fields`.\n3. **Consumer** — `ListView` derives `expandFields` from `schema.columns` with that array in the memo's dependency array **by identity** (`packages/plugin-list/src/ListView.tsx:1245-1294`), and `expandFields` is itself in the fetch effect's dependency array (`:1609`). A fresh array therefore refetches.\n\n## The fix — producer side\n\nThe columns array is memoized on the draft's `fields`, so it changes identity only when its contents change. `ListView`'s by-identity dependency is **untouched** — it is correct for a genuine column change, and `plugin-list` is read-only for this card.\n\n### Memo inputs, measured rather than guessed\n\n- `objDraft` is `React.useState` (`StudioDesignSurface.tsx:2002`), so it is stable across renders and a sound key.\n- The correct key is `objDraft.fields`, **not** `objDraft`: `onPatch` does a spread that replaces the draft object while keeping `fields` identical, so the looser key would churn the columns — and refetch — on every unrelated draft edit such as an icon or label change. The neighbouring `fieldCount` memo uses the looser key; this one deliberately takes the tighter one.\n- `STUDIO_SYSTEM_FIELD_NAMES` is a module-scope `Set`, so it is stable and not a dependency.\n- No other fetch-dep churn exists on this path: `renderStudioGridList` adds only primitives plus `addRecord`, which is not in ListView's fetch dependency array, and `schema.data` / `schema.filter` / `schema.searchableFields` are all undefined here. `expandFields` was the **only** per-render identity churn, which is why the producer memo alone reaches exactly zero — matching the filer's hoisted-columns measurement.\n\n## Red-first, with the filer's measurement shape\n\nNew suite `StudioDesignSurface.gridColumns.test.tsx` drives the **real producer** (`DataPillar`), not a reconstruction — the defect is a property of how that component builds its schema, so a harness building its own array would measure the harness.\n\nPredicted before running: three no-op re-renders grow the find() count by exactly 3. Actual, verbatim, before the fix:\n\n```\nAssertionError: expected 5 to be 2 // Object.is equality\n- Expected  2\n+ Received  5\n```\n\nExactly +3, one per render, reproducing the filer's 1 to 4 shape (this harness's mount settles at 2 rather than 1; the delta is the measurement). After the fix: 2 tests passed.\n\n## Reverse verification\n\nFix removed via a patch file plus `git checkout --` (never `git stash`), restore sha256-verified:\n\n- no-op re-render case: **red again**, `expected 5 to be 2`\n- real-column-change case: **stays green**\n\n## Must-not-change pins\n\n- **The dependency stays live.** A real column change still refetches. That pin is green before *and* after the fix by design — it is a must-not-change, not a red-first case, and reporting it as red would be a fabrication. Its force comes from the path it uses: \"+ Add field\" mutates `objDraft.fields` **without** remounting the grid (its key is unchanged), so the refetch it produces can only have arrived through the column-identity dependency chain. A memo that froze the columns or returned a constant turns it red.\n- **#4549 / PR #4571 untouched.** Its `gridRefresh` suite stays exactly as it is, including its own `STABLE_COLUMNS` hoisting — that workaround is what this fix makes unnecessary in production, but removing it from that suite would change what those tests measure. Both its bump-refetch and no-storm cases stay green.\n- **#4558 panel/inspector wiring untouched**; the `renderStudioGridList` region is not disturbed beyond the memo.\n\n## Verification\n\n- `vitest run --maxWorkers=2 packages/app-shell/src/views/studio-design/` — **26 files, 146 tests passed**\n- `pnpm --filter @object-ui/app-shell type-check` — both tsc passes green (`tsc --noEmit` and `tsc -p tsconfig.test.json`)\n- ESLint **net zero** vs `origin/main`: the touched source file reports 15 warnings / 0 errors both before and after; the new test file contributes 0\n- `check:control-bytes`, `check:phantom-deps` green; control-character self-scan over every touched file clean\n- **Public entry `.d.ts` byte-identical both ways** — `dist/` and `tsconfig.tsbuildinfo` cleared between builds, same sha256 `72075d2c...`, empty diff. Module-local memoization, hence `patch`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

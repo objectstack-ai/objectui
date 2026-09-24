@@ -1,0 +1,33 @@
+{
+  "number": 4704,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): await the requested-fetch assertion, not the rendered cell (#4487)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T12:30:32Z",
+  "updated_at": "2026-08-15T12:49:41Z",
+  "closed_at": "2026-08-15T12:49:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T12:49:39Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4704",
+  "body": "Fixes #4487\n\n## What\n\nThree `DatasetWidget` tests in `packages/plugin-dashboard/src/__tests__/` had the\nshape this card names: a `waitFor` on rendered content, immediately followed by a\nBARE `expect(requested)...` assertion on `installMetaRouter`'s recorded fetch list.\nThe awaited content in each case renders BY IDENTITY (the raw/already-resolved value\nsurvives untouched whether or not the metadata read has settled — or even been\nissued yet), so the two statements are only incidentally ordered. Under a saturated\nevent loop, the render can commit before the metadata-fetch effect has fired at all,\nand the very next synchronous line sees an empty/partial `requested` array.\n\nConfirmed from `useDatasetDimensionMeta` (`packages/react/src/hooks/useDatasetDimensionLabels.ts`):\nthe metadata fetch is issued from an effect gated on `state.object`, which is only\npopulated by the SAME `setState` that also makes the rows visible — so the DOM commit\nand the fetch-triggering effect are only \"usually\" ordered close together, never\ncausally coupled, for a dimension whose displayed value doesn't depend on the fetch's\nresult.\n\n## Sites fixed (the sweep, not just the named line)\n\n- `DatasetWidget.dottedDimensionTable.test.tsx:207` — the issue's named site\n  (`renders a LOCAL-only table exactly as the server sent it, and issues the ONE\n  read (#4330)`).\n- `DatasetWidget.dottedDimension.test.tsx:269` — the second site attached to this\n  issue on 2026-08-15 (`falls through gracefully when the relationship segment is\n  not a relationship`).\n- `DatasetWidget.localSelectI18n.test.tsx:304` — found sweeping the file family\n  (`BOUNDARY — a dimension whose field carries no options renders untouched`); the\n  file's own header already documents the mechanism in prose (\"the RENDERED half is\n  green in both directions... and the read-count half is not\").\n\nEvery other `installMetaRouter`/`requested` site in the same file family (10 more,\nacross `DatasetWidget.dottedDimensionTable.test.tsx`, `.dottedDimension.test.tsx`,\n`.optionLabelI18n.test.tsx`, `.localSelectI18n.test.tsx`) was checked and left as-is:\nin each of those the awaited content is a value the widget can only produce AFTER\nthe metadata read has resolved (a dotted-path label, a locale-bundle translation, or\na multi-hop walk), so the read is causally required before the wait can pass — not\nracy. The METRIC case (`dottedDimensionTable.test.tsx:389`) asserts `requested` is\npermanently `[]`, and `useDatasetDimensionMeta` is passed `enabled: !isMetric`, so no\nfetch is ever issued on that branch regardless of timing — also not racy.\n\n## Fix\n\nWrap each `requested` assertion in its own `waitFor`, mirroring the repo's existing\nidiom for asserting on a recorded fetch mock (`await waitFor(() =>\nexpect(fetchMock)...)`, used in `plugin-chatbot`, `plugin-grid`, `app-shell`, `auth`,\n`plugin-detail`). The assertions keep their exact-set substance (`toEqual`, not\n`toContain`/`toBeGreaterThan`) — the \"exactly ONE read\" invariant these pins exist\nfor still fails if a regression adds a second fetch.\n\n## Verification\n\n- **Premise reproduced locally**: a loop of 25 isolated runs of the three affected\n  files against the PRE-FIX content (temporarily restored from `origin/main`,\n  committed fix left intact on the branch) hit the exact failure CI reported:\n  `DatasetWidget.dottedDimension.test.tsx:269` failed on run 14/25 with\n  `AssertionError: expected [] to deeply equal [ 'crm_opportunity' ]` — byte-identical\n  to the failure text quoted in both the issue and its 2026-08-15 comment. The SAME\n  loop against the fixed code (40 runs) was 0/40 failures.\n- **Reverse verification (deterministic)**: temporarily widened the race window by\n  adding a 20ms delay to `installMetaRouter`'s mock (test-double only) at the issue's\n  named site, then ran 5x with the OLD bare-assertion form (5/5 failed, same\n  assertion text) and 5x with the NEW `waitFor` form under the identical delay (5/5\n  passed). The delay and the temporary form-swap were never committed — the pushed\n  diff is only the three `await waitFor(...)` wraps plus their comments.\n- `pnpm --filter '@object-ui/plugin-dashboard^...' build` (dependency closure,\n  fresh worktree) — green.\n- `pnpm --filter @object-ui/plugin-dashboard run type-check` — green, no errors.\n- `pnpm exec vitest run packages/plugin-dashboard/` (full package) —\n  `Test Files 58 passed (58)`, `Tests 462 passed (462)`.\n- `pnpm exec eslint --quiet` on the three touched files — clean.\n- `node scripts/check-changeset-presence.mjs` — green (empty-frontmatter changeset\n  declared, tests-only).\n- `pnpm run check:control-bytes` — green.\n- HEAD for all of the above: `d321dd08c`.\n\n## Scope\n\nTests-only, `packages/plugin-dashboard/src/__tests__/` + one empty-frontmatter\nchangeset. No production source touched, no `skip-changeset` label applied (this PR\nreleases nothing, so the changeset itself is the correct declaration).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

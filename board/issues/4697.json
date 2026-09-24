@@ -1,0 +1,34 @@
+{
+  "number": 4697,
+  "kind": "issue",
+  "title": "app-shell metadata-admin inspectors escape to the real network via useObjectFields/useObjectOptions (ECONNREFUSED noise, different probe than #4688)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T10:35:55Z",
+  "updated_at": "2026-08-15T11:27:43Z",
+  "closed_at": "2026-08-15T11:27:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4697",
+  "body": "Split off objectui#4688 while implementing it. That card's own acceptance criteria anticipated this: \"a remainder from a DIFFERENT probe is a new finding, not this card's\" — measurement below shows the entire app-shell + plugin-designer 180-line ECONNREFUSED count objectui#4688 attributed to the grid's record-level explain probe is actually **100% a different, pre-existing probe**, unrelated to `ObjectGrid`/`useRecordCrudVerdicts`/#4296.\n\n## Mechanism\n\n`packages/app-shell/src/views/metadata-admin/previews/useObjectFields.ts` and `useObjectOptions.ts` both call `useMetadataClient()` (`../useMetadata`) with no override, and both fire their fetch unconditionally in a mount-time `useEffect` — no click, no host adapter required. `useMetadataClient()` returns `createConsoleMetadataClient(...)`, which defaults its transport to `createAuthenticatedFetch()` (`@object-ui/auth`), which in turn calls the bare global `fetch`. Under happy-dom with no server listening, that is a REAL request to the default origin, exactly the same failure shape as objectui#3339 / objectui#4688 (`connect ECONNREFUSED 127.0.0.1:3000`) but a **different endpoint** (`GET /api/v1/meta/object` and `GET /api/v1/meta/object/<name>` — confirmed by instrumenting the fetch call site directly) — not `POST /api/v1/security/explain`.\n\nBoth hooks document graceful degradation on failure (\"a missing object name, a 404, or a transport error all resolve to an empty list with `error` set\"), so the failing calls do not fail any test — same \"harmless noise\" character as #4688's escape, just a different call site.\n\nFive inspector components reach these hooks directly or via `ConditionBuilder`:\n- `ConditionBuilder.tsx` → `useObjectFields(objectName)` (no override)\n- `PageBlockInspector.tsx` → both `useObjectFields(objectName)` and `useObjectOptions()`\n- `HookDefaultInspector.tsx` → `useObjectOptions()` (+ renders `ConditionBuilder`)\n- `ActionDefaultInspector.tsx` → `useObjectFields(objectName)`\n- `ViewVariantInspector.tsx` → `useObjectFields(...)`\n\n## Measured (current `main`, `b4bccc794`)\n\nPer-file ECONNREFUSED line counts, `pnpm exec vitest run <file> --maxWorkers=1` each (isolated runs — a batched run undercounts because some in-flight rejections do not settle before the process exits):\n\n| file | ECONNREFUSED lines |\n| --- | --- |\n| `packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.i18n.test.tsx` | 70 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.sectionName.test.tsx` | 40 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ConditionBuilder.celGate.test.tsx` | 12 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/HookDefaultInspector.condition.test.tsx` | 12 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ViewVariantInspector.celGate.test.tsx` | 12 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ViewVariantInspector.homeGate.test.tsx` | 12 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ActionDefaultInspector.celGate.test.tsx` | 8 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/ConditionBuilder.test.tsx` | 8 |\n| `packages/app-shell/src/views/metadata-admin/inspectors/HookDefaultInspector.celGate.test.tsx` | 6 |\n\nSum = 180, exactly matching objectui#4688's \"app-shell + plugin-designer: 180\" row when the full `packages/app-shell/src/views/metadata-admin/inspectors/` directory is run together. Bisection confirmed no other directory in app-shell or in `plugin-designer` (which contributes 0) is involved: `views/` top-level files → 0, `views/studio-design/` → 0, `views/metadata-admin/previews/` → 0, `views/metadata-admin/inspectors/` → 180.\n\nDiagnostic proof of the URL (instrumented `globalThis.fetch` via `vi.stubGlobal` inside `vitest.setup.base.ts`, output routed through `process.stderr.write` since `console.error` is swallowed by vitest for passing tests):\n```\nOS_DIAG_FETCH_URL /api/v1/meta/object\nOS_DIAG_FETCH_URL /api/v1/meta/object/contact\n```\n\n## Suggested direction\n\nSame class of remedy as #3339/#4105/#4688 — a recorded double, not a global error sink — but for a different hook. `packages/app-shell/src/views/metadata-admin/inspectors/FlowReferenceField.lookup.test.tsx` already has the precedent shape for this exact package: `vi.mock('../useMetadata', () => ({ useMetadataClient: () => stubClient }))`, where `stubClient` is a minimal `{ list: vi.fn(async () => []) , get: vi.fn(async () => null) }` (or wire a real `MetadataClient` over a stub `fetch`, matching `MetadataFieldsPage.retiredIndexed.test.tsx`'s pattern). Either keeps existing assertions passing unchanged, since none of the 9 files' assertions read the fetched object list/fields.\n\n## Provenance\n\nMeasured in worktree `objectui-issue-4688` (branch `claude/issue-4688-consumer-explain-doubles`) while implementing objectui#4688, on top of `b4bccc794`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_\n"
+}

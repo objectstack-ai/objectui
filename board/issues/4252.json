@@ -1,0 +1,36 @@
+{
+  "number": 4252,
+  "kind": "issue",
+  "title": "[console] Apps blocked by requiredPermissions render the \"may still be publishing\" placeholder, disguising an authorization denial as a transient deploy state",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T07:48:16Z",
+  "updated_at": "2026-08-13T04:04:18Z",
+  "closed_at": "2026-08-13T04:04:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4252",
+  "body": "## Summary\n\nWhen a user lacks the capability listed in an app's `requiredPermissions`, the Console renders the **\"not published yet\"** placeholder:\n\n> **App not available**\n> This app is not available yet — it may still be publishing.\n\nThat copy describes a *transient deployment state*. The actual condition is a *permanent authorization decision*. The two are indistinguishable to the user, and — as we found the hard way — to whoever is debugging.\n\n## Why this matters (real cost, not cosmetic)\n\nDuring an acceptance test round on a downstream app, a tester hit this screen with one role's account while another role opened the same app fine. Because the copy says \"may still be publishing\", the finding was filed as a suspected platform/product defect and carried through two separate test batches. A follow-up investigation on a clean baseline eventually proved the account was simply missing a permission-set binding — the gate was working exactly as designed.\n\nThe wrong copy is what made an authorization problem look like an infrastructure problem. Anyone who trusts the message will go looking in the wrong place.\n\n## Root cause as far as we can see from the outside\n\n`GET /api/v1/meta/apps` **omits** apps the session isn't authorized for (server-side `filterAppForUser`). From the Console's point of view an unauthorized app and a nonexistent/unpublished app are byte-identical: both are simply absent from the list. So the Console picks the only message it has.\n\nThis means the fix probably can't live purely in the renderer — the API needs to distinguish the two cases (e.g. return the app entry with an `authorized: false` marker, or answer the by-name endpoint with a permission-denied envelope instead of a 404-equivalent) before the Console can say the right thing.\n\n## Steps to reproduce\n\n1. Define an app with `requiredPermissions: ['<some.capability>']`.\n2. Create a user holding some permission set that does **not** grant that capability (any other capability is fine — the point is the app-level one is missing).\n3. Sign in as that user and navigate directly to the app URL: `/_console/apps/<app_name>/...`.\n4. **Expected:** a message that says access is denied / not authorized for this app.\n   **Actual:** \"App not available — This app is not available yet, it may still be publishing.\"\n\nVerified against `@objectstack/*@17.0.0-rc.5`. Both the list route and record route render the same screen. A user *with* the capability renders the app normally on the same instance at the same moment, so the gate itself behaves correctly.\n\n## Ask\n\nDistinguish the two states in the Console:\n\n- **not published / does not exist** → keep the current copy;\n- **exists but the session is not authorized** → say so plainly.\n\nDownstream projects can't work around this — the Console's built-in strings aren't overridable from app metadata.\n"
+}

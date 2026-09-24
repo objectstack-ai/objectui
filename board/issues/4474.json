@@ -1,0 +1,36 @@
+{
+  "number": 4474,
+  "kind": "issue",
+  "title": "console: organization & invitation UI ships untranslated English in a zh locale (6 sites, incl. icon-only aria-labels)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T15:54:45Z",
+  "updated_at": "2026-08-12T21:31:09Z",
+  "closed_at": "2026-08-12T21:31:09Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4474",
+  "body": "> Moved from objectstack-ai/objectstack#8094 at triage (file-at-destination: all six sites are in this repo). Filed 2026-08-12 by @baozhoutao from a multi-org console walkthrough, original grading `priority:p3`. Batch siblings: objectstack-ai/objectstack#8090 #8091 #8092 #8093.\n\nWith the console in `zh`, the organization / invitation surfaces mix untranslated English into otherwise Chinese screens. Collected in one pass over the sign-up → create workspace → invite → accept flow (2026-08-12):\n\n| Where | Shown | Note |\n|---|---|---|\n| Invite user dialog, **角色** dropdown | `Delegated Admin` | siblings render 所有者 / 管理员 / 成员 |\n| Members page, role badges | `Owner`, `Member` | the same roles are 所有者 / 成员 in the invite dropdown — inconsistent within one feature |\n| Invite dialog submitted by a `member` | `You are not allowed to invite users to this organization` | raw server message rendered as inline form error |\n| Create workspace, slug already taken | `Organization already exists` | inline form error |\n| Accept-invitation page, wrong recipient | `You are not the recipient of the invitation` | toast body under the translated title 接受失败 |\n| Members / invitations rows | `aria-label` = `Member actions`, `Copy invitation link`, `Cancel invitation` | icon-only buttons — this is the only label a screen reader gets |\n\nThe last three are server-supplied strings echoed verbatim; they need a code→message mapping on the client (better-auth returns a stable `code`, e.g. `YOU_ARE_NOT_ALLOWED_TO_INVITE_USERS_TO_THIS_ORGANIZATION`), not a translation of the English text.\n\nFiled as one issue because it is a single sweep over one feature area; split per surface if that suits the fix better.\n\n## Where\n\n`packages/app-shell/src/console/organizations/` (`manage/MembersPage`, `manage/InvitationsPage`, `manage/InviteMemberDialog`, `manage/AcceptInvitationPage`, `OrganizationsPage` create dialog).\n\n## Environment\n\nLocal dev server `http://localhost:8080`, multi-org enabled, zh locale. The server was started by the maintainer and its exact commit is not verified."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 4561,
+  "kind": "pull_request",
+  "title": "fix(app-shell): every CelPredicateField binds its label — useId fallback when no id is passed (#4533)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T09:16:12Z",
+  "updated_at": "2026-08-13T09:32:56Z",
+  "closed_at": "2026-08-13T09:32:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-13T09:32:54Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4561",
+  "body": "Fixes #4533\n\n`CelPredicateField` renders **both halves** of its own label association — the `Label htmlFor` and the `Textarea id` — but `id` was an optional prop with no fallback, so a call site that omitted it left both `undefined`: a label that reads correctly on screen and resolves to nothing, and an editor with no accessible name.\n\nThe RLS `USING (read filter)` and `CHECK (write filter)` clauses on the permission-set editor were mounted that way, so **the row-filter authoring surface of a permission set had no accessible name**. It surfaced from the authoring side rather than from review — writing #4302's wire pins, the obvious selector was refused verbatim:\n\n```\nTestingLibraryElementError: Found a label with the text of: USING (read filter),\nhowever no form control was found associated to that label. Make sure you're using\nthe \"for\" attribute or \"aria-labelledby\" attribute correctly.\n```\n\n## The fix is at the contract, not the call sites\n\n`id` now falls back to `React.useId()`, used for both halves. The association becomes a property of **mounting the component** instead of every caller remembering a prop, so a future call site cannot silently reintroduce an unlabelled control. An explicit `id` still wins unchanged.\n\nPer the ruling's second point, no call site is edited. The measurement for \"concrete need\" — stable ids asserted by existing tests — finds four such assertions, all `document.getElementById('cf-condition-0')` in `ConditionalFormattingEditor.test.tsx`, i.e. against a site that already passes an explicit id. **Zero** existing tests assert an id at either RLS site, so the fallback is the whole fix and the surface stays at one component, one new test, one changeset.\n\nOne deliberate consequence, pinned rather than left unremarked: `listId` was `id ? id-ac : undefined`, so an id-less mount also had **no `aria-controls`** — the combobox never announced its own popup. It is derived from the resolved id now, closing the same association hole in the same mechanism.\n\n## Two corrections to the card's table\n\nBoth measured on `origin/main` before any edit:\n\n| site | card says | measured | verdict |\n|---|---|---|---|\n| `PermissionAdvancedFacets.tsx` RLS USING | omits `id` | omits `id` | valid |\n| `PermissionAdvancedFacets.tsx` RLS CHECK | omits `id` | omits `id` | valid |\n| `ConditionalFormattingEditor.tsx` | omits `id` | passes `cf-condition-{i}` | **premise false** |\n| `inspectors/ConditionBuilder.tsx` | not listed | omits `id` | **4th omitting site** |\n| `ObjectFieldInspector.tsx` (x4) | passes `id` | passes `id` | valid (pinned) |\n\n`ConditionalFormattingEditor` has passed an explicit id since the feature landed — `git log -S \"cf-condition-\"` has exactly one commit, the original #2558. At the card's own filing revision, line 272 is the mount's opening tag and line 287 is the `id` prop; the line number of the mount was recorded as the defect.\n\nMeanwhile `inspectors/ConditionBuilder.tsx` genuinely omits `id` and was not in the table. It belongs to another in-flight change and is **not** edited here — the component-level fallback repairs it with no call-site edit, which is the sharpest argument for fixing the contract rather than the callers.\n\n## Red-first\n\nPredictions were written before the suite ran. The six id-less cases were predicted red and failed with the refusal **byte-identical** to the one quoted in the card (6/6); the seven explicit-id pins were predicted green on unfixed `main` and were. After the fix: 13/13.\n\nReverse-verified by extracting the fix to a patch and `git checkout --` on the component (never `git stash` — the stash stack is shared across worktrees), re-running the **final** suite against a tree whose component hashed to origin/main's exact `sha256:75b1f1b4…`, then restoring to a byte-identical `sha256:78f6bbfd…`.\n\n## Verification\n\n- Family suites — `CelPredicateField`, `PermissionAdvancedFacets.cel` / `.retiredKeys`, `ConditionalFormattingEditor` + `.celGate`, `celAuthoring`, and #4534's `PermissionMatrixEditor.packageDoorFacets` (untouched): **8 files, 101 passed**\n- All inspectors + `DataPillar.celGate`: **47 files, 532 passed**, 1 skipped\n- `type-check` (both passes: `tsc --noEmit` and `tsc -p tsconfig.test.json`): clean\n- ESLint: 0 errors, 1 warning — `react-hooks/set-state-in-effect` on an effect this PR does not touch, **present identically on the `origin/main` baseline**; zero new findings\n- `check:control-bytes`, `changeset:check`, `check:phantom-deps`, `check:i18n-keys`, `check:i18n-drift`, `type-check:coverage`: all green\n- `.d.ts` measured both ways with `dist/` + `tsconfig.tsbuildinfo` cleared between builds: **all 415 declaration files byte-identical**, and `CelPredicateField` is absent from `dist/index.d.ts` — module-local, zero type-surface change, hence `patch`\n\nMust-not-change, all green: `ObjectFieldInspector`'s four explicit ids assert verbatim on a real mount; `cf-condition-0` still resolves; #4534's placeholder-based selection is untouched; lint / `onLintChange` behavior unchanged.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

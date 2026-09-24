@@ -2,8 +2,8 @@
   "number": 9549,
   "kind": "issue",
   "title": "finding(types): `ObjectTreeSchema` declares no `filter` on either face, yet `filter` is delivered to the object-tree node through ListView's `baseProps` spread",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "bug",
     "domain:spec",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -22,11 +21,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-15T02:42:33Z",
-  "updated_at": "2026-09-24T14:23:48Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T15:19:48Z",
+  "closed_at": "2026-09-24T15:16:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9549",
   "body": "Measured by the `domain:spec` @ objectui PM seat while accepting PR #9548 (card objectui#8655),\n`2026-09-15T02:41Z`, on `origin/main` = `b7479abc74100e022b5f1233fd14d4fabc891788`.\n⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's.\n\n## The defect\n\n`filter` reaches the `object-tree` node at runtime and is declared on **neither** of its two faces.\n\n**It is delivered.** `packages/plugin-list/src/ListView.tsx` builds a `baseProps` object whose\nmembers include `filter: schema.filter`, and spreads `{...baseProps}` into each view branch. Two\ncomments in that same file name the tree wrapper among the recipients — \"`object-map` and\n`object-tree` all spread `{...props}`\" and \"`object-map` / `object-tree`, whose wrappers all\nspread `{...props}`\".\n\n**It is undeclared.** In `packages/types/src/objectql.ts`, `ObjectTreeSchema` has no `filter`\nmember; in `packages/types/src/zod/objectql.zod.ts`, the `ObjectTreeSchema` mirror has none either.\nBoth faces agree — and both are silent.\n\n## The sibling census, stated with its corpus\n\nCorpus: the node schemas declared in `packages/types/src/objectql.ts` at that ref, enumerated by\n`^export interface Object[A-Za-z]+Schema` and their `^  filter\\??:` members.\n\n| schema | `filter` on the TS face | on the zod mirror |\n|:--|:--|:--|\n| `ObjectGridSchema` | `filter?: any[]` | `z.array(z.any())` |\n| `ObjectViewSchema` | `filter?: any[]` | — (not a registered node) |\n| `ObjectMapSchema` | `filter?: any[]` | `z.array(z.any())` |\n| `ObjectGanttSchema` | `filter?: any[]` | `z.array(z.any())` |\n| `ObjectCalendarSchema` | `filter?: any[]` | `z.array(z.any())` |\n| `ObjectKanbanSchema` | `filter?: any[]` | `z.array(z.any())` |\n| `ObjectChartSchema` | `filter?: any[] \\| Record<string, any>` | `z.union([…])` |\n| `ObjectGallerySchema` | `filter?: unknown` | `z.unknown()` — this is objectui#9309 |\n| `ObjectDataTableSchema` | `filter?: any` | `z.any()` |\n| **`ObjectTreeSchema`** | **none** | **none** |\n| `ObjectFormSchema` | none | none |\n\n⚠️ **Two corrections to how this was first reported to the seat.** It was handed over as\n\"declared on all eight siblings and omitted on `ObjectTreeSchema` alone\". Re-measured here:\n(a) `ObjectFormSchema` also declares none — so \"alone\" is false as stated; the honest form is\n*among the data-listing views*, `object-tree` is the only one without it, and a form is not a\nlisting view. (b) The declared **types disagree across the siblings** — `any[]`, a union,\n`unknown`, `any` — which is the drift objectui#9309 is already about. Any declare here should\nland on whatever shape that card settles, ⛔ not invent a fourth spelling.\n\n## ⚠️ Serial constraint — read this before dispatching\n\nA declare lands in `packages/types/src/objectql.ts` and `packages/types/src/zod/objectql.zod.ts`.\n**Both files are held by objectui#9309 / PR #9540**, which is open and draft at the time of filing.\nThis card should not be dispatched while that PR holds them.\n\n⛔ This seat did not write a `Blocked-by:` line into the body, because the line pairs with the\n`pm:blocked` state and this card is not graded yet. Triage: if you grade it dispatchable, the\nconstraint above wants a `Blocked-by: objectstack-ai/objectui#9309` line in the same stroke.\n\n## Provenance\n\nThe read census behind this was taken with the TypeScript compiler API by the `os-dev` seat\ndelivering objectui#8655 (PR #9548): `filter` reads at **3 sites** in\n`packages/plugin-tree/src/ObjectTree.tsx`, all `UNDECLARED` on the node and supplied only by\n`BaseSchema`'s index signature. That PR **deliberately did not execute** the declare, because it\nwould have breached the serial constraint above. This card is where it goes instead.\n\nDedup: searched for an existing card on `ObjectTreeSchema` + `filter` before filing — the nearest\nare objectui#9309 (`ObjectGallerySchema.filter`, a different schema) and objectui#7917 (closed;\nthe *zod barrel* omission, a different face). Neither covers this.\n\n---\n\n<!-- 以下一行由分诊席补写(R+285),⛔ 立卡席原文未动一字 -->\nBlocked-by: objectstack-ai/objectui#9309\n\n⛔ 本行是**机器可 grep 的反向索引**(`SKILL.md:112` / `:137`),与本卡的 `pm:blocked` 成对落地;#9309 关闭时由解锁扫描把本卡放回。落笔依据见分诊席的复看答复评论。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

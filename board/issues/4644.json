@@ -1,0 +1,35 @@
+{
+  "number": 4644,
+  "kind": "issue",
+  "title": "console: field designer still offers an \"Indexed\" toggle for a key FieldSchema rejects by name — ticking it hard-blocks the save",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "target:v17"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T13:33:47Z",
+  "updated_at": "2026-08-15T07:51:42Z",
+  "closed_at": "2026-08-15T07:51:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4644",
+  "body": "Measured on `@objectstack/console` **17.0.0 GA** in a real browser, downstream at objectstack-ai/hotcrm#1122 (GA close-out probe objectstack-ai/hotcrm#1154).\n\nFiled here rather than in `objectstack` because the fix is in the console field designer (`metadata-admin` bundle) — and because both prior console-chrome cards from this family landed here (PR #3379, PR #4602), per the maintainer's file-at-destination ruling (objectstack-ai/objectstack#7167, 2026-08-10).\n\n## The contradiction, both ends verified on GA\n\n**The designer ships the control.** `dist/assets/metadata-admin-DqAvOmNf.js`, console 17.0.0 GA:\n\n```js\nlabel:c(`designer.field.indexed`),value:!!C.indexed,onCommit:e=>D({indexed:e||void 0}),disabled:o\n```\n\n`designer.field.indexed` is translated in the shipped locale bundles, so this is a fully finished, intentional-looking control.\n\n**The spec refuses the key it writes.** Against `@objectstack/spec` 17.0.0 GA:\n\n```\nFieldSchema.safeParse({ name:'foo', label:'Foo', type:'text', indexed:true })\n  → success = false, code = unrecognized_keys\n  → \"Unrecognized key(s) on this field: `indexed`.\n     • never a FieldSchema key; a field-level index flag built no index (#2377).\n       Declare the index in the object's `indexes[]`. …\"\n\ncontrol — the identical field WITHOUT `indexed` → success = true\n```\n\n`FieldSchema` has no `index` / `indexed` key at all; the real surface is object-level `indexes: [{ name, fields, unique }]`, materialised by `SqlDriver.syncDeclaredIndexes`.\n\n## Round trip in the browser — what an admin actually gets\n\nWritable package created in Studio, one object, Data → Form · Layout → click a field → **Field properties**:\n\n1. The **ADVANCED** section renders `Read-only`, `Hidden`, **`Indexed`**, `External ID`, `Track history`. `Indexed` is offered on a plain field, unchecked and fully enabled.\n2. Tick it — `aria-checked` flips `false → true`.\n3. **Save draft**:\n\n```\nPUT /api/v1/meta/object/probe_widget?mode=draft&package=com.probe.p1154\n→ HTTP 422\n{\"error\":\"[invalid_metadata] object/probe_widget failed spec validation:\n  fields.owner_id: Unrecognized key(s) on this field: `indexed`. …\",\n \"code\":\"INVALID_METADATA\",\n \"issues\":[{\"path\":\"fields.owner_id\",\"message\":\"Unrecognized key(s) on this field: `indexed`. …\"}]}\n```\n\n4. The draft does not save. Header stays `Unpublished draft`, sub-header flips to `Draft layout — your unsaved changes`, and the toggle **stays ticked**.\n\n**The rejection is loud, not silent** — the console renders a red inline banner carrying the full spec guidance (#2377 / #4001 text included). That part is working as intended and is worth keeping.\n\n## Why this is still a bug\n\nThe defect is not the error — it is that the designer offers a control whose value **can never be persisted**. The only reachable outcome of ticking `Indexed` is a hard-blocked save on a key the UI itself just wrote, and every subsequent save of that object stays blocked until the user finds and un-ticks it. The control promises an index nobody creates, which is exactly what #2377 removed the field-level flag for; the UI was not retired alongside it.\n\n## Suggested fix\n\nRetire the toggle from the field designer. If an index-authoring affordance is wanted in Studio, it belongs on the **object**, writing `indexes[]` — not on the field. Same treatment presumably applies to any sibling control writing a retired `FieldSchema` key; `External ID` sits right next to it and is worth checking in the same pass (not measured here).\n\nRefs: objectstack-ai/objectstack#2377 (field-level flag removed), #4001 (silent-drop closed → loud rejection), #5248 (sibling `indexes[].type` / `indexes[].partial` removals).\nDownstream: objectstack-ai/hotcrm#1122."
+}

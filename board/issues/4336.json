@@ -1,0 +1,36 @@
+{
+  "number": 4336,
+  "kind": "issue",
+  "title": "记录详情页的 lookup 字段渲染成纯文本+复制按钮,不可点击跳转到被引用记录(列表页的链接列正常)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T15:46:37Z",
+  "updated_at": "2026-08-12T20:42:28Z",
+  "closed_at": "2026-08-12T20:42:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4336",
+  "body": "## 现象\n\n记录详情页(record detail)上的 **lookup 关系字段渲染成纯文本 + 复制按钮,不是可点击的链接**——看得到被引用记录的显示名,却没法从这里跳过去。\n\n在一个业务项目(17.0.0-rc.6)上观察到,同一张详情页上多个 lookup 字段行为一致:\n\n- `关联维修派工单`(lookup → 维修派工单,`readonly: true`)—— 纯文本 `TYG1WX20260812001001`,不可点击;\n- `点检任务`(lookup → 任务,**非** readonly)—— 纯文本 `#1072b埋弧焊机日常点检(TYWI003)`,同样不可点击;\n- `任务版本`(lookup,readonly)—— 同上。\n\n另一个对象(安灯记录)详情页上的 `生成的维修派工单` 字段也是同样表现,所以看起来与具体对象、与字段是否 readonly 都无关。\n\n## 期望\n\n详情页上的 lookup 字段值应可点击,跳到被引用记录的详情页(与列表页里 `link: true` 的列、以及相关表里行点击进详情的体验一致)。\n\n单据之间互相引用是业务系统的常态(点检记录 → 派生的维修单 → 关联设备 → …),详情页不给跳转,用户只能复制编号再回列表搜,链路上每跨一张单都要绕一圈。\n\n## 复现\n\n1. 任意对象 A 上定义一个 lookup 字段指向对象 B;\n2. 建一条 A 记录并让该字段有值;\n3. 打开这条 A 记录的**详情页**(非列表、非相关表);\n4. 该字段值区域:是纯文本 + 一个复制按钮,鼠标悬停无链接态,点击无反应。\n\nreadonly / 非 readonly 都一样。\n\n## 环境\n\n- `@objectstack/*@17.0.0-rc.6`\n- Console UI(`/_console`),桌面视口\n- 单租户模式\n\n## 备注\n\n来自一个使用 ObjectStack 的业务项目在验收测试中的观察。如果这是有意设计(比如详情页刻意不做跳转以避免层层下钻),麻烦说一声,我们按现状调整用户预期;如果只是还没做,想问下有没有排期,或者有没有当前版本可用的声明方式(试过在字段上找可选项,没找到相关开关)。\n"
+}

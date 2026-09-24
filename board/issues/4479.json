@@ -1,0 +1,34 @@
+{
+  "number": 4479,
+  "kind": "issue",
+  "title": "Deleting a draft-only saved view no-ops — `deleteView` has no draft qualifier, and the mirror of #4139 is NOT mechanical (it would break published+draft pairs)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T18:59:41Z",
+  "updated_at": "2026-08-13T09:39:59Z",
+  "closed_at": "2026-08-13T09:39:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4479",
+  "body": "Split out of #4463 per the ruling on that card (objectstack-ai/objectui#4463 comment 5270772373): the secondary defect was to be fixed in the same PR **only if** teaching `deleteView` the draft qualifier is the mechanical mirror of what `updateView` gained in #4139. It is measured below as **not mechanical**, so it becomes this card. The primary fix (the unbound `updateView` calls) shipped separately.\n\n## Symptom (from #4463's QA run)\n\nDeleting a view that exists only as a *draft* issues `DELETE /api/v1/meta/view/` against the published overlay and returns\n\n```\n200 {\"success\":true,\"reset\":false,\"message\":\"No view '' found — nothing to delete.\"}\n```\n\nThe draft survives and the tab is still present after reload. Delete on a *published* view works correctly (`reset:true`, tab gone).\n\n## Where it is\n\n`packages/data-objectstack/src/index.ts` — `deleteView` is unqualified:\n\n```ts\nasync deleteView(objectName: string, viewName: string): Promise< { deleted: boolean } > {\n  await this.connect();\n  const result: any = await this.client.meta.deleteItem('view', viewName);\n  this.invalidateViewKeys(objectName, viewName);\n  return { deleted: !!(result?.deleted ?? result?.reset ?? true) };\n}\n```\n\n`updateView`, by contrast, probes the draft first (`metaClient.get('view', name, { state: 'draft' })`) and writes back to whichever home the read resolved.\n\n## Why the mirror is NOT mechanical — measured\n\nThe draft-discard primitive exists and is reachable, so a naive mirror is easy to write:\n\n- `MetadataClient.reset(type, name, { state: 'draft' })` issues `DELETE /meta/:type/:name?state=draft` (`packages/data-objectstack/src/metadata-client.ts`).\n- `MetadataDeleteOptions.state` is documented there as: *\"`'draft'` discards the pending draft (keeps the published overlay intact).\"*\n- Server side confirms it: `deleteMetaItem` in framework `packages/metadata-protocol/src/protocol.ts` probes `repo.get(ref, { state: targetState })` and targets only that state.\n\nThe problem is what draft-first **means** for delete, in the case where a view has both homes:\n\n| case | today | naive draft-first mirror |\n|---|---|---|\n| draft-only view | **bug** — hits published overlay, `reset:false`, draft survives | correct — draft discarded, view gone |\n| published-only view | correct — `reset:true`, tab gone | correct — probe misses, falls through to published |\n| **published + pending draft** | **correct enough** — published overlay deleted, tab gone | **new regression** — only the draft is discarded, the published view survives and the tab is still there after reload |\n\nThe third row is not a corner case. `persistRuntimeMetadata` (`packages/app-shell/src/views/runtime-metadata-persistence.ts`) stages **every** runtime edit as a draft — `metadataClient.save(type, name, body, { mode: 'draft' })` — so \"publish a view, then edit it\" routinely produces a published+draft pair. A draft-first delete on that pair silently turns **Delete view** into **Discard draft**.\n\nAnd *Discard draft* is a distinct operation that already exists, in the same file:\n\n```ts\nexport async function discardRuntimeDraft(type, name, ctx): Promise< void > {\n  await ctx.metadataClient.reset(type, name, { state: 'draft' });\n  invalidateViewCaches(type, name, ctx);\n}\n```\n\ndocumented as *\"Discard the pending draft of a runtime artifact (Studio's 'Discard draft'). The published overlay is untouched.\"* So the mechanical mirror would make `deleteView` collide with an existing, deliberately different semantic.\n\nThe asymmetry has a clean statement: for **update**, draft-first is right in all three cases, because a draft shadows the published row and Publish would otherwise overwrite the edit with the pre-edit body (the reasoning written into `updateView`'s docblock as point 2). For **delete**, \"remove this view\" is only satisfied when *no home is left serving it* — which is one call in two of the three cases and two calls in the third.\n\n## What has to be decided (why this needs its own card)\n\n1. **Pair semantics.** Should `deleteView` on a published+draft pair remove **both** homes? That is the only reading under which the tab reliably disappears, but it is two calls, not one.\n2. **Ordering and partial failure.** If both are deleted, in what order, and what does `{ deleted: boolean }` report when one succeeds and the other fails? The current return type cannot express \"draft gone, overlay left\".\n3. **Probe or blind.** `reset(..., { state: 'draft' })` throws on any non-OK response, so a blind two-call implementation needs the no-draft answer pinned first (the server's no-row branch returns a 200 `reset:false` rather than a 404, but that is worth a test rather than an assumption).\n4. **Transport.** `deleteView` currently goes through `this.client.meta.deleteItem`, while `updateView`'s draft half uses `this.metadataClient()`. The mirror crosses transports, so the two halves need to agree on error shapes.\n\n## Suggested shape (not a ruling)\n\nDelete both homes, draft first, and widen the receipt so a partial outcome is observable rather than rounded to `true`. Red-first coverage for all three rows of the table above, including the pair case that today's code accidentally gets right.\n\n## Provenance\n\nMeasured while implementing #4463 (branch `claude/issue-4463-setdefault-unbound`). No code for this half was written; the primary card's PR is scoped to the unbound-call fix.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

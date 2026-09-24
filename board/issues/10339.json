@@ -1,0 +1,35 @@
+{
+  "number": 10339,
+  "kind": "issue",
+  "title": "bug(core,plugin-dashboard): a dashboard `dateRange` that omits `defaultRange` renders UNFILTERED, but the spec defaults it to `this_month`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T18:42:28Z",
+  "updated_at": "2026-09-24T19:44:54Z",
+  "closed_at": "2026-09-24T19:44:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10339",
+  "body": "The dev executing objectui#10334 (PR objectui#10338) surfaced this. It was filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. ⛔ It has not been graded. `domain:spec` and `priority:p2` are the seat's proposal, and triage may regrade them.\n\n## Class b: the spec's default is not applied at the read site\n\n- **Spec.** `@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` as `z.enum(DATE_RANGE_DEFAULT_RANGES).default('this_month')`. This holds on the installed 17.4.0 and on objectstack `main`. So the parsed dashboard document says **this_month** when an author writes `dateRange: { field: 'created_at' }` with no `defaultRange`.\n- **objectui.** The mirror deliberately authors no default (`stripImportedDefaults`, batch #90). `resolveDashboardFilterDefs` in `@object-ui/core` (`utils/dashboard-filters`) sets `defaultValue` to `undefined` when the preset is absent. ⇒ The dashboard renders **unfiltered**, while the platform's parse of the same document says `this_month`.\n- **Consistent control.** `allowCustomRange` also has a spec default (`true`), and objectui reads it as `!== false`, so it already behaves as though defaulted.\n\nSeam: `spec:DashboardSchema.dateRange.defaultRange` (`.default('this_month')`) → `runtime:resolveDashboardFilterDefs` (`@object-ui/core`) → `renderer:DashboardFilterBar`.\n\n## Direction (to be decided; the protocol wins where it declares)\n\n- **(i)** The read site applies the spec's default: when `dateRange` is authored and `defaultRange` is absent, resolve it to `this_month`. This is a renderer behaviour change (Clause-② yes, runtime). Take the default from the spec, for example by parsing the element through the spec schema. ⛔ Do not hand-copy the string.\n- **(ii)** Leave it unfiltered and ask the spec side to drop `.default('this_month')`. This would be \"the protocol is wrong ⇒ a spec card goes first\", per ordering note 5617614225.\n\nThe seat reads it as **(i)**: the spec is explicit, and the renderer is the one that diverges. Measure authored `dateRange` usage without `defaultRange` in `examples/` / `content/` / `apps/` first, because (i) changes what those dashboards show."
+}

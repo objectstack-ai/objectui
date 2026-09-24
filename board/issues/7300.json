@@ -2,8 +2,8 @@
   "number": 7300,
   "kind": "issue",
   "title": "A page cannot declare its related lists read-only — \"+ New\" / row edit / row delete are host-resolved from the CHILD object, so a deliberately read-only record page still offers writes",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-warren",
@@ -13,18 +13,21 @@
   "labels": [
     "domain:ui",
     "enhancement",
-    "pm:blocked",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-02T04:59:29Z",
-  "updated_at": "2026-09-05T01:26:08Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T18:06:07Z",
+  "closed_at": "2026-09-24T18:06:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7300",
   "body": "Measured on objectui at the current checkout, against a live seeded app: a read-only \"member detail\" record page (objectstack-ai/duly#13) rendered **8 \"+ New\" buttons** it had no way to decline.\n\n## The gap\n\n`PageComponentSchema` has no `readonly` / `disabled`, and that is a deliberate boundary — ruled 2026-08-12, *\"editability lives on fields\"*, with `EDITABILITY_BOUNDARY_KEYS` redirecting an author who writes one. The prescription is right for a **field**.\n\nIt does not reach a related list's CRUD affordances, because those are not fields. `RelatedRecordActionsBridge` resolves them from the **child object**:\n\n```js\nconst rawAff = resolveEffectiveCrudAffordances(childDef, getObjectApiOperations(objectName));\nconst objectCanCreate = rawAff.create && can(objectName, 'create');\n```\n\n— the child's `userActions` bucket, intersected with API operations and the principal's grant. Nothing on the page participates. `RecordRelatedListProps` can decline the *opt-in* Add-existing picker (`add`) and row `actions`, but \"+ New\", row edit and row delete arrive from the host regardless.\n\nSo for a child object that any user may create — here `duly_task`, where every position holds `allowCreate` because people do create their own tasks elsewhere in the app — a page whose entire premise is \"the manager enters nothing\" is handed a create affordance on every task list on it.\n\nThe only lever available is object-level (`duly_task.userActions.create`), which would close creation **everywhere** — including the screens where it is correct. That is not a workaround, it is a different and wrong change.\n\n## Why it is worth a key rather than a doc note\n\nThe affordance is not merely cosmetic on a page like this: a manager pressing \"+ New\" on someone else's task list creates work for that person from a screen documented as read-only, and the write is legal server-side. The page is the only layer that knows this surface is a read surface — the child object is used correctly elsewhere, and the principal's grant is correct too.\n\n## Suggested shape\n\nA per-component switch on `record:related_list` — `readonly: true`, or `affordances: 'none'` — consumed where the bridge's handlers are wired in `RecordRelatedListBody`, narrowing only (never re-opening something the bucket/API/grant already closed, matching the posture `createPredicates` already takes). A page-level `readonly: true` that defaults every component would be even better for this use case, but the per-component key is the smaller change and composes.\n\nRelated but distinct, both closed: #4646 (related-list \"+ New\" not consuming `userActions.create` predicates) and #5153 (the object-list toolbar's half). Those made the **object's** verdict reach the button. This is about the **page** having no verdict to give.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SqkTcrxUFci7nqXdbBSe2p"

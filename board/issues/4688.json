@@ -1,0 +1,32 @@
+{
+  "number": 4688,
+  "kind": "issue",
+  "title": "plugin-view / app-shell / plugin-designer suites escape to the real network on the grid's record-level explain probe (ECONNREFUSED noise, same class as #3339)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T09:10:32Z",
+  "updated_at": "2026-08-15T10:49:43Z",
+  "closed_at": "2026-08-15T10:49:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4688",
+  "body": "Recorded while implementing objectui#4296 (the row kebab folding the record-level write verdict). **Introduced by that change, not pre-existing** — measured 0 before, non-zero after — and handled inside `plugin-grid` there, but the same escape lands in the consumer packages, which are outside that card's declared file surface. Filing rather than editing them.\n\nSame class as objectui#3339 (plugin-detail, closed by PR #4105) and objectui#4106 (plugin-charts / plugin-dashboard). **All suites pass** — this is noise-level hygiene, with the flakiness argument #3339 already made.\n\n## Mechanism\n\n`ObjectGrid` now batches a record-grained write verdict for the rows on screen: `POST /api/v1/security/explain` with `recordIds`, one call per (object, operation). The probe rides `apiFetch ?? fetch`, matching `useRecordEditable` exactly — the global fallback is deliberate, so a standalone same-origin embed's kebab still agrees with its detail header rather than silently keeping the old fail-open rendering.\n\nUnder happy-dom that global fallback is a REAL request to the default origin. A suite that renders a grid with an `objectName` and rows carrying ids, without a host `apiFetch` in the tree, therefore fires live requests that fail fire-and-forget: the hook swallows the rejection in order to fail open, so the suite stays green while stderr fills with\n\n```\nError: connect ECONNREFUSED 127.0.0.1:3000\n    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)\n```\n\nConsumer packages see it because the root `vitest.config.mts` aliases `@object-ui/plugin-grid` to `packages/plugin-grid/src`, so they run against the source, not a built `dist`.\n\n## Measured (worktree of objectui#4296, on top of `b8818171f`)\n\n| suite | result | ECONNREFUSED lines |\n| --- | --- | --- |\n| `packages/plugin-view/` | 11 files / 111 tests pass | 96 |\n| `packages/app-shell/` + `packages/plugin-designer/` | 409 files / 3843 tests pass | 180 |\n| `packages/plugin-grid/` (fixed in that PR) | 72 files / 645 tests pass | 0 (was 180) |\n\nBaseline with the fold reverted: `packages/plugin-grid/` was 0, so every line here is attributable to this probe and to nothing else.\n\n## Suggested direction\n\nThe remedy is already settled by PR #4105 and reused in objectui#4296: answer the probe from a recorded test double, not from the network and **not** from a global error sink. `packages/plugin-grid/src/__tests__/explainDouble.ts` is a ready-made one — it answers only the explain endpoint, records every URL it is handed so an escape elsewhere stays observable, and returns `visible: true` for every id so a consuming suite's existing assertions keep measuring what they measured before. Consumer packages can import it or copy it; the per-package copy is what #4105 did.\n\nLocating the affected files is a grep for suites rendering `ObjectView` / the app shell with an `objectName` plus id-carrying rows, then `installExplainDouble()` in `beforeEach` and `vi.unstubAllGlobals()` in `afterEach`.\n\nNot a blocker for objectui#4296: the tests pass either way, and the alternative (dropping the global-fetch fallback) would reintroduce the kebab-vs-detail-header contradiction that card fixes, for every same-origin host that does not wire `apiFetch`.\n"
+}

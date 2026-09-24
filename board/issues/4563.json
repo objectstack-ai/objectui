@@ -1,0 +1,32 @@
+{
+  "number": 4563,
+  "kind": "issue",
+  "title": "Console crashes with \"crypto.randomUUID is not a function\" on insecure origins (HTTP + LAN IP)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T09:33:22Z",
+  "updated_at": "2026-08-13T13:48:27Z",
+  "closed_at": "2026-08-13T13:48:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4563",
+  "body": "## Summary\n\nThe Console SPA crashes with **`crypto.randomUUID is not a function`** when served over plain HTTP from any host other than `localhost` — e.g. accessing a dev server from another machine on the LAN via `http://192.168.x.x:4001/_console/`.\n\n## Root cause\n\n`crypto.randomUUID` is only exposed in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID) (HTTPS, or `http://localhost`). On `http://<LAN-IP>:<port>` the browser simply does not provide the function, and the Console's list views crash into the ErrorBoundary (\"出错了 / Something went wrong\").\n\n## Repro\n\n1. `objectstack dev` (or `pnpm dev` on a framework app) on machine A, port 4001.\n2. Add machine A's LAN origin to `OS_TRUSTED_ORIGINS` so login passes CSRF.\n3. From machine B (or machine A itself), open `http://<machine-A-LAN-IP>:4001/_console/`, log in, open any object list view.\n4. List area renders the error boundary; browser console shows:\n\n```\nTypeError: crypto.randomUUID is not a function\n    at .../_console/assets/vendor-react-....js\n    componentStack: .../_console/assets/plugin-grid-....js\n```\n\nObserved with `@objectstack/console@17.0.0-rc.6` (vendored dist). `window.isSecureContext === false` on that origin confirms the context.\n\n## Suggested fix\n\nGuard/polyfill once, early (e.g. in `index.html` next to the existing `window.process` shim, or a shared util), falling back to `crypto.getRandomValues`:\n\n```html\n<script>\n  if (window.crypto && !window.crypto.randomUUID) {\n    window.crypto.randomUUID = function () {\n      var b = window.crypto.getRandomValues(new Uint8Array(16));\n      b[6] = (b[6] & 0x0f) | 0x40;\n      b[8] = (b[8] & 0x3f) | 0x80;\n      var h = Array.prototype.map.call(b, function (x) {\n        return x.toString(16).padStart(2, '0');\n      }).join('');\n      return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);\n    };\n  }\n</script>\n```\n\nWe verified this exact shim (applied via `pnpm patch` on the vendored `@objectstack/console` dist) fixes the crash — list views render normally from a LAN-IP origin afterwards.\n\nLAN-IP access to a dev box is a very common flow for demos / testing from a second device, so a built-in fallback would save every downstream app from patching this individually.\n"
+}

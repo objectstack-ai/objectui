@@ -2,9 +2,9 @@
   "number": 10263,
   "kind": "pull_request",
   "title": "feat(types): declare `step` on SliderFieldMetadata",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
@@ -19,11 +19,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T14:25:41Z",
-  "updated_at": "2026-09-24T14:25:52Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
-  "comments": 0,
+  "updated_at": "2026-09-24T14:56:10Z",
+  "closed_at": "2026-09-24T14:56:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-24T14:56:08Z",
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/10263",
   "body": "Fixes #10066\n\nClause-②: yes — this grows a published type (`@object-ui/types` `SliderFieldMetadata` gains `step`), only to match what the spec and the widget already accept.\n\n## What changed\n\n- `packages/types/src/field-types.ts`: `SliderFieldMetadata` declares `step?: number`, with a docblock that quotes the spec's own describe (\"Step increment for slider (default: 1)\").\n- `packages/types/src/__tests__/number-field-step-spec-parity-9875.test.ts`: section 4 used to record the gap with a `@ts-expect-error` on `step`. That directive would now be unused, so the section is flipped into a pin of the new state:\n  - `SliderFieldMetadata['step']` equals `number | undefined`.\n  - An annotated `SliderFieldMetadata` literal carrying `step` compiles.\n  - A misspelled key (`stpe`) sits under `@ts-expect-error`, so the excess-property check stays live.\n- `packages/fields/src/widgets/SliderField.tsx`: `field as any` is replaced with a `Pick` of `SliderFieldMetadata` over `min | max | step`. The widget also serves `progress` fields (the `progress: SliderField` entry in `EDIT_WIDGETS`), so asserting the full interface, `type: 'slider'` included, would claim more than the carrier guarantees. The read line `const step = sliderField?.step ?? 1;` is byte-identical, so the source pin in the 9875 test still holds. Runtime behaviour is unchanged.\n- `.changeset/10066-slider-step.md`: patch for `@object-ui/types` and `@object-ui/fields`.\n\n## Premises measured (installed tree, worktree based at `142fdfd`)\n\n- `SliderFieldMetadata` had `type`, `min` and `max` only. Control: `NumberFieldMetadata.step?: number` is present in the same file. The only zod `slider` hits are `SliderSchema` in `zod/form.zod.ts`, which is the form component, not a field-metadata mirror.\n- Installed `@objectstack/spec` 17.4.0 has `step: z.number().optional().describe(\"Step increment for slider (default: 1)\")` in its `dist` (24 dist files carry the string).\n- `SliderField` read `step ?? 1` off `field as any` and passed `step` to `Slider`.\n\n## Verification (code at `7ff843c`; head `a9b9cb3` adds only the changeset)\n\n- `pnpm --filter @object-ui/types type-check`: exit 0. It runs `tsc --noEmit`, then `tsconfig.examples.json`, then `tsconfig.test.json`. The closure build (`@object-ui/types^...`) is empty, so pnpm reports no build script; `types` has no workspace deps. `tsc -p tsconfig.test.json --listFiles` includes the 9875 test file.\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/fields^...' build`: exit 0, across 10 of 47 projects. Then `pnpm --filter @object-ui/fields type-check`: exit 0.\n- `pnpm exec vitest run` on the 9875 test plus the four fields suites that name `SliderField` (`slider-signature-host-channels-e2e`, `widget-dom-leak-e2e`, `readonly-host-plumbing-e2e`, `widget-aria-invalid-registry-e2e`): Test Files 5 passed (5), Tests 415 passed (415).\n- Reverse verification, run after committing: I removed `step?: number` from `SliderFieldMetadata` with an anchor-asserted replace. The on-disk count of `step?: number;` went from 2 to 1. `tsc -p tsconfig.test.json` then exited 2 with TS2339 (`Property 'step' does not exist on type 'SliderFieldMetadata'`) and TS2353 (object literal `step`). I restored with `git checkout HEAD --`. After that, `git diff HEAD` was empty and the file's hash matched the HEAD blob.\n- eslint (`--no-inline-config`) on the 3 changed source files: 0 errors, 6 warnings. All 6 are pre-existing `no-explicit-any` on untouched lines of `field-types.ts`. `SliderField.tsx` now has 0 warnings.\n- `node scripts/check-changeset-presence.mjs`: exit 0. `pnpm check:new-line-citations`: exit 0, 0 new citations. `check:changeset-claims` and `check:pending-changeset-literals`: exit 0.\n\n## Acceptance notes\n\n- There is no field-level docs page for `slider` under `content/docs/fields/`. The `content/docs/components/form/slider.mdx` page documents the form component, not the field metadata, so no docs page was updated. This is noted here and not filed.\n- `EDIT_WIDGETS` routes `progress` to `SliderField`, but `FieldMetadata` has no `progress` member. That is why the widget reads through a `Pick` rather than the full interface. It is an observation only.\n\nSession: `https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"

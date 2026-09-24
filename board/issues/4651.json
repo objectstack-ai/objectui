@@ -1,0 +1,35 @@
+{
+  "number": 4651,
+  "kind": "pull_request",
+  "title": "fix(components): retire ToggleGroupItem.icon, honor item-level disabled",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "examples",
+    "package: components",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T15:46:52Z",
+  "updated_at": "2026-08-14T16:11:50Z",
+  "closed_at": "2026-08-14T16:11:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-14T16:11:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4651",
+  "body": "Fixes #4632\n\n`ToggleGroupItem` declared `icon?: string` and `disabled?: boolean` while the `toggle-group` renderer read **neither** — it mapped items to value + aria-label + label and dropped the rest. Premise re-verified against `origin/main` (`a99233fff`): both keys declared at `packages/types/src/disclosure.ts`, neither read at `packages/components/src/renderers/disclosure/toggle-group.tsx`. The card's mechanism hypothesis held in full, and `disabled` was confirmed unread as the card claimed.\n\n## The measurement (the ruling asked for it first)\n\nEnforce-or-remove, decided per key by measured pull rather than by symmetry:\n\n| key | sites authoring it | code reading it | direction |\n|---|---|---|---|\n| `icon` | **1** — the single catalog entry `components-disclosure-toggle-group/with-labels.json` | none | **retire** |\n| `disabled` | 0 | none *in toggle-group* — but honored by **5 sibling renderers** | **wire** |\n\n- **`icon` — retired.** Swept the whole repo (catalog schemas, docs, example apps, application code) plus the sibling `objectstack` checkout. The only site authoring it was that one catalog entry; the only other mention was the docs page's schema block, which is a mirror of the declaration, not a consumer. The lone `objectstack` hit is `toggle-group` as a *form-field widget name* in a spec test — a different surface, not an item list. Zero pull, so under declared=enforced it is removed rather than speculatively implemented.\n- **`disabled` — wired.** Item-level `disabled` is established live convention in this codebase: `tabs`, `select`, `dropdown-menu`, `menubar` and `context-menu` all forward it. `toggle-group` was the lone outlier, so the convention itself is the consumer. The underlying Radix item supports `disabled` natively, so forwarding one prop is the whole change — the synced no-touch `ui/toggle-group.tsx` (AGENTS.md #7) is **untouched**.\n\n## Surfaces changed\n\n- `packages/types/src/disclosure.ts` — `icon` removed; `disabled` kept and documented as forwarded.\n- `packages/types/src/zod/disclosure.zod.ts` — **not named in the card or the dispatch**; `ToggleGroupItemSchema` declared `icon` too. A retirement that left this standing would have left half the contract lying, so it is included.\n- `packages/components/src/renderers/disclosure/toggle-group.tsx` — forwards `disabled` per item.\n- `examples/schema-catalog/.../with-labels.json` — `icon` keys dropped; one item now demonstrates `disabled`, so the corpus teaches a key that works. Contents-only edit, no index regeneration (per #4637's own model).\n- `content/docs/components/disclosure/toggle-group.mdx` — **fourth surface, beyond the claimed set**: its schema block taught `icon?: string`. Leaving it would defeat the card's own point (the corpus teaching a dead key), and AGENTS.md #2 is docs-driven. Also corrected `label?` to `label` in the same block to match the interface. The block's separate `type:` / `selectionType` error is left alone and filed instead (below).\n\n## Tests, all at `de398f5d6`\n\nFull verification ran **after** the final commit, tree clean.\n\n- `pnpm exec vitest run packages/types/ packages/components/ examples/schema-catalog/` — **171 files / 3100 tests passed**.\n- `pnpm --filter @object-ui/types type-check` and `pnpm --filter @object-ui/components type-check` — clean (the latter after `pnpm --filter '@object-ui/components^...' build`; a fresh worktree fails it on unresolved workspace deps, unrelated to this change).\n- `check-changeset-presence` / `check-changeset-no-major` / `check-control-bytes` / `check-doc-links` — all green. ESLint on the changed files: 0 errors.\n\n**Reverse verification, direction predicted before each run:**\n\n1. Ablate the renderer's `disabled` forward ⇒ predicted 2 red / 2 green in the behavior pin (the two forwarding tests fail; \"no item declares disabled\" and the label test do not depend on the fix). Observed exactly that, with the dump showing the button rendered without `disabled`.\n2. Re-add `icon` to both declaration surfaces ⇒ predicted the two Zod pins red and the `@ts-expect-error` pin **green** under vitest, which cannot typecheck. Observed 2 failed / 4 passed; under `tsc` the same state is `error TS2578: Unused '@ts-expect-error' directive` — so the compile-time pin is real enforcement (this package type-checks its tests via `tsconfig.test.json`).\n3. Cross-package: authored `icon` in a `@object-ui/components` test against the **rebuilt** `@object-ui/types` d.ts ⇒ `error TS2353: Object literal may only specify known properties, and 'icon' does not exist in type 'ToggleGroupItem'`. The retirement reaches consumers, and that verdict came from the rebuilt declaration, not a cached one.\n\nEach ablation was restored with `git checkout` from the commit and confirmed byte-clean (`git status --porcelain` empty).\n\n## Notes\n\n- Changeset marks `minor` for both packages: breaking for TypeScript authors of `icon`, per this repo's version-alignment rule reserving `major` for following `@objectstack`. Runtime behavior of an authored `icon` is unchanged — it rendered nothing before and renders nothing now; what changes is that the contract stops claiming otherwise. Authored `disabled` changes from silently ignored to actually disabling that one item.\n- Out of scope, filed separately: `AccordionItem` in the same file declares `icon?` and `disabled?` and the accordion renderer reads neither — the identical defect one interface up.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

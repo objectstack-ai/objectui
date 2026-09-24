@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **90 keys** across them — 46 / 85 until
+ *   - **48 entries** in `KnownDrift`, **88 keys** across them — 49 / 90 until
+ *     objectui#10293 settled `form.zod.ts#CalendarSchema`'s `defaultValue` and `value`
+ *     under objectui#7759 D1-(iii): the declaration gained the ISO string the mirror
+ *     accepts and gave up the `Date[]` arm the mirror refused, so both keys measure
+ *     clean and the entry, its two keys and nothing else LEFT — entry count and key
+ *     total moved together, by one and by two. It was 46 / 85 until
  *     objectui#7759 group E turned the four bare `z.function()` arms into
  *     `handlerKeyRefusal()` arms. THREE entries are NEW (`TableColumnSchema.cell`,
  *     `FieldConstraintsSchema.validate`, and `FormFieldSchema.validation`, which
@@ -405,8 +410,12 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **12 entries** in `WiderThanDeclared`, **18 keys** across them, and **22 arms**
- *     under those keys — split **5** SCHEMA-NODE, **13** CONCRETE, **0** MIXED, **4** unions.
+ *   - **11 entries** in `WiderThanDeclared`, **16 keys** across them, and **18 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **11** CONCRETE, **0** MIXED, **2** unions.
+ *     It read 12 / 18 / 22 — 5 / 13 / 0 / 4 — until objectui#10293 made
+ *     `form.zod.ts#CalendarSchema`'s `defaultValue` and `value` declare the ISO string their
+ *     mirror accepts: the entry and both of its two-arm keys left together, so `arms` fell
+ *     by four where `keys` fell by two and `unions` by two.
  *     It read 17 / 26 / 30 — 5 / 21 / 0 / 4 — until objectui#7759 group E replaced the
  *     four bare `z.function()` arms (`renderCellEditor`, `cell`, `validate`, `custom`)
  *     with `handlerKeyRefusal()`. EIGHT keys left, one CONCRETE arm each, and five whole
@@ -592,7 +601,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 49 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 48 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -2033,8 +2042,6 @@ interface KnownDrift {
    * to the DOM `<button>` (`onClick` is on `SDUI_DOM_PASS_THROUGH_KEYS`).
    */
   'form.zod.ts#ButtonSchema': 'onClick';
-  /** DISJOINT: TS `Date | Date[]`, mirror `string | Date`. The mirror refuses `Date[]`; the TS side refuses the ISO string the mirror accepts. (`onChange` is NOT here: the `calendar` renderer spreads it onto `DayPicker`, whose callback is `onSelect`, so nothing reads it — both faces retire it.) */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
   /** RUNTIME SLOT (objectui#6124): the `checkbox` renderer calls `props.onChange(checked)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#CheckboxSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): `plugin-editor` reads `onChange ?? schema.onChange`. */
@@ -3100,8 +3107,6 @@ interface WiderThanDeclared {
   // fourth. ⛔ Do not re-add them for the class labels they carried (F,
   // "inline shape against a named declaration"; D, "disjoint") — a row this
   // ledger records must be a measured widening.
-  /** CONCRETE and DISJOINT — the mirror admits a string, the declaration a list of dates; also in `KnownDrift`. */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
   /**
    * CONCRETE. `layout` is the clearest single instance in this ledger: the mirror
    * is `z.enum(['vertical', 'horizontal', 'grid'])` and the declaration states the
@@ -3280,8 +3285,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],
   'complex.zod.ts#FilterBuilderSchema::fields': ['CONCRETE'],
   'complex.zod.ts#FilterFieldSchema::operators': ['CONCRETE'],
-  'form.zod.ts#CalendarSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#CalendarSchema::value': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'form.zod.ts#FormSchema::mode': ['CONCRETE'],
   'layout.zod.ts#ContainerSchema::maxWidth': ['CONCRETE', 'CONCRETE'],

@@ -1151,13 +1151,17 @@ export interface DatePickerSchema extends BaseSchema {
 export interface CalendarSchema extends BaseSchema {
   type: 'calendar';
   /**
-   * Default selected date(s)
+   * Default selected date: an ISO 8601 date string (the JSON authoring type)
+   * or a `Date` (in-process callers). The `calendar` renderer coerces a string
+   * to a `Date` at its read site; a date-only string (`2026-09-15`) selects
+   * the day it names in every zone (objectui#10293).
    */
-  defaultValue?: Date | Date[];
+  defaultValue?: Date | string;
   /**
-   * Controlled selected date(s)
+   * Controlled selected date: an ISO 8601 date string or a `Date`, read as
+   * {@link CalendarSchema.defaultValue} is.
    */
-  value?: Date | Date[];
+  value?: Date | string;
   /**
    * Selection mode
    * @default 'single'

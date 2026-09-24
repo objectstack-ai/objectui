@@ -8,10 +8,10 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 /**
- * objectui#10183 — drives the four date-only zone pins, which cannot drive
+ * objectui#10183 — drives the date-only zone pins, which cannot drive
  * themselves.
  *
- * ## What the four pins are
+ * ## What the pins are
  *
  * objectui#10110 moved the date-only repair into the shared parse step
  * (`toDisplayDate` in `@object-ui/core`). Four sites never reached it, and
@@ -19,6 +19,9 @@ import { fileURLToPath } from 'node:url';
  * cell face (and through it a related list with no child schema), the record
  * summary chip, the History tab's date faces and the `date` cell's overdue
  * colouring. Each has a pin beside it, listed in {@link PINS}.
+ * objectui#10293 added a fifth under the same convention: the `ui:calendar`
+ * primitive's selected date, which the renderer now coerces through the same
+ * shared step.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -37,7 +40,7 @@ import { fileURLToPath } from 'node:url';
  * and only a forked child can run them.
  *
  * Each pin is therefore skipped in the normal run and runs only here: one
- * vitest over all four files, `--pool=forks`, with
+ * vitest over every file in {@link PINS}, `--pool=forks`, with
  * `OBJECTUI_DATE_ZONE_CHILD=1`. Every zone in every pin opens with a rig case
  * — the zone `Intl` resolved, and the local hour of a fixed instant — so a
  * child whose zone did not move reds inside the child.
@@ -47,7 +50,7 @@ import { fileURLToPath } from 'node:url';
  * Reading the child's JSON report, per pin: the file was collected, it ran at
  * least one case, and every case PASSED — skipped counts as failure. A child
  * that stopped honouring the flag would skip every case, exit 0 and say
- * nothing; that is the silent shape this rules out. One spawn, not four,
+ * nothing; that is the silent shape this rules out. One spawn, not one per pin,
  * because the spawn is the whole cost.
  */
 
@@ -59,6 +62,9 @@ const PINS = [
   'packages/plugin-detail/src/__tests__/summaryChip.dateOnlyZone-10183.test.tsx',
   'packages/app-shell/src/utils/__tests__/auditHistoryDisplay.dateOnlyZone-10183.test.ts',
   'packages/fields/src/__tests__/dateCell.overdueZone-10183.test.tsx',
+  // objectui#10293: the `ui:calendar` primitive's selected date, the same
+  // date-only convention at a fifth read site.
+  'packages/components/src/renderers/form/__tests__/calendar.dateValueZone-10293.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */
@@ -86,7 +92,7 @@ interface Run {
 
 let cached: Run | undefined;
 
-/** One child for all four pins, memoized. */
+/** One child for all the pins, memoized. */
 function run(): Run {
   if (cached) return cached;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'date-zone-10183-'));

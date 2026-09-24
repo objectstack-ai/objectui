@@ -58,17 +58,21 @@ import { RecordActivityTimeline } from '../RecordActivityTimeline';
 import { RecordActivityRenderer } from '../renderers/record-activity';
 import { RecordChatterRenderer } from '../renderers/record-chatter';
 
-/** Two rows, so the heading's count reads `(2)` and is visibly not the name. */
-const ITEMS: FeedItem[] = [
+/**
+ * Two rows, so the heading's count reads `(2)` and is visibly not the name.
+ * `satisfies` rather than an annotation: it keeps the ids `string`, which is
+ * what `DiscussionContextProvider` types them as, so no cast is needed.
+ */
+const ITEMS = [
   { id: 'c-1', type: 'comment', actor: 'Ada', body: 'First', createdAt: '2026-01-02T00:00:00.000Z' },
   { id: 'c-2', type: 'comment', actor: 'Grace', body: 'Second', createdAt: '2026-01-03T00:00:00.000Z' },
-];
+] satisfies FeedItem[];
 
 function mount(node: React.ReactElement) {
   return render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
       <RecordContextProvider objectName="crm_account" recordId="rec-1" data={{ id: 'rec-1' }}>
-        <DiscussionContextProvider items={ITEMS as any} loading={false}>
+        <DiscussionContextProvider items={ITEMS} loading={false}>
           {node}
         </DiscussionContextProvider>
       </RecordContextProvider>

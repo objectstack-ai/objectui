@@ -68,7 +68,7 @@ const fractionDigits = (text: string): number => {
 };
 
 const renderNumberCell = (value: unknown, field: Record<string, unknown>) =>
-  render(<NumberCellRenderer value={value as any} field={{ type: 'number', name: 'qty', ...field } as any} />);
+  render(<NumberCellRenderer value={value as never} field={{ type: 'number', name: 'qty', ...field } as never} />);
 
 const cellText = () => document.body.textContent ?? '';
 

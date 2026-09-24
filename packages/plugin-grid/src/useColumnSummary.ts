@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
+import type { CurrencyConfig } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
 import { formatCurrency, formatPercent } from '@object-ui/fields';
 
@@ -446,7 +447,9 @@ function formatSummaryLabel(
 export function useColumnSummary(
   columns: ListColumn[] | undefined,
   data: any[],
-  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null }>
+  // `currencyConfig` is the spec's own type, not a restated subset, so a field
+  // def written in the spec's shape (`currencyMode` included) is accepted as is.
+  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null }>
 ): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.

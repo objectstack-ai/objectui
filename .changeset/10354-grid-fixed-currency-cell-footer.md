@@ -20,9 +20,9 @@ Those cells now receive the field's `currencyConfig` as declared, and
 `useColumnSummary` passes the field's `currencyConfig` to the same resolver, so
 the cell and the footer show the same currency. A field without
 `currencyConfig` still shows the tenant currency. The `fieldMetadata` parameter
-type of `useColumnSummary` gains an optional `currencyConfig` member. The footer
-reads `currencyConfig` from the field only: `ListColumnSchema` declares no such
-column key.
+type of `useColumnSummary` gains an optional `currencyConfig` member, typed as
+the spec's own `CurrencyConfig`. The footer reads `currencyConfig` from the
+field only: `ListColumnSchema` declares no such column key.
 
 **Behaviour change.** On those paths, a field that declares `currencyConfig`
 now shows `currencyConfig.defaultCurrency` in the cell and the footer where it

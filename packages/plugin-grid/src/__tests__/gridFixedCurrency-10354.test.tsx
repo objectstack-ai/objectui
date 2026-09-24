@@ -227,9 +227,16 @@ describe('the summary footer resolves the same currency as the cell above it (ob
     }
   });
 
+  // Typed against the hook's own parameter with no cast, so `type-check` reads
+  // the `currencyConfig` member in the spec's shape, `currencyMode` included.
+  const META: NonNullable<Parameters<typeof useColumnSummary>[2]> = {
+    amount: { type: 'currency', currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'JPY' } },
+    plain: { type: 'currency' },
+  };
+
   function hookLabel(field: string): string | undefined {
-    const columns: any[] = CURRENCY_FIELDS.map((f) => ({ field: f, summary: 'sum' }));
-    const { result } = renderHook(() => useColumnSummary(columns, [ROW], FIELDS as any), { wrapper: Providers });
+    const columns: any[] = ['amount', 'plain'].map((f) => ({ field: f, summary: 'sum' }));
+    const { result } = renderHook(() => useColumnSummary(columns, [ROW], META), { wrapper: Providers });
     return result.current.summaries.get(field)?.label;
   }
 

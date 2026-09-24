@@ -7,80 +7,64 @@
  */
 
 /**
- * objectui#9806 — what a Cmd/Ctrl/middle-click on an `ObjectView` row actually
- * does, re-derived rather than described.
+ * objectui#9806 (ruling B) — a Cmd/Ctrl/middle-click on an `ObjectView` row
+ * opens the record as a full page in a new browser tab, re-derived rather than
+ * described.
  *
- * ## The defect this file exists because of
+ * ## How this file got here
  *
- * It is not a broken feature. It is a SENTENCE. PR objectui#9797 added a
- * comment to `ObjectView`'s `handleRowClick` closing with "what
- * Cmd/Ctrl/middle-click should do when no host handler is present is the hook's
- * own decision, taken before this callback runs" — and the hook never gets to
- * make that decision on this path. `useNavigationOverlay`'s `handleClick`
+ * It began as the pin for a SENTENCE: PR objectui#9797 wrote a comment on
+ * `ObjectView`'s `handleRowClick` saying the hook decides modifier clicks when
+ * no host handler is present, and the hook never gets to — its `handleClick`
  * returns EARLY on the `onRowClick` it is handed, ahead of its own modifier
  * branch, and `ObjectView` hands `handleRowClick` down UNCONDITIONALLY. The
- * comment described a delegation that does not happen.
+ * first version of this file pinned the resulting behaviour (a modifier click
+ * indistinguishable from a plain one). The ruling on objectui#9806 then chose
+ * B: `ObjectView` implements the browser convention itself, inside
+ * `handleRowClick`, and the hook's early return STAYS — it is what lets a host
+ * handler decide for itself. The subject cases below are the inversion; the
+ * two controls are the original ones, kept.
  *
- * A rewritten sentence with no instrument is the same defect deferred
- * (AGENTS.md #9), so this file is the instrument. The comment now cites it BY
- * NAME, and the last case below reads that citation back out of the file, so
- * the pin and the prose cannot drift apart in either direction.
+ * ## What is pinned, and why every case fires a PAIR of clicks
  *
- * ## What is pinned, and why it takes a PAIR of clicks rather than one
+ * "A modifier click opens a tab" is not on its own a reading about modifiers:
+ * a subject that opened a tab on EVERY click would pass it. So each subject
+ * case is read against the plain click on the same harness:
  *
- * "A modifier click opens no new tab" is not, on its own, a reading about
- * modifiers: a probe that never delivered `metaKey` produces the same green.
- * Every case here therefore fires BOTH clicks at the same subject through the
- * same harness and compares them:
+ *  - SUBJECT (`ObjectView`, no host `onRowClick`): a plain click navigates in
+ *    place (`onNavigate(id, 'view')`, no tab); a ⌘ / Ctrl / middle click opens
+ *    `window.open(URL, '_blank')` and does NOT navigate in place. The URL is the
+ *    one `navigation.mode: 'new_window'` already opens — asserted equal to it
+ *    in the same run, so the modifier branch cannot grow a second URL shape.
+ *    ⛔ `onNavigate` is never called with `'new_window'`: `ObjectViewSchema`
+ *    declares that callback's second parameter as `'view' | 'edit'`.
+ *  - INERT ROWS stay inert: `navigation.mode: 'none'` ignores a ⌘-click as it
+ *    ignores a plain one. A modifier changes WHERE a record opens, never
+ *    WHETHER it opens.
+ *  - HOST HANDLER: a host `onRowClick` receives the ⌘-click, payload intact,
+ *    and no tab opens — the host keeps the whole decision (ruling: option C,
+ *    inverting the hook, refused for exactly this reason).
+ *  - LIVENESS CONTROL (`ObjectGrid`, no `onRowClick` at all): the same harness
+ *    reaches the HOOK's modifier branch — `'view'` and `'new_window'` diverge —
+ *    so `metaKey` really is delivered by these clicks.
+ *  - ISOLATION CONTROL: the SAME `ObjectGrid` call plus one prop — an
+ *    unconditional `onRowClick` — and the hook's modifier branch goes quiet.
+ *    That is the reason `ObjectView` has to answer the click itself.
  *
- *  - SUBJECT (`ObjectView`, no host `onRowClick`): plain click and ⌘-click are
- *    INDISTINGUISHABLE. Both reach `onNavigate(id, 'view')` — navigation in
- *    place. That equivalence IS the corrected comment's claim.
- *  - LIVENESS CONTROL (`ObjectGrid`, no `onRowClick` at all): the two clicks
- *    DIVERGE — `'view'` and `'new_window'`. So the harness does deliver
- *    `metaKey`, and the hook's modifier branch is live and reachable. ⛔ Do not
- *    "simplify" it away: without it the subject's equivalence is unfalsifiable,
- *    and it is the only thing separating "an unconditional hop swallows the
- *    modifier" from "nothing in this test ever held down a key".
- *  - ISOLATION CONTROL: the SAME `ObjectGrid` call, plus one added prop — an
- *    unconditional `onRowClick`. The ⌘-click stops reaching `'new_window'` and
- *    arrives at the handler instead.
+ * ⚠️ The liveness control does NOT vary one thing against the subject: it is a
+ * different composition and carries `onNavigate` on the grid node, which
+ * `ObjectView` does not relay into the grid schema it builds. It answers "is
+ * the probe alive", nothing more. The ISOLATION control is the one-variable
+ * pair.
  *
- * ⚠️ The liveness control does NOT vary one thing against the subject, and
- * saying it did would be this card's own defect: it is a different composition
- * and it carries `onNavigate` on the grid node, which `ObjectView` never relays
- * into the grid schema it builds. It answers "is the probe alive", nothing
- * more. The ISOLATION control is the one-variable pair — same component, same
- * props, same spy, one prop added — and it is what attributes the subject's
- * equivalence to the early return rather than to the composition.
+ * ## The source-text cases
  *
- * ## ⚠️ The source-text cases, and the hazard they are built against
- *
- * The subject here is a file that DOCUMENTS the construct being asserted on:
- * `ObjectView.tsx` spells `event.metaKey` inside the very comment this card
- * rewrote. A whole-file absence check over the raw bytes is therefore red for a
- * PROSE reason and says nothing at all about the code, so comments are
- * stripped — and the strip is controlled in BOTH directions in the same run:
- * `event.metaKey` must be present in the raw file and absent from the stripped
- * one, which is what makes the absence the stripper's doing and not the token's.
- *
- * ⚠️ MEASURED rather than assumed, and recorded because the pleasant version
- * would be false: the `handleRowClick` BODY case does NOT currently depend on
- * that strip. Its slice begins at the callback, so the amended comment — which
- * sits above it — is already outside the text being read, and disabling the
- * stripper leaves that case green. The strip stays there because the slice's
- * contents are not fixed: a `//` line moved or added INSIDE the callback would
- * be read as code by an unstripped reader, which is exactly how this class
- * fails. What re-derives the strip's own liveness is the case above it, not
- * this one.
- *
- * ⚠️ Stripping is necessary and NOT sufficient — a member DECLARATION survives
- * it. `useNavigationOverlay.ts` declares `metaKey?: boolean` on its payload
- * type and separately READS `event.metaKey`; a bare-identifier probe cannot
- * tell those apart, and a pin keyed on one would stay green over a hook that
- * had stopped reading modifiers entirely. The presence leg is therefore keyed
- * on the READ spelling, with the bare identifier's weaker answer pinned beside
- * it so the two can never be mistaken for equivalent.
+ * `ObjectView.tsx` DOCUMENTS the constructs asserted on, so its comments are
+ * stripped before any code claim is read, and the stripper is controlled in
+ * both directions in the same run (a token present raw, absent stripped). A
+ * member DECLARATION survives the strip, so the hook's presence leg is keyed on
+ * the READ spelling `event.metaKey`, with the declaration's weaker answer
+ * pinned beside it.
  */
 
 import React from 'react';
@@ -101,10 +85,17 @@ import { installExplainDouble } from './explainDouble';
 // With no host `apiFetch` it falls back to the global one, which under
 // happy-dom is a REAL socket — the package's own double answers it so an
 // escape to any OTHER endpoint stays observable.
+//
+// `window.open` is spied on in every case — the subject's new-tab destination
+// is read off it, and a control that opened a tab would otherwise escape into
+// happy-dom unobserved.
+let openSpy: Mock<(...args: any[]) => Window | null>;
 beforeEach(() => {
   installExplainDouble();
+  openSpy = vi.spyOn(window, 'open').mockImplementation(() => null) as any;
 });
 afterEach(() => {
+  openSpy.mockRestore();
   vi.unstubAllGlobals();
 });
 
@@ -164,12 +155,17 @@ async function firstDataRow(container: HTMLElement): Promise<Element> {
 
 /**
  * SUBJECT — the default content branch, which is where an authored
- * `object-view` with no host `renderListView` actually lands. No host
- * `onRowClick`: that is the exact condition the amended comment speaks about.
- * `layout: 'page'` plus `onNavigate` is what makes `handleView` observable
- * instead of opening an internal overlay.
+ * `object-view` with no host `renderListView` actually lands. `layout: 'page'`
+ * plus `onNavigate` is what makes a plain click observable (`handleView` hands
+ * it to `onNavigate(id, 'view')` instead of opening an internal overlay), so
+ * the plain/modifier pair is read on one spy and one `window.open` spy.
+ * `extra` adds exactly one node key (`navigation`) and `onRowClick` exactly one
+ * prop, so each variant differs from the base subject by one thing.
  */
-function renderView(onNavigate: NavigateSpy) {
+function renderView(
+  onNavigate: NavigateSpy,
+  extra: { navigation?: Record<string, unknown>; onRowClick?: (...args: any[]) => void } = {},
+) {
   const dataSource = makeDataSource();
   return render(
     <ActionProvider>
@@ -181,12 +177,19 @@ function renderView(onNavigate: NavigateSpy) {
             layout: 'page',
             onNavigate,
             table: { columns: ['name', 'amount'] },
+            ...(extra.navigation ? { navigation: extra.navigation } : {}),
           } as any}
           dataSource={dataSource}
+          {...(extra.onRowClick ? { onRowClick: extra.onRowClick } : {})}
         />
       </SchemaRendererProvider>
     </ActionProvider>,
   );
+}
+
+/** The `[url, target]` pairs every `window.open` call in this case received. */
+function openedTabs(): Array<[string, string]> {
+  return openSpy.mock.calls.map((call) => [String(call[0]), String(call[1])]);
 }
 
 /**
@@ -215,8 +218,8 @@ function renderGrid(onNavigate: NavigateSpy, onRowClick?: (...args: any[]) => vo
   );
 }
 
-describe('objectui#9806 — SUBJECT: an ObjectView row answers a modifier click exactly as it answers a plain one', () => {
-  it('a plain click navigates in place', async () => {
+describe('objectui#9806 — SUBJECT: an ObjectView row with no host handler opens a modifier click in a new tab', () => {
+  it('a plain click navigates in place and opens no tab', async () => {
     const onNavigate = vi.fn() as NavigateSpy;
     const { container } = renderView(onNavigate);
 
@@ -225,33 +228,84 @@ describe('objectui#9806 — SUBJECT: an ObjectView row answers a modifier click 
     await waitFor(() => expect(onNavigate).toHaveBeenCalled());
     expect(navigateActions(onNavigate)).toEqual(['view']);
     expect(onNavigate.mock.calls[0][0]).toBe('r1');
+    expect(openedTabs(), 'a PLAIN click opened a tab — the branch no longer reads the modifier, it fires on every click').toEqual([]);
   });
 
-  it('a ⌘-click does the SAME thing — the hook\'s modifier branch is unreachable from here', async () => {
+  it('a ⌘-click DIVERGES — the record opens in a new tab and the view does not navigate in place', async () => {
     const onNavigate = vi.fn() as NavigateSpy;
     const { container } = renderView(onNavigate);
 
     fireEvent.click(await firstDataRow(container), { metaKey: true });
 
-    await waitFor(() => expect(onNavigate).toHaveBeenCalled());
+    await waitFor(() => expect(openSpy).toHaveBeenCalled());
+    expect(
+      openedTabs(),
+      'a ⌘-click on an ObjectView row with no host `onRowClick` did not open the record in a new tab — the objectui#9806 ruling-B branch in `handleRowClick` is gone',
+    ).toEqual([['/test_object/r1', '_blank']]);
     expect(
       navigateActions(onNavigate),
-      "a modifier click reached 'new_window' — `handleRowClick` or the hop feeding it now ACTS on the payload, so the comment on `handleRowClick` no longer describes this code and must be amended with this pin",
-    ).toEqual(['view']);
-    expect(onNavigate.mock.calls[0][0]).toBe('r1');
+      "the ⌘-click ALSO reached `onNavigate` — either it navigated in place as well as opening a tab, or it passed 'new_window' to a callback declared `'view' | 'edit'`",
+    ).toEqual([]);
   });
 
-  it('a Ctrl-click and a middle-click are the same again — all three spellings of the payload', async () => {
+  it('a Ctrl-click and a middle-click diverge the same way — all three spellings of the payload', async () => {
     for (const modifier of [{ ctrlKey: true }, { button: 1 }]) {
       const onNavigate = vi.fn() as NavigateSpy;
+      openSpy.mockClear();
       const { container, unmount } = renderView(onNavigate);
 
       fireEvent.click(await firstDataRow(container), modifier);
 
-      await waitFor(() => expect(onNavigate).toHaveBeenCalled());
-      expect(navigateActions(onNavigate), JSON.stringify(modifier)).toEqual(['view']);
+      await waitFor(() => expect(openSpy).toHaveBeenCalled());
+      expect(openedTabs(), JSON.stringify(modifier)).toEqual([['/test_object/r1', '_blank']]);
+      expect(navigateActions(onNavigate), JSON.stringify(modifier)).toEqual([]);
       unmount();
     }
+  });
+
+  it("the tab it opens is the SAME url `navigation.mode: 'new_window'` opens — one new-tab URL per component", async () => {
+    const onNavigate = vi.fn() as NavigateSpy;
+    const { container } = renderView(onNavigate, { navigation: { mode: 'new_window' } });
+
+    // A PLAIN click, on purpose: this is the authored new-tab mode, the
+    // component's existing route builder, read as the reference.
+    fireEvent.click(await firstDataRow(container));
+
+    await waitFor(() => expect(openSpy).toHaveBeenCalled());
+    expect(openedTabs()).toEqual([['/test_object/r1', '_blank']]);
+  });
+});
+
+describe('objectui#9806 — BOUNDARIES: a modifier changes WHERE a record opens, never WHETHER, and never over a host', () => {
+  it("an inert row (`navigation.mode: 'none'`) stays inert under a ⌘-click", async () => {
+    // One node key away from the SUBJECT's ⌘-click case, which opens a tab on
+    // this same harness — that case is what makes the silence below a reading.
+    const onNavigate = vi.fn() as NavigateSpy;
+    const { container } = renderView(onNavigate, { navigation: { mode: 'none' } });
+
+    const row = await firstDataRow(container);
+    fireEvent.click(row, { metaKey: true });
+    fireEvent.click(row, { button: 1 });
+    fireEvent.click(row);
+
+    expect(openedTabs(), "`mode: 'none'` rows are documented inert, and a modifier click opened a tab anyway").toEqual([]);
+    expect(navigateActions(onNavigate)).toEqual([]);
+  });
+
+  it('a host `onRowClick` receives the ⌘-click with its payload, and no tab opens — the host keeps the decision', async () => {
+    const onNavigate = vi.fn() as NavigateSpy;
+    const onRowClick = vi.fn();
+    const { container } = renderView(onNavigate, { onRowClick });
+
+    fireEvent.click(await firstDataRow(container), { metaKey: true });
+
+    await waitFor(() => expect(onRowClick).toHaveBeenCalled());
+    expect(onRowClick.mock.calls[0][1], 'the modifier payload stopped reaching the host — that is objectui#9462').toMatchObject({ metaKey: true });
+    expect(
+      openedTabs(),
+      'a tab opened although a host handler was supplied — the view took the decision away from the host, which is the option the ruling refused',
+    ).toEqual([]);
+    expect(navigateActions(onNavigate)).toEqual([]);
   });
 });
 
@@ -293,10 +347,11 @@ describe('objectui#9806 — ISOLATION CONTROL: adding ONE prop to that same grid
     await waitFor(() => expect(onRowClick).toHaveBeenCalled());
     expect(
       navigateActions(onNavigate),
-      "the hook still reached 'new_window' despite an `onRowClick` being present — its early return is gone, and the comment on `handleRowClick` rests on that return",
+      "the hook still reached 'new_window' despite an `onRowClick` being present — its early return is gone, and every host handler just lost the decision the ruling kept for it",
     ).not.toContain('new_window');
     // The payload still ARRIVES — objectui#9462's repair is untouched. What the
-    // handler does with it is the whole of objectui#9806.
+    // handler does with it is the handler's; `ObjectView`'s own answer is the
+    // SUBJECT block above.
     expect(onRowClick.mock.calls[0][1], 'the modifier payload stopped arriving — that is objectui#9462, not this card').toMatchObject({ metaKey: true });
   });
 });
@@ -344,29 +399,31 @@ function handleRowClickBody(code: string): string | null {
 }
 
 describe('objectui#9806 — the comment\'s claim about the CODE, with the stripper controlled both ways', () => {
-  it('the stripper is live: `event.metaKey` is in this file raw, and gone once comments are stripped', () => {
-    // BOTH directions, because either alone is worthless. Raw-present proves
-    // the token is really in the file (so the stripped absence is the
-    // stripper's doing); stripped-absent is the claim itself.
-    expect(
-      readRaw(VIEW_SRC),
-      'the amended comment no longer spells `event.metaKey`, so the stripped absence below proves nothing — re-anchor this control',
-    ).toContain('event.metaKey');
-    expect(readCode(VIEW_SRC)).not.toContain('event.metaKey');
+  it('the stripper is live: this pin\'s own name is in the file raw, and gone once comments are stripped', () => {
+    // BOTH directions, because either alone is worthless. The token chosen is
+    // one that lives ONLY in a comment — the citation of this file — so the
+    // stripped absence is the stripper's doing and not the token's.
+    const myName = path.basename(fileURLToPath(import.meta.url));
+    expect(readRaw(VIEW_SRC), 'the citation is gone, so this control has no anchor — see the handshake case').toContain(myName);
+    expect(readCode(VIEW_SRC)).not.toContain(myName);
   });
 
-  it('`handleRowClick`\'s branches read no modifier key — the comment\'s "do NOT read it"', () => {
+  it('`handleRowClick` hands a host handler the click BEFORE it reads any modifier — the host keeps the decision', () => {
     const body = handleRowClickBody(readCode(VIEW_SRC));
     expect(body, `${VIEW_SRC} — \`handleRowClick\` anchor not found; this case answered about nothing`).not.toBeNull();
-    for (const read of ['metaKey', 'ctrlKey', 'button']) {
-      expect(
-        body,
-        `\`handleRowClick\` now reads \`${read}\` — it ACTS on the modifier payload, and the comment above it says it does not`,
-      ).not.toContain(read);
-    }
-    // Live-instrument control: the same slice DOES contain what it should, so a
-    // pass above cannot be an empty string quietly containing nothing.
-    expect(body).toContain('onRowClick(record, event)');
+    const forward = body!.indexOf('onRowClick(record, event)');
+    const firstRead = Math.min(
+      ...['.metaKey', '.ctrlKey', '.button'].map((read) => {
+        const at = body!.indexOf(read);
+        expect(at, `\`handleRowClick\` no longer reads \`${read}\` — the ruling-B branch is gone`).toBeGreaterThan(-1);
+        return at;
+      }),
+    );
+    expect(forward, 'the forward to a host `onRowClick` is gone (objectui#9462)').toBeGreaterThan(-1);
+    expect(
+      forward,
+      '`handleRowClick` reads the modifier payload BEFORE handing the click to a host `onRowClick` — the view would be deciding over the host',
+    ).toBeLessThan(firstRead);
   });
 
   it('the hook returns EARLY on that handler, AHEAD of its modifier branch — the ordering the comment rests on', () => {
@@ -377,7 +434,7 @@ describe('objectui#9806 — the comment\'s claim about the CODE, with the stripp
     expect(modifierRead, `${HOOK_SRC} — the modifier read is gone`).toBeGreaterThan(-1);
     expect(
       earlyReturn,
-      'the hook now reads the modifier payload BEFORE handing the click to `onRowClick` — the branch is reachable from ObjectView again and the comment must be amended with this pin',
+      'the hook now reads the modifier payload BEFORE handing the click to `onRowClick` — option C, which the objectui#9806 ruling refused, has landed; `ObjectView` would answer a modifier click twice and its comment must be amended with this pin',
     ).toBeLessThan(modifierRead);
   });
 

@@ -2546,7 +2546,11 @@ const ru = {
     placeholder: "Поиск объектов, панелей, страниц, отчётов…",
     inputAriaLabel: "Поиск объектов, панелей, страниц, отчётов",
     resultsCount: "{{count}} результат для \"{{query}}\"",
-    resultsCountPlural: "{{count}} результатов для \"{{query}}\"",
+    // objectui#10024 — the page switches keys only at exactly 1, so this half
+    // serves one (21, 31…), few (2-4, 22-24…) AND many (0, 5-20…). No single
+    // `{{count}} <noun>` form agrees with all three; «Существительное:
+    // {{count}}» does, the same device as `collaboration.commentCount`.
+    resultsCountPlural: "Результатов по запросу \"{{query}}\": {{count}}",
     itemsAvailable: "{{count}} доступно",
     itemsAvailableOne: "{{count}} доступно",
     noResults: "Результатов не найдено",

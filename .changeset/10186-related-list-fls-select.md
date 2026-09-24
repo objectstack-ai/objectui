@@ -11,7 +11,9 @@ authored `columns` now sends a `$select` built from the authored columns that
 pass the same redaction, parent-key and FLS gates the column layer applies (one
 shared spelling of each), plus `id`, the `$expand` roots, and, once the child
 schema has loaded, the fields its row predicates read (the child object's
-`userActions` Edit/Delete overrides, its actions and the host's row actions).
+`userActions` Edit/Delete overrides, its actions and the host's row actions),
+plus the mobile card gallery's cover field when the child declares it and FLS
+allows it.
 FLS drops a denied column once the permission answer has loaded; a request sent
 before it can still carry that column, the same deferral `ObjectGrid` has. That
 is the projection shape `ListView` and `ObjectGrid` already send (objectui#6898,

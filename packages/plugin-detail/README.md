@@ -459,7 +459,8 @@ auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send
 column layer draws through (redaction, the parent key, field-level security),
 plus `id`, the `$expand` roots, and, once the child schema has loaded, the
 fields the row predicates read (the child object's `userActions` Edit/Delete
-overrides, its actions, and the host's row actions). A column the principal
+overrides, its actions, and the host's row actions), plus the mobile card
+gallery's cover field when declared and readable. A column the principal
 cannot read is dropped once the permission answer has loaded; a request sent
 before that answer can still carry it, the same deferral `ObjectGrid` has.
 If every authored column is denied, the list asks for `id` and its predicate

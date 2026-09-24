@@ -340,6 +340,15 @@ function normalizeSortSpec(
 type FieldReadPolicy = ReturnType<typeof usePermissions>;
 
 /**
+ * The field the mobile card gallery draws as each card's cover. It is handed
+ * to the `object-gallery` node explicitly as `gallery.coverField`, and the
+ * `$select` projection asks for it from this same constant (objectui#10186),
+ * so the field the card reads and the field the request carries cannot drift
+ * apart. The value is `ObjectGallery`'s own default, so the cover is unchanged.
+ */
+const MOBILE_GALLERY_COVER_FIELD = 'image';
+
+/**
  * The key this component DRAWS a column through: the table library's
  * `accessorKey` first, then the shared metadata reader. Every column gate below
  * resolves identity this way, because a column refused under one reading and
@@ -755,7 +764,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    *    DECLARED one must pass FLS — `ObjectGrid`'s `passesProjectionGate`
    *    order. Nothing is harvested before the child schema lands, because
    *    nothing can be validated; the key below then changes and the list is
-   *    fetched again with the operands.
+   *    fetched again with the operands;
+   *  - the mobile card gallery's cover (`MOBILE_GALLERY_COVER_FIELD`), which
+   *    no column shows and the gallery reads off every row — through the same
+   *    declared-and-readable gate, once the child schema has landed.
    *
    * ⛔ `pruneEmpty` is NOT applied: it judges emptiness from the rows this
    * request fetches, so the projection is taken before it — it only ever
@@ -786,6 +798,8 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     for (const root of expandFields) projection.add(root);
     const fields = objectSchema?.fields;
     if (fields && typeof fields === 'object') {
+      const readable = (field: string): boolean =>
+        !perms?.isLoaded || !relatedObjectName || perms.checkField(relatedObjectName, field, 'read');
       const operands = collectPredicateFieldRefs(
         listViewPredicates({
           rowActionDefs: rowActions,
@@ -802,9 +816,17 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // `isProjectableField` rule, read across both shapes.
         const declared = parentRelationshipFieldDef(fields, field) !== undefined;
         if (!declared && !PLATFORM_RECORD_COLUMNS.has(field)) continue;
-        if (declared && perms?.isLoaded && relatedObjectName
-            && !perms.checkField(relatedObjectName, field, 'read')) continue;
+        if (declared && !readable(field)) continue;
         projection.add(field);
+      }
+      // The mobile card gallery's cover: no column shows it, but the gallery
+      // reads it off every row. Asked for when the child DECLARES it (either
+      // container shape) and FLS allows it — on every viewport, not only on
+      // mobile, so crossing the breakpoint never changes the key below and
+      // never refetches the list.
+      if (parentRelationshipFieldDef(fields, MOBILE_GALLERY_COVER_FIELD) !== undefined
+          && readable(MOBILE_GALLERY_COVER_FIELD)) {
+        projection.add(MOBILE_GALLERY_COVER_FIELD);
       }
     }
     return Array.from(projection);
@@ -1931,6 +1953,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         gallery: {
           titleField: titleField || 'name',
           visibleFields,
+          // Explicit, so the cover the card reads is the one the `$select`
+          // projection asks for — see `MOBILE_GALLERY_COVER_FIELD`.
+          coverField: MOBILE_GALLERY_COVER_FIELD,
           cardSize: 'medium',
         },
         onRowClick,

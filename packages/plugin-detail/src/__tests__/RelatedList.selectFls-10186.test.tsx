@@ -44,6 +44,10 @@
  *    the late-arriving operands onto the wire. PIN 4b repeats the harvest over
  *    the ARRAY-shaped field container, which a Record-only reader would read
  *    as "nothing declared".
+ *  - PIN 6 — the mobile card gallery's cover rides along: requested when the
+ *    child declares it and FLS allows it (6a), not when denied (6b) or
+ *    undeclared (6c), and the cover the gallery node reads is the one the
+ *    projection carries (6d).
  *  - PIN 5 — the boundary, GREEN on `main` by design: a list that DERIVES its
  *    columns (no authored `columns`, or redaction emptied them) sends no
  *    projection. Those columns are only known after the fetch, and what that
@@ -255,6 +259,64 @@ describe('RelatedList row fetch — `$select` is FLS-projected (objectui#10186)'
       expect(rowFetches(ds).some((p) => (p.$select ?? []).includes('status'))).toBe(true),
     );
     expect(rowFetches(ds).at(-1)!.$select).toEqual(['id', 'name', 'status']);
+  });
+});
+
+/**
+ * The mobile card gallery's cover. Below the breakpoint a grid/table list
+ * renders an `object-gallery` whose cards read a cover field that no column
+ * shows, so the projection has to carry it — or, on a backend that honours
+ * `$select`, every card loses its image. The field reaches the request only
+ * after the child schema lands (it must be DECLARED), so each case waits for a
+ * later fetch the same way PIN 4 does.
+ */
+describe('RelatedList row fetch — the mobile gallery cover rides along (objectui#10186)', () => {
+  const withImage = { name: OBJECT, fields: { ...baseFields, image: { type: 'image', label: 'Photo' } } };
+  const lastSelect = (ds: ReturnType<typeof makeDataSource>): string[] =>
+    rowFetches(ds).at(-1)?.$select ?? [];
+  /**
+   * Readiness for the NEGATIVE cases: the drawn `name` column carries a typed
+   * cell, which the column layer attaches only once the child schema is in
+   * hand. A projection built from that schema has run its fetch effect by then,
+   * so a wrongly admitted cover would already be on a recorded request.
+   */
+  const schemaLanded = (): boolean =>
+    tableDrawn() && typeof (h.schema?.columns ?? []).find((c: any) => c.accessorKey === 'name')?.cell === 'function';
+
+  it('PIN 6a: a declared, readable cover is requested', async () => {
+    const ds = makeDataSource(withImage);
+    renderList(ds, denying('salary'), { columns: ['name'] });
+    await waitFor(() => expect(lastSelect(ds)).toContain('image'));
+    expect(lastSelect(ds)).toEqual(['id', 'name', 'image']);
+  });
+
+  it('PIN 6b: a declared cover FLS denies is not requested', async () => {
+    const ds = makeDataSource(withImage);
+    renderList(ds, denying('image'), { columns: ['name'] });
+    await waitFor(() => expect(schemaLanded()).toBe(true));
+    for (const params of rowFetches(ds)) expect(params.$select).not.toContain('image');
+  });
+
+  it('PIN 6c: an undeclared cover is not requested (an unknown key can zero the list)', async () => {
+    const ds = makeDataSource();
+    renderList(ds, denying(), { columns: ['name'] });
+    await waitFor(() => expect(schemaLanded()).toBe(true));
+    for (const params of rowFetches(ds)) expect(params.$select).not.toContain('image');
+  });
+
+  it('PIN 6d: the cover the mobile gallery reads is the one the projection carries', async () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
+    try {
+      const ds = makeDataSource(withImage);
+      renderList(ds, denying(), { columns: ['name'] });
+      await waitFor(() => expect(h.schema?.type).toBe('object-gallery'));
+      await waitFor(() => expect(lastSelect(ds)).toContain('image'));
+      const cover = h.schema.gallery.coverField;
+      expect(typeof cover).toBe('string');
+      expect(lastSelect(ds)).toContain(cover);
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    }
   });
 });
 

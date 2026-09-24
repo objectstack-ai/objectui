@@ -143,7 +143,8 @@ to the server so ordering stays global across pages.
 A related list that declares `columns` also narrows its row fetch: it
 sends a `$select` of the declared columns the current user can read
 (field-level security), plus `id`, the expanded lookup fields and, once the
-object's schema has loaded, the fields its row-action predicates read. A
+object's schema has loaded, the fields its row-action predicates read and
+the mobile card gallery's cover field (when declared and readable). A
 column the user cannot read is dropped once their permissions have loaded;
 a request sent before that can still carry it. A list without `columns`
 picks its columns only after the rows arrive, so it still fetches whole

@@ -199,11 +199,19 @@ jobs:
       # cache for every later job. The script proves the injection reached every
       # workspace consumer before returning; nothing tracked by git is touched,
       # so the pin and the lockfile are exactly as committed.
+      #
+      # It is handed the objectstack checkout the spec was BUILT in
+      # (objectui#10229): a declared dependency whose installed store sibling
+      # does not satisfy the packed manifest's range (zod, when objectstack
+      # raises its floor) is re-pointed at the copy that build resolved, so the
+      # declarations are read against the dependency they were emitted against.
+      # Each substitution is printed here and in the run summary.
       - name: Inject the source-built spec into the install
         env:
           UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
           TARBALL: ${{ steps.pack.outputs.tarball }}
-        run: node scripts/spec-main-shape-gate.mjs inject --tarball "$TARBALL" --sha "$UPSTREAM_SHA"
+          UPSTREAM_CHECKOUT: ${{ runner.temp }}/objectstack
+        run: node scripts/spec-main-shape-gate.mjs inject --tarball "$TARBALL" --sha "$UPSTREAM_SHA" --upstream-checkout "$UPSTREAM_CHECKOUT"
 
       # ── The compile ──────────────────────────────────────────────────────
       # `pnpm type-check` is `turbo run type-check`, whose task dependsOn

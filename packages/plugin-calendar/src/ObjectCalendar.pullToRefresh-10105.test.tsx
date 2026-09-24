@@ -85,11 +85,13 @@ const objectDef = {
   },
 };
 
-const makeDataSource = () =>
-  ({
-    find: vi.fn().mockResolvedValue({ data: ROWS }),
-    getObjectSchema: vi.fn().mockResolvedValue(objectDef),
-  }) as any;
+// Both doubles implement only the two members this component calls, so they
+// are handed over `as never` at the call site rather than typed as a full
+// `DataSource`.
+const makeDataSource = () => ({
+  find: vi.fn().mockResolvedValue({ data: ROWS }),
+  getObjectSchema: vi.fn().mockResolvedValue(objectDef),
+});
 
 /** `find` answers at once, except the SECOND call, which waits for `releaseSecond`. */
 function makeHeldSecondFetchDataSource() {
@@ -106,7 +108,7 @@ function makeHeldSecondFetchDataSource() {
         }),
     )
     .mockResolvedValue({ data: ROWS });
-  const dataSource = { find, getObjectSchema: vi.fn().mockResolvedValue(objectDef) } as any;
+  const dataSource = { find, getObjectSchema: vi.fn().mockResolvedValue(objectDef) };
   return { dataSource, releaseSecond: () => releaseSecond() };
 }
 
@@ -114,7 +116,7 @@ const CONFIGURED = {
   type: 'object-calendar',
   objectName: 'crm_leave_request',
   calendar: { startDateField: 'start_date' },
-} as any;
+} as const;
 
 /**
  * A class on the component's `className` prop marks the host. The loading
@@ -155,7 +157,7 @@ describe('objectui#10105 — ObjectCalendar pull-to-refresh arms on both data pa
   it('internal-fetch path: the gesture arms, refreshes, and arms again after the loading screen', async () => {
     const { dataSource, releaseSecond } = makeHeldSecondFetchDataSource();
     const { container } = render(
-      <ObjectCalendar schema={CONFIGURED} dataSource={dataSource} className={HOST_CLASS} />,
+      <ObjectCalendar schema={CONFIGURED as never} dataSource={dataSource as never} className={HOST_CLASS} />,
     );
     // The first commit on this path is the loading screen. This is the step
     // the defect depended on.
@@ -183,9 +185,9 @@ describe('objectui#10105 — ObjectCalendar pull-to-refresh arms on both data pa
   it('pre-fetched path (the lit control): the gesture arms', async () => {
     const { container } = render(
       <ObjectCalendar
-        schema={CONFIGURED}
-        dataSource={makeDataSource()}
-        data={ROWS as any}
+        schema={CONFIGURED as never}
+        dataSource={makeDataSource() as never}
+        data={ROWS}
         className={HOST_CLASS}
       />,
     );

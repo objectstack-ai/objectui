@@ -78,11 +78,10 @@ it. Arguments go in a top-level `params` object:
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. `params` values
+are templates: every string inside `params`, at any depth, is evaluated
+the same way `properties` values are, so a button on a record page names
+the record it sits on with `${record.id}`:
 
 ```jsonc
 {
@@ -92,15 +91,21 @@ surrounding row, so a declared `navigate_edit` button carries a literal
   "actionType": "navigate_edit",
   "params": {
     "objectName": "account",
-    "recordId":   "0015e000abcd"
+    "recordId":   "${record.id}"
   }
 }
 ```
 
-For a per-row **Edit** that follows the record under the cursor, use the
-list or detail view's built-in **Edit** entry point instead: under
-`editMode: "page"` it already routes to the same URL (see *Migrating an
-existing object* below).
+`record` is the record the page is bound to. A template that cannot be
+evaluated (on a page with no bound record, or with a misspelled root
+such as `${recrod.id}`) reaches the handler as its raw `${…}` text, and
+the development console reports it under `params.recordId`, so a wrong
+template stays visible. A misspelled field on a bound record
+(`${record.idd}`) is not an error: it resolves to nothing.
+
+For a per-row **Edit** in a list, use the list view's built-in **Edit**
+entry point: under `editMode: "page"` it already routes to the same URL
+(see *Migrating an existing object* below).
 
 When invoked from inside an `ObjectView`, the action context already
 carries the active `objectName`, so `params` may be omitted entirely:

@@ -335,6 +335,13 @@ see [Row callbacks are component props](#row-callbacks-are-component-props).
 always carries a rows-per-page picker, and `pageSizeOptions` only replaces the
 choices it offers with your own.
 
+With no `pageSize` declared, every page the grid shows — the server-paged table,
+the table over inline `data`, and the grouped view's page of groups — uses the
+default `@objectstack/spec` declares for `pagination.pageSize`; the grid reads it
+from the spec rather than keeping a number of its own. A grouped view separately
+fetches a larger batch of rows to group, which is a fetch size and never a page
+size. Declare `pagination.pageSize` to choose the count yourself.
+
 ### Grouping is page-scoped
 
 `grouping` groups **the records the browser has already fetched** — one page —

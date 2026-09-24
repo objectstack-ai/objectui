@@ -504,6 +504,29 @@ function isSameOptionsValue(a: unknown, b: unknown, depth = 0): boolean {
 }
 
 /**
+ * objectui#10035 — the visualizations `ListView` draws WITHOUT an in-place
+ * refetch path, so a list that can show one of them is still remounted to show
+ * a write (`remountKey` in `renderListView`).
+ *
+ * Every other visualization draws the rows `ListView` fetched, and `ListView`
+ * refetches in place on `refreshTrigger` — `tree` re-issues its own query when
+ * those rows change. These two query for themselves and read nothing that
+ * moves on a write:
+ *   - `gantt` — the registered `object-gantt` renderer hands `ObjectGantt` only
+ *     `schema` and `dataSource`; its own query names no refresh counter, no
+ *     `onMutation` and no invalidation bus.
+ *   - `chart` — `ObjectChart` runs its own aggregate query off the node and
+ *     reads no refresh input. (A view whose own type is `chart` never reaches
+ *     `ListView` on this page — it takes the chart branch — so this member is
+ *     about the in-list switcher.)
+ *
+ * ⛔ Do not drop a member to "finish" objectui#10035 — that turns a remount into
+ * a list that silently stops showing writes. A member leaves when its renderer
+ * refetches in place.
+ */
+const REMOUNT_TO_REFRESH_VISUALIZATIONS: ReadonlySet<string> = new Set(['gantt', 'chart']);
+
+/**
  * THE record-detail URL this list surface builds — one route shape, one place.
  *
  * Derived from the LIST's own pathname rather than re-assembled from route
@@ -2416,7 +2439,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
         const combinedRefreshKey = refreshKey + (pluginRefreshKey || 0);
-        const key = `${objectName}-${activeView.id}-${combinedRefreshKey}`;
+        // objectui#10035 — AGENTS.md #8's corollary: refresh data, don't
+        // rebuild UI. The counter above is a DATA signal, and it used to ride
+        // in the `key` of everything below, so every save, delete, import or
+        // realtime event threw the list away — its search box, open popovers,
+        // scroll, selection and in-list visualization choice with it.
+        // `identityKey` is what a remount is for (another object, another
+        // view); `ListView` now receives the counter as `refreshTrigger`, which
+        // its fetch effect already names, and refetches in place.
+        //
+        // `remountKey` is kept ONLY where the renderer has no in-place refetch
+        // path, so dropping the counter would make it silently stop showing
+        // writes (see `REMOUNT_TO_REFRESH_VISUALIZATIONS`).
+        const identityKey = `${objectName}-${activeView.id}`;
+        const remountKey = `${identityKey}-${combinedRefreshKey}`;
         const viewDef = activeView;
 
         // Per-user, per-view runtime-filter cache (advanced filter + search).
@@ -2473,6 +2509,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         if (viewDef.type === 'chart') {
             const chartConfig = viewDef.chart || {};
+            // Both chart branches below keep `remountKey` (objectui#10035):
+            // `ObjectChart` runs its own query and reads no refresh input, so a
+            // remount is still the only way it shows a write.
+            //
             // ADR-0021 (#1890): dataset-bound chart — the single author-facing
             // shape. Selects dimensions/measures BY NAME and runs through the
             // governed queryDataset path (numbers consistent across surfaces).
@@ -2480,7 +2520,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 const dims: string[] = Array.isArray(chartConfig.dimensions) ? chartConfig.dimensions : [];
                 const vals: string[] = Array.isArray(chartConfig.values) ? chartConfig.values : [];
                 return (
-                    <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                    <Suspense key={remountKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                         <ObjectChart
                             dataSource={ds}
                             schema={{
@@ -2511,7 +2551,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     ? chartConfig.series
                     : [{ dataKey: valueField, label: valueField }];
             return (
-                <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                <Suspense key={remountKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
                         dataSource={ds}
                         schema={{
@@ -2564,6 +2604,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         const fullSchema: ListViewSchema = {
             ...listSchema,
+            // objectui#10035 — the refresh signal, in place of the remount the
+            // key used to force. The spread above carries only the plugin
+            // ObjectView's counter; this page's own counter (actions, import,
+            // realtime, view edits, the console's `externalRefreshKey`) reached
+            // `ListView` through the key alone. Both counters only grow, so
+            // their sum moves whenever either does.
+            refreshTrigger: combinedRefreshKey,
             // The active view's display label (same string the ViewTabBar
             // shows) — ListView appends it to export download filenames.
             label: viewDef.label ?? listSchema.label,
@@ -2885,9 +2932,23 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             heldListOptions.current = fullSchema.options;
         }
 
+        // Every visualization this `ListView` can draw: its own `viewType` and,
+        // through the in-list switcher, the author's whitelist. If any of them
+        // cannot refetch in place, the list keeps `remountKey` (objectui#10035)
+        // — this host cannot see which one the switcher is showing.
+        const reachableVisualizations = [
+            fullSchema.viewType,
+            ...(fullSchema.appearance?.allowedVisualizations ?? []),
+        ];
+        const listKey = reachableVisualizations.some(
+            (v) => v != null && REMOUNT_TO_REFRESH_VISUALIZATIONS.has(v),
+        )
+            ? remountKey
+            : identityKey;
+
         return (
             <ListView
-                key={key}
+                key={listKey}
                 schema={fullSchema}
                 className={className}
                 onEdit={editHandler}

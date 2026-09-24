@@ -713,6 +713,34 @@ export const OBJECT_VIEW_HOST_COMPOSITION_VIEW_TYPES = [
 ] as const;
 
 /**
+ * objectui#10035 — the non-grid view types whose renderer still has to be
+ * REMOUNTED to show a write, because it has no in-place refetch path.
+ *
+ * AGENTS.md #8's corollary: refresh data, don't rebuild UI. `refreshKey` is
+ * this component's refresh signal, and it used to ride in the `key` of every
+ * view it renders, so each save, delete or `onMutation` event threw the whole
+ * view away. It no longer rides there for a view that refetches in place:
+ * `kanban`, `calendar`, `gallery`, `timeline` and `map` draw `data={data}`,
+ * the rows the fetch effect above re-reads when `refreshKey` moves, and
+ * `tree` re-issues its own query when that `data` array changes.
+ *
+ * The two members below read nothing that moves on a write, so for them the
+ * counter stays in the key until the renderer gains a refresh input:
+ *   - `gantt` — the registered `object-gantt` renderer hands `ObjectGantt`
+ *     only `schema` and `dataSource`, so `data` never reaches it, and its own
+ *     query names no refresh counter, no `onMutation` and no invalidation bus.
+ *   - `chart` — `ObjectChart` runs its own aggregate query off the node and
+ *     reads neither the host's `data` nor any refresh input.
+ * The grid branch keeps the counter for the same reason: `ObjectGrid` fetches
+ * for itself and its query moves only on its own internal counter.
+ *
+ * ⛔ Do not drop a member to "finish" objectui#10035 — that turns a remount
+ * into a view that silently stops showing writes. A member leaves when its
+ * renderer refetches in place.
+ */
+const REMOUNT_TO_REFRESH_VIEW_TYPES: ReadonlySet<string> = new Set(['gantt', 'chart']);
+
+/**
  * ObjectView Component
  *
  * Renders a complete object management interface with multi-view rendering
@@ -2173,7 +2201,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // --- Content renderer ---
   const renderContent = () => {
-    const key = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}-${refreshKey}`;
+    // The view's IDENTITY — switching object, view or type is a real remount.
+    // The refresh counter is appended only where the renderer cannot refetch
+    // in place (objectui#10035, see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
+    const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
+    const remountKey = `${identityKey}-${refreshKey}`;
 
     // If a custom renderListView is provided, use it
     // #region object-view HOST-COMPOSITION SURFACE (objectui#5097)
@@ -2341,7 +2373,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       if (viewSchema && SchemaRendererComponent) {
         return (
           <SchemaRendererComponent
-            key={key}
+            key={REMOUNT_TO_REFRESH_VIEW_TYPES.has(currentViewType) ? remountKey : identityKey}
             schema={viewSchema}
             dataSource={dataSource}
             data={data}
@@ -2359,10 +2391,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       }
     }
 
-    // Default: use ObjectGrid
+    // Default: use ObjectGrid — still remounted to show a write, because
+    // `ObjectGrid` has no refresh input (see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
     return (
       <ObjectGrid
-        key={key}
+        key={remountKey}
         schema={gridSchema}
         dataSource={dataSource}
         onRowClick={handleRowClick}

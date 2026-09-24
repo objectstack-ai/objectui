@@ -34,19 +34,31 @@
  *   `pull_request`  → the identical finding is an EARLY WARNING that exits 0.
  *
  * The pull-request leg must not redden, and not out of politeness. A governed
- * PR sitting as a draft awaiting the maintainer's own merge is the CORRECT
- * terminal state of this regime, so a check that is red on it is red on the
- * healthy case, forever — and a permanently red check trains everyone to ignore
- * red. The sibling repository retired a gate for exactly that (objectstack's
- * 2026-08-18 ruling, 红灯常态化本身有毒). The queue build is the opposite: a
- * state a governed PR should never be in at all, so red there is red on the
- * anomaly.
+ * PR sitting as a draft while it waits for an authorized APPROVED review is the
+ * CORRECT resting state of this regime, so a check that is red on it is red on
+ * the healthy case, forever — and a permanently red check trains everyone to
+ * ignore red. The sibling repository retired a gate for exactly that
+ * (objectstack's 2026-08-18 ruling, 红灯常态化本身有毒). The queue build is the
+ * opposite: a state an UNAPPROVED governed PR should never be in at all, so red
+ * there is red on the anomaly.
+ *
+ * ⭐ What follows the approval is this check's own PASS path, which is why the
+ * queue leg is not only a refusal. Ruling C (maintainer 2026-09-13,
+ * objectstack-ai/objectstack#17971, carried into this repository's AGENTS.md
+ * governed-surface section) is quoted verbatim and untranslated:
+ *
+ *     「C. approve 后不管后续改动都由席位落地:」
+ *
+ * Once an authorized APPROVED review is on record, that approval IS the review
+ * record for a governed surface: the claiming seat readies it and arms
+ * auto-merge, and the queue lands it. The seat's ready → enqueue is the correct
+ * next act there, not a violation.
  *
  * ⚠️ Stated out loud rather than discovered: this guard CANNOT stop a
- * maintainer merging a governed PR by hand, and does not try. A direct merge
- * produces no `merge_group` event. That is not a hole — under this regime the
- * human merge IS the review record. What it closes is the seat path: flip
- * ready → enqueue → the queue is the entire review, which is the shape of
+ * maintainer merging a governed PR directly, and does not try. A direct merge
+ * produces no `merge_group` event; it is the maintainer's own act, not a seat's.
+ * What this guard closes is the seat path taken WITHOUT an authorized approval:
+ * flip ready → enqueue → the queue is the entire review, which is the shape of
  * #6183 exactly.
  *
  * ## What satisfies the queue leg
@@ -83,12 +95,15 @@
  * ⚠️ The accepted cost, stated out loud rather than left to be discovered: a
  * push after an approval is no longer re-reviewed by this gate, so an approved
  * governed pull request can land carrying bytes its approver never read — the
- * maintainer accepts that, and the DRAFT remedy below (a human merge, which
- * does read the final bytes) is still the one this refusal prints first.
+ * maintainer accepts that, and ruling C (quoted above) says the same thing from
+ * the landing side: after the approval, the seat lands it whatever changes
+ * follow.
  *
- * The preferred remedy is NOT approval, and the refusal text says so first:
- * take the pull request out of the queue, convert it back to DRAFT, and leave
- * the merge to the maintainer.
+ * The remedy the refusal prints FIRST is NOT approval: take the pull request
+ * out of the queue by converting it back to DRAFT (disarming auto-merge alone
+ * does not dequeue it) and park it there. Only after that comes the authorized
+ * APPROVED review — on any commit, not dismissed — and then the claiming seat
+ * readies it and arms auto-merge, and the queue lands it.
  *
  * ⛔ An agent seat never submits an approving review on a governed-surface pull
  * request, under any account. Every seat in this repository writes under a
@@ -313,9 +328,12 @@ export const GOVERNED_SURFACES = Object.freeze([
  * 「os-zhuang hotlong 批准算数」). objectui's own card rules the MECHANISM, not
  * the roster. The roster is carried across because it is the same maintainer
  * and the same governed surface, and it is flagged here — and in this change's
- * pull request — as the one line the maintainer should confirm or edit. Nothing
- * is blocked either way: the ruled remedy this guard prints FIRST is
- * back-to-draft plus a human merge, which needs no approver at all.
+ * pull request — as the one line the maintainer should confirm or edit. The
+ * remedy this guard prints FIRST, back-to-draft, needs no approver at all; the
+ * LANDING that follows it does — under ruling C an APPROVED review by one of
+ * these accounts is what hands a governed pull request to the claiming seat to
+ * land. So a wrong roster fails in the safe direction: governed pull requests
+ * stay parked as drafts, and none lands unreviewed.
  */
 export const GOVERNED_APPROVERS = Object.freeze(['os-zhuang', 'hotlong']);
 
@@ -601,9 +619,10 @@ export function guardVerdict({ event, governed = [], unattributed = [], approval
   if (entries.length === 0 && unattributed.length === 0) {
     return { ...base, conclusion: 'clear', exitCode: EXIT_CLEAR, refusalKind: null };
   }
-  // The early-warning run never reddens: a governed PR awaiting the maintainer's
-  // own merge is this regime's healthy terminal state, and a check that is red
-  // on the healthy case is a permanently red check (see the header).
+  // The early-warning run never reddens: a governed PR parked as a draft while
+  // it waits for an authorized APPROVED review is this regime's healthy resting
+  // state, and a check that is red on the healthy case is a permanently red
+  // check (see the header).
   if (event !== EVENT_MERGE_GROUP) {
     return { ...base, conclusion: 'warned', exitCode: EXIT_CLEAR, refusalKind: null };
   }
@@ -716,14 +735,21 @@ export function renderGuardVerdict(verdict) {
   if (verdict.conclusion === 'warned') {
     lines.push(
       '  ⚠️  EARLY WARNING, not a failure — this run is on the pull request, and this check is deliberately',
-      '      GREEN here. A governed PR held as a draft for the maintainer to merge by hand IS this regime\'s',
-      '      healthy end state, and a check that reddens on the healthy case is a permanently red check.',
+      '      GREEN here. A governed PR held as a draft while it waits for an authorized APPROVED review IS',
+      '      this regime\'s healthy resting state, and a check that reddens on the healthy case is a',
+      '      permanently red check.',
       '',
-      '      ⛔ What a seat must NOT do with this pull request: flip it ready, enqueue it, or arm auto-merge.',
-      '         One governed path governs the WHOLE pull request — proportion is not a question.',
+      '      ⛔ What a seat must NOT do with this pull request while no authorized APPROVED review is on',
+      '         record: flip it ready, enqueue it, or arm auto-merge. One governed path governs the WHOLE',
+      '         pull request — proportion is not a question.',
       '      ⚠️  A GitHub MCP `update_pull_request` call can set `draft: false` as a SIDE EFFECT of passing',
       '         only `reviewers` (objectstack-ai/objectstack#12200). That is how objectui#6183 left draft,',
       '         and converting back to a draft did NOT dequeue it. Do not send that call on this PR.',
+      '',
+      `      ✅ Once an account in GOVERNED_APPROVERS (${GOVERNED_APPROVERS.join(', ')}) has APPROVED it — on any`,
+      '         commit, not dismissed — that approval IS the review record for a governed surface, and',
+      '         the claiming seat readies it and arms auto-merge, and the queue lands it (ruling C,',
+      '         maintainer 2026-09-13). ⛔ An agent seat never submits that approval, under any account.',
       '',
       '      If it IS enqueued anyway, the merge-queue run of this same check REFUSES it unless every',
       '      governed pull request above carries an authorized APPROVED review by then.',
@@ -768,13 +794,15 @@ export function renderGuardVerdict(verdict) {
   lines.push(
     '',
     '      What satisfies this check:',
-    '        1. ⭐ PREFERRED — take the pull request out of the queue: convert it back to DRAFT (disarming',
-    '           auto-merge alone does NOT dequeue it), and leave the merge to the maintainer. A human merge',
-    '           IS the review record for a governed surface; that is the regime, not a workaround of it.',
-    `        2. Or: obtain an APPROVED review by an authorized approver (GOVERNED_APPROVERS: ${GOVERNED_APPROVERS.join(', ')})`,
-    '           on each governed pull request, then re-queue. ⭐ It does NOT have to be re-given after a later',
-    '           push: maintainer ruling 2026-09-04 — a human approval record suffices and is never pinned to',
-    '           the latest commit. ⛔ An agent seat never submits that approval, under any account.',
+    '        1. ⭐ FIRST, whatever comes after it — take the pull request out of the queue: convert it back',
+    '           to DRAFT (disarming auto-merge alone does NOT dequeue it) and park it there. A draft waiting',
+    '           for an authorized approval is this regime\'s resting state, not a stalled one.',
+    `        2. Then: obtain an APPROVED review by an authorized approver (GOVERNED_APPROVERS: ${GOVERNED_APPROVERS.join(', ')})`,
+    '           on each governed pull request — that approval IS the review record for a governed surface —',
+    '           and after it the claiming seat readies it and arms auto-merge, and the queue lands it',
+    '           (ruling C, maintainer 2026-09-13). ⭐ It does NOT have to be re-given after a later push:',
+    '           maintainer ruling 2026-09-04 — a human approval record suffices and is never pinned to the',
+    '           latest commit. ⛔ An agent seat never submits that approval, under any account.',
     '      Neither of those is "edit this check".',
     '',
     '      Verify any file list before acting: node scripts/check-governed-queue-guard.mjs --test <paths…>',
@@ -1159,11 +1187,15 @@ export function renderTestVerdict(verdict) {
   lines.push(
     '',
     '   One governed path governs the WHOLE pull request — proportion is not a question.',
-    '   ⛔ Do not flip it ready, enqueue it, or arm auto-merge. Park it as a DRAFT and leave the merge',
-    '      to the maintainer; a human merge IS the review record for a governed surface.',
+    '   ⛔ Park it as a DRAFT, and do not flip it ready, enqueue it, or arm auto-merge until an',
+    '      APPROVED review by an authorized approver is on it.',
+    '      ⛔ An agent seat never submits that approval, under any account.',
+    '   ✅ That approval IS the review record for a governed surface. Once it is on record,',
+    '      the claiming seat readies it and arms auto-merge, and the queue lands it (ruling C,',
+    '      maintainer 2026-09-13).',
     `   The merge-queue run of "${CHECK_CONTEXT_NAME}" refuses this diff unless an APPROVED review by an`,
     `   authorized approver (GOVERNED_APPROVERS: ${GOVERNED_APPROVERS.join(', ')}) is on the pull request — on`,
-    '   whichever commit it was left (maintainer ruling 2026-09-04).',
+    '   whichever commit it was left, and not dismissed (maintainer ruling 2026-09-04).',
   );
   return lines.join('\n');
 }
@@ -1264,10 +1296,10 @@ async function main() {
   }
   // BOTH legs are always evaluated and BOTH blocks are always printed, so no
   // reading is lost whichever refuses. The governed refusal wins the exit code
-  // when both fire, because its remedy is the stricter of the two (the
-  // maintainer's own merge) and it subsumes the carrier's "take it out of the
-  // queue". ⛔ The carrier code is not swallowed silently — its block states the
-  // refusal in full either way.
+  // when both fire, because its remedy is the stricter of the two (back to
+  // draft until an authorized APPROVED review is on record) and it subsumes
+  // the carrier's "take it out of the queue". ⛔ The carrier code is not
+  // swallowed silently — its block states the refusal in full either way.
   return verdict.exitCode !== EXIT_CLEAR ? verdict.exitCode : carrier.exitCode;
 }
 
@@ -1651,6 +1683,22 @@ export async function selfTest() {
   assert('a-refusal-names-the-pull-request', refusalText.includes('#6183'), refusalText);
   assert('a-refusal-states-what-would-satisfy-it', /What satisfies this check/.test(refusalText) && /DRAFT/.test(refusalText) && /APPROVED review/.test(refusalText), refusalText);
   assert('a-refusal-names-the-preferred-remedy-first-and-it-is-DEQUEUE-not-approve', refusalText.indexOf('DRAFT') < refusalText.indexOf('obtain an APPROVED review'), refusalText);
+  // ⭐ Ruling C (maintainer 2026-09-13): the remedy is an ORDER, not a menu —
+  // out of the queue as a DRAFT first, then the authorized approval, then the
+  // claiming seat lands it. The pin reads all three positions rather than the
+  // first two, because a remedy that stopped at the approval would leave a
+  // seat waiting for a merge nobody is going to perform. The landing sentence
+  // is spelled here as a literal, NOT imported from the renderer, so this pin
+  // states independently what the text must say.
+  const claimingSeatLands = 'the claiming seat readies it and arms auto-merge, and the queue lands it';
+  assert(
+    'a-refusal-orders-the-remedy-DRAFT-then-the-authorized-APPROVAL-then-the-claiming-seat-lands-it-ruling-C',
+    refusalText.indexOf('DRAFT') < refusalText.indexOf('obtain an APPROVED review') &&
+      refusalText.indexOf('obtain an APPROVED review') < refusalText.indexOf(claimingSeatLands) &&
+      /that approval IS the review record/.test(refusalText) &&
+      /2026-09-13/.test(refusalText),
+    refusalText,
+  );
   assert('a-refusal-forecloses-the-edit-the-check-remedy', /Neither of those is "edit this check"/.test(refusalText), refusalText);
   assert('a-refusal-carries-the-runnable-derivation-command', refusalText.includes('check-governed-queue-guard.mjs --test'), refusalText);
   assert('a-refusal-names-the-incident-it-descends-from', /6183/.test(refusalText) && /5b3290fd5/.test(refusalText), refusalText);
@@ -1660,6 +1708,17 @@ export async function selfTest() {
   const warnText = renderGuardVerdict(warnedV);
   assert('the-warning-says-out-loud-that-it-is-deliberately-green', /EARLY WARNING/.test(warnText) && /GREEN here/.test(warnText), warnText);
   assert('the-warning-tells-a-seat-what-not-to-do', /flip it ready, enqueue it, or arm auto-merge/.test(warnText), warnText);
+  // ⭐ ... and says out loud that the prohibition is CONDITIONAL, and what a
+  // seat DOES do once the approval is on record. An unconditional ⛔ here
+  // would tell a seat to sit on a pull request ruling C says it should land.
+  assert(
+    'the-warnings-prohibition-is-CONDITIONAL-and-names-the-claiming-seat-landing-after-an-authorized-approval',
+    /while no authorized APPROVED review is on/.test(warnText) &&
+      warnText.indexOf('flip it ready, enqueue it, or arm auto-merge') < warnText.indexOf(claimingSeatLands) &&
+      GOVERNED_APPROVERS.every((login) => warnText.includes(login)) &&
+      /2026-09-13/.test(warnText),
+    warnText,
+  );
   // ⭐ The warning names the exact mechanism of the incident, because the seat
   // reading it is the seat about to make the same call.
   assert('the-warning-names-the-hidden-draft-false-side-effect', /draft: false/.test(warnText) && /update_pull_request/.test(warnText), warnText);
@@ -1704,7 +1763,34 @@ export async function selfTest() {
   assert('--test-reports-an-ordinary-diff-as-NOT-GOVERNED', !clearTest.governed && clearTest.checked === 2);
   const governedTestText = renderTestVerdict(governedTest);
   assert('--test-names-the-surface-and-the-file', /GOVERNED/.test(governedTestText) && governedTestText.includes('AGENTS.md') && governedTestText.includes('the repo-root agent instruction file'), governedTestText);
-  assert('--test-prescribes-the-draft-remedy', /DRAFT/.test(governedTestText) && /human merge IS the review record/.test(governedTestText), governedTestText);
+  assert(
+    '--test-prescribes-DRAFT-then-an-authorized-APPROVED-review-then-the-claiming-seat-lands-it-ruling-C',
+    governedTestText.indexOf('DRAFT') > -1 &&
+      governedTestText.indexOf('DRAFT') < governedTestText.indexOf('APPROVED review by an authorized approver') &&
+      governedTestText.indexOf('APPROVED review by an authorized approver') < governedTestText.indexOf(claimingSeatLands) &&
+      /That approval IS the review record for a governed surface/.test(governedTestText) &&
+      /An agent seat never submits that approval/.test(governedTestText) &&
+      /2026-09-13/.test(governedTestText) &&
+      GOVERNED_APPROVERS.every((login) => governedTestText.includes(login)),
+    governedTestText,
+  );
+  // ⛔ The pre-ruling-C wording, pinned in the REFUSING direction across every
+  // rendering a seat acts on. It told a seat to leave the merge to the
+  // maintainer and called that merge the review record; ruling C moved the
+  // landing to the claiming seat, so the old wording under-permits the text a
+  // seat is told to act on. A negative is the only pin that catches a
+  // paragraph drifting back.
+  for (const [where, text] of [
+    ['--test', governedTestText],
+    ['refusal', refusalText],
+    ['early-warning', warnText],
+  ]) {
+    assert(
+      `⛔ the-${where}-text-never-tells-a-seat-to-leave-the-merge-to-the-maintainer-nor-calls-that-merge-the-record`,
+      !/leave the merge to the maintainer/.test(text) && !/human merge IS the review record/.test(text) && !/merge by hand/.test(text),
+      text,
+    );
+  }
   assert('--test-names-the-check-a-queue-build-would-run', governedTestText.includes(CHECK_CONTEXT_NAME), governedTestText);
   assert('--test-on-a-clear-list-says-the-normal-route-applies', /NOT GOVERNED/.test(renderTestVerdict(clearTest)), renderTestVerdict(clearTest));
   // Empty input is BAD USAGE, not a clearance: `--test` with no paths would
@@ -2149,7 +2235,9 @@ export async function selfTest() {
       'never for an unauthorized, dismissed, superseded, non-decisive or absent review — with the PR leg ' +
       'still taking any approver, multi-PR group decomposition, four replayed governed shapes, the zero-API ' +
       'ordering guarantee measured with throwing spies, the retired head read measured ABSENT at one lookup ' +
-      'per governed PR, the unreadable-review-list refusal, the seat-side --test predicate, and the workflow ' +
+      'per governed PR, the unreadable-review-list refusal, the seat-side --test predicate, the ruling-C ' +
+      'landing narration (DRAFT, then an authorized approval, then the claiming seat lands it) pinned in the ' +
+      '--test, refusal and early-warning texts with the pre-ruling-C wording pinned ABSENT, and the workflow ' +
       '+ required-context wiring pins), plus the SECOND queue predicate objectui#9018 added on the merge_group ' +
       'leg — the contract-review carrier, read from the pull object under the scope the review read already ' +
       'needs, its label mirrored from and pinned to the constant scripts/pm/check-half-states.mjs owns with ' +

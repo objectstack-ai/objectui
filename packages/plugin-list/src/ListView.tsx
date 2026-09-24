@@ -2057,6 +2057,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       
       setLoading(true);
       setLoadError(null);
+      // [objectui#10384] Set when this result clamps the pager (see below).
+      // The window it moves to is already being fetched, so loading stays on:
+      // settling it here would paint the empty window — and with it the
+      // first-run empty state — for one frame before the clamped rows arrive.
+      let clampedToPage: number | null = null;
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
@@ -2413,6 +2418,34 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // render (objectui#7394), so this effect no longer has to re-run just
         // because a different visualization is now drawing the same rows.
         setFetchedTotal(knownTotal);
+        // [objectui#10384] Clamp the pager after a write empties this window.
+        // `pageResetSignature` below deliberately leaves the refresh inputs out
+        // (a write must not throw the user back to page 1), so a refetch that
+        // lands on a page the data no longer reaches — every row of the last
+        // page bulk-deleted, or a concurrent deleter — used to stay there with
+        // zero rows and the FIRST-RUN empty state over an object that still
+        // has records on earlier pages. The clamp lives HERE, on the result,
+        // because only the result knows the page is now past the end.
+        //
+        // It fires only when this window came back empty past the first page
+        // AND the server's total puts the last page strictly below the one
+        // requested; it then moves `serverPage` there, which moves `fetchSkip`
+        // and re-runs this effect once. It cannot loop: each firing strictly
+        // lowers the page and the target is floored at 1, so the chain ends
+        // at the first window the total says is reachable. A server whose
+        // total disagrees with its own empty window (total still reaching this
+        // page) gets no clamp, which is the other half of that guarantee.
+        // Without a numeric total the grid is never handed a pager (the
+        // `serverTotal != null` gate on the handoff), so no page past 1 is
+        // reachable to clamp from.
+        if (skip > 0 && items.length === 0 && knownTotal !== null) {
+          const lastReachablePage = Math.max(1, Math.ceil(knownTotal / effectivePageSize));
+          const requestedPage = Math.floor(skip / effectivePageSize) + 1;
+          if (lastReachablePage < requestedPage) {
+            clampedToPage = lastReachablePage;
+            setServerPage(lastReachablePage);
+          }
+        }
         // Past the stale-request guard, so this is the query behind the rows
         // that were just set — never an in-flight one that lost the race.
         setLastFindParams(findParams);
@@ -2432,7 +2465,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           setLoadErrorKind(classifyLoadError(err));
         }
       } finally {
-        if (isMounted && requestId === fetchRequestIdRef.current) {
+        if (isMounted && requestId === fetchRequestIdRef.current && clampedToPage === null) {
           setLoading(false);
         }
       }

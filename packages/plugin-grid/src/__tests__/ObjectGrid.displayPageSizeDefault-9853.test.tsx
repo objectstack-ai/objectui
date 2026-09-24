@@ -176,6 +176,17 @@ describe('ObjectGrid — one display page size from the spec, and a distinct fet
     expect(groupRows()).toHaveLength(SPEC_DISPLAY_DEFAULT);
   });
 
+  it('the grouped pager\'s size selector shows the size in force', async () => {
+    renderGrid(groupedSchema(), makeDataSource());
+    await vi.waitFor(() => expect(groupRows().length).toBeGreaterThan(0));
+    // The display default is not one of the selector's fixed steps; without
+    // the active size merged in, the control would display a size that is not
+    // the one on screen.
+    const select = document.querySelector('select') as HTMLSelectElement | null;
+    expect(select).toBeTruthy();
+    expect(select!.value).toBe(String(SPEC_DISPLAY_DEFAULT));
+  });
+
   it('CONTROL — a declared page size is honoured on every surface, and on the grouped fetch as before', async () => {
     const declared = { pagination: { pageSize: 7 } };
 

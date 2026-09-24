@@ -18,8 +18,9 @@ key on this block under ADR-0066, the renderer will read it then, following
 the contract.
 
 ⚠️ This supersedes the `record:details` part of the objectui#10155 entry
-(the ADR-0066 capability gate on the three record blocks).
+(the ADR-0066 capability gate on the three record blocks), and narrows the
+objectui#8649 entry's "read by all three renderers" to two for this one key.
 `record:highlights` and `record:related_list` are unchanged and still gate on
-the key as that entry describes. Server-side record and field access is
+the key as the objectui#10155 entry describes. Server-side record and field access is
 unaffected: this block-level gate was a browser-side hide, never a data-access
 control.

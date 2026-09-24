@@ -191,7 +191,8 @@ ComponentRegistry.register('div',
         'author "box" for a plain wrapper — the one drop-in swap; reach for "card", "flex", "container", "stack" or "grid" only when you want their layout, and move `body` content into `children` first',
     },
     inputs: [
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       className: 'p-2 sm:p-4 border border-dashed border-gray-300 rounded min-h-[100px]'

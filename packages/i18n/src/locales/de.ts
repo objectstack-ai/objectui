@@ -147,6 +147,7 @@ const de = {
       acknowledge: 'Ich habe ihn gespeichert',
       copyAll: 'Alle kopieren',
     },
+    notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
   },
   validation: {
     required: "{{field}} ist erforderlich",
@@ -2580,6 +2581,7 @@ const de = {
     selectPlaceholder: "{{label}} auswählen",
     requiredError: "{{label}} ist erforderlich",
     unresolvedParam: 'Dieser Parameter kann nicht angezeigt werden: Das zugrunde liegende Feld fehlt in den Objektmetadaten, daher lässt sich das benötigte Steuerelement nicht erzeugen. Bitten Sie eine Administratorin oder einen Administrator, die Aktionsdefinition zu korrigieren.',
+    carryOverHint: 'Unverändert übernommen (schreibgeschützt)',
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     uploading: "Wird hochgeladen…",

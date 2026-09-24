@@ -47,18 +47,20 @@ import type { Diagnostic, Manifest, SchemaElement } from '../types.js';
 
 /**
  * Two blocks and nothing else: one that accepts children and one that does not.
- * The containment verdict is keyed on `isContainer`, so those two are the whole
- * population this rule can distinguish.
+ * The containment verdict is keyed on the declared `children` slot input —
+ * ⛔ not on `isContainer`, since objectui#9910 — so those two are the whole
+ * population this rule can distinguish. `box` carries the flag too, as the
+ * layout fact it still is; `acceptsChildren` in `../validate.ts` never reads it.
  */
 const manifest: Manifest = manifestFromConfigs([
-  { type: 'box', namespace: 'ui', isContainer: true, inputs: [{ name: 'className', type: 'string' }] },
-  { type: 'badge', namespace: 'ui', isContainer: false, inputs: [{ name: 'label', type: 'string' }] },
+  { type: 'box', namespace: 'ui', isContainer: true, inputs: [{ name: 'className', type: 'string' }, { name: 'children', type: 'slot' }] },
+  { type: 'badge', namespace: 'ui', inputs: [{ name: 'label', type: 'string' }] },
   // Declared so the CHILD below resolves: `validateTree` descends `children`,
   // and an undeclared child draws `unknown-component`, which would make the
   // silence controls below assert the wrong absence.
-  { type: 'text', namespace: 'ui', isContainer: false, inputs: [{ name: 'content', type: 'string' }] },
+  { type: 'text', namespace: 'ui', inputs: [{ name: 'content', type: 'string' }] },
   // Declares `body` as its OWN input — the carve-out this rule must respect.
-  { type: 'detail', namespace: 'plugin-detail', isContainer: false, inputs: [{ name: 'body', type: 'string' }] },
+  { type: 'detail', namespace: 'plugin-detail', inputs: [{ name: 'body', type: 'string' }] },
 ] as unknown as Parameters<typeof manifestFromConfigs>[0]);
 
 const CHILD = { type: 'text', content: 'measured' };

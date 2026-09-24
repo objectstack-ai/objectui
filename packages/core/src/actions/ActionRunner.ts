@@ -688,6 +688,21 @@ export interface ActionParamDef {
    * gated on `features.phoneNumber`). Absent = always visible.
    */
   visible?: string;
+  /**
+   * Carry-over declaration — `@objectstack/spec`'s `ActionParamSchema.carryOver`
+   * (objectstack#11753 ruling, objectui#6246), passed through unchanged by
+   * `resolveActionParams()`. The param's value is carried through the dialog
+   * rather than collected from the user: seeded from the row (the spec refuses
+   * the key without `defaultFromRow: true`), rendered by `ActionParamDialog` as
+   * a collapsed read-only summary with no editing affordance, and submitted
+   * verbatim.
+   *
+   * ⛔ Not a styling hint. The permission-set Clone action declares it on its
+   * JSON permission facets because an editable facet lets a hand-edited but
+   * valid blob clone a set that grants MORE than its base; a renderer that
+   * merely greys the control out still offers that edit.
+   */
+  carryOver?: boolean;
 
   // ── Widget config (shared form field-widget renderer) ─────────────
   // `ActionParamDialog` renders every param through the same field widgets

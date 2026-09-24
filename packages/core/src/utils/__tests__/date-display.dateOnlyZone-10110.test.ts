@@ -126,6 +126,9 @@ const CARD_CLOCK = '2026-09-03T10:35:00.000Z';
 /** The morning after DST ends in `America/Los_Angeles` (2026-11-01). */
 const DST_CLOCK = '2026-11-02T18:00:00.000Z';
 
+/** The probe's fixed instant, as the child spells it. */
+const INSTANT_ISO = '2026-08-01T03:00:00.000Z';
+
 /** This module's source, resolved from THIS FILE and never from the cwd. */
 const MODULE_URL = new URL('../date-display.ts', import.meta.url).href;
 
@@ -169,6 +172,13 @@ process.stdout.write(JSON.stringify({
   unparsable: m.formatDate('not-a-date', undefined, { locale: EN }),
   rolledOverDay: m.formatDate('2026-02-30', undefined, { locale: EN }),
   twoDigitYear: m.formatDate('0026-08-01', undefined, { locale: EN }),
+  // objectui#10183: the parse step itself, now exported — read with the LOCAL
+  // getters its doc comment names.
+  displayDateLocalParts: (() => {
+    const d = m.toDisplayDate('2026-08-01');
+    return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()];
+  })(),
+  displayDateOfInstant: m.toDisplayDate(INSTANT).toISOString(),
 }));
 `;
 
@@ -289,6 +299,21 @@ describe('a value that carries an instant keeps converting (objectui#10110)', ()
     // by the repair, and the case a blanket offset would break.
     expect(readIn(WEST).midnightSpelledAsInstant).toBe('Jul 31');
     expect(readIn(EAST).midnightSpelledAsInstant).toBe('Aug 1');
+  });
+});
+
+describe('the exported parse step (objectui#10183)', () => {
+  it('hands back local midnight of the day a date-only value names, in every zone', () => {
+    // Callers outside this module format or compare this `Date` themselves;
+    // local midnight is what makes their local-zone reads name the right day.
+    for (const tz of [WEST, EAST, FAR_EAST]) {
+      expect(readIn(tz).displayDateLocalParts, tz).toEqual([2026, 8, 1, 0]);
+    }
+  });
+
+  it('leaves an instant exactly the instant it was', () => {
+    expect(readIn(WEST).displayDateOfInstant).toBe(INSTANT_ISO);
+    expect(readIn(EAST).displayDateOfInstant).toBe(INSTANT_ISO);
   });
 });
 

@@ -119,6 +119,13 @@ export interface RawActionParam {
   defaultValue?: unknown;
   /** When true, seed defaultValue from the row record using the field name. */
   defaultFromRow?: boolean;
+  /**
+   * Carry-over declaration — the spec's `ActionParamSchema.carryOver`
+   * (objectui#6246): seeded from the row, rendered read-only, submitted
+   * verbatim. Copied onto `ActionParamDef.carryOver` unchanged on every branch
+   * below; `ActionParamDialog` is what honours it.
+   */
+  carryOver?: boolean;
   /** Allow multiple values (file/image/lookup/user params → array value). */
   multiple?: boolean;
   /** Accepted upload types (MIME types / extensions) for `file`/`image` params. */
@@ -485,6 +492,10 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      // This output is built key by key, so an authored key that is not
+      // copied here never reaches the dialog — which is how `carryOver` went
+      // unhonoured until objectui#6246. Same line on the two branches below.
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
@@ -541,6 +552,7 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
@@ -681,6 +693,8 @@ export function resolveActionParam(
     helpText: param.helpText ?? field.help ?? field.description,
     defaultValue: rowDefault ?? param.defaultValue ?? field.defaultValue,
     visible: normaliseVisible(param.visible),
+    // A declaration of the PARAM, never inherited from the field.
+    carryOver: param.carryOver,
     // Widget config inherited from the field for every type (not just
     // lookup): multi-value shape and upload constraints (ADR-0059).
     multiple: param.multiple ?? field.multiple,

@@ -43,6 +43,14 @@
  * Reverting the producer fix is predicted to turn the three FIX cases RED
  * (mount 2 list queries, record open+close 4, bare re-render 1, each where 1,
  * 0, 0 are asserted) and to leave the two CONTROLS green.
+ *
+ * ⚠️ The first reverse run measured 4 red / 1 green: the real-change control
+ * then asserted EXACTLY one refetch, and swapping the object definition also
+ * re-renders the page, which in the old world re-issued the query again (2).
+ * An exact count there was a FIX limb filed as a control. The control's job is
+ * the other direction — a real change must never LOSE its refetch — so it now
+ * asserts at least one, which holds in both worlds. The prediction above is
+ * left as written before the run.
  */
 
 import * as React from 'react';
@@ -252,6 +260,6 @@ describe('ObjectView keeps the options identity across host re-renders that chan
     const host = await mountHost();
     const before = listQueries;
     await host.setObjects(objectsWith({ kanban: { titleField: 'stage' } }));
-    expect(listQueries - before).toBe(1);
+    expect(listQueries - before).toBeGreaterThanOrEqual(1);
   });
 });

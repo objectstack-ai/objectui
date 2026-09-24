@@ -26,7 +26,7 @@ import {
 } from '@object-ui/components';
 import { RefreshCcw, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { ComponentRegistry } from '@object-ui/core';
 import {
   listLocalInstalls,
@@ -40,7 +40,11 @@ export function InstalledList() {
   const navigate = useNavigate();
   const { appName } = useParams<{ appName?: string }>();
   const { isAdmin } = useWorkspaceAdminStatus();
-  const { t, language } = useObjectTranslation();
+  const { t } = useObjectTranslation();
+  // The install date reads the DISPLAY locale, never the UI language: a
+  // regional locale (`de-CH` under an English UI) must reach it, and an empty
+  // language must not fall through to the machine's locale (objectui#10331).
+  const displayLocale = useDisplayLocale();
   const basePath = appName ? `/apps/${appName}` : '';
 
   const [items, setItems] = useState<LocalInstallEntry[]>([]);
@@ -139,7 +143,7 @@ export function InstalledList() {
                     <Badge variant="outline">{t('marketplace.versionBadge', { version: entry.version })}</Badge>
                   </CardTitle>
                   <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                    <span>{t('marketplace.installedAt', { when: new Date(entry.installedAt).toLocaleString(language || undefined) })}</span>
+                    <span>{t('marketplace.installedAt', { when: new Date(entry.installedAt).toLocaleString(displayLocale) })}</span>
                     {entry.installedBy && <span>{t('marketplace.installedBy', { user: entry.installedBy })}</span>}
                     <span>{t('marketplace.installedPackageId')} <code className="font-mono">{entry.packageId}</code></span>
                   </div>

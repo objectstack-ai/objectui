@@ -296,9 +296,15 @@ export const SeparatorSchema = BaseSchema.extend({
  */
 export const ContainerSchema = BaseSchema.extend({
   type: z.literal('container'),
+  // `false` ONLY, not `z.boolean()` (objectui#10286, the objectui#7759 ruling:
+  // for a key the spec does not declare, the read site is the truth). The
+  // `container` renderer maps `false` to `max-w-none` and each size word to its
+  // `max-w-*` class; `true` matches none of those branches, so it parsed green
+  // here and drew no max-width class at all — neither the default `max-w-xl`
+  // nor the `max-w-none` that `false` states. The declaration never admitted it.
   maxWidth: z.union([
     z.enum(['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full', 'screen']),
-    z.boolean(),
+    z.literal(false),
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),

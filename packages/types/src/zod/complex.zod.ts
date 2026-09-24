@@ -478,7 +478,31 @@ export const FilterFieldSchema = z.object({
     'select', 'status',
     'lookup', 'master_detail', 'user',
   ]).optional().describe('Field type — the published doc\'s fourteen; `text` when absent'),
-  operators: z.array(FilterOperatorSchema).optional().describe('Available operators'),
+  // The spec's canonical filter vocabulary, `VIEW_FILTER_OPERATORS` in
+  // `@objectstack/spec/ui` (objectui#10286, the objectui#7759 ruling: where the
+  // spec declares it, both faces align to the spec). This key used to take
+  // `FilterOperatorSchema` above, which carries `is_null` / `is_not_null` where
+  // the TS declaration carried `is_empty` / `is_not_empty`, so neither face
+  // could be satisfied from the other. `FilterOperatorSchema` itself still
+  // types a CONDITION's `operator` and is not this key's business.
+  //
+  // Spelled out rather than imported: a raw spec VALUE read in a mirror must go
+  // through the objectui#8317 import boundary, which is about schemas and has no
+  // arm for a bare array. It cannot drift silently: the TS face takes the spec's
+  // `ViewFilterOperator` BY REFERENCE, so the parity ledger reddens the day the
+  // two sets differ, and `mirror-groups-cd-10286.test.ts`
+  // compares this list with the spec's array at runtime.
+  operators: z.array(z.enum([
+    'equals', 'not_equals',
+    'contains', 'not_contains', 'icontains',
+    'starts_with', 'ends_with',
+    'greater_than', 'less_than',
+    'greater_than_or_equal', 'less_than_or_equal',
+    'in', 'not_in',
+    'is_empty', 'is_not_empty',
+    'is_null', 'is_not_null',
+    'before', 'after', 'between',
+  ])).optional().describe('Available operators'),
   options: z.array(z.object({
     label: z.string(),
     value: z.any(),

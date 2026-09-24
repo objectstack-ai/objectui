@@ -50,7 +50,7 @@ import {
   inferModalSize,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { sanitizeFormData } from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
@@ -84,6 +84,17 @@ export interface ModalFormSectionConfig {
   description?: string;
   columns?: 1 | 2 | 3 | 4;
   fields: (string | FormField)[];
+  /**
+   * Whether the section can be collapsed — spec `FormSection.collapsible`.
+   * `collapsed: true` implies it (objectui#9780). The control lives on the
+   * section's divider row, so a section with neither `label` nor
+   * `description` cannot carry one: it renders open and is reported
+   * (objectui#9849, director ruling letter E). Stacked layout only — the
+   * `tabbed` content layout draws tabs, which do not collapse.
+   */
+  collapsible?: boolean;
+  /** Whether the section starts collapsed — spec `FormSection.collapsed`. Same rules as `collapsible`. */
+  collapsed?: boolean;
   /**
    * ADR-0089 `FormSection.visibleWhen` — conditional visibility for the
    * section's divider HEADER, evaluated by the form renderer with the canonical
@@ -249,6 +260,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // tries to close a dirty form.
   const [isDirty, setIsDirty] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  // Per-section LIVE collapse state, keyed like the divider rows. Unseeded on
+  // purpose: an untoggled section falls back to its declared `collapsed`
+  // inside `resolveSectionCollapse`, the one reader of that member — the same
+  // shape as ObjectForm's grouped layout and DrawerForm (objectui#9849).
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   // Whether the pending close came from the explicit Cancel button (so we fire
@@ -668,10 +684,24 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       const groups = sections
         .map((section, index) => {
           const body = applyFieldPerms(buildSectionFields(section));
+          const key = sectionKey(section, index);
+          const title = sectionTitle(section);
           return {
-            key: sectionKey(section, index),
-            title: sectionTitle(section),
+            key,
+            title,
             description: section.description,
+            // The collapse pair, through the ONE resolution (objectui#9849
+            // step two — director ruling letter E, item 1: 「on every arm」).
+            // Read by the stacked layout below only; tabs do not collapse, so
+            // the tabbed layout never asks, and never reports.
+            resolveCollapse: () =>
+              resolveSectionCollapse(section, {
+                live: collapsedSections[key],
+                title,
+                description: section.description,
+                where: `ModalForm section '${key}' of object '${schema.objectName}'`,
+                setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+              }),
             // Key-by-key rebuild: an uncopied key never reaches the divider
             // synthesis below (#6111).
             visibleWhen: section.visibleWhen,
@@ -723,27 +753,27 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // grid to override here.)
       const allFields: FormField[] = [];
       groups.forEach((g) => {
-        // The ONE path from a section configuration to its divider row
-        // (objectui#9849) — `projectSectionDivider` owns every key this row
-        // carries, including the ADR-0089 predicate and the objectui#6236
-        // membership claim, so this arm can no longer copy a different set
-        // than its siblings. This arm's gate is the `title || description`
-        // one-row shape it has always had; ⛔ the gate union is the residual
-        // the helper's own docblock hands back, ⛔ not something decided here.
+        const collapse = g.resolveCollapse();
+        // The ONE path from a section configuration to its divider row, and
+        // the ONE row rule (objectui#9849, director ruling letter E) —
+        // `projectSectionDivider` owns every key this row carries, including
+        // the ADR-0089 predicate, the objectui#6236 membership claim and the
+        // collapse pair, so this arm can no longer answer differently from
+        // its siblings.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: g.key,
-              title: g.title,
-              description: g.description,
-              visibleWhen: g.visibleWhen,
-              members: g.fields.map((f) => f.name),
-              className: g.className,
-            },
-            'headingOrBlurbRow',
-          ),
+          ...projectSectionDivider({
+            key: g.key,
+            title: g.title,
+            description: g.description,
+            visibleWhen: g.visibleWhen,
+            members: g.fields.map((f) => f.name),
+            className: g.className,
+            collapse,
+          }),
         );
-        allFields.push(...g.fields);
+        // A collapsed group keeps its fields registered (values preserved) but
+        // out of the DOM — only ever while its row carries the control.
+        allFields.push(...(collapse.collapsed ? g.fields.map((f) => ({ ...f, hidden: true })) : g.fields));
       });
 
       return <SchemaRenderer schema={{ ...sharedFormSchema, fields: allFields }} />;
@@ -764,26 +794,33 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
+        const key = section.name || String(index);
+        // The group's declared collapse state, which `deriveFieldGroupSections`
+        // has always handed this route and this route used to drop
+        // (objectui#9849 step two — director ruling letter E, item 1).
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[key],
+          title,
+          description: section.description,
+          where: `ModalForm field group '${key}' of object '${schema.objectName}'`,
+          setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+        });
         // The ONE path (objectui#9849). This push is the site the card was
         // filed on: it rebuilt the row key by key WITHOUT `description`, while
-        // its stacked sibling twenty lines up carried it — so a modal form
-        // that declares no `sections` and leans on the object's own
-        // `fieldGroups` metadata drew a group's heading and silently ate the
-        // blurb its author wrote. Going through the shared projection is what
-        // fixes it, and ⛔ not a key added back here.
+        // its stacked sibling carried it. Going through the shared projection
+        // is what fixed it, and ⛔ not a key added back here.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: section.name || index,
-              title,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: body.map((f) => f.name),
-            },
-            'heading',
-          ),
+          ...projectSectionDivider({
+            key,
+            title,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: body.map((f) => f.name),
+            collapse,
+          }),
         );
-        allFields.push(...(columns > 1 ? applyAutoColSpan(body, columns) : body));
+        const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
+        allFields.push(...(collapse.collapsed ? laidOut.map((f) => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];
       return (

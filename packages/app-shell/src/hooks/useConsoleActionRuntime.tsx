@@ -45,11 +45,12 @@ import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionCon
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from '../views/ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from '../views/FlowRunner.js';
+import { FlowRefusalNotice, type FlowRefusalState } from '../views/FlowRefusalNotice.js';
 import { resolveActionParams, withKnownObjects } from '../utils/resolveActionParams.js';
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
@@ -121,7 +122,7 @@ export interface ConsoleActionRuntime {
       | 'handlers'
     >
   >;
-  /** Confirm / param / result / paused-flow dialogs — render inside the provider. */
+  /** Confirm / param / result / paused-flow / flow-refusal dialogs — render inside the provider. */
   dialogs: React.ReactNode;
 }
 
@@ -196,6 +197,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const [resultDialogState, setResultDialogState] = useState<ResultDialogState>({ open: false });
   // A paused `screen`-node flow awaiting user input.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   // Plan/capacity gate dialog (upgrade / limit), shared by the env-list toolbar
   // (proactive) and the api-action error path below (reactive safety net).
   const [entitlementDialog, setEntitlementDialog] = useState<EntitlementDialogState>({ open: false });
@@ -591,28 +594,30 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // RecordDetailView's copy of this handler and with FlowRunner's resume.
-      // A launch that FAILED (HTTP 200, `data.success === false`, no `status`
-      // and no `screen`) used to be indistinguishable from a completed run and
-      // fell into the terminal-success return below: no dialog, a green toast,
-      // and a refresh (#2958). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        // The ActionRunner's post-execution hook surfaces `error` as a toast.
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with RecordDetailView's copy of this handler (and the
+      // interpretation with FlowRunner's resume). Each launch copy once held
+      // its own branch set, and each time a kind was missing it fell into the
+      // terminal-success tail: a failed run toasted green (#2958), and a run
+      // that ended `refused` without pausing toasted the action's
+      // `successMessage` and refreshed while the refusal was never shown
+      // (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: paused at a `screen` node awaiting input — open
-      // the FlowRunner to render the form + resume. Refresh happens on complete.
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) refresh();
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) refresh();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -798,6 +803,10 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); refresh(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
       <EnvironmentEntitlementDialog
         state={entitlementDialog}

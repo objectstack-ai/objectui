@@ -821,13 +821,24 @@ export interface SliderSchema extends BaseSchema {
    */
   label?: string;
   /**
-   * Default value
+   * Default value(s) — a single number or one number per thumb.
+   *
+   * READ SITE: `packages/components/src/renderers/form/slider.tsx`, which wraps
+   * a scalar into a one-element list on purpose ("Ensure defaultValue is an
+   * array for backward compatibility"). Both spellings therefore render, and
+   * this declaration states both, matching its zod mirror (objectui#10280,
+   * objectui#7759 group B: an objectui-own key follows its read site).
    */
-  defaultValue?: number[];
+  defaultValue?: number | number[];
   /**
-   * Controlled value
+   * RETIRED (objectui#10280, ADR-0049) — no read site. The `slider` renderer
+   * reads `defaultValue`, `max`, `min` and `step` off the node and nothing
+   * else; `value` reaching it through the props spread is dropped by the
+   * form-control DOM whitelist. An authored `value` rendered nothing. The zod
+   * twin refuses it by name; author `defaultValue` for the initial position.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  value?: number[];
+  value?: never;
   /**
    * Minimum value
    * @default 0
@@ -1430,6 +1441,12 @@ export interface FieldValidationRules {
   pattern?: { value: RegExp; message: string };
   /**
    * Custom validation function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because the form renderer
+   * spreads `validation` into react-hook-form's `rules` and keeps a supplied
+   * `validate` running beside its own `required` entry.
    * @param value - The field value to validate
    * @returns true if valid, false or error message if invalid
    */
@@ -1457,9 +1474,14 @@ export interface FieldCondition {
    */
   in?: any[];
   /**
-   * Custom condition function
+   * RETIRED (objectui#7759 group E, objectui#6124 shape, ADR-0049) — JSON has no
+   * function value, and nothing reads this key: the form renderer translates
+   * `condition` to CEL from `field` / `equals` / `notEquals` / `in` only, so a
+   * supplied function never ran. The zod twin refuses it by name; express the
+   * condition with those keys, or with the field's `visibleWhen` CEL predicate.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  custom?: (formData: any) => boolean;
+  custom?: never;
 }
 
 /**

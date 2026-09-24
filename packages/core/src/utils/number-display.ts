@@ -59,6 +59,22 @@ export interface DisplayNumberFormatOptions {
    * for a non-React caller that has no locale in hand. It never means `en-US`:
    * assuming US conventions for the whole world is the defect this module was
    * created to remove.
+   *
+   * ── The caller this rule governs (objectui#10098) ──
+   * The `undefined` rule above is written for a NON-REACT display caller with
+   * no tag in hand: a plain formatter, an exporter, engine code — anything that
+   * cannot call a hook. For that caller the runtime default is the viewer's
+   * own environment, and the viewer's own environment is the honest locale for
+   * a user-facing display. A malformed tag ends in the same place, whoever the
+   * caller: {@link formatDisplayNumber} retries without it rather than
+   * throwing, so the number renders in the runtime default instead of taking
+   * the cell down.
+   *
+   * A React renderer is governed by a different rule, and the two do not
+   * contradict each other. It passes what `useDisplayLocale` returns, and that
+   * hook — `@object-ui/i18n`, `packages/i18n/src/useDisplayLocale.ts` — ends
+   * its provider chain on the concrete `'en'`, for determinism, when the chain
+   * yields no tag at all. That hook's docblock names this one in return.
    */
   locale?: string;
 

@@ -288,7 +288,7 @@ type MinimalDataSource = Pick<
 >;
 
 // And that those six SUFFICE. Every other member of `DataSource` — `searchAll`,
-// `bulk`, `getView`, `aggregate`, the import/export job family — is optional, so
+// `bulk`, `getView`, `aggregate`, `exportDownload`, the import-job family — is optional, so
 // a value with just the six is assignable to the whole interface. This line goes
 // red the moment a seventh member becomes required.
 declare const minimal: MinimalDataSource;

@@ -21,12 +21,13 @@ describe('datasetFilterCondition', () => {
   });
 
   it('drops unmapped operators rather than emitting a bad filter', () => {
-    // The claim is unchanged; the FIXTURE moved. `notContains` stopped being
-    // an unmapped operator in objectui#9372 (it is bridged to `$notContains`,
-    // asserted there), so keeping it here would have pinned a branch it no
-    // longer reaches — an assertion that passes because nothing is produced.
-    // `between` is the operator this bridge still declines to emit.
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'between', value: [1, 5] }] }))
+    // The claim is unchanged; the FIXTURE moved, twice. `notContains` stopped
+    // being unmapped in objectui#9372 and `between` in objectui#10062 (both
+    // asserted as EMITTED in `datasetFilterCondition.unmappedInert-9372`), so
+    // keeping either here would pin a branch it no longer reaches — an
+    // assertion that passes because nothing is produced. `containsCaseInsensitive`
+    // is an opt-in operator this bridge does not map.
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'containsCaseInsensitive', value: 'ac' }] }))
       .toBeUndefined();
   });
 

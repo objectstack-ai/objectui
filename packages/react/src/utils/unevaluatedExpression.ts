@@ -241,8 +241,8 @@ function locate(finding: UnevaluatedExpressionFinding): string {
  * `params` bag evaluates, an enumeration that left `params` out would tell an
  * author whose `params.recordId` template THREW that `params` is not a channel
  * at all — and send them to move a correct key somewhere else. A finding on a
- * `params` leaf always means the second sentence above (the expression threw),
- * never the first.
+ * `params` leaf means the second sentence above (the expression threw, or the
+ * value it produced still reads as a template), never the first.
  */
 export function formatUnevaluatedExpressionMessage(
   type: unknown,

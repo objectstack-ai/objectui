@@ -282,6 +282,12 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             // declared navigation runs.
             // Uncast since objectui#5934 (legacy callback channel retired).
             onSuccess: action.onSuccess,
+            // See action-button.tsx — the object the action declares it acts
+            // on (objectui#4202). An overflow action must act on the same
+            // object as its inline twin, or the `action:bar` `maxVisible` split
+            // decides which object a write lands on. Cast for the same reason
+            // as there.
+            objectName: (action as any).objectName,
           });
         } finally {
           setLoading(false);

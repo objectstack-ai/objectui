@@ -109,6 +109,16 @@ const ActionIconRenderer = forwardRef<
       if (loading) return;
       setLoading(true);
       try {
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // branch `action:menu` and `action:button` take (see action-button.tsx
+        // for why it is invoked here rather than forwarded). Neither called nor
+        // forwarded, a code-composed `onClick` was silently inert on this
+        // surface (objectui#4202).
+        if (typeof schema.onClick === 'function') {
+          await schema.onClick();
+          return;
+        }
+
         // Annotated binding, not an inline literal — see action-button.tsx for
         // the mechanism. `localContext` is `any` (the `PropsWithoutRef` collapse
         // of an index-signature props interface), and a literal that spreads an
@@ -171,6 +181,10 @@ const ActionIconRenderer = forwardRef<
           // here the action succeeds and the authored navigation never runs.
           // Uncast since objectui#5934 (legacy callback channel retired).
           onSuccess: schema.onSuccess,
+          // See action-button.tsx — the object the action declares it acts on;
+          // dropped here, a retargeted action silently acted on the page's
+          // object (objectui#4202). Cast for the same reason as there.
+          objectName: (schema as any).objectName,
         };
 
         await execute({ ...forwarded, ...localContext });

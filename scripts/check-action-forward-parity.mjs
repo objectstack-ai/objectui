@@ -79,7 +79,8 @@
  *     hosts, never by these five renderers. The keys are unreachable here, not
  *     dropped.
  *   - CONSUMPTION AT THE RENDERER. `disabled` is evaluated by each renderer to
- *     grey its own control, and `onClick` is invoked by `action:menu` directly.
+ *     grey its own control, and `onClick` is invoked by each declared renderer
+ *     directly.
  *     A key the renderer itself honours is not one it owes the runner.
  *
  * So {@link JUSTIFIED} is the declared table for those, one entry per
@@ -276,14 +277,23 @@ export const JUSTIFIED = {
       },
     ])
   ),
-  "action:menu:onClick": {
-    reason:
-      "Consumed HERE. `handleExecute` invokes `action.onClick()` directly and returns before " +
-      "reaching `execute` (action-menu.tsx:212) — the documented UI-local escape hatch that " +
-      "bypasses the ActionEngine. A key the renderer honours itself is not one it owes the " +
-      "runner.",
-    issue: 4050,
-  },
+  ...Object.fromEntries(
+    ["action:button", "action:icon", "action:group", "action:menu"].map((surface) => [
+      `${surface}:onClick`,
+      {
+        reason:
+          "Consumed HERE. The surface's execute path opens with the `UI-local escape hatch` " +
+          "branch — `typeof ….onClick === 'function'` → call it and return before reaching " +
+          "`execute` — the documented escape hatch that bypasses the ActionEngine and takes " +
+          "precedence over `type` / `target`. Forwarding it could not honour that precedence: " +
+          "the runner reads `onClick` only as a last fallback, after a registered handler or " +
+          "builtin executor for the declared type has run. `action:menu` carried the branch " +
+          "first (recorded here by objectui#4050); objectui#4202 gave it to the other three, " +
+          "where a code-composed `onClick` had been silently inert.",
+        issue: 4202,
+      },
+    ])
+  ),
 
   // ── Read only to improve a diagnostic ──────────────────────────────────────
   ...Object.fromEntries(
@@ -308,36 +318,7 @@ export const JUSTIFIED = {
 // as check-spec-symbol-derivation.mjs's DEBT map. Ratcheted below: a gap that
 // has been closed must be deleted from this table, or it silently re-reserves
 // the key for the next drop.
-export const KNOWN_GAPS = {
-  ...Object.fromEntries(
-    ["action:button", "action:icon", "action:group", "action:menu"].map((surface) => [
-      `${surface}:objectName`,
-      {
-        reason:
-          "An action declaring its own `objectName` (a related-list row action retargeting a " +
-          "CHILD object) is dropped by all four declared surfaces, so the console handler falls " +
-          "back to the page's object — useConsoleActionRuntime.tsx:370 " +
-          "(`action.objectName || objApiName`), :151 and :180 (the i18n scope for the param " +
-          "dialog's labels). Pre-existing on every surface, so it is not this PR's regression " +
-          "and not its fix.",
-        issue: 4202,
-      },
-    ])
-  ),
-  ...Object.fromEntries(
-    ["action:button", "action:icon", "action:group"].map((surface) => [
-      `${surface}:onClick`,
-      {
-        reason:
-          "The UI-local escape hatch is honoured by `action:menu` (which calls it, see JUSTIFIED " +
-          "above) and by nothing else: these three neither invoke nor forward it, so a " +
-          "code-composed `onClick` is silently inert. Not authorable in metadata (it is a " +
-          "function), which is why it stayed invisible. Pre-existing; filed with `objectName`.",
-        issue: 4202,
-      },
-    ])
-  ),
-};
+export const KNOWN_GAPS = {};
 
 // ── Opaque spreads ───────────────────────────────────────────────────────────
 // A spread this gate cannot resolve to a literal key set is EXTRACTION FAILURE
@@ -1047,9 +1028,10 @@ export function analyze(root = REPO_ROOT, options = {}) {
   // instruction, lose the keyword, and spell the anchor `objectui#` rather than
   // a bare `#` so the reference cannot match the closing grammar at all.
   //
-  // ⚠️ KNOWN_GAPS is NOT empty in this tree, so the first message below is
-  // reachable the moment one of its entries stops excusing anything — which is
-  // exactly the workflow that produces the quote. The landed precedent is the
+  // ⚠️ Whether KNOWN_GAPS holds entries at a given moment is not a defence: the
+  // first message below renders the moment any entry stops excusing anything —
+  // which is exactly the workflow that produces the quote — so it is always one
+  // entry away from being reachable. The landed precedent is the
   // rule-2 stale-entry message in scripts/check-spec-symbol-derivation.mjs and
   // the DEBT ratchet in scripts/check-lint-coverage.mjs. Pinned by
   // scripts/__tests__/check-action-forward-parity-closing-keyword.test.ts, which

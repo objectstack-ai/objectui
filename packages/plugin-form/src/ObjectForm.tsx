@@ -43,6 +43,7 @@ import {
   inferColumns,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
+import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import { sanitizeFormData } from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
@@ -738,7 +739,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // description of the member ("Field definitions merged over the set generated
   // from object metadata. With inline definitions and no data source, this
   // becomes the only field source.") is the contract, and the per-member merge
-  // below (`schema.customFields?.find(...)`) was written for it — but a
+  // (now `mergeCustomFields`, objectui#10073) was written for it — but a
   // non-empty `customFields` used to return from here with
   // `setFormFields(schema.customFields.map(normalizeVisibility))` BEFORE the
   // generated set existed, so that lookup only ever ran over an empty array.
@@ -750,11 +751,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   //   append   — a member naming a field the metadata never declares is added
   //              after the generated set, in authored order.
   // With no data source the generated set is empty, so the members remain the
-  // only field source (the registration's second sentence) — unchanged.
+  // only field source (the registration's second sentence) — unchanged. The
+  // drawer and modal arms resolve their members through the same helper, pinned
+  // per arm by `drawerModalCustomFieldsMerge-10073.test.tsx`.
   useEffect(() => {
     if (!objectSchema) return;
-
-    const generatedFields: FormField[] = [];
 
     // Managed-object blanket lock (ADR-0092 D4 / ADR-0103). We disable every
     // field when the object's resolved CRUD affordance for the CURRENT mode is
@@ -794,6 +795,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         ? fieldsToShow 
         : Object.keys(fieldsToShow);
 
+    const resolved: Array<{ name: string; entry: (typeof fieldNames)[number] }> = [];
     fieldNames.forEach((fieldName) => {
       // If fieldsToShow is an array of strings, fieldName is the string
       // If fieldsToShow is array of objects (unlikely but possible in some formats), we need to extract name
@@ -806,20 +808,18 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         warnUnresolvedTopLevelField(fieldName, schema.objectName);
         return;
       }
+      resolved.push({ name, entry: fieldName });
+    });
 
+    // The generated half of the merge: `undefined` for a name the object does
+    // not declare, which `mergeCustomFields` then draws only if a member names
+    // it. Field-level permissions are enforced downstream by `applyFieldPerms`
+    // (the real per-caller gate via `perms.checkField`); the schema itself
+    // carries no per-caller permission bits (objectstack#3661).
+    const generateField = (name: string, index: number): FormField | undefined => {
+      const fieldName = resolved[index].entry;
       const field = objectSchema.fields?.[name];
-      if (!field && !hasInlineFields) return; // Skip if not found in object definition unless inline
-
-      // Field-level permissions are enforced downstream by `applyFieldPerms`
-      // (the real per-caller gate via `perms.checkField`); the schema itself
-      // carries no per-caller permission bits (objectstack#3661).
-
-      // Check if there's a custom field configuration
-      const customField = schema.customFields?.find(f => f.name === name);
-      
-      if (customField) {
-        generatedFields.push(normalizeVisibility(customField));
-      } else if (field) {
+      if (field) {
         // Auto-generate field from schema
         const formField: FormField = {
           name: name,
@@ -994,25 +994,22 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           (formField as any).visibleOn = field.visible_on;
         }
 
-        generatedFields.push(formField);
+        return formField;
       }
-    });
+      return undefined;
+    };
 
-    // objectui#9778 — the APPEND direction. A member naming a field the
-    // generated set does not carry (an object metadata never declared, or one
-    // the `fields` whitelist left out) is added after it, in authored order;
-    // members that already overrode a generated field above are not repeated.
-    if (hasInlineFields && schema.customFields) {
-      const alreadyDrawn = new Set(generatedFields.map((f) => f.name));
-      schema.customFields.forEach((customField: any) => {
-        const name = customField?.name;
-        if (!name || alreadyDrawn.has(name)) return;
-        alreadyDrawn.add(name);
-        generatedFields.push(normalizeVisibility(customField));
-      });
-    }
-
-    setFormFields(generatedFields);
+    // objectui#9778 — override / keep / append, spelled ONCE in
+    // `customFieldsMerge.ts` and shared with the drawer and modal arms
+    // (objectui#10073), so every `formType` merges the same way.
+    setFormFields(
+      mergeCustomFields(
+        resolved.map((r) => r.name),
+        schema.customFields,
+        generateField,
+        normalizeVisibility,
+      ),
+    );
 
     // Only set loading to false if we are not going to fetch data
     // This prevents a flash of empty form before data is loaded in edit mode

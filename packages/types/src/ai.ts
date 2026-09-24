@@ -340,9 +340,16 @@ export interface AIRecommendationsSchema extends BaseSchema {
   showScores?: boolean;
 
   /**
-   * Display layout
+   * Display layout.
+   *
+   * `'carousel'` is RETIRED from this union (objectui#10330, ADR-0049
+   * enforce-or-remove). It was declared here and offered in the designer, but
+   * `AIRecommendations` renders only `grid` specially, so a stored `carousel`
+   * silently rendered as a list. It was never implemented, so it is removed
+   * rather than enforced. A node that still carries it renders the list layout;
+   * write `'list'` or `'grid'` instead.
    */
-  layout?: 'list' | 'grid' | 'carousel';
+  layout?: 'list' | 'grid';
 
   /**
    * Callback when a recommendation is selected

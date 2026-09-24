@@ -116,7 +116,7 @@ declare const data: AIRecommendationItem[];
 const productPicks: AIRecommendationsSchema = {
   type: 'ai-recommendations',
   recommendations: data.slice(0, 10), // every item handed over is rendered
-  layout: 'list', // 'list' | 'grid' | 'carousel'
+  layout: 'list', // 'list' | 'grid'
   showScores: false,
   emptyMessage: 'No recommendations available',
 };

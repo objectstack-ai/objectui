@@ -20,13 +20,15 @@ import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
+import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { stripImportedDefaults } from './imported-defaults.js';
 
 /**
  * The spec's own list-view type vocabulary, unwrapped from its `.default('grid')`.
  *
- * ⭐ NOT a crossing of the objectui#8317 import boundary, and this file has no
- * other read of `@objectstack/spec`, which is why it imports no
- * `stripImportedDefaults`. A vocabulary is a set of VALUES, not a subschema:
+ * ⭐ NOT a crossing of the objectui#8317 import boundary. (This file's one
+ * crossing is `DetailViewFieldSchema.options` below, wrapped in
+ * `stripImportedDefaults` at the site.) A vocabulary is a set of VALUES, not a subschema:
  * `.removeDefault()` here reaches the spec's enum and nothing that could write a
  * key into a parsed document ever flows from it. The declared-exception list in
  * `../__tests__/imported-defaults-8317.test.ts` names this site and its twin.
@@ -75,11 +77,16 @@ export const DetailViewFieldSchema = z.object({
   readonly: z.boolean().optional().describe('Whether field is read-only'),
   visible: z.union([z.boolean(), z.string()]).optional().describe('Field visibility condition'),
   span: z.number().optional().describe('Span across columns (for grid layout)'),
-  options: z.array(z.object({
-    label: z.string(),
-    value: z.union([z.string(), z.number(), z.boolean()]),
-    color: z.string().optional(),
-  })).optional().describe('Options for select/lookup fields'),
+  /**
+   * The spec's AUTHORING option schema, by reference (objectui#10296, ruling F1
+   * on objectui#7759) — ⛔ never the declaration's element type
+   * `SelectOptionMetadata`, which is the runtime READ model and admits keys the
+   * spec refuses by name (`disabled`, `icon`). The two faces are therefore
+   * EXPECTED to differ on this key: the ledger records that divergence rather
+   * than repairing it. Re-derived by `__tests__/detail-view-field-options-10296.test.ts`.
+   */
+  options: z.array(stripImportedDefaults(SpecSelectOptionSchema)).optional()
+    .describe('Options for select/lookup fields'),
   reference_to: z.string().optional().describe('Referenced object name for lookup/master_detail fields'),
   reference_field: z.string().optional().describe('Display field on the referenced object'),
   currency: z.string().optional().describe('Currency code for currency fields (e.g. USD, EUR)'),

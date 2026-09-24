@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **46 entries** in `KnownDrift`, **85 keys** across them — 46 / 83 until
+ *   - **48 entries** in `KnownDrift`, **89 keys** across them — 46 / 85 until
+ *     objectui#10296 pointed `views.zod.ts#DetailViewFieldSchema`'s `options` at the
+ *     spec's AUTHORING `SelectOptionSchema` (ruling F1 on objectui#7759): that pair
+ *     and `views.zod.ts#DetailViewSectionSchema` are NEW entries with one key each,
+ *     plus `fields` and `sections` on the EXISTING `views.zod.ts#DetailViewSchema`
+ *     entry — the two containers carry those field elements. One
+ *     EXPECTED DIVERGENCE against the runtime read model the declaration names, not
+ *     a defect — the two entries' docblocks carry the reading.
+ *     It was 46 / 83 until
  *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
  *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
  *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
@@ -568,7 +576,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 48 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -2206,8 +2214,31 @@ interface KnownDrift {
    * `DetailView`'s `schema.onNavigate` / `schema.onAddComment` by identity —
    * exactly as it does under `'detail'`, whose twin arm refused both by name
    * with objectui#7804. The TS face keeps the callable on all three.
+   *
+   * `fields` and `sections` JOINED with objectui#10296: they carry
+   * `DetailViewFieldSchema` elements, so that pair's EXPECTED DIVERGENCE on
+   * `options` (the entry below) is measured here one level up. Same cause,
+   * not a separate finding.
    */
-  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment';
+  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment' | 'fields' | 'sections';
+  /**
+   * EXPECTED DIVERGENCE, read model (objectui#10296, ruling F1 on objectui#7759).
+   * The mirror is the spec's AUTHORING `SelectOptionSchema` by reference; the
+   * declaration is `SelectOptionMetadata[]`, the runtime READ model. The one member
+   * the two faces spell differently is `visibleWhen`: the spec's input envelope
+   * requires `dialect`, the read model carries objectui's wire (objectui#2212),
+   * where `dialect` is optional and `source` required. ⛔ Not repaired by pointing
+   * the mirror at the declaration (it would admit `disabled` / `icon`, which the
+   * spec refuses by name). Also in `WiderThanDeclared`, for the other half.
+   */
+  'views.zod.ts#DetailViewFieldSchema': 'options';
+  /**
+   * objectui#10296: `fields` carries `DetailViewFieldSchema` elements, so the
+   * EXPECTED DIVERGENCE on that pair's `options` (the entry above) is measured
+   * here one level up — the same reading as `fields` / `sections` on
+   * `views.zod.ts#DetailViewSchema`. Same cause, not a separate finding.
+   */
+  'views.zod.ts#DetailViewSectionSchema': 'fields';
 }
 
 /* ── The measured unmirrored-declared ledger (objectui#6058) ────────────────── */
@@ -3132,7 +3163,13 @@ interface WiderThanDeclared {
    * sat inside the region that card could not look at.
    */
   'overlay.zod.ts#TooltipSchema': 'content';
-  /** CONCRETE: an inline option shape against the named `SelectOptionMetadata`. */
+  /**
+   * EXPECTED DIVERGENCE, read model (objectui#10296, ruling F1): the mirror is the
+   * spec's authoring `SelectOptionSchema`, whose `visibleWhen` envelope admits a
+   * `dialect`-only object the read model's wire does not. See the `KnownDrift`
+   * entry for this pair. (The inline option shape that stood here, admitting a
+   * number or boolean `value`, is gone.)
+   */
   'views.zod.ts#DetailViewFieldSchema': 'options';
   /** SCHEMA-NODE. (`tabs` left under objectui#7760; `fields` and `sections` did not.) */
   'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
@@ -4074,6 +4111,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // Membership here is what re-derives the pair's one remaining
   // `UnmirroredDeclared` key (`listViews`) into the split's SPEC-DERIVED half.
   'objectql.zod.ts#ObjectViewSchema',
+  // objectui#10296: `options` is the spec's authoring `SelectOptionSchema` by
+  // reference (ruling F1 on objectui#7759).
+  'views.zod.ts#DetailViewFieldSchema',
 ];
 
 /* ── Runtime: the population is closed ──────────────────────────────────────── */

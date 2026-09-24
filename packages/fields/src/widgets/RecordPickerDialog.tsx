@@ -434,21 +434,21 @@ export interface RecordPickerDialogProps {
  * (`withoutDeniedFields` there); each file keeps its own copy because this one
  * is re-exported whole from the package entry and the helper is not public.
  */
-function withoutDeniedFields(
-  record: any,
+function withoutDeniedFields<T>(
+  record: T,
   perms: ReturnType<typeof usePermissions>,
   objectName: string,
   idField: string,
-): any {
+): T {
   if (!perms.isLoaded || !record || typeof record !== 'object') return record;
   let shown: Record<string, unknown> | null = null;
   for (const key of Object.keys(record)) {
     if (key === idField || key === 'id' || key === '_id') continue;
     if (perms.checkField(objectName, key, 'read')) continue;
-    if (!shown) shown = { ...record };
+    if (!shown) shown = { ...record } as Record<string, unknown>;
     delete shown[key];
   }
-  return shown ?? record;
+  return (shown ?? record) as T;
 }
 
 /**

@@ -210,15 +210,15 @@ function fieldReadGate(
  * column's `titleFormat` (its own `withoutDeniedFields`); each file keeps its
  * own copy so that neither becomes a package export.
  */
-function withoutDeniedFields(record: any, readable: FieldReadGate | undefined): any {
+function withoutDeniedFields<T>(record: T, readable: FieldReadGate | undefined): T {
   if (!readable || !record || typeof record !== 'object') return record;
   let shown: Record<string, unknown> | null = null;
   for (const key of Object.keys(record)) {
     if (readable(key)) continue;
-    if (!shown) shown = { ...record };
+    if (!shown) shown = { ...record } as Record<string, unknown>;
     delete shown[key];
   }
-  return shown ?? record;
+  return (shown ?? record) as T;
 }
 
 /**

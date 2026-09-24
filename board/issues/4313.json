@@ -1,0 +1,36 @@
+{
+  "number": 4313,
+  "kind": "pull_request",
+  "title": "fix(i18n): resolve an action's confirmText/successMessage from the same bundle entry as its label (#4265)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "package: components",
+    "package: react",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T13:39:28Z",
+  "updated_at": "2026-08-11T13:51:53Z",
+  "closed_at": "2026-08-11T13:51:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T13:51:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4313",
+  "body": "Fixes #4265\n\n## The measurement first\n\n`useObjectLabel()` has always exposed a resolver for all three keys a\nTranslationBundle action entry carries — `actionLabel` / `actionConfirm` /\n`actionSuccess`, one `resolve()` and one key convention behind all three\n(`{ns}.objects.{obj}._actions.{name}.{label|confirmText|successMessage}`).\nThe channel was never missing. What had drifted was the **call sites**:\n\n| Surface | label | confirmText / successMessage |\n|---|---|---|\n| `RecordDetailView` record header | resolved | resolved |\n| `ObjectView` toolbar + row kebab | resolved | resolved |\n| `DeclaredActionsBar` | resolved | resolved |\n| **`page:header` actions** (authored record pages) | resolved | **raw** |\n| **`record:quick_actions`** | resolved | **raw** |\n| **related-list row menu** | resolved | **raw** |\n\nThe three bottom rows are the card's \"same entry, two fates\": the button\npicked up the bundle, the confirm dialog and the toast got the authored\nEnglish. `page:header` is the surface an AUTHORED record page uses — its\n`schema.actions` reach the renderer straight from page metadata with no host\nto pre-localize them — and `record:quick_actions` resolves its defs by name\nout of the object's own metadata, which is where the card's\n`src/actions/lead.actions.ts` text comes from.\n\nThe confirm plumbing named in triage (`useObjectActions.ts:28` →\n`views/ActionConfirmDialog.tsx:23`) turned out to be a faithful carrier: it\npasses through whatever string the runner hands it. The defect was upstream of\nit, at the point where the def is built.\n\n## The fix\n\nOne resolver, not an N+1th dialect. New `useActionTextLocalizer()` in\n`@object-ui/react` is a single application of the **existing**\n`useObjectLabel()` resolvers over the three keys — so a surface can no longer\nlocalize one and forget the others; there is one function to call and it can\nonly do all three. Every action-rendering surface now calls it, including the\nthree that were already correct, and `RelatedRecordActionsBridge` loses its\n`actionLabel` prop — an injection point that could only ever carry the label.\n\nPinned semantics (unchanged fallback contract):\n\n- no bundle entry, or an entry lacking a key ⇒ the **authored** text renders;\n- a nameless action has no `_actions` key of its own, so its literals pass through;\n- `confirmText` / `successMessage` are resolved **only when the action declares\n  them** — a bundle must not be able to bolt a confirmation gate or a toast\n  onto an action whose metadata never asked for one;\n- `label` is reduced through `pickLocalized` first, since an authored `label`\n  may be an `I18nLabel` map since rc.6.\n\n## Reverse verification — prediction stated before running\n\nReverting only the two consumer surfaces (helper and tests kept) was predicted\nto turn the four translated-confirm/toast pins RED while both no-bundle\ncontrols stayed GREEN. That is exactly what happened — 4 failed, 3 passed:\n\n```\nAssertionError: expected 'Are you sure you want to convert this…' to be '确认要转化此线索吗？'\nAssertionError: expected 'Lead converted.' to be '线索转化成功！'\nTest Files  2 failed (2)\n     Tests  4 failed | 3 passed (7)\n```\n\nThe detail that makes this the card's bug rather than a neighbouring one: on\nthe reverted code the buttons were **still found by their Chinese name**\n(`findByRole({ name: '转化线索' })` never failed) while the confirm body came\nback English. Label resolved, confirmText did not — one entry, two fates.\n\n## Tests\n\nNew pins run the real `I18nProvider` (real bundle) and the real `ActionRunner`,\nasserting what the confirm and toast handlers actually receive:\n\n- `packages/react/src/hooks/__tests__/useActionTextLocalizer.test.tsx` — the\n  three keys of one entry; per-key fallback; no-entry control; \"does not invent\n  a confirmText\"; nameless action; `I18nLabel` collapse.\n- `packages/components/src/__tests__/page-header-action-i18n.test.tsx`\n- `packages/plugin-detail/src/renderers/__tests__/record-quick-actions.actionText-i18n.test.tsx`\n\nOne existing fixture was re-spelled rather than deleted:\n`page-header-actions.test.tsx` \"dispatches unchanged outside a record context\"\nasserted `toBe(action)` — reference identity. Every header action now goes\nthrough the localizer, so both branches dispatch a localized copy, which is\nwhat the record branch already did deliberately (a fresh object keeps the\nrunner's in-place params merge off the authored node). The case's real content\n— no `_rowRecord` stash without a record — is unchanged, and it gained an\nassertion that the authored node is not mutated.\n\n## Verification run\n\n- `pnpm exec vitest run packages/react packages/components packages/plugin-detail packages/app-shell`\n  → **5618 passed, 1 skipped, 575 files** (the single failure in the first pass\n  was the identity fixture above; re-spelled and green).\n- `type-check` (both `tsc` commands each) green on `@object-ui/react`,\n  `@object-ui/components`, `@object-ui/plugin-detail`, `@object-ui/app-shell`.\n- **Downstream consumer sweep** — `pnpm --filter '...@object-ui/react' --filter\n  '...@object-ui/components' type-check`, i.e. the PREFIX/consumer direction,\n  33 downstream packages including `apps/console` and the examples: green after\n  a full build closure. (The first two passes failed only on unbuilt `dist/`\n  for packages this PR does not touch.)\n- Cross-package type change reverse-verified: re-adding the removed\n  `actionLabel` prop to the bridge mount goes red with\n  `TS2322: … not assignable to type 'IntrinsicAttributes &\n  RelatedRecordActionsBridgeProps'`, then restored — so the narrowed props type\n  is genuinely being read, not a cached `.d.ts`.\n- Gates on this surface: `check:i18n-keys`, `check:i18n-drift`,\n  `check:action-forward-parity`, `check:control-bytes` — all green.\n- `lint` on the four packages: **0 errors** (warnings are the repo baseline).\n\nChangeset: `patch` for the four packages (never `major`, per the fixed-group\nrule).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

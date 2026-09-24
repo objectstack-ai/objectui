@@ -1,0 +1,35 @@
+{
+  "number": 4232,
+  "kind": "issue",
+  "title": "Studio page-create never completes — the console PUTs `recordChrome` / `items`, which the server strictly rejects (ADR-0089 D3a)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T05:25:12Z",
+  "updated_at": "2026-08-11T12:29:04Z",
+  "closed_at": "2026-08-11T11:31:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4232",
+  "body": "## Symptom\n\nCreating a page in Studio **never completes**. The console issues a `PUT` whose body contains `recordChrome` and `items`; the server **strictly rejects** that body per ADR-0089 D3a, so **no page is ever stored**.\n\n- Observed: the create round-trip fails on every attempt; no page row exists afterwards. **Reproduced 2×.**\n- Expected: the create round-trips and the page is persisted.\n\n## Root cause\n\nThe default page schema the console synthesises carries properties the server's strict validator refuses.\n\n- `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts` — the header synthesiser emits `{type: 'page:header', recordChrome: true}` (`recordChrome: options.recordChrome !== false`, ~line 414; the option is declared ~line 141 and threaded again ~line 730). `items` comes from the same synthesis path (`page:tabs.items`).\n\n### This is NOT a stale bundle — and the emission is pinned\n\nThe QA run is pinned to vendored console `09987b68`, but the defect was re-verified against objectui **`origin/main` at `bb68488`** (current at filing time), where the same emission is still present. Additionally:\n\n- **`packages/plugin-detail/src/synth/__tests__/buildDefaultPageSchema.test.ts` pins the emitted shape**: `expect(node).toEqual({ type: 'page:header', recordChrome: true })` (~line 677), plus `page:header.recordChrome defaults to true and can be turned off` (~line 240).\n\n⚠️ **Whoever fixes this must change BOTH sides — the emitted shape AND the pin that currently locks it in place.** A fixer who changes only one side will go red: change the emitter alone and the pin fails; change the pin alone and the server still rejects the PUT. Budget for both in the same change.\n\nOne more constraint on the fix shape: `page:header.recordChrome` is a *declared* registry property — `packages/components/src/renderers/layout/containers.tsx` declares it (`{ name: 'recordChrome', type: 'boolean', ... defaultValue: true }`, ~line 1644) and consumes it (~lines 1036 / 1510), and the spec-parity pin `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` lists `['page:header', 'recordChrome']` (~line 687). So the real decision is whether the property is **stripped from the create payload** or **accepted by the server**, not simply deleted from the renderer.\n\n## Reproduction\n\nFramework `a86db175`, vendored console `09987b68`, showcase app, admin session.\n\n1. Open Studio and create a page bound to an object (the create path seeds `regions` from `buildDefaultPageSchema(objectDef)`).\n2. Save.\n\nObserved: the console PUTs a body containing `recordChrome` and `items`; the server rejects it strictly (ADR-0089 D3a); no page is stored. Reproduced 2×.\n\n## Dedup\n\nSearched objectstack-ai/objectui for `buildDefaultPageSchema`, `recordChrome`, and Studio page-save/strict-rejection symptoms — no open or closed duplicate found.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7514 (framework a86db175, vendored console 09987b68). Root-cause re-verification is against objectui `origin/main` @ `bb68488`."
+}

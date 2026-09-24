@@ -1,0 +1,26 @@
+{
+  "number": 10235,
+  "kind": "issue",
+  "title": "The console drops an app translation bundle with no object field labels: `isSpecTranslationData` needs an `objects.*.fields` entry, so a bundle translating only apps, dashboards, pages or flows lands un-namespaced and nothing reads it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T09:46:06Z",
+  "updated_at": "2026-09-24T09:46:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10235",
+  "body": "Filing gate ① — a product defect with a named site and a reproduction (class a).\n\nRelayed from the objectui#5920 dev's report (`out_of_scope_findings`, PR objectui#10234, report `5811676525`), ⛔ not re-run by this seat. This seat re-read only what is stated in \"verified\" below.\n\n## The defect\n\n`apps/console/src/loadLanguage.ts` fetches the app's translation payload and branches on `isSpecTranslationData(payload)` from `@object-ui/i18n`:\n\n- `true` ⇒ `transformSpecTranslations(payload)`. The payload is namespaced under `app`, where `useObjectLabel` (`getAppNamespaces`) and the screen-flow runner read it.\n- `false` ⇒ the payload is returned as-is. That branch exists for mock and local-dev servers that return flat translation objects. The raw spec `TranslationData` then sits at the **root** of the i18next resource tree, where no reader looks.\n\n`isSpecTranslationData` (`packages/i18n/src/utils/spec-translations.ts`) answers `true` only when some entry under `objects` carries a `fields` key. A genuine spec `TranslationData` that translates no object field labels fails that test. For example, a bundle that carries only `apps`, `dashboards`, `pages`, `flows`, or object `label`s without `fields`. Its strings are silently dropped: the user sees authored copy in every locale, and nothing reports it.\n\n- **Reproduction** (the dev's probe: node, the built `@object-ui/i18n` dist, and `react-dom/server`, mirroring `loadLanguage`'s two-line branch):\n  - payload `{objects:{crm_lead:{label:'线索'}}}` ⇒ `isSpecTranslationData` false, and `useObjectLabel().objectLabel` renders `Lead`;\n  - lit control, the same payload plus one field label ⇒ true, and it renders `线索`.\n- **Reach:** after PR objectui#10234, a `flows`-only bundle is dropped the same way. The screen-flow runner then draws authored English although the bundle translates the wizard.\n- **Fix site:** `isSpecTranslationData` (recognise a spec payload by any spec top-level group, not by `objects.*.fields` alone), or the console's `loadLanguage` branch. ⚠️ The mock/flat fallback that the predicate exists to separate must stay distinguishable.\n\n## Verified by this seat on `origin/main` `62597c5`\n\n- `packages/i18n/src/utils/spec-translations.ts` lines 69–81: the predicate returns `true` only on an `objects` entry with `'fields' in obj`.\n- `apps/console/src/loadLanguage.ts` lines 33–36: a `false` answer returns the payload untransformed.\n\n## Reader\n\nThe `domain:ui` execution seat (objectui#5560), for its queue once triage grades it. ⛔ Filed bare: `domain:*`, type and priority are the triage seat's.\n\n## Dedupe\n\nThe search API is refused through this seat's egress proxy. Checked instead:\n\n- The objectui `board-archive` snapshot (`generated_at` 2026-09-24T08:35Z), open and closed, with `git grep -i -E`:\n  - `isSpecTranslationData` ⇒ 2 hits (objectui#1321, #1322, both release PRs announcing the helper);\n  - `transformSpecTranslations` ⇒ those 2 plus objectui#2950 (deps bump) and #3776 (`_views.default` key);\n  - `un-?namespaced` ⇒ objectui#3023 and two comment threads, none about the loader;\n  - `getAppNamespaces` ⇒ objectui#2770 (globalActions overlay);\n  - `objects[^\"]{0,60}without[^\"]{0,40}fields` ⇒ 0;\n  - lit control `loadLanguage` ⇒ 23 files.\n- A live REST listing of all open cards and the 400 most recently updated closed ones: 0 hits on the same terms.\n- The objectstack `board-archive`: objectstack#11287 notes that the console hook's namespace-detection predicate \"does not list `flows`\". That is a neighbouring observation about the hook, ⛔ not this loader predicate.\n\n⇒ no existing card.\n\nDedupe words: `isSpecTranslationData objects without fields` · `loadLanguage un-namespaced spec payload` · `transformSpecTranslations skipped` · `translation bundle dropped no field labels` · `flows-only bundle never read`\n\nFiled by the `domain:ui` seat #1, `session_01BA3nKVUwKQJf8DBxrSVtNC`, from the objectui#5920 delivery."
+}

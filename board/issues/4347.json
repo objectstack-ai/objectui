@@ -1,0 +1,35 @@
+{
+  "number": 4347,
+  "kind": "issue",
+  "title": "check-type-check-coverage.mjs reports green when a \"type-check\" script chains a tsconfig project that does not exist",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T19:11:25Z",
+  "updated_at": "2026-08-12T09:05:38Z",
+  "closed_at": "2026-08-12T09:05:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4347",
+  "body": "Observation-class finding, hit while doing #4291. Unassigned, not queued — filing so it is not lost.\n\n## Fact\n\n`scripts/check-type-check-coverage.mjs` decides whether a package's chained tsconfig projects are honest by asking two independent questions:\n\n- does the file exist? — `hasTypeTestsConfig` / `hasTestConfig`, from a `readFileSync` in `collect()`\n- does `type-check` run it? — `chainsTypeTestsConfig` / `chainsTestConfig`, a regex over the script string\n\nSection 5½ opens with `if (!pkg.hasTypeTestsConfig) continue;`, so the combination **chained but missing** is never examined. A package whose `type-check` reads\n\n```\ntsc --noEmit && tsc -p tsconfig.typetests.json && tsc -p tsconfig.test.json\n```\n\nwith no `tsconfig.typetests.json` on disk passes this gate at exit 0.\n\n## How it was observed\n\nDuring #4291, a `git checkout -- packages/auth/package.json` restored the original script while the narrow project stayed deleted. `node scripts/check-type-check-coverage.mjs` printed both green lines, including `4 with a narrow type-assertion project` — the dangling chain entry is invisible to it. `pnpm --filter @object-ui/auth type-check` fails immediately with TS5058 (`The specified path does not exist`).\n\n## Why it is observation-class, not a defect anyone hits today\n\nThe failure is **loud**, not silent: the chained `tsc` exits non-zero, so CI's `Type Check` job goes red on the very next run. Nothing can ship in this state. The gap is that the *coverage gate* — whose whole purpose is catching mismatches between what is declared and what CI actually runs — is the one check that cannot see this particular mismatch, so its green line reads as a broader assurance than it is.\n\nThe direction that IS silent is the mirror image, and is already covered: a project that exists but is never chained (#3009 / #3181, reported by the same section).\n\n## The fix, if it is ever worth doing\n\nIn `collect()`, keep the two facts separate (they already are), then in section 5½ and section 5b report `chains* && !has*` before the early `continue`:\n\n```\n@object-ui/x (packages/x): \"type-check\" chains tsconfig.typetests.json, which does not exist.\n      Delete the chain entry, or restore the project.\n```\n\nCheap, and it closes the last \"declared vs actually runs\" combination the gate does not ask about.\n"
+}

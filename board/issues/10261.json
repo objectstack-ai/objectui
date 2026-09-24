@@ -1,0 +1,28 @@
+{
+  "number": 10261,
+  "kind": "pull_request",
+  "title": "docs(types,changeset): correct stale onRowClick text",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T14:15:34Z",
+  "updated_at": "2026-09-24T14:19:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10261",
+  "body": "Fixes #10074\n\nCorrects two stale text sites:\n\n1. `packages/types/src/data-display.ts:1383` docblock paraphrase — restored the `recordDrillEnabled` gate that the code (`ObjectDataTable.tsx:1043`) and the sibling docblock (`objectql.ts:4572`) already carry.\n2. `.changeset/9462-row-click-modifier-payload-forward.md:35-37` — the sentence claiming `ObjectDataTableSchema.onRowClick` \"still declaring one parameter ... reported separately\" was stale; that declaration was widened by objectui#9799 (`objectql.ts:4592`). Rewrote the sentence to say so.\n\nText only, `Clause-②: no`. Added an empty-frontmatter changeset (`.changeset/10074-doc-changeset-text.md`) per `scripts/check-changeset-presence.mjs`, since `data-display.ts` is published source of `@object-ui/types`.\n\n## 维护者速读(草稿)\n\n**改了什么**\n两处纯文本更正:一是 `data-display.ts` 里对 `ObjectDataTable` 转发 `onRowClick` 的转述漏掉了 `recordDrillEnabled` 门控条件,现按同文件里 `objectql.ts` 的完整引用模型补全;二是 9462 号 changeset 里说 `ObjectDataTableSchema.onRowClick` \"仍是单参数、另案处理\" 已过期——该声明已被 #9799 拓宽为双参数,现改为如实陈述。\n\n**为什么改**\n这两处文字与今天 `origin/main` 上的真实代码不符,前者会误导读者以为该 fallback 无条件生效,后者的现在时表述一旦下个版本发布会被原样冻进 CHANGELOG,届时更难纠正。\n\n**风险与代价(含回滚)**\n零风险:仅文档/changeset 文字,不触碰任何运行时代码或类型声明本身;`type-check` 与全部改动相关门禁均绿。回滚即 revert 本 PR。\n\n**席位意见**\n(留空,交维护者/PM 定稿)\n\n**你要做的**\n审阅两处文字更正是否准确;确认无误后可直接合并。\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S"
+}

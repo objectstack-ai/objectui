@@ -1,0 +1,36 @@
+{
+  "number": 4384,
+  "kind": "issue",
+  "title": "[finding] Qualify the last present-tense paths-ignore twins together: check-i18n-en-drift.test.ts:739 + check-action-forward-parity.test.ts:712",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T00:15:58Z",
+  "updated_at": "2026-08-12T01:55:37Z",
+  "closed_at": "2026-08-12T01:55:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4384",
+  "body": "Follow-up recorded by the PM seat from #4381 / PR #4382's exceptions list, filed so the pair isn't lost. Filed unassigned.\n\n## Fact\n\nPR #4382's closing sweep graded and deliberately left two near-verbatim twin comments, the last unqualified present-tense `paths-ignore` texts in the repo:\n\n- `scripts/__tests__/check-i18n-en-drift.test.ts:739` — was a held surface at sweep time (#3878 trio, PR #4378 — **now landed**, hold lifted)\n- `scripts/__tests__/check-action-forward-parity.test.ts:712` — free at sweep time, left so the pair would not be split into disagreeing shapes\n\nBoth assert that `ci.yml` paths-ignores a pattern list and conclude their PR class always starts the workflow. Per #4382's grading: the **conclusion is true today** (more strongly so — nothing filters pull requests by path at all), and the premise is accurate about the surviving `push` list, so neither is in the \"decide by it, decide wrong\" class that drove #3857/#4369/#4381. This is a qualification pass (mark the premise as `push`-scoped / historical, per the corrected dialect of PRs #4371/#4380/#4382), not a falsehood fix — which is why it's a `finding` and not `pm:queue`.\n\n## Constraint\n\nThe two must move **together in one PR** — fixing either alone recreates the two-shapes split the family existed to end. Comment-only, assertions untouched, the #4382 mechanical proof pattern applies.\n\n## Dispatch gate\n\nWait until no in-flight task holds the i18n gate test surface (at filing time, the #4375+#4376 pair is in flight on packages/i18n — its scope shouldn't touch these two files, but verify at claim time).\n\nRelated: #3857 / PR #4371, #4369 / PR #4380, #4381 / PR #4382 (whose exceptions list is the source of this card)."
+}

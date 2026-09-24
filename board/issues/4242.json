@@ -1,0 +1,32 @@
+{
+  "number": 4242,
+  "kind": "pull_request",
+  "title": "fix(app-shell): inbox/activity \"see all\" links open in an app the user can open (#4074)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T06:17:11Z",
+  "updated_at": "2026-08-11T06:26:53Z",
+  "closed_at": "2026-08-11T06:26:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T06:26:52Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4242",
+  "body": "Fixes #4074\n\nFour navigation producers hardcoded `/apps/setup/...` for two pages that are not bound to the setup app. `sys_inbox_message` and `sys_activity` are framework-owned objects reachable at `/apps/{any app}/{object}`, exactly like `system/approvals` — whose entry in the *same* popover, one line above, was already resolving the current app (objectstack#7234). The in-code comment defending the hardcoded target argued the OBJECT is app-independent, which is true, and which is precisely why it renders under whatever app the user can open rather than under `setup`.\n\nBoth browser verifications on the card measured the cost, and it is two defects, not one:\n\n- a business user whose app list does not contain `setup` gets the target rendered inside their own app's shell with a **\"You don't have access\"** empty state (softer, and more confusing, than a hard app guard);\n- **every** user, admins included, is switched out of the app they were in — URL, sidebar and header app switcher all flip to Setup, with no announcement and no way back except the app switcher.\n\n## The change\n\nOne shared helper, `resolveHostAppSegment` in `packages/app-shell/src/utils/appRoute.ts`, generalizing the resolution objectstack#7231 landed inline in `HomePage` for the approvals entry. Home and the bell popover both call it, so the two surfaces cannot drift into different answers to the same question. Resolution order:\n\n1. the app the user is in / last had open, **re-checked against the live active-app list** (a deactivated or hidden app is not resurrected as a link);\n2. their first active app;\n3. the caller's own hint, unchecked — but only when the list names no app at all, i.e. it has not loaded yet. An empty list is \"unknown\" at least as often as \"this user has no apps\", and demoting a user who is demonstrably rendering inside `/apps/crm/...` to `setup` would reintroduce this very defect in a loading race;\n4. `setup` last — what is left is a degenerate app carrying neither `_packageId` nor `name`, so the historical target beats a broken link.\n\nThe four anchors now resolve through it:\n\n| Producer | Before | After |\n|---|---|---|\n| `HomePage` `onOpenNotification` fallback (no `action_url`) | `/apps/setup/sys_inbox_message?view=mine` | `/apps/{host}/sys_inbox_message?view=mine` |\n| `HomePage` `HomeActivity onViewAll` | `/apps/setup/sys_activity` | `/apps/{host}/sys_activity` |\n| `InboxPopover` `goToAllNotifications` | `/apps/setup/sys_inbox_message?view=mine` | `/apps/{host}/sys_inbox_message?view=mine` |\n| `InboxPopover` `goToAllActivity` | `/apps/setup/sys_activity` | `/apps/{host}/sys_activity` |\n\n`HomePage`'s inline `activeApps` predicate moved into the same module as `filterActiveApps`, so \"an app the user can open\" means one thing to Home's launcher and to every producer building a link into an app.\n\n### Deliberately unchanged, and pinned as such\n\n- `/apps/setup/system/marketplace` and `/apps/setup/system/apps` — admin-scoped surfaces where `setup` is the target rather than an oversight (the card's own scope guard). A case asserts the marketplace link still emits `/apps/setup/system/marketplace`.\n- `goToApprovals` and `handleNotificationClick` in the popover — untouched; cases assert they still resolve the current app and still follow an explicit `action_url`.\n- A user whose current/last-open app IS `setup` still lands in `setup`. The fallback order's tail is not \"never setup\", it is \"an app this user can actually open\".\n\n## Verification\n\nRed-first, then reverse-verified. With the four sites reverted on top of the finished branch (helper left in place), **13 of 63** cases went red — every case asserting a resolved target — while all 12 helper unit cases and every CONTROL stayed green, which is the intended split: the helper is right in isolation, the four anchors are the wiring. Restored: 63 passed.\n\n```\n# red-first, before the fix\nTests  6 failed | 3 passed (9)     HomePage.inboxLinksTarget.test.tsx\nTests  7 failed | 6 passed (13)    InboxPopover.viewAllTarget.test.tsx\n   AssertionError: expected '/apps/setup/sys_activity' to be '/apps/crm/sys_activity'\n\n# after\npnpm exec vitest run packages/app-shell/\n   Test Files  337 passed (337)\n   Tests  3205 passed | 1 skipped (3206)\n\npnpm --filter @object-ui/app-shell type-check   -> clean\npnpm --filter @object-ui/app-shell lint         -> 0 errors (2273 pre-existing warnings)\nnode scripts/check-control-bytes.mjs            -> OK\nnode scripts/check-changeset-presence.mjs       -> 1 changeset declared\n```\n\nNo copy changed — the four edits are navigation targets and comments only — so there is no i18n work in this PR. Changeset: `@object-ui/app-shell` patch.\n\n## What this fix does NOT close — do not misread the empty state\n\nobjectstack#7344 is a **second, independent** cause: no shipped permission set grants `sys_inbox_message` (`member_default`, the additive `everyone` baseline, does not name it). Re-pointing these four anchors at an app the user *can* open therefore leaves them on the same \"You don't have access\" state until that grant question is settled — verified on the card against the **Account** app's own Notifications entry, which reaches `sys_inbox_message` with no `setup` involved anywhere and renders the identical empty state.\n\nThe routing fix is necessary, not sufficient. Accordingly every case here asserts the **resolved target** — the argument `navigate()` receives — and none asserts what renders at the far end; pinning the far end would pin someone else's defect.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

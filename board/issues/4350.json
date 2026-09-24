@@ -1,0 +1,35 @@
+{
+  "number": 4350,
+  "kind": "issue",
+  "title": "Residue after the dead-Tailwind-config deletions (#4065/#4066): the repo root still declares `tailwindcss` + `autoprefixer` it never uses, and two references to the deleted files survive",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T19:19:11Z",
+  "updated_at": "2026-08-12T08:12:53Z",
+  "closed_at": "2026-08-12T08:12:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4350",
+  "body": "Out-of-scope finding from implementing #4065 and #4066 (PR #4349). Not fixed there — that PR's ruled scope is three file deletions, and #4065's triage ruling speaks only to *adding* dependencies (\"do **not** add the two devDependencies\"), not to the two the root already declares. Filed unassigned and unqueued, observation-class: nothing a user hits, and no build or gate is failing.\n\nAll three items below are the same shape — leftovers of the Tailwind v4 migration that survive the deletion of the files they were attached to.\n\n## 1. The root `package.json` declares two Tailwind dependencies nothing at the root consumes\n\nThis is the half of #4065 that deleting `postcss.config.mjs` does **not** reach, and it is measurable as a difference in `objectui doctor`'s output that the PR could not remove:\n\n```\nbefore PR #4349:  x Tailwind CSS 4 needs @tailwindcss/postcss, which is neither declared nor\n                    installed here. ...\n                  ✓ PostCSS config uses @tailwindcss/postcss\n                  Found 1 issue(s).\n\nafter  PR #4349:  x Tailwind CSS 4 needs @tailwindcss/postcss, which is neither declared nor\n                    installed here. ...\n                  Found 1 issue(s).\n```\n\nThe `✓` line goes with the deleted file. The `x` stays, and reading `packages/cli/src/commands/doctor.ts` shows why it must: the whole Tailwind block is gated on `deps.tailwindcss`, and the `tailwind-postcss-missing` finding fires when a directory declares `tailwindcss` but neither declares nor can resolve `@tailwindcss/postcss`. It is driven by the **manifest**, not by the postcss config.\n\nMeasured at `f046f885a`:\n\n- root `package.json` declares `tailwindcss ^4.3.3` and `autoprefixer ^10.5.4`;\n- the root has **zero** tracked `.css`/`.html` files, and every root build script runs through a per-package filter (`pnpm --filter` / `turbo run`);\n- nothing at the root imports either package — `git grep` for `tailwindcss` / `autoprefixer` over `scripts/`, `eslint.config.js`, `vitest.config.mts`, `turbo.json` and `playwright.config.ts` returns **0** hits outside `packages/`, `apps/` and `examples/`;\n- every package that genuinely needs them declares them itself: `apps/console`, `apps/site`, `examples/byo-backend-console`, `examples/console-starter`, `packages/cli`, `packages/components`, `packages/fields`, `packages/runner`.\n\nSo the two root declarations appear to be the manifest half of the same vestige, and removing them would make `objectui doctor` at the repo root clean for the first time. Worth a maintainer's judgement rather than an agent's, because a monorepo root sometimes carries a dependency deliberately — as a version anchor for the workspace, or to keep one resolved copy of a package that peers elsewhere — and that intent is not visible in the tree. If the answer is \"the root should not claim to be a Tailwind project at all\", the change is two deletions from `devDependencies` plus a lockfile update.\n\n## 2. `eslint.config.js` still ignores `**/tailwind.config.js`, which now matches nothing\n\n```js\n    // Tailwind configs are authored in TypeScript despite the `.js` extension,\n    // and the TS parser below is scoped to `.ts`/`.tsx`, so the base JS parser\n    // would fail on `import type`. Build config, not app code.\n    '**/tailwind.config.js',\n```\n\nThat ignore existed for exactly one file — `apps/console/tailwind.config.js`, the `.js` file holding `import type` and `satisfies Config` — and PR #4349 deletes it. No tracked file matches the glob any more. It is harmless where it stands (an ignore for a non-existent path costs nothing), which is why it was left rather than removed inside a deletion-scoped PR.\n\nTwo things to weigh before removing it, and they point in opposite directions: the `objectui init` scaffold no longer writes a `tailwind.config.js` at all (pinned by `packages/cli/src/__tests__/app-generator.test.ts` and `cli-bin.test.ts`, both asserting the file is absent), so nothing regenerates the case — but the glob is repo-wide, so it would also cover a `tailwind.config.js` appearing in a fixture or harness directory, and removing it turns any such file into a lint error rather than a silent skip. Cheap either way; just needs deciding rather than assuming.\n\n## 3. `scripts/__tests__/helpers/build-program.ts` documents a blind spot naming a file that no longer exists\n\nThe docblock's postcss narrowing reads, in part:\n\n> a package that processes CSS through Vite and has no `postcss.config.*` of its own would read the repo-root `postcss.config.mjs`, outside its directory and unhashed.\n\nAfter #4349 there is no repo-root `postcss.config.mjs`, so that sentence is counterfactual as written. The narrowing it belongs to is still **true in principle** — postcss config discovery genuinely is not modelled, and the blind spot returns the moment a `postcss.config.*` appears above a CSS-building package — so this is a rewording, not a deletion. Related discussion is on #4198, which is the card about that blind spot as a class; a comment there records what the deletion does and does not retire.\n\n## Search performed\n\nOpen issues, four passes: `tailwindcss autoprefixer root package.json devDependencies` (#4065, #4198, #4101 — all different surfaces), `unused devDependency root doctor` (#4065 only), `eslint.config.js ignores tailwind.config` (#4065, #4066), `postcss config root` (#4198, commented on rather than duplicated). Nothing covers the three items above.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

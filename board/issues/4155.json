@@ -1,0 +1,35 @@
+{
+  "number": 4155,
+  "kind": "issue",
+  "title": "Console: opening a list filter panel persists a view overlay that overrides the source-defined view filter (empties the list)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T14:44:44Z",
+  "updated_at": "2026-08-11T02:52:55Z",
+  "closed_at": "2026-08-11T02:52:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4155",
+  "body": "## Summary\n\nIn Console, opening a list view's **filter panel** and interacting with it (add / clear a condition) persists the transient filter state as a **view customization overlay** in `sys_metadata` (type=view). The overlay **overrides the source-defined view `filter`** — e.g. a source view whose default filter is `status not_in [archived, deleted]` gets its filter replaced by a stray `field equals \"\"` (empty-value) condition. On the next visit the list is served with that empty-value filter → `total: 0` → the list looks permanently empty.\n\nTwo things make this hard to diagnose:\n\n1. **Clearing doesn't recover.** \"Clear all\" / \"Remove condition\" in the filter panel do not remove the persisted overlay; the panel then shows *no* active conditions while the list request still carries the stale `field equals \"\"` filter.\n2. **It persists across reload and across accounts** (the overlay is stored server-side, not per-session), and the empty state renders the \"no data yet\" copy rather than \"no records match your filter\" — so it reads like data loss or a permission problem, not a filter artifact.\n\nRecovery requires deleting the overlay row from `sys_metadata` and restarting the service.\n\n## Impact\n\n- A regular end-user (no admin rights, never explicitly clicked \"save view\") can silently overwrite the project's **source-code view declaration** just by using the filter panel.\n- The overwritten filter can hide all rows indefinitely for every user of that view.\n- Severity: high — silent, cross-user, and the misleading empty-state copy sends triage down the wrong path (data / permission) instead of the view layer.\n\n## Environment\n\n- `@objectstack/*@17.0.0-rc.5`\n- Console list view with a source-defined default `filter` (`status not_in [...]`).\n- Observed independently twice on the same platform version (a QA run and a dev run), different objects, different accounts.\n\n## Steps to reproduce\n\n1. Define a list view in metadata with a non-empty default `filter` (e.g. `status not_in ['archived','deleted']`).\n2. Open that list in Console as a normal user.\n3. Open the **filter panel**, add a condition, then use **Clear all / Remove condition**.\n4. Leave and re-open the list (reload, or log in as a different user).\n\n**Expected:** the source-defined `filter` is intact; the list shows the same rows as before.\n**Actual:** the list is served with a persisted `field equals \"\"` overlay filter → `total: 0` → empty list with \"no data yet\" copy; the filter panel shows no conditions; the source filter is gone until the `sys_metadata` view overlay row is deleted and the service restarted.\n\n## Notes / questions\n\n- Is a view customization overlay *meant* to be written on mere filter-panel interaction (vs. only on an explicit \"save view\" action)? The trigger threshold appears far lower than expected.\n- When an overlay carries an empty-value condition, could Console treat it as \"no filter\" rather than `field equals \"\"`? And surface a \"clear customization / reset to default\" affordance for non-admins?\n\nReproduced while building an ObjectStack 17 app. Detailed screen captures are available on request (currently in a private project repo).\n"
+}

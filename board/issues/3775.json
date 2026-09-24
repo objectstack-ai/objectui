@@ -1,0 +1,32 @@
+{
+  "number": 3775,
+  "kind": "issue",
+  "title": "`@object-ui/core` 里第二个 `mergeViewsIntoObjects`:仓内零消费者,且丢掉容器的默认 `list`、用裸键而非组装器身份",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T14:01:59Z",
+  "updated_at": "2026-08-11T22:19:45Z",
+  "closed_at": "2026-08-11T22:19:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3775",
+  "body": "做 #3770 时清扫「规则的消费半径」发现的,观察类(dormant code,今天没有用户会撞上),按 PD #10 立单记录,不在该单范围内。\n\n## 事实\n\n仓里有**两个** `mergeViewsIntoObjects`:\n\n1. `packages/app-shell/src/providers/MetadataProvider.tsx` —— 真正在用的那个。#3770 之后它对容器调 `expandViewContainer`,视图身份一律 `{object}.{key}`(含默认 `list` 的隐式 `{object}.default`),并继承组装器的折叠 / 改名去重。\n2. `packages/core/src/utils/merge-views-into-objects.ts` —— 由 `packages/core/src/index.ts` 公开导出,但**全仓零消费者**(grep `mergeViewsIntoObjects`:只有 app-shell 自己的实现与测试,`data-objectstack` 仅在注释里提了一句「mirroring MetadataProvider.mergeViewsIntoObjects」)。\n\n第 2 个的行为与第 1 个已经不是一回事:\n\n- 只读 `view.listViews`,**完全忽略容器的默认 `list`** —— 经它合并的对象拿不到主列表视图;\n- 键用作者写的裸键(`all`),不是组装器身份(`{object}.all`),因此下游按 `view.name || view.id` 去解析 `_views` 译文键时,行为与 app-shell 那条路径不一致;\n- 对象名从 `listView.data.object` 反推,而 app-shell 那条还接受 `view.name` 与 `form.data.object`。\n\n`ROADMAP.md:1428` 还挂着一条未完成项:「Move `mergeViewsIntoObjects` from `composeStacks` to runtime/provider layer」—— 这个 core 版本正是那次搬迁留下的中间态。\n\n## 为什么记成观察类而不是缺陷\n\n它没有仓内调用方,所以今天没有任何用户路径会命中上面三条差异;但它是 `@object-ui/core` 的**公开导出**,外部消费者拿到的是一个与真实渲染路径已经分叉的实现,而分叉点恰好是 #3770 刚统一掉的那个(视图身份)。留着不管的风险是下一个 agent 把它当成「那个 merge」去读或去改。\n\n方向留给分诊:要么删(公开导出,需按 objectui 的破坏性变更约定走 changeset,注意 AGENTS.md 的「不要声明 major」),要么让它内部委托到同一段组装器逻辑。\n\n## 相关\n\n- #3770 / 其 PR(app-shell 侧改为向组装器要身份)\n- `ROADMAP.md:1411 / 1416 / 1428`(这个 adapter 的来历)\n- 查重已做:objectui open issues 搜 `mergeViewsIntoObjects`,只有 #2890(ListView 词汇迁移,另一件事)。"
+}

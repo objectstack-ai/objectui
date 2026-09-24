@@ -1,0 +1,35 @@
+{
+  "number": 4361,
+  "kind": "issue",
+  "title": "Currency formatting overrides each currency's own fraction-digit convention: JPY renders `¥1,234.50`, KWD renders `KWD 1.50`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T21:18:59Z",
+  "updated_at": "2026-08-12T04:39:48Z",
+  "closed_at": "2026-08-12T04:39:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4361",
+  "body": "## Summary\n\nBoth currency formatting paths in `packages/fields` hardcode a fraction-digit width and pass it to `Intl.NumberFormat`, which **overrides** the digit count ISO 4217 defines for the currency being rendered. `Intl` knows that JPY has 0 decimal places and KWD has 3; giving it explicit `minimumFractionDigits` / `maximumFractionDigits` throws that knowledge away.\n\nMeasured directly against the construction (node 22, full ICU):\n\n```\nJPY 1234.5   Intl default          ¥1,235\nJPY 1234.5   as we render it       ¥1,234.50\nKWD 1.5      Intl default          KWD 1.500\nKWD 1.5      as we render it       KWD 1.50\n```\n\nA yen amount is shown with cents that the currency does not have, and a dinar amount is shown with one fewer digit than it does have.\n\n## Mechanism — two paths, same shape\n\n1. `formatCurrency` (`packages/fields/src/index.tsx`) picks its width from the **value's** wholeness, never from the currency:\n\n   ```ts\n   const fracDigits = isWhole ? 0 : 2;   // 2 for every currency on earth\n   ```\n\n2. `formatAmount` (`packages/fields/src/widgets/CurrencyField.tsx`) uses the field's declared `precision` for both bounds, which has the same effect whenever `precision` disagrees with the currency (and `precision` defaults to 2).\n\nThe shared `formatDisplayNumber` in `@object-ui/i18n` is not implicated: it passes the bounds it is handed straight to `Intl` and would honour the currency default if the call sites simply omitted them.\n\n## Reachability, honestly\n\nNeeds a tenant or field whose currency is not a 2-decimal one. `resolveFieldCurrency` resolves from the field, `currencyConfig.defaultCurrency`, or the tenant default (ADR-0053), so any of the three set to JPY/KRW/CLP (0-decimal) or KWD/BHD/OMR/TND (3-decimal) reaches it. The example apps use USD, so it is not visible in dogfooding today. Filing it plainly rather than grading it — the impact section of a finding is the least reliable part of it.\n\n## Not fixed in #4332's PR, and why\n\nFound while fixing #4332 (`minimumFractionDigits` was a constant `0` against a wholeness-switched maximum, so `1234.5` rendered `$1,234.5`). That card's scope is the min/max pairing at one policy point; **which** width is correct for a given currency is a different question with a different answer shape, and it is pre-existing on both sides of that change — the PR moves the second digit of an amount that was already showing decimals a yen amount should not have.\n\nIt also is not a one-line flip, which is the main reason it is separate:\n\n- Dropping both bounds and letting `Intl` decide would give JPY and KWD the right digits, but would also **retire the Salesforce whole-number convention** that `formatCurrency`'s doc comment states and that #4033 pinned (`$1,234` keeps no `.00`) — `Intl`'s own default for USD `1234` is `$1,234.00`.\n- Keeping the convention while respecting the currency means deriving the currency's digit count first (`Intl.NumberFormat(locale, { style: 'currency', currency }).resolvedOptions().maximumFractionDigits`) and switching wholeness against **that** instead of a literal 2.\n- `CurrencyField`'s `precision` is authorable metadata, so there is a contract question underneath: does a declared `precision: 2` on a JPY field win over the currency's own 0, or is that combination something publish-time validation should reject? Contract-first, that is a spec question, not a renderer question.\n\nSuggested first step is a decision on the third bullet, since it decides whether the fix is renderer-local at all.\n"
+}

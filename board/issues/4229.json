@@ -1,0 +1,35 @@
+{
+  "number": 4229,
+  "kind": "issue",
+  "title": "`combo` dashboard widgets render as grouped bars — DatasetWidget has no `combo` family and refuses to forward `series`/`xAxis`/`yAxis` on the dataset path",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T04:59:55Z",
+  "updated_at": "2026-08-11T12:13:52Z",
+  "closed_at": "2026-08-11T12:12:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4229",
+  "body": "## Symptom\n\nA dashboard widget authoring a genuine combo chart:\n\n```js\nchartConfig.series = [\n  { name: 'task_count',   type: 'bar',  yAxis: 'left'  },\n  { name: 'avg_progress', type: 'line', yAxis: 'right' },\n]\n```\n\nplus two `yAxis` entries renders as **two bar series on one shared 0–100 axis**. Measured in the DOM:\n\n| Selector | Observed | Expected |\n| --- | --- | --- |\n| `.recharts-bar` | 2 | 1 |\n| `.recharts-bar-rectangle` | 4 | — |\n| `.recharts-line-curve` | **0** | 1 |\n| `.recharts-yAxis` | **1** | 2 |\n\nSo the authored per-series `type` and the left/right axis split are both silently dropped: a bar-and-line dual-axis chart degrades into a grouped bar chart, and `avg_progress` (a 0–100 percentage) is plotted against the same axis as `task_count` (a raw count).\n\nReproduced 3× on independent fresh browser launches.\n\n**Not a stale-bundle artifact** — verified against objectui `origin/main`, which is 138 commits *ahead* of the vendored pin (`09987b68`), and it behaves identically.\n\n## Root cause\n\nSource-confirmed, and it is **two halves**, both in `plugin-dashboard/src/DatasetWidget.tsx`:\n\n1. **No `combo` family.** The widget resolves the chart family with `CHART_TYPE_MAP[widgetType] ?? 'bar'`, and `CHART_TYPE_MAP` has **no `combo` entry** — so `combo` falls through to the `'bar'` default. That alone explains bars-not-lines.\n2. **The series are never forwarded.** `chartConfigPresentation()` in the same file **deliberately does not forward** `series` / `xAxis` / `yAxis` on the ADR-0021 dataset path, on the stated grounds that *\"they are DERIVED from the dataset selection\"*. So even with a `combo` entry added, the authored per-series type and axis binding could never reach the renderer.\n\n### The design tension this exposes (worth a decision before someone patches half of it)\n\n`widgetDispatch.ts` on `origin/main` routes `combo` as a `SERIES_CHART_TYPES` member, commenting that *\"the chart renderer has always drawn it (it derives the base family from the series)\"*.\n\nThat is exactly the contradiction: the dispatch layer's justification for `combo` needing no special handling is that the **renderer derives the family from `series`** — but on the dataset path `series` is precisely what `DatasetWidget` **refuses to forward**. The two halves of the codebase hold opposite beliefs about who owns `series` on the dataset path. Fixing only half (adding a `CHART_TYPE_MAP.combo` entry) yields a chart that is nominally a combo but still has no line and one axis; fixing only the other half (forwarding `series`) collides with the \"derived from dataset selection\" invariant. Please settle which layer owns it, then fix both sides consistently.\n\n### Untested caveat recorded in the same run\n\n`kpi` / `gauge` / `solid-gauge` / `bullet` all render **value-only — pixel-identical to `metric`**. No dial, no arc, no bullet target band was drawn for any of them. This was recorded as an honest caveat, not ticked as passing and not separately reproduced; it may be the same \"no entry in the family map\" shape or may be four distinct gaps. Worth a look while this file is open.\n\nThe other 19 chart variants pass with mark counts reconciled against API buckets, and `compareTo` renders its comparison series correctly.\n\n## Reproduction\n\n1. Boot the showcase (framework `a86db175`, vendored console `09987b68`).\n2. Open `/_console/apps/com.example.showcase/dashboard/showcase_chart_gallery`.\n3. Wait for the loader to appear **then** clear, and let the board settle.\n4. Inside the \"Task Count vs Avg Progress\" card (widget `combo_count_vs_progress`), count `.recharts-bar`, `.recharts-bar-rectangle`, `.recharts-line-curve`, `.recharts-yAxis`.\n5. Observe 2 / 4 / 0 / 1 against the expected 1 / — / 1 / 2. Reproduced 3×.\n\nRe-check the two source halves:\n\n```\nrg -n \"CHART_TYPE_MAP|chartConfigPresentation\" plugin-dashboard/src/DatasetWidget.tsx\nrg -n \"SERIES_CHART_TYPES|combo\" src/**/widgetDispatch.ts\n```\n\n## Related\n\nPossibly a regression of — or unfinished follow-through on — objectstack-ai/objectui#2880 (closed completed by objectstack-ai/objectui#2883, *\"ObjectChart honors the spec `ChartConfig` author shape\"*). That issue's **S2** explicitly scoped dual axes as `yAxis[].position` + `series[].yAxis: 'left'|'right'`, noting *\"combo 目前按 series 类型隐式分配,改为显式绑定优先\"* — the exact binding that is inert here. #2880 landed the normalisation in `ObjectChart`; the **dataset path through `DatasetWidget`** appears never to have been carried over, which is consistent with what this run measured.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7515 (framework a86db175). Checklist item `chart-type-matrix`."
+}

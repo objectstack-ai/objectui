@@ -1,0 +1,34 @@
+{
+  "number": 4167,
+  "kind": "issue",
+  "title": "Track the `@objectstack` family at `17.0.0-rc.6` — the adaptation surface beyond what objectstack#7100 could carry",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T15:13:19Z",
+  "updated_at": "2026-08-11T05:13:25Z",
+  "closed_at": "2026-08-11T05:13:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4167",
+  "body": "Filed from objectstack#7100, whose PR (#4169) bumps `@objectstack/*` from `^17.0.0-rc.5` to `^17.0.0-rc.6` because the `global_nav` retirement it implements cannot compile at rc.5. The bump turned out to be far more than a lockfile move. This card holds what that PR does **not** close.\n\n## Scale of the release, measured\n\nDiffing the resolved `dist/ui/index.d.ts` of rc.5 against rc.6: **40 exports removed, 29 added.** Four deliberate moves, not scatter:\n\n1. **Every `…Input` alias retired, and the bare name moved onto the input side.** `ActionInput`, `AppInput`, `PageInput`, `DashboardInput`, `ThemeInput`, `ReportInput`, `ReportChartInput`, `DatasetInput`, `ReportSortInput`, `NavigationContributionInput`, `InlineActionInput`, `JoinedReportBlockInput`, `DatasetDimensionInput`, `DatasetMeasureInput`. Where rc.5 had `X = z.infer` / `XInput = z.input` / `XParsed = z.infer`, rc.6 has `X = z.input` / `XParsed = z.infer`. Re-pointing by NAME silently swaps parsed for input; each binding has to be re-pointed by SIDE.\n2. **The standalone i18n vocabulary retired** — `I18nObject`, `LocaleConfig`, `PluralRule`, `DateFormat`, `NumberFormat` + `…Schema` twins — and `I18nLabel` widened from `string` to `string | Record< string, string >`, with `InlineLocaleMap` and `resolveI18nLabel` added. Consumer story: #4163.\n3. **The widget-manifest vocabulary retired** — `WidgetManifest`, `WidgetSource`, `WidgetProperty`, `WidgetEvent`, `WidgetLifecycle` + twins. Unlock: #4164.\n4. **Refinements added to schemas this repo derives from**, which zod 4 refuses to `.extend()`. Contract conflict: #4165.\n\nPlus, outside `ui`: `SharingRuleSchema` gained the seven ADR-0010 envelope keys, `ActionSchema` gained `description`, `FlowNodeSchema` became pipe-wrapped, `element:record_picker` lost `displayField`/`searchFields`/`multiple` to ADR-0087 D2 tombstones, and `page:footer`/`page:section`/`page:sidebar` moved from `EmptyProps` to the shared `PageContainerProps`.\n\n## Already repaired in PR #4169 — do not redo\n\nFull workspace build green (`turbo run build`, 44/44). Full suite: **14,609 / 14,615 passing.**\n\nCompile fallout: `types/theme.ts` (`ThemeInput`→`Theme`), `types/spec-report.ts` (four aliases re-pointed by side), `types/index.ts` (five dead i18n re-exports dropped), `core/ActionRunner.ts` (`ActionInput`→`Action`), 8 render sites for the widened `I18nLabel`, `types/zod/complex.zod.ts` (`.extend`→spread, see #4165).\n\nRuntime fallout: both flow-schema access paths, `clientValidation.optOuts` (inverted — the create door now accepts a stamped `_packageId`), `clientValidation.viewDiagnostics` (fixture + a new leaf-union pin), `components` record-picker parity fixture, `console` registry parity carve-out (`SPEC_SHAPE_EMPTY_ON_THE_PIN` deleted per its own instruction), the i18n residue ratchet, `SPEC_ACTION_KEYS` (+`description`), and two spec-parity lists.\n\n## What is left — this card\n\n**1. `check:spec-symbols` — 13 name collisions.** Wired into `ci.yml`'s **Type Check** job, currently the main red. rc.6 published 9 names this repo already declares locally, plus 4 pre-existing:\n\n```\n@object-ui/app-shell  MetadataState, resolveI18nLabel\n@object-ui/core       DATE_RANGE_PRESETS\n@object-ui/fields     AddressValue\n@object-ui/layout     BreakpointColumnMap, BreakpointOrderMap\n@object-ui/react      MetadataState, NavigationMode, resolveI18nLabel\n@object-ui/types      DateRangePreset, KanbanConfig, CalendarConfig, GanttConfig\n```\n\nEach is objectstack#4115-class triage with three possible outcomes (derive by reference / rename to a declared dialect + tripwire / ALLOW with a reason), and the right answer differs per symbol — `resolveI18nLabel` in particular is a genuine name clash over two DIFFERENT vocabularies (objectui's translation-key ref vs the spec's inline locale map), which is a naming decision rather than a derivation.\n\n**2. Two stale exemptions in `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.** rc.6 now declares keys the exemption list still covers, and `element:record_picker` does not publish three keys the spec declares:\n\n```\ncarries no stale exemption:  page:header.recordChrome, page:header.showStar, page:header.showCopyId,\n                             page:accordion.variant, page:tabs.tabStyle,\n                             element:record_picker.labelField/valueField/label,\n                             page:card.children, page:section.children,\n                             page:footer.children, page:sidebar.children\nrecord_picker publishes:     sort, limit, emptyText\n```\n\nMostly mechanical (delete the exemption, publish the input with a description), but each published input is an authoring-surface addition that wants its own read — the same class objectui#3808/#3830 handled one key at a time.\n\n**3. #4165 blocks ready** — the `GlobalFilterSchema` refinement vs the `{ preset }` form stored dashboards carry. Maintainer + spec owner.\n\n## Ownership, one line each\n\n- **This card (#4167)** — an objectui dev, as a `chore(deps)` card. Items 1 and 2 are self-contained and need no ruling.\n- **#4165** — maintainer, with the upstream question attached; it is the only true blocker.\n- **#4163** — an objectui dev for part 1 (the audit), design input for part 2 (Studio authoring of inline locale maps).\n- **#4164** — observation-class; any dev, whenever the `Runtime…` prefixes are next touched.\n\n## Sequencing note\n\nobjectstack#7100 and objectstack#6955 both need rc.6 underneath. As measured, the bump is a `chore(deps)` card the size of objectui#3560 / PR #3568 (\"track the `@objectstack` family at `17.0.0-rc.5` and restore green\", whose changeset ran to 105 lines of FROM→TO prose). Folding it into a retirement card was reasonable on the information available at dispatch — objectui's `^17.0.0-rc.5` ranges already admitted rc.6, so the move looked lockfile-only. It is not reasonable now: **the bump should be its own card, and #7100's removals should ride on it.** PR #4169 currently carries both, because splitting them today would only manufacture the red intermediate state the coupling exists to avoid."
+}

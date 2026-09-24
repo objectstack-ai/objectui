@@ -1,0 +1,35 @@
+{
+  "number": 3878,
+  "kind": "issue",
+  "title": "[finding] en 包 32 个值用 ASCII \"...\" 结尾、113 个用 U+2026 \"…\" —— 同一屏上省略号两种字形,且九包各自跟着抄",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:24:05Z",
+  "updated_at": "2026-08-11T23:56:03Z",
+  "closed_at": "2026-08-11T23:56:03Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3878",
+  "body": "#3546 切片七回填 `dashboard.loading` 时量出来的:该调用点的英文兜底是 `'Loading…'`(U+2026),而 `common.loading` / `detail.loading` 是 `'Loading...'`(三个 ASCII 句点)。两者是**不同的字符串**,所以不能复用邻键译文,只能各自存在 —— 这本身没错,但顺手扫出这是全包性的分歧。\n\n## 实测\n\n`packages/i18n/src/locales/en.ts`,按结尾字符统计:\n\n| 结尾 | 数量 |\n|---|---|\n| `…`(U+2026) | **113** |\n| `...`(三个 ASCII 句点) | **32** |\n\n32 个 `...` 的 key:\n\n```\ncommon.loading            common.select                fields.richText.placeholder\ntable.search              grid.loading                 kanban.cardTitlePlaceholder\ndetail.loading            detail.filterPlaceholder     chart.loading\nworkflow.fromPlaceholder  workflow.toPlaceholder       console.initializing\nconsole.commandPalette.placeholder                     console.ai.searchChats\nconsole.ai.loadingHistory console.ai.askAgent          console.ai.loadingAgents\nconsole.ai.askAnything    console.objectView.searchFields\nconsole.objectView.selectField                         console.objectView.selectOption\nconsole.objectView.ufAddField                          auth.login.submittingButton\nauth.register.submittingButton                          auth.forgotPassword.submittingButton\nsidebar.searchNavigation  topbar.connection.connecting topbar.connection.reconnecting\nhome.loading              search.placeholder           collaboration.replyingTo\ncollaboration.replyingToComment\n```\n\n九包各自的 `...` 计数是 30-31,`…` 是 124-125 —— 即九包**逐值跟随 en**,分歧是从 en 侧长出来的,不是翻译问题。\n\n## 为什么算 finding 而不是 bug\n\n纯字形,不影响可读性也不影响功能。但它是**用户同屏可见**的:比如 `console.ai.askAnything`(`Ask anything...`)与同一 AI 面板里用 `…` 的值并排;`common.loading` 与 `dashboard.loading` 在同一个仪表板上下文里一个三点一个省略号。\n\n## 修法与代价\n\n统一到 `…`(113 : 32,多数派;也是排版正确的做法),把 32 个 en 值改掉。代价是 `check-i18n-en-drift.mjs` 会把这 32 个判成\"en 值变了,九包必须跟\",于是同一个 PR 要动 **32 × 10 = 320** 个值 —— 而这 320 处的改动内容是机械的(把 `...` 换成 `…`)。所以这不是\"顺手做\"的量级,需要独立 PR,并且最好配一条门禁(en 里禁止以三个 ASCII 句点结尾)否则会重新长回来。\n\n也可以裁定\"两种都可以\",那就把这条关掉 —— 记在这里是为了让裁定有个地方落。\n\n关联:#3546(切片七,发现路径)、#3866(同一批取证里另一个\"测量方法/字形\"类发现)。"
+}

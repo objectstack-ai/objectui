@@ -2,8 +2,8 @@
   "number": 6404,
   "kind": "issue",
   "title": "objectui run's temporary app restates the components @theme token-for-token; the new plugin sheets make it only partly removable",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -11,16 +11,19 @@
     "type": "Bot"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-25T20:30:31Z",
-  "updated_at": "2026-08-25T21:50:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:07:33Z",
+  "closed_at": "2026-09-24T14:07:33Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

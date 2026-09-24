@@ -2,8 +2,8 @@
   "number": 4716,
   "kind": "issue",
   "title": "[finding] ForgotPasswordForm's {email} marker match is substring-based — a stray legacy {{email}} in a caller-supplied label produces stray braces around the address, not a graceful fallback",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-15T15:47:43Z",
-  "updated_at": "2026-08-23T04:20:27Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T12:45:42Z",
+  "closed_at": "2026-09-24T12:45:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/4716",
   "body": "Measured while implementing objectui#4135 (converging `auth.forgotPassword.successDescription`'s downstream-filled hole on single braces `{email}`) — not in that PR's scope, and observation-class: no shipped code path in this repo produces the input this describes.\n\n## The pattern\n\n`ForgotPasswordForm.tsx`'s marker match (as of objectui#4135) is:\n\n```js\nconst successMsg = l.successDescription.includes('{email}')\n  ? l.successDescription.replace('{email}', email)\n  : `${l.successDescription} ${email}`;\n```\n\n`labels.successDescription` is a **public prop** (`ForgotPasswordFormLabels`), so nothing stops an external consumer of `@object-ui/auth` from passing a string that still spells the hole the pre-#4135 way, `{{email}}` (double braces) — e.g. a caller who copied the old convention, or a translation that hasn't been migrated.\n\n## The finding\n\n`{email}` is a literal **substring** of `{{email}}` — `\"{{email}}\".includes(\"{email}\")` is `true` (positions 1–7 of `{{email}}` spell `{email}` exactly). So a label containing the retired `{{email}}` spelling does not fall to the (correct, if imperfect) append branch; it partial-matches and `.replace()` only swaps the inner `{email}` for the address, leaving the surrounding braces behind:\n\n```js\nconst label = 'We have sent a link to {{email}}. Check your inbox.';\nlabel.includes('{email}') ? label.replace('{email}', 'user@example.com') : `${label} user@example.com`;\n// => \"We have sent a link to {user@example.com}. Check your inbox.\"\n```\n\nThe address renders wrapped in stray literal braces — malformed, but not the double-append shape objectui#4135 was about, and not a crash.\n\n## Why the direction changed, not just moved\n\nThe relationship is asymmetric, so this is a **new** failure direction introduced by #4135's fix, not a preexisting one moved sideways:\n\n- **Before #4135** (marker checked for `{{email}}`): a label spelled with single braces (`{email}`) would NOT match `.includes('{{email}}')` — double braces are not a substring of a single-brace string — so it fell cleanly to the append branch. No stray-brace failure mode existed in that direction.\n- **After #4135** (marker checks for `{email}`): a label spelled with the old double braces (`{{email}}`) DOES match `.includes('{email}')`, because single braces ARE a substring of double braces — so it partial-matches instead of falling to append.\n\n## Why it's dormant rather than broken\n\nEvery shipped label for this key — all ten locale packs, `ForgotPasswordForm`'s own built-in default, and both console call sites' inline `defaultValue`s — was migrated to `{email}` in the same PR (objectui#4135), so nothing in this repository produces the input above today. The only way to hit this is an external consumer's own `labels` prop still carrying the retired spelling.\n\n## Options (no recommendation attached — a component-behavior decision, not a gate finding's to make)\n\n- **A. Leave it.** The public prop already assumes the caller knows the current marker convention; a stale caller gets a cosmetic (not data-loss) rendering bug, self-correcting the moment they update their copy.\n- **B. Tighten the match** — e.g. a regex with a boundary check (`/(?<!\\{)\\{email\\}(?!\\})/`) or an explicit `{{email}}` guard that always prefers the append branch over a partial replace — so a legacy caller degrades to append (correct-if-plain) instead of stray braces.\n- **C. Document it** — a one-line comment on the marker check noting the substring relationship, so a future edit to either spelling doesn't reintroduce this blind.\n\nRelated: objectui#4135 (introduced the current spelling and this asymmetry).\n"

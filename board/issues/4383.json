@@ -1,0 +1,35 @@
+{
+  "number": 4383,
+  "kind": "issue",
+  "title": "[finding] @object-ui/plugin-chatbot exports two different ChatMessage types — the barrel's minimal legacy shape vs the enhanced one aliased as ChatbotEnhancedMessage",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T00:05:41Z",
+  "updated_at": "2026-08-12T02:25:47Z",
+  "closed_at": "2026-08-12T02:25:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4383",
+  "body": "Recorded by the PM seat from the #4040 tranche-5 report (PR #4379), where it was observed but deliberately not filed by the dev; filing it now so it isn't lost — no live task owns `plugin-chatbot`, so the original not-my-surface reason no longer applies. Filed unassigned, per report-don't-fix.\n\n## Fact (as measured in the tranche-5 task)\n\n`@object-ui/plugin-chatbot` exports two different `ChatMessage` types:\n\n- a **minimal legacy** `ChatMessage` from its barrel;\n- the **enhanced** message type, aliased as `ChatbotEnhancedMessage`.\n\nThe tranche-5 work hit this while making app-shell's tests compile: `AiChatPage` was pointing at the wrong one and now points at the right one (fixed in PR #4379's app-shell scope), but the collision itself is untouched — the barrel still offers the legacy shape under the natural name, so the next importer who reaches for `ChatMessage` gets the wrong type silently.\n\n## Why it's a card\n\nSame class as the repo's other one-name-two-shapes traps: the natural import name resolves to the wrong contract, and the compiler cannot object because both shapes exist on purpose. The fix direction (retire the legacy export, rename, or re-point the barrel) needs a look at who imports each — a small survey card, not a rider.\n\n## Anchor\n\nObserved at PR #4379 branch point (main ≈ `d46f9b8c4`, 2026-08-11). Verify current exports before implementing: `git grep -n \"ChatMessage\" -- packages/plugin-chatbot/src/index.ts packages/plugin-chatbot/src/types*`.\n\nRelated: PR #4379 (where `AiChatPage`'s read was corrected), #4040 (the coverage program that surfaced it)."
+}

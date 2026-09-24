@@ -1,0 +1,35 @@
+{
+  "number": 4158,
+  "kind": "issue",
+  "title": "[gantt] Illegal dependency link (cycle/self/locked/group) is silently discarded — no toast, no cursor, no reason shown",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T14:54:14Z",
+  "updated_at": "2026-08-11T00:19:26Z",
+  "closed_at": "2026-08-11T00:19:26Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4158",
+  "body": "## Summary\n\nIn a `type:'gantt'` view, when a user drags a dependency link that would be **illegal** (would form a cycle, e.g. A→B→C then C→A; or self-link / onto a locked / group row), the link is correctly not created — but there is **zero user feedback**: no dialog, no toast, no not-allowed cursor, no red target outline, and the drag hint shows only the source end, never `→ target`. The user cannot tell why the link won't connect. The same drag onto a legal target succeeds first try, so it isn't an interaction-technique problem.\n\n## Why this is a platform (not app) issue\n\n- The gantt view is the platform-native `type:'gantt'` renderer; the app only supplies read/write endpoints.\n- The app **already** implements a server-side cycle guard that throws a business message with `status: 400`, and the write endpoint surfaces it as `422 { message }`. So a human-readable rejection reason exists server-side.\n- The gantt renderer **has** a write-failure toast channel (locale key `gantt.writeFailed` = \"保存失败,已恢复修改前状态\" is present in the bundle).\n- Yet for illegal-link rejection, the client appears to short-circuit **before** issuing the PATCH, so neither the server message nor any toast is ever shown. The app cannot intervene: there is no exposed \"rejection reason\" / `onBeforeDependencyCreate` output path on the public gantt component.\n\n## Impact\n\n- Users repeatedly try to draw a legitimate-looking dependency and get silent non-response, with no way to learn it's a cycle/locked/group constraint. Severity: medium (usability / dead-end interaction on an otherwise-correct guard).\n\n## Fix direction (any one; first two preferred)\n\n1. On an illegal drop target, show a negative affordance (`cursor:not-allowed` + target-row outline) during hover, and a explanatory toast on drop (e.g. new keys `gantt.link.rejected.cycle` / `.locked` / `.group`).\n2. Expose a rejection path (e.g. surface `onBeforeDependencyCreate`'s reason) so the host can supply a message the gantt renders.\n3. At minimum, stop rejecting **silently** — today there isn't even a console warning.\n\n## Environment\n\n- `@objectstack/console@17.0.0-rc.6` (also present in rc.5).\n\n## Steps to reproduce\n\n1. `type:'gantt'` view with a `dependenciesField`; create tasks A, B, C.\n2. Connect A→B, then B→C.\n3. Drag from C's link handle onto A (would close the cycle).\n\n**Expected:** a message/affordance explaining the link is rejected (cycle).\n**Actual:** nothing happens — no dialog, no toast, no cursor/outline change; the drag hint never shows the target end.\n\nObserved while building an ObjectStack 17 app.\n"
+}

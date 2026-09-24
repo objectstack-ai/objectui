@@ -1,0 +1,32 @@
+{
+  "number": 4196,
+  "kind": "pull_request",
+  "title": "test(console-ai): pin #2477 items 2+3 (already shipped by #2478, but unpinned)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T20:12:04Z",
+  "updated_at": "2026-08-10T20:26:58Z",
+  "closed_at": "2026-08-10T20:26:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T20:26:56Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4196",
+  "body": "Part of #2477 — items 2 and 3 only. Items 1 and 4 through 8 remain on the card, which stays open.\n\n## The premise expired: both items already shipped\n\nThe card was filed 2026-07-14 04:33 UTC. PR #2478 (`48d06da3b`) merged **22 minutes later**, at 04:55 UTC, and implemented both items:\n\n- **Item 2** — `StudioChatDock` already passes `persistExpandedKey: DOCK_STUDIO_EXPANDED_STORAGE_KEY` (`'ai-chat-studio-dock-expanded'`), distinct from the console dock's `'ai-chat-dock-expanded'`. A collapse survives pillar switches, package changes and Studio re-entry. The card's stated cause — \"in-memory state (no persist key)\" — is false on tip.\n- **Item 3** — the folded layout's side-by-side threshold is already `xl`: `WIDE_VIEWPORT_BREAKPOINT = 1280`, lowered from 2xl by that same PR.\n\nThe card body was never updated, so the 2026-08-03 ruling approved work that had shipped three weeks earlier. **No behaviour change is needed and none is made here.**\n\n## What this PR does instead: the missing regression pins\n\nBoth fixes shipped **unpinned**. Measured, on tip before this PR:\n\n- Deleting the one line `persistExpandedKey: DOCK_STUDIO_EXPANDED_STORAGE_KEY` — the entire item 2 fix — left `chatDockReturnLocation.test.tsx` **fully green (10 passed)**. Only the storage *helpers* were tested; the call that passes them to `useChatDockState` was not.\n- Raising the breakpoint back to 1536 left the whole suite green: the constant was module-private inside `StudioDesignSurface.tsx`, which is far too heavy to mount just to pin a number.\n\nSo either shipped fix could be reverted silently. This adds:\n\n1. **`wideViewport.ts`** — extracts `WIDE_VIEWPORT_BREAKPOINT` and `useIsWideViewport` out of `StudioDesignSurface.tsx`, the same testability motive as the existing `centerTab.ts` extraction. Pins the inclusive 1280 boundary, the 1280–1512 laptop band the card named, and the below-xl tab fallback.\n2. **`studioChatDockPersistence.test.tsx`** — pins the `StudioChatDock` to `useChatDockState` wiring: both storage keys are the Studio-scoped ones and not the console's, and the default-expanded first-visit posture. The mock defers to the real hook, so the recorded wiring cannot drift from the shipped call.\n3. **Cross-dock non-interference in both directions** — the hazard the card names by name — added to the existing helper suite.\n4. **Three stale doc comments** corrected. All three still described pre-#2478 behaviour, and the first is very likely why this card read as live for 27 days:\n   - `StudioAiCopilot.tsx` claimed the dock was \"NOT persisted (parity with the old panel's in-memory collapse)\" directly above the code that persists it.\n   - `ChatDock.tsx` called the omitted-key case \"the Studio dock's parity with today's non-persisted copilot collapse\".\n   - `StudioDesignSurface.tsx` still said \"wide viewport (2xl+)\" at the `isWide` call site.\n\n## Item 3 measurement (the card asked for numbers)\n\nAt the 1280 boundary, Interfaces pillar, block selected, chat dock expanded at its 420px default:\n\n| Region | Width |\n|---|---|\n| Left nav rail (`w-52`) | 208px |\n| Canvas | **~364px** |\n| Properties inspector (`w-72`) | 288px |\n| Chat dock | 420px |\n\n~364px is narrow but **live**, versus 0px (hidden behind the tab auto-switch) at 2xl. Collapsing the dock — a preference that now sticks, thanks to item 2 — returns the canvas to 784px, so the two items compose. This does **not** falsify the shipped direction, so there is nothing to stop on.\n\n## Reverse verification\n\nBoth directions were checked by taking the shipped fix out with `git checkout` / a targeted edit (never `git stash`), re-running, and restoring — the tree was byte-identical to its snapshot afterwards.\n\n- Breakpoint set to 1536: 2 tests red, including the behavioural one — `1280px should be side-by-side: expected false to be true`. Restored: green.\n- `persistExpandedKey` line deleted: `expected undefined to be 'ai-chat-studio-dock-expanded'`, red. The helper suite stayed green throughout, which is the coverage hole this PR closes. Restored: green.\n\n## Verification\n\n- `pnpm exec vitest run packages/app-shell/` — **326 files, 3048 passed, 1 skipped, 0 failed**\n- `pnpm type-check` — 78/78 tasks successful\n- `pnpm lint` — 45/45 tasks, **0 errors**\n- `pnpm check:control-bytes` — OK; `check-changeset-presence` and `check-changeset-no-major` — both green\n\nChangeset has **empty frontmatter**: tests, comments and an internal extraction release nothing, which is this repo's explicit \"declared as releasing nothing\" exemption rather than an omission.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

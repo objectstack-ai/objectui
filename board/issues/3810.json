@@ -1,0 +1,35 @@
+{
+  "number": 3810,
+  "kind": "issue",
+  "title": "[finding] 8 处 auth 调用点的内联 defaultValue 与 en 包值不一致 —— key 存在故兜底是死代码,三道 i18n 门禁按设计都看不见这一类",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:23:12Z",
+  "updated_at": "2026-08-11T22:32:42Z",
+  "closed_at": "2026-08-10T11:20:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3810",
+  "body": "在 #3546 切片三(PR 回填 auth 家族 54 个缺失 key)顺手量出,**不在该 PR 范围内**,单独记录。观察级:用户今天看到的字串是包值,包值本身没问题;坏的是同一个调用点还写着一句**永远不会渲染、且与包值说法不同**的英文。\n\n## 量法\n\n对 `auth` / `oauth` / `acceptInvitation` 三个命名空间的全部 122 个 `t()` 调用点做 AST 抽取(key + 内联 `defaultValue` 字面量),与 `packages/i18n/src/locales/en.ts` 的实际叶子值逐字节比对。其中 54 个是缺 key(#3546 切片三已补,补的时候 52/52 与站点默认值取到逐字节相同),剩下 **68 个 key 是已经存在的** —— 这 68 个里有 **8 处** en 值与站点默认值不同:\n\n| key | en 包值(实际渲染) | 站点内联 defaultValue(死代码) | 位置 |\n|---|---|---|---|\n| `auth.forgotPassword.description` | `Enter your email address and we'll send you a link to reset your password` | `Enter your email and we'll send you a reset link.` | `ForgotPasswordPage.tsx:33` |\n| `auth.forgotPassword.submitButton` | `Send Reset Link` | `Send reset link` | `:39` |\n| `auth.forgotPassword.submittingButton` | `Sending...`(三个半角点) | `Sending…`(U+2026) | `:40` |\n| `auth.forgotPassword.successDescription` | `We've sent a password reset link to {{email}}. Please check your inbox.` | `If an account exists, a reset link has been sent.` | `:46` |\n| `auth.login.errors.invalidCredentials` | `Invalid email or password. Please try again.` | `Invalid email or password` | `LoginPage.tsx:368` |\n| `auth.login.submittingButton` | `Signing in...`(三个半角点) | `Signing in…`(U+2026) | `LoginPage.tsx:386` |\n| `auth.verifyEmail.resendFailed` | `Cannot resend verification email` | `Failed to resend verification email` | `VerifyEmailPromptPage.tsx:81` |\n| `auth.verifyEmail.resendFailed`(同一 key 第二个站点) | 同上 | 同上 | `VerifyEmailPromptPage.tsx:128` |\n\n## 为什么它是 finding 而不是 bug\n\ni18next 只在 **miss** 时用 `defaultValue`。这 8 个 key 十包都有,所以包值恒胜 —— 那些 defaultValue 是结构性死代码。用户看不到任何异常。\n\n但它有两处真实代价:\n\n1. **误导读者。** 读组件的人(和写代码的 AI)会以为按钮上写的是 `Send reset link`,实际是 `Send Reset Link`;以为忘记密码成功页遵守了\"不暴露账号是否存在\"的写法(`If an account exists, …`),实际渲染的是 `We've sent a password reset link to …`,断言了一个可能没发生的发送动作。改文案的人改错那一行,门禁一片绿。\n2. **一旦哪天 key 被删/改名,渲染会静默跳回这 8 句里的另一种说法**,而没人在 review 里预期到文案会变。\n\n第 3、6 行只差一个省略号字符(`...` vs `…`),是包内排版一致性问题(en 包里两种写法混用);其余 6 行是语义差异。\n\n## 三道门禁为什么都看不见\n\n- `scripts/check-i18n-call-site-keys.mjs`(#3530):只问\"这个 key 在 `en` 里存不存在\",存在即绿。\n- `packages/i18n/src/__tests__/all-locales-key-parity.test.ts`:只比**键名集合**与占位符形状,从不读值。\n- `scripts/check-i18n-en-drift.mjs`(#3650):只在 en 值**发生变化**时要求九包跟改;这 8 处的 en 值静止不动。\n\n所以这是 #3582 / #3625(\"key 在、值陈旧\")之外的又一个值域盲区,而且更容易复发:任何人给一个已存在的 key 加内联 defaultValue,都可以自由写成另一句英文。\n\n## 可能的收口方向(未裁决)\n\n- **A. 一次性对齐 8 处**,把内联 defaultValue 改成与 en 包值逐字节相同(#3546 切片一/二/三补新 key 时用的就是这条纪律,切片三给出 52/52 的脚本证据)。治标,不防复发。\n- **B. 加一道门禁**:凡调用点带字面量 `defaultValue` 且该 key 在 `en` 有值,则两者必须逐字节相同,否则红。#3530 的守卫已经把 key 与 defaultValue 都解析出来了,加这条判定几乎是零增量成本;先跑一遍全仓量出存量再决定是否落基线。\n- **C. 更彻底:禁止对已存在的 key 写内联 `defaultValue`**(它此时唯一的作用就是误导),只在\"key 还没进包\"的过渡期允许 —— 但 #3546 正说明那个过渡期会长达数月,所以这条得配 B 才有意义。\n\n倾向 **B**(声明即强制,让写错的那一刻就红),存量按 A 一次性对齐。规模未量:本次只扫了 auth 家族三个命名空间,全仓 2320 个字面量 key 的调用点里还有多少同类未知 —— 这是这张单最该先做的一件事。\n\n关联:#3546(存量缺 key 的账,切片三顺手量出本条)、#3530(调用点→en 门禁本体)、#3650(en-drift 门禁)、#3582 / #3625(值域盲区的前两个实例)。\n"
+}

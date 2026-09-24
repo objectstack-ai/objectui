@@ -1,0 +1,35 @@
+{
+  "number": 3368,
+  "kind": "issue",
+  "title": "ActionEngine 的 event-mapping(addMapping / dispatch)零生产调用方,且 condition 求值与 visible 契约不一致",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T10:03:25Z",
+  "updated_at": "2026-08-12T04:14:15Z",
+  "closed_at": "2026-08-12T04:14:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3368",
+  "body": "Filed unassigned,来自 #3314 的只读排查(为定 `visible` 归一化判据而通读 `ActionEngine`)。**只记录发现。**\n\n## 现象\n\n`packages/core/src/actions/ActionEngine.ts`:\n\n**1. 这条 API 是 dormant 的。** `git grep addMapping -- packages apps examples`(排除\nCHANGELOG)只命中定义处与 `packages/core/src/actions/__tests__/ActionEngine.test.ts`\n里的 4 处测试调用 —— 没有任何生产代码注册过 event→action 映射,`dispatch()` 也就\n没有真实调用方。\n\n**2. `dispatch()` 的 condition 求值与 `visible` 的契约有两点不一致:**\n\n```ts\nif (mapping.condition) {\n  const evaluator = this.runner.getEvaluator();\n  const shouldRun = evaluator.evaluateCondition(mapping.condition);\n  if (!shouldRun) continue;\n}\n```\n\n- 没有传 `throwOnError`,所以谓词抛错时 fail-**OPEN**(动作照跑);同一个类里\n  `getActionsForLocation` 的 `visible` 是明确 fail-**closed** 的(谓词不可求值就隐藏)。\n- `ActionMapping.condition` 的类型是 `string`,拿不到 `{ dialect: 'cel', source }` 信封,\n  因此永远走 legacy JS 求值 —— 正是 #3314 刚在 `visible` 上修掉的那条路径。\n  裸串在 `evaluateCondition` 里会被当作整条表达式求值(不是 CEL 引擎)。\n\n## 为什么是 observation-class\n\n零生产调用方,今天没有用户能碰到这两点中的任何一个。把它当缺陷直接「修」反而是给\n一条没人用的 API 增加行为面;真正要先回答的问题多半是**这条 event-mapping API 要不要留**\n(留 → 契约对齐 `visible`:`throwOnError` + 接受 Expression 信封;不留 → 按\nenforce-or-remove 退役,连同 `ActionMapping` 类型与那 4 个测试)。\n\n所以只记录,不带 `pm:queue`,留给 triage 决定方向。\n"
+}

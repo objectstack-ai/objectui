@@ -1,0 +1,33 @@
+{
+  "number": 4274,
+  "kind": "pull_request",
+  "title": "fix(auth): type-check its tests (#4040 tranche 1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T10:21:22Z",
+  "updated_at": "2026-08-11T11:22:59Z",
+  "closed_at": "2026-08-11T11:22:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T11:22:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4274",
+  "body": "Part of #4040 — tranche 1, package 2 of 5. One package per PR, per the 裁决 on objectstack-ai/objectstack#4118 (PM, 2026-08-03):\n\n> 小包先行,`core`(80)/`react`(76)最后;\n> 每包独立 PR;守卫类 PR 必须附 pre-fix 代码报红的运行记录(判别力证明,防「绿灯守卫从未真正跑过」——已发现的第三种失败模式:tsconfig.test.json 存在但没人跑);\n> TEST_DEBT 条目随包清零,只减不增。\n\n## Measured before / after\n\n| | code-tier errors |\n|---|---|\n| declared in `TEST_DEBT` | 2 |\n| measured on this branch's base (`4cb0562b5`) | 2 |\n| after | **0** |\n\nBefore:\n\n```\nsrc/__tests__/AuthProvider.test.tsx(15,3): error TS2322: Type '{ signIn: ((credentials: SignInCredentials) => Promise< { user: AuthUser; session: AuthClientSession; } >) | Mock< ... >; ... 37 more ...; listUserInvitations?: (() => Promise< AuthInvitation[] >) | undefined; }' is not assignable to type 'AuthClient'.\n  Types of property 'sendVerificationEmail' are incompatible.\n    Type '((email: string, callbackURL?: string | undefined) => Promise< void >) | undefined' is not assignable to type '(email: string, callbackURL?: string | undefined) => Promise< void >'.\n      Type 'undefined' is not assignable to type '(email: string, callbackURL?: string | undefined) => Promise< void >'.\nsrc/__tests__/createAuthClient.test.ts(154,33): error TS6133: 'input' is declared but its value is never read.\n```\n\nBoth were real code-tier defects — nothing reclassified as config here.\n\n### 1. A mock that claimed to be an `AuthClient` and was not\n\n`createMockClient` is annotated `: AuthClient` and implements 8 of that interface's ~38\nmethods. The double itself is the right call — `AuthProvider` reaches only those 8 on the\npaths under test, and stubbing thirty unreached methods would be noise. The *claim* was\nnot: an unchecked test asserting a type it does not satisfy is precisely the \"reads as\nevidence\" failure #4040 is about.\n\nResolved the way this package's three other mock-client factories already do it —\n`LoginForm.test.tsx:36`, `identifier-trim.test.tsx:29`, `SocialSignInButtons.test.tsx:29`\nall end `} as unknown as AuthClient;`. `AuthProvider.test.tsx` was the one that predated\nthe convention. No public type changed, and no method was stubbed to make an assertion\npass.\n\n### 2. `TS6133` on an unread fetch-double parameter\n\n`noUnusedParameters` is on repo-wide; `_input` is the sanctioned spelling.\n\n## Discrimination proof — the new project can fail\n\nA `tsconfig.test.json` that exists but compiles nothing is the objectui#3009 shape and the\nthird failure mode the 4118 thread names, so the new project itself is what needs its\ndiscrimination shown. Appending a provably-false line to `src/__tests__/AuthProvider.test.tsx`\nand re-running:\n\n```\n$ npx tsc -p tsconfig.test.json\nsrc/__tests__/AuthProvider.test.tsx(331,7): error TS2322: Type 'string' is not assignable to type 'number'.\nEXIT:2\n```\n\nReverted immediately; the probe is not in the diff.\n\n## Note on the existing narrow project\n\n`tsconfig.typetests.json` (objectui#3181) compiles `auth-spec-parity.test.ts` alone — the\nrescue for a package whose whole test tree was in debt. It stays chained and now overlaps\nthe full project, at the cost of one extra compile of one file. Retiring the narrow\nprojects once their package leaves `TEST_DEBT` is a real cleanup but it is not this\ntranche's scope, and it is reported to the PM as a finding rather than smuggled in here.\n\n## Verification\n\n```\n$ pnpm --filter @object-ui/auth type-check\n> tsc --noEmit && tsc -p tsconfig.typetests.json && tsc -p tsconfig.test.json\nEXIT:0\n\n$ pnpm exec vitest run packages/auth --maxWorkers=2      # from the repo root, per objectui#3378\n Test Files  11 passed (11)\n      Tests  142 passed (142)\n\n$ node scripts/check-type-check-coverage.mjs\ntype-check coverage: 43/45 via `type-check`, 1 via their own build, 0 known-broken (0 errors outstanding), 1 not compiled.\ntest type-check coverage: 26/40 packages compile their tests, 14 declared debt (238 errors outstanding), 10 with a narrow type-assertion project.\n\n$ node scripts/check-changeset-presence.mjs\n2 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s) ... EMPTY frontmatter — declared as releasing nothing.\n```\n\n`TEST_DEBT` shrinks by exactly this package's line; no other entry is touched.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

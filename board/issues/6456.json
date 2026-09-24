@@ -2,8 +2,8 @@
   "number": 6456,
   "kind": "issue",
   "title": "finding: the pre-objectstack#10235 sortability compatibility floor is now duplicated across three files, with its deletion tracked only in source comments",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -11,16 +11,19 @@
     "type": "Bot"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-26T01:26:55Z",
-  "updated_at": "2026-08-26T02:18:16Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:09:06Z",
+  "closed_at": "2026-09-24T14:09:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

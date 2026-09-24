@@ -1,0 +1,36 @@
+{
+  "number": 4363,
+  "kind": "issue",
+  "title": "data-objectstack: `view-overrides:{object}` is only invalidated by updateViewConfig — createView / updateView / deleteView leave the batch map stale for the 5-minute TTL",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T22:02:01Z",
+  "updated_at": "2026-08-11T23:03:22Z",
+  "closed_at": "2026-08-11T23:03:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4363",
+  "body": "Adjacent finding, surfaced while removing the dead `views:{object}` invalidations for #3778 (sweep #4328). **Not fixed there** — that PR is a pure dead-code removal, and this is a behavioural gap that predates it. Filed under PD #10.\n\nMeasured on `origin/main` @ `7e4f0e530`.\n\n## What\n\n`ObjectStackAdapter` caches exactly two view-shaped reads:\n\n| reader | cache key | line |\n|---|---|---|\n| `getView` | `view:{object}:{viewId}` | `packages/data-objectstack/src/index.ts:2969` |\n| `listViewOverrides` | `view-overrides:{object}` | `packages/data-objectstack/src/index.ts:2931` |\n\nFour write paths touch view rows. Only one of them invalidates the batch map:\n\n| write path | invalidates | `view-overrides:{object}`? |\n|---|---|---|\n| `updateViewConfig` | `view:{object}:{viewId}`, `view-overrides:{object}` | yes |\n| `createView` | (nothing) | **no** |\n| `updateView` (draft and published halves) | `view:{object}:{viewName}` | **no** |\n| `deleteView` | `view:{object}:{viewName}` | **no** |\n\n`MetadataCache`'s default TTL is 5 minutes (`packages/data-objectstack/src/cache/MetadataCache.ts:90`), and the adapter is long-lived, so the stale window is up to 5 minutes of real use rather than one navigation.\n\n## Why the stale map is not self-correcting\n\n`loadViewOverrides` (`packages/app-shell/src/views/ObjectView.tsx:283`) treats a resolved batch answer as **authoritative** and deliberately does not re-probe per view — that is #3774's fix, and it is correct:\n\n> RESOLVES (including to an empty map) → authoritative. […] do not \"helpfully\" re-probe per view on an empty map, that reinstates the 404 flurry it removes.\n\nSo when the cached map is stale, the per-view `getView` fallback is by design unreachable. `listViews` is uncached and answers fresh, which means the switcher can show a view whose override body came from a map written up to five minutes earlier — the two reads disagree, and the fresher one is not the one that supplies the override.\n\nThe sharpest shape is `updateView`: it is the rename/patch path (#4139), it invalidates the per-view key it just wrote, and it leaves the batch map holding the pre-edit body. A user who edits a view and returns to the object can be served the old override until the TTL expires.\n\n## Not claimed\n\nNo browser repro was run — this is a read of the invalidation table against the two cache keys plus the TTL, not a reproduction. What is measured is the asymmetry (one of four write paths invalidates the map) and the fact that the fallback which would mask it is intentionally disabled.\n\n## Direction (left to triage)\n\n1. Have `createView` / `updateView` / `deleteView` invalidate `view-overrides:{object}` as `updateViewConfig` already does — smallest change, keeps the batch read authoritative.\n2. Give the four paths one shared \"view rows for this object changed\" invalidation helper, so the next write path cannot forget a key by omission.\n\nOption 2 is the shape that stops this recurring, since the defect here is precisely that the key list is restated per call site.\n\n## Related\n\n- #3778 / sweep #4328 — the dead `views:{object}` invalidations; this is what remained visible once they were gone\n- #3774 — made `listViewOverrides` authoritative (and its empty map trustworthy), which is what removes the accidental self-healing\n- #4139 — `updateView`'s draft/published addressing\n"
+}

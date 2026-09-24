@@ -1,0 +1,35 @@
+{
+  "number": 3875,
+  "kind": "issue",
+  "title": "es 的 preview.empty.notReadyDescription 用 tú,与同屏的 preview.draftBar(usted)混用 —— 草稿预览未就绪时一屏两种敬称",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:14:00Z",
+  "updated_at": "2026-08-11T23:56:03Z",
+  "closed_at": "2026-08-11T23:56:03Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3875",
+  "body": "在实现 #3844(`preview.draftBar` 同一横幅两种敬称,PR #3874)时量出的相邻残留,**不在该 PR 范围内**(#3844 已裁定方向 A = 只对齐 draftBar 那一条,并明确否决了方向 B「把整个 `preview` 命名空间重划为非正式」),单独记录。\n\n## 现象\n\n`packages/i18n/src/locales/es.ts:3286`\n\n```\npreview.empty.notReadyDescription:\n'La compilación puede seguir en curso, o falló antes de preparar esta aplicación. Revisa la conversación para ver el estado — este panel se actualiza cuando llegan borradores.'\n```\n\n`Revisa` 是 **tú** 命令式(usted 形态应为 `Revise`)。而它所在的 `preview` 命名空间在 #3874 落地后是 **23 usted : 1 tú** —— `preview.draftBar.*` 四条全 usted,#3546 切片五新增的 19 个 `preview.unpublishedBar.*` / `preview.history.*` 也全 usted(切片五的裁定依据见 #3844)。这一条是唯一的离群值。\n\n## 比 #3844 更尖的一点:两者会**同屏**,不是先后\n\n#3844 那条是同一位置先后切换。这一条不同 —— 两个组件在草稿预览下**同时**在屏:\n\n- `DraftPreviewBar`(usted)挂在布局外壳里:`packages/app-shell/src/layout/ConsoleLayout.tsx:185`,在 `ConsoleLayoutInner` 内。\n- `PreviewDraftEmptyState`(tú)是内容区的返回值:`packages/app-shell/src/console/AppContent.tsx:536-548`,条件 `previewDrafts && (requestedAppMissing || !activeApp)`,即**处于草稿预览且应用尚未就绪**时。\n\n所以一个西语用户在「构建还没跑完 / 构建失败」的草稿预览里,顶部横幅对他说 usted、正下方的空态说明对他说 tú,**同一屏、同一时刻**。#3844 正文把它归为「另一个表面」时尚未量到这层同屏关系(我在 #3874 里最初也照此写了「不存在会话中途切换」,已在该 PR 的钉子注释里更正)。\n\n## 收口方向\n\n倾向把这一条改成 usted,与所在命名空间(23:1)、与同屏的横幅、与 #3546 切片五的裁定一致:\n\n```\n… Revise la conversación para ver el estado — …\n```\n\n`Revisa` → `Revise` 是唯一需要改的形态(句中其余部分 `La compilación puede seguir en curso` / `falló` / `este panel se actualiza` 都是第三人称陈述,不带敬称);en 原文 `Check the conversation for the build status` 语义不变。\n\n## 顺带记录:`approvalsInbox` 是**正当的**非正式邻域,别去「修」它\n\n量 `preview` 的同时把邻域也量了,免得下一个人误伤:`approvalsInbox`(es.ts:3117-3280)的第二人称称呼**一致为 tú**(9 条:`subtitle`、`quickPhrase3`、`approveOneBody`、`returnedHint`、`emptyPending`、`bulkApproveBody`、`whyDisabledSubmitter`、`notAllowed`、`reassignToPlaceholder`),0 条 usted 称呼。它属于 #3546 切片二「按邻域裁定、同一规则不同答案」的正当情形,**不是**本类缺陷。\n\n(用粗正则扫它会得到 5 个假阳性 usted:`reassignBody` / `requestInfoBody` / `sendBackSuccess` 里的 `puede` 说的是**第三人称的**「被指派的人 / 申请人」,`noActor` 的 `No se puede determinar` 是无人称。这也是 #3844 否决方向 C「敬称门禁」的实测依据之一 —— 详见 #3874 钉子文件的注释:同一个 token `revisa` 在 es.ts:1365 是 usted 陈述式、在 es.ts:1918 是 tú 命令式,正则无法分辨。)\n\n## 门禁为什么看不见\n\n与 #3844 同类(值域盲区):这条 es 译文正确表达了 en 原意,不缺 key、不陈旧、没存英文。`scripts/check-i18n-call-site-keys.mjs` 只问 key 在 en 存不存在;`all-locales-key-parity` 只比键名与占位符形状,从不读值;`scripts/check-i18n-en-drift.mjs` 只在 en 值变化时才要求九包跟改,而这条 en 值静止不动。\n\n关联:#3844 / PR #3874(同一条横幅的敬称收口,本条是其相邻残留)、#3546(切片二邻域裁定 / 切片五 `preview` 取 usted)、#3810 / #3582 / #3625(值域盲区的前几类)。\n"
+}

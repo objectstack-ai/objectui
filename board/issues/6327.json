@@ -2,8 +2,8 @@
   "number": 6327,
   "kind": "issue",
   "title": "finding(components): three near-identical menu-item recursions in `renderers/overlay/` — the same icon bug has now been repaired in two of them separately",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-25T12:59:12Z",
-  "updated_at": "2026-08-25T18:05:23Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:06:03Z",
+  "closed_at": "2026-09-24T14:06:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

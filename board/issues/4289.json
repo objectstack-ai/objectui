@@ -1,0 +1,35 @@
+{
+  "number": 4289,
+  "kind": "issue",
+  "title": "The bell's inbox poll latches itself off permanently on one 404, while Home's card reading the same object does not",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T11:15:24Z",
+  "updated_at": "2026-08-11T21:33:11Z",
+  "closed_at": "2026-08-11T21:33:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4289",
+  "body": "Observation-class, found while re-checking #4230's premise (PR #4284). Not a defect anyone is demonstrably hitting today — filing it because it is a **second, independent way to produce the exact #4110 / #4230 signature**, and the next dead-bell report should have it on the list instead of rediscovering it.\n\n## The asymmetry\n\nTwo consumers read `sys_inbox_message` with the same filter for the same user. Only one of them can turn itself off for good.\n\n**`packages/app-shell/src/layout/AppHeader.tsx`** — the bell's 10s poll:\n\n```ts\nconst notificationsUnavailableRef = useRef(false);\n\nuseEffect(() => {\n  if (!dataSource || !user?.id) return;\n  if (notificationsUnavailableRef.current) return;   // permanent, page-lifetime\n  ...\n  } catch (err: any) {\n    if (isMissingResource(err)) {\n      notificationsUnavailableRef.current = true;    // latched — never cleared\n      return;\n    }\n```\n\n`isMissingResource` is `err?.httpStatus === 404 || err?.status === 404 || errorCodeIs(err, 'OBJECT_NOT_FOUND')`. Nothing clears the ref: not a dep change, not `visibilitychange`, not a later successful read. One qualifying error at any point and the bell holds `[]` until the page is reloaded.\n\n**`packages/app-shell/src/hooks/useHomeInbox.ts`** — Home's \"Needs your attention\" card, same object, same `$filter: { user_id: user.id }`, same `$orderby`:\n\n```ts\n  .catch(() => { /* inbox pipeline absent → empty */ });\n```\n\nNo ref, no latch. It re-runs whenever `[dataSource, user?.id, limit]` settle, so a transient failure costs it one render, not the session.\n\n## Why it is worth recording\n\nThe latch is deliberate and its reasoning is sound as written — the comment explains that re-requesting an absent optional collection on every navigation is console noise plus wasted round trips, and `sharedUserFeeds` carries the same rule for approvals and `sys_activity`. The part that is not stated is that the latch's **blast radius is different for this feed than for those**, because this feed has a sibling consumer that does not latch. The observable result of a single transient missing-resource answer during bootstrap is:\n\n- bell panel empty under both Unread and All,\n- Home's To-do card listing the same rows correctly,\n- zero requests issued when the panel is opened.\n\nThat is the #4110 / #4230 three-way contrast **exactly**, produced by a completely different cause than the `isApp` gate that produced it the first two times. Two cards have now been triaged against that signature, and both times the reasoning went \"home card works, so the query and the user id are fine, so the drop is downstream\" — a chain that this latch breaks silently.\n\n## What is NOT claimed\n\n**I have not measured that a qualifying 404 is reachable during normal bootstrap.** The code path is real and readable; whether the adapter can answer `OBJECT_NOT_FOUND` for `sys_inbox_message` on a deployment that does have the object — for instance before metadata settles — is unverified, and that is the whole question of whether this is a latent defect or merely an asymmetry. Establishing that is the first step for whoever picks it up; if it is unreachable, this closes as a comment on the design and costs nothing.\n\nNote the receipt read is **not** the exposure: `sys_notification_receipt` is wrapped in `.catch(() => ({ data: [] }))`, so its absence degrades to \"everything unread\" as intended. The exposure is a rejection from the `sys_inbox_message` read itself, or a synchronous throw from either `find` call before the `.catch` is attached.\n\n## If it is reachable, the shapes worth weighing\n\n1. **Clear the latch on a dep change** (`user?.id` / `dataSource`), so a session that recovers gets its bell back without a reload. Smallest change; keeps the noise argument intact for the genuinely-absent case.\n2. **Latch only after N consecutive missing-resource answers**, distinguishing \"this deployment has no messaging pipeline\" from \"one read lost a race\". Closer to what the comment actually intends.\n3. **Leave it and pin it** — assert the latch is a deliberate one-way door, and make the bell say so rather than rendering an empty inbox indistinguishable from a genuinely empty one. A user staring at \"You're all caught up\" is being told something false.\n\nAdjacent, not the same: #4225 proposes folding this read into `hooks/sharedUserFeeds.ts`. Whoever does that inherits this decision — the shared store would give the bell and Home **one** retry policy, which resolves the asymmetry by construction and makes the choice above unavoidable rather than optional.\n\n## Pointers\n\n- `packages/app-shell/src/layout/AppHeader.tsx` — `notificationsUnavailableRef`, the poll effect's early return, and the `isMissingResource` branch\n- `packages/app-shell/src/hooks/useHomeInbox.ts` — the unlatched sibling read\n- `packages/app-shell/src/hooks/sharedUserFeeds.ts` — the same rule for the two feeds that have no unlatched sibling\n- PR #4284 — the render-oracle pin added for #4230; its fake adapter never fails, so none of its cases exercise this path\n\nRelated: #4230, #4110, #4156, #4199, #4225, #4235.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

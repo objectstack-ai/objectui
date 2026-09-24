@@ -2,8 +2,8 @@
   "number": 5194,
   "kind": "issue",
   "title": "[test-harness] `await act(async …)` never settles when a test renders the console AppContent surface",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-steve",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:devx",
-    "pm:on-hold"
+    "domain:devx"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-18T12:01:44Z",
-  "updated_at": "2026-08-23T04:20:51Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T12:51:46Z",
+  "closed_at": "2026-09-24T12:51:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/5194",
   "body": "Observation-class, found while implementing #4522 (PR #5193); not fixed there — out of that card's scope, and it predates it.\n\n## What was measured\n\nIn `packages/app-shell/src/console/__tests__/`, a test that renders `AppContent` through the router and then awaits `act` with an async callback does not resume. Every such call sat for the full `testTimeout` (15000ms) and failed as a timeout, never as an assertion — measured three times in one file, on three different rendered surfaces:\n\n```ts\nawait act(async () => { await new Promise(r => setTimeout(r, 20)); });  // 15007ms, timed out\nawait act(async () => { pendingRefresh(); });                          // 15020ms, timed out\n```\n\nReplacing them with a plain `await new Promise(r => setTimeout(r, 20))` plus `findBy*` / `waitFor` for the act-aware waiting makes the same cases pass in ~1s. That is what `AppContent.missingRecheckKeying.test.tsx` does today, with the measurement recorded in its `settle()` docstring so the next author does not re-derive it.\n\n## Why it is worth a card rather than only a comment\n\n`await act(async …)` is ordinary, correct RTL usage and works elsewhere in this repo — 50 test files under `packages/*/src` use it. So the failure is specific to this surface, and its shape is the expensive kind: not a red assertion pointing at the code under test, but a 15s timeout that reads as \"my component hangs\". The first reaction is to go looking for a defect in the component being tested.\n\n## Cause NOT isolated — please do not treat the parenthetical as the diagnosis\n\n`chrome/LoadingScreen.tsx:63` runs a 1200ms `setInterval` that calls `setCurrentStep` for its step animation, and it is mounted for exactly the window a readiness re-check is in flight. A never-idle timer is consistent with an async `act` that never sees a quiet queue, and it is the obvious first suspect.\n\nBut it does not explain all three observations: two of them were taken when `LoadingScreen` had already unmounted (its cleanup clears the interval) and the rendered surface was the not-available `Empty` screen and the app shell respectively. Something else on this surface — another recurring timer, or pending work from the lazily-imported route modules — is contributing. Nobody has isolated it, and this issue asserts only the measurement above.\n\nAnyone picking this up: confirm the cause before changing `LoadingScreen`, since an animation interval that is correct in the product would be the wrong thing to remove for a test-harness reason.\n\n## Severity note\n\nGraded observation-class at filing time (`finding`, no `pm:queue`): nothing user-visible, no test is currently wrong or vacuous because of it, and the working pattern is documented in the file where it bites. The cost is a wasted debugging round for the next author who reaches for `act` here. Grade it in triage rather than trusting that line."

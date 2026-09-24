@@ -1,0 +1,33 @@
+{
+  "number": 4212,
+  "kind": "pull_request",
+  "title": "fix(data): updateView reads and writes the same row, so renaming a draft view persists",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T23:55:43Z",
+  "updated_at": "2026-08-11T02:52:55Z",
+  "closed_at": "2026-08-11T02:52:53Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T02:52:53Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4212",
+  "body": "Fixes #4139\n\n## Premise\n\nVerified on my tip, and it holds exactly as filed. The pre-fix write emitted for a rename of a draft-only view is, verbatim:\n\n```\n1st vi.fn() call:\n  [ \"view\", \"crm_activity.kanban_board\",\n    { \"label\": \"Pipeline Board\", \"name\": \"crm_activity.kanban_board\", \"object\": \"crm_activity\" } ]\n```\n\nThat is the `{label, name, object}` partial-write signature the issue predicted — no `viewKind`, no `config`, which is what the server rejects with 422.\n\n## Root cause, and the half the issue did not name\n\nADR-0034 stages every runtime-created view as a per-item **draft**: the `+` tab goes through `createRuntimeMetadata` → `metadataClient.save(..., { mode: 'draft' })`, so the view lives only in the draft row until an explicit Publish, and the UI reads it back through `?preview=draft`.\n\n`updateView` addressed neither half of that. Measuring the write half as the card asked — **does `saveItem` write the draft?** — gives a `no` that changes the fix: `client.meta.saveItem` has no draft mode at all (the SDK's `meta.getItem`/`saveItem` take only `packageId`), so the write half was published-addressed too. The two halves therefore already *agreed* — both pointed at the published overlay — and the mismatch was between `updateView` as a whole and the draft row the create path produces.\n\nThat matters because fixing only the read would **not** fix the reported symptom: the merge would be correct, but the write would still land on the published overlay while the draft row keeps shadowing it in preview, so the rename stays invisible and Publish later overwrites it with the pre-edit body. Making the halves agree *on the right row* requires moving both.\n\n## The fix\n\n`packages/data-objectstack/src/index.ts` — the read probes the draft first and, on a hit, merges onto that body and writes it straight back with `mode: 'draft'` via the existing `MetadataClient` seam (the same one `listViews({ previewDrafts })` already uses). Whichever row the read resolved is the row the write updates — agreement by construction, not coincidence.\n\nDraft **before** published is load-bearing for a view that has both: writing the published row while a draft is pending puts the edit where the draft shadows it, and Publish then overwrites it with the pre-edit body — losing the change a second time, later, where nothing connects it to this call. A draft edit stays a draft, so ADR-0037's guarantee that nothing the preview shows goes live until Publish is preserved. Renaming a published view with no draft pending is untouched: published read, published write.\n\nThe silent catch is gone (issue requirement 3). Call sites measured first — all five are in `ObjectView.tsx` (rename, pin, set-default ×2, reorder), every one an update to an already-listed view, and none creates a view; `createView` is the operation that means \"create\". So no caller depended on \"create-equivalent\", and it is not preserved. A view resolving in neither home now throws naming the view and object; a network/permission/server fault on either read propagates. All five call sites already `try/catch` and toast, so this surfaces a previously-invisible failure rather than introducing a new one.\n\n## Set-default (issue requirement 4) — measured, and it splits\n\nTwo symptoms, two causes:\n\n- The **partial write** on set-default *does* share this root cause — same read-merge-write cycle with an `{isDefault: true}` patch — so it is fixed here and carries its own pin.\n- \"**Fires no write at all**\" does **not** originate in `updateView`, which writes unconditionally for every patch shape (no early return between read and write; measured against the pre-fix code, an `{isDefault: true}` patch produced a write every time). It can only come from `ObjectView.tsx`'s `isSavedView` guard — the sole early return on that path — or from `ViewTabBar` hiding the menu item under `onSetDefaultView && !isReadonly` when no `savedViews` row matches the tab id.\n\nThat is UI-layer, above this adapter and on #4155's surface, so per the dispatch scope it is **not** fixed here — filed with the full measurement as #4211.\n\n## Tests\n\nNew pins in `packages/data-objectstack/src/updateView.draft.test.ts` (7): draft rename carries the full merged document to a `mode=draft` write; draft probed before published; set-default patch likewise; **control** — published view with no draft still updates the published overlay; genuinely-missing view throws with no write; transport failure on the published read throws with no write; transport failure on the draft probe throws rather than falling through to published.\n\n```\npnpm exec vitest run packages/data-objectstack/     →  Test Files 27 passed (27)   Tests 392 passed (392)\npnpm --filter @object-ui/data-objectstack type-check →  clean (tsc --noEmit)\npnpm --filter @object-ui/data-objectstack lint       →  0 errors (358 pre-existing no-explicit-any warnings)\n```\n\nDownstream consumers of `updateView` (`ObjectView.defaultViewIdentity`, `clientValidation.viewShapes`) re-run green — 20 passed — since the error semantics changed. Suites were scoped to `packages/data-objectstack/` plus those two files per the repo's root-only rule (objectui#3378); the wide sweep is left to CI shards.\n\n## Reverse verification\n\nDirection predicted **before** running: removing the fix should turn the pins RED with the partial-write signature, and leave the **control** green, since the control exercises the published path the fix deliberately does not change.\n\n`git checkout origin/main -- packages/data-objectstack/src/index.ts` → **6 of 7 red, control green**, first failure showing `{label, name, object}` verbatim. Restored with `git checkout HEAD -- ...`; full suite green again. Confirmed as predicted, including the control staying green.\n\n## Changeset\n\n`@object-ui/data-objectstack` patch.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

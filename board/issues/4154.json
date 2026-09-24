@@ -1,0 +1,35 @@
+{
+  "number": 4154,
+  "kind": "issue",
+  "title": "ci-cd-pipeline.md's \"Five workflows subscribe\" merge_group list is short by one (skills-paths.yml, since #3735) — the #3261 shape, one subsystem over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T14:18:50Z",
+  "updated_at": "2026-08-10T15:31:16Z",
+  "closed_at": "2026-08-10T15:31:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4154",
+  "body": "Found while implementing #3782 (PR #4153), whose card asked for a sweep of the same page for other hand-copied enumerations of the same shape. Filed separately rather than bundled — which is the discipline that produced #3782 itself, kept out of #3279's PR for the same reason.\n\n## The claim\n\n`content/docs/guide/ci-cd-pipeline.md`, in `## Merge Queue`:\n\n```\nFive workflows subscribe: `ci.yml`, `lint.yml`, `control-bytes.yml`, `docs-links.yml` and\n`changeset-presence.yml` (the last added with the gate itself, in #3387 ...)\n```\n\n## Six do\n\n`merge_group:` in the `on:` block, measured on `main@36ae2705b`:\n\n```\n.github/workflows/changeset-presence.yml\n.github/workflows/ci.yml\n.github/workflows/control-bytes.yml\n.github/workflows/docs-links.yml\n.github/workflows/lint.yml\n.github/workflows/skills-paths.yml      <- absent from the page\n```\n\n`skills-paths.yml` subscribes for real — a `merge_group:` trigger with `types: [checks_requested]`, added by #3735 (merged as #3864), carrying its own comment explaining that an unfiltered gate which could become required subscribes from the start.\n\nThe repo already knows this: `scripts/__tests__/merge-queue-reporting.test.ts`'s hand-maintained `MUST_SUBSCRIBE_MERGE_GROUP` map has **six** entries, including\n\n```\n['skills-paths.yml', 'produces Skill Guide Path Check — added by objectui#3735, same shape as the\n  two above: its entire scan surface is markdown, so it carries no path filter, reports on every\n  pull request, and is therefore requirable'],\n```\n\nSo the guard pins the *workflows*, and nothing pins the *page's copy of the list*. The page went stale the moment #3735 landed.\n\n## Why this matters more than an off-by-one\n\nThis is #3261's defect verbatim, one subsystem over: a count that says N and an enumeration short by one, where a stale list reads exactly as authoritative as a fresh one. The specific reader harmed is the one the surrounding paragraph is written for — someone deciding whether a new gate of theirs has to subscribe. The parenthetical even states the selection rule (\"a gate that carries no path filter reports on every pull request and is therefore requirable, which is exactly the property this list tracks\"), and `skills-paths.yml` is the clearest instance of that rule on `main`. Omitting it teaches the rule and then contradicts it with the example set.\n\nThe consequence of the underlying mistake is documented on the same page and is not subtle: a queue whose required set is empty merges without validating, which is how three PRs merged with **Type Check** at `conclusion=failure` on 2026-08-07.\n\n## Why it was not fixed in PR #4153\n\nDifferent fact, and the fix is not mechanical. #4153's guard extension is specific to the `object-ui/*` error ratchets, so it cannot cover this sentence. And unlike the ratchet parenthesis, this enumeration is load-bearing for the paragraph's argument — \"None of the first four did until #3523\" needs the four named — so converging it on evergreen phrasing is a wording decision of exactly the A/B kind #3782 needed a ruling for, not a swap.\n\nOptions, for whoever picks this up:\n\n- **A — correct in place.** Say \"Six\" and add `skills-paths.yml`. Cheapest, keeps the narrative, and puts the page back on the treadmill: correct today, stale at the next subscriber.\n- **B — evergreen the live claim, freeze the history.** Split the sentence: the current set becomes a pointer to `MUST_SUBSCRIBE_MERGE_GROUP` (which is already the maintained list, with a stated reason per workflow), while the \"none of the first four did until #3523\" clause stays as dated history, where naming them is correct precisely because it is a past fact.\n- **C — B plus a gate.** Same as B, and pin the page against that map in `merge-queue-reporting.test.ts`, the way #4153 pins the ratchet prose. Note the honest caveat from #3782's own analysis: the map is itself hand-maintained, so C pins a copy to a copy — though that map, unlike prose, is at least read by an assertion that fails when a listed workflow stops subscribing.\n\nLeaning B or C for the same reason #3782 was ruled A: the only honest list is the one something reads.\n\n## Checked and NOT a defect\n\nRecorded so it is not re-chased: the same page's \"Every publishable package is in one `fixed` group (39 packages)\" looks like the same shape but is **correct**. `.changeset/config.json` lists 40 entries; exactly one of them, `object-ui` at `packages/vscode-extension`, is `private: true`, leaving 39 publishable. (`scripts/__tests__/check-changeset-no-major.test.ts` says 39 in its docblock too, and is likewise right.)\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

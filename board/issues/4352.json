@@ -1,0 +1,35 @@
+{
+  "number": 4352,
+  "kind": "issue",
+  "title": "finding(react): bridgeListView's mapDensity carries four rowHeight spellings no spec-valid list view can hold",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T20:37:13Z",
+  "updated_at": "2026-08-12T07:28:15Z",
+  "closed_at": "2026-08-12T07:28:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4352",
+  "body": "Found while type-checking `@object-ui/react`'s tests for #4040 (tranche 4, PR #4351). Observation-class: nothing a user hits today, and no fix is proposed here.\n\n## What\n\n`packages/react/src/spec-bridge/bridges/list-view.ts` maps a list view's `rowHeight` onto the renderer's density with a hand-written table of **nine** keys:\n\n```\ncompact, short, comfortable, spacious, small, medium, large, tall, extra_tall\n```\n\n`RowHeightSchema` in `@objectstack/spec` admits **five**:\n\n```\nshort | compact | medium | tall | extra_tall\n```\n\nSo `comfortable`, `spacious`, `small` and `large` are unreachable from any spec-valid input. The bridge's own parameter type says so — it is `Partial< ListView >`, i.e. the spec shape — and `mapDensity` widens it back to `rowHeight?: string` to accept them.\n\n## Why it survived\n\n`SpecBridge.test.ts` asserted three of the four (`comfortable`, `spacious`, `small`) as though they were live capability, and that file was compiled by nothing: the package's build tsconfig excludes tests and no other `tsc` invocation read them. Type-checking the tree is what surfaced it — the fixture would not compile against the type the function declares.\n\nPR #4351 re-spells the fixture canonically and now covers all five spec values (gaining `medium` and `tall`, which the suite never had). It deliberately does **not** touch the source: deleting a lenient branch is a behaviour change for any host still passing a legacy spelling, which is a separate decision from the type-check graduation.\n\n## The decision, when someone takes it\n\nThis is AGENTS.md #0.1 territory (fix the metadata, not the renderer — one strict contract beats N dialects), so the default answer is to delete the four dead keys and let a non-spec `rowHeight` fall through to `undefined` density. The counter-consideration is empirical, not theoretical: whether any live metadata still authors `comfortable`/`spacious`, since the ADR-0087 conversions rewrote a lot of older pages. Worth a grep across the example apps and the console's own view metadata before removing.\n\nRelated: the same PR found `ListColumn.link` / `.action` asserted as `{ href }` / `{ type }` objects when the spec declares `boolean` / `string`; the bridge forwards them verbatim, so those assertions only ever proved pass-through. Re-spelled in #4351.\n"
+}

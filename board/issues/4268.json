@@ -1,0 +1,33 @@
+{
+  "number": 4268,
+  "kind": "pull_request",
+  "title": "refactor(app-shell): bind DeclaredActionsBar's row through usePredicateRecordContext (#4080)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T09:56:24Z",
+  "updated_at": "2026-08-11T10:06:30Z",
+  "closed_at": "2026-08-11T10:06:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T10:06:28Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4268",
+  "body": "Fixes #4080\n\n`DeclaredActionsBar` held an inline copy of the three-way row binding — `{ ...row, record: row, data: row }` — added by #4077 to fix its root-only predicate scope. #4079 fixed the same fault on the four generic action renderers and, rather than repeating the expression a fifth time, gave the rule one name: `usePredicateRecordContext`, exported from `@object-ui/react` beside `useCondition`. The bar kept its copy.\n\nThis is that migration: one import, one substitution, the inline `useMemo` deleted. The long rationale in the bar's comment moves to a pointer at the definition, keeping only what is specific to this bar (every declared action on `sys_approval_request` gates on `record.viewer.*`, so a root-only bag made the whole server-declared decision set invisible here).\n\n## The one semantic subtlety — the helper's semantics are kept\n\nThe two copies differ in exactly one place, which is why this is a migration rather than a rename. With **no** row, `usePredicateRecordContext` binds NOTHING; the inline copy bound `{ record: {}, data: {} }`. `useCondition` evaluates on the local context merged OVER the ambient predicate scope, so the inline shape blanks out a `record` a host had put in the scope itself — a legitimate pattern, and how `action-group-dropdown-visible.test.tsx` drives the group's dropdown leaves.\n\nPer the card, the helper's semantics are the ones kept. That corner is unreachable in the bar today (it is always mounted over a record), so no user-visible behaviour changes; the point is that the bar no longer holds a second answer to the question.\n\n## Premise check\n\nVerified on the branch tip before implementing, all three still true:\n\n- inline `useMemo` live at `DeclaredActionsBar.tsx:148`;\n- `usePredicateRecordContext` exported at `packages/react/src/hooks/useExpression.ts:142`;\n- the bar already imports `useCondition` from `@object-ui/react`, so no new dependency edge.\n\n## Tests\n\nTwo pins on the bar, deliberately different in kind, plus one at the helper level.\n\n- **Equivalence (row present)** — all three spellings (`record.status`, bare `status`, `data.status`) reach the same verdict, both halves per spelling with the ungated companion asserting the bar itself rendered. Green **before and after**; it is not a mutation detector for this change and the comment says so.\n- **Convergence (no row)** — the bar mounted with no row inside a `PredicateScopeProvider` that supplies `record`: the host's row must still reach the predicate. This is the one place the copies part.\n- **Helper level** (`useExpression.test.ts`) — the return shape itself: no row yields an empty bag, and `record` / `data` are absent rather than present-and-undefined, so the ambient `record` survives the merge. Not a duplicate of existing coverage: the no-row semantics is pinned behaviourally through the renderers in `action-record-predicate-root.test.tsx` and incidentally by the dropdown suite, but nothing pinned the contract one level below a rendered verdict, which is what the bar now depends on.\n\n```\nnpx vitest run packages/app-shell/src/views/ packages/components/src/renderers/action/\n  Test Files  217 passed (217)\n  Tests  2283 passed | 1 skipped (2284)\n\npnpm --filter @object-ui/app-shell --filter @object-ui/react type-check   → both Done\nnpx eslint (the 3 changed files)                                          → 0 errors\nnode scripts/check-control-bytes.mjs                                      → OK (3982 files)\n```\n\n## Reverse verification\n\nDirection predicted before running, and it matched. The fix was taken out with `git checkout origin/main -- DeclaredActionsBar.tsx` (never `git stash` — shared stack), then restored from HEAD.\n\n```\n× with NO row of its own, the bar does not shadow a host-supplied ambient `record`\n  Test Files  1 failed | 1 passed (2)\n  Tests  1 failed | 59 passed (60)\n```\n\nThe convergence pin went red, alone. The equivalence pin stayed green in both directions — honestly, that is the expected result and not a weak test: the two copies agree on every row that exists, so nothing about a row-present predicate can distinguish them. The helper-level pins stayed green both ways too; they do not touch the bar.\n\n## Changeset\n\nThe card said \"no changeset\". `scripts/check-changeset-presence.mjs` arbitrates and disagrees — `@object-ui/app-shell` is a released package and this is a change under its `src/` — so the gate is followed: `@object-ui/app-shell: patch`. The empty-frontmatter form was considered and rejected; it asserts \"no published behaviour changes\", and the no-row binding of an exported component did change, even where no host reaches it. `check-changeset-no-major` is green, and no `skip-changeset` label is requested (#3724).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

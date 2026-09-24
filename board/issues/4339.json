@@ -1,0 +1,32 @@
+{
+  "number": 4339,
+  "kind": "pull_request",
+  "title": "docs(agents): state commit-then-revert as the required order for reverse verification (#4301)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T17:28:19Z",
+  "updated_at": "2026-08-11T17:40:39Z",
+  "closed_at": "2026-08-11T17:40:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T17:40:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4339",
+  "body": "Closes #4301\n\nOne bullet added to `AGENTS.md`. No code, no other files.\n\n## Where it landed, and why not where the card pointed\n\nThe card asked for \"the verification/reverse-verification section of AGENTS.md (and/or the worktree section, wherever the revert idiom `git checkout origin/main -- ` is shown)\". Measured against `origin/main` first: **AGENTS.md contains no such section and does not show the revert idiom at all** — it has no occurrence of `checkout origin/main`, `stash`, `revert`, or a reverse-verification ladder. Repo-wide, that idiom and the stash ban live in exactly three places, none of them AGENTS.md:\n\n- `CLAUDE.md` — the stash ban plus the three sanctioned substitutes\n- `.claude/hooks/guard-shared-stash.sh` and its selftest\n\nSo the paragraph went to the card's own stated fallback, the worktree section: **§9 Operational Rules → 多 agent 协作纪律**, immediately after the shared-file commit-hygiene bullet (`编辑→git add→commit 一气呵成`) and before the merge-queue bullet. That is the same family — the bullets around it are the ones about not losing your own in-flight work — and it is where the mandatory-worktree rule already sits, which is the rule an agent is following when it reaches for a raw `checkout`.\n\n## Language\n\nThe target section is Chinese throughout, and Commandment #-1 explicitly exempts this instruction file's operational sections from the English-only rule (\"this rule governs the **codebase**; this instruction file may use Chinese in operational sections\"). The paragraph is therefore written in Chinese to match the surrounding bullets, with the git commands verbatim in English as every neighbouring bullet spells them. Citation form follows the file's existing style (`#3193`, `objectui#3430`, `先例 PR #3458`).\n\n## The added text\n\nPlaceholders are shown spaced below (`< path >`) only because GitHub's body sanitizer eats a `<` followed by a letter — the issue body itself lost its placeholders that way. The file carries the normal unspaced form; see the diff for the exact bytes.\n\n> - **要做反向验证(删掉修复 → 看预期的钉子变红 → 还原)就先把修复 commit 掉。** 提交之后,还原是 `git checkout < 你的分支 > -- < path >`,对着一个真实存在的 commit 取回;直接对**未提交**的改动做同一个删除(`git checkout origin/main -- < path >`)则没有任何还原点 —— 工作区就是唯一副本,而 `git stash` 一律禁用(共享 stash 栈,见 CLAUDE.md),改动当场就没了。同一天两次踩实:#4278(PR #4293)、#4243(PR #4299),两次都靠会话 transcript 逐行重打才找回来 —— transcript 不全就是净损失。#4243 那次是先 commit、再重跑一遍反向验证,最终那组红绿数字才可信。\n\nThe stash clause points at CLAUDE.md rather than restating the ban, since that is where it is documented and duplicating it would create a second copy to drift.\n\n## The two incidents were verified, not copied\n\nBoth cited PRs were read at their merged state rather than taken from the card:\n\n- **PR #4293** (#4278, merged 11:50Z) — its own body records the reverse verification against `FormPage.tsx`, 11 red / 2 green.\n- **PR #4299** (#4243, merged 12:14Z) — its body spells the exact idiom this paragraph is about: \"the fix reverted with `git checkout origin/main -- ListView.tsx`\", 6 red / 3 green. This is the run that was redone after committing, which is the detail the last sentence of the paragraph preserves.\n\n## Verification\n\nDocs-only, so the gates that touch this surface — not a whole-repo sweep:\n\n```\nnode scripts/check-control-bytes.mjs\n  OK (scanned 4066 tracked text file(s); skipped 85 binary)\n\nnode scripts/check-doc-links.mjs\n  Links are valid across 13 scan roots.\n\nnode scripts/check-changeset-presence.mjs\n  Compared the working tree with 7f1cb3323 (merge-base with origin/main):\n  1 file(s) changed, 0 of them under the src/ of a package the release covers,\n  0 under a package changesets ignores, 0 changeset(s) added.\n  No source of a released package changed in this range, so no changeset is owed.\n```\n\nPlus a self-scan beyond the gate for control bytes in the edited file (`grep -naP` over the C0 range plus `0x7f`) — no match.\n\n**No changeset**, on the gate's own verdict quoted above: the guarded surface is the `src/` of packages in the `fixed` group of `.changeset/config.json`, and a repo-root markdown file is not in it. Nothing is released by this PR, so there is nothing to declare.\n\nDiff is one line: `1 file changed, 1 insertion(+)`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 4203,
+  "kind": "pull_request",
+  "title": "fix(grid): bulk-bar Clear resets the row checkboxes, not just the toolbar",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T23:09:58Z",
+  "updated_at": "2026-08-10T23:34:37Z",
+  "closed_at": "2026-08-10T23:34:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T23:34:35Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4203",
+  "body": "Fixes #4140\n\n## What was wrong\n\nThe selection lives in **two** places: `selectedRows`, which is the grid's own state and drives the toolbar, and the row checkboxes, which live inside the embedded data-table and only clear when `selectionResetKey` moves. `resetSelection()` writes all three, and the delete / dispatch / dialog-close paths have gone through it since the reset-key mechanism landed in #3056.\n\nBoth `BulkActionBar` mount sites, however, hand-wrote their handler:\n\n```tsx\nonClearSelection={() => { setSelectedRows([]); setSelectAllMatching(false); }}\n```\n\nThat is exactly `resetSelection()` **minus the key bump**. So Clear emptied the toolbar and left every row at `data-state=\"checked\"` — header stuck at `indeterminate` on a partial pick — stranding the user on a page of ticked rows with no toolbar left to act on them. That is the literal failure the reset-key mechanism was introduced to prevent, so this is drift from #3056 rather than a new mechanism.\n\n## Change\n\nBoth sites now call `resetSelection()`. **Measured before choosing this shape** (card direction 2): `resetSelection()` is a strict *superset* of what the sites already did — the same two state writes plus the key bump, with no refresh, no refetch and no other side effect — so Clear gains the checkbox reset and changes nothing else. No third hand-copied reset was added; the comment above `resetSelection()` now states it is the one reset for every clearing path, including the bar's own Clear.\n\n## Evidence\n\nRed-first, then reverse-verified by taking the fix back out with `git checkout origin/main -- packages/plugin-grid/src/ObjectGrid.tsx` (never `git stash`). **Predicted RED in the standard direction, and confirmed with the stranded-ticks signature** — the 8 pre-existing tests in the file stayed green both times, so the pin is specific to the defect rather than a broad breakage:\n\n```\nFAIL … #4140 > unticks the row checkboxes … on a partial selection\nAssertionError: expected [ 'checked', 'unchecked' ] to deeply equal [ 'unchecked', 'unchecked' ]\nFAIL … #4140 > unticks the row checkboxes when the whole page was selected\nAssertionError: expected 'checked' to be 'unchecked'\nFAIL … #4140 > drops the cross-page \"all matching\" state too …\nAssertionError: expected 'checked' to be 'unchecked'\nTests  3 failed | 8 passed (11)\n```\n\nIn each red case the bulk bar had already been removed and the boxes stayed ticked — the reported symptom exactly. With the fix:\n\n- `pnpm exec vitest run packages/plugin-grid/` — **58 files, 551 tests passed**, which covers control 3 (the delete / dispatch / dialog-close reset paths stay green).\n- `turbo run type-check --filter=@object-ui/plugin-grid` — 13/13 tasks successful (turbo built the dependency closure first).\n- `eslint` on both touched files — 0 errors; `check-control-bytes` OK.\n\nThree tests pin the button on both selection sources and on the shared handler behind both bar instances.\n\n### One test-authoring note\n\nThe third test originally asserted the banner's rendered copy, which never matched. The reason is local rather than global: these grid tests wrap in `ActionProvider` only, and with no `I18nProvider` in the tree the `{{count}}` interpolation never runs, so the raw template reaches the DOM. `BulkActionBar.test.tsx` asserts on that same copy and wraps in an English `I18nProvider` for exactly this reason. Pinning the rendered count here would have tested i18n plumbing instead of the reset — and its negation would have passed for the wrong reason, since the interpolated text is absent either side of the fix. The banner's two branches are now told apart structurally, by whether the escalation button is still offered, which is the right probe for a selection-state question and holds regardless of i18n setup.\n\n(The second commit only corrects that comment's stated mechanism — an earlier draft blamed the test environment generally, which would have sent the next reader hunting for broken i18n plumbing. No assertion changed.)\n\n## Scope\n\nPer the card, the cross-page-**banner** clauses of the QA item stay out (fixture-blocked; recorded on objectstack-ai/objectstack#7439), as does the #3056 mechanism redesign. No action-renderer whitelist or `scripts/` file is touched. Changeset added (`@object-ui/plugin-grid` patch) — this is user-visible, so no `skip-changeset`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

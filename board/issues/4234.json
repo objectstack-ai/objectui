@@ -1,0 +1,35 @@
+{
+  "number": 4234,
+  "kind": "issue",
+  "title": "Sidebar collapse does not survive reload — `sidebar_state` cookie is written but never read back (`SidebarProvider` always starts from `defaultOpen = true`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T05:26:06Z",
+  "updated_at": "2026-08-11T13:20:47Z",
+  "closed_at": "2026-08-11T13:20:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4234",
+  "body": "## Symptom\n\nCollapsing the console sidebar does not survive a page reload.\n\n- The cookie **is** written: `sidebar_state=false`, 7-day max-age — and it is **still present after the reload**.\n- Yet the sidebar renders **expanded**: width **255px**, `data-state=expanded`.\n- Measured at **+2s / +4s / +8s** after load specifically to exclude a settling race — expanded at every sample.\n- **Reproduced 3×.**\n- Expected: with `sidebar_state=false` present, the sidebar renders collapsed on first paint.\n\n## Root cause\n\n`packages/components/src/ui/sidebar.tsx` only ever **writes** the cookie and never reads it back.\n\n- `SIDEBAR_COOKIE_NAME = \"sidebar_state\"`, `SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7` (~lines 36-37) — matching the observed 7-day max-age.\n- `setOpen` writes it on every toggle: `document.cookie = ...` (~line 101). That is the **only** occurrence of the cookie name in the whole package.\n- `SidebarProvider` initialises from the prop default: `defaultOpen = true` → `const [_open, _setOpen] = React.useState(defaultOpen)`. There is no cookie read, no lazy initialiser, no hydration effect.\n- **No SPA caller passes a cookie-derived `defaultOpen`.** The only `defaultOpen={false}` call sites on main are marketing/demo components in `apps/site`; the console shell passes nothing, so it gets `true` every load.\n\nThe upstream shadcn original resolves this by reading the cookie in a **server component** and handing the value down as `defaultOpen`. A pure SPA has no equivalent of that step — **so the fix needs an SPA-side read** (a lazy `useState` initialiser or equivalent that parses `document.cookie` on mount), not merely \"pass the prop\". Passing a prop from the console shell alone still leaves every other SPA consumer broken.\n\nVerified still present on objectui **`origin/main` @ `bb68488`** (current at filing time), not just on the vendored console `09987b68` the run used.\n\n### Honest contrast — the rest of `shell-nav-personalization` is healthy\n\nThis is a narrow defect, not a broken persistence layer:\n\n- **Pins, favorites and recents all persist correctly**, backed by real `sys_user_preference` rows.\n- **Reorder is blocked** — not failing, *untestable*: **no drag affordance is rendered at all**.\n- **Recents capture record visits but not object-list visits.**\n\n## Reproduction\n\nFramework `a86db175`, vendored console `09987b68`, showcase app, authenticated session.\n\n1. Collapse the sidebar.\n2. Confirm the cookie: `sidebar_state=false`, max-age 7 days.\n3. Reload the page.\n4. Confirm the cookie is **still** `sidebar_state=false`.\n5. Measure the sidebar at +2s, +4s and +8s after load.\n\nObserved: 255px and `data-state=expanded` at all three sample points. Reproduced 3×.\n\n## Dedup\n\nSearched objectstack-ai/objectui for `sidebar_state`, `SidebarProvider`, `defaultOpen`, and sidebar-collapse-not-persisted symptoms — no open or closed duplicate found.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7514 (framework a86db175, vendored console 09987b68). Root-cause re-verification is against objectui `origin/main` @ `bb68488`."
+}

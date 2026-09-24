@@ -1,0 +1,35 @@
+{
+  "number": 4220,
+  "kind": "issue",
+  "title": "Inline edit still destroys array-valued and container field values on the detail page (the rest of the #4216 fall-through sweep)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T03:28:10Z",
+  "updated_at": "2026-08-11T07:24:57Z",
+  "closed_at": "2026-08-11T07:24:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4220",
+  "body": "Filed unassigned per Prime Directive #10, from the composite fall-through sweep the #4216 card asked for. #4216 (PR pending) routes the three **object-valued** composites — `address`, `location`, `geolocation`. This issue is the remainder of that sweep: the types that still reach `InlineFieldInput`'s terminal raw text input and are corrupted by it. They are grouped because they share one component and one cause; they are **not** in #4216 because each needs a design call rather than a same-shape one-line routing.\n\n## Cause (unchanged from #4216)\n\n`packages/plugin-detail/src/InlineFieldInput.tsx` ends in a raw text input. Anything the type switch does not match lands there, is displayed through `coerceToSafeValue`, and emits whatever is typed as a **string** via `onChange(v)` — replacing the stored value on save.\n\n## The remainder, by class\n\n### A. Array-valued — destructive\n\n| type | stored | shown in the edit box | emitted on save |\n|---|---|---|---|\n| `tags` | `string[]` | `\"a, b\"` (joined) | `\"a, b\"` string |\n| `checkboxes` | `string[]` | `\"a, b\"` | `\"a, b\"` string |\n| `vector` | `number[]` | `\"1, 2, 3\"` | `\"1, 2, 3\"` string |\n| `multiselect` / `select` + `multiple` **with no `options`** | `string[]` | joined | string |\n\nThe last row is the existing select branch's guard: it requires `Array.isArray(field.options) && field.options.length > 0`, so an options-less multi picklist falls through. `TagsField` needs no options and would route cleanly; `CheckboxesField` needs them, which is the design call.\n\n### B. Container / embedded — destructive\n\n`object`, `composite`, `record`, `grid`, `repeater`, `json` all store an object or an array of rows and render as the literal `[Object]` (or `[Object], [Object]`), then save a string over the whole embedded structure.\n\nThese should almost certainly become **non-editable inline** rather than routed. `@object-ui/fields` already decided exactly that and wrote down why — `INLINE_EXCLUDED_FIELD_TYPES` in `FieldEditWidget.tsx`:\n\n> Containers / non-authorable — a sub-form / sub-grid / embedding vector doesn't belong in a single cell.\n\n`InlineFieldInput` does not consult that set.\n\n### C. Scalar, wrong editor — type-lossy, not structure-destroying\n\n| type | stored | emitted on save |\n|---|---|---|\n| `toggle` | boolean | `\"true\"` string (`boolean` is routed; its alias `toggle` is not) |\n| `slider`, `progress`, `rating` | number | string |\n| `radio` | one of `options` | any free-typed string, valid or not |\n\n`radio` is the same argument the select branch already makes in its own comment (\"users ... can't free-type invalid values\"), applied to the widget that was missed.\n\n### D. Benign — no action\n\n`text`, `textarea`, `markdown`, `html`, `richtext`, `email`, `phone`, `url`, `time`, `color`, `code`, `qrcode`, options-less `select`: already strings, so stringification is the identity and nothing is lost. `date` / `datetime` have their own routed native-date branch. Computed types (`formula`, `summary`, `rollup`, `auto_number`) are gated out of inline edit entirely — except for the `autonumber` spelling, filed separately as #4219.\n\nCredentials (`password`, `secret`) also reach this input and are a distinct severity; filed separately.\n\n## The root cause worth considering\n\n`@object-ui/fields` already exports `FieldEditWidget` — documented as rendering \"the SAME control the form uses\", with `INLINE_EXCLUDED_FIELD_TYPES` for the types that must not be inline-edited and a drift-guard test pairing the two against the form's `FORM_FIELD_TYPES`. `InlineFieldInput` hand-rolls a parallel type switch covering a subset, with no such guard — so every entry above is that duplication drifting, and each fix applied one type at a time will drift again.\n\nTwo shapes, and the choice is a real design decision:\n\n- **Delegate** — `InlineFieldInput` falls back to `FieldEditWidget` for types it does not special-case, and treats `isInlineExcludedFieldType()` as non-editable. Closes the whole tail at once and cannot drift (the pairing test already exists). Cost: it changes the editor for types that work fine today (`text` becomes `TextField`, `date` becomes `DateField` rather than the native date input), so it needs UX review against the inline save-bar behaviour.\n- **Route type by type**, as #4216 did, and add a drift guard asserting every `FORM_FIELD_TYPES` member is either routed here or excluded. Lower risk per step, more steps.\n\nRecommend deciding the shape before taking any single row above, since the answer changes what each fix looks like.\n\n## Reachability\n\nLive today: the desktop detail row (and the highlights strip) enters inline edit on double-click whenever the record is inline-editable and the field is not readonly / computed / a system field. Every type listed satisfies that.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4429,
+  "kind": "issue",
+  "title": "plugin-grid's RowActionMenu mirrors all four hand-restated predicate shapes #4354 just collapsed in components — same derivation fix, same vacuous test case",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T05:32:36Z",
+  "updated_at": "2026-08-12T06:21:45Z",
+  "closed_at": "2026-08-12T06:21:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4429",
+  "body": "Filed by the PM seat from PR #4423's risk list (the #4354 implementation), which flagged the mirror without re-filing — making it a card is the PM's call, and the call is yes: the fix pattern is proven and the surface is free.\n\n## Fact (from PR #4423's sweep — re-verify at branch point)\n\n`packages/plugin-grid/src/components/RowActionMenu.tsx` carries the mirror of all four restatements #4354 collapsed in `packages/components`' data-table:\n\n- its own `isBuiltinRowActionVisible` with a hand-written `{ visibleWhen?: unknown }` parameter\n- its own `planRowActionMenu` with hand-written `editPredicates`/`deletePredicates`\n- its item component with a hand-written full-pair `predicates` declaration\n- a local `disabledWhen?: unknown` (~line 65)\n\nAnd its emptyGuard test has the same **vacuous** planner-level case (`still counts an item that renders merely DISABLED`, ~line 455) that asserts the planner's return while the planner never reads `disabledWhen`.\n\n## The fix — inherit PR #4423's proven pattern wholesale\n\n1. Derive all four from the authoring types the grid actually receives (measure whether the grid's predicates flow from `DataTableSchema`'s twins or a grid-own schema key — derive from the TRUE source, per-key `Pick` for the planner, union alias for shared both-builtin consumers, exactly the two principled styles PR #4423 documented).\n2. The rider transfers: measure whether disabled-item counting is observably pinned at the GRID's table level; if not, add the DOM pin (trigger persists + `aria-disabled` item found on open) and rename the vacuous case to the verdict it actually decides.\n3. The RV method transfers too, including the built-.d.ts rebuild trap (rebuild the types dist before trusting a rename simulation).\n\nRelated: #4354 / PR #4423 (the pattern + all measurements), #3009 (the hand-copy family)."
+}

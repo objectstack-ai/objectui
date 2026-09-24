@@ -1,0 +1,30 @@
+{
+  "number": 4385,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the metadata-admin designer's own i18n table uses the typographic ellipsis (#4377)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T00:36:02Z",
+  "updated_at": "2026-08-12T00:58:48Z",
+  "closed_at": "2026-08-12T00:58:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T00:58:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4385",
+  "body": "Fixes #4377\n\nThe metadata-admin designer does not read the ten locale packs — it carries its own flat `en`/`zh` table — so objectui#3878, which converged those packs on the typographic ellipsis U+2026 per the consistency pass on objectstack#6015, left it behind. The designer renders inside the console shell, so its `Select...` sat on screen beside the packs' `Select…`.\n\n## Entry count: 10 — the card's table was exhaustive\n\nSwept the whole file for ASCII `...` in values, not just the five keys the card names:\n\n```\n$ grep -c '\\.\\.\\.' packages/app-shell/src/views/metadata-admin/i18n.ts\n10\n```\n\nAll ten are the card's five keys in each of the two blocks — `engine.form.select`, `engine.form.selectObjectDots`, `engine.form.addObjects`, `engine.form.selectFieldDots`, `engine.form.addFields`. No sixth key, and no mid-sentence occurrence. After the change the only `...` left in the file are the two inside the new header note, where the rejected form is quoted deliberately.\n\nFor scale: the file already held **126** values using `…`, so the ten were a genuine minority pocket rather than a table-wide convention.\n\n## Before / after\n\n```diff\n-  'engine.form.select': 'Select...',\n+  'engine.form.select': 'Select…',\n   'engine.form.selectEllipsis': 'Select…',\n...\n-  'engine.form.selectObjectDots': '选择对象...',\n-  'engine.form.addObjects': '添加对象...',\n+  'engine.form.selectObjectDots': '选择对象…',\n+  'engine.form.addObjects': '添加对象…',\n```\n\n## Pin sweep: zero tests to move\n\nMeasured before editing, over `packages/`, `apps/`, `examples/`, `scripts/`:\n\n```\n$ git grep -n \"Select\\.\\.\\.\\|请选择\\.\\.\\.\\|选择对象\\.\\.\\.\\|添加对象\\.\\.\\.\\|选择字段\\.\\.\\.\\|添加字段\\.\\.\\.\\|Select object\\.\\.\\.\\|Add objects\\.\\.\\.\\|Select field\\.\\.\\.\\|Add fields\\.\\.\\.\"\n```\n\nTen hits were the table itself. The other three hits are **not** pins on these values and are untouched here:\n\n- `packages/components/src/custom/action-param-dialog.tsx:198` — an independent hardcoded `'Select...'` fallback placeholder in a different package (filed, see below).\n- `packages/components/src/__tests__/action-param-label-association.test.tsx:22` — a comment describing that component's accessible name, not this table.\n- `examples/schema-catalog/src/schemas/components-form-select/with-placeholder.json` — an example schema's own `placeholder` value.\n\nA looser sweep for `getByText` / `getByPlaceholderText` near these keys found nothing either. `pins_moved: 0`, measured rather than assumed.\n\n## The header note, and why no gate\n\nThe five keys' only consumers are `widgets.tsx:396` and `widgets.tsx:527`; the convention is now recorded in the table's header, citing objectstack#6015, objectui#3878 and `packages/i18n/src/__tests__/ellipsis-glyph-3878.test.ts` — whose own header already records that it scans the ten packs by design and so cannot reach this table. Per the card's costing, which the dispatch accepted, generalising that pin to a second table shape (flat `Record` of dotted keys, `en` and `zh` in one file, no ten-pack parity) is more machinery than the defect is worth. No pin was added.\n\n## Verification\n\n| command | result |\n|---|---|\n| `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/ --maxWorkers=2` | 144 files passed, 1511 passed / 1 skipped |\n| `tsc --noEmit -p tsconfig.json` (app-shell) | exit 0 |\n| `tsc -p tsconfig.test.json` (app-shell) | exit 0 |\n| `pnpm exec eslint` on the touched file | exit 0 |\n| `node scripts/check-control-bytes.mjs` | OK, 4089 files scanned |\n| `node scripts/check-changeset-presence.mjs` | OK, 1 changeset declared |\n| `node scripts/check-changeset-no-major.mjs` | OK |\n\nBoth type-checks first failed with `TS2307 Cannot find module` in a fresh worktree; that is the build-closure trap, not this change — `pnpm --filter '@object-ui/app-shell^...' build` first, then both are clean.\n\nChangeset: `patch` for `@object-ui/app-shell` (user-visible copy), never `major`.\n\n## Filed, not fixed here\n\n- **#4386** — `action-param-dialog.tsx:198` renders a hardcoded English `Select...` fallback with no `t()` anywhere in the file. Both untranslated and ASCII; a different shape from #4375's two concatenation sites, and in a package this PR does not touch.\n- **#4387** (`finding`) — three key pairs in this table now hold byte-identical values, because each of `engine.form.select` / `.selectObjectDots` / `.selectFieldDots` had a sibling that already carried `…`. `engine.form.select` additionally has no consumer at all. Collapsing them would put the two `widgets.tsx` call sites in scope, which the dispatch carved out for the in-flight #4373, so it is recorded rather than done.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

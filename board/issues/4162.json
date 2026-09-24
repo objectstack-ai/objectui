@@ -1,0 +1,34 @@
+{
+  "number": 4162,
+  "kind": "issue",
+  "title": "finding(components): an `autoTrigger` action that spills past action:bar's maxVisible lands in action:menu, which never runs it — deep link consumed, nothing triggered",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T15:12:00Z",
+  "updated_at": "2026-08-10T20:19:35Z",
+  "closed_at": "2026-08-10T20:19:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4162",
+  "body": "Measured while implementing #4123 (arming the `?runAction=create_environment` deep link on the create action's presence). Filed separately: #4123's fix is correct and complete for the divergence it names, and this is a **different** layer with the same end signature, one step further down.\n\n## Fact\n\n`autoTrigger` is consumed **only** by `action:button` (`packages/components/src/renderers/action/action-button.tsx`, the `useEffect` guarded by the `autoTriggered` ref). `action:menu` has no `autoTrigger` handling at all.\n\n`action:bar` splits its post-filter list into inline and overflow (`packages/components/src/renderers/action/action-bar.tsx`):\n\n```\ninlineActions   = filteredActions.slice(0, maxVisible)\noverflowActions = filteredActions.slice(maxVisible)\n```\n\nOverflow is rendered by `action:menu`. So an action carrying `autoTrigger: true` that sorts past `maxVisible` is rendered — it is present, reachable, clickable in the \"More\" menu — but its auto-trigger is silently dropped, while the caller that set the flag has already treated the signal as spent.\n\n`maxVisible` defaults to **3** on desktop and `mobileMaxVisible` to **1** on mobile, so which actions lose their auto-trigger is partly a function of viewport width.\n\n## Measurement\n\nReal `SchemaRenderer` + `action:bar` + `action:button`, `EnvironmentListToolbar` with four `list_toolbar` actions where the create action is 4th and declares neither `order` nor `variant: 'primary'` (so `needsOrdering` is false and the bar keeps registration order), with `?runAction=create_environment` in the URL:\n\n```\nPROBE-OVERFLOW: urlParam=null execute=0 buttons=[\"a1\",\"a2\",\"a3\",\"\"]\n```\n\nThe three inline buttons plus the overflow trigger (empty label). Same end state as the #4123 measurement — `urlParam=null execute=0`, param unrecoverably consumed, nothing triggered — reached by a different mechanism, and **not** closed by #4123's fix: the create action IS in the post-gate list there, so arming is correct by that predicate; the bar then moves it to a renderer that ignores the flag.\n\n## Why it may matter\n\nSame user-visible outcome as #4123: the #844 welcome-page \"Create your environment\" CTA lands on the list with no dialog and no URL left to retry from. Reachability depends on the deployment's toolbar shape rather than on anything ObjectUI controls:\n\n- on the environments toolbar specifically, the `setup_production` state gives the create action `variant: 'primary'`, which makes `needsOrdering` true and floats it into the primary slot — so that state is safe today by accident of the label override, not by design;\n- the `add_development` state applies no variant, so ordering falls to whatever the cloud registers, and a 4th-position create action (or 2nd on mobile) reaches this;\n- any other host that composes `autoTrigger` onto an action it does not also pin to the front has the same exposure. The flag is a client-composed one (never persisted metadata), so hosts are the only producers.\n\nLeft as an observation rather than a fix because the right shape is a design question, not a patch — at least three candidates, and they differ in blast radius:\n\n1. `action:menu` consumes `autoTrigger` for its items (widest, and \"auto-open a menu item\" has its own semantics to settle);\n2. `action:bar` treats `autoTrigger` as an ordering key, so an auto-triggered action can never be the one that spills;\n3. the flag is rejected loudly when it lands on a renderer that cannot honour it, making the silent drop impossible — closest to the repo's contract-first instinct, since today a dropped `autoTrigger` is indistinguishable from one that ran.\n\nFiled as observation-class (`finding`, no `pm:queue`) per objectstack#4949 — severity self-assessed at filing time is unreliable, so triage should grade it. Searched open issues first (`autoTrigger` / `maxVisible` / `action:menu` overflow) — no duplicate. Unassigned.\n\n## Related\n\n- Landing files: `packages/components/src/renderers/action/action-bar.tsx` (inline/overflow split), `action-menu.tsx` (no `autoTrigger`), `action-button.tsx` (the only consumer)\n- Sibling defect, same signature, different layer: #4123\n- Deep-link flow origin: #844\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

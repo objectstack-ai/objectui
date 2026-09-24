@@ -1,0 +1,34 @@
+{
+  "number": 4283,
+  "kind": "pull_request",
+  "title": "fix(plugin-gantt): type-check its tests (#4040 tranche 1)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T11:04:02Z",
+  "updated_at": "2026-08-11T14:53:12Z",
+  "closed_at": "2026-08-11T14:52:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T14:52:27Z",
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4283",
+  "body": "Part of #4040 — tranche 1, package 4 of 5. One package per PR, per the 裁决 on objectstack-ai/objectstack#4118 (PM, 2026-08-03):\n\n> 小包先行,`core`(80)/`react`(76)最后;\n> 每包独立 PR;守卫类 PR 必须附 pre-fix 代码报红的运行记录(判别力证明,防「绿灯守卫从未真正跑过」——已发现的第三种失败模式:tsconfig.test.json 存在但没人跑);\n> TEST_DEBT 条目随包清零,只减不增。\n\n## Measured before / after\n\n| | code-tier errors |\n|---|---|\n| declared in `TEST_DEBT` | 3 |\n| measured on this branch's base (`436681e72`) | 3 |\n| after | **0** |\n\nBefore:\n\n```\nsrc/GanttView.scales.test.tsx(22,7): error TS2741: Property 'year' is missing in type '{ day: number; week: number; month: number; quarter: number; }' but required in type 'Record< GanttViewMode, number >'.\nsrc/GanttView.summaryedit.test.tsx(146,45): error TS2345: Argument of type '([t]: [GanttTask]) => string | number' is not assignable to parameter of type '(value: any[], index: number, array: any[][]) => string | number'.\n  Types of parameters '__0' and 'value' are incompatible.\n    Type 'any[]' is not assignable to type '[GanttTask]'. Target requires 1 element(s) but source may have fewer.\nsrc/GanttView.summaryedit.test.tsx(148,53): error TS2769: No overload matches this call. [same cause]\n```\n\n### 1. `TS2741` was a hand-forked copy of a constant the component exports — already drifted\n\n`GanttView.scales.test.tsx` declared its own `MS_PER_DAY` and `NOMINAL_DAYS`. Both are\n**exported** from `GanttView.tsx` (`:205`, `:214`), and the file's own header says it\nrecomputes expectations \"with the same linear ms→px mapping the component uses\". It was a\nhand copy, so \"the same\" was a claim rather than a fact — and it had already stopped being\ntrue: `NOMINAL_DAYS` grew a `year` entry when `GanttViewMode` did, and the fork never\nfollowed. Nothing noticed, because nothing compiled the file. This is the fork shape\nobjectui#3009 found in `spec-derived-unions.test.ts`, one package over.\n\nBoth constants are imported now, which is also why the fix is an import and not a\n`year: 365.25` added to the copy: the copy is the defect.\n\n**The trade-off, stated rather than buried.** Importing couples the expectation to the\nimplementation's value, so a deliberate change to `NOMINAL_DAYS.month` now moves both sides\nand these cases stay green. That is the right coupling for what they assert — they pin that\nbar widths, gridlines and drag steps all follow *one* mapping, not that the mapping is\n`30.44` — and the proof below shows the cases still discriminate a rendering bug. A test\nthat wants to pin the constant's value should say so in one line rather than by forking it.\n\n### 2. A spy that declared it takes no arguments, next to assertions reading its second\n\n`onTaskUpdate` was stubbed with a bare `vi.fn()`, which types `mock.calls` as `any[][]` —\narrays of unknown **length**. The cases destructure `[t]` and read `call[1]` (the changes\npayload). Typing the spy with the handler signature the file's own `renderView` helper\nalready declares makes `mock.calls` a real `[task, changes]` tuple and removes the two\ninline annotations that were fighting the untyped spy.\n\n## Discrimination proof\n\nThe imported constants raise a fair question — can these cases still fail? Perturbing the\n**component's** rendering mapping by 25% (`pxPerDay` at `GanttView.tsx:879`) while leaving\n`NOMINAL_DAYS` alone:\n\n```\n$ pnpm exec vitest run packages/plugin-gantt/src/GanttView.scales.test.tsx\n × defaults to day mode: one column per day with a month group header\n × week mode: one column per week, snapped to Monday, columnWidth wide\n × month mode: month-name columns grouped by year, calendar-proportional widths\n × bar geometry uses the granularity pxPerDay (month mode)\n × week mode drag snaps to whole weeks\n × month mode drag moves by one calendar month preserving duration\nAssertionError: expected 137.5 to be close to 110, received difference is 27.5 ...\nAssertionError: expected [ 30, 31 ] to include 38\nAssertionError: expected 90.341656 to be close to 72.27332457293035 ...\nAssertionError: expected 518400000 to be 604800000\n```\n\nSix of the file's eight cases go red. Restored immediately; the probe is not in the diff.\n\nThe type project's own discrimination is the three errors quoted at the top: before this\nbranch `tsc` read none of these 41 files.\n\n## Verification\n\n```\n$ pnpm --filter @object-ui/plugin-gantt type-check\n> tsc --noEmit && tsc -p tsconfig.test.json\nEXIT:0\n\n$ pnpm exec vitest run packages/plugin-gantt --maxWorkers=2      # from the repo root, per objectui#3378\n Test Files  41 passed (41)\n      Tests  365 passed (365)\n\n$ node scripts/check-type-check-coverage.mjs\ntype-check coverage: 43/45 via `type-check`, 1 via their own build, 0 known-broken (0 errors outstanding), 1 not compiled.\ntest type-check coverage: 26/40 packages compile their tests, 14 declared debt (237 errors outstanding), 10 with a narrow type-assertion project.\n```\n\n`TEST_DEBT` shrinks by exactly this package's line; no other entry is touched.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

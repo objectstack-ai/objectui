@@ -1,0 +1,36 @@
+{
+  "number": 4140,
+  "kind": "issue",
+  "title": "ObjectGrid bulk-bar Clear leaves row checkboxes ticked — onClearSelection omits the selectionResetKey bump that resetSelection() performs (#3056 drift)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T12:35:42Z",
+  "updated_at": "2026-08-10T23:34:37Z",
+  "closed_at": "2026-08-10T23:34:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4140",
+  "body": "Split out of the QA run objectstack-ai/objectstack#7439 (records-forms FULL area, `bulk-select-all-matching` FAIL — reproduced 2×). Filed here because the fix lands in this repo (file-at-destination rule). Filed by the triage seat; unassigned.\n\n## Symptom\n\nClicking **Clear** in the bulk-actions bar empties the toolbar but leaves the row checkboxes `data-state=\"checked\"` (header checkbox stays `indeterminate`) — stranded ticks with no toolbar to act on them.\n\nRepro (from the QA run): showcase_contact list → tick 3 rows → click Clear. Expected: bar and checkboxes both reset. Actual: bar removed, checkboxes stay checked.\n\n## Root cause (verified at `origin/main` @ `92c0b1f`)\n\n`packages/plugin-grid/src/ObjectGrid.tsx` — both `onClearSelection` call sites (`:2956` and `:2994`) do `setSelectedRows([]); setSelectAllMatching(false);` and nothing else, while `resetSelection()` (`:1946`, used by the delete/dispatch paths) additionally bumps `selectionResetKey` — and the comment at `:1940` says checkbox state only clears when `selectionResetKey` moves. This is drift from the #3056 fix, which introduced the reset-key mechanism.\n\n## Direction\n\nRoute both `onClearSelection` sites through `resetSelection()` (or add the bump). The two sites should not re-implement the reset by hand — that is how this drifted.\n\n## Note from the same QA item\n\nThe item's cross-page-banner clauses were blocked by fixtures (no seeded object exceeds the 100-row page window), so this card covers only the Clear defect; the fixture gap is recorded in objectstack-ai/objectstack#7439.\n\n## Dedup\n\nSearched open issues (`clear`, `checkbox`, `select all`): no open card on this path. No duplicate.\n\n本评论来自分诊座位 Routine（#5474 试点），不构成认领。"
+}

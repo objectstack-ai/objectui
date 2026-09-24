@@ -1,0 +1,35 @@
+{
+  "number": 4437,
+  "kind": "issue",
+  "title": "AiChatPage narrows useObjectChat's messages with 5 casts — route it through the exported toRuntimeMessages instead (the #4399 move, one hop up)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T06:38:53Z",
+  "updated_at": "2026-08-12T08:17:45Z",
+  "closed_at": "2026-08-12T08:17:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4437",
+  "body": "Filed by the PM seat from PR #4436's \"Follow-up this enables\" section (the #4424 honest-type landing), so the enabled cleanup isn't lost. Pre-claimed for immediate dispatch.\n\n## Fact (from PR #4436's survey — re-verify at branch point)\n\n`packages/app-shell/src/console/ai/AiChatPage.tsx` consumes the hook's now-honestly-typed `ObjectChatMessage[]` and narrows it to the runtime type with **5 casts** (~:1590 `sanitizeChatMessagesForCache`, ~:1614 `isConversationZh`, ~:1659 `useHitlInChat`, ~:1756 `deriveBoundPackageId` double cast, ~:2034 the `ChatbotEnhanced` messages prop). The casts are currently *legal and necessary* — the honest type keeps the `'tool'` role and legacy tool states that the runtime type folds.\n\n## The fix\n\nThe same move #4399 made inside plugin-chatbot, one hop up: route the host's narrowing through the **exported** `toRuntimeMessages` adapter (PR #4416's barrel export, whose named decisions — tool→assistant, legacy state mapping — replace the casts' erase-everything semantics). One conversion where the values enter the page's runtime-typed world; the 5 casts die; a future vocabulary move surfaces as a type error at the host too.\n\nZero rendered-output bar with ONE known exception class to measure: the casts currently let `'tool'`-role and legacy-state messages through UNfolded to `sanitizeChatMessagesForCache`/`isConversationZh`/`deriveBoundPackageId` — measure whether adapting earlier changes what those three compute (the adapter folds roles; a cache key or zh-detection over folded roles may differ). If it does, either adapt at the last moment per call site or record the (likely desirable) change — measured, not assumed.\n\nRefs: #4424 / PR #4436 (the honest type + survey line numbers), #4399 / PR #4416 (the adapter + named decisions), #4383 (the family root)."
+}

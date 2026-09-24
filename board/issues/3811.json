@@ -1,0 +1,34 @@
+{
+  "number": 3811,
+  "kind": "issue",
+  "title": "[finding] `/accept-invitation/:invitationId` 有两个组件、两套 i18n 命名空间(`acceptInvitation.*` 与 `organization.accept.*`),console 路由的是功能更弱的那个",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:23:44Z",
+  "updated_at": "2026-08-10T15:28:21Z",
+  "closed_at": "2026-08-10T15:28:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3811",
+  "body": "在 #3546 切片三回填 `acceptInvitation.*` 12 个 key 时发现,**不在该 PR 范围内**,单独记录。观察级:两个页面各自都能用,没有运行期报错。\n\n## 两个实物\n\n| | `apps/console/src/pages/auth/AcceptInvitationPage.tsx` | `packages/app-shell/src/console/organizations/manage/AcceptInvitationPage.tsx` |\n|---|---|---|\n| 声明的路由 | `/accept-invitation/:invitationId` | `/accept-invitation/:invitationId`(头注释) |\n| 谁在路由它 | `apps/console/src/App.tsx:187` —— **console 实际渲染的是这个** | 无人。仅 `packages/app-shell/src/index.ts:199` 导出为 `DefaultAcceptInvitationPage` 供下游 app 自行挂载 |\n| 做的事 | 未登录跳 `/login?redirect=`;登录后直接给\"接受 / 拒绝\"两个按钮 | 同样跳登录;并 `getInvitation(id)` 拉取邀请,显示组织名、角色、过期时间,接受后 `switchOrganization` |\n| i18n 命名空间 | `acceptInvitation.*`(12 key,#3546 切片三补) | `organization.accept.*`(14 key,#3546 切片二补) |\n\n也就是说:同一屏的文案,十个语言包里各维护了 **两套共 26 个 key**;而用户在 console 里点邀请链接,拿到的是**信息更少**的那一版(看不到自己被邀请进哪个组织、什么角色、什么时候过期),接受后也不会切到该组织。\n\n## 为什么现在才看得见\n\n两套 key 都是\"英文能渲染、十语翻不了\"的 #3517 类缺失,#3546 的守卫按命名空间把它们分到了两个切片(切片二 `organization`、切片三 `acceptInvitation`),两轮都各自补全并各写了实译 —— 从任一切片内部看都完全正确,只有把两批放在一起才看出是同一块屏幕。#3546 切片三的测试里已经为此留了一条断言(`acceptInvitation` 与 `organization.accept` 保持两个命名空间)和一段注释,把事实钉在原地,但没有裁决该留哪一个。\n\n## 待裁决(需维护者定,不宜猜)\n\n- **A. console 改路由到 `DefaultAcceptInvitationPage`**,删掉薄页与 `acceptInvitation.*` 12 key。用户直接得到组织/角色/过期信息与自动切组织。代价:app-shell 版的样式与 console 的 `AuthLayout` 是否一致要核;删 12 个 key 要走 ADR-0087 之外的普通清理(它们刚补完译文,删掉即浪费,但留着更贵)。\n- **B. 反过来**:app-shell 那一版本就是给下游 app 用的默认实现,console 有意要一个更薄的;那就把两者的差异写进各自头注释,并明确 `acceptInvitation.*` 是 console 专属命名空间。代价:26 个 key 的双份维护成本固化,以后改一句文案要记得改两处(且没有门禁提醒)。\n- **C. 薄页补齐信息**(拉取邀请、显示组织/角色/过期),然后两者合并成一个 —— 实质是 A 的另一种走法,工作量最大。\n\n从\"让 AI 写的代码不容易出错\"看,**A 最优**:一个路由一个组件一套 key,不给下一个人留\"改哪份\"的选择题;B 会把一个隐性双实现变成显性双实现,而显性双实现在这个仓已有先例(#3398 的两份全屏文本编辑器)且长期没人收。但 A 涉及删已发布包的导出 / console 路由行为改变,不该由顺手发现它的人裁定。\n\n关联:#3546(两套 key 分别由切片二/切片三补齐)、#3398(同类\"一功能两实现\"的既有单)。\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3877,
+  "kind": "issue",
+  "title": "pt 的 detail.concurrentUpdateDescription 在洞前留了裸 \"de\",插入名词短语时渲染出 \"de este registro\"(葡语必须缩合成 deste)—— 叶子值无论怎么写都不可能对",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:23:41Z",
+  "updated_at": "2026-08-11T23:56:03Z",
+  "closed_at": "2026-08-11T23:56:03Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3877",
+  "body": "## 现场\n\n`ConcurrentUpdateDialog`(OCC 冲突对话框)把 `detail.concurrentUpdateDescription` 按 `{{field}}` 切成两半,中间粗体渲染 `conflict.label || conflict.field`:\n\n```\npackages/plugin-detail/src/ConcurrentUpdateDialog.tsx:124\n  const descriptionTemplate = t('detail.concurrentUpdateDescription', { field: '{{field}}' });\n  const [beforeField, afterField] = descriptionTemplate.split('{{field}}');\n```\n\npt 包值:\n\n```\n\"Outro usuário salvou uma versão mais recente de {{field}} durante sua edição. …\"\n```\n\n洞前是**裸介词 `de `**。当 `{{field}}` 收到的是字段名(`Status`、`Amount`)时没问题;但多字段冲突走的是另一支,`label` 是一个带指示词的名词短语 —— `InlineEditSaveBar.tsx:144` 传 `detail.concurrentUpdateRecordLabel`(#3546 切片七刚回填,pt = `este registro`),于是 pt 用户看到:\n\n```\numa versão mais recente de este registro durante sua edição\n                          ^^^^^^^^^\n```\n\n葡语里 `de + este` **必须**缩合成 `deste`。`de este` 是母语者一眼可见的语法错误。\n\n## 为什么不能在叶子值上修\n\n- 写 `deste registro` → 渲染成 `de deste registro`,更糟;\n- 写裸 `registro`(无限定词)→ `de registro`,语法上说得过去但像机翻;\n- `de` 在**外层句子**里,而外层句子是既有包值。\n\n同类问题只有 pt 一个包:es `de este registro`、fr `de cet enregistrement`、de(与)`von diesem Datensatz`、ru `версию этой записи` 都不需要缩合(#3546 切片七的测试里逐包钉了 de 的第三格与 ru 的第二格)。\n\n## 建议修法(二选一,倾向 A)\n\n**A. 改写 pt 的外层句子,让洞前不是裸介词。** 例如\n\n```\n\"Outro usuário salvou uma versão mais recente do seguinte campo: {{field}} durante sua edição. …\"\n```\n\n或把介词挪进从句。改的是 pt 一个既有值,`check-i18n-en-drift.mjs` 不会红(en 未变),但要在同一 PR 里说明理由。**优点**:一处修死,叶子值不必迁就语法;**缺点**:pt 句式与其余九包略有分歧。\n\n**B. 让调用点传入已成句的标签。** `InlineEditSaveBar` 多字段分支不传名词短语,而是传字段名列表(它本来就有 `keys.join(', ')`),把\"这条记录\"的措辞交给一个独立的整句 key。**优点**:所有语言都不再有\"洞前介词\"的耦合;**缺点**:改的是行为(用户看到字段名而不是\"这条记录\"),属产品裁量,且 `detail.concurrentUpdateRecordLabel` 刚回填十包就会变成死键。\n\n## 现状已在测试里钉住,不是被忽略\n\n`packages/i18n/src/__tests__/residue-namespaces-3546.test.tsx` 里有\n\n```ts\nexpect(composed('pt')).toContain('mais recente de este registro');\n```\n\n外加注释说明这是\"当前真相\"而非笔误,以及修法在外层句子。这一单落地时那条断言必须一起改。\n\n关联:#3546(切片七回填 `detail.concurrentUpdateRecordLabel`)、#3512(同一族的无 provider 插值缺陷)。"
+}

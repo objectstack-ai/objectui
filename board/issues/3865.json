@@ -1,0 +1,36 @@
+{
+  "number": 3865,
+  "kind": "issue",
+  "title": "createSafeTranslation 的无 provider 兜底从不读调用点的内联 defaultValue —— 只认自己那张 defaults 表,表里没有就把 raw key 渲染给用户(useDetailTranslation 实测 16 个 key)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:24:39Z",
+  "updated_at": "2026-08-11T23:05:31Z",
+  "closed_at": "2026-08-11T23:05:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3865",
+  "body": "在 #3546 切片六(PR 回填 `perm` + `home` 14 个缺失 key)核实\"这些 key 在两条路径上分别怎么渲染\"时量出,**不在该 PR 围栏内**(修法要动 `packages/i18n` 的 helper 或各组件的 defaults 表,与本切片\"只补语言包\"的纪律相斥),单独记录。\n\n## 机制\n\n`packages/i18n/src/useSafeTranslation.ts:20` 的无 provider 兜底:\n\n```ts\nconst fallbackT = (key: string, options?: Record< string, unknown >) => {\n  let value = defaults[key] || key;          // ← 只查 defaults 表,查不到就是 key 本身\n  if (options) {\n    for (const [k, v] of Object.entries(options)) {\n      value = value.split(`{{${k}}}`).join(String(v));   // ← defaultValue 在这里被当成插值变量\n    }\n  }\n  return value;\n};\n```\n\n于是对 `t('perm.facet.none', { defaultValue: 'None' })` 这种**带内联 defaultValue** 的调用点:\n\n- **挂了 provider**(真实 console):i18next 的 `t` 接手 → 包里有值用包值,没值用内联 `defaultValue` → 英文可见。\n- **没挂 provider**(独立嵌入宿主 / 单测):`fallbackT` 接手 → `defaults['perm.facet.none']` 不存在 → 返回 **`perm.facet.none`**。`{ defaultValue: 'None' }` 只是被当作一次 `{{defaultValue}}` 替换(无洞可替),**兜底文案完全没被读**。\n\n注意这正好是 #3546 正文记录的陷阱的**镜像**:正文说的是\"map 里有、包里没有 → 真实 console 退化成 raw key,而无 provider 单测是绿的\";这里是\"map 里没有 → **无 provider 才**退化成 raw key,而挂了 provider 的单测是绿的\"。两个方向都有,而且都被门禁的分工照不到。\n\n## 规模(AST 实测,只扫了一个 hook)\n\n`packages/plugin-detail/src/useDetailTranslation.ts` 的 `DETAIL_DEFAULT_TRANSLATIONS` 有 **146** 条;经该 hook 的 `t()` 字面量 key 里有 **16 个不在表内**:\n\n```\nperm.facet.none / more / objects / fields / rls / tabs / adminScope\n                / designInStudio / designInStudioHint      (9)  renderers/PermissionFacetLink.tsx\ndetail.add                          RelatedList.tsx:1130, 1300\ndetail.concurrentUpdateRecordLabel  InlineEditSaveBar.tsx:144\ndetail.deleteRowTitle               RelatedList.tsx:1266\ndetail.history                      DetailView.tsx:1387\ndetail.historyEmpty                 DetailView.tsx:1453\ndetail.saving                       InlineEditSaveBar.tsx:316\ndetail.showEmptyRelated             renderers/record-reference-rail.tsx:350\n```\n\n这 16 个在无 provider 宿主上**全部**渲染 raw key。其中:\n\n- **4 个包里已有值**(`detail.deleteRowTitle` / `detail.history` / `detail.saving`,以及只有 `_one`/`_other` 槽位的 `detail.showEmptyRelated`)—— 也就是说这跟\"缺 key\"无关,#3546 补完账也不会好;坏的是消费侧那张表。\n- 9 个 `perm.facet.*` 由 #3546 切片六补进了十包(provider 路径已好),无 provider 路径不变。\n- 3 个仍在 #3546 的棘轮里(`detail.add` / `detail.concurrentUpdateRecordLabel` / `detail.historyEmpty`),属后续切片。\n\n`createSafeTranslation` 全仓有多个消费方(plugin-gantt、plugin-kanban、data-table 等各有自己的 defaults 表),**只量了 plugin-detail 这一个**,总量未知 —— 这是本单最该先做的事。\n\n## 为什么值得修而不是记一笔\n\n无 provider 嵌入是本仓**明确支持**的场景(`createSafeTranslation` 存在的全部理由就是它,注释写着 \"e.g. in tests or standalone usage\")。在那个场景下,一张 146 条的手工表决定了 162 个调用点里哪些会把 key 露给用户,而\"漏一条\"没有任何门禁看得见。\n\n## 可能的收口方向(未裁决)\n\n- **A. 让 `fallbackT` 读调用点的 `defaultValue`** —— 把 `options.defaultValue`(存在且为字符串时)排在 `defaults[key]` 之前/之后作为兜底,并从插值循环里剔除 `defaultValue` 这个保留名。改一处 helper,162 个调用点里凡带内联兜底的立刻不再露 key,且与 i18next 的语义一致(i18next 正是这样用 `defaultValue` 的)。**两条路径从此不会分叉**,也顺带回答 #3810 选项 C 的一个前提:对经 `createSafeTranslation` 的组件,内联 `defaultValue` 目前在**两条路径上都是死的**(provider 路径包值恒胜,无 provider 路径根本不读它)——这一点值得记进 #3810。\n- **B. 加门禁**:凡经 `createSafeTranslation` 的调用点,其 key 必须在该 hook 的 defaults 表里。#3530 的守卫已经把\"哪个文件经哪个 translator\"解析出来了,增量小;但它把一张手工表变成硬要求,与\"包才是唯一真源\"的方向相反。\n- **C. 取消 defaults 表**,无 provider 时直接用 `defaultValue`(= A 的彻底版,顺带删掉 146 条重复文案与它们和 en 包漂移的风险 —— #3810 记录的正是这类漂移)。\n\n倾向 **A**(小、语义正确、消灭双源),长期看 **C**;**B** 不建议单独做。\n\n关联:#3546(正文记录了同一陷阱的另一个方向;切片六实测本条)、#3810(内联 defaultValue 与 en 包值漂移 —— 选项 C 的前提在本单)、#3512(`createSafeTranslation` 无 provider 插值只认 `{{name}}`,同一 helper 的另一处缺陷)、#3863(同一 hook 下 `detail.showEmptyRelated` 的复数族缺基础 key)。"
+}

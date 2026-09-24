@@ -1,0 +1,30 @@
+{
+  "number": 10243,
+  "kind": "issue",
+  "title": "[PM seat] domain:ui · seat 4 — 🟢 os-litant · session_01BP8CMtA · 1 landed · 3/3 in flight: objectui#9910 · #10183 · #10186",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:seat"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T12:50:20Z",
+  "updated_at": "2026-09-24T13:51:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10243",
+  "body": "Seat registration post for `domain:ui` **seat 4** @ objectui. Job description: `objectstack:.claude/skills/pm-dispatch/references/lanes/ui.md` (read this fire at objectstack `origin/main` `2c1011b`, lane file touch `f151ef2c9`). Body authoritative; title and assignee are derived views. Single writer: the sitting seat PM. Body refreshed 2026-09-24T13:49Z (R1, after the first landing and the refill dispatch).\n\n## 1. Current PM\n\n| | |\n|:--|:--|\n| status | 🟢 **SEATED** `session_01BP8CMtACxTdLjqR6rhd33C`, seat **`domain:ui#4`** (declared on every claim as `Seat: domain:ui#4`), GitHub identity **`os-litant`** (`get_me` this fire). Writes via the fleet relay (`dispatch.mjs --route` answered `dispatch`), so they land as `objectstack-fleet[bot]`; attribution is the session id in the text. |\n| seated | at this post's creation (the platform's `created_at`), on the maintainer's summons `/pm-dispatch ui@objectui` plus the in-session instruction 「本车道任务很多，可以有多个项目经理」. |\n| why a new seat | `pm:seat` index read 2026-09-24T12:49Z (all states): seat 1 objectui#5560 occupied (`os-bill`) · seat 2 objectui#9771 occupied (`os-support-ai`) · seat 3 objectui#9800 paused on a maintainer 「停」 and following two PRs by maintainer assignment ⇒ ⛔ not reclaimed. Highest seat number 3 ⇒ seat 4. |\n| batch | **3** (default; no maintainer instruction to this seat). In flight 3/3. |\n| tier | default judgement tier session; per-card tier stated in each claim. A `Clause-②: yes` card's review runs through an isolated at-tier subagent before ready/enqueue. |\n| charter | `SKILL.md` `0bc46c6d1` · `lanes/ui.md` / `execution-duties.md` / `seat-lifecycle.md` `f151ef2c9` · `landing-operations.md` `2dc588901` · `.claude/agents/os-dev.md` `4a12ac0c4`. `check-harness-current.mjs` → CURRENT on `2c1011b`. |\n| wake-up | self-bound cron Routine `trig_01KF5tVUgKgxJ5TRt29cF3V1` (hourly at :50). Round-open marker: comment `5814468672`. |\n\n## 2. Ledger\n\n**Landed (1):** objectui#10030 (PR objectui#10245, merged 2026-09-24T13:44Z as `6f96fca`; review-tier record `5815116230` PASS; one patch round for a false changeset sentence).\n\nIn flight (this seat, `mode:subagent`) — claims on the cards are the record:\n\n| card | pri | claim | Clause-② |\n|:--|:--|:--|:--|\n| objectui#10186 | p2 security | `5814588117` | no |\n| objectui#10183 | p2 | `5814595815` | **yes** ⇒ at-tier review owed before ready |\n| objectui#9910 | p1 (ruled `5814512168`) | `5815372301` | **yes** ⇒ at-tier review owed before ready; its `skills/**` wording is a separate Tier H draft PR awaiting an authorized approval |\n\nNot this seat's: every `Seat: domain:ui#1` claim (objectui#5560) · every `Seat: domain:ui#2` claim (objectui#9771) · objectui#9684 (seat 3) · objectui#10071 / #10083 (`domain:spec` @ objectui).\n\n## 3. Hot-file serial queue\n\n| region | holder |\n|:--|:--|\n| `packages/plugin-detail/src/RelatedList.tsx` (auto-fetch params + FLS column derivation) | objectui#10186 |\n| `data-table.tsx` `formatCellValue` date branch · `DetailView.tsx` summary-chip date branch · `auditHistoryDisplay.ts` date branch · `packages/fields/src/index.tsx` `DateCellRenderer` overdue path · `packages/core/src/utils/date-display.ts` | objectui#10183 |\n\n| registration `inputs` blocks of `schema.children` readers under `packages/components/src/**` + `packages/layout/src/**` · `packages/sdui-parser/src/validate.ts` containment check · `scripts/container-declaration-baseline.json` · `isContainer` descriptions (`packages/core/src/registry/`, `ComponentMetaSchema`, `content/docs/guide/react-pages.md`, `skills/objectui/**` in its own PR) | objectui#9910 |\n\nSame-file neighbours, region-disjoint (whichever lands second resolves): `menubar.tsx` (objectui#10246, seat 2) and `data-table.tsx` (objectui#10183 `formatCellValue` vs objectui#9910 registration).\n\nSeats 1–3 declare their regions on their claims (`File surface:` lines) — ⛔ re-derive from those, do not copy here.\n\n## 4. Notes\n\n- North Star 「优先级」 clause 3: open P0/P1 exist on the product repos ⇒ this seat takes p1 and **product** p2 cards; ⛔ no p2/p3 tooling or contract-hygiene cards while that gate is closed. Passed over on that ground this round: objectui#9963 (a props type), objectui#10007 (test pins), objectui#10018 (an authoring type union).\n- objectui#10035 passed over: it edits `ObjectView.tsx`, which seat 2's objectui#10046 holds.\n- objectui#10037 (deferred here) was since claimed by seat 2 (`5814595736`). Earlier note, kept for the record: the card says objectui#7210 half 2 plausibly holds its question open, but objectui#7210 is `closed completed` and its half 2 was about an unbounded fetch (ruled a′), ⛔ not about whether toolbar filters reach a gantt ⇒ the card's own open question (forward the user filters vs withdraw the Filter affordance on a gantt) has no ruling and no triage route yet; its fix site `packages/plugin-list/src/ListView.tsx` is also fenced by seat 2's objectui#10046. Next seat to read it: weigh whether that fork is a triage route or a decision card.\n- Picks avoid every file surface seats 1–3 declared on live claims.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

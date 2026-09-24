@@ -1,0 +1,36 @@
+{
+  "number": 3863,
+  "kind": "issue",
+  "title": "detail.showEmptyRelated 的复数族只有 _one/_other,没有基础 key —— ru 在 2-4/5-20、ar 在 2-99 直接渲染英文",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:23:56Z",
+  "updated_at": "2026-08-11T22:21:28Z",
+  "closed_at": "2026-08-11T22:21:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3863",
+  "body": "在 #3546 切片六(PR 回填 `perm` + `home` 14 个缺失 key)顺手量出,**不在该 PR 围栏内**(`detail` 命名空间的欠账属后续切片),单独记录。\n\n## 缺陷\n\n`detail.showEmptyRelated` 是本仓**唯一**一个既有的 i18next 复数族,十个包各自只定义两个槽位:\n\n```\npackages/i18n/src/locales/ru.ts   showEmptyRelated_one:   \"+ {{count}} пустое\"\n                                  showEmptyRelated_other: \"+ {{count}} пустых\"\n```\n\ni18next 只向 `Intl.PluralRules` 要**该语言该数字对应的那一个后缀**,取不到就沿 `fallbackLng` 链走到 `en`。而 ru 的类别是 `one / few / many / other`,ar 是 `zero / one / two / few / many / other` —— 包里都没有 `_few` / `_many` / `_two` / `_zero`,于是:\n\n| 语言 | count | CLDR 类别 | 实际渲染 |\n|---|---|---|---|\n| ru | 1、21、31… | one | `+ 1 пустое` ✅ |\n| ru | **2、3、4** | few | **`+ 3 empty`(英文)** |\n| ru | **5–20、25–30…** | many | **`+ 7 empty`(英文)** |\n| ar | 1 | one | `+ 1 فارغ` ✅ |\n| ar | **2** | two | **`+ 2 empty`** |\n| ar | **3–10** | few | **`+ 5 empty`** |\n| ar | **11–99** | many | **`+ 30 empty`** |\n| fr/es/pt | ≥ 1e6 | many | 英文(实务上够不到) |\n| en/de | 全部 | one/other | ✅ |\n| zh/ja/ko | 全部 | 仅 other | ✅ |\n\n调用点是 `record-reference-rail.tsx:350` 的「+N empty」折叠按钮,`count = emptyTitles.length` —— **2 到 4 是最常见的取值**,所以俄语用户几乎总看到英文。\n\n实测(装好的 i18next 26.3.6,十包各自都有 `_one`/`_other`,与本仓 `createI18n` 的配置一致 —— 无 `compatibilityJSON`):\n\n```\nru  0:EN_OTHER  1:RU_ONE  2:EN_OTHER  3:EN_OTHER  5:EN_OTHER  11:EN_OTHER  100:EN_OTHER\nar  0:EN_OTHER  1:AR_ONE  2:EN_OTHER  3:EN_OTHER  11:EN_OTHER  100:AR_OTHER\n```\n\n## 为什么三道门禁都看不见\n\n- `all-locales-key-parity.test.ts`:十包键名集合完全一致(都只有 `_one`/`_other`),绿。\n- `scripts/check-i18n-call-site-keys.mjs`(#3530):`resolvesLeaf` 接受 `PLURAL_SUFFIXES` 里任一后缀存在即算解析成功,绿。\n- `scripts/check-i18n-en-drift.mjs`(#3650):en 值没变,绿。\n\n这是 #3582 / #3625 / #3810 之后的又一个值域盲区,机制不同:键名集合正确、包际一致,坏在**该语言需要的那个槽位不在集合里**,而 parity 的设计前提正是\"十包键名必须相同\"—— 给 ru 补 `_few`/`_many` 会让 parity 判它\"有 en 没有的 key\"。\n\n## 修法(#3546 切片六已在新 key 上采用,可直接照搬)\n\n在 `_one` 之外定义**基础 key**(无后缀)作为兜底槽位:i18next 的查找链里基础 key 始终在列,所以任何未枚举的类别都落到它,**留在本语言**而不是掉到英文。实测:\n\n```\nru  flat + _one + _other → count 3 命中 flat(\"RU both-flat 3\"),不再是 EN\n```\n\n切片六的 `perm.facet.objects` / `fields` / `rls` / `tabs` 就是这个形状(`key` + `key_one`),ru 的基础值取该包已用 25 次的「名词: {{count}}」写法(`Записей: {{count}}` 等),对**任何**俄语数字都正确;ar 取该包的「{{count}} 单数(复数)」写法。`packages/i18n/src/__tests__/perm-home-namespace-3546.test.tsx` 里有十语 × counts 1/2/3/5/11/21/100 的全量渲染断言,反向验证(删掉 ru 基础 key)的失败文本正是本单的证据:\n\n```\nAssertionError: expected '3 objects' to be 'Объектов: 3'\n```\n\n所以本单的修复 = 给 `detail.showEmptyRelated` 十包各加一个基础 key(ru/ar 用计数不变的写法),并考虑把\"复数族必须带基础 key\"写成一条断言/门禁 —— 否则下一个复数族会重犯。\n\n关联:#3546(切片六在新 key 上确立了基础 key 形状)、#3530(调用点守卫,`PLURAL_SUFFIXES` 判定)、#3650、#3810。"
+}

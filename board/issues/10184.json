@@ -2,8 +2,8 @@
   "number": 10184,
   "kind": "issue",
   "title": "finding(plugin-detail,plugin-grid): the record-verdict memo still goes stale for the same principal, and plugin-grid carries the identical un-principalled cache objectui#10181 just fixed in plugin-detail",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-elon-musk",
@@ -13,7 +13,6 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2",
     "security"
   ],
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-21T02:11:37Z",
-  "updated_at": "2026-09-21T04:12:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:26:06Z",
+  "closed_at": "2026-09-24T14:20:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10184",
   "body": "## Two halves of one defect, and the reason they are one card\n\nobjectui#10181 (card objectui#10107) closed the **cross-principal** half of a record-verdict memo: `packages/plugin-detail/src/useRecordEditable.ts` keyed a module-scope `Map` by `object:recordId:operation` with no principal and no invalidation, so one principal's verdict was served to the next in the same tab — including a `true`, which offered Edit to someone the server had never granted it to.\n\nTwo things that repair did **not** close, ruled as follow-ups at ACCEPT rather than widened into it:\n\n### ① The same memo still goes stale for the SAME principal\n\nA verdict cached for one principal is still wrong after a share is granted or revoked, or ownership changes, mid-session. ⚠️ That is not hypothetical — it is **the card's own owner-control scenario**: re-opening the page after changing `owner_id` in the same tab could not ask again, because the answer was already memoised.\n\n**Ruled: wire the memo to the existing `notifyDataChanged` channel** and clear the affected record's entries.\n\n⛔ **Not a TTL.** A lifetime constant here would be exactly the unjustifiable figure AGENTS.md #9 warns about — nobody can say why 60 seconds rather than 30 or 300.\n⛔ **Not \"drop the memo\".** That costs two explain POSTs per record-page visit and retires a pinned behaviour to solve something narrower than it appears. ⚠️ Recorded honestly: the ruling on objectui#10107 said 「⛔ do not cache a verdict the server can change」, which read literally is exactly \"drop it\". Its **intent** was the cross-principal disclosure, which is now closed; this is the residual, and it gets the cheaper correct fix.\n⚠️ `notifyDataChanged` catches changes **this tab caused**. A grant changed elsewhere still lands on reload. That is a known and accepted limit of this option, ⛔ not an oversight — say so at the site rather than implying freshness the channel cannot deliver.\n\n### ② `plugin-grid` carries the identical defect, unrepaired\n\n`packages/plugin-grid/src/hooks/useRecordCrudVerdicts.ts` has the **same** module-scope verdict memo keyed `object:recordId:operation`, no principal, no invalidation, both the same fail directions.\n\nEvidence, from the file itself: its `cacheKey` helper takes `(object, recordId, operation)` only, the `Map` is module scope, and its own header says it uses 「the same key shape and the same revisiting-is-free posture as `useRecordEditable`」.\n\n**Probe**: the pin landed for plugin-detail, retargeted — cache a verdict under principal A, remount under principal B, assert the row kebab re-asks. ⭐ Pin **both** directions; the stale-ALLOW leg is the one that protects the boundary, and a repair that simply shows the kebab to everyone would pass a one-directional pin.\n\n⇒ ⭐ **the two belong in one pass**: the two hooks document themselves as answering a record identically, and repairing them separately is precisely how they drift. The second is nearly free once the first shape is settled.\n\n## ⛔ What this card is NOT\n\n⛔ Not a change to the fail-open posture. Where the verdict is unknown, unloaded or errored, the affordance stays **visible** — ADR-0124 D1, 「the server enforces, the client is courtesy」, restated in both hooks' docblocks, in `PermissionContext.hasCapabilities` and in objectui#4656. Flipping that would hide Edit on every deployment without `@objectstack/plugin-security`, on every split-origin SPA, and during every in-flight probe — manufacturing the symptom objectui#10107 reports, at scale. ⚠️ A ruling to the contrary was issued on that card's dispatch **by this seat** and has been publicly withdrawn; if the posture is ever revisited it is a separate card with its own blast radius, and it is the maintainer's.\n\n## Provenance and radius\n\nThe plugin-grid half was measured by the dev on objectui#10107 and reported rather than widened into, because its dispatch fenced plugin-grid. The staleness half is its open question, ruled at ACCEPT. ⛔ Neither re-derived by this seat beyond confirming the base memo key at `useRecordEditable.ts:54` and that the plugin-grid file exists with the described helper. Radius: those two hooks. ⛔ Outside: any third surface with a record-grained verdict cache — worth one grep in the same pass.\n\nFiled by the `domain:ui` execution seat #1 (`session_01Xr7APep6jm1Zta3KUzPzZf`). ⛔ Filed bare.\n\n## Dedupe words\n\n`record verdict memo principal invalidation` · `useRecordCrudVerdicts cross-principal cache` · `notifyDataChanged clear verdict cache` · `useRecordEditable memo stale share grant` · `objectui#10107 follow-up both hooks`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

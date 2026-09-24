@@ -1,0 +1,35 @@
+{
+  "number": 4375,
+  "kind": "issue",
+  "title": "Two call sites build a search placeholder as `t(key) + '...'` — the ellipsis is concatenated in code, so it stays ASCII in all ten locales and cannot be translated away",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T23:09:26Z",
+  "updated_at": "2026-08-12T01:08:45Z",
+  "closed_at": "2026-08-12T01:08:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4375",
+  "body": "Found while executing #3878 (ellipsis convergence on U+2026), on branch `claude/issue-3878-i18n-copy-trio`. Out of that card's scope — the dispatch scoped `ListView.tsx` to the `LIST_DEFAULT_TRANSLATIONS` duplicate-copy case, and that case does not apply here (see below) — so recorded separately.\n\n## The two lines\n\n```tsx\npackages/plugin-list/src/ListView.tsx:2829\n    placeholder={t('list.search') + '...'}\n\npackages/fields/src/widgets/LookupField.tsx:1085\n    placeholder={t('common.search') + '...'}\n```\n\nIn both, the translated value is the bare noun (`list.search` / `common.search` — `'Search'` in `en`, `'搜索'` in `zh`, `'Pesquisar'` in `pt`, …) and the ellipsis is a **literal appended in code**. Two consequences:\n\n1. **It stays ASCII in every locale.** #3878 converged all ten packs on the typographic ellipsis `…` (U+2026), per the consistency pass on objectstack#6015. Neither placeholder is a pack value, so both were untouched: the list search popover and the lookup picker render `搜索...` / `Pesquisar...` / `Search...` with three ASCII full stops on screens where every other placeholder now ends in `…`.\n2. **No locale can opt out of the ellipsis at all.** Whether a trailing ellipsis belongs on a placeholder is a per-language typographic call, and this spelling takes it away from the packs entirely. `ar` gets a left-to-right ASCII run appended to a right-to-left string, which is the sharpest version of the problem.\n\n## How the second one was found — it costs a lap if you don't know it is there\n\n`LookupField.tsx:1085` was found the hard way, and that is worth recording. `packages/fields/src/widgets/useFieldTranslation.ts` carries `'table.search': 'Search...'` in its no-provider defaults map, which #3878 converged to `Search…` along with the pack. Two tests in `packages/fields/src/complex-widgets.test.tsx` assert `getByPlaceholderText('Search...')` against a rendered `LookupField`, and it is entirely natural to read those as pinning that map's value — so they get \"fixed\" to `Search…` and go red, because the placeholder they actually pin comes from the concatenation on line 1085 and never moved.\n\nSo the two spellings are **not** interchangeable evidence: a `Search...` in a fields test may be pinning the defaults map (moves with the pack) or this concatenation (does not). #3878's branch carries a comment at that assertion naming line 1085 and this issue, so the next reader does not repeat the lap.\n\n## Why the #4294 duplicate-copy check did not catch either\n\n`LIST_DEFAULT_TRANSLATIONS` in `ListView.tsx` is clean: it carries `'list.loading': 'Loading records…'` and `'list.refreshing': 'Refreshing…'`, both already U+2026, and it holds no copy of any of the 35 keys #3878 converged. The defect here is a different shape — not a duplicated value, but a value **assembled at the call site**.\n\nIt is also invisible to every i18n gate for that reason. `scripts/check-i18n-call-site-keys.mjs` reads the `t()` call and its options object; a `+ '...'` outside the call is not an inline `defaultValue`, so there is nothing for its byte-exact rule to compare. `all-locales-key-parity` and `check-i18n-en-drift.mjs` never see it either — the assembled string does not exist in any pack. #3878's new pin (`packages/i18n/src/__tests__/ellipsis-glyph-3878.test.ts`) scans pack values only and says so in its header.\n\n## Fix directions\n\n**A — give each placeholder its own pack key.** `table.search` already means exactly this and is now `'Search…'` in `en`, so both call sites can read it (or a new `list.searchPlaceholder` / `lookup.searchPlaceholder` if the two want to diverge later). Each pack then decides its own ellipsis, and the values come under the #3878 pin like everything else. Zero new keys if `table.search` is reused.\n\n**B — change the two literals to `'…'`.** Two characters, fixes the glyph, leaves the concatenation and therefore leaves the ellipsis untranslatable and the RTL case unaddressed.\n\nA is contract-first and is the one I would take; B is a band-aid on the visible half. Recording both rather than picking, since A may want a key-set decision.\n\nWhichever lands must also move the two `complex-widgets.test.tsx` assertions (and any `ListView` equivalent) off `Search...` — they are pinned to the current, concatenated truth.\n\n## Anchor\n\nVerified on `origin/main` at `2fea4d2fa`. Related: #3878 (the convergence, and the `…` the rest of the screen now uses), #4294 (the duplicated-copy trap this is adjacent to but not an instance of).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

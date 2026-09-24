@@ -1,0 +1,36 @@
+{
+  "number": 2514,
+  "kind": "issue",
+  "title": "feat(auth): passkeys / magicLink flags advertised in /auth/config but never consumed — build the UI or document them as reserved",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-15T13:22:03Z",
+  "updated_at": "2026-08-10T18:18:21Z",
+  "closed_at": "2026-08-10T18:18:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2514",
+  "body": "## 背景\n\nframework#2874 P2② 登录面审计发现:`/api/v1/auth/config` 广告的 8 个登录面 flag 中,`passkeys` 和 `magicLink` 在 objectui 只存在于类型声明(`packages/auth/src/types.ts` L119-120),**没有任何组件消费**——既无 passkey 登录/注册 UI,也无 magic-link 请求/消费流程。\n\n这属于 #2874 主类的镜像:主类是「UI 宣传后端没有的能力」,这里是「后端广告了 UI 没有的能力」——flag 打开后部署者会以为登录页出现对应入口,实际什么都不会发生。\n\n## 建议(二选一)\n\n1. **建 UI**:LoginForm 按 `features.passkeys === true` 显示 passkey 登录入口(better-auth passkey 插件已有客户端 API);按 `features.magicLink === true` 显示「邮箱链接登录」入口;或\n2. **摘牌/文档化**:短期内不做 UI 就在文档标注这两个 flag 为 reserved,并在 framework 侧评估是否暂停广告(避免部署者误判)。\n\n## 备注\n\n- `twoFactor` 不在本 issue 范围:2FA 挑战由服务端 remediation 驱动(ADR-0069),flag 不被 LoginForm 读取是刻意设计。\n- framework 侧注册表:`packages/spec/src/kernel/public-auth-features.ts`(`passkeys` / `magicLink` 条目的 exempt.reason 指向本 issue)\n- 审计出处:framework#2874(P2② 登录面核对)"
+}

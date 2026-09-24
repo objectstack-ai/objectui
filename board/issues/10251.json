@@ -1,0 +1,33 @@
+{
+  "number": 10251,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): drawer and modal arms merge customFields like ObjectForm",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T13:40:31Z",
+  "updated_at": "2026-09-24T14:10:41Z",
+  "closed_at": "2026-09-24T14:10:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-24T14:10:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10251",
+  "body": "Fixes #10073\nClause-②: no\n\n## What\n\n`object-form.customFields` is registered with one description for every `formType`: \"Field definitions merged over the set generated from object metadata.\" The default arm has merged since objectui#9778. The `drawer` and `modal` arms (`ObjectForm` spreads the whole schema into `DrawerForm` / `ModalForm`) still REPLACED the generated set with the members. They now merge the same way.\n\n- New module-private helper `packages/plugin-form/src/customFieldsMerge.ts` (not re-exported from the barrel). `mergeCustomFields` holds the whole rule: override by name in place, keep the rest, append unmatched members in authored order. An empty `customFields` counts as unauthored.\n- `ObjectForm.tsx`: the inline override lookup and the append block moved into that helper. The generator body is byte-identical apart from `push` becoming `return`.\n- `flatFields.ts` (`buildFlatFields`, the one flat builder `DrawerForm` and `ModalForm` share) takes `customFields` and routes through the same helper. ⚠️ This file is outside the claimed file surface. It is where the drawer and modal generated set is actually produced, so the merge lands there once rather than being hand-copied into both containers.\n- `DrawerForm.tsx` / `ModalForm.tsx`: the `setFormFields(schema.customFields)` early return is gone, and the builder gets `customFields`.\n\n## fieldGroups derivation (PM mechanism assumption 4), measured\n\n`ObjectForm` does not switch the `fieldGroups` fallback off for `customFields`. `fieldGroupSections` is gated on `schema.sections` only and is derived from `groupableFields`, which comes from the merged `formFields`. Its grouped render then resolves each section's names against that merged pool, so a member renders as its own definition inside the group its own `group` key names. This behaviour is unambiguous, so no open question was needed. Drawer and modal now do the same:\n- the `schema.customFields?.length` short-circuit is dropped from both `derivedSections` memos;\n- the derived sections hand an authored member back as its object (`withCustomFieldMembers`). The drawer and modal build a derived section body through `buildSectionFields`, which regenerates a NAME from the object schema but passes a runtime `FormField` through verbatim. Names no member supplies are unchanged, so forms without `customFields` resolve as before;\n- the modal's auto-layout memo (the one that sizes the dialog) no longer returns null for `customFields`. `ObjectForm` auto-lays-out the merged list, and the modal's flat render already did (it fell back to `applyAutoLayout` at render). Only the inferred `modalSize` changes.\n\nThe collapse regions, `projectSectionDivider` and the divider pushes (objectui#9849 step 2) are untouched.\n\n## Evidence (HEAD `a54b97d`)\n\n- New pin: `__tests__/drawerModalCustomFieldsMerge-10073.test.tsx`. It runs through the real `ObjectForm` for each of `simple` / `drawer` / `modal`, with rows OVERRIDE, KEEP, APPEND, NO DATA SOURCE and FIELD GROUPS. **15 passed.**\n- Before leg (drawer/modal restored to base `0aacecc` under a trap, helper and ObjectForm at HEAD): **8 failed, 7 passed**. The failures are exactly the drawer and modal OVERRIDE / KEEP / APPEND / FIELD GROUPS rows. The 5 `simple` rows (the lit control) and the 2 no-data-source rows stay green. Restore was proven by the blob hash equalling HEAD and an empty `git diff HEAD`.\n- Ablation of the derived-section member substitution in `DrawerForm.tsx` (`scripts/ablation-replace.mjs`, anchor 1 to 0): the drawer FIELD GROUPS row goes red with `expected 'Channel' to be 'INLINE CHANNEL'`. Restored to blob == HEAD.\n- `vitest run packages/plugin-form/`: 113 files, 1110 passed, 1 skipped.\n- `pnpm --filter @object-ui/plugin-form type-check` (after building the `^...` closure of 10 packages): exit 0.\n- eslint on the 6 changed source files: 0 errors. Warnings are no higher than base, file for file (ObjectForm 61 to 60).\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`: 199 passed.\n- The `check:new-line-citations`, `check:control-bytes`, `check:unreferenced-sources`, `check:changeset-claims`, `check:pending-changeset-literals` and `check:test-path-roots` gates all exit 0.\n- `origin/main` was still `0aacecc` at PR time, so the merge was a no-op.\n\n## Acceptance notes\n\n- ⚠️ Behaviour change, stated in the changeset: authors who relied on the drawer or modal replacing the generated set now see the object's other fields alongside the members.\n- Not changed, recorded here: when a data source is present but `getObjectSchema` fails, `ObjectForm` falls back to the members only (objectui#9778), while drawer and modal show their error panel, as they did before this PR. The registered description does not cover a failing adapter.\n- Edge, not changed: in a derived group, a member authored with a STRING `field` key is read by `buildSectionFields` as the spec shape. Runtime members carry the metadata object there.\n- Out of scope, reported to the seat and not fixed here: with explicit `sections` plus `customFields`, the drawer and modal build section fields from the object schema and ignore the members. The default arm resolves them from the merged pool. Probe on HEAD, same schema per arm: `simple:INLINE NOTE`, `drawer:Note`, `modal:Note`.\n\nSession: `https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"
+}

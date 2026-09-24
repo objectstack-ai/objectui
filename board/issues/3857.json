@@ -1,0 +1,36 @@
+{
+  "number": 3857,
+  "kind": "issue",
+  "title": "[finding] 三处 agent-facing 文本仍称「ci.yml/lint.yml 把 **/*.md 与 .changeset/** 列进 paths-ignore,只加 changeset 的 PR 不启动任何 workflow」—— #3523 step 2 已把 pull_request 的 paths-ignore 删掉,实测 md-only PR 起了 16 个 check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T21:57:33Z",
+  "updated_at": "2026-08-11T22:43:06Z",
+  "closed_at": "2026-08-11T22:43:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3857",
+  "body": "越界发现,记录于 #3737 / PR #3856(订正 `console-development.md` 顶部注记的 commit 归因)期间 —— 我照 AGENTS.md 的这句话在 PR 正文里写了「md-only 改动 CI 本不会触发」,推上去才看到 16 个 check 全起来了。按纪律**只报不改**,单独立单,**未认领**。\n\n打 `finding`:三处都是注释/文档,没有任何用户或运行时受影响,门禁本身照旧工作。但它是 agent-facing 的**陈述性错误**,而且是那种「照它做决定 → 决定错」的类型(我就是当场的样本),与 #3737 同一族的验证税。严重度留给分诊裁。\n\n## 事实(基线 `origin/main` @ `c32323e1e4e5d7c72adda03dce0b46ecbe079403`)\n\n三处都断言 `ci.yml` / `lint.yml` 在 `pull_request` 上以 `paths-ignore` 排除 `**/*.md` 与 `.changeset/**`,并由此推出「只加 changeset(或只改 md)的 PR 不会启动任何 workflow」:\n\n| 位置 | 原文要点 |\n|---|---|\n| `AGENTS.md:206` | 「`ci.yml`/`lint.yml` 都把 `**/*.md` 和 `.changeset/**` 列进 `paths-ignore`,只加 changeset 的 PR 不会启动任何 workflow」 |\n| `scripts/check-changeset-presence.mjs:33-40` | 「`ci.yml` and `lint.yml` both list `.changeset/**` under `paths-ignore`, so a PR that adds ONLY a changeset starts no other workflow at all … the one check that could notice is the one check guaranteed not to run」 |\n| `.github/workflows/changeset-guard.yml:3-8` | 「both `ci.yml` and `lint.yml` list `'**/*.md'` AND `.changeset/**` under `paths-ignore`. A PR that adds only a changeset therefore starts no workflow at all」 |\n\n而这两个 workflow 自己的头注写着相反的事:\n\n- `.github/workflows/ci.yml:12` —— 「No `paths-ignore` here any more (objectui#3523, step 2). It skipped the whole workflow on a docs-only / changeset-only PR, so every context this file produces was simply absent there and none of them could be made required. The path decision now lives inside the jobs — see the `Decide whether this change needs a full run` step in `type-check`. `push` above deliberately keeps its copy」\n- `.github/workflows/lint.yml:37` —— 同样的「No `paths-ignore` here any more (objectui#3523, step 2)」\n\n即 `paths-ignore` 今天**只**留在 `push` 触发上(`ci.yml:6`、`lint.yml:32`);`pull_request` 上已无路径过滤,workflow 照常启动,再由 job 内的 `Decide whether this change needs a full run`(`ci.yml:130`)决定跑不跑重活 —— 这正是 #3523 的目的:让 docs-only PR 也**产出** required context,而不是让它们缺席。\n\n**活体反证**:PR #3856 只改一个 `.md` 文件(`skills/objectui/guides/console-development.md`,+33/-7),推上去起了 16 个 check,含 `Lint`、`Type Check`、`Test (shard 1..4/4)`、`Internal Docs Link Check`、`Control Byte Scan`、`Changeset Declaration`。按上表三处文本的说法,这个 PR 应当「不启动任何 workflow」。\n\n## 为什么值得改而不只是过时注释\n\n`check-changeset-presence.mjs` 与 `changeset-guard.yml` 用这句话作为「为什么必须是独立 workflow / 反向触发」的**论证前提**。前提已被 #3523 撤掉,结论(独立 workflow + 反向触发)未必随之失效 —— 但下一个读者要么信了错的前提,要么得把 #3523 重新考古一遍才能判断这两个门今天还该不该长这样。AGENTS.md 那句更直接:它是给 agent 读的操作性断言。\n\n## 建议范围(未实现,留给分诊/派发)\n\n三处文本各改一句,统一改成「`paths-ignore` 只在 `push` 上;`pull_request` 的路径决策在 job 内(`ci.yml` 的 `Decide whether this change needs a full run`),见 #3523 step 2」,并把两个 changeset 门的存在理由重新表述为它今天真正的理由(反向触发的门本身没坏,只是理由要换)。不建议顺手改动 workflow 行为。\n\n已就关键词(`paths-ignore`、`check-changeset-presence`、`changeset-guard.yml`、`AGENTS.md`)搜过本仓开放 issue,无同源单(#3805/#3736 是 AGENTS.md #-1 相关,不同题)。\n"
+}

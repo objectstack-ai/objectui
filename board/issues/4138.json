@@ -1,0 +1,36 @@
+{
+  "number": 4138,
+  "kind": "issue",
+  "title": "Kanban rejected drag does not roll the card back when hosted with external data — handleCardMove gates the revert on !hasExternalData",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T12:35:24Z",
+  "updated_at": "2026-08-10T23:36:17Z",
+  "closed_at": "2026-08-10T23:36:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4138",
+  "body": "Split out of the QA run objectstack-ai/objectstack#7439 (records-forms FULL area, `kanban-drag-persistence` FAIL — reproduced 3×, switcher + dedicated Board view). Filed here because the fix lands in this repo (file-at-destination rule). Filed by the triage seat; unassigned.\n\n## Symptom\n\nAn illegal Kanban drag (Backlog → In Progress) is correctly rejected server-side (`PATCH` 400 `invalid_transition`, toast shown, server value stays `backlog`), but the card **stays stuck in the target column** until a manual reload.\n\nRepro (from the QA run, showcase app): showcase_task → Kanban view; drag a Backlog card onto In Progress. Expected: card returns to Backlog when the 400 lands. Actual: card remains in In Progress for more than 5 s, until reload.\n\n## Root cause (verified at `origin/main` @ `92c0b1f`)\n\n`packages/plugin-kanban/src/ObjectKanban.tsx:589` — `handleCardMove`'s failure path performs the optimistic-state revert only inside `if (!hasExternalData) { … }`. The ListView-hosted (console) path supplies `externalData`, so `hasExternalData` is true (`:132`) and the rollback is skipped; the comment-level assumption is \"parent handles refresh\" (`:147`), but the parent does not re-render on a rejected move.\n\n## Direction\n\nOn a rejected move, either perform the revert regardless of data ownership, or surface the failure to the host so the external-data owner can refresh. The revert path already exists for the internal-data case.\n\n## Dedup\n\nSearched open issues (`kanban`): #4025 (the `$top: 100` dead key) is the only open kanban card — different defect. No duplicate.\n\n本评论来自分诊座位 Routine（#5474 试点），不构成认领。"
+}

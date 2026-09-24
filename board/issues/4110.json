@@ -1,0 +1,36 @@
+{
+  "number": 4110,
+  "kind": "issue",
+  "title": "[console] InboxPopover 通知页签恒为空:sys_inbox_message 有未读行、REST 正常返回、Home 卡片可渲染,弹层打开不发请求且过滤成空(rc.5 回归,rc.3 正常)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T10:44:19Z",
+  "updated_at": "2026-08-10T20:39:30Z",
+  "closed_at": "2026-08-10T20:39:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4110",
+  "body": "Part of steedos-labs/os-project-titanwind-ehr#976\n\n## 现象\n\nPC Console 顶栏铃铛弹层(InboxPopover)的「通知」页签**恒为空**——「未读」显示「已读完所有通知」、「全部」显示「暂无通知」,而同一时刻、同一会话:\n\n- Home 首页「待办事项」卡片**正常显示**该通知(标题 + 时间 + 未读计数 1);\n- 消息中心(收件箱/通知列表)与详情浮层**正常显示**,正文完整;\n- 平台三表写入正常:`sys_notification` / `sys_inbox_message` / `sys_notification_receipt`(`state=delivered`);\n- `GET /api/v1/notifications` 返回该条,`read:false`、`unreadCount:1`。\n\n**预期**(契约:ADR-0030 / #1429「Console bell 重指 `sys_inbox_message` + receipts」):弹层「通知」页签列出该用户的收件箱通知。\n**实际**:通知发得出、存得下、Home 卡片和消息中心都看得见,唯独铃铛弹层渲染为空。\n\n## 最小复现(不依赖我们的 app)\n\n1. `@objectstack/*` 17.0.0-rc.5 空库起 dev;\n2. 给任一用户经 MessagingService 落一条收件箱通知,emit 形状:`{topic, audience:[userId], payload:{title, body, url}, dedupKey, source}`(`payload.url` 为 SPA 内部路由 `/apps/.../record/...`);确认三表有行、receipt `state=delivered`;\n3. 以该用户登录 Console,点顶栏铃铛。\n\n「通知」页签为空,与通知条数无关(1 条或多条同样为空)。\n\n## 已排除的成因(app 侧排查记录)\n\n| 假设 | 结论 |\n|---|---|\n| 通知未发出/未落库 | 排除:三表均有行,`/api/v1/notifications` 返回该条 |\n| `organization_id` 为 null 被组织域过滤 | 排除:直接把三表 `organization_id` 刷成当前组织后重测,弹层仍空 |\n| 自动化环境挡了 SSE/WebSocket | 基本排除:无 requestfailed、无 WS 报错;且 Home 卡片用同一份 `sys_inbox_message` 查询,渲染正常 |\n| 半加载/等待不足 | 排除:页面水合后等 9s 再开弹层、开后再等 6s,三轮复现一致 |\n\n## 关键观测(落点推断)\n\n**打开弹层时,弹层未发出任何通知相关网络请求**——数据在页面加载时已由\n`GET /api/v1/data/sys_inbox_message?top=5&sort=-created_at&filter=[[\"user_id\",\"=\",\"(uid)\"]]`\n取回,Home 待办卡片就是用这份数据渲染成功的;弹层拿到同一份数据后**过滤成空**。\n据此判断落点在 `packages/app-shell/src/layout/InboxPopover.tsx` 一侧的筛选/渲染层\n(是否与 #2765 的 (topic, title) 去重、或按 topic/来源字段的分流有关,请平台侧定位)。\n\n已核对今日合入的 #4073:只动徽章拆解的展示层,与本症状无关。\n\n## 版本窗口(回归)\n\n- 现象版本:`@objectstack/*@17.0.0-rc.5`(cli / runtime / objectql / spec / driver-memory 全 rc.5 精确锁版;npm 上 rc.5 即最新,已确认无更新版本可试);\n- **2026-07-31 在 17.0.0-rc.3 下,同一 app、同一 emit 链路的 e2e 曾断言铃铛弹层文案并通过**;\n- 即回归窗口 rc.3 → rc.5(rc.4 未测)。运行时 node 22 / darwin。\n\n## 我们没做什么\n\napp 侧**零绕行、零补丁**:业务通知继续走正规 MessagingService emit 扇出,不直写表、不自建弹层。受影响面:该 app 30+ 处业务 Hook 的站内通知在 PC 端失去最主要触达入口,用户只能靠 Home 卡片或主动进消息中心发现新消息。app 侧 issue(steedos-labs/os-project-titanwind-ehr#976,私有仓,含三张对照截图)挂起等本单。\n"
+}

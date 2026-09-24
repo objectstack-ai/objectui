@@ -2,8 +2,8 @@
   "number": 4738,
   "kind": "issue",
   "title": "Address part order follows the reader's locale because nothing carries the address's own country",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-15T21:42:21Z",
-  "updated_at": "2026-08-23T04:20:30Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T12:47:12Z",
+  "closed_at": "2026-09-24T12:47:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/4738",
   "body": "Observation recorded while implementing #4028 (PR: `claude/issue-4028-addressfield-locale-remainder`). Not a regression — #4028 is a strict improvement over the hardcoded US order — this records the limit that fix had to accept, so the next reader re-judges it instead of inheriting it.\n\n## What #4028 does\n\n`formatAddress(addr, locale)` now orders the parts by the **reader's display locale** (`useDisplayLocale()`): `zh` / `ja` / `ko` read largest-first, every other locale keeps the small-to-large order. Both callers — `AddressField`'s readonly branch and `AddressCellRenderer` — pass the same locale, so the two surfaces objectui#4037 unified stay in step.\n\n## The limit\n\nAn address format is a property of **where the mail goes**, not of who is reading. A `zh` console showing a US customer's address renders it largest-first; a US console showing a Chinese address renders it street-first. Both are wrong for the address and right for the reader, and a CRM is exactly where cross-border addresses are normal.\n\n## Why the better channel was not taken in #4028\n\n`AddressValue` (from `@objectstack/spec/data`) carries `countryCode`, which would be the correct, unambiguous input for a per-country rule. Measured on `main` today: **`AddressField` exposes no `countryCode` input and never writes one** — it renders five boxes (street / city / state / postalCode / country) and `handleFieldChange` only preserves whatever `countryCode` a producer already stored. So on data this widget produces, that channel is empty, and an address-driven rule would have had nothing to read for the majority of records. The remaining alternative — matching the free-text `country` string (\"中国\" / \"China\" / \"PRC\" / \"美国\") — is a name-guessing table with no source of truth behind it.\n\n## What a fix would need\n\n1. A channel that actually carries the country: either a `countryCode` input/derivation in `AddressField`, or a producer-side guarantee that stored addresses carry it.\n2. A per-country order rule (CLDR / libaddressinput-shaped) replacing the current language-subtag set in `packages/fields/src/widgets/address-format.ts`, with the reader's locale kept only as the fallback for an address that states no country.\n\nNote (2) also covers a second real case the current two-profile rule does not: `de` / `fr` / `es` write the postal code **before** the city (\"10115 Berlin\"), which today renders as a separate comma group.\n\nThe pin that must move if this is taken: `orders a US address by the READER, not by the address — the stated limit` in `packages/fields/src/widgets/__tests__/AddressField.i18n.test.tsx`. It was written to make this decision visible rather than silent.\n"

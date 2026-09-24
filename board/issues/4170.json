@@ -1,0 +1,35 @@
+{
+  "number": 4170,
+  "kind": "issue",
+  "title": "[finding] ci-cd-pipeline.md's \"can never be required, structurally\" bullet is a second unpinned current-state claim in the same section — true today, and live-e2e.yml is scheduled to falsify it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T15:21:10Z",
+  "updated_at": "2026-08-10T17:27:30Z",
+  "closed_at": "2026-08-10T17:27:30Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4170",
+  "body": "Found while implementing #4154 (PR pending), whose ruling asked for a sweep of the same `## Merge Queue` section for other current-state enumerations of subscribers or checks. This is the only other one. Filed rather than bundled: it is a different fact, it is **not wrong today**, and fixing it needs its own decision — the same discipline that produced #4154 out of #3782, and #3782 out of #3279.\n\n## The claim\n\n`content/docs/guide/ci-cd-pipeline.md`, last bullet of `## Merge Queue`:\n\n```\n- **Some contexts can never be required, structurally**, and no amount of triggering changes that:\n  **Changeset Bump Policy** (`changeset-guard.yml`, inverse path filter ...),\n  **Bundle Analysis** (`performance-budget.yml`, path filter),\n  **Live E2E (informational)** (`continue-on-error: true`, so it is green whatever happens ...),\n  and **Close issues referenced in other repositories** (`cross-repo-issue-closer.yml`, ... only *after* a merge).\n```\n\n## Measured on `main@521a37bd0` — all four are TRUE\n\n| claim | evidence |\n|---|---|\n| `changeset-guard.yml` inverse path filter | `.github/workflows/changeset-guard.yml:16-17` — `pull_request.paths: ['.changeset/**']` |\n| `performance-budget.yml` path filter | `.github/workflows/performance-budget.yml:12-15` — `pull_request.paths: packages/**, apps/console/**, pnpm-lock.yaml` |\n| `live-e2e.yml` `continue-on-error: true` | `.github/workflows/live-e2e.yml:60`, job-level |\n| `cross-repo-issue-closer.yml` runs after merge | `.github/workflows/cross-repo-issue-closer.yml:29-31` — `pull_request: types: [closed]` |\n\nSo this is observation-class, not a defect: nobody is being misled today.\n\n## Why it is still worth recording\n\nThree properties, none of them fatal alone:\n\n1. **Nothing reads it.** #4154 just converged the sibling sentence in this section onto a pointer to a map an assertion reads, precisely because prose that nothing reads drifts silently. This bullet is the same shape one paragraph down, and `scripts/__tests__/ci-cd-pipeline-doc.test.ts` pins the workflow inventory, the job table, the lockfile-merge table and the size budgets — but not this.\n2. **One of the four claims is scheduled to become false.** `live-e2e.yml`'s header (lines 13-20) says outright: *\"Do NOT add this job to required checks, and do not remove `continue-on-error`, until the lane has run clean for long enough to trust (watch the nightly schedule).\"* Promotion is the plan, not a hypothetical — and the day it happens this page will state that a lane which now blocks merges *can never* block them. That is the dangerous direction this page names for itself elsewhere (#3197, #3451: advertising or denying a guardrail wrongly is worse than saying nothing, because people stop checking).\n3. **It is deliberately non-exhaustive** (\"Some contexts\"), which is honest and is also why membership drift is not the risk here — the per-claim property is. A new never-requirable workflow arriving does not make the bullet false; `continue-on-error` leaving `live-e2e.yml` does.\n\n## Why it was not fixed in the #4154 PR\n\nDifferent fact, and the fix is not a swap. #4154 had somewhere to point: `MUST_SUBSCRIBE_MERGE_GROUP` in `scripts/__tests__/merge-queue-reporting.test.ts` is a maintained list an assertion already reads. There is no equivalent for \"structurally cannot be required\" — it would have to be built, or the claims pinned one by one to the YAML properties they quote. Options, for whoever picks this up:\n\n- **A — leave it.** It is true today, the section is already long, and the promotion of `live-e2e.yml` is a deliberate act whose author will be reading this very page. Cost: that is exactly the reasoning that left \"Five workflows subscribe\" wrong for two weeks (#4154).\n- **B — pin the four claims to their YAML properties** in `ci-cd-pipeline-doc.test.ts`: `changeset-guard.yml` still has `pull_request.paths`, `performance-budget.yml` still has one, `live-e2e.yml`'s job still carries `continue-on-error: true`, `cross-repo-issue-closer.yml` still triggers only on `closed`. Four small assertions, no new vocabulary, and each fails on the page the day its claim stops being true. Cheapest honest option; does not cover a fifth never-requirable workflow being added, which the bullet does not claim to cover either.\n- **C — a `NEVER_REQUIRABLE` map** next to `MUST_SUBSCRIBE_MERGE_GROUP`, `filename -> why it can never be required`, with the page pointing at it. Symmetric with what #4154 landed, and gives the `live-e2e.yml` promotion a single place to edit. Cost: a second hand-maintained list, and the honest caveat #4154 recorded (pinning a copy to a copy) applies here too, with less to justify it — the \"must subscribe\" map earns its keep by also failing when a member drops its trigger, and a never-requirable map has no such second job.\n\nLeaning B: it pins what is actually claimed, and it is the option that goes red on the one change we already know is coming.\n\n## Not a defect, checked\n\nTwo other numbers in the same section are counts of the lists immediately under them — \"**The three steps** have to happen in this order\" and \"**Two things** follow for anyone editing this directory\". Both are visible at a glance and drift with the list they introduce, which is the shape #3451 explicitly allows (\"the table *is* the list\"). Left alone.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

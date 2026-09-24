@@ -2,8 +2,8 @@
   "number": 9656,
   "kind": "issue",
   "title": "finding(types): objectui#9648 made its own neighbouring docblock false - \"the ONE named refusal that reaches into it\" is contradicted 31 lines below by text the same PR added, plus two more stale prose clauses in the same block",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,16 +12,19 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-17T04:22:52Z",
-  "updated_at": "2026-09-17T13:05:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T08:58:54Z",
+  "closed_at": "2026-09-24T08:58:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

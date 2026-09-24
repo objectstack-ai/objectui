@@ -2,8 +2,8 @@
   "number": 9820,
   "kind": "issue",
   "title": "finding(app-shell tests): a FOURTH foreign-target `tree` fixture that both sweeps are blind to — `expandableFamily.identity-5874` builds it through a `field('tree')` factory, so neither the target-key grep nor the `type: 'tree'` emit scan sees it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3",
     "tests"
   ],
@@ -20,9 +19,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T07:05:21Z",
-  "updated_at": "2026-09-18T07:15:56Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T09:20:59Z",
+  "closed_at": "2026-09-24T09:20:59Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

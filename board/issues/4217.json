@@ -1,0 +1,32 @@
+{
+  "number": 4217,
+  "kind": "pull_request",
+  "title": "fix(fields): enforce an image field's declared maxSize before the upload starts",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T02:49:51Z",
+  "updated_at": "2026-08-11T03:06:21Z",
+  "closed_at": "2026-08-11T03:06:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T03:06:19Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4217",
+  "body": "Fixes #4141\n\n`ImageField` received a declared `maxSize` and ignored it. `paramToField` copies `maxSize` onto the field config for every action param regardless of type, so an image param declared with a 5 MB limit handed the widget its constraint and the widget uploaded anyway: a 6.3 MB PNG fired the full `presigned → PUT → complete` chain and rendered a thumbnail, with no rejection. The sibling file param, declared the same way, refused the identical pick with zero requests.\n\n## What changed\n\nBoth of the widget's upload entry points now enforce the limit before anything touches the network. **These are the only two** — measured, not assumed: the widget has no drag-and-drop zone, no paste handler and no camera input (grepping the file for `onDrop` / `onDragOver` / `dataTransfer` / `paste` returns nothing; the dropzone belongs to `FileField`).\n\n1. **Native picker** (`handleFileChange`, single and `multiple`) — keeps FileField's partial-acceptance rule: the in-limit members of a multi-select still upload, and only the oversize ones are reported.\n2. **Crop dialog confirm** (`handleCropConfirm`) — a real second door, not a formality. The cropper re-encodes to PNG, so cropping an in-limit JPEG can produce a blob *over* the limit, and it is the crop's bytes that get uploaded. The check therefore reads the blob's size, and runs before `setUploading` so a rejected crop never flashes the spinner.\n\nRejections render in a new error row. This widget had no surface for them before, because it never rejected anything.\n\n## Shared, not mirrored\n\nThe guard is extracted into one `maxSizeError` helper (`packages/fields/src/widgets/file-size-guard.ts`) that both widgets call, rather than a second copy living in the image widget. The check is the only thing standing between a declared limit and a real upload, and a per-widget copy is exactly what let these two drift apart unnoticed. FileField now calls the helper too — same threshold, same message, same partial acceptance, no behavior change.\n\nBoth widgets also share the existing `fields.file.exceedsMaxSize` message. It names a file and a limit and says nothing file-widget-specific, and it is already translated in all 11 built-in locales — so **no new i18n key** was added and nothing is pending translation. An undeclared `maxSize` still means unrestricted: the falsy check is preserved deliberately, so a missing limit can never be read as a zero-byte one.\n\n## Verification\n\nRed-first pin `ImageField.maxSize.test.tsx` (6 cases). The core assertion is **zero upload attempts**, not \"no preview\" — a widget that uploads the bytes and then hides the thumbnail has still stored an over-limit file. The spy sits on the `UploadProvider` adapter, the layer that performs the presigned request, so a call there is the network attempt.\n\nBefore the fix: `3 failed | 3 passed`. The three failures are the guard cases; the three passes are the controls (in-limit upload, no-`maxSize` unrestricted, in-limit crop), which pass pre-fix precisely because the unfixed widget uploads everything.\n\nAfter the fix: `Tests 6 passed (6)`.\n\nReverse verification — reverted **only** `ImageField.tsx` to `origin/main`, keeping the helper and the pin. Predicted RED with the full-upload signature; confirmed:\n\n```\n× never reaches the upload layer for a pick over the declared maxSize\n× rejects only the oversized picks of a multi-select and uploads the rest\n× guards the crop dialog too — an oversized re-encode is never uploaded\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\nTests  3 failed | 3 passed (6)\n```\n\nThat assertion is the point: the unfixed widget uploads **both** members of the multi-select where the fix uploads only the in-limit one. Restored afterwards, green again.\n\nGates, all green:\n\n- `packages/fields` full suite — `Test Files 75 passed`, `Tests 1187 passed` (FileField untouched and green)\n- Consumers plus i18n — `ActionParamDialog`, `ActionParamDialog.uploading`, `RelatedList.filecolumns`, `packages/i18n` — `40 passed / 690 passed`\n- `pnpm --filter @object-ui/fields type-check`, after building the dependency closure — clean\n- `pnpm --filter @object-ui/fields lint` — 0 errors\n- `check:control-bytes` — OK, plus a targeted control-byte self-scan of the touched files\n- `check:i18n-keys` and `check:i18n-drift` — `0 en value(s) changed`, every call-site key resolves against the en pack\n\nChangeset: `.changeset/image-field-maxsize-guard-4141.md` (`@object-ui/fields` patch).\n\nScope note: `packages/fields/src/index.tsx` is deliberately untouched, so nothing here collides with #4037 running in the same package.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

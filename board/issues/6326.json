@@ -2,8 +2,8 @@
   "number": 6326,
   "kind": "issue",
   "title": "finding(components): `ui:menubar` never reads an item's `icon` either — the third `MenuItem`-shaped container, and the one no census can see",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -13,18 +13,21 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-08-25T12:58:32Z",
-  "updated_at": "2026-09-20T21:23:39Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T13:55:42Z",
+  "closed_at": "2026-09-24T13:54:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6326",
   "body": "Blocked-by: #5931\n\nFound while repairing #6278 (`ui:context-menu`'s unread `icon`). Filed unassigned, out of that card's fence — #6278 is scoped to `context-menu` and its 裁决 explicitly forbids generalising the fix across containers.\n\n> **Status (2026-08-28):** the blocker **#5931 is now in the maintainer's decision inbox** (`needs-user-decision`, assignee cleared), with its four-axis block posted. Its fork — declare / retire / redesign the `icon` key for `button-group` — is what decides this card too. ⛔ Still blocked, correctly; nothing to do here until that is ruled.\n>\n> ⚠️ One measurement from #5931's own run is worth carrying, because it kills the obvious answer for at least one container: a proposal to simply strip the key from a component structurally unable to carry an icon was **refuted by rendering the fixture** — `icon-toolbar.json` produces **3 buttons with empty textContent and 0 svg**, so stripping leaves it rendering nothing at all. Whatever is ruled, \"just remove the key\" is not automatically safe.\n\n## What was measured, at `ad54f7587`\n\n`packages/components/src/renderers/overlay/menubar.tsx` contains **0** references to `icon` (case-insensitive 0 as well).\n\nThat is not a shrug about a key nobody declared. `MenubarMenu.items` is typed as **`MenuItem[]`** — the *same* interface `dropdown-menu` and `context-menu` items use, and it declares `icon?: string`:\n\n```ts\n// packages/types/src/overlay.ts\nexport interface MenubarMenu {\n  label: string;\n  items: MenuItem[];      // <- MenuItem.icon?: string\n}\n```\n\n`content/docs/components/overlay/menubar.mdx` documents it too:\n\n```plaintext\ninterface MenubarItem {\n  label?: string;\n  value?: string;\n  icon?: string;\n  ...\n```\n\nThe renderer has **three** places an item is drawn, and none of them reads the key:\n\n```tsx\n{item.label}                       // submenu trigger\n{item.children.map((child, childIdx) => (\n  {child.label}                 // nested child\n))}\n{item.label}  // leaf\n```\n\nSo `ui:menubar` is the third and last member of the `MenuItem`-shaped family, alongside the two already answered: `dropdown-menu` (repaired by #5930) and `context-menu` (repaired by #6278).\n\n## Why this one was invisible, and why that is the interesting part\n\n#6278's table was built by enumerating **authored** `icon` strings in the schema catalog and grouping them by nearest typed ancestor. `examples/schema-catalog/src/schemas/components-overlay-menubar/application-menubar.json` authors **zero** `icon` keys, so menubar could never appear in that table — not because the renderer is fine, but because no fixture exercises the key.\n\nThe same blind spot applies downstream: `scripts/check-lucide-icon-record-names.mjs` has no `'menubar'` census entry, and even if one were added, its `min` non-vacuity precondition would (correctly) fail, because the descent reaches nothing. A gate that judges authored names cannot see a documented key that nothing authors.\n\nThat makes this a **declared-but-unread** key of the #4632 / #4652 / #4721 class, not the \"fixture draws the wrong thing\" class — the failure is silent in both directions: an author following the published `MenubarItem` shape gets no glyph and no error, and no gate reports anything.\n\n## Not addressed here, and not addressed by\n\n- #6278 — `context-menu` only; its ruling forbids generalising across containers.\n- **#5931** — owns `button-group`, `breadcrumb`, `command`; now `needs-user-decision` on whether the key should exist at all for those. Menubar's question is the same one, which is why this card follows rather than pre-empts it. (⚠️ `breadcrumb` and `command` have since been repaired — PR #6644 wired both through `resolveIcon`, the record surface, resolved once per item above the page/link split. `button-group` is the half still open.)\n- #6249 — a different menubar defect (the demo's `shortcut` array against a `string` slot, and a blank separator item). Disjoint from the icon key.\n- #5935 — resolver consolidation, queued.\n\n## The open question, stated but not answered\n\nWhichever way #5931 is decided for its containers probably decides this one too: either `MenuItem.icon` is honoured everywhere it is typed and documented (route through `resolveIcon`, the RECORD surface, as #5930 ruled and as #6644 has now done for two more containers), or the key is removed from the surfaces that do not read it. ⛔ This card should follow that answer, not pre-empt it.\n\nIncidentally, the nested-child arm above also renders only one level deep and drops `disabled`, unlike the sibling renderers' recursion. Noted, not investigated. Per triage, that incidental rides the same fix **if** the answer is \"honour\".\n\nSerial note for the eventual claim: #6327 (hold) and #5935 (queued) touch the same file — check the serial queue."

@@ -1,0 +1,35 @@
+{
+  "number": 4373,
+  "kind": "issue",
+  "title": "app-shell: publishing a draft view does not invalidate the adapter's view caches — the console's real create-view flow bypasses ObjectStackAdapter entirely",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T22:50:50Z",
+  "updated_at": "2026-08-12T02:17:24Z",
+  "closed_at": "2026-08-12T02:17:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4373",
+  "body": "Adjacent finding, surfaced while fixing #4363 (the adapter's own write paths). **Not fixed there** — that PR's scope is `packages/data-objectstack/src/index.ts`, and this defect lives in `packages/app-shell`, on a different writer. Filed under PD #10.\n\nMeasured on the #4363 branch (worktree at `origin/main` `275d7df13`).\n\n## What\n\n#4363 fixed the four write paths on `ObjectStackAdapter` so each invalidates both view-shaped cache keys (`view:{object}:{viewId}` and `view-overrides:{object}`). But **the console's actual create-a-view flow never calls any of them.**\n\n`ObjectView.handleViewCreate` (`packages/app-shell/src/views/ObjectView.tsx:626`) writes through the ADR-0034 metadata seam, not the DataSource:\n\n```\ncreatedId = await createRuntimeMetadata('view', env.name, env, { metadataClient });\n```\n\n`createRuntimeMetadata` (`packages/app-shell/src/views/runtime-metadata-persistence.ts:100`) calls `ctx.metadataClient.save(type, name, body, { mode: 'draft' })` and invalidates nothing. Publish is the same shape — `publishRuntimeMetadata` (`:240`) is a bare `ctx.metadataClient.publish(type, name)`, reached from `RuntimeDraftBar.tsx:118`.\n\nSo the sequence a user actually performs:\n\n1. create a view in the console — lands as an invisible per-item **draft**. `listViewOverrides` reads published rows, so the map is still correct here.\n2. **Publish** — the row becomes published, and the batch override map is now genuinely stale.\n3. nothing invalidates `view-overrides:{object}`, so the map keeps answering from its pre-publish snapshot for the rest of `MetadataCache`'s default 5-minute TTL (`packages/data-objectstack/src/cache/MetadataCache.ts:90`).\n\nThe staleness does not self-heal, for the same reason #4363 gave: `loadViewOverrides` (`ObjectView.tsx:283`) treats a RESOLVED map as authoritative and deliberately does not re-probe per view (#3774), so the per-view `getView` fallback that would mask it is by design unreachable.\n\n## Why #4363 does not cover it\n\n#4363 makes the adapter correct at its own door. This is a second door into the same rows. The two writers are disjoint: `grep` for `createView(` finds no production caller of `ObjectStackAdapter.createView` anywhere in the repo — it is a published `DataSource` surface (`packages/types/src/data.ts:524`) for external consumers, while the console writes through `metadataClient`. Both need to invalidate; only one now does.\n\n## Dormant sibling, recorded not filed separately\n\n`MetadataService.saveMetadataItem` / `deleteMetadataItem` (`packages/app-shell/src/services/MetadataService.ts:140` and `:150`) invalidate `${category}:${name}`. That is the right key for the generic metadata read (`data-objectstack/src/index.ts:3739`), but for `category === 'view'` it names neither view key, so the same gap would open. **No caller passes `'view'` today** — in fact these two methods have no callers outside their own class — so this is observation-class, not a live defect. Worth fixing in the same pass if the direction below is taken.\n\n## Direction (left to triage)\n\nThis is the recurrence #4363's own \"Direction 2\" predicted: the key list is restated per call site, so each new writer forgets it independently. Options:\n\n1. Have the seam's publish path (and `createRuntimeMetadata`) invalidate the adapter's two view keys — needs the adapter reachable from those call sites, which today they do not hold.\n2. Give the adapter one exported \"view rows for this object changed\" invalidation entry point and route every writer — adapter methods, seam, `MetadataService` — through it. Fixes the dormant sibling for free.\n3. Have `listViewOverrides` not be cached at all, and let `listViews`-style freshness apply. Cheapest to reason about; costs the batch read's whole point (#3774 introduced it to remove a 404 flurry), so probably wrong.\n\n## Not claimed\n\nNo browser repro was run. What is measured is the call graph (`handleViewCreate` to `createRuntimeMetadata` to `metadataClient.save`, and `RuntimeDraftBar` to `publishRuntimeMetadata` to `metadataClient.publish`), the absence of any `invalidate` on those paths, and the TTL. Whether a user notices depends on whether they revisit the object within the TTL window.\n\n## Related\n\n- #4363 — the same defect on `ObjectStackAdapter`'s own write paths (fixed); this is the writer it does not reach\n- #3774 — made `listViewOverrides` authoritative, which removes the accidental self-healing\n- #3778 / sweep #4328 — the dead `views:{object}` invalidations, whose removal made this family visible\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

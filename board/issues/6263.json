@@ -2,8 +2,8 @@
   "number": 6263,
   "kind": "issue",
   "title": "A per-option `default` written in a `*.form.ts` is silently inert — the metadata-admin renderer never reads it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:on-hold",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-08-25T05:28:41Z",
-  "updated_at": "2026-08-30T11:44:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:00:51Z",
+  "closed_at": "2026-09-24T14:00:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 11,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6263",
   "body": "Blocked-by: objectstack-ai/objectstack#12868\n\nFiling unassigned — recording, not claiming. Found while verifying objectstack-ai/objectui#6247 (the per-option `visibleWhen` of the same shape); this is the sibling key on the same object and is **out of scope** for that card's fix.\n\n> ## ⚠️ RULED 2026-08-28 (甲) — and this card's premise was FALSE at the platform level\n>\n> ⛔ **Do not implement or re-measure from the body below.** Two things changed under it:\n>\n> 1. **`default` is NOT inert platform-wide.** objectstack#7246 (2026-08-10) asked this same question and the maintainer overrode a delegated retire-ruling verbatim: **\"enforce.\"** PR objectstack#7388 merged, and the engine has honoured option-level `default` on the insert path since — `applyFieldDefaults` falls back to the option marked `default: true` when the field declares no `defaultValue`, with `defaultValue` winning when both are declared, and a precedence pin. So \"declared, honoured by no surface\" is true only of the **form-view / metadata-admin** surface, not of the platform.\n>    That same ruling carried an objectui rider, verbatim: *\"the console needs no second default contract\"* — so the metadata-admin renderer not seeding from option `default` is **by ruling, not by omission**.\n> 2. **The file this card describes no longer exists in that shape.** PR #6618 (card #6247, merged 2026-08-27) rewrote `FormFieldSpec.options`: it was the last hand-written element type in `form-spec.ts`, mirroring 3 of the spec's 5 keys and dropping the other 2 **by silence**. It now derives from the spec type with its narrowings named in an `Omit` — `visibleWhen` re-pointed to the local predicate, and `default` **dropped and now saying so in the type**. So `default` is currently *declared* inert rather than invisibly inert.\n>\n> **The ruling (maintainer, 2026-08-28, verbatim 「同意」): option 甲** — narrow `default` out of the **FORM-VIEW** options vocabulary only, Omit-derived at the form-view reference site, with ⛔ `SelectOptionSchema` itself untouched, and tombstone prose pointing authors at the object definition (field-level `defaultValue`, or the object option's `default: true` — both enforced there).\n>\n> Execution carrier: **objectstack-ai/objectstack#12868** (`domain:spec`, clause-② both limbs, contract-review tier), with a census-first precondition: count form-view corpus usage with a positive control, and a non-zero count means stop and report.\n>\n> **On unlock**: re-verify on the merged ref. The ui-side derived type already tombstones the key (PR #6618), so the residual ui work is likely **nil** and this card closes on verification.\n>\n> ⭐ Worth keeping: option B (retire the key outright) was recommended and *accepted* in a batch, and was caught only by the **pre-filing dedup** that surfaced objectstack#7246. Retiring it would have reverted a ruled, implemented, pinned behaviour. The dedup pass is what stopped it.\n\n## The observation\n\n`SelectOptionSchema` (`@objectstack/spec@17.2.0`, `spec/data`) declares five keys:\n\n```\nlabel · value · color · default · visibleWhen\n```\n\nMeasured against the installed package — `FormViewSchema.safeParse` of a whole `*.form.ts` carrying `options: [{ label, value, default: true }]` is **ACCEPTED**. The schema is `z.core.$strict`, so this is a genuine declaration and not a passthrough artefact: the same parse with an undeclared key is REFUSED with `unrecognized_keys`.\n\nThe metadata-admin renderer has exactly three controls that consume `fieldSpec.options`, and **none of them reads `default`**:\n\n| control | site |\n| --- | --- |\n| `Select` (builtin scalar chain) | `packages/app-shell/src/views/metadata-admin/SchemaForm.tsx:1666-1681` |\n| `MultiSelectWidget` | `packages/app-shell/src/views/metadata-admin/widgets.tsx:1128-1129` |\n| `colorPaletteOptions` → `ColorSwatchGroupWidget` | `packages/app-shell/src/views/metadata-admin/widgets.tsx:2183-2184` |\n\nAll three map `label` / `value` (and `color` in two of them) and drop the rest.\n\nobjectui's own local mirror of the authoring type also omits it — `FormFieldSpec.options` in `packages/app-shell/src/views/metadata-admin/form-spec.ts:103` is declared as `Array<{ label: string; value: string; color?: string }>`, i.e. three of the spec's five keys. That file's header is explicit that every deliberate narrowing is \"named in an `Omit` list and restated once, next to its reason\"; the `options` element type is hand-written and its narrowing is not among the named ones, so it is not currently distinguishable from an oversight. (⚠️ Superseded by PR #6618 — see the box above; the narrowing is now named.)\n\n## Why it is worth a card\n\nSame ADR-0049 declared-but-unenforced shape as #6247, and the same costly direction: an author writing `default: true` on an option is asking for a pre-selected value, gets a clean parse, and gets an empty picker. Nothing tells them, and no gate notices.\n\nNote this is **not** the same as `#4047` (create dialog ignoring a field's `defaultValue`), which is closed and concerns the FIELD-level key on the runtime surface — this is the per-OPTION key on the metadata-admin surface.\n\nZero `*.form.ts` in `@objectstack/spec@17.2.0` uses the key today, so nothing is broken right now; this is about the next author who reaches for it.\n\n## Directions (⛔ SUPERSEDED by the 甲 ruling above — retained as the record of what was asked)\n\n- Teach the metadata-admin controls to seed the draft from an option's `default` when the field has no value; or\n- state the boundary where it is reachable and add a gate that fails a `*.form.ts` carrying an inert per-option key, so the spelling cannot ship silently. A gate of that shape would cover `visibleWhen` (#6247) and `default` together."

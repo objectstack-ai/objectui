@@ -2,8 +2,8 @@
   "number": 3790,
   "kind": "issue",
   "title": "观察类:useHitlInChat 决策结果的三处消费侧容忍(失败信封是本地虚构 / status 兜底默认 / 未知 status 当成功)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -11,18 +11,21 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-08T16:11:01Z",
-  "updated_at": "2026-08-23T04:19:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T11:05:17Z",
+  "closed_at": "2026-09-24T11:05:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/3790",
   "body": "发现于 #3783 的实施过程(PR 只做类型收紧,行为零变更 —— 判级评论明确把行为裁决划出该单)。三处都在 `packages/plugin-chatbot/src/useHitlInChat.ts`,共一个根:**决策响应的判读在消费侧手写,而不是让 producer / spec 说话**。今天都不可达(spec 合规的服务端不会产生),所以按观察类记录,不带 `pm:queue`。\n\n行号按 `claude/issue-3783-hitl-outcome-derive`(#3783 的 PR)合并后的形态给,原始行号在括号里。\n\n## 1. 非 2xx 时交给 `onDecided` 的对象根本不是任何 wire 响应\n\n`decide()` 在 `!response.ok` 时本地虚构一个信封交给公开回调(原 `:209-213`):\n\n```ts\nonDecided?.(toolCallId, { id, status: 'failed', error: message } as ApproveOutcome);\n```\n\n`onDecided` 的声明类型是 `ApproveOutcome | RejectOutcome`,#3783 之后这两个是 spec 的 approve/reject 响应本体。但这条路径上**没有**决策响应 —— HTTP 403/404/409/5xx 时服务端返回的是错误体。于是:\n\n- 这个信封带 `id`(#3783 之后 `ApproveOutcome` 不再声明 `id`,所以消费者读不到,但运行期它仍在 —— #3783 有测试钉住,属刻意保留行为);\n- reject 失败时也走这条 `as ApproveOutcome`,而 spec 的 reject 响应 `status` 只有 `'rejected'`,即\"失败的 reject\"在类型上无处可去;\n- 结论:`onDecided` 的参数类型仍在**小幅撒谎** —— 它说\"你会收到一个决策响应\",实际还可能收到一个本地错误通知。\n\n修法是**公开契约决策**,不是实现细节,故不猜:见下面的选项。\n\n## 2. `status` 的兜底默认(原 `:216`)\n\n```ts\nconst status = (payload.status as string) ?? (approved ? 'executed' : 'rejected');\n```\n\n响应体缺 `status` 时,消费侧替服务端\"猜\"一个成功值。spec 里 `status` 在两个响应上都是**必填**,所以缺失即不合规响应 —— 消费侧默默补齐正是让 producer 的违约不可见。\n\n## 3. 未知 `status` 渲染成成功(原 `:233-236`)\n\n```ts\n} else {\n  setDecision(toolCallId, { state: 'success', message: `Status: ${status}` });\n  succeeded = true;\n}\n```\n\n**核实后修正 #3783 正文的一处描述**:该分支只把 UI chip 标成成功,**不会**继续对话 —— `buildContinuationPrompt` 对 `executed`/`rejected`/`failed` 之外的任何 status 返回 `undefined`,`if (prompt)` 因此不成立。#3783 的 PR 已用测试钉住这一行为(`keeps treating an unrecognised status as a success chip, without continuing`)。所以影响面比原判读小:是一个乐观的 UI 状态,不是\"喂给模型一个假成功\"。\n\n类型收紧对这一支**没有**施加穷尽性压力:`status` 是从未解析的 `Record< string, unknown >` 上读出来的 `string`,不是闭合枚举,所以分支在类型层与运行期都仍可达(仅对不合规服务端可达)。这也是 #3783 得以\"仅类型收紧\"的原因。\n\n## 选项(需 maintainer 裁决,勿自行猜)\n\n**A. 消费侧用 spec schema 解析,失败即错误。** 在 `decide()` 里对响应体跑 `ApproveAiPendingActionResponseSchema` / `RejectAiPendingActionResponseSchema` 的 `safeParse`:未知 status、缺失 status 一律落到 `state: 'error'`,兜底默认与 `else` 一并消失。代价:`plugin-chatbot` 从\"仅类型依赖 spec\"变成**运行时**依赖 spec(zod 进 bundle,该包以 tiny bundle 为卖点);且这是行为变更(今天显示成功的边缘情形改成显示错误)。\n\n**B. 只收窄回调契约,判读逻辑不动。** 给 `onDecided` / `ContinueContext.outcome` 加一个显式的本地失败变体,例如 `ApproveOutcome | RejectOutcome | { kind: 'transport'; error: string; pendingActionId: string }`,让\"这不是 wire 响应\"在类型上说出来;`else` 与兜底默认保留并加注释。代价:公开回调签名变更(破坏性,但方向是从撒谎变诚实),消费侧容忍仍在。\n\n**C. 什么都不做,只留注释。** #3783 已经这么做了。代价:三处容忍继续存在,下一个 agent 仍会把 `onDecided` 的类型当真。\n\n倾向 **B 优先、A 视 bundle 政策再议**:B 让\"失败路径不是 wire 响应\"这件事在类型层可见(这是 AI 写的消费代码最容易踩空的地方),且不把 zod 拖进 bundle;A 在长期上更彻底(declared = enforced 落到运行期),但要先有一条关于 `plugin-chatbot` 是否允许运行时依赖 spec 的政策裁决 —— 那不该由一个 finding 顺手定。\n\nRefs: #3783(来源,已修类型层面的三处漂移)、#3220(同文件同失败类)、objectstack `packages/spec/src/api/protocol.zod.ts` 的 `ApproveAiPendingActionResponseSchema` / `RejectAiPendingActionResponseSchema`。\n"

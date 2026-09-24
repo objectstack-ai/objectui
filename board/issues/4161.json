@@ -1,0 +1,36 @@
+{
+  "number": 4161,
+  "kind": "issue",
+  "title": "[console] Conditional required (requiredWhen): submit-time validation uses the mount-time snapshot — star correctly disappears, submit still blocked with zero POST",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T15:02:22Z",
+  "updated_at": "2026-08-10T20:48:13Z",
+  "closed_at": "2026-08-10T20:48:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4161",
+  "body": "## Environment\n\n`@objectstack/*@17.0.0-rc.6`, Console record create dialog.\n\n## Summary\n\nThe create form's submit-time required validation appears to be **snapshotted when the dialog mounts**. A `requiredWhen` predicate that later flips to FALSE updates the **display layer** (the required star disappears as expected) but not the **validation layer**: submit is still refused with \"<field> 不能为空\", and **no POST is issued at all**.\n\n## Minimal repro (generic shape)\n\nObject with a select field `A` (**no defaultValue**) and a lookup field `B`:\n\n```ts\nB: Field.lookup({\n  requiredWhen: P`!(has(record.A) && record.A == \"x\")`,\n})\n```\n\n1. Open the create dialog → `B` shows the required star (`A` key absent ⇒ predicate TRUE — expected).\n2. Pick `A = \"x\"` → `B`'s required star **disappears** (live re-evaluation works on the display layer).\n3. Click Create → error \"B 不能为空\", and **no `POST /api/v1/data/<object>` request is issued**.\n4. Control: open an **edit** dialog on an existing record whose `A` is already `\"x\"` → `B` unstared, save PATCHes 200. The only difference from step 3 is whether `A` had a value **at mount time** — which is what implicates a mount-time snapshot.\n\n## Assertions observed\n\n- After step 2: `B`'s label contains no `*`, no required marker in the field container.\n- After step 3: inline error \"B 不能为空\" appears; network shows **zero** create POSTs.\n- Server-side control (only the client is affected): direct `POST /api/v1/data/<object>` with `{\"A\":\"x\"}` and no `B` → **201**; with `A` at another value and no `B` → **400 VALIDATION_FAILED**. Server `requiredWhen` semantics are correct.\n\n## Expected\n\nSubmit-time validation should consume the same live `resolveFieldRuleState` result that drives the required star, not a snapshot taken at dialog mount.\n\n## Related (checked before filing — distinct issues)\n\n- #4085 is the nearest neighbour but a different defect: there the predicate resolves **TRUE** on create and the deadlock comes from the producer-owned runtime `defaultValue` interplay. Here the predicate resolves **FALSE** by submit time and the block comes from the stale mount-time snapshot; no runtime default is involved (`A` deliberately has none).\n- Possibly adjacent to PR #4068 (create forms now seed from schema-declared defaults): seeding changes the mount-time record, hence the content of this snapshot. In this repro `A` has no default, so the snapshot is always \"required\".\n\n## Impact\n\nAny \"conditionally optional\" field whose driving field has no `defaultValue` can never be left empty on a create form, even when the author's predicate says it may be. In the reporting app this pattern occurs 10+ times across objects."
+}

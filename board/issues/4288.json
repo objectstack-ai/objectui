@@ -1,0 +1,32 @@
+{
+  "number": 4288,
+  "kind": "issue",
+  "title": "`RoleDefinition.permissions` is required and read by nothing — every consumer uses only `name`/`inherits`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T11:11:06Z",
+  "updated_at": "2026-08-11T22:19:46Z",
+  "closed_at": "2026-08-11T22:19:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4288",
+  "body": "Observation-class finding, surfaced while wiring `@object-ui/permissions`' tests into `tsc` for #4040 (tranche 1, PR #4287). Nothing a user meets today — filed rather than fixed because resolving it either way changes a public exported type.\n\n## What\n\n`packages/types/src/permissions.ts:38`:\n\n```ts\nexport interface RoleDefinition {\n  name: string;\n  label: string;\n  description?: string;\n  inherits?: string[];\n  system?: boolean;\n  permissions: ObjectLevelPermission[];   // required\n}\n```\n\n`permissions` is the only required member besides `name` and `label`, and it is documented as the role's **direct** object-level grants.\n\nNothing in this repository reads it. A repo-wide search for `role.permissions` / `roleDef.permissions` / `r.permissions` over `packages/**` and `apps/**` (excluding `dist` and `node_modules`) returns nothing. The four places that take a `RoleDefinition[]` all use `name` and `inherits` only:\n\n- `packages/permissions/src/evaluator.ts:18`, and `resolveRoles` at `:92` — walks `inherits`, matches on `name`\n- `packages/permissions/src/store.ts:34`\n- `packages/permissions/src/PermissionProvider.tsx:22`\n\nEvery grant the evaluator actually applies comes from the separate `ObjectPermissionConfig[]`, keyed by object with a `roles` map inside it. So there are two declared homes for \"what a role may do\", and only one of them is wired.\n\n## How it surfaced\n\nFive of `@object-ui/permissions`' declared `TEST_DEBT` errors were `TS2741` — fixtures annotated `RoleDefinition` that omit `permissions`:\n\n```\nsrc/__tests__/evaluator.test.ts(16,7): error TS2741: Property 'permissions' is missing in type '{ name: string; label: string; }' but required in type 'RoleDefinition'.\nsrc/__tests__/store.test.ts(14,3): error TS2741: ...\n```\n\nPR #4287 gives each fixture `permissions: []`, which is accurate for those roles and leaves the type alone. That is the right fix for the test files, and it is also the thing that makes the dormancy visible: five fixtures independently omitted a required field, and every case still asserted exactly what its author meant, because no code path was ever going to look.\n\n## Why it is `finding` and not queued\n\nNo user-visible behaviour depends on it either way. It is one of two shapes, and telling them apart is a product question, not a code one:\n\n- **The field is aspirational** — role-attached grants were designed and never wired. Then it is ADR-0049 enforce-or-remove territory: either build the reader or retire the declaration.\n- **The field is intended and merely optional in practice** — every real role today gets its grants from `ObjectPermissionConfig`. Then it should be `permissions?:`, and the required-ness is what is wrong.\n\nEither resolution edits `packages/types`' published surface, so it wants a ruling rather than a guess. Cheap to settle whenever the permissions surface next gets attention.\n\nRefs #4040, #4287, objectstack-ai/objectstack#4118.\n"
+}

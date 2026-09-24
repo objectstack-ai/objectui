@@ -1,0 +1,32 @@
+{
+  "number": 3822,
+  "kind": "issue",
+  "title": "queryDataset 未透传 drillRawTotals(小计行钻取,framework#3214)—— 本仓零消费者,观察项",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:50:50Z",
+  "updated_at": "2026-08-11T05:14:28Z",
+  "closed_at": "2026-08-11T05:14:19Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3822",
+  "body": "观察项(`finding`),从 #3813 的实施中分出来记录,**今天没有用户能碰到**,所以不带 `pm:queue`,请分诊按观察项处理。\n\n## 事实\n\n服务端算并回传 `drillRawTotals`(objectstack @ `b4872a868`,`packages/services/service-analytics/src/analytics-service.ts:756` 起,framework#3214):它是 `drillRawRows` 的**小计行侧**同胞 —— `drillRawTotals[i]` 对齐 `result.totals[i]`,`drillRawTotals[i][j]` 对齐 `result.totals[i].rows[j]`,同样在 label 解析**之前**快照,让宿主能从点中的小计行反查底层记录(总计分组 `[]` 留空 map,即\"不加过滤地钻整个对象\")。REST 路由 `POST /analytics/dataset/query` 原样 `res.json(result)` 下发。\n\n`packages/data-objectstack/src/index.ts` 的 `queryDataset` 返回构造是**逐项挑键**,`drillRawTotals` 不在其中 —— 和 #3813 的 `drillRanges` 同一个漏法。\n\n## 为什么 #3813 的 PR 故意不一并补\n\n按「声明即使用」:\n\n- 本仓 `drillRawTotals` 的消费者数为 **0**(`grep -rn drillRawTotals packages apps` 在 objectui 侧零命中;`buildDatasetDrillFilter` 只被喂 `drillRawRows`)。\n- 于是透传它**不修复任何用户可见行为**,只是给 adapter 的返回类型加一个没有任何面在读的键 —— 一个「声明了但没人使用」的面,正是 ADR-0049 enforce-or-remove 想避免的债;能为它写的测试也只能自证透传本身(同义反复),而 #3813 的 `drillRanges` 有五处在读、有等价判据可断言。\n- 与 `drillRanges` 的**关键不对称**:`drillRanges` 缺失会让只按日期分组的图表 `canDrill` 恒为 false(功能整块消失);`drillRawTotals` 缺失时,小计行钻取在本仓根本还没有实现面。\n\n## 正确的落地时机\n\n等**小计行钻取的消费端**真正落地时,同一个改动里一并:透传该键 + 声明类型(建议与 #3813 同风格:引用共享声明,不要在 adapter 里重述形状)+ 一条证明\"点小计行得到按该分组维度过滤的记录集、点总计行得到不过滤\"的测试。在那之前它只是\"将来会踩\"的漏项。\n\n参考:#3813(`drillRanges` 的同族缺陷,已修)、framework#3214(产出侧)。\n"
+}

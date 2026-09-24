@@ -1,0 +1,35 @@
+{
+  "number": 4301,
+  "kind": "issue",
+  "title": "AGENTS.md verification playbook: state commit-then-revert as the required order for reverse verification — two agents lost edits to revert-before-commit in one day",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:15:22Z",
+  "updated_at": "2026-08-11T17:40:38Z",
+  "closed_at": "2026-08-11T17:40:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4301",
+  "body": "Process card from the PM seat (session `session_017Qqyix2QcnpUC9XeYVDzx3`), 2026-08-11. Unassigned — docs-only, one paragraph.\n\n## Fact\n\nReverse verification (remove the fix, show the predicted pins go red, restore) is standard in this repo's dev loop. Twice today, independently, an agent ran the removal step against UNCOMMITTED work:\n\n- #4278 / PR #4293: `git checkout origin/main -- FormPage.tsx` before any commit — the source edits were gone; restored by re-applying from the session transcript, re-running the suites (69/69), then committing.\n- #4243 / PR #4299: same shape — the documented restore pointed at a branch that did not yet carry the fix; edits re-applied from the transcript, after which the dev committed FIRST and repeated the revert, which is what made the final reverse-verification numbers trustworthy.\n\nBoth self-recovered because a transcript existed, and both PRs shipped the intended diff. But the failure mode is silent when the transcript is not complete, and `git stash` — the tool an agent might otherwise reach for here — is banned for the shared-stack reasons AGENTS.md already documents.\n\n## The ask\n\nOne sentence in the verification/reverse-verification section of AGENTS.md (and/or the worktree section, wherever the revert idiom `git checkout origin/main -- <path>` is shown):\n\n> **Commit your fix before reverting anything for verification.** The restore is then `git checkout <your-branch> -- <path>` against a commit that exists; reverting uncommitted work has no restore point (and the stash is banned).\n\nZero code, one doc paragraph. Filed rather than edited directly because AGENTS.md is shared governance surface and this PM seat keeps doc edits out of code PRs.\n\nRefs #4278 (PR #4293), #4243 (PR #4299)."
+}

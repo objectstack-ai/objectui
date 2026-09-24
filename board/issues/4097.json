@@ -1,0 +1,34 @@
+{
+  "number": 4097,
+  "kind": "issue",
+  "title": "ActionRunner's non-array `params` reads are dead vocabulary — the url interpolation scope and `params.newTab` were retired by the spec ruling on objectstack#6828 (finding)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T08:09:59Z",
+  "updated_at": "2026-08-11T11:50:36Z",
+  "closed_at": "2026-08-11T11:50:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4097",
+  "body": "Filed unassigned per contract-first: the contract half landed in `objectstack`, this is the consumer half. Not a live defect — a removal that is now authorized and was not before.\n\n## The ruling\n\nobjectstack maintainer ruling, 2026-08-10 (objectstack-ai/objectstack#6828, comment 5237221393), verbatim:\n\n> A key with three meanings and no authorized spelling for the third is the de-facto-contract shape AGENTS.md #0.1 forbids; the schema already refuses it and there is no live victim, so retirement costs nothing. Interpolation scope + `newTab` on a `type:'url'` inline action either gets its own properly-named key via a spec proposal (if someone demonstrates pull) or stays out of the vocabulary. Document the refusal in the error guidance so authors reaching for it learn the sanctioned spellings.\n\nSo object-form `params` is **not** getting a spelling on a `type:'url'` action. It never had one — `packages/spec/src/ui/action.zod.ts` has always declared `params: z.array(ActionParamSchema)`, so the shape fails the props parse — but until this ruling the question \"should it get a key?\" was open. It is now closed the other way.\n\n## What that makes dead in this repo\n\nBoth reads are in `packages/core/src/actions/ActionRunner.ts`:\n\n1. **`interpolateTarget` — the non-array `params` interpolation scope.** It takes a non-array `params` as the `${param.X}` substitution scope for the target URL (around `:1091` as measured on objectui `main` for objectstack#6828 on 2026-08-09 — re-anchor by content, not line). The `${param.X}` mechanism itself is **live and stays**: it resolves values the params **dialog** collected. What is dead is the branch that accepts a statically authored *object* as that scope — no author can produce one, because the spec refuses the shape at parse time.\n2. **`executeUrl` — the legacy `params.newTab` escape hatch** (around `:1133-1136`, same caveat), read below `openIn` in priority. `openIn: 'self' | 'new-tab'` is the declared key and already wins; the fallback can only fire on a shape that cannot be authored. Superseded in practice by #2043's fix, and now formally retired rather than merely outranked.\n\n## Why it is safe to remove\n\n- **Nothing authors it.** objectstack#6828 grepped `origin/main` in all three repos for inline-action sites (objectstack `examples`, cloud service-tenant pages, objectui). Every `type:'url'` inline action is target-only; the only object-form `params` anywhere was the showcase's `api` submit button, which objectstack#5777 migrated to `bodyExtra`.\n- **The spec refuses it and now says so.** The refusal message used to prescribe `bodyExtra` for every action type, which for a url action was a wrong instruction (an api request-body key is neither an interpolation scope nor a new-tab control). The objectstack PR for #6828 branches that guidance: `api` ⇒ `bodyExtra`; `url` ⇒ put static values in the `target` string, and use `openIn: 'new-tab'` — naming both retired readings as retired, not renamed.\n- **Removal cannot regress a validated stack**, because a stack carrying either shape never validated.\n\n## What a fix looks like\n\n- Drop the non-array branch from `interpolateTarget`, keeping the dialog-collected `${param.X}` scope and `${ctx.X}` untouched.\n- Drop the `params.newTab` fallback from `executeUrl`, leaving `openIn` plus the existing external/relative-URL default.\n- Pin the sanctioned spellings so the removal cannot quietly come back: `openIn: 'new-tab'` opens a new tab, and a url action whose `target` carries `${param.X}` interpolates from the collected dialog values.\n\nWorth measuring before deleting: whether any objectui-internal caller synthesizes a non-array `params` itself (a renderer or console shim constructing an action object rather than parsing an authored one). The corpus grep above covered *authored* metadata; a synthesized caller inside this repo would not appear in it, and would have to move to the sanctioned spelling in the same change.\n\nRelated: objectstack-ai/objectstack#6828 (this card's contract half — the ruling and the error guidance), objectstack-ai/objectstack#5777 (the `type:'api'` half, ruled 2026-08-06 → `bodyExtra`), #2043 (the original `newTab`-in-`params` overload that produced `openIn`), #2997 (`element:button`'s inline action shape)."
+}

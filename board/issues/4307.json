@@ -1,0 +1,34 @@
+{
+  "number": 4307,
+  "kind": "issue",
+  "title": "AppManagementPage renders raw English chrome throughout — untouched by the #4208 i18n pass, now the only un-i18n'd system page with live mutations",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:26:04Z",
+  "updated_at": "2026-08-11T18:16:48Z",
+  "closed_at": "2026-08-11T18:06:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4307",
+  "body": "Filed by the PM seat (session `session_017Qqyix2QcnpUC9XeYVDzx3`) from #4233 / PR #4300's acceptance review. Unassigned — queued, not started.\n\n## Fact\n\n`apps/console/src/pages/system/AppManagementPage.tsx` is raw-English chrome end to end (headings, table columns, buttons, dialogs, toasts). The #4208 console i18n pass did not cover it, and #4233's PR #4300 deliberately added **no new user-facing strings** while wiring the page's four mutation handlers (set-as-default / disable / bulk toggle / delete via `meta.saveItem` / `meta.deleteItem`), precisely so the i18n debt stayed a separable card instead of a rider.\n\nNow that the page performs real mutations (PR #4300), it is a page operators actually use — the localization gap is user-visible on every non-English console.\n\n## The ask\n\nStandard console i18n conversion for this one page: keys through the repo's console i18n path, all ten packs, `check:i18n-call-site-keys` / `check:i18n-en-drift` green. Note the toasts added by PR #4300 surface server refusal messages verbatim — keep that behavior (server messages are not this card's to translate); only the page's own chrome is in scope.\n\n## Surface\n\n`apps/console/src/pages/system/AppManagementPage.tsx` + console i18n resources (+ its tests). Coordinate with any in-flight holder of apps/console pages at dispatch time.\n\nRefs #4233, PR #4300, #4208."
+}

@@ -2,8 +2,8 @@
   "number": 5392,
   "kind": "issue",
   "title": "[Decision] Should `@object-ui/types` ship a generated JSON Schema? — the contract an AI author can read before writing",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -11,16 +11,19 @@
     "type": "User"
   },
   "labels": [
-    "domain:ui",
-    "pm:on-hold"
+    "domain:ui"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-20T09:14:26Z",
-  "updated_at": "2026-08-25T10:13:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T14:04:05Z",
+  "closed_at": "2026-09-24T14:04:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 8,
   "locked": false,

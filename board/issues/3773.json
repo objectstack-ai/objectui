@@ -1,0 +1,32 @@
+{
+  "number": 3773,
+  "kind": "issue",
+  "title": "[finding] RecordContextValue 的 `loading` / `error` 两个字段全仓零生产者、零消费者(`refresh` 的同班同学,已在 #3460 补上生产者)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T13:40:41Z",
+  "updated_at": "2026-08-11T22:19:46Z",
+  "closed_at": "2026-08-11T22:19:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3773",
+  "body": "观察类发现,**当前无用户可见影响**,记录备查,不建议插队。发现于 #3460 的实现过程(该单给同一 interface 的 `refresh` 补上了生产者与消费者)。\n\n## 事实\n\n`packages/react/src/context/RecordContext.tsx` 的 `RecordContextValue` 声明了三个\"由宿主填充\"的状态字段:\n\n```ts\n/** True while the record is fetching. */\nloading?: boolean;\n/** Last fetch error, if any. */\nerror?: Error | null;\n/** Re-fetch the record from the source. */\nrefresh?: () => void | Promise< void >;\n```\n\n(注:上面 `Promise< void >` 的空格是为了绕开 GitHub 正文把 `<` + 字母当成 HTML 标签吞掉,源码里没有这个空格。)\n\n三者都进了 `RecordContextProvider` 的 `useMemo` 依赖数组,类型、lint、门禁全绿。但实读当前 main:\n\n- **`refresh`** —— 曾是零生产者零消费者;#3460 已补上两端(`RecordDetailView` 生产、`page:header` 消费)。\n- **`loading`** —— 全仓**零生产者、零消费者**。两个挂载点(`RecordDetailView.tsx`、`metadata-admin/previews/PagePreview.tsx`)都不传;`grep` 全仓也没有任何 `record:*` 渲染器读它(各家渲染器读的是自己 schema 上的 `loading` 或 `DiscussionContext.loading`,与本字段无关)。\n- **`error`** —— 同上,零生产者、零消费者。\n\n## 为什么现在没人踩到\n\n没有消费者,就没有\"读到 undefined 的错误分支\";没有生产者,就没有\"写了却没人读\"的浪费。这是**休眠声明**,不是缺陷 —— 用户今天碰不到。\n\n值得记一笔,是因为这正是本仓反复点名的 **declared ≠ enforced** 形状:字段声明了、注释写清了语义、类型与 lint 全绿,而**没有任何代码路径写它、也没有任何代码路径读它**。#3460 的分诊评论把 `refresh` 当作这个形状的教科书例子,而它在同一个 interface 里还有两个同班同学。\n\n一个具体的次生风险(仍属观察):`RecordDetailView` 的记录加载 effect 里已有 `pageRecordStatus === 'loading'` 这一现成状态,把它接进 `loading` 是一行的事 —— 但那会让 context 每次取数多一次失效(`loading` 在 memo 依赖数组里),从而让**所有** `record:*` 消费者多一轮重渲染。也就是说\"顺手补上生产者\"并非零成本,值得先定\"这个字段到底服务谁\"再动。#3460 因此**没有**顺手补:与其新增一个只有那个刷新按钮会读的半截语义,不如把它留成一条可评审的记录。\n\n## 可能的处置(留给维护者裁决,本单不主张任何一种)\n\n1. **补齐**:`RecordDetailView` 生产 `loading` / `error`,并明确哪个渲染器该读它们(骨架屏?错误条?)—— 需要先有消费方需求,否则又是一次 declared ≠ enforced。\n2. **退休**:按 enforce-or-remove 删掉两个字段(以及 memo 依赖数组里的对应项),让\"记录级 loading/error\"这件事只由各渲染器自己的数据源表达。\n3. **维持现状**并接受它们是给宿主预留的扩展点 —— 那么至少该在注释里写明\"当前无生产者\",免得下一个实现者以为读它就能拿到值(#3460 差点这么做)。\n\n## 查重\n\n已按关键词(`RecordContext`、`RecordContextValue`、`loading` 生产者)搜过本仓 open issue,无影子单;#3460 是相邻单但主题是刷新按钮本身,不覆盖这两个字段。"
+}

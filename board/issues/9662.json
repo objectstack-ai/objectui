@@ -2,8 +2,8 @@
   "number": 9662,
   "kind": "issue",
   "title": "finding(react,app-shell,components,core): seven source comments still transcribe the ambient predicate scope bag with `app` and/or `data` - both removed from `buildExpressionScope` by objectui#8155 and objectui#8166, and objectui#8810 already cleaned the published half",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -12,16 +12,19 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-17T07:55:25Z",
-  "updated_at": "2026-09-17T13:05:21Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T08:59:28Z",
+  "closed_at": "2026-09-24T08:59:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

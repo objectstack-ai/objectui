@@ -1,0 +1,36 @@
+{
+  "number": 4369,
+  "kind": "issue",
+  "title": "[finding] Four more copies of the falsified `paths-ignore` premise survive #3857's three named sites (changeset-presence.yml, check-changeset-no-major.mjs and its test)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T22:29:19Z",
+  "updated_at": "2026-08-11T23:46:48Z",
+  "closed_at": "2026-08-11T23:46:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4369",
+  "body": "Out-of-scope finding, recorded while implementing #3857 / #3859 (PR pending). Filed **unassigned**, per the report-don't-fix discipline: #3857 names exactly three sites and its dispatch scope is those three, so these four were left untouched rather than swept in.\n\n## Fact\n\n#3857 established that `ci.yml` and `lint.yml` no longer carry `paths-ignore` on their `pull_request` trigger — objectui#3523 step 2 moved the path decision into the jobs (`Decide whether this change needs a full run`), leaving `paths-ignore` only on `push`. It then named three texts that still assert the old shape. A keyword sweep for `paths-ignore` across the tree at `origin/main` @ `2fea4d2fa` finds **four more** carrying the same falsified premise, none of them named on that card:\n\n| Location | What it still says |\n|---|---|\n| `.github/workflows/changeset-presence.yml:11-15` | \"`ci.yml` and `lint.yml` both list `.changeset/**` under `paths-ignore`, so a PR that adds ONLY a changeset starts nothing else\" — a near-verbatim copy of the `scripts/check-changeset-presence.mjs` paragraph #3857 does name |\n| `scripts/check-changeset-no-major.mjs:22` | \"nothing executed it, and no workflow even looked at `.changeset/**` (both `ci.yml` and `lint.yml` list it under `paths-ignore`)\" — the sentence is historical, but the parenthetical is present tense |\n| `scripts/__tests__/check-changeset-no-major.test.ts:19-22` | \"`ci.yml` and `lint.yml` both `paths-ignore` `.changeset/**`, so a changeset-only PR started no workflow at all\" |\n| `scripts/__tests__/check-changeset-no-major.test.ts:120-123` | \"`ci.yml` cannot host this check: a changeset-only PR matches its `paths-ignore` twice over (`'**/*.md'` and `.changeset/**`), so no job in it would ever run\" |\n\nThe two test-file occurrences are comments only. The **assertions** below them are sound and stay green — `expect(ci).toContain(\"paths-ignore:\")` passes because the `push` trigger genuinely keeps its copy — so nothing here is a broken gate; it is the explanation attached to a working gate.\n\n## Why it is worth a card rather than a shrug\n\nThis is the same class #3857's own triage graded, in its words: agent-facing operational assertions that are live-disproven, \"the 'decide by it, decide wrong' class, with the cost already sampled once (PR #3856's author wrote a false CI expectation from AGENTS.md and got 16 checks)\". That card was promoted from `finding` to `pm:queue` on that reading.\n\nThere is one extra cost specific to these four, which did not apply when all seven copies said the same wrong thing: once #3857's PR lands, the repository will state **both** shapes. A reader who lands on `changeset-presence.yml`'s header first has no signal that the corrected text three files away supersedes it — the two read as equally authoritative, and the stale one is the one physically closest to the gate it explains.\n\nThe right fix is the same one #3857 specifies, applied to these four: state that `paths-ignore` remains only on `push`, that the pull_request path decision lives in the `Decide whether this change needs a full run` step, and restate each gate's rationale as the reason that holds today (both changeset gates are correct as built — the conclusion outlives its premise, because the in-job exclusion list still covers markdown and `.changeset/**`, so those workflows start, report, and skip every expensive step on exactly the PR these gates exist to judge).\n\n## Live counter-proof, re-measured today\n\n- PR #3856 — one `.md` file, 16 checks (the original sample).\n- PR #4339 — one line added to `AGENTS.md`, merged 17:40Z on 2026-08-11: **17 check runs** on its head commit, read from the API, including `Lint`, `Type Check`, `Test (shard 1..4/4)`, `Internal Docs Link Check`, `Skill Guide Path Check`, `Control Byte Scan` and `Changeset Declaration`.\n\n## How to re-check\n\n```\ngrep -rn 'paths-ignore' .github/workflows scripts AGENTS.md | grep -v node_modules\nsed -n '1,20p' .github/workflows/ci.yml          # paths-ignore on push only; :12 says why\nsed -n '29,42p' .github/workflows/lint.yml       # same, :37\n```\n\n## Dedupe\n\nSearched open issues in this repo for `paths-ignore`, `changeset-presence`, `check-changeset-no-major` and `changeset-guard`: the only hit is #3857 itself, whose three named sites are disjoint from the four above. No twin.\n\n## Relation\n\n- **#3857** — parent in substance, not in scope: same premise, four sites it did not enumerate. Its PR corrects only the three it names.\n- **#3859** — the other half of the same docs-truth batch; different file, different fact.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

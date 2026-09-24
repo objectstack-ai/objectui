@@ -1,0 +1,35 @@
+{
+  "number": 4414,
+  "kind": "issue",
+  "title": "`CURRENCY_SYMBOLS` in `CurrencyField.tsx` is dead — the symbol it would supply is inlined as a ternary two lines below",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T04:33:21Z",
+  "updated_at": "2026-08-12T05:42:41Z",
+  "closed_at": "2026-08-12T05:42:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4414",
+  "body": "## Observation\n\n`packages/fields/src/widgets/CurrencyField.tsx` declares a currency-symbol lookup table that nothing reads:\n\n```ts\nconst CURRENCY_SYMBOLS: Record<string, string> = {\n  USD: '$',\n};\n```\n\nThe one place that needs a symbol does not use it — it inlines the same single entry as a ternary:\n\n```ts\nconst symbol = currency ? (currency === 'USD' ? '$' : currency) : '';\n```\n\nSo the map and the ternary encode the same one-entry fact in two places, and only one of them is live. `eslint` already reports it (`'CURRENCY_SYMBOLS' is assigned a value but never used`, `@typescript-eslint/no-unused-vars`) as a warning, which is why it has survived: the repo's lint gate fails on errors, and warnings do not stop anything.\n\n## Why this is filed as an observation and not a defect\n\nNothing a user hits today. The rendered output is whatever the ternary produces, and the dead map cannot change it. The cost is that the next person adding a currency symbol has a table sitting right there that looks like the place to add it, and adding an entry to it would change nothing while looking correct — the failure mode would be silent.\n\nDeliberately **not** graded further than that. Which of the two should survive is a real question and not obviously the ternary: a widget that shows `KWD` rather than a symbol for every non-USD currency is arguably its own (separate) shortcoming, and `Intl` already knows the symbols. Whoever picks this up should decide whether to delete the map or make it the live path, not assume the first.\n\n## Provenance\n\nTripped over while implementing #4361 (currency formatting following each currency's own ISO 4217 fraction-digit width, PR #4413). Out of that card's scope — that card is about digit counts, this is about the symbol lookup — so it is filed rather than folded in. Not touched by that PR.\n"
+}

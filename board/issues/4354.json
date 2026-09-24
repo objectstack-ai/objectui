@@ -1,0 +1,35 @@
+{
+  "number": 4354,
+  "kind": "issue",
+  "title": "finding(components): planDataTableRowMenu's predicate parameter is narrower than the object its only caller hands it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T20:38:02Z",
+  "updated_at": "2026-08-12T05:32:33Z",
+  "closed_at": "2026-08-12T05:32:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4354",
+  "body": "Found while type-checking `@object-ui/components`' tests for #4040 (tranche 4). Observation-class: no runtime symptom — the value flows through untouched either way.\n\n## What\n\n`planDataTableRowMenu` (`packages/components/src/renderers/complex/data-table.tsx`) declares:\n\n```ts\neditPredicates?: { visibleWhen?: unknown };\ndeletePredicates?: { visibleWhen?: unknown };\n```\n\nIts only production caller passes `schema.rowEditPredicates` / `schema.rowDeletePredicates`, whose declared shape in `@object-ui/types` is:\n\n```ts\nrowEditPredicates?: { visibleWhen?: unknown; disabledWhen?: unknown };\n```\n\nand the row-menu ITEM component two functions down the same file declares the full pair (`predicates?: { visibleWhen?: unknown; disabledWhen?: unknown }`) because it evaluates both. So the planner's parameter is a third, narrower restatement of one authoring shape — the #3009 hand-copy family, in miniature.\n\nIt is arguably deliberate: the planner decides visibility only, so its parameter names only what it consumes. That reading is defensible; what makes it worth recording is the consequence below.\n\n## How it surfaced\n\n`data-table-row-menu-empty-guard.test.ts`'s case `still counts an item that renders merely DISABLED` passed `editPredicates: { disabledWhen: 'record.frozen == true' }` as a bare object literal. Excess-property checking rejects that against `{ visibleWhen?: unknown }` — the first thing the new test project reported.\n\nThe case was also **vacuous**: the planner never reads `disabledWhen`, so the assertion `{ edit: true, count: 1 }` holds identically for `editPredicates: {}`. It pinned \"an object with no `visibleWhen` does not hide the item\", which is worth pinning, but not what its name claims.\n\nPR (tranche 4, components) annotates the fixture with `DataTableSchema['rowEditPredicates']` — derived, not hand-copied — so the same value passes the way it does in production, and states in a comment which key is being ignored. The case name is left alone deliberately rather than quietly renamed.\n\n## The decision, when someone takes it\n\nEither (a) widen the planner's parameter to the declared pair so the three restatements collapse to one, accepting that the function still reads only `visibleWhen`; or (b) keep it consumption-shaped and derive it — `Pick< NonNullable< DataTableSchema['rowEditPredicates'] >, 'visibleWhen' >` — so it cannot drift from the authoring type it is a subset of. Either beats a third hand-written copy. Also worth checking while there: whether the disabled-item counting behaviour the vacuous case was reaching for is pinned anywhere that can actually observe it.\n"
+}

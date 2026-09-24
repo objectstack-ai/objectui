@@ -1,0 +1,35 @@
+{
+  "number": 4364,
+  "kind": "issue",
+  "title": "[finding] `ObjectLevelPermission` has no consumer left once `RoleDefinition.permissions` is retired — a published type nothing references",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T22:02:18Z",
+  "updated_at": "2026-08-12T04:23:04Z",
+  "closed_at": "2026-08-12T04:23:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4364",
+  "body": "Observation-class finding, **no user-visible impact today**. Surfaced while implementing #4288 inside sweep #4328; recorded rather than fixed, because retiring a second published type is its own judgement call and would have put a row in that PR's diff that its member table does not have.\n\n## What\n\n`ObjectLevelPermission` (`packages/types/src/permissions.ts`) had exactly one structural referent in this repository: the `RoleDefinition.permissions` field. #4288 retires that field, so after it lands the type is referenced only by the two barrels that re-export it:\n\n- `packages/types/src/index.ts` (the `@object-ui/types` public surface)\n- `packages/permissions/src/index.ts` (re-export)\n\nNothing constructs one, nothing accepts one, nothing reads one. `PermissionCondition` is one step further out: its only referent is `ObjectLevelPermission.conditions`, so it inherits the same status transitively. (`PermissionEffect` is **not** in this set — `FieldLevelPermission.effect` still uses it, and that type is live.)\n\nThe grants the evaluator actually applies come from `ObjectPermissionConfig.roles`, whose inner shape is declared inline and does not use `ObjectLevelPermission`.\n\n## Why it is an observation and not a defect\n\nAn exported type with no consumers costs nobody a wrong answer. It is worth a card because it is the same declared-but-unread shape #4288 was, one hop out, and because leaving it named in the public surface invites the next author to reach for it as if role-attached grants were a thing the runtime honours — which is exactly what #4288 removed.\n\n## Directions (for triage, none advocated here)\n\n1. **Retire both** (`ObjectLevelPermission`, `PermissionCondition`) as a follow-on dead-surface row. Same criterion as the sweep, and both are `@object-ui/types` exports so the changeset shape matches #4328's.\n2. **Keep as vocabulary** if role-attached grants are a direction the platform intends to build, and let the types return with the reader. Worth an explicit note in that case, since \"declared, no reader\" is what got the field retired.\n\nDeliberately not judged here: which of those is right depends on whether role-direct grants have a business pull, and that is a product call rather than a code one.\n\n## Dedupe\n\nSearched open issues for `ObjectLevelPermission`, `PermissionCondition`, and role-permission type retirement: no existing card. #4288 covers the field only; its member row is closed by #4328's PR.\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4218,
+  "kind": "pull_request",
+  "title": "fix(editor,markdown): complete the vite alias tables so the per-package test task resolves",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: editor",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T03:24:50Z",
+  "updated_at": "2026-08-11T03:37:40Z",
+  "closed_at": "2026-08-11T03:37:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T03:37:36Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4218",
+  "body": "Fixes #4194\n\n## Premise check (first, before any edit)\n\nReproduced on the branch tip off `origin/main` @ `433ff9fd3` — the premise holds, unchanged after 8+ hours:\n\n```\n$ pnpm turbo run test --filter=@object-ui/plugin-editor --force\nFAIL src/index.test.ts [ src/index.test.ts ]\nError: Failed to resolve import \"@object-ui/providers\" from \"../fields/src/widgets/FileField.tsx\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: /home/user/objectui-issue-4194/packages/fields/src/widgets/FileField.tsx:3:26\n Test Files  1 failed (1)\n      Tests  no tests\n```\n\n## Mechanism\n\nBoth configs alias `@object-ui/fields` (and friends) to source, but not the workspace packages **those sources in turn import**. `test.setupFiles` pulls in the root `vitest.setup.tsx`, which imports the components / fields / plugin-dashboard / plugin-grid barrels, so the setup graph reaches `@object-ui/providers` from `packages/fields/src/widgets/FileField.tsx`. With no alias entry the specifier falls through to the workspace package's `exports` (i.e. `dist`) — and `providers` is not in either package's `^build` closure, so nothing ever creates that `dist`.\n\nMasked in day-to-day CI because `ci.yml` runs the canonical root Vitest (sharded), not per-package `turbo run test`.\n\n## Fix — the alias table completed, not the reachable graph trimmed\n\nPer #3240's ruled direction applied by analogy. The card asked for **all** gaps, not just `providers`, so the reachable set was measured rather than guessed: every `@object-ui/*` specifier imported by the src trees the aliases already point at.\n\nSix entries added to each config, in the root `vitest.config.mts` ordering:\n\n| Added | Reached from | Was |\n|:--|:--|:--|\n| `providers` | `fields/src/widgets/FileField.tsx`, `ImageField.tsx` | **hard red** — no `dist` |\n| `mobile` | `plugin-grid/src/ObjectGrid.tsx` | latent red — no `dist` |\n| `permissions` | `plugin-grid/src/ObjectGrid.tsx` | latent red — no `dist` |\n| `i18n` | `components/src/custom/navigation-overlay.tsx` | silent divergence — resolved to `dist` |\n| `sdui-parser` | `components/src/renderers/layout/page.tsx` | silent divergence — resolved to `dist` |\n| `data-objectstack` | `react/src/context/AppShellContext.tsx` | silent divergence — resolved to `dist` |\n\nThe three \"silent divergence\" rows were green only because those packages happen to sit in the `^build` closure, so the per-package path was testing `dist` where the canonical root run tests `src` — the two-verdicts-for-one-file shape #3240 documents. `@object-ui/types/zod` was deliberately **not** added: the root table needs it ahead of `@object-ui/types` because of Vite's prefix matching, but nothing in the reach set imports it, and the runs are green without it.\n\n## Sweep: plugin-markdown has the same gap\n\nThe card asked to check it; it was red too, on the same signature, all 4 files:\n\n```\n$ pnpm turbo run test --filter=@object-ui/plugin-markdown --force   # BEFORE, unmodified config\nError: Failed to resolve import \"@object-ui/providers\" from \"../fields/src/widgets/FileField.tsx\"\n Test Files  4 failed (4)\n      Tests  no tests\n```\n\nSame fix applied, in this PR, with its own evidence below.\n\n## Evidence\n\nRed-before / green-after of the same command, per package:\n\n```\n$ pnpm turbo run test --filter=@object-ui/plugin-editor --force     # AFTER\n ✓ src/index.test.ts (7 tests) 8ms\n Test Files  1 passed (1)\n      Tests  7 passed (7)\n\n$ pnpm turbo run test --filter=@object-ui/plugin-markdown --force   # AFTER\n ✓ src/index.test.ts (5 tests)  ✓ src/metadata-fence.test.ts (6 tests)\n ✓ src/markdown-render.test.tsx (12 tests)  ✓ src/toc.test.ts (6 tests)\n Test Files  4 passed (4)\n      Tests  29 passed (29)\n```\n\nNote the before/after is not merely red-to-green: it was `0 test` / `no tests` (the suite could not load at all), and it is now 7 and 29 tests actually executing.\n\nCanonical CI path unregressed, and the two paths now agree on the count (7 + 29 = 36):\n\n```\n$ pnpm exec vitest run packages/plugin-editor/ packages/plugin-markdown/\n Test Files  5 passed (5)\n      Tests  36 passed (36)\n```\n\n## Reverse verification\n\nPredicted direction **RED** (the ordinary one — the resolve failure returns), with its precondition recorded first, since a `providers/dist` created by some unrelated build would have made the revert falsely green:\n\n```\nproviders/dist present: no\n$ git checkout origin/main -- packages/plugin-editor/vite.config.ts\n$ pnpm turbo run test --filter=@object-ui/plugin-editor --force\nError: Failed to resolve import \"@object-ui/providers\" from \"../fields/src/widgets/FileField.tsx\"\n Test Files  1 failed (1)\n```\n\nConfirmed, then restored.\n\n## Changeset\n\nLet the gate arbitrate rather than guessing, as the card directed. Verdict — **none owed**, and no `skip-changeset` label (#3724):\n\n```\n$ node scripts/check-changeset-presence.mjs\nCompared the working tree with 433ff9fd3 (merge-base with origin/main): 2 file(s) changed,\n0 of them under the src/ of a package the release covers, 0 under a package changesets ignores,\n0 changeset(s) added.\n✅  No source of a released package changed in this range, so no changeset is owed.\n```\n\nOther gates: `node scripts/check-control-bytes.mjs` OK (3920 files); `eslint` on both changed files exits 0.\n\n## Relationship to #3240's own execution\n\nThis is the targeted un-redding of two packages, not a move away from #3240's ruling. That ruling (Direction A — delete the 17 per-package vitest configs, root config becomes the single entry) is explicitly **deferred to a dedicated quiet-window batch**, and neither package here is among those 17: both carry a `vite.config.ts` with a `test` block, not a `vitest.config.ts`. When A executes, both of these tables disappear along with the divergence they are patching.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

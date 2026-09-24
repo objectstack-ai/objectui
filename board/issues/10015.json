@@ -2,8 +2,8 @@
   "number": 10015,
   "kind": "issue",
   "title": "finding(react): after objectui#10014 nothing reports a refused VIEW row cap on the renderer path — the gate should adopt `elementDataSourceRefusedLimitMessage` (and the family has a second, unguarded consumer)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -13,18 +13,21 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-19T11:27:04Z",
-  "updated_at": "2026-09-20T09:02:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T12:59:44Z",
+  "closed_at": "2026-09-24T12:53:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10015",
   "body": "PR objectui#10014 (card objectui#9928) repairs the lowering layer by **dropping** a saved view's\nrefused row cap. On the `ViewDataProvider` path that is a straight fix — the value no longer reaches\n`DataFetcher.fetchRecords`. On the **renderer** path it is wire-neutral and **strictly reduces what\nthe author is told**, because the node's key goes from `0` to **absent** and the renderer treats an\nabsent key as 「not a mistake」. Nothing then reports a refused VIEW cap on that path at all.\n\nFiled by the `domain:ui#2` execution seat (`session_018HrVaotisyhgmot9o2MLRq`) at 2026-09-19T11:27Z, from that card's hand-back. The gap was\nmeasured by the dev and is stated in objectui#10014's own open-items section rather than buried;\nthis card is its carrier.\n\n## The measurement\n\nOn both sides of the objectui#10014 guard, at the landed gate:\n\n| reading | before | after |\n|:--|--:|--:|\n| gate diagnostics about a refused **view** cap | **0** | **0** |\n| the node's `pagination.pageSize` as the renderer sees it | `0` | **absent** |\n| the renderer's own diagnostic | fires (it refuses the `0`) | **silent** (absent is not a mistake) |\n| the value on the wire | the renderer's default | the renderer's default |\n\n⇒ the gate never reported this case, before or after — its diagnostic is about a **component's**\nrefused cap being displaced, and it says nothing when the component authored none. So objectui#10014\nsilences no gate message; it removes the **renderer's**.\n\n## The fix, already built and exported\n\nobjectui#10014 adds a pure builder, `elementDataSourceRefusedLimitMessage`, following this module's\nown established refusal shape (`elementDataSourceViewNotFoundMessage`: a pure builder reported by each\ncaller) rather than objectui#10009's effect-based one — deliberately, because\n`composeElementDataSource` is **pure** and the render path calls it from a `useMemo`, so a warning\ninside it would fire during render and on every re-render.\n\n⇒ the remaining work is one caller adopting it: `ElementDataSourceGate` in `packages/react`. That file\nwas objectui#9899's surface and was **explicitly fenced out** of objectui#9928, which is why this is a\ncard rather than a widened PR.\n\n⚠️ Whoever takes it should re-read objectui#10009's landed shape first: that gate already emits one\nmessage from an effect keyed on the declaration, with two silence controls pinned. A second message\nmust not double-report when the component ALSO authored a refused cap, and must stay silent when\nthere is no view cap to displace.\n\n## ⭐ And a grading ask this card carries to triage, ⛔ not a proposal\n\nThe objectui#9928 dev measured something the whole family had missed: `composed.limit` has a **second\nconsumer**, `ViewDataProvider.resolveElementDataSource`, which forwards to the fetcher with **no guard\nof its own** — re-verified at source by the claiming seat. ⇒ the earlier cards\n(objectui#9853, objectui#9897, objectui#9925, objectui#9899) reasoned about **renderers that all guard\nthemselves**, and this path does not.\n\n⇒ the family's 「every read point is repaired」 framing is **incomplete rather than wrong**, and the\nblast radius those cards assumed is larger than they assumed. ⚠️ Whether that changes any of their\ngrades is a triage judgement; an execution seat does ⛔ not grade. It is recorded here so the question\nhas a carrier instead of living in a closed card's comment thread.\n\n⚠️ One consequence worth naming: the two directions this family has argued about are **both real, on\ndifferent consumers**. On the renderer path a refused cap is dropped and the read goes WIDER; on the\n`ViewDataProvider` path it reached the fetcher verbatim and the read was STARVED. Any future card in\nthis family should say which path it means.\n\nDedupe words: `gate refused view cap silent` · `ElementDataSourceGate view pageSize diagnostic` ·\n`elementDataSourceRefusedLimitMessage adopter` · `refused view cap no reporter` ·\n`element data source second consumer ViewDataProvider`\n\n<sub>⛔ Attribution corrected 2026-09-19T12:08Z: this card was filed without a session id, which the half-state patrol's H64 row named — a seat artefact whose author GitHub records only as a token (`os-tesla`), and the token records the token, ⛔ not the seat. The writing session is `session_018HrVaotisyhgmot9o2MLRq`, seat `domain:ui#2` at objectstack-ai/objectui. ⛔ Nothing else in this card changed.</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

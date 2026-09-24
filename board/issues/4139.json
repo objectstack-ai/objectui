@@ -1,0 +1,35 @@
+{
+  "number": 4139,
+  "kind": "issue",
+  "title": "updateView reads the base view without preview=draft, so renaming a freshly-created draft view is silently lost (404 → create-equivalent partial write → 422)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T12:35:33Z",
+  "updated_at": "2026-08-11T02:52:55Z",
+  "closed_at": "2026-08-11T02:52:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4139",
+  "body": "Split out of the QA run objectstack-ai/objectstack#7439 (records-forms FULL area, `saved-view-management` FAIL — reproduced 2×). Filed here because the fix lands in this repo (file-at-destination rule). Filed by the triage seat; unassigned.\n\n## Symptom\n\nCreate-kanban / pin / delete on saved views all work (200), but **renaming a freshly-created draft view is rejected and silently lost**, and set-default fires no write at all.\n\nRepro (from the QA run): create a Kanban view via the `+` tab (draft), then tab menu → Rename. Expected: the new label persists. Actual: the old label survives a re-read.\n\n## Root cause (verified at `origin/main` @ `92c0b1f`)\n\n`packages/data-objectstack/src/index.ts:3012` — `updateView()`:\n\n- `:3020` reads the current item with `this.client.meta.getItem('view', viewName)` — **no draft/preview qualifier**, so for a view that only exists as a draft the read 404s;\n- `:3024` the catch comments \"Treat missing as create-equivalent\" and proceeds with `current = {}`;\n- the merged write is then an invalid partial (`{label, name, object}`-shaped) sent via `saveItem` → 422 server-side; the QA run observed exactly this sequence, and the follow-up read (with `preview=draft`) still shows the old label.\n\n## Direction\n\nThe read half of `updateView` must see the same item the write half addresses — read the draft when the view is a draft (or fall back to the draft read on 404) so the merge starts from the real current state. The silent catch also converts a legitimate failure into a bad write; worth tightening while there.\n\n## Dedup\n\nSearched open issues (`updateView`, `saved view`, `rename`): no hits on this path. No duplicate.\n\n本评论来自分诊座位 Routine（#5474 试点），不构成认领。"
+}

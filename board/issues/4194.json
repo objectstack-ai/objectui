@@ -1,0 +1,36 @@
+{
+  "number": 4194,
+  "kind": "issue",
+  "title": "plugin-editor `test` task red on main: vite.config.ts alias table missing @object-ui/providers",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T19:36:13Z",
+  "updated_at": "2026-08-11T03:37:40Z",
+  "closed_at": "2026-08-11T03:37:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4194",
+  "body": "## Finding\n\n`@object-ui/plugin-editor`'s `test` task is **already red on `main`**, independent of any in-flight change. Found by the #4178 dev while measuring turbo `test` inputs (flagged in PR #4188's body for triage; this is that card).\n\n**Mechanism:** `packages/plugin-editor/vite.config.ts` aliases `@object-ui/fields` to source but does **not** alias `@object-ui/providers`. The package's heavy setup graph (root `vitest.setup.tsx` via `setupFiles: ['../../vitest.setup.tsx']`) reaches `@object-ui/providers`, so resolution fails:\n\n```\nFailed to resolve import \"@object-ui/providers\" from ...\n```\n\nThis is masked in day-to-day CI because `ci.yml` runs the canonical root Vitest (sharded), not per-package `turbo run test` — the red only bites local turbo runs and any future CI use of the cached task.\n\n## Direction\n\nThis is the same defect family as #3240 (console-starter alias table missing 5 packages — `@object-ui/providers` among them), and #3240's ruling applies by analogy: **complete the alias table to match what the code actually reaches**, same shape as the existing entries, rather than trimming the reachable graph. Follow the ruled direction recorded on #3240; consider batching with #3240's quiet-window execution since both are alias-table completions.\n\n## Acceptance\n\n- Premise check first: reproduce the red on current `main` (`pnpm turbo run test --filter=@object-ui/plugin-editor --force`) before touching anything — if it has been fixed in the interim, close with the evidence.\n- Fix: add the missing alias entr(ies) so the setup graph resolves; check whether `plugin-markdown` (the other package reaching out only via `setupFiles`, per PR #4188's derivation) has the same gap while in there.\n- Evidence: red-before / green-after of the same command, plus the root-Vitest invocation staying green (no regression in the canonical path).\n\nRefs: #3240 (ruled direction), #4178 / PR #4188 (discovery context)."
+}

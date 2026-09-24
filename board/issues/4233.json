@@ -1,0 +1,35 @@
+{
+  "number": 4233,
+  "kind": "issue",
+  "title": "Post-login landing ignores `isDefault` — cold sign-in always lands on `/_console/home` (and AppManagementPage's Disable / Set-as-default are client-only stubs)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T05:25:42Z",
+  "updated_at": "2026-08-11T12:26:15Z",
+  "closed_at": "2026-08-11T12:26:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4233",
+  "body": "## Symptom\n\n### A. Post-login landing ignores `isDefault`\n\nWith an app published carrying `isDefault: true`, **four** cold sign-ins in fresh browser contexts **all landed on `/_console/home`** instead of the default app.\n\n- Observed: `/_console/home` (the multi-app launcher), 4/4 cold sign-ins.\n- Expected: `/apps/&lt;the isDefault app&gt;`.\n- **Control that isolates it:** navigating to `/_console/` while **already authenticated** redirects **correctly** to the default app. So the resolver's policy is fine; the *unauthenticated* entry path is what breaks.\n\n### B. AppManagementPage's *Disable app* and *Set as default* are client-only stubs (confirmed)\n\nBoth controls show a **success toast** with **zero non-GET requests** on the wire and **no server change on reload**. Nothing in section A was credited off those toasts — the `isDefault: true` app was published through metadata, not set via this UI.\n\n## Root cause\n\n### A — the chain\n\n1. On the **unauthenticated first paint**, `GET /meta/app` **401s**.\n2. `apps/console/src/components/RootLandingRedirect.tsx` resolves with an **empty app list**. `resolveLandingPath([])` has no `isDefault` entry and no single visible app, so it falls through to rule 3 and returns **`/home`**. The resolver is auth-unaware — it only distinguishes `loading` from resolved, not \"resolved empty because 401\".\n3. The auth guard then captures that **already-wrong** path into **`?redirect=%2Fhome`**, and honors it after sign-in.\n4. So the `isDefault` branch **never re-runs** once the app list is actually available.\n\nVerified still present on objectui **`origin/main` @ `bb68488`**: `resolveLandingPath` is unchanged (`const defaultApp = list.find((a) =&gt; a.isDefault === true)` on a list that is empty at that moment), and `RootLandingRedirect` still renders `Navigate` as soon as `loading` is false.\n\nNot a stale bundle — the pin contains the routing (`apps/console/src/components/RootLandingRedirect.test.ts` asserts the `isDefault` policy at the pure-function level, which is exactly why the policy tests stay green while the live landing is wrong: the tests never feed it the empty-because-401 list).\n\n### B — the stubs\n\n`apps/console/src/pages/system/AppManagementPage.tsx` — the handlers behind *Set as default*, *Disable*/bulk toggle and *Delete* each carry a literal `// TODO: Replace with real API call when backend supports app management` immediately before their `toast.success(...)`, then call `refresh()`. No mutation is ever issued. Still present verbatim on `origin/main` @ `bb68488` (the file's only recent touch is the i18n pass in #4208, which did not change the handlers).\n\nNote the interaction between the two halves: because B never writes, an operator cannot even work around A from the console UI — `isDefault` has to be set in metadata.\n\n## Reproduction\n\nFramework `a86db175`, vendored console `09987b68`, showcase app.\n\n**A:**\n1. Publish an app with `isDefault: true`.\n2. Open a **fresh** browser context (no session) and go to `/_console/`.\n3. Sign in.\n\nObserved: lands on `/_console/home`; the sign-in URL carries `?redirect=%2Fhome`. Repeated in 4 independent fresh contexts — 4/4.\nControl: with an existing authenticated session, navigate to `/_console/` — redirects correctly to the default app.\n\n**B:**\n1. Go to the Applications page (AppManagementPage) as an admin.\n2. Click *Disable app* on an app, and *Set as default* on another.\n3. Watch the network panel; then reload.\n\nObserved: success toast both times, **zero non-GET requests**, no server-side change after reload.\n\n## Dedup\n\nSearched objectstack-ai/objectui for `RootLandingRedirect`, post-login landing / default-app landing, and AppManagementPage disable / set-as-default stub symptoms — no open or closed duplicate found.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7514 (framework a86db175, vendored console 09987b68). Root-cause re-verification is against objectui `origin/main` @ `bb68488`."
+}

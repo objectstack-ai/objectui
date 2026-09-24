@@ -1,0 +1,36 @@
+{
+  "number": 4340,
+  "kind": "issue",
+  "title": "[finding] The `git stash` ban lives only in CLAUDE.md — AGENTS.md, the file non-Claude agents read, never states it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T17:39:10Z",
+  "updated_at": "2026-08-12T08:59:56Z",
+  "closed_at": "2026-08-12T08:59:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4340",
+  "body": "Observation-class finding, surfaced while placing the paragraph for #4301 (PR #4339). Filed unassigned; nothing breaks silently today, so no `pm:queue`.\n\n## What was measured\n\nPlacing #4301's paragraph required finding where AGENTS.md shows the reverse-verification revert idiom. It does not show it anywhere. Grepping `origin/main` at `7f1cb3323`, **AGENTS.md contains no occurrence of `stash`, `checkout origin/main`, or `revert`**. Repo-wide those live in exactly three files:\n\n- `CLAUDE.md` — the ban, its rationale (shared `refs/stash` in the common git dir), and the three sanctioned substitutes\n- `.claude/hooks/guard-shared-stash.sh` and `.claude/hooks/guard-shared-stash.selftest.sh`\n\n## Why that combination is awkward\n\nThe two files each point at the other for this rule, and the pointer does not resolve:\n\n- AGENTS.md line 3 declares itself the \"**single source of truth**, read natively by Claude Code, GitHub Copilot, and other agents\".\n- CLAUDE.md carries the ban as a deliberate excerpt — \"the one rule that must never be missed is inlined here because missing it corrupts other agents' work\" — and closes with \"See **AGENTS.md** for the full playbook.\"\n\nSo the full playbook is the file that does not have it. An agent or tool reading only AGENTS.md (precisely the non-Claude readers line 3 names) never learns the ban and meets `guard-shared-stash.sh` as an unexplained `Bash` block. The worktree rule is not in this position: AGENTS.md states it in full at §9 多 agent 协作纪律, hook included.\n\n## Why this is observation-class rather than a defect\n\nThe hook enforces the ban mechanically regardless of who read what, so the failure mode is a confusing block, not lost work — the #3430 harm itself stays closed. That is also why it is not urgent enough to have surfaced on its own.\n\n## Note\n\nPR #4339 makes the gap slightly more visible rather than fixing it: the paragraph it adds to AGENTS.md now says `git stash` 一律禁用(共享 stash 栈,见 CLAUDE.md) — a cross-reference out of the canonical file into the excerpt. That was deliberate and in scope for #4301 (restating the ban would create a second copy to drift); whether the ban should instead be promoted into AGENTS.md, with CLAUDE.md keeping only its excerpt, is the actual decision here and belongs to whoever owns the governance surface.\n\nPrior art: #3430 (the incident that produced the ban), #3435 (the sibling gap in `guard-main-checkout.sh`'s trigger surface).\n"
+}

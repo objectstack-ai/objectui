@@ -1,0 +1,32 @@
+{
+  "number": 3740,
+  "kind": "issue",
+  "title": "`@object-ui/plugin-report` 声明了 react-dom peer 却从未 import 它——仅作为 UMD 全局名出现在 vite.config externals",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T11:00:41Z",
+  "updated_at": "2026-08-10T18:27:54Z",
+  "closed_at": "2026-08-10T18:27:54Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3740",
+  "body": "记录于 #3690(PR #3727)实施期间,dev 因当时搜索配额限流按纪律移交 PM 代立;已搜重(`react-dom peer`),除 #3690/#3715/#3716 本族外无命中。\n\n## 事实\n\n- `packages/plugin-report/src/` 全部 10 个源文件(4087 行)**零处 import `react-dom`**;\n- `react-dom` 唯一出现点是 `vite.config.ts:46` 的 externals(`'react-dom': 'ReactDOM'`),即只作为 UMD 构建的全局名映射;\n- 但 `package.json` 声明了 `peerDependencies['react-dom']`(#3727 后为 `^18.0.0 || ^19.0.0`)。\n\n## 定性\n\n观察级:今天没有用户会被绊到(任何 React UI 库的消费者都装了 react-dom),但这是一条**声明了却不被使用的 peer 要求**。PR #3727 按裁决仍同步放宽了它——固定组内一致优先于顺手裁剪 peer;是否裁剪属独立取舍,留给分诊。\n\n## 关联\n\n#3690(母单)、PR #3727(放宽落地)。"
+}

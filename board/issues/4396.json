@@ -1,0 +1,35 @@
+{
+  "number": 4396,
+  "kind": "issue",
+  "title": "Six pack keys render raw on provider-less hosts — their consumers' defaults tables lack the entry and the call sites carry no inline defaultValue (#3865 census residue)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T01:55:29Z",
+  "updated_at": "2026-08-12T02:57:45Z",
+  "closed_at": "2026-08-12T02:57:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4396",
+  "body": "Filed by the PM seat from PR #4372's accepted census (the #3865 option-A implementation), where these six were measured and explicitly left for a follow-up: of the 26 keys read outside their hook's defaults table, 20 carried an inline `defaultValue` and were fixed by #4372's fallback order; these six carry **neither** a table entry nor an inline default, so on a provider-less host `createSafeTranslation`'s `fallbackT` returns the raw key string.\n\n## The six (from the census — re-verify each at claim time, call sites move)\n\n| key | consumer hook (per the census) |\n|---|---|\n| `detail.saving` | plugin-detail `useDetailTranslation` |\n| `list.resetSortToDefault` | plugin-list `useListViewTranslation` |\n| `appDesigner.widgetProperties` | plugin-designer `useDesignerTranslation` |\n| `appDesigner.addWidget` | plugin-designer `useDesignerTranslation` |\n| `appDesigner.modeEdit` | plugin-designer `useDesignerTranslation` |\n| `common.delete` | (census: outside-table without default — locate the actual call site) |\n\n## Fix shape\n\nAdd each key to its consumer's module-local defaults table, **byte-identical to the en pack value** per each map's docblock contract (mechanically enforced for some maps — see objectui#3440's precedent). No pack edits, no new keys, no call-site changes. Red-first per key: a provider-less render asserting the raw key pre-fix, the en value post-fix (the #4372 test file has the mounting pattern).\n\nAlternative for any key whose census attribution turns out stale (consumer gone, key retired): record the measurement instead of forcing an entry.\n\n## Why now\n\nPR #4372 made inline defaults live, but these six have no fallback of any kind — they are the census's only remaining raw-key renders. Small, mechanical, fully enumerated.\n\nRelated: #3865 / PR #4372 (census source), #3810 (closed — its option C must not be revived as written), #3440 (byte-identity enforcement precedent)."
+}

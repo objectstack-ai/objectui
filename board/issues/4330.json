@@ -1,0 +1,35 @@
+{
+  "number": 4330,
+  "kind": "issue",
+  "title": "Analytics: LOCAL select dimensions on table/pivot (and the dataset report block) still render English option labels — the server-resolved path never meets the localize seam",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T15:17:56Z",
+  "updated_at": "2026-08-12T01:07:32Z",
+  "closed_at": "2026-08-12T01:07:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4330",
+  "body": "Residual of #4030 / PR #4324, split out per the PM acceptance there (2026-08-11). Queued with the boundary-amendment ruling below — dispatch when `plugin-dashboard`/`plugin-report` surfaces are free.\n\n## Fact\n\nPR #4324 localizes the analytics label net's output — but only where the net RESOLVES labels client-side (dotted dimensions, chart paths that load object metadata). A **local** select dimension on a table/pivot widget arrives server-resolved (ADR-0021: rows keyed by the authored English label), and #4263's landed acceptance pin asserts that path issues **no metadata read at all** — so there is nothing to localize against, and the cells render the object's English labels while the related list beside them translates. `DatasetReportRenderer` is the same shape (renders server-resolved rows, never loads a schema), which is why plugin-report carries no change in #4324.\n\n## PM ruling (recorded at dispatch-time; veto window open)\n\nThe #4263 no-metadata-read pin was an acceptance boundary for **dotted-dimension label resolution**, ruled in that context — it is not a permanent prohibition. **Amend it deliberately**: local select dimensions on table/pivot (and the report block) take the one metadata read needed to feed the SAME localize seam #4324 landed (`resolveDimensionFieldMeta` → `localizeFieldOptions`), and the pin is rewritten in the same PR to assert the new intended behavior (read issued ONLY when a select-typed local dimension is present and a non-default locale is active — measure whether the locale gate is worth the branch, or whether the read should be unconditional-when-select; report the choice). One channel, no second dialect; identity keys (bucket ids, drill filters, CSV raw values) stay untranslated per the #4263/#4273 conventions.\n\n## Acceptance sketch\n\nThe #4030 fixture on a TABLE with a local `sales_channel`/`competitor_name` dimension: zh-CN renders 国内/卡博特/欧励隆 in cells, pivot headers, and totals; en renders authored labels; drill filters still carry stored values; the amended pin documents the deliberate boundary change and cites this card.\n\nRefs #4030, PR #4324, #4263 (the pin being amended), #4273, ADR-0021."
+}

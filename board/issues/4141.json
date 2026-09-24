@@ -1,0 +1,35 @@
+{
+  "number": 4141,
+  "kind": "issue",
+  "title": "Image action param ignores its declared maxSize — no client-side size guard before upload, unlike the file param widget",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T12:35:52Z",
+  "updated_at": "2026-08-11T03:06:21Z",
+  "closed_at": "2026-08-11T03:06:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4141",
+  "body": "Split out of the QA run objectstack-ai/objectstack#7439 (records-forms FULL area, `upload-guard-blocks-confirm` FAIL — reproduced 2×). Filed here because the fix lands in this repo (file-at-destination rule). Filed by the triage seat; unassigned.\n\n## Symptom\n\nAn image param declared with `maxSize` 5 MB (`p_cover` in the showcase Action Param Gallery) accepts an oversized file: a 6.3 MB PNG fires the full `presigned → PUT → complete` upload and renders a preview, with no rejection. The sibling file param (`p_attachments`, 10 MB) correctly rejects an oversized file with zero uploads.\n\nRepro (from the QA run): Field Zoo → Specimen–Full row → run \"Action Param Gallery\"; set a &gt;5 MB image on **Cover image** (`p_cover`). Expected: rejected before any upload, like the file param. Actual: full upload + preview, no size error.\n\n## Anchors (verified at `origin/main` @ `92c0b1f`)\n\n- The guard that works: `packages/fields/src/widgets/FileField.tsx:52` — `if (maxSize && file.size > maxSize) { … }` before upload, with the human-readable MB message.\n- The config is delivered to both widgets: `packages/app-shell/src/utils/paramToField.ts:85` copies `maxSize: param.maxSize` for the param-to-field mapping regardless of type, so the image widget receives the constraint and ignores it.\n- The image-side upload path (image param widget) performs no equivalent pre-upload size check — QA root cause: \"the image-param widget lacks the client maxSize guard the file-param widget has\".\n\n## Direction\n\nMirror FileField's pre-upload guard in the image param widget (same message shape), so a declared `maxSize` is enforced before any presigned upload starts.\n\n## Dedup\n\nSearched open issues (`maxSize`, `upload`): no open card on this. No duplicate.\n\n本评论来自分诊座位 Routine（#5474 试点），不构成认领。"
+}

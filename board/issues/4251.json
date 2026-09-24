@@ -1,0 +1,33 @@
+{
+  "number": 4251,
+  "kind": "pull_request",
+  "title": "fix(detail): TEXTUAL_REF_FALLBACK_TYPES carries both auto-number spellings",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T07:43:09Z",
+  "updated_at": "2026-08-11T07:52:30Z",
+  "closed_at": "2026-08-11T07:52:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-11T07:52:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4251",
+  "body": "Fixes #4219\n\nThe re-scoped half of the card: the editability symptom was closed by #4228's alias-aware exclusion (verified and pinned by #4244); what was still owed is the **reference-fallback** path, which no host gate sits in front of.\n\n## The defect, measured on the tip (post-#4244)\n\n`TEXTUAL_REF_FALLBACK_TYPES` is matched by RAW spelling and carried `auto_number` only, while `@objectstack/spec` — and the designer, and the importer — spell the type `autonumber`. Its one ungated reader is `InlineFieldInput`'s reference fallback, on exported public API:\n\n```\nconst isLookupRef =\n  editType === 'lookup' || editType === 'master_detail' || editType === 'tree' ||\n  (!!field.reference_to && !TEXTUAL_REF_FALLBACK_TYPES.has(editType as string));\n```\n\nA field typed `autonumber` keeps a `reference_to` for relational metadata — which is the entire reason this set exists — so it took the lookup branch and rendered the **record picker**: a searchable list of records offered as replacements for a machine-generated identity. The `auto_number` spelling of the identical field rendered the textual fallback, as intended.\n\nThe fix is one member plus the rationale in the docblock, matching how `plugin-form` carries both spellings in each of its non-input sets (`deriveMasterDetail.ts:40`, `:305`).\n\n## Union survivability\n\nThe computed gate and the shared exclusion are a union (#3355). Before this change that union's survivability depended on which spelling the metadata used: `autonumber` was held by the exclusion gate alone, `auto_number` by both — so losing either gate would have re-opened a different half of the defect depending on how the field was authored. Both spellings are now members of the computed set, asserted directly on the set rather than described in prose.\n\n## Pins (`InlineFieldInput.autonumberRefFallback.test.tsx`, new file)\n\nThe picker and the terminal input both render an `input`, so every case queries by test id — `lookup-trigger*` for the picker, `inline-plain-text-input` for the fallback — rather than by a role heuristic that reads the two as the same thing.\n\n| case | before | after |\n|---|---|---|\n| `autonumber` + `reference_to` renders the textual fallback | RED — the record picker really did render | green |\n| `auto_number` + `reference_to` unchanged (control) | green | green |\n| a real `lookup` still gets the record picker (control, over-blocking) | green | green |\n| both spellings in the set, and computed from either side of the union | RED | green |\n\n**Reverse verification** (`git checkout origin/main -- fieldEnrichment.ts`, re-run, restore — never `git stash`): predicted RED on exactly the two cases that read the set, with both controls staying green. Observed exactly that — `Tests 2 failed | 2 passed (4)`, the failure on case 1 dumping the `lookup-trigger` button DOM. Restored and re-confirmed green.\n\n## Verification\n\n- `npx vitest run packages/plugin-detail/` — **72 files, 728 tests passed**. The #4220 partition table in `inlineEditTypeCoverage.test.tsx` is unmoved: `autonumber` and `auto_number` were already in the `excluded` bucket (the exclusion gate put them there), so widening the computed gate adds no second claim.\n- `pnpm --filter @object-ui/plugin-detail type-check` — clean.\n- `pnpm --filter @object-ui/plugin-detail lint` — 0 errors (759 pre-existing warnings, none in the touched files).\n- `node scripts/check-control-bytes.mjs` — OK, plus a direct control-byte scan of both touched files.\n- Build closure `pnpm --filter '@object-ui/plugin-detail^...' build` ran before any of the above. No exported TYPE changed — this is a Set literal's contents — so no downstream consumer sweep was owed; the public surface is byte-identical.\n- Changeset: `@object-ui/plugin-detail` patch.\n\n## Sweep, and one finding\n\nSwept `plugin-detail` for sibling spelling-sensitive type sets. The auto-number family has no other gap here. One different family does, filed as **#4250** rather than fixed in this PR: the spec spells `richtext`, and four sets across three packages spell it `rich_text` / `rich-text` (`RelatedList`'s `SKIP_TYPES`, both `autoLayout` implementations, `RecordDetailView`'s `SECONDARY_FIELD_TYPES`) — none of which any producer emits. It spans packages outside this card and carries a design call (whether `markdown` joins `SKIP_TYPES`, whether the dead spellings are dropped), and fixing only the `plugin-detail` halves would make the detail page and the form disagree about the same field.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

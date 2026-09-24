@@ -2,8 +2,8 @@
   "number": 9885,
   "kind": "issue",
   "title": "finding(plugin-form): `initialData` 的注册描述用跨文件行地址 `MasterDetailForm.tsx:602` 指读点,该地址自 2026-08-24 起已腐烂 —— 而 AGENTS.md #11 判这一类整体禁止,修法是删地址而非重指",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-sales",
@@ -13,16 +13,19 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-18T13:13:27Z",
-  "updated_at": "2026-09-18T13:44:11Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T09:22:08Z",
+  "closed_at": "2026-09-24T09:22:08Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

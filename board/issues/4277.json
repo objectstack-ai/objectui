@@ -1,0 +1,34 @@
+{
+  "number": 4277,
+  "kind": "issue",
+  "title": "ObjectGridProps declares 12 props while ObjectGrid reads 12 more through `(rest as any)` — the external-pagination contract is undeclared",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T10:36:01Z",
+  "updated_at": "2026-08-11T14:07:05Z",
+  "closed_at": "2026-08-11T14:07:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4277",
+  "body": "Found while wiring `@object-ui/plugin-grid`'s tests into `tsc` for #4040 (tranche 1). Filed rather than fixed: closing it changes a **public exported interface**, which is a contract decision, not execution. `@object-ui/plugin-grid` stays in `TEST_DEBT` until this is ruled on — its test project cannot go green without either this decision or an `as any` at the call site, and the second would encode exactly the wrong understanding this whole card exists to stop.\n\n## What the compiler says the moment it is allowed to look\n\n`packages/plugin-grid/src/__tests__/serverPagination.test.tsx`, with the #3032 test-project template applied:\n\n```\nsrc/__tests__/serverPagination.test.tsx(182,11): error TS2322: Type '{ schema: any; dataSource: any; data: { id: string; name: string; }[]; manualPagination: true; rowCount: number; page: number; pageSize: number; onPageChange: Mock< Procedure >; onPageSizeChange: Mock< ... >; }' is not assignable to type 'IntrinsicAttributes & ObjectGridProps'.\n  Property 'data' does not exist on type 'IntrinsicAttributes & ObjectGridProps'.\n```\n\n## The gap\n\n`ObjectGridProps` (`src/ObjectGrid.tsx:160`) declares 12 members: `schema`, `dataSource`, `className`, `onRowClick`, `onEdit`, `onDelete`, `onBulkDelete`, `onCellChange`, `onRowSave`, `onBatchSave`, `onRowSelect`, `onAddRecord`.\n\nThe component collects everything else into `...rest` (`:269`) and reads twelve further props out of it, each through an `as any` cast:\n\n| prop | read at |\n|---|---|\n| `data` | `:384` — `const passedData = (rest as any).data;` |\n| `manualPagination` | `:420` |\n| `rowCount` | `:421`, `:2162` |\n| `onPageChange` | `:422`, `:2168` |\n| `page` | `:2163` |\n| `pageSize` | `:2165` |\n| `onPageSizeChange` | `:2171` |\n| `sort` | `:2188` |\n| `onSortChange` | `:2191` |\n| `search` | `:2201` |\n| `onSearchChange` | `:2204` |\n| `onColumnStateChange` | `:359` |\n\nThese are not accidental. `:418` says so in as many words — *\"`data` arrives via `rest` (a prop), so do these too\"* — and the block implements the host-driven external pagination path from framework #2212. The same vocabulary IS declared one layer down, on `DataTableSchema` (`packages/types/src/data-display.ts:400`+), which `ObjectGrid` builds and forwards to (`:2207`).\n\n## Why nothing has caught it\n\nThe only non-test caller that could pass them is `ObjectGridRenderer` (`src/index.tsx:70`), typed `React.FC< { schema: any; [key: string]: any } >` and spreading `{...props}` straight through. An index signature of `any` accepts every one of the twelve, so the renderer path compiles and the gap is invisible from there. Every typed caller (`plugin-view/src/ObjectView.tsx:1094`, `plugin-designer` ×2, `apps/console/src/dev/DevRowActions.tsx`) passes only declared props, so none of them feels it either.\n\nAnd the tests that exercise the path were not compiled by anything, which is #4040's premise exactly.\n\n## The decision\n\nNot obviously one-sided, which is why it is filed instead of guessed:\n\n- **A — declare them on `ObjectGridProps`.** Matches what the component really accepts; makes the external-pagination contract checkable at every call site; is a public surface expansion on a widely-consumed block.\n- **B — declare them as a separate, documented interface** (e.g. `ObjectGridExternalPaginationProps`) that `ObjectGridProps` extends or that the host path is typed with. Keeps the \"advanced host-driven\" mode distinguishable from the ordinary authoring surface.\n- **C — rule that the escape hatch is deliberate and the props are internal**, in which case the twelve `(rest as any)` reads want a named internal type and `ObjectGridRenderer`'s `any` index signature is the thing to tighten.\n\nAll three make the test compile without weakening it. Widening nothing and casting in the test is the one option that should not be taken: it would leave the same undeclared contract in place with a green tick over it.\n\n## Also seen in the same package, unblocked but not yet fixed\n\n`src/__tests__/useBulkExecutor.test.ts:406` — `runAggregate` is stubbed `vi.fn(async () => undefined)`, no parameters, while `BulkExecutorOptions.runAggregate` (`src/hooks/useBulkExecutor.ts:127`) is `(def, rows, params) => Promise< unknown >` and the hook calls it with all three (`:273`). The case then asserts on `runAggregate.mock.calls[0][1]`, the second argument — which the declared stub says does not exist:\n\n```\nsrc/__tests__/useBulkExecutor.test.ts(406,15): error TS2352: Conversion of type 'undefined' to type 'unknown[]' may be a mistake ...\nsrc/__tests__/useBulkExecutor.test.ts(406,42): error TS2493: Tuple type '[]' of length '0' has no element at index '1'.\n```\n\nIt passes at runtime — vitest records real arguments whatever the declared signature — so this is a types-only lie, fixable by typing the stub's parameters. Recorded here so it travels with the package rather than being re-discovered.\n\nAlso worth knowing for whoever picks this up: `TEST_DEBT` declares **2** errors for `@object-ui/plugin-grid`, measured at #3032 branch time. Re-measured against `4cb0562b5` it is **4** code-tier (plus one config-tier `TS2550`, `Array.prototype.at`, resolved by the test project's `lib`). `main` moved; the fourth is `importMissingRequiredHint.test.tsx:35` omitting `ImportWizardProps.dataSource`, which is a plain fixture fix.\n\nRefs #4040, objectstack-ai/objectstack#4118.\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 4156,
+  "kind": "issue",
+  "title": "Console: notification bell dropdown always empty while list page / API / inbox tables show unread notifications",
+  "state": "closed",
+  "state_reason": "duplicate",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T14:44:46Z",
+  "updated_at": "2026-08-10T15:27:01Z",
+  "closed_at": "2026-08-10T15:27:01Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4156",
+  "body": "## Summary\n\nThe Console top-bar **notification bell dropdown** (\"通知\" / Notifications tab) always renders empty (\"已读完所有通知\" / \"all caught up\") **even when the user has unread notifications**, while every other surface for the same notifications shows them correctly.\n\nFor the same user, at the same moment:\n\n- Home **\"待办事项\" / to-do** card lists the notifications and shows an unread badge — **correct**;\n- The **notifications list page** (the object list) shows them — **correct**;\n- `GET /api/v1/notifications` returns `unreadCount: 1` with `read: false` — **correct**;\n- Platform tables `sys_inbox_message` / `sys_notification_receipt` both have the rows — **correct**;\n- **Only the bell dropdown list is empty.**\n\n## Impact\n\n- Every in-app-notification feature (any flow that writes a notification) is invisible in the PC bell dropdown; users must go to the home to-do card to find notifications.\n- Severity: medium-high — the bell is the primary \"new notification\" affordance; silently empty, it reads as \"nothing happened.\"\n\n## Environment\n\n- `@objectstack/*@17.0.0-rc.5`\n- Notifications written through the standard notification object → inbox pipeline.\n\n## Steps to reproduce\n\n1. Cause any notification to be delivered to a user (any flow that writes a notification / inbox message).\n2. As that user, confirm the notification exists: home to-do card shows it, the notifications list page shows it, `GET /api/v1/notifications` returns `unreadCount >= 1`.\n3. Open the top-bar bell dropdown, \"通知\" / Notifications tab.\n\n**Expected:** the dropdown lists the unread notification(s).\n**Actual:** the dropdown shows \"all caught up\" / zero items, while all other surfaces (to-do card, list page, API, `sys_inbox_message` / `sys_notification_receipt`) show the notification.\n\n## Notes\n\n- Isolated to the bell dropdown data source specifically — the underlying inbox/receipt data and the REST endpoint are correct, so this looks like the dropdown querying a different source or applying an over-narrow filter than the list page / to-do card.\n- Confirmed **not** feature-specific: reproduced with a long-standing notification type, so it is a channel-level, pre-existing behavior, not introduced by any particular notification.\n\nReproduced while building an ObjectStack 17 app; screen captures + API/DB dumps available on request (currently in a private project repo).\n"
+}

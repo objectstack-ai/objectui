@@ -1,0 +1,34 @@
+{
+  "number": 4145,
+  "kind": "issue",
+  "title": "[finding] The whole `report.editor.*` namespace — 106 keys × 10 packs — has no consumer left; the report editor it labelled became the spec-driven inspector",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T13:36:13Z",
+  "updated_at": "2026-08-10T17:35:44Z",
+  "closed_at": "2026-08-10T17:35:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4145",
+  "body": "Measured while implementing #4118 (PR #4137), **not fixed there** — that card's fence is the seven wrong-slot call sites, and this is a namespace-liveness question, not a wrong-copy defect. Filed so the measurement does not stay buried in a PR.\n\n## The measurement\n\n`report.editor` in `packages/i18n/src/locales/en.ts` spans lines 1052–1165 and holds **106 leaf keys** (`breadcrumb`, `basic`, `title`, `titlePlaceholder`, `description`, `type`, `typeTabular`, `data`, `objectName`, `limit`, `columns`, `filters`, `groupBy`, `rows`, `values`, `grouping`, `dateGranularity`, `chart`, `chartType`, …). All ten packs carry the set (`all-locales-key-parity` owns that), so it is roughly **1060 translated strings**.\n\nRepo-wide, the number of call sites that read any of them is **zero**:\n\n```\n$ grep -rn \"report\\.editor\\.\" packages/ apps/ examples/ scripts/ | grep -v packages/i18n\npackages/app-shell/src/views/ReportConfigPanel.tsx        (comments only, after #4137)\npackages/app-shell/src/views/__tests__/ReportConfigPanel.panelTitle.test.tsx\npackages/components/CHANGELOG.md\npackages/plugin-report/CHANGELOG.md\n```\n\nNot a dynamic-key blind spot either: there is no `t(\\`report.editor.${…}\\`)` anywhere, and no JSON/MDX metadata references the namespace. `check-i18n-call-site-keys.mjs` reports 62 dynamic-key sites repo-wide and none of them are in this family.\n\nSpot-checked individually, each returns 0 non-test, non-locale call sites: `basic`, `description`, `type`, `data`, `columns`, `filters`, `groupBy`, `chart`, `breadcrumb`.\n\n## Why it went dormant\n\nThe namespace was built for the hand-rolled report editor form — the CHANGELOG entries read \"All editor labels and hints are i18n-driven (`report.editor.*`)\". That form is gone: `ReportConfigPanel`'s body is now `ReportDefaultInspector`, a spec-driven inspector whose labels come from the report spec's own metadata, not from this pack namespace. `ReportConfigPanel.tsx:55` still calls its remaining catalog \"Legacy field catalog for the pre-9.0 object-bound report editor.\"\n\nUntil #4137 the namespace had exactly **one** live reader — and it was the bug #4118 is about: the panel borrowing `report.editor.title` (the Title *field's* label) to name itself. Moving that slot to a purpose-built `report.editor.panelTitle` left `panelTitle` as the namespace's only consumed key and the other 106 with nothing reading them.\n\n## Why no gate sees it\n\nEvery i18n gate in the repo runs **call site → key**, never key → call site:\n\n- `scripts/check-i18n-call-site-keys.mjs` asks whether each call site's key resolves in `en`. A key with no call site is not a call site, so it is never visited.\n- `all-locales-key-parity` compares the ten packs' key *sets* to each other. 106 keys present in all ten packs is exactly what it wants.\n- `scripts/check-i18n-en-drift.mjs` only fires when an `en` value *changes*. These values are static.\n\nSo the packs can accumulate dead namespaces indefinitely with every gate green — the mirror image of #3810 / #4117 (dead *fallbacks* at live call sites); this is live *keys* with dead call sites.\n\n## Impact — observation class, nothing a user hits today\n\nNo user reads a wrong string because of this; the keys simply never render. The cost is carrying cost and misdirection:\n\n- ~1060 strings across ten packs that translators maintain and reviewers diff for nothing.\n- The next agent reasoning \"what does this key mean\" from pack neighbours reads a namespace that describes a UI that no longer exists — which is precisely the inference chain that produced #4118's defect.\n\n## Suggested direction (not a ruling)\n\nTwo candidates, and the choice needs a maintainer:\n\n1. **Retire the namespace** — if the spec-driven inspector is the settled direction, `report.editor.*` minus `panelTitle` is dead weight; delete from all ten packs.\n2. **Keep it deliberately** — if the hand-rolled editor is meant to come back, or some downstream consumer outside this repo reads the packs, retire nothing and record why.\n\nWorth deciding as a class rather than one namespace: a \"no key without a reader\" gate (key → call site, allowlisted for deliberate exceptions) is what would stop the next namespace going dormant unnoticed. That is the broader change and should be its own card if wanted.\n\nRelated: #4118 / PR #4137 (where this surfaced — the last live reader), #3810 and #4117 (dead fallbacks at live call sites — the mirror direction), #3546 (the ten-pack key discipline).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

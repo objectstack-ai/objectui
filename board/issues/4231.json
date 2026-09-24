@@ -1,0 +1,30 @@
+{
+  "number": 4231,
+  "kind": "issue",
+  "title": "`main` has been red since the rc.6 spec bump — four parity surfaces were not carried with it (Type Check + 2 test shards)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T05:08:45Z",
+  "updated_at": "2026-08-11T05:44:36Z",
+  "closed_at": "2026-08-11T05:44:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4231",
+  "body": "Filed unassigned per Prime Directive #10, from the #4221 dispatch. Not fixed there — that PR (#4228) is scoped to the inline-edit credential gate and touches none of these files. Every PR opened since is inheriting these reds, so a PR's CI colour currently cannot be read as a verdict on the PR.\n\n## The measurement\n\n`ci.yml` runs on `main`, newest first:\n\n| head | conclusion |\n| --- | --- |\n| `6314e87f2` — `fix(detail): inline-edit an address as sub-fields` (#4222) | **failure** |\n| `a9a67ec5b` — `fix(editor,markdown): complete the vite alias tables` (#4218) | **failure** |\n| `38ab5054f` — `retire(studio): drop the global_nav designer surfaces with the rc.6 spec bump` (objectstack#7100) | cancelled |\n| `433ff9fd3`, `e2e6360c2`, `b42558a4c` | cancelled |\n| `e1ade8f03` — `fix(gantt): an illegal dependency link says why it was refused` | success |\n\nThe last green run on `main` is `e1ade8f03`. The first red is the first run to actually complete after `38ab5054f`, which bumped `@objectstack/spec` to `17.0.0-rc.6`. The four intervening runs were cancelled (superseded), so the bump's own CI never reported — which is why this landed unnoticed.\n\n## The four failures, all one cause\n\nThe bump moved the spec; four surfaces in this repo that mirror the spec were not moved with it.\n\n**1. Type Check — spec-symbol shadowing (8 symbols, 2 packages).** rc.6 added exports whose names this repo already declares locally:\n\n```\n• @object-ui/react declares 3 spec-named symbols the spec already owns:\n    interface `MetadataState`   packages/react/src/context/AppShellContext.tsx:18   (exported by `@objectstack/spec/system`)\n    type `NavigationMode`       packages/react/src/hooks/useNavigationOverlay.ts:88 (exported by `@objectstack/spec/ui`)\n    function `resolveI18nLabel` packages/react/src/utils/i18n.ts:6                  (exported by `@objectstack/spec/ui`)\n• @object-ui/types declares 5 spec-named symbols the spec already owns:\n    type `DateRangePreset`   packages/types/src/data-protocol.ts:559\n    type `KanbanConfig`      packages/types/src/objectql.ts:124\n    type `CalendarConfig`    packages/types/src/objectql.ts:137\n    type `GanttConfig`       packages/types/src/objectql.ts:152\n    const `GlobalFilterSchema` packages/types/src/zod/complex.zod.ts:368\n```\n\n**2. Test shard 2/4 — `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts:652`.** A registry input list is missing `sort`, `limit`, `emptyText` relative to the rc.6 schema.\n\n**3. Test shard 3/4 — `scripts/__tests__/quick-reference-current-release-4143.test.ts` (3 assertions).** `QUICK_REFERENCE.md`'s \"Current Release\" block still states `^17.0.0-rc.5` for both `@objectstack/spec` and `@objectstack/client`, while the tree derives `^17.0.0-rc.6`. This is the guard objectui#4143 installed for exactly this drift, working as designed.\n\n**4. Test shard 3/4 — `packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts:123`.** The fixture authors `layout: 'custom'`, a `record:details` property rc.6 **removed** (objectstack#6946, ADR-0087 D2). The spec's own rejection message is worth quoting because it settles a separate open card:\n\n```\ncode: \"invalid_type\", expected: \"never\", path: [\"layout\"]\n\"`record:details` property `layout` was removed in @objectstack/spec 17.0.0 (#6946, ADR-0087 D2)\n — its declared `auto` | `custom` semantics were never implemented … Delete the key — the body is\n already chosen by what you author: `sections` renders the explicit groups (the old `custom`), and\n omitting it falls back to the object's `highlightFields` (the old `auto`).\n Run `os migrate meta --from 16` to rewrite existing sources automatically.\"\n```\n\nThe assertion that fails names `sections`; the key actually rejected is `layout`. Detail reported on #3818, whose subject is that same key — including that `packages/plugin-detail/src/index.tsx:274` still **publishes** `layout` as an authorable input with `defaultValue: 'auto'`, so the manifest/JSX surface is actively offering a key the spec now rejects.\n\n## Why this is worth its own card\n\nEach of the four is small and mechanical on its own. Together they are the reason a green/red signal on any current PR carries no information about that PR, which is the condition under which a genuinely broken change gets merged on the grounds that \"CI was already red\". Two of the four (the `QUICK_REFERENCE` guard and the `record:details` parity test) are guards that were installed deliberately to catch exactly this drift — they are not noise to be silenced, they are the bump's unfinished half.\n\nSuggested shape: one PR that carries the bump the rest of the way — rename-or-import the 8 shadowed symbols, add the 3 missing console registry inputs, re-derive the `QUICK_REFERENCE` block, and drop `layout` from the `record:details` fixture, registry input and dead renderer branch (the last of which closes #3818).\n"
+}

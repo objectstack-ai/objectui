@@ -1,0 +1,34 @@
+{
+  "number": 4204,
+  "kind": "pull_request",
+  "title": "fix(kanban): a rejected drag rolls the card back on the external-data path too (#4138)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T23:23:03Z",
+  "updated_at": "2026-08-10T23:36:17Z",
+  "closed_at": "2026-08-10T23:36:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-10T23:36:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4204",
+  "body": "Fixes #4138\n\nAn illegal Kanban drag that the server rejects (`PATCH` 400 `invalid_transition`) left the card stuck in the target column until a manual reload — but only when the board is hosted by a parent supplying records through the `data` prop, which is the ListView/console path real users meet. The toast fired and the server value was unchanged, so the board kept showing a move that had not happened.\n\n## Root cause, confirmed at `origin/main` @ `b1e42d09b`\n\n`packages/plugin-kanban/src/ObjectKanban.tsx` — `handleCardMove` ran its failure revert only inside `if (!hasExternalData)`. The premise recorded beside it (\"parent handles refresh\", line 147) holds for an **accepted** move: the parent's mutation subscription refetches and the new value propagates. A **rejected** move changes nothing server-side, so that refetch is never triggered and nothing un-said the optimistic move. Premise of the issue verified, unchanged, and reproduced as a failing test before any edit.\n\n## Where the optimistic state actually lives (measured first)\n\nNot in `ObjectKanban`. This was measured before writing the fix, because the revert has to clear exactly the layer that holds the move:\n\n- `KanbanImpl`'s `handleDragEnd` moves the card inside its **own** `boardColumns` state and only then calls `onCardMove`. That is why the card visibly moves on both data paths, with no parent re-render involved.\n- `boardColumns` is re-synced from the `columns` prop by an effect keyed on that prop's identity.\n- `columns` comes from `KanbanRenderer`, which re-buckets records into a **fresh array** whenever its `schema` prop changes identity — and `ObjectKanban` hands it a new object literal on every render.\n\nSo a re-render of `ObjectKanban` is what un-says the move, by re-bucketing the source-of-truth records. `fetchedData` is read in exactly one place (the `rawData` line, 219), and on the external path `externalData` wins there — which is why the old gated revert was a no-op that nothing could observe.\n\n## The fix\n\nOne unconditional revert serving both ownerships — deliberately not a second revert path:\n\n- **internal data**: `fetchedData` is the source of truth, so the map corrects the record and re-renders.\n- **external data**: `fetchedData` is unread and normally empty, but `Array#map` always allocates, so the fresh identity re-renders the component and the board re-buckets from `externalData` — which the server never changed. That is the revert: the card returns to `fromColumnId`.\n\nThe optimistic write on the way **in** stays gated on internal data deliberately, and the asymmetry is now pinned by a control: writing `fetchedData` on the external path would re-render against the unchanged parent records and snap an **accepted** move back before the server had answered.\n\nNo host-notification API was added (per the direction ruling on the card); none turned out to be needed, since the revert is the board's own display state.\n\n## Tests\n\nNew pin `packages/plugin-kanban/src/ObjectKanban.rejectedMoveRollback.test.tsx` drives the board through `DndContext`'s real `onDragEnd`, so `KanbanImpl`'s local move, the persist, the failure branch and the re-bucket are all the production code path.\n\n| case | before | after |\n| --- | --- | --- |\n| external + rejected (the issue) | RED — card stuck in \"In Progress\" | GREEN |\n| internal + rejected (control) | GREEN | GREEN |\n| external + accepted (control) | GREEN | GREEN |\n| internal + accepted (control) | GREEN | GREEN |\n| rejection toast still fires (control) | GREEN | GREEN |\n\nRed-first, pre-fix, exactly the QA signature — `Backlog` empty, card left in the target column:\n\n```\nFAIL  ObjectKanban.rejectedMoveRollback.test.tsx > reverts on the EXTERNAL-data path (ListView-hosted): card returns to Backlog\nAssertionError: expected [] to deeply equal [ 'Fix the widget' ]\n Test Files  1 failed (1)\n      Tests  1 failed | 4 passed (5)\n```\n\n**Reverse verification** (after committing, `git checkout origin/main -- packages/plugin-kanban/src/ObjectKanban.tsx`, tests kept). Direction predicted before running: RED on the external+rejected case only, with the stuck-card signature; the four controls stay green. Confirmed exactly — `Tests  1 failed | 4 passed (5)`, same assertion as above. Restored with `git checkout HEAD -- ...`.\n\nFull package, on the restored tree:\n\n```\npnpm vitest run packages/plugin-kanban --maxWorkers=2\n Test Files  10 passed (10)\n      Tests  52 passed (52)\n\npnpm --filter @object-ui/plugin-kanban type-check   # tsc --noEmit && tsc -p tsconfig.test.json — clean\npnpm --filter @object-ui/plugin-kanban lint         # 0 errors (98 pre-existing no-explicit-any warnings)\nnpm run check:control-bytes                         # OK (3894 tracked text files)\n```\n\nDependency closure built first (`pnpm --filter '@object-ui/plugin-kanban^...' build`) so the type-check read fresh declarations rather than stale `dist`.\n\nChangeset: `.changeset/kanban-rejected-move-rollback-4138.md` (`@object-ui/plugin-kanban` patch) — user-visible behavior change.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

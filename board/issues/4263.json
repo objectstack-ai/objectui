@@ -1,0 +1,36 @@
+{
+  "number": 4263,
+  "kind": "issue",
+  "title": "Analytics: the dataset widget's client-side dimension-label resolution is disabled for table / pivot / metric widgets, so a dotted dimension there still renders raw stored values",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T09:46:02Z",
+  "updated_at": "2026-08-11T10:30:00Z",
+  "closed_at": "2026-08-11T10:30:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4263",
+  "body": "Found while implementing objectui#4053 (PR #4261). Filed rather than fixed there: the fix belongs to a different resolution owner and would change behaviour for every table widget, which is outside that card's scope.\n\n## What #4053 fixed, and where it stops\n\nobjectui#4053 fixed the client-side label safety net in `DatasetWidget` so a dotted dimension path (`crm_account.industry`) resolves its select options against the relationship's target object instead of the dataset's base object.\n\nThat safety net does not run for every widget type. `packages/plugin-dashboard/src/DatasetWidget.tsx`:\n\n```ts\nuseEffect(() => {\n  if (isMetric || isTable) { setCategoryColors(null); setDimensionLabels(null); setCategoryOrder(null); return; }\n```\n\nwith `isTable = widgetType === 'table' || widgetType === 'pivot'`. The relabeling it feeds is applied only on the chart branch (`const chartRows = relabelDimensions(state.rows, dimensionLabels)`); the table/pivot branch renders `state.rows` as they arrived.\n\n## Why that leaves a gap\n\nFor a **local** dimension this is fine — the server resolves dimension display labels (ADR-0021), which is exactly why issue #4053's widget B (a `table`) rendered `Education` / `Finance` correctly. The client net is only a fallback for the case the server cannot resolve.\n\nFor a **dotted** dimension the server does not resolve the label either — that is the premise of #4053. So on a `table` or `pivot` dataset widget, a dotted dimension has neither resolution available and still renders the raw stored enum (`education`, `finance`), the same symptom #4053 reports for charts. #4053's fix does not reach it, because the effect returns before the lookup runs.\n\n## Not the same as the chart fix\n\nExtending the net to tables is not \"apply the resolution the local path uses\" — for tables the local path's resolution is the **server's**, not this client-side one. Turning the client net on for table/pivot would add a resolution those widgets have never had, affecting every table dataset widget, not only dotted ones. That is a deliberate design call rather than a mechanical extension, which is why it is filed here instead of being ridden into PR #4261.\n\n## Suggested direction (for triage, not a decision)\n\nTwo shapes worth weighing:\n\n1. Run the existing client-side net for table/pivot as well, limited to dimensions whose resolution the server demonstrably skipped. Keeps one resolver; needs a rule for \"demonstrably skipped\" that does not double-translate an already-resolved label. Note `relabelDimensions` is documented as idempotent and value-keyed, which may make this cheaper than it looks.\n2. Resolve it at the producer instead — have the analytics layer resolve dotted-path dimension labels server-side, which would fix charts, tables and pivots at once and let the client net go back to being a pure fallback. This is the contract-first shape and likely belongs in the framework repo.\n\nOption 2 also subsumes the chart-side workaround over time.\n\n## Related\n\n- objectui#4053 / PR #4261 — the chart-side fix this was found beside.\n- objectstack#5076 — analytics surfaces resolve option labels but skip the i18n bundle (the layer above: label in hand, not translated).\n- objectstack#5144 — the original thread for #4053, with the triage ruling that scoped it to pure frontend resolution."
+}

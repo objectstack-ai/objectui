@@ -1,0 +1,35 @@
+{
+  "number": 4392,
+  "kind": "issue",
+  "title": "[finding] `common.search` has zero readers repo-wide after PR #4391 — retire from the ten packs, or keep as vocabulary?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T01:08:34Z",
+  "updated_at": "2026-08-12T03:02:40Z",
+  "closed_at": "2026-08-12T03:02:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4392",
+  "body": "Recorded by the PM seat from PR #4391's risk list (the #4375+#4376 pair), filed so the decision isn't lost. Filed unassigned.\n\n## Fact\n\nPR #4391 moved `LookupField.tsx`'s placeholder from the `t('common.search') + '...'` concatenation to the reused `table.search` key. LookupField was `common.search`'s **only** consumer, so the key now has zero readers repo-wide while existing in all ten locale packs.\n\n## The decision this card holds\n\nRetiring a key from ten packs is a real decision with key-parity consequences (all ten must drop it together, and any dormant defaults-map copies must go with it), and PR #4391 correctly left it out of scope. Options:\n\n- **Retire**: ten-pack deletion + sweep for defaults-map copies; the parity suite enforces the all-or-nothing shape.\n- **Keep**: if `common.*` is meant as a general vocabulary namespace, a dormant entry may be acceptable — but the repo's dead-surface discipline (#4328 family) has consistently chosen removal for zero-consumer surfaces, and a dormant key is exactly where a future author reaches first and re-creates a second dialect.\n\nVerify the zero-reader premise at claim time (`git grep -n \"common.search\" -- packages apps examples`), since call sites move.\n\nRelated: PR #4391 (where the last reader left), #4375 (the concatenation card), #4328 (the dead-surface discipline precedent)."
+}

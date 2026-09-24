@@ -1,0 +1,36 @@
+{
+  "number": 4381,
+  "kind": "issue",
+  "title": "[finding] Two (arguably three) more copies of the falsified `paths-ignore` premise survive #4369's four named sites — check-changeset-presence.test.ts:215, ci-cd-pipeline.md:677, docs-links.yml:5",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T23:23:01Z",
+  "updated_at": "2026-08-12T00:16:07Z",
+  "closed_at": "2026-08-12T00:16:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4381",
+  "body": "Out-of-scope finding, recorded while implementing #4369 (PR #4380). Filed **unassigned**, per report-don't-fix: #4369 enumerates exactly four sites and its dispatch scope is those four, so these were left untouched rather than swept in. `content/docs/**` was additionally an explicit no-touch zone for that dispatch.\n\n## Fact\n\nobjectui#3523 step 2 deleted `paths-ignore` from `ci.yml`/`lint.yml`'s `pull_request` trigger; it survives **only** on `push` (`ci.yml` line 6, `lint.yml` line 32). #3857 / PR #4371 corrected three texts that still asserted the old shape; #4369 / PR #4380 corrects four more. A sweep run against `origin/main` @ `85a3082e6` while implementing #4369 finds the premise still asserted in the present tense at two further places that neither card enumerates, plus one mixed-tense case:\n\n| Location | What it still says | Grade |\n|---|---|---|\n| `scripts/__tests__/check-changeset-presence.test.ts:215-217` | \"`changeset-guard.yml`'s `paths: ['.changeset/**']` is deliberate: a PR adding ONLY a changeset starts no other workflow, and that guard exists to see it.\" | Present tense, falsified. Exactly the sentence PR #4371 rewrote **in the .mjs docblock this test file accompanies** — the pair now disagrees with each other across two files with the same basename |\n| `content/docs/guide/ci-cd-pipeline.md:677-678` | \"that workflow's trigger is `paths: ['.changeset/**']`, and the inversion is deliberate — a PR adding *only* a changeset starts no other workflow, and that guard exists to see it.\" | Present tense, falsified. The published docs page, i.e. the widest-audience copy of the seven-plus |\n| `.github/workflows/docs-links.yml:5-8` | \"`ci.yml` lists `'**/\\*.md'`, `content/**`, `docs/**` and `apps/site/**` under `paths-ignore`, and GitHub has no per-job path filter … so a docs-ONLY pull request matched every ignore pattern, started no workflow at all\" | Judgement call. The consequence is past tense and historically accurate; the lead-in that carries it is present tense and is now true only of the `push` trigger. Weaker than the two above — grade it before fixing it |\n\nThe `docs-links.yml` case is the same shape `scripts/__tests__/check-skills-paths.test.ts:402-403` already writes correctly, and that line is a ready-made model for the fix: \"`ci.yml` lists `'**/\\*.md'` under the `paths-ignore` of its `push` trigger\".\n\n## Why it is worth a card rather than a shrug\n\nSame class #3857's triage graded and #4369 inherited: agent-facing operational assertions that are live-disproven, the \"decide by it, decide wrong\" class, cost already sampled (PR #3856's author wrote a false CI expectation and got 16 checks).\n\nThe both-shapes cost #4369 named is what actually applies here, and it gets sharper rather than softer each time a sweep lands: after PR #4380 the repository holds seven corrected texts and two-to-three stale ones, and one of the stale ones sits in the **test file for the very script** PR #4371 corrected. A reader who lands on `check-changeset-presence.test.ts` first has no signal that the docblock one file away supersedes it.\n\n## Not a broken gate\n\nAll three are comments/prose. No assertion depends on them: `check-changeset-presence.test.ts` strips whole-line comments before every scan (`withoutComments`), and `ci-cd-pipeline-doc.test.ts` pins structural YAML properties, not header prose. The fix is comment-only in all three, with the same mechanical zero-behavior proof PR #4380 used.\n\n## How to re-check\n\n```\ngrep -rn 'starts no other workflow' --include='*.ts' --include='*.md' --include='*.yml' . | grep -v node_modules\nsed -n '1,20p' .github/workflows/ci.yml          # paths-ignore on push only; the comment below it says why\nsed -n '29,42p' .github/workflows/lint.yml       # same\n```\n\n## Dedupe\n\nSearched open + closed issues for `paths-ignore`, `changeset-presence`, `changeset-guard`, `ci-cd-pipeline`: hits are #3857 (closed, PR #4371 — three sites, disjoint), #4369 (open, PR #4380 — four sites, disjoint), #4170 (closed, a different unpinned claim in the same doc section). No twin.\n\n## Relation\n\n- **#3857** / PR #4371 — first three sites.\n- **#4369** / PR #4380 — next four sites; this finding was produced by that dispatch's sweep.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

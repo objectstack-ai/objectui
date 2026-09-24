@@ -1,0 +1,33 @@
+{
+  "number": 4457,
+  "kind": "pull_request",
+  "title": "fix(react): guard mapDensity against prototype-member rowHeight spellings (#4442)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T09:34:45Z",
+  "updated_at": "2026-08-12T09:45:08Z",
+  "closed_at": "2026-08-12T09:45:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T09:45:07Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4457",
+  "body": "Closes #4442\n\n## Defect\n\n`bridgeListView`'s `mapDensity` indexed a plain object literal with an unchecked key, so the lookup reached `Object.prototype`. The parameter is typed `RowHeight`, but the boundary a host's stored view definition actually crosses is `SpecBridge.transformListView`, whose parameter is `any`:\n\n```ts\nnew SpecBridge().transformListView({ name: 'x', rowHeight: 'toString' }).density\n// => [Function toString]\n```\n\nThat is a **function** returned from a read whose return type is three strings or nothing. `bridgeListView` writes the key under `if (density)`, and a function is truthy — so the bad value was not merely returned, it was **stored** on a `SchemaNode` whose renderer expects `'compact' | 'comfortable' | 'spacious'`. Same for `constructor`, `valueOf`, `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable` and `toLocaleString`.\n\n## Fix\n\nOne guard, the exact convention PR #4447 applied to the core twin (`rowHeightToDensityMode`) and the repo's existing shape at eight other sites (`freeze-schema.ts:135`, `metadata-admin/predicate.ts:305`, …):\n\n```ts\nif (!rowHeight) return undefined;\nif (!Object.prototype.hasOwnProperty.call(ROW_HEIGHT_TO_DENSITY, rowHeight)) {\n  return undefined;\n}\nreturn ROW_HEIGHT_TO_DENSITY[rowHeight];\n```\n\nTest half: #4440's agreement pin (`RowHeightDensityAgreement.test.ts`) carried a comment saying prototype-member keys were deliberately **excluded** because the bridge still leaked a function, pointing here. That exclusion comment is gone and both of its off-spec lists now carry the seven prototype-member spellings, plus one separate case pinning the exact expression the issue measured.\n\n## Red-first evidence\n\nMethod: commit the work, then restore **only** the pre-fix source from `HEAD~` (`git checkout HEAD~ -- packages/react/src/spec-bridge/bridges/list-view.ts`) so the extended pin runs unchanged against the unfixed bridge. No `git stash` — the stash stack is shared across worktrees (AGENTS.md §9).\n\nPre-fix, 9 of 19 fail — the 7 new `it.each` rows, the boundary case, and the agreement invariant:\n\n```\nAssertionError: expected [Function toString] to be undefined\n- Expected: undefined\n+ Received: [Function toString]\n ❯ RowHeightDensityAgreement.test.ts:89:43\n\nAssertionError: expected [Function Object] to be undefined      // 'constructor'\nAssertionError: expected [Function valueOf] to be undefined     // 'valueOf'\n\nFAIL … > never writes a function into the SchemaNode density (#4442)\nAssertionError: expected [Function toString] to be undefined\n ❯ RowHeightDensityAgreement.test.ts:100:28\n\nFAIL … > agrees for every off-spec input without either side being read first\nAssertionError: expected undefined to be [Function toString] // Object.is equality\n ❯ RowHeightDensityAgreement.test.ts:123:51\n\n Test Files  1 failed (1)\n      Tests  9 failed | 10 passed (19)\n```\n\nRestoring the fix (`git checkout HEAD -- …`) turns the same run green with a clean `git status --porcelain`:\n\n```\n Test Files  1 passed (1)\n      Tests  19 passed (19)\n```\n\n## Verification\n\n| Gate | Result |\n| --- | --- |\n| `pnpm --filter '@object-ui/react^...' build` (dependency closure, first) | green |\n| `pnpm exec vitest run packages/react/` | 39 files, **536 passed** |\n| `pnpm --filter '@object-ui/react' type-check` (`tsc --noEmit` **and** `tsc -p tsconfig.test.json`) | both green |\n| `pnpm exec eslint` on the two changed files | 0 errors (2 pre-existing `no-explicit-any` warnings on untouched `mapColumn` lines) |\n| Emitted `.d.ts` diff, pre-fix vs post-fix build | **byte-identical across all 62 declaration files** |\n\n## Grading\n\n**Patch** for `@object-ui/react`. The ruling made this conditional on the emitted `.d.ts` not moving; it does not — the guard is runtime-only inside a non-exported function whose signature is unchanged, verified by rebuilding the package on both sides and diffing all 62 declaration files (identical). So no escalation to minor under the #4403/#4177 precedent. No spec-valid `rowHeight` changes its answer; only off-spec prototype-member spellings move, from a leaked function to abstention.\n\nMerged `origin/main` (d0c3b26ca — #4448/#4449/#4450) before verifying: `git diff` confirms those three touch **no** file under `packages/react/src/spec-bridge/`, so #4450's repo-wide `type=\"button\"` sweep is disjoint from this surface. Fast-forward, no conflicts.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 3859,
+  "kind": "issue",
+  "title": "docs(skills): console-development.md 的「Retired names」表称 config/metadataTypeRegistry.ts「从未存在过」—— git 可证它确实以该路径落过地(d601ef693 加入 / ff9a0d9e9 删除)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:01:47Z",
+  "updated_at": "2026-08-11T22:43:07Z",
+  "closed_at": "2026-08-11T22:43:07Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3859",
+  "body": "越界发现,记录于 #3738 / PR #3858(按现实改写 `ROADMAP.md` 的 P1.12.3 / P1.16 九条)期间。该单文件面只含 `ROADMAP.md`,按纪律**只报不改**,单独立单,**未认领**。\n\n**观察类**:一条纠错表自身的事实错误,零运行时影响。故打 `finding`、不打 `pm:queue`。严重度留给分诊裁。\n\n## 事实\n\n`skills/objectui/guides/console-development.md`「Retired names — do not import these」表(按内容锚定,当前在 :104)称:\n\n| Retired symbol | Verdict |\n|---|---|\n| `config/metadataTypeRegistry.ts` | **Never existed under `apps/console/src/`.** The real registry is `packages/app-shell/src/views/metadata-admin/registry.ts`. |\n\n「Never existed under `apps/console/src/`」不成立。该文件确实以**恰好那个路径**存在过:\n\n```\n$ git log --oneline --all --diff-filter=AD -- '*metadataTypeRegistry*'\nd601ef693 feat: unified metadata management with registry, generic manager page, and dynamic routing\n9bf2fa44e test: prune redundant tests, keep core protocol/engine coverage\nff9a0d9e9 chore: remove studio app and migrate to metadata-admin engine\n\n$ git show --stat d601ef693 | grep metadataTypeRegistry\n apps/console/src/config/metadataTypeRegistry.ts    | 195 +++++++++++++++\n\n$ git show --stat ff9a0d9e9 | grep metadataTypeRegistry\n apps/console/src/config/metadataTypeRegistry.ts    |  317 ------\n```\n\n即:`d601ef693` 以 195 行在 `apps/console/src/config/metadataTypeRegistry.ts` 加入,长到 317 行,在 `ff9a0d9e9`(「remove studio app and migrate to metadata-admin engine」)随 studio app 的移除一并删除。表格同一列里其余五行都给了正确的处置词(`Deleted.` + commit),唯这一行把「已删除」写成了「从未存在」。\n\n`CHANGELOG.md:522` 也留有它交付时的记录(「New centralized metadata type registry (`config/metadataTypeRegistry.ts`)」),与 git 一致。\n\n## 为什么这条值得记\n\n该表的用途正是**省掉一次查证**(表头自述「searching for them wastes a lap」)。但「从未存在」与「已删除」对读者是两种不同的指示:\n\n- 「已删除」→ 想知道它当年怎么组织的,`git show ff9a0d9e9^:apps/console/src/config/metadataTypeRegistry.ts` 一条命令就能读到,这在理解 registry 从 console 侧迁往引擎侧的动机时是有用的史料。\n- 「从未存在」→ 读者不会去 git 里找,并且会认为 `ROADMAP.md` 里那条 `- [x] Metadata type registry (config/metadataTypeRegistry.ts)` 是**凭空写的**,而它其实是**过期的**。两者的处理方式不同。\n\n具体代价已经发生过一次:PR #3858 改写 ROADMAP :861 时,若直接沿用 guide 这句话,就会把「从未存在」写进 ROADMAP,把一条已删除记录错记成虚构记录。那次是靠 `git log --diff-filter=AD` 复核才没有继承。\n\n## 复核方式\n\n```\ngrep -n 'Never existed' skills/objectui/guides/console-development.md\ngit log --oneline --all --diff-filter=AD -- '*metadataTypeRegistry*'\ngit show --stat d601ef693 | grep metadataTypeRegistry     # 加入:apps/console/src/config/…\ngit show --stat ff9a0d9e9 | grep metadataTypeRegistry     # 删除\ngit show ff9a0d9e9^:apps/console/src/config/metadataTypeRegistry.ts | head -20   # 内容仍可取\n```\n\n## 建议的改法(留给认领者裁,本单不改)\n\n把该行的 Verdict 对齐同表其余五行的形态,例如:「**Deleted** (`ff9a0d9e9`, \"remove studio app and migrate to metadata-admin engine\"; added in `d601ef693`). The real registry is `packages/app-shell/src/views/metadata-admin/registry.ts`.」\n\n注意同表下一行「`MetadataTypeConfig`, `registerMetadataType`, … **No such API anywhere in the repo** (zero hits)」措辞是**准确**的 —— 它说的是「今天全仓零命中」,不是「从未存在」,不必动。本单只钉「Never existed」这一句。\n\n## 关联\n\n- #3738 / PR #3858 —— 承重来源:该 PR 的 :861 判词刻意未沿用这句话,并在正文声明了原因。\n- #3737 —— **同一文件、不同行、不同事实**:那一单钉的是**顶部注记**把 shell/navigation 搬家归因到 `cccdf84d7`;本单钉的是「Retired names」表里的一行处置词。两者不重叠。\n- #3735 —— guide 里反引号包裹的仓内路径无门禁校验。相关但不同:若那道门禁落地,它会把本行的 `apps/console/src/config/metadataTypeRegistry.ts` 报成死路径,而「Retired names」表**故意**列举退场路径,故那道门禁需要为此类表留出豁免。这是本单可以给它的一个输入,不构成依赖。\n\n已就关键词(`Never existed`、`metadataTypeRegistry`、`console-development.md`、`Retired names`)搜过本仓开放 issue:除 #3738 与上述三单外无同源单。"
+}

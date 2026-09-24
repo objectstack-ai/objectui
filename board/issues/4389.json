@@ -1,0 +1,35 @@
+{
+  "number": 4389,
+  "kind": "issue",
+  "title": "Analytics label net: the fetch-and-memo glue is written twice (DatasetWidget + plugin-report's useDatasetDimensionLabels) — its home is @object-ui/core",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T00:52:35Z",
+  "updated_at": "2026-08-12T03:10:17Z",
+  "closed_at": "2026-08-12T03:10:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4389",
+  "body": "Observation-class finding from PR #4388 (#4330). **Nothing a user hits today** — both copies call the same helpers and are pinned to the same behaviour on both surfaces. Filing so the duplication is retired deliberately rather than discovered later as drift.\n\n## What is duplicated, and what is not\n\nThe **resolution rules** are not duplicated: both surfaces call the same `@object-ui/core` helpers, which is the \"one channel, no second dialect\" property #4324 established and #4330 kept —\n\n```\nresolveDimensionFieldMeta → localizeFieldOptions / buildDimensionLabelMap → relabelDimensions\n```\n\nwith the translator bound to `useSafeFieldLabel().fieldOptionLabel`.\n\nWhat **is** written twice is the React glue around them — read the object schema through `SchemaRendererContext.apiFetch` (falling back to the global `fetch`), keep the fetched metadata locale-free in state, derive the label maps in a render memo so a language switch relabels in place instead of refetching:\n\n- `packages/plugin-dashboard/src/DatasetWidget.tsx` — the resolution effect plus its `{ categoryColors, dimensionLabels, categoryOrder }` memo;\n- `packages/plugin-report/src/useDatasetDimensionLabels.ts` — the same shape, minus the chart-only colour/order wiring.\n\n## Why it was written twice\n\n`packages/core` was held by #4040 tranche 5 while #4330 was in flight, and #4330's surface was the two plugin packages. The hook's file header says this and points here.\n\n## Suggested direction (for triage, not a decision)\n\nOnce tranche 5 lands, lift the glue into `@object-ui/core` beside the helpers it calls — one hook both plugins consume, with the dashboard keeping its extra colour/order derivation on top. Two details a mover should not lose, both of them bug fixes that are currently expressed twice:\n\n- the read must ride the host's **authenticated** `apiFetch` (#4121), not the global `fetch`;\n- the fetched metadata must stay **locale-free** in state (#4030 / PR #4324) — putting the locale in the effect's deps reintroduces a refetch on every language switch.\n\nBoth are pinned on the dashboard side; the report side would inherit them from the shared hook instead of restating them.\n"
+}

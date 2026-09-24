@@ -1,0 +1,34 @@
+{
+  "number": 3818,
+  "kind": "issue",
+  "title": "`record:details` 的 `layout` 发布了 `auto|custom` 语义,渲染器唯一的读点只认 spec 已退役的 `inline|compact` —— auto/custom 从未被实装",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:43:37Z",
+  "updated_at": "2026-08-11T07:37:09Z",
+  "closed_at": "2026-08-11T07:37:09Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3818",
+  "body": "发现于 #3807 的实施过程(围栏外,本 PR 未夹带)。未认领,交 PM triage。\n\n与 #3807 同一失效家族(manifest 发布的语义渲染器不兑现),但换的是**另一个键**,而且修法需要先做决定,所以只记录。\n\n## 机制\n\n`packages/plugin-detail/src/index.tsx` 的 `record:details` 声明:\n\n```\n{ name: 'layout', type: 'enum', label: 'Layout', enum: ['auto', 'custom'], defaultValue: 'auto',\n  description: 'auto uses the object highlightFields; custom uses explicit sections' },\n```\n\n键名、枚举值、说明都与 pin 版 `@objectstack/spec@17.0.0-rc.5` 的 `RecordDetailsProps.layout` 对齐(`z.enum(['auto','custom'])`,describe:`Layout mode: auto uses object highlightFields, custom uses explicit sections`)—— 所以 #3806 的全仓顶层 parity 门是绿的,#3807 新增的成员键断言也判不到它。\n\n但渲染器里 `schema.layout` **只有一个读点**,`packages/plugin-detail/src/renderers/record-details.tsx:104`:\n\n```\nconst layout: 'vertical' | 'horizontal' =\n  schema.layout === 'inline' || schema.layout === 'compact' ? 'horizontal' : 'vertical';\n```\n\n读的是 `@object-ui/types` 里的旧词表(`packages/types/src/record-components.ts:41`:`layout?: 'stacked' | 'inline' | 'compact'`),spec 早已不接受这三个值。于是:\n\n1. `'auto'` 与 `'custom'` 都落到 `'vertical'`,两者行为**完全一致**;\n2. 正文选谁只由 `sections` 在不在决定:`DetailView.tsx:1482` 有 sections 就渲染 sections,`:1502` 否则渲染 `fields` —— 全程不看 `layout`;\n3. 全仓对 `record:details` 的 `'auto'` / `'custom'` 的唯一提及,就是上面那条 input 声明本身(grep 实测,`packages/plugin-detail/src` 与 `packages/app-shell/src/views` 均无其他读点)。\n\n两个方向都与发布出去的语义不符,且零诊断:\n\n- `layout: 'auto'` + 显式 sections → sections 照样渲染(说明写的是「auto uses the object highlightFields」);\n- `layout: 'custom'` + 没写 sections → 静默回落到 `fields` / synth 出来的默认正文,而不是任何\"custom 缺 sections\"的提示。\n\n## 为什么不在 #3807 里顺手修\n\n修法有三条互斥路线,选哪条改的是**公开契约**,不该由实施 agent 猜:\n\n- (a) 在渲染器实装 auto/custom 语义(`auto` 忽略 authored sections、按 object 的 highlightFields 派生;`custom` 要求 sections);\n- (b) 保留现状行为、把 description 改成描述\"`layout` 目前不影响正文选择\"—— 那等于承认这是个 declared-but-inert 键,应走 ADR-0049 enforce-or-remove;\n- (c) 上游先决定 `RecordDetailsProps.layout` 留不留(objectstack 侧),本仓跟随。\n\n另外 `renderers/record-details.tsx:104` 那条 `inline|compact` 分支在 spec 收敛后已是死代码,无论走哪条路线都该一起清掉。\n\n## 顺带:`@object-ui/types` 的 mirror 也漂了(不另开)\n\n`RecordDetailsComponentProps`(`packages/types/src/record-components.ts:39-56`)与 pin 版 spec 有三处差异:`layout` 是上面那套旧词表;`sections[]` 声明了 spec 没有的 `collapsible` / `collapsed` 而缺 spec 的 `columns`;顶层缺 `hideFields`。这半落在 #2231 / #2890(hand-written types 与 spec/ui 统一、DetailView 审计)的完成范围里,按\"attach, don't scatter\"不另开,只在这里记一笔——但注意 (a) 路线会同时需要它。\n\n## 参考位置\n\n- `packages/plugin-detail/src/index.tsx` —— `record:details` 的 `layout` input\n- `packages/plugin-detail/src/renderers/record-details.tsx:104` —— 唯一的 `schema.layout` 读点\n- `packages/plugin-detail/src/DetailView.tsx:1482` / `:1502` —— sections/fields 的实际二选一条件\n- `packages/types/src/record-components.ts:39-56` —— mirror\n\n关联:#3807、#3808、#3806、#2231、#2890、objectstack#5611\n"
+}

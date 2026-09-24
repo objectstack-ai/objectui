@@ -1,0 +1,33 @@
+{
+  "number": 4458,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): resolve off-spec rowHeight at the state boundary instead of styling it as medium (#4443)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-12T09:35:24Z",
+  "updated_at": "2026-08-12T10:40:20Z",
+  "closed_at": "2026-08-12T10:40:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-12T10:40:19Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4458",
+  "body": "Closes #4443\n\n## The defect\n\n`ObjectGrid` seeded its density state with `schema.rowHeight ?? 'compact'`, so one component answered one question two ways:\n\n- **absent** `rowHeight` lands on `compact`\n- **off-spec** `rowHeight` skips every arm of the density ternaries and comes out at their terminal `else` — the `medium` styling\n\nThat is the absent-vs-off-spec split #4440 removed from `ListView`, and it made a standalone grid the third answer to a question the rest of the system had already settled: `@object-ui/core`'s `rowHeightToDensityMode` abstains for an off-spec value, the `@object-ui/react` spec bridge (#4352) abstains, and `ListView` defaults that abstention to `compact`.\n\nOnly the standalone path is affected. When `ListView` owns the grid it overwrites the prop with a value derived from `density.mode`, so nothing off-spec survives that hop.\n\n## The fix — narrow at the boundary (ruling option 1)\n\nOne resolver that admits only the five spec row heights, applied at **both** entry points that feed author-supplied `rowHeight` into the state:\n\n1. the initial `useState` seed, and\n2. the effect that re-syncs when the `rowHeight` prop changes (e.g. a parent `ListView`'s density toggle) — this was a second unvalidated writer, now routed through the same resolver.\n\nThe ternary chains are deliberately **untouched**: `medium` stays a real row height with its own styling arm, and a leaf renderer's terminal `else` stays that arm. What changes is that nothing unrecognized can reach it.\n\nMembership is tested against `ROW_HEIGHT_TO_DENSITY_MODE` rather than a local list, so the admitted values keep one definition in the repo; that table is typed `Record< RowHeight, DensityMode >`, so the build fails if the spec grows a sixth row height without the resolver being taught about it. `hasOwnProperty`, not `in` — same reason `@object-ui/core` uses it.\n\n## Red-first, and a correction to the issue's premise\n\nThe two off-spec spellings **failed differently** before this change, which the issue did not distinguish. Both are covered, and the boundary fix closes both:\n\n- **`'toString'` rendered as `medium`** — the defect exactly as filed. The toolbar's row-height icon map is looked up by the same unvalidated state, and a prototype member resolves through that map's prototype chain to `Object.prototype.toString`, a function React accepts as a component. So it survived to the ternaries.\n- **`'garbage'` did not render at all** — it is not a key of the icon map either, so the lookup produced `undefined` and rendering the icon threw `Element type is invalid`. The toolbar is shown precisely when `schema.rowHeight` is defined, so this crash and the off-spec case coincide exactly.\n\nThe issue's \"renders an off-spec rowHeight as `medium`\" is therefore true only for prototype-member spellings; a plain off-spec value crashed the standalone grid. Verbatim pre-fix red (5 failed, 6 passed):\n\n```\nAssertionError: data cell should carry compact token \"py-1\" (column-level copy),\ngot \"... px-3 py-1.5 h-11 text-[13px] leading-normal ...\": expected false to be true\n\nError: Element type is invalid: expected a string (for built-in components) or a\nclass/function (for composite components) but got: undefined.\nCheck the render method of `ObjectGrid`.\n```\n\nPost-fix: 11 passed (11).\n\n## Both ternary copies are asserted independently\n\nThey are separately observable in the DOM, so neither assertion is vacuous:\n\n- the **column-level** copy (`rowHeightCellClass`) is the only one carrying the `h-*` row-height floor, and lands on the data columns — `h-9` vs `h-11`;\n- the **table-level** copy (`dataTableSchema.cellClassName`) is the default for columns declaring none — the narrow row-number column — and carries padding/leading only, no `h-*`.\n\n## Verification\n\n- `pnpm vitest run packages/plugin-grid/src/__tests__/rowHeightOffSpecBoundary.test.tsx` — red first (5 failed / 6 passed), green after (11 passed)\n- `pnpm vitest run --maxWorkers=2 packages/plugin-grid` — 60 files, 571 passed\n- `tsc --noEmit` and `tsc -p tsconfig.test.json` — both clean\n- `pnpm --filter @object-ui/plugin-grid lint` — 0 errors\n- `check:control-bytes`, `check:phantom-deps`, `check:spec-symbols` — all green\n- Emitted `.d.ts` diffed before/after the change: **byte-identical**, so the changeset is `patch` as graded, no escalation to minor\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

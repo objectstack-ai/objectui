@@ -1,0 +1,35 @@
+{
+  "number": 4328,
+  "kind": "issue",
+  "title": "sweep: dead-surface deletions batch 3 — 3 zero-consumer items, one claim, one PR (findings-triage 2026-08-11)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T15:13:56Z",
+  "updated_at": "2026-08-11T22:19:47Z",
+  "closed_at": "2026-08-11T22:19:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4328",
+  "body": "Sweep promotion from the findings-triage round (triage seat Routine, #5474 pilot — objectstack#5474). Same criterion as batch 2 (#3931): **a declared/present surface with zero production consumers, measured by grep at a named ref — delete it.** One claim, one PR, one `Fixes` line per member, per-item checklist review.\n\nAll premises verified on `origin/main` @ `b16be40` (this round; per-member evidence on each member card):\n\n| # | Member | 落点 | before | after |\n|---|---|---|---|---|\n| 1 | #3775 | `packages/core/src/utils/merge-views-into-objects.ts` (+ its `export *` line in `packages/core/src/index.ts:34`) | second `mergeViewsIntoObjects` copy, zero in-repo consumers; drops the container default `list`, keys by bare name instead of composer identity | file deleted, re-export removed; `app-shell`'s `MetadataProvider.mergeViewsIntoObjects` (the live copy, used at `MetadataProvider.tsx:697`) is untouched |\n| 2 | #3778 | `packages/data-objectstack/src/index.ts` — the five `metadataCache.invalidate?.(`views:${objectName}`)` sites (`:3022`, `:3183`, `:3243`, `:3274`, `:3291`) | invalidations of a cache key no read path ever populates (`listViews` never routes through `metadataCache.get` with a `views:` key — verified this round; note the card says 4 sites, main now has 5) | the five dead invalidate lines removed; `listViews` behavior unchanged (it is genuinely uncached — if caching is ever wanted, that is a new card, not this sweep) |\n| 3 | #4288 | `packages/permissions/src` — `RoleDefinition.permissions` (required field) | required and read by nothing in production; `resolveRoles` and every other consumer read only `name`/`inherits` (sole non-test hit is a test-comment documenting the state) | field removed (or demoted per the member card's discussion if remoteness of the type surface demands it — the PR states which and why); typing consumers compile clean |\n\nSweep discipline (binding, per the pm-dispatch sweep rules):\n1. All members hit the same criterion — zero-consumer dead surface, delete.\n2. This table is the review checklist — reviewed per row, not per diff order.\n3. **Zero changes outside the N items**; `git diff --stat` must map 1:1 to the rows (plus changeset).\n4. Out-of-scope discoveries get their own cards (PD #10), never riders.\n5. This card is the claim/dispatch object; members keep their queue state but are **not** individually dispatchable while this sweep is open (selection excludes them by this member list). PR carries `Fixes #3775`, `Fixes #3778`, `Fixes #4288`, and `Fixes` this card.\n\nMember #3773 (`RecordContextValue.loading`/`error`) was considered and **excluded**: the premise has drifted — the context's memo now dep-lists both fields and the provider signature spreads all values, so zero-producer/zero-consumer needs re-measurement against current hosts before deletion is safe."
+}

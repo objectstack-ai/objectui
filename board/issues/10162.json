@@ -2,8 +2,8 @@
   "number": 10162,
   "kind": "issue",
   "title": "finding(app-shell tests): the network-escape guard reds a ROTATING innocent `AppContent` test under full-suite load — a late `/api/v1/meta` read lands after the real `fetch` is restored",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -12,16 +12,19 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-20T18:24:44Z",
-  "updated_at": "2026-09-20T19:54:55Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T10:56:17Z",
+  "closed_at": "2026-09-24T10:56:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 1,
   "locked": false,

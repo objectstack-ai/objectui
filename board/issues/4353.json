@@ -1,0 +1,35 @@
+{
+  "number": 4353,
+  "kind": "issue",
+  "title": "finding(components): noImplicitAny is off package-wide, and 26 renderer signatures depend on it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T20:37:36Z",
+  "updated_at": "2026-08-12T05:32:33Z",
+  "closed_at": "2026-08-12T05:32:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4353",
+  "body": "Found while type-checking `@object-ui/components`' tests for #4040 (tranche 4). Observation-class: no user-visible symptom, no fix proposed here.\n\n## What\n\n`packages/components/tsconfig.json` sets `noImplicitAny: false`:\n\n```jsonc\n// Removed rootDir to prevent file not under rootDir errors when importing from ..\n\"noImplicitAny\": false,\n```\n\nThe comment above it explains the `rootDir` removal, not the flag. It is the only package in the workspace that relaxes a `strict` sub-flag, and AGENTS.md commandment #6 is \"type safety over magic — no `any`\".\n\nMeasured cost, by compiling the package's test project once with the flag and once without (the difference is entirely in SOURCE files, not tests):\n\n| file | implicitly-`any` sites |\n|---|---|\n| `src/renderers/navigation/sidebar.tsx` | 10 (`TS7031`, all `{ schema }` / `{ className }` binding elements) |\n| `src/renderers/action/action-bar.tsx` | 6 (`TS7006`, `(a) => …` / `(action) => …`) |\n| `src/renderers/action/action-menu.tsx` | 4 |\n| `src/renderers/action/action-group.tsx` | 4 |\n| `src/renderers/data-display/tree-view.tsx` | 2 |\n| **total** | **26** |\n\nOnly **2** implicit-`any` sites are in the package's own tests, which is worth recording on its own: the `TEST_DEBT` registry described this package as `TS7006x12, TS7031x12 — untyped test callback params`, and that attribution is wrong. Those 24 are untyped *renderer* params that a measurement config re-enabling the flag pulled in through the tests' imports.\n\n## Why now\n\nThe tranche-4 `tsconfig.test.json` mirrors this one flag from the build config and nothing else, with the reasoning inline: a test project must not become the compiler of record for a SOURCE strictness decision that `tsconfig.json` owns. So graduating the package did not silently adopt the relaxation, and did not silently tighten it either.\n\n## The decision, when someone takes it\n\nTurning the flag on is 26 signatures across five files, mechanical but not free, and it is a change to the published output's types (these are renderer props). Two sub-questions worth separating: whether `sidebar.tsx`'s ten `{ schema }` bindings want a real schema type or `ComponentRendererProps` (they are all renderer entry points), and whether the action renderers' `(a) =>` callbacks should be typed from `ActionDef` — which would make them the sixth consumer of a type they already receive at runtime.\n"
+}

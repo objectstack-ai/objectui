@@ -1,0 +1,34 @@
+{
+  "number": 3398,
+  "kind": "issue",
+  "title": "全屏长文本编辑器有两份实现：form.tsx 的 FullscreenTextarea 与 fields 的 FullscreenFieldEditor（合并受阻于 components ← fields 的依赖方向）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-05T16:22:57Z",
+  "updated_at": "2026-08-10T19:46:13Z",
+  "closed_at": "2026-08-10T19:46:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3398",
+  "body": "观察类记录（`finding`，不带 `pm:queue`）。在实施 #3303（PR #3397，删掉内置 textarea 分支的无生产者 `fullscreen` 别名）时确认。\n\n#3303 正文里记过这条，但那单即将随 PR #3397 关闭，这条观察会被埋进已关闭的 issue 里；**PM 当时的裁定是「不做，依赖方向反，需单独裁决」**，那就需要一个自己的载体来承接这次裁决。单独开一条，不带 `pm:queue`，等 triage。\n\n## 现象\n\n同一个「全屏编辑长文本」的交互（展开按钮 + 全高对话框 + draft/commit 语义），当前有两份独立实现：\n\n| 实现 | 位置 | 消费者 |\n|---|---|---|\n| `FullscreenTextarea` | `packages/components/src/renderers/form/form.tsx:357`（`origin/main` @ 4eeb932aa） | 表单渲染器的内置（未注册）`textarea` 分支 |\n| `FullscreenFieldEditor` | `packages/fields/src/widgets/FullscreenFieldEditor.tsx:95`（160 行） | `TextAreaField.tsx:85`、`RichTextField.tsx:145` |\n\n#3302（issue #3301）已经把 widget 侧原本的两份合并成了共享的 `FullscreenFieldEditor`，内置分支这一份没有跟进 —— 不是遗漏，是搬不过去（见下）。\n\n## 为什么这不是一次简单搬运\n\n依赖方向是反的，实测自 `package.json`：\n\n- `packages/fields/package.json` 依赖 `\"@object-ui/components\": \"workspace:*\"`；\n- `packages/components/package.json` 的 dependencies / peerDependencies 里**没有** `@object-ui/fields`。\n\n即 `fields → components`。所以 `components/src/renderers/form/form.tsx` 不能 import `FullscreenFieldEditor`。AGENTS.md §3 的拓扑也是这么排的（Atoms 在下、Fields 在上）。\n\n## 为什么今天不算 bug（观察类的理由）\n\n两份实现目前**行为一致**，用户碰不到差异；#3272（PR #3392）刚把 `FullscreenTextarea` 的文案接进 i18n，两边都是活的、都被测试覆盖。它是**漂移风险**，不是现存缺陷 —— 但 #3301 那一单的教训正是「一个表单级开关产出两种行为、且没有任何东西报告这个漂移」，两份状态机长期并存就是同一形状的种子。\n\n一个已经发生的具体例子：#3393（全屏对话框拿不到字段 label）只落在 `FullscreenTextarea` 这一份上；同类问题要不要在 `FullscreenFieldEditor` 上再修一遍，取决于这两份最终是否合并。\n\n## 可能的方向（需裁决，本 issue 不预设结论）\n\n- **A. 把共享实现下沉到 `packages/components`**，`fields` 的两个 widget 改为从下层 import。顺依赖方向，一份实现；代价是 `components`（定位「Pure UI, no business logic」）要接纳一个带 draft/commit 状态机的编辑器外壳，且要确认它不拖进 `fields` 侧的依赖。\n- **B. 维持两份，显式记为「两个渲染路径各自拥有」**，并加一条对齐测试防漂移。成本最低，但把重复固化了。\n- **C. 让内置 `textarea` 分支干脆不再自带全屏实现**（例如该分支本身就走注册 widget）。最彻底，但改动面远超本条观察，需要单独评估内置分支的存在理由。\n\n倾向不在此下：这条取决于 `packages/components` 的职责边界怎么划，属于架构裁决，不是实现细节。\n\n## 证据等级\n\n静态证据：读 `form.tsx` / `FullscreenFieldEditor.tsx` / 两个 widget 的调用点，以及两个 `package.json` 的依赖字段。未做浏览器复现（两份实现当前行为一致，无可复现的用户可见差异 —— 这正是它属于观察类的原因）。\n\n关联：#3301（PR #3302 合并了 widget 侧两份）、#3303（PR #3397）、#3393、#3272（PR #3392）。\n"
+}

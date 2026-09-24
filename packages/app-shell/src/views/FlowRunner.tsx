@@ -78,7 +78,44 @@
  * suppresses the action's `successMessage` at the ActionRunner's toast sink.
  * ⛔ That last part is a thing that WORKS — it is pinned, not touched.
  *
- * Copy goes through `@object-ui/i18n` (via the `@object-ui/react` re-export)
+ * ## The AUTHOR's copy is localized here; the chrome is not (objectui#5920)
+ *
+ * A screen's heading and each field's `label` / `placeholder` are the flow
+ * author's words, and an app's translation bundle carries them under
+ * `flows.<flow>.screens.<node_id>` (`TranslationData.flows`, the vocabulary
+ * objectstack#7646 declared). The server puts them on the wire in the source
+ * language, so the overlay is applied on this side of it — the client already
+ * holds both addresses, `ScreenSpec.nodeId` and `ScreenFieldSpec.name`, which
+ * is why objectstack#11287 picked the client side.
+ *
+ * WHAT resolves is the spec's decision, not this file's: the heading goes
+ * through `resolveFlowScreenTitle`, and the per-field overlay walks
+ * `FLOW_SCREEN_FIELD_COPY_KEYS` — imported, never retyped, so a key the spec
+ * adds or drops reaches this dialog without an edit here. Every key falls back
+ * to the authored string on its own: a bundle that translates the heading but
+ * not a field leaves that field in the author's language, never blank.
+ *
+ * WHERE the bundle comes from is the channel the console already has: the
+ * provider's `loadLanguage` hands the app's translation payload to i18next
+ * (`transformSpecTranslations` forwards `flows` verbatim under the app
+ * namespace), and {@link activeFlowsBundle} reads it back out of that resource
+ * tree for the active language. There is no second loader.
+ *
+ * Deliberately NOT localized here, each by ruling rather than by omission:
+ *
+ * - the screen `description` — outside the spec's flows face (in neither key
+ *   list), so an off-spec `description` a bundle carries anyway is ignored and
+ *   the authored text is drawn;
+ * - the runner chrome (Cancel / Submit / Submitting… / the terminal toast) —
+ *   the console's own words, ruled into its message catalog (objectstack#7646);
+ * - `FlowSchema.successMessage` — off the translation surface by design.
+ *
+ * ⚠️ One boundary of the client-side pick: the server interpolates `{var}`
+ * tokens in the heading before it reaches the wire, and the wire does not carry
+ * the variables, so a translated heading is drawn exactly as the bundle wrote
+ * it — a token inside it renders literally.
+ *
+ * Chrome goes through `@object-ui/i18n` (via the `@object-ui/react` re-export)
  * like its neighbours; the only English left in this file is the inline
  * `defaultValue` each key carries, which `check:i18n-keys` pins to its `en`
  * value. The server's own refusal sentence is passed through untranslated by
@@ -97,11 +134,103 @@ import {
   Button,
 } from '@object-ui/components';
 import { notifyDataChanged, useObjectTranslation } from '@object-ui/react';
+import {
+  FLOW_SCREEN_FIELD_COPY_KEYS,
+  resolveFlowScreenTitle,
+  type TranslationBundle,
+  type TranslationData,
+} from '@objectstack/spec/system';
 import { toast } from 'sonner';
-import { ScreenView, isObjectFormScreen, initialScreenValues, visibleScreenFields, type ScreenSpec } from './ScreenView.js';
+import {
+  ScreenView,
+  isObjectFormScreen,
+  initialScreenValues,
+  visibleScreenFields,
+  type ScreenFieldSpec,
+  type ScreenSpec,
+} from './ScreenView.js';
 import { interpretFlowResponse } from '../utils/flowResponse.js';
 
 export type { ScreenSpec, ScreenFieldSpec } from './ScreenView.js';
+
+/** The `flows` group of a spec `TranslationData` — typed by the spec, so the address below is checked against it. */
+type FlowsTranslation = NonNullable<TranslationData['flows']>;
+
+/** The per-field copy node, `flows.<flow>.screens.<node_id>.fields.<field_name>`. */
+type FlowScreenFieldTranslation = NonNullable<
+  NonNullable<NonNullable<FlowsTranslation[string]['screens']>[string]['fields']>[string]
+>;
+
+/**
+ * The one member of the i18next instance the bundle read needs. Optional,
+ * because outside a provider react-i18next hands back a placeholder object
+ * that has none — and then there is no bundle, only the authored copy.
+ */
+interface TranslationResourceReader {
+  getResourceBundle?: (lng: string, ns: string) => unknown;
+}
+
+/**
+ * The active language's `flows` group as a spec `TranslationBundle`, read out
+ * of the i18next resource tree the console already loaded (see the header), or
+ * `undefined` when that tree translates nothing for `flowName`.
+ *
+ * App translations sit under an app namespace at the top of that tree (`app`
+ * for a spec payload, whatever the payload named for an already-namespaced
+ * one), so the first namespace whose `flows` group addresses this flow is the
+ * one read. The bundle is keyed by `language` itself, and the resolvers are
+ * asked for `language` with no fallback chain: a string the active language
+ * does not carry falls back to the author's copy, never to a third locale.
+ */
+function activeFlowsBundle(
+  i18n: TranslationResourceReader | undefined,
+  language: string,
+  flowName: string,
+): TranslationBundle | undefined {
+  if (!flowName || typeof i18n?.getResourceBundle !== 'function') return undefined;
+  const tree = i18n.getResourceBundle(language, 'translation');
+  if (!tree || typeof tree !== 'object') return undefined;
+  for (const namespace of Object.values(tree as Record<string, unknown>)) {
+    const flows = (namespace as { flows?: unknown } | null)?.flows;
+    if (flows && typeof flows === 'object' && (flows as Record<string, unknown>)[flowName]) {
+      return { [language]: { flows: flows as FlowsTranslation } };
+    }
+  }
+  return undefined;
+}
+
+/** One field with the spec's per-field copy keys overlaid, each key falling back to the authored value. */
+function overlayFieldCopy(field: ScreenFieldSpec, copy: FlowScreenFieldTranslation | undefined): ScreenFieldSpec {
+  if (!copy) return field;
+  let next = field;
+  for (const key of FLOW_SCREEN_FIELD_COPY_KEYS) {
+    const translated = copy[key];
+    if (typeof translated === 'string' && translated.length > 0) next = { ...next, [key]: translated };
+  }
+  return next;
+}
+
+/**
+ * The screen as the user should read it: the heading through the spec's
+ * `resolveFlowScreenTitle`, the fields through `FLOW_SCREEN_FIELD_COPY_KEYS`.
+ * Everything else — `description` included — is the payload, untouched. With
+ * no bundle the input comes back as-is.
+ */
+function localizeScreen(
+  screen: ScreenSpec,
+  flowName: string,
+  bundle: TranslationBundle | undefined,
+  language: string,
+): ScreenSpec {
+  if (!bundle) return screen;
+  const title = resolveFlowScreenTitle(bundle, flowName, screen, { locale: language });
+  const fieldCopy = bundle[language]?.flows?.[flowName]?.screens?.[screen.nodeId]?.fields;
+  const fields =
+    fieldCopy && Array.isArray(screen.fields)
+      ? screen.fields.map((field) => overlayFieldCopy(field, fieldCopy[field.name]))
+      : screen.fields;
+  return { ...screen, title, fields };
+}
 
 export interface ScreenFlowState {
   flowName: string;
@@ -163,7 +292,7 @@ export interface FlowRunnerProps {
 }
 
 export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dataSource, objects }: FlowRunnerProps) {
-  const { t } = useObjectTranslation();
+  const { t, i18n, language } = useObjectTranslation();
   const [screen, setScreen] = useState<ScreenSpec | null>(null);
   const [runId, setRunId] = useState('');
   const [flowName, setFlowName] = useState('');
@@ -185,6 +314,14 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   }, [state]);
 
   if (!state || !screen) return null;
+
+  // The copy the user reads (objectui#5920 — see the header). Recomputed on
+  // every render rather than memoised: it is a handful of property reads, and
+  // it follows the live resource tree and a language switch with no identity
+  // to keep stable (AGENTS.md §5 #10). `screen` stays the payload the run is
+  // driven by; `shown` differs from it in copy only, so every DISPLAY read —
+  // including the names in the missing-fields toast below — goes through it.
+  const shown = localizeScreen(screen, flowName, activeFlowsBundle(i18n, language, flowName), language);
 
   const setVal = (name: string, v: unknown) => {
     setValues((p) => ({ ...p, [name]: v }));
@@ -264,7 +401,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     // `visibleWhen: createOpportunity == true`, so leaving the checkbox
     // unticked blocked Submit on an input that was not on screen, and the run
     // sat paused with no resume request ever issued.
-    const missing = visibleScreenFields(screen, values).filter(
+    const missing = visibleScreenFields(shown, values).filter(
       (f) => f.required && (values[f.name] === undefined || values[f.name] === '' || values[f.name] === null),
     );
     if (missing.length) {
@@ -322,8 +459,10 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
       <DialogContent className={isObjectForm ? 'sm:max-w-3xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-md'}>
         <DialogHeader>
-          <DialogTitle>{screen.title || t('flowRunner.title', { defaultValue: 'Input' })}</DialogTitle>
-          {screen.description && <DialogDescription>{screen.description}</DialogDescription>}
+          <DialogTitle>{shown.title || t('flowRunner.title', { defaultValue: 'Input' })}</DialogTitle>
+          {/* Authored and untranslated on purpose: `description` is outside the
+              spec's flows face (see the header). */}
+          {shown.description && <DialogDescription>{shown.description}</DialogDescription>}
         </DialogHeader>
 
         {refused && refused.message && (
@@ -354,7 +493,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
             run it is driving) with it. */}
         <Suspense fallback={<div className="py-6 text-sm text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>}>
           <ScreenView
-            screen={screen}
+            screen={shown}
             values={values}
             onValueChange={setVal}
             dataSource={dataSource}

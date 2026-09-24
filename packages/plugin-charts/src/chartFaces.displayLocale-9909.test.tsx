@@ -97,7 +97,9 @@ const SURFACES: Surface[] = [
   },
   {
     name: 'single-value face',
-    node: <AdvancedChartImpl chartType="metric" data={[{ value: 1234567.5 }]} series={[{ dataKey: 'value' }]} />,
+    // `metric` is one of `SINGLE_VALUE_CHART_TYPES`; the prop's declared union
+    // names only the drawn families, so the cast reaches the branch directly.
+    node: <AdvancedChartImpl chartType={'metric' as never} data={[{ value: 1234567.5 }]} series={[{ dataKey: 'value' }]} />,
     de: /1\.234\.567,5/,
     en: /1,234,567\.5/,
   },

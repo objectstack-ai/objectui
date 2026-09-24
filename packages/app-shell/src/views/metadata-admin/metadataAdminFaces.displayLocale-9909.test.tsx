@@ -164,7 +164,7 @@ const SURFACES: Surface[] = [
   {
     name: 'JobPreview — next fire time',
     read: (locale) =>
-      settle(locale, <JobPreview name="nightly" draft={{ name: 'nightly', at: '2030-03-06T15:30:00.000Z' }} />, /nightly/),
+      settle(locale, <JobPreview type="job" name="nightly" draft={{ name: 'nightly', at: '2030-03-06T15:30:00.000Z' }} />, /nightly/),
     de: /06\. März, 15:30/,
     en: /Mar 06, 03:30\sPM/,
   },

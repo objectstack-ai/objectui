@@ -17,7 +17,8 @@ import {
 } from '@object-ui/components';
 import { Plus, Trash2, SlidersHorizontal, Maximize2, Copy, GripVertical } from 'lucide-react';
 import { formatDate, formatDateTime, resolveFieldRuleState } from '@object-ui/core';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useLocalization, formatDisplayNumber } from '@object-ui/i18n';
+import { resolveFieldCurrency, currencyFractionDigits, currencySymbol } from '../currency.js';
 import { LookupField } from './LookupField.js';
 import { FileCell } from './FileField.js';
 import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue } from './nativeDateValue.js';
@@ -111,6 +112,12 @@ export interface GridColumn {
   options?: Array<{ label: string; value: string }>;
   width?: number;
   required?: boolean;
+  /**
+   * Symbol shown in a `currency` cell IN PLACE OF the resolved currency's own
+   * symbol. When absent, the cell shows the symbol of the currency it
+   * resolves (objectui#10355) — there is no default symbol: this used to fall
+   * back to a literal `¥` whatever the column's currency was.
+   */
   prefix?: string;
   step?: number;
   /** For `type: 'lookup'` — the referenced object and label/id fields. */
@@ -142,7 +149,16 @@ export interface GridColumn {
   /** Arithmetic expression for a {@link computed} column. Supports `+ - * / %`,
    *  parentheses, numeric literals and field refs (`record.qty` or bare `qty`). */
   expr?: string;
-  /** Decimal places to round a computed numeric/currency result to. */
+  /**
+   * Decimal places to round a computed NUMBER result to.
+   *
+   * ⛔ Not read on a `currency` column (objectui#10355): a currency's decimal
+   * places are the currency's, not a setting — ruling 乙 on
+   * objectstack-ai/objectstack#19910, with `scale` retired from the currency
+   * type by ruling B on objectstack-ai/objectstack#19629. A computed currency
+   * cell is rounded to its resolved currency's ISO 4217 minor unit instead;
+   * see `storedFractionScale`.
+   */
   scale?: number;
   /** For `type: 'lookup'` — when a record is picked, copy its fields into any
    *  sibling columns of the same name (e.g. a product's unit_price/description).
@@ -312,14 +328,61 @@ export function lookupAutofillPatch(columns: GridColumn[], col: GridColumn, reco
   return patch;
 }
 
-export function computeRow(columns: GridColumn[], row: Row): Row {
+/**
+ * The currency a `currency` column is denominated in (objectui#10355).
+ *
+ * Read through `resolveFieldCurrency` — the one precedence every currency face
+ * shares (field `currency` → `currencyConfig.defaultCurrency` → a legacy
+ * `defaultCurrency` → the tenant default) — ⛔ never a second copy of it.
+ *
+ * The field-level legs are handed nothing, deliberately: a grid column
+ * declares none of those keys — not `GridColumn`, not `GridColumnDefinition`
+ * in `@object-ui/types`, and not the spec's strict `InlineGridColumnSchema`,
+ * which refuses them — and the column derivation in `@object-ui/plugin-form`
+ * copies none of them from the child field. Reading them off the column would
+ * add a renderer read that no authored metadata can reach. So the precedence
+ * lands on the tenant default, and `undefined` when none is configured: the
+ * caller then invents no currency, exactly as `CurrencyCellRenderer` does.
+ */
+function columnCurrency(tenantCurrency: string | undefined): string | undefined {
+  return resolveFieldCurrency(undefined, tenantCurrency);
+}
+
+/**
+ * The fraction width a computed cell's STORED value is rounded to.
+ *
+ * - `currency` — the resolved currency's ISO 4217 minor unit (0 for JPY, 2 for
+ *   USD, 3 for KWD), from `currencyFractionDigits`, the helper every currency
+ *   face already uses (objectui#10355). This used to be `scale ?? 2`: a yen
+ *   amount was stored with cents it does not have and a dinar amount lost its
+ *   third digit (KWD 3 × 1.2345 stored `3.7`). ⛔ `scale` is not read here:
+ *   it is retired from the currency type (ruling B on
+ *   objectstack-ai/objectstack#19629), and a currency's decimal places are
+ *   the currency's, not a setting (ruling 乙 on objectstack-ai/objectstack#19910).
+ *   ⛔ Nor is a literal `2` invented when no currency resolves — with no
+ *   minor unit to round to, the value is stored as computed.
+ * - every other type — the column's declared `scale`, unrounded when absent
+ *   (unchanged).
+ */
+function storedFractionScale(c: GridColumn, tenantCurrency: string | undefined): number | undefined {
+  if (c.type !== 'currency') return c.scale;
+  const currency = columnCurrency(tenantCurrency);
+  return currency ? currencyFractionDigits(currency) : undefined;
+}
+
+/**
+ * @param tenantCurrency the tenant's default currency (`useLocalization()`),
+ *   the resolver's last step for a `currency` column — see
+ *   {@link storedFractionScale}.
+ */
+export function computeRow(columns: GridColumn[], row: Row, tenantCurrency?: string): Row {
   const computedCols = columns.filter((c) => c.computed && c.expr);
   if (computedCols.length === 0) return row;
   const next = { ...row };
   for (const c of computedCols) {
     const v = evalArith(c.expr!, next);
     if (v === null) { next[c.name] = null; continue; }
-    const scale = c.scale ?? (c.type === 'currency' ? 2 : undefined);
+    const scale = storedFractionScale(c, tenantCurrency);
     // A width above the engine's `toFixed` ceiling is clamped and reported,
     // never thrown out of the edit (objectui#10071, the objectui#9808 ruling).
     next[c.name] = scale != null
@@ -412,10 +475,51 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   return formatDateTime(dt, { style: 'compact', locale });
 }
 
+/**
+ * The symbol a `currency` cell shows: the column's authored `prefix`, else the
+ * resolved currency's own symbol through `currencySymbol` (the one channel
+ * `CurrencyField` uses too), else nothing. ⛔ No default symbol
+ * (objectui#10355): both currency faces of this grid used to fall back to a
+ * literal `¥`, so a USD tenant's line items read `¥1,234.57`.
+ */
+function currencyAdornment(c: GridColumn, currency: string | undefined, locale: string): string {
+  if (c.prefix) return c.prefix;
+  return currency ? currencySymbol(currency, locale) : '';
+}
+
+/**
+ * Display text for a finite amount in a `currency` cell (objectui#10355).
+ *
+ * The width is the resolved currency's ISO 4217 minor unit — the same
+ * `currencyFractionDigits` that decides the stored value in
+ * `storedFractionScale` — so a yen amount shows no decimals and a dinar
+ * amount three. With no currency resolved there is no width to take, and the
+ * amount keeps the plain locale format this branch always had.
+ *
+ * With no authored `prefix`, the amount is `Intl`'s own currency format, so
+ * the symbol sits where the locale puts it (`¥3,704`, `3.704 ¥` in de-DE). An
+ * authored `prefix` replaces the symbol, not the width.
+ */
+function currencyText(c: GridColumn, n: number, currency: string | undefined, locale: string): string {
+  const digits = currency ? currencyFractionDigits(currency) : undefined;
+  const width = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
+  if (c.prefix || !currency) {
+    return `${currencyAdornment(c, currency, locale)}${formatDisplayNumber(n, { locale, ...width })}`;
+  }
+  try {
+    return formatDisplayNumber(n, { locale, currency, ...width });
+  } catch {
+    // A malformed currency code: `Intl` refuses it. Show the code beside the
+    // amount rather than take the cell down — `formatCurrency`'s fallback.
+    return `${currency} ${n.toFixed(digits)}`;
+  }
+}
+
 /** Read-only display text for a cell in list mode (select → option label,
  *  currency/number → formatted, date/datetime/time → localized, empty → em
- *  dash). Lookups render separately. */
-function displayText(c: GridColumn, value: any, locale: string): string {
+ *  dash). Lookups render separately. `currency` is the column's resolved
+ *  currency, read only by the currency branch. */
+function displayText(c: GridColumn, value: any, locale: string, currency?: string): string {
   if (value === null || value === undefined || value === '') return '—';
   if (isTemporal(c.type)) return temporalText(c.type, value, locale);
   if (c.type === 'file') {
@@ -435,7 +539,7 @@ function displayText(c: GridColumn, value: any, locale: string): string {
     // branch above is handed. It used to drop it, so one grid row read a date
     // in the session's convention beside an amount grouped and decimal-marked
     // the machine's way (objectui#9909).
-    if (Number.isFinite(n)) return c.type === 'currency' ? `${c.prefix || '¥'}${n.toLocaleString(locale)}` : n.toLocaleString(locale);
+    if (Number.isFinite(n)) return c.type === 'currency' ? currencyText(c, n, currency, locale) : n.toLocaleString(locale);
   }
   if (Array.isArray(value)) return value.join(', ');
   return String(value);
@@ -505,6 +609,12 @@ export function GridField({
   // regional default → active UI language → 'en' (objectui#4468). Read here
   // and passed down, since `displayText` is a pure helper.
   const displayLocale = useDisplayLocale();
+  // The tenant default currency (ADR-0053) — the resolver's last step, and in
+  // practice the currency of every `currency` column (objectui#10355, see
+  // `columnCurrency`). It decides both the stored width of a computed
+  // currency cell (`computeRow`) and the face of every currency cell.
+  const { currency: tenantCurrency } = useLocalization();
+  const currency = columnCurrency(tenantCurrency);
 
   // Per-cell CEL rule state (B2 in grids). A column with no readonlyWhen/
   // requiredWhen resolves to its static flags (cheap fast-path — no engine
@@ -587,12 +697,12 @@ export function GridField({
       const isGhost = rowIdx >= rows.length;
       if (isGhost) {
         if (maxRows != null && rows.length >= maxRows) return;
-        emit([...rows, computeRow(columns, { ...blankRow(), ...patch })]);
+        emit([...rows, computeRow(columns, { ...blankRow(), ...patch }, tenantCurrency)]);
         return;
       }
-      emit(rows.map((r, i) => (i === rowIdx ? computeRow(columns, { ...r, ...patch }) : r)));
+      emit(rows.map((r, i) => (i === rowIdx ? computeRow(columns, { ...r, ...patch }, tenantCurrency) : r)));
     },
-    [rows, columns, maxRows, blankRow, emit],
+    [rows, columns, maxRows, blankRow, emit, tenantCurrency],
   );
 
   const applyCell = useCallback(
@@ -816,7 +926,7 @@ export function GridField({
                         // for a date, and for a datetime it would ALSO have been
                         // wrong to render as a bare day (objectui#3569). Now that
                         // the three types are distinct, each formats as itself.
-                        displayText(c, row[c.name], displayLocale)
+                        displayText(c, row[c.name], displayLocale, currency)
                       ) : row[c.name] != null && row[c.name] !== '' ? (
                         String(row[c.name])
                       ) : (
@@ -909,7 +1019,7 @@ export function GridField({
       }
       return (
         <span className={cn('px-2 text-sm text-foreground', isNumeric(c.type) && 'tabular-nums', (val == null || val === '') && 'text-muted-foreground')}>
-          {displayText(c, val, displayLocale)}
+          {displayText(c, val, displayLocale, currency)}
         </span>
       );
     }
@@ -921,7 +1031,7 @@ export function GridField({
           title="Computed"
           data-computed={c.name}
         >
-          {displayText(c, val, displayLocale)}
+          {displayText(c, val, displayLocale, currency)}
         </span>
       );
     }
@@ -978,10 +1088,13 @@ export function GridField({
         </Select>
       );
     }
+    // The editable currency cell shows the SAME symbol its display face does
+    // (objectui#10355) — `currencyAdornment`, never a default `¥`.
+    const adornment = c.type === 'currency' ? currencyAdornment(c, currency, displayLocale) : '';
     return (
       <div className="relative">
-        {c.type === 'currency' && (
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{c.prefix || '¥'}</span>
+        {adornment && (
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{adornment}</span>
         )}
         <Input
           data-cell={`${rowIdx}-${colIdx}`}
@@ -989,7 +1102,7 @@ export function GridField({
           onKeyDown={(e) => onCellKeyDown(e, rowIdx, colIdx)}
           className={cn(
             'h-8 rounded-none border-0 bg-transparent px-2 shadow-none focus-visible:ring-1 focus-visible:ring-ring/60',
-            c.type === 'currency' && 'pl-6',
+            adornment && 'pl-6',
             isNumeric(c.type) && 'text-right tabular-nums',
           )}
           type={

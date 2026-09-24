@@ -41,13 +41,15 @@
  * exactly one: `HistoryTimeline`'s optional `locale` prop reached
  * `Intl.RelativeTimeFormat(locale, …)` and neither of its two call sites
  * passed it, so the prop's own doc comment declared the defect ("Defaults to
- * browser locale"). `recordLocaleArguments` below closes that hole by
+ * browser locale"). `recordLocaleArguments` (`@object-ui/test-support`) closes that hole by
  * observing the ARGUMENT every `Intl` constructor and every
  * `Date.prototype.toLocale*` call actually receives while a surface renders.
  * It sees through variables, spreads and defaults, which no grep does.
  *
- * `machineLocaleCensus-9786.test.ts` is the other half: it reddens when a NEW
- * bare or hard-coded site is written anywhere in this package's source.
+ * The repo-wide census (`packages/i18n/src/__tests__/machineLocaleCensus-9909.test.ts`,
+ * which this package's own census pin became under the ruling on objectui#9786)
+ * is the other half: it reddens when a NEW bare or hard-coded site is written
+ * anywhere in a package that depends on `@object-ui/i18n`.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';

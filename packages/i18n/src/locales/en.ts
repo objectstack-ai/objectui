@@ -1647,6 +1647,7 @@ const en = {
     navTypeSeparator: 'Separator',
     navTypeAction: 'Action',
     navTypeComponent: 'Component',
+    navTypeDoc: 'Doc',
     navEditIcon: 'Edit icon',
     navToggleVisible: 'Toggle visibility',
     navHidden: 'Hidden',

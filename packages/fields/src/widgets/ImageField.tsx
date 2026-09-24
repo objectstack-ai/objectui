@@ -24,6 +24,22 @@ const ImageCropperDialog = lazy(() =>
 );
 
 /**
+ * The message for a failed upload — the same translated key, arguments and
+ * fallback FileField renders for the same failure through the same
+ * `useUpload()` transport (objectui#10226). Both upload paths in `ImageField`
+ * are invoked fire-and-forget (React ignores the promise an `onChange` handler
+ * returns; the cropper does not await `onConfirm`), so a failure not caught
+ * there is reported nowhere — it escapes as an unhandled rejection.
+ */
+function uploadFailedMessage(t: TranslateFn, name: string, err: unknown): string {
+  return t('fields.file.uploadFailed', {
+    defaultValue: `Failed to upload "${name}": ${(err as Error).message}`,
+    name,
+    error: (err as Error).message,
+  });
+}
+
+/**
  * ImageField - Image upload widget with preview thumbnails
  * Supports single and multiple image uploads with drag-and-drop and preview display
  */
@@ -72,24 +88,6 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
     if (view.id) setRecent((prev) => ({ ...prev, [view.id as string]: view }));
   }, []);
 
-  /**
-   * The message for a failed upload — the same translated key, arguments and
-   * fallback FileField renders for the same failure through the same
-   * `useUpload()` transport (objectui#10226). Both upload paths below are
-   * invoked fire-and-forget (React ignores the promise an `onChange` handler
-   * returns; the cropper does not await `onConfirm`), so a failure that is not
-   * caught here is not reported anywhere — it escapes as an unhandled rejection.
-   */
-  const uploadFailed = useCallback(
-    (name: string, err: unknown) =>
-      t('fields.file.uploadFailed', {
-        defaultValue: `Failed to upload "${name}": ${(err as Error).message}`,
-        name,
-        error: (err as Error).message,
-      }),
-    [t],
-  );
-
   const handleCropConfirm = useCallback(
     async (blob: Blob, name: string) => {
       if (!cropTarget) return;
@@ -121,14 +119,14 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
       } catch (err) {
         // The original image stays in place; the dialog closes in `finally`,
         // so the message lands in the field's error row, not behind it.
-        setErrors([uploadFailed(name, err)]);
+        setErrors([uploadFailedMessage(t as TranslateFn, name, err)]);
       } finally {
         releaseScope();
         setUploading(false);
         setCropTarget(null);
       }
     },
-    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t, holdScope, uploadFailed],
+    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t, holdScope],
   );
 
   const openCropper = useCallback(
@@ -217,7 +215,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
             remember(result, file.name);
             return fileValueForSubmit(result, file.name);
           } catch (err) {
-            failures.push(uploadFailed(file.name, err));
+            failures.push(uploadFailedMessage(t as TranslateFn, file.name, err));
             return null;
           }
         }),

@@ -65,12 +65,21 @@
  * reference what it was.
  */
 
+import { isConfigBag } from './configBag.js';
+
 /** The key this rule is about. One spelling, shared by both readers. */
 export const PARAMS_KEY = 'params';
 
-/** A plain object: an object literal / JSON object, and nothing more exotic. */
+/**
+ * A plain object: an object literal / JSON object, and nothing more exotic.
+ *
+ * Built ON the package's one "is this a config bag?" answer (objectui#6761)
+ * and narrowed by prototype, rather than re-spelling the object/array test:
+ * this rule asks that question plus one more (a `Date` or class instance is a
+ * bag to {@link isConfigBag}, and is not something this walk looks inside).
+ */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (!isConfigBag(value)) return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }

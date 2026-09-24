@@ -103,6 +103,10 @@ export interface UseRecordSearchOptions {
    * Optional display-name resolver. Defaults to the same `titleFormat`
    * fallback chain used by app-shell. Pass `getRecordDisplayName` from
    * `@object-ui/app-shell` to share that implementation exactly.
+   *
+   * Safe to pass inline: the resolver's identity never re-runs the search.
+   * Each run reads the resolver of the latest render, so a swapped resolver
+   * labels the hits of the next run; results already shown keep their labels.
    */
   getDisplayName?: (objectDef: any, record: any) => string;
 }
@@ -206,6 +210,19 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
   // Run ID for racing-request guarding. Stable across renders.
   const runIdRef = useRef(0);
 
+  // `getDisplayName` is caller-supplied and read only INSIDE a run, to label
+  // hits — it never decides whether a run happens. So the search effect reads
+  // the latest resolver through this ref and does not key on its identity
+  // (AGENTS.md §5 #10, objectui#10044). Keyed on it, an inline resolver (a new
+  // function every render) re-ran the effect on each render, and the cleanup
+  // cleared the pending debounce timer: renders faster than `debounceMs` never
+  // searched, and sparser renders issued a second identical request. Declared
+  // before the search effect, so it is current before any timer is armed.
+  const getDisplayNameRef = useRef(getDisplayName);
+  useEffect(() => {
+    getDisplayNameRef.current = getDisplayName;
+  });
+
   useEffect(() => {
     if (!enabled || !dataSource || candidates.length === 0) {
       setResults([]);
@@ -279,7 +296,8 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
               const objDef = byName.get(objectName) ?? { name: objectName };
               const title =
                 typeof h?.title === 'string' && h.title.trim() !== '' ? h.title.trim() : '';
-              const display = title || getDisplayName(objDef, h?.record ?? {}) || `Record #${recordId}`;
+              const display =
+                title || getDisplayNameRef.current(objDef, h?.record ?? {}) || `Record #${recordId}`;
               const snippet = typeof h?.snippet === 'string' ? h.snippet.trim() : '';
 
               hits.push({
@@ -357,7 +375,7 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
           for (const record of rows.slice(0, topPerObject)) {
             const recordId = record?.id ?? record?._id;
             if (recordId == null) continue;
-            const display = getDisplayName(obj, record);
+            const display = getDisplayNameRef.current(obj, record);
             hits.push({
               objectName: obj.name,
               objectLabel:
@@ -395,7 +413,6 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
     maxObjectsQueried,
     minLength,
     debounceMs,
-    getDisplayName,
   ]);
 
   return { results, isSearching, error };

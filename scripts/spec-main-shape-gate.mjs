@@ -6,7 +6,7 @@
  * built from objectstack `main`, and name the objectui file and the objectstack
  * commit when it does not compile.
  *
- *   node scripts/spec-main-shape-gate.mjs inject --tarball <f.tgz> --sha <sha>
+ *   node scripts/spec-main-shape-gate.mjs inject --tarball <f.tgz> --sha <sha> --upstream-checkout <dir>
  *   node scripts/spec-main-shape-gate.mjs report  --log <f> --sha <sha> --status <n>
  *   node scripts/spec-main-shape-gate.mjs --self-test      # offline, no install needed
  *
@@ -68,6 +68,81 @@
  * is REMOVE-THEN-COPY, never copy-over: unlinking a hardlink is local, writing
  * through one is not.
  *
+ * ## Why the spec's declared DEPENDENCIES are re-pointed too (objectui#10229)
+ *
+ * The copy above replaces the spec's own files and nothing else. What those
+ * files IMPORT -- `zod` above all -- resolves through the SIBLING links of the
+ * same virtual-store entry (`.pnpm/@objectstack+spec@<v>/node_modules/zod`), and
+ * those siblings were laid down for the PUBLISHED spec this repository pins.
+ * When objectstack `main` raises a dependency floor, the source-built
+ * declarations are then read against a dependency OLDER than the one they were
+ * emitted against -- a topology no real install produces, because an install of
+ * a release from that commit resolves the raised floor from the manifest.
+ *
+ * Measured, not hypothesised: declarations emitted on a newer zod spell a zod
+ * type with an arity the older zod does not declare. `skipLibCheck` hides the
+ * error that would name it, the type degrades to an error type, and objectui
+ * fails to compile for a reason that exists only inside this job -- reported
+ * under this gate's name as a shape break objectstack never made. The gate was
+ * reading its own injection.
+ *
+ * So after the copy, every entry of the PACKED manifest's `dependencies` is
+ * judged against the sibling the store entry actually holds:
+ *
+ *  - a sibling that satisfies the declared range is left exactly as installed;
+ *  - one that does not (or is absent) is REMOVED and replaced by a symlink to
+ *    the copy the spec's own build resolved in the objectstack checkout
+ *    (`--upstream-checkout`: the realpath of `packages/spec/node_modules/<dep>`),
+ *    i.e. the dependency the declarations were emitted against. Remove-then-
+ *    link, for the hardlink reason above: the sibling is a link to replace,
+ *    never a directory to write into;
+ *  - when no copy satisfying the range is available, that is exit 2 naming the
+ *    dependency, decided BEFORE anything is written. Compiling against an
+ *    unsatisfied dependency is a reading of this gate, not of the spec.
+ *
+ * `peerDependencies` are the consumer's to provide and are not touched. The
+ * consumer proof below then asks every consumer which copy of each declared
+ * dependency the injected spec resolves, and refuses one outside its range.
+ *
+ * ## ...and why objectui's OWN copies of a re-pointed dependency follow it
+ *
+ * Re-pointing the spec's sibling alone leaves TWO copies of that package in one
+ * program: the spec's declarations read the new one, while every objectui
+ * package that declares it still reads the old one. For zod that was measured
+ * on this gate's own flow at a commit that raised the floor: hundreds of
+ * diagnostics across dozens of files -- non-portable inferred types, one copy's
+ * `ZodType` refused where the other's is expected -- and every one of them an
+ * artifact of the two copies, with objectui's code correct. With one copy the
+ * same compile was clean. (objectui#10229's pull request carries the figures;
+ * none are restated here.)
+ *
+ * One copy is what an install of a release from that commit gives objectui:
+ * the new floor falls inside objectui's own declared range, and objectui's
+ * `check:lockfile-dedupe` keeps the lockfile deduped, so a pin bump installs
+ * the package once. So for every dependency the spec substitution re-pointed
+ * to version V -- and only those -- each objectui workspace importer that
+ * declares the same package is judged:
+ *
+ *  - every range it declares admits V: its `node_modules/<dep>` link is removed
+ *    and re-linked to the same V copy (remove-then-link, as above);
+ *  - a range does NOT admit V: its copy stays, and the log and run summary say
+ *    `two copies of <dep> stay: <importer> declares <range>, which does not
+ *    admit <V>`. The diagnostics that follow are then genuine readings: a real
+ *    install would carry the same two copies.
+ *
+ * The importers are enumerated from `pnpm-workspace.yaml`, the file pnpm itself
+ * reads, never from a hand-kept list. Like everything else here this is runner
+ * state and moves no tracked file. The consumer proof is extended to match:
+ * every spec consumer and every admitting importer must resolve ONE copy of
+ * each re-pointed package, and the log names which.
+ *
+ * Satisfaction is judged by `satisfiesRange`, a deliberately narrow reader in
+ * this file, for the reason `check-spec-range-floors.mjs` gives for its own:
+ * `semver` is not a dependency of this repository's root, and importing a
+ * hoisted transitive copy is a phantom dependency. It is not imported from that
+ * script because that module loads `typescript`, and `--self-test` here needs
+ * no install. Any spelling the reader does not know is exit 2, never a guess.
+ *
  * ## Why the injected bytes come from `npm pack` and not from the source tree
  *
  * The subject of this gate is the spec's PUBLISHED surface. `npm pack` produces
@@ -95,6 +170,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 import { isEntrypoint } from './invoked-as.mjs';
@@ -202,13 +278,353 @@ function fail(message) {
   process.exit(2);
 }
 
+/* ── dependency ranges, deliberately narrow ─────────────────────────────────
+ * See "Why the spec's declared DEPENDENCIES are re-pointed too" in the header
+ * for why this is not the `semver` package.
+ */
+
+/** `[major, minor, patch]` of a plain `X.Y.Z` release; anything else throws. */
+function parseRelease(version) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(version).trim());
+  if (!match) throw new Error(`"${version}" is not a plain X.Y.Z release, and this gate orders nothing else`);
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareReleases(left, right) {
+  for (let i = 0; i < 3; i += 1) {
+    if (left[i] !== right[i]) return left[i] < right[i] ? -1 : 1;
+  }
+  return 0;
+}
+
+/** One comparator: an operator (none means `=`) and a full `X.Y.Z` bound. */
+const RANGE_COMPARATOR = /^(\^|~|>=|<=|>|<|=)?(\d+\.\d+\.\d+)$/;
+
+function comparatorHolds(version, operator, bound) {
+  const order = compareReleases(version, bound);
+  if (operator === '=') return order === 0;
+  if (operator === '>') return order > 0;
+  if (operator === '>=') return order >= 0;
+  if (operator === '<') return order < 0;
+  if (operator === '<=') return order <= 0;
+  // `~` admits patch releases; `^` admits everything up to the next change in
+  // the left-most non-zero part -- npm's reading of both.
+  const ceiling =
+    operator === '~'
+      ? [bound[0], bound[1] + 1, 0]
+      : bound[0] > 0
+        ? [bound[0] + 1, 0, 0]
+        : bound[1] > 0
+          ? [0, bound[1] + 1, 0]
+          : [0, 0, bound[2] + 1];
+  return order >= 0 && compareReleases(version, ceiling) < 0;
+}
+
 /**
- * Replace every installed copy of the spec with the staged one and PROVE it took.
+ * Does the plain release `version` satisfy the dependency range `range`?
+ *
+ * Reads `X.Y.Z`, `=`, `^`, `~`, `>`, `>=`, `<`, `<=` on full `X.Y.Z` bounds,
+ * space-separated comparator sets and `||` unions -- the spellings a published
+ * manifest's `dependencies` carries. Everything else THROWS (a prerelease, a
+ * partial or `x` version, a hyphen range, a `workspace:` or `npm:` protocol),
+ * and the caller turns that into exit 2 naming the dependency: the failure
+ * direction that matters is an unreadable range read as satisfied, which would
+ * leave this gate compiling against the wrong dependency without a word.
+ */
+export function satisfiesRange(version, range) {
+  const release = parseRelease(version);
+  const text = String(range ?? '').trim();
+  if (text.length === 0) throw new Error('an empty range names nothing this gate can judge');
+  // Every comparator is PARSED before any is judged, so an unreadable one
+  // throws even when an earlier alternative would already have decided.
+  const alternatives = text.split('||').map((alternative) => {
+    const comparators = alternative.trim().split(/\s+/).filter(Boolean);
+    if (comparators.length === 0) throw new Error(`range "${text}" has an empty alternative`);
+    return comparators.map((comparator) => {
+      const match = RANGE_COMPARATOR.exec(comparator);
+      if (!match) {
+        throw new Error(`range "${text}" contains "${comparator}", which this gate does not read`);
+      }
+      return { operator: match[1] ?? '=', bound: parseRelease(match[2]) };
+    });
+  });
+  return alternatives.some((comparators) =>
+    comparators.every(({ operator, bound }) => comparatorHolds(release, operator, bound)),
+  );
+}
+
+/* ── the spec's declared dependencies ─────────────────────────────────────── */
+
+/** `{ name, version, realpath }` of the package installed at `dir`, or null. */
+function installedPackageAt(dir) {
+  if (!fs.existsSync(path.join(dir, 'package.json'))) return null;
+  const realpath = fs.realpathSync(dir);
+  const { name, version } = JSON.parse(fs.readFileSync(path.join(realpath, 'package.json'), 'utf8'));
+  return { name, version, realpath };
+}
+
+/**
+ * The link pnpm lays down for dependency `name` next to the spec, in the same
+ * virtual-store entry: `<entry>/node_modules/<name>` beside
+ * `<entry>/node_modules/@objectstack/spec`.
+ */
+function storeSiblingPath(target, name) {
+  const entryModules = path.resolve(target, ...SPEC_PACKAGE_NAME.split('/').map(() => '..'));
+  return path.join(entryModules, ...name.split('/'));
+}
+
+/** The virtual-store entry a spec copy lives in (`@objectstack+spec@<v>_<peers>`). */
+function storeEntryName(target) {
+  return path.basename(path.resolve(target, ...SPEC_PACKAGE_NAME.split('/').map(() => '..'), '..'));
+}
+
+/** Satisfaction with an unreadable range or version turned into exit 2 naming `name`. */
+function judged(name, range, version, whose) {
+  try {
+    return satisfiesRange(version, range);
+  } catch (error) {
+    return fail(
+      `cannot judge ${whose} \`${name}@${version}\` against the injected ${SPEC_PACKAGE_NAME}'s ` +
+        `declared \`${name}: ${range}\`: ${error.message}. Refused rather than guessed -- a range read ` +
+        `wrongly here decides which dependency the whole compile runs against.`,
+    );
+  }
+}
+
+/**
+ * Which store siblings must be re-pointed, and at what. Decided BEFORE anything
+ * is written, so a dependency that cannot be satisfied leaves the install as it
+ * was and says so.
+ */
+function planDependencySubstitutions({ dependencies, targets, upstreamCheckout }) {
+  const plan = [];
+  for (const [name, range] of Object.entries(dependencies ?? {}).sort(([a], [b]) => a.localeCompare(b))) {
+    for (const target of targets) {
+      const sibling = storeSiblingPath(target, name);
+      const held = installedPackageAt(sibling);
+      if (held && judged(name, range, held.version, 'the store sibling')) continue;
+
+      const upstreamDir = path.join(upstreamCheckout, 'packages', 'spec', 'node_modules', ...name.split('/'));
+      const upstream = installedPackageAt(upstreamDir);
+      const heldText = held ? `\`${name}@${held.version}\`` : 'no copy at all';
+      if (!upstream || upstream.name !== name || !judged(name, range, upstream.version, 'the objectstack checkout')) {
+        fail(
+          `the injected ${SPEC_PACKAGE_NAME} declares \`${name}: ${range}\`. The store entry ` +
+            `${storeEntryName(target)} holds ${heldText}, which does not satisfy it, ` +
+            `and the objectstack checkout has ` +
+            (upstream ? `\`${upstream.name}@${upstream.version}\`` : 'no copy') +
+            ` at ${upstreamDir}. No copy satisfying the range is available, so nothing was injected: a ` +
+            `compile now would read the spec's declarations against a dependency they were not built ` +
+            `against, and report this gate's own injection as a shape break.`,
+        );
+      }
+      let linkedFrom = null;
+      try {
+        linkedFrom = fs.readlinkSync(sibling);
+      } catch {
+        // Absent, or a directory rather than a link: nothing to print as its target.
+      }
+      plan.push({ name, range, target, sibling, held, linkedFrom, upstream });
+    }
+  }
+  return plan;
+}
+
+/**
+ * Re-point one sibling. REMOVE, then link. ⛔ Never write into what is there: a
+ * link is replaced, and a directory -- which a pnpm store entry never holds
+ * here, but a hand-made one might -- is unlinked file by file, locally. Neither
+ * path writes through a hardlink into the global store. See this file's header.
+ */
+function relinkSibling({ sibling, upstream }) {
+  const stat = fs.lstatSync(sibling, { throwIfNoEntry: false });
+  if (stat?.isSymbolicLink()) fs.unlinkSync(sibling);
+  else if (stat) fs.rmSync(sibling, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(sibling), { recursive: true });
+  fs.symlinkSync(upstream.realpath, sibling, 'dir');
+}
+
+/** The one line a substitution is reported with, in the log and the run summary. */
+function describeSubstitution({ name, range, target, held, linkedFrom, upstream }) {
+  const entry = storeEntryName(target);
+  const was = held ? `${name}@${held.version} (-> ${linkedFrom ?? held.realpath})` : 'absent';
+  return (
+    `substituted ${name} for ${SPEC_PACKAGE_NAME} in ${entry}: declared ${range}, the store held ${was}, ` +
+    `which does not satisfy it; now -> ${upstream.realpath} (${name}@${upstream.version}, the copy ` +
+    `the objectstack checkout's spec build resolved)`
+  );
+}
+
+/* ── objectui's own copies of a re-pointed dependency ───────────────────── */
+
+/** The manifest fields whose ranges pnpm links into an importer's `node_modules`. */
+const IMPORTER_DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
+
+/**
+ * The `packages:` globs of a `pnpm-workspace.yaml`, read narrowly: `- 'dir/*'`
+ * and `- 'dir'` entries only. Anything else -- a negation, a `**`, a glob inside
+ * a segment -- THROWS, because an importer the reader silently drops is one
+ * whose copy is never re-pointed, and the proof below cannot see it either.
+ */
+export function parseWorkspaceGlobs(text) {
+  const globs = [];
+  let inPackages = false;
+  for (const raw of String(text).split('\n')) {
+    const line = raw.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+    if (line.length === 0 || /^\s*#/.test(line)) continue;
+    if (/^\S/.test(line)) {
+      inPackages = /^packages:\s*$/.test(line);
+      continue;
+    }
+    if (!inPackages) continue;
+    const entry = /^\s+-\s+(['"]?)([^'"]+)\1$/.exec(line);
+    if (!entry || !/^[\w.@-]+(?:\/[\w.@-]+)*(?:\/\*)?$/.test(entry[2])) {
+      throw new Error(`pnpm-workspace.yaml line "${raw.trim()}" is not a \`- 'dir'\` or \`- 'dir/*'\` entry`);
+    }
+    globs.push(entry[2]);
+  }
+  if (globs.length === 0) throw new Error('pnpm-workspace.yaml declares no `packages:` entries');
+  return globs;
+}
+
+/** The root and every workspace directory `pnpm-workspace.yaml` names that holds a manifest. */
+function workspaceImporterDirs(repoRoot) {
+  let globs;
+  try {
+    globs = parseWorkspaceGlobs(fs.readFileSync(path.join(repoRoot, 'pnpm-workspace.yaml'), 'utf8'));
+  } catch (error) {
+    return fail(
+      `cannot enumerate this repository's workspace importers: ${error.message}. Refused rather than ` +
+        `guessed -- an importer left out keeps its own copy of a re-pointed dependency, and the ` +
+        `compile reads two copies without a word.`,
+    );
+  }
+  const dirs = new Set(['.']);
+  for (const glob of globs) {
+    if (glob.endsWith('/*')) {
+      const parent = glob.slice(0, -2);
+      const parentDir = path.join(repoRoot, parent);
+      if (!fs.existsSync(parentDir)) continue;
+      for (const child of fs.readdirSync(parentDir)) dirs.add(path.posix.join(parent, child));
+    } else {
+      dirs.add(glob);
+    }
+  }
+  return [...dirs].filter((dir) => fs.existsSync(path.join(repoRoot, dir, 'package.json'))).sort();
+}
+
+/** Does `importer`'s declared `range` for `name` admit `version`? Unreadable is exit 2. */
+function importerAdmits(name, range, version, importer) {
+  try {
+    return satisfiesRange(version, range);
+  } catch (error) {
+    return fail(
+      `cannot judge whether objectui importer ${importer}'s declared \`${name}: ${range}\` admits ` +
+        `${name}@${version}, the copy the injected ${SPEC_PACKAGE_NAME} was re-pointed to: ${error.message}. ` +
+        `Refused rather than guessed -- the answer decides whether this compile reads one copy or two.`,
+    );
+  }
+}
+
+/**
+ * For each package the spec substitution re-pointed, every objectui importer
+ * declaring it, judged against the version it was re-pointed to. Decided before
+ * the first write, like the spec's own plan.
+ */
+function planImporterRepoints({ repoRoot, plan }) {
+  const repointed = new Map();
+  for (const step of plan) repointed.set(step.name, step.upstream);
+  if (repointed.size === 0) return { relink: [], twoCopies: [], importers: new Map() };
+
+  const relink = [];
+  const twoCopies = [];
+  const importers = new Map();
+  const dirs = workspaceImporterDirs(repoRoot);
+  for (const [name, upstream] of [...repointed].sort(([a], [b]) => a.localeCompare(b))) {
+    const declaring = [];
+    for (const dir of dirs) {
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, dir, 'package.json'), 'utf8'));
+      const ranges = [
+        ...new Set(
+          IMPORTER_DEPENDENCY_FIELDS.map((field) => manifest[field]?.[name]).filter((range) => typeof range === 'string'),
+        ),
+      ];
+      if (ranges.length === 0) continue;
+      const refusing = ranges.filter((range) => !importerAdmits(name, range, upstream.version, dir));
+      const link = path.join(repoRoot, dir, 'node_modules', ...name.split('/'));
+      let linkedFrom = null;
+      try {
+        linkedFrom = fs.readlinkSync(link);
+      } catch {
+        // Absent, or a directory rather than a link: nothing to print as its target.
+      }
+      const entry = { name, importer: dir, ranges, refusing, link, linkedFrom, held: installedPackageAt(link), upstream };
+      declaring.push(entry);
+      (refusing.length === 0 ? relink : twoCopies).push(entry);
+    }
+    importers.set(name, declaring);
+  }
+  return { relink, twoCopies, importers };
+}
+
+function describeImporterRepoint({ name, importer, ranges, held, linkedFrom, upstream }) {
+  const was = held ? `${name}@${held.version} (-> ${linkedFrom ?? held.realpath})` : 'absent';
+  return (
+    `re-pointed ${name} for objectui importer ${importer}: declares ${ranges.join(' and ')}, which admits ` +
+    `${upstream.version}; was ${was}, now -> ${upstream.realpath} (${name}@${upstream.version}, the copy the ` +
+    `spec substitution linked)`
+  );
+}
+
+function describeTwoCopies({ name, importer, refusing, upstream }) {
+  return `two copies of ${name} stay: ${importer} declares ${refusing.join(' and ')}, which does not admit ${upstream.version}`;
+}
+
+/**
+ * Which copy of `name` code at `fromDir` resolves: the first
+ * `<node_modules>/<name>` along Node's own lookup path for that directory. The
+ * package directory is found the way both Node and `tsc` walk `node_modules`,
+ * without going through an `exports` map that may not expose `package.json`.
+ */
+function resolvedDependency(fromDir, name) {
+  const lookup = createRequire(path.join(fromDir, 'package.json')).resolve.paths(name) ?? [];
+  for (const modulesDir of lookup) {
+    const found = installedPackageAt(path.join(modulesDir, ...name.split('/')));
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Replace every installed copy of the spec with the staged one, re-point its
+ * store siblings at the dependencies it was built against where the installed
+ * ones do not satisfy its manifest, and PROVE both took.
+ *
+ * `upstreamCheckout` is the objectstack checkout the tarball was built and
+ * packed in: the spec build's own dependency resolution lives under its
+ * `packages/spec/node_modules`.
  *
  * Returns the reading so callers (and the self-test) can assert on it rather
  * than on stdout.
  */
-export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {} }) {
+export function inject({ tarball, sha, upstreamCheckout, repoRoot = repoRootDefault, log = () => {} }) {
+  const upstreamSpecManifest = upstreamCheckout
+    ? path.join(upstreamCheckout, 'packages', 'spec', 'package.json')
+    : null;
+  let upstreamSpecName = null;
+  try {
+    upstreamSpecName = JSON.parse(fs.readFileSync(upstreamSpecManifest, 'utf8')).name;
+  } catch {
+    // Reported below with the path that was tried.
+  }
+  if (upstreamSpecName !== SPEC_PACKAGE_NAME) {
+    fail(
+      `--upstream-checkout must be the objectstack checkout the spec was built in, and ` +
+        `${upstreamSpecManifest ?? '(none given)'} is not \`${SPEC_PACKAGE_NAME}\`'s manifest. Without it ` +
+        `there is no source for the dependencies the spec's declarations were emitted against.`,
+    );
+  }
+
   const targets = findInstalledSpecDirs(repoRoot);
   if (targets.length === 0) {
     fail(
@@ -245,6 +661,17 @@ export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {
     );
   }
 
+  // Decided before the first write: a dependency no copy can satisfy is exit 2
+  // with the install exactly as it was. See the header.
+  const plan = planDependencySubstitutions({
+    dependencies: manifest.dependencies,
+    targets,
+    upstreamCheckout,
+  });
+  // objectui's own copies of what that plan re-points, judged before any write
+  // too. See "...and why objectui's OWN copies" in the header.
+  const importerPlan = planImporterRepoints({ repoRoot, plan });
+
   for (const target of targets) {
     // REMOVE, then copy. ⛔ Never copy over: the files below are hardlinks into
     // pnpm's global store, and writing through one corrupts the store for every
@@ -269,6 +696,16 @@ export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {
 
   fs.rmSync(staging, { recursive: true, force: true });
 
+  const substitutions = plan.map((step) => {
+    relinkSibling(step);
+    return describeSubstitution(step);
+  });
+  for (const entry of importerPlan.relink) {
+    relinkSibling({ sibling: entry.link, upstream: entry.upstream });
+    substitutions.push(describeImporterRepoint(entry));
+  }
+  for (const entry of importerPlan.twoCopies) substitutions.push(describeTwoCopies(entry));
+
   // The verification, asked of the consumers. See `findSpecConsumers`.
   const consumers = findSpecConsumers(repoRoot);
   if (consumers.length === 0) {
@@ -291,6 +728,79 @@ export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {
     );
   }
 
+  // Which copy of each declared dependency the injected spec resolves -- asked
+  // of every consumer's resolved spec, like the marker check above, and never
+  // of the plan: "I re-pointed zod" is this function's claim about itself.
+  const resolutions = [];
+  for (const consumer of consumers) {
+    for (const [name, range] of Object.entries(manifest.dependencies ?? {})) {
+      const found = resolvedDependency(consumer.resolved, name);
+      resolutions.push({
+        workspace: consumer.workspace,
+        name,
+        range,
+        version: found?.version ?? null,
+        resolved: found?.realpath ?? null,
+        satisfied: found !== null && judged(name, range, found.version, 'the resolved'),
+      });
+    }
+  }
+  const unsatisfied = resolutions.filter((resolution) => !resolution.satisfied);
+  if (unsatisfied.length > 0) {
+    fail(
+      `the injected \`${SPEC_PACKAGE_NAME}\` resolves ${unsatisfied.length} declared dependency ` +
+        `reading(s) outside the range its manifest declares:\n` +
+        unsatisfied
+          .map(
+            (r) =>
+              `  - ${r.workspace}: ${r.name} ${r.range} -> ` +
+              (r.version ? `${r.name}@${r.version} (${r.resolved})` : 'nothing'),
+          )
+          .join('\n') +
+        `\n\nA compile now would read the spec's declarations against a dependency they were not ` +
+        `built against, and report this gate's own injection as a shape break.`,
+    );
+  }
+
+  // ONE copy of each re-pointed package: every spec consumer and every objectui
+  // importer whose range admits it must resolve the same directory. Asked of
+  // each of them, never of the plan.
+  const oneCopy = [];
+  for (const [name, declaring] of importerPlan.importers) {
+    const expected = plan.find((step) => step.name === name).upstream.realpath;
+    const readers = [
+      ...resolutions
+        .filter((r) => r.name === name)
+        .map((r) => ({ who: `spec consumer ${r.workspace}`, resolved: r.resolved, version: r.version })),
+      ...declaring
+        .filter((entry) => entry.refusing.length === 0)
+        .map((entry) => {
+          const found = resolvedDependency(path.join(repoRoot, entry.importer), name);
+          return { who: `objectui importer ${entry.importer}`, resolved: found?.realpath ?? null, version: found?.version ?? null };
+        }),
+    ];
+    const elsewhere = readers.filter((reader) => reader.resolved !== expected);
+    if (elsewhere.length > 0) {
+      fail(
+        `${elsewhere.length} reader(s) of the re-pointed \`${name}\` do not resolve the one copy at ` +
+          `${expected}:\n` +
+          elsewhere
+            .map((r) => `  - ${r.who} -> ` + (r.version ? `${name}@${r.version} (${r.resolved})` : 'nothing'))
+            .join('\n') +
+          `\n\nA compile now would read two copies of \`${name}\` in one program, and report the ` +
+          `artifacts of that as shape breaks.`,
+      );
+    }
+    oneCopy.push({
+      name,
+      version: readers[0]?.version ?? null,
+      resolved: expected,
+      consumers: readers.filter((r) => r.who.startsWith('spec consumer')).length,
+      importers: readers.length - readers.filter((r) => r.who.startsWith('spec consumer')).length,
+      twoCopies: declaring.filter((entry) => entry.refusing.length > 0).map((entry) => entry.importer),
+    });
+  }
+
   log(
     `spec-main-shape-gate: injected ${SPEC_PACKAGE_NAME}@${manifest.version} built from ` +
       `${UPSTREAM_REPO}@${sha} into ${targets.length} store copy/copies; ` +
@@ -298,8 +808,32 @@ export function inject({ tarball, sha, repoRoot = repoRootDefault, log = () => {
   );
   for (const target of targets) log(`  store   ${path.relative(repoRoot, target)}`);
   for (const consumer of consumers) log(`  consumer ${consumer.workspace}`);
+  for (const line of substitutions) log(`spec-main-shape-gate: ${line}`);
+  if (plan.length === 0) {
+    log(
+      `spec-main-shape-gate: no dependency substitution -- every declared dependency's store sibling ` +
+        `satisfies its range.`,
+    );
+  }
+  const distinct = new Map();
+  for (const r of resolutions) {
+    const key = JSON.stringify([r.name, r.resolved]);
+    distinct.set(key, { ...r, consumers: (distinct.get(key)?.consumers ?? 0) + 1 });
+  }
+  for (const r of distinct.values()) {
+    log(
+      `  resolves ${r.name}@${r.version} (declared ${r.range}) for ${r.consumers} consumer(s) -> ${r.resolved}`,
+    );
+  }
+  for (const c of oneCopy) {
+    log(
+      `  one copy of ${c.name}@${c.version} for ${c.consumers} spec consumer(s) and ${c.importers} objectui ` +
+        `importer(s) -> ${c.resolved}` +
+        (c.twoCopies.length > 0 ? `; a second copy stays for ${c.twoCopies.join(', ')}` : ''),
+    );
+  }
 
-  return { targets, consumers, version: manifest.version, sha };
+  return { targets, consumers, version: manifest.version, sha, substitutions, resolutions, oneCopy };
 }
 
 /**
@@ -675,6 +1209,60 @@ function selfTest() {
   check('an empty tree finds none', findInstalledSpecDirs(path.join(tmp, 'nowhere')).length, 0);
   fs.rmSync(tmp, { recursive: true, force: true });
 
+  // `satisfiesRange` decides which dependency the whole compile reads: both
+  // directions of every operator it claims, and the refusal of what it does not.
+  check('a caret range refuses an older minor', satisfiesRange('4.4.3', '^4.6.1'), false);
+  check('a caret range admits its floor and a later minor', [
+    satisfiesRange('4.6.1', '^4.6.1'),
+    satisfiesRange('4.7.0', '^4.6.1'),
+  ], [true, true]);
+  check('a caret range refuses the next major', satisfiesRange('5.0.0', '^4.6.1'), false);
+  check('a caret range on 0.x stops at the next minor', [
+    satisfiesRange('0.3.9', '^0.3.1'),
+    satisfiesRange('0.4.0', '^0.3.1'),
+  ], [true, false]);
+  check('a tilde range stops at the next minor', [
+    satisfiesRange('2.14.9', '~2.14.0'),
+    satisfiesRange('2.15.0', '~2.14.0'),
+  ], [true, false]);
+  check('an exact version admits only itself', [
+    satisfiesRange('2.14.0', '2.14.0'),
+    satisfiesRange('2.14.1', '2.14.0'),
+  ], [true, false]);
+  check('a comparator set is an AND, a union an OR', [
+    satisfiesRange('17.9.0', '>=17.1.0 <18.0.0'),
+    satisfiesRange('18.0.0', '>=17.1.0 <18.0.0'),
+    satisfiesRange('3.0.0', '^1.0.0 || ^3.0.0'),
+    satisfiesRange('2.0.0', '^1.0.0 || ^3.0.0'),
+  ], [true, false, true, false]);
+  const refuses = (version, range) => {
+    try {
+      satisfiesRange(version, range);
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  // `parseWorkspaceGlobs` decides which importers the dedupe pass can see.
+  check(
+    'reads the packages globs of a pnpm-workspace.yaml, and nothing after them',
+    parseWorkspaceGlobs("# c\npackages:\n  - 'packages/*'\n  - \"docs\"  # tail\n  - apps/*\nonlyBuiltDependencies:\n  - esbuild\n"),
+    ['packages/*', 'docs', 'apps/*'],
+  );
+  check('a glob the reader does not know throws rather than dropping importers', [
+    (() => { try { parseWorkspaceGlobs("packages:\n  - 'packages/**'\n"); return false; } catch { return true; } })(),
+    (() => { try { parseWorkspaceGlobs("packages:\n  - '!packages/x'\n"); return false; } catch { return true; } })(),
+    (() => { try { parseWorkspaceGlobs('overrides: {}\n'); return false; } catch { return true; } })(),
+  ], [true, true, true]);
+  check('an unreadable spelling throws rather than guessing', [
+    refuses('4.6.1', 'workspace:*'),
+    refuses('4.6.1', '4.x'),
+    refuses('4.6.1', '^4.6'),
+    refuses('4.7.0-beta.1', '^4.6.1'),
+    // Parsed before judged: the first alternative holding does not excuse the second.
+    refuses('4.6.1', '^4.6.1 || latest'),
+  ], [true, true, true, true, true]);
+
   for (const result of results) {
     process.stdout.write(`${result.ok ? 'ok  ' : 'FAIL'} ${result.name}\n`);
     if (!result.ok) {
@@ -702,8 +1290,25 @@ function main(argv) {
 
   if (mode === 'inject') {
     const tarball = readFlag(argv, '--tarball');
-    if (!tarball || !sha) fail('usage: inject --tarball <f.tgz> --sha <sha>');
-    inject({ tarball, sha, log: (line) => process.stdout.write(`${line}\n`) });
+    const upstreamCheckout = readFlag(argv, '--upstream-checkout');
+    if (!tarball || !sha || !upstreamCheckout) {
+      fail('usage: inject --tarball <f.tgz> --sha <sha> --upstream-checkout <objectstack checkout>');
+    }
+    const { substitutions } = inject({
+      tarball,
+      sha,
+      upstreamCheckout,
+      log: (line) => process.stdout.write(`${line}\n`),
+    });
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      const lines = substitutions.length > 0
+        ? substitutions.map((line) => `- ${line}`)
+        : ["- no dependency substitution: every declared dependency's store sibling satisfies its range."];
+      fs.appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `### Spec Main Shape Gate — injection\n\n${lines.join('\n')}\n\n`,
+      );
+    }
     return 0;
   }
 

@@ -206,7 +206,9 @@ describe('object-grid `operations` — neither member is a grant, and the block 
     // offer. Without this case a ceiling implemented as `update !== false`
     // passes every other case in this file, and `rowActions` keeps its old power
     // to open on the shape authors write most (one member named, one omitted).
-    renderGrid({ operations: { delete: true }, rowActions: ['edit'] });
+    // `rowActions` names BOTH canonical members so the objectui#10083 narrowing
+    // cannot be what withholds either — Edit's absence is the ceiling alone.
+    renderGrid({ operations: { delete: true }, rowActions: ['edit', 'delete'] });
     await settle();
     expect(await rowKebab()).toEqual({ trigger: true, edit: false, delete: true });
   });

@@ -80,8 +80,26 @@ function clearStoredLanguage(): void {
 }
 
 /**
- * `localStorage` key caching the TENANT's server-side locale — a *seed*, not a
- * choice (objectui#4035).
+ * `localStorage` key caching the server's resolved locale for the signed-in
+ * caller — a *seed*, not a choice (objectui#4035).
+ *
+ * ⚠️ **The value is per-USER; the slot is per-DEVICE (objectui#10193).**
+ * `GET /auth/me/localization` answers `locale` as the caller's own
+ * `sys_user.locale` when set, else the request's `Accept-Language`, else the
+ * deployment default — and answers no locale at all before sign-in. It is not
+ * a tenant setting, whatever earlier prose here said. The slot is deliberately
+ * NOT keyed by user: the boot reads it before anyone is signed in, when no
+ * user id exists to key by. What bounds it to one owner is
+ * `@object-ui/auth`'s change-of-owner purge (objectui#5664), which deletes it
+ * when a different user adopts the browser, and which the host answers by
+ * re-resolving the live language (`@object-ui/app-shell`'s
+ * `useSignedInUserLocale`).
+ *
+ * **What a visitor who is not signed in reads**, declared as device behaviour:
+ * the language the LAST signed-in owner of this browser was served, until
+ * someone else signs in. That is the only server answer this device has ever
+ * received — the endpoint gives none before sign-in — and the sign-in page is
+ * the one surface it paints.
  *
  * Deliberately a separate slot from {@link LOCALE_STORAGE_KEY}, and that
  * separation is the whole point rather than a tidiness preference. The two
@@ -92,20 +110,24 @@ function clearStoredLanguage(): void {
  *   reconfiguration. ⚠️ It does NOT outrank the signed-in user's own
  *   `sys_user.locale`, which no tier here represents — see that key's own
  *   docblock (objectui#10059).
- * - This slot is what the *admin* configured, cached so the next boot can apply
- *   it synchronously. It outranks only the environment (browser language).
+ * - This slot is what the server resolved for the signed-in caller, cached so
+ *   the next boot can apply it synchronously. It outranks only the environment
+ *   (browser language).
  *
  * Writing the server seed into the explicit-choice slot would erase that
  * difference permanently: the seed would then be indistinguishable from a
- * deliberate user choice, so it would (a) outrank a later tenant change and pin
- * the device to a stale locale forever, and (b) suppress browser detection for
+ * deliberate user choice, so it would (a) outrank a later server-side change
+ * and pin the device to a stale locale forever, and (b) suppress browser
+ * detection for
  * a user who never expressed a preference. Only a real switch promotes a
  * language to the explicit slot — see the `languageChanged` choke point.
  */
 export const LOCALE_SEED_STORAGE_KEY = 'objectui-locale-seed';
 
 /**
- * Read the cached tenant locale seed, or `null` when nothing is cached.
+ * Read the cached locale seed — the server's last resolved locale for this
+ * browser's last signed-in caller (see {@link LOCALE_SEED_STORAGE_KEY}) — or
+ * `null` when nothing is cached.
  *
  * Same defensive posture as {@link readStoredLanguage}: `localStorage` is
  * absent under SSR and *throws* in Safari private mode / partitioned iframes,
@@ -121,12 +143,13 @@ export function readCachedLanguageSeed(): string | null {
 }
 
 /**
- * Cache the tenant locale the server just answered with — the "revalidate" half
- * of the stale-while-revalidate contract (objectstack#5419, ruling point 2).
+ * Cache the locale the server just resolved for the signed-in caller — the
+ * "revalidate" half of the stale-while-revalidate contract (objectstack#5419,
+ * ruling point 2).
  *
  * Call this with whatever `/auth/me/localization` actually returned for an
  * authenticated caller. A `null`/`undefined` locale CLEARS the cache rather
- * than leaving the old value: a tenant that unsets its locale must reach
+ * than leaving the old value: a server answer that drops the locale must reach
  * choice-less devices on their next boot, and "keep the last good seed forever"
  * is precisely the being-pinned-by-a-stale-seed failure the ruling forbids.
  *
@@ -290,7 +313,9 @@ function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
  * The full precedence chain, in order (objectstack#5419 ruling point 1):
  *
  * 1. the user's explicit choice ({@link LOCALE_STORAGE_KEY})
- * 2. the tenant's server locale, cached at {@link LOCALE_SEED_STORAGE_KEY}
+ * 2. the server's last resolved locale for the signed-in caller, cached at
+ *    {@link LOCALE_SEED_STORAGE_KEY} (per-USER in origin, one device slot in
+ *    storage — see that key's docblock)
  * 3. the browser language (`createI18n`'s `detectBrowserLanguage`)
  * 4. `en`
  *
@@ -300,10 +325,11 @@ function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
  * read; tier 1 is that value's cache from then on (objectui#10059 — the reasons
  * are on {@link LOCALE_STORAGE_KEY}, not repeated here).
  *
- * Tiers 2 and 3 are both "nobody here chose this", but they are not equally
- * informed: the tenant locale is an administrator's deliberate statement about
- * this deployment, while the browser language is an artefact of whoever set up
- * the machine. The deliberate signal wins.
+ * Tiers 2 and 3 are both "nobody on this device chose this here", but they are
+ * not equally informed: the seed is what the server resolved for the signed-in
+ * caller — their own `sys_user.locale`, else the request's `Accept-Language`,
+ * else the deployment default — while the browser language is an artefact of
+ * whoever set up the machine. The server's resolution wins.
  */
 interface BootstrapResolution {
   /** The config to build the i18next instance from. */

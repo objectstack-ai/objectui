@@ -18,6 +18,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { LOCALE_SEED_STORAGE_KEY, LOCALE_STORAGE_KEY } from '@object-ui/i18n';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
+// Not on the `@object-ui/auth` barrel; the vitest alias maps that barrel to
+// `packages/auth/src`, so this deep path is the SAME module instance the
+// provider's `getSessionOwnerChangeCount` reads.
+import { SessionUserScope } from '../../../packages/auth/src/ActiveOrganizationStorage';
 
 const ENDPOINT = '/api/v1/auth/me/localization';
 
@@ -169,6 +173,32 @@ describe('LocalizationFetchProvider', () => {
         expect((globalThis.fetch as never as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(5),
       );
       expect(window.localStorage.getItem(LOCALE_SEED_STORAGE_KEY)).toBe('zh-CN');
+    });
+
+    // objectui#10193: the write sits outside the `cancelled` guard on purpose,
+    // so an answer requested for the PREVIOUS owner could land after
+    // `SessionUserScope.adopt` handed the browser to someone else, and seed
+    // the new owner's next boot with the previous owner's language.
+    it('drops an answer that lands after the browser changed owner', async () => {
+      SessionUserScope._resetForTests();
+      window.localStorage.setItem('auth-session-user-id', 'u_alice');
+      let answer!: (value: unknown) => void;
+      (globalThis.fetch as never as ReturnType<typeof vi.fn>).mockImplementation(
+        () => new Promise((resolve) => { answer = resolve; }),
+      );
+
+      renderProvider();
+      await waitFor(() => expect(answer).toBeTypeOf('function'));
+
+      // The browser changes hands while Alice's request is in flight…
+      expect(SessionUserScope.adopt('u_bob')).toBe(true);
+      // …and then her answer arrives.
+      answer(ok({ authenticated: true, currency: 'JPY', locale: 'ja' }));
+      await new Promise((r) => setTimeout(r, 20));
+
+      expect(window.localStorage.getItem(LOCALE_SEED_STORAGE_KEY)).toBeNull();
+      // One request, answered — not a request that never came back.
+      expect((globalThis.fetch as never as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
     });
   });
 });

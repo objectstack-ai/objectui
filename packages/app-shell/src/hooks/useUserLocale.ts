@@ -49,6 +49,15 @@
  * stale-while-revalidate posture the tenant seed already ships with, and it is
  * the reason the cache is kept rather than cleared.
  *
+ * ## Change of owner (objectui#10193)
+ *
+ * The device cache above belongs to whoever last signed in on this browser.
+ * When the session resolves to someone ELSE, `@object-ui/auth` purges it and
+ * {@link useSignedInUserLocale} re-resolves the live language before the new
+ * owner's column applies — see `useLanguageResetOnOwnerChange` below. Without
+ * that, a new owner with no column of their own kept the previous owner's
+ * language for the whole session.
+ *
  * ## Signed out
  *
  * Nothing here applies: with no `sys_user` row there is nothing to read and
@@ -58,11 +67,129 @@
  * @module
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@object-ui/auth';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useAuth, getSessionOwnerChangeCount, subscribeSessionOwnerChange } from '@object-ui/auth';
+import {
+  LOCALE_STORAGE_KEY,
+  readStoredLanguage,
+  resolveBootstrapLanguage,
+  useObjectTranslation,
+} from '@object-ui/i18n';
 import { useAdapter, useDataInvalidation, extractWriteErrorMessage } from '@object-ui/react';
+
+/**
+ * Owner changes whose language residue this page-load has already re-resolved
+ * (objectui#10193). Module scope, because the question is per page-load, not
+ * per mount: the shell can remount, and a remount must not undo a language the
+ * user has switched to since by resetting it a second time.
+ */
+let ownerChangesHandled = 0;
+
+/**
+ * Serialises every language switch this module makes, so they land in the
+ * order they were decided. The owner-change reset and the column apply are
+ * both asynchronous (a switch awaits its catalogue), and without an order a
+ * reset decided FIRST could land LAST and put the browser language back over
+ * the new owner's own column.
+ */
+interface SwitchQueue {
+  /** Run `task` after every switch queued before it has settled. */
+  enqueue: (task: () => Promise<void>) => void;
+  /**
+   * `true` while an owner-change reset is queued or running. A switch decided
+   * in that window cannot compare against the current language, because the
+   * current language is still the previous owner's and is about to move.
+   */
+  resetPending: { current: boolean };
+}
+
+function useSwitchQueue(): SwitchQueue {
+  const tail = useRef<Promise<void>>(Promise.resolve());
+  const resetPending = useRef(false);
+  const enqueue = useCallback((task: () => Promise<void>) => {
+    tail.current = tail.current.then(task).catch((err) => {
+      console.warn('[app-shell] A language switch failed:', err);
+    });
+  }, []);
+  return { enqueue, resetPending };
+}
+
+/**
+ * Re-resolve the UI language when this browser changes hands (objectui#10193,
+ * ruling B).
+ *
+ * ## The leak this closes
+ *
+ * A boot resolves its language BEFORE anyone is signed in, out of two device
+ * slots: the explicit choice (`LOCALE_STORAGE_KEY`, since objectui#10059 a
+ * cache of the signed-in user's `sys_user.locale`) and the seed
+ * (`LOCALE_SEED_STORAGE_KEY`, the server's resolved locale for the last
+ * caller). Both hold the PREVIOUS owner's language on a browser that changed
+ * hands. When the session then resolves to someone else,
+ * `@object-ui/auth`'s `SessionUserScope.adopt` purges those slots
+ * (objectui#5664) — but the live i18next language was already derived from
+ * them and is memory, not storage. Nothing re-derived it, and for a new owner
+ * with no column of their own {@link useSignedInUserLocale} applies nothing,
+ * so they read the previous owner's language for the whole session. A boot
+ * whose cookie session already belongs to the new owner (an SSO redirect, a
+ * sign-in in another window) is exactly that boot.
+ *
+ * ## What this does
+ *
+ * On each owner change it re-resolves the language exactly as a boot of the
+ * swept storage would ({@link resolveBootstrapLanguage}: now no explicit
+ * choice and no seed, so the browser language, then `en`) and switches to it.
+ * The switch persists itself through the provider's `languageChanged` choke
+ * point like every switch does, so the explicit slot is cleared again right
+ * after — the reset is not a choice anyone made, and leaving it stored would
+ * outrank the new owner's own seed on every boot from then on. The column, if
+ * the new owner has one, then applies as it always has: the read below is
+ * re-run for the owner change, and its apply is queued behind this reset.
+ *
+ * ⚠️ The resolution cannot see the host's `I18nProvider` `config`; it resolves
+ * as a host passing none does, which is what the console passes.
+ *
+ * Returns the owner-change count, so the column read can key on it.
+ */
+function useLanguageResetOnOwnerChange({ enqueue, resetPending }: SwitchQueue): number {
+  const ownerChanges = useSyncExternalStore(
+    subscribeSessionOwnerChange,
+    getSessionOwnerChangeCount,
+    getSessionOwnerChangeCount,
+  );
+  const { i18n, changeLanguage } = useObjectTranslation();
+  // Refs, not dependencies — both are rebuilt by a language change
+  // (AGENTS.md #5 #10), and this must run on an owner change only.
+  const changeLanguageRef = useRef(changeLanguage);
+  changeLanguageRef.current = changeLanguage;
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
+
+  useEffect(() => {
+    if (ownerChanges <= ownerChangesHandled) return;
+    ownerChangesHandled = ownerChanges;
+    resetPending.current = true;
+    enqueue(async () => {
+      try {
+        const target = resolveBootstrapLanguage();
+        if ((i18nRef.current.language || '') === target) return;
+        await changeLanguageRef.current(target);
+        if ((i18nRef.current.language || '') !== target) return;
+        if (readStoredLanguage() !== target) return;
+        try {
+          window.localStorage.removeItem(LOCALE_STORAGE_KEY);
+        } catch {
+          // Storage blocked — nothing was persisted either.
+        }
+      } finally {
+        resetPending.current = false;
+      }
+    });
+  }, [ownerChanges, enqueue, resetPending]);
+
+  return ownerChanges;
+}
 
 /** The object and column the ruling names as the single source of truth. */
 const USER_OBJECT = 'sys_user';
@@ -111,7 +238,12 @@ export function pickRenderableLocale(
 export function useSignedInUserLocale(): void {
   const { user } = useAuth();
   const adapter = useAdapter();
-  const { language, changeLanguage, offerableLanguages } = useObjectTranslation();
+  const { i18n, changeLanguage, offerableLanguages } = useObjectTranslation();
+  const queue = useSwitchQueue();
+  const { enqueue, resetPending } = queue;
+  // Runs first: an owner change resets the previous owner's language, and the
+  // read below re-runs for it so the new owner's column lands after the reset.
+  const ownerChanges = useLanguageResetOnOwnerChange(queue);
 
   const userId = user?.id ? String(user.id) : null;
   // Every adapter write reaches this bus, so the profile card's save re-runs
@@ -151,7 +283,7 @@ export function useSignedInUserLocale(): void {
     return () => {
       cancelled = true;
     };
-  }, [adapter, userId, invalidationNonce]);
+  }, [adapter, userId, invalidationNonce, ownerChanges]);
 
   // ⛔ Keyed on the READ and on a primitive, never on the identity of the
   // context's memoised `changeLanguage` nor on the active `language`
@@ -162,8 +294,10 @@ export function useSignedInUserLocale(): void {
   // failed.
   const changeLanguageRef = useRef(changeLanguage);
   changeLanguageRef.current = changeLanguage;
-  const languageRef = useRef(language);
-  languageRef.current = language;
+  // The instance, read at the moment the queued switch runs: a reset queued
+  // ahead of this apply may have moved the language since it was decided.
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
   // A primitive stand-in for the list: a comma cannot occur in a BCP-47 tag,
   // so this changes exactly when the list's contents change.
   const offerableKey = offerableLanguages ? offerableLanguages.join(',') : null;
@@ -172,9 +306,19 @@ export function useSignedInUserLocale(): void {
     if (!read.column) return;
     const offerable = offerableKey === null ? null : offerableKey.split(',');
     const resolved = pickRenderableLocale(read.column, offerable);
-    if (!resolved || resolved === languageRef.current) return;
-    void changeLanguageRef.current(resolved);
-  }, [read, offerableKey]);
+    if (!resolved) return;
+    // Decided NOW, against the language as it stands now — a switch the user
+    // makes after this read must not be undone by it ("the local switch stands
+    // until the next successful read"). The one exception is a pending
+    // owner-change reset: the language standing now is the previous owner's
+    // and is about to be replaced, so the column must be applied after it even
+    // when the two happen to agree.
+    if (!resetPending.current && (i18nRef.current.language || '') === resolved) return;
+    enqueue(async () => {
+      if ((i18nRef.current.language || '') === resolved) return;
+      await changeLanguageRef.current(resolved);
+    });
+  }, [read, offerableKey, enqueue, resetPending]);
 }
 
 /**

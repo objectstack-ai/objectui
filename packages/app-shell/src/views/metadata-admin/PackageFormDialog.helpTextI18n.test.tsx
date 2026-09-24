@@ -16,6 +16,7 @@ import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { ManifestSchema } from '@objectstack/spec/kernel';
 import { PackageFormDialog } from './PackageFormDialog';
 
 let localeFixture: 'en-US' | 'zh-CN' = 'zh-CN';
@@ -44,8 +45,10 @@ describe('PackageFormDialog — help-text language (objectui#5416 defect 2)', ()
 
     // The card's exact complaint: a translated label with an English sentence
     // under it, on consecutive lines of the same field.
-    expect(screen.queryByText('Human-readable package name')).toBeNull();
-    expect(screen.queryByText('Unique package identifier (reverse domain style)')).toBeNull();
+    // The English it must NOT show is read from the installed schema, so this
+    // negative cannot go vacuous when the spec rewords a `.describe()`.
+    expect(screen.queryByText(ManifestSchema.shape.name.description!)).toBeNull();
+    expect(screen.queryByText(ManifestSchema.shape.id.description!)).toBeNull();
   });
 
   it('keeps ONE producer for the English: the spec, not this repo', async () => {
@@ -58,8 +61,16 @@ describe('PackageFormDialog — help-text language (objectui#5416 defect 2)', ()
     // spec-derived JSONSchema. Seeing them here proves `tOptional` found
     // nothing in the en table and fell through — i.e. this repo did not copy
     // the producer's English into a second table that would then drift.
-    expect(screen.getByText('Human-readable package name')).toBeInTheDocument();
-    expect(screen.getByText('Unique package identifier (reverse domain style)')).toBeInTheDocument();
-    expect(screen.getByText('Package version (semantic versioning)')).toBeInTheDocument();
+    //
+    // The expected text is read from the INSTALLED schema, not restated
+    // (objectui#10207): a literal here fails by construction the day the spec
+    // rewords a `.describe()`, although the producer-consumer seam this test
+    // guards is still intact.
+    for (const key of ['name', 'id', 'version'] as const) {
+      const described = ManifestSchema.shape[key].description;
+      expect(described, `ManifestSchema.${key} carries a .describe()`).toEqual(expect.any(String));
+      expect(described!.trim()).not.toBe('');
+      expect(screen.getByText(described!)).toBeInTheDocument();
+    }
   });
 });

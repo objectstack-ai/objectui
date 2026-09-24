@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-fix(types): settle three mirror-vs-declaration disagreements from objectui#7759 groups C and D
+fix(types): settle four mirror-vs-declaration disagreements from objectui#7759 groups C and D
 
 Each of these keys had a zod mirror that accepted something its TypeScript
 declaration refused, or the other way round. Each is now settled by the
@@ -25,6 +25,19 @@ where it does not, the renderer's read site decides.
   `transparent`. The mirror now refuses the key by name, and the declaration types
   it `never`.
 
+- `FormSchema.mode` (the plain `form` node) is retired on both faces, under the
+  objectui#7759 ruling's D1-(ii). The spec declares no `form` node; its
+  `create` / `edit` / `view` belongs to `object-form`. Nothing read the key on a
+  `form` node: every spelling rendered the same form. The declaration offered
+  `edit` / `read` / `disabled`, the mirror `create` / `edit` / `view`, and
+  neither was honoured. The mirror now refuses the key by name and points at
+  `object-form`, whose `mode` (`ObjectFormSchema.mode`) is unchanged and live.
+  For a non-editable basic form, set `disabled`. The renderer is unchanged: a
+  document that skips validation and still carries `mode` gets the same stray
+  `mode` attribute on the rendered `form` element as before. A validated
+  document can no longer carry the key, so it no longer reaches the DOM that way.
+
 Breaking, but only for documents the renderer ignored anyway: a `container` with
-`maxWidth: true`, or a `header-bar` with any `variant`, now fails validation. Delete
-the key. `FormSchema.mode` is not changed here.
+`maxWidth: true`, a `header-bar` with any `variant`, or a `form` with any `mode`
+now fails validation. Delete the key. For a form, use `object-form` or `disabled`
+if the mode was meant to do something.

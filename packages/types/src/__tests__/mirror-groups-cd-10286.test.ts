@@ -21,6 +21,10 @@
  *    its `z.boolean()` arm to the `false` the declaration already stated.
  *  - `HeaderBarSchema.variant` — not in the spec, and the `header-bar` renderer
  *    reads no `variant`, so both faces retire it.
+ *  - `FormSchema.mode` — the spec declares no `form` node (its create / edit /
+ *    view is the `object-form` block's), and nothing reads the key on a `form`
+ *    node, so both faces retire it (objectui#7759 ruling D1-(ii)). The live mode
+ *    is `ObjectFormSchema.mode`, which this file shows is untouched.
  *
  * `BaseSchema` is `.passthrough()`: an UNDECLARED key parses green unexamined. So
  * every refusal here has a lit control on the same schema and document — an
@@ -33,9 +37,13 @@ import { VIEW_FILTER_OPERATORS } from '@objectstack/spec/ui';
 import { FilterBuilderSchema, FilterFieldSchema } from '../zod/complex.zod.js';
 import { ContainerSchema } from '../zod/layout.zod.js';
 import { HeaderBarSchema } from '../zod/navigation.zod.js';
+import { FormSchema } from '../zod/form.zod.js';
+import { ObjectFormSchema } from '../zod/objectql.zod.js';
 import type { FilterField } from '../complex.js';
 import type { ContainerSchema as ContainerSchemaType } from '../layout.js';
 import type { HeaderBarSchema as HeaderBarSchemaType } from '../navigation.js';
+import type { FormSchema as FormSchemaType } from '../form.js';
+import type { ObjectFormSchema as ObjectFormSchemaType } from '../objectql.js';
 
 /** A control key no surface in this package declares. */
 const UNKNOWN_KEY = 'zzzNotAKeyAnySurfaceDeclares10286';
@@ -137,5 +145,43 @@ describe('HeaderBarSchema.variant is retired on both faces (objectui#10286)', ()
     // @ts-expect-error — `variant` is `never` on the TS face.
     const bad: HeaderBarSchemaType = { type: 'header-bar', variant: 'floating' };
     expect(bad.type).toBe('header-bar');
+  });
+});
+
+describe('FormSchema.mode is retired on both faces (objectui#10286, objectui#7759 D1-(ii))', () => {
+  const NODE = { type: 'form' as const, fields: [{ name: 'title', label: 'Title', type: 'text' }] };
+
+  it('every spelling either face used to offer is refused BY NAME', () => {
+    for (const mode of ['edit', 'read', 'disabled', 'create', 'view']) {
+      const result = FormSchema.safeParse({ ...NODE, mode });
+      expect(refusedPaths(result), `mode \`${mode}\``).toEqual(['mode']);
+    }
+  });
+
+  it('the refusal points the author at `object-form`, where the mode is live', () => {
+    const result = FormSchema.safeParse({ ...NODE, mode: 'edit' });
+    const message = result.success ? '' : result.error.issues[0].message;
+    expect(message.startsWith('REFUSED (objectui#10286, ADR-0049')).toBe(true);
+    expect(message).toContain('`object-form`');
+    expect(message).toContain('`disabled`');
+  });
+
+  it('lit control: the same document without `mode`, and with an undeclared key, parses', () => {
+    expect(FormSchema.safeParse(NODE).success).toBe(true);
+    expect(FormSchema.safeParse({ ...NODE, [UNKNOWN_KEY]: 'x' }).success).toBe(true);
+  });
+
+  it('the object-form mode the refusal names is untouched and still parses', () => {
+    for (const mode of ['create', 'edit', 'view']) {
+      const doc = { type: 'object-form', objectName: 'probe', mode };
+      expect(ObjectFormSchema.safeParse(doc).success, `object-form mode \`${mode}\``).toBe(true);
+    }
+  });
+
+  it('the declaration refuses it too, and object-form keeps it (compile-time)', () => {
+    // @ts-expect-error — `mode` is `never` on the `form` node's TS face.
+    const bad: FormSchemaType = { type: 'form', mode: 'read' };
+    const live: Pick<ObjectFormSchemaType, 'mode'> = { mode: 'edit' };
+    expect([bad.type, live.mode]).toEqual(['form', 'edit']);
   });
 });

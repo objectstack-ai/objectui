@@ -154,8 +154,11 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **44 entries** in `KnownDrift`, **82 keys** across them — 46 / 85 until
- *     objectui#10286 settled three keys of objectui#7759's groups C and D: two
+ *   - **44 entries** in `KnownDrift`, **81 keys** across them — 44 / 82 until
+ *     objectui#10286's second step RETIRED `form.zod.ts#FormSchema::mode` on both faces
+ *     (objectui#7759 ruling D1-(ii)); the entry survives on `fields` and its three runtime
+ *     slots, so the key total moved by one and the entry count did not. It was 46 / 85
+ *     until objectui#10286 settled three keys of objectui#7759's groups C and D: two
  *     WHOLE entries left (`complex.zod.ts#FilterFieldSchema`, whose one key was
  *     `operators`, and `navigation.zod.ts#HeaderBarSchema`, whose one key was
  *     `variant`) and one entry SHRANK (`complex.zod.ts#FilterBuilderSchema` lost
@@ -404,9 +407,11 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **16 entries** in `WiderThanDeclared`, **25 keys** across them, and **31 arms**
- *     under those keys — split **5** SCHEMA-NODE, **20** CONCRETE, **0** MIXED, **6** unions.
- *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10286 closed four CONCRETE
+ *   - **16 entries** in `WiderThanDeclared`, **24 keys** across them, and **30 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **19** CONCRETE, **0** MIXED, **6** unions.
+ *     It read 16 / 25 / 31 — 5 / 20 / 0 / 6 — until objectui#10286's second step retired
+ *     `form.zod.ts#FormSchema::mode`, a one-arm CONCRETE key; the entry stays on `layout`
+ *     and `fields`. It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10286 closed four CONCRETE
  *     keys of objectui#7759's groups C and D: `complex.zod.ts#FilterFieldSchema::operators`
  *     and `complex.zod.ts#FilterBuilderSchema::fields` (both faces now state the spec's
  *     filter vocabulary), `layout.zod.ts#ContainerSchema::maxWidth` (the mirror's
@@ -2035,8 +2040,10 @@ interface KnownDrift {
   /** RUNTIME SLOT (objectui#6124): the `file-upload` renderer calls `props.onChange(files)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#FileUploadSchema': 'onChange';
   /**
-   * `mode` — DISJOINT: TS `disabled|read|edit`, mirror `create|edit|view`. `fields` is
-   * inherited element drift. (`validationMode` was a third drifted key until
+   * `fields` is inherited element drift. (`mode` LEFT under objectui#10286: it was
+   * DISJOINT — TS `disabled|read|edit`, mirror `create|edit|view` — and neither was
+   * read; the key is not in the spec, so both faces retired it under the objectui#7759
+   * ruling's D1-(ii).) (`validationMode` was a third drifted key until
    * objectui#5927 widened it to react-hook-form's full `mode` vocabulary —
    * `useForm({ mode })` in `renderers/form/form.tsx` forwards it verbatim and RHF
    * implements `onTouched`/`all` as real branches.)
@@ -2045,7 +2052,7 @@ interface KnownDrift {
    * destructures all three off `schema` and calls them (`await onSubmitProp(formData)`,
    * the objectui#4259 `onChangeProp` subscription, `onCancelProp()`).
    */
-  'form.zod.ts#FormSchema': 'fields' | 'mode' | 'onSubmit' | 'onChange' | 'onCancel';
+  'form.zod.ts#FormSchema': 'fields' | 'onSubmit' | 'onChange' | 'onCancel';
   /** RUNTIME SLOT (objectui#6124): the `input-otp` renderer calls `props.onChange(val)` after `SchemaRenderer`'s spread. (`onComplete` is NOT here: the `toFormControlDomProps` whitelist drops it — both faces retire it.) */
   'form.zod.ts#InputOTPSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): the `input` renderer calls `props.onChange(e.target.value)` after `SchemaRenderer`'s spread. */
@@ -2552,8 +2559,8 @@ interface UnmirroredDeclared {
   /** LOCAL. */
   'form.zod.ts#FormFieldSchema': 'field';
   /**
-   * LOCAL. `fields`/`mode` are in `KnownDrift` above (both mirrored, both drifted in
-   * TYPE); these eight the mirror does not declare at all. It was nine —
+   * LOCAL. `fields` is in `KnownDrift` above (mirrored, drifted in TYPE; `mode` sat
+   * beside it until objectui#10286 retired it on both faces); these eight the mirror does not declare at all. It was nine —
    * `onDirtyChange` is in `RuntimeOnlyDeclared` below (objectui#6152).
    */
   'form.zod.ts#FormSchema':
@@ -3098,10 +3105,11 @@ interface WiderThanDeclared {
    * CONCRETE. `layout` is the clearest single instance in this ledger: the mirror
    * is `z.enum(['vertical', 'horizontal', 'grid'])` and the declaration states the
    * first two, so the third spelling parses green and `tsc` refuses it. `fields`
-   * and `mode` are the disjoint pair objectui#5927 left in `KnownDrift` — measured
-   * here from the other side.
+   * is the drift objectui#5927 left in `KnownDrift` — measured here from the other
+   * side. (`mode`, its disjoint partner, LEFT under objectui#10286: retired on both
+   * faces.)
    */
-  'form.zod.ts#FormSchema': 'layout' | 'fields' | 'mode';
+  'form.zod.ts#FormSchema': 'layout' | 'fields';
   /**
    * CONCRETE, and the class objectui#7069 was filed for, ALIVE: the mirror is
    * `z.union([z.number(), z.array(z.number())])` and the declaration states the
@@ -3288,7 +3296,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'form.zod.ts#FormFieldSchema::condition': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'form.zod.ts#FormSchema::fields': ['CONCRETE'],
-  'form.zod.ts#FormSchema::mode': ['CONCRETE'],
   'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
   'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],

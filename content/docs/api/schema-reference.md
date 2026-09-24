@@ -313,7 +313,7 @@ A complete form with fields, validation, layout, and actions.
 | `showCancel` | `boolean` | Whether to show a cancel button. |
 | `showActions` | `boolean` | Whether to show the action buttons row. |
 | `resetOnSubmit` | `boolean` | Reset form after successful submit. |
-| `mode` | `"edit" \| "read" \| "disabled"` | Form interaction mode. |
+| `disabled` | `boolean` | Disable every input and the submit button. (`mode` is retired on this node and fails validation; for a create / edit / view form use [ObjectFormSchema](#objectformschema).) |
 | `actions` | `SchemaNode[]` | Custom action buttons to replace defaults. |
 
 **Related:** [InputSchema](#inputschema), [SelectSchema](#selectschema), [ObjectFormSchema](#objectformschema)

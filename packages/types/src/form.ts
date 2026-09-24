@@ -1830,10 +1830,25 @@ export interface FormSchema extends BaseSchema {
    */
   resetOnSubmit?: boolean;
   /**
-   * Form mode
-   * @default 'edit'
+   * RETIRED (objectui#10286, ADR-0049) under the objectui#7759 ruling, item
+   * D1-(ii): both faces dead and no spec declaration, so the key retires.
+   *
+   * `@objectstack/spec` declares no `form` node, so this is an objectui-own
+   * key whose read site is the truth, and it has none: the `form` renderer
+   * reads no `mode`, and the forms that build a `form` node (`ObjectForm`,
+   * `ModalForm`, `DrawerForm`) consume their OWN `mode` and never set this
+   * one. Measured through the real `SchemaRenderer`, every spelling rendered
+   * the same form as its absence. The two faces had also drifted apart — this
+   * declaration offered `edit | read | disabled`, the zod mirror `create |
+   * edit | view` — and neither vocabulary was honoured.
+   *
+   * The live create / edit / view mode is `ObjectFormSchema.mode`
+   * (`../objectql.ts`): author an `object-form` node for that. To make a
+   * plain form non-editable, use `disabled` (inherited from `BaseSchema`).
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  mode?: 'edit' | 'read' | 'disabled';
+  mode?: never;
   /**
    * Custom action buttons (replaces default submit/cancel)
    */

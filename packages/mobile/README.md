@@ -195,6 +195,11 @@ export function Feed() {
 }
 ```
 
+The element does not have to exist on the first render. A component that shows
+a loading screen first and attaches `ref` once its data arrives works, and so
+does one that later swaps in a new element. The hook binds its touch listeners
+to whatever element `ref` points at after each render.
+
 ### useTouchTarget
 
 Hook for ensuring minimum touch target sizes. It returns the `style` and `className`

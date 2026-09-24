@@ -91,53 +91,32 @@ export function deriveFieldGroupSections(
 }
 
 /**
- * Which divider row(s) a section configuration yields on a given layout arm.
+ * THE ONE ROW RULE (objectui#9849 step two — director ruling letter E,
+ * item 2): 「The divider row exists iff `title || description`; with
+ * `description` only it is the blurb-only row (objectui#9835's shape), on
+ * every arm — one rule」.
  *
- * ⚠️ This enum is the RESIDUAL of the convergence below, ⛔ not a feature.
- * `projectSectionDivider` is now the one path from a section configuration to a
- * `section-divider` row, so no arm can copy a different set of keys than its
- * siblings — that half needed no ruling and is closed. What the six call sites
- * still disagree about is whether the row exists AT ALL for a member that
- * yields no heading, and every way of collapsing THAT disagreement moves a
- * semantic a maintainer already ruled on:
+ * Every arm asks this one function, both to decide whether a row is drawn and
+ * — because 「the collapse control lives on the row」 (item 3) — whether a
+ * collapse control has anywhere to live. It replaced a four-way gate union
+ * (one answer per arm) that the ruling deleted.
  *
- *   `heading`            a row only for a member that yields a heading.
- *   `headingOrBlurb`     …plus a BLURB-ONLY row for a headingless member that
- *                        authored a `description` — objectui#9835, maintainer
- *                        ruling 2026-09-18 letter B. That row carries the blurb
- *                        and NOTHING else: no ADR-0089 `visibleWhen`, no
- *                        objectui#6236 membership claim, no collapse pair.
- *   `headingOrBlurbRow`  ONE row gated `title || description`, carrying the
- *                        full key set either way — the letter-A shape that
- *                        ruling REFUSED for the default arm, and which this arm
- *                        has always had.
- *   `always`             a row for every member, heading or not — pinned as a
- *                        reading (⛔ not a ruling) by
- *                        `drawerFormSectionDescription-9834` row 5.
- *
- * ⇒ moving `headingOrBlurbRow` or `always` onto `headingOrBlurb` would REMOVE
- * the ADR-0089 predicate and the objectui#6236 membership claim from the rows a
- * headingless-with-blurb member draws today; moving `headingOrBlurb` the other
- * way is the letter-A widening that ruling refused, with the collapse pair
- * riding along. Both directions are «a ruling about two other keys, made while
- * fixing a blurb» — the sentence objectui#9835 used to refuse exactly this —
- * so the gate is enumerated here, in ONE place, and handed back rather than
- * decided. ⛔ Do not collapse this union without a maintainer ruling that names
- * ADR-0089 `visibleWhen`, objectui#6236's membership claim and the
- * `collapsed` / `collapsible` pair.
+ * ⚠️ The row is PRESENTATION only. Whether the group is gated by its ADR-0089
+ * `visibleWhen` predicate and objectui#6236 membership claim does NOT depend
+ * on it (item 1) — see `projectSectionDivider`.
  */
-export type SectionDividerGate = 'heading' | 'headingOrBlurb' | 'headingOrBlurbRow' | 'always';
+export function sectionDrawsDividerRow(title?: string, description?: string): boolean {
+  return Boolean(title) || Boolean(description);
+}
 
 /**
  * The section configuration a divider row is projected FROM, already resolved
  * by the arm that owns each resolution.
  *
  * ⚠️ `collapse` arrives RESOLVED — by `resolveSectionCollapse` below, the one
- * `collapsed` / `collapsible` resolution every arm that emits a collapse pair
- * now calls. It is resolved before this projection rather than inside it
- * because the arm needs the same answer a second time: whether to take the
- * section's fields out of the DOM. An arm that emits no collapse pair at all
- * (both `ModalForm` sites) passes nothing and gets no keys.
+ * `collapsed` / `collapsible` resolution every arm calls. It is resolved before
+ * this projection rather than inside it because the arm needs the same answer
+ * a second time: whether to take the section's fields out of the DOM.
  */
 export interface SectionDividerSource {
   /** Section identity; spells the row's `name`. */
@@ -157,28 +136,54 @@ export interface SectionDividerSource {
 }
 
 /**
+ * The loud diagnostic director ruling letter E, item 3 orders for a group that
+ * declares `collapsible` (or `collapsed`) but yields neither a heading nor a
+ * blurb: 「The collapse control lives on the row. A group that … yields neither
+ * title nor description has nowhere to host the control ⇒ a loud diagnostic at
+ * validation or render …, ⛔ never fields removed from the DOM with no control」.
+ *
+ * Emitted at RENDER, through the channel this package already uses for
+ * renderer-side author mistakes — a once-per-occurrence `console.warn`, the
+ * voice of `warnSectionMemberExcludedByFields` in `sectionFields.ts`. ⛔ It
+ * only warns: the resolution below keeps such a group OPEN, so its fields stay
+ * reachable whatever the warning's reader does.
+ *
+ * The first sentence is the ruling's own wording, verbatim; the pin that holds
+ * it reads it from this function, so the two cannot drift.
+ */
+export function headinglessCollapseWarning(where: string): string {
+  return (
+    'collapsible section has no heading or description to carry its control: ' +
+    `${where} declares \`collapsible\` / \`collapsed\` but yields neither a \`label\` nor a ` +
+    '`description`, so no divider row is drawn for it and there is nowhere to put the ' +
+    'disclosure control. The section is rendered OPEN and the declaration is ignored. Give it ' +
+    'a `label` (or a `description`), or drop `collapsible` / `collapsed`.'
+  );
+}
+
+const warnedHeadinglessCollapse = new Set<string>();
+function warnHeadinglessCollapse(where: string, dedupeKey: string): void {
+  if (warnedHeadinglessCollapse.has(dedupeKey)) return;
+  warnedHeadinglessCollapse.add(dedupeKey);
+  console.warn(`[object-ui] ${headinglessCollapseWarning(where)}`);
+}
+
+/**
  * Resolve a section's authored `collapsed` / `collapsible` pair into what the
  * page draws: whether its row is a disclosure control, whether its fields are
  * out of the DOM right now, and what toggles them.
  *
- * ⭐ THE ONE RESOLUTION (objectui#9849 step one — director ruling letter E,
- * item 4: 「the three `collapsed` / `collapsible` resolutions converge to the
- * declaration-based one objectui#9780 established」). Before it, the default
- * arm applied objectui#9780 inline, `DrawerForm`'s explicit push read
- * `collapsible` alone for the control while reading `collapsed`
- * unconditionally for the state, and its derived push gated the state on
- * `collapsible`. The explicit drawer push was therefore still the
- * objectui#9780 trap: `collapsed: true` written alone drew a section that
- * started closed, kept its fields out of the DOM, and offered nothing on the
- * page that could bring them back.
+ * ⭐ THE ONE RESOLUTION (objectui#9849 — director ruling letter E, item 4:
+ * 「the three `collapsed` / `collapsible` resolutions converge to the
+ * declaration-based one objectui#9780 established」). Every arm calls it: the
+ * default arm, both `DrawerForm` pushes and — since step two, per item 1's
+ * 「on every arm」 — both stacked `ModalForm` pushes.
  *
  * The rules, each objectui#9780's (maintainer ruling 2026-09-18, letter A):
  *
  *  - `collapsed` IMPLIES `collapsible`. "Collapsed by default" is an everyday
  *    intent and `collapsed: true` its most natural spelling, so that spelling
- *    installs the control. Refusing the combination at the declaration
- *    (letter B) and a dev-only warning (letter C) were both refused: nobody
- *    can depend on a section that cannot be opened.
+ *    installs the control.
  *  - `collapsible: false` WITH `collapsed: true` is the same contradiction and
  *    resolves the same way — collapsed wins, the control is present.
  *  - The control is read off the DECLARATION, ⛔ never off the live state:
@@ -186,33 +191,34 @@ export interface SectionDividerSource {
  *    user opened the section.
  *  - A section declaring neither member is untouched.
  *  - ⭐ A section is only ever collapsed when it is collapsible, and it is only
- *    collapsible when the row the arm draws for it can carry the control
- *    (`hostsControl`). So fields leave the DOM only while a control that
- *    brings them back is on the page — the default arm's 「an untitled bucket
- *    is never collapsible」, stated once for every arm.
- *
- * ⚠️ `hostsControl` is the arm's to answer, because WHICH row an arm draws for
- * a member is its gate (`SectionDividerGate`), and the gate is not converged
- * here: the default arm hosts the control only on a heading row (its
- * blurb-only row carries no collapse pair, objectui#9835 letter B); the
- * drawer's explicit push draws a row for every member, which `SectionDivider`
- * renders — and so can host a control on — only when it has a heading or a
- * blurb to show; the drawer's derived push draws a row only for a heading.
- * Unifying that input is the gate ruling's step, ⛔ not this one.
+ *    collapsible when it has a divider row to carry the control — which, by
+ *    the one row rule (`sectionDrawsDividerRow`), is exactly when it yields a
+ *    heading or a blurb. So fields leave the DOM only while a control that
+ *    brings them back is on the page.
+ *  - ⭐ A section that declares the pair and yields NEITHER is rendered open
+ *    and reported (`headinglessCollapseWarning`) — letter E item 3.
  */
 export function resolveSectionCollapse(
   declared: { collapsible?: boolean; collapsed?: boolean },
   host: {
     /** The live state the user has toggled this section to, if any. */
     live: boolean | undefined;
-    /** Whether the row this arm draws for the section can carry the control. */
-    hostsControl: boolean;
+    /** The row the section yields — the one row rule decides from these two. */
+    title: string | undefined;
+    description: string | undefined;
+    /**
+     * Who is asking and about which section, for the diagnostic only — e.g.
+     * `ObjectForm section 2 of object 'invoice'`. Also its dedupe key.
+     */
+    where: string;
     /** Record the next live state for this section. */
     setCollapsed: (next: boolean) => void;
   },
 ): { collapsible: boolean; collapsed: boolean; onToggle?: () => void } {
-  const collapsible =
-    host.hostsControl && (Boolean(declared.collapsible) || Boolean(declared.collapsed));
+  const declaresPair = Boolean(declared.collapsible) || Boolean(declared.collapsed);
+  const hostsControl = sectionDrawsDividerRow(host.title, host.description);
+  if (declaresPair && !hostsControl) warnHeadinglessCollapse(host.where, host.where);
+  const collapsible = hostsControl && declaresPair;
   const collapsed = collapsible && (host.live ?? Boolean(declared.collapsed));
   return {
     collapsible,
@@ -231,19 +237,35 @@ export function resolveSectionCollapse(
 const DIVIDER_COL_SPAN = 4;
 
 /**
- * Project one section configuration onto the `section-divider` row(s) it draws.
+ * Project one section configuration onto the `section-divider` row it draws.
  *
  * ⭐ THIS IS THE ONE PATH (objectui#9849, triage ruling 2026-09-18:
  * 「让 section 配置到 divider 的投影只有一条路径」). Before it, six sites across
  * `ObjectForm.tsx`, `ModalForm.tsx` and `DrawerForm.tsx` each rebuilt the row
- * key by key, and a key one of them forgot was invisible to the author: its
- * siblings on the same section arrived in the same call. That failure mode was
- * carded three times in a row for a single key — objectui#9779 (default arm),
- * objectui#9834 (drawer arm) and objectui#9849 (the modal arm's derived push,
- * the only site still dropping `description` when this landed) — and each fix
- * repaired one push while leaving the shape that produced it. A key added here
- * is added for every arm at once, and a key dropped here is dropped for every
- * arm at once, which is what makes the loss visible instead of silent.
+ * key by key, and a key one of them forgot was invisible to the author. A key
+ * added here is added for every arm at once, and a key dropped here is dropped
+ * for every arm at once, which is what makes the loss visible instead of
+ * silent.
+ *
+ * ⭐ AND ONE RULE FOR WHICH ROW (director ruling letter E, maintainer 「同意」).
+ * There is no per-arm gate any more — the enumerated four-way union this
+ * function used to take as a parameter was deleted by that ruling:
+ *
+ *  1. 「Group-level semantics are independent of the heading」 — the ADR-0089
+ *     `visibleWhen` predicate and the objectui#6236 membership claim ride
+ *     EVERY row this function returns, so a headingless group is never
+ *     un-gated, and the claim names only the group's own resolved members, so
+ *     its predicate never hides more than the group it names.
+ *  2. The VISIBLE row exists iff `title || description`
+ *     (`sectionDrawsDividerRow`); with `description` only, it is the blurb-only
+ *     row — no heading span, just the blurb (objectui#9835's shape).
+ *  3. A group with neither, that authored a predicate, still needs a carrier
+ *     for item 1: it gets a CHROME-LESS gate row — no `label`, no
+ *     `description`, so `SectionDivider` renders nothing — which exists only
+ *     to carry the predicate and the claim. It is the same shape `TabbedForm`
+ *     already emits for a degraded single-section form, spelled
+ *     `__section_gate_` like that one. A group with neither and no predicate
+ *     returns no row at all: nothing to draw, nothing to gate.
  *
  * The key set, and who owns each member:
  *
@@ -256,8 +278,9 @@ const DIVIDER_COL_SPAN = 4;
  *  - `fields` — the objectui#6236 membership claim: RESOLVED member names, so
  *    the predicate gates the whole group and not just the heading.
  *  - `colSpan` — see `DIVIDER_COL_SPAN`.
- *  - `collapsible` / `collapsed` / `onToggle` — emitted only when the arm
- *    hands over a resolved `collapse`; see `SectionDividerSource`.
+ *  - `collapsible` / `collapsed` / `onToggle` — on the visible row only (the
+ *    control lives on the row), and only when the arm hands over a resolved
+ *    `collapse`; see `SectionDividerSource`.
  *  - `className` — emitted only when the arm hands one over. objectstack#13626
  *    ("retire the reads", maintainer ruling 2026-09-01) took this read off
  *    every arm but `ModalForm`'s explicit-sections push, whose residue is
@@ -269,38 +292,25 @@ const DIVIDER_COL_SPAN = 4;
  * per-section form, which the single-form structure these arms share does not
  * have.
  */
-export function projectSectionDivider(
-  source: SectionDividerSource,
-  gate: SectionDividerGate,
-): FormField[] {
+export function projectSectionDivider(source: SectionDividerSource): FormField[] {
   const { key, title, description, visibleWhen, members, className, collapse } = source;
 
-  const drawsHeadingRow =
-    gate === 'always' ||
-    Boolean(title) ||
-    (gate === 'headingOrBlurbRow' && Boolean(description));
-
-  if (!drawsHeadingRow) {
-    // The blurb-only row (objectui#9835 letter B). ⚠️ The name is deliberately
-    // NOT the `__section_` spelling: these two rows are different things and
-    // nothing should be able to mistake one for the other by name.
-    if (gate === 'headingOrBlurb' && description) {
-      return [
-        {
-          name: `__section_blurb_${key}`,
-          type: 'section-divider',
-          description,
-        } as FormField,
-      ];
-    }
-    return [];
+  if (!sectionDrawsDividerRow(title, description)) {
+    if (visibleWhen == null) return [];
+    return [
+      {
+        name: `__section_gate_${key}`,
+        type: 'section-divider',
+        visibleWhen,
+        fields: members,
+        colSpan: DIVIDER_COL_SPAN,
+      } as unknown as FormField,
+    ];
   }
 
   const row: Record<string, unknown> = {
     name: `__section_${key}`,
-    // `always` is the one arm that draws a row for a member with no heading at
-    // all, and it has always spelled that row's label as the empty string.
-    label: gate === 'always' ? (title ?? '') : title,
+    label: title,
     type: 'section-divider',
     description,
     visibleWhen,

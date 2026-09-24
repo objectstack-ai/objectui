@@ -510,6 +510,12 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             columns: s.columns,
             // `?? []` — see the tabbed arm above (objectui#7051).
             fields: s.fields ?? [],
+            // The collapse pair (objectui#9849 step two — director ruling
+            // letter E, item 1: group semantics attach 「on every arm」). The
+            // spec declares both on `sections[]`; this map used to copy
+            // neither, so the modal silently ignored a declared collapse.
+            collapsible: (s as any).collapsible,
+            collapsed: (s as any).collapsed,
             // ADR-0089 section predicate (#6111) — key-by-key rebuild, so an
             // uncopied key is silently dropped before ModalForm ever sees it.
             visibleWhen: (s as any).visibleWhen,
@@ -1527,58 +1533,37 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const label = section.name
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
-      // `collapsed` IMPLIES `collapsible` (objectui#9780, maintainer ruling
-      // 2026-09-18, letter A), read from the DECLARATION and never from the
-      // live state — through `resolveSectionCollapse`, the ONE resolution the
-      // drawer's two pushes now call as well (objectui#9849 step one), so no
-      // arm can answer the same two keys differently again. This arm hosts
-      // the control on its heading row only (its blurb-only row carries no
-      // collapse pair, objectui#9835 letter B), so an untitled bucket is never
-      // collapsible and never loses its fields.
+      // `collapsed` IMPLIES `collapsible` (objectui#9780), read from the
+      // DECLARATION — through `resolveSectionCollapse`, the ONE resolution
+      // every arm calls (objectui#9849). The control lives on the divider row
+      // (director ruling letter E, item 3), so a member yielding neither a
+      // heading nor a blurb is never collapsible, never loses its fields, and
+      // is reported if it declared the pair.
       const collapse = resolveSectionCollapse(section, {
         live: collapsedSections[sectionKey],
-        hostsControl: Boolean(label),
+        title: label,
+        description: section.description,
+        where: `ObjectForm section '${sectionKey}' of object '${schema.objectName}'`,
         setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
       });
 
-      // The ONE path from a section configuration to its divider row
-      // (objectui#9849, triage ruling 「让 section 配置到 divider 的投影只有一条
-      // 路径」). `projectSectionDivider` owns every key both rows carry — the
-      // blurb (objectui#9779), the ADR-0089 predicate (#6111), the
-      // objectui#6236 membership claim and the collapse pair — so no arm can
-      // copy a different set than its siblings, which is the failure mode that
-      // produced three consecutive one-key cards.
-      //
-      // ⚠️ This arm's gate is objectui#9835 letter B and is UNCHANGED: a
-      // member that yields a heading gets the full row, a headingless member
-      // that authored a `description` gets a BLURB-ONLY row carrying the blurb
-      // and nothing else — no `visibleWhen`, no membership claim, no collapse
-      // pair — and a member with neither draws nothing. Letter A (spelling the
-      // gate `label || section.description`, which the modal's stacked arm and
-      // the split arm do) was REFUSED there, because that one condition also
-      // decides the predicate row and the membership claim that gates the
-      // WHOLE group, plus the collapse pair whose "an untitled bucket is never
-      // collapsible" rule it implements. ⇒ the gate union in
-      // `SectionDividerGate` is the residual this card hands back, ⛔ not
-      // something decided here.
-      //
-      // The collapse pair is resolved ABOVE by `resolveSectionCollapse` and
-      // handed over resolved.
+      // The ONE path from a section configuration to its divider row, and the
+      // ONE row rule (objectui#9849, director ruling letter E): the ADR-0089
+      // predicate and the objectui#6236 membership claim ride the group on
+      // every arm whether or not it yields a heading, and the visible row
+      // exists iff `title || description`. See `projectSectionDivider`.
       groupedFields.push(
-        ...projectSectionDivider(
-          {
-            key: sectionKey,
-            title: label,
-            description: section.description,
-            visibleWhen: (section as any).visibleWhen,
-            // RESOLVED rather than authored on purpose: the authored
-            // `section.fields` entries can be spec field-defs, and a
-            // perms-filtered field is not in the form at all.
-            members: sectionFields.map(f => f.name),
-            collapse,
-          },
-          'headingOrBlurb',
-        ),
+        ...projectSectionDivider({
+          key: sectionKey,
+          title: label,
+          description: section.description,
+          visibleWhen: (section as any).visibleWhen,
+          // RESOLVED rather than authored on purpose: the authored
+          // `section.fields` entries can be spec field-defs, and a
+          // perms-filtered field is not in the form at all.
+          members: sectionFields.map(f => f.name),
+          collapse,
+        }),
       );
 
       // #2578: lay THIS section's fields out at its declared column density
@@ -1587,8 +1572,8 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const laid = formColumns > 1 ? applyAutoColSpan(sectionFields, formColumns, secCols) : sectionFields;
 
       // Collapsed groups keep their fields registered (values preserved) but
-      // hidden from the DOM. An untitled bucket is never collapsible, so it is
-      // never collapsed either — `resolveSectionCollapse` answers both.
+      // hidden from the DOM. A section with no row is never collapsible, so it
+      // is never collapsed either — `resolveSectionCollapse` answers both.
       if (collapse.collapsed) {
         groupedFields.push(...laid.map(f => ({ ...f, hidden: true })));
       } else {

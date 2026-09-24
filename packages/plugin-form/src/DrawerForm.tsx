@@ -637,46 +637,35 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
         const sectionFields = applyFieldPerms(buildSectionFields(section));
-        // The ONE `collapsed` / `collapsible` resolution (objectui#9849 step
-        // one): objectui#9780's `collapsed` implies `collapsible`, read from
-        // the DECLARATION. This push used to read `collapsible` alone for the
-        // control while reading `collapsed` unconditionally for the state, so
-        // `collapsed: true` written alone drew a section that started closed
-        // with nothing on the page able to reopen it. This arm draws a row for
-        // every member, but `SectionDivider` renders that row — and so can
-        // host the control — only when it has a heading or a blurb to show;
-        // a member with neither is never collapsed, and keeps its fields.
+        // The ONE `collapsed` / `collapsible` resolution (objectui#9849):
+        // objectui#9780's `collapsed` implies `collapsible`, read from the
+        // DECLARATION. The control lives on the divider row (director ruling
+        // letter E, item 3), so a member with neither a heading nor a blurb is
+        // never collapsed, keeps its fields, and is reported if it declared
+        // the pair.
         const collapse = resolveSectionCollapse(section, {
           live: collapsedSections[sectionKey],
-          hostsControl: Boolean(section.label) || Boolean(section.description),
+          title: section.label,
+          description: section.description,
+          where: `DrawerForm section '${sectionKey}' of object '${schema.objectName}'`,
           setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
         });
 
-        // The ONE path from a section configuration to its divider row
-        // (objectui#9849) — `projectSectionDivider` owns every key this row
-        // carries. ⚠️ This arm's gate stays UNCONDITIONAL: it draws a row for
-        // every section, heading or not, which is what makes a headingless
-        // section with a blurb render that blurb alone here while the default
-        // arm draws a blurb-only row and the modal's derived arm draws nothing.
-        // That difference is a reading (`drawerFormSectionDescription-9834`
-        // row 5), ⛔ not a ruling, and collapsing it would move the ADR-0089
-        // predicate and the objectui#6236 membership claim this row carries —
-        // see the gate union the helper hands back.
-        //
-        // The collapse pair is resolved ABOVE by `resolveSectionCollapse` and
-        // handed over resolved.
+        // The ONE path from a section configuration to its divider row, and
+        // the ONE row rule (objectui#9849, director ruling letter E): the
+        // visible row exists iff `title || description`, while the ADR-0089
+        // predicate and the objectui#6236 membership claim ride the group
+        // whether or not it yields one. This push used to draw a row for
+        // EVERY member, heading or not; that per-arm gate is gone.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title: section.label,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: sectionFields.map(f => f.name),
-              collapse,
-            },
-            'always',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title: section.label,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: sectionFields.map(f => f.name),
+            collapse,
+          }),
         );
 
         if (collapse.collapsed) {
@@ -714,33 +703,24 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        // The same ONE resolution as the explicit push above and the default
-        // arm (objectui#9849 step one). This arm draws a row only for a
-        // heading, so only a titled group can host the control — an untitled
-        // bucket is never collapsed and never loses its fields.
+        // The same ONE resolution and ONE row rule as the explicit push above
+        // (objectui#9849, director ruling letter E).
         const collapse = resolveSectionCollapse(section, {
           live: collapsedSections[sectionKey],
-          hostsControl: Boolean(title),
+          title,
+          description: section.description,
+          where: `DrawerForm field group '${sectionKey}' of object '${schema.objectName}'`,
           setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
         });
-        // The ONE path (objectui#9849). ⚠️ This arm keeps its `if (title)`
-        // gate, so a derived group with no heading still draws no divider and
-        // still drops its blurb — the same residual the modal's derived arm
-        // has. ⛔ Widening it would also decide the ADR-0089 predicate row and
-        // the objectui#6236 membership claim; the helper's gate union carries
-        // that hand-back.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: body.map(f => f.name),
-              collapse,
-            },
-            'heading',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: body.map(f => f.name),
+            collapse,
+          }),
         );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
         allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));

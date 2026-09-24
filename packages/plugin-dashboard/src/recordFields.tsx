@@ -66,6 +66,28 @@ export const NUMERIC_FIELD_TYPES = new Set([
 ]);
 
 /**
+ * Field types whose `format` {@link renderFieldValue} reads as a date display
+ * pattern (objectui#10220).
+ *
+ * `format` has one key and several readers, each with its own vocabulary —
+ * `@objectstack/spec` says so in `FieldSchema.format`'s own description: the
+ * `date` / `datetime` cells read it as a display style, while on a plain-text
+ * field the shared resolver (`resolveCellRendererType`, `@object-ui/fields`)
+ * reads a small set of renderer-hint words. The date branch used to fire on any
+ * `format` containing a Y / M / D / H / m / s letter, whatever the field's type,
+ * so `format: 'email'` (it has an `m`) sent an address to `formatDate` and
+ * painted an em dash. So did an `autonumber` record-number pattern carrying
+ * date tokens and a `time` field's `HH:mm` — neither of them a hint word.
+ *
+ * ⛔ Do not replace this gate with a list of hint words to exclude: that is a
+ * second copy of the resolver's vocabulary, kept in step by hand, and the
+ * autonumber and time cases show it would still miss. A field whose type is
+ * unknown is not a date cell either; a column with no schema type declares
+ * `type: 'date'` to get the date face.
+ */
+const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
+
+/**
  * Relational keys copied from the OBJECT SCHEMA field def onto the built
  * {@link FieldMeta}, so a lookup / master_detail / tree cell can resolve the
  * record it references (objectui#6694).
@@ -427,7 +449,15 @@ export function renderFieldValue(
     // Deleting the branch fixes all three, because they were never three bugs.
     return formatPercent(value, decimals, displayLocale);
   }
-  if (typeof fmt === 'string' && /[YMDHms]/.test(fmt)) {
+  // A date pattern only on a date field (objectui#10220) — see
+  // `DATE_PATTERN_FIELD_TYPES` for why the gate is the type. A date field's
+  // style word with none of those letters (`relative`) still falls through to
+  // its cell renderer below, as before.
+  if (
+    typeof fmt === 'string'
+    && DATE_PATTERN_FIELD_TYPES.has(fieldMeta.type as string)
+    && /[YMDHms]/.test(fmt)
+  ) {
     return formatDate(value, fmt, { locale: displayLocale });
   }
   const Renderer = getCellRenderer(resolveCellRendererType(fieldMeta as any));

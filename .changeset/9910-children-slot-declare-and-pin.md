@@ -8,9 +8,10 @@
 fix(sdui-parser,components,layout,types): containment is the declared `children` slot, not `isContainer` (objectui#9910)
 
 `validateTree`'s `not-a-container` diagnostic now reads exactly one declaration:
-an input named `children` in the component's registration `inputs` (the shape
-`{ name: 'children', type: 'slot' }` that `tooltip`, the four `page:*`
-containers and the five page kinds already carried). `isContainer` is no longer
+an input named `children` in the component's registration `inputs`. Ten
+registrations already carried such an input — `slot`-typed on `tooltip` and the
+four `page:*` containers, `array`-typed on the five page kinds — and the
+predicate reads the NAME, so both count. `isContainer` is no longer
 consulted and is not a fallback — new exports `acceptsChildren` and
 `CHILD_LIST_KEY` in `@object-ui/sdui-parser` spell the predicate, and the
 retired `body` dialect follows the same reading.
@@ -28,12 +29,12 @@ What is declared: every renderer under `@object-ui/components` and
 measured bare plus `sidebar` and `sidebar-menu-button` in their provider
 context — now declares the `children` slot; the 34 flow/inline HTML tags, the
 seven sectioning tags, the layout primitives, `button` / `badge` / `alert` /
-`toggle` / `span` (label and description fallbacks), `div`, `form`,
-`scroll-area`, the ten `sidebar-*` parts and `page-header`. Nine public blocks
+`toggle` (label and description fallbacks), `span` (read ahead of `value`),
+`div`, `form`, `scroll-area`, the ten `sidebar-*` parts and `page-header`. Nine public blocks
 gain the slot in `sdui.manifest.json`; a `slot` input emits no JSX attribute, so
 the generated `.d.ts` is unchanged. `isContainer` is kept everywhere it was
 declared and re-described on every published face (`ComponentMeta`,
-`WidgetManifest`, `ComponentMetaSchema`, the manifest types) as LAYOUT
+`RuntimeWidgetManifest`, `ComponentMetaSchema`, the manifest types) as LAYOUT
 containment — the react-page scope builder keeps reading it unchanged.
 
 The runtime containment census is re-pointed from the flag to the input in both

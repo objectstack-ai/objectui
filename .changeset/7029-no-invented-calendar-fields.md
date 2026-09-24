@@ -11,7 +11,8 @@ A view that carried no `calendar:` block used to have a complete-looking calenda
 configuration synthesized for it. `ObjectCalendar` has always decided whether it
 has a usable configuration by asking whether a start-date binding is PRESENT, so
 the fabrication short-circuited its own refusal screen — "Calendar configuration
-required" — which existed all along and was simply unreachable. Measured on a leave-request object whose real
+required" — which existed all
+along and was simply unreachable. Measured on a leave-request object whose real
 fields are `start_date` / `end_date`: every record piled onto today's cell under
 titles resolved through the display-name chain. A plausible, fully wrong screen,
 with zero signal to the author.

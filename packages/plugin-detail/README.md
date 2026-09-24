@@ -457,14 +457,16 @@ A list that authors `columns` sends a **`$select` projection** on its
 auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send
 (`objectui#6898`). It asks for the authored columns that pass the same gates the
 column layer draws through (redaction, the parent key, field-level security),
-plus `id`, the `$expand` roots, and the fields the row predicates read (the
-child object's `userActions` Edit/Delete overrides, its actions, and the host's
-row actions). A column the principal cannot read is therefore never requested.
-If every authored column is denied, the list asks for `id` and not for
-everything. Rows then carry only the projected fields, so the opt-in filter box
-above sweeps those. A list **without** authored `columns` derives them from
-`highlightFields` or the field walk, and both choose by the emptiness of the
-rows fetched. That list sends no projection, and its column layer alone keeps a
+plus `id`, the `$expand` roots, and, once the child schema has loaded, the
+fields the row predicates read (the child object's `userActions` Edit/Delete
+overrides, its actions, and the host's row actions). A column the principal
+cannot read is dropped once the permission answer has loaded; a request sent
+before that answer can still carry it, the same deferral `ObjectGrid` has.
+If every authored column is denied, the list asks for `id` and its predicate
+operands, not for everything. On a backend that honours `$select`, rows then
+carry only the projected fields, so the opt-in filter box above sweeps those.
+A list **without** authored `columns` derives them from `highlightFields` or
+the field walk, and both choose by the emptiness of the rows fetched. That list sends no projection, and its column layer alone keeps a
 denied field off screen. Against ObjectStack's server the projection is defence
 in depth, because the server already strips denied fields from every row.
 

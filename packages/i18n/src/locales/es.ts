@@ -146,6 +146,7 @@ const es = {
       acknowledge: 'Lo he guardado',
       copyAll: 'Copiar todo',
     },
+    notAvailableHere: '«{{action}}» no está disponible en la página actual.',
   },
   validation: {
     // "{{field}} es obligatorio" only agreed with masculine field labels —

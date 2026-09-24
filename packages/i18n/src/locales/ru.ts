@@ -153,6 +153,7 @@ const ru = {
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
     },
+    notAvailableHere: '«{{action}}» недоступно на текущей странице.',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",

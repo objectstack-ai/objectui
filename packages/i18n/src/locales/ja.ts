@@ -147,6 +147,7 @@ const ja = {
       acknowledge: '保存しました',
       copyAll: 'すべてコピー',
     },
+    notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
   },
   validation: {
     required: "{{field}}は必須です",

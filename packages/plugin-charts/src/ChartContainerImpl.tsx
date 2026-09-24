@@ -482,11 +482,17 @@ function ChartLegendContent({
               {itemConfig?.icon && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
+                // The series colour is author-declared, so it reaches the DOM
+                // only as a custom property a static utility consumes — the
+                // same shape as the tooltip indicator above (AGENTS.md styling
+                // carve-out; objectui#10021).
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
+                  className="h-2 w-2 shrink-0 rounded-[2px] bg-(--color-bg)"
+                  style={
+                    {
+                      "--color-bg": item.color,
+                    } as React.CSSProperties
+                  }
                 />
               )}
               {/* Fall back to the series name recharts itself put on the

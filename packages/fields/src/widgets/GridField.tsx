@@ -150,14 +150,17 @@ export interface GridColumn {
    *  parentheses, numeric literals and field refs (`record.qty` or bare `qty`). */
   expr?: string;
   /**
-   * Decimal places to round a computed NUMBER result to.
+   * Decimal places to round a computed numeric/currency result to — the
+   * spec's own words for `InlineGridColumnSchema.scale`, which declares this
+   * key on an inline grid column of either type.
    *
-   * ⛔ Not read on a `currency` column (objectui#10355): a currency's decimal
-   * places are the currency's, not a setting — ruling 乙 on
-   * objectstack-ai/objectstack#19910, with `scale` retired from the currency
-   * type by ruling B on objectstack-ai/objectstack#19629. A computed currency
-   * cell is rounded to its resolved currency's ISO 4217 minor unit instead;
-   * see `storedFractionScale`.
+   * On a `currency` column an authored `scale` still decides the width. When
+   * it is absent, the width is the resolved currency's ISO 4217 minor unit,
+   * never the literal `2` this used to default to (objectui#10355); see
+   * `currencyWidth`. Ruling B on objectstack-ai/objectstack#19629 retires
+   * `FieldSchema.scale` from the currency FIELD type — a different schema —
+   * so a column derived from a currency field stops carrying one once the
+   * spec refuses it there.
    */
   scale?: number;
   /** For `type: 'lookup'` — when a record is picked, copy its fields into any
@@ -349,25 +352,42 @@ function columnCurrency(tenantCurrency: string | undefined): string | undefined 
 }
 
 /**
+ * The fraction width of a `currency` column (objectui#10355) — the ONE
+ * decision behind both its stored computed value and its display.
+ *
+ * 1. The column's authored `scale`, when present. `InlineGridColumnSchema`
+ *    declares it for a computed "numeric/currency result", and the installed
+ *    spec accepts it on a currency column, so it is honoured here: a declared
+ *    key is implemented or retired in the spec, never narrowed away by its
+ *    consumer.
+ * 2. Otherwise the resolved currency's ISO 4217 minor unit (0 for JPY, 2 for
+ *    USD, 3 for KWD), from `currencyFractionDigits`, the helper every currency
+ *    face already uses. This replaces the old default of a literal `2`, under
+ *    which a yen amount was stored with cents it does not have and a dinar
+ *    amount lost its third digit (KWD 3 × 1.2345 stored `3.7`) — a currency's
+ *    decimal places are the currency's (ruling 乙 on
+ *    objectstack-ai/objectstack#19910).
+ * 3. Otherwise `undefined`: with no minor unit to round to, nothing is
+ *    invented.
+ */
+function currencyWidth(c: GridColumn, currency: string | undefined): number | undefined {
+  return c.scale ?? (currency ? currencyFractionDigits(currency) : undefined);
+}
+
+/**
  * The fraction width a computed cell's STORED value is rounded to.
  *
- * - `currency` — the resolved currency's ISO 4217 minor unit (0 for JPY, 2 for
- *   USD, 3 for KWD), from `currencyFractionDigits`, the helper every currency
- *   face already uses (objectui#10355). This used to be `scale ?? 2`: a yen
- *   amount was stored with cents it does not have and a dinar amount lost its
- *   third digit (KWD 3 × 1.2345 stored `3.7`). ⛔ `scale` is not read here:
- *   it is retired from the currency type (ruling B on
- *   objectstack-ai/objectstack#19629), and a currency's decimal places are
- *   the currency's, not a setting (ruling 乙 on objectstack-ai/objectstack#19910).
- *   ⛔ Nor is a literal `2` invented when no currency resolves — with no
- *   minor unit to round to, the value is stored as computed.
+ * - `currency` — {@link currencyWidth}; with neither an authored `scale` nor a
+ *   resolved currency the value is stored as computed.
  * - every other type — the column's declared `scale`, unrounded when absent
  *   (unchanged).
+ *
+ * Either way the caller clamps the width to the engine's `toFixed` ceiling
+ * (`renderableFractionScale`, objectui#10071).
  */
 function storedFractionScale(c: GridColumn, tenantCurrency: string | undefined): number | undefined {
   if (c.type !== 'currency') return c.scale;
-  const currency = columnCurrency(tenantCurrency);
-  return currency ? currencyFractionDigits(currency) : undefined;
+  return currencyWidth(c, columnCurrency(tenantCurrency));
 }
 
 /**
@@ -490,18 +510,21 @@ function currencyAdornment(c: GridColumn, currency: string | undefined, locale: 
 /**
  * Display text for a finite amount in a `currency` cell (objectui#10355).
  *
- * The width is the resolved currency's ISO 4217 minor unit — the same
- * `currencyFractionDigits` that decides the stored value in
- * `storedFractionScale` — so a yen amount shows no decimals and a dinar
- * amount three. With no currency resolved there is no width to take, and the
- * amount keeps the plain locale format this branch always had.
+ * The width is {@link currencyWidth} — the same decision that rounds the
+ * stored value — so an authored `scale` shows that many places, and without
+ * one a yen amount shows no decimals and a dinar amount three. With neither
+ * there is no width to take, and the amount keeps the plain locale format
+ * this branch always had. An authored width above the engine's ceiling is
+ * clamped and reported like the stored one (objectui#10071), since `Intl`
+ * refuses it the same way `toFixed` does.
  *
  * With no authored `prefix`, the amount is `Intl`'s own currency format, so
  * the symbol sits where the locale puts it (`¥3,704`, `3.704 ¥` in de-DE). An
  * authored `prefix` replaces the symbol, not the width.
  */
 function currencyText(c: GridColumn, n: number, currency: string | undefined, locale: string): string {
-  const digits = currency ? currencyFractionDigits(currency) : undefined;
+  const declared = currencyWidth(c, currency);
+  const digits = declared === undefined ? undefined : renderableFractionScale(declared, 'grid currency cell', 'objectui#10071');
   const width = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
   if (c.prefix || !currency) {
     return `${currencyAdornment(c, currency, locale)}${formatDisplayNumber(n, { locale, ...width })}`;

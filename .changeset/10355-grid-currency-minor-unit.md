@@ -2,36 +2,44 @@
 '@object-ui/fields': minor
 ---
 
-The line-item grid (`GridField` / `LineItemsField`) stores and shows a currency
-cell in its currency's own decimal places, never `scale ?? 2` and never a
-default `¥` (objectui#10355).
+The line-item grid (`GridField` / `LineItemsField`) no longer gives a currency
+cell a default of two decimal places or a default `¥` symbol. A currency column
+without a `scale` now uses its currency's own decimal places (objectui#10355).
 
 A computed `currency` column (for example `amount = quantity * unit_price`) was
-rounded to the column's `scale`, or to two decimals when it had none, before the
-value was written back into the row. Every currency on earth got two decimals:
-a yen amount was stored with cents yen does not have (JPY 3 × 1234.5 stored
-`3703.5`), and a dinar amount lost its third digit (KWD 3 × 1.2345 stored `3.7`).
-The display faces fell back to a literal `¥` whatever the currency was.
+rounded to the column's `scale` before the value was written back into the row,
+and to two decimals when the column had no `scale`. That default gave every
+currency two decimals: a yen amount was stored with cents yen does not have
+(JPY 3 × 1234.5 stored `3703.5`), and a dinar amount lost its third digit
+(KWD 3 × 1.2345 stored `3.7`). The display fell back to a literal `¥` whatever
+the currency was.
 
-The grid now resolves its currency through `resolveFieldCurrency` — the tenant
-default, since a grid column declares no field-level currency key — and:
+The grid now resolves its currency through `resolveFieldCurrency`. That is the
+tenant default, since a grid column declares no field-level currency key. A
+currency column's decimal places are:
 
-- rounds a computed currency cell to that currency's ISO 4217 minor unit before
-  storing it: whole yen for JPY, two decimals for USD, three for KWD. With no
-  currency resolved the value is stored as computed, not at an invented two
-  decimals;
-- shows a computed currency cell, and a currency cell in the list form-factor,
-  in that currency and at that width, and puts the currency's own symbol in the
-  editable currency cell. With no currency resolved there is no symbol;
-- keeps an authored `prefix` as the symbol, at the currency's width.
+- its authored `scale`, when it has one. The stored value already used it, and
+  the display now does too. The spec's `InlineGridColumnSchema.scale` declares
+  it for a computed numeric or currency result;
+- otherwise that currency's ISO 4217 minor unit, which replaces only the old
+  default of two: whole yen for JPY, two places for USD, three for KWD;
+- otherwise none. With neither a `scale` nor a resolved currency, the computed
+  value is stored as computed, not at an invented two places.
 
-`computeRow` takes the tenant currency as a new optional third argument; called
-without it, a computed currency cell is stored unrounded.
+The same places decide the stored value of a computed currency cell and how a
+currency cell is shown, both the computed cell and the list form-factor. The
+cell shows the resolved currency, and the editable currency cell shows that
+currency's own symbol. With no currency resolved there is no symbol. An
+authored `prefix` still replaces the symbol. An authored `scale` above the
+engine's limit of 100 is clamped and reported on the display too, as it
+already was for the stored value (objectui#10071).
 
-**Behaviour change** for grids with currency columns: a computed currency cell
-no longer reads `scale`, in line with the ruling on
-objectstack-ai/objectstack#19629 that takes `scale` off the `currency` type and
-the ruling on objectstack-ai/objectstack#19910 that a currency's decimal places
-are the currency's. A USD tenant's grid used to read `¥1,234.57` and now reads
-`$1,234.57`. `number` columns are unchanged: their `scale` still rounds, and an
-absent one still leaves the value unrounded.
+`computeRow` takes the tenant currency as a new optional third argument. Called
+without it, a currency column with no `scale` is stored unrounded.
+
+**Behaviour change** for grids with currency columns and no `scale`: a computed
+cell is stored and shown at the currency's minor unit instead of two places, in
+line with the ruling on objectstack-ai/objectstack#19910 that a currency's
+decimal places are the currency's. A USD tenant's grid used to read `¥1,234.57`
+and now reads `$1,234.57`. Columns with an authored `scale`, and `number`
+columns, round as before.

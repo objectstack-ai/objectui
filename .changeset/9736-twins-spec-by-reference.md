@@ -29,6 +29,9 @@ project one spec surface, and a later spec bump moves both of them together:
 - `DashboardComponentSchema.header` and `PageNodeSchema.slots` keep their own hand-written types.
   Both are withheld from the spec projection on the type side only, because neither type is
   assignable to the spec's member. The drift is already recorded in the parity ledgers.
+  `PageNodeSchema.assignedProfiles` is withheld the same way, but for forward compatibility:
+  objectstack `main` retires the key, and the hand-written `string[]` member (unchanged) would
+  otherwise stop compiling at the next spec bump. Its retirement is tracked separately.
 
 Why this is a minor bump: the published type surface gains members, and one authoring
 spelling moves from a parse-time refusal to a compile-time refusal. This repo marks breaking

@@ -14,18 +14,21 @@ before:
 
 - scatter, when every row's x (or y, or both) is a boolean, or a boolean mixed only with values
   that cannot be placed. That last shape used to carry a footnote implying one point was drawn;
-- bar / column / horizontal-bar / line / area / combo, when no row gives any bound series a
-  value the axis can scale: every value boolean, `null` or an unparseable string. A stacked bar
-  (bar / column / horizontal-bar, or a bar in a combo) is refused only when every value is `null`
-  or missing, because the stack paints anything else, unparseable strings included. A stacked
-  area is refused for `null` or an unparseable string (the stack draws an empty path for those),
-  and a line's `stack` has no effect, so it follows the unstacked rule.
+- bar / column / horizontal-bar / line / area / combo with no stacked bar or area series, when
+  no row gives any bound series a value the axis can scale: every value boolean, `null` or an
+  unparseable string. A line's `stack` has no effect in the renderer, so a "stacked" line is
+  judged the same way.
+
+A chart with ANY stacked bar or stacked area series is never refused, whatever its values: the
+stack gives its axis a scale on its own, and every series on that axis is placed on it (an
+all-boolean series beside a stacked all-`null` one draws). Some of those charts draw nothing
+(a stacked all-`null` bar, a stacked area of unparseable strings); they stay silent, exactly as
+before, rather than risk a sentence over marks that are on screen.
 
 What keeps drawing, unchanged: numeric strings, `Number` objects, `Date` values, range values
 (an array read by its first two elements, both numbers, so `[1, 3]` and `[1, 2, 3]` alike: range
-bars and range areas), any value but `null` in a STACKED bar (the stack paints booleans as numbers
-and paints unparseable strings, `NaN`, objects and arrays as full-height bars), booleans and
-arrays in a STACKED area, a series that
+bars and range areas), every chart with a STACKED bar or area series (the stack paints booleans
+as numbers, and unparseable strings, `NaN`, objects and arrays as full-height bars), a series that
 is all boolean beside a numeric one, a dual-axis chart with one live axis, and any axis whose
 spec declares both a numeric `min` and a numeric `max` (the chart builds that scale from the spec
 and places booleans on it). A `min` or `max` alone, `logarithmic` alone, `stepSize` or an

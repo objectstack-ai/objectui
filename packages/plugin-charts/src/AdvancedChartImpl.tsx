@@ -931,38 +931,24 @@ function PositionRefusal({
  *   - `new Number(3)` anchors (bar 2 rectangles, line a path);
  *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
  *
- * ## The stacked exceptions, also measured — mirror what the STACK paints
+ * ## A stacked series is not read here at all — its axis is live
  *
- * A STACKED series is not read through `makeDomain` at all: d3's stack reads
- * every value as `Number(value)`, and what then reaches the screen depends on
- * the family, so the rule does too (`StackMode`). Measured on the base tree,
- * two rows each:
- *
- *   - a stacked BAR (bar / column / horizontal-bar, and a bar inside a combo)
- *     paints for ANY value but `null` / `undefined`: `true` 2 rectangles, and
- *     `'n/a'`, `NaN`, `{}`, `'Infinity'`, `Infinity`, `'abc'` — and arrays such
- *     as `[true, 3]` — 2 full-height rectangles each, a d3-stack `NaN`
- *     artefact but marks on screen. `false`, `''` and `0` paint zero-height
- *     bars, the all-zero picture. So every value except `null` / `undefined`
- *     anchors a stacked bar — silent (seat ruling, rounds 2 and 3);
- *   - a stacked AREA draws a path for a boolean (`true` fills, `false` a
- *     zero-height path) but an EMPTY path for `'n/a'`, `NaN`, `{}` and
- *     `'Infinity'`, so there a boolean or an array anchors and every other value
- *     keeps the scalar rule above (an array errs to silence: a stacked-area
- *     `[true, 3]` draws 0 marks and is not refused);
- *   - a LINE spreads no `stackId` in this renderer, so its `stack` is inert and
- *     it keeps the unstacked rule: an all-boolean or all-`'n/a'` "stacked" line
- *     draws 0 marks and is refused.
- *
- * `null` / `undefined` never anchor: the stack reads them as 0 and nothing is
- * drawn (0 bars, an empty area path).
+ * A STACKED bar or area is not read through `makeDomain`: d3's stack reads
+ * every value as `Number(value)` and gives the axis a scale whatever the
+ * values are (measured on the base tree: `'n/a'`, `NaN`, `{}`, `true` and
+ * `[true, 3]` paint full-height bars; `null` stacks to a zero-height one). An
+ * UNSTACKED sibling bound to the same axis is then coerced onto that scale and
+ * draws — an all-boolean `w` beside a stacked all-`null` `v` painted a
+ * rectangle. Four review rounds each found another way a per-series model of
+ * that scale misses, so the rule is the one that errs to silence (seat ruling,
+ * round 4): a series with a bar- or area-mode stack (`stackModeOf`) makes the
+ * tile LIVE whatever its values, and this function is never asked about it.
+ * A LINE spreads no `stackId` in this renderer, so its `stack` is inert and it
+ * is read like any unstacked series.
  */
-type StackMode = 'none' | 'bar' | 'area';
-
-function anchorsNumericAxis(v: unknown, stack: StackMode = 'none'): boolean {
-  if (stack === 'bar') return v !== null && v !== undefined;
-  if (typeof v === 'boolean') return stack === 'area';
-  if (Array.isArray(v)) return stack === 'area' || (isDomainScalar(v[0]) && isDomainScalar(v[1]));
+function anchorsNumericAxis(v: unknown): boolean {
+  if (typeof v === 'boolean') return false;
+  if (Array.isArray(v)) return isDomainScalar(v[0]) && isDomainScalar(v[1]);
   return isDomainScalar(v);
 }
 
@@ -995,9 +981,9 @@ function declaresFullDomain(axis: NormalizedAxis | undefined): boolean {
 }
 
 /** Whether ANY row gives `key` a value that can anchor its axis. */
-function axisHasScale(rows: unknown[], key: string, stack: StackMode = 'none'): boolean {
+function axisHasScale(rows: unknown[], key: string): boolean {
   return rows.some((row) =>
-    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key], stack),
+    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key]),
   );
 }
 
@@ -1008,6 +994,8 @@ function axisHasScale(rows: unknown[], key: string, stack: StackMode = 'none'): 
  * bar, the rest lines) — the same resolution the combo arm uses. Only a bar or
  * an area receives `stackId`; a line never does.
  */
+type StackMode = 'none' | 'bar' | 'area';
+
 function stackModeOf(chartType: string, series: NormalizedSeries[], index: number): StackMode {
   const s = series[index];
   if (!s?.stack) return 'none';
@@ -2638,8 +2626,13 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * beside a numeric one DRAWS (measured: bar 3 rectangles, line and area two
  * paths) — the numeric series gives the shared axis its scale and the booleans
  * are coerced onto it, the same neighbour effect as scatter's mixed tile. Only
- * when EVERY series is dead does the tile draw zero marks (bar, column,
- * horizontal-bar, line, area and combo alike).
+ * when EVERY series is dead can the tile draw zero marks (bar, column,
+ * horizontal-bar, line, area and combo alike) — and a series with a bar- or
+ * area-mode stack is never dead: the stack gives its axis a scale whatever
+ * its values, and every series on that axis is coerced onto it, so any such
+ * series keeps the whole tile silent (seat ruling, round 4; see
+ * `anchorsNumericAxis`). A whole-tile refusal needs every series dead, so the
+ * axis each series binds to does not have to be resolved for this rule.
  *
  * That includes a dual-axis tile: one dead axis beside a live one still draws
  * the live axis's marks, so it is left drawing — measured and declined here,
@@ -2689,7 +2682,8 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
   const declared = (s: NormalizedSeries) =>
     declaresFullDomain(primary) || (s.yAxis !== 'left' && declaresFullDomain(secondary));
   const live = series.some(
-    (s, i) => declared(s) || axisHasScale(rows, String(s.dataKey), stackModeOf(chartType, series, i)),
+    (s, i) =>
+      stackModeOf(chartType, series, i) !== 'none' || declared(s) || axisHasScale(rows, String(s.dataKey)),
   );
   return live ? null : keys;
 }

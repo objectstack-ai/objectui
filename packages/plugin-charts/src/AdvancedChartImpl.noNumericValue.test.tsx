@@ -24,9 +24,10 @@
  *
  * Not `Number.isFinite`: numeric strings draw on every family, `''` draws at
  * zero on line / area / scatter, a two-number range `[lo, hi]` draws on a range
- * bar / area, and a STACKED series reads booleans through d3's
- * `Number(value)` and draws them. The predicate mirrors Recharts' own domain
- * reader (`makeDomain` over `makeNumber`), plus that stack exception; the cases
+ * bar / area, and a STACKED bar or area gives its axis a scale through d3's
+ * `Number(value)` whatever its values, so any such series keeps the tile
+ * silent. The predicate mirrors Recharts' own domain reader (`makeDomain`
+ * over `makeNumber`), plus that stack rule; the cases
  * below pin each clause from the side that must keep drawing. A bound key that
  * is no row's own property (a dotted path, an absent column) is unresolved and
  * keeps the tile silent.
@@ -277,21 +278,25 @@ describe('objectui#7195 — series families: no series has a numeric value on an
       expect(refusalOf(container)!.textContent).toContain('numeric value for v or w');
     });
 
-    it(`${family}, stacked all-null: refused — the stack reads null as zero and draws nothing`, () => {
+    // A bar- or area-mode stack keeps the tile silent whatever its values
+    // (seat ruling, round 4): all-null stacks to nothing, and the refusal is
+    // withheld rather than modelled. A line's `stack` is inert, so it refuses.
+    it(`${family}, stacked all-null: ${family === 'line' ? 'refused (a line stack is inert)' : 'silent — a stacked axis is live, erring to silence'}`, () => {
       const { container } = renderFamily(
         family,
         [{ k: 'a', v: null, w: null }, { k: 'b', v: null, w: null }],
         [{ dataKey: 'v', stack: 's' }, { dataKey: 'w', stack: 's' }],
       );
-      expect(refusalOf(container)).not.toBeNull();
+      if (family === 'line') expect(refusalOf(container)).not.toBeNull();
+      else expect(anyRefusalOf(container)).toBeNull();
     });
   }
 });
 
-describe('objectui#7195 — stacked shapes that paint nothing are still refused', () => {
-  it("area: a STACKED 'n/a' series draws an empty path, so it is refused", () => {
+describe('objectui#7195 — stacks: a line stack is inert, a bar / area stack keeps the tile silent', () => {
+  it("area: a STACKED 'n/a' series stays silent — a stacked axis is live, erring to silence", () => {
     const { container } = renderFamily('area', [{ k: 'a', v: 'n/a' }, { k: 'b', v: 'n/a' }], [{ dataKey: 'v', stack: 's' }]);
-    expect(refusalOf(container)).not.toBeNull();
+    expect(anyRefusalOf(container)).toBeNull();
   });
 
   for (const [label, value] of [['all-boolean', true], ["'n/a'", 'n/a']] as Array<[string, unknown]>) {
@@ -394,6 +399,18 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
     expect(marksOf(container)).toBeGreaterThan(0);
     expect(anyRefusalOf(container)).toBeNull();
   });
+
+  for (const family of ['bar', 'area']) {
+    it(`${family}: a STACKED all-null series gives the axis a scale, so an unstacked all-boolean sibling draws`, () => {
+      const { container } = renderFamily(
+        family,
+        [{ k: 'a', v: null, w: true }, { k: 'b', v: null, w: false }],
+        [{ dataKey: 'v', stack: 's' }, { dataKey: 'w' }],
+      );
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
 
   it('a STACKED range with a boolean end paints marks (a d3-stack NaN artefact), so it stays silent', () => {
     const { container } = renderFamily(

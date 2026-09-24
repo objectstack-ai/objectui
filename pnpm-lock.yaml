@@ -1273,6 +1273,9 @@ importers:
       '@object-ui/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@object-ui/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@object-ui/providers':
         specifier: workspace:*
         version: link:../providers

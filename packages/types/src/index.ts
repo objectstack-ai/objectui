@@ -204,6 +204,16 @@ export type {
   // tidy cannot silently drop either one.
   ComboboxOption,
   CommandSchema,
+  // The element types `CommandSchema` contains — `groups` holds `CommandGroup`,
+  // whose `items` hold `CommandItem` — listed next to their schema the way
+  // `ComboboxOption` is above (objectui#9526). Both were already published on
+  // `@object-ui/types/form`, and their zod twins `CommandItemSchema` /
+  // `CommandGroupSchema` on `@object-ui/types/zod`, while the root spelling read
+  // TS2305. Purely ADDITIVE, the objectui#7697 / objectui#9406 route; the gap pin
+  // `form-barrel-mirror-9406.test.ts` had ledgered the pair as undecided and
+  // now holds it to this list.
+  CommandItem,
+  CommandGroup,
   InputOTPSchema,
   ToggleSchema,
   FormSchema,

@@ -4,8 +4,8 @@
  * Provides I18nProvider and useObjectTranslation hook for React components.
  */
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { I18nextProvider, useTranslation } from 'react-i18next';
-import type { i18n as I18nInstance } from 'i18next';
+import { I18nextProvider, useTranslation, type UseTranslationOptions } from 'react-i18next';
+import type { i18n as I18nInstance, ReactOptions } from 'i18next';
 import { createI18n, getDirection, pickInitialLanguage, type I18nConfig } from './i18n.js';
 import { interpolateFallback, optionsOf } from './fallbackInterpolation.js';
 import {
@@ -487,6 +487,65 @@ interface I18nContextValue {
 
 const ObjectI18nContext = createContext<I18nContextValue | null>(null);
 
+/**
+ * Re-render a reader when the store GAINS translations, not only when the
+ * language changes (objectui#10382).
+ *
+ * react-i18next re-renders a `useTranslation` reader on the events its
+ * `bindI18n` / `bindI18nStore` options name, and `bindI18nStore` defaults to
+ * none. So a bundle added after mount — the `loadLanguage` answer, a built-in
+ * catalogue that lands late — reached nobody who had already rendered: they
+ * kept drawing the fallback until something unrelated re-rendered them. The
+ * provider's old remedy, setting its `language` state to the value it already
+ * held, was a same-value update React bails out of.
+ *
+ * With `added` bound, every store write bumps react-i18next's own revision and
+ * hands each reader a NEW `t`. That is more than a re-render: a reader that
+ * memoises on `t`, or on a resolver built from it (`useObjectLabel`'s return
+ * value, the column memo in `ObjectDataTable`), recomputes too — a re-render
+ * alone would leave it on the fallback.
+ *
+ * Passed per call rather than set on the instance, so it holds for an instance
+ * the host built itself (the `instance` prop) and does not leak into
+ * react-i18next's process-wide defaults. `useTranslation` spreads this argument
+ * over the instance's `react` options before its `subscribe` reads
+ * `bindI18nStore` (measured in `react-i18next@17.0.11`, `useTranslation.js`).
+ * The hook's typings do not list the key, so the type borrows it from i18next's
+ * `ReactOptions`, where it is declared. Module-level so its identity is stable:
+ * `useTranslation` keys its options memo, and with it the subscription, on it.
+ *
+ * ⚠️ The price: every store write re-renders every reader and re-runs whatever
+ * keys on `t`. So the provider writes a built-in catalogue only when the merge
+ * adds something ({@link mergeAddsKeys}), and writes silently where
+ * `languageChanged` follows and re-renders once anyway.
+ */
+const STORE_WRITES_RERENDER: UseTranslationOptions<undefined> & Pick<ReactOptions, 'bindI18nStore'> =
+  Object.freeze({ bindI18nStore: 'added' });
+
+/** For the switch path's writes: `changeLanguage` announces them, once, in the new language. */
+const SILENT_WRITE = Object.freeze({ silent: true });
+
+function isNested(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Whether `addResourceBundle(…, deep: true, overwrite: false)` of `source` into
+ * `target` would write anything — a key `target` lacks, at any depth where
+ * both sides hold objects. Mirrors i18next's `deepExtend` with `overwrite` off,
+ * which leaves a key present on both sides alone when either value is not an
+ * object, so such a key adds nothing.
+ */
+function mergeAddsKeys(target: Record<string, unknown>, source: Record<string, unknown>): boolean {
+  for (const key of Object.keys(source)) {
+    if (!(key in target)) return true;
+    const into = target[key];
+    const from = source[key];
+    if (isNested(into) && isNested(from) && mergeAddsKeys(into, from)) return true;
+  }
+  return false;
+}
+
 export interface I18nProviderProps {
   /** i18n configuration options */
   config?: I18nConfig;
@@ -636,6 +695,15 @@ export function I18nProvider({
   // built-in bundle, so overwriting here would let a catalogue that arrives
   // late silently undo the caller's own overrides — a precedence inversion
   // whose only symptom is that it depends on network timing.
+  //
+  // The write is what re-renders anything already on screen in the `en`
+  // fallback ({@link STORE_WRITES_RERENDER}); ⛔ never a `setLanguage` here,
+  // which would set the state this effect was keyed on and bail out
+  // (objectui#10382). And ⛔ never an unconditional write: this effect re-runs
+  // on every language change, and after a switch through `changeLanguage`
+  // (which already merged the catalogue), or for a catalogue that was resident
+  // when the instance was created, the write would add nothing and still
+  // re-render every reader.
   useEffect(() => {
     const currentLang = i18nInstance.language || 'en';
     if (!isBuiltInLanguage(currentLang)) return;
@@ -643,14 +711,13 @@ export function I18nProvider({
     void loadBuiltInLocale(currentLang)
       .then((catalogue) => {
         if (cancelled || !catalogue) return;
-        if (i18nInstance.hasResourceBundle(currentLang, 'translation')) {
+        const bundle: unknown = i18nInstance.getResourceBundle(currentLang, 'translation');
+        if (isNested(bundle)) {
+          if (!mergeAddsKeys(bundle, catalogue)) return;
           i18nInstance.addResourceBundle(currentLang, 'translation', catalogue, true, false);
         } else {
           i18nInstance.addResourceBundle(currentLang, 'translation', catalogue);
         }
-        // Force a re-render so anything already on screen in the `en` fallback
-        // re-resolves against the catalogue that just landed.
-        setLanguage(i18nInstance.language || currentLang);
       })
       .catch((err) => {
         console.warn(`[i18n] Failed to load the built-in catalogue for '${currentLang}':`, err);
@@ -668,9 +735,13 @@ export function I18nProvider({
     loadedAppLangs.current.add(currentLang);
     loadLanguage(currentLang).then((resources) => {
       if (resources && Object.keys(resources).length > 0) {
+        // The write itself re-renders every reader already on screen
+        // ({@link STORE_WRITES_RERENDER}). ⛔ No `setLanguage(currentLang)`
+        // after it (objectui#10382): on the first load that sets the state to
+        // the value it already holds, which React bails out of; and when the
+        // user switched while this was in flight, it set the context back to
+        // the boot language while i18next stayed on the new one.
         i18nInstance.addResourceBundle(currentLang, 'translation', resources, true, true);
-        // Force re-render so components pick up newly loaded translations
-        setLanguage(currentLang);
       }
     }).catch((err) => {
       // Allow retry on failure by removing from loaded set
@@ -759,15 +830,22 @@ export function I18nProvider({
         // `en` fallback and hope the mount effect catches up. Awaited before
         // `changeLanguage` so the switch and the strings land on the same
         // frame — the whole point of doing it here rather than reactively.
+        //
+        // Both writes below are SILENT. The `changeLanguage` that follows emits
+        // `languageChanged` — i18next emits it for every language it resolves,
+        // the current one included (measured in `i18next@26.4.0`,
+        // `changeLanguage`) — and that re-renders every reader once, in the
+        // new language. An `added` event here would re-render each of them in
+        // the OLD language first ({@link STORE_WRITES_RERENDER}).
         const builtIn = await loadBuiltInLocale(lang).catch((err) => {
           console.warn(`[i18n] Failed to load the built-in catalogue for '${lang}':`, err);
           return null;
         });
         if (builtIn) {
           if (i18nInstance.hasResourceBundle(lang, 'translation')) {
-            i18nInstance.addResourceBundle(lang, 'translation', builtIn, true, false);
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn, true, false, SILENT_WRITE);
           } else {
-            i18nInstance.addResourceBundle(lang, 'translation', builtIn);
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn, false, false, SILENT_WRITE);
           }
         }
         // Dynamic language pack loading (v2.0.7)
@@ -775,7 +853,7 @@ export function I18nProvider({
           loadedAppLangs.current.add(lang);
           try {
             const resources = await loadLanguage(lang);
-            i18nInstance.addResourceBundle(lang, 'translation', resources, true, true);
+            i18nInstance.addResourceBundle(lang, 'translation', resources, true, true, SILENT_WRITE);
           } catch (err) {
             loadedAppLangs.current.delete(lang);
             console.warn(`[i18n] Failed to load app translations for '${lang}':`, err);
@@ -810,7 +888,9 @@ export function I18nProvider({
  */
 export function useObjectTranslation(ns?: string) {
   const context = useContext(ObjectI18nContext);
-  const { t: boundT, i18n } = useTranslation(ns);
+  // Subscribed to store writes as well as language changes, so translations
+  // added after this reader rendered reach it (objectui#10382).
+  const { t: boundT, i18n } = useTranslation(ns, STORE_WRITES_RERENDER);
 
   // Whether react-i18next found an i18next instance at all — from props,
   // from an `I18nextProvider` above, or from the module-level global that

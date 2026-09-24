@@ -17,11 +17,13 @@ What left:
   `CreateExportJobResult` and `ExportJobProgressInfo`. None of them had a zod
   mirror.
 
-Why: ruling letter A on objectstack#17158 retires the export-job API contract
-family from `@objectstack/spec`, because no server serves it and
-`IExportService` has no provider. The same ruling has objectui retire its
-consumer side first, and retire it rather than keep it alive with local copies
-of the spec's types (objectui#10247).
+Why: ruling letter A on objectstack#17158 decided to retire the export-job API
+contract family from `@objectstack/spec`, because nothing serves it and
+`IExportService` has no provider. The ruling sequences the objectui side first:
+this change retires objectui's consumer side, rather than keeping it alive with
+local copies of the spec's types (objectui#10247). The spec-side retirement
+comes after this change; until it lands, `@objectstack/spec` still exports the
+export-job contracts.
 
 No `DataSource` in this repository implemented any of the four methods. That
 was measured at `d7de5348` over every class that implements `DataSource` and
@@ -31,9 +33,12 @@ the synchronous `exportDownload` member as the control that did match. So
 behaviour in this repository changes.
 
 ⚠️ Implementers and importers outside this repository are NOT MEASURED. Code
-that imports any name above no longer compiles, and a host `DataSource` that
-implements the four methods is no longer called by anything in objectui. There
-is no replacement API: the protocol no longer declares an async export job.
+that imports any name above from `@object-ui/types` or `@object-ui/components`
+no longer compiles, and a host `DataSource` that implements the four methods is
+no longer called by anything in objectui. There is no replacement API: nothing
+serves the spec's export-job contracts and `IExportService` has no provider;
+objectstack#17158 (ruling A) retires them from `@objectstack/spec` after this
+lands.
 
 The synchronous export path is unchanged: `DataSource.exportDownload` and its
 `ExportDownloadRequest` (csv / json / xlsx), and the grid's client-side

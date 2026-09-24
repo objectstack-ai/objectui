@@ -544,18 +544,75 @@ export const DatePickerSchema = BaseSchema.extend({
   ),
 });
 
+// objectui#10293: one calendar day. The string arm is the JSON authoring
+// type, an ISO 8601 date string, which the `calendar` renderer coerces to a
+// `Date`. The `z.date()` arm stays for in-process callers, as on
+// `DatePickerSchema`.
+const CalendarDaySchema = z.union([z.string(), z.date()]);
+
+// objectui#10304: the `{ from, to }` pair `mode: 'range'` reads. Strict, so a
+// misspelled bound (`start` / `end`) is refused instead of selecting nothing.
+const CalendarDayRangeSchema = z.strictObject({
+  from: CalendarDaySchema,
+  to: CalendarDaySchema.optional(),
+});
+
+// objectui#10304: every selection shape the date picker reads. WHICH one a node
+// may carry is decided by its `mode`, and `calendarSelectionFitsMode` below
+// holds that pairing; this union alone is the key-level set.
+const CalendarSelectionSchema = z.union([
+  CalendarDaySchema,
+  z.array(CalendarDaySchema),
+  CalendarDayRangeSchema,
+]);
+
 /**
- * Calendar Schema - Calendar component
+ * objectui#10304 — a selection must have the shape its `mode` reads.
+ *
+ * The date picker reads one day in `single` mode (the default), a LIST in
+ * `multiple` mode and `{ from, to }` in `range` mode. A document whose value
+ * does not fit crashed the node (`multiple` given one day threw inside the
+ * picker) or selected nothing without a word (`range` given anything but a
+ * pair). The pairing spans two keys, so it is a refinement on the node rather
+ * than a type on either key.
  */
-export const CalendarSchema = BaseSchema.extend({
+const calendarSelectionFitsMode = (
+  node: { mode?: 'single' | 'multiple' | 'range'; value?: unknown; defaultValue?: unknown },
+  ctx: z.RefinementCtx,
+): void => {
+  const mode = node.mode ?? 'single';
+  for (const key of ['value', 'defaultValue'] as const) {
+    const selection = node[key];
+    if (selection === undefined) continue;
+    const isList = Array.isArray(selection);
+    const isRange = !isList && typeof selection === 'object' && !(selection instanceof Date);
+    const fits = mode === 'multiple' ? isList : mode === 'range' ? isRange : !isList && !isRange;
+    if (fits) continue;
+    const expected = mode === 'multiple'
+      ? 'a list of days (ISO 8601 date strings)'
+      : mode === 'range'
+        ? 'a `{ from, to }` range of days (ISO 8601 date strings)'
+        : 'one day (an ISO 8601 date string)';
+    ctx.addIssue({
+      code: 'custom',
+      path: [key],
+      message: `\`${key}\` does not fit \`mode: '${mode}'\`, which selects ${expected} (objectui#10304)`,
+    });
+  }
+};
+
+/**
+ * Calendar key set, shared by {@link CalendarSchema} and
+ * {@link UiCalendarSchema}. Unexported: each public schema adds the
+ * mode/selection refinement itself, because zod refuses to `.extend()` an
+ * object that already carries one.
+ */
+const CalendarObjectSchema = BaseSchema.extend({
   type: z.literal('calendar'),
-  // objectui#10293: the string arm is the JSON authoring type, an ISO 8601
-  // date string, which the `calendar` renderer coerces to a `Date`. The
-  // `z.date()` arm stays for in-process callers, as on `DatePickerSchema`.
-  defaultValue: z.union([z.string(), z.date()]).optional()
-    .describe('Default selected date, an ISO 8601 date string'),
-  value: z.union([z.string(), z.date()]).optional()
-    .describe('Controlled selected date, an ISO 8601 date string'),
+  defaultValue: CalendarSelectionSchema.optional()
+    .describe("Default selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
+  value: CalendarSelectionSchema.optional()
+    .describe("Controlled selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
   mode: z.enum(['single', 'multiple', 'range']).optional().describe('Selection mode'),
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),
@@ -589,6 +646,11 @@ export const CalendarSchema = BaseSchema.extend({
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
 });
+
+/**
+ * Calendar Schema - Calendar component
+ */
+export const CalendarSchema = CalendarObjectSchema.superRefine(calendarSelectionFitsMode);
 
 /**
  * Input OTP Schema - One-time password input
@@ -1047,12 +1109,14 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
  * The key set is {@link CalendarSchema}'s: `calendar.tsx` reads `schema.mode`,
  * `schema.value`, `schema.defaultValue` and `className`, which is what that
  * schema already declares — it mirrors this primitive's shape while its own
- * literal resolves to the plugin view.
+ * literal resolves to the plugin view. It is built from the same unexported
+ * key set and carries the same mode/selection refinement (objectui#10304), so
+ * the two spellings accept exactly the same selections.
  */
-export const UiCalendarSchema = CalendarSchema.extend({
+export const UiCalendarSchema = CalendarObjectSchema.extend({
   type: z.literal('ui:calendar')
     .describe('The `ui`-namespaced date-picker primitive — `calendar` alone names the plugin-calendar view'),
-});
+}).superRefine(calendarSelectionFitsMode);
 
 /**
  * Form Component Schema Union - All form component schemas

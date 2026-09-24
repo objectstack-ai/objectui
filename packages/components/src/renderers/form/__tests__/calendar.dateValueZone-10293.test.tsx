@@ -136,3 +136,29 @@ describe.runIf(DRIVEN)('ui:calendar date-only value east of UTC, the control (ob
     expect(selectedDays({ value: INSTANT })).toEqual(['2026-09-16']);
   });
 });
+
+/**
+ * objectui#10304: `multiple` and `range` read a list and a `{ from, to }` pair,
+ * and every day inside them takes the same coercion. In the suite zone the
+ * engine parse already lands on the named day, so only a zone west of UTC can
+ * tell the element-wise coercion from its absence.
+ */
+describe.runIf(DRIVEN)('ui:calendar date-only days inside a list or a range, west of UTC (objectui#10304)', () => {
+  it('rig: the zone really moved', () => {
+    enter(WEST);
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(WEST);
+    expect(new Date(INSTANT).getHours()).toBe(21);
+  });
+
+  it('multiple: each date-only day selects the day it names', () => {
+    enter(WEST);
+    expect(selectedDays({ mode: 'multiple', value: [DATE_ONLY, '2026-09-17'] }))
+      .toEqual(['2026-09-15', '2026-09-17']);
+  });
+
+  it('range: `{ from, to }` of date-only days selects exactly the days they name', () => {
+    enter(WEST);
+    expect(selectedDays({ mode: 'range', value: { from: DATE_ONLY, to: '2026-09-17' } }))
+      .toEqual(['2026-09-15', '2026-09-16', '2026-09-17']);
+  });
+});

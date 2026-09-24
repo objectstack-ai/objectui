@@ -23,6 +23,12 @@
  *
  * The type-level half reddens under `tsc -p tsconfig.test.json` (this
  * package's `type-check`), not under vitest; the runtime half reddens here.
+ *
+ * objectui#10304 then made both keys mode-dependent: a list for
+ * `mode: 'multiple'`, `{ from, to }` for `mode: 'range'`. The DAY this file
+ * pins is unchanged — it is now the element type of every shape — and a list
+ * is refused only where the mode does not read one; the per-mode pins are in
+ * `calendar-selection-mode-10304.test.ts`.
  */
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import type { z } from 'zod';
@@ -32,9 +38,11 @@ import type { CalendarSchema as TsCalendarSchema } from '../form';
 type MirrorInput = z.input< typeof CalendarSchema >;
 
 describe('CalendarSchema date-value keys: one face on each side of the boundary (objectui#10293)', () => {
-  it('the declaration and the mirror admit the same set, `Date | string`', () => {
-    expectTypeOf< TsCalendarSchema['value'] >().toEqualTypeOf< Date | string | undefined >();
-    expectTypeOf< TsCalendarSchema['defaultValue'] >().toEqualTypeOf< Date | string | undefined >();
+  it('the declaration and the mirror admit the same set, a `Date | string` day in every shape', () => {
+    type Day = Date | string;
+    type Selection = Day | Day[] | { from: Day; to?: Day } | undefined;
+    expectTypeOf< TsCalendarSchema['value'] >().toEqualTypeOf< Selection >();
+    expectTypeOf< TsCalendarSchema['defaultValue'] >().toEqualTypeOf< Selection >();
     expectTypeOf< MirrorInput['value'] >().toEqualTypeOf< TsCalendarSchema['value'] >();
     expectTypeOf< MirrorInput['defaultValue'] >().toEqualTypeOf< TsCalendarSchema['defaultValue'] >();
   });
@@ -52,13 +60,10 @@ describe('CalendarSchema date-value keys: one face on each side of the boundary 
     }
   });
 
-  it('the mirror refuses a list — the arm the declaration gave up', () => {
+  it('the mirror refuses a list in single mode — a list is `mode: \'multiple\'` only (objectui#10304)', () => {
     const list = ['2026-09-15', '2026-09-17'];
     const parsed = CalendarSchema.safeParse({ type: 'calendar', value: list });
     expect(parsed.success).toBe(false);
     expect(parsed.error?.issues.map((issue) => issue.path.join('.'))).toEqual(['value']);
-    // @ts-expect-error — `Date[]` left the declaration with objectui#10293.
-    const listNode: TsCalendarSchema = { type: 'calendar', value: [new Date(2026, 8, 15)] };
-    expect(listNode.type).toBe('calendar');
   });
 });

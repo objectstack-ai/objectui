@@ -344,7 +344,6 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
 
   for (const family of ['bar', 'line']) {
     it(`${family}: Number OBJECTS draw — recharts' isNumber accepts instanceof Number`, () => {
-      // eslint-disable-next-line no-new-wrappers
       const { container } = renderFamily(family, [{ k: 'a', v: new Number(3) }, { k: 'b', v: new Number(5) }]);
       expect(marksOf(container)).toBeGreaterThan(0);
       expect(anyRefusalOf(container)).toBeNull();

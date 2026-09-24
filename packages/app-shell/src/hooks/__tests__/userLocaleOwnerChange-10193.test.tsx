@@ -112,13 +112,15 @@ describe('a change of owner re-resolves the UI language (objectui#10193)', () =>
     // could go green on a boot that never inherited anything.
     expect(shownLanguage()).toBe(A_LANGUAGE);
 
-    let purged = false;
+    let purged: unknown;
     act(() => {
       purged = SessionUserScope.adopt(USER_B);
     });
-    expect(purged).toBe(true);
 
     await waitFor(() => expect(shownLanguage()).not.toBe(A_LANGUAGE));
+    // Asserted after the language, so the pin goes red on the defect itself —
+    // before this fix `adopt` returned nothing at all.
+    expect(purged).toBe(true);
     await waitFor(() => expect(adapter.findOne).toHaveBeenCalled());
     expect(shownLanguage()).toBe('en');
     // The reset is nobody's choice, so it is not left in the explicit slot, and

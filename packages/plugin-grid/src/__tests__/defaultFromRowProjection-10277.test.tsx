@@ -169,13 +169,18 @@ describe('ObjectGrid — `$select` carries what a row action READS off the row (
   });
 
   it('PIN 5: drops a seed key or token the object does not declare, rather than poisoning `$select`', async () => {
+    // `user_id` is the same-fixture control: the harvest ran, so the two typos'
+    // absence is the declared-field guard, not a harvest that saw nothing.
     const select = await selectFor({}, [{
       ...REMOVE_TEAM_MEMBER,
       target: '/api/v1/x/{taem_id}',
-      params: [{ name: 'teamId', field: 'team_idd', defaultFromRow: true }],
+      params: [
+        { name: 'teamId', field: 'team_idd', defaultFromRow: true },
+        { name: 'userId', field: 'user_id', defaultFromRow: true },
+      ],
     }]);
     expect(select).not.toContain('team_idd');
     expect(select).not.toContain('taem_id');
-    expect(select).toEqual(['id', 'name']);
+    expect(select).toEqual(['id', 'name', 'user_id']);
   });
 });

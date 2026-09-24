@@ -179,7 +179,9 @@ describe('listViewPredicates — `defaultFromRow` params and `target` tokens (ob
     ).toEqual(['region']);
   });
 
-  it('harvests nothing from a param that does not seed from the row', () => {
+  it('harvests only the params that seed from the row', () => {
+    // `seeded` is the control in the same fixture: it proves the harvest ran,
+    // so the two absent names are a reading rather than a harvest that saw nothing.
     expect(
       refs({
         rowActionDefs: [{
@@ -187,18 +189,28 @@ describe('listViewPredicates — `defaultFromRow` params and `target` tokens (ob
           params: [
             { name: 'reason', field: 'reason' },
             { name: 'note', field: 'note', defaultFromRow: false },
+            { name: 'seeded', field: 'seeded', defaultFromRow: true },
           ],
         }],
       }),
-    ).toEqual([]);
+    ).toEqual(['seeded']);
   });
 
   it('drops a `defaultFromRow` key that is not a bare identifier', () => {
     // The same gate `recordIdField` takes: without it the harvester would read a
     // PREFIX of the malformed name (`not`) and project a plausible wrong field.
+    // `ok_field` is the same-fixture control.
     expect(
-      refs({ objectActions: [{ name: 'a', params: [{ name: 'not a field', defaultFromRow: true }] }] }),
-    ).toEqual([]);
+      refs({
+        objectActions: [{
+          name: 'a',
+          params: [
+            { name: 'not a field', defaultFromRow: true },
+            { name: 'ok_field', defaultFromRow: true },
+          ],
+        }],
+      }),
+    ).toEqual(['ok_field']);
   });
 
   it('harvests every `{field}` token of an action `target`', () => {
@@ -239,16 +251,18 @@ describe('listViewPredicates — `defaultFromRow` params and `target` tokens (ob
 
   it('reads nothing out of a runtime value-bag `params` or a malformed entry', () => {
     // A non-array `params` is the host's internal value bag (`_rowRecord`,
-    // collected values), never authored metadata.
+    // collected values), never authored metadata. Action `d` is the
+    // same-fixture control: the harvest reached this list.
     expect(
       refs({
         rowActionDefs: [
           { name: 'a', params: { _rowRecord: { team_id: 't' } } },
           { name: 'b', params: [null, 42, 'team_id', { field: 42, defaultFromRow: true }] },
           { name: 'c', target: 42 },
+          { name: 'd', params: [{ field: 'valid_seed', defaultFromRow: true }] },
         ],
       }),
-    ).toEqual([]);
+    ).toEqual(['valid_seed']);
   });
 });
 

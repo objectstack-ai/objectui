@@ -55,6 +55,9 @@ import { toast } from '../../../ui/sonner';
 
 type Handler = Mock<(action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>;
 
+/** An authored `action:bar` member, as the tests spell it. */
+type Member = Record<string, unknown>;
+
 /** The action the deep link asks for, authored to render as an icon. */
 const ICON = {
   name: 'create_icon',
@@ -94,7 +97,7 @@ const executed = (h: Handler = api) => h.mock.calls.map((c) => (c[0] as ActionDe
 const refusalDiagnostics = (spy: { mock: { calls: unknown[][] } }): string[] =>
   spy.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('objectui#4191'));
 
-function Bar({ actions }: { actions: any[] }) {
+function Bar({ actions }: { actions: Member[] }) {
   const C = ComponentRegistry.get('action:bar');
   if (!C) throw new Error('action:bar is not registered');
   return (
@@ -105,7 +108,7 @@ function Bar({ actions }: { actions: any[] }) {
   );
 }
 
-function tree(actions: any[], props: { handler?: Handler; onConfirm?: (message: string) => Promise<boolean> } = {}) {
+function tree(actions: Member[], props: { handler?: Handler; onConfirm?: (message: string) => Promise<boolean> } = {}) {
   return (
     <ActionProvider handlers={{ api: props.handler ?? api }} onToast={vi.fn()} onConfirm={props.onConfirm}>
       <Bar actions={actions} />
@@ -159,7 +162,7 @@ describe('action:icon consumes autoTrigger for the action it receives (objectui#
   });
 
   it("the auto-triggered run goes through the runner's confirm gate, like a click: declining runs nothing", async () => {
-    const onConfirm = vi.fn(async () => false);
+    const onConfirm = vi.fn(async (_message: string) => false);
     render(tree([{ ...ICON, confirmText: 'Really create?', autoTrigger: true }], { onConfirm }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
@@ -197,7 +200,7 @@ describe('action:icon consumes autoTrigger for the action it receives (objectui#
 
 describe("the icon's own declared visible gate outranks the flag (objectui#4191, now on action:icon)", () => {
   it('a hidden icon is NOT run, and the refusal is reported: one notice naming the action, one dev diagnostic', async () => {
-    const notice = vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    const notice = vi.spyOn(toast, 'warning').mockImplementation(() => 'id');
     const diagnostic = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     renderBar([BUTTON, { ...ICON, visible: NEVER, autoTrigger: true }]);
@@ -216,7 +219,7 @@ describe("the icon's own declared visible gate outranks the flag (objectui#4191,
   });
 
   it('refusal does not spend the once-guard: an icon that becomes visible later runs, once', async () => {
-    vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
+    vi.spyOn(toast, 'warning').mockImplementation(() => 'id');
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const view = renderBar([{ ...ICON, visible: NEVER, autoTrigger: true }]);
@@ -232,6 +235,6 @@ describe("the icon's own declared visible gate outranks the flag (objectui#4191,
   });
 });
 
-function renderBar(actions: any[]) {
+function renderBar(actions: Member[]) {
   return render(tree(actions));
 }

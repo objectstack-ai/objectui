@@ -611,8 +611,9 @@ export function GridField({
   const displayLocale = useDisplayLocale();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see
-  // `columnCurrency`). It decides both the stored width of a computed
-  // currency cell (`computeRow`) and the face of every currency cell.
+  // `columnCurrency`). It decides the stored width of a computed currency
+  // cell (`computeRow`), the currency face `displayText` renders, and the
+  // editable currency cell's symbol.
   const { currency: tenantCurrency } = useLocalization();
   const currency = columnCurrency(tenantCurrency);
 

@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useAdapter, useMetadata, FlowRunner, type ScreenFlowState } from '@object-ui/app-shell';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import {
@@ -96,9 +97,10 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function fmtDate(s?: string) {
+/** In the session's display locale — it used no tag, the MACHINE's locale (objectui#9909). */
+function fmtDate(s: string | undefined, locale: string) {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString(); } catch { return s; }
+  try { return new Date(s).toLocaleString(locale); } catch { return s; }
 }
 
 function coerce(value: string, type: string): unknown {
@@ -427,6 +429,7 @@ function FlowRunsPanel({
   flowName: string;
   refreshKey?: number;
 }) {
+  const displayLocale = useDisplayLocale();
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -522,7 +525,7 @@ function FlowRunsPanel({
                   >
                     <TableCell className="font-mono text-xs">{r.id.slice(0, 12)}…</TableCell>
                     <TableCell><StatusBadge status={r.status} /></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{fmtDate(r.startedAt)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{fmtDate(r.startedAt, displayLocale)}</TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {typeof r.durationMs === 'number' ? `${r.durationMs} ms` : '—'}
                     </TableCell>
@@ -545,7 +548,7 @@ function FlowRunsPanel({
                   {typeof runDetail.durationMs === 'number' && (
                     <Badge variant="secondary" className="text-[10px] font-mono">{runDetail.durationMs} ms</Badge>
                   )}
-                  <span className="text-xs">{fmtDate(runDetail.startedAt)}</span>
+                  <span className="text-xs">{fmtDate(runDetail.startedAt, displayLocale)}</span>
                 </span>
               )}
             </SheetDescription>

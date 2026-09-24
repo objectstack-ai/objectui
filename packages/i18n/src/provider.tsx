@@ -106,8 +106,8 @@ function clearStoredLanguage(): void {
  * values have different provenance and therefore different rights:
  *
  * - {@link LOCALE_STORAGE_KEY} is what the *user* picked on this device. It
- *   outranks everything this provider can see and must survive a tenant
- *   reconfiguration. ⚠️ It does NOT outrank the signed-in user's own
+ *   outranks everything this provider can see and must survive a change in
+ *   what the server answers for the seed below. ⚠️ It does NOT outrank the signed-in user's own
  *   `sys_user.locale`, which no tier here represents — see that key's own
  *   docblock (objectui#10059).
  * - This slot is what the server resolved for the signed-in caller, cached so
@@ -252,7 +252,10 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
 }
 
 /**
- * Adjudicate a tenant locale seed into a language this renderer can actually
+ * Adjudicate the locale seed — the last signed-in owner's cached server
+ * answer (their `sys_user.locale`, else `Accept-Language`, else the deployment
+ * default), bounded to that one owner by the objectui#5664 purge; see
+ * {@link LOCALE_SEED_STORAGE_KEY} — into a language this renderer can actually
  * boot in, or `null` to fall through to the next tier (objectui#4035).
  *
  * {@link canResolveLanguage} is the verdict — the same predicate the language
@@ -261,11 +264,11 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * of which are about *which question to ask it*, not about second-guessing the
  * answer:
  *
- * **1. Region subtags are normalised away as a fallback.** A tenant locale is a
+ * **1. Region subtags are normalised away as a fallback.** A seed is a
  * full BCP-47 tag — the platform answers `zh-CN`, not `zh` (see
  * `LocalizationFetchProvider`'s fixtures) — while the packs are keyed by base
  * language. Asking only about `zh-CN` would reject the single most common
- * tenant configuration there is. The exact tag is tried first so a genuine
+ * shape that answer takes. The exact tag is tried first so a genuine
  * `pt-BR` pack still wins over `pt`; this mirrors `createI18n`'s own browser
  * detection (`navigator.language.split('-')[0]`) and `pickLocalized`'s
  * documented exact-then-base order, so it is this codebase's existing
@@ -275,9 +278,9 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * at its default `false`). That credit exists for a *user-picked* value: the
  * user chose it from a menu built out of the app's real locale list, and a
  * stored choice that turns out unshippable is adjudicated afterwards by the
- * `provisional` self-heal. A tenant seed has neither property — it is an
- * arbitrary admin-authored string that passed through no menu, and there is no
- * self-heal behind it. Extending the credit would mean booting into a locale we
+ * `provisional` self-heal. A seed has neither property — it is whatever the
+ * server resolved (a stored column, a request header, a deployment default),
+ * it passed through no menu, and there is no self-heal behind it. Extending the credit would mean booting into a locale we
  * cannot confirm we ship and then retracting it, i.e. manufacturing exactly the
  * flash that ruling point 3 bounds, on the very first-visit path it bounds it
  * on. Falling through instead is what ruling point 4 asks for, and it is
@@ -345,8 +348,9 @@ interface BootstrapResolution {
 }
 
 /**
- * The tenant tier: a cached server seed, applied only when the user has
- * expressed no choice of their own (objectui#4035).
+ * The seed tier: the last signed-in owner's cached server answer (see
+ * {@link LOCALE_SEED_STORAGE_KEY}), applied only when nobody has expressed a
+ * choice on this device (objectui#4035).
  *
  * Returns the bootstrap resolution for the seed, or `null` when there is no
  * usable seed and the caller should fall through to browser detection.
@@ -362,9 +366,9 @@ function resolveSeedBootstrap(config: I18nConfig | undefined): BootstrapResoluti
   const resolved = resolveSeedLanguage(seed, config);
   if (!resolved) return null;
   return {
-    // `detectBrowserLanguage: false` is what makes the tenant tier outrank the
-    // environment tier. The admin's deliberate configuration beats the
-    // browser's incidental one — ruling point 1.
+    // `detectBrowserLanguage: false` is what makes the seed tier outrank the
+    // environment tier. What the server resolved for this device's signed-in
+    // owner beats the browser's incidental setting — ruling point 1.
     config: { ...config, defaultLanguage: resolved, detectBrowserLanguage: false },
     provisional: null,
   };
@@ -377,14 +381,14 @@ function resolveBootstrapConfig(
 ): BootstrapResolution {
   // `persistLanguage: false` surfaces (previews, demos, screenshot harnesses)
   // must stay on a fixed language regardless of what is on this origin — that
-  // covers the tenant seed too, not just the user's choice.
+  // covers the seed too, not just the user's choice.
   if (!persist) return { config, provisional: null };
   const stored = readStoredLanguage();
-  // No explicit choice at all → the tenant seed gets its turn.
+  // No explicit choice at all → the seed gets its turn.
   if (!stored) return resolveSeedBootstrap(config) ?? { config, provisional: null };
   if (!canResolveLanguage(stored, config, hasLoader)) {
     clearStoredLanguage();
-    // A purged choice is no choice, so this falls to the same tenant tier —
+    // A purged choice is no choice, so this falls to the same seed tier —
     // otherwise dropping one unshippable stored value would skip the seed and
     // land straight on the browser language.
     return resolveSeedBootstrap(config) ?? { config, provisional: null };
@@ -415,7 +419,7 @@ export interface BootstrapLocaleOptions {
  * The language {@link I18nProvider} will boot in, computed WITHOUT creating an
  * i18next instance (objectui#7479).
  *
- * The full precedence chain, unchanged: explicit choice → tenant seed →
+ * The full precedence chain, unchanged: explicit choice → seed →
  * browser language → `defaultLanguage` → `en`.
  */
 export function resolveBootstrapLanguage(options: BootstrapLocaleOptions = {}): string {

@@ -46,7 +46,7 @@
  * the first paint of a boot renders from the device cache, because the column
  * can only be read after the adapter exists. A value changed on another device
  * shows for the length of one round trip and is then replaced. That is the same
- * stale-while-revalidate posture the tenant seed already ships with, and it is
+ * stale-while-revalidate posture the locale seed already ships with, and it is
  * the reason the cache is kept rather than cleared.
  *
  * ## Change of owner (objectui#10193)

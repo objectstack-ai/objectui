@@ -52,7 +52,6 @@
  *   Effects are flushed first because the hook binds in a passive effect.
  */
 
-import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent, act } from '@testing-library/react';
 import '@object-ui/plugin-calendar';

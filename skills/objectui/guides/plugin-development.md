@@ -51,7 +51,7 @@ ComponentRegistry.register('my-widget', MyWidgetRenderer, {
   label: 'My Widget',
   icon: 'layout-grid',
   category: 'plugin',             // Grouping: 'plugin' | 'view' | 'field' | 'layout'
-  isContainer: false,
+  isContainer: false,             // Layout region? (react-page scope); NOT "accepts children"
   inputs: [
     { name: 'title', type: 'string' },
     { name: 'columns', type: 'array', required: true },
@@ -72,7 +72,7 @@ ComponentRegistry.register('my-widget', MyWidgetRenderer, {
 | `skipFallback` | `boolean` | Don't register non-namespaced fallback (prevents overwrites) |
 | `inputs` | `ComponentInput[]` | Schema inputs for designer |
 | `defaultProps` | `Record<string, any>` | Default properties |
-| `isContainer` | `boolean` | Accepts child components |
+| `isContainer` | `boolean` | Layout container (skipped by the react-page JSX scope). Not "accepts children": a renderer that puts `schema.children` on the page declares `{ name: 'children', type: 'slot' }` in `inputs` — the SDUI parser's `not-a-container` reads that input |
 | `resizable` | `boolean` | Designer allows resizing |
 | `resizeConstraints` | `object` | Min/max width/height |
 | `tier` | `'public' \| 'internal'` | Public contract tier (ADR-0080). Undefined = internal |

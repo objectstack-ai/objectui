@@ -995,11 +995,13 @@ const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<
   Record<CalendarAliasSurfaceKind, string>
 > = {
   dateField: {
+    // Quotes the refusal screen's FIRST clause only — the one objectui#8170 kept.
+    // Its second clause was rewritten there, so a whole-screen quote goes false
+    // the next time that copy moves (objectui#10030).
     binding:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
-      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
-      + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
-      + 'never the key you wrote.',
+      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required", '
+      + 'a screen that names the canonical keys and never the key you wrote.',
     container:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
       + '`dateField` fails without even reaching that refusal screen: this container is read WHOLE, '

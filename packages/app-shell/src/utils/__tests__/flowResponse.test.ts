@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { interpretFlowResponse } from '../flowResponse';
+import { interpretFlowResponse, judgeFlowLaunch } from '../flowResponse';
 
 const ok = { ok: true, status: 200 };
 
@@ -285,5 +285,67 @@ describe('interpretFlowResponse — terminal success', () => {
         const out = interpretFlowResponse(ok, { success: true }, 'Flow "x"');
         expect(out).toMatchObject({ kind: 'done' });
         expect((out as { data?: unknown }).data).toBeUndefined();
+    });
+});
+
+// objectui#9973 — what a flow LAUNCH does with its response, decided once for
+// both console launch handlers. Each arm's `result` is asserted with `toEqual`,
+// not `toMatchObject`: the byte shape IS the contract with the ActionRunner (a
+// stray `data` or `reload` on the refused arm is a success side effect).
+describe('judgeFlowLaunch — one launch decision for both hosts', () => {
+    const judge = (json: unknown, refreshAfter?: boolean) =>
+        judgeFlowLaunch(interpretFlowResponse(ok, json, 'Flow "check_dup"'), refreshAfter);
+
+    it('refused: silent success, the sentence handed to the notice, NO refresh', () => {
+        const out = judge({
+            success: true,
+            data: { success: true, status: 'refused', refusalMessage: 'Refused: Acme Corp is a confirmed duplicate' },
+        });
+        // Byte-identical to the paused arm: `silent` keeps the action's
+        // `successMessage` toast off, and nothing else rides along.
+        expect(out.result).toEqual({ success: true, silent: true });
+        expect(out.followUp).toEqual({ kind: 'refusal', message: 'Refused: Acme Corp is a confirmed duplicate' });
+        expect(out.refresh).toBe(false);
+    });
+
+    it('refused: an action that did not opt out of refresh STILL does not refresh', () => {
+        // The run wrote nothing; `refreshAfter` governs completed runs only.
+        expect(judge({ success: true, data: { success: true, status: 'refused', refusalMessage: 'No.' } }, true).refresh)
+            .toBe(false);
+    });
+
+    it('refused with no sentence: the disposition is the STATUS, the message is empty', () => {
+        const out = judge({ success: true, data: { success: true, status: 'refused' } });
+        expect(out.result).toEqual({ success: true, silent: true });
+        expect(out.followUp).toEqual({ kind: 'refusal', message: '' });
+    });
+
+    it('paused: unchanged — silent success, the screen handed to FlowRunner, no refresh', () => {
+        const screen = { nodeId: 'collect', title: 'New Assignee', fields: [] };
+        const out = judge({ success: true, data: { success: true, status: 'paused', runId: 'run-7', screen } });
+        expect(out.result).toEqual({ success: true, silent: true });
+        expect(out.followUp).toEqual({ kind: 'screen', runId: 'run-7', screen });
+        expect(out.refresh).toBe(false);
+    });
+
+    it('completed (the control): terminal success with the AutomationResult as data, and a refresh', () => {
+        const data = { success: true, status: 'completed' };
+        const out = judge({ success: true, data });
+        expect(out.result).toEqual({ success: true, data, reload: true });
+        expect(out.followUp).toBeUndefined();
+        expect(out.refresh).toBe(true);
+    });
+
+    it('completed with refreshAfter: false: no refresh, and the runner is told so', () => {
+        const out = judge({ success: true, data: { success: true, status: 'completed' } }, false);
+        expect(out.result).toMatchObject({ success: true, reload: false });
+        expect(out.refresh).toBe(false);
+    });
+
+    it('failed: the error for the runner to toast, no follow-up, no refresh', () => {
+        const out = judge({ success: true, data: { success: false, error: "Node 'apply' failed" } });
+        expect(out.result).toEqual({ success: false, error: "Node 'apply' failed" });
+        expect(out.followUp).toBeUndefined();
+        expect(out.refresh).toBe(false);
     });
 });

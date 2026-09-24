@@ -427,7 +427,7 @@ describe('input normalisation reads its vocabulary from the spec', () => {
     warn.mockRestore();
   });
 
-  it('coerces `limit` to a positive integer, defaulting to the spec default', () => {
+  it('admits only a positive integer NUMBER as `limit`, defaulting to the spec default', () => {
     // ⚠️ These four refused values are NOT this resolver's coverage, and reading
     // them as such is how objectui#10096 survived: `0`, `-3`, `undefined` and
     // `'lots'` all answer the default whether the resolver REFUSES a
@@ -436,7 +436,10 @@ describe('input normalisation reads its vocabulary from the spec', () => {
     // `recordActivityFeed.rowLimitRefusal-10096.test.tsx`; keep them there
     // rather than assuming this list grew to cover them.
     expect(normalizeLimit(5)).toBe(5);
-    expect(normalizeLimit('5')).toBe(5);
+    // objectui#10145 (ruled STOP): a numeric STRING is a value the spec refuses
+    // (`z.number()`), so it is no longer read — it falls back like any other
+    // refused value. Flipped from `.toBe(5)`; the lit control is the line above.
+    expect(normalizeLimit('5')).toBe(DEFAULT_ACTIVITY_LIMIT);
     expect(normalizeLimit(0)).toBe(DEFAULT_ACTIVITY_LIMIT);
     expect(normalizeLimit(-3)).toBe(DEFAULT_ACTIVITY_LIMIT);
     expect(normalizeLimit(undefined)).toBe(DEFAULT_ACTIVITY_LIMIT);

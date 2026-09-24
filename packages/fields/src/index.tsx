@@ -1122,19 +1122,24 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // occurrences of `isoString` are its assignment and its one use. A
   // PARSEABLE value keeps its `title` unchanged.
   //
-  // `new Date(safe)` ACCEPTS exactly what `formatDate` accepts (it receives
-  // `safe`, `coerceToSafeValue` never returns a `Date`, and `toDisplayDate`
-  // rebuilds only a value this same parse already accepted), so this branch
-  // is co-extensive with the dash it replaces — never wider. In particular a
-  // numeric timestamp stays a number through the coercion and still renders.
+  // `toDisplayDate(safe)` IS `formatDate`'s own parse step (it receives
+  // `safe`, and `coerceToSafeValue` never returns a `Date`), so this branch
+  // is co-extensive with the dash it replaces — never wider, never narrower.
+  // In particular a numeric timestamp stays a number through the coercion and
+  // still renders. The guard read `new Date(safe)` until objectui#10026, when
+  // that step began refusing a date-only value naming a day its month does
+  // not have (`2026-02-30`). The engine's parse accepts one, so the old guard
+  // let it through to `formatDate`'s bare dash — objectui#8581's defect back,
+  // on the refusal's own input.
   //
-  // ⚠️ It does NOT reproduce the DAY `formatDate` renders: a date-only value
-  // is UTC midnight here and local midnight there, a calendar day apart west
-  // of UTC. So this `Date` answers validity and the `title` below only; the
-  // overdue predicate takes its day from `toDisplayDate`, the step the text
-  // went through (objectui#10183).
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // ⚠️ The `title` keeps the engine's `new Date(safe)`: for a date-only value
+  // the parse step answers LOCAL midnight, whose `toISOString()` names the
+  // previous day east of UTC (its own doc says so). So `displayDate` answers
+  // validity and the overdue day — the day the text went through
+  // (objectui#10183) — and `date` answers the `title` only.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   const dateField = field as any;
   const style = dateField.format || 'relative';
@@ -1144,7 +1149,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // instead of carrying a second copy (objectui#8958).
   const dueLike = resolveDueLike(field);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
-  const isOverdue = isOverdueInstant(toDisplayDate(safe as string | number), dueLike);
+  const isOverdue = isOverdueInstant(displayDate, dueLike);
 
   return (
     <span
@@ -1173,8 +1178,14 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // `coerceToSafeValue([])` reaches as `''`.
   if (!value) return <EmptyValue />;
   const safe = coerceToSafeValue(value);
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // The validity guard reads the shared parse step, spelled EXACTLY as
+  // `DateCellRenderer`'s one function up, so the two siblings refuse the same
+  // inputs — a date-only nonexistent day included (objectui#10026). The
+  // formatters below still take the engine's `new Date(safe)`: this cell
+  // renders an INSTANT, and that is unchanged.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   // `field.format` is read as a display style here for the same reason
   // `DateCellRenderer` reads it one function up: `datetime` had no style

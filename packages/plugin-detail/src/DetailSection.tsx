@@ -491,6 +491,12 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
               dataSource={dataSource}
               autoFocus={autoFocusField === field.name}
               error={serverFieldErrors?.[field.name]}
+              // The record a `dependsOn` field scopes itself by — the only
+              // channel it has (objectui#7190, objectui#7206). `DetailView`
+              // hands this section the saved record already merged with the
+              // inline draft, so a parent edited in this session re-scopes the
+              // child before anything is saved.
+              dependentValues={data}
             />
             {/* The SERVER's reason for refusing this field, in place
                 (objectui#6868). Published by `<InlineEditSaveBar>` onto the

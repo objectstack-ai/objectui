@@ -7,8 +7,8 @@ Retire `ComponentInput`'s four inert constraint keys — `min`, `max`, `step` an
 
 All four were declared on `ComponentInput` and read by nothing, on either path. No consumer
 reads them off a `ComponentInput` value, and the manifest serializer
-(`packages/sdui-parser/src/index.ts`) forwards exactly six keys per input — `name`, `type`,
-`required`, `enum`, `binding`, `description` — so a value authored here could not reach the
+(`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`, `type`,
+`of`, `required`, `enum`, `binding`, `description` — so a value authored here could not reach the
 published `sdui.manifest.json` even in principle. Re-measured on this branch's merge-base
 rather than inherited from the card: a structural census over every `inputs:` array in the
 repository (219 regions, all tracked files) scores `min` **0**, `max` **0**, `step` **0**

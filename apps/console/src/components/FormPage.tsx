@@ -1823,10 +1823,15 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
    * form therefore still faults and still fails OPEN, exactly as before this
    * change; nothing new is declared to say so.
    *
-   * `features` is likewise empty here rather than fetched. `ExpressionProvider`
-   * already documents `{}` as the pre-load state whose predicates default to
-   * visible, and wiring a deployment-config fetch into this route would be a
-   * different card.
+   * `features` is likewise empty here. That is the contract, not a gap: a form
+   * view may not name the `features` root in a predicate at all (objectui#6262,
+   * ruled 2026-08-27). The same ruling rejected fetching `/auth/config` on this
+   * route to fill it. `@objectstack/spec` refuses such a predicate at parse,
+   * on every form-view predicate surface, and metadata-admin's `view` gates run
+   * that parse. So the in-app versus standalone-route split is closed where the
+   * form is authored, not in this renderer.
+   * `formViewFeaturesRootRefused-6262.test.ts` re-derives the refusal against
+   * the installed spec.
    */
   const predicateScope = usePredicateScope();
   /**

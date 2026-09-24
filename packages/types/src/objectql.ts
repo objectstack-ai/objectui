@@ -2214,26 +2214,46 @@ export interface NamedListView {
   /** Type-specific options (kanban groupField, calendar startDateField, etc.) */
   options?: Record<string, any>;
 
-  /** Show search box in toolbar @default true */
-  showSearch?: boolean;
+  /* ── objectui#7924 — RETIRED on the authoring face (director-seat ruling,
+   * bucket ② A and bucket ③) ────────────────────────────────────────────────
+   *
+   * Each member below is a `?: never` tombstone: a TypeScript author who writes
+   * it fails to compile, and the message points at the canonical key. The
+   * member is KEPT rather than deleted so the refusal is BY NAME — a deleted
+   * member would fall through to nothing and read as a generic excess-property
+   * error with no pointer.
+   *
+   * ⚠️ Only the AUTHORING face changes. Stored view documents that still carry
+   * a legacy spelling keep parsing: `normalizeListViewSchema`
+   * (`@object-ui/core`) folds the eight `show*` spellings onto `userActions` /
+   * `appearance` at runtime, and that fold stays until the next major cleanup.
+   * Hosts that read a stored view through a loose type are unaffected.
+   *
+   * ⛔ No alias mapping is created for any of them. The census that partitions
+   * every member of this interface — and asserts which ones are tombstones — is
+   * `__tests__/object-view-unmirrored-keys-7779.test.ts`.
+   */
 
-  /** Show sort controls in toolbar @default true */
-  showSort?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.search` instead. Not a protocol key on a view. */
+  showSearch?: never;
 
-  /** Show filter controls in toolbar @default true */
-  showFilters?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.sort` instead. Not a protocol key on a view. */
+  showSort?: never;
 
-  /** Show hide-fields button in toolbar @default false */
-  showHideFields?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.filter` instead. Not a protocol key on a view. */
+  showFilters?: never;
 
-  /** Show group button in toolbar @default true */
-  showGroup?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.hideFields` instead. Not a protocol key on a view. */
+  showHideFields?: never;
 
-  /** Show color button in toolbar @default false */
-  showColor?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.group` instead. Not a protocol key on a view. */
+  showGroup?: never;
 
-  /** Show density/row-height button in toolbar @default false */
-  showDensity?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.rowColor` instead. Not a protocol key on a view. */
+  showColor?: never;
+
+  /** @deprecated RETIRED (objectui#7924) — author `userActions.rowHeight` instead. Not a protocol key on a view. */
+  showDensity?: never;
 
   /**
    * Collapse the appearance/grouping cluster (Group + Color + Density + Hide Fields)
@@ -2243,41 +2263,54 @@ export interface NamedListView {
    */
   compactToolbar?: boolean;
 
-  /** Allow data export @default undefined */
+  /**
+   * Allow data export @default undefined
+   *
+   * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
+   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. `app-shell`'s
+   * object page relays it off the active named view into the `list-view` node,
+   * and `ListView` gates its export control on `schema.allowExport !== false`.
+   * Reported on objectui#7924 rather than tombstoned.
+   */
   allowExport?: boolean;
 
-  /** Color field for row/card coloring */
-  color?: string;
+  /**
+   * @deprecated RETIRED (objectui#7924) — the protocol declares no `color` on a
+   * view. The likely intent is the row-colour CONFIGURATION `rowColor`
+   * (`{ field }`, declared below). ⚠️ Not `userActions.rowColor`: that is the
+   * boolean toggle for the toolbar's colour panel.
+   */
+  color?: never;
 
   /** Enable inline editing @default false */
   inlineEdit?: boolean;
 
-  /** Wrap column headers in grid view @default false */
-  wrapHeaders?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `wrapHeaders` on a view, and no renderer acts on it. */
+  wrapHeaders?: never;
 
-  /** Navigate to record detail view when row is clicked @default true */
-  clickIntoRecordDetails?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `clickIntoRecordDetails`; row-click behaviour is `navigation`. */
+  clickIntoRecordDetails?: never;
 
-  /** Add records via a form dialog @default false */
-  addRecordViaForm?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `addRecordViaForm`; the likely intent is the `userActions.addRecordForm` toggle (with `addRecord` configuring creation). */
+  addRecordViaForm?: never;
 
-  /** Enable inline add/delete of records @default false */
-  addDeleteRecordsInline?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `addDeleteRecordsInline`, and no renderer acts on it. */
+  addDeleteRecordsInline?: never;
 
-  /** Collapse all grouped sections by default @default false */
-  collapseAllByDefault?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `collapseAllByDefault`, and no renderer acts on it. */
+  collapseAllByDefault?: never;
 
-  /** Field name for custom text color */
-  fieldTextColor?: string;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `fieldTextColor`, and no renderer acts on it. */
+  fieldTextColor?: never;
 
-  /** Prefix field displayed before the main title */
-  prefixField?: string;
+  /** @deprecated RETIRED (objectui#7924) — the protocol declares no `prefixField`, and no renderer acts on it. */
+  prefixField?: never;
 
   /** View description */
   description?: string;
 
-  /** Show field descriptions below headers @default false */
-  showDescription?: boolean;
+  /** @deprecated RETIRED (objectui#7924) — author `appearance.showDescription` instead. Not a protocol key on a view. */
+  showDescription?: never;
 
   /** Navigation configuration for row click behavior */
   navigation?: ViewNavigationConfig;
@@ -2297,7 +2330,16 @@ export interface NamedListView {
   /** Allow column resizing @default false */
   resizable?: boolean;
 
-  /** Density mode for controlling row/item spacing */
+  /**
+   * Density mode for controlling row/item spacing
+   *
+   * ⚠️ objectui-only (the protocol's name for this is `rowHeight`), but ⛔ NOT
+   * retired with its bucket-③ neighbours: it is READ. `normalizeListViewSchema`
+   * (`@object-ui/core`) folds it onto `rowHeight` at the `ListView` boundary, so
+   * it is a legacy SPELLING with a runtime fold — the bucket-② shape, whose
+   * canonical key is top-level `rowHeight` (⛔ not `userActions.rowHeight`, the
+   * boolean toolbar toggle). Reported on objectui#7924 rather than tombstoned.
+   */
   densityMode?: 'compact' | 'comfortable' | 'spacious';
 
   /**
@@ -2412,8 +2454,10 @@ export interface NamedListView {
    * host `views` prop (objectui#5321). ⛔ None of them may be dropped from the
    * type on that basis: the report is the evidence a protocol card would need.
    *
-   * The 19 legacy spellings this interface declares BEYOND the protocol are
-   * objectui#7924's remedy and stay there (ruling item 4) — ⛔ not touched here.
+   * The 19 legacy spellings this interface declared BEYOND the protocol were
+   * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
+   * retired sixteen of them as tombstones; `options`, `allowExport` and
+   * `densityMode` stay declared because each is read.
    */
 
   /**
@@ -2464,8 +2508,9 @@ export interface NamedListView {
   rowColor?: ListViewSchema['rowColor'];
 
   /** User action toggles for the view toolbar — the protocol's canonical home
-   * for the eight legacy `show*` spellings this interface still declares
-   * (objectui#7924 owns their retirement, ⛔ not this card). */
+   * for seven of the eight legacy `show*` spellings, which objectui#7924
+   * retired to `?: never` tombstones above (`showDescription`, the eighth, is
+   * `appearance.showDescription`). */
   userActions?: ListViewSchema['userActions'];
 
   /** Appearance and visualization configuration (`showDescription`,
@@ -3193,6 +3238,20 @@ export interface ObjectGanttSchema extends BaseSchema {
   filter?: any[];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
+  /**
+   * Full-text search term, forwarded as `$search` (objectui#10250). The server
+   * resolves which fields it matches from the object's metadata (ADR-0061).
+   * `ListView` writes it from its toolbar Search box: the chart runs its own
+   * query, so without this key the box changed the list's fetch and nothing
+   * drawn.
+   */
+  search?: string;
+  /**
+   * Narrows the fields {@link ObjectGanttSchema.search} matches, forwarded as
+   * `$searchFields` — and only alongside a term, as a list's own query sends
+   * it. Same key and meaning as {@link ObjectGridSchema.searchableFields}.
+   */
+  searchableFields?: string[];
 }
 
 /**

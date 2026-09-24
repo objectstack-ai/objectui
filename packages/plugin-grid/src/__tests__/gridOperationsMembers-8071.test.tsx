@@ -40,9 +40,11 @@
  *     objectui#9819) made the two gates intersections. The flip is that ruling
  *     landing, ⛔ not a regression; the union's own shape is kept below as the
  *     case that goes red if the `||` ever comes back.
- *     ⚠️ The ruling's OTHER half — `rowActions` NARROWING inside the ceiling —
- *     is NOT implemented, and the case that says so is pinned below rather than
- *     left for a reader to discover from the absence of a case.
+ *     The ruling's OTHER half — `rowActions` NARROWING inside the ceiling —
+ *     landed with objectui#10083: a DECLARED `rowActions` list offers the
+ *     generic entry only for the canonical names it carries, while an ABSENT
+ *     list keeps the default. Until then this file pinned the gap as a
+ *     `NOT IMPLEMENTED` case; that case is flipped below, ⛔ not deleted.
  *  4. **Neither member is a grant.** Without the consumer's callback the
  *     affordance stays closed whatever the block says.
  *  5. **`export` defaults the OTHER WAY inside a present block** — omitted
@@ -204,34 +206,61 @@ describe('object-grid `operations` — neither member is a grant, and the block 
     // offer. Without this case a ceiling implemented as `update !== false`
     // passes every other case in this file, and `rowActions` keeps its old power
     // to open on the shape authors write most (one member named, one omitted).
-    renderGrid({ operations: { delete: true }, rowActions: ['edit'] });
+    // `rowActions` names BOTH canonical members so the objectui#10083 narrowing
+    // cannot be what withholds either — Edit's absence is the ceiling alone.
+    renderGrid({ operations: { delete: true }, rowActions: ['edit', 'delete'] });
     await settle();
     expect(await rowKebab()).toEqual({ trigger: true, edit: false, delete: true });
   });
 
-  it('…while `rowActions` with NO `operations` block still gets the wired-callback default', async () => {
+  it('ABSENT `operations` keeps the wired-callback default — `rowActions` naming both selects both', async () => {
     // The direction the ruling explicitly protects — "`operations` absent means
     // today's defaults". The CONTROL for the two cases above: without it they
     // read as "`rowActions: [edit]` never opens Edit", which is not the rule and
     // would be satisfied by a gate that ignored `rowActions` and `operations`
     // both.
-    renderGrid({ rowActions: ['edit'] });
+    renderGrid({ rowActions: ['edit', 'delete'] });
     await settle();
     expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: true });
   });
 
-  it('⚠️ NOT IMPLEMENTED — `rowActions` does not NARROW inside the ceiling', async () => {
-    // The ruling's second half: `rowActions` "chooses among what `operations`
-    // allows", so naming only `edit` ought to leave Delete out even though
-    // `operations` allows it. It does not today, because the gate cannot tell
-    // "`rowActions` absent" from "`rowActions` present without `delete`" — the
-    // call site collapses both to the same `false`, and narrowing on it would
-    // close the generic entries on every grid that declares no `rowActions`.
-    // Pinned as a RECORD of the gap, ⛔ not as an endorsement: implementing the
-    // narrowing turns this case red, which is the re-read it should force.
+  it('`rowActions` NARROWS inside the ceiling — naming only `edit` withholds Delete that `operations` allows', async () => {
+    // objectui#10083, the ruling's second half: `rowActions` "chooses among what
+    // `operations` allows". Until objectui#10083 this case was pinned as
+    // `⚠️ NOT IMPLEMENTED` and read `{ trigger: true, edit: true, delete: true }`,
+    // because the call site collapsed "`rowActions` absent" and "`rowActions`
+    // present without `delete`" into the same `false`.
     renderGrid({ operations: { update: true, delete: true }, rowActions: ['edit'] });
     await settle();
+    expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: false });
+  });
+
+  it('…and narrows the same way under the wired-callback default, when `operations` is absent', async () => {
+    // The narrowing is a term of its own, not a rider on an authored
+    // `operations` block: the default arm is picked by whether `rowActions` was
+    // declared, never by whether `operations` was.
+    renderGrid({ rowActions: ['delete'] });
+    await settle();
+    expect(await rowKebab()).toEqual({ trigger: true, edit: false, delete: true });
+  });
+
+  it('ABSENT `rowActions` keeps the default — the narrowing never fires on a list nobody declared', async () => {
+    // The control for the two narrowing cases: implement narrowing on the bare
+    // `includes()` answer and this goes red, because an absent list reads as
+    // "names nothing" and closes both generic entries on every grid that never
+    // mentioned `rowActions`.
+    renderGrid({ operations: { update: true, delete: true } });
+    await settle();
     expect(await rowKebab()).toEqual({ trigger: true, edit: true, delete: true });
+  });
+
+  it('a DECLARED list naming neither canonical member offers neither generic entry', async () => {
+    // An empty list is a declaration that selects nothing — the same rule as a
+    // list naming only custom actions (`rowActions: ['approve']`), which keeps
+    // its custom entry and loses the generic pair.
+    renderGrid({ operations: { update: true, delete: true }, rowActions: [] });
+    await settle();
+    expect(await rowKebab()).toEqual({ trigger: false, edit: false, delete: false });
   });
 });
 

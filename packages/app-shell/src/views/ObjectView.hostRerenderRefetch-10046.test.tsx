@@ -50,7 +50,15 @@
  * An exact count there was a FIX limb filed as a control. The control's job is
  * the other direction — a real change must never LOSE its refetch — so it now
  * asserts at least one, which holds in both worlds. The prediction above is
- * left as written before the run.
+ * left as written before the run; its "bare re-render 1" is also off by the
+ * case's own construction — the case bumps the parent TWICE, and measured 2.
+ *
+ * That control was then found BLIND, and fixed: an over-applied fix (keep the
+ * held bag whatever arrives) still passed it, because the object swap also
+ * rebuilt `schema.columns` and the refetch was earned there. With one shared
+ * column array (`COLUMNS`) the reverse runs read: fix reverted ⇒ the three FIX
+ * cases red (2, 4, 2), controls green; fix over-applied ⇒ the real-change
+ * control red (0 refetches), the rest green.
  */
 
 import * as React from 'react';

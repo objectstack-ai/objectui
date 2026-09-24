@@ -30,6 +30,10 @@
  *  - the control: with no reference column previewed the query carries no
  *    `$expand` key at all;
  *  - the browse-all picker behind the dropdown, the same way;
+ *  - field-level security gates the expansion, as at every other
+ *    `buildExpandFields` call site: a relation the loaded policy denies is not
+ *    asked for (dropdown, recents rail, picker), a readable one is, and with
+ *    no policy loaded nothing is filtered;
  *  - expansion changes nothing a host or a user reads besides the request
  *    count. The option labels (including a `titleFormat` template that names
  *    the expanded field), the preview text, and the record handed to
@@ -43,8 +47,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SchemaRendererContext } from '@object-ui/react';
+import { PermissionProvider } from '@object-ui/permissions';
 import { LookupField } from './LookupField';
 import { RecordPickerDialog } from './RecordPickerDialog';
+import { pushRecentLookupId } from './recentLookups';
 import { getCellRenderer } from '../index';
 
 /** A full dropdown page — the page size the inline dropdown asks for. */
@@ -151,24 +157,38 @@ async function settle(): Promise<void> {
  * Mount the lookup the way a form does and wait for the referenced schema,
  * which lands at mount — before any user can reach the trigger.
  */
-async function mountLookup(backend: Backend, extra: Record<string, unknown> = {}): Promise<void> {
+/** Wraps the rendered tree — a permission provider, or nothing. */
+type Wrap = (node: React.ReactElement) => React.ReactElement;
+const bare: Wrap = (node) => node;
+
+async function mountLookup(
+  backend: Backend,
+  extra: Record<string, unknown> = {},
+  wrap: Wrap = bare,
+): Promise<void> {
   render(
-    <SchemaRendererContext.Provider value={{ dataSource: backend.dataSource } as any}>
-      <LookupField
-        value={undefined}
-        onChange={() => {}}
-        dataSource={backend.dataSource}
-        field={{ reference_to: 'task_version' } as never}
-        {...(extra as object)}
-      />
-    </SchemaRendererContext.Provider>,
+    wrap(
+      <SchemaRendererContext.Provider value={{ dataSource: backend.dataSource } as any}>
+        <LookupField
+          value={undefined}
+          onChange={() => {}}
+          dataSource={backend.dataSource}
+          field={{ reference_to: 'task_version' } as never}
+          {...(extra as object)}
+        />
+      </SchemaRendererContext.Provider>,
+    ),
   );
   await waitFor(() => expect(backend.dataSource.getObjectSchema).toHaveBeenCalledWith('task_version'));
   await settle();
 }
 
-async function openDropdown(backend: Backend, extra: Record<string, unknown> = {}): Promise<void> {
-  await mountLookup(backend, extra);
+async function openDropdown(
+  backend: Backend,
+  extra: Record<string, unknown> = {},
+  wrap: Wrap = bare,
+): Promise<void> {
+  await mountLookup(backend, extra, wrap);
   await act(async () => {
     fireEvent.click(screen.getByTestId('lookup-trigger'));
   });
@@ -368,5 +388,87 @@ describe('LookupField — expansion changes the request count and nothing else (
         owner: 'samepick_user_0',
       },
     ]);
+  });
+});
+
+describe('LookupField — field-level security gates the expansion (objectui#10223)', () => {
+  /**
+   * The real provider, not a stub: `checkField` answers from a policy that
+   * denies `task_version.task` to the `viewer` role and says nothing about
+   * `owner`. Both relations are previewed, so the pin reads a FILTER — one
+   * name removed, the other kept — rather than an expansion that vanished.
+   */
+  function withPolicy(taskReadable: boolean): Wrap {
+    return (node) => (
+      <PermissionProvider
+        roles={[]}
+        userRoles={['viewer']}
+        permissions={[
+          {
+            object: 'task_version',
+            roles: { viewer: { actions: ['read'], fieldPermissions: [{ field: 'task', read: taskReadable }] } },
+          },
+        ]}
+      >
+        {node}
+      </PermissionProvider>
+    );
+  }
+
+  const HIGHLIGHTS = ['code', 'task', 'owner'];
+
+  it('dropdown: a relation the policy denies is not expanded; the readable one still is', async () => {
+    const backend = makeBackend({ prefix: 'flsdeny', highlightFields: HIGHLIGHTS });
+    await openDropdown(backend, {}, withPolicy(false));
+    const queries = candidateQueries(backend);
+    expect(queries).toHaveLength(1);
+    expect(queries[0].$expand).toEqual(['owner']);
+  });
+
+  it('dropdown: a readable relation is expanded as before', async () => {
+    const backend = makeBackend({ prefix: 'flsallow', highlightFields: HIGHLIGHTS });
+    await openDropdown(backend, {}, withPolicy(true));
+    expect(candidateQueries(backend)[0].$expand).toEqual(['task', 'owner']);
+  });
+
+  it('dropdown: no policy loaded (no provider) filters nothing', async () => {
+    const backend = makeBackend({ prefix: 'flsnone', highlightFields: HIGHLIGHTS });
+    await openDropdown(backend);
+    expect(candidateQueries(backend)[0].$expand).toEqual(['task', 'owner']);
+  });
+
+  it('recents rail: the same gate applies to its query', async () => {
+    const backend = makeBackend({ prefix: 'flsrecent', highlightFields: HIGHLIGHTS });
+    pushRecentLookupId('task_version', 'flsrecent_tv_1');
+    pushRecentLookupId('task_version', 'flsrecent_tv_0');
+    await openDropdown(backend, {}, withPolicy(false));
+    const recents = candidateQueries(backend).filter((p) => JSON.stringify(p.$filter ?? {}).includes('$in'));
+    expect(recents).toHaveLength(1);
+    expect(recents[0].$expand).toEqual(['owner']);
+  });
+
+  it('picker: a relation the policy denies is not expanded; the readable one still is', async () => {
+    const backend = makeBackend({ prefix: 'flspick', highlightFields: HIGHLIGHTS });
+    render(
+      withPolicy(false)(
+        <SchemaRendererContext.Provider value={{ dataSource: backend.dataSource } as any}>
+          <RecordPickerDialog
+            open
+            onOpenChange={() => {}}
+            dataSource={backend.dataSource}
+            objectName="task_version"
+            displayField="name"
+            columns={['name', 'code', 'task', 'owner']}
+            onSelect={() => {}}
+            cellRenderer={getCellRenderer}
+            fieldsMeta={TASK_VERSION_FIELDS}
+          />
+        </SchemaRendererContext.Provider>,
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('record-row-flspick_tv_0')).toBeInTheDocument());
+    const queries = candidateQueries(backend);
+    expect(queries).toHaveLength(1);
+    expect(queries[0].$expand).toEqual(['owner']);
   });
 });

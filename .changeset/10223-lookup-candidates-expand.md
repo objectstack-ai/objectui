@@ -15,9 +15,16 @@ Both queries now ask for `$expand` on the reference columns they display,
 chosen by `buildExpandFields` from `@object-ui/core` (the rule the list views
 apply to their visible columns): the dropdown's previewed columns, and the
 picker's columns other than its id column. The dropdown's recently-used rail
-asks for the same expansion. Related records now render from the expanded
-values with no request per row. A backend that ignores `$expand` still returns
-bare ids, and those are resolved one by one as before.
+asks for the same expansion. Related records in the expanded columns now
+render with no request per row.
+
+Field-level security gates that list the way it gates the other
+`buildExpandFields` call sites: once the permission policy has loaded, a
+reference column the user may not read on the referenced object is left out of
+`$expand`; before the policy loads, nothing is filtered. `@object-ui/fields`
+now depends on `@object-ui/permissions` for that check. A column left out of
+`$expand`, like any column from a backend that ignores the parameter, still
+arrives as a bare id and is resolved one by one as before.
 
 `buildExpandFields` covers `user` columns as well as `lookup`,
 `master_detail` and `tree`. A previewed `user` column therefore now shows the

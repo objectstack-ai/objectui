@@ -42,6 +42,7 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 // ObjectView, so a spec `ViewFilterRule[]` lowers in exactly one place.
 import { buildExpandFields, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
 // The one place a lookup column's display value is decided — shared with the
@@ -513,11 +514,17 @@ export function RecordPickerDialog({
    * `onSelectRecords` hands a host, and the `titleFormat` template's reading
    * of a row — sees the row with its relations collapsed to ids
    * (`toPredicateRecord`), as it did before any column was expanded.
+   *
+   * Field-level security gates the OUTPUT, in the objectui#7429 sweep's shape
+   * — the same gate as LookupField's `candidateExpand`: once the policy has
+   * loaded, a relation the user may not read on `objectName` is not asked for.
    */
-  const expand = useMemo<string[]>(
-    () => buildExpandFields(fieldsMeta, resolvedColumns.filter((c) => c.field !== idField)),
-    [fieldsMeta, resolvedColumns, idField],
-  );
+  const perms = usePermissions();
+  const expand = useMemo<string[]>(() => {
+    const expandable = buildExpandFields(fieldsMeta, resolvedColumns.filter((c) => c.field !== idField));
+    if (!perms.isLoaded) return expandable;
+    return expandable.filter((f) => perms.checkField(objectName, f, 'read'));
+  }, [fieldsMeta, resolvedColumns, idField, perms, objectName]);
 
   // Auto-generate filter columns from lookupFilters when no explicit filterColumns given.
   // Each LookupFilterDef becomes a filterable field with inferred type.

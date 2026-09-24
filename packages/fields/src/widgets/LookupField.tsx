@@ -33,6 +33,7 @@ import {
 } from './lookupColumnDisplay.js';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { SchemaRendererContext as ImportedSchemaRendererContext, useAction, useHasActionProvider } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 
 export interface LookupOption {
@@ -514,11 +515,21 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * the expanded row (`previewRows` below). A backend that ignores `$expand`
    * returns bare ids, and the cell renderer's per-id resolution takes over as
    * before.
+   *
+   * Field-level security gates the OUTPUT, in the shape the objectui#7429 sweep
+   * applied at every other `buildExpandFields` call site: once the policy has
+   * loaded, a relation the user may not read on the referenced object is not
+   * asked for; before it loads, nothing is filtered and `perms` in the deps
+   * rebuilds the list when the answer arrives. Every name judged here is one
+   * the referenced object declares, so the "`checkField` answers false for an
+   * undeclared key" trap cannot be reached.
    */
-  const candidateExpand = useMemo<string[]>(
-    () => buildExpandFields(refObjectSchema?.fields, previewColumns),
-    [refObjectSchema, previewColumns],
-  );
+  const perms = usePermissions();
+  const candidateExpand = useMemo<string[]>(() => {
+    const expandable = buildExpandFields(refObjectSchema?.fields, previewColumns);
+    if (!perms.isLoaded || !referenceTo) return expandable;
+    return expandable.filter((f) => perms.checkField(referenceTo, f, 'read'));
+  }, [refObjectSchema, previewColumns, perms, referenceTo]);
 
   // Derive filter-bar columns from any typed picker columns.
   const filterColumns = useMemo<RecordPickerFilterColumn[] | undefined>(() => {

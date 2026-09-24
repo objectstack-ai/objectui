@@ -1,5 +1,5 @@
 ---
-'@object-ui/data-objectstack': patch
+'@object-ui/data-objectstack': minor
 ---
 
 `aggregate()` reads the analytics answer in ONE spelling: `rows` on the `AnalyticsResult` that `client.analytics.query` resolves to (objectui#7028). The `{ success, data: { rows } }` envelope is no longer accepted at this site.

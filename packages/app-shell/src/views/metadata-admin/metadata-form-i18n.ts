@@ -68,15 +68,15 @@
  * resolver runs, every field object this overlay hands on is stamped with the
  * label it arrived with, under a module-private symbol. The resolver copies
  * fields with object spread, which carries own symbol keys, so the stamp rides
- * through to `SchemaForm`, which reads it back with
- * {@link untranslatedFieldLabel}. The stamp is not a `FormFieldSpec` key: it is
- * not authorable, not serialized (`JSON.stringify` skips symbols) and not part
- * of any exported type.
+ * through to `SchemaForm`, which reads it back with `untranslatedFieldLabel`.
+ * The symbol, its writer and its reader live in the runtime-import-free leaf
+ * `./field-source-label.ts`, whose header says what the stamp is and is not.
  */
 
 import { resolveMetadataFormLabels } from '@objectstack/spec/system';
 import type { TranslationBundle } from '@objectstack/spec/system';
 import { isZhLocale, type SupportedLocale } from './i18n.js';
+import { hasSourceLabel, stampSourceLabel } from './field-source-label.js';
 
 /**
  * zh-CN strings for the spec authoring forms this console renders.
@@ -153,20 +153,14 @@ export function localizeMetadataForm<T extends Record<string, unknown>>(
   return stampSynthesized(resolved);
 }
 
-/**
- * Where a field's pre-overlay label rides — see "The source label travels
- * with the translation" in this file's header. Module-private on purpose: the
- * only reader is {@link untranslatedFieldLabel}.
- */
-const SOURCE_LABEL = Symbol('metadataForm.sourceLabel');
-
 type Stamped = Record<PropertyKey, unknown>;
 
 /** Copy `field` (and its declared sub-fields) with its incoming label stamped. */
 function stampField(field: unknown): unknown {
   if (!field || typeof field !== 'object') return field;
   const src = field as Stamped;
-  const next: Stamped = { ...src, [SOURCE_LABEL]: typeof src.label === 'string' ? src.label : undefined };
+  const next: Stamped = { ...src };
+  stampSourceLabel(next, typeof src.label === 'string' ? src.label : undefined);
   if (Array.isArray(src.fields)) next.fields = src.fields.map(stampField);
   return next;
 }
@@ -196,7 +190,7 @@ function stampSynthesized<T>(form: T): T {
   const visit = (field: unknown): void => {
     if (!field || typeof field !== 'object') return;
     const f = field as Stamped;
-    if (!(SOURCE_LABEL in f)) f[SOURCE_LABEL] = undefined;
+    if (!hasSourceLabel(f)) stampSourceLabel(f, undefined);
     if (Array.isArray(f.fields)) f.fields.forEach(visit);
   };
   const root = form as Stamped | undefined;
@@ -209,33 +203,6 @@ function stampSynthesized<T>(form: T): T {
     }
   }
   return form;
-}
-
-/**
- * The label a form field carried BEFORE any locale overlay replaced it — the
- * string `SchemaForm`'s machine-name chip must judge (objectui#8231).
- *
- *  - A field this overlay translated answers the label it arrived with, which
- *    is `undefined` when the spec authored none (every `dashboardForm` field
- *    today) — the caller then falls back to the schema's own English, exactly
- *    as the English panel does.
- *  - A field the overlay never saw (an English console, a curated client form)
- *    answers its own `label`: nothing replaced it, so it is its own source.
- *
- * A field the resolver SYNTHESIZED from the bundle (the children of a
- * `composite` it enumerates) was never authored with a label; it is stamped
- * `undefined` by {@link stampSynthesized}, so it answers `undefined` too.
- */
-export function untranslatedFieldLabel(
-  fieldSpec: { label?: unknown } | undefined,
-): string | undefined {
-  if (!fieldSpec) return undefined;
-  const stamped = fieldSpec as Stamped;
-  if (SOURCE_LABEL in stamped) {
-    const source = stamped[SOURCE_LABEL];
-    return typeof source === 'string' ? source : undefined;
-  }
-  return typeof fieldSpec.label === 'string' ? fieldSpec.label : undefined;
 }
 
 /** Whether this overlay carries anything for `type` at `locale`. Exported for tests. */

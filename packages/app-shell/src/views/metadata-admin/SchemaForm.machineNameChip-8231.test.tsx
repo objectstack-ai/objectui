@@ -24,7 +24,8 @@ import { render, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaForm } from './SchemaForm';
 import { getDashboardForm, getDashboardSchema } from './dashboard-schema';
-import { localizeMetadataForm, untranslatedFieldLabel } from './metadata-form-i18n';
+import { localizeMetadataForm } from './metadata-form-i18n';
+import { untranslatedFieldLabel } from './field-source-label';
 import { mergeServerFields } from './mergeServerFields';
 
 afterEach(cleanup);

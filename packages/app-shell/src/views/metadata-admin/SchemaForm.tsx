@@ -68,7 +68,7 @@ import {
   type WidgetRenderer,
 } from './widgets.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage, translateEnumOption, translateSchemaFieldLabel, translateSchemaFieldHelp } from './i18n.js';
-import { untranslatedFieldLabel } from './metadata-form-i18n.js';
+import { untranslatedFieldLabel } from './field-source-label.js';
 
 /**
  * The form authoring surface — `FormFieldSpec` and the `VisibilityPredicate`
@@ -1630,10 +1630,10 @@ function FieldRow({
   // label is a translation in a localized panel, and `prettify('columns')` can
   // never equal 「列数」, so the old comparison showed the chip beside every
   // field in Chinese and hid it beside the same fields in English. The source
-  // label is the one a locale overlay replaced (`untranslatedFieldLabel`), else
-  // the schema's own title, else the prettified name — the same chain as
-  // `label`, minus every translation step, so the chip answers alike in every
-  // locale.
+  // label is the one a locale overlay replaced (`untranslatedFieldLabel`, in
+  // `./field-source-label.ts`), else the schema's own title, else the
+  // prettified name — the same chain as `label`, minus every translation
+  // step, so the chip answers alike in every locale.
   const sourceLabel =
     untranslatedFieldLabel(fieldSpec) ||
     (schema?.title as string | undefined) ||

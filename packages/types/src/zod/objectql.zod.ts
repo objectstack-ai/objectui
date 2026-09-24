@@ -1852,6 +1852,11 @@ export const ObjectGanttSchema = BaseSchema.extend({
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#10250 — the full-text pair the record query carries, declared in
+  // step with the twin in `../objectql.ts`. ListView's toolbar Search writes
+  // both onto a gantt node, because the chart queries for itself.
+  search: z.string().optional().describe('Full-text search term, forwarded as $search (the server resolves the matched fields, ADR-0061)'),
+  searchableFields: z.array(z.string()).optional().describe('Narrows the fields `search` matches, forwarded as $searchFields alongside a term'),
 }).superRefine(requireRecordSource('object-gantt'));
 
 /**

@@ -28,11 +28,11 @@
  * keyed on `schema.filter` the way `ObjectGantt`'s reload effect is. Its
  * queries go to their own spy, so they can never be confused with the host's.
  *
- * REVERSE VERIFICATION. Delete the `filter: ganttChartFilter` line from the
+ * REVERSE VERIFICATION. Delete the `filter: selfQueryFilter` line from the
  * gantt branch (the node falls back to `baseProps`' authored filter): both
  * FORWARDS cases go red, and so does STABILITY, whose precondition waits for
  * the forwarded toolbar condition; the CONTROL stays green. Disable the
- * payload-keyed cache in `ganttChartFilter`: STABILITY alone goes red (the
+ * payload-keyed cache in `selfQueryFilter`: STABILITY alone goes red (the
  * chart re-queries an unchanged filter on every re-render).
  */
 

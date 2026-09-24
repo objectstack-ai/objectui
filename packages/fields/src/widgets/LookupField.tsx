@@ -132,6 +132,13 @@ function formatRecordTitle(record: any, titleFormat: string): string | null {
  *      of the resolver's `Record #<id>` floor here so the chip still falls
  *      through to the bare id when nothing nameable exists.
  *   4. the legacy hard-coded name list, then the raw id.
+ *
+ * The label is a DISPLAY value, so it is built from the row as the user may
+ * read it (objectui#10373): with `readable` given (a loaded permission policy),
+ * every field it denies is removed first — the row ObjectStack's `FieldMasker`
+ * already serves — and the chain above falls through exactly as it does for
+ * that row. Nothing else moves: the value, the description and the record the
+ * option carries (what `onSelectRecord` receives) are the row as served.
  */
 function recordToOption(
   record: any,
@@ -140,15 +147,17 @@ function recordToOption(
   descriptionField?: string,
   titleFormat?: string | null,
   objectDef?: any,
+  readable?: FieldReadGate,
 ): LookupOption {
   const val = record[idField] ?? record.id ?? record._id ?? record.externalId;
-  const templated = titleFormat ? formatRecordTitle(record, titleFormat) : null;
+  const shown = withoutDeniedFields(record, readable);
+  const templated = titleFormat ? formatRecordTitle(shown, titleFormat) : null;
 
   // Object-level resolver fallback (displayNameField + derivation), excluding
   // its id floor so we don't shadow the explicit `String(val)` tail.
   let unified: string | undefined;
   if (objectDef) {
-    const resolved = getRecordDisplayName(objectDef, record);
+    const resolved = getRecordDisplayName(objectDef, shown);
     const id = record?.id ?? record?._id;
     const isFloor =
       resolved === 'Untitled' ||
@@ -158,17 +167,58 @@ function recordToOption(
 
   const label =
     templated ??
-    record[displayField] ??
+    shown[displayField] ??
     unified ??
-    record.label ??
-    record.name ??
-    record.full_name ??
-    record.title ??
-    record.subject ??
-    record.externalId ??
+    shown.label ??
+    shown.name ??
+    shown.full_name ??
+    shown.title ??
+    shown.subject ??
+    shown.externalId ??
     String(val);
   const description = descriptionField ? record[descriptionField] : undefined;
-  return { value: val, label: String(label), description, ...record };
+  const option = { value: val, label: String(label), description, ...record };
+  // A row field literally named `label` wins the spread above. When a field was
+  // withheld, the label built from the shown row stands instead, so a denied
+  // `label` field cannot come back through the spread.
+  return shown === record ? option : { ...option, label: String(label) };
+}
+
+/** "May the user read this field?" on one object, once a policy has loaded. */
+type FieldReadGate = (field: string) => boolean;
+
+/**
+ * The field-read gate on `objectName`, or `undefined` while no policy has
+ * loaded — before then nothing is withheld, as at every other gate in this
+ * file. The identity columns are never judged: the id is the committed value,
+ * not a display value.
+ */
+function fieldReadGate(
+  perms: ReturnType<typeof usePermissions>,
+  objectName: string | undefined,
+  idField: string,
+): FieldReadGate | undefined {
+  if (!perms.isLoaded || !objectName) return undefined;
+  return (field) =>
+    field === idField || field === 'id' || field === '_id' || perms.checkField(objectName, field, 'read');
+}
+
+/**
+ * `record` without the fields `readable` denies — the same object back when
+ * nothing is withheld (or no gate is given), so a caller can tell the two
+ * apart by identity. `RecordPickerDialog` applies the same rule to its display
+ * column's `titleFormat` (its own `withoutDeniedFields`); each file keeps its
+ * own copy so that neither becomes a package export.
+ */
+function withoutDeniedFields(record: any, readable: FieldReadGate | undefined): any {
+  if (!readable || !record || typeof record !== 'object') return record;
+  let shown: Record<string, unknown> | null = null;
+  for (const key of Object.keys(record)) {
+    if (readable(key)) continue;
+    if (!shown) shown = { ...record };
+    delete shown[key];
+  }
+  return shown ?? record;
 }
 
 /**
@@ -553,9 +603,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * arrived as a bare key, and the lookup cell renderer resolved it with a read
    * of its own.
    *
-   * What is never filtered: the option's label, which `recordToOption` builds
-   * from the row and not from these columns, and the id column, which holds
-   * the value being committed. `candidateExpand` keeps
+   * The id column is never filtered: it holds the value being committed. The
+   * option's label is not one of these columns; `recordToOption` builds it
+   * from the row with the denied fields removed (`fieldReadGate`), so the
+   * display field and a `titleFormat` obey the same policy without dropping
+   * the option. `candidateExpand` keeps
    * reading the unfiltered list and gating its own output, as every
    * `buildExpandFields` call site does; both ask `checkField` about the same
    * names on the same object, so the two lists cannot disagree.
@@ -641,9 +693,10 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
           displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
         ),
       ),
-    [popoverQuery.records, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+    [popoverQuery.records, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
   );
 
   const allOptions = hasDataSource ? fetchedOptions : staticOptions;
@@ -715,6 +768,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     (async () => {
       try {
         const fetched: LookupOption[] = [];
+        // Labels are built from the row as the user may read it — the policy
+        // this effect ran under (objectui#10373).
+        const readable = fieldReadGate(perms, referenceTo, idField);
         // Single id: the pre-existing cheap paths — a primary-id `findOne`
         // GET, or an equality filter when the field commits a different
         // column (`idField: 'name'` — e.g. position machine names,
@@ -723,14 +779,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           const id = unresolved[0];
           if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {
             const rec = await (dataSource as any).findOne(referenceTo, id);
-            if (rec) fetched.push(recordToOption(rec, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+            if (rec) fetched.push(recordToOption(rec, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
           } else {
             const res = await dataSource.find(referenceTo, {
               $filter: { [idField]: id },
               $top: 1,
             } as QueryParams);
             const rows = (res as any)?.data ?? res ?? [];
-            if (rows[0]) fetched.push(recordToOption(rows[0], displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+            if (rows[0]) fetched.push(recordToOption(rows[0], displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
           }
         } else {
           // SEVERAL unresolved ids: one `$in` query per chunk. A multi-value
@@ -755,7 +811,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             const rows = (res as any)?.data ?? res ?? [];
             if (!Array.isArray(rows)) continue;
             for (const row of rows) {
-              fetched.push(recordToOption(row, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+              fetched.push(recordToOption(row, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
             }
           }
         }
@@ -847,14 +903,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       // mapped directly, mirroring the read cell (`LookupCellRenderer`).
       const asObject = typeof raw === 'object' ? raw : parseReferenceObjectString(raw);
       if (asObject) {
-        return recordToOption(asObject, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+        return recordToOption(asObject, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
       }
       // Bare id: strict match first, then a String()-coerced fallback so a
       // numeric cell value still resolves against a string-keyed option (and
       // vice versa) — matching the read cell's tolerant comparison.
       return findOption(raw) ?? findOptionLoose(raw);
     },
-    [findOption, findOptionLoose, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+    [findOption, findOptionLoose, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
   );
 
   // A value can hold bare ids that no option list resolves YET — the batch
@@ -941,11 +997,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // findOption can resolve display labels after the dialog closes.
   const handlePickerSelectRecords = useCallback(
     (records: any[]) => {
-      const mapped = records.map(r => recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+      const readable = fieldReadGate(perms, referenceTo, idField);
+      const mapped = records.map(r => recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
       if (referenceTo) mapped.forEach((o) => pushRecentLookupId(referenceTo, o.value));
       setPickerResolvedRecords(mapped);
     },
-    [displayField, idField, effectiveDescriptionField, refTitleFormat, referenceTo],
+    [displayField, idField, effectiveDescriptionField, refTitleFormat, referenceTo, perms],
   );
 
   // ── Recently-used, quick-create, combined option list ────────────────────
@@ -1025,9 +1082,10 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
           displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
         ),
       ),
-    [recentRows, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+    [recentRows, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
   );
 
   /**
@@ -1097,7 +1155,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           modal: { objectName: referenceTo, mode: 'create' },
         } as any);
         if (result?.success && result.data) {
-          const opt = recordToOption(result.data, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+          const opt = recordToOption(result.data, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
           setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
           handleSelect(opt);
           return;
@@ -1114,7 +1172,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       setCreating(true);
       try {
         const created = await (dataSource as any).create(referenceTo, { [displayField]: label });
-        const opt = recordToOption(created, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+        const opt = recordToOption(created, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
         setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
         handleSelect(opt);
       } catch (err) {
@@ -1123,7 +1181,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         setCreating(false);
       }
     },
-    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, handleSelect],
+    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, handleSelect, perms],
   );
 
   /**

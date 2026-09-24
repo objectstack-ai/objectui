@@ -2,24 +2,37 @@
 '@object-ui/fields': patch
 ---
 
-fix(fields): the lookup dropdown and record picker stop drawing columns field-level security denies, and PeoplePicker's `$expand` is gated
+fix(fields): the lookup dropdown and record picker stop showing fields field-level security denies, and PeoplePicker's `$expand` is gated
 
 A lookup field's dropdown and its browse-all picker (`RecordPickerDialog`)
-filtered their `$expand` through field-level security, but not the columns
-they draw. Once the permission policy had loaded, a column the user may not
-read on the referenced object was still previewed under each dropdown
-candidate, and still headed and rendered in every picker row. A denied
-relation column, left out of `$expand`, arrived as a bare id, and the lookup
-cell renderer then fetched each related record on its own.
+filtered their `$expand` through field-level security, but not what they
+draw. Once the permission policy had loaded, a column the user may not read
+on the referenced object was still previewed under each dropdown candidate,
+and still headed and rendered in every picker row. A denied relation column,
+left out of `$expand`, arrived as a bare id, and the lookup cell renderer then
+fetched each related record on its own. A denied display field still labelled
+every option, and a `titleFormat` template still printed every field it
+named.
 
-Both now drop those columns from what they draw, the way `RelatedList` treats
-its columns: once the policy has loaded, a column the user may not read on the
-referenced object is not previewed in the dropdown, and is neither headed nor
-rendered in the picker. A `renderGrid` slot on the picker receives the same
-filtered columns. The picker never filters its display column or its id
-column, and choosing a row still commits its id; the dropdown's option label
-is not a preview column and is not filtered either. Before the policy
-loads, nothing is filtered, and the columns are re-derived when it arrives.
+Both now treat those fields the way `RelatedList` treats its columns: once the
+policy has loaded, a column the user may not read on the referenced object is
+not previewed in the dropdown, and is neither headed nor rendered in the
+picker. The picker's display column is gated like any other column. Its id
+column never is, and when the policy leaves no other column to draw, the
+picker draws the id column so that every row can still be told apart and
+chosen. A `renderGrid` slot on the picker receives the same columns. Before
+the policy loads, nothing is filtered, and the columns are re-derived when it
+arrives.
+
+An option's label is built from the row with the denied fields removed,
+the same row ObjectStack's `FieldMasker` already serves, so on that backend
+labels do not change. A denied display field therefore falls through to the
+next source of a label, ending at the record id, and a `titleFormat` template,
+in the dropdown's labels and in the picker's display column, leaves a denied
+field's slot empty. The label is a display value only: the committed value is
+unchanged, the records the picker hands to `onSelectRecords` are unchanged,
+and the option the dropdown hands to `onSelectRecord` still carries the served
+row's other fields beside its label.
 
 `PeoplePicker`, which a lookup opens when its field sets `picker: 'search'`,
 derives its `$expand` from dotted `subtitle` paths such as

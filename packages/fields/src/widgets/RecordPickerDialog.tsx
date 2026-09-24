@@ -108,8 +108,9 @@ export interface RecordPickerFilterBarProps {
 export interface RecordPickerGridSlotProps {
   /**
    * Resolved column definitions, less the ones field-level security denies
-   * once the permission policy has loaded — the columns the built-in table
-   * draws (objectui#10373).
+   * once the permission policy has loaded, the display column included — the
+   * columns the built-in table draws (objectui#10373). When none survives,
+   * this is the id column alone.
    */
   columns: LookupColumnDef[];
   /** Current page of records */
@@ -425,6 +426,32 @@ export interface RecordPickerDialogProps {
 }
 
 /**
+ * `record` without the fields the loaded permission policy denies on
+ * `objectName` (objectui#10373) — the row ObjectStack's `FieldMasker` already
+ * serves. The identity columns are never judged: the id is the committed
+ * value, not a display value. Before a policy loads, the record comes back as
+ * is. `LookupField` applies the same rule to its option labels
+ * (`withoutDeniedFields` there); each file keeps its own copy because this one
+ * is re-exported whole from the package entry and the helper is not public.
+ */
+function withoutDeniedFields(
+  record: any,
+  perms: ReturnType<typeof usePermissions>,
+  objectName: string,
+  idField: string,
+): any {
+  if (!perms.isLoaded || !record || typeof record !== 'object') return record;
+  let shown: Record<string, unknown> | null = null;
+  for (const key of Object.keys(record)) {
+    if (key === idField || key === 'id' || key === '_id') continue;
+    if (perms.checkField(objectName, key, 'read')) continue;
+    if (!shown) shown = { ...record };
+    delete shown[key];
+  }
+  return shown ?? record;
+}
+
+/**
  * RecordPickerDialog — Enterprise-grade record selection dialog.
  *
  * Renders records in a table with multi-column display, search,
@@ -549,24 +576,25 @@ export function RecordPickerDialog({
    * arrived as a bare key, and the lookup cell renderer resolved it with a read
    * of its own.
    *
-   * Two columns are never filtered, because a row is chosen by them: the
-   * display column (the row's title) and the id column (the value committed).
-   * Selection reads the id from the row itself, never from a drawn column.
+   * The display column is a drawn column like any other, as in
+   * `keepReadableColumns`: a denied display field is not drawn. The id column
+   * is never filtered — it is the value committed — and selection reads the id
+   * from the row itself, never from a drawn column, so every row stays
+   * selectable. When the policy leaves no column to draw (the default picker
+   * draws only the display column), the id column is drawn instead, so a row
+   * still has something to click and to tell it apart by.
+   *
    * `expand` keeps reading `resolvedColumns` and gating its own output, as
    * every `buildExpandFields` call site does; both ask `checkField` about the
    * same names on the same object, so the two lists cannot disagree.
    */
-  const readableColumns = useMemo<LookupColumnDef[]>(
-    () =>
-      resolvedColumns.filter(
-        (c) =>
-          !perms.isLoaded ||
-          c.field === displayField ||
-          c.field === idField ||
-          perms.checkField(objectName, c.field, 'read'),
-      ),
-    [resolvedColumns, perms, objectName, displayField, idField],
-  );
+  const readableColumns = useMemo<LookupColumnDef[]>(() => {
+    if (!perms.isLoaded) return resolvedColumns;
+    const kept = resolvedColumns.filter(
+      (c) => c.field === idField || perms.checkField(objectName, c.field, 'read'),
+    );
+    return kept.length > 0 ? kept : [{ field: idField, label: fieldToLabel(idField) }];
+  }, [resolvedColumns, perms, objectName, idField]);
 
   // Auto-generate filter columns from lookupFilters when no explicit filterColumns given.
   // Each LookupFilterDef becomes a filterable field with inferred type.
@@ -838,10 +866,17 @@ export function RecordPickerDialog({
   // The display column's `titleFormat` template reads the row with its
   // relations collapsed to ids, so an expanded reference it names prints what
   // it printed before `$expand` rather than an object (objectui#10223).
+  //
+  // That template can name any field of the row, not only the column's own, so
+  // it reads the row with the fields the loaded policy denies removed
+  // (objectui#10373) — the row ObjectStack's `FieldMasker` already serves. A
+  // denied field it names renders as an empty slot, exactly as for that row.
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
       renderLookupColumnValue(
-        titleFormat && col.field === displayField ? toPredicateRecord(record, fieldsMeta) : record,
+        titleFormat && col.field === displayField
+          ? withoutDeniedFields(toPredicateRecord(record, fieldsMeta), perms, objectName, idField)
+          : record,
         col,
         {
           descriptors: columnFieldDescriptors,
@@ -851,7 +886,7 @@ export function RecordPickerDialog({
           displayLocale,
         },
       ),
-    [cellRenderer, titleFormat, displayField, fieldsMeta, columnFieldDescriptors, displayLocale],
+    [cellRenderer, titleFormat, displayField, fieldsMeta, columnFieldDescriptors, displayLocale, perms, objectName, idField],
   );
 
   // Render sort indicator for a column

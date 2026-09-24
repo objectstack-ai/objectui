@@ -27,8 +27,13 @@
  *  - the readable columns still render (the pin reads a FILTER);
  *  - with no policy loaded (no provider: `isLoaded` is false) nothing is
  *    filtered;
- *  - the display column and the id column are never filtered, and choosing a
- *    row still commits its id, even when the policy denies both;
+ *  - the display column is filtered like any other drawn column (the
+ *    `keepReadableColumns` shape, no title exemption); the id column never is,
+ *    and choosing a row still commits its id, even when the policy denies both;
+ *  - a policy that leaves no column to draw draws the id column instead, so
+ *    every row stays selectable;
+ *  - a `titleFormat` naming a denied field does not render it in the display
+ *    column;
  *  - a policy answer that changes after mount re-derives the drawn columns in
  *    the same mounted picker (`perms` is in the memo's dependencies).
  */
@@ -103,11 +108,13 @@ function Picker({
   columns,
   onSelect = () => {},
   renderGrid,
+  titleFormat,
 }: {
   ds: Backend;
-  columns: string[];
+  columns?: string[];
   onSelect?: (v: unknown) => void;
   renderGrid?: (p: RecordPickerGridSlotProps) => React.ReactNode;
+  titleFormat?: string;
 }) {
   return (
     <SchemaRendererContext.Provider value={{ dataSource: ds } as any}>
@@ -122,6 +129,7 @@ function Picker({
         cellRenderer={getCellRenderer}
         fieldsMeta={ACCOUNT_FIELDS}
         renderGrid={renderGrid}
+        titleFormat={titleFormat}
       />
     </SchemaRendererContext.Provider>
   );
@@ -208,24 +216,70 @@ describe('RecordPickerDialog — the picker draws only readable columns (objectu
     expect(cells('secret')).toEqual(['S-0', 'S-1', 'S-2']);
   });
 
-  it('the display and id columns are never filtered, and choosing a row commits its id', async () => {
+  it('a denied display column is not drawn; the id column never is filtered, and a row click still selects', async () => {
     const ds = makeBackend('title');
     const onSelect = vi.fn();
     render(
       <PermissionProvider roles={[]} userRoles={['viewer']} permissions={policyDenying('id', 'name', 'code')}>
-        <Picker ds={ds} columns={['id', 'name', 'code']} onSelect={onSelect} />
+        <Picker ds={ds} columns={['id', 'name', 'code', 'secret']} onSelect={onSelect} />
       </PermissionProvider>,
     );
     await waitFor(() => expect(screen.getByTestId('record-row-title_acct_1')).toBeInTheDocument());
     await settle();
 
+    expect(headers()).toEqual(['Id', 'Secret']);
+    expect(cells('name')).toEqual([]);
     expect(cells('code')).toEqual([]);
     expect(cells('id')).toEqual(['title_acct_0', 'title_acct_1', 'title_acct_2']);
-    expect(cells('name')).toEqual(['Account 0', 'Account 1', 'Account 2']);
+    expect(document.body.textContent).not.toContain('Account 1');
     await act(async () => {
       fireEvent.click(screen.getByTestId('record-row-title_acct_1'));
     });
     expect(onSelect).toHaveBeenCalledWith('title_acct_1');
+  });
+
+  it('a policy that leaves no column to draw draws the id column, and a row click still selects', async () => {
+    const ds = makeBackend('only');
+    const onSelect = vi.fn();
+    render(
+      <PermissionProvider roles={[]} userRoles={['viewer']} permissions={policyDenying('name')}>
+        {/* No `columns`: the picker draws only its display column. */}
+        <Picker ds={ds} onSelect={onSelect} />
+      </PermissionProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('record-row-only_acct_2')).toBeInTheDocument());
+    await settle();
+
+    expect(headers()).toEqual(['Id']);
+    expect(cells('name')).toEqual([]);
+    expect(cells('id')).toEqual(['only_acct_0', 'only_acct_1', 'only_acct_2']);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('record-row-only_acct_2'));
+    });
+    expect(onSelect).toHaveBeenCalledWith('only_acct_2');
+  });
+
+  it('a `titleFormat` naming a denied field does not render it in the display column', async () => {
+    const ds = makeBackend('tf');
+    render(
+      <PermissionProvider roles={[]} userRoles={['viewer']} permissions={policyDenying('secret')}>
+        <Picker ds={ds} columns={['name', 'code']} titleFormat="{name} - {secret}" />
+      </PermissionProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('record-row-tf_acct_0')).toBeInTheDocument());
+    await settle();
+
+    expect(cells('name')).toEqual(['Account 0', 'Account 1', 'Account 2']);
+    expect(document.body.textContent).not.toContain('S-0');
+  });
+
+  it('control: with no policy loaded, the same `titleFormat` renders every field it names', async () => {
+    const ds = makeBackend('tfnone');
+    render(<Picker ds={ds} columns={['name', 'code']} titleFormat="{name} - {secret}" />);
+    await waitFor(() => expect(screen.getByTestId('record-row-tfnone_acct_0')).toBeInTheDocument());
+    await settle();
+
+    expect(cells('name')).toEqual(['Account 0 - S-0', 'Account 1 - S-1', 'Account 2 - S-2']);
   });
 
   it('a policy answer that changes after mount re-derives the drawn columns in place', async () => {

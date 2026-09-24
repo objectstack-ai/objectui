@@ -27,8 +27,12 @@
  *    preview that vanished);
  *  - with no policy loaded (no provider: `isLoaded` is false) nothing is
  *    filtered;
- *  - a policy that denies the display field drops no option: every candidate
- *    is still listed, and choosing one commits its id.
+ *  - the option label is a display value, built from the row with the denied
+ *    fields removed: on a backend that does NOT strip, a denied display field
+ *    yields exactly the label a stripping backend (ObjectStack's
+ *    `FieldMasker`) yields, no option is dropped, and choosing one still
+ *    commits its id; the record `onSelectRecord` receives keeps its shape;
+ *  - a `titleFormat` naming a denied field does not render it in the label.
  */
 
 import * as React from 'react';
@@ -50,11 +54,18 @@ const ACCOUNT_FIELDS: Record<string, any> = {
   region: { type: 'lookup', label: 'Region', reference_to: 'region' },
 };
 
-/**
- * A backend that does NOT strip denied keys (ObjectStack's `FieldMasker`
- * would) — the case this gate defends. It honours `$expand`.
- */
-function makeBackend(prefix: string) {
+interface BackendOptions {
+  /**
+   * Fields the backend removes from every row it serves, as ObjectStack's
+   * `FieldMasker` does for the fields a policy denies. Default: none — the
+   * non-stripping backend this gate defends against.
+   */
+  strip?: string[];
+  titleFormat?: string;
+}
+
+/** A backend that honours `$expand`, and strips only the fields it is told to. */
+function makeBackend(prefix: string, { strip = [], titleFormat }: BackendOptions = {}) {
   const regions: Record<string, { id: string; name: string }> = {};
   const rows: Record<string, any>[] = [];
   for (let i = 0; i < CANDIDATES; i++) {
@@ -68,6 +79,7 @@ function makeBackend(prefix: string) {
     const data = rows.map((r) => {
       const row = { ...r };
       if (expand.includes('region')) row.region = regions[r.region];
+      for (const f of strip) delete row[f];
       return row;
     });
     return { data, total: rows.length };
@@ -77,7 +89,12 @@ function makeBackend(prefix: string) {
   );
   const getObjectSchema = vi.fn(async (objectName: string) => {
     if (objectName === 'account') {
-      return { name: 'account', fields: ACCOUNT_FIELDS, highlightFields: ['code', 'secret', 'region'] };
+      return {
+        name: 'account',
+        fields: ACCOUNT_FIELDS,
+        highlightFields: ['code', 'secret', 'region'],
+        ...(titleFormat ? { titleFormat } : {}),
+      };
     }
     if (objectName === 'region') {
       return { name: 'region', fields: { name: { type: 'text', label: 'Name' } } };
@@ -126,7 +143,12 @@ async function settle(): Promise<void> {
   }
 }
 
-async function openDropdown(ds: Backend, wrap: Wrap, onChange: (v: unknown) => void = () => {}): Promise<void> {
+async function openDropdown(
+  ds: Backend,
+  wrap: Wrap,
+  onChange: (v: unknown) => void = () => {},
+  extra: Record<string, unknown> = {},
+): Promise<void> {
   render(
     wrap(
       <SchemaRendererContext.Provider value={{ dataSource: ds } as any}>
@@ -135,6 +157,7 @@ async function openDropdown(ds: Backend, wrap: Wrap, onChange: (v: unknown) => v
           onChange={onChange}
           dataSource={ds}
           field={{ reference_to: 'account' } as never}
+          {...(extra as object)}
         />
       </SchemaRendererContext.Provider>,
     ),
@@ -146,6 +169,11 @@ async function openDropdown(ds: Backend, wrap: Wrap, onChange: (v: unknown) => v
   });
   await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(CANDIDATES));
   await settle();
+}
+
+/** Each listed option's label, as its row shows it. */
+function optionLabels(): string[] {
+  return screen.getAllByRole('option').map((el) => el.querySelector('span.block')?.textContent ?? '');
 }
 
 function previews(field: string): string[] {
@@ -195,16 +223,63 @@ describe('LookupField — the dropdown previews only readable columns (objectui#
     expect(previews('region')[0]).toBe('Region 0');
   });
 
-  it('a policy denying the display field drops no option, and choosing one commits its id', async () => {
+  it('a denied display field: the label a stripping backend yields, no option dropped, the id committed', async () => {
+    // What a stripping backend renders under the same policy — the reference.
+    await openDropdown(makeBackend('title', { strip: ['name'] }), denying('name'));
+    const stripped = optionLabels();
+    cleanup();
+
     const ds = makeBackend('title');
     const onChange = vi.fn();
     await openDropdown(ds, denying('name'), onChange);
 
-    const options = screen.getAllByRole('option');
-    expect(options).toHaveLength(CANDIDATES);
+    const labels = optionLabels();
+    expect(labels).toHaveLength(CANDIDATES);
+    expect(labels).toEqual(stripped);
+    expect(labels.join(' ')).not.toContain('Account');
     await act(async () => {
-      fireEvent.click(options[2]);
+      fireEvent.click(screen.getAllByRole('option')[2]);
     });
     expect(onChange).toHaveBeenCalledWith('title_acct_2');
+  });
+
+  it('control: with no policy loaded, the display field labels the option', async () => {
+    await openDropdown(makeBackend('titlenone'), bare);
+    expect(optionLabels()[0]).toBe('Account 0');
+  });
+
+  it('a denied display field changes the label only: the record `onSelectRecord` receives keeps its shape', async () => {
+    const pick = async (wrap: Wrap): Promise<Record<string, unknown>> => {
+      const onSelectRecord = vi.fn();
+      await openDropdown(makeBackend('payload'), wrap, () => {}, { onSelectRecord });
+      await act(async () => {
+        fireEvent.click(screen.getAllByRole('option')[1]);
+      });
+      expect(onSelectRecord).toHaveBeenCalledTimes(1);
+      const payload = onSelectRecord.mock.calls[0][0] as Record<string, unknown>;
+      cleanup();
+      // The pick is remembered as "recently used"; the second pick must see
+      // the same list the first one did.
+      localStorage.clear();
+      return payload;
+    };
+    const open = await pick(bare);
+    const gated = await pick(denying('name'));
+
+    expect(gated.value).toBe('payload_acct_1');
+    expect(Object.keys(gated).sort()).toEqual(Object.keys(open).sort());
+    expect({ ...gated, label: undefined }).toEqual({ ...open, label: undefined });
+    expect(gated.label).not.toBe(open.label);
+  });
+
+  it('a `titleFormat` naming a denied field does not render it in the label', async () => {
+    await openDropdown(makeBackend('tf', { titleFormat: '{name} - {secret}' }), denying('secret'));
+    expect(optionLabels()[0]).toBe('Account 0');
+    expect(optionLabels().join(' ')).not.toContain('S-');
+  });
+
+  it('control: with no policy loaded, the same `titleFormat` renders every field it names', async () => {
+    await openDropdown(makeBackend('tfnone', { titleFormat: '{name} - {secret}' }), bare);
+    expect(optionLabels()[0]).toBe('Account 0 - S-0');
   });
 });

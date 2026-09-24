@@ -234,7 +234,7 @@ describe('applyFeedConfig — its `pageSize` clamp is an internal clamp, settled
   it('a refused cap widens the window to the default rather than narrowing it', () => {
     // The composed statement: resolver AND clamp, in the call shape both
     // renderers use on every render.
-    const applied = applyFeedConfig(SIX, {}, normalizeLimit(2.5) * 1);
+    const applied = applyFeedConfig(SIX, {}, normalizeLimit(2.5) * 1, 'record:activity');
     expect(applied.items).toHaveLength(6);
     expect(applied.hasMore).toBe(false);
     // The defect's answer was a two-row page with "Load more" still offered.
@@ -250,7 +250,7 @@ describe('applyFeedConfig — its `pageSize` clamp is an internal clamp, settled
         expect(pageSize).toBeGreaterThanOrEqual(1);
         // No floor to apply, no `||` arm to fire, nothing for `Math.max` to
         // lift: the window is exactly the page size, capped by what exists.
-        expect(applyFeedConfig(SIX, {}, pageSize).items).toHaveLength(
+        expect(applyFeedConfig(SIX, {}, pageSize, 'record:activity').items).toHaveLength(
           Math.min(SIX.length, pageSize),
         );
       }

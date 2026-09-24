@@ -1636,6 +1636,11 @@ function FieldInput({ field, state, value, onChange, onUploadingChange }: FieldI
             name={common.name}
             type="checkbox"
             disabled={state.readonly}
+            // The announced channel for required once the row's `*` is hidden
+            // (objectui#3299). Not native `required`: on a checkbox that means
+            // "must be checked", while the required rule counts `false` as a
+            // value (`isMissingForRequired`).
+            aria-required={state.required || undefined}
             checked={Boolean(v)}
             onChange={(e) => onChange(e.target.checked)}
             className="h-4 w-4 rounded border-input"
@@ -1823,10 +1828,15 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
    * form therefore still faults and still fails OPEN, exactly as before this
    * change; nothing new is declared to say so.
    *
-   * `features` is likewise empty here rather than fetched. `ExpressionProvider`
-   * already documents `{}` as the pre-load state whose predicates default to
-   * visible, and wiring a deployment-config fetch into this route would be a
-   * different card.
+   * `features` is likewise empty here. That is the contract, not a gap: a form
+   * view may not name the `features` root in a predicate at all (objectui#6262,
+   * ruled 2026-08-27). The same ruling rejected fetching `/auth/config` on this
+   * route to fill it. `@objectstack/spec` refuses such a predicate at parse,
+   * on every form-view predicate surface, and metadata-admin's `view` gates run
+   * that parse. So the in-app versus standalone-route split is closed where the
+   * form is authored, not in this renderer.
+   * `formViewFeaturesRootRefused-6262.test.ts` re-derives the refusal against
+   * the installed spec.
    */
   const predicateScope = usePredicateScope();
   /**
@@ -2251,7 +2261,12 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
                       * not a replacement for that server value.
                       */}
                     {fieldLabel(loaded.object, f.name, f.label)}
-                    {state.required && <span className="ml-0.5 text-destructive">*</span>}
+                    {/* Visual-only (objectui#3299): the control's `required` /
+                        `aria-required` is the announced channel; hiding the `*`
+                        keeps it out of the control's accessible name. */}
+                    {state.required && (
+                      <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>
+                    )}
                   </label>
                   <FieldInput
                     field={f}

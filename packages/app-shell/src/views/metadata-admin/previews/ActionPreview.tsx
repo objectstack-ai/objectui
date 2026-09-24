@@ -417,7 +417,7 @@ function DialogMock({ title, params, variant }: { title: string; params: ActionP
  * Stand-in target for a FIELD-BACKED picker. Not a real object name — only a
  * non-empty value, so `paramDegradesWithoutTarget` answers "a target exists".
  * The real one arrives from the bound field at runtime
- * (`resolveActionParams`: `referenceTo: param.reference ?? field.reference_to`).
+ * (`resolveActionParams`: `referenceTo: param.reference ?? field.reference`).
  */
 const INHERITED_TARGET = '(inherited from the bound field)';
 

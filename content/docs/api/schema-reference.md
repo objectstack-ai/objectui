@@ -935,7 +935,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 |----------|------|-------------|
 | `objectName` | `string` | Object to fetch records from. |
 | `groupBy` | `string` | Field whose values become the lanes (maps to column ids). **Optional** since objectui#8990, matching `@objectstack/spec`. A board that omits it draws whatever lanes `columns` declares — and holds **no cards**, because records are only distributed once a lane key exists. |
-| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. |
+| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. A record lands in a lane when its stored `groupBy` value equals the lane **`id`** (the option value, compared case-insensitively); the lane `title` is display only and never decides membership (objectui#10069). A record matching no lane id is shown in a trailing *Uncategorized* lane and named in a console warning. |
 | `titleField` | `string` | Field used as the card title. |
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |

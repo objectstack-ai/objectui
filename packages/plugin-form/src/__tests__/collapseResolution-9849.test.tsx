@@ -40,15 +40,20 @@
  * through `ObjectForm`'s drawer map) and the drawer trap rows, while every
  * `ObjectForm` row stays green. The run is recorded on the pull request.
  *
- * ⚠️ A READING, ⛔ NOT A RULING: the modal arm honours NEITHER member on either
- * route (`ModalFormSectionConfig` declares neither key and `ObjectForm`'s modal
- * map copies neither), so it draws every field and no control whatever the
- * section declares. That satisfies the one promise objectui#9780 exists for —
- * a declared section is never unreachable — but it is not the resolution
- * above. Bringing the pair onto the modal is ruling E item 1's 「on every arm」
- * and needs a new member on the modal's section shape, which is the later step
- * of this card, ⛔ not this one. The modal block pins today's reading so that
- * step flips it deliberately rather than by accident.
+ * ⭐ THE MODAL ARM, FLIPPED ON PURPOSE (objectui#9849 step two — director
+ * ruling letter E, item 1: group semantics attach 「on every arm」). Step one
+ * pinned the modal as a reading: it honoured NEITHER member on either route.
+ * `ModalFormSectionConfig` now declares both, `ObjectForm`'s modal map copies
+ * them, and the modal's derived route stops dropping the pair
+ * `deriveFieldGroupSections` hands it — so the modal routes run the same rows
+ * as every other route below.
+ *
+ * ⭐ THE HEADINGLESS ROWS (letter E, items 2-3). The control lives on the
+ * divider row, and the row exists iff `title || description`. A member with a
+ * blurb therefore hosts the control on its blurb-only row on every route; a
+ * member with neither has nowhere to put it, renders OPEN, and is reported
+ * through `headinglessCollapseWarning` — ⛔ never fields out of the DOM with
+ * no control.
  *
  * HOW EACH ZERO IS LIT. Every row that asserts fields ABSENT also asserts the
  * section's heading drawn in the same call (the section itself was rendered),
@@ -58,15 +63,19 @@
  * instrument that sees nothing.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from '../ObjectForm';
 import { ModalForm } from '../ModalForm';
+import { resetHeadinglessCollapseWarnings } from '../fieldGroups';
 import { DrawerForm } from '../DrawerForm';
 
 registerAllFields();
+
+// Each row observes its own first report of the headingless-collapse diagnostic.
+beforeEach(() => resetHeadinglessCollapseWarnings());
 
 const BLURB = 'Totals as invoiced';
 
@@ -203,6 +212,34 @@ const EXPLICIT: Route[] = [
     open: ['amount'],
     closed: [],
   },
+  {
+    label: 'ModalForm — explicit `sections`, mounted directly',
+    mount: (section) =>
+      mounted(
+        <ModalForm
+          schema={
+            { ...base, formType: 'modal', open: true, sections: [{ label: 'Money', fields: ['amount'], ...section }] } as any
+          }
+          dataSource={makeDataSource()}
+        />,
+      ),
+    open: ['amount'],
+    closed: [],
+  },
+  {
+    label: 'ObjectForm — `formType: "modal"`, explicit `sections` through the modal map',
+    mount: (section) =>
+      mounted(
+        <ObjectForm
+          schema={
+            { ...base, formType: 'modal', open: true, sections: [{ label: 'Money', fields: ['amount'], ...section }] } as any
+          }
+          dataSource={makeDataSource()}
+        />,
+      ),
+    open: ['amount'],
+    closed: [],
+  },
 ];
 
 /** Every route that emits a collapse pair from the object's own `fieldGroups`. */
@@ -220,6 +257,18 @@ const DERIVED: Route[] = [
       mounted(
         <DrawerForm
           schema={{ ...base, formType: 'drawer', open: true } as any}
+          dataSource={makeDataSource(groupedSchema(group))}
+        />,
+      ),
+    open: ['amount', 'customer'],
+    closed: ['customer'],
+  },
+  {
+    label: 'ModalForm — DERIVED `fieldGroups`',
+    mount: (group) =>
+      mounted(
+        <ModalForm
+          schema={{ ...base, formType: 'modal', open: true } as any}
           dataSource={makeDataSource(groupedSchema(group))}
         />,
       ),
@@ -371,6 +420,26 @@ describe('the drawer trap rows — a headingless section declaring `collapsed` i
           />,
         ),
     },
+    {
+      label: 'ModalForm — explicit `sections`, mounted directly',
+      mount: (s) =>
+        mounted(
+          <ModalForm
+            schema={{ ...base, formType: 'modal', open: true, sections: [{ fields: ['amount'], ...s }] } as any}
+            dataSource={makeDataSource()}
+          />,
+        ),
+    },
+    {
+      label: 'ObjectForm — `formType: "modal"` through the modal map',
+      mount: (s) =>
+        mounted(
+          <ObjectForm
+            schema={{ ...base, formType: 'modal', open: true, sections: [{ fields: ['amount'], ...s }] } as any}
+            dataSource={makeDataSource()}
+          />,
+        ),
+    },
   ];
 
   const HEADINGLESS_DECLARATIONS: Array<{ spelled: string; declared: Record<string, unknown> }> = [
@@ -380,8 +449,17 @@ describe('the drawer trap rows — a headingless section declaring `collapsed` i
 
   for (const route of HEADINGLESS_ROUTES) {
     for (const { spelled, declared } of HEADINGLESS_DECLARATIONS) {
-      it(`${route.label}: ${spelled} on a member with no heading and no blurb renders its fields OPEN`, async () => {
+      it(`${route.label}: ${spelled} on a member with no heading and no blurb renders its fields OPEN, and says so`, async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         const f = await route.mount(declared);
+        const reports = warn.mock.calls
+          .map((c) => String(c[0]))
+          .filter((m) => m.includes('collapsible section has no heading or description to carry its control'));
+        warn.mockRestore();
+        expect(
+          reports.length,
+          '⭐ the loud diagnostic ruling E item 3 orders — the declaration cannot be honoured, so it is reported',
+        ).toBeGreaterThan(0);
         expect(headings(f), 'no heading is drawn — there is no row to host a control').toEqual([]);
         expect(toggles(f), 'and so no control exists').toEqual([]);
         expect(
@@ -393,101 +471,26 @@ describe('the drawer trap rows — a headingless section declaring `collapsed` i
     }
   }
 
-  it('DrawerForm: a headingless member WITH a blurb and `collapsed: true` alone is reachable through the blurb row', async () => {
-    // ⚠️ The drawer's gate draws its row for every member, so here the row
-    // renders — carrying the blurb — and it is the row that hosts the control.
-    // The default arm's blurb-only row carries no collapse pair (objectui#9835
-    // letter B), so it renders the same member open instead. That difference
-    // is the GATE residual (`SectionDividerGate`), ⛔ not the resolution this
-    // card converges; both answers keep the fields reachable, which is the
-    // one thing asserted here.
-    const f = await mounted(
-      <DrawerForm
-        schema={
-          {
-            ...base,
-            formType: 'drawer',
-            open: true,
-            sections: [{ description: BLURB, fields: ['amount'], collapsed: true }],
-          } as any
-        }
-        dataSource={makeDataSource()}
-      />,
-    );
-    expect(blurbs(f), 'the live control: the row itself is drawn').toEqual([BLURB]);
-    expect(drawnFields(f), 'the section starts closed').toEqual([]);
-    expect(
-      toggles(f),
-      '⭐ before the convergence this was EMPTY: the blurb was drawn, the fields were hidden and ' +
-        'nothing on the page could bring them back',
-    ).toHaveLength(1);
-    fireEvent.click(toggles(f)[0]);
-    await waitFor(() => {
-      expect(drawnFields(f), 'the control hands the fields back').toEqual(['amount']);
-    });
-  });
-});
-
-describe('the modal arm — a READING, ⛔ not a ruling: it honours neither member', () => {
-  const MODAL_ROUTES: Array<{
-    label: string;
-    mount: (declared: Record<string, unknown>) => Promise<HTMLElement>;
-    open: string[];
-  }> = [
-    {
-      label: 'ModalForm — explicit `sections`',
-      mount: (s) =>
-        mounted(
-          <ModalForm
-            schema={
-              { ...base, formType: 'modal', open: true, sections: [{ label: 'Money', fields: ['amount'], ...s }] } as any
-            }
-            dataSource={makeDataSource()}
-          />,
-        ),
-      open: ['amount'],
-    },
-    {
-      label: 'ObjectForm — `formType: "modal"` through the modal map',
-      mount: (s) =>
-        mounted(
-          <ObjectForm
-            schema={
-              { ...base, formType: 'modal', open: true, sections: [{ label: 'Money', fields: ['amount'], ...s }] } as any
-            }
-            dataSource={makeDataSource()}
-          />,
-        ),
-      open: ['amount'],
-    },
-    {
-      label: 'ModalForm — DERIVED `fieldGroups`',
-      // The derived route hands over the GROUP's collapse state, so the
-      // declaration is spelled on the group here.
-      mount: (s) =>
-        mounted(
-          <ModalForm
-            schema={{ ...base, formType: 'modal', open: true } as any}
-            dataSource={makeDataSource(groupedSchema(s))}
-          />,
-        ),
-      open: ['amount', 'customer'],
-    },
-  ];
-
-  for (const route of MODAL_ROUTES) {
-    it(`${route.label}: \`collapsed: true\` never makes a field unreachable — every field drawn, no control`, async () => {
-      const f = await route.mount({ collapsed: true });
-      expect(headings(f), 'the section itself is rendered').toContain('Money');
-      expect(
-        drawnFields(f),
-        "the one promise objectui#9780 exists for holds here trivially: nothing is hidden",
-      ).toEqual(route.open);
-      expect(
-        toggles(f),
-        '⚠️ READING: the modal installs no control because it honours neither member. The later ' +
-          'step of objectui#9849 (ruling E item 1, 「on every arm」) is expected to flip this row',
-      ).toEqual([]);
+  for (const route of HEADINGLESS_ROUTES) {
+    it(`${route.label}: a headingless member WITH a blurb and \`collapsed: true\` alone hosts the control on its blurb-only row`, async () => {
+      // Ruling E items 2-3: the row exists iff `title || description`, and
+      // the control lives on the row — so a blurb is enough to host it, on
+      // every route. Before ruling E the default arm's blurb-only row carried
+      // no collapse pair and the modal honoured none; only the drawer did this.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const f = await route.mount({ description: BLURB, collapsed: true });
+      const reports = warn.mock.calls.filter((c) =>
+        String(c[0]).includes('collapsible section has no heading or description'),
+      );
+      warn.mockRestore();
+      expect(blurbs(f), 'the live control: the row itself is drawn').toEqual([BLURB]);
+      expect(drawnFields(f), 'the section starts closed').toEqual([]);
+      expect(toggles(f), 'the blurb-only row is the control').toHaveLength(1);
+      expect(reports, 'a row exists, so there is nothing to report').toEqual([]);
+      fireEvent.click(toggles(f)[0]);
+      await waitFor(() => {
+        expect(drawnFields(f), 'the control hands the fields back').toEqual(['amount']);
+      });
     });
   }
 });

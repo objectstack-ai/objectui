@@ -332,6 +332,11 @@ Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
 makes rows inert.
 
+With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
+record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
+`preventNavigation`, and `operations.read: false` without a `navigation` config
+ignore a modifier click too.
+
 ## CRUD Operations
 
 All four operations are built in and run against the `dataSource` prop. You do
@@ -574,7 +579,7 @@ under your own key" — it ships **no schema types**. The authored
 | Import from `@object-ui/types` | What it types |
 | --- | --- |
 | `ObjectViewSchema` | the whole `type: 'object-view'` node — `objectName` (required), `title`, `description`, `layout`, `defaultViewType`, `listViews`, `defaultListView`, `navigation`, `table`, `form`, `searchableFields`, `filterableFields`, the `show*` flags, `operations`, `onNavigate`, `allowCreateView`, `viewActions` (`viewTabBar` is retired — objectui#7779 — and refused by name) |
-| `NamedListView` | one entry of `listViews` |
+| `NamedListView` | one entry of `listViews` — toolbar toggles go under `userActions` (`search`, `sort`, `filter`, `group`, `hideFields`, `rowHeight`, `rowColor`) and `showDescription` under `appearance`; the legacy bare `show*` spellings are `never` on this type (objectui#7924), though stored views carrying them still load |
 | `ViewNavigationConfig` | `navigation` — row/item click behaviour |
 | `ViewTabBarConfig` | the `config` prop of `ViewTabBar` — tab-bar UX (inline add, overflow, indicators), composed by the host; not an `object-view` node key |
 

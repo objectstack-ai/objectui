@@ -2915,6 +2915,31 @@ const de = {
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
   },
+  ai: {
+    nlQuery: {
+      placeholder: "Stellen Sie eine Frage zu Ihren Daten…",
+      ask: "Fragen",
+      results: "Ergebnisse",
+      match: "{{percent}} Übereinstimmung",
+      simulatedSummary: "Ergebnisse für: {{query}}",
+      noResults: "Keine passenden Datensätze gefunden",
+      recentQueries: "Letzte Abfragen",
+    },
+    formAssist: {
+      title: "KI-Vorschläge",
+      suggestionCount: "{{count}} Vorschläge",
+      suggestionCountOne: "{{count}} Vorschlag",
+      applyAll: "Alle übernehmen",
+      confidence: "{{percent}} Konfidenz",
+      appliedCount: "{{count}} Vorschläge übernommen",
+      appliedCountOne: "{{count}} Vorschlag übernommen",
+    },
+    recommendations: {
+      title: "Empfehlungen",
+      generating: "Empfehlungen werden generiert…",
+      empty: "Keine Empfehlungen verfügbar",
+    },
+  },
   aiApprovals: {
     title: "KI-Genehmigungen",
     description: "Von einem KI-Agenten vorgeschlagene Aktionen, die vor der Ausführung eine menschliche Prüfung benötigen.",

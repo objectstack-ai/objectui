@@ -68,6 +68,7 @@ import {
   mergeFeedItems,
   normalizeFilterMode,
   normalizeLimit,
+  describeRefusedFeedLimit,
   type SysActivityRow,
 } from './recordActivityFeed';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -118,7 +119,16 @@ export const RecordActivityRenderer: React.FC<RecordActivityRendererProps> = ({
   const bag = (schema.properties ?? {}) as Record<string, any>;
   const read = (key: string) => (schema as any)[key] ?? bag[key];
 
-  const limit = normalizeLimit(read('limit'));
+  const authoredLimit = read('limit');
+  const limit = normalizeLimit(authoredLimit);
+  // [objectui#10145] The loud half of the row-cap refusal, on the channel
+  // objectui#9925 uses: fired from an effect, never from render, and keyed on
+  // the message — which spells the authored value and its type — so a
+  // re-render with the same declaration says nothing a second time.
+  const refusedLimitMessage = describeRefusedFeedLimit('record:activity', authoredLimit);
+  React.useEffect(() => {
+    if (refusedLimitMessage) console.warn(refusedLimitMessage);
+  }, [refusedLimitMessage]);
   const defaultFilterMode = normalizeFilterMode(read('filterMode'));
   const types = read('types');
   const showCompleted = read('showCompleted');

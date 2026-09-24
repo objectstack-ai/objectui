@@ -10,7 +10,14 @@ import React, { useState, useEffect, useContext, useCallback, useMemo } from 're
 import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
 import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
 import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
-import { useLocalization, resolveFieldCurrency, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import {
+  useLocalization,
+  useDisplayLocale,
+  resolveFieldCurrency,
+  useObjectTranslation,
+  pickLocalized,
+} from '@object-ui/i18n';
+import { formatCurrency } from '@object-ui/fields';
 import { MetricWidget } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
@@ -219,16 +226,11 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   }, [objectSchema, aggregate?.field]);
 
   // Derive format/currency from the field metadata when the dashboard config
-  // doesn't override them. Honors `Field.currency({ defaultCurrency, precision })`.
+  // doesn't override them. A currency field has no pattern here: its amount is
+  // rendered by the list cell's formatter below (`tileValue`).
   const inferredFormat = useMemo(() => {
     if (format) return format;
     if (!valueFieldDef) return undefined;
-    if (valueFieldDef.type === 'currency') {
-      // Decimal places come from `scale`, not `precision` (the total digit
-      // count of a decimal(p, s) column) — see #2131.
-      const decimals = valueFieldDef.scale ?? 0;
-      return decimals > 0 ? `0,0.${'0'.repeat(decimals)}` : '0,0';
-    }
     if (valueFieldDef.type === 'percent') return '0,0%';
     if (valueFieldDef.type === 'number' || valueFieldDef.type === 'integer') return '0,0';
     return undefined;
@@ -241,6 +243,10 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // number/currency locale above). Same source `MetricWidget` resolves its own
   // heading against, so the drill-down drawer cannot disagree with the tile.
   const { language } = useObjectTranslation();
+  // The NUMBER locale — the same hook `MetricWidget` formats every other tile
+  // value with, so a currency amount formatted here reads under one convention
+  // with the rest of the dashboard.
+  const displayLocale = useDisplayLocale();
   const inferredCurrency = useMemo(() => {
     if (currency) return currency;
     if (valueFieldDef?.type !== 'currency') return undefined;
@@ -392,6 +398,45 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     displayValue = 1 - displayValue;
   }
 
+  // The currency face (objectui#10221): no authored `format`, and the
+  // aggregated field is a currency. A currency's decimal places are the
+  // currency's, not a setting (ruling 乙 on objectstack-ai/objectstack#19910;
+  // `scale` is retired from the currency type by ruling B on
+  // objectstack-ai/objectstack#19629).
+  //
+  // This face used to build a numeral pattern out of `valueFieldDef.scale ?? 0`,
+  // so a USD field declaring no `scale` showed `$1,235` for `1234.5` and a JPY
+  // field carrying a stale `scale: 2` showed yen cents. With a code resolved,
+  // the amount now goes to `formatCurrency` — the list cell's own formatter
+  // (`CurrencyCellRenderer`), the same one the grid footer takes — so tile,
+  // footer and cell agree by reference: the currency's ISO 4217 minor-unit
+  // count, a whole amount without its fraction. The finished string is not a
+  // number, so `MetricWidget` shows it as given.
+  //
+  // With NO code resolved the cell renders a plain number, and that one case
+  // is restated rather than referenced: `MetricWidget` re-parses a string that
+  // reads as a number (`12.50`) and re-formats it at its pattern's width, so a
+  // pre-formatted plain amount would be rounded again. The pattern therefore
+  // carries the cell's own no-currency width — none for a whole amount, two
+  // otherwise — and the tile's pin compares it against the cell in one run.
+  let tileValue: string | number = displayValue;
+  let tileFormat = inferredFormat;
+  if (!format && valueFieldDef?.type === 'currency') {
+    const amount =
+      typeof displayValue === 'number'
+        ? displayValue
+        : displayValue.trim() === ''
+          ? NaN
+          : Number(displayValue);
+    if (Number.isFinite(amount)) {
+      if (inferredCurrency) {
+        tileValue = formatCurrency(amount, inferredCurrency, displayLocale);
+      } else {
+        tileFormat = Number.isInteger(amount) ? '0,0' : '0,0.00';
+      }
+    }
+  }
+
   // Derive a trend descriptor from the parallel comparison aggregate. When
   // `compareTo` is set and both values are finite numbers, this synthesizes
   // a `{ value, direction, label }` trend that overrides any static `trend`
@@ -478,7 +523,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     <>
       <MetricWidget
         label={label}
-        value={displayValue}
+        value={tileValue}
         trend={effectiveTrend}
         icon={icon}
         className={className}
@@ -486,7 +531,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
         loading={loading}
         error={error}
         colorVariant={colorVariant}
-        format={inferredFormat}
+        format={tileFormat}
         currency={inferredCurrency}
         prefix={prefix}
         suffix={suffix}

@@ -37,10 +37,13 @@ canonical `FILTER_TEXT_CASES` covers all three, the spec's declared-type door pa
 them over `text` and refuses them over `number` / `date` / `boolean`, and this builder
 offers them only on its text bucket.
 
-`between` stays unmapped, for a reason about this bridge rather than the vocabulary:
-the builder pads a half-typed pair with an empty bound and the spec's comparand door
-accepts `[1, '']`, so emitting it needs a both-bounds-present rule first. It is now
-unmapped and inert instead of unmapped and destructive.
+`between` was held back from this change for a reason about this bridge rather than
+the vocabulary: the builder pads a half-typed pair with an empty bound and the spec's
+comparand door accepts `[1, '']`, so emitting it needed a both-bounds-present rule
+first. That rule already existed — the builder's own `isFilterValueComplete`
+(objectui#5025) — and objectui#10062 maps `between` behind it: a range with both
+bounds is stored as `{ $between: [lo, hi] }`, and one with a blank bound is not
+emitted and, like any unfinished row, as the only row, leaves the stored filter alone.
 
 Forward note for anyone pinning stored filters: a dataset filter written by this
 version may carry `$notContains` / `$startsWith` / `$endsWith`, which an older

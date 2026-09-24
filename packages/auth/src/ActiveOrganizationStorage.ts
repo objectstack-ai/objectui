@@ -259,6 +259,66 @@ export function purgePreviousUserClientState(): void {
 }
 
 /**
+ * Listeners told that {@link SessionUserScope.adopt} dropped a previous
+ * owner's state (objectui#10193).
+ */
+const ownerChangeListeners = new Set<() => void>();
+
+/**
+ * How many times THIS page-load has dropped a previous owner's state.
+ *
+ * In memory on purpose, and never persisted: the question it answers is "has a
+ * purge happened since this code started running", and a storage copy would
+ * answer it for a page-load that no longer exists. ⛔ It is not a storage key,
+ * and the ruling on objectui#10193 refuses one.
+ */
+let ownerChangeCount = 0;
+
+/**
+ * The number of owner changes {@link SessionUserScope.adopt} has performed in
+ * this page-load — `0` until a DIFFERENT user than the one the browser
+ * previously held is adopted.
+ *
+ * ## Why a count and not only an event (objectui#10193)
+ *
+ * The purge sweeps the previous owner's STORAGE, but state that was already
+ * derived from that storage before the purge — the UI language the boot
+ * resolved out of the previous owner's language slots, above all — lives in
+ * memory and is untouched by it. Whoever owns such state has to re-derive it,
+ * and the component that does may mount AFTER the purge happened (the shell
+ * mounts behind the session gate, the purge fires as the session resolves). A
+ * bare event would be missed by it; a count lets a late reader compare against
+ * what it has already handled. Shaped for React's `useSyncExternalStore`
+ * together with {@link subscribeSessionOwnerChange}.
+ */
+export function getSessionOwnerChangeCount(): number {
+  return ownerChangeCount;
+}
+
+/**
+ * Be told each time {@link SessionUserScope.adopt} drops a previous owner's
+ * state. Returns the unsubscribe function. A listener that throws is reported
+ * and skipped, never allowed to break the sign-in path that called `adopt`.
+ */
+export function subscribeSessionOwnerChange(listener: () => void): () => void {
+  ownerChangeListeners.add(listener);
+  return () => {
+    ownerChangeListeners.delete(listener);
+  };
+}
+
+function notifyOwnerChange(): void {
+  ownerChangeCount += 1;
+  for (const listener of [...ownerChangeListeners]) {
+    try {
+      listener();
+    } catch (err) {
+      console.warn('[SessionUserScope] an owner-change listener threw:', err);
+    }
+  }
+}
+
+/**
  * Which user's client state this browser holds, and the transition that drops
  * the previous user's state.
  */
@@ -281,6 +341,13 @@ export const SessionUserScope = {
    * Record `userId` as the owner of this browser's client state, dropping the
    * previous owner's state wholesale when it changes.
    *
+   * Returns `true` when it dropped a previous owner's state, `false`
+   * otherwise (same user, first-ever owner, empty id). A drop is also reported
+   * to {@link subscribeSessionOwnerChange} listeners and counted by
+   * {@link getSessionOwnerChangeCount} (objectui#10193): the purge clears
+   * storage, and anything already derived from that storage in memory is the
+   * listener's to re-derive.
+   *
    * Idempotent: re-adopting the same user purges nothing. Called from
    * `AuthProvider` for real sessions only — the synthetic `preview-user` /
    * `guest` identities never reach it, so a preview mount cannot purge a real
@@ -293,13 +360,13 @@ export const SessionUserScope = {
    * it removes every active-org spelling and leaves `auth-session-user-id`
    * alone on purpose.
    */
-  adopt(userId: string): void {
-    if (!userId) return;
+  adopt(userId: string): boolean {
+    if (!userId) return false;
     // Already this page-load's owner. Short-circuits before the storage read
     // below, which matters in a browser that REJECTS WRITES: there the pointer
     // write further down silently fails, so every later call would re-read a
     // stale persisted owner and purge again.
-    if (this._userId === userId) return;
+    if (this._userId === userId) return false;
     // WHOSE RESIDUE IS IN THIS STORE — read from storage, deliberately not
     // from {@link current}. The two questions are different and take different
     // authorities. `current()` answers "which key do I use right now", and
@@ -309,7 +376,8 @@ export const SessionUserScope = {
     // to drop, and purging on the strength of an in-memory id would delete
     // state that was written for the arriving user.
     const persistedPrevious = readPersisted(SESSION_USER_STORAGE_KEY);
-    if (persistedPrevious !== null && persistedPrevious !== userId) {
+    const ownerChanged = persistedPrevious !== null && persistedPrevious !== userId;
+    if (ownerChanged) {
       purgePreviousUserClientState();
     }
     this._userId = userId;
@@ -317,6 +385,10 @@ export const SessionUserScope = {
     // Unattributable legacy state, cleaned up on any adopt rather than only on
     // a change — see LEGACY_ACTIVE_ORG_KEY.
     removePersisted(LEGACY_ACTIVE_ORG_KEY);
+    // Last, so a listener that reads `current()` or the store sees the
+    // arriving owner and the swept storage, never a half-adopted state.
+    if (ownerChanged) notifyOwnerChange();
+    return ownerChanged;
   },
 
   /**

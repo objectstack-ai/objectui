@@ -312,12 +312,26 @@ export function deriveTitleField(objectDef: any): string | undefined {
  * reads it: the canonical `nameField` (ADR-0079 Phase 2), then its deprecated
  * `displayNameField` / `NAME_FIELD_KEY` aliases.
  *
- * One spelling, two readers — the value-space resolver and the name-space
- * {@link resolveNameField}. Re-typing the `??` chain at the second reader is
- * how the two would drift into disagreeing about which field titles an object.
- * No new alias is read here; this is the existing ladder, extracted.
+ * One spelling, every reader. Inside this module that is the value-space
+ * resolver and the name-space {@link resolveNameField}. Re-typing the `??`
+ * chain at another reader is how two readers drift into disagreeing about
+ * which field titles an object. No new alias is read here; this is the
+ * existing ladder, extracted.
+ *
+ * Exported (objectui#9436) for callers that must rank the DECLARED pointer on
+ * its own, apart from the type-aware derivation that {@link resolveNameField}
+ * folds in after it. The record-page H1 needs exactly that: ADR-0079 puts the
+ * declared pointer (steps 1+2) above the legacy `titleFormat` (step 3), and the
+ * derivation (step 4) below it, so a caller that interleaves its own
+ * `titleFormat` rendering has to read the two halves separately. Read the value
+ * as `recordDisplayValueAt(record, declaredNameField(objectDef))`, which is how
+ * {@link getRecordDisplayName} reads steps 1+2.
+ *
+ * Returns the pointer exactly as declared, or `undefined` when none is. It
+ * never derives: an object that declares nothing answers `undefined` even when
+ * its `fields` would derive a title field.
  */
-function declaredNameField(objectDef: any): any {
+export function declaredNameField(objectDef: any): any {
   return objectDef?.nameField ?? objectDef?.displayNameField ?? objectDef?.NAME_FIELD_KEY;
 }
 

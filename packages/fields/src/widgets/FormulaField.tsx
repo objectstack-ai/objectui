@@ -1,7 +1,7 @@
 import React from 'react';
 import { EmptyValue } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { formatDate } from '@object-ui/core';
+import { formatDate, toDisplayDate } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 
 /**
@@ -50,11 +50,12 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     //
     // objectui#8194's landed pin for this site reads `container.textContent`
     // and stays green, because the text is still a dash. Co-extensive with
-    // the dash it replaces, never wider: `new Date(value)` reproduces
-    // `formatDate`'s own parse step, and the `value == null` guard above
-    // already owns the EMPTY half of what the shared function dashes.
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return <EmptyValue className={props.className} />;
+    // the dash it replaces, never wider: `toDisplayDate` IS `formatDate`'s own
+    // parse step, and the `value == null` guard above already owns the EMPTY
+    // half of what the shared function dashes. It read `new Date(value)`
+    // until objectui#10026 made that step refuse a date-only nonexistent day,
+    // which the engine's parse accepts — the same repair as `DateField`'s.
+    if (isNaN(toDisplayDate(value).getTime())) return <EmptyValue className={props.className} />;
     displayValue = formatDate(value, undefined, { locale });
   } else {
     displayValue = String(value);

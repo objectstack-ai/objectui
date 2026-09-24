@@ -42,7 +42,9 @@ function session(locale: string, node: React.ReactNode): React.ReactElement {
 }
 
 const CURRENCY: FieldMeta = { name: 'amount', label: 'Amount', format: '$0,0.00' };
-const DATE: FieldMeta = { name: 'closed_at', label: 'Closed', format: 'YYYY-MM-DD' };
+// `type: 'date'` is what puts this field on the date-format branch: a `format`
+// is read as a date pattern only on a date / datetime field (objectui#10220).
+const DATE: FieldMeta = { name: 'closed_at', label: 'Closed', type: 'date', format: 'YYYY-MM-DD' };
 /** 2020-03-04 — a past year, so the date face keeps its year in both locales. */
 const STORED = '2020-03-04T12:00:00.000Z';
 

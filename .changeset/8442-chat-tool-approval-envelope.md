@@ -8,10 +8,10 @@
 hydration mapper stops dropping it — together with `pendingActionId`
 (objectui#8442).
 
-Three of the ten declared `state` values — `approval-requested`,
-`approval-responded` and `output-denied` — are states the AI SDK's own tool-part
-union cannot express WITHOUT an `{ id, approved?, reason?, isAutomatic?,
-signature? }` envelope. `hydratedMessagesToChatMessages` built each invocation
+Three AI SDK `state` values — `approval-requested`, `approval-responded` and
+`output-denied` — are states the SDK's own tool-part union cannot express
+WITHOUT an `{ id, approved?, reason?, isAutomatic?, signature? }` envelope.
+`hydratedMessagesToChatMessages` built each invocation
 from six fields and neither the envelope nor `pendingActionId` was one of them,
 so a rehydrated pending approval arrived carrying a state that says "a human must
 decide" and nothing a decision could be made with: `useHitlInChat` keys its index
@@ -48,7 +48,12 @@ regardless of what this file says. Declaring `patch` here therefore buys no
 smaller release and no preserved signal; it only makes the changelog line
 under-describe what shipped. ⇒ the accurate declaration is the cheap one.
 
-⛔ Nothing is narrowed here. The envelope stays optional on purpose: an
-invocation may still declare an approval state and carry no envelope, and the
-pin that says so is deliberate, so that a later tidy-up cannot ship
-objectui#8426's break under this card's name.
+⛔ Nothing is narrowed here. The envelope stays optional on purpose, and this
+card does not pair it with the approval states. That narrowing — the residual
+clause of the objectui#8426 ruling — ships under its own name and its own
+BREAKING banner: objectui#10018 sheds the three approval states from the
+authoring `state` union, so an AUTHORED invocation cannot declare one at all,
+with or without an envelope. On the runtime `ChatbotEnhanced.ChatToolInvocation`
+an approval state may still arrive with no envelope — an ObjectStack
+pending-action approval is carried by `pendingActionId` instead — and the
+envelope stays optional there too.

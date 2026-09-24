@@ -154,19 +154,39 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **44 entries** in `KnownDrift`, **81 keys** across them — 44 / 82 until
- *     objectui#10286's second step RETIRED `form.zod.ts#FormSchema::mode` on both faces
- *     (objectui#7759 ruling D1-(ii)); the entry survives on `fields` and its three runtime
- *     slots, so the key total moved by one and the entry count did not. It was 46 / 85
- *     until objectui#10286 settled three keys of objectui#7759's groups C and D: two
- *     WHOLE entries left (`complex.zod.ts#FilterFieldSchema`, whose one key was
- *     `operators`, and `navigation.zod.ts#HeaderBarSchema`, whose one key was
- *     `variant`) and one entry SHRANK (`complex.zod.ts#FilterBuilderSchema` lost
- *     `fields` and keeps `onChange`), so the entry count fell by two and the key
- *     total by three. ⚠️ `operators` and `fields` left because both faces now state
- *     the spec's filter vocabulary; `variant` left because both faces RETIRED it —
- *     read the ledger notes where those entries stood before counting either as the
- *     same kind of move. It was 46 / 83 until
+ *   - **48 entries** in `KnownDrift`, **88 keys** across them — 50 / 92 until
+ *     objectui#10286 settled four keys of objectui#7759's groups C and D: two WHOLE
+ *     entries left (`complex.zod.ts#FilterFieldSchema`, whose one key was `operators`,
+ *     and `navigation.zod.ts#HeaderBarSchema`, whose one key was `variant`) and two
+ *     entries SHRANK (`complex.zod.ts#FilterBuilderSchema` lost `fields` and keeps
+ *     `onChange`; `form.zod.ts#FormSchema` lost `mode` and keeps `fields` and its three
+ *     runtime slots), so the entry count fell by two and the key total by four.
+ *     ⚠️ `operators` and `fields` left because both faces now state the spec's filter
+ *     vocabulary; `variant` and `mode` left because both faces RETIRED them (the
+ *     second under ruling D1-(ii)) — read the ledger notes where those entries stood
+ *     before counting them as the same kind of move. It was 48 / 88 until
+ *     objectui#10296 pointed `views.zod.ts#DetailViewFieldSchema`'s `options` at the
+ *     spec's AUTHORING `SelectOptionSchema` (ruling F1 on objectui#7759): that pair
+ *     and `views.zod.ts#DetailViewSectionSchema` are NEW entries with one key each,
+ *     plus `fields` and `sections` on the EXISTING `views.zod.ts#DetailViewSchema`
+ *     entry — the two containers carry those field elements. One
+ *     EXPECTED DIVERGENCE against the runtime read model the declaration names, not
+ *     a defect — the two entries' docblocks carry the reading. It was 49 / 90 until
+ *     objectui#10293 settled `form.zod.ts#CalendarSchema`'s `defaultValue` and `value`
+ *     under objectui#7759 D1-(iii): the declaration gained the ISO string the mirror
+ *     accepts and gave up the `Date[]` arm the mirror refused, so both keys measure
+ *     clean and the entry, its two keys and nothing else LEFT — entry count and key
+ *     total moved together, by one and by two. It was 46 / 85 until
+ *     objectui#7759 group E turned the four bare `z.function()` arms into
+ *     `handlerKeyRefusal()` arms. THREE entries are NEW (`TableColumnSchema.cell`,
+ *     `FieldConstraintsSchema.validate`, and `FormFieldSchema.validation`, which
+ *     inherits that slot) and `DataTableSchema` gained two keys on its existing entry
+ *     (`renderCellEditor`, plus `columns`, inheriting `cell`) — +3 entries, +5 keys.
+ *     ⚠️ None of the five came out of an unmirrored ledger: each key was mirrored
+ *     before and after, and the move is the WIDER ledger's loss seen from the other
+ *     side — read it beside that bullet below. The retired fourth key,
+ *     `FieldConditionSchema.custom`, is `never` on both faces and joins nothing.
+ *     It was 46 / 83 until
  *     objectui#9447 DECLARED `onNavigate` and `onAddComment` on
  *     `views.zod.ts#DetailViewSchema`, an EXISTING entry (it already held `onBack`),
  *     so the key total moved by two and the entry count did not. ⭐ A pure TRANSFER,
@@ -407,19 +427,36 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **16 entries** in `WiderThanDeclared`, **24 keys** across them, and **30 arms**
- *     under those keys — split **5** SCHEMA-NODE, **19** CONCRETE, **0** MIXED, **6** unions.
- *     It read 16 / 25 / 31 — 5 / 20 / 0 / 6 — until objectui#10286's second step retired
- *     `form.zod.ts#FormSchema::mode`, a one-arm CONCRETE key; the entry stays on `layout`
- *     and `fields`. It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10286 closed four CONCRETE
+ *   - **8 entries** in `WiderThanDeclared`, **11 keys** across them, and **12 arms**
+ *     under those keys — split **5** SCHEMA-NODE, **6** CONCRETE, **0** MIXED, **1** unions.
+ *     It read 11 / 16 / 18 — 5 / 11 / 0 / 2 — until objectui#10286 closed five CONCRETE
  *     keys of objectui#7759's groups C and D: `complex.zod.ts#FilterFieldSchema::operators`
  *     and `complex.zod.ts#FilterBuilderSchema::fields` (both faces now state the spec's
  *     filter vocabulary), `layout.zod.ts#ContainerSchema::maxWidth` (the mirror's
  *     `z.boolean()` arm narrowed to the `false` the declaration states — a TWO-arm key,
- *     and the one union that left) and `navigation.zod.ts#HeaderBarSchema::variant`
- *     (retired on both faces). Three entries left whole; `HeaderBarSchema` stays on
- *     `logo`. ⚠️ Four keys, five arms: the Container key is why `arms` fell by one more
- *     than CONCRETE did. It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
+ *     and the one union that left), `navigation.zod.ts#HeaderBarSchema::variant` and
+ *     `form.zod.ts#FormSchema::mode` (both retired on both faces). Three entries left
+ *     whole; `HeaderBarSchema` stays on `logo` and `FormSchema` on `layout`. ⚠️ Five
+ *     keys, six arms: the Container key is why `arms` fell by one more than CONCRETE did.
+ *     It read 12 / 18 / 22 — 5 / 13 / 0 / 4 — until objectui#10293 made
+ *     `form.zod.ts#CalendarSchema`'s `defaultValue` and `value` declare the ISO string their
+ *     mirror accepts: the entry and both of its two-arm keys left together, so `arms` fell
+ *     by four where `keys` fell by two and `unions` by two.
+ *     It read 17 / 26 / 30 — 5 / 21 / 0 / 4 — until objectui#7759 group E replaced the
+ *     four bare `z.function()` arms (`renderCellEditor`, `cell`, `validate`, `custom`)
+ *     with `handlerKeyRefusal()`. EIGHT keys left, one CONCRETE arm each, and five whole
+ *     entries with them. ⚠️ Only four of the eight were the class the card named: the
+ *     other four (`DataTableSchema::columns`, `FormFieldSchema::validation`,
+ *     `FormFieldSchema::condition`, `FormSchema::fields`) read wider ONLY through the
+ *     function arm nested under them, and resolved clean once it went — measured, not
+ *     reclassified. None of the eight was a union, so `unions` did not move.
+ *     It read 19 / 29 / 36 — 5 / 24 / 0 / 7 — until objectui#10280 (objectui#7759 group B)
+ *     emptied two entries: `form.zod.ts#SliderSchema` (`defaultValue` by widening the
+ *     declaration to the single-or-list the renderer normalizes, `value` by retiring it on
+ *     both faces) and `overlay.zod.ts#TooltipSchema` (`content` by narrowing the mirror to
+ *     the declaration). Three keys, each a two-arm union, so `arms` fell by 6 and `unions`
+ *     by 3 while CONCRETE fell by 3.
+ *     It read 20 / 30 / 37 — 5 / 25 / 0 / 7 — until objectui#8572 RETIRED
  *     `complex.zod.ts#ChatbotSchema::body`, that entry's whole content, so the entry, its
  *     one key and its one arm left together. ⚠️ Compare the objectui#8338 move below: the
  *     same DEPARTURE shape, but that key carried TWO arms, so CONCRETE and `arms` fell by
@@ -590,7 +627,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 44 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 48 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -1969,7 +2006,14 @@ interface KnownDrift {
   'data-display.zod.ts#DataTableSchema':
     | 'onRowEdit' | 'onRowDelete' | 'onSelectionChange' | 'onColumnsReorder'
     | 'onAddRecord' | 'onBatchSave' | 'onCellChange' | 'onColumnResize'
-    | 'onRowActionDef' | 'onRowClick' | 'onRowSave';
+    | 'onRowActionDef' | 'onRowClick' | 'onRowSave'
+    // objectui#7759 group E — `renderCellEditor` is a RUNTIME SLOT in the
+    // objectui#6124 shape (`data-table` reads `schema.renderCellEditor` and calls
+    // it; `ObjectGrid` supplies it). `columns` is inherited ELEMENT drift: the
+    // element's `cell` is the same class, one level down (`TableColumnSchema`).
+    | 'renderCellEditor' | 'columns';
+  /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`, `ObjectGrid` and `VirtualGrid` call `col.cell(value, row)`. */
+  'data-display.zod.ts#TableColumnSchema': 'cell';
   /**
    * RUNTIME SLOT (objectui#6124), arrived with objectui#7804's `TreeViewSchema`
    * slice — a NEW entry here, not growth on an existing one, because
@@ -2025,8 +2069,6 @@ interface KnownDrift {
    * to the DOM `<button>` (`onClick` is on `SDUI_DOM_PASS_THROUGH_KEYS`).
    */
   'form.zod.ts#ButtonSchema': 'onClick';
-  /** DISJOINT: TS `Date | Date[]`, mirror `string | Date`. The mirror refuses `Date[]`; the TS side refuses the ISO string the mirror accepts. (`onChange` is NOT here: the `calendar` renderer spreads it onto `DayPicker`, whose callback is `onSelect`, so nothing reads it — both faces retire it.) */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
   /** RUNTIME SLOT (objectui#6124): the `checkbox` renderer calls `props.onChange(checked)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#CheckboxSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): `plugin-editor` reads `onChange ?? schema.onChange`. */
@@ -2037,8 +2079,12 @@ interface KnownDrift {
   'form.zod.ts#CommandSchema': 'groups';
   /** RUNTIME SLOT (objectui#6124): the `date-picker` renderer calls `props.onChange(date)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#DatePickerSchema': 'onChange';
+  /** RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form renderer spreads `validation` into react-hook-form's `rules` and keeps a supplied `validate` running. */
+  'form.zod.ts#FieldConstraintsSchema': 'validate';
   /** RUNTIME SLOT (objectui#6124): the `file-upload` renderer calls `props.onChange(files)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#FileUploadSchema': 'onChange';
+  /** Inherited drift: `validation` is `FieldConstraintsSchema`, whose `validate` is the runtime slot in its own entry. (`condition`'s `custom` is RETIRED on both faces, so it measures clean.) */
+  'form.zod.ts#FormFieldSchema': 'validation';
   /**
    * `fields` is inherited element drift. (`mode` LEFT under objectui#10286: it was
    * DISJOINT — TS `disabled|read|edit`, mirror `create|edit|view` — and neither was
@@ -2235,8 +2281,31 @@ interface KnownDrift {
    * `DetailView`'s `schema.onNavigate` / `schema.onAddComment` by identity —
    * exactly as it does under `'detail'`, whose twin arm refused both by name
    * with objectui#7804. The TS face keeps the callable on all three.
+   *
+   * `fields` and `sections` JOINED with objectui#10296: they carry
+   * `DetailViewFieldSchema` elements, so that pair's EXPECTED DIVERGENCE on
+   * `options` (the entry below) is measured here one level up. Same cause,
+   * not a separate finding.
    */
-  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment';
+  'views.zod.ts#DetailViewSchema': 'onBack' | 'onNavigate' | 'onAddComment' | 'fields' | 'sections';
+  /**
+   * EXPECTED DIVERGENCE, read model (objectui#10296, ruling F1 on objectui#7759).
+   * The mirror is the spec's AUTHORING `SelectOptionSchema` by reference; the
+   * declaration is `SelectOptionMetadata[]`, the runtime READ model. The one member
+   * the two faces spell differently is `visibleWhen`: the spec's input envelope
+   * requires `dialect`, the read model carries objectui's wire (objectui#2212),
+   * where `dialect` is optional and `source` required. ⛔ Not repaired by pointing
+   * the mirror at the declaration (it would admit `disabled` / `icon`, which the
+   * spec refuses by name). Also in `WiderThanDeclared`, for the other half.
+   */
+  'views.zod.ts#DetailViewFieldSchema': 'options';
+  /**
+   * objectui#10296: `fields` carries `DetailViewFieldSchema` elements, so the
+   * EXPECTED DIVERGENCE on that pair's `options` (the entry above) is measured
+   * here one level up — the same reading as `fields` / `sections` on
+   * `views.zod.ts#DetailViewSchema`. Same cause, not a separate finding.
+   */
+  'views.zod.ts#DetailViewSectionSchema': 'fields';
 }
 
 /* ── The measured unmirrored-declared ledger (objectui#6058) ────────────────── */
@@ -2975,9 +3044,10 @@ export type assertionLedgerHalvesAreDisjoint = Expect< Equal< DoubleFiledKey, ne
  *
  * **CONCRETE** — both faces are concrete, so the comparison means what it says: an
  * author can write the spelling, `safeParse` returns green, and `tsc` refuses it.
- * `FormSchema.layout` and `SliderSchema.defaultValue` are the plainest instances,
- * and the second is the shape objectui#7069 was filed about, still alive on a pair
- * nobody had looked at.
+ * `FormSchema.layout` is the plainest instance. `SliderSchema.defaultValue` stood
+ * beside it — the shape objectui#7069 was filed about, alive on a pair nobody had
+ * looked at — until objectui#10280 widened its declaration to the single-or-list its
+ * renderer normalizes.
  *
  * **SCHEMA-NODE** — the mirror's face carries `unknown` NESTED inside an array
  * element or a property, from a recursion-breaking `z.ZodType< any >` annotation
@@ -3079,46 +3149,38 @@ interface WiderThanDeclared {
   // face refusing a spelling the other accepted, and the first inherited it through the
   // element. Both faces now take the spec's `VIEW_FILTER_OPERATORS` by reference, so the
   // mirror accepts nothing the declaration refuses and both entries would be STALE.
-  /**
-   * CONCRETE. `columns` compares an inline element shape against the named
-   * `TableColumn`; `renderCellEditor` is the FUNCTION-SLOT class — zod 4 gives
-   * `z.function()` an opaque input brand that no concrete signature equals, so the
-   * mirror accepts any callable where the declaration states one signature.
-   */
-  'data-display.zod.ts#DataTableSchema': 'columns' | 'renderCellEditor';
-  /**
-   * FUNCTION-SLOT. ⚠️ Not the key objectui#5853 closed: that card was `type`,
-   * the interface's literal set against a bare `z.string()` on the mirror, and it
-   * is absent here because the repair landed. `cell` is the same pair, a different
-   * key and a different class.
-   */
-  'data-display.zod.ts#TableColumnSchema': 'cell';
-  /** CONCRETE and DISJOINT — the mirror admits a string, the declaration a list of dates; also in `KnownDrift`. */
-  'form.zod.ts#CalendarSchema': 'defaultValue' | 'value';
-  /** FUNCTION-SLOT. */
-  'form.zod.ts#FieldConditionSchema': 'custom';
-  /** FUNCTION-SLOT. */
-  'form.zod.ts#FieldConstraintsSchema': 'validate';
-  /** CONCRETE: `validation` compares an inline shape against the named declaration; `condition` carries a FUNCTION-SLOT one level down. */
-  'form.zod.ts#FormFieldSchema': 'validation' | 'condition';
+  // ⭐ The FUNCTION-SLOT class (objectui#7759 group E) is GONE from this ledger:
+  // `DataTableSchema.renderCellEditor`, `TableColumnSchema.cell`,
+  // `FieldConstraintsSchema.validate` and `FieldConditionSchema.custom` were bare
+  // `z.function()` arms — zod 4 gives those an opaque input brand no concrete
+  // signature equals, so the mirror accepted ANY callable. They are now
+  // `handlerKeyRefusal()` arms (the objectui#6124 shape), whose `z.input` is
+  // `undefined`, and the three runtime slots among them moved to `KnownDrift`
+  // above. ⚠️ Four OTHER rows left with them, and the measurement — not this
+  // note — is why: `DataTableSchema.columns`, `FormFieldSchema.validation`,
+  // `FormFieldSchema.condition` and `FormSchema.fields` each read wider ONLY
+  // because of the function arm nested beneath them; once it went, `WiderOf`
+  // resolved to `never` on the first three pairs and dropped `fields` on the
+  // fourth. ⛔ Do not re-add them for the class labels they carried (F,
+  // "inline shape against a named declaration"; D, "disjoint") — a row this
+  // ledger records must be a measured widening.
   /**
    * CONCRETE. `layout` is the clearest single instance in this ledger: the mirror
    * is `z.enum(['vertical', 'horizontal', 'grid'])` and the declaration states the
-   * first two, so the third spelling parses green and `tsc` refuses it. `fields`
-   * is the drift objectui#5927 left in `KnownDrift` — measured here from the other
-   * side. (`mode`, its disjoint partner, LEFT under objectui#10286: retired on both
-   * faces.)
+   * first two, so the third spelling parses green and `tsc` refuses it. (`fields`
+   * left under objectui#7759 group E: its wider reading was the nested `z.function()`
+   * arms of `FormFieldSchema`, not the element shape. `mode`, the disjoint key
+   * objectui#5927 left in `KnownDrift`, LEFT under objectui#10286: retired on both
+   * faces under the objectui#7759 ruling's D1-(ii).)
    */
-  'form.zod.ts#FormSchema': 'layout' | 'fields';
-  /**
-   * CONCRETE, and the class objectui#7069 was filed for, ALIVE: the mirror is
-   * `z.union([z.number(), z.array(z.number())])` and the declaration states the
-   * list alone, so a single number parses green and `tsc` refuses it. That is the
-   * `DataTableSchema.toolbar` shape the card measured, one accepted arm wider than
-   * its declaration — the instance died with PR #7066, and here is the class it
-   * said would outlive it, on a pair nothing had looked at.
-   */
-  'form.zod.ts#SliderSchema': 'defaultValue' | 'value';
+  'form.zod.ts#FormSchema': 'layout';
+  // `form.zod.ts#SliderSchema` recorded `defaultValue` and `value` here (CONCRETE, the class
+  // objectui#7069 was filed for: a single-or-list mirror against a list-only declaration).
+  // objectui#10280 (objectui#7759 group B) resolved both by the read site, per the director's
+  // rule that an objectui-own key follows its read site: `defaultValue`'s renderer wraps a
+  // scalar on purpose, so the DECLARATION widened to `number | number[]`; `value` has no read
+  // site, so it was RETIRED on both faces. The entry is GONE, per clause 4 of this ledger's
+  // "when it fires" note.
   // `layout.zod.ts#ContainerSchema` (`maxWidth`) LEFT under objectui#10286. The mirror's
   // arm was `z.boolean()` while the declaration admits the false literal alone, so `true`
   // parsed green and `tsc` refused it. The key is not in the spec, so the read site
@@ -3152,18 +3214,19 @@ interface WiderThanDeclared {
    * deep.
    */
   'navigation.zod.ts#HeaderBarSchema': 'logo';
+  // `overlay.zod.ts#TooltipSchema` recorded `content` here (CONCRETE; ENTERED under
+  // objectui#7760): the mirror spelled it single-or-list and the declaration the single arm.
+  // The renderer places `schema.content` RAW in a React child position, so the list arm parsed
+  // green and then failed to render. objectui#10280 NARROWED the MIRROR to the declaration, and
+  // the entry is GONE.
   /**
-   * CONCRETE. ENTERED under objectui#7760, unmeasurable before it: the mirror is
-   * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` and the declaration states
-   * `content?: string | SchemaNode` — the same union WITHOUT the list arm. So a list
-   * parses green here and `tsc` refuses it, while the sibling `body` on the same pair
-   * declares the list and agrees. ⭐ Two keys of one renderer read
-   * (`schema.content || renderChildren(schema.body)`), one declared narrower than its
-   * own mirror — the plainest instance of the class objectui#7069 was filed for, and it
-   * sat inside the region that card could not look at.
+   * EXPECTED DIVERGENCE, read model (objectui#10296, ruling F1): the mirror is the
+   * spec's authoring `SelectOptionSchema`, whose `visibleWhen` envelope admits an
+   * object with no `source`, which the read model's wire refuses. Spec-version-gated
+   * by `SpecEnvelopeAdmitsSourceless`. See the `KnownDrift`
+   * entry for this pair. (The inline option shape that stood here, admitting a
+   * number or boolean `value`, is gone.)
    */
-  'overlay.zod.ts#TooltipSchema': 'content';
-  /** CONCRETE: an inline option shape against the named `SelectOptionMetadata`. */
   'views.zod.ts#DetailViewFieldSchema': 'options';
   /** SCHEMA-NODE. (`tabs` left under objectui#7760; `fields` and `sections` did not.) */
   'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
@@ -3285,22 +3348,9 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'complex.zod.ts#DashboardComponentSchema::header': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::globalFilters': ['CONCRETE'],
   'complex.zod.ts#DashboardComponentSchema::dateRange': ['CONCRETE'],
-  'data-display.zod.ts#DataTableSchema::columns': ['CONCRETE'],
-  'data-display.zod.ts#DataTableSchema::renderCellEditor': ['CONCRETE'],
-  'data-display.zod.ts#TableColumnSchema::cell': ['CONCRETE'],
-  'form.zod.ts#CalendarSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#CalendarSchema::value': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#FieldConditionSchema::custom': ['CONCRETE'],
-  'form.zod.ts#FieldConstraintsSchema::validate': ['CONCRETE'],
-  'form.zod.ts#FormFieldSchema::validation': ['CONCRETE'],
-  'form.zod.ts#FormFieldSchema::condition': ['CONCRETE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
-  'form.zod.ts#FormSchema::fields': ['CONCRETE'],
-  'form.zod.ts#SliderSchema::defaultValue': ['CONCRETE', 'CONCRETE'],
-  'form.zod.ts#SliderSchema::value': ['CONCRETE', 'CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'navigation.zod.ts#HeaderBarSchema::logo': ['CONCRETE', 'CONCRETE'],
-  'overlay.zod.ts#TooltipSchema::content': ['CONCRETE', 'CONCRETE'],
   'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
   'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
   'views.zod.ts#DetailViewSchema::sections': ['SCHEMA-NODE'],
@@ -3441,6 +3491,59 @@ export const assertionUnmirroredMatchesLedger: never = 0 as unknown as {
 }[MirrorKey];
 
 /**
+ * SPEC-VERSION GATE for the `options` row and its two containers (objectui#10296): does the installed spec's
+ * `visibleWhen` input envelope admit an object with NO `source`?
+ *
+ * `views.zod.ts#DetailViewFieldSchema::options` reads the spec's `SelectOptionSchema`
+ * by reference, so its WIDER verdict follows the spec that is installed. On the
+ * pinned `@objectstack/spec` 17.4.0 the envelope's `source` is optional in the static
+ * input type (at runtime `ast` alone satisfies its refine), so an envelope with no
+ * `source` is admitted and the declaration (whose wire requires `source`) refuses it:
+ * WIDER, recorded. On objectstack `main` the key is
+ * `EvaluatedExpressionInputSchema`, whose envelope REQUIRES `source`, so the mirror is
+ * no longer wider there (the `KnownDrift` half, `dialect` required, holds on both).
+ * The Spec Main Shape Gate compiles this file against `main`, so the ledger must
+ * hold on both.
+ *
+ * Read off the MIRROR's own input face, not an import of the spec, so it measures
+ * exactly the schema the row is about. The ledger entry stays a literal (the census
+ * parses it). Only the reconciliation consults this, and only for the rows in
+ * `SpecEnvelopeGatedWider` below: on 17.4.0 they must be measured WIDER exactly as
+ * before, and on `main` they must measure absent, so neither side is waived. ⛔ At
+ * the pin bump this reads `false` for good. Then delete those rows, their
+ * `WIDER_ARMS` entries and this gate together.
+ * The runtime tripwire in `detail-view-field-options-10296.test.ts` goes red at
+ * that bump to say so.
+ */
+type DetailViewOptionVisibleWhenInput = NonNullable<
+  NonNullable< MirrorInputOf< 'views.zod.ts#DetailViewFieldSchema', 'options' > >[number]['visibleWhen']
+>;
+export type SpecEnvelopeAdmitsSourceless =
+  { dialect: 'cel' } extends DetailViewOptionVisibleWhenInput ? true : false;
+
+/**
+ * The rows that gate withholds on a spec whose envelope requires `source`. Measured
+ * against objectstack `main` `e8f163fc3a62`, not assumed: the two container pairs
+ * carry `DetailViewFieldSchema` elements, and there their WIDER reading is gone too.
+ * Their only wider member was `options` (on the base commit, the inline shape's
+ * number/boolean `value`; on 17.4.0, the source-less envelope). They are ledgered
+ * SCHEMA-NODE, but that class names the arm, not the cause, so they leave with it.
+ */
+type SpecEnvelopeGatedWider = {
+  'views.zod.ts#DetailViewFieldSchema': 'options';
+  'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
+  'views.zod.ts#DetailViewSectionSchema': 'fields';
+};
+
+/** What `WiderThanDeclared` records for a pair, with the spec-version gate above applied. */
+export type WiderRecorded< K extends MirrorKey > =
+  K extends keyof WiderThanDeclared
+    ? SpecEnvelopeAdmitsSourceless extends true
+      ? WiderThanDeclared[K]
+      : Exclude< WiderThanDeclared[K], K extends keyof SpecEnvelopeGatedWider ? SpecEnvelopeGatedWider[K] : never >
+    : never;
+
+/**
  * The THIRD direction: every pair's WIDER key set equals what `WiderThanDeclared`
  * records for it — `never` for the pairs with no entry.
  *
@@ -3456,11 +3559,7 @@ export const assertionUnmirroredMatchesLedger: never = 0 as unknown as {
  * @object-ui/types type-check` is the gate that reads it.
  */
 export type WiderLedgerMismatch = {
-  [K in MirrorKey]: ReconcileAgainstLedger<
-    K,
-    WiderOf< K >,
-    K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never
-  >;
+  [K in MirrorKey]: ReconcileAgainstLedger< K, WiderOf< K >, WiderRecorded< K > >;
 }[MirrorKey];
 
 export const assertionWiderMatchesLedger: never = 0 as unknown as WiderLedgerMismatch;
@@ -3478,8 +3577,8 @@ export const assertionWiderMatchesLedger: never = 0 as unknown as WiderLedgerMis
  */
 export type WiderLedgerKeyDrift = {
   [K in MirrorKey]:
-    | Exclude< WiderOf< K >, K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never >
-    | Exclude< K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never, WiderOf< K > >;
+    | Exclude< WiderOf< K >, WiderRecorded< K > >
+    | Exclude< WiderRecorded< K >, WiderOf< K > >;
 }[MirrorKey];
 
 export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderLedgerKeyDrift;
@@ -3490,7 +3589,7 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **7 entries** carrying **101 keys**` — and ⛔ read that off the
+ * `this ledger seeds **4 entries** carrying **60 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
@@ -3500,6 +3599,13 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * direction, and the first time this seed has shrunk. The comment left where that
  * row stood says which ruling took it and why the neighbouring `operators` row
  * stayed after a ruling of its own.
+ *
+ * ⭐ Then by three entries at once, when objectui#9736 executed ruling batch #167
+ * item 4 (letter 甲): the SPEC-OWNED INFLOW rows — App, Dashboard, Page — left
+ * because the three TypeScript twins now take the spec by reference over the SAME
+ * exclusion arrays their mirrors read. That is not the "declare the keys one by
+ * one" remedy the next section refuses: no key was hand-declared, the twin and the
+ * mirror were put on one derivation, and the ruling named the mechanism.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3544,57 +3650,25 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  *     `never` and would never be caught at all.
  */
 interface MirroredUndeclared {
-  /**
-   * SPEC-OWNED INFLOW. The mirror is `BaseSchema.extend(SpecAppFields.shape).extend({…})`,
-   * so the spec's App surface — the `_lock*` / `_package*` / `_provenance` package-lock
-   * envelope, `protection`, `sharing`, `embed`, `objects`, `apis`, `homePageId`,
-   * `version`, `isDefault`, `_unpublished`, `aria`, `mobileNavigation`, `defaultAgent` —
-   * is validated here while the TypeScript interface restates only the component
-   * envelope its renderers read. `contextSelectors` is the one LOCAL arm: the spec
-   * fields deliberately omit it and the mirror's own `.extend({…})` adds it back, so
-   * it is mirrored by this file's own hand and still undeclared.
-   */
-  "app.zod.ts#AppComponentSchema":
-    | "contextSelectors"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "version"
-    | "isDefault"
-    | "_unpublished"
-    | "homePageId"
-    | "objects"
-    | "apis"
-    | "sharing"
-    | "embed"
-    | "mobileNavigation"
-    | "defaultAgent"
-    | "aria"
-    | "protection";
+  // `app.zod.ts#AppComponentSchema` HAD a row here — 20 keys of SPEC-OWNED INFLOW
+  // (the package-lock envelope, `protection`, `isDefault`, `_unpublished`,
+  // `defaultAgent`, the spec's tombstones, and the LOCAL `contextSelectors` arm) —
+  // and its DELETION is the ratchet moving in its only permitted direction.
+  // objectui#9736 (ruling batch #167 item 4, letter 甲) made the TypeScript twin take
+  // the spec BY REFERENCE the way its mirror does: `AppComponentSchema extends
+  // BaseSchema, Omit< App, … >` over `APP_SPEC_EXCLUDED`, the one `as const` array the
+  // mirror's `specFieldsExcept` call also reads, and `contextSelectors` declared on
+  // the twin over the mirror's own element schema. The pair now measures `never`;
+  // re-adding the row without re-adding the defect reddens the reconciliation below.
 
-  /**
-   * SPEC-OWNED INFLOW, same envelope as the App pair above plus this surface's own
-   * `refreshInterval` and `performance`. ⚠️ This pair already carries entries in
-   * `KnownDrift` and has carried them in `UnmirroredDeclared`; the three directions
-   * are independent measurements of one pair and an entry in one says nothing about
-   * the others.
-   */
-  "complex.zod.ts#DashboardComponentSchema":
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "aria"
-    | "protection"
-    | "refreshInterval"
-    | "performance";
+
+  // `complex.zod.ts#DashboardComponentSchema` HAD a row here — 11 keys (the envelope,
+  // `protection`, and the tombstones `aria` / `refreshInterval` / `performance`) —
+  // deleted by objectui#9736 for the reason the App note above gives: the twin
+  // extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`. Its `header`
+  // member is withheld from that projection on the TypeScript face only, and stays
+  // in `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, and a single key: the mirror states `aria` and the declaration does not.
@@ -3685,22 +3759,12 @@ interface MirroredUndeclared {
     | "minDate"
     | "maxDate";
 
-  /**
-   * SPEC-OWNED INFLOW. The package-lock envelope again, plus `source`,
-   * `interfaceConfig` and `requires` — page-level spec keys the mirror validates and
-   * the TypeScript node does not state.
-   */
-  "layout.zod.ts#PageNodeSchema":
-    | "source"
-    | "_lock"
-    | "_lockReason"
-    | "_lockSource"
-    | "_provenance"
-    | "_packageId"
-    | "_packageVersion"
-    | "_lockDocsUrl"
-    | "interfaceConfig"
-    | "requires";
+  // `layout.zod.ts#PageNodeSchema` HAD a row here — 10 keys (the envelope, `source`,
+  // `interfaceConfig`, `requires`) — deleted by objectui#9736 for the same reason:
+  // the twin extends `Omit< Page, … >` over `PAGE_SPEC_EXCLUDED`. Its `slots` member
+  // is withheld from that projection on the TypeScript face only, and stays in
+  // `KnownDrift` / `WiderThanDeclared` where it was.
+
 
   /**
    * LOCAL, one key — and the row STAYS after its ruling, which is the thing to
@@ -4013,6 +4077,18 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a union (`string | { dialect?, source }`) with no `.shape` of its own — the predicate WIRE shape `BaseSchema`'s `visible` / `hidden` / `disabled` and the form predicate keys carry (objectui#7530); its TS twin `ExpressionWire` (`../expression.ts`) is a type alias, not a key set, and the two faces are pinned equal in `base-schema-predicate-envelope-7530.test.ts`",
   'index.zod.ts#SCHEMA_VERSION':
     "a version string, not a schema",
+  // objectui#9736 — the three exclusion lists each spec-derived mirror's
+  // `specFieldsExcept` call reads, hoisted to one `as const` array so the
+  // TypeScript twin can `Omit` over the SAME list. Key-name tuples, not schemas;
+  // what they govern is measured on the pairs they feed
+  // (`app.zod.ts#AppComponentSchema` / `complex.zod.ts#DashboardComponentSchema` /
+  // `layout.zod.ts#PageNodeSchema`), pinned in `./twins-spec-by-reference-9736.test.ts`.
+  'app.zod.ts#APP_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecAppFields` and the `AppComponentSchema` twin both read (objectui#9736)",
+  'complex.zod.ts#DASHBOARD_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecDashboardFields` and the `DashboardComponentSchema` twin both read (objectui#9736)",
+  'layout.zod.ts#PAGE_SPEC_EXCLUDED':
+    "a key-name tuple, not a schema — the exclusion list `SpecPageFields` and the `PageNodeSchema` twin both read (objectui#9736)",
   'objectql.zod.ts#KanbanConditionalFormattingRuleSchema':
     "a union of two rule dialects (native `{ field, operator, value }` | spec `{ condition, style }`) with no `.shape` of its own — exported by objectui#7664 so the `'kanban'` arm (`complex.zod.ts#KanbanSchema`) and the `'object-kanban'` arm mirror `conditionalFormatting` from ONE rule declaration; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) is a type union, not a key set, and both arms' `conditionalFormatting` keys are compared where they are declared",
 };
@@ -4100,6 +4176,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // Membership here is what re-derives the pair's one remaining
   // `UnmirroredDeclared` key (`listViews`) into the split's SPEC-DERIVED half.
   'objectql.zod.ts#ObjectViewSchema',
+  // objectui#10296: `options` is the spec's authoring `SelectOptionSchema` by
+  // reference (ruling F1 on objectui#7759).
+  'views.zod.ts#DetailViewFieldSchema',
 ];
 
 /* ── Runtime: the population is closed ──────────────────────────────────────── */

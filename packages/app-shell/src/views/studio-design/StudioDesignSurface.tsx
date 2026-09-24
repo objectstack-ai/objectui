@@ -116,6 +116,7 @@ import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkC
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
 import {
@@ -2656,6 +2657,10 @@ export function DataPillar({
   const client = useMetadataClient();
   const adapter = useAdapter();
   const locale = useMetadataLocale();
+  // The last-saved time reads the DISPLAY locale — not `locale` above, which
+  // picks the pillar's strings and is `'en-US'` for every non-zh language
+  // (objectui#10232).
+  const displayLocale = useDisplayLocale();
   // Live server JSONSchemas per metadata type (`/meta/types`) — handed to the
   // Actions/Hooks config panels so their forms are driven by the real metadata
   // contract (and stay forward-compatible when the server spec adds fields).
@@ -3173,7 +3178,7 @@ export function DataPillar({
         ) : savedAt && !dirty ? (
           <span className="ml-auto text-[11px] text-muted-foreground" data-testid="data-saved-at">
             {tFormat('engine.studio.data.lastSaved', locale, {
-              time: savedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+              time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
             })}
           </span>
         ) : null}

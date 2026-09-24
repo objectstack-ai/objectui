@@ -637,13 +637,19 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui pages.
  */
-const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, [
+export const PAGE_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'type',
   'regions',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `PageNodeSchema`
+// TypeScript twin in `../layout.ts`, which extends `Omit< Page, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, PAGE_SPEC_EXCLUDED);
 
 /**
  * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling

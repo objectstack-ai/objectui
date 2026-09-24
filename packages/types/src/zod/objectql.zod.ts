@@ -841,11 +841,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
   '`groupBy` is the lane key of the generated `object-kanban` NODE, not of the view-level '
   + 'kanban configuration (objectui#8365). `@objectstack/spec`\'s `KanbanConfigSchema` is a '
   + 'strict object of `columns` / `groupByField` / `summarizeField` and refuses `groupBy` by '
-  + 'name, so a view carrying it never came through the validated path. Write `groupByField` '
-  + '(or the deprecated `groupField`, which folds onto it). Until this refusal the key rode '
-  + 'this object\'s `.passthrough()` into `ListView`\'s kanban branch and OVERRODE the lane '
-  + 'that branch had already resolved from `groupByField` — the board grouped by the stray '
-  + 'key, and nothing said so.',
+  + 'name. Write `groupByField` (or the deprecated `groupField`, which folds onto it). This '
+  + 'package, by contrast, accepted the key green until this refusal: it passed '
+  + '`safeValidateSchema` in either nesting, kept by this object\'s `.passthrough()` or by the '
+  + 'untyped legacy `options` bag, and reached `ListView`\'s kanban branch, where it OVERRODE the '
+  + 'lane that branch had already resolved from `groupByField` — the board grouped by the stray '
+  + 'key, and nothing said so. That branch now drops the key, so it is refused here instead of '
+  + 'being kept and then ignored.',
 );
 
 /**
@@ -1104,12 +1106,16 @@ const CalendarNodeDateAliasRefusals = {
  * check is for. The gap here is NOT specific to the calendar and was NOT opened
  * by this card: measured on the same instrument, a named view carrying the
  * objectui#8365 stray `kanban.groupBy` is ACCEPTED, while the identical key on a
- * `list-view` document is refused. Every alias refusal this module declares
- * stops at `listViews`. What this card regressed on the object-view route is the
- * BEHAVIOUR — a document that drew at the merge-base goes mute once the ladder
- * is gone — and this check is what makes that failure loud. ⛔ It is not a
- * general repair of the unmirrored key, and the kanban twin is still silent
- * here; that belongs to objectui#8365's own text, not to this card.
+ * `list-view` document is refused. Until this check, no alias refusal this
+ * module declares reached inside `listViews`. This check is the only door in,
+ * and it judges the two calendar spellings only, at both nestings (so
+ * `listViews.KEY.calendar.dateField` IS refused); a search for `listViews` in
+ * this file re-derives that. What this card regressed on the object-view route
+ * is the BEHAVIOUR — a document that drew at the merge-base goes mute once the
+ * ladder is gone — and this check is what makes that failure loud. ⛔ It is not
+ * a general repair of the unmirrored key, and the kanban twin is still silent
+ * here (no pin re-derives that silence); that belongs to objectui#8365's own
+ * text, not to this card.
  *
  * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
  * view stays accepted (the timeline alias is live by ruling), and nothing else
@@ -1852,6 +1858,11 @@ export const ObjectGanttSchema = BaseSchema.extend({
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#10250 — the full-text pair the record query carries, declared in
+  // step with the twin in `../objectql.ts`. ListView's toolbar Search writes
+  // both onto a gantt node, because the chart queries for itself.
+  search: z.string().optional().describe('Full-text search term, forwarded as $search (the server resolves the matched fields, ADR-0061)'),
+  searchableFields: z.array(z.string()).optional().describe('Narrows the fields `search` matches, forwarded as $searchFields alongside a term'),
 }).superRefine(requireRecordSource('object-gantt'));
 
 /**

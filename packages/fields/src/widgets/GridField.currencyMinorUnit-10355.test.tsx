@@ -108,6 +108,11 @@ describe('GridField shows a currency cell in its resolved currency (objectui#103
 
     lineGrid('JPY', { value: [stored] });
     expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('¥3,704');
+    cleanup();
+
+    // A row stored with cents before this repair shows at the yen's width too.
+    lineGrid('JPY', { value: [{ quantity: 3, unit_price: 1234.5, amount: 3703.5 }] });
+    expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('¥3,704');
   });
 
   it('KWD: the computed cell shows three decimals in dinar', () => {
@@ -142,13 +147,14 @@ describe('GridField shows a currency cell in its resolved currency (objectui#103
     render(
       <LocalizationProvider value={{ currency: 'KWD', locale: 'en' }}>
         <GridField
-          value={[{ quantity: 3, unit_price: 1.2345, amount: 3.704 }]}
+          value={[{ quantity: 3, unit_price: 1.2, amount: 3.6 }]}
           onChange={onChange}
           field={{ columns: [lineColumns[0], { ...lineColumns[1], prefix: 'KD ' }, amountColumn({ prefix: 'KD ' })] } as never}
         />
       </LocalizationProvider>,
     );
-    expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('KD 3.704');
+    // Three places: the dinar's width, padded, under the authored symbol.
+    expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('KD 3.600');
     expect(flat(screen.getAllByLabelText('Unit Price')[0].parentElement?.textContent)).toBe('KD');
   });
 });

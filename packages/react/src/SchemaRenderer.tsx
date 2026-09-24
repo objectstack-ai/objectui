@@ -504,15 +504,19 @@ const isExpressionEnvelope = (value: unknown): boolean =>
  * `properties.bodyExtra: { source: 'web', campaign: 'spring' }` reached the
  * handler as `bodyExtra: "web"`, while the same object written at node level
  * (which no loop visits) arrived intact. So the canonical channel was the
- * broken one. Every object-valued key a node carries in `properties` / `props`
+ * broken one. That pair is pinned end to end in `@object-ui/components`
+ * (`action-config-bag-source-key-10288.test.tsx`), and this guard by
+ * `__tests__/SchemaRenderer.configBagDataObject-10288.test.tsx`.
+ * Every object-valued key a node carries in `properties` / `props`
  * goes through the same loop, so the defect was never one key's: form
  * `defaultValues`, a declarative `patch`, filter `values` and a detail view's
  * `data` are all keyed by FIELD NAME, and a field named `source` is ordinary.
  *
  * ## What still reaches `evaluate`
  *
- *   - every non-object value, exactly as before (`evaluate` interpolates a
- *     string and returns every other non-object untouched);
+ *   - every value that is not an object in {@link isConfigBag}'s sense (a
+ *     string, any other primitive, an array), exactly as before: `evaluate`
+ *     interpolates a string and returns the rest untouched;
  *   - a spec Expression envelope ({@link isExpressionEnvelope}), so a
  *     `{ dialect: 'template', source: '${…}' }` value interpolates as it always
  *     did;

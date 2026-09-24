@@ -78,7 +78,13 @@ export const HeaderBarSchema = BaseSchema.extend({
   right: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Right content'),
   sticky: z.boolean().optional().describe('Whether header is sticky'),
   height: z.union([z.string(), z.number()]).optional().describe('Header height'),
-  variant: z.enum(['default', 'bordered', 'transparent']).optional().describe('Header variant'),
+  variant: retirementTombstone(
+    'REFUSED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
+    + '`search` off the node and takes no spread props, so every variant rendered the same header — '
+    + 'no error, no warning, no class. What it renders instead: `actions`, `crumbs`, `rightContent`, '
+    + '`search`.',
+  ),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `header-bar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

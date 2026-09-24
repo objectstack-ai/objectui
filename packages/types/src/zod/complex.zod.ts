@@ -478,7 +478,31 @@ export const FilterFieldSchema = z.object({
     'select', 'status',
     'lookup', 'master_detail', 'user',
   ]).optional().describe('Field type — the published doc\'s fourteen; `text` when absent'),
-  operators: z.array(FilterOperatorSchema).optional().describe('Available operators'),
+  // The spec's canonical filter vocabulary, `VIEW_FILTER_OPERATORS` in
+  // `@objectstack/spec/ui` (objectui#10286, the objectui#7759 ruling: where the
+  // spec declares it, both faces align to the spec). This key used to take
+  // `FilterOperatorSchema` above, which carries `is_null` / `is_not_null` where
+  // the TS declaration carried `is_empty` / `is_not_empty`, so neither face
+  // could be satisfied from the other. `FilterOperatorSchema` itself still
+  // types a CONDITION's `operator` and is not this key's business.
+  //
+  // Spelled out rather than imported: a raw spec VALUE read in a mirror must go
+  // through the objectui#8317 import boundary, which is about schemas and has no
+  // arm for a bare array. It cannot drift silently: the TS face takes the spec's
+  // `ViewFilterOperator` BY REFERENCE, so the parity ledger reddens the day the
+  // two sets differ, and `mirror-groups-cd-10286.test.ts`
+  // compares this list with the spec's array at runtime.
+  operators: z.array(z.enum([
+    'equals', 'not_equals',
+    'contains', 'not_contains', 'icontains',
+    'starts_with', 'ends_with',
+    'greater_than', 'less_than',
+    'greater_than_or_equal', 'less_than_or_equal',
+    'in', 'not_in',
+    'is_empty', 'is_not_empty',
+    'is_null', 'is_not_null',
+    'before', 'after', 'between',
+  ])).optional().describe('Available operators'),
   options: z.array(z.object({
     label: z.string(),
     value: z.any(),
@@ -566,6 +590,11 @@ export const ChatToolInvocationSchema = z.object({
   args: z.unknown().optional().describe('Tool arguments'),
   result: z.unknown().optional().describe('Tool result'),
   errorText: z.string().optional().describe('Tool error text'),
+  // The AUTHORING state vocabulary (objectui#10018). The AI SDK's three
+  // approval states — `approval-requested`, `approval-responded` and
+  // `output-denied` — are runtime-only and are not listed: an authored claim
+  // of one is refused as an `invalid_value` at `state`, with or without an
+  // `approval` envelope. Mirrors `ChatToolInvocation.state` in ../complex.ts.
   state: z
     .enum([
       'partial-call',
@@ -573,18 +602,16 @@ export const ChatToolInvocationSchema = z.object({
       'result',
       'input-streaming',
       'input-available',
-      'approval-requested',
-      'approval-responded',
       'output-available',
       'output-error',
-      'output-denied',
     ])
     .optional()
     .describe('Tool invocation state'),
   // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
   // tool-part union requires this envelope alongside the three approval
-  // states; the pairing itself is objectui#8426's narrowing and is NOT
-  // enforced here, so this arm stays independently optional (objectui#8442).
+  // states, which the `state` enum above does not admit (objectui#10018); on
+  // the states it does admit the envelope is never required, so this arm
+  // stays independently optional (objectui#8442).
   approval: z
     .object({
       id: z.string().describe('Approval request id — the key a decision is replied on'),

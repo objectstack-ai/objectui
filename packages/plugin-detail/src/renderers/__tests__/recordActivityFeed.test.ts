@@ -276,23 +276,23 @@ describe('a scheduled activity reaches the feed (objectui#5840)', () => {
     // it also survives the pipeline every page runs. `showCompleted` defaults
     // to false, and a scheduled meeting must NOT be caught by it — that is the
     // whole difference from the held branch of the same producer.
-    expect(applyFeedConfig([scheduledItem], {}, 50).items.map((i) => i.id)).toEqual(['e1']);
+    expect(applyFeedConfig([scheduledItem], {}, 50, 'record:activity').items.map((i) => i.id)).toEqual(['e1']);
   });
 
   it('survives `types: [\'event\']`, the filter an author writes to show meetings', () => {
-    expect(applyFeedConfig([scheduledItem], { types: ['event'] }, 50).items.map((i) => i.id))
+    expect(applyFeedConfig([scheduledItem], { types: ['event'] }, 50, 'record:activity').items.map((i) => i.id))
       .toEqual(['e1']);
   });
 
   it('survives unifiedTimeline:false — a meeting is not a field change', () => {
-    expect(applyFeedConfig([scheduledItem], { unifiedTimeline: false }, 50).items.map((i) => i.id))
+    expect(applyFeedConfig([scheduledItem], { unifiedTimeline: false }, 50, 'record:activity').items.map((i) => i.id))
       .toEqual(['e1']);
   });
 
   it('is excluded when the author asks for other kinds, like any other item', () => {
     // Control for the three legs above: they pass because `event` is genuinely
     // carried through the pipeline, not because the pipeline stopped filtering.
-    expect(applyFeedConfig([scheduledItem], { types: ['comment'] }, 50).items).toEqual([]);
+    expect(applyFeedConfig([scheduledItem], { types: ['comment'] }, 50, 'record:activity').items).toEqual([]);
   });
 
   /**
@@ -380,13 +380,13 @@ describe('input normalisation reads its vocabulary from the spec', () => {
     // emission is pinned in its own suite, which owns the dedupe bucket.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     for (const mode of SpecFilterMode.options) {
-      expect(normalizeFilterMode(mode)).toBe(mode);
+      expect(normalizeFilterMode(mode, 'record:activity')).toBe(mode);
     }
     // An unrecognised value is SKIPPED, not passed through — a <Select> handed
     // a value with no matching item renders blank (objectui#3151's posture).
-    expect(normalizeFilterMode('x')).toBe('all');
-    expect(normalizeFilterMode(undefined)).toBe('all');
-    expect(normalizeFilterMode(7)).toBe('all');
+    expect(normalizeFilterMode('x', 'record:activity')).toBe('all');
+    expect(normalizeFilterMode(undefined, 'record:activity')).toBe('all');
+    expect(normalizeFilterMode(7, 'record:activity')).toBe('all');
     resetUnrecognisedFilterModeWarnings();
     warn.mockRestore();
   });
@@ -401,7 +401,7 @@ describe('input normalisation reads its vocabulary from the spec', () => {
     // and they still are — the diagnostic changes nothing about the return.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const declared = [...SpecFeedItemType.options];
-    expect(normalizeFeedTypes(declared)).toEqual(declared);
+    expect(normalizeFeedTypes(declared, 'record:activity')).toEqual(declared);
     resetUnproducedFeedTypeWarnings();
     warn.mockRestore();
   });
@@ -410,18 +410,18 @@ describe('input normalisation reads its vocabulary from the spec', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     // `undefined` is now reserved for ONE meaning: the author wrote no filter.
-    expect(normalizeFeedTypes(undefined)).toBeUndefined();
-    expect(normalizeFeedTypes(null)).toBeUndefined();
+    expect(normalizeFeedTypes(undefined, 'record:activity')).toBeUndefined();
+    expect(normalizeFeedTypes(null, 'record:activity')).toBeUndefined();
 
     // Everything else is an authored filter, and an authored filter that keeps
     // nothing is `[]` — a filter that selects nothing, never "no filter".
-    expect(normalizeFeedTypes([])).toEqual([]);
-    expect(normalizeFeedTypes(['crm_task'])).toEqual([]);
-    expect(normalizeFeedTypes(['comment', 'crm_task', 'task'])).toEqual(['comment', 'task']);
+    expect(normalizeFeedTypes([], 'record:activity')).toEqual([]);
+    expect(normalizeFeedTypes(['crm_task'], 'record:activity')).toEqual([]);
+    expect(normalizeFeedTypes(['comment', 'crm_task', 'task'], 'record:activity')).toEqual(['comment', 'task']);
 
     // Brackets dropped. Also refused rather than ignored: `types` that cannot be
     // read is not a request to remove the filter.
-    expect(normalizeFeedTypes('comment')).toEqual([]);
+    expect(normalizeFeedTypes('comment', 'record:activity')).toEqual([]);
 
     resetUnrecognisedFeedTypeWarnings();
     warn.mockRestore();
@@ -458,24 +458,24 @@ describe('applyFeedConfig — the declared inputs change what is rendered', () =
   const ids = (f: { items: FeedItem[] }) => f.items.map((i) => i.id);
 
   it('shows everything but completed activities by default (spec: showCompleted=false)', () => {
-    expect(ids(applyFeedConfig(feed, {}, 50))).toEqual(['c1', 'f1', 's1']);
+    expect(ids(applyFeedConfig(feed, {}, 50, 'record:activity'))).toEqual(['c1', 'f1', 's1']);
   });
 
   it('showCompleted:true admits the completed activities', () => {
-    expect(ids(applyFeedConfig(feed, { showCompleted: true }, 50))).toEqual(['c1', 'f1', 't1', 's1']);
+    expect(ids(applyFeedConfig(feed, { showCompleted: true }, 50, 'record:activity'))).toEqual(['c1', 'f1', 't1', 's1']);
   });
 
   it('unifiedTimeline:false un-mixes field changes from the comment stream', () => {
-    expect(ids(applyFeedConfig(feed, { unifiedTimeline: false, showCompleted: true }, 50)))
+    expect(ids(applyFeedConfig(feed, { unifiedTimeline: false, showCompleted: true }, 50, 'record:activity')))
       .toEqual(['c1', 't1', 's1']);
     // …and true is the spec default, i.e. mixed.
-    expect(ids(applyFeedConfig(feed, { unifiedTimeline: true, showCompleted: true }, 50)))
+    expect(ids(applyFeedConfig(feed, { unifiedTimeline: true, showCompleted: true }, 50, 'record:activity')))
       .toEqual(['c1', 'f1', 't1', 's1']);
   });
 
   it('types is an allow-list over feed item types', () => {
-    expect(ids(applyFeedConfig(feed, { types: ['comment'] }, 50))).toEqual(['c1']);
-    expect(ids(applyFeedConfig(feed, { types: ['comment', 'system'] }, 50))).toEqual(['c1', 's1']);
+    expect(ids(applyFeedConfig(feed, { types: ['comment'] }, 50, 'record:activity'))).toEqual(['c1']);
+    expect(ids(applyFeedConfig(feed, { types: ['comment', 'system'] }, 50, 'record:activity'))).toEqual(['c1', 's1']);
   });
 
   it('a `types` list of nothing but typos renders nothing, not everything (objectui#5841)', () => {
@@ -483,19 +483,19 @@ describe('applyFeedConfig — the declared inputs change what is rendered', () =
     // defect: `['commnet']` selected no kind, and serving every kind instead is
     // the one answer the author cannot have meant.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(ids(applyFeedConfig(feed, { types: ['commnet'] }, 50))).toEqual([]);
+    expect(ids(applyFeedConfig(feed, { types: ['commnet'] }, 50, 'record:activity'))).toEqual([]);
     resetUnrecognisedFeedTypeWarnings();
     warn.mockRestore();
   });
 
   it('limit pages the feed newest-first and reports hasMore', () => {
-    const page = applyFeedConfig(feed, { showCompleted: true }, 2);
+    const page = applyFeedConfig(feed, { showCompleted: true }, 2, 'record:activity');
     // Chronological render order, but the PAGE is the newest two.
     expect(ids(page)).toEqual(['t1', 's1']);
     expect(page.total).toBe(4);
     expect(page.hasMore).toBe(true);
 
-    const all = applyFeedConfig(feed, { showCompleted: true }, 4);
+    const all = applyFeedConfig(feed, { showCompleted: true }, 4, 'record:activity');
     expect(all.hasMore).toBe(false);
   });
 
@@ -510,14 +510,14 @@ describe('applyFeedConfig — the declared inputs change what is rendered', () =
       item({ id: 'c3', type: 'comment', createdAt: '2026-01-05T00:00:00.000Z' }),
       item({ id: 'f3', type: 'field_change', createdAt: '2026-01-06T00:00:00.000Z' }),
     ];
-    const page = applyFeedConfig(mixed, { unifiedTimeline: false }, 3);
+    const page = applyFeedConfig(mixed, { unifiedTimeline: false }, 3, 'record:activity');
     expect(ids(page)).toEqual(['c1', 'c2', 'c3']);
     expect(page.hasMore).toBe(false);
   });
 
   it('never mutates the feed it was handed', () => {
     const source = feed.slice();
-    applyFeedConfig(source, { types: ['comment'] }, 1);
+    applyFeedConfig(source, { types: ['comment'] }, 1, 'record:activity');
     expect(source).toHaveLength(4);
   });
 });
@@ -561,28 +561,28 @@ describe('an unusable `types` filter narrows or refuses, never widens (objectui#
   });
 
   it('CONTROL — `types` omitted still means no filter: every kind renders', () => {
-    expect(ids(applyFeedConfig(feed, {}, 50))).toEqual(['c1', 'f1', 's1']);
+    expect(ids(applyFeedConfig(feed, {}, 50, 'record:activity'))).toEqual(['c1', 'f1', 's1']);
   });
 
   it('CONTROL — a recognised list still filters to exactly those kinds', () => {
     const warn = quiet();
-    expect(ids(applyFeedConfig(feed, { types: ['comment', 'system'] }, 50)))
+    expect(ids(applyFeedConfig(feed, { types: ['comment', 'system'] }, 50, 'record:activity')))
       .toEqual(['c1', 's1']);
     expect(warn).not.toHaveBeenCalled();
   });
 
   it('`types: []` filters to NOTHING — the author said "no kinds"', () => {
-    expect(ids(applyFeedConfig(feed, { types: [] }, 50))).toEqual([]);
+    expect(ids(applyFeedConfig(feed, { types: [] }, 50, 'record:activity'))).toEqual([]);
   });
 
   it('a list whose every member is unrecognised filters to NOTHING', () => {
     quiet();
-    expect(ids(applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50))).toEqual([]);
+    expect(ids(applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50, 'record:activity'))).toEqual([]);
   });
 
   it('a MIXED list keeps the recognised members and drops the rest', () => {
     quiet();
-    expect(ids(applyFeedConfig(feed, { types: ['comment', UNRECOGNISED] }, 50)))
+    expect(ids(applyFeedConfig(feed, { types: ['comment', UNRECOGNISED] }, 50, 'record:activity')))
       .toEqual(['c1']);
   });
 
@@ -591,13 +591,13 @@ describe('an unusable `types` filter narrows or refuses, never widens (objectui#
     // this cannot be caught by vocabulary alone; ignoring it rendered the whole
     // audit stream.
     quiet();
-    expect(ids(applyFeedConfig(feed, { types: 'comment' }, 50))).toEqual([]);
+    expect(ids(applyFeedConfig(feed, { types: 'comment' }, 50, 'record:activity'))).toEqual([]);
   });
 
   it('names the unrecognised kinds, once, however many times the feed re-renders', () => {
     const warn = quiet();
     for (let i = 0; i < 5; i += 1) {
-      applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50);
+      applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50, 'record:activity');
     }
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain(UNRECOGNISED);
@@ -607,7 +607,7 @@ describe('an unusable `types` filter narrows or refuses, never widens (objectui#
 
   it('names EVERY unrecognised kind in the list, in one diagnostic', () => {
     const warn = quiet();
-    applyFeedConfig(feed, { types: [UNRECOGNISED, 'crm_deal', 'comment'] }, 50);
+    applyFeedConfig(feed, { types: [UNRECOGNISED, 'crm_deal', 'comment'] }, 50, 'record:activity');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain(UNRECOGNISED);
     expect(String(warn.mock.calls[0][0])).toContain('crm_deal');
@@ -626,9 +626,9 @@ describe('an unusable `types` filter narrows or refuses, never widens (objectui#
     // test exists for is untouched and is asserted on kinds that are actually
     // produced — a filter this pipeline can honour end to end stays quiet.
     const warn = quiet();
-    applyFeedConfig(feed, {}, 50);
-    applyFeedConfig(feed, { types: [] }, 50);
-    applyFeedConfig(feed, { types: [...PRODUCED_FEED_TYPES] }, 50);
+    applyFeedConfig(feed, {}, 50, 'record:activity');
+    applyFeedConfig(feed, { types: [] }, 50, 'record:activity');
+    applyFeedConfig(feed, { types: [...PRODUCED_FEED_TYPES] }, 50, 'record:activity');
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -638,7 +638,7 @@ describe('an unusable `types` filter narrows or refuses, never widens (objectui#
     // dedupe bucket would let whichever fired first swallow the other.
     const warn = quiet();
     activityRowToFeedItem({ id: 'z', type: UNRECOGNISED }, 'System');
-    applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50);
+    applyFeedConfig(feed, { types: [UNRECOGNISED] }, 50, 'record:activity');
     expect(warn).toHaveBeenCalledTimes(2);
     resetUnknownActivityTypeWarnings();
   });
@@ -708,13 +708,13 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // on `system` would contradict that design.
     const warn = quiet();
     expect(PRODUCED_FEED_TYPES.has(UNMAPPED_ACTIVITY_FEED_TYPE)).toBe(true);
-    normalizeFeedTypes(['system']);
+    normalizeFeedTypes(['system'], 'record:activity');
     expect(warn).not.toHaveBeenCalled();
   });
 
   it('WARNS for a genuinely unproduced kind — the card\'s own example', () => {
     const warn = quiet();
-    normalizeFeedTypes(['approval']);
+    normalizeFeedTypes(['approval'], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(said(warn)).toContain('"approval"');
     expect(said(warn)).toContain('NO PRODUCER');
@@ -725,8 +725,8 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // per kind AND as a list, because a whole-list check passes for an
     // implementation that warns on exactly one member.
     const warn = quiet();
-    for (const kind of produced) normalizeFeedTypes([kind]);
-    normalizeFeedTypes(produced);
+    for (const kind of produced) normalizeFeedTypes([kind], 'record:activity');
+    normalizeFeedTypes(produced, 'record:activity');
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -736,7 +736,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // one kind the first test happened to name.
     for (const kind of unproduced) {
       const warn = quiet();
-      normalizeFeedTypes([kind]);
+      normalizeFeedTypes([kind], 'record:activity');
       expect(warn, `expected a diagnostic for the unproduced kind "${kind}"`).toHaveBeenCalledTimes(1);
       expect(said(warn)).toContain(`"${kind}"`);
       warn.mockRestore();
@@ -749,7 +749,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // `sharing` are not missing, they are not adopted, and reporting a decision
     // as a defect is how authors learn to ignore a channel.
     const warn = quiet();
-    normalizeFeedTypes([...DELIBERATELY_UNADOPTED_FEED_TYPES]);
+    normalizeFeedTypes([...DELIBERATELY_UNADOPTED_FEED_TYPES], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(1);
     const message = said(warn);
     expect(message).toContain('DELIBERATELY NOT ADOPTED');
@@ -761,7 +761,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
 
   it('keeps the two populations apart inside ONE diagnostic', () => {
     const warn = quiet();
-    normalizeFeedTypes(['sharing', 'approval']);
+    normalizeFeedTypes(['sharing', 'approval'], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(1);
     const message = said(warn);
     expect(message).toContain('DELIBERATELY NOT ADOPTED');
@@ -778,7 +778,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // no census taken in this repository can bound. Saying so is what keeps the
     // warning honest for the surface it cannot see.
     const warn = quiet();
-    normalizeFeedTypes(['email']);
+    normalizeFeedTypes(['email'], 'record:activity');
     expect(said(warn)).toContain('HOST');
     expect(said(warn)).toContain('Feed item types ObjectUI produces today:');
   });
@@ -787,17 +787,17 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     const warn = quiet();
     // Returned as authored, so nothing that renders changes: a declared kind is
     // still a legal filter, and the block still filters to it.
-    expect(normalizeFeedTypes(['approval'])).toEqual(['approval']);
-    expect(normalizeFeedTypes(['approval', 'comment'])).toEqual(['approval', 'comment']);
+    expect(normalizeFeedTypes(['approval'], 'record:activity')).toEqual(['approval']);
+    expect(normalizeFeedTypes(['approval', 'comment'], 'record:activity')).toEqual(['approval', 'comment']);
     expect(warn).toHaveBeenCalledTimes(1); // deduped: `approval` named once
   });
 
   it('dedupes per distinct kind, and names only the fresh ones', () => {
     const warn = quiet();
-    normalizeFeedTypes(['approval']);
-    normalizeFeedTypes(['approval']);
+    normalizeFeedTypes(['approval'], 'record:activity');
+    normalizeFeedTypes(['approval'], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(1);
-    normalizeFeedTypes(['approval', 'call']);
+    normalizeFeedTypes(['approval', 'call'], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(2);
     expect(said(warn, 1)).toContain('"call"');
     expect(said(warn, 1)).not.toContain('"approval"');
@@ -808,7 +808,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // whichever fired first swallow the other, and these two vocabularies meet
     // in one authored list all the time.
     const warn = quiet();
-    normalizeFeedTypes(['crm_task', 'approval']);
+    normalizeFeedTypes(['crm_task', 'approval'], 'record:activity');
     expect(warn).toHaveBeenCalledTimes(2);
     const messages = warn.mock.calls.map((c) => String(c[0]));
     expect(messages.some((m) => m.includes('unrecognised') && m.includes('"crm_task"'))).toBe(true);
@@ -819,7 +819,7 @@ describe('a `types` entry naming a kind nothing produces says so (objectui#5877)
     // Asserting the sanitiser alone would leave the diagnostic unreachable from
     // the pipeline; this is the call `record:activity` makes on every render.
     const warn = quiet();
-    const applied = applyFeedConfig(feed, { types: ['approval'] }, 50);
+    const applied = applyFeedConfig(feed, { types: ['approval'] }, 50, 'record:activity');
     expect(applied.items).toEqual([]); // the permanently empty tab, unchanged
     expect(warn).toHaveBeenCalledTimes(1);
     expect(said(warn)).toContain('"approval"');
@@ -898,7 +898,7 @@ describe('an unrecognised `filterMode` still folds onto `all`, but says so (obje
   it('names the offending value AND every declared mode, exactly once', () => {
     const warn = quiet();
 
-    expect(normalizeFilterMode(NEAR_MISS)).toBe('all');
+    expect(normalizeFilterMode(NEAR_MISS, 'record:activity')).toBe('all');
 
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0][0]);
@@ -916,19 +916,19 @@ describe('an unrecognised `filterMode` still folds onto `all`, but says so (obje
     // A page re-runs this on every render; an authoring mistake is ONE mistake.
     const warn = quiet();
     for (let i = 0; i < 5; i += 1) {
-      expect(normalizeFilterMode('changes-only')).toBe('all');
+      expect(normalizeFilterMode('changes-only', 'record:activity')).toBe('all');
     }
     expect(warn).toHaveBeenCalledTimes(1);
 
     // A DIFFERENT typo is a different mistake and is still named.
-    expect(normalizeFilterMode('tasksOnly')).toBe('all');
+    expect(normalizeFilterMode('tasksOnly', 'record:activity')).toBe('all');
     expect(warn).toHaveBeenCalledTimes(2);
     expect(String(warn.mock.calls[1][0])).toContain('tasksOnly');
   });
 
   it('reports a value of the wrong TYPE by its type, and still opens on `all`', () => {
     const warn = quiet();
-    expect(normalizeFilterMode(7)).toBe('all');
+    expect(normalizeFilterMode(7, 'record:activity')).toBe('all');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain('number');
   });
@@ -938,7 +938,7 @@ describe('an unrecognised `filterMode` still folds onto `all`, but says so (obje
     // wrong reason: a helper that warned unconditionally would satisfy them.
     const warn = quiet();
     for (const mode of SpecFilterMode.options) {
-      expect(normalizeFilterMode(mode)).toBe(mode);
+      expect(normalizeFilterMode(mode, 'record:activity')).toBe(mode);
     }
     expect(warn).not.toHaveBeenCalled();
   });
@@ -948,8 +948,8 @@ describe('an unrecognised `filterMode` still folds onto `all`, but says so (obje
     // authors to ignore the channel — the reason the sibling `sys_activity`
     // diagnostic does not fire for deliberate exclusions either.
     const warn = quiet();
-    expect(normalizeFilterMode(undefined)).toBe('all');
-    expect(normalizeFilterMode(null)).toBe('all');
+    expect(normalizeFilterMode(undefined, 'record:activity')).toBe('all');
+    expect(normalizeFilterMode(null, 'record:activity')).toBe('all');
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -957,8 +957,8 @@ describe('an unrecognised `filterMode` still folds onto `all`, but says so (obje
     // Same reasoning as the `types` ↔ `sys_activity.type` pair: one channel
     // having spoken must not silence another that shares a spelling.
     const warn = quiet();
-    normalizeFilterMode('comment');       // a declared FeedItemType, not a filter mode
-    normalizeFeedTypes(['comments_only']); // a declared filter mode, not a feed type
+    normalizeFilterMode('comment', 'record:activity');       // a declared FeedItemType, not a filter mode
+    normalizeFeedTypes(['comments_only'], 'record:activity'); // a declared filter mode, not a feed type
     expect(warn).toHaveBeenCalledTimes(2);
     resetUnrecognisedFeedTypeWarnings();
   });

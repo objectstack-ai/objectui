@@ -48,24 +48,25 @@
  * `description` draws its heading and no blurb at all, so the instrument that
  * reports the blurbs is one that CAN report none.
  *
- * ⚠️ Row 5 records a reading, ⛔ not a ruling, and it is where this arm differs
- * from the default one. `DrawerForm`'s explicit-sections push is UNGATED — it
- * pushes a divider row for every section, spelling the heading
- * `section.label || ''` — while the default arm pushes one only for a member
- * that yields a heading, and `SectionDivider` itself renders nothing when it
- * has neither a label nor a description. ⇒ once the key is copied, a drawer
- * section carrying a `description` and no heading renders a blurb alone, where
- * the same member on the default arm still draws no divider. ⛔ No gate was
- * widened to get this — objectui#9834 forbids touching the gate, which also
- * decides the ADR-0089 predicate row and the objectui#6236 membership claim —
- * it falls out of the push that was already unconditional. Pinned so the
- * difference is a recorded fact rather than something rediscovered later.
+ * ⭐ Row 5 is RULED now (objectui#9849 step two — director ruling letter E,
+ * maintainer 「同意」). It used to record a reading: this push drew a row for
+ * every section, heading or not, so a headingless section rendered its blurb
+ * alone here while the default arm drew nothing. The ruling replaced every
+ * per-arm gate with one rule — 「The divider row exists iff
+ * `title || description`; with `description` only it is the blurb-only row
+ * … on every arm」 — and attached the group's semantics to the group
+ * whether or not it yields a heading. ⇒ row 5 pins BOTH halves on this arm:
+ * the blurb-only row renders the blurb with no heading, and it carries the
+ * group's ADR-0089 predicate and objectui#6236 membership claim, so a
+ * denying scope hides the blurb AND the member while an admitting one shows
+ * both.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
+import { PredicateScopeProvider } from '@object-ui/react';
 import { ObjectForm } from '../ObjectForm';
 import { DrawerForm } from '../DrawerForm';
 
@@ -215,20 +216,41 @@ describe('`object-form` drawer arm — a section’s `description` reaches the d
     ).toEqual([]);
   });
 
-  it('5. reading, ⛔ not a ruling: the drawer’s explicit push is ungated, so a headingless section renders its blurb alone', async () => {
-    const f = await viaDrawerForm({
-      sections: [{ description: 'Totals as invoiced', fields: ['amount'] }],
-    });
-    expect(headings(f), 'no heading is authored, so none is drawn').toEqual([]);
+  it('5. ruled (objectui#9849, letter E): a headingless section draws the blurb-only row, and that row gates its group', async () => {
+    const GATE = { dialect: 'cel', source: "'sales_manager' in current_user.positions" };
+    const scope = (positions: string[]) => {
+      const user = { id: 'u1', name: 'Kim', positions };
+      return { current_user: user, user, ctx: { user }, os: { user }, data: {}, features: {} };
+    };
+    const section = { description: 'Totals as invoiced', fields: ['amount'], visibleWhen: GATE };
+
+    const allowed = await drawerForm(
+      <PredicateScopeProvider scope={scope(['sales_manager']) as any}>
+        <DrawerForm
+          schema={{ type: 'object-form', formType: 'drawer', objectName: 'invoice', mode: 'create', open: true, sections: [section] } as any}
+          dataSource={makeDataSource()}
+        />
+      </PredicateScopeProvider>,
+    );
+    expect(headings(allowed), 'no heading is authored, so none is drawn').toEqual([]);
+    expect(blurbs(allowed), 'the blurb-only row: the one rule draws it for `description` alone').toEqual([
+      'Totals as invoiced',
+    ]);
+    expect(drawnFields(allowed), 'the admitting scope shows the member').toEqual(['amount']);
+
+    cleanup();
+    const denied = await drawerForm(
+      <PredicateScopeProvider scope={scope(['sales']) as any}>
+        <DrawerForm
+          schema={{ type: 'object-form', formType: 'drawer', objectName: 'invoice', mode: 'create', open: true, sections: [section] } as any}
+          dataSource={makeDataSource()}
+        />
+      </PredicateScopeProvider>,
+    );
+    expect(blurbs(denied), 'the denying scope hides the row').toEqual([]);
     expect(
-      blurbs(f),
-      '⚠️ the divider ROW is pushed unconditionally on this arm — unlike the default arm, whose ' +
-        'own pin records the same member drawing no divider at all — so copying the key is ' +
-        'enough to make the blurb render with nothing above it. ⛔ No gate was widened here',
-    ).toEqual(['Totals as invoiced']);
-    expect(
-      drawnFields(f),
-      'the liveness control: the member itself still renders',
-    ).toEqual(['amount']);
+      drawnFields(denied),
+      '⭐ …and the group it names: a headingless group is never un-gated (ruling E item 1)',
+    ).toEqual([]);
   });
 });

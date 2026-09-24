@@ -106,10 +106,19 @@ export interface HeaderBarSchema extends BaseSchema {
    */
   height?: string | number;
   /**
-   * Header variant
-   * @default 'default'
+   * RETIRED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`.
+   *
+   * The key is not in `@objectstack/spec`, so the objectui#7759 ruling makes
+   * the read site the truth, and the read site has none: the renderer's one
+   * function reads `actions`, `crumbs`, `rightContent` and `search` off
+   * `schema` and takes no spread props, so every spelling rendered the same
+   * header. The two faces had also drifted apart on the way there — this
+   * declaration offered `floating`, the zod mirror `transparent` — and
+   * neither word had ever reached a class name.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  variant?: 'default' | 'bordered' | 'floating';
+  variant?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `header-bar` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this

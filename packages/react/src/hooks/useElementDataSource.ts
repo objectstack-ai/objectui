@@ -20,7 +20,7 @@
  * resolution. One resolver in the runtime layer, not one per plugin.
  */
 
-import { useContext, useEffect, useMemo, useState, type Context } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import {
   collectSavedViews,
   composeElementDataSource,
@@ -134,7 +134,10 @@ export function useElementDataSource(
   schema: unknown,
   dataSource?: unknown,
 ): UseElementDataSourceResult {
-  const context = useContext(SchemaRendererContext as Context<any>);
+  // Read AS DECLARED (objectui#7209) — no cast between the hook and the value,
+  // so a member the context does not declare is a compile error here. Pinned by
+  // `useElementDataSource.schemaRendererContextRead-7209.test.ts`.
+  const context = useContext(SchemaRendererContext);
   const adapter = (dataSource ?? context?.dataSource ?? null) as ViewCapableDataSource | null;
 
   const config = useMemo(() => {

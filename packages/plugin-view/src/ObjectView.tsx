@@ -66,6 +66,7 @@ import {
   convertSortToQueryParams,
 } from '@object-ui/core';
 import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema } from '@object-ui/react';
+import type { HandleClickModifiers } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { ViewSwitcher } from './ViewSwitcher';
 import { deriveRecordSurface } from './recordSurface';
@@ -439,6 +440,13 @@ export interface ObjectViewProps {
    * reason objectui#9341 measured on `ObjectKanbanSchema.onCardClick`: a host
    * that discovered the payload from the implementation annotated it
    * `React.MouseEvent`, which a narrower declaration refuses contravariantly.
+   *
+   * Supplying it hands the host the WHOLE decision, modifier clicks included.
+   * With no handler, the view answers a Cmd/Ctrl/middle-click itself by opening
+   * the record in a new browser tab (objectui#9806). A row the view made inert
+   * stays inert: under `navigation.mode: 'none'`, `navigation.preventNavigation`,
+   * or `operations.read: false` with no navigation config, a modifier click does
+   * nothing, as a plain click does.
    */
   onRowClick?: (record: Record<string, unknown>, event?: any) => void;
 
@@ -703,6 +711,34 @@ export const OBJECT_VIEW_HOST_COMPOSITION_VIEW_TYPES = [
   'chart',
   'tree',
 ] as const;
+
+/**
+ * objectui#10035 — the non-grid view types whose renderer still has to be
+ * REMOUNTED to show a write, because it has no in-place refetch path.
+ *
+ * AGENTS.md #8's corollary: refresh data, don't rebuild UI. `refreshKey` is
+ * this component's refresh signal, and it used to ride in the `key` of every
+ * view it renders, so each save, delete or `onMutation` event threw the whole
+ * view away. It no longer rides there for a view that refetches in place:
+ * `kanban`, `calendar`, `gallery`, `timeline` and `map` draw `data={data}`,
+ * the rows the fetch effect above re-reads when `refreshKey` moves, and
+ * `tree` re-issues its own query when that `data` array changes.
+ *
+ * The two members below read nothing that moves on a write, so for them the
+ * counter stays in the key until the renderer gains a refresh input:
+ *   - `gantt` — the registered `object-gantt` renderer hands `ObjectGantt`
+ *     only `schema` and `dataSource`, so `data` never reaches it, and its own
+ *     query names no refresh counter, no `onMutation` and no invalidation bus.
+ *   - `chart` — `ObjectChart` runs its own aggregate query off the node and
+ *     reads neither the host's `data` nor any refresh input.
+ * The grid branch keeps the counter for the same reason: `ObjectGrid` fetches
+ * for itself and its query moves only on its own internal counter.
+ *
+ * ⛔ Do not drop a member to "finish" objectui#10035 — that turns a remount
+ * into a view that silently stops showing writes. A member leaves when its
+ * renderer refetches in place.
+ */
+const REMOUNT_TO_REFRESH_VIEW_TYPES: ReadonlySet<string> = new Set(['gantt', 'chart']);
 
 /**
  * ObjectView Component
@@ -1209,39 +1245,55 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // modifier payload; truncating to `onRowClick(record)` here meant a host
   // wired to this component's own prop never saw it.
   //
-  // objectui#9806 — the branches below do NOT read it, and that is a GAP
-  // rather than a delegation. This paragraph used to close by saying what
-  // Cmd/Ctrl/middle-click does with no host handler "is the hook's own
-  // decision, taken before this callback runs". It is not, on this path:
+  // objectui#9806 (ruling B) — with NO host `onRowClick`, this callback reads
+  // the payload itself: a Cmd / Ctrl / middle-click opens the record as a full
+  // page in a new browser tab. The hook cannot do it for this component —
   // `handleClick` returns EARLY on the `onRowClick` it is handed, ahead of its
-  // own `event.metaKey` / `event.ctrlKey` / middle-button branch, and this
-  // component hands `handleRowClick` down UNCONDITIONALLY — so that branch is
-  // unreachable from here. ⇒ with no host `onRowClick`, a modifier click on an
-  // ObjectView row does exactly what a plain click does and opens no browser
-  // tab of its own. Whether it SHOULD is a behaviour change on a published
-  // component, owed its own card; objectui#9806 amended the sentence only.
+  // own modifier branch, and this component hands `handleRowClick` down
+  // unconditionally — and that early return stays: it is what lets a host
+  // handler (the branch just below) decide for itself.
+  //
+  // Two deliberate differences from the hook's branch, both read off THIS
+  // component's contract rather than the hook's:
+  //  - The destination is the component's own new-tab URL, the one
+  //    `navigation.mode: 'new_window'` already opens — never `schema.onNavigate`,
+  //    whose declared second parameter is `'view' | 'edit'` and cannot say
+  //    "new tab".
+  //  - A row the view made inert stays inert: `mode: 'none'` /
+  //    `preventNavigation`, or `operations.read === false` with no navigation
+  //    config, ignore a modifier click exactly as they ignore a plain one. A
+  //    modifier click changes WHERE a record opens, never WHETHER it opens.
   //
   // ⚠️ Nothing above is remembered — it is re-derived (AGENTS.md #9) by
-  // ObjectView.modifierClickInPlace-9806.test.tsx, which drives a plain click
-  // and a modifier click through the REAL hook, carries a control that reaches
-  // the hook's modifier branch, and pins this file's citation of it. Change
+  // ObjectView.modifierClickNewTab-9806.test.tsx, which drives plain and
+  // modifier clicks through the REAL hook, carries a control that reaches the
+  // hook's own modifier branch, and pins this file's citation of it. Change
   // what a modifier click does here and that pin reds together with this
   // comment.
+  const openRecordInNewTab = useCallback((record: Record<string, unknown>) => {
+    const recordId = record.id || record._id;
+    const url = `/${schema.objectName}/${encodeURIComponent(String(recordId))}`;
+    window.open(url, '_blank');
+  }, [schema.objectName]);
+
   const handleRowClick = useCallback((record: Record<string, unknown>, event?: any) => {
     if (onRowClick) {
       onRowClick(record, event);
       return;
     }
 
+    const modifiers = event as HandleClickModifiers | undefined;
+    const opensInNewTab = !!(
+      modifiers && (modifiers.metaKey || modifiers.ctrlKey || modifiers.button === 1)
+    ) && (record.id || record._id) != null;
+
     // Check NavigationConfig
     if (navigationConfig) {
       if (navigationConfig.mode === 'none' || navigationConfig.preventNavigation) {
         return; // Do nothing
       }
-      if (navigationConfig.mode === 'new_window' || navigationConfig.openNewTab) {
-        const recordId = record.id || record._id;
-        const url = `/${schema.objectName}/${encodeURIComponent(String(recordId))}`;
-        window.open(url, '_blank');
+      if (navigationConfig.mode === 'new_window' || navigationConfig.openNewTab || opensInNewTab) {
+        openRecordInNewTab(record);
         return;
       }
       if (navigationConfig.mode === 'drawer') {
@@ -1273,9 +1325,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
     // Default behavior
     if (operations.read !== false) {
+      if (opensInNewTab) {
+        openRecordInNewTab(record);
+        return;
+      }
       handleView(record);
     }
-  }, [onRowClick, navigationConfig, operations.read, handleView, schema]);
+  }, [onRowClick, navigationConfig, operations.read, handleView, openRecordInNewTab, schema]);
 
   // Handle delete action
   const handleDelete = useCallback((_record: Record<string, unknown>) => {
@@ -2145,7 +2201,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // --- Content renderer ---
   const renderContent = () => {
-    const key = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}-${refreshKey}`;
+    // The view's IDENTITY — switching object, view or type is a real remount.
+    // The refresh counter is appended only where the renderer cannot refetch
+    // in place (objectui#10035, see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
+    const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
+    const remountKey = `${identityKey}-${refreshKey}`;
 
     // If a custom renderListView is provided, use it
     // #region object-view HOST-COMPOSITION SURFACE (objectui#5097)
@@ -2313,7 +2373,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       if (viewSchema && SchemaRendererComponent) {
         return (
           <SchemaRendererComponent
-            key={key}
+            key={REMOUNT_TO_REFRESH_VIEW_TYPES.has(currentViewType) ? remountKey : identityKey}
             schema={viewSchema}
             dataSource={dataSource}
             data={data}
@@ -2331,10 +2391,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       }
     }
 
-    // Default: use ObjectGrid
+    // Default: use ObjectGrid — still remounted to show a write, because
+    // `ObjectGrid` has no refresh input (see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
     return (
       <ObjectGrid
-        key={key}
+        key={remountKey}
         schema={gridSchema}
         dataSource={dataSource}
         onRowClick={handleRowClick}

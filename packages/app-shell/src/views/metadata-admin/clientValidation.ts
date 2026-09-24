@@ -562,11 +562,33 @@ function expandViewIssues(
  * where a permissive match-all sharing condition gets written — and deliberately
  * not on `edit`. This is NOT a tolerant fallback: nothing is coerced and no
  * draft is waved through; one door has a client gate and the other keeps the
- * server's. Turning this gate on is gated on the `_diagnostics` ingress being
- * closed first (the strip belongs where the draft is assembled, not here —
+ * server's.
+ *
+ * ── The ingress condition was MET, and the answer was still no (objectui#7612) ──
+ *
+ * This block used to end on a plan: switch the edit gate on once the
+ * `_diagnostics` ingress is closed where the draft is assembled (not here —
  * reconstructing the decoration list in this file would be a second de-facto
- * contract). Until then a gate here would refuse legitimate author input, which
- * is worse than the defense-in-depth gap it closes.
+ * contract), and not before, since until then a gate here would refuse
+ * legitimate author input. That condition was met. objectui#7603 stripped the
+ * read decorations off the pending draft, and objectui#8181 hoisted the strip
+ * into `extractDraftBody`, which removes the spec's own list through the spec's
+ * `stripReadDecorations` before the pending draft is merged. So the
+ * `getDraft().item` assembly quoted above is the edit path as objectui#6982
+ * measured it, not as it stands; for the live answer read
+ * `ResourceEditPage.readDecorationStrip.test.tsx`, not this paragraph.
+ *
+ * The switch was then put to the maintainer on objectui#7612, with the met
+ * condition measured on that card and a finished implementation beside it
+ * (PR objectui#10054). The maintainer ruled option A on 2026-09-20 (restated on
+ * objectui#10150), verbatim 「7612 只需要服务端校验」 ("7612 needs server-side
+ * validation only"): the edit door stays ungated, because the server is
+ * authoritative on it and that is enough. The PR closed unmerged. The create
+ * door was not in question and keeps its client gate.
+ *
+ * ⇒ A closed ingress is NOT a reason to take `sharing_rule` out of this set:
+ * that question was asked with the condition already met, and answered. Only a
+ * new maintainer ruling re-opens it, never a re-reading of the ingress.
  */
 const AUTHOR_SHAPE_ONLY_TYPES = new Set<string>(['sharing_rule']);
 
@@ -741,9 +763,9 @@ const LOADERS: Record<string, SchemaLoader> = {
   // key in that schema at all: its required keys are `name`, `label`, `type`,
   // and a minimal `{ name, label, type: 'saas' }` entry parses clean.
   //
-  // But `ConnectorSchema` is still the wrong target, for the reason the spec
-  // states itself: the base "stays a plain object so connector subtypes
-  // (github / database / …) can still `.extend()` it", while
+  // But `ConnectorSchema` is still the wrong target, for the reason the spec's
+  // `DeclarativeConnectorEntrySchema` docblock states: the base is the shape
+  // shared with connector defs a plugin builds at runtime, while
   // `DeclarativeConnectorEntrySchema` is that base plus the ADR-0097 rules that
   // apply to a connector AUTHORED in a stack — which is what this admin writes.
   // `ObjectStackSchema.connectors` binds the entry schema element-wise.

@@ -2084,10 +2084,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 .map(f => columnIdentity(f))
                 .filter((v): v is string => typeof v === 'string' && v.length > 0)
             : [];
+          // [objectui#10275] "Is there a projection?" is asked of the AUTHORED
+          // columns, never of what survived the FLS gate below — the rule
+          // `hasAuthoredColumns` applies to what the grid draws. No authored
+          // column ⇒ no `$select`, as before. An authored list that FLS EMPTIES
+          // used to land here too, so the request carried no `$select` key and
+          // asked for every field, the denied ones included: an emptied list
+          // read as "no restriction", the widening objectui#7215 measured on
+          // `$expand`. It now falls through and projects to `id` plus the
+          // routes below, each already FLS-gated as it enters (the `$expand`
+          // roots, the view bindings, the grouping fields, the row predicates'
+          // operands; the platform columns excepted, for the reason stated at
+          // `addSpeculative`) — the shape `ObjectGrid` (`ensureId([])` keeps
+          // `['id']`) and `RelatedList` (objectui#10186) send.
+          if (rawCols.length === 0) return undefined;
           const cols = (perms?.isLoaded && schema.objectName)
             ? rawCols.filter(c => perms.checkField(schema.objectName!, c, 'read'))
             : rawCols;
-          if (cols.length === 0) return undefined;
           // Don't speculatively add `_id` / `name` — some backends reject
           // unknown select keys with an empty result set rather than
           // ignoring them. Stick to the user-requested columns plus the
@@ -2831,50 +2844,79 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   );
 
   /**
-   * The filter the GANTT CHART queries with (objectui#10037).
+   * The filter a SELF-QUERYING view queries with — `gantt` (objectui#10037),
+   * `tree` and `chart` (objectui#10250).
    *
-   * Every other view draws the rows this component fetched, so the toolbar's
-   * Filter control and the `UserFilters` chips reach them through `data`. The
-   * registered `object-gantt` renderer forwards no host prop (see
-   * `ganttOwnsData` above) and runs its OWN query from `schema.filter` — so a
-   * node carrying only the authored `schema.filter` left both controls on
-   * screen, changing this component's fetch and nothing the user could see.
-   * The node therefore carries the SAME effective filter this component's own
-   * fetch sends (`buildEffectiveFilter`: authored filter AND toolbar group AND
-   * chips), which `ObjectGantt.reload` hands to `$filter` unchanged.
+   * Most views draw the rows this component fetched, so the toolbar's Filter
+   * control and the `UserFilters` chips reach them through `data`. Three views
+   * run their OWN query from the node's `filter` instead, and a node carrying
+   * only the authored `schema.filter` left both controls on screen, changing
+   * this component's fetch and nothing the user could see:
+   *
+   *   - `gantt`: the registered `object-gantt` renderer forwards no host prop
+   *     (see `ganttOwnsData` above) and `ObjectGantt.reload` hands
+   *     `schema.filter` to `$filter`;
+   *   - `tree`: `ObjectTree`'s object-provider branch runs its own `find` with
+   *     `$filter: schema.filter`, and it runs BEFORE its host-`data` branch;
+   *   - `chart` (the object-bound shape): `ObjectChart` reads no host rows and
+   *     aggregates with `schema.filter`.
+   *
+   * Each of those nodes therefore carries the SAME effective filter this
+   * component's own fetch sends (`buildEffectiveFilter`: authored filter AND
+   * toolbar group AND chips), and each renderer hands it to its query
+   * unchanged.
    *
    * ⭐ Stable for an equal payload, and keyed on the payload — not on a memo
-   * identity (AGENTS.md #10). `ObjectGantt`'s reload effect lists
-   * `schema.filter` as a dependency, so a fresh array for a byte-identical
-   * filter would refetch the chart on every density toggle or discarded memo.
-   * The ref below hands back the previous object whenever the serialised
-   * filter is unchanged.
+   * identity (AGENTS.md #10). `ObjectGantt`'s reload effect and `ObjectTree`'s
+   * record effect both list `schema.filter` as a dependency, so a fresh array
+   * for a byte-identical filter would refetch the view on every density toggle
+   * or discarded memo. The ref below hands back the previous object whenever
+   * the serialised filter is unchanged. (`ObjectChart` keys its fetch on the
+   * serialised filter already; it gets the same value for one rule.)
    *
    * ⚠️ A filter `buildEffectiveFilter` refuses (a `FilterOperatorError`) is
-   * NOT turned into "no filter" here — that would widen the chart to every row.
+   * NOT turned into "no filter" here — that would widen the view to every row.
    * The node keeps the last filter it was handed (or, before any, the authored
-   * one, exactly what it carried before this change), and this component's own
-   * fetch, which throws the same refusal inside its load `try`, raises the
-   * load-error panel that replaces the chart.
+   * one, exactly what it carried before objectui#10037), and this component's
+   * own fetch, which throws the same refusal inside its load `try`, raises the
+   * load-error panel that replaces the view.
    */
-  const ganttChartFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
-  let ganttChartFilter: unknown = schema.filter;
-  if (currentView === 'gantt') {
+  const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
+  let selfQueryFilter: unknown = schema.filter;
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
     try {
       const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
       const key = JSON.stringify(value ?? null);
-      const cached = ganttChartFilterRef.current;
+      const cached = selfQueryFilterRef.current;
       if (cached && cached.key === key) {
-        ganttChartFilter = cached.value;
+        selfQueryFilter = cached.value;
       } else {
-        ganttChartFilterRef.current = { key, value };
-        ganttChartFilter = value;
+        selfQueryFilterRef.current = { key, value };
+        selfQueryFilter = value;
       }
     } catch (error) {
       if (!(error instanceof FilterOperatorError)) throw error;
-      ganttChartFilter = ganttChartFilterRef.current ? ganttChartFilterRef.current.value : schema.filter;
+      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : schema.filter;
     }
   }
+
+  /**
+   * The toolbar Search term the GANTT CHART queries with (objectui#10250).
+   *
+   * Same seam as `selfQueryFilter` above, other control: this component's own
+   * fetch sends `$search` (and, when the view declares `searchableFields`,
+   * `$searchFields`), and the chart — which queries for itself — never saw the
+   * term. The gantt node carries it as `search`, which `ObjectGantt.reload`
+   * sends as `$search` together with the node's `searchableFields`.
+   *
+   * Gantt-only, and a primitive: the memo below lists it as a dependency, so
+   * scoping it keeps a keystroke from rebuilding every other view's node, and
+   * a string compares by value, so an unchanged term rebuilds nothing.
+   * ⛔ `tree` and `chart` are not handed a term: neither renderer has a search
+   * channel in its own query today, so a key written onto their nodes would be
+   * accepted and read by nothing.
+   */
+  const ganttSearchTerm = currentView === 'gantt' ? searchTerm : '';
 
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
@@ -3208,8 +3250,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           // objectui#10037 — the EFFECTIVE filter, not the authored one: the
           // chart queries for itself, so this key is the only way the
           // toolbar's Filter control and the `UserFilters` chips reach it.
-          // See `ganttChartFilter` above.
-          filter: ganttChartFilter,
+          // See `selfQueryFilter` above.
+          filter: selfQueryFilter,
+          // objectui#10250 — the toolbar Search term, by the same door and for
+          // the same reason; `searchableFields` rides with it exactly as it
+          // rides with this component's own `$search`. Absent keys, not
+          // present-and-empty, when there is no term. See `ganttSearchTerm`.
+          ...(ganttSearchTerm
+            ? {
+                search: ganttSearchTerm,
+                ...(schema.searchableFields && schema.searchableFields.length > 0
+                  ? { searchableFields: schema.searchableFields }
+                  : {}),
+              }
+            : {}),
           // objectui#7334 — the view-level `navigation` the author wrote.
           //
           // `ObjectGantt` owns a record drawer of its own and resolves
@@ -3317,6 +3371,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-tree',
           ...baseProps,
+          // objectui#10250 — the EFFECTIVE filter: `ObjectTree`'s object
+          // provider runs its own `find` from this key before it looks at the
+          // `data` handed down, so the toolbar Filter and the chips reach the
+          // tree only here. See `selfQueryFilter` above.
+          filter: selfQueryFilter,
           parentField: treeCfg.parentField,
           labelField: treeCfg.labelField || treeCfg.titleField || 'name',
           fields: treeCfg.fields || effectiveFields,
@@ -3367,8 +3426,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           chartType: chartCfg.chartType || 'bar',
           // `ObjectChart` reads `schema.filter` and never read `filters`, so a
           // chart list view with a base filter used to aggregate the WHOLE
-          // object (#2890).
-          filter: schema.filter,
+          // object (#2890). It reads no host rows either, so this key is also
+          // the only way the toolbar Filter and the chips reach the aggregate:
+          // the EFFECTIVE filter, not the authored one (objectui#10250). See
+          // `selfQueryFilter` above.
+          filter: selfQueryFilter,
           aggregate: {
             field: valueField,
             function: chartCfg.aggregation || 'count',
@@ -3387,7 +3449,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, ganttChartFilter]);
+  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 

@@ -495,7 +495,10 @@ export function ElementDataSourceLoadingPanel({
  * it off and you get `unknown`, which is the honest default.
  */
 export function useResolvedDataSource<T = unknown>(explicit?: unknown): T | undefined {
-  const context = React.useContext(SchemaRendererContext as React.Context<any>);
+  // Read AS DECLARED (objectui#7209): the only cast in this hook is the
+  // caller's `T` on the way out, never one erasing the context on the way in.
+  // Pinned by `useResolvedDataSource.schemaRendererContextRead-7209.test.ts`.
+  const context = React.useContext(SchemaRendererContext);
   const named = isElementDataSourceConfig(explicit) ? undefined : explicit;
   return (named ?? context?.dataSource ?? undefined) as T | undefined;
 }

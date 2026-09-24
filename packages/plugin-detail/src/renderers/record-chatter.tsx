@@ -26,7 +26,7 @@
  *
  * The pipeline below is `record-activity.tsx`'s, not a second convention: the
  * same `applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline },
- * pageSize)` call, and the same reading of `limit` as a PAGE SIZE that
+ * pageSize, block)` call (only the block name differs), and the same reading of `limit` as a PAGE SIZE that
  * "Load more" grows by, rather than a hard cap.
  *
  * ⚠️ Consequences an author sees, because the spec's DEFAULTS now apply here
@@ -180,12 +180,16 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   // state, not the resulting size").
   const [extraPages, setExtraPages] = React.useState(0);
   const limit = normalizeLimit(feed?.limit);
+  // The block this renderer is mounted as — `record:chatter` or
+  // `record:discussion`, both registered to this one component — so every
+  // author diagnostic below is addressed to the block that was authored.
+  // `record:chatter` only when no `type` arrived at all: the host's
+  // auto-appended discussion mounts this renderer with no schema, and then the
+  // `feed` is the three affordance defaults above, which no diagnostic reads.
+  const blockName = typeof schema.type === 'string' && schema.type ? schema.type : 'record:chatter';
   // [objectui#10145] Same refusal, same channel as `record:activity`, named for
   // the block that was authored (`record:chatter` or `record:discussion`).
-  const refusedLimitMessage = describeRefusedFeedLimit(
-    `${typeof schema.type === 'string' && schema.type ? schema.type : 'record:chatter'} feed`,
-    feed?.limit,
-  );
+  const refusedLimitMessage = describeRefusedFeedLimit(`${blockName} feed`, feed?.limit);
   React.useEffect(() => {
     if (refusedLimitMessage) console.warn(refusedLimitMessage);
   }, [refusedLimitMessage]);
@@ -194,11 +198,11 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   // `filterMode` — the authored slice, normalized by the SAME function
   // `record:activity` uses, so an unrecognised value falls back to `all` rather
   // than freezing the dropdown blank on a value with no matching item.
-  // ⚠️ That shared diagnostic prints a `[record:activity]` prefix and warns
-  // once per offending VALUE, so a bad `filterMode` authored on both a
-  // `record:activity` and a `record:chatter` block on one page warns under the
-  // activity name only. A renderer-aware prefix belongs in `recordActivityFeed`
-  // rather than here; reported on objectui#8968, not fixed on this card.
+  // Its diagnostic (and the `types` ones `applyFeedConfig` raises) is prefixed
+  // with `blockName` and deduped per (block, value), so a bad `filterMode`
+  // authored on both a `record:activity` and a `record:chatter` block on one
+  // page warns once under EACH name (objectui#9557; it used to warn once, under
+  // the activity name only).
   //
   // It seeds STATE rather than being handed to the panel directly: the timeline
   // treats `filterMode` as a CONTROLLED prop, so passing the authored value
@@ -214,7 +218,7 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   //
   // ⭐ Independent of `showFilterToggle` on purpose; the docblock above carries
   // the decision and its three reasons.
-  const defaultFilterMode = normalizeFilterMode(feed?.filterMode);
+  const defaultFilterMode = normalizeFilterMode(feed?.filterMode, blockName);
   const [filterMode, setFilterMode] = React.useState<FeedFilterMode>(defaultFilterMode);
   React.useEffect(() => { setFilterMode(defaultFilterMode); }, [defaultFilterMode]);
 
@@ -229,8 +233,9 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
           unifiedTimeline: feed?.unifiedTimeline,
         },
         pageSize,
+        blockName,
       ),
-    [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize],
+    [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize, blockName],
   );
 
   // `record-activity.tsx` writes its own `handleLoadMore` with an empty

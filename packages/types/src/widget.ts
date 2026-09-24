@@ -248,9 +248,10 @@ export interface WidgetSourceRegistry {
  *    widget manifest to begin with, so the `ComponentInput` that
  *    `WidgetRegistry` synthesises never carries one. Measured before leaving
  *    them out: no reader in this repository consumes any of the five on
- *    `ComponentInput` either, and `sdui-parser`'s serializer forwards six keys
- *    (`name`, `type`, `required`, `enum`, `binding`, `description`) and none of
- *    these. Copying them here would mirror surface that nothing reads on the
+ *    `ComponentInput` either, and `sdui-parser`'s serializer forwards a fixed
+ *    key list per input, `of` included since objectui#8067 (`name`, `type`,
+ *    `of`, `required`, `enum`, `binding`, `description`), and none of these.
+ *    Copying them here would mirror surface that nothing reads on the
  *    face it already lives on.
  *
  *    ⚠️ ALL FIVE are now ADR-0049 RETIREMENT TOMBSTONES on `ComponentInput`

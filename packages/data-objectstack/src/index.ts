@@ -1353,6 +1353,75 @@ export class AnalyticsQueryRejectedError extends Error {
 }
 
 /**
+ * Thrown by `aggregate()` when `client.analytics.query` resolves to anything
+ * other than the post-unwrap `AnalyticsResult` — concretely, when the value it
+ * hands back has no `rows` array (objectui#7028).
+ *
+ * ONE SPELLING, BY RULING. `@objectstack/client` 17.3.0 converged
+ * `analytics.query` on `unwrapResponse` (objectstack#13079, maintainer ruling
+ * 2026-08-31, option A): the method resolves to the payload, and the caller
+ * reads `result.rows`. The same ruling ordered this adapter's tolerant row
+ * ladder tightened in the same wave, so that defensive code is not read as a
+ * contract. The ladder also read a bare array, `data` as an array,
+ * `data.data.rows` and `results`; `rows` is now the only spelling read, and
+ * everything else lands here.
+ *
+ * WHY A THROW AND NOT `[]`. The ladder answered every shape it did not
+ * recognise with an empty array, and an empty array is a RESULT: a KPI renders
+ * a confident zero and a chart reads "no data" over a populated table — the
+ * lie objectui#5954 removed on the failure side. The envelope arriving here
+ * means the SDK in front of this call predates the convergence (it is older
+ * than 17.3.0), or something between it and `POST /analytics/query` wraps the
+ * payload a second time. Either way the adapter is handed a contract it no
+ * longer reads, and saying so is the only answer that names the repair.
+ *
+ * WHY NOT THE CLIENT-SIDE FALLBACK. Analytics answered; this is not a
+ * transport failure. Degrading would put plausible numbers from a different
+ * code path over a contract violation — the misdirection
+ * {@link AnalyticsQueryRejectedError} refuses for the same reason
+ * (framework#3878) — so `aggregate()`'s catch rethrows this before it
+ * classifies anything.
+ */
+export class AnalyticsResultShapeError extends Error {
+  readonly code = 'ANALYTICS_RESULT_SHAPE_INVALID';
+  /** The object `aggregate()` was called for. */
+  readonly resource: string;
+  /**
+   * True when the value is the envelope the client stopped handing back at
+   * 17.3.0 — `{ success, data: { rows } }`, or its `{ data: { rows } }` core.
+   */
+  readonly envelope: boolean;
+  /** What the value was, so the producer is identifiable from a log. */
+  readonly received: string;
+  constructor(resource: string, result: unknown) {
+    const value = result as { data?: { rows?: unknown } } | null | undefined;
+    const envelope = Array.isArray(value?.data?.rows);
+    const received =
+      result === null ? 'null'
+      : Array.isArray(result) ? 'an array'
+      : typeof result !== 'object' ? typeof result
+      : `an object with keys [${Object.keys(result as object).join(', ')}]`;
+    super(
+      envelope
+        ? `aggregate('${resource}'): client.analytics.query resolved to the `
+          + '`{ data: { rows } }` envelope, not to an AnalyticsResult. '
+          + '@objectstack/client resolves this method to the payload itself '
+          + 'since 17.3.0 (objectstack#13079), and this adapter reads `rows` '
+          + 'only: an older client is installed beside it, or something between '
+          + 'the client and POST /analytics/query wraps the payload a second '
+          + 'time. Install @objectstack/client 17.3.0 or later.'
+        : `aggregate('${resource}'): client.analytics.query resolved to `
+          + `${received}, which has no \`rows\` array, so it is not an `
+          + 'AnalyticsResult. This adapter reads `rows` only (objectui#7028).',
+    );
+    this.name = 'AnalyticsResultShapeError';
+    this.resource = resource;
+    this.envelope = envelope;
+    this.received = received;
+  }
+}
+
+/**
  * Classify a FAILED analytics call so the caller knows whether to degrade or
  * to surface the failure.
  *
@@ -5939,7 +6008,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * Uses `this.client.analytics.query()` from @objectstack/client to leverage
    * the SDK's built-in auth, headers, and fetch configuration.
    * Falls back to client-side aggregation via find() if the analytics endpoint
-   * is not available.
+   * is not available. Throws {@link AnalyticsResultShapeError} when it answers
+   * with anything but an `AnalyticsResult` carrying `rows`.
    */
   async aggregate(resource: string, params: any): Promise<any[]> {
     await this.connect();
@@ -6048,32 +6118,19 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
       const contractResult = await this.client.analytics.query(payload);
 
-      // `client.analytics.query` resolved to `Promise<any>` at
-      // `@objectstack/client` 17.2.0 and resolves to `Promise<AnalyticsResult>`
-      // at 17.3.0, so the pre-envelope branches below stopped type-checking the
-      // moment the family moved. The client's own docblock states the runtime
-      // change that produced the narrower type: "BREAKING since #13079 - read
-      // `result.rows`, not `result.data.rows`; the method used to resolve to the
-      // whole envelope."
-      //
-      // Those branches are READ THROUGH a widened alias here rather than
-      // deleted, and the distinction is deliberate: deleting them is a runtime
-      // compatibility decision about servers older than #13079, NOT a type
-      // repair, and it belongs to whoever owns that decision. This alias
-      // restores exactly the compile-time latitude 17.2.0's `Promise<any>` gave
-      // the same expression and changes no runtime byte of it. When the
-      // compatibility question is ruled, the branches go and the alias goes
-      // with them - it exists only to keep a decision from being made by a
-      // build error.
-      const data = contractResult as AnalyticsResult &
-        Partial<Record<'data' | 'results', any>>;
-
-      const rawRows: any[] = Array.isArray(data) ? data
-        : data?.rows && Array.isArray(data.rows) ? data.rows
-        : data?.data && Array.isArray(data.data) ? data.data
-        : data?.data?.rows && Array.isArray(data.data.rows) ? data.data.rows
-        : data?.results && Array.isArray(data.results) ? data.results
-        : [];
+      // ONE spelling: `rows` on the post-unwrap `AnalyticsResult`, which is
+      // what `client.analytics.query` resolves to since `@objectstack/client`
+      // 17.3.0 converged it on `unwrapResponse` (objectstack#13079). The
+      // ruling on that card ordered this read tightened in the same wave
+      // (objectui#7028); the question the previous ladder deferred was which
+      // SDK it still had to read for, and it was never a server question —
+      // every 17.x server answers the same `{ success, data }` envelope, and
+      // only the client decides whether it is unwrapped. Any other shape
+      // throws instead of degrading to `[]`: see `AnalyticsResultShapeError`.
+      if (!Array.isArray(contractResult?.rows)) {
+        throw new AnalyticsResultShapeError(resource, contractResult);
+      }
+      const rawRows = contractResult.rows;
 
       // Defensive guard: if the backend silently dropped the requested measure
       // (e.g. it doesn't recognise the `${field}_${function}` alias and the
@@ -6104,6 +6161,11 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         return mapped;
       });
     } catch (e) {
+      // Raised by the row read above, not by the transport: analytics answered
+      // with a shape this adapter does not read, so there is no failure for
+      // the classifier to route and no fallback that would be honest.
+      if (e instanceof AnalyticsResultShapeError) throw e;
+
       const failure = classifyAnalyticsFailure(e);
 
       // The server refused OUR body — that is a defect in this adapter's

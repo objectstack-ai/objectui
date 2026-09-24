@@ -20,7 +20,7 @@
  * subpath and invisible from the root, with nothing to say whether that was a
  * decision or an oversight.
  *
- * It has now been found twice, one name at a time:
+ * It has now been found three times, one card at a time:
  *
  *  - objectui#7697 -- `ComboboxOption`. `import type { ComboboxOption } from
  *    '@object-ui/types'` read `TS2305` while its two siblings on the same list
@@ -29,6 +29,11 @@
  *    the zod barrel by objectui#9067 and still unnamed on this one. Repaired
  *    the same way, by the director seat's decision batch #133 item 2, letter
  *    (a), maintainer 2026-09-14.
+ *  - objectui#9526 -- `CommandItem` and `CommandGroup`, the element types of
+ *    `CommandSchema.groups` and its `items`. THIS pin found them on its first
+ *    run and ledgered them `ABSENT_PENDING_DECISION`, because objectui#9406
+ *    authorised exactly two names; objectui#9526 moved both onto the list by
+ *    the same additive route and emptied that ledger.
  *
  * ⭐ What made the second one worse than "the name is not there" is the
  * compiler's guess: the root spelling answered `error TS2724: '"@object-ui/
@@ -83,6 +88,17 @@ import type { UiCalendarSchema as UiCalendarFromForm } from '../form';
 // type-level reading in this file is dark.
 import type { InputSchema as InputFromRoot } from '../index';
 import type { CalendarSchema as CalendarFromRoot } from '../index';
+
+// objectui#9526 -- the element types of `CommandSchema.groups` and its `items`.
+// RED on the base that card measured: `TS2305` on each root spelling below,
+// while the `/form` spellings and the control resolve in the same pass.
+import type { CommandItem as CommandItemFromRoot } from '../index';
+import type { CommandGroup as CommandGroupFromRoot } from '../index';
+import type { CommandItem as CommandItemFromForm } from '../form';
+import type { CommandGroup as CommandGroupFromForm } from '../form';
+// The control: the schema that CONTAINS them, already on the root barrel's
+// list before objectui#9526. If it fails to resolve, the block is dark.
+import type { CommandSchema as CommandFromRoot } from '../index';
 
 const require = createRequire(import.meta.url);
 
@@ -197,22 +213,10 @@ const ABSENT_BY_DECISION: Readonly<Record<string, string>> = {};
  * "nobody has decided yet", and it is the honest answer for a name a card found
  * but was not authorised to move.
  */
-const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {
-  CommandItem:
-    'An element type of `CommandSchema.groups[].items` (`CommandGroup` is the other). Found by '
-    + 'this pin at objectui#9406 and NOT covered by its ruling, which names `InputShorthandSchema` '
-    + 'and `UiCalendarSchema` and says "additive, no other line moves" -- so moving these two as '
-    + 'well would be widening a published surface past the decision that authorised it. The shape '
-    + 'is objectui#7697 exactly (an option/item element type reachable only through the `/form` '
-    + 'subpath while its schema `CommandSchema` sits on the root list), and that card ruled the '
-    + 'repair sound for `ComboboxOption` -- but it ruled it for that name. Reported for filing '
-    + 'with the objectui#9406 report; whoever takes it owns BOTH rows, since one card should '
-    + 'settle a pair that is declared and consumed together.',
-  CommandGroup:
-    'The element type of `CommandSchema.groups`, holding `CommandItem[]`. The same finding, the '
-    + 'same card, the same reason -- see the `CommandItem` row above. Ledgered rather than '
-    + 'repaired because objectui#9406 authorises exactly two names.',
-};
+const ABSENT_PENDING_DECISION: Readonly<Record<string, string>> = {};
+// Empty since objectui#9526: its two rows, `CommandItem` and `CommandGroup`,
+// were settled by putting both names on the barrel list, so the liveness check
+// below would have failed them as stale.
 
 const LEDGER: Readonly<Record<string, string>> = { ...ABSENT_BY_DECISION, ...ABSENT_PENDING_DECISION };
 
@@ -292,6 +296,31 @@ describe('objectui#9406 -- the two names resolve from the root barrel', () => {
     const input: Eq<InputFromRoot['type'], 'input'> = true;
     const calendar: Eq<CalendarFromRoot['type'], 'calendar'> = true;
     expect([input, calendar]).toEqual([true, true]);
+  });
+});
+
+describe('objectui#9526 -- the element types of `CommandSchema` resolve from the root barrel', () => {
+  it('each root spelling is the element type the root `CommandSchema` actually contains', () => {
+    // Pinned as the CONTAINMENT, not as a member list: `groups` holds
+    // `CommandGroup`, and `CommandGroup.items` holds `CommandItem`. That is the
+    // whole reason the card moved the pair together.
+    const group: Eq<NonNullable<CommandFromRoot['groups']>[number], CommandGroupFromRoot> = true;
+    const item: Eq<CommandGroupFromRoot['items'][number], CommandItemFromRoot> = true;
+    expect([group, item]).toEqual([true, true]);
+  });
+
+  it('each root spelling is the SAME declaration as its `/form` spelling', () => {
+    // The containment reading ties each root name to what the root
+    // `CommandSchema` holds; this ties it to the `/form` spelling a subpath
+    // consumer already imports, so the two entry points cannot drift apart.
+    const item: Eq<CommandItemFromRoot, CommandItemFromForm> = true;
+    const group: Eq<CommandGroupFromRoot, CommandGroupFromForm> = true;
+    expect([item, group]).toEqual([true, true]);
+  });
+
+  it('CONTROL -- the schema that contains them already resolved from the root', () => {
+    const command: Eq<CommandFromRoot['type'], 'command'> = true;
+    expect(command).toBe(true);
   });
 });
 

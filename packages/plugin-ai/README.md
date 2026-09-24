@@ -5,7 +5,7 @@ AI-powered components for Object UI — form assistance, recommendations, and na
 ## Features
 
 - 🤖 **AI Form Assist** - Intelligent field suggestions and auto-fill for forms
-- 💡 **AI Recommendations** - Display AI-generated recommendations in list, grid, or carousel layouts
+- 💡 **AI Recommendations** - Display AI-generated recommendations in list or grid layouts
 - 🗣️ **Natural Language Query** - Let users query data using natural language
 - 📦 **Auto-registered** - Components register with `ComponentRegistry` on import
 - 🎯 **Type-Safe** - Full TypeScript support
@@ -116,7 +116,7 @@ declare const data: AIRecommendationItem[];
 const productPicks: AIRecommendationsSchema = {
   type: 'ai-recommendations',
   recommendations: data.slice(0, 10), // every item handed over is rendered
-  layout: 'list', // 'list' | 'grid' | 'carousel'
+  layout: 'list', // 'list' | 'grid'
   showScores: false,
   emptyMessage: 'No recommendations available',
 };

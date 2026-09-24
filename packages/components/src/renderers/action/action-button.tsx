@@ -29,7 +29,7 @@ import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 import { Loader2 } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
-import { hasAutoTrigger, useAutoTriggerOnce } from './auto-trigger';
+import { useAutoTriggerOnce } from './auto-trigger';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -284,7 +284,11 @@ const ActionButtonRenderer = forwardRef<
     // is no longer the only consumer: `action:menu` runs the same contract for
     // the actions that spill past `action:bar`'s `maxVisible` (#4162), and
     // once-ness written twice is two behaviours waiting to drift.
-    useAutoTriggerOnce(hasAutoTrigger(schema), handleClick);
+    //
+    // It is handed this button's own `visible` verdict — the one the early
+    // return below consults — because the action's declared gate outranks the
+    // flag (objectui#4191): a hidden action is refused and reported, not run.
+    useAutoTriggerOnce(schema, isVisible, handleClick);
 
     // A declared boolean `visible: false` is a verdict, not a missing gate —
     // truthiness classified it as "ungated" and rendered the action for

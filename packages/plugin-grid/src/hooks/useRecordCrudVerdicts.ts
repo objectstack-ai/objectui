@@ -71,7 +71,14 @@ import {
   type ExplainOperation,
   type ExplainRequest,
 } from '@objectstack/spec/security';
-import { SchemaRendererContext } from '@object-ui/react';
+import {
+  SchemaRendererContext,
+  dataChangeMatches,
+  subscribeDataChanges,
+  useDataInvalidation,
+  type DataChange,
+} from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 
 /**
  * Compile-time proof that `Verbs` is a SUBSET of the spec's `ExplainOperation`,
@@ -142,19 +149,135 @@ export type RecordCrudVerdictLookup = (
 ) => boolean | undefined;
 
 /**
- * Verdicts memoised across pages and renders, keyed `object:recordId:operation`
- * — the same key shape and the same "revisiting is free" posture as
- * `useRecordEditable`'s cache, so paging back and forth costs nothing and the
- * two surfaces answer a record identically for the life of the session.
+ * Verdicts memoised across pages and renders, keyed
+ * `[principal, object, recordId, operation]` — the same key and the same
+ * "revisiting is free" posture as `useRecordEditable`'s cache in
+ * `@object-ui/plugin-detail`, so paging back and forth costs nothing and the
+ * two surfaces answer a record identically.
+ *
+ * The two caches are kept in step BY HAND: sharing one implementation would
+ * need a new cross-package export, and the shape is small enough to state
+ * twice. A change to one is a change to both (objectui#10184).
+ *
+ * The principal is in the key because this map lives at module scope and
+ * outlives every unmount for the life of the tab — and signing out does not
+ * end that life (`AuthProvider.signOut` never reloads the page; it purges the
+ * per-tab storage caches by hand, and this map was not among them). Keyed on
+ * `object:recordId:operation` alone, the next principal to sign in was
+ * answered from the previous one's verdicts: a `false` hid the kebab's Edit
+ * from a user the server lets write the row, and — the worse direction — a
+ * `true` offered it to a user the server refuses (objectui#10107, repaired for
+ * the detail header first). The key is an array rather than a delimited string
+ * so no user id can spell another key by containing the delimiter, and so
+ * "principal unknown" (`null`) is a value of its own.
+ *
+ * A verdict is also only reused until its record CHANGES — see
+ * {@link forgetChangedRecords}.
  */
 const verdictCache = new Map<string, boolean>();
 
-const cacheKey = (object: string, recordId: string, operation: RecordCrudOperation): string =>
-  `${object}:${recordId}:${operation}`;
+/** What a {@link verdictCache} key spells, in order. */
+type VerdictKey = [principal: string | null, object: string, recordId: string, operation: RecordCrudOperation];
 
-/** Test seam — drops the memoised verdicts. */
+const cacheKey = (
+  principal: string | null,
+  object: string,
+  recordId: string,
+  operation: RecordCrudOperation,
+): string => JSON.stringify([principal, object, recordId, operation] satisfies VerdictKey);
+
+/**
+ * The principal every live entry in {@link verdictCache} was computed for.
+ *
+ * The key alone already makes another principal's entry unreachable. This adds
+ * the half a key cannot express: entries written while the client did not yet
+ * know who it was (a provider mounted but `/me/permissions` still in flight
+ * publishes `userId: null`) are keyed `null`, and a LATER unknown window — the
+ * one between a sign-out and the next sign-in in the same tab — would key to
+ * that same `null`. Dropping the map whenever the client's notion of the
+ * principal changes means no entry can ever span such a change.
+ *
+ * `undefined` is "nothing observed yet" and is distinct from a `null`
+ * principal, so the first observation does not count as a change.
+ */
+let cachedPrincipal: string | null | undefined;
+
+/** Drop everything if the acting principal is not the one the map was built for. */
+function retainForPrincipal(principal: string | null): void {
+  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) verdictCache.clear();
+  cachedPrincipal = principal;
+}
+
+/**
+ * A batch probe on its way to the explain engine, and the rows a data change
+ * has staled since it left. An answer computed before the change answers a
+ * question this hook is no longer asking, so it is not cached — without this,
+ * a probe in flight when its row changed would write the pre-change verdict
+ * back into the map right after the change cleared it.
+ */
+interface InFlightProbe {
+  readonly object: string;
+  readonly recordIds: readonly string[];
+  readonly staled: Set<string>;
+}
+
+const inFlight = new Set<InFlightProbe>();
+
+/**
+ * Drop every verdict a data change has made stale (objectui#10184).
+ *
+ * The verdict is a fact about the row as well as about the principal: moving
+ * `owner_id`, or any write the server's sharing rules read, can turn a `false`
+ * into a `true` or the reverse for the SAME principal, and a map keyed on the
+ * principal alone kept answering from before the change.
+ *
+ * So the map listens to the data-invalidation bus the writers already announce
+ * on, and forgets exactly what a change stales, by the bus's OWN matching rule
+ * (`dataChangeMatches`): a record-scoped change drops that row's entries, both
+ * operations; an object-scoped change drops the object's; `'*'` drops
+ * everything. A mounted list then asks again, through
+ * {@link useDataInvalidation}, for the rows that lost their answer and for no
+ * other — every row still cached is not re-asked. The map only ever holds the
+ * current principal's entries (see {@link retainForPrincipal}), so this clears
+ * the affected row for that principal and for no one else.
+ *
+ * ⚠️ What this does NOT make fresh. Both are limits of the channel, not
+ * oversights, and neither is papered over with a lifetime constant:
+ *
+ *  - The bus carries writes THIS tab announces: every write through the
+ *    host's `DataSource` (via `useMutationInvalidationBridge`), plus the
+ *    manual `notifyDataChanged` calls of writes that bypass it. A grant or a
+ *    revocation made in another tab, by another user, or by the server on its
+ *    own is never announced here, so it lands on the next page load. (Accepted
+ *    when this route was ruled, objectui#10107 ACCEPT.)
+ *  - A change is named by the object that was WRITTEN. A grant stored as a
+ *    row of a different object — a record-share row, a permission-set
+ *    assignment — is announced, when it is announced at all, against THAT
+ *    object and not against the row it grants, so it does not match this
+ *    row's entries either, and it too lands on the next page load.
+ *
+ * Module scope on purpose, like the map it guards: an entry must be dropped
+ * even while no list is mounted to hear the change, or the next page visit
+ * would publish it as the answer.
+ */
+function forgetChangedRecords(change: DataChange): void {
+  for (const key of Array.from(verdictCache.keys())) {
+    const [, object, recordId] = JSON.parse(key) as VerdictKey;
+    if (dataChangeMatches(change, object, recordId)) verdictCache.delete(key);
+  }
+  for (const probe of inFlight) {
+    for (const id of probe.recordIds) {
+      if (dataChangeMatches(change, probe.object, id)) probe.staled.add(id);
+    }
+  }
+}
+
+subscribeDataChanges(forgetChangedRecords);
+
+/** Test seam — drops the memoised verdicts AND the principal they were for. */
 export function __clearRecordCrudVerdictCache(): void {
   verdictCache.clear();
+  cachedPrincipal = undefined;
 }
 
 const NO_VERDICTS: RecordCrudVerdictLookup = () => undefined;
@@ -178,6 +301,16 @@ export function useRecordCrudVerdicts(opts: {
   // provider is mounted): a standalone grid embed has no host fetch and must
   // still degrade to the global one rather than crash the render.
   const apiFetch = React.useContext(SchemaRendererContext)?.apiFetch;
+  // [objectui#10184] The acting user, or `null` when the client has no answer
+  // (no provider, an anonymous session, a load still in flight) — exactly what
+  // `useRecordEditable` keys its cache by. NOT a second permission source: the
+  // verdict still comes from the explain engine alone; this is the identity it
+  // belongs to.
+  const principal = usePermissions().userId;
+  // [objectui#10184] Bumps when a change announced on the bus touches this
+  // object, so a mounted list re-asks — for the rows `forgetChangedRecords`
+  // dropped, and only those.
+  const invalidationNonce = useDataInvalidation(objectName);
 
   // The id LIST is re-derived from a stable key so this hook cannot loop on a
   // caller that rebuilds the array each render — and so the effect's dependency
@@ -188,6 +321,7 @@ export function useRecordCrudVerdicts(opts: {
   const [verdicts, setVerdicts] = React.useState<ReadonlyMap<string, boolean>>(() => new Map());
 
   React.useEffect(() => {
+    retainForPrincipal(principal);
     const operations: RecordCrudOperation[] = [];
     if (wantUpdate) operations.push('update');
     if (wantDelete) operations.push('delete');
@@ -203,7 +337,7 @@ export function useRecordCrudVerdicts(opts: {
       const next = new Map<string, boolean>();
       for (const operation of operations) {
         for (const id of ids) {
-          const verdict = verdictCache.get(cacheKey(objectName, id, operation));
+          const verdict = verdictCache.get(cacheKey(principal, objectName, id, operation));
           if (typeof verdict === 'boolean') next.set(`${operation}:${id}`, verdict);
         }
       }
@@ -212,7 +346,7 @@ export function useRecordCrudVerdicts(opts: {
 
     void (async () => {
       await Promise.all(operations.map(async (operation) => {
-        const missing = ids.filter((id) => !verdictCache.has(cacheKey(objectName, id, operation)));
+        const missing = ids.filter((id) => !verdictCache.has(cacheKey(principal, objectName, id, operation)));
         for (let i = 0; i < missing.length; i += EXPLAIN_BATCH_MAX_RECORD_IDS) {
           const chunk = missing.slice(i, i + EXPLAIN_BATCH_MAX_RECORD_IDS);
           // The body IS the spec's request contract, not a lookalike shaped to
@@ -231,6 +365,8 @@ export function useRecordCrudVerdicts(opts: {
             operation,
             recordIds: chunk,
           } satisfies ExplainRequest;
+          const probe: InFlightProbe = { object: objectName, recordIds: chunk, staled: new Set() };
+          inFlight.add(probe);
           try {
             const res = await doFetch('/api/v1/security/explain', {
               method: 'POST',
@@ -251,10 +387,16 @@ export function useRecordCrudVerdicts(opts: {
               const entry = records[index] as WireRecordVerdict | undefined;
               if (!entry || typeof entry.visible !== 'boolean') return;
               if (typeof entry.recordId === 'string' && entry.recordId !== id) return;
-              verdictCache.set(cacheKey(objectName, id, operation), entry.visible);
+              // Asked before this row changed → not an answer. A mounted list
+              // re-asks it; an unmounted one asks on its next visit (see
+              // `forgetChangedRecords`).
+              if (probe.staled.has(id)) return;
+              verdictCache.set(cacheKey(principal, objectName, id, operation), entry.visible);
             });
           } catch {
             /* network / parse failure → fail open */
+          } finally {
+            inFlight.delete(probe);
           }
         }
       }));
@@ -269,7 +411,7 @@ export function useRecordCrudVerdicts(opts: {
     return () => {
       cancelled = true;
     };
-  }, [objectName, ids, wantUpdate, wantDelete, apiFetch]);
+  }, [objectName, ids, wantUpdate, wantDelete, apiFetch, principal, invalidationNonce]);
 
   return React.useMemo<RecordCrudVerdictLookup>(() => {
     if (verdicts.size === 0) return NO_VERDICTS;

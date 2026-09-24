@@ -487,6 +487,18 @@ function runtimeWidgetFor(p: ActionParam): { widget: string | undefined; degrade
  */
 function renderFieldMock(p: ActionParam, fieldLabel: string): React.ReactElement {
   const cls = 'w-full text-xs px-2 py-1 border rounded bg-background pointer-events-none';
+  // A declared carry-over (objectui#6246) is not collected: `ActionParamDialog`
+  // builds NO widget for it and shows a collapsed read-only summary of the row
+  // value instead. Drawing its widget here would preview an input the dialog
+  // never offers — so this answers before `runtimeWidgetFor` is asked.
+  if (p.carryOver) {
+    return (
+      <div className={`${cls} flex items-center gap-1.5 text-muted-foreground`} data-testid="action-preview-carry-over">
+        <Lock className="h-3 w-3 shrink-0" aria-hidden />
+        <span className="truncate">Carried over from the selected row (read-only)</span>
+      </div>
+    );
+  }
   const placeholder = p.placeholder || (p.defaultFromRow ? '(from selected row)' : '');
   const def = p.defaultValue;
   const value = def != null ? String(def) : '';

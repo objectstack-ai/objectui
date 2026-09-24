@@ -193,6 +193,14 @@ const arraySchema = (name: string, fields: Record<string, any>) => ({
   fields: Object.entries(fields).map(([fieldName, def]) => ({ name: fieldName, ...def })),
 });
 
+/**
+ * The `$select` every query of this file's lists carries since objectui#10186:
+ * `renderList` authors one column, so the row fetch projects to it plus `id`.
+ * Spread into each expected wire so the cases here keep pinning the WHOLE query
+ * while their subject stays the `$filter` beside it.
+ */
+const PROJECTION = { $select: ['id', 'subject'] };
+
 const makeDS = (objectSchema: unknown, rows: Record<string, any>[]) => ({
   find: vi.fn(async (_object: string, params: any) => evaluate(params?.$filter, rows)),
   getObjectSchema: vi.fn(async () => objectSchema),
@@ -253,7 +261,7 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     const ds = makeDS(recordSchema(CHILD, { [REL]: { type: 'user', multiple: true } }), MULTI_ROWS);
     renderList(ds, CHILD, REL);
     await waitFor(() => {
-      expect(lastScopedCall(ds, CHILD)).toEqual({ $filter: { [REL]: { $contains: PARENT_ID } } });
+      expect(lastScopedCall(ds, CHILD)).toEqual({ ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } });
     });
   });
 
@@ -271,8 +279,8 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     renderList(ds, CHILD, REL);
     await waitFor(() => expect(scopedCalls(ds, CHILD).length).toBe(2));
     expect(scopedCalls(ds, CHILD)).toEqual([
-      { $filter: { [REL]: PARENT_ID } },
-      { $filter: { [REL]: { $contains: PARENT_ID } } },
+      { ...PROJECTION, $filter: { [REL]: PARENT_ID } },
+      { ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } },
     ]);
   });
 
@@ -285,21 +293,21 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     // an operator map. EVERY scoped call, not just the last — the arity flip the
     // case above declares must not happen here, and a second, different call is
     // how it would show.
-    expect(scopedCalls(ds, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('CONTROL — `multiple: false` is single-valued, stated explicitly', async () => {
     const ds = makeDS(recordSchema('contact', { account: { type: 'lookup', multiple: false } }), SINGLE_ROWS);
     renderList(ds, 'contact', 'account');
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    expect(scopedCalls(ds, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('reads the ARRAY-shaped field container the metadata API also serves', async () => {
     const ds = makeDS(arraySchema(CHILD, { [REL]: { type: 'user', multiple: true } }), MULTI_ROWS);
     renderList(ds, CHILD, REL);
     expect(await screen.findByText('Ship the thing')).toBeInTheDocument();
-    expect(lastScopedCall(ds, CHILD)).toEqual({ $filter: { [REL]: { $contains: PARENT_ID } } });
+    expect(lastScopedCall(ds, CHILD)).toEqual({ ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } });
   });
 
   it('SPEC PREDICATE — an inherently-array option type is multi-valued with no `multiple` flag', async () => {
@@ -312,7 +320,7 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     const ds = makeDS(recordSchema(CHILD, { [REL]: { type: 'multiselect' } }), MULTI_ROWS);
     renderList(ds, CHILD, REL);
     await waitFor(() => {
-      expect(lastScopedCall(ds, CHILD)).toEqual({ $filter: { [REL]: { $contains: PARENT_ID } } });
+      expect(lastScopedCall(ds, CHILD)).toEqual({ ...PROJECTION, $filter: { [REL]: { $contains: PARENT_ID } } });
     });
   });
 
@@ -339,14 +347,14 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     );
     renderList(ds, 'contact', 'account');
     expect(await screen.findByText('Alice')).toBeInTheDocument();
-    expect(scopedCalls(ds, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('COUNTER-PROBE — a def that declares no `type` is single-valued', async () => {
     const ds = makeDS(recordSchema('contact', { account: { multiple: true } }), SINGLE_ROWS);
     renderList(ds, 'contact', 'account');
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    expect(scopedCalls(ds, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('COUNTER-PROBE — an off-spec truthy `multiple` is NOT coerced into multi-value', async () => {
@@ -357,7 +365,7 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     const ds = makeDS(recordSchema('contact', { account: { type: 'lookup', multiple: 'yes' } }), SINGLE_ROWS);
     renderList(ds, 'contact', 'account');
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    expect(scopedCalls(ds, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('COUNTER-PROBE — no schema at all is single-valued, not "unknown, so skip the fetch"', async () => {
@@ -367,7 +375,7 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     const ds = { find: vi.fn(async (_o: string, p: any) => evaluate(p?.$filter, SINGLE_ROWS)) };
     renderList(ds, 'contact', 'account');
     expect(await screen.findByText('Alice')).toBeInTheDocument();
-    expect(scopedCalls(ds as any, 'contact')).toEqual([{ $filter: { account: PARENT_ID } }]);
+    expect(scopedCalls(ds as any, 'contact')).toEqual([{ ...PROJECTION, $filter: { account: PARENT_ID } }]);
   });
 
   it('ANDs the list’s own declared scope with the membership condition, through the shared sink', async () => {
@@ -383,6 +391,7 @@ describe('RelatedList — a related list on a MULTI-VALUE relationship returns d
     // child under one `and`, never substituted for.
     await waitFor(() => {
       expect(lastScopedCall(ds as any, CHILD)).toEqual({
+        ...PROJECTION,
         $filter: ['and', [REL, 'contains', PARENT_ID], [['status', 'equals', 'open']]],
       });
     });

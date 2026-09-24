@@ -453,6 +453,24 @@ in the opt-in filter box temporarily falls back to the full-fetch client
 pipeline (the contains-filter sweeps every field, which no generic server
 filter can express).
 
+A list that authors `columns` sends a **`$select` projection** on its
+auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send
+(`objectui#6898`). It asks for the authored columns that pass the same gates the
+column layer draws through (redaction, the parent key, field-level security),
+plus `id`, the `$expand` roots, and, once the child schema has loaded, the
+fields the row predicates read (the child object's `userActions` Edit/Delete
+overrides, its actions, and the host's row actions), plus the mobile card
+gallery's cover field when declared and readable. A column the principal
+cannot read is dropped once the permission answer has loaded; a request sent
+before that answer can still carry it, the same deferral `ObjectGrid` has.
+If every authored column is denied, the list asks for `id` and its predicate
+operands, not for everything. On a backend that honours `$select`, rows then
+carry only the projected fields, so the opt-in filter box above sweeps those.
+A list **without** authored `columns` derives them from `highlightFields` or
+the field walk, and both choose by the emptiness of the rows fetched. That list sends no projection, and its column layer alone keeps a
+denied field off screen. Against ObjectStack's server the projection is defence
+in depth, because the server already strips denied fields from every row.
+
 The node's `filter` (spec `RecordRelatedListProps.filter`, "additional filter
 criteria") narrows the list beyond the parent relationship: it is
 **AND-combined** with the parent-relationship condition, never substituted for

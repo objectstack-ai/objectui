@@ -23,7 +23,9 @@
  *    OUTBOUND payload never carries a field the caller may read but not edit;
  *  - {@link applyFieldPermissions} — the field-list pass that decides what
  *    RENDERS, so the form does not offer an affordance whose write the server
- *    will refuse.
+ *    will refuse;
+ *  - {@link applyColumnPermissions} — the same pass over a line-items grid's
+ *    columns, spelled in the one lock the grid reads (objectui#10163).
  *
  * ## Why both halves live in one module
  *
@@ -95,16 +97,24 @@ export interface ApplyFieldPermissionsOptions {
 }
 
 /**
- * The render half: drop what the caller may not READ, and mark what they may
- * read but not WRITE as non-editable.
+ * The ONE render pass, independent of how a container spells "not editable".
+ *
+ * It asks the resolver the two questions and decides one of three outcomes per
+ * entry — omit, keep, or hand to `markDenied` — so every container that renders
+ * through it agrees on WHICH fields are refused. What differs between them is
+ * only the vocabulary their widget reads for "this one is locked", which is
+ * what `markDenied` supplies (objectui#10163).
  *
  * Entries with no `name` (a section divider, a string field reference the
  * container has not resolved yet) pass through untouched — there is nothing to
  * ask the resolver about.
  */
-export function applyFieldPermissions<T extends Record<string, any>>(
+function gateByPermission<T extends Record<string, any>>(
   fields: T[] | undefined,
-  { perms, objectName, mode, deniedDescription }: ApplyFieldPermissionsOptions,
+  perms: FieldWritePrincipal | null | undefined,
+  objectName: string,
+  mode: string | undefined,
+  markDenied: (entry: T) => T,
 ): T[] | undefined {
   if (!Array.isArray(fields)) return fields;
   if (!perms?.isLoaded) return fields;
@@ -113,14 +123,59 @@ export function applyFieldPermissions<T extends Record<string, any>>(
     if (!f?.name) { out.push(f); continue; }
     if (!perms.checkField(objectName, f.name, 'read')) continue; // omit entirely
     if (mode !== 'view' && !perms.checkField(objectName, f.name, 'write')) {
-      out.push(
-        deniedDescription
-          ? { ...f, readOnly: true, disabled: true, description: f.description ?? deniedDescription }
-          : { ...f, readOnly: true, disabled: true },
-      );
+      out.push(markDenied(f));
       continue;
     }
     out.push(f);
   }
   return out;
+}
+
+/**
+ * The render half for a FORM: drop what the caller may not READ, and mark what
+ * they may read but not WRITE as non-editable.
+ */
+export function applyFieldPermissions<T extends Record<string, any>>(
+  fields: T[] | undefined,
+  { perms, objectName, mode, deniedDescription }: ApplyFieldPermissionsOptions,
+): T[] | undefined {
+  return gateByPermission(fields, perms, objectName, mode, (f) =>
+    deniedDescription
+      ? { ...f, readOnly: true, disabled: true, description: f.description ?? deniedDescription }
+      : { ...f, readOnly: true, disabled: true },
+  );
+}
+
+/**
+ * The CEL predicate a line-items cell reads as "locked on every row".
+ *
+ * A grid column has exactly one per-cell lock channel: `readonlyWhen`, which
+ * the grid evaluates per row and renders as a disabled control when TRUE. The
+ * form half's `disabled` / `readOnly` marks are keys a grid column does not
+ * carry, so handing the grid {@link applyFieldPermissions}' output would drop
+ * the unreadable columns and lock nothing. A field-level refusal does not
+ * depend on the row, so the predicate that expresses it is the constant one.
+ */
+const LOCKED_ON_EVERY_ROW = 'true';
+
+/**
+ * The render half for a line-items GRID: the same pass over its columns — drop
+ * what the caller may not READ, and lock the cells of what they may read but
+ * not WRITE (objectui#10163).
+ *
+ * ⛔ Not a second gate: the verdict is {@link gateByPermission}'s, the same one
+ * the three form containers render through, so the grid and the form above it
+ * cannot disagree about which field is refused. A column that is refused
+ * replaces any `readonlyWhen` it declared — a lock on every row already covers
+ * every row a narrower lock would. Rows are untouched: whether a line may be
+ * added or removed stays the container's own answer.
+ */
+export function applyColumnPermissions<T extends Record<string, any>>(
+  columns: T[] | undefined,
+  { perms, objectName }: Pick<ApplyFieldPermissionsOptions, 'perms' | 'objectName'>,
+): T[] | undefined {
+  return gateByPermission(columns, perms, objectName, undefined, (c) => ({
+    ...c,
+    readonlyWhen: LOCKED_ON_EVERY_ROW,
+  }));
 }

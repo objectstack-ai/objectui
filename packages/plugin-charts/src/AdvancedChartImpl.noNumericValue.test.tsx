@@ -288,6 +288,20 @@ describe('objectui#7195 — series families: no series has a numeric value on an
   }
 });
 
+describe('objectui#7195 — stacked shapes that paint nothing are still refused', () => {
+  it("area: a STACKED 'n/a' series draws an empty path, so it is refused", () => {
+    const { container } = renderFamily('area', [{ k: 'a', v: 'n/a' }, { k: 'b', v: 'n/a' }], [{ dataKey: 'v', stack: 's' }]);
+    expect(refusalOf(container)).not.toBeNull();
+  });
+
+  for (const [label, value] of [['all-boolean', true], ["'n/a'", 'n/a']] as Array<[string, unknown]>) {
+    it(`line: a "stacked" ${label} series is refused — a line spreads no stackId, so its stack is inert`, () => {
+      const { container } = renderFamily('line', [{ k: 'a', v: value }, { k: 'b', v: value }], [{ dataKey: 'v', stack: 's' }]);
+      expect(refusalOf(container)).not.toBeNull();
+    });
+  }
+});
+
 describe('objectui#7195 — series families: what must keep DRAWING, silently', () => {
   for (const family of FAMILIES) {
     it(`${family}: a boolean beside a number draws (the reverse control)`, () => {
@@ -349,6 +363,37 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
       expect(anyRefusalOf(container)).toBeNull();
     });
   }
+
+  for (const family of ['bar', 'column', 'horizontal-bar', 'combo']) {
+    for (const [label, value] of [
+      ["'n/a'", 'n/a'],
+      ['NaN', NaN],
+      ['{}', {}],
+      ["'Infinity'", 'Infinity'],
+      ['Infinity', Infinity],
+      ["'abc'", 'abc'],
+    ] as Array<[string, unknown]>) {
+      it(`${family}: a STACKED ${label} series paints (a d3-stack NaN artefact), so it stays silent`, () => {
+        const { container } = renderFamily(
+          family,
+          [{ k: 'a', v: value }, { k: 'b', v: value }],
+          [{ dataKey: 'v', stack: 's' }],
+        );
+        expect(marksOf(container)).toBeGreaterThan(0);
+        expect(anyRefusalOf(container)).toBeNull();
+      });
+    }
+  }
+
+  it("bar: a STACKED 'n/a' beside null still paints, so it stays silent", () => {
+    const { container } = renderFamily(
+      'bar',
+      [{ k: 'a', v: 'n/a' }, { k: 'b', v: null }],
+      [{ dataKey: 'v', stack: 's' }],
+    );
+    expect(marksOf(container)).toBeGreaterThan(0);
+    expect(anyRefusalOf(container)).toBeNull();
+  });
 
   it('a STACKED range with a boolean end paints marks (a d3-stack NaN artefact), so it stays silent', () => {
     const { container } = renderFamily(

@@ -15,17 +15,21 @@ before:
 - scatter, when every row's x (or y, or both) is a boolean, or a boolean mixed only with values
   that cannot be placed. That last shape used to carry a footnote implying one point was drawn;
 - bar / column / horizontal-bar / line / area / combo, when no row gives any bound series a
-  value the axis can scale: every value boolean, `null` or an unparseable string. For a stacked
-  series `null` counts as nothing too.
+  value the axis can scale: every value boolean, `null` or an unparseable string. A stacked bar
+  (bar / column / horizontal-bar, or a bar in a combo) is refused only when every value is `null`
+  or missing, because the stack paints anything else, unparseable strings included. A stacked
+  area is refused for `null` or an unparseable string (the stack draws an empty path for those),
+  and a line's `stack` has no effect, so it follows the unstacked rule.
 
 What keeps drawing, unchanged: numeric strings, `Number` objects, `Date` values, range values
 (an array read by its first two elements, both numbers, so `[1, 3]` and `[1, 2, 3]` alike: range
-bars and range areas), booleans in a STACKED series (the stack reads them as numbers), any array
-in a STACKED series (including a range with a boolean end, which the stack paints), a series that
+bars and range areas), any value but `null` in a STACKED bar (the stack paints booleans as numbers
+and paints unparseable strings, `NaN`, objects and arrays as full-height bars), booleans and
+arrays in a STACKED area, a series that
 is all boolean beside a numeric one, a dual-axis chart with one live axis, and any axis whose
 spec declares both a numeric `min` and a numeric `max` (the chart builds that scale from the spec
-and places booleans on it). A `min` or `max` alone, `logarithmic`, `stepSize` or an annotation
-does not build a scale, so those tiles are still refused. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
+and places booleans on it). A `min` or `max` alone, `logarithmic` alone, `stepSize` or an
+annotation does not build a scale, so those tiles are still refused. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
 horizontal-bar or combo paints the same zero-height picture as all-zero data, silently, exactly
 as before. A bound series key that is not a plain property of any row (a dotted path such as
 `a.b`, which Recharts resolves into nested rows, or a column no row carries) keeps the chart

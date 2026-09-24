@@ -931,26 +931,38 @@ function PositionRefusal({
  *   - `new Number(3)` anchors (bar 2 rectangles, line a path);
  *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
  *
- * ## The stacked exception, also measured
+ * ## The stacked exceptions, also measured — mirror what the STACK paints
  *
- * A STACKED series is read through d3's stack, whose value accessor is
- * `Number(value)` — so a boolean there IS a number: an all-boolean stacked bar
- * drew 2 of 2 bars and a stacked area drew its path. Refusing it would blank a
- * chart that draws, so for a series carrying `stack` a boolean anchors too.
- * `null` does not (the stack reads it as 0 and nothing is drawn — measured,
- * 0 bars and an empty area path). A `line` series ignores `stack` in this
- * renderer; it is still read as stacked here, which errs towards silence
- * rather than towards a refusal over marks.
+ * A STACKED series is not read through `makeDomain` at all: d3's stack reads
+ * every value as `Number(value)`, and what then reaches the screen depends on
+ * the family, so the rule does too (`StackMode`). Measured on the base tree,
+ * two rows each:
  *
- * A stacked series is not read through `makeDomain` at all, so its ARRAYS
- * are not ranges to Recharts either: a stacked `[true, 3]` / `[false, 5]`
- * painted 2 full-height rectangles (a d3-stack `NaN` artefact, but marks on
- * screen). So for a stacked series any array anchors — silent, whatever its
- * ends (seat ruling, round 2).
+ *   - a stacked BAR (bar / column / horizontal-bar, and a bar inside a combo)
+ *     paints for ANY value but `null` / `undefined`: `true` 2 rectangles, and
+ *     `'n/a'`, `NaN`, `{}`, `'Infinity'`, `Infinity`, `'abc'` — and arrays such
+ *     as `[true, 3]` — 2 full-height rectangles each, a d3-stack `NaN`
+ *     artefact but marks on screen. `false`, `''` and `0` paint zero-height
+ *     bars, the all-zero picture. So every value except `null` / `undefined`
+ *     anchors a stacked bar — silent (seat ruling, rounds 2 and 3);
+ *   - a stacked AREA draws a path for a boolean (`true` fills, `false` a
+ *     zero-height path) but an EMPTY path for `'n/a'`, `NaN`, `{}` and
+ *     `'Infinity'`, so there a boolean or an array anchors and every other value
+ *     keeps the scalar rule above (an array errs to silence: a stacked-area
+ *     `[true, 3]` draws 0 marks and is not refused);
+ *   - a LINE spreads no `stackId` in this renderer, so its `stack` is inert and
+ *     it keeps the unstacked rule: an all-boolean or all-`'n/a'` "stacked" line
+ *     draws 0 marks and is refused.
+ *
+ * `null` / `undefined` never anchor: the stack reads them as 0 and nothing is
+ * drawn (0 bars, an empty area path).
  */
-function anchorsNumericAxis(v: unknown, stacked = false): boolean {
-  if (typeof v === 'boolean') return stacked;
-  if (Array.isArray(v)) return stacked || (isDomainScalar(v[0]) && isDomainScalar(v[1]));
+type StackMode = 'none' | 'bar' | 'area';
+
+function anchorsNumericAxis(v: unknown, stack: StackMode = 'none'): boolean {
+  if (stack === 'bar') return v !== null && v !== undefined;
+  if (typeof v === 'boolean') return stack === 'area';
+  if (Array.isArray(v)) return stack === 'area' || (isDomainScalar(v[0]) && isDomainScalar(v[1]));
   return isDomainScalar(v);
 }
 
@@ -983,10 +995,29 @@ function declaresFullDomain(axis: NormalizedAxis | undefined): boolean {
 }
 
 /** Whether ANY row gives `key` a value that can anchor its axis. */
-function axisHasScale(rows: unknown[], key: string, stacked = false): boolean {
+function axisHasScale(rows: unknown[], key: string, stack: StackMode = 'none'): boolean {
   return rows.some((row) =>
-    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key], stacked),
+    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key], stack),
   );
+}
+
+/**
+ * How the renderer stacks series `index`, read the way it draws it: the family
+ * comes from `effectiveChartFamily` / `comboBaseFamily`, and inside a combo from
+ * `series[].chartType`, then the base family, then the index default (first a
+ * bar, the rest lines) — the same resolution the combo arm uses. Only a bar or
+ * an area receives `stackId`; a line never does.
+ */
+function stackModeOf(chartType: string, series: NormalizedSeries[], index: number): StackMode {
+  const s = series[index];
+  if (!s?.stack) return 'none';
+  const effective = effectiveChartFamily(chartType as any, series);
+  const family = effective === 'combo'
+    ? (s.chartType || comboBaseFamily(chartType) || (index === 0 ? 'bar' : 'line'))
+    : effective;
+  if (family === 'line') return 'none';
+  if (family === 'area') return 'area';
+  return 'bar';
 }
 
 /**
@@ -2658,7 +2689,7 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
   const declared = (s: NormalizedSeries) =>
     declaresFullDomain(primary) || (s.yAxis !== 'left' && declaresFullDomain(secondary));
   const live = series.some(
-    (s) => declared(s) || axisHasScale(rows, String(s.dataKey), Boolean(s.stack)),
+    (s, i) => declared(s) || axisHasScale(rows, String(s.dataKey), stackModeOf(chartType, series, i)),
   );
   return live ? null : keys;
 }

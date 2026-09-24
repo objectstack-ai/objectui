@@ -473,6 +473,66 @@ const preservePredicateEnvelope = (
 ): unknown => (PREDICATE_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
 
 /**
+ * Is this value an Expression envelope in the spec's sense: an object carrying
+ * a string `dialect` AND a string `source`? (objectui#10288)
+ *
+ * `@objectstack/spec`'s `ExpressionSchema` declares `dialect` REQUIRED, so every
+ * envelope a spec-parsed artifact carries has one. The shape test is the one
+ * `@object-ui/core` already applies to a declared `defaultValue`
+ * (`isRuntimeDefault`, "Same shape test the engine applies before handing a
+ * default to `ExpressionEngine`"), where an object with a `source` and no
+ * `dialect` is a literal value, not an instruction. {@link isCelEnvelope} is
+ * this question narrowed to one dialect.
+ */
+const isExpressionEnvelope = (value: unknown): boolean =>
+  isConfigBag(value)
+  && typeof (value as { dialect?: unknown }).dialect === 'string'
+  && typeof (value as { source?: unknown }).source === 'string';
+
+/**
+ * Is this config-bag value a DATA OBJECT, which the per-value loops hand to the
+ * renderer exactly as authored instead of passing it to
+ * `ExpressionEvaluator.evaluate`? (objectui#10288)
+ *
+ * ## The defect this closes
+ *
+ * `evaluate` unwraps ANY object with a string `source` to that bare string
+ * before it does anything else (see {@link preservePredicateEnvelope}). The
+ * loops handed it every value, so an authored data object that happened to
+ * carry a `source` field was silently replaced by that one string. Measured
+ * through the real `SchemaRenderer` -> `action:button` -> runner:
+ * `properties.bodyExtra: { source: 'web', campaign: 'spring' }` reached the
+ * handler as `bodyExtra: "web"`, while the same object written at node level
+ * (which no loop visits) arrived intact. So the canonical channel was the
+ * broken one. Every object-valued key a node carries in `properties` / `props`
+ * goes through the same loop, so the defect was never one key's: form
+ * `defaultValues`, a declarative `patch`, filter `values` and a detail view's
+ * `data` are all keyed by FIELD NAME, and a field named `source` is ordinary.
+ *
+ * ## What still reaches `evaluate`
+ *
+ *   - every non-object value, exactly as before (`evaluate` interpolates a
+ *     string and returns every other non-object untouched);
+ *   - a spec Expression envelope ({@link isExpressionEnvelope}), so a
+ *     `{ dialect: 'template', source: '${…}' }` value interpolates as it always
+ *     did;
+ *   - every value of a predicate-chain key ({@link PREDICATE_CHAIN_KEYS}),
+ *     unchanged. `BaseSchema.visible` / `.hidden` / `.disabled` declare the
+ *     dialect-less `{ source }` envelope as an authorable wire form
+ *     (`ExpressionWire`, objectui#7530), so on those keys it stays an
+ *     expression, and {@link preservePredicateEnvelope} still holds back a CEL
+ *     envelope (objectui#9100 / #9107).
+ *
+ * So the only value whose meaning changes is an object on a non-predicate key
+ * with a string `source` and no string `dialect`, and that object now arrives
+ * whole. Nothing is walked: a template nested inside a data object stays raw,
+ * as it always did for an object without a `source`. The loops stay per-value
+ * and shallow, which is the radius the unevaluated-expression diagnostic reads.
+ */
+const isDataObjectValue = (key: string, value: unknown): boolean =>
+  !PREDICATE_CHAIN_KEYS.has(key) && isConfigBag(value) && !isExpressionEnvelope(value);
+
+/**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
  * this leg (objectui#6503).
  *
@@ -1218,10 +1278,16 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * text (that is the evaluator's own contract) and is reported by the
      * unevaluated-expression diagnostic, so a wrong template stays loud.
      */
+    //
+    // A DATA OBJECT on any other key ({@link isDataObjectValue},
+    // objectui#10288) is handed over as authored: `evaluate` would collapse
+    // one that carries a string `source` to that string.
     const evaluateConfigValue = (key: string, value: unknown): unknown =>
       key === PARAMS_KEY && isParamsBag(value)
         ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
-        : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
+        : isDataObjectValue(key, value)
+          ? value
+          : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
 
     // Carrier 1 of the `params` rule above: the node-level bag. A non-bag
     // node-level `params` (the `ActionParam[]` definition list, or anything
@@ -1263,6 +1329,12 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // `params` (objectui#7867, ruling A) — every string leaf of a `params` bag
     // is evaluated, through {@link evaluateConfigValue} above. Every other key
     // keeps the shallow reading this paragraph describes.
+    //
+    // "Passed through" used to have one exception: `evaluate` unwraps an object
+    // with a string `source` to that string, so a data object carrying a
+    // `source` field was collapsed rather than passed. Since objectui#10288 an
+    // object on a non-predicate key reaches `evaluate` only when it is a spec
+    // Expression envelope (it carries a `dialect`); see {@link isDataObjectValue}.
     //
     // Guarded by {@link isConfigBag}: a degenerate value must not have its shape
     // reinterpreted by an object spread. Non-objects skip evaluation and reach

@@ -23,3 +23,10 @@ What is refused is unchanged: the same key at the same two paths
 (`kanban.groupBy` as `invalid_type`, `options.kanban.groupBy` as `custom`), with
 the same lead sentence and the same remedy. Only the explanatory tail of the
 message changed.
+
+Also corrected, and shipped only as a comment in the built JavaScript: the
+docblock of the named-view calendar check on `ObjectViewSchema` said every alias
+refusal in the module "stops at `listViews`", while that check itself refuses
+`listViews.KEY.calendar.dateField`. It now says no alias refusal reached inside
+`listViews` until that check, and that the check judges the two calendar
+spellings only.

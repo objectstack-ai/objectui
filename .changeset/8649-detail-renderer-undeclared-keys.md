@@ -64,9 +64,11 @@ defeats the declaration while a membership instrument still reports the member
 as present. The pin now fails if the cast returns.
 
 ⚠️ **Three keys are deliberately NOT declared, and no runtime behaviour
-changes.** `enforceFieldSecurity`, `redactFields` and `requiredPermissions` are
-read by all three renderers and are **routed to the producer**, not declared
-here and not retired here. Measured on the installed contract over the block-tag
+changes.** `enforceFieldSecurity` and `redactFields` are read by all three
+renderers, and `requiredPermissions` by `record:highlights` and
+`record:related_list` (`record:details` stopped reading it, objectui#10200); all
+three keys are **routed to the producer**, not declared here and not retired
+here. Measured on the installed contract over the block-tag
 map `ComponentPropsMap` — the authoring surface an author writes into — plus the
 node envelope every block shares, with controls in the same pass:
 

@@ -77,6 +77,8 @@ import {
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
   objectNavTargetExclusivity,
+  checkListViewCalendarVisualization,
+  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -420,6 +422,11 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      */
     const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
       ['objectNavTargetExclusivity', objectNavTargetExclusivity],
+      // objectui#7715 (ruling B1): the spec's exported object-level checks that
+      // `ListViewSchema` and `PageNodeSchema` re-attach after `specFieldsExcept`
+      // rebuilt them without the spec object's own checks.
+      ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
+      ['checkPageSourceCompleteness', checkPageSourceCompleteness],
     ]);
 
     const isSpecModule = (m: string): boolean =>

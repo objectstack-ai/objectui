@@ -1,6 +1,6 @@
 ---
 '@object-ui/core': minor
-'@object-ui/react': patch
+'@object-ui/react': minor
 ---
 
 A `dataSource` binding's own `limit` that the contract refuses is now treated as **not

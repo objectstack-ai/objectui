@@ -131,7 +131,7 @@ function nodeFor(block: 'record:activity' | 'record:chatter' | 'record:discussio
 
 function mount(node: Record<string, unknown>) {
   return render(
-    <DiscussionContextProvider items={ITEMS as any} loading={false}>
+    <DiscussionContextProvider items={ITEMS as never} loading={false}>
       <SchemaRenderer schema={node as never} />
     </DiscussionContextProvider>,
   );
@@ -169,7 +169,7 @@ describe('the rendered blocks address their own authors (objectui#9557)', () => 
 
     const first = mount(nodeFor('record:chatter', { filterMode: BAD_MODE }));
     first.rerender(
-      <DiscussionContextProvider items={ITEMS as any} loading={false}>
+      <DiscussionContextProvider items={ITEMS as never} loading={false}>
         <SchemaRenderer schema={nodeFor('record:chatter', { filterMode: BAD_MODE }) as never} />
       </DiscussionContextProvider>,
     );

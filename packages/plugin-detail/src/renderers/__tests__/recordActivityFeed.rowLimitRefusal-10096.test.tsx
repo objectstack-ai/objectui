@@ -41,17 +41,17 @@
  * (`record-history.rowLimitRefusal-10005.test.tsx`) reads its wire for the same
  * reason.
  *
- * ## ⛔ Three things this file deliberately does NOT change
+ * ## What objectui#10145 changed here, deliberately
  *
  * - The DEFAULT stays 20. `record:history` defaults to 50; they differ on
  *   purpose and unifying them is a product decision reserved elsewhere.
- * - Numeric-STRING coercion stays. `normalizeLimit('5')` is still `5`; what
- *   narrows is the admitted value SET, not how a node's value is read. Pinned
- *   below as a control.
- * - The refusal stays SILENT, matching the sibling it was told to match.
- *   Whether this family should warn instead is an open decision on its own
- *   card; the silence is pinned here so whoever rules it changes this file
- *   deliberately rather than discovering the answer by accident.
+ * - Numeric-STRING coercion is GONE (objectui#10145, ruled STOP). This file
+ *   used to pin `normalizeLimit('5')` to `5` as a control; the spec refuses a
+ *   string (`z.number()`), so that pin is FLIPPED — `'5'` now answers the
+ *   default, with `5` kept beside it as the lit control.
+ * - The refusal is LOUD. objectui#10097 ruled the family "always warn", and
+ *   objectui#10145 ruled the same for the non-number values it newly refuses;
+ *   the silence pin at the bottom of this file is flipped to a warning pin.
  */
 
 import * as React from 'react';
@@ -62,6 +62,7 @@ import type { FeedItem } from '@object-ui/types';
 import { RecordActivityRenderer } from '../record-activity';
 import {
   applyFeedConfig,
+  describeRefusedFeedLimit,
   normalizeLimit,
   DEFAULT_ACTIVITY_LIMIT,
 } from '../recordActivityFeed';
@@ -116,10 +117,9 @@ describe('record:activity — a NON-INTEGER row cap is refused, not floored (obj
     expect(normalizeLimit(19.9)).not.toBe(19);
   });
 
-  it('refuses a fractional cap written as a numeric STRING, having read it', () => {
-    // The string is still READ as a number — that is the coercion this card
-    // keeps. What refuses it is the value it reads to, which the contract
-    // rejects exactly as it rejects the bare `2.5`.
+  it('refuses a fractional cap written as a STRING', () => {
+    // Since objectui#10145 the string is not read at all — the contract refuses
+    // it for being a string before its value is ever in question.
     expect(normalizeLimit('2.5')).toBe(RENDERER_DEFAULT);
     expect(normalizeLimit('2.5')).not.toBe(2);
   });
@@ -129,11 +129,21 @@ describe('record:activity — a NON-INTEGER row cap is refused, not floored (obj
     expect(normalizeLimit(1)).toBe(1);
   });
 
-  it('CONTROL — numeric-string coercion is UNCHANGED', () => {
-    // objectui#10093 kept this deliberately on the sibling; the narrowing is of
-    // the admitted value set, ⛔ not of how a node's value is read.
-    expect(normalizeLimit('5')).toBe(5);
-    expect(normalizeLimit(' 7 ')).toBe(7);
+  it('refuses a numeric STRING — ⛔ no `Number()` coercion (objectui#10145, flipped)', () => {
+    // FLIPPED, not deleted: this pin read `.toBe(5)` / `.toBe(7)` while the
+    // family kept `Number(value)`. The spec refuses a string outright, and the
+    // ruling on objectui#10145 is STOP, so each now answers the default.
+    expect(normalizeLimit('5')).toBe(RENDERER_DEFAULT);
+    expect(normalizeLimit('5')).not.toBe(5);
+    expect(normalizeLimit(' 7 ')).toBe(RENDERER_DEFAULT);
+    expect(normalizeLimit(' 7 ')).not.toBe(7);
+    // The rest of the shapes `Number()` used to admit, measured on the card.
+    expect(normalizeLimit('0x10')).toBe(RENDERER_DEFAULT); // was 16
+    expect(normalizeLimit(true)).toBe(RENDERER_DEFAULT); // was 1
+    expect(normalizeLimit([7])).toBe(RENDERER_DEFAULT); // was 7
+    // Lit control beside the flip: the same value as a NUMBER passes.
+    expect(normalizeLimit(5)).toBe(5);
+    expect(normalizeLimit(7)).toBe(7);
   });
 
   it('the four values that were ALREADY pinned still answer the default', () => {
@@ -176,8 +186,15 @@ describe('record:activity — the refusal reaches the WIRE, not just the helper 
     expect(await topFor({ limit: 10 })).toBe(11);
   });
 
-  it('CONTROL — a numeric string still resolves at the wire', async () => {
-    expect(await topFor({ limit: '5' })).toBe(6);
+  it('a numeric string is REFUSED at the wire (objectui#10145, flipped)', async () => {
+    // FLIPPED from `.toBe(6)`: `'5'` no longer resolves to a five-row window.
+    const top = await topFor({ limit: '5' });
+    expect(top).toBe(RENDERER_DEFAULT + 1);
+    expect(top).not.toBe(6);
+  });
+
+  it('CONTROL — the same cap as a NUMBER still reaches the wire', async () => {
+    expect(await topFor({ limit: 5 })).toBe(6);
   });
 
   it('the `properties` read point answers identically', async () => {
@@ -241,60 +258,72 @@ describe('applyFeedConfig — its `pageSize` clamp is an internal clamp, settled
   });
 });
 
-describe('record:activity — the refusal is SILENT, matching its sibling (objectui#10096)', () => {
+describe('record:activity — the refusal is LOUD (objectui#10097, objectui#10145)', () => {
   let warn: ReturnType<typeof vi.spyOn>;
-  let error: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     cleanup();
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    error = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     warn.mockRestore();
-    error.mockRestore();
   });
 
   /**
-   * Calls on a developer channel that are ABOUT this renderer's row cap.
-   *
-   * ⚠️ Deliberately a FILTER rather than a blanket `not.toHaveBeenCalled()`.
-   * This tree emits unrelated developer-channel noise while a timeline renders
-   * (a `react-i18next` instance warning among it), and whether any given one
-   * lands inside this spy's window depends on which OTHER tests ran first — so
-   * a blanket assertion pins test ORDER rather than this renderer's silence,
-   * and goes red for anyone who runs one test alone. The filter is kept wide
-   * enough that a real diagnostic cannot slip through it: any message naming
-   * the authored value, `limit`, a row cap, or this renderer counts.
+   * Calls on the developer channel that are ABOUT this block's row cap.
+   * A FILTER rather than a blanket count: this tree emits unrelated
+   * developer-channel noise while a timeline renders (a `react-i18next`
+   * instance warning among it), and whether it lands in this spy's window
+   * depends on test order.
    */
-  function rowCapDiagnostics(spy: ReturnType<typeof vi.spyOn>): unknown[][] {
-    return (spy.mock.calls as unknown[][]).filter((args) => {
-      const text = args
-        .map((a) => {
-          if (typeof a === 'string') return a;
-          try {
-            return JSON.stringify(a);
-          } catch {
-            return String(a);
-          }
-        })
-        .join(' ');
-      return /limit|row cap|record:activity|RecordActivity|2\.5/i.test(text);
-    });
+  function rowCapWarnings(): string[] {
+    return (warn.mock.calls as unknown[][])
+      .map((args) => args.map((a) => (typeof a === 'string' ? a : String(a))).join(' '))
+      .filter((text) => text.includes('record:activity row cap'));
   }
 
   /**
-   * ⭐ A DECISION recorded as a pin, not an inevitability. The sibling this
-   * card was told to match — `normalizeHistoryLimit` on `record:history` —
-   * refuses in silence, so this resolver does too. Three further read points
-   * (`object-kanban`, `object-timeline`, `record:reference_rail`) refuse
-   * LOUDLY instead, so the family currently holds two answers on loudness.
-   * Whoever rules that question changes this pin deliberately.
+   * FLIPPED from "names nothing on the developer channel when it refuses":
+   * that pin recorded the family's silence as a decision awaiting a ruling.
+   * objectui#10097 ruled "always warn"; objectui#10145 ruled STOP with a loud
+   * fallback. The warning names the block and spells the raw value WITH its
+   * type, so `'5'` and `5` cannot be confused in the message.
    */
-  it('names nothing on the developer channel when it refuses', () => {
-    expect(normalizeLimit(2.5)).toBe(RENDERER_DEFAULT);
-    expect(rowCapDiagnostics(warn)).toEqual([]);
-    expect(rowCapDiagnostics(error)).toEqual([]);
+  it.each([
+    ['a numeric string', '5', '"5" (string)'],
+    ['a padded numeric string', ' 5 ', '" 5 " (string)'],
+    ['a hex string', '0x10', '"0x10" (string)'],
+    ['a boolean', true, 'true (boolean)'],
+    ['an array', [7], '[7] (array)'],
+    ['a fraction', 2.5, '2.5 (number)'],
+    ['zero', 0, '0 (number)'],
+    ['a negative', -3, '-3 (number)'],
+  ])('warns once, naming the block and the raw value, for %s', async (_label, authored, spelled) => {
+    expect(await topFor({ limit: authored })).toBe(RENDERER_DEFAULT + 1);
+    const hits = rowCapWarnings();
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toContain('record:activity');
+    expect(hits[0]).toContain(`declared limit: ${spelled}`);
+  });
+
+  it('CONTROL — a usable cap and an absent cap say nothing', async () => {
+    expect(await topFor({ limit: 5 })).toBe(6);
+    expect(await topFor({})).toBe(RENDERER_DEFAULT + 1);
+    expect(rowCapWarnings()).toEqual([]);
+  });
+
+  it('the `properties` read point warns identically', async () => {
+    expect(await topFor({ properties: { limit: '5' } })).toBe(RENDERER_DEFAULT + 1);
+    expect(rowCapWarnings()).toHaveLength(1);
+  });
+
+  it('the helper itself stays PURE — the warning lives in the renderer effect', () => {
+    expect(normalizeLimit('5')).toBe(RENDERER_DEFAULT);
+    expect(rowCapWarnings()).toEqual([]);
+    expect(describeRefusedFeedLimit('record:activity', '5')).toContain('declared limit: "5" (string)');
+    expect(describeRefusedFeedLimit('record:activity', 5)).toBeNull();
+    expect(describeRefusedFeedLimit('record:activity', undefined)).toBeNull();
+    expect(describeRefusedFeedLimit('record:activity', null)).toBeNull();
   });
 });

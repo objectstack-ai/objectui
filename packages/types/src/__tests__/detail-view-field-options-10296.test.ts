@@ -59,6 +59,78 @@ describe('DetailViewFieldSchema.options is the spec authoring option schema (obj
     expect((issue as { keys?: string[] } | undefined)?.keys).toEqual([key]);
   });
 
+  it.each(['Open', '1st', 'a-b', 'o'])(
+    'refuses `value: %s` — the spec value is `^[a-z][a-z0-9_.]*$`, at least 2 characters',
+    (value) => {
+      const r = field({ label: 'Open', value });
+      expect(r.success).toBe(false);
+      expect(issuesOf(r).map((i) => i.path)).toContain('options.0.value');
+    },
+  );
+
+  it.each(['ab', 'a.b', 'in_progress'])('accepts `value: %s` (accepting control for the rule above)', (value) => {
+    expect(issuesOf(field({ label: 'Open', value }))).toEqual([]);
+  });
+
+  /**
+   * OUTPUT SHAPE, declared rather than left implicit. `stripImportedDefaults`
+   * removes defaults only, so the spec's expression-input PIPE survives on
+   * `options[].visibleWhen`: the parsed output is the canonical envelope
+   * whichever spelling was authored. One authored document therefore has two
+   * input spellings and ONE output shape here. That differs from objectui's
+   * own form `SelectOptionSchema`, which keeps objectui's wire and passes a
+   * bare string through unchanged (objectui#7735 / #8317). The contract review
+   * on objectui#10296 kept the spec's pipe (option A); these pins keep it
+   * visible.
+   */
+  const optionOut = (visibleWhen: unknown) => {
+    const r = field({ label: 'Open', value: 'open', visibleWhen });
+    return r.success ? r.data.options?.[0] : r;
+  };
+
+  it('canonicalizes a bare-string `visibleWhen` to a `{ dialect: "cel", source }` envelope in OUTPUT', () => {
+    expect(optionOut("record.kind == 'task'")).toEqual({
+      label: 'Open',
+      value: 'open',
+      visibleWhen: { dialect: 'cel', source: "record.kind == 'task'" },
+    });
+  });
+
+  it('passes an authored `{ dialect, source }` envelope through as the same envelope', () => {
+    expect(optionOut({ dialect: 'cel', source: 'x == 1' })).toEqual({
+      label: 'Open',
+      value: 'open',
+      visibleWhen: { dialect: 'cel', source: 'x == 1' },
+    });
+  });
+
+  it('refuses an envelope without `dialect` — objectui wire spelling, not the spec envelope', () => {
+    const r = field({ label: 'Open', value: 'open', visibleWhen: { source: 'x == 1' } });
+    expect(r.success).toBe(false);
+    expect(issuesOf(r)).toContainEqual({ code: 'invalid_union', path: 'options.0.visibleWhen' });
+  });
+
+  it('refuses an empty-string `visibleWhen`', () => {
+    const r = field({ label: 'Open', value: 'open', visibleWhen: '' });
+    expect(r.success).toBe(false);
+    expect(issuesOf(r).map((i) => i.path)).toContain('options.0.visibleWhen');
+  });
+
+  /**
+   * ⚠️ Pinned as it stands on the INSTALLED `@objectstack/spec` 17.4.0: a
+   * whitespace-only string is ACCEPTED and canonicalized. objectstack `main`
+   * already moved `visibleWhen` to `EvaluatedExpressionInputSchema`, whose
+   * string arm refuses blank strings, so the next spec bump TIGHTENS this and
+   * turns this test red on purpose. When it does, flip it to a refusal.
+   */
+  it('accepts a whitespace-only `visibleWhen` on spec 17.4.0 (the next spec bump refuses it)', () => {
+    expect(optionOut('   ')).toEqual({
+      label: 'Open',
+      value: 'open',
+      visibleWhen: { dialect: 'cel', source: '   ' },
+    });
+  });
+
   it('gives the same verdict as the spec schema itself, over a spread of options', () => {
     const samples: Record<string, unknown>[] = [
       { label: 'Open', value: 'open' },

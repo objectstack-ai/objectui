@@ -117,12 +117,28 @@ export function fileUrlFromId(id: string): string {
  * signature is one (objectui#10493). It names nothing, so the caller's
  * fallback applies. The scheme is matched case-insensitively, as URL schemes
  * are.
+ *
+ * A segment that is not a valid percent-encoding (a bare `%`, as in
+ * `100%.png`, or `%zz`) names the file by its raw segment (objectui#10614).
+ * `FileValueSchema.url` is a plain string, so such a value is contract-valid,
+ * and `decodeURIComponent` throws `URIError` on it. Before this guard that
+ * throw escaped `readFileValue` during render, so one such value took down
+ * every face that reads it: the nearest error boundary replaced the whole
+ * table or gallery, valid rows included. The guard lives here, once, because
+ * every caller reaches the decode through this helper; a valid escape
+ * (`report%20q3.pdf`) still decodes as before.
  */
 function nameFromUrl(url: string): string | undefined {
   if (/^data:/i.test(url)) return undefined;
   const path = url.split(/[?#]/)[0] ?? url;
   const seg = path.split('/').filter(Boolean).pop();
-  return seg ? decodeURIComponent(seg) : url;
+  if (!seg) return url;
+  try {
+    return decodeURIComponent(seg);
+  } catch (err) {
+    if (err instanceof URIError) return seg;
+    throw err;
+  }
 }
 
 /**

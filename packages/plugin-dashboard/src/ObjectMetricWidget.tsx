@@ -7,9 +7,9 @@
  */
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
-import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
+import type { I18nLabel, ObjectChartSchema, ObjectMetricDrillDownConfig } from '@object-ui/types';
 import {
   useLocalization,
   useDisplayLocale,
@@ -180,11 +180,17 @@ export interface ObjectMetricWidgetProps {
    */
   invert?: boolean;
   /**
-   * Drill-down config. When enabled, clicking the metric card opens a
-   * drawer (or modal) showing the underlying records that contributed
-   * to this metric, filtered by the same `filter` used for aggregation.
+   * Drill-down config. When enabled, clicking the metric card opens a drawer
+   * (or dialog) listing the records behind the number, scoped by this
+   * widget's own `filter`, the one the aggregate runs over.
+   *
+   * Typed `ObjectMetricDrillDownConfig`, not the shared `DrillDownConfig`:
+   * `drillDown.filter` and `drillDown.mode` are refused by name on this block
+   * (objectui#9002, ruling B). A metric has no click event for a drill filter
+   * to interpolate against and no row to open as a record. The shared type
+   * keeps both members for the blocks that read them.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: ObjectMetricDrillDownConfig;
   /**
    * Title for the drill-down panel; defaults to the metric label. Same
    * `I18nLabel` vocabulary as {@link ObjectMetricWidgetProps.label}, and
@@ -421,6 +427,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectName, aggregateKey, resolvedFilterKey, compareToKey, computeOne]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this metric AGGREGATES is declared, and the fetch
+  // effect below names it, so the value is re-read in place. Without it a page
+  // action over raw HTTP left the tile stale unless the page was remounted.
+  const invalidationNonce = useDataInvalidation(dataSource ? objectName || undefined : undefined);
+
   useEffect(() => {
     const mounted = { current: true };
 
@@ -434,7 +447,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     }
 
     return () => { mounted.current = false; };
-  }, [dataSource, objectName, fetchMetric]);
+  }, [dataSource, objectName, fetchMetric, invalidationNonce]);
 
   // Determine the display value:
   // - If we fetched a value from the server, use it
@@ -551,11 +564,12 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // keeps the page size it had. `className` reproduces the height the inline
   // body wrapper carried.
   //
-  // `drillDown.filter` is deliberately NOT forwarded: the drilled list is
-  // scoped by the METRIC's own resolved filter, which is the registration's
-  // promise that the number and the records behind it agree. `mode` has no
-  // read site on the shared drawer either. Both are left to the judgement
-  // objectui#8970 asks for rather than settled here.
+  // `drillDown.filter` and `drillDown.mode` are refused on this block by its
+  // prop type (`ObjectMetricDrillDownConfig`, objectui#9002 ruling B), so
+  // neither is forwarded. The drilled list is scoped by the METRIC's own
+  // resolved filter, which is the registration's promise that the number and
+  // the records behind it agree, and a metric has no row for `mode` to open as
+  // a record.
   const drillDrawer = drillEnabled ? (
     <DrillDownDrawer
       open

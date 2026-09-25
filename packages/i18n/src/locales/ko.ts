@@ -1129,6 +1129,7 @@ const ko = {
   },
   chart: {
     loading: "차트 로딩 중…",
+    refreshing: "새로고침 중…",
     nullCategory: "(미지정)",
     scatterOneMeasure: "산점도는 측정값 하나만 그립니다. 계열을 하나만 남기세요:",
     unconfigured: {
@@ -1150,6 +1151,7 @@ const ko = {
       sourceLabel: "데이터 소스:",
     },
     loading: "로딩 중…",
+    refreshing: "새로고침 중…",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
     details: "세부 정보",
@@ -1921,6 +1923,7 @@ const ko = {
       title: "제목",
       viewType: "뷰 유형",
       recordCount: "{{count}}개 레코드",
+      recordCountOne: "{{count}}개 레코드",
       save: "저장",
       discard: "취소",
       createView: "뷰 생성",

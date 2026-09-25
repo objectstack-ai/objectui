@@ -36,7 +36,7 @@ import { useRecordQuery } from './useRecordQuery.js';
 import { mergeFilterNodes } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { lookupFiltersToRecord } from './RecordPickerDialog.js';
-import { getPersonId } from './personDisplay.js';
+import { getPersonId, getPersonNameFields } from './personDisplay.js';
 import { PersonRow } from './PersonRow.js';
 import { SelectionTray } from './SelectionTray.js';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
@@ -71,6 +71,11 @@ export interface PeoplePickerProps {
   /** Object to query — `sys_user` for user fields. */
   objectName: string;
 
+  /**
+   * The person's name field (default `name`), read first of the name ladder
+   * (then `name`, `username`, `label`). Once the permission policy has loaded,
+   * a rung the user may not read on `objectName` is skipped.
+   */
   displayField?: string;
   idField?: string;
   /**
@@ -206,6 +211,22 @@ export function PeoplePicker({
         ? avatarField
         : null,
     [avatarField, perms, objectName],
+  );
+  // The name a row and the tray draw, gated the same way (objectui#10535). It
+  // is read down a ladder of fields on `objectName` — the display field, then
+  // `name`, `username`, `label` (`getPersonNameFields`) — and a rung the policy
+  // denies is left out, so the name falls through to the next readable one:
+  // the fallback the lookup editor's option label has (objectui#10411), and
+  // what the row a stripping backend serves reads. With no rung readable the
+  // row and the tray draw their no-name placeholder, as for that row. The
+  // records themselves are kept as served, and the name is derived per render,
+  // so a policy that arrives later relabels them.
+  const readableNameFields = useMemo<string[]>(
+    () =>
+      getPersonNameFields(displayField).filter(
+        f => !perms.isLoaded || perms.checkField(objectName, f.split('.')[0], 'read'),
+      ),
+    [displayField, perms, objectName],
   );
 
   // Main candidate query (search + candidate hygiene).
@@ -492,6 +513,7 @@ export function PeoplePicker({
         key={String(id)}
         record={record}
         displayField={displayField}
+        nameFields={readableNameFields}
         subtitleFields={readableSubtitleFields}
         avatarField={readableAvatarField}
         selected={selectedIds.has(String(id))}
@@ -598,6 +620,7 @@ export function PeoplePicker({
             onClear={() => setSelectedRecords([])}
             clearLabel={t('lookup.clear')}
             displayField={displayField}
+            nameFields={readableNameFields}
             avatarField={readableAvatarField}
             idField={idField}
             label={t('table.selected', { count: selectedRecords.length })}

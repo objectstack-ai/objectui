@@ -117,10 +117,11 @@ const at = (pack: unknown, path: string): unknown =>
  * `toolbar` was not — a split with no reason behind it, which is the shape a
  * substring false-positive leaves.
  *
- * ⚠️ The total below stays 210 and that is deliberate: 210 is the count of keys
+ * ⚠️ The total below is 211 and that is deliberate: 211 is the count of keys
  * that ever EXISTED in this namespace, split into a retired half that only
  * grows and a surviving half that shrinks to match. A retirement moves the
- * split; only a genuinely new key moves the total.
+ * split; only a genuinely new key moves the total (objectui#10636's
+ * `recordCountOne` moved it from 210).
  */
 const RETIRED_OBJECT_VIEW_KEYS = [
   'accessibility',
@@ -244,7 +245,7 @@ const RETIRED_OBJECT_VIEW_KEYS = [
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 92;
+const SURVIVING_KEY_COUNT = 93;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
@@ -253,13 +254,14 @@ describe('console.objectView config-panel keys are retired (objectui#4730)', () 
     expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(118);
     expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(118);
     // 209 at objectui#4730's landing; 210 since objectui#5232 added
-    // `viewConfigPermissionDenied`. The RETIRED half is a ratchet that never
+    // `viewConfigPermissionDenied`; 211 since objectui#10636 added
+    // `recordCountOne`, the record-count footer's singular. The RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting
     // them is the point: folding a new key into the total would be
     // indistinguishable from a retired key coming back.
-    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(210);
+    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(211);
     expect(LANGS).toHaveLength(10);
   });
 

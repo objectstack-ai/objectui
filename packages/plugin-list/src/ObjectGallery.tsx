@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -401,6 +401,17 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
       return enriched;
     }, [objectDef, schema.objectName, fieldLabel, fieldOptionLabel]);
 
+    // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+    // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+    // write to the object this gallery QUERIES is declared, and the fetch
+    // effect below names it, so the cards are re-read in place. The grid stays
+    // mounted through the re-read (the placeholder below is drawn only while
+    // there are no items yet), so collapsed groups and scroll survive.
+    // Subscribed only when the gallery fetches for itself: host `data`,
+    // authored `schema.data` and bound rows are not this effect's query.
+    const fetchesForItself = !!schema.objectName && !boundData && !schema.data && !props.data;
+    const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
     useEffect(() => {
         let isMounted = true;
 
@@ -507,7 +518,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             }
         };
 
-        if (schema.objectName && !boundData && !schema.data && !props.data) {
+        if (fetchesForItself) {
             // ⭐ objectui#7903 — the object definition GATES this query; it does
             // not refine it afterwards. `objectDef` stays in the dependency list
             // below and the two are ONE mechanism, not two: the dependency is
@@ -538,7 +549,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             fetchData();
         }
         return () => { isMounted = false; };
-    }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, props.data, objectDefReady, objectDef, perms]);
+    }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, props.data, objectDefReady, objectDef, perms, fetchesForItself, invalidationNonce]);
 
     const items: Record<string, unknown>[] = props.data || boundData || schema.data || fetchedData || [];
 

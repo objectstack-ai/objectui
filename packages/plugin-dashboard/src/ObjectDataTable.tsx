@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
-import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope, useSettledSchema } from '@object-ui/react';
 import {
   extractRecords,
   isDrillEnabled,
@@ -625,7 +625,6 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   if (b && b !== 'dashboard.noDataSourceFor') noDataSourceLabel = b;
 
   const [fetchedData, setFetchedData] = useState<any[]>([]);
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   // Start in loading state when we will fetch from a dataSource, so the
   // "No data available" empty state doesn't flash on slow networks before
   // the fetch effect runs and flips loading to true.
@@ -656,6 +655,37 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   // is evaluated during render, so `perms` has to be a binding that already
   // exists by the time render reaches the fetch effect below (objectui#7230).
   const perms = usePermissions();
+
+  /**
+   * The object definition, and whether the read for THIS object has SETTLED:
+   * one piece of state, through the shared hook (objectui#10664).
+   *
+   * It sat in a local `useState` fed by its own effect and was listed in the
+   * fetch effect's dependencies below, so every object-bound mount queried
+   * twice: once before the definition landed (`computeLookupExpand` returns
+   * nothing without a field map, so no `$expand`), once after. The same shape
+   * `ObjectGallery` (objectui#7903) left, and the gate below is theirs.
+   *
+   * `dataSource` is passed on every path, as `ObjectGallery` passes it: the
+   * column headers and select-option cells read the definition on bound and
+   * inline rows too, where no query waits on it. The key is `schema.objectName`,
+   * the object the query names.
+   *
+   * ⚠️ The gate is only safe because the hook SETTLES ON EVERY EXIT
+   * (objectui#7232): no source, no `getObjectSchema`, no name, and a read that
+   * threw. The replaced effect returned without settling on the first three.
+   */
+  const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(
+    schema.objectName ?? '',
+    dataSource,
+  );
+
+  // The expansion the query below sends, as a CONTENT key (objectui#10664). The
+  // query reads `schema.columns` (an explicit whitelist decides which relations
+  // expand) and the dependency list did not name it, so a column added on a
+  // mounted widget never reached `$expand`. Keyed on the expansion rather than
+  // on the columns, so a relabelled column is not a change.
+  const lookupExpandKey = computeLookupExpand(schema, objectSchema).join(',');
 
   useEffect(() => {
     let isMounted = true;
@@ -733,7 +763,20 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     };
 
     if (schema.objectName && !boundData && (!schema.data || schema.data.length === 0)) {
-      fetchData();
+      // ⭐ objectui#10664: the object definition GATES this query; it does not
+      // refine it afterwards. `objectSchema` stays in the dependency list and
+      // the two are one mechanism: the dependency re-runs this effect when the
+      // definition lands, and this branch stops the first run from spending a
+      // query before it has. Removing either half restores the double read.
+      //
+      // Scoped to the branch that queries. The placeholder is held across the
+      // window: `loading` starts `true` here only on first mount, and a later
+      // object switch closes the gate with the previous object's rows in state.
+      if (!objectSchemaReady) {
+        if (isMounted) setLoading(true);
+      } else {
+        fetchData();
+      }
     } else if (isMounted) {
       // We have inline / bound data and won't fetch — make sure loading is
       // cleared (matters when we lazily-initialized it to true).
@@ -741,19 +784,9 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     }
 
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchema, filterScope, perms]);
-
-  // Fetch object schema for column-header translation and select-option cell labels.
-  useEffect(() => {
-    let isMounted = true;
-    if (!dataSource || !schema.objectName || typeof dataSource.getObjectSchema !== 'function') {
-      return;
-    }
-    dataSource.getObjectSchema(schema.objectName)
-      .then((s: any) => { if (isMounted) setObjectSchema(s); })
-      .catch(() => { /* schema lookup failure is non-fatal */ });
-    return () => { isMounted = false; };
-  }, [schema.objectName, dataSource]);
+    // `schema.columns` is read through `lookupExpandKey`, by content; see above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchemaReady, objectSchema, lookupExpandKey, filterScope, perms]);
 
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;
@@ -1050,7 +1083,9 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
 
   return (
     <div className={cn('relative', className)}>
-      <RefreshIndicator active={loading && finalData.length > 0} />
+      {/* The bar's name comes from the pack alone (objectui#10580): no English
+          default here, unlike `noDataSourceLabel` above. */}
+      <RefreshIndicator active={loading && finalData.length > 0} ariaLabel={t('dashboard.refreshing')} />
       <SchemaRenderer schema={tableSchema} className={className} />
       {recordDrillEnabled && (
         <RecordDetailDrawer

@@ -57,7 +57,7 @@ import {
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -246,19 +246,23 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const perms = usePermissions();
-  // FLS gate: drop non-readable fields, disable non-editable ones. ONE pass,
-  // shared with `ObjectForm` and `DrawerForm` (objectui#10120).
-  // Fail-open when no PermissionProvider mounted (perms.isLoaded false).
-  const applyFieldPerms = useCallback(
+  const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The ONE field-gate step every layout draws through (`gateFormFields`,
+  // objectui#10612): FLS drops non-readable fields and disables non-editable
+  // ones (objectui#10120; fail-open when no PermissionProvider is mounted), and
+  // the ADR-0092 D4 managed-object lock disables every field when the object's
+  // affordance for the mode is closed — before objectui#10612 a managed object
+  // drew live inputs here.
+  const gateFields = useCallback(
     (fields: FormField[]): FormField[] =>
-      applyFieldPermissions(fields, {
+      gateFormFields(fields, {
         perms,
         objectName: schema.objectName,
         mode: schema.mode,
+        objectSchema,
       }) as FormField[],
-    [perms, schema.objectName, schema.mode],
+    [perms, schema.objectName, schema.mode, objectSchema],
   );
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -710,7 +714,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // entirely (header included) instead of leaving an empty group.
       const groups = sections
         .map((section, index) => {
-          const body = applyFieldPerms(buildSectionFields(section));
+          const body = gateFields(buildSectionFields(section));
           const key = sectionKey(section, index);
           const title = sectionTitle(section);
           return {
@@ -816,7 +820,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       derivedSections.forEach((section, index) => {
         // FLS first, so a group whose every field is non-readable drops its
         // header along with its fields.
-        const body = applyFieldPerms(buildSectionFields(section));
+        const body = gateFields(buildSectionFields(section));
         if (!body.length) return;
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
@@ -873,7 +877,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       <SchemaRenderer
         schema={{
           ...baseFormSchema,
-          fields: applyFieldPerms(layoutResult.fields),
+          fields: gateFields(layoutResult.fields),
           columns: layoutResult.columns,
           ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
         }}

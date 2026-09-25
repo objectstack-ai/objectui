@@ -1078,6 +1078,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // PR #7428 recorded for `ListView`'s memo and `RecordDetailView`'s effect).
   const perms = usePermissions();
 
+  // objectui#10664 — the fetch below falls back to `schema.table?.sort` for its
+  // `$orderby`, and its dependency list names the two sources ahead of it but
+  // not this one, so a changed table sort kept the old order. Keyed by CONTENT:
+  // an equal sort in a fresh array is not a change (AGENTS.md #10).
+  const tableSortKey = JSON.stringify(schema.table?.sort ?? null);
+
   // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)
   useEffect(() => {
     let isMounted = true;
@@ -1279,7 +1285,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   }, [
     schema.objectName, dataSource, currentViewType, refreshKey,
     currentNamedViewConfig, activeViewQueryInputs, renderListView,
-    objectSchemaReady, objectSchema, perms, authoredFilters,
+    objectSchemaReady, objectSchema, perms, authoredFilters, tableSortKey,
   ]);
 
   // Determine layout mode. #2578: default the record surface from how heavy the

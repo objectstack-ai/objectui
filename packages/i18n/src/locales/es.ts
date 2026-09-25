@@ -1133,6 +1133,7 @@ const es = {
   },
   chart: {
     loading: "Cargando gráfico…",
+    refreshing: "Actualizando…",
     nullCategory: "(Sin especificar)",
     scatterOneMeasure: "Un gráfico de dispersión traza una sola medida. Conserve una sola serie:",
     unconfigured: {
@@ -1154,6 +1155,7 @@ const es = {
       sourceLabel: "Origen de datos:",
     },
     loading: "Cargando…",
+    refreshing: "Actualizando…",
     pickMeasures: "Elija medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fuente de datos no admite consultas de dataset.",
     details: "Detalles",
@@ -1925,6 +1927,7 @@ const es = {
       title: "Título",
       viewType: "Tipo de vista",
       recordCount: "{{count}} registros",
+      recordCountOne: "{{count}} registro",
       save: "Guardar",
       discard: "Descartar",
       createView: "Crear vista",

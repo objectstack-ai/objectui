@@ -20,11 +20,32 @@ export function resolvePath(record: any, path: string): any {
   return path.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), record);
 }
 
-/** Best display name for a person record, tolerating expanded / raw shapes. */
-export function getPersonName(record: any, nameField = 'name'): string {
+/**
+ * The fields a person's display name is read from, in order: the configured
+ * display field, then `name`, `username`, `label`. A caller that gates the name
+ * by field-level security filters THIS list and hands the rest to
+ * {@link getPersonName} (objectui#10535): a denied rung is skipped, so the name
+ * falls through to the next readable one — the row a stripping backend serves
+ * reads the same.
+ */
+export function getPersonNameFields(nameField = 'name'): string[] {
+  return [nameField, 'name', 'username', 'label'];
+}
+
+/**
+ * Best display name for a person record, tolerating expanded / raw shapes: the
+ * first field of the name ladder the record holds a value for. `nameField` is
+ * the configured display field, whose ladder is {@link getPersonNameFields}, or
+ * the ladder itself, already filtered to the fields the viewer may read.
+ */
+export function getPersonName(record: any, nameField: string | readonly string[] = 'name'): string {
   if (record == null) return '';
   if (typeof record !== 'object') return String(record);
-  return String(record[nameField] ?? record.name ?? record.username ?? record.label ?? '');
+  const ladder = typeof nameField === 'string' ? getPersonNameFields(nameField) : nameField;
+  for (const field of ladder) {
+    if (record[field] != null) return String(record[field]);
+  }
+  return '';
 }
 
 /**

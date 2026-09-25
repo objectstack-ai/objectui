@@ -31,7 +31,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSource } from '@object-ui/types';
+import type { BatchTransactionOperation, DataSource } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
@@ -40,7 +40,15 @@ import { usePermissions } from '@object-ui/permissions';
 import { ObjectForm } from './ObjectForm';
 import { applyColumnPermissions } from './fieldWriteGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
-import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
+import {
+  buildMasterDetailBatch,
+  buildMasterDetailEditBatch,
+  idOf,
+  isBlankRow,
+  sumRows,
+  type BatchEditDetailInput,
+} from './masterDetailTx';
+import { isSameStoredValue } from './sanitize';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
 
 export interface MasterDetailDetailConfig {
@@ -125,8 +133,152 @@ export interface MasterDetailFormSchema {
 /** Rows keyed by their persisted id (when known), for edit-mode diffing. */
 interface RowState {
   rows: Record<string, any>[];
-  /** Snapshot of the persisted rows (edit mode) for diffing on submit. */
+  /**
+   * Snapshot of the persisted rows (edit mode) for diffing on submit. Two
+   * writers: the children-fetch effect sets it from the read, and every
+   * successful edit save advances it to what that save wrote
+   * ({@link childRowsAfterSave}, objectui#10564).
+   */
   original: Record<string, any>[];
+}
+
+/** One detail collection as the edit batch was built from it. */
+interface SavedDetailInput {
+  entryId: string;
+  /** The exact input handed to `buildMasterDetailEditBatch`. */
+  input: BatchEditDetailInput;
+}
+
+/**
+ * What one SUCCESSFUL edit batch wrote to one detail collection: the child-row
+ * form of `advanceLoadedRecord`, the parent record's baseline advance
+ * (objectui#10156 / objectui#10564).
+ */
+interface SavedChildRows {
+  entryId: string;
+  /**
+   * The `original` the batch diffed against. The advance lands only while it
+   * is still the collection's baseline: a reload that replaced the row state
+   * while the save was in flight has set a newer one.
+   */
+  diffedAgainst: Record<string, unknown>[];
+  /** Each row the batch CREATED (the row object it was built from) → the id the server gave it. */
+  createdIds: Map<object, unknown>;
+  /** The baseline after the save: every persisted row, laid over with what this batch wrote to it. */
+  original: Record<string, unknown>[];
+}
+
+/**
+ * Whether a `create` operation's payload was built from `row`: every field it
+ * writes, other than the parent link the builder sets, holds the row's value.
+ * The builder only drops keys from a row (sanitize) and never rewrites one.
+ */
+function isBuiltFrom(
+  data: Record<string, unknown> | undefined,
+  row: Record<string, unknown>,
+  relationshipField: string,
+): boolean {
+  return Object.entries(data ?? {}).every(
+    ([k, v]) => k === relationshipField || isSameStoredValue(v, row[k]),
+  );
+}
+
+/**
+ * The child rows' baseline after an edit batch COMMITTED (objectui#10564).
+ *
+ * A form that stays mounted after a save must not diff its next save against
+ * the rows as FIRST read. Against that stale baseline a row the save created
+ * is still id-less and is created again; a row the save deleted is deleted
+ * again; and a cell changed back to its first-read value compares clean and is
+ * dropped while the server keeps the saved value.
+ *
+ * Two facts come from the batch, and nothing is inferred beyond them:
+ *
+ * - **Ids.** `batchTransaction` answers `results` index-aligned with the
+ *   operations, a create echoing the record it wrote (`DataSource`'s contract;
+ *   the server's `/batch` and `emulateBatchTransaction` both do). The edit
+ *   builder puts the parent at index 0 and then, collection by collection in
+ *   the order it was handed them, one `create` per non-blank row without an
+ *   id, in row order. Each such row is paired with the next create operation,
+ *   and the pair is checked ({@link isBuiltFrom}) before it is trusted. A pair
+ *   that does not check out stops the pairing: the rows left unpaired stay
+ *   creates, which is the behaviour before this advance, never a row updating
+ *   another row's record. A create echo without an id leaves its row a create
+ *   too.
+ * - **Written values.** What the batch sent, laid over the row as read — the
+ *   same rule `advanceLoadedRecord` applies to the parent. A row the batch
+ *   deleted leaves the baseline; a row it did not touch keeps its snapshot.
+ *
+ * Pure, and it does not throw: it runs between a committed batch and the
+ * parent's own advance, where a throw would report a save that landed as a
+ * failure.
+ */
+function childRowsAfterSave(
+  ops: BatchTransactionOperation[],
+  results: unknown,
+  details: SavedDetailInput[],
+): SavedChildRows[] {
+  const echoes = Array.isArray(results) ? results : [];
+  const creates: Array<{ op: BatchTransactionOperation; echo: unknown }> = [];
+  ops.forEach((op, k) => {
+    if (k > 0 && op.action === 'create') creates.push({ op, echo: echoes[k] });
+  });
+  let nextCreate = 0;
+  let pairingLost = false;
+
+  const saved = details.map(({ entryId, input }): SavedChildRows => {
+    const { childObject, relationshipField } = input;
+    const rows = input.rows || [];
+    const original = input.original || [];
+    const createdIds = new Map<object, unknown>();
+    const written = new Map<unknown, Record<string, unknown>>();
+
+    for (const row of rows) {
+      if (pairingLost) break;
+      if (idOf(row) != null || isBlankRow(row, relationshipField)) continue;
+      const pair = creates[nextCreate];
+      if (!pair || pair.op.object !== childObject || !isBuiltFrom(pair.op.data, row, relationshipField)) {
+        pairingLost = true;
+        break;
+      }
+      nextCreate += 1;
+      const id = idOf(pair.echo);
+      if (id == null) continue;
+      createdIds.set(row, id);
+      written.set(id, pair.op.data ?? {});
+    }
+    for (let k = 1; k < ops.length; k++) {
+      const op = ops[k];
+      if (op.action === 'update' && op.object === childObject && op.id != null) {
+        written.set(op.id, op.data ?? {});
+      }
+    }
+
+    const before = new Map<unknown, Record<string, unknown>>();
+    for (const r of original) {
+      const id = idOf(r);
+      if (id != null) before.set(id, r);
+    }
+    const next: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const id = idOf(row) ?? createdIds.get(row);
+      if (id == null) continue;
+      const was = before.get(id);
+      const wrote = written.get(id);
+      if (!was && !wrote) continue;
+      const entry: Record<string, unknown> = { ...(was ?? {}), ...(wrote ?? {}) };
+      if (idOf(entry) == null) entry.id = id;
+      next.push(entry);
+    }
+    return { entryId, diffedAgainst: input.original, createdIds, original: next };
+  });
+
+  if (pairingLost || nextCreate !== creates.length) {
+    console.warn(
+      '[MasterDetailForm] could not pair every row created by this save with its create operation; an unpaired row keeps no id, and the next save creates it again.',
+    );
+  }
+  return saved;
 }
 
 /**
@@ -880,6 +1032,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           id: outcomeToastId,
         });
       }
+      // An edit keeps its rows: `submitViaBatch` has already advanced their
+      // baseline to what this save wrote (objectui#10564).
       if (!isEdit) {
         // Every collection back to empty for the next entry. Dropping the whole
         // record is the same statement the per-detail rebuild made, without
@@ -943,25 +1097,33 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           parentData[d.totalField] = sumRows(rowStateRef.current[e.id]?.rows ?? [], d.amountField || 'amount');
         }
       });
-      const ops = isEdit
-        ? buildMasterDetailEditBatch(
-            schema.objectName,
-            String(schema.recordId),
-            parentData,
-            // ⚠️ Read by ENTRY ID. This was
-            // `.filter(…).map((d, i) => stateRef.current[i])`, where `i` indexes
-            // the FILTERED array while the row state was indexed against the
-            // FULL one — so a declined or unresolved entry sitting above a real
-            // collection shifted every read below it by one and that
-            // collection's rows were silently dropped from the transaction.
-            // Data loss on save, not a display defect (objectui#6371).
-            entries.filter((e) => e.config.relationshipField).map((e) => ({
+      // ⚠️ Read by ENTRY ID. This was
+      // `.filter(…).map((d, i) => stateRef.current[i])`, where `i` indexes
+      // the FILTERED array while the row state was indexed against the
+      // FULL one — so a declined or unresolved entry sitting above a real
+      // collection shifted every read below it by one and that
+      // collection's rows were silently dropped from the transaction.
+      // Data loss on save, not a display defect (objectui#6371).
+      // Kept beside its entry id: the same inputs advance the baseline once
+      // the batch has committed (objectui#10564).
+      const editDetails: SavedDetailInput[] | null = isEdit
+        ? entries.filter((e) => e.config.relationshipField).map((e) => ({
+            entryId: e.id,
+            input: {
               childObject: e.config.childObject,
               relationshipField: e.config.relationshipField!,
               rows: rowStateRef.current[e.id]?.rows ?? [],
               original: rowStateRef.current[e.id]?.original ?? [],
               childSchema: childSchemasRef.current[e.config.childObject],
-            })),
+            },
+          }))
+        : null;
+      const ops = editDetails
+        ? buildMasterDetailEditBatch(
+            schema.objectName,
+            String(schema.recordId),
+            parentData,
+            editDetails.map((d) => d.input),
           )
         : buildMasterDetailBatch(
             schema.objectName,
@@ -975,6 +1137,36 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             })),
           );
       const res = await runBatchTransaction(dataSource, ops);
+      // The batch COMMITTED: advance the child rows' baseline from it, so a
+      // form that stays mounted diffs its next save against what this one
+      // wrote (objectui#10564). The parent's baseline advances in the header
+      // `<ObjectForm>` once this handler resolves, from the same save. A batch
+      // that rejects skips both, so the retry still carries every operation;
+      // `childRowsAfterSave` does not throw, so a committed batch never reads
+      // as a failed save with one baseline moved. Create mode has no baseline:
+      // `handleSaved` empties the rows for the next entry.
+      if (editDetails) {
+        const saved = childRowsAfterSave(ops, res?.results, editDetails);
+        setRowState((prev) => {
+          let next = prev;
+          for (const s of saved) {
+            const cur = prev[s.entryId];
+            if (!cur || cur.original !== s.diffedAgainst) continue;
+            // A created row takes its id by identity with the row the batch
+            // was built from. A row edited while the save was in flight is a
+            // new object and keeps none: the next save then deletes the created
+            // record and creates the row as it now stands.
+            const rows = s.createdIds.size === 0
+              ? cur.rows
+              : cur.rows.map((r) => {
+                  const id = s.createdIds.get(r);
+                  return id === undefined ? r : { ...r, id };
+                });
+            next = { ...next, [s.entryId]: { rows, original: s.original } };
+          }
+          return next;
+        });
+      }
       // create → parent is op 0; edit → echo the parent values back.
       return res?.results?.[0] ?? { ...parentData, id: schema.recordId };
     },

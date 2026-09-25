@@ -1149,6 +1149,7 @@ const ru = {
   },
   chart: {
     loading: "Загрузка графика…",
+    refreshing: "Обновление…",
     nullCategory: "(Не указано)",
     scatterOneMeasure: "Точечная диаграмма строит только одну меру. Оставьте один ряд:",
     unconfigured: {
@@ -1170,6 +1171,7 @@ const ru = {
       sourceLabel: "Источник данных:",
     },
     loading: "Загрузка…",
+    refreshing: "Обновление…",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
     details: "Подробности",
@@ -1942,7 +1944,11 @@ const ru = {
       searchFields: "Поиск полей…",
       title: "Заголовок",
       viewType: "Тип представления",
-      recordCount: "{{count}} записей",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // one (21), few (2-4) and many (5-20); a count label reads right at all three,
+      // the same form as `list.recordCount`.
+      recordCount: "Записей: {{count}}",
+      recordCountOne: "{{count}} запись",
       save: "Сохранить",
       discard: "Отменить",
       createView: "Создать представление",

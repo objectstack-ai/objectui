@@ -22,7 +22,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // copy that did the unwrap and skipped the strip.
 import { extractDraftBody } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
-import { StudioChatDock } from './StudioAiCopilot.js';
+import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { useIsWideViewport } from './wideViewport.js';
 import {
@@ -943,6 +943,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
+  const publishNoneReasonId = React.useId();
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
   // package (the design surface), the app is its published front-end. If this
@@ -1044,6 +1045,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // injected `aiSlot` (the cloud seam, ADR-0080) keeps the legacy left panel
   // — the cloud edition migrates on its own schedule.
   const chatDockMode = !aiSlot;
+  // objectui#8219 — the Interfaces pillar's open leaf, lifted to the dock so
+  // the copilot's "discussing" chip reads its display label (objectui#7254).
+  // Display-only; the agent's context stays URL-derived. Other pillars report
+  // nothing, so their chip keeps reading `type · name`.
+  const [surfaceLabel, setSurfaceLabel] = React.useState<StudioSurfaceLabel | null>(null);
 
   /**
    * Host side of the live `?surface=` channel. Producers below the provider —
@@ -1214,6 +1220,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <GitBranch className="h-3.5 w-3.5" />
                 {t('engine.studio.changes', locale)}{hasPending ? ` · ${pendingCount}` : ''}
               </button>
+              {/* objectui#8219 — with nothing to publish, say so on the page
+                  rather than only in the hover tooltip. */}
+              {!hasPending && !readOnly && !publishing && (
+                <span
+                  id={publishNoneReasonId}
+                  className="text-[11px] text-muted-foreground"
+                  data-testid="publish-none-reason"
+                >
+                  {t('engine.studio.publishNoneTitle', locale)}
+                </span>
+              )}
               <button
                 type="button"
                 // Publish is review-then-confirm: open the pending-changes panel,
@@ -1221,6 +1238,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 // never straight from this header click (objectui#2261).
                 onClick={() => setChangesOpen(true)}
                 disabled={publishing || !hasPending || readOnly}
+                aria-describedby={!hasPending && !readOnly && !publishing ? publishNoneReasonId : undefined}
                 title={
                   readOnly
                     ? t('engine.studio.pkg.readonlyHint', locale)
@@ -1228,7 +1246,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                       ? t('engine.studio.publishTitle', locale)
                       : t('engine.studio.publishNoneTitle', locale)
                 }
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                // objectui#8219 — the primary style is for a publish the author
+                // CAN do. A disabled one (no draft, or a read-only package)
+                // drops to an outline, instead of staying the loudest element
+                // on the page dimmed only by `disabled:opacity-50`.
+                className={cn(
+                  // The border is on both states so the swap never shifts the bar.
+                  'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
+                  publishing || (hasPending && !readOnly)
+                    ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
+                    : 'text-muted-foreground',
+                )}
               >
                 {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                 {t('engine.studio.publish', locale)}
@@ -1259,6 +1287,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 readOnly={readOnly}
                 foldInspector={chatDockMode}
                 onDirtyChange={setPillarDirty}
+                onSurfaceLabelChange={setSurfaceLabel}
               />
             )}
           </div>
@@ -1267,7 +1296,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         {/* ADR-0057 P3c — the copilot as the shared right dock (same package-
           * scoped build thread as the left panel it replaces; self-gates on the
           * agent catalog like the copilot always has). */}
-        {chatDockMode && <StudioChatDock packageId={packageId} locale={locale} />}
+        {chatDockMode && (
+          <StudioChatDock packageId={packageId} locale={locale} surfaceLabel={surfaceLabel} />
+        )}
 
         <DraftChangesPanel
           open={changesOpen}
@@ -1511,6 +1542,7 @@ export function InterfacesPillar({
   readOnly = false,
   foldInspector = false,
   onDirtyChange,
+  onSurfaceLabelChange,
 }: {
   packageId: string;
   publishNonce?: number;
@@ -1532,6 +1564,11 @@ export function InterfacesPillar({
    * pillar (SPA nav, so no beforeunload). Reports `false` on unmount so a
    * confirmed discard clears the surface's guard. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** objectui#8219 — reports the open leaf's display label (tagged with the
+   * leaf's type and name) up to the surface that mounts the copilot dock, for
+   * its "discussing" chip. `null` when no leaf is open, when the leaf has no
+   * label, and on unmount. */
+  onSurfaceLabelChange?: (surface: StudioSurfaceLabel | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -1610,6 +1647,29 @@ export function InterfacesPillar({
   const [current, setCurrent] = React.useState<Surface | null>(null);
   // `?surface=` capture + mirror — shared plumbing (see useSurfaceDeepLink).
   const initialSurface = useSurfaceDeepLink(current);
+  // objectui#8219 — lift the open leaf's label to the dock (see the prop doc).
+  // Keyed on the primitives, and the callback read through a ref, so neither a
+  // re-created Surface object nor a non-memoized callback refires the report.
+  const onSurfaceLabelChangeRef = React.useRef(onSurfaceLabelChange);
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current = onSurfaceLabelChange;
+  });
+  const currentType = current?.type;
+  const currentName = current?.name;
+  const currentLabel = current?.label;
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current?.(
+      currentType && currentName && currentLabel
+        ? { type: currentType, name: currentName, label: currentLabel }
+        : null,
+    );
+  }, [currentType, currentName, currentLabel]);
+  React.useEffect(
+    () => () => {
+      onSurfaceLabelChangeRef.current?.(null);
+    },
+    [],
+  );
   // Inspector tab — source pages carry a `source` string, not a block tree, so
   // their editor lives in a dedicated Source tab (the Properties tab has no
   // blocks to inspect). Non-source surfaces never show the tab strip.
@@ -1980,6 +2040,19 @@ export function InterfacesPillar({
   // cedes the right side to the chat dock), so they are built once here. The
   // extraction is presentation-neutral: the classic branch composes exactly
   // the pre-P3c tree.
+  // objectui#8219 — true exactly when the canvas below renders its `Preview`
+  // branch (same guards, same order). A registered preview brings its own
+  // frame (PreviewShell), so the wrapper then draws none: one frame, and the
+  // wrapper's border and padding go back to the preview. Every other canvas
+  // state (no app, nothing picked, loading, the studio-canvas records grid,
+  // no designer) has no shell of its own and keeps the wrapper's card.
+  const canvasHostsPreviewShell =
+    !(appStatus === 'missing' && !error) &&
+    !!current &&
+    !loading &&
+    !StudioCanvas &&
+    !isSourcePage &&
+    !!Preview;
   const canvasEl = (
     <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
       <div className="mb-3 flex shrink-0 items-center gap-2">
@@ -2050,7 +2123,11 @@ export function InterfacesPillar({
           // Source pages: let the live preview fill the canvas height (it
           // brings its own PreviewShell chrome), so it balances the taller
           // editor panel instead of floating as a short card.
-          isSourcePage ? 'min-h-0 flex-1 overflow-hidden' : 'rounded-lg border bg-background p-4',
+          isSourcePage
+            ? 'min-h-0 flex-1 overflow-hidden'
+            : canvasHostsPreviewShell
+              ? undefined
+              : 'rounded-lg border bg-background p-4',
         )}
       >
         {appStatus === 'missing' && !error ? (

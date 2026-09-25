@@ -35,6 +35,7 @@ import {
   declaredUserMessage,
   useSettledSchema,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -567,6 +568,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // set that is not being drawn. Every other `setData` path here already
       // resets it — this was the one that did not.
       setRowCeiling(null);
+      // ...and an error from that fetch, for the same reason (objectui#10663):
+      // the rows now on screen are not the query that failed.
+      setError(null);
     }
   }, [externalData, hasExternalData]);
 
@@ -575,6 +579,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       setLoading(externalLoading);
     }
   }, [externalLoading, hasExternalData]);
+
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this calendar QUERIES is declared, and the fetch
+  // effect below names it, so the events are re-read. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only on the `object`
+  // provider without external data — inline and external events are not this
+  // effect's query.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
+  );
 
   // Fetch data based on provider
   useEffect(() => {
@@ -662,6 +678,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           if (isMounted) {
             setData(capped.rows);
             setRowCeiling(capped);
+            // Committed rows clear an earlier failure (objectui#10663); the
+            // reasoning sits on the `object` arm's commit below.
+            setError(null);
             setLoading(false);
           }
           return;
@@ -739,10 +758,24 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           if (isMounted) {
             setData(capped.rows);
             setRowCeiling(capped);
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the calendar off screen until a
+            // remount, and since objectui#10572 one failed data-invalidation
+            // re-read was enough to get there. It is cleared HERE, when the
+            // current run commits rows: those rows answer the current query,
+            // so no earlier failure describes the screen any more
+            // (objectui#10578's rule on `ObjectGantt`). `isMounted` is this
+            // run's own flag, false once a newer run has started, so a
+            // superseded run's clear is discarded with its answer. ⛔ Not when
+            // a run starts: until rows land, the report stays.
+            setError(null);
           }
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
-          if (isMounted) setData([]);
+          if (isMounted) {
+            setData([]);
+            setError(null);
+          }
         }
         
         if (isMounted) setLoading(false);
@@ -758,7 +791,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms]);
+      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
   // no date to be placed on at all (objectui#7071 — see the early return in the

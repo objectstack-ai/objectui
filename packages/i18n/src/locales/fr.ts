@@ -1131,6 +1131,7 @@ const fr = {
   },
   chart: {
     loading: "Chargement du graphique…",
+    refreshing: "Actualisation…",
     nullCategory: "(Non défini)",
     scatterOneMeasure: "Un nuage de points trace une seule mesure. Ne conservez qu’une série :",
     unconfigured: {
@@ -1152,6 +1153,7 @@ const fr = {
       sourceLabel: "Source de données :",
     },
     loading: "Chargement…",
+    refreshing: "Actualisation…",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
     details: "Détails",
@@ -1923,6 +1925,7 @@ const fr = {
       title: "Titre",
       viewType: "Type de vue",
       recordCount: "{{count}} enregistrements",
+      recordCountOne: "{{count}} enregistrement",
       save: "Enregistrer",
       discard: "Annuler",
       createView: "Créer une vue",

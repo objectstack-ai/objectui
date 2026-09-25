@@ -15,10 +15,9 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@object-ui/types';
-import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
+import { SchemaRenderer, useSafeFieldLabel, useDataInvalidation } from '@object-ui/react';
 import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
 import { useIsMobile, toast } from '@object-ui/components';
-import { resolveEffectiveCrudAffordances } from '@object-ui/core';
 import { resolveSuccessNavigate } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
 import {
@@ -52,13 +51,12 @@ import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse
 import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import {
-  sanitizeFormData,
-  dirtyEditPayload,
   snapshotLoadedRecord,
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { formWritePayload } from './writePayload';
+import { applyFieldPermissions, fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
@@ -66,7 +64,6 @@ import {
   schemaDefaultValues,
   isCreateFormMode,
   isRequiredInForm,
-  omitServerResolvedDefaults,
 } from './schemaDefaults';
 import { useOccSave } from './occSave';
 
@@ -567,18 +564,22 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // a permissive default (isLoaded:false, checkField always true) so we
   // remain backward-compatible.
   const perms = usePermissions();
-  const applyFieldPerms = useCallback(
+
+  const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The ONE field-gate step every layout draws through (objectui#10612):
+  // field-level security plus the ADR-0092 D4 managed-object lock, which this
+  // arm's field generator used to stamp on its own — see `gateFormFields`.
+  const gateFields = useCallback(
     (fields: FormField[]): FormField[] =>
-      applyFieldPermissions(fields, {
+      gateFormFields(fields, {
         perms,
         objectName: schema.objectName,
         mode: schema.mode,
+        objectSchema,
         deniedDescription: 'You do not have edit access to this field.',
       }) as FormField[],
-    [perms, schema.objectName, schema.mode],
+    [perms, schema.objectName, schema.mode, objectSchema],
   );
-
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [initialData, setInitialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -716,8 +717,62 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     }
   }, [schema.objectName, dataSource, hasInlineFields]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way for the record this form
+  // READS (edit/view mode, no inline fields): the nonce moves on a change to
+  // this record, to its object as a whole, or `'*'`. A change scoped to another
+  // record of the object does not move it.
+  //
+  // Unlike a list, a form holds the user's in-progress input, and a re-read
+  // replaces `initialData` — which the form renderer resets to BY VALUE and
+  // which supplies the OCC token a save sends. So the re-read is GATED ON
+  // PRISTINE (the seat's ruling on the objectui#10572 fork, option A):
+  //   - pristine → re-read in place (no loading branch, so no remount);
+  //   - dirty → HOLD the change: the typed values and the OCC token the edit
+  //     started from both stay, so a real conflict still surfaces at save
+  //     through the conflict dialog; ONE re-read is replayed when the form is
+  //     pristine again (the renderer's `onDirtyChange(false)` after a reset or
+  //     a revert) or when this form's save lands.
+  // Dirtiness is read from the form renderer's existing `onDirtyChange`
+  // channel into a private ref; nothing new is declared on any schema.
+  const readsRecord = !!schema.recordId && schema.mode !== 'create' && !hasInlineFields;
+  const busNonce = useDataInvalidation(
+    readsRecord ? schema.objectName || undefined : undefined,
+    readsRecord ? String(schema.recordId) : undefined,
+  );
+  const formDirtyRef = React.useRef(false);
+  const heldChangeRef = React.useRef(false);
+  const seenBusNonceRef = React.useRef(busNonce);
+  // Bumped once per re-read this form decides to run; the fetch effect names it.
+  const [recordRefetch, setRecordRefetch] = useState(0);
+  // The `recordRefetch` value the fetch effect last ran for — a run that moved
+  // it is a re-read IN PLACE and must not enter the loading branch.
+  const appliedRecordRefetchRef = React.useRef(0);
+  useEffect(() => {
+    if (busNonce === seenBusNonceRef.current) return;
+    seenBusNonceRef.current = busNonce;
+    if (formDirtyRef.current) {
+      heldChangeRef.current = true;
+      return;
+    }
+    setRecordRefetch((n) => n + 1);
+  }, [busNonce]);
+  const replayHeldChange = useCallback(() => {
+    if (!heldChangeRef.current) return;
+    heldChangeRef.current = false;
+    setRecordRefetch((n) => n + 1);
+  }, []);
+  // Memoised for cost only (the renderer re-subscribes on a new identity);
+  // nothing here depends on the identity it returns.
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    formDirtyRef.current = dirty;
+    if (!dirty) replayHeldChange();
+  }, [replayHeldChange]);
+
   // Fetch initial data for edit/view modes (skip if using inline data)
   useEffect(() => {
+    const inPlace = recordRefetch !== appliedRecordRefetchRef.current;
+    appliedRecordRefetchRef.current = recordRefetch;
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
         // Seeded from something other than a read: no baseline to diff against.
@@ -738,7 +793,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         return;
       }
 
-      setLoading(true);
+      // A bus re-read keeps the form mounted (objectui#10572): the loading
+      // branch would unmount it and drop the fields' own UI state.
+      if (!inPlace) setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         // Tagged with the object and record it was read for, so a save that
@@ -756,7 +813,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (objectSchema && !hasInlineFields) {
       fetchInitialData();
     }
-  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields]);
+  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, recordRefetch]);
 
   // FormField `visibleOn` (spec FormFieldSchema CEL expression) is consumed
   // directly by the form renderer via the canonical engine — it accepts both
@@ -790,35 +847,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     if (!objectSchema) return;
 
-    // Managed-object blanket lock (ADR-0092 D4 / ADR-0103). We disable every
-    // field when the object's resolved CRUD affordance for the CURRENT mode is
-    // closed — `edit` for edit mode, `create` for create mode. This routes
-    // through the SAME shared `resolveEffectiveCrudAffordances` policy the detail
-    // (`isObjectInlineEditable`) and grid surfaces use, instead of re-deriving
-    // the bucket lock here: `platform` and admin-editable `config` resolve open;
-    // engine-owned `system` / `append-only` / `better-auth` resolve closed
-    // unless the object OPENED per-record writing via `userActions.{edit,create}`
-    // (e.g. sys_user opens `edit` for its profile fields). When open, the lock
-    // lifts and each field's own `readonly` flag decides. The server-side write
-    // guard remains the real boundary; this is UX only.
-    // [#3546] Intersect the bucket/userActions affordance with the server's
-    // effective API operation set for this object (`/me/permissions`
-    // `apiOperations`), so the form's blanket field lock also engages when the
-    // server denies `update` (edit mode) / `create` (create mode) — the same
-    // intersection the detail header and list/toolbar surfaces apply.
-    // `undefined` (unrestricted object / no PermissionProvider) leaves the
-    // resolved affordance untouched (backward-compatible).
-    const affordances = resolveEffectiveCrudAffordances(
-      objectSchema as any,
-      perms?.getObjectApiOperations?.(schema.objectName),
-    );
-    const modeAffordanceOpen =
-      schema.mode === 'edit'
-        ? affordances.edit
-        : schema.mode === 'create'
-          ? affordances.create
-          : true; // view mode disables fields elsewhere — never double-lock here
-    const managedBlanketLock = !modeAffordanceOpen;
+    // ⛔ No managed-object lock here (ADR-0092 D4). This generator used to
+    // stamp it on the fields it generates, so only this arm drew it — and an
+    // inline member replacing a generated field escaped it. The lock now runs
+    // in `gateFormFields`, the one step every layout draws its resolved fields
+    // through, with field-level security (objectui#10612).
 
     // Determine which fields to include
     const fieldsToShow = schema.fields || Object.keys(objectSchema.fields || {});
@@ -846,7 +879,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
     // The generated half of the merge: `undefined` for a name the object does
     // not declare, which `mergeCustomFields` then draws only if a member names
-    // it. Field-level permissions are enforced downstream by `applyFieldPerms`
+    // it. Field-level permissions are enforced downstream by `gateFields`
     // (the real per-caller gate via `perms.checkField`); the schema itself
     // carries no per-caller permission bits (objectstack#3661).
     const generateField = (name: string, index: number): FormField | undefined => {
@@ -868,7 +901,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           // server resolves it — refusing the submit would leave the user with
           // nothing sensible to type.
           required: isRequiredInForm(field, isCreateFormMode(schema)),
-          disabled: schema.readOnly || schema.mode === 'view' || field.readonly || managedBlanketLock,
+          disabled: schema.readOnly || schema.mode === 'view' || field.readonly,
           placeholder: field.placeholder,
           description: field.help || field.description,
           validation: buildValidationRules(field),
@@ -1050,7 +1083,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (!willFetchData) {
       setLoading(false);
     }
-  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource, perms]);
+  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {
@@ -1105,40 +1138,23 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       return formData;
     }
 
-    // Strip server-managed and computed / read-only fields from the payload
-    // before persisting. react-hook-form retains state for unmounted/disabled
-    // fields (see ModalForm), so an edit form seeded from a full record read
-    // round-trips computed columns it never rendered — formula/summary/rollup
-    // values, flattened lookups, id/timestamps — which the server rejects as
-    // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
-    // forms `objectSchema` is a field-less stub, so pass null to strip only the
-    // server-managed keys rather than dropping every (schema-less) value.
-    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
-    // retains state for unmounted/disabled fields, so a field the caller may
-    // read but not edit is in `formData` even though the gate above rendered
-    // it non-editable. The verdict is the resolver's, adapted by
-    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
-    // strip loop beside this call (objectui#10120).
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
+    // What this save writes — the ONE outbound sequence, shared with the
+    // `tabbed`, `split` and `wizard` layouts (objectui#10563): strip what a form never
+    // writes (server-owned, computed, read-only, unknown to the object, and
+    // refused by the caller's field-level security through `fieldWriteGate`,
+    // objectui#10108 / objectui#10120), omit the producer-owned defaults on a
+    // create (#4069), and on an EDIT keep only the fields that differ from the
+    // record this form read (objectui#10156). `writePayload` goes to BOTH write
+    // routes below: the host-owned seam, which is how a master-detail form's
+    // parent operation is built, and the plain OCC-guarded update. See
+    // `formWritePayload` for the whole rule, including the inline-members
+    // case. The full `payload` stays the submit-redirect scope below: it is
+    // the record as the form now holds it, whether or not a field was written.
+    const { payload, writePayload } = formWritePayload(formData, schema, {
+      objectSchema,
       canEdit: fieldWriteGate(perms, schema.objectName),
+      snapshot: loadedRecordRef.current,
     });
-    // A CREATE payload omits the fields the producer owns (#4069): a rendered
-    // control registers even when nothing seeded it, so an untouched
-    // runtime-default field would ride along as `undefined`/`''` and defeat
-    // `applyFieldDefaults`, which only resolves a field that arrives absent or
-    // null. Create only — on an edit form a cleared column is a real removal.
-    if (isCreateFormMode(schema)) {
-      payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
-    }
-    // An EDIT writes only the fields that differ from the record this form
-    // read (objectui#10156) — on BOTH write routes below: the host-owned seam,
-    // which is how a master-detail form's parent operation is built, and the
-    // plain OCC-guarded update. Anything that cannot be settled is sent; see
-    // `dirtyEditPayload` for the whole rule, including why an empty diff sends
-    // the full payload. Every other mode gets `payload` back unchanged. The
-    // full `payload` stays the submit-redirect scope below: it is the record as
-    // the form now holds it, whether or not a field was written.
-    const writePayload = dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
     try {
       let result;
@@ -1175,6 +1191,13 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // The write landed: the next save from this still-mounted form diffs
       // against the record as it now stands, not as first read.
       loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+      // objectui#10572 — the edit has landed, so what the form shows is what the
+      // server holds: a change held while it was dirty (its own write's bus
+      // echo included) is replayed now, and a later echo re-reads in place
+      // instead of being held behind input that is no longer unsaved. The next
+      // keystroke reports dirty again through `onDirtyChange`.
+      formDirtyRef.current = false;
+      replayHeldChange();
 
       // Call success callback if provided, else give default feedback. Skip the
       // default when a `submitHandler` owns persistence (e.g. MasterDetailForm
@@ -1315,7 +1338,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, replayHeldChange]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1531,7 +1554,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // renderer never honoured. objectui#9884 corrected the sentence and
       // added this warning; see `warnSectionMemberExcludedByFields`.
       //
-      // Measured BEFORE `applyFieldPerms`, on purpose: a field the pool holds
+      // Measured BEFORE `gateFields`, on purpose: a field the pool holds
       // and per-caller permissions then remove is not an authoring mistake and
       // must not be reported as one.
       if (schema.fields != null && schema.sections?.length) {
@@ -1557,7 +1580,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // Field-level permissions gate the BUILT members, after the entry
       // overrides — the order the drawer and modal arms apply them in — so no
       // override can re-open a field the caller may not edit.
-      const sectionFields = applyFieldPerms(buildSectionFields(section, sectionCtx));
+      const sectionFields = gateFields(buildSectionFields(section, sectionCtx));
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);
@@ -1645,6 +1668,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
               cancelLabel: schema.cancelText,
               onSubmit: handleSubmit,
               onCancel: handleCancel,
+              onDirtyChange: handleDirtyChange,
             } as FormSchema}
           />
           <UploadInFlightNotice gate={uploadGate} />
@@ -1656,7 +1680,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // Apply auto-layout: infer columns and colSpan when not explicitly configured
   const hasSections = schema.sections?.length;
-  const gatedFormFields = applyFieldPerms(formFields);
+  const gatedFormFields = gateFields(formFields);
   const autoLayoutResult = !hasSections
     ? applyAutoLayout(gatedFormFields, objectSchema, schema.columns, schema.mode)
     : { fields: gatedFormFields, columns: schema.columns };
@@ -1800,6 +1824,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     previousValues,
     onSubmit: handleSubmit,
     onCancel: handleCancel,
+    onDirtyChange: handleDirtyChange,
     className: schema.className,
     mobileStickyActions: Boolean(mobileOpts?.stickyActions),
   };

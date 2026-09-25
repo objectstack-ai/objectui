@@ -1509,8 +1509,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // mounted — every hook below can therefore run unconditionally.
     const objectDef = objects.find((o: any) => o.name === objectName);
 
-    // Refresh trigger — bumped after view CRUD or external data mutations.
-    const [refreshKey, setRefreshKey] = useState(0);
+    // Refresh trigger — bumped after view CRUD or this page's own data writes.
+    const [ownRefreshKey, setRefreshKey] = useState(0);
+    /**
+     * objectui#10572 — the page's refresh signal: its own counter plus the
+     * console's `externalRefreshKey` (record-form save, undo, redo), summed IN
+     * THE RENDER that receives the prop. Both only grow, so the sum moves
+     * whenever either does, and every reader below sees an external bump in the
+     * same commit as the prop.
+     *
+     * It used to be MIRRORED instead: a passive effect copied each external
+     * bump into this counter one commit later. The console declares the same
+     * undo / redo on the data-invalidation bus in the same tick as the bump,
+     * and `ListView` reads that bus, so the mirror split one write into two
+     * list reads — the bus nonce in one commit, `refreshTrigger` in the next.
+     * PR objectui#10494's contract is that a writer's two notices land in one
+     * render; summing here keeps this host inside it. ⛔ Do not reintroduce the
+     * mirror, and do not add `externalRefreshKey` on top of a value that still
+     * mirrors it — either one reaches the list twice.
+     */
+    const refreshKey = ownRefreshKey + (typeof externalRefreshKey === 'number' ? externalRefreshKey : 0);
 
     /**
      * objectui#10035 — this page learned that the object's DATA changed by a
@@ -1617,12 +1635,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
       [objectDef, getObjectApiOperations],
     );
 
-    // Propagate externally-triggered refreshes (e.g. global ModalForm submit)
-    // into our internal refreshKey so list/data effects re-run.
-    useEffect(() => {
-        if (externalRefreshKey === undefined || externalRefreshKey === 0) return;
-        setRefreshKey(k => k + 1);
-    }, [externalRefreshKey]);
+    // Externally-triggered refreshes (e.g. global ModalForm submit, undo, redo)
+    // reach every `refreshKey` reader through the sum declared with the counter
+    // above (objectui#10572), not through a mirroring effect.
 
     /**
      * [#5153] The object-list toolbar's CREATE predicates — the `create` half
@@ -2608,7 +2623,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          * lint and to the tests — `viewDef` is `Record<string, any>`, so
          * nothing REQUIRES a key to be written. That silence shipped the same
          * defect three times (objectui#7199 `description`, objectui#7218
-         * `rowColor`, objectui#7516 `fieldOrder`), and objectui#7559 ended it:
+         * `rowColor`, objectui#7516 `fieldOrder` — all three carry their rung
+         * below now), and objectui#7559 ended it:
          * `ObjectView.relayRungCensus-7559.test.ts` re-derives the member set
          * from the zod mirror at test time and requires every member to have
          * either a rung here or a DECLARED absence with a reason.
@@ -2684,6 +2700,23 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 return resolved;
             })(),
             hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
+            /**
+             * The per-view ORDERING of the field composition
+             * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
+             * objectstack#15184 ruling B kept the key and wrote the
+             * composition into the contract: `columns` projects,
+             * `hiddenFields` (the rung above) subtracts, `fieldOrder` sorts
+             * what survives, an unlisted survivor sorting last. `ListView`'s
+             * `effectiveFields` memo runs those steps on `schema.fieldOrder`;
+             * this rung only delivers the view's value into that slot, the
+             * one the list-node spelling fills, so the two compose alike.
+             *
+             * View over list node — the precedence of the `hiddenFields` rung
+             * above; a view that authors no order keeps the list node's. It
+             * was the one per-view half of the composition with no rung:
+             * authored, served, then dropped here.
+             */
+            fieldOrder: viewDef.fieldOrder ?? listSchema.fieldOrder,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the
@@ -3386,7 +3419,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                                 </div>
                                 {typeof recordCount === 'number' && (
                                     <div data-testid="record-count-footer" className="border-t px-3 sm:px-4 py-1.5 text-xs text-muted-foreground bg-muted/5 shrink-0">
-                                        {t('console.objectView.recordCount', { count: recordCount })}
+                                        {/* The two-key switch of `ListView`'s record-count bar
+                                            (objectui#10636). Packs whose plurals have more forms
+                                            than two write the count-not-one half as a count label
+                                            (objectui#10425). */}
+                                        {recordCount === 1
+                                            ? t('console.objectView.recordCountOne', { count: recordCount })
+                                            : t('console.objectView.recordCount', { count: recordCount })}
                                     </div>
                                 )}
                             </div>

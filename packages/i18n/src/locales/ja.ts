@@ -1129,6 +1129,7 @@ const ja = {
   },
   chart: {
     loading: "チャート読み込み中…",
+    refreshing: "更新中…",
     nullCategory: "（未設定）",
     scatterOneMeasure: "散布図は1つの指標だけを描画します。系列は1つだけ残してください：",
     unconfigured: {
@@ -1150,6 +1151,7 @@ const ja = {
       sourceLabel: "データソース:",
     },
     loading: "読み込み中…",
+    refreshing: "更新中…",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
     details: "詳細",
@@ -1923,6 +1925,7 @@ const ja = {
       title: "タイトル",
       viewType: "ビュータイプ",
       recordCount: "{{count}} 件のレコード",
+      recordCountOne: "{{count}} 件のレコード",
       save: "保存",
       discard: "破棄",
       createView: "ビューを作成",

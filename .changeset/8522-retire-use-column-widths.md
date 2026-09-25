@@ -26,6 +26,8 @@ an import of it compiled and ran while changing nothing on screen.
   them if you want the storage back.
 - `ColumnWidthConfig` stays exported from `@object-ui/types` and from this
   package. This change does not retire it.
-- The batch #70 `kanban` arm entry in this same release names a
-  `useColumnWidths` hook option as the channel for column widths. That channel
-  is gone with this change, and no other channel replaces it.
+- The objectui#7742 entry in this same release (batch #70, the `kanban` arm)
+  names a `useColumnWidths` hook option as the channel for column widths. That
+  channel is gone with this change, and no other channel replaces it. This
+  change adds a dated note to that entry saying so, leaving its declaration
+  untouched.

@@ -86,15 +86,18 @@ describe('convertFilterGroupToAST', () => {
  */
 describe('convertFilterGroupToAST — every value-less operator emits a real node', () => {
   /** The node each value-less operator must emit for a row that has no value. */
+  //
+  // Keyed by the builder's own ids, which are the protocol's canonical
+  // spellings since objectui#9306 (camelCase when this table was written).
   const EMITTED: Record<string, unknown[]> = {
     // Resolved to a null comparison before `mapOperator` is consulted — these
     // two already worked, and are pinned so the fix cannot regress them.
-    isEmpty: ['f', '=', null],
-    isNotEmpty: ['f', '!=', null],
+    is_empty: ['f', '=', null],
+    is_not_empty: ['f', '!=', null],
     // The defect. `mapOperator` has had these rows all along and both spellings
     // are members of `VALID_AST_OPERATORS`; the row simply never reached it.
-    isNull: ['f', 'isnull', null],
-    isNotNull: ['f', 'isnotnull', null],
+    is_null: ['f', 'isnull', null],
+    is_not_null: ['f', 'isnotnull', null],
     // Kept for the same reason as the rest — the builder draws them value-less
     // — and NOT expressible on this dialect: `mapOperator` has no row, so the
     // id passes through verbatim and the AST gate refuses the whole filter.
@@ -130,7 +133,7 @@ describe('convertFilterGroupToAST — every value-less operator emits a real nod
   // AST gate rejects is no better than `[]` — worse, since it takes the rest of
   // the filter down with it — so the four operators this toolbar OFFERS are
   // checked through the gate the server uses.
-  it.each(['isEmpty', 'isNotEmpty', 'isNull', 'isNotNull'])(
+  it.each(['is_empty', 'is_not_empty', 'is_null', 'is_not_null'])(
     '%s survives isFilterAST, the gate that decides if the filter is parsed at all',
     (operator) => {
       const node = emit(operator);

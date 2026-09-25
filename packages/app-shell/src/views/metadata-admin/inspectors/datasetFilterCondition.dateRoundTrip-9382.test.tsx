@@ -85,7 +85,7 @@ const offeredBy = (type: string): string[] => operatorsForFieldType(type).map((o
  */
 function probeValue(operator: string): unknown {
   if (operator === 'between') return ['2026-01-01', '2026-03-31'];
-  if (operator === 'in' || operator === 'notIn') return ['a'];
+  if (operator === 'in' || operator === 'not_in') return ['a'];
   return '2026-01-01';
 }
 
@@ -214,14 +214,14 @@ describe('controls — these are lit in BOTH directions and are not pins', () =>
   it('greaterThan IS a member of the number bucket', () => {
     // Without this, "the date bucket does not contain greaterThan" could be a
     // lookup that answers false for every word.
-    expect(offeredBy('number')).toContain('greaterThan');
-    expect(offeredBy('date')).not.toContain('greaterThan');
+    expect(offeredBy('number')).toContain('greater_than');
+    expect(offeredBy('date')).not.toContain('greater_than');
     expect(offeredBy('date')).toContain('after');
   });
 
   it('a number column still round-trips greaterThan / lessThan unchanged', () => {
-    expect(roundTrip('amount', 'greaterThan', FIELDS).readBack).toBe('greaterThan');
-    expect(roundTrip('amount', 'lessThan', FIELDS).readBack).toBe('lessThan');
+    expect(roundTrip('amount', 'greater_than', FIELDS).readBack).toBe('greater_than');
+    expect(roundTrip('amount', 'less_than', FIELDS).readBack).toBe('less_than');
   });
 });
 
@@ -229,7 +229,7 @@ describe('boundaries the repair must not cross', () => {
   it('reads back through the fixed table when no fields are supplied', () => {
     // The pure spec-shape callers pass no field list; they must keep the
     // unchanged default rather than get an invented answer.
-    expect(conditionToGroup({ closed_at: { $gt: '2026-01-01' } }).group.conditions[0].operator).toBe('greaterThan');
+    expect(conditionToGroup({ closed_at: { $gt: '2026-01-01' } }).group.conditions[0].operator).toBe('greater_than');
   });
 
   it('a field not in the list is judged against the text bucket the builder draws for it, not given an invented operator', () => {
@@ -239,7 +239,7 @@ describe('boundaries the repair must not cross', () => {
     // bucket, which does not offer `greaterThan`, so the row would open under a
     // BLANK operator trigger. objectui#10257 sends it to the Source tab, as
     // objectui#10062 already did for `$between` on the same column.
-    expect(offeredBy('text')).not.toContain('greaterThan');
+    expect(offeredBy('text')).not.toContain('greater_than');
     expect(conditionToGroup({ mystery: { $gt: 1 } }, FIELDS).representable).toBe(false);
     // CONTROL: a token the text bucket offers still reads back unchanged there.
     expect(conditionToGroup({ mystery: { $eq: 1 } }, FIELDS).group.conditions[0].operator).toBe('equals');
@@ -247,11 +247,11 @@ describe('boundaries the repair must not cross', () => {
 
   it('leaves the unambiguous tokens alone on a date column', () => {
     expect(roundTrip('closed_at', 'equals', FIELDS).readBack).toBe('equals');
-    expect(roundTrip('closed_at', 'notEquals', FIELDS).readBack).toBe('notEquals');
-    expect(roundTrip('closed_at', 'isNull', FIELDS).readBack).toBe('isNull');
-    expect(roundTrip('closed_at', 'isNotNull', FIELDS).readBack).toBe('isNotNull');
-    expect(roundTrip('closed_at', 'isEmpty', FIELDS).readBack).toBe('isEmpty');
-    expect(roundTrip('closed_at', 'isNotEmpty', FIELDS).readBack).toBe('isNotEmpty');
+    expect(roundTrip('closed_at', 'not_equals', FIELDS).readBack).toBe('not_equals');
+    expect(roundTrip('closed_at', 'is_null', FIELDS).readBack).toBe('is_null');
+    expect(roundTrip('closed_at', 'is_not_null', FIELDS).readBack).toBe('is_not_null');
+    expect(roundTrip('closed_at', 'is_empty', FIELDS).readBack).toBe('is_empty');
+    expect(roundTrip('closed_at', 'is_not_empty', FIELDS).readBack).toBe('is_not_empty');
   });
 
   it('does not widen what the bridge accepts', () => {

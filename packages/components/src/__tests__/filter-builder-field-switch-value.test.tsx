@@ -346,10 +346,10 @@ describe('a value the new column CAN already hold is left alone', () => {
   });
 
   it('keeps a number across two numeric columns', async () => {
-    const { onChange } = renderRow({ field: 'amount', operator: 'greaterThan', value: 42 });
+    const { onChange } = renderRow({ field: 'amount', operator: 'greater_than', value: 42 });
     await pickField('Quota');
 
-    expect(lastRow(onChange)).toMatchObject({ field: 'quota', operator: 'greaterThan', value: 42 });
+    expect(lastRow(onChange)).toMatchObject({ field: 'quota', operator: 'greater_than', value: 42 });
   });
 
   it('keeps a date string on a text column — text holds everything', async () => {
@@ -378,10 +378,10 @@ describe('a value the new column CAN already hold is left alone', () => {
   });
 
   it('leaves a value-less row alone', async () => {
-    const { onChange } = renderRow({ field: 'title', operator: 'isNull', value: '' });
+    const { onChange } = renderRow({ field: 'title', operator: 'is_null', value: '' });
     await pickField('Amount');
 
-    expect(lastRow(onChange)).toMatchObject({ operator: 'isNull', value: '' });
+    expect(lastRow(onChange)).toMatchObject({ operator: 'is_null', value: '' });
   });
 });
 
@@ -503,14 +503,14 @@ describe('`retypeFilterValue` — the convertibility judgement, one family at a 
 describe('`retypeFilterValue` — one shape at a time', () => {
   it('a list converts entry by entry, keeping the ones that carry', () => {
     // Pinned on the helper rather than through the dropdown, and honestly so:
-    // the only buckets offering `in`/`notIn` today are `select` and `lookup`,
+    // the only buckets offering `in`/`not_in` today are `select` and `lookup`,
     // both text-family, so no field switch can currently drive a list into a
     // number column. The helper answers for the family the operator lands in,
     // not for today's buckets, and this is where that answer is fixed.
     expect(retypeFilterValue(['42', 'acme', '7'], 'number', 'in')).toEqual([42, 7]);
     expect(retypeFilterValue(['won', 'lost'], 'number', 'in')).toEqual([]);
     expect(retypeFilterValue(['won', 'lost'], 'select', 'in')).toEqual(['won', 'lost']);
-    expect(retypeFilterValue([], 'number', 'notIn')).toEqual([]);
+    expect(retypeFilterValue([], 'number', 'not_in')).toEqual([]);
     // A scalar reaching a list operator is normalised, not wrapped blindly.
     expect(retypeFilterValue('42', 'number', 'in')).toEqual([42]);
     expect(retypeFilterValue('', 'number', 'in')).toEqual([]);

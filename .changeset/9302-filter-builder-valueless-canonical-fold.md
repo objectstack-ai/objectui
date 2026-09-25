@@ -49,3 +49,19 @@ and no row's stored `operator` is rewritten — rendering is not an edit.
 Which operator vocabulary should WIN is a separate, still-open question and is
 not decided here. The `contains` / `icontains` boundary is untouched and pinned:
 the fold this gate routes through maps neither onto the other.
+
+Superseded in this release by objectui#9306: the dropdown's ids are now the
+protocol's canonical spellings, so `VALUELESS_FILTER_BUILDER_OPERATORS` holds
+`is_empty`, `is_not_empty`, `is_null`, `is_not_null`, `exists` and `notExists`.
+The exported set's membership therefore did change in this release — by that
+change, not this one, and it is still one id per operator with no second
+spelling added. The gate this entry repaired is unchanged in shape: it folds the
+row's spelling before the lookup (now through `normalizeFilterBuilderOperator`,
+the spec's `normalizeFilterOperator` plus one local row for the
+`containsCaseInsensitive` spelling the spec's table lacks), so the spellings the
+gate answers "no value" for without their being members are now the retired
+camelCase ids a filter stored before objectui#9306 carries, and the spec's other
+alias rows for these operators. The vocabulary question this entry calls
+open is answered: the dropdown speaks the protocol's ids, and camelCase is read
+as the deprecated alias form and rewritten canonical on the next edit.
+`contains` and `icontains` remain two operators.

@@ -53,3 +53,14 @@ they did; only what the builder WRITES from now on changes.
 ⚠️ The builder ROW is unaffected by the drop: it is held as local state and stays on
 screen with its value box empty, so the five text operators stay reachable — the criteria
 is what the rows emit, not what they are.
+
+Superseded in this release by objectui#9306, for the `@object-ui/fields` half:
+the builder's operator ids are now the protocol's canonical spellings, so the
+text operators `condToMongo` drops on an empty comparand are `contains`,
+`icontains`, `not_contains`, `starts_with` and `ends_with` (the case-insensitive
+contains is `icontains` now, and no longer opt-in), and the value-less operators
+it leaves untouched are `is_null` / `exists` / `is_empty` and their negations
+`is_not_null` / `notExists` / `is_not_empty`. The drop itself, `equals ''`, and
+every emitted `$`-token (`$contains`, `$icontains`, `$notContains`,
+`$startsWith`, `$endsWith`) are unchanged — objectui#9306's census measured the
+same stored predicate for all 22 former ids and the ids they became.

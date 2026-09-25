@@ -2,7 +2,8 @@
 
 /**
  * Bridge between the visual {@link FilterBuilder} (a flat `FilterGroup` of
- * `{field, operator, value}` rows, camelCase operators) and the spec
+ * `{field, operator, value}` rows, whose operator ids are the protocol's own
+ * `VIEW_FILTER_OPERATORS` spellings since objectui#9306) and the spec
  * `FilterCondition` (Mongo-style `{ field: { $op: value } }`, conjoined with
  * `$and`) stored on `dataset.filter` / `measure.filter`.
  *
@@ -28,26 +29,46 @@
  * emitted only with both bounds present (objectui#10062).
  *
  * The write half is deliberately NOT injective — the spec carries one token for
- * "strictly greater", which both `greaterThan` and `after` have to use — so the
+ * "strictly greater", which both `greater_than` and `after` have to use — so the
  * read half cannot be a plain inverse table. {@link readBackOperator} settles
  * the ambiguous tokens against the field's own operator bucket (objectui#9382).
  */
 
 import { isFilterValueComplete, operatorsForFieldType } from '@object-ui/components';
 
-/** FilterBuilder camelCase operator → FilterCondition Mongo operator. */
+/**
+ * FilterBuilder operator → FilterCondition Mongo operator.
+ *
+ * Keyed on the builder's ids, which are the protocol's canonical operator ids
+ * since objectui#9306 (they were camelCase before). Every row reaching this
+ * bridge carries one: the builder folds a stored deprecated camelCase id onto
+ * its canonical twin at its own read boundary, and {@link conditionToGroup}
+ * reads a stored `$`-token straight onto the canonical id. A camelCase key here
+ * would therefore match nothing — and an unmatched operator is DROPPED (see the
+ * `continue` in {@link groupToCondition}), so this table is pinned id for id,
+ * with the stored predicate each one writes, by
+ * `filter-builder-protocol-ids-census-9306.test.ts`.
+ */
 const OP_TO_MONGO: Record<string, string> = {
-  equals: '$eq', notEquals: '$ne',
-  greaterThan: '$gt', greaterOrEqual: '$gte', lessThan: '$lt', lessOrEqual: '$lte',
+  equals: '$eq', not_equals: '$ne',
+  greater_than: '$gt', greater_than_or_equal: '$gte', less_than: '$lt', less_than_or_equal: '$lte',
   after: '$gt', before: '$lt',
-  contains: '$contains', in: '$in', notIn: '$nin',
+  contains: '$contains', in: '$in', not_in: '$nin',
   // objectui#9372. The builder offers these three only on its TEXT bucket,
   // which is the side the spec's declared-type door passes them on
   // (`TEXT_OPERATOR_DOOR_CASES`: `passes` over `text`, `door-refusal` over
   // `number` / `date` / `boolean`), and every filter backend answers them
   // against the same canonical table (`FILTER_TEXT_CASES`). So mapping them is
   // a bridge to a predicate the platform already agrees on, not a new claim.
-  notContains: '$notContains', startsWith: '$startsWith', endsWith: '$endsWith',
+  not_contains: '$notContains', starts_with: '$startsWith', ends_with: '$endsWith',
+  // objectui#9306. The case-insensitive contains stopped being opt-in when the
+  // dropdown took the protocol's id for it (see `OPT_IN_OPERATORS` in
+  // `@object-ui/components`), so this inspector offers it on the text bucket
+  // like any other text operator. It is bridged on exactly the ground the three
+  // above are: `$icontains` is a `FILTER_OPERATORS` member, and both
+  // `TEXT_OPERATOR_DOOR_CASES` and `FILTER_TEXT_CASES` carry it. It is the same
+  // token `FilterConditionField` has always written for this row.
+  icontains: '$icontains',
   // objectui#10062 (ruling batch #146 item 5, letter A). A PAIR operator,
   // offered on the builder's date bucket, stored as the spec's own
   // `{ $between: [lo, hi] }`. It was held back only because the builder can
@@ -65,10 +86,11 @@ const OP_TO_MONGO: Record<string, string> = {
  * see {@link MONGO_PREIMAGE} and {@link readBackOperator}.
  */
 const MONGO_TO_OP: Record<string, string> = {
-  $eq: 'equals', $ne: 'notEquals',
-  $gt: 'greaterThan', $gte: 'greaterOrEqual', $lt: 'lessThan', $lte: 'lessOrEqual',
-  $contains: 'contains', $in: 'in', $nin: 'notIn',
-  $notContains: 'notContains', $startsWith: 'startsWith', $endsWith: 'endsWith',
+  $eq: 'equals', $ne: 'not_equals',
+  $gt: 'greater_than', $gte: 'greater_than_or_equal', $lt: 'less_than', $lte: 'less_than_or_equal',
+  $contains: 'contains', $in: 'in', $nin: 'not_in',
+  $notContains: 'not_contains', $startsWith: 'starts_with', $endsWith: 'ends_with',
+  $icontains: 'icontains',
   $between: 'between',
 };
 
@@ -84,7 +106,7 @@ const MONGO_TO_OP: Record<string, string> = {
  * The first two are disambiguated by their PAYLOAD, in the `$exists` / `$null`
  * arms of {@link conditionToGroup}, because the stored value is the boolean
  * that picks the operator. `$gt` / `$lt` carry the author's comparand instead,
- * so no bit of the stored condition tells `after` from `greaterThan` — which
+ * so no bit of the stored condition tells `after` from `greater_than` — which
  * is why the field's declared type has to.
  */
 const MONGO_PREIMAGE: Record<string, readonly string[]> = (() => {
@@ -101,7 +123,7 @@ export interface BuilderFieldDef { value: string; label?: string; type?: string 
  *
  * ## Why the type has to be consulted (objectui#9382)
  *
- * `after` and `greaterThan` both write `$gt`, and the spec's filter vocabulary
+ * `after` and `greater_than` both write `$gt`, and the spec's filter vocabulary
  * has exactly one token for "strictly greater" — there is no `$after` for the
  * write half to have used. So the collapse is not a defect in what gets stored:
  * the stored filter is correct and filters correctly. What was lost is only the
@@ -150,7 +172,7 @@ function readBackOperator(mop: string, fieldType: string | undefined): string | 
  * no input for it — so they are matched ahead of the value-completeness check
  * in {@link groupToCondition}, not after it.
  *
- * `isNull` / `isNotNull` are not a spelling of `isEmpty` / `isNotEmpty`. The
+ * `is_null` / `is_not_null` are not a spelling of `is_empty` / `is_not_empty`. The
  * dropdown offers both pairs as their own rows and the spec's filter vocabulary
  * carries both `$null` and `$exists`, so they stay distinct in both directions;
  * collapsing them would draw two labels for one wire predicate and rewrite the
@@ -165,8 +187,8 @@ function readBackOperator(mop: string, fieldType: string | undefined): string | 
  * with no error and the condition still on screen.
  */
 const VALUELESS_TO_MONGO: Record<string, Record<string, boolean>> = {
-  isEmpty: { $exists: false }, isNotEmpty: { $exists: true },
-  isNull: { $null: true }, isNotNull: { $null: false },
+  is_empty: { $exists: false }, is_not_empty: { $exists: true },
+  is_null: { $null: true }, is_not_null: { $null: false },
 };
 
 export interface BuilderCondition { id?: string; field: string; operator: string; value?: unknown }
@@ -373,14 +395,14 @@ export function conditionToGroup(
       if (opKeys.length !== 1) return { group: empty, representable: false };
       const mop = opKeys[0];
       if (mop === '$exists') {
-        row = { id: `c${i}`, field, operator: v.$exists ? 'isNotEmpty' : 'isEmpty', value: '' };
+        row = { id: `c${i}`, field, operator: v.$exists ? 'is_not_empty' : 'is_empty', value: '' };
       } else if (mop === '$null') {
         // The inverse of the write half: `$null: false` is "is not null", so
         // the boolean picks the operator rather than becoming the row's value.
         // Without this arm a filter this bridge now WRITES would read back as
         // non-representable, sending the author to the Source tab for a row the
         // builder can draw.
-        row = { id: `c${i}`, field, operator: v.$null ? 'isNull' : 'isNotNull', value: '' };
+        row = { id: `c${i}`, field, operator: v.$null ? 'is_null' : 'is_not_null', value: '' };
       } else {
         const op = readBackOperator(mop, fields?.find((f) => f.value === field)?.type);
         if (!op) return { group: empty, representable: false };

@@ -56,15 +56,16 @@ const noTypes = () => undefined;
  *
  * `$icontains` was here from objectui#3560 until objectui#4023: the spec gained
  * it between @objectstack/spec 17.0.0-rc.2 and rc.5, and no builder operator
- * could author it. `containsCaseInsensitive` now does, so the entry is gone and
- * the parity assertion below is what holds that honest.
+ * could author it. `icontains` (spelled `containsCaseInsensitive` until
+ * objectui#9306) now does, so the entry is gone and the parity assertion below
+ * is what holds that honest.
  *
  * `$like` and `$ilike` arrived with the `@objectstack/spec` 17.0.0 GA pin
  * (objectui#4636), and their entry here is a DECISION, not an open question:
  * objectui#4911, maintainer-ruled B on 2026-08-17 — this visual builder
  * deliberately does not offer raw pattern-matching authoring. The constrained
  * intents are the authorable surface and already reach the dropdown (`contains`
- * / `containsCaseInsensitive` / `startsWith` / `endsWith`), so what a `$like`
+ * / `icontains` / `starts_with` / `ends_with`), so what a `$like`
  * row would add on top of them is exactly the raw `%`/`_` wildcard form — the
  * one operator where a mis-authored value silently returns the wrong rows
  * instead of erroring, which is an error bed in an end-user filter UI, and for
@@ -100,36 +101,36 @@ function operatorsOf(frag: Record<string, any> | null): string[] {
 
 describe('condToMongo emits only spec operator spellings', () => {
   const builderOperators = [
-    'equals', 'notEquals', 'contains', 'containsCaseInsensitive', 'notContains',
-    'isEmpty', 'isNotEmpty',
-    'greaterThan', 'lessThan', 'greaterOrEqual', 'lessOrEqual', 'in', 'notIn',
+    'equals', 'not_equals', 'contains', 'icontains', 'not_contains',
+    'is_empty', 'is_not_empty',
+    'greater_than', 'less_than', 'greater_than_or_equal', 'less_than_or_equal', 'in', 'not_in',
     'before', 'after',
-    'startsWith', 'endsWith', 'isNull', 'isNotNull', 'exists', 'notExists',
+    'starts_with', 'ends_with', 'is_null', 'is_not_null', 'exists', 'notExists',
   ];
 
   it.each(builderOperators)('%s emits a spec-defined operator', (operator) => {
     const frag = condToMongo(
-      { id: 'c1', field: 'name', operator, value: operator === 'in' || operator === 'notIn' ? ['a'] : 'a' } as any,
+      { id: 'c1', field: 'name', operator, value: operator === 'in' || operator === 'not_in' ? ['a'] : 'a' } as any,
       noTypes,
     );
     const unknown = operatorsOf(frag).filter((op) => !SPEC_OPERATORS.has(op));
     expect(unknown, `${operator} emits an operator @objectstack/spec does not define`).toEqual([]);
   });
 
-  it('containsCaseInsensitive emits $icontains, and contains still emits $contains', () => {
+  it('icontains emits $icontains, and contains still emits $contains', () => {
     // The pair, in one assertion: objectui#4023's recorded default is a NEW
     // operator, so `contains` keeping its case-SENSITIVE spelling is half of
     // what shipped. Flipping it would silently change every stored filter view.
     expect(
-      condToMongo({ id: 'c1', field: 'name', operator: 'containsCaseInsensitive', value: 'acme' } as any, noTypes),
+      condToMongo({ id: 'c1', field: 'name', operator: 'icontains', value: 'acme' } as any, noTypes),
     ).toEqual({ name: { $icontains: 'acme' } });
     expect(
       condToMongo({ id: 'c2', field: 'name', operator: 'contains', value: 'acme' } as any, noTypes),
     ).toEqual({ name: { $contains: 'acme' } });
   });
 
-  it('notContains emits $notContains, not the pre-fix $ncontains', () => {
-    const frag = condToMongo({ id: 'c1', field: 'name', operator: 'notContains', value: 'x' } as any, noTypes);
+  it('not_contains emits $notContains, not the pre-fix $ncontains', () => {
+    const frag = condToMongo({ id: 'c1', field: 'name', operator: 'not_contains', value: 'x' } as any, noTypes);
     expect(frag).toEqual({ name: { $notContains: 'x' } });
   });
 
@@ -150,7 +151,7 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
     // sweep and take a spec token's only route to the UI with it.
     const emitted = new Set<string>();
     for (const operator of FILTER_BUILDER_OPERATORS) {
-      const value = operator === 'in' || operator === 'notIn' ? ['a'] : operator === 'between' ? [1, 5] : 'a';
+      const value = operator === 'in' || operator === 'not_in' ? ['a'] : operator === 'between' ? [1, 5] : 'a';
       const frag = condToMongo({ id: 'c1', field: 'f', operator, value } as any, noTypes);
       for (const op of operatorsOf(frag)) emitted.add(op);
     }
@@ -183,17 +184,20 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
    * still be unauthorable, which is precisely the state objectui#4023 found.
    */
   it('the $icontains operator is one the builder can draw, and this widget offers it', () => {
-    expect(FILTER_BUILDER_OPERATORS).toContain('containsCaseInsensitive');
-    expect(FILTER_CONDITION_EXTRA_OPERATORS).toContain('containsCaseInsensitive');
+    expect(FILTER_BUILDER_OPERATORS).toContain('icontains');
     // Every opt-in this widget asks for must be an id the dropdown knows;
     // a typo here is a row that never renders and never fails anything else.
     for (const id of FILTER_CONDITION_EXTRA_OPERATORS) {
       expect(FILTER_BUILDER_OPERATORS, `${id} is not a FilterBuilder operator id`).toContain(id);
     }
-    // …and it reaches a text field's dropdown once this widget opts in.
+    // It reaches a text field's dropdown with this widget's grants — and since
+    // objectui#9306 without them too: `icontains` left `OPT_IN_OPERATORS`, so
+    // this widget no longer has to name it, and does not.
     const offered = operatorsForFieldType('text', FILTER_CONDITION_EXTRA_OPERATORS).map((o) => o.value);
-    expect(offered).toContain('containsCaseInsensitive');
+    expect(offered).toContain('icontains');
     expect(offered).toContain('contains');
+    expect(FILTER_CONDITION_EXTRA_OPERATORS).not.toContain('icontains');
+    expect(operatorsForFieldType('text').map((o) => o.value)).toContain('icontains');
   });
 
   /**
@@ -221,30 +225,31 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
       expect(offered, `${type} lost the existence pair`).toContain('exists');
       expect(offered, `${type} lost the existence pair`).toContain('notExists');
       // Distinct rows from the null predicates, which author `$null`. The two
-      // are different spec operators and `condToMongo` keeps them apart.
-      expect(offered, type).toContain('isNull');
-      expect(offered, type).toContain('isNotNull');
+      // are different spec operators and `condToMongo` keeps them apart (and
+      // objectui#9559 ruling B keeps them unfolded).
+      expect(offered, type).toContain('is_null');
+      expect(offered, type).toContain('is_not_null');
     }
   });
 });
 
 describe('kvToCondition round-trips what condToMongo writes', () => {
   const cases: Array<[string, unknown]> = [
-    ['notEquals', 'a'],
+    ['not_equals', 'a'],
     ['contains', 'a'],
     // objectui#4023 deliverable 2: a saved filter view must not degrade on
     // reopen. Without the `$icontains` arm in kvToCondition, criteria this very
     // builder wrote comes back "not representable" and forces the JSON editor.
-    ['containsCaseInsensitive', 'a'],
-    ['notContains', 'a'],
-    ['greaterThan', 1],
-    ['lessThan', 1],
-    ['greaterOrEqual', 1],
-    ['lessOrEqual', 1],
-    ['startsWith', 'a'],
-    ['endsWith', 'a'],
-    ['isNull', ''],
-    ['isNotNull', ''],
+    ['icontains', 'a'],
+    ['not_contains', 'a'],
+    ['greater_than', 1],
+    ['less_than', 1],
+    ['greater_than_or_equal', 1],
+    ['less_than_or_equal', 1],
+    ['starts_with', 'a'],
+    ['ends_with', 'a'],
+    ['is_null', ''],
+    ['is_not_null', ''],
     ['exists', ''],
     ['notExists', ''],
   ];
@@ -260,7 +265,7 @@ describe('kvToCondition round-trips what condToMongo writes', () => {
     // ("criteria can't be represented") rather than migrate.
     expect(kvToCondition('name', { $ncontains: 'x' }, 0)).toMatchObject({
       field: 'name',
-      operator: 'notContains',
+      operator: 'not_contains',
       value: 'x',
     });
   });
@@ -292,7 +297,7 @@ describe('objectui#8748 — an unfinished text row is dropped, not emitted', () 
     ['cleared back out', ''],
     ['null', null],
   ];
-  const textOperators = ['contains', 'containsCaseInsensitive', 'notContains', 'startsWith', 'endsWith'];
+  const textOperators = ['contains', 'icontains', 'not_contains', 'starts_with', 'ends_with'];
 
   for (const operator of textOperators) {
     it.each(emptyValues)(`${operator} with an empty comparand (%s) emits nothing`, (_label, value) => {
@@ -307,7 +312,7 @@ describe('objectui#8748 — an unfinished text row is dropped, not emitted', () 
     // Green before this card and after it. Without it a `return null` for every
     // text row would satisfy every case above and silently delete the operators.
     expect(
-      condToMongo({ id: 'c1', field: 'name', operator: 'containsCaseInsensitive', value: 'acme' } as any, noTypes),
+      condToMongo({ id: 'c1', field: 'name', operator: 'icontains', value: 'acme' } as any, noTypes),
     ).toEqual({ name: { $icontains: 'acme' } });
     expect(
       condToMongo({ id: 'c2', field: 'name', operator: 'contains', value: 'a' } as any, noTypes),
@@ -315,18 +320,18 @@ describe('objectui#8748 — an unfinished text row is dropped, not emitted', () 
   });
 
   it('the value-less operators keep emitting on an empty box — they read no comparand', () => {
-    // `isNull` / `exists` / `isEmpty` and their negations resolve from the
+    // `is_null` / `exists` / `is_empty` and their negations resolve from the
     // operator NAME; an empty value box is their resting state, not an
     // unfinished row, so the drop must not reach them.
-    expect(condToMongo({ id: 'c1', field: 'name', operator: 'isNull', value: '' } as any, noTypes))
+    expect(condToMongo({ id: 'c1', field: 'name', operator: 'is_null', value: '' } as any, noTypes))
       .toEqual({ name: { $null: true } });
     expect(condToMongo({ id: 'c2', field: 'name', operator: 'exists', value: '' } as any, noTypes))
       .toEqual({ name: { $exists: true } });
     expect(condToMongo({ id: 'c3', field: 'name', operator: 'notExists', value: '' } as any, noTypes))
       .toEqual({ name: { $exists: false } });
-    expect(condToMongo({ id: 'c4', field: 'name', operator: 'isEmpty', value: '' } as any, noTypes))
+    expect(condToMongo({ id: 'c4', field: 'name', operator: 'is_empty', value: '' } as any, noTypes))
       .toEqual({ name: { $in: [null, ''] } });
-    expect(condToMongo({ id: 'c5', field: 'name', operator: 'isNotEmpty', value: '' } as any, noTypes))
+    expect(condToMongo({ id: 'c5', field: 'name', operator: 'is_not_empty', value: '' } as any, noTypes))
       .toEqual({ name: { $nin: [null, ''] } });
   });
 

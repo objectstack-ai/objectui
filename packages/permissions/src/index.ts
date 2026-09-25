@@ -39,5 +39,7 @@ export type {
   SharingRuleConfig,
   PermissionCheckResult,
   PermissionContext,
-  PermissionGuardConfig,
+  // `PermissionGuardConfig` RETIRED by objectui#8024 — see the RETIRED note
+  // in `@object-ui/types`' `permissions.ts`. Author a guard against
+  // `PermissionGuardProps`, exported beside `PermissionGuard` above.
 } from '@object-ui/types';

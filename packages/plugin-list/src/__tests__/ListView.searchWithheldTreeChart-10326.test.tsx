@@ -133,7 +133,7 @@ function mount(view: Record<string, unknown>, listProps: Record<string, unknown>
   const dataSource = makeDataSource();
   const schema = { type: 'list-view', objectName: 'duly_task', columns: ['subject'], ...view };
   render(
-    <SchemaRendererProvider dataSource={dataSource}>
+    <SchemaRendererProvider dataSource={dataSource as never}>
       <ListView schema={schema as never} dataSource={dataSource as never} {...listProps} />
     </SchemaRendererProvider>,
   );

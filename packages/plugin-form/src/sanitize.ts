@@ -240,7 +240,7 @@ export function changedFields(
 export interface LoadedRecordSnapshot {
   objectName: string;
   recordId: string;
-  record: Record<string, any>;
+  record: Record<string, unknown>;
 }
 
 /** The three facts of a form schema that decide whether a snapshot applies. */
@@ -263,7 +263,7 @@ export function snapshotLoadedRecord(
   return {
     objectName: target.objectName,
     recordId: String(target.recordId),
-    record: { ...(data as Record<string, any>) },
+    record: { ...(data as Record<string, unknown>) },
   };
 }
 
@@ -271,7 +271,7 @@ export function snapshotLoadedRecord(
 function loadedRecordFor(
   snapshot: LoadedRecordSnapshot | null | undefined,
   target: EditSaveTarget,
-): Record<string, any> | null {
+): Record<string, unknown> | null {
   if (!snapshot || target.mode !== 'edit') return null;
   if (target.recordId == null || target.recordId === '') return null;
   if (snapshot.objectName !== target.objectName) return null;
@@ -300,10 +300,10 @@ function loadedRecordFor(
  *   wrong baseline must never be able to produce.
  */
 export function dirtyEditPayload(
-  payload: Record<string, any>,
+  payload: Record<string, unknown>,
   snapshot: LoadedRecordSnapshot | null | undefined,
   target: EditSaveTarget,
-): Record<string, any> {
+): Record<string, unknown> {
   if (!payload || typeof payload !== 'object') return payload;
   const loaded = loadedRecordFor(snapshot, target);
   if (!loaded) return payload;
@@ -325,7 +325,7 @@ export function dirtyEditPayload(
 export function advanceLoadedRecord(
   snapshot: LoadedRecordSnapshot | null | undefined,
   target: EditSaveTarget,
-  written: Record<string, any>,
+  written: Record<string, unknown>,
 ): LoadedRecordSnapshot | null {
   const loaded = loadedRecordFor(snapshot, target);
   if (!snapshot || !loaded) return snapshot ?? null;

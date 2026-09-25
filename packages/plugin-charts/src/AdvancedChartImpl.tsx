@@ -310,7 +310,9 @@ export interface AdvancedChartImplProps {
   onChartClick?: (event: ChartSegmentClickEvent) => void;
   /**
    * Spec `ChartAxis` presentation for the category axis — `format` (tick
-   * formatter), `title`, `showGridLines`. Its `field` already arrived as
+   * formatter), `title`, `showGridLines`, `position` (the side it is drawn
+   * on — see `placeXAxis`), and on scatter's measure x axis `min` / `max` /
+   * `stepSize` / `logarithmic` as well. Its `field` already arrived as
    * {@link AdvancedChartImplProps.xAxisKey}. Resolved by
    * `normalizeChartSchema`, so the renderer never parses the author shape.
    */

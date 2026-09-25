@@ -50,6 +50,7 @@ import {
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   ChartTypeSchema as SpecChartTypeSchema,
+  ChartAxisSchema as SpecChartAxisSchema,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
@@ -192,6 +193,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // 14-member literal and is now this rule's own `operator` member, so the
   // crossing is measured here like every other one.
   ['ViewFilterRuleSchema', SpecViewFilterRuleSchema],
+  // objectui#7690: `ChartSchema.xAxis` / `ChartSchema.yAxis` reference the
+  // spec's axis config object, whose `showGridLines` / `logarithmic` defaults
+  // are exactly what this boundary exists to keep out of a parse output.
+  ['ChartAxisSchema', SpecChartAxisSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

@@ -162,8 +162,8 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * @objectstack/spec's `z.discriminatedUnion('provider', [...])` over OBJECT
  * variants, whose `value` member additionally declares
  * `aliases: { data: 'items', rows: 'items', records: 'items' }`. A bare array
- * is off that row twice over, and this block's registration declares no `data`
- * input that could say otherwise.
+ * is off that row twice over, and this block's registration declares `data` on
+ * the same OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
  *
  * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
  * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop

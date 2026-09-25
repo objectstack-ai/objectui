@@ -135,7 +135,7 @@ export const TaskSchema = {
     active: {
       label: 'Active',
       columns: ['title', 'status', 'priority', 'assignee', 'due_date'],
-      filter: [['status', '!=', 'Done']],
+      filter: [{ field: 'status', operator: 'not_equals', value: 'Done' }],
       sort: [{ field: 'priority', order: 'asc' }],
     },
   },

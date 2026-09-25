@@ -22,7 +22,7 @@
  * `/apps/setup` senders (`layout/AppSidebar.tsx`'s no-app sidebar header and
  * user-menu "Settings", `console/ConsoleShell.tsx`'s legacy `/system` redirect)
  * and from bookmarks. Note both CTA-shaped senders that used to point here have
- * since been retargeted at the system hub: the empty state's own
+ * since been retargeted at `/apps/setup/system`: the empty state's own
  * `go-to-settings-btn` and both sidebars' `sys-settings` entry (objectui#3590) —
  * the ENTRY family below is unchanged, only who points at it.
  *
@@ -165,16 +165,23 @@ function LocationProbe() {
 }
 
 /**
- * The host's system routes, reduced to the one entry this file asserts on.
- * `apps/console/src/AppContent.tsx` builds a `systemRoutes` fragment whose FIRST
- * entry is `<Route path="system" element={<SystemHubPage />} />`, and passes the
+ * The host's system routes, reduced to the one entry this file asserts on: the
+ * host's `system` landing. `apps/console/src/AppContent.tsx` builds a
+ * `systemRoutes` fragment whose FIRST entry declares `system`, and passes the
  * SAME fragment to both `extraRoutes` and `extraRoutesNoApp`. With zero apps only
  * the `extraRoutesNoApp` branch is reachable, so that is the one wired below —
  * and it is what makes `/apps/setup/system` a real destination rather than
  * another URL that renders nothing (objectui#3590).
+ *
+ * What the host renders there is the host's business, so this stub is a plain
+ * terminal probe. The console host used to render its system hub card wall
+ * there; since objectui#3743 it forwards onto `system/settings`, measured end to
+ * end with the REAL host fragment in `apps/console`'s
+ * `src/__tests__/AppContent.systemHubRoutes.test.tsx`. This file keeps asking
+ * the app-shell half only: does the CTA reach the host's `system` route at all.
  */
 const systemRoutesStub = (
-  <Route path="system" element={<div data-testid="system-hub-page">system hub</div>} />
+  <Route path="system" element={<div data-testid="host-system-landing">host system landing</div>} />
 );
 
 /**
@@ -238,7 +245,7 @@ describe('AppContent — no-apps empty state CTA (objectui#3573)', () => {
     expect(screen.queryByTestId('root-landing')).not.toBeInTheDocument();
   });
 
-  it('sibling go-to-settings CTA opens the system hub instead of looping onto this same empty state', async () => {
+  it('sibling go-to-settings CTA reaches the host system landing instead of looping onto this same empty state', async () => {
     // objectui#3590 — this REPLACES the pin that used to sit here (*"leaves the
     // sibling go-to-settings CTA on its absolute /apps/setup target"*: pathname
     // `/apps/setup`, `create-first-app-btn` still present). That pin recorded
@@ -248,27 +255,28 @@ describe('AppContent — no-apps empty state CTA (objectui#3573)', () => {
     renderConsoleAt('/apps/setup');
     fireEvent.click(await screen.findByTestId('go-to-settings-btn'));
 
-    expect(await screen.findByTestId('system-hub-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('host-system-landing')).toBeInTheDocument();
     expect(pathname()).toBe('/apps/setup/system');
     // The loop this pins: the empty state must be GONE. Asserting only the URL
     // would stay green for a target that merely renders nothing, and asserting
-    // only the hub would miss a screen that rendered both.
+    // only the landing would miss a screen that rendered both.
     expect(screen.queryByTestId('create-first-app-btn')).not.toBeInTheDocument();
     expect(screen.queryByTestId('root-landing')).not.toBeInTheDocument();
   });
 
-  it('reaches the SAME system hub from a deeper splat URL (absolute target, depth-independent)', async () => {
+  it('reaches the SAME host system landing from a deeper splat URL (absolute target, depth-independent)', async () => {
     // The depth the replaced pin used. The `/system` segment is what flips
     // `isSystemRoute`, i.e. the switch that mounts `extraRoutesNoApp` — so the
     // splat segment must not leak into the target either (a relative `system`
     // would build `/apps/setup/sys_inbox_message/system` here: still
     // `isSystemRoute`, but matching no route inside that branch — blank before
-    // objectui#3610, "page not found" after it, and the system hub in neither
-    // case, which is what the assertion below actually distinguishes).
+    // objectui#3610, "page not found" after it, and the host's system landing
+    // in neither case, which is what the assertion below actually
+    // distinguishes).
     renderConsoleAt('/apps/setup/sys_inbox_message');
     fireEvent.click(await screen.findByTestId('go-to-settings-btn'));
 
-    expect(await screen.findByTestId('system-hub-page')).toBeInTheDocument();
+    expect(await screen.findByTestId('host-system-landing')).toBeInTheDocument();
     expect(pathname()).toBe('/apps/setup/system');
     expect(screen.queryByTestId('create-first-app-btn')).not.toBeInTheDocument();
   });

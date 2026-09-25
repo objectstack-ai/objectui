@@ -1,14 +1,16 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * Sidebar "System Settings" entry — must target the system HUB (objectui#3590).
+ * Sidebar "System Settings" entry — must target `/apps/setup/system`, the host's
+ * system landing (objectui#3590).
  *
  * ## The defect, and why both sidebars carry it
  *
  * `AppContent` decides which branch renders by string-matching the pathname:
  * `isSystemRoute = location.pathname.includes('/system')`. Only that flag mounts
  * the host's `extraRoutesNoApp` fragment, where `apps/console/src/AppContent.tsx`
- * declares `<Route path="system" />` → `SystemHubPage`. A **bare** `/apps/setup`
+ * declares `<Route path="system" />` (a card-wall hub when this was written; since
+ * objectui#3743 a redirect onto the settings hub). A **bare** `/apps/setup`
  * therefore matches no pseudo-route except `isSetupRoute`, falls into the
  * `!activeApp && !isCreateAppRoute && !isSystemRoute && !isMetadataRoute` guard
  * and re-renders the "No Apps Configured" empty state. On a zero-app deployment
@@ -29,7 +31,9 @@
  *
  * These assert the URL the entry CARRIES, not a navigation: what the URL then
  * resolves to is `AppContent`'s question, and is pinned end-to-end (click →
- * mounted hub) in `console/__tests__/AppContent.noAppsCta.test.tsx`.
+ * mounted host landing) in `console/__tests__/AppContent.noAppsCta.test.tsx`, and
+ * with the console host's real routes in `apps/console`'s
+ * `src/__tests__/AppContent.systemHubRoutes.test.tsx`.
  *
  * ## The measurement this file used to carry, and what replaced it (objectui#3609)
  *
@@ -177,7 +181,7 @@ import { SidebarProvider } from '@object-ui/components';
 import { AppSidebar } from '../AppSidebar';
 import { UnifiedSidebar } from '../UnifiedSidebar';
 
-/** The system hub — the reachable target, and what every sibling entry prefixes. */
+/** The host's system landing — the reachable target, and what every sibling entry prefixes. */
 const SYSTEM_HUB = '/apps/setup/system';
 
 /**

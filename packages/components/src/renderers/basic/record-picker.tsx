@@ -436,7 +436,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       name: 'limit',
       type: 'number',
       description:
-        'Maximum number of records the picker offers, as a whole number. It becomes the `$top` of the picker\'s own query, so it bounds what the user can choose from rather than how the list is displayed — a record outside the limit cannot be picked at all, and the control gives no sign that more exist. DEFAULT: 50 when neither this nor `dataSource.limit` is set, applied by the renderer (`record-picker.tsx:107`), not by the schema. PRECEDENCE: `dataSource.limit ?? limit ?? 50` — a node-level binding wins outright.',
+        'Maximum number of records the picker offers, as a whole number. It becomes the `$top` of the picker\'s own query, so it bounds what the user can choose from rather than how the list is displayed — a record outside the limit cannot be picked at all, and the control gives no sign that more exist. PRECEDENCE, first source that supplies a cap wins: (1) `dataSource.limit`; (2) the row cap of the saved view that `dataSource.view` names; (3) THIS key; (4) 50. A cap in (1) or (2) counts only when it is a positive integer — one the contract refuses (`0`, a negative, a non-integer) is treated as NOT AUTHORED and falls through to the next source exactly as an absent one does (objectui#10016), so a refused `dataSource.limit` does not win. DEFAULT: the 50 in (4) is applied by the renderer — the trailing `?? 50` where the picker resolves its `limit` — not by the schema.',
     },
     {
       name: 'emptyText',

@@ -2556,11 +2556,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   }, [groupingFieldsRaw, schema.columns, objectSchema]);
   // Keyed on the authored array and the signature STRING, never on a memo's
-  // identity (AGENTS.md #10), so the unmasked path hands `useGroupedData` the
-  // authored array itself.
+  // identity (AGENTS.md #10). Read only when something was refused: the
+  // unmasked path below hands `useGroupedData` the authored config itself.
   const unmaskedGroupingFields = React.useMemo(() => {
     const masked: string[] = JSON.parse(maskedGroupingSignature);
-    if (masked.length === 0) return groupingFieldsRaw;
     return usableGroupingFields(groupingFieldsRaw).filter((gf) => !masked.includes(gf.field));
   }, [groupingFieldsRaw, maskedGroupingSignature]);
   useEffect(() => {
@@ -2574,7 +2573,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }, [maskedGroupingSignature, schema.objectName]);
 
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    maskedGroupingSignature === '[]' ? schema.grouping : { ...schema.grouping, fields: unmaskedGroupingFields },
+    maskedGroupingSignature === '[]' || !schema.grouping
+      ? schema.grouping
+      : { ...schema.grouping, fields: unmaskedGroupingFields },
     data,
     schema.aggregations,
     groupValueFormatter,

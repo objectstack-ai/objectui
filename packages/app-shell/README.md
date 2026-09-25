@@ -587,15 +587,25 @@ be faithfully modelled is surfaced loudly instead of faked.
   author pin what each mocked side-effect node "returns" (written to its
   `outputVariable`), so data-dependent logic downstream of a `get_record` or
   `script` can be exercised too.
-- **Semantics** — `start`/`assignment` pass through; a `decision` routes
-  **edge-first** (first truthy outgoing `condition`, else the `isDefault` edge,
-  else a surfaced dead-end), evaluating each guard as CEL on the runtime's
-  engine and variable scope (`@objectstack/formula`'s `ExpressionEngine`:
-  bare names, `vars.*`, `record.*`); a guard the runtime refuses or cannot
-  evaluate **stops the run** on that decision with the error, a CEL fault fails
-  the run at runtime, and a refused guard is refused at registration
-  (objectui#10615); an assignment interpolates `{var}` tokens
-  inside nested objects and arrays too, as the runtime's `interpolate` does;
+- **Semantics** — every node leaves by the runtime's successor selection
+  (`traverseNext`, objectui#10692): an out-edge with a `condition` is guarded
+  (the first true guard is taken — the runtime takes every true one, pending
+  objectstack#15429), an `isDefault` edge with no condition is taken only when
+  no guard was true, every other edge is always taken, a `fault` edge is never
+  an ordinary successor, and a node that takes nothing ends its branch without
+  an error. A `decision` that declares `config.conditions` first picks the
+  first true entry's `label` (else `default`), which narrows its out-edges to
+  the ones carrying that label. Guards and branch expressions are CEL on the
+  runtime's engine and variable scope (`@objectstack/formula`'s
+  `ExpressionEngine`: bare names, `vars.*`, `record.*`); one the runtime
+  refuses or cannot evaluate **stops the run** on that node with the error, a
+  CEL fault fails the run at runtime, and a refused guard is refused at
+  registration (objectui#10615); an assignment interpolates `{var}` tokens
+  inside nested objects and arrays too, as the runtime's `interpolate` does,
+  and a token it does not model (`NOW()`, `$User.*`, arithmetic) is kept as
+  written and named on the step; a paused screen gates each field's
+  `visibleWhen` with the same CEL call, and one that cannot be evaluated hides
+  the field, as the runtime reads it;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);
@@ -603,7 +613,7 @@ be faithfully modelled is surfaced loudly instead of faked.
   and `boundary_event` are marked **unsupported** (token sync / nested runs are
   not modelled) rather than faked.
 - **Live feedback** — the panel shows a **variable watch**, a **step timeline**
-  (status badges `OK` / `MOCKED` / `PAUSED` / `SKIPPED` / `ERROR`, per-decision
+  (status badges `OK` / `MOCKED` / `PAUSED` / `SKIPPED` / `ERROR`, per-node
   edge diagnostics, and write summaries), while the canvas highlights the
   **active** node (pulsing sky ring), **visited** nodes (emerald), and
   **traversed** edges (sky), dimming nodes not yet reached.

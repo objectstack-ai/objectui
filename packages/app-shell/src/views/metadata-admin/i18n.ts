@@ -1490,6 +1490,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.min': 'Min',
   'designer.field.max': 'Max',
   'designer.field.maxLength': 'Max length',
+  // objectui#7597 — the `valueDomain` select on a text field. The three member
+  // labels are NOT here: they are read from the spec's own describe() prose.
+  'designer.field.valueDomain': 'Value domain',
+  'designer.field.valueDomainNone': '— None —',
   // Object basics (no-selection default inspector)
   'designer.object.kind': 'Object',
   'designer.object.section.basic': 'Basic info',
@@ -3466,6 +3470,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.min': '最小值',
   'designer.field.max': '最大值',
   'designer.field.maxLength': '最大长度',
+  'designer.field.valueDomain': '值域',
+  'designer.field.valueDomainNone': '— 无 —',
   // Object basics (no-selection default inspector)
   'designer.object.kind': '对象',
   'designer.object.section.basic': '基础信息',

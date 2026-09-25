@@ -289,6 +289,10 @@ const ja = {
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
     },
+    date: {
+      impossibleDay:
+        "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付を選択してください。",
+    },
     dateTime: {
       impossibleDay:
         "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",

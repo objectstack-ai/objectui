@@ -289,6 +289,10 @@ const ko = {
       refusedResidue:
         "저장되지 않았습니다: {{name}} “{{text}}”과(와) {{otherName}} “{{otherText}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜를 선택하세요.",
+    },
     dateTime: {
       impossibleDay:
         "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",

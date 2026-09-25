@@ -20,6 +20,14 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
 
   const domProps = toDomProps(props);
 
+  // Spec FieldSchema declares camelCase `maxLength` (objectui#10179). Read the
+  // way `TextAreaField` reads it — a narrow structural read, because the
+  // objectui metadata type does not declare the spec spelling — and put it on
+  // whichever element renders below. `toDomProps` forwards no `maxLength`, so
+  // this read is the only way a declared ceiling reaches the input. (No legacy
+  // `max_length` fallback: this widget never read that spelling.)
+  const maxLength = (fieldData as { maxLength?: number } | undefined)?.maxLength;
+
   /**
    * `aria-invalid` is written AFTER the DOM spread in both branches below, the
    * objectui#3222 idiom the other readers already share (`SelectField`,
@@ -48,6 +56,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={fieldData?.placeholder}
+        maxLength={maxLength}
         disabled={readonly || domProps.disabled}
         aria-invalid={!!error}
       />
@@ -61,6 +70,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={fieldData?.placeholder}
+      maxLength={maxLength}
       disabled={readonly || domProps.disabled}
       aria-invalid={!!error}
     />

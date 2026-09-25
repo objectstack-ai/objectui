@@ -86,21 +86,30 @@ vi.mock('./packages-io', async (importOriginal) => {
   return { ...mod, fetchPackages: vi.fn(async () => []) };
 });
 
+// objectui#8620: the records grid calls `find()` on this adapter. `{}` had no
+// `find()`, so `ListView`'s fetch threw and its `catch` swallowed the error.
+// `dataSource` is an empty-backend `DataSource`, created once below the imports
+// so every render gets the same object.
 vi.mock('@object-ui/react', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@object-ui/react')>();
-  return { ...mod, useAdapter: () => ({}) };
+  return { ...mod, useAdapter: () => dataSource };
 });
 
 import { AutomationsPillar, DataPillar, InterfacesPillar } from './StudioDesignSurface';
+import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
 import { listMetadataPreviewTypes } from '../metadata-admin/preview-registry';
 import { listMetadataInspectorTypes, getMetadataInspector } from '../metadata-admin/inspector-registry';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry';
 import { getStudioCanvasPreview } from './studio-canvas-preview';
 
+const dataSource = createEmptyDataSource();
+failOnAbsorbedFetchError();
+
 /* ── The `automation/_status` double (objectui#7307) ──────────────────
  * `AutomationsPillar` reads the engine's live per-flow runtime state from a
- * mount effect — `StudioDesignSurface.tsx:3797`, a bare global `fetch` of
- * `GET /api/v1/automation/_status` with no `apiFetch` seam on the path. Under
+ * mount effect — the `flowStatus` effect in `StudioDesignSurface.tsx`, a bare
+ * global `fetch` of `GET /api/v1/automation/_status` with no `apiFetch` seam on
+ * the path. Under
  * happy-dom that global is a real HTTP client and the document URL defaults to
  * `http://localhost:3000`, so the relative path resolved to a live socket. The
  * effect's read is best-effort by construction (its `catch` comment: "offline /

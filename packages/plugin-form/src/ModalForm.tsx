@@ -32,6 +32,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  toast,
 } from '@object-ui/components';
 import { Loader2 } from 'lucide-react';
 import { MasterDetailForm } from './MasterDetailForm';
@@ -48,13 +49,21 @@ import {
   inferModalSize,
   CONTAINER_GRID_COLS,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
-import { sanitizeFormData } from './sanitize';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
 // Localized strings for the unsaved-changes guard. Falls back to English when
 // no i18n provider is mounted (createSafeTranslation handles that).
@@ -81,6 +90,17 @@ export interface ModalFormSectionConfig {
   columns?: 1 | 2 | 3 | 4;
   fields: (string | FormField)[];
   /**
+   * Whether the section can be collapsed — spec `FormSection.collapsible`.
+   * `collapsed: true` implies it (objectui#9780). The control lives on the
+   * section's divider row, so a section with neither `label` nor
+   * `description` cannot carry one: it renders open and is reported
+   * (objectui#9849, director ruling letter E). Stacked layout only — the
+   * `tabbed` content layout draws tabs, which do not collapse.
+   */
+  collapsible?: boolean;
+  /** Whether the section starts collapsed — spec `FormSection.collapsed`. Same rules as `collapsible`. */
+  collapsed?: boolean;
+  /**
    * ADR-0089 `FormSection.visibleWhen` — conditional visibility for the
    * section's divider HEADER, evaluated by the form renderer with the canonical
    * engine and the host predicate scope (#6010/#6111). Fails OPEN.
@@ -101,7 +121,8 @@ export interface ModalFormSchema {
   formType: 'modal';
   objectName: string;
   mode: 'create' | 'edit' | 'view';
-  recordId?: string | number;
+  /** Record ID (for edit/view modes). A string, per the one record-id rule on `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the authorable `ObjectFormSchema.recordId`, which is a string, and `findOne` takes a string. */
+  recordId?: string;
   title?: string;
   description?: string;
   sections?: ModalFormSectionConfig[];
@@ -161,6 +182,10 @@ export interface ModalFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156; the whole rule is
+   * on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -216,27 +241,21 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const { t } = useDiscardTranslation();
+  // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
+  // EXPLAINED while a file/image widget below is still uploading.
+  const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const perms = usePermissions();
-  // FLS gate: drop non-readable fields, disable non-editable ones.
+  // FLS gate: drop non-readable fields, disable non-editable ones. ONE pass,
+  // shared with `ObjectForm` and `DrawerForm` (objectui#10120).
   // Fail-open when no PermissionProvider mounted (perms.isLoaded false).
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        if (!f?.name) { out.push(f); continue; }
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue;
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({ ...f, readOnly: true, disabled: true });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -250,6 +269,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // tries to close a dirty form.
   const [isDirty, setIsDirty] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  // Per-section LIVE collapse state, keyed like the divider rows. Unseeded on
+  // purpose: an untoggled section falls back to its declared `collapsed`
+  // inside `resolveSectionCollapse`, the one reader of that member — the same
+  // shape as ObjectForm's grouped layout and DrawerForm (objectui#9849).
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   // Whether the pending close came from the explicit Cancel button (so we fire
@@ -270,7 +294,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // inferred from field count, wide fields spanning the row). An explicit
   // curated `sections` list from a form view always wins over this fallback.
   const derivedSections = useMemo(() => {
-    if (schema.sections?.length || schema.customFields?.length) return null;
+    // `customFields` does NOT switch the fallback off (objectui#10073): the
+    // members are merged into `formFields` above, and ObjectForm derives its
+    // groups over that same merged pool.
+    if (schema.sections?.length) return null;
     let fs = filterSystemFields(formFields, objectSchema);
     if (schema.mode === 'create') fs = filterAutoGeneratedFields(fs, objectSchema);
     const sections = deriveFieldGroupSections(fs, (objectSchema as any)?.fieldGroups);
@@ -278,16 +305,20 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     const columns = (schema.columns && schema.columns > 0
       ? Math.min(Math.floor(schema.columns), 4)
       : inferColumns(fs.length)) as 1 | 2 | 3 | 4;
+    // A member's definition reaches a group's body through `buildSectionFields`,
+    // the route an explicit section's takes (objectui#10254).
     return sections.map((s) => ({ ...s, columns })) as ModalFormSectionConfig[];
-  }, [schema.sections, schema.customFields, schema.columns, schema.mode, formFields, objectSchema]);
+  }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
   const effectiveSections = schema.sections?.length ? schema.sections : (derivedSections ?? undefined);
 
   // Compute auto-layout for flat fields (no sections) to determine inferred columns
+  // (`customFields` does not switch it off: the members are merged into
+  // `formFields`, and ObjectForm auto-lays-out that merged list — objectui#10073.)
   const autoLayoutResult = useMemo(() => {
-    if (effectiveSections?.length || schema.customFields?.length) return null;
+    if (effectiveSections?.length) return null;
     return applyAutoLayout(formFields, objectSchema, schema.columns, schema.mode);
-  }, [formFields, objectSchema, schema.columns, schema.mode, effectiveSections, schema.customFields]);
+  }, [formFields, objectSchema, schema.columns, schema.mode, effectiveSections]);
 
   // Auto-upgrade modal size when auto-layout infers multi-column and user hasn't set modalSize
   const effectiveModalSize = useMemo(() => {
@@ -328,6 +359,12 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // `initialData`/`initialValues` are objects callers commonly rebuild every
   // render, and flashing the loading state for those would thrash.
   const loadedRecordIdRef = useRef<string | number | undefined>(undefined);
+  // The record itself as read — the baseline an edit save diffs against, so
+  // only the fields that changed are written (objectui#10156). Kept apart from
+  // `formData`, which seeds the form and supplies the OCC token: advancing it
+  // after a save would reseed the one and move the other. Set by the `findOne`
+  // below and nowhere else, so a caller-supplied record is never a baseline.
+  const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -343,6 +380,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     let cancelled = false;
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         // No persisted record to show, so the object's declared static
         // `defaultValue`s are the form's opening values (#4047) — caller-
         // supplied initial values still win. See `schemaDefaults` for why
@@ -354,6 +393,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
 
       if (!dataSource) {
+        loadedRecordRef.current = null;
         setFormData(resolveInitialRecord(schema));
         setLoading(false);
         return;
@@ -373,6 +413,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         if (cancelled) return;
         loadedRecordIdRef.current = schema.recordId;
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
       } catch (err) {
         if (cancelled) return;
@@ -400,26 +441,28 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         // `defaultValue` excuses a field from `required` (#4069).
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is in ObjectForm's merged pool — for explicit and derived sections
+        // alike (objectui#10254; the explicit path used to regenerate every
+        // named field from the object schema and drop the member).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // Build fields from flat field list (when no sections)
   useEffect(() => {
     if (!objectSchema && dataSource) return;
 
-    if (schema.customFields?.length) {
-      setFormFields(schema.customFields);
-      setLoading(false);
-      return;
-    }
-
     if (schema.sections?.length) {
       setLoading(false);
       return;
     }
 
-    if (!objectSchema) return;
+    // `customFields` MERGES over the generated set, as it does on ObjectForm's
+    // default arm (objectui#10073 — it used to REPLACE it here). With no
+    // object metadata the members are the whole field source.
+    if (!objectSchema && !schema.customFields?.length) return;
 
     // ONE builder, shared with DrawerForm (objectui#4755) — the ADR-0036 rules
     // and `group` this path carries now reach both containers from a single
@@ -433,6 +476,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         mode: schema.mode,
         recordId: schema.recordId,
         fieldLabel,
+        customFields: schema.customFields,
       }),
     );
     setLoading(false);
@@ -440,6 +484,14 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
+    // An upload is still in flight (objectui#10166). Saving now writes the
+    // record WITHOUT the attachment and reports success. The footer's Save is
+    // disabled and labelled for this, so reaching here means a keyboard submit
+    // — refuse it with the same sentence the notice shows.
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     setIsSubmitting(true);
     try {
       // No submit TARGET: a declared `submitHandler` owns the write and needs no
@@ -459,26 +511,24 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       }
 
       let result;
-      let payload = sanitizeFormData(data, objectSchema);
-      // FLS defence-in-depth: strip non-editable fields from payload.
-      // react-hook-form retains state for unmounted/disabled fields; we
-      // must never trust the client to omit them.
-      if (perms?.isLoaded) {
-        const stripped: Record<string, any> = {};
-        for (const k of Object.keys(payload)) {
-          if (perms.checkField(schema.objectName, k, 'write')) stripped[k] = payload[k];
-        }
-        payload = stripped;
-      }
+      // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+      // retains state for unmounted/disabled fields, so the gate above is not
+      // enough on its own — but the verdict is the same resolver's, adapted by
+      // `fieldWriteGate` rather than copied here (objectui#10120).
+      const payload = sanitizeFormData(data, objectSchema, {
+        canEdit: fieldWriteGate(perms, schema.objectName),
+      });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
-      // a real removal. Computed ONCE (after the FLS strip above) so every
-      // persistence route below — the host-owned seam included — writes the
-      // identical payload.
+      // a real removal. An EDIT writes only the fields that differ from the
+      // record this form read (objectui#10156; `dirtyEditPayload` holds the
+      // rule, and sends whatever it cannot settle). Computed ONCE (after the
+      // FLS strip above) so every persistence route below — the host-owned
+      // seam included — writes the identical payload.
       const writePayload = schema.mode === 'create'
         ? omitServerResolvedDefaults(payload, objectSchema)
-        : payload;
+        : dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent
@@ -501,12 +551,15 @@ export const ModalForm: React.FC<ModalFormProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: formData,
         });
         if (outcome.status === 'cancelled') return;
         result = outcome.result;
       }
+      // The write landed: a save from this still-open modal diffs against the
+      // record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
       if (schema.onSuccess) {
         await schema.onSuccess(result);
       }
@@ -521,7 +574,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData]);
+  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
 
   // Actually close the modal, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -658,10 +711,24 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       const groups = sections
         .map((section, index) => {
           const body = applyFieldPerms(buildSectionFields(section));
+          const key = sectionKey(section, index);
+          const title = sectionTitle(section);
           return {
-            key: sectionKey(section, index),
-            title: sectionTitle(section),
+            key,
+            title,
             description: section.description,
+            // The collapse pair, through the ONE resolution (objectui#9849
+            // step two — director ruling letter E, item 1: 「on every arm」).
+            // Read by the stacked layout below only; tabs do not collapse, so
+            // the tabbed layout never asks, and never reports.
+            resolveCollapse: () =>
+              resolveSectionCollapse(section, {
+                live: collapsedSections[key],
+                title,
+                description: section.description,
+                where: `ModalForm section '${key}' of object '${schema.objectName}'`,
+                setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+              }),
             // Key-by-key rebuild: an uncopied key never reaches the divider
             // synthesis below (#6111).
             visibleWhen: section.visibleWhen,
@@ -713,27 +780,27 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // grid to override here.)
       const allFields: FormField[] = [];
       groups.forEach((g) => {
-        // The ONE path from a section configuration to its divider row
-        // (objectui#9849) — `projectSectionDivider` owns every key this row
-        // carries, including the ADR-0089 predicate and the objectui#6236
-        // membership claim, so this arm can no longer copy a different set
-        // than its siblings. This arm's gate is the `title || description`
-        // one-row shape it has always had; ⛔ the gate union is the residual
-        // the helper's own docblock hands back, ⛔ not something decided here.
+        const collapse = g.resolveCollapse();
+        // The ONE path from a section configuration to its divider row, and
+        // the ONE row rule (objectui#9849, director ruling letter E) —
+        // `projectSectionDivider` owns every key this row carries, including
+        // the ADR-0089 predicate, the objectui#6236 membership claim and the
+        // collapse pair, so this arm can no longer answer differently from
+        // its siblings.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: g.key,
-              title: g.title,
-              description: g.description,
-              visibleWhen: g.visibleWhen,
-              members: g.fields.map((f) => f.name),
-              className: g.className,
-            },
-            'headingOrBlurbRow',
-          ),
+          ...projectSectionDivider({
+            key: g.key,
+            title: g.title,
+            description: g.description,
+            visibleWhen: g.visibleWhen,
+            members: g.fields.map((f) => f.name),
+            className: g.className,
+            collapse,
+          }),
         );
-        allFields.push(...g.fields);
+        // A collapsed group keeps its fields registered (values preserved) but
+        // out of the DOM — only ever while its row carries the control.
+        allFields.push(...(collapse.collapsed ? g.fields.map((f) => ({ ...f, hidden: true })) : g.fields));
       });
 
       return <SchemaRenderer schema={{ ...sharedFormSchema, fields: allFields }} />;
@@ -754,26 +821,33 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
+        const key = section.name || String(index);
+        // The group's declared collapse state, which `deriveFieldGroupSections`
+        // has always handed this route and this route used to drop
+        // (objectui#9849 step two — director ruling letter E, item 1).
+        const collapse = resolveSectionCollapse(section, {
+          live: collapsedSections[key],
+          title,
+          description: section.description,
+          where: `ModalForm field group '${key}' of object '${schema.objectName}'`,
+          setCollapsed: (next) => setCollapsedSections((prev) => ({ ...prev, [key]: next })),
+        });
         // The ONE path (objectui#9849). This push is the site the card was
         // filed on: it rebuilt the row key by key WITHOUT `description`, while
-        // its stacked sibling twenty lines up carried it — so a modal form
-        // that declares no `sections` and leans on the object's own
-        // `fieldGroups` metadata drew a group's heading and silently ate the
-        // blurb its author wrote. Going through the shared projection is what
-        // fixes it, and ⛔ not a key added back here.
+        // its stacked sibling carried it. Going through the shared projection
+        // is what fixed it, and ⛔ not a key added back here.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: section.name || index,
-              title,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: body.map((f) => f.name),
-            },
-            'heading',
-          ),
+          ...projectSectionDivider({
+            key,
+            title,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: body.map((f) => f.name),
+            collapse,
+          }),
         );
-        allFields.push(...(columns > 1 ? applyAutoColSpan(body, columns) : body));
+        const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
+        allFields.push(...(collapse.collapsed ? laidOut.map((f) => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];
       return (
@@ -900,12 +974,18 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         )}
 
         <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-          {renderContent()}
+          {/* Every upload widget below reports into this scope, however deep —
+              a section, a tab, a subform row (objectui#10166). */}
+          <UploadGateProvider gate={uploadGate}>{renderContent()}</UploadGateProvider>
         </div>
 
         {/* Sticky footer — always visible action buttons */}
         {hasFooter && (
           <div className="shrink-0 border-t px-4 sm:px-6 py-3 bg-background" data-testid="modal-form-footer">
+            {/* The REASON the Save below is disabled (objectui#10166). Above the
+                row rather than inside it so it reads before the dead control,
+                and so a long sentence never squeezes the buttons. */}
+            <UploadInFlightNotice gate={uploadGate} />
             <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
               {showCancel && (
                 <Button
@@ -922,11 +1002,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
                 <Button
                   type="submit"
                   form={formId}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadGate.uploading}
                   className="w-full sm:w-auto"
                 >
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {submitLabel}
+                  {uploadGate.uploading ? uploadGate.busyLabel : submitLabel}
                 </Button>
               )}
             </div>

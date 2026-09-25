@@ -20,17 +20,20 @@
  * "excusing a server-owned field from `required` is only half an answer if the
  * form then submits the key anyway."
  *
- * ## What each arm of `FieldInput` actually writes when cleared
+ * ## What a control actually writes when cleared
  *
- * Measured on this file's own controls rather than assumed, because the
- * filter's notion of "empty" is the whole fix:
+ * Measured rather than assumed, because the filter's notion of "empty" is the
+ * whole fix. Since objectui#10179 every row renders the SHARED widget the
+ * resolver names, and those differ the same way the hand-rolled controls did:
  *
- *   - text / email / url / date / time / datetime / textarea / select →  `''`
- *   - number / integer / decimal / currency → `null` (the arm spells
- *     `e.target.value === '' ? null : Number(...)`, so no `NaN` is reachable)
- *   - boolean / radio → nothing "cleared" exists; `false` and a picked option
- *     are real values, and `isMissingForRequired` deliberately does not treat
- *     `false` as absent.
+ *   - text / email / url / date / time / textarea →  `''`
+ *   - number / currency → `null` (`NumberField` spells
+ *     `val === '' ? null : Number(val)`, so no `NaN` is reachable)
+ *   - boolean / radio / select → nothing "cleared" exists; `false` and a
+ *     picked option are real values, and `isMissingForRequired` deliberately
+ *     does not treat `false` as absent. (The shared `select` is a Radix
+ *     combobox with no empty option — the hand-rolled one had a placeholder
+ *     `option value=""`, which is why this file once had a select case.)
  *
  * Both reachable spellings — `''` and `null` — are inside
  * `isMissingForRequired`, which is exactly why the fix reads THAT predicate
@@ -66,10 +69,11 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
  *                blank, both survive)
  *   - `status` — a STATIC literal default (counter-probe: seeded, and a clear
  *                is a real removal)
- *   - `owner`  — a runtime TOKEN default on the text arm
- *   - `remind_at` — a runtime TOKEN default on the date arm
- *   - `priority`  — a CEL envelope default on the number arm (writes `null`)
- *   - `stage`     — a CEL envelope default on the select arm
+ *   - `owner`  — a runtime TOKEN default on the text control
+ *   - `remind_at` — a runtime TOKEN default on the date control
+ *   - `priority`  — a CEL envelope default on the number control (writes `null`)
+ *   - `stage`     — a CEL envelope default on a select, left untouched (the
+ *                   shared select has no cleared state — see above)
  */
 const OBJECT_SCHEMA = {
   name: 'showcase_task',
@@ -77,7 +81,11 @@ const OBJECT_SCHEMA = {
   fields: {
     title: { type: 'text', label: 'Title' },
     status: { type: 'text', label: 'Status', defaultValue: 'draft' },
-    owner: { type: 'user', label: 'Owner', defaultValue: 'current_user' },
+    // `text`, not `user`: this row is the TEXT control's case. It was spelled
+    // `user` while this page rendered every `user` field as a text box — the
+    // silent degradation objectui#10179 removed; a `user` field now renders
+    // the shared person picker, which has no keystroke-clear to probe.
+    owner: { type: 'text', label: 'Owner', defaultValue: 'current_user' },
     remind_at: { type: 'date', label: 'Remind At', defaultValue: 'NOW()' },
     priority: {
       type: 'number',
@@ -241,20 +249,6 @@ describe('create submit — a touched-then-cleared server-owned field', () => {
 
     const body = await submittedPayload();
     expect(Object.prototype.hasOwnProperty.call(body, 'priority')).toBe(false);
-  });
-
-  it('omits it on the select arm, cleared back to the placeholder option', async () => {
-    vi.stubGlobal('fetch', stubFetch(CREATE_ROUTES));
-    renderInternal();
-
-    const stage = await screen.findByLabelText(/Stage/);
-    await userEvent.selectOptions(stage, 'done');
-    await userEvent.selectOptions(stage, '');
-
-    await userEvent.click(screen.getByRole('button', { name: /Submit/ }));
-
-    const body = await submittedPayload();
-    expect(Object.prototype.hasOwnProperty.call(body, 'stage')).toBe(false);
   });
 
   it('does the same on the anonymous public route', async () => {

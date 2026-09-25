@@ -25,7 +25,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -54,7 +54,7 @@ import {
   RefreshIndicator,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -315,6 +315,11 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.exportAs': 'Export as {{format}}',
   'grid.loading': 'Loading grid…',
   'grid.errorLoading': 'Error loading grid',
+  // objectui#9050 — the malformed-filter state, shared with `RelatedList`
+  // and `LineItemsPanel` because it is one sentence about one authored
+  // value, not three. Byte-identical to the `en` pack, which
+  // `defaults-maps-mirror-en-pack` enforces.
+  'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   'grid.pullToRefresh': 'Pull to refresh',
   'grid.refreshing': 'Refreshing…',
   'grid.openRecord': 'Open record',
@@ -1161,6 +1166,30 @@ const DEFAULT_GROUPS_PER_PAGE = 10;
 const DEFAULT_SERVER_WINDOW_SIZE = 50;
 
 /**
+ * The mode a `selection` object with no `type` member asks for (objectui#9837,
+ * ruling A-prime: presence enables, an explicit off wins).
+ *
+ * ⚠️ Derived, not chosen freely. The ruling's first clause is that writing the
+ * object turns selection ON, so the only values that satisfy it are the two
+ * enabling ones — and `'multiple'` is already this renderer's own answer to
+ * "selection is on, nothing said which kind": it is what the bulk-action
+ * auto-enable arm resolves to, and what the legacy `selectable: true` means
+ * (`packages/types/src/data-display.ts`, "boolean: Enable/disable selection
+ * (true = multiple selection)"). `'single'` would be a third, unstated opinion.
+ *
+ * ⚠️ `@objectstack/spec`'s own `SelectionConfigSchema` declares `type` with
+ * `.default('none')`, which this constant deliberately does NOT follow: honouring
+ * it would make a written object mean OFF and contradict the ruling's first
+ * clause outright. It is reachable only through a PARSE, and this repo's mirror
+ * strips imported defaults at the import boundary
+ * (`packages/types/src/zod/imported-defaults.ts`), so an omitted `type` stays
+ * omitted on the way to this read — but metadata parsed by the spec bundle
+ * itself arrives carrying `type: 'none'` and is then an EXPLICIT off here.
+ * Handed back as a question on objectui#9837 rather than decided here.
+ */
+const DEFAULT_SELECTION_TYPE = 'multiple' as const;
+
+/**
  * The ONE resolver for an authored page size, for the reason the `rowHeight`
  * resolver just above exists: one resolver at every entry is what keeps the
  * answer single (objectui#4443).
@@ -1558,11 +1587,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     update: !!onEdit,
     delete: !!onDelete,
   };
-  // Row actions can declare 'edit' / 'delete' as canonical strings — treat
-  // them as equivalent to operations.update / operations.delete so the
-  // dropdown surfaces native Edit/Delete entries (with proper icons) and
+  // Row actions can declare 'edit' / 'delete' as canonical strings — they
+  // SELECT the native Edit/Delete entries inside what `operations` allows
+  // (objectui#9819: `operations` is the ceiling), so the dropdown surfaces
+  // native entries (with proper icons) and
   // routes them to onEdit / onDelete instead of the generic action runner
   // (which has no 'edit' handler and a parameter-shape mismatch for 'delete').
+  //
+  // [objectui#10083] Whether the list was DECLARED is its own signal, read
+  // before the `[]` below erases it: `rowActions` narrows the generic
+  // Edit/Delete to the canonical names it carries only when the view declared
+  // it; an absent list keeps the default (see `resolveRowCrudAffordances`).
+  const rowActionsDeclared = Array.isArray(schema.rowActions);
   const rowActionsList: string[] = Array.isArray(schema.rowActions) ? schema.rowActions : [];
   /**
    * NON-AUTHOR SURFACE — `rowActionDefs` is deliberately absent from
@@ -1630,6 +1666,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     operationsDelete: operations?.delete,
     wantEditAction,
     wantDeleteAction,
+    rowActionsDeclared,
     hasOnEdit: !!onEdit,
     hasOnDelete: !!onDelete,
     managedBy: (objectSchema as any)?.managedBy,
@@ -1714,8 +1751,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // empty array. `plugin-list`'s `buildEffectiveFilter` and `plugin-view`'s
   // `ObjectView` already reach the wire through this same sink; this read point
   // was the last consumer on the chain that did not.
+  //
+  // ⚠️ `toFilterNodeSafely`, not `toFilterNode` — objectui#9050. This read is a
+  // RENDER-time `useMemo`: a `FilterOperatorError` from the lowering is a
+  // render error, and there is no load `try` and no `classifyLoadError` above
+  // it. The refusal is kept as a VALUE and rendered by the malformed-filter
+  // branch below; collapsing it to `undefined` would mean "no filter" and run
+  // the grid unconstrained, the silent widening objectui#9001 closed.
   const schemaFilterSource = schema.filter;
-  const schemaFilter = useMemo(() => toFilterNode(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
+  const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
+  const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
   const schemaSort = schema.sort;
   const schemaPagination = schema.pagination;
   const schemaPageSize = schema.pageSize;
@@ -1793,6 +1839,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return () => { cancelled = true; };
   }, [hasInlineData, objectName, dataSource]);
 
+  // objectui#10035 — the refresh input this grid had none of, so a host could
+  // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+  // data, don't rebuild UI). The nonce moves when the data-invalidation bus
+  // reports a change to the object this grid FETCHES, and the load effect below
+  // names it, so the rows are re-read in place — the table stays mounted
+  // (`RefreshIndicator`, not the skeleton), and with it selection, scroll,
+  // column state and any open inline edit. Subscribed only when the grid
+  // fetches for itself: rows a host handed down (`data`, `bind`, an inline
+  // `value` set) are the host's to refresh, and a nonce there would only
+  // re-render for nothing.
+  const invalidationNonce = useDataInvalidation(hasInlineData ? undefined : objectName);
+
   // --- Unified async data loading effect ---
   // Combines schema fetch + data fetch into a single async flow with AbortController.
   // This avoids the fragile "chained effects" pattern where Effect 1 sets objectSchema,
@@ -1800,6 +1858,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // fetchData's reference is unstable.
   useEffect(() => {
     if (hasInlineData) return;
+    // A refused `schema.filter` never reaches the wire (objectui#9050). The
+    // malformed-filter branch in the render shows it instead; this guard is
+    // what keeps "no filter node" from being read as "no filter" by the query
+    // built below.
+    if (schemaFilterRefusal) return;
 
     let cancelled = false;
 
@@ -2089,6 +2152,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // `undefined`, which is why the truthiness guard this replaces is
             // gone — `defaultFilters: {}` used to send `$filter: {}`, asking
             // the server a question with no content in a shape it refuses.
+            //
+            // ⚠️ Still the THROWING entry, and that is measured rather than
+            // inherited (objectui#9050). Unlike the three `useMemo` reads this
+            // card converts — `schema.filter` above, `RelatedList`'s and
+            // `LineItemsPanel`'s — this read is inside `loadSchemaAndData`, so
+            // it is already wrapped by this effect's own `try` and lands in
+            // `setError`. What it did NOT do is say what went wrong: the panel
+            // read "Error loading grid" over the converter's English paragraph.
+            // The malformed-filter branch in the render now names the operator
+            // for a `FilterOperatorError` arriving on this path too, which is
+            // the whole of step 2 for this fourth call site. Converting it to
+            // `toFilterNodeSafely` here would only rethrow into the same catch.
             const legacyFilter = toFilterNode(schema.defaultFilters);
             if (legacyFilter !== undefined) {
               params.$filter = legacyFilter;
@@ -2142,18 +2217,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 params.$orderby = orderBy;
               }
             }
-          } else if (schema.defaultSort) {
-            // Legacy support — through the SAME normalizer as the array arm
-            // above, because it had the SAME defect (objectui#8973): a
-            // `defaultSort` missing `order` was interpolated straight into
-            // `$orderby: 'name undefined'`, which the server answers
-            // `400 INVALID_QUERY`. Fixing one arm and not its neighbour would
-            // leave the class open in the same `if`/`else` chain.
-            const orderBy = toOrderByClause([schema.defaultSort as QuerySortEntry]);
-            if (orderBy !== undefined) {
-              params.$orderby = orderBy;
-            }
           }
+          // objectui#5861 — there is no third arm. The legacy single-entry
+          // `defaultSort` was retired under ADR-0049: `@objectstack/spec`
+          // refuses it by name on `object-grid` (since 17.3.0), so this chain
+          // reads `sort` alone, and the header reader below reads the same key
+          // the same way.
 
           // Search (objectui#3118). The term the toolbar box holds is a question
           // about the collection, so it goes to the server rather than to a
@@ -2286,7 +2355,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the query asking for the OLD one and the new grouping would read
   // `undefined` on every row — the very `(empty)` bucket this card fixes,
   // reachable a second way.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
+  // `invalidationNonce` (objectui#10035): a write to this object, reported on
+  // the data-invalidation bus — see its declaration above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2797,6 +2868,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (objectDefField) {
               if (objectDefField.label) fieldMeta.label = objectDefField.label;
               if (objectDefField.currency) fieldMeta.currency = objectDefField.currency;
+              // objectui#10354 — `currencyConfig` is the spec's one fixed-currency
+              // spelling (a field key `currency` is refused by name), so a
+              // JPY-fixed field reaches the cell only through it. Copied
+              // VERBATIM: the cell's `resolveFieldCurrency` owns what it means,
+              // `currencyMode` included, so this bag holds no second opinion.
+              // Dropped, the cell fell through to the tenant currency while the
+              // metric tile and every whole-def cell read the field's own.
+              if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
@@ -3018,6 +3097,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
@@ -3184,6 +3265,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
@@ -3474,6 +3557,35 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
+
+  // objectui#9050 step 2 — a refused filter, from EITHER of this component's
+  // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
+  // which would otherwise have thrown out of render) and `schema.defaultFilters`
+  // (inside the load effect, which already caught it but reported it as a
+  // generic load failure). Ahead of the load-error branch because it is not a
+  // load failure: nothing was ever sent, and the repair is in the author's
+  // metadata rather than in the network. It NAMES the operator, which is what
+  // separates it from the `SchemaErrorBoundary`'s "Component failed to render"
+  // banner — and from the "Error loading grid" heading this path used to show.
+  const filterRefusal = schemaFilterRefusal
+    ?? (error instanceof FilterOperatorError ? error : undefined);
+  if (filterRefusal) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-amber-300 bg-amber-50 rounded-md"
+        data-testid="grid-malformed-filter"
+      >
+        {/* Separately addressable: this is the half that has to NAME the
+            operator, and the technical line below repeats the token
+            incidentally. */}
+        <h3 className="text-amber-800 font-semibold" data-testid="grid-malformed-filter-subject">
+          {t('view.malformedFilter', { subject: filterRefusalSubject(filterRefusal) ?? '' })}
+        </h3>
+        <p className="text-amber-700 text-sm mt-1">{filterRefusal.message}</p>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -3945,10 +4057,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : [];
   const hasBulkActions = effectiveBulkActions.length > 0 || bulkActionDefs.length > 0;
   let selectionMode: 'none' | 'single' | 'multiple' | boolean = false;
-  if (schema.selection?.type) {
-    selectionMode = schema.selection.type === 'none' ? false : schema.selection.type;
+  if (schema.selection !== undefined) {
+    // "presence enables; an explicit off wins" — the ONE rule both
+    // object-armed keys on this block obey (objectui#9837, ruling A-prime, batch
+    // #162 item 2), `paginationEnabled` below being the other half.
+    //
+    // Writing the object is how an author asks for selection; `type: 'none'`
+    // is this key's own explicit off and beats the presence. Before the ruling
+    // the read was `schema.selection?.type`, so an object with no `type` fell
+    // through to the legacy arms and the object itself meant NOTHING — the
+    // exact opposite of what the neighbouring `pagination` key taught, with no
+    // error and no diagnostic either way.
+    const authoredType = schema.selection?.type;
+    selectionMode =
+      authoredType === 'none' ? false : (authoredType ?? DEFAULT_SELECTION_TYPE);
   } else if (schema.selectable !== undefined) {
-    // Legacy support
+    // Legacy support — read only when `selection` is absent.
     selectionMode = schema.selectable;
   } else if (hasBulkActions) {
     // Auto-enable multi-select when bulk actions exist
@@ -4294,9 +4418,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   };
 
   // Determine pagination settings (support both new and legacy formats)
-  const paginationEnabled = schema.pagination !== undefined 
-    ? true 
-    : (schema.showPagination !== undefined ? schema.showPagination : true);
+  //
+  // "presence enables; an explicit off wins" — the same ONE rule
+  // `selectionMode` above obeys (objectui#9837, ruling A-prime, batch #162 item 2).
+  //
+  // The order of the two arms is the whole ruling. `pagination` declares no off
+  // switch of its own (its members are `pageSize` / `pageSizeOptions`), so the
+  // deprecated flat `showPagination: false` is the ONLY way an author can turn
+  // paging off — and it therefore has to be read BEFORE the object's presence.
+  // Before the ruling the presence check ran first and hard-forced `true`,
+  // which made `showPagination: false` unreachable the moment the object was
+  // written: a block that cannot turn off the thing it names (objectui#9819).
+  const paginationEnabled =
+    schema.showPagination === false
+      ? false // explicit off wins, whatever `pagination` says
+      : schema.pagination !== undefined
+        ? true // the object's presence asks for paging with its settings
+        : (schema.showPagination ?? true); // neither written: today's default
   
   // Through the same resolver as the two seeds above (objectui#9853). This
   // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
@@ -4392,11 +4530,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const groupingPartialLabel = groupingIsPartial ? t('grid.grouping.partialBadge') : undefined;
 
   // Before anyone clicks, the headers show the sort the view was authored with
-  // — read with the same `schemaSort` → `defaultSort` precedence the fetch path
-  // above uses, so the arrow on screen and the `$orderby` on the wire are the
-  // same sort. Without that a view arriving `created_at desc` would show no
-  // arrow, and the first click on that column would ask for `asc` on a list
-  // that was already `desc`.
+  // — read from the same `schemaSort` the fetch path above lowers, so the
+  // arrow on screen and the `$orderby` on the wire are the same sort. (The
+  // retired `defaultSort` fallback is read by neither, objectui#5861.)
+  // Without that a view arriving `created_at desc` would show no arrow, and
+  // the first click on that column would ask for `asc` on a list that was
+  // already `desc`.
   //
   // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
   // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
@@ -4413,9 +4552,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
   // order. Parsing at most a handful of sort keys costs nothing worth a hook.
-  const declaredSort = parseSchemaSort(
-    schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined),
-  );
+  const declaredSort = parseSchemaSort(schemaSort);
   /**
    * [#5729] The RESTORE leg of objectstack#10235's contract, and the guard
    * that keeps the personalization PUT off an unsortable column.
@@ -4910,8 +5047,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }
       // Detect currency-like fields by name
       const currencyFields = ['amount', 'price', 'total', 'revenue', 'cost', 'value', 'budget', 'salary'];
+      // The currency sibling of the date branch above takes the SAME tag.
+      // objectui#4541 threaded it into the date branch and left this one, and
+      // `formatCurrency` reads an omitted tag as "follow the runtime", i.e. the
+      // MACHINE's locale — invisible to a source scan, since the call merely
+      // omits the argument (objectui#9909).
       if (typeof value === 'number' && currencyFields.some(f => key.toLowerCase().includes(f))) {
-        return <span className="text-sm tabular-nums font-medium">{formatCurrency(value, tenantCurrency)}</span>;
+        return <span className="text-sm tabular-nums font-medium">{formatCurrency(value, tenantCurrency, displayLocale)}</span>;
       }
       // No field-type match (e.g. a computed/untyped key): never dump a raw
       // object as a React child — extract a display name/id instead.
@@ -5084,8 +5226,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   <div className="flex items-center justify-between gap-2 mb-1">
                     {amountCol && (
                       <span className="text-sm tabular-nums font-medium">
+                        {/* objectui#10423 — the currency resolves from the FIELD
+                            def, as the desktop cell's does (objectui#10354);
+                            `amountCol` is a column draft and carries neither
+                            `currency` nor `currencyConfig`. */}
                         {typeof row[amountCol.accessorKey] === 'number'
-                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(amountCol as any, tenantCurrency))
+                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(objectSchema?.fields?.[amountCol.accessorKey], tenantCurrency), displayLocale)
                           : (coerceToSafeValue(row[amountCol.accessorKey]) ?? '—')}
                       </span>
                     )}

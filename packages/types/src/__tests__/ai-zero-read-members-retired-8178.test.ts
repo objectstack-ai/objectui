@@ -107,7 +107,7 @@ export type assertionRetiredMembersReadAsTombstones = [
  */
 export type assertionLiveMembersKeepTheirTypes = [
   Expect<Equal<AIFormAssistSchema['showConfidence'], boolean | undefined>>,
-  Expect<Equal<AIRecommendationsSchema['layout'], 'list' | 'grid' | 'carousel' | undefined>>,
+  Expect<Equal<AIRecommendationsSchema['layout'], 'list' | 'grid' | undefined>>,
   Expect<Equal<NLQuerySchema['showHistory'], boolean | undefined>>,
 ];
 

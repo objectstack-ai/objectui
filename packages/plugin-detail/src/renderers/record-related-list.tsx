@@ -22,7 +22,11 @@ import {
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import { humanizeLabel } from '@object-ui/fields';
-import { columnIdentity, elementDataSourceBlock } from '@object-ui/core';
+import {
+  columnIdentity,
+  elementDataSourceBlock,
+  type ElementDataSourceConfig,
+} from '@object-ui/core';
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
 import { useRecordAriaProps } from './recordComponentAria';
@@ -71,12 +75,42 @@ export interface RecordRelatedListRendererProps {
    * type-check against the component that exists to accept it. The body already
    * reads the key defensively (`objectName && …`, `objectName || ''`) precisely
    * because it can arrive unbound; this declaration now agrees with that code.
+   *
+   * ## The looseness is NAMED, not open (objectui#9963)
+   *
+   * That is the whole of it: `objectName` optional, and `dataSource` admitted
+   * as the binding the gate reads — typed with the gate's own declaration of
+   * it, `ElementDataSourceConfig`. Every other member is the mirror's. This
+   * type used to add `& Record<string, any>` (and the interface
+   * `[k: string]: any`), which admitted ANY key at `any`, so a misspelled
+   * declared key type-checked at every read below, cast or not — the refusal
+   * the mirror declares stopped one layer short of the reads it exists for.
+   *
+   * ⛔ Do not reopen it to admit a key the renderer reads through a cast
+   * (`requiredPermissions`, `enforceFieldSecurity`, `redactFields`): no block
+   * the contract maps onto this tag declares them, and objectui#8649 routed
+   * them to the producer rather than to a declaration here.
    */
   schema?: Omit<RecordRelatedListComponentProps, 'objectName'> &
-    Partial<Pick<RecordRelatedListComponentProps, 'objectName'>> &
-    Record<string, any>;
+    Partial<Pick<RecordRelatedListComponentProps, 'objectName'>> & {
+      /**
+       * The per-element binding (`@objectstack/spec` `PageComponentSchema.dataSource`,
+       * objectstack#6953). Read by `ElementDataSourceGate`, never by the body:
+       * the gate maps it onto `objectName` / `columns` / `filter` / `sort` /
+       * `limit` first.
+       */
+      dataSource?: ElementDataSourceConfig;
+    };
   className?: string;
-  [k: string]: any;
+  /**
+   * The designer's host props — the three keys `splitDesigner` reads and puts
+   * back on the container. The registry's own call is untyped
+   * (`ComponentRenderer<T = any>`), so what it forwards and nothing here reads
+   * is deliberately NOT declared.
+   */
+  style?: React.CSSProperties;
+  'data-obj-id'?: string;
+  'data-obj-type'?: string;
 }
 
 const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
@@ -206,17 +240,47 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   const required: string[] = Array.isArray((schema as any).requiredPermissions)
     ? (schema as any).requiredPermissions
     : [];
-  if (required.length > 0) {
-    const ok = required.every((p) => perms.can(objectName, p as any));
-    if (!ok) {
-      return (
-        <div className={className} {...designer} role="status" aria-live="polite">
-          <p className="text-sm text-muted-foreground italic">
-            Insufficient permissions to view related list.
-          </p>
-        </div>
-      );
-    }
+  /**
+   * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
+   * the sibling family of objectui#10058, ruling batch #192 item 5 letter B).
+   *
+   * `requiredPermissions` on a record block is a **system capability set** —
+   * the one meaning the word carries on `action`, `app`, `field` and
+   * `bulkAction` — so it is read through the permission context's capability
+   * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
+   * or unrecognised capability hides the whole section.
+   *
+   * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
+   * closed object-action enum, and the stock `/me/permissions` provider maps
+   * only eight verbs (`read`, `view`, `create`, `update`, `edit`, `delete`,
+   * `import`, `export`) before its `?? 'allowRead'` tail sends everything else
+   * to the object's read bit — so a capability nobody holds passed for every
+   * reader of the object, with no refusal, no warning and no log. The full
+   * reproduction behind that sentence is written once, at the same gate in
+   * `record-quick-actions.tsx`, and is not restated here.
+   *
+   * ⛔ The object name is deliberately ABSENT from the verdict: a system
+   * capability is not object-scoped. This site never carried the
+   * `&& objectName` conjunct its siblings did and never needed one — the
+   * "record:related_list — missing objectName" placeholder above returns
+   * first — but the name it handed to the object-action path was the wrong
+   * question either way.   *
+   * ⚠️ A provider that never REPORTS capabilities (`systemPermissions`
+   * `undefined` — the role-based `PermissionProvider`, a backend predating
+   * ADR-0066, or no provider at all) still opens this gate. That is
+   * `hasCapabilities`'s own ruled unreported-vs-empty doctrine
+   * (objectui#4656), shared with every other capability gate in the tree; a
+   * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
+   * strictly.
+   */
+  if (required.length > 0 && !perms.hasCapabilities(required)) {
+    return (
+      <div className={className} {...designer} role="status" aria-live="polite">
+        <p className="text-sm text-muted-foreground italic">
+          Insufficient permissions to view related list.
+        </p>
+      </div>
+    );
   }
 
   const enforceFLS = (schema as any).enforceFieldSecurity === true;
@@ -290,11 +354,18 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         filter={schema.filter}
         dataSource={ctx?.dataSource}
         add={
-          (schema as any).add
+          // Read UN-CAST (objectui#9964). The cast that used to stand here was
+          // load-bearing for one reason only: the mirror typed
+          // `add.picker.filter` as `unknown` while this component's own prop
+          // types it `ViewFilterRule[]`, so un-casting was a TS2322 — the
+          // divergence, kept invisible by the cast. The mirror now carries the
+          // protocol's array, so the declaration reaches this read and a
+          // wrong-shaped picker filter is refused here instead of downstream.
+          schema.add
             ? {
-                ...(schema as any).add,
+                ...schema.add,
                 // The Add-button label may carry inline translations too.
-                label: pickLocalized((schema as any).add.label, language) || undefined,
+                label: pickLocalized(schema.add.label, language) || undefined,
               }
             : undefined
         }
@@ -339,7 +410,7 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
                 const id = rowId(row);
                 if (id != null) return handlers.onDelete!(id, row);
               }
-            : (schema as any).add && ctx?.dataSource
+            : schema.add && ctx?.dataSource
               ? async (row: any) => {
                   const id = row?.id ?? row?._id;
                   if (id != null) await ctx?.dataSource?.delete?.(objectName, String(id));

@@ -23,7 +23,7 @@
  * REVERSE VERIFICATION — MEASURED on two separate ablations (objectui#7507),
  * because this file grades two different things and one of them was missing:
  *
- *   1. Remove `$top: NON_GRID_ROW_CEILING_TOP` from `ObjectMap`'s fetch ⇒ red
+ *   1. Remove `...nonGridRowCeilingQuery()` from `ObjectMap`'s fetch ⇒ red
  *      at the **`$top` assertion**, and there only; 1 failed / 2 passed. NOT
  *      at the footnote, which is what this docblock used to predict. An
  *      adapter with no `$top` answers with the whole filtered set,
@@ -42,7 +42,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery } from '@object-ui/core';
 import { ObjectMap } from './ObjectMap';
 
 vi.mock('react-map-gl/maplibre', () => ({
@@ -104,7 +104,7 @@ describe('objectui#7210 ruling a′ — the map caps at the platform ceiling, lo
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     for (const params of calls) {
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     }
 
     const note = await screen.findByRole('note');

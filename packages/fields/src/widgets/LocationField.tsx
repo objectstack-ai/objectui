@@ -382,12 +382,56 @@ function coordinateName(t: TranslateFn, label: CoordinateLabel): string {
 }
 
 /**
+ * The box's own hint when the field author declared no `placeholder`
+ * (objectui#8149): the pair this widget reads, in the reader's words.
+ *
+ * objectui#6755 ruled that a widget's own refusal sentence is keyed; this
+ * extends that principle to the widget's own placeholder copy, as objectui#3342
+ * did for `TagsField`'s. Before it, a zh form showed the English literal
+ * `latitude, longitude` in the box while the refusal one line beneath it named
+ * the same coordinate in Chinese — objectui#6888 had already keyed the nouns.
+ *
+ * ⭐ Two halves, two owners:
+ *
+ *  - The WORDS are the locale's. They are the same two noun keys
+ *    {@link coordinateName} reads for the residue refusal, so a pack spells each
+ *    coordinate in exactly one place and the box and its refusal cannot name it
+ *    differently. No new key: every pack already carries both nouns.
+ *  - The ORDER and the SEPARATOR are this widget's INPUT GRAMMAR, not
+ *    punctuation. {@link parseDraft} splits on an ASCII `,` and reads the first
+ *    part as the latitude — the order of `COORDINATE_LABELS`, which this reads.
+ *    So both are written here, and ⛔ deliberately NOT handed to a pack through
+ *    a joiner key (the `validation.formInvalidJoiner` shape) or through a pair
+ *    value such as `{{latitude}}, {{longitude}}`. Either would let a pack
+ *    re-punctuate the pair with its own script's comma — U+FF0C in zh, U+3001
+ *    in ja, U+060C in ar — and `parseDraft` refuses every one of those as not a
+ *    pair, so the hint would teach a format this box will not read.
+ *
+ * That is how objectui#8148 settled the comma-decimal concern for the example
+ * digits: the widget fills them in ASCII, so no pack spells a digit and the
+ * collision cannot occur rather than being avoided by good behaviour. Here no
+ * pack spells the separator. It is also the separator each pack's own
+ * `fields.location.refusedFormat` example is written with; both facts are
+ * pinned in `__tests__/LocationField.placeholderI18n-8149.test.tsx`.
+ *
+ * English and provider-less rendering are byte-identical to the literal this
+ * replaces: the `en` nouns and their `FIELD_DEFAULTS` rows are `latitude` and
+ * `longitude`.
+ */
+function placeholderPair(t: TranslateFn): string {
+  return COORDINATE_LABELS.map(label => coordinateName(t, label)).join(', ');
+}
+
+/**
  * LocationField - Geographic coordinate input for a `type: 'location'` value.
  *
  * Reads and writes `@objectstack/spec`'s `LocationValue` (`{ lat, lng }`) and
  * displays it as the comma-separated pair a user types. The coordinates are
  * still called latitude and longitude to a human — only the STORED key names
- * are the spec's, which is why the placeholder is unchanged.
+ * are the spec's (objectui#6272), which is why the placeholder names the two
+ * coordinates rather than the `lat`/`lng` keys. That is a statement about KEY
+ * NAMES, not about language: the placeholder's words are the reader's, from
+ * the locale packs (objectui#8149, {@link placeholderPair}).
  *
  * ⚠️ BREAKING (objectui#6272): a record stored in the deprecated
  * `{ latitude, longitude }` spelling — including one this widget itself wrote
@@ -538,7 +582,9 @@ export function LocationField({ value, onChange, field, readonly, error, ...prop
         type="text"
         value={draft}
         onChange={handleChange}
-        placeholder={config?.placeholder || 'latitude, longitude'}
+        // The author's declared placeholder wins; otherwise the widget's own
+        // hint, in the reader's nouns (objectui#8149).
+        placeholder={config?.placeholder || placeholderPair(t as TranslateFn)}
         disabled={readonly || props.disabled}
         className={cn(refusalError ? 'border-red-500 focus-visible:ring-red-500' : '', props.className)}
         // AFTER the spread so this widget's own computation wins: `error` is

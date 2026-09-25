@@ -4,8 +4,8 @@
  * Provides I18nProvider and useObjectTranslation hook for React components.
  */
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { I18nextProvider, useTranslation } from 'react-i18next';
-import type { i18n as I18nInstance } from 'i18next';
+import { I18nextProvider, useTranslation, type UseTranslationOptions } from 'react-i18next';
+import type { i18n as I18nInstance, ReactOptions } from 'i18next';
 import { createI18n, getDirection, pickInitialLanguage, type I18nConfig } from './i18n.js';
 import { interpolateFallback, optionsOf } from './fallbackInterpolation.js';
 import {
@@ -25,6 +25,22 @@ import {
  * Exported so an app that builds its own i18next instance (and therefore owns
  * its bootstrap language — see {@link I18nProviderProps.instance}) can honour
  * the same preference, and so a sign-out flow can clear it.
+ *
+ * ⚠️ **What this slot means changed for a SIGNED-IN user (objectui#10059).**
+ * A signed-in user's language has one source of truth and it is not on the
+ * device: it is the server column `sys_user.locale`, read back through
+ * `GET /auth/me/localization` and written by both the profile page's language
+ * card and the console's globe menu. For that user this slot is a CACHE of the
+ * column — it still decides the first paint, because the column cannot be read
+ * synchronously, and it is then overwritten by whatever the column says. It
+ * decides on its own only BEFORE sign-in, which is the case this provider can
+ * see and the only one it adjudicates.
+ *
+ * This provider deliberately does not implement that rule: reading a `sys_user`
+ * row needs an authenticated data adapter, which is a host concern and not a
+ * dependency a renderer package takes. The host applies the column through
+ * {@link I18nContextValue.changeLanguage} like any other switch — in this
+ * repository, `@object-ui/app-shell`'s `useUserLocale`.
  */
 export const LOCALE_STORAGE_KEY = 'objectui-locale';
 
@@ -64,29 +80,54 @@ function clearStoredLanguage(): void {
 }
 
 /**
- * `localStorage` key caching the TENANT's server-side locale — a *seed*, not a
- * choice (objectui#4035).
+ * `localStorage` key caching the server's resolved locale for the signed-in
+ * caller — a *seed*, not a choice (objectui#4035).
+ *
+ * ⚠️ **The value is per-USER; the slot is per-DEVICE (objectui#10193).**
+ * `GET /auth/me/localization` answers `locale` as the caller's own
+ * `sys_user.locale` when set, else the request's `Accept-Language`, else the
+ * deployment default — and answers no locale at all before sign-in. It is not
+ * a tenant setting, whatever earlier prose here said. The slot is deliberately
+ * NOT keyed by user: the boot reads it before anyone is signed in, when no
+ * user id exists to key by. What bounds it to one owner is
+ * `@object-ui/auth`'s change-of-owner purge (objectui#5664), which deletes it
+ * when a different user adopts the browser, and which the host answers by
+ * re-resolving the live language (`@object-ui/app-shell`'s
+ * `useSignedInUserLocale`).
+ *
+ * **What a visitor who is not signed in reads**, declared as device behaviour:
+ * the language the LAST signed-in owner of this browser was served, until
+ * someone else signs in. That is the only server answer this device has ever
+ * received — the endpoint gives none before sign-in — and the sign-in page is
+ * the one surface it paints.
  *
  * Deliberately a separate slot from {@link LOCALE_STORAGE_KEY}, and that
  * separation is the whole point rather than a tidiness preference. The two
  * values have different provenance and therefore different rights:
  *
- * - {@link LOCALE_STORAGE_KEY} is what the *user* picked. It outranks
- *   everything and must survive a tenant reconfiguration.
- * - This slot is what the *admin* configured, cached so the next boot can apply
- *   it synchronously. It outranks only the environment (browser language).
+ * - {@link LOCALE_STORAGE_KEY} is what the *user* picked on this device. It
+ *   outranks everything this provider can see and must survive a change in
+ *   what the server answers for the seed below. ⚠️ It does NOT outrank the signed-in user's own
+ *   `sys_user.locale`, which no tier here represents — see that key's own
+ *   docblock (objectui#10059).
+ * - This slot is what the server resolved for the signed-in caller, cached so
+ *   the next boot can apply it synchronously. It outranks only the environment
+ *   (browser language).
  *
  * Writing the server seed into the explicit-choice slot would erase that
  * difference permanently: the seed would then be indistinguishable from a
- * deliberate user choice, so it would (a) outrank a later tenant change and pin
- * the device to a stale locale forever, and (b) suppress browser detection for
+ * deliberate user choice, so it would (a) outrank a later server-side change
+ * and pin the device to a stale locale forever, and (b) suppress browser
+ * detection for
  * a user who never expressed a preference. Only a real switch promotes a
  * language to the explicit slot — see the `languageChanged` choke point.
  */
 export const LOCALE_SEED_STORAGE_KEY = 'objectui-locale-seed';
 
 /**
- * Read the cached tenant locale seed, or `null` when nothing is cached.
+ * Read the cached locale seed — the server's last resolved locale for this
+ * browser's last signed-in caller (see {@link LOCALE_SEED_STORAGE_KEY}) — or
+ * `null` when nothing is cached.
  *
  * Same defensive posture as {@link readStoredLanguage}: `localStorage` is
  * absent under SSR and *throws* in Safari private mode / partitioned iframes,
@@ -102,12 +143,13 @@ export function readCachedLanguageSeed(): string | null {
 }
 
 /**
- * Cache the tenant locale the server just answered with — the "revalidate" half
- * of the stale-while-revalidate contract (objectstack#5419, ruling point 2).
+ * Cache the locale the server just resolved for the signed-in caller — the
+ * "revalidate" half of the stale-while-revalidate contract (objectstack#5419,
+ * ruling point 2).
  *
  * Call this with whatever `/auth/me/localization` actually returned for an
  * authenticated caller. A `null`/`undefined` locale CLEARS the cache rather
- * than leaving the old value: a tenant that unsets its locale must reach
+ * than leaving the old value: a server answer that drops the locale must reach
  * choice-less devices on their next boot, and "keep the last good seed forever"
  * is precisely the being-pinned-by-a-stale-seed failure the ruling forbids.
  *
@@ -210,7 +252,10 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
 }
 
 /**
- * Adjudicate a tenant locale seed into a language this renderer can actually
+ * Adjudicate the locale seed — the last signed-in owner's cached server
+ * answer (their `sys_user.locale`, else `Accept-Language`, else the deployment
+ * default), bounded to that one owner by the objectui#5664 purge; see
+ * {@link LOCALE_SEED_STORAGE_KEY} — into a language this renderer can actually
  * boot in, or `null` to fall through to the next tier (objectui#4035).
  *
  * {@link canResolveLanguage} is the verdict — the same predicate the language
@@ -219,11 +264,11 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * of which are about *which question to ask it*, not about second-guessing the
  * answer:
  *
- * **1. Region subtags are normalised away as a fallback.** A tenant locale is a
+ * **1. Region subtags are normalised away as a fallback.** A seed is a
  * full BCP-47 tag — the platform answers `zh-CN`, not `zh` (see
  * `LocalizationFetchProvider`'s fixtures) — while the packs are keyed by base
  * language. Asking only about `zh-CN` would reject the single most common
- * tenant configuration there is. The exact tag is tried first so a genuine
+ * shape that answer takes. The exact tag is tried first so a genuine
  * `pt-BR` pack still wins over `pt`; this mirrors `createI18n`'s own browser
  * detection (`navigator.language.split('-')[0]`) and `pickLocalized`'s
  * documented exact-then-base order, so it is this codebase's existing
@@ -233,9 +278,9 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * at its default `false`). That credit exists for a *user-picked* value: the
  * user chose it from a menu built out of the app's real locale list, and a
  * stored choice that turns out unshippable is adjudicated afterwards by the
- * `provisional` self-heal. A tenant seed has neither property — it is an
- * arbitrary admin-authored string that passed through no menu, and there is no
- * self-heal behind it. Extending the credit would mean booting into a locale we
+ * `provisional` self-heal. A seed has neither property — it is whatever the
+ * server resolved (a stored column, a request header, a deployment default),
+ * it passed through no menu, and there is no self-heal behind it. Extending the credit would mean booting into a locale we
  * cannot confirm we ship and then retracting it, i.e. manufacturing exactly the
  * flash that ruling point 3 bounds, on the very first-visit path it bounds it
  * on. Falling through instead is what ruling point 4 asks for, and it is
@@ -271,14 +316,23 @@ function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
  * The full precedence chain, in order (objectstack#5419 ruling point 1):
  *
  * 1. the user's explicit choice ({@link LOCALE_STORAGE_KEY})
- * 2. the tenant's server locale, cached at {@link LOCALE_SEED_STORAGE_KEY}
+ * 2. the server's last resolved locale for the signed-in caller, cached at
+ *    {@link LOCALE_SEED_STORAGE_KEY} (per-USER in origin, one device slot in
+ *    storage — see that key's docblock)
  * 3. the browser language (`createI18n`'s `detectBrowserLanguage`)
  * 4. `en`
  *
- * Tiers 2 and 3 are both "nobody here chose this", but they are not equally
- * informed: the tenant locale is an administrator's deliberate statement about
- * this deployment, while the browser language is an artefact of whoever set up
- * the machine. The deliberate signal wins.
+ * ⚠️ That chain is the whole answer only for a visitor who is not signed in.
+ * A signed-in user's language is decided by `sys_user.locale` and reaches this
+ * provider as an ordinary `changeLanguage` from the host once the row has been
+ * read; tier 1 is that value's cache from then on (objectui#10059 — the reasons
+ * are on {@link LOCALE_STORAGE_KEY}, not repeated here).
+ *
+ * Tiers 2 and 3 are both "nobody on this device chose this here", but they are
+ * not equally informed: the seed is what the server resolved for the signed-in
+ * caller — their own `sys_user.locale`, else the request's `Accept-Language`,
+ * else the deployment default — while the browser language is an artefact of
+ * whoever set up the machine. The server's resolution wins.
  */
 interface BootstrapResolution {
   /** The config to build the i18next instance from. */
@@ -294,8 +348,9 @@ interface BootstrapResolution {
 }
 
 /**
- * The tenant tier: a cached server seed, applied only when the user has
- * expressed no choice of their own (objectui#4035).
+ * The seed tier: the last signed-in owner's cached server answer (see
+ * {@link LOCALE_SEED_STORAGE_KEY}), applied only when nobody has expressed a
+ * choice on this device (objectui#4035).
  *
  * Returns the bootstrap resolution for the seed, or `null` when there is no
  * usable seed and the caller should fall through to browser detection.
@@ -311,9 +366,9 @@ function resolveSeedBootstrap(config: I18nConfig | undefined): BootstrapResoluti
   const resolved = resolveSeedLanguage(seed, config);
   if (!resolved) return null;
   return {
-    // `detectBrowserLanguage: false` is what makes the tenant tier outrank the
-    // environment tier. The admin's deliberate configuration beats the
-    // browser's incidental one — ruling point 1.
+    // `detectBrowserLanguage: false` is what makes the seed tier outrank the
+    // environment tier. What the server resolved for this device's signed-in
+    // owner beats the browser's incidental setting — ruling point 1.
     config: { ...config, defaultLanguage: resolved, detectBrowserLanguage: false },
     provisional: null,
   };
@@ -326,14 +381,14 @@ function resolveBootstrapConfig(
 ): BootstrapResolution {
   // `persistLanguage: false` surfaces (previews, demos, screenshot harnesses)
   // must stay on a fixed language regardless of what is on this origin — that
-  // covers the tenant seed too, not just the user's choice.
+  // covers the seed too, not just the user's choice.
   if (!persist) return { config, provisional: null };
   const stored = readStoredLanguage();
-  // No explicit choice at all → the tenant seed gets its turn.
+  // No explicit choice at all → the seed gets its turn.
   if (!stored) return resolveSeedBootstrap(config) ?? { config, provisional: null };
   if (!canResolveLanguage(stored, config, hasLoader)) {
     clearStoredLanguage();
-    // A purged choice is no choice, so this falls to the same tenant tier —
+    // A purged choice is no choice, so this falls to the same seed tier —
     // otherwise dropping one unshippable stored value would skip the seed and
     // land straight on the browser language.
     return resolveSeedBootstrap(config) ?? { config, provisional: null };
@@ -364,7 +419,7 @@ export interface BootstrapLocaleOptions {
  * The language {@link I18nProvider} will boot in, computed WITHOUT creating an
  * i18next instance (objectui#7479).
  *
- * The full precedence chain, unchanged: explicit choice → tenant seed →
+ * The full precedence chain, unchanged: explicit choice → seed →
  * browser language → `defaultLanguage` → `en`.
  */
 export function resolveBootstrapLanguage(options: BootstrapLocaleOptions = {}): string {
@@ -431,6 +486,65 @@ interface I18nContextValue {
 }
 
 const ObjectI18nContext = createContext<I18nContextValue | null>(null);
+
+/**
+ * Re-render a reader when the store GAINS translations, not only when the
+ * language changes (objectui#10382).
+ *
+ * react-i18next re-renders a `useTranslation` reader on the events its
+ * `bindI18n` / `bindI18nStore` options name, and `bindI18nStore` defaults to
+ * none. So a bundle added after mount — the `loadLanguage` answer, a built-in
+ * catalogue that lands late — reached nobody who had already rendered: they
+ * kept drawing the fallback until something unrelated re-rendered them. The
+ * provider's old remedy, setting its `language` state to the value it already
+ * held, was a same-value update React bails out of.
+ *
+ * With `added` bound, every store write bumps react-i18next's own revision and
+ * hands each reader a NEW `t`. That is more than a re-render: a reader that
+ * memoises on `t`, or on a resolver built from it (`useObjectLabel`'s return
+ * value, the column memo in `ObjectDataTable`), recomputes too — a re-render
+ * alone would leave it on the fallback.
+ *
+ * Passed per call rather than set on the instance, so it holds for an instance
+ * the host built itself (the `instance` prop) and does not leak into
+ * react-i18next's process-wide defaults. `useTranslation` spreads this argument
+ * over the instance's `react` options before its `subscribe` reads
+ * `bindI18nStore` (measured in `react-i18next@17.0.11`, `useTranslation.js`).
+ * The hook's typings do not list the key, so the type borrows it from i18next's
+ * `ReactOptions`, where it is declared. Module-level so its identity is stable:
+ * `useTranslation` keys its options memo, and with it the subscription, on it.
+ *
+ * ⚠️ The price: every store write re-renders every reader and re-runs whatever
+ * keys on `t`. So the provider writes a built-in catalogue only when the merge
+ * adds something ({@link mergeAddsKeys}), and writes silently where
+ * `languageChanged` follows and re-renders once anyway.
+ */
+const STORE_WRITES_RERENDER: UseTranslationOptions<undefined> & Pick<ReactOptions, 'bindI18nStore'> =
+  Object.freeze({ bindI18nStore: 'added' });
+
+/** For the switch path's writes: `changeLanguage` announces them, once, in the new language. */
+const SILENT_WRITE = Object.freeze({ silent: true });
+
+function isNested(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Whether `addResourceBundle(…, deep: true, overwrite: false)` of `source` into
+ * `target` would write anything — a key `target` lacks, at any depth where
+ * both sides hold objects. Mirrors i18next's `deepExtend` with `overwrite` off,
+ * which leaves a key present on both sides alone when either value is not an
+ * object, so such a key adds nothing.
+ */
+function mergeAddsKeys(target: Record<string, unknown>, source: Record<string, unknown>): boolean {
+  for (const key of Object.keys(source)) {
+    if (!(key in target)) return true;
+    const into = target[key];
+    const from = source[key];
+    if (isNested(into) && isNested(from) && mergeAddsKeys(into, from)) return true;
+  }
+  return false;
+}
 
 export interface I18nProviderProps {
   /** i18n configuration options */
@@ -581,6 +695,15 @@ export function I18nProvider({
   // built-in bundle, so overwriting here would let a catalogue that arrives
   // late silently undo the caller's own overrides — a precedence inversion
   // whose only symptom is that it depends on network timing.
+  //
+  // The write is what re-renders anything already on screen in the `en`
+  // fallback ({@link STORE_WRITES_RERENDER}); ⛔ never a `setLanguage` here,
+  // which would set the state this effect was keyed on and bail out
+  // (objectui#10382). And ⛔ never an unconditional write: this effect re-runs
+  // on every language change, and after a switch through `changeLanguage`
+  // (which already merged the catalogue), or for a catalogue that was resident
+  // when the instance was created, the write would add nothing and still
+  // re-render every reader.
   useEffect(() => {
     const currentLang = i18nInstance.language || 'en';
     if (!isBuiltInLanguage(currentLang)) return;
@@ -588,14 +711,13 @@ export function I18nProvider({
     void loadBuiltInLocale(currentLang)
       .then((catalogue) => {
         if (cancelled || !catalogue) return;
-        if (i18nInstance.hasResourceBundle(currentLang, 'translation')) {
+        const bundle: unknown = i18nInstance.getResourceBundle(currentLang, 'translation');
+        if (isNested(bundle)) {
+          if (!mergeAddsKeys(bundle, catalogue)) return;
           i18nInstance.addResourceBundle(currentLang, 'translation', catalogue, true, false);
         } else {
           i18nInstance.addResourceBundle(currentLang, 'translation', catalogue);
         }
-        // Force a re-render so anything already on screen in the `en` fallback
-        // re-resolves against the catalogue that just landed.
-        setLanguage(i18nInstance.language || currentLang);
       })
       .catch((err) => {
         console.warn(`[i18n] Failed to load the built-in catalogue for '${currentLang}':`, err);
@@ -613,9 +735,13 @@ export function I18nProvider({
     loadedAppLangs.current.add(currentLang);
     loadLanguage(currentLang).then((resources) => {
       if (resources && Object.keys(resources).length > 0) {
+        // The write itself re-renders every reader already on screen
+        // ({@link STORE_WRITES_RERENDER}). ⛔ No `setLanguage(currentLang)`
+        // after it (objectui#10382): on the first load that sets the state to
+        // the value it already holds, which React bails out of; and when the
+        // user switched while this was in flight, it set the context back to
+        // the boot language while i18next stayed on the new one.
         i18nInstance.addResourceBundle(currentLang, 'translation', resources, true, true);
-        // Force re-render so components pick up newly loaded translations
-        setLanguage(currentLang);
       }
     }).catch((err) => {
       // Allow retry on failure by removing from loaded set
@@ -704,15 +830,22 @@ export function I18nProvider({
         // `en` fallback and hope the mount effect catches up. Awaited before
         // `changeLanguage` so the switch and the strings land on the same
         // frame — the whole point of doing it here rather than reactively.
+        //
+        // Both writes below are SILENT. The `changeLanguage` that follows emits
+        // `languageChanged` — i18next emits it for every language it resolves,
+        // the current one included (measured in `i18next@26.4.0`,
+        // `changeLanguage`) — and that re-renders every reader once, in the
+        // new language. An `added` event here would re-render each of them in
+        // the OLD language first ({@link STORE_WRITES_RERENDER}).
         const builtIn = await loadBuiltInLocale(lang).catch((err) => {
           console.warn(`[i18n] Failed to load the built-in catalogue for '${lang}':`, err);
           return null;
         });
         if (builtIn) {
           if (i18nInstance.hasResourceBundle(lang, 'translation')) {
-            i18nInstance.addResourceBundle(lang, 'translation', builtIn, true, false);
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn, true, false, SILENT_WRITE);
           } else {
-            i18nInstance.addResourceBundle(lang, 'translation', builtIn);
+            i18nInstance.addResourceBundle(lang, 'translation', builtIn, false, false, SILENT_WRITE);
           }
         }
         // Dynamic language pack loading (v2.0.7)
@@ -720,7 +853,7 @@ export function I18nProvider({
           loadedAppLangs.current.add(lang);
           try {
             const resources = await loadLanguage(lang);
-            i18nInstance.addResourceBundle(lang, 'translation', resources, true, true);
+            i18nInstance.addResourceBundle(lang, 'translation', resources, true, true, SILENT_WRITE);
           } catch (err) {
             loadedAppLangs.current.delete(lang);
             console.warn(`[i18n] Failed to load app translations for '${lang}':`, err);
@@ -755,7 +888,9 @@ export function I18nProvider({
  */
 export function useObjectTranslation(ns?: string) {
   const context = useContext(ObjectI18nContext);
-  const { t: boundT, i18n } = useTranslation(ns);
+  // Subscribed to store writes as well as language changes, so translations
+  // added after this reader rendered reach it (objectui#10382).
+  const { t: boundT, i18n } = useTranslation(ns, STORE_WRITES_RERENDER);
 
   // Whether react-i18next found an i18next instance at all — from props,
   // from an `I18nextProvider` above, or from the module-level global that

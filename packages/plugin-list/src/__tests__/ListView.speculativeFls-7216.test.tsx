@@ -198,13 +198,29 @@ describe('ListView — speculative view bindings are FLS-gated (objectui#7216)',
   });
 
   // ── PIN 4: timeline `dateField` ─────────────────────────────────────────
+  //
+  // REWRITTEN by objectui#10222 (ruling batch #223 item 5b, letter A), not
+  // deleted: what it guards, the DENIED `dateField` binding, is unchanged.
+  // Its fixture used to carry `metaFields: ['region']` as the permitted
+  // binding beside it. That key is undeclared on the spec's timeline block and
+  // the projection no longer reads it, so it can no longer be the live
+  // control. It was never a discriminating one either: `region` is in
+  // `COLUMNS`, so it reached `$select` through the column path whatever the
+  // binding did. The permitted binding is now `endDateField: 'end_date'`,
+  // which only the timeline binding can put in `$select`, the same shape PIN
+  // 3 uses for gantt. That the retired key projects nothing is pinned in
+  // `ListView.timelineMetaFieldsRetired-10222.test.tsx`.
   it('does not project a DENIED timeline date binding', async () => {
     const select = await selectFor({
       columns: COLUMNS,
-      timeline: { dateField: 'due_date', metaFields: ['region'] },
+      timeline: { dateField: 'due_date', endDateField: 'end_date' },
     });
     expect(select).not.toContain('due_date');
-    expect(select).toContain('region');
+    expect(
+      select,
+      'both bindings ride the same helper, so the pin is only meaningful if the permitted '
+        + 'one survives the same call',
+    ).toContain('end_date');
   });
 
   // ── PIN 5: calendar bindings ────────────────────────────────────────────
@@ -242,8 +258,10 @@ describe('ListView — speculative view bindings are FLS-gated (objectui#7216)',
 
   // ── PIN 8: the timeline's AUTO-ADDED status / priority badge fields ─────
   //
-  // These two are not authored anywhere — the builder adds them itself when a
-  // timeline is configured with no explicit `metaFields`. Nothing upstream can
+  // These two are not authored anywhere — the builder adds them itself for
+  // every configured timeline. (It used to skip them when the block carried a
+  // `metaFields` list; that undeclared key is retired and no longer read,
+  // objectui#10222, ruling batch #223 item 5b, letter A.) Nothing upstream can
   // have filtered them, so this caller is the one with no other line of
   // defence at all.
   it('does not project the auto-added `status` / `priority` badges when denied', async () => {

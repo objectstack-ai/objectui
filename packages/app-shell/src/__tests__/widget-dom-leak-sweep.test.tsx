@@ -595,7 +595,7 @@ const CALENDAR_OBJECT_EXTRAS = {
  * an ordinary authored prop while doing it.
  *
  * Measured on the tree this landed on: 152 of 158 targets matched it.
- * Today 155 of 159 targets match it; the other four are in
+ * Today 156 of 159 targets match it; the other three are in
  * {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
  * a recorded limitation with its own two-way assertion below, never a quiet
  * exemption (the `omitCanaries` discipline, applied to readiness).
@@ -685,7 +685,7 @@ const METADATA_HOST_CONTEXT: MetadataContextValue = {
 };
 
 /**
- * Why each of the four targets below cannot use {@link COMPONENTS_READY}, and
+ * Why each of the three targets below cannot use {@link COMPONENTS_READY}, and
  * what its selector proves instead. Every entry is measured, and the assertion
  * in section 3 makes this map and the overrides EXACTLY each other: an override
  * without a reason fails, and a reason whose target no longer needs one fails
@@ -702,10 +702,14 @@ const METADATA_HOST_CONTEXT: MetadataContextValue = {
  * empty the fixture is, and fixing it is out of this card's scope (test
  * fixtures only, no renderer edits). Its entry below is REWRITTEN, not
  * deleted: it still names a real gap, just a different one than before.
+ *
+ * Was four until objectui#10397: `ui:header-bar` dropped out because its
+ * renderer now merges `schema.className` onto its root `header` through
+ * `cn(...)`, so the shared readiness class reaches the DOM there too. Its
+ * reason had said the renderer forwarded the authored `className` to neither
+ * its own `header` nor the sidebar wrapper, which that repair made false.
  */
 const READY_OVERRIDE_REASONS: Readonly<Record<string, string>> = {
-  'ui:header-bar':
-    'it renders inside the sidebar wrapper and forwards the authored `className` to neither its own `header` nor that wrapper, so the selector names its own `header` element instead.',
   'ui:toaster':
     'Sonner owns the root it renders and takes no `className` from the node; the selector names the live-region `section` Sonner emits.',
   'ui:tooltip':
@@ -782,7 +786,7 @@ const COMPONENTS_SPECIAL_TARGETS: readonly Target[] = [
   componentsTarget('ui:sidebar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:sidebar-trigger', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:sidebar-menu-button', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:header-bar', {}, 'header.border-b', 'sidebar'),
+  componentsTarget('ui:header-bar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:toaster', {}, 'section[aria-label="Notifications alt+T"]'),
   // objectui#5630 — deepened past the empty-state placeholder. `items`
   // authored: pure schema, no host needed, and the populated `<dl>` carries
@@ -1813,9 +1817,9 @@ const DOCBLOCK_COUNTS = {
   /** Registry prefixes `packages/components` owns. */
   componentsPrefixes: 5,
   /** Targets the shared readiness selector reaches. */
-  componentsReadyMatched: 155,
+  componentsReadyMatched: 156,
   /** The rest, each with a recorded reason it cannot. */
-  componentsReadyOverrides: 4,
+  componentsReadyOverrides: 3,
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */

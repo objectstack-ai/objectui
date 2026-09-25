@@ -337,20 +337,53 @@ action renderer forwards.
 
 ## Performance Optimization
 
-### Lazy Loading
+### Lazy loading: there is no such knob
 
-Large schemas are automatically optimized:
+There is no authorable lazy-loading key — not on `tabs`, not on any other node.
+This section used to show a `tabs` node carrying `"lazyLoad": true` beneath the
+sentence "Large schemas are automatically optimized". Nothing in this repository
+performs that optimization and nothing reads that key, so the promise is removed
+here rather than respelled.
+
+Two things mislead, so both are worth naming:
+
+- **`lazyLoad` is a real name in this repository — on a different surface.** It is
+  a member of `PerformanceConfig`, the argument type of the `usePerformance`
+  hook: a configuration object you pass in TypeScript, never a key you author on
+  a node. Finding it in a search does not make it authorable. It gates nothing
+  even there — `usePerformance` resolves it into the config it hands back and
+  never branches on it, unlike its sibling `debounceMs`, which the hook lifts
+  into a local and passes to `setTimeout`.
+- **The `tabs` renderer builds every panel on the same render pass.** It maps
+  `items` twice, unconditionally — once for the triggers and once for the
+  panels — so no tab's `content` waits for a click. It uses neither `lazy` nor
+  `Suspense`, and it never calls `usePerformance`.
+
+To defer real work behind a tab, defer the *component* rather than the node: see
+[Code Splitting](#code-splitting) below.
+
+For reference, a `tabs` node written with the keys `TabsSchema` actually declares:
 
 ```json
 {
   "type": "tabs",
-  "lazyLoad": true,
-  "tabs": [
-    { "title": "Tab 1", "body": { /* Loaded when tab is clicked */ } },
-    { "title": "Tab 2", "body": { /* Loaded when tab is clicked */ } }
+  "defaultValue": "tab1",
+  "items": [
+    { "value": "tab1", "label": "Tab 1", "content": { "type": "text", "content": "First panel" } },
+    { "value": "tab2", "label": "Tab 2", "content": { "type": "text", "content": "Second panel" } }
   ]
 }
 ```
+
+`items` is the node's tab list — there is no `tabs` key — and every item takes
+`value`, `label` and `content`: the identifier, the visible title, and the panel.
+All three are required, and the two ways of getting an item wrong fail
+differently. An item missing one of them is **refused**. An item that also
+carries the older `title` / `body` spelling is **accepted with those two keys
+dropped**, so the tab renders an empty panel with nothing naming the cause. On
+the node itself, `body` and `children` are refused by name: `tabs` reads neither
+content channel. The four keys it does render are `defaultValue`, `items`,
+`orientation` and `value`.
 
 ### Memoization
 
@@ -410,12 +443,18 @@ Validation happens at three doors, all of them outside the render path:
    against its Zod schema when the framework loads it; the result travels with the item as a
    `_diagnostics` envelope, which Studio surfaces. See
    [Metadata Diagnostics](./metadata-diagnostics.md).
-2. **Authoring time — the CLI.** `objectui validate` parses one document against the published
-   schema and prints the schema's own errors when it fails. `objectui check` sweeps a project
-   and lists the files that carry a registered component type but did not validate, pointing at
-   `objectui validate` for the reason.
+2. **Authoring time — `objectui validate`.** It parses one document, JSON or YAML, against the
+   published schema, prints the schema's own errors when it fails, and exits non-zero. That exit
+   code is the CLI's validation verdict. `objectui check` does not give it. `check` sweeps a
+   project's JSON files and checks the `type` of each file it recognises, and a file whose root
+   carries an ObjectUI structural key (`children`, `className`, `body`, …) is recognised by that
+   key alone, without being parsed against the schema — so an invalid document of that shape is
+   not reported at all. Only a file with none of those keys is parsed; it is listed by name when
+   its root `type` names a registered component but the document does not validate, and that
+   list is advisory: `check` exits non-zero on unreadable JSON only. See
+   [`objectui check`](/docs/utilities/cli#objectui-check).
 3. **Wherever else you need it — `safeValidateSchema`.** Exported from `@object-ui/types/zod`,
-   it is the same parse both CLI commands run, so a build step, a CI job or a save handler can
+   it is the parse `objectui validate` runs, so a build step, a CI job or a save handler can
    apply the identical contract.
 
 Put the check where documents are authored, saved or loaded — not in the paint. A document that

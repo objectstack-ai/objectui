@@ -134,18 +134,11 @@ export { useDetailTranslation, DETAIL_DEFAULT_TRANSLATIONS, createSafeTranslatio
 export { RecordComments } from './RecordComments';
 export { ActivityTimeline } from './ActivityTimeline';
 export { HistoryTimeline } from './HistoryTimeline';
-export { InlineCreateRelated } from './InlineCreateRelated';
 export { RichTextCommentInput } from './RichTextCommentInput';
-export { DiffView } from './DiffView';
-export { RecordNavigationEnhanced } from './RecordNavigationEnhanced';
-export { RelationshipGraph } from './RelationshipGraph';
 export { CommentAttachment } from './CommentAttachment';
-export { PointInTimeRestore } from './PointInTimeRestore';
 export { RecordActivityTimeline } from './RecordActivityTimeline';
 export { RecordChatterPanel } from './RecordChatterPanel';
-export { CommentInput } from './CommentInput';
 export { FieldChangeItem } from './FieldChangeItem';
-export { MentionAutocomplete, createMentionFromSuggestion } from './MentionAutocomplete';
 export { SubscriptionToggle } from './SubscriptionToggle';
 export { ReactionPicker } from './ReactionPicker';
 export { ThreadedReplies } from './ThreadedReplies';
@@ -160,20 +153,13 @@ export type { HeaderHighlightProps } from './HeaderHighlight';
 export type { RecordCommentsProps } from './RecordComments';
 export type { ActivityTimelineProps, ActivityFilterType } from './ActivityTimeline';
 export type { HistoryTimelineProps, HistoryEntry } from './HistoryTimeline';
-export type { InlineCreateRelatedProps, RelatedFieldDefinition, RelatedRecordOption } from './InlineCreateRelated';
 export type { RichTextCommentInputProps, MentionSuggestion } from './RichTextCommentInput';
 export { extractMentions } from './extractMentions';
 export type { MentionTarget } from './extractMentions';
-export type { DiffViewProps, DiffFieldType, DiffMode, DiffLine } from './DiffView';
-export type { RecordNavigationEnhancedProps } from './RecordNavigationEnhanced';
-export type { RelationshipGraphProps, GraphNode } from './RelationshipGraph';
 export type { CommentAttachmentProps, Attachment } from './CommentAttachment';
-export type { PointInTimeRestoreProps, RevisionEntry } from './PointInTimeRestore';
 export type { RecordActivityTimelineProps, FeedFilterMode } from './RecordActivityTimeline';
 export type { RecordChatterPanelProps } from './RecordChatterPanel';
-export type { CommentInputProps } from './CommentInput';
 export type { FieldChangeItemProps } from './FieldChangeItem';
-export type { MentionAutocompleteProps, MentionSuggestionItem } from './MentionAutocomplete';
 export type { SubscriptionToggleProps } from './SubscriptionToggle';
 export type { ReactionPickerProps } from './ReactionPicker';
 export type { ThreadedRepliesProps } from './ThreadedReplies';
@@ -344,10 +330,10 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
 // directly, `section` arrived `undefined` and the very first
 // `section.defaultCollapsed` read THREW — measured end to end, the author's page
 // showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
-// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// block. `DetailSectionNode` folds the declared inputs into the `section`
 // object the component reads; see that file for why the fold sits at this seam
 // rather than in `DetailSection` (which every in-repo caller uses directly), and
-// why re-declaring these eight as a nested `section` input was the repair NOT
+// why re-declaring these as a nested `section` input was the repair NOT
 // taken.
 ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
@@ -356,6 +342,11 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
   inputs: [
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
+    {
+      name: 'icon',
+      type: 'string',
+      description: 'Section header icon, drawn before the title: a Lucide icon name such as `map-pin`.',
+    },
     { name: 'fields', type: 'array', required: true },
     { name: 'collapsible', type: 'boolean' },
     { name: 'defaultCollapsed', type: 'boolean' },
@@ -388,6 +379,26 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
       enum: Object.keys(headerColorVocabulary),
       description:
         'Header tint, from the design system\'s closed palette: one of `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`, `destructive/10`. Any other value is refused — `@object-ui/types` parses this key as that same six-member enum (objectui#6594), matching @objectstack/spec\'s strict `record:details` section schema. Omit the key for no tint.',
+    },
+    {
+      /**
+       * objectui#10485 — declared because `DetailSection` already honours it
+       * (`section.hideEmpty === true`), the objectui#9529 ruling applied to a
+       * second key on this node.
+       *
+       * The description states THIS node's omitted default, and it is one
+       * value: nothing on the node's path resolves a default, and
+       * `DetailSection` tests `=== true`, so an omitted key keeps the
+       * all-empty section. That matches `detail-view`, which hands its
+       * sections on unchanged; `record:details` resolves `?? true` on its OWN
+       * authored sections, which never pass through this node. `true` and
+       * `false` mean the same on all three. No `defaultValue`: no other input
+       * of this node carries one.
+       */
+      name: 'hideEmpty',
+      type: 'boolean',
+      description:
+        'When every field in the section is empty, `true` hides the whole section (no heading, no skeleton). Omitted or `false`, an all-empty section keeps its heading and label skeleton. Empty fields in a section that still has a filled one are not governed by this key.',
     },
   ],
 });

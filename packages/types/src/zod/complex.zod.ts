@@ -23,6 +23,7 @@ import {
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js';
@@ -284,24 +285,90 @@ export const CalendarViewSchema = BaseSchema.extend({
 });
 
 /**
- * Filter Operator Enum
+ * Filter Operator — DERIVED from `@objectstack/spec/ui`, never hand-copied
+ * (objectui#9559, ruling B, ratified).
+ *
+ * This is the protocol's own operator member of `ViewFilterRuleSchema`, which
+ * the spec builds from its declared set and its alias fold:
+ * `z.preprocess(normalizeFilterOperator, z.enum(VIEW_FILTER_OPERATORS))`. So
+ * this mirror accepts exactly what the protocol's rule accepts and answers with
+ * exactly what it answers:
+ *
+ *   - every canonical member of `VIEW_FILTER_OPERATORS` parses as itself;
+ *   - every legacy spelling in the spec's alias table (`lessThan`, `gt`,
+ *     `isEmpty`, …) parses AND IS NORMALISED to its canonical member — the parse
+ *     output of an authored `lessThan` is `less_than`;
+ *   - every other spelling is refused, as the protocol refuses it
+ *     (`containsCaseInsensitive`, `exists` and `notExists` among them: the
+ *     protocol's table has no row for them, and this mirror adds none).
+ *
+ * It used to be a 14-member local literal that had fallen six members behind
+ * the protocol (`icontains`, `is_empty`, `is_not_empty`, `before`, `after`,
+ * `between`) and refused every alias the protocol normalises, so the authoring
+ * gate refused operators the runtime and the protocol both accept. Taking the
+ * spec's member ends that drift class rather than this instance of it: a
+ * member the spec adds, an alias row it adds, or a change to how it folds
+ * reaches this mirror with no edit here.
+ *
+ * Why the rule's member and not a local `z.enum(VIEW_FILTER_OPERATORS)`:
+ * the result is the same schema, and this spelling is the one the objectui#8317
+ * import boundary can police — every spec value read in a mirror goes through
+ * `stripImportedDefaults`, which has an arm for a schema and none for a bare
+ * array or a function. The rule carries no default, so the strip hands back the
+ * spec's own object.
+ *
+ * ⚠️ A `ZodPipe` (preprocess into the enum), not a `ZodEnum`: the member list is
+ * `FilterOperatorSchema.out.options`, and the input side takes any value so the
+ * fold can run before the enum judges it. The TypeScript twin,
+ * `FilterBuilderOperator` in `../complex.ts`, is the spec's `ViewFilterOperator`
+ * taken by reference — the canonical spellings only, because the aliases are a
+ * read-side migration bridge the spec marks deprecated, not a vocabulary new
+ * producers may emit.
  */
-export const FilterOperatorSchema = z.enum([
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-  'starts_with',
-  'ends_with',
-  'greater_than',
-  'greater_than_or_equal',
-  'less_than',
-  'less_than_or_equal',
-  'in',
-  'not_in',
-  'is_null',
-  'is_not_null',
-]);
+export const FilterOperatorSchema = stripImportedDefaults(SpecViewFilterRuleSchema).shape.operator;
+
+/**
+ * A condition's `value` is judged against its `operator` by the PROTOCOL'S OWN
+ * RULE (objectui#10478): delegated to `ViewFilterRuleSchema`, never restated.
+ *
+ * The spec rule couples the two in its object-level refinement (`in` / `not_in`
+ * take an array, `between` takes exactly `[min, max]`, plus whatever arms the
+ * installed spec release carries), and its `value` member bounds the value's
+ * type. This mirror used to declare `value: z.any()` and run none of it, so
+ * `safeValidateSchema`, `objectui check` and `objectui validate` answered green
+ * on a rule the protocol refuses: `{ field: 'amount', operator: 'between',
+ * value: 5 }` among them.
+ *
+ * The spec's check functions are module-private, so the delegation goes through
+ * the exported rule. The condition's PROJECTION onto the rule's three keys is
+ * re-parsed by the rule, and the rule's issues are forwarded verbatim, so the
+ * author reads the spec's own message. It is the same composition
+ * `GlobalFilterSchema` below uses, and for the same reason: an arm the spec adds
+ * later reaches this mirror with no edit here.
+ *
+ *   - `id` is withheld. It is this mirror's row identity (objectui#8415), and
+ *     the rule is strict and refuses it as a console row key, so the
+ *     projection is load-bearing rather than tidy.
+ *   - `field` and `operator` are the schemas the rule itself declares (the
+ *     operator IS the rule's member, above), and zod runs an object refinement
+ *     only after every member was accepted. So every issue the rule can raise
+ *     here is about `value`: the mirror refuses nothing new for another reason.
+ *   - An omitted `value` stays omitted, so the rule judges absence as absence.
+ *
+ * `value` keeps its `z.any()` declaration, so the static type does not move and
+ * the TypeScript twin (`FilterBuilderCondition.value`, `any`) is untouched; only
+ * the runtime accept set narrows, to the protocol's.
+ */
+function conditionValueFollowsTheProtocolRule(
+  condition: { field: string; operator: string; value?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  const rule: Record<string, unknown> = { field: condition.field, operator: condition.operator };
+  if ('value' in condition) rule.value = condition.value;
+  const result = stripImportedDefaults(SpecViewFilterRuleSchema).safeParse(rule);
+  if (result.success) return;
+  for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+}
 
 /**
  * Filter Condition Schema
@@ -311,7 +378,8 @@ export const FilterOperatorSchema = z.enum([
  * spells `unwrap` as `() => _zod.def.getter()`, going around the cache zod keeps
  * on `def._cachedInner`, so an un-memoised lazy hands out a fresh schema per
  * call.) Safe here because this body is NOT recursive — it names only
- * `FilterOperatorSchema`, declared above.
+ * `FilterOperatorSchema` and `conditionValueFollowsTheProtocolRule`, both
+ * declared above, and neither reaches back to this const.
  *
  * ⚠️ `FilterGroupSchema` below CANNOT take this shape, and neither can six other
  * `z.lazy` exports of this face: their bodies name the very const being declared
@@ -359,8 +427,9 @@ const FilterBuilderConditionObject = z.object({
   id: z.string().describe('Row identity — matched by `removeCondition` / `updateCondition` / `changeOperator` / `changeField`, and the React key'),
   field: z.string().describe('Field name'),
   operator: FilterOperatorSchema.describe('Filter operator'),
+  // Judged against `operator` by the spec rule, in the refinement below.
   value: z.any().optional().describe('Filter value'),
-});
+}).superRefine(conditionValueFollowsTheProtocolRule);
 
 export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterBuilderConditionObject);
 
@@ -478,7 +547,31 @@ export const FilterFieldSchema = z.object({
     'select', 'status',
     'lookup', 'master_detail', 'user',
   ]).optional().describe('Field type — the published doc\'s fourteen; `text` when absent'),
-  operators: z.array(FilterOperatorSchema).optional().describe('Available operators'),
+  // The spec's canonical filter vocabulary, `VIEW_FILTER_OPERATORS` in
+  // `@objectstack/spec/ui` (objectui#10286, the objectui#7759 ruling: where the
+  // spec declares it, both faces align to the spec). This key used to take
+  // `FilterOperatorSchema` above, which carries `is_null` / `is_not_null` where
+  // the TS declaration carried `is_empty` / `is_not_empty`, so neither face
+  // could be satisfied from the other. `FilterOperatorSchema` itself still
+  // types a CONDITION's `operator` and is not this key's business.
+  //
+  // Spelled out rather than imported: a raw spec VALUE read in a mirror must go
+  // through the objectui#8317 import boundary, which is about schemas and has no
+  // arm for a bare array. It cannot drift silently: the TS face takes the spec's
+  // `ViewFilterOperator` BY REFERENCE, so the parity ledger reddens the day the
+  // two sets differ, and `mirror-groups-cd-10286.test.ts`
+  // compares this list with the spec's array at runtime.
+  operators: z.array(z.enum([
+    'equals', 'not_equals',
+    'contains', 'not_contains', 'icontains',
+    'starts_with', 'ends_with',
+    'greater_than', 'less_than',
+    'greater_than_or_equal', 'less_than_or_equal',
+    'in', 'not_in',
+    'is_empty', 'is_not_empty',
+    'is_null', 'is_not_null',
+    'before', 'after', 'between',
+  ])).optional().describe('Available operators'),
   options: z.array(z.object({
     label: z.string(),
     value: z.any(),
@@ -566,6 +659,11 @@ export const ChatToolInvocationSchema = z.object({
   args: z.unknown().optional().describe('Tool arguments'),
   result: z.unknown().optional().describe('Tool result'),
   errorText: z.string().optional().describe('Tool error text'),
+  // The AUTHORING state vocabulary (objectui#10018). The AI SDK's three
+  // approval states — `approval-requested`, `approval-responded` and
+  // `output-denied` — are runtime-only and are not listed: an authored claim
+  // of one is refused as an `invalid_value` at `state`, with or without an
+  // `approval` envelope. Mirrors `ChatToolInvocation.state` in ../complex.ts.
   state: z
     .enum([
       'partial-call',
@@ -573,18 +671,16 @@ export const ChatToolInvocationSchema = z.object({
       'result',
       'input-streaming',
       'input-available',
-      'approval-requested',
-      'approval-responded',
       'output-available',
       'output-error',
-      'output-denied',
     ])
     .optional()
     .describe('Tool invocation state'),
   // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
   // tool-part union requires this envelope alongside the three approval
-  // states; the pairing itself is objectui#8426's narrowing and is NOT
-  // enforced here, so this arm stays independently optional (objectui#8442).
+  // states, which the `state` enum above does not admit (objectui#10018); on
+  // the states it does admit the envelope is never required, so this arm
+  // stays independently optional (objectui#8442).
   approval: z
     .object({
       id: z.string().describe('Approval request id — the key a decision is replied on'),
@@ -1153,22 +1249,39 @@ export const GlobalFilterSchema = z.object({
  *
  * Omitted, each for a stated reason:
  *  - `name`/`label`/`description` — component-envelope keys owned by BaseSchema;
- *  - `widgets`/`globalFilters`/`dateRange` — objectui's element schemas are
- *    their own ledger entries (the local widget still carries the legacy
- *    `component` envelope the spec has no room for, and both local configs are
+ *  - `widgets`/`globalFilters` — objectui's element schemas are their own
+ *    ledger entries (the local widget still carries the legacy `component`
+ *    envelope the spec has no room for, and the local filter config is
  *    deliberately looser than spec's); migration deferred.
+ *
+ * `dateRange` was a third member of that list until objectui#10334. Its local
+ * element (`defaultRange` a bare `z.string()`, a stripping object) admitted
+ * preset names the spec's enum and the TypeScript twin both refuse — the
+ * `WiderThanDeclared` row objectui#7759 group F left behind. The spec declares
+ * the key, so by that card's rule 1 / proposal F1 both faces now take the
+ * spec's AUTHORING shape by reference through this projection: the closed
+ * `DATE_RANGE_DEFAULT_RANGES` vocabulary, the spec's strict object with its
+ * named alias refusals, and — via `stripImportedDefaults` — no authored
+ * default. The read site (`resolveDashboardFilterDefs` in `@object-ui/core`)
+ * already implements every arm: each preset, the `custom` sentinel, `field`
+ * and `allowCustomRange`.
  *
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui dashboards.
  */
-const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, [
+export const DASHBOARD_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'widgets',
   'globalFilters',
-  'dateRange',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `DashboardComponentSchema`
+// TypeScript twin in `../complex.ts`, which extends `Omit< Dashboard, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, DASHBOARD_SPEC_EXCLUDED);
 
 /**
  * Dashboard Schema — the objectui dashboard renderer node, derived from
@@ -1187,11 +1300,6 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
   widgets: z.array(z.union([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema]))
     .describe('Dashboard widgets'),
   globalFilters: z.array(GlobalFilterSchema).optional().describe('Dashboard-level filters'),
-  dateRange: z.object({
-    field: z.string().optional(),
-    defaultRange: z.string().optional(),
-    allowCustomRange: z.boolean().optional(),
-  }).optional().describe('Built-in date range filter'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '

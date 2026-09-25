@@ -17,7 +17,11 @@
  */
 
 import { z } from 'zod';
-import { ChartTypeSchema as SpecChartTypeSchema, I18nLabelSchema } from '@objectstack/spec/ui';
+import {
+  ChartAxisSchema as SpecChartAxisSchema,
+  ChartTypeSchema as SpecChartTypeSchema,
+  I18nLabelSchema,
+} from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { TABLE_COLUMN_TYPES, type TreeNode } from '../data-display.js';
@@ -226,7 +230,12 @@ export const TableColumnSchema = z.object({
   filterable: z.boolean().optional().describe('Whether column is filterable'),
   resizable: z.boolean().optional().describe('Whether column is resizable'),
   editable: z.boolean().optional().describe('Whether column is editable (for inline editing)'),
-  cell: z.function().optional().describe('Custom cell renderer'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
+  // calls `col.cell(cellValue, row)`, and `ObjectGrid` / `VirtualGrid` call it the
+  // same way, so the TypeScript member keeps its function type. A JSON author
+  // cannot write a function, and a bare `z.function()` here accepted ANY callable
+  // where the declaration states one signature — so the mirror refuses by name.
+  cell: handlerKeyRefusal('cell', 'runtime-slot', 'Custom cell renderer'),
   // A rendered React node — a runtime slot like `cell` above, so the mirror's
   // one job is to PASS IT THROUGH: a non-strict z.object() silently STRIPS an
   // undeclared key, and a stripped `headerIcon` was exactly the second de-facto
@@ -442,7 +451,12 @@ export const DataTableSchema = BaseSchema.extend({
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
   onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
   cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
-  renderCellEditor: z.function().optional().describe('Host-supplied inline cell editor; returning null falls through to the built-in text/number/date inputs (objectui#6882). Its context carries `row` (the persisted record) and `pendingRow` (that record with the row\'s staged, unsaved edits merged over it — objectui#7188); `z.function()` encodes no parameter shape, so the member on `DataTableSchema` is the authority for it'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
+  // reads `schema.renderCellEditor` and calls it with the edit context; its
+  // supplier is `ObjectGrid` (`@object-ui/plugin-grid`). The context's shape —
+  // `row` (persisted) vs `pendingRow` (staged edits merged, objectui#7188) — is
+  // stated on the `DataTableSchema` member, the only face that can type it.
+  renderCellEditor: handlerKeyRefusal('renderCellEditor', 'runtime-slot', 'Host-supplied inline cell editor'),
   frozenColumns: z.number().optional().describe('Number of frozen columns'),
   showRowNumbers: z.boolean().optional().describe('Show row numbers'),
   emptyAction: SchemaNodeSchema.optional().describe('Optional schema node rendered inside the empty-state, e.g. an "Add record" button. Lets the empty state become an actionable invitation rather than a dead end.'),
@@ -755,6 +769,10 @@ export const ChartDataSeriesSchema = z.object({
  *     (`normalizeChartSchema.ts:289-291`). It is a DIFFERENT key that happens to
  *     also answer the column question, not a spelling of `xAxisKey` — folding it
  *     would discard `format` / `title` / `showGridLines`. It is left untouched.
+ *     ⚠️ AMENDED (objectui#7690): "left untouched" still holds for the FOLD, and
+ *     no longer for the VALUE — the object is now DECLARED on `ChartSchema`
+ *     below, as `@objectstack/spec`'s own `ChartAxisSchema`, so its keys and
+ *     their values are checked at parse. The fold below still passes it through.
  *
  * ## No second writable name, and no invented precedence
  *
@@ -782,6 +800,46 @@ function foldChartXAxisAlias<T extends Record<string, unknown>>(input: T): T {
   const { xAxis: _alias, ...rest } = input;
   return (rest.xAxisKey === undefined ? { ...rest, xAxisKey: alias } : rest) as T;
 }
+
+/**
+ * The message for a refused `ChartSchema.xAxis` (objectui#7690).
+ *
+ * `xAxis` is a two-arm union — the bare-string alias and the spec's axis object
+ * — and zod answers a union that no arm accepts with one `invalid_union` at
+ * `xAxis` reading only "Invalid input". Every useful word sits one level down,
+ * in the arm the author meant: `xAxis: { field: 'month', grid: true }` carries
+ * the spec's own "Did you mean `grid` → `showGridLines`?" in the OBJECT arm's
+ * issues, and nothing on the surface says so. So:
+ *
+ *   - an OBJECT can only have meant the object arm, and that arm's issues are
+ *     surfaced with their paths (`xAxis.min: …`), in the spec's own words;
+ *   - anything else is neither arm, and the message names both.
+ *
+ * It is a MESSAGE, not an accept: the issue stays `invalid_union` at `xAxis`,
+ * and nothing that was refused is admitted. Narrowed to `invalid_union` so the
+ * union's own other issues keep zod's default wording (the posture
+ * `AnyComponentSchema`'s map takes in `index.zod.ts`).
+ */
+function chartXAxisUnionError(issue: z.core.$ZodRawIssue): string | undefined {
+  if (issue.code !== 'invalid_union') return undefined;
+  const input = issue.input;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return '`xAxis` is either a bare column name (the sibling spelling of `xAxisKey`, folded onto it at parse) '
+      + 'or `@objectstack/spec`\'s axis object `{ field, title, format, … }` — this value is neither.';
+  }
+  // Arm order is the union's: [bare string, axis object].
+  const objectArm = issue.errors[1] ?? [];
+  const detail = objectArm
+    .map((i) => `${['xAxis', ...i.path.map(String)].join('.')}: ${i.message}`)
+    .join('; ');
+  return `\`xAxis\` is not a valid \`@objectstack/spec\` axis object — ${detail || 'Invalid input'}`;
+}
+
+/** The message for a `ChartSchema.yAxis` that is not a list (objectui#7690). */
+const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
+  '`yAxis` on a chart is `@objectstack/spec`\'s ARRAY of axis objects — write `yAxis: [{ field: \'total\' }]`, '
+  + 'one entry per value axis (a second entry declares the right-hand axis). A single axis object or a bare '
+  + 'column name is not a member of the protocol.';
 
 /**
  * Drill-down configuration — the zod mirror of `DrillDownConfig`
@@ -894,6 +952,46 @@ export const ChartSchema = BaseSchema.extend({
     .optional()
     .describe(
       'Row key holding the category (x) axis. The bare-string sibling spelling `xAxis: \'month\'` folds onto this key at parse and does not survive it.',
+    ),
+  // THE SPEC'S AXIS CONFIG OBJECT (objectui#7690, ruling 5809510046, branch 2 —
+  // declare). `@objectstack/spec/ui` DECLARES it: `ChartAxisSchema`, a strict
+  // object of nine keys, is the type of `ChartConfigSchema.xAxis` (one object)
+  // and of each entry of `ChartConfigSchema.yAxis` (an ARRAY). This node renders
+  // that shape — `normalizeAxis` in `plugin-charts/src/normalizeChartSchema.ts`
+  // reads exactly those nine keys — and a dashboard's dataset-bound chart hands
+  // it this node's `xAxis` / `yAxis` straight from the widget's `chartConfig`
+  // (`DatasetWidget` → `mergeAuthoredPresentation`). Until this declaration both
+  // keys rode `BaseSchema`'s `.passthrough()`: kept, read, and UNCHECKED, so
+  // `xAxis: { field: 'month', min: 'zero' }` parsed green and drew an unpinned
+  // axis. The per-key liveness read with lit controls is on the card and the PR.
+  //
+  // BY REFERENCE, not restated: the key set, the value domains and the strict
+  // refusal (with the spec's own "Did you mean `grid` → `showGridLines`?"
+  // guidance) are the spec's, so this mirror cannot drift from the protocol it
+  // mirrors. `stripImportedDefaults` keeps the spec's two `.default()`s
+  // (`showGridLines`, `logarithmic`) from being WRITTEN into the parse output —
+  // the normalizer reads an absent key as "renderer default", while an injected
+  // `showGridLines: true` would read as an authored opt-in: the x-axis vertical
+  // grid is drawn only on an explicit `true`.
+  //
+  // `xAxis` keeps its bare-string arm: that is the objectui#7113 ALIAS, folded
+  // onto `xAxisKey` by `foldChartXAxisAlias` below and absent from the output.
+  // The object arm is not folded (see that function's docblock).
+  xAxis: z
+    .union([z.string(), stripImportedDefaults(SpecChartAxisSchema)], { error: chartXAxisUnionError })
+    .optional()
+    .describe(
+      'Category (x) axis: `@objectstack/spec`\'s axis object `{ field, title, format, min, max, stepSize, showGridLines, position, logarithmic }`, '
+      + 'or a bare column name — the sibling spelling of `xAxisKey`, which it folds onto at parse.',
+    ),
+  yAxis: z
+    .array(stripImportedDefaults(SpecChartAxisSchema), {
+      error: (issue) => (issue.code === 'invalid_type' ? CHART_Y_AXIS_IS_A_LIST_GUIDANCE : undefined),
+    })
+    .optional()
+    .describe(
+      'Value (y) axes: an ARRAY of `@objectstack/spec` axis objects `{ field, title, format, min, max, stepSize, showGridLines, position, logarithmic }`. '
+      + 'The first entry is the primary axis; a second entry declares the right-hand axis.',
     ),
   height: z.union([z.string(), z.number()]).optional().describe('Chart height'),
   width: z.union([z.string(), z.number()]).optional().describe('Chart width'),

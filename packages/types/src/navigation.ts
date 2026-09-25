@@ -57,17 +57,42 @@ export interface NavLink {
 export interface HeaderBarSchema extends BaseSchema {
   type: 'header-bar';
   /**
-   * Header title/brand
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `title`.
+   *
+   * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
+   * site the truth, and there is none: the renderer's one function reads
+   * `actions`, `crumbs`, `rightContent`, `search` and the inherited
+   * `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496). Through the real `SchemaRenderer` an authored title drew the
+   * header byte-identical to its absence. For the current page name, use the
+   * last entry of `crumbs`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  title?: string;
+  title?: never;
   /**
-   * Brand logo image URL
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `logo`.
+   *
+   * No read site and no spec declaration. The two faces had also drifted
+   * apart: this declaration said an image URL `string`, the zod mirror a node
+   * or node array, and neither ever rendered. For brand content use
+   * `rightContent` or `actions`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  logo?: string;
+  logo?: never;
   /**
-   * Navigation links
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `nav`.
+   *
+   * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
+   * site the truth, and there is none: the renderer's one function reads
+   * `actions`, `crumbs`, `rightContent`, `search` and the inherited
+   * `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496). Through the real `SchemaRenderer` an authored link list drew
+   * the header byte-identical to its absence. No in-tree document authored it.
+   * For links, use `crumbs` here, or a `navigation-menu` / `sidebar` node.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  nav?: NavLink[];
+  nav?: never;
   /**
    * Breadcrumb items
    */
@@ -85,31 +110,70 @@ export interface HeaderBarSchema extends BaseSchema {
    */
   rightContent?: SchemaNode;
   /**
-   * Left side content
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no left slot.
+   *
+   * Not in `@objectstack/spec`; the renderer reads only `actions`, `crumbs`,
+   * `rightContent`, `search` and the inherited `className`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496),
+   * so an authored node rendered nothing. No in-tree document authored it. For custom content use
+   * `rightContent` or `actions`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  left?: SchemaNode | SchemaNode[];
+  left?: never;
   /**
-   * Center content
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no center slot.
+   *
+   * Same reading as `left`: no read site, no spec declaration, no in-tree
+   * author. For custom content use `rightContent` or `actions`.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  center?: SchemaNode | SchemaNode[];
+  center?: never;
   /**
-   * Right side content
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no `right` slot.
+   *
+   * No read site and no spec declaration; the right side of the header is
+   * `actions` (a node list) and `rightContent` (one node), both read. An
+   * authored `right` rendered nothing.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  right?: SchemaNode | SchemaNode[];
+  right?: never;
   /**
-   * Whether header is sticky
-   * @default true
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `sticky`.
+   *
+   * No read site and no spec declaration: `true` and `false` both drew the
+   * same, non-sticky header. To pin it, give the parent layout the sticky
+   * positioning.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  sticky?: boolean;
+  sticky?: never;
   /**
-   * Header height
+   * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `height`.
+   *
+   * No read of this key exists, and no in-tree document authored it. Not in
+   * `@objectstack/spec`. The renderer's own classes set the height (`h-14`, and
+   * `sm:h-16` from the `sm` breakpoint); to change it, author `className` (for
+   * example `h-20 sm:h-20`), which is merged after them (objectui#10397).
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  height?: string | number;
+  height?: never;
   /**
-   * Header variant
-   * @default 'default'
+   * RETIRED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`.
+   *
+   * The key is not in `@objectstack/spec`, so the objectui#7759 ruling makes
+   * the read site the truth, and the read site has none: the renderer's one
+   * function reads `actions`, `crumbs`, `rightContent`, `search` and the
+   * inherited `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496), so every
+   * spelling rendered the same header. The two faces had also drifted apart on the way there — this
+   * declaration offered `floating`, the zod mirror `transparent` — and
+   * neither word had ever reached a class name.
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  variant?: 'default' | 'bordered' | 'floating';
+  variant?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `header-bar` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this
@@ -121,15 +185,17 @@ export interface HeaderBarSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `actions`, `crumbs`, `rightContent`, `search` (in
-   * `packages/components/src/renderers/navigation/header-bar.tsx`).
+   * `actions`, `className` (since objectui#10397), `crumbs`, `rightContent`,
+   * `search` (in `packages/components/src/renderers/navigation/header-bar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `header-bar` reads — nothing renders it.
    */
@@ -145,15 +211,17 @@ export interface HeaderBarSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `actions`, `crumbs`, `rightContent`, `search` (in
-   * `packages/components/src/renderers/navigation/header-bar.tsx`).
+   * `actions`, `className` (since objectui#10397), `crumbs`, `rightContent`,
+   * `search` (in `packages/components/src/renderers/navigation/header-bar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `header-bar` reads — nothing renders it.
    */
@@ -287,12 +355,14 @@ export interface BreadcrumbSchema extends BaseSchema {
    * `className`, `items`, `maxItems`, `separator` (in
    * `packages/components/src/renderers/data-display/breadcrumb.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `breadcrumb` reads — nothing renders it.
    */
@@ -311,12 +381,14 @@ export interface BreadcrumbSchema extends BaseSchema {
    * `className`, `items`, `maxItems`, `separator` (in
    * `packages/components/src/renderers/data-display/breadcrumb.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `breadcrumb` reads — nothing renders it.
    */
@@ -379,12 +451,14 @@ export interface PaginationSchema extends BaseSchema {
    * `className`, `currentPage`, `page`, `totalPages` (in
    * `packages/components/src/renderers/basic/pagination.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `pagination` reads — nothing renders it.
    */
@@ -403,12 +477,14 @@ export interface PaginationSchema extends BaseSchema {
    * `className`, `currentPage`, `page`, `totalPages` (in
    * `packages/components/src/renderers/basic/pagination.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `pagination` reads — nothing renders it.
    */
@@ -469,12 +545,14 @@ export interface NavigationMenuSchema extends BaseSchema {
    * `className`, `items` (in
    * `packages/components/src/renderers/basic/navigation-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `navigation-menu` reads — nothing renders it.
    */
@@ -493,12 +571,14 @@ export interface NavigationMenuSchema extends BaseSchema {
    * `className`, `items` (in
    * `packages/components/src/renderers/basic/navigation-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `navigation-menu` reads — nothing renders it.
    */
@@ -572,12 +652,14 @@ export interface ButtonGroupSchema extends BaseSchema {
    * `buttons`, `className`, `size`, `variant` (in
    * `packages/components/src/renderers/basic/button-group.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `button-group` reads — nothing renders it.
    */
@@ -596,12 +678,14 @@ export interface ButtonGroupSchema extends BaseSchema {
    * `buttons`, `className`, `size`, `variant` (in
    * `packages/components/src/renderers/basic/button-group.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `button-group` reads — nothing renders it.
    */

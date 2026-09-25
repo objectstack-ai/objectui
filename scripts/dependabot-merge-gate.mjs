@@ -136,8 +136,8 @@ import { isEntrypoint } from './invoked-as.mjs';
  * path filter, so every pull request produces every one of them. Source of each
  * name, in the checks list rather than the file name:
  *
- *   ci.yml            Changeset Fixed Group Check, Type Check,
- *                     Test (shard 1..4/4), Build & E2E, Build Docs
+ *   ci.yml            Changeset Fixed Group Check, Type Check, Test,
+ *                     Build & E2E, Build Docs
  *   lint.yml          Lint
  *   control-bytes.yml Control Byte Scan
  *   docs-links.yml    Internal Docs Link Check
@@ -176,10 +176,22 @@ import { isEntrypoint } from './invoked-as.mjs';
 export const REQUIRED_CONTEXTS = Object.freeze([
   'Changeset Fixed Group Check',
   'Type Check',
-  'Test (shard 1/4)',
-  'Test (shard 2/4)',
-  'Test (shard 3/4)',
-  'Test (shard 4/4)',
+  // ⭐ ONE name, not one per shard (objectui#9499). This used to spell out
+  // `Test (shard 1/4)` … `Test (shard 4/4)`, which made the SHARD COUNT a
+  // member of the required set: widening the matrix renamed four live required
+  // contexts at once. `Test` is `ci.yml`'s `test-aggregate` job, which `needs`
+  // every shard and the dist-pin job and reads each one's OWN conclusion out of
+  // the Actions API before it reports.
+  //
+  // ⚠️ This is NOT the shape the #4959 counterfactual below warns about. That
+  // warning — "a gate that waited for `Test` as one name, or for whichever
+  // shard reported first, would have merged this pull request" — is about a
+  // single check produced BY a shard, which reports while its siblings are
+  // still running. This one cannot report before every shard has finished
+  // (`needs:`), and it is red unless every shard's own conclusion is `success`;
+  // `skipped` is not a pass there. The distinction is the whole content of
+  // `scripts/check-test-shard-results.mjs`.
+  'Test',
   'Build & E2E',
   'Build Docs',
   'Lint',
@@ -229,6 +241,8 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
     "lockfile-dedupe.yml (objectui#8333) runs `pnpm dedupe --check`: the committed lockfile must already be deduped, so a dependency bump cannot leave a forked peer group behind for `Bundle Analysis` to misattribute to the bump. Blocking when it runs; its pull_request trigger is path-filtered to `pnpm-lock.yaml` plus its own runtime closure, so a change touching none of them does not report at all. ⚠️ Enrolled as blocking where its neighbour `Lockfile Integrity Check` deliberately is NOT, and the difference is the remedy: #8326's gate names a duplication and leaves the answer open (re-lock, pin, or accept), which is a judgement call its header reserves for the maintainer, while this one has exactly one mechanical remedy that pnpm itself prints — run `pnpm dedupe` and commit the lockfile, changing no declaration, range or override. Cost of enrolling it, measured on objectui#8333 before it was taken: green on `main` as it stands (objectui#9215 collapsed the accumulated duplication first), red on the same tree with `better-auth` bumped. ⇒ nothing currently mergeable is blocked by it, and what it defends is that objectui#9215's paydown does not silently accrue again. To stop it blocking, move this name to `NOT_A_GATE`; ⛔ removing it from both buckets fails the partition test instead.",
   'Hook Self-Tests':
     'hook-selftests.yml filters on paths: .claude/hooks/**, plus the workflow file itself (objectui#5754). Blocking when it runs (the PreToolUse guard self-test matrices must pass); a Dependabot dependency bump never touches .claude/hooks/**, so it normally does not report at all.',
+  'Snapshot the board to the archive branch':
+    "board-snapshot.yml filters on paths: the workflow file itself (objectui#9387; since objectui#10208 the archiver runs from an objectstack checkout, so no script of this repository is on that list). Blocking when it runs: the pull_request leg runs the archiver's own --self-test and then a capped `--dry-run` snapshot on a real runner, so a workflow edit that breaks the archiver's invocation is red before it merges. It is OPTIONAL rather than required because that path filter means it does not report at all on a pull request that does not touch that file, which is every Dependabot bump. ⛔ Not NOT_A_GATE: that bucket says a check cannot gate, and this one is the only thing in the repository that exercises the archiver's wiring before it merges.",
 });
 
 /**
@@ -239,7 +253,23 @@ export const OPTIONAL_CONTEXTS = Object.freeze({
  * whichever shard happens to exist.
  */
 const COVERAGE_SHARD_NOT_A_GATE =
-  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the four `Test (shard N/4)` jobs above.";
+  "ci.yml's push-only coverage lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Coverage is deliberately not recomputed per pull request — v8 instrumentation adds 40-100% overhead — so the PR lane is the `Test (shard N/8)` matrix, which reports through the `Test` aggregator above. ⛔ This lane's own 4-way sharding is unrelated to that matrix's width and objectui#9499 did not touch it.";
+
+/**
+ * The eight PR test shards share one reason, spelled once. Every one of them is
+ * a real blocking leg — the difference from the coverage shards above is that
+ * something else reports their verdict, not that they have none.
+ *
+ * ⛔ Listing them individually rather than by pattern is deliberate, for the
+ * same reason the coverage shards are listed individually: a pattern is
+ * satisfied by whichever shard happens to exist, so a matrix that quietly lost
+ * a leg would still partition cleanly. Here the count is pinned by
+ * `dependabot-merge-gate.test.ts` against ci.yml's own matrix, which is a test
+ * that fails loudly and locally — ⛔ unlike the repository-settings surface the
+ * count used to be welded to (objectui#9499).
+ */
+const PR_TEST_SHARD_NOT_A_GATE =
+  "ci.yml's PR/merge-queue test matrix. It is a blocking leg and it is NOT waited for by name: since objectui#9499 the `test-aggregate` job (`Test`, above) is the single required test context, and it reports only after every shard has finished, red unless each shard's OWN conclusion is `success` — `skipped` included. Waiting for the legs here as well would put the shard COUNT back into a second declaration, which is the coupling that card removed.";
 
 /**
  * Everything else a pull request to `main` produces, and why it cannot gate.
@@ -248,10 +278,20 @@ const COVERAGE_SHARD_NOT_A_GATE =
  * defaulting into silence.
  */
 export const NOT_A_GATE = Object.freeze({
+  'Test (shard 1/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 2/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 3/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 4/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 5/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 6/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 7/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (shard 8/8)': PR_TEST_SHARD_NOT_A_GATE,
+  'Test (dist pins)':
+    "ci.yml's built-artifact pin lane, lifted out of the shard matrix by objectui#9499 (the lane itself is objectui#7183). Same reading as the shards above: it is blocking, and the `Test` aggregator asserts its result — `needs.test-dist-pins.result` is one job's own conclusion, so `skipped` is visible there without an API read — so the whole test lane still speaks through one required name.",
   dependabot:
     'This workflow itself. The gate runs inside this job, so requiring it would deadlock at its own deadline.',
   'Test (coverage)':
-    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the four `Test (shard N/4)` jobs above.",
+    "ci.yml's push lane (`if: github.event_name == 'push'`), so on a pull request it reports conclusion=skipped by design. Since objectui#5403 this is the job at the END of the coverage lane — it merges the four shard blob reports into one complete report, enforces the configured coverage thresholds over it, publishes it as the `coverage-report` artifact, and goes red whenever any of that did not happen (the Codecov upload it also carried was retired by objectui#5436). The PR lane is the `Test (shard N/8)` matrix, reported through the `Test` aggregator above.",
   'Test (coverage shard 1/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 2/4)': COVERAGE_SHARD_NOT_A_GATE,
   'Test (coverage shard 3/4)': COVERAGE_SHARD_NOT_A_GATE,
@@ -267,7 +307,9 @@ export const NOT_A_GATE = Object.freeze({
   'Lockfile Integrity Check':
     "lockfile-integrity.yml (objectui#8326) reports a lockfile DELTA — an `@objectstack/*` identity moving backward, or a workspace-declared dependency gaining a physical copy. ⛔ It is deliberately NOT a blocking context: enrolling it changes what stops the merge queue, which is a maintainer decision the #8326 dispatch reserved rather than took, and its pull request writes up the cost as input (measured: it would have blocked 3 of the 40 most recent lockfile-changing commits on `main`, each for a real duplication of a runtime-declared package). Its pull_request trigger is also path-filtered to `pnpm-lock.yaml` and its own two files, so it cannot be REQUIRED under #3523's rule while that filter stands — promoting it means removing the filter as well.",
   'Live half-state sweep':
-    'half-state-patrol.yml is REPORT-ONLY by ruling (objectui#5791): a completed sweep exits 0 whether it found 0 half-states or 40, and the job gates no branch and blocks no queue. It goes red only when the sweep could not RUN — the patrol reporting its own death, which is a fact about the patrol, not a verdict on the pull request. Its pull_request trigger is also path-filtered to the sweeper and the workflow, so a Dependabot bump never produces this check at all.',
+    'half-state-patrol.yml is REPORT-ONLY by ruling (objectui#5791): a completed sweep exits 0 whether it found 0 half-states or 40, and the job gates no branch and blocks no queue. It goes red only when the sweep could not RUN — the patrol reporting its own death, which is a fact about the patrol, not a verdict on the pull request. Its pull_request trigger is also path-filtered to the workflow file (the sweeper runs from an objectstack checkout since objectui#10208), so a Dependabot bump never produces this check at all.',
+  'Spec Main Shape Gate':
+    "spec-main-shape-gate.yml (objectui#9860) compiles this repository against `@objectstack/spec` built from objectstack `main` — the maintainer's option C, under which a real consumer's compile is the ONLY shape gate for that package's public surface. ⛔ It is NOT classified here because it cannot say no: it is an ordinary blocking check, unfiltered on `pull_request` and subscribed to `merge_group`, and a shape break is a real red naming the objectui file and the objectstack commit. It is here because REQUIREDNESS IS NOT IN THIS TREE — it is GitHub ruleset 11776024, repository settings, which `scripts/check-required-check-set.mjs` can read and nothing here can write. Two facts decide when the name moves to `REQUIRED_CONTEXTS`, and both are somebody's to establish rather than this file's to assume: (1) a maintainer enrols the context in that ruleset — the workflow already reports on queue builds, so the enrolment is safe to take alone, which is the #3523 ordering; and (2) the day-one break clears. On 2026-09-18, its first run against `objectstack-ai/objectstack@96cf32b07579` was RED on one objectui file, for a spec change in that repository and not for anything a pull request here did — so enrolling it in that state would have turned every objectui pull request red over an objectstack commit. ⛔ Do not read that as a live reading: the instrument that re-derives it is the job itself, on every run.",
   'Line Citation Gate':
     'line-citation-gate.yml is REPORT-ONLY by ruling (objectui#8875, clause 2): it prints the cross-file line-address citations a pull request ADDED against its base and exits 0 whatever it finds, so requiring it would enrol a check that cannot say no. It goes red only when one of its own synthetic controls fails — the differ reporting its own death, which is a fact about the instrument and not a verdict on the pull request. It also declares NO `merge_group` trigger, because it needs a base to be differential at all and only a pull request has one; under #3523 a required context that never reports on a queue build stalls the queue until the ruleset timeout fails it, so promoting this one means giving it a queue leg first. That promotion is the flip condition the ruling states, and a maintainer decision, ⛔ not a tidy-up.',
 });

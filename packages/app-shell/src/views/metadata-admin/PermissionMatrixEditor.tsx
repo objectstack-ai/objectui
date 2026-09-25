@@ -111,20 +111,39 @@ interface ObjectSummary {
 }
 
 /**
- * Is this item backed by a **code-package artifact**? (objectui#4518)
+ * Is this item backed by a **code-package artifact**? (objectui#4518, #4526)
  *
  * The client-side mirror of the server's `isArtifactBacked`
- * (metadata-protocol `protocol.ts`). It began as byte-for-byte the predicate
- * `ResourceEditPage` computes for its own two-tier gate; the two are NO LONGER
- * identical — see the divergence note at the end.
+ * (metadata-protocol `protocol.ts`), asking the question the way
+ * `ResourceEditPage` asks it for its own two-tier gate (its `isArtifactItem`):
+ * off the SAME source, the layered envelope this editor already fetches — its
+ * `code` layer and its ADR-0010 `provenance`. A non-null `code` layer alone is
+ * NOT proof of a code package, and two exclusions carve out what is not one,
+ * clause for clause the sibling's:
  *
- * A non-null `code` layer alone is NOT proof of a code package: a published
- * ORG item also surfaces its active version in `code`, tagged with the
- * `sys_metadata` provenance sentinel. The server excludes exactly that
- * sentinel ("`lookupArtifactItem` only returns items whose `_packageId` marks
- * a genuine code package (the `'sys_metadata'` rehydration sentinel is
- * excluded)"), so an org-authored set stays editable after publish instead of
- * being mis-read as a read-only packaged item.
+ *   1. `code._packageId === 'sys_metadata'` — the save-path sentinel for a
+ *      published ORG item, which also surfaces its active version in `code`.
+ *      The server excludes exactly that sentinel ("`lookupArtifactItem` only
+ *      returns items whose `_packageId` marks a genuine code package (the
+ *      `'sys_metadata'` rehydration sentinel is excluded)"), so an
+ *      org-authored set stays editable after publish.
+ *   2. `provenance === 'org'` — the axis that actually separates tenant-authored
+ *      content from code-shipped artifacts. The sentinel in (1) holds only on
+ *      the save path: boot-time rehydration of `sys_metadata` re-registers each
+ *      row under its REAL package id, so a tenant's own set reads back with a
+ *      code-looking `_packageId`. With (1) alone this function called that set
+ *      an artifact, and at the environment door — where `permission`'s
+ *      `allowOrgOverride: false` then decides — the tenant's own matrix
+ *      rendered read-only (objectui#4526). The framework fixed the same misread
+ *      by asking provenance (`isTenantAuthored`, cloud#970), and the server's
+ *      artifact lookup applies both exclusions.
+ *
+ * `provenance` describes `code` here: the server resolves it from
+ * `code ?? overlay`, and `code != null` is already required. Only `'org'` is
+ * carved out. `undefined` means "no opinion" (an older server, an unstamped
+ * item) and keeps the artifact reading, as the sibling does; a genuine code
+ * package reports `provenance: 'package'` and stays read-only unless the type
+ * allows overlay.
  *
  * `null` / a failed layered read answers `false` — "no artifact known". That
  * is the fail-OPEN direction on purpose: it is what the sibling's
@@ -132,25 +151,28 @@ interface ObjectSummary {
  * read failure must not invent a lock. The cost is bounded and honest — the
  * save still round-trips to the server's own gate.
  *
- * ── Divergence from `ResourceEditPage` (objectui#4308) ────────────────────
- * The sibling now ALSO excludes ADR-0010 `provenance === 'org'`. The sentinel
- * this function tests holds only on the save path: boot-time rehydration of
- * `sys_metadata` re-registers each row under its REAL package id, so a
- * tenant's own item reads back with a code-looking `_packageId` and this
- * predicate calls it an artifact. The framework hit the same thing and fixed
- * it by asking provenance (`isTenantAuthored`, cloud#970).
- *
- * That gap is NOT reachable here today: the artifact tier is gated on
- * `!packageId` (see `artifactTierApplies`), so under a package door — the
- * writable-package case #4308 reports, and the one #4446 fixed for this
- * editor — this function is never consulted. The env-door residue is filed on
- * objectui#4526 together with that card's own over-lock. Adopt provenance here
- * when #4526 is picked up, rather than re-copying the sibling's expression.
+ * ── Accepted behaviour: the single-kernel over-lock (objectui#4526) ─────────
+ * The residue described at `artifactTierApplies` — on a single-kernel host the
+ * server disengages its artifact tier, so an env-scope edit of a code-declared
+ * set is accepted there while this editor renders it read-only — is ACCEPTED
+ * as known behaviour by the maintainer-adopted ruling on objectui#4526. It
+ * fails toward an honest lock, never toward a Save that 403s, and closing it
+ * needs the kernel's environment topology on the client: the probe the #4518
+ * ruling forbids. It is re-graded, as a NEW card, only when the client gains a
+ * legitimate read of that topology (a ruling permitting the discovery probe,
+ * or a `/meta` payload that carries the environment scope). This function
+ * answers "does a code package ship this item", never "is the server's
+ * artifact tier engaged".
  */
-function isArtifactBackedLayer(layered: { code?: unknown } | null | undefined): boolean {
+function isArtifactBackedLayer(
+  layered: { code?: unknown; provenance?: unknown } | null | undefined,
+): boolean {
   const code = layered?.code;
   if (code == null) return false;
-  return (code as { _packageId?: string })._packageId !== 'sys_metadata';
+  return (
+    (code as { _packageId?: string })._packageId !== 'sys_metadata' &&
+    layered?.provenance !== 'org'
+  );
 }
 
 /** Localized short label for an OWD value; falls back to the raw value. */
@@ -320,11 +342,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // button that failed at the end with a 403 instead of a surface that explains
   // itself up front.
   //
-  // `ResourceEditPage:1332` has modelled both tiers all along; this is that
-  // same three-way rule, with the same `sys_metadata` sentinel (see
-  // {@link isArtifactBackedLayer}), read off the layered envelope this editor
-  // ALREADY fetches. No new probe — the ruling on #4518 forbids one, and the
-  // entry flags plus `layered.code` are the whole input.
+  // `ResourceEditPage` has modelled both tiers all along; this is that same
+  // three-way rule, with the same artifact predicate — the `sys_metadata`
+  // sentinel AND ADR-0010 `provenance` (see {@link isArtifactBackedLayer},
+  // objectui#4526) — read off the layered envelope this editor ALREADY
+  // fetches. No new probe — the ruling on #4518 forbids one, and the entry
+  // flags plus `layered.code` and `layered.provenance` are the whole input.
   //
   // ── …scoped to the environment door, which is the binding constraint ──────
   //
@@ -465,9 +488,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             : Promise.resolve(null),
         ]);
         if (cancelled) return;
-        // ARTIFACT tier input (objectui#4518) — the `code` layer of the SAME
-        // envelope the display baseline comes from, so the writability verdict
-        // and the body on screen can never be read from different round trips.
+        // ARTIFACT tier input (objectui#4518) — the `code` layer, and its
+        // `provenance` (objectui#4526), of the SAME envelope the display
+        // baseline comes from, so the writability verdict and the body on
+        // screen can never be read from different round trips.
         setCodeIsArtifact(isArtifactBackedLayer(lay));
         // Read decorations do NOT seed the editor (objectui#8181). `doSave`
         // below re-bases on a fresh RAW `layered` read, which drops them — but

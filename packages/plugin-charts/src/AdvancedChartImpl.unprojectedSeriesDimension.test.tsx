@@ -20,14 +20,19 @@
  *   - an unprojected group key REFUSES — nothing exists to draw or to label;
  *   - an ordinary (and a PARTIALLY projected) pivot renders unchanged.
  *
- * Every fixture goes through `buildChartSeries` rather than hand-writing the
+ * objectui#4695 extends the refusal to the neighbouring shape — NO series
+ * binding at all (`series === undefined`) — with its own sentence; the last
+ * `describe` pins that arm, its family boundary and its reverse control.
+ *
+ * Every #4683 fixture goes through `buildChartSeries` rather than hand-writing the
  * props, because the defect lives in the composition the two consumers perform
  * (`ObjectChart`, `DatasetWidget`) and not in either half alone.
  */
 
 import React from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render as rtlRender, cleanup, type RenderOptions } from '@testing-library/react';
+import { I18nProvider } from '@object-ui/i18n';
 import { buildChartSeries, NULL_CATEGORY_LABEL } from '@object-ui/core';
 
 // Recharts' ResponsiveContainer measures via ResizeObserver, which reports 0×0
@@ -42,6 +47,24 @@ vi.mock('recharts', async () => {
 });
 
 import AdvancedChartImpl from './AdvancedChartImpl';
+
+/**
+ * Every case mounts under an `I18nProvider`, as the console always does.
+ * `AdvancedChartImpl` reads the display locale (`useDisplayLocale`,
+ * objectui#9909), and a PROVIDER-LESS first `useTranslation()` prints
+ * react-i18next's once-per-module `NO_I18NEXT_INSTANCE` notice — which the
+ * `console.warn` spies below, written to read the chart's OWN diagnostics,
+ * would otherwise count.
+ */
+function EnSession({ children }: { children: React.ReactNode }) {
+  return (
+    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+      {children}
+    </I18nProvider>
+  );
+}
+const render = ((ui: React.ReactElement, options?: RenderOptions) =>
+  rtlRender(ui, { wrapper: EnSession, ...options })) as typeof rtlRender;
 
 afterEach(cleanup);
 
@@ -202,11 +225,12 @@ describe('AdvancedChartImpl — an unprojected SECOND dimension refuses (objectu
     warn.mockRestore();
   });
 
-  it('leaves a caller that computed NO series binding at all untouched', () => {
+  it('refuses a caller that computed NO series binding at all, in its own sentence (objectui#4695)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // `series === undefined` is "no binding was ever computed", not "a binding
-    // came out empty" — a different sentence, and not this card's. Such charts
-    // stay byte-for-byte as they were.
+    // came out empty". This used to draw the same silent frame of zero marks;
+    // maintainer ruling A on objectui#4695 refuses it too, through the SAME
+    // placeholder and code, with a sentence that says which of the two it is.
     const { container } = render(
       <AdvancedChartImpl
         chartType="bar"
@@ -215,8 +239,31 @@ describe('AdvancedChartImpl — an unprojected SECOND dimension refuses (objectu
         isAnimationActive={false}
       />,
     );
-    expect(refusal(container)).toBeNull();
-    expect(warn).not.toHaveBeenCalled();
+    const undeclared = refusal(container);
+    expect(undeclared, 'renders the explanatory placeholder').not.toBeNull();
+    expect(undeclared?.getAttribute('role')).toBe('status');
+    expect(undeclared?.textContent).toContain('status');
+    expect(container.querySelector('svg')).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0] ?? '')).toContain('objectui#4695');
+    const undeclaredText = undeclared?.textContent;
+    cleanup();
+
+    // Told apart from the computed-and-empty refusal: same code, different
+    // sentence — the fix differs (declare a series vs project / select one).
+    const { container: empty } = render(
+      <AdvancedChartImpl
+        chartType="bar"
+        data={[{ status: 'Backlog', est_hours: 12 }]}
+        xAxisKey="status"
+        series={[]}
+        isAnimationActive={false}
+      />,
+    );
+    const computedEmpty = refusal(empty);
+    expect(computedEmpty).not.toBeNull();
+    expect(computedEmpty?.textContent).not.toBe(undeclaredText);
+    expect(String(warn.mock.calls[1]?.[0] ?? '')).toContain('objectui#4683');
     warn.mockRestore();
   });
 
@@ -320,6 +367,82 @@ describe('AdvancedChartImpl — what the refusal must NOT swallow (objectui#4683
     // the framework#4033 guard carries.
     const { container } = render(
       <AdvancedChartImpl chartType="bar" data={[]} xAxisKey="status" series={[]} isAnimationActive={false} />,
+    );
+    expect(refusal(container)).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+describe('AdvancedChartImpl — a chart that declared NO series binding at all (objectui#4695)', () => {
+  const ROWS = [{ status: 'Backlog', est_hours: 12 }, { status: 'Done', est_hours: 30 }];
+
+  it('refuses on every family whose marks come only from `series`', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const chartType of ['bar', 'horizontal-bar', 'line', 'area', 'combo', 'column']) {
+      const { container } = render(
+        <AdvancedChartImpl chartType={chartType as any} data={ROWS} xAxisKey="status" isAnimationActive={false} />,
+      );
+      expect(refusal(container), `${chartType} refuses`).not.toBeNull();
+      expect(container.querySelector('svg'), `${chartType} draws no empty frame`).toBeNull();
+      cleanup();
+    }
+    warn.mockRestore();
+  });
+
+  it('keeps drawing the families that fall back to a `value` column', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (const chartType of ['pie', 'donut', 'funnel', 'radar']) {
+      const { container } = render(
+        <AdvancedChartImpl
+          chartType={chartType as any}
+          data={[{ name: 'Backlog', value: 12 }, { name: 'Done', value: 30 }]}
+          xAxisKey="name"
+          isAnimationActive={false}
+        />,
+      );
+      expect(refusal(container), `${chartType} draws`).toBeNull();
+      expect(container.querySelector('svg'), `${chartType} paints`).not.toBeNull();
+      cleanup();
+    }
+    const { container: scatter } = render(
+      <AdvancedChartImpl
+        chartType="scatter"
+        data={[{ x: 12, value: 30 }, { x: 20, value: 45 }]}
+        xAxisKey="x"
+        isAnimationActive={false}
+      />,
+    );
+    expect(refusal(scatter), 'scatter draws').toBeNull();
+    expect(scatter.querySelector('svg'), 'scatter paints').not.toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('reverse control: a bar chart that DECLARES its series renders normally', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { container } = render(
+      <AdvancedChartImpl
+        chartType="bar"
+        data={ROWS}
+        xAxisKey="status"
+        series={[{ dataKey: 'est_hours' }]}
+        isAnimationActive={false}
+      />,
+    );
+    expect(refusal(container)).toBeNull();
+    expect(container.querySelector('[data-chart-error]')).toBeNull();
+    expect(container.querySelectorAll('.recharts-rectangle')).toHaveLength(2);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('says nothing about an undeclared chart with no rows to plot at all', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Same rows.length > 0 precondition as the computed-and-empty arm: the empty
+    // RESULT is the chart's own empty state, not an authoring mistake.
+    const { container } = render(
+      <AdvancedChartImpl chartType="bar" data={[]} xAxisKey="status" isAnimationActive={false} />,
     );
     expect(refusal(container)).toBeNull();
     expect(warn).not.toHaveBeenCalled();

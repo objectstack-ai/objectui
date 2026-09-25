@@ -106,6 +106,7 @@ import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import { formatMetadataError, formatPublishFailures, type PublishFailure } from './metadataError.js';
+import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
@@ -115,6 +116,7 @@ import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkC
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
 import {
@@ -172,7 +174,7 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
 ];
 // objectui#5813 — debounced draft auto-save, shared by the pillars' editors.
 // Drafts never touch the live app, so persisting them automatically is
-// zero-risk; the 保存草稿 buttons it replaces were a standing tax on the
+// zero-risk; the Save draft buttons it replaces were a standing tax on the
 // topbars AND a real loss point (forgot-to-save). Semantics:
 //  - re-arms 1.5s after the LAST edit (the snapshot key changes per edit);
 //  - `blocked` mirrors each site's old disabled-guard — in particular a
@@ -214,7 +216,7 @@ function useDraftAutoSave(opts: {
 }
 
 // objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
-// top-level pillar row into the 「更多」 overflow (maintainer ruling
+// top-level pillar row into the "More" overflow (maintainer ruling
 // 2026-08-24: primary nav aligns with the Data/Automations/Interfaces maker
 // mental model). The PAGE is untouched: the /studio/:pkg/access route, the
 // pillar dispatch and PILLAR_FOR_SURFACE_TYPE all still point here.
@@ -248,10 +250,10 @@ const KIND_ICON: Record<string, LucideIcon> = {
 const navIcon = (type?: string): LucideIcon => KIND_ICON[type ?? ''] ?? Compass;
 
 
-/** Top-bar package switcher: list app packages (可写 base vs 只读 code), switch by
- * navigation, create a new writable base via the standard CreatePackageDialog,
- * and open the standard PackageDetailSheet (info + disable / duplicate / delete
- * / publish …) for the current package. */
+/** Top-bar package switcher: list app packages (writable base vs read-only
+ * code), switch by navigation, create a new writable base via the standard
+ * CreatePackageDialog, and open the standard PackageDetailSheet (info +
+ * disable / duplicate / delete / publish …) for the current package. */
 /**
  * One sonner id for EVERY `fetchPackages()` failure on this surface
  * (objectui#7368). Three effects call that one endpoint on mount — the
@@ -852,6 +854,13 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     return () => window.removeEventListener('beforeunload', handler);
   }, [pillarDirty]);
 
+  // The shared authenticated metadata client for this surface. Declared here
+  // rather than beside its other reader below because the publish immediately
+  // under it needs the SAME instance: `useMetadataClient` is the layer that
+  // hands the console's advisory toast renderer to the client, so the seam is
+  // what makes the gate's per-draft findings reach the author (objectui#10039).
+  const shellClient = useMetadataClient();
+
   // Package-level publish (ADR-0033/0037/0048): edits accumulate as per-item
   // drafts STAMPED with this package (each save passes packageId → the draft row's
   // sys_metadata.package_id). Publishing promotes exactly THIS package's drafts in
@@ -875,24 +884,42 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const doPublish = React.useCallback(async () => {
     setPublishing(true);
     try {
-      const res = await fetch(`/api/v1/packages/${encodeURIComponent(packageId)}/publish-drafts`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: '{}',
-      });
-      const payload = (await res.json().catch(() => null)) as {
+      // objectui#10039 — through `MetadataClient`, not a bare `fetch`. The
+      // route answers the runtime authoring gate's per-draft advisories on
+      // each `published[]` element (objectstack#9343), and the client is the
+      // seam that reports them: one advisory event per advised item, into the
+      // same sink, renderer and wording every other write door on this surface
+      // uses. A bare fetch had nothing to report THROUGH. Same move
+      // objectui#6965 / PR objectui#10038 made for the two sibling call sites.
+      const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
         error?: { message?: string; details?: { issues?: unknown } };
-        data?: { failed?: PublishFailure[] };
-      } | null;
-      if (!res.ok || payload?.success === false) {
-        // Hard failure (e.g. package not found) — carry the field-anchored issues.
-        throw Object.assign(new Error(payload?.error?.message || `HTTP ${res.status}`), {
-          issues: payload?.error?.details?.issues,
-        });
+        failed?: PublishFailure[];
+      };
+      // A non-2xx now throws inside the client, already carrying the server's
+      // message AND the field-anchored `error.details.issues` on
+      // `MetadataError.issues` — which is exactly what `formatMetadataError`
+      // in the catch below reads, so the hard-failure branch keeps its shape
+      // without restating it. What is left here is the 2xx batch verdict.
+      if (payload?.success === false) {
+        // The status is no longer in hand — a non-2xx threw above — so the
+        // last rung is a sentence rather than "HTTP 200".
+        throw Object.assign(
+          new Error(
+            // The sibling call site's own last rung for THIS route
+            // (`PackagesPage`'s `publishDrafts`), reused rather than a new
+            // key: one route, one sentence when the body carried no prose.
+            readEnvelopeFailureText(payload) ||
+              t('engine.packages.detail.actionFailed', locale),
+          ),
+          { issues: payload?.error?.details?.issues },
+        );
       }
-      const failed = payload?.data?.failed ?? [];
+      // `failed[]` off the body the client returns: it unwraps the
+      // dispatcher's `{ success, data }` for this route (the one route whose
+      // spec declaration says it arrives inside one), so the enveloped and
+      // unenveloped compositions read through ONE spelling here.
+      const failed = payload?.failed ?? [];
       if (failed.length > 0) {
         // Partial publish: some drafts did NOT go live. The server returns 200
         // with them buried in `failed[]`, so the UI used to claim success and
@@ -912,23 +939,23 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       setPublishing(false);
     }
     await refreshPending();
-  }, [packageId, refreshPending]);
+  }, [shellClient, packageId, refreshPending, locale]);
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
-  // package (设计界面), the app is its published front-end. If this package
-  // ships an app, offer 打开应用 — opened in a new tab so the builder context
-  // survives. (App → builder is the reverse bridge, tracked separately.)
+  // package (the design surface), the app is its published front-end. If this
+  // package ships an app, offer Open app — opened in a new tab so the builder
+  // context survives. (App → builder is the reverse bridge, tracked separately.)
   const shellNavigate = useNavigate();
   // objectui#7373 — the header's Home button walks back to the DECLARED
   // landing; the environment launcher only where nothing is declared.
   const shellHomePath = useHomePath();
-  const shellClient = useMetadataClient();
   const [packageApp, setPackageApp] = React.useState<{ name: string; label: string } | null>(null);
-  // 创建应用 (package has no app yet): create a draft `app` item — the published
-  // front-end's on-ramp. The button flips to 打开应用 after the package publish.
+  // Create app (package has no app yet): create a draft `app` item — the
+  // published front-end's on-ramp. The button flips to Open app after the
+  // package publish.
   const [appCreating, setAppCreating] = React.useState(false);
   const [appBusy, setAppBusy] = React.useState(false);
   const [appErr, setAppErr] = React.useState<string | null>(null);
@@ -980,13 +1007,13 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     [appAddObjects, loadPackageObjects, shellClient, packageId, locale],
   );
 
-  // objectui#5800 顺手修 — the topbar's app detection used to disagree with the
-  // Interfaces pillar's (published-only read, no draftNonce dep, no refresh
-  // subscription, and never re-run on a pillar switch since /data and /access
-  // share one route element): a deep-link to /access could report 「还没有应用」
-  // while /data showed the app at the same moment. Same resolution as the
-  // pillar now: published first, DRAFT app fallback, re-resolved on draft
-  // saves and on the metadata-refresh pulse.
+  // objectui#5800, fixed in passing — the topbar's app detection used to
+  // disagree with the Interfaces pillar's (published-only read, no draftNonce
+  // dep, no refresh subscription, and never re-run on a pillar switch since
+  // /data and /access share one route element): a deep-link to /access could
+  // report "This package has no app yet." while /data showed the app at the
+  // same moment. Same resolution as the pillar now: published first, DRAFT app
+  // fallback, re-resolved on draft saves and on the metadata-refresh pulse.
   const resolvePackageApp = React.useCallback(async (): Promise<void> => {
     try {
       const apps = (await shellClient.list('app', { packageId })) as Array<Record<string, unknown>>;
@@ -1106,7 +1133,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   {t(`engine.studio.pillar.${p.key}`, locale)}
                 </Link>
               ))}
-              {/* objectui#5813 — low-frequency surfaces live in 「更多」. The
+              {/* objectui#5813 — low-frequency surfaces live in "More". The
                   trigger takes the active pillar styling when one of them is
                   open, so the demotion never hides WHERE you are. Each item is
                   a real router Link carrying the SAME dirty-guard as the
@@ -1155,11 +1182,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
               </Popover>
             </nav>
 
-            {/* Package-level draft review + one atomic publish (replaces per-item 发布) */}
+            {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              {/* objectui#5800 — the 打开应用 teleport is retired: the canvas's 运行
-                  mode IS the way to try the app without leaving the workbench.
-                  The published-app state needs no chrome at all. */}
+              {/* objectui#5800 — the Open app teleport is retired: the canvas's
+                  Run mode IS the way to try the app without leaving the
+                  workbench. The published-app state needs no chrome at all. */}
               {packageApp ? null : appDraftPending ? (
                 <span
                   title={t('engine.studio.app.willOpenAfterPublish', locale)}
@@ -1821,10 +1848,10 @@ export function InterfacesPillar({
   // running app, not an editable draft — schema editing is the Data pillar's
   // job — so those leaves are not draft-editable in this canvas.
   const isEditable = !!Preview && !StudioCanvas;
-  // objectui#5800 — 设计⇄运行: one canvas, two modes (ADR-0080's pivot made
+  // objectui#5800 — Design ⇄ Run: one canvas, two modes (ADR-0080's pivot made
   // visible). Run mode is pure subtraction: `editing=false` drops the design
   // overlays (dashboard widget overlays, page block canvas) and the SAME
-  // renderer serves the interactive runtime — click 新建, enter a record.
+  // renderer serves the interactive runtime — click New, enter a record.
   // Selection state is retained so switching back to design keeps context.
   const [canvasMode, setCanvasMode] = React.useState<'design' | 'run'>('design');
   const designing = canvasMode === 'design';
@@ -1956,9 +1983,9 @@ export function InterfacesPillar({
   const canvasEl = (
     <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
       <div className="mb-3 flex shrink-0 items-center gap-2">
-        {/* objectui#5800 — the 设计⇄运行 switch replaces the static 实时预览
-            chip: same renderer either way, the switch only adds/removes the
-            design affordances.
+        {/* objectui#5800 — the Design ⇄ Run switch replaces the static Live
+            preview chip: same renderer either way, the switch only adds/removes
+            the design affordances.
 
             objectui#7121 — ...but only where a renderer READS the mode. `editing`
             is handed to exactly one canvas branch (`Preview`, below); a
@@ -1998,7 +2025,7 @@ export function InterfacesPillar({
         )}
         {/* objectui#7254 — the canvas caption names WHAT you are editing, in
             the author's own vocabulary: the item's metadata label plus its
-            translated KIND ("客户仪表盘 · 仪表板"). The internal `type · name`
+            translated KIND ("Pipeline · Dashboard"). The internal `type · name`
             pair it used to print verbatim is developer identity and moves to
             the tooltip, which the ruling keeps as its allowed home. With no
             label declared the internal name is still shown — a blank caption
@@ -2630,6 +2657,10 @@ export function DataPillar({
   const client = useMetadataClient();
   const adapter = useAdapter();
   const locale = useMetadataLocale();
+  // The last-saved time reads the DISPLAY locale — not `locale` above, which
+  // picks the pillar's strings and is `'en-US'` for every non-zh language
+  // (objectui#10232).
+  const displayLocale = useDisplayLocale();
   // Live server JSONSchemas per metadata type (`/meta/types`) — handed to the
   // Actions/Hooks config panels so their forms are driven by the real metadata
   // contract (and stay forward-compatible when the server spec adds fields).
@@ -2726,7 +2757,8 @@ export function DataPillar({
   // Either source closes the door: a malformed field formula and a malformed
   // rule guard are both unsaveable, and neither excuses the other.
   const saveBlocking = inspectorBlocking + panelBlocking;
-  // Within the Form view: 布局 (WYSIWYG drag/section designer) ⇄ 预览 (live form).
+  // Within the Form view: Layout (WYSIWYG drag/section designer) ⇄ Preview
+  // (live form).
   const [formMode, setFormMode] = React.useState<'layout' | 'preview'>('layout');
   // Tracks which object's baseline is currently loaded — so we (re)load exactly
   // once per selected object and never clobber an in-progress draft.
@@ -2910,7 +2942,8 @@ export function DataPillar({
         // is a fetch input, and the data API refuses an unknown projection key
         // by design (dropping it would silently answer a NARROWER projection
         // with a WIDER one). The result was that adding a field replaced the
-        // whole grid with "该视图的查询被拒绝" — on the most ordinary edit there is.
+        // whole grid with "This view's query was refused" — on the most
+        // ordinary edit there is.
         //
         // Filtering here rather than at the fetch keeps ONE source of truth for
         // what the grid asks for. The new field is still selected in the
@@ -2978,7 +3011,7 @@ export function DataPillar({
   // "+ new object": create a fresh object as a DRAFT in this package (runtime
   // create — same path the classic Studio editor uses), seeded with one text
   // field so the form/grid isn't empty. It stays draft-only (no physical table)
-  // until the package publish, so we land on 表单·布局 — the metadata-level
+  // until the package publish, so we land on Form · Layout — the metadata-level
   // surface that never fires data SQL.
   const doCreateObject = React.useCallback(
     async (label: string, rawName: string, sharingModel: OwdCreateModel) => {
@@ -3030,7 +3063,7 @@ export function DataPillar({
     }
   }, [client, current, objDraft, onDraftSaved, packageId, locale]);
 
-  // objectui#5813 — auto-save replaces the 保存草稿 button; the blocked guard
+  // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
   // is the button's old disabled-condition verbatim.
   useDraftAutoSave({
     dirty,
@@ -3079,11 +3112,11 @@ export function DataPillar({
   // recessed `bg-muted` track with an elevated `bg-background` pill on the
   // active segment — the inverse of the old transparent-track/grey-active
   // styling, which read as toolbar chrome rather than a distinct nav layer.
-  // objectui#5813 — the 90% path is 记录/表单 (fields ARE the grid's columns,
-  // with 添加字段 right beside them, so a separate fields tab would ADD a
-  // surface, not remove one). The five power tabs keep their panels untouched
-  // behind one 「高级」 menu — capability stays, the default view stops taxing
-  // every visit with seven choices (maintainer ruling 2026-08-24).
+  // objectui#5813 — the 90% path is Records / Form (fields ARE the grid's
+  // columns, with Add field right beside them, so a separate fields tab would
+  // ADD a surface, not remove one). The five power tabs keep their panels
+  // untouched behind one "Advanced" menu — capability stays, the default view
+  // stops taxing every visit with seven choices (maintainer ruling 2026-08-24).
   const dataTabs: ReadonlyArray<{ key: typeof viewMode; label: string }> = [
     { key: 'grid', label: t('engine.studio.data.tab.records', locale) },
     { key: 'form', label: t('engine.studio.data.tab.form', locale) },
@@ -3136,7 +3169,7 @@ export function DataPillar({
         )}
         {/* objectui#5813 — drafts auto-save (see useDraftAutoSave above); the
             hint is the whole affordance: saving spinner while in flight, the
-            last-saved time once landed. The old 保存草稿 button is retired. */}
+            last-saved time once landed. The old Save draft button is retired. */}
         {saving === 'draft' ? (
           <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-muted-foreground" data-testid="data-autosaving">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -3145,7 +3178,7 @@ export function DataPillar({
         ) : savedAt && !dirty ? (
           <span className="ml-auto text-[11px] text-muted-foreground" data-testid="data-saved-at">
             {tFormat('engine.studio.data.lastSaved', locale, {
-              time: savedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+              time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
             })}
           </span>
         ) : null}
@@ -3274,7 +3307,7 @@ export function DataPillar({
                       {tab.label}
                     </button>
                   ))}
-                  {/* 「高级」 — the five power panels (objectui#5813). When one
+                  {/* "Advanced" — the five power panels (objectui#5813). When one
                       is open the trigger wears its NAME and the active pill, so
                       the collapsed default never hides where you are. */}
                   <DropdownMenu>
@@ -3441,7 +3474,8 @@ export function DataPillar({
               </>
               ) : (
               <>
-              {/* form sub-mode: 布局 (WYSIWYG drag/section designer) ⇄ 预览 (live form) */}
+              {/* form sub-mode: Layout (WYSIWYG drag/section designer) ⇄
+                  Preview (live form) */}
               <div className="mb-3 flex items-center gap-2">
                 <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
                   <button
@@ -3472,7 +3506,7 @@ export function DataPillar({
                     // The caption used to assert "your unsaved changes" from
                     // `formMode` alone — a TAB selector — so it claimed pending
                     // edits on every clean layout tab, including in a read-only
-                    // package where `保存草稿` is disabled and the designer has
+                    // package where `Save draft` is disabled and the designer has
                     // no draggable at all (objectui#4036). Say it only when it
                     // is true: real local edits, on a surface that can save
                     // them. `!readOnly` is belt-and-braces — `dirty` is set only
@@ -3665,12 +3699,12 @@ export function DataPillar({
         error={error}
         locale={locale}
         extra={
-          /* Record sharing (OWD) — the third thing `新建对象` must ask for
+          /* Record sharing (OWD) — the third thing `New object` must ask for
              (objectui#5418). Without it the object saves as a draft happily and
-             is then REFUSED at 发布 → 全部发布 by `security-owd-unset`, a wall
-             the author meets only after building the whole object. The gloss is
-             the SAME string the Settings tab shows for each model, so the two
-             surfaces cannot describe one baseline two ways.
+             is then REFUSED at Publish → Publish all by `security-owd-unset`, a
+             wall the author meets only after building the whole object. The
+             gloss is the SAME string the Settings tab shows for each model, so
+             the two surfaces cannot describe one baseline two ways.
 
              `controlled_by_parent` is absent on purpose — see OWD_CREATE_MODELS:
              a just-created object has no master-detail field for it to derive
@@ -3783,7 +3817,7 @@ export function AutomationsPillar({
   const [hasDraft, setHasDraft] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   // Tells "still fetching the list" apart from "fetched, package has no flows"
-  // — without it the empty rail showed an endless "加载中…" for a fresh package.
+  // — without it the empty rail showed an endless "Loading…" for a fresh package.
   const [listed, setListed] = React.useState(false);
   // Inline create — a fresh package starts with zero flows, so the pillar must
   // offer a way to author the first one (mirrors the object/app creators).

@@ -36,6 +36,48 @@ const useUncolumnedT = createSafeTranslation(
 );
 
 /**
+ * Names, on the console, every stored group value that matched no lane id
+ * (objectui#10069). Since lanes match by `id` only, the commonest cause is a
+ * record that stored an option's LABEL (`'In Progress'`) instead of its value
+ * (`'in_progress'`); before the ruling such a record reached its lane through
+ * the retired title key, so the warn is what makes the narrowing visible
+ * rather than a silent move into "Uncategorized".
+ *
+ * ONE warn per distinct raw value per bucketing pass — never one per record,
+ * and never deduplicated across passes. Per value, because the count of
+ * offending records is unbounded (a whole imported table can carry labels)
+ * while the count of distinct values is bounded by the vocabulary. Per pass,
+ * because a pass is one render or data load of one board: module-level
+ * deduplication would stay silent for the next board, or for this board after
+ * its picklist or data changed, which is exactly when an author looks for it.
+ * The pass count is already bounded by `KanbanRenderer`'s memo.
+ *
+ * The empty value is not warned: a record with no group value is the ordinary
+ * "not yet categorised" state (#2792), not a value/label mismatch.
+ */
+function warnUnmatchedGroupValues(
+  unmatchedKeys: string[],
+  groups: Record<string, any[]>,
+  columns: Array<any>,
+  groupBy: string,
+): void {
+  const offending = unmatchedKeys.filter((key) => key !== '');
+  if (offending.length === 0) return;
+  // `String()` for non-strings: a lane id is unvalidated input here, and
+  // `JSON.stringify` throws on a bigint — a warn must never break the board.
+  const show = (v: unknown): string => (typeof v === 'string' ? JSON.stringify(v) : String(v));
+  const laneIds = columns.map((col: any) => show(col.id)).join(', ');
+  for (const key of offending) {
+    console.warn(
+      `[plugin-kanban] ${groups[key].length} record(s) with ${JSON.stringify(groupBy)} = ` +
+        `${JSON.stringify(key)} match no lane id and are shown in the trailing "Uncategorized" lane. ` +
+        `Lanes match the stored option value by lane id only, never by lane title ` +
+        `(objectui#10069). Available lane ids: [${laneIds}].`,
+    );
+  }
+}
+
+/**
  * The single place flat `data` + `groupBy` is bucketed into per-column card
  * arrays. Kept pure (title passed in, not translated here) so it can be unit
  * tested directly — see index.bucket.test.ts. Records whose group value maps
@@ -65,28 +107,36 @@ export function bucketCardsIntoColumns(
     }));
   }
 
-  // Build label→id mapping so data values (labels like "In Progress") match
-  // column IDs (option values like "in_progress").
+  // Build the lane lookup: a record belongs to a lane when its stored group
+  // value equals that lane's `id` — the option value — and nothing else
+  // (objectui#10069, ruling A). The lane `title` is PRESENTATION only: it used
+  // to be lowercased into this map as a second, undeclared bucketing key, so
+  // renaming a lane, relabelling a picklist option, or switching locale (lane
+  // titles are translated — `localizeColumn` / `translateOptions` in
+  // `ObjectKanban.tsx`) moved records between lanes. ⛔ Do not map `title`
+  // here again: a record that stores a label instead of the option value is a
+  // DATA defect, surfaced loudly by the warn below rather than absorbed.
+  // The id comparison stays case-folded, as it was before the ruling — the
+  // ruling retires the title key, not the folding of the id key.
   // ⚠️ Null prototype, not `{}` (objectui#9043). This map and `groups` below are
   // keyed by RECORD DATA, which no schema guards — `@objectstack/spec` narrows the
   // lane `id` (objectui#8913), not the values stored in the grouped field — so a
   // stored value like 'constructor' or '__proto__' would otherwise be answered by
   // `Object.prototype` instead of by what this function actually put here:
-  //   - the READ below is `labelToColumnId[k] ?? rawKey`, and `??` only falls back
-  //     on null/undefined, so an INHERITED member is returned as if it were a
-  //     declared lane id;
-  //   - the WRITE `labelToColumnId['__proto__'] = col.id` on a prototype-bearing
+  //   - the READ below is `laneIdByFoldedId[k] ?? rawKey`, and `??` only falls
+  //     back on null/undefined, so an INHERITED member is returned as if it were
+  //     a declared lane id;
+  //   - the WRITE `laneIdByFoldedId['__proto__'] = col.id` on a prototype-bearing
   //     object invokes the `__proto__` setter, which silently ignores a string —
   //     so a lane legitimately declared with that option value loses its mapping.
   // `Object.prototype.hasOwnProperty.call(...)` would close the READ only; the
   // write hazard needs the null prototype, which is why both maps take that route.
-  const labelToColumnId: Record<string, string> = Object.create(null);
+  const laneIdByFoldedId: Record<string, string> = Object.create(null);
   columns.forEach((col: any) => {
-    if (col.id) labelToColumnId[String(col.id).toLowerCase()] = col.id;
-    if (col.title) labelToColumnId[String(col.title).toLowerCase()] = col.id;
+    if (col.id) laneIdByFoldedId[String(col.id).toLowerCase()] = col.id;
   });
 
-  // 1. Group data by key, normalizing via label→id mapping.
+  // 1. Group data by key, normalizing a case-folded match onto the lane id.
   // ⚠️ Null prototype for the same reason (objectui#9043), and this is the leg that
   // CRASHES: on a `{}` accumulator `acc['toString']` is the inherited METHOD, which
   // is truthy, so the array is never created and the next line calls `.push` on a
@@ -98,7 +148,7 @@ export function bucketCardsIntoColumns(
   // group key and still surfaces in the trailing lane, never discarded (#2792).
   const groups = data.reduce((acc, item) => {
     const rawKey = String(item[groupBy] ?? '');
-    const key = labelToColumnId[rawKey.toLowerCase()] ?? rawKey;
+    const key = laneIdByFoldedId[rawKey.toLowerCase()] ?? rawKey;
     if (!acc[key]) acc[key] = [];
     acc[key].push(mapCoverImage(item));
     return acc;
@@ -133,9 +183,9 @@ export function bucketCardsIntoColumns(
   const knownIds = new Set<PropertyKey>(
     columns.map((col: any) => (typeof col.id === 'symbol' ? col.id : String(col.id))),
   );
-  const uncolumnedCards = Object.keys(groups)
-    .filter((key) => !knownIds.has(key))
-    .flatMap((key) => groups[key]);
+  const unmatchedKeys = Object.keys(groups).filter((key) => !knownIds.has(key));
+  const uncolumnedCards = unmatchedKeys.flatMap((key) => groups[key]);
+  warnUnmatchedGroupValues(unmatchedKeys, groups, columns, groupBy);
   if (uncolumnedCards.length > 0) {
     mapped.push({ id: KANBAN_UNCOLUMNED_ID, title: uncolumnedTitle, cards: uncolumnedCards });
   }
@@ -162,8 +212,6 @@ export { InlineQuickAdd } from './InlineQuickAdd';
 export type { InlineQuickAddProps } from './InlineQuickAdd';
 export { CardTemplates } from './CardTemplates';
 export type { CardTemplatesProps } from './CardTemplates';
-export { useColumnWidths } from './useColumnWidths';
-export type { UseColumnWidthsOptions, UseColumnWidthsReturn } from './useColumnWidths';
 export { useCrossSwimlaneMove } from './useCrossSwimlaneMove';
 export type { Swimlane, CrossSwimlaneMoveEvent, UseCrossSwimlaneOptions, UseCrossSwimlaneMoveReturn } from './useCrossSwimlaneMove';
 export { useQuickAddReorder } from './useQuickAddReorder';
@@ -404,26 +452,32 @@ export const kanbanComponents = {
  * the same firing control (`object-grid`, 2 JSON / 128 TS) and silent control
  * (`zzz-not-a-type`, 0) the `kanban-ui` note above cites.
  *
- * `KanbanEnhanced.tsx` itself is untouched on disk. ⛔ It is NOT, and never
- * was, reachable from outside this package: `package.json` `exports` publishes
- * exactly two entries — `.` and `./style.css` — and this barrel does not
- * re-export the component, so `@object-ui/plugin-kanban/KanbanEnhanced` has
- * never been a resolvable specifier for a consumer. (An earlier revision of
- * this note claimed it was; that claim was wrong and is corrected here rather
- * than deleted, because it is what a reader would otherwise copy.) What this
- * card removes is the registry key and the `React.lazy` wrapper that existed
- * only to serve it; what it leaves behind is a module with zero non-test
- * importers — `cardPredicateScope.test.tsx` reaches it by relative path.
- * ⛔ Deleting the file is a FURTHER narrowing of published source and needs its
- * own maintainer ruling, which this card does not carry, so it stays.
+ * `KanbanEnhanced` was NOT, and never had been, reachable from outside this
+ * package: `package.json` `exports` publishes exactly two entries — `.` and
+ * `./style.css` — and this barrel never re-exported the component, so
+ * `@object-ui/plugin-kanban/KanbanEnhanced` was never a resolvable specifier
+ * for a consumer. (An earlier revision of this note claimed it was; that claim
+ * was wrong and is corrected here rather than deleted, because it is what a
+ * reader would otherwise copy.) What this card removed is the registry key and
+ * the `React.lazy` wrapper that existed only to serve it. It left the module
+ * itself on disk, with zero non-test importers, because deleting published
+ * source is a further narrowing that needed its own maintainer ruling.
  *
- * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
+ * ⚠️ That ruling came: objectui#8932 (2026-09-11, ratified 2026-09-24) deleted
+ * `KanbanEnhanced.tsx`, the two test references it had left, and with them the
+ * `dist/KanbanEnhanced.d.ts` typings the package still emitted for it. (Through
+ * 17.6.0 the component itself was also bundled into `dist/index.js`, behind the
+ * `kanban-enhanced` key; it left the bundle with this card's retirement.)
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
+ * (the key) and `src/__tests__/kanbanEnhancedRetired-8932.test.ts` (the file).
  */
 
 /**
- * What `ObjectKanban` reads for its own query: `objectName`, `filter` and
- * `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
- * schema.filter`, `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`).
+ * What `ObjectKanban` reads for its own query: `objectName`, `filter`, `sort`
+ * and `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
+ * schema.filter`, `$orderby: convertSortToQueryParams(schema.sort)`, `$top:
+ * resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`).
  *
  * `limit` was unmapped until objectui#4025, on the rationale that the board
  * "fetches with a fixed `$top: 100`, so there is no key to write it to". That
@@ -439,13 +493,23 @@ export const kanbanComponents = {
  * - `columns` — a board's `columns` are its SWIMLANES (`{ id, title }` per
  *   `groupBy` value), not a field projection; a saved view's field list written
  *   there would render one empty lane per field name.
- * - `sort` — the board has no `$orderby` read site: cards are grouped into lanes
- *   by `groupBy`, and the fetch declares no ordering. Mapping it onto something
- *   plausible would re-create the defect this wiring removes — a value accepted
- *   and dropped — one layer deeper.
+ *
+ * `sort` IS mapped (objectui#10068). The binding declares it for every element
+ * (`ELEMENT_DATA_SOURCE_INPUT`, the spec's `ElementDataSourceSchema`), and it
+ * used to be accepted here and dropped: the board fetched with no `$orderby`.
+ * The fetch now lowers it onto `$orderby` the way every sibling block does
+ * (`convertSortToQueryParams`), so the order is the server's. Lanes keep that
+ * order: records are bucketed by `groupBy` in fetch order and nothing re-sorts
+ * a lane. There is no manual in-lane rank to contend with — a same-lane drop
+ * persists nothing and the board claims no position (objectui#8826).
+ *
+ * ⚠️ `schema.sort` is the GATE's carrier for `dataSource.sort`, not an authoring
+ * key on this block: the spec's `object-kanban` props declare no top-level
+ * `sort` and refuse one, and neither `ObjectKanbanSchema` face declares it.
  */
 const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
   filter: true,
+  sort: true,
   limit: 'limit',
 };
 

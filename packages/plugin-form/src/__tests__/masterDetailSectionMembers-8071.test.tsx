@@ -36,10 +36,16 @@
  *
  * ## The rows
  *
- *   1. a member is a section OBJECT; its `fields` are read as a SET, so the
- *      parent OBJECT's field order wins over the authored member order — and
- *      the block's own `details` are untouched by any of it, which is the half
- *      only this block can state.
+ *   1. a member is a section OBJECT; its `fields` are drawn in the member's
+ *      AUTHORED order — and the block's own `details` are untouched by any of
+ *      it, which is the half only this block can state.
+ *
+ *      ⚠ FLIPPED by objectui#10475, with row 1 of the `object-form` pin next
+ *      door: it used to pin the parent OBJECT's field order winning over the
+ *      authored member order, the name filter `SimpleObjectForm` resolved a
+ *      section with. That arm now builds a section through the shared
+ *      `buildSectionFields`, so the order is the member's own, as on every
+ *      other `object-form` arm. The `details` half did not move.
  *   2. a member that resolves to NO parent field is dropped WHOLE, heading
  *      included — silently. Measured with a DETAIL column name as the member,
  *      the mistake this composition invites: two field vocabularies on one
@@ -141,16 +147,18 @@ const headings = (c: HTMLElement): string[] =>
 const detailIsDrawn = (c: HTMLElement): boolean => (c.textContent ?? '').includes('Qty');
 
 describe('`object-master-detail-form` — the member shape of `sections`', () => {
-  it('1. a member’s `fields` are parent field NAMES read as a SET — the OBJECT’s order wins — and the `details` half is untouched', async () => {
+  it('1. a member’s `fields` are parent field NAMES drawn in the member’s authored order — and the `details` half is untouched (objectui#10475)', async () => {
+    // ⚠️ FLIPPED by objectui#10475 — see this file's header, row 1. It used to
+    // assert `['ref', 'memo']`, the parent object's order winning.
     const c = await mount({
       sections: [{ name: 'head', label: 'Header', fields: ['memo', 'ref'] }],
     });
     expect(headings(c)).toEqual(['Header']);
     expect(
       drawnFields(c),
-      'the section resolves its members by filtering the parent object’s own field list, so the ' +
-        'authored member order (`memo` before `ref`) is discarded',
-    ).toEqual(['ref', 'memo']);
+      'the section draws its members in the order it lists them (`memo` before `ref`, the ' +
+        'reverse of the parent object’s)',
+    ).toEqual(['memo', 'ref']);
     expect(
       detailIsDrawn(c),
       '`sections` shapes the PARENT half only — the child collections keep their own columns',

@@ -122,7 +122,7 @@ interface Entry {
 const INVENTORY: Record<string, Entry> = {
   // ── the column-identity family: EMPTY (was 24 in PR1; 22 after re-triage) ──
 
-  // ── two layers, not two spellings (5) ────────────────────────────────────
+  // ── two layers, not two spellings (7) ────────────────────────────────────
   'app-shell/src/utils/resolveActionParams.ts': {
     count: 2,
     verdict: 'two-layer',
@@ -143,17 +143,21 @@ const INVENTORY: Record<string, Entry> = {
     verdict: 'two-layer',
     why: 'Action param name, same layering as resolveActionParams.',
   },
-
-  // ── the form cluster — settled the other way (#3090) (3) ─────────────────
-  'plugin-form/src/ObjectForm.tsx': {
-    count: 1,
-    verdict: 'form-cluster',
-    why: '#3090 established that spec FormField (`field`) and runtime FormField (`name`) are two LAYERS; the join is deliberate and lives in `normalizeSectionField`.',
+  'core/src/utils/predicate-fields.ts': {
+    count: 2,
+    verdict: 'two-layer',
+    why: 'BOTH halves of resolveActionParams\' pair, each mirrored on purpose. `defaultFromRowKey` (objectui#10277) names the row key a `defaultFromRow` param seeds from, so the `$select` harvest can ask for it: `field ?? name`, because row data is keyed by object field, the precedence `rowValueKey` reads. `undoableWrittenKeys` (objectui#10404) names the key a param\'s collected value is WRITTEN under, whose prior value the Undo capture then looks up on the row: `name ?? field`, the precedence `paramName` reads. Two concepts, as in the file they mirror. Deliberately NOT `columnIdentity()`: that reader also accepts `fieldName` and treats an empty string as absent, so it would harvest keys the runtime never looks up.',
   },
+
+  // ── the form cluster — settled the other way (#3090) (2) ─────────────────
+  // `plugin-form/src/ObjectForm.tsx` left this list in objectui#10475: its one
+  // read was `SimpleObjectForm`'s own section-entry join (`field ?? name`),
+  // deleted when that arm moved onto `buildSectionFields`, so the scanner no
+  // longer matches the file and it is no longer residue.
   'plugin-form/src/sectionFields.ts': {
     count: 1,
     verdict: 'form-cluster',
-    why: 'The #3090 hub itself.',
+    why: 'The #3090 hub itself. #3090 established that spec FormField (`field`) and runtime FormField (`name`) are two LAYERS, and since objectui#10475 this file is the only place every `object-form` arm joins them (`sectionEntryName`, `normalizeSectionField`), the default arm included. Those spell the join as separate `typeof` tests, which the scanner does not match; the one line it does match is `warnOnMixedVocabulary`\'s guard, which compares the two keys to warn when an authored entry carries both.',
   },
   'app-shell/src/views/metadata-admin/previews/ViewPreview.tsx': {
     count: 1,
@@ -260,8 +264,11 @@ describe('column identity dual-read ratchet (#3104)', () => {
     // cannot hide a real one.
     expect(sum((e) => e.verdict === 'column-identity')).toBe(0);
     // 12 at #3104 PR2; 11 since objectui#3174 routed `resolveActionParams`'
-    // two orders through one named reader each.
-    expect(sum(() => true)).toBe(11);
+    // two orders through one named reader each; 12 again since objectui#10277
+    // mirrored that file's row-key reader into the `$select` harvest; 13 since
+    // objectui#10404 mirrored its param-name reader there too; 12 since
+    // objectui#10475 deleted `ObjectForm.tsx`'s section-entry join.
+    expect(sum(() => true)).toBe(12);
   });
 
   it('records a precedence for every read left in the family', () => {

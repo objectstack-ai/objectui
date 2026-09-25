@@ -244,7 +244,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  PageComponentSchema,
+  PageComponentType,
+  RETIRED_PAGE_COMPONENT_TYPES,
+} from '@objectstack/spec/ui';
 import { MANIFEST_INPUT_TYPES, inputTypeArms } from '@object-ui/sdui-parser';
 import type { ComponentInput } from '@object-ui/types';
 import {
@@ -617,6 +622,33 @@ const EXPECTED_WITHOUT_INPUTS = [
 ];
 
 /**
+ * Has `@objectstack/spec` RETIRED this block, keeping its `ComponentPropsMap`
+ * row only as a refusal door? (objectui#10033)
+ *
+ * Read from the spec, never listed here. The spec retires a page component type
+ * in one of two spellings, and both drop the value from `PageComponentType`:
+ *
+ *   - REFUSED BY NAME — the type is a key of `RETIRED_PAGE_COMPONENT_TYPES`
+ *     (`page.zod.ts`), and its row is `retiredComponentProps(type)`: a `never`
+ *     that refuses every props bag, `{}` included. It lists no key at all, so
+ *     the tombstone reading below cannot see it; the table is the signal.
+ *   - ELEMENT GRAIN — no table names the type; the retirement IS the row, kept
+ *     with every key it lists a `retiredKey()` tombstone. It lists keys and
+ *     accepts none of them.
+ *
+ * Absence from `PageComponentType` is required and is not enough on its own:
+ * the enum is the page-authoring vocabulary, and live blocks sit outside it
+ * too — every `object-*` block, and empty-shaped ones such as
+ * `cloud-connection:panel`. A row that merely accepts no key is the EMPTY SPEC
+ * SHAPE class below, not a retirement.
+ */
+function isRetiredUpstream(type: string): boolean {
+  if ((PageComponentType.options as readonly string[]).includes(type)) return false;
+  if (RETIRED_PAGE_COMPONENT_TYPES.has(type)) return true;
+  return specTombstonedKeys(type).length > 0 && specTopLevelKeys(type).length === 0;
+}
+
+/**
  * The third and last place a `ComponentPropsMap` entry may land: blocks this
  * gate CANNOT judge, each with the reason it cannot (objectui#8176).
  *
@@ -632,11 +664,17 @@ const EXPECTED_WITHOUT_INPUTS = [
  * a block can no longer leave the judged population without a line here saying
  * so and a diff someone reviews.
  *
- * ## Two classes, each mechanically checked so an entry cannot rot
+ * ## Three classes, each mechanically checked so an entry cannot rot
  *
  * `every unjudged-block ledger entry still describes a block this gate cannot
  * judge` asserts the reason, not just the name:
  *
+ *   - RETIRED UPSTREAM — the spec retired the type and keeps its row only as a
+ *     refusal door, so the row accepts no authoring key and neither direction
+ *     has a question to ask. Asserted as `isRetiredUpstream(type)`, which reads
+ *     the retirement from the spec rather than from a list here, plus
+ *     `specTopLevelKeys(type).length === 0` — so the day upstream restores the
+ *     type, or gives its row a key, this entry goes red.
  *   - EMPTY SPEC SHAPE — `ComponentPropsMap[type]` accepts no top-level key at
  *     all, so neither direction has a question to ask. Whether this repo happens
  *     to register the block is irrelevant to that, which is why it is the
@@ -651,6 +689,27 @@ const EXPECTED_WITHOUT_INPUTS = [
  *     assertion cannot be satisfied by the very stub-blindness objectui#8176 is
  *     about), so registering one of them forces this entry out.
  *
+ * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
+ * from outliving a retirement (objectui#10033): an entry under either of the
+ * other two reasons FAILS when the spec retires its type. Before that check, a
+ * retirement changed what an entry was about and nothing told the entry — two
+ * rows the spec retired in the same release sat here under two unrelated
+ * reasons, neither of which mentioned the retirement, and one of which cited a
+ * palette exclusion that release's reconciliation had deleted.
+ *
+ * ## Why a retired block stays in this population
+ *
+ * The population is `Object.keys(ComponentPropsMap)`, and the spec KEEPS a
+ * retired type's row on purpose: the row is one of the retirement's refusal
+ * doors, and it is what lets every reader that dispatches on the map still
+ * recognise the name. Dropping retired rows from the population here would
+ * reopen the absence this ledger exists to close — a registration of a retired
+ * type in this repo would leave `covered` along with the row, and go unjudged.
+ * Kept in, such a registration is judged (every input it publishes is
+ * off-spec) and is accounted for twice, which the partition refuses. A ledger
+ * entry for a type the map no longer carries at all is the opposite case, and
+ * already fails twice over: in the partition's converse and in the rot check.
+ *
  * `aria` is not a member of the empty-shape reasoning: it is a key on non-empty
  * shapes and has its own uniform cover in `GLOBALLY_UNPUBLISHED_SPEC_KEYS`.
  */
@@ -662,9 +721,9 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'cloud-connection:panel':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all, so neither direction has a question to ask. It IS registered — `app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx` registers it propless — but by `@object-ui/app-shell`, which this file does not import; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#7122, ledger objectui#8176.',
   'element:filter':
-    'EMPTY SPEC SHAPE. The pin declares no top-level key for it, and no package in this repo registers the tag. Nothing to judge on either count. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.1.0 retired it at element grain (objectstack#9220, ADR-0049): out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone, so it accepts no authoring key and neither direction has a question to ask. objectui#10033, ledger objectui#8176.',
   'element:form':
-    'NOT REGISTERED, DELIBERATELY. `app-shell/src/views/metadata-admin/previews/block-types.ts` records the reason verbatim: no renderer, use the object-bound `object-form` block, which IS registered and IS judged here. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it at element grain (objectstack#9249, ADR-0049), the `element:filter` shape one element over: out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone whose prescription names the live replacement — the object-bound `object-form` block, which IS registered and IS judged here. objectui#10033, ledger objectui#8176.',
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
@@ -672,7 +731,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'user:profile':
-    'EMPTY SPEC SHAPE. Declared by the spec with no top-level key; in this repo it exists only as a `PROTOCOL_COMPONENTS` placeholder name, which is a scaffold rather than a renderer and publishes no authoring surface. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
 
 /*
@@ -2336,7 +2395,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-form.sections': {
     file: 'packages/plugin-form/src/__tests__/objectFormSectionMembers-8071.test.tsx',
-    pins: 'Members are section OBJECTS, pinned in the DEFAULT layout (the one a section-carrying form gets with no `formType`) on the six keys `SimpleObjectForm`\'s grouped branch reads. The row a plausible improvement breaks: `fields` is read as a SET, not an order — the resolution is `sourceFields.filter((f) => sectionFieldNames.includes(f.name))`, so the OBJECT\'s order wins and the authored member order is discarded, which is the OPPOSITE of the sibling key `object-form.fields` on the same block, pinned next door on authored order being PRESERVED. The silent row: a section whose members resolve to no field is dropped WHOLE, heading included, so one mistyped member name costs a heading with nothing visibly wrong. `name` alone titles the section and a member carrying neither `name` nor `label` draws no divider at all; `collapsed` takes the members out of the DOM while `collapsible` is the SEPARATE member that makes the heading a control, so a section declared `collapsed` and not `collapsible` renders permanently closed with no affordance — each arm carrying its own control in the same call. A no-sections row is the non-vacuity control. The seventh key changed hands: this layout used to DROP a member\'s `description` — pinned as behaviour and handed back as a finding — and objectui#9779 made it copy the key onto the divider row, so the same row now pins the ARRIVAL, read off the divider itself with the same section\'s `label` in the same call as the live control. The gate that decides whether a member gets a divider row at all was NOT widened with it, so a member carrying a `description` and neither `name` nor `label` still draws no divider and still drops its blurb; that boundary is pinned beside it and handed back in turn. \u26a0\ufe0f The same key had a SECOND site, one layer later and \u26d4 not a shared path: `ObjectForm`\'s drawer map copied it onto the drawer\'s section config and `DrawerForm`\'s OWN two divider pushes \u2014 the explicit-sections one and the derived-fieldGroups one \u2014 rebuilt the row without it, so the drawer arm dropped the blurb on both routes a host can take into it while NOTHING watched that arm at all. objectui#9834 copied the key onto both pushes and registered the drawer arm\'s own pin, `packages/plugin-form/src/__tests__/drawerFormSectionDescription-9834.test.tsx`, which also records the one way that arm differs: its explicit-sections push is UNCONDITIONAL, so a member carrying a `description` and no heading renders the blurb alone there, where this layout draws no divider at all. `visibleWhen`, the `{ group }` reference form, the legacy `groups` spelling and the drawer arm\'s `description` are owned by their own neighbouring files and deliberately not re-pinned here. Both declared sides are unconstrained (bare `type: \'array\'`; `z.array(z.unknown())`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
+    pins: 'Members are section OBJECTS, pinned in the DEFAULT layout (the one a section-carrying form gets with no `formType`) on the six keys `SimpleObjectForm`\'s grouped branch reads. The member ORDER row FLIPPED with objectui#10475: it pinned `fields` read as a SET — a name filter over the parent field pool, so the OBJECT\'s order won and the authored member order was discarded — and now pins the AUTHORED order, the order the five sibling arms\' shared `buildSectionFields` draws and the sibling key `object-form.fields` on the same block preserves. The silent row: a section whose members resolve to no field is dropped WHOLE, heading included, so one mistyped member name costs a heading with nothing visibly wrong. `name` alone titles the section and a member carrying neither `name` nor `label` draws no divider at all; `collapsed` takes the members out of the DOM while `collapsible` is the SEPARATE member that makes the heading a control, so a section declared `collapsed` and not `collapsible` renders permanently closed with no affordance — each arm carrying its own control in the same call. A no-sections row is the non-vacuity control. The seventh key changed hands: this layout used to DROP a member\'s `description` — pinned as behaviour and handed back as a finding — and objectui#9779 made it copy the key onto the divider row, so the same row now pins the ARRIVAL, read off the divider itself with the same section\'s `label` in the same call as the live control. The gate that decides whether a member gets a divider row at all was NOT widened with it, so a member carrying a `description` and neither `name` nor `label` still draws no divider and still drops its blurb; that boundary is pinned beside it and handed back in turn. \u26a0\ufe0f The same key had a SECOND site, one layer later and \u26d4 not a shared path: `ObjectForm`\'s drawer map copied it onto the drawer\'s section config and `DrawerForm`\'s OWN two divider pushes \u2014 the explicit-sections one and the derived-fieldGroups one \u2014 rebuilt the row without it, so the drawer arm dropped the blurb on both routes a host can take into it while NOTHING watched that arm at all. objectui#9834 copied the key onto both pushes and registered the drawer arm\'s own pin, `packages/plugin-form/src/__tests__/drawerFormSectionDescription-9834.test.tsx`, which also records the one way that arm differs: its explicit-sections push is UNCONDITIONAL, so a member carrying a `description` and no heading renders the blurb alone there, where this layout draws no divider at all. `visibleWhen`, the `{ group }` reference form, the legacy `groups` spelling and the drawer arm\'s `description` are owned by their own neighbouring files and deliberately not re-pinned here. Both declared sides are unconstrained (bare `type: \'array\'`; `z.array(z.unknown())`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
   },
   'object-form.submitBehavior': {
     file: 'packages/plugin-form/src/ObjectForm.submitBehavior.test.tsx',
@@ -2402,13 +2461,29 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx',
     pins: 'All SIX members the spec\'s strict `NavigationConfigSchema` declares — `mode`, `view`, `preventNavigation`, `openNewTab`, `size`, `width` — driven through a real row click on the real grid, where the registration names only `mode` and elides the five that decide what the click does. The precedence is the content: `preventNavigation` OUTRANKS every mode including the overlay ones (`{ mode: \'drawer\', preventNavigation: true }` draws no drawer and throws nothing, with the same config minus the flag as the live control), and `openNewTab` outranks `mode: \'page\'` AND DISCARDS `view` while doing it — the member written to choose a destination is dropped by the member written to choose a window. `view` is pinned as what it actually is, the second ARGUMENT handed to the host, with the literal `\'view\'` standing in when it is absent — one character apart in the source, entirely different things. `size` and `width` are pinned as ONE decision with three outcomes, read off the `--ov-w` the shell publishes: the deprecated `width` wins over a `size` authored beside it, a bucket name resolves through the size table, and `\'auto\'` resolves to neither and lands on the block\'s own default width. The absent-key control is that a grid with NO `navigation` still navigates, so the key\'s effect cannot be measured by deleting it. Prior art stated rather than credited: `ObjectGrid.overlayShellModes-9299` pins the four OVERLAY values of `mode` across the shell boundary and names no other member (objectui#8071 slice 14).',
   },
+  'object-grid.columns': {
+    file: 'packages/plugin-grid/src/__tests__/gridColumnMembers-8071.test.tsx',
+    pins: 'The members of one authored column, read through the real grid at the DOM each one moves. The registration names two of them in prose (`field`, `label`, plus `width` inside an example) while `ListColumnSchema` is strict over fourteen, so the content is the eleven the description elides and the precedence between them: `label` OUTRANKS the machine-name prettifier and its absence is what prettifies; `align` is INFERRED from a numeric `type` and an authored `align` beats the inference, which is the only way to get a left-read number column; `type` OUTRANKS the name-shaped heuristic this block runs (`active` reads boolean by its SPELLING, so a column is typed by its name until the member says otherwise); `wrap` is read as a decision rather than truthiness, with `false` forwarded as authored and an absent key falling to the same clamp by a different road; `prefix` puts ANOTHER field\'s value inside this column\'s cell; `width` is pinned against the AUTO-SIZED width rather than against emptiness, because a column with no authored width still carries one. ⭐ The two ways a column VANISHES are pinned as different events: `hidden: true` is authored intent and is silent, while an unresolvable column is dropped AND reported on the console (objectui#5349) — the same empty grid, two different bugs. `field` is pinned where it decides the QUERY, as the name that reaches `$select` while the label beside it does not. Prior art stated rather than credited: `columnDeclaredSpellingOnly` (identity spelling), `column-features` (`pinned`/`summary`/`link`/`action`), `ObjectGrid.columnWrapForward`, `columnWidthInbound-6457`, `columnSortabilitySignal`, and `columnReadBoundary-6458`, which bounds this producer\'s UNDECLARED reads to the empty set by source scan. New file (objectui#8071 slice 17).',
+  },
+  'object-grid.filter': {
+    file: 'packages/plugin-grid/src/__tests__/gridFilterInputSpelling.test.tsx',
+    pins: 'The three members of one `ViewFilterRule` — `field`, `operator`, `value` — at the `$filter` the grid actually sends, plus the key-level pins the file already carried (the declared singular name, lowering to AST rather than bare rule objects, AST passthrough, and an empty array folding to no `$filter` at all). The member half is the growth: `operator` is FOLDED through the spec\'s own alias map so `eq` and `equals` are one operator and not two dialects, while an operator the spec does not know passes through VERBATIM on purpose — the wire names the author\'s typo instead of this hop guessing a repair; an omitted `value` is a SHAPE CHANGE, lowering to the 2-tuple the valueless operators need rather than a 3-tuple with a hole; and `value` decides whether the view renders AT ALL — an ARRAY comparand on a single-valued operator throws (objectui#8557) inside a render-time `useMemo`, so `SchemaErrorBoundary` replaces the whole block with an alert naming the field, with an `in` rule carrying the same array as the live control. ⚠️ WHERE that refusal lands is objectui#9050\'s open question for all thirteen such sites; this pins what ships today and endorses nothing. Pre-existing file (objectui#4041), promoted after being read end to end and grown by the member section (objectui#8071 slice 17).',
+  },
+  'object-grid.grouping': {
+    file: 'packages/plugin-grid/src/__tests__/gridGroupingMembers-8071.test.tsx',
+    pins: 'The one member `GroupingConfigSchema` declares (`fields`) and the three its strict entries declare (`field`, `order`, `collapsed`), at the group headers the grid paints AND at the projection it asks the server for. `order` sorts the headers by their RENDERED LABEL rather than by the stored value, `collapsed` is a DEFAULT that the first click inverts rather than a state, `fields` is ORDERED so the second entry nests inside the first and each level sorts on its own entry, and an unusable entry (a `null` hole, the bare-string shorthand the strict schema refuses, a blank name) is DROPPED — never coerced, never fatal — with the usable one still grouping. The query half is what keeps the screen honest: a grouped field the columns never mention is UNIONED into `$select`, because without it the server never returns it and ONE `(empty)` group holds every record (objectui#7179); the entries it groups by and the entries it projects are asserted as the same set. ⭐ THE SHARED MEMO with `columns` is pinned here, and it is what makes these two keys non-disjoint: `groupValueFormatter` derives the header labels from `schema.grouping` AND `schema.columns`, so `columns[].type: \'boolean\'` respells a grouped `"true"`/`"false"` as Yes/No, and because `order` sorts the rendered labels a column override MOVES the groups. ⚠️ That memo also reads `columns[].options`, which `ListColumnSchema` does not declare and, being strict, REFUSES at publish — the `declared != enforced` split, same family objectui#6458 retired from the cell branch, outside the region `columnReadBoundary-6458` bounds. Pinned as behaviour with its own absent-member control and handed back as a finding, ⛔ not repaired here. New file (objectui#8071 slice 17).',
+  },
+  'object-grid.sort': {
+    file: 'packages/plugin-grid/src/__tests__/gridArrayArmOrderby-8973.test.tsx',
+    pins: 'The two members of one sort entry — `field` and `order` — across ALL THREE readers this block has for them, which is the half a declaration saying `[{ field, order }]` cannot publish. The file\'s own six-row probe table pins the fetch path: an entry missing `order` lowers to `asc` rather than the literal text `undefined` (a `400 INVALID_QUERY` at the server), an entry missing `field` is skipped rather than ordering by a column named `undefined`, an empty array carries NO `$orderby` rather than `""`, and a mixed array keeps its usable member — each with a live `"name desc"` control so the absences are readings. The growth is the other two readers: the server-side EXPORT projection spells the same member `{ field, direction }` and the header-arrow reader `parseSchemaSort` spells it `{ field, order }`. ⚠️⚠️ They do NOT agree, and the disagreement is pinned rather than repaired: `normalizeSortEntries` folds any non-`desc` order to `asc` for the wire and `parseSchemaSort` does the same for the arrow, while the export projection reads `?? \'asc\'` and passes an UNRECOGNISED direction through verbatim — one authored `{ field: \'name\', order: \'descending\' }` orders the screen ascending, draws an ascending arrow, and asks the export door for `direction: \'descending\'`. Reported as a finding; changing what that door receives is a change to a shipped request shape, not a member pin. Pre-existing file (objectui#8973), promoted after being read end to end and grown by the three-reader section (objectui#8071 slice 17).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
   },
   'object-kanban.columns': {
     file: 'packages/plugin-kanban/src/__tests__/objectKanbanColumnMembers-8071.test.tsx',
-    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is read TWICE with two unrelated meanings — as the lane\'s accessible name, and as a BUCKETING ALIAS (`labelToColumnId[String(col.title).toLowerCase()] = col.id`), so a record whose stored group value is the lane\'s TITLE lands in that lane as surely as one carrying its id: nothing on the authoring surface says so, and renaming a lane therefore MOVES RECORDS. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
+    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is the lane\'s accessible name and ⛔ NOT a bucketing key: it used to be a second, undeclared BUCKETING ALIAS, so renaming a lane moved records; objectui#10069 (ruling A) retired it and FLIPPED that row, so a record whose stored group value is the lane\'s TITLE is now swept into the trailing lane with a console warn. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -2420,7 +2495,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.dataSource': {
     file: 'packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx',
-    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` is the loud one: the spec declares it, this block IGNORES it, and the row asserts no `$orderby` and no `sort` reaches the query with a mapped `limit` moving in the SAME binding as the lit control — without it a later contributor "completing the mapping" would wire it onto a key nothing reads. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
+    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, sort: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` was the loud one — declared by the spec, silently IGNORED by this block — until objectui#10068 flipped the row: a binding `sort` now reaches the query as `$orderby` (`convertSortToQueryParams`, the `field -> direction` map every sibling block sends) with a mapped `limit` moving in the SAME binding as the lit control, a named view\'s `sort` reaches it too and the binding\'s own `sort` beats the view\'s, cards inside a lane keep the sorted fetch order rather than being re-sorted, and an absent `sort` sends no `$orderby` as the control. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
   },
   'object-kanban.filter': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx',
@@ -2440,7 +2515,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-master-detail-form.sections': {
     file: 'packages/plugin-form/src/__tests__/masterDetailSectionMembers-8071.test.tsx',
-    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row, and it now AGREES with the block\'s own registration. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` does not render, and a section whose every member is outside it disappears heading and all. \u26a0 It used to record this as a DIVERGENCE, because the registration declared `fields` "Ignored when `sections` is given \u2014 sections carry their own field lists", and to record the loss as having NO DIAGNOSTIC; objectui#8071 slice 15 handed both back as a finding rather than acting on them, because acting changes either the renderer or the declaration and that card wrote pins only. objectui#9884 ruled it, and the DECLARATION was the wrong half: one `SimpleObjectForm` renders this block\'s parent half and `object-form` alike, and the three sibling `fields` registrations (`object-form`, `form`, `embeddable-form`) declare the key as the field selection with no such exemption, so honouring it would have falsified three declarations to satisfy one \u2014 on a pool that also feeds create defaults, the seed merge and the values a submit carries. The sentence was corrected and the SILENCE closed instead: `warnSectionMemberExcludedByFields` names every such drop, once per section-and-member pair, and is measured BEFORE `applyFieldPerms` so a perms-gated field is never reported as an authoring mistake. \u26d4 So the diagnostic is part of what this row pins now, and slice 15\'s two DOM assertions stand unchanged beside it \u2014 the rendered outcome did not move. Rows 3b, 3c and 3d carry the last-member case (with a counterfactual beside it), the firing control, and the leg keeping the warning off the DIFFERENT silence row 2 owns. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
+    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names drawn in the member\'s AUTHORED order (FLIPPED with objectui#10475, which moved `SimpleObjectForm` off a name filter that let the OBJECT\'s field order win), and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row, and it now AGREES with the block\'s own registration. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` does not render, and a section whose every member is outside it disappears heading and all. \u26a0 It used to record this as a DIVERGENCE, because the registration declared `fields` "Ignored when `sections` is given \u2014 sections carry their own field lists", and to record the loss as having NO DIAGNOSTIC; objectui#8071 slice 15 handed both back as a finding rather than acting on them, because acting changes either the renderer or the declaration and that card wrote pins only. objectui#9884 ruled it, and the DECLARATION was the wrong half: one `SimpleObjectForm` renders this block\'s parent half and `object-form` alike, and the three sibling `fields` registrations (`object-form`, `form`, `embeddable-form`) declare the key as the field selection with no such exemption, so honouring it would have falsified three declarations to satisfy one \u2014 on a pool that also feeds create defaults, the seed merge and the values a submit carries. The sentence was corrected and the SILENCE closed instead: `warnSectionMemberExcludedByFields` names every such drop, once per section-and-member pair, and is measured BEFORE `applyFieldPerms` so a perms-gated field is never reported as an authoring mistake. \u26d4 So the diagnostic is part of what this row pins now, and slice 15\'s two DOM assertions stand unchanged beside it \u2014 the rendered outcome did not move. Rows 3b, 3c and 3d carry the last-member case (with a counterfactual beside it), the firing control, and the leg keeping the warning off the DIFFERENT silence row 2 owns. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
   },
   'object-metric.aggregate': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
@@ -2692,14 +2767,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // object-grid — objectui#8071 slice 12 pinned the four per-ROW keys
   // (`conditionalFormatting`, `operations`, `rowActions`, `rowColor`), slice 13
   // the four TOOLBAR keys (`batchActions`, `pagination`, `searchableFields`,
-  // `selection`), and slice 14 the three SOURCE-AND-DESTINATION keys
-  // (`aggregations`, `dataSource`, `navigation`); the four below are what the
-  // block's first three bites left, and slice 12 measured each of them as one
-  // slice on its own.
-  'object-grid.columns': AWAITING_A_PIN,
-  'object-grid.filter': AWAITING_A_PIN,
-  'object-grid.grouping': AWAITING_A_PIN,
-  'object-grid.sort': AWAITING_A_PIN,
+  // `selection`), slice 14 the three SOURCE-AND-DESTINATION keys
+  // (`aggregations`, `dataSource`, `navigation`) and slice 17 the four QUERY
+  // SHAPE keys (`columns`, `filter`, `grouping`, `sort`); the block is now
+  // fully pinned in four bites, and this header stays only as a note for the
+  // next reader who greps for it.
 
   // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
   // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
@@ -3454,11 +3526,45 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
  * measurement still stands.
  *
+ * ## 8 -> 4 (objectui#8071 slice 17) — the `object-grid` block CLOSES
+ *
+ * `columns`, `filter`, `grouping` and `sort` are pinned, which takes the
+ * largest block on this card to zero in its fourth bite. Set arithmetic:
+ * -4 exemptions, -4 ceiling, +4 pins, and the remaining count equals this
+ * constant, so the enumeration below it is the whole population rather than a
+ * sample.
+ *
+ * ⚠️ Two of the four are PROMOTED pre-existing files rather than new ones, each
+ * read end to end first and then grown by the member dispositions it never
+ * stated — `gridFilterInputSpelling` by the three members of one rule,
+ * `gridArrayArmOrderby-8973` by the two readers of `sort` that its own card
+ * deliberately left alone. The other two are new, because nothing existing
+ * stated the member SET for either.
+ *
+ * ⚠️ `columns` and `grouping` are separable but NOT disjoint — slice 16
+ * measured that and this slice is where it shows: one memo derives the group
+ * header labels from both keys, so `grouping`'s pin necessarily reads
+ * `columns`. Both pins carry their own absent-member controls so a failure
+ * still names one key.
+ *
+ * ⚠️ Two member facts are pinned as BEHAVIOUR and handed back as findings
+ * rather than repaired here, the same choice slice 9 made and for the same
+ * reason — an assertion that either can never change would have to be deleted
+ * before anyone could change it. (a) The export door receives an
+ * UNNORMALIZED `sort[].order`, so one authored value produces three answers
+ * across this block's three readers. (b) The group-label memo reads
+ * `columns[].options`, a member `ListColumnSchema` refuses at publish.
+ *
+ * ⚠️ Unchanged by this slice: `NEWLY_JUDGED_UNPINNED_MEMBERS` (already empty,
+ * and no block it named was touched) and `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
+ * measurement still stands.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 8;
+const MEMBER_PIN_EXEMPTION_CEILING = 4;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -3660,6 +3766,27 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         Object.keys(ComponentPropsMap),
         `${type} is ledgered but the spec no longer carries it — delete the entry`,
       ).toContain(type);
+      if (reason.startsWith('RETIRED UPSTREAM')) {
+        // Both halves, so neither can rot alone: the spec still retires the
+        // type, and its kept row still accepts nothing.
+        expect(
+          isRetiredUpstream(type),
+          `${type} is ledgered as retired upstream, and the spec does not retire it — ` +
+            'give the entry its real reason, or judge the block',
+        ).toBe(true);
+        expect(
+          specTopLevelKeys(type),
+          `${type} is ledgered as retired upstream, and its row accepts keys — judge it`,
+        ).toEqual([]);
+        continue;
+      }
+      // objectui#10033: the other two reasons may not describe a retired type,
+      // or a retirement leaves a reason in place that no longer says why.
+      expect(
+        isRetiredUpstream(type),
+        `${type} is retired upstream, and its ledger reason does not say so — ` +
+          'rewrite the entry as RETIRED UPSTREAM',
+      ).toBe(false);
       if (reason.startsWith('EMPTY SPEC SHAPE')) {
         expect(
           specTopLevelKeys(type),

@@ -29,7 +29,12 @@ export interface SelectionTrayProps {
   /** Remove a selected record by its id. */
   onRemove: (id: any) => void;
   displayField?: string;
-  avatarField?: string;
+  /**
+   * Avatar image field (default `image`). `null` draws no image, only the
+   * initials: what PeoplePicker passes when field-level security withholds the
+   * field (objectui#10433).
+   */
+  avatarField?: string | null;
   idField?: string;
   /** Header label, e.g. "Selected (3)" — omit to hide the header. */
   label?: string;

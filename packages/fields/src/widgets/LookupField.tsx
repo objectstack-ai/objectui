@@ -18,7 +18,7 @@ import type { RecordPickerFilterColumn } from './RecordPickerDialog.js';
 import { PeoplePicker } from './PeoplePicker.js';
 import { useRecordQuery } from './useRecordQuery.js';
 import { deriveLookupColumns } from './deriveLookupColumns.js';
-import { getRecordDisplayName, mergeFilterNodes } from '@object-ui/core';
+import { buildExpandFields, getRecordDisplayName, mergeFilterNodes, toPredicateRecord } from '@object-ui/core';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
 import { getPersonInitials } from './personDisplay.js';
 import { getCellRendererResolver } from './_cell-renderer-bridge.js';
@@ -33,6 +33,7 @@ import {
 } from './lookupColumnDisplay.js';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { SchemaRendererContext as ImportedSchemaRendererContext, useAction, useHasActionProvider } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 
 export interface LookupOption {
@@ -85,69 +86,70 @@ function isUserFacingReference(reference: string | undefined): boolean {
 }
 
 /**
- * Render a record title from a `titleFormat` template (e.g. `{full_name}` or
- * `{case_number} - {subject}`). When a templated key resolves to an empty
- * value, the surrounding separator (`-/|·,:` plus em/en dashes) is stripped
- * so we never produce orphan glyphs like `" - foo"`.
- *
- * Mirrors the implementation in `@object-ui/plugin-detail`'s
- * `resolveDisplayTitle` and `@object-ui/plugin-calendar`'s event-title
- * renderer so labels stay consistent across the product.
+ * The record field a lookup reads when the field declares no `displayField`:
+ * the quick-create payload key, the pickers' display column, and the option
+ * label's first rung when the referenced object's schema is not available.
+ * It is a guess, not a declaration, so it never outranks what the referenced
+ * object declares (see `recordToOption`).
  */
-function formatRecordTitle(record: any, titleFormat: string): string | null {
-  if (!record || typeof record !== 'object' || !titleFormat) return null;
-  const EMPTY = '\u0000';
-  const SEP = '[-\\u2013\\u2014|/·,:]';
-  let any = false;
-  const raw = titleFormat.replace(/\{([^{}]+)\}/g, (_m, key) => {
-    const v = (record as any)[key.trim()];
-    if (v !== null && v !== undefined && v !== '') {
-      any = true;
-      return String(v);
-    }
-    return EMPTY;
-  });
-  if (!any) return null;
-  const out = raw
-    .replace(new RegExp(`\\s*${SEP}\\s*${EMPTY}`, 'g'), '')
-    .replace(new RegExp(`${EMPTY}\\s*${SEP}\\s*`, 'g'), '')
-    .replace(new RegExp(EMPTY, 'g'), '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return out || null;
-}
+const DEFAULT_DISPLAY_FIELD = 'name';
 
 /**
  * Map a raw record to a LookupOption using a display field and an id field.
  *
- * Label precedence (ADR-0079):
- *   1. `titleFormat` template (when supplied, derived from the referenced
- *      object's schema) — e.g. `"Acme - John Doe"`.
- *   2. the explicit `displayField` value on the record.
- *   3. the unified `@object-ui/core#getRecordDisplayName` against the referenced
- *      object's schema (`objectDef`) — adds `displayNameField` + type-aware
- *      field derivation, so a lookup to an object whose name lives in e.g.
- *      `activity_name` resolves a real name instead of the raw id. We stop short
- *      of the resolver's `Record #<id>` floor here so the chip still falls
- *      through to the bare id when nothing nameable exists.
- *   4. the legacy hard-coded name list, then the raw id.
+ * Label precedence (ADR-0079; objectui#10343, the lookup branch of
+ * objectui#9436's ruling C1):
+ *   1. with the referenced object's schema (`objectDef`): the unified
+ *      `@object-ui/core#getRecordDisplayName`, with the field's DECLARED
+ *      `displayField` as its `titleField` — the same call the read cell's
+ *      `LookupCellRenderer` makes, so the dropdown, the chip and the record
+ *      page agree:
+ *        a. the field's own declared `displayField` (the author's explicit
+ *           choice for this field),
+ *        b. the object's declared `nameField` (then its deprecated aliases),
+ *        c. the object's deprecated `titleFormat` template,
+ *        d. type-aware derivation, then name-ish keys on the record.
+ *      We stop short of the resolver's `Record #<id>` floor here so the chip
+ *      still falls through to the bare id when nothing nameable exists.
+ *   2. the display field on the record — the declared one, else
+ *      {@link DEFAULT_DISPLAY_FIELD}. Without a schema this is the first rung;
+ *      with one, the `name` guess sits BELOW the object's declarations, which
+ *      is what `@objectstack/spec` means by the field "defaults to the
+ *      referenced object's name/title".
+ *   3. the legacy hard-coded name list, then the raw id.
+ *
+ * The template is not rendered here: `getRecordDisplayName` renders
+ * `objectDef.titleFormat` itself (the shared `formatTitleTemplate`), at its
+ * ADR-0079 rung.
+ *
+ * The label is a DISPLAY value, so it is built from the row as the user may
+ * read it (objectui#10373): with `readable` given (a loaded permission policy),
+ * every field it denies is removed first — the row ObjectStack's `FieldMasker`
+ * already serves — and the chain above falls through exactly as it does for
+ * that row. Nothing else moves: the value, the description and the record the
+ * option carries (what `onSelectRecord` receives) are the row as served.
+ *
+ * @param displayField the lookup field's DECLARED `displayField` (or
+ *   `reference_field`), `undefined` when it declares none — never the
+ *   {@link DEFAULT_DISPLAY_FIELD} fallback, which would rank a guess above the
+ *   referenced object's `nameField`.
  */
 function recordToOption(
   record: any,
-  displayField: string,
+  displayField: string | undefined,
   idField: string,
   descriptionField?: string,
-  titleFormat?: string | null,
   objectDef?: any,
+  readable?: FieldReadGate,
 ): LookupOption {
-  const val = record[idField] ?? record.id ?? record._id ?? record.externalId;
-  const templated = titleFormat ? formatRecordTitle(record, titleFormat) : null;
+  const val = recordValue(record, idField);
+  const shown = withoutDeniedFields(record, readable);
 
-  // Object-level resolver fallback (displayNameField + derivation), excluding
-  // its id floor so we don't shadow the explicit `String(val)` tail.
+  // Object-level resolver, excluding its id floor so we don't shadow the
+  // explicit `String(val)` tail.
   let unified: string | undefined;
   if (objectDef) {
-    const resolved = getRecordDisplayName(objectDef, record);
+    const resolved = getRecordDisplayName(objectDef, shown, { titleField: displayField });
     const id = record?.id ?? record?._id;
     const isFloor =
       resolved === 'Untitled' ||
@@ -156,18 +158,68 @@ function recordToOption(
   }
 
   const label =
-    templated ??
-    record[displayField] ??
     unified ??
-    record.label ??
-    record.name ??
-    record.full_name ??
-    record.title ??
-    record.subject ??
-    record.externalId ??
+    shown[displayField ?? DEFAULT_DISPLAY_FIELD] ??
+    shown.label ??
+    shown.name ??
+    shown.full_name ??
+    shown.title ??
+    shown.subject ??
+    shown.externalId ??
     String(val);
   const description = descriptionField ? record[descriptionField] : undefined;
-  return { value: val, label: String(label), description, ...record };
+  const option = { value: val, label: String(label), description, ...record };
+  // A row field literally named `label` wins the spread above. When a field was
+  // withheld, the label built from the shown row stands instead, so a denied
+  // `label` field cannot come back through the spread.
+  return shown === record ? option : { ...option, label: String(label) };
+}
+
+/**
+ * The committed value a fetched row stands for: the `value` of the option
+ * `recordToOption` builds from it. The hydrated rows are keyed by it, so a
+ * cached row and the option `findOption` matches can never disagree about
+ * which value they belong to.
+ */
+function recordValue(record: Record<string, unknown>, idField: string): unknown {
+  return record[idField] ?? record.id ?? record._id ?? record.externalId;
+}
+
+/** "May the user read this field?" on one object, once a policy has loaded. */
+type FieldReadGate = (field: string) => boolean;
+
+/**
+ * The field-read gate on `objectName`, or `undefined` while no policy has
+ * loaded — before then nothing is withheld, as at every other gate in this
+ * file. The identity columns are never judged: the id is the committed value,
+ * not a display value.
+ */
+function fieldReadGate(
+  perms: ReturnType<typeof usePermissions>,
+  objectName: string | undefined,
+  idField: string,
+): FieldReadGate | undefined {
+  if (!perms.isLoaded || !objectName) return undefined;
+  return (field) =>
+    field === idField || field === 'id' || field === '_id' || perms.checkField(objectName, field, 'read');
+}
+
+/**
+ * `record` without the fields `readable` denies — the same object back when
+ * nothing is withheld (or no gate is given), so a caller can tell the two
+ * apart by identity. `RecordPickerDialog` applies the same rule to its display
+ * column's `titleFormat` (its own `withoutDeniedFields`); each file keeps its
+ * own copy so that neither becomes a package export.
+ */
+function withoutDeniedFields<T>(record: T, readable: FieldReadGate | undefined): T {
+  if (!readable || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (readable(key)) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
 }
 
 /**
@@ -238,6 +290,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // even when the record wasn't part of the Level 1 popover fetch.
   const [pickerResolvedRecords, setPickerResolvedRecords] = useState<LookupOption[]>([]);
 
+  // Records fetched to label a value the field already holds (the hydration
+  // effect below). Kept as the ROWS the DataSource served, not as options: the
+  // option — its label above all — is derived from them on every render
+  // (`hydratedOptions`), so it follows the referenced object's schema when that
+  // arrives after the record (objectui#10487).
+  const [hydratedRecords, setHydratedRecords] = useState<Record<string, unknown>[]>([]);
+
   // Ids whose hydration attempt has FINISHED — found or not — keyed by
   // String(id). Distinguishes "still loading" from "unresolvable" (deleted
   // record, fetch failure) so the trigger's hydrating state can't stick
@@ -266,7 +325,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
   const staticOptions: LookupOption[] = fieldMeta?.options || [];
   const multiple = fieldMeta?.multiple || false;
-  const displayField = fieldMeta?.displayField || fieldMeta?.reference_field || 'name';
+  // The field's OWN display field, as declared — what `recordToOption` ranks
+  // above the referenced object's declarations (objectui#10343). Read exactly as
+  // the read cell (`LookupCellRenderer`) reads it.
+  const declaredDisplayField: string | undefined =
+    fieldMeta?.displayField || fieldMeta?.reference_field || undefined;
+  const displayField = declaredDisplayField || DEFAULT_DISPLAY_FIELD;
   const descriptionField: string | undefined = fieldMeta?.descriptionField;
   const idField = fieldMeta?.idField || 'id';
   // ObjectStack convention uses `reference`; types define `reference_to` — support both
@@ -407,10 +471,10 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
   const hasDataSource = dataSource != null && typeof dataSource.find === 'function' && !!referenceTo;
 
-  // Fetch the referenced object's schema so we can render option labels via
-  // its `titleFormat` template (e.g. `{full_name}`, `{case_number} - {subject}`).
-  // Without this the label fell back to a non-existent `name` field and
-  // ultimately to the raw record id.
+  // Fetch the referenced object's schema so option labels resolve through its
+  // declarations (`nameField`, then the deprecated `titleFormat` template —
+  // `recordToOption`, ADR-0079). Without this the label fell back to a
+  // non-existent `name` field and ultimately to the raw record id.
   const [refObjectSchema, setRefObjectSchema] = useState<any>(null);
   useEffect(() => {
     if (!dataSource || !referenceTo) return;
@@ -423,6 +487,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     return () => { alive = false; };
   }, [dataSource, referenceTo]);
 
+  // Feeds the browse-all picker (`RecordPickerDialog`) only. The option label
+  // does not read it: `recordToOption` hands the whole schema to the unified
+  // resolver, which renders `titleFormat` at its own ADR-0079 rung.
   const refTitleFormat: string | null = useMemo(() => {
     const raw = refObjectSchema?.titleFormat;
     if (typeof raw === 'string') return raw;
@@ -496,6 +563,83 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     [previewColumns, refObjectSchema, referenceTo, translateOptions],
   );
 
+  /**
+   * `$expand` for the candidate queries (objectui#10223): the reference columns
+   * among the ones this dropdown PREVIEWS, by `buildExpandFields`' rule — the
+   * same one the list views use for their visible columns.
+   *
+   * Without it every previewed `lookup` / `master_detail` column arrived as a
+   * bare foreign key, and the lookup cell renderer resolved each one with its
+   * own `findOne` — one request per candidate per such column, on every open.
+   * An expanded value is rendered by that same cell renderer with no fetch, so
+   * the preview reads the same and the per-row requests go.
+   *
+   * Expansion is a DISPLAY concern here and stays one: options are built from
+   * the row with its relations collapsed back to ids (`toPredicateRecord`), so
+   * the label, the committed value and the record `onSelectRecord` hands a host
+   * are what they were before any column was expanded. Only the preview reads
+   * the expanded row (`previewRows` below). A backend that ignores `$expand`
+   * returns bare ids, and the cell renderer's per-id resolution takes over as
+   * before.
+   *
+   * Field-level security gates the OUTPUT, in the shape the objectui#7429 sweep
+   * applied at every other `buildExpandFields` call site: once the policy has
+   * loaded, a relation the user may not read on the referenced object is not
+   * asked for; before it loads, nothing is filtered and `perms` in the deps
+   * rebuilds the list when the answer arrives. Every name judged here is one
+   * the referenced object declares, so the "`checkField` answers false for an
+   * undeclared key" trap cannot be reached.
+   *
+   * No previewed column ⇒ no `$expand`. `buildExpandFields` reads an EMPTY
+   * column list as "no column restriction" and returns every relation the
+   * object declares; a dropdown that previews only its display field (a
+   * `highlightFields` naming just that field, or every other field
+   * system-managed) would then ask for `created_by`, `owner_id`, … — none of
+   * which it renders.
+   */
+  const perms = usePermissions();
+  const candidateExpand = useMemo<string[]>(() => {
+    if (previewColumns.length === 0) return [];
+    const expandable = buildExpandFields(refObjectSchema?.fields, previewColumns);
+    if (!perms.isLoaded || !referenceTo) return expandable;
+    return expandable.filter((f) => perms.checkField(referenceTo, f, 'read'));
+  }, [refObjectSchema, previewColumns, perms, referenceTo]);
+
+  /**
+   * The previewed columns the user may READ — the ones `previewOf` renders
+   * (objectui#10373). Field-level security gates the displayed OUTPUT, in the
+   * shape `RelatedList`'s `keepReadableColumns` applies under the
+   * objectui#7215 / objectui#7230 rulings: once the policy has loaded, a column
+   * the user may not read on the referenced object is not previewed; before it
+   * loads nothing is filtered, and `perms` in the deps re-derives the list when
+   * the answer arrives. The object judged is `referenceTo`, the one
+   * `candidateExpand` above judges.
+   *
+   * Gating `$expand` alone left a denied column on screen: a denied relation
+   * arrived as a bare key, and the lookup cell renderer resolved it with a read
+   * of its own.
+   *
+   * The id column is never filtered: it holds the value being committed. The
+   * option's label is not one of these columns; `recordToOption` builds it
+   * from the row with the denied fields removed (`fieldReadGate`), so the
+   * display field and a `titleFormat` obey the same policy without dropping
+   * the option. `candidateExpand` keeps
+   * reading the unfiltered list and gating its own output, as every
+   * `buildExpandFields` call site does; both ask `checkField` about the same
+   * names on the same object, so the two lists cannot disagree.
+   */
+  const readablePreviewColumns = useMemo<LookupColumnDef[]>(
+    () =>
+      previewColumns.filter(
+        (c) =>
+          !perms.isLoaded ||
+          !referenceTo ||
+          c.field === idField ||
+          perms.checkField(referenceTo, c.field, 'read'),
+      ),
+    [previewColumns, perms, referenceTo, idField],
+  );
+
   // Derive filter-bar columns from any typed picker columns.
   const filterColumns = useMemo<RecordPickerFilterColumn[] | undefined>(() => {
     if (!pickerColumns) return undefined;
@@ -548,6 +692,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     enabled: isOpen && hasDataSource && !dependenciesMissing,
     pageSize: LOOKUP_PAGE_SIZE,
     filter: popoverFilter,
+    expand: candidateExpand,
   });
 
   // Re-source the popover's fetch state from the kernel; all existing read sites
@@ -556,12 +701,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const loading = popoverQuery.loading;
   const totalCount = popoverQuery.total;
   const error = popoverQuery.error ?? createError;
+  // Built from the row with its relations collapsed to ids — see
+  // `candidateExpand` for why the option never sees the expanded form.
   const fetchedOptions = useMemo(
     () =>
       popoverQuery.records.map(r =>
-        recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema),
+        recordToOption(
+          toPredicateRecord(r, refObjectSchema?.fields),
+          declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
+        ),
       ),
-    [popoverQuery.records, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+    [popoverQuery.records, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
   );
 
   const allOptions = hasDataSource ? fetchedOptions : staticOptions;
@@ -599,8 +750,18 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    * Hydrate the picker's display when the field already has a value (e.g.
    * edit-mode load, prefill via query-string from a related-list "+ New")
    * but no option resolves it yet. Fetches the referenced record(s) via
-   * the DataSource and caches them in `pickerResolvedRecords` so the chip
+   * the DataSource and keeps the rows in `hydratedRecords` so the chip
    * shows a friendly label instead of an empty placeholder.
+   *
+   * It fetches rows and builds no label (objectui#10487). The referenced
+   * object's schema is requested at mount too, and nothing orders the two: a
+   * label built here, in whichever render the fetch returned to, was built on
+   * the no-schema path whenever the record won, and nothing rebuilt it when the
+   * schema arrived. `hydratedOptions` derives the label on every render
+   * instead. So the dependency list names only what the FETCH reads. The
+   * display and description fields are not in it: a change to either relabels
+   * through `hydratedOptions`, and never cancels an in-flight fetch to issue a
+   * second one.
    *
    * Deliberately UNFILTERED, unlike the recents rail below (#5195). These ids
    * are what the record already holds, not candidates being offered: the value
@@ -632,7 +793,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     let cancelled = false;
     (async () => {
       try {
-        const fetched: LookupOption[] = [];
+        const fetched: Record<string, unknown>[] = [];
         // Single id: the pre-existing cheap paths — a primary-id `findOne`
         // GET, or an equality filter when the field commits a different
         // column (`idField: 'name'` — e.g. position machine names,
@@ -641,14 +802,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           const id = unresolved[0];
           if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {
             const rec = await (dataSource as any).findOne(referenceTo, id);
-            if (rec) fetched.push(recordToOption(rec, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+            if (rec) fetched.push(rec);
           } else {
             const res = await dataSource.find(referenceTo, {
               $filter: { [idField]: id },
               $top: 1,
             } as QueryParams);
             const rows = (res as any)?.data ?? res ?? [];
-            if (rows[0]) fetched.push(recordToOption(rows[0], displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+            if (rows[0]) fetched.push(rows[0]);
           }
         } else {
           // SEVERAL unresolved ids: one `$in` query per chunk. A multi-value
@@ -672,15 +833,13 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           for (const res of results) {
             const rows = (res as any)?.data ?? res ?? [];
             if (!Array.isArray(rows)) continue;
-            for (const row of rows) {
-              fetched.push(recordToOption(row, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
-            }
+            for (const row of rows) fetched.push(row);
           }
         }
         if (!cancelled && fetched.length) {
-          setPickerResolvedRecords((prev) => {
-            const map = new Map(prev.map((o) => [o.value, o]));
-            for (const o of fetched) map.set(o.value, o);
+          setHydratedRecords((prev) => {
+            const map = new Map(prev.map((r) => [recordValue(r, idField), r]));
+            for (const r of fetched) map.set(recordValue(r, idField), r);
             return Array.from(map.values());
           });
         }
@@ -703,18 +862,38 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, hasDataSource, referenceTo, displayField, idField, effectiveDescriptionField, multiple]);
+  }, [value, hasDataSource, referenceTo, idField, multiple]);
 
-  // Get selected option(s) — check static, fetched, and picker-resolved options
+  // The hydrated rows as options, derived exactly as the dropdown derives its
+  // own (`fetchedOptions`): the same `recordToOption`, the same inputs, read on
+  // every render. The label therefore follows the referenced object's schema
+  // when it arrives after the record, and the field-read gate of the policy
+  // loaded now — the row as the user may read it (objectui#10373) — rather than
+  // whatever either was in the render the fetch returned to (objectui#10487).
+  const hydratedOptions = useMemo(
+    () =>
+      hydratedRecords.map((r) =>
+        recordToOption(
+          r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
+        ),
+      ),
+    [hydratedRecords, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
+  );
+
+  // Get selected option(s) — check static, fetched, picked, then hydrated
+  // options. A pick outranks the hydrated row for the same value, as it did
+  // when both shared one cache and the later write won.
   const findOption = useCallback(
     (v: any): LookupOption | undefined => {
       return (
         staticOptions.find(opt => opt.value === v) ??
         fetchedOptions.find(opt => opt.value === v) ??
-        pickerResolvedRecords.find(opt => opt.value === v)
+        pickerResolvedRecords.find(opt => opt.value === v) ??
+        hydratedOptions.find(opt => opt.value === v)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords],
+    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
   );
 
   // String-coerced fallback for `findOption` — matches the read cell's tolerant
@@ -727,10 +906,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       return (
         staticOptions.find(opt => String(opt.value) === key) ??
         fetchedOptions.find(opt => String(opt.value) === key) ??
-        pickerResolvedRecords.find(opt => String(opt.value) === key)
+        pickerResolvedRecords.find(opt => String(opt.value) === key) ??
+        hydratedOptions.find(opt => String(opt.value) === key)
       );
     },
-    [staticOptions, fetchedOptions, pickerResolvedRecords],
+    [staticOptions, fetchedOptions, pickerResolvedRecords, hydratedOptions],
   );
 
   // Collapse an expanded-reference value (the related record object returned by
@@ -765,14 +945,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       // mapped directly, mirroring the read cell (`LookupCellRenderer`).
       const asObject = typeof raw === 'object' ? raw : parseReferenceObjectString(raw);
       if (asObject) {
-        return recordToOption(asObject, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+        return recordToOption(asObject, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
       }
       // Bare id: strict match first, then a String()-coerced fallback so a
       // numeric cell value still resolves against a string-keyed option (and
       // vice versa) — matching the read cell's tolerant comparison.
       return findOption(raw) ?? findOptionLoose(raw);
     },
-    [findOption, findOptionLoose, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema],
+    [findOption, findOptionLoose, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
   );
 
   // A value can hold bare ids that no option list resolves YET — the batch
@@ -859,11 +1039,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // findOption can resolve display labels after the dialog closes.
   const handlePickerSelectRecords = useCallback(
     (records: any[]) => {
-      const mapped = records.map(r => recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema));
+      const readable = fieldReadGate(perms, referenceTo, idField);
+      const mapped = records.map(r => recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
       if (referenceTo) mapped.forEach((o) => pushRecentLookupId(referenceTo, o.value));
       setPickerResolvedRecords(mapped);
     },
-    [displayField, idField, effectiveDescriptionField, refTitleFormat, referenceTo],
+    [declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, referenceTo, perms],
   );
 
   // ── Recently-used, quick-create, combined option list ────────────────────
@@ -894,12 +1075,20 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   // filtered response; ids it does not return are dropped, whether they fail
   // the filters or no longer exist. It is also one request instead of up to
   // MAX_RECENT serial round-trips.
-  const [recentOptions, setRecentOptions] = useState<LookupOption[]>([]);
+  //
+  // The rail previews the same columns as the main list, so it asks for the
+  // same `$expand` (objectui#10223). It keeps the rows it was served — the
+  // preview reads them — and derives its options from them exactly as the main
+  // list does, relations collapsed to ids.
+  const [recentRows, setRecentRows] = useState<Record<string, unknown>[]>([]);
+  // The expansion as a primitive, for the effect below: a memoised array's
+  // identity is not a dependency to key a fetch on (AGENTS.md #10).
+  const candidateExpandKey = candidateExpand.join(',');
   useEffect(() => {
     if (!isOpen || !hasDataSource || !dataSource || !referenceTo || searchQuery) return;
-    if (dependenciesMissing) { setRecentOptions([]); return; }
+    if (dependenciesMissing) { setRecentRows([]); return; }
     const ids = getRecentLookupIds(referenceTo);
-    if (!ids.length) { setRecentOptions([]); return; }
+    if (!ids.length) { setRecentRows([]); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -909,29 +1098,54 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             ? mergeFilterNodes(popoverFilter, idRestriction)
             : idRestriction,
           $top: ids.length,
+          ...(candidateExpand.length > 0 ? { $expand: candidateExpand } : {}),
         } as QueryParams);
         const rows = (res as any)?.data ?? res ?? [];
         const byId = new Map<string, any>();
         if (Array.isArray(rows)) {
           for (const row of rows) {
-            const rid = row?.[idField] ?? row?.id ?? row?._id;
+            const plain = toPredicateRecord(row, refObjectSchema?.fields);
+            const rid = plain?.[idField] ?? plain?.id ?? plain?._id;
             if (rid !== undefined && rid !== null) byId.set(String(rid), row);
           }
         }
         // Most-recent-first order is preserved; the response only decides
         // WHICH ids survive, never their order.
-        const recs = ids
-          .map((id) => byId.get(String(id)))
-          .filter(Boolean)
-          .map((r) =>
-            recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema),
-          );
-        if (!cancelled) setRecentOptions(recs);
-      } catch { if (!cancelled) setRecentOptions([]); }
+        const kept = ids.map((id) => byId.get(String(id))).filter(Boolean);
+        if (!cancelled) setRecentRows(kept);
+      } catch { if (!cancelled) setRecentRows([]); }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasDataSource, referenceTo, searchQuery, dependenciesMissing, popoverFilter, idField]);
+  }, [isOpen, hasDataSource, referenceTo, searchQuery, dependenciesMissing, popoverFilter, idField, candidateExpandKey]);
+  const recentOptions = useMemo(
+    () =>
+      recentRows.map((r) =>
+        recordToOption(
+          toPredicateRecord(r, refObjectSchema?.fields),
+          declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
+          fieldReadGate(perms, referenceTo, idField),
+        ),
+      ),
+    [recentRows, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
+  );
+
+  /**
+   * The rows previews render from (objectui#10223): each as the server returned
+   * it, with any `$expand`-ed relation still expanded, so the lookup cell
+   * renderer names it without a fetch. Keyed by the option's value (a
+   * primitive, never an option object's identity). An option with no served
+   * row — a static option, a just-created record — previews from itself.
+   */
+  const previewRows = useMemo(() => {
+    const byValue = new Map<string, Record<string, unknown>>();
+    for (const raw of [...recentRows, ...popoverQuery.records]) {
+      const plain = toPredicateRecord(raw, refObjectSchema?.fields);
+      const v = plain?.[idField] ?? plain?.id ?? plain?._id ?? plain?.externalId;
+      if (v !== undefined && v !== null && !byValue.has(String(v))) byValue.set(String(v), raw);
+    }
+    return byValue;
+  }, [recentRows, popoverQuery.records, refObjectSchema, idField]);
 
   // Recently-used first (only before the user types), then live results — one
   // de-duped list that drives BOTH rendering and arrow-key navigation.
@@ -983,7 +1197,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           modal: { objectName: referenceTo, mode: 'create' },
         } as any);
         if (result?.success && result.data) {
-          const opt = recordToOption(result.data, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+          const opt = recordToOption(result.data, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
           setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
           handleSelect(opt);
           return;
@@ -1000,7 +1214,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       setCreating(true);
       try {
         const created = await (dataSource as any).create(referenceTo, { [displayField]: label });
-        const opt = recordToOption(created, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema);
+        const opt = recordToOption(created, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
         setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
         handleSelect(opt);
       } catch (err) {
@@ -1009,7 +1223,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         setCreating(false);
       }
     },
-    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, handleSelect],
+    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, handleSelect, perms],
   );
 
   /**
@@ -1028,8 +1242,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
    */
   const previewOf = useCallback(
     (option: LookupOption): React.ReactNode => {
-      const cols = previewColumns.filter((c) => {
-        const v = (option as any)[c.field];
+      // The option with its relations as the server served them — every other
+      // key reads exactly as it did before `$expand` (objectui#10223).
+      const served = previewRows.get(String(option.value));
+      const row = served ? { ...option, ...served } : option;
+      const cols = readablePreviewColumns.filter((c) => {
+        const v = (row as any)[c.field];
         return v !== null && v !== undefined && v !== '';
       });
       if (cols.length === 0) return null;
@@ -1039,7 +1257,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           <span className="flex min-w-0 items-center gap-1 truncate">
             <span className="shrink-0 opacity-70">{`${col.label || fieldToLabel(col.field)}:`}</span>
             <span className="min-w-0 truncate" data-lookup-preview={col.field}>
-              {renderLookupColumnValue(option, col, {
+              {renderLookupColumnValue(row, col, {
                 descriptors: previewDescriptors,
                 cellRenderer: getCellRendererResolver(),
                 displayLocale,
@@ -1049,7 +1267,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         </React.Fragment>
       ));
     },
-    [previewColumns, previewDescriptors, displayLocale],
+    [previewRows, readablePreviewColumns, previewDescriptors, displayLocale],
   );
 
   // Keyboard handler for the search input — arrow keys + Enter
@@ -1181,6 +1399,39 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     </Button>
   );
 
+  /**
+   * Whether the selected-value chips offer their remove control.
+   *
+   * `readonly` already returned a display-only rendering far above, so the case
+   * this answers is the DISABLED one — and it is not a rare one: a field the
+   * object declares `readonly` arrives here as `disabled` (the form's section
+   * builder folds `field.readonly` into `disabled`), and so does a field the
+   * caller's field-level security marks `editable: false`. Both disabled the
+   * picker trigger and the browse button while leaving the chip's ✕ live, so
+   * the one control that could still CHANGE the value was the one control the
+   * gate had missed — a reporter could clear a master-detail parent the server
+   * would then refuse to unset (objectui#10120). ⭐ A refusal the UI invites is
+   * worse than a refusal it prevents: the chips stay, the affordance goes.
+   */
+  const chipsRemovable = !props.disabled;
+
+  /**
+   * A search-first chip's avatar, read only from a field the user may read on
+   * `referenceTo` (objectui#10433). The option carries the row as served (see
+   * `recordToOption`), so the chip used to draw a denied avatar on a backend
+   * that does not strip it. Both keys the chip reads are judged, each by its
+   * own name: the configured avatar field, and `image`, the fallback, which is
+   * a field of the same row. Before a policy loads nothing is withheld, as at
+   * every other gate in this file.
+   */
+  const chipAvatarReadable = fieldReadGate(perms, referenceTo, idField);
+  const chipAvatarUrl = (opt: LookupOption | undefined): string | undefined => {
+    const drawn = (key: string) =>
+      !chipAvatarReadable || chipAvatarReadable(key) ? opt?.[key] : undefined;
+    const url = drawn(avatarField) || drawn('image');
+    return url ? String(url) : undefined;
+  };
+
   return (
     <div className={compact ? '' : 'space-y-2'}>
       {/* Selected values display (full mode only — compact shows it in-trigger) */}
@@ -1191,7 +1442,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             // Search-first (people) fields show avatar chips; classic lookups
             // keep the plain text Badge.
             if (pickerVariant === 'search') {
-              const avatarUrl = (opt as any)?.[avatarField] || (opt as any)?.image;
+              const avatarUrl = chipAvatarUrl(opt);
               return (
                 <span
                   key={idx}
@@ -1205,28 +1456,32 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
                     </AvatarFallback>
                   </Avatar>
                   <span className="max-w-[10rem] truncate">{chipLabel}</span>
-                  <button
-                    onClick={() => handleRemove(opt?.value)}
-                    className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    type="button"
-                    aria-label={t('lookup.remove', { label: chipLabel })}
-                  >
-                    <X className="size-3" />
-                  </button>
+                  {chipsRemovable && (
+                    <button
+                      onClick={() => handleRemove(opt?.value)}
+                      className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      type="button"
+                      aria-label={t('lookup.remove', { label: chipLabel })}
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
                 </span>
               );
             }
             return (
               <Badge key={idx} variant="outline" className="gap-1">
                 {chipLabel}
-                <button
-                  onClick={() => handleRemove(opt?.value)}
-                  className="ml-1 hover:text-destructive"
-                  type="button"
-                  aria-label={t('lookup.remove', { label: chipLabel })}
-                >
-                  <X className="size-3" />
-                </button>
+                {chipsRemovable && (
+                  <button
+                    onClick={() => handleRemove(opt?.value)}
+                    className="ml-1 hover:text-destructive"
+                    type="button"
+                    aria-label={t('lookup.remove', { label: chipLabel })}
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
               </Badge>
             );
           })}

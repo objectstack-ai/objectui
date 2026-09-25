@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
 # guard-main-checkout-bash.sh — PreToolUse guard: the SAME worktree-first rule as
 # guard-main-checkout.sh, applied to file writes that arrive through Bash instead of
 # through the Edit / Write / NotebookEdit tools.

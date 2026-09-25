@@ -7,8 +7,10 @@
  */
 
 /**
- * Shared section-field normalizer for the sectioned form variants
- * (Tabbed / Wizard / Split / Drawer / Modal).
+ * Shared section-field normalizer for every `object-form` arm that takes
+ * sections: Tabbed / Wizard / Split / Drawer / Modal, and — since
+ * objectui#10475, through `SectionFieldsContext.pool` — the default arm
+ * (`SimpleObjectForm`).
  *
  * A form-view section lists its fields in one of three shapes:
  *
@@ -41,6 +43,7 @@
 import type { FormField } from '@object-ui/types';
 import { mapFieldTypeToFormType, buildValidationRules } from '@object-ui/fields';
 import { isCreateFormMode, isRequiredInForm } from './schemaDefaults';
+import { findCustomFieldMember } from './customFieldsMerge';
 
 export interface SectionFieldsContext {
   /** Resolved object schema (`{ fields: { [name]: fieldDef } }`) or null. */
@@ -69,6 +72,42 @@ export interface SectionFieldsContext {
    * passes it.
    */
   fieldLabel: (objectName: string, fieldName: string, fallback: string) => string;
+  /**
+   * The authored inline members (`schema.customFields`). A member naming the
+   * field a section entry names is that entry's BASE definition, in place of
+   * the one generated from the object schema — the precedence `ObjectForm`'s
+   * default arm resolves its section members with (`findCustomFieldMember`,
+   * objectui#10254). Only the base moves: the entry's own overrides still
+   * apply on top, by the rules below. Omitted or empty → every base is
+   * generated, as before.
+   */
+  customFields?: readonly FormField[] | null;
+  /**
+   * The parent field POOL the section resolves its members against, for the
+   * one caller that has one: `ObjectForm`'s default arm (`SimpleObjectForm`),
+   * whose pool is built from top-level `fields` (or the object) merged with
+   * `customFields` (objectui#10475).
+   *
+   * When set, {@link buildSectionFields} still walks the section's entries in
+   * AUTHORED order and applies each entry's overrides by the same rules as
+   * every other arm; two things change, both the pool's to decide:
+   *
+   *   - membership — an entry naming a field the pool does not hold is
+   *     dropped. That is objectui#9884's INTERSECTION of `fields` and
+   *     `sections`; the caller emits its warning
+   *     (`warnSectionMemberExcludedByFields`), this module only drops;
+   *   - the BASE — the pooled field is what a name string draws and what a
+   *     spec entry's overrides are written onto (a copy), in place of
+   *     `fromObjectSchema` / the member lookup. The pool already resolved the
+   *     member-over-generated precedence, and its generated fields carry the
+   *     default arm's own per-field facts (the managed-object lock, the input
+   *     type, the step), which only LAYOUT and per-entry overrides may move.
+   *
+   * An already-built runtime FormField entry (shape 3) is its own definition
+   * with or without a pool; the pool decides only whether it is drawn.
+   * Omitted → no pool: every entry is drawn, from the bases above.
+   */
+  pool?: readonly FormField[] | null;
 }
 
 /**
@@ -244,6 +283,20 @@ export function fromObjectSchema(fieldName: string, ctx: SectionFieldsContext): 
 }
 
 /**
+ * The field name a section entry resolves to — the identity rule of the three
+ * shapes above, spelled once: a string is the name; a spec entry's identity is
+ * its `field` STRING; an already-built runtime FormField's is its `name`.
+ * `undefined` when the entry names nothing.
+ */
+export function sectionEntryName(fieldDef: unknown): string | undefined {
+  if (typeof fieldDef === 'string') return fieldDef;
+  if (fieldDef === null || typeof fieldDef !== 'object') return undefined;
+  const fd = fieldDef as Record<string, unknown>;
+  if (typeof fd.field === 'string') return fd.field;
+  return typeof fd.name === 'string' ? fd.name : undefined;
+}
+
+/**
  * Normalize one section field definition (string | spec object | runtime
  * FormField) into a runtime FormField with a guaranteed `name`.
  */
@@ -251,8 +304,28 @@ export function normalizeSectionField(
   fieldDef: string | Record<string, any>,
   ctx: SectionFieldsContext,
 ): FormField {
-  // (1) string shorthand → build entirely from the object schema.
+  return resolveSectionEntry(fieldDef, ctx, undefined);
+}
+
+/**
+ * {@link normalizeSectionField}'s body, with the one seam the default arm
+ * needs: `pooled`, the field {@link SectionFieldsContext.pool} holds for this
+ * entry's name, which replaces the generated / member BASE when given.
+ * Module-private: a pooled base only ever comes from {@link buildSectionFields}.
+ */
+function resolveSectionEntry(
+  fieldDef: string | Record<string, any>,
+  ctx: SectionFieldsContext,
+  pooled: FormField | undefined,
+): FormField {
+  // (1) string shorthand → build entirely from the object schema, unless a
+  // `customFields` member names the field: the member is then the whole
+  // definition, drawn as shape (3) below (objectui#10254). A pooled field is
+  // already that resolution, so it is drawn as it is.
   if (typeof fieldDef === 'string') {
+    if (pooled) return pooled;
+    const member = findCustomFieldMember(ctx.customFields, fieldDef);
+    if (member) return normalizeSectionField(member, ctx);
     const meta = ctx.objectSchema?.fields?.[fieldDef] as any;
     return attachVisibility(fromObjectSchema(fieldDef, ctx), meta?.visible_on ?? meta?.visibleOn);
   }
@@ -267,10 +340,17 @@ export function normalizeSectionField(
     return attachVisibility(fd as FormField, fd.visibleOn);
   }
 
-  // (2) spec FormFieldSchema object — merge object-schema base + spec overrides.
+  // (2) spec FormFieldSchema object — merge base + spec overrides. The base is
+  // the pooled field when the caller has a pool (objectui#10475), else the
+  // `customFields` member naming the field when there is one, else the
+  // object-schema field (objectui#10254) — a COPY in the first two cases: the
+  // overrides below write onto it.
   warnOnMixedVocabulary(fd, ctx.objectName);
   const fieldName = fd.field;
-  const base = fromObjectSchema(fieldName, ctx) as any;
+  const member = findCustomFieldMember(ctx.customFields, fieldName);
+  const base = (
+    pooled ? { ...pooled } : member ? { ...member } : fromObjectSchema(fieldName, ctx)
+  ) as any;
 
   if (fd.widget != null) base.widget = fd.widget;
   if (fd.label != null) base.label = fd.label;
@@ -305,7 +385,11 @@ export function normalizeSectionField(
   // mapped id (`field:…`) and re-deciding from it would need an inverse mapping.
   // Absent on both sides (a spec field naming nothing in the object schema and
   // declaring no type) it stays untouched — `fromObjectSchema`'s `input`.
-  const rawType = fd.type ?? ctx.objectSchema?.fields?.[fieldName]?.type;
+  // Over a MEMBER base only the entry's own `type` re-decides: the object
+  // schema's type is the generated definition's, which the member replaces
+  // whole, and the member's `type` is drawn as authored, as the flat path
+  // draws it.
+  const rawType = fd.type ?? (member ? undefined : ctx.objectSchema?.fields?.[fieldName]?.type);
   if (rawType != null) base.type = mapFieldTypeToFormType(rawType, { multiple: base.multiple });
   // Spec canon for the lookup target is `reference_to` (views.zod.ts); accept
   // both spellings and stamp both keys so dual-key readers see the override.
@@ -343,10 +427,33 @@ export function normalizeSectionField(
   return attachVisibility(base as FormField, fd.visibleWhen ?? fd.visibleOn);
 }
 
-/** Normalize every field def in a section. */
+/**
+ * Normalize every field def in a section, in the section's AUTHORED order.
+ *
+ * With a {@link SectionFieldsContext.pool}, an entry naming a field the pool
+ * does not hold is dropped, and a pooled field is the base the entry starts
+ * from; the order stays the section's own either way (objectui#10475).
+ */
 export function buildSectionFields(
-  section: { fields: Array<string | Record<string, any>> },
+  section: { fields?: Array<string | Record<string, any>> },
   ctx: SectionFieldsContext,
 ): FormField[] {
-  return (section.fields ?? []).map((fieldDef) => normalizeSectionField(fieldDef, ctx));
+  const entries = section.fields ?? [];
+  const pool = ctx.pool;
+  if (!pool) return entries.map((fieldDef) => normalizeSectionField(fieldDef, ctx));
+
+  // First pooled field of a name wins, the precedence `findCustomFieldMember`
+  // gives a member.
+  const pooledByName = new Map<string, FormField>();
+  for (const f of pool) {
+    if (f?.name && !pooledByName.has(f.name)) pooledByName.set(f.name, f);
+  }
+  const drawn: FormField[] = [];
+  for (const fieldDef of entries) {
+    const name = sectionEntryName(fieldDef);
+    const pooled = name === undefined ? undefined : pooledByName.get(name);
+    if (!pooled) continue;
+    drawn.push(resolveSectionEntry(fieldDef, ctx, pooled));
+  }
+  return drawn;
 }

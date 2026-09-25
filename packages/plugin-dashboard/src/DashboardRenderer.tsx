@@ -8,7 +8,7 @@
 
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
   resolveDashboardFilterDefs,
@@ -291,6 +291,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // it's missing we silently degrade to the raw English fallbacks.
     const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, fieldLabel } = useObjectLabel();
     const { t, language } = useObjectTranslation();
+    // The record-count badge is a number face; it groups in the display locale,
+    // not the MACHINE's (objectui#9909).
+    const displayLocale = useDisplayLocale();
 
     /**
      * Collapse an authored `I18nLabel` to the active UI language.
@@ -784,7 +787,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         type: 'object-data-table',
                         ...restOptions,
                         objectName: widgetData.object,
-                        dataProvider: widgetData,
                         filter: widgetData.filter || widget.filter,
                         searchable: isList ? false : (widget.searchable ?? false),
                         pagination: isList ? false : (widget.pagination ?? false),
@@ -1116,7 +1118,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
     const recordCountBadge = recordCount !== undefined && (
       <span className="text-xs text-muted-foreground">
-        {recordCount.toLocaleString()} records
+        {recordCount.toLocaleString(displayLocale)} records
       </span>
     );
 

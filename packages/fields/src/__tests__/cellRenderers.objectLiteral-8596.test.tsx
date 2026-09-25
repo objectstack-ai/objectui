@@ -258,13 +258,17 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   ['file', '—', true],
   ['video', '—', true],
   ['audio', '—', true],
+  // ── the straggler, moved by objectui#8677 ───────────────────────────────
+  // A `STRING_VALUE_TYPES` member that was registered to `ImageCellRenderer`
+  // and drew the affordance for {}. It now reads {} as `text` does; the pin
+  // that holds it to its value class is `cellRenderers.signatureValueClass-8677`.
+  ['signature', '[Object]', false],
   // ── already the affordance before this change ───────────────────────────
   ['boolean', '—', true],   // objectui#8582 / PR #8594 — landed, not re-ruled
   ['toggle', '—', true],    // objectui#8582 / PR #8594 — landed, not re-ruled
   ['datetime', '—', true],
   ['image', '—', true],
   ['avatar', '—', true],
-  ['signature', '—', true],
   ['address', '—', true],
   ['repeater', '—', true],
   // ── objectui#8481's declared json-literal fence — deliberately untouched ─
@@ -274,7 +278,10 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   ['object', '{}', false],
   ['composite', '{}', false],
   ['record', '{}', false],
-  // ── value-independent faces, unchanged ─────────────────────────────────
+  // ── a stored value's face, unchanged: `{}` is not "No value" to these ──
+  // objectui#8678 moved only the floor members (`[]`, `''`, `null`) onto the
+  // affordance. `{}` keeps the mask or the literal; the reason per value class
+  // is in `cellRenderers.valueIndependent-8678`.
   ['password', '••••••', false],
   ['secret', '••••••', false],
   ['vector', '[Vector]', false],

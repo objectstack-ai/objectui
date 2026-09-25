@@ -120,12 +120,12 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   // Fetch a handful of real records of the bound object + its schema and let
   // the author pick which one to preview against (mirrors the runtime
   // RecordDetailView's RecordContextProvider).
-  // Match the runtime resolver (usePageAssignment): a record page is keyed by
-  // either bare `type: 'record'` (editor draft shape) or `pageType: 'record'`
-  // (persisted envelope shape). Both must bind a sample record so record:*
-  // blocks render real data.
-  const isRecordPage = (draft as { type?: string; pageType?: string })?.type === 'record'
-    || (draft as { pageType?: string })?.pageType === 'record';
+  // A record page is keyed by `type: 'record'` — the one discriminator
+  // `PageSchema` declares, and the only one the runtime resolver
+  // (usePageAssignment) reads (objectui#9674).
+  // The preview reads `type` alone, as the runtime does: `pageType` is an
+  // alias `PageSchema` refuses (objectui#10482).
+  const isRecordPage = (draft as { type?: string })?.type === 'record';
   const recordObject = isRecordPage ? (draft as { object?: string })?.object : undefined;
   const [recordSamples, setRecordSamples] = React.useState<any[]>([]);
   const [recordSchema, setRecordSchema] = React.useState<any>(null);

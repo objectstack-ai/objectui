@@ -32,10 +32,12 @@
   "dependencies": {
     "@object-ui/components": "workspace:*",
     "@object-ui/core": "workspace:*",
+    "@object-ui/i18n": "workspace:*",
     "@object-ui/types": "workspace:*",
     "lucide-react": "^1.43.0"
   },
   "devDependencies": {
+    "@object-ui/test-support": "workspace:*",
     "@types/node": "^26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

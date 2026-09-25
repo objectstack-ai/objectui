@@ -110,9 +110,23 @@
  * alias chain hunting for it elsewhere (commandment #0.1 — one strict contract
  * beats N dialects). If it is absent the message degrades to the envelope's own
  * `error.message`, never to silence.
+ *
+ * ## A LAUNCH is judged here too, not just interpreted (objectui#9973)
+ *
+ * Classifying the response was never the whole rule. The two launch handlers
+ * also have to decide what happens NEXT: what the ActionRunner is told, which
+ * follow-up surface opens, and whether the host's data is stale. They held two
+ * hand-rolled copies of that decision, both branching on `failed` and `paused`
+ * only, so a run that ended `refused` WITHOUT pausing at a screen fell into
+ * their terminal-success tail. The action toasted its `successMessage`, the
+ * view refreshed, and the authored refusal was never shown — the
+ * objectstack#14945 ruling (Close only, no completion toast) broken on the one
+ * route `FlowRunner` never sees. {@link judgeFlowLaunch} is that decision,
+ * once, so the next change cannot land in only one of the two hosts.
  */
 
 import { actionErrorDetail } from '@object-ui/core';
+import type { ActionResult } from '@object-ui/core';
 import { errorCodeIs } from '@object-ui/types';
 
 /**
@@ -301,4 +315,76 @@ export function interpretFlowResponse<S = unknown>(
         data: json?.data as FlowRunResult | undefined,
         successMessage: typeof data.successMessage === 'string' ? data.successMessage : undefined,
     };
+}
+
+/**
+ * The surface a launch hands off to, when it hands off to one. `S` is the
+ * caller's screen type, as on {@link FlowResponseOutcome}.
+ */
+export type FlowLaunchFollowUp<S = unknown> =
+    /** Paused at a `screen` node: the host opens `FlowRunner` on this run. */
+    | { kind: 'screen'; runId: string; screen: S }
+    /**
+     * Ended `refused` without pausing: the host opens its Close-only refusal
+     * notice. `message` is the engine-rendered sentence, `''` when the producer
+     * sent none (see `FlowResponseOutcome`'s `refused` arm).
+     */
+    | { kind: 'refusal'; message: string };
+
+/** What a flow-LAUNCH handler does with one trigger response. */
+export interface FlowLaunchJudgement<S = unknown> {
+    /** Returned to the ActionRunner as-is. */
+    result: ActionResult;
+    /** The follow-up surface to open, if the run handed off to one. */
+    followUp?: FlowLaunchFollowUp<S>;
+    /** Whether the host invalidates its data now. */
+    refresh: boolean;
+}
+
+/**
+ * Judge a flow LAUNCH: the one decision both console launch handlers
+ * (`useConsoleActionRuntime`'s and `RecordDetailView`'s) act on, so they cannot
+ * drift apart again (objectui#9973 — see the header). `refreshAfter` is the
+ * invoking action's own flag.
+ *
+ * - `failed` — the ActionRunner's post-execution hook surfaces `error` as a
+ *   toast; nothing refreshes, because nothing changed.
+ * - `paused` — the action only OPENED the wizard, so the action-level success
+ *   toast is suppressed (`silent`) and `FlowRunner` owns completion messaging
+ *   and the refresh. Byte-identical to the return this arm has always had
+ *   (objectui#7707 pins it).
+ * - `refused` — the run ENDED, deliberately, and the answer was no
+ *   (objectstack#14945). The result is the paused arm's, byte for byte:
+ *   `silent`, because the ruling forbids the completion toast; `success: true`,
+ *   because a refusal is a successful evaluation (`AutomationResult.success`
+ *   stays `true`), and `success: false` would put the runner hooks' error
+ *   state on it; and no `data` and no `reload`. Nothing refreshes — the run
+ *   wrote nothing, and a refresh would say it did.
+ * - `done` — terminal success: the runner toasts, and the host refreshes
+ *   unless the action opted out with `refreshAfter: false`.
+ */
+export function judgeFlowLaunch<S = unknown>(
+    outcome: FlowResponseOutcome<S>,
+    refreshAfter: boolean | undefined,
+): FlowLaunchJudgement<S> {
+    switch (outcome.kind) {
+        case 'failed':
+            return { result: { success: false, error: outcome.error }, refresh: false };
+        case 'paused':
+            return {
+                result: { success: true, silent: true },
+                followUp: { kind: 'screen', runId: outcome.runId ?? '', screen: outcome.screen },
+                refresh: false,
+            };
+        case 'refused':
+            return {
+                result: { success: true, silent: true },
+                followUp: { kind: 'refusal', message: outcome.message },
+                refresh: false,
+            };
+        case 'done': {
+            const refresh = refreshAfter !== false;
+            return { result: { success: true, data: outcome.data, reload: refresh }, refresh };
+        }
+    }
 }

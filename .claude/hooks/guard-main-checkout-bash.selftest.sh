@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
 # Self-test for guard-main-checkout-bash.sh — run it after touching that hook:
 #
 #   .claude/hooks/guard-main-checkout-bash.selftest.sh

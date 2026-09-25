@@ -172,7 +172,12 @@ export const FieldConstraintsSchema = z.object({
     }).describe('Compiled RegExp — never a string; JSON authors use FieldSchema.pattern'),
     message: z.string().describe('Error message shown when the pattern fails'),
   }).optional().describe('Pattern rule (RegExp value + message)'),
-  validate: z.function().optional().describe('Custom validation function'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form
+  // renderer spreads `validation` into react-hook-form's `rules` and keeps a
+  // field-authored `validate` function running beside its own `required`
+  // entry, so the TypeScript member keeps its function type. JSON authors use
+  // the declarative rules above; the mirror refuses this key by name.
+  validate: handlerKeyRefusal('validate', 'runtime-slot', 'Custom validation function'),
 });
 
 /**
@@ -183,7 +188,12 @@ export const FieldConditionSchema = z.object({
   equals: z.any().optional().describe('Value must equal'),
   notEquals: z.any().optional().describe('Value must not equal'),
   in: z.array(z.any()).optional().describe('Value must be in array'),
-  custom: z.function().optional().describe('Custom condition function'),
+  // RETIRED (objectui#7759 group E, the objectui#6124 shape): nothing reads it.
+  // The form renderer translates `condition` to CEL through
+  // `legacyConditionToCel`, which reads `field` / `equals` / `notEquals` / `in`
+  // and never `custom`, so an authored function was inert. Refused by name; the
+  // TypeScript member is a `?: never` tombstone.
+  custom: handlerKeyRefusal('custom', 'retired', 'Custom condition function'),
 });
 
 /**
@@ -437,8 +447,14 @@ export const SliderSchema = BaseSchema.extend({
   type: z.literal('slider'),
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Slider label'),
-  defaultValue: z.union([z.number(), z.array(z.number())]).optional().describe('Default value(s)'),
-  value: z.union([z.number(), z.array(z.number())]).optional().describe('Controlled value(s)'),
+  defaultValue: z.union([z.number(), z.array(z.number())]).optional()
+    .describe('Default value(s) — a single number or one per thumb; the renderer wraps a scalar into a list'),
+  value: retirementTombstone(
+    'REFUSED (objectui#10280, ADR-0049) — `slider` has no read site for `value`: the renderer reads '
+    + '`defaultValue`, `max`, `min`, `step` off the node, and the form-control DOM whitelist drops `value` '
+    + 'from the props it spreads, so an authored value rendered NOTHING. Author `defaultValue` for the '
+    + 'initial position.',
+  ),
   min: z.number().optional().describe('Minimum value'),
   max: z.number().optional().describe('Maximum value'),
   step: z.number().optional().describe('Step value'),
@@ -528,13 +544,75 @@ export const DatePickerSchema = BaseSchema.extend({
   ),
 });
 
+// objectui#10293: one calendar day. The string arm is the JSON authoring
+// type, an ISO 8601 date string, which the `calendar` renderer coerces to a
+// `Date`. The `z.date()` arm stays for in-process callers, as on
+// `DatePickerSchema`.
+const CalendarDaySchema = z.union([z.string(), z.date()]);
+
+// objectui#10304: the `{ from, to }` pair `mode: 'range'` reads. Strict, so a
+// misspelled bound (`start` / `end`) is refused instead of selecting nothing.
+const CalendarDayRangeSchema = z.strictObject({
+  from: CalendarDaySchema,
+  to: CalendarDaySchema.optional(),
+});
+
+// objectui#10304: every selection shape the date picker reads. WHICH one a node
+// may carry is decided by its `mode`, and `calendarSelectionFitsMode` below
+// holds that pairing; this union alone is the key-level set.
+const CalendarSelectionSchema = z.union([
+  CalendarDaySchema,
+  z.array(CalendarDaySchema),
+  CalendarDayRangeSchema,
+]);
+
 /**
- * Calendar Schema - Calendar component
+ * objectui#10304 — a selection must have the shape its `mode` reads.
+ *
+ * The date picker reads one day in `single` mode (the default), a LIST in
+ * `multiple` mode and `{ from, to }` in `range` mode. A document whose value
+ * does not fit crashed the node (`multiple` given one day threw inside the
+ * picker) or selected nothing without a word (`range` given anything but a
+ * pair). The pairing spans two keys, so it is a refinement on the node rather
+ * than a type on either key.
  */
-export const CalendarSchema = BaseSchema.extend({
+const calendarSelectionFitsMode = (
+  node: { mode?: 'single' | 'multiple' | 'range'; value?: unknown; defaultValue?: unknown },
+  ctx: z.RefinementCtx,
+): void => {
+  const mode = node.mode ?? 'single';
+  for (const key of ['value', 'defaultValue'] as const) {
+    const selection = node[key];
+    if (selection === undefined) continue;
+    const isList = Array.isArray(selection);
+    const isRange = !isList && typeof selection === 'object' && !(selection instanceof Date);
+    const fits = mode === 'multiple' ? isList : mode === 'range' ? isRange : !isList && !isRange;
+    if (fits) continue;
+    const expected = mode === 'multiple'
+      ? 'a list of days (ISO 8601 date strings)'
+      : mode === 'range'
+        ? 'a `{ from, to }` range of days (ISO 8601 date strings)'
+        : 'one day (an ISO 8601 date string)';
+    ctx.addIssue({
+      code: 'custom',
+      path: [key],
+      message: `\`${key}\` does not fit \`mode: '${mode}'\`, which selects ${expected} (objectui#10304)`,
+    });
+  }
+};
+
+/**
+ * Calendar key set, shared by {@link CalendarSchema} and
+ * {@link UiCalendarSchema}. Unexported: each public schema adds the
+ * mode/selection refinement itself, because zod refuses to `.extend()` an
+ * object that already carries one.
+ */
+const CalendarObjectSchema = BaseSchema.extend({
   type: z.literal('calendar'),
-  defaultValue: z.union([z.string(), z.date()]).optional().describe('Default value'),
-  value: z.union([z.string(), z.date()]).optional().describe('Controlled value'),
+  defaultValue: CalendarSelectionSchema.optional()
+    .describe("Default selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
+  value: CalendarSelectionSchema.optional()
+    .describe("Controlled selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
   mode: z.enum(['single', 'multiple', 'range']).optional().describe('Selection mode'),
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),
@@ -568,6 +646,11 @@ export const CalendarSchema = BaseSchema.extend({
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
 });
+
+/**
+ * Calendar Schema - Calendar component
+ */
+export const CalendarSchema = CalendarObjectSchema.superRefine(calendarSelectionFitsMode);
 
 /**
  * Input OTP Schema - One-time password input
@@ -895,7 +978,13 @@ export const FormSchema = BaseSchema.extend({
   columns: z.number().optional().describe('Number of columns (for grid layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),
   resetOnSubmit: z.boolean().optional().describe('Reset form on successful submit'),
-  mode: z.enum(['create', 'edit', 'view']).optional().describe('Form mode'),
+  mode: retirementTombstone(
+    'REFUSED (objectui#10286, ADR-0049; objectui#7759 ruling D1-(ii)) — the `form` node reads no `mode`: '
+    + 'the key is not in `@objectstack/spec`, the `form` renderer never reads it, and every spelling '
+    + 'rendered the same form — no error, no warning. The create / edit / view mode belongs to the '
+    + '`object-form` node (`ObjectFormSchema.mode`): author `{ "type": "object-form", "objectName": …, '
+    + '"mode": "edit", "recordId": … }` for it. To make this form non-editable, set `disabled`.',
+  ),
   actions: z.array(z.any()).optional().describe('Custom actions'),
   onSubmit: handlerKeyRefusal('onSubmit', 'runtime-slot', 'Submit handler'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
@@ -1026,12 +1115,14 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
  * The key set is {@link CalendarSchema}'s: `calendar.tsx` reads `schema.mode`,
  * `schema.value`, `schema.defaultValue` and `className`, which is what that
  * schema already declares — it mirrors this primitive's shape while its own
- * literal resolves to the plugin view.
+ * literal resolves to the plugin view. It is built from the same unexported
+ * key set and carries the same mode/selection refinement (objectui#10304), so
+ * the two spellings accept exactly the same selections.
  */
-export const UiCalendarSchema = CalendarSchema.extend({
+export const UiCalendarSchema = CalendarObjectSchema.extend({
   type: z.literal('ui:calendar')
     .describe('The `ui`-namespaced date-picker primitive — `calendar` alone names the plugin-calendar view'),
-});
+}).superRefine(calendarSelectionFitsMode);
 
 /**
  * Form Component Schema Union - All form component schemas

@@ -7,13 +7,22 @@ marker comes from a record's own coordinate fields, and the first paint frames t
 records that were fetched. It is a *view over data* — there is no authored marker
 list, and no pin you place by hand.
 
-Importing the package registers two component types on the `ComponentRegistry`,
-both resolving to the same renderer:
+Importing the package registers one component type on the `ComponentRegistry`:
+`object-map`, the object-bound renderer. Inside an `ObjectView`, a stored `map`
+view is compiled to an `object-map` node, so a saved map view ends at the same
+component.
 
-- `object-map` — the object-bound renderer
-- `map` — the bare spec view-type name (`ViewTypeSchema`'s `'map'`), for a node
-  authored with it directly. Inside an `ObjectView`, a `map` view is compiled to
-  an `object-map` node, so both spellings end at the same component.
+> **The bare `map` node type key is retired** (objectui#10393, following the
+> objectui#8008 ruling that retired `gantt`). The registry used to accept a node
+> authored `"type": "map"` (and its namespaced twin `view:map`) while the
+> published declaration refused it — `ObjectMapSchema.type` is the literal
+> `'object-map'` and no schema arm names `map` — so a validated document could not
+> use the key the registry took. Write `"type": "object-map"`.
+>
+> ⚠️ The **stored view type** `"map"` — what a saved `listViews[].type` or
+> `defaultViewType` holds — is a **different layer and is unchanged**. Do not
+> rewrite it: `ObjectView` maps a stored `map` view onto the `object-map` node
+> type, so no saved view moves.
 
 ## Installation
 
@@ -88,12 +97,14 @@ is honoured as well.
 
 **The provider does not change which query keys apply** (objectui#9061, the port
 of objectui#8769). An authored `filter` and `sort` narrow and order the rows on
-**every** provider, inline ones included — `staticData`, a bare array under
-`data`, and `data: { provider: 'value', items }` all reach the same in-memory
-adapter the other providers go through, so `filter` is evaluated with the same
-matcher. Before objectui#9061 the inline provider skipped that query and plotted
-every authored row with an authored `filter` silently dropped. The platform row
-ceiling (2,000 drawn rows, with a footnote naming both numbers — objectui#7210,
+**every** provider, inline ones included — `staticData` and
+`data: { provider: 'value', items }` both reach the same in-memory adapter the
+other providers go through, so `filter` is evaluated with the same matcher. A
+bare array under `data` is not a record source on this map (objectui#8348): the
+ladder falls through to `staticData`, then `objectName`, so inline rows belong
+under `staticData`. Before objectui#9061 the inline provider skipped that query
+and plotted every authored row with an authored `filter` silently dropped. The
+platform row ceiling (2,000 drawn rows, with a footnote naming both numbers — objectui#7210,
 ruling a′) applies to inline rows too, and it is applied to the **filtered** set,
 never to the raw one: a large inline array that a `filter` cuts below the ceiling
 plots every matching row and shows no footnote.
@@ -113,7 +124,7 @@ The declared configuration input. Every key is optional:
 | `latitudeField` | Record field holding the latitude. Needs `longitudeField` alongside it; both values must be numbers. |
 | `longitudeField` | Record field holding the longitude. |
 | `locationField` | Single field holding both coordinates — see the formats below. Used when the lat/lng pair yields nothing. |
-| `titleField` | Field shown as the marker title. Omitted, the title is resolved by the object's own record-title precedence (`@object-ui/core`'s `getRecordDisplayName`, ADR-0079): the declared `nameField`, its deprecated `displayNameField` alias, the legacy `titleFormat` template, a type-aware pick from the object's fields, then name-ish keys read straight off the record — the rung that answers when no object definition reached the view, as `staticData` and an inline `data` array never fetch one. `Record #<id>` is the floor; `Marker` is reached only by a record carrying no id at all. |
+| `titleField` | Field shown as the marker title. Omitted, the title is resolved by the object's own record-title precedence (`@object-ui/core`'s `getRecordDisplayName`, ADR-0079): the declared `nameField`, its deprecated `displayNameField` alias, the legacy `titleFormat` template, a type-aware pick from the object's fields, then name-ish keys read straight off the record — the rung that answers when no object definition reached the view, as `staticData` and an inline `data: { provider: 'value', items }` configuration never fetch one. `Record #<id>` is the floor; `Marker` is reached only by a record carrying no id at all. |
 | `descriptionField` | Field shown under the title in the marker popup. |
 | `zoom` | Zoom level. Declaring it opts this view out of the auto-fit (see below). |
 | `center` | `[latitude, longitude]` — a two-number **tuple**, latitude first. Declaring it opts this view out of the auto-fit. |
@@ -212,7 +223,7 @@ declare const dataSource: ObjectMapProps['dataSource'];
 | Prop | Description |
 | --- | --- |
 | `schema` | The map schema — the keys above. |
-| `dataSource` | Resolves the `object` provider. Not needed for `staticData` or an inline `data` array. |
+| `dataSource` | Resolves the `object` provider. Not needed for `staticData` or an inline `data: { provider: 'value', items }` configuration. |
 | `className` | Classes for the wrapper around the map. |
 | `data` | Records to render directly, bypassing the component's own fetch — the shape `ListView` passes when it already holds the rows. Tracked live: passing a new array after mount (e.g. once a host's own in-flight query resolves) updates the map. |
 | `onMarkerClick` | Called with the clicked record. |

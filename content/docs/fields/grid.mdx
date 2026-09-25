@@ -57,14 +57,17 @@ Columns can use any field type:
 ```plaintext
 columns: [
   { name: 'name', label: 'Name', type: 'text', required: true },
-  { name: 'quantity', label: 'Qty', type: 'number', min: 1 },
-  { name: 'price', label: 'Price', type: 'currency', currency: 'USD' },
+  { name: 'quantity', label: 'Qty', type: 'number' },
+  { name: 'price', label: 'Price', type: 'currency' },
   { name: 'date', label: 'Date', type: 'date' },
   { name: 'status', label: 'Status', type: 'select', options: [...] },
   { name: 'active', label: 'Active', type: 'boolean' },
   { name: 'receipt', label: 'Receipt', type: 'file', accept: ['image/*', '.pdf'] }
 ]
 ```
+
+A `currency` column has no currency key of its own: its cells are shown in the
+tenant's default currency.
 
 ### File / image columns
 
@@ -112,9 +115,9 @@ const gridValue = [
   label: 'Line Items',
   columns: [
     { name: 'description', label: 'Description', type: 'text', required: true },
-    { name: 'quantity', label: 'Quantity', type: 'number', min: 1, required: true },
+    { name: 'quantity', label: 'Quantity', type: 'number', required: true },
     { name: 'unit_price', label: 'Unit Price', type: 'currency', required: true },
-    { name: 'amount', label: 'Amount', type: 'currency', readonly: true }
+    { name: 'amount', label: 'Amount', type: 'currency', computed: true, expr: 'quantity * unit_price' }
   ]
 }
 ```
@@ -128,11 +131,11 @@ const gridValue = [
   label: 'Order Details',
   columns: [
     { name: 'sku', label: 'SKU', type: 'text' },
-    { name: 'product', label: 'Product', type: 'lookup', reference_to: 'products' },
+    { name: 'product', label: 'Product', type: 'lookup', reference: 'products' },
     { name: 'quantity', label: 'Qty', type: 'number' },
     { name: 'price', label: 'Price', type: 'currency' },
     { name: 'discount', label: 'Discount', type: 'percent' },
-    { name: 'total', label: 'Total', type: 'currency', readonly: true }
+    { name: 'total', label: 'Total', type: 'currency' }
   ]
 }
 ```
@@ -174,6 +177,9 @@ const GridCell = getCellRenderer('grid');
 
 // <GridCell value={rows} field={field} /> renders: [Grid]
 ```
+
+An empty value (`null`, `undefined`, `''` or `[]`) renders the shared "No value"
+affordance instead, so an empty cell is distinguishable from a populated one.
 
 ## Full Grid Functionality
 

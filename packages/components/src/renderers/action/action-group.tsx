@@ -18,6 +18,7 @@
 
 import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
 import { actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
@@ -34,6 +35,7 @@ import { cn } from '../../lib/utils';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
+import { readActionEntryParamValues } from './static-params';
 
 export interface ActionGroupSchema {
   type: 'action:group';
@@ -245,6 +247,23 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
 
     const handleExecute = useCallback(
       async (action: UIActionSchema) => {
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // branch `action:menu` and `action:button` take (see action-button.tsx
+        // for why it is invoked here rather than forwarded). Both display
+        // modes reach the runner through this one function, so both honour it.
+        // Neither called nor forwarded, a code-composed `onClick` was silently
+        // inert on this surface (objectui#4202).
+        if (typeof action.onClick === 'function') {
+          await action.onClick();
+          return;
+        }
+        // `params` is the `ActionParam[]` input list (ruling A on objectui#10289):
+        // an array is forwarded as `actionParams`, as `action:button` does. An
+        // object is forwarded as values only for `type: 'api'`, the objectstack#5777
+        // payload window; any other type drops it (objectui#10462).
+        const paramsPayload: ActionDef = Array.isArray(action.params)
+          ? { actionParams: action.params as any }
+          : { params: readActionEntryParamValues(action, action.type, 'action:group') };
         await execute({
           type: action.type,
           name: action.name,
@@ -257,7 +276,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           openIn: (action as any).openIn,
           endpoint: action.endpoint,
           method: action.method,
-          params: action.params as Record<string, any> | undefined,
+          ...paramsPayload,
           // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
           bodyExtra: action.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
@@ -284,6 +303,10 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           // here the action succeeds and the authored navigation never runs.
           // Uncast since objectui#5934 (legacy callback channel retired).
           onSuccess: action.onSuccess,
+          // See action-button.tsx — the object the action declares it acts on;
+          // dropped here, a retargeted action silently acted on the page's
+          // object (objectui#4202). Cast for the same reason as there.
+          objectName: (action as any).objectName,
         });
       },
       [execute],

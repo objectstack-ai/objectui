@@ -35,6 +35,23 @@ export const PUBLIC_BLOCKS: readonly string[] = [
   'object-gantt',
   'object-timeline',
   'object-map',
+  // Curated by objectui#10064, which is a NARROWING being undone rather than a
+  // widening: `@objectstack/spec` already declares `object-tree` on
+  // `ComponentPropsMap`, and @object-ui/plugin-tree has registered the renderer
+  // all along — this roster was the one face that withheld it, so the tier sat
+  // narrower than the declaration. Everything downstream reported that
+  // faithfully and could not fix it: `getPublicConfigs()` is what both manifest
+  // producers serialize, so the framework's tracked `sdui.manifest.json` could
+  // never carry a block the contract says exists, and moving the objectui pin
+  // could not help while the pinned source had nothing to carry
+  // (objectstack#18407, whose parity-gate half waits on this entry).
+  //
+  // The `tree` alias the same module registers is deliberately NOT here: it is
+  // a second spelling of this one block and @objectstack/spec declares no such
+  // key, so curating it would widen the vocabulary past the declaration — the
+  // opposite act — and leave an authoring model two names for one block, which
+  // is the ground `record:chatter` is held out on above.
+  'object-tree',
   'object-metric',
   'object-chart',
   'dashboard',

@@ -1196,7 +1196,6 @@ const CLAIM_DEBT = {
     "RecordDetailsComponentProps",
     "RecordHighlightsComponentProps",
     "RecordPathComponentProps",
-    "RecordRelatedListComponentProps",
     "SubmitBehavior",
   ],
   "@object-ui/core": [

@@ -22,6 +22,7 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
+  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -296,9 +297,15 @@ export const SeparatorSchema = BaseSchema.extend({
  */
 export const ContainerSchema = BaseSchema.extend({
   type: z.literal('container'),
+  // `false` ONLY, not `z.boolean()` (objectui#10286, the objectui#7759 ruling:
+  // for a key the spec does not declare, the read site is the truth). The
+  // `container` renderer maps `false` to `max-w-none` and each size word to its
+  // `max-w-*` class; `true` matches none of those branches, so it parsed green
+  // here and drew no max-width class at all — neither the default `max-w-xl`
+  // nor the `max-w-none` that `false` states. The declaration never admitted it.
   maxWidth: z.union([
     z.enum(['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full', 'screen']),
-    z.boolean(),
+    z.literal(false),
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),
@@ -631,13 +638,19 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui pages.
  */
-const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, [
+export const PAGE_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'type',
   'regions',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `PageNodeSchema`
+// TypeScript twin in `../layout.ts`, which extends `Omit< Page, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, PAGE_SPEC_EXCLUDED);
 
 /**
  * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling
@@ -830,7 +843,17 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .describe('Main content — one node or a list of nodes'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
   assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
-});
+})
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECK, re-attached (objectui#7715, ruling B1).
+  // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
+  // it drops the one check the spec's `PageSchema` carries on the OBJECT: an
+  // `html` / `react` / `jsx` page with no non-empty `source` renders nothing and
+  // is refused at `source`. The spec exports that check (objectstack#16489) and
+  // it is attached here as-is: it reads `kind` and `source`, and this node
+  // carries both by reference — neither is in {@link PAGE_SPEC_EXCLUDED} nor
+  // overridden above. `__tests__/spec-object-refinements-7715.test.ts` re-derives
+  // the count, so a check the spec adds to `PageSchema` later reddens there.
+  .superRefine(checkPageSourceCompleteness);
 
 /**
  * Semantic Element Schema — the seven HTML sectioning tags

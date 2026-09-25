@@ -1,19 +1,18 @@
 /**
  * @object-ui/core - DataScope Module
  *
- * Runtime data scope management for row-level security and
- * reactive data state within the UI component tree.
+ * Resolution of the data a view or a page element reads: the spec's
+ * `ViewData` union (`ViewDataProvider`) and the per-element
+ * `ElementDataSource` binding.
+ *
+ * Row-level security is not evaluated here. The platform declares it once, as
+ * the CEL predicate of a `@objectstack/spec` row-level security policy, and
+ * enforces it on the server; objectui#7750 retired the client-side row-level
+ * filter evaluator this module used to export.
  *
  * @module data-scope
  * @packageDocumentation
  */
-
-export {
-  DataScopeManager,
-  defaultDataScopeManager,
-  type RowLevelFilter,
-  type DataScopeConfig,
-} from './DataScopeManager.js';
 
 export {
   ViewDataProvider,

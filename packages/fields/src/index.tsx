@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -19,6 +19,7 @@ import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark } from 'luc
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
 import { useRelatedRecordActions } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
@@ -30,13 +31,17 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // deliberately NOT re-exported from the `export *` block at the end of this
 // file, so this package's published surface is unchanged. Pure, no React, so
 // it pulls no widget out of its lazy chunk (objectui#4037).
-import { renderablePercentScale } from './widgets/percent-scale.js';
+import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
-// only trigger one network call. Keyed by `${objectName}:${id}`.
+// only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
+// fetched RECORD and the referenced object's schema, not a resolved name: the
+// name is a display value, resolved per render from the row the viewer may
+// read (objectui#10501), so it follows the permission policy of the render
+// that shows it rather than the one in force when the record arrived.
 type LookupCacheEntry =
   | { state: 'pending'; promise: Promise<void> }
-  | { state: 'ok'; name: string | undefined }
+  | { state: 'ok'; record: Record<string, unknown> | null | undefined; schema: unknown }
   | { state: 'err' };
 const lookupNameCache: Map<string, LookupCacheEntry> = new Map();
 
@@ -169,23 +174,62 @@ function useRefObjectSchema(referenceTo: string | undefined): any {
  * which excludes autonumber). Only when no schema is available does it fall
  * back to {@link pickRecordDisplayName}, whose `_number`/`_code` suffix scan
  * can otherwise surface an autonumber (`0001`) over the record's real name.
+ *
+ * The name is a DISPLAY value, so every rung above reads the row as the viewer
+ * may read it on the referenced object `referenceTo` (objectui#10501): with a
+ * loaded `policy`, the fields it denies are removed first (see
+ * {@link withoutDeniedFields}), and the ladder falls through exactly as it does
+ * for the row a stripping backend serves. `policy` is required, so no caller
+ * can resolve a name from the row as served by leaving it out.
  */
 function resolveLookupRecordName(
   record: Record<string, unknown> | null | undefined,
-  refSchema?: any,
-  displayField?: string,
+  refSchema: any,
+  displayField: string | undefined,
+  policy: FieldReadPolicy,
+  referenceTo: string | undefined,
 ): string | undefined {
   if (!record || typeof record !== 'object') return undefined;
+  const shown = withoutDeniedFields(record, policy, referenceTo);
   if (refSchema) {
-    const resolved = getRecordDisplayName(refSchema, record, { titleField: displayField });
+    const resolved = getRecordDisplayName(refSchema, shown, { titleField: displayField });
     // Stop short of the resolver's `Record #<id>` / `Untitled` floor so the
     // cell keeps its own id-placeholder handling for nameless records.
-    const id = (record as any).id ?? (record as any)._id;
+    const id = (shown as any).id ?? (shown as any)._id;
     const isFloor =
       resolved === 'Untitled' || (id != null && resolved === `Record #${id}`);
     if (!isFloor && resolved) return resolved;
   }
-  return pickRecordDisplayName(record, displayField);
+  return pickRecordDisplayName(shown, displayField);
+}
+
+/** The two members of the permission context the lookup cell's read gate asks. */
+type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>;
+
+/**
+ * `record` as the viewer may READ it on `objectName`, for naming a referenced
+ * record in the lookup cell (objectui#10501). Every field the loaded `policy`
+ * denies is removed, which leaves the row ObjectStack's `FieldMasker` already
+ * serves. `id` and `_id` are never judged: the id addresses the record and is
+ * not a field value the policy withholds. Before a policy loads (also the
+ * answer with no provider mounted), with no object to judge against, or with
+ * nothing withheld, the SAME object comes back.
+ *
+ * The lookup editor's option label and the record picker (objectui#10411) and
+ * the record title (objectui#10434) apply the same rule, and no copy of it is
+ * a package export. This one is module-private too: `LookupField`'s copy is
+ * not in reach without widening that module's exports, and the package entry
+ * re-exports that module whole.
+ */
+function withoutDeniedFields<T>(record: T, policy: FieldReadPolicy, objectName: string | undefined): T {
+  if (!policy.isLoaded || !objectName || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
 }
 
 /**
@@ -220,11 +264,20 @@ export function isLikelyOpaqueId(v: unknown): boolean {
  * server. Reads `dataSource` from SchemaRendererContext; safely no-ops if
  * the context isn't installed. Returns the resolved display name or
  * `undefined` while pending or unresolvable.
+ *
+ * The effect only FETCHES: the record and the referenced object's schema are
+ * cached, and the name is resolved from them on every render with the
+ * caller's `policy` (objectui#10501). A policy that loads or changes after the
+ * record arrived therefore relabels the cell on the render it causes, with no
+ * second read — a name resolved inside the effect would be fixed by the policy
+ * of the render that STARTED the fetch, and re-running the effect could not
+ * move it, because a settled entry returns early below.
  */
 function useLookupName(
   referenceTo: string | undefined,
   value: unknown,
-  displayField?: string,
+  displayField: string | undefined,
+  policy: FieldReadPolicy,
 ): string | undefined {
   const ctx = React.useContext(_SchemaRendererContext);
   const dataSource = ctx?.dataSource;
@@ -236,9 +289,10 @@ function useLookupName(
     typeof dataSource.find === 'function' &&
     (typeof value === 'string' || typeof value === 'number') &&
     value !== '';
-  // The preferred display field is part of the cache identity: two columns
-  // targeting the same record with different `displayField`s must not
-  // serve each other's cached name (#2926 ⑧).
+  // The preferred display field is part of the cache identity (#2926 ⑧). The
+  // entry now holds the record, not a name, so two columns with different
+  // `displayField`s could share one; the key is left as it was so that this
+  // change does not alter how many reads a screen makes.
   const cacheKey = isResolvable
     ? `${referenceTo}:${String(value)}:${displayField ?? ''}`
     : '';
@@ -280,8 +334,7 @@ function useLookupName(
         // titleFormat) so the chip agrees with the picker — the bare key
         // heuristic alone can surface an autonumber over the real name.
         const schema = await fetchRefObjectSchema(dataSource, referenceTo!);
-        const name = resolveLookupRecordName(record, schema, displayField);
-        lookupNameCache.set(cacheKey, { state: 'ok', name });
+        lookupNameCache.set(cacheKey, { state: 'ok', record, schema });
       } catch {
         lookupNameCache.set(cacheKey, { state: 'err' });
       }
@@ -289,11 +342,13 @@ function useLookupName(
     })();
 
     lookupNameCache.set(cacheKey, { state: 'pending', promise });
-  }, [cacheKey, isResolvable, referenceTo, value, displayField, dataSource]);
+  }, [cacheKey, isResolvable, referenceTo, value, dataSource]);
 
   if (!isResolvable) return undefined;
   const entry = lookupNameCache.get(cacheKey);
-  return entry?.state === 'ok' ? entry.name : undefined;
+  return entry?.state === 'ok'
+    ? resolveLookupRecordName(entry.record, entry.schema, displayField, policy, referenceTo)
+    : undefined;
 }
 
 /**
@@ -365,7 +420,9 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`;
+ *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
+ *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
  *    `UserCellRenderer` (+ every falsy scalar); `BooleanCellRenderer`
  *    (+ every non-boolean, objectui#8582); `DateCellRenderer` /
@@ -763,7 +820,13 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // year finally shows `2026` instead of `2,026`. An ABSENT scale keeps
   // grouping: absent means "decimals unknown", not "integer". The policy and
   // its interim status live in `formatDisplayNumber`, not here.
-  const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
+  //
+  // A declared width above the engine's fraction ceiling is clamped and
+  // reported, never carried into `Intl` (objectui#10071 — the objectui#9808
+  // ruling; see `./widgets/percent-scale.js`).
+  const scale = typeof numField.scale === 'number'
+    ? renderableFractionScale(numField.scale, 'number field', 'objectui#10071')
+    : undefined;
   const num = Number(safe);
   const formatted = !isNaN(num)
     ? formatDisplayNumber(num, {
@@ -839,7 +902,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
   // straight to the user. `NumberCellRenderer` can afford max 20 because it
-  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // does no arithmetic on the value. The grid footer's percent arm spells the
   // same absence the same way (`?? 0`), so the cell and the footer agree.
   const scale = percentField.scale ?? 0;
   const numValue = Number(safe);
@@ -1116,12 +1179,24 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // occurrences of `isoString` are its assignment and its one use. A
   // PARSEABLE value keeps its `title` unchanged.
   //
-  // `new Date(safe)` reproduces `formatDate`'s own parse exactly (it receives
+  // `toDisplayDate(safe)` IS `formatDate`'s own parse step (it receives
   // `safe`, and `coerceToSafeValue` never returns a `Date`), so this branch
-  // is co-extensive with the dash it replaces — never wider. In particular a
-  // numeric timestamp stays a number through the coercion and still renders.
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // is co-extensive with the dash it replaces — never wider, never narrower.
+  // In particular a numeric timestamp stays a number through the coercion and
+  // still renders. The guard read `new Date(safe)` until objectui#10026, when
+  // that step began refusing a date-only value naming a day its month does
+  // not have (`2026-02-30`). The engine's parse accepts one, so the old guard
+  // let it through to `formatDate`'s bare dash — objectui#8581's defect back,
+  // on the refusal's own input.
+  //
+  // ⚠️ The `title` keeps the engine's `new Date(safe)`: for a date-only value
+  // the parse step answers LOCAL midnight, whose `toISOString()` names the
+  // previous day east of UTC (its own doc says so). So `displayDate` answers
+  // validity and the overdue day — the day the text went through
+  // (objectui#10183) — and `date` answers the `title` only.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   const dateField = field as any;
   const style = dateField.format || 'relative';
@@ -1131,7 +1206,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // instead of carrying a second copy (objectui#8958).
   const dueLike = resolveDueLike(field);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
-  const isOverdue = isOverdueInstant(date, dueLike);
+  const isOverdue = isOverdueInstant(displayDate, dueLike);
 
   return (
     <span
@@ -1160,8 +1235,17 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // `coerceToSafeValue([])` reaches as `''`.
   if (!value) return <EmptyValue />;
   const safe = coerceToSafeValue(value);
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // The validity guard reads the shared parse step, spelled EXACTLY as
+  // `DateCellRenderer`'s one function up, so the two siblings refuse the same
+  // inputs — a date-only nonexistent day included (objectui#10026), and a
+  // date-time written on one (`2026-02-30T10:00:00Z`, objectui#10301). The
+  // formatters below still take the engine's `new Date(safe)`: this cell
+  // renders an INSTANT, and that is unchanged. ⛔ This guard is the ONLY thing
+  // that refuses such a day here: for one, `date` would be a `Date` the engine
+  // already rolled into March, and no parse step downstream can refuse a `Date`.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   // `field.format` is read as a display style here for the same reason
   // `DateCellRenderer` reads it one function up: `datetime` had no style
@@ -2157,6 +2241,29 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
 }
 
 /**
+ * The images an image cell can actually draw for `value` — every entry that
+ * resolves to a URL (objectui#8677).
+ *
+ * `ImageCellRenderer` draws exactly these and answers an empty list with the
+ * shared affordance; `SignatureCellRenderer` asks the same question to decide
+ * whether a value is an image at all. ONE predicate for both, so the two can
+ * never disagree about what "drawable" means: were the signature cell to route
+ * a value here that this list then drops, it would draw "No value" again —
+ * the defect objectui#8677 removed, returning by drift.
+ *
+ * An image whose value carries no name of its own (a `data:` URI, a bare id)
+ * comes back NAMELESS, so the cell's alt and its lightbox fall through to the
+ * translated `fields.image.imageAlt` (objectui#10493). The literal `'Image'`
+ * this passed as the fallback name used to fill that gap, which named every
+ * such image `Image` on every locale and left the translated alt unreachable.
+ */
+function displayableImagesOf(value: unknown): Array<{ url: string; name?: string }> {
+  return readFileValues(value, '')
+    .filter((v) => v.url)
+    .map((v) => ({ url: v.url as string, name: v.name || undefined }));
+}
+
+/**
  * Image field cell renderer (with thumbnails + click-to-zoom).
  *
  * An image value may be a plain URL string, an object ({ url | src | href … }),
@@ -2173,13 +2280,7 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
   const { t } = useObjectTranslation();
   const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
-  const imgs = React.useMemo(
-    () =>
-      readFileValues(value, 'Image')
-        .filter((v) => v.url)
-        .map((v) => ({ url: v.url as string, name: v.name })),
-    [value],
-  );
+  const imgs = React.useMemo(() => displayableImagesOf(value), [value]);
 
   // THE FLOOR, EXTENDED twice (objectui#8496): every falsy scalar, and every
   // value that resolves to no displayable image. `[]` is covered by the second
@@ -2243,6 +2344,46 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
       />
       {lightbox}
     </>
+  );
+}
+
+/**
+ * Signature field cell renderer — an image when there is one to draw, and
+ * otherwise the answer of the value class the spec puts `signature` in
+ * (objectui#8677).
+ *
+ * `@objectstack/spec` places `signature` in `STRING_VALUE_TYPES` ("Value is a
+ * plain string"; the write seam is `z.string()` — the stored value is a
+ * data-URI PNG), NOT in `FILE_REFERENCE_TYPES` with `image` / `avatar`. It was
+ * nonetheless registered straight to `ImageCellRenderer`, whose "nothing to
+ * draw" answer is the MEDIA rule: the spec's file value requires `url`, so a
+ * value with none holds no file and "No value" is TRUE of it. That rule is
+ * right for `image` / `avatar` and wrong here. objectui#8580 ruled the string
+ * class's empty-shaped values and objectui#8596 applied the ruling to the rest
+ * of the class: `{}` is something the record stores, so the cell prints
+ * `coerceToSafeValue`'s answer exactly as `text` prints it, and "No value"
+ * would be false. `signature` was the one member still drawing the affordance
+ * for `{}`.
+ *
+ * ⇒ Two arms, and the image arm keeps every populated signature it drew:
+ *  - a value `ImageCellRenderer` can draw (the stored data-URI string, and the
+ *    URL / reference shapes that renderer already resolves) goes to it,
+ *    unchanged;
+ *  - anything else is read the way the string class reads it: `[]`, `''` and
+ *    `null` reach the shared affordance through the same floor `text` uses,
+ *    and `{}` prints `[Object]`.
+ *
+ * ⛔ `ImageCellRenderer` is NOT changed for `image` / `avatar` — they are
+ * `FILE_REFERENCE_TYPES`, and "No value" is their correct answer to `{}`.
+ * ⛔ Deliberately NOT exported, like `RepeaterCellRenderer`: the published
+ * surface of `@object-ui/fields` does not move; tests reach it the way every
+ * call site does — `getCellRenderer('signature')`.
+ */
+function SignatureCellRenderer(props: CellRendererProps): React.ReactElement {
+  return displayableImagesOf(props.value).length > 0 ? (
+    <ImageCellRenderer {...props} />
+  ) : (
+    <TextCellRenderer {...props} />
   );
 }
 
@@ -2354,7 +2495,9 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * Record → name resolution (1 and 3) goes through the referenced object's
  * schema when the data source exposes it (`displayField` → nameField/titleFormat
  * → derivation, see {@link resolveLookupRecordName}), so the chip and the
- * picker agree (issue #2357).
+ * picker agree (issue #2357) — and, like the picker's option label, it reads
+ * only the fields the viewer may read on the referenced object
+ * (objectui#10501).
  */
 export function LookupCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   // ObjectStack object metadata uses `reference` for the lookup target while the
@@ -2378,6 +2521,12 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // resolve through the same unified resolver as the picker (issue #2357).
   const refSchema = useRefObjectSchema(referenceTo);
 
+  // The permission policy the referenced record is named under: every name
+  // below is resolved from the row with the fields it denies on
+  // `referenceTo` removed (objectui#10501). A policy that loads or changes
+  // re-renders this cell through the context, and the names follow it.
+  const perms = usePermissions();
+
   // Pick the FIRST primitive id we see (for arrays, only the first one is auto-resolved
   // to keep the cell cheap; multi-value lookups should generally be expanded server-side).
   const primaryPrimitiveId = (() => {
@@ -2399,7 +2548,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   })();
 
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
-  const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField);
+  const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField, perms);
 
   // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
   // defect as `SelectCellRenderer` above: the array branch further down opens a
@@ -2420,7 +2569,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
         const parsed = JSON.parse(s) as Record<string, unknown>;
         if (parsed && typeof parsed === 'object') {
           parsedDisplay =
-            resolveLookupRecordName(parsed, refSchema, displayField) ||
+            resolveLookupRecordName(parsed, refSchema, displayField, perms, referenceTo) ||
             String(parsed.externalId ?? parsed.id ?? parsed._id ?? '');
           // An external-id reference has no record id yet — stays unlinked.
           parsedId = referencedRecordId(parsed);
@@ -2441,7 +2590,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   if (!Array.isArray(value) && typeof value === 'object') {
     const obj = value as Record<string, unknown>;
     const display =
-      resolveLookupRecordName(obj, refSchema, displayField) || String(obj.id || obj._id || '');
+      resolveLookupRecordName(obj, refSchema, displayField, perms, referenceTo) || String(obj.id || obj._id || '');
     if (display) {
       return (
         <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(obj)}>
@@ -2497,7 +2646,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
       if (item != null && typeof item === 'object') {
         return {
           label:
-            resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField) ||
+            resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField, perms, referenceTo) ||
             String((item as any).id || (item as any)._id || '[Object]'),
           unresolved: false,
         };
@@ -2560,7 +2709,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 
   if (typeof value === 'object' && value !== null) {
     const label =
-      resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField) ||
+      resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField, perms, referenceTo) ||
       String((value as any).id || (value as any)._id || '[Object]');
     return (
       <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
@@ -3162,18 +3311,153 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
+ * `password` / `secret` cell renderer: the mask for a credential that is SET,
+ * and the shared affordance for one that is NOT (objectui#8678).
+ *
+ * The entry this replaces was an argument-less arrow that drew the mask for
+ * every input, `null` included. On screen, a credential that was never set was
+ * then drawn exactly like one that is set. The platform's read contract is
+ * presence-preserving on purpose: `@objectstack/spec`'s `SECRET_MASK` docblock
+ * says an unset credential "reads back `null` instead, never this mask", which
+ * is what lets a console render "configured" vs "not configured" at all. This
+ * cell threw that distinction away one step before the reader saw it.
+ *
+ * ⛔ The value is NEVER printed and never reaches the DOM. Only its presence is
+ * read. A populated value keeps the exact mask it drew before this card, and
+ * nothing here is a weaker mask.
+ *
+ * "Empty" is the string class's answer, since both types are
+ * `STRING_VALUE_TYPES` members in the spec: `TextCellRenderer`'s predicate
+ * exactly, the floor on the coerced text. `{}` therefore stays a VALUE and
+ * keeps the mask, per objectui#8596's string-class ruling ("the record IS
+ * storing something"). A whitespace-only string also keeps it, because `text`
+ * keeps its spaces and a blank credential is still a set one.
+ * `cellRenderers.valueIndependent-8678` pins this byte-equal to `text` for
+ * every empty input.
+ *
+ * ⭐ A NAMED module-level component, for the reason {@link RepeaterCellRenderer}
+ * states: `EmptyValue` holds a hook, and an inline arrow in the table below
+ * is a new component type on every resolution, so it would tear that hook down
+ * per render.
+ */
+function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(coerceToSafeValue(value))) return <EmptyValue />;
+  return <span>••••••</span>;
+}
+
+/**
+ * The field types this package DECLARES masked: their standard cell is
+ * {@link MaskedCellRenderer}, which draws `••••••` in place of the value
+ * (objectui#8686). The read-side twin of the credential entry in
+ * `INLINE_EXCLUDED_FIELD_TYPES`, which lives in `FieldEditWidget`.
+ *
+ * ⭐ This set BUILDS the table's masked entries — `buildStandardCellRendererMap`
+ * spreads one {@link MaskedCellRenderer} entry per member — so adding a type
+ * here masks its cell AND makes {@link isMaskedFieldType} answer `true` for it,
+ * in one edit. There is no second list to keep in step.
+ *
+ * ⚠️ Membership answers "what ships masked", ⛔ not "what is masked right now":
+ * `registerFieldRenderer` can add or replace a masked type at runtime, and a
+ * set cannot see that. Consumers deciding what to do with a cell's value ask
+ * {@link isMaskedFieldType}.
+ *
+ * RAW spellings, deliberately: the cell path does not resolve form aliases
+ * (`getCellRenderer` is an exact-key lookup), so `field:password` renders in
+ * the clear and is not a member.
+ *
+ * Owned here for now. The objectui#8686 ruling made the protocol the first
+ * place to look: if `@objectstack/spec` comes to declare which field types are
+ * credentials, this set derives from that declaration instead of listing types.
+ */
+export const MASKED_FIELD_TYPES: ReadonlySet<string> = new Set<string>(['password', 'secret']);
+
+/**
+ * Is a cell of this field type drawn as a mask instead of as its value? The
+ * one authority for that question (objectui#8686): ask it rather than keep a
+ * list of types. The read-side twin of `isInlineExcludedFieldType()`.
+ *
+ * A LIVE reading of the cell registry, taken at call time, in the order
+ * {@link getCellRenderer} resolves: the runtime registry first, then the
+ * standard table.
+ *
+ *  1. The type resolves to THE mask ({@link MaskedCellRenderer}) → `true`,
+ *     declared or not. That is how a host adds a masked type:
+ *     `registerFieldRenderer('api_token', getCellRenderer('password'))`.
+ *  2. Otherwise, a type outside {@link MASKED_FIELD_TYPES} → `false`.
+ *  3. A declared type whose mask a host REPLACED at runtime
+ *     (`registerFieldRenderer('password', X)`) → the override is read:
+ *     - X is one of this package's own cell renderers → `false`. None of them
+ *       is the mask, so the predicate answers `false` and the cell draws what
+ *       X draws (for `TextCellRenderer`, the value).
+ *     - X is the host's own component → `true`, the declared answer. Nothing
+ *       here can tell whether an opaque component masks. Answering `false`
+ *       would offer a credential to anything that trusts this predicate
+ *       (the detail page's copy affordance, objectui#8440) while a custom mask
+ *       hides it on screen. So an unreadable override falls back to the
+ *       declared set, on the side that withholds.
+ *
+ * RAW spelling, no alias resolution, for the reason {@link MASKED_FIELD_TYPES}
+ * states. Side-effect free, like `isInlineExcludedFieldType()`: unlike
+ * {@link getCellRenderer}, it never reports a retired spelling.
+ */
+export function isMaskedFieldType(fieldType: string | undefined): boolean {
+  if (!fieldType) return false;
+  const standardMap = buildStandardCellRendererMap();
+  const live = fieldRegistry.has(fieldType) ? fieldRegistry.get(fieldType) : standardMap[fieldType];
+  if (live === MaskedCellRenderer) return true;
+  if (!MASKED_FIELD_TYPES.has(fieldType)) return false;
+  return !Object.values(standardMap).some((standard) => standard === live);
+}
+
+/**
+ * `vector` / `grid` cell renderers: the placeholder literal for a value that is
+ * stored, and the shared affordance for none (objectui#8678). Before this, both
+ * were argument-less arrows that printed their literal for every input. Neither
+ * type has a masking rationale, so a constant face was just an assertion that
+ * the record held something.
+ *
+ * "Empty" is the floor exactly (`isEmptyValue`: `null`, `undefined`, `''`,
+ * `[]`), read from each type's value class:
+ *  - `vector` is `z.array(z.number())` in the spec's `valueSchemaFor`, so `[]`
+ *    is its own empty member: an embedding with no dimensions.
+ *  - `grid` is not a spec `FieldType`, so the spec gives it no class. Its class
+ *    is this package's own `GridField` contract, an array of row objects. `[]`
+ *    is zero rows.
+ *
+ * ⛔ Deliberately NOT extended to `{}`. Neither class can produce it (the spec's
+ * write seam refuses a non-array `vector`, and `GridField` writes arrays). And
+ * `@object-ui/plugin-detail`'s `hasCellValue` calls every object a value, so a
+ * `{}` clause here would draw "No value" inside a row that band has already
+ * called filled. A clause for a value the contract cannot produce would also be
+ * the renderer-side tolerance AGENTS.md #0.1 refuses.
+ *
+ * The populated face is byte-for-byte what it was. Whether a stored vector or
+ * grid deserves a face richer than a literal is a separate question.
+ */
+function VectorCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Vector]</span>;
+}
+
+/** See {@link VectorCellRenderer}: the same rule, with `grid`'s literal. */
+function GridCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Grid]</span>;
+}
+
+/**
  * THE standard cell-renderer table, built fresh on every call.
  *
- * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
- * difference is pinned rather than stylistic: several entries here are INLINE
- * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
- * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
- * pins BOTH halves of today's behaviour — a module-level entry is stable across
- * calls, an inline arrow is not — and hoisting flips the second one. This
- * extraction therefore changes nothing a caller can observe: `getCellRenderer`
- * rebuilds the table per call exactly as it did when the literal sat in its
- * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
- * second copy of the key list, so the two cannot drift.
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant. Until
+ * objectui#8678 that difference was observable: four entries were INLINE arrows
+ * (`password`, `secret`, `vector`, `grid`), and hoisting this object would have
+ * frozen their identity. They became the named renderers above when they began
+ * drawing `EmptyValue`. No entry is an inline arrow now, and
+ * `cellRenderers.valueIndependent-8678` pins every registered type as ONE
+ * function object across two resolutions, so a new inline entry goes red by
+ * name. `getCellRenderer` still rebuilds the table per call, and
+ * {@link listCellRendererTypes} reads the SAME builder rather than a second
+ * copy of the key list, so the two cannot drift.
  */
 function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
   return {
@@ -3216,13 +3500,17 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     audio: FileCellRenderer,
     image: ImageCellRenderer,
     avatar: ImageCellRenderer,
-    signature: ImageCellRenderer,
+    // A `STRING_VALUE_TYPES` member, not a media type (objectui#8677): the
+    // image when there is one, otherwise the string class's answer.
+    signature: SignatureCellRenderer,
     formula: FormulaCellRenderer,
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,
     user: UserCellRenderer,
-    password: () => <span>••••••</span>,
-    secret: () => <span>••••••</span>,
+    // `password` / `secret` — spread from THE declared set, so the table that
+    // draws the mask and the set `isMaskedFieldType` falls back to are one
+    // fact (objectui#8686).
+    ...Object.fromEntries([...MASKED_FIELD_TYPES].map((type) => [type, MaskedCellRenderer])),
     location: LocationCellRenderer,
     geolocation: LocationCellRenderer,
     address: AddressCellRenderer,
@@ -3232,8 +3520,8 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     composite: JsonCellRenderer,
     record: JsonCellRenderer,
     repeater: RepeaterCellRenderer,
-    vector: () => <span className="text-gray-500 italic">[Vector]</span>,
-    grid: () => <span className="text-gray-500 italic">[Grid]</span>,
+    vector: VectorCellRenderer,
+    grid: GridCellRenderer,
   };
 }
 
@@ -3779,8 +4067,11 @@ export function getLazyFieldWidget(fieldType: string): React.ComponentType<any> 
   const key = resolveFormWidgetType(fieldType);
   // A retired key has no loader in `fieldWidgetMap` by construction, so it is
   // answered with the tombstone before the lazy path (which would otherwise
-  // call `React.lazy(undefined)`).
-  if (RETIRED_FIELD_TYPES[key]) return RetiredFieldTombstone;
+  // call `React.lazy(undefined)`). The tombstone is BOUND to `key`: a host
+  // that resolved the key from an authored `widget` hands over a `field` whose
+  // `type` is a live type, and the refusal must name what was resolved
+  // (objectui#10471) — see {@link retiredFieldTombstoneFor}.
+  if (RETIRED_FIELD_TYPES[key]) return retiredFieldTombstoneFor(key);
   let Widget = lazyFieldWidgets.get(key);
   if (!Widget) {
     // `resolveFormWidgetType` only returns keys the map holds, hence the `!`.
@@ -3988,9 +4279,21 @@ export function registerField(fieldType: string): void {
  * nothing is silently substituted either, which is the whole point: the author
  * sees a refusal where they expected an input, not a text box that looks like
  * it worked.
+ *
+ * The spelling it names is `retiredFieldType` — the key the RESOLVER answered
+ * with this tombstone — and is re-derived from the field only when a host
+ * renders the tombstone directly without one (objectui#10471). The field is
+ * the wrong witness whenever the retired spelling arrived through a different
+ * key than `field.type`: an authored `widget` wins over `type` in both form
+ * hosts, so `{ type: 'user', widget: 'owner' }` reaches the `owner` tombstone
+ * carrying a `user` field, and deriving from it named the LIVE type as
+ * retired, lost the prescription, and logged nothing. The two resolvers fill
+ * the prop by binding it ({@link retiredFieldTombstoneFor}); a host whose key
+ * IS `field.type` (plugin-detail's inline editor) may keep omitting it.
  */
 export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   const spelling: string =
+    props?.retiredFieldType ??
     props?.field?.type ?? props?.schema?.type ?? props?.type ?? 'unknown';
   const prescription =
     RETIRED_FIELD_TYPES[spelling] ??
@@ -4010,6 +4313,40 @@ export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   );
 };
 
+/** One bound tombstone per retired spelling — see {@link retiredFieldTombstoneFor}. */
+const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<Record<string, unknown>>>();
+
+/**
+ * {@link RetiredFieldTombstone}, bound to the retired spelling a resolver
+ * answered with it (objectui#10471).
+ *
+ * Both resolvers that turn a retired key into the tombstone hand out this
+ * component — `getLazyFieldWidget` and the `field:` registrations of
+ * `registerAllFields()` — because neither can put the key into the props a
+ * host renders it with: `FormPage` and the record form pass the row's `field`,
+ * and nothing else names what was resolved. Binding it here tells the
+ * tombstone which spelling it answers for, with no host edit and no second
+ * table: the spelling is the resolver's own key, and the prescription is still
+ * read from `RETIRED_FIELD_TYPES` by the tombstone itself.
+ *
+ * Cached per spelling, so the identity is stable (a host that memoises on the
+ * key does not remount) and the registry and the lazy door hand out the SAME
+ * component. `reportRetiredFieldType` stays once per spelling: it dedupes on
+ * the spelling, which is now the right one.
+ */
+function retiredFieldTombstoneFor(spelling: string): React.ComponentType<Record<string, unknown>> {
+  let Bound = retiredFieldTombstonesBySpelling.get(spelling);
+  if (!Bound) {
+    const BoundTombstone: React.FC<Record<string, unknown>> = (props) => (
+      <RetiredFieldTombstone {...props} retiredFieldType={spelling} />
+    );
+    BoundTombstone.displayName = `RetiredFieldTombstone(${spelling})`;
+    Bound = BoundTombstone;
+    retiredFieldTombstonesBySpelling.set(spelling, Bound);
+  }
+  return Bound;
+}
+
 export function registerAllFields(): void {
   Object.keys(fieldWidgetMap).forEach(fieldType => {
     registerField(fieldType);
@@ -4018,8 +4355,11 @@ export function registerAllFields(): void {
   // (`skipFallback` — a tombstone must not claim the bare global name). This is
   // what makes `widget: 'field:owner'` and a hand-written `type: 'owner'` land
   // on a visible refusal instead of falling through to the form's text input.
+  // Each is registered BOUND to its spelling, because the record form also
+  // reaches `field:owner` through `widget: 'owner'` over a live-typed field
+  // (objectui#10471).
   Object.keys(RETIRED_FIELD_TYPES).forEach(fieldType => {
-    ComponentRegistry.register(fieldType, RetiredFieldTombstone, {
+    ComponentRegistry.register(fieldType, retiredFieldTombstoneFor(fieldType), {
       namespace: 'field',
       skipFallback: true,
     });
@@ -4184,6 +4524,23 @@ export {
   toDateTimeInputValue,
   fromDateTimeInputValue,
 } from './widgets/nativeDateValue.js';
+
+// The AGGREGATED half of the upload-in-flight signal (objectui#10166).
+// `onUploadingChange` answers "is THIS widget uploading" to a host that renders
+// the control itself; a record form hands a `fields` array to the `form` node
+// renderer and never touches a widget, so it has no place to attach that
+// callback. `useUploadingScope` + `UploadingScopeProvider` let such a host ask
+// "is ANYTHING below me uploading" and gate its own Save on the answer.
+// Exported because the hosts that need it live in other packages
+// (`@object-ui/plugin-form`), and because a second, host-local implementation
+// of the same aggregation would drift from the one `useUploadingSignal` feeds.
+export { useUploadingScope, UploadingScopeProvider } from './widgets/uploadingScope.js';
+// The producer side of that same signal, exported for the same reason
+// `toDomProps`/`toHostProps` are: a widget authored outside this repo publishes
+// its in-flight state through this ONE hook, and a second implementation of
+// "tell my host I am uploading" would reach only half the sinks.
+export { useUploadingSignal } from './widgets/useUploadingSignal.js';
+export type { UploadingScope } from './widgets/uploadingScope.js';
 
 // Initialize registry
 registerAllFields();

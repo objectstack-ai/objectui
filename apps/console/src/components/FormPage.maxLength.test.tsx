@@ -55,7 +55,10 @@ const OBJECT_SCHEMA = {
   label: 'Task',
   fields: {
     title: { type: 'text', label: 'Title', maxLength: 200 },
-    notes: { type: 'long_text', label: 'Notes', maxLength: 5000 },
+    // `textarea` — the declared spelling. This row was `long_text` while this
+    // page's hand-rolled switch carried an arm for that undeclared name; since
+    // objectui#10179 the shared resolver decides, and it knows `textarea`.
+    notes: { type: 'textarea', label: 'Notes', maxLength: 5000 },
     freeform: { type: 'text', label: 'Freeform' },
   },
 };

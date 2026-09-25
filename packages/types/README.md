@@ -325,7 +325,7 @@ const page: FlexSchema = {
   type: 'flex',
   direction: 'col',
   children: [
-    { type: 'header-bar', title: 'My App' },
+    { type: 'header-bar', crumbs: [{ label: 'My App' }] },
     {
       type: 'flex',
       direction: 'row',

@@ -37,11 +37,13 @@
  *     a feed-variant items array                 accept   accept
  *     an ordinary gantt row                      accept   accept
  *
- * `items: [{ items: null }]`, `[0]` and `[[]]` are refused HERE and still DRAW
- * in the renderer (as an empty / unlabelled row): the renderer is only ever
- * more lenient than `validate`, never the reverse, and it never crashes on a
- * document `validate` admits — that is the invariant, and it is asserted at the
- * foot of this file over the in-repo fixtures.
+ * `items: [{ items: null }]` is refused HERE and still DRAWS in the renderer
+ * (as an empty row): the renderer is only ever as lenient as `validate` or
+ * more, never the reverse, and it never crashes on a document `validate`
+ * admits — that is the invariant, and it is asserted at the foot of this file
+ * over the in-repo fixtures. `[0]` and `[[]]` drew too (as an unlabelled row)
+ * until objectui#7364 (ruling 5809218505, letter A) superseded that clause:
+ * the renderer now refuses them as well, through `malformedRow`.
  *
  * ## The bar level: a deliberate stop, since SUPERSEDED
  *

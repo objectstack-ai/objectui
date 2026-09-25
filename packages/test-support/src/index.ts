@@ -70,6 +70,20 @@ export { arrayElementSchema } from './spec-array-element';
 export { ZOD_WRAPPER_KEYS } from './zod-wrapper-keys';
 
 /**
+ * The runtime locale tripwire (objectui#9786, objectui#9909): observes the
+ * argument every locale-taking intrinsic receives while a surface renders, so
+ * a call that passes a variable which is `undefined` at runtime is caught the
+ * way a bare call is. Pure — no React, no DOM — so it lives on the index.
+ */
+export {
+  LOCALE_TAKING_INTL_CONSTRUCTORS,
+  isMachineLocale,
+  recordLocaleArguments,
+  recordLocaleArgumentsAsync,
+} from './locale-tripwire';
+export type { LocaleCall } from './locale-tripwire';
+
+/**
  * ⛔ `defaults-table-scan.ts` is deliberately NOT re-exported here. It is reached
  * as `@object-ui/test-support/defaults-table-scan`, a DECLARED subpath in this
  * package's `exports` map — the same escape hatch `./zod-wrapper-keys` uses for

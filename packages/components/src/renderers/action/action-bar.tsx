@@ -9,10 +9,21 @@
 /**
  * action:bar — Location-aware action toolbar.
  *
- * Renders a set of UIActionSchema items filtered by a given location.
- * Each action is rendered using its `component` type (action:button, action:icon,
- * action:menu, action:group) via the ComponentRegistry. Actions beyond the
- * `maxVisible` threshold are grouped into an overflow "More" dropdown.
+ * Renders a set of UIActionSchema items filtered by a given location. Each
+ * action's `component` decides WHERE it renders on the bar, which is the spec's
+ * own reading of that key ("Defaults to 'button' or 'menu_item' based on
+ * location, but can be overridden") — objectui#10345, ruling A:
+ *
+ * - `action:button` (the default) and `action:icon` render inline, each through
+ *   the renderer of that name in the ComponentRegistry.
+ * - `action:menu` places the action in the bar's one overflow "More" menu,
+ *   however few actions the bar has. It never takes an inline slot.
+ * - `action:group` renders the action inline, as an `action:button`, inside a
+ *   button group it shares with the `action:group` members next to it in the
+ *   inline row.
+ *
+ * Inline actions beyond the `maxVisible` threshold move into that same overflow
+ * "More" menu.
  *
  * This is the "bridge" component that connects UIActionSchema metadata to the UI,
  * enabling server-driven action rendering at every location the spec declares:
@@ -44,6 +55,7 @@ import { useCondition, toPredicateInput, useCapabilityGate } from '@object-ui/re
 import { useObjectTranslation } from '@object-ui/i18n';
 import { cn } from '../../lib/utils';
 import { useIsMobile } from '../../hooks/use-mobile';
+import { ButtonGroup } from '../../custom/button-group';
 
 function useActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -62,8 +74,8 @@ export interface ActionBarSchema {
    * System/chrome actions (Duplicate, Export, View History, Delete, etc.) that
    * are *always* placed in the overflow menu — never inline — regardless of
    * {@link maxVisible}. They share a single overflow button with any business
-   * actions that spilled past {@link maxVisible}, guaranteeing at most one
-   * "More" menu per bar.
+   * actions that spilled past {@link maxVisible} or were authored
+   * `component: 'action:menu'`, guaranteeing at most one "More" menu per bar.
    *
    * The first system action is automatically separated from business-overflow
    * entries by a menu separator.
@@ -226,18 +238,50 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
 
     // Split business actions into visible inline and overflow.
     // On mobile, show fewer actions inline (default: 1).
+    //
+    // An action authored `component: 'action:menu'` is PLACED in the overflow
+    // menu (objectui#10345, ruling A). It is taken out before the split, so it
+    // never spends one of the `maxVisible` inline slots — `page:header` reads
+    // the same key the same way ("forces an action into the `⋯` menu
+    // regardless of the count"). It used to be handed to the `action:menu`
+    // renderer as an inline member, alone; that renderer reads `schema.actions`,
+    // which a single action does not carry, so it returned null: the action
+    // vanished and a `?runAction=` deep link to it ran nothing.
+    //
+    // The overflow list keeps one stated order: the actions that spilled past
+    // `maxVisible` first, then the menu-placed ones, each in the bar's own order
+    // from `filteredActions` above. That is `page:header`'s order for its menu
+    // too. System actions still follow, after the separator.
     const maxVisible = isMobile
       ? (schema.mobileMaxVisible ?? 1)
       : (schema.maxVisible ?? 3);
     const { inlineActions, overflowActions } = useMemo(() => {
-      if (filteredActions.length <= maxVisible) {
-        return { inlineActions: filteredActions, overflowActions: [] as UIActionSchema[] };
-      }
+      const menuPlaced = filteredActions.filter(a => a.component === 'action:menu');
+      const rowCandidates = filteredActions.filter(a => a.component !== 'action:menu');
       return {
-        inlineActions: filteredActions.slice(0, maxVisible),
-        overflowActions: filteredActions.slice(maxVisible),
+        inlineActions: rowCandidates.slice(0, maxVisible),
+        overflowActions: [...rowCandidates.slice(maxVisible), ...menuPlaced],
       };
     }, [filteredActions, maxVisible]);
+
+    // The inline row, with each run of ADJACENT `action:group` members folded
+    // into one button group (objectui#10345, ruling A). "Adjacent" means next to
+    // each other in the row this bar draws: after ordering, after the
+    // `maxVisible` cut, and with the menu-placed actions already gone. Any other
+    // inline member between two group members splits them into two groups.
+    const inlineRow = useMemo(() => {
+      const row: Array<UIActionSchema | UIActionSchema[]> = [];
+      for (const action of inlineActions) {
+        if (action.component !== 'action:group') {
+          row.push(action);
+          continue;
+        }
+        const last = row[row.length - 1];
+        if (Array.isArray(last)) last.push(action);
+        else row.push([action]);
+      }
+      return row;
+    }, [inlineActions]);
 
     // Merge business overflow with system actions into a single overflow list.
     // Insert a visual separator before the first system action when both
@@ -280,6 +324,28 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
       />
     ) : null;
 
+    // One inline member, drawn by the renderer `componentType` names. The whole
+    // action is spread onto that renderer's schema, so it carries its own gates
+    // and its `autoTrigger` with it.
+    const renderMember = (action: UIActionSchema, componentType: ActionComponent) => {
+      const Renderer = ComponentRegistry.get(componentType);
+      if (!Renderer) return null;
+
+      return (
+        <Renderer
+          key={action.name}
+          schema={{
+            ...action,
+            type: componentType,
+            actionType: action.type,
+            variant: action.variant || schema.variant,
+            size: action.size || schema.size,
+          }}
+          data={data}
+        />
+      );
+    };
+
     return (
       <div
         ref={ref}
@@ -295,23 +361,25 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
         {...rest}
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
-        {inlineActions.map((action) => {
-          const componentType: ActionComponent = action.component || 'action:button';
-          const Renderer = ComponentRegistry.get(componentType);
-          if (!Renderer) return null;
-
+        {inlineRow.map((entry, index) => {
+          if (!Array.isArray(entry)) {
+            return renderMember(entry, entry.component || 'action:button');
+          }
+          // Each group member renders through `action:button`, the renderer an
+          // ungrouped member gets, so it keeps the same `visible` / `disabled`
+          // gates and the same `autoTrigger` consumption. The `action:group`
+          // renderer is not used: it reads `schema.actions`, and it draws its
+          // own buttons, which consume no `autoTrigger`, so a `?runAction=` deep
+          // link to a grouped member would still run nothing. `empty:hidden`
+          // stops a group whose members all hid themselves from leaving a gap.
           return (
-            <Renderer
-              key={action.name}
-              schema={{
-                ...action,
-                type: componentType,
-                actionType: action.type,
-                variant: action.variant || schema.variant,
-                size: action.size || schema.size,
-              }}
-              data={data}
-            />
+            <ButtonGroup
+              key={`group:${entry[0].name ?? index}`}
+              orientation={direction === 'vertical' ? 'vertical' : 'horizontal'}
+              className="empty:hidden"
+            >
+              {entry.map((action) => renderMember(action, 'action:button'))}
+            </ButtonGroup>
           );
         })}
 

@@ -20,6 +20,7 @@ import { resolveClientDistInjection } from '../../scripts/vite-objectstack-clien
 import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
+import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
 import { compression } from 'vite-plugin-compression2';
 import { visualizer } from 'rollup-plugin-visualizer';
 
@@ -380,6 +381,157 @@ function emitEagerClosureReport(reportFileName = 'eager-closure.json'): Plugin {
 }
 
 /**
+ * Emits `dist/chunk-membership.json` — which CHUNK each workspace package's
+ * modules were written to, counted over EVERY chunk in the bundle.
+ *
+ * ## Why this exists (objectui#9345)
+ *
+ * `advancedChunks.groups` declares membership by regex, and a group can end up
+ * holding modules no regex of its own matches: rolldown's
+ * `includeDependenciesRecursively` lets a higher-priority group take a
+ * lower-priority group's declared members along an import edge. When that
+ * happened to `packages/core` the per-chunk ceilings above it went GREEN — the
+ * bytes had moved to a chunk with no ceiling, while the browser went on
+ * downloading every one of them. A budget that weighs named chunks is bypassed
+ * by moving bytes between chunks, and nothing in this repository could see it.
+ *
+ * So the verdict this feeds (`evaluatePerChunkMembership` in
+ * `scripts/check-eager-closure-budget.mjs`) asks a question no byte count can:
+ * did each budgeted group's declared packages actually land where the config
+ * says? ⛔ It is an EXACT claim, not a ratchet — a single stray module is a
+ * finding, named.
+ *
+ * ## Why a separate file rather than a field of `eager-closure.json`
+ *
+ * That report's `reportVersion` is a contract with a SECOND reader —
+ * `scripts/check-eager-locale-catalogues.mjs` pins the version it accepts, and
+ * its own tests pin that a later version is REFUSED. Growing a new required
+ * field there means bumping that version and revising a deliberate refusal in
+ * a gate this card does not touch. A separate artifact with its own version
+ * costs one file and bends no existing contract.
+ *
+ * ## What it counts, said in words
+ *
+ * The population is every module in every emitted chunk whose id contains a
+ * `packages/<name>/` segment — workspace source, not `node_modules`, and not
+ * limited to the eager closure: a budgeted package's module hiding in a LAZY
+ * chunk is exactly as much a membership breach as one hiding in an eager
+ * neighbour, and the eager-closure walk cannot see it.
+ *
+ * ## Why it counts DIRECTORIES as well as packages (objectui#10065)
+ *
+ * A package is not always one chunk's by design. `packages/types` is split on
+ * purpose: its `src/zod/**` validators go to the lazy `types-zod` group and the
+ * rest stays in `framework`. A per-package count can say "types landed in
+ * `framework` and `types-zod`", and it cannot say WHICH modules — so the
+ * failure that split was measured to produce (three shared `src/` neighbours
+ * absorbed into `types-zod` along an import, every byte of it eager again)
+ * reads exactly like the healthy split. `directories` keys the same counts by
+ * each module's package-relative directory, which is the granularity a
+ * declared carve-out is written at, so the checker can hold the split to the
+ * module rather than to the package. ⛔ It records what landed, and nothing
+ * about what was DECLARED — this plugin reads no declaration, so the artifact
+ * cannot agree with a wrong one.
+ *
+ * ⚠️ This plugin only MEASURES — same split as `emitEagerClosureReport` above,
+ * and for the same reason: a membership verdict that failed `vite build` would
+ * fail every preview deploy too, which is how a gate gets switched off.
+ */
+function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Plugin {
+  // The module ids rolldown records are realpaths, so a workspace module reads
+  // as `<repo>/packages/<name>/src/...` no matter which symlink resolved it —
+  // the same assumption the `advancedChunks` group tests above are written on.
+  // The second capture is the rest of the id — the package-relative path the
+  // `directories` table is keyed by (its directory, `/`-separated, any query
+  // suffix dropped: `?inline` and friends are the same file).
+  const WORKSPACE_MODULE = /[\\/]packages[\\/]([^\\/]+)[\\/](.*)$/;
+  const directoryOf = (rest: string) => {
+    const file = rest.split('?')[0].replace(/\\/g, '/');
+    const slash = file.lastIndexOf('/');
+    return slash === -1 ? '.' : file.slice(0, slash);
+  };
+
+  return {
+    name: 'emit-chunk-membership-report',
+    writeBundle(options, bundle) {
+      const outDir = options.dir ?? path.resolve(import.meta.dirname, 'dist');
+
+      /** package name -> chunk name -> how many of its modules landed there. */
+      const packages: Record<string, Record<string, number>> = {};
+      /** package name -> package-relative directory -> chunk name -> count. */
+      const directories: Record<string, Record<string, Record<string, number>>> = {};
+      let totalChunkCount = 0;
+      let unnamedChunks = 0;
+
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        totalChunkCount += 1;
+        const chunkName = output.name;
+        if (typeof chunkName !== 'string' || chunkName === '') {
+          unnamedChunks += 1;
+          continue;
+        }
+        for (const id of Object.keys(output.modules)) {
+          const match = WORKSPACE_MODULE.exec(id);
+          if (!match) continue;
+          const pkg = match[1];
+          (packages[pkg] ??= {})[chunkName] = (packages[pkg][chunkName] ?? 0) + 1;
+          const byChunk = ((directories[pkg] ??= {})[directoryOf(match[2])] ??= {});
+          byChunk[chunkName] = (byChunk[chunkName] ?? 0) + 1;
+        }
+      }
+
+      // Counter-probe 1 — an unnamed chunk is a HOLE in this report, not a
+      // cosmetic gap: a budgeted package's module sitting in one would be
+      // counted nowhere, and "nowhere" reads to the checker exactly like "not
+      // in a chunk it should not be in". Refused rather than published, in the
+      // same direction as every probe in `emitEagerClosureReport` above.
+      if (unnamedChunks > 0) {
+        this.error(
+          `[emit-chunk-membership-report] ${unnamedChunks} emitted chunk(s) carry no \`name\`, so ` +
+            `any workspace module inside them would be attributed to NOTHING. A membership check ` +
+            `reads an absent attribution as "no stray module", which is the silent direction: it ` +
+            `would pass by measuring less, not by finding less. Fix the chunk naming before ` +
+            `publishing this report.`,
+        );
+      }
+
+      // Counter-probe 2 — the other direction, and the one that matters most
+      // for a check whose green state is "nothing was found somewhere it should
+      // not be". A report naming no workspace package at all makes every
+      // membership claim vacuously true.
+      const packageCount = Object.keys(packages).length;
+      if (packageCount === 0) {
+        this.error(
+          `[emit-chunk-membership-report] not one emitted module id matched ` +
+            `\`${WORKSPACE_MODULE}\`, so this report attributes NOTHING and every membership ` +
+            `assertion built on it would agree with everything. Either the bundle contains no ` +
+            `workspace source — which the console cannot be built without — or module ids have ` +
+            `stopped being realpaths under \`packages/\` and this matcher needs rewriting.`,
+        );
+      }
+
+      const report = {
+        // Independent of `eager-closure.json`'s version on purpose; see the
+        // docblock above. Bump when the shape below changes, so a stale report
+        // is REFUSED rather than read for fields it does not carry. v2 added
+        // `directories` (objectui#10065's split, see the docblock).
+        membershipReportVersion: 2,
+        totalChunkCount,
+        packages,
+        directories,
+      };
+
+      fs.writeFileSync(path.join(outDir, reportFileName), `${JSON.stringify(report, null, 2)}\n`);
+      this.info(
+        `chunk membership: ${packageCount} workspace packages attributed across the bundle ` +
+          `→ ${reportFileName}`,
+      );
+    },
+  };
+}
+
+/**
  * Dev-only Vite plugin: serves runtime branding assets at /runtime/assets/*.
  *
  * When the console dev server runs standalone (port 5180), the backend does
@@ -648,12 +800,27 @@ export default defineConfig({
     // eagerly-loaded chunk. Runs on CI/Vercel too — it costs microseconds and
     // the regression it catches is invisible in every other signal.
     assertLazyLinterStaysLazy(specModuleTest),
+    // The same refusal one directory over: fails the build if the
+    // `@object-ui/types/zod` validators rejoin the eager closure, AND if they
+    // stop being reachable from `@object-ui/plugin-map` at all (objectui#10065).
+    // The second half is the one no byte ceiling can supply — validators DELETED
+    // from the graph and validators DEFERRED behind the map view's lazy boundary
+    // produce the same smaller, greener number, and only one of them still
+    // renders an object map.
+    viteTypesZodLazy(),
     // Writes `dist/eager-closure.json` — the size of everything a page load
     // pays for before the app renders. `.github/workflows/performance-budget.yml`
     // weighs THAT against the budget; weighing the entry chunk alone measured
     // 0.67% of it (objectui#5324). Measurement only: the verdict is the
     // workflow's, so a size regression never blocks a preview deploy.
     emitEagerClosureReport(),
+    // Writes `dist/chunk-membership.json` — which chunk each workspace
+    // package's modules were written to. The per-chunk ceilings weigh BYTES,
+    // and bytes can be moved off a budgeted line without shrinking by one
+    // (objectui#9345); this is the artifact that lets the same gate assert
+    // WHERE a budgeted group's declared packages landed. Measurement only,
+    // same as above.
+    emitChunkMembershipReport(),
     // Rolldown's `INEFFECTIVE_DYNAMIC_IMPORT` warnings, pinned to a ledger
     // instead of scrolling past 43 at a time (objectui#5325). The pinned ones
     // are replaced by one summary line; an UNPINNED one keeps rolldown's own
@@ -844,13 +1011,18 @@ export default defineConfig({
             // chunks that now name two files where they named one. Nothing here
             // may be read as headroom that was earned.
             //
-            // ⚠️ Disclosed rather than smoothed over: `data-adapter` now also
-            // holds 5 modules (8.5 KB raw) from `core`/`types` that are reached
-            // ONLY through `data-objectstack`. That is the same shared-module
-            // pull-in this comment is about, one tier down and three orders of
-            // magnitude smaller. It is rolldown's behaviour, not a choice
-            // available here: `framework` cannot be lifted above these two
-            // without re-absorbing the catalogue, which is the whole defect.
+            // ⚠️ This paragraph used to disclose that `data-adapter` ALSO held a
+            // handful of `core`/`types` modules reached only through
+            // `data-objectstack` — "rolldown's behaviour, not a choice available
+            // here". ⛔ The second half of that was wrong, and objectui#9345 is
+            // what it cost: the same pull-in grew from a handful to the whole of
+            // `packages/core` on a tree-shaking change made in another package,
+            // and the budgeted line stopped being able to see its own members.
+            // There WAS a choice available — `includeDependenciesRecursively`,
+            // read out in full at the `data-adapter` group below, which now
+            // declares it `false`. The escape the paragraph correctly refused
+            // (lifting `framework` above these two) is still refused, for the
+            // reason it gave.
             //
             // ## Why there are ELEVEN i18n groups and not one (objectui#7479)
             //
@@ -888,7 +1060,140 @@ export default defineConfig({
             { name: 'i18n-locale-ru', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ru\.ts$/, priority: 84 },
             { name: 'i18n-locale-ar', test: /[\\/]packages[\\/]i18n[\\/]src[\\/]locales[\\/]ar\.ts$/, priority: 84 },
             { name: 'i18n-runtime', test: /[\\/]packages[\\/]i18n[\\/]/, priority: 83 },
-            { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84 },
+            //
+            // ## `includeDependenciesRecursively: false` — the rule that decides
+            // ## membership here, named (objectui#9345)
+            //
+            // ⭐ This flag is rolldown's `CodeSplittingGroup.includeDependenciesRecursively`
+            // and its DEFAULT IS `true`. With it on, a group captures the modules
+            // its `test` matches AND, transitively, everything those modules
+            // import — and the priority doc for the same option states the other
+            // half: "when converting the group to a chunk, modules of that group
+            // will be removed from other groups". So a group can take modules
+            // that its own regex does not match, out of a lower-priority group
+            // whose regex does.
+            //
+            // That is what happened here. `packages/data-objectstack` imports
+            // `@object-ui/core`, this group outranks `framework` (84 over 80), and
+            // so the recursive half of this rule handed `framework`'s declared
+            // members to a group whose regex never mentioned them. The size of
+            // the transfer tracks TREE-SHAKING, which is why it moved without any
+            // edit here: while `@object-ui/core` was only ever imported by name,
+            // the retained slice reachable through `data-objectstack` was 5
+            // modules (the disclosure below, written when it was 5). objectui#9185
+            // added an `import('@object-ui/core')` of the BARREL in
+            // `packages/app-shell`, every export of core became live, and the same
+            // recursive walk then reached all 92 of them. Measured on the console
+            // build of `ff1d5ea8d1`: `packages/core` contributed 92 modules to
+            // `data-adapter` and 0 to `framework`, and `packages/types` split 3/19
+            // across the two.
+            //
+            // ⛔ The repair is NOT a priority change. Lifting `framework` above 84
+            // would re-run objectui#7399 exactly: `@object-ui/react` depends on
+            // both `@object-ui/i18n` and `@object-ui/data-objectstack`, so a
+            // recursive `framework` sitting above them would swallow the locale
+            // catalogues and this group in one move — the defect the two-tier
+            // layout above exists to prevent. Turning the recursive half OFF for
+            // this group leaves every priority untouched and makes this group's
+            // membership exactly what its `test` declares.
+            //
+            // Measured across the repair on `ff1d5ea8d1` — a historical reading
+            // anchored to that tree, ⛔ not re-derived by anything: `data-adapter`
+            // 78,110 -> 18,537 gzipped and holding only `packages/data-objectstack`;
+            // `framework` 45,278 -> 104,636 and holding core|react|types; the
+            // whole eager closure moved by -461 bytes. ⚠️ Those bytes were ALWAYS
+            // downloaded — `data-adapter` is in the eager closure — so this is a
+            // re-attribution and ⛔ must not be read as a payload change in either
+            // direction. `framework` sat over its ceiling at that reading: the
+            // repair made a pre-existing overage VISIBLE rather than causing it,
+            // and ⛔ no constant moved to absorb it. It was closed later by moving
+            // bytes, not lines (objectui#10065 below takes the zod validators off
+            // this chunk); the figure in force is the one
+            // `scripts/check-eager-closure-budget.mjs` prints on every run.
+            //
+            // The membership half of that gate pins the result: `framework`'s
+            // declared packages land in `framework`, with ONE declared carve-out
+            // — `packages/types/src/zod/**` in `types-zod`, exactly — and nowhere
+            // else (`PER_CHUNK_MEMBERSHIP` and `PER_CHUNK_MEMBERSHIP_CARVE_OUTS`
+            // there, judged against this build's `chunk-membership.json`).
+            //
+            // ⚠️ Rolldown documents a cost for turning this off: recursive capture
+            // "reduces the chance of generating circular chunks", and the same
+            // paragraph recommends `preserveEntrySignatures: false` and
+            // `strictExecutionOrder: true` alongside disabling it. Neither is set
+            // here, and neither was needed: the build emits the same chunk
+            // population as before, with the ONE group narrowed. A future group
+            // taking this flag should re-check that rather than inherit the
+            // reading.
+            { name: 'data-adapter', test: /[\\/]packages[\\/]data-objectstack[\\/]/, priority: 84, includeDependenciesRecursively: false },
+            //
+            // ## The zod validators leave the eager line (objectui#10065)
+            //
+            // `framework`'s test claims every `packages/types/` module WHEREVER
+            // IT IS REACHED FROM, and `framework` is eager because `core` and
+            // `react` are reached from the entry. That is membership decided
+            // without reference to reachability — the same defect the two tiers
+            // above were lifted out of, one directory over.
+            //
+            // Measured on `0c2eb5eee` from the console build's own visualizer,
+            // with `pnpm check:eager-closure` weighing the same build: the nine
+            // `packages/types/src/zod/**` modules rolldown emits were 140,541
+            // rendered bytes of a 372,430-byte `framework` chunk, led by
+            // `objectql.zod.ts`, `data-display.zod.ts` and `complex.zod.ts`.
+            // Their ONE live consumer in this bundle is
+            // `packages/plugin-map/src/ObjectMap.tsx`, which imports
+            // `ObjectMapConfigSchema` from `@object-ui/types/zod` — and the
+            // `plugin-map` chunk is NOT in the eager closure. So every page load
+            // fetched validators only the object-map view ever reads.
+            //
+            // ⭐ The bytes LEAVE the eager closure rather than moving to another
+            // eager line, which is what separates this from the regroup
+            // objectui#9251 forbids: the new chunk is reached ONLY through
+            // `plugin-map`'s own dynamic boundary, so nothing statically imports
+            // it and the closure walk never enters it. The object-map view pays
+            // one extra fetch when it opens; every other page load stops paying.
+            //
+            // The `@object-ui/types` main barrel deliberately does not re-export
+            // the validators (its own comment on the main entry says so), and
+            // the only two modules outside this directory that name them —
+            // `objectql.ts`'s `import type` / `export type` pair — are erased,
+            // so no eager module reaches in. ⚠️ That is the property the whole
+            // saving rests on, and nothing about a regex re-derives it: the
+            // guard `scripts/vite-types-zod-lazy.ts` weighs the emitted chunks
+            // and fails this build in BOTH directions — if the chunk rejoins the
+            // eager closure, and if it stops being reachable from `plugin-map`
+            // at all (bytes dropped rather than deferred, which reads as an even
+            // better saving and breaks the map view).
+            //
+            // ⛔ `src` only, with no `dist` alternative beside it. The console
+            // aliases `@object-ui/types` to `packages/types/src`, so `src` is
+            // what rolldown matches here; a `dist` arm would be a dead
+            // alternative in a live regex, which is the drift the `i18n` note
+            // above was written about.
+            // ⛔ `includeDependenciesRecursively: false`, and the default is `true`.
+            // Measured on `0c2eb5eee` with the default left in place: the group
+            // captured the nine zod modules AND recursively absorbed
+            // `packages/types/src/data-display.ts`, `complex.ts` and
+            // `designer.ts` — three shared modules whose runtime values the
+            // EAGER `plugin-grid` chunk reads (`ObjectGrid.tsx` imports
+            // `normalizeTableColumnType` and `isSystemManagedField` from
+            // `@object-ui/types`). Rolldown's own rule is that a higher-priority
+            // group's modules are removed from the lower-priority ones, so
+            // `framework` never got them back, `plugin-grid` had to import the
+            // new chunk statically, and the whole 140,541 bytes stayed eager —
+            // a saving of exactly nothing, dressed as a new chunk name. The
+            // guard below refused that build; this option is the repair.
+            //
+            // Scoping the capture to the directory is also what the group MEANS:
+            // the validators are what has no eager reader, not everything they
+            // happen to import. Their non-zod dependencies fall back to
+            // `framework`, which is where they were and where they belong.
+            {
+              name: 'types-zod',
+              test: /[\\/]packages[\\/]types[\\/]src[\\/]zod[\\/]/,
+              priority: 82,
+              includeDependenciesRecursively: false,
+            },
             { name: 'framework', test: /[\\/]packages[\\/](core|react|types)[\\/]/, priority: 80 },
             { name: 'ui-components', test: /[\\/]packages[\\/](components|fields)[\\/]/, priority: 80 },
             { name: 'ui-layout', test: /[\\/]packages[\\/]layout[\\/]/, priority: 80 },

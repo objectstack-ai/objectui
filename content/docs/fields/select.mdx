@@ -32,7 +32,9 @@ Declare the sibling field(s) a select reacts to with `dependsOn`. While any is
 empty the control is **gated** (a "Select country first" hint) instead of
 showing an unfiltered list; once the parent changes, the list re-evaluates and
 any now-invalid selection is **cleared automatically** (no stale "China +
-California" pair).
+California" pair). The clear is saved like any other edit: a single select (or
+radio) is emptied to `null`, which a save writes as "clear the stored value", and
+a multiple select keeps only the values still offered.
 
 ### Cascading (country → province)
 

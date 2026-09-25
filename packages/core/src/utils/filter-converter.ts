@@ -44,6 +44,34 @@ export type FilterNode =
  * @returns ObjectStack operator or null if not recognized
  */
 /**
+ * What the refusal is ABOUT, as structured data rather than as prose to scrape.
+ *
+ * `message` already names both, but a renderer that wants to say "the
+ * $icontains condition cannot be applied" must not recover the token with a
+ * regular expression over an English paragraph that every one of these
+ * refusals deliberately writes differently. objectui#9050's step 2 requires the
+ * render-time diagnostic to NAME the operator, so the name travels as a field.
+ *
+ * `operator` is the spelling the AUTHOR wrote — `$startswith` for a retired
+ * alias, `icontains` for a view rule — never a canonical form substituted for
+ * it, for the reason the view-rule arm's own tail already gives: prescribing a
+ * spelling the author's vocabulary does not have sends them looking for a key
+ * their metadata cannot contain.
+ *
+ * It is OPTIONAL because two of the eleven refusals are not about an operator
+ * at all: the bare-array and exotic-comparand arms judge a COMPARAND written in
+ * the implicit-equality position, where no operator was spelled and `field` is
+ * the only handle the author can act on. A renderer reads
+ * {@link filterRefusalSubject} rather than choosing between them itself.
+ */
+export interface FilterRefusalSubject {
+  /** The operator spelling the author wrote, when the refusal is about one. */
+  operator?: string;
+  /** The field the refused condition is on, when the refusal is about one. */
+  field?: string;
+}
+
+/**
  * A filter operator this layer will not translate.
  *
  * Carries the data API's own code and status for the same refusal so a failed
@@ -54,10 +82,29 @@ export type FilterNode =
 export class FilterOperatorError extends Error {
   readonly code = 'INVALID_FILTER';
   readonly httpStatus = 400;
-  constructor(message: string) {
+  /** @see FilterRefusalSubject */
+  readonly operator: string | undefined;
+  /** @see FilterRefusalSubject */
+  readonly field: string | undefined;
+  constructor(message: string, subject?: FilterRefusalSubject) {
     super(message);
     this.name = 'FilterOperatorError';
+    this.operator = subject?.operator;
+    this.field = subject?.field;
   }
+}
+
+/**
+ * The one token a "this view's filter is malformed" state names.
+ *
+ * Operator first, because that is what the ruling asks the state to name and
+ * what an author can act on — `$regex` is not supported, `$startswith` is
+ * retired. Field second, for the two comparand refusals that have no operator
+ * to name. `undefined` for neither, which no arm produces today and which a
+ * renderer must still handle rather than print "undefined" at a user.
+ */
+export function filterRefusalSubject(error: FilterOperatorError): string | undefined {
+  return error.operator ?? error.field ?? undefined;
 }
 
 /**
@@ -115,7 +162,8 @@ export function convertOperatorToAST(operator: string): string | null {
     '$endsWith': 'endswith',
     // Case-insensitive contains. A canonical `FILTER_OPERATORS` member that
     // `ValueDataSource` executes and `FilterConditionField` emits (for its
-    // `containsCaseInsensitive` builder row), while this map refused it with the
+    // `icontains` builder row — spelled `containsCaseInsensitive` until
+    // objectui#9306), while this map refused it with the
     // generic unknown-operator paragraph — so ONE authored filter selected rows
     // through the in-memory matcher and 400'd on the ObjectStack lowering path
     // (objectui#8976). The other direction of the same split objectui#8568 fixed:
@@ -177,7 +225,8 @@ function lowerLogicalGroup(
       `[ObjectUI] The '${field}' filter combinator takes an ARRAY of conditions. ` +
       `Received ${typeof value === 'object' ? 'an object' : typeof value}: ` +
       `${JSON.stringify(value)}. Spec: FilterCondition declares ` +
-      `'${field}?: FilterCondition[]' (data/filter.zod.ts).`
+      `'${field}?: FilterCondition[]' (data/filter.zod.ts).`,
+      { operator: field },
     );
   }
 
@@ -191,7 +240,8 @@ function lowerLogicalGroup(
       throw new FilterOperatorError(
         `[ObjectUI] Every member of '${field}' must be a filter condition OBJECT. ` +
         `Received ${JSON.stringify(child)}. Spec: FilterCondition declares ` +
-        `'${field}?: FilterCondition[]' (data/filter.zod.ts).`
+        `'${field}?: FilterCondition[]' (data/filter.zod.ts).`,
+        { operator: field },
       );
     }
     const lowered = convertFiltersToAST(child as Record<string, any>);
@@ -387,7 +437,8 @@ function refuseTextComparand(field: string, operator: string, target: unknown): 
     `It is refused here rather than lowered onto the wire (objectui#9001; ported from `
     + `ValueDataSource's refuseTextComparand, objectui#8748).`;
   throw new FilterOperatorError(
-    `[ObjectUI] The ${textComparandRefusalReason(field, operator, target)}. ${ported}`
+    `[ObjectUI] The ${textComparandRefusalReason(field, operator, target)}. ${ported}`,
+    { operator, field },
   );
 }
 
@@ -507,7 +558,8 @@ export function convertFiltersToAST(
         `partial. Express the negation with a negated operator instead ($ne, $nin, ` +
         `$notContains); note those follow each operator's own answer for a missing ` +
         `value rather than $not's NULL-safe rule (objectstack#5146). ` +
-        `Value: ${JSON.stringify(value)}.`
+        `Value: ${JSON.stringify(value)}.`,
+        { operator: '$not' },
       );
     }
 
@@ -547,7 +599,8 @@ export function convertFiltersToAST(
         `second from the first would silently change which rows a stored view ` +
         `returns (objectui#8530; the same ruling objectui#8514 applied one layer ` +
         `down). Spell membership as { ${field}: { $in: [...] } }, its negation as ` +
-        `{ ${field}: { $nin: [...] } }, or a range as { ${field}: { $between: [min, max] } }.`
+        `{ ${field}: { $nin: [...] } }, or a range as { ${field}: { $between: [min, max] } }.`,
+        { field },
       );
     }
 
@@ -649,7 +702,8 @@ export function convertFiltersToAST(
           `result set. Spell a text match as { ${field}: { $contains: '...' } } ($startsWith / ` +
           `$endsWith; a pattern itself has no operator here, see the $regex refusal), a membership ` +
           `test as { ${field}: { $in: [...] } }, and a date bound as ` +
-          `{ ${field}: { $gte: new Date(...) } }.`
+          `{ ${field}: { $gte: new Date(...) } }.`,
+          { field },
         );
       }
 
@@ -672,7 +726,8 @@ export function convertFiltersToAST(
             `pattern — a different result, not a degraded one. ` +
             `Field: '${field}', Value: ${JSON.stringify(operatorValue)}. ` +
             `Use $contains for a case-sensitive substring, $icontains for a ` +
-            `case-insensitive one, or $startsWith / $endsWith.`
+            `case-insensitive one, or $startsWith / $endsWith.`,
+            { operator: '$regex', field },
           );
         }
 
@@ -719,7 +774,8 @@ export function convertFiltersToAST(
               `only the key is renamed. Field: '${field}', Value: ${JSON.stringify(operatorValue)}. ` +
               `It used to be accepted here as a lowercase alias while the in-memory matcher ` +
               `refused it, so the same filter selected rows through one data source and none ` +
-              `through the other (objectui#8568).`
+              `through the other (objectui#8568).`,
+              { operator, field },
             );
           }
           // Unknown operator - throw error to avoid silent failure
@@ -727,7 +783,8 @@ export function convertFiltersToAST(
             `[ObjectUI] Unknown filter operator '${operator}' for field '${field}'. ` +
             `Supported operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $between, ` +
             `$contains, $notContains, $startsWith, $endsWith, $icontains, $null, $exists. ` +
-            `If you need exact object matching, use the value directly without an operator.`
+            `If you need exact object matching, use the value directly without an operator.`,
+            { operator, field },
           );
         }
       }
@@ -1050,7 +1107,8 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
       `{ field: '${rule.field}', operator: 'in', value: [...] }, its negation as ` +
       `'not_in', or a range as { operator: 'between', value: [min, max] } — the ` +
       `three operators the spec declares array-valued, which are untouched ` +
-      `(objectui#8557; the same ruling objectui#8530 applied to the object arm).`
+      `(objectui#8557; the same ruling objectui#8530 applied to the object arm).`,
+      { operator, field: rule.field },
     );
   }
 
@@ -1169,7 +1227,8 @@ function viewFilterRuleToNode(rule: ViewFilterRuleLike): FilterNode {
       + `view, or give it a non-empty string comparand (objectui#9048; the same `
       + `refusal ValueDataSource and convertFiltersToAST already share).`;
     throw new FilterOperatorError(
-      `[ObjectUI] The ${textComparandRefusalReason(rule.field, arrived, rule.value)}. ${tail}`
+      `[ObjectUI] The ${textComparandRefusalReason(rule.field, arrived, rule.value)}. ${tail}`,
+      { operator: arrived, field: rule.field },
     );
   }
 
@@ -1252,6 +1311,49 @@ export function toFilterNode(source: unknown): FilterNode | Record<string, any> 
   if (Object.keys(obj).length === 0) return undefined;
   // MongoDB-style → AST, so it can sit beside the other shapes under one `and`.
   return convertFiltersToAST(obj);
+}
+
+/**
+ * {@link toFilterNode}'s answer for a caller that has no `catch` above it.
+ *
+ * ## Why this exists (objectui#9050, ruling C′ step 2)
+ *
+ * `toFilterNode` is documented as "the last stop before the wire", and the two
+ * callers that reach the wire — `plugin-list`'s `buildEffectiveFilter` and
+ * `plugin-view`'s `ObjectView` — do have a `catch`: they call it inside a load
+ * `try`, `classifyLoadError` reads this file's `INVALID_FILTER` / 400 envelope,
+ * and the author sees "this filter is malformed". Three OTHER callers reach it
+ * from a RENDER-time `useMemo` (`plugin-detail`'s `RelatedList`,
+ * `plugin-form`'s `LineItemsPanel`, `plugin-grid`'s `ObjectGrid`), where a
+ * throw is a render error and there is no `classifyLoadError` in the path.
+ *
+ * ## Why the return type is a UNION and not `node | undefined`
+ *
+ * Because `undefined` is the refused answer. A `try`/`catch` that swallows the
+ * refusal and hands back `undefined` means NO FILTER — every row — which is a
+ * silently unconstrained query on a view whose whole purpose can be to hide
+ * rows, and is the failure objectui#9001 closed. So the refusal is not
+ * representable as a node: `ok: false` carries the error and has no `node` to
+ * read at all, and TypeScript makes a caller narrow before it can build a
+ * query. That is the whole difference between this and a bare `catch`.
+ *
+ * ⚠️ Only a {@link FilterOperatorError} is caught. Anything else is a defect in
+ * this file rather than a statement about the author's filter, and is rethrown
+ * so it keeps reaching whatever boundary would have seen it — a render-time
+ * `TypeError` swallowed into "your filter is malformed" would send the author
+ * to edit a filter that is fine.
+ */
+export type FilterNodeResult =
+  | { ok: true; node: FilterNode | Record<string, any> | undefined }
+  | { ok: false; refusal: FilterOperatorError };
+
+export function toFilterNodeSafely(source: unknown): FilterNodeResult {
+  try {
+    return { ok: true, node: toFilterNode(source) };
+  } catch (error) {
+    if (error instanceof FilterOperatorError) return { ok: false, refusal: error };
+    throw error;
+  }
 }
 
 /**

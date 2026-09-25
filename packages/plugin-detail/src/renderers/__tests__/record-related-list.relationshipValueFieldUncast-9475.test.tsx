@@ -27,26 +27,33 @@
  * membership-shaped and stay green on the re-cast source — measured by this
  * card's ablation, and labelled at each one rather than left to be assumed.
  *
- * ## ⚠️ What the repair does NOT buy, measured rather than assumed
+ * ## What the repair did NOT buy — and the card that bought it
  *
- * This renderer's own `schema` type is NOT `RecordRelatedListComponentProps`:
- * it is that interface, minus/plus `objectName`, INTERSECTED WITH
- * `Record<string, any>` (see `RecordRelatedListRendererProps`). An index
- * signature admits any key at `any`, so a MISSPELLED key still type-checks
- * here even un-cast — the declaration's refusal power stops one type layer
- * earlier than the cast did. What the un-cast read does buy is the declared
- * TYPE: a wrong-typed use of the correct spelling is now refused. Both halves
- * are pinned below as type-level legs, each with a control that varies only
- * the claim, so neither reading can rot into prose (AGENTS.md #9).
+ * When this card landed, the renderer's own `schema` type was that interface
+ * INTERSECTED WITH `Record<string, any>`, so a MISSPELLED key still
+ * type-checked here even un-cast; the un-cast read bought the declared TYPE
+ * only. This file pinned that limit as a ledger leg built to go red the day
+ * the intersection was narrowed. objectui#9963 narrowed it, the leg went red
+ * as designed, and the refusal — with the mirror control that used to sit
+ * here — now lives in `record-related-list.propsRefusal-9963.test.tsx`.
  *
  * ## The guard is DERIVED, not a list
  *
  * The population of keys the guard protects is read off the contract's own
  * `record:related_list` props schema every run. A key the platform declares
- * tomorrow joins the guard without anyone editing this file. The one cast the
- * file still carries over a declared key — `add` — is LEDGERED with its
- * measured reason and asserted STILL PRESENT, so the exemption cannot outlive
- * its subject.
+ * tomorrow joins the guard without anyone editing this file.
+ *
+ * ## The ledger is EMPTY now, and that is a measured outcome
+ *
+ * This file shipped with one ledgered exemption — `add` — asserted STILL
+ * PRESENT so the exemption could not outlive its subject. It did not: that
+ * assertion is what went red when objectui#9964 removed the four
+ * `(schema as any).add` reads, which is the mechanism working, not a
+ * regression. Its subject was a real TS2322 — the mirror typed
+ * `add.picker.filter` as `unknown` while `RelatedList`'s own prop types it
+ * `ViewFilterRule[]` — and objectui#9964 moved the MIRROR to the protocol's
+ * array, so the cast had nothing left to hide. With the ledger empty, the
+ * derived guard below covers EVERY contract-declared key with no carve-out.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -120,19 +127,14 @@ export type _RendererAgreesWithTheMirror = Expect<
   >
 >;
 
-/**
- * ⚠️ LEDGER — the measured limit of this repair, asserted rather than written
- * down. `Record<string, any>` in `RecordRelatedListRendererProps['schema']`
- * admits a MISSPELLED key at `any`, so un-casting does not make a typo red at
- * this site. The day that intersection is narrowed, this leg goes red and the
- * limit gets re-derived instead of quietly outliving its subject.
+/*
+ * The ledger leg that stood here — "a MISSPELLED key is still admitted at
+ * `any`" — went red when objectui#9963 narrowed the intersection, which is the
+ * signal it was written to give. Its re-derivation (the misspelling REFUSED at
+ * a read expression) and its mirror control moved to
+ * `record-related-list.propsRefusal-9963.test.tsx` rather than being flipped
+ * in place, so this file stays about the cast.
  */
-export type _MisspellingIsStillAdmittedHere = Expect<
-  Equal<Schema['relationshipValueFeild'], any>
->;
-
-// @ts-expect-error objectui#9475 — CONTROL for the ledger above: the MIRROR interface has no index signature, so it REFUSES the same misspelling (TS2551). This directive going unused (TS2578) means the control stopped firing and the ledger leg stopped being a reading.
-type _MirrorRefusesTheMisspelling = RecordRelatedListComponentProps['relationshipValueFeild'];
 
 /* ── Source-text legs ─────────────────────────────────────────────────────── */
 
@@ -151,15 +153,17 @@ const declaredKeys = (): string[] => Object.keys(RecordRelatedListProps.shape).s
 
 /**
  * Casts this file still carries over a declared key, each with the reason it is
- * load-bearing. ⛔ Not an opinion: `add` un-casts to a real TS2322 — the mirror
- * types `add.picker.filter` as `unknown` while `RelatedList`'s own prop types it
- * as `ViewFilterRule[]`, and `unknown` is not assignable to that. Repairing it
- * means moving one of those two declarations, neither of which is this card's
- * surface. Every entry is asserted STILL CAST below.
+ * load-bearing. Every entry is asserted STILL CAST below, so an exemption
+ * cannot outlive its subject.
+ *
+ * EMPTY since objectui#9964. The single entry it carried — `add`, exempt
+ * because un-casting it was a real TS2322 against `RelatedList`'s
+ * `ViewFilterRule[]` prop — was retired by moving the MIRROR to the protocol's
+ * array shape, the direction AGENTS.md #0.1 requires. ⛔ An entry added here
+ * is a declaration that disagrees with itself somewhere: write the measurement
+ * that makes it load-bearing, or move the declaration instead.
  */
-const LOAD_BEARING_CASTS: Record<string, string> = {
-  add: 'mirror types `add.picker.filter` as `unknown`, `RelatedList` as `ViewFilterRule[]` — un-casting is TS2322, and the repair belongs to whichever declaration moves',
-};
+const LOAD_BEARING_CASTS: Record<string, string> = {};
 
 describe('objectui#9475 — the guard population is derived and the matcher discriminates', () => {
   it('reads the contract’s own props schema, non-empty and calibrated both ways', () => {
@@ -205,6 +209,25 @@ describe('objectui#9475 — the declaration reaches the read', () => {
     );
     // Named, not counted: a failure has to say WHICH key regressed.
     expect(offenders).toEqual([]);
+  });
+
+  it('reads `add` off `schema` UN-CAST too, and still reads it at all (objectui#9964)', () => {
+    const source = maskedRenderer();
+    // Liveness first: a file that stopped reading `add` would satisfy the
+    // negative below while having deleted the feature.
+    expect(source).toMatch(/schema\.add\b/);
+    expect(source).toMatch(/pickLocalized\(schema\.add\.label, language\)/);
+    // ⭐ The load-bearing NEGATIVE, and it is not per-site: this matcher fires
+    // on ANY cast standing between `schema` and `add`, so one of the four
+    // creeping back turns it red on its own.
+    expect(source).not.toMatch(castBefore('add'));
+  });
+
+  // Zero entries today, so the loop below would assert nothing in silence.
+  // Stated as its own reading instead: an empty ledger is what makes the
+  // derived guard above carve-out-free.
+  it('the ledger is empty, so no contract-declared key is exempt from the guard', () => {
+    expect(Object.keys(LOAD_BEARING_CASTS)).toEqual([]);
   });
 
   for (const [key, why] of Object.entries(LOAD_BEARING_CASTS)) {

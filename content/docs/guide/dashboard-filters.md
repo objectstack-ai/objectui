@@ -100,9 +100,17 @@ appears in the filter bar above the widgets:
 - `defaultRange` — the initially selected preset: `today`, `yesterday`,
   `this_week`, `last_week`, `this_month`, `last_month`, `this_quarter`,
   `last_quarter`, `this_year`, `last_year`, `last_7_days`, `last_30_days`,
-  `last_90_days`, or `custom` (starts empty and lets the user pick).
+  `last_90_days`, or `custom` (starts empty and lets the user pick). When
+  omitted, the default `@objectstack/spec` declares for this key applies
+  (`this_month`), so a bare `dateRange: { "field": "created_at" }` opens
+  filtered to the current month, not unfiltered.
 - `allowCustomRange` — offer a "Custom…" item that opens a from/to calendar
   (default `true`).
+
+`dateRange` is the `@objectstack/spec` `DashboardSchema.dateRange` shape, taken
+by reference on both the validator and the TypeScript type: a preset name
+outside the list above, or any other key inside the object (`preset`, `range`,
+`dateField`, …), is refused at validation rather than silently ignored.
 
 Presets stay **symbolic** until query time: they compile to date-macro tokens
 (`{30_days_ago}`, `{current_month_start}`, …) that each widget resolves
@@ -135,6 +143,12 @@ Add a `globalFilters` entry. Each entry renders one control in the filter bar:
   under, and the key widgets reference in `filterBindings`. Defaults to
   `field`. (`"dateRange"` is reserved for the built-in date range.)
 - `field` — the default field the filter applies to on bound widgets.
+- `object` — optional: the object `field` lives on. Declaring it opts the
+  filter into that object's translations: its field label and option labels
+  resolve through the same `fields.<object>.<field>` translation-bundle
+  convention lists and forms use, with `label` as the fallback (see
+  [i18n](#i18n)). Not the same key as `optionsFrom.object` below, which names
+  the object dynamic options are fetched from.
 - `type` — the control type: `text`, `number`, `select`, `lookup`, or `date`.
 
 | Type | Control | Generated condition |
@@ -326,8 +340,13 @@ stay in sync.
 ## i18n
 
 The filter bar's strings resolve from the `dashboard.filters.*` keys
-(`@object-ui/i18n` ships `en` and `zh` entries — control labels come from each
-filter's `label`, so translate those in your schema metadata).
+(`@object-ui/i18n` ships `en` and `zh` entries). A control's label comes from
+its filter's `label`, so translate that in your schema metadata — unless the
+filter declares `object`. Then the app's translation bundle wins: the field
+label resolves from the `fields.<object>.<field>` entry and each option label
+from `fieldOptions.<object>.<field>.<value>`, the same convention lists and
+forms use, and the authored `label` (the option's own `label`, for an option)
+is only the fallback when the bundle has no entry.
 
 ## Spec alignment
 

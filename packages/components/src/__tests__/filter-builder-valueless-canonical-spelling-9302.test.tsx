@@ -72,6 +72,15 @@
  *     the spec's vocabulary, so the fold returns them verbatim. They pin that
  *     routing the lookup through the fold did not drop the two members that
  *     have nothing to fold to.
+ *
+ * ## After objectui#9306
+ *
+ * The dropdown's ids — and so the exported set's members — are now the
+ * canonical spellings, and the former camelCase ids are the deprecated alias
+ * form a stored filter may still carry. The gate is unchanged (it folds the
+ * row's spelling before the lookup), so the table below reads the same; only
+ * which spelling plays "the dropdown's own id" and which plays "the other
+ * spelling" swapped. The rows are relabelled to say so.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
@@ -130,29 +139,32 @@ const operatorTriggerText = () => screen.getAllByRole('combobox')[1].textContent
  * The card's acceptance table, measured through the real `FilterBuilder`.
  *
  * `dialect` is load-bearing for reading a failure, not decoration:
- *   - `dropdown` — one of this builder's own camelCase ids, i.e. a member of
- *     the exported set. 0 inputs today and after: the over-reach guard;
- *   - `canonical` — `@objectstack/spec`'s snake_case spelling of the SAME
- *     operator, which a stored view carries. 1 input today (the defect), 0
- *     after: the firing cases;
+ *   - `dropdown` — one of this builder's own ids, i.e. a member of the
+ *     exported set: the spec's canonical spelling since objectui#9306. 0
+ *     inputs: the over-reach guard;
+ *   - `deprecated` — the dropdown's former camelCase id for the SAME operator,
+ *     which a filter stored before objectui#9306 carries. Not a member of the
+ *     exported set, so it draws 0 only because the gate folds: the firing
+ *     cases (before objectui#9302 it was the canonical spelling that played
+ *     this part);
  *   - `control` — really does take a value. 1 input in both directions.
  */
 const ROWS: ReadonlyArray<{
   operator: string;
   label: string;
   inputs: number;
-  dialect: 'dropdown' | 'canonical' | 'control';
+  dialect: 'dropdown' | 'deprecated' | 'control';
   /** `OPT_IN_OPERATORS` ids the consumer must grant before they are mounted. */
   extraOperators?: readonly string[];
 }> = [
-  { operator: 'isNull', label: 'Is null', inputs: 0, dialect: 'dropdown' },
-  { operator: 'is_null', label: 'Is null', inputs: 0, dialect: 'canonical' },
-  { operator: 'isNotNull', label: 'Is not null', inputs: 0, dialect: 'dropdown' },
-  { operator: 'is_not_null', label: 'Is not null', inputs: 0, dialect: 'canonical' },
-  { operator: 'isEmpty', label: 'Is empty', inputs: 0, dialect: 'dropdown' },
-  { operator: 'is_empty', label: 'Is empty', inputs: 0, dialect: 'canonical' },
-  { operator: 'isNotEmpty', label: 'Is not empty', inputs: 0, dialect: 'dropdown' },
-  { operator: 'is_not_empty', label: 'Is not empty', inputs: 0, dialect: 'canonical' },
+  { operator: 'isNull', label: 'Is null', inputs: 0, dialect: 'deprecated' },
+  { operator: 'is_null', label: 'Is null', inputs: 0, dialect: 'dropdown' },
+  { operator: 'isNotNull', label: 'Is not null', inputs: 0, dialect: 'deprecated' },
+  { operator: 'is_not_null', label: 'Is not null', inputs: 0, dialect: 'dropdown' },
+  { operator: 'isEmpty', label: 'Is empty', inputs: 0, dialect: 'deprecated' },
+  { operator: 'is_empty', label: 'Is empty', inputs: 0, dialect: 'dropdown' },
+  { operator: 'isNotEmpty', label: 'Is not empty', inputs: 0, dialect: 'deprecated' },
+  { operator: 'is_not_empty', label: 'Is not empty', inputs: 0, dialect: 'dropdown' },
   // No canonical twin exists for these two — the spec's vocabulary has no
   // `exists` member and its alias table deliberately has no row for one.
   //
@@ -194,9 +206,10 @@ const ROWS: ReadonlyArray<{
  *     THIS builder leaves value-less. Nothing here decides which those are; the
  *     builder's own export does, and the fold carries it across.
  *   - `VIEW_FILTER_OPERATOR_ALIASES` — every other spelling the spec accepts
- *     for one of those canonical members. The camelCase rows of this table are
- *     the builder's own dropdown ids; the rest (today: the all-lowercase rows)
- *     are spellings no literal table here ever named.
+ *     for one of those canonical members. The camelCase rows of this table
+ *     were the builder's own dropdown ids until objectui#9306 and are the
+ *     deprecated spellings a stored filter may still carry; the rest (today:
+ *     the all-lowercase rows) are spellings no literal table here ever named.
  *
  * ⛔ Do not replace this with the list it currently produces. The count is not
  * written down anywhere in this file on purpose — `--reporter=verbose` names
@@ -352,17 +365,19 @@ describe('objectui#9302 — one operator, one row, whichever spelling it arrives
 
 describe('objectui#9302 — ⛔ the repair moves nothing but the gate', () => {
   it('the EXPORTED set keeps its dropdown-only membership', () => {
-    // Acceptance criterion 3, and the ruling's whole point: two other layers
-    // read this set, and one of them already compensates for the canonical
-    // spellings. Widening it would make that layer's deliberate half redundant
-    // by side effect. Green in both directions by construction — it fails only
-    // for a repair that widened the export instead of folding at the gate.
+    // Acceptance criterion 3: the set states what the DROPDOWN draws, one id
+    // per operator, and is not widened with other spellings — the gate folds
+    // instead. Since objectui#9306 the dropdown's ids are the canonical
+    // spellings, so the six members are those; the deprecated camelCase ids
+    // are NOT members (a second spelling in a published set is exactly the
+    // second vocabulary that ruling refuses). It fails for a repair that
+    // widened the export instead of folding at the gate.
     expect([...VALUELESS_FILTER_BUILDER_OPERATORS].sort()).toEqual([
       'exists',
-      'isEmpty',
-      'isNotEmpty',
-      'isNotNull',
-      'isNull',
+      'is_empty',
+      'is_not_empty',
+      'is_not_null',
+      'is_null',
       'notExists',
     ]);
   });

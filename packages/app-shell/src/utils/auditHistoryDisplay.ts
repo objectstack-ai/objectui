@@ -22,6 +22,8 @@
  *     names via a caller-resolved id → label map).
  */
 
+import { toDisplayDate } from '@object-ui/core';
+
 /** Minimal structural view of an object field definition. */
 export interface AuditFieldDef {
   type?: string;
@@ -48,7 +50,11 @@ export interface RawAuditChange {
 export interface AuditValueFormatContext {
   /** i18n translate fn (i18next-style). Optional — falls back to English. */
   t?: (key: string, options?: Record<string, unknown>) => string;
-  /** BCP-47 locale for date formatting. Defaults to the browser locale. */
+  /**
+   * BCP-47 DISPLAY locale for date formatting: a React caller passes
+   * `useDisplayLocale()`, never the UI language (objectui#10442). Absent, the
+   * runtime default answers.
+   */
   locale?: string;
   /** target object name → (record id → display label), for lookup fields. */
   lookupLabels?: Map<string, Map<string, string>>;
@@ -216,7 +222,10 @@ function formatScalar(def: AuditFieldDef | undefined, value: unknown, ctx: Audit
   }
 
   if (type === 'date' || type === 'datetime') {
-    const d = new Date(value as string | number);
+    // The shared parse step, never `new Date(value)`: a date-only value is UTC
+    // midnight to the engine and read back below in the viewer's zone, one day
+    // early west of UTC (objectui#10183). The faces stay this helper's own.
+    const d = toDisplayDate(value as string | number);
     if (!Number.isNaN(d.getTime())) {
       try {
         return type === 'date'

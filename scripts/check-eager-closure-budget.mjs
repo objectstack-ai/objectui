@@ -846,10 +846,13 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * worth under half the payload it gets blamed for. ⭐ Why `main` was one byte from
  * this line in the first place is objectui#8554: it sat at 70,999 against 71,000
  * — headroom 0.00x — and printed a GREEN sensitivity row while it did, because
- * {@link evaluateHeadroomSensitivity} had no floor at the time. It has one now,
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE}, so this row is loud rather than
- * green. objectui#8541 recorded the same red first and is closed as this card's
- * duplicate.
+ * {@link evaluateHeadroomSensitivity} had no floor at the time. ⚠️ It briefly
+ * had one and has no floor again: objectui#8554 added a lower bound and a
+ * maintainer ruling on objectui#10148 retired it, so a row in that state draws
+ * a green tick once more — see the RETIRED block below. ⛔ That is a statement
+ * about THIS half only; the row's ceiling is unchanged and a build over it
+ * still exits 1. objectui#8541 recorded the same red first and is closed as
+ * this card's duplicate.
  *
  * ⚠️ This also makes `framework` the LOOSEST ceiling in this object, measured
  * rather than asserted. All four were read from the one `3f775eeb8` console
@@ -995,10 +998,12 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * same mechanism one step earlier: `framework` sat at 70,999 against 71,000 and
  * printed a GREEN sensitivity row while it did, because
  * {@link evaluateHeadroomSensitivity} had no floor at the time. Re-pinning to
- * 804 bytes would reproduce both inside a week. ⭐ That card is also where the
- * convention this paragraph reaches for stopped being prose: the tenth chosen
- * here is now {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE}, and a re-pin that
- * ignores it reds instead of merely disagreeing with a comment.
+ * 804 bytes would reproduce both inside a week. ⚠️ objectui#8554 briefly made
+ * the tenth this paragraph reaches for into a PREDICATE; objectui#10148's
+ * maintainer ruling retired that predicate, so the tenth is prose again — a
+ * re-pin that ignores it disagrees with this comment and with every re-pin
+ * recorded above it, and ⛔ nothing reds. See the RETIRED block below for what
+ * putting the predicate back would take.
  *
  * So the size comes from this key's own convention rather than from the overage:
  * 8,804 bytes = 0.10x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, against the
@@ -1109,9 +1114,11 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   // passed before this edit and measures under 50,000 fails after it, and the
   // ~9.5 KB of runway left here is `en`'s alone rather than ten packs' shared.
   // Headroom 9,585 bytes = 0.11x REGRESSION_THIS_GATE_MUST_CATCH_BYTES over the
-  // baseline below — just above the 0.10x floor, this file's own convention for
-  // a deliberate re-pin, and the first time this key has cleared that floor
-  // without a declared allowance holding it open.
+  // baseline below — just above the 0.10x this file's own convention asks of a
+  // deliberate re-pin, and the first time this key has cleared it on the
+  // measurement alone. ⚠️ That tenth is a CONVENTION for sizing a re-pin, ⛔ not
+  // a line this gate enforces: objectui#10148 retired the leg that did. ⛔ This
+  // row is also the one the ruling names, and its ceiling is NOT touched by it.
   'i18n-locale-en': 50_000,
   // Raised by the maintainer ruling of 2026-09-08, ⛔ not by a measurement here:
   // `main` had been red on this line since `f76f43628`. The bytes that put it
@@ -1149,14 +1156,15 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
   //
   // ⛔ A TIGHTENING. No build that passed before this edit and measures under
   // 289,000 fails after it. Headroom 23,063 bytes = 0.25x
-  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES — well above the 0.10x floor, and
-  // chosen larger than `i18n-locale-en`'s 0.11x because this row is the one
+  // REGRESSION_THIS_GATE_MUST_CATCH_BYTES — well above the 0.10x convention,
+  // and chosen larger than `i18n-locale-en`'s 0.11x because this row is the one
   // that had been living at 0.02x: the runway is the point of paying it down,
-  // and a re-pin that left it at the floor would hand the next author the same
-  // ratchet the day after it was cleared.
+  // and a re-pin that left it at the convention would hand the next author the
+  // same ratchet the day after it was cleared.
   //
-  // ⚠️ This is also why this key no longer appears in
-  // {@link EXHAUSTED_HEADROOM_ALLOWANCES} — see the note there.
+  // ⚠️ That reasoning is why this key was taken out of the declared-allowance
+  // table objectui#8554 kept, which objectui#10148 then retired outright — the
+  // re-pin is what discharged the debt, and it reads the same either way.
   'ui-components': 289_000,
 });
 
@@ -1308,206 +1316,586 @@ export const PER_CHUNK_BASELINE = Object.freeze({
 });
 
 /**
- * The LOWER bound on a ceiling's headroom, as a fraction of
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} (objectui#8554).
+ * The membership artifact's file name, and its default path.
  *
- * ## The half this closes
- *
- * {@link evaluateHeadroomSensitivity} asks whether a ceiling is still close
- * enough to its payload to mean anything, and until this constant it asked that
- * in ONE direction only: a ceiling more than one regression ABOVE its payload is
- * blind, and every other row drew a green tick — one byte of headroom included.
- * A spent ceiling is not a measurement of this bundle either. It is a
- * measurement of the NEXT change, whatever that turns out to be.
- *
- * The cost is recorded rather than argued, twice. `framework` stood at 70,999
- * gzipped bytes against a 71,000 ceiling across at least two merges, printing a
- * green sensitivity row the whole time, and then `main` went red on an ordinary
- * change. `i18n-locales` stood at 398 bytes and did something worse: this gate
- * weighs the merge ref, so two independent, finished pull requests each added
- * under a kilobyte to that chunk and whichever the queue weighed SECOND turned
- * red for the other one's bytes. An exhausted ceiling does not only red the
- * trunk — it reds an innocent diff and misnames the cause, while this half
- * prints a green tick at the bottom of the same run.
- *
- * ## Why a tenth, and why that is not a reading of today's rows
- *
- * This file already had an answer and only ever wrote it in prose. Every
- * deliberate re-pin in {@link PER_CHUNK_GZIP_CEILINGS} sizes the new headroom at
- * a tenth of the regression: objectui#7399 re-pinned two keys to it, and
- * objectui#8816 rejected the minimal raise that would have admitted its two
- * claimants exactly — choosing, in as many words, this key's own convention over
- * the overage, and citing objectui#8554 for why the minimal raise would
- * reproduce both failures inside a week. The maintainer ruling that authorised
- * that raise was taken on that reasoning.
- *
- * ⇒ the bound is this file's own already-taken decision, promoted from a comment
- * into the predicate. ⛔ It was NOT picked by asking which rows are green today.
- * What it does to today's rows is recorded, after the fact and in that order, in
- * {@link EXHAUSTED_HEADROOM_ALLOWANCES}.
- *
- * ⛔ Never raise this to quiet a row. It is a floor on a floor: raising it buys
- * silence for a ceiling that has stopped measuring, which is the defect and not
- * the cure — the same rule the blind side states in the other direction.
+ * ⚠️ The NAME is the load-bearing half. `main` resolves this artifact next to
+ * whatever `--report` names, because the two files are written by the same
+ * build into the same `dist` — deriving one from the other is what keeps a run
+ * pointed at some other build's report from silently weighing THIS tree's
+ * membership, which is a mismatch no assertion below could detect.
  */
-export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE = 0.1;
+const MEMBERSHIP_REPORT_FILE_NAME = 'chunk-membership.json';
+const MEMBERSHIP_REPORT_PATH = `apps/console/dist/${MEMBERSHIP_REPORT_FILE_NAME}`;
 
 /**
- * Ceilings whose headroom was ALREADY under
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} on the day that floor landed, each
- * pinned at the headroom it measured that day (objectui#8554).
+ * The membership artifact's own version, independent of
+ * {@link SUPPORTED_REPORT_VERSION}.
  *
- * ## Why a table and not simply a lower floor
- *
- * Two rows were under a tenth of the regression when the floor was written. A
- * floor low enough to clear them would be green on a board whose tightest line
- * is the exact instance this card was filed about — it would say nothing, which
- * is the defect wearing the cure's clothes. A floor without them reds `main` on
- * landing, which is how a budget gets switched off rather than met. So the bound
- * stays where this file's own convention put it, and the debt is DECLARED here,
- * at the byte.
- *
- * ## What an entry does
- *
- * A listed ceiling passes while its headroom is at least the figure below and
- * reds the moment it gets TIGHTER. The gate is therefore loud immediately: every
- * listed row is named in the PASSING verdict too, not only when it fires. Each
- * entry is a ratchet that can be paid off and never spent.
- *
- * ⛔ No figure here may ever be LOWERED. Lowering one turns this object from a
- * record of debt into a supply of headroom, and the row it was written about
- * goes exactly as silent as it was before this card.
- *
- * ⛔ No row may be ADDED to buy silence. A ceiling that cannot clear the floor is
- * a ceiling set at the wrong number; the answer is the bytes, or a deliberate
- * authorised re-pin, never a new line in this object. The unit test pins these
- * contents exactly, so an edit in either direction is a visible, deliberate act
- * rather than a number that drifted.
- *
- * ⛔ These are not ceilings and nothing may be raised to satisfy one. The
- * `ui-components` number in particular is an open decision (objectui#7848) and
- * this table ⛔ does not answer it — it only stops the gate being silent while
- * that decision stands unanswered.
- *
- * Both figures were read from one full console build on `2596b1b85`, from the
- * same report the gate reads. ⚠️ `i18n-locales` carries the pair objectui#8816's
- * maintainer ruling set eight days earlier, whose prose calls its headroom
- * "0.10x": rendered to two decimals it is, measured it is 0.0966x, so the floor
- * catches it by 310 bytes. That is a rounding artifact in the prose, ⛔ not a
- * finding about the ruling, and ⛔ not a reason to bend the bound to 0.095 —
- * bending it to clear a named row is choosing the bound by today's board, which
- * is the one move this card may not make.
- *
- * ⭐ `ui-components` was read TWICE while this was being written, an hour apart,
- * and it moved: 394,708 on `e8b7b0785` and 394,711 five merges later, none of
- * them about this chunk. The console build is deterministic on a fixed tree —
- * checked, two builds byte-identical across all four budgeted chunks — so those
- * three bytes are content and not noise, and the first reading was already stale
- * when it was taken. That is this card's whole thesis arriving during its own
- * fix: the tightest line on the board moves under ordinary traffic and nothing
- * said so.
- *
- * ⇒ that reading is also why these figures are NOT compared at the byte. See
- * {@link EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE}, which is the unit
- * the comparison is made in and the reason a red here is a red a reader can see.
- *
- * ⚠️ The `@type` is load-bearing now that the table can be EMPTY. Its shape used
- * to be inferred from the one entry it carried, so `Object.values(...)` was
- * `number[]` for free; an empty literal infers nothing and the same expression
- * becomes `unknown[]`, which fails `tsc -p tsconfig.scripts.json` in the unit
- * suite that reads it — a leg no per-package `type-check` and no
- * `turbo run type-check` covers, because `scripts/` is not a workspace package.
- * ⛔ The fix belongs HERE, on the declaration, and not as a cast at the reader:
- * chunk name to allowance bytes is what this table IS, whether or not it
- * currently holds a row.
- *
- * @type {Readonly<Record<string, number>>}
+ * ⛔ Not a duplicate of that constant and ⛔ not to be merged into it:
+ * `eager-closure.json`'s version is a contract with a SECOND reader,
+ * `scripts/check-eager-locale-catalogues.mjs`, whose own tests pin that a later
+ * version is REFUSED. Two artifacts, two versions, each bumped by the reader
+ * that has to understand it.
  */
-export const EXHAUSTED_HEADROOM_ALLOWANCES = Object.freeze({
-  // ⭐ EMPTY, and that is a state this table is allowed to be in: it is a ledger
-  // of debt, and debt can be discharged. Two rows have left it, by the two ways
-  // a row leaves — neither of them by being lowered, because a lowered figure is
-  // headroom supplied to a row that still owes it.
-  //
-  //   `i18n-locales: 8_804`  — left at objectui#7479 because its CHUNK ceased to
-  //     exist: nine of the ten catalogues it weighed became `import()`ed on
-  //     demand, and the one that stays is budgeted under its own key at 0.11x.
-  //
-  //   `ui-components: 4_289` — left at objectui#9251 because the ROW cleared the
-  //     floor. Its chunk is still here and still budgeted; what changed is that
-  //     lucide's 1,781-icon record came off the eager path, the ceiling was
-  //     re-pinned DOWN to 289,000 over a 265,937 measurement, and the headroom
-  //     went from 0.02x to 0.25x — two and a half times the floor this table
-  //     exists to excuse rows from.
-  //
-  // ⛔ Leaving the entry in place after that would have been the worse edit, not
-  // the cautious one, and in two ways at once. `floorFor` reads an allowance as
-  // this row's REQUIRED headroom, so a stale 4,289 would have replaced the
-  // 9,113.6-byte floor with a 3,377.6-byte one — the gate running WEAKER on the
-  // row it had just been strengthened for. And the row renderer prints
-  // "under the 0.10x floor and held open by its declared allowance" for every
-  // listed key unconditionally, so the passing verdict would have said the row
-  // was under a floor it is 2.5x clear of.
-  //
-  // ⚠️ An empty table must not be read as "this mechanism is unused". The
-  // ratchet is pinned on a synthetic row in
-  // `scripts/__tests__/check-eager-closure-budget.test.ts`, precisely so that
-  // paying the last debt off cannot quietly retire the instrument with it.
+const SUPPORTED_MEMBERSHIP_REPORT_VERSION = 2;
+
+/**
+ * WHERE each budgeted group's declared packages must land — an EXACT claim,
+ * ⛔ not a ratchet with headroom (objectui#9345).
+ *
+ * ## The hole this closes
+ *
+ * Every other verdict in this file weighs BYTES against a line drawn per chunk
+ * NAME. That arrangement has an exit nobody was watching: move the bytes to a
+ * chunk with no line, and every line goes green while the browser downloads
+ * exactly what it downloaded before. It was not hypothetical. All 92 modules of
+ * `packages/core` left the budgeted `framework` chunk for `data-adapter` —
+ * which has no ceiling and no baseline and is in the eager closure — on one
+ * commit that edited no chunking config at all (objectui#9185, measured on
+ * objectui#9205). `framework` fell far enough below its own baseline to raise a
+ * DIFFERENT question, and the answer to that question was three cards away.
+ *
+ * ⇒ this half asks the question a byte count structurally cannot: did the
+ * budgeted groups' declared packages land where the config says they land?
+ *
+ * ## Why the keys are exactly the budgeted groups
+ *
+ * The subject of the claim is a BUDGET that can be bypassed, so its population
+ * is the chunks that carry a budget — the keys of
+ * {@link PER_CHUNK_GZIP_CEILINGS}, cross-checked below rather than trusted.
+ * Two of those four keys name no workspace package and are absent here for
+ * reasons, not by oversight:
+ *
+ *   - `vendor-objectstack` holds `node_modules` only, so no `packages/<name>`
+ *     claim can be made about it.
+ *   - `i18n-locale-en` is ONE FILE inside `packages/i18n`, whose other modules
+ *     belong to `i18n-runtime` by design — package granularity cannot express
+ *     that, and `scripts/check-eager-locale-catalogues.mjs` already pins the
+ *     catalogues' membership by chunk name.
+ *
+ * ## Why the values are package names and not regexes
+ *
+ * A regex here would be a SECOND opinion about the group tests in
+ * `apps/console/vite.config.ts` — one that goes on reading plausibly while it
+ * matches something else. `scripts/__tests__/check-eager-closure-budget.test.ts`
+ * instead requires each name below to be matched by that group's own declared
+ * test, so the two cannot drift apart without a red test.
+ */
+export const PER_CHUNK_MEMBERSHIP = Object.freeze({
+  framework: Object.freeze(['core', 'react', 'types']),
+  'ui-components': Object.freeze(['components', 'fields']),
 });
 
 /**
- * The unit a declared allowance is compared in, as a fraction of
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. A listed row reds when its
- * headroom falls a whole one of these below its pinned figure — ⛔ not when it
- * falls one BYTE below it.
+ * The declared EXCEPTIONS to {@link PER_CHUNK_MEMBERSHIP}'s "wholly": a
+ * package-relative subtree of a declared package that a narrower,
+ * higher-priority group takes BY DESIGN — keyed by package, each entry naming
+ * the subtree and the one chunk it must land in (objectui#10065).
  *
- * ## Why the byte is the wrong unit, demonstrated rather than argued
+ * ## Why this exists, and why it is not a looser rule
  *
- * This gate renders three numbers per row, and every one of them is rounded:
- * measured and headroom through {@link kb} at one decimal of a KiB, and the
- * multiple at two decimals of a regression. Take `ui-components` at its pinned
- * 4,289 bytes of headroom and remove ONE byte — the boundary a byte-exact
- * comparison would red on:
+ * objectui#10082 split `packages/types` on purpose: the `src/zod/**`
+ * validators go to `types-zod`, which only the lazy `plugin-map` chunk reads,
+ * and the rest stays in `framework`. "`packages/types` lands wholly in
+ * `framework`" became false by ruling, not by accident. The two repairs this
+ * half refuses are the two that would make it pass by weighing less:
  *
- *     headroom 4,289  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
- *     headroom 4,288  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
+ *   - ⛔ dropping `types` from `framework`'s list — the whole package would
+ *     then be unwatched, including the split's own failure mode;
+ *   - ⛔ allowing `types` "anywhere but a stray chunk" — which is a ratchet.
  *
- * ⇒ ⭐ identical. Every column. A byte-exact ratchet fires with a red cross above
- * an evidence table that is character-for-character the table the green run
- * printed, so the reader cannot see what moved, cannot tell their own diff from
- * the drift under it, and has nothing to act on. That is the same defect
- * objectui#8554 is about — a number nobody can read — moved one level in.
+ * So the split is DECLARED, and held to the module: every module under the
+ * subtree must land in the carve-out's chunk, every other module of the package
+ * in the package's declared chunk, nowhere else, and each side must hold at
+ * least one module. ⭐ That is what catches the failure the split was measured
+ * to produce on its first build: rolldown's default
+ * `includeDependenciesRecursively` absorbed three shared `src/` neighbours into
+ * `types-zod` along an import, the eager `plugin-grid` chunk then imported it
+ * statically, and every byte stayed eager. A per-package count reads that as
+ * the healthy split; the directory counts it is judged against here do not.
  *
- * ## Why a hundredth, specifically
+ * ## Why a carve-out may name a chunk no ceiling governs — and when it may not
  *
- * It is the coarser of this file's two rendering grids: 0.01x is 911.36 bytes,
- * where one tenth of a KiB is 102.4. Choosing the coarser one is what makes a
- * red visible in BOTH columns rather than only the finer of them. Across the
- * same trip point that is:
+ * This half's keys are limited to budgeted chunks because it guards a byte
+ * budget's flank. A carve-out's destination is not a key: it is where declared
+ * bytes LEAVE that budget. That is only honest when they also leave the thing
+ * every budget here weighs — so a destination that carries no ceiling must be
+ * ABSENT from the eager closure of the same build, read from
+ * `eager-closure.json`. ⛔ A carve-out into an unbudgeted EAGER chunk is refused
+ * as an error: it is objectui#9345's incident — `packages/core` in
+ * `data-adapter`, bytes downloaded and weighed by nothing — written down as
+ * though it were a ruling.
  *
- *     headroom 4,289  ->  385.5 KB measured / headroom 4.2 KB / 0.05x
- *     headroom 3,377  ->  386.4 KB measured / headroom 3.3 KB / 0.04x
- *
- * It is also the next decade of the unit this whole file is denominated in —
- * 1.00x is blind, 0.10x is the floor, 0.01x is the grain — so the instrument
- * measures at one resolution throughout instead of claiming an 89 KB question
- * and answering a one-byte one.
- *
- * ## What this is NOT
- *
- * ⛔ Not a raise, and ⛔ not headroom to spend. The pinned figures do not move,
- * the table stays pay-down-only, and paying a row down moves its trip point up
- * with it. It coarsens WHEN a declared row reds, ⛔ never whether it is
- * declared, and ⛔ never the {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} floor
- * itself, which is unchanged and still reds an undeclared row at 0.10x.
- *
- * ⚠️ ⛔ It does not make a declared row's red CLEARABLE by the pull request that
- * trips it — nothing at this bound can, while a row's headroom is somebody
- * else's open decision. What it does is stop that red firing on drift too small
- * to see, and the verdict text for a declared row says whose question it is
- * rather than sending its author to audit their own diff.
+ * `scripts/__tests__/check-eager-closure-budget.test.ts` cross-checks each
+ * entry against `apps/console/vite.config.ts`: the carve-out group's own test
+ * must match the subtree and must miss the rest of the package, the declared
+ * chunk's test must match the subtree too (or this is not a carve FROM it), and
+ * the carve-out group must outrank it.
  */
-export const EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE = 0.01;
+export const PER_CHUNK_MEMBERSHIP_CARVE_OUTS = Object.freeze({
+  types: Object.freeze([Object.freeze({ subtree: 'src/zod', chunk: 'types-zod' })]),
+});
+
+/**
+ * Read the membership artifact, or `null` when it is not there / not JSON.
+ *
+ * @param {string} [reportPath]
+ * @returns {unknown}
+ */
+export function readMembershipReport(reportPath = MEMBERSHIP_REPORT_PATH) {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(reportPath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The membership verdict.
+ *
+ * ⚠️ Read the ERROR branches before the fail branch. Every one of them exists
+ * because this half's green state is "no declared package was found anywhere it
+ * should not be" — a sentence that is also true of a report that attributed
+ * nothing, of a package that vanished from the bundle, of a declaration that
+ * names a chunk no ceiling governs, and of a carve-out whose subtree holds
+ * nothing. A check whose pass condition is an ABSENCE has to prove it looked.
+ *
+ * A declared package WITHOUT a carve-out is judged on the per-package counts
+ * and must land wholly in its declared chunk. A package WITH one
+ * ({@link PER_CHUNK_MEMBERSHIP_CARVE_OUTS}) is judged on the per-directory
+ * counts: each module lands in the carve-out's chunk when its directory is
+ * under the carved subtree and in the declared chunk otherwise — exactly, one
+ * stray module is a finding, named by its directory.
+ *
+ * @param {object} input
+ * @param {unknown} input.membership  parsed `chunk-membership.json`, or null
+ * @param {Record<string, readonly string[]>} [input.declaration]
+ * @param {Record<string, readonly { subtree: string, chunk: string }[]>} [input.carveOuts]
+ * @param {Record<string, number>} [input.budgetedChunks]
+ * @param {Iterable<string> | null} [input.eagerChunkNames]  the `name` of every
+ *        chunk in the SAME build's eager closure (`eager-closure.json`'s
+ *        `files[].name`), or null when that report could not be read. Needed
+ *        only to admit a carve-out whose chunk carries no ceiling.
+ * @param {string} [input.reportPath]
+ * @returns {{ status: 'pass' | 'fail' | 'error', message: string }}
+ */
+export function evaluatePerChunkMembership({
+  membership,
+  declaration = PER_CHUNK_MEMBERSHIP,
+  carveOuts = PER_CHUNK_MEMBERSHIP_CARVE_OUTS,
+  budgetedChunks = PER_CHUNK_GZIP_CEILINGS,
+  eagerChunkNames = null,
+  reportPath = MEMBERSHIP_REPORT_PATH,
+} = {}) {
+  if (membership === null || membership === undefined || typeof membership !== 'object') {
+    return {
+      status: 'error',
+      message:
+        `PREREQUISITE NOT MET: \`${reportPath}\` is missing or is not JSON, so no chunk ` +
+        `membership was weighed. This half reads a BUILT bundle — run ` +
+        `\`pnpm --filter @object-ui/console build\` first. ⛔ This is NOT a pass: a gate that ` +
+        `could not run is not a gate that ran clean.`,
+    };
+  }
+
+  const r = /** @type {Record<string, unknown>} */ (membership);
+  if (r.membershipReportVersion !== SUPPORTED_MEMBERSHIP_REPORT_VERSION) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` declares membershipReportVersion ` +
+        `${JSON.stringify(r.membershipReportVersion)}, expected ` +
+        `${SUPPORTED_MEMBERSHIP_REPORT_VERSION} — the emitter in ` +
+        `\`apps/console/vite.config.ts\` and this half have drifted apart, and a shape this ` +
+        `half does not understand is refused rather than read for fields it may not carry.`,
+    };
+  }
+
+  if (typeof r.totalChunkCount !== 'number' || !Number.isFinite(r.totalChunkCount) || r.totalChunkCount < 1) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` reports totalChunkCount ${JSON.stringify(r.totalChunkCount)} — a ` +
+        `bundle with no chunk in it attributed nothing, and "nothing was attributed" reads to ` +
+        `the check below exactly like "no module is out of place".`,
+    };
+  }
+
+  const packages = r.packages;
+  if (packages === null || typeof packages !== 'object' || Object.keys(packages).length === 0) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` attributes no workspace package at all, so every membership claim ` +
+        `below would be vacuously true. The emitter refuses to publish such a report; one ` +
+        `reaching this half means it was edited, truncated or hand-written.`,
+    };
+  }
+  const attribution = /** @type {Record<string, Record<string, number>>} */ (packages);
+  const directories = /** @type {Record<string, Record<string, Record<string, number>>>} */ (
+    r.directories !== null && typeof r.directories === 'object' ? r.directories : {}
+  );
+
+  // The declaration is about BUDGETED chunks. A key here that carries no
+  // ceiling would be pinning membership for a line nothing weighs — harmless
+  // to assert and misleading to read, since this half's whole argument is that
+  // it guards the byte budget's flank.
+  const unbudgeted = Object.keys(declaration).filter((chunk) => !(chunk in budgetedChunks));
+  if (unbudgeted.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP declares ${unbudgeted.map((c) => `\`${c}\``).join(', ')}, which ` +
+        `${unbudgeted.length === 1 ? 'is' : 'are'} not among the budgeted chunks in ` +
+        `PER_CHUNK_GZIP_CEILINGS. This half exists to guard a byte budget's flank; a membership ` +
+        `pin on a chunk with no budget guards nothing and reads as though it did.`,
+    };
+  }
+
+  // The carve-outs are judged BEFORE any module is counted: an inadmissible
+  // exception makes every verdict built on it meaningless, in either direction.
+  /** @type {Map<string, string>} */
+  const homeOf = new Map();
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) homeOf.set(pkg, chunk);
+  }
+  const eager = eagerChunkNames === null ? null : new Set(eagerChunkNames);
+  /** @type {string[]} */
+  const inadmissible = [];
+  for (const [pkg, carves] of Object.entries(carveOuts)) {
+    const home = homeOf.get(pkg);
+    if (home === undefined) {
+      inadmissible.push(
+        `\`packages/${pkg}\` has a carve-out but no budgeted chunk declares the package — an ` +
+          `exception to a claim nobody makes`,
+      );
+      continue;
+    }
+    if (!Array.isArray(carves) || carves.length === 0) {
+      inadmissible.push(`\`packages/${pkg}\` has an EMPTY carve-out list`);
+      continue;
+    }
+    for (const carve of carves) {
+      const subtree = carve?.subtree;
+      const chunk = carve?.chunk;
+      if (
+        typeof subtree !== 'string' ||
+        subtree.split('/').some((part) => part === '' || part === '.' || part === '..')
+      ) {
+        inadmissible.push(
+          `\`packages/${pkg}\` carves ${JSON.stringify(subtree)}, which is not a ` +
+            `package-relative directory written the way the emitter keys them (\`src/zod\`)`,
+        );
+        continue;
+      }
+      if (typeof chunk !== 'string' || chunk === '') {
+        inadmissible.push(`\`packages/${pkg}/${subtree}\` is carved into no named chunk`);
+        continue;
+      }
+      if (chunk === home) {
+        inadmissible.push(
+          `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, the package's own declared ` +
+            `chunk — a carve-out that moves nothing`,
+        );
+        continue;
+      }
+      if (!(chunk in budgetedChunks)) {
+        if (eager === null) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which carries no ceiling, ` +
+              `and this run could not read the eager closure to confirm that chunk is LAZY`,
+          );
+        } else if (eager.has(chunk)) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which is in the EAGER ` +
+              `closure and carries no ceiling — declared bytes downloaded on every page load and ` +
+              `weighed by nothing, which is the bypass this half exists to catch (objectui#9345)`,
+          );
+        }
+      }
+    }
+    const subtrees = carves.map((c) => c?.subtree).filter((t) => typeof t === 'string');
+    for (const a of subtrees) {
+      for (const b of subtrees) {
+        if (a !== b && b.startsWith(`${a}/`)) {
+          inadmissible.push(
+            `\`packages/${pkg}\` carves both \`${a}\` and \`${b}\`, which nest — a module under ` +
+              `both would have two declared chunks`,
+          );
+        }
+      }
+    }
+  }
+  if (inadmissible.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS holds ${inadmissible.length} inadmissible ` +
+        `entr${inadmissible.length === 1 ? 'y' : 'ies'}:\n` +
+        inadmissible.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\nA carve-out is an EXCEPTION to a budgeted chunk's claim, so it is refused rather ` +
+        `than read: an exception nobody can check turns an exact pin into a permissive one.`,
+    };
+  }
+
+  /** @type {string[]} */
+  const missing = [];
+  /** @type {string[]} */
+  const unmeasured = [];
+  /** @type {string[]} */
+  const strays = [];
+  /** @type {string[]} */
+  const held = [];
+
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) {
+      const landed = attribution[pkg];
+      if (landed === undefined || typeof landed !== 'object' || Object.keys(landed).length === 0) {
+        missing.push(pkg);
+        continue;
+      }
+      const total = Object.values(landed).reduce((n, count) => n + count, 0);
+      const carves = carveOuts[pkg] ?? [];
+
+      if (carves.length === 0) {
+        const elsewhere = Object.entries(landed).filter(([name]) => name !== chunk);
+        if (elsewhere.length > 0) {
+          const where = elsewhere
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => `${count} in \`${name}\``)
+            .join(', ');
+          strays.push(
+            `\`packages/${pkg}\` is declared in \`${chunk}\` but ${where} ` +
+              `(${landed[chunk] ?? 0} of its ${total} modules landed in \`${chunk}\`)`,
+          );
+        } else {
+          held.push(`\`packages/${pkg}\` ${total} modules in \`${chunk}\``);
+        }
+        continue;
+      }
+
+      // A carved package is judged per DIRECTORY, so it needs the directory
+      // table — and that table must add up to the package's own counts, or the
+      // two halves of one artifact describe two different bundles.
+      const dirs = directories[pkg];
+      if (dirs === undefined || dirs === null || typeof dirs !== 'object' || Object.keys(dirs).length === 0) {
+        unmeasured.push(
+          `\`packages/${pkg}\` is declared with a carve-out but the artifact carries no ` +
+            `directory attribution for it, so the split cannot be held to the module`,
+        );
+        continue;
+      }
+      /** @type {Record<string, number>} */
+      const summed = {};
+      for (const byChunk of Object.values(dirs)) {
+        for (const [name, count] of Object.entries(byChunk)) summed[name] = (summed[name] ?? 0) + count;
+      }
+      const chunkNames = new Set([...Object.keys(summed), ...Object.keys(landed)]);
+      if ([...chunkNames].some((name) => (summed[name] ?? 0) !== (landed[name] ?? 0))) {
+        unmeasured.push(
+          `\`packages/${pkg}\`'s directory counts (${JSON.stringify(summed)}) do not add up to ` +
+            `its package counts (${JSON.stringify(landed)})`,
+        );
+        continue;
+      }
+
+      const carveFor = (/** @type {string} */ dir) =>
+        carves.find((c) => dir === c.subtree || dir.startsWith(`${c.subtree}/`));
+      let restTotal = 0;
+      /** @type {Map<object, number>} */
+      const carvedTotal = new Map(carves.map((c) => [c, 0]));
+      /** @type {string[]} */
+      const misplaced = [];
+      for (const [dir, byChunk] of Object.entries(dirs).sort(([a], [b]) => a.localeCompare(b))) {
+        const carve = carveFor(dir);
+        const expected = carve ? carve.chunk : chunk;
+        for (const [name, count] of Object.entries(byChunk).sort((a, b) => b[1] - a[1])) {
+          if (carve) carvedTotal.set(carve, /** @type {number} */ (carvedTotal.get(carve)) + count);
+          else restTotal += count;
+          if (name !== expected) {
+            misplaced.push(
+              `\`packages/${pkg}/${dir}\` ${count} in \`${name}\` (declared \`${expected}\`)`,
+            );
+          }
+        }
+      }
+
+      // Both sides of the split must hold something. A carve-out whose subtree
+      // contributed no module describes a bundle that does not exist, and a
+      // package whose REMAINDER contributed none is no longer declared in its
+      // chunk at all — each would otherwise pass by weighing nothing.
+      const emptyCarves = carves.filter((c) => carvedTotal.get(c) === 0);
+      if (emptyCarves.length > 0 || restTotal === 0) {
+        unmeasured.push(
+          [
+            ...emptyCarves.map(
+              (c) =>
+                `the carve-out \`packages/${pkg}/${c.subtree}\` -> \`${c.chunk}\` matched no ` +
+                `module in the bundle`,
+            ),
+            ...(restTotal === 0
+              ? [`\`packages/${pkg}\` outside its carve-out(s) contributed no module to \`${chunk}\``]
+              : []),
+          ].join('; '),
+        );
+        continue;
+      }
+
+      const carvedText = carves
+        .map((c) => `its \`${c.subtree}\` subtree -> \`${c.chunk}\``)
+        .join(', ');
+      if (misplaced.length > 0) {
+        strays.push(
+          `\`packages/${pkg}\` is declared in \`${chunk}\` with ${carvedText}, but ` +
+            misplaced.join(', '),
+        );
+      } else {
+        held.push(
+          `\`packages/${pkg}\` ${restTotal} modules in \`${chunk}\` and ` +
+            carves
+              .map((c) => `its \`${c.subtree}\` subtree ${carvedTotal.get(c)} in \`${c.chunk}\``)
+              .join(', ') +
+            ', exactly',
+        );
+      }
+    }
+  }
+
+  // Ahead of the stray verdict on purpose. A declared package that contributed
+  // NO module to the bundle cannot be out of place, so the stray scan would
+  // pass on it — by measuring nothing, which is the one direction every probe
+  // in this file refuses.
+  if (missing.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${missing.length} declared package(s) contributed no module to any chunk: ` +
+        `${missing.map((p) => `\`packages/${p}\``).join(', ')}. ⛔ Not a pass: a package that ` +
+        `is not in the bundle is not "in its declared chunk", and the membership scan would ` +
+        `agree with everything about it. Either the package was renamed or removed — update ` +
+        `PER_CHUNK_MEMBERSHIP deliberately — or the emitter has stopped recognising its module ` +
+        `ids, in which case this gate is matching nothing.`,
+    };
+  }
+
+  // Same reasoning, one level down: a carved package whose split cannot be
+  // weighed is not a package whose split is right.
+  if (unmeasured.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${unmeasured.length} carved package(s) could not be held to their declared split:\n` +
+        unmeasured.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\n⛔ Not a pass: the carve-out table and the bundle no longer describe each other. ` +
+        `Rebuild the console if the artifact is stale; otherwise update ` +
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS deliberately and say in the PR why.`,
+    };
+  }
+
+  if (strays.length > 0) {
+    return {
+      status: 'fail',
+      message:
+        `${strays.length} budgeted package(s) did not land in the chunk the console config ` +
+        `declares for them:\n` +
+        strays.map((line) => `  ❌ ${line}`).join('\n') +
+        `\nChunk membership is decided by the grouping rules in ` +
+        `\`apps/console/vite.config.ts\`, ⛔ not by the side effect of an import edge: ` +
+        `rolldown's \`includeDependenciesRecursively\` lets a higher-priority group take a ` +
+        `lower-priority group's declared members along an import, and the group that receives ` +
+        `them may carry no ceiling at all — in which case the bytes go on being downloaded ` +
+        `while every per-chunk line above turns green (objectui#9345). ⛔ Do NOT move a ceiling ` +
+        `or a baseline to absorb this. Repair the grouping rule, or change this declaration ` +
+        `deliberately and say in the PR which chunk now owns the package and why.`,
+    };
+  }
+
+  return {
+    status: 'pass',
+    message:
+      `Chunk membership: ${held.length} budgeted package(s) each landed exactly where declared ` +
+      `— ${held.join('; ')}. (Counted over every emitted chunk, lazy ones included, from ` +
+      `\`${reportPath}\`.)`,
+  };
+}
+
+/**
+ * ## ⛔ RETIRED — the exhausted-headroom leg, and why it is not coming back
+ *   quietly (objectui#10148)
+ *
+ * This is where `EXHAUSTED_HEADROOM_FLOOR_MULTIPLE`,
+ * `EXHAUSTED_HEADROOM_ALLOWANCES` and
+ * `EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE` stood, and the paragraph
+ * is here rather than deleted with them for one reason: the text they carried
+ * forbade, in as many words, the edit that has now been made. ⛔ A removal that
+ * takes the prohibition out with the leg leaves the next reader holding an
+ * argument for a mechanism that no longer exists, and the obvious repair is to
+ * put it back.
+ *
+ * ### What stood here
+ *
+ * A ceiling whose headroom had fallen under a tenth of one
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} made
+ * {@link evaluateHeadroomSensitivity} return `error`, so the run exited 2 — on
+ * a build where nothing had grown past any line. The argument was
+ * objectui#8554's, and it is a real one, recorded here as history rather than
+ * as a live claim: a ceiling with no headroom left passes today and reds
+ * whatever lands next, whether or not that diff is what grew, and the merge
+ * queue weighs the merge ref, so the change it reds is very often not the
+ * change that spent the bytes. `EXHAUSTED_HEADROOM_ALLOWANCES` held, at the
+ * byte, the rows that were already under that floor the day it landed;
+ * `..._GRANULARITY_MULTIPLE` was the unit those pinned figures were compared
+ * in. ⛔ Neither has any other reader, which is why both left with the floor.
+ *
+ * ### The prohibition that stood with it, and who is allowed to overrule it
+ *
+ * The retired text said, and the failure message printed:
+ *
+ *     ⛔ Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE, and ⛔ never add a row
+ *     to EXHAUSTED_HEADROOM_ALLOWANCES to silence this
+ *
+ * ⭐ That was written about a SEAT reaching for the knob because a build had
+ * gone red — which is exactly what it should forbid, and exactly what was
+ * happening when objectui#10148 was filed. It was ⛔ never a bar on the
+ * maintainer: this repository's priority order is 「维护者裁决 > `AGENTS.md` >
+ * 红线 > 核心条款 > 细则 > 座位判断」, and a gate-strength change is precisely
+ * the class that needs a ruling rather than a judgement call.
+ *
+ * ### The ruling — recorded VERBATIM and UNTRANSLATED (maintainer, 2026-09-20,
+ *   on objectui#10148). Rewriting a ruling is rewriting the decision, which is
+ *   why the two utterances below are carried in the language they were made in.
+ *
+ *     10148 i18n-locale-en 天花板余量 不需要这是天花板余量
+ *
+ *     10148 不需要设置天花板余量
+ *
+ * ⇒ it is the headroom REQUIREMENT that is not wanted. ⛔ Not the row the first
+ * utterance names: `i18n-locale-en` keeps its ceiling in
+ * {@link PER_CHUNK_GZIP_CEILINGS}, at the value it had, and a build that puts
+ * that chunk OVER it still exits 1.
+ *
+ * ### What re-adding it would take
+ *
+ * ⛔ Not a repair, and ⛔ not a seat's judgement that the next collision proves
+ * the leg was right — objectui#8554's two incidents were already the argument,
+ * and they were ruled on with that argument in view. It takes a maintainer
+ * decision, on a card, recorded the way this one is. ⚠️ Until then, this gate
+ * answers "is this bundle over a line?" and deliberately does ⛔ not answer "is
+ * this line still comfortably above this bundle?" at the lower end.
+ *
+ * ⭐ What did NOT go with it: the BLIND leg at the other end of the same range.
+ * A ceiling more than one whole regression ABOVE its payload is still an
+ * `error`, because such a ceiling cannot tell "no regression" from the
+ * motivating incident — a gauge verdict, not a headroom requirement, and
+ * outside what was ruled on. It is also why this half still publishes
+ * `closure_headroom_status`, which `.github/workflows/performance-budget.yml`
+ * reads as `BUDGET_CLOSURE_HEADROOM_STATUS`.
+ *
+ * ⚠️ The headroom FIGURES stay in the report: every row still prints its
+ * headroom in KB and as a multiple of the regression. Printing a number is
+ * reporting; failing a build on it is the requirement that was retired, and the
+ * two are separable here because only the predicate read the floor.
+ */
 
 /**
  * The report shape this checker understands. v2 added `files[].name` — the
@@ -1898,54 +2286,51 @@ export function evaluatePerChunkBudgets({
  * that is absent: a check that passes by measuring nothing must be LOUDER than
  * one that fails by measuring something, never quieter.
  *
- * ## Both sides of the range (objectui#8554)
+ * ## ONE side of the range — the lower bound was RETIRED (objectui#10148)
  *
- * A ceiling stops measuring at either end. Too far above the payload and its
- * green tick cannot tell "no regression" from the motivating incident; too close
- * and its green tick is about the next change rather than this one. The upper
- * bound is one whole regression; the lower bound is
- * {@link EXHAUSTED_HEADROOM_FLOOR_MULTIPLE} of one, with the rows that were
- * already under it pinned at their measured headroom in
- * {@link EXHAUSTED_HEADROOM_ALLOWANCES}. Both verdicts are the same kind — about
- * the GAUGE, so `error` and exit 2 — because a ceiling nobody can act on until
- * it fires is not a working ceiling in either direction.
+ * A ceiling stops measuring at either end, and this function used to say so at
+ * both. Too far above the payload and its green tick cannot tell "no
+ * regression" from the motivating incident — that is the bound this function
+ * still enforces, one whole regression wide. Too CLOSE and its green tick is
+ * about the next change rather than this one — that was objectui#8554's lower
+ * bound, and a maintainer ruling retired it. The ruling, and the in-file
+ * prohibition it overrules, are recorded in the RETIRED block where those
+ * constants used to stand; ⛔ read it before putting a floor back here.
+ *
+ * ⇒ what remains is ONE predicate, `headroomBytes >= regressionBytes`, and it
+ * is a verdict about the GAUGE — `error` and exit 2 — because a ceiling that
+ * far above its payload is not measuring the payload. A ceiling that is merely
+ * TIGHT is a pass: its headroom is still printed on its row, and no predicate
+ * reads it.
  *
  * ## What it deliberately does not do
  *
  * It does not treat a NEGATIVE headroom — a ceiling under the payload — as its
- * business, at EITHER bound. That is an over-budget bundle, the other two halves
- * own it, and reporting it here as well would turn one regression into an error
- * and teach a reader to distrust the exit code. ⛔ The exhausted leg therefore
- * tests `0 <= headroom < floor` and not `headroom < floor`: the second would
- * swallow every over-budget row into this half and convert a size failure into a
- * gauge error, which is precisely the confusion this paragraph exists to
- * prevent. Over-budget rows are still printed, marked as such, so the table is a
- * complete picture of every ceiling.
+ * business. That is an over-budget bundle, the other two halves own it, and
+ * reporting it here as well would turn one regression into an error and teach a
+ * reader to distrust the exit code. Over-budget rows are still printed, marked
+ * as such, so the table is a complete picture of every ceiling — ⛔ printed
+ * here, and weighed by the halves that own them.
  *
  * @param {object} input
  * @param {unknown} input.report
  * @param {number} [input.budgetBytes]      the aggregate ceiling
  * @param {Record<string, number>} [input.ceilings]  the per-chunk ceilings
  * @param {number} [input.regressionBytes]  the size this gate must stay able to catch
- * @param {number} [input.floorMultiple]    the lower bound, as a fraction of that size
- * @param {Record<string, number>} [input.allowances]  declared already-exhausted rows
  * @param {string} [input.reportPath]
  * @returns {{ status: 'pass' | 'error', message: string,
  *             sites: { key: string, label: string, constant: string, measuredBytes: number,
  *                      ceilingBytes: number, headroomBytes: number, multiple: number }[],
- *             blind: string[], exhausted: string[] }}
+ *             blind: string[] }}
  */
 export function evaluateHeadroomSensitivity({
   report,
   budgetBytes = MAX_EAGER_CLOSURE_GZIP_BYTES,
   ceilings = PER_CHUNK_GZIP_CEILINGS,
   regressionBytes = REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
-  floorMultiple = EXHAUSTED_HEADROOM_FLOOR_MULTIPLE,
-  allowances = EXHAUSTED_HEADROOM_ALLOWANCES,
-  allowanceGrainMultiple = EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE,
   reportPath = DEFAULT_REPORT_PATH,
 } = {}) {
-  const base = { sites: [], blind: [], exhausted: [] };
+  const base = { sites: [], blind: [] };
 
   if (report === null || report === undefined) {
     return {
@@ -2014,40 +2399,23 @@ export function evaluateHeadroomSensitivity({
     const headroomBytes = site.ceilingBytes - site.measuredBytes;
     return { ...site, headroomBytes, multiple: headroomBytes / regressionBytes };
   });
+  // The ONLY predicate this half applies (objectui#10148 retired the other).
+  // A LOWER bound used to stand right here; the RETIRED block above records the
+  // maintainer ruling that took it out and what putting it back would take.
   const blind = rows.filter((row) => row.headroomBytes >= regressionBytes);
-  const floorBytes = regressionBytes * floorMultiple;
-  const allowanceGrainBytes = regressionBytes * allowanceGrainMultiple;
-  // The headroom this row must keep: the floor, unless it is one of the rows
-  // that was already under the floor when the floor was written, in which case
-  // it is that row's own pinned figure — less one grain, because a ratchet that
-  // fires on drift the table cannot render is a red with no readable evidence.
-  // See EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE.
-  const floorFor = (row) =>
-    allowances[row.key] === undefined ? floorBytes : allowances[row.key] - allowanceGrainBytes;
-  // ⛔ `headroomBytes >= 0` is load-bearing, not defensive. Without it every
-  // OVER-budget row falls under the floor too, and this half would convert the
-  // size verdict's exit 1 into a gauge error — see "What it deliberately does
-  // not do" above.
-  const exhausted = rows.filter(
-    (row) => row.headroomBytes >= 0 && row.headroomBytes < floorFor(row),
-  );
 
   const table = rows
     .map((row) => {
-      const allowance = allowances[row.key];
+      // ⭐ The headroom figure is REPORTING and stays (objectui#10148). What was
+      // retired is the predicate that failed a build on a SMALL one, ⛔ not the
+      // number: a reader watching a row tighten is exactly who the ruling left
+      // this column for, and a tick beside it now means "under its line".
       const band =
         row.headroomBytes < 0
           ? `OVER by ${kb(-row.headroomBytes)} KB — the size verdict owns this row, not this one`
           : `headroom ${kb(row.headroomBytes)} KB = ${row.multiple.toFixed(2)}x the ` +
-            `${kb(regressionBytes)} KB regression` +
-            // Printed on a PASSING row too: a declared exhausted ceiling that
-            // only appears when it fires is the silence this leg exists to end.
-            (allowance === undefined
-              ? ''
-              : `, under the ${floorMultiple.toFixed(2)}x floor and held open by its ` +
-                `declared ${allowance}-byte allowance, which may only be paid DOWN; ` +
-                `reds below ${Math.round(allowance - allowanceGrainBytes)} bytes`);
-      const failing = row.headroomBytes >= regressionBytes || exhausted.includes(row);
+            `${kb(regressionBytes)} KB regression`;
+      const failing = row.headroomBytes >= regressionBytes;
       return (
         `  ${failing ? '❌' : '✅'} ${row.label.padEnd(28)} ` +
         `${kb(row.measuredBytes).padStart(9)} KB measured / ${kb(row.ceilingBytes)} KB ceiling ` +
@@ -2080,65 +2448,10 @@ export function evaluateHeadroomSensitivity({
     );
   }
 
-  // Two populations, two remedies. A row falling under the floor for the first
-  // time is somebody's to fix; a DECLARED row getting tighter is a standing debt
-  // whose payoff is a decision this run's author very likely does not own. Giving
-  // both the same "find the bytes" text is what sends an innocent author to audit
-  // a diff that is not the cause — the misattribution objectui#8554 documents.
-  const newlyExhausted = exhausted.filter((row) => allowances[row.key] === undefined);
-  const declaredTightened = exhausted.filter((row) => allowances[row.key] !== undefined);
-
-  if (exhausted.length > 0) {
-    headlines.push(
-      `${exhausted.length} ceiling${exhausted.length === 1 ? ' is' : 's are'} EXHAUSTED — under ` +
-        `${floorMultiple.toFixed(2)}x of one ${kb(regressionBytes)} KB regression, or a declared ` +
-        `row that has tightened by a whole ${allowanceGrainMultiple.toFixed(2)}x:`,
-    );
-  }
-
-  if (newlyExhausted.length > 0) {
-    prose.push(
-      `A ceiling with no headroom left has stopped being a measurement of THIS bundle and become ` +
-        `a measurement of the NEXT change: it passes today and reds whatever lands next, whether ` +
-        `or not that diff is what grew. This gate has already been paid for twice ` +
-        `(objectui#8554): \`framework\` sat at one byte across two merges and printed a green ` +
-        `row throughout, and \`i18n-locales\` sat at 398 bytes while the merge queue weighed two ` +
-        `independent finished pull requests and turned red on whichever it happened to weigh ` +
-        `SECOND, for the other one's bytes.\n` +
-        `The remedy is the bytes: take them out of the chunk this row names, or take a ` +
-        `deliberate, authorised re-pin and say in the PR what the new headroom buys.\n` +
-        `⛔ Never raise a ceiling because this leg noticed it is full — that is how a budget gets ` +
-        `switched off rather than met, the same rule the blind-side verdict states in the other ` +
-        `direction. ⛔ Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE, and ⛔ never add a row to ` +
-        `EXHAUSTED_HEADROOM_ALLOWANCES to silence this: that object records debt measured on the ` +
-        `day the floor landed and may only be paid down.`,
-    );
-  }
-
-  if (declaredTightened.length > 0) {
-    prose.push(
-      `${declaredTightened.map((row) => row.label).join(', ')} ` +
-        `${declaredTightened.length === 1 ? 'was' : 'were'} ALREADY declared exhausted before ` +
-        `this run, and ${declaredTightened.length === 1 ? 'has' : 'have'} now lost a further ` +
-        `${allowanceGrainMultiple.toFixed(2)}x of a regression against the pinned figure.\n` +
-        `⚠️ READ THIS BEFORE AUDITING YOUR OWN DIFF. This row's headroom is a standing debt that ` +
-        `predates this change, and it moves under traffic that has nothing to do with the chunk ` +
-        `— measured at three gzipped bytes across five unrelated merges. So this verdict is NOT ` +
-        `an accusation that your diff spent the bytes, and the amount it names is very likely ` +
-        `not yours. What it asserts is only that the row is tighter than the day it was pinned.\n` +
-        `⛔ There is therefore nothing here for this pull request to "fix", and the two edits that ` +
-        `would turn this green are both forbidden: ⛔ never raise the ceiling, and ⛔ never raise ` +
-        `the allowance. Paying the row down is the open decision on the chunk, ⛔ not a task for ` +
-        `whichever change the queue happened to weigh — take it there, and say on this pull ` +
-        `request that you did.`,
-    );
-  }
-
   if (headlines.length > 0) {
     return {
       sites: rows,
       blind: blind.map((row) => row.key),
-      exhausted: exhausted.map((row) => row.key),
       status: 'error',
       // One table, however many verdicts named it: a reader comparing two
       // renderings of the same five rows is reading for differences that are
@@ -2150,7 +2463,6 @@ export function evaluateHeadroomSensitivity({
   return {
     sites: rows,
     blind: [],
-    exhausted: [],
     status: 'pass',
     message:
       `Ceiling sensitivity (${rows.length} ceilings, each weighed against the report just read):\n` +
@@ -2542,14 +2854,14 @@ export function readReport(reportPath) {
 }
 
 /**
- * Every status the four halves are declared to produce, and the only ones
+ * Every status the halves are declared to produce, and the only ones
  * {@link foldHalfStatuses} knows how to weigh.
  *
- * DERIVED, not invented: it is the union of the four `@returns` unions above —
- * {@link evaluateClosureBudget} and {@link evaluatePerChunkBudgets}
- * (`pass | fail | error`), {@link evaluateHeadroomSensitivity}
- * (`pass | error`), and {@link evaluateCeilingFreshness}
- * (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
+ * DERIVED, not invented: it is the union of the `@returns` unions above —
+ * {@link evaluateClosureBudget}, {@link evaluatePerChunkBudgets} and
+ * {@link evaluatePerChunkMembership} (`pass | fail | error`),
+ * {@link evaluateHeadroomSensitivity} (`pass | error`), and
+ * {@link evaluateCeilingFreshness} (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
  * from this file's own text and reds when the two disagree, so a half that
  * gains a FIFTH status cannot gain it without also being given a code here.
  * That test is the reason this list may be written down at all (AGENTS.md #9):
@@ -2627,13 +2939,20 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
 }
 
 /**
- * Exit codes: `0` within budget, `1` over budget — the aggregate ceiling or any
- * per-chunk ceiling — and `2` no trustworthy verdict (report missing,
+ * Exit codes: `0` within budget and in place, `1` over budget — the aggregate
+ * ceiling or any per-chunk ceiling — or a budgeted package that landed outside
+ * the chunk the console config declares for it (objectui#9345), and `2` no
+ * trustworthy verdict (report missing,
  * stale-shaped, internally inconsistent, missing a budgeted chunk, governed by
- * a ceiling that has drifted out of range of the regression it must catch,
- * governed by a ceiling with no headroom left to measure with — objectui#8554,
- * the same verdict at the other end of the same range — or — objectui#6245 —
- * weighed against a ceiling the base branch has since replaced).
+ * a ceiling that has drifted out of range of the regression it must catch, or
+ * — objectui#6245 — weighed against a ceiling the base branch has since
+ * replaced).
+ *
+ * ⛔ A ceiling with almost no headroom LEFT is no longer one of them. It was,
+ * between objectui#8554 and objectui#10148, and the maintainer ruling that
+ * retired it is recorded in the RETIRED block above `SUPPORTED_REPORT_VERSION`.
+ * ⇒ a chunk that goes OVER its ceiling still exits 1; a chunk that merely sits
+ * close to one exits 0 with its headroom printed.
  *
  * The last of those is the one exit 2 case with a PERFECTLY GOOD measurement
  * behind it, so nothing downstream may word exit 2 as "nothing was measured".
@@ -2643,10 +2962,11 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
  * the workflow fails the step. It never prints a verdict about a bundle nobody
  * weighed, and it never exits 0 having measured nothing.
  *
- * All FOUR halves are evaluated and printed before any of them decides the
- * code: a run that reports the total and hides which chunk moved (or hides
- * whether either line still means anything, or whether the line it used is the
- * line in force) teaches readers to ignore the half they cannot see.
+ * EVERY half is evaluated and printed before any of them decides the code: a
+ * run that reports the total and hides which chunk moved (or hides whether
+ * either line still means anything, or whether the line it used is the line in
+ * force, or whether the budgeted chunks still hold what they are named for)
+ * teaches readers to ignore the half they cannot see.
  */
 export function main(argv = process.argv.slice(2), env = process.env) {
   const flagIndex = argv.indexOf('--report');
@@ -2655,6 +2975,22 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const report = readReport(resolved);
   const result = evaluateClosureBudget({ report, reportPath });
   const perChunk = evaluatePerChunkBudgets({ report, reportPath });
+  // The fifth half reads a DIFFERENT artifact — `chunk-membership.json`, from
+  // the same build — because it asks a question `eager-closure.json` carries no
+  // field for: WHERE a budgeted group's declared packages landed, counted over
+  // every emitted chunk rather than the eager closure alone (objectui#9345).
+  const membershipPath = path.join(path.dirname(resolved), MEMBERSHIP_REPORT_FILE_NAME);
+  const membership = evaluatePerChunkMembership({
+    membership: readMembershipReport(membershipPath),
+    // The SAME build's eager closure, by chunk name — needed only to admit a
+    // carve-out into a chunk no ceiling governs, which is admissible only while
+    // that chunk stays out of the closure. `null` when the report is unreadable,
+    // and the half then refuses such a carve-out rather than assuming it lazy.
+    eagerChunkNames: Array.isArray(report?.files)
+      ? report.files.map((/** @type {{ name?: unknown }} */ file) => String(file?.name ?? ''))
+      : null,
+    reportPath: membershipPath,
+  });
   const sensitivity = evaluateHeadroomSensitivity({ report, reportPath });
   // The fourth half asks about the CEILING rather than the payload, so its
   // inputs are source texts and not the report: this file as checked out,
@@ -2679,6 +3015,11 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.log(`✅ ${perChunk.message}`);
   } else {
     console.error(`❌ ${perChunk.message}`);
+  }
+  if (membership.status === 'pass') {
+    console.log(`✅ ${membership.message}`);
+  } else {
+    console.error(`❌ ${membership.message}`);
   }
   if (sensitivity.status === 'pass') {
     console.log(`✅ ${sensitivity.message}`);
@@ -2707,6 +3048,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     closure_budget_kb: kb(result.budgetBytes),
     closure_chunks: result.chunkCount === null ? '' : String(result.chunkCount),
     closure_chunk_status: perChunk.status,
+    closure_membership_status: membership.status,
     closure_headroom_status: sensitivity.status,
     // Empty on a run this half does not apply to, so the PR comment's half
     // table filters it out instead of rendering a blank verdict as a row.
@@ -2738,6 +3080,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const { code, unrecognised } = foldHalfStatuses({
     closure: result.status,
     'per-chunk': perChunk.status,
+    membership: membership.status,
     sensitivity: sensitivity.status,
     freshness: freshness.status,
   });

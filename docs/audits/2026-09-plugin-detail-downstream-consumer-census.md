@@ -18,6 +18,33 @@ makes that decision *possible*, not the decision.
 
 ---
 
+## Conclusion (2026-09-24): the maintainer ruled **delete**
+
+The decision this audit made possible has since been taken. On 2026-09-24 triage put the
+question "delete the seven unregistered, unmounted `plugin-detail` exports?" to the
+maintainer with a recommendation to delete, and relayed the reply on objectui#7192 (triage
+comment 5819441716, which quotes it verbatim). The reply declined two other items by number
+and approved the rest. The seven exports were among the rest, so the ruling is **delete**.
+
+- **The gap this audit left open was closed first.** `cloud` was read on
+  objectstack#14187 (all seven names, controls firing, zero). `hotcrm` is zero by
+  construction: it depends on no `@object-ui/*` package (the objectui#7175 reading of
+  2026-09-04).
+- **Delivered by the pull request that closes objectui#7192 and objectui#7175**, on branch
+  `claude/issue-7192-retire-seven-unmounted-detail-exports`. It deletes all seven components
+  (`CommentInput`, `DiffView`, `InlineCreateRelated`, `MentionAutocomplete`,
+  `PointInTimeRestore`, `RecordNavigationEnhanced`, `RelationshipGraph`), their own tests,
+  their value and type exports from the barrel, and the i18n keys that only they read.
+  Its changeset lists every removed export and the migration.
+- **No replacement is kept "in case".** If a real consumer turns up, it gets a new card that
+  says who needs the component and where, and the component comes back on that evidence.
+
+The rest of this document is the audit as written on 2026-09-01. Its "does not retire" and
+"does NOT claim" statements describe what this measurement established on its own, and they
+stay as that record.
+
+---
+
 ## Summary
 
 | Population | Channel | Positive control | `PointInTimeRestore` | Verdict |

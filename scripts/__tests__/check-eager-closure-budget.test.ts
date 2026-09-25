@@ -15,12 +15,11 @@ import { attachedDocs } from './helpers/attached-docs';
 // re-adding one is now itself an error (TS2578). See objectui#3494.
 import {
   BASELINE,
-  EXHAUSTED_HEADROOM_ALLOWANCES,
-  EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE,
-  EXHAUSTED_HEADROOM_FLOOR_MULTIPLE,
   MAX_EAGER_CLOSURE_GZIP_BYTES,
   PER_CHUNK_BASELINE,
   PER_CHUNK_GZIP_CEILINGS,
+  PER_CHUNK_MEMBERSHIP,
+  PER_CHUNK_MEMBERSHIP_CARVE_OUTS,
   REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
   SUPPORTED_REPORT_VERSION,
   VERDICT_CEILING_CONSTANTS,
@@ -28,6 +27,7 @@ import {
   evaluateClosureBudget,
   evaluateHeadroomSensitivity,
   evaluatePerChunkBudgets,
+  evaluatePerChunkMembership,
   extractCeilingDeclarations,
   RECOGNISED_HALF_STATUSES,
   foldHalfStatuses,
@@ -435,7 +435,20 @@ describe('per-chunk ceilings', () => {
  */
 describe('chunk attribution (objectui#7399)', () => {
   /** A group as `advancedChunks.groups` declares it. */
-  type Group = { name: string; priority: number; test: RegExp | null };
+  type Group = {
+    name: string;
+    priority: number;
+    test: RegExp | null;
+    /**
+     * Whatever the group declares AFTER `priority`, verbatim — `''` when it
+     * declares nothing. objectui#9345 put an option there
+     * (`includeDependenciesRecursively`), and the parse that could not see one
+     * did not degrade gracefully: it stopped matching the group ENTIRELY, so
+     * every case below quietly lost a subject. Keeping the tail is what lets a
+     * pin be written about an option instead of only about a regex.
+     */
+    options: string;
+  };
 
   /**
    * Parse the groups out of the console's vite config.
@@ -444,17 +457,28 @@ describe('chunk attribution (objectui#7399)', () => {
    * regex literal (`vendor-objectstack` reads a computed test, so that the
    * `OBJECTSTACK_SPEC_DIST` override cannot change the chunk layout —
    * objectui#5388). Those are refused a verdict below rather than guessed at.
+   *
+   * ⚠️ The tail is an OPTIONS list and not a bare `}` — a group may carry
+   * options AFTER `priority`, and two do: `data-adapter` (objectui#9345) and
+   * `types-zod` (objectui#10065), both `includeDependenciesRecursively: false`.
+   * Requiring the closing brace silently dropped such a group from this table
+   * while every case below went on passing, which is the failure this parse's
+   * own "matches nothing agrees with everything" note is about: a group this
+   * parse cannot see is a group it cannot judge. Both cards met it
+   * independently; the tail is captured verbatim as `options` so a pin can be
+   * written about the option itself.
    */
   function parseGroups(): Group[] {
     const source = fs.readFileSync(viteConfigPath, 'utf8');
     const entry =
-      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*\}/g;
-    return [...source.matchAll(entry)].map(([, name, test, priority]) => {
+      /\{\s*name:\s*'([^']+)',\s*test:\s*(\/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+\/[a-z]*|[A-Za-z_$][\w$]*)\s*,\s*priority:\s*(\d+)\s*((?:,\s*[A-Za-z_$][\w$]*:\s*[^,{}]+)*)\s*,?\s*\}/g;
+    return [...source.matchAll(entry)].map(([, name, test, priority, options]) => {
       const literal = /^\/(.*)\/([a-z]*)$/s.exec(test);
       return {
         name,
         priority: Number(priority),
         test: literal ? new RegExp(literal[1], literal[2]) : null,
+        options: (options ?? '').trim(),
       };
     });
   }
@@ -473,6 +497,11 @@ describe('chunk attribution (objectui#7399)', () => {
   const I18N_RUNTIME_MODULE = moduleId('packages/i18n/src/provider.tsx');
   const DATA_MODULE = moduleId('packages/data-objectstack/src/index.ts');
   const CORE_MODULE = moduleId('packages/core/src/index.ts');
+  // objectui#10065's pair: a validator that must leave the eager line, and the
+  // `packages/types/src/` neighbour that must NOT go with it — the eager
+  // `plugin-grid` chunk reads its runtime values.
+  const ZOD_MODULE = moduleId('packages/types/src/zod/objectql.zod.ts');
+  const TYPES_SHARED_MODULE = moduleId('packages/types/src/data-display.ts');
 
   /** The groups whose test matches this id, highest priority first. */
   function claimants(id: string): Group[] {
@@ -494,6 +523,10 @@ describe('chunk attribution (objectui#7399)', () => {
         'data-adapter',
         'ui-components',
         'infrastructure',
+        // Named here because this group is the one that carries an option
+        // after `priority`, so it is the group a narrower parse loses first
+        // (objectui#10065).
+        'types-zod',
       ]));
     });
 
@@ -523,6 +556,7 @@ describe('chunk attribution (objectui#7399)', () => {
       ['the resident locale catalogue', RESIDENT_LOCALE_MODULE, 'i18n-locale-en'],
       ['the i18n runtime', I18N_RUNTIME_MODULE, 'i18n-runtime'],
       ['the ObjectStack data adapter', DATA_MODULE, 'data-adapter'],
+      ['the zod validators', ZOD_MODULE, 'types-zod'],
     ])('routes %s to `%s` at a priority `framework` cannot tie', (_what, id, expected) => {
       const framework = groups.find((g) => g.name === 'framework');
       expect(framework).toBeDefined();
@@ -537,13 +571,73 @@ describe('chunk attribution (objectui#7399)', () => {
       expect(claiming[0].priority).toBeGreaterThan(framework!.priority);
     });
 
+    /**
+     * objectui#9345 — the half the priority cases above cannot see.
+     *
+     * Every case in this block asks which group's `test` CLAIMS a module id.
+     * That question was answered correctly the whole time `packages/core` was
+     * being written into `data-adapter`: rolldown's
+     * `includeDependenciesRecursively` (default `true`) also gives a group the
+     * modules its captured modules IMPORT, and the priority doc for the same
+     * option says those are then removed from the lower-priority groups whose
+     * regex does match them. `data-adapter` outranks `framework` and
+     * `packages/data-objectstack` imports `@object-ui/core`, so all 92 modules
+     * of `packages/core` went to a chunk with no ceiling — while a static read
+     * of the group table, and every case above, stayed green.
+     *
+     * ⇒ the repair is this flag, and this is the pin that stops it being
+     * dropped in a reformat. The bundle-level half — the modules actually
+     * landed where the config says — is `evaluatePerChunkMembership`, which
+     * needs a build; this one reds in a unit run.
+     */
+    it('narrows `data-adapter` to its own regex, so it cannot absorb `framework`s members', () => {
+      const dataAdapter = groups.find((g) => g.name === 'data-adapter');
+      expect(dataAdapter).toBeDefined();
+      expect(dataAdapter!.options).toContain('includeDependenciesRecursively: false');
+      // The control: the parse can see an options tail at all, and does not
+      // report one where none is written. A tail-blind parse would satisfy the
+      // line above by reading `''` from every group.
+      expect(groups.find((g) => g.name === 'framework')!.options).toBe('');
+    });
+
     it('leaves no second claimant at the winner`s priority', () => {
-      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE]) {
+      for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {
         const claiming = claimants(id);
         const top = claiming[0].priority;
         expect(claiming.filter((g) => g.priority === top)).toHaveLength(1);
       }
     });
+  });
+
+  /**
+   * objectui#10065 — `types-zod` is a SPLIT of the chunk `framework` budgets,
+   * so the pin it needs is the one the split can silently lose: the directory
+   * leaves, and its `packages/types/src/` neighbours stay.
+   *
+   * The eager `plugin-grid` chunk reads runtime values out of
+   * `data-display.ts` (`ObjectGrid.tsx` imports `normalizeTableColumnType` and
+   * `isSystemManagedField` from `@object-ui/types`). If that module travelled
+   * with the validators, `plugin-grid` would have to import their chunk
+   * statically and all of it would be eager again — measured, that is exactly
+   * what rolldown's default `includeDependenciesRecursively` produced, and the
+   * saving was zero while the config read as correct.
+   *
+   * ⚠️ This pins the group TABLE. Whether rolldown honours it is a property of
+   * the emitted bundle, weighed by `scripts/vite-types-zod-lazy.ts` on a real
+   * console build; neither substitutes for the other.
+   */
+  it('leaves the validators` `packages/types/src/` neighbours on the eager line', () => {
+    // Fails closed in both directions: no claimant at all is an error, and the
+    // neighbour landing anywhere but `framework` is the defect.
+    const neighbour = claimants(TYPES_SHARED_MODULE);
+    expect(neighbour.length).toBeGreaterThan(0);
+    expect(neighbour[0].name).toBe('framework');
+
+    // And the reason the priority above is load-bearing rather than cosmetic:
+    // `framework`s own regex matches the validator too, so a tie or an
+    // inversion hands it straight back.
+    const framework = groups.find((g) => g.name === 'framework');
+    expect(framework?.test?.test(ZOD_MODULE)).toBe(true);
   });
 
   it('budgets the chunk the RESIDENT catalogue lands in', () => {
@@ -763,295 +857,637 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
   });
 
   /**
-   * The other end of the same range (objectui#8554).
+   * ⛔ RETIRED — the lower bound, at the unit level (objectui#10148).
    *
-   * The leg above answers "is this ceiling still LOW enough to mean anything?".
-   * Until this block it was the only question asked, so a ceiling with one byte
-   * left drew a green tick — and the reading that produced this card is exactly
-   * that: `framework` at 70,999 gzipped bytes against a 71,000 ceiling, across
-   * at least two merges, rendered ✅ with the run exiting 0, until an ordinary
-   * change turned `main` red.
+   * objectui#8554 added a second predicate here: a ceiling with less than a
+   * tenth of one regression left returned `error`, so a build where nothing had
+   * grown past any line exited 2. A maintainer ruling retired it. The ruling,
+   * and the in-file prohibition it overrules, are recorded in the checker's own
+   * RETIRED block — ⛔ this describe does not restate them, it pins what the
+   * half now DOES.
+   *
+   * ⭐ Every case below carries its own same-subject control in the same call
+   * or the one beside it, because "the floor is gone" and "this half stopped
+   * judging anything" produce the same green on a one-sided test.
    */
-  describe('the exhausted end (objectui#8554)', () => {
-    /** The floor in bytes — a tenth of the regression, computed and not pinned. */
-    const FLOOR = REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_FLOOR_MULTIPLE;
-
+  describe('the lower bound is RETIRED (objectui#10148)', () => {
     /**
-     * The predicate as it stood before this card: one-sided, and no allowances.
-     * Passing these two makes a case a CONTROL rather than an assertion about
-     * arithmetic — the same fixture, judged by the old leg.
+     * This card's own reading, turned around. objectui#8554 was filed on
+     * `framework` at 70,999 gzipped bytes against a 71,000 ceiling and made it
+     * red; the ruling makes it green again.
      */
-    const AS_IT_STOOD = { floorMultiple: 0, allowances: {} } as const;
+    const ONE_BYTE_UNDER = {
+      report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
+      ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
+    };
 
-    /**
-     * ⭐ The firing control triage asked for, on the row this card was filed
-     * about: the exact `framework` reading, red now and green before.
-     */
-    it("reds on this card's own reading — `framework` at 70,999 under a 71,000 ceiling", () => {
-      const input = {
-        report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-        ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-      };
-
-      // Green before, which is the defect and not a hypothetical.
-      expect(evaluateHeadroomSensitivity({ ...input, ...AS_IT_STOOD }).status).toBe('pass');
-
-      const result = evaluateHeadroomSensitivity(input);
-      expect(result.status).toBe('error');
-      expect(result.exhausted).toEqual(['framework']);
-      // Not the other leg: this row is nowhere near blind, so a green blind list
-      // is what proves the new predicate is the one that fired.
+    it('passes a ceiling with ONE byte of headroom, and still prints the figure', () => {
+      const result = evaluateHeadroomSensitivity(ONE_BYTE_UNDER);
+      expect(result.status).toBe('pass');
       expect(result.blind).toEqual([]);
-      expect(result.message).toContain('EXHAUSTED');
-      // The constant to act on, so the fix is one named edit — the blind side's
-      // convention, applied to the row at the other end.
-      expect(result.message).toContain("PER_CHUNK_GZIP_CEILINGS['framework']");
+      // ⭐ The reporting the ruling deliberately left in place: the row is still
+      // rendered with its headroom, so a reader watching a chunk tighten can
+      // still see it. A pass that stopped printing the number would satisfy the
+      // ruling and lose what it was careful to keep.
+      expect(result.message).toContain('chunk `framework`');
+      expect(result.message).toContain('headroom 0.0 KB = 0.00x');
     });
 
-    it('renders the failing row ❌ rather than ✅ — the tick follows the verdict', () => {
-      const input = {
-        report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-        ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-      };
-      // The row renderer was a second copy of the predicate, so a floor that
-      // moved the verdict without moving the tick would print a green line under
-      // a red verdict — the same silence one indirection along.
-      expect(evaluateHeadroomSensitivity({ ...input, ...AS_IT_STOOD }).message).toContain(
+    it('renders that row ✅ — the tick follows the verdict, at this end too', () => {
+      expect(evaluateHeadroomSensitivity(ONE_BYTE_UNDER).message).toContain(
         '✅ chunk `framework`',
       );
-      expect(evaluateHeadroomSensitivity(input).message).toContain('❌ chunk `framework`');
-    });
-
-    it('is exactly a tenth of a regression wide, from either side of the line', () => {
-      const measured = PER_CHUNK_BASELINE.framework;
-      const at = (headroom: number) =>
-        evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes),
-          ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: measured + headroom },
-        }).status;
-
-      expect(FLOOR).toBe(9_113.6);
-      expect(at(Math.ceil(FLOOR))).toBe('pass');
-      expect(at(Math.floor(FLOOR))).toBe('error');
+      expect(evaluateHeadroomSensitivity(ONE_BYTE_UNDER).message).not.toContain(
+        '❌ chunk `framework`',
+      );
     });
 
     /**
-     * The bound this leg must NOT own. A ceiling under its payload is an
-     * over-budget bundle: it is also under the floor, arithmetically, and
-     * counting it here would convert the size verdict's exit 1 into a gauge
-     * error and teach a reader that exit 2 does not mean what this file says.
+     * ⭐ THE CONTROL that separates "the floor was removed" from "this half was
+     * removed". One call, two rows: `framework` is a hair under its ceiling —
+     * the case the ruling made green — while the AGGREGATE ceiling sits more
+     * than one whole regression above its payload, which is the blind leg and
+     * was ⛔ not ruled on. A half that had stopped judging would pass both.
      */
-    it('leaves an OVER-budget ceiling to the size verdict, at this bound too', () => {
+    it('still ERRORS on the blind leg in the very run the tight row passes', () => {
+      const result = evaluateHeadroomSensitivity({
+        ...ONE_BYTE_UNDER,
+        report: sensitivityReport(BASELINE.gzipBytes - REGRESSION_THIS_GATE_MUST_CATCH_BYTES, {
+          framework: 70_999,
+        }),
+      });
+      expect(result.status).toBe('error');
+      expect(result.blind).toEqual(['aggregate']);
+      expect(result.message).toContain('DRIFTED');
+      // The tight row is in the SAME table and is not what fired.
+      expect(result.message).toContain('✅ chunk `framework`');
+    });
+
+    /**
+     * The bound this half never owned, unchanged. A ceiling under its payload is
+     * an over-budget bundle; the size verdict owns it and this half says so.
+     */
+    it('still leaves an OVER-budget ceiling to the size verdict', () => {
       const result = evaluateHeadroomSensitivity({
         report: sensitivityReport(BASELINE.gzipBytes, {
           framework: PER_CHUNK_GZIP_CEILINGS.framework + 1,
         }),
       });
       expect(result.status).toBe('pass');
-      expect(result.exhausted).toEqual([]);
       expect(result.message).toContain('the size verdict owns this row');
     });
 
     /**
-     * A declared row's hinge is its pinned figure LESS one grain, and the pair
-     * is taken at that exact boundary.
-     *
-     * ⭐ The allowance below is SYNTHETIC and that is deliberate (objectui#9251).
-     * It used to be read live out of {@link EXHAUSTED_HEADROOM_ALLOWANCES}, and
-     * when `ui-components` paid its debt off the table went empty — which would
-     * have left this whole block with no subject, silently retiring the ratchet
-     * on the run that proved it worked. A mechanism must stay pinned when
-     * nothing currently uses it, or the day someone needs it again is the day
-     * they find out it was never checked. 4,289 is kept as the figure because it
-     * is the one the ratchet was designed and measured against; the LIVE table
-     * is pinned separately, under "the allowance table is a ratchet, pinned".
+     * ⛔ The removal is pinned on the SOURCE as well as on the behaviour, and
+     * the two answer different questions. The cases above say the floor no
+     * longer fires; this one says the ruling that retired it is still written
+     * where the next reader meets it. ⭐ A silent deletion leaves a header
+     * arguing for a leg that is gone, and the next reader puts it back — which
+     * is the failure this card was told to avoid, not a stylistic preference.
      */
-    describe('a declared row', () => {
-      const CEILING = PER_CHUNK_GZIP_CEILINGS['ui-components'];
-      const ALLOWANCE = 4_289;
-      const DECLARED = { 'ui-components': ALLOWANCE };
-      const GRAIN =
-        REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
+    it('records the ruling in the checker, rather than deleting the prohibition', () => {
+      const source = fs.readFileSync(checkerPath, 'utf8');
+      const at = source.indexOf('RETIRED — the exhausted-headroom leg');
+      // Non-vacuity first: a matcher that finds nothing agrees with everything.
+      expect(at).toBeGreaterThan(-1);
+      const retired = source.slice(at, at + 4_000);
 
-      /** The report with `ui-components` sized to leave exactly `headroom`. */
-      const atHeadroom = (headroom: number) =>
-        evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-          allowances: DECLARED,
-        });
+      // The prohibition this change contradicts is QUOTED, not removed.
+      expect(retired).toContain('Never lower EXHAUSTED_HEADROOM_FLOOR_MULTIPLE');
+      expect(retired).toContain('never add a row');
+      // The first utterance, verbatim — its ASCII half is the part a pin can
+      // name without restating a ruling in a second place.
+      expect(retired).toContain('10148 i18n-locale-en');
+      // ⭐ The second utterance is Chinese end to end, so it is pinned by SHAPE
+      // rather than by text: a run of CJK inside this block is exactly what a
+      // translation or a paraphrase would remove, and translating a ruling is
+      // rewriting it.
+      expect(retired).toMatch(/[\u4e00-\u9fff]{4,}/u);
 
-      it('is held open at its pinned figure', () => {
-        expect(atHeadroom(ALLOWANCE).status).toBe('pass');
+      // ⛔ And the constants are gone from the EXECUTABLE surface: every
+      // surviving mention above is inside a comment.
+      expect(source).not.toContain('export const EXHAUSTED_HEADROOM_FLOOR_MULTIPLE');
+      expect(source).not.toContain('export const EXHAUSTED_HEADROOM_ALLOWANCES');
+      // The control for that pair of negatives, in the same command: a constant
+      // that IS still exported answers the same probe, so a mistyped probe
+      // cannot read as a clean removal.
+      expect(source).toContain('export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES');
+    });
+  });
+});
+
+/**
+ * A membership artifact shaped exactly like `emitChunkMembershipReport`'s
+ * output, with every declared package landing exactly where declared: wholly
+ * in its declared chunk, or — for a package with a carve-out — its carved
+ * subtree in the carve-out's chunk and every other directory in its declared
+ * chunk.
+ *
+ * Built FROM {@link PER_CHUNK_MEMBERSHIP} and
+ * {@link PER_CHUNK_MEMBERSHIP_CARVE_OUTS} rather than written out, so a package
+ * or a carve-out added to either table cannot be left silently unrepresented
+ * here — which would make the pass case pass for a subject nobody checked.
+ * `packages` is DERIVED from `directories`, the way the emitter's two tables
+ * are filled by the one loop.
+ */
+function passingMembership(overrides: Record<string, unknown> = {}) {
+  const directories: Record<string, Record<string, Record<string, number>>> = {};
+  for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+    for (const pkg of pkgs) {
+      directories[pkg] = { src: { [chunk]: 12 } };
+      for (const carve of carveOutsOf(pkg)) directories[pkg][carve.subtree] = { [carve.chunk]: 5 };
+    }
+  }
+  // A package nothing budgets, present in every real build, so the evaluator is
+  // never handed a map containing only its own subjects.
+  directories['app-shell'] = { src: { index: 40 }, 'src/views': { 'some-lazy-view': 3 } };
+  return {
+    membershipReportVersion: 2,
+    totalChunkCount: 2_000,
+    packages: packageCountsOf(directories),
+    directories,
+    ...overrides,
+  };
+}
+
+/** The carve-outs declared for one package, `[]` when it has none. */
+function carveOutsOf(pkg: string): readonly { subtree: string; chunk: string }[] {
+  return (PER_CHUNK_MEMBERSHIP_CARVE_OUTS as Record<string, readonly { subtree: string; chunk: string }[]>)[pkg] ?? [];
+}
+
+/** Sums a `directories` table into the per-package table the artifact also carries. */
+function packageCountsOf(directories: Record<string, Record<string, Record<string, number>>>) {
+  const packages: Record<string, Record<string, number>> = {};
+  for (const [pkg, dirs] of Object.entries(directories)) {
+    for (const byChunk of Object.values(dirs)) {
+      for (const [chunk, count] of Object.entries(byChunk)) {
+        (packages[pkg] ??= {})[chunk] = (packages[pkg][chunk] ?? 0) + count;
+      }
+    }
+  }
+  return packages;
+}
+
+/**
+ * The eager closure the unit cases judge carve-outs against, by chunk name:
+ * the four budgeted chunks, the entry, and `data-adapter` — eager and carrying
+ * no ceiling, which is exactly the destination a carve-out must never name.
+ * `types-zod` is absent, as it is from a real build's closure.
+ */
+const EAGER_CHUNK_NAMES = Object.freeze([
+  'index',
+  'vendor-objectstack',
+  'i18n-locale-en',
+  'framework',
+  'ui-components',
+  'data-adapter',
+]);
+
+/** The evaluator, handed the unit-case eager closure unless a case overrides it. */
+function judgeMembership(input: NonNullable<Parameters<typeof evaluatePerChunkMembership>[0]>) {
+  return evaluatePerChunkMembership({ eagerChunkNames: EAGER_CHUNK_NAMES, ...input });
+}
+
+/**
+ * Chunk membership — the half that asks WHERE, not HOW BIG (objectui#9345).
+ *
+ * ⚠️ Read the error cases as the substance of this block, not as its edges.
+ * This half's green state is an ABSENCE — "no declared package was found in a
+ * chunk it is not declared for" — and that sentence is equally true of an
+ * artifact that attributed nothing, a package that vanished from the bundle,
+ * and a declaration pointed at a chunk no ceiling governs. Each of those is
+ * pinned below as an ERROR, because each of them would otherwise be a pass
+ * bought by measuring less.
+ */
+describe('chunk membership (objectui#9345)', () => {
+  it('passes when every declared package landed exactly where declared', () => {
+    const result = judgeMembership({ membership: passingMembership() });
+    expect(result.status).toBe('pass');
+    // The population, named in the verdict: a green line that does not say what
+    // it weighed is indistinguishable from a green line that weighed nothing.
+    for (const pkgs of Object.values(PER_CHUNK_MEMBERSHIP)) {
+      for (const pkg of pkgs) expect(result.message).toContain(`\`packages/${pkg}\``);
+    }
+  });
+
+  it('FAILS, naming the package and the chunk that took it, on one stray module', () => {
+    // The incident, reduced to its smallest form: `packages/core` split between
+    // `framework` and a group whose regex never mentioned it.
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 11,
+      'data-adapter': 1,
+    };
+    const result = judgeMembership({ membership });
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('`packages/core`');
+    expect(result.message).toContain('`data-adapter`');
+    expect(result.message).toContain('`framework`');
+    // ⛔ The remedy this verdict may never suggest.
+    expect(result.message).toContain('Do NOT move a ceiling');
+  });
+
+  it('FAILS when the whole package moved, not only when it split', () => {
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = { 'data-adapter': 92 };
+    const result = judgeMembership({ membership });
+    expect(result.status).toBe('fail');
+    expect(result.message).toContain('0 of its 92 modules landed in `framework`');
+  });
+
+  it('is EXACT, not a ratchet — a majority in the right chunk is still a fail', () => {
+    // The shape a headroom-bearing pin would wave through, and the one the
+    // ruling on objectui#9345 forbids: 99 of 100 modules in place.
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 99,
+      'plugin-grid': 1,
+    };
+    expect(judgeMembership({ membership }).status).toBe('fail');
+  });
+
+  describe('refuses a verdict rather than passing by measuring nothing', () => {
+    it('errors when the artifact is absent', () => {
+      const result = judgeMembership({ membership: null });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('PREREQUISITE NOT MET');
+    });
+
+    it('errors on a version it does not understand', () => {
+      const result = judgeMembership({
+        membership: passingMembership({ membershipReportVersion: 99 }),
       });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('membershipReportVersion');
+    });
 
-      /**
-       * ⭐ The reason this bound is a grain and not a byte, asserted rather than
-       * asserted-about. A byte-exact ratchet would red HERE — and the evidence
-       * table it would print is character-for-character the one the passing run
-       * prints, because every column this gate renders is rounded past a single
-       * byte. A red whose own table is identical to the green table tells its
-       * reader nothing, which is objectui#8554's defect one level in.
-       */
-      it('does NOT red on drift its own table cannot render', () => {
-        const green = atHeadroom(ALLOWANCE);
-        const oneByteTighter = atHeadroom(ALLOWANCE - 1);
-        expect(oneByteTighter.status).toBe('pass');
-
-        const rowOf = (result: { message: string }) =>
-          result.message.split('\n').find((line) => line.includes('`ui-components`'));
-        expect(rowOf(oneByteTighter)).toBe(rowOf(green));
+    it('errors when the artifact attributes no package at all', () => {
+      const result = judgeMembership({
+        membership: passingMembership({ packages: {} }),
       });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('vacuously true');
+    });
 
-      it('reds once it has lost a whole grain, and not before', () => {
-        expect(GRAIN).toBe(911.36);
-        expect(atHeadroom(Math.ceil(ALLOWANCE - GRAIN)).status).toBe('pass');
-
-        const tightened = atHeadroom(Math.floor(ALLOWANCE - GRAIN));
-        expect(tightened.status).toBe('error');
-        expect(tightened.exhausted).toEqual(['ui-components']);
+    it('errors when the bundle it describes has no chunk in it', () => {
+      const result = judgeMembership({
+        membership: passingMembership({ totalChunkCount: 0 }),
       });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('totalChunkCount');
+    });
 
-      /**
-       * The remedy text is the half of this that keeps an innocent author out of
-       * their own diff. A row falling under the floor for the first time is
-       * somebody's to fix; a declared row tightening is a standing debt whose
-       * payoff is a decision that author very likely does not own, and the two
-       * verdicts must not read the same.
-       */
-      it('reds with the DEBT remedy, not the find-the-bytes remedy', () => {
-        const message = atHeadroom(Math.floor(ALLOWANCE - GRAIN)).message;
-        expect(message).toContain('ALREADY declared exhausted');
-        expect(message).toContain('BEFORE AUDITING YOUR OWN DIFF');
-        expect(message).toContain('never raise the allowance');
-        // ⛔ and NOT the text a newly-exhausted row gets, which tells its reader
-        // the bytes are theirs to find.
-        expect(message).not.toContain('The remedy is the bytes');
+    it('errors when a declared package contributed no module anywhere', () => {
+      // ⭐ The case that separates this half from a vacuous one. A package
+      // absent from the bundle cannot be in a chunk it should not be in, so the
+      // stray scan agrees with everything about it.
+      const membership = passingMembership();
+      delete (membership.packages as Record<string, unknown>).core;
+      const result = judgeMembership({ membership });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('contributed no module');
+      expect(result.message).toContain('`packages/core`');
+    });
+
+    it('errors when a declared package is present but attributed to nothing', () => {
+      const membership = passingMembership();
+      (membership.packages as Record<string, Record<string, number>>).core = {};
+      expect(judgeMembership({ membership }).status).toBe('error');
+    });
+
+    it('errors when the declaration names a chunk no ceiling governs', () => {
+      const result = judgeMembership({
+        membership: passingMembership(),
+        declaration: { 'data-adapter': ['data-objectstack'] },
       });
+      expect(result.status).toBe('error');
+      expect(result.message).toContain('PER_CHUNK_GZIP_CEILINGS');
+    });
+  });
 
-      it('a row falling under the floor for the FIRST time still gets that one', () => {
-        const message = evaluateHeadroomSensitivity({
-          report: sensitivityReport(BASELINE.gzipBytes, { framework: 70_999 }),
-          ceilings: { ...PER_CHUNK_GZIP_CEILINGS, framework: 71_000 },
-        }).message;
-        expect(message).toContain('The remedy is the bytes');
-        expect(message).not.toContain('ALREADY declared exhausted');
-      });
+  /**
+   * objectui#10065 split `packages/types` on purpose — `src/zod/**` to the lazy
+   * `types-zod`, the rest to `framework` — and this block pins that the split
+   * is held EXACTLY, to the directory, in both directions.
+   *
+   * ⭐ The first FAIL case is the failure the split was measured to produce on
+   * its own first build: three shared `src/` neighbours absorbed into
+   * `types-zod` along an import. At package granularity that reads as
+   * "types landed in `framework` and `types-zod`" — the healthy split. Only the
+   * directory counts tell it apart, which is why a carved package is judged on
+   * them.
+   */
+  describe('the declared `packages/types` split (objectui#10065)', () => {
+    /** The artifact with `packages/types`' directories replaced, `packages` re-derived. */
+    function withTypes(dirs: Record<string, Record<string, number>>) {
+      const membership = passingMembership();
+      const directories = membership.directories as Record<
+        string,
+        Record<string, Record<string, number>>
+      >;
+      directories.types = dirs;
+      membership.packages = packageCountsOf(directories);
+      return membership;
+    }
 
-      it('paying the row DOWN moves its trip point up with it', () => {
-        // The grain coarsens WHEN a declared row reds; it is not a fixed pool of
-        // bytes the row keeps forever. A larger pinned figure trips sooner in
-        // absolute terms, which is what makes this a ratchet rather than a
-        // rebate.
-        const paidDown = ALLOWANCE + 2_000;
-        const at = (headroom: number, allowance: number) =>
-          evaluateHeadroomSensitivity({
-            report: sensitivityReport(BASELINE.gzipBytes, { 'ui-components': CEILING - headroom }),
-            allowances: { 'ui-components': allowance },
-          }).status;
-
-        expect(at(Math.floor(paidDown - GRAIN), paidDown)).toBe('error');
-        // The same headroom was fine under the smaller pin it used to carry.
-        expect(at(Math.floor(paidDown - GRAIN), ALLOWANCE)).toBe('pass');
+    it('is declared, not dropped: `types` stays in `framework` with ONE carve-out', () => {
+      expect(PER_CHUNK_MEMBERSHIP.framework).toContain('types');
+      expect(PER_CHUNK_MEMBERSHIP_CARVE_OUTS).toEqual({
+        types: [{ subtree: 'src/zod', chunk: 'types-zod' }],
       });
     });
 
-    it('names every declared row in the PASSING verdict, not only when one fires', () => {
-      // A debt list that is only legible on the run that reds is the parenthetical
-      // this card is about: noticing stays manual, and it already failed twice.
-      //
-      // ⭐ Driven by a SYNTHETIC table, and the live one is folded in beside it.
-      // Reading only the live table made this case vacuous the moment the last
-      // debt was paid off (objectui#9251) — a green tick over an empty `for`.
-      const declared = { ...EXHAUSTED_HEADROOM_ALLOWANCES, 'ui-components': 4_289 };
-      const result = evaluateHeadroomSensitivity({
-        report: sensitivityReport(BASELINE.gzipBytes),
-        allowances: declared,
+    it('passes the ruled split and names both sides of it', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } }),
       });
       expect(result.status).toBe('pass');
-      expect(Object.keys(declared).length).toBeGreaterThan(0);
-      for (const [name, allowance] of Object.entries(declared)) {
-        expect(result.message).toContain(`chunk \`${name}\``);
-        expect(result.message).toContain(`declared ${allowance}-byte allowance`);
+      expect(result.message).toContain(
+        '`packages/types` 40 modules in `framework` and its `src/zod` subtree 9 in `types-zod`, exactly',
+      );
+    });
+
+    it('holds the subtree at ANY depth, not only its top directory', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 40 },
+          'src/zod': { 'types-zod': 9 },
+          'src/zod/nested': { 'types-zod': 2 },
+        }),
+      });
+      expect(result.status).toBe('pass');
+      expect(result.message).toContain('subtree 11 in `types-zod`');
+    });
+
+    it('FAILS when shared `src/` modules ride into `types-zod` with the validators', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 37, 'types-zod': 3 },
+          'src/zod': { 'types-zod': 9 },
+        }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain(
+        '`packages/types/src` 3 in `types-zod` (declared `framework`)',
+      );
+    });
+
+    it('FAILS when the validators are back on the eager `framework` line', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { framework: 9 } }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain(
+        '`packages/types/src/zod` 9 in `framework` (declared `types-zod`)',
+      );
+    });
+
+    it('FAILS on a subtree that split across two chunks — one stray is a finding', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 40 },
+          'src/zod': { 'types-zod': 8, 'plugin-map': 1 },
+        }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('`packages/types/src/zod` 1 in `plugin-map`');
+    });
+
+    /**
+     * ⭐ The mis-declaration the old, wholesale pin amounts to on today's
+     * bundle: with the carve-out gone, the ruled split IS a stray. This is the
+     * pin firing on its own declaration rather than on the bundle.
+     */
+    it('FAILS the ruled split when the carve-out is not declared', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } }),
+        carveOuts: {},
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('`packages/types` is declared in `framework` but 9 in `types-zod`');
+    });
+
+    describe('refuses a carve-out it cannot check, rather than reading it', () => {
+      it('errors when the carve-out chunk is EAGER and carries no ceiling', () => {
+        // objectui#9345's incident, written down as though it were a ruling.
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { core: [{ subtree: 'src', chunk: 'data-adapter' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/core/src` is carved into `data-adapter`');
+        expect(result.message).toContain('EAGER');
+      });
+
+      it('errors on the live carve-out once `types-zod` joins the eager closure', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          eagerChunkNames: [...EAGER_CHUNK_NAMES, 'types-zod'],
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/types/src/zod` is carved into `types-zod`');
+        // Control, same artifact, same declaration: the closure the build
+        // actually produces admits it.
+        expect(judgeMembership({ membership: passingMembership() }).status).toBe('pass');
+      });
+
+      it('errors when the eager closure could not be read at all', () => {
+        const result = judgeMembership({ membership: passingMembership(), eagerChunkNames: null });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('could not read the eager closure');
+      });
+
+      it('errors on a carve-out of a package no budgeted chunk declares', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { ...PER_CHUNK_MEMBERSHIP_CARVE_OUTS, 'app-shell': [{ subtree: 'src/views', chunk: 'some-lazy-view' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/app-shell` has a carve-out but no budgeted chunk');
+      });
+
+      it('errors on a carve-out into the package`s own declared chunk', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { types: [{ subtree: 'src/zod', chunk: 'framework' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('a carve-out that moves nothing');
+      });
+
+      it.each([
+        ['an absolute path', '/src/zod'],
+        ['a trailing slash', 'src/zod/'],
+        ['the whole package', '.'],
+        ['a parent hop', 'src/../zod'],
+      ])('errors on a subtree written as %s', (_what, subtree) => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { types: [{ subtree, chunk: 'types-zod' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('not a package-relative directory');
+      });
+
+      it('errors on two carve-outs that nest', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: {
+            types: [
+              { subtree: 'src/zod', chunk: 'types-zod' },
+              { subtree: 'src/zod/deep', chunk: 'plugin-map' },
+            ],
+          },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('which nest');
+      });
+    });
+
+    describe('refuses a split it cannot weigh, rather than passing it', () => {
+      it('errors when the carved subtree holds no module in the bundle', () => {
+        const result = judgeMembership({ membership: withTypes({ src: { framework: 40 } }) });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain(
+          'the carve-out `packages/types/src/zod` -> `types-zod` matched no module',
+        );
+      });
+
+      it('errors when nothing OUTSIDE the carve-out landed anywhere', () => {
+        const result = judgeMembership({ membership: withTypes({ 'src/zod': { 'types-zod': 9 } }) });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('outside its carve-out(s) contributed no module');
+      });
+
+      it('errors when the artifact carries no directory table for the carved package', () => {
+        const membership = passingMembership();
+        delete (membership.directories as Record<string, unknown>).types;
+        const result = judgeMembership({ membership });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('no directory attribution');
+      });
+
+      it('errors when the two tables in one artifact disagree', () => {
+        const membership = withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } });
+        (membership.packages as Record<string, Record<string, number>>).types = {
+          framework: 40,
+          'types-zod': 8,
+        };
+        const result = judgeMembership({ membership });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('do not add up');
+      });
+
+      it('refuses a v1 artifact, which carries no directories at all', () => {
+        const result = judgeMembership({
+          membership: passingMembership({ membershipReportVersion: 1 }),
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('membershipReportVersion 1, expected 2');
+      });
+    });
+  });
+
+  describe('the declaration itself', () => {
+    it('names only chunks that carry a per-chunk ceiling', () => {
+      for (const chunk of Object.keys(PER_CHUNK_MEMBERSHIP)) {
+        expect(PER_CHUNK_GZIP_CEILINGS).toHaveProperty(chunk);
+      }
+      // Non-vacuity: the live table is not empty, and an invented key is still
+      // not a budgeted chunk.
+      expect(Object.keys(PER_CHUNK_MEMBERSHIP).length).toBeGreaterThan(0);
+      expect(PER_CHUNK_GZIP_CEILINGS).not.toHaveProperty('a-chunk-nothing-budgets');
+    });
+
+    /**
+     * ⭐ The cross-check that keeps this declaration from becoming a second
+     * opinion about the console config. Each package name below must be matched
+     * by the `test` of the group it is declared under — the same regex rolldown
+     * itself matches — so a group whose regex is narrowed without updating this
+     * table reds here rather than going quietly out of date.
+     */
+    it('declares only packages the group`s own regex claims', () => {
+      const source = fs.readFileSync(viteConfigPath, 'utf8');
+      for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+        // ⚠️ Anchored on `priority:` deliberately. Without a terminator the
+        // alternation inside the test literal stops at the first `/` of a
+        // `[\\/]` class and hands back a truncated, INVALID regex — a parse
+        // that throws rather than one that lies, but a parse that reads
+        // nothing all the same.
+        const declaration = new RegExp(
+          String.raw`\{\s*name:\s*'${chunk}',\s*test:\s*(/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+/[a-z]*)\s*,\s*priority:`,
+        ).exec(source);
+        // Fails closed: a group this parse cannot find is an error, not a pass.
+        expect(declaration, `no regex-tested group named \`${chunk}\` in the console config`)
+          .not.toBeNull();
+        const literal = /^\/(.*)\/([a-z]*)$/s.exec(declaration![1])!;
+        const test = new RegExp(literal[1], literal[2]);
+        for (const pkg of pkgs) {
+          expect(
+            test.test(path.join(repoRoot, `packages/${pkg}/src/index.ts`)),
+            `\`${chunk}\` is declared to hold packages/${pkg}, but its own test does not match it`,
+          ).toBe(true);
+        }
+        // The must-miss control, so a regex that matched everything could not
+        // satisfy the loop above.
+        expect(test.test(path.join(repoRoot, 'packages/not-a-real-package/src/index.ts'))).toBe(
+          false,
+        );
       }
     });
 
     /**
-     * The allowance table is a RATCHET, and the whole of its ratchet-ness is
-     * that these numbers can only be paid down. Nothing in the runtime can
-     * enforce that — the constant is whatever the file says — so the pin is the
-     * enforcement: an edit in either direction has to come here and be argued.
+     * ⭐ The same cross-check for the EXCEPTIONS, and it has more to prove: a
+     * carve-out is only true of the bundle if rolldown can actually do it. So
+     * against the console config's own group table, for every carve-out:
+     *
+     *   - the carve-out group's test matches the subtree (it can take it);
+     *   - the declared chunk's test matches the subtree TOO (or this is not a
+     *     carve FROM that chunk, just another package);
+     *   - the carve-out group outranks the declared chunk (or it loses the tie);
+     *   - it declares `includeDependenciesRecursively: false` (or it takes the
+     *     subtree's imports as well, which is the measured failure);
+     *   - and — the must-miss control — its test does NOT match the rest of the
+     *     package, so a regex that matched the whole package could not pass.
      */
-    describe('the allowance table is a ratchet, pinned', () => {
-      it('holds exactly the rows still in debt — today, none', () => {
-        // ⚠️ Two rows have left this table and NEITHER was lowered, which is the
-        // distinction the ratchet is made of:
-        //
-        //   `i18n-locales: 8_804`  — objectui#7479. Its CHUNK ceased to exist.
-        //   `ui-components: 4_289` — objectui#9251. Its ROW cleared the floor:
-        //     lucide's 1,781-icon record came off the eager path, the ceiling
-        //     was re-pinned DOWN to 289,000 over a 265,937 measurement, and the
-        //     headroom went 0.02x -> 0.25x.
-        //
-        // ⛔ An empty table is NOT this mechanism being retired. Every case in
-        // "a declared row" above now drives a SYNTHETIC entry for exactly that
-        // reason, so the ratchet stays measured with nothing currently owing.
-        expect(EXHAUSTED_HEADROOM_ALLOWANCES).toEqual({});
-      });
-
-      it('every entry is real debt — strictly under the floor it excuses', () => {
-        // An allowance at or above the floor is not debt, it is a second floor
-        // for one row, and the row should simply have been dropped from here.
-        // ⚠️ The live table is empty today, so the rule is also asserted the way
-        // it FAILS — otherwise this case is a green tick over an empty loop.
-        for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(allowance).toBeLessThan(FLOOR);
+    it('carves only what the carve-out group`s own regex takes, from a group it outranks', () => {
+      const source = fs.readFileSync(viteConfigPath, 'utf8');
+      const groupNamed = (name: string) => {
+        const found = new RegExp(
+          String.raw`\{\s*name:\s*'${name}',\s*test:\s*(/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+/[a-z]*)\s*,\s*priority:\s*(\d+)\s*((?:,\s*[A-Za-z_$][\w$]*:\s*[^,{}]+)*)`,
+        ).exec(source);
+        expect(found, `no regex-tested group named \`${name}\` in the console config`).not.toBeNull();
+        const literal = /^\/(.*)\/([a-z]*)$/s.exec(found![1])!;
+        return {
+          test: new RegExp(literal[1], literal[2]),
+          priority: Number(found![2]),
+          options: found![3],
+        };
+      };
+      const homeOf = new Map<string, string>();
+      for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+        for (const pkg of pkgs) homeOf.set(pkg, chunk);
+      }
+      const carves = Object.entries(PER_CHUNK_MEMBERSHIP_CARVE_OUTS);
+      // Non-vacuity: the loop below has a subject.
+      expect(carves.length).toBeGreaterThan(0);
+      for (const [pkg, list] of carves) {
+        const home = homeOf.get(pkg);
+        expect(home, `packages/${pkg} is carved but declared nowhere`).toBeDefined();
+        const homeGroup = groupNamed(home!);
+        for (const { subtree, chunk } of list) {
+          const carveGroup = groupNamed(chunk);
+          const inside = path.join(repoRoot, `packages/${pkg}/${subtree}/index.ts`);
+          const outside = path.join(repoRoot, `packages/${pkg}/src/index.ts`);
+          expect(subtree).not.toBe('src');
+          expect(carveGroup.test.test(inside), `\`${chunk}\` does not match packages/${pkg}/${subtree}`).toBe(true);
+          expect(homeGroup.test.test(inside), `\`${home}\` never claimed packages/${pkg}/${subtree}`).toBe(true);
+          expect(carveGroup.priority).toBeGreaterThan(homeGroup.priority);
+          expect(carveGroup.options).toContain('includeDependenciesRecursively: false');
+          expect(carveGroup.test.test(outside), `\`${chunk}\` also takes the rest of packages/${pkg}`).toBe(false);
+          expect(homeGroup.test.test(outside)).toBe(true);
         }
-        expect(4_289).toBeLessThan(FLOOR);
-        expect(FLOOR).toBeLessThan(FLOOR + 1);
-      });
-
-      it('is compared at the coarser of the two grids this gate renders on', () => {
-        // The grain must be at least the coarsest rounding in the row renderer,
-        // or a red can print an evidence table identical to the green one. The
-        // two grids are one decimal of a KiB (102.4 bytes) and two decimals of a
-        // regression (911.36); the second is the binding one, and 0.01x is it.
-        const grain =
-          REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
-        expect(grain).toBeGreaterThanOrEqual(1024 / 10);
-        expect(grain).toBe(REGRESSION_THIS_GATE_MUST_CATCH_BYTES / 100);
-      });
-
-      it('is coarser than a byte but far finer than the floor it excuses', () => {
-        // Both directions matter. Too fine and the ratchet fires invisibly; as
-        // coarse as the floor and a declared row would never red at all, which
-        // is the silence this card is about.
-        const grain =
-          REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_ALLOWANCE_GRANULARITY_MULTIPLE;
-        const floor = REGRESSION_THIS_GATE_MUST_CATCH_BYTES * EXHAUSTED_HEADROOM_FLOOR_MULTIPLE;
-        expect(grain).toBeGreaterThan(1);
-        expect(grain).toBeLessThan(floor);
-        // Every declared row must still have a reachable trip point above zero,
-        // or its entry would be decorative. Asserted on the live table AND on
-        // the synthetic figure the ratchet was measured against, so an empty
-        // live table cannot make this read as checked.
-        for (const allowance of Object.values(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(allowance - grain).toBeGreaterThan(0);
-        }
-        expect(4_289 - grain).toBeGreaterThan(0);
-      });
-
-      it('every entry names a ceiling that exists', () => {
-        // An allowance for a key with no ceiling excuses nothing and would sit
-        // here unread, which is how a table of debt becomes a table of noise.
-        const judged = ['aggregate', ...Object.keys(PER_CHUNK_GZIP_CEILINGS)];
-        for (const key of Object.keys(EXHAUSTED_HEADROOM_ALLOWANCES)) {
-          expect(judged).toContain(key);
-        }
-        // Non-vacuity for an empty live table: the key the last entry named is
-        // still a budgeted chunk, and an invented one is still not.
-        expect(judged).toContain('ui-components');
-        expect(judged).not.toContain('a-chunk-nothing-budgets');
-      });
+      }
     });
   });
 });
@@ -1088,11 +1524,25 @@ describe('main', () => {
    * what makes these cases exercise the non-pull_request path deterministically
    * instead of by luck. Pass it through `env` to opt a case in.
    */
-  function run(reportBody: unknown, env: Record<string, string> = {}) {
+  function run(
+    reportBody: unknown,
+    env: Record<string, string> = {},
+    membershipBody: unknown = passingMembership(),
+  ) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'closure-budget-'));
     const reportPath = path.join(dir, 'eager-closure.json');
     const outputPath = path.join(dir, 'github-output');
     if (reportBody !== undefined) fs.writeFileSync(reportPath, JSON.stringify(reportBody));
+    // Written into the SAME directory on purpose — that is the production
+    // relationship between the two artifacts, and `main` derives one path from
+    // the other. `undefined` opts a case out, which is the absent-artifact
+    // case rather than a shortcut.
+    if (membershipBody !== undefined) {
+      fs.writeFileSync(
+        path.join(dir, 'chunk-membership.json'),
+        JSON.stringify(membershipBody),
+      );
+    }
     try {
       const code = main(['--report', reportPath], { GITHUB_OUTPUT: outputPath, ...env });
       const outputs = Object.fromEntries(
@@ -1279,17 +1729,46 @@ describe('main', () => {
   });
 
   /**
-   * objectui#8554: the same blind spot at the other end. `framework` one byte
-   * under its own ceiling is inside every size line in the file — both size
-   * halves pass, and every one of this gate's other exits is 0 — so the exit
-   * code here is produced by the exhausted leg alone.
+   * objectui#10148 — the RETIRED exhausted-headroom leg, pinned on the
+   * BEHAVIOUR rather than on the absence of a constant.
+   *
+   * ⭐ This pair is one fixture apart, on the SAME chunk and the same ceiling:
+   * `framework` one byte UNDER its line, and `framework` one byte OVER it. A
+   * pin written against the constant's absence would pass the moment the
+   * identifier was deleted, whatever the gate then did with either fixture —
+   * which is how a removal takes the budget out with the leg it was aimed at.
+   *
+   * Before this card the under-by-one fixture exited 2: every size line in the
+   * file was satisfied and the exhausted leg alone produced the code. The
+   * maintainer retired that leg (the ruling is quoted in this file's header
+   * and in the checker's), so the same fixture is now a pass — and the
+   * over-by-one fixture below is what proves the budget did not leave with it.
    */
-  it('exits 2 when a ceiling has no headroom left to measure with', () => {
+  it('exits 0 when a chunk sits just UNDER its ceiling — merely close is not a verdict', () => {
     const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework - 1 }));
-    expect(code).toBe(2);
+    expect(code).toBe(0);
     expect(outputs.closure_status).toBe('pass');
     expect(outputs.closure_chunk_status).toBe('pass');
-    expect(outputs.closure_headroom_status).toBe('error');
+    // The sensitivity half still runs and still publishes: its BLIND leg — a
+    // ceiling that has drifted more than one regression ABOVE its payload — is
+    // untouched by this card, which is why `.github/workflows/`'s
+    // `BUDGET_CLOSURE_HEADROOM_STATUS` still reads a value that exists.
+    expect(outputs.closure_headroom_status).toBe('pass');
+  });
+
+  /**
+   * ⭐ THE CONTROL, and it is the half of this pair that can fail for the wrong
+   * reason. It reds before this card and after it: one byte the other side of
+   * the same line is a size regression, the per-chunk half owns it, and exit 1
+   * is a verdict about the BUNDLE. A run where both of these pass is the only
+   * one that distinguishes "the headroom leg was removed" from "the budget was
+   * removed".
+   */
+  it('still exits 1 when that same chunk goes OVER the same ceiling — the budget stays', () => {
+    const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework + 1 }));
+    expect(code).toBe(1);
+    expect(outputs.closure_status).toBe('pass');
+    expect(outputs.closure_chunk_status).toBe('fail');
   });
 
   /**
@@ -1344,7 +1823,8 @@ describe('main', () => {
    * purpose. `docs-route-eager-closure.yml` and `performance-budget.yml` are
    * not among this repo's required merge-queue contexts, so a regression in
    * the fold would not block a merge through the gate's own job. This file
-   * runs inside `Test (shard N/4)`, which is required (objectui#9098 landed
+   * runs inside `Test (shard N/8)`, whose verdict is required through the
+   * `Test` aggregator since objectui#9499 (objectui#9098 landed
    * the same reasoning one card earlier).
    */
   describe('the fold recognises exactly the statuses the halves declare (objectui#9006)', () => {
@@ -1478,6 +1958,89 @@ describe('main', () => {
  * `BUDGET_CLOSURE_BUDGET_KB: 3990.2` — 4,086,000 bytes — with conclusion
  * `success`. `theRealIncident` below replays exactly that pair of numbers.
  */
+/**
+ * The membership half, folded — objectui#9345.
+ *
+ * Local to this block rather than merged into `describe('main')` above for the
+ * reason that block's own freshness sibling gives: these cases need the second
+ * artifact under their control, and a shared helper that always wrote a healthy
+ * one could not express the absent case at all.
+ */
+describe('main folds chunk membership into the exit code (objectui#9345)', () => {
+  /**
+   * Local runner, like the freshness block's: `describe('main')`'s helper is
+   * scoped to that block, and these cases need the SECOND artifact under their
+   * own control — including the case where it is absent, which a helper that
+   * always wrote a healthy one could not express.
+   */
+  function runPair(reportBody: unknown, membershipBody: unknown) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'closure-membership-'));
+    const reportPath = path.join(dir, 'eager-closure.json');
+    const outputPath = path.join(dir, 'github-output');
+    fs.writeFileSync(reportPath, JSON.stringify(reportBody));
+    if (membershipBody !== undefined) {
+      fs.writeFileSync(path.join(dir, 'chunk-membership.json'), JSON.stringify(membershipBody));
+    }
+    try {
+      const code = main(['--report', reportPath], { GITHUB_OUTPUT: outputPath });
+      const outputs = Object.fromEntries(
+        fs
+          .readFileSync(outputPath, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            const at = line.indexOf('=');
+            return [line.slice(0, at), line.slice(at + 1)] as [string, string];
+          }),
+      );
+      return { code, outputs };
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  /** The report every case here starts from: nothing is over any line. */
+  function healthyBudget() {
+    return report({
+      eagerGzipBytes: BASELINE.gzipBytes,
+      files: [
+        { fileName: 'assets/index-A.js', name: 'index', bytes: 90_000, gzipBytes: BASELINE.gzipBytes - PER_CHUNK_BASELINE['vendor-objectstack'] - PER_CHUNK_BASELINE.framework - PER_CHUNK_BASELINE['ui-components'] - PER_CHUNK_BASELINE['i18n-locale-en'] },
+        { fileName: 'assets/vendor-objectstack-B.js', name: 'vendor-objectstack', bytes: 5_000_000, gzipBytes: PER_CHUNK_BASELINE['vendor-objectstack'] },
+        { fileName: 'assets/framework-C.js', name: 'framework', bytes: 300_000, gzipBytes: PER_CHUNK_BASELINE.framework },
+        { fileName: 'assets/ui-components-D.js', name: 'ui-components', bytes: 900_000, gzipBytes: PER_CHUNK_BASELINE['ui-components'] },
+        { fileName: 'assets/i18n-locale-en-E.js', name: 'i18n-locale-en', bytes: 120_000, gzipBytes: PER_CHUNK_BASELINE['i18n-locale-en'] },
+      ],
+      eagerChunkCount: 5,
+    });
+  }
+
+  it('exits 0 and publishes `pass` when every declared package is in place', () => {
+    const { code, outputs } = runPair(healthyBudget(), passingMembership());
+    expect(outputs.closure_membership_status).toBe('pass');
+    expect(code).toBe(0);
+  });
+
+  it('exits 1 — a size verdict`s code — when a budgeted package landed elsewhere', () => {
+    const membership = passingMembership();
+    (membership.packages as Record<string, Record<string, number>>).core = {
+      framework: 60,
+      'data-adapter': 32,
+    };
+    const { code, outputs } = runPair(healthyBudget(), membership);
+    expect(outputs.closure_membership_status).toBe('fail');
+    // ⭐ 1, not 2. A package in the wrong chunk is a real verdict about the
+    // bundle, in the same class as a chunk over its ceiling — not a gauge that
+    // produced nothing.
+    expect(code).toBe(1);
+  });
+
+  it('exits 2 when the artifact is absent — an unbuilt tree is not a pass', () => {
+    const { code, outputs } = runPair(healthyBudget(), undefined);
+    expect(outputs.closure_membership_status).toBe('error');
+    expect(code).toBe(2);
+  });
+});
+
 describe('ceiling freshness (objectui#6245)', () => {
   const checkerSource = fs.readFileSync(checkerPath, 'utf8');
 
@@ -1721,6 +2284,13 @@ describe('ceiling freshness (objectui#6245)', () => {
       const reportPath = path.join(dir, 'eager-closure.json');
       const outputPath = path.join(dir, 'github-output');
       fs.writeFileSync(reportPath, JSON.stringify(healthyReport()));
+      // The membership half resolves its artifact beside the report. These
+      // cases are about FRESHNESS, so it is written healthy here — an absent
+      // one would exit 2 for a reason none of them is asking about.
+      fs.writeFileSync(
+        path.join(dir, 'chunk-membership.json'),
+        JSON.stringify(passingMembership()),
+      );
       const write = (name: string, body: string) => {
         const at = path.join(dir, name);
         fs.writeFileSync(at, body);

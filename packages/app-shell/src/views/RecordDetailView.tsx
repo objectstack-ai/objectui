@@ -3,7 +3,7 @@
  *
  * Renders a detail view for a single record, resolved by URL params.
  * Renders via the SchemaRenderer Page pipeline: an authored
- * PageSchema(pageType='record') when one is assigned, else a canonical
+ * PageSchema(type='record') when one is assigned, else a canonical
  * default page synthesized from the object definition
  * (`buildDefaultPageSchema`).
  */
@@ -14,6 +14,7 @@ import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriv
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
 import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
 import { toast } from 'sonner';
@@ -29,13 +30,14 @@ import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDia
 import { ActionParamDialog, type ParamDialogState } from './ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from './ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from './FlowRunner.js';
+import { FlowRefusalNotice, type FlowRefusalState } from './FlowRefusalNotice.js';
 import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { withPageTabsUrlSync } from '../utils/pageTabsUrlSync.js';
 import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
@@ -233,6 +235,33 @@ export function resolveRecordHeaderActionGates(
   return { edit: affordances.edit, delete: affordances.delete };
 }
 
+/**
+ * `record` without the fields the loaded permission policy denies on
+ * `objectName`, for building the record's TITLE (objectui#10434). What is
+ * left is the row ObjectStack's `FieldMasker` already serves. `id` and `_id`
+ * are never judged: the resolver's `Record #<id>` floor reads them. Before a
+ * policy loads (also the answer with no provider mounted) the record comes
+ * back as is, and when nothing is withheld the same object comes back.
+ *
+ * `@object-ui/plugin-detail` applies the same rule to `DetailView`'s header
+ * and `record:details`' title dedupe; neither copy is a package export, which
+ * is why this package spells its own.
+ */
+function withoutDeniedFields<T>(
+  record: T,
+  perms: Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>,
+  objectName: string | undefined,
+): T {
+  if (!perms?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'id' || key === '_id' || perms.checkField(objectName, key, 'read')) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
+}
+
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
 
   const params = useParams<{
@@ -282,6 +311,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
   }, [originFromState, location.search, appName]);
   const { t, language } = useObjectTranslation();
+  // The DISPLAY locale the audit-history dates format with (objectui#10442).
+  // `language` above stays for what it is: the key into per-locale LABEL maps.
+  const displayLocale = useDisplayLocale();
   const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
@@ -298,6 +330,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   >([]);
   // Screen-flow runtime: a paused `screen`-node flow launched from a record action.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A record-action flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   const [historyEntries, setHistoryEntries] = useState<any[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recordTitle, setRecordTitle] = useState<string | undefined>();
@@ -366,7 +400,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   }, [favoriteRecord, toggleFavorite]);
 
   // ─── Page Assignment (Salesforce Lightning-style record Pages) ──────
-  // If a PageSchema(pageType='record') is authored for this object, render
+  // If a PageSchema(type='record') is authored for this object, render
   // it via SchemaRenderer (which dispatches to the registered 'record'
   // PageRenderer in @object-ui/components). Otherwise the no-assignedPage
   // branch synthesizes a canonical Page via `buildDefaultPageSchema(objectDef)`
@@ -498,13 +532,21 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // Derive a human-readable record title from the loaded `pageRecord` so
   // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"
   // instead of the raw record id.
+  //
+  // The title is built from the record AS THE VIEWER MAY READ IT
+  // (objectui#10434): `withoutDeniedFields` removes the fields the loaded
+  // policy denies on this object, `id` kept, so a denied name pointer or
+  // `titleFormat` token reads as an absent one and the resolver falls through
+  // to its next rung. The breadcrumb, the favourite and the "Recently
+  // Accessed" label all carry this title. Before the policy loads nothing is
+  // removed; `perms` in the deps re-derives the title when it arrives.
   useEffect(() => {
     if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
-    const resolved = getRecordDisplayName(objectDef, pageRecord);
+    const resolved = getRecordDisplayName(objectDef, withoutDeniedFields(pageRecord, perms, objectName));
     if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
-  }, [pageRecord, objectDef, recordTitle]);
+  }, [pageRecord, objectDef, recordTitle, perms, objectName]);
 
   // Once we have a human-readable title, (a) record this visit into the
   // "Recently Accessed" rail on the home page and (b) self-heal any
@@ -909,30 +951,31 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // useConsoleActionRuntime's copy of this handler and FlowRunner's resume.
-      // This copy checked only the transport envelope and then treated
-      // everything else as terminal success, so a run that failed on its first
-      // node fired a green toast (#2958); it also passed `json.error` through
-      // raw, and the nested `{code, message}` shape reaches `toast.error()` as
-      // a React child and crashes the page (React #31). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with useConsoleActionRuntime's copy of this handler
+      // (and the interpretation with FlowRunner's resume). This copy once
+      // checked only the transport envelope and treated everything else as
+      // terminal success, so a run that failed on its first node fired a green
+      // toast (#2958) and passed the nested `{code, message}` error through raw
+      // (React #31); later, a run that ended `refused` without pausing toasted
+      // the action's `successMessage` and refreshed while the refusal was never
+      // shown (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: the run paused at a `screen` node awaiting input —
-      // open the FlowRunner to render the form + resume (refresh on completion).
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) {
-        notifyRecordChanged();
-      }
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) notifyRecordChanged();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -1399,7 +1442,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         );
         if (cancelled) return;
 
-        const fmtCtx = { t, locale: language, lookupLabels };
+        // `locale` is spent on the date faces only, so it is the display
+        // locale, never the UI language (objectui#10442).
+        const fmtCtx = { t, locale: displayLocale, lookupLabels };
         const enriched = items.map((it, idx) => {
           const u = it?.user_id ? userMap.get(it.user_id) : undefined;
           // Attribution fallback chain: resolved user name → service/automation
@@ -1440,10 +1485,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         if (!cancelled) setHistoryLoading(false);
       });
     return () => { cancelled = true; };
-    // `t` is identity-stable per language; `language` already refires the
-    // effect on locale switches so formatted diff values re-localize.
+    // `t` is identity-stable per language; `language` refires the effect on a
+    // language switch so the translated values re-localize, and
+    // `displayLocale` on a display-locale switch so the dates do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language]);
+  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language, displayLocale]);
 
   // Fetch a directory of active users once per dataSource mount and expose
   // them as @-mention suggestions to the DiscussionContext. Capped at 50 to
@@ -2629,6 +2675,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); notifyRecordChanged(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
     </div>
   );

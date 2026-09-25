@@ -39,7 +39,7 @@ another, custom data fetching. It runs **without a sandbox**.
   "type": "home",
   "name": "project_console",
   "kind": "react",
-  "source": "function Page() {\n  const [selected, setSelected] = React.useState(null);\n  return (\n    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>\n      <ListView objectName=\"showcase_project\" fields={['name', 'status']} onRowClick={(r) => setSelected(r._id)} />\n      {selected && <ObjectForm objectName=\"showcase_project\" mode=\"edit\" recordId={selected} />}\n    </div>\n  );\n}"
+  "source": "function Page() {\n  const [selected, setSelected] = React.useState(null);\n  return (\n    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>\n      <ListView data={{ provider: 'object', object: 'showcase_project' }} fields={['name', 'status']} onRowClick={(r) => setSelected(r._id)} />\n      {selected && <ObjectForm objectName=\"showcase_project\" mode=\"edit\" recordId={selected} />}\n    </div>\n  );\n}"
 }
 ```
 
@@ -51,7 +51,7 @@ function Page() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
       <ListView
-        objectName="showcase_project"
+        data={{ provider: 'object', object: 'showcase_project' }}
         fields={['name', 'status']}
         onRowClick={(r) => setSelected(r._id)}
       />
@@ -105,7 +105,7 @@ repo. **Treat that table as the prop authority, not this page.**
 Everything in the runtime scope but outside the contract still resolves and
 renders — its props simply are not part of the react-tier contract. Reach those
 through the contract instead: a kanban / calendar / gantt / timeline / map of an
-object is `<ListView viewType="kanban" …>`, or `<Block type="object-kanban" …>`.
+object is `<ListView type="kanban" …>`, or `<Block type="object-kanban" …>`.
 
 #### The `record:*` family is excluded from this tier
 
@@ -131,7 +131,7 @@ the same way. On a react page, bind the record yourself:
 |---|---|
 | `<RecordDetails>` | `<ObjectForm objectName="…" mode="view" recordId={…} fields={[…]} />` — it binds by its own props. |
 | `<RecordHighlights>` | `<ObjectForm … mode="view" />`, or read the record with `useAdapter().findOne` and lay the strip out in JSX. |
-| `<RecordRelatedList>` | `<ListView objectName="child_object" filters={['lookup_field', '=', parentId]} />` — the parent binding is an ordinary filter here. |
+| `<RecordRelatedList>` | `<ListView data={{ provider: 'object', object: 'child_object' }} filters={['lookup_field', '=', parentId]} />` — the parent binding is an ordinary filter here. |
 | `<RecordPath>` | Read the record with `useAdapter().findOne` and render the stage bar in JSX. |
 
 If you want the whole record-page composition, author the page as `type:'record'`
@@ -142,6 +142,14 @@ every container (`if (!tag || cfg.isContainer) continue;`), so `<flex>`, `<grid>
 `<card>` and friends have no injected wrapper. In react mode you compose layout
 with real HTML, which React is better at than a schema-children renderer — styled
 inline, not with Tailwind: `<div style={{ display: 'flex', gap: 16 }}>`.
+
+`isContainer` means exactly this: *layout containment*, the reason a block is
+kept out of the JSX scope. It does not mean "accepts children". Whether a block
+renders an authored child list is declared on its registration as
+`{ name: 'children', type: 'slot' }` in `inputs`, and that declaration is what
+the html tier's `not-a-container` diagnostic reads — so `<Button>` and `<Badge>`
+stay injected here (they are not layout) while still accepting `children` on the
+html tier.
 
 ### Styling — page source is metadata, not build input
 
@@ -196,7 +204,7 @@ An injected block folds its JSX props into the block's schema, so you write
 flat props rather than a nested `schema` object:
 
 ```jsx
-<ListView objectName="showcase_project" fields={['name', 'status']} pagination={{ pageSize: 25 }} />
+<ListView data={{ provider: 'object', object: 'showcase_project' }} fields={['name', 'status']} pagination={{ pageSize: 25 }} />
 ```
 
 Use the **canonical** spelling of each prop — the one the contract publishes.

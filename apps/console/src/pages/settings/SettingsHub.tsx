@@ -1,8 +1,10 @@
 /**
  * <SettingsHub> — landing page for `/system/settings`.
  *
- * Lists every visible manifest grouped by category. Cards mirror the
- * SystemHubPage look-and-feel for visual consistency.
+ * Lists every visible manifest grouped by category. The list is the server's
+ * settings registry as this user may read it, so no entry is hand-kept here.
+ * The bare `/system` URL also lands here: the console host forwards it onto
+ * this route (`SystemLandingRedirect`, objectui#3743).
  */
 
 import { useEffect, useMemo, useState } from 'react';

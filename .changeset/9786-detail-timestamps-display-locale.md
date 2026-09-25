@@ -59,12 +59,14 @@ the argument each call actually receives, which is the only way to catch a
 variable that resolves to `undefined`, and the only way to reach
 `RecordMetaFooter` — whose absolute face is a `TooltipContent` child that Radix
 keeps out of the DOM until the tooltip opens.
-`machineLocaleCensus-9786.test.ts` reddens when a new bare, `undefined`- or
-hard-coded-tag call site is written anywhere in this package's source; it masks
-comments before it counts, and it declares `InlineFieldInput`'s `en-CA` as the
-one exemption with its reason — that call feeds `<input type="date">`, whose
-value HTML defines as `YYYY-MM-DD`, so it is an ISO formatter and not a display
-locale.
+A census pin reddens when a new bare, `undefined`- or hard-coded-tag call site
+is written; it masks comments before it counts, and it declares
+`InlineFieldInput`'s `en-CA` as an exemption with its reason — that call feeds
+`<input type="date">`, whose value HTML defines as `YYYY-MM-DD`, so it is an ISO
+formatter and not a display locale. It landed scoped to this package and, under
+the ruling on this card, became the one repository-wide census in
+`@object-ui/i18n` (`machineLocaleCensus-9909.test.ts`, objectui#9909), which
+carries that exemption forward.
 
 ⛔ Not repaired here: the same class outside this package. A mechanical scan of
 the whole repository's non-test sources — comments masked, the same matcher the

@@ -7,6 +7,7 @@ import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { ImageLightbox } from './ImageLightbox.js';
 import { useUploadingSignal } from './useUploadingSignal.js';
+import { useUploadingScopeHold } from './uploadingScope.js';
 import { maxSizeError, type TranslateFn } from './file-size-guard.js';
 import {
   fileValueForSubmit,
@@ -21,6 +22,22 @@ import {
 const ImageCropperDialog = lazy(() =>
   import('./ImageCropperDialog.js').then((m) => ({ default: m.ImageCropperDialog })),
 );
+
+/**
+ * The message for a failed upload — the same translated key, arguments and
+ * fallback FileField renders for the same failure through the same
+ * `useUpload()` transport (objectui#10226). Both upload paths in `ImageField`
+ * are invoked fire-and-forget (React ignores the promise an `onChange` handler
+ * returns; the cropper does not await `onConfirm`), so a failure not caught
+ * there is reported nowhere — it escapes as an unhandled rejection.
+ */
+function uploadFailedMessage(t: TranslateFn, name: string, err: unknown): string {
+  return t('fields.file.uploadFailed', {
+    defaultValue: `Failed to upload "${name}": ${(err as Error).message}`,
+    name,
+    error: (err as Error).message,
+  });
+}
 
 /**
  * ImageField - Image upload widget with preview thumbnails
@@ -46,7 +63,10 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
   const { upload } = useUpload();
   const { t } = useObjectTranslation();
   const [uploading, setUploading] = useState(false);
-  /** Client-side rejections (oversize picks), cleared on the next attempt. */
+  /**
+   * Per-pick failures shown under the button, cleared on the next attempt:
+   * client-side rejections (oversize picks) and failed uploads.
+   */
   const [errors, setErrors] = useState<string[]>([]);
   // Display details of just-uploaded images, keyed by their new `sys_file` id.
   // Submitting the reference form means the field value no longer carries the
@@ -54,6 +74,9 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
   // returns the expanded form. See `file-value`.
   const [recent, setRecent] = useState<Record<string, FileValueView>>({});
   useUploadingSignal(uploading, onUploadingChange);
+  // The upload's own lifetime, which can outlast this widget — both upload
+  // paths below take it (objectui#10180). See `useUploadingScopeHold`.
+  const holdScope = useUploadingScopeHold();
 
   // Derived value + memoized handlers must run before the readonly early return
   // so hook order stays stable across renders.
@@ -80,6 +103,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         return;
       }
       setErrors([]);
+      const releaseScope = holdScope();
       setUploading(true);
       try {
         const result = await upload(blob);
@@ -92,12 +116,17 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         } else {
           onChange(next);
         }
+      } catch (err) {
+        // The original image stays in place; the dialog closes in `finally`,
+        // so the message lands in the field's error row, not behind it.
+        setErrors([uploadFailedMessage(t as TranslateFn, name, err)]);
       } finally {
+        releaseScope();
         setUploading(false);
         setCropTarget(null);
       }
     },
-    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t],
+    [cropTarget, images, multiple, onChange, upload, remember, maxSize, t, holdScope],
   );
 
   const openCropper = useCallback(
@@ -170,16 +199,30 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
     });
     setErrors(rejections);
     if (validFiles.length === 0) return;
+    const failures: string[] = [];
 
+    // Released only after `onChange` has handed the value over, and whether or
+    // not this widget is still mounted by then — see FileField's pipeline.
+    const releaseScope = holdScope();
     setUploading(true);
     try {
-      const imageObjects = await Promise.all(
+      // Each pick is caught on its own, as FileField does: a failed pick is
+      // reported and not added, and the picks that did upload still land.
+      const uploaded = await Promise.all(
         validFiles.map(async (file) => {
-          const result = await upload(file);
-          remember(result, file.name);
-          return fileValueForSubmit(result, file.name);
+          try {
+            const result = await upload(file);
+            remember(result, file.name);
+            return fileValueForSubmit(result, file.name);
+          } catch (err) {
+            failures.push(uploadFailedMessage(t as TranslateFn, file.name, err));
+            return null;
+          }
         }),
       );
+      if (failures.length > 0) setErrors([...rejections, ...failures]);
+      const imageObjects = uploaded.filter((v) => v !== null);
+      if (imageObjects.length === 0) return;
 
       if (multiple) {
         onChange([...images, ...imageObjects]);
@@ -187,6 +230,7 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
         onChange(imageObjects[0]);
       }
     } finally {
+      releaseScope();
       setUploading(false);
     }
   };
@@ -277,9 +321,8 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
               : t('fields.image.upload')}
         </Button>
 
-        {/* Client-side rejections (oversize picks). Same presentation as
-            FileField's error row — this widget previously had no surface for
-            them at all, because it never rejected anything (objectui#4141). */}
+        {/* Oversize picks (objectui#4141) and failed uploads (objectui#10226).
+            Same presentation as FileField's error row. */}
         {errors.length > 0 && (
           <div className="space-y-0.5">
             {errors.map((err, i) => (

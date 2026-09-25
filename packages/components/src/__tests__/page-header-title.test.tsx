@@ -78,8 +78,15 @@ describe('PageHeaderRenderer — record title resolution', () => {
     expect(screen.getByText('Kickoff call')).toBeTruthy();
   });
 
-  it('titleFormat still outranks nameField (legacy header behaviour)', () => {
-    renderHeader({
+  it('the declared nameField outranks titleFormat (ADR-0079 protocol order, #9436)', () => {
+    // Rewritten, not deleted: this case used to be "titleFormat still
+    // outranks nameField (legacy header behaviour)" and asserted the opposite
+    // H1. The protocol ranks the declared pointer above the template, both in
+    // `@objectstack/spec`'s `titleFormat` describe ("an explicit nameField now
+    // takes precedence") and in `getRecordDisplayName`. So the H1 is the
+    // pointer's value and the template renders nowhere. The two answers are
+    // deliberately disjoint strings, so the assertion cannot pass by overlap.
+    const { container } = renderHeader({
       objectSchema: {
         name: 'contact',
         label: 'Contact',
@@ -91,9 +98,10 @@ describe('PageHeaderRenderer — record title resolution', () => {
           last_name: { type: 'text' },
         },
       },
-      record: { id: 'rec-3', nickname: 'Ada', first_name: 'Ada', last_name: 'Lovelace' },
+      record: { id: 'rec-3', nickname: 'Countess', first_name: 'Ada', last_name: 'Lovelace' },
     });
-    expect(screen.getByText('Ada Lovelace')).toBeTruthy();
+    expect(container.querySelector('h1')?.textContent).toBe('Countess');
+    expect(screen.queryByText('Ada Lovelace')).toBeNull();
   });
 
   it('falls back to `${objectLabel} ${id}` when the record is truly unnamed', () => {
@@ -106,6 +114,102 @@ describe('PageHeaderRenderer — record title resolution', () => {
       record: { id: 'abcdefgh-rest-of-id', acted_at: '2026-07-04' },
     });
     expect(screen.getByText(/Audit Log abcdefgh/)).toBeTruthy();
+  });
+});
+
+/**
+ * The declared pointer outranks `titleFormat`, and nothing else moved
+ * (objectui#9436, ruled C1).
+ *
+ * The pin above asserts the new order. The cases below are the rest of the
+ * contract, and all but one are CONTROLS: they hold under the old order and the
+ * new one alike, so if the order is reverted, only the order pins redden.
+ *
+ *   - the deprecated `displayNameField` alias is part of the declared pointer,
+ *     so it outranks the template too (a pin, like the one above);
+ *   - a pointer that is BLANK on the record falls through to the template, as
+ *     `getRecordDisplayName` walks from a blank steps 1+2 to step 3;
+ *   - an object that declares no pointer still takes its title from the
+ *     template, ABOVE the type-aware derivation, which stays where it was;
+ *   - the template's select value still reads as its option label. Since
+ *     objectui#10447 the rung renders through core's `formatTitleTemplate`
+ *     over a record copy whose select values read as their labels; the
+ *     unified resolver renders the raw value, so a ladder that consulted the
+ *     whole resolver above the template would change this H1 and not just the
+ *     order;
+ *   - an explicit `schema.title` still outranks both.
+ */
+describe('PageHeaderRenderer — the declared pointer outranks `titleFormat` (#9436)', () => {
+  const contact = {
+    name: 'contact',
+    label: 'Contact',
+    titleFormat: '{first_name} {last_name}',
+    fields: {
+      nickname: { type: 'text' },
+      first_name: { type: 'text' },
+      last_name: { type: 'text' },
+    },
+  };
+
+  it('the deprecated `displayNameField` alias outranks titleFormat too', () => {
+    const { container } = renderHeader({
+      objectSchema: { ...contact, displayNameField: 'nickname' },
+      record: { id: 'rec-4', nickname: 'Countess', first_name: 'Ada', last_name: 'Lovelace' },
+    });
+    expect(container.querySelector('h1')?.textContent).toBe('Countess');
+    expect(screen.queryByText('Ada Lovelace')).toBeNull();
+  });
+
+  it('CONTROL — a declared pointer that is BLANK on the record falls through to titleFormat', () => {
+    const { container } = renderHeader({
+      objectSchema: { ...contact, nameField: 'nickname' },
+      record: { id: 'rec-5', nickname: '   ', first_name: 'Ada', last_name: 'Lovelace' },
+    });
+    expect(container.querySelector('h1')?.textContent).toBe('Ada Lovelace');
+  });
+
+  it('CONTROL — titleFormat still titles an object that declares no pointer, above the derivation', () => {
+    // `subject` is what the type-aware derivation would pick (a name-ish exact
+    // key, typed text). The template still outranks it: only the declared
+    // pointer moved above the template.
+    const { container } = renderHeader({
+      objectSchema: {
+        ...contact,
+        fields: { ...contact.fields, subject: { type: 'text' } },
+      },
+      record: { id: 'rec-6', subject: 'Fix the widget', first_name: 'Ada', last_name: 'Lovelace' },
+    });
+    expect(container.querySelector('h1')?.textContent).toBe('Ada Lovelace');
+    expect(screen.queryByText('Fix the widget')).toBeNull();
+  });
+
+  it("CONTROL — titleFormat keeps the header's option-label interpolation", () => {
+    const { container } = renderHeader({
+      objectSchema: {
+        name: 'ticket',
+        label: 'Ticket',
+        titleFormat: '{status}',
+        fields: {
+          status: {
+            type: 'select',
+            options: [{ value: 'in_progress', label: 'In Progress' }],
+          },
+        },
+      },
+      record: { id: 'rec-7', status: 'in_progress' },
+    });
+    expect(container.querySelector('h1')?.textContent).toBe('In Progress');
+  });
+
+  it('CONTROL — an explicit `schema.title` still outranks both the pointer and titleFormat', () => {
+    const { container } = renderHeader({
+      objectSchema: { ...contact, nameField: 'nickname' },
+      record: { id: 'rec-8', nickname: 'Countess', first_name: 'Ada', last_name: 'Lovelace' },
+      schema: { type: 'page:header', title: 'Pinned heading' },
+    });
+    expect(container.querySelector('h1')?.textContent).toBe('Pinned heading');
+    expect(screen.queryByText('Countess')).toBeNull();
+    expect(screen.queryByText('Ada Lovelace')).toBeNull();
   });
 });
 

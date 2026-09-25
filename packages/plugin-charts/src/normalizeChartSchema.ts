@@ -467,9 +467,20 @@ export function normalizeChartSchema(
   // ── axes ────────────────────────────────────────────────────────────────
   // Spec `xAxis` is an object; the report surface narrows it to a bare string.
   // Both mean "the column on the category axis".
+  //
+  // The x-axis object is kept whenever it carries ANY presentation key — every
+  // key `normalizeAxis` kept except `field`, the data key hoisted to `xAxisKey`
+  // below (objectui#10516). The set is what `normalizeAxis` read, so it is the
+  // spec's `ChartAxisSchema` key set by construction
+  // (`normalizeChartSchema.specAxisKeys-7690.test.ts` ties the two), and ⛔ it
+  // is not restated here: this gate used to name `format` / `title` /
+  // `showGridLines` by hand, so an axis carrying only `min` / `max` /
+  // `stepSize` / `logarithmic` / `position` was dropped whole and a scatter's
+  // authored x scale never reached its axis. The test asks which keys
+  // survived, never how truthy their values are: `min: 0` counts.
   const xAxisRaw = schema.xAxis;
   const xAxisSpec = normalizeAxis(xAxisRaw, language);
-  if (xAxisSpec && (xAxisSpec.format || xAxisSpec.title || xAxisSpec.showGridLines !== undefined)) {
+  if (xAxisSpec && Object.keys(xAxisSpec).some((key) => key !== 'field')) {
     out.xAxis = xAxisSpec;
   }
   const xAxisKey = str(schema.xAxisKey) ?? xAxisSpec?.field ?? str(xAxisRaw);
@@ -595,8 +606,15 @@ export function effectiveChartFamily<T extends ChartFamily | undefined>(
  * places — and drives `Intl.NumberFormat`, which is already loaded and
  * locale-aware. An unrecognized format returns `undefined`, so the caller
  * keeps its own default formatting rather than rendering something wrong.
+ *
+ * `locale` is the chart's DISPLAY locale (`useDisplayLocale()` in the caller)
+ * and it is REQUIRED on purpose: this is a plain function with no hook to read
+ * it from, and the version that took no locale handed `Intl` an explicit
+ * `undefined` — the MACHINE's locale, neither of the repo's two locale
+ * channels (objectui#9909). A required parameter is the one shape a caller
+ * cannot forget.
  */
-export function formatterFor(format: string | undefined): ((value: any) => string) | undefined {
+export function formatterFor(format: string | undefined, locale: string): ((value: any) => string) | undefined {
   if (!format) return undefined;
   const isPercent = format.includes('%');
   const currencyMatch = /^([$£€¥₹])/.exec(format);
@@ -622,7 +640,7 @@ export function formatterFor(format: string | undefined): ((value: any) => strin
     const n = typeof value === 'number' ? value : Number(value);
     if (!Number.isFinite(n)) return value == null ? '' : String(value);
     try {
-      return new Intl.NumberFormat(undefined, opts).format(n);
+      return new Intl.NumberFormat(locale, opts).format(n);
     } catch {
       return String(n);
     }

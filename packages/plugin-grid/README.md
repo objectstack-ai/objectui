@@ -289,7 +289,8 @@ own percent convention for the sign — so the footer and the cells never read
 under two conventions. A stored `1234.5` renders `Sum: 1,235%` in `en`,
 `Sum: 1.235 %` in `de-DE` (no-break space before the sign) and `Sum: %1.235` in
 `tr-TR`, where the sign goes in front of the number (objectui#9269). The width
-still comes from the column's `precision`.
+comes from the column's `scale` (zero decimal places when absent), never its
+`precision` (objectui#9295).
 
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.

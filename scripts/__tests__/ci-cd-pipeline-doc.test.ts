@@ -1956,7 +1956,7 @@ describe('ci-cd-pipeline.md — live-e2e backend pin (#7689)', () => {
  * the sweeper's wiring by identifier.
  *
  * ⛔ The comparison reads the workflow's `env:` KEYS, never the file as text. A whole-file grep
- * would find `PM_SWEEP_CLOSED_WINDOW_PAGES` in the header at `:39` / `:80` and accept the very
+ * would find `PM_SWEEP_CLOSED_WINDOW_PAGES` in the workflow's header comment and accept the very
  * sentence this block exists to reject — the retired knob is *discussed* there precisely because
  * it is retired. `envKeysOf` below is unit-controlled against that shape.
  */
@@ -3281,35 +3281,32 @@ describe('ci-cd-pipeline.md — populations are pointed at, never counted in pro
     ).toBeUndefined();
   });
 
-  it('copies no page window out of the sweeper, and names the export instead', () => {
+  it('copies no closed-card window out of the sweeper, and names the export instead', () => {
     const sec = flat(PATROL_HEADING);
 
     // ⚠️ This pin decides nothing about whether a `pages?` noun that means *paginated
     // API result pages* belongs to objectui#7448's family at all — that question is
     // objectui#7966's and it is open. It holds only the local fact: a constant copied
     // into prose rots when the export moves, whichever way the noun set is ruled.
+    //
+    // ⚠️ The sweeper is objectstack's and is not in this tree since objectui#10208, so the
+    // export this names is NOT re-read here: whether objectstack still exports it is a
+    // reading this test cannot take. What it holds is the page side — a name, never a value.
     expect(
       sec,
-      'the Half-State Patrol section no longer names `CLOSED_ISSUE_WINDOW_PAGES`. That name is ' +
+      'the Half-State Patrol section no longer names `CLOSED_ISSUE_WINDOW_DAYS`. That name is ' +
         'what replaced the copied value, so restore the pointer rather than the number.',
-    ).toContain('`CLOSED_ISSUE_WINDOW_PAGES`');
+    ).toContain('`CLOSED_ISSUE_WINDOW_DAYS`');
 
-    const sweeper = fs.readFileSync(path.join(repoRoot, 'scripts/pm/check-half-states.mjs'), 'utf8');
-    const literal = /^export const CLOSED_ISSUE_WINDOW_PAGES = (\d+);$/m.exec(sweeper)?.[1];
-    expect(
-      literal,
-      '`CLOSED_ISSUE_WINDOW_PAGES` is no longer a plain literal export of ' +
-        'scripts/pm/check-half-states.mjs, so this test can no longer tell whether the page ' +
-        'restates it. Re-point the extraction before trusting the green below.',
-    ).toBeDefined();
-
-    const counted = sec.match(population('pages?'));
-    expect(
-      counted?.[0],
-      `the Half-State Patrol section states a page window again (found "${counted?.[0]}"). The ` +
-        `sweeper exports it as CLOSED_ISSUE_WINDOW_PAGES (${literal} today) — naming the export ` +
-        `survives the value moving, a copy of the value does not.`,
-    ).toBeUndefined();
+    for (const noun of ['pages?', 'days?']) {
+      const counted = sec.match(population(noun));
+      expect(
+        counted?.[0],
+        `the Half-State Patrol section states a closed-card window again (found "${counted?.[0]}"). ` +
+          'The sweeper exports it as CLOSED_ISSUE_WINDOW_DAYS — naming the export survives the ' +
+          'value moving, a copy of the value does not.',
+      ).toBeUndefined();
+    }
   });
 });
 
@@ -3443,6 +3440,18 @@ function inheritedDeclarations(): Map<string, string> {
  */
 const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
   [
+    'spec-main-shape-gate.yml: scripts/dependabot-merge-gate.mjs',
+    'Named as the registry that classifies this context `NOT_A_GATE` — and, in the same ' +
+      'sentence, as the in-tree half of the action that would make it required. A declaration ' +
+      'this section points at, not a step this workflow runs (objectui#9860).',
+  ],
+  [
+    'spec-main-shape-gate.yml: scripts/check-required-check-set.mjs',
+    'Named as the one thing in this tree that can READ the ruleset where requiredness actually ' +
+      'lives, in the sentence saying this gate is requirable and not required. A different ' +
+      "workflow's instrument, cited to keep the claim falsifiable (objectui#9860).",
+  ],
+  [
     'changeset-guard.yml: scripts/check-changeset-presence.mjs',
     'Introduced by the words "Deliberately not listed": the overwrite gate imports that ' +
       "script's base-ref resolver and frontmatter reader, so the section names it to say it is a " +
@@ -3483,12 +3492,6 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       'would delete the correction.',
   ],
   [
-    'governed-surface-guard.yml: scripts/pm/check-half-states.mjs',
-    'Named as a DIFFERENT question — its H31 compares the gate\'s two carriers with each other, ' +
-      'which the section cites to explain that nothing in this repository answers the verdict ' +
-      'question this gate deliberately does not answer either.',
-  ],
-  [
     'governed-surface-guard.yml: scripts/dependabot-merge-gate.mjs',
     'Named as "the only thing this repository can write down, and has" about required contexts — ' +
       'a declaration this section points at, not a step it runs.',
@@ -3501,11 +3504,6 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       "`--self-test` and bare invocations the job runs. The section offers it as the local " +
       'reproduction spelling and names the raw `--test` spelling beside it. ⛔ Whether such an ' +
       'alias should ever merge is a decision about the RULE — reported, not taken here.',
-  ],
-  [
-    'half-state-patrol.yml: scripts/invoked-as.mjs',
-    "Named inside the section's enumeration of the workflow's TRIGGER PATHS (\"or a pull request " +
-      'touching …"), which is not a command claim at all.',
   ],
   [
     'hook-selftests.yml: scripts/dependabot-merge-gate.mjs',

@@ -11,6 +11,12 @@
  * `GET /api/v1/i18n/locales` returns descriptors whose `label` is the code
  * echoed back (`toLocaleDescriptors` in @objectstack/spec), so a server label
  * would put `th` in the menu where `ไทย` belongs.
+ *
+ * It is also not a device-local setting any more (objectui#10059). A switch made
+ * while signed in writes `sys_user.locale` — the column the profile page's
+ * language card already writes — so the two controls are two faces of one
+ * stored value instead of two settings sharing one word. `useLanguageSelection`
+ * owns that; this file owns the menu.
  */
 
 import { Globe } from 'lucide-react';
@@ -22,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
+import { useLanguageSelection } from '../hooks/useUserLocale.js';
 
 /**
  * Native display names for the built-in language packs.
@@ -73,7 +80,11 @@ export function localeLabel(code: string): string {
 }
 
 export function LocaleSwitcher() {
-  const { t, language, changeLanguage, offerableLanguages } = useObjectTranslation();
+  const { t, language, offerableLanguages } = useObjectTranslation();
+  // ⛔ Not the i18n context's bare `changeLanguage`: while signed in the switch
+  // has to reach `sys_user.locale`, or the globe and the profile page go on
+  // naming two settings (objectui#10059). Signed out it IS the bare switch.
+  const selectLanguage = useLanguageSelection();
 
   // Still asking the app which locales it ships. Render nothing rather than a
   // fallback list that would be replaced a tick later — the same idiom the
@@ -94,7 +105,7 @@ export function LocaleSwitcher() {
         {offerableLanguages.map((code) => (
           <DropdownMenuItem
             key={code}
-            onClick={() => changeLanguage(code)}
+            onClick={() => void selectLanguage(code)}
             className="gap-2"
           >
             {localeLabel(code)}

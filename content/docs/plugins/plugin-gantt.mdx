@@ -129,6 +129,8 @@ const schema: ObjectGanttSchema = {
   readOnly?: boolean                // disable every edit path
   filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
   sort?: Array<{ field, order }>,   // ordering — applies on EVERY provider
+  search?: string,                  // full-text term, sent as $search — applies on EVERY provider
+  searchableFields?: string[],      // narrows what `search` matches, sent as $searchFields with a term
 }
 ```
 
@@ -138,6 +140,12 @@ order fetched ones, and the platform row ceiling — 2,000 drawn rows with a
 footnote naming both numbers — applies to inline rows too. The ceiling is
 applied to the **filtered** set, so a large inline array that a `filter` cuts
 below the ceiling draws every matching row and shows no footnote.
+
+`search` is the chart's full-text term. A list view's toolbar Search box writes
+it (with the view's `searchableFields`) onto its gantt node, because the chart
+runs its own query; the server decides which fields a term matches unless
+`searchableFields` narrows them, and a `searchableFields` with no term sends
+nothing.
 
 `onTaskClick` and `className` are **React props on `<ObjectGantt>`**, not schema
 keys — the renderer never reads them off the schema, and a function cannot

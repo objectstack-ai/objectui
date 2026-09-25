@@ -3,9 +3,9 @@
  *
  * The full inner-SPA shell (ConsoleLayout, CommandPalette, ObjectView etc.)
  * lives in @object-ui/app-shell as DefaultAppContent. This wrapper only
- * injects console-specific system routes (SystemHub / AppManagement /
- * Profile) plus the optional legacy metadata editor — third-party hosts
- * that don't need those routes use DefaultAppContent directly.
+ * injects console-specific system routes (AppManagement / Profile / Settings
+ * and the legacy-URL redirects) — third-party hosts that don't need those
+ * routes use DefaultAppContent directly.
  */
 
 import { lazy, Suspense, useMemo } from 'react';
@@ -14,12 +14,7 @@ import { DefaultAppContent, LoadingScreen } from '@object-ui/app-shell';
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
-import {
-  UploadProvider,
-  createObjectStackUploadAdapter,
-} from '@object-ui/providers';
 
-const SystemHubPage = lazy(() => import('./pages/system/SystemHubPage').then(m => ({ default: m.SystemHubPage })));
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ApprovalsInboxPage = lazy(() => import('./pages/system/ApprovalsInboxPage').then(m => ({ default: m.ApprovalsInboxPage })));
@@ -27,7 +22,6 @@ const AiPendingActionsPage = lazy(() => import('./pages/system/AiPendingActionsP
 const AuditLogPage = lazy(() => import('./pages/system/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
 const SettingsHub = lazy(() => import('./pages/settings/SettingsHub').then(m => ({ default: m.SettingsHub })));
 const SettingsView = lazy(() => import('./pages/settings/SettingsView').then(m => ({ default: m.SettingsView })));
-const DeveloperHubPage = lazy(() => import('./pages/developer/DeveloperHubPage').then(m => ({ default: m.DeveloperHubPage })));
 const ApiConsolePage = lazy(() => import('./pages/developer/ApiConsolePage').then(m => ({ default: m.ApiConsolePage })));
 const FlowRunsPage = lazy(() => import('./pages/developer/FlowRunsPage').then(m => ({ default: m.FlowRunsPage })));
 const PublicFormsPage = lazy(() => import('./pages/developer/PublicFormsPage').then(m => ({ default: m.PublicFormsPage })));
@@ -111,8 +105,11 @@ function MetadataRedirect() {
  * (User/Role/Permission/Audit/Org) … these objects are now contributed by
  * framework plugins (plugin-auth, -security, -audit) into the Setup app
  * navigation and resolved via the generic /apps/setup/<object_name> route."
- * The pages went; the URLs did not — `SystemHubPage`'s cards and both sidebars'
- * `sys-*` cluster still emit them, and so do bookmarks. Nothing declared them
+ * The pages went; the URLs did not — both sidebars' `sys-*` cluster still
+ * emits three of them (`users`, `organizations`, `roles`), bookmarks carry all
+ * five. Until objectui#3743 retired it, the system hub's card wall was the
+ * in-app producer of the other two (`positions`, `permissions`); those two now
+ * arrive from bookmarks only. Nothing declared them
  * afterwards, so they fell through to app-shell's tail and produced TWO
  * different failures depending on the word's length (`looksLikeRecordId`
  * requires 6+ chars): `users` / `roles` reached `RouteNotFound`, while
@@ -131,8 +128,9 @@ function MetadataRedirect() {
  *                                       that a static redirect cannot resolve)
  *   roles         -> sys_position      (ADR-0090 D3 renamed `sys_role` ->
  *                                       `sys_position`; the sidebar's "Roles"
- *                                       and the hub's "Positions" are the same
- *                                       surface under old/new vocabulary)
+ *                                       and the retired hub's "Positions" were
+ *                                       the same surface under old/new
+ *                                       vocabulary)
  *   positions     -> sys_position      (`nav_positions`)
  *   permissions   -> sys_permission_set(`nav_permission_sets`; this one was
  *                                       held back in PR #3673 and is resolved
@@ -153,6 +151,48 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
   return <Navigate to={`${prefix}/${objectName}`} replace />;
 }
 
+/**
+ * The bare `…/system` landing: forwards onto `…/system/settings`, the settings
+ * hub (objectui#3743).
+ *
+ * This URL used to render `SystemHubPage`, a hand-written card wall that
+ * mirrored the navigation next to it: its own card array, its own count
+ * queries, its own badge copy. Every change to the object or permission model
+ * had to be copied into it by hand, and the retirement ruling lists the repair
+ * rounds it needed for drifting (objectui#3670, #3679, #3680, #3686, #3655).
+ * objectui#3743 retired it. The
+ * URL stays, because app-shell sends users here: both sidebars' `sys-settings`
+ * entry, the zero-app empty state's "System Settings" button, the home Quick
+ * Action, the sidebar header and user menu, and the legacy `/system` bookmark
+ * redirect all target `/apps/setup/system`.
+ *
+ * WHERE it lands is read off the navigation, not chosen here. `system/settings`
+ * is the one system entry that all three navigations declared when this
+ * redirect landed (a reading taken once — nothing re-derives it):
+ *
+ *   - the framework Setup app: `nav_settings_hub` ("All Settings",
+ *     `/apps/setup/system/settings`), from `platform-objects`' Setup
+ *     navigation contributions;
+ *   - `AppSidebar.systemFallbackNavigation`: `sys-config`;
+ *   - `UnifiedSidebar`'s `/home` Administration cluster: `sys-config`.
+ *
+ * The page is driven by a registry too: `SettingsHub` lists the settings
+ * manifests the server returns for this user, so nothing on it is hand-kept.
+ * The target is also declared in both `DefaultAppContent` route tables (this
+ * fragment is passed as `extraRoutes` AND `extraRoutesNoApp`), so it renders on
+ * a zero-app deployment. Redirecting to the app root instead would not: there,
+ * `/apps/setup` is the "No Apps Configured" empty state whose "System Settings"
+ * button brings the user here, which would be a loop (objectui#3590).
+ *
+ * Resolved relative to this route's own match (`…/system`), so the active-app
+ * prefix is kept. Same treatment of `location.search` / `location.hash` as
+ * `SystemObjectRedirect` above: neither is forwarded, because no producer
+ * sends either.
+ */
+function SystemLandingRedirect() {
+  return <Navigate to="settings" replace />;
+}
+
 // Exported for `__tests__/AppContent.legacyRedirects.test.tsx`, which mounts
 // this exact fragment in a bare `MemoryRouter` to measure the redirect chain.
 // Transcribing the routes into the test instead would let the copy drift from
@@ -160,7 +200,7 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
 // spelling survived here long after it stopped being canonical (objectui#3639).
 export const systemRoutes = (
   <>
-    <Route path="system" element={<Suspense fallback={<LoadingScreen />}><SystemHubPage /></Suspense>} />
+    <Route path="system" element={<SystemLandingRedirect />} />
     <Route path="system/apps" element={<Suspense fallback={<LoadingScreen />}><AppManagementPage /></Suspense>} />
     <Route path="system/profile" element={<Suspense fallback={<LoadingScreen />}><ProfilePage /></Suspense>} />
     <Route path="system/approvals" element={<Suspense fallback={<LoadingScreen />}><ApprovalsInboxPage /></Suspense>} />
@@ -168,7 +208,13 @@ export const systemRoutes = (
     <Route path="system/audit-log" element={<Suspense fallback={<LoadingScreen />}><AuditLogPage /></Suspense>} />
     <Route path="system/settings" element={<Suspense fallback={<LoadingScreen />}><SettingsHub /></Suspense>} />
     <Route path="system/settings/:namespace" element={<Suspense fallback={<LoadingScreen />}><SettingsView /></Suspense>} />
-    <Route path="developer" element={<Suspense fallback={<LoadingScreen />}><DeveloperHubPage /></Suspense>} />
+    {/* No bare `developer` route (objectui#10520): the Developer Hub card wall
+        retired once all four of its destinations were `developer:*` registry
+        keys that framework navigation can name. A `/developer` bookmark falls
+        through to app-shell's generic `:objectName` route instead of a blank
+        screen; what it lands on is measured in
+        `__tests__/AppContent.systemHubRoutes.test.tsx`. The sub-page routes
+        below stay for bookmarks and deep links. */}
     <Route path="developer/api-console" element={<Suspense fallback={<LoadingScreen />}><ApiConsolePage /></Suspense>} />
     <Route path="developer/flow-runs" element={<Suspense fallback={<LoadingScreen />}><FlowRunsPage /></Suspense>} />
     <Route path="developer/public-forms" element={<Suspense fallback={<LoadingScreen />}><PublicFormsPage /></Suspense>} />
@@ -204,13 +250,12 @@ export const systemRoutes = (
             capability container" (object CRUD + field security + access depth
             + system capabilities). FUNCTION points here.
 
-        Decided as A, `sys_permission_set` (objectui#3655): the card that emits
-        this URL reads "Manage permission rules and assignments", and
+        Decided as A, `sys_permission_set` (objectui#3655): the card that
+        emitted this URL read "Manage permission rules and assignments", and
         rules-and-assignments is layer 2 — the definition catalog is what you
-        reference BY NAME from a set, not what you assign. Deliberately a
-        transitional alias: option C (retiring this bespoke card wall together
-        with the hub, already `@deprecated`) stays open and does not conflict,
-        because a redirect keeps old bookmarks resolving either way.
+        reference BY NAME from a set, not what you assign. Option C, retiring
+        that bespoke card wall, was ruled and carried out later (objectui#3743);
+        the redirect stays, because it is what keeps old bookmarks resolving.
 
         One correction worth leaving here, since it circulated while this was
         open: the "capabilities are platform-locked, permission sets are the
@@ -231,13 +276,18 @@ export function AppContent() {
   const serverUrl = import.meta.env.VITE_SERVER_URL || '';
   const endpoint = `${serverUrl}/api/v1/auth/me/permissions`;
   const localizationEndpoint = `${serverUrl}/api/v1/auth/me/localization`;
-  // Wire ImageField / FileField / CommentAttachment to the ObjectStack
-  // storage service. Memoised so the adapter (and any in-flight uploads)
-  // survive re-renders of AppContent's parents.
-  const uploadAdapter = useMemo(
-    () => createObjectStackUploadAdapter({ baseUrl: serverUrl }),
-    [serverUrl],
-  );
+  // The ObjectStack upload destination for ImageField / FileField /
+  // CommentAttachment used to be mounted HERE, and that was the defect
+  // objectui#10131 measured: this component is the element of a single route
+  // (`/apps/:appName/*`), while `ConnectedShell`'s
+  // `GlobalActionRuntimeProvider` renders the action-param dialog and the
+  // `ModalForm` a modal action opens as SIBLINGS of the route element. Those
+  // dialogs therefore sat outside the provider, `useUpload()` fell open to
+  // `createObjectUrlAdapter()` without a word, and a file picked in one of
+  // them reached the engine as an inline blob object with no request ever
+  // sent. It now lives in `App`, above `ConsoleShell`, so every console
+  // surface shares one upload destination — see the rationale on
+  // `uploadAdapter` there.
   // [#2926 ④] /me/permissions must carry the Bearer token like every other
   // data call (same wrapper AdapterProvider uses) — with the cookie-only
   // default fetch, a token-only session resolved as anonymous and FLS
@@ -257,9 +307,7 @@ export function AppContent() {
       errorFallback={(err, retry) => <LoadingScreen error={err.message} onRetry={retry} />}
     >
       <LocalizationFetchProvider endpoint={localizationEndpoint}>
-        <UploadProvider adapter={uploadAdapter}>
-          <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
-        </UploadProvider>
+        <DefaultAppContent extraRoutes={systemRoutes} extraRoutesNoApp={systemRoutes} />
       </LocalizationFetchProvider>
     </MePermissionsProvider>
   );

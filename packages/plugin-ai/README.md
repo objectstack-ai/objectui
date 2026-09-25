@@ -5,7 +5,7 @@ AI-powered components for Object UI — form assistance, recommendations, and na
 ## Features
 
 - 🤖 **AI Form Assist** - Intelligent field suggestions and auto-fill for forms
-- 💡 **AI Recommendations** - Display AI-generated recommendations in list, grid, or carousel layouts
+- 💡 **AI Recommendations** - Display AI-generated recommendations in list or grid layouts
 - 🗣️ **Natural Language Query** - Let users query data using natural language
 - 📦 **Auto-registered** - Components register with `ComponentRegistry` on import
 - 🎯 **Type-Safe** - Full TypeScript support
@@ -116,7 +116,7 @@ declare const data: AIRecommendationItem[];
 const productPicks: AIRecommendationsSchema = {
   type: 'ai-recommendations',
   recommendations: data.slice(0, 10), // every item handed over is rendered
-  layout: 'list', // 'list' | 'grid' | 'carousel'
+  layout: 'list', // 'list' | 'grid'
   showScores: false,
   emptyMessage: 'No recommendations available',
 };
@@ -164,6 +164,18 @@ registers as `nl-query`:
   "showReasoning": true
 }
 ```
+
+## Localization
+
+The components read their built-in copy (button labels, headings, the empty
+and loading states, the default `placeholder` and `emptyMessage`) from the
+`ai.*` namespace of `@object-ui/i18n`, so they follow the language of the
+`I18nProvider` they are mounted under. With no provider they render English.
+
+Dates (the `nl-query` history) and percentages (confidence and score badges)
+are formatted in the display locale — `useDisplayLocale()` from
+`@object-ui/i18n`: the tenant's regional locale when one is configured, the UI
+language otherwise — never in the machine's locale (objectui#10232).
 
 ## What these components do not do
 

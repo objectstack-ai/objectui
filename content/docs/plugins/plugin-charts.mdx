@@ -226,6 +226,46 @@ const schema: ChartSchema = {
 }
 ```
 
+##### Axis options
+
+`xAxis` and `yAxis` take `@objectstack/spec`'s axis object — the `ChartAxis` a dashboard widget's `chartConfig` uses, with the same keys and the same checks. `xAxis` is one object; `yAxis` is a **list**, one entry per value axis, and a second entry declares the right-hand axis. The object is strict: an undeclared key is refused at parse, with the spec's own hint (`Did you mean grid → showGridLines?`).
+
+| Key | Type | Effect |
+|---|---|---|
+| `field` | `string` | **Required.** The column the axis reads. On `xAxis` it names the category column (`xAxisKey` wins when both are written); on `yAxis`, when the chart has neither `series` nor `categories`, the entries' `field`s are the plotted columns. |
+| `title` | `string` or inline locale map | Axis title, resolved to the viewer's language. |
+| `format` | `string` | Tick number format, e.g. `"$0,0.00"` or `"0.0%"`. A string the renderer does not recognise keeps the default ticks. |
+| `min` / `max` | `number` | Pin the ends of a numeric axis: the value axes, and the x axis of a `scatter` chart. |
+| `stepSize` | `number` | Distance between ticks on a numeric axis. |
+| `showGridLines` | `boolean` | `false` on the first `yAxis` entry hides the horizontal grid lines; `true` on `xAxis` draws vertical ones. |
+| `position` | `'left' \| 'right' \| 'top' \| 'bottom'` | The side of the chart the axis belongs to. |
+| `logarithmic` | `boolean` | Logarithmic scale on a numeric axis. |
+
+A bare string is not an axis object. `xAxis: 'month'` is the sibling spelling of `xAxisKey` and folds onto it at parse; a single object or a bare string on `yAxis` is refused — write a one-entry list.
+
+```tsx
+import type { ChartSchema } from '@object-ui/types'
+
+const schema: ChartSchema = {
+  type: 'chart',
+  chartType: 'line',
+  data: [
+    { month: 'Jan', revenue: 4000, margin: 0.21 },
+    { month: 'Feb', revenue: 3000, margin: 0.18 }
+  ],
+  xAxis: { field: 'month', title: 'Month' },
+  yAxis: [
+    { field: 'revenue', title: 'Revenue', format: '$0,0', min: 0 },
+    // the second entry is the right-hand axis the `margin` series binds to
+    { field: 'margin', title: { en: 'Margin', fr: 'Marge' }, format: '0.0%' }
+  ],
+  series: [
+    { name: 'revenue' },
+    { name: 'margin', yAxis: 'right' }
+  ]
+}
+```
+
 ## Examples
 
 ### Revenue Dashboard
@@ -311,6 +351,16 @@ const schema = {
   className: 'h-64 sm:h-96 lg:h-[500px]'
 }
 ```
+
+## Axis Tick Labels and the Host Page Font
+
+**Precondition:** the host page's `body` font family must match the font family the chart's axis tick labels render with. When the two differ, Recharts computes its tick-density and collision decisions against the wrong glyph metrics: tick labels overlap when the page font is narrower than the tick font, and labels that would have fitted are dropped from the axis when it is wider. Nothing reports the mismatch — there is no error and no warning, only a different set of visible labels.
+
+To meet it, render charts in the page's body font: set your font stack on `body`, and do not give a chart, or any element between `body` and the chart, a different `font-family`.
+
+Why it happens: on any axis whose `interval` is not a number — Recharts' default `preserveEnd`, and `preserveStart`, `preserveStartEnd`, `equidistantPreserveStart` and `equidistantPreserveEnd` — Recharts chooses which tick labels to keep by measuring every label: its width on a horizontal axis, its height on a vertical one. It takes that measurement in a hidden `span` that it appends to `document.body`, so the span inherits the page's body font family rather than the chart's. After the first render Recharts reads the computed `fontSize` and `letterSpacing` back from a rendered tick and measures again with them, but it never reads `fontFamily`, and a `fontFamily` in an axis's `tick` props does not reach the measurement either. A numeric `interval` (such as `0`) skips the measurement altogether. The fix belongs in Recharts itself; it is tracked in [objectui#9430](https://github.com/objectstack-ai/objectui/issues/9430).
+
+This package has one instance of it. `ChartImpl`, the component the `bar-chart` type lazy-loads, sets `fontFamily: 'monospace'` in its y-axis `tick` props and gives that axis no `interval`, so the axis runs Recharts' default `preserveEnd` thinning and its labels are measured in the page's body font instead of in monospace. Its x-axis carries the same font but sets `interval={0}`, which skips the measurement. Because a vertical axis measures label heights, and the measuring `span` is one line tall — its height comes from the `line-height` it inherits from `body`, and depends on the font family only when that `line-height` is `normal` — this y-axis can keep a different set of labels only on a page that leaves `line-height` at `normal`.
 
 ## TypeScript Support
 

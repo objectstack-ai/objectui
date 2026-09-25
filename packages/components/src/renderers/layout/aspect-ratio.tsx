@@ -49,7 +49,8 @@ ComponentRegistry.register('aspect-ratio',
       { name: 'ratio', type: 'number' },
       { name: 'image', type: 'string' },
       { name: 'alt', type: 'string' },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot', description: 'Content rendered inside the ratio box when no `image` is set' }
     ],
     defaultProps: {
       ratio: 16 / 9

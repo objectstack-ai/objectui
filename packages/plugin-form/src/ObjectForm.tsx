@@ -27,7 +27,13 @@ import {
 } from './submitRedirectNavigation';
 import { usePermissions } from '@object-ui/permissions';
 import { sectionPredicateUnsupportedWarning } from './sectionPredicateDiagnostic';
-import { warnUnresolvedTopLevelField, warnSectionMemberExcludedByFields } from './sectionFields';
+import {
+  warnUnresolvedTopLevelField,
+  warnSectionMemberExcludedByFields,
+  buildSectionFields,
+  sectionEntryName,
+  type SectionFieldsContext,
+} from './sectionFields';
 import { TabbedForm } from './TabbedForm';
 import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
 import { SplitForm } from './SplitForm';
@@ -42,11 +48,20 @@ import {
   filterSystemFields,
   inferColumns,
 } from './autoLayout';
-import { deriveFieldGroupSections, projectSectionDivider } from './fieldGroups';
+import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
+import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
-import { sanitizeFormData } from './sanitize';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
+import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   schemaDefaultValues,
   isCreateFormMode,
@@ -224,18 +239,11 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
       return resolved === (s.sections as any) ? s : { ...s, sections: resolved as any };
     };
     if (!perms?.isLoaded) return withGroups(base);
-    const gateField = (f: any) => {
-      if (!f?.name) return f;
-      const canRead = perms.checkField(base.objectName, f.name, 'read');
-      if (!canRead) return null;
-      const canWrite = perms.checkField(base.objectName, f.name, 'write');
-      if (!canWrite && base.mode !== 'view') {
-        return { ...f, readOnly: true, disabled: true };
-      }
-      return f;
-    };
+    // ONE render gate, shared with `ModalForm` and `DrawerForm` — see
+    // `fieldWriteGate.ts` for why the copy each container used to carry is the
+    // defect rather than the style (objectui#10120).
     const filterArr = (arr?: any[]) =>
-      Array.isArray(arr) ? arr.map(gateField).filter(Boolean) : arr;
+      applyFieldPermissions(arr, { perms, objectName: base.objectName, mode: base.mode });
     return withGroups({
       ...base,
       fields: filterArr(base.fields as any[]),
@@ -514,6 +522,12 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
             columns: s.columns,
             // `?? []` — see the tabbed arm above (objectui#7051).
             fields: s.fields ?? [],
+            // The collapse pair (objectui#9849 step two — director ruling
+            // letter E, item 1: group semantics attach 「on every arm」). The
+            // spec declares both on `sections[]`; this map used to copy
+            // neither, so the modal silently ignored a declared collapse.
+            collapsible: s.collapsible,
+            collapsed: s.collapsed,
             // ADR-0089 section predicate (#6111) — key-by-key rebuild, so an
             // uncopied key is silently dropped before ModalForm ever sees it.
             visibleWhen: (s as any).visibleWhen,
@@ -544,32 +558,23 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const isMobile = useIsMobile();
+  // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
+  // file/image widget below me still uploading" answer, the Save label while it
+  // is true, and the sentence that says why. See `uploadGate.tsx`.
+  const uploadGate = useUploadGate();
   // Field-level permission gate. When the consumer hasn't mounted a
   // PermissionProvider / MePermissionsProvider, `usePermissions` returns
   // a permissive default (isLoaded:false, checkField always true) so we
   // remain backward-compatible.
   const perms = usePermissions();
   const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] => {
-      if (!perms?.isLoaded) return fields;
-      const out: FormField[] = [];
-      for (const f of fields) {
-        const canRead = perms.checkField(schema.objectName, f.name, 'read');
-        if (!canRead) continue; // omit hidden fields entirely
-        const canWrite = perms.checkField(schema.objectName, f.name, 'write');
-        if (!canWrite && schema.mode !== 'view') {
-          out.push({
-            ...f,
-            readOnly: true,
-            disabled: true,
-            description: f.description ?? 'You do not have edit access to this field.',
-          });
-        } else {
-          out.push(f);
-        }
-      }
-      return out;
-    },
+    (fields: FormField[]): FormField[] =>
+      applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        deniedDescription: 'You do not have edit access to this field.',
+      }) as FormField[],
     [perms, schema.objectName, schema.mode],
   );
 
@@ -629,6 +634,16 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
+
+  // The record this form READ for the record it edits — the baseline an edit
+  // save diffs against, so only the fields that changed are written
+  // (objectui#10156). A ref, not state: only the save path reads it, and
+  // nothing renders from it. Set by the `findOne` below and nowhere else, so a
+  // caller-supplied record (inline fields, `initialData`) never becomes a
+  // baseline and its save keeps sending every field. `initialData` itself is
+  // left alone: it seeds the form and supplies the OCC token, and advancing it
+  // after a save would reseed the one and move the other.
+  const loadedRecordRef = React.useRef<LoadedRecordSnapshot | null>(null);
 
   // Check if using inline fields (fields defined as objects, not just names)
   const hasInlineFields = schema.customFields && schema.customFields.length > 0;
@@ -705,6 +720,8 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         setInitialData(resolveInitialRecord(schema));
         setLoading(false);
         return;
@@ -724,6 +741,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        // Tagged with the object and record it was read for, so a save that
+        // runs against a different one finds no baseline and sends everything.
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setInitialData(data);
       } catch (err) {
         console.error('Failed to fetch record:', err);
@@ -752,7 +772,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // description of the member ("Field definitions merged over the set generated
   // from object metadata. With inline definitions and no data source, this
   // becomes the only field source.") is the contract, and the per-member merge
-  // below (`schema.customFields?.find(...)`) was written for it — but a
+  // (now `mergeCustomFields`, objectui#10073) was written for it — but a
   // non-empty `customFields` used to return from here with
   // `setFormFields(schema.customFields.map(normalizeVisibility))` BEFORE the
   // generated set existed, so that lookup only ever ran over an empty array.
@@ -764,11 +784,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   //   append   — a member naming a field the metadata never declares is added
   //              after the generated set, in authored order.
   // With no data source the generated set is empty, so the members remain the
-  // only field source (the registration's second sentence) — unchanged.
+  // only field source (the registration's second sentence) — unchanged. The
+  // drawer and modal arms resolve their members through the same helper, pinned
+  // per arm by `drawerModalCustomFieldsMerge-10073.test.tsx`.
   useEffect(() => {
     if (!objectSchema) return;
-
-    const generatedFields: FormField[] = [];
 
     // Managed-object blanket lock (ADR-0092 D4 / ADR-0103). We disable every
     // field when the object's resolved CRUD affordance for the CURRENT mode is
@@ -808,6 +828,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         ? fieldsToShow 
         : Object.keys(fieldsToShow);
 
+    const resolved: Array<{ name: string; entry: (typeof fieldNames)[number] }> = [];
     fieldNames.forEach((fieldName) => {
       // If fieldsToShow is an array of strings, fieldName is the string
       // If fieldsToShow is array of objects (unlikely but possible in some formats), we need to extract name
@@ -820,20 +841,18 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         warnUnresolvedTopLevelField(fieldName, schema.objectName);
         return;
       }
+      resolved.push({ name, entry: fieldName });
+    });
 
+    // The generated half of the merge: `undefined` for a name the object does
+    // not declare, which `mergeCustomFields` then draws only if a member names
+    // it. Field-level permissions are enforced downstream by `applyFieldPerms`
+    // (the real per-caller gate via `perms.checkField`); the schema itself
+    // carries no per-caller permission bits (objectstack#3661).
+    const generateField = (name: string, index: number): FormField | undefined => {
+      const fieldName = resolved[index].entry;
       const field = objectSchema.fields?.[name];
-      if (!field && !hasInlineFields) return; // Skip if not found in object definition unless inline
-
-      // Field-level permissions are enforced downstream by `applyFieldPerms`
-      // (the real per-caller gate via `perms.checkField`); the schema itself
-      // carries no per-caller permission bits (objectstack#3661).
-
-      // Check if there's a custom field configuration
-      const customField = schema.customFields?.find(f => f.name === name);
-      
-      if (customField) {
-        generatedFields.push(normalizeVisibility(customField));
-      } else if (field) {
+      if (field) {
         // Auto-generate field from schema
         const formField: FormField = {
           name: name,
@@ -1008,25 +1027,22 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           (formField as any).visibleOn = field.visible_on;
         }
 
-        generatedFields.push(formField);
+        return formField;
       }
-    });
+      return undefined;
+    };
 
-    // objectui#9778 — the APPEND direction. A member naming a field the
-    // generated set does not carry (an object metadata never declared, or one
-    // the `fields` whitelist left out) is added after it, in authored order;
-    // members that already overrode a generated field above are not repeated.
-    if (hasInlineFields && schema.customFields) {
-      const alreadyDrawn = new Set(generatedFields.map((f) => f.name));
-      schema.customFields.forEach((customField: any) => {
-        const name = customField?.name;
-        if (!name || alreadyDrawn.has(name)) return;
-        alreadyDrawn.add(name);
-        generatedFields.push(normalizeVisibility(customField));
-      });
-    }
-
-    setFormFields(generatedFields);
+    // objectui#9778 — override / keep / append, spelled ONCE in
+    // `customFieldsMerge.ts` and shared with the drawer and modal arms
+    // (objectui#10073), so every `formType` merges the same way.
+    setFormFields(
+      mergeCustomFields(
+        resolved.map((r) => r.name),
+        schema.customFields,
+        generateField,
+        normalizeVisibility,
+      ),
+    );
 
     // Only set loading to false if we are not going to fetch data
     // This prevents a flash of empty form before data is loaded in edit mode
@@ -1038,6 +1054,17 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {
+    // An upload is still in flight (objectui#10166). A `file`/`image` value is
+    // only its fileId once the presigned upload settles, so writing now stores
+    // the record WITHOUT the attachment and reports success — the silent loss
+    // this guard exists to stop. Refuse and say why: the Save button already
+    // reads "Uploading…" and the notice beside it carries the same sentence,
+    // and this arm is what covers a keyboard submit (the flat path's button is
+    // rendered by the `form` node renderer and cannot be disabled from here).
+    if (uploadGate.uploading) {
+      toast.error(uploadGate.reason);
+      return;
+    }
     // If we receive an event as the first argument, it means the Form renderer passed the event instead of data
     // This happens when react-hook-form's handleSubmit is bypassed or configured incorrectly
     if (formData && (formData.nativeEvent || formData._reactName === 'onSubmit')) {
@@ -1086,7 +1113,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
     // forms `objectSchema` is a field-less stub, so pass null to strip only the
     // server-managed keys rather than dropping every (schema-less) value.
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema);
+    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
+    // retains state for unmounted/disabled fields, so a field the caller may
+    // read but not edit is in `formData` even though the gate above rendered
+    // it non-editable. The verdict is the resolver's, adapted by
+    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
+    // strip loop beside this call (objectui#10120).
+    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
+      canEdit: fieldWriteGate(perms, schema.objectName),
+    });
     // A CREATE payload omits the fields the producer owns (#4069): a rendered
     // control registers even when nothing seeded it, so an untouched
     // runtime-default field would ride along as `undefined`/`''` and defeat
@@ -1095,17 +1130,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (isCreateFormMode(schema)) {
       payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
     }
-    // FLS defence-in-depth: never trust the client to include a field the user
-    // lacked edit access to — drop any that fail the write check.
-    if (perms?.isLoaded && payload && typeof payload === 'object') {
-      const stripped: Record<string, unknown> = {};
-      for (const k of Object.keys(payload)) {
-        if (perms.checkField(schema.objectName, k, 'write')) {
-          stripped[k] = (payload as Record<string, unknown>)[k];
-        }
-      }
-      payload = stripped;
-    }
+    // An EDIT writes only the fields that differ from the record this form
+    // read (objectui#10156) — on BOTH write routes below: the host-owned seam,
+    // which is how a master-detail form's parent operation is built, and the
+    // plain OCC-guarded update. Anything that cannot be settled is sent; see
+    // `dirtyEditPayload` for the whole rule, including why an empty diff sends
+    // the full payload. Every other mode gets `payload` back unchanged. The
+    // full `payload` stays the submit-redirect scope below: it is the record as
+    // the form now holds it, whether or not a field was written.
+    const writePayload = dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
     try {
       let result;
@@ -1114,7 +1147,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         // The host owns persistence (e.g. MasterDetailForm batching the parent
         // + children into one atomic transaction). The form just validates and
         // hands over the values; it does NOT create/update itself.
-        result = await schema.submitHandler(payload);
+        result = await schema.submitHandler(writePayload);
       } else if (!dataSource) {
         // No route left: no host seam and no adapter. Refuse instead of
         // reporting success — the `catch` below hands this to `schema.onError`
@@ -1131,7 +1164,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: initialData,
         });
         if (outcome.status === 'cancelled') return;
@@ -1139,6 +1172,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       } else {
         throw new Error('Invalid form mode or missing record ID');
       }
+      // The write landed: the next save from this still-mounted form diffs
+      // against the record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
 
       // Call success callback if provided, else give default feedback. Skip the
       // default when a `submitHandler` owns persistence (e.g. MasterDetailForm
@@ -1279,7 +1315,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData]);
+  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1446,34 +1482,38 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       clampCol(schema.columns) ??
       (declaredSectionCols.length ? Math.max(...declaredSectionCols) : inferColumns(approxInputs));
     const groupedFields: FormField[] = [];
+    // The section builder every other arm uses (objectui#10475), handed this
+    // arm's parent field POOL: a section's members come out in the section's
+    // AUTHORED order with each entry's full override set applied (`label`,
+    // `required`, `readonly`, `helpText`, `visibleWhen`, …), onto the POOLED
+    // field as the base. The pool still decides membership (objectui#9884's
+    // intersection, warned below) and the per-field facts only this arm's
+    // generator knows — see `SectionFieldsContext.pool`.
+    const sectionCtx: SectionFieldsContext = {
+      objectSchema,
+      objectName: schema.objectName,
+      readOnly: schema.readOnly,
+      mode: schema.mode,
+      recordId: schema.recordId,
+      fieldLabel,
+      customFields: schema.customFields,
+      pool: sourceFields,
+    };
     effectiveSections.forEach((section, index) => {
-      // Section field defs may carry a per-field `visibleOn` predicate (spec
-      // FormFieldSchema, #2212). The filter below matches by name only, so the
-      // predicate must be merged onto the resolved field or it is silently
-      // dropped — the form renderer evaluates it with the canonical engine.
-      const sectionDefByName = new Map<string, any>(
-        // AUTHORED section defs, pre-normalization — here `field` may
-        // legitimately be the spec identity STRING (the cast is the boundary,
-        // not a leak; on runtime FormFields the declared `field` slot is
-        // always the metadata object, #3090).
-        // ⚠️ `?? []`, not a bare `.map` — the second containment layer for
-        // objectui#7051. The group-reference resolution above this component
-        // means a `{ group }` section never arrives here carrying no `fields`,
-        // but this loop runs in `SimpleObjectForm`'s own body, ABOVE the JSX it
-        // returns: a throw here is outside every per-section subtree, so no
-        // error boundary that a section could own would contain it. That is
-        // exactly how a spec-legal section blanked the entire form — the
-        // well-formed siblings with it — before this card. The five container
-        // variants have always spelled this read `section.fields ?? []` in
-        // `buildSectionFields`; this is the sixth joining them, so no section
-        // shape can take the form down again through this line.
-        (section.fields ?? []).map(f => [typeof f === 'string' ? f : ((f as any).field ?? f.name), f]),
-      );
-      const sectionFieldNames = Array.from(sectionDefByName.keys());
+      // ⚠️ `?? []`, not a bare `.map` — the second containment layer for
+      // objectui#7051. The group-reference resolution above this component
+      // means a `{ group }` section never arrives here carrying no `fields`,
+      // but this loop runs in `SimpleObjectForm`'s own body, ABOVE the JSX it
+      // returns: a throw here is outside every per-section subtree, so no
+      // error boundary that a section could own would contain it. That is
+      // exactly how a spec-legal section blanked the entire form — the
+      // well-formed siblings with it — before objectui#7051. `buildSectionFields`
+      // spells the same read `section.fields ?? []` for the members below.
+      const sectionFieldNames = (section.fields ?? []).map(sectionEntryName);
 
       // objectui#9884 — make the INTERSECTION audible.
       //
-      // The filter below resolves a section's members against the parent field
+      // The builder below resolves a section's members against the parent field
       // POOL, and that pool was built from `schema.fields` (`fieldsToShow`
       // above). So top-level `fields` and `sections` intersect: a member this
       // section names, that the object really declares, is dropped for the one
@@ -1514,21 +1554,10 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         });
       }
 
-      const sectionFields = applyFieldPerms(sourceFields.filter(f => sectionFieldNames.includes(f.name)))
-        .map(f => {
-          const def = sectionDefByName.get(f.name);
-          if (!def || typeof def !== 'object') return f;
-          // Carry the section field def's layout/visibility overrides onto the
-          // resolved field — the name-only filter above would otherwise drop
-          // them. #2578: `span`/`colSpan` are how a section controls per-field
-          // width; #2212: `visibleOn`.
-          const d = def as any;
-          const merged: any = { ...f };
-          if (d.visibleOn != null) merged.visibleOn = d.visibleOn;
-          if (d.colSpan != null) merged.colSpan = d.colSpan;
-          if (d.span != null) merged.span = d.span;
-          return merged as FormField;
-        });
+      // Field-level permissions gate the BUILT members, after the entry
+      // overrides — the order the drawer and modal arms apply them in — so no
+      // override can re-open a field the caller may not edit.
+      const sectionFields = applyFieldPerms(buildSectionFields(section, sectionCtx));
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);
@@ -1536,76 +1565,37 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const label = section.name
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;
-      const isCollapsed = collapsedSections[sectionKey] ?? (section.collapsed ?? false);
-      // `collapsed` IMPLIES `collapsible` (objectui#9780, maintainer ruling
-      // 2026-09-18, letter A). The state read above is unconditional, while
-      // the disclosure control below used to be installed only for
-      // `collapsible` — so `collapsed: true` written ALONE (two independent
-      // members, both accepted by every declaration face) produced a section
-      // that starts closed, keeps its fields out of the DOM, and offers
-      // nothing on the page that can bring them back, with no error, warning
-      // or degradation. "Collapsed by default" is an everyday intent and
-      // `collapsed: true` is its most natural spelling, which is why the
-      // ruling made that spelling correct: refusing the combination at the
-      // declaration (letter B) and a dev-only warning (letter C) were both
-      // REFUSED — nobody can depend on a section that cannot be opened, so
-      // widening the behaviour has no loser.
-      //
-      // Read from the DECLARATION, never from `isCollapsed`: the latter is
-      // the live state, so deriving the control from it would delete the
-      // control the moment the user opened the section. `collapsible: false`
-      // together with `collapsed: true` is the same contradiction and the
-      // ruling resolves it the same way — collapsed wins, the toggle is
-      // present. A section that declares neither member is untouched.
-      const isCollapsible = Boolean(section.collapsible) || Boolean(section.collapsed);
+      // `collapsed` IMPLIES `collapsible` (objectui#9780), read from the
+      // DECLARATION — through `resolveSectionCollapse`, the ONE resolution
+      // every arm calls (objectui#9849). The control lives on the divider row
+      // (director ruling letter E, item 3), so a member yielding neither a
+      // heading nor a blurb is never collapsible, never loses its fields, and
+      // is reported if it declared the pair.
+      const collapse = resolveSectionCollapse(section, {
+        live: collapsedSections[sectionKey],
+        title: label,
+        description: section.description,
+        where: `ObjectForm section '${sectionKey}' of object '${schema.objectName}'`,
+        setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
+      });
 
-      // The ONE path from a section configuration to its divider row
-      // (objectui#9849, triage ruling 「让 section 配置到 divider 的投影只有一条
-      // 路径」). `projectSectionDivider` owns every key both rows carry — the
-      // blurb (objectui#9779), the ADR-0089 predicate (#6111), the
-      // objectui#6236 membership claim and the collapse pair — so no arm can
-      // copy a different set than its siblings, which is the failure mode that
-      // produced three consecutive one-key cards.
-      //
-      // ⚠️ This arm's gate is objectui#9835 letter B and is UNCHANGED: a
-      // member that yields a heading gets the full row, a headingless member
-      // that authored a `description` gets a BLURB-ONLY row carrying the blurb
-      // and nothing else — no `visibleWhen`, no membership claim, no collapse
-      // pair — and a member with neither draws nothing. Letter A (spelling the
-      // gate `label || section.description`, which the modal's stacked arm and
-      // the split arm do) was REFUSED there, because that one condition also
-      // decides the predicate row and the membership claim that gates the
-      // WHOLE group, plus the collapse pair whose "an untitled bucket is never
-      // collapsible" rule it implements. ⇒ the gate union in
-      // `SectionDividerGate` is the residual this card hands back, ⛔ not
-      // something decided here.
-      //
-      // The collapse pair is resolved ABOVE (objectui#9780: `collapsed`
-      // implies `collapsible`, read from the DECLARATION and never from the
-      // live `isCollapsed`) and handed over resolved — `DrawerForm` resolves
-      // the same two keys two other ways, and picking a winner is the fenced
-      // decision.
+      // The ONE path from a section configuration to its divider row, and the
+      // ONE row rule (objectui#9849, director ruling letter E): the ADR-0089
+      // predicate and the objectui#6236 membership claim ride the group on
+      // every arm whether or not it yields a heading, and the visible row
+      // exists iff `title || description`. See `projectSectionDivider`.
       groupedFields.push(
-        ...projectSectionDivider(
-          {
-            key: sectionKey,
-            title: label,
-            description: section.description,
-            visibleWhen: (section as any).visibleWhen,
-            // RESOLVED rather than authored on purpose: the authored
-            // `section.fields` entries can be spec field-defs, and a
-            // perms-filtered field is not in the form at all.
-            members: sectionFields.map(f => f.name),
-            collapse: {
-              collapsible: isCollapsible,
-              collapsed: isCollapsed,
-              onToggle: isCollapsible
-                ? () => setCollapsedSections(prev => ({ ...prev, [sectionKey]: !isCollapsed }))
-                : undefined,
-            },
-          },
-          'headingOrBlurb',
-        ),
+        ...projectSectionDivider({
+          key: sectionKey,
+          title: label,
+          description: section.description,
+          visibleWhen: (section as any).visibleWhen,
+          // RESOLVED rather than authored on purpose: the authored
+          // `section.fields` entries can be spec field-defs, and a
+          // perms-filtered field is not in the form at all.
+          members: sectionFields.map(f => f.name),
+          collapse,
+        }),
       );
 
       // #2578: lay THIS section's fields out at its declared column density
@@ -1614,8 +1604,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       const laid = formColumns > 1 ? applyAutoColSpan(sectionFields, formColumns, secCols) : sectionFields;
 
       // Collapsed groups keep their fields registered (values preserved) but
-      // hidden from the DOM. An untitled bucket is never collapsible.
-      if (label && isCollapsed) {
+      // hidden from the DOM. A section with no row is never collapsible, so it
+      // is never collapsed either — `resolveSectionCollapse` answers both.
+      if (collapse.collapsed) {
         groupedFields.push(...laid.map(f => ({ ...f, hidden: true })));
       } else {
         groupedFields.push(...laid);
@@ -1631,27 +1622,35 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     const fieldContainerClass = containerGridColsFor(formColumns);
 
     return (
-      <div className="w-full @container">
-        <SchemaRenderer
-          schema={{
-            type: 'form',
-            objectName: schema.objectName,
-            fields: laidOutFields,
-            layout: formLayout,
-            columns: formColumns,
-            ...(fieldContainerClass ? { fieldContainerClass } : {}),
-            defaultValues: finalDefaultValues,
-            previousValues,
-            showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
-            showCancel: schema.showCancel !== false,
-            submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
-            cancelLabel: schema.cancelText,
-            onSubmit: handleSubmit,
-            onCancel: handleCancel,
-          } as FormSchema}
-        />
-        {conflictDialog}
-      </div>
+      <UploadGateProvider gate={uploadGate}>
+        <div className="w-full @container">
+          <SchemaRenderer
+            schema={{
+              type: 'form',
+              objectName: schema.objectName,
+              fields: laidOutFields,
+              layout: formLayout,
+              columns: formColumns,
+              ...(fieldContainerClass ? { fieldContainerClass } : {}),
+              defaultValues: finalDefaultValues,
+              previousValues,
+              showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
+              showCancel: schema.showCancel !== false,
+              // While an upload is in flight the Save button says so, the same
+              // answer ActionParamDialog gives its Confirm button. The notice
+              // below carries the reason in a sentence (objectui#10166).
+              submitLabel: uploadGate.uploading
+                ? uploadGate.busyLabel
+                : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+              cancelLabel: schema.cancelText,
+              onSubmit: handleSubmit,
+              onCancel: handleCancel,
+            } as FormSchema}
+          />
+          <UploadInFlightNotice gate={uploadGate} />
+          {conflictDialog}
+        </div>
+      </UploadGateProvider>
     );
   }
 
@@ -1786,7 +1785,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     fields: fieldsWithMobile,
     layout: formLayout,
     columns: autoLayoutResult.columns,
-    submitLabel: schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+    // See the sections path above: the label is the affordance's own
+    // explanation while an upload is in flight (objectui#10166).
+    submitLabel: uploadGate.uploading
+      ? uploadGate.busyLabel
+      : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
     cancelLabel: schema.cancelText,
     showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
     showCancel: schema.showCancel !== false,
@@ -1802,13 +1805,16 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   };
 
   return (
-    <div
-      className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
-      data-mobile-form={mobileOpts ? 'true' : undefined}
-    >
-      <SchemaRenderer schema={formSchema} />
-      {conflictDialog}
-    </div>
+    <UploadGateProvider gate={uploadGate}>
+      <div
+        className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
+        data-mobile-form={mobileOpts ? 'true' : undefined}
+      >
+        <SchemaRenderer schema={formSchema} />
+        <UploadInFlightNotice gate={uploadGate} />
+        {conflictDialog}
+      </div>
+    </UploadGateProvider>
   );
 };
 

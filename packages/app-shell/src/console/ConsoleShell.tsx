@@ -41,6 +41,7 @@ import { RedirectWithSplash } from '../chrome/RedirectWithSplash.js';
 import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
+import { ReadRateBanner } from '../layout/ReadRateBanner.js';
 
 // The console's every pre-React / pre-auth gate (Suspense fallback, adapter
 // not ready, org/auth loading) renders this. It used to be a bare, unbranded
@@ -173,6 +174,15 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       header it warns about. Renders null on every ordinary
                       session. */}
                   <ImpersonationBanner />
+                  {/* objectui#9954 — the environment admin's read-rate report.
+                      Beside the impersonation indicator for the same reason it
+                      is here: chrome for EVERY console page, including `/home`,
+                      which has its own layout and would otherwise carry no
+                      report. Renders null unless the control plane's verdict is
+                      `anomalous`, so an ordinary session and an unmeasured
+                      environment both see nothing — and a non-admin session
+                      never even issues the request. */}
+                  <ReadRateBanner />
                   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
                   {/* ADR-0069 — full-screen gate (expired password / required MFA) above all routes */}
                   <RemediationOverlay />
@@ -440,31 +450,6 @@ export function AuthenticatedRoute({
       </ConnectedShell>
     </AuthGuard>
   );
-}
-
-/**
- * RootRedirect — element for <Route path="/" />. Waits for metadata to load
- * then sends the user to /home.
- *
- * ⛔ Deliberately NOT retargeted onto `useHomePath()` by objectui#7373, which
- * moved this file's `RequireAiSurface` bounce. This is not a recovery redirect:
- * it is the `/` LANDING, and `/`'s policy is `resolveLandingPath`
- * (`apps/console/src/components/RootLandingRedirect.tsx`), which layers a
- * single-visible-app emptiness heuristic (objectui#4048) on the same
- * declaration and refuses to conclude from an unresolved list (objectui#4233).
- * Making this twin read the declaration WITHOUT those two would fork "where
- * does `/` go" into a third answer for the consumers that mount it — a design
- * question, raised on objectui#7373 rather than settled inside it.
- */
-export function RootRedirect() {
-  const { loading } = useMetadata();
-  if (loading) return <LoadingFallback />;
-  // Splash-preserving handoff (objectui#6507). `apps/console` mounts its own
-  // `RootLandingRedirect` rather than this one, and #6506 converted that twin
-  // after measuring the WIDEST window of the campaign on it (147 ms) — this is
-  // byte-for-byte the same shape, published to consumers via
-  // `@object-ui/app-shell`.
-  return <RedirectWithSplash to="/home" replace />;
 }
 
 /**

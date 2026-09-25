@@ -272,7 +272,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       '@objectstack/client':
-        specifier: ^17.0.0
+        specifier: ^17.3.0
         version: 17.4.0(ai@7.0.65(zod@4.4.3))
       '@objectstack/lint':
         specifier: ^17.0.0
@@ -777,7 +777,7 @@ importers:
         specifier: ^17.0.0
         version: 17.4.0(ai@7.0.65(zod@4.4.3))
       '@objectstack/spec':
-        specifier: ^17.0.0
+        specifier: ^17.3.0
         version: 17.4.0(ai@7.0.65(zod@4.4.3))
       '@sentry/react':
         specifier: ^10.70.0
@@ -1243,7 +1243,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/client':
-        specifier: ^17.0.0
+        specifier: ^17.3.0
         version: 17.4.0(ai@7.0.65(zod@4.4.3))
       '@objectstack/spec':
         specifier: ^17.2.0
@@ -1273,6 +1273,9 @@ importers:
       '@object-ui/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@object-ui/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@object-ui/providers':
         specifier: workspace:*
         version: link:../providers
@@ -1470,6 +1473,9 @@ importers:
       '@object-ui/core':
         specifier: workspace:*
         version: link:../core
+      '@object-ui/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
@@ -1483,6 +1489,9 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@object-ui/test-support':
+        specifier: workspace:*
+        version: link:../test-support
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0
@@ -2053,6 +2062,9 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
+      '@object-ui/sdui-parser':
+        specifier: workspace:*
+        version: link:../sdui-parser
       '@object-ui/test-support':
         specifier: workspace:*
         version: link:../test-support
@@ -2192,9 +2204,6 @@ importers:
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
-      '@tanstack/react-virtual':
-        specifier: ^3.14.9
-        version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -2339,6 +2348,9 @@ importers:
       '@object-ui/plugin-list':
         specifier: workspace:*
         version: link:../plugin-list
+      '@object-ui/sdui-parser':
+        specifier: workspace:*
+        version: link:../sdui-parser
       '@types/react':
         specifier: 19.2.18
         version: 19.2.18

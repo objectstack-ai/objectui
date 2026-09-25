@@ -35,10 +35,8 @@ import {
   useNavigationOverlay,
   useSettledSchema,
   SchemaRendererContext,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import {
@@ -57,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   NavigationOverlay,
+  RefreshIndicator,
   legacyRecordDrawerWidthKey,
   recordOverlayWidthStorageKey,
   useOverlayAnchor,
@@ -71,6 +70,9 @@ import {
   createFieldColorResolver,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import {
   getSemanticColorName,
@@ -579,9 +581,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * its own table was measured over the inline provider, so an inline row
    * costs what a fetched row costs and the ruling text carves out no provider.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   // Tenant default currency (ADR-0053) for currency tooltips lacking a code.
   const { currency: tenantCurrency } = useLocalization();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -611,10 +611,15 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // branch below ever matched it), which is why nothing a published document
   // can express moves here.
   const rawDataConfig = resolveRecordSourceConfig(schema, 'view-data');
+  // The authored data config's deep VALUE, as one primitive — the memo's only
+  // dependency, hoisted out of the dependency array so it has a name. ⛔ It is
+  // NOT the key the record fetch runs on; see `adapterInputsKey` below for why
+  // the wide key is the wrong one there.
+  const dataConfigKey = JSON.stringify(rawDataConfig);
   // Memoize dataConfig using deep comparison to prevent infinite loops
   const dataConfig = useMemo(() => {
     return rawDataConfig;
-  }, [JSON.stringify(rawDataConfig)]);
+  }, [dataConfigKey]);
 
   const ganttConfig = getGanttConfig(schema);
   const dataProvider = dataConfig?.provider;
@@ -657,6 +662,65 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // dataConfig is already memoized by deep value above.
     [dataConfig, dataSource, apiFetch],
   );
+  /**
+   * The adapter, reachable from the fetch path WITHOUT that path depending on
+   * its IDENTITY (objectui#10036; AGENTS.md §5 commandment #10, ruled on
+   * objectui#8640).
+   *
+   * `useMemo` is a performance hint: React may throw the cache away and
+   * recompute even when the dependency list compares equal, and `useCallback`
+   * is the same hint over a function. The memo above is not value-stable
+   * under that — `resolveDataSource` returns the context adapter UNCHANGED for
+   * `provider: 'object'`, but CONSTRUCTS a new `ApiDataSource` /
+   * `ValueDataSource` for `'api'` and `'value'`. So on those two providers a
+   * discard alone handed `reload` a brand-new adapter for a byte-identical
+   * authored config, rebuilt `reload`, and re-fired the mount effect below —
+   * one redundant round trip, per discard, on a component nobody had touched.
+   * That is the same mechanism the `dataItems` note above records for
+   * objectui#6592; one banned identity came off `reload`'s dependency list
+   * there and this one stayed on it.
+   *
+   * ⇒ `reload` READS the adapter through this ref and KEYS on the values that
+   * determine it: `adapterInputsKey` below, plus `dataSource` and `apiFetch` —
+   * this memo's own dependency list, with the memoised `dataConfig` replaced by
+   * the VALUES `resolveDataSource` reads out of it. A genuine change to any of
+   * them still rebuilds `reload` and still refetches; a discard alone no longer
+   * can.
+   */
+  const effectiveDataSourceRef = useRef(effectiveDataSource);
+  effectiveDataSourceRef.current = effectiveDataSource;
+
+  /**
+   * What `resolveDataSource` ACTUALLY READS out of the authored config, per
+   * provider arm, as one primitive.
+   *
+   * ⛔ Deliberately NOT `dataConfigKey`, the whole config's deep value. The
+   * note above `dataItems` says such a flattening "cannot be flattened to a
+   * fixed primitive list" — true of a fixed LIST, and the reason that note
+   * gives is exactly right: the `api` arm's input is a whole `read`/`write`
+   * request config. A per-arm VALUE, however, is expressible, and it has to be
+   * the per-arm one rather than the whole config, because the whole config is
+   * WIDER than the adapter's inputs. `ObjectGantt.discardedConfigMemo.test.tsx`
+   * measures the difference: it moves an inert field inside `schema.data` that
+   * "is read by nothing under test", and the fetch must not re-fire. Keying on
+   * the whole config makes that authored-but-inert byte a refetch trigger on
+   * the `object` provider, where the adapter is the context DataSource and the
+   * config contributes nothing to it at all.
+   *
+   * ⚠️ The arms below mirror `resolveDataSource` (`@object-ui/core`) — `read` +
+   * `write` for `'api'`, `items` for `'value'`, nothing but the fallback for
+   * `'object'` and for an unknown provider. Everything else the record query
+   * derives from the config reaches the list through its own binding
+   * (`resource`, `dataProvider`, `hasInlineData`), so this key answers for the
+   * ADAPTER and only the adapter.
+   */
+  const adapterInputsKey = JSON.stringify(
+    rawDataConfig?.provider === 'api'
+      ? { provider: 'api', read: rawDataConfig.read, write: rawDataConfig.write }
+      : rawDataConfig?.provider === 'value'
+        ? { provider: 'value', items: rawDataConfig.items }
+        : { provider: rawDataConfig?.provider ?? null },
+  );
 
   // Unified resource name for find/update/delete. For 'object' it's the bound
   // object; for 'api' the adapter ignores it (the URL carries the endpoint),
@@ -694,26 +758,66 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // (objectui#7230, the structural note PR #7229 recorded for `ListView`).
   const perms = usePermissions();
 
-  // Load (and re-load) data through the resolved adapter. `silent: true`
-  // re-reads the source WITHOUT flipping `loading`, so GanttView stays mounted
-  // and keeps its scroll/collapse state — used by the write-readback below and
-  // the toolbar refresh button (write-readback / manual refresh, #2436 items 6
-  // and 7). Concurrent
-  // reloads are sequenced: only the newest request may commit its result,
-  // so a slow earlier response can't clobber a fresher one.
+  /**
+   * The full-text search the record query carries (objectui#10250).
+   *
+   * `search` is the term, sent as `$search`; `searchableFields` narrows the
+   * server-resolved searchable set and is sent as `$searchFields` — only
+   * alongside a term, exactly as a list's own query sends the pair (ADR-0061:
+   * the client sends the term, the server decides which fields it matches). A
+   * `ListView` gantt writes both from its toolbar Search box: the chart
+   * queries for itself, so the node is the only door the term has.
+   *
+   * Both are held as PRIMITIVES for the dependency lists below. The term is a
+   * string; the field list is keyed on its serialised value, so a host handing
+   * a fresh but equal array does not refetch (AGENTS.md #10 — key on the
+   * payload, never on an identity).
+   */
+  const searchTerm = typeof schema.search === 'string' && schema.search !== '' ? schema.search : undefined;
+  const searchFields = searchTerm && Array.isArray(schema.searchableFields) && schema.searchableFields.length > 0
+    ? schema.searchableFields
+    : undefined;
+  const searchFieldsKey = searchFields ? JSON.stringify(searchFields) : '';
+
+  // Load (and re-load) data through the resolved adapter. The two options are
+  // independent choices (objectui#7237):
+  //
+  //   - `inPlace` decides whether the chart stays MOUNTED. In place, the run
+  //     sets `refreshing`, which draws the refreshing state over the chart, and
+  //     GanttView keeps its scroll, collapsed groups and in-flight edits.
+  //     Otherwise it sets `loading`, which swaps in the placeholder. Only the
+  //     first load does that; see `loadedOnceRef`.
+  //   - `silent` decides what a FAILURE does. A background re-read of the SAME
+  //     query (write-readback, the toolbar refresh, an invalidation; #2436
+  //     items 6 and 7) logs it and keeps the last good rows, which still
+  //     answer that query. A silent reload is always in place.
+  //
+  // Concurrent reloads are sequenced: only the newest request may commit its
+  // result, so a slow earlier response can't clobber a fresher one.
   const [refreshing, setRefreshing] = useState(false);
   const reloadSeqRef = useRef(0);
-  const reload = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  /**
+   * Has any reload committed rows yet? (objectui#7237, ruling A′)
+   *
+   * This separates the initial load, which keeps the loading placeholder, from
+   * every later change to the query. A later change refreshes in place, so the
+   * chart is never torn down to the placeholder after it has painted. A ref, not
+   * state: nothing renders from it, and it only ever flips once, from false to
+   * true.
+   */
+  const loadedOnceRef = useRef(false);
+  const reload = useCallback(async ({ silent = false, inPlace = silent }: { silent?: boolean; inPlace?: boolean } = {}) => {
     const seq = ++reloadSeqRef.current;
     const isCurrent = () => reloadSeqRef.current === seq;
     try {
-      if (silent) setRefreshing(true);
+      if (inPlace) setRefreshing(true);
       else setLoading(true);
       // 1. Check for data prop (Unified ListView)
       if ((rest as any).data && Array.isArray((rest as any).data)) {
         if (isCurrent()) {
           setData((rest as any).data);
-          setRowCeiling({ truncated: false });
+          setRowCeiling(null);
+          loadedOnceRef.current = true;
         }
         return;
       }
@@ -736,7 +840,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // (objectui#8513 stays where it is). The matcher is LOCAL: it never
       // reaches `convertFiltersToAST`, so a comparand that converter refuses
       // is excluded-and-logged here rather than thrown at render.
-      if (!effectiveDataSource || typeof effectiveDataSource.find !== 'function') {
+      // Read through the ref, NOT through the memo's identity — see the block
+      // above `effectiveDataSourceRef` (objectui#10036). The ref is refreshed
+      // on every render, so this is always the adapter the current render
+      // resolved; what it is not is a reason to rebuild this callback.
+      const adapter = effectiveDataSourceRef.current;
+      if (!adapter || typeof adapter.find !== 'function') {
         throw new Error('DataSource required for object/api providers');
       }
 
@@ -771,7 +880,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const expand = !perms?.isLoaded || !resource
         ? expandable
         : expandable.filter((f) => perms.checkField(resource, f, 'read'));
-      const result = await effectiveDataSource.find(resource, {
+      const result = await adapter.find(resource, {
         $filter: schema.filter,
         $orderby: convertSortToQueryParams(schema.sort),
         // The platform ceiling (objectui#7210, ruling a′). The gantt still
@@ -783,19 +892,31 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // makes the cut DETECTABLE; `applyNonGridRowCeiling` slices it back off.
         // ⛔ Not authorable: an authored `limit` / `pagination.pageSize` still
         // cannot reach this query, by the same ruling.
-        $top: NON_GRID_ROW_CEILING_TOP,
+        ...nonGridRowCeilingQuery(),
         ...(expand.length > 0 ? { $expand: expand } : {}),
+        // objectui#10250 — the term and its field narrowing, sent together
+        // or not at all. See `searchTerm` above.
+        ...(searchTerm
+          ? {
+              $search: searchTerm,
+              ...(searchFields ? { $searchFields: searchFields } : {}),
+            }
+          : {}),
       });
       const capped = applyNonGridRowCeiling(result);
       if (isCurrent()) {
         setData(capped.rows);
-        setRowCeiling({ truncated: capped.truncated, total: capped.total });
+        setRowCeiling(capped);
+        loadedOnceRef.current = true;
       }
     } catch (err) {
       if (silent) {
         // Background refresh failure keeps the last good data on screen.
         console.error('[ObjectGantt] Failed to refresh data:', err);
       } else if (isCurrent()) {
+        // A failed query that CHANGED (in place or not) is reported. The rows
+        // on screen answer the previous query, and once the refreshing state
+        // clears nothing would tell the user that (objectui#7237).
         setError(err as Error);
       }
     } finally {
@@ -810,16 +931,24 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // nothing is in flight any more — a newer reload would have made this
       // one stale, and an older one has no claim on the flags. Clearing only
       // this run's own mode would strand the other one whenever the
-      // superseded reload ran in the OTHER mode (a silent toolbar refresh
-      // overtaken by a filter-change reload would leave `refreshing` on for
-      // the life of the component).
+      // superseded reload ran in the OTHER mode (a silent invalidation reload
+      // overtaken by a query change before the first paint would leave
+      // `refreshing` on for the life of the component).
       if (isCurrent()) {
         setRefreshing(false);
         setLoading(false);
       }
     }
+    // ⭐ THE VALUE LIST (objectui#10036). The first three replace what used to
+    // be a single `effectiveDataSource` entry: they are that memo's OWN
+    // dependencies, with the memoised `dataConfig` swapped for the values
+    // `resolveDataSource` reads out of it. Every input that can change the
+    // adapter is still named, and no `useMemo` / `useCallback` identity is.
+    // The fetch effect below repeats this list for the same reason; the pins in
+    // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
+    // parity by exercising each entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [effectiveDataSource, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
@@ -850,10 +979,68 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // ⛔ Gating is not capping. The row ceiling is objectui#7210's ruling and
   // lives on the query itself (`$top` above); this decides WHEN the query
   // fires, not how many rows it may bring back.
+  /**
+   * ⛔ …and this effect may not name `reload` either (objectui#10036).
+   *
+   * `reload` is a `useCallback` result, so it is the same performance hint one
+   * link further out: a discarded cache hands back a fresh function WHATEVER
+   * its own dependency list says — an empty list included. Keying the fetch on
+   * that identity therefore leaves React licensed to re-fire it for nothing,
+   * no matter how carefully `reload`'s own list is written. ⇒ Both sides of
+   * the seam, or neither holds: the callback is reached through a ref and this
+   * effect keys on the SAME value list `reload` keys on.
+   */
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+
+  /**
+   * objectui#7237, ruling A′ — the first run is the initial load and keeps the
+   * loading placeholder. Every run after rows have painted is a REAL change to
+   * the query (sort, filter, permissions, search, the bound source), and it
+   * refreshes IN PLACE: GanttView stays mounted with its scroll, collapsed
+   * groups and in-flight edits, the refreshing state sits over the chart, and
+   * the rows are replaced when the answer lands. ⛔ Never a teardown to the
+   * placeholder once the chart has painted.
+   *
+   * In place but NOT silent: the query changed, so a failure is reported
+   * rather than leaving the previous query's rows on screen.
+   */
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
-    reload();
-  }, [reload, recordQueryDerivesExpand, objectSchemaReady]);
+    reloadRef.current(loadedOnceRef.current ? { inPlace: true } : {});
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+
+  /**
+   * objectui#10035 — the refresh input this gantt had none of, so a host could
+   * show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+   * data, don't rebuild UI). The nonce moves when the data-invalidation bus
+   * reports a change to the object this gantt reads.
+   *
+   * ⭐ A SILENT reload, deliberately not the fetch effect above. That effect's
+   * first reload flips `loading`, which swaps `GanttView` for the placeholder
+   * — the same loss of scroll, collapsed groups and zoom a remount causes, one
+   * level down — and its later ones report a failure, which is right for a
+   * changed query and wrong for a re-read of the same one. `reload({ silent:
+   * true })` is the path the toolbar refresh and every write-readback here
+   * already take for exactly that reason, and it keeps `reload`'s sequencing,
+   * so an invalidation that lands mid-load cannot let a stale answer win.
+   *
+   * Subscribed only when the rows come from an adapter this gantt queries
+   * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
+   * set are not ours to refresh. Each nonce is answered at most once
+   * (`handledInvalidationRef`): one that lands while the object-schema gate
+   * above is still closed is marked handled and dropped, because the gated
+   * first load has not run yet and reads rows written before it — so the gate
+   * opening later can never add a second query beside that load.
+   */
+  const invalidationNonce = useDataInvalidation(recordQueryDerivesExpand && resource ? resource : undefined);
+  const handledInvalidationRef = useRef(0);
+  useEffect(() => {
+    if (invalidationNonce === handledInvalidationRef.current) return;
+    handledInvalidationRef.current = invalidationNonce;
+    if (recordQueryDerivesExpand && !objectSchemaReady) return;
+    void reloadRef.current({ silent: true });
+  }, [invalidationNonce, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {
@@ -2010,7 +2197,14 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           the pane's bottom edge — swallowing the horizontal scrollbar.
           flex-1/min-h-0 tracks the real available height;
           the min-h keeps standalone embeds (no sized parent) usable. */}
-      <div className="flex-1 min-h-[420px]">
+      <div className="relative flex-1 min-h-[420px]">
+        {/* objectui#7237 (ruling A′) — the visible refreshing state ON the
+            chart while an in-place reload runs, so the rows still on screen
+            read as the previous answer rather than as the current one. The
+            same indeterminate bar ObjectGrid, ListView and ObjectChart draw
+            over their rows; `refreshing` is the flag the toolbar refresh
+            button already reads. */}
+        <RefreshIndicator active={refreshing} ariaLabel={t('gantt.aria.refreshing')} />
         {ganttConfig?.resourceView && assigneeAccessor ? (
           <ResourceWorkload
             tasks={displayTasks}
@@ -2111,15 +2305,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           drawn from the first N rows of a larger result set is still a
           confident-looking schedule with a plausible range; the note is the
           only thing on screen that distinguishes it from a complete one.
-          `shrink-0` beneath the `flex-1` chart pane, so it cannot be clipped
-          out of a fixed-height host the way a plain sibling would be
-          (the construction objectui#7148's `ChartFootnote` measured). */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-        className="shrink-0 px-1 py-1 text-xs text-muted-foreground"
-      />
+          The note carries `shrink-0` itself, beneath the `flex-1` chart
+          pane, so it cannot be clipped out of a fixed-height host the way a
+          plain sibling would be (the construction objectui#7148's
+          `ChartFootnote` measured); it takes the result and nothing else
+          (objectui#7508). */}
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {/* Delete confirmation */}
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open && !deleting) setPendingDelete(null); }}>
         <AlertDialogContent>

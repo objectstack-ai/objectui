@@ -10,9 +10,10 @@
  *     comes back with an entitlement 403 (the safety net).
  *
  * The CTA renders as an anchor (not an SPA navigation) so a control-plane URL
- * like `/settings/billing` always lands on the real page regardless of the
- * console's own router. Relative URLs resolve against the control-plane origin
- * (`apiBase`); absolute / mailto URLs are used as-is.
+ * lands on the control plane's own page regardless of the console's router.
+ * Relative URLs resolve against the control-plane origin (`apiBase`); absolute
+ * / mailto URLs are used as-is. A spec without a `cta` renders no CTA at all:
+ * the URL is the server's to send, and none sent means no link (objectui#10437).
  */
 
 import {

@@ -66,7 +66,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { ComponentRegistry, recordSourceDataArmForType } from '@object-ui/core';
 import { ObjectMap } from './ObjectMap';
-// Registers `object-map` and its `view:map` alias — row 3 renders through it.
+// Registers `object-map` — row 3 renders through it.
 import './index';
 import type { DataSource } from '@object-ui/types';
 
@@ -190,15 +190,14 @@ describe('ObjectMap — the bare-array `schema.data` shorthand is retired (objec
     // namespaced key and a bare one, and `SchemaRenderer` looks the arm up with
     // the raw `schema.type`. A key added without a row in
     // `recordSourceDataArmForType` turns this red instead of silently answering
-    // `'undeclared'` and keeping the prop seat. Unlike `plugin-grid`, this
-    // plugin claims the bare `map` key too — no `skipFallback` here.
+    // `'undeclared'` and keeping the prop seat. The bare `map` key and its
+    // `view:map` twin are retired (objectui#10393), so the group is exactly the
+    // one registration's two keys.
     const siblings = ComponentRegistry.getAllTypes().filter(
       (type) => ComponentRegistry.get(type) === ComponentRegistry.get('object-map'),
     );
 
-    expect(siblings).toEqual(
-      expect.arrayContaining(['object-map', 'plugin-map:object-map', 'view:map', 'map']),
-    );
+    expect([...siblings].sort()).toEqual(['object-map', 'plugin-map:object-map']);
     for (const type of siblings) {
       expect([type, recordSourceDataArmForType(type)]).toEqual([type, 'view-data']);
     }

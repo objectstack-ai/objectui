@@ -174,6 +174,10 @@ const EXPECTED_CANDIDATES = [
   'object-gantt',
   'object-timeline',
   'object-map',
+  // objectui#10064 admitted `object-tree` to the curated tier, and it declares
+  // an `objectName`, so it joins this derived population — additive, and the
+  // probe below is what decides whether the binding actually reaches.
+  'object-tree',
 ];
 
 /**

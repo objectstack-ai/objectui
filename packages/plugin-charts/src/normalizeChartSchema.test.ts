@@ -199,24 +199,24 @@ describe('effectiveChartFamily — a combo is derived from the series (#2945)', 
 
 describe('formatterFor', () => {
   it('formats currency', () => {
-    expect(formatterFor('$0,0.00')!(1234.5)).toMatch(/1,234\.50/);
+    expect(formatterFor('$0,0.00', 'en')!(1234.5)).toMatch(/1,234\.50/);
   });
 
   it('formats percent', () => {
-    expect(formatterFor('0.0%')!(0.256)).toMatch(/25\.6%/);
+    expect(formatterFor('0.0%', 'en')!(0.256)).toMatch(/25\.6%/);
   });
 
   it('groups thousands', () => {
-    expect(formatterFor('0,0')!(1234567)).toMatch(/1,234,567/);
+    expect(formatterFor('0,0', 'en')!(1234567)).toMatch(/1,234,567/);
   });
 
   it('returns undefined for an unrecognized format so the caller keeps its default', () => {
-    expect(formatterFor(undefined)).toBeUndefined();
-    expect(formatterFor('wat')).toBeUndefined();
+    expect(formatterFor(undefined, 'en')).toBeUndefined();
+    expect(formatterFor('wat', 'en')).toBeUndefined();
   });
 
   it('passes non-numeric values through instead of printing NaN', () => {
-    expect(formatterFor('$0,0.00')!('n/a')).toBe('n/a');
+    expect(formatterFor('$0,0.00', 'en')!('n/a')).toBe('n/a');
   });
 });
 

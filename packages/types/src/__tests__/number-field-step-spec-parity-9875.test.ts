@@ -51,8 +51,9 @@
  * runtime block goes red here instead of going quiet.
  *
  * The one real asymmetry this measurement DID surface is recorded at the end —
- * on `SliderFieldMetadata`, which is the opposite direction and is reported
- * rather than repaired, because the repair enlarges a published type.
+ * on `SliderFieldMetadata`, which is the opposite direction. It was reported
+ * rather than repaired here, because the repair enlarges a published type; it
+ * was repaired separately by objectui#10066, and section 4 pins the result.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -202,33 +203,41 @@ describe('objectui#9875 — the reader that makes `NumberFieldMetadata.step` a l
   });
 });
 
-/* ── 4. ⚠️ The asymmetry that IS real — recorded, deliberately NOT repaired ─ */
+/* ── 4. The slider half of the same key — declared by objectui#10066 ────── */
 
 /**
  * The card looked for a renderer key the protocol lacks and there is none. The
  * measurement turned up the MIRROR IMAGE on the neighbouring face: the protocol
- * declares `step` (with slider prose, no less), `SliderField` reads it — through
- * an untyped carrier, `const step = sliderField?.step ?? 1;` off a `field as
- * any` — and `SliderFieldMetadata` declares no such member. So an author who
- * writes the slider's own documented key onto a slider field cannot do it under
- * the published type.
+ * declares `step` (with slider prose, no less), `SliderField` reads it, and
+ * `SliderFieldMetadata` declared no such member, so an author could not write
+ * the slider's own documented key under the published type.
  *
- * ⛔ NOT repaired here: adding the member ENLARGES a published TypeScript accept
- * set, which is a contract decision and not a dev's commit. The pin below
- * records the gap as it stands and goes red the moment either side moves — if
- * the member is added, this `@ts-expect-error` becomes unused and `tsc` says so.
+ * objectui#10066 closed that gap by declaring the member (the undeclared key
+ * follows the implementation). The pins below hold it from both sides: the
+ * annotated literal carrying `step` compiling at all is the positive assertion,
+ * and the misspelled key under `@ts-expect-error` proves the excess-property
+ * check is still live on this interface — if the interface ever widened to an
+ * index signature, that directive would become unused and `tsc` would say so.
  */
-export const _sliderMetadataDoesNotDeclareStep: SliderFieldMetadata = {
+export type _StepIsDeclaredOnSliderMetadata = Expect< Equal< SliderFieldMetadata['step'], number | undefined > >;
+
+export const _sliderMetadataWithStep: SliderFieldMetadata = {
   type: 'slider',
   name: 'progress',
   min: 0,
   max: 100,
-  // @ts-expect-error — objectui#9875: `step` is declared by `@objectstack/spec`'s field surface and read by `SliderField`, but is NOT a member of `SliderFieldMetadata`. Reported for a contract decision, not repaired here.
   step: 5,
 };
 
+export const _sliderMetadataRefusesMisspelledStep: SliderFieldMetadata = {
+  type: 'slider',
+  name: 'progress',
+  // @ts-expect-error — objectui#10066: a misspelled key is refused by the excess-property check; only the declared `step` is accepted.
+  stpe: 5,
+};
+
 describe('objectui#9875 — the slider half of the same key', () => {
-  it('`SliderField` reads `step` off an untyped carrier — the read the type does not cover', () => {
+  it('`SliderField` reads `step` off the field carrier — the read the declaration covers', () => {
     const src = readFileSync(join(REPO_ROOT, 'packages/fields/src/widgets/SliderField.tsx'), 'utf8');
     expect(src).toContain('const step = sliderField?.step ?? 1;');
   });

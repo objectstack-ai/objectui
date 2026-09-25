@@ -16,7 +16,7 @@ import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, for
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
-import { createSafeTranslation } from '@object-ui/i18n';
+import { createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
 import { 
   Table, 
   TableHeader, 
@@ -164,9 +164,11 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
  * Safe wrapper for useObjectTranslation that falls back to English defaults
  * when I18nProvider is not available (e.g., standalone usage).
  *
- * Delegates to `@object-ui/i18n`'s `createSafeTranslation` (which also
- * surfaces `language` for the date/number formatting below); the local copy
+ * Delegates to `@object-ui/i18n`'s `createSafeTranslation`; the local copy
  * this replaced wrapped the hook in try/catch (rules-of-hooks, objectui#2879).
+ * Only the COPY comes from here: the date cells below format with
+ * `useDisplayLocale()`, never with the `language` this hook also reports
+ * (objectui#10442).
  */
 const useTableTranslation = createSafeTranslation(TABLE_DEFAULT_TRANSLATIONS, 'table.rowsPerPage');
 
@@ -775,18 +777,28 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   const reorderEnabled = reorderableColumns || !!fieldAuthoring?.onReorderFields;
 
   // i18n support for pagination labels
-  const { t, language } = useTableTranslation();
+  const { t } = useTableTranslation();
+  // The DISPLAY locale, not the UI language: an English UI with a `de-CH`
+  // display locale reads `4.3.2020`, never `3/4/2020` (objectui#10442). The
+  // hook's own fallback chain answers when no tenant locale is configured, so
+  // nothing here adds a second one.
+  const displayLocale = useDisplayLocale();
 
   /**
    * Format a cell value for display. ISO date / datetime strings are
-   * formatted using the current i18n locale so that calendar dates render
-   * naturally per language (e.g. zh-CN → 2024/12/15, en-US → 12/15/2024).
+   * formatted in the display locale (`useDisplayLocale()`), the one channel
+   * every date renderer reads (e.g. zh-CN → 2024/12/15, en-US → 12/15/2024).
    * Non-date values are returned untouched.
    */
   const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
   const formatCellValue = React.useCallback((value: unknown): unknown => {
     if (typeof value !== 'string' || value.length < 8) return value;
     if (!ISO_DATE_RE.test(value)) return value;
+    // A VALIDITY check only: an unparsable string keeps rendering as itself
+    // rather than as the shared functions' dash. The value handed on below is
+    // the STRING, never a `Date` built from `ts` — a pre-built `Date` is an
+    // instant the shared parse step leaves alone, so a date-only value reached
+    // it as UTC midnight and rendered one day early west of UTC (objectui#10183).
     const ts = Date.parse(value);
     if (Number.isNaN(ts)) return value;
     const hasTime = value.includes('T');
@@ -796,7 +808,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // independently authored `Intl.DateTimeFormat` bag here, close to but
       // not derived from the shared function. Byte-identical in en-US, zh and
       // de-DE, so no table cell changes.
-      if (hasTime) return formatDateTime(new Date(ts), { locale: language });
+      if (hasTime) return formatDateTime(value, { locale: displayLocale });
       // The DATE-only half is `formatDate`'s DEFAULT style — the same one home,
       // one type over (objectui#7620, maintainer ruling A). It used to build its
       // own `Intl.DateTimeFormat` bag here, which asked for `year: 'numeric'`
@@ -811,11 +823,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // `undefined` in the positional slot is how the published signature
       // `formatDate(value, style?, options?)` asks for the default face; the
       // positional argument outranks `options.style` (objectui#7745).
-      return formatDate(new Date(ts), undefined, { locale: language });
+      return formatDate(value, undefined, { locale: displayLocale });
     } catch {
       return value;
     }
-  }, [language]);
+  }, [displayLocale]);
 
   // Ensure data is always an array – provider config objects or null/undefined
   // must not reach array operations like .filter() / .some(). The non-array

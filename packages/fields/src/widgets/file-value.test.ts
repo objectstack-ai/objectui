@@ -108,6 +108,43 @@ describe('readFileValue', () => {
     expect(readFileValue('https://cdn.example.com/a.png').name).toBe('a.png');
   });
 
+  /**
+   * objectui#10493: a `data:` URI has no path, so its "last segment" was the
+   * MIME tail plus the base64 payload (`png;base64,…`), which then named the
+   * image cell's `<img>`. It carries no file name, so the caller's fallback
+   * applies; the URL itself is kept byte-for-byte.
+   */
+  describe('a data: URI carries no file name (objectui#10493)', () => {
+    const DATA_URI = 'data:image/png;base64,iVBORw0KGgo=';
+
+    it('a data: string gets the fallback name and keeps its URL', () => {
+      expect(readFileValue(DATA_URI)).toEqual({ url: DATA_URI, name: 'File', raw: DATA_URI });
+      expect(readFileValue(DATA_URI, 'Fichier').name).toBe('Fichier');
+    });
+
+    it('a { url: data: } object gets the fallback name and keeps its URL', () => {
+      const view = readFileValue({ url: DATA_URI }, 'Fichier');
+      expect(view.name).toBe('Fichier');
+      expect(view.url).toBe(DATA_URI);
+    });
+
+    it('a name the object carries still wins over the fallback', () => {
+      expect(readFileValue({ url: DATA_URI, name: 'sig.png' }, 'Fichier').name).toBe('sig.png');
+    });
+
+    it('a payload holding a `/`, or an upper-case scheme, names nothing either', () => {
+      // Base64 uses `/`, so the old "last segment" was then a payload fragment.
+      expect(readFileValue('data:image/png;base64,ab/cd+ef==', 'Fichier').name).toBe('Fichier');
+      expect(readFileValue('DATA:image/png;base64,iVBORw0KGgo=', 'Fichier').name).toBe('Fichier');
+    });
+
+    it('THE LIT CONTROL: https and blob: URLs keep their last segment', () => {
+      expect(readFileValue('https://cdn.example.com/a/photo.png', 'Fichier').name).toBe('photo.png');
+      expect(readFileValue({ url: 'https://cdn.example.com/a/photo.png' }, 'Fichier').name).toBe('photo.png');
+      expect(readFileValue('blob:http://localhost/abc-123', 'Fichier').name).toBe('abc-123');
+    });
+  });
+
   it('resolves a bare reference to the stable download URL', () => {
     const view = readFileValue('file_a', 'File');
 

@@ -119,6 +119,13 @@ export interface RawActionParam {
   defaultValue?: unknown;
   /** When true, seed defaultValue from the row record using the field name. */
   defaultFromRow?: boolean;
+  /**
+   * Carry-over declaration — the spec's `ActionParamSchema.carryOver`
+   * (objectui#6246): seeded from the row, rendered read-only, submitted
+   * verbatim. Copied onto `ActionParamDef.carryOver` unchanged on every branch
+   * below; `ActionParamDialog` is what honours it.
+   */
+  carryOver?: boolean;
   /** Allow multiple values (file/image/lookup/user params → array value). */
   multiple?: boolean;
   /** Accepted upload types (MIME types / extensions) for `file`/`image` params. */
@@ -485,6 +492,10 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      // This output is built key by key, so an authored key that is not
+      // copied here never reaches the dialog — which is how `carryOver` went
+      // unhonoured until objectui#6246. Same line on the two branches below.
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
@@ -500,10 +511,38 @@ export function resolveActionParam(
   const field: RuntimeField | undefined = owner?.fields?.[param.field];
 
   if (!field) {
-    // Reference target missing — fall back to a plain text input so the
-    // action remains usable in environments where the metadata cache is
-    // partial (e.g. tests).
+    // The backing field is NOT in the metadata this resolver was given, so the
+    // param's type, its options and — for a picker — its object binding are all
+    // unknown. `type: param.type ?? 'text'` below is a LAST-RESORT shape, not a
+    // resolution: a field-backed `{ field: 'contract_type' }` param declaring no
+    // inline `type` becomes a `text` param here, which is how a lookup param
+    // reached the user as an unannotated empty box with no dropdown and no
+    // request for the referenced object on the wire (objectui#10129).
+    //
+    // ⭐ That shape stays — a partially-cached environment must not crash — but
+    // it no longer travels ANONYMOUSLY. `unresolvedField` names the pair that
+    // could not be resolved, and `ActionParamDialog` refuses on it rather than
+    // offering a box no human can fill. Without this key the degradation is
+    // undetectable downstream: by the time `paramToField()` sees the param it
+    // is a `text` param, so `paramDegradesWithoutTarget()` answers false and
+    // even the #3405 "paste a record id" hints do not fire.
+    //
+    // ⛔ The warning is NOT gated on the param's type. "Which widget did this
+    // want?" is exactly the question that cannot be answered here, so gating on
+    // `lookup` would stay silent for the reported case, whose param names no
+    // inline type at all.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        `[resolveActionParams] Param "${paramName(param) ?? param.field}" is field-backed `
+          + `(\`{ field: '${param.field}' }\`) but \`${ownerName}.${param.field}\` is not in the `
+          + 'object metadata this resolver was given, so its type, options and picker target are '
+          + 'all unknown. The action dialog refuses the param instead of rendering an input for a '
+          + 'contract it cannot read. Check the field name, the owning object (`objectOverride`), '
+          + 'and that the object metadata has loaded.',
+      );
+    }
     return {
+      unresolvedField: `${ownerName}.${param.field}`,
       name: paramName(param) ?? param.field,
       label: authoredLabel ?? ctx.fieldLabel(ownerName, param.field, param.field),
       type: param.type ?? 'text',
@@ -513,6 +552,7 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
@@ -653,6 +693,8 @@ export function resolveActionParam(
     helpText: param.helpText ?? field.help ?? field.description,
     defaultValue: rowDefault ?? param.defaultValue ?? field.defaultValue,
     visible: normaliseVisible(param.visible),
+    // A declaration of the PARAM, never inherited from the field.
+    carryOver: param.carryOver,
     // Widget config inherited from the field for every type (not just
     // lookup): multi-value shape and upload constraints (ADR-0059).
     multiple: param.multiple ?? field.multiple,
@@ -660,6 +702,63 @@ export function resolveActionParam(
     maxSize: param.maxSize ?? field.maxSize,
     ...lookupExtras,
   };
+}
+
+/**
+ * Union the objects a CALLER holds with the ones the console's metadata store
+ * holds, caller first — the object list `resolveActionParams()` should be given.
+ *
+ * ## Why a union and not simply the store (objectui#10129)
+ *
+ * The two lists answer different questions and neither contains the other.
+ * The caller's list is the world that caller is rendering: `ObjectView` passes
+ * the full published set, `DeclaredActionsBar` passes the ONE object it is
+ * drawing a toolbar for, `ConsoleShell`'s root runtime passes none, and a
+ * preview/draft host passes an overlaid world whose defs deliberately differ
+ * from the published ones. The store's list is every object the session has
+ * loaded. A caller that carries a def must keep it — replacing it would make a
+ * draft overlay render its published twin — so the caller is ranked FIRST and
+ * `resolveActionParam`'s `find()` takes the first match by name.
+ *
+ * What the store adds is the objects the caller never had: the owner of a
+ * `{ field }` param dispatched from a surface that is not scoped to that object
+ * at all, and the `objectOverride` target of a cross-object param. Before this,
+ * such a param resolved against a list that could not contain its owner and
+ * degraded — for a field-backed param, which carries no inline `type`, into a
+ * bare `text` param: an empty box, no dropdown, no request for the referenced
+ * object on the wire, while the identical field rendered a real picker on a
+ * record form off this very store.
+ *
+ * ⛔ Not a lenient fallback in the AGENTS.md #0.1 sense: no dialect is being
+ * tolerated and no shape coerced. The metadata is spec-compliant and already in
+ * the client; this is the seam that was not handing it over.
+ *
+ * Pure, and deduplicated by object `name` so a def cannot be resolved twice.
+ * Entries with no usable `name` are carried through from the caller's list
+ * (they are that caller's business) and skipped from the store's.
+ */
+export function withKnownObjects<T>(
+  supplied: readonly T[] | undefined,
+  stored: readonly T[] | undefined,
+): T[] {
+  const nameOf = (o: T): string | undefined => {
+    const name = (o as { name?: unknown } | null | undefined)?.name;
+    return typeof name === 'string' && name ? name : undefined;
+  };
+  const out: T[] = Array.isArray(supplied) ? [...supplied] : [];
+  const seen = new Set<string>();
+  for (const o of out) {
+    const name = nameOf(o);
+    if (name) seen.add(name);
+  }
+  if (!Array.isArray(stored)) return out;
+  for (const o of stored) {
+    const name = nameOf(o);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(o);
+  }
+  return out;
 }
 
 /** Resolve an array of raw action params. */

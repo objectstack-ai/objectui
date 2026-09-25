@@ -32,6 +32,8 @@ interface InputOTPSchema {
   separator?: boolean;            // Show visual separator
   
   // Events
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onChange?: (value: string) => void;
   
   // States

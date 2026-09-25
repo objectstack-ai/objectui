@@ -164,13 +164,57 @@ describe('the arities this change must not touch (#5025)', () => {
     });
 
     it('still keeps a value-less operator whose value slot is empty', () => {
-        // Both dialects: the builder id and the canonical spec spelling this
-        // layer additionally sees.
+        // Both spellings a stored overlay can carry: the canonical one (the
+        // builder's own id since objectui#9306) and the deprecated camelCase
+        // one a row stored before that change still holds.
         const row = overlay([
             { field: 'closed_at', operator: 'isEmpty', value: '' },
             { field: 'owner', operator: 'is_null', value: '' },
         ]);
         expect(sanitizeViewOverride(row)).toBe(row);
+    });
+});
+
+/**
+ * objectui#9306 — the recovery pass FOLDS a row's operator before asking
+ * whether it takes a value.
+ *
+ * The value-less set it asks (`VALUELESS_FILTER_OPERATORS`) is written in the
+ * protocol's spellings, and since objectui#9306 so is the builder half of it:
+ * the deprecated camelCase ids are no longer members. A stored overlay row
+ * `{ operator: 'isEmpty', value: '' }` — written before that change — would
+ * then miss a RAW lookup, fall to the value test, have its `''` read as
+ * unfilled, and be DROPPED: the stored filter loses a condition on read, and
+ * the list widens to rows the author excluded. Every spelling below is one the
+ * spec's alias table folds onto a value-less member.
+ */
+describe('a stored deprecated-spelling value-less row survives the recovery pass (objectui#9306)', () => {
+    it.each([
+        ['isEmpty', 'is_empty'],
+        ['isNotEmpty', 'is_not_empty'],
+        ['isNull', 'is_null'],
+        ['isNotNull', 'is_not_null'],
+        ['isnull', 'is_null'],
+    ])('`%s` (folds to `%s`) with an empty value slot is KEPT', (operator) => {
+        const row = overlay([{ field: 'closed_at', operator, value: '' }]);
+        expect(sanitizeViewOverride(row)).toBe(row);
+    });
+
+    it('…in the legacy runtime triple shape too', () => {
+        const row = overlay([['closed_at', 'isEmpty', '']]);
+        expect(sanitizeViewOverride(row)).toBe(row);
+    });
+
+    it('CONTROL: a value-TAKING deprecated spelling with no value is still dropped', () => {
+        // The fold must not make every camelCase row look finished: `notEquals`
+        // takes a value, so an empty one is an unfinished row exactly as its
+        // canonical twin's is.
+        expect(
+            sanitizeViewOverride(overlay([{ field: 'name', operator: 'notEquals', value: '' }])).filter,
+        ).toBeUndefined();
+        expect(
+            sanitizeViewOverride(overlay([{ field: 'name', operator: 'not_equals', value: '' }])).filter,
+        ).toBeUndefined();
     });
 });
 

@@ -21,7 +21,7 @@ import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -1117,6 +1117,66 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     [schema.objectName, resolveActionLabel],
   );
 
+  // Declared ahead of `toolbarFlags`, which reads it: which view is ON SCREEN
+  // decides whether a filter control has anything to reach (objectui#10327).
+  const [currentView, setCurrentView] = React.useState<ViewType>(
+    (schema.viewType as ViewType)
+  );
+
+  /**
+   * Is the view on screen a `chart` bound to a semantic `dataset`?
+   * (objectui#10327, ruling 5825582592, letter A.)
+   *
+   * Such a chart takes its scope FROM THE DATASET. Its node (`case 'chart'`,
+   * the `'dataset'` shape) carries no `filter`: `ObjectChart` hands
+   * `queryDataset` the dimensions and measures and nothing else, and a dataset's
+   * field namespace need not be the list object's, so the list's filter has no
+   * door into that query. The ruling refused the mapping that would build one
+   * (option B). Both filter controls this toolbar offers therefore reach
+   * nothing drawn on this view:
+   *
+   *   - the Filter builder (`showFilters` below);
+   *   - the `UserFilters` chips (`showUserFilters` below). They feed the SAME
+   *     effective filter (`buildEffectiveFilter`), whose only reader here is
+   *     this component's own fetch of the list object's rows — the record-count
+   *     bar, never the chart.
+   *
+   * So neither is offered on this view. The authored half — a view `filter` on
+   * a dataset chart — is refused at authoring by `@object-ui/types`'
+   * `ListViewSchema`.
+   *
+   * Asked of `resolveListChartBinding`, the SAME resolver `case 'chart'` routes
+   * on, so the toolbar and the render branch cannot disagree about the shape.
+   * A primitive, so the memo below keys on the answer, not on an identity
+   * (AGENTS.md #10). ⛔ The object-bound (`'legacy'`) chart keeps both
+   * controls: its node carries the effective filter (objectui#10250).
+   */
+  const datasetChartOnScreen =
+    currentView === 'chart' && resolveListChartBinding(schema).shape === 'dataset';
+
+  /**
+   * Is the view on screen one whose own query carries no search term?
+   * (objectui#10326, ruling 5825585515, letter A.)
+   *
+   * `tree` and `chart` draw what they query for themselves, and neither query
+   * has a search channel: `ObjectTree`'s object-provider `find` sends
+   * `$filter`, `$top` and `$expand`; `ObjectChart`'s queries — the aggregate
+   * (`field`, `function`, `groupBy`, `filter`), its `find` fallback and the
+   * dataset query — take no term. A typed term changed only this component's
+   * own fetch — the record-count bar and the export — and nothing drawn. The
+   * ruling withholds the control instead of widening either query (option B).
+   *
+   * Every chart binding: the dataset shape carries no term either.
+   *
+   * Two readers, one answer: `showSearch` below, and the APPLIED term
+   * (`searchTerm`, after the toolbar flags). A term restored at mount or
+   * carried across a view switch therefore does not go on narrowing this
+   * component's fetch with no control on screen to show or clear it. ⛔ The
+   * typed term itself is kept: switching back to a view that draws the
+   * fetched rows applies it again.
+   */
+  const searchlessViewOnScreen = currentView === 'tree' || currentView === 'chart';
+
   // Resolve toolbar visibility flags: userActions overrides showX flags
   const toolbarFlags = React.useMemo(() => {
     // Every toolbar toggle reads from `userActions` (#2890). The legacy bare
@@ -1144,9 +1204,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     const addRecordEnabled = schema.addRecord?.enabled === true && ua?.addRecordForm !== false;
     const addRecordPlacement = resolveAddRecordPlacement(schema.addRecord?.position);
     return {
-      showSearch: ua?.search !== false,
+      // Not offered on `tree` or `chart`: see `searchlessViewOnScreen`.
+      showSearch: ua?.search !== false && !searchlessViewOnScreen,
       showSort: ua?.sort !== false,
-      showFilters: ua?.filter !== false,
+      // Not offered on a dataset-bound chart: see `datasetChartOnScreen`.
+      showFilters: ua?.filter !== false && !datasetChartOnScreen,
+      showUserFilters: !datasetChartOnScreen,
       showRefresh: ua?.refresh !== false,
       showDensity: ua?.rowHeight !== false,
       showGroup: ua?.group !== false,
@@ -1160,12 +1223,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showAddRecordTop: addRecordEnabled && addRecordPlacement.top,
       showAddRecordBottom: addRecordEnabled && addRecordPlacement.bottom,
     };
-  }, [schema.userActions, schema.compactToolbar, schema.addRecord]);
+  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen]);
 
-  const [currentView, setCurrentView] = React.useState<ViewType>(
-    (schema.viewType as ViewType)
-  );
-  const [searchTerm, setSearchTerm] = React.useState(() => initialSearchTerm ?? '');
+  // What the user typed, or what the host restored at mount.
+  const [searchInput, setSearchInput] = React.useState(() => initialSearchTerm ?? '');
+  // The term this component APPLIES — its fetch, the export, the Search
+  // trigger. Empty on a view whose own query carries no term
+  // (`searchlessViewOnScreen`, objectui#10326). A primitive, so each list that
+  // names it re-runs on a switch into or out of such a view and on nothing else.
+  const searchTerm = searchlessViewOnScreen ? '' : searchInput;
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
   // Sort State
@@ -1833,11 +1899,25 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.colorField, v.allDayField,
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
+        // The map's coordinate bindings (objectui#10370). Its title rides
+        // `titleField` above; an expanded lookup there resolves to the related
+        // record's display name.
+        //
+        // ⛔ NOT `descriptionField`, which the `$select` twin below does
+        // collect. `ObjectMap` renders the marker description as a React
+        // child, so an EXPANDED lookup there (an object) throws "Objects are
+        // not valid as a React child" when the marker is clicked, where a bare
+        // id renders as text — measured on objectui#10370. That crash is
+        // already reachable wherever every relation is expanded (a column-less
+        // list, `ObjectMap`'s own fetch); this collector must not add a route.
+        v.locationField, v.latitudeField, v.longitudeField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+        // ⛔ No timeline chip-field list (the retired `metaFields`) is
+        // collected: the spec declares none, and the timeline no longer reads
+        // one (objectui#10222).
         ...(Array.isArray(v.columns) ? v.columns : []),
         ...(Array.isArray(v.cardFields) ? v.cardFields : []),
         ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-        ...(Array.isArray(v.metaFields) ? v.metaFields : []),
       ];
       for (const f of candidates) {
         if (typeof f === 'string' && f) collected.add(f);
@@ -1853,6 +1933,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     collectViewFields((schema as any).options?.timeline);
     collectViewFields((schema as any).gantt);
     collectViewFields((schema as any).options?.gantt);
+    // [objectui#10370] The map, read through the resolver its render branch
+    // and capability gate share — see the `$select` twin below for why the
+    // resolver rather than the two blocks one at a time. A coordinate or title
+    // binding that names a lookup is then expanded, the row shape `ObjectMap`'s
+    // own fetch and a column-less list already deliver: both expand every
+    // relation. The description binding is left out on purpose (see the
+    // candidate list above).
+    collectViewFields(resolveListMapConfig(schema));
     // [objectui#7179] The GRID's grouping block, which this collector had no
     // arm for: it reads `groupByField` (kanban / gantt / timeline) but the grid
     // groups through `grouping.fields[]`, a different key with a different
@@ -1914,6 +2002,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     (schema as any).gallery,
     (schema as any).timeline,
     (schema as any).gantt,
+    schema.map,
     (schema as any).options,
     perms,
     schema.objectName,
@@ -2057,6 +2146,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       
       setLoading(true);
       setLoadError(null);
+      // [objectui#10384] Set when this result clamps the pager (see below).
+      // The window it moves to is already being fetched, so loading stays on:
+      // settling it here would paint the empty window — and with it the
+      // first-run empty state — for one frame before the clamped rows arrive.
+      let clampedToPage: number | null = null;
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
@@ -2084,10 +2178,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 .map(f => columnIdentity(f))
                 .filter((v): v is string => typeof v === 'string' && v.length > 0)
             : [];
+          // [objectui#10275] "Is there a projection?" is asked of the AUTHORED
+          // columns, never of what survived the FLS gate below — the rule
+          // `hasAuthoredColumns` applies to what the grid draws. No authored
+          // column ⇒ no `$select`, as before. An authored list that FLS EMPTIES
+          // used to land here too, so the request carried no `$select` key and
+          // asked for every field, the denied ones included: an emptied list
+          // read as "no restriction", the widening objectui#7215 measured on
+          // `$expand`. It now falls through and projects to `id` plus the
+          // routes below, each already FLS-gated as it enters (the `$expand`
+          // roots, the view bindings, the grouping fields, the row predicates'
+          // operands; the platform columns excepted, for the reason stated at
+          // `addSpeculative`) — the shape `ObjectGrid` (`ensureId([])` keeps
+          // `['id']`) and `RelatedList` (objectui#10186) send.
+          if (rawCols.length === 0) return undefined;
           const cols = (perms?.isLoaded && schema.objectName)
             ? rawCols.filter(c => perms.checkField(schema.objectName!, c, 'read'))
             : rawCols;
-          if (cols.length === 0) return undefined;
           // Don't speculatively add `_id` / `name` — some backends reject
           // unknown select keys with an empty result set rather than
           // ignoring them. Stick to the user-requested columns plus the
@@ -2187,11 +2294,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               v.colorField, v.allDayField,
               v.coverField, v.imageField,
               v.swimlaneField, v.valueField,
+              // The map's row reads (objectui#10370): `ObjectMap` places a
+              // marker from `locationField` or the `latitudeField` +
+              // `longitudeField` pair (`extractCoordinates`) and shows
+              // `descriptionField` under it. Its title rides `titleField` above.
+              // The `expandFields` twin collects all of these but the
+              // description, for the reason stated there.
+              v.locationField, v.latitudeField, v.longitudeField,
+              v.descriptionField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+              // ⛔ No timeline chip-field list (the retired `metaFields`) is
+              // collected: the spec declares none, and the timeline no longer
+              // reads one (objectui#10222).
               ...(Array.isArray(v.columns) ? v.columns : []),
               ...(Array.isArray(v.cardFields) ? v.cardFields : []),
               ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-              ...(Array.isArray(v.metaFields) ? v.metaFields : []),
             ];
             for (const f of candidates) addSpeculative(f);
           };
@@ -2204,20 +2321,45 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           collectViewFields(schema.timeline);
           collectViewFields(schema.options?.timeline);
           // Timeline plugin shows status / priority chips inline. Auto-include
-          // them when no explicit metaFields was configured so views like
-          // `task_timeline` ({ columns: ['subject', 'status'] }) still get
-          // priority badges out of the box. Gated through addSpeculative: only
-          // added when the object actually has these fields (a `product` with
-          // no status/priority must not get them, or the list goes empty).
+          // them for every timeline view so views like `task_timeline`
+          // ({ columns: ['subject', 'status'] }) still get priority badges out
+          // of the box. Gated through addSpeculative: only added when the
+          // object actually has these fields (a `product` with no
+          // status/priority must not get them, or the list goes empty).
+          //
+          // Unconditional on purpose (objectui#10222, ruling batch #223 item
+          // 5b, letter A): this used to be skipped when the block carried an
+          // undeclared `metaFields` list, which the spec refuses and the
+          // timeline no longer reads. The chips are always the built-in pair
+          // now, so their values are always fetched.
           {
-            const tCfg: any = schema.timeline ?? schema.options?.timeline;
-            if (tCfg && !Array.isArray(tCfg.metaFields)) {
+            const tCfg = schema.timeline ?? schema.options?.timeline;
+            if (tCfg) {
               addSpeculative('status');
               addSpeculative('priority');
             }
           }
           collectViewFields(schema.gantt);
           collectViewFields(schema.options?.gantt);
+          // [objectui#10370] The MAP's bindings, which this collector had no
+          // arm for: a map view whose columns omit its location field asked
+          // for `id` plus those columns, and on a backend that honours
+          // `$select` every row arrived without coordinates — a map with no
+          // markers, no error, no warning.
+          //
+          // Read through `resolveListMapConfig`, the resolver `case 'map'` and
+          // the capability gate already share, not through `schema.map` and
+          // `schema.options?.map` one at a time: it reads both of those, per
+          // key with the view-level block winning, so the projection asks for
+          // exactly the bindings the markers are drawn from. A bag value the
+          // block shadows is read by nothing and is not requested. A top-level
+          // `locationField` is no spelling at all — the spec's list view
+          // refuses it by name and no map branch reads it — so it stays out.
+          //
+          // Through `addSpeculative`, like every binding here: a location field
+          // the principal may not read is never requested, and a name the
+          // object does not declare is never sent.
+          collectViewFields(resolveListMapConfig(schema));
 
           // The fields the view's PREDICATES read (objectui#3501).
           // `$select` was built from the COLUMNS alone, so a row action gated on
@@ -2400,6 +2542,34 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // render (objectui#7394), so this effect no longer has to re-run just
         // because a different visualization is now drawing the same rows.
         setFetchedTotal(knownTotal);
+        // [objectui#10384] Clamp the pager after a write empties this window.
+        // `pageResetSignature` below deliberately leaves the refresh inputs out
+        // (a write must not throw the user back to page 1), so a refetch that
+        // lands on a page the data no longer reaches — every row of the last
+        // page bulk-deleted, or a concurrent deleter — used to stay there with
+        // zero rows and the FIRST-RUN empty state over an object that still
+        // has records on earlier pages. The clamp lives HERE, on the result,
+        // because only the result knows the page is now past the end.
+        //
+        // It fires only when this window came back empty past the first page
+        // AND the server's total puts the last page strictly below the one
+        // requested; it then moves `serverPage` there, which moves `fetchSkip`
+        // and re-runs this effect once. It cannot loop: each firing strictly
+        // lowers the page and the target is floored at 1, so the chain ends
+        // at the first window the total says is reachable. A server whose
+        // total disagrees with its own empty window (total still reaching this
+        // page) gets no clamp, which is the other half of that guarantee.
+        // Without a numeric total the grid is never handed a pager (the
+        // `serverTotal != null` gate on the handoff), so no page past 1 is
+        // reachable to clamp from.
+        if (skip > 0 && items.length === 0 && knownTotal !== null) {
+          const lastReachablePage = Math.max(1, Math.ceil(knownTotal / effectivePageSize));
+          const requestedPage = Math.floor(skip / effectivePageSize) + 1;
+          if (lastReachablePage < requestedPage) {
+            clampedToPage = lastReachablePage;
+            setServerPage(lastReachablePage);
+          }
+        }
         // Past the stale-request guard, so this is the query behind the rows
         // that were just set — never an in-flight one that lost the race.
         setLastFindParams(findParams);
@@ -2419,7 +2589,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           setLoadErrorKind(classifyLoadError(err));
         }
       } finally {
-        if (isMounted && requestId === fetchRequestIdRef.current) {
+        if (isMounted && requestId === fetchRequestIdRef.current && clampedToPage === null) {
           setLoading(false);
         }
       }
@@ -2493,7 +2663,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2680,7 +2850,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [storageKey, onViewChange]);
 
   const handleSearchChange = React.useCallback((value: string) => {
-    setSearchTerm(value);
+    setSearchInput(value);
     onSearchChange?.(value);
   }, [onSearchChange]);
 
@@ -2829,6 +2999,82 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     () => Array.isArray(schema.columns) && schema.columns.length > 0,
     [schema.columns],
   );
+
+  /**
+   * The filter a SELF-QUERYING view queries with — `gantt` (objectui#10037),
+   * `tree` and `chart` (objectui#10250).
+   *
+   * Most views draw the rows this component fetched, so the toolbar's Filter
+   * control and the `UserFilters` chips reach them through `data`. Three views
+   * run their OWN query from the node's `filter` instead, and a node carrying
+   * only the authored `schema.filter` left both controls on screen, changing
+   * this component's fetch and nothing the user could see:
+   *
+   *   - `gantt`: the registered `object-gantt` renderer forwards no host prop
+   *     (see `ganttOwnsData` above) and `ObjectGantt.reload` hands
+   *     `schema.filter` to `$filter`;
+   *   - `tree`: `ObjectTree`'s object-provider branch runs its own `find` with
+   *     `$filter: schema.filter`, and it runs BEFORE its host-`data` branch;
+   *   - `chart` (the object-bound shape): `ObjectChart` reads no host rows and
+   *     aggregates with `schema.filter`.
+   *
+   * Each of those nodes therefore carries the SAME effective filter this
+   * component's own fetch sends (`buildEffectiveFilter`: authored filter AND
+   * toolbar group AND chips), and each renderer hands it to its query
+   * unchanged.
+   *
+   * ⭐ Stable for an equal payload, and keyed on the payload — not on a memo
+   * identity (AGENTS.md #10). `ObjectGantt`'s reload effect and `ObjectTree`'s
+   * record effect both list `schema.filter` as a dependency, so a fresh array
+   * for a byte-identical filter would refetch the view on every density toggle
+   * or discarded memo. The ref below hands back the previous object whenever
+   * the serialised filter is unchanged. (`ObjectChart` keys its fetch on the
+   * serialised filter already; it gets the same value for one rule.)
+   *
+   * ⚠️ A filter `buildEffectiveFilter` refuses (a `FilterOperatorError`) is
+   * NOT turned into "no filter" here — that would widen the view to every row.
+   * The node keeps the last filter it was handed (or, before any, the authored
+   * one, exactly what it carried before objectui#10037), and this component's
+   * own fetch, which throws the same refusal inside its load `try`, raises the
+   * load-error panel that replaces the view.
+   */
+  const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
+  let selfQueryFilter: unknown = schema.filter;
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
+    try {
+      const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const key = JSON.stringify(value ?? null);
+      const cached = selfQueryFilterRef.current;
+      if (cached && cached.key === key) {
+        selfQueryFilter = cached.value;
+      } else {
+        selfQueryFilterRef.current = { key, value };
+        selfQueryFilter = value;
+      }
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : schema.filter;
+    }
+  }
+
+  /**
+   * The toolbar Search term the GANTT CHART queries with (objectui#10250).
+   *
+   * Same seam as `selfQueryFilter` above, other control: this component's own
+   * fetch sends `$search` (and, when the view declares `searchableFields`,
+   * `$searchFields`), and the chart — which queries for itself — never saw the
+   * term. The gantt node carries it as `search`, which `ObjectGantt.reload`
+   * sends as `$search` together with the node's `searchableFields`.
+   *
+   * Gantt-only, and a primitive: the memo below lists it as a dependency, so
+   * scoping it keeps a keystroke from rebuilding every other view's node, and
+   * a string compares by value, so an unchanged term rebuilds nothing.
+   * ⛔ `tree` and `chart` are not handed a term: neither renderer has a search
+   * channel in its own query today, so a key written onto their nodes would be
+   * accepted and read by nothing. The toolbar does not offer Search on them
+   * either (`searchlessViewOnScreen`, objectui#10326).
+   */
+  const ganttSearchTerm = currentView === 'gantt' ? searchTerm : '';
 
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
@@ -3159,6 +3405,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-gantt',
           ...baseProps,
+          // objectui#10037 — the EFFECTIVE filter, not the authored one: the
+          // chart queries for itself, so this key is the only way the
+          // toolbar's Filter control and the `UserFilters` chips reach it.
+          // See `selfQueryFilter` above.
+          filter: selfQueryFilter,
+          // objectui#10250 — the toolbar Search term, by the same door and for
+          // the same reason; `searchableFields` rides with it exactly as it
+          // rides with this component's own `$search`. Absent keys, not
+          // present-and-empty, when there is no term. See `ganttSearchTerm`.
+          ...(ganttSearchTerm
+            ? {
+                search: ganttSearchTerm,
+                ...(schema.searchableFields && schema.searchableFields.length > 0
+                  ? { searchableFields: schema.searchableFields }
+                  : {}),
+              }
+            : {}),
           // objectui#7334 — the view-level `navigation` the author wrote.
           //
           // `ObjectGantt` owns a record drawer of its own and resolves
@@ -3266,6 +3529,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-tree',
           ...baseProps,
+          // objectui#10250 — the EFFECTIVE filter: `ObjectTree`'s object
+          // provider runs its own `find` from this key before it looks at the
+          // `data` handed down, so the toolbar Filter and the chips reach the
+          // tree only here. See `selfQueryFilter` above.
+          filter: selfQueryFilter,
           parentField: treeCfg.parentField,
           labelField: treeCfg.labelField || treeCfg.titleField || 'name',
           fields: treeCfg.fields || effectiveFields,
@@ -3286,6 +3554,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // ADR-0021 (#1890): the single author-facing shape binds to a semantic
         // `dataset` and selects dimensions/measures BY NAME, so the chart runs
         // through the governed queryDataset path (numbers consistent everywhere).
+        //
+        // ⛔ NO `filter` on this node, deliberately (objectui#10327, ruling
+        // 5825582592, letter A): a dataset chart takes its scope from the
+        // dataset. The list's filter addresses the LIST OBJECT's fields and a
+        // dataset's namespace need not be that object's, so forwarding it here
+        // would be the list-object → dataset mapping the ruling refused
+        // (option B). The toolbar withholds its filter controls on this view
+        // (`datasetChartOnScreen`), and `ListViewSchema` refuses an authored
+        // view filter on it.
         if (chartBinding.shape === 'dataset') {
           const dims: string[] = chartBinding.dimensions;
           const vals: string[] = chartBinding.values;
@@ -3316,8 +3593,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           chartType: chartCfg.chartType || 'bar',
           // `ObjectChart` reads `schema.filter` and never read `filters`, so a
           // chart list view with a base filter used to aggregate the WHOLE
-          // object (#2890).
-          filter: schema.filter,
+          // object (#2890). It reads no host rows either, so this key is also
+          // the only way the toolbar Filter and the chips reach the aggregate:
+          // the EFFECTIVE filter, not the authored one (objectui#10250). See
+          // `selfQueryFilter` above.
+          filter: selfQueryFilter,
           aggregate: {
             field: valueField,
             function: chartCfg.aggregation || 'count',
@@ -3336,7 +3616,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef]);
+  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -3388,17 +3668,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               label: tFieldLabel(fieldName, f.label || fieldName),
               type: f.type || 'text',
               options: buildOptions(fieldName, f.options),
-              // objectui#7642 CENSUS — verdict KEEP, and NOTE the bag differs from
-              // the sibling branch below: `f` here is a LIST-VIEW COLUMN
-              // (`ListColumnSchema`), not an object-schema field def. Measured against
-              // the installed spec, `ListColumnSchema` refuses BOTH castings of all
-              // three keys (`display_field` AND `displayField`, `id_field` AND
-              // `idField`, `reference_to` AND `reference`), so this is not a
-              // snake-vs-camel question at all — it is a third contract. Filed
-              // separately rather than half-retired here.
-              referenceTo: f.reference_to || f.reference,
-              displayField: f.display_field || f.reference_field,
-              idField: f.id_field,
+              // objectui#7531 (ruled): a list column declares no relational target; it comes from the object definition once loaded.
            }];
         });
     } else {
@@ -3903,8 +4173,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               toggles). Mutually exclusive with view tabs above, so at most
               one filter element group ever renders here. On mobile we keep
               them visible (single line, scrollable) to match the Airtable
-              Interface pattern. */}
-          {filterElements && (
+              Interface pattern. Withheld on a dataset-bound chart, which they
+              cannot reach (`datasetChartOnScreen`, objectui#10327). */}
+          {filterElements && toolbarFlags.showUserFilters && (
               <div className="shrink-0 min-w-0 overflow-x-auto" data-testid="user-filters">
                 <UserFilters
                   config={filterElements}

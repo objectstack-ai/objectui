@@ -313,7 +313,7 @@ A complete form with fields, validation, layout, and actions.
 | `showCancel` | `boolean` | Whether to show a cancel button. |
 | `showActions` | `boolean` | Whether to show the action buttons row. |
 | `resetOnSubmit` | `boolean` | Reset form after successful submit. |
-| `mode` | `"edit" \| "read" \| "disabled"` | Form interaction mode. |
+| `disabled` | `boolean` | Disable every input and the submit button. (`mode` is retired on this node and fails validation; for a create / edit / view form use [ObjectFormSchema](#objectformschema).) |
 | `actions` | `SchemaNode[]` | Custom action buttons to replace defaults. |
 
 **Related:** [InputSchema](#inputschema), [SelectSchema](#selectschema), [ObjectFormSchema](#objectformschema)
@@ -509,6 +509,8 @@ numbers of its own: `ChartDataSeries.data` is a retirement tombstone
 | `series` | `ChartDataSeries[]` | Data series. Each entry's `name` (or `dataKey`) names the column it plots within a `data` row; optional `label`, `color`, a per-series `type` (`"bar"`, `"line"`, `"area"`) for combo charts, `stack`, `yAxis` (`"left"` / `"right"`), `variant` (`"primary"` / `"comparison"`), `dashArray` and `opacity`. `chartType` on a series is refused by name — it is the renderer's internal spelling of `type`; write `type`. |
 | `data` | `Array<Record<string, any>>` | Rows to plot — one object per row, keyed by column name. |
 | `xAxisKey` | `string` | Row key holding the category (x) axis. The bare-string `xAxis: "month"` spelling folds onto this key at parse. |
+| `xAxis` | `ChartAxis` | The category axis as `@objectstack/spec`'s axis object: `field` (required — the category column; `xAxisKey` wins when both are written), `title`, `format`, `min`, `max`, `stepSize`, `showGridLines`, `position`, `logarithmic`. Strict: an undeclared key is refused at parse. |
+| `yAxis` | `ChartAxis[]` | The value axes — a **list** of the same axis object, one entry per axis; a second entry declares the right-hand axis. A single object or a bare string is refused. |
 | `height` / `width` | `string \| number` | Chart dimensions. |
 | `showLegend` | `boolean` | Display the legend. |
 | `showGrid` | `boolean` | Display grid lines. |
@@ -589,8 +591,9 @@ than one node. Build it from the shapes that do render:
 
 The `defaultSort` and `defaultSortOrder` keys documented here were `CRUDSchema`'s
 own — a flat field name plus a separate direction. They are gone with it.
-[ObjectGridSchema](#objectgridschema) declares its own, differently shaped
-`defaultSort` (an object with `field` and `order`); that key is unaffected.
+[ObjectGridSchema](#objectgridschema) used to declare its own, differently shaped
+`defaultSort` (an object with `field` and `order`); that key has since been
+retired too — see the note under [ObjectGridSchema](#objectgridschema).
 
 Authoring `crud` is now refused by name: `validateSchema` from `@object-ui/core`
 returns a `RETIRED_TYPE` error on `schema.type` naming the migration above, and
@@ -745,7 +748,7 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
     { "field": "phone" },
     { "field": "status", "label": "Status", "sortable": true }
   ],
-  "defaultSort": { "field": "name", "order": "asc" },
+  "sort": [{ "field": "name", "order": "asc" }],
   "operations": {
     "create": true,
     "read": true,
@@ -781,6 +784,15 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `grouping` | `GroupingConfig` | Row grouping configuration. **Page-scoped**: the grid groups the rows it has fetched, so group counts are page slices and a group beyond the page is absent — the grid marks the grouping partial when it can tell. |
 | `frozenColumns` | `number` | Number of columns frozen on scroll. |
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
+
+> **`defaultSort` is retired (objectui#5861).** `ObjectGridSchema` used to accept a
+> legacy single-entry `defaultSort: { field, order }` beside `sort`. The installed
+> `@objectstack/spec` protocol refuses it by name (a retired-key tombstone), and no
+> renderer reads it any more: a grid that still carries it renders **unsorted**, and
+> `@object-ui/types` refuses it on both faces (a `?: never` member and a named zod
+> refusal). Rename the key to `sort` and wrap the value in an array —
+> `"defaultSort": { "field": "name", "order": "asc" }` becomes
+> `"sort": [{ "field": "name", "order": "asc" }]`, as in the example above.
 
 **Related:** [ObjectViewSchema](#objectviewschema), [TableSchema](#tableschema)
 
@@ -872,12 +884,14 @@ A complete object management interface combining grid, form, search, filters, an
   "listViews": {
     "all": {
       "label": "All Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
       "filter": [],
       "sort": [{ "field": "value", "order": "desc" }]
     },
     "my-deals": {
-      "filter": [["owner", "=", "${currentUser.id}"]],
-      "label": "My Deals"
+      "label": "My Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
+      "filter": [{ "field": "owner", "operator": "equals", "value": "{current_user_id}" }]
     }
   },
   "defaultListView": "my-deals",
@@ -892,6 +906,8 @@ A complete object management interface combining grid, form, search, filters, an
   }
 }
 ```
+
+`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the host that renders the list resolves it to the signed-in user's id before the query runs, and resolving it on the `object-view` node path itself is tracked in objectui#10506.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -935,7 +951,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 |----------|------|-------------|
 | `objectName` | `string` | Object to fetch records from. |
 | `groupBy` | `string` | Field whose values become the lanes (maps to column ids). **Optional** since objectui#8990, matching `@objectstack/spec`. A board that omits it draws whatever lanes `columns` declares — and holds **no cards**, because records are only distributed once a lane key exists. |
-| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. |
+| `columns` | `string[] \| KanbanLane[]` | Swimlane definitions — an array of `{ id, title }` lanes (one per `groupBy` value), **or** an array of bare value strings; never a mix. **Not** a field projection (that is `cardFields`). A lane's `cards` is optional: an object-bound board buckets records into the lane by `groupBy`, and only a static board writes a lane's cards itself. A record lands in a lane when its stored `groupBy` value equals the lane **`id`** (the option value, compared case-insensitively); the lane `title` is display only and never decides membership (objectui#10069). A record matching no lane id is shown in a trailing *Uncategorized* lane and named in a console warning. |
 | `titleField` | `string` | Field used as the card title. |
 | `cardFields` | `string[]` | Fields rendered on each card. |
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
@@ -945,7 +961,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
 
-> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.
+> **`quickAdd` and `allowCollapse` were rows of the table above and are not authorable on this board.** `allowCollapse` is **refused by name** by the strict authoring face, which does not declare it at all — a document carrying it fails validation rather than merely going unread, and `@object-ui/plugin-kanban` has no read site for it. `quickAdd` still parses, because the strict face does declare it, but an object-bound board never honours it: the Quick Add control is gated on an `onQuickAdd` runtime slot and no `object-kanban` path supplies one, so `@object-ui/sdui-parser` answers an authored `quickAdd: true` with an `inert-quick-add` warning. objectui#8285 ruled that key retired (director seat, decision batch 91). ⚠️ `@object-ui/types` mirrors this face and agrees on only one of the two. `allowCollapse` is refused by name there too — `never` on its TypeScript face and a retirement tombstone on its Zod face (objectui#8801). `quickAdd` is still **declared** on both of the mirror's faces, so a reader will find it there; retiring it from the mirror is objectui#8285, not this table.
 
 > `columns` is declared on this face since objectui#8913, as the pair of array shapes `@objectstack/spec` declares — an array of `{ id, title }` lanes, **or** an array of bare value strings. A **mixed** array is refused: the renderer decides which shape it has from the first element alone, so a mix yields a blank lane and mis-bucketed cards. A lane accepts `id`, `title`, `cards`, `limit`, `className` and `collapsed`, which are the members the board implementations read; `id` is a **string** — the authored face keeps that narrowing, and since objectui#8993 a non-string lane id no longer renders every card twice: the bucketer's leftover sweep keys membership the way the injection already did (a lane `1` takes the group `'1'`). When a lane carries `cards`, each card is judged — a card with no `title` is refused. An undeclared lane key is accepted and dropped, not refused, which is this tolerant face's posture; the strict authoring face refuses it by name.
 >
@@ -974,23 +990,20 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
   "widgets": [
     {
       "id": "revenue",
+      "type": "metric",
       "title": "Total Revenue",
-      "description": "Monthly revenue",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "statistic",
-        "label": "Revenue",
+      "layout": { "x": 0, "y": 0, "w": 1, "h": 2 },
+      "options": {
         "value": "$48,200",
+        "description": "Monthly revenue",
         "trend": { "value": 12, "direction": "up" }
       }
     },
     {
       "id": "chart",
       "title": "Sales Trend",
-      "colSpan": 2,
-      "rowSpan": 1,
-      "body": {
+      "layout": { "x": 1, "y": 0, "w": 2, "h": 4 },
+      "component": {
         "type": "chart",
         "chartType": "area",
         "xAxisKey": "day",
@@ -1006,12 +1019,14 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
     },
     {
       "id": "tasks",
+      "type": "list",
       "title": "Recent Tasks",
-      "colSpan": 1,
-      "rowSpan": 1,
-      "body": {
-        "type": "list",
-        "items": []
+      "layout": { "x": 3, "y": 0, "w": 1, "h": 4 },
+      "options": {
+        "data": [
+          { "task": "Renew the Acme contract", "due": "Mon" },
+          { "task": "Send the Q3 forecast", "due": "Wed" }
+        ]
       }
     }
   ]
@@ -1022,10 +1037,12 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
 |----------|------|-------------|
 | `columns` | `number` | Number of grid columns. |
 | `gap` | `number` | Gap between widgets (Tailwind spacing scale). |
-| `widgets` | `DashboardWidgetSchema[]` | **Required.** Widget definitions with `id`, `title`, `colSpan`, `rowSpan`, and `body`. |
+| `widgets` | `(DashboardWidgetSlotComponentSchema \| DashboardWidgetSchema)[]` | **Required.** Each entry is a widget or a component node. A widget (`DashboardWidgetSchema`) names itself with `id`, `title` and `description`, sizes itself with `layout: { x, y, w, h }`, and holds its content either as a family named in `type` with that family's settings under `options`, or as a registered component node in `component`; its full key set is the spec's `DashboardWidget` plus objectui's own. A component node (`DashboardWidgetSlotComponentSchema`) sits in the slot directly: its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES` set, such as `metric-card`, and its other keys are that component's own props. |
 | `refreshIntervalSeconds` | `number` | Auto-refresh interval in **seconds** — the renderer multiplies by 1000. Renamed from `refreshInterval`, which this table documented as milliseconds and which it never was (objectui#7783). |
 
-Each widget supports `colSpan` and `rowSpan` to control its size in the grid. The `body` can be any `SchemaNode`.
+A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `options` or `component`.
+
+The family in `type` decides what `options` holds: `metric` shows `options.value`; `list` and `table` show the rows in `options.data`; a chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key. Instead of a family, a widget can hold a registered component node in `component`, as the `chart` widget above does — that node's keys are the component's own props (here [`ChartSchema`](#chartschema)'s), not widget keys. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
 
 **Related:** [GridSchema](#gridschema), [ChartSchema](#chartschema), [CardSchema](#cardschema)
 
@@ -1188,6 +1205,39 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > ⚠️ The block reads the parent record from the record page's `RecordContext`,
 > so author it on a record page. Placed anywhere it cannot resolve a parent id
 > it scopes to nothing and renders an empty list.
+
+> **Due/deadline fields: `dueLike`.** A field entry — a `DetailViewField`, in
+> `fields` or in a section's `fields` — may mark a `date` / `datetime` field as
+> due/deadline-semantic. It is the same key, with the same meaning, that the
+> [Date Field](/docs/fields/date) and [DateTime Field](/docs/fields/datetime)
+> carry in their own object metadata: the authored entry is handed to the same
+> cell renderer, so the affordance it turns on is the one described under
+> [Overdue Affordance](/docs/fields/datetime#overdue-affordance).
+>
+> ```json
+> {
+>   "type": "detail-view",
+>   "objectName": "Contract",
+>   "fields": [
+>     {
+>       "name": "end_date",
+>       "label": "Contract Ends",
+>       "type": "date",
+>       "format": "relative",
+>       "dueLike": true
+>     }
+>   ]
+> }
+> ```
+>
+> ⚠️ `end_date` is deliberately a neutral name here, because only a declared
+> `true` short-circuits: with the key absent the due/deadline field-name
+> convention still decides for itself, and `dueLike: false` does not suppress
+> that fallback either. Authoring a neutral name is the opt-out.
+>
+> ⚠️ The authored entry wins. Where the object's own field metadata also
+> declares `dueLike`, that value is consulted only when the entry leaves the
+> key out — it does not overwrite what the view author wrote.
 
 **Related:** [DetailSchema](#detailschema), [ObjectViewSchema](#objectviewschema)
 

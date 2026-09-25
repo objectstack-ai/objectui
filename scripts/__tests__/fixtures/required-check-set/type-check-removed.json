@@ -65,19 +65,7 @@
           "integration_id": 15368
         },
         {
-          "context": "Test (shard 1/4)",
-          "integration_id": 15368
-        },
-        {
-          "context": "Test (shard 2/4)",
-          "integration_id": 15368
-        },
-        {
-          "context": "Test (shard 3/4)",
-          "integration_id": 15368
-        },
-        {
-          "context": "Test (shard 4/4)",
+          "context": "Test",
           "integration_id": 15368
         },
         {

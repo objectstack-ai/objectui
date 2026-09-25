@@ -60,8 +60,8 @@ implementation that suppresses everything.
 **Not changed by this card, deliberately:** the fail-open semantics themselves; the
 objectui#5687 adapter-only `data.*` report, which stays development-only under its own
 2026-08-22 ruling (that path is not a fault — the predicate evaluated perfectly, against
-the wrong object); and the `/forms/:name` scope wiring of objectui#6262, which lands in
-its own PR.
+the wrong object); and the `features` root on `/forms/:name`, which objectui#6262 settled
+by refusing it in form-view predicates rather than wiring it.
 
 `reportUnresolvableVisibilityPredicate`, `formatUnresolvableVisibilityMessage`,
 `UNRESOLVABLE_VISIBILITY_PREFIX` and `__resetVisibilityPredicateWarnings` are now exported

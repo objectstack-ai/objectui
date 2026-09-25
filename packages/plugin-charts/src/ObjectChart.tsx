@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, useDataInvalidation, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
-import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
+import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import type { DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
+import type { BaseSchema, DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
 
 /**
  * Humanize a snake_case or kebab-case string into Title Case.
@@ -503,6 +503,11 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // buildChartSeries() below can resolve a human series label instead of
   // falling back to the raw field name.
   const [datasetFields, setDatasetFields] = useState<ChartResultField[] | null>(null);
+  // The dataset's BASE object, as the `queryDataset` answer names it (the same
+  // `object` the dashboard's DatasetWidget reads for drill-through). A dataset
+  // node carries no `objectName`, so this is the only object a dataset-bound
+  // chart can key its data-invalidation subscription on (objectui#10035).
+  const [datasetObject, setDatasetObject] = useState<string | undefined>(undefined);
   // Start in loading state when we will fetch, so the no-data / empty branch
   // doesn't flash before the fetch effect runs and flips loading to true.
   const [loading, setLoading] = useState<boolean>(() => {
@@ -571,24 +576,6 @@ export const ObjectChart = (props: ObjectChartProps) => {
       : ''),
     [schema.dataset, schema.dimensions, schema.values],
   );
-
-  // Chart families that IGNORE `compareTo`: the comparison fetch is skipped
-  // entirely, so no `<valueKey>__comparison` column is produced and no overlay
-  // series is ever synthesised.
-  //
-  //  - pie / donut / funnel — single-distribution charts where a comparison
-  //    overlay would be meaningless.
-  //  - scatter (objectui#7402) — a scatter binds ONE measure: the renderer
-  //    reads y through the single `YAxis dataKey={series[0].dataKey}`, so the
-  //    synthesised overlay was painted on the PRIMARY's y and "previous
-  //    period" landed exactly on top of "current". Drawing it honestly needs
-  //    the multi-measure projection declined as option A of objectui#7194;
-  //    `compareTo` on a scatter returns WITH that projection. Until then the
-  //    published capability is removed rather than left drawing a wrong
-  //    picture — and because the overlay is never synthesised, a compare-to
-  //    document never reaches #7194's two-or-more-series scatter refusal.
-  const supportsCompareTo = (ct?: string) =>
-    ct !== 'pie' && ct !== 'donut' && ct !== 'funnel' && ct !== 'scatter';
 
   // Resolve the category dimension's option colors (P3). Best-effort: any
   // failure leaves categoryColors null and the chart keeps the theme palette.
@@ -798,6 +785,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
               if (mounted.current) {
                   setFetchedData(Array.isArray(res?.rows) ? res.rows : []);
                   setDatasetFields(Array.isArray(res?.fields) ? res.fields : null);
+                  setDatasetObject(typeof res?.object === 'string' && res.object ? res.object : undefined);
               }
               return;
           }
@@ -812,7 +800,15 @@ export const ObjectChart = (props: ObjectChartProps) => {
           // read where the shift is computed — `shiftFilterByCompareTo` — so
           // this file has no second copy of the branch table to drift from it.
           const compareTo: CompareToConfig | undefined = schema.compareTo;
-          const wantsComparison = !!compareTo && supportsCompareTo(schema.chartType);
+          // A chart family that IGNORES `compareTo` (pie / donut / funnel /
+          // scatter) skips the comparison fetch entirely, so no
+          // `<valueKey>__comparison` column is produced and no overlay series is
+          // ever synthesised — which also keeps a compare-to scatter clear of
+          // #7194's two-or-more-series scatter refusal. WHICH families is
+          // `chartTypeIgnoresCompareTo` in `@object-ui/core`'s chart-presentation:
+          // the one declaration the dashboard's DatasetWidget reads too
+          // (objectui#7495). This file keeps no list of its own.
+          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(schema.chartType);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
           // against a shifted `now`. It only understands the date vocabulary,
@@ -948,10 +944,29 @@ export const ObjectChart = (props: ObjectChartProps) => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, schema.chartType, runAggregate, filterScope, fieldOptionLabel]);
 
+  // objectui#10035 — the refresh input this chart had none of, so a host could
+  // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+  // data, don't rebuild UI). The nonce moves when the data-invalidation bus
+  // reports a change to the object this chart QUERIES, and the fetch effect
+  // below names it, so both binding shapes re-run their own query in place:
+  //   - object-bound (`aggregate` / `find` over `schema.objectName`) keys on
+  //     that object;
+  //   - dataset-bound (`queryDataset`) keys on the dataset's base object, which
+  //     only the query's answer names (`datasetObject` above) — a dataset node
+  //     carries no `objectName`.
+  // A chart drawing bound or inline rows fetches nothing and is not subscribed.
+  // The re-read keeps the chart mounted (`RefreshIndicator` over the current
+  // rows, not the skeleton), so an open drill drawer and the chart's own state
+  // survive a save.
+  const fetchesForItself = !!(schema.objectName || schema.dataset) && !boundData && !schema.data;
+  const invalidationNonce = useDataInvalidation(
+    fetchesForItself ? (schema.dataset ? datasetObject : schema.objectName) : undefined,
+  );
+
   useEffect(() => {
     const mounted = { current: true };
 
-    if ((schema.objectName || schema.dataset) && !boundData && !schema.data) {
+    if (fetchesForItself) {
         fetchData(dataSource, mounted);
     } else if (mounted.current) {
         // Have inline / bound data — won't fetch; clear loading.
@@ -959,7 +974,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     }
     return () => { mounted.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData]);
+  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData, invalidationNonce]);
 
   const rawData = boundData || schema.data || fetchedData;
   const finalData = Array.isArray(rawData) ? rawData : [];
@@ -1109,7 +1124,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   const comparisonKey = valueKey ? `${valueKey}${COMPARISON_SUFFIX}` : undefined;
   const enableComparisonSeries =
     !!compareToConfig &&
-    supportsCompareTo(schema.chartType) &&
+    !chartTypeIgnoresCompareTo(schema.chartType) &&
     !!comparisonKey &&
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 
@@ -1531,18 +1546,44 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
  * spec documents rendered an empty frame with no error and no request. Lives
  * here, beside the registration, rather than in `ChartContainerImpl` — the
  * binding is a registry-boundary concern, not a rendering one.
+ *
+ * ## Its props type — the node BEFORE the gate (objectui#8885)
+ *
+ * This shell used to be published as `(props: any)`. `schema` is now
+ * `BaseSchema`, the node `SchemaRenderer` hands every registered renderer, and
+ * ⛔ NOT `ObjectChartSchema`. The node arrives here before the gate has mapped
+ * its `dataSource` binding, and nothing has validated it as a chart. Typing it
+ * post-gate would claim a validation that has not happened, and that type's
+ * `type: 'object-chart'` literal is also false for the `chart` alias that
+ * `index.tsx` registers this same shell under.
+ *
+ * Every other prop is `ObjectChart`'s own, taken from `ObjectChartProps`, so
+ * the type is CLOSED: a misspelled prop name is an excess-property error, not
+ * an `any` passed straight through. Both halves are existing exported names;
+ * no new type is minted. Pinned by
+ * `__tests__/ObjectChartBlock.props-8885.test.tsx`.
  */
-export const ObjectChartBlock = elementDataSourceBlock((props: any) => (
-  <ElementDataSourceGate
-    schema={props.schema}
-    mapping={OBJECT_CHART_DATA_SOURCE}
-    dataSource={props.dataSource}
-    testId="object-chart"
-    errorTitle="This chart’s data source could not be resolved"
-  >
-    {(bound) => <ObjectChart {...props} schema={bound} />}
-  </ElementDataSourceGate>
-));
+export const ObjectChartBlock = elementDataSourceBlock(
+  (props: Omit<ObjectChartProps, 'schema'> & { schema: BaseSchema }) => (
+    <ElementDataSourceGate
+      schema={props.schema}
+      mapping={OBJECT_CHART_DATA_SOURCE}
+      dataSource={props.dataSource}
+      testId="object-chart"
+      errorTitle="This chart’s data source could not be resolved"
+    >
+      {(bound) => (
+        // The ONE loose member of this signature, kept on purpose. This is
+        // where the pre-gate node becomes the component's post-gate schema,
+        // and `ObjectChart` is where the post-gate claim belongs. The gate
+        // maps the binding and does not validate, so the claim has to be
+        // made here, at one line, instead of on the published signature
+        // above.
+        <ObjectChart {...props} schema={bound as ObjectChartSchema} />
+      )}
+    </ElementDataSourceGate>
+  ),
+);
 
 // Register it
 ComponentRegistry.register('object-chart', ObjectChartBlock, {

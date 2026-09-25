@@ -10,7 +10,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
-import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver } from '@object-ui/core';
+import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
@@ -512,14 +512,21 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       return map;
     };
 
-    /** Which fields appear as inline chips beside the title.
-     *  Spec config: `timeline.metaFields: string[]`.
-     *  Heuristic default: `['status', 'priority']` — limited to fields that
-     *  actually exist in objectDef so non-CRM objects don't render fake
-     *  chips. */
-    const metaFieldNames: string[] = Array.isArray((timelineConfig as any)?.metaFields)
-      ? (timelineConfig as any).metaFields.filter((f: any) => typeof f === 'string' && f)
-      : ['status', 'priority'].filter((f) => fields[f]);
+    /** Which fields appear as inline chips beside the title: the built-in
+     *  `['status', 'priority']`, limited to fields that actually exist in
+     *  objectDef so non-CRM objects don't render fake chips.
+     *
+     *  ⛔ Not authorable, and nothing reads an authored list here
+     *  (objectui#10222, ruling batch #223 item 5b, letter A). The spec's
+     *  `TimelineConfigSchema` is a strict object that declares no chip-field
+     *  member and refuses one, so the retired `metaFields` read off this
+     *  block reached the renderer only through a stored view's unjudged
+     *  `options` bag (objectui#10380). If a producer ever asks for authored
+     *  chip fields, the reserved spelling is `cardFields` (the kanban /
+     *  gallery spelling), declared on the spec first; it is not declared
+     *  today. `ListView`'s status / priority auto-projection keys on the
+     *  same default, so the two must move together. */
+    const metaFieldNames: string[] = ['status', 'priority'].filter((f) => fields[f]);
     const metaOptionMaps: Record<string, Record<string, any>> = {};
     for (const f of metaFieldNames) metaOptionMaps[f] = optionMap(f);
 
@@ -566,12 +573,23 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         }
       }
 
+      // The title and the description are derived as display STRINGS, once,
+      // here (objectui#10530). The renderer puts both in JSX as children, and
+      // the raw field value is not text whenever `titleField` or
+      // `descriptionField` names a lookup: the object fetch above expands
+      // every declared relation, so the row carries `{ id, name }`, and React
+      // throws `Objects are not valid as a React child` for the whole rail.
+      //
+      // `recordDisplayValueAt` is the resolver `ObjectMap` uses for the same
+      // two slots (objectui#10456), so one rule answers both: an expanded
+      // lookup reads as its display name, a bare id as itself, a number or a
+      // boolean as its string, and an empty value as no line at all.
       return {
-        title: item[titleField],
+        title: recordDisplayValueAt(item, titleField),
         time: startRaw,
         startDate: startRaw,
         endDate: endRaw,
-        description: item[descField],
+        description: recordDisplayValueAt(item, descField),
         variant: item[variantField] || 'default',
         color: resolveColor(colorRaw),
         group: groupRaw,

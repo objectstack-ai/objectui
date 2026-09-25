@@ -34,6 +34,7 @@ import { useRecordQuery } from './useRecordQuery.js';
 // instead of spreading them, so an id restriction can never overwrite a
 // declared filter on the same field (#5195).
 import { mergeFilterNodes } from '@object-ui/core';
+import { usePermissions } from '@object-ui/permissions';
 import { lookupFiltersToRecord } from './RecordPickerDialog.js';
 import { getPersonId } from './personDisplay.js';
 import { PersonRow } from './PersonRow.js';
@@ -72,10 +73,20 @@ export interface PeoplePickerProps {
 
   displayField?: string;
   idField?: string;
-  /** Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`. */
+  /**
+   * Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`.
+   * Once the permission policy has loaded, a path whose field on `objectName`
+   * the user may not read is not drawn.
+   */
   subtitleFields?: string[];
+  /** Avatar image field; not drawn once the loaded policy denies it on `objectName`. */
   avatarField?: string;
-  /** Related entities to expand (e.g. `['primary_business_unit_id']` for the department name). */
+  /**
+   * Related entities to expand (e.g. `['primary_business_unit_id']` for the
+   * department name). Once the permission policy has loaded, a relation the
+   * user may not read on `objectName` is left out, as it is from the list
+   * derived from `subtitleFields` when this is not passed.
+   */
   expand?: string[];
   /** Narrow the server searchable set (ADR-0061). */
   searchFields?: string[];
@@ -144,14 +155,58 @@ export function PeoplePicker({
 
   // Auto-expand relation subtitles (e.g. `primary_business_unit_id.name` needs
   // `$expand: ['primary_business_unit_id']`) unless the caller passed `expand`.
+  //
+  // Field-level security gates the OUTPUT (objectui#10373), in the shape the
+  // objectui#7215 / objectui#7230 rulings set and every other `$expand` in this
+  // package already has: once the policy has loaded, a relation the user may
+  // not read on `objectName` (the object this picker queries) is not asked
+  // for; before it loads nothing is filtered, and `perms` in the deps
+  // re-derives the list when the answer arrives. The gate reads the list that
+  // goes out, whichever source filled it — a caller's `expand` or the one
+  // derived from the subtitle paths. A subtitle path through a relation left
+  // out resolves to nothing and drops out of the row, as it does for a backend
+  // that ignores `$expand`.
+  const perms = usePermissions();
   const effectiveExpand = useMemo<string[] | undefined>(() => {
-    if (expand && expand.length) return expand;
-    const rels = new Set<string>();
-    (subtitleFields ?? []).forEach(f => {
-      if (f.includes('.')) rels.add(f.split('.')[0]);
-    });
-    return rels.size ? Array.from(rels) : undefined;
-  }, [expand, subtitleFields]);
+    let requested: string[];
+    if (expand && expand.length) {
+      requested = expand;
+    } else {
+      const rels = new Set<string>();
+      (subtitleFields ?? []).forEach(f => {
+        if (f.includes('.')) rels.add(f.split('.')[0]);
+      });
+      requested = Array.from(rels);
+    }
+    const readable = requested.filter(
+      f => !perms.isLoaded || perms.checkField(objectName, f, 'read'),
+    );
+    return readable.length ? readable : undefined;
+  }, [expand, subtitleFields, perms, objectName]);
+
+  // The subtitle fields and the avatar a row DRAWS, gated the same way
+  // (objectui#10433). Gating `$expand` alone left them on screen: a row read
+  // every subtitle path and the avatar straight off the served row, so on a
+  // backend that does not strip denied keys (ObjectStack's `FieldMasker` does)
+  // a plain field such as `email` showed. A path is judged by the field it
+  // reads on `objectName`, its first segment — the name the `$expand` gate
+  // above judges, and the only one a policy on this object can name. A
+  // withheld avatar is `null`, never `undefined`: the row and the tray default
+  // an `undefined` one back to `image`.
+  const readableSubtitleFields = useMemo<string[] | undefined>(
+    () =>
+      subtitleFields?.filter(
+        f => !perms.isLoaded || perms.checkField(objectName, f.split('.')[0], 'read'),
+      ),
+    [subtitleFields, perms, objectName],
+  );
+  const readableAvatarField = useMemo<string | null>(
+    () =>
+      !perms.isLoaded || perms.checkField(objectName, avatarField.split('.')[0], 'read')
+        ? avatarField
+        : null,
+    [avatarField, perms, objectName],
+  );
 
   // Main candidate query (search + candidate hygiene).
   const query = useRecordQuery({
@@ -437,8 +492,8 @@ export function PeoplePicker({
         key={String(id)}
         record={record}
         displayField={displayField}
-        subtitleFields={subtitleFields}
-        avatarField={avatarField}
+        subtitleFields={readableSubtitleFields}
+        avatarField={readableAvatarField}
         selected={selectedIds.has(String(id))}
         active={index === activeIndex}
         highlightQuery={query.search}
@@ -543,7 +598,7 @@ export function PeoplePicker({
             onClear={() => setSelectedRecords([])}
             clearLabel={t('lookup.clear')}
             displayField={displayField}
-            avatarField={avatarField}
+            avatarField={readableAvatarField}
             idField={idField}
             label={t('table.selected', { count: selectedRecords.length })}
             className={cn('border-t pt-3')}

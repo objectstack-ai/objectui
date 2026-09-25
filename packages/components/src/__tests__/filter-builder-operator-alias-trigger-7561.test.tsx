@@ -50,6 +50,16 @@
  * The four `describe`s below the table are green in BOTH directions by
  * construction: they are the boundaries the repair must not cross, so they
  * fail only for a repair that over-reaches.
+ *
+ * ## After objectui#9306
+ *
+ * The dropdown's ids are now the spec's canonical spellings, so the
+ * `canonical` rows below match a mounted item literally and are no longer
+ * controls. The dialect they used to stand in for — a spelling the dropdown
+ * does not mount — is now the builder's own former camelCase ids (`deprecated`
+ * below), which a stored filter saved before that change still carries. Those
+ * rows, and the alias table, are the controls now; the trigger names them
+ * because the builder folds a row's spelling at its read boundary.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
@@ -94,13 +104,18 @@ function operatorTriggerText() {
  *     canonical members, so the dialect now reaches this builder from STORED
  *     filters rather than from the corpus — which is the reason the row stays
  *     here rather than following the corpus;
+ *   - `deprecated` — the dropdown's own camelCase ids BEFORE objectui#9306,
+ *     now the spec's deprecated alias form (plus `containsCaseInsensitive`,
+ *     which the spec's table lacks and the builder folds itself);
  *   - `overlap` — the three ids both vocabularies share. NOT controls.
+ *
+ * Since objectui#9306 the `canonical` rows are the dropdown's own ids too.
  */
 const SPELLINGS: ReadonlyArray<{
   operator: string;
   field: string;
   label: string;
-  dialect: 'canonical' | 'alias' | 'overlap';
+  dialect: 'canonical' | 'deprecated' | 'alias' | 'overlap';
 }> = [
   // The three-member overlap — green before AND after. Over-reach guard only.
   { operator: 'equals', field: 'title', label: 'Equals', dialect: 'overlap' },
@@ -143,6 +158,33 @@ const SPELLINGS: ReadonlyArray<{
   { operator: 'lte', field: 'amount', label: 'Less than or equal', dialect: 'alias' },
   { operator: 'gte', field: 'amount', label: 'Greater than or equal', dialect: 'alias' },
   { operator: 'nin', field: 'stage', label: 'Not in', dialect: 'alias' },
+
+  // The dropdown's former camelCase ids — what a filter stored before
+  // objectui#9306 carries (objectui#9306).
+  { operator: 'notEquals', field: 'title', label: 'Does not equal', dialect: 'deprecated' },
+  {
+    operator: 'containsCaseInsensitive',
+    field: 'title',
+    label: 'Contains (ignore case)',
+    dialect: 'deprecated',
+  },
+  { operator: 'notContains', field: 'title', label: 'Does not contain', dialect: 'deprecated' },
+  { operator: 'startsWith', field: 'title', label: 'Starts with', dialect: 'deprecated' },
+  { operator: 'endsWith', field: 'title', label: 'Ends with', dialect: 'deprecated' },
+  { operator: 'isEmpty', field: 'title', label: 'Is empty', dialect: 'deprecated' },
+  { operator: 'isNotEmpty', field: 'title', label: 'Is not empty', dialect: 'deprecated' },
+  { operator: 'isNull', field: 'title', label: 'Is null', dialect: 'deprecated' },
+  { operator: 'isNotNull', field: 'title', label: 'Is not null', dialect: 'deprecated' },
+  { operator: 'greaterThan', field: 'amount', label: 'Greater than', dialect: 'deprecated' },
+  { operator: 'lessThan', field: 'amount', label: 'Less than', dialect: 'deprecated' },
+  {
+    operator: 'greaterOrEqual',
+    field: 'amount',
+    label: 'Greater than or equal',
+    dialect: 'deprecated',
+  },
+  { operator: 'lessOrEqual', field: 'amount', label: 'Less than or equal', dialect: 'deprecated' },
+  { operator: 'notIn', field: 'stage', label: 'Not in', dialect: 'deprecated' },
 ];
 
 describe('objectui#7561 — the trigger names the operator the row holds', () => {
@@ -162,23 +204,31 @@ describe('objectui#7561 — the trigger names the operator the row holds', () =>
     const dialects = SPELLINGS.map((s) => s.dialect);
     expect(dialects.filter((d) => d === 'canonical').length).toBeGreaterThanOrEqual(10);
     expect(dialects.filter((d) => d === 'alias').length).toBeGreaterThanOrEqual(5);
-    // …and every non-overlap spelling really is outside the dropdown's own
+    expect(dialects.filter((d) => d === 'deprecated').length).toBeGreaterThanOrEqual(10);
+    // …and every control spelling really is outside the dropdown's own
     // vocabulary, so none of them could have matched a mounted item literally.
+    // Since objectui#9306 the canonical rows ARE the dropdown's vocabulary, so
+    // they sit on the inside with the overlap.
     const dropdownIds = new Set(operatorsForFieldType('text').concat(
       operatorsForFieldType('number'), operatorsForFieldType('select'),
     ).map((op) => op.value));
     for (const s of SPELLINGS) {
-      if (s.dialect === 'overlap') expect(dropdownIds.has(s.operator)).toBe(true);
-      else expect(dropdownIds.has(s.operator)).toBe(false);
+      if (s.dialect === 'overlap' || s.dialect === 'canonical') {
+        expect(dropdownIds.has(s.operator), s.operator).toBe(true);
+      } else {
+        expect(dropdownIds.has(s.operator), s.operator).toBe(false);
+      }
     }
   });
 });
 
 describe('objectui#7561 — ⛔ the repair does not rewrite what the row carries', () => {
-  it.each(['gt', 'greater_than'])('a row spelled `%s` is not migrated on render', (operator) => {
+  it.each(['gt', 'greater_than', 'greaterThan'])('a row spelled `%s` is not migrated on render', (operator) => {
     // The boundary the triage seat drew: fixing the BLANK must not rewrite the
     // id any stored filter carries. Rendering is not an edit, so the component
-    // must not call back at all.
+    // must not call back at all. objectui#9306 folds the spelling at the
+    // builder's read boundary, but only into its own state — the canonical id
+    // reaches the host with the author's next edit, never on render.
     const { onChange } = renderRow({ field: 'amount', operator, value: '5' });
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -235,7 +285,8 @@ describe('objectui#7561 — ⛔ the dropdown still emits its own vocabulary', ()
     fireEvent.click(option);
     const calls = onChange.mock.calls;
     expect(calls.length).toBeGreaterThan(0);
-    // `lessThan`, the builder's camelCase id — NOT `lt`, and NOT `less_than`.
-    expect(calls[calls.length - 1][0].conditions[0].operator).toBe('lessThan');
+    // `less_than`, the builder's own id (the protocol's, since objectui#9306)
+    // — NOT `lt`, the row's old dialect, and NOT the retired `lessThan`.
+    expect(calls[calls.length - 1][0].conditions[0].operator).toBe('less_than');
   });
 });

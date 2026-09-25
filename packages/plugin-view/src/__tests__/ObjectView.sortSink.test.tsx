@@ -52,7 +52,20 @@
  * must still refuse the bare object.
  *
  * The ADR-0049 enforce-or-remove retirement of `table.defaultSort` (the "C
- * half") is deliberately NOT folded in here; it is its own card.
+ * half") was deliberately NOT folded in here; it was its own card.
+ *
+ * ## objectui#5861 — the C half landed, and flipped this file's legacy pins
+ *
+ * `@objectstack/spec` 17.3.0 turned `ObjectGridProps.defaultSort` into a
+ * retired-key tombstone the protocol refuses by name, and objectui#5861
+ * removed every renderer read of it at once — including the lowering this
+ * file pinned. So the cells that asserted the lowered value (`{ created:
+ * 'asc' }`) now assert the key is INERT: no `$orderby` at all. That is still a
+ * discriminating assertion against the original defect — the map-shaped
+ * `field`/`order` payload cannot come back either — and each flipped cell
+ * sits beside a canonical `table.sort` control on the same read site, so
+ * "defaultSort no longer sorts" cannot be satisfied by sorting having broken
+ * outright. The sink-strictness guard is unchanged.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -115,27 +128,28 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('the legacy table.defaultSort no longer reaches $orderby as a map', () => {
-  it('sends the field as a COLUMN, not as the two keys `field` and `order`', async () => {
+describe('the retired table.defaultSort reaches $orderby in NO shape (objectui#5861)', () => {
+  it('sends no $orderby at all — neither the map-shaped `field`/`order` payload nor a lowered column', async () => {
+    // Flipped from `sends the field as a COLUMN`, which asserted `{ created:
+    // 'asc' }` — objectui#4869's lowering. Before THAT fix this read the two
+    // non-existent columns `field` and `order`; after objectui#5861 the key is
+    // not read at all, so the query carries no ordering.
     const $orderby = await orderbyFor({
       table: { defaultSort: { field: 'created', order: 'asc' } } as any,
     });
+    expect($orderby).toBeUndefined();
 
-    // The whole defect in one line. Before the fix this read
-    // `['field', 'order']` — the two non-existent columns the server answered
-    // `400 INVALID_SORT` for, leaving the view empty.
-    expect(Object.keys($orderby)).toEqual(['created']);
-    expect(Object.keys($orderby)).not.toContain('field');
-    expect(Object.keys($orderby)).not.toContain('order');
-
-    expect($orderby).toEqual({ created: 'asc' });
+    // CONTROL, same read site, same run: the canonical spelling still sorts.
+    expect(await orderbyFor({ table: { sort: [{ field: 'created', order: 'asc' }] } as any }))
+      .toEqual({ created: 'asc' });
   });
 
-  it('carries a descending legacy default through as `desc`', async () => {
-    // The lowering must not lose the direction on the way to the sink: the
-    // single object becomes a one-entry `SortConfig[]`, which is a spelling the
-    // sink already declares.
+  it('a descending legacy default is inert too — the direction is not what decides it', async () => {
+    // Flipped from `carries a descending legacy default through as `desc``.
     expect(await orderbyFor({ table: { defaultSort: { field: 'created', order: 'desc' } } as any }))
+      .toBeUndefined();
+    // CONTROL — canonical `desc` on the same read site.
+    expect(await orderbyFor({ table: { sort: [{ field: 'created', order: 'desc' }] } as any }))
       .toEqual({ created: 'desc' });
   });
 });
@@ -203,8 +217,8 @@ describe('every other member of the chain reaches $orderby normalized too', () =
   });
 });
 
-describe('precedence is unchanged by the lowering', () => {
-  it('keeps the canonical table.sort ahead of the legacy table.defaultSort', async () => {
+describe('precedence among the sort sources that are still read', () => {
+  it('a canonical table.sort decides alone — a retired table.defaultSort beside it has no say', async () => {
     expect(await orderbyFor({
       table: {
         sort: [{ field: 'name', order: 'desc' }],
@@ -213,7 +227,7 @@ describe('precedence is unchanged by the lowering', () => {
     })).toEqual({ name: 'desc' });
   });
 
-  it('keeps a named view sort ahead of both table spellings', async () => {
+  it('keeps a named view sort ahead of the table segment', async () => {
     expect(await orderbyFor({
       listViews: {
         won: { label: 'Won', type: 'calendar', sort: [{ field: 'name', order: 'desc' }] },
@@ -279,8 +293,10 @@ describe('the census the card asked for: no spelling regressed on the way in', (
     expect(convertSortToQueryParams({ field: 'created', order: 'asc' } as any)).toBeUndefined();
     expect(convertSortToQueryParams({ field: 'desc' } as any)).toBeUndefined();
 
-    // ...and the read site is what closes the gap, on the very same input.
+    // ...and the read site no longer closes that gap for the retired key
+    // (objectui#5861): on the very same input it sends nothing, rather than
+    // lowering the legacy spelling into the canonical one.
     expect(await orderbyFor({ table: { defaultSort: { field: 'created', order: 'asc' } } as any }))
-      .toEqual({ created: 'asc' });
+      .toBeUndefined();
   });
 });

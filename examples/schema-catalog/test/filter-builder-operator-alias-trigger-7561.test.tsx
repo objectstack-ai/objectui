@@ -17,7 +17,8 @@
  * Three catalog entries carry the rows this measures — `product-search`,
  * `with-conditions`, and the `filter-builder` nested inside `search-interface`.
  * No `SelectItem` in the operator dropdown carries a spelling from outside its
- * own camelCase vocabulary, and the trigger used to match its value LITERALLY
+ * own vocabulary (camelCase then, the protocol's ids since objectui#9306), and
+ * the trigger used to match its value LITERALLY
  * against the mounted items, so any other spelling of the same operator drew a
  * blank operator cell over a row that filtered correctly.
  *
@@ -29,7 +30,9 @@
  * was lifted by objectui#6939's remainder, which rewrote those seven spellings
  * to the DECLARED vocabulary so the entries validate. ⇒ the assertion is
  * INVERTED below, not dropped: it still names the key that moved, and it still
- * refuses a migration back to a dialect the mirror does not accept.
+ * refuses a migration back to a legacy alias dialect (which the mirror has
+ * accepted and normalised since objectui#9559, so the fence now guards the
+ * published example rather than validation).
  *
  * ## Why the swap is the control and not a repair
  *
@@ -39,13 +42,17 @@
  * one canonical member and the trigger now resolves through it. Before that
  * repair they differ — which is what makes this measurement able to fail.
  *
- * ⭐ The corrected column deliberately uses the dropdown's OWN camelCase ids
- * (`lessThan`), not the spec's canonical `less_than`: those ids are the ones
- * mounted, so the corrected column is the "what it would have looked like if
- * authored in the renderer's dialect" arm the card described. Both arms
- * rendering the same text is the claim; neither arm is a recommendation about
- * which vocabulary an author SHOULD use — that is objectui#7561's separate
- * ruling and is not decided here.
+ * ⭐ The corrected column deliberately uses the camelCase ids (`lessThan`),
+ * not the spec's canonical `less_than`. When objectui#7561 landed those were
+ * the dropdown's OWN ids, the ones mounted, so that column was the "what it
+ * would have looked like if authored in the renderer's dialect" arm the card
+ * described. Since objectui#9306 the dropdown mounts the canonical ids and the
+ * camelCase ones are the spec's DEPRECATED alias form, which the builder folds
+ * at its read boundary — so the same column now measures the other direction:
+ * a filter stored before that change still draws its label. Both arms
+ * rendering the same text is the claim either way; neither arm is a
+ * recommendation about which vocabulary an author SHOULD use — the canonical
+ * one, per objectui#9306's ruling, which this control does not re-decide.
  *
  * ⚠️ The two vocabularies OVERLAP on three members (`equals`, `contains`,
  * `in` are spelled identically in both), so "the arms are two dialects" cannot
@@ -60,8 +67,12 @@ import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import { FilterOperatorSchema } from '@object-ui/types/zod';
 import { getExample } from '../src/index.js';
 
-/** Taken FROM the mirror, never restated beside it. */
-const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.options;
+/**
+ * Taken FROM the mirror, never restated beside it — the OUTPUT side's options,
+ * since objectui#9559 made the mirror the spec rule's own preprocess-into-enum
+ * member: the canonical members, which is what a parse hands back.
+ */
+const DECLARED_OPERATORS: readonly string[] = FilterOperatorSchema.out.options;
 
 /** The three entries whose rows carry an alias-table operator. */
 const AFFECTED = [
@@ -83,10 +94,11 @@ const EXPECTED: Record<(typeof AFFECTED)[number], string[]> = {
 };
 
 /**
- * The declared spellings these entries author → the dropdown id each folds
- * onto. Covers the spec's alias table too, so an entry re-authored in EITHER
- * off-dropdown dialect is still carried by the control arm rather than
- * silently passed through as an identity.
+ * The declared spellings these entries author → the camelCase id each folds
+ * from: the dropdown's own id before objectui#9306, the deprecated alias form
+ * after it (see this file's header). Covers the spec's alias table too, so an
+ * entry re-authored in EITHER off-canonical dialect is still carried by the
+ * control arm rather than silently passed through as an identity.
  */
 const CORRECTION: Record<string, string> = {
   // what the catalog authors today — `@objectstack/spec`'s canonical members
@@ -221,15 +233,18 @@ describe('objectui#7561 — the alias spellings the catalog authors render a lab
     }
   });
 
-  it('⛔ the catalog files author the DECLARED vocabulary, not a dialect the mirror refuses', () => {
+  it('⛔ the catalog files author the CANONICAL vocabulary, not a legacy alias', () => {
     // INVERTED by objectui#6939's remainder — see this file's header. The
-    // entries now spell their operators the way `FilterOperatorSchema` declares
-    // them, which is what makes them pass `safeValidateSchema`; the two-column
-    // equality above is what says the rewrite cost no pixel.
+    // entries spell their operators the way `FilterOperatorSchema` declares its
+    // canonical members; the two-column equality above is what says the
+    // rewrite cost no pixel.
     //
     // ⛔ If someone migrates them back to `eq` / `lt` / `gt`, or forward to the
-    // dropdown's own `greaterThan`, this reddens: both are spellings the mirror
-    // refuses, and the render is no longer the thing at stake.
+    // dropdown's own `greaterThan`, this reddens. Since objectui#9559 the
+    // mirror ACCEPTS both and normalises them on parse (they are rows of the
+    // spec's alias table), so this is no longer a validation question: the
+    // catalog is what new authors copy, and the spec marks that table a
+    // deprecated bridge new producers must not emit.
     for (const id of AFFECTED) {
       const group = builderNode(asAuthored(id)).value as {
         conditions: { operator: string }[];

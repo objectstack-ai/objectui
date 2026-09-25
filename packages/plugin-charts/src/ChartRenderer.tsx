@@ -62,15 +62,18 @@ export interface ChartRendererProps {
      * blank. `normalizeChartSchema` translates every entry, of either shape,
      * uniformly — see the normalization comment in the component body.
      *
-     * This TS union stays as declared (the `dataKey` arm has no `type`, the
-     * `name` arm has no `chartType`): at RUNTIME `type` is honoured on a
-     * `dataKey`-shaped entry too (objectui#7681, both keys are independently
-     * optional on `ChartDataSeriesSchema`), because JSON metadata never goes
-     * through this TS type. Widening the arm to match is a separate,
-     * public-face decision this fix does not make.
+     * Both arms carry the per-series family override `type`, with the same
+     * member type (objectui#8086): the renderer honours it on either shape,
+     * because every entry goes through `normalizeSeries` (objectui#7681), and
+     * `ChartDataSeriesSchema` declares `dataKey` and `name` independently
+     * optional beside it — so a `dataKey` entry carrying `type` is what the
+     * contract and the renderer both accept, and this union says so.
+     * `chartType` stays on the `dataKey` arm alone: it is the renderer's
+     * INTERNAL spelling of `type`, and it wins when an entry writes both.
+     * Pinned at compile time in `ChartRenderer.seriesTypeArm-8086.test.ts`.
      */
     series?: Array<
-      | { dataKey: string; label?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string }
+      | { dataKey: string; label?: string; type?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string }
       | { name: string; label?: unknown; type?: string; variant?: 'current' | 'comparison' | 'primary'; opacity?: number; dashArray?: string; stack?: string; yAxis?: 'left' | 'right'; color?: string }
     >;
     /** Spec `ChartConfig` shape — honored via `normalizeChartSchema`
@@ -151,10 +154,12 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     // together — both valid on `ChartDataSeriesSchema` independently — got
     // NEITHER honoured (objectui#7681).
     //
-    // `normalizeSeries` is a no-op on a well-formed internal-shaped entry: it
-    // round-trips every key the internal arm of `ChartRendererProps.series`
-    // declares (`dataKey`/`label`/`chartType`/`variant`/`opacity`/`dashArray`/
-    // `stack`/`yAxis`/`color`) unchanged. So always taking the normalized array
+    // `normalizeSeries` is a no-op on a well-formed internal-shaped entry apart
+    // from `type`: it round-trips every other key the internal arm of
+    // `ChartRendererProps.series` declares (`dataKey`/`label`/`chartType`/
+    // `variant`/`opacity`/`dashArray`/`stack`/`yAxis`/`color`) unchanged, and
+    // translates `type` to `chartType` — the translation this routing exists
+    // for. So always taking the normalized array
     // is not a second read site for `type` (AGENTS.md #0.1) — it is routing
     // EVERY entry, of either shape, through the ONE normalization layer
     // (objectui#2880 S1) instead of special-casing one shape around it, which

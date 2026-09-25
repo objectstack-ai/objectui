@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useRecordSearch } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
@@ -141,6 +142,9 @@ export function SearchResultsPage() {
       .map((i: any) => i.objectName as string);
   }, [activeApp]);
 
+  // A hit is labelled from the row as the viewer may read it: the hook removes
+  // the fields this policy denies before the resolver reads it (objectui#10500).
+  const perms = usePermissions();
   const { results: recordHits, isSearching: recordsSearching } = useRecordSearch({
     query,
     objects,
@@ -151,6 +155,7 @@ export function SearchResultsPage() {
     topPerObject: 5,
     maxObjectsQueried: 12,
     getDisplayName: getRecordDisplayName,
+    fieldReadPolicy: perms,
   });
 
   // Index object defs by name for i18n-resolved group headings and icons.
@@ -231,6 +236,12 @@ export function SearchResultsPage() {
         base would be the plural, which is what `ar` meets at 2, 3-10 and 11-99
         and `ru` at 2-4. Picking the key here keeps `Intl.PluralRules` and
         `fallbackLng` out of the path entirely.
+
+        Two keys still give a pack only two slots. Where the language has more
+        integer categories than that (`ru`: one/few/many, `ar`: six), the pack
+        writes the count-not-one half as a count label that reads right at any
+        number (`ru`/`ar` `search.resultsCountPlural`, objectui#10024) instead of a
+        `{{count}} <noun>` form that agrees with only some of the counts it serves.
       */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>

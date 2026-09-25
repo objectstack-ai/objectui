@@ -8,11 +8,11 @@
 
 /**
  * The component the `detail-section` TAG is registered against — the seam that
- * makes the block's eight declared `inputs` true (objectui#8626).
+ * makes the block's declared `inputs` true (objectui#8626).
  *
  * ## The defect this closes
  *
- * `ComponentRegistry.register('detail-section', …)` declares eight FLAT inputs
+ * `ComponentRegistry.register('detail-section', …)` declared eight FLAT inputs
  * — `title`, `description`, `fields`, `collapsible`, `defaultCollapsed`,
  * `columns`, `showBorder`, `headerColor`. `DetailSection` declares no such
  * props: it takes a single `section` object and reads `section.title`,
@@ -35,11 +35,11 @@
  * The two repairs objectui#8626 names are not symmetric, and the measurement
  * decides between them rather than taste:
  *
- *  - The flat eight are the PUBLISHED surface, and the platform enforces them.
+ *  - The flat inputs are the PUBLISHED surface, and the platform enforces them.
  *    `packages/components/src/renderers/layout/page.tsx` builds the JSX-page
  *    compiler's manifest from `getKnownTypes()` plus these `inputs`, and
  *    `sdui-parser`'s `validateTree` judges an authored page against it.
- *    Measured against that live manifest: the flat eight draw ZERO
+ *    Measured against that live manifest: the flat eight drew ZERO
  *    diagnostics, while `section` draws `unknown-prop` AND
  *    `missing-required-prop "fields"`. The validator does not merely permit
  *    the flat shape — it REFUSES the nested one.
@@ -83,26 +83,35 @@ import { DetailSection, type DetailSectionProps } from './DetailSection';
  * is a name that stops reaching `DetailSection` — which is how the ablation
  * for objectui#8626 reddens a per-input row.
  * `detailSectionAuthoredNode-8626.test.tsx` additionally pins the list against
- * the registration's own declared input names in BOTH directions, so a ninth
+ * the registration's own declared input names in BOTH directions, so a new
  * input declared without a fold — the shape of the original defect — reds
  * rather than arriving silently inert.
  */
 export const DETAIL_SECTION_NODE_INPUTS = [
   'title',
   'description',
+  // objectui#9529: `DetailSection` draws `section.icon` in both header
+  // branches, so it is declared and folded like the rest. `name` and `visible`
+  // stay out — `DetailSection` reads neither.
+  'icon',
   'fields',
   'collapsible',
   'defaultCollapsed',
   'columns',
   'showBorder',
   'headerColor',
+  // objectui#10485: `DetailSection` reads `section.hideEmpty === true` (the
+  // all-empty hide), so it is declared and folded like the rest. Nothing here
+  // defaults it: an omitted key stays omitted, and keeps the section.
+  'hideEmpty',
 ] as const;
 
 type DetailSectionNodeInput = (typeof DETAIL_SECTION_NODE_INPUTS)[number];
 
 /**
- * What an author may write on a `detail-section` node: the eight declared
- * inputs, flat, plus the render-context props a host supplies.
+ * What an author may write on a `detail-section` node: the declared inputs
+ * (`DETAIL_SECTION_NODE_INPUTS`), flat, plus the render-context props a host
+ * supplies.
  */
 export type DetailSectionNodeProps = Omit<DetailSectionProps, 'section'> &
   Partial<Pick<DetailViewSection, DetailSectionNodeInput>>;

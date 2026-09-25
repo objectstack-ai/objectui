@@ -154,6 +154,7 @@ const zh = {
       acknowledge: '我已保存',
       copyAll: '全部复制',
     },
+    notAvailableHere: '「{{action}}」在当前页面不可用。',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -172,6 +173,7 @@ const zh = {
   form: {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
+    uploadInFlight: '请等待上传完成后再保存。',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -293,6 +295,10 @@ const zh = {
         '未保存：{{name}}“{{text}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
+    },
+    dateTime: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',
     },
     number: {
       badInput:
@@ -592,6 +598,33 @@ const zh = {
     newEvent: '新建事件',
     moreEvents: '+{{count}} 更多',
     unscheduled: '未排期 ({{count}})',
+    loading: '加载日历中…',
+    loadError: '错误：{{message}}',
+    configRequired: '需要日历配置。请指定 startDateField，这是日历唯一必填的键；事件标题无需 titleField 也能解析。',
+    configRequiredHint: '它属于视图的 calendar 块。界面页面没有自己的日历插槽：请将其 sourceView 指向一个声明了日历的视图。',
+    eventDetails: '事件详情',
+    pullToRefresh: '下拉刷新',
+    refreshing: '刷新中…',
+    onDate: '{{date}}',
+    eventTitle: '标题',
+    eventTitlePlaceholder: '这个事件是关于什么的？',
+    creating: '创建中…',
+    titleRequired: '请填写标题',
+    a11y: {
+      region: '日历',
+      grid: '日历网格',
+      goToToday: '转到今天',
+      previousPeriod: '上一时段',
+      nextPeriod: '下一时段',
+      currentDate: '当前日期:{{date}}',
+      dayCell: '{{date}},{{count}} 个日程',
+      dayCell_one: '{{date}},{{count}} 个日程',
+      dayCell_other: '{{date}},{{count}} 个日程',
+      resizeEventEnd: '调整日程结束时间',
+      resizeEventEndHint: '拖动以更改结束日期',
+      resizeStart: '调整开始时间',
+      resizeEnd: '调整结束时间',
+    },
   },
   list: {
     loading: '正在加载记录…',
@@ -796,6 +829,7 @@ const zh = {
     },
     aria: {
       taskList: '任务列表',
+      refreshing: '刷新中…',
     },
     tooltip: {
       days: '天',
@@ -898,6 +932,7 @@ const zh = {
     tabActionsFor: '{{name}} 的视图操作',
     readonlyAriaLabel: '只读视图',
     readonlyTooltip: '系统视图 — 由代码定义，只读。',
+    malformedFilter: '此视图的筛选条件有误，因此不显示任何记录：无法应用 {{subject}} 条件。',
   },
   designer: {
     undo: '撤销',
@@ -992,7 +1027,6 @@ const zh = {
     viewAll: '查看全部',
     new: '新建',
     add: '添加',
-    emptyValue: '—',
     activity: '活动',
     history: '历史',
     historyEmpty: '暂无历史记录',
@@ -1053,11 +1087,6 @@ const zh = {
     attachmentsApiUnavailable: '此对象上的附件列表不可用。',
     retryLoadAttachments: '重试',
     // Diff
-    unifiedDiff: '统一视图',
-    sideBySideDiff: '并排视图',
-    noChanges: '无变更',
-    previousVersion: '旧版本',
-    currentVersion: '新版本',
     // Discussion
     discussion: '讨论',
     showDiscussion: '显示讨论 ({{count}})',
@@ -1076,18 +1105,12 @@ const zh = {
     subscribedTooltip: '已订阅 — 点击取消订阅',
     unsubscribedTooltip: '订阅通知',
     // Navigation
-    firstRecord: '第一条记录 (Home)',
-    previousRecordKey: '上一条记录 (←)',
-    nextRecordKey: '下一条记录 (→)',
-    lastRecord: '最后一条记录 (End)',
     noRecords: '无记录',
     // objectui#3863 — base key. zh has a single plural category (`other`), so this
     // slot is unreachable here and equals `_other` for key-set parity.
     showEmptyRelated: '+ {{count}} 个为空',
     showEmptyRelated_one: '+ {{count}} 个为空',
     showEmptyRelated_other: '+ {{count}} 个为空',
-    searchWhileNavigating: '导航时搜索',
-    searchRecords: '搜索记录…',
     // Activity timeline
     allActivity: '全部动态',
     commentsOnly: '仅评论',
@@ -1137,21 +1160,6 @@ const zh = {
     fileCount: '{{count}} 个文件',
     fileCount_one: '{{count}} 个文件',
     fileCount_other: '{{count}} 个文件',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: '修订历史',
-    noRevisions: '暂无修订记录',
-    revisionFieldsChanged: '已更改 {{count}} 个字段',
-    revisionFieldsChangedOne: '已更改 {{count}} 个字段',
-    revisionPreview: '修订预览',
-    revisionSnapshot: '此时间点的记录状态',
-    restoreConfirm: '这会将记录恢复到 {{when}} 时的状态。是否继续?',
-    restoring: '正在恢复…',
-    confirmRestore: '确认恢复',
-    restoreToPoint: '恢复到此时间点',
   },
   chart: {
     loading: '图表加载中…',
@@ -1433,6 +1441,7 @@ const zh = {
     navTypeSeparator: '分隔线',
     navTypeAction: '操作',
     navTypeComponent: '组件',
+    navTypeDoc: '文档',
     navEditIcon: '编辑图标',
     navToggleVisible: '切换可见性',
     navHidden: '已隐藏',
@@ -1532,6 +1541,9 @@ const zh = {
     },
   },
   console: {
+    studio: {
+      backToHome: '返回首页',
+    },
     saveAdvisoryTitle: '已保存 — 编辑检查提出了 {{count}} 条建议',
     publishAdvisoryTitle: '已发布 — 编辑检查提出了 {{count}} 条建议',
     importMappingsUnavailable: "无法加载 {{object}} 的已保存导入映射",
@@ -1923,6 +1935,13 @@ const zh = {
         previous30Days: '过去 30 天',
         older: '更早',
       },
+    },
+    // objectui#9954 — see the `en` pack for what raises each case.
+    readRate: {
+      ratioTitle: '本环境读取量异常',
+      ratio: '每写入 1 行就读取 {{ratio}} 行。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
+      noWritesTitle: '本环境只有读取、完全没有写入',
+      noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
     errors: {
       somethingWentWrong: '出错了',
@@ -2704,6 +2723,8 @@ const zh = {
     requiredError: '{{label}} 为必填项',
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
+    unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
+    carryOverHint: '原样带入（只读）',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',
@@ -3009,6 +3030,31 @@ const zh = {
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
   },
+  ai: {
+    nlQuery: {
+      placeholder: '就您的数据提问…',
+      ask: '提问',
+      results: '结果',
+      match: '匹配度 {{percent}}',
+      simulatedSummary: '查询结果:{{query}}',
+      noResults: '未找到匹配的记录',
+      recentQueries: '最近的查询',
+    },
+    formAssist: {
+      title: 'AI 建议',
+      suggestionCount: '{{count}} 条建议',
+      suggestionCountOne: '{{count}} 条建议',
+      applyAll: '全部应用',
+      confidence: '置信度 {{percent}}',
+      appliedCount: '已应用 {{count}} 条建议',
+      appliedCountOne: '已应用 {{count}} 条建议',
+    },
+    recommendations: {
+      title: '推荐',
+      generating: '正在生成推荐…',
+      empty: '暂无推荐',
+    },
+  },
   aiApprovals: {
     title: 'AI 审批',
     description: 'AI 智能体提出的操作，需要人工审核后才会执行。',
@@ -3292,6 +3338,7 @@ const zh = {
         reseedQueued: '示例数据将在下次访问该环境时重新加载。',
         reseedLocalSuccess: '已重新加载示例数据：新增 {{inserted}} 条，更新 {{updated}} 条。',
         reseedPartialErrors: '（有 {{count}} 条记录写入失败）',
+        sampleDataKernelUnavailable: '此控制面没有环境内核，因此无法在这里重新加载或清除示例数据。请在该环境自己的运行时中操作。',
         updateAvailable: '有可用更新',
       },
       action: {
@@ -3596,25 +3643,25 @@ const zh = {
     rangeEnd: '结束值',
     operators: {
       equals: '等于',
-      notEquals: '不等于',
+      not_equals: '不等于',
       contains: '包含',
-      containsCaseInsensitive: '包含（忽略大小写）',
-      notContains: '不包含',
-      isEmpty: '为空',
-      isNotEmpty: '不为空',
-      greaterThan: '大于',
-      lessThan: '小于',
-      greaterOrEqual: '大于或等于',
-      lessOrEqual: '小于或等于',
+      icontains: '包含（忽略大小写）',
+      not_contains: '不包含',
+      is_empty: '为空',
+      is_not_empty: '不为空',
+      greater_than: '大于',
+      less_than: '小于',
+      greater_than_or_equal: '大于或等于',
+      less_than_or_equal: '小于或等于',
       before: '早于',
       after: '晚于',
       between: '介于',
       in: '属于',
-      notIn: '不属于',
-      startsWith: '以…开头',
-      endsWith: '以…结尾',
-      isNull: '为 null',
-      isNotNull: '不为 null',
+      not_in: '不属于',
+      starts_with: '以…开头',
+      ends_with: '以…结尾',
+      is_null: '为 null',
+      is_not_null: '不为 null',
       exists: '已设置',
       notExists: '未设置',
     },

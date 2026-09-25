@@ -204,6 +204,16 @@ export type {
   // tidy cannot silently drop either one.
   ComboboxOption,
   CommandSchema,
+  // The element types `CommandSchema` contains — `groups` holds `CommandGroup`,
+  // whose `items` hold `CommandItem` — listed next to their schema the way
+  // `ComboboxOption` is above (objectui#9526). Both were already published on
+  // `@object-ui/types/form`, and their zod twins `CommandItemSchema` /
+  // `CommandGroupSchema` on `@object-ui/types/zod`, while the root spelling read
+  // TS2305. Purely ADDITIVE, the objectui#7697 / objectui#9406 route; the gap pin
+  // `form-barrel-mirror-9406.test.ts` had ledgered the pair as undecided and
+  // now holds it to this list.
+  CommandItem,
+  CommandGroup,
   InputOTPSchema,
   ToggleSchema,
   FormSchema,
@@ -388,11 +398,6 @@ export type {
   AggregateParams,
   AggregateResult,
   DataSourceMutationEvent,
-  ExportJobStatus,
-  ExportJobFormat,
-  CreateExportJobRequest,
-  CreateExportJobResult,
-  ExportJobProgressInfo,
   ImportWriteMode,
   ImportFieldMappingEntry,
   ImportRequestOptions,
@@ -761,8 +766,13 @@ export type {
   HTTPMethod,
   APIRequest,
   APIConfig,
-  UIEventHandler,
-  EventableSchema,
+  // `UIEventHandler` and `EventableSchema` are GONE from this block, not
+  // emptied out of it: both were RETIRED in objectui#6497 (ADR-0049
+  // enforce-or-remove, director ruling of 2026-09-24, maintainer verbatim
+  // 「同意」). Declared, unmirrored, unextended and unread, they only invited a
+  // handler dialect no runtime dispatches. The supported form is the
+  // declarative `ActionDef` object from `@object-ui/core`; the reasoning is the
+  // tombstone in `./api-types.ts`.
   DataFetchConfig,
   DataFetchableSchema,
   ExpressionContext,

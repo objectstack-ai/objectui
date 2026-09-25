@@ -22,8 +22,9 @@ import {
   Button, Input, Label, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@object-ui/components';
-import { uniqueId } from './_shared.js';
+import { flagUnknownValue, uniqueId } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
+import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
 import { FlowStringListField } from './FlowStringListField.js';
 import { VariableTextInput } from './VariableTextInput.js';
@@ -126,6 +127,11 @@ export function FlowObjectListField({
   scopeGroups,
   approvalScopeGroups,
 }: FlowObjectListFieldProps) {
+  // The add/remove/empty/item labels arrive translated from the caller; the
+  // flag on a stored select value is composed in this file, so it reads the
+  // designer's locale itself, as the sibling `ConditionBuilder` does
+  // (objectui#9652).
+  const locale = useMetadataLocale();
   const external = React.useMemo(
     () =>
       Array.isArray(value)
@@ -358,7 +364,13 @@ export function FlowObjectListField({
                       // flag it — it is not offered to fresh rows.
                       const shown =
                         current && !opts.some((o) => o.value === current)
-                          ? [...opts, { value: current, label: `${current} (deprecated)` }]
+                          ? [
+                              ...opts,
+                              {
+                                value: current,
+                                label: flagUnknownValue(current, t('engine.form.deprecated', locale), locale),
+                              },
+                            ]
                           : opts;
                       return (
                         <div className="flex-1">

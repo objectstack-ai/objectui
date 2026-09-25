@@ -1,8 +1,10 @@
 /**
  * Audit Log Page (system route)
  *
- * Read-only browser for `sys_audit_log` records, surfaced via the System
- * Hub card at `/system/audit-log`. Talks to the framework REST endpoint
+ * Read-only browser for `sys_audit_log` records, served at the standalone
+ * route `/system/audit-log` and registered as the `audit:log` component ref
+ * that framework navigation can name (`registerSystemComponents.tsx`,
+ * objectui#10520). Talks to the framework REST endpoint
  * `/api/v1/data/sys_audit_log` with standard ObjectQL filter params.
  *
  * Field shape mirrors framework/packages/platform-objects/src/audit/
@@ -22,6 +24,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   Button,
   Card,
@@ -77,9 +80,14 @@ interface AuditRow {
 
 const PAGE_SIZE = 50;
 
-function formatDate(s: string | null | undefined): string {
+/**
+ * `locale` is REQUIRED: the log's timestamp column used to format with no
+ * tag, i.e. in the MACHINE's locale (objectui#9909). The page passes
+ * `useDisplayLocale()`; the `catch` is for an unparseable value.
+ */
+function formatDate(s: string | null | undefined, locale: string): string {
   if (!s) return '—';
-  try { return new Date(s).toLocaleString(); } catch { return s; }
+  try { return new Date(s).toLocaleString(locale); } catch { return s; }
 }
 
 function truncate(s: string | null | undefined, n = 24): string {
@@ -93,6 +101,7 @@ function tryPrettyJson(s: string | null | undefined): string {
 }
 
 export function AuditLogPage() {
+  const displayLocale = useDisplayLocale();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -294,7 +303,7 @@ export function AuditLogPage() {
                       className="cursor-pointer"
                       onClick={() => setSelected(r)}
                     >
-                      <TableCell className="font-mono text-xs">{formatDate(r.created_at)}</TableCell>
+                      <TableCell className="font-mono text-xs">{formatDate(r.created_at, displayLocale)}</TableCell>
                       <TableCell><Badge variant={variant}>{r.action || '—'}</Badge></TableCell>
                       <TableCell>{r.object_name || '—'}</TableCell>
                       <TableCell className="font-mono text-xs">{truncate(r.record_id, 18)}</TableCell>
@@ -344,7 +353,7 @@ export function AuditLogPage() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <div className="text-xs text-muted-foreground">Timestamp</div>
-                  <div className="font-mono">{formatDate(selected.created_at)}</div>
+                  <div className="font-mono">{formatDate(selected.created_at, displayLocale)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">IP Address</div>

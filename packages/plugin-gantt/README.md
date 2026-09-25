@@ -53,13 +53,15 @@ When used through `ObjectGantt` (the wiring the framework uses for the
 
   The destination route is **not** authorable here — `useNavigationOverlay`
   builds no URL out of this config, so page mode hands the record to the
-  host's `onNavigate` / `onRowClick` and the host owns where it lands. To
-  choose *which* detail view opens, use the declared `view` member (a
-  form-view name, e.g. `"summary_view"`). `navigation` is the spec's
-  `NavigationConfig`, and its schema refuses any key it does not declare: an
-  undeclared key rejects the whole config, so the `mode` beside it never
-  takes effect either. `@objectstack/spec`'s `NavigationConfigSchema` owns the
-  member list.
+  host's `onNavigate` / `onRowClick` and the host owns where it lands. *Which*
+  detail layout opens is not authorable here either: assign a `record` page to
+  the object and let `isDefault` pick the one that opens. Page assignment is
+  what resolves a detail layout; this block only decides **how** that detail
+  is surfaced (`mode`, `size`) — `@object-ui/react`'s `useNavigationOverlay`
+  docblock owns that account. `navigation` is the spec's `NavigationConfig`,
+  and its schema refuses any key it does not declare: an undeclared key
+  rejects the whole config, so the `mode` beside it never takes effect either.
+  `@objectstack/spec`'s `NavigationConfigSchema` owns the member list.
 
 
 ### Drag-and-drop rescheduling
@@ -136,8 +138,12 @@ claim these schema types:
 | `object-gantt` | `plugin-gantt:object-gantt` | `ObjectGanttRenderer` |
 
 Both spellings of the surviving key resolve — `register` stores the namespaced key
-*and* a bare-`type` fallback. It declares two inputs: `objectName` (required) and
-the `gantt` configuration object.
+*and* a bare-`type` fallback. It declares four inputs: `objectName`, the `gantt`
+configuration object, and the two other record sources, `data` and `staticData`.
+`objectName` is not a required input: the record source is one of `data`,
+`staticData` and `objectName` (read in that order), and the `object-gantt` schema
+refuses a block that declares none of them. `data` is a `{ provider, … }`
+data-source configuration, never a bare array; inline rows go under `staticData`.
 
 > **The bare `gantt` key is retired** (objectui#8008, ruled 2026-09-09). This
 > table used to carry a second row, `gantt` / `view:gantt`, on the same renderer.
@@ -252,6 +258,11 @@ providers go through, so `filter` is evaluated with the same matcher and the
 ceiling is applied to the **filtered** set, never to the raw one. Before
 objectui#8769 the inline provider skipped that query and drew every authored
 row with an authored `filter` silently dropped.
+
+The same holds for the full-text pair: `search` is sent as `$search`, and
+`searchableFields` as `$searchFields` alongside it (never without a term). A
+list view's toolbar Search box writes both onto its gantt node — the chart runs
+its own query, so the node is the only way the term reaches it.
 
 **2. How the fields map — `getGanttConfig`.** Two spellings, checked in order.
 The **`gantt` block wins whenever it is present**, and it is taken WHOLE — the

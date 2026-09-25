@@ -294,8 +294,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
      * Those two read metadata only to expand a record query, so an inline data
      * set has nothing to wait for. This component reads the definition on EVERY
      * path, query or not: `buildEnrichedField` above reads `objectDef.fields` for
-     * each visible field's type, options, currency, precision and reference
-     * target, and `getRecordDisplayName(objectDef, item)` below resolves each
+     * each visible field's type, options, currency, precision, scale and
+     * reference target, and `getRecordDisplayName(objectDef, item)` below resolves each
      * card's title under ADR-0079. Disabling the read for authored `data` /
      * `bind` items would strip cell semantics and card titles off exactly the
      * paths that issue no query — a second, unasked-for change riding on a
@@ -353,8 +353,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
 
     // Build an enriched FieldMetadata for a given field name so the shared
     // cell renderer pipeline (used by Detail/Grid/Related) receives the
-    // same context: type, options, currency, precision, reference target,
-    // etc. This is what keeps card output visually aligned with the
+    // same context: type, options, currency, precision, scale, reference
+    // target, etc. This is what keeps card output visually aligned with the
     // record detail page.
     const buildEnrichedField = useCallback((fieldName: string) => {
       const def = objectDef?.fields?.[fieldName];
@@ -365,6 +365,12 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         if (def.options) enriched.options = def.options;
         if (def.currency) enriched.currency = def.currency;
         if (def.precision !== undefined) enriched.precision = def.precision;
+        // `scale` is the member the number and percent cell renderers pad
+        // decimals to (`precision` is the TOTAL digit count, never read for
+        // decimal places). Without it a gallery card rendered a `scale: 2`
+        // percent as `25%` beside a Grid/Detail `25.00%` (objectui#9575).
+        // Same presence test the ObjectGrid and RelatedList builders use.
+        if (def.scale !== undefined) enriched.scale = def.scale;
         if (def.format) enriched.format = def.format;
         // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
         // belongs on the SERVER, the front end just executes the protocol.

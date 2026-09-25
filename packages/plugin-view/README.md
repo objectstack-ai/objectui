@@ -151,7 +151,7 @@ const shape: ObjectViewSchema = {
 
   // --- List surface ---
   defaultViewType: 'grid', // grid | kanban | gallery | calendar | timeline | gantt | map
-  listViews: { all: { label: 'All Users' } }, // named views; each needs a `label`
+  listViews: { all: { label: 'All Users', columns: ['name', 'email'] } }, // named views; each needs `label` and `columns`
   defaultListView: 'all',
   table: { columns: ['name', 'email'] }, // grid configuration (see below)
 
@@ -202,10 +202,18 @@ object through. Anything else you put in them is ignored:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `defaultSort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
+| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
 
-Four of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
+> **`table.defaultSort` is retired (objectui#5861).** It was the legacy
+> single-entry spelling of `table.sort`. The installed `@objectstack/spec`
+> protocol refuses `object-grid`'s `defaultSort` by name (a retired-key
+> tombstone), and neither `ObjectView` nor `ObjectGrid` reads it any more:
+> a view that still carries it renders **unsorted**. Rename the key to `sort`
+> and wrap the value in an array — `defaultSort: { field: 'name', order: 'asc' }`
+> becomes `sort: [{ field: 'name', order: 'asc' }]`.
+
+Three of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
 key and the `@deprecated` legacy spelling it replaced. As of objectui#5102 the
 canonical spelling **takes effect** on every rendering path (the grid, and the
 non-grid `kanban` / `gallery` / `calendar` / `timeline` / `gantt` / `map`
@@ -217,16 +225,14 @@ just no longer the one to reach for:
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
 | `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
-| `sort: SortConfig[]` (`[{ field, order }]`) | `defaultSort: { field, order }` (a single entry, not an array) |
 
 **Precedence when a key is written both ways** — `table: { pagination: {
 pageSize: 10 }, pageSize: 50 }`, say — the canonical spelling wins. That is
 `ObjectGrid`'s own existing resolution (`schema.pagination?.pageSize ||
 schema.pageSize`; `if (schema.selection?.type) … else if (schema.selectable
-!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`;
-`schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined)`), and
-`ObjectView` defers to it by forwarding both slots rather than re-resolving
-the pair itself:
+!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`), and `ObjectView`
+defers to it by forwarding both slots rather than re-resolving the pair
+itself:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -245,9 +251,9 @@ const schema: ObjectViewSchema = {
 predates this change: an **active named view's own** `filter` / `sort`
 (`listViews.<name>.filter` / `.sort`) always outranks anything written on
 `table`. In order, highest first: the active named view's `filter`/`sort`,
-then `table.filter`/`table.sort`, then `table.defaultFilters`/
-`table.defaultSort`. (If you never write `listViews`, that first tier never
-applies.) `pagination` and `selection` have no such tier, and no effect
+then `table.filter`/`table.sort`, then `table.defaultFilters` (filter only —
+`sort` has no legacy tier since `table.defaultSort` was retired). (If you
+never write `listViews`, that first tier never applies.) `pagination` and `selection` have no such tier, and no effect
 outside the grid — the non-grid renderers don't page or multi-select, so
 `ObjectView` never forwards either spelling to them.
 
@@ -397,6 +403,11 @@ Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
 makes rows inert.
 
+With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
+record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
+`preventNavigation`, and `operations.read: false` without a `navigation` config
+ignore a modifier click too.
+
 ## CRUD Operations
 
 All four operations are built in and run against the `dataSource` prop. You do
@@ -461,6 +472,7 @@ const schema: ObjectViewSchema = {
     cheap: {
       label: 'Under 100',
       type: 'grid',
+      columns: ['name', 'price'],
       filter: [{ field: 'price', operator: 'less_than', value: 100 }],
     },
   },
@@ -619,6 +631,7 @@ const schema: ObjectViewSchema = {
     admins: {
       label: 'Admins',
       type: 'grid',
+      columns: ['name', 'email'],
       filter: [{ field: 'role', operator: 'equals', value: 'admin' }],
     },
   },

@@ -10,7 +10,9 @@
  * FilterBuilder → `@objectstack/spec` view filter, the WRITE direction.
  *
  * The FilterBuilder (`@object-ui/components`) speaks a grouped dialect —
- * `{ id, logic, conditions }` with a per-row `id` and camelCase operators.
+ * `{ id, logic, conditions }` with a per-row `id`. Its operator ids are the
+ * spec's own canonical spellings since objectui#9306 (they were camelCase
+ * before, and a group read from older storage may still carry those).
  * `@objectstack/spec`'s `ListViewSchema.filter` / `ViewTab.filter` declare
  * `z.array(ViewFilterRuleSchema)`: a FLAT list of `{ field, operator, value }`.
  * Persisting the builder's group verbatim is a type error the server rejects
@@ -52,8 +54,8 @@ interface FilterGroupLike {
 }
 
 /**
- * Operators that are COMPLETE without a value — in both the FilterBuilder's
- * dialect and the canonical spelling `normalizeFilterOperator` maps it to.
+ * Operators that are COMPLETE without a value, keyed by the spelling
+ * `normalizeFilterOperator` folds a row's operator to.
  *
  * The builder renders no value input for these (`needsValueInput` in
  * `@object-ui/components`'s `filter-builder.tsx`), so "no value" is the row's
@@ -76,15 +78,27 @@ interface FilterGroupLike {
  *
  * The builder half is no longer restated here: it is imported from
  * `@object-ui/components`, the module whose `needsValueInput` decides it
- * (objectui#4744). This layer only ADDS what the builder never sees — the
- * canonical spec spellings a stored `ViewFilterRule` carries.
- * `viewFilterFold.emptyValue.test.ts` pins the union against that import so a
- * new value-less operator upstream cannot land here half-applied.
+ * (objectui#4744). Since objectui#9306 that set is itself written in the
+ * canonical spellings, so the four listed beside it are already members; they
+ * stay listed so this layer's answer for the spellings a stored
+ * `ViewFilterRule` carries does not depend on which vocabulary the builder's
+ * set happens to be written in. `viewFilterFold.emptyValue.test.ts` pins the
+ * union against that import so a new value-less operator upstream cannot land
+ * here half-applied.
+ *
+ * ⚠️ Membership is asked of the FOLDED spelling, never of the raw one. The set
+ * does NOT list the deprecated camelCase ids (`isEmpty`, `isNull`, …) that a
+ * row stored before objectui#9306 may carry, and it is not meant to: listing a
+ * second spelling here is how the builder's set and this one drifted before.
+ * The fold below asks the normalized operator, and `sanitizeViewOverride`
+ * (`ObjectView.tsx`) folds before its lookup too — a reader that asked this set
+ * the RAW spelling would treat a stored `{ operator: 'isEmpty', value: '' }` as
+ * a row still waiting for a value, and drop it.
  */
 export const VALUELESS_FILTER_OPERATORS: ReadonlySet<string> = new Set([
     // FilterBuilder vocabulary — the one shared set, not a copy of it.
     ...VALUELESS_FILTER_BUILDER_OPERATORS,
-    // …and their canonical spec spellings, which only this layer sees.
+    // …and the canonical spellings a stored rule carries, independently of it.
     'is_empty', 'is_not_empty', 'is_null', 'is_not_null',
 ]);
 
@@ -127,9 +141,12 @@ function isGroupLike(value: unknown): value is FilterGroupLike {
  * Folding rules:
  *
  * - **Operators** are normalized through the spec's OWN
- *   {@link normalizeFilterOperator}, so the builder's camelCase ids
- *   (`notEquals`, `greaterOrEqual`, `startsWith`, `isNull`, …) land on the
- *   canonical vocabulary `ViewFilterRuleSchema` enumerates. Using the spec's
+ *   {@link normalizeFilterOperator}, so any alias spelling a row carries —
+ *   including the builder's deprecated camelCase ids (`notEquals`,
+ *   `greaterOrEqual`, `startsWith`, `isNull`, …) that a group read from older
+ *   storage may still hold; the builder itself has emitted the canonical ids
+ *   since objectui#9306 — lands on the canonical vocabulary
+ *   `ViewFilterRuleSchema` enumerates. Using the spec's
  *   exported map rather than a hand-kept table is what keeps this from
  *   becoming a second dialect — the previous local table in
  *   `metadata-admin/widgets.tsx` had drifted four operators behind the
@@ -162,8 +179,9 @@ function isGroupLike(value: unknown): value is FilterGroupLike {
  *   storage — and on the next read it became the view's whole filter, replacing
  *   the source-declared one and emptying the list for every user of that view.
  *   The two sides now agree: what is not applied is not persisted. A value-less
- *   OPERATOR ({@link VALUELESS_FILTER_OPERATORS} — `isEmpty` / `isNull` and
- *   friends) is complete without a value and is kept; only a row that WANTS a
+ *   OPERATOR ({@link VALUELESS_FILTER_OPERATORS} — `is_empty` / `is_null` and
+ *   friends, in any spelling that folds onto them) is complete without a value
+ *   and is kept; only a row that WANTS a
  *   value and has none is dropped.
  *
  * Refusals (objectstack#5159, maintainer adjudication A1): a shape that cannot

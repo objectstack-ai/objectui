@@ -53,7 +53,10 @@ both shapes, not only the assignment one.
 **Three mirrors deliberately keep the annotation.** `NavigationItemSchema` and
 `FilterBuilderConditionSchema` (`zod/app`, `zod/complex`) accept more than their
 declaration states — `id` optional against a required one, `is_null` / `is_not_null`
-against `FilterBuilderOperator` — so filling the argument is that comparison and
+against `FilterBuilderOperator` (⚠️ that operator half is superseded inside this same
+release by objectui#9559: `FilterBuilderOperator` is now the spec's
+`ViewFilterOperator`, which has both, while the mirror additionally accepts the spec's
+legacy aliases) — so filling the argument is that comparison and
 `tsc` refuses it; `FilterGroupSchema` follows transitively through its `conditions`
 arm. Those three are recorded on the card, with the exact refusal, and stay in the
 excluded region the parity ledger bounds at runtime.

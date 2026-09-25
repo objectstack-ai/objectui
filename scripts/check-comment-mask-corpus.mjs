@@ -26,17 +26,11 @@
  * NOT ported here and that nothing in this repository ran it; that paragraph is
  * updated by the same change that added this file.
  *
- * ⛔ This is NOT a verbatim copy, and it is deliberately not enrolled in
- * `scripts/upstream-port-pin.json`. That pin verifies a port by REVERSING a list
- * of declared divergences and comparing bytes, which pays for itself when a copy
- * is meant to track upstream nearly verbatim (`scripts/pm/check-half-states.mjs`
- * is the one file enrolled today). The four divergences below are structural --
+ * ⛔ This is NOT a verbatim copy. The four divergences below are structural --
  * a different oracle import, a different prerequisite helper, a different
- * skip-list and a different failure posture -- so the reversal would have to
- * reconstruct most of the file, and the pin would assert almost nothing while
- * costing a re-sync ritual on every upstream edit. Enrolling it is a separate
- * decision with its own cost, and is recorded on objectui#7882 rather than taken
- * here.
+ * skip-list and a different failure posture. No gate compares it with upstream
+ * (this repository's port pin and its parity gate were retired by
+ * objectui#10208), so drift from upstream is found by hand.
  *
  *   1. THE ORACLE IS REACHED THROUGH `typescript-eslint`, NOT
  *      `@typescript-eslint/parser`. Upstream imports the parser package

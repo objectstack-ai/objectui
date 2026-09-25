@@ -171,6 +171,10 @@ const en = {
       acknowledge: 'I have saved this',
       copyAll: 'Copy all',
     },
+    // The refusal notice for an action whose `autoTrigger` its own declared
+    // `visible` gate outranks (objectui#4191) — the deep link or host asked
+    // for it, but the author hid it on this surface.
+    notAvailableHere: '"{{action}}" is not available on the current page.',
   },
   validation: {
     required: '{{field}} is required',
@@ -194,6 +198,7 @@ const en = {
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
     submitFailed: 'Could not save. Please try again.',
+    uploadInFlight: 'Wait for the upload to finish before saving.',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -368,6 +373,16 @@ const en = {
     // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
     // carries the same one), so English and provider-less rendering are
     // unchanged.
+    // objectui#10474 — the editable date-time face's notice for a stored value
+    // written on a day that does not exist. The `datetime-local` control can
+    // only paint such a value blank, so the widget names the stored string
+    // beside it; a blank control alone would hide it (objectui#3127).
+    // `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same English value for provider-less rendering.
+    dateTime: {
+      impossibleDay:
+        'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
@@ -705,6 +720,33 @@ const en = {
     newEvent: 'New event',
     moreEvents: '+{{count}} more',
     unscheduled: 'Unscheduled ({{count}})',
+    loading: 'Loading calendar…',
+    loadError: 'Error: {{message}}',
+    configRequired: 'Calendar configuration required. Please specify startDateField, the calendar\'s one required key; the event title resolves without titleField.',
+    configRequiredHint: 'It belongs on the view\'s calendar block. An interface page has no calendar slot of its own: point its sourceView at a view that declares one.',
+    eventDetails: 'Event Details',
+    pullToRefresh: 'Pull to refresh',
+    refreshing: 'Refreshing…',
+    onDate: 'On {{date}}',
+    eventTitle: 'Title',
+    eventTitlePlaceholder: 'What\'s this event about?',
+    creating: 'Creating…',
+    titleRequired: 'Title is required',
+    a11y: {
+      region: 'Calendar',
+      grid: 'Calendar grid',
+      goToToday: 'Go to today',
+      previousPeriod: 'Previous period',
+      nextPeriod: 'Next period',
+      currentDate: 'Current date: {{date}}',
+      dayCell: '{{date}}, {{count}} events',
+      dayCell_one: '{{date}}, {{count}} event',
+      dayCell_other: '{{date}}, {{count}} events',
+      resizeEventEnd: 'Resize event end',
+      resizeEventEndHint: 'Drag to change end date',
+      resizeStart: 'Resize start',
+      resizeEnd: 'Resize end',
+    },
   },
   list: {
     loading: 'Loading records…',
@@ -909,6 +951,7 @@ const en = {
     },
     aria: {
       taskList: 'Task list',
+      refreshing: 'Refreshing…',
     },
     tooltip: {
       days: 'd',
@@ -1017,6 +1060,7 @@ const en = {
     tabActionsFor: 'View actions for {{name}}',
     readonlyAriaLabel: 'Read-only view',
     readonlyTooltip: 'System view — defined in code, read-only.',
+    malformedFilter: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
   },
   detail: {
     back: 'Back',
@@ -1125,7 +1169,6 @@ const en = {
     viewAll: 'View All',
     new: 'New',
     add: 'Add',
-    emptyValue: '—',
     activity: 'Activity',
     history: 'History',
     historyEmpty: 'No history yet',
@@ -1185,12 +1228,6 @@ const en = {
     attachmentsLoadFailed: "We couldn't load the attachments for this record.",
     attachmentsApiUnavailable: 'The attachments list is not available on this object.',
     retryLoadAttachments: 'Retry',
-    // Diff
-    unifiedDiff: 'Unified diff',
-    sideBySideDiff: 'Side-by-side diff',
-    noChanges: 'No changes',
-    previousVersion: 'Previous',
-    currentVersion: 'Current',
     // Discussion
     discussion: 'Discussion',
     showDiscussion: 'Show Discussion ({{count}})',
@@ -1208,11 +1245,7 @@ const en = {
     // Subscription
     subscribedTooltip: 'Subscribed — click to unsubscribe',
     unsubscribedTooltip: 'Subscribe to notifications',
-    // Navigation
-    firstRecord: 'First record (Home)',
-    previousRecordKey: 'Previous record (←)',
-    nextRecordKey: 'Next record (→)',
-    lastRecord: 'Last record (End)',
+    // The reference rail's empty related-record list
     noRecords: 'No records',
     // objectui#3863 — the BASE key is the slot every plural category a pack did not
     // enumerate resolves to, keeping that pack in its own language instead of falling
@@ -1223,8 +1256,6 @@ const en = {
     showEmptyRelated: '+ {{count}} empty',
     showEmptyRelated_one: '+ {{count}} empty',
     showEmptyRelated_other: '+ {{count}} empty',
-    searchWhileNavigating: 'Search while navigating',
-    searchRecords: 'Search records…',
     // Activity timeline
     allActivity: 'All Activity',
     commentsOnly: 'Comments Only',
@@ -1287,21 +1318,6 @@ const en = {
     fileCount: '{{count}} files',
     fileCount_one: '{{count}} file',
     fileCount_other: '{{count}} files',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Revision History',
-    noRevisions: 'No revisions recorded',
-    revisionFieldsChanged: '{{count}} fields changed',
-    revisionFieldsChangedOne: '{{count}} field changed',
-    revisionPreview: 'Revision Preview',
-    revisionSnapshot: 'Record state at this point',
-    restoreConfirm: 'This will restore the record to its state at {{when}}. Continue?',
-    restoring: 'Restoring…',
-    confirmRestore: 'Confirm Restore',
-    restoreToPoint: 'Restore to this point',
   },
   chart: {
     loading: 'Loading chart…',
@@ -1614,6 +1630,7 @@ const en = {
     navTypeSeparator: 'Separator',
     navTypeAction: 'Action',
     navTypeComponent: 'Component',
+    navTypeDoc: 'Doc',
     navEditIcon: 'Edit icon',
     navToggleVisible: 'Toggle visibility',
     navHidden: 'Hidden',
@@ -1713,6 +1730,12 @@ const en = {
     },
   },
   console: {
+    // The Studio front door's wordmark (objectui#10043). Its sibling one
+    // route away -- `StudioDesignSurface`'s header Home button -- walks back
+    // to the same place, so both read as the same affordance.
+    studio: {
+      backToHome: 'Back to home',
+    },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
@@ -2156,6 +2179,18 @@ const en = {
         previous30Days: 'Previous 30 days',
         older: 'Older',
       },
+    },
+    // objectui#9954 — the environment admin's read-rate report (cloud#2333).
+    // Two anomalous cases, two sets of words: an ABSENT `readsPerWrite` means the
+    // environment wrote nothing at all, so the ratio is unbounded — the most
+    // severe reading, and never a missing number. `{{threshold}}` always comes
+    // from the wire; this repo holds no copy of the line. Report only — the copy
+    // states that nothing is limited or blocked, and must keep doing so.
+    readRate: {
+      ratioTitle: 'Unusual read volume in this environment',
+      ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+      noWritesTitle: 'Reads with no writes at all in this environment',
+      noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
     errors: {
       somethingWentWrong: 'Something went wrong',
@@ -2986,6 +3021,8 @@ const en = {
     requiredError: '{{label}} is required',
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
+    unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
+    carryOverHint: 'Carried over unchanged (read-only)',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',
@@ -3307,6 +3344,35 @@ const en = {
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
   },
+  // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
+  // `ai-recommendations` components (objectui#10232). The `*One` rows are this
+  // repo's two-key plural convention (see `search.itemsAvailableOne`): the
+  // component picks the key at exactly one, so no CLDR category falls to `en`.
+  ai: {
+    nlQuery: {
+      placeholder: 'Ask a question about your data…',
+      ask: 'Ask',
+      results: 'Results',
+      match: '{{percent}} match',
+      simulatedSummary: 'Results for: {{query}}',
+      noResults: 'No matching records found',
+      recentQueries: 'Recent Queries',
+    },
+    formAssist: {
+      title: 'AI Suggestions',
+      suggestionCount: '{{count}} suggestions',
+      suggestionCountOne: '{{count}} suggestion',
+      applyAll: 'Apply All',
+      confidence: '{{percent}} confidence',
+      appliedCount: '{{count}} suggestions applied',
+      appliedCountOne: '{{count}} suggestion applied',
+    },
+    recommendations: {
+      title: 'Recommendations',
+      generating: 'Generating recommendations…',
+      empty: 'No recommendations available',
+    },
+  },
   // The AI HITL approval inbox (`@object-ui/plugin-chatbot`'s
   // `AiPendingActionsInbox`) — objectui#7173. Its four relative-time phrases
   // are NOT here: it borrows `detail.justNow` / `minutesAgo` / `hoursAgo` /
@@ -3607,6 +3673,7 @@ const en = {
         reseedQueued: 'Sample data will be re-seeded on next environment access.',
         reseedLocalSuccess: 'Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.',
         reseedPartialErrors: '({{count}} record(s) failed to write)',
+        sampleDataKernelUnavailable: 'This control plane has no environment kernel, so sample data cannot be re-seeded or purged from here. Do it from the environment\'s own runtime.',
         updateAvailable: 'Update available',
       },
       action: {
@@ -3912,25 +3979,25 @@ const en = {
     rangeEnd: 'To',
     operators: {
       equals: 'Equals',
-      notEquals: 'Does not equal',
+      not_equals: 'Does not equal',
       contains: 'Contains',
-      containsCaseInsensitive: 'Contains (ignore case)',
-      notContains: 'Does not contain',
-      isEmpty: 'Is empty',
-      isNotEmpty: 'Is not empty',
-      greaterThan: 'Greater than',
-      lessThan: 'Less than',
-      greaterOrEqual: 'Greater than or equal',
-      lessOrEqual: 'Less than or equal',
+      icontains: 'Contains (ignore case)',
+      not_contains: 'Does not contain',
+      is_empty: 'Is empty',
+      is_not_empty: 'Is not empty',
+      greater_than: 'Greater than',
+      less_than: 'Less than',
+      greater_than_or_equal: 'Greater than or equal',
+      less_than_or_equal: 'Less than or equal',
       before: 'Before',
       after: 'After',
       between: 'Between',
       in: 'In',
-      notIn: 'Not in',
-      startsWith: 'Starts with',
-      endsWith: 'Ends with',
-      isNull: 'Is null',
-      isNotNull: 'Is not null',
+      not_in: 'Not in',
+      starts_with: 'Starts with',
+      ends_with: 'Ends with',
+      is_null: 'Is null',
+      is_not_null: 'Is not null',
       exists: 'Is set',
       notExists: 'Is not set',
     },

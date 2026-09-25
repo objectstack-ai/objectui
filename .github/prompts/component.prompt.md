@@ -87,14 +87,14 @@ Responsible for rendering records. The specific `type` determines the Props cont
 > ⚠️ **A `Keys` entry is a REGISTRY key; a `Required Types` entry is a spec `type` value. They are
 > not the same vocabulary and they have diverged.** `{ "type": "kanban" }` inside a `ListView`
 > config is spec-valid, but the board component is registered as `object-kanban` — the namespaced
-> `view:kanban` and `view:gantt` spellings retired with the bare `kanban` / `gantt` registrations and
-> now answer only the opt-in protocol PLACEHOLDER panel. A document naming one passes
+> `view:kanban`, `view:gantt` and `view:map` spellings retired with the bare `kanban` / `gantt` / `map`
+> registrations and now answer only the opt-in protocol PLACEHOLDER panel. A document naming one passes
 > `objectui check` and then draws nothing. Write the key from the `Keys` bullet, and where a
 > presentation is a config value rather than a component, write it as a prop. Enforced by
 > `pnpm check:prompt-keys`.
 
 #### 1. List Views (Collection)
-*   **Keys:** `view:grid`, `object-kanban`, `view:map`, `view:calendar`, `object-gantt`, etc.
+*   **Keys:** `view:grid`, `object-kanban`, `object-map`, `view:calendar`, `object-gantt`, etc.
 *   **Contract:** Must implement `ListViewComponentProps`.
     ```typescript
     type ListViewComponentProps = {

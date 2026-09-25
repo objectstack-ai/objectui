@@ -130,6 +130,37 @@ delegate) and `ConsoleNotificationBanners` (the banners, guarded by
 banners instead of throwing). See the
 [notifications guide](https://objectui.org/docs/guide/notifications).
 
+## Read-rate report (environment admin)
+
+`ConsoleShell` also mounts `<ReadRateBanner />`, beside the impersonation
+indicator, so every console route carries it — including `/home`, which has its
+own layout. It is **not** a notification banner: nothing in this app raises it.
+It renders the tenant runtime's own verdict, read by `useReadRateReading` from
+the optional `readRate` key on `GET /api/v1/usage/storage`.
+
+| the reading | what renders |
+| --- | --- |
+| `state: 'anomalous'`, with a `readsPerWrite` | the ratio, and the line it was measured against |
+| `state: 'anomalous'`, `readsPerWrite` ABSENT | the no-writes reading: an unbounded ratio, its own words, the heavier tone |
+| `state: 'ok'` | nothing — measured, and under the line |
+| no `readRate` at all | nothing — the control plane reported NO reading |
+| the endpoint could not be read | nothing |
+
+The last three all render nothing and are **three different facts**;
+`classifyReadRate` keeps them apart, because "why does my environment show no
+banner" has more than one answer and one of them is *nobody has measured it*.
+
+Two more properties of that contract are load-bearing. An absent `readsPerWrite`
+means the environment made no writes at all, so the ratio has no upper bound —
+it is the most severe reading there is, never a missing number to hide or dash
+out. And the threshold is **data**: it is rendered from `ratioThreshold` on the
+wire, the verdict is never re-derived from it, and this package holds no copy of
+the line.
+
+It is a **report**. It never refuses, throttles or degrades anything, and the
+copy says so. It is shown only to a workspace admin, who is also the only
+session that issues the request.
+
 ## Components
 
 ### AppShell
@@ -207,6 +238,18 @@ field type — `select`, `lookup`, `date`, `file`, `image`, `richtext`, `color`,
 pins param support ⊇ form support. `required` validation and `visible` CEL
 gating are applied by the dialog; file/image uploads use the ambient
 `UploadProvider`, lookup/user pickers the surrounding `SchemaRendererContext`.
+
+A param that declares the spec's `carryOver` (with the `defaultFromRow: true`
+the spec requires beside it) is **shown, never collected**: it renders as a
+collapsed read-only summary with no field widget at all, and its row value is
+submitted verbatim — `serializeParamValues` leaves it untouched even on an
+upload field (objectui#6246). The permission-set Clone action declares it on
+its JSON permission facets, so a clone cannot be hand-edited into granting more
+than its base.
+
+```json
+{ "field": "row_level_security", "defaultFromRow": true, "carryOver": true }
+```
 
 Because each param now emits its widget's own value shape on confirm, the shape
 the dialog **POSTs** for every type is pinned as a contract in
@@ -477,7 +520,13 @@ Config keys come in three editable shapes so authors never hand-write JSON:
   `connector_action`'s **Input**, a `get_record`'s **Filter** — use an inline
   **key/value editor** (`keyValue` kind). Scalar values are auto-typed (`3` →
   number, `true` → boolean); object/array values such as a filter operator
-  `{"$ne": null}` round-trip losslessly.
+  `{"$ne": null}` round-trip losslessly. On a map the spec's expression ledger
+  declares `value`-role (`FLOW_NODE_EXPRESSION_PATHS`; today the `assignment`
+  node's **Assignments**), each value also has a *Write as a CEL expression*
+  toggle: off, a `{token}` string is stored exactly as typed; on, the value is
+  stored as the CEL value envelope `{ dialect: 'cel', source }`, and a malformed
+  envelope shows the spec's `AssignmentValueSchema` refusal inline
+  (objectui#7588, `flow-value-envelope.ts`).
 - **String arrays** — a script's **Recipients** / **Output variables** — use a
   single-column **string-list editor** (`stringList` kind).
 - **Arrays of objects** — a `screen` node's **Fields** (a list of
@@ -625,32 +674,36 @@ JSON `action:button` schemas can also trigger the page routes directly
 via the action runner, regardless of the object's `editMode`. The handler
 name goes in `actionType` — that is the key the button renderer forwards
 to the action runner as the action's type, and the runner dispatches to
-the handler registered under it. Arguments go in a top-level `params`
-object:
+the handler registered under it. Arguments are static values under
+`properties.params` (an action's `params` is only the `ActionParam[]`
+list of inputs to collect; a node-level `params` object is ignored):
 
 ```json
 {
   "type": "action:button",
   "label": "New Account",
   "actionType": "navigate_create",
-  "params": { "objectName": "account" }
+  "properties": {
+    "params": { "objectName": "account" }
+  }
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. Every string in
+`properties.params` is a template, evaluated like other `properties`
+values, so a button on a record page names its record with
+`${record.id}`:
 
 ```json
 {
   "type": "action:button",
   "label": "Edit",
   "actionType": "navigate_edit",
-  "params": {
-    "objectName": "account",
-    "recordId": "0015e000abcd"
+  "properties": {
+    "params": {
+      "objectName": "account",
+      "recordId": "${record.id}"
+    }
   }
 }
 ```

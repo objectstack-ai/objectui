@@ -15,7 +15,7 @@ import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@obje
 import { ViewSwitcherDropdown, ViewType } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
-import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope } from '@object-ui/react';
+import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
@@ -2117,6 +2117,18 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const surfaceDrawsFetchedRows = currentView !== 'gantt';
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this list QUERIES is declared, and the fetch effect
+  // below names it, so the rows are re-read in place (`RefreshIndicator` over
+  // the current rows, no remount). A page action over raw HTTP fires no
+  // `onMutation`, so the subscription above cannot see it; the bus can.
+  // Subscribed only when the list fetches for itself — inline rows and a
+  // gantt that owns its endpoint are not this effect's query.
+  const listFetchesForItself =
+    !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
+  const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
+
   // Fetch data effect — supports schema.data (ViewDataSchema) provider modes
   React.useEffect(() => {
     let isMounted = true;
@@ -2696,7 +2708,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -3662,7 +3674,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * The two narrowings now sit downstream of it, one per builder.
    */
   const candidateFields = React.useMemo(() => {
-    let fields: Array<{ value: string; label: string; type: string; options?: any; referenceTo?: string; displayField?: string; idField?: string }>;
+    let fields: Array<{ value: string; label: string; type: string; options?: any; referenceTo?: string; displayField?: string }>;
 
     // Translate select-field option labels through the i18n resolver.
     // fieldDef.options may be an array of { value, label } or a keyed object;
@@ -3700,8 +3712,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // reading it here would resurrect the second spelling.
               label: tFieldLabel(fieldName, f.label || fieldName),
               type: f.type || 'text',
-              options: buildOptions(fieldName, f.options),
               // objectui#7531 (ruled): a list column declares no relational target; it comes from the object definition once loaded.
+              // objectui#10547 (same ruling): nor select options — `ListColumnSchema` refuses `options` with `unrecognized_keys`; they come from the object definition once loaded.
            }];
         });
     } else {
@@ -3722,13 +3734,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // with no rename hint. That is a different question and is filed, not
             // answered here.
             referenceTo: field.reference,
-            // objectui#7642 CENSUS — verdict KEEP. Bag traced: `objectDef` is
-            // `dataSource.getObjectSchema(schema.objectName)`, so this IS the
-            // object-schema def. But the serve path runs no parse, so a stored
-            // pre-strict def still arrives; and there is no camel leg here, so
-            // retiring these reads deletes the only read of the value.
-            displayField: field.display_field || field.reference_field,
-            idField: field.id_field,
+            // objectui#10545 — the display field is read in the DECLARED spelling
+            // and only in it. `objectDef` is
+            // `dataSource.getObjectSchema(schema.objectName)`, the object-schema
+            // def, and `FieldSchema` declares `displayField`; it refuses
+            // `display_field` (renaming it to `displayField`) and
+            // `reference_field` (pointing at `referenceVia`, a different key)
+            // with `unrecognized_keys`. This is the single spelling `plugin-grid`'s
+            // copy set reads (`RELATIONAL_META_READ_SET`, objectui#7155), and it
+            // supersedes the objectui#7642 census KEEP, which held only while
+            // this chain had no `displayField` leg. A stored pre-strict
+            // `display_field` is folded onto `displayField` once, at ingestion
+            // (`normalizeSchemaReferenceKeys`, objectui#7650), never here.
+            //
+            // No id column is read: `FieldSchema` declares none for a lookup (it
+            // refuses `idField` and `id_field` alike), so the filter's value
+            // picker keys the lookup by its own `id` default, and `plugin-grid`'s
+            // copy set copies no id column either.
+            displayField: field.displayField,
         }));
     }
 

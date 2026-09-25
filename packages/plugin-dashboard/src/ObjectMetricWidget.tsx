@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
 import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
 import {
@@ -421,6 +421,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectName, aggregateKey, resolvedFilterKey, compareToKey, computeOne]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this metric AGGREGATES is declared, and the fetch
+  // effect below names it, so the value is re-read in place. Without it a page
+  // action over raw HTTP left the tile stale unless the page was remounted.
+  const invalidationNonce = useDataInvalidation(dataSource ? objectName || undefined : undefined);
+
   useEffect(() => {
     const mounted = { current: true };
 
@@ -434,7 +441,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     }
 
     return () => { mounted.current = false; };
-  }, [dataSource, objectName, fetchMetric]);
+  }, [dataSource, objectName, fetchMetric, invalidationNonce]);
 
   // Determine the display value:
   // - If we fetched a value from the server, use it

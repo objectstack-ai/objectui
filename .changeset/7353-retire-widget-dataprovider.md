@@ -15,9 +15,12 @@ as `dataProvider`, next to `objectName`. The widgets read only `objectName`, so
 version policy).** Compared with the released 17.6.0:
 
 - `DashboardRenderer` no longer writes `dataProvider` on the `object-data-table`
-  node, and `DashboardGridLayout` no longer writes it on the `data-table` and
-  `pivot` nodes. All three still write `objectName`, and the object-backed table
-  widget still fetches through it.
+  node, and `DashboardGridLayout` no longer writes it on any node it builds for a
+  `provider: 'object'` widget. Since objectui#10528 the grid builds that same
+  self-fetching `object-data-table` node for such a table widget, and shows the
+  retired-widget placeholder for such a pivot widget. The `object-data-table`
+  node still writes `objectName` on both surfaces, and the object-backed table
+  widget fetches through it.
 - In 17.6.0, the `schema` prop types of `ObjectPivotTable` and `ObjectDataTable`
   both declare `dataProvider?: { provider: string; object?: string }`. Both now
   declare it as a retirement tombstone (`dataProvider?: never`). TypeScript code

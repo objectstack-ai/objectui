@@ -38,6 +38,7 @@ import {
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
+  ChartAxisSchema as SpecChartAxisSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
@@ -2394,6 +2395,18 @@ export const ObjectKanbanSchema = BaseSchema.extend({
 }).superRefine(requireKanbanRecordSource);
 
 /**
+ * The message for an `ObjectChartSchema.yAxis` that is not a list
+ * (objectui#10518) — the remedy names the spec's own spelling, the one-entry
+ * list the showcase producer writes. Applied to the array's own `invalid_type`
+ * only, so an issue INSIDE an entry keeps the spec's wording (including its
+ * alias hint, e.g. `logScale` → `logarithmic`).
+ */
+const OBJECT_CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
+  '`yAxis` on an `object-chart` is `@objectstack/spec`\'s ARRAY of axis objects — write '
+  + '`yAxis: [{ field: \'task_count\', stepSize: 1 }]`, one entry per value axis (a second entry declares '
+  + 'the right-hand axis). A single axis object or a bare column name is not a member of the protocol.';
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -2496,6 +2509,43 @@ export const ObjectChartSchema = BaseSchema.extend({
   // the position it reads (`stripImportedDefaults(<binding>)`).
   compareTo: stripImportedDefaults(SpecDashboardWidgetSchema).shape.compareTo
     .describe('Period-over-period comparison directive, forwarded verbatim from the dashboard widget key of the same name — bound BY REFERENCE to `DashboardWidgetSchema.shape.compareTo` so the producer and this consumer cannot drift into two dialects.'),
+  // ── objectui#10518: the value axes, as `@objectstack/spec`'s axis config
+  // LIST — the `object-chart` sibling of objectui#7690, under the same ruling
+  // (5809510046, branch 2 — declare), which triage reused for this node.
+  //
+  // Three readings, each taken rather than assumed (the TS twin in
+  // `../objectql.ts` carries them in full):
+  //   - the spec DECLARES the key on this node: its `REACT_BLOCKS` entry for
+  //     `<ObjectChart>` has `schemaType: 'object-chart'` and
+  //     `schema: ChartConfigSchema`, and lists `yAxis` among its `dataProps`;
+  //     `ChartConfigSchema.yAxis` is an ARRAY of `ChartAxisSchema`;
+  //   - the node RENDERS it: `ObjectChart` spreads the node into the schema it
+  //     hands `ChartRenderer`, whose `normalizeChartSchema` reads the spec's
+  //     axis keys (tied to them from the renderer's side by
+  //     `normalizeChartSchema.specAxisKeys-7690.test.ts`);
+  //   - a real producer WRITES it: the objectstack showcase command-center
+  //     page's dataset-bound `object-chart` authors `yAxis: [{ field, stepSize: 1 }]`
+  //     to pin integer ticks on a count axis.
+  //
+  // Until here the key rode `BaseSchema`'s `.passthrough()` — kept, read and
+  // UNCHECKED — so `yAxis: [{ field: 'n', stepSize: 'big' }]` parsed green.
+  //
+  // BY REFERENCE, not restated: the key set, the value domains and the strict
+  // refusal are the spec's. `stripImportedDefaults` keeps the spec's two
+  // `.default()`s out of the parse output, exactly as on `ChartSchema.yAxis`.
+  // Only the spec's LIST is a member: the single object and the bare column
+  // name `normalizeChartSchema` tolerates are refused (the liveness read on
+  // objectui#10518, a one-time reading, found no producer on this node writing
+  // either).
+  yAxis: z
+    .array(stripImportedDefaults(SpecChartAxisSchema), {
+      error: (issue) => (issue.code === 'invalid_type' ? OBJECT_CHART_Y_AXIS_IS_A_LIST_GUIDANCE : undefined),
+    })
+    .optional()
+    .describe(
+      'AUTHORABLE — value (y) axes: an ARRAY of @objectstack/spec ChartAxis objects, by reference (field required, strict). '
+      + 'The first entry is the primary axis; a second entry declares the right-hand axis.',
+    ),
 });
 
 /**

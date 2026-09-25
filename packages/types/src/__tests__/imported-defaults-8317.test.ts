@@ -196,6 +196,8 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#7690: `ChartSchema.xAxis` / `ChartSchema.yAxis` reference the
   // spec's axis config object, whose `showGridLines` / `logarithmic` defaults
   // are exactly what this boundary exists to keep out of a parse output.
+  // objectui#10518: `ObjectChartSchema.yAxis` crosses the same boundary with
+  // the same symbol, so this one entry measures both crossings.
   ['ChartAxisSchema', SpecChartAxisSchema],
 ] as const;
 

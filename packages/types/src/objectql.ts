@@ -139,6 +139,9 @@ import type {
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
+  // objectui#10518 — the spec's axis config object, the element type of
+  // `ObjectChartSchema.yAxis`. Aliased for the reason `SpecGanttConfig` above is.
+  ChartAxis as SpecChartAxis,
 } from '@objectstack/spec/ui';
 
 /**
@@ -4245,6 +4248,16 @@ export type KanbanConditionalFormattingRule =
  * did not matter: each ledgers the OTHER card's keys by name and asserts only
  * that each is STILL READ, never that it is still undeclared. So declaring a
  * ledgered key does not redden its ledger — dropping the READ does.
+ *
+ * ## A third card, and a channel neither census sees (objectui#10518)
+ *
+ * `yAxis` (see the member) is read by NO `schema.KEY` expression in
+ * `ObjectChart.tsx`: the component spreads the node into the schema it hands
+ * `ChartRenderer`, and `normalizeChartSchema` reads it there. Both census pins
+ * above read `schema.KEY` off that one file, so neither lists it — as a read or
+ * as an exception — and neither was moved. Its pin is
+ * `__tests__/object-chart-axis-config-10518.test.ts`; the render path was
+ * measured once with a real registry probe, recorded on the card's PR.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -4489,6 +4502,36 @@ export interface ObjectChartSchema extends BaseSchema {
    * value check that `.passthrough()` was skipping.
    */
   compareTo?: SpecDashboardWidget['compareTo'];
+  /**
+   * AUTHORABLE — the value (y) axes: an ARRAY of `@objectstack/spec`'s axis
+   * CONFIG objects, the type of `ChartConfigSchema.yAxis`. The first entry is
+   * the primary axis; a second entry declares the right-hand axis a series
+   * binds to.
+   *
+   * Declared by objectui#10518, the `object-chart` sibling of objectui#7690
+   * (ruling 5809510046, branch 2 — declare), for three measured reasons:
+   *
+   *   - the spec declares the key ON THIS NODE: its `REACT_BLOCKS` entry for
+   *     `<ObjectChart>` carries `schemaType: 'object-chart'` and
+   *     `schema: ChartConfigSchema`, and lists `yAxis` among its `dataProps`;
+   *   - the node renders it: `ObjectChart` spreads the node into the schema it
+   *     hands `ChartRenderer`, and `normalizeChartSchema` reads every spec axis
+   *     key off each entry — so the type IS the spec's `ChartAxis`, not a
+   *     restatement of it;
+   *   - a real producer writes it: the objectstack showcase command-center
+   *     page's dataset-bound `object-chart` authors
+   *     `yAxis: [{ field, stepSize: 1 }]` to pin integer ticks on a count axis.
+   *
+   * Until then the list survived only on `BaseSchema`'s index signature: read
+   * by the renderer, checked by nothing. Only the spec's list is a member — a
+   * single axis object or a bare column name, which the normalizer tolerates,
+   * is refused by the mirror and does not compile here.
+   *
+   * ⚠️ Declared beside {@link yAxisFields} above, a separate legacy
+   * vocabulary. Whether that key is live on this node is reported on
+   * objectui#10518 for its own ruling; this member settles nothing about it.
+   */
+  yAxis?: SpecChartAxis[];
 }
 
 /**

@@ -167,6 +167,17 @@ export const ListItemSchema = z.object({
   disabled: z.boolean().optional().describe('Whether item is disabled'),
   onClick: handlerKeyRefusal('onClick', 'retired', 'Click handler'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Custom content'),
+  // RETIRED (objectui#9590) — mirrors `ListItem.body: never` (`../data-display.ts`).
+  // This object STRIPS undeclared keys, so leaving `body` undeclared would keep
+  // dropping it in silence; the refusal names `content` instead.
+  body: aliasKeyRefusal(
+    'body',
+    'content',
+    'this list item',
+    '`list` draws each item from `content` — a string as-is, a node or node array through '
+    + '`SchemaRenderer` (`packages/components/src/renderers/data-display/list.tsx`). The item-level '
+    + '`body` fallback was retired by objectui#9590.',
+  ),
 });
 
 /**
@@ -187,8 +198,8 @@ export const ListSchema = BaseSchema.extend({
     + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
     + 'warning, no element. '
     + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
-    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
-    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
+    + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -199,8 +210,8 @@ export const ListSchema = BaseSchema.extend({
     + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no '
     + 'warning, no element. '
     + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
-    + 'The ITEM channel is a different key and stays live: each entry is drawn as '
-    + '`item.content || renderChildren(item.body)`, a read filed under ListItem and not under this node. '
+    + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
+    + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),

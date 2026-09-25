@@ -13,10 +13,15 @@ is now refused at its own path, at authoring time and at `safeParse` time. No
 render behaviour changes: nothing read these keys, which is the whole reason
 they could be refused.
 
-⭐ The ITEM channel of `list` is a DIFFERENT key and is untouched. Its renderer
-draws each entry as `item.content || renderChildren(item.body)` — a read filed
+⭐ The ITEM channel of `list` is a DIFFERENT key and is untouched. At this change, its
+renderer draws each entry as `item.content || renderChildren(item.body)` — a read filed
 under `ListItem`, not under `ListSchema`. `items[].content` stays authorable and
 is pinned as a live control; only the node's own two keys move.
+
+⚠️ **Dated note, 2026-09-25 — the item read no longer falls back to `body` — objectui#9590.**
+Later in this same release, `list` draws each entry from `content` alone (a string as-is,
+a node or node array through `SchemaRenderer`), and `ListItem` refuses `body` by name,
+pointing at `content`. The paragraph above is kept as the reading of this change.
 
 These two were held out of the previous family-D slice for a SERIAL constraint
 on `packages/types/src/data-display.ts` and never for a verdict. Readership was

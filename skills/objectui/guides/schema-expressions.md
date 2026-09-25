@@ -434,12 +434,12 @@ descriptor:
 | Entry shape | Rendered as |
 |---|---|
 | `"Ada"` (a plain string) | the string |
-| `{ "content": … }` | `content` verbatim — **not** expression-evaluated |
-| `{ "body": node }` or `{ "body": [node, …] }` | rendered through `SchemaRenderer` |
+| `{ "content": "Ada" }` (a string) | the string verbatim — **not** expression-evaluated |
+| `{ "content": node }` or `{ "content": [node, …] }` | rendered through `SchemaRenderer` |
 | `{ "className": … }` | class on the `<li>` |
 | anything else — e.g. a record `{ "name": "Ada" }` | an **empty `<li>`** |
 
-`content` wins over `body` when both are present. The last row is the trap this
+`body` on an item is refused; use `content`. The last row is the trap this
 section exists to close: binding `list` to ordinary records produces one empty
 `<li>` per record — the right number of bullets, no text in any of them.
 
@@ -460,16 +460,16 @@ section exists to close: binding `list` to ordinary records produces one empty
 { "type": "list", "bind": "rows" }
 ```
 
-Only `body` entries go back through `SchemaRenderer`, so they are the one place
-inside a list where expressions are evaluated at all — against the host scope,
-never against a current element:
+Only a node-valued `content` goes back through `SchemaRenderer`, so it is the one
+place inside a list where expressions are evaluated at all — against the host
+scope, never against a current element:
 
 <!-- os:check -->
 ```jsonc
-// ✅ `${data.*}` works inside `body`; there is still no `${item.*}`
+// ✅ `${data.*}` works inside a node-valued `content`; there is still no `${item.*}`
 {
   "type": "list",
-  "items": [{ "body": { "type": "text", "content": "Owner: ${data.team.owner}" } }]
+  "items": [{ "content": { "type": "text", "content": "Owner: ${data.team.owner}" } }]
 }
 ```
 
@@ -500,7 +500,7 @@ working routes:
 1. **Expand in the host.** Map your records to nodes *before* handing the schema
    to `SchemaRenderer` — the host has the full array and can build one node per
    record with real string interpolation.
-2. **Feed data-as-nodes.** Shape the data as list entries (`content` / `body`)
+2. **Feed data-as-nodes.** Shape the data as list entries (`content`)
    and let `items` or `bind` render it, per the table above.
 
 ### The per-row scope that does exist

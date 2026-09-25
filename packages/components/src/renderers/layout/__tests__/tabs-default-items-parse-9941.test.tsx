@@ -60,10 +60,11 @@
  *
  * ## ⛔ What this pin deliberately does NOT claim
  *
- * - ⛔ It does not assert that `body` is refused. `TabItemSchema` is a stripping
- *   `z.object`, so an undeclared `body` is silently DROPPED, not rejected;
- *   `undeclaredBodyIsDropped` records that as the measured behaviour rather
- *   than letting a later reader assume a strict face.
+ * - ⛔ Its refusal rows are about the ABSENT `content`, never about `body`.
+ *   When this pin was written `TabItemSchema` STRIPPED an undeclared `body`;
+ *   objectui#9590 has since made it a named refusal pointing at `content`
+ *   (pinned in `@object-ui/types`, `list-tabs-item-body-refusal-9590.test.ts`),
+ *   and `bodyIsRefusedByName` below records that as the measured behaviour.
  * - ⛔ It does not decide the `body` fallback in `tabs.tsx`; objectui#9590
  *   retired it, and `tabs-item-body-retired-9590.test.tsx` is that change's pin.
  *   A `controlB.equality` row used to READ the fallback arm, to prove this
@@ -150,18 +151,21 @@ describe('`ui:tabs` defaultProps.items satisfy the published TabItemSchema (obje
       }
     });
 
-    it('undeclaredBodyIsDropped — `body` is stripped by the parse, ⛔ not rejected', () => {
-      // Why the refusal above is about the ABSENT key and never about the
-      // present one: the face is a stripping `z.object`, so the item's own
-      // child list did not survive the parse even before the missing-key error.
-      const parsed = TabItemSchema.parse({
+    it('bodyIsRefusedByName — `body` beside `content` is refused at its own path', () => {
+      // Until objectui#9590 the face STRIPPED this key in silence; it is now a
+      // named refusal. The refusal row above still reads the ABSENT `content`,
+      // so it measures the seed's spelling and not this refusal.
+      const r = TabItemSchema.safeParse({
         value: 'probe',
         label: 'probe',
         content: [{ type: 'text', content: 'kept' }],
-        body: [{ type: 'text', content: 'dropped' }],
+        body: [{ type: 'text', content: 'refused' }],
       });
-      expect(Object.keys(parsed).sort()).toEqual(['content', 'label', 'value']);
-      expect(parsed).not.toHaveProperty('body');
+      expect(r.success).toBe(false);
+      if (r.success) return;
+      expect(r.error.issues.map((i) => ({ code: i.code, path: i.path.join('.') }))).toEqual([
+        { code: 'invalid_type', path: 'body' },
+      ]);
     });
   });
 

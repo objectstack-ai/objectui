@@ -13,11 +13,12 @@
  * ## What was retired
  *
  * The `ui:tabs` renderer drew each panel as `item.content`, falling back to an
- * item-level `body` reached through an `any` cast. `TabItem` declares no `body`
- * on either published face: the TypeScript face has no such member, and
- * `TabItemSchema` (cited by SYMBOL, objectui#8875) declares `content` REQUIRED
- * and strips an undeclared `body`. So the fallback honoured a key the contract
- * refuses: the lenient-fallback shape AGENTS.md #0.1 bans by name. Nothing in
+ * item-level `body` reached through an `any` cast. `TabItem` never declared
+ * `body` on either published face: `TabItemSchema` (cited by SYMBOL,
+ * objectui#8875) declares `content` REQUIRED and used to strip an undeclared
+ * `body`. So the fallback honoured a key the contract did not have: the
+ * lenient-fallback shape AGENTS.md #0.1 bans by name. The same change made
+ * both item faces refuse `body` by name, naming `content`. Nothing in
  * this tree authors it: objectui#9941 respelled the registration's own
  * `defaultProps` items to `content`, and the producer scan
  * (`pnpm census:body-dialect-producers`) is the instrument that re-derives that.
@@ -34,9 +35,9 @@
  *   Green in both worlds as well (the fallback only ran when `content` was
  *   falsy); it pins that the retirement did not move the primary arm.
  *
- * ⛔ No row pins message prose, and ⛔ none asserts `body` is refused at parse:
- * `TabItemSchema` strips it, and that measured behaviour is recorded by
- * `tabs-default-items-parse-9941.test.tsx` (`undeclaredBodyIsDropped`).
+ * ⛔ No row pins message prose, and ⛔ none reads the parse: this file is the
+ * RENDER half. The door half (the named refusal) is pinned in
+ * `@object-ui/types`, `list-tabs-item-body-refusal-9590.test.ts`.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
@@ -68,8 +69,8 @@ describe('`ui:tabs` draws an item panel from `content` only (objectui#9590)', ()
     expect(text).toContain('Only tab');
     expect(
       text,
-      'the item-level `body` fallback is back: `TabItem` declares `content` and no `body`, ' +
-        'so the renderer must not honour a key both published faces refuse (AGENTS.md #0.1)',
+      'the item-level `body` fallback is back: `TabItem` declares `content` and refuses `body`, ' +
+        'so the renderer must not honour it (AGENTS.md #0.1)',
     ).not.toContain('BODY-ONLY-PANEL');
   });
 

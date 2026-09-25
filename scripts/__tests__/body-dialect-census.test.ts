@@ -517,12 +517,14 @@ describe('the `body` consumers the ruling does not enumerate', () => {
     // `items[].body`; `tabs` items and the `dashboard` widget key are recorded
     // on it by comment 5733850974, so this pointer resolves to a record that
     // actually carries the two shapes named here.
-    // ⚠️ Dated note, 2026-09-25 — two of those three subjects have since moved,
-    // and the pointer above is scoped to when it was written. The `tabs` item
-    // READ is retired (objectui#9590: `tabs.tsx` draws `item.content` only), and
-    // the `dashboard` widget key stopped being taught by objectui#8290. At that
-    // change, `list`'s item read (`list.tsx`) still resolves `body`, so an
-    // item-carried hit still passes C2 through it — objectui#9590.
+    // ⚠️ Dated note, 2026-09-25 — all three subjects have since moved, and the
+    // pointer above is scoped to when it was written. objectui#9590 retired both
+    // item READS (`list.tsx` and `tabs.tsx` draw `content` only) and made both
+    // item faces refuse `body` by name; the `dashboard` widget key stopped being
+    // taught under objectui#8290. ⇒ the live tree derives NO item reader, so an
+    // item-carried `body` now fails C2 here and the item-carried assertions in
+    // this block are vacuous for that second reason too; the planted
+    // DIFFERENTIAL fixture is what keeps the shape reachable — objectui#9590.
     // ⚠️ VACUOUS SINCE objectui#9941 — the item-carried set is EMPTY, so this
     // loop body never runs and asserts nothing. Kept, ⛔ not deleted: it is the
     // disposition claim that fires the moment an item-carried producer returns.

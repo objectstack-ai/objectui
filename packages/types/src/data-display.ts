@@ -326,7 +326,7 @@ export interface ListSchema extends BaseSchema {
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
-   * each entry as `item.content || renderChildren(item.body)` — a read filed
+   * each entry from its `content` (`renderChildren(item.content)`) — a read filed
    * under {@link ListItem}, NOT under this node. An instrument that attributed
    * it here would have made `list` a `body` reader and this tombstone a
    * mistake, so the item channel is pinned as still live in
@@ -371,7 +371,7 @@ export interface ListSchema extends BaseSchema {
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
-   * each entry as `item.content || renderChildren(item.body)` — a read filed
+   * each entry from its `content` (`renderChildren(item.content)`) — a read filed
    * under {@link ListItem}, NOT under this node. An instrument that attributed
    * it here would have made `list` a `body` reader and this tombstone a
    * mistake, so the item channel is pinned as still live in
@@ -440,9 +440,23 @@ export interface ListItem {
    */
   onClick?: never;
   /**
-   * Item content (schema nodes)
+   * Item content — THE item's content key. A string is placed as-is; a node or
+   * an array of nodes renders through `SchemaRenderer` (objectui#9590).
    */
   content?: SchemaNode | SchemaNode[];
+  /**
+   * RETIRED (objectui#9590) — author `content`.
+   *
+   * The `list` renderer used to fall back to an item-level `body` when
+   * `content` was missing, and that fallback was the only way a node rendered
+   * inside an item, because `content` was placed as a raw React child. This
+   * face never declared `body`. The renderer now draws `content` through
+   * `renderChildren`, the fallback is gone, and the key is refused by name:
+   * `tsc` here, and `ListItemSchema`'s alias refusal naming `content` at parse.
+   *
+   * @deprecated Retired item-level spelling of `content` — author `content`.
+   */
+  body?: never;
 }
 
 /**

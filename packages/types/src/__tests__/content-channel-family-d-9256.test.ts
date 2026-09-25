@@ -68,10 +68,12 @@
  *     neither" for the wrong reason. Attributed directly instead: the whole of
  *     `packages/plugin-timeline` contains NO `body` / `children` read, on any
  *     receiver.
- *   - ⚠️ `list`'s renderer DOES read a `body` — `item.content ||
- *     renderChildren(item.body)` — but that is the ITEM channel, filed under
- *     `ListItem` and not under `ListSchema`, the same shape as `tabs`. A LIVE
- *     CONTROL below keeps the item channel parsing.
+ *   - ⚠️ `list`'s renderer read an ITEM-level `body` when this was written
+ *     (`item.content || renderChildren(item.body)`) — the ITEM channel, filed
+ *     under `ListItem` and not under `ListSchema`, the same shape as `tabs`.
+ *     objectui#9590 has since retired that item-level `body` (both renderers
+ *     draw `content` only, and both item faces refuse `body` by name). A LIVE
+ *     CONTROL below keeps the item channel, `content`, parsing.
  *   - ⛔ `button` stays out, and the reason CHANGED under re-derivation.
  *     `check:registry-bare-names` reports `ui:button` as the sole owner of the
  *     bare key — but that owner's renderer reads
@@ -430,8 +432,9 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
   });
 
   it('LIVE CONTROL — the ITEM-level channel is untouched: a `tabs` item still parses `content`', () => {
-    // `tabs.tsx` renders `item.content || (item as any).body` — an ITEM key,
-    // filed under `TabItem` and not under `TabsSchema`. An instrument that
+    // `tabs.tsx` renders each item's `content` — an ITEM key, filed under
+    // `TabItem` and not under `TabsSchema` (its item-level `body` fallback was
+    // retired by objectui#9590). An instrument that
     // attributed that read to the NODE would have made `tabs` a body reader and
     // this whole row a mistake, so the item channel is pinned as still live.
     expect(issues(TabsMirror as unknown as Mirror, {
@@ -441,8 +444,9 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
   });
 
   it('LIVE CONTROL — `list`\'s ITEM channel is untouched: an item still parses `content`', () => {
-    // `list.tsx` draws each entry as `item.content || renderChildren(item.body)`
-    // — an ITEM read, filed under `ListItem` and NOT under `ListSchema`. An
+    // `list.tsx` draws each entry from its `content` (`renderChildren(item.content)`;
+    // the item-level `body` fallback was retired by objectui#9590) — an ITEM
+    // read, filed under `ListItem` and NOT under `ListSchema`. An
     // instrument that attributed it to the NODE would have made `list` a `body`
     // reader and the row above a mistake, so the item channel is pinned as still
     // live. `content` is the key `ListItemSchema` declares; the row above is

@@ -37,11 +37,11 @@ Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
   spelling and neither is refused here: the node-level retirement does not reach a
   member of a declared `items` array. Retiring the item-level dialect is
   objectui#9590's card, and the two named above are recorded on it.
-  ⚠️ **Dated note, 2026-09-25 — the `tabs` half of this bullet no longer holds — objectui#9590.**
+  ⚠️ **Dated note, 2026-09-25 — neither half of this bullet holds any longer — objectui#9590.**
   objectui#9941 respelled the `tabs` `defaultProps` items to `content`, and
-  objectui#9590 retired the `tabs` fallback, so a `tabs` item draws `item.content`
-  and nothing else. The `list` half is unchanged by that note's change. The rest of
-  this bullet is kept as the reading of this change.
+  objectui#9590 retired both item-level reads: a `list` item and a `tabs` item draw
+  `content` and nothing else, and both item faces now refuse `body` by name,
+  pointing at `content`. The rest of this bullet is kept as the reading of this change.
 - **What still reads `body` at NODE level, and why.** Four renderer reads, all `page:*`: `page:card`
   (renderer and Studio canvas) and the three thin `page:section` / `page:footer` /
   `page:sidebar` containers. ⛔ Authoring the key is refused on them as it is

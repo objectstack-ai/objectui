@@ -20,3 +20,9 @@ carrying only `field` renders as before.
 
 `position` on `xAxis` now survives normalization too, but at this change no renderer reads
 it: the x axis draws along the bottom whatever it says.
+
+⚠️ **Dated note, 2026-09-25 — the renderer now reads `xAxis.position` — objectui#10587.**
+Later in this same release the x axis takes the side `position` names where that axis can
+run along it, and a side it cannot take draws the default side with a note naming the key.
+The sentence above is kept as the reading of this change; the objectui#10587 entry states
+what ships.

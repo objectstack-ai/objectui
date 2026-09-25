@@ -46,7 +46,7 @@ import { LookupField } from '@object-ui/fields';
 import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-node-config.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
-import { t, useMetadataLocale } from '../i18n.js';
+import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
 import { flagUnknownValue } from './_shared.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
@@ -357,15 +357,19 @@ export function connectorActionsToOptions(actions: unknown): Option[] {
  * annotated `· declarative` so an author can tell it apart from a plugin-registered
  * connector — both are equally dispatchable, but the provenance differs. The
  * option `value` stays the bare connector name, so selecting it commits the name.
+ * The annotation word is read in `locale` (objectui#10586); omitted, it is en.
  */
-export function connectorsToOptions(connectors: unknown): Option[] {
+export function connectorsToOptions(connectors: unknown, locale?: SupportedLocale): Option[] {
   if (!Array.isArray(connectors)) return [];
   return connectors
     .filter((c): c is { name: string; label?: string; origin?: string } =>
       !!c && typeof (c as { name?: unknown }).name === 'string' && !!(c as { name: string }).name)
     .map((c) => {
       const base = typeof c.label === 'string' && c.label && c.label !== c.name ? `${c.label} (${c.name})` : c.name;
-      return { value: c.name, label: c.origin === 'declarative' ? `${base} · declarative` : base };
+      return {
+        value: c.name,
+        label: c.origin === 'declarative' ? `${base} · ${t('engine.inspector.reference.declarative', locale)}` : base,
+      };
     });
 }
 
@@ -455,8 +459,9 @@ function useConnectorActionOptions(connectorName: string | undefined): { options
  * connectors a `connector_action` node can call: plugin connectors AND materialized
  * declarative instances (ADR-0096), the latter annotated by origin. `enabled === false`
  * disables the fetch (hook stays unconditional). Degrades to empty on any failure.
+ * `locale` is the annotation's language; switching it re-reads the registry.
  */
-function useConnectorListOptions(enabled: boolean): { options: Option[] } {
+function useConnectorListOptions(enabled: boolean, locale: SupportedLocale): { options: Option[] } {
   const [state, setState] = React.useState<{ options: Option[] }>({ options: [] });
   React.useEffect(() => {
     if (!enabled) {
@@ -469,7 +474,7 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
       .then((payload) => {
         if (cancelled) return;
         const connectors = payload?.data?.connectors ?? payload?.connectors ?? [];
-        setState({ options: connectorsToOptions(connectors) });
+        setState({ options: connectorsToOptions(connectors, locale) });
       })
       .catch(() => {
         if (!cancelled) setState({ options: [] });
@@ -477,7 +482,7 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, locale]);
   return state;
 }
 
@@ -493,7 +498,7 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
  * adapter a pencil toggle switches to manual entry — a value the directory
  * can't resolve yet (fresh env, dangling id) stays typeable.
  */
-function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, placeholder }: {
+function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, placeholder, locale }: {
   binding: RecordLookupBinding;
   value: unknown;
   /** Immediate commit for picker selections (there is no blur to flush on). */
@@ -503,6 +508,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
   onBlur?: () => void;
   disabled?: boolean;
   placeholder?: string;
+  /** The designer locale the two toggle buttons are named in. */
+  locale: SupportedLocale;
 }) {
   const adapter = useAdapter();
   const [manual, setManual] = React.useState(false);
@@ -530,8 +537,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
             className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
             onClick={() => setManual(false)}
             disabled={disabled}
-            aria-label="Pick from records"
-            title="Pick from records"
+            aria-label={t('engine.inspector.reference.pickFromRecords', locale)}
+            title={t('engine.inspector.reference.pickFromRecords', locale)}
           >
             <Search className="h-3.5 w-3.5" />
           </Button>
@@ -574,8 +581,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
         className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
         onClick={() => setManual(true)}
         disabled={disabled}
-        aria-label="Enter value manually"
-        title="Enter value manually"
+        aria-label={t('engine.inspector.reference.enterManually', locale)}
+        title={t('engine.inspector.reference.enterManually', locale)}
       >
         <Pencil className="h-3.5 w-3.5" />
       </Button>
@@ -633,7 +640,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
 
   // connector: the dispatchable runtime registry (plugin + materialized declarative
   // instances, ADR-0096), NOT the generic declared-metadata list — see the hook.
-  const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector');
+  const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector', locale);
 
   // Flat metadata-list kinds (object / flow / role / user / team / …).
   const listType =
@@ -690,6 +697,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
+        locale={locale}
       />
     );
   }
@@ -733,11 +741,11 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         <Input
           value={value != null ? String(value) : ''}
           disabled
-          placeholder="Resolved automatically"
+          placeholder={t('engine.inspector.reference.managerPlaceholder', locale)}
           className="h-8 text-sm"
         />
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Resolved at runtime from the submitter&apos;s manager — no value needed.
+          {t('engine.inspector.reference.managerHint', locale)}
         </p>
       </div>
     );
@@ -759,7 +767,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
           className="h-8 text-sm"
         />
         <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-400">
-          Queue approvers are not supported by the runtime yet — this slot resolves to nobody.
+          {t('engine.inspector.reference.queueUnsupported', locale)}
         </p>
       </div>
     );
@@ -786,18 +794,18 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         </datalist>
       )}
       {showHint && kind === 'object-field' && objectName && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Fields of {objectName}.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{tFormat('engine.inspector.reference.fieldsOf', locale, { object: objectName })}</p>
       )}
       {showHint && unresolvedObject && (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Set the flow’s trigger object (on the Start node) to list fields.
+          {t('engine.inspector.reference.setTriggerObject', locale)}
         </p>
       )}
       {showHint && kind === 'connector-action' && connectorName && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Actions of {connectorName}.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{tFormat('engine.inspector.reference.actionsOf', locale, { connector: connectorName })}</p>
       )}
       {showHint && unresolvedConnector && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Choose a Connector above to list its actions.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{t('engine.inspector.reference.chooseConnector', locale)}</p>
       )}
     </div>
   );

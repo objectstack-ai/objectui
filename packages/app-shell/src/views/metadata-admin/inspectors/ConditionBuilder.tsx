@@ -35,15 +35,17 @@ type Quote = '"' | "'";
 
 interface Row { subject: string; op: Op; value: string; quote?: Quote }
 
-const COMPARE_OPS: Array<{ value: Op; label: string }> = [
-  { value: '==', label: 'equals' },
-  { value: '!=', label: 'not equals' },
-  { value: '>', label: 'greater than' },
-  { value: '<', label: 'less than' },
-  { value: '>=', label: '≥' },
-  { value: '<=', label: '≤' },
-  { value: 'truthy', label: 'is set / true' },
-  { value: 'falsy', label: 'is empty / false' },
+/** Operator choices: a catalogue key for the worded ones, a bare symbol for
+ *  `≥` / `≤`, which read the same in every locale (objectui#10586). */
+const COMPARE_OPS: ReadonlyArray<{ value: Op; labelKey: string } | { value: Op; symbol: string }> = [
+  { value: '==', labelKey: 'engine.inspector.condition.op.equals' },
+  { value: '!=', labelKey: 'engine.inspector.condition.op.notEquals' },
+  { value: '>', labelKey: 'engine.inspector.condition.op.greaterThan' },
+  { value: '<', labelKey: 'engine.inspector.condition.op.lessThan' },
+  { value: '>=', symbol: '≥' },
+  { value: '<=', symbol: '≤' },
+  { value: 'truthy', labelKey: 'engine.inspector.condition.op.truthy' },
+  { value: 'falsy', labelKey: 'engine.inspector.condition.op.falsy' },
 ];
 
 /**
@@ -708,7 +710,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
           <button type="button" disabled={disabled}
             onClick={() => { const n = initFrom(value); if (!value || !n.raw) { setRowsState(n.rows); setJoin(n.join); setRaw(false); } }}
             className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50">
-            <ListFilter className="h-3 w-3" /> Builder
+            <ListFilter className="h-3 w-3" /> {tLocal('engine.inspector.condition.builder')}
           </button>
         </div>
         {/* CEL editor with inline lint + field autocomplete (#1582) — the same
@@ -753,12 +755,12 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
         {label ? <Label className="text-xs text-muted-foreground">{label}</Label> : <span />}
         <button type="button" disabled={disabled} onClick={() => setRaw(true)}
           className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50">
-          <Code2 className="h-3 w-3" /> Expression
+          <Code2 className="h-3 w-3" /> {tLocal('engine.inspector.condition.expression')}
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-center text-[11px] text-muted-foreground">Always — no condition.</p>
+        <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-center text-[11px] text-muted-foreground">{tLocal('engine.inspector.condition.always')}</p>
       ) : (
         <div className="space-y-1.5">
           {rows.map((r, i) => (
@@ -768,8 +770,8 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
                   <Select value={join} onValueChange={(v) => update(rows, v as '&&' | '||')} disabled={disabled}>
                     <SelectTrigger className="h-6 w-16 text-[10px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="&&">AND</SelectItem>
-                      <SelectItem value="||">OR</SelectItem>
+                      <SelectItem value="&&">{tLocal('engine.inspector.condition.and')}</SelectItem>
+                      <SelectItem value="||">{tLocal('engine.inspector.condition.or')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -777,7 +779,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
               <div className="flex items-center gap-1">
                 <div className="min-w-0 flex-1">
                   <Select value={r.subject} onValueChange={(v) => update(rows.map((x, j) => j === i ? { ...x, subject: v } : x))} disabled={disabled}>
-                    <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="field / context" /></SelectTrigger>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue placeholder={tLocal('engine.inspector.condition.subjectPlaceholder')} /></SelectTrigger>
                     <SelectContent>
                       {subjectOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                       {r.subject && !subjectOptions.some((o) => o.value === r.subject) && (
@@ -786,7 +788,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={disabled} aria-label="Remove condition"
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={disabled} aria-label={tLocal('engine.inspector.condition.remove')}
                   onClick={() => update(rows.filter((_, j) => j !== i))}>
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -796,12 +798,12 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
                   <Select value={r.op} onValueChange={(v) => update(rows.map((x, j) => j === i ? { ...x, op: v as Op } : x))} disabled={disabled}>
                     <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {COMPARE_OPS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      {COMPARE_OPS.map((o) => <SelectItem key={o.value} value={o.value}>{'symbol' in o ? o.symbol : tLocal(o.labelKey)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 {r.op !== 'truthy' && r.op !== 'falsy' && (
-                  <Input className="h-7 flex-1 text-xs" value={r.value} placeholder="value" disabled={disabled}
+                  <Input className="h-7 flex-1 text-xs" value={r.value} placeholder={tLocal('engine.inspector.condition.valuePlaceholder')} disabled={disabled}
                     onChange={(e) => update(rows.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} />
                 )}
               </div>
@@ -812,7 +814,7 @@ export function ConditionBuilder({ label, value, onCommit, objectName, fields: f
 
       {!disabled && (
         <Button type="button" variant="outline" size="sm" onClick={() => update([...rows, { subject: '', op: 'truthy', value: '' }])}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Add condition
+          <Plus className="mr-1 h-3.5 w-3.5" /> {tLocal('engine.inspector.condition.add')}
         </Button>
       )}
 

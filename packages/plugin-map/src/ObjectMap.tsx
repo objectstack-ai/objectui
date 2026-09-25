@@ -26,6 +26,7 @@ import { ObjectMapConfigSchema } from '@object-ui/types/zod';
 import {
   useNavigationOverlay,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -775,20 +776,79 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   // PR #7428 recorded for `ListView`'s memo and `ObjectCalendar`'s effect).
   const perms = usePermissions();
 
+  /**
+   * objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+   * `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+   * write to the object this map QUERIES is declared, and the fetch effect
+   * below names it, so the markers are re-read. Subscribed only on the
+   * `object` provider without host rows: a host `data` array is the host's to
+   * refresh, and an inline `value` set queries its own array, not an object.
+   *
+   * ⭐ A re-read of the SAME query is SILENT, in `ObjectGantt`'s sense
+   * (objectui#7237 / objectui#10035): it does not flip `loading`, and a failure
+   * keeps the last good rows instead of reporting. The `loading` gate further
+   * down unmounts `MapGL` for the duration of a fetch. That is the right answer
+   * when the QUERY changed (the one-shot camera then re-fits the new record
+   * set) and the wrong one for a write to the same query, because it would throw
+   * away the camera the user has panned and zoomed: the loss a remount causes,
+   * one level down (AGENTS.md #8's corollary: refresh data, don't rebuild UI).
+   * The same goes for a failure: the error screen is also an early return
+   * above `MapGL`.
+   *
+   * A run is silent only when BOTH hold:
+   *   - the nonce moved since the effect's last run (the bus asked), and
+   *   - its query inputs are, value for value, the ones whose rows were last
+   *     COMMITTED, so the rows on screen already answer this query.
+   * A query change that lands in the same commit as a bus event therefore
+   * still goes through the gate and re-fits. So does a bus event that lands
+   * before the first rows, or after a changed query failed: nothing on screen
+   * answers that query yet, so its failure must be reported.
+   */
+  const fetchesForItself = !Array.isArray(dataProp) && dataProvider === 'object';
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? dataObjectName : undefined);
+  const answeredInvalidationRef = useRef(invalidationNonce);
+  /** The query inputs of the run whose rows were last committed. */
+  const committedQueryRef = useRef<readonly unknown[] | null>(null);
+  /**
+   * Only the NEWEST run may commit rows, an error or the loading flag
+   * (`ObjectGantt`'s `reloadSeqRef`). The cleanup below advances it too, so a
+   * run superseded by a re-run, or outliving an unmount, commits nothing.
+   */
+  const fetchSeqRef = useRef(0);
+
   // Fetch data based on provider
   useEffect(() => {
+    // Every input of the query below: this effect's dependency list, less the
+    // nonce. Compared value for value (`Object.is`), the way React compares
+    // the list itself.
+    const query = [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms] as const;
+    const committed = committedQueryRef.current;
+    const answersShownQuery = committed !== null && committed.length === query.length && query.every((v, i) => Object.is(v, committed[i]));
+    const nonceMoved = invalidationNonce !== answeredInvalidationRef.current;
+    answeredInvalidationRef.current = invalidationNonce;
+    const silent = nonceMoved && answersShownQuery;
+    const seq = ++fetchSeqRef.current;
+    const isCurrent = () => fetchSeqRef.current === seq;
+    // The one place a run commits rows. Committed rows answer this run's query,
+    // so no earlier failure describes the screen any more: the error is cleared
+    // HERE (objectui#10578's rule on `ObjectGantt`), never when a run starts.
+    const commit = (rows: unknown[], ceiling: NonGridCeilingResult | null) => {
+      if (!isCurrent()) return;
+      setData(rows);
+      setRowCeiling(ceiling);
+      setError(null);
+      committedQueryRef.current = query;
+    };
     const fetchData = async () => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         // Prioritize data passed via props (from ListView). `dataProp` is a
         // declared prop (not the `rest` spread), so it can sit in this
         // effect's dependency array below without turning into a
         // refetch-every-render trap (objectui#5003).
         if (Array.isArray(dataProp)) {
-          setData(dataProp);
-          setRowCeiling(null);
-          setLoading(false);
+          commit(dataProp, null);
           return;
         }
 
@@ -846,9 +906,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // below the ceiling therefore plots every matching row and stays
           // quiet.
           const capped = applyNonGridRowCeiling(result);
-          setData(capped.rows);
-          setRowCeiling(capped);
-          setLoading(false);
+          commit(capped.rows, capped);
           return;
         }
 
@@ -924,22 +982,34 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           });
 
           const capped = applyNonGridRowCeiling(result);
-          setData(capped.rows);
-          setRowCeiling(capped);
+          commit(capped.rows, capped);
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectMap');
-          setData([]);
+          commit([], null);
         }
-
-        setLoading(false);
       } catch (err) {
-        setError(err as Error);
-        setLoading(false);
+        if (silent) {
+          // A failed re-read of the query on screen keeps the last good rows
+          // and the mounted map, exactly as `ObjectGantt`'s silent reload does:
+          // it logs, it does not report. Those rows still answer the query.
+          console.error('[ObjectMap] Failed to refresh data:', err);
+        } else if (isCurrent()) {
+          // A failed CHANGED query is reported: the rows in state answer the
+          // previous query, so drawing them would misstate the screen.
+          setError(err as Error);
+        }
+      } finally {
+        // Only the newest run owns the flag. It clears it whatever its own
+        // mode, because a silent run can overtake a loud one that set it.
+        if (isCurrent()) setLoading(false);
       }
     };
 
     fetchData();
-  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms]);
+    return () => {
+      fetchSeqRef.current += 1;
+    };
+  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms, invalidationNonce]);
 
   // Fetch object schema for field metadata
   useEffect(() => {
@@ -1125,10 +1195,13 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
 
   /**
    * Initial camera. Read once, when `MapGL` mounts — which is also every time
-   * the record set changes, because the `loading` gate below unmounts the map
-   * for the duration of each fetch. So the one-shot camera always reflects the
-   * records currently in hand, and nothing here ever yanks a camera the user
-   * has since panned.
+   * the query changes, because the `loading` gate below unmounts the map for
+   * the duration of each fetch the query's inputs cause. So the one-shot
+   * camera always reflects the records that query returned, and nothing here
+   * ever yanks a camera the user has since panned. A re-read of the query
+   * already on screen, caused by the data-invalidation bus (objectui#10623), is
+   * silent and keeps the map mounted, whether it succeeds or fails: the markers
+   * move and the camera stays where the user left it.
    */
   const initialViewState = useMemo(() => {
     // Records, no declared camera: hand MapLibre the box and let it fit at the

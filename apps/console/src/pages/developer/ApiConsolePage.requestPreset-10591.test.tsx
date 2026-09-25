@@ -38,7 +38,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 
 vi.mock('../../../../../packages/app-shell/src/views/metadata-admin', () => ({
@@ -122,6 +122,7 @@ vi.mock('../../../../../packages/app-shell/src/providers/MetadataProvider', asyn
 }));
 
 import { DefaultAppContent, getMetadataPreview } from '@object-ui/app-shell';
+import { en } from '@object-ui/i18n';
 import { systemRoutes } from '../../AppContent';
 // Imported at module scope, not only reached through `lazy()`: the route table
 // and the registry both lazy-import this module, and ESM caches it by resolved
@@ -279,9 +280,50 @@ function toolPreviewHref(): string {
   return href;
 }
 
+/**
+ * The loading frames the console shows while a `React.lazy` on the route to the
+ * API console is still pending: the boot screen (`LoadingScreen`, the fallback
+ * of `systemRoutes`' `Suspense` and of app-shell's route `Suspense`) and the
+ * registry key's own "Loading API console…" fallback.
+ */
+const LAZY_ROUTE_FRAMES = [en.console.initializing, 'Loading API console…'];
+
+/**
+ * Upper bound for {@link lazyRouteSettled}. Kept under the 15 s `testTimeout` of
+ * `vitest.config.mts`, so a miss fails here with the DOM printed rather than as
+ * a bare test timeout, and far above the 1000 ms `findBy*` default that a cold
+ * lazy route missed on a saturated CI shard (objectui#10645).
+ */
+const LAZY_ROUTE_BOUND_MS = 10_000;
+
+/**
+ * Readiness for a route-table case (objectui#10645): wait until the console has
+ * left every loading frame, so the `findBy*` that follows asserts a mounted page
+ * instead of racing the module loader.
+ *
+ * Each case mounts the page through a `React.lazy` (the standalone route through
+ * `systemRoutes`' own; the registry key through app-shell's `ComponentNavView`
+ * and then `registerDeveloperComponents`' own). The module-scope import above
+ * lets those factories resolve at once, but a lazy's first render still
+ * suspends, and React then holds the reveal of a retry for its fallback
+ * throttle (`FALLBACK_THROTTLE_MS` in react-dom). Whichever case renders a
+ * lazy first pays that, plus the dynamic import itself, which is unbounded on a
+ * loaded shard. A case that finds everything already resolved passes straight
+ * through.
+ */
+async function lazyRouteSettled() {
+  await waitFor(
+    () => {
+      for (const frame of LAZY_ROUTE_FRAMES) expect(screen.queryByText(frame)).not.toBeInTheDocument();
+    },
+    { timeout: LAZY_ROUTE_BOUND_MS },
+  );
+}
+
 describe('the request preset through the console route table (objectui#10591)', () => {
   it("the tool preview's link reaches the API console pre-filled, not the root catch-all", async () => {
     renderConsoleAt(toolPreviewHref());
+    await lazyRouteSettled();
 
     expect(await screen.findByPlaceholderText('/api/v1/...')).toHaveValue(EXECUTE_PATH);
     expect(methodField()).toHaveValue('POST');
@@ -295,6 +337,7 @@ describe('the request preset through the console route table (objectui#10591)', 
     ['the standalone developer/api-console route', 'developer/api-console'],
   ])('%s honours the preset', async (_label, route) => {
     renderConsoleAt(`/apps/studio/${route}?path=${encodeURIComponent(EXECUTE_PATH)}&method=POST`);
+    await lazyRouteSettled();
 
     expect(await screen.findByPlaceholderText('/api/v1/...')).toHaveValue(EXECUTE_PATH);
     expect(methodField()).toHaveValue('POST');

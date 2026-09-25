@@ -19,7 +19,7 @@ schema handed to `ObjectGrid`, and the `list-view` schema handed to a host's `re
 The relative-date macros (`{today}`, `{current_quarter_start}`, …) resolve in the same call, in
 the browser's local time, as they already did on the surfaces that call the resolver: the
 app-shell host, `ObjectChart` and the dashboard widgets. (A directly authored `object-grid` or
-`list-view` node still does not call it.) Where they used to reach a backend that resolves them
+`list-view` node calls it too, since objectui#10607.) Where they used to reach a backend that resolves them
 itself, as the ObjectStack server does in the tenant's configured `localization.timezone` (UTC by
 default), a browser whose local day differs from the server's day can now get a different day.
 

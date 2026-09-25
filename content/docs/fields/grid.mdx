@@ -178,6 +178,9 @@ const GridCell = getCellRenderer('grid');
 // <GridCell value={rows} field={field} /> renders: [Grid]
 ```
 
+An empty value (`null`, `undefined`, `''` or `[]`) renders the shared "No value"
+affordance instead, so an empty cell is distinguishable from a populated one.
+
 ## Full Grid Functionality
 
 For advanced grid features, use the grid plugin (`@object-ui/plugin-grid`):

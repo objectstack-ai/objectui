@@ -278,7 +278,10 @@ const OBJECT_LITERAL_CENSUS: ReadonlyArray<readonly [type: string, text: string,
   ['object', '{}', false],
   ['composite', '{}', false],
   ['record', '{}', false],
-  // ── value-independent faces, unchanged ─────────────────────────────────
+  // ── a stored value's face, unchanged: `{}` is not "No value" to these ──
+  // objectui#8678 moved only the floor members (`[]`, `''`, `null`) onto the
+  // affordance. `{}` keeps the mask or the literal; the reason per value class
+  // is in `cellRenderers.valueIndependent-8678`.
   ['password', '••••••', false],
   ['secret', '••••••', false],
   ['vector', '[Vector]', false],

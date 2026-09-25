@@ -22,7 +22,7 @@
  * - ViewSwitcher for toggling between view types
  */
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type {
   ObjectViewSchema,
   ObjectGridSchema,
@@ -247,7 +247,7 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
  * deprecated alias `table.defaultFilters`.
  */
 interface AuthoredFilterSegments {
-  view: any[] | undefined;
+  view: NamedListView['filter'];
   table: ObjectGridSchema['filter'];
   tableDefaults: ObjectGridSchema['defaultFilters'];
 }
@@ -276,39 +276,47 @@ interface AuthoredFilterSegments {
  * that either. The key is the raw segments, compared by structure — a host that
  * rebuilds an equal `views` array inline must not re-resolve (objectui#6460) —
  * plus the scope's members read one by one, never the scope object's identity
- * (AGENTS.md #10). Like `useStableIdentity`, the ref is derived from its inputs
- * alone, so StrictMode's double render returns the same reference.
+ * (AGENTS.md #10). The held pair lives in state, not in a ref read during
+ * render, so the value handed out is always the one React committed.
  */
 function useResolvedFilterSegments(
   segments: AuthoredFilterSegments,
   scope: FilterTokenScope,
 ): AuthoredFilterSegments {
-  const held = useRef<{
-    segments: AuthoredFilterSegments;
-    currentUserId: FilterTokenScope['currentUserId'];
-    currentOrgId: FilterTokenScope['currentOrgId'];
-    onUnresolved: FilterTokenScope['onUnresolved'];
-    resolved: AuthoredFilterSegments;
-  } | null>(null);
-  const prev = held.current;
+  const [held, setHeld] = useState(() => resolveFilterSegments(segments, scope));
   if (
-    prev
-    && prev.currentUserId === scope.currentUserId
-    && prev.currentOrgId === scope.currentOrgId
-    && prev.onUnresolved === scope.onUnresolved
-    && isStructurallyEqual(prev.segments, segments)
+    held.currentUserId !== scope.currentUserId
+    || held.currentOrgId !== scope.currentOrgId
+    || held.onUnresolved !== scope.onUnresolved
+    || !isStructurallyEqual(held.segments, segments)
   ) {
-    return prev.resolved;
+    // React's documented "information from previous renders" shape: a set
+    // during render re-renders this component at once, before any child sees
+    // the discarded pass, and the re-render finds the inputs equal.
+    const next = resolveFilterSegments(segments, scope);
+    setHeld(next);
+    return next.resolved;
   }
-  const resolved = resolveFilterPlaceholders(segments, scope);
-  held.current = {
+  return held.resolved;
+}
+
+/** One resolution, remembered with the inputs it was computed from. */
+interface HeldFilterSegments {
+  segments: AuthoredFilterSegments;
+  currentUserId: FilterTokenScope['currentUserId'];
+  currentOrgId: FilterTokenScope['currentOrgId'];
+  onUnresolved: FilterTokenScope['onUnresolved'];
+  resolved: AuthoredFilterSegments;
+}
+
+function resolveFilterSegments(segments: AuthoredFilterSegments, scope: FilterTokenScope): HeldFilterSegments {
+  return {
     segments,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
     onUnresolved: scope.onUnresolved,
-    resolved,
+    resolved: resolveFilterPlaceholders(segments, scope),
   };
-  return resolved;
 }
 
 /**

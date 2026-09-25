@@ -146,11 +146,11 @@ export interface UseRecordSearchOptions {
  * field value the policy withholds. Before the policy loads, with no policy,
  * or with nothing withheld, the SAME object comes back.
  */
-function readableRow(
-  record: any,
+function readableRow<T>(
+  record: T,
   objectName: string,
   policy: UseRecordSearchOptions['fieldReadPolicy'],
-): any {
+): T {
   if (!policy?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
   const shown: Record<string, unknown> = {};
   let withheld = false;
@@ -158,7 +158,7 @@ function readableRow(
     if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
     else withheld = true;
   }
-  return withheld ? shown : record;
+  return withheld ? (shown as T) : record;
 }
 
 export interface UseRecordSearchResult {

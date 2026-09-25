@@ -50,14 +50,14 @@ function searchAllNoTitle() {
   };
 }
 
-const PATHS: Array<[string, () => Record<string, any>]> = [
+const PATHS: Array<[string, () => Record<string, unknown>]> = [
   ['the per-object `find` fanout', fanout],
   ['`searchAll` hits with no server title', searchAllNoTitle],
 ];
 
 describe.each(PATHS)('objectui#10500 — useRecordSearch gates the labelled row, over %s', (_path, makeDs) => {
   it('hands the resolver the row without the denied field, `id` kept', async () => {
-    const seen: any[] = [];
+    const seen: unknown[] = [];
     const ds = makeDs();
     const objects = [{ name: OBJECT, label: 'Contact', fields: FIELDS }];
     const { result } = renderHook(() =>
@@ -112,7 +112,7 @@ describe.each(PATHS)('objectui#10500 — useRecordSearch gates the labelled row,
   });
 
   it('CONTROL: a policy that is not loaded hands the resolver the SAME row as served', async () => {
-    const seen: any[] = [];
+    const seen: unknown[] = [];
     const ds = makeDs();
     const objects = [{ name: OBJECT, label: 'Contact', fields: FIELDS }];
     const { result } = renderHook(() =>

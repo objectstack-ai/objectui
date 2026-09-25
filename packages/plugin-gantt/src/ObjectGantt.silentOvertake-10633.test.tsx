@@ -325,7 +325,7 @@ describe('a silent re-read that overtakes a changed query takes over its report 
     expect(refreshing()).toBe(false);
     expect(instance()).toBe(mountedAs);
     expect(
-      consoleError.mock.calls.some(([first]) => first === '[ObjectGantt] Failed to refresh data:'),
+      consoleError.mock.calls.some((call: unknown[]) => call[0] === '[ObjectGantt] Failed to refresh data:'),
       'the silent failure was not logged',
     ).toBe(true);
   });

@@ -21,11 +21,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@object-ui/auth';
-import {
-  DEFAULT_UPGRADE_URL,
-  type EnvironmentEntitlementsState,
-  type EnvironmentEntitlementsSummary,
-} from './entitlements.js';
+import type { EnvironmentEntitlementsState, EnvironmentEntitlementsSummary } from './entitlements.js';
 
 const TERMINAL_STATUSES = new Set(['archived', 'failed']);
 
@@ -90,7 +86,9 @@ export function useEnvironmentEntitlements(
           hasProductionEnv: data.hasProductionEnv === true,
           canCreateDevelopmentEnv: data.development?.canCreate,
           plan: data.plan,
-          upgradeUrl: data.upgradeUrl || DEFAULT_UPGRADE_URL,
+          // Verbatim, like `contactSalesUrl`: absent stays absent, and the
+          // upgrade prompt then renders no CTA (objectui#10437).
+          upgradeUrl: data.upgradeUrl,
           contactSalesUrl: data.contactSalesUrl,
           source: 'summary',
         };
@@ -111,7 +109,6 @@ export function useEnvironmentEntitlements(
           ready: true,
           hasProductionEnv,
           canCreateDevelopmentEnv: undefined,
-          upgradeUrl: DEFAULT_UPGRADE_URL,
           source: 'derived',
         };
       } catch {
@@ -119,7 +116,6 @@ export function useEnvironmentEntitlements(
           ready: false,
           hasProductionEnv: false,
           canCreateDevelopmentEnv: undefined,
-          upgradeUrl: DEFAULT_UPGRADE_URL,
           source: 'unknown',
         };
       }

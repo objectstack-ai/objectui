@@ -11,9 +11,14 @@ import {
   entitlementDialogFromError,
   decideEnvironmentCta,
   upgradeDialogSpec,
-  DEFAULT_UPGRADE_URL,
   type EnvironmentEntitlementsState,
 } from '../entitlements';
+
+/**
+ * A server-supplied upgrade URL deliberately DIFFERENT from the retired
+ * client-side default, so a CTA carrying it can only have come from the server.
+ */
+const SERVER_UPGRADE_URL = 'https://cloud.example.com/_console/apps/cloud_control/page/pricing';
 
 const base = (over: Partial<EnvironmentEntitlementsState>): EnvironmentEntitlementsState => ({
   ready: true,
@@ -83,8 +88,9 @@ describe('entitlementDialogFromError', () => {
   describe('reads error.details and nowhere else', () => {
     it('ignores entitlement keys sitting as undeclared siblings of `code`', () => {
       // The pre-cloud#1046 wire shape. `code` is declared, so the dialog still
-      // opens — but every context key degrades to its default, proving none of
-      // them is read from the old top-level position.
+      // opens — but every context key reads as absent, proving none of them is
+      // read from the old top-level position (a sibling `upgrade_url` would
+      // otherwise have produced a CTA to it).
       const spec = entitlementDialogFromError({
         success: false,
         error: {
@@ -97,7 +103,7 @@ describe('entitlementDialogFromError', () => {
           seatCount: 2,
         },
       });
-      expect(spec!.cta!.url).toBe(DEFAULT_UPGRADE_URL);
+      expect(spec!.cta).toBeUndefined();
       expect(spec!.message).not.toContain('3 of 3');
       // …the no-counts copy ("— add an AI seat" is the with-counts variant).
       expect(spec!.message).toContain('Capacity scales with AI seats. Add an AI seat');
@@ -140,7 +146,7 @@ describe('entitlementDialogFromError', () => {
       const spec = entitlementDialogFromError({
         error: { code: 'DEV_ENV_PLAN_LOCKED', details: 'not-an-object', upgrade_url: '/sibling' },
       });
-      expect(spec!.cta!.url).toBe(DEFAULT_UPGRADE_URL);
+      expect(spec!.cta).toBeUndefined();
     });
   });
 
@@ -156,7 +162,13 @@ describe('entitlementDialogFromError', () => {
         'environment.entitlement.upgradeCta': '升级套餐',
       })[key] ?? key;
     const spec = entitlementDialogFromError(
-      { error: { code: 'DEV_ENV_PLAN_LOCKED', message: 'Development environments are a paid feature.' } },
+      {
+        error: {
+          code: 'DEV_ENV_PLAN_LOCKED',
+          message: 'Development environments are a paid feature.',
+          details: { upgrade_url: SERVER_UPGRADE_URL },
+        },
+      },
       zh,
     );
     expect(spec!.title).toBe('开发环境是付费功能');
@@ -175,10 +187,34 @@ describe('entitlementDialogFromError', () => {
     expect(spec!.cta).toEqual({ label: 'Contact sales', url: 'mailto:sales@objectos.ai' });
   });
 
-  it('falls back to a default upgrade_url when the server omits one', () => {
-    const spec = entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED' } });
-    expect(spec!.cta!.url).toBe('/settings/billing');
-    expect(spec!.message).toBeTruthy(); // default copy when server message absent
+  // objectui#10437 — the upgrade destination is the control plane's to name.
+  // With no `upgrade_url` the dialog still explains the gate, but offers no
+  // link: the retired client-side default pointed at a path no router serves.
+  describe('no server upgrade_url ⇒ no upgrade CTA (objectui#10437)', () => {
+    it('DEV_ENV_PLAN_LOCKED without upgrade_url keeps its copy and drops the CTA', () => {
+      const spec = entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free' } } });
+      expect(spec!.title).toBe('Development environments are a paid feature');
+      expect(spec!.message).toContain('Your free plan includes one production environment');
+      expect(spec!.cta).toBeUndefined();
+    });
+
+    it('DEV_ENV_LIMIT without upgrade_url keeps its copy and drops the CTA', () => {
+      const spec = entitlementDialogFromError({ error: { code: 'DEV_ENV_LIMIT', details: { current: 3, limit: 3 } } });
+      expect(spec!.message).toContain('using 3 of 3 development environments');
+      expect(spec!.cta).toBeUndefined();
+    });
+
+    it('an empty-string upgrade_url is no URL', () => {
+      const spec = entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED', details: { upgrade_url: '' } } });
+      expect(spec!.cta).toBeUndefined();
+    });
+
+    it('control: a server-supplied upgrade_url becomes the CTA verbatim', () => {
+      const spec = entitlementDialogFromError({
+        error: { code: 'DEV_ENV_PLAN_LOCKED', details: { upgrade_url: SERVER_UPGRADE_URL } },
+      });
+      expect(spec!.cta).toEqual({ label: 'Upgrade plan', url: SERVER_UPGRADE_URL });
+    });
   });
 });
 
@@ -217,6 +253,23 @@ describe('upgradeDialogSpec', () => {
     const reactive = entitlementDialogFromError({
       error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free', upgrade_url: '/settings/billing' } },
     });
+    expect(reactive).toEqual(proactive);
+  });
+
+  it('withholds the CTA when the state carries no upgradeUrl (objectui#10437)', () => {
+    const spec = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: undefined, canCreateDevelopmentEnv: false }));
+    expect(spec.title).toBe('Development environments are a paid feature');
+    expect(spec.cta).toBeUndefined();
+  });
+
+  it('control: a summary upgradeUrl becomes the CTA verbatim (objectui#10437)', () => {
+    const spec = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: SERVER_UPGRADE_URL, canCreateDevelopmentEnv: false }));
+    expect(spec.cta).toEqual({ label: 'Upgrade plan', url: SERVER_UPGRADE_URL });
+  });
+
+  it('reads identically to the reactive dialog when neither side has a URL', () => {
+    const proactive = upgradeDialogSpec(base({ plan: 'free', upgradeUrl: undefined }));
+    const reactive = entitlementDialogFromError({ error: { code: 'DEV_ENV_PLAN_LOCKED', details: { plan: 'free' } } });
     expect(reactive).toEqual(proactive);
   });
 

@@ -84,20 +84,23 @@ describe('NAV_TYPE_TARGETS', () => {
 });
 
 describe('isStaticPageOption — page picker excludes record-detail pages (#2333)', () => {
-  it('excludes record pages (bare type and pageType)', () => {
+  it('excludes record pages (`type: record`)', () => {
     expect(isStaticPageOption({ type: 'record' })).toBe(false);
-    expect(isStaticPageOption({ pageType: 'record' })).toBe(false);
   });
   it('keeps static page kinds', () => {
     for (const type of ['list', 'home', 'app', 'utility']) {
       expect(isStaticPageOption({ type })).toBe(true);
     }
   });
-  it('pageType wins over bare type (mirrors usePageAssignment)', () => {
-    // A record page carrying a stale bare `type` is still excluded…
-    expect(isStaticPageOption({ pageType: 'record', type: 'list' })).toBe(false);
-    // …and a static page is kept even if a bare `type: record` lingers.
-    expect(isStaticPageOption({ pageType: 'list', type: 'record' })).toBe(true);
+  it('reads `type` alone — `pageType` is a key PageSchema refuses (mirrors usePageAssignment, objectui#9674)', () => {
+    // A row spelled with the refused alias is not a confirmed record page…
+    const aliasOnly: Parameters<typeof isStaticPageOption>[0] & { pageType: string } = { pageType: 'record' };
+    expect(isStaticPageOption(aliasOnly)).toBe(true);
+    // …and the alias overrides `type` in neither direction.
+    const aliasSaysRecord: Parameters<typeof isStaticPageOption>[0] & { pageType: string } = { pageType: 'record', type: 'list' };
+    expect(isStaticPageOption(aliasSaysRecord)).toBe(true);
+    const aliasSaysList: Parameters<typeof isStaticPageOption>[0] & { pageType: string } = { pageType: 'list', type: 'record' };
+    expect(isStaticPageOption(aliasSaysList)).toBe(false);
   });
   it('keeps rows missing both discriminators (only confirmed record pages excluded)', () => {
     expect(isStaticPageOption({})).toBe(true);

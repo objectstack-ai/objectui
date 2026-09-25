@@ -7,7 +7,7 @@
  *
  * `usePageAssignment` — resolve the record PageSchema that should be rendered
  * for a given object. Walks the metadata cache exposed by `<MetadataProvider>`
- * and returns the first PageSchema whose `pageType === 'record'` and `object`
+ * and returns the first PageSchema whose `type === 'record'` and `object`
  * matches the requested name.
  *
  * Returns a discriminated result by `PageSchema.kind`:
@@ -123,14 +123,20 @@ export function usePageAssignment(
 
     const candidates = pages.filter(p => {
       if (!p) return false;
-      // Only `pageType: 'record'` (or bare `type: 'record'`) is a
-      // user-facing record-detail page. Any other `pageType` — notably the
-      // designer-side `'record_detail'`, dropped from `PageType` in
-      // framework#2265 but still expressible in raw metadata — must NOT be
-      // picked up here, otherwise opening any record would render it.
-      const pt = p.pageType ?? (p.type === 'record' ? 'record' : undefined);
-      const isRecord = pt === 'record';
-      if (!isRecord) return false;
+      // `type` is the ONE discriminator: only `type: 'record'` is a
+      // user-facing record-detail page, and every other page type
+      // (`home` / `app` / `utility` / `list`) is skipped.
+      //
+      // `pageType` is deliberately NOT read (objectui#9674). `PageSchema` is
+      // a `strictObject` that refuses `pageType` by name — it is a declared
+      // ALIAS of `type`, and a page carrying it is a hard parse error that
+      // names `type` as the key to write — so no page that parses carries it,
+      // and reading it would teach the refused spelling onward. A consumer-side
+      // alias for a refused key is the fallback AGENTS.md #0.1 rules out. The
+      // designer-side `'record_detail'` is not expressible either: it left
+      // `PageTypeSchema` (framework#2265), so `type: 'record_detail'` is an
+      // invalid enum value.
+      if (p.type !== 'record') return false;
       if (p.object !== objectName) return false;
       return matchesAssignment(p, opts);
     });

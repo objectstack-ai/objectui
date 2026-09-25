@@ -39,8 +39,8 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 const mockExecuteAction = vi.fn(async () => ({ success: true }));
 
 const stub = {
-  recordCtx: undefined as any,
-  metadataItem: undefined as any,
+  recordCtx: undefined as Record<string, unknown> | undefined,
+  metadataItem: undefined as { actions?: unknown } | undefined,
   /** Every name `useMetadataItem('object', name)` was called with, in order. */
   metadataReads: [] as Array<string | null>,
   /** Every `actions` array handed to `useActionEngine`, in order. */
@@ -63,7 +63,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
         getActionsForLocation: () => [],
         getBulkActions: () => [],
         handleShortcut: async () => null,
-        engine: {} as any,
+        engine: {},
       };
     },
   };
@@ -71,20 +71,20 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 
 vi.mock('@object-ui/components', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  Alert: ({ children, className, role }: any) => (
+  Alert: ({ children, className, role }: { children?: React.ReactNode; className?: string; role?: string }) => (
     <div data-testid="alert" role={role} className={className}>
       {children}
     </div>
   ),
-  AlertTitle: ({ children }: any) => <h5 data-testid="alert-title">{children}</h5>,
-  AlertDescription: ({ children }: any) => <div data-testid="alert-body">{children}</div>,
-  Button: ({ children, onClick }: any) => (
+  AlertTitle: ({ children }: { children?: React.ReactNode }) => <h5 data-testid="alert-title">{children}</h5>,
+  AlertDescription: ({ children }: { children?: React.ReactNode }) => <div data-testid="alert-body">{children}</div>,
+  Button: ({ children, onClick }: { children?: React.ReactNode; onClick?: () => void }) => (
     <button data-testid="alert-cta" onClick={onClick}>
       {children}
     </button>
   ),
-  cn: (...args: any[]) => args.filter(Boolean).join(' '),
-  LazyIcon: ({ name }: any) => <svg data-testid="alert-icon" data-name={name} />,
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
+  LazyIcon: ({ name }: { name?: string }) => <svg data-testid="alert-icon" data-name={name} />,
 }));
 
 import { RecordAlertRenderer } from '../record-alert';
@@ -187,7 +187,7 @@ describe('record:alert CTA — resolved through resolveDeclaredActionIds (object
       locations: ['record_header'],
     };
     render(
-      <RecordAlertRenderer schema={{ properties: { title: 'Verify', action: { actionName: inline as any } } }} />,
+      <RecordAlertRenderer schema={{ properties: { title: 'Verify', action: { actionName: inline as unknown as string } } }} />,
     );
     expect(screen.getByTestId('alert-title').textContent).toBe('Verify');
     expect(screen.queryByTestId('alert-cta')).toBeNull();

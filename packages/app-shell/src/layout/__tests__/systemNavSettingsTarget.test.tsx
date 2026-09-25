@@ -4,7 +4,7 @@
  * Sidebar "System Settings" entry — must target `/apps/setup/system`, the host's
  * system landing (objectui#3590).
  *
- * ## The defect, and why both sidebars carry it
+ * ## The defect, and why both sidebars carried it
  *
  * `AppContent` decides which branch renders by string-matching the pathname:
  * `isSystemRoute = location.pathname.includes('/system')`. Only that flag mounts
@@ -19,11 +19,11 @@
  * Both sidebars pointed their `sys-settings` entry at that bare URL, in clusters
  * whose every OTHER entry already spells `/apps/setup/system/...`:
  *
- * - `AppSidebar.systemFallbackNavigation` renders ONLY when `activeApp` is falsy,
- *   and `activeApp` there is `matched || activeApps[0]` — falsy exactly when the
- *   deployment has zero active+visible apps. So its head entry was dead in the
- *   one situation the cluster exists for. Pinned by the first test below, which
- *   renders with `apps: []`.
+ * - `AppSidebar.systemFallbackNavigation` rendered ONLY when `activeApp` was
+ *   falsy, and `activeApp` there was `matched || activeApps[0]` — falsy exactly
+ *   when the deployment had zero active+visible apps. So its head entry was dead
+ *   in the one situation the cluster existed for. Its test left this file with
+ *   the component (objectui#5817).
  * - `UnifiedSidebar.homeNavigation`'s Administration cluster is the `/home`
  *   admin nav added so a fresh env (no apps yet) still has a real menu —
  *   `resolveLandingPath([])` sends exactly that user to `/home`. Same head entry,
@@ -55,11 +55,11 @@
  * `ADMINISTRATION_ENTRIES` used to spell that entry
  * `/apps/setup/component/metadata/resource?type=datasource` — a legacy *alias*,
  * not a page, whose route element `<Navigate>`s straight on to
- * `/apps/setup/metadata/datasource`. Both sidebars now name that destination
- * directly, and this file's expectation is REWRITTEN to match (same discipline
- * as above: replace the old shape, do not keep it alongside). The AppSidebar
- * test below gained the matching assertion at the same time — that sidebar
- * carries its own copy of the literal and had none.
+ * `/apps/setup/metadata/datasource`. Both sidebars were re-pointed at that
+ * destination, and this file's expectation is REWRITTEN to match (same
+ * discipline as above: replace the old shape, do not keep it alongside). The
+ * `AppSidebar` test this file carried then gained the matching assertion at the
+ * same time; that test left with the component (objectui#5817).
  *
  * ## The `Object Manager` entry (objectui#3739)
  *
@@ -68,15 +68,15 @@
  * `/apps/setup/system/metadata/object`. That is a legacy alias too — served by
  * `apps/console`'s `MetadataRedirect`, which `<Navigate>`s onto
  * `/apps/setup/metadata/object` — so the same redundant hop survived on the
- * neighbouring click target. Both literals now name the destination, and the
- * expectation here is REWRITTEN rather than kept alongside, exactly as the
+ * neighbouring click target. Both literals were re-pointed at the destination,
+ * and the expectation here is REWRITTEN rather than kept alongside, exactly as the
  * `Datasources` note above describes.
  *
  * Note what this file does NOT claim: that the URL resolves in one hop. That is
  * a property of the URL, not of the producer, and is measured once per family in
  * `systemNavDatasourcesHop.test.tsx` / `systemNavObjectsHop.test.tsx`. Here the
- * assertion is string equality on the href each sidebar emits — which is the
- * half that can drift per copy, since each sidebar holds its own literal.
+ * assertion is string equality on the href `UnifiedSidebar` emits — which is the
+ * half that can drift, since the component holds its own literal.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -88,7 +88,7 @@ import { MemoryRouter } from 'react-router-dom';
 // ---------------------------------------------------------------------------
 // Mocks — providers and console-only chrome, matching the sibling sidebar
 // suites. @object-ui/components and @object-ui/layout stay REAL so the hrefs
-// asserted below are the ones each sidebar's own render path actually emits.
+// asserted below are the ones the sidebar's own render path actually emits.
 // ---------------------------------------------------------------------------
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -103,7 +103,7 @@ vi.mock('@object-ui/i18n', async (importOriginal) => ({
   }),
 }));
 
-// Both clusters below are admin surfaces — UnifiedSidebar's Administration group
+// The cluster below is an admin surface — UnifiedSidebar's Administration group
 // is gated on `useWorkspaceAdminStatus`. Mutable so the gate can be exercised in
 // BOTH directions (see the non-admin test): the cluster is built behind an
 // `if (isWorkspaceAdmin)` at construction, and reusing NavigationRenderer must
@@ -143,11 +143,11 @@ vi.mock('../../utils', () => ({
 
 // Lazy lucide DynamicIcon fires an async `import()` from a `useEffect` and then
 // setStates; a null icon keeps each link's accessible name equal to its label
-// text and keeps the render synchronous. `AppSidebar`'s hand-written fallback
-// cluster resolves icons through app-shell's own `getIcon`, while
-// `NavigationRenderer` (now the home arm's renderer too) uses `getLazyIcon` from
-// `@object-ui/components` — both entry points need stubbing, and the components
-// package must otherwise stay REAL because the Sidebar primitives come from it.
+// text and keeps the render synchronous. App-shell's own `getIcon` (which
+// `UnifiedSidebar` imports for its area switcher) and `NavigationRenderer`'s
+// `getLazyIcon` from `@object-ui/components` (the home arm's renderer) are both
+// stubbed, and the components package must otherwise stay REAL because the
+// Sidebar primitives come from it.
 vi.mock('../../utils/getIcon', () => ({ getIcon: () => () => null }));
 vi.mock('@object-ui/components', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -178,7 +178,6 @@ vi.mock('../LocalizedSidebarTrigger', () => ({
 }));
 
 import { SidebarProvider } from '@object-ui/components';
-import { AppSidebar } from '../AppSidebar';
 import { UnifiedSidebar } from '../UnifiedSidebar';
 
 /** The host's system landing — the reachable target, and what every sibling entry prefixes. */
@@ -240,61 +239,6 @@ beforeEach(() => {
 });
 
 describe('sidebar system-settings target (objectui#3590)', () => {
-  it('AppSidebar: the no-active-app fallback cluster heads at the system hub', () => {
-    render(
-      <MemoryRouter initialEntries={['/apps/setup']}>
-        <SidebarProvider>
-          <AppSidebar activeAppName="setup" onAppChange={() => {}} />
-        </SidebarProvider>
-      </MemoryRouter>,
-    );
-
-    // Precondition: with zero apps this really is the fallback cluster, not an
-    // app's own navigation — otherwise the assertion below would be vacuous.
-    expect(screen.getByTestId('system-fallback-nav')).toBeInTheDocument();
-
-    expect(screen.getByRole('link', { name: 'System Settings' })).toHaveAttribute(
-      'href',
-      SYSTEM_HUB,
-    );
-    // The regression: bare `/apps/setup` re-renders the empty state this cluster
-    // is displayed on top of.
-    expect(screen.getByRole('link', { name: 'System Settings' })).not.toHaveAttribute(
-      'href',
-      '/apps/setup',
-    );
-    // The rest of the cluster was already hub-scoped; kept as the consistency
-    // anchor that made the head entry the odd one out.
-    expect(screen.getByRole('link', { name: 'Applications' })).toHaveAttribute(
-      'href',
-      `${SYSTEM_HUB}/apps`,
-    );
-
-    // objectui#3660 — `sys-datasources`. AppSidebar and UnifiedSidebar each hold
-    // their OWN literal for this entry, and only UnifiedSidebar's was pinned
-    // (in ADMINISTRATION_ENTRIES); this half of the twin could drift back to the
-    // alias with every test in the repo still green. Pinned here now, in the
-    // same shape, so both copies are covered.
-    expect(screen.getByRole('link', { name: 'Datasources' })).toHaveAttribute(
-      'href',
-      DATASOURCES_TARGET,
-    );
-
-    // objectui#3739 — `sys-objects`, the twin one line above `sys-datasources`
-    // in this same array. Pinned in both sidebars for the same reason: two
-    // independent literals, either of which can drift back to the alias alone.
-    expect(screen.getByRole('link', { name: 'Object Manager' })).toHaveAttribute(
-      'href',
-      OBJECTS_TARGET,
-    );
-    // The alias spelling by name, so a revert is named in the diff rather than
-    // showing up as an unexplained string difference.
-    expect(screen.getByRole('link', { name: 'Object Manager' })).not.toHaveAttribute(
-      'href',
-      `${SYSTEM_HUB}/metadata/object`,
-    );
-  });
-
   it('UnifiedSidebar: /home renders the Administration cluster as a GROUP, with all nine entries reachable (objectui#3609)', () => {
     // Replaces the #3590 MEASUREMENT pin. Its two halves invert exactly:
     //   before → `Administration` IS a link, href `/home`; children absent.

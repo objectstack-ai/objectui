@@ -1,18 +1,19 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The `sys-datasources` entry both sidebars carry arrives at the canonical
+ * The `sys-datasources` entry `UnifiedSidebar` carries arrives at the canonical
  * metadata-admin route with ZERO redirects (objectui#3660).
  *
  * ## What was wrong
  *
  * `AppSidebar.systemFallbackNavigation` and `UnifiedSidebar.homeNavigation`
- * each hold their own literal for this entry, and both spelled it
+ * each held their own literal for this entry, and both spelled it
  * `/apps/setup/component/metadata/resource?type=datasource`. app-shell declares
  * that spelling as a legacy *alias*, not a page: in both `AppContent` branches
  * its route element is `LegacyMetadataRedirect`, which immediately `<Navigate>`s
  * onto `/apps/setup/metadata/datasource`. Every click therefore paid a hop plus
- * a re-render to reach a URL the nav item could name itself.
+ * a re-render to reach a URL the nav item could name itself. (`AppSidebar` and
+ * its copy were removed later, by objectui#5817.)
  *
  * These are two of the six producers enumerated while fixing objectui#3639.
  * That issue's PR corrected the console host's two redirects; the System hub's
@@ -28,9 +29,8 @@
  * two. Endpoint-only assertions cannot tell those apart — both finish at
  * `/apps/setup/metadata/datasource`, which is exactly why the detour survived.
  *
- * The href is READ OUT of a real sidebar render rather than typed in here, so
- * the producer under test is the component's own literal. Both sidebars are
- * driven, because both hold a copy.
+ * The href is READ OUT of a real `UnifiedSidebar` render rather than typed in
+ * here, so the producer under test is the component's own literal.
  *
  * ## The alias mirror below, and what rests on its fidelity
  *
@@ -38,7 +38,7 @@
  * `console/AppContent.tsx`. Nothing this file ASSERTS depends on that mirror
  * being faithful: the green expectation is `chain` equals `[canonical URL]`,
  * which holds iff the sidebar's URL matches a canonical route directly. The
- * mirror only shapes what the FAILURE looks like — with it, restoring either
+ * mirror only shapes what the FAILURE looks like — with it, restoring the old
  * literal produces a two-entry chain whose first entry is the alias, i.e. the
  * extra hop printed literally in the diff rather than merely implied. The real
  * alias route's own behaviour is pinned separately, against the real route
@@ -46,7 +46,7 @@
  *
  * ## Scope
  *
- * Where the sidebars AIM. The alias routes are untouched and stay reachable for
+ * Where the sidebar AIMS. The alias routes are untouched and stay reachable for
  * bookmarks and external links; nothing here asks for their removal.
  */
 
@@ -58,7 +58,7 @@ import { MemoryRouter, Routes, Route, Navigate, useLocation, useParams } from 'r
 
 // ---------------------------------------------------------------------------
 // Mocks — providers and console-only chrome, matching the sibling sidebar
-// suites (`systemNavSettingsTarget.test.tsx`, `appSidebarSettingsTargets.test.tsx`).
+// suites (`systemNavSettingsTarget.test.tsx`, `systemNavObjectsHop.test.tsx`).
 // `react-router-dom` stays REAL: the chain measurement below IS the router.
 // ---------------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
   };
 });
 
-/** The zero-app deployment `systemFallbackNavigation` exists for. */
+/** Zero apps. The `/home` context below renders `homeNavigation` whatever this list holds. */
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ apps: [], objects: [] }),
 }));
@@ -135,7 +135,6 @@ vi.mock('../LocalizedSidebarTrigger', () => ({
 }));
 
 import { SidebarProvider } from '@object-ui/components';
-import { AppSidebar } from '../AppSidebar';
 import { UnifiedSidebar } from '../UnifiedSidebar';
 
 /** Where the metadata-admin engine really serves the datasource list. */
@@ -220,25 +219,6 @@ beforeEach(() => {
 });
 
 describe('sidebar sys-datasources reaches the canonical route directly (objectui#3660)', () => {
-  it('AppSidebar: the zero-app fallback cluster arrives with NO redirect', () => {
-    const href = datasourcesHrefFrom(
-      <AppSidebar activeAppName="setup" onAppChange={() => {}} />,
-      '/apps/setup',
-    );
-
-    // Precondition: with zero apps this really is the fallback cluster, so the
-    // href just read is the one `systemFallbackNavigation` declares.
-    expect(href).toBe(CANONICAL);
-
-    const chain = chainFor(href);
-
-    // One entry = matched on arrival. Before the fix this was two, the alias
-    // first.
-    expect(chain).toEqual([CANONICAL]);
-    expect(screen.getByTestId('canonical-list')).toHaveTextContent('"type":"datasource"');
-    expect(chain.some((entry) => entry.includes('component/metadata'))).toBe(false);
-  });
-
   it('UnifiedSidebar: the /home Administration cluster arrives with NO redirect', () => {
     const href = datasourcesHrefFrom(<UnifiedSidebar activeAppName="" />, '/home');
 
@@ -254,7 +234,7 @@ describe('sidebar sys-datasources reaches the canonical route directly (objectui
   it('CONTROL: the alias still resolves, and doing so costs the hop the entries used to pay', () => {
     // The alias is deliberately KEPT (bookmarks, external links), so its
     // continued reachability is part of the contract, not collateral. This also
-    // proves the two assertions above are not vacuous: the probe table really
+    // proves the assertions above are not vacuous: the probe table really
     // does forward this spelling, so a sidebar that still emitted it would be
     // measured at two entries rather than silently falling to `unmatched`.
     const chain = chainFor('/apps/setup/component/metadata/resource?type=datasource');

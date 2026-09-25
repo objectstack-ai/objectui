@@ -130,7 +130,7 @@ describe('objectui#6443 — controls', () => {
     // cannot go red for the reason the discriminating cells do.
     //
     // Asserted on the OBSERVABLE OUTCOME — whether the nav item survives the
-    // real guard `AppSidebar` runs — not on the helper's return value alone,
+    // real guard `UnifiedSidebar` runs — not on the helper's return value alone,
     // because "a fault was reported" is also true of a site that stopped
     // rendering the item entirely.
     spyWarn(); // keep the fault line off the suite's own output
@@ -249,7 +249,7 @@ describe('objectui#6443 — every dialect from the card`s measured table now rep
 
 describe('objectui#6443 — the rate limit, measured in both directions', () => {
   it('SAME source, many evaluations across the real area-election pass: ONE line', () => {
-    // Not a synthetic loop. This is the composition `AppSidebar` runs:
+    // Not a synthetic loop. This is the composition `UnifiedSidebar` runs:
     // `areas.filter(a => hasVisibleNavigationItems(a.navigation, …))` derives
     // area visibility (objectui#3311) by re-running every item predicate,
     // before the navigation renders them again — and both re-run on every
@@ -266,8 +266,9 @@ describe('objectui#6443 — the rate limit, measured in both directions', () => 
     };
 
     // One faulting entry per area. `type: 'action'` with no action handler is
-    // evaluated and then skipped, exactly as `AppSidebar` wires it, so the pass
-    // does not short-circuit on the first item.
+    // evaluated and then skipped, exactly as `AppSchemaRenderer` wires it for a
+    // host that passes no `onAction`, so the pass does not short-circuit on the
+    // first item.
     const navigation = [
       { type: 'action', id: 'run', label: 'Run report', visible: fault },
       { type: 'link', id: 'home', label: 'Home', href: '/home' },

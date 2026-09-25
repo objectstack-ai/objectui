@@ -182,7 +182,7 @@ describe('objectui#4656 — absent-vs-empty systemPermissions truth table', () =
   });
 
   describe('the sidebar nav OR-fallback pattern needs no call-site change (objectui#4656)', () => {
-    // `UnifiedSidebar`/`AppSidebar` gate a bare `requiredPermissions` name with
+    // `UnifiedSidebar` gates a bare `requiredPermissions` name with
     // `hasCapabilities([perm]) || can(perm, 'read')` — not a heuristic that
     // reads `systemPermissions` itself, so there is nothing there to migrate.
     // This reproduces that exact expression against the real provider to show

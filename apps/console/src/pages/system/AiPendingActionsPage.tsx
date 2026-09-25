@@ -5,8 +5,13 @@
  * exposed by `@objectstack/service-ai` at `/api/v1/ai/pending-actions/*`.
  *
  * Thin page wrapper around the shared `AiPendingActionsInbox` component
- * shipped from `@object-ui/plugin-chatbot`. The same component renders in
- * Studio's assistant builder panel — keeping a single source of truth.
+ * shipped from `@object-ui/plugin-chatbot`. When objectui#10520 read the tree,
+ * this page was that component's only mount and so the only surface listing
+ * the whole queue (the chat shows approval cards for its own conversation
+ * only); that is a one-time reading, and nothing re-derives it. It is
+ * served at the standalone route `/system/ai-approvals` and registered as the
+ * `ai:approvals` component ref that framework navigation can name
+ * (`registerSystemComponents.tsx`, objectui#10520).
  */
 
 import { useMemo } from 'react';

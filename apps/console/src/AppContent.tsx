@@ -22,7 +22,6 @@ const AiPendingActionsPage = lazy(() => import('./pages/system/AiPendingActionsP
 const AuditLogPage = lazy(() => import('./pages/system/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
 const SettingsHub = lazy(() => import('./pages/settings/SettingsHub').then(m => ({ default: m.SettingsHub })));
 const SettingsView = lazy(() => import('./pages/settings/SettingsView').then(m => ({ default: m.SettingsView })));
-const DeveloperHubPage = lazy(() => import('./pages/developer/DeveloperHubPage').then(m => ({ default: m.DeveloperHubPage })));
 const ApiConsolePage = lazy(() => import('./pages/developer/ApiConsolePage').then(m => ({ default: m.ApiConsolePage })));
 const FlowRunsPage = lazy(() => import('./pages/developer/FlowRunsPage').then(m => ({ default: m.FlowRunsPage })));
 const PublicFormsPage = lazy(() => import('./pages/developer/PublicFormsPage').then(m => ({ default: m.PublicFormsPage })));
@@ -209,7 +208,13 @@ export const systemRoutes = (
     <Route path="system/audit-log" element={<Suspense fallback={<LoadingScreen />}><AuditLogPage /></Suspense>} />
     <Route path="system/settings" element={<Suspense fallback={<LoadingScreen />}><SettingsHub /></Suspense>} />
     <Route path="system/settings/:namespace" element={<Suspense fallback={<LoadingScreen />}><SettingsView /></Suspense>} />
-    <Route path="developer" element={<Suspense fallback={<LoadingScreen />}><DeveloperHubPage /></Suspense>} />
+    {/* No bare `developer` route (objectui#10520): the Developer Hub card wall
+        retired once all four of its destinations were `developer:*` registry
+        keys that framework navigation can name. A `/developer` bookmark falls
+        through to app-shell's generic `:objectName` route instead of a blank
+        screen; what it lands on is measured in
+        `__tests__/AppContent.systemHubRoutes.test.tsx`. The sub-page routes
+        below stay for bookmarks and deep links. */}
     <Route path="developer/api-console" element={<Suspense fallback={<LoadingScreen />}><ApiConsolePage /></Suspense>} />
     <Route path="developer/flow-runs" element={<Suspense fallback={<LoadingScreen />}><FlowRunsPage /></Suspense>} />
     <Route path="developer/public-forms" element={<Suspense fallback={<LoadingScreen />}><PublicFormsPage /></Suspense>} />

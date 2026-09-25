@@ -50,6 +50,11 @@ const ROLLED = ['2026-03-02', '2024-03-02', '2025-03-01'];
 /** Real days, a leap day among them — no marker, no notice. */
 const REAL = ['2026-02-28', '2024-02-29'];
 
+/** `DateField` reads nothing off `field` on the editable path. */
+const NO_FIELD = {} as any;
+
+type Row = Record<string, unknown>;
+
 function StatefulDateField({ initial, onChange }: { initial: string; onChange: (v: string) => void }) {
   const [value, setValue] = React.useState(initial);
   return (
@@ -59,7 +64,7 @@ function StatefulDateField({ initial, onChange }: { initial: string; onChange: (
         onChange(v);
         setValue(v);
       }}
-      field={{} as any}
+      field={NO_FIELD}
     />
   );
 }
@@ -67,7 +72,7 @@ function StatefulDateField({ initial, onChange }: { initial: string; onChange: (
 describe('objectui#10567 — DateField, editable', () => {
   it.each(IMPOSSIBLE)('a stored %s is not blanked silently: the control is marked and the stored string is named', (v) => {
     const onChange = vi.fn();
-    const { container } = render(<DateField value={v} onChange={onChange} field={{} as any} />);
+    const { container } = render(<DateField value={v} onChange={onChange} field={NO_FIELD} />);
     const input = container.querySelector('input[type="date"]') as HTMLInputElement;
     expect(input.value).toBe('');
     expect(input.getAttribute('aria-invalid')).toBe('true');
@@ -82,7 +87,7 @@ describe('objectui#10567 — DateField, editable', () => {
 
   it('keeps a host-supplied aria-describedby beside the notice', () => {
     const { container } = render(
-      <DateField value="2026-02-30" onChange={() => {}} field={{} as any} {...({ 'aria-describedby': 'host-msg' } as any)} />,
+      <DateField value="2026-02-30" onChange={() => {}} field={NO_FIELD} aria-describedby="host-msg" />,
     );
     const input = container.querySelector('input') as HTMLInputElement;
     expect(input.getAttribute('aria-describedby')?.split(' ')).toEqual(['host-msg', screen.getByTestId('date-impossible-day').id]);
@@ -106,7 +111,7 @@ describe('objectui#10567 — DateField, editable', () => {
   });
 
   it.each(REAL)('control: a real day %s shows as written, with no marker and no notice', (v) => {
-    const { container } = render(<DateField value={v} onChange={() => {}} field={{} as any} />);
+    const { container } = render(<DateField value={v} onChange={() => {}} field={NO_FIELD} />);
     const input = container.querySelector('input[type="date"]') as HTMLInputElement;
     expect(input.value).toBe(v);
     expect(input.getAttribute('aria-invalid')).toBe('false');
@@ -114,8 +119,8 @@ describe('objectui#10567 — DateField, editable', () => {
     expect(screen.queryByTestId('date-impossible-day')).toBeNull();
   });
 
-  it.each([[''], [undefined]])('control: an empty value (%j) gives no marker and no notice', (v) => {
-    const { container } = render(<DateField value={v as any} onChange={() => {}} field={{} as any} />);
+  it.each<[string | undefined]>([[''], [undefined]])('control: an empty value (%j) gives no marker and no notice', (v) => {
+    const { container } = render(<DateField value={v as string} onChange={() => {}} field={NO_FIELD} />);
     const input = container.querySelector('input[type="date"]') as HTMLInputElement;
     expect(input.value).toBe('');
     expect(input.getAttribute('aria-invalid')).toBe('false');
@@ -132,12 +137,12 @@ describe('objectui#10567 — the sub-grid\'s editable `date` cell', () => {
     ],
   } as any;
 
-  function StatefulGrid({ initial, onChange }: { initial: any[]; onChange: (rows: any[]) => void }) {
+  function StatefulGrid({ initial, onChange }: { initial: Row[]; onChange: (rows: Row[]) => void }) {
     const [rows, setRows] = React.useState(initial);
     return (
       <GridField
         value={rows}
-        onChange={(next: any[]) => {
+        onChange={(next: Row[]) => {
           onChange(next);
           setRows(next);
         }}

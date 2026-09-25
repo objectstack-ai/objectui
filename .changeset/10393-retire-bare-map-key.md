@@ -45,8 +45,12 @@ should be migrated there.
   schema type in a file it recognises. ⚠️ `view:map` stays on
   that list, because the opt-in protocol placeholder (`registerPlaceholders()`
   in `@object-ui/components`) registers it — in the console a `view:map` node
-  renders that placeholder panel, not a map, and `objectui check` does not flag
-  it. Search documents for `view:map` directly.
+  renders that placeholder panel, not a map, and `objectui check` does not report
+  it as an unknown schema type in a file it recognises. A bare
+  `{ "type": "view:map" }` with no structural key is listed in `check`'s advisory
+  did-not-validate list instead, because `view:map` is on that list and
+  `AnyComponentSchema` has no arm for it; that line does not say the node renders
+  a placeholder. Search documents for `view:map` directly.
 
 ⚠️ **Dated note, 2026-09-25 — `objectui check` flags `map` only in a file it
 recognises — objectui#10606.** This entry first said, unscoped, that the check now

@@ -1956,7 +1956,7 @@ describe('ci-cd-pipeline.md — live-e2e backend pin (#7689)', () => {
  * the sweeper's wiring by identifier.
  *
  * ⛔ The comparison reads the workflow's `env:` KEYS, never the file as text. A whole-file grep
- * would find `PM_SWEEP_CLOSED_WINDOW_PAGES` in the header at `:39` / `:80` and accept the very
+ * would find `PM_SWEEP_CLOSED_WINDOW_PAGES` in the workflow's header comment and accept the very
  * sentence this block exists to reject — the retired knob is *discussed* there precisely because
  * it is retired. `envKeysOf` below is unit-controlled against that shape.
  */

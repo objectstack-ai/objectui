@@ -2626,10 +2626,11 @@ and calls the issues API.
 or a pull request touching the workflow itself.
 
 Checks out `objectstack-ai/objectstack`, runs *its* `scripts/pm/check-half-states.mjs` against
-**this** repository's issue board and rewrites one pinned anchor issue's body with what it found. The sweeper carries a family of predicates over the
-dispatch protocol's label/assignee/PR invariants — a `pm:dispatched` card with no assignee, a card
-carrying both `pm:queue` and `pm:dispatched`, a merged PR whose card still says it is in flight, a
-`Blocked-by:` block whose blocker already closed, and so on.
+**this** repository's issue board and rewrites one pinned anchor issue's body with what it found.
+The sweeper carries a family of predicates over the dispatch protocol's label/assignee/PR
+invariants — a `pm:dispatched` card with no assignee, a card carrying both `pm:queue` and
+`pm:dispatched`, a merged PR whose card still says it is in flight, a `Blocked-by:` block whose
+blocker already closed, and so on.
 
 **Report-only, and this is a rule rather than a description.** The job never writes a label, never
 closes a card, never fixes a state, and no finding fails anything: a completed sweep exits 0 whether
@@ -2700,7 +2701,7 @@ the archiver and the modules it imports come from an objectstack checkout
 ([#10208](https://github.com/objectstack-ai/objectui/issues/10208)).
 
 Checks out `objectstack-ai/objectstack`, runs *its* scripts/pm/board-snapshot.mjs against **this**
-repository's issue board (`PM_SWEEP_REPO`; the script takes no `--repo` flag) and commits what it read
+repository's issue board (`PM_SWEEP_REPO`; the script refuses a `--repo` flag) and commits what it read
 to `board-archive`, an **orphan branch** of this same repository. Why a branch: a suspended GitHub
 account loses every issue, pull request and comment it authored, while every branch and commit
 survives, because those belong to the repository rather than to a user. The job runs as

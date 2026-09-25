@@ -30,9 +30,11 @@ import '@testing-library/jest-dom';
 
 import { LocationField } from '../widgets/LocationField';
 
-const undeclared = { name: 'site', label: 'Site', type: 'location' } as any;
+type LocationFieldMeta = React.ComponentProps<typeof LocationField>['field'];
 
-function placeholderOf(field: any): string | null {
+const undeclared: LocationFieldMeta = { name: 'site', label: 'Site', type: 'location' };
+
+function placeholderOf(field: LocationFieldMeta): string | null {
   const { container } = render(<LocationField value={null} onChange={vi.fn()} field={field} />);
   return (container.querySelector('input') as HTMLInputElement).getAttribute('placeholder');
 }
@@ -45,10 +47,14 @@ describe('LocationField placeholder with no i18n configured (objectui#8149)', ()
   });
 
   it('ships no CJK from code (Commandment #-1)', () => {
-    // With no provider mounted, whatever renders here came from CODE. Escaped
-    // ranges on purpose: a literal CJK class would itself break the
-    // commandment this asserts.
-    expect(placeholderOf(undeclared)).not.toMatch(/[　-ヿ一-鿿]/);
+    // With no provider mounted, whatever renders here came from CODE. The
+    // ranges are numeric code points (kana and CJK punctuation, then the
+    // unified ideographs) so this file itself carries no CJK character.
+    const isCjk = (ch: string) => {
+      const cp = ch.codePointAt(0) ?? 0;
+      return (cp >= 0x3000 && cp <= 0x30ff) || (cp >= 0x4e00 && cp <= 0x9fff);
+    };
+    expect([...(placeholderOf(undeclared) ?? '')].filter(isCjk)).toEqual([]);
   });
 
   it('lets the author-declared placeholder win', () => {

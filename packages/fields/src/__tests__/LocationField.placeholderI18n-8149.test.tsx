@@ -61,9 +61,11 @@ import { builtInLocales } from '@object-ui/i18n/locales';
 import { LocationField } from '../widgets/LocationField';
 import { AddressField } from '../widgets/AddressField';
 
-const undeclared = { name: 'site', label: 'Site', type: 'location' } as any;
+type LocationFieldMeta = React.ComponentProps<typeof LocationField>['field'];
+
+const undeclared: LocationFieldMeta = { name: 'site', label: 'Site', type: 'location' };
 const AUTHORED = 'Office GPS (lat, lng)';
-const declared = { ...undeclared, placeholder: AUTHORED } as any;
+const declared: LocationFieldMeta = { ...undeclared, placeholder: AUTHORED };
 
 /** The literal this card replaced, and what `en` must still read. */
 const EN_PAIR = 'latitude, longitude';
@@ -76,7 +78,7 @@ function renderIn(language: string, element: React.ReactElement) {
   );
 }
 
-function placeholderIn(language: string, field: any): string | null {
+function placeholderIn(language: string, field: LocationFieldMeta): string | null {
   const { container } = renderIn(
     language,
     <LocationField value={null} onChange={vi.fn()} field={field} />,
@@ -94,7 +96,7 @@ beforeEach(() => {
 
 describe('the locale channel is live in this run (control for objectui#8149)', () => {
   it.each(['zh', 'zh-CN'])('resolves fields.address.* — keyed by objectui#4028 — under %s', (language) => {
-    renderIn(language, <AddressField value={{}} onChange={vi.fn()} field={{ name: 'a', type: 'address' } as any} />);
+    renderIn(language, <AddressField value={{}} onChange={vi.fn()} field={{ name: 'a', type: 'address' }} />);
     expect(screen.getByLabelText('街道地址')).toBeInTheDocument();
   });
 });
@@ -146,14 +148,15 @@ describe('the fallback placeholder speaks the reader\'s language (objectui#8149)
 
 describe('the separator is the parser\'s, not the pack\'s (objectui#8149)', () => {
   /**
-   * The comma each of these scripts writes in prose. Escaped so the reason is
-   * legible in a diff: U+FF0C FULLWIDTH COMMA (zh), U+3001 IDEOGRAPHIC COMMA
-   * (ja), U+060C ARABIC COMMA (ar).
+   * The comma each of these scripts writes in prose: U+FF0C FULLWIDTH COMMA
+   * (zh), U+3001 IDEOGRAPHIC COMMA (ja), U+060C ARABIC COMMA (ar). Built from
+   * numeric code points rather than written as characters, so a reader of a
+   * diff can tell each one from an ASCII comma.
    */
   const SCRIPT_COMMAS = [
-    ['U+FF0C', '，'],
-    ['U+3001', '、'],
-    ['U+060C', '،'],
+    ['U+FF0C', String.fromCodePoint(0xff0c)],
+    ['U+3001', String.fromCodePoint(0x3001)],
+    ['U+060C', String.fromCodePoint(0x060c)],
   ] as const;
 
   it.each(SCRIPT_COMMAS)('refuses a pair separated by %s — so no pack may spell the hint with it', (_name, comma) => {

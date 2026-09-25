@@ -140,8 +140,9 @@ afterEach(() => {
 });
 
 /** The Save icon button, identified by its title in either state. */
+// Title flipped to the neutral inspector copy by ruling 5831744213 (objectui#6900).
 const saveButton = () =>
-  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the CEL syntax errors before saving\./ });
+  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the issues shown in the inspector before saving\./ });
 
 /**
  * Let the lazily imported CEL parser and the object-catalog read settle, so a
@@ -185,6 +186,14 @@ describe.each([['default'], ['scoped']] as const)(
       await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
       // And the refusal the author reads is on screen beside it.
       expect(await screen.findByTestId('view-gated-required-issues')).toHaveTextContent('Salary');
+    });
+
+    it('the Save title held by this refusal is the neutral inspector copy, not the CEL one (ruling 5831744213)', async () => {
+      const label = await openEditor(host);
+      dirty(label);
+      await settle();
+      await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
+      expect(saveButton()).toHaveAttribute('title', 'Fix the issues shown in the inspector before saving.');
     });
 
     it('control: the same form with the field NOT required on the object saves', async () => {

@@ -220,7 +220,10 @@ describe('objectui#10512 — a held user filter does not narrow ListView\'s fetc
     await onScreen('grid-standin');
     await waitFor(() => expect(names(hostFilters(dataSource).at(-1), 'status')).toBe(true));
     // Kept, not cleared: the builder still shows the group, and the host was
-    // never told to drop it.
+    // never told to drop it. ⛔ The chip's own return is not asserted here: its
+    // on/off state lives inside `UserFilters`, which is not mounted while the
+    // dataset chart is on screen, so what it draws on the way back is that
+    // component's answer, not this derivation's.
     expect(filterButton()).toHaveTextContent('1');
     expect(onFilterChange).not.toHaveBeenCalled();
   });

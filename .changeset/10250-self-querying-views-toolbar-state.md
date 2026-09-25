@@ -21,5 +21,6 @@ no search term, so each control changed `ListView`'s own fetch and nothing on sc
   `searchableFields` as `$searchFields` — the pair a list's own query sends. A `gantt`
   list view writes both from its toolbar Search box and the view's `searchableFields`.
 
-Unchanged: a `chart` view bound to a semantic `dataset`, and the toolbar Search box on
-`tree` and `chart` views, still do not reach those views' queries.
+Unchanged: the toolbar state still does not reach the query of a `chart` view bound to a
+semantic `dataset`, and the toolbar Search box still does not reach the `tree` or `chart`
+query. objectui#10326 stops offering that Search box on `tree` and `chart` views.

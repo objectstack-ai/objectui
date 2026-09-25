@@ -1154,6 +1154,29 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   const datasetChartOnScreen =
     currentView === 'chart' && resolveListChartBinding(schema).shape === 'dataset';
 
+  /**
+   * Is the view on screen one whose own query carries no search term?
+   * (objectui#10326, ruling 5825585515, letter A.)
+   *
+   * `tree` and `chart` draw what they query for themselves, and neither query
+   * has a search channel: `ObjectTree`'s object-provider `find` sends
+   * `$filter`, `$top` and `$expand`; `ObjectChart`'s queries — the aggregate
+   * (`field`, `function`, `groupBy`, `filter`), its `find` fallback and the
+   * dataset query — take no term. A typed term changed only this component's
+   * own fetch — the record-count bar and the export — and nothing drawn. The
+   * ruling withholds the control instead of widening either query (option B).
+   *
+   * Every chart binding: the dataset shape carries no term either.
+   *
+   * Two readers, one answer: `showSearch` below, and the APPLIED term
+   * (`searchTerm`, after the toolbar flags). A term restored at mount or
+   * carried across a view switch therefore does not go on narrowing this
+   * component's fetch with no control on screen to show or clear it. ⛔ The
+   * typed term itself is kept: switching back to a view that draws the
+   * fetched rows applies it again.
+   */
+  const searchlessViewOnScreen = currentView === 'tree' || currentView === 'chart';
+
   // Resolve toolbar visibility flags: userActions overrides showX flags
   const toolbarFlags = React.useMemo(() => {
     // Every toolbar toggle reads from `userActions` (#2890). The legacy bare
@@ -1181,7 +1204,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     const addRecordEnabled = schema.addRecord?.enabled === true && ua?.addRecordForm !== false;
     const addRecordPlacement = resolveAddRecordPlacement(schema.addRecord?.position);
     return {
-      showSearch: ua?.search !== false,
+      // Not offered on `tree` or `chart`: see `searchlessViewOnScreen`.
+      showSearch: ua?.search !== false && !searchlessViewOnScreen,
       showSort: ua?.sort !== false,
       // Not offered on a dataset-bound chart: see `datasetChartOnScreen`.
       showFilters: ua?.filter !== false && !datasetChartOnScreen,
@@ -1199,9 +1223,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       showAddRecordTop: addRecordEnabled && addRecordPlacement.top,
       showAddRecordBottom: addRecordEnabled && addRecordPlacement.bottom,
     };
-  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen]);
+  }, [schema.userActions, schema.compactToolbar, schema.addRecord, datasetChartOnScreen, searchlessViewOnScreen]);
 
-  const [searchTerm, setSearchTerm] = React.useState(() => initialSearchTerm ?? '');
+  // What the user typed, or what the host restored at mount.
+  const [searchInput, setSearchInput] = React.useState(() => initialSearchTerm ?? '');
+  // The term this component APPLIES — its fetch, the export, the Search
+  // trigger. Empty on a view whose own query carries no term
+  // (`searchlessViewOnScreen`, objectui#10326). A primitive, so each list that
+  // names it re-runs on a switch into or out of such a view and on nothing else.
+  const searchTerm = searchlessViewOnScreen ? '' : searchInput;
   const [showSearchPopover, setShowSearchPopover] = React.useState(false);
   
   // Sort State
@@ -2820,7 +2850,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [storageKey, onViewChange]);
 
   const handleSearchChange = React.useCallback((value: string) => {
-    setSearchTerm(value);
+    setSearchInput(value);
     onSearchChange?.(value);
   }, [onSearchChange]);
 
@@ -3041,7 +3071,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * a string compares by value, so an unchanged term rebuilds nothing.
    * ⛔ `tree` and `chart` are not handed a term: neither renderer has a search
    * channel in its own query today, so a key written onto their nodes would be
-   * accepted and read by nothing.
+   * accepted and read by nothing. The toolbar does not offer Search on them
+   * either (`searchlessViewOnScreen`, objectui#10326).
    */
   const ganttSearchTerm = currentView === 'gantt' ? searchTerm : '';
 

@@ -714,7 +714,8 @@ export interface TableColumn {
    * ⚠️ What the flag does NOT cover: the table's client-side search and sort
    * still run over the raw values, so where they run on the client they can
    * answer questions about a masked value, and the column's auto width is
-   * still sized from the raw value's length (objectui#10658).
+   * still sized from the raw value's length (objectui#10657, which folded
+   * objectui#10658).
    *
    * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
    * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
@@ -725,12 +726,17 @@ export interface TableColumn {
    * (objectui#8686), the one authority for "is this field type's cell drawn as
    * a mask", reading the view-authored type and the object-declared type as a
    * narrow-only UNION — a view authoring `type: 'text'` over a `secret`
-   * column keeps the flag. The same rule also leaves every masked field of the
-   * grid's object out of the grid's own client export, draws those fields
-   * through `cell` on its mobile card, and refuses them as grouping keys.
-   * `@object-ui/components` cannot import `@object-ui/fields`, so the table
-   * obeys the flag instead of asking the question itself. Not covered there:
-   * the server-streamed export (`exportDownload`) sends the masked columns as
+   * column keeps the flag. Once the grid's object schema has loaded, the same
+   * rule also leaves every masked field of the grid's object out of the grid's
+   * own client export, draws those fields through `cell` on its mobile card,
+   * and refuses them as grouping keys. `@object-ui/components` cannot import
+   * `@object-ui/fields`, so the table obeys the flag instead of asking the
+   * question itself. Not covered there: on the host-fetched path (rows handed
+   * down as `data`, as `ListView` and `ObjectView` do), the grid's guards and
+   * the cell's own mask depend on the object schema, which the grid fetches
+   * after first paint, so until it settles an untyped view column over a
+   * `password` / `secret` field draws and hands out the raw value
+   * (objectui#NEWCARD); the server-streamed export (`exportDownload`) sends the masked columns as
    * before and relies on the server's masking; the client JSON export, and
    * this table's CSV export of a lookup column, write an expanded lookup
    * record whole, so a credential field of the related object is not pruned;

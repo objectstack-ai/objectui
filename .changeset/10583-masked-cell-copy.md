@@ -4,7 +4,7 @@
 '@object-ui/plugin-grid': patch
 ---
 
-A masked grid field's raw value is withheld from copy, tooltip, inline edit, the client export and the mobile card, and a masked field is refused as a grouping key (objectui#10583).
+Once the grid has its object schema, a masked grid field's raw value is withheld from copy, tooltip, inline edit, the client export and the mobile card, and a masked field is refused as a grouping key (objectui#10583).
 
 `@object-ui/fields` draws `password` and `secret` cells as `••••••`. In `object-grid` the
 cell drew the mask, but the raw value still left through other paths:
@@ -40,10 +40,11 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
   object-declared type as a narrow-only union, the same shape as the detail page's
   `isMaskedDetailFieldType`. So a view that authors `type: 'text'` over a `secret` field
   keeps the refusal, and a view that authors `type: 'password'` masks a field the object
-  declares as text. The same rule leaves every masked field of the grid's object out of
-  the grid's client export (CSV and JSON, used when the data source has no server
-  export) and draws a masked field through its cell on the mobile card. It also refuses
-  a masked field as a grouping key: the entry is ignored, the other grouping levels
+  declares as text. Once the object schema has loaded, the same rule leaves every masked
+  field of the grid's object out of the grid's client export (CSV and JSON, used when the
+  data source has no server export) and draws a masked field through its cell on the
+  mobile card. Once the object schema has loaded, it also refuses a masked field as a
+  grouping key: the entry is ignored, the other grouping levels
   still apply, and a console warning names the field. Masking the group label was not
   enough, because the groups would still show which records share a credential, in its
   raw order. Unmasked columns, files and groupings are unchanged.
@@ -53,8 +54,13 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
 - The flag withholds; it does not draw. The mask comes from the producer's `cell`
   renderer, and `data-table` draws a column with no `cell` as its value.
 - The table's client-side search and sort still run over the raw values
-  (objectui#10658).
-- A masked column's width is still sized from the raw value's length (objectui#10658).
+  (objectui#10657, which folded objectui#10658).
+- A masked column's width is still sized from the raw value's length (objectui#10657,
+  which folded objectui#10658).
+- On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
+  do), the grid's guards and the cell's own mask depend on the object schema, which the
+  grid fetches after first paint. Until it settles, an untyped view column over a
+  `password` / `secret` field draws and hands out the raw value (objectui#NEWCARD).
 - The server-streamed export (`exportDownload`) sends the masked columns as before and
   relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential field

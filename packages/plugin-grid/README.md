@@ -378,8 +378,8 @@ a render function used to be written for. A genuinely custom cell **renderer** i
 a component-layer concern: `VirtualGridColumn.cell` on `VirtualGrid`, a React prop,
 not an authoring key.
 
-A `password` or `secret` field draws a mask (`••••••`), and the grid withholds its
-raw value on these paths: Ctrl+C / Cmd+C on the cell copies nothing, the cell has no
+Once the grid has loaded its object schema, a `password` or `secret` field draws a
+mask (`••••••`), and the grid withholds its raw value on these paths: Ctrl+C / Cmd+C on the cell copies nothing, the cell has no
 tooltip, it never enters inline edit, the table's CSV export and the grid's own
 client export (CSV and JSON, used when the data source has no server export) leave
 it out, the mobile card draws it through its cell, and it cannot be a grouping key
@@ -392,7 +392,12 @@ refusal, though such a cell then draws the value as the text it was told to be.
 Not covered:
 
 - The table's client-side search and sort still run over the raw values, and a
-  masked column's width is still sized from the raw value's length (objectui#10658).
+  masked column's width is still sized from the raw value's length (objectui#10657,
+  which folded objectui#10658).
+- On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
+  do), the grid's guards and the cell's own mask depend on the object schema, which
+  the grid fetches after first paint. Until it settles, an untyped view column over a
+  `password` / `secret` field draws and hands out the raw value (objectui#NEWCARD).
 - The server-streamed export (`exportDownload`) sends the masked columns as before
   and relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential

@@ -1509,8 +1509,26 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // mounted — every hook below can therefore run unconditionally.
     const objectDef = objects.find((o: any) => o.name === objectName);
 
-    // Refresh trigger — bumped after view CRUD or external data mutations.
-    const [refreshKey, setRefreshKey] = useState(0);
+    // Refresh trigger — bumped after view CRUD or this page's own data writes.
+    const [ownRefreshKey, setRefreshKey] = useState(0);
+    /**
+     * objectui#10572 — the page's refresh signal: its own counter plus the
+     * console's `externalRefreshKey` (record-form save, undo, redo), summed IN
+     * THE RENDER that receives the prop. Both only grow, so the sum moves
+     * whenever either does, and every reader below sees an external bump in the
+     * same commit as the prop.
+     *
+     * It used to be MIRRORED instead: a passive effect copied each external
+     * bump into this counter one commit later. The console declares the same
+     * undo / redo on the data-invalidation bus in the same tick as the bump,
+     * and `ListView` reads that bus, so the mirror split one write into two
+     * list reads — the bus nonce in one commit, `refreshTrigger` in the next.
+     * PR objectui#10494's contract is that a writer's two notices land in one
+     * render; summing here keeps this host inside it. ⛔ Do not reintroduce the
+     * mirror, and do not add `externalRefreshKey` on top of a value that still
+     * mirrors it — either one reaches the list twice.
+     */
+    const refreshKey = ownRefreshKey + (typeof externalRefreshKey === 'number' ? externalRefreshKey : 0);
 
     /**
      * objectui#10035 — this page learned that the object's DATA changed by a
@@ -1617,12 +1635,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
       [objectDef, getObjectApiOperations],
     );
 
-    // Propagate externally-triggered refreshes (e.g. global ModalForm submit)
-    // into our internal refreshKey so list/data effects re-run.
-    useEffect(() => {
-        if (externalRefreshKey === undefined || externalRefreshKey === 0) return;
-        setRefreshKey(k => k + 1);
-    }, [externalRefreshKey]);
+    // Externally-triggered refreshes (e.g. global ModalForm submit, undo, redo)
+    // reach every `refreshKey` reader through the sum declared with the counter
+    // above (objectui#10572), not through a mirroring effect.
 
     /**
      * [#5153] The object-list toolbar's CREATE predicates — the `create` half

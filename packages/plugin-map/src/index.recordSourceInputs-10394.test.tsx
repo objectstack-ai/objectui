@@ -28,7 +28,9 @@
  *    bare array under `data` draws `type-mismatch`.
  * 5. Each description names the position it is true about.
  *
- * Once: both keys publish ONE list, so a hand-copy cannot drift.
+ * Once: both keys publish IDENTICAL lists. They are spelled inline twice (a
+ *    shared spread would hide both from `check:component-surface-parity`), so
+ *    this row is what keeps the two copies from drifting apart.
  *
  * Behaviour, through the real `SchemaRenderer` — the claims the descriptions
  * make, measured rather than assumed:
@@ -163,7 +165,7 @@ describe('objectui#10394 — map registrations declare data and staticData', () 
     }
   });
 
-  it('both keys publish ONE list, so a hand-copy cannot drift', () => {
+  it('both keys publish identical lists, so the two inline copies cannot drift', () => {
     const [a, b] = MAP_KEYS.map(({ type, namespace }) => declaredInputs(type, namespace));
     expect(a.length, 'object-map declares no inputs at all').toBeGreaterThan(0);
     expect(a).toEqual(b);

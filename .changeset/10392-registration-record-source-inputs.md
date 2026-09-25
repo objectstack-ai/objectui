@@ -23,8 +23,8 @@ on the registrations disagreed with that rule in two ways:
   `{ provider, … }` data-source configuration (an object, so a bare array there
   now draws a type diagnostic, matching the schema), and `staticData` is an
   array of records. Each description says what the renderer does with the key,
-  including that the map does not implement the `api` provider. The two map
-  keys now share one input list (objectui#10394).
+  including that the map does not implement the `api` provider
+  (objectui#10394).
 
 The renderers' read order and the zod schemas are unchanged. The
 `@object-ui/plugin-gantt` README sentence that listed the registration's inputs

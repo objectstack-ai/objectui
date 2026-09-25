@@ -33,6 +33,7 @@ import React from 'react';
 import { render, waitFor, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, FilterScopeProvider } from '@object-ui/react';
 import { resolveFilterPlaceholders } from '@object-ui/core';
+import type { BaseSchema, DataSource } from '@object-ui/types';
 // Registers `object-grid`.
 import '../index';
 
@@ -68,8 +69,8 @@ function gridNode(over: Record<string, unknown>) {
 function ui(adapter: Adapter, node: Record<string, unknown>, user: string | null = USER, org: string | null = ORG) {
   return (
     <FilterScopeProvider currentUserId={user} currentOrgId={org}>
-      <SchemaRendererProvider dataSource={adapter as any}>
-        <SchemaRenderer schema={node as any} />
+      <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
+        <SchemaRenderer schema={node as unknown as BaseSchema} />
       </SchemaRendererProvider>
     </FilterScopeProvider>
   );
@@ -78,7 +79,7 @@ function ui(adapter: Adapter, node: Record<string, unknown>, user: string | null
 /** The `$filter` of the Nth `find()` the grid issued. */
 async function queriedFilter(find: Adapter['find'], call = 0) {
   await waitFor(() => expect(find.mock.calls.length).toBeGreaterThan(call));
-  return (find.mock.calls[call] as [string, any])[1]?.$filter;
+  return (find.mock.calls[call] as unknown as [string, { $filter?: unknown }])[1]?.$filter;
 }
 
 /** Let every pending effect and resolved promise land. */

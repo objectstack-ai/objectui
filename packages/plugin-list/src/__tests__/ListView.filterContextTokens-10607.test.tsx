@@ -29,7 +29,7 @@ import React from 'react';
 import { render, waitFor, act, cleanup } from '@testing-library/react';
 import { ComponentRegistry, resolveFilterPlaceholders } from '@object-ui/core';
 import { SchemaRendererProvider, FilterScopeProvider } from '@object-ui/react';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { ListView } from '../ListView';
 
 const USER = 'usr_42';
@@ -40,7 +40,7 @@ const MINE = [['owner', '=', '{current_user_id}']];
 /** Held constant, so a re-render that rebuilds the node rebuilds only its filter. */
 const COLUMNS = ['name'];
 
-let gridSchemas: any[] = [];
+let gridSchemas: Array<{ filter?: unknown }> = [];
 
 function makeDataSource() {
   return {
@@ -66,8 +66,8 @@ function listNode(over: Record<string, unknown>): ListViewSchema {
 function ui(ds: DS, schema: ListViewSchema, user: string | null = USER, org: string | null = ORG) {
   return (
     <FilterScopeProvider currentUserId={user} currentOrgId={org}>
-      <SchemaRendererProvider dataSource={ds as any}>
-        <ListView schema={schema} dataSource={ds as any} />
+      <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
+        <ListView schema={schema} dataSource={ds as unknown as DataSource} />
       </SchemaRendererProvider>
     </FilterScopeProvider>
   );
@@ -76,7 +76,7 @@ function ui(ds: DS, schema: ListViewSchema, user: string | null = USER, org: str
 /** The `$filter` of the Nth `find()` the list issued. */
 async function queriedFilter(find: DS['find'], call = 0) {
   await waitFor(() => expect(find.mock.calls.length).toBeGreaterThan(call));
-  return (find.mock.calls[call] as unknown as [string, any])[1]?.$filter;
+  return (find.mock.calls[call] as unknown as [string, { $filter?: unknown }])[1]?.$filter;
 }
 
 /** Let every pending effect and resolved promise land. */
@@ -86,10 +86,10 @@ async function settle() {
   });
 }
 
-let prevObjectGrid: any;
+let prevObjectGrid: ReturnType<typeof ComponentRegistry.get>;
 beforeAll(() => {
   prevObjectGrid = ComponentRegistry.get('object-grid');
-  ComponentRegistry.register('object-grid', (props: any) => {
+  ComponentRegistry.register('object-grid', (props: { schema: { filter?: unknown } }) => {
     gridSchemas.push(props.schema);
     return <div data-testid="grid-stub" />;
   });
@@ -128,7 +128,7 @@ describe('list-view — the node’s own filter reaches the query resolved (obje
     const ds = makeDataSource();
     render(ui(ds, listNode({ filter: MINE })));
     await waitFor(() => expect(gridSchemas.length).toBeGreaterThan(0));
-    expect(gridSchemas.at(-1).filter).toEqual([['owner', '=', USER]]);
+    expect(gridSchemas.at(-1)?.filter).toEqual([['owner', '=', USER]]);
   });
 
   it('CONTROL: a token-free filter reaches the query unchanged', async () => {
@@ -210,6 +210,6 @@ describe('list-view — the resolved filter is held, so an equal filter does not
     });
     await settle();
     expect(ds.find.mock.calls.length).toBe(settled);
-    expect(ds.find.mock.calls.every((c) => JSON.stringify((c as unknown as [string, any])[1]?.$filter) === JSON.stringify(handed))).toBe(true);
+    expect(ds.find.mock.calls.every((c) => JSON.stringify((c as unknown as [string, { $filter?: unknown }])[1]?.$filter) === JSON.stringify(handed))).toBe(true);
   });
 });

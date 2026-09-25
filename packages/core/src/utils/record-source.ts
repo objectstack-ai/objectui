@@ -24,9 +24,11 @@ import type { ViewData } from '@object-ui/types';
  *     more than one binding?** — the published three-rung record-source ladder
  *     (`data`, then `staticData`, then `objectName`), declared on both faces of
  *     the contract (`ObjectMapSchema.objectName` / `ObjectGanttSchema.objectName`
- *     in `@object-ui/types`, and the `.describe` on their zod twins:
- *     *"objectName — the THIRD record source `getDataConfig` resolves, after
- *     `data` and `staticData`"*), ruled objectui#6939 (2026-09-02) and pinned by
+ *     in `@object-ui/types`, and the `.describe` on their zod twins — the map
+ *     twin's reads *"objectName — the THIRD record source `getDataConfig`
+ *     resolves, after `data` and `staticData`"*, naming `ObjectMap.tsx`'s local
+ *     wrapper; the gantt twin names `resolveRecordSourceConfig` itself), ruled
+ *     objectui#6939 (2026-09-02) and pinned by
  *     `objectql-record-source-refinement-6939.test.ts`. **That is this
  *     function.**
  *  2. **How does `objectName` get POPULATED when it is absent?** — the
@@ -47,8 +49,9 @@ import type { ViewData } from '@object-ui/types';
  * ladder reduces to two rungs — the resolved config's object when it names one,
  * else the schema's own `objectName`, which is what a `value`/`api`-backed block
  * still needs for metadata reads, i18n field labels and permission verdicts.
- * Callers pass the ALREADY-RESOLVED config (their `getDataConfig(schema)`
- * output), so rung ordering is settled before this function is reached.
+ * Callers pass the ALREADY-RESOLVED config (their
+ * {@link resolveRecordSourceConfig} output, direct or through a local wrapper),
+ * so rung ordering is settled before this function is reached.
  *
  * ## No lenient rung was added (AGENTS.md #0.1)
  *
@@ -62,7 +65,7 @@ import type { ViewData } from '@object-ui/types';
  *
  * @param schema - The block's schema; only `objectName` is read.
  * @param dataConfig - The RESOLVED data config — the caller's own
- *   `getDataConfig(schema)` output, `null` when nothing is bound.
+ *   {@link resolveRecordSourceConfig} output, `null` when nothing is bound.
  * @returns The bound object's name, or `undefined` when neither the resolved
  *   config nor the schema names one.
  *
@@ -185,7 +188,10 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
  *
  * `data`, then `staticData`, then `objectName` — declared on both faces of the
  * published contract and pinned by
- * `objectql-record-source-refinement-6939.test.ts`:
+ * `objectql-record-source-refinement-6939.test.ts`. Quoted here from the
+ * `ObjectMapSchema` faces, whose `getDataConfig` is `ObjectMap.tsx`'s local
+ * wrapper around this function; the gantt and calendar faces name
+ * `resolveRecordSourceConfig` instead (objectui#9618):
  *
  *  1. **`data`** — *"Data source configuration. Read FIRST by `getDataConfig`"*,
  *     honoured ONLY on the arm `dataArm` names. Returned verbatim, so a config

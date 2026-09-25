@@ -1705,16 +1705,17 @@ export const ObjectMapConfigSchema = z.object({
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
  * `data`, `staticData` (inline rows, wrapped into a `{ provider: 'value' }`
- * config) or `objectName` (the bound object) —
- * `getDataConfig` in `plugin-map/src/ObjectMap.tsx` and
- * `plugin-gantt/src/ObjectGantt.tsx`, each `if (schema.data) … if
- * (schema.staticData) … if (schema.objectName) … return null`. Both mirrors
+ * config) or `objectName` (the bound object) — the shared ladder
+ * `resolveRecordSourceConfig` in `@object-ui/core`, which
+ * `plugin-map/src/ObjectMap.tsx` reaches through its local `getDataConfig`
+ * wrapper and `plugin-gantt/src/ObjectGantt.tsx` calls directly: `data`, then
+ * `staticData`, then `objectName`, else `null`. Both mirrors
  * used to REQUIRE `objectName` alone, so a document authored on `staticData`
  * (6 of the 20 catalog entries objectui#6939 measured) drew correctly and was
  * refused by `safeValidateSchema` — `declared !== enforced`, with the corpus
  * on the right side. `objectName` is optional on both members now, and this
  * refinement carries the requirement the renderers actually have: with none of
- * the three present `getDataConfig` returns `null` and nothing is drawn.
+ * the three present the ladder returns `null` and nothing is drawn.
  *
  * Presence is `!== undefined` — the ruling's wording ("at least one of `data`,
  * `staticData`, `objectName` is present"), NOT the renderers' truthiness: an
@@ -1825,7 +1826,8 @@ export const ObjectTreeSchema = BaseSchema.extend({
  * ObjectGantt Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): `getDataConfig` (`plugin-gantt/src/ObjectGantt.tsx`) reads
+ * (objectui#6939): the shared record-source ladder `resolveRecordSourceConfig`
+ * (`@object-ui/core`, called by `plugin-gantt/src/ObjectGantt.tsx`) reads
  * `data`, then `staticData`, then `objectName`, so a gantt authored on inline
  * rows never reads the object name — three catalog entries drew correctly and
  * were refused here. `data` is declared for the first time in the same stroke:
@@ -1837,8 +1839,8 @@ export const ObjectTreeSchema = BaseSchema.extend({
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig; undeclared on either face until objectui#6939'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; undeclared on either face until objectui#6939'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
   titleField: z.string().optional().describe('Title field'),
@@ -1957,7 +1959,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // The query/data keys the fetch path reads. They were declared on
   // `ObjectGridSchema` — what `ObjectGanttProps.schema` used to be typed as before
   // objectui#5903 retyped it to `ObjectGanttSchema` — so they need declaring here.
-  staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
+  staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by resolveRecordSourceConfig'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
   // objectui#10250 — the full-text pair the record query carries, declared in
@@ -1986,7 +1988,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
  */
 export const ObjectCalendarSchema = BaseSchema.extend({
   type: z.literal('object-calendar'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
   // objectui#9239 — the ARRAY arm, mirroring `ComponentPropsMap['object-calendar'].data`
   // on `@objectstack/spec` (`z.array(z.unknown()).optional()`, "Pre-fetched
   // records — skips the internal fetch"). ⛔ NOT `ViewDataSchema`: this member
@@ -2006,7 +2008,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // TYPE: the TS face derives `SpecObjectCalendarProps['data']`, whose input is
   // `unknown[]`, which is exactly what `z.array(z.unknown())` infers here.
   data: z.array(z.unknown()).optional().describe('Pre-fetched records — an ARRAY, drawn in place of the calendar\'s own query; read FIRST by the record-source ladder. Mirrors ComponentPropsMap[\'object-calendar\'].data — the { provider, items } config object is refused by kind on this block (objectui#9239, ruling objectui#8348)'),
-  staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
+  staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by resolveRecordSourceConfig'),
   // objectui#8651 — the configuration container the SPEC declares for this
   // element (`ComponentPropsMap['object-calendar'].calendar`), which this
   // package's registration `inputs` already publishes and which

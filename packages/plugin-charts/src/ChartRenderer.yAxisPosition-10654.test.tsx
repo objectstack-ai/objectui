@@ -182,6 +182,16 @@ describe('objectui#10654 — the y side of `position` and horizontal-bar\'s axes
     expect(onLeft(title(c, 'Cost').x)).toBe(true);
   });
 
+  it.each([
+    ['bar', [{ field: 'revenue', title: 'Revenue' }, { field: 'cost', position: 'left', title: 'Cost' }]],
+    ['column', [{ field: 'revenue', position: 'right', title: 'Revenue' }, { field: 'cost', title: 'Cost' }]],
+  ] as const)('row 3 · %s: an entry naming no side takes the side the other left free', async (chartType, yAxis) => {
+    const c = await draw({ chartType, yAxis, ...BOUND });
+    expect(onRight(title(c, 'Revenue').x)).toBe(true);
+    expect(onLeft(title(c, 'Cost').x)).toBe(true);
+    expect(yNotes(c)).toHaveLength(0);
+  });
+
   it('row 3 · (bar control) two entries naming no side: the first on the left, the second on the right', async () => {
     const c = await draw({
       chartType: 'bar',

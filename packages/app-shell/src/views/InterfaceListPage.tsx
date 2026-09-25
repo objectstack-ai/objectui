@@ -6,8 +6,9 @@
  * object's list views as switcher tabs and lets users create views, this
  * surface is deliberately closed:
  *
- *   • the page REFERENCES one view (`interfaceConfig.sourceView`) — columns,
- *     base filter and sort are inherited, never restated (the iron rule);
+ *   • the page REFERENCES one view (`interfaceConfig.sourceView`) — columns
+ *     (with the view's `hiddenFields` / `fieldOrder`), base filter and sort
+ *     are inherited, never restated (the iron rule);
  *   • end users get exactly the `userFilters` the author enabled;
  *   • the visualization comes from `appearance.allowedVisualizations`
  *     (a single entry renders no switcher);
@@ -439,9 +440,21 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
     // Columns: the page's own `columns` win; else the legacy referenced view's;
     // else a default from the object so the grid never renders just the
     // row-number column.
+    //
+    // The view's `hiddenFields` / `fieldOrder` travel WITH the view's columns
+    // (objectui#10638): the spec composes the three per view — `columns`
+    // projects, `hiddenFields` subtracts, `fieldOrder` sorts the survivors
+    // (objectstack#15184 ruling B) — and `ListView`'s `effectiveFields` runs
+    // that composition, so this page only delivers the two values. They apply
+    // on the middle branch alone. The page config declares neither key, and
+    // its own `columns` are "defined directly on the page (no view
+    // inheritance)" — a view order would otherwise re-sort the very list the
+    // design-mode column drag saves as `columns`. An empty view `columns`
+    // "declares no projection, so neither of them applies".
+    const viewComposes = !hasColumns(cfg) && hasColumns(view);
     const columns = hasColumns(cfg)
       ? (cfg.columns as any)
-      : hasColumns(view)
+      : viewComposes
         ? view.columns
         : defaultColumnsFromObject(objectDef, { orgAttribution });
 
@@ -459,6 +472,8 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       // The assertion changes no value; the runtime string is what it was.
       viewType: (allowed[0] ?? view.type ?? 'grid') as ListViewSchema['viewType'],
       columns,
+      ...(viewComposes && view.hiddenFields !== undefined ? { hiddenFields: view.hiddenFields } : {}),
+      ...(viewComposes && view.fieldOrder !== undefined ? { fieldOrder: view.fieldOrder } : {}),
       ...(filters.length ? { filter: filters } : {}),
       ...(sort?.length ? { sort } : {}),
       grouping: view.grouping,

@@ -1299,7 +1299,7 @@ A toggle control that switches between different view types (list, grid, kanban,
 | `position` | `"top" \| "bottom" \| "left" \| "right"` | Switcher position relative to content. |
 | `persistPreference` | `boolean` | Save the user's view preference to storage. |
 | `storageKey` | `string` | Storage key for persisting the preference. |
-| `onViewChange` | `string` | Expression or callback invoked on view change. |
+| `onViewChange` | `string` | Event name dispatched on `window` as a `CustomEvent` when the view changes (`detail: { view }`). An event NAME, not a callback or a handler expression. |
 
 **Related:** [ObjectViewSchema](#objectviewschema), [ObjectKanbanSchema](#objectkanbanschema), [CalendarViewSchema](#calendarviewschema)
 

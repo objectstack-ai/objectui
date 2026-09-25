@@ -124,9 +124,17 @@ function mountHook() {
   };
 }
 
-/** A save the test expects to land: fails fast if the dialog opens instead. */
+/**
+ * A save the test expects to land. A refused save waits on the conflict
+ * dialog and never settles, so the dialog opening is the failure, not a hang.
+ */
 async function landed(pending: Promise<OccSaveOutcome>) {
-  const outcome = await pending;
+  const outcome = await Promise.race([
+    pending,
+    screen.findByText('Keep editing').then(() => {
+      throw new Error('the conflict dialog opened: the save was refused 409');
+    }),
+  ]);
   expect(outcome.status).toBe('saved');
   return (outcome as { status: 'saved'; result: Row }).result;
 }

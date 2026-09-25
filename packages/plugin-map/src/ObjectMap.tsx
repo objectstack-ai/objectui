@@ -27,6 +27,7 @@ import {
   useNavigationOverlay,
   NonGridRowCeilingNote,
   useDataInvalidation,
+  useSettledSchema,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -627,7 +628,6 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * and the same footnote. This docblock used to say both paths were exempt.
    */
   const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   // Mobile UX (round 3)
@@ -762,12 +762,39 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   /**
    * The object this map is BOUND to — the resolved record source's object when
    * it names one, else the schema's own `objectName` (objectui#7627, the
-   * objectui#6939 ladder). Hoisted to render scope so the metadata effect below
-   * reads one named value instead of re-deriving the ladder inline; it is a pure
-   * function of `dataProvider` / `dataObjectName` / `schema.objectName`, all of
-   * which that effect already depends on, so listing it adds no re-run.
+   * objectui#6939 ladder). Hoisted to render scope so the definition read below
+   * keys on one named value instead of re-deriving the ladder inline.
    */
   const recordSourceObjectName = resolveRecordSourceObjectName(schema, dataConfig);
+
+  /**
+   * The object definition, and whether the read for THIS object has SETTLED:
+   * one piece of state, through the shared hook (objectui#10664).
+   *
+   * The map held the definition in a local `useState` fed by its own metadata
+   * effect, and listed it in the fetch effect's dependencies below. The
+   * definition lands after the first query, so every mount read twice: once
+   * with `buildExpandFields` seeing no fields (no `$expand`), once after. It is
+   * the shape `ObjectTimeline` (objectui#7895) and `ObjectGallery`
+   * (objectui#7903) left, and the gate below is theirs.
+   *
+   * The key is `recordSourceObjectName`, the object the replaced effect read. On
+   * the branch the gate holds (`dataProvider === 'object'`) it names the same
+   * object the query does, `dataObjectName`.
+   *
+   * An inline `value` set passes no source, as `ObjectCalendar` does: it has no
+   * definition to read, and the hook settles with none at once. Every other
+   * path keeps the read, host rows included, because the marker titles resolve
+   * from it (ADR-0079).
+   *
+   * ⚠️ The gate is only safe because the hook SETTLES ON EVERY EXIT
+   * (objectui#7232): no source, no `getObjectSchema`, no key, and a read that
+   * threw. The replaced effect returned without settling on all four.
+   */
+  const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(
+    recordSourceObjectName ?? '',
+    hasInlineData ? undefined : dataSource,
+  );
 
   // Permissions context, read here rather than inside the fetch effect below:
   // an effect's DEPENDENCY ARRAY is evaluated during render, so `perms` has to
@@ -818,9 +845,28 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
 
   // Fetch data based on provider
   useEffect(() => {
+    // ⭐ objectui#10664: the object definition GATES the object query; it does
+    // not refine it afterwards. `objectSchema` stays in the dependency list and
+    // the two are one mechanism: the dependency re-runs this effect when the
+    // definition lands, and this line stops the first run from spending a query
+    // before it has. Removing either half restores the double read.
+    //
+    // Scoped to the branch that issues that query. Host rows and an inline
+    // `value` set build no expansion, so there is nothing for them to wait on.
+    //
+    // The gate closes only when the key moves, and on this branch the key is
+    // the queried object, so a closed gate always means a CHANGED query. The
+    // placeholder is held for the window: the rows in state answer the previous
+    // object, and the query this run would have issued goes through the loading
+    // gate anyway.
+    if (fetchesForItself && !objectSchemaReady) {
+      setLoading(true);
+      return;
+    }
     // Every input of the query below: this effect's dependency list, less the
-    // nonce. Compared value for value (`Object.is`), the way React compares
-    // the list itself.
+    // nonce, the readiness flag and `fetchesForItself` (a function of two
+    // members already in it). Compared value for value (`Object.is`), the way
+    // React compares the list itself.
     const query = [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms] as const;
     const committed = committedQueryRef.current;
     const answersShownQuery = committed !== null && committed.length === query.length && query.every((v, i) => Object.is(v, committed[i]));
@@ -958,8 +1004,8 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // policy filters nothing, and `perms` is in this effect's dependency
           // list, so the expansion is rebuilt the moment the answer arrives.
           //
-          // `objectName` (checkField's target) and `objectSchema` (fetched
-          // keyed by `recordSourceObjectName`, the OTHER effect below) agree
+          // `objectName` (checkField's target) and `objectSchema` (read keyed
+          // by `recordSourceObjectName`, through `useSettledSchema` above) agree
           // only because this line sits inside the `dataProvider === 'object'`
           // branch, where the two resolvers coincide — not by construction;
           // hoisting this gate out of that branch would let them diverge silently.
@@ -1009,29 +1055,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
     return () => {
       fetchSeqRef.current += 1;
     };
-  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms, invalidationNonce]);
-
-  // Fetch object schema for field metadata
-  useEffect(() => {
-    const fetchObjectSchema = async () => {
-      try {
-        if (!dataSource) return;
-
-        const objectName = recordSourceObjectName;
-
-        if (!objectName) return;
-
-        const schemaData = await dataSource.getObjectSchema(objectName);
-        setObjectSchema(schemaData);
-      } catch (err) {
-        console.error('Failed to fetch object schema:', err);
-      }
-    };
-
-    if (!hasInlineData && dataSource) {
-      fetchObjectSchema();
-    }
-  }, [schema.objectName, dataSource, hasInlineData, dataProvider, dataObjectName, recordSourceObjectName]);
+  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchemaReady, objectSchema, perms, invalidationNonce, fetchesForItself]);
 
   // Transform data to map markers
   const { markers, invalidCount } = useMemo(() => {

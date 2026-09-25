@@ -19,11 +19,10 @@
  * `MapGL` for a fetch, and a bus re-read that went through it would reset the
  * camera the user panned — see the comment on the nonce in `ObjectMap.tsx`.
  *
- * ⚠️ Counted as a DELTA, not an absolute. This map issues two `find` calls on
- * mount (the fetch effect keys on the object definition, which lands after the
- * first query); that is recorded on objectui#10623 as a separate finding and is
- * not this file's subject. What is pinned here is that one bus event adds
- * exactly one query.
+ * ⚠️ Counted as a DELTA, not an absolute. How many `find` calls a mount issues
+ * is not this file's subject: it is pinned by `ObjectMap.fetchGate-10664.test.tsx`
+ * (objectui#10664 gated the query on a settled definition, so a mount reads
+ * once). What is pinned here is that one bus event adds exactly one query.
  *
  * Rendered through the real `SchemaRenderer` and this package's own
  * registration, over a fake data source that counts reads. The bare

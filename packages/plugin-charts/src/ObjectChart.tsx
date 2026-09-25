@@ -153,7 +153,10 @@ export const COMPARISON_SUFFIX = '__comparison';
  * category axis" — {@link resolveChartCategoryField} remains that one, and it
  * answers a wider question (it also resolves the spec's `xAxis` through
  * `normalizeChartSchema`). This one answers only "which column did the
- * aggregate project the group under", which is what a row lookup needs.
+ * aggregate project the group under", which is what a row lookup needs — and
+ * an axis binding is one: it is also the key `ObjectChart` forwards to
+ * `ChartRenderer` when the author named the category through `groupBy` alone
+ * (objectui#10634, `groupByCategoryKey`).
  */
 function aggregateGroupByKey(
   aggregate: ObjectChartSchema['aggregate'],
@@ -1181,9 +1184,68 @@ export const ObjectChart = (props: ObjectChartProps) => {
       )
     : null;
 
+  // The path the objectui#8168 screen further down guards, as ONE predicate
+  // that screen and the category forward just below both read: an object-bound
+  // chart (`objectName`, no `dataset`) drawing rows it fetched itself, not rows
+  // the author handed over (`data`, or a `bind` scope).
+  const hasAuthoredRows = !!boundData || Array.isArray(schema.data);
+  const drawsFetchedObjectRows = !!schema.objectName && !schema.dataset && !hasAuthoredRows;
+
+  /**
+   * objectui#10634 — the category column an object-bound chart forwards when
+   * the author named its category with `aggregate.groupBy` ALONE.
+   *
+   * The objectui#8168 screen below accepts `aggregate.groupBy` as a category
+   * (it is first in {@link OBJECT_BOUND_CHART_CATEGORY_BINDINGS}), but the
+   * schema handed to `ChartRenderer` never carried it: the renderer resolves
+   * its axis from `xAxisKey` / `xAxis` only, found none, and `AdvancedChartImpl`
+   * floored the key on `'name'` and refused with `missing-category-key`. An
+   * author who followed the refusal's own remedy was refused again, naming a
+   * key they never wrote.
+   *
+   * ## Which key, and why not `resolveChartCategoryField`
+   *
+   * The axis binding is a ROW lookup, so it must name the COLUMN the aggregate
+   * projects its group under — {@link aggregateGroupByKey}, which is the
+   * contract's result-column convention (`chartAggregateCategoryKey` in
+   * `@objectstack/spec/ui`: the `groupBy` string, or `alias ?? field` for the
+   * structured node) and the same key `groupByField` relabels and drills by.
+   * `resolveChartCategoryField` answers the FIELD instead (`groupBy.field`),
+   * which is right for the screen and the metadata probe and names a column the
+   * rows do not carry once an `alias` renames it — the distinction
+   * `chartCategoryKey` in `@object-ui/core` records, and the column the
+   * dashboard relays already bind (objectui#8269).
+   *
+   * ## When it applies
+   *
+   * Only to fill an ABSENT slot, and only on the path the screen guards:
+   *   - an object-bound chart (`objectName`, no `dataset`) whose rows this
+   *     component fetched — authored rows never went through the aggregate, so
+   *     its `groupBy` says nothing about their columns;
+   *   - and only when the renderer's own axis resolution answers nothing.
+   *     That is asked of `normalizeChartSchema`, this package's ONE translation
+   *     of `xAxisKey` / `xAxis.field` / a bare string `xAxis`, rather than of
+   *     `schema.xAxisKey` alone, so a spec-shape `xAxis: { field }` is never
+   *     shadowed. An authored category axis therefore always wins; ⛔ this never
+   *     writes over one.
+   *
+   * The dataset path takes the other arm of `finalSchema` just below, which
+   * sets `xAxisKey` from its own dimensions, and is untouched; so is a chart
+   * drawing authored rows.
+   */
+  const groupByCategoryKey =
+    drawsFetchedObjectRows && !normalizeChartSchema(schema, language).xAxisKey
+      ? aggregateGroupByKey(schema.aggregate)
+      : undefined;
+
   const finalSchema = datasetChart
     ? { ...schema, data: datasetChart.data, xAxisKey: datasetChart.xAxisKey, series: datasetChart.series }
-    : { ...schema, data: finalData, ...(augmentedSeries ? { series: augmentedSeries } : {}) };
+    : {
+        ...schema,
+        data: finalData,
+        ...(groupByCategoryKey ? { xAxisKey: groupByCategoryKey } : {}),
+        ...(augmentedSeries ? { series: augmentedSeries } : {}),
+      };
 
   // P3: per-category semantic colors. When the category dimension is a select/
   // lookup field, its option colors (resolved above into `fieldOptionColors`)
@@ -1274,8 +1336,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
    * halves: that the refusal fires, and that it does NOT fire on the schema
    * every producer composes today.
    */
-  const hasAuthoredRows = !!boundData || Array.isArray(schema.data);
-  if (schema.objectName && !schema.dataset && !hasAuthoredRows && !resolveChartCategoryField(schema)) {
+  if (drawsFetchedObjectRows && !resolveChartCategoryField(schema)) {
       return (
         <div className={"p-4 text-destructive " + (schema.className || '')} data-testid="chart-missing-category-axis" role="alert">
             {tt(

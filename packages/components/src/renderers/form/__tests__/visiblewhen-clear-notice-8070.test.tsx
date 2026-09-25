@@ -46,11 +46,12 @@ let errorSpy: ReturnType<typeof vi.spyOn>;
 let dismissSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  warningSpy = vi.spyOn(toast, 'warning').mockImplementation(() => 'id' as any);
-  errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'id' as any);
-  dismissSpy = vi.spyOn(toast, 'dismiss').mockImplementation(() => 'id' as any);
-  if (!(Element.prototype as any).scrollIntoView) {
-    (Element.prototype as any).scrollIntoView = () => {};
+  warningSpy = vi.spyOn(toast, 'warning').mockImplementation(() => 'id');
+  errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'id');
+  dismissSpy = vi.spyOn(toast, 'dismiss').mockImplementation(() => 'id');
+  // The invalid-submit path scrolls the first offending field into view.
+  if (typeof Element.prototype.scrollIntoView !== 'function') {
+    Element.prototype.scrollIntoView = () => {};
   }
 });
 

@@ -40,7 +40,6 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { MasterDetailForm } from './MasterDetailForm';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
-import { withCustomFieldMembers } from './customFieldsMerge';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   applyAutoColSpan,
@@ -344,8 +343,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // `defaultValue` excuses a field from `required` (#4069).
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is in ObjectForm's merged pool — for explicit and derived sections
+        // alike (objectui#10254; the explicit push used to regenerate every
+        // named field from the object schema and drop the member).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // Build fields from flat field list (when no sections provided)
@@ -424,12 +428,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     const columns = (schema.columns && schema.columns > 0
       ? Math.min(Math.floor(schema.columns), 4)
       : inferColumns(fs.length)) as 1 | 2 | 3 | 4;
-    return sections.map((s) => ({
-      ...s,
-      columns,
-      fields: withCustomFieldMembers(s.fields ?? [], schema.customFields),
-    })) as DrawerFormSectionConfig[];
-  }, [schema.sections, schema.customFields, schema.columns, schema.mode, formFields, objectSchema]);
+    // A member's definition reaches a group's body through `buildSectionFields`,
+    // the route an explicit section's takes (objectui#10254).
+    return sections.map((s) => ({ ...s, columns })) as DrawerFormSectionConfig[];
+  }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {

@@ -41,6 +41,7 @@
 import type { FormField } from '@object-ui/types';
 import { mapFieldTypeToFormType, buildValidationRules } from '@object-ui/fields';
 import { isCreateFormMode, isRequiredInForm } from './schemaDefaults';
+import { findCustomFieldMember } from './customFieldsMerge';
 
 export interface SectionFieldsContext {
   /** Resolved object schema (`{ fields: { [name]: fieldDef } }`) or null. */
@@ -69,6 +70,16 @@ export interface SectionFieldsContext {
    * passes it.
    */
   fieldLabel: (objectName: string, fieldName: string, fallback: string) => string;
+  /**
+   * The authored inline members (`schema.customFields`). A member naming the
+   * field a section entry names is that entry's BASE definition, in place of
+   * the one generated from the object schema — the precedence `ObjectForm`'s
+   * default arm resolves its section members with (`findCustomFieldMember`,
+   * objectui#10254). Only the base moves: the entry's own overrides still
+   * apply on top, by the rules below. Omitted or empty → every base is
+   * generated, as before.
+   */
+  customFields?: readonly FormField[] | null;
 }
 
 /**
@@ -251,8 +262,12 @@ export function normalizeSectionField(
   fieldDef: string | Record<string, any>,
   ctx: SectionFieldsContext,
 ): FormField {
-  // (1) string shorthand → build entirely from the object schema.
+  // (1) string shorthand → build entirely from the object schema, unless a
+  // `customFields` member names the field: the member is then the whole
+  // definition, drawn as shape (3) below (objectui#10254).
   if (typeof fieldDef === 'string') {
+    const member = findCustomFieldMember(ctx.customFields, fieldDef);
+    if (member) return normalizeSectionField(member, ctx);
     const meta = ctx.objectSchema?.fields?.[fieldDef] as any;
     return attachVisibility(fromObjectSchema(fieldDef, ctx), meta?.visible_on ?? meta?.visibleOn);
   }
@@ -267,10 +282,14 @@ export function normalizeSectionField(
     return attachVisibility(fd as FormField, fd.visibleOn);
   }
 
-  // (2) spec FormFieldSchema object — merge object-schema base + spec overrides.
+  // (2) spec FormFieldSchema object — merge base + spec overrides. The base is
+  // the `customFields` member naming the field when there is one (a COPY: the
+  // overrides below write onto it), else the object-schema field
+  // (objectui#10254).
   warnOnMixedVocabulary(fd, ctx.objectName);
   const fieldName = fd.field;
-  const base = fromObjectSchema(fieldName, ctx) as any;
+  const member = findCustomFieldMember(ctx.customFields, fieldName);
+  const base = (member ? { ...member } : fromObjectSchema(fieldName, ctx)) as any;
 
   if (fd.widget != null) base.widget = fd.widget;
   if (fd.label != null) base.label = fd.label;
@@ -305,7 +324,11 @@ export function normalizeSectionField(
   // mapped id (`field:…`) and re-deciding from it would need an inverse mapping.
   // Absent on both sides (a spec field naming nothing in the object schema and
   // declaring no type) it stays untouched — `fromObjectSchema`'s `input`.
-  const rawType = fd.type ?? ctx.objectSchema?.fields?.[fieldName]?.type;
+  // Over a MEMBER base only the entry's own `type` re-decides: the object
+  // schema's type is the generated definition's, which the member replaces
+  // whole, and the member's `type` is drawn as authored, as the flat path
+  // draws it.
+  const rawType = fd.type ?? (member ? undefined : ctx.objectSchema?.fields?.[fieldName]?.type);
   if (rawType != null) base.type = mapFieldTypeToFormType(rawType, { multiple: base.multiple });
   // Spec canon for the lookup target is `reference_to` (views.zod.ts); accept
   // both spellings and stamp both keys so dual-key readers see the override.

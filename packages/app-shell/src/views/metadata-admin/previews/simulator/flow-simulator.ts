@@ -25,8 +25,10 @@ import type {
   SimStep,
   SimStepStatus,
 } from './flow-sim-types.js';
-import { evalCondition, validateFlowDraft } from './flow-sim-validate.js';
+import { isExpressionEnvelopeShaped } from '@objectstack/spec/automation';
+import { evalCondition, evalValueEnvelope, validateFlowDraft } from './flow-sim-validate.js';
 import { conditionText } from '../flow-canvas-layout.js';
+import { isValueEnvelopeSlot } from '../../inspectors/flow-value-envelope.js';
 
 const MAX_STEPS = 500;
 
@@ -320,27 +322,56 @@ export class FlowSimulator {
    * map, the example `{ assignments: [{ variable, value }] }` array, and the
    * legacy flat `{ var: value }`) and interpolates `{var}` templates — so the
    * Debug run mirrors runtime instead of silently no-oping.
+   *
+   * A CEL value envelope `{ dialect: 'cel', source }` is evaluated, the way the
+   * runtime's assignment executor evaluates it (objectui#10537). That applies
+   * only in the map: the spec's expression ledger names `assignments.*` as the
+   * `value` slot (`isValueEnvelopeSlot`), and an object naming a `dialect`
+   * there is an envelope (`isExpressionEnvelopeShaped`, the executor's own
+   * test). In both legacy shapes an envelope-shaped object stays the literal
+   * object it always was, as it does at runtime.
+   *
+   * Pairs run in order against the live variables, so an envelope sees the
+   * earlier writes of the same node. An envelope that fails (malformed, or a
+   * CEL error) is not written: the step reports the error and the run stops
+   * there, because the runtime throws on it and fails the node. The pairs
+   * before it stay written, as at runtime.
    */
   private executeAssignment(node: SimNode): SimStep {
     const cfg = node.config ?? {};
     const raw = cfg.assignments;
-    const pairs: Array<[string, unknown]> = [];
+    // `slot` = the pair sits in the ledger's `value` slot, where an envelope is
+    // an expression. False for both legacy shapes.
+    const pairs: Array<{ key: string; value: unknown; slot: boolean }> = [];
     if (Array.isArray(raw)) {
       for (const item of raw) {
         if (item && typeof item === 'object') {
           const e = item as Record<string, unknown>;
           const name = e.variable ?? e.name ?? e.key;
-          if (typeof name === 'string' && name) pairs.push([name, e.value]);
+          if (typeof name === 'string' && name) pairs.push({ key: name, value: e.value, slot: false });
         }
       }
     } else if (raw && typeof raw === 'object') {
-      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) pairs.push([k, v]);
+      const slot = isValueEnvelopeSlot(node.type, ['config', 'assignments']);
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) pairs.push({ key: k, value: v, slot });
     } else {
-      for (const [k, v] of Object.entries(cfg)) pairs.push([k, v]);
+      for (const [k, v] of Object.entries(cfg)) pairs.push({ key: k, value: v, slot: false });
     }
     const wrote: Record<string, unknown> = {};
-    for (const [key, value] of pairs) {
-      const resolved = this.interpolateValue(value);
+    for (const { key, value, slot } of pairs) {
+      let resolved: unknown;
+      if (slot && isExpressionEnvelopeShaped(value)) {
+        const evaluated = evalValueEnvelope(value, this.state.variables);
+        if (!evaluated.ok) {
+          return this.record(node.id, 'assignment', node.label, 'error', {
+            wrote: Object.keys(wrote).length ? wrote : undefined,
+            error: `assignments.${key}: ${evaluated.error}`,
+          });
+        }
+        resolved = evaluated.value;
+      } else {
+        resolved = this.interpolateValue(value);
+      }
       this.state.variables[key] = resolved;
       wrote[key] = resolved;
     }

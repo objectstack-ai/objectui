@@ -12,8 +12,11 @@
  */
 
 import { ExpressionEvaluator } from '@object-ui/core';
+import { ExpressionEngine, validateExpression } from '@objectstack/formula';
+import { ASSIGNMENT_VALUE_ENVELOPE_REFUSAL, type AssignmentExpressionValue } from '@objectstack/spec/automation';
 import type { Diagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
+import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
 import { t as tr, tFormat } from '../../i18n.js';
 
 /** Evaluate a CEL condition, capturing (not swallowing) any failure. */
@@ -32,6 +35,82 @@ export function evalCondition(
     return { result: raw === true };
   } catch (err) {
     return { result: false, error: (err as Error).message || 'Evaluation failed.' };
+  }
+}
+
+/**
+ * The CEL scope the runtime evaluates a flow expression in: the automation
+ * engine's `celScope` (`AutomationEngine` in `@objectstack/service-automation`),
+ * which its predicate and value paths share. A dotted variable key
+ * (`step.result`) becomes a nested path, and the variables are bound three
+ * ways: bare (`n`), under `vars` (`vars.n`) and as `record` (`record.n`).
+ * There is no `data` root, unlike {@link evalCondition}'s scope.
+ *
+ * One deliberate difference: the runtime descends into a variable's own object
+ * when it nests a dotted key, and so writes into it. Here each object on the
+ * path is copied first, so evaluating never changes the simulated variables.
+ */
+function flowCelScope(variables: Record<string, unknown>): {
+  extra: Record<string, unknown>;
+  record: Record<string, unknown>;
+} {
+  const vars: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(variables)) {
+    const segs = key.split('.');
+    let cursor = vars;
+    for (const seg of segs.slice(0, -1)) {
+      const next = cursor[seg];
+      const copy = next !== null && typeof next === 'object' ? Object.assign(Array.isArray(next) ? [] : {}, next) : {};
+      cursor[seg] = copy;
+      cursor = copy as Record<string, unknown>;
+    }
+    cursor[segs[segs.length - 1]] = value;
+  }
+  return { extra: { ...vars, vars }, record: vars };
+}
+
+/**
+ * Evaluate an assignment's CEL value envelope, `{ dialect: 'cel', source }`,
+ * to the value the variable takes (objectui#10537). This follows the runtime's
+ * `evaluateValueEnvelope` step for step, on the runtime's own engine,
+ * `@objectstack/formula`'s `ExpressionEngine`:
+ *
+ * 1. Shape: the spec's `AssignmentValueSchema` refusal, read through the
+ *    editor's `valueEnvelopeRefusal`. A dialect other than `cel`, or a missing
+ *    or blank `source`, is refused.
+ * 2. CEL: `validateExpression('value', …)`, the parse the runtime refuses a
+ *    flow with at registration.
+ * 3. Value: `ExpressionEngine.evaluate` against {@link flowCelScope}.
+ *
+ * {@link evalCondition}'s `ExpressionEvaluator` is not used for this. Its
+ * bare-expression path is not CEL: it has no CEL stdlib (`joinNonEmpty`,
+ * `size`), no macros (`rows.map(r, …)`) and no `in`, and it divides `7 / 2`
+ * to `3.5`. The runtime answers every one of those differently.
+ *
+ * A failure is returned, never swallowed to a value. The runtime throws at
+ * this point, so the run fails on the node.
+ */
+export function evalValueEnvelope(
+  envelope: unknown,
+  variables: Record<string, unknown>,
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  const refusal = valueEnvelopeRefusal(envelope);
+  if (refusal) return { ok: false, error: refusal.join(' ') };
+  // The spec accepted it, so it is the slot's dialect with a non-blank source.
+  const { dialect, source } = envelope as AssignmentExpressionValue;
+  try {
+    const parsed = validateExpression('value', { dialect, source });
+    if (parsed.errors.length > 0) {
+      return {
+        ok: false,
+        error: parsed.errors.map((e) => `${ASSIGNMENT_VALUE_ENVELOPE_REFUSAL} ${e.message}`).join(' '),
+      };
+    }
+    const result = ExpressionEngine.evaluate({ dialect, source }, flowCelScope(variables));
+    if (!result.ok) return { ok: false, error: `CEL evaluation failed: ${result.error.message}` };
+    return { ok: true, value: result.value };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || 'Evaluation failed.' };
   }
 }
 

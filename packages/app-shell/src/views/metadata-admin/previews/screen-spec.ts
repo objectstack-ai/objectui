@@ -33,11 +33,12 @@ export function interpolate(text: string | undefined, vars: Record<string, unkno
 }
 
 /**
- * A field's `visibleWhen` gate, evaluated against the current variables using
- * the SAME evaluator the simulator uses for edge conditions (so the preview
- * agrees with the simulator). Real metadata mixes `{var}` and bare-var styles
- * (e.g. `{createOpportunity} == true`, `stage == "review"`), so brace
- * placeholders are normalised to bare identifiers first.
+ * A field's `visibleWhen` gate, evaluated against the current variables with
+ * `evalCondition`, `@object-ui/core`'s expression evaluator. Since
+ * objectui#10615 that is not the evaluator the simulator uses for edge
+ * guards, which is the runtime's CEL engine. Real metadata mixes `{var}` and
+ * bare-var styles (e.g. `{createOpportunity} == true`, `stage == "review"`),
+ * so brace placeholders are normalised to bare identifiers first.
  *
  * Fail-OPEN: a missing condition, an unparseable one, or one that references a
  * not-yet-set variable (the inspector has no run state) keeps the field

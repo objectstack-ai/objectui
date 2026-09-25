@@ -16,7 +16,7 @@ import {
   Label,
 } from '@object-ui/components';
 import { Plus, Trash2, SlidersHorizontal, Maximize2, Copy, GripVertical } from 'lucide-react';
-import { formatDate, formatDateTime, resolveFieldRuleState } from '@object-ui/core';
+import { formatDate, formatDateTime, resolveFieldRuleState, toDisplayDate } from '@object-ui/core';
 import { useDisplayLocale, useLocalization, formatDisplayNumber } from '@object-ui/i18n';
 import { resolveFieldCurrency, currencyFractionDigits, currencySymbol } from '../currency.js';
 import { LookupField } from './LookupField.js';
@@ -422,17 +422,18 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  * The stored shapes differ per type and so must the rendering — which is only
  * decidable now that `datetime`/`time` are no longer collapsed onto `date`:
  *
- * - `date` — a calendar day. Formatted from its VERBATIM `YYYY-MM-DD` parts via
- *   a local `Date`, never by parsing the stored string: `new Date('2026-06-17')`
- *   is UTC midnight, so reading local calendar components back out of it moves
- *   the day to the 16th everywhere west of Greenwich. That local `Date` is
- *   handed to `formatDate` as a `Date` INSTANCE, which the shared function uses
- *   verbatim — passing the raw string instead would re-introduce exactly the
- *   UTC-midnight parse this branch exists to avoid.
+ * - `date` — a calendar day. Its VERBATIM `YYYY-MM-DD` (`toDateInputValue`
+ *   keeps a stored string's leading day as written) goes through the
+ *   shared parse step `toDisplayDate`, which builds local midnight of that day,
+ *   never the UTC midnight `new Date('2026-06-17')` would give, so the 17th
+ *   stays the 17th west of Greenwich. It used to build that `Date` here, by
+ *   hand, with `new Date(y, m - 1, d)`, which rolls `2026-02-30` into March
+ *   2nd: the step's refusal of a nonexistent day (objectui#10026) never
+ *   reached this cell (objectui#10301).
  * - `datetime` — an instant, rendered on `formatDateTime`'s `'compact'` face:
  *   local day + local time, the same basis `toDateTimeInputValue` uses for the
- *   editor, so the two never disagree. ⚠️ It no longer matches
- *   `DateTimeField`'s readonly rendering, and that is the RULING on
+ *   editor, so the two never disagree about a real instant. ⚠️ It no longer
+ *   matches `DateTimeField`'s readonly rendering, and that is the RULING on
  *   objectui#8209 rather than a drift: both sites went to the one home
  *   `formatDateTime`, each on the face of its register — a dense grid cell is
  *   `'compact'`, a readonly form / detail field is the verbose default.
@@ -440,6 +441,9 @@ const isTemporal = (t?: string) => t === 'date' || t === 'datetime' || t === 'ti
  *
  * An unparseable value falls through to its raw string rather than rendering
  * "Invalid Date" — showing the user what is actually stored beats hiding it.
+ * On both the `date` and `datetime` arms "unparseable" is whatever
+ * `toDisplayDate` refuses, a day its month does not have included, so this
+ * cell shows `2026-02-30` as stored instead of a real day nobody wrote.
  *
  * `locale` is threaded rather than left to `Intl`'s default (objectui#4468):
  * the default is the MACHINE's locale, which has nothing to do with the
@@ -451,7 +455,8 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   if (type === 'date') {
     const ymd = toDateInputValue(value);
     if (!ymd) return raw;
-    const [y, m, d] = ymd.split('-').map(Number);
+    const day = toDisplayDate(ymd);
+    if (Number.isNaN(day.getTime())) return raw;
     // `formatDate`'s DEFAULT style — the one home for the `date` display
     // convention (objectui#8194, following the maintainer's ruling A on
     // objectui#7620). This branch used to call `toLocaleDateString(locale)`
@@ -461,13 +466,18 @@ function temporalText(type: string | undefined, value: any, locale: string): str
     // Current-year values lose the year here now (`Jul 4`); past- and
     // future-year values are byte-identical.
     //
-    // The `!ymd` guard above still owns the unparseable case, so this branch
+    // The two guards above still own the unparseable case, so this branch
     // never reaches `formatDate`'s `—`: an unreadable stored value keeps
-    // showing what is actually stored (objectui#3569).
-    return formatDate(new Date(y, m - 1, d), undefined, { locale });
+    // showing what is actually stored (objectui#3569). `day` is handed over
+    // as a `Date`, which the shared function uses verbatim.
+    return formatDate(day, undefined, { locale });
   }
+  // Validity is the shared parse step's answer, so a date-time written on a
+  // nonexistent day is refused here too (objectui#10301). The formatter still
+  // takes the engine's `new Date(raw)`: this arm renders an INSTANT, exactly as
+  // `DateTimeCellRenderer` does with the same split.
+  if (Number.isNaN(toDisplayDate(value instanceof Date ? value : raw).getTime())) return raw;
   const dt = value instanceof Date ? value : new Date(raw);
-  if (Number.isNaN(dt.getTime())) return raw;
   // `formatDateTime`'s `'compact'` face — the one home for the `datetime`
   // display convention (objectui#7443), on the face the maintainer ruled for
   // THIS register on objectui#8209. A sub-grid cell sits beside `datetime`
@@ -491,7 +501,7 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   // The `Number.isNaN` guard above still owns the unparseable case, so this
   // branch never reaches `formatDateTime`'s `—`: an unreadable stored value
   // keeps showing what is actually stored (objectui#3569), exactly as the
-  // `date` branch's `!ymd` guard does.
+  // `date` branch's guards do.
   return formatDateTime(dt, { style: 'compact', locale });
 }
 

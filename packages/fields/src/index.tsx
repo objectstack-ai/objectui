@@ -1180,9 +1180,12 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   const safe = coerceToSafeValue(value);
   // The validity guard reads the shared parse step, spelled EXACTLY as
   // `DateCellRenderer`'s one function up, so the two siblings refuse the same
-  // inputs — a date-only nonexistent day included (objectui#10026). The
+  // inputs — a date-only nonexistent day included (objectui#10026), and a
+  // date-time written on one (`2026-02-30T10:00:00Z`, objectui#10301). The
   // formatters below still take the engine's `new Date(safe)`: this cell
-  // renders an INSTANT, and that is unchanged.
+  // renders an INSTANT, and that is unchanged. ⛔ This guard is the ONLY thing
+  // that refuses such a day here: for one, `date` would be a `Date` the engine
+  // already rolled into March, and no parse step downstream can refuse a `Date`.
   const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
   if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
   const date = new Date(safe as string | number);

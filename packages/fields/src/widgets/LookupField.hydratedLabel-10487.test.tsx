@@ -72,9 +72,9 @@ function makeBackend({ holdRecord = false }: { holdRecord?: boolean } = {}) {
   const recordHeld = new Promise<void>((resolve) => {
     releaseRecord = resolve;
   });
-  const find = vi.fn(async (objectName: string, params?: Record<string, any>) => {
+  const find = vi.fn(async (objectName: string, params?: { $filter?: { id?: { $in?: unknown[] } } }) => {
     if (objectName !== 'contract') return { data: [], total: 0 };
-    const wanted: unknown[] | undefined = params?.$filter?.id?.$in;
+    const wanted = params?.$filter?.id?.$in;
     const rows = wanted ? ROWS.filter((r) => wanted.includes(r.id)) : ROWS;
     return { data: rows.map((r) => ({ ...r })), total: rows.length };
   });
@@ -89,7 +89,7 @@ function makeBackend({ holdRecord = false }: { holdRecord?: boolean } = {}) {
       ? { name: 'contract', nameField: 'contract_no', fields: CONTRACT_FIELDS }
       : undefined;
   });
-  return { ds: { find, findOne, getObjectSchema } as any, releaseSchema, releaseRecord };
+  return { ds: { find, findOne, getObjectSchema }, releaseSchema, releaseRecord };
 }
 
 type Backend = ReturnType<typeof makeBackend>['ds'];
@@ -98,11 +98,11 @@ type Backend = ReturnType<typeof makeBackend>['ds'];
 function Host({ ds, initial, multiple = false }: { ds: Backend; initial: unknown; multiple?: boolean }) {
   const [value, setValue] = React.useState<unknown>(initial);
   return (
-    <SchemaRendererContext.Provider value={{ dataSource: ds } as any}>
+    <SchemaRendererContext.Provider value={{ dataSource: ds } as never}>
       <LookupField
         value={value}
         onChange={setValue}
-        dataSource={ds}
+        dataSource={ds as never}
         field={{ reference_to: 'contract', multiple } as never}
       />
     </SchemaRendererContext.Provider>
@@ -110,13 +110,13 @@ function Host({ ds, initial, multiple = false }: { ds: Backend; initial: unknown
 }
 
 /**
- * `Host` under the real role-based provider. `policy.deny` replaces the
- * `contract` fields the viewer may not read, so the test can change the policy
- * in force after the chip is labelled, as a policy that loads late does.
+ * `Host` under the real role-based provider. The "Deny name" button makes
+ * `name` a field the viewer may not read on `contract`, so the test can change
+ * the policy in force after the chip is labelled, as a policy that loads late
+ * does.
  */
-function PolicyHost({ ds, policy }: { ds: Backend; policy: { deny?: (fields: string[]) => void } }) {
+function PolicyHost({ ds }: { ds: Backend }) {
   const [deny, setDeny] = React.useState<string[]>([]);
-  policy.deny = setDeny;
   return (
     <PermissionProvider
       roles={[]}
@@ -130,6 +130,9 @@ function PolicyHost({ ds, policy }: { ds: Backend; policy: { deny?: (fields: str
         },
       ]}
     >
+      <button type="button" onClick={() => setDeny(['name'])}>
+        Deny name
+      </button>
       <Host ds={ds} initial="c1" />
     </PermissionProvider>
   );
@@ -194,7 +197,7 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
     const { ds, beforeSchema, afterSchema } = await mountHydrated(['c1', 'c2'], true);
     expect(beforeSchema).toEqual(['Acme', 'Initech']);
     expect(afterSchema).toEqual(['HT-001', 'HT-002']);
-    const batched = ds.find.mock.calls.filter((c: any[]) => c[1]?.$filter?.id?.$in);
+    const batched = ds.find.mock.calls.filter(([, params]) => params?.$filter?.id?.$in);
     expect(batched).toHaveLength(1);
   });
 
@@ -218,12 +221,11 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
   it('the same derivation follows the policy: a field denied after the chip is labelled leaves the label', async () => {
     // The schema is never released, so this row reads the no-schema path.
     const { ds } = makeBackend();
-    const policy: { deny?: (fields: string[]) => void } = {};
-    render(<PolicyHost ds={ds} policy={policy} />);
+    render(<PolicyHost ds={ds} />);
     await waitFor(() => expect(chipLabels()).toEqual(['Acme']));
     await settle();
     await act(async () => {
-      policy.deny?.(['name']);
+      fireEvent.click(screen.getByRole('button', { name: 'Deny name' }));
     });
     await settle();
     // Nothing else on the row is nameable on this path, so the label falls

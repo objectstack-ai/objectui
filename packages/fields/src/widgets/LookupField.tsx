@@ -181,7 +181,7 @@ function recordToOption(
  * cached row and the option `findOption` matches can never disagree about
  * which value they belong to.
  */
-function recordValue(record: any, idField: string): any {
+function recordValue(record: Record<string, unknown>, idField: string): unknown {
   return record[idField] ?? record.id ?? record._id ?? record.externalId;
 }
 

@@ -120,6 +120,10 @@ describe('HookDefaultInspector — the object roster FAILED to load (objectui#10
     await failRequest(new Error('503 Service Unavailable'));
 
     expect(screen.queryByText(PUBLISH_COPY)).toBeNull();
+    expect(
+      screen.queryByText('Loading options…'),
+      'a failed request is no longer in flight — it must not read as one',
+    ).toBeNull();
   });
 
   it('tells the author the roster failed, and names the cause', async () => {

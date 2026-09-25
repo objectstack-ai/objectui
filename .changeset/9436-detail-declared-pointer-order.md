@@ -15,14 +15,17 @@ versioning. Executes ruling C1 on objectui#9436, alongside the same change to
   `displayNameField` alias) now sits between the two, so on an object
   declaring both, the heading is the pointer's value. `primaryField` still
   wins over everything. A pointer that is blank on the record still falls
-  through to the template.
+  through to the template. A `primaryField` or pointer that the loaded
+  permission policy denies the viewer falls through the same way, as if blank
+  (objectui#10434).
 - **`record:details` H1 dedupe.** The body hides the one row the record page
   H1 already shows. It used to check the template first, which mirrored the
   header's old order. With the header moved, that would have printed the
   pointer's row directly under an identical H1. On a single-field template it
   would also have hidden a row the H1 no longer showed. The dedupe now reads
-  the declared pointer first: when it holds a value, that field's row is the
-  one hidden and the template is not consulted. The template outcomes ruled on
+  the declared pointer first: when it holds a value the viewer may read
+  (objectui#10434), that field's row is the one hidden and the template is not
+  consulted. The template outcomes ruled on
   objectui#8351 are unchanged wherever the template really is the H1, which
   is when no pointer is declared or the pointer is blank on the record.
 

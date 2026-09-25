@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
+import { PaginationConfigSchema } from '@objectstack/spec/ui';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
@@ -21,11 +22,18 @@ import { ActionProvider } from '@object-ui/react';
 
 registerAllFields();
 
-// 25 rows, each with a unique `category` → 25 distinct top-level groups.
-const manyGroups = Array.from({ length: 25 }, (_, i) => ({
+// The undeclared page of groups is the display default the spec declares
+// (objectui#9853, ruling C-prime; it was a local ten before). The fixture is
+// sized off it: two full pages and a partial third of ten groups.
+const DISPLAY_DEFAULT: number = PaginationConfigSchema.parse({}).pageSize;
+const GROUP_COUNT = DISPLAY_DEFAULT * 2 + 10;
+const catName = (n: number) => `Cat ${String(n).padStart(3, '0')}`;
+
+// One row per unique `category` → GROUP_COUNT distinct top-level groups.
+const manyGroups = Array.from({ length: GROUP_COUNT }, (_, i) => ({
   id: String(i + 1),
   name: `Row ${i + 1}`,
-  category: `Cat ${String(i + 1).padStart(2, '0')}`,
+  category: catName(i + 1),
   amount: (i + 1) * 10,
 }));
 
@@ -54,16 +62,16 @@ const groupRows = () =>
 describe('Grouped view pagination', () => {
   it('paginates top-level groups instead of rendering all at once', async () => {
     renderGroupedGrid();
-    // Default page size falls back to 10 → first page shows 10 of 25 groups.
-    await waitFor(() => expect(groupRows().length).toBe(10));
-    expect(screen.getByText('Cat 01')).toBeInTheDocument();
-    expect(screen.queryByText('Cat 11')).not.toBeInTheDocument();
+    // Undeclared, the first page shows DISPLAY_DEFAULT of GROUP_COUNT groups.
+    await waitFor(() => expect(groupRows().length).toBe(DISPLAY_DEFAULT));
+    expect(screen.getByText(catName(1))).toBeInTheDocument();
+    expect(screen.queryByText(catName(DISPLAY_DEFAULT + 1))).not.toBeInTheDocument();
   });
 
   it('renders a pager with page info when there is more than one page', async () => {
     renderGroupedGrid();
-    await waitFor(() => expect(groupRows().length).toBe(10));
-    // 25 groups / 10 per page = 3 pages.
+    await waitFor(() => expect(groupRows().length).toBe(DISPLAY_DEFAULT));
+    // Two full pages and a partial third.
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByText('Rows per page:')).toBeInTheDocument();
   });
@@ -80,9 +88,9 @@ describe('Grouped view pagination', () => {
     fireEvent.click(navButtons[2]); // next
 
     await waitFor(() => expect(screen.getByText('Page 2 of 3')).toBeInTheDocument());
-    expect(screen.getByText('Cat 11')).toBeInTheDocument();
-    expect(screen.queryByText('Cat 01')).not.toBeInTheDocument();
-    expect(groupRows().length).toBe(10);
+    expect(screen.getByText(catName(DISPLAY_DEFAULT + 1))).toBeInTheDocument();
+    expect(screen.queryByText(catName(1))).not.toBeInTheDocument();
+    expect(groupRows().length).toBe(DISPLAY_DEFAULT);
   });
 
   it('shows the last (partial) page of groups', async () => {
@@ -95,9 +103,9 @@ describe('Grouped view pagination', () => {
     fireEvent.click(navButtons[3]); // last
 
     await waitFor(() => expect(screen.getByText('Page 3 of 3')).toBeInTheDocument());
-    // 25 = 10 + 10 + 5 → last page has the remaining 5 groups.
-    expect(groupRows().length).toBe(5);
-    expect(screen.getByText('Cat 25')).toBeInTheDocument();
+    // Two full pages leave the remaining ten groups for the last one.
+    expect(groupRows().length).toBe(10);
+    expect(screen.getByText(catName(GROUP_COUNT))).toBeInTheDocument();
   });
 
   it('changing page size repaginates and resets to page 1', async () => {
@@ -106,22 +114,22 @@ describe('Grouped view pagination', () => {
 
     const select = document.querySelector('select') as HTMLSelectElement;
     expect(select).toBeTruthy();
-    fireEvent.change(select, { target: { value: '20' } });
+    fireEvent.change(select, { target: { value: '50' } });
 
-    // 25 / 20 = 2 pages, page reset to 1, first page shows 20 groups.
+    // GROUP_COUNT / 50 = 2 pages, page reset to 1, first page shows 50 groups.
     await waitFor(() => expect(screen.getByText('Page 1 of 2')).toBeInTheDocument());
-    expect(groupRows().length).toBe(20);
+    expect(groupRows().length).toBe(50);
   });
 
   it('does not render a pager when groups fit on a single page', async () => {
     renderGroupedGrid({ pagination: { pageSize: 100 } });
-    await waitFor(() => expect(groupRows().length).toBe(25));
+    await waitFor(() => expect(groupRows().length).toBe(GROUP_COUNT));
     expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
   });
 
   it('wraps grouped tables in a single shared horizontal scroll container', async () => {
     const { container } = renderGroupedGrid();
-    await waitFor(() => expect(groupRows().length).toBe(10));
+    await waitFor(() => expect(groupRows().length).toBe(DISPLAY_DEFAULT));
     // One shared overflow scroller whose inner track is min-w-max so every
     // sub-table overflows into the SAME x-axis scrollbar.
     const innerTrack = container.querySelector('.min-w-max');

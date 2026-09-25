@@ -64,22 +64,22 @@ export const HeaderBarSchema = BaseSchema.extend({
   type: z.literal('header-bar'),
   title: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `title`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored title rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored title rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. For the current page name use the last entry of `crumbs`.',
   ),
   logo: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `logo`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored logo (URL or node) rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored logo (URL or node) rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. For brand content use `rightContent` or `actions`.',
   ),
   nav: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `nav`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored link list rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored link list rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. For links use `crumbs`, or a `navigation-menu` / `sidebar` node.',
   ),
@@ -93,43 +93,44 @@ export const HeaderBarSchema = BaseSchema.extend({
   rightContent: SchemaNodeSchema.optional().describe('Custom right content area'),
   left: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `left`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored node rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored node rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
   ),
   center: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `center`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored node rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored node rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
   ),
   right: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `right`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so an authored node rendered nothing — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so an authored node rendered nothing — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. The right side is `actions` (a node list) and `rightContent` (one node).',
   ),
   sticky: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `sticky`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so true and false drew the same non-sticky header — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so true and false drew the same non-sticky header — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
     + '`rightContent`, `search`. To pin the header, make its parent layout sticky.',
   ),
   height: retirementTombstone(
     'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `height`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so every value drew the same fixed-height header — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so every value drew the same default-height header — '
     + 'no error, no warning, no element. What it renders instead: `actions`, `crumbs`, '
-    + '`rightContent`, `search`. The height is fixed by the renderer (`h-14` / `sm:h-16`).',
+    + '`rightContent`, `search`. To change the height, author `className` (e.g. `h-20 sm:h-20`); '
+    + 'it is merged after the default `h-14` / `sm:h-16` the renderer sets.',
   ),
   variant: retirementTombstone(
     'REFUSED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`: the key is not in '
-    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent` and '
-    + '`search` off the node and takes no spread props, so every variant rendered the same header — '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node and takes no spread props, so every variant rendered the same header — '
     + 'no error, no warning, no class. What it renders instead: `actions`, `crumbs`, `rightContent`, '
     + '`search`.',
   ),

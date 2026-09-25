@@ -45,7 +45,13 @@ import {
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
 import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
-import { sanitizeFormData } from './sanitize';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
@@ -623,6 +629,16 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
 
+  // The record this form READ for the record it edits — the baseline an edit
+  // save diffs against, so only the fields that changed are written
+  // (objectui#10156). A ref, not state: only the save path reads it, and
+  // nothing renders from it. Set by the `findOne` below and nowhere else, so a
+  // caller-supplied record (inline fields, `initialData`) never becomes a
+  // baseline and its save keeps sending every field. `initialData` itself is
+  // left alone: it seeds the form and supplies the OCC token, and advancing it
+  // after a save would reseed the one and move the other.
+  const loadedRecordRef = React.useRef<LoadedRecordSnapshot | null>(null);
+
   // Check if using inline fields (fields defined as objects, not just names)
   const hasInlineFields = schema.customFields && schema.customFields.length > 0;
 
@@ -698,6 +714,8 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         setInitialData(resolveInitialRecord(schema));
         setLoading(false);
         return;
@@ -717,6 +735,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        // Tagged with the object and record it was read for, so a save that
+        // runs against a different one finds no baseline and sends everything.
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setInitialData(data);
       } catch (err) {
         console.error('Failed to fetch record:', err);
@@ -1103,6 +1124,15 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (isCreateFormMode(schema)) {
       payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
     }
+    // An EDIT writes only the fields that differ from the record this form
+    // read (objectui#10156) — on BOTH write routes below: the host-owned seam,
+    // which is how a master-detail form's parent operation is built, and the
+    // plain OCC-guarded update. Anything that cannot be settled is sent; see
+    // `dirtyEditPayload` for the whole rule, including why an empty diff sends
+    // the full payload. Every other mode gets `payload` back unchanged. The
+    // full `payload` stays the submit-redirect scope below: it is the record as
+    // the form now holds it, whether or not a field was written.
+    const writePayload = dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
     try {
       let result;
@@ -1111,7 +1141,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         // The host owns persistence (e.g. MasterDetailForm batching the parent
         // + children into one atomic transaction). The form just validates and
         // hands over the values; it does NOT create/update itself.
-        result = await schema.submitHandler(payload);
+        result = await schema.submitHandler(writePayload);
       } else if (!dataSource) {
         // No route left: no host seam and no adapter. Refuse instead of
         // reporting success — the `catch` below hands this to `schema.onError`
@@ -1128,7 +1158,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: initialData,
         });
         if (outcome.status === 'cancelled') return;
@@ -1136,6 +1166,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       } else {
         throw new Error('Invalid form mode or missing record ID');
       }
+      // The write landed: the next save from this still-mounted form diffs
+      // against the record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
 
       // Call success callback if provided, else give default feedback. Skip the
       // default when a `submitHandler` owns persistence (e.g. MasterDetailForm

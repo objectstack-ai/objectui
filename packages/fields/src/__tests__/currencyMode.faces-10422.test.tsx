@@ -48,7 +48,7 @@ const FIELDS: Record<string, Record<string, unknown>> = {
 const VALUE = 3456;
 
 /** ICU puts U+00A0 between a currency CODE and the amount; keep rows readable. */
-const text = (s: string | null) => (s ?? '').replace(/ /g, ' ');
+const text = (s: string | null) => (s ?? '').replace(/\u00a0/g, ' ');
 
 const FACES: Array<[string, (field: Record<string, unknown>, value: number) => string]> = [
   [

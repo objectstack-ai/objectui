@@ -22,7 +22,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // copy that did the unwrap and skipped the strip.
 import { extractDraftBody } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
-import { StudioChatDock } from './StudioAiCopilot.js';
+import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { useIsWideViewport } from './wideViewport.js';
 import {
@@ -1045,6 +1045,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // injected `aiSlot` (the cloud seam, ADR-0080) keeps the legacy left panel
   // — the cloud edition migrates on its own schedule.
   const chatDockMode = !aiSlot;
+  // objectui#8219 — the Interfaces pillar's open leaf, lifted to the dock so
+  // the copilot's "discussing" chip reads its display label (objectui#7254).
+  // Display-only; the agent's context stays URL-derived. Other pillars report
+  // nothing, so their chip keeps reading `type · name`.
+  const [surfaceLabel, setSurfaceLabel] = React.useState<StudioSurfaceLabel | null>(null);
 
   /**
    * Host side of the live `?surface=` channel. Producers below the provider —
@@ -1282,6 +1287,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 readOnly={readOnly}
                 foldInspector={chatDockMode}
                 onDirtyChange={setPillarDirty}
+                onSurfaceLabelChange={setSurfaceLabel}
               />
             )}
           </div>
@@ -1290,7 +1296,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         {/* ADR-0057 P3c — the copilot as the shared right dock (same package-
           * scoped build thread as the left panel it replaces; self-gates on the
           * agent catalog like the copilot always has). */}
-        {chatDockMode && <StudioChatDock packageId={packageId} locale={locale} />}
+        {chatDockMode && (
+          <StudioChatDock packageId={packageId} locale={locale} surfaceLabel={surfaceLabel} />
+        )}
 
         <DraftChangesPanel
           open={changesOpen}
@@ -1534,6 +1542,7 @@ export function InterfacesPillar({
   readOnly = false,
   foldInspector = false,
   onDirtyChange,
+  onSurfaceLabelChange,
 }: {
   packageId: string;
   publishNonce?: number;
@@ -1555,6 +1564,11 @@ export function InterfacesPillar({
    * pillar (SPA nav, so no beforeunload). Reports `false` on unmount so a
    * confirmed discard clears the surface's guard. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** objectui#8219 — reports the open leaf's display label (tagged with the
+   * leaf's type and name) up to the surface that mounts the copilot dock, for
+   * its "discussing" chip. `null` when no leaf is open, when the leaf has no
+   * label, and on unmount. */
+  onSurfaceLabelChange?: (surface: StudioSurfaceLabel | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -1633,6 +1647,29 @@ export function InterfacesPillar({
   const [current, setCurrent] = React.useState<Surface | null>(null);
   // `?surface=` capture + mirror — shared plumbing (see useSurfaceDeepLink).
   const initialSurface = useSurfaceDeepLink(current);
+  // objectui#8219 — lift the open leaf's label to the dock (see the prop doc).
+  // Keyed on the primitives, and the callback read through a ref, so neither a
+  // re-created Surface object nor a non-memoized callback refires the report.
+  const onSurfaceLabelChangeRef = React.useRef(onSurfaceLabelChange);
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current = onSurfaceLabelChange;
+  });
+  const currentType = current?.type;
+  const currentName = current?.name;
+  const currentLabel = current?.label;
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current?.(
+      currentType && currentName && currentLabel
+        ? { type: currentType, name: currentName, label: currentLabel }
+        : null,
+    );
+  }, [currentType, currentName, currentLabel]);
+  React.useEffect(
+    () => () => {
+      onSurfaceLabelChangeRef.current?.(null);
+    },
+    [],
+  );
   // Inspector tab — source pages carry a `source` string, not a block tree, so
   // their editor lives in a dedicated Source tab (the Properties tab has no
   // blocks to inspect). Non-source surfaces never show the tab strip.

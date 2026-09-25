@@ -28,6 +28,8 @@
  *    `data` alone: no `missing-required-prop`, and no diagnostic at all.
  * 4. Control for row 3: the same `validateTree` call still reports a bogus
  *    key, so an empty list is a reading of THIS tag, not of an unresolved one.
+ *    The node is bound by `objectName`, so the row holds before and after the
+ *    fix alike: it is a control, not a second pin.
  *
  * And once, for the schema the description names:
  * 5. `ObjectCalendarSchema` refuses a block with no record source, with the
@@ -101,8 +103,8 @@ describe('objectui#10392 — calendar registrations do not declare objectName re
     },
   );
 
-  it.each(CALENDAR_TAGS)('$label — control: a bogus key on the same node is still reported', ({ type }) => {
-    const diagnostics = diagnosticsOf({ type, calendar: CALENDAR_CONFIG, staticData: ROWS, bogusProp: 'x' });
+  it.each(CALENDAR_TAGS)('$label — control: a bogus key is still reported', ({ type }) => {
+    const diagnostics = diagnosticsOf({ type, calendar: CALENDAR_CONFIG, objectName: 'event', bogusProp: 'x' });
     expect(diagnostics.map((d) => [d.code, d.message])).toEqual([
       ['unknown-prop', `<${type}> has no prop "bogusProp"`],
     ]);

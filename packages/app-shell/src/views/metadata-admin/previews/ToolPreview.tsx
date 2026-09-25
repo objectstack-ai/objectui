@@ -19,7 +19,8 @@
  * We do not run the tool from the preview — invocation requires auth,
  * permission checks, and live datasource access that the preview
  * sandbox doesn't provide. Authors get an `Open in API Console` link
- * for end-to-end testing.
+ * for end-to-end testing — see `ApiConsoleLink` below for where it points
+ * and what it carries (objectui#10591).
  *
  * NO FLAG PILLS — deliberate (objectstack#3715 / #3896, objectui#3236).
  * The header strip used to render `requiresConfirmation`, `active`,
@@ -46,8 +47,10 @@ import {
   FileJson,
   Wrench,
 } from 'lucide-react';
+import { Link, useInRouterContext, useParams } from 'react-router-dom';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { componentRefToUrlSegments } from '../../../services/componentRegistry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 interface JsonSchemaProp {
@@ -102,6 +105,64 @@ function stubValue(p: JsonSchemaProp): unknown {
   }
 }
 
+/**
+ * The API console's component-registry key — the one Studio's Developer
+ * navigation names, and the host-neutral way into the page: app-shell serves
+ * every registered key at `component/<ns>/<name>` inside any app, while the
+ * console's own `developer/api-console` route is a detail of that host.
+ */
+const API_CONSOLE_REF = 'developer:api-console';
+
+/**
+ * "Open in API Console" (objectui#10591).
+ *
+ * The link used to be the bare `/developer/api-console?path=…`. The console
+ * declares no root `/developer` route, so its catch-all sent the author home.
+ * It now points at the API console's registry key inside the app the author is
+ * in: `/apps/APP/component/developer/api-console`, the same path the Studio
+ * sidebar's "API Console" entry builds from that key.
+ *
+ * The query is the request preset `ApiConsolePage` reads once on mount:
+ * `path` is the tool's execute endpoint (`/execute` is the verb service-ai
+ * mounts in `buildToolRoutes`; an earlier `/invoke` spelling could only 404),
+ * and `method` is `POST`, the verb that endpoint answers. `URLSearchParams`
+ * encodes both, so the page reads back exactly the path built here.
+ *
+ * Rendered through `Link`, so the router's basename is applied: the console
+ * ships under a mount path (`/_console`), which a bare rooted `href` would
+ * step outside of. The anchor still opens in a new tab.
+ *
+ * With no router above the preview (the designer gallery harness), or a route
+ * that names no `:appName`, there is no app to open the console in, so no link
+ * is drawn rather than one that goes nowhere.
+ */
+function ApiConsoleLink({ toolName }: { toolName: string }) {
+  // Rules-of-hooks safe: whether a router sits above is a fact about the
+  // mount, and cannot change under it.
+  return useInRouterContext() ? <RoutedApiConsoleLink toolName={toolName} /> : null;
+}
+
+function RoutedApiConsoleLink({ toolName }: { toolName: string }) {
+  const { appName } = useParams<{ appName?: string }>();
+  if (!appName) return null;
+  const preset = new URLSearchParams({
+    path: `/api/v1/ai/tools/${encodeURIComponent(toolName)}/execute`,
+    method: 'POST',
+  });
+  const segments = componentRefToUrlSegments(API_CONSOLE_REF).join('/');
+  return (
+    <Link
+      to={`/apps/${encodeURIComponent(appName)}/component/${segments}?${preset.toString()}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+      title="Open API Console to test invocation"
+    >
+      Open in API Console <ExternalLink className="h-3 w-3" />
+    </Link>
+  );
+}
+
 export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const toolName = String(d.name ?? name ?? '');
@@ -139,23 +200,7 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   return (
     <PreviewShell
       hint="tool"
-      toolbar={
-        toolName && (
-          <a
-            // `/execute` is the verb service-ai mounts (buildToolRoutes). This
-            // link said `/invoke`, which nothing has ever mounted, so "Open in
-            // API Console" landed on a path that could only 404 — the same
-            // shape as the three dead AI endpoints framework#3718 removed.
-            href={`/developer/api-console?path=/api/v1/ai/tools/${encodeURIComponent(toolName)}/execute`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            title="Open API Console to test invocation"
-          >
-            Open in API Console <ExternalLink className="h-3 w-3" />
-          </a>
-        )
-      }
+      toolbar={toolName && <ApiConsoleLink toolName={toolName} />}
     >
       <PreviewErrorBoundary>
         <div className="p-3 space-y-3">

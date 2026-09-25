@@ -1040,8 +1040,12 @@ describe('objectui#7779 — the zod mirror REFUSES `viewTabBar` by name', () => 
 
 /* ── `listViews`: the measurement that keeps it in the ledger ─────────────── */
 
-/** The pages that author `object-view` named views (objectui#8255). */
-const NAMED_VIEW_DOCS = [README, DOC, 'content/docs/api/schema-reference.md'] as const;
+/**
+ * The pages that author named list views (objectui#8255): three on an
+ * `object-view` node, plus the CRUD guide's object definition, whose
+ * `listViews` the spec types with the same `ObjectListViewSchema` value.
+ */
+const NAMED_VIEW_DOCS = [README, DOC, 'content/docs/api/schema-reference.md', 'content/docs/guide/building-crud-app.md'] as const;
 
 /** A literal expression's value. Anything else THROWS, so a reading is never silently partial. */
 function literalValue(node: ts.Expression, where: string): unknown {
@@ -1135,7 +1139,7 @@ describe('objectui#7779 — `listViews` stays unmirrored on the ruling\'s fallba
     expect(SpecObjectListViewSchema.safeParse({ label: 'Directory', columns: ['name', 'email'] }).success).toBe(true);
   });
 
-  it('the docs now teach the spec shape — every named view the three pages author parses under `ObjectListViewSchema` (objectui#8255, off disk)', () => {
+  it('the docs now teach the spec shape — every named view the four pages author parses under `ObjectListViewSchema` (objectui#8255, off disk)', () => {
     // The predicate, and the SAME function the positive control below runs.
     const refused = (entries: ReadonlyArray<{ where: string; view: unknown }>): string[] =>
       entries.filter((e) => !SpecObjectListViewSchema.safeParse(e.view).success).map((e) => e.where);

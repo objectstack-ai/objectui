@@ -36,6 +36,7 @@ import {
   useSettledSchema,
   SchemaRendererContext,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import {
@@ -972,6 +973,37 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
     reloadRef.current();
   }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+
+  /**
+   * objectui#10035 — the refresh input this gantt had none of, so a host could
+   * show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+   * data, don't rebuild UI). The nonce moves when the data-invalidation bus
+   * reports a change to the object this gantt reads.
+   *
+   * ⭐ A SILENT reload, deliberately not the fetch effect above. That effect's
+   * reload flips `loading`, which swaps `GanttView` for the placeholder — the
+   * same loss of scroll, collapsed groups and zoom a remount causes, one level
+   * down. `reload({ silent: true })` is the path the toolbar refresh and every
+   * write-readback here already take for exactly that reason, and it keeps
+   * `reload`'s sequencing, so an invalidation that lands mid-load cannot let a
+   * stale answer win.
+   *
+   * Subscribed only when the rows come from an adapter this gantt queries
+   * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
+   * set are not ours to refresh. Each nonce is answered at most once
+   * (`handledInvalidationRef`): one that lands while the object-schema gate
+   * above is still closed is marked handled and dropped, because the gated
+   * first load has not run yet and reads rows written before it — so the gate
+   * opening later can never add a second query beside that load.
+   */
+  const invalidationNonce = useDataInvalidation(recordQueryDerivesExpand && resource ? resource : undefined);
+  const handledInvalidationRef = useRef(0);
+  useEffect(() => {
+    if (invalidationNonce === handledInvalidationRef.current) return;
+    handledInvalidationRef.current = invalidationNonce;
+    if (recordQueryDerivesExpand && !objectSchemaReady) return;
+    void reloadRef.current({ silent: true });
+  }, [invalidationNonce, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {

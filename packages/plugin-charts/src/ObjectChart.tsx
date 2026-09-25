@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, type ElementDataSourceMapping } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, SchemaRenderer, useDrillNavigation, useFilterScope, ElementDataSourceGate, useDataInvalidation, type ElementDataSourceMapping } from '@object-ui/react';
 import { ChartRenderer } from './ChartRenderer';
 import { normalizeChartSchema } from './normalizeChartSchema';
 import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregateSpecQuery, humanizeLabel, extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, resolveFilterPlaceholders, resolveContextTokens, shiftFilterByCompareTo, compareToTrendLabelKey, chartTypeIgnoresCompareTo, buildChartSeries, buildOptionColorMap, deriveDimensionLabelMaps, dimensionOptionTranslator, loadDimensionFieldMeta, relabelDimensions, localizeFieldOptions, elementDataSourceBlock, type DimensionFieldMeta, type CompareToConfig, type DrillEvent, type ChartResultField, type ChartSegmentClickEvent } from '@object-ui/core';
@@ -503,6 +503,11 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // buildChartSeries() below can resolve a human series label instead of
   // falling back to the raw field name.
   const [datasetFields, setDatasetFields] = useState<ChartResultField[] | null>(null);
+  // The dataset's BASE object, as the `queryDataset` answer names it (the same
+  // `object` the dashboard's DatasetWidget reads for drill-through). A dataset
+  // node carries no `objectName`, so this is the only object a dataset-bound
+  // chart can key its data-invalidation subscription on (objectui#10035).
+  const [datasetObject, setDatasetObject] = useState<string | undefined>(undefined);
   // Start in loading state when we will fetch, so the no-data / empty branch
   // doesn't flash before the fetch effect runs and flips loading to true.
   const [loading, setLoading] = useState<boolean>(() => {
@@ -780,6 +785,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
               if (mounted.current) {
                   setFetchedData(Array.isArray(res?.rows) ? res.rows : []);
                   setDatasetFields(Array.isArray(res?.fields) ? res.fields : null);
+                  setDatasetObject(typeof res?.object === 'string' && res.object ? res.object : undefined);
               }
               return;
           }
@@ -938,10 +944,29 @@ export const ObjectChart = (props: ObjectChartProps) => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, schema.chartType, runAggregate, filterScope, fieldOptionLabel]);
 
+  // objectui#10035 — the refresh input this chart had none of, so a host could
+  // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+  // data, don't rebuild UI). The nonce moves when the data-invalidation bus
+  // reports a change to the object this chart QUERIES, and the fetch effect
+  // below names it, so both binding shapes re-run their own query in place:
+  //   - object-bound (`aggregate` / `find` over `schema.objectName`) keys on
+  //     that object;
+  //   - dataset-bound (`queryDataset`) keys on the dataset's base object, which
+  //     only the query's answer names (`datasetObject` above) — a dataset node
+  //     carries no `objectName`.
+  // A chart drawing bound or inline rows fetches nothing and is not subscribed.
+  // The re-read keeps the chart mounted (`RefreshIndicator` over the current
+  // rows, not the skeleton), so an open drill drawer and the chart's own state
+  // survive a save.
+  const fetchesForItself = !!(schema.objectName || schema.dataset) && !boundData && !schema.data;
+  const invalidationNonce = useDataInvalidation(
+    fetchesForItself ? (schema.dataset ? datasetObject : schema.objectName) : undefined,
+  );
+
   useEffect(() => {
     const mounted = { current: true };
 
-    if ((schema.objectName || schema.dataset) && !boundData && !schema.data) {
+    if (fetchesForItself) {
         fetchData(dataSource, mounted);
     } else if (mounted.current) {
         // Have inline / bound data — won't fetch; clear loading.
@@ -949,7 +974,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     }
     return () => { mounted.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData]);
+  }, [schema.objectName, datasetKey, dataSource, boundData, schema.data, filterKey, aggregateKey, compareToKey, fetchData, invalidationNonce]);
 
   const rawData = boundData || schema.data || fetchedData;
   const finalData = Array.isArray(rawData) ? rawData : [];

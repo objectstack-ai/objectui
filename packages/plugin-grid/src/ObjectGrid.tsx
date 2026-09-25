@@ -25,7 +25,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -1839,6 +1839,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return () => { cancelled = true; };
   }, [hasInlineData, objectName, dataSource]);
 
+  // objectui#10035 — the refresh input this grid had none of, so a host could
+  // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+  // data, don't rebuild UI). The nonce moves when the data-invalidation bus
+  // reports a change to the object this grid FETCHES, and the load effect below
+  // names it, so the rows are re-read in place — the table stays mounted
+  // (`RefreshIndicator`, not the skeleton), and with it selection, scroll,
+  // column state and any open inline edit. Subscribed only when the grid
+  // fetches for itself: rows a host handed down (`data`, `bind`, an inline
+  // `value` set) are the host's to refresh, and a nonce there would only
+  // re-render for nothing.
+  const invalidationNonce = useDataInvalidation(hasInlineData ? undefined : objectName);
+
   // --- Unified async data loading effect ---
   // Combines schema fetch + data fetch into a single async flow with AbortController.
   // This avoids the fragile "chained effects" pattern where Effect 1 sets objectSchema,
@@ -2349,7 +2361,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the query asking for the OLD one and the new grouping would read
   // `undefined` on every row — the very `(empty)` bucket this card fixes,
   // reachable a second way.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
+  // `invalidationNonce` (objectui#10035): a write to this object, reported on
+  // the data-invalidation bus — see its declaration above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it

@@ -106,6 +106,18 @@ export interface DateDisplayOptions {
 const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * An ISO date carrying a time part — `2026-08-01T09:30:00Z`, the same with a
+ * space separator, with or without seconds or an offset. Matched only as far
+ * as `HH:mm`, so its first ten characters are the `YYYY-MM-DD` the value was
+ * written on.
+ *
+ * Spelled exactly as `dataset-format.ts`'s `ISO_DATETIME_RE`, which sniffs the
+ * same shape to route a measure to its datetime arm, for the same reason as
+ * {@link ISO_DATE_ONLY_RE} above: one convention, one spelling.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+
+/**
  * A date that exists — the pattern alone would accept `2024-02-31`.
  *
  * `true` only for a date-only ISO string (`YYYY-MM-DD`, the shape
@@ -177,9 +189,10 @@ export function isRealCalendarDate(dateOnly: string): boolean {
  * parse already lands on the right day — the co-located suite drives both.
  * `GridField`'s sub-grid cell already parsed its own date-only values this
  * way before reaching `formatDate`; this is that treatment, moved to the one
- * place every caller passes through.
+ * place every caller passes through (the sub-grid reads it from here since
+ * objectui#10301).
  *
- * A value with a time part is untouched, in both spellings: it HAS an
+ * A value with a time part is not rebuilt, in both spellings: it HAS an
  * instant, and rendering an instant in the viewer's zone is the whole point
  * of a `datetime`. The regex is what separates them, so the split is the
  * VALUE's shape and never the field's declared type, which this module (pure,
@@ -204,10 +217,15 @@ export function isRealCalendarDate(dateOnly: string): boolean {
  * objectui#4576 recorded. {@link isRealCalendarDate} is the one judgement,
  * shared with the filter builder's authoring boundary.
  *
- * ⚠️ A value that carries a TIME (`2026-02-30T10:00:00Z`) is not judged here
- * and still rolls. The ruling names date-only values; whether an instant
- * spelled on a nonexistent day is refused too is an open question on that
- * card, not a decision this step makes by itself.
+ * A value that carries a TIME is refused the same way when the day it is
+ * written on does not exist (objectui#10301): `2026-02-30T10:00:00Z` parses
+ * too, and rendered `Mar 2, 2026, 10:00 AM` on every datetime face. Triage
+ * graded that an inherited branch of the same ruling. The judgement reads the
+ * value's leading `YYYY-MM-DD` AS WRITTEN, never the day its instant lands on
+ * in some zone: a parsed `Date` always names a real day, so a check made after
+ * any conversion could only miss the refusal, and a real day written with an
+ * offset (`2026-02-28T23:30:00-05:00`, March 1st in UTC) is kept. A real
+ * date-time is otherwise untouched — no rebuild, the engine's instant.
  *
  * ## Why it is exported (objectui#10183)
  *
@@ -227,6 +245,11 @@ export function isRealCalendarDate(dateOnly: string): boolean {
  */
 export function toDisplayDate(value: string | Date | number): Date {
   const parsed = value instanceof Date ? value : new Date(value as any);
+  // The engine rolls a date-time written on a nonexistent day forward too;
+  // judge the day as written and refuse it (objectui#10301).
+  if (typeof value === 'string' && ISO_DATETIME_RE.test(value) && !isRealCalendarDate(value.slice(0, 10))) {
+    return new Date(NaN);
+  }
   if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
     return parsed;
   }

@@ -153,10 +153,10 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * pattern admits — such a value falls through untouched.
  *
  * ⛔ A DAY that overflows its month does NOT fall through. `2026-02-30T09:30`
- * parses, reaches the shared date path and renders rolled over: that path
- * refuses a nonexistent day only on a DATE-ONLY value (objectui#10026), and
- * whether it should refuse one spelled with a time is open on that card. See
- * the note inside {@link formatMeasureDate}.
+ * parses and reaches the shared date path, which refuses it with the dash
+ * `formatDateTime` renders for any unparsable value (objectui#10301, the
+ * date-time half of objectui#10026). The refusal is that path's, not this
+ * pattern's. See the note inside {@link formatMeasureDate}.
  */
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 

@@ -13,4 +13,4 @@ A date-only value naming a day its month does not have — `2026-02-30`, `2024-0
 - **A dataset measure agrees with the list cell on the refusal.** A date-only measure value of `2024-02-30` renders `—`, the same as the `date` cell beside it. The measure takes that answer from the shared path and makes no judgement of its own.
 - **`@object-ui/fields`:** the `date` and `datetime` cells, the readonly `DateField` and a date-returning `FormulaField` show the shared "No value" placeholder for such a day, exactly as for an unparsable value, instead of a bare dash.
 
-A value that carries a time (`2026-02-30T10:00:00Z`) still rolls. This change covers date-only values only.
+This change covers date-only values only. (A value that carries a time, such as `2026-02-30T10:00:00Z`, is refused by the same path too — objectui#10301, a separate entry in this release.)

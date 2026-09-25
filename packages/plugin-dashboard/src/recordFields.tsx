@@ -40,6 +40,10 @@ import {
 // package, the way the other converged consumers do, so the identity pin has a
 // single object to spy on.
 import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
+// The one currency precedence every field / measure / cell face shares
+// (objectui#10463), read from its home package as `ObjectGrid` and
+// `ObjectMetricWidget` read it.
+import { resolveFieldCurrency } from '@object-ui/i18n';
 
 /**
  * Framework / system audit fields hidden from auto-derived columns and the
@@ -329,6 +333,16 @@ export interface BuildFieldMetaParams {
  * Build the `FieldMeta` for a single field, resolving currency from the
  * schema field def and translating select options. Column-level overrides
  * win over schema-derived values.
+ *
+ * The field def's currency goes through `resolveFieldCurrency`
+ * (`@object-ui/i18n`) rather than a chain of this helper's own (objectui#10463).
+ * The resolver is what reads `currencyConfig`, the spec's one fixed-currency
+ * declaration, and only under `currencyMode: 'fixed'`. The chain it replaced
+ * read the flat `currency` / `defaultCurrency` spellings only, so a fixed
+ * field painted in the tenant currency in both the table cell and the record
+ * drawer. The call passes NO tenant default: `renderFieldValue` backstops with
+ * the tenant only after the symbol it infers from a `format`, and a tenant code
+ * resolved here would jump ahead of that symbol.
  */
 export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
   const { accessorKey, label, def: meta, objectName, fieldOptionLabel, overrides = {} } = params;
@@ -355,7 +369,7 @@ export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
     type: overrides.type ?? meta?.type,
     options,
     format: overrides.format ?? meta?.format,
-    currency: overrides.currency ?? meta?.currency ?? meta?.defaultCurrency,
+    currency: overrides.currency ?? resolveFieldCurrency(meta),
     // ⛔ No `decimals` — RETIRED by objectui#6625. It resolved
     // `meta?.decimals ?? meta?.scale` on every call and reached no reader; the
     // `overrides.decimals ??` head of that chain had already lost its only

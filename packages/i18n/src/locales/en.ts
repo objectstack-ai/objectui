@@ -941,6 +941,7 @@ const en = {
     },
     aria: {
       taskList: 'Task list',
+      refreshing: 'Refreshing…',
     },
     tooltip: {
       days: 'd',

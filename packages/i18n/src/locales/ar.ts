@@ -787,6 +787,7 @@ const ar = {
     },
     aria: {
       taskList: "قائمة المهام",
+      refreshing: "جارٍ التحديث…",
     },
     tooltip: {
       days: "ي",

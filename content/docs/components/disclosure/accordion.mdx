@@ -27,6 +27,8 @@ interface AccordionSchema {
   collapsible?: boolean;                    // Whether items can be collapsed; default true
   defaultValue?: string | string[];         // Default expanded item value(s)
   value?: string | string[];                // Controlled expanded item value(s)
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onValueChange?: (value: string | string[]) => void;
   variant?: 'default' | 'bordered' | 'separated';  // default 'default'
 }

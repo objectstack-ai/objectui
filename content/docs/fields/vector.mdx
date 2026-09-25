@@ -85,6 +85,9 @@ const VectorCell = getCellRenderer('vector');
 // <VectorCell value={embedding} field={field} /> renders: [Vector]
 ```
 
+An empty value (`null`, `undefined`, `''` or `[]`) renders the shared "No value"
+affordance instead, so an empty cell is distinguishable from a populated one.
+
 ## Vector Operations
 
 Common operations with vector fields (performed on backend):

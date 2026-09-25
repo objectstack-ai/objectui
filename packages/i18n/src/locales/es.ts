@@ -777,6 +777,7 @@ const es = {
     },
     aria: {
       taskList: "Lista de tareas",
+      refreshing: "Actualizando…",
     },
     tooltip: {
       days: "d",

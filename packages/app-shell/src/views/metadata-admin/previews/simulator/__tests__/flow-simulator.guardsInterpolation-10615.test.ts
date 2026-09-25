@@ -154,7 +154,8 @@ describe('a guard the runtime refuses or cannot evaluate fails the run (objectui
  * Shapes the edge's `condition` schema refuses at `FlowSchema.parse`, so the
  * runtime never registers the flow. Three of them used to read as "no
  * condition" and take the default branch, and the envelope with no `dialect`
- * was evaluated as CEL; only an omitted guard (`undefined`) does that now.
+ * was evaluated and took its branch; only an omitted guard (`undefined`) reads
+ * as "no condition" now.
  */
 describe('a guard shape the edge schema refuses is refused, not read as absent (objectui#10615)', () => {
   const refused: Array<[string, unknown, string | undefined]> = [

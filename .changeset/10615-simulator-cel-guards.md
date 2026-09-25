@@ -27,9 +27,9 @@ defined while `data.n` was.
   an envelope with an empty or missing `source` (`{ dialect: 'cel', source: '' }`, an
   `ast`-only envelope) and `null`, which used to read as "no condition" and take the
   default branch, and an envelope with no `dialect` (`{ source: 'n == 2' }`), which used
-  to be evaluated as CEL. The installed spec 17.4.0 admits an `ast`-only envelope and a
-  whitespace-only guard at parse; objectstack main refuses both, and the Debug run
-  follows main.
+  to be evaluated and take its branch. The installed spec 17.4.0 admits an `ast`-only
+  envelope and a whitespace-only guard at parse; objectstack main refuses both, and the
+  Debug run follows main.
 - Unchanged: an edge whose condition is omitted is still reported as "Branch has no
   condition." and not taken, and when several guards are true the Debug run still takes
   the first.

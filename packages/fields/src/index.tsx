@@ -365,7 +365,9 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`;
+ *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
+ *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
  *    `UserCellRenderer` (+ every falsy scalar); `BooleanCellRenderer`
  *    (+ every non-boolean, objectui#8582); `DateCellRenderer` /
@@ -3240,18 +3242,89 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
+ * `password` / `secret` cell renderer: the mask for a credential that is SET,
+ * and the shared affordance for one that is NOT (objectui#8678).
+ *
+ * The entry this replaces was an argument-less arrow that drew the mask for
+ * every input, `null` included. On screen, a credential that was never set was
+ * then drawn exactly like one that is set. The platform's read contract is
+ * presence-preserving on purpose: `@objectstack/spec`'s `SECRET_MASK` docblock
+ * says an unset credential "reads back `null` instead, never this mask", which
+ * is what lets a console render "configured" vs "not configured" at all. This
+ * cell threw that distinction away one step before the reader saw it.
+ *
+ * ⛔ The value is NEVER printed and never reaches the DOM. Only its presence is
+ * read. A populated value keeps the exact mask it drew before this card, and
+ * nothing here is a weaker mask.
+ *
+ * "Empty" is the string class's answer, since both types are
+ * `STRING_VALUE_TYPES` members in the spec: `TextCellRenderer`'s predicate
+ * exactly, the floor on the coerced text. `{}` therefore stays a VALUE and
+ * keeps the mask, per objectui#8596's string-class ruling ("the record IS
+ * storing something"). A whitespace-only string also keeps it, because `text`
+ * keeps its spaces and a blank credential is still a set one.
+ * `cellRenderers.valueIndependent-8678` pins this byte-equal to `text` for
+ * every empty input.
+ *
+ * ⭐ A NAMED module-level component, for the reason {@link RepeaterCellRenderer}
+ * states: `EmptyValue` holds a hook, and an inline arrow in the table below
+ * is a new component type on every resolution, so it would tear that hook down
+ * per render.
+ */
+function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(coerceToSafeValue(value))) return <EmptyValue />;
+  return <span>••••••</span>;
+}
+
+/**
+ * `vector` / `grid` cell renderers: the placeholder literal for a value that is
+ * stored, and the shared affordance for none (objectui#8678). Before this, both
+ * were argument-less arrows that printed their literal for every input. Neither
+ * type has a masking rationale, so a constant face was just an assertion that
+ * the record held something.
+ *
+ * "Empty" is the floor exactly (`isEmptyValue`: `null`, `undefined`, `''`,
+ * `[]`), read from each type's value class:
+ *  - `vector` is `z.array(z.number())` in the spec's `valueSchemaFor`, so `[]`
+ *    is its own empty member: an embedding with no dimensions.
+ *  - `grid` is not a spec `FieldType`, so the spec gives it no class. Its class
+ *    is this package's own `GridField` contract, an array of row objects. `[]`
+ *    is zero rows.
+ *
+ * ⛔ Deliberately NOT extended to `{}`. Neither class can produce it (the spec's
+ * write seam refuses a non-array `vector`, and `GridField` writes arrays). And
+ * `@object-ui/plugin-detail`'s `hasCellValue` calls every object a value, so a
+ * `{}` clause here would draw "No value" inside a row that band has already
+ * called filled. A clause for a value the contract cannot produce would also be
+ * the renderer-side tolerance AGENTS.md #0.1 refuses.
+ *
+ * The populated face is byte-for-byte what it was. Whether a stored vector or
+ * grid deserves a face richer than a literal is a separate question.
+ */
+function VectorCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Vector]</span>;
+}
+
+/** See {@link VectorCellRenderer}: the same rule, with `grid`'s literal. */
+function GridCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Grid]</span>;
+}
+
+/**
  * THE standard cell-renderer table, built fresh on every call.
  *
- * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
- * difference is pinned rather than stylistic: several entries here are INLINE
- * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
- * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
- * pins BOTH halves of today's behaviour — a module-level entry is stable across
- * calls, an inline arrow is not — and hoisting flips the second one. This
- * extraction therefore changes nothing a caller can observe: `getCellRenderer`
- * rebuilds the table per call exactly as it did when the literal sat in its
- * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
- * second copy of the key list, so the two cannot drift.
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant. Until
+ * objectui#8678 that difference was observable: four entries were INLINE arrows
+ * (`password`, `secret`, `vector`, `grid`), and hoisting this object would have
+ * frozen their identity. They became the named renderers above when they began
+ * drawing `EmptyValue`. No entry is an inline arrow now, and
+ * `cellRenderers.valueIndependent-8678` pins every registered type as ONE
+ * function object across two resolutions, so a new inline entry goes red by
+ * name. `getCellRenderer` still rebuilds the table per call, and
+ * {@link listCellRendererTypes} reads the SAME builder rather than a second
+ * copy of the key list, so the two cannot drift.
  */
 function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
   return {
@@ -3301,8 +3374,8 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,
     user: UserCellRenderer,
-    password: () => <span>••••••</span>,
-    secret: () => <span>••••••</span>,
+    password: MaskedCellRenderer,
+    secret: MaskedCellRenderer,
     location: LocationCellRenderer,
     geolocation: LocationCellRenderer,
     address: AddressCellRenderer,
@@ -3312,8 +3385,8 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     composite: JsonCellRenderer,
     record: JsonCellRenderer,
     repeater: RepeaterCellRenderer,
-    vector: () => <span className="text-gray-500 italic">[Vector]</span>,
-    grid: () => <span className="text-gray-500 italic">[Grid]</span>,
+    vector: VectorCellRenderer,
+    grid: GridCellRenderer,
   };
 }
 
@@ -3859,8 +3932,11 @@ export function getLazyFieldWidget(fieldType: string): React.ComponentType<any> 
   const key = resolveFormWidgetType(fieldType);
   // A retired key has no loader in `fieldWidgetMap` by construction, so it is
   // answered with the tombstone before the lazy path (which would otherwise
-  // call `React.lazy(undefined)`).
-  if (RETIRED_FIELD_TYPES[key]) return RetiredFieldTombstone;
+  // call `React.lazy(undefined)`). The tombstone is BOUND to `key`: a host
+  // that resolved the key from an authored `widget` hands over a `field` whose
+  // `type` is a live type, and the refusal must name what was resolved
+  // (objectui#10471) — see {@link retiredFieldTombstoneFor}.
+  if (RETIRED_FIELD_TYPES[key]) return retiredFieldTombstoneFor(key);
   let Widget = lazyFieldWidgets.get(key);
   if (!Widget) {
     // `resolveFormWidgetType` only returns keys the map holds, hence the `!`.
@@ -4068,9 +4144,21 @@ export function registerField(fieldType: string): void {
  * nothing is silently substituted either, which is the whole point: the author
  * sees a refusal where they expected an input, not a text box that looks like
  * it worked.
+ *
+ * The spelling it names is `retiredFieldType` — the key the RESOLVER answered
+ * with this tombstone — and is re-derived from the field only when a host
+ * renders the tombstone directly without one (objectui#10471). The field is
+ * the wrong witness whenever the retired spelling arrived through a different
+ * key than `field.type`: an authored `widget` wins over `type` in both form
+ * hosts, so `{ type: 'user', widget: 'owner' }` reaches the `owner` tombstone
+ * carrying a `user` field, and deriving from it named the LIVE type as
+ * retired, lost the prescription, and logged nothing. The two resolvers fill
+ * the prop by binding it ({@link retiredFieldTombstoneFor}); a host whose key
+ * IS `field.type` (plugin-detail's inline editor) may keep omitting it.
  */
 export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   const spelling: string =
+    props?.retiredFieldType ??
     props?.field?.type ?? props?.schema?.type ?? props?.type ?? 'unknown';
   const prescription =
     RETIRED_FIELD_TYPES[spelling] ??
@@ -4090,6 +4178,40 @@ export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   );
 };
 
+/** One bound tombstone per retired spelling — see {@link retiredFieldTombstoneFor}. */
+const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<Record<string, unknown>>>();
+
+/**
+ * {@link RetiredFieldTombstone}, bound to the retired spelling a resolver
+ * answered with it (objectui#10471).
+ *
+ * Both resolvers that turn a retired key into the tombstone hand out this
+ * component — `getLazyFieldWidget` and the `field:` registrations of
+ * `registerAllFields()` — because neither can put the key into the props a
+ * host renders it with: `FormPage` and the record form pass the row's `field`,
+ * and nothing else names what was resolved. Binding it here tells the
+ * tombstone which spelling it answers for, with no host edit and no second
+ * table: the spelling is the resolver's own key, and the prescription is still
+ * read from `RETIRED_FIELD_TYPES` by the tombstone itself.
+ *
+ * Cached per spelling, so the identity is stable (a host that memoises on the
+ * key does not remount) and the registry and the lazy door hand out the SAME
+ * component. `reportRetiredFieldType` stays once per spelling: it dedupes on
+ * the spelling, which is now the right one.
+ */
+function retiredFieldTombstoneFor(spelling: string): React.ComponentType<Record<string, unknown>> {
+  let Bound = retiredFieldTombstonesBySpelling.get(spelling);
+  if (!Bound) {
+    const BoundTombstone: React.FC<Record<string, unknown>> = (props) => (
+      <RetiredFieldTombstone {...props} retiredFieldType={spelling} />
+    );
+    BoundTombstone.displayName = `RetiredFieldTombstone(${spelling})`;
+    Bound = BoundTombstone;
+    retiredFieldTombstonesBySpelling.set(spelling, Bound);
+  }
+  return Bound;
+}
+
 export function registerAllFields(): void {
   Object.keys(fieldWidgetMap).forEach(fieldType => {
     registerField(fieldType);
@@ -4098,8 +4220,11 @@ export function registerAllFields(): void {
   // (`skipFallback` — a tombstone must not claim the bare global name). This is
   // what makes `widget: 'field:owner'` and a hand-written `type: 'owner'` land
   // on a visible refusal instead of falling through to the form's text input.
+  // Each is registered BOUND to its spelling, because the record form also
+  // reaches `field:owner` through `widget: 'owner'` over a live-typed field
+  // (objectui#10471).
   Object.keys(RETIRED_FIELD_TYPES).forEach(fieldType => {
-    ComponentRegistry.register(fieldType, RetiredFieldTombstone, {
+    ComponentRegistry.register(fieldType, retiredFieldTombstoneFor(fieldType), {
       namespace: 'field',
       skipFallback: true,
     });

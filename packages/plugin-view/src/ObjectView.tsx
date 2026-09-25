@@ -377,8 +377,8 @@ export interface ObjectViewProps {
    * If not provided, uses schema.listViews or falls back to default grid view.
    *
    * `sort` spells its direction key `order`, like every other sort surface in
-   * the repo (`SortConfig`, `NamedListView.sort`, `ObjectGridSchema.sort` /
-   * `.defaultSort`) and like the shared sink `convertSortToQueryParams` reads
+   * the repo (`SortConfig`, `NamedListView.sort`, `ObjectGridSchema.sort`)
+   * and like the shared sink `convertSortToQueryParams` reads
    * it. It used to be declared as `direction` (objectui#5293), which NO
    * consumer of THIS prop ever read: all three consumers of the resolved
    * `activeView.sort` read `order`, so a host writing `direction: 'desc'` got a
@@ -1054,37 +1054,25 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // objectui#4869: this was the LAST object-bound read site handing an
         // AUTHORED sort to `$orderby` unlowered — gantt / map / calendar /
         // timeline / `record:line_items` all lower through the shared sink
-        // already. Leaving this one raw was not merely a divergence, it was a
-        // live `400 INVALID_SORT`: `table.defaultSort` is declared a SINGLE
-        // `{ field, order }` object, so it reached the adapter's
-        // `serializeOrderBy` as an `$orderby` MAP and
-        // `Object.entries({ field: 'name', order: 'desc' })` serialized to the
-        // wire string `field,-order` — two columns that do not exist. The
-        // server rejects an unreadable sort rather than ignoring it, the catch
-        // below swallows the 400, and a calendar/kanban/gallery whose only sort
-        // was `table.defaultSort` rendered EMPTY while the SAME metadata sorted
-        // correctly as a grid.
-        //
-        // The legacy member of the pair is lowered HERE, before the sink, which
-        // is verbatim the resolution `ObjectGrid` already performs for this
-        // exact pair (`plugin-grid/src/ObjectGrid.tsx`: `schemaSort ??
-        // (schema.defaultSort ? [schema.defaultSort] : undefined)`) and which
-        // ObjectView's own grid path inherits by forwarding both slots. It is
-        // not a new tolerance layer: the sink still honours only the two
-        // spellings the schema declares (`string` and `SortConfig[]`), and
-        // ⛔ must NOT be widened to accept a bare `{ field, order }` — its input
-        // slot legitimately also carries `$orderby`'s own
+        // already, and so does this one now (below, `convertSortToQueryParams`).
+        // ⛔ The sink must NOT be widened to accept a bare `{ field, order }` —
+        // its input slot legitimately also carries `$orderby`'s own
         // `Record<field, direction>` map, in which `{ field: 'desc' }` is a
         // perfectly legal ordering by a column literally named `field`, so the
         // sink would have to GUESS. (Maintainer ruling 2026-08-22: Option A;
         // Option B — widening the shared sink — rejected on the merits.)
         //
-        // Precedence is unchanged: the canonical `table.sort` still outranks the
-        // deprecated `table.defaultSort`, and both still lose to a view's sort —
-        // the same order the grid path and `mergedSort` express.
+        // objectui#5861: the chain ends at the canonical `table.sort`. The
+        // legacy single-entry `table.defaultSort` that used to be lowered here
+        // as a fourth branch is RETIRED under ADR-0049 — `@objectstack/spec`
+        // refuses it by name on `object-grid` — and it was retired on all three
+        // `ObjectView` paths at once (this fetch, the grid forwarding and the
+        // delegated `mergedSort`) together with `ObjectGrid`'s own read, so no
+        // path honours the key while another ignores it. A view's sort still
+        // outranks `table.sort`, the same order the grid path and `mergedSort`
+        // express.
         const sort = currentNamedViewConfig?.sort || activeViewQueryInputs?.sort
-          || schema.table?.sort
-          || (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined);
+          || schema.table?.sort;
 
         // Auto-inject $expand for lookup/master_detail fields. Reached only
         // with the schema resolved (the gate above), so a view whose object
@@ -1988,41 +1976,38 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // on the floor. An author who wrote the canonical shape the type recommends
   // got a compile-clean, semantically correct, RUNTIME-INERT view.
   //
-  // ObjectGrid already reads both spellings of all four and already resolves
-  // them canonical-first (`schema.pagination?.pageSize ?? schema.pageSize`;
+  // ObjectGrid reads both spellings of the first three and resolves them
+  // canonical-first (`schema.pagination?.pageSize ?? schema.pageSize`;
   // `if (schema.selection?.type) … else if (schema.selectable !== undefined)`;
-  // `schemaFilter !== undefined ? … : schema.defaultFilters`;
-  // `schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined)`).
-  // So the fix is forwarding, not translation — and the precedence is not a
-  // free choice here: emitting both slots lets ObjectGrid's existing
-  // canonical-wins rule decide, which is the only answer that keeps the two
-  // layers saying the same thing.
+  // `schemaFilter !== undefined ? … : schema.defaultFilters`), so the fix is
+  // forwarding, not translation — and the precedence is not a free choice
+  // here: emitting both slots lets ObjectGrid's existing canonical-wins rule
+  // decide, which is the only answer that keeps the two layers saying the
+  // same thing.
+  //
+  // objectui#5861: the fourth pair is no longer a pair. `defaultSort` was
+  // RETIRED under ADR-0049 — `@objectstack/spec` refuses it by name on
+  // `object-grid` — so it is not forwarded, ObjectGrid no longer reads it, and
+  // `sort` below is the only sort slot this memo fills.
   //
   // objectui#5270: the two segments AHEAD of `table` had a second, separate
   // problem — an ARITY mismatch, not a spelling one. Both of them carry an
   // ARRAY of sort keys (`NamedListView.sort` is `Array< { field, order } >`;
   // the `views` prop declares an array too) and both were being written into
-  // `defaultSort`, which is declared a SINGLE `{ field, order }`. Neither of
-  // ObjectGrid's two readers survives that:
-  //
-  //   header  `parseSchemaSort(schemaSort ?? [schema.defaultSort])` becomes
-  //           `parseSchemaSort([[{ field, order }]])`. The outer array is
-  //           iterated and each entry must be a string or an object with a
-  //           string `field`; a nested ARRAY is neither, so the entry is
-  //           dropped and the result is `[]` — no arrow, the view arrives
-  //           looking unsorted.
-  //   fetch   `` `${(schema.defaultSort as any).field} ${….order}` `` reads two
-  //           missing keys off an array and sends the literal string
-  //           `"undefined undefined"` as `$orderby`.
+  // `defaultSort`, which was declared a SINGLE `{ field, order }`. Neither of
+  // the two `defaultSort` readers ObjectGrid had at the time survived that:
+  // the header reader re-wrapped the array into a nested one that parsed to
+  // no arrow, and the fetch reader read `field` / `order` off the array and
+  // sent the literal string `"undefined undefined"` as `$orderby`. (Both of
+  // those readers are gone since objectui#5861 retired `defaultSort`.)
   //
   // So the view's sort now rides the CANONICAL slot, `ObjectGridSchema.sort`,
   // which holds the multi-key arity a view carries. That is also the shape the
   // shared sort sink accepts (`convertSortToQueryParams`, `SortConfig[]` —
   // objectui#4869, narrowed to the array alone by objectui#8221), so this
   // converges on the normalized dialect instead of introducing another.
-  // Precedence is unchanged: ObjectGrid resolves `sort ?? defaultSort`, so a
-  // view sort still outranks a `table.defaultSort`, and `table.sort` still
-  // outranks it too — the same order `mergedSort` and the non-grid fetch use.
+  // Precedence: a view sort outranks `table.sort` — the same order
+  // `mergedSort` and the non-grid fetch use.
   const gridSchema: ObjectGridSchema = useMemo(() => {
     // The two segments ahead of the `table` one, resolved once.
     //
@@ -2030,9 +2015,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // `filter`/`defaultFilters` are not interchangeable downstream —
     // ObjectGrid lowers the canonical slot through `toFilterNode` and
     // raw-assigns the legacy one — so moving a named-view filter across would
-    // change the wire shape of a path objectui#5270 does not own. The sort
-    // pair has no such asymmetry: both slots reach `$orderby` unlowered, and
-    // only the canonical one can hold more than a single key.
+    // change the wire shape of a path objectui#5270 does not own. Sort has no
+    // such asymmetry to preserve: its canonical slot is the only one left
+    // (the legacy `defaultSort` is retired, objectui#5861), and it is the one
+    // that can hold more than a single key.
     const viewFilter = currentNamedViewConfig?.filter || activeView?.filter;
     const viewSort = currentNamedViewConfig?.sort || activeView?.sort;
 
@@ -2054,11 +2040,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         create: false, // Create is handled by the view's create button
       },
       defaultFilters: viewFilter || schema.table?.defaultFilters,
-      // Legacy slot, `table` segment ONLY (objectui#5270). The view segments
-      // moved to the canonical `sort` below because this one holds a single
-      // `{ field, order }` and they carry arrays; ObjectGrid resolves
-      // `sort ?? defaultSort`, so a view sort still outranks this default.
-      defaultSort: schema.table?.defaultSort,
       // Canonical `table` keys, at last forwarded. `filter` carries the
       // `table` segment ONLY: the view segment resolved above already occupies
       // the legacy slot, and ObjectGrid prefers this slot over that one — so
@@ -2216,40 +2197,23 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // branches were dead. They are gone rather than corrected: the delegated
   // renderer owns the filter/sort UI and does its own combining.
   //
-  // The `table` segment of both chains reads the canonical key first and the
-  // deprecated one as its alias (objectui#5102). Both land on `list-view`'s
-  // own `filter` / `sort` keys below, so a canonical value arrives in the slot
-  // that already matches its shape.
+  // The `table` segment of the filter chain reads the canonical key first and
+  // the deprecated one as its alias (objectui#5102). Both chains land on
+  // `list-view`'s own `filter` / `sort` keys below, so a canonical value
+  // arrives in the slot that already matches its shape.
   //
-  // objectui#6235: that last sentence used to be FALSE of the sort chain's
-  // final branch. `list-view`'s `sort` slot is declared `string | SortConfig[]`
-  // (the spec's own `ListViewSchema.sort`, imported by reference into
-  // `packages/types/src/zod/objectql.zod.ts`), and every branch above the last
-  // produces one of those two — but `table.defaultSort` is declared a SINGLE
-  // `{ field, order }` object, and it was forwarded BARE. There is no
-  // compile-time witness: `ObjectViewSchema.table` collapses to a bare index
-  // signature (objectui#5102) and this node is assembled on the host-
-  // composition surface (objectui#5097), whose `renderListView` slot types
-  // `schema` as `any`.
-  //
-  // Every reader of that slot then drops the sort SILENTLY — no crash, no
-  // error, just an unsorted list: `ListView.parseSortConfig` and
-  // `ObjectGrid.parseSchemaSort` both open `typeof sort === 'string' ? [sort]
-  // : Array.isArray(sort) ? sort : []`, so a bare object yields `[]`, and the
-  // shared sink `convertSortToQueryParams` returns `undefined` for it. Both
-  // in-tree hosts feed this slot straight into `ListView`
-  // (`app-shell/src/views/ObjectView.tsx` `fullSchema`, and
-  // `studio-design/StudioDesignSurface.tsx` `renderStudioGridList`).
-  //
-  // So the legacy member of the pair is lowered HERE, in the caller, verbatim
-  // as the non-grid fetch path above already does it and as `ObjectGrid`
-  // performs it for this exact pair. ⛔ The alternative — teaching the shared
-  // sink to accept a bare `{ field, order }` — is the widening the maintainer
-  // ruling of 2026-08-22 REJECTED on the merits (quoted with the non-grid
-  // fetch above): that slot legitimately also carries `$orderby`'s own
-  // `Record<field, direction>` map, in which `{ field: 'desc' }` is a legal
-  // ordering by a column literally named `field`, so the sink would have to
-  // GUESS. Precedence is untouched — only the last branch changes shape.
+  // objectui#5861: the sort chain has no alias branch any more. It used to end
+  // in the legacy single-entry `table.defaultSort`, wrapped into an array here
+  // (objectui#6235) because `list-view`'s `sort` slot declares `SortConfig[]`
+  // and every reader of that slot drops a bare object silently. That key is
+  // now RETIRED under ADR-0049 — `@objectstack/spec` refuses it by name on
+  // `object-grid` — and it was retired here in the same change as the non-grid
+  // fetch above, the grid forwarding and `ObjectGrid`'s own read, so no path
+  // honours it while another ignores it. ⛔ Do not bring the alias back by
+  // teaching the shared sink a bare `{ field, order }`: that is the widening
+  // the maintainer ruling of 2026-08-22 REJECTED (quoted with the non-grid
+  // fetch above), because that slot legitimately also carries `$orderby`'s own
+  // `Record<field, direction>` map.
   const mergedFilters = currentNamedViewConfig?.filter
     || activeView?.filter
     || schema.table?.filter
@@ -2257,8 +2221,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   const mergedSort = currentNamedViewConfig?.sort
     || activeView?.sort
-    || schema.table?.sort
-    || (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined);
+    || schema.table?.sort;
 
   // --- Content renderer ---
   const renderContent = () => {

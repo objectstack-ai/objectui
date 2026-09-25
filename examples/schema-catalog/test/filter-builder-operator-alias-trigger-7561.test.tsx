@@ -17,7 +17,8 @@
  * Three catalog entries carry the rows this measures — `product-search`,
  * `with-conditions`, and the `filter-builder` nested inside `search-interface`.
  * No `SelectItem` in the operator dropdown carries a spelling from outside its
- * own camelCase vocabulary, and the trigger used to match its value LITERALLY
+ * own vocabulary (camelCase then, the protocol's ids since objectui#9306), and
+ * the trigger used to match its value LITERALLY
  * against the mounted items, so any other spelling of the same operator drew a
  * blank operator cell over a row that filtered correctly.
  *
@@ -41,13 +42,17 @@
  * one canonical member and the trigger now resolves through it. Before that
  * repair they differ — which is what makes this measurement able to fail.
  *
- * ⭐ The corrected column deliberately uses the dropdown's OWN camelCase ids
- * (`lessThan`), not the spec's canonical `less_than`: those ids are the ones
- * mounted, so the corrected column is the "what it would have looked like if
- * authored in the renderer's dialect" arm the card described. Both arms
- * rendering the same text is the claim; neither arm is a recommendation about
- * which vocabulary an author SHOULD use — that is objectui#7561's separate
- * ruling and is not decided here.
+ * ⭐ The corrected column deliberately uses the camelCase ids (`lessThan`),
+ * not the spec's canonical `less_than`. When objectui#7561 landed those were
+ * the dropdown's OWN ids, the ones mounted, so that column was the "what it
+ * would have looked like if authored in the renderer's dialect" arm the card
+ * described. Since objectui#9306 the dropdown mounts the canonical ids and the
+ * camelCase ones are the spec's DEPRECATED alias form, which the builder folds
+ * at its read boundary — so the same column now measures the other direction:
+ * a filter stored before that change still draws its label. Both arms
+ * rendering the same text is the claim either way; neither arm is a
+ * recommendation about which vocabulary an author SHOULD use — the canonical
+ * one, per objectui#9306's ruling, which this control does not re-decide.
  *
  * ⚠️ The two vocabularies OVERLAP on three members (`equals`, `contains`,
  * `in` are spelled identically in both), so "the arms are two dialects" cannot
@@ -89,10 +94,11 @@ const EXPECTED: Record<(typeof AFFECTED)[number], string[]> = {
 };
 
 /**
- * The declared spellings these entries author → the dropdown id each folds
- * onto. Covers the spec's alias table too, so an entry re-authored in EITHER
- * off-dropdown dialect is still carried by the control arm rather than
- * silently passed through as an identity.
+ * The declared spellings these entries author → the camelCase id each folds
+ * from: the dropdown's own id before objectui#9306, the deprecated alias form
+ * after it (see this file's header). Covers the spec's alias table too, so an
+ * entry re-authored in EITHER off-canonical dialect is still carried by the
+ * control arm rather than silently passed through as an identity.
  */
 const CORRECTION: Record<string, string> = {
   // what the catalog authors today — `@objectstack/spec`'s canonical members

@@ -520,7 +520,13 @@ Config keys come in three editable shapes so authors never hand-write JSON:
   `connector_action`'s **Input**, a `get_record`'s **Filter** — use an inline
   **key/value editor** (`keyValue` kind). Scalar values are auto-typed (`3` →
   number, `true` → boolean); object/array values such as a filter operator
-  `{"$ne": null}` round-trip losslessly.
+  `{"$ne": null}` round-trip losslessly. On a map the spec's expression ledger
+  declares `value`-role (`FLOW_NODE_EXPRESSION_PATHS`; today the `assignment`
+  node's **Assignments**), each value also has a *Write as a CEL expression*
+  toggle: off, a `{token}` string is stored exactly as typed; on, the value is
+  stored as the CEL value envelope `{ dialect: 'cel', source }`, and a malformed
+  envelope shows the spec's `AssignmentValueSchema` refusal inline
+  (objectui#7588, `flow-value-envelope.ts`).
 - **String arrays** — a script's **Recipients** / **Output variables** — use a
   single-column **string-list editor** (`stringList` kind).
 - **Arrays of objects** — a `screen` node's **Fields** (a list of

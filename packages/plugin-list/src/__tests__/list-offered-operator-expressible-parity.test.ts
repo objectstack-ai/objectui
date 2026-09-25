@@ -17,8 +17,8 @@
  *
  *   - `filter-operator-ast-parity.test.ts` (this package and `data-objectstack`)
  *     iterates `VIEW_FILTER_OPERATORS`;
- *   - `view-operator-builder-parity.test.ts` iterates `__CANONICAL_TO_BUILDER`,
- *     keyed by that same vocabulary;
+ *   - `view-operator-builder-parity.test.ts` drives that same vocabulary
+ *     through plugin-view's `specToBuilderOperator`;
  *   - `FilterConditionField.operators.test.ts` asks whether every spec
  *     `$`-token is reachable from the dropdown.
  *
@@ -139,7 +139,7 @@ const DRAWABLE = offeredAcrossBuckets(FILTER_BUILDER_OPERATORS);
 
 /** A value that keeps a row from being dropped as incomplete, per operator. */
 function probeValue(operator: string): unknown {
-  if (operator === 'in' || operator === 'notIn') return ['a', 'b'];
+  if (operator === 'in' || operator === 'not_in') return ['a', 'b'];
   if (operator === 'between') return [1, 5];
   return 'x';
 }
@@ -287,16 +287,45 @@ describe('the list toolbar offers only operators its dialects can express', () =
     }
   });
 
-  // The withdrawal is scoped to the existence pair: `isNull` / `isNotNull` are
-  // real members of both vocabularies and must keep their rows. Collapsing the
-  // one family onto the other is what this fix deliberately did NOT do — the
-  // same refusal `view-operator-builder-parity.test.ts` records for
-  // `is_null` -> `isEmpty`.
+  // The withdrawal is scoped to the existence pair: `is_null` / `is_not_null`
+  // are real members of both vocabularies and must keep their rows. Collapsing
+  // the one family onto the other is what this fix deliberately did NOT do —
+  // the same refusal `view-operator-builder-parity.test.ts` records for
+  // `is_null` -> `is_empty`.
   it('keeps the null predicates, which both dialects do express', () => {
-    for (const id of ['isNull', 'isNotNull', 'isEmpty', 'isNotEmpty']) {
+    for (const id of ['is_null', 'is_not_null', 'is_empty', 'is_not_empty']) {
       expect(OFFERED_BY_LIST, `${id} must still be offered`).toContain(id);
       expect(isExpressible(id), `${id} must still be expressible on both dialects`).toBe(true);
     }
+  });
+});
+
+/**
+ * The flip the `OPT_IN_OPERATORS` docblock predicted, pinned by name
+ * (objectui#9306).
+ *
+ * The case-insensitive contains was opt-in while the dropdown spelled it
+ * `containsCaseInsensitive`, a spelling neither of this toolbar's dialects
+ * folds. Once the dropdown spoke the protocol's `icontains`, the spine above
+ * measured it expressible on both and still withheld, and its entry was
+ * deleted. This names that outcome so a re-added entry lands here, with the
+ * reason, rather than only as a line in the spine's equality.
+ */
+describe('icontains is offered, because both dialects express it (objectui#9306)', () => {
+  it('reaches the toolbar and survives both dialects', () => {
+    expect(OFFERED_BY_LIST).toContain('icontains');
+    expect(liveGridResult('icontains').ok, 'the live grid no longer expresses icontains').toBe(true);
+    expect(savedViewResult('icontains').ok, 'a saved view no longer stores icontains').toBe(true);
+  });
+
+  it('stays a different operator from contains', () => {
+    // objectui#7379: two operators, never one with a flag.
+    expect(OFFERED_BY_LIST).toContain('contains');
+    expect(savedViewResult('icontains').canonical).not.toBe(savedViewResult('contains').canonical);
+  });
+
+  it('the retired spelling is no id this toolbar draws', () => {
+    expect(DRAWABLE).not.toContain('containsCaseInsensitive');
   });
 });
 

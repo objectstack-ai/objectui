@@ -34,6 +34,8 @@ interface MenubarCommandItem {
   icon?: string;
   shortcut?: string;               // e.g. "Ctrl+T" — a single string, not an array
   disabled?: boolean;
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onClick?: () => void;            // Click handler
   children?: MenubarItem[];        // Submenu items — drawn as a nested submenu
 }
@@ -56,6 +58,7 @@ interface MenubarSchema {
 }
 ```
 
-Handlers are declared on the **item**, not on the menu: the shipped `MenuItem`
-declares `onClick?: () => void`. The menu schema itself declares no event slot,
-so there is no menu-level `onSelect`.
+The item's `onClick` is a runtime slot a React host supplies through the
+TypeScript `MenuItem` interface; it has no JSON spelling, and the validator
+refuses it by name on the item. The menu schema itself declares no authorable
+event slot either, so there is no menu-level `onSelect`.

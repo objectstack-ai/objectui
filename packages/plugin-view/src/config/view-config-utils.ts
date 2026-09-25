@@ -26,55 +26,25 @@ import type { ViewFilterOperator } from '@objectstack/spec/ui';
 // server used to drop silently (#2901, objectstack#3948).
 
 /**
- * Every canonical `VIEW_FILTER_OPERATORS` member, mapped onto the operator id
- * the FilterBuilder renders — `null` where the builder has no equivalent.
+ * There is no canonical → builder table any more (objectui#9306).
  *
- * Total by construction: the type is keyed by `ViewFilterOperator`, so an
- * operator added to the spec's view vocabulary fails to compile here instead
- * of reaching the builder as a raw spelling its dropdown cannot select.
+ * This file used to carry `CANONICAL_TO_BUILDER`, a total map from every
+ * `VIEW_FILTER_OPERATORS` member onto the FilterBuilder's camelCase id for it
+ * (`not_equals` → `notEquals`, `icontains` → `containsCaseInsensitive`, …).
+ * The dropdown now speaks the protocol's own ids, so that map had become the
+ * identity over the twenty, and an identity table is a second copy of the
+ * spec's list waiting to drift from it. The fact it used to guarantee — every
+ * canonical operator reaches the builder as an id its dropdown can select —
+ * is now carried by the builder's `FilterBuilderOperator` type itself, which
+ * a type-level pin in `@object-ui/components` holds EQUAL to the spec's
+ * `ViewFilterOperator` plus the two opt-in existence ids, and by
+ * `view-operator-builder-parity.test.ts`, which drives every canonical member
+ * and every alias row through {@link specToBuilderOperator} below.
  *
- * **Every canonical operator now maps.** The four that did not —
- * `starts_with`/`ends_with`/`is_null`/`is_not_null` — were unmapped because the
- * FilterBuilder had no such operator; #2942 added `startsWith`/`endsWith`/
- * `isNull`/`isNotNull` to it, and this table did not follow, so a stored view
- * carrying them still reached the builder as a raw spelling it could by then
- * have rendered. The parity guard catches that class now: a canonical operator
- * whose name folds onto a builder id it is not mapped to fails the test.
- *
- * `is_null`/`is_not_null` map to `isNull`/`isNotNull` and NOT to
- * `isEmpty`/`isNotEmpty` — the builder now draws both pairs, and folding the
- * NULL predicate onto the empty-string one would silently rewrite the author's
- * operator the next time the view was saved.
+ * What survives is the part the spec does not do for us: folding the infix
+ * spellings a stored filter ARRAY carries, and matching case- and
+ * separator-insensitively, onto the canonical member.
  */
-const CANONICAL_TO_BUILDER: Record<ViewFilterOperator, string | null> = {
-    'equals': 'equals',
-    'not_equals': 'notEquals',
-    'contains': 'contains',
-    // Case-insensitive contains, canonical in `VIEW_FILTER_OPERATORS` as of
-    // `@objectstack/spec` 17.1.0 (objectui#5328). The builder HAS an equivalent
-    // — `containsCaseInsensitive`, which authors the spec's `$icontains`
-    // (filter-builder.tsx:160, objectui#4023) — so this is a real row and not a
-    // `null`: mapping it to `contains` would quietly rewrite a case-insensitive
-    // filter into a case-sensitive one the next time the view was saved, the
-    // same folding the `is_null` note below refuses.
-    'icontains': 'containsCaseInsensitive',
-    'not_contains': 'notContains',
-    'starts_with': 'startsWith',
-    'ends_with': 'endsWith',
-    'greater_than': 'greaterThan',
-    'less_than': 'lessThan',
-    'greater_than_or_equal': 'greaterOrEqual',
-    'less_than_or_equal': 'lessOrEqual',
-    'in': 'in',
-    'not_in': 'notIn',
-    'is_empty': 'isEmpty',
-    'is_not_empty': 'isNotEmpty',
-    'is_null': 'isNull',
-    'is_not_null': 'isNotNull',
-    'before': 'before',
-    'after': 'after',
-    'between': 'between',
-};
 
 /**
  * Infix and short spellings a stored *filter array* carries instead of a view
@@ -112,7 +82,8 @@ const FOLDED_TO_CANONICAL: Map<string, ViewFilterOperator> = new Map([
 ]);
 
 /**
- * Resolve any stored operator spelling to a FilterBuilder operator id.
+ * Resolve any stored operator spelling to a FilterBuilder operator id — which,
+ * since objectui#9306, is the canonical `VIEW_FILTER_OPERATORS` member itself.
  *
  * Returns the input unchanged when no mapping exists, so an unrecognised
  * operator is visible in the UI rather than silently coerced to `equals`.
@@ -120,12 +91,8 @@ const FOLDED_TO_CANONICAL: Map<string, ViewFilterOperator> = new Map([
 export function specToBuilderOperator(op: string): string {
     const raw = String(op ?? '').trim();
     if (!raw) return 'equals';
-    const canonical = INFIX_TO_CANONICAL[raw.toLowerCase()] ?? FOLDED_TO_CANONICAL.get(fold(raw));
-    return (canonical ? CANONICAL_TO_BUILDER[canonical] : null) ?? raw;
+    return INFIX_TO_CANONICAL[raw.toLowerCase()] ?? FOLDED_TO_CANONICAL.get(fold(raw)) ?? raw;
 }
-
-/** Exported for the parity guard — the mapping's canonical half. */
-export const __CANONICAL_TO_BUILDER = CANONICAL_TO_BUILDER;
 
 // ---------------------------------------------------------------------------
 // Field type normalization: ObjectUI → FilterBuilder

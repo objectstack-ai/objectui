@@ -269,7 +269,18 @@ export const ObjectGridSchema = BaseSchema.extend({
   showSearch: z.boolean().optional(),
   showFilters: z.boolean().optional(),
   showPagination: z.boolean().optional(),
-  defaultSort: z.object({ field: z.string(), order: z.enum(['asc', 'desc']) }).optional(),
+  // objectui#5861 — RETIRED under ADR-0049, in lockstep with the `?: never`
+  // twin on the interface. `@objectstack/spec` refuses this key BY NAME on
+  // `object-grid` (a retired-key tombstone since 17.3.0), and no renderer in
+  // this repo reads it any more, so a declared-but-ignored member here would
+  // parse green and draw an unsorted grid. A tombstone rather than a deletion:
+  // `BaseSchema` is `.passthrough()`, so an undeclared key is KEPT unexamined,
+  // not refused.
+  defaultSort: retirementTombstone(
+    'RETIRED (objectui#5861, ADR-0049) — `defaultSort` was the legacy single-entry spelling of `sort`, '
+    + 'and nothing reads it any more; the upstream protocol refuses it by name on `object-grid`. '
+    + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
+  ),
   defaultFilters: z.record(z.string(), z.any()).optional(),
   // The legacy caption/export-title fallback — `ObjectGrid.tsx` reads it at
   // exactly two sites, `viewLabel: schema.label || schema.title` and
@@ -2573,8 +2584,8 @@ export const ObjectGallerySchema = BaseSchema.extend({
  * ObjectDataTable Schema (objectui#6576 / objectui#6914)
  *
  * Mirrors the `ObjectDataTableSchema` interface in `objectql.ts`. One key
- * follows the parity ledger's discipline rather than the literal shape, and
- * one used to:
+ * follows the parity ledger's discipline rather than the literal shape, one
+ * used to, and one is retired:
  *
  *   - `onRowClick` is a RUNTIME SLOT — a host-supplied function the widget
  *     forwards into `data-table` — so the mirror refuses it BY NAME
@@ -2587,12 +2598,19 @@ export const ObjectGallerySchema = BaseSchema.extend({
  *     that ruling — so `UnmirroredDeclared` carried it, as it had carried
  *     `ChartSchema.drillDown` since objectui#6058; both entries left the
  *     ledger with that mirror.
+ *   - `dataProvider` is a RETIREMENT TOMBSTONE (objectui#7353), `?: never` on
+ *     the TS twin: refused by name, pointing at `objectName`. Deleting it
+ *     instead would leave an authored value KEPT unchecked, because
+ *     `BaseSchema` is `.passthrough()`.
  */
 export const ObjectDataTableSchema = BaseSchema.extend({
   type: z.literal('object-data-table'),
   objectName: z.string().optional().describe('ObjectQL object name'),
-  dataProvider: z.object({ provider: z.string(), object: z.string().optional() }).optional()
-    .describe('Data-provider binding carried from the dashboard widget definition'),
+  dataProvider: retirementTombstone(
+    'REFUSED (objectui#7353, ADR-0049) — `object-data-table` does not read `dataProvider`. The dashboard '
+    + 'producers used to copy the widget provider config onto the node here, beside `objectName`, and nothing '
+    + 'read it. Write `objectName` — the key the widget fetches through.',
+  ),
   filter: z.any().optional().describe('Query filter, resolved through the filter scope and forwarded as $filter'),
   data: z.array(z.any()).optional().describe('Inline rows'),
   columns: z.array(z.any()).optional().describe('Column definitions (names or column objects)'),

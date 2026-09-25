@@ -60,3 +60,18 @@ operator is rewritten: converting is not migrating.
 Which operator vocabulary should WIN is a separate, still-open question and is
 not decided here. The `contains` / `icontains` boundary is untouched and pinned:
 the fold this reader routes through maps neither onto the other.
+
+Superseded in this release by objectui#9306: the list toolbar's FilterBuilder
+now emits the protocol's canonical ids, so the canonical spelling IS a measured
+producer into this reader, and `VALUELESS_FILTER_BUILDER_OPERATORS` holds
+`is_empty`, `is_not_empty`, `is_null`, `is_not_null`, `exists` and `notExists` —
+its membership changed in this release by that change, still one id per
+operator. A group restored per browser carries whatever ids it was written
+with, so a group written before objectui#9306 can still reach this reader in
+camelCase. This reader is unchanged and answers both spellings alike: over the
+former dropdown ids and the ids they became (the list reader's leg of
+objectui#9306's census), every pair emits the same node except
+`containsCaseInsensitive`, which the toolbar never offered and which the builder
+folds onto `icontains` before a row leaves it. The vocabulary
+question this entry calls open is answered: the dropdown speaks the protocol's
+ids, and camelCase is the deprecated alias form.

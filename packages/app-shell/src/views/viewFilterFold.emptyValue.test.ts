@@ -35,6 +35,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { VALUELESS_FILTER_BUILDER_OPERATORS } from '@object-ui/components';
+import { normalizeFilterOperator } from '@objectstack/spec/ui';
 import { foldFilterGroupToSpecRules, VALUELESS_FILTER_OPERATORS } from './viewFilterFold';
 
 const group = (conditions: unknown[], logic = 'and') => ({ id: 'root', logic, conditions });
@@ -151,17 +152,44 @@ describe('VALUELESS_FILTER_OPERATORS — parity with the builder’s own set', (
         }
     });
 
-    it('adds the canonical spec spellings the builder never sees', () => {
+    it('covers the canonical spec spellings a stored rule carries', () => {
         // The fold reads a stored `ViewFilterRule`, whose operator has been
-        // through `normalizeFilterOperator`; those spellings are this layer's
-        // own addition and belong to no dropdown.
+        // through `normalizeFilterOperator`. Since objectui#9306 those canonical
+        // spellings ARE the builder's own ids, so the builder's set carries them
+        // too — which is the inversion of what this pin used to assert (that
+        // they were this layer's addition and belonged to no dropdown).
         for (const operator of ['is_empty', 'is_not_empty', 'is_null', 'is_not_null']) {
             expect(VALUELESS_FILTER_OPERATORS.has(operator), operator).toBe(true);
             expect(
                 VALUELESS_FILTER_BUILDER_OPERATORS.has(operator),
-                `"${operator}" is a canonical spec spelling, not a builder id — it must not `
-                    + 'have crept into the shared set',
-            ).toBe(false);
+                `"${operator}" is the builder's own id since objectui#9306`,
+            ).toBe(true);
         }
+    });
+
+    it('does NOT list the deprecated camelCase spellings — readers fold instead (objectui#9306)', () => {
+        // A row stored before objectui#9306 may still carry `isEmpty`, and it
+        // must still read as value-less. That is carried by FOLDING the row's
+        // spelling (the fold below and `sanitizeViewOverride` in ObjectView.tsx
+        // both do), never by a second spelling in this set: listing the retired
+        // ids here is the second vocabulary that ruling refuses.
+        for (const operator of ['isEmpty', 'isNotEmpty', 'isNull', 'isNotNull']) {
+            expect(VALUELESS_FILTER_OPERATORS.has(operator), operator).toBe(false);
+            expect(VALUELESS_FILTER_OPERATORS.has(normalizeFilterOperator(operator)), operator).toBe(true);
+        }
+    });
+
+    it('a stored camelCase value-less row survives the fold (objectui#9306)', () => {
+        // The reading the set-level pin above leaves to the fold itself.
+        const result = foldFilterGroupToSpecRules(
+            group([{ id: 'r1', field: 'closed_at', operator: 'isEmpty', value: '' }]),
+        );
+        expect(result).toEqual({ ok: true, rules: [{ field: 'closed_at', operator: 'is_empty', value: '' }] });
+        // …and it is the rule the canonical spelling folds to, byte for byte.
+        expect(result).toEqual(
+            foldFilterGroupToSpecRules(
+                group([{ id: 'r1', field: 'closed_at', operator: 'is_empty', value: '' }]),
+            ),
+        );
     });
 });

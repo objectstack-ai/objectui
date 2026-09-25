@@ -8,7 +8,7 @@
  * The inspector edits one field at a time. Sections:
  *   • Basic     — name (rename), label, type, required, unique, description
  *   • Specific  — picklist options / lookup target / formula / numeric
- *                 precision / max length, conditional on type
+ *                 precision / max length / value domain, conditional on type
  *   • Advanced  — readonly, hidden, externalId, group
  *
  * All edits are applied as immutable splices of `draft.fields` via
@@ -34,6 +34,8 @@
  */
 
 import * as React from 'react';
+import { FieldSchema, VALUE_DOMAIN_FIELD_TYPES } from '@objectstack/spec/data';
+import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { MetadataClient } from '@object-ui/data-objectstack';
 import { useMetadataClient } from '../useMetadata.js';
@@ -296,6 +298,74 @@ function isTexty(type: string): boolean {
   return type === 'text' || type === 'textarea' || type === 'email' || type === 'url' || type === 'phone' || type === 'password';
 }
 
+/**
+ * Whether the type-specific section offers a `valueDomain` control
+ * (objectui#7597, the consumer half of ruling A on objectstack#14168).
+ *
+ * Read from the spec's own `VALUE_DOMAIN_FIELD_TYPES` — the one constant both
+ * of the platform's seams read: `FieldSchema` refuses the key at parse on
+ * every type outside it, and the record validator judges exactly that set on
+ * the write path. So the control is never rendered on a type whose save would
+ * then be refused for carrying it; a hand-written type list here would be a
+ * third opinion that could drift from the other two.
+ */
+function offersValueDomain(type: string): boolean {
+  return VALUE_DOMAIN_FIELD_TYPES.has(type);
+}
+
+/**
+ * The option label for one `valueDomain` member, taken from the spec's own
+ * `describe()` prose on `FieldSchema.valueDomain` rather than from a label
+ * table in this repo (objectui#7597 triage, delivery detail 2).
+ *
+ * The spec declares no per-member description: the vocabulary is a bare
+ * `z.enum` (`ValueDomainSchema`, no `.describe()`), and the only prose is the
+ * FIELD's description, which glosses each member in place as
+ * `` `member` (gloss) ``. This reads that gloss:
+ *
+ *   - the text inside the parentheses that follow the member's code span,
+ *     matched with nesting so a parenthesis inside the gloss cannot end it;
+ *   - up to the first ` — ` — what follows it is the validator's membership
+ *     rule (`iana_time_zone`'s "membership is the Intl.DateTimeFormat probe…"),
+ *     which is a note about enforcement, not the name of the member;
+ *   - with code-span backticks removed, since an option renders plain text.
+ *
+ * A member whose gloss cannot be found is labelled with the member itself —
+ * the exact string the field stores — so no member of the spec's vocabulary is
+ * ever hidden. The pin beside this file asserts that every member of the
+ * INSTALLED spec yields a gloss, so a spec release that rewrites the prose
+ * turns that pin red rather than quietly degrading the labels.
+ */
+function valueDomainMemberLabel(member: string, prose: string): string {
+  const head = `\`${member}\` (`;
+  const at = prose.indexOf(head);
+  if (at < 0) return member;
+  const start = at + head.length;
+  let depth = 1;
+  let end = start;
+  for (; end < prose.length; end++) {
+    const ch = prose[end];
+    if (ch === '(') depth++;
+    else if (ch === ')' && --depth === 0) break;
+  }
+  if (depth !== 0) return member;
+  const gloss = prose.slice(start, end).split(' — ')[0].replace(/`/g, '').trim();
+  return gloss ? `${member} (${gloss})` : member;
+}
+
+/**
+ * The `valueDomain` select's members: the spec's closed vocabulary, in the
+ * spec's order, each labelled from the spec's prose. Built once — both inputs
+ * are module constants of the installed spec.
+ */
+const VALUE_DOMAIN_OPTIONS: ReadonlyArray<{ value: string; label: string }> = (() => {
+  const prose = FieldSchema.shape.valueDomain.description ?? '';
+  return ValueDomainSchema.options.map((member) => ({
+    value: member,
+    label: valueDomainMemberLabel(member, prose),
+  }));
+})();
+
 type DefaultKind = 'bool' | 'number' | 'picklist' | 'text';
 
 /**
@@ -545,6 +615,16 @@ export function ObjectFieldInspector({
   const patchDef = (patch: Record<string, unknown>) => {
     const nextEntries = [...view.entries];
     nextEntries[idx] = { ...entry, def: { ...def, ...patch } };
+    writeView({ shape: view.shape, entries: nextEntries });
+  };
+
+  /** Remove `key` from the field def outright — the key is ABSENT afterwards,
+   *  not present with `undefined` or `null` (objectui#7597). */
+  const unsetDefKey = (key: string) => {
+    const nextDef = { ...def };
+    delete nextDef[key];
+    const nextEntries = [...view.entries];
+    nextEntries[idx] = { ...entry, def: nextDef };
     writeView({ shape: view.shape, entries: nextEntries });
   };
 
@@ -830,7 +910,7 @@ export function ObjectFieldInspector({
       </Section>
 
       {/* Type-specific */}
-      {(isPicklist(type) || isLookup(type) || isComputed(type) || isNumeric(type) || isTexty(type)) && (
+      {(isPicklist(type) || isLookup(type) || isComputed(type) || isNumeric(type) || isTexty(type) || offersValueDomain(type)) && (
         <Section title={tFormat('designer.field.section.options', locale, { type: typeMetaLabel ?? type })}>
           {isPicklist(type) && (
             <OptionsEditor
@@ -958,6 +1038,22 @@ export function ObjectFieldInspector({
                 placeholder="255"
               />
             </div>
+          )}
+          {offersValueDomain(type) && (
+            <InspectorSelectField
+              label={tr('designer.field.valueDomain')}
+              value={typeof def.valueDomain === 'string' ? (def.valueDomain as string) : ''}
+              options={[
+                { value: '', label: tr('designer.field.valueDomainNone') },
+                ...VALUE_DOMAIN_OPTIONS,
+              ]}
+              // Unset DELETES the key. `FieldSchema` refuses both `null` and
+              // `''` for `valueDomain` (`invalid_value`), and a present key is
+              // a declaration the write path enforces — "no domain" is the
+              // key's absence, never a value of it (objectui#7597).
+              onCommit={(v) => (v ? patchDef({ valueDomain: v }) : unsetDefKey('valueDomain'))}
+              disabled={readOnly}
+            />
           )}
         </Section>
       )}

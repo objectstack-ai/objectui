@@ -133,7 +133,15 @@ export interface InlineEditContextValue {
   /**
    * Draft of user-edited values. Holds ONLY the keys the user actually
    * changed, so the save path never writes computed / read-only / untouched
-   * fields. Read a field's live value as `draft[name] ?? data[name]`.
+   * fields. Read a field's live value from the staged record
+   * `{ ...data, ...draft }`, where `data` is the saved record: an OWN draft
+   * key wins even when its value is empty (`null`, `undefined`, `''`), and
+   * `data[name]` is read only when the key is absent. An own key with an
+   * empty value is a field the user, or a cascade clear, emptied, not an
+   * untouched one. A read that falls back to the saved value there shows the
+   * value the user just removed, and hands an option widget that pruned it
+   * the same value to prune again on every render (objectui#7190,
+   * objectui#10466).
    */
   draft: Record<string, any>;
   /** Field to auto-focus when edit was entered from a specific field. */

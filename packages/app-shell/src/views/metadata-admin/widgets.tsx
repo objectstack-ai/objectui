@@ -2384,21 +2384,15 @@ function ActionMultiWidget({ value, onChange, readOnly, context, ariaLabelledBy 
 /* the shared fold normalizes through the spec's own                           */
 /* `normalizeFilterOperator`, which covers the four builder operators this     */
 /* table had drifted behind (startsWith / endsWith / isNull / isNotNull).      */
-/** Spec operator → FilterBuilder camelCase. Keys cover both the canonical
- *  vocabulary and legacy spellings (shorthand + snake/camel) so stored view
- *  metadata written before canonicalization still seeds the builder. */
-const SPEC_TO_FB: Record<string, string> = {
-  equals: 'equals', eq: 'equals',
-  not_equals: 'notEquals', ne: 'notEquals', neq: 'notEquals', notEquals: 'notEquals',
-  contains: 'contains', not_contains: 'notContains', notContains: 'notContains',
-  is_empty: 'isEmpty', isEmpty: 'isEmpty', is_not_empty: 'isNotEmpty', isNotEmpty: 'isNotEmpty',
-  greater_than: 'greaterThan', gt: 'greaterThan', greaterThan: 'greaterThan',
-  less_than: 'lessThan', lt: 'lessThan', lessThan: 'lessThan',
-  greater_than_or_equal: 'greaterOrEqual', gte: 'greaterOrEqual', greaterOrEqual: 'greaterOrEqual',
-  less_than_or_equal: 'lessOrEqual', lte: 'lessOrEqual', lessOrEqual: 'lessOrEqual',
-  before: 'before', after: 'after', between: 'between',
-  in: 'in', not_in: 'notIn', nin: 'notIn', notIn: 'notIn',
-};
+/*                                                                             */
+/* The READ direction's local `SPEC_TO_FB` table (spec spelling → builder      */
+/* camelCase) is gone too (objectui#9306). The builder's ids ARE the spec's    */
+/* canonical spellings now, and the builder folds every other spelling a       */
+/* stored rule may carry — the spec's legacy aliases (`gt`, `nin`, …) and the  */
+/* deprecated camelCase ids (`greaterOrEqual`, …) — through the spec's own     */
+/* `normalizeFilterOperator` at its read boundary. A stored rule is therefore  */
+/* handed over as authored; a hand-kept copy of that fold here is exactly how  */
+/* this file drifted before.                                                   */
 
 interface FilterRuleLite { field: string; operator: string; value?: unknown }
 
@@ -2439,9 +2433,10 @@ function FilterBuilderField({ value, onChange, fields, readOnly, id, ariaLabelle
     logic: 'and' as const,
     conditions: rules.map((r, i) => ({
       id: `c${i}`,
-      // Keep the raw operator verbatim if the builder has no camelCase
-      // equivalent, so it round-trips on save instead of being rewritten.
-      operator: SPEC_TO_FB[r.operator] ?? r.operator ?? 'equals',
+      // Handed over as stored: the builder reads it through the spec's fold
+      // (objectui#9306), and a spelling nothing folds is kept verbatim so it
+      // round-trips on save instead of being rewritten.
+      operator: r.operator ?? 'equals',
       field: r.field,
       value: (r.value as any) ?? '',
     })),

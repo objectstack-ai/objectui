@@ -404,6 +404,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.kv.value': 'Value',
   'engine.inspector.flowNode.kv.remove': 'Remove entry',
   'engine.inspector.flowNode.kv.empty': 'No entries yet.',
+  // objectui#7588 — the per-value text / expression toggle on a `value`-role
+  // map (the assignment node's `assignments`); see `flow-value-envelope.ts`.
+  'engine.inspector.flowNode.kv.asExpression': 'Write as a CEL expression',
+  'engine.inspector.flowNode.kv.expressionPlaceholder': 'CEL expression, e.g. joinNonEmpty(…)',
   'engine.inspector.flowNode.list.add': 'Add item',
   'engine.inspector.flowNode.list.item': 'Value',
   'engine.inspector.flowNode.list.remove': 'Remove item',
@@ -2370,6 +2374,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.kv.value': '值',
   'engine.inspector.flowNode.kv.remove': '删除条目',
   'engine.inspector.flowNode.kv.empty': '暂无条目。',
+  'engine.inspector.flowNode.kv.asExpression': '写成 CEL 表达式',
+  'engine.inspector.flowNode.kv.expressionPlaceholder': 'CEL 表达式，例如 joinNonEmpty(…)',
   'engine.inspector.flowNode.list.add': '添加项',
   'engine.inspector.flowNode.list.item': '值',
   'engine.inspector.flowNode.list.remove': '删除项',

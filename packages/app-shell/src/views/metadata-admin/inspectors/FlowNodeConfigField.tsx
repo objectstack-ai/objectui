@@ -18,6 +18,7 @@ import {
 } from './_shared.js';
 import { Button, Label } from '@object-ui/components';
 import { FlowKeyValueField } from './FlowKeyValueField.js';
+import { isValueEnvelopeSlot } from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
 import { FlowObjectListField } from './FlowObjectListField.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
@@ -138,6 +139,17 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             removeLabel={t('engine.inspector.flowNode.kv.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.kv.empty', locale)}
             scopeGroups={scopeGroups}
+            // objectui#7588 — the per-value text / expression toggle, offered
+            // only on a map the spec's expression ledger declares `value`-role
+            // for this node type (today the assignment node's `assignments`).
+            valueEnvelope={
+              isValueEnvelopeSlot(context?.node?.type, field.path)
+                ? {
+                    toggleLabel: t('engine.inspector.flowNode.kv.asExpression', locale),
+                    expressionPlaceholder: t('engine.inspector.flowNode.kv.expressionPlaceholder', locale),
+                  }
+                : undefined
+            }
           />
         );
       case 'stringList':

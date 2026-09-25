@@ -956,7 +956,6 @@ const de = {
     viewAll: "Alle anzeigen",
     new: "Neu",
     add: "Hinzufügen",
-    emptyValue: "—",
     comments: "Kommentare",
     searchComments: "Kommentare suchen…",
     addCommentPlaceholder: "Kommentar hinzufügen… (Strg+Enter zum Senden)",

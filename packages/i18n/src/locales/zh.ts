@@ -1022,7 +1022,6 @@ const zh = {
     viewAll: '查看全部',
     new: '新建',
     add: '添加',
-    emptyValue: '—',
     activity: '活动',
     history: '历史',
     historyEmpty: '暂无历史记录',

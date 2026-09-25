@@ -958,7 +958,6 @@ const fr = {
     viewAll: "Tout afficher",
     new: "Nouveau",
     add: "Ajouter",
-    emptyValue: "—",
     comments: "Commentaires",
     searchComments: "Rechercher des commentaires…",
     addCommentPlaceholder: "Ajouter un commentaire… (Ctrl+Entrée pour envoyer)",

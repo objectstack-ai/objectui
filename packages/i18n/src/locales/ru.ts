@@ -971,7 +971,6 @@ const ru = {
     viewAll: "Показать все",
     new: "Создать",
     add: "Добавить",
-    emptyValue: "—",
     activity: "Активность",
     editRow: "Редактировать",
     deleteRow: "Удалить",

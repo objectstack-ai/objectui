@@ -956,7 +956,6 @@ const ja = {
     viewAll: "すべて表示",
     new: "新規",
     add: "追加",
-    emptyValue: "—",
     activity: "アクティビティ",
     editRow: "編集",
     deleteRow: "削除",

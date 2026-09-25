@@ -956,7 +956,6 @@ const ko = {
     viewAll: "모두 보기",
     new: "새로 만들기",
     add: "추가",
-    emptyValue: "—",
     comments: "댓글",
     searchComments: "댓글 검색…",
     addCommentPlaceholder: "댓글 추가… (Ctrl+Enter로 제출)",

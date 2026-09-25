@@ -960,7 +960,6 @@ const es = {
     viewAll: "Ver todo",
     new: "Nuevo",
     add: "Agregar",
-    emptyValue: "—",
     comments: "Comentarios",
     searchComments: "Buscar comentarios…",
     addCommentPlaceholder: "Añadir comentario… (Ctrl+Enter para enviar)",

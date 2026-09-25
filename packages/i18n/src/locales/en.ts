@@ -1158,7 +1158,6 @@ const en = {
     viewAll: 'View All',
     new: 'New',
     add: 'Add',
-    emptyValue: '—',
     activity: 'Activity',
     history: 'History',
     historyEmpty: 'No history yet',

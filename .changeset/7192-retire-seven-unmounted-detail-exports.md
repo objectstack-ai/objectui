@@ -40,15 +40,16 @@ removed from all ten locale packs, and the matching rows from
   `noRevisions`, `revisionFieldsChanged`, `revisionFieldsChangedOne`,
   `revisionPreview`, `revisionSnapshot`, `restoreConfirm`, `restoring`,
   `confirmRestore`, `restoreToPoint`
+- `emptyValue`, an older key whose last reader was `PointInTimeRestore`
 - `DiffView`'s five: `unifiedDiff`, `sideBySideDiff`, `noChanges`,
   `previousVersion`, `currentVersion`
 - `RecordNavigationEnhanced`'s six: `firstRecord`, `previousRecordKey`,
   `nextRecordKey`, `lastRecord`, `searchWhileNavigating`, `searchRecords`
 
 Keys these components shared with surfaces that stay (`detail.recordOf`,
-`detail.noRecords`, `detail.cancel`, `detail.emptyValue`,
-`detail.activityEmptyValue`, the relative-time keys) are kept. A host that read
-one of the removed keys itself now gets the raw key back.
+`detail.noRecords`, `detail.cancel`, `detail.activityEmptyValue`, the
+relative-time keys) are kept. A host that read one of the removed keys itself
+now gets the raw key back.
 
 Other entries in this same release describe work on `PointInTimeRestore` and
 `DiffView` (their translation and display-locale fixes). That work shipped in

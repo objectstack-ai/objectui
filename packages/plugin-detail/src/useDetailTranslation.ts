@@ -97,7 +97,6 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.editRecord': 'Edit record',
   'detail.viewAll': 'View All',
   'detail.new': 'New',
-  'detail.emptyValue': '—',
   'detail.noValue': 'No value',
   'detail.activity': 'Activity',
   'detail.copyRecordId': 'Copy record ID',

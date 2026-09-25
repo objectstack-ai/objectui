@@ -957,7 +957,6 @@ const pt = {
     viewAll: "Ver tudo",
     new: "Novo",
     add: "Adicionar",
-    emptyValue: "—",
     comments: "Comentários",
     searchComments: "Pesquisar comentários…",
     addCommentPlaceholder: "Adicionar comentário… (Ctrl+Enter para enviar)",

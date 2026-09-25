@@ -966,7 +966,6 @@ const ar = {
     viewAll: "عرض الكل",
     new: "جديد",
     add: "إضافة",
-    emptyValue: "—",
     comments: "التعليقات",
     searchComments: "البحث في التعليقات…",
     addCommentPlaceholder: "أضف تعليقاً… (Ctrl+Enter للإرسال)",

@@ -328,6 +328,49 @@ export const CalendarViewSchema = BaseSchema.extend({
 export const FilterOperatorSchema = stripImportedDefaults(SpecViewFilterRuleSchema).shape.operator;
 
 /**
+ * A condition's `value` is judged against its `operator` by the PROTOCOL'S OWN
+ * RULE (objectui#10478): delegated to `ViewFilterRuleSchema`, never restated.
+ *
+ * The spec rule couples the two in its object-level refinement (`in` / `not_in`
+ * take an array, `between` takes exactly `[min, max]`, plus whatever arms the
+ * installed spec release carries), and its `value` member bounds the value's
+ * type. This mirror used to declare `value: z.any()` and run none of it, so
+ * `safeValidateSchema`, `objectui check` and `objectui validate` answered green
+ * on a rule the protocol refuses: `{ field: 'amount', operator: 'between',
+ * value: 5 }` among them.
+ *
+ * The spec's check functions are module-private, so the delegation goes through
+ * the exported rule. The condition's PROJECTION onto the rule's three keys is
+ * re-parsed by the rule, and the rule's issues are forwarded verbatim, so the
+ * author reads the spec's own message. It is the same composition
+ * `GlobalFilterSchema` below uses, and for the same reason: an arm the spec adds
+ * later reaches this mirror with no edit here.
+ *
+ *   - `id` is withheld. It is this mirror's row identity (objectui#8415), and
+ *     the rule is strict and refuses it as a console row key, so the
+ *     projection is load-bearing rather than tidy.
+ *   - `field` and `operator` are the schemas the rule itself declares (the
+ *     operator IS the rule's member, above), and zod runs an object refinement
+ *     only after every member was accepted. So every issue the rule can raise
+ *     here is about `value`: the mirror refuses nothing new for another reason.
+ *   - An omitted `value` stays omitted, so the rule judges absence as absence.
+ *
+ * `value` keeps its `z.any()` declaration, so the static type does not move and
+ * the TypeScript twin (`FilterBuilderCondition.value`, `any`) is untouched; only
+ * the runtime accept set narrows, to the protocol's.
+ */
+function conditionValueFollowsTheProtocolRule(
+  condition: { field: string; operator: string; value?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  const rule: Record<string, unknown> = { field: condition.field, operator: condition.operator };
+  if ('value' in condition) rule.value = condition.value;
+  const result = stripImportedDefaults(SpecViewFilterRuleSchema).safeParse(rule);
+  if (result.success) return;
+  for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+}
+
+/**
  * Filter Condition Schema
  *
  * MEMOISED (objectui#7918): the getter returns a module-level constant, so the
@@ -335,7 +378,8 @@ export const FilterOperatorSchema = stripImportedDefaults(SpecViewFilterRuleSche
  * spells `unwrap` as `() => _zod.def.getter()`, going around the cache zod keeps
  * on `def._cachedInner`, so an un-memoised lazy hands out a fresh schema per
  * call.) Safe here because this body is NOT recursive — it names only
- * `FilterOperatorSchema`, declared above.
+ * `FilterOperatorSchema` and `conditionValueFollowsTheProtocolRule`, both
+ * declared above, and neither reaches back to this const.
  *
  * ⚠️ `FilterGroupSchema` below CANNOT take this shape, and neither can six other
  * `z.lazy` exports of this face: their bodies name the very const being declared
@@ -383,8 +427,9 @@ const FilterBuilderConditionObject = z.object({
   id: z.string().describe('Row identity — matched by `removeCondition` / `updateCondition` / `changeOperator` / `changeField`, and the React key'),
   field: z.string().describe('Field name'),
   operator: FilterOperatorSchema.describe('Filter operator'),
+  // Judged against `operator` by the spec rule, in the refinement below.
   value: z.any().optional().describe('Filter value'),
-});
+}).superRefine(conditionValueFollowsTheProtocolRule);
 
 export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterBuilderConditionObject);
 

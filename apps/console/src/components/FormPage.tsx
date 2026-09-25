@@ -641,7 +641,7 @@ export function normalizeOptions(opts: unknown): Array<{ value: string; label: s
  *     tombstone that refuses visibly) and the documented `text` fallback for
  *     a spelling nothing registers.
  */
-export function resolveFieldWidgetKey(field: {
+function resolveFieldWidgetKey(field: {
   type: string;
   widget?: string;
   multiple?: boolean;
@@ -672,7 +672,7 @@ export function resolveFieldWidgetKey(field: {
  * A key the table does not hold (a retired spelling's tombstone) is
  * `'control'`, the same default every host reads for an absent declaration.
  */
-export function widgetLabelling(widgetKey: string): 'control' | 'group' | 'display' {
+function widgetLabelling(widgetKey: string): 'control' | 'group' | 'display' {
   return (FIELD_WIDGET_LABELLING as Record<string, 'control' | 'group' | 'display' | undefined>)[widgetKey]
     ?? 'control';
 }
@@ -1642,7 +1642,7 @@ function labelIdOf(fieldName: string): string {
  * no name and no required state), and the checkbox arm's own wrapping label
  * doubled the name (`Agree * Agree`).
  */
-export function rowLabelProps(
+function rowLabelProps(
   field: Pick<RenderableField, 'name' | 'type' | 'widget' | 'multiple'>,
 ): { htmlFor: string } | { id: string } {
   return widgetLabelling(resolveFieldWidgetKey(field)) === 'control'
@@ -1656,7 +1656,7 @@ export function rowLabelProps(
  * over it — the form view's label, placeholder, options, ceiling, arity and
  * render hint win, exactly as they win everywhere else on the row.
  */
-export function widgetFieldOf(field: RenderableField): Record<string, unknown> {
+function widgetFieldOf(field: RenderableField): Record<string, unknown> {
   return {
     ...(field.meta ?? {}),
     name: field.name,
@@ -1820,7 +1820,7 @@ function FieldInput({ field, state, value, onChange, values, onUploadingChange }
  * `0` are values), and skips exactly what a browser skips — a row that is not
  * on screen, and a locked one.
  */
-export function findMissingRequired(
+function findMissingRequired(
   sections: RenderableSection[],
   values: Record<string, unknown>,
   previous: Record<string, unknown> | null | undefined,

@@ -13,8 +13,9 @@ The `FilterBuilder` dropdown speaks the protocol's operator ids (objectui#9306).
 `greater_than_or_equal`, `is_null`, `icontains`, …), plus the two opt-in
 existence ids `exists` / `notExists`, which the protocol has no member for and
 which stay unfolded (objectui#9559 ruling B). The camelCase ids the dropdown used
-to emit (`notEquals`, `greaterOrEqual`, `isNull`, `containsCaseInsensitive`, …)
-are the spec's deprecated alias form (objectui#7993).
+to emit (`notEquals`, `greaterOrEqual`, `isNull`, …) are the spec's deprecated
+alias form (objectui#7993); `containsCaseInsensitive` is the one former id the
+spec's alias table has no row for, and the builder reads it itself (below).
 
 **Stored filters keep loading.** The builder folds a stored spelling at its read
 boundary, through the spec's `normalizeFilterOperator` plus one local row the

@@ -44,7 +44,7 @@
  *
  * RED on the unmodified tree: every "carries no `dataProvider`" assertion (the
  * producers wrote it). GREEN on both sides: every control. The type-level half
- * (the pivot prop type no longer DECLARES the member) is enforced by
+ * (neither widget prop type DECLARES the member any more) is enforced by
  * `tsconfig.test.json`, which this package's `type-check` chains.
  */
 
@@ -81,6 +81,7 @@ import type { DashboardComponentSchema } from '@object-ui/types';
 import '@object-ui/components';
 import { DashboardRenderer, DashboardGridLayout } from '../index';
 import type { ObjectPivotTableProps } from '../ObjectPivotTable';
+import type { ObjectDataTableProps } from '../ObjectDataTable';
 
 afterEach(() => {
   cleanup();
@@ -178,8 +179,15 @@ describe('objectui#7353 — DashboardGridLayout: the table and pivot nodes carry
  */
 type DeclaredKeys<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
 type PivotDeclared = keyof DeclaredKeys<ObjectPivotTableProps['schema']>;
+/**
+ * The consumer-side half of the `@object-ui/types` removal: this package reads
+ * `ObjectDataTableSchema` through the BUILT `.d.ts` (its `tsconfig.test.json`
+ * empties `paths`), so this line is red on a stale `dist` that still declares
+ * the member and green only on a rebuilt one.
+ */
+type DataTableDeclared = keyof DeclaredKeys<ObjectDataTableProps['schema']>;
 
-describe('objectui#7353 — ObjectPivotTableProps no longer declares schema.dataProvider', () => {
+describe('objectui#7353 — the widget prop types no longer declare schema.dataProvider', () => {
   it('dataProvider is not a declared member; the two members grown beside it still are', () => {
     // Type-level, erased at runtime: if the member came back, this annotation
     // would collapse to `false` and `tsc -p tsconfig.test.json` would fail here.
@@ -190,5 +198,12 @@ describe('objectui#7353 — ObjectPivotTableProps no longer declares schema.data
     const filterDeclared: 'filter' extends PivotDeclared ? true : false = true;
     const rowFieldDeclared: 'rowField' extends PivotDeclared ? true : false = true;
     expect(dataProviderNotDeclared && objectNameDeclared && filterDeclared && rowFieldDeclared).toBe(true);
+  });
+
+  it('ObjectDataTableProps (anchored to ObjectDataTableSchema) no longer declares it either', () => {
+    const dataProviderNotDeclared: 'dataProvider' extends DataTableDeclared ? false : true = true;
+    const objectNameDeclared: 'objectName' extends DataTableDeclared ? true : false = true;
+    const drillDownDeclared: 'drillDown' extends DataTableDeclared ? true : false = true;
+    expect(dataProviderNotDeclared && objectNameDeclared && drillDownDeclared).toBe(true);
   });
 });

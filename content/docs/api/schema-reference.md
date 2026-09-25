@@ -985,10 +985,12 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
     },
     {
       "id": "chart",
-      "type": "area",
       "title": "Sales Trend",
       "layout": { "x": 1, "y": 0, "w": 2, "h": 4 },
-      "options": {
+      "component": {
+        "type": "chart",
+        "chartType": "area",
+        "xAxisKey": "day",
         "data": [
           { "day": "Mon", "Sales": 120 },
           { "day": "Tue", "Sales": 180 },
@@ -996,8 +998,7 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
           { "day": "Thu", "Sales": 210 },
           { "day": "Fri", "Sales": 190 }
         ],
-        "xField": "day",
-        "yField": "Sales"
+        "series": [{ "name": "Sales" }]
       }
     },
     {
@@ -1025,7 +1026,7 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
 
 A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `options` or `component`.
 
-The family in `type` decides what `options` holds. A chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key; `metric` shows `options.value`; `list` and `table` show the rows in `options.data`. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
+The family in `type` decides what `options` holds: `metric` shows `options.value`; `list` and `table` show the rows in `options.data`; a chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key. Instead of a family, a widget can hold a registered component node in `component`, as the `chart` widget above does — that node's keys are the component's own props (here [`ChartSchema`](#chartschema)'s), not widget keys. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
 
 **Related:** [GridSchema](#gridschema), [ChartSchema](#chartschema), [CardSchema](#cardschema)
 

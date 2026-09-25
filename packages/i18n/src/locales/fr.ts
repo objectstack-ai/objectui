@@ -290,6 +290,10 @@ const fr = {
       refusedResidue:
         "Non enregistré : {{name}} « {{text}} » et {{otherName}} « {{otherText}} » ne sont pas des nombres. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date pour la remplacer.",
+    },
     dateTime: {
       impossibleDay:
         "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date et une heure pour la remplacer.",

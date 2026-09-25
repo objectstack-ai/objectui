@@ -294,6 +294,10 @@ const es = {
       refusedResidue:
         "No guardado: {{name}} «{{text}}» y {{otherName}} «{{otherText}}» no son números. Introduce decimales simples (ejemplo: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "El valor guardado «{{value}}» no es una fecha real. Elige una fecha para reemplazarlo.",
+    },
     dateTime: {
       impossibleDay:
         "El valor guardado «{{value}}» no es una fecha real. Elige una fecha y una hora para reemplazarlo.",

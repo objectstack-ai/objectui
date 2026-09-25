@@ -38,7 +38,7 @@ schema with no `gantt` block at all, is accepted exactly as before.
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
 objectui#10524.** This entry first named the CLI's `check` command beside
 `validate`, here and in its heading. `check` is an advisory sweep: it never
-parses a file whose root carries a structural key (`children`, `className`,
+parses against the schema a file whose root carries a structural key (`children`, `className`,
 `body`, …), it lists a file with none of those keys by name when the file does
 not validate, without naming the missing field, and it exits non-zero on
 unreadable JSON only. The refusal is `objectui validate`'s.

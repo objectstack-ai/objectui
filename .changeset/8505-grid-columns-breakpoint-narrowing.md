@@ -49,6 +49,6 @@ it no longer asserts acceptance.
 ⚠️ **Dated note, 2026-09-25 — `objectui check` is not part of that JSON face —
 objectui#10524.** This paragraph first named the face `os-ui validate` / `check`.
 The command is `objectui validate`, and `check` does not refuse `{ xxl: 6 }`: it is
-an advisory sweep that never parses a file whose root carries a structural key
+an advisory sweep that never parses against the schema a file whose root carries a structural key
 (`children`, `className`, `body`, …), lists a file with none of those keys by name
 when the file does not validate, and exits non-zero on unreadable JSON only.

@@ -85,7 +85,7 @@ arrives.
 
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
 objectui#10524.** This entry first listed `objectui check` on the parse-time side. `check` is
-an advisory sweep: it never parses a file whose root carries a structural key (`children`,
+an advisory sweep: it never parses against the schema a file whose root carries a structural key (`children`,
 `className`, `body`, …), it lists a file with none of those keys by name when the file does
 not validate, and it exits non-zero on unreadable JSON only. The refusal is
 `objectui validate`'s.

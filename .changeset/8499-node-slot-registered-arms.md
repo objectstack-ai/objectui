@@ -17,7 +17,7 @@ expensive direction: the likely reaction is to stop trusting the validator.
 
 ⚠️ **Dated note, 2026-09-25 — the refusal was `objectui validate`'s, not
 `objectui check`'s — objectui#10524.** This entry first named `objectui check` here.
-`check` is an advisory sweep: it never parses a file whose root carries a structural
+`check` is an advisory sweep: it never parses against the schema a file whose root carries a structural
 key (`children`, `className`, `body`, …), so the page document above passes it, and it
 exits non-zero on unreadable JSON only. The "Downstream" paragraph below is about
 `check`'s advisory list of files with none of those keys, and stands.

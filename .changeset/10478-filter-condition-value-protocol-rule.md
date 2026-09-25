@@ -37,7 +37,7 @@ stays `any`.
 
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not fail such a document —
 objectui#10524.** This entry first listed `objectui check` beside `objectui validate`.
-`check` is an advisory sweep: it never parses a file whose root carries a structural key
+`check` is an advisory sweep: it never parses against the schema a file whose root carries a structural key
 (`children`, `className`, `body`, …), it lists a file with none of those keys by name when
 the file does not validate, and it exits non-zero on unreadable JSON only. The verdict is
 `objectui validate`'s. The "answered green" sentence at the top of this entry stays true

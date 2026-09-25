@@ -50,7 +50,7 @@ the CLI's `validate` takes. That is why this is a `minor` and not a
 
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
 objectui#10524.** This entry first named the CLI's `check` command beside
-`validate`. `check` is an advisory sweep: it never parses a file whose root
+`validate`. `check` is an advisory sweep: it never parses against the schema a file whose root
 carries a structural key (`children`, `className`, `body`, …), it lists a file
 with none of those keys by name when the file does not validate, and it exits
 non-zero on unreadable JSON only. The refusal is `objectui validate`'s.

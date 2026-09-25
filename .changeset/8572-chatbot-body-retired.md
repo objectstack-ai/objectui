@@ -78,7 +78,7 @@ different change on a different package and is not made here.
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
 objectui#10524.** This entry first listed `objectui check` among the places the retirement
 is delivered. `body` is itself one of the structural root keys `check` recognises a file by,
-and `check` never parses a file it recognised that way, so a `chatbot` document authoring
+and `check` never parses against the schema a file it recognised that way, so a `chatbot` document authoring
 `body` at its root passes `check` and exits 0. `check` exits non-zero on unreadable JSON
 only. The refusal is `objectui validate`'s; the `ChatbotSchema.body` docblock in
 `@object-ui/types` now says the same.

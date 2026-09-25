@@ -17,7 +17,7 @@ section.
 ⚠️ **Dated note, 2026-09-25 — `objectui check` is not a validation door — objectui#10524.**
 Later in this same release objectui#10416 corrected the section: its second door is now
 `objectui validate` alone, and it says what `objectui check` does instead. `check` is an
-advisory sweep: it never parses a file whose root carries a structural key (`children`,
+advisory sweep: it never parses against the schema a file whose root carries a structural key (`children`,
 `className`, `body`, …), it lists a file with none of those keys by name when the file does not
 validate, and it exits non-zero on unreadable JSON only.
 

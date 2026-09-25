@@ -35,7 +35,7 @@ it is named here in the words a release reader can act on:
 
 ⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal — objectui#10524.**
 This entry first named the CLI's `objectui check` command beside `objectui validate` as a place
-authors meet the refusal. `check` is an advisory sweep: it never parses a file whose root carries a
+authors meet the refusal. `check` is an advisory sweep: it never parses against the schema a file whose root carries a
 structural key (`children`, `className`, `body`, …), it lists a file with none of those keys by
 name when the file does not validate, without the issue, and it exits non-zero on unreadable JSON
 only. The refusal is `objectui validate`'s. The source citations in this entry now name files

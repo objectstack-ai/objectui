@@ -3,7 +3,7 @@
 '@object-ui/types': patch
 ---
 
-`objectui check`'s help line and five `@object-ui/types` comments no longer present `check` as a
+`objectui check`'s help line and six `@object-ui/types` comments no longer present `check` as a
 validator (objectui#10524).
 
 - `@object-ui/cli`: `objectui --help` and `objectui check --help` described `check` as

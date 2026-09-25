@@ -4148,9 +4148,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   'data-display.zod.ts#ChartSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
-  // ⭐ ONE entry, FIVE spec crossings — three cards put them there and every
-  // ground is recorded, because any one alone is enough to keep this membership
-  // and deleting the entry needs all of them to be gone.
+  // ⭐ ONE entry, SIX spec crossings over FIVE spec symbols — three cards put
+  // them there and every ground is recorded, because any one alone is enough to
+  // keep this membership and deleting the entry needs all of them to be gone.
   //   - objectui#7946 (rework round): `aggregate` is `SpecChartAggregateSchema` by
   //     reference rather than the local near-copy the first cut declared, so a
   //     spec bump that widens or narrows the object-bound aggregation vocabulary
@@ -4162,11 +4162,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   //     own declaration: `DashboardRenderer` forwards `widget.compareTo`
   //     verbatim). So a spec bump that moves the chart drill vocabulary, the
   //     i18n label union, or the widget's comparison directive moves ONE side too.
-  //   - objectui#10518: `yAxis` is the spec's `ChartAxisSchema` by reference —
-  //     the axis config LIST `ChartConfigSchema.yAxis` declares, and the spec's
-  //     `<ObjectChart>` react block (`schemaType: 'object-chart'`) publishes — so
-  //     a spec bump that moves the axis vocabulary moves ONE side of this pair,
-  //     as it does for `data-display.zod.ts#ChartSchema` above.
+  //   - objectui#10518: `xAxis` / `yAxis` are the spec's `ChartAxisSchema` by
+  //     reference — one object and a LIST, as `ChartConfigSchema` declares them
+  //     and the spec's `ObjectChart` react block (`schemaType: 'object-chart'`)
+  //     publishes them — so a spec bump that moves the axis vocabulary moves ONE
+  //     side of this pair, as it does for `data-display.zod.ts#ChartSchema` above.
   // Either way it is exactly what this list exists to make legible rather than
   // mysterious.
   // objectui#8651: the `calendar` CONTAINER is the spec's own

@@ -139,8 +139,9 @@ import type {
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
-  // objectui#10518 — the spec's axis config object, the element type of
-  // `ObjectChartSchema.yAxis`. Aliased for the reason `SpecGanttConfig` above is.
+  // objectui#10518 — the spec's axis config object: the type of
+  // `ObjectChartSchema.xAxis` and the element type of `ObjectChartSchema.yAxis`.
+  // Aliased for the reason `SpecGanttConfig` above is.
   ChartAxis as SpecChartAxis,
 } from '@objectstack/spec/ui';
 
@@ -4251,11 +4252,11 @@ export type KanbanConditionalFormattingRule =
  *
  * ## A third card, and a channel neither census sees (objectui#10518)
  *
- * `yAxis` (see the member) is read by NO `schema.KEY` expression in
- * `ObjectChart.tsx`: the component spreads the node into the schema it hands
- * `ChartRenderer`, and `normalizeChartSchema` reads it there. Both census pins
- * above read `schema.KEY` off that one file, so neither lists it — as a read or
- * as an exception — and neither was moved. Its pin is
+ * `xAxis` and `yAxis` (see the members) are read by NO `schema.KEY`
+ * expression in `ObjectChart.tsx`: the component spreads the node into the
+ * schema it hands `ChartRenderer`, and `normalizeChartSchema` reads them there.
+ * Both census pins above read `schema.KEY` off that one file, so neither lists
+ * them — as reads or as exceptions — and neither was moved. Their pin is
  * `__tests__/object-chart-axis-config-10518.test.ts`; the render path was
  * measured once with a real registry probe, recorded on the card's PR.
  */
@@ -4373,8 +4374,8 @@ export interface ObjectChartSchema extends BaseSchema {
   aggregate?: ChartAggregate;
   /**
    * INTERNAL (relay-composed) — the category column the renderer binds the x
-   * axis to. Authors write `xAxisField` above (or, one layer down, the spec's
-   * `xAxis: { field }`, which `normalizeChartSchema` resolves); the five
+   * axis to. Authors write `xAxisField` above (or the spec's {@link xAxis}
+   * object below, whose `field` `normalizeChartSchema` resolves); the five
    * producers of an `object-chart` node compute this key.
    *
    * Typed `string` from `ChartRendererProps.schema.xAxisKey`, the read this
@@ -4502,6 +4503,27 @@ export interface ObjectChartSchema extends BaseSchema {
    * value check that `.passthrough()` was skipping.
    */
   compareTo?: SpecDashboardWidget['compareTo'];
+  /**
+   * AUTHORABLE — the category (x) axis: ONE `@objectstack/spec` axis CONFIG
+   * object, the type of `ChartConfigSchema.xAxis`. Its `field` names the
+   * category column when neither `aggregate.groupBy` nor {@link xAxisKey} does
+   * (`resolveChartCategoryField`'s order); its other keys are presentation.
+   *
+   * Declared by objectui#10518 beside {@link yAxis}, for the same three reasons
+   * (see that member): the spec's `ObjectChart` react block lists `xAxis` in its
+   * `dataProps` with `ChartConfigSchema` as its schema; `normalizeChartSchema`
+   * reads every spec axis key off the object; and a real producer writes it —
+   * the objectstack showcase `renewals-pipeline` page's `xAxis: { field }`.
+   *
+   * ⛔ The object ONLY. There is no `string` arm and no fold onto
+   * {@link xAxisKey} (seat decision on objectui#10518, option A): the bare
+   * string is objectui#7113's alias on `ChartSchema` alone, the spec's
+   * `ChartConfigSchema.xAxis` has no string arm, and no producer on this node
+   * writes one. The renderer still TOLERATES a bare string — that is
+   * `normalizeChartSchema`'s, untouched — but it does not compile here and the
+   * mirror refuses it, as it refuses a list, with the `{ field }` remedy.
+   */
+  xAxis?: SpecChartAxis;
   /**
    * AUTHORABLE — the value (y) axes: an ARRAY of `@objectstack/spec`'s axis
    * CONFIG objects, the type of `ChartConfigSchema.yAxis`. The first entry is

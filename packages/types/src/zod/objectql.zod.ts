@@ -2407,6 +2407,53 @@ const OBJECT_CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
   + 'the right-hand axis). A single axis object or a bare column name is not a member of the protocol.';
 
 /**
+ * The remedy for an `ObjectChartSchema.xAxis` that is not an object
+ * (objectui#10518) — the spec's own spelling, the `{ field }` form the
+ * showcase `renewals-pipeline` page writes on this node.
+ */
+const OBJECT_CHART_X_AXIS_IS_AN_OBJECT_GUIDANCE =
+  '`xAxis` on an `object-chart` is `@objectstack/spec`\'s axis OBJECT — write `xAxis: { field: \'status\' }` '
+  + '(plus `title`, `format`, … as the spec declares them). A bare column name or a list is not a member of '
+  + 'the protocol on this node: the bare-string spelling is an alias of `xAxisKey` on the `chart` node only.';
+
+/**
+ * The message for a refused `ObjectChartSchema.xAxis` (objectui#10518).
+ *
+ * `xAxis` here is ONLY the spec's axis object: no string arm and no fold. The
+ * objectui#7113 bare-string alias of `xAxisKey` is a ruling scoped to
+ * `ChartSchema` (seat decision on objectui#10518, option A), and the spec's
+ * `ChartConfigSchema.xAxis` — the `ObjectChart` react block's schema — has no
+ * string arm either.
+ *
+ * Why the member below is a two-arm union whose second arm is `z.never()`: the
+ * spec's object answers a string with a bare "expected object", and zod runs a
+ * ONE-option union as its option, so a single-arm union's error hook never
+ * fires. `z.never()` admits nothing and adds nothing to the inferred type; what
+ * it buys is that every refusal becomes one `invalid_union` at `xAxis`, worded
+ * here — the shape `ChartSchema.xAxis` already reports (`chartXAxisUnionError`
+ * in `data-display.zod.ts`):
+ *
+ *   - an OBJECT can only have meant the axis object, and that arm's issues are
+ *     surfaced with their paths (`xAxis.min: …`), in the spec's own words — the
+ *     alias hint included;
+ *   - anything else — a bare column name, a list, a number — gets the remedy.
+ *
+ * It is a MESSAGE, not an accept: the issue stays `invalid_union` at `xAxis`,
+ * and nothing that was refused is admitted.
+ */
+function objectChartXAxisError(issue: z.core.$ZodRawIssue): string | undefined {
+  if (issue.code !== 'invalid_union') return undefined;
+  const input = issue.input;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return OBJECT_CHART_X_AXIS_IS_AN_OBJECT_GUIDANCE;
+  // Arm order is the union's: [axis object, never].
+  const axisArm = issue.errors[0] ?? [];
+  const detail = axisArm
+    .map((i) => `${['xAxis', ...i.path.map(String)].join('.')}: ${i.message}`)
+    .join('; ');
+  return `\`xAxis\` is not a valid \`@objectstack/spec\` axis object — ${detail || 'Invalid input'}`;
+}
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -2509,34 +2556,47 @@ export const ObjectChartSchema = BaseSchema.extend({
   // the position it reads (`stripImportedDefaults(<binding>)`).
   compareTo: stripImportedDefaults(SpecDashboardWidgetSchema).shape.compareTo
     .describe('Period-over-period comparison directive, forwarded verbatim from the dashboard widget key of the same name — bound BY REFERENCE to `DashboardWidgetSchema.shape.compareTo` so the producer and this consumer cannot drift into two dialects.'),
-  // ── objectui#10518: the value axes, as `@objectstack/spec`'s axis config
-  // LIST — the `object-chart` sibling of objectui#7690, under the same ruling
-  // (5809510046, branch 2 — declare), which triage reused for this node.
+  // ── objectui#10518: the two axes, as `@objectstack/spec`'s axis config —
+  // ONE object for `xAxis`, a LIST for `yAxis` — the `object-chart` sibling of
+  // objectui#7690, under the same ruling (5809510046, branch 2 — declare),
+  // which triage reused for this node.
   //
   // Three readings, each taken rather than assumed (the TS twin in
   // `../objectql.ts` carries them in full):
-  //   - the spec DECLARES the key on this node: its `REACT_BLOCKS` entry for
-  //     `<ObjectChart>` has `schemaType: 'object-chart'` and
-  //     `schema: ChartConfigSchema`, and lists `yAxis` among its `dataProps`;
-  //     `ChartConfigSchema.yAxis` is an ARRAY of `ChartAxisSchema`;
-  //   - the node RENDERS it: `ObjectChart` spreads the node into the schema it
-  //     hands `ChartRenderer`, whose `normalizeChartSchema` reads the spec's
+  //   - the spec DECLARES both keys on this node: its `REACT_BLOCKS` entry for
+  //     the `ObjectChart` react block has `schemaType: 'object-chart'` and
+  //     `schema: ChartConfigSchema`, and lists `xAxis` / `yAxis` among its
+  //     `dataProps`; `ChartConfigSchema.xAxis` is ONE `ChartAxisSchema` and
+  //     `ChartConfigSchema.yAxis` an ARRAY of them;
+  //   - the node RENDERS them: `ObjectChart` spreads the node into the schema
+  //     it hands `ChartRenderer`, whose `normalizeChartSchema` reads the spec's
   //     axis keys (tied to them from the renderer's side by
   //     `normalizeChartSchema.specAxisKeys-7690.test.ts`);
-  //   - a real producer WRITES it: the objectstack showcase command-center
+  //   - real producers WRITE them: the objectstack showcase command-center
   //     page's dataset-bound `object-chart` authors `yAxis: [{ field, stepSize: 1 }]`
-  //     to pin integer ticks on a count axis.
+  //     to pin integer ticks on a count axis, and its `renewals-pipeline` page
+  //     writes `xAxis: { field }` on the `ObjectChart` react block.
   //
-  // Until here the key rode `BaseSchema`'s `.passthrough()` — kept, read and
-  // UNCHECKED — so `yAxis: [{ field: 'n', stepSize: 'big' }]` parsed green.
+  // Until here both keys rode `BaseSchema`'s `.passthrough()` — kept, read and
+  // UNCHECKED — so `yAxis: [{ field: 'n', stepSize: 'big' }]` and
+  // `xAxis: { field: 'n', min: 'zero' }` parsed green.
   //
   // BY REFERENCE, not restated: the key set, the value domains and the strict
   // refusal are the spec's. `stripImportedDefaults` keeps the spec's two
-  // `.default()`s out of the parse output, exactly as on `ChartSchema.yAxis`.
-  // Only the spec's LIST is a member: the single object and the bare column
-  // name `normalizeChartSchema` tolerates are refused (the liveness read on
-  // objectui#10518, a one-time reading, found no producer on this node writing
-  // either).
+  // `.default()`s out of the parse output, exactly as on `ChartSchema`.
+  // Only the spec's shapes are members: a bare column name or a list on
+  // `xAxis`, and a single object or a bare column name on `yAxis` — the
+  // tolerances `normalizeChartSchema` honours — are refused, each with its
+  // remedy (the liveness read on objectui#10518, a one-time reading, found no
+  // producer on this node writing any of them). ⛔ No string arm and no fold on
+  // `xAxis`: see `objectChartXAxisError` above.
+  xAxis: z
+    .union([stripImportedDefaults(SpecChartAxisSchema), z.never()], { error: objectChartXAxisError })
+    .optional()
+    .describe(
+      'AUTHORABLE — category (x) axis: ONE @objectstack/spec ChartAxis object, by reference (field required, strict). '
+      + 'Its field names the category column when neither aggregate.groupBy nor xAxisKey does. A bare column name or a list is refused.',
+    ),
   yAxis: z
     .array(stripImportedDefaults(SpecChartAxisSchema), {
       error: (issue) => (issue.code === 'invalid_type' ? OBJECT_CHART_Y_AXIS_IS_A_LIST_GUIDANCE : undefined),

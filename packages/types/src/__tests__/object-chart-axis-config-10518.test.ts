@@ -7,41 +7,57 @@
  */
 
 /**
- * objectui#10518 — `ObjectChartSchema.yAxis` DECLARES the spec's axis config
- * LIST (ruling 5809510046, branch 2 — declare), the `object-chart` sibling of
+ * objectui#10518 — `ObjectChartSchema.xAxis` / `ObjectChartSchema.yAxis`
+ * DECLARE the spec's axis config — ONE object on `xAxis`, a LIST on `yAxis`
+ * (ruling 5809510046, branch 2 — declare), the `object-chart` sibling of
  * objectui#7690, whose pin for the `chart` node is
  * `chart-axis-config-7690.test.ts`.
  *
  * ## The protocol answered first
  *
- * `@objectstack/spec/ui` declares the key on this very node: the `REACT_BLOCKS`
- * entry for `<ObjectChart>` carries `schemaType: 'object-chart'` and
- * `schema: ChartConfigSchema`, and lists `yAxis` among its `dataProps`;
- * `ChartConfigSchema.yAxis` is an ARRAY of `ChartAxisSchema`. Block (a) reads
- * both off the installed spec rather than writing them down here.
+ * `@objectstack/spec/ui` declares both keys on this very node: the
+ * `REACT_BLOCKS` entry for the `ObjectChart` react block carries
+ * `schemaType: 'object-chart'` and `schema: ChartConfigSchema`, and lists
+ * `xAxis` / `yAxis` among its `dataProps`; `ChartConfigSchema.xAxis` is ONE
+ * `ChartAxisSchema` and `ChartConfigSchema.yAxis` an ARRAY of them. Blocks (a)
+ * and (f) read that off the installed spec rather than writing it down here.
+ *
+ * ## `xAxis` is the object ONLY (seat decision on objectui#10518, option A)
+ *
+ * No string arm and no fold onto `xAxisKey`: objectui#7113's bare-string alias
+ * is `ChartSchema`'s alone, and the spec's `ChartConfigSchema.xAxis` has no
+ * string arm. A bare column name and a list are refused with the `{ field }`
+ * remedy. The renderer's own tolerance of a bare string is untouched and stays
+ * pinned where it lives (`ObjectChart.absentCategoryAxisRefusal-8168.test.tsx`).
  *
  * ## The defect (measured on the branch point before the change)
  *
- * The key was declared on neither face, so it rode `BaseSchema`'s
+ * Neither key was declared on either face, so both rode `BaseSchema`'s
  * `.passthrough()` — KEPT, read by the renderer, and UNCHECKED:
- * `yAxis: [{ field: 'n', stepSize: 'big' }]`, an entry carrying `logScale`,
- * and a single axis object all parsed green. The shape pin in (a) and every
- * refusal in (c) and (d) are red on that tree; the PR records the run.
+ * `yAxis: [{ field: 'n', stepSize: 'big' }]`, `xAxis: { field: 'n', min: 'zero' }`,
+ * keys the spec only names as aliases, a single `yAxis` object and a bare
+ * `xAxis` string all parsed green. The shape pins in (a) and (f) and every
+ * refusal in (c), (d), (h) and (i) are red on that tree; the PR records the run.
  *
- * ## The lit control is the real producer
+ * ## The lit controls are the real producers
  *
- * The objectstack showcase command-center page builds its dataset-bound charts
- * through one helper that writes `yAxis: [{ field: values[0], stepSize: 1 }]`
- * inside the node's `properties` bag. `SchemaRenderer` hoists that bag onto the
- * node, so the node below is the shape the mirror judges — flattened, with the
- * helper's own keys. It parses on the branch point and on this change alike:
- * the declaration narrows nothing that producer writes.
+ * `yAxis`: the objectstack showcase command-center page builds its
+ * dataset-bound charts through one helper that writes
+ * `yAxis: [{ field: values[0], stepSize: 1 }]` inside the node's `properties`
+ * bag. `SchemaRenderer` hoists that bag onto the node, so the node below is the
+ * shape the mirror judges — flattened, with the helper's own keys.
+ * `xAxis`: the showcase `renewals-pipeline` page writes `xAxis={{ field }}` and
+ * `yAxis={[{ field, format }]}` on the `ObjectChart` react block. Both parse on
+ * the branch point and on this change alike: the declarations narrow nothing
+ * those producers write.
  *
  * ## How refusals are asserted
  *
  * By issue `code` and `path`. Where a message is asserted, it is compared
  * against the SPEC's own message for the same axis, read off the spec schema in
- * the same test — never against a string written here.
+ * the same test — never against a string written here. The one exception is
+ * the `xAxis` remedy, whose wording (`xAxis: { field`) IS the contract the seat
+ * decision asked for.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -123,6 +139,8 @@ type Expect<T extends true> = T;
  * precisely the before-state.
  */
 export type assertionYAxisIsTheSpecList = Expect<Equal<ObjectChartSchema['yAxis'], SpecChartAxis[] | undefined>>;
+/** `xAxis` is the spec's ONE object — not a string, not a list, not `any`. */
+export type assertionXAxisIsTheSpecObject = Expect<Equal<ObjectChartSchema['xAxis'], SpecChartAxis | undefined>>;
 /** The helper can FAIL — synthetic control (an undeclared key reads `any`). */
 export type assertionEqualCanFail = Expect<Equal<Equal<any, SpecChartAxis[] | undefined>, false>>;
 
@@ -261,6 +279,152 @@ describe('objectui#10518 (e) — the TS twin types `yAxis` with the spec\'s `Cha
       { ...base, yAxis: [{ field: 'task_count', stepSize: 'big' }] },
       // @ts-expect-error — `field` is required on a spec axis object
       { ...base, yAxis: [{ stepSize: 1 }] },
+    ];
+    expect(refused).toHaveLength(4);
+  });
+});
+
+/* ══ `xAxis` — the spec's ONE axis object, and only that ══════════════════ */
+
+/** The showcase `renewals-pipeline` producer's axis props and binding, on this node. */
+const RENEWALS_AXES = {
+  objectName: 'showcase_invoice',
+  aggregate: { field: 'total', function: 'sum', groupBy: 'status' },
+  xAxis: { field: 'status' },
+  yAxis: [{ field: 'total', format: '$0,0' }],
+} as const;
+
+/** The remedy's own spelling — the contract the seat decision named. */
+const X_AXIS_REMEDY = 'xAxis: { field';
+
+/* ── (f) the declaration IS the spec's ───────────────────────────────────── */
+
+describe('objectui#10518 (f) — `xAxis` is declared, with the spec axis object', () => {
+  it('the spec declares `xAxis` on the `object-chart` react block, as `ChartConfigSchema`\'s ONE object', () => {
+    const block = REACT_BLOCKS.find((b) => b.schemaType === 'object-chart');
+    expect(block!.dataProps).toContain('xAxis');
+    // The object arm, read off the spec: an object parses, a bare string and a
+    // list are refused AT `xAxis` — the spec's config has no string arm.
+    expect(SpecChartConfigSchema.safeParse({ type: 'bar', xAxis: { field: 'n' } }).success).toBe(true);
+    for (const xAxis of ['n', [{ field: 'n' }]]) {
+      const r = SpecChartConfigSchema.safeParse({ type: 'bar', xAxis });
+      expect(r.success).toBe(false);
+      expect(r.error!.issues.map((i) => i.path)).toEqual([['xAxis']]);
+    }
+  });
+
+  it('`xAxis` is in the mirror\'s own shape — declared, not passed through', () => {
+    expect(Object.keys(mirrorShape)).toContain('xAxis');
+  });
+
+  it('every spec axis key is accepted on `xAxis`, and the value survives unchanged', () => {
+    const axis = { ...FULL_AXIS, field: 'status', position: 'bottom' };
+    expect(parsed(chart({ xAxis: axis })).xAxis).toEqual(axis);
+  });
+
+  it('omitted keys stay omitted — the spec defaults are not written into the output', () => {
+    expect(parsed(chart({ xAxis: { field: 'status' } })).xAxis).toEqual({ field: 'status' });
+  });
+
+  it('NOT folded — the object survives the parse, and no `xAxisKey` is minted from it', () => {
+    const out = parsed(chart({ xAxis: { field: 'status', title: 'Status' } }));
+    expect(out.xAxis).toEqual({ field: 'status', title: 'Status' });
+    expect(out).not.toHaveProperty('xAxisKey');
+  });
+});
+
+/* ── (g) the lit control: the real producer ──────────────────────────────── */
+
+describe('objectui#10518 (g) — LIT CONTROL: the showcase `renewals-pipeline` axes parse, unchanged', () => {
+  it('on the mirror, with `xAxis` / `yAxis` exactly as written', () => {
+    const out = parsed(chart(RENEWALS_AXES));
+    expect(out.xAxis).toEqual({ field: 'status' });
+    expect(out.yAxis).toEqual([{ field: 'total', format: '$0,0' }]);
+  });
+
+  it('through `safeValidateSchema`, the door `objectui validate` / `objectui check` run', () => {
+    expect(safeValidateSchema(chart(RENEWALS_AXES)).success).toBe(true);
+  });
+});
+
+/* ── (h) values and keys inside the object are CHECKED now ───────────────── */
+
+describe('objectui#10518 (h) — a malformed `xAxis` object is refused at `xAxis`, carrying the spec\'s own diagnostic', () => {
+  it.each([
+    ['a non-number `min`', { field: 'status', min: 'zero' }],
+    ['a `position` outside the four', { field: 'status', position: 'middle' }],
+    ['an undeclared key the spec names an alias of (`grid`)', { field: 'status', grid: true }],
+    ['a missing `field` — the spec requires it', { title: 'Status' }],
+  ])('%s', (_label, axis) => {
+    const [issue] = issues(chart({ xAxis: axis }));
+    expect(issue!.code).toBe('invalid_union');
+    expect(issue!.path).toEqual(['xAxis']);
+    expect(issue!.message).toContain(specMessage(axis));
+  });
+
+  it('the refusal reaches the public door — `safeValidateSchema` refuses the node', () => {
+    expect(safeValidateSchema(chart({ xAxis: { field: 'status', min: 'zero' } })).success).toBe(false);
+  });
+
+  /* CONTROL for every refusal above: the same objects, minus the defect, parse. */
+  it('CONTROL — the same objects, minus the defect, are accepted', () => {
+    expect(() => parsed(chart({ xAxis: { field: 'status', min: 0, position: 'bottom', showGridLines: true } }))).not.toThrow();
+    expect(() => parsed(chart({ xAxis: { field: 'status', title: 'Status' } }))).not.toThrow();
+  });
+});
+
+/* ── (i) a bare string and a list are refused, with the remedy ───────────── */
+
+describe('objectui#10518 (i) — `xAxis` is the spec object, and only that', () => {
+  it.each([
+    ['a bare column name', 'status'],
+    ['a list of axis objects', [{ field: 'status' }]],
+    ['a number', 42],
+  ])('%s is refused at `xAxis`, naming the `{ field }` remedy', (_label, xAxis) => {
+    const [issue] = issues(chart({ xAxis }));
+    expect(issue!.code).toBe('invalid_union');
+    expect(issue!.path).toEqual(['xAxis']);
+    expect(issue!.message).toContain(X_AXIS_REMEDY);
+  });
+
+  it('the bare string is refused at the public door too', () => {
+    expect(safeValidateSchema(chart({ xAxis: 'status' })).success).toBe(false);
+  });
+
+  it('CONTROL — the same column as the spec object parses, and a malformed OBJECT is not told the remedy', () => {
+    expect(parsed(chart({ xAxis: { field: 'status' } })).xAxis).toEqual({ field: 'status' });
+    const [issue] = issues(chart({ xAxis: { field: 'status', min: 'zero' } }));
+    expect(issue!.message).not.toContain(X_AXIS_REMEDY);
+  });
+});
+
+/* ── (j) the TS twin carries the same contract ───────────────────────────── */
+
+describe('objectui#10518 (j) — the TS twin types `xAxis` with the spec\'s ONE `ChartAxis`', () => {
+  it('accepts the spec shape at the authoring site', () => {
+    const node: ObjectChartSchema = {
+      type: 'object-chart',
+      chartType: 'bar',
+      objectName: 'showcase_invoice',
+      aggregate: { field: 'total', function: 'sum', groupBy: 'status' },
+      xAxis: { field: 'status', title: { en: 'Status', 'zh-CN': '状态' } },
+      yAxis: [{ field: 'total', format: '$0,0' }],
+    };
+    expect(node.xAxis?.field).toBe('status');
+  });
+
+  it('refuses what the mirror refuses — checked by `tsc -p tsconfig.test.json`', () => {
+    // Not `as const`, for the reason block (e) gives.
+    const base = { type: 'object-chart' as const, chartType: 'bar' as const };
+    const refused: ObjectChartSchema[] = [
+      // @ts-expect-error — `xAxis` is the spec's axis OBJECT, not a bare column name
+      { ...base, xAxis: 'status' },
+      // @ts-expect-error — `xAxis` is ONE axis object, not a list
+      { ...base, xAxis: [{ field: 'status' }] },
+      // @ts-expect-error — `field` is required on a spec axis object
+      { ...base, xAxis: { title: 'Status' } },
+      // @ts-expect-error — `min` is a number
+      { ...base, xAxis: { field: 'status', min: 'zero' } },
     ];
     expect(refused).toHaveLength(4);
   });

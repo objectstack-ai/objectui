@@ -6,9 +6,10 @@
  * object's list views as switcher tabs and lets users create views, this
  * surface is deliberately closed:
  *
- *   • the page REFERENCES one view (`interfaceConfig.sourceView`) — columns
- *     (with the view's `hiddenFields` / `fieldOrder`), base filter and sort
- *     are inherited, never restated (the iron rule);
+ *   • the page REFERENCES one view (`interfaceConfig.sourceView`) as a
+ *     fallback — its columns (with its `hiddenFields` / `fieldOrder`), base
+ *     filter and sort are inherited unless the page defines its own
+ *     `columns` / `filterBy` / `sort` (ADR-0047 revised);
  *   • end users get exactly the `userFilters` the author enabled;
  *   • the visualization comes from `appearance.allowedVisualizations`
  *     (a single entry renders no switcher);

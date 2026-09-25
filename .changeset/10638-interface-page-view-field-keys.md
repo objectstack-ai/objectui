@@ -6,7 +6,8 @@ fix(app-shell): an interface page's source view now hides and orders its columns
 
 An ADR-0047 interface list page (`InterfaceListPage`) builds its list schema
 from the view its `interfaceConfig.sourceView` names, and carried that view's
-`columns`, `filter` and `sort` but not its `hiddenFields` or `fieldOrder`. A
+`columns`, `filter`, `sort` (and its other keys) but not its `hiddenFields` or
+`fieldOrder`. A
 source view that authored either still showed every column of its `columns`, in
 `columns` order: accepted, served, then dropped at the page. Both keys now reach
 `ListView` beside the view's `columns`, which composes them as it always has —

@@ -45,8 +45,15 @@ verdict is a WRONG-TYPED value at a correctly spelled key, which the index
 signature and `.passthrough()` used to admit unexamined: `colorField: 0xff0000`
 and `allDayField: true` — the field-name-versus-value confusion these keys invite
 — are now refused at authoring time and through `safeValidateSchema`, the path
-the CLI's `validate` / `check` take. That is why this is a `minor` and not a
+the CLI's `validate` takes. That is why this is a `minor` and not a
 `patch`.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
+objectui#10524.** This entry first named the CLI's `check` command beside
+`validate`. `check` is an advisory sweep: it never parses against the schema a file whose root
+carries a structural key (`children`, `className`, `body`, …), it lists a file
+with none of those keys by name when the file does not validate, and it exits
+non-zero on unreadable JSON only. The refusal is `objectui validate`'s.
 
 Neither key is added to `plugin-calendar`'s registration `inputs`, deliberately:
 the forward direction of `apps/console`'s registry/spec parity gate refuses an

@@ -11,8 +11,10 @@ After objectui#8348 put the renderer on the protocol's side (maintainer ruling, 
 **What changes for authors**
 
 - `ObjectCalendarSchema` (TypeScript): `data?: ViewData` becomes `data?: unknown[]`, DERIVED from the protocol's own row rather than re-spelled, so the key cannot drift from it a second time. A calendar literal carrying `data: { provider: 'value', items: [...] }` is now a compile error at `data`; an array of records compiles.
-- `ObjectCalendarSchema` (Zod mirror, reached by `safeValidateSchema` and so by the CLI's `validate` / `check`): `ViewDataSchema.optional()` becomes `z.array(z.unknown()).optional()`. The config object is now refused AT the key; an array is accepted.
+- `ObjectCalendarSchema` (Zod mirror, reached by `safeValidateSchema` and so by the CLI's `validate`): `ViewDataSchema.optional()` becomes `z.array(z.unknown()).optional()`. The config object is now refused AT the key; an array is accepted.
 - Requiredness is unchanged — optional on both faces, as before — so the `zod-mirror-parity` ratchet is unmoved.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal — objectui#10524.** This entry first named the CLI's `check` command beside `validate`. `check` is an advisory sweep: it never parses against the schema a file whose root carries a structural key (`children`, `className`, `body`, …), it lists a file with none of those keys by name when the file does not validate, and it exits non-zero on unreadable JSON only. The refusal is `objectui validate`'s.
 
 ⛔ **The accept set genuinely shrinks. That is the point**, and it is a narrowing onto a contract `@objectstack/spec` already publishes, not a new dialect: every document this declaration now refuses was already refused by the protocol, by `os validate`, by the save gate and by the renderer. Nothing that renders today stops rendering because of this change — objectui#8348 is where the runtime behaviour moved.
 

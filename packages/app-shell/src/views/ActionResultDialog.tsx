@@ -69,10 +69,10 @@ function readPath(root: unknown, path: string): unknown {
 
 export function ActionResultDialog({ state, onAcknowledge }: ActionResultDialogProps) {
   // `language` is the display locale every other inline-`I18nLabel` caller in
-  // this package resolves against — `AppSidebar` and `UnifiedSidebar` read it
-  // off this same hook, `resolveActionParams` takes it threaded in by both its
-  // callers, and metadata-admin's `useMetadataLocale` narrows this same value
-  // to that designer's two bundled locales. One source, so a title and the
+  // this package resolves against — `UnifiedSidebar` reads it off this same
+  // hook, `resolveActionParams` takes it threaded in by both its callers, and
+  // metadata-admin's `useMetadataLocale` narrows this same value to that
+  // designer's two bundled locales. One source, so a title and the
   // surrounding chrome cannot disagree about the user's language.
   const { t, language } = useObjectTranslation();
   const { spec, data } = state;

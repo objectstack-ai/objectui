@@ -176,6 +176,28 @@ describe('@object-ui/cli bin', () => {
     });
   });
 
+  // objectui#10524 — `check` is an advisory sweep, not a validator: a file whose
+  // root carries a structural key is recognised by that key and never parsed,
+  // and only unreadable JSON exits non-zero. Its help line used to read
+  // "Validate schema files". These assert the kind of claim and the command it
+  // names, not the wording.
+  describe('check --help does not present `check` as the validator (objectui#10524)', () => {
+    const checkDescription = () => {
+      const res = run(['check', '--help']);
+      expect(res.code, res.stderr || res.stdout).toBe(0);
+      // Commander prints `Usage: …`, a blank line, then the description paragraph.
+      return res.stdout.split(/\n\s*\n/)[1] ?? '';
+    };
+
+    it('does not describe `check` with the verb "validate"', () => {
+      expect(checkDescription()).not.toMatch(/^\s*validates?\b/i);
+    });
+
+    it('names `objectui validate` as the command that gives the verdict', () => {
+      expect(checkDescription()).toContain('objectui validate');
+    });
+  });
+
   describe('flag contracts (locked-in by docs)', () => {
     const cases: Array<[string, RegExp[]]> = [
       ['dev',      [/-p, --port <port>/, /-h, --host <host>/, /--no-open/]],

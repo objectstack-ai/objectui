@@ -3,10 +3,10 @@
 /**
  * UnifiedSidebar — derived area visibility (objectui#3319).
  *
- * Same contract as the AppSidebar suite: the inline area switcher adopts the
- * #3311 derivation via the SHARED `hasVisibleNavigationItems` predicate from
- * `@object-ui/layout` — an area is offered iff something inside it renders,
- * and the active area is elected among the visible areas only.
+ * The inline area switcher adopts the #3311 derivation via the SHARED
+ * `hasVisibleNavigationItems` predicate from `@object-ui/layout` — an area is
+ * offered iff something inside it renders, and the active area is elected among
+ * the visible areas only.
  *
  * One behavior is specific to this sidebar: it wires
  * `onAction={dispatchNavAction}` (framework#4509), so an `action` nav item IS

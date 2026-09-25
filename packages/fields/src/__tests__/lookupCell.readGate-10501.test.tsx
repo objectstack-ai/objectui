@@ -43,7 +43,7 @@ import { render, screen, cleanup, waitFor, act, fireEvent, within } from '@testi
 import '@testing-library/jest-dom';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { PermissionProvider } from '@object-ui/permissions';
-import type { ObjectPermissionConfig } from '@object-ui/types';
+import type { DataSource, FieldMetadata, ObjectPermissionConfig } from '@object-ui/types';
 import { LookupCellRenderer } from '../index';
 
 const ADA = { id: 'p1', name: 'Ada Lovelace', email: 'ada@example.com', phone: '555-0100' };
@@ -73,8 +73,11 @@ function makeDataSource(objectName: string, schema: Record<string, unknown>, rec
       object === objectName ? records.find((r) => r.id === id) ?? null : null,
     ),
     getObjectSchema: vi.fn(async (object: string) => (object === objectName ? schema : undefined)),
-  } as any;
+  };
 }
+
+/** The double implements only the three reads the cell makes. */
+type DataSourceDouble = ReturnType<typeof makeDataSource>;
 
 /** The real role-based policy, denying the named fields of `objectName` to `viewer`. */
 function policyDenying(objectName: string, ...fields: string[]): ObjectPermissionConfig[] {
@@ -94,7 +97,7 @@ function Cell({
   value,
   policy,
 }: {
-  ds: any;
+  ds: DataSourceDouble;
   objectName: string;
   value: unknown;
   /** Omitted: no provider mounted, so no policy is loaded. */
@@ -102,8 +105,8 @@ function Cell({
 }) {
   const cell = (
     <div data-testid="cell">
-      <SchemaRendererProvider dataSource={ds}>
-        <LookupCellRenderer value={value} field={{ type: 'lookup', reference_to: objectName } as any} />
+      <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
+        <LookupCellRenderer value={value} field={{ type: 'lookup', reference_to: objectName } as FieldMetadata} />
       </SchemaRendererProvider>
     </div>
   );
@@ -228,7 +231,7 @@ describe('LookupCellRenderer — the referenced record is named from the fields 
   });
 
   describe('a policy that arrives after mount relabels the same mounted cell', () => {
-    function Host({ ds, objectName, value }: { ds: any; objectName: string; value: unknown }) {
+    function Host({ ds, objectName, value }: { ds: DataSourceDouble; objectName: string; value: unknown }) {
       const [policy, setPolicy] = React.useState<ObjectPermissionConfig[]>([]);
       return (
         <>
@@ -238,7 +241,7 @@ describe('LookupCellRenderer — the referenced record is named from the fields 
       );
     }
 
-    async function relabels(ds: any, objectName: string, value: unknown): Promise<void> {
+    async function relabels(ds: DataSourceDouble, objectName: string, value: unknown): Promise<void> {
       render(<Host ds={ds} objectName={objectName} value={value} />);
       await waitFor(() => expect(screen.getByTestId('cell')).toHaveTextContent('ada@example.com'));
       await settle();

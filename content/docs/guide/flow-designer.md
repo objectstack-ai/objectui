@@ -121,6 +121,29 @@ also be edited from the edge side — select a connector and use its **Branch**
 picker — and the two stay in sync, because the routing always lives on the
 edges.
 
+An **Assignment** node's Assignments editor sets one variable per row. Each
+value is either text or a CEL expression, chosen with the row's *Write as a CEL
+expression* toggle:
+
+```json
+{
+  "type": "assignment",
+  "config": {
+    "assignments": {
+      "label": "{record.name}",
+      "digest": { "dialect": "cel", "source": "joinNonEmpty(names, \", \")" }
+    }
+  }
+}
+```
+
+Text (`label`) is `{token}` interpolation and is stored exactly as typed. An
+expression (`digest`) is stored as the `{ dialect: 'cel', source }` envelope and
+evaluated by the expression engine, so the CEL stdlib is available. A malformed
+envelope shows the spec's refusal under the cell. The toggle appears only on maps
+whose values the spec declares may be an expression; other key/value editors
+(field values, headers, inputs) have none.
+
 ## Validate, simulate, inspect runs
 
 The toolbar toggles four side panels:

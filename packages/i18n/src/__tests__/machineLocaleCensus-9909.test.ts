@@ -285,21 +285,12 @@ const DECLARED: Exemption[] = [
       'the total line of the same dev-server-only demo page source; the console build ships `index.html` alone.',
   },
   {
-    file: 'packages/plugin-detail/src/InlineFieldInput.tsx',
-    expression: "d.toLocaleDateString('en-CA')",
-    count: 1,
-    verdict: 'deliberate fallback',
-    reason:
-      'an ISO-8601 FORMATTER, not a display locale: `<input type="date">` takes `YYYY-MM-DD` and nothing else, so ' +
-      'putting this on the display locale would blank the native date picker.',
-  },
-  {
     file: 'packages/plugin-gantt/src/GanttView.tsx',
     expression: "task.start.toLocaleDateString('en-CA')",
     count: 2,
     verdict: 'deliberate fallback',
     reason:
-      'the same ISO-8601 formatter feeding the inline editor\'s `<input type="date">` value (double-click and ' +
+      'an ISO-8601 formatter, not a display locale: it feeds the inline editor\'s `<input type="date">` value (double-click and ' +
       'context-menu edit both seed it).',
   },
   {

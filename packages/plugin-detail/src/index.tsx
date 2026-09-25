@@ -330,10 +330,10 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
 // directly, `section` arrived `undefined` and the very first
 // `section.defaultCollapsed` read THREW — measured end to end, the author's page
 // showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
-// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// block. `DetailSectionNode` folds the declared inputs into the `section`
 // object the component reads; see that file for why the fold sits at this seam
 // rather than in `DetailSection` (which every in-repo caller uses directly), and
-// why re-declaring these eight as a nested `section` input was the repair NOT
+// why re-declaring these as a nested `section` input was the repair NOT
 // taken.
 ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
@@ -342,6 +342,11 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
   inputs: [
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
+    {
+      name: 'icon',
+      type: 'string',
+      description: 'Section header icon, drawn before the title: a Lucide icon name such as `map-pin`.',
+    },
     { name: 'fields', type: 'array', required: true },
     { name: 'collapsible', type: 'boolean' },
     { name: 'defaultCollapsed', type: 'boolean' },

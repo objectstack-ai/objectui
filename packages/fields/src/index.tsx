@@ -3859,8 +3859,11 @@ export function getLazyFieldWidget(fieldType: string): React.ComponentType<any> 
   const key = resolveFormWidgetType(fieldType);
   // A retired key has no loader in `fieldWidgetMap` by construction, so it is
   // answered with the tombstone before the lazy path (which would otherwise
-  // call `React.lazy(undefined)`).
-  if (RETIRED_FIELD_TYPES[key]) return RetiredFieldTombstone;
+  // call `React.lazy(undefined)`). The tombstone is BOUND to `key`: a host
+  // that resolved the key from an authored `widget` hands over a `field` whose
+  // `type` is a live type, and the refusal must name what was resolved
+  // (objectui#10471) — see {@link retiredFieldTombstoneFor}.
+  if (RETIRED_FIELD_TYPES[key]) return retiredFieldTombstoneFor(key);
   let Widget = lazyFieldWidgets.get(key);
   if (!Widget) {
     // `resolveFormWidgetType` only returns keys the map holds, hence the `!`.
@@ -4068,9 +4071,21 @@ export function registerField(fieldType: string): void {
  * nothing is silently substituted either, which is the whole point: the author
  * sees a refusal where they expected an input, not a text box that looks like
  * it worked.
+ *
+ * The spelling it names is `retiredFieldType` — the key the RESOLVER answered
+ * with this tombstone — and is re-derived from the field only when a host
+ * renders the tombstone directly without one (objectui#10471). The field is
+ * the wrong witness whenever the retired spelling arrived through a different
+ * key than `field.type`: an authored `widget` wins over `type` in both form
+ * hosts, so `{ type: 'user', widget: 'owner' }` reaches the `owner` tombstone
+ * carrying a `user` field, and deriving from it named the LIVE type as
+ * retired, lost the prescription, and logged nothing. The two resolvers fill
+ * the prop by binding it ({@link retiredFieldTombstoneFor}); a host whose key
+ * IS `field.type` (plugin-detail's inline editor) may keep omitting it.
  */
 export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   const spelling: string =
+    props?.retiredFieldType ??
     props?.field?.type ?? props?.schema?.type ?? props?.type ?? 'unknown';
   const prescription =
     RETIRED_FIELD_TYPES[spelling] ??
@@ -4090,6 +4105,40 @@ export const RetiredFieldTombstone: React.FC<Record<string, any>> = (props) => {
   );
 };
 
+/** One bound tombstone per retired spelling — see {@link retiredFieldTombstoneFor}. */
+const retiredFieldTombstonesBySpelling = new Map<string, React.ComponentType<any>>();
+
+/**
+ * {@link RetiredFieldTombstone}, bound to the retired spelling a resolver
+ * answered with it (objectui#10471).
+ *
+ * Both resolvers that turn a retired key into the tombstone hand out this
+ * component — `getLazyFieldWidget` and the `field:` registrations of
+ * `registerAllFields()` — because neither can put the key into the props a
+ * host renders it with: `FormPage` and the record form pass the row's `field`,
+ * and nothing else names what was resolved. Binding it here tells the
+ * tombstone which spelling it answers for, with no host edit and no second
+ * table: the spelling is the resolver's own key, and the prescription is still
+ * read from `RETIRED_FIELD_TYPES` by the tombstone itself.
+ *
+ * Cached per spelling, so the identity is stable (a host that memoises on the
+ * key does not remount) and the registry and the lazy door hand out the SAME
+ * component. `reportRetiredFieldType` stays once per spelling: it dedupes on
+ * the spelling, which is now the right one.
+ */
+function retiredFieldTombstoneFor(spelling: string): React.ComponentType<any> {
+  let Bound = retiredFieldTombstonesBySpelling.get(spelling);
+  if (!Bound) {
+    const BoundTombstone: React.FC<Record<string, any>> = (props) => (
+      <RetiredFieldTombstone {...props} retiredFieldType={spelling} />
+    );
+    BoundTombstone.displayName = `RetiredFieldTombstone(${spelling})`;
+    Bound = BoundTombstone;
+    retiredFieldTombstonesBySpelling.set(spelling, Bound);
+  }
+  return Bound;
+}
+
 export function registerAllFields(): void {
   Object.keys(fieldWidgetMap).forEach(fieldType => {
     registerField(fieldType);
@@ -4098,8 +4147,11 @@ export function registerAllFields(): void {
   // (`skipFallback` — a tombstone must not claim the bare global name). This is
   // what makes `widget: 'field:owner'` and a hand-written `type: 'owner'` land
   // on a visible refusal instead of falling through to the form's text input.
+  // Each is registered BOUND to its spelling, because the record form also
+  // reaches `field:owner` through `widget: 'owner'` over a live-typed field
+  // (objectui#10471).
   Object.keys(RETIRED_FIELD_TYPES).forEach(fieldType => {
-    ComponentRegistry.register(fieldType, RetiredFieldTombstone, {
+    ComponentRegistry.register(fieldType, retiredFieldTombstoneFor(fieldType), {
       namespace: 'field',
       skipFallback: true,
     });

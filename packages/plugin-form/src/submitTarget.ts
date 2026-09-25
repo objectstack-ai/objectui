@@ -49,10 +49,9 @@
  * becomes the primary field source"*.
  *
  * **(b) every section field is an inline runtime `FormField`.** This limb is not
- * optional and not an invention: it is how the sectioned variants express the
- * same thing, because `TabbedFormSchema` / `SplitFormSchema` /
- * `WizardFormSchema` have no `customFields` of their own — they build from
- * `sections`. This package's README documents the shape and ships an example of
+ * optional and not an invention: it is how a sectioned form expresses the same
+ * thing with no `customFields` at all — its sections carry the definitions.
+ * This package's README documents the shape and ships an example of
  * it, `<WizardForm schema={wizard} />` under the comment *"dataSource omitted:
  * every step lists inline fields"*, introduced by *"The inline shape is what
  * lets a wizard run with no data source at all"*. Measured before this module
@@ -70,10 +69,10 @@
  * and it refuses. Erring that way is the loud direction; the silent one is the
  * defect.
  *
- * `TabbedForm` / `SplitForm` / `WizardForm` do not declare `customFields` on
- * their own schema surface — the key reaches them through `ObjectForm`'s
- * `{...schema}` spread, and limb (a) reads it there only as that SIGNAL.
- * Reading it is deliberately not the same as claiming they render it.
+ * `TabbedForm` / `SplitForm` / `WizardForm` receive `customFields` through
+ * `ObjectForm`'s `{...schema}` spread. Until objectui#10254 they neither
+ * declared nor rendered it, and limb (a) read it there only as a SIGNAL; they
+ * now declare it and draw a member a section names, as the drawer and modal do.
  */
 
 /** The shape this module reads — deliberately narrower than any form schema. */
@@ -121,13 +120,13 @@ function sectionsAreFullyInline(sections: unknown): boolean {
  * Literally `SimpleObjectForm`'s test, kept in one place so the six renderers
  * cannot answer it six ways.
  *
- * The parameter is `object`, not `InlineFieldSource`, on purpose: three of the
- * five callers (`TabbedFormSchema` / `SplitFormSchema` / `WizardFormSchema`) do
- * NOT declare `customFields` on their own surface — the key arrives through
- * `ObjectForm`'s `{...schema}` spread — and TypeScript's weak-type check rejects
- * an argument sharing no property with a wholly-optional interface. Widening the
- * three schema interfaces instead would declare a field source those three do
- * not render, which is the declared-≠-enforced shape this card exists to undo.
+ * The parameter is `object`, not `InlineFieldSource`: TypeScript's weak-type
+ * check rejects an argument sharing no property with a wholly-optional
+ * interface, so a caller whose schema type declares neither key could not pass
+ * it. `TabbedFormSchema` / `SplitFormSchema` / `WizardFormSchema` declared no
+ * `customFields` while they did not render it, since declaring a field source a
+ * renderer ignores is the declared-≠-enforced shape objectui#6300 set out to
+ * undo; they declare it since objectui#10254, which made them render it.
  */
 export function hasInlineFieldSource(schema: object | null | undefined): boolean {
   const s = schema as InlineFieldSource | null | undefined;

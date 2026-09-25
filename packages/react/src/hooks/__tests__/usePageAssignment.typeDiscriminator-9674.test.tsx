@@ -22,12 +22,15 @@ import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { PageSchema } from '@objectstack/spec/ui';
-import { MetadataCtx } from '../../context/AppShellContext';
+import { MetadataCtx, type MetadataContextValue } from '../../context/AppShellContext';
 import { usePageAssignment } from '../usePageAssignment';
 
+/** A page as the metadata cache holds it: the body as served, unparsed. */
+type Page = Record<string, unknown>;
+
 /** A metadata context carrying exactly the `pages` list under test. */
-function wrapperFor(pages: any[]) {
-  const ctx: any = {
+function wrapperFor(pages: Page[]) {
+  const ctx: MetadataContextValue = {
     apps: [],
     objects: [],
     dashboards: [],
@@ -47,7 +50,7 @@ function wrapperFor(pages: any[]) {
   };
 }
 
-async function assign(pages: any[], objectName: string) {
+async function assign(pages: Page[], objectName: string) {
   const { result } = renderHook(() => usePageAssignment(objectName), {
     wrapper: wrapperFor(pages),
   });
@@ -122,7 +125,7 @@ describe('PageSchema refuses `pageType` — the contract the removal rests on', 
       expect(r.success).toBe(false);
       const unrecognized = r.error!.issues.filter(i => i.code === 'unrecognized_keys');
       expect(unrecognized).toHaveLength(1);
-      expect((unrecognized[0] as any).keys).toEqual(['pageType']);
+      expect((unrecognized[0] as { keys?: string[] }).keys).toEqual(['pageType']);
     }
   });
 });

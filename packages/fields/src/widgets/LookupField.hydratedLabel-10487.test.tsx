@@ -32,6 +32,9 @@
  *    flight: the chip reads the same text from one fetch. It used to take two
  *    — the schema's arrival changed a field the hydration effect listed but no
  *    longer reads, which cancelled the fetch in flight and issued another;
+ *  - the same derivation reads the permission policy in force now: a field the
+ *    policy denies after the chip is labelled leaves the label, as it leaves
+ *    the dropdown's (objectui#10373);
  *  - control: the dropdown option for the same record reads the same text;
  *  - control: picking the same record from the dropdown leaves the chip on the
  *    same text.
@@ -42,6 +45,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, act, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SchemaRendererContext } from '@object-ui/react';
+import { PermissionProvider } from '@object-ui/permissions';
 import { LookupField } from './LookupField';
 
 const CONTRACT_FIELDS: Record<string, unknown> = {
@@ -102,6 +106,32 @@ function Host({ ds, initial, multiple = false }: { ds: Backend; initial: unknown
         field={{ reference_to: 'contract', multiple } as never}
       />
     </SchemaRendererContext.Provider>
+  );
+}
+
+/**
+ * `Host` under the real role-based provider. `policy.deny` replaces the
+ * `contract` fields the viewer may not read, so the test can change the policy
+ * in force after the chip is labelled, as a policy that loads late does.
+ */
+function PolicyHost({ ds, policy }: { ds: Backend; policy: { deny?: (fields: string[]) => void } }) {
+  const [deny, setDeny] = React.useState<string[]>([]);
+  policy.deny = setDeny;
+  return (
+    <PermissionProvider
+      roles={[]}
+      userRoles={['viewer']}
+      permissions={[
+        {
+          object: 'contract',
+          roles: {
+            viewer: { actions: ['read'], fieldPermissions: deny.map((field) => ({ field, read: false })) },
+          },
+        },
+      ]}
+    >
+      <Host ds={ds} initial="c1" />
+    </PermissionProvider>
   );
 }
 
@@ -182,6 +212,23 @@ describe('LookupField — a hydrated value is labelled from the schema once it a
     await settle();
     expect(chipLabels()).toEqual(['HT-001']);
     // The schema's arrival does not cancel the fetch in flight to issue another.
+    expect(ds.findOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('the same derivation follows the policy: a field denied after the chip is labelled leaves the label', async () => {
+    // The schema is never released, so this row reads the no-schema path.
+    const { ds } = makeBackend();
+    const policy: { deny?: (fields: string[]) => void } = {};
+    render(<PolicyHost ds={ds} policy={policy} />);
+    await waitFor(() => expect(chipLabels()).toEqual(['Acme']));
+    await settle();
+    await act(async () => {
+      policy.deny?.(['name']);
+    });
+    await settle();
+    // Nothing else on the row is nameable on this path, so the label falls
+    // through to the id — the label the dropdown builds for the same row.
+    expect(chipLabels()).toEqual(['c1']);
     expect(ds.findOne).toHaveBeenCalledTimes(1);
   });
 

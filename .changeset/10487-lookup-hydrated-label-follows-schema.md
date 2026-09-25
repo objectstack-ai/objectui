@@ -17,7 +17,9 @@ picked the record again, and a reload brought `Acme` back.
 The hydration now keeps the fetched rows and builds no label. The chip's option
 is derived from those rows on every render through the same `recordToOption`
 call, with the same inputs, that the dropdown uses. So its label follows the
-schema when it arrives, and follows a permission policy that loads after the
-record too. The record is still fetched once, and no remount is involved. When
+schema when it arrives. It also follows the permission policy in force: a field
+the policy denies after the chip was labelled (a policy that loads late) leaves
+the chip's label as it leaves the dropdown's. The record is still fetched once,
+and no remount is involved. When
 the schema arrived while the record fetch was still in flight, the fetch used to
 be cancelled and issued a second time; it is issued once now.

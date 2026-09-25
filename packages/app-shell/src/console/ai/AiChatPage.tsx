@@ -1484,6 +1484,16 @@ interface ChatPaneProps {
     artifact?: { type: string; name: string };
     mode?: string;
   };
+  /**
+   * objectui#8219 — the display label of `surfaceContext.artifact`, when the
+   * host knows it (Studio: the Interfaces pillar's open leaf). Display-only: the
+   * "discussing" chip reads it, with the internal `type · name` pair on the
+   * chip's tooltip (objectui#7254). Deliberately a SEPARATE prop and never part
+   * of `surfaceContext` — that object is the `context.surface` data the agent
+   * receives (cloud#1610), which this must not change. Absent = the chip reads
+   * `type · name`, as before.
+   */
+  surfaceArtifactLabel?: string;
   agents: AgentDescriptor[];
   agentsLoading: boolean;
   agentsError: Error | undefined;
@@ -1534,6 +1544,7 @@ export function ChatPane({
   conversationId,
   editPackageId,
   surfaceContext,
+  surfaceArtifactLabel,
   onPackageBound,
   canBind,
   parentHandoffConversationId,
@@ -2555,12 +2566,22 @@ export function ChatPane({
         changesAppliedLabel={t('console.ai.changesApplied', { defaultValue: 'Applied' })}
         changesDraftedLabel={t('console.ai.changesDrafted', { defaultValue: 'Saved as draft' })}
         changesFailedLabel={t('console.ai.changesFailed', { defaultValue: 'Not applied' })}
+        // objectui#8219 / objectui#7254 — the chip READS the artifact's display
+        // label when the host has one, and keeps the internal `type · name`
+        // pair REACHABLE on its tooltip. No label → the pair, as before.
         surfaceContextLabel={
           surfaceContext?.artifact
             ? t('console.ai.discussing', {
                 defaultValue: 'Discussing: {{target}}',
-                target: `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`,
+                target:
+                  surfaceArtifactLabel ||
+                  `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`,
               })
+            : undefined
+        }
+        surfaceContextTitle={
+          surfaceContext?.artifact
+            ? `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`
             : undefined
         }
         planAnswerMessage={(question, option) =>

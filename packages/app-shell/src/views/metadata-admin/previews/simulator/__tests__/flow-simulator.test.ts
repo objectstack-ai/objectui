@@ -559,9 +559,11 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     // There is no CEL source to run, and the simulator's rule is to say so
     // rather than fake a result — the fix widened the reader, it did not make
     // every object a condition. It used to say "Branch has no condition." and
-    // take the default. The evaluated-slot rule the edge schema applies
-    // (`EvaluatedExpressionSchema`, a non-blank `source`) refuses an `ast`-only
-    // envelope, so the runtime never registers the flow, and since
+    // take the default. The evaluated-slot rule objectstack main's edge schema
+    // applies (the installed 17.4.0 `FlowEdgeSchema`, which `specEdge` above
+    // uses, still admits this shape) (`EvaluatedExpressionSchema`, a non-blank
+    // `source`) refuses an `ast`-only envelope, so the runtime never registers
+    // the flow, and since
     // objectui#10615 the Debug run stops on it too.
     const astOnly: SimEdge = { id: 'e_hi', source: 'd', target: 'hi', condition: { dialect: 'cel', ast: { op: 'gt' } } };
     const sim = run(NODES, [START, astOnly, { id: 'e_lo', source: 'd', target: 'lo', isDefault: true }], { amount: 20 });

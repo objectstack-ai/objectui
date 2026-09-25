@@ -14,10 +14,12 @@ import { isMaskedFieldType } from '@object-ui/fields';
  * (objectui#10583)
  *
  * `ObjectGrid` stamps `TableColumn.masked` from this answer, and `data-table`
- * obeys the flag: a masked column's raw value never reaches the clipboard, a
- * `title` tooltip or the table's CSV export. `@object-ui/components` cannot
- * import `@object-ui/fields`, which is why the answer is computed HERE, on the
- * producer side, and handed across as a flag.
+ * obeys the flag: no Ctrl+C / Cmd+C copy, no `title` tooltip, no column in its
+ * CSV export, no inline edit. `ObjectGrid` also asks it directly where it
+ * handles values itself: its client export (CSV and JSON) leaves masked fields
+ * out, and its mobile card draws them through `cell`. `@object-ui/components`
+ * cannot import `@object-ui/fields`, which is why the answer is computed HERE,
+ * on the producer side, and handed across as a flag.
  *
  * The rule itself is NOT restated here — it is `isMaskedFieldType()` from
  * `@object-ui/fields`, the one authority for "is this field type's cell drawn

@@ -7,8 +7,8 @@
  */
 
 /**
- * `TableColumn.masked` — the table hands a masked column's raw value to nobody
- * (objectui#10583).
+ * `TableColumn.masked` — the table withholds a masked column's raw value on the
+ * paths it owns (objectui#10583).
  *
  * The producer (`ObjectGrid`, from `isMaskedFieldType()`) draws the mask
  * through `cell` and sets the flag; this table cannot import
@@ -17,7 +17,9 @@
  *
  *  1. Ctrl+C / Cmd+C on a focused cell — wrote `String(row[accessorKey])`;
  *  2. the cell wrapper's `title` tooltip — carried the raw value into the DOM;
- *  3. the toolbar's CSV export — wrote every column's raw value.
+ *  3. the toolbar's CSV export — wrote every column's raw value;
+ *  4. inline edit — `startEdit` seeded the editor with the raw row value, so
+ *     any editor (built-in input or a host's `renderCellEditor`) drew it.
  *
  * Each path is pinned three ways in ONE file, so an absence can never pass by
  * never running: the masked column refuses; an ordinary column in the same
@@ -55,7 +57,7 @@ afterEach(() => {
 });
 
 /** `masked` undefined ⇒ the key is ABSENT from the column, not `false`. */
-function renderTable(masked: boolean | undefined) {
+function renderTable(masked: boolean | undefined, extra: Record<string, unknown> = {}) {
   const DataTable = ComponentRegistry.get('data-table') as any;
   if (!DataTable) throw new Error('data-table not registered');
   return render(
@@ -71,6 +73,7 @@ function renderTable(masked: boolean | undefined) {
         pagination: false,
         searchable: false,
         exportable: true,
+        ...extra,
       }}
     />,
   );
@@ -158,5 +161,51 @@ describe('`masked` is declared on the rich column mirror (objectui#10583)', () =
     const wrong = TableColumnSchema.safeParse({ header: 'Key', accessorKey: 'key', masked: 'yes' });
     expect(wrong.success).toBe(false);
     if (!wrong.success) expect(wrong.error.issues.map((i) => String(i.path[0]))).toContain('masked');
+  });
+});
+
+describe('data-table — a masked column never enters edit mode (objectui#10583)', () => {
+  /** Every editor this table can draw is an input or a textarea. */
+  const rawInAnEditor = () =>
+    Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')).some((el) =>
+      el.value.includes(RAW),
+    );
+
+  it('single-click mode — click and Enter open no editor; the click reaches the row like a read-only cell', () => {
+    const onRowClick = vi.fn();
+    renderTable(true, { editable: true, singleClickEdit: true, onRowClick });
+    const masked = cellUnder('Key');
+    expect(masked.textContent, 'CONTROL: the producer drew the mask').toContain(MASK);
+    expect(masked.className, 'no edit cursor on a masked cell').not.toContain('cursor-text');
+
+    fireEvent.click(masked);
+    fireEvent.keyDown(masked, { key: 'Enter' });
+    expect(masked.querySelector('input, textarea'), 'no editor in the masked cell').toBeNull();
+    expect(rawInAnEditor(), 'no editor holds the raw value').toBe(false);
+    expect(document.body.innerHTML).not.toContain(RAW);
+    expect(onRowClick, 'the click is not swallowed by an edit that never opens').toHaveBeenCalledTimes(1);
+
+    // CONTROL — the ordinary column in the SAME table does open its editor.
+    fireEvent.click(cellUnder('Name'));
+    expect(cellUnder('Name').querySelector('input'), 'CONTROL: the ordinary cell edits').not.toBeNull();
+  });
+
+  it('double-click mode — double-click and Enter open no editor; the ordinary cell still edits', () => {
+    renderTable(true, { editable: true });
+    const masked = cellUnder('Key');
+    fireEvent.doubleClick(masked);
+    fireEvent.keyDown(masked, { key: 'Enter' });
+    expect(masked.querySelector('input, textarea')).toBeNull();
+    expect(rawInAnEditor()).toBe(false);
+    expect(document.body.innerHTML).not.toContain(RAW);
+
+    fireEvent.doubleClick(cellUnder('Name'));
+    expect(cellUnder('Name').querySelector('input'), 'CONTROL: the ordinary cell edits').not.toBeNull();
+  });
+
+  it('CONTROL — the same column with the flag ABSENT edits exactly as before', () => {
+    renderTable(undefined, { editable: true, singleClickEdit: true });
+    fireEvent.click(cellUnder('Key'));
+    expect(rawInAnEditor(), 'without the flag the editor is seeded with the stored value').toBe(true);
   });
 });

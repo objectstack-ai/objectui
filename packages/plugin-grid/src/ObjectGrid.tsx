@@ -3541,8 +3541,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : str;
     };
 
+    // objectui#10583 — a MASKED field leaves neither file. The same rule that
+    // stamps `TableColumn.masked` (`isMaskedGridColumn`, the narrow-only union
+    // of the column's type and the object-declared type), asked per KEY
+    // because the JSON branch writes whole records, including fields that are
+    // not columns.
+    const columnTypeByKey = new Map(generateColumns().map((c) => [c.accessorKey, c.type]));
+    const isMaskedKey = (key: string) =>
+      isMaskedGridColumn(columnTypeByKey.get(key), objectSchema?.fields?.[key]?.type);
+
     if (format === 'csv') {
-      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions');
+      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions' && !isMaskedKey(c.accessorKey));
       const fields = cols.map((c) => c.accessorKey);
       const headers = cols.map((c) => c.header);
       const rows: string[] = [];
@@ -3554,7 +3563,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       });
       downloadFile(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), fileNameFor('csv'));
     } else if (format === 'json') {
-      downloadFile(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }), fileNameFor('json'));
+      const unmasked = exportData.map((record) =>
+        Object.fromEntries(Object.entries(record).filter(([key]) => !isMaskedKey(key))),
+      );
+      downloadFile(new Blob([JSON.stringify(unmasked, null, 2)], { type: 'application/json' }), fileNameFor('json'));
     }
     setShowExport(false);
   }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
@@ -3707,8 +3719,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // drops them and `data-table` could never tell a masked column from a
       // text one. It also must not ask the question itself — it cannot import
       // `@object-ui/fields` — so this producer asks `isMaskedFieldType()` (via
-      // `isMaskedGridColumn`) and the table obeys the flag: no raw value to the
-      // clipboard, a `title` tooltip or its CSV export.
+      // `isMaskedGridColumn`) and the table obeys the flag: no Ctrl+C / Cmd+C
+      // copy, no `title` tooltip, no column in its CSV export, no inline edit.
       //
       // Every path that writes `type` is covered for the same reason the fold
       // is: all four `generateColumns()` literals and the enrichment map above
@@ -5177,7 +5189,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return 'border-l-gray-300';
     };
 
+    // objectui#10583 — a MASKED column (the rule that stamps `TableColumn.masked`)
+    // is drawn only through its own `cell`, which draws the mask. The branches
+    // below pick amount / stage / date / percent by the field's NAME and print
+    // the raw value, so a masked column is never classified; it lands in the
+    // `col.cell` branch, and the title row routes it through `cell` as well.
+    const isMaskedCardColumn = (key: string) =>
+      isMaskedGridColumn(colMap.get(key)?.type, objectSchema?.fields?.[key]?.type);
+
     const classify = (key: string): 'amount' | 'stage' | 'date' | 'percent' | 'other' => {
+      if (isMaskedCardColumn(key)) return 'other';
       const k = key.toLowerCase();
       if (amountKeys.some(p => k.includes(p))) return 'amount';
       if (stageKeys.some(p => k.includes(p))) return 'stage';
@@ -5237,7 +5258,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 {/* Title row - Name as bold prominent title */}
                 {titleCol && (
                   <div className="font-semibold text-sm truncate mb-1">
-                    {coerceToSafeValue(row[titleCol.accessorKey]) ?? '—'}
+                    {isMaskedCardColumn(titleCol.accessorKey)
+                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
+                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
                   </div>
                 )}
 

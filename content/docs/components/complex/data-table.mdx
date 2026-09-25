@@ -21,7 +21,7 @@ interface TableColumn {
   accessorKey: string;                   // Data property key
   width?: string;                        // Column width (e.g., '100px', '20%')
   sortable?: boolean;                    // Enable sorting for this column
-  masked?: boolean;                      // Never hand the raw value out (see Masked columns)
+  masked?: boolean;                      // Withhold the raw value (see Masked columns)
 }
 
 interface DataTableSchema {
@@ -135,18 +135,31 @@ the place to read what the data source last returned.
 
 ## Masked columns
 
-A column with `masked: true` holds a credential: the table hands its raw value to
-nobody. Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard, the cell
-carries no `title` tooltip, and the CSV export leaves the column out. Every other
-column copies, shows and exports exactly as before.
+A column with `masked: true` holds a credential. The table withholds its raw value on
+four paths:
+
+- Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard.
+- The cell carries no `title` tooltip.
+- The table's CSV export leaves the column out.
+- The column never enters inline edit, on any trigger, because every editor would
+  start from the raw value.
+
+Every other column copies, shows, exports and edits exactly as before.
+
+What the flag does **not** cover: the table's client-side search and sort still run
+over the raw values, so where they run on the client they can reveal whether a
+masked value matches or how it orders.
 
 The flag withholds; it does not draw. What a reader sees in the cell comes from the
-column's `cell` renderer, and a column without one still draws its value. You rarely
-set the flag by hand: `object-grid` sets it for every column whose field type is
-drawn as a mask (`password`, `secret`, or a type registered with the mask), from
-`isMaskedFieldType()` in `@object-ui/fields`. It reads both the view's column
-`type` and the object's field type, so a view that shows a `secret` field as
-`text` keeps the flag.
+producer's `cell` renderer, and the table draws a column with no `cell` as its value.
+You rarely set the flag by hand: `object-grid` sets it for every column whose field
+type is drawn as a mask (`password`, `secret`, or a type registered with the mask),
+from `isMaskedFieldType()` in `@object-ui/fields`. It reads both the view's column
+`type` and the object's field type, so a view that shows a `secret` field as `text`
+keeps the flag. The same rule leaves masked fields out of `object-grid`'s own client
+export (CSV and JSON) and draws them through their `cell` on its mobile card. Other
+producers of `data-table` columns (the related list, `object-data-table`) do not set
+the flag yet.
 
 ## Examples
 

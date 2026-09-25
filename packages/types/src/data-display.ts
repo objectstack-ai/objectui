@@ -704,23 +704,31 @@ export interface TableColumn {
   wrap?: boolean;
   /**
    * The column holds a MASKED value — a credential whose cell is drawn as a
-   * mask — so `data-table` hands the raw value to nobody: Ctrl+C / Cmd+C on
-   * one of its cells writes nothing to the clipboard, the cell carries no
-   * `title` tooltip, and the CSV export omits the column. Absent or `false`
-   * leaves every one of those paths exactly as it was.
+   * mask. `data-table` withholds the raw value on four paths of its own:
+   * Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard, the
+   * cell carries no `title` tooltip, the table's CSV export leaves the column
+   * out, and the column never enters inline edit (on any trigger), because
+   * every editor is seeded with the raw value. Absent or `false` leaves every
+   * one of those paths exactly as it was.
+   *
+   * ⚠️ What the flag does NOT cover: the table's client-side search and sort
+   * still run over the raw values, so where they run on the client they can
+   * answer questions about a masked value.
    *
    * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
-   * the column's {@link TableColumn.cell} renderer, which the producer that
-   * sets this flag supplies. A column with no `cell` still draws its value.
+   * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
+   * with no `cell` as its value, flag or not.
    *
    * ⭐ The producer decides, and the rule is not restated here: `ObjectGrid`
    * stamps this flag from `isMaskedFieldType()` in `@object-ui/fields`
    * (objectui#8686), the one authority for "is this field type's cell drawn as
    * a mask", reading the view-authored type and the object-declared type as a
    * narrow-only UNION — a view authoring `type: 'text'` over a `secret`
-   * column keeps the flag. `@object-ui/components` cannot import
-   * `@object-ui/fields`, so the table obeys the flag instead of asking the
-   * question itself.
+   * column keeps the flag. The same rule also leaves masked fields out of the
+   * grid's own client export and draws them through `cell` on its mobile card.
+   * `@object-ui/components` cannot import `@object-ui/fields`, so the table
+   * obeys the flag instead of asking the question itself. Other producers of
+   * these columns (`RelatedList`, `ObjectDataTable`) do not set it yet.
    *
    * Declared by objectui#10583: the grid drew the mask while the table's
    * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid
@@ -789,8 +797,8 @@ export interface StaticTableColumn {
   /**
    * NOT on the static `table` surface (objectui#10583) — declared on the rich
    * {@link TableColumn} only, where `data-table` reads it. The static renderer
-   * has no keyboard copy, tooltip or export for it to withhold. Use
-   * `data-table` for the interactive set.
+   * has no keyboard copy, tooltip, export or inline edit for it to withhold.
+   * Use `data-table` for the interactive set.
    * @deprecated Not part of the static `table` renderer's contract.
    */
   masked?: never;

@@ -1591,6 +1591,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
     const column = columns.find(col => col.accessorKey === columnKey);
     if (column?.editable === false) return;
+    // A MASKED column never enters edit mode, on any trigger (objectui#10583):
+    // the editor is seeded with the RAW row value below, so every editor —
+    // the built-in inputs and a host's `renderCellEditor` alike — would draw
+    // the credential the cell's mask hides. This is the one door Enter, click
+    // and double-click all pass through.
+    if (column?.masked) return;
 
     editingCellRef.current = { rowIndex, columnKey };
     setEditingCell({ rowIndex, columnKey });
@@ -2440,7 +2446,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         const hasPendingChange = rowChanges[col.accessorKey] !== undefined;
                         const cellValue = hasPendingChange ? rowChanges[col.accessorKey] : originalValue;
                         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.columnKey === col.accessorKey;
-                        const isEditable = editable && col.editable !== false;
+                        // A masked column reads as NOT editable here too
+                        // (objectui#10583), so its cell neither shows the
+                        // edit cursor nor swallows the row's click —
+                        // `startEdit` would refuse it anyway.
+                        const isEditable = editable && col.editable !== false && !col.masked;
                         const isFrozen = frozenColumns > 0 && colIndex < frozenColumns;
                         const frozenOffset = isFrozen
                           ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + colIndex]

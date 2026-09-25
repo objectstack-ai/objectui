@@ -283,13 +283,13 @@ export const TableColumnSchema = z.object({
   // objectui#10583. Serializable metadata, so the mirror TYPES it —
   // `z.boolean()`, like `fitContent` and `wrap`. Without this line the
   // non-strict object would silently STRIP an authored `masked`, and the
-  // table would hand the raw value out again: the same second de-facto
-  // contract #6424 closed for `headerIcon`. The producer that sets it is
-  // `ObjectGrid`, from `isMaskedFieldType()` (`@object-ui/fields`).
+  // table would copy, tooltip, export and edit the raw value again: the same
+  // second de-facto contract #6424 closed for `headerIcon`. The producer that
+  // sets it is `ObjectGrid`, from `isMaskedFieldType()` (`@object-ui/fields`).
   masked: z
     .boolean()
     .optional()
-    .describe('Masked column: the table never hands the raw value out (no Ctrl+C / Cmd+C copy, no title tooltip, omitted from CSV export). Withholds only; the cell renderer draws the mask'),
+    .describe('Masked column: the table withholds the raw value from Ctrl+C / Cmd+C copy, the cell title tooltip, its CSV export and inline edit. Client-side search and sort still read the raw value. It withholds only: the producer\'s cell renderer draws the mask, and the table draws a column with no cell as its value'),
 });
 
 /**

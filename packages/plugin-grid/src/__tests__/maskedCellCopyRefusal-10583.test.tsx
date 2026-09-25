@@ -7,7 +7,9 @@
  */
 
 /**
- * A MASKED grid cell hands its raw value to nobody (objectui#10583).
+ * A MASKED grid cell withholds its raw value from the keyboard copy and the
+ * tooltip (objectui#10583). The other grid surfaces are pinned in
+ * `maskedColumnSurfaces-10583.test.tsx`.
  *
  * ## The defect
  *

@@ -70,9 +70,9 @@
  * nothing else, on every block. One strict contract, no second dialect
  * (AGENTS.md #0.1).
  *
- * The ruling also made the retirement LOUD. A stored document that still
- * carries `aria.label` on one of those two blocks used to be named by it, and
- * now announces the block's default name. That is a change a screen-reader
+ * The ruling also made the retirement LOUD. A stored document that names one
+ * of those two blocks with `aria.label` alone used to be announced by that
+ * name, and now announces the block's default name. That is a change a screen-reader
  * user hears and an author cannot see. So when the caller names its block (the
  * `block` option), a served `aria.label` gets one `console.warn` naming the
  * block and the canonical spelling. This is the channel this package already
@@ -83,10 +83,11 @@
  *
  * `record:path` and `record:quick_actions` pass `block`, because only those
  * two ever read the spelling in a release, so only there does a stored
- * document's name change. The other five blocks never read it on any release
- * (objectui#9935 kept the fold off them before it shipped), and objectui#9945
- * keeps them out of its scope. The refusal on every block, and the report on
- * those two, are pinned by `__tests__/recordAriaLabelRetired-9945.test.tsx`.
+ * document's name change. The other five blocks never read it in a release
+ * (objectui#9935, as merged, kept the fold off them), and objectui#9945 keeps
+ * them out of its scope. The refusal on every block is pinned by
+ * `__tests__/recordComponentAria-9556.test.tsx`; the default name and the
+ * report on those two by `__tests__/recordAriaLabelRetired-9945.test.tsx`.
  */
 
 import { useEffect } from 'react';

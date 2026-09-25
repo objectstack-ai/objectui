@@ -365,7 +365,9 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`;
+ *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
+ *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
  *    `UserCellRenderer` (+ every falsy scalar); `BooleanCellRenderer`
  *    (+ every non-boolean, objectui#8582); `DateCellRenderer` /
@@ -3240,18 +3242,89 @@ function RepeaterCellRenderer({ value }: CellRendererProps): React.ReactElement 
 }
 
 /**
+ * `password` / `secret` cell renderer: the mask for a credential that is SET,
+ * and the shared affordance for one that is NOT (objectui#8678).
+ *
+ * The entry this replaces was an argument-less arrow that drew the mask for
+ * every input, `null` included. On screen, a credential that was never set was
+ * then drawn exactly like one that is set. The platform's read contract is
+ * presence-preserving on purpose: `@objectstack/spec`'s `SECRET_MASK` docblock
+ * says an unset credential "reads back `null` instead, never this mask", which
+ * is what lets a console render "configured" vs "not configured" at all. This
+ * cell threw that distinction away one step before the reader saw it.
+ *
+ * ⛔ The value is NEVER printed and never reaches the DOM. Only its presence is
+ * read. A populated value keeps the exact mask it drew before this card, and
+ * nothing here is a weaker mask.
+ *
+ * "Empty" is the string class's answer, since both types are
+ * `STRING_VALUE_TYPES` members in the spec: `TextCellRenderer`'s predicate
+ * exactly, the floor on the coerced text. `{}` therefore stays a VALUE and
+ * keeps the mask, per objectui#8596's string-class ruling ("the record IS
+ * storing something"). A whitespace-only string also keeps it, because `text`
+ * keeps its spaces and a blank credential is still a set one.
+ * `cellRenderers.valueIndependent-8678` pins this byte-equal to `text` for
+ * every empty input.
+ *
+ * ⭐ A NAMED module-level component, for the reason {@link RepeaterCellRenderer}
+ * states: `EmptyValue` holds a hook, and an inline arrow in the table below
+ * is a new component type on every resolution, so it would tear that hook down
+ * per render.
+ */
+function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(coerceToSafeValue(value))) return <EmptyValue />;
+  return <span>••••••</span>;
+}
+
+/**
+ * `vector` / `grid` cell renderers: the placeholder literal for a value that is
+ * stored, and the shared affordance for none (objectui#8678). Before this, both
+ * were argument-less arrows that printed their literal for every input. Neither
+ * type has a masking rationale, so a constant face was just an assertion that
+ * the record held something.
+ *
+ * "Empty" is the floor exactly (`isEmptyValue`: `null`, `undefined`, `''`,
+ * `[]`), read from each type's value class:
+ *  - `vector` is `z.array(z.number())` in the spec's `valueSchemaFor`, so `[]`
+ *    is its own empty member: an embedding with no dimensions.
+ *  - `grid` is not a spec `FieldType`, so the spec gives it no class. Its class
+ *    is this package's own `GridField` contract, an array of row objects. `[]`
+ *    is zero rows.
+ *
+ * ⛔ Deliberately NOT extended to `{}`. Neither class can produce it (the spec's
+ * write seam refuses a non-array `vector`, and `GridField` writes arrays). And
+ * `@object-ui/plugin-detail`'s `hasCellValue` calls every object a value, so a
+ * `{}` clause here would draw "No value" inside a row that band has already
+ * called filled. A clause for a value the contract cannot produce would also be
+ * the renderer-side tolerance AGENTS.md #0.1 refuses.
+ *
+ * The populated face is byte-for-byte what it was. Whether a stored vector or
+ * grid deserves a face richer than a literal is a separate question.
+ */
+function VectorCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Vector]</span>;
+}
+
+/** See {@link VectorCellRenderer}: the same rule, with `grid`'s literal. */
+function GridCellRenderer({ value }: CellRendererProps): React.ReactElement {
+  if (isEmptyValue(value)) return <EmptyValue />;
+  return <span className="text-gray-500 italic">[Grid]</span>;
+}
+
+/**
  * THE standard cell-renderer table, built fresh on every call.
  *
- * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant, and the
- * difference is pinned rather than stylistic: several entries here are INLINE
- * arrows (`password`, `secret`, `vector`, `grid`), so hoisting this object to
- * module scope would freeze their identity. `cellRenderers.countLabelI18n-8441`
- * pins BOTH halves of today's behaviour — a module-level entry is stable across
- * calls, an inline arrow is not — and hoisting flips the second one. This
- * extraction therefore changes nothing a caller can observe: `getCellRenderer`
- * rebuilds the table per call exactly as it did when the literal sat in its
- * body, and {@link listCellRendererTypes} reads the SAME builder rather than a
- * second copy of the key list, so the two cannot drift.
+ * ⭐ A FUNCTION returning a new object, ⛔ not a module-level constant. Until
+ * objectui#8678 that difference was observable: four entries were INLINE arrows
+ * (`password`, `secret`, `vector`, `grid`), and hoisting this object would have
+ * frozen their identity. They became the named renderers above when they began
+ * drawing `EmptyValue`. No entry is an inline arrow now, and
+ * `cellRenderers.valueIndependent-8678` pins every registered type as ONE
+ * function object across two resolutions, so a new inline entry goes red by
+ * name. `getCellRenderer` still rebuilds the table per call, and
+ * {@link listCellRendererTypes} reads the SAME builder rather than a second
+ * copy of the key list, so the two cannot drift.
  */
 function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererProps>> {
   return {
@@ -3301,8 +3374,8 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,
     user: UserCellRenderer,
-    password: () => <span>••••••</span>,
-    secret: () => <span>••••••</span>,
+    password: MaskedCellRenderer,
+    secret: MaskedCellRenderer,
     location: LocationCellRenderer,
     geolocation: LocationCellRenderer,
     address: AddressCellRenderer,
@@ -3312,8 +3385,8 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     composite: JsonCellRenderer,
     record: JsonCellRenderer,
     repeater: RepeaterCellRenderer,
-    vector: () => <span className="text-gray-500 italic">[Vector]</span>,
-    grid: () => <span className="text-gray-500 italic">[Grid]</span>,
+    vector: VectorCellRenderer,
+    grid: GridCellRenderer,
   };
 }
 

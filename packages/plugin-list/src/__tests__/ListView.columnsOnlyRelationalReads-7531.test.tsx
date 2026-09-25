@@ -27,17 +27,28 @@ import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/re
 import '@testing-library/jest-dom';
 import React from 'react';
 import { ListColumnSchema } from '@objectstack/spec/ui';
-import type { ListViewSchema } from '@object-ui/types';
+import type { DataSource, ListViewSchema } from '@object-ui/types';
 import { SchemaRendererProvider } from '@object-ui/react';
+
+/** One filter candidate as ListView builds it. */
+type Candidate = {
+  value: string;
+  label: string;
+  type: string;
+  options?: unknown;
+  referenceTo?: string;
+  displayField?: string;
+  idField?: string;
+};
 
 // What ListView hands the filter builder: the candidate list itself, rather
 // than whichever value picker the builder happens to draw from it.
-const captured = vi.hoisted(() => ({ fields: [] as any[][] }));
+const captured = vi.hoisted(() => ({ fields: [] as Candidate[][] }));
 vi.mock('@object-ui/components', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/components')>();
   return {
     ...actual,
-    FilterBuilder: (props: { fields: any[] }) => {
+    FilterBuilder: (props: { fields: Candidate[] }) => {
       captured.fields.push(props.fields);
       return null;
     },
@@ -86,8 +97,8 @@ async function renderAndOpenFilter(columns: unknown[], getObjectSchema: () => Pr
     columns,
   } as unknown as ListViewSchema;
   render(
-    <SchemaRendererProvider dataSource={dataSource as any}>
-      <ListView schema={schema} dataSource={dataSource as any} />
+    <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
+      <ListView schema={schema} dataSource={dataSource} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(dataSource.getObjectSchema).toHaveBeenCalled());
@@ -123,7 +134,7 @@ describe('objectui#7531 — no relational key is read off a list column', () => 
 
     // These ARE the columns-only candidates: the declared columns, in order,
     // labelled by the column, with no definition behind them.
-    expect(plain.map((f: any) => [f.value, f.label, f.type])).toEqual([
+    expect(plain.map((f) => [f.value, f.label, f.type])).toEqual([
       ['account_id', 'Account', 'lookup'],
       ['name', 'Name', 'text'],
     ]);
@@ -139,7 +150,7 @@ describe('objectui#7531 — no relational key is read off a list column', () => 
     const carrying = latestCandidates();
 
     expect(carrying).toStrictEqual(plain);
-    for (const key of ['referenceTo', 'displayField', 'idField']) {
+    for (const key of ['referenceTo', 'displayField', 'idField'] as const) {
       expect(carrying[0][key], key).toBeUndefined();
     }
   });

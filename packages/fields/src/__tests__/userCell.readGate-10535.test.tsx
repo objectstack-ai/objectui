@@ -151,10 +151,12 @@ describe('UserCellRenderer — the name and the avatar are drawn from the fields
   });
 
   it("the person's object is the field's `reference_to` / `reference`, and `sys_user` when it names none", () => {
+    // `reference` is the spec's spelling, the one a grid column forwards; the
+    // objectui types declare only `reference_to`, hence the cast.
     for (const field of [
       { type: 'user', reference_to: 'crm_member' },
       { type: 'user', reference: 'crm_member' },
-    ] as FieldMetadata[]) {
+    ] as unknown as FieldMetadata[]) {
       const gated = drawn({ value: AMY, field, policy: policyDenying('crm_member', 'name', 'image') });
       for (const secret of SECRETS) expect(gated.html).not.toContain(secret);
 

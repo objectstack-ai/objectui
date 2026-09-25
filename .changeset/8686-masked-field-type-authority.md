@@ -19,8 +19,9 @@ would render masked and stay one click from the clipboard there.
   set and the drawn mask are one fact.
 - `isMaskedFieldType()` reads the LIVE cell registry. A type registered with the mask
   (`registerFieldRenderer('api_token', getCellRenderer('password'))`) answers `true`. A
-  shipped mask replaced at runtime with one of this package's own renderers (for example
-  `TextCellRenderer`) answers `false`, since the cell now shows the value. A shipped mask
+  shipped mask replaced at runtime with one of this package's own renderers answers
+  `false`, since none of them is the mask; the cell then draws what that renderer draws
+  (for `TextCellRenderer`, the value). A shipped mask
   replaced with a host component the package cannot inspect keeps the declared answer
   (`true`), on the side that withholds the value.
 - It matches raw spellings only, as `getCellRenderer` does: `field:password` renders in

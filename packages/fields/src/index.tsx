@@ -3317,8 +3317,9 @@ export const MASKED_FIELD_TYPES: ReadonlySet<string> = new Set<string>(['passwor
  *  2. Otherwise, a type outside {@link MASKED_FIELD_TYPES} → `false`.
  *  3. A declared type whose mask a host REPLACED at runtime
  *     (`registerFieldRenderer('password', X)`) → the override is read:
- *     - X is one of this package's own cell renderers (e.g. `TextCellRenderer`)
- *       → `false`. None of them masks, so the cell now shows the value.
+ *     - X is one of this package's own cell renderers → `false`. None of them
+ *       is the mask, so the predicate answers `false` and the cell draws what
+ *       X draws (for `TextCellRenderer`, the value).
  *     - X is the host's own component → `true`, the declared answer. Nothing
  *       here can tell whether an opaque component masks. Answering `false`
  *       would offer a credential to anything that trusts this predicate

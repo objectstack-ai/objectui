@@ -10,18 +10,16 @@ failed load (a filter or sort change against a flaky backend, say), every later
 load that succeeded still wrote its rows, but the chart stayed on the error screen
 until the component remounted.
 
-The current reload now clears the error in two places:
+The current reload now clears the error when it commits rows, whether it is a
+changed query or a silent re-read of the same one (a data-invalidation, say). Those
+rows answer the current query, so the earlier failure no longer describes the
+screen. A superseded reload's answer is discarded under the existing `isCurrent()`
+guard, and its clear is discarded with it, so it cannot remove an error the current
+reload reported.
 
-- A non-silent reload (a changed query) clears it when it starts, as
-  `ObjectGrid`'s load does. The first load still shows the loading placeholder, and
-  a query change after the chart has painted still shows the chart under its
-  refreshing state. If the new query fails too, its own failure is reported.
-- Any reload clears it when it commits rows. That covers a silent re-read that
-  succeeds after an error, such as the one a data-invalidation triggers: it re-read
-  the current query, so its rows answer that query.
-
-A silent reload never clears the error when it starts. Its failure is not
-reported, so clearing first could leave rows from an older query on screen with
-nothing to say so. A superseded reload's answer is discarded under the existing
-`isCurrent()` guard, and its clear is discarded with it, so it cannot remove an
-error the current reload reported.
+The error is deliberately not cleared when a reload starts, although `ObjectGrid`'s
+load clears there. A silent re-read can overtake a changed query and then fail
+without reporting it. Had the changed query cleared the error when it started, the
+chart would go back to an older query's rows with nothing to say they are stale.
+Until rows that answer the current query land, the error stays on screen. Before the
+first paint the loading placeholder still shows while a query is in flight.

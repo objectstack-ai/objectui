@@ -812,25 +812,13 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     try {
       if (inPlace) setRefreshing(true);
       else setLoading(true);
-      // objectui#10578 — `error` is an early return in the render, so a report
-      // nothing clears keeps the chart off screen until a remount. Two clears,
-      // both on the current run (here the run is current by construction: the
-      // sequence number was taken above, synchronously):
-      //   - a NON-silent run clears it as it STARTS, as `ObjectGrid`'s load
-      //     does. Its query changed, so the old failure no longer describes
-      //     it; its own mode draws the in-flight state instead (the
-      //     placeholder, which the render checks first, or the refreshing state
-      //     over the chart), and its own `catch` reports it if it fails too.
-      //   - a SILENT run never clears here. Its failure is not reported, so a
-      //     clear first would let it leave rows answering an older query on
-      //     screen with nothing saying so. It clears when it commits rows
-      //     (below): it re-read the current query, so those rows answer it.
-      if (!silent) setError(null);
       // 1. Check for data prop (Unified ListView)
       if ((rest as any).data && Array.isArray((rest as any).data)) {
         if (isCurrent()) {
           setData((rest as any).data);
           setRowCeiling(null);
+          // Committed rows clear an earlier failure (objectui#10578) — the
+          // reasoning sits on the adapter's commit below.
           setError(null);
           loadedOnceRef.current = true;
         }
@@ -922,9 +910,19 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       if (isCurrent()) {
         setData(capped.rows);
         setRowCeiling(capped);
-        // Rows the current run commits answer the current query, so no
-        // earlier failure describes the screen any more (objectui#10578). A
-        // superseded run's answer is discarded, and so is its clear.
+        // objectui#10578 — `error` is an early return in the render, so a
+        // report nothing clears keeps the chart off screen until a remount.
+        // It is cleared HERE, when the current run commits rows, silent or not:
+        // those rows answer the current query, so no earlier failure describes
+        // the screen any more. A superseded run's answer is discarded, and so
+        // is its clear.
+        //
+        // ⛔ Not when a run STARTS, although `ObjectGrid`'s load clears there.
+        // A start clear is safe only if the run that cleared also reports its
+        // own failure, and here a SILENT reload can overtake it and then fail
+        // unreported (objectui#7237's silent mode, which `ObjectGrid` does not
+        // have). The error would be gone and the rows of an older query would
+        // be back with nothing saying so. Until rows land, the report stays.
         setError(null);
         loadedOnceRef.current = true;
       }

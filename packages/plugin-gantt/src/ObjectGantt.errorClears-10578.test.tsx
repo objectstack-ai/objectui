@@ -15,19 +15,18 @@
  * `catch`, and clear it nowhere: every later answer still reached `data`, but
  * the component kept returning the error screen until it remounted.
  *
- * What clears it, and why each half is where it is:
+ * What clears it, and why there and nowhere else:
  *
- *   - A NON-silent reload clears it when it STARTS, as `ObjectGrid`'s load
- *     does. The query changed, so the previous failure no longer describes it;
- *     while the new one is in flight the screen shows what that run's own mode
- *     draws (the loading placeholder before the first paint, the chart under
- *     its refreshing state after it — objectui#7237). If it fails, its own
- *     `catch` reports it again.
- *   - A SILENT reload never clears at the start. Its failure is not reported
- *     (it keeps the last good rows), so clearing first would let a silent
- *     failure leave rows on screen that answer an older query with nothing
- *     saying so. It clears only when it COMMITS rows: a silent reload re-reads
- *     the current query, so rows it commits answer that query.
+ *   - The CURRENT reload clears it when it COMMITS rows, silent or not. Those
+ *     rows answer the current query, so no earlier failure describes the
+ *     screen any more. That covers a silent re-read that succeeds after an
+ *     error, which is how `ObjectGrid`'s re-read ends as well.
+ *   - It is NOT cleared when a reload STARTS, although `ObjectGrid`'s load
+ *     clears there. A start clear is safe only if the run that cleared also
+ *     reports its own failure. Here a SILENT reload (objectui#7237; the grid
+ *     has no such mode) can overtake a changed query and then fail
+ *     unreported, and the screen would go back to an older query's rows with
+ *     nothing saying so. The last case below pins that.
  *   - Only the CURRENT reload clears, under the same `isCurrent()` guard as
  *     every other result write. A superseded run's answer is discarded, so it
  *     may not take down the error the current run reported either.
@@ -171,7 +170,7 @@ describe('ObjectGantt clears its error when a later load succeeds (objectui#1057
     expect(errorShown('backend unavailable')).toBe(false);
   });
 
-  it('fail, then succeed, AFTER the first paint: the chart renders, under its refreshing state while in flight', async () => {
+  it('fail, then succeed, AFTER the first paint: the chart renders', async () => {
     const { dataSource, finds, find } = makeDeferredDataSource();
     const { rerender } = render(<ObjectGantt schema={schemaSorted('asc')} dataSource={dataSource} />);
 
@@ -186,13 +185,6 @@ describe('ObjectGantt clears its error when a later load succeeds (objectui#1057
 
     rerender(<ObjectGantt schema={schemaSorted('asc', 'end_date')} dataSource={dataSource} />);
     await waitFor(() => expect(find).toHaveBeenCalledTimes(3));
-    // The changed query is in flight: the chart is back under the refreshing
-    // state objectui#7237 draws for an in-place re-query, not the error of the
-    // query the user already moved away from.
-    expect.soft(errorShown('sort field not readable'), 'the old error while the changed query is in flight').toBe(false);
-    expect.soft(indicator() ? 'present' : 'absent', 'the refreshing state while the changed query is in flight').toBe('present');
-    expect.soft(screen.queryByText(PLACEHOLDER), 'the in-place re-query tore down to the placeholder').toBeNull();
-
     await answer(finds[2], GOOD_ROWS);
     await waitFor(() =>
       expect(
@@ -302,5 +294,46 @@ describe('ObjectGantt clears its error when a later load succeeds (objectui#1057
     // is the one that was already there.
     expect(errorShown('backend unavailable'), 'a failed silent re-read took the error screen down').toBe(true);
     expect(screen.queryByTestId('gantt-view')).toBeNull();
+  });
+
+  it('why the error is not cleared when a reload STARTS: a silent re-read overtakes the changed query and fails', async () => {
+    const { dataSource, finds, find } = makeDeferredDataSource();
+    const { rerender } = render(<ObjectGantt schema={schemaSorted('asc')} dataSource={dataSource} />);
+
+    await waitFor(() => expect(find).toHaveBeenCalledTimes(1));
+    await answer(finds[0], FIRST_ROWS);
+    await waitFor(() => expect(screen.getByText('From the first query')).toBeTruthy());
+
+    rerender(<ObjectGantt schema={schemaSorted('desc')} dataSource={dataSource} />);
+    await waitFor(() => expect(find).toHaveBeenCalledTimes(2));
+    await fail(finds[1], 'sort field not readable');
+    await waitFor(() => expect(errorShown('sort field not readable')).toBe(true));
+
+    // The user changes the query again, and before it answers a write to the
+    // object triggers a silent re-read, which overtakes it and fails.
+    rerender(<ObjectGantt schema={schemaSorted('asc', 'end_date')} dataSource={dataSource} />);
+    await waitFor(() => expect(find).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      notifyDataChanged({ objectName: OBJECT });
+    });
+    await waitFor(() => expect(find).toHaveBeenCalledTimes(4));
+    await fail(finds[2], 'changed query failed, overtaken');
+    await fail(finds[3], 'silent re-read failed');
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    });
+
+    // No run answered the current query. The screen must still say something
+    // went wrong. ⛔ Not the first query's rows back without a word, which is
+    // what clearing at the start of the changed query leaves here. Which
+    // message is shown is not the point: it reads "an error", not a text.
+    expect(
+      screen.queryByText(/^Error: /),
+      'the error was cleared although nothing answered the current query',
+    ).not.toBeNull();
+    expect(
+      screen.queryByText('From the first query'),
+      'the rows of a query the user moved away from are back on screen, with no report',
+    ).toBeNull();
   });
 });

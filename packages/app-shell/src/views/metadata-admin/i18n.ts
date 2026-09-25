@@ -1004,6 +1004,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'This list did not load, so it is not a statement that no options exist. Reload the editor to ask again.',
   'engine.form.none': '— None —',
   'engine.form.notInObject': '(not in object)',
+  // The flags a designer picker puts on a STORED value its roster does not
+  // offer (objectui#9652). Each is a bare suffix, like `notInObject` above,
+  // which `widgets.tsx` draws in a muted span of its own. A picker that shows
+  // the value and its flag as ONE option label joins them through
+  // `flaggedValue`, so the order of the two and the gap between them belong to
+  // the locale rather than to the call site: zh sets no space before the
+  // full-width bracket its flags open with.
+  'engine.form.notFound': '(not found)',
+  'engine.form.deprecated': '(deprecated)',
+  'engine.form.flaggedValue': '{value} {flag}',
   'engine.form.searchIcons': 'Search icons…',
   'engine.form.chooseIcon': 'Choose an icon',
   'engine.form.iconsTruncated': 'Showing the first {shown} of {total} — type to narrow.',
@@ -2980,6 +2990,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '这个列表没有加载成功,因此它并不表示不存在可选项。请重新加载编辑器后再试。',
   'engine.form.none': '— 无 —',
   'engine.form.notInObject': '（不在对象中）',
+  // The zh half of the unknown-value flags (objectui#9652). No space in
+  // `flaggedValue`: every flag opens with a full-width bracket.
+  'engine.form.notFound': '（未找到）',
+  'engine.form.deprecated': '（已弃用）',
+  'engine.form.flaggedValue': '{value}{flag}',
   'engine.form.searchIcons': '搜索图标…',
   'engine.form.chooseIcon': '选择图标',
   'engine.form.iconsTruncated': '显示前 {shown} 个，共 {total} 个 —— 继续输入以缩小范围。',

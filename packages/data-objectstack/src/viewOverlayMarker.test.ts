@@ -20,11 +20,20 @@
  *
  *   1. `updateViewConfig` — the ONLY production writer of personalization
  *      rows — stamps an explicit `_isOverride` marker on every row it saves.
- *   2. `listViews()` excludes any row carrying that marker, AND (for rows
- *      already persisted before this fix shipped) a best-effort legacy
- *      shape: flat body + a `viewKind` the platform can only have backfilled
- *      from a REGISTRY baseline (objectstack#2555 / #7741) — which a
- *      genuine runtime-created saved view never has.
+ *   2. `listViews()` excludes any row carrying that marker — and, since
+ *      objectui#10210, ONLY such a row.
+ *
+ * The second layer used to be wider. For rows persisted before the marker
+ * shipped it also excluded a best-effort legacy SHAPE: a flat body plus a
+ * `viewKind` the platform backfills from a REGISTRY baseline (objectstack#2555 /
+ * #7741). That guess was retired by the maintainer's ruling B on objectui#10210
+ * (comment 5824008636): "Edit view config → Save" on a code-defined view wrote
+ * the same shape, so the guess dropped the user's own view out of `listViews()`
+ * and turned it read-only for good once published. An overlay is now a row
+ * carrying `_isOverride`, nothing else. Every case in this file already turned
+ * on the marker rather than on the shape (measured: all of them stay green
+ * with the guess removed), so this rewrite is to this header only; the retired
+ * shape is pinned as ruled in `viewOverlayMarkerOnly-10210.test.ts`.
  *
  * `listViewOverrides` (the batch personalization reader `ObjectView` merges
  * for DISPLAY) is a separate, unchanged consumer of the same rows — it is

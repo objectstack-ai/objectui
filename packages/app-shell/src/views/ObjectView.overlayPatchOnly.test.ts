@@ -435,6 +435,14 @@ describe('objectui#5233 — rows written BEFORE this fix (the disposition, pinne
      * frozen body behaves correctly on the very next page load, without its
      * user having to touch that view again and without an operator running
      * anything.
+     *
+     * One exception is ruled (objectui#10210, ruling B, comment 5824008636):
+     * a row written before the `_isOverride` marker existed carries no
+     * marker, and the marker is now the only thing that makes a row an
+     * overlay. The shape guess that used to narrow it too is retired — an
+     * "Edit view config → Save" wrote the same shape and the guess turned the
+     * user's own view read-only. The case that pinned the old narrowing is
+     * rewritten below to pin the exposure the ruling accepts, not deleted.
      */
     it('a row stored in the old shape stops shadowing the source on the NEXT READ — no write, no migration', async () => {
         const { meta, rows } = makeMetaStore();
@@ -460,13 +468,17 @@ describe('objectui#5233 — rows written BEFORE this fix (the disposition, pinne
         expect(meta.saveItem).not.toHaveBeenCalled();
     });
 
-    it('a PRE-MARKER legacy row is narrowed by the same predicate listViews() excludes it by', async () => {
+    it('a PRE-MARKER legacy row is no longer narrowed: its frozen copy covers the source again (objectui#10210 ruling B, the accepted exposure)', async () => {
         const { meta, rows } = makeMetaStore();
         const ds = makeAdapter(meta);
 
         // Written before `_isOverride` existed (objectui#4227): flat body, and
         // a `viewKind` only the platform's registry-backed identity heal can
-        // have put there.
+        // have put there. This case used to assert that the retired shape
+        // guess narrowed it, so the admin's edit won. Under ruling B the row is
+        // a plain row: the ruling names exactly this — an overlay written
+        // before the marker and never touched since, whose frozen label,
+        // columns and filter copy covers the code definition again.
         rows.set(`view::${VIEW_ID}`, {
             ...SOURCE_VIEW_AT_WRITE_TIME,
             object: OBJECT_NAME,
@@ -476,7 +488,9 @@ describe('objectui#5233 — rows written BEFORE this fix (the disposition, pinne
 
         const tab = await tabAfterAdminEdit(ds);
 
-        expect(tab.filter).toEqual(SOURCE_VIEW_AFTER_ADMIN_EDIT.filter);
+        expect(tab.filter).toEqual(SOURCE_VIEW_AT_WRITE_TIME.filter);
+        expect(tab.columns).toEqual(SOURCE_VIEW_AT_WRITE_TIME.columns);
+        expect(tab.label).toBe(SOURCE_VIEW_AT_WRITE_TIME.label);
         expect(tab.sort).toEqual([{ field: 'created_at', order: 'desc' }]);
     });
 });

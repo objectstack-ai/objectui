@@ -128,6 +128,22 @@ const i18n = createI18n({ defaultLanguage: 'de' });
 i18n.t('common.cancel'); // "Abbrechen"
 ```
 
+### TranslateFn — typing a `t` you are handed
+
+A helper that receives `t` from its caller, rather than calling a hook itself,
+types that parameter with `TranslateFn`: i18next's `t` narrowed to
+`(key: string, options?: Record<string, unknown>) => string`. This package is
+the one place that type is declared — import it rather than declaring a local
+copy:
+
+```ts
+import type { TranslateFn } from '@object-ui/i18n';
+
+export function saveLabel(t: TranslateFn): string {
+  return t('common.save');
+}
+```
+
 ### Formatting Utilities
 
 Locale-aware formatting functions:

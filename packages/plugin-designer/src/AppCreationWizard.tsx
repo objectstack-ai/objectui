@@ -205,13 +205,15 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
       {/* Name */}
       <div className="space-y-1.5">
         <label htmlFor="app-name" className="block text-sm font-medium text-gray-700">
-          {t('appDesigner.appName')}{' '}
+          {t('appDesigner.appName')}
           {/* Visual-only (objectui#3299, objectui#10367): `aria-required` on the
               input is the announced channel; hiding the `*` keeps it out of the
-              input's accessible name. Not native `required`: the wizard gates
-              its own Next / Create, and a host `<form>` would otherwise gain
-              the browser's submit-blocking verdict beside it. */}
-          <span className="text-red-500" aria-hidden="true" data-required-marker="true">*</span>
+              input's accessible name. The separating space lives INSIDE the
+              hidden span, or the name keeps a trailing space ("App Name ").
+              Not native `required`: the wizard gates its own Next / Create,
+              and a host `<form>` would otherwise gain the browser's
+              submit-blocking verdict beside it. */}
+          <span className="text-red-500" aria-hidden="true" data-required-marker="true"> *</span>
         </label>
         <input
           id="app-name"
@@ -237,9 +239,9 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
       {/* Title */}
       <div className="space-y-1.5">
         <label htmlFor="app-title" className="block text-sm font-medium text-gray-700">
-          {t('appDesigner.appTitle')}{' '}
+          {t('appDesigner.appTitle')}
           {/* Visual-only — see the App name marker above. */}
-          <span className="text-red-500" aria-hidden="true" data-required-marker="true">*</span>
+          <span className="text-red-500" aria-hidden="true" data-required-marker="true"> *</span>
         </label>
         <input
           id="app-title"

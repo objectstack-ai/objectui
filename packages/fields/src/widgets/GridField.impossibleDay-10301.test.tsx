@@ -21,6 +21,10 @@
  * the raw stored string, which is this surface's existing face for a value
  * it cannot parse (objectui#3569).
  *
+ * Building its own `Date` also rolled an out-of-range month
+ * (`new Date(2026, 12, 45)` is `Feb 14, 2027`) and read a year below 100 as
+ * 1900+y; the shared step answers both, so two cases pin them as well.
+ *
  * ── Directions, predicted before the run ───────────────────────────────────
  *   pre-card sources                  RED — `Mar 2` / `3/2/2026` on screen
  *   the date-time arm deleted from    RED on the `datetime` cases only; the
@@ -87,6 +91,22 @@ describe.each(FACES)('objectui#10301 — sub-grid %s', (_name, textOf) => {
       expect(text).not.toContain('3/2/2024');
     },
   );
+
+  it('a `date` column shows an out-of-range month as stored, not rolled into the next year', () => {
+    // The hand-built `new Date(2026, 12, 45)` rendered `Feb 14, 2027`; the
+    // shared step's own parse has always refused this value.
+    const text = textOf({ merchant: 'X', incurred_on: '2026-13-45' });
+    expect(text).toContain('2026-13-45');
+    expect(text).not.toContain('2027');
+  });
+
+  it('a `date` column renders a year below 100 as the `date` cell does, not in the 1900s', () => {
+    // The hand-built `new Date(26, 7, 1)` is 1926; the shared step undoes
+    // that legacy mapping (objectui#10110).
+    const text = textOf({ merchant: 'X', incurred_on: '0026-08-01' });
+    expect(text).toContain(formatDate('0026-08-01', undefined, { locale: 'en' }));
+    expect(text).not.toContain('1926');
+  });
 
   it('control: a real day and a real date-time display as before', () => {
     // `'en'` is what `useDisplayLocale()` resolves to with no provider. The

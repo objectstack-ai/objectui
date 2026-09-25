@@ -47,6 +47,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@object-ui/components';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export interface InspectorComboOption {
   value: string;
@@ -84,6 +85,14 @@ export interface InspectorComboOption {
  * `useId()` cannot be authored into a collision. The `id` variant re-opens that
  * door by necessity — the caller must already own the id to have written the
  * `for` — so reach for it only when an external label is genuinely in charge.
+ *
+ * ## Words (objectui#10586)
+ *
+ * The combo's own words — the trigger's placeholder and loading text, the
+ * search box, the empty state and the "Use «text»" row — read in the designer's
+ * active locale through `useMetadataLocale()`, as {@link InspectorSelectField}'s
+ * default flag does. A caller that passes its own `placeholder`,
+ * `searchPlaceholder` or `emptyText` keeps it.
  */
 export type InspectorComboFieldNaming =
   | { label: string; ariaLabel?: never; id?: never }
@@ -124,9 +133,9 @@ export function InspectorComboField({
   value,
   onCommit,
   options,
-  placeholder = 'Select…',
-  searchPlaceholder = 'Search or type…',
-  emptyText = 'No match — keep typing to use a custom value.',
+  placeholder: placeholderProp,
+  searchPlaceholder: searchPlaceholderProp,
+  emptyText: emptyTextProp,
   disabled,
   loading,
   allowCustom = true,
@@ -135,6 +144,10 @@ export function InspectorComboField({
 }: InspectorComboFieldProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
+  const locale = useMetadataLocale();
+  const placeholder = placeholderProp ?? t('engine.form.selectEllipsis', locale);
+  const searchPlaceholder = searchPlaceholderProp ?? t('engine.inspector.combo.search', locale);
+  const emptyText = emptyTextProp ?? t('engine.inspector.combo.noMatch', locale);
 
   // The id goes on the trigger `Button`, never on `Popover`: Radix's
   // `Popover.Root` is a context provider that renders no DOM element of its own,
@@ -151,7 +164,7 @@ export function InspectorComboField({
   const triggerId = label ? autoId : id;
 
   const selected = options.find((o) => o.value === value);
-  const triggerText = selected ? selected.label : value || (loading ? 'Loading…' : placeholder);
+  const triggerText = selected ? selected.label : value || (loading ? t('engine.inspector.combo.loading', locale) : placeholder);
 
   const filtered = React.useMemo(() => options.filter((o) => matches(o, search)), [options, search]);
   const groups = React.useMemo(() => {
@@ -171,6 +184,8 @@ export function InspectorComboField({
   const trimmed = search.trim();
   const showCustom =
     allowCustom && !!trimmed && !options.some((o) => o.value === trimmed);
+  // The custom row's sentence is the locale's; the typed text is a slot in it.
+  const [customLead, customTail = ''] = t('engine.inspector.combo.useCustom', locale).split('{value}');
 
   const commit = (v: string) => {
     onCommit(v);
@@ -215,7 +230,7 @@ export function InspectorComboField({
               <CommandGroup>
                 <CommandItem value={`__custom__${trimmed}`} onSelect={() => commit(trimmed)}>
                   <span className="truncate">
-                    Use <span className="font-mono">“{trimmed}”</span>
+                    {customLead}<span className="font-mono">“{trimmed}”</span>{customTail}
                   </span>
                 </CommandItem>
               </CommandGroup>

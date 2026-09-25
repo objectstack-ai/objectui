@@ -16,13 +16,15 @@
  * splice + `onPatch({...})`. Locale-aware via the `useT` hook the
  * caller already has in scope — the shared shell takes raw strings.
  *
- * One exception, and it is a DEFAULT rather than a label a caller hands in:
- * the flag {@link InspectorSelectField} puts on a stored value its roster does
- * not offer. Wherever a call site passes none, the default is what a zh-CN
- * author reads, so it resolves through `useMetadataLocale()` — the hook the
- * designer's other shared editors (`widgets.tsx`, `SchemaForm`,
- * `ConditionBuilder`) already read when no `locale` prop reaches them
- * (objectui#9652).
+ * The exceptions are DEFAULTS rather than labels a caller hands in: the flag
+ * {@link InspectorSelectField} puts on a stored value its roster does not
+ * offer (objectui#9652), and the wording a caller may omit — the shell's close
+ * label, the reorder pair's names and the roster-failure notice
+ * (objectui#10586). Wherever a call site passes none, the default is what a
+ * zh-CN author reads, so it resolves through `useMetadataLocale()` — the hook
+ * the designer's other shared editors (`widgets.tsx`, `SchemaForm`,
+ * `ConditionBuilder`) already read when no `locale` prop reaches them. A label
+ * the caller passes always wins.
  */
 
 import * as React from 'react';
@@ -38,6 +40,7 @@ export interface InspectorShellProps {
   kindLabel: string;
   title: string;
   onClose: () => void;
+  /** The close button's accessible name; omitted, `engine.close` in the designer locale. */
   closeLabel?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -54,7 +57,9 @@ export interface InspectorShellProps {
   hideClose?: boolean;
 }
 
-export function InspectorShell({ kindLabel, title, onClose, closeLabel = 'Close', children, footer, headerActions, hideClose }: InspectorShellProps) {
+export function InspectorShell({ kindLabel, title, onClose, closeLabel: closeLabelProp, children, footer, headerActions, hideClose }: InspectorShellProps) {
+  const locale = useMetadataLocale();
+  const closeLabel = closeLabelProp ?? t('engine.close', locale);
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-2 border-b px-4 py-2.5">
@@ -86,7 +91,7 @@ export interface InspectorReorderButtonsProps {
   total: number;
   /** Called with the new index when the user clicks ↑ or ↓. */
   onMove: (toIndex: number) => void;
-  /** Localized aria-labels (e.g. tr('engine.inspector.reorder.up', locale)). */
+  /** Localized aria-labels; omitted, `engine.inspector.reorder.up` / `.down` in the designer locale. */
   upLabel?: string;
   downLabel?: string;
   /** Disable both buttons (read-only inspectors). */
@@ -102,11 +107,15 @@ export function InspectorReorderButtons({
   index,
   total,
   onMove,
-  upLabel = 'Move up',
-  downLabel = 'Move down',
+  upLabel: upLabelProp,
+  downLabel: downLabelProp,
   disabled,
 }: InspectorReorderButtonsProps) {
+  // Read before the early return: a hook's call order may not depend on props.
+  const locale = useMetadataLocale();
   if (total <= 1 || index < 0) return null;
+  const upLabel = upLabelProp ?? t('engine.inspector.reorder.up', locale);
+  const downLabel = downLabelProp ?? t('engine.inspector.reorder.down', locale);
   const canUp = !disabled && index > 0;
   const canDown = !disabled && index < total - 1;
   return (
@@ -308,13 +317,13 @@ export function rosterFrom(source: {
 }
 
 /**
- * Default wording for the notice {@link InspectorSelectField} renders when its
- * roster failed to load. Raw English, like `placeholder`'s `'—'` default. A
- * call site that passes a `roster` passes its own `rosterFailureLabel` too —
- * the repo already has this exact copy localized, as the shared picker-failure
- * title objectui#5170 landed for the widget family.
+ * Catalogue key of the default wording for the notice
+ * {@link InspectorSelectField} renders when its roster failed to load: the
+ * shared picker-failure title objectui#5170 landed for the widget family, read
+ * in the designer's locale (objectui#10586). A call site that passes its own
+ * `rosterFailureLabel` keeps it.
  */
-const defaultRosterFailureLabel = 'Options could not be loaded';
+const DEFAULT_ROSTER_FAILURE_LABEL_KEY = 'engine.form.optionsLoadFailedTitle';
 
 /**
  * The label of the row {@link InspectorSelectField} synthesises for a stored
@@ -343,7 +352,7 @@ export function InspectorSelectField({
   placeholder = '—',
   unknownValueLabel: unknownValueLabelProp,
   roster,
-  rosterFailureLabel = defaultRosterFailureLabel,
+  rosterFailureLabel: rosterFailureLabelProp,
   disabled,
 }: {
   label: string;
@@ -381,7 +390,7 @@ export function InspectorSelectField({
   /**
    * Wording for the notice shown when `roster` reports a failure. The CAUSE is
    * rendered from the state's own message; this is the sentence in front of it.
-   * Defaults to raw English — pass `t('engine.form.optionsLoadFailedTitle', locale)`.
+   * Defaults to `engine.form.optionsLoadFailedTitle` in the designer's locale.
    */
   rosterFailureLabel?: string;
   disabled?: boolean;
@@ -404,6 +413,7 @@ export function InspectorSelectField({
   // `VALUE (not found)` on an otherwise Chinese inspector. It resolves through
   // the designer's own catalogue now, in the locale the designer is showing.
   const locale = useMetadataLocale();
+  const rosterFailureLabel = rosterFailureLabelProp ?? t(DEFAULT_ROSTER_FAILURE_LABEL_KEY, locale);
   const unknownValueLabel =
     unknownValueLabelProp ??
     ((v: string) => flagUnknownValue(v, t('engine.form.notFound', locale), locale));

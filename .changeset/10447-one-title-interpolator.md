@@ -15,3 +15,5 @@ One `titleFormat` interpolator for the record title (objectui#10447, objectui#10
 - A select token still reads as its translated option label: the label is applied to a copy of the record before core renders it.
 
 The rungs' order is unchanged. `page:header`'s own `title` and `subtitle` templates keep their existing interpolation.
+
+This supersedes how two earlier changesets, still pending in the same release, describe the `titleFormat` rung; each now carries a dated note naming this card. objectui#9436 (the declared pointer outranks `titleFormat` in `page:header`) said the template kept the header's own interpolation. objectui#9174 (`interpolate()`'s no-token fast path) listed the record-title `titleFormat` among `interpolate()`'s callers. Both describe the header as it was at their change; from this release the rung renders through `formatTitleTemplate`.

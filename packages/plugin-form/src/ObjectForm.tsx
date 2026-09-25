@@ -1524,7 +1524,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // Field-level permissions gate the BUILT members, after the entry
       // overrides — the order the drawer and modal arms apply them in — so no
       // override can re-open a field the caller may not edit.
-      const sectionFields = applyFieldPerms(buildSectionFields(section as any, sectionCtx));
+      const sectionFields = applyFieldPerms(buildSectionFields(section, sectionCtx));
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);

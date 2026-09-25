@@ -435,7 +435,7 @@ function resolveSectionEntry(
  * from; the order stays the section's own either way (objectui#10475).
  */
 export function buildSectionFields(
-  section: { fields: Array<string | Record<string, any>> },
+  section: { fields?: Array<string | Record<string, any>> },
   ctx: SectionFieldsContext,
 ): FormField[] {
   const entries = section.fields ?? [];

@@ -30,10 +30,9 @@
  * rather than leaving a pin that compares two acceptances.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
 import { z } from 'zod';
+// ⛔ Schemas only. No spec `check*` function is imported by name in this file;
+// they are read at RUN time by `specUiChecks()` below, and why is written there.
 import {
   AppSchema as SpecAppSchema,
   DashboardSchema as SpecDashboardSchema,
@@ -42,10 +41,6 @@ import {
   ListViewSchema as SpecListViewSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   PageSchema as SpecPageSchema,
-  checkGlobalFilterDateDefaultValue,
-  checkListViewCalendarVisualization,
-  checkListViewPageMount,
-  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { ListViewSchema, PageNodeSchema, safeValidateSchema } from '../zod/index.zod';
 import { GlobalFilterSchema } from '../zod/complex.zod';
@@ -154,32 +149,36 @@ const SITES = [
  */
 const CARRIED_ELSEWHERE = ['checkGlobalFilterDateDefaultValue'] as const;
 
-/** The bindings behind every name above, so each is proven a live function. */
-const SPEC_CHECK_BINDINGS: Record<string, unknown> = {
-  checkGlobalFilterDateDefaultValue,
-  checkListViewCalendarVisualization,
-  checkListViewPageMount,
-  checkPageSourceCompleteness,
-};
-
 /**
- * The `check*` FUNCTIONS `@objectstack/spec/ui` exports, read from the spec's own
- * published export surface (`api-surface/ui.json`, every `name (kind)` of the
- * entry point, generated from the built `dist`) rather than from a runtime
- * namespace import — a namespace import of `@objectstack/spec/ui` is restricted
- * in this repository, for reasons that have nothing to do with this census.
+ * Every `check*` FUNCTION `@objectstack/spec/ui` exports, name → binding, read
+ * at RUN time from the entry point's own module namespace.
+ *
+ * ⛔ Never a static named import of a check in this file. The census exists to
+ * go red when the spec's set of checks MOVES, and a move is exactly when a
+ * static import of one stops compiling: the `Spec Main Shape Gate` compiles
+ * this repository against `@objectstack/spec` built from objectstack `main`,
+ * where `checkListViewPageMount` is gone (objectstack#17063), and a named
+ * import of it failed that compile with TS2305 before any row here could say
+ * which site moved. Read by name at run time, an added or a removed check
+ * compiles on every spec and fails below by row name instead.
+ *
+ * The runtime namespace is the right instrument here because these are VALUES:
+ * a namespace cannot see a TYPE, which is why the repository's type-name
+ * tripwires read `.d.ts` through the checker, but every name this census
+ * counts is a function. A dynamic `import()` rather than `import * as`, because
+ * the static namespace form of this entry point is a restricted import in this
+ * repository (objectui#3090's `FormField` rule), which this read never touches.
  */
-function specCheckExports(): string[] {
-  const require = createRequire(import.meta.url);
-  const pkgDir = dirname(require.resolve('@objectstack/spec/package.json'));
-  const surface = JSON.parse(readFileSync(join(pkgDir, 'api-surface', 'ui.json'), 'utf8')) as { entry: string; exports: string[] };
-  expect(surface.entry).toBe('./ui');
-  // Control: the surface lists a schema this file imports, so a reading of zero
-  // checks would be a real zero and not an unreadable file.
-  expect(surface.exports).toContain('ListViewSchema (const)');
-  return surface.exports
-    .map((e) => /^(check[A-Z]\w*) \(function\)$/.exec(e)?.[1])
-    .filter((n): n is string => Boolean(n));
+async function specUiChecks(): Promise<Map<string, unknown>> {
+  const mod: object = await import('@objectstack/spec/ui');
+  // Control: the namespace read is the SAME module the schemas above come
+  // from, so an empty map would be a real absence and not a wrong module.
+  expect(Reflect.get(mod, 'ListViewSchema')).toBe(SpecListViewSchema);
+  return new Map(
+    Object.keys(mod)
+      .filter((name) => /^check[A-Z]/.test(name))
+      .map((name) => [name, Reflect.get(mod, name)] as const),
+  );
 }
 
 const objectLevelChecks = (schema: unknown): number =>
@@ -200,15 +199,20 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     });
   });
 
-  it('every `check*` the spec exports is named by exactly one site or carried elsewhere', () => {
-    const exported = specCheckExports().sort();
+  it('every `check*` the spec exports is named by exactly one site or carried elsewhere', async () => {
+    const checks = await specUiChecks();
     const named = [...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE].sort();
-    expect(exported).toEqual(named);
-    expect(Object.keys(SPEC_CHECK_BINDINGS).sort()).toEqual(named);
-    for (const name of named) expect(typeof SPEC_CHECK_BINDINGS[name], name).toBe('function');
+    expect([...checks.keys()].sort()).toEqual(named);
+    for (const [name, binding] of checks) expect(typeof binding, name).toBe('function');
   });
 
-  it('`checkListViewPageMount` is not attachable: it reads `type`, which the list-view node spends on its discriminator', () => {
+  it('`checkListViewPageMount` is not attachable: it reads `type`, which the list-view node spends on its discriminator', async () => {
+    const checkListViewPageMount = (await specUiChecks()).get('checkListViewPageMount');
+    expect(
+      typeof checkListViewPageMount,
+      'the spec no longer exports `checkListViewPageMount` — remove it from the ListView row\'s ' +
+        '`notAttachable` list, and this measurement with it',
+    ).toBe('function');
     // The same page mount, spelled once per face. The spec accepts its own.
     expect(SpecListViewSchema.safeParse({ type: 'page', pageName: 'home_page', columns: [] }).success).toBe(true);
     // Attached as-is, the check would refuse objectui's spelling of it, at

@@ -16,8 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useActionRunner } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { toast } from 'sonner';
-import { recordDelete } from '@object-ui/core';
-import type { ActionDef, ActionResult } from '@object-ui/core';
+import { recordDelete, type ActionDef, type ActionResult } from '@object-ui/core';
 
 interface ObjectActionConfig {
   objectName: string;

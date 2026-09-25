@@ -772,6 +772,7 @@ const pt = {
     },
     aria: {
       taskList: "Lista de tarefas",
+      refreshing: "Atualizando…",
     },
     tooltip: {
       days: "d",

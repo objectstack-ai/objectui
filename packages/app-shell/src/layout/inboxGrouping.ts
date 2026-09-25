@@ -18,22 +18,30 @@
  * (`hooks/sharedUserFeeds.ts`) produces, and it is the single producer of every
  * row both the bell (`InboxPopover`) and Home's action centre render.
  *
- * Every member below is mapped by that producer and read by at least one of
- * those two consumers, and that agreement is what this interface is for. A
- * field declared here but filled by nobody is not documentation — it is a
- * standing invitation to wire it up, and two rounds of them have now been
- * removed: `source_object`/`source_id` (objectui#5190, see `action_url` below)
- * and `actor_name` (objectui#5203).
+ * Every member below is mapped by that producer and read by at least one
+ * consumer of its rows — those two surfaces, or the arrival announcer the bell
+ * mounts (`hooks/useInboxArrivalNotifier.ts`) — and that agreement is what this
+ * interface is for. A field declared here but filled by nobody is not
+ * documentation — it is a standing invitation to wire it up, and two rounds of
+ * them have now been removed: `source_object`/`source_id` (objectui#5190, see
+ * `action_url` below) and `actor_name` (objectui#5203).
  *
  * `actor_name` was dead at BOTH ends — `mergeInboxRows` never mapped it, no
- * consumer read it, and `sys_inbox_message` declares no actor column for it to
+ * consumer read it, and `sys_inbox_message` then had no actor column for it to
  * be mapped FROM. Beware that the same NAME is alive on unrelated shapes in
  * this package: the `sys_activity` -> `ActivityItem` map in
  * `hooks/sharedUserFeeds.ts` and the approval activity rows in
  * `hooks/useRecordApprovals.ts` both carry a real `actor_name`, so a grep for
- * the bare name conflates three different fields. Naming an actor on an inbox
- * row is a capability expansion (a column on `sys_inbox_message`, then a
- * producer that maps it), not a re-declaration here.
+ * the bare name conflates three different fields.
+ *
+ * Naming an actor on an inbox row was, this comment said, a capability
+ * expansion (a column on `sys_inbox_message`, then a producer that maps it),
+ * not a re-declaration here — and that is the route `actor_id` below took: the
+ * column landed first (objectstack#16974), then the producer mapped it
+ * (objectui#8667). The objectui#5203 retirement rested on "no column to map
+ * from", which no longer holds for an actor ID. It still holds for a NAME: the
+ * column is a lookup to `sys_user`, nothing on the row carries a display name,
+ * and `actor_name` stays retired.
  */
 export interface InboxNotification {
   id: string;
@@ -62,6 +70,19 @@ export interface InboxNotification {
   action_url?: string | null;
   is_read?: boolean;
   created_at?: string;
+  /**
+   * Who caused the event (the assigner, the mentioner): a bare `sys_user` id,
+   * mapped from `sys_inbox_message.actor_id` (objectstack#16974). Its reader is
+   * the arrival filter (`claimInboxArrivals` in `hooks/inboxArrivals.ts`),
+   * which compares it with the signed-in user's id so that a row the user
+   * caused themselves does not pop (objectui#8667).
+   *
+   * `null` means "no known actor" and nothing stronger. A digest row carries
+   * none by construction (a collapsed group has no single actor), and a server
+   * older than the column sends no key, which the producer maps to `null` as
+   * well. Both announce exactly as a row did before this field existed.
+   */
+  actor_id?: string | null;
 }
 
 /**

@@ -787,7 +787,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         type: 'object-data-table',
                         ...restOptions,
                         objectName: widgetData.object,
-                        dataProvider: widgetData,
                         filter: widgetData.filter || widget.filter,
                         searchable: isList ? false : (widget.searchable ?? false),
                         pagination: isList ? false : (widget.pagination ?? false),

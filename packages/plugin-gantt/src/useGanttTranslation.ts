@@ -48,6 +48,7 @@ export const GANTT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'gantt.row.collapse': 'Collapse',
   'gantt.row.open': 'Open details',
   'gantt.aria.taskList': 'Task list',
+  'gantt.aria.refreshing': 'Refreshing…',
   'gantt.tooltip.days': 'd',
   'gantt.menu.view': 'View details',
   'gantt.menu.edit': 'Edit inline',

@@ -55,6 +55,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   NavigationOverlay,
+  RefreshIndicator,
   legacyRecordDrawerWidthKey,
   recordOverlayWidthStorageKey,
   useOverlayAnchor,
@@ -778,26 +779,45 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     : undefined;
   const searchFieldsKey = searchFields ? JSON.stringify(searchFields) : '';
 
-  // Load (and re-load) data through the resolved adapter. `silent: true`
-  // re-reads the source WITHOUT flipping `loading`, so GanttView stays mounted
-  // and keeps its scroll/collapse state — used by the write-readback below and
-  // the toolbar refresh button (write-readback / manual refresh, #2436 items 6
-  // and 7). Concurrent
-  // reloads are sequenced: only the newest request may commit its result,
-  // so a slow earlier response can't clobber a fresher one.
+  // Load (and re-load) data through the resolved adapter. The two options are
+  // independent choices (objectui#7237):
+  //
+  //   - `inPlace` decides whether the chart stays MOUNTED. In place, the run
+  //     sets `refreshing`, which draws the refreshing state over the chart, and
+  //     GanttView keeps its scroll, collapsed groups and in-flight edits.
+  //     Otherwise it sets `loading`, which swaps in the placeholder. Only the
+  //     first load does that; see `loadedOnceRef`.
+  //   - `silent` decides what a FAILURE does. A background re-read of the SAME
+  //     query (write-readback, the toolbar refresh, an invalidation; #2436
+  //     items 6 and 7) logs it and keeps the last good rows, which still
+  //     answer that query. A silent reload is always in place.
+  //
+  // Concurrent reloads are sequenced: only the newest request may commit its
+  // result, so a slow earlier response can't clobber a fresher one.
   const [refreshing, setRefreshing] = useState(false);
   const reloadSeqRef = useRef(0);
-  const reload = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  /**
+   * Has any reload committed rows yet? (objectui#7237, ruling A′)
+   *
+   * This separates the initial load, which keeps the loading placeholder, from
+   * every later change to the query. A later change refreshes in place, so the
+   * chart is never torn down to the placeholder after it has painted. A ref, not
+   * state: nothing renders from it, and it only ever flips once, from false to
+   * true.
+   */
+  const loadedOnceRef = useRef(false);
+  const reload = useCallback(async ({ silent = false, inPlace = silent }: { silent?: boolean; inPlace?: boolean } = {}) => {
     const seq = ++reloadSeqRef.current;
     const isCurrent = () => reloadSeqRef.current === seq;
     try {
-      if (silent) setRefreshing(true);
+      if (inPlace) setRefreshing(true);
       else setLoading(true);
       // 1. Check for data prop (Unified ListView)
       if ((rest as any).data && Array.isArray((rest as any).data)) {
         if (isCurrent()) {
           setData((rest as any).data);
           setRowCeiling(null);
+          loadedOnceRef.current = true;
         }
         return;
       }
@@ -887,12 +907,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       if (isCurrent()) {
         setData(capped.rows);
         setRowCeiling(capped);
+        loadedOnceRef.current = true;
       }
     } catch (err) {
       if (silent) {
         // Background refresh failure keeps the last good data on screen.
         console.error('[ObjectGantt] Failed to refresh data:', err);
       } else if (isCurrent()) {
+        // A failed query that CHANGED (in place or not) is reported. The rows
+        // on screen answer the previous query, and once the refreshing state
+        // clears nothing would tell the user that (objectui#7237).
         setError(err as Error);
       }
     } finally {
@@ -907,9 +931,9 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // nothing is in flight any more — a newer reload would have made this
       // one stale, and an older one has no claim on the flags. Clearing only
       // this run's own mode would strand the other one whenever the
-      // superseded reload ran in the OTHER mode (a silent toolbar refresh
-      // overtaken by a filter-change reload would leave `refreshing` on for
-      // the life of the component).
+      // superseded reload ran in the OTHER mode (a silent invalidation reload
+      // overtaken by a query change before the first paint would leave
+      // `refreshing` on for the life of the component).
       if (isCurrent()) {
         setRefreshing(false);
         setLoading(false);
@@ -969,9 +993,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const reloadRef = useRef(reload);
   reloadRef.current = reload;
 
+  /**
+   * objectui#7237, ruling A′ — the first run is the initial load and keeps the
+   * loading placeholder. Every run after rows have painted is a REAL change to
+   * the query (sort, filter, permissions, search, the bound source), and it
+   * refreshes IN PLACE: GanttView stays mounted with its scroll, collapsed
+   * groups and in-flight edits, the refreshing state sits over the chart, and
+   * the rows are replaced when the answer lands. ⛔ Never a teardown to the
+   * placeholder once the chart has painted.
+   *
+   * In place but NOT silent: the query changed, so a failure is reported
+   * rather than leaving the previous query's rows on screen.
+   */
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
-    reloadRef.current();
+    reloadRef.current(loadedOnceRef.current ? { inPlace: true } : {});
   }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
 
   /**
@@ -981,12 +1017,13 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * reports a change to the object this gantt reads.
    *
    * ⭐ A SILENT reload, deliberately not the fetch effect above. That effect's
-   * reload flips `loading`, which swaps `GanttView` for the placeholder — the
-   * same loss of scroll, collapsed groups and zoom a remount causes, one level
-   * down. `reload({ silent: true })` is the path the toolbar refresh and every
-   * write-readback here already take for exactly that reason, and it keeps
-   * `reload`'s sequencing, so an invalidation that lands mid-load cannot let a
-   * stale answer win.
+   * first reload flips `loading`, which swaps `GanttView` for the placeholder
+   * — the same loss of scroll, collapsed groups and zoom a remount causes, one
+   * level down — and its later ones report a failure, which is right for a
+   * changed query and wrong for a re-read of the same one. `reload({ silent:
+   * true })` is the path the toolbar refresh and every write-readback here
+   * already take for exactly that reason, and it keeps `reload`'s sequencing,
+   * so an invalidation that lands mid-load cannot let a stale answer win.
    *
    * Subscribed only when the rows come from an adapter this gantt queries
    * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
@@ -2160,7 +2197,14 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           the pane's bottom edge — swallowing the horizontal scrollbar.
           flex-1/min-h-0 tracks the real available height;
           the min-h keeps standalone embeds (no sized parent) usable. */}
-      <div className="flex-1 min-h-[420px]">
+      <div className="relative flex-1 min-h-[420px]">
+        {/* objectui#7237 (ruling A′) — the visible refreshing state ON the
+            chart while an in-place reload runs, so the rows still on screen
+            read as the previous answer rather than as the current one. The
+            same indeterminate bar ObjectGrid, ListView and ObjectChart draw
+            over their rows; `refreshing` is the flag the toolbar refresh
+            button already reads. */}
+        <RefreshIndicator active={refreshing} ariaLabel={t('gantt.aria.refreshing')} />
         {ganttConfig?.resourceView && assigneeAccessor ? (
           <ResourceWorkload
             tasks={displayTasks}

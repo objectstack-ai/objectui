@@ -151,7 +151,11 @@ export function PageView() {
                 // turns it red. Both directions were measured on objectui#9718.
                 type: (page as any).type || 'page',
                 pageType: (page as any).type,
-                context: { ...(page as any).context, params, refreshKey },
+                // `context` is built here, never read off the page: `PageSchema`
+                // refuses a page-level `context` key, so no parsed page can
+                // carry one (objectui#9673). Written after `...page`, it also
+                // overrides whatever an unparsed document smuggled in.
+                context: { params, refreshKey },
               }}
             />
           )}

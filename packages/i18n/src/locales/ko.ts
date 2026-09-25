@@ -773,6 +773,7 @@ const ko = {
     },
     aria: {
       taskList: "작업 목록",
+      refreshing: "새로고침 중…",
     },
     tooltip: {
       days: "일",

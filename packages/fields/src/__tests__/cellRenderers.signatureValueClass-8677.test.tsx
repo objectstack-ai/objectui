@@ -32,10 +32,12 @@
  *     `@objectstack/spec`, never a copied list: a member joining or leaving
  *     the class moves this census with it.
  *   - The reference face is `text`'s, rendered live — ⛔ no stored bytes.
- *   - The class's masked credential types draw a VALUE-INDEPENDENT face. They
- *     cannot "match" anything and are excluded by name, and the exclusion is
- *     itself measured: a member listed there that starts drawing its value
- *     turns the census red, so the list cannot outlive its reason.
+ *   - The class's masked credential types draw ONE face for every stored value
+ *     (the mask), and since objectui#8678 the shared affordance when nothing is
+ *     stored. `{}` is a stored value to them, so they still cannot "match"
+ *     `text` there, and they are excluded by name. The exclusion is itself
+ *     measured: a member listed there that starts drawing its value turns the
+ *     census red, so the list cannot outlive its reason.
  *
  * ── What must NOT move (the load-bearing half) ────────────────────────────
  * The caricature is "`signature` prints its coerced text for everything". It
@@ -116,12 +118,13 @@ const EMPTY_SHAPED: ReadonlyArray<readonly [label: string, value: unknown]> = [
 ];
 
 /**
- * Members of the class whose face does not depend on the value at all — a
- * masked credential draws the same dots for everything. Excluded from the
- * sibling comparison by name; `THE CENSUS` measures that each one really is
- * value-independent, so this list goes red rather than stale.
+ * Members of the class whose face never depends on WHAT is stored. A masked
+ * credential draws the same dots for every stored value, `{}` included, and the
+ * shared affordance only when nothing is stored (objectui#8678). Excluded from
+ * the sibling comparison by name; `THE CENSUS` measures that each one really
+ * is masked, so this list goes red rather than stale.
  */
-const VALUE_INDEPENDENT_FACES: ReadonlySet<string> = new Set(['password', 'secret']);
+const MASKED_FACES: ReadonlySet<string> = new Set(['password', 'secret']);
 
 const REGISTERED: ReadonlySet<string> = new Set(listCellRendererTypes());
 
@@ -130,7 +133,7 @@ const CLASS_MEMBERS: readonly string[] = [...STRING_VALUE_TYPES].filter((t) => R
 
 /** The siblings `signature` is held to: every value-bearing class member. */
 const SIBLINGS: readonly string[] = CLASS_MEMBERS.filter(
-  (t) => t !== 'signature' && !VALUE_INDEPENDENT_FACES.has(t),
+  (t) => t !== 'signature' && !MASKED_FACES.has(t),
 );
 
 /** A real stored signature: the widget saves `canvas.toDataURL('image/png')`. */
@@ -153,7 +156,7 @@ describe('objectui#8677 — `signature` answers empty-shaped values as its value
       // the control that the filter above did not empty the list.
       expect(CLASS_MEMBERS, 'signature has a cell renderer of its own').toContain('signature');
       expect(SIBLINGS, 'text is a sibling signature is compared against').toContain('text');
-      for (const t of VALUE_INDEPENDENT_FACES) {
+      for (const t of MASKED_FACES) {
         expect(STRING_VALUE_TYPES.has(t), `${t}: an exclusion must name a class member`).toBe(true);
       }
     });
@@ -196,15 +199,21 @@ describe('objectui#8677 — `signature` answers empty-shaped values as its value
       });
     }
 
-    it('THE CENSUS — each excluded member really draws a value-independent face', async () => {
-      for (const t of VALUE_INDEPENDENT_FACES) {
+    it('THE CENSUS — each excluded member really draws a masked face', async () => {
+      for (const t of MASKED_FACES) {
         const a = await faceOf(t, 'alpha');
         const b = await faceOf(t, 'bravo');
-        const empty = await faceOf(t, null);
+        const object = await faceOf(t, {});
         expect(
-          [b.html, empty.html],
-          `${t}: excluded as value-independent, so two values and no value must all draw the same`,
+          [b.html, object.html],
+          `${t}: excluded as masked, so every stored value, {} included, must draw the same face`,
         ).toEqual([a.html, a.html]);
+        expect(a.text, `${t}: the stored value never reaches the DOM`).not.toContain('alpha');
+        expect(a.hasAffordance, `${t}: a stored value is not "No value"`).toBe(false);
+        // The half objectui#8678 moved: this used to require `null` to draw the
+        // mask too, which asserted a credential the record never held.
+        const empty = await faceOf(t, null);
+        expect(empty.hasAffordance, `${t}: nothing stored draws the shared affordance`).toBe(true);
       }
     });
   });

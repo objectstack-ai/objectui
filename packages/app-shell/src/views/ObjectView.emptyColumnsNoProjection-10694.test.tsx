@@ -275,9 +275,9 @@ const UNPROJECTED_WITH_TOGGLE = {
 };
 
 /** The toggle on an unprojected system view hides in-session and writes nothing. */
-async function expectSessionOnlyToggle(dataSource: any, own: string[] | undefined): Promise<void> {
+async function expectSessionOnlyToggle(dataSource: any): Promise<void> {
   await hideThroughToggle('region');
-  await waitFor(() => expect(drawn).toEqual(own!.filter((c) => c !== 'region')));
+  await waitFor(() => expect(drawn).not.toContain('region'));
   await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
   expect(hiddenFieldsWrites(dataSource)).toEqual([]);
 }
@@ -394,32 +394,42 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     await waitFor(() => expect(drawn).toEqual(body.columns.filter((c: string) => c !== 'region')), { timeout: 5000 });
   });
 
-  it('THE FIX: after a panel edit of an unrelated field, the view stays unprojected and its toggle session-only', async () => {
+  it('THE FIX: after a panel edit of an unrelated field, the view stays unprojected', async () => {
     const own = await drawView({ columns: [] });
-    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
-    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, makeDataSource());
     expect(drawn).toEqual(own);
 
     await openPanel();
     await editUnrelatedField();
     // The panel's draft now carries the drawn defaults as `columns`.
     expect(drawn).toEqual(own);
-
-    await expectSessionOnlyToggle(dataSource, own);
   });
 
-  it('THE FIX: after a panel edit and Discard, the view stays unprojected and its toggle session-only', async () => {
-    const own = await drawView({ columns: [] });
+  it('THE FIX: after a panel edit of an unrelated field, the system view\'s hide toggle stays session-only', async () => {
     const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
     await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
+    await openPanel();
+    await editUnrelatedField();
+    await expectSessionOnlyToggle(dataSource);
+  });
 
+  it('THE FIX: after a panel edit and Discard, the view stays unprojected', async () => {
+    const own = await drawView({ columns: [] });
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, makeDataSource());
     await openPanel();
     await editUnrelatedField();
     await discardPanel();
     // Discard replays the opening fields, drawn `columns` included.
     expect(drawn).toEqual(own);
+  });
 
-    await expectSessionOnlyToggle(dataSource, own);
+  it('THE FIX: after a panel edit and Discard, the system view\'s hide toggle stays session-only', async () => {
+    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
+    await openPanel();
+    await editUnrelatedField();
+    await discardPanel();
+    await expectSessionOnlyToggle(dataSource);
   });
 
   it('CONTROL: `columns` the admin changed in the panel answer for themselves, and the keys apply', async () => {

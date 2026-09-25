@@ -17,13 +17,19 @@ Now both keys apply only when the view, as authored, declares a non-empty
 the same gate `InterfaceListPage` already puts on a source view (objectui#10638),
 so a view composes one way on both routes.
 
+The view config panel starts its draft from the columns on screen, so on such a
+view its draft holds the drawn defaults. Those do not count as declared, after
+an edit to another field or after Discard. Only `columns` the admin changes in
+the panel count, and then both keys apply in the preview.
+
 The hide-column toggle follows the seat ruling on the card (comment
 5839344270, option B):
 
 - On a system view that declares no `columns`, the toggle is session-only. It
-  hides the column for this session and writes nothing. Before this change it
-  wrote an overlay `hiddenFields`, and nothing would read that back now. A
-  system view's overlay cannot carry `columns` either.
+  hides the column for this session and writes nothing. That holds after an
+  edit to another field or a Discard in the view config panel. Before this
+  change the toggle wrote an overlay `hiddenFields`, and nothing would read that
+  back now. A system view's overlay cannot carry `columns` either.
 - The author's remedy is to declare `columns` on the view. After that, the
   toggle persists as before.
 - A saved view keeps persisting as before. Its write is the whole view, with

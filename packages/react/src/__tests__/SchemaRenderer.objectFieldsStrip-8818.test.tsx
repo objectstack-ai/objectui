@@ -67,23 +67,19 @@ const AUTHORED = { owner: { type: 'text', label: 'Authored catalogue' } };
 const HOSTED = { owner: { type: 'lookup', reference_to: 'user' } };
 
 /**
- * The last props bag `SchemaRenderer` handed the component. A container whose
- * PROPERTY is written, not an outer `let` reassigned: `react-hooks/globals`
- * refuses the reassignment form during render.
+ * The registered component. A mock records the props bag of every call, so the
+ * probe reads what `SchemaRenderer` handed over without writing to module state
+ * during render (which `react-hooks/immutability` refuses).
  */
-const captured: { props: Record<string, unknown> | null } = { props: null };
-
-const Probe = (props: Record<string, unknown>) => {
-  captured.props = props;
-  return <div data-testid="probe" />;
-};
+const Probe = vi.fn((_props: Record<string, unknown>) => <div data-testid="probe" />);
 
 /** Render one node and hand back the exact bag the component received. */
 function seenFor(schema: object, hostProps: Record<string, unknown> = {}): Record<string, unknown> {
-  captured.props = null;
+  Probe.mockClear();
   render(<SchemaRenderer schema={schema as never} {...hostProps} />);
-  if (captured.props === null) throw new Error('probe never rendered — check the registry key');
-  return captured.props;
+  const last = Probe.mock.lastCall;
+  if (last === undefined) throw new Error('probe never rendered — check the registry key');
+  return last[0];
 }
 
 /** The three ways an author can put one key on a node. */
@@ -105,7 +101,7 @@ const PROBE_TYPES = ['probe-8818', 'object-grid', 'object-kanban'] as const;
 
 describe('SchemaRenderer — an authored `objectFields` never reaches a component prop (objectui#8818, batch #70)', () => {
   beforeEach(() => {
-    captured.props = null;
+    Probe.mockClear();
     for (const type of PROBE_TYPES) ComponentRegistry.register(type, Probe as never);
   });
 

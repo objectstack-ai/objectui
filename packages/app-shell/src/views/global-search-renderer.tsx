@@ -55,6 +55,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
 import { useRecordSearch, useMetadata, useAdapter } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { Input, Card, CardContent, Badge } from '@object-ui/components';
 import { Search } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -91,12 +92,16 @@ export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
   // memo above it from churning (same reason SearchResultsPage does it).
   const objects = useMemo(() => metadataObjects || [], [metadataObjects]);
 
+  // A hit is labelled from the row as the viewer may read it: the hook removes
+  // the fields this policy denies before the resolver reads it (objectui#10500).
+  const perms = usePermissions();
   const { results, isSearching } = useRecordSearch({
     query,
     objects,
     dataSource,
     enabled: Boolean(dataSource),
     getDisplayName: getRecordDisplayName,
+    fieldReadPolicy: perms,
   });
 
   const baseUrl = `/apps/${appName || currentAppName || ''}`;

@@ -24,11 +24,11 @@ clause (`@objectstack/spec`), which the server lowers to an ObjectQL filter and
 which fails closed when it does not lower. Aligning this class's operator
 vocabulary with the spec's instead was considered and refused: on a permission
 boundary it would have turned refused operators into evaluated ones, three of
-them with silently different meanings. On this change's base, nothing in this
+them with silently different meanings. On this change's base, no code in this
 repository constructed a `DataScopeManager` or a `RowLevelFilter` outside the
-class's own tests, and the downstream readings recorded on objectui#7750 found
-no consumer in `objectstack`, `hotcrm` or `cloud`. The maintainer ruled to
-retire it; the ruling is on objectui#7750.
+class's own tests and its documentation examples, and the downstream readings
+recorded on objectui#7750 found no consumer in `objectstack`, `hotcrm` or
+`cloud`. The maintainer ruled to retire it; the ruling is on objectui#7750.
 
 Not affected: the rest of `data-scope/` stays exported, `ViewDataProvider` and
 the element data-source helpers (`composeElementDataSource`,

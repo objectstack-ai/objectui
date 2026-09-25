@@ -81,11 +81,11 @@ function warnNodeLevelObjectParams(subject: StaticParamsSubject, where: string):
 export function readStaticParamValues(
   subject: StaticParamsSubject,
   where: string,
-): Record<string, any> | undefined {
+): Record<string, unknown> | undefined {
   const properties = subject.properties;
   const values =
     isConfigBag(properties) && isConfigBag(properties.params)
-      ? (properties.params as Record<string, any>)
+      ? (properties.params as Record<string, unknown>)
       : undefined;
   const nodeLevel = subject.params;
   if (isConfigBag(nodeLevel) && nodeLevel !== values) {

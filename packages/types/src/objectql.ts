@@ -4645,8 +4645,6 @@ export interface ObjectDataTableSchema extends BaseSchema {
   type: 'object-data-table';
   /** ObjectQL object name; omitted when the rows arrive through `bind` or `data` */
   objectName?: string;
-  /** Data-provider binding, carried from the dashboard widget definition */
-  dataProvider?: { provider: string; object?: string };
   /** Query filter, resolved through the filter scope and forwarded as `$filter` */
   filter?: any;
   /** Inline rows — rendered ahead of a fetch when non-empty */

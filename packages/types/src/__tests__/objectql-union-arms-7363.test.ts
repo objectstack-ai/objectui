@@ -89,7 +89,9 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
     ['object-gallery', { type: 'object-gallery' }],
     ['object-gallery with its keys', { type: 'object-gallery', objectName: 'contact', imageField: 'photo', titleField: 'name' }],
     ['object-data-table', { type: 'object-data-table' }],
-    ['object-data-table with its keys', { type: 'object-data-table', objectName: 'contact', searchable: true, pagination: false, dataProvider: { provider: 'objectql', object: 'contact' } }],
+    // `dataProvider` left this fixture with the declaration it exercised
+    // (objectui#7353): it is no longer one of this node's keys.
+    ['object-data-table with its keys', { type: 'object-data-table', objectName: 'contact', searchable: true, pagination: false }],
   ])('a minimal %s document validates through safeValidateSchema', (_label, doc) => {
     const r = safeValidateSchema(doc);
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues, null, 2)).toBe(true);
@@ -98,8 +100,11 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
   it.each([
     ['object-gallery', 'imageField', { type: 'object-gallery', imageField: 42 }],
     ['object-data-table', 'searchable', { type: 'object-data-table', searchable: 'yes' }],
-    ['object-data-table', 'dataProvider.provider', { type: 'object-data-table', dataProvider: { provider: 42 } }],
   ])('a wrong-typed declared key on %s is refused BY NAME at %s', (_type, path, doc) => {
+    // A third row probed `dataProvider.provider` on object-data-table. It pinned
+    // exactly the declaration objectui#7353 retired, so it was removed with it
+    // rather than respelled; what the mirror now does with an authored
+    // `dataProvider` is measured in `object-data-table-dataprovider-retired-7353.test.ts`.
     // Probe keys are ones NO OTHER arm declares: measured on the ten-arm tree,
     // `data` and `className` were already named by a sibling arm's issues, so
     // they could not tell "this arm read it" from "some arm read it".

@@ -41,7 +41,6 @@ const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
 export interface ObjectPivotTableProps {
   schema: PivotTableSchema & {
     objectName?: string;
-    dataProvider?: { provider: string; object?: string };
     // The data-scope binding key is NOT re-declared here. It used to be, as a
     // local member grown because no schema shape declared it — the
     // second-declaration class objectui#6357 measured. `PivotTableSchema
@@ -66,8 +65,8 @@ export interface ObjectPivotTableProps {
     // `ObjectCalendarSchema`, `ObjectKanbanSchema`), plus `ObjectChartSchema`'s
     // two-armed union, `ObjectGallerySchema`'s `unknown` and
     // `ObjectDataTableSchema`'s `any`. `object-pivot` has no such interface at
-    // all, so the consistent fix is to give it one carrying all three members
-    // grown here — `objectName`, `dataProvider`, `filter`. That widens a
+    // all, so the consistent fix is to give it one carrying both members
+    // grown here — `objectName`, `filter`. That widens a
     // published authorable surface and wants its own card and ruling, rather
     // than a one-member edit smuggled into a composition fix.
     //

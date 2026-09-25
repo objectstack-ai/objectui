@@ -2591,8 +2591,6 @@ export const ObjectGallerySchema = BaseSchema.extend({
 export const ObjectDataTableSchema = BaseSchema.extend({
   type: z.literal('object-data-table'),
   objectName: z.string().optional().describe('ObjectQL object name'),
-  dataProvider: z.object({ provider: z.string(), object: z.string().optional() }).optional()
-    .describe('Data-provider binding carried from the dashboard widget definition'),
   filter: z.any().optional().describe('Query filter, resolved through the filter scope and forwarded as $filter'),
   data: z.array(z.any()).optional().describe('Inline rows'),
   columns: z.array(z.any()).optional().describe('Column definitions (names or column objects)'),

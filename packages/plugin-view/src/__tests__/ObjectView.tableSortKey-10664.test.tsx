@@ -20,7 +20,6 @@
  * The CONTROL (an equal sort in a fresh array) is green before and after; it
  * goes red for a fix that keys on the array's identity.
  */
-import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, act, cleanup, waitFor } from '@testing-library/react';
 import { ObjectView } from '../ObjectView';

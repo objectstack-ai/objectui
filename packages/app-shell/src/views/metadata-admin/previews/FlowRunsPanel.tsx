@@ -42,8 +42,10 @@ interface RunStep {
   // immediate container so the panel can nest it, instead of showing the
   // container as one opaque step. Absent on top-level (main-graph) steps.
   parentNodeId?: string;
-  /** Zero-based loop iteration or parallel branch index of the enclosing region. */
+  /** Zero-based iteration of the enclosing `loop`, carried through any nesting. */
   iteration?: number;
+  /** Zero-based index of the enclosing `parallel` branch (objectstack#14414). */
+  branch?: number;
   /** Region kind the step ran in: `loop-body` | `parallel-branch` | `try` | `catch`. */
   regionKind?: string;
   // #3407: advisory warnings the engine attaches to an otherwise-successful step
@@ -125,10 +127,53 @@ export function buildStepTree(steps: RunStep[]): StepTreeNode[] {
   return roots;
 }
 
+/** The two indexes a `parallel-branch` step is grouped and labelled by. */
+export interface ParallelBranchIndex {
+  /** Zero-based branch index; absent when the record carries none. */
+  branch?: number;
+  /** Zero-based iteration of the enclosing `loop` (the row); absent when there
+   *  is no enclosing loop, or when the record never recorded it. */
+  iteration?: number;
+  /** `true` when the record was written by an engine that predates `branch`
+   *  (see {@link parallelBranchIndex}). */
+  legacy: boolean;
+}
+
 /**
- * Human label for a body step's enclosing region (#1505). `loop`/`parallel`
- * carry a zero-based `iteration` surfaced 1-based; `try`/`catch` carry only the
- * region kind. Returns `null` for a top-level step (no region grouping).
+ * Read a `parallel-branch` step's branch and loop row (objectui#7614).
+ *
+ * `iteration` has ONE meaning since objectstack#14414 (maintainer ruling A,
+ * ADR-0087 entry `execution-step-iteration-single-valued`): the enclosing
+ * loop's row. The branch index has its own key, `branch`, so a branch step of
+ * a `parallel` inside a loop body carries both.
+ *
+ * A record written by an older engine is told apart by the record itself, not
+ * by a date or version guess: a `parallel-branch` step with NO `branch` key.
+ * The older engine's `parallel` executor tagged every branch region with
+ * `iteration: i` and never wrote `branch`; since objectstack#15230 it tags
+ * `branch: i`, and `runRegion`'s tagger writes `regionKind` and `branch` in the
+ * same pass, so it cannot emit a `parallel-branch` step without `branch`. That
+ * reading of the objectstack engine was taken when this was written; nothing in
+ * this repository re-derives it. The spec alone would not decide it:
+ * `ExecutionStepLogSchema` declares `branch` optional, with nothing tying it to
+ * `regionKind`.
+ *
+ * Such a legacy step is read the way it was written: its `iteration` is the
+ * BRANCH index, and its loop row is unknown (the older engine discarded it). It
+ * is never read as a row and never defaulted to branch 0. This is the legacy
+ * rule the ADR-0087 entry's acceptance criteria name.
+ */
+export function parallelBranchIndex(step: RunStep): ParallelBranchIndex {
+  if (step.branch == null) return { branch: step.iteration, legacy: true };
+  return { branch: step.branch, iteration: step.iteration, legacy: false };
+}
+
+/**
+ * Human label for a body step's enclosing region (#1505). `loop-body` carries a
+ * zero-based `iteration`, `parallel-branch` a zero-based `branch` plus the
+ * enclosing loop's `iteration` when it has one (read by
+ * {@link parallelBranchIndex}), each surfaced 1-based; `try`/`catch` carry only
+ * the region kind. Returns `null` for a top-level step (no region grouping).
  */
 export function regionLabel(step: RunStep, locale?: string): string | null {
   const { regionKind, iteration } = step;
@@ -138,10 +183,13 @@ export function regionLabel(step: RunStep, locale?: string): string | null {
       return iteration == null
         ? tr('engine.flowRuns.iteration', locale)
         : tFormat('engine.flowRuns.iterationN', locale, { n: iteration + 1 });
-    case 'parallel-branch':
-      return iteration == null
-        ? tr('engine.flowRuns.branch', locale)
-        : tFormat('engine.flowRuns.branchN', locale, { n: iteration + 1 });
+    case 'parallel-branch': {
+      const idx = parallelBranchIndex(step);
+      if (idx.branch == null) return tr('engine.flowRuns.branch', locale);
+      return idx.iteration == null
+        ? tFormat('engine.flowRuns.branchN', locale, { n: idx.branch + 1 })
+        : tFormat('engine.flowRuns.branchNIterationM', locale, { n: idx.branch + 1, m: idx.iteration + 1 });
+    }
     case 'try':
       return tr('engine.flowRuns.try', locale);
     case 'catch':
@@ -152,14 +200,21 @@ export function regionLabel(step: RunStep, locale?: string): string | null {
 }
 
 /** Grouping key so consecutive body steps of the same iteration/branch/handler
- *  share one header. */
+ *  share one header. A `parallel-branch` step keys on its branch AND, when it
+ *  has one, its loop row (objectui#7614); every other region keys on
+ *  `iteration`. */
 function regionSignature(step: RunStep): string {
+  if (step.regionKind === 'parallel-branch') {
+    const { branch, iteration, legacy } = parallelBranchIndex(step);
+    return `parallel-branch#${legacy ? 'legacy:' : ''}branch=${branch ?? ''}#iteration=${iteration ?? ''}`;
+  }
   return `${step.regionKind ?? ''}#${step.iteration ?? ''}`;
 }
 
 /** Split a container's children into consecutive runs that share a region label
- *  (an iteration, a branch, a try/catch handler), so each gets one header. */
-function groupChildren(children: StepTreeNode[], locale?: string): { label: string | null; items: StepTreeNode[] }[] {
+ *  (an iteration, a branch, a try/catch handler), so each gets one header.
+ *  Exposed for tests. */
+export function groupChildren(children: StepTreeNode[], locale?: string): { label: string | null; items: StepTreeNode[] }[] {
   const groups: { label: string | null; items: StepTreeNode[] }[] = [];
   let sig: string | undefined;
   for (const child of children) {

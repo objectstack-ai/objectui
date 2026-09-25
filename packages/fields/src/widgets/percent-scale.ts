@@ -105,10 +105,13 @@
  * moment a caller is added.
  *
  * ── Also the NUMBER faces (objectui#10071) ─────────────────────────────
- * The ceiling is the engine's, ⛔ not the percent format's, so the two
+ * The ceiling is the engine's, ⛔ not the percent format's, so the three
  * non-percent readers of a declared `scale` hit it identically: the number
- * cell (`NumberCellRenderer`, through `formatDisplayNumber`'s `Intl`) and a
- * grid's computed column (`computeRow`'s `toFixed`). They take this SAME
+ * cell (`NumberCellRenderer`, through `formatDisplayNumber`'s `Intl`), a
+ * grid's computed column (`computeRow`'s `toFixed`), and the grid currency
+ * cell display (`currencyText` in `GridField`, face label
+ * `grid currency cell`, through `formatDisplayNumber`'s `Intl` —
+ * objectui#10355). They take this SAME
  * ruling through `renderableFractionScale`, each under its own face label and
  * card, so the percent diagnostic above stays byte-identical. The SUNSET
  * applies to them unchanged: `NumberScaleOutOfRange-10071.test.tsx` asks the

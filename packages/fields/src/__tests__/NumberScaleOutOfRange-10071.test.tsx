@@ -141,8 +141,11 @@ describe('an IN-RANGE `scale` is untouched on both readers (objectui#10071 contr
     expect(warnings()).not.toContain(MARKER);
   });
 
-  it('grid: a currency column with no scale keeps its 2-digit default', () => {
-    const next = computeRow([amountColumn({ type: 'currency' })], { quantity: 3, unit_price: 0.3333 });
+  it('grid: a currency column takes its currency minor unit, in range and unreported', () => {
+    // With no authored `scale`, the width is the resolved currency's ISO 4217
+    // minor unit now, never a literal 2 (objectui#10355) — pinned there; this
+    // is the ceiling's control that the currency path stays quiet.
+    const next = computeRow([amountColumn({ type: 'currency' })], { quantity: 3, unit_price: 0.3333 }, 'USD');
     expect(next.amount).toBe(1);
     expect(warnings()).not.toContain(MARKER);
   });

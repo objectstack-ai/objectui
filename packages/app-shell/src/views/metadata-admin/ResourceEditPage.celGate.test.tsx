@@ -112,8 +112,9 @@ afterEach(() => {
 });
 
 /** The Save button is an icon button identified by its title. */
+// Title flipped to the neutral inspector copy by ruling 5831744213 (objectui#6900).
 const saveButton = () =>
-  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the CEL syntax errors before saving\./ });
+  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the issues shown in the inspector before saving\./ });
 
 /** Open the editor, select the block, and switch its visibility control to raw CEL. */
 async function openBlockCel() {
@@ -138,7 +139,7 @@ describe('MetadataResourceEditPage — Save is gated on the block inspector’s 
 
     fireEvent.change(box, { target: { value: 'record.amount >' } });
     await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
-    expect(saveButton()).toHaveAttribute('title', 'Fix the CEL syntax errors before saving.');
+    expect(saveButton()).toHaveAttribute('title', 'Fix the issues shown in the inspector before saving.');
   });
 
   it('re-enables Save once the predicate parses again', async () => {

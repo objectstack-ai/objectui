@@ -18,9 +18,12 @@ import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
 import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
-import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
+import { seedCreateValues } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
+import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { useOccSave } from './occSave';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
@@ -198,6 +201,10 @@ export interface TabbedFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156, objectui#10563;
+   * the whole rule is on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -253,7 +260,8 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
-  const { userId: currentUserId } = usePermissions();
+  const perms = usePermissions();
+  const { userId: currentUserId } = perms;
   const [objectSchema, setObjectSchema] = useState<any>(null);
   // Upload-in-flight gate (objectui#10166): a `file`/`image` value is only its
   // fileId once the presigned upload settles, so a save during that window
@@ -294,6 +302,13 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   // `initialData`/`initialValues` are objects callers commonly rebuild every
   // render, and flashing the loading state for those would thrash.
   const loadedRecordIdRef = useRef<string | number | undefined>(undefined);
+  // The record itself as read — the baseline an edit save diffs against, so
+  // only the fields that changed are written (objectui#10156, objectui#10563).
+  // Kept apart from `formData`, which seeds the form and supplies the OCC
+  // token: advancing it after a save would reseed the one and move the other.
+  // Set by the `findOne` below and nowhere else, so a caller-supplied record is
+  // never a baseline.
+  const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
 
   // Fetch initial data for edit/view modes
   React.useEffect(() => {
@@ -309,6 +324,8 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
     let cancelled = false;
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId || !dataSource) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         // Declared static defaults are this form's opening values (#4047) —
         // see `schemaDefaults` for the create-only boundary and for why
         // runtime defaults are left to the server.
@@ -324,6 +341,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         if (cancelled) return;
         loadedRecordIdRef.current = schema.recordId;
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
       } catch (err) {
         if (cancelled) return;
@@ -341,8 +359,8 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
 
   // Build form fields from section config
   const buildSectionFields = useCallback(
-    (section: FormSectionConfig): FormField[] =>
-      buildSectionFieldsShared(section as any, {
+    (section: FormSectionConfig): FormField[] => {
+      const fields = buildSectionFieldsShared(section as any, {
         objectSchema,
         objectName: schema.objectName,
         readOnly: schema.readOnly,
@@ -354,8 +372,22 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         // A member naming a section's field is that field's definition, as it
         // is on every other arm (objectui#10254).
         customFields: schema.customFields,
-      }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
+      });
+      // The ONE render gate (objectui#10120), applied to the RESOLVED fields.
+      // `ObjectForm` gates a section's field OBJECTS before routing here, but a
+      // field named by a bare string has no `name` to ask about until it is
+      // resolved just above. Without this pass a field the caller may read but
+      // not edit rendered as a live input, and with the save's strip in place
+      // (`formWritePayload`, objectui#10563) whatever the user typed there
+      // would be dropped behind a 200. A field already gated upstream is gated
+      // again to the same answer.
+      return (applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) ?? fields) as FormField[];
+    },
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],
   );
 
   // Handle form submission
@@ -384,15 +416,19 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
 
     try {
       let result;
-      
-      // Omit the fields the producer owns (#4069) — see
-      // `omitServerResolvedDefaults` for why an empty key is not the same as
-      // no key at insert time. Create only: on an edit form a cleared column is
-      // a real removal. Computed ONCE so every persistence route below — the
-      // host-owned seam included — writes the identical payload.
-      const writePayload = schema.mode === 'create'
-        ? omitServerResolvedDefaults(data, objectSchema)
-        : data;
+
+      // What this save writes, through the ONE outbound sequence the simple
+      // form uses (objectui#10563; `formWritePayload` holds the rule): nothing
+      // a form never writes — server-owned, computed, read-only, unknown, or
+      // refused by the caller's field-level security — and on an EDIT only the
+      // fields that differ from the record this form read. Computed ONCE so
+      // every persistence route below — the host-owned seam included — writes
+      // the identical payload.
+      const { writePayload } = formWritePayload(data, schema, {
+        objectSchema,
+        canEdit: fieldWriteGate(perms, schema.objectName),
+        snapshot: loadedRecordRef.current,
+      });
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent
@@ -421,6 +457,9 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
         if (outcome.status === 'cancelled') return;
         result = outcome.result;
       }
+      // The write landed: the next save from this still-mounted form diffs
+      // against the record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
 
       if (schema.onSuccess) {
         await schema.onSuccess(result);
@@ -433,7 +472,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
       }
       throw err;
     }
-  }, [schema, dataSource, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, objectSchema, perms, saveWithOcc, formData, uploadGate.uploading, uploadGate.reason]);
 
   // Handle cancel
   const handleCancel = useCallback(() => {

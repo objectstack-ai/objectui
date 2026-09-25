@@ -873,14 +873,20 @@ said it owns the write is never bypassed for want of an adapter it never needed.
 
 An `object-form` in `mode: 'edit'` with a `recordId` reads the record with
 `dataSource.findOne`, and its save writes **only the fields that differ from
-that read** (objectui#10156). The simple form, the `modal` and the `drawer`
-variants do this, and so does the parent operation of a master-detail form,
-whose header is a simple form. A master-detail child row already worked this
-way (objectui#10108), and all of them use the same comparison. The `tabbed`,
-`wizard` and `split` variants are not covered. That includes a master-detail
-header laid out `tabbed`, and a simple form whose mobile `stepper` option shows it
-one step at a time through the wizard. They still send every value the form
-holds.
+that read** (objectui#10156). Every layout does this: the simple form and the
+`tabbed`, `wizard`, `split`, `modal` and `drawer` variants (objectui#10563). So
+does a simple form whose mobile `stepper` option shows it one step at a time
+through the wizard, and the parent operation of a master-detail form, whose
+header is a simple or a `tabbed` form. A master-detail child row already worked
+this way (objectui#10108), and all of them use the same comparison.
+
+Before that comparison, every layout strips what a form never writes: the
+server-owned columns (record identity, audit provenance, ownership and tenancy
+— the roster in `sanitize.ts`, plus any field the object marks `system`),
+computed, formula and read-only columns, keys the object does not declare, and
+every field the caller's field-level security refuses. A create is stripped the
+same way. Every layout also renders a field the caller may read but not edit as
+a disabled input, so nothing is typed into a field the save would leave out.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still
@@ -911,10 +917,12 @@ After a successful save, the form treats the fields it just wrote as saved. A
 form that stays open therefore compares its next save with the record as it
 stands now, not as it was first read.
 
-The concurrency guard is unchanged. The update still carries
-`ifMatch` = the `updated_at` the form read, and a `409` still offers
-**Keep editing** or **Overwrite**. **Overwrite** now resends only the changed
-fields, so it no longer rewrites fields this user never touched.
+The concurrency guard is unchanged by this rule. The update carries
+`ifMatch` = the `updated_at` the form read. Once a form that stays open has
+saved the record, its next save carries the `updated_at` that save returned
+instead, so the form is not refused over its own earlier save. A `409` still
+offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the
+changed fields, so it no longer rewrites fields this user never touched.
 
 ⚠️ A host `submitHandler` gets the same payload in edit mode. Normally that is
 the changed fields; after a save with nothing changed, it is the full payload.

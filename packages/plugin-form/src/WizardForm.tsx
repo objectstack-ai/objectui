@@ -22,9 +22,12 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { FormSectionContainer } from './FormSection';
 import { SchemaRenderer, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
-import { seedCreateValues, omitServerResolvedDefaults, isCreateFormMode } from './schemaDefaults';
+import { seedCreateValues, isCreateFormMode } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
+import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
+import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { resolveSuccessNavigate, type SubmitBehavior } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
@@ -334,6 +337,10 @@ export interface WizardFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156, objectui#10563;
+   * the whole rule is on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -395,7 +402,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
-  const { userId: currentUserId } = usePermissions();
+  const perms = usePermissions();
+  const { userId: currentUserId } = perms;
   const { t } = useWizardTranslation();
   // Upload-in-flight gate (objectui#10166). Scoped to the FINAL commit, not to
   // step navigation: moving between steps writes nothing, and blocking Next
@@ -408,6 +416,13 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // row after step one. Field-rule `previous` and the read-only submit strip
   // need the untouched read (objectui#3484).
   const [persistedRecord, setPersistedRecord] = useState<Record<string, any> | undefined>(undefined);
+  // The same read, as the baseline an edit save diffs against so only the
+  // fields that changed are written (objectui#10156, objectui#10563). Separate
+  // from `persistedRecord` on purpose: this one ADVANCES after a save, while
+  // field-rule `previous` keeps reading the record as first read. Set by the
+  // `findOne` below and nowhere else, so a caller-supplied record is never a
+  // baseline. A ref, not state: only the final commit reads it.
+  const loadedRecordRef = React.useRef<LoadedRecordSnapshot | null>(null);
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   const [loading, setLoading] = useState(true);
@@ -498,6 +513,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   React.useEffect(() => {
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId || !dataSource) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         if (!seededRef.current) {
           // Declared static defaults are this wizard's opening values (#4047)
           // — see `schemaDefaults` for the create-only boundary and for why
@@ -511,6 +528,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
         setPersistedRecord(data || {});
       } catch (err) {
@@ -527,8 +545,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Build section fields from object schema
   const buildSectionFields = useCallback(
-    (section: WizardStepConfig): FormField[] =>
-      buildSectionFieldsShared(section as any, {
+    (section: WizardStepConfig): FormField[] => {
+      const fields = buildSectionFieldsShared(section as any, {
         objectSchema,
         objectName: schema.objectName,
         readOnly: schema.readOnly,
@@ -542,8 +560,22 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // A member naming a section's field is that field's definition, as it
         // is on every other arm (objectui#10254).
         customFields: schema.customFields,
-      }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
+      });
+      // The ONE render gate (objectui#10120), applied to the RESOLVED fields.
+      // `ObjectForm` gates a section's field OBJECTS before routing here, but a
+      // field named by a bare string has no `name` to ask about until it is
+      // resolved just above. Without this pass a field the caller may read but
+      // not edit rendered as a live input, and with the save's strip in place
+      // (`formWritePayload`, objectui#10563) whatever the user typed there
+      // would be dropped behind a 200. A field already gated upstream is gated
+      // again to the same answer.
+      return (applyFieldPermissions(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+      }) ?? fields) as FormField[];
+    },
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],
   );
 
   // The same "no persisted record" test the seeding and the create-mode
@@ -713,14 +745,20 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         }
         
         let result;
-        // Omit the fields the producer owns (#4069) — see
-        // `omitServerResolvedDefaults` for why an empty key is not the same
-        // as no key at insert time. Create only: on an edit form a cleared
-        // column is a real removal. Computed ONCE so every persistence route
-        // below — the host-owned seam included — writes the identical payload.
-        const writePayload = schema.mode === 'create'
-          ? omitServerResolvedDefaults(mergedData, objectSchema)
-          : mergedData;
+        // What this save writes, through the ONE outbound sequence the simple
+        // form uses (objectui#10563; `formWritePayload` holds the rule):
+        // nothing a form never writes — server-owned, computed, read-only,
+        // unknown, or refused by the caller's field-level security — and on an
+        // EDIT only the fields that differ from the record this wizard read.
+        // `mergedData` starts from that whole read, so without this every
+        // column of the record went back. Computed ONCE so every persistence
+        // route below — the host-owned seam included — writes the identical
+        // payload. A simple form's mobile `stepper` renders through here too.
+        const { writePayload } = formWritePayload(mergedData, schema, {
+          objectSchema,
+          canEdit: fieldWriteGate(perms, schema.objectName),
+          snapshot: loadedRecordRef.current,
+        });
 
         if (schema.submitHandler) {
           // The host owns persistence (e.g. MasterDetailForm batching the
@@ -752,7 +790,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (outcome.status === 'cancelled') return;
           result = outcome.result;
         }
-        
+        // The write landed: the next save from this still-mounted wizard diffs
+        // against the record as it now stands, not as first read.
+        loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+
         if (schema.onSuccess) {
           await schema.onSuccess(result);
         } else if (!schema.submitHandler && schema.submitBehavior) {
@@ -873,7 +914,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       // Move to next step
       goToStep(currentStep + 1);
     }
-  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason]);
+  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason]);
 
   // Navigation
   const goToStep = useCallback((step: number) => {

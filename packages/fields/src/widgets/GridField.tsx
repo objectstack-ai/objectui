@@ -643,8 +643,9 @@ export function GridField({
   // regional default → active UI language → 'en' (objectui#4468). Read here
   // and passed down, since `displayText` is a pure helper.
   const displayLocale = useDisplayLocale();
-  // The editable `datetime` cell's notice for a stored nonexistent day
-  // (objectui#10474) — the one sentence `DateTimeField` shows for it too.
+  // The editable `date` / `datetime` cell's notice for a stored nonexistent
+  // day (objectui#10474, objectui#10567) — the sentences `DateField` and
+  // `DateTimeField` show for it too.
   const { t } = useFieldTranslation();
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
@@ -1130,12 +1131,14 @@ export function GridField({
     // The editable currency cell shows the SAME symbol its display face does
     // (objectui#10355) — `currencyAdornment`, never a default `¥`.
     const adornment = c.type === 'currency' ? currencyAdornment(c, currency, displayLocale) : '';
-    // A `datetime` cell holding a value written on a day that does not exist
-    // (objectui#10474): its control can paint that only blank, so the stored
-    // string is named under it and the control is marked invalid. Nothing is
-    // written until the user picks a new value — the same face `DateTimeField`
-    // gives it.
-    const impossibleDay = c.type === 'datetime' && isImpossibleStoredDay(val);
+    // A `date` or `datetime` cell holding a value written on a day that does
+    // not exist (objectui#10474, objectui#10567): its control can paint that
+    // only blank — the `date` control sanitises the verbatim day
+    // `toDateInputValue` keeps, so it is handed `""` below, as the `datetime`
+    // adapter already does — so the stored string is named under it and the
+    // control is marked invalid. Nothing is written until the user picks a new
+    // value — the same face `DateField` / `DateTimeField` give it.
+    const impossibleDay = (c.type === 'date' || c.type === 'datetime') && isImpossibleStoredDay(val);
     const noticeId = impossibleDay ? `${cellIdBase}-impossible-${rowIdx}-${colIdx}` : undefined;
     return (
       <div className="relative">
@@ -1178,7 +1181,7 @@ export function GridField({
           //   time     → `HH:mm[:ss]` is already the stored shape, both ways.
           value={
             c.type === 'date'
-              ? toDateInputValue(val)
+              ? (impossibleDay ? '' : toDateInputValue(val))
               : c.type === 'datetime'
                 ? toDateTimeInputValue(val)
                 : val != null
@@ -1190,7 +1193,7 @@ export function GridField({
         />
         {impossibleDay && (
           <p id={noticeId} className="px-2 pb-1 text-xs text-destructive" data-testid={`line-items-impossible-day-${rowIdx}-${c.name}`}>
-            {t('fields.dateTime.impossibleDay', { value: String(val) })}
+            {t(c.type === 'date' ? 'fields.date.impossibleDay' : 'fields.dateTime.impossibleDay', { value: String(val) })}
           </p>
         )}
       </div>

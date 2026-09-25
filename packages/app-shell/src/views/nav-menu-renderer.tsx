@@ -40,8 +40,8 @@
  *     `resolveHref`;
  *   - the item-level guards in the same ORDER `NavigationItemRenderer` applies
  *     them (`visible` → `requiredPermissions` → `requiresObject` →
- *     `requiresService`), wired to the same three console providers `AppSidebar`
- *     wires them to.
+ *     `requiresService`), wired to the same three console providers
+ *     `UnifiedSidebar` wires them to.
  *
  * ## Why not mount `NavigationRenderer` itself
  *
@@ -71,7 +71,7 @@
  *     that same default and offers no switcher: which area you are in is shell
  *     state, and a page block has nowhere to put it. Apps with no `areas` — the
  *     common case — render `app.navigation` flat, exactly as the sidebar does.
- *  2. **App-level context selectors.** `AppSidebar` passes `contextValues` from
+ *  2. **App-level context selectors.** `UnifiedSidebar` passes `contextValues` from
  *     `useAppContextSelectors` into the template context, because it also
  *     RENDERS those selectors. This block passes only `currentUserId` /
  *     `currentOrgId`; an entry referencing `{some_selector}` therefore falls
@@ -158,7 +158,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   const { user, activeOrganization } = useAuth();
   const dispatchNavAction = useNavActionDispatch();
 
-  /* ── The three guards, wired to the same providers `AppSidebar` uses ────── */
+  /* ── The three guards, wired to the same providers `UnifiedSidebar` uses ── */
 
   const { evaluator } = useExpressionContext();
   const evalVis = useCallback(
@@ -168,7 +168,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   // `object:action` → object CRUD gate; a bare name is an ADR-0066 system
   // capability, with the legacy "can read <object>" reading kept as fallback.
-  // Same mapping as `AppSidebar` / `UnifiedSidebar` — one question, one answer.
+  // Same mapping as `UnifiedSidebar` — one question, one answer.
   const { can, hasCapabilities } = usePermissions();
   const checkPerm = useCallback(
     (permissions: string[]) =>
@@ -188,8 +188,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     (kind: 'object' | 'service', name: string): boolean => {
       if (kind === 'object') {
         // While metadata is still loading the set is empty; show entries by
-        // default rather than flickering the whole menu away (AppSidebar's
-        // reasoning, and it must match or the two menus disagree on first paint).
+        // default rather than flickering the whole menu away (`UnifiedSidebar`
+        // does the same, and it must match or the two menus disagree on first paint).
         if (registeredObjectNames.size === 0) return true;
         return registeredObjectNames.has(name);
       }

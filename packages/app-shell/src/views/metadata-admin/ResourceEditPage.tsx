@@ -2200,7 +2200,9 @@ function MetadataResourceEditPageImpl({
             saving
               ? t('engine.edit.saving', locale)
               : inspectorBlocking > 0
-                ? t('perm.cel.saveBlocked', locale)
+                // Neutral: the inspector channel carries CEL faults AND the
+                // objectui#6900 required-field refusal (ruling 5831744213).
+                ? t('perm.inspector.saveBlocked', locale)
                 : refusalBlocking > 0
                   ? tFormat('engine.validation.serverRefused', locale, {
                       issue: saveRefusal?.summary ?? '',

@@ -826,11 +826,13 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // This arm stays surface-LOCAL and is deliberately not part of the
             // shared detector (objectui#4612): it is a statement about what THIS
             // surface can draw — nothing here emits a pivot block — not about the
-            // widget being legacy. `DashboardGridLayout` does still draw pivots from
-            // static data and from the `provider: 'object'` config, so exporting
-            // this family-wide arm would have retired two live branches over there.
-            // The legacy pivot SHAPE is covered on both surfaces by the shared
-            // sentinel above, which its top-level `object` matches.
+            // widget being legacy. `DashboardGridLayout` still draws pivots from
+            // static data, so exporting this family-wide arm would retire that
+            // live branch over there. Its `provider: 'object'` pivot answers with
+            // this same placeholder (objectui#10528), imported from the same
+            // module rather than restated. The legacy pivot SHAPE is covered on
+            // both surfaces by the shared sentinel above, which its top-level
+            // `object` matches.
             if (dispatch.family === 'pivot') {
                 return LEGACY_RETIRED_WIDGET_SCHEMA;
             }

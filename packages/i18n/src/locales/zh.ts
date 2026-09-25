@@ -174,6 +174,7 @@ const zh = {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
     uploadInFlight: '请等待上传完成后再保存。',
+    clearedOnHide: '已清空不再适用于当前取值的字段：{{fields}}',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -295,6 +296,10 @@ const zh = {
         '未保存：{{name}}“{{text}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
+    },
+    date: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期以替换它。',
     },
     dateTime: {
       impossibleDay:

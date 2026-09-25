@@ -86,10 +86,12 @@ describe('CurrencyField — fraction digits derive from the currency (objectui#4
     expect(normalizeNbsp(container.textContent)).toBe('¥1,235');
   });
 
-  it('`currencyConfig.defaultCurrency` reaches it as well', () => {
+  it('a fixed `currencyConfig.defaultCurrency` reaches it as well', () => {
+    // `fixed` mode, the spec's one fixed-currency declaration: a dynamic or
+    // mode-less config reads the tenant default instead (objectui#10422).
     const { container } = renderField(
       1.5,
-      { currencyConfig: { defaultCurrency: 'KWD' } },
+      { currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'KWD' } },
       { readonly: true },
     );
     expect(normalizeNbsp(container.textContent)).toBe('KWD 1.500');

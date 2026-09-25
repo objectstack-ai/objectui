@@ -100,25 +100,25 @@ const SITES: Site[] = [
   {
     site: 'element:text_input (renderers/basic/text-input.tsx)',
     render: (required) =>
-      renderComponent({ type: 'element:text_input', id: 'ti-ctl', properties: { label: 'Title', required } } as any),
+      renderComponent({ type: 'element:text_input', id: 'ti-ctl', properties: { label: 'Title', required } }),
     label: () => document.querySelector('label[for="ti-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('ti-ctl')).toHaveAttribute('required'),
   },
   {
     site: 'input (renderers/form/input.tsx)',
-    render: (required) => renderComponent({ type: 'input', id: 'in-ctl', label: 'Title', required } as any),
+    render: (required) => renderComponent({ type: 'input', id: 'in-ctl', label: 'Title', required }),
     label: () => document.querySelector('label[for="in-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('in-ctl')).toHaveAttribute('required'),
   },
   {
     site: 'textarea (renderers/form/textarea.tsx)',
-    render: (required) => renderComponent({ type: 'textarea', id: 'ta-ctl', label: 'Title', required } as any),
+    render: (required) => renderComponent({ type: 'textarea', id: 'ta-ctl', label: 'Title', required }),
     label: () => document.querySelector('label[for="ta-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('ta-ctl')).toHaveAttribute('required'),
   },
   {
     site: 'checkbox (renderers/form/checkbox.tsx)',
-    render: (required) => renderComponent({ type: 'checkbox', id: 'cb-ctl', label: 'Title', required } as any),
+    render: (required) => renderComponent({ type: 'checkbox', id: 'cb-ctl', label: 'Title', required }),
     label: () => document.querySelector('label[for="cb-ctl"]'),
     // Radix writes `aria-required` on the role=checkbox button from `required`.
     expectRequiredState: () => expect(screen.getByRole('checkbox')).toHaveAttribute('aria-required', 'true'),
@@ -132,7 +132,7 @@ const SITES: Site[] = [
         label: 'Title',
         required,
         options: [{ label: 'A', value: 'a' }],
-      } as any),
+      }),
     // This label carries no `for` today. Whether it SHOULD name the trigger is
     // outside objectui#10368 and deliberately not pinned either way here; the
     // marker must be an element regardless, because it would enter the name

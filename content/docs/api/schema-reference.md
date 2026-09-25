@@ -872,12 +872,14 @@ A complete object management interface combining grid, form, search, filters, an
   "listViews": {
     "all": {
       "label": "All Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
       "filter": [],
       "sort": [{ "field": "value", "order": "desc" }]
     },
     "my-deals": {
-      "filter": [["owner", "=", "${currentUser.id}"]],
-      "label": "My Deals"
+      "label": "My Deals",
+      "columns": ["name", "stage", "value", "owner", "closeDate"],
+      "filter": [{ "field": "owner", "operator": "equals", "value": "{current_user_id}" }]
     }
   },
   "defaultListView": "my-deals",
@@ -892,6 +894,8 @@ A complete object management interface combining grid, form, search, filters, an
   }
 }
 ```
+
+`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the host that renders the list resolves it to the signed-in user's id before the query runs, and resolving it on the `object-view` node path itself is tracked in objectui#10506.
 
 | Property | Type | Description |
 |----------|------|-------------|

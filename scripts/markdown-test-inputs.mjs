@@ -456,6 +456,7 @@ export const ADJUDICATED = new Map([
     {
       reads: [
         'content/docs/api/schema-reference.md',
+        'content/docs/guide/building-crud-app.md',
         'content/docs/plugins/plugin-view.mdx',
         'packages/plugin-view/README.md',
       ],

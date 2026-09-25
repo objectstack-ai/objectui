@@ -54,11 +54,13 @@ reach the renderer through an `as any` cast on the named-view config in
 objectui#8980 ruling declared it by name — objectui#7928's open half, answered.
 The spec's `ViewSchema.listViews` is a
 record of the STRICT `ObjectListViewSchema`, which requires `columns` and
-refuses `options`, ObjectQL tuple filters and `default` — that is, it refuses
+refuses `options`, ObjectQL tuple filters and `default` — that is, it refused
 the named views this package's own README and
-`content/docs/api/schema-reference.md` teach (`{ label: 'All Users' }` fails at
-`columns`; `filter: [["owner", "=", "..."]]` fails at `filter.0`). Mirroring the
-spec value would lose documented behaviour; mirroring the local value would
+`content/docs/api/schema-reference.md` taught when this entry was written
+(`{ label: 'All Users' }` fails at `columns`; `filter: [["owner", "=", "..."]]`
+fails at `filter.0`), and objectui#8255 has since rewritten them in the spec
+shape. Mirroring the
+spec value would have lost documented behaviour; mirroring the local value would
 enforce **43 unread members** (64 declared, minus the 21 that are both declared
 and read) into the contract — the
 very thing ruling B refused for the six local keys. The key therefore stays in

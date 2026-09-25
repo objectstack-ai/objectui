@@ -151,7 +151,7 @@ const shape: ObjectViewSchema = {
 
   // --- List surface ---
   defaultViewType: 'grid', // grid | kanban | gallery | calendar | timeline | gantt | map
-  listViews: { all: { label: 'All Users' } }, // named views; each needs a `label`
+  listViews: { all: { label: 'All Users', columns: ['name', 'email'] } }, // named views; each needs `label` and `columns`
   defaultListView: 'all',
   table: { columns: ['name', 'email'] }, // grid configuration (see below)
 
@@ -466,6 +466,7 @@ const schema: ObjectViewSchema = {
     cheap: {
       label: 'Under 100',
       type: 'grid',
+      columns: ['name', 'price'],
       filter: [{ field: 'price', operator: 'less_than', value: 100 }],
     },
   },
@@ -624,6 +625,7 @@ const schema: ObjectViewSchema = {
     admins: {
       label: 'Admins',
       type: 'grid',
+      columns: ['name', 'email'],
       filter: [{ field: 'role', operator: 'equals', value: 'admin' }],
     },
   },

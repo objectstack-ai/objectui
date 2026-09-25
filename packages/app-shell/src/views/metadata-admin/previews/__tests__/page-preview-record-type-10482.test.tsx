@@ -26,6 +26,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { PageSchema } from '@objectstack/spec/ui';
 
 /** Records which object each record context was opened for. */
@@ -36,7 +37,7 @@ const { providerSpy } = vi.hoisted(() => ({ providerSpy: vi.fn() }));
 vi.mock('@object-ui/react', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   SchemaRenderer: () => <div data-testid="mock-schema-renderer" />,
-  RecordContextProvider: ({ children, objectName }: { children: any; objectName: string }) => {
+  RecordContextProvider: ({ children, objectName }: { children?: ReactNode; objectName: string }) => {
     providerSpy(objectName);
     return <>{children}</>;
   },
@@ -56,18 +57,21 @@ const ALIAS_CONTRADICTS_TYPE = { name: 'acct_conflict', label: 'Account', type: 
 /** Second control: a non-record page kind with an object stays unbound. */
 const APP_PAGE = { name: 'acct_app', label: 'Account', type: 'app', object: OBJECT, regions: REGIONS };
 
+/** A `fetch` answer carrying only the `json()` this component reads. */
+const answer = (body: unknown) => ({ json: async () => body }) as unknown as Response;
+
 /** Serve both reads the record binding makes; record every URL asked for. */
 function stubFetch(): string[] {
   const urls: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     urls.push(url);
     if (url.startsWith('/api/v1/meta/object/')) {
-      return { json: async () => ({ item: { name: OBJECT, fields: { name: { type: 'text' } } } }) } as any;
+      return answer({ item: { name: OBJECT, fields: { name: { type: 'text' } } } });
     }
     if (url.startsWith('/api/v1/data/')) {
-      return { json: async () => ({ records: [{ id: 'r1', name: 'Northwind' }] }) } as any;
+      return answer({ records: [{ id: 'r1', name: 'Northwind' }] });
     }
-    return { json: async () => ({}) } as any;
+    return answer({});
   }));
   return urls;
 }

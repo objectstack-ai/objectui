@@ -7,88 +7,128 @@
  */
 
 /**
- * Retirement pin — `ObjectDataTableSchema.dataProvider`, both faces
- * (objectui#7353, ADR-0049 remove arm).
+ * Retirement pin — `ObjectDataTableSchema.dataProvider` is an ADR-0049
+ * RETIREMENT TOMBSTONE on both faces (objectui#7353, ruling 5809008870).
  *
- * The member was declared on the TS interface and mirrored in zod as
- * `{ provider: string; object?: string }`, and nothing read it: the two
- * dashboard producers wrote the widget's whole provider config onto the node
- * beside `objectName`, and `ObjectDataTable` reads `objectName`. The ruling
- * removed the three writes and every declaration in one change, and added no
+ * The member was declared as `{ provider: string; object?: string }` and read by
+ * nothing: the two dashboard producers copied the widget's provider config onto
+ * the node beside `objectName`, and `ObjectDataTable` reads `objectName`. The
+ * ruling removed the three writes and the typed declaration, and added no
  * reader. The producer half is pinned in `plugin-dashboard`
- * (`widgetDataProviderRetired-7353.test.tsx`); this file pins the declarations.
+ * (`widgetDataProviderRetired-7353.test.tsx`); this file pins the carrier.
  *
- * ## Why a key-set probe and NOT `@ts-expect-error`
+ * ## Why a tombstone and not a deletion — the carrier decides
  *
- * `BaseSchema` carries `[key: string]: any`, so an authored `dataProvider:` on
- * this node STILL COMPILES after the member is gone — it falls to the index
- * signature. The pinnable effect is that `dataProvider` stops being a DECLARED
- * member: `string extends K` filters the index signature's key out, leaving the
- * authored members (the probe `dashboard-title-retired-declaration.test.ts`
- * uses). Enforced because `tsconfig.test.json` is chained from this package's
- * `type-check` script.
+ * `ObjectDataTableSchema` survives the retirement and extends `BaseSchema`:
+ * `[key: string]: any` on the TS face, `.passthrough()` on the zod face. On
+ * such a carrier a DELETED optional member is absorbed silently at any value —
+ * measured on this branch before the tombstone: an authored `dataProvider`
+ * parsed green and was KEPT on the parsed value, and a malformed one that the
+ * typed member used to refuse parsed green too. That is the silent no-op the
+ * retirement exists to end. The discriminator (objectui#5941, #7526, as
+ * amended by objectui#7678) licenses a `?: never` tombstone on a surviving
+ * carrier when it steers authors to a named live replacement key — prong 1,
+ * here `objectName`. A tombstone refuses; it reads nothing, so the ruling's
+ * "no reader is added" holds.
  *
- * ## What the zod mirror now does with an authored `dataProvider` — measured
- *
- * No tombstone was added: the ruling deletes every declaration, and a named
- * refusal is a declaration. The mirror extends the `.passthrough()`
- * `BaseSchema`, so the key is now an UNKNOWN key — kept on the parsed value and
- * judged by nothing:
- *
- *  - a well-formed `dataProvider` parsed green before and parses green now;
- *  - a MALFORMED one (`provider: 42`) used to be refused BY NAME at
- *    `dataProvider.provider` and now parses green. That is the one verdict the
- *    removal moves, and it moves toward acceptance — stated here as the ceiling
- *    rather than left to be rediscovered.
+ * The `@ts-expect-error` directives are REAL enforcement: this package
+ * type-checks its tests through `tsconfig.test.json`, which its `type-check`
+ * script chains. A green vitest run says nothing about them.
  */
 
 import { describe, it, expect } from 'vitest';
+import type { z } from 'zod';
 import type { ObjectDataTableSchema } from '../objectql';
 import { ObjectDataTableSchema as ObjectDataTableZod, safeValidateSchema } from '../zod/index.zod';
 
-type DeclaredKeys<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
-type Declared = keyof DeclaredKeys<ObjectDataTableSchema>;
+/* ── type-level pins: the `tsc` channel ──────────────────────────────────── */
 
-describe('objectui#7353 — ObjectDataTableSchema no longer declares dataProvider (TS face)', () => {
-  it('dataProvider is not a declared member; its neighbours still are', () => {
-    // Type-level, erased at runtime: with the member restored this annotation
-    // collapses to `false` and `tsc -p tsconfig.test.json` fails on this line.
-    const dataProviderNotDeclared: 'dataProvider' extends Declared ? false : true = true;
-    // Positive controls through the same extraction — a probe that saw no
-    // members would also report `dataProvider` absent. `objectName` is the key
-    // the widget reads instead; `filter` sat beside the removed member.
-    const objectNameDeclared: 'objectName' extends Declared ? true : false = true;
-    const filterDeclared: 'filter' extends Declared ? true : false = true;
-    const drillDownDeclared: 'drillDown' extends Declared ? true : false = true;
-    expect(dataProviderNotDeclared && objectNameDeclared && filterDeclared && drillDownDeclared).toBe(true);
+/** Invariant equality — `extends` both ways would accept a narrowing. */
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * `?: never` without `exactOptionalPropertyTypes` reads as `undefined`. `Equal`
+ * separates that from the `any` a DELETION leaves on this carrier and from the
+ * typed shape the member used to carry, so this row reddens on either.
+ */
+export type assertionDataProviderIsATombstone = Expect<Equal<ObjectDataTableSchema['dataProvider'], undefined>>;
+/** Non-vacuity twin: the key the widget reads keeps its real type. */
+export type assertionObjectNameStaysLive = Expect<Equal<ObjectDataTableSchema['objectName'], string | undefined>>;
+
+/** Every issue path in the tree, including a Zod 4 union's per-arm `errors`. */
+function issuePaths(result: ReturnType<typeof safeValidateSchema>): string[] {
+  if (result.success) return [];
+  const out: string[] = [];
+  const walk = (issues: readonly z.core.$ZodIssue[]) => {
+    for (const issue of issues) {
+      out.push(issue.path.map(String).join('.'));
+      const nested = (issue as { errors?: readonly (readonly z.core.$ZodIssue[])[] }).errors;
+      if (nested) for (const arm of nested) walk(arm);
+    }
+  };
+  walk(result.error.issues);
+  return out;
+}
+
+const WELL_FORMED = { provider: 'object', object: 'contact' };
+const MALFORMED = { provider: 42 };
+
+describe('objectui#7353 — the TS face refuses an authored dataProvider', () => {
+  it('authoring the key is a compile error, well-formed or not; an undeclared key still compiles', () => {
+    const wellFormed: ObjectDataTableSchema = {
+      type: 'object-data-table',
+      objectName: 'contact',
+      // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
+      dataProvider: WELL_FORMED,
+    };
+    const malformed: ObjectDataTableSchema = {
+      type: 'object-data-table',
+      // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
+      dataProvider: MALFORMED,
+    };
+    // The contrast, pinned LIVE rather than in prose: an undeclared key carries
+    // no directive, because `BaseSchema`'s index signature absorbs it. That is
+    // what a deletion would have left `dataProvider` as.
+    const undeclared: ObjectDataTableSchema = { type: 'object-data-table', zzUndeclared7353: 1 };
+    expect([wellFormed.type, malformed.type, undeclared.zzUndeclared7353]).toEqual([
+      'object-data-table',
+      'object-data-table',
+      1,
+    ]);
   });
 });
 
-describe('objectui#7353 — the zod mirror no longer declares dataProvider (runtime face)', () => {
-  it('the shape has no dataProvider key; its neighbours are still declared', () => {
-    const keys = Object.keys(ObjectDataTableZod.shape);
-    expect(keys).not.toContain('dataProvider');
-    // Controls: the extraction reads a real shape, not an empty one.
-    expect(keys).toEqual(expect.arrayContaining(['type', 'objectName', 'filter', 'drillDown']));
+describe('objectui#7353 — the zod mirror refuses an authored dataProvider BY NAME', () => {
+  it.each([
+    ['well-formed', WELL_FORMED],
+    ['malformed', MALFORMED],
+  ])('a %s dataProvider is refused at the key itself, with guidance naming objectName', (_label, value) => {
+    const r = ObjectDataTableZod.safeParse({ type: 'object-data-table', objectName: 'contact', dataProvider: value });
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    const onKey = r.error.issues.filter((i) => i.path.join('.') === 'dataProvider');
+    expect(onKey).toHaveLength(1);
+    expect(onKey[0].code).toBe('invalid_type');
+    // The named subject of the guidance — the key to write instead.
+    expect(onKey[0].message).toContain('objectName');
   });
 
-  it('an authored dataProvider is now an unknown key: kept by passthrough, judged by nothing', () => {
-    const wellFormed = ObjectDataTableZod.safeParse({
-      type: 'object-data-table',
-      objectName: 'contact',
-      dataProvider: { provider: 'object', object: 'contact' },
-    });
-    expect(wellFormed.success).toBe(true);
-    expect(wellFormed.success && (wellFormed.data as Record<string, unknown>).dataProvider).toEqual({
-      provider: 'object',
-      object: 'contact',
-    });
+  it('the refusal reaches the author through the published entry point too', () => {
+    const r = safeValidateSchema({ type: 'object-data-table', dataProvider: WELL_FORMED });
+    expect(r.success).toBe(false);
+    expect(issuePaths(r)).toContain('dataProvider');
+  });
 
-    // The verdict the removal moved: refused BY NAME at `dataProvider.provider`
-    // while the member was declared, accepted now — through the member schema
-    // and through the published entry point alike.
-    const malformed = { type: 'object-data-table', dataProvider: { provider: 42 } };
-    expect(ObjectDataTableZod.safeParse(malformed).success).toBe(true);
-    expect(safeValidateSchema(malformed).success).toBe(true);
+  it('control: an undeclared key is still accepted and kept (BaseSchema passthrough is untouched)', () => {
+    const r = ObjectDataTableZod.safeParse({ type: 'object-data-table', objectName: 'contact', zzUndeclared7353: { provider: 42 } });
+    expect(r.success).toBe(true);
+    expect(r.success && (r.data as Record<string, unknown>).zzUndeclared7353).toEqual({ provider: 42 });
+  });
+
+  it('control: a node without dataProvider still validates, objectName included', () => {
+    const r = safeValidateSchema({ type: 'object-data-table', objectName: 'contact' });
+    expect(r.success, r.success ? '' : JSON.stringify(r.error.issues, null, 2)).toBe(true);
   });
 });

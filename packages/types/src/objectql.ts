@@ -4645,6 +4645,26 @@ export interface ObjectDataTableSchema extends BaseSchema {
   type: 'object-data-table';
   /** ObjectQL object name; omitted when the rows arrive through `bind` or `data` */
   objectName?: string;
+  /**
+   * RETIRED (objectui#7353, ADR-0049 remove arm, ruling 5809008870) — write
+   * `objectName`, the key the widget fetches through.
+   *
+   * This member carried the dashboard widget's provider config
+   * (`{ provider, object }`), copied onto the node beside `objectName` by both
+   * dashboard producers and read by nothing. The producers no longer write it
+   * and no reader was added.
+   *
+   * A `?: never` tombstone, not a plain deletion: this carrier survives the
+   * retirement and extends {@link BaseSchema} (`[key: string]: any` here,
+   * `.passthrough()` on the zod mirror), so a deleted member would be absorbed
+   * silently at any value — the silent no-op the retirement exists to end.
+   * Licensed by prong 1 of the discriminator (objectui#5941, #7526, as amended
+   * by objectui#7678): it steers authors to the named live replacement,
+   * `objectName`. The zod mirror refuses the key by name with that guidance.
+   *
+   * @deprecated Not read by `object-data-table` — write `objectName`.
+   */
+  dataProvider?: never;
   /** Query filter, resolved through the filter scope and forwarded as `$filter` */
   filter?: any;
   /** Inline rows — rendered ahead of a fetch when non-empty */

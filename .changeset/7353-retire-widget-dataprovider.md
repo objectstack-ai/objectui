@@ -3,41 +3,50 @@
 '@object-ui/types': minor
 ---
 
-Retire the widget `dataProvider` key, which was declared and written but read by
-nothing (objectui#7353, ADR-0049 remove arm).
+Retire the widget `dataProvider` key. It was declared and written, but nothing
+read it (objectui#7353, ADR-0049 remove arm).
 
-Both dashboard surfaces turned a `provider: 'object'` widget into a node for the
-table / pivot widgets and wrote the whole provider config onto it as
-`dataProvider`, beside `objectName`. The widgets read `objectName`; no renderer
-read `dataProvider`. It was a second spelling of the same information, kept alive
-only by its declarations.
+Both dashboard surfaces build a node for the table and pivot widgets from a
+`provider: 'object'` widget. They copied the whole provider config onto that node
+as `dataProvider`, next to `objectName`. The widgets read only `objectName`, so
+`dataProvider` repeated the same information in a second place that no code used.
 
-**What changed.**
+**`@object-ui/plugin-dashboard` — BREAKING (declared `minor` per the repo's
+version policy).** Compared with the released 17.6.0:
 
-- `DashboardRenderer` (the `object-data-table` node) and `DashboardGridLayout`
-  (the `data-table` and `pivot` nodes) no longer write `dataProvider`. They still
-  write `objectName`, and the object-backed table widget still fetches through it.
-- `@object-ui/types`: `ObjectDataTableSchema` no longer declares `dataProvider`, on
-  the TS interface or on its zod mirror (`@object-ui/types/zod`).
-- `@object-ui/plugin-dashboard`: `ObjectPivotTableProps['schema']` (the prop type of
-  the exported `ObjectPivotTable`) no longer declares `dataProvider`.
+- `DashboardRenderer` no longer writes `dataProvider` on the `object-data-table`
+  node, and `DashboardGridLayout` no longer writes it on the `data-table` and
+  `pivot` nodes. All three still write `objectName`, and the object-backed table
+  widget still fetches through it.
+- In 17.6.0, the `schema` prop types of `ObjectPivotTable` and `ObjectDataTable`
+  both declare `dataProvider?: { provider: string; object?: string }`. Both now
+  declare it as a retirement tombstone (`dataProvider?: never`). TypeScript code
+  that sets `dataProvider` on these props no longer compiles.
+- To migrate, delete `dataProvider` and set `objectName` to the object the widget
+  should load. `ObjectPivotTable`'s node has no zod schema, so for that widget
+  the type check is the only place the key is refused.
 
-**Breaking-change notes (declared `minor` per the repo's version policy).** Both
-removals narrow a published declaration. Because `BaseSchema` keeps its
-`[key: string]: any` index signature, TypeScript code that still sets
-`dataProvider` on these nodes keeps compiling. The key is no longer typed, though,
-so code that read `schema.dataProvider.provider` through the declared shape now
-sees `any`.
+**`@object-ui/types`.** Released 17.6.0 declares neither `ObjectDataTableSchema`
+nor `dataProvider`, so this part changes no released declaration and no released
+validator's verdict. `ObjectDataTableSchema` itself is new after 17.6.0
+(objectui#6576). With this change it ships with `dataProvider` retired on both
+faces:
 
-**Validation, measured.** No named refusal was added. `ObjectDataTableSchema`
-extends the `.passthrough()` `BaseSchema`, so an authored `dataProvider` is now an
-unknown key: kept on the parsed value and not checked. A well-formed value parsed
-green before this change and still does. A malformed one (for example
-`provider: 42`) used to be refused at `dataProvider.provider` and now passes.
-Authored `dataProvider` therefore does **not** start failing validation; the one
-verdict that moves is that a malformed value is no longer rejected.
+- the TS interface declares `dataProvider?: never`;
+- the zod mirror (`ObjectDataTableSchema` in `@object-ui/types/zod`) refuses the
+  key by name, with a message that says to write `objectName`.
 
-**DOM.** Measured with a real render of all three producer paths before the
-removal: the key never reached a DOM attribute (no `dataprovider` /
-`data-provider` attribute, no React unknown-prop warning), so this change ends no
-objectui#4357-class leak.
+The refusal applies to any value, well-formed or malformed. Other undeclared keys
+are still accepted, as they are on every `BaseSchema` node.
+
+**Why a tombstone rather than a plain deletion.** Both of these types extend
+`BaseSchema`. Its TypeScript index signature and its `.passthrough()` zod schema
+accept any key that is not declared. A deleted member would therefore still
+compile and still parse, and it would still do nothing. The tombstone turns that
+silent no-op into a named refusal that points at `objectName`. It reads nothing,
+so no reader was added.
+
+**DOM.** All three producer paths were rendered for real before the change. The
+key never reached a DOM attribute: there was no `dataprovider` or
+`data-provider` attribute and no React unknown-prop warning. So this change does
+not close any objectui#4357-class leak.

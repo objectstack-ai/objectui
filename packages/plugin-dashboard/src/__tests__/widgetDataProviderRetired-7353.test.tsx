@@ -18,8 +18,9 @@
  * read `dataProvider` — the widgets read `objectName` — so the key was a second
  * spelling of the same information that only the declarations kept alive
  * (`ObjectDataTableSchema.dataProvider` in `@object-ui/types`, and the
- * `schema.dataProvider` member of `ObjectPivotTableProps`). All three writes and
- * every declaration went in one change; no reader was added.
+ * `schema.dataProvider` member of `ObjectPivotTableProps`). All three writes
+ * went, both typed declarations became retirement tombstones that refuse the
+ * key and point at `objectName`, and no reader was added.
  *
  * ## Why the pin reads the NODE, not the screen
  *
@@ -44,8 +45,9 @@
  *
  * RED on the unmodified tree: every "carries no `dataProvider`" assertion (the
  * producers wrote it). GREEN on both sides: every control. The type-level half
- * (neither widget prop type DECLARES the member any more) is enforced by
- * `tsconfig.test.json`, which this package's `type-check` chains.
+ * (both widget prop types carry `dataProvider` as a `?: never` tombstone, so
+ * authoring it is a compile error) is enforced by `tsconfig.test.json`, which
+ * this package's `type-check` chains.
  */
 
 import * as React from 'react';
@@ -168,42 +170,64 @@ describe('objectui#7353 — DashboardGridLayout: the table and pivot nodes carry
 });
 
 /*
- * The declaration half, on the published prop type (`ObjectPivotTable` is
- * exported from this package's index). `PivotTableSchema` extends `BaseSchema`,
- * which carries `[key: string]: any` — so an authored `dataProvider:` STILL
- * COMPILES after the member is gone, and a `@ts-expect-error` pin would not
- * stick. The pinnable effect is that `dataProvider` stops being a DECLARED
- * member: the probe extracts the literal key set (`string extends K` filters out
- * the index signature), the same probe
- * `packages/types/src/__tests__/dashboard-title-retired-declaration.test.ts` uses.
+ * The declaration half: `dataProvider` is a `?: never` RETIREMENT TOMBSTONE on
+ * both widget prop types (objectui#7353), so authoring it is a compile error.
+ *
+ *  - `ObjectPivotTableProps['schema']` — the prop type of `ObjectPivotTable`,
+ *    exported from this package's index. It has no zod face (neither
+ *    `object-pivot` nor `PivotTableSchema` is mirrored), so this `tsc` refusal
+ *    is the only one it has.
+ *  - `ObjectDataTableProps['schema']`, anchored to `@object-ui/types`'
+ *    `ObjectDataTableSchema`. This package reads that type through the BUILT
+ *    `.d.ts` (its `tsconfig.test.json` empties `paths`), so these lines are the
+ *    consumer-side half of the types tombstone: red on a stale `dist`.
+ *
+ * Why a tombstone and not a deletion: both carriers extend `BaseSchema`, whose
+ * `[key: string]: any` absorbs a deleted member silently at any value — an
+ * authored `dataProvider` would still compile and still do nothing. The
+ * `@ts-expect-error` directives are real enforcement because this package's
+ * `type-check` chains `tsc -p tsconfig.test.json`; vitest erases them.
  */
-type DeclaredKeys<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
-type PivotDeclared = keyof DeclaredKeys<ObjectPivotTableProps['schema']>;
-/**
- * The consumer-side half of the `@object-ui/types` removal: this package reads
- * `ObjectDataTableSchema` through the BUILT `.d.ts` (its `tsconfig.test.json`
- * empties `paths`), so this line is red on a stale `dist` that still declares
- * the member and green only on a rebuilt one.
- */
-type DataTableDeclared = keyof DeclaredKeys<ObjectDataTableProps['schema']>;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
 
-describe('objectui#7353 — the widget prop types no longer declare schema.dataProvider', () => {
-  it('dataProvider is not a declared member; the two members grown beside it still are', () => {
-    // Type-level, erased at runtime: if the member came back, this annotation
-    // would collapse to `false` and `tsc -p tsconfig.test.json` would fail here.
-    const dataProviderNotDeclared: 'dataProvider' extends PivotDeclared ? false : true = true;
-    // Positive controls through the same extraction — a probe that saw no
-    // members at all would also report `dataProvider` absent.
-    const objectNameDeclared: 'objectName' extends PivotDeclared ? true : false = true;
-    const filterDeclared: 'filter' extends PivotDeclared ? true : false = true;
-    const rowFieldDeclared: 'rowField' extends PivotDeclared ? true : false = true;
-    expect(dataProviderNotDeclared && objectNameDeclared && filterDeclared && rowFieldDeclared).toBe(true);
+type PivotSchema = ObjectPivotTableProps['schema'];
+type DataTableSchema = ObjectDataTableProps['schema'];
+
+/** `?: never` reads as `undefined`; a deletion would read as `any`, the old member as its object shape. */
+export type assertionPivotDataProviderIsATombstone = Expect<Equal<PivotSchema['dataProvider'], undefined>>;
+export type assertionDataTableDataProviderIsATombstone = Expect<Equal<DataTableSchema['dataProvider'], undefined>>;
+/** Non-vacuity twins: the key both widgets read keeps its real type. */
+export type assertionPivotObjectNameStaysLive = Expect<Equal<PivotSchema['objectName'], string | undefined>>;
+export type assertionDataTableObjectNameStaysLive = Expect<Equal<DataTableSchema['objectName'], string | undefined>>;
+
+describe('objectui#7353 — both widget prop types refuse an authored dataProvider', () => {
+  it('ObjectPivotTableProps: authoring dataProvider is a compile error; objectName is not', () => {
+    const node: PivotSchema = {
+      type: 'pivot',
+      rowField: 'region',
+      columnField: 'stage',
+      valueField: 'amount',
+      data: [],
+      objectName: 'account',
+      // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
+      dataProvider: { provider: 'object', object: 'account' },
+    };
+    // Control: an undeclared key carries no directive — the index signature
+    // absorbs it, which is what a deletion would have left `dataProvider` as.
+    const undeclared: PivotSchema = { type: 'pivot', rowField: 'r', columnField: 'c', valueField: 'v', data: [], zzUndeclared7353: 1 };
+    expect([node.objectName, undeclared.zzUndeclared7353]).toEqual(['account', 1]);
   });
 
-  it('ObjectDataTableProps (anchored to ObjectDataTableSchema) no longer declares it either', () => {
-    const dataProviderNotDeclared: 'dataProvider' extends DataTableDeclared ? false : true = true;
-    const objectNameDeclared: 'objectName' extends DataTableDeclared ? true : false = true;
-    const drillDownDeclared: 'drillDown' extends DataTableDeclared ? true : false = true;
-    expect(dataProviderNotDeclared && objectNameDeclared && drillDownDeclared).toBe(true);
+  it('ObjectDataTableProps (anchored to ObjectDataTableSchema): the same, through the built types', () => {
+    const node: DataTableSchema = {
+      type: 'object-data-table',
+      objectName: 'account',
+      // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
+      dataProvider: { provider: 'object', object: 'account' },
+    };
+    const undeclared: DataTableSchema = { type: 'object-data-table', zzUndeclared7353: 1 };
+    expect([node.objectName, undeclared.zzUndeclared7353]).toEqual(['account', 1]);
   });
 });

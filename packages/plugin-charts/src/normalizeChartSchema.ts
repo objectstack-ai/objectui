@@ -243,7 +243,10 @@ export interface NormalizedChartSchema {
   series?: NormalizedSeries[];
   /** X-axis presentation config (its `field` is hoisted to `xAxisKey`). */
   xAxis?: NormalizedAxis;
-  /** Y-axes, in declaration order. Index 0 is the primary (left) axis. */
+  /**
+   * Y-axes, in declaration order. Index 0 is the primary axis; the side each
+   * entry is drawn on is {@link placeYAxes}'s answer, not its index.
+   */
   yAxes?: NormalizedAxis[];
   showLegend?: boolean;
   showDataLabels?: boolean;
@@ -415,6 +418,110 @@ function normalizeSeries(raw: unknown, language: string | null | undefined): Nor
 }
 
 /**
+ * The two value-axis slots a cartesian chart draws, named in the spec's own
+ * `ChartSeries.yAxis` vocabulary: a series binds to a slot by writing
+ * `yAxis: 'left' | 'right'`, and `'left'` is the spec default.
+ *
+ * On a chart whose value axes run up its side (bar, line, area, combo,
+ * scatter) the slot IS the side it is drawn on. On `horizontal-bar` the value
+ * axes run across the plot, so the chart is the vertical one transposed: the
+ * `'left'` slot is drawn along the bottom and the `'right'` slot along the
+ * top — the same swap `placeXAxis` reads for the `xAxis` object there.
+ */
+export type ValueAxisSlot = 'left' | 'right';
+
+/** A `yAxis` entry whose `position` was not honoured, and why. */
+export interface YAxisPositionNote {
+  /** Index of the entry in `yAxis`. */
+  index: number;
+  /** The side it named. */
+  position: NonNullable<NormalizedAxis['position']>;
+  /**
+   * `'side'` — a side a value axis of this chart cannot take (`top` /
+   * `bottom` up the side of the plot; `left` / `right` across it).
+   * `'taken'` — an open side the first entry already holds.
+   */
+  reason: 'side' | 'taken';
+  /** The slot the entry was drawn in instead. */
+  drawn: ValueAxisSlot;
+}
+
+export interface YAxisPlacement {
+  /** Index of the `yAxis` entry drawn in each slot; absent when none is. */
+  left?: number;
+  right?: number;
+  /** The slot of each placed entry, by index (the first two entries). */
+  slotOf: ValueAxisSlot[];
+  notes: YAxisPositionNote[];
+}
+
+/**
+ * Where each `yAxis` entry is drawn, read from its `position`
+ * (objectui#10654, the y-side twin of objectui#10587).
+ *
+ * The ONE place a y side is resolved: `normalizeChartSchema` binds the series
+ * it derives from the entries with it, and `AdvancedChartImpl` places the
+ * axes and writes the notes from the same answer, so a derived series always
+ * plots against its own entry's axis.
+ *
+ * Only the first two entries are placed — a chart draws at most two value
+ * axes, one per slot. The rule, in order:
+ *
+ *   1. An entry whose `position` names a side a value axis of this chart
+ *      cannot take is REFUSED: it is placed as if it named no side, and the
+ *      chart carries a note naming `yAxis[N].position`. ⛔ Never mapped to a
+ *      "nearest" open side — `top` names no side of an axis that runs up the
+ *      plot.
+ *   2. An entry that names an open side is drawn there.
+ *   3. When BOTH entries name the same side, the first keeps it —
+ *      `yAxis[0]` is the primary axis, the one declaration order already
+ *      makes primary — and the second is drawn on the other side with a note
+ *      naming `yAxis[1].position`.
+ *   4. An entry that names no side takes the side the other entry left free;
+ *      with neither naming one, the first is drawn in the `'left'` slot and
+ *      the second in the `'right'` slot, exactly as before `position` was read.
+ *
+ * `valueAxesRunAcross` is `true` on `horizontal-bar` (see
+ * {@link ValueAxisSlot}): there `bottom` / `top` are the open sides.
+ */
+export function placeYAxes(
+  yAxes: readonly NormalizedAxis[] | undefined,
+  valueAxesRunAcross: boolean,
+): YAxisPlacement {
+  const entries = (yAxes ?? []).slice(0, 2);
+  const notes: YAxisPositionNote[] = [];
+  const openSlot = (position: NormalizedAxis['position']): ValueAxisSlot | undefined => {
+    if (valueAxesRunAcross) return position === 'bottom' ? 'left' : position === 'top' ? 'right' : undefined;
+    return position === 'left' || position === 'right' ? position : undefined;
+  };
+  const other = (slot: ValueAxisSlot): ValueAxisSlot => (slot === 'left' ? 'right' : 'left');
+  // The slot each entry NAMED, once rule 1 has refused the ones it cannot take.
+  const named = entries.map((entry) => openSlot(entry.position));
+  const slotOf: ValueAxisSlot[] = [];
+  if (entries.length === 1) {
+    slotOf.push(named[0] ?? 'left');
+  } else if (entries.length === 2) {
+    const [a, b] = named;
+    if (a && b) slotOf.push(a, a === b ? other(a) : b);
+    else if (a) slotOf.push(a, other(a));
+    else if (b) slotOf.push(other(b), b);
+    else slotOf.push('left', 'right');
+  }
+  entries.forEach((entry, index) => {
+    if (!entry.position) return;
+    if (!named[index]) notes.push({ index, position: entry.position, reason: 'side', drawn: slotOf[index] });
+    else if (named[index] !== slotOf[index]) {
+      notes.push({ index, position: entry.position, reason: 'taken', drawn: slotOf[index] });
+    }
+  });
+  const placement: YAxisPlacement = { slotOf, notes };
+  slotOf.forEach((slot, index) => {
+    placement[slot] = index;
+  });
+  return placement;
+}
+
+/**
  * Translate a chart schema — spec shape, internal shape, or a mix — into the
  * renderer's internal contract. Only keys that resolve to something are
  * present on the result, so callers can spread it over their own defaults.
@@ -517,13 +624,24 @@ export function normalizeChartSchema(
     .filter((s): s is NormalizedSeries => !!s);
   // No series at all: the y-axes name the plotted columns, so a chart written
   // purely in spec shape (`yAxis: [{ field: 'total' }]`) still plots.
+  //
+  // Each derived series binds to the slot `placeYAxes` draws ITS entry in — the
+  // same call the renderer places the axes with (objectui#10654) — so a first
+  // entry at `position: 'right'` takes its own series to the right and leaves
+  // the second entry's series on the left, instead of binding both to the
+  // right-hand axis. An entry drawn in the `'left'` slot after the first says
+  // so explicitly, because an authored `combo` reads an unbound series by its
+  // index. Entries past the second are placed on no axis and keep binding to
+  // the right, as they did before.
   if (!series?.length) {
+    const placement = placeYAxes(yAxes, chartType === 'horizontal-bar');
     const fromAxes = yAxes
-      .filter((a) => a.field)
-      .map<NormalizedSeries>((a, i) => ({
+      .map((a, i) => ({ a, slot: placement.slotOf[i] ?? ('right' as const), i }))
+      .filter(({ a }) => a.field)
+      .map<NormalizedSeries>(({ a, slot, i }) => ({
         dataKey: a.field!,
         ...(a.title ? { label: a.title } : {}),
-        ...(i > 0 || a.position === 'right' ? { yAxis: 'right' as const } : {}),
+        ...(slot === 'right' || i > 0 ? { yAxis: slot } : {}),
       }));
     if (fromAxes.length) series = fromAxes;
   }

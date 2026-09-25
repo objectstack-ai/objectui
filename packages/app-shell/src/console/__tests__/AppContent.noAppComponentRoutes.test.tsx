@@ -372,9 +372,10 @@ describe('AppContent — zero-app component/metadata destinations (objectui#3610
     // the DEFAULT app and therefore exercises the with-app branch's copy of the
     // declaration, not this one.
     //
-    // Bookmarks and `SystemHubPage`'s "Metadata" card still emit this URL, so
-    // the alias is live input, not a museum piece — entered directly here,
-    // exactly as `sys-datasources` above enters the resource alias.
+    // Bookmarks still carry this URL (the system hub's "Metadata" card emitted
+    // it until #3660 re-pointed the card, and objectui#3743 retired the card
+    // wall), so the alias is live input, not a museum piece — entered directly
+    // here, exactly as `sys-datasources` above enters the resource alias.
     const chain = renderConsoleAt('/apps/setup/component/metadata/directory');
 
     expect(await screen.findByTestId('metadata-directory-page')).toBeInTheDocument();

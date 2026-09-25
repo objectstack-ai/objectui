@@ -16,8 +16,8 @@
  *
  * These are two of the six producers enumerated while fixing objectui#3639.
  * That issue's PR corrected the console host's two redirects; the System hub's
- * two metadata cards are the other pair, measured in `apps/console`'s
- * `pages/system/__tests__/SystemHubPage.metadataCards.test.tsx`.
+ * two metadata cards were the other pair (re-pointed by objectui#3660, then
+ * deleted with the whole card wall and their test by objectui#3743).
  *
  * ## What this file measures, and how it differs from the sibling pin
  *

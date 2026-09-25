@@ -1,12 +1,15 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The System Hub / system-navigation entries under `/apps/:app/system/…` reach
- * the framework-owned system objects instead of failing (objectui#3655).
+ * The system-navigation entries under `/apps/:app/system/…` reach the
+ * framework-owned system objects instead of failing (objectui#3655), and the
+ * bare `/apps/:app/system` lands on the navigation-declared settings hub
+ * (objectui#3743).
  *
  * ## What was wrong
  *
- * `SystemHubPage`'s cards and both sidebars' `sys-*` cluster emit five
+ * Both sidebars' `sys-*` cluster and the system hub's card wall (retired since,
+ * by objectui#3743) emitted five
  * `/apps/setup/system/{users,organizations,roles,positions,permissions}` URLs.
  * They were real routes until `apps/console` was slimmed for third-party
  * customisation (cccdf84d7), which deleted the bespoke wrapper pages on the
@@ -60,8 +63,8 @@
  * the definition registry; `sys_permission_set`, layer 2 — the grant container
  * the permissions docs call "the only capability container") and guessing would
  * have bound every click and bookmark to a surface nobody chose. objectui#3655
- * decided it as `sys_permission_set`: the card that emits this URL says "Manage
- * permission rules and assignments", which is layer 2. Those pins are therefore
+ * decided it as `sys_permission_set`: the card that emitted this URL said
+ * "Manage permission rules and assignments", which is layer 2. Those pins are therefore
  * REPLACED here, not merely kept passing — that was their stated purpose.
  *
  * What the pins measured beyond the gap itself — that an undeclared segment
@@ -70,12 +73,25 @@
  * (`system/teams`, 5 chars, and `system/workgroups`, 10). Re-pointing them was
  * the alternative to letting the length asymmetry lose its only coverage the
  * moment its last real specimen got a route.
+ *
+ * ## The bare `system` landing (objectui#3743)
+ *
+ * `/apps/:app/system` used to render `SystemHubPage`, a hand-written card wall.
+ * objectui#3743 retired it; the host now declares `system` as
+ * `SystemLandingRedirect`, which forwards onto `system/settings`, the settings
+ * hub that every system navigation declares (the reasoning is on that
+ * component). The URL itself is still the target of every "System Settings"
+ * sender in app-shell, so its landing is pinned here, once per branch, against
+ * the REAL host fragment and the REAL `DefaultAppContent`: that is the property
+ * of the URL, measured once, while each sender's href stays pinned beside the
+ * sender. The zero-app empty state's button is also driven end to end here,
+ * because it is the one sender whose click has to leave a dead end.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 
 // AGENTS.md §测试纪律 — the lazily-imported page modules are stubbed so no
@@ -124,6 +140,15 @@ vi.mock('../../../../packages/app-shell/src/layout/ConsoleLayout', () => ({
 vi.mock('../../../../packages/app-shell/src/chrome/CommandPalette', () => ({ CommandPalette: () => null }));
 vi.mock('../../../../packages/app-shell/src/chrome/KeyboardShortcutsDialog', () => ({ KeyboardShortcutsDialog: () => null }));
 vi.mock('../../../../packages/app-shell/src/chrome/OnboardingWalkthrough', () => ({ OnboardingWalkthrough: () => null }));
+
+/**
+ * The settings hub — the landing the bare `system` route forwards onto
+ * (objectui#3743). Stubbed for the same reason as the app-shell pages above: it
+ * sits behind `React.lazy`, and its real body fetches the settings registry.
+ */
+vi.mock('../pages/settings/SettingsHub', () => ({
+  SettingsHub: () => <div data-testid="settings-hub-page">settings hub</div>,
+}));
 
 /** Echoes `:objectName` — this is the probe the whole fix is measured against. */
 vi.mock('../../../../packages/app-shell/src/views/ObjectView', () => ({
@@ -237,7 +262,8 @@ describe('system-hub entries reach the framework system objects (objectui#3655)'
   /**
    * All five. `roles` and `positions` converge on ONE object on purpose:
    * ADR-0090 D3 renamed `sys_role` -> `sys_position`, so the sidebar's "Roles"
-   * and the hub's "Positions" are the same surface in old and new vocabulary.
+   * and the retired hub's "Positions" were the same surface in old and new
+   * vocabulary.
    * `permissions` -> `sys_permission_set` is objectui#3655's decision A (see
    * the file docblock); it landed one PR after the other four.
    */
@@ -360,5 +386,56 @@ describe('zero-app branch — measured, not asserted away (objectui#3655)', () =
     expect(await screen.findByText('Page not found')).toBeInTheDocument();
     expect(screen.queryByTestId('record-detail-view')).not.toBeInTheDocument();
     expect(chain).toEqual(['/apps/setup/system/workgroups']);
+  });
+});
+
+describe('the bare system landing forwards onto the settings hub (objectui#3743)', () => {
+  /**
+   * With an active app: the branch a framework deployment reaches, because the
+   * Setup app ships in `@objectstack/platform-objects`. One hop, and the page
+   * that renders is the settings hub, inside the app's own shell.
+   */
+  it('with an active app, /apps/setup/system reaches system/settings in ONE hop', async () => {
+    renderConsoleAt('/apps/setup/system');
+
+    expect(await screen.findByTestId('settings-hub-page')).toBeInTheDocument();
+    expect(chain).toEqual(['/apps/setup/system', '/apps/setup/system/settings']);
+    expect(screen.getByTestId('console-layout')).toHaveAttribute('data-active-app', 'setup');
+    expect(screen.queryByText('Page not found')).not.toBeInTheDocument();
+  });
+
+  it('keeps the app prefix it was entered under', async () => {
+    // The target is resolved against the route's own match, not built from a
+    // hard-coded `/apps/setup`, so an app-scoped entry stays app-scoped.
+    renderConsoleAt('/apps/my-app/system');
+
+    expect(await screen.findByTestId('settings-hub-page')).toBeInTheDocument();
+    expect(chain).toEqual(['/apps/my-app/system', '/apps/my-app/system/settings']);
+  });
+
+  it('with zero apps, /apps/setup/system still reaches system/settings in ONE hop', async () => {
+    // The branch the "No Apps Configured" empty state lives in. Landing on the
+    // app root here instead would be `/apps/setup`, i.e. that empty state
+    // again: the loop objectui#3590 closed.
+    metadataApps = [];
+    renderConsoleAt('/apps/setup/system');
+
+    expect(await screen.findByTestId('settings-hub-page')).toBeInTheDocument();
+    expect(chain).toEqual(['/apps/setup/system', '/apps/setup/system/settings']);
+    expect(screen.queryByTestId('create-first-app-btn')).not.toBeInTheDocument();
+    expect(screen.queryByText('Page not found')).not.toBeInTheDocument();
+  });
+
+  it('the zero-app empty state\'s "System Settings" button lands on the settings hub, not back on itself', async () => {
+    // End to end with the real host fragment: the button targets
+    // `/apps/setup/system` (pinned app-side in `AppContent.noAppsCta.test.tsx`),
+    // and the host forwards that onto its settings hub.
+    metadataApps = [];
+    renderConsoleAt('/apps/setup');
+    fireEvent.click(await screen.findByTestId('go-to-settings-btn'));
+
+    expect(await screen.findByTestId('settings-hub-page')).toBeInTheDocument();
+    expect(chain).toEqual(['/apps/setup', '/apps/setup/system', '/apps/setup/system/settings']);
+    expect(screen.queryByTestId('create-first-app-btn')).not.toBeInTheDocument();
   });
 });

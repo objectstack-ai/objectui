@@ -24,6 +24,8 @@ interface PaginationSchema {
   totalItems?: number;            // Total number of items
   
   // Events
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onPageChange?: (page: number) => void;
   
   // Styling

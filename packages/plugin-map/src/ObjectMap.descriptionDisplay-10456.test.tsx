@@ -78,10 +78,10 @@ function rowsOwnedBy(owners: unknown[]) {
   return owners.map((owner, i) => ({ id: String(i + 1), ...SITES[i], owner }));
 }
 
-function mount(schema: Record<string, unknown>, dataSource?: any) {
+function mount(schema: Record<string, unknown>, dataSource?: unknown) {
   render(
-    <SchemaRendererProvider dataSource={dataSource}>
-      <ObjectMap schema={schema as never} dataSource={dataSource} />
+    <SchemaRendererProvider dataSource={dataSource as never}>
+      <ObjectMap schema={schema as never} dataSource={dataSource as never} />
     </SchemaRendererProvider>,
   );
 }

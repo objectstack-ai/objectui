@@ -1,0 +1,35 @@
+{
+  "number": 5169,
+  "kind": "issue",
+  "title": "[finding] The metadata Audit tab renders \"No audit events yet\" and a `0` count alongside its own failure banner",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T08:41:19Z",
+  "updated_at": "2026-08-18T16:18:27Z",
+  "closed_at": "2026-08-18T16:18:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5169",
+  "body": "Found by the sibling-tab sweep ordered on objectui#5110 (References panel). This is a **measurement**, filed unassigned for PM triage — not fixed in PR for #5110.\n\n## The reading\n\n`packages/app-shell/src/views/metadata-admin/AuditPanel.tsx`, the `load` callback (locate by text, not line number):\n\n```ts\ntry {\n  const res = await client.audit(type, name, { limit: 100 });\n  setEvents(res.events ?? []);\n} catch (err: any) {\n  setError(String(err?.message ?? err));\n  setEvents([]);\n} finally {\n  setLoading(false);\n}\n```\n\nThe catch sets an error **and** zeroes `events`. The render then shows all three of these at once:\n\n- the failure, in a rose banner — `{error && ...}`\n- the header count, `{events?.length ?? 0} {t('engine.edit.auditCount', locale)}` → **`0 events`**\n- the empty state, because the very next branch is `!events || events.length === 0`:\n  `engine.edit.auditEmptyTitle` = \"No audit events yet\",\n  `engine.edit.auditEmptyDescription` = \"No save, publish, rollback, delete or reset attempts have been recorded for this item. Once someone tries to change it (allowed or denied), the attempt will appear here.\"\n\n## Why this is weaker than #5110, and why it is still a finding\n\nUnlike the References panel, the failure **is** visible here — the banner renders — so nothing is silently swallowed and this is not the same severity. What is wrong is that a positive claim about the record (\"no save, publish, rollback, delete or reset attempts have been recorded for this item\") and a measured count of `0` are rendered *simultaneously with* the statement that the measurement failed. The two contradict each other, and the operator has to know which one to believe. An audit tab is read for compliance-shaped questions (\"did anyone touch this?\"), so the false zero is the part that matters.\n\nThe minimal shape is the one #5110 landed: make the failure its own arm so the empty state and the count are reachable only from a completed read. `HistoryPanel`, `RelatedPanel` and `DiagnosticsPage` on the same page already do this (see the control query below) — this panel is the odd one out.\n\nSeverity is deliberately not asserted here; #5110's own card records that severity judged at filing time is unreliable in both directions. Filed plainly for the PM's triage round.\n\n## Sweep control query — the zero elsewhere is a measurement, not a broken search\n\nThe #5110 sweep covered every same-page loader that can fail. Three of them already hold the three-state shape, which is what proves the sweep could see the pattern it was looking for:\n\n- **history** — `ResourceHistoryPage.tsx`: `catch` sets `error` only; `events` is left alone. Clean.\n- **related** — `RelatedPanel.tsx`: per-group `error` field; renders `!g.loading && g.error` before `!g.loading && !g.error && matches.length === 0`. Clean.\n- **diagnostics** — `DiagnosticsPage.tsx`: `{!loading && error && ...loadFailed}` and `{!loading && !error && groups.length === 0 && ...clean}` — mutually exclusive by construction. Clean.\n- **audit** — this card.\n\n## Dedup\n\nSearched open issues for the audit panel's empty state, for `catch`-swallowed failures rendered as empty results, and for AuditPanel by name; nothing covering this. Control: the same search family returns objectui#4408 (\"A list request that 404s with `OBJECT_API_DISABLED` renders as the generic empty state\", closed) and #5110 itself, so the zero is a measurement rather than a dead query. No duplicate.\n\n## Related\n\nobjectui#5110 (the References panel, same class, fixed) · objectstack#9426 (the producer-side defect on the audit route) · ADR-0110 D3, \"a miss and a fault are different facts\"\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5167,
+  "kind": "pull_request",
+  "title": "test(scripts): side-effects 门读全 24 张 vite alias 表,70 → 196 条 (#5158)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:22:36Z",
+  "updated_at": "2026-08-18T08:37:49Z",
+  "closed_at": "2026-08-18T08:37:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T08:37:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5167",
+  "body": "Fixes #5158\n\n## 前提复测(逐条,基线 `cdac3cc20`,含 PR #5159)\n\n| # | issue 的判断 | 复测结论 |\n|---|---|---|\n| 1 | `readAliasEntries()` entry 正则只认字面量 `path.resolve(`,15 个 vite.config 写裸 `resolve(` | **成立**,15 个 config 名单逐字复现(plugin-ai/charts/dashboard/designer/detail/editor/form/grid/kanban/list/map/markdown/report/timeline/tree),读到的 3 个(fields 7 / apps-console 34 / console-starter 29)也复现 |\n| 2 | 门实际只读到 70 条,宽松口径 175 条 | **成立**,70 / 175 / 15 三个数逐字复现;但**宽松口径本身仍然不够** —— 见下 |\n| 3 | 这是 #3944 那类死 alias 条目的藏身处 | **风险成立,当日无实例**:扩面后 196 条 alias 全部解析出可达模块,死条目 **0 条**。所以本 PR 不含任何 vite.config 修改 |\n\n### 第 2 条复测时多出来的事实:不是两种拼法,是四种\n\nissue 提议把 `path\\.` 放宽成 `(?:path\\.)?` 能把 70 拉到 175。复测发现真实测量面是 **196**,放宽正则仍然读不到另外 21 条,而且漏的原因跟 `resolve` 没关系:\n\n- `packages/components/vite.config.ts` 用的是**数组表形式** `alias: [{ find, replacement }]` —— 根本没有 `'key':`,7 条;\n- `packages/runner/vite.config.ts` 用的是**双引号 key** `\"@object-ui/core\": path.resolve(...)` —— 正则里写死了单引号,14 条。\n\n一个结构三种拼法,正是\"枚举拼法\"这条路本身的反例。\n\n## 实现\n\n改用 AST(本文件已为模块扫描引入 `typescript`)读 `resolve.alias` 的**结构**而不是文本:alias 表里取值为 `resolve(dirname, '相对路径')` 调用的属性,不论 callee 怎么写(裸 `resolve` / `path.resolve` / 改名导入)、key 用什么引号、表是对象还是数组。\n\n同时按 issue 的处置方向 2 立**漂移自检**:落在 `resolve.alias` 表里、解析器读不出取值形状的 `@object-ui/*` key 一律进 `aliasParseGaps` 并让门红,报错文案带\"教会解析器,别缩表\"的处方。第四种拼法到来时报错,而不是静默缩面。\n\n三个刻意的取舍,都写进了文件注释:\n\n1. **只读 `resolve.alias`,不读 `test.alias`** —— 文件头本来就论证过 Vitest 不 tree-shake、不是打包面;盲搜 `alias:` 会把 Vitest-only 的表悄悄折进来。\n2. **跟一跳标识符间接** —— `apps/console` 与 `examples/console-starter` 都写 `const workspaceAliases = { … }` + `alias: workspaceAliases`。只读内联字面量会把门本来就依赖的 63 条丢掉,即\"号称扩面、实际缩面\"。\n3. **`rollupOptions.output.globals` 与注释里的诱饵由结构排除,不靠启发式**。globals 表 key 完全相同(`'@object-ui/core': 'ObjectUICore'`),但它在 `resolve.alias` 之外、取值是字符串,走不进来;注释里的引号规格根本不是节点 —— 原来靠\"剔掉整行注释\"近似,块注释里的条目仍会被当成活条目,`console-starter` 至今留着一条\"别在散文里写带引号的 specifier,那个诱饵骗过一次扫描\"的告示,现在这条告示不再是承重结构。\n\n计数钉按\"提取式对账\"写,不写化石值:**key 普查**(alias 表里的 `@object-ui/*` key,不看取值)对账**解析结果**,两边同源于扫描,gap 列表即对账差额;另加塌陷下限(196 → 下限 150 条 / 20 → 下限 18 个 config)+ 三种拼法的具名样本,注释里注明\"196 条 / 20 个 config 实测于 `main@cdac3cc20`\"。\n\n## 扩面前后\n\n| 口径 | alias 条数 | 贡献 config 数 |\n|---|---|---|\n| 门原本(字面量 `path.resolve(` + 单引号 key + 对象表) | 70 | 3 |\n| issue 提议的放宽正则 `(?:path\\.)?resolve` | 175 | 18 |\n| 本 PR(AST) | **196** | **20** |\n\n覆盖增幅最大的两个 declaring package:`@object-ui/core` 3 → 20 个 config,`@object-ui/types` 3 → 18 个 config。\n\n**当日判定零变化,这一点如实写明**:新纳入的 alias 全部指向 declaring package 已被覆盖的同一个 `src` barrel,六个 declaring package 的 entry form 集合 `ADDED=[]`。也就是说本 PR 修的是**测量面**,不是某条今天红的判定 —— 与 issue 的定性一致(\"不是检查后通过,是根本没看\")。\n\n## 死条目处置清单\n\n**空**。196 条全部解析出可达模块,`resolveAliasModule()` 无一返回 undefined。所以没有夹带任何 vite.config 修改。\n\n顺带钉清这道门对死条目的**既有行为**(反向验证 b 实测):目标不可达时 `resolveAliasModule()` 返回 undefined、`resolvableEntryPaths()` 直接 `continue` —— 这道门对死 alias **不红**,这是它的契约边界而非疏漏(死 alias 贡献不了 entry form,`sideEffects` 判定无从与之冲突)。\n\n## 反向验证(方向均为跑之前书面预判)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| (a1) `resolveCallTarget` 退回要求 `path.` 限定 callee(保留 gap 机制) | 红,gap 列表非空约 112 条(105 裸 resolve + 7 数组表;runner 的 14 条因写 `path.resolve` 存活) | **符合**:gap 恰好 **112** 条,逐条列出 config + specifier + 源文 |\n| (a2) `readAliasEntries()` 整体退回 #5158 前的正则 | 塌陷下限 + 具名样本 + 拼法内容测试红;**gap 断言保持绿** | **符合**:`expected 70 to be greater than or equal to 150`(直接把 70 这个数打在报错里),gap 列表确实为空 |\n| (b) 在新纳入的 plugin-editor 塞一条**死** alias | **不红**(与派发模板预设的\"扩面有牙 = 门红\"相反) | **符合**:30/30 全绿。派发单预设的方向在这道门上不成立,如实记录:条数 196 → 197,gap 为空(取值解析得动,是**目标**死),无任何断言移动。同一条死 alias 交给 #3944 那道门也是 58/58 全绿 —— 它只读根 `vitest.config.mts` 与 `tsconfig.json` |\n| (c) 塞一条**会改判定**的 alias(plugin-editor 把 `@object-ui/layout` 指向 `../layout/src/AppShell.tsx`) | 扩面后红 / 退回旧正则后绿 的成对证据 | **符合**:扩面后 **4 个测试红**,含真实 bundler 探针(门为新 entry form 现场生成探针并跑了一次 Vite 构建),报 `\"src/AppShell.tsx\" is a resolvable module form and is not in sideEffects`;保留同一条 alias、只把解析器退回旧正则 → 判定测试**全绿**,失败集与 (a2) 完全一致(即这条被植入的缺陷在旧正则下贡献为零) |\n| (d) 塞**第四种拼法** `'@object-ui/auth': join(__dirname, '../auth/src')` | gap 自检红,点名该条 | **符合**:1 个测试红,报 `packages/plugin-editor/vite.config.ts: @object-ui/auth — '@object-ui/auth': join(__dirname, '../auth/src')`,附\"教会解析器、别缩表\"处方 |\n\n(a1) 的一处措辞修正:预判写了\"gap 断言**和**下限同时红\",实际同一个 `it` 里 gap 断言先触发、下限没跑到。方向没错,顺序上短路了,照实记。\n\n## 与 #3944 / #3592 的边界\n\n- **#3944**(以及扩容它的 #4804):管的是\"被读到的那张表里有没有死条目\",覆盖面是**根 `vitest.config.mts` + `tsconfig.json` 的 `paths`**。本 PR 不碰它,也不把\"目标存在性\"塞进 side-effects 门 —— 两个契约,合并会让\"declaration 与 module body 是否一致\"这道门去替 alias 表做体检。\n- **#3592**:管的是这些 config 里 `__dirname` 这个写法本身。本 PR 只**读**这些 config,一行没改。\n- 本 PR:管的是\"门看不看得见这些表\"。\n\n## 半径外发现\n\n24 个 `vite.config.ts` 的 alias 表(196 条)的**目标存在性无人把关**:#3944 那道门只覆盖根 `vitest.config.mts` 与 `tsconfig.json`,本门按契约对死条目不红(上表 b 行双向实测)。今天 0 实例,故按 observation-class 另立卡,不夹带。\n\n## 验证\n\n```\npnpm exec vitest run scripts/__tests__ --maxWorkers=2   53 files / 1224 tests 全绿\npnpm exec turbo run type-check --concurrency=2          81/81 successful\npnpm run lint:root                                      0 errors(24 条既有 warning,均不在本文件)\npnpm run type-check:scripts                             绿\nnode scripts/check-control-bytes.mjs                    OK(4572 tracked text files)\nnode scripts/check-changeset-presence.mjs               \"no changeset is owed\"(0 个已发布包的 src 变更)\n```\n\nchangeset:门自身判定不欠 —— 本改动只动 `scripts/__tests__/`,无任何已发布包的 `src/` 变更,无用户可见行为变化。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 4970,
+  "kind": "issue",
+  "title": "`element:text.content` / `element:button.label` 是 #3832 那张表漏掉的第 6、7 个同形标本 —— 同一个矛盾,今天照样报 `type-mismatch`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T08:59:07Z",
+  "updated_at": "2026-08-17T14:20:17Z",
+  "closed_at": "2026-08-17T14:20:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4970",
+  "body": "发现于 #3832 的实施(PR 见下)。#3832 的裁定把范围钉在「五个实测标本」,这两个不在那张表里,所以本 PR 按不扩围处理,单独立卡。\n\n## 机制\n\n与 #3832 的四个 i18n 标本**逐字同形**:input 自己的 `description` 教作者写内联翻译映射,同一个 input 的 `type: 'string'` 又让 manifest 门对这个映射报 `type-mismatch`。\n\n| 键 | 声明位 | description 原文 | spec 实测 | 渲染器 |\n|---|---|---|---|---|\n| `element:text.content` | `packages/components/src/renderers/basic/elements.tsx:109` | `Accepts an inline translation map ({ en, \"zh-CN\", … })` | 字符串 **或** 内联映射均 OK | `elements.tsx:98` 走 `pickLocalized` |\n| `element:button.label` | `packages/components/src/renderers/basic/elements.tsx:319` | 同上 | 同上 | 走 `pickLocalized` |\n\n两个键都 `required: true`,且两个块都在 `PUBLIC_BLOCKS`(`public-blocks.ts:89` / `:91`),所以它们进 `sdui.manifest.json` 与 `sdui-intrinsics.d.ts`,是 AI 作者直接读到的发布面。\n\n## 实测(objectui `origin/main` @ `1b21b1aaa`,与 #3832 六个标本同一次探针)\n\n```\nelement:text.content   (i18n map) -> warning/type-mismatch: prop \"content\" expected a string\nelement:button.label   (i18n map) -> warning/type-mismatch: prop \"label\"   expected a string\n```\n\nspec 侧(`ComponentPropsMap`,pin 在 `@objectstack/spec` 17.0.0-rc.6)对两个键的实测:`string=OK  i18n-map=OK  number=no  boolean=no`。即门比契约窄一条臂,和 #3832 的五个标本同一根因。\n\n## 修复\n\n#3832 的机制部分已经落地(`type` 收粗类型数组,任一臂命中即过),所以这两处各是**一行**:\n\n```\ntype: ['string', 'object']\n```\n\n修完请一并把它们挂进 `apps/console/src/__tests__/component-input-union-specimens.test.ts`(那个文件已经是标本验收面,每个标本带一条「不命中任何臂仍要报」的对照断言)。\n\n## 为什么单独立卡而不是并进 PR\n\n#3832 的维护者裁定逐字写的是「the five measured specimens」,这两个是本次实施中新测出来的,不在裁定的完成范围内 —— 按 Prime Directive #10 与本轮派发的不扩围要求单独记档,不搭 PR。范围小、判据已经写好,可以直接接批次。\n\n关联:#3832(机制 + 五标本)、#4163(`I18nLabel` 渲染读点审计 —— 与本卡相反的方向:那边是渲染器丢掉映射形态,这两个键的渲染器**已经**解析映射)、#3808、AGENTS.md #0.1"
+}

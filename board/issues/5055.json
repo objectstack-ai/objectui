@@ -1,0 +1,33 @@
+{
+  "number": 5055,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): redirect 的 delayMs 等待改由组件持有,unmount 即取消 (#5033)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T21:04:06Z",
+  "updated_at": "2026-08-17T21:18:19Z",
+  "closed_at": "2026-08-17T21:18:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T21:18:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5055",
+  "body": "Fixes #5033\n\n基线 `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`(即 PR #5041 的 tip)。\n\n## 改了什么\n\n`ObjectForm` 与 `WizardForm` 消费 `submitBehavior: { kind: 'redirect' }` 时,在提交处理器里裸 `setTimeout(() => window.location.assign(verdict.url), behavior.delayMs ?? 0)`:句柄不存、unmount 不清、无人拥有。整个声明延迟窗口内都挂着一次全页导航,而它活得比组件长 —— 用户在确认后关掉 modal/drawer 变体、点了站内链接,或宿主自行重挂子树,都会被一个已不存在的表单的定时器拽走。\n\n等待现在住在以「已裁定目的地」为键的 effect 里,cleanup `clearTimeout`。形状照 `apps/console` 的 `FormPage` 对同一缺陷已落地的 PR #4992:提交臂只记「待定目的地」状态,effect 武装定时器,cleanup 取消。\n\n延迟与目的地在**写入被接受的那一刻**一起被捕获(`{ url, delayMs }` 一个状态),而不是等待时再从 `schema.submitBehavior` 读一遍 —— 被兑现的是写入被接受时声明的那个值,宿主中途以不同 `delayMs` 重渲染无法在用户脚下重启停顿。\n\n## 语义账本(逐条:动了什么、没动什么)\n\n| 项 | 之前 | 之后 |\n| --- | --- | --- |\n| `delayMs` 设了值 | 停顿后导航 | 停顿后导航(不变) |\n| `delayMs` 未设 | `setTimeout(fn, 0)`,即宏任务后走 | 仍是零延迟定时器(状态提交 + effect 后排的同一个 0 定时器);**没有**为了「立即走」改成同步 assign,那才会改时序 |\n| 哪些目的地被跟随 / 被拒绝 | `checkSubmitRedirectUrl` / `resolveSubmitRedirect` 裁定 | 分毫未动 —— #4989 / PR #5032 落地的契约裁定流(verdict 的产生与消费点)一行未改;本 PR 只换「何时导航」的所有权 |\n| 拒绝路径(`!verdict.ok`) | toast + `setSubmitted({ refusal })`,不导航 | 不变(不进 pending 状态,也就没有等待可武装) |\n| unmount 落在延迟窗口内 | 定时器照 fire,全页导航 | cleanup 取消,什么都不发生 |\n| 延迟窗口内二次提交(表单在延迟期间仍挂着) | 两个定时器都排着,两次待定导航 | effect 重跑:先 `clearTimeout` 旧的,再武装新目的地 —— 最后被接受的目的地胜出。附带收益,不是 `delayMs` 语义变更 |\n| 数据 | 等待开始前写入已成功 | 同上;取消等待不会回滚写入(钉子测试顺带断言 `create` 仍是 1 次) |\n\n## 前提复现读数(改动前,基线 dc9d651a2)\n\n新钉子文件先在**未改动**的基线上跑,复现「unmount 后计时器仍 fire」:\n\n```\n❯ src/submitRedirect.timerLifetime.test.tsx (4 tests | 2 failed)\n   × assigns nothing after the form is unmounted mid-delay 771ms\n   × assigns nothing after the wizard is unmounted mid-delay 737ms\n\nAssertionError: expected \"assign\" to not be called at all, but actually been called 1 times\nReceived: 1st assign call: Array [ \"/apps/x/done\" ]\n\n Test Files  1 failed (1)\n      Tests  2 failed | 2 passed (4)\n```\n\n两条 unmount 用例红、配对的「不 unmount」两条绿 —— 与预判一致:缺陷只在生命周期上,功能本身是通的。\n\n## 钉子测试\n\n`packages/plugin-form/src/submitRedirect.timerLifetime.test.tsx`,两组件各一对:\n\n- **unmount 对**:武装延迟 → `unmount()` → 走完真实时钟(声明延迟的 5 倍)→ 断言未发生任何 `assign`,且 `create` 仍是 1 次。\n- **挂载对**(同一 schema,不 unmount):延迟到点后目的地照旧到达,`assign` 恰好 1 次。防止「把功能修没」也拿到绿。\n\n武装本身被**显式观测**:`setTimeout` 套一层 pass-through spy,只记本文件那个独特延迟值(137ms)的调用,`waitFor` 等到武装完成才 unmount。这一条是关键 —— 它保证 unmount 发生在武装**之后**(唯一能falsify任何东西的次序),并且让「什么都没武装」的变异无法用空绿冒充修好。真实时钟而非 fake timers:提交路径是一串 await 的 promise,假时钟会让观测去和 resolution 抢时间而不是和延迟抢 —— 两个既有 redirect 测试文件测 `delayMs` 也是同样理由用真时钟。\n\n`delayMs` 未设的「立即走」不在本文件里和 unmount 对赌:没有可以插进去的窗口,那样的测试量的是调度运气;它由两个组件既有 redirect 文件里的 `navigates to a ruled relative path` 覆盖。\n\n## 反向验证(先书面预判,commit 后变异,`git checkout --` 还原)\n\n| 变异 | 预判 | 实测 |\n| --- | --- | --- |\n| ① 删掉两处 cleanup 的 `clearTimeout` | 恰好两条 unmount 用例红,红在 `expect(assign).not.toHaveBeenCalled()`(收到 `[\"/apps/x/done\"]`);挂载对与既有 redirect 文件全绿 | **完全一致**:`Tests 2 failed \\| 18 passed (20)`,两条 `AssertionError: expected \"assign\" to not be called at all, but actually been called 1 times`,行号 176 / 200 |\n| ② effect 依赖键改成恒空数组 `[]` | 方向**不是**读者预期的那个:等待压根不武装,于是**四条全红**,且全红在 `armed.length` 而非任何 `assign` 断言上 —— unmount 对也红,因为「已武装」在本文件是前置条件不是假设;既有两个 redirect 文件的导航用例一并红 | **完全一致**:`Tests 13 failed \\| 7 passed (20)`。我的四条全部 `AssertionError: expected +0 to be 1`,同一行 `timerLifetime.test.tsx:161`(即 `waitUntilArmed`);另外 9 条是两个既有文件的 `expected \"assign\" to be called with arguments: [ … ]` |\n| 还原后 | 全绿 | `Test Files 3 passed (3) / Tests 20 passed (20)` |\n\n②的方向已写进测试文件头注:一个悄悄把 redirect 删掉的变异**买不到**绿的 unmount 用例,这正是显式观测武装的目的。\n\n## 验证\n\n- 依赖构建:`pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-form^...' build` → Done\n- 包全量(仓根,路径过滤):`pnpm exec vitest run packages/plugin-form --maxWorkers=2` → `Test Files 52 passed (52) / Tests 539 passed (539)`\n- 仓根类型检查:`pnpm exec turbo run type-check --concurrency=2` → `Tasks: 81 successful, 81 total`,exit 0\n- `pnpm --filter @object-ui/plugin-form lint` → `0 errors`(576 个既有 `any` warning,与本改动无关)\n- `node scripts/check-control-bytes.mjs` → OK(4505 个文件);改动文件另做 `grep -naP` 自扫,零命中\n\n一切测试读数取自**仓库根目录**的规范跑法(AGENTS.md §怎么跑测试)。派发单里「若 setupFiles 是 cwd 相对路径就 cd 进包跑」这条没有用到:仓根跑法下本文件由根 `dom` project 收集(用根 setup),不需要绕过 `vitest-invocation-guard`。\n\n## 顺手发现(未在本 PR 修)\n\nfiled as #5049:`EmbeddableForm.tsx` 的 thank-you redirect 是**同一缺陷类的第三个调用点**(`thankYouPage.redirectUrl` / `redirectDelay`,默认延迟 3000ms),而且它连 unmount 都不需要 —— `allowMultiple` 的 `Submit Another Response` 按钮只把 `submitted` 翻回 false,待定导航照旧走完,用户正在重填第二份时整页被丢掉。#5033 的卡片只点名 `ObjectForm.tsx` / `WizardForm.tsx`,该处配置键与 host 白名单契约(`isRedirectUrlSafe` / `allowedRedirectHosts`)都是另一套,故按范围纪律另立卡片,本 PR 原样未动。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

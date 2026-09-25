@@ -1,0 +1,33 @@
+{
+  "number": 5129,
+  "kind": "pull_request",
+  "title": "feat(react): 未求值的 ${…} 到达 DOM 时给出开发期响亮诊断 (#4795 方向 3)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T03:24:56Z",
+  "updated_at": "2026-08-18T03:43:01Z",
+  "closed_at": "2026-08-18T03:43:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T03:43:00Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5129",
+  "body": "Part of #4795 —— 维护者裁定(评论 5312061331)的**方向 3**,render-time 半边。\n\n## 做了什么\n\n在 `SchemaRenderer` 渲染路径上加一条**仅开发构建**的响亮诊断:当一个**未求值的 `${…}`** 即将被原样交给 renderer / 展开进 DOM 时,`console.error` 点名 —— 节点 `type` 与 `id`、残留所在的键(按作者书写的通道拼写)、表达式原文,以及当下真正走得通的通道。\n\n- ⛔ **不改变任何求值行为**。诊断只读:不写 schema、不加 DOM 属性(所以快照不动)。\n- ⛔ 不实现方向 1(声明式文本键求值集),措辞也不预告它。\n- ⛔ 方向 2 按裁定永久否决,未触碰。\n- 生产零开销:整个模块挂在模块加载期的 `NODE_ENV` 常量之后,打包器直接折叠掉这个分支。\n\n## 前提复测(基线 `0046d8f8c`,含 PR #5122)\n\n卡面表格在新基线上**逐行实测**(真 renderer,`dataSource: { total: 99, n: 99 }`):\n\n| 写法 | 实测渲染 | 诊断 |\n|---|---|---|\n| `{ type: 'ui:statistic', value: '${data.n}' }` | 字面量 `${data.n}` 上屏 | 响 ✅ |\n| `{ type: 'ui:card', title: '${data.total}' }` | 字面量上屏,并落成 DOM 属性 `title=\"${data.total}\"` | 响 ✅ |\n| `{ type: 'ui:button', label: '${data.total}' }` | 字面量上屏 | 响 ✅ |\n| `{ type: 'ui:statistic', props: { value: '${data.n}' } }` | **空白**(求出了 99,落成 React prop,而 renderer 读 `schema.value`) | 静默 —— 见下「不覆盖的那一类」 |\n| `{ type: 'ui:statistic', properties: { value: '${data.n}' } }` | **`99`** | 静默 ✅ |\n| `{ type: 'ui:text', content: 'Total: ${data.total}' }` | `Total: 99` | 静默 ✅ |\n\n成因判断复核通过:evaluation memo 处理 `content`、`properties.*`、`props.*` 与谓词键,`title` / `label` / `value` / `description` 原样透传(`SchemaRenderer.tsx` 求值 memo)。\n\n### ⚠️ 请维护者过目:卡面标题那句话已被 #5122 改变\n\n卡面写的是「**除 `content` 外没有任何文本键既被求值又被读回**」。在含 PR #5122 的新基线上**这句已不再成立**:写成 `properties` 信封时,`value` / `title` / `label` 三个键**都**既被求值又被读回(实测均为 `99`)—— 因为 #5122 让 `properties.*` 参与求值,而既有的 hoist 又把**求值后**的值抄到节点顶层,正好是 `StatisticRenderer` / `CardTitle` / `Button` 读的位置。\n\n这条是裁定(2026-08-17)之后才由 #5122 造成的新事实,因此**诊断文案里我没有写它**:裁定原文把可用通道列为「`content`, or host pre-resolution」,而「`properties` 信封是不是 `ui:*` 的正式创作面」是契约/教学面判断(#4786 刚把 `props` 信封这个 workaround 从教学面撤掉),属维护者的裁量,不该由我在一条诊断消息里替仓库定下来。请裁:文案是否加上 `properties`。\n\n### 不覆盖的那一类(如实记录)\n\n`props` 信封那一行(求值了但读不回 → 渲染成空白)诊断**不响**,而且按定义响不了:那里根本没有未求值的 `${…}` 到达 DOM,值已经变成 `99` 了,只是落错了地方。裁定的方向 3 只认「未求值的 `${…}` 到达 DOM」,所以这一类不在本 PR 的射程内 —— 它是卡面的另一半,随方向 1 / 契约裁量走。\n\n## 设计取舍\n\n**挂点**:放在 metadata 解构**之后**,扫 `componentProps`。那正是离开本组件去 DOM 的那组值(下面被展开成 React props,renderer 也从 `schema.` 加同名键读到同一批)。解构剥掉的全是 schema **元数据** —— `visible` / `visibleWhen` / `hidden` / `disabled` / … 按设计就装着**原始谓词源码**(它们被当条件求值,从不被放置)。所以**剥离清单天然就是诊断的排除清单**,不需要第二份会漂移的副本。这条不是注释里的说法,有 7 条钉盯着(见反向验证 (c))。\n\n**深度**:与求值**完全同深** —— 只扫一层。嵌套的 `aria: { label: '${…}' }` 今天保留原文是**既定决定**(#4799 在两个信封上都钉住了这个浅层性),再深一层就会把仓库尚未决定要改的形态报成缺陷,诊断就比它所代表的契约更吵。求值哪天变深,这个扫描跟着变深,不提前。\n\n**表达式的定义**:复用求值器自己的 `\\$\\{([^}]+)\\}` —— 少一个字符的 `${}` 与未闭合的 `${` 对求值器都不是表达式(实测:原样返回),对诊断也就不是。这是把散文和代码示例挡在诊断之外的关键。\n\n**开销**:每节点每渲染一次浅遍历 + `includes('${')`,仅 dev;命中后按 schema 对象 `WeakSet` 去重(与同文件 `validateSchemaOnce` 同一套路),重渲染不刷屏。\n\n## 测试\n\n`packages/react/src/__tests__/SchemaRenderer.unevaluatedExpressionDiagnostic.test.tsx`,25 钉:\n\n- (a) 顶层 `value` / `title` / `label` / `description` 字面量 ⇒ 响,且**值照旧字面量渲染**(证明只读);消息点名 type / id / 键 / 表达式原文。\n- (b) `content`、`props`、`properties` 正常求值 ⇒ 静默;静态值 ⇒ 静默;**表达式求值成空(数据缺失)⇒ 静默**(缺数据不是本缺陷)。\n- (c) `NODE_ENV=production` ⇒ 零输出,缺陷本身照旧存在。\n- (d) 诊断器自身的正向守卫:扫描器与消息都是纯函数并被直接断言 —— 参照 #5092 的教训,只钉「spy 被调用过」的诊断在被 no-op 化那天就会变绿。\n- 另有 7 条谓词键静默钉、2 条深度边界钉、1 条求值抛错残留钉(`${1 +}` 经 `ExpressionEvaluator` 原样返回)。\n\n**假阳性普查**:把诊断临时改成落盘记录(绕开测试里的 console mock),跑遍消费半径 —— `react` + `components` + `fields` + `plugin-dashboard` + `plugin-grid` + `plugin-list`,**488 文件 / 5682 测试全绿**,共 9 次触发,**全部来自我自己的测试与探针文件,既有测试零假阳性**。\n\n```\n Test Files  488 passed (488)\n      Tests  5682 passed (5682)\n```\n\n仓根 `type-check` **81/81**;eslint 改动文件 **0 errors**(23 条 `no-explicit-any` warning,与周边同款);`check-control-bytes` OK,另做了控制字节自扫。\n\n## 反向验证(先书面预判,再跑;四条全部与预判一致,无反转)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| (a) 摘掉调用点 | 4 条 render 级钉红,9 条纯函数钉**照绿** | `4 failed \\| 21 passed`,正是那 4 条 |\n| (b) 把收集器 no-op 化 | 上述 4 条 **+ 2 条纯函数钉**红(#5092 教训) | `6 failed \\| 19 passed`,正是那 6 条 |\n| (c) 把扫描挪到 metadata 解构**之前** | 7 条谓词钉红(证明「剥离清单=排除清单」是承重的) | `7 failed \\| 18 passed`,正是那 7 条 |\n| (d) 正则放宽成 `[^}]*` | 恰好 1 条(`${}` 那条)红 | `1 failed \\| 24 passed` |\n\n## 留后续\n\n**publish-time 半边不做**:侦查后自然挂点落在 CLI 校验器文件,#5115 席正在飞,按不撞文件纪律留给后续,在此如实记录。\n\n方向 1 的重启条件在裁定评论 5312061331 第 2 条(*第一个真实的 schema 编排仪表盘需求撞上这个缺口*),本 PR 未预告、未实现。**是否关卡留给 PM 验收时定** —— 卡面还载着方向 1 的重启条件。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

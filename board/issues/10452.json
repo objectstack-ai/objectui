@@ -2,24 +2,30 @@
   "number": 10452,
   "kind": "pull_request",
   "title": "docs(schema-reference): dashboard widgets teach layout and type + options, not colSpan / rowSpan / body",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
   "labels": [],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-25T02:01:27Z",
-  "updated_at": "2026-09-25T02:01:53Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
-  "comments": 1,
+  "updated_at": "2026-09-25T03:03:57Z",
+  "closed_at": "2026-09-25T02:56:24Z",
+  "closed_by": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "merged_at": "2026-09-25T02:56:23Z",
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/10452",
   "body": "Fixes #8290\nClause-②: no — documentation only: it stops a published page from teaching keys (`colSpan`, `rowSpan`, `body`) that the strict `DashboardWidgetSchema` refuses by name. No schema, export or accept set moves.\n\n## What changed\n\n`content/docs/api/schema-reference.md`, the `DashboardComponentSchema` section only (JSON example, `widgets` row, prose under the table), plus one empty-frontmatter changeset.\n\n- **Example.** Each widget sizes itself with `layout: { x, y, w, h }` instead of `colSpan` / `rowSpan`, and holds its content as a family in `type` with settings under `options` (`metric`, `list`), or as a registered component node in `component` (the `chart` widget) instead of `body`.\n- **`widgets` row.** The type column names both arms of the slot as landed by objectui#7952 (component arm first, as on both faces): `(DashboardWidgetSlotComponentSchema | DashboardWidgetSchema)[]`. The description names `layout`, `type` + `options`, `component`, and the component-node arm.\n- **Prose.** Says what `layout` is (all four numbers or none), that `colSpan` / `rowSpan` / `body` are refused by name (objectui#6002), what each family reads from `options`, and that a `metric` widget's caption is `options.description`.\n\nThe seconds half of the card was already discharged at base `cc4366d`: the row reads `refreshIntervalSeconds` (\"Auto-refresh interval in **seconds**\", objectui#7783), the example writes `\"refreshIntervalSeconds\": 30`, and both renderers compute `schema.refreshIntervalSeconds * 1000` (`DashboardRenderer`, `DashboardGridLayout`). Not redone.\n\n## Parse evidence (scratch harness, source zod faces, not committed)\n\nThe harness takes the first `json` fence under `### DashboardComponentSchema` in the file it is given and parses it.\n\nControl, base `cc4366d` copy of the page:\n\n```text\nDashboardComponentSchema.safeParse(example) success=false\n  node issue code=invalid_union path=[\"widgets\",0]  msg=Invalid input\n  node issue code=invalid_union path=[\"widgets\",1]  msg=Invalid input\n  node issue code=invalid_union path=[\"widgets\",2]  msg=Invalid input\n  widget id=revenue DashboardWidgetSchema success=false unrecognized_keys keys=[\"colSpan\",\"rowSpan\",\"body\"] path=[]\n  widget id=chart DashboardWidgetSchema success=false unrecognized_keys keys=[\"colSpan\",\"rowSpan\",\"body\"] path=[]\n  widget id=tasks DashboardWidgetSchema success=false unrecognized_keys keys=[\"colSpan\",\"rowSpan\",\"body\"] path=[]\n```\n\nThis branch, head `5eca3f2`:\n\n```text\nDashboardComponentSchema.safeParse(example) success=true\n  widget id=revenue DashboardWidgetSchema success=true\n  widget id=chart DashboardWidgetSchema success=true\n  widget id=tasks DashboardWidgetSchema success=true\nchart widget component -> ChartSchema.safeParse success=true keys=[\"type\",\"data\",\"chartType\",\"series\",\"xAxisKey\"]\n```\n\nProse probes: `area` / `bar` / `line` / `pie` / `metric` / `list` / `table` / `metric-card` are all members of `DashboardWidgetTypeSchema`, and a widget with `layout: { w: 2, h: 1 }` is refused `invalid_type` at `layout.x` and `layout.y`.\n\nTypeScript face: I pasted the example into a scratch file as `const doc: DashboardComponentSchema = …` (imported from `packages/types/src/complex`) and ran `tsc --strict`. The new example produces 0 diagnostics in that file. The base example produces 3 (TS2322, one per `body`). Both runs also show the same 2 environment-only diagnostics in `complex.ts`, \"Cannot find namespace 'React'\", which come from `--ignoreConfig`.\n\n## Gates (local, head `5eca3f2`)\n\n- `check-changeset-presence`: exit 0. It prints \"✅  No source or published contract of a released package changed in this range, so no changeset is owed.\" The added changeset is the empty-frontmatter declaration.\n- `check:doc-types`: exit 0, \"✅  Every documented component type is registered.\"\n- `check-prompt-component-keys`: exit 0.\n- `check:doc-fences --self-test` and `check:doc-fences`: both exit 0.\n- `check:doc-example-ids`: exit 0, \"✅ 414 real reference(s) all resolve in the catalog registry.\"\n- `check:new-line-citations`: exit 0, \"VERDICT new-cross-file-line-citations: 0 new citation(s), enforcement report-only -> exit 0\".\n- `check:control-bytes`: exit 0.\n- `check-doc-links`: exit 0, \"Links are valid across 17 scan roots.\"\n- `check-changeset-no-major`: exit 0.\n- `check-changeset-overwrite`: exit 0.\n- `check:pending-changeset-literals`: exit 0.\n- `check:changeset-claims` (report-only): exit 0. 14 pending changesets name this file, and none of them mentions the dashboard section.\n- `check-doc-expression-carriage` (report-only): exit 0. Its one site on this page is in the ActionSchema section, which already existed and is outside this diff.\n- Tests that read this page, run under the verify lock: `pnpm exec vitest run` on 8 files (4 `packages/types` pins that read `schema-reference.md`, the zod mirror parity suite, and `check-doc-component-types` / `check-doc-links` / `component-node-vocabulary-7434` under `scripts/__tests__`). Result: \"Test Files 8 passed (8) · Tests 557 passed (557)\", lock verdict \"VERDICT command-exit 0\".\n- NOT MEASURED: `check:doc-snippets` / `check:doc-examples`. The gate exits 2 because the packages it reads are unbuilt. `doc-snippets` compiles only ts/tsx fences, and this diff changes one `json` fence and prose. `doc-examples` reads JSDoc in `packages/*/src`, and this diff touches no source. Build Docs, lychee external links and the docs route closure are left to CI.\n\n## Deviation: the chart widget uses the `component` slot\n\nMy first commit (`13b194c`) wrote the chart as `\"type\": \"area\"` + `options`. `check:doc-types` rejected it: `unregistered-doc-type ... type 'area' (json)`. No spec chart family is a registered component key. A shorthand chart family inside a docs code block therefore needs a `DOC_TYPE_EXEMPTIONS` entry in `scripts/check-doc-component-types.mjs`, which is outside this claim's file surface. The chart widget now puts its `chart` node in `component`. That form is legal on this node and needs no exemption. It also means the example shows both content forms the row names. The prose teaches the chart families' `options` keys. If the seat prefers the shorthand chart in the example, the follow-up is one exemption entry of the same kind the `guide/dashboard-filters.md` `bar` / `line` entries already are.\n\n## Acceptance notes\n\n- My hunks are near the `DashboardComponentSchema` heading. Draft PR objectui#8941 edits this file near line 684, so the two do not overlap.\n- Zero label writes. objectui path labels come from `labeler.yml`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014mXUNuFomfj24w7s1pZzhN)_\n"

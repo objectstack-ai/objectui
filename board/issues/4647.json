@@ -1,0 +1,34 @@
+{
+  "number": 4647,
+  "kind": "issue",
+  "title": "Grid toolbar inline-edit toggle is not gated on `can(object, 'update')`; `userActions.editInline` is declared in spec but has no consumer",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-14T15:10:17Z",
+  "updated_at": "2026-08-18T05:20:42Z",
+  "closed_at": "2026-08-18T05:20:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4647",
+  "body": "## Summary\n\nTwo related gaps around list-view inline editing, observed on `@objectstack/console@17.0.0` (stable):\n\n1. The list toolbar's inline-edit toggle (`toolbar-inline-edit-toggle`) renders for **every** user, with no object `update` permission gate.\n2. `ListViewSchema.userActions.editInline` (spec `ui/view.zod.ts`, boolean) is declared but consumed nowhere in console — so authors cannot even switch inline editing off wholesale.\n\n## Gap 1: no permission gate on the toggle\n\nRender condition, verified in the console dist (plugins-views chunk):\n\n```\nviewType === 'grid' && onInlineEditChange callback present && !compactToolbar\n```\n\n…and the host passes `onInlineEditChange` **unconditionally**. There is no `can(object, 'update')` anywhere in this path. In the **same component**, the bulk-delete entry is gated with `can(obj, 'delete')` — inline edit is the one affordance on the toolbar without a permission check.\n\n### Consequence (tested with a read-only role)\n\nAn account without `update` permission on the object can:\n\n1. flip the toggle and enter inline-edit mode,\n2. modify cells,\n3. click **Save all**,\n\n…and is only stopped by the server-side **403**. No data lands (the server gate is solid — this is not a security issue), but the UI walks the user through a full editing round-trip that is guaranteed to fail. It is also inconsistent: on the very same toolbar, **New** and **Import** are correctly hidden for this account by permission — inline edit alone remains available.\n\n## Gap 2: `userActions.editInline` has zero consumers\n\nAcross the entire console dist, `editInline` appears only as an i18n label key. The spec-declared `ListViewSchema.userActions.editInline` boolean is never read — declared-but-inert metadata: a view author cannot disable inline editing even unconditionally.\n\n## Expected\n\n1. Gate the inline-edit toggle on `can(object, 'update')`, aligned with the existing practice in the same bundle (record-detail `showEdit`, related-list edit affordances).\n2. Consume `userActions.editInline` so the declared switch actually controls whether the toggle is offered.\n\n## Related (same family, different surfaces — all fixed)\n\n- #4096 — row kebab built-in Edit/Delete gated on `apiOperations` instead of the caller's permission (fixed in PR #4108). Same \"missing permission gate on one affordance while siblings have it\" shape; this issue is the toolbar-inline-edit member.\n- #3492 — bulk action buttons ignored `requiredPermissions`.\n\nDownstream tracking: steedos-labs/os-project-titanwind-ehr#1071 (private repo; covers gap 1)."
+}

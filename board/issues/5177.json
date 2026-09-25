@@ -1,0 +1,34 @@
+{
+  "number": 5177,
+  "kind": "issue",
+  "title": "finding(plugin-view/plugin-list): the map flattener spreads an untyped `options.map` bag to the top level, so it can emit keys `FlatMapConfigKeys` declares OUT of the flat form (`style` is the live specimen)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T09:08:11Z",
+  "updated_at": "2026-08-18T19:54:32Z",
+  "closed_at": "2026-08-18T19:54:32Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5177",
+  "body": "Found while implementing #5017 (PR #5175). Filed unassigned, not claiming. Observation class — after PR #5175 nothing a user hits today; recording the producer half so it does not decay.\n\nRelated: #5017 / PR #5175 (the consumer half), #5042 (the view-level `map` block forwarding), #5156 (which introduced the declaration this contradicts).\n\n## 现象\n\n`ObjectView.tsx` `case 'map'` 与 `ListView.tsx` `case 'map'` 都用**内容平铺**构造 object-map schema:\n\n```ts\ncase 'map':\n  return {\n    type: 'object-map',\n    ...baseProps,\n    locationField: viewOptions.map?.locationField || 'location',\n    ...(viewOptions.map || {}),      // ← 整包摊开,不筛键\n  };\n```\n\n`viewOptions` 是 `currentNamedViewConfig?.options || activeView || {}`,而 `NamedListView.options?: Record< string, any >` —— 一个无类型口袋。所以 `map` 块里写什么键,就有什么键落到顶层。\n\nPR #5156 同时把这个内部传输形**声明**了出来,并且明确排除了一个键:\n\n```ts\n// packages/plugin-map/src/ObjectMap.tsx\ntype FlatMapConfigKeys = Omit< ObjectMapConfig, 'style' >;\n```\n\n于是声明与生产在同一件事上不一致:声明说摊平形不含 `style`,生产端却照样把它摊出去。\n\n## 实测(worktree `claude/issue-5017-style-leg`,基线 `7956b9c25`)\n\n按 PR #5156 新钉 `ObjectView.mapFlatten.test.tsx` 的手法写的探测(临时文件,未入库):\n\n```\nviews[].map = { latitudeField, longitudeField, style: 'https://tiles.example.com/style.json' }\n  flatten product keys: [..., \"locationField\",\"latitudeField\",\"longitudeField\",\"style\"]\n  top-level style: \"https://tiles.example.com/style.json\"\n  has map key: false\n```\n\n`style` 之所以是活标本,是因为它同时是 `BaseSchema.style`(内联 CSS record,每个节点合法可写)。摊平把两个命名空间压到了一起:`map` 块里 CSS 无关的 `style`,落到顶层就撞上基面语义的 `style`。这正是 #5017 在消费端的那半 —— PR #5175 已删掉消费腿并加了 dev 诊断,所以今天不再有人被静默误读;剩下的是生产端仍在发一个声明面已经排除的键。\n\n## 为什么现在只算 finding\n\n- **spec 面本来就不授权**:pinned `@objectstack/spec@17.0.0` 的 `ListViewSchema` / `ObjectListViewSchema` 是 strict,根本没有 `map` 块,连 `options` 键、`type: 'map'` 都不接受 —— 这样的视图 metadata 直接 `unrecognized_keys` 校验失败。\n- **将来也不会授权 `style`**:#5042 记录的 spec 侧新块 `ListMapConfigSchema`(objectstack#9340 / #9370)是 strict 的七键 —— `latitudeField` / `longitudeField` / `locationField` / `titleField` / `descriptionField` / `zoom` / `center` —— 不含 `style`。\n- PR #5175 之后,顶层字符串 `style` 到达消费端会有 dev 警告点名正确拼法,不再静默。\n\n所以这是「声明与生产漂移」,不是今天的用户可见缺陷。\n\n## 可能的修法(供分诊定向,未实施)\n\n1. 摊平时**按 `FLAT_MAP_CONFIG_KEYS` 白名单挑键**,而不是整包 spread —— 声明即生产,新增键必须同时进声明。\n2. 摊平时把 `map.style` 翻译成顶层 `mapStyle`(保住作者意图,同时不跨命名空间)。\n3. 等 #5042 落地后改为**整块转发** `map`(不再摊平),命名空间碰撞自然消失 —— 但 #5042 的范围只覆盖 `ListView`,`ObjectView` 的摊平不在其内,所以这条不能自动解决全部。\n\n半径提示:两个文件都在 #5042 的热区附近,派发时宜与 #5042 串行。"
+}

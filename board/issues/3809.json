@@ -1,0 +1,34 @@
+{
+  "number": 3809,
+  "kind": "issue",
+  "title": "parity 门只比键名,`retiredKey()` 墓碑会被判成「spec 接受」—— 今天 pin 版零墓碑所以休眠,spec pin 一升就是门里的假绿(`page:card.body` 是现成标本)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:21:47Z",
+  "updated_at": "2026-08-17T12:37:43Z",
+  "closed_at": "2026-08-17T12:37:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3809",
+  "body": "发现于 #3797 / PR #3806 的实施过程,是**我自己刚落的那道门**的一个盲区,写出来免得下一个人踩。今天不成立(见下),按 observation-class 只贴 `finding`、不排队,请 triage 决定级别 —— 但它成立的那一刻是**门给出错误的绿**,不是漏报一个键,所以别按「小事」放过。\n\n## 机制\n\nPR #3806 的门这样算「spec 接受的顶层键」:\n\n```\nObject.keys(ComponentPropsMap[type].shape)\n```\n\n`@objectstack/spec` 退役一个键的做法(ADR-0087 D2)不是从 shape 里删掉,而是换成墓碑 —— `packages/spec/src/shared/retired-key.ts`:\n\n```\nexport function retiredKey(guidance: string) {\n  return z.never({ error: () => guidance }).optional().describe(`[REMOVED] ${guidance}`);\n}\n```\n\n墓碑**仍然是 shape 里的一个条目**,所以 `Object.keys(shape)` 照样包含它。于是一个被 spec **按名拒绝**的键,在门看来是「已声明、接受」——`declares no top-level input the spec does not accept` 会绿。这是那道门唯一能给出的错误绿:它的失效方向本来只有漏报,加上墓碑就多了一个误判。\n\n## 今天为什么不成立\n\npin 版 `@objectstack/spec@17.0.0-rc.5` 的 `packages/spec/src/ui/component.zod.ts` 里 `retiredKey` 出现 **0 次**(实测 `grep -c`),所以 `ComponentPropsMap` 的 31 个条目现在一个墓碑都没有,门当前的每一条判定都是对的。这也是本单不排队的理由。\n\n## 什么时候成立,以及现成的标本\n\nobjectstack `origin/main`(@ `ea1d9165d`)那同一个文件里**已经有 5 个以上墓碑**,而其中一个正好压在本仓已发布的键上:\n\n- `PageCardProps.body` —— objectstack#5775 把它退役了,收敛到 `children`(理由:`body` 是「其他所有容器都叫 `children` 的那个组合槽」的第二种拼法,而渲染器两个都读)。\n- 本仓 `page:card` 的 `inputs`(`packages/components/src/renderers/layout/containers.tsx:703-706`)声明的是 **`body`**,**没有** `children`。渲染器 `containers.tsx:678` 读的是 `schema?.body ?? schema?.children`。\n\n所以 spec pin 从 `17.0.0-rc.5` 升上去的那一刻:\n\n1. `page:card` 的 `inputs` 在发布一个 spec 已按名拒绝的键;\n2. PR #3806 的门会**报绿**,因为 `body` 还在 shape 里;\n3. objectstack 侧 `validateComponentProps` 会对写了 `properties.body` 的页面报 warning —— 又是「两个平台权威对同一个键互相矛盾」,正是 #3797 要消掉的那件事,只是这次门看不见。\n\n`element:record_picker` 的 `displayField` / `searchFields` / `multiple` 同样是墓碑,不过本仓不声明它们,所以不产生假绿。\n\n## 建议的落地\n\n1. **门补墓碑识别**:把「spec 接受的键」从「shape 的键名」收紧为「shape 里**不是墓碑**的键名」。两条可行的判据,建议用前者、后者兜底:\n   - 结构判据:剥掉 `.optional()` 包装后 inner type 是 `never`;\n   - 文本判据:`.description` 以 `[REMOVED]` 开头(`retiredKey` 固定加这个前缀)。\n\n   补完之后 `page:card.body` 会在 pin 升上来的同一次改动里立刻变红,而不是静默通过。顺带值得加一条断言把这个前提本身钉住(「墓碑确实还留在 shape 里」),否则哪天 spec 改成真删键,这段识别代码就成了没人知道已经失效的死码。\n\n2. **`page:card` 的 `body` → `children` 逐块处置**:按 #3797 的同一套两向判定做。注意渲染器两个都读,`body` 优先,所以撤声明面(改成 `children`)不动运行时,是和 PR #3265 (`page-header` 的 `description`) 完全同形的一步;运行时那条 `??` 什么时候能删,取决于上游 conversion 条目是否覆盖到位(参考 objectstack#6775 —— `conversions:page-component` 只走 `regions[].components[]`,`slots.*` 与容器嵌套漏改)。\n\n时序上 1 和 2 可以一起做,也可以 1 先落(它无条件成立,且能保证 2 一旦漏做就在 pin 升级时红)。\n\n参考位置:\n\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` —— `specTopLevelKeys()`,PR #3806 落的门\n- `packages/components/src/renderers/layout/containers.tsx:678`(读)/ `:703-706`(声明)\n- objectstack `packages/spec/src/shared/retired-key.ts`、`packages/spec/src/ui/component.zod.ts` 的 `PageCardProps`\n\n关联:#3797 / PR #3806、objectstack#5775、objectstack#6776、objectstack#6775、ADR-0087 D2\n"
+}

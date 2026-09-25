@@ -1,0 +1,34 @@
+{
+  "number": 4797,
+  "kind": "issue",
+  "title": "`list` 从不渲染 `children`,且全仓不存在 `item` / `index` 迭代作用域 —— schema-expressions.md 的「Iteration scopes」整节是空头支票",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-16T08:38:41Z",
+  "updated_at": "2026-08-18T14:13:50Z",
+  "closed_at": "2026-08-18T14:13:50Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4797",
+  "body": "发现于 #4786 的实施,真实 SchemaRenderer 探针实测。\n\n## 教学面的承诺\n\n`skills/objectui/guides/schema-expressions.md` 的 \"Iteration scopes (loops)\" 一节写着:\n\n> Components like Grid, List, and Table inject scoped variables for each item\n> ... Inside the loop body, `item` refers to the current element and `index` to its 0-based position.\n\n并给出 `{ \"type\": \"list\", \"bind\": \"users\", \"children\": [ { \"type\": \"card\", ... \"${item.name}\" } ] }`。\n\n## 实测:两条都不成立\n\n```\n@@PROBE list/children-toplevel  text=\"\"   ({type:'list',bind:'users',children:[{type:'text',content:'X'}]}, users=2 条)\n@@PROBE list/items-as-nodes     text=\"AdaLinus\"   ({type:'list',items:[{content:'Ada'},{content:'Linus'}]})\n```\n\n第一行:绑定了 2 条数据,渲染出 2 个**空** `li`,`children` 一次都没进去。\n\n## 成因(读码)\n\n`packages/components/src/renderers/data-display/list.tsx` 的 render body:\n\n```tsx\n{items.map((item: any, index: number) => (\n  <li key={index} className={cn(typeof item === 'object' && item.className)}>\n    {typeof item === 'string' ? item : item.content || renderChildren(item.body)}\n  </li>\n))}\n```\n\n它把**绑定到的数据条目本身**当作 schema 节点渲染(读 `item.content` / `item.body`),完全不看 `schema.children`。所以 `list` 是\"数据即节点\"的形态,不是\"模板 + 迭代\"的形态。\n\n而 `item` / `index` 作用域:`ExpressionEvaluator` 在 `packages/react/src/SchemaRenderer.tsx` 里的 scope 是 `{ ...predicateScope, current_user, data: dataSource, page: pageVariables }` —— 没有 `item`,也没有 `index`。全仓 grep 不到任何往求值作用域注入 `item:` / `index:` 的地方。\n\n## 为什么 #4786 没有顺手改\n\n#4786 的范围是拆 `props` 信封。这一节的示例确实带信封,但**信封不是它的病根**:把 `title` 提到节点上,`${item.name}` 既不会被求值(#4795)、`children` 也根本不会被渲染 —— 改完会变成一个\"看起来修好了、其实照样空白\"的示例,比原样更难被发现。故 #4786 的 PR **刻意保留了这一处信封原样**,并在其甄别表里指向本单。\n\n## 修法方向(需裁决)\n\n1. 实现迭代:给 `list`(以及 prose 里点名的 Grid / Table)加真正的模板迭代 + `item`/`index` 作用域注入。这是新能力,不是修 bug。\n2. 收缩文档:删掉「Iteration scopes」整节,改为如实描述 `list` 的\"数据即节点\"形态。\n\n哪条都不该由实施 agent 自己猜 —— prose 承诺的是能力 1,代码实现的是形态 2。\n\n## 参考\n\n- #4786(发现来源)、#4795(同批发现的求值/读回缺口,本单示例同时踩中)\n"
+}

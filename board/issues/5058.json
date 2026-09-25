@@ -1,0 +1,36 @@
+{
+  "number": 5058,
+  "kind": "issue",
+  "title": "plugin-gantt README 的 onTaskUpdate 示例在进度拖拽时写入 undefined 日期 —— changes 是 Partial,块内注释却断言 start/end 必为 Date",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T21:34:06Z",
+  "updated_at": "2026-08-17T22:26:00Z",
+  "closed_at": "2026-08-17T22:26:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5058",
+  "body": "发现于 #5012 的实施(plugin-gantt README 两处虚构导入)。Filed unassigned, not claiming.\n\n与 #5012 **同文件但第三种性质**:#5012 是名字不存在(TS2305),#5057 是 schema 键不存在(静默空图),本单的名字和键**全是真的** —— 错的是**可选性**,以及块内注释对它的断言。名集合核对与「把块喂 tsc」两道检查都看不见这一类:在一个宽松的 `save()` 签名下这个块是编译通过的。与 #5016 → #5048 的分工同形。\n\n测于 `origin/main` @ `f331f5a8bdb728039519ace070f6433f597e0dd4`。\n\n## 现象\n\n`packages/plugin-gantt/README.md`,\"Drag-and-drop rescheduling\" 一节(#5012 PR 后 `:66-73`):\n\n```tsx\n< GanttView\n  tasks={tasks}\n  onTaskUpdate={(task, { start, end }) => {\n    // start/end are JS Date objects already snapped to whole days,\n    // and the resize-left/right cases clamp so end - start >= 1 day.\n    save(task.id, { start, end });\n  }}\n/>\n```\n\n那条注释对 `start` / `end` 的断言两层都不成立。\n\n**类型层。** `GanttViewProps.onTaskUpdate`(`packages/plugin-gantt/src/GanttView.tsx:345`)的第二参是\n\n```\nchanges: Partial< Pick< GanttTask, 'title' | 'start' | 'end' | 'progress' > >\n```\n\n所以解构出来的 `start` / `end` 是 `Date | undefined`,不是 `Date`。读者若按注释把它们喂给一个要求必填 `Date` 的函数,拿到的是 TS2322 ×2(实测:把 `save` 声明成 `(id, { start: Date; end: Date })` 后该块编译报错两处,正是 `start` 与 `end`)。\n\n**运行时层,这一层更要紧。** 同一个 `onTaskUpdate` 不只服务拖拽。`GanttView.tsx:1335`,进度拖拽提交:\n\n```ts\nif (task && onTaskUpdate) commitTaskUpdates([{ task, changes: { progress: cur.value } }]);\n```\n\n`changes` 里**没有** `start` / `end`。`commitTaskUpdates` 原样转发(`:1089` `onTaskUpdate(task, changes)`),于是一个只接了 `onTaskUpdate` 的宿主,照抄这个块之后每次用户拖进度圆点都会调用\n\n```\nsave(task.id, { start: undefined, end: undefined })\n```\n\n也就是把两个日期字段写成空。README 前文 `:62-64` 正是教「嵌 `< GanttView >` 时传 `onTaskUpdate` 来开启拖拽」,而进度拖拽并不需要额外开关,所以这条路径是默认可达的,不是边角配置。\n\n(其余提交路径的形状,供改写时参考:拖拽/缩放走 `computeDragChanges` 带 `start`+`end`;行内编辑 `:3646` 带 `title`+`start`+`end`+`progress` 四个;撤销/重做 `:1185` 回放的是记录下来的键集;自动排期 `:2911` 带日期。只有进度拖拽是纯 `{ progress }`。)\n\n## 修法(需裁定的一点)\n\n块内应当按 `changes` 的真实形状取值,例如只在两者都在时才写回:\n\n```tsx\nonTaskUpdate={(task, { start, end }) => {\n  if (!start || !end) return;   // progress / title 提交不带日期\n  save(task.id, { start, end });\n}}\n```\n\n要裁的是**注释怎么改**:是像上面那样只演示日期分支并说明其他提交形状,还是把这个块扩成一个按键分派的完整示例(日期 / 进度 / 标题各一路)。前者最小,后者更贴合「这个回调是所有编辑路径的单一出口」这个事实 —— 交分诊定。\n\n顺带:同一节的散文说「On release `ObjectGantt` issues an optimistic local patch and a `dataSource.update(...)`」,这半边是准确的,不在本单范围。\n\n## 复核方式\n\n```\ngrep -n \"onTaskUpdate?: (task: GanttTask\" packages/plugin-gantt/src/GanttView.tsx      # :345 第二参是 Partial 包 Pick\ngrep -n \"changes: { progress: cur.value }\" packages/plugin-gantt/src/GanttView.tsx     # :1335 纯 progress 提交\ngrep -n \"onTaskUpdate(task, changes)\" packages/plugin-gantt/src/GanttView.tsx          # :1089 原样转发\nsed -n '62,74p' packages/plugin-gantt/README.md\n```\n\n## 分级\n\n交 PM 分诊。倾向具体缺陷:不是文档口味问题,照抄这个块会在用户拖进度时把记录的开始/结束日期写空 —— 数据侧的后果,比 TS2322 那半边严重。体量很小(一个代码块 + 注释)。\n\n关联:#5012(同文件的导入名半边,在途)、#5057(同文件的 schema 键半边)、#5048(plugin-report「名字真、调用错」的同构先例)、#5043(缺门禁的根因单;本条也是它「更强的一档」都抓不住的形状)。\n"
+}

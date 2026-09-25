@@ -1,0 +1,35 @@
+{
+  "number": 5110,
+  "kind": "issue",
+  "title": "The \"Used by\" panel collapses every references() failure into \"Safe to delete\" — a server error is rendered as a measured empty result",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T00:54:59Z",
+  "updated_at": "2026-08-18T08:57:00Z",
+  "closed_at": "2026-08-18T08:57:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5110",
+  "body": "Found while implementing objectstack#9326 (objectstack PR #9425), which fixes the producer half of this in `@objectstack/rest`. Filed separately because the fix lands here, in `objectui`.\n\n## The measurement\n\n`packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx` — the References tab loader (around line 793; **locate it by text, not by line number**):\n\n```ts\nsetRefsLoading(true);\ntry {\n  const r = await client.references(type, name);\n  setRefs(r);\n} catch (err) {\n  setRefs([]);\n  console.error('references() failed', err);\n} finally {\n  setRefsLoading(false);\n}\n```\n\n`setRefs([])` is the same state a **successful** call returning zero references produces. And `ReferencesPanel` renders that state as, verbatim from `metadata-admin/i18n.ts`:\n\n```\n'engine.edit.refsEmptyDesc': 'Nothing in the metadata graph points at this item. Safe to delete.'\n```\n\nSo **any** failure — the server refused, the network dropped, the session expired, the response was unparseable — is shown to the operator as an affirmative, measured statement that nothing depends on this item, and that deleting it is safe. The only trace is a `console.error` nobody is looking at. The user is typically on this panel *because* they are about to delete something.\n\n`MetadataClient.references()` (`packages/data-objectstack/src/metadata-client.ts`) does its half correctly: it returns `[]` only for a `404`, and throws `parseError(res)` for every other non-ok status. The information reaches this component intact and is discarded here.\n\n## Why now\n\n`@objectstack/rest` used to answer `200 {references: []}` when the resolved protocol had no `findReferencesToMeta` method — a capability gap rendered as \"nothing depends on this item\". objectstack#9326 / PR #9425 changes that branch to refuse:\n\n```\n501  { error: { code: 'NOT_IMPLEMENTED', message: '...' } }\n```\n\nThat makes the **wire** honest. It does not by itself remove the user-visible harm, because this `catch` turns the truthful `501` straight back into \"Safe to delete.\" The producer fix is necessary and not sufficient; this is the other half.\n\n**Not blocked by it, though.** The `catch` swallows failures today, for every cause listed above, and can be fixed independently of what the server sends.\n\n## What would close it\n\nAn error state distinct from the empty state. Note that the current shape has no room for one: `ReferencesPanel` reads `refs == null` as *still loading* —\n\n```ts\nif (loading || refs == null) return <spinner/>;\nif (refs.length === 0) return <Empty>…Safe to delete…</Empty>;\n```\n\n— so simply *not* setting `refs` on failure leaves a permanent spinner, and `setRefs([])` is the lie. A third state is needed (an `error` field, or a discriminated union for the panel's data), plus copy for it. Suggested shape, not asserted: the panel says the check could not be completed and offers a retry, and deliberately says nothing about whether deletion is safe — the honest answer when the question was not answered.\n\n⚠️ Worth checking while in there whether the same `catch → empty` pattern appears on the sibling tabs this page loads (history, audit, diagnostics). A zero there needs its own control query before it is reported as a zero.\n\n## Related\n\nobjectstack#9326 / objectstack PR #9425 (the producer half — the REST route now refuses instead of answering empty) · objectstack#9426 (the same producer-side defect class on the audit route) · ADR-0110 D3, \"a miss and a fault are different facts\"\n\n## Dedup\n\nSearched open issues here for the references panel, the \"Safe to delete\" empty state, and `ResourceEditPage` error handling; nothing covering this. Control query on the same repo (`metadata admin resource edit page`) returned three real, related cards (#4308, #4518, #4132, all closed), so the zero above is a measurement rather than a broken search. No duplicate.\n"
+}

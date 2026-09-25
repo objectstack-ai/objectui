@@ -1,0 +1,33 @@
+{
+  "number": 5008,
+  "kind": "pull_request",
+  "title": "fix(console): PublicFormsPage 的 redirect 授权门改问契约,越契约值在保存时刻被拒 (#4990)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:50:14Z",
+  "updated_at": "2026-08-17T15:06:09Z",
+  "closed_at": "2026-08-17T15:06:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T15:06:08Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5008",
+  "body": "Fixes #4990\n\n## 问题\n\n`apps/console/src/pages/developer/PublicFormsPage.tsx` 的 `saveEdit` redirect 分支只验一件事 —— 字段非空,然后 `client.meta.saveItem('view', …)`。\n\nobjectstack#7496(2026-08-11 裁定,objectstack#7657 落 spec,本仓 `@objectstack/spec` 17.0.0 GA pin 已覆盖)把 `submitBehavior.url` 裁为**仅相对路径**,并对七族越契约值各给一句 author-facing 处方:空值、前导 scheme(`https:`,同样地 `javascript:` / `data:`)、前导 `//`、反斜杠、空白或 C0/DEL 控制字符、非良构 token 的花括号形状、不以 `/` 开头。\n\n这道门只执行了其中第一族。管理员可以输入 `https://example.com/thanks` 或 `javascript:alert(1)`,得不到任何提示 —— 而这个界面自己刚教过他这个值可以用:字段是 `type=\"url\"`(该 type 自己认的「合法」恰是本键拒绝的绝对 URL),占位符写着 `https://example.com/thanks`。「declared = enforced」在这里是反的:授权门比它所授权的 schema 更宽松。\n\n## 修法:复用同一次解析,不写第二份规则\n\n按卡面形状,判定复用 #4992(#4190 消费侧)落地的那条 spec-schema 解析路径:\n\n- `apps/console/src/components/submitRedirect.ts` 把其中的 shape 判定抽出为新导出 `checkSubmitRedirectUrl(url)`,返回 schema 接受后的值或 spec 自己那句 refusal;`resolveSubmitRedirect`(消费侧)改为调用它再做插值替换 —— 行为不变,少一份代码。\n- 授权门在**保存时刻**调用它。越契约就把 spec 的处方渲染在字段旁(`role=\"alert\"` + `aria-invalid` + `aria-describedby`),并且**不保存**;输入即清除,作者在他想提交的那一刻被纠正一次,而不是逐键被追问。\n- 保存的是 schema 回读的值,所以授权门与渲染侧不可能对同一个目的地有两种意见 —— 它们是同一次解析。\n\n规则**没有**在对话框里重写一份:镜像拷贝在 spec 改动前的每次取值比较里都是绿的,正是 `scripts/check-spec-symbol-derivation.mjs` 要劝退的形状(objectstack#4115、objectui#4074/#4588/#4592 各付过一次)。裁定日后放宽,跟着 pin 走,这里不需要改。\n\n附带两处:本地的 `Redirect URL is required` 去掉(空值本就是七族之一,一并走契约,作者读到的是「目的地长什么样」而不是「必填」);字段改回纯文本输入、占位符 `/thanks`、并给出规则提示 —— 它不该再教错值。\n\n## 边界(照卡面办)\n\n- `thank-you` 的 `title` / `message` **不加验证**:spec 里两者就是自由串,没有可供门陈述的契约。已用一个测试把这条边界钉住,免得后来人顺手扩大。\n- 只动授权门,消费侧 #4992 已收口。\n\n## 服务端到底拒不拒(卡面的开放点,已测)\n\n**拒。** 只读判定,未起任何服务:`packages/rest` 的 `PUT /meta/:type/:name` 委托 `protocol.saveMetaItem`,其 spec-conformance gate 走 `resolveOverlaySchema` → `getMetadataTypeSchema('view')`(`@objectstack/spec/kernel`,与 console 打包的同一个 17.0.0 GA pin)。用 `PublicFormsPage.saveEdit` 实际构造的 body 直接跑这条 gate:\n\n```\n\"/thanks\"                    => ACCEPTS -> would persist\n\"/t/{{record.id}}\"           => ACCEPTS -> would persist\n\"https://example.com/thanks\" => 422 invalid_metadata on: [\"submitBehavior.url\"]\n\"javascript:alert(1)\"        => 422 invalid_metadata on: [\"submitBehavior.url\"]\n\"//evil.example/x\"           => 422 invalid_metadata on: [\"submitBehavior.url\"]\n\"thanks\"                     => 422 invalid_metadata on: [\"submitBehavior.url\"]\n\"\"                           => 422 invalid_metadata on: [\"submitBehavior.url\"]\n```\n\n所以卡面「either way」里成立的是前一支:**元数据语料不会积累这些值,本卡收口的是错误路径而非静默入库**。这不削弱修法,反而是它的论据 —— 纠正现在出现在管理员能改的字段里,而不是一次失败的往返;而且门与服务端从构造上就同判,因为是同一个 schema。\n\n未测的部分如实标注:这是在 gate 函数层面测的(服务端路由实际调用的那个函数与注册表),不是活的 HTTP 往返;某个部署的 spec 版本若与 GA pin 不同,结论随之不同。另有一处顺带观察但**未能证实**,故不据此立 issue:上面的 probe 必须补 `viewKind` 才能让 body 落到 `formOverlay` 分支,缺它时同一条 gate 会对本页**任何**保存都 422(与 url 无关)—— 但本页保存的是 `getItems` 读回的 `it.spec`,其真实形状要有真实存量数据才能判定,我没有。\n\n## 验证\n\n- `pnpm exec vitest run apps/console/` → **54 files / 647 tests 全绿**(含新增 15 + 扩充 20)。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → **81/81 successful**。\n- `node scripts/check-control-bytes.mjs` → OK(4465 files);`check-spec-symbol-derivation.mjs` / 两个 changeset 门 → OK。改动文件 eslint:0 error,warning 数与基线逐一相同(14 → 14,均为既有 `any` / `useEffect`)。\n- 测试用例里的控制字符一律写作转义序列(反斜杠 + `u0009` 那种写法),并在越门之外自扫 `[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]`(#4890 形态)。**本 PR 正文自身也栽过一次**:初版这一行里我把制表符写成了真实字节,读回存档时发现并改掉 —— 正是「写规则时把字节物化」的那个形状。\n\n### 反向验证(先书面预判,再变异实测)\n\n预判写在两个测试文件的 docblock 里,commit 后变异、`git checkout --` 还原(未用 stash):\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| 门退回只验非空 | 页面 11 红(七族 8 + 空值 + aria-invalid + 清除),且**每例先死在「没有 alert 渲染」**;`submitRedirect.test.ts` 全绿(模块未动) | 完全一致:`Tests 11 failed \\| 58 passed`,首个失败即 `Unable to find role=\"alert\"` |\n| 保留解析、改用本地文案 | 只有文案来源那一条断言红 9 例(七族 8 + 空值),`saveItem` 那半仍绿;aria / 清除 / 合法值 / thank-you 全绿 | 完全一致:`Tests 9 failed \\| 60 passed`,失败点在 `:158 toHaveTextContent` |\n\n第二个变异是本卡真正要防的那件事的窄探测器:一份镜像拷贝会让 `saveItem` 那半照旧通过,只在**文案来源**上失守 —— 所以断言比的是 schema 现场解析出来的那句话,而不是我抄进测试的字符串;spec 改词,测试照绿,拷贝规则,测试变红。\n"
+}

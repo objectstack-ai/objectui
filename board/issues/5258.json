@@ -1,0 +1,36 @@
+{
+  "number": 5258,
+  "kind": "issue",
+  "title": "docs: packages/core/README.md teaches `new ComponentRegistry()`, but ComponentRegistry is an exported singleton instance, not a class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:58:06Z",
+  "updated_at": "2026-08-18T23:28:00Z",
+  "closed_at": "2026-08-18T23:28:00Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5258",
+  "body": "Filed unassigned from the implementation of #5160. **Not fixed there** — that card is scoped to the TS2305 \"imports a name the module does not export\" class; this is TS2351, a different diagnostic on a name that *is* exported.\n\n## What was measured\n\nAgainst the built `packages/core/dist/index.d.ts` with the #5138 snippet gate:\n\n```\npackages/core/README.md:49:22  TS2351: This expression is not constructable.   Type 'Registry< any >' has no construct signatures.\n```\n\nThe README's Component Registry example:\n\n```ts\nimport { ComponentRegistry } from '@object-ui/core'\n\nconst registry = new ComponentRegistry()\nregistry.register('button', buttonMetadata)\nconst metadata = registry.get('button')\n```\n\n`packages/core/dist/registry/Registry.d.ts` declares:\n\n```ts\nexport declare const ComponentRegistry: Registry< any >;\n```\n\nIt is a **process-level singleton instance** the whole app shares — `SchemaRenderer` resolves every `type` against that one object — not a constructor. `new ComponentRegistry()` does not compile, and if it somehow did it would produce a second, empty registry that nothing renders from, which is the more expensive half of the mistake.\n\n`Registry` itself *is* exported and is a real class, so a reader who wants their own isolated registry writes `new Registry()`. The README's two following lines (`register` / `get`) are correct as written against the singleton.\n\n## Suggested fix\n\nDrop the `new`:\n\n```ts\nimport { ComponentRegistry } from '@object-ui/core'\n\nComponentRegistry.register('button', buttonMetadata)\nconst metadata = ComponentRegistry.get('button')\n```\n\n...and say in one line that it is the shared singleton, since that is the part a reader cannot infer from the example. `packages/components/README.md` was given exactly that wording in #5160 and can be copied.\n\n## Why it is worth a card\n\n`packages/core/README.md` ships to npm inside the package's `files`. Same class of harm as #5160: a reader who copies the snippet gets a compile error rather than a degraded render. It stayed green under every gate until #5138 because `check-doc-component-types` reads `type` literals and `check-doc-links` reads links — neither reads a constructor call.\n\nThis is one of the two diagnostics left on `packages/core/README.md`'s `UNGATED_DOCS` entry after #5160 (`plus TS2339x2 TS2351x1`); the TS2339 pair is #5257.\n\n## Related\n\n- #5160 — the TS2305 pass over this file; this diagnostic was deliberately left\n- #5257 — the other remaining diagnostic on this document\n- #5138 — the gate that measures it\n"
+}

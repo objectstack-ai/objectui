@@ -1,0 +1,35 @@
+{
+  "number": 5176,
+  "kind": "issue",
+  "title": "[console 17.0.0] record-header 自定义动作偶发丢 recordId:页头存在两种 DOM 变体,其中一种不注入请求体,端点回 missing_record_id",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T09:07:29Z",
+  "updated_at": "2026-08-18T10:01:58Z",
+  "closed_at": "2026-08-18T10:01:58Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5176",
+  "body": "## 一句话\n\n记录详情页头的自定义动作(record_header 挂载)点击后,平台负责往请求体注入当前记录 id(`recordId`)——但页头渲染存在**两种 DOM 变体**,其中一种变体下不注入,端点收到的请求体没有 recordId,回 `missing_record_id`。用户侧表现为「偶尔点一下没反应,再点一次就好」。\n\n## 环境\n\n- @objectstack/*@17.0.0(GA);下游业务项目(os-project-titanwind-ehr,私有)真机 Console 实测发现\n- 与对象、与动作配置无关:该项目所有 record_header 自定义动作(多个对象、同一标准配方)均受影响\n\n## 量化复现\n\n同一颗页头【删除】动作按钮,同一记录页,连点 10 次:\n\n- 9 次:请求体带 `recordId`,动作正常执行;\n- 1 次:请求体**不带** `recordId` → 服务端 `missing_record_id`;\n- 关键相关性:失败那次抓包时,**页头 DOM 层级与成功时不同**(两种变体与是否注入一一对应);\n- 换一次页面渲染即恢复。\n\n疑似与记录页头的 hydration/半加载窗口有关(页头在加载早期与稳定后渲染树不同,注入逻辑只挂在其中一种变体上)。\n\n## 期望\n\n两种页头渲染形态下,record_header 动作的 recordId 注入行为一致;或在拿不到记录 id 时禁用按钮而非发出残缺请求。\n\n## 备注\n\n下游项目按「平台能覆盖的问题不自造补丁」原则未做任何绕行;抓包与 DOM 对照证据存于该项目取证分支,需要可提供摘录。"
+}

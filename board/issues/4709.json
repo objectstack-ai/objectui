@@ -1,0 +1,32 @@
+{
+  "number": 4709,
+  "kind": "issue",
+  "title": "finding: objectui still declares `@objectstack/spec`/`client` at `^17.0.0-rc.6` after 17.0.0 GA shipped",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T14:05:49Z",
+  "updated_at": "2026-08-18T16:23:07Z",
+  "closed_at": "2026-08-18T16:22:06Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4709",
+  "body": "Filed by the PM loop while verifying the framework's v17 release docs against the GA cut. Recording only — not triaged, not claimed.\n\n## Observation\n\n`@objectstack/spec@17.0.0` and the rest of the family went GA on **2026-08-14** (`prerelease: false`; the framework's `.changeset/pre.json` is gone from `main`). objectui still declares the pre-release range:\n\n- `package.json:78` — `\"@objectstack/spec\": \"^17.0.0-rc.6\"`\n- `apps/console/package.json:92-93` — `\"@objectstack/client\": \"^17.0.0-rc.6\"`, `\"@objectstack/spec\": \"^17.0.0-rc.6\"`\n- `QUICK_REFERENCE.md:116-118` mirrors both, and is therefore *correct* as long as the manifests read this way — it should move with them, not before them.\n\n## Why this is a finding and not a queue card\n\n`^17.0.0-rc.6` resolves to `>=17.0.0-rc.6 <18.0.0`, and `17.0.0` satisfies it — so a fresh install already picks up GA and nothing is broken today. The cost is legibility: the declared range reads as \"pinned to a release candidate\" when the platform has shipped, and a prerelease-tagged range keeps prerelease versions of *any* 17.x in the resolvable set.\n\nHistorical `CHANGELOG.md` entries naming `17.0.0-rc.N` are frozen records of what those releases actually tracked — they are correct and must not be rewritten.\n\n## Re-check\n\n```bash\ngit fetch origin main\ngit show origin/main:package.json | grep '@objectstack/spec'\ngit show origin/main:apps/console/package.json | grep '@objectstack/'\n```\n\nCompanion to objectstack-ai/objectstack#8882 (the framework-side release-page fix), which found this while sweeping for stale pre-release references."
+}

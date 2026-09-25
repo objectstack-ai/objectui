@@ -1,0 +1,30 @@
+{
+  "number": 4320,
+  "kind": "issue",
+  "title": "ImportWizardProps.dataSource is required, but every read of it in the component is defensive",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-11T13:51:43Z",
+  "updated_at": "2026-08-17T22:18:42Z",
+  "closed_at": "2026-08-17T22:18:14Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4320",
+  "body": "Found while wiring `@object-ui/plugin-grid`'s tests into `tsc` for #4040 (tranche 2, PR #4297). Recorded rather than changed: it is a public exported interface, and #4040's standing rule is to stop and file when a public type looks wrong rather than guess at it.\n\n## What the compiler said\n\n`ImportWizardProps.dataSource` (`packages/plugin-grid/src/ImportWizard.tsx:292`) is declared `dataSource: any` — **required**. `src/__tests__/importMissingRequiredHint.test.tsx` omitted it, which is what the newly-compiled test project reported:\n\n```\nsrc/__tests__/importMissingRequiredHint.test.tsx(35,6): error TS2741: Property 'dataSource' is missing in\ntype '{ objectName: string; fields: …[]; open: true; onOpenChange: () => void; }'\nbut required in type 'ImportWizardProps'.\n```\n\nPR #4297 fixed the fixture (it passes a capability-free `{}`), which is the right fix for that test and is where the matter ends for #4040.\n\n## The observation\n\nThe fixture was omitting it and the wizard rendered fine — because **every read of `dataSource` inside the component is guarded**. There is no unguarded dereference anywhere in the file:\n\n- `const ds = dataSource as Partial< DataSource > | undefined;` — three times (`:1432`, `:1632`, `:1883`)\n- `(dataSource as { listImportMappings?: … } | undefined)?.listImportMappings` (`:1673`)\n- `if (dataSource?.create) await dataSource.create(…)` (`:1861`)\n- `typeof (dataSource as Partial< DataSource > | undefined)?.listImportJobs === 'function'` (`:2188`), and the same shape for `importRecords` (`:2303`) and `cancelImportJob` (`:2353`)\n\nSo the implementation's real contract is \"optional, and every capability on it is optional too\" — the wizard degrades from the server import path to the per-row `create` loop to nothing at all — while the declaration says \"required\". The two disagree, and the ones written in the defensive style are the ones the code actually obeys.\n\n## Why this is an observation and not a defect\n\nNo user meets it. Every real caller passes a data source, and the declaration being *stricter* than the implementation fails safe: it can only reject a call the component would have survived, never accept one it cannot. It cost one test fixture a line, and that line is now written.\n\nIt is worth a card anyway because the mismatch is the kind that decides a later question wrongly: someone reading `dataSource: any` as required will not know that a `dataSource`-less embed is a supported shape (and someone reading the guards will not know whether they are load-bearing or superstition). Both readings are currently defensible from the source, which is the actual problem.\n\n## If it is ever picked up\n\nTwo coherent resolutions, and the choice is a contract call, not execution:\n\n- **Make it optional** (`dataSource?: DataSource`) — matches the implementation, and lets a caller mount the wizard for its parse/mapping steps alone. Widens the accepted surface.\n- **Keep it required and drop the guards** — makes the implementation match the declaration, and turns the currently-silent \"no capability\" paths into something a caller can reason about. Narrows the code.\n\nEither way `any` is worth replacing with `DataSource`: the component already casts to `Partial< DataSource >` at five sites to get any checking back, which is the declaration admitting the type it wants.\n\nRefs #4040, #4297."
+}

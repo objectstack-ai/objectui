@@ -1,0 +1,35 @@
+{
+  "number": 5179,
+  "kind": "issue",
+  "title": "Notification deep link navigates to the app landing page instead of the record",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T09:08:49Z",
+  "updated_at": "2026-08-18T10:40:49Z",
+  "closed_at": "2026-08-18T10:40:49Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5179",
+  "body": "Moved from objectstack-ai/objectstack#9464's sibling card objectstack-ai/objectstack#9468 by the triage seat (file-at-destination: the notification centre and its click navigation are console UI; objectstack has no notifications service package building deep-link URLs, so link construction is client-side). Source: QA wave objectstack-ai/objectstack#9296, Tier-2C run record objectstack-ai/objectstack#9467, item `i18n.notification-localized-and-clears` clause 1, subject sha `e4e5c6e3c608b1b807c83a0d5b734f213eb1a1dd`, stock showcase.\n\n## The defect\n\nOpening a notification from the notification centre navigates to the **app landing page**, not to the record the notification is about. The deep link is the whole point of the notification — a user who clicks one is told which record changed and then dropped somewhere else.\n\n## What the same click gets right, and why that matters\n\n- **Mark-as-read fires correctly** and is server-authoritative — the notification is consumed, the badge clears, and the user has now lost the pointer to the record entirely.\n- **The canonical record route renders fine**, including in a `zh-CN` session. The target is reachable; the link does not point at it.\n\nThose two controls narrow this to link construction rather than a broken route or rendering failure — and the mark-read behaviour is what turns \"annoying\" into \"the pointer is gone\".\n\n## What a fix has to settle\n\nWhere the deep-link target is built and why it resolves to the app root rather than the record. Pin it with a test asserting the **navigated URL**, not merely that navigation occurred — a test that only checks \"the click went somewhere and mark-read fired\" passes today.\n\nIf investigation shows the URL (or the record reference it needs) is missing from the server's notification payload, file that half back to objectstack-ai/objectstack with `Blocked-by:` linkage rather than widening this card."
+}

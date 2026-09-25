@@ -2,8 +2,8 @@
   "number": 8149,
   "kind": "issue",
   "title": "finding(fields): `LocationField`'s `'latitude, longitude'` placeholder is a hard-coded English fallback — now sitting directly above a translated refusal sentence",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -14,18 +14,21 @@
     "domain:ui",
     "i18n",
     "package: fields",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-06T20:41:27Z",
-  "updated_at": "2026-09-12T01:24:10Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T05:16:10Z",
+  "closed_at": "2026-09-25T05:15:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8149",
   "body": "Filed unassigned by the dev seat implementing objectui#6888, as an out-of-scope finding. Recording, not choosing.\n\nDedup before filing: one directed `search_issues` for \"LocationField placeholder latitude, longitude hard-coded English fallback not translated\" — five hits, none of them this: objectui#8055 (open, a `0`-coordinate rendering defect in `GeolocationField`), objectui#6154, objectui#4028, objectui#4272, objectui#3342 (all closed). Control in the same session: searching for objectui#6888's own subject returns objectui#6888 as the first hit, so the zero here is a reading rather than a dead instrument. REST was 403 for this seat, so the channel was MCP `search_issues` plus a local grep — declared as a channel switch.\n\n## What\n\n```\npackages/fields/src/widgets/LocationField.tsx\nplaceholder={config?.placeholder || 'latitude, longitude'}\n```\n\nThe author-declared `field.placeholder` always wins; this is the fallback shown when the field declares none, which is the common case. It is an English literal that no locale pack can reach.\n\n## Why this is filed NOW, and not before\n\nobjectui#6888 keyed the last of `LocationField`'s three refusal sentences, and in doing so keyed the coordinate nouns themselves — `fields.location.latitude` / `fields.location.longitude`, which every pack already spelled inside its own `refusedFormat` (`纬度` / `经度`, `緯度` / `経度`, `широта` / `долгота`, `خط العرض` / `خط الطول`).\n\n⇒ the words now exist as keys, and the widget reads them. So on a zh console the box reads `latitude, longitude` while the refusal directly beneath it reads 「未保存:纬度\"12abc\"不是数字…」 — the same word, twice, one line apart, in two languages. That is objectui#4028's reported shape (\"four Chinese labels around one English one\") in a place objectui#6888 did not remove it.\n\n⚠️ **The nearby source comment is not a decision about this.** `LocationField`'s doc block says *\"The coordinates are still called latitude and longitude to a human — only the STORED key names are the spec's, which is why the placeholder is unchanged.\"* That sentence is about objectui#6272's `{ latitude, longitude }` → `{ lat, lng }` storage rename — it explains why the placeholder did not follow the STORED key names. It is not a ruling that the placeholder should stay English, and it should not be read as one.\n\n## Cost if it is ruled in\n\nSmall, and smaller than it was yesterday. No new pack entries are needed for the nouns — objectui#6888 added them. The card is one key for the pair (or one call composing the two existing noun keys, with the separator being the locale's business, cf. `validation.formInvalidJoiner`), plus the decision of whether a placeholder counts as the widget's own copy under objectui#6755's principle.\n\n⛔ **That last part is the reason this is a card rather than a rider on objectui#6888.** objectui#6755's ruled principle is about a widget's own REFUSAL sentence. A placeholder is not a refusal sentence, so extending the ruling to it is a new judgement — the same one objectui#4028 already made in the affirmative for `AddressField`'s placeholders, but for a different widget and by a different route.\n\n### Related\n\nobjectui#4028 (the same class, ruled IN, for `AddressField`'s sub-labels and placeholders) · objectui#6888 (added the coordinate noun keys this would reuse) · objectui#6755 (the refusal-sentence ruling, which does not by itself cover a placeholder) · objectui#3342 (`TagsField`'s placeholder, keyed)"

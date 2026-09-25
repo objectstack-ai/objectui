@@ -1,0 +1,35 @@
+{
+  "number": 5198,
+  "kind": "issue",
+  "title": "Sign-out leaves the cached metadata (and the active-org id) in storage — the next user in the same tab is seeded with the previous user's permission-filtered app list",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T13:18:03Z",
+  "updated_at": "2026-08-18T20:11:01Z",
+  "closed_at": "2026-08-18T20:11:01Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5198",
+  "body": "Found while implementing #4486 (org-scoping the `MetadataProvider` seed cache). Filed separately and unassigned: it is a **different boundary** from that card, and #4486's fix does not close it.\n\n## What\n\n`AuthProvider.signOut` clears only the bearer token:\n\n```ts\nasync signOut() {\n  const { error } = await betterAuth.signOut();\n  TokenStorage.clear();\n  ...\n}\n```\n\nNothing clears:\n\n- the `objectui:metadata:*` entries in `sessionStorage` (written by `MetadataProvider`), or\n- `ActiveOrganizationStorage` (`auth-active-organization-id` in `localStorage`).\n\nNo sign-out call site reloads the page either — `AppSidebar`, `AppHeader`, `UserMenu` and `RemediationOverlay` all just call `signOut()`, so the SPA keeps running and `sessionStorage` (which is per-tab, not per-session) survives into whatever happens next in that tab.\n\n## Why it matters\n\nThe cached app list is the **per-user** list: the server filters `GET /api/v1/meta/:type` per session (`filterAppForUser`, objectstack#8013), so what sits in storage is \"the apps THIS user was allowed to see\". If a second person signs in **in the same tab** — a shared or kiosk browser, a handover, a support session — `MetadataProvider` seeds them from that entry and they briefly read the previous user's filtered app list.\n\nThis is a **cross-principal** disclosure, unlike #4486, whose reader is the same signed-in user reading a workspace they are a member of. #4486 keys the seed by active organization, which is the right fix for that card and deliberately does not address this one: two users in the **same** org produce the same key, so the seed still hits.\n\nThe exposure is app DEFINITION metadata (name, label, icon, branding, navigation tree, required-permission names) — not record rows and not credentials. For an org-authored app the navigation tree and permission names do describe that workspace's private model, and the per-user filtering means the list itself carries \"what that person had access to\".\n\n## Fix shape (for whoever takes it)\n\nSign-out should drop the client-side caches it leaves behind — the `objectui:metadata:*` `sessionStorage` entries and `ActiveOrganizationStorage` — rather than relying on the tab being closed. Worth deciding at the same time whether the seed should additionally be scoped to the user/session identity, which would make the stale entry unreadable by construction instead of depending on a cleanup step being remembered on every future sign-out path. `MarketplacePackagePage` already has a working precedent for the purge loop (it removes every key with the `objectui:metadata:` prefix).\n\nRefs #4486 (the org-keying half, in flight)."
+}

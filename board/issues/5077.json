@@ -1,0 +1,36 @@
+{
+  "number": 5077,
+  "kind": "issue",
+  "title": "plugin-view README 整片 schema 键面渲染器一个都不读 —— object / viewMode / fields / mode / recordId / fieldConfig 全非声明成员,照抄即空视图",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T22:33:31Z",
+  "updated_at": "2026-08-18T00:12:55Z",
+  "closed_at": "2026-08-18T00:12:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5077",
+  "body": "发现于 #5014 的实施(PR 见该卡)。**Filed unassigned, not claiming.**\n\n#5014 只处理了「本包导出面上不存在的标识符」两处(`viewComponents` 虚构、`ObjectViewSchema` 路径错)。改导入路径时顺带对齐了那一个**带类型标注**的示例,于是暴露出**性质不同**的第二层问题:README 里所有**未加类型标注**的 schema 字面量,用的键 `ObjectViewSchema` 一个都没声明、`ObjectView` 一个都不读。\n\n## 现象\n\n`type: 'object-view'` 的对象名键是 **`objectName`**,不是 `object`。README 全篇写 `object`,并围绕一个不存在的 `viewMode` 组织了三种「视图模式」叙事。照抄任一示例,`objectName` 缺失 ⇒ ObjectView 拿不到对象名。\n\n## 证据\n\n**① `ObjectViewSchema` 的声明成员**(`checker.getPropertiesOfType`,取自构建产物 `packages/types/dist/index.d.ts`,42 个):\n\n```\nallowCreateView, ariaLabel, body, children, className, data, defaultListView,\ndefaultViewType, description, disabled, disabledOn, filterableFields, form,\nhidden, hiddenOn, id, label, layout, listViews, name, navigation, objectName,\nonNavigate, operations, placeholder, searchableFields, showCreate, showFilters,\nshowRefresh, showSearch, showSort, showViewSwitcher, style, table, testId,\ntitle, type, viewActions, viewTabBar, visible, visibleOn, visibleWhen\n```\n\n**② 渲染器实际读点**(`grep -on \"schema\\.[A-Za-z_]*\" packages/plugin-view/src/ObjectView.tsx`):\n\n```\n26 schema.form        21 schema.objectName   17 schema.table       8 schema.onNavigate\n 6 schema.title        6 schema.description   3 schema.defaultListView\n 2 schema.viewActions  2 schema.listViews     2 schema.layout       2 schema.defaultViewType\n 2 schema.allowCreateView\n 1 schema.showViewSwitcher / showSort / showSearch / showFilters / showCreate\n 1 schema.operations   1 schema.navigation    1 schema.columns\n```\n\n**③ 逐键判定** —— README 用的键对 ①②:\n\n| README 键 | 是 `ObjectViewSchema` 声明成员? | 渲染器读? |\n| --- | --- | --- |\n| `object` | 否(真名 `objectName`) | 否 |\n| `viewMode` | 否 | 否 |\n| `fields` | 否 | 否 |\n| `mode` | 否 | 否 |\n| `recordId` | 否 | 否 |\n| `dataSource`(写在 schema 里) | 否(是 `ObjectViewProps` 的**必填 prop**) | 否 |\n| `fieldConfig` / `nestedFields` / `tabs` | 否 | 否 |\n| `pagination` / `searchable` / `sortable` / `filters` / `enableDelete` | 否 | 否 |\n| `onCreate` / `onUpdate` / `onDelete` / `onSubmit` | 否(真身只有 `onNavigate`,以及 `operations` 的布尔开关) | 否 |\n\n## 为什么两道门都看不见\n\n- **名集合核对看不见**:这些块里没有 `import`,核对的是 import 绑定。\n- **编译探针也看不见**,而且是结构性的:`ObjectViewSchema extends BaseSchema`,而 `BaseSchema` 带 `[key: string]: any`(`packages/types/src/base.ts:318`),**excess property 检查因此整体失效**。实测把改前示例逐键钉在真类型上:\n\n  | 钉的键 | 诊断 |\n  | --- | --- |\n  | `object: 'users'`(无 `objectName`) | `TS2741: Property 'objectName' is missing … but required in type 'ObjectViewSchema'` |\n  | `viewMode: 'grid'`(+ 合法 `objectName`) | **rc=0,无诊断** |\n  | `fields: ['name']`(+ 合法 `objectName`) | **rc=0,无诊断** |\n\n  即 tsc 在这个类型上唯一有牙的是**必填 `objectName` 缺失**;而 README 这些块**连类型标注都没有**,所以连这一条也不触发。\n\n## 半径(PR #5014 落地后的行号)\n\n`:26`(Automatic Registration 示例)、`:135`(Schema API 的 ObjectView 形状速写,把 `object: string` / `viewMode?` / `fields?` / `onCreate?` 写成参考面)、`:212` / `:226` / `:243`(Grid / Form / Detail View)、`:257` / `:272` / `:287` / `:303`(CRUD 四段)、`:320`(ObjectQL 集成)、`:346`(Field Configuration)、`:382`(Nested Objects)、`:400`(Tabs View)。共 13 个块。\n\n`:153` / `:172` / `:193` 的 ViewSwitcher / FilterUI / SortUI 三节**不在半径内** —— 逐条比对过 `src/index.tsx` 的 `register` `inputs` / `defaultProps`,键面吻合。\n\n## 为什么没在 #5014 里顺手改\n\n性质不同,且不可切半:这是一整片 13 个块的键词汇表重写(需要为 grid/form/detail 三种叙事各找到真身对应物 —— `defaultViewType`、`table` / `form` 子配置、`layout` 的 drawer/modal/page,以及「`dataSource` 是 prop 不是 schema 键」这条结构事实),需要独立定级。只改其中的参考块会让同一文件更不自洽。#5014 的 PR 里只对齐了那一个**带类型标注**的示例(改导入路径后它成为编译面上的断言,不改就编译不过)。\n\n## 同族\n\n- **#5057** —— plugin-gantt README 的同一段病(`tasks` / `viewMode` / `object` 零命中)。\n- **#5064** —— plugin-dashboard 的键词汇表问题。\n- **#4631**(`pm:on-hold`)—— 「一个组件类型有三个互不一致的声明面」的元卡;本卡是它在 README 这第四个面上的实例。\n\n## 分级\n\n交 PM 分诊。严重度可能高于 #5014:那两处照抄会**当场抛错/编译不过**,这一片照抄是**静默渲染不出东西**。"
+}

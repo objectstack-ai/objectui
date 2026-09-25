@@ -1,0 +1,34 @@
+{
+  "number": 4799,
+  "kind": "issue",
+  "title": "`element:*` 的规范拼写 `properties` 不参与表达式求值,而被注释称作 legacy alias 的 `props` 参与 —— 写规范形态反而丢表达式",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T08:39:14Z",
+  "updated_at": "2026-08-18T02:42:58Z",
+  "closed_at": "2026-08-18T02:42:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4799",
+  "body": "发现于 #4786 的实施,真实 SchemaRenderer 探针实测。\n\n## 实测\n\ndataSource `{ total: 99 }`:\n\n```\n@@PROBE element:text/props+expr        text=\"99\"              ({type:'element:text', props:{content:'${data.total}'}})\n@@PROBE element:text/properties+expr   text=\"${data.total}\"   ({type:'element:text', properties:{content:'${data.total}'}})\n```\n\n静态值两边都正常(`element:text/props` 与 `element:text/properties` 都渲染 `HELLO`)。差别只在表达式。\n\n## 成因\n\n- `packages/components/src/renderers/basic/elements.tsx` 的 `readProps()` 合并两边,注释明说 `properties` 是规范拼写、`props` 是 legacy alias:\n\n  > Per spec, element components carry their config in `schema.properties`.\n  > Tolerate `schema.props` (legacy alias) so JSON written either way works.\n\n  且 `properties` 后写,优先级更高。\n\n- `packages/react/src/SchemaRenderer.tsx` 的 evaluation memo 只对 `newSchema.props` 逐值跑 `evaluator.evaluate(...)`,**`properties` 没有对应分支**。memo 里另有一段把 `properties.*` 提到节点顶层(`newSchema[k] = v`),但 `newSchema.properties` 仍指向**原始未求值对象**,而 renderer 读的正是 `schema.properties` —— 所以提升那一步对 `element:*` 没有任何作用。\n\n## 后果\n\n按 spec 规范拼写写 `element:*` 节点的作者,表达式静默失效(上屏字面量);写\"legacy alias\"的反而正常。这与仓内一贯的 contract-first 方向(AGENTS.md #0.1)正好相反:宽容的那条路被喂饱了,规范的那条路被饿着。\n\n`element:*` 是 #4786 的教学面改写里被明确保留为\"信封合法\"的唯一命名空间(protocol.md 新增的例外条款),所以这条不一致会直接落在照着新规则写的作者头上。\n\n## 修法方向\n\n对齐两者:evaluation memo 里对 `newSchema.properties` 做与 `props` 同样的逐值求值(并保持 `properties` 优先)。属渲染器改动,#4786 明令零改 `packages/**`,故单列。\n\n## 参考\n\n- #4786(发现来源)、#4795(同批发现的求值/读回缺口)\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 5265,
+  "kind": "pull_request",
+  "title": "fix(app-shell): diagnose non-literal elements in predicate `in` sets",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T22:53:04Z",
+  "updated_at": "2026-08-18T23:06:28Z",
+  "closed_at": "2026-08-18T23:06:27Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T23:06:27Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5265",
+  "body": "Fixes #4266\n\n## What\n\n`predicate.ts`'s `in [...]` array branch JSON-parses the bracketed text and, on any parse failure (a non-literal element — a path, a bare identifier, a trailing comma), the `catch` returned `[]` with nothing in the console. `[].includes(anything)` is `false`, so the predicate silently read **FALSE FOR EVERY ROW** — and because the parse is whole-set, not per-element, one bad element discarded every good literal sitting next to it too: `data.type in ['text', data.a]` collapsed exactly as hard as `data.type in [data.a]` alone.\n\n## Fix\n\n**Diagnose only, zero semantic change** — the ruling this card asked me to measure against #4049's precedent, and matched it: the `catch` still returns `[]`; an `in` set that fails to parse is still, and remains, the empty set. A dev-mode `console.warn` now names the predicate and, best-effort, the element that broke the parse (`findUnparseableSetElement`, which re-parses each top-level comma-separated element with the same quote-normalising `JSON.parse` the array branch already uses — for the warning text only, never to change the return value). Falls back to naming the whole set when no single element is individually at fault (e.g. a bare trailing comma). Warn-once keyed on `(raw set text, predicate)`, same discipline as the two existing diagnostics in this file (#6936, #4049).\n\n⛔ Does **not** widen the declared subset — a path inside `in [...]` still does not resolve; it is still reported as broken, just no longer silently.\n\nA louder alternative (throw so the whole predicate fails open `true`, mirroring #6936) was considered and rejected — see the new header section in `predicate.ts` for the reasoning: `false` here is the *documented* behavior for an unparseable set, not a bug the way an unresolved path was, so flipping it to fail-open would be an unruled semantic change.\n\n## Premise re-verification\n\nTriage verified on `origin/main` @ `b954120` (a week old). Re-verified on current `main` @ `bc2922a8` (post the two merges from #5227/PR5263 that touched `widgets.tsx`/`loadState.ts` in the same directory) — the array branch and its whole-set `catch { return []; }` were still exactly as described. Also checked whether ROADMAP M9 (real CEL) has landed: `@objectstack/formula`'s `cel-engine.ts` exists and is already used elsewhere in `app-shell` (`ExpressionProvider.tsx`, `celAuthoring.ts`, `clientValidation.ts`, …), but `SchemaForm.tsx` is still the sole consumer of `predicate.ts`'s `evaluatePredicate` — M9 has not replaced this specific evaluator, so the card is live.\n\n## Tests\n\n`predicate.test.ts` §8 (new): non-literal element fires + names it (bare identifier, path-shaped, amid good literals, trailing-comma fallback), warn-once per (predicate, set) pair, dev-mode-only, and a `§8.3` zero-semantics table pinning verdicts identical to the pre-fix `[]` shape — the same proof-shape as #4049's §7.3. §8.4 pins literal-only `in` sets completely unaffected (same verdict, silent).\n\nReverse-verification: restored the pre-fix two-line `catch { return []; }`, predicted exactly the 6 new assertions that reference the warning would go red (the two `toHaveBeenCalledTimes` warn-count tests and the four `toContain(...)` on warning text) while the rest of the file (88 tests, including the new §8.3/§8.4 verdict-only pins) stays green. Observed: **exactly those 6 red, 88 green** — restored the fix afterward from the committed branch state and re-ran to confirm 94/94 green again.\n\n## Gates run locally\n\n- `pnpm --filter '@object-ui/app-shell^...' build` (dependency closure) — clean\n- `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/predicate.test.ts` — 94/94 passed (run from repo root per the package-level-vitest guard in this repo, objectui#3378)\n- `pnpm --filter @object-ui/app-shell type-check` — clean\n- `pnpm --filter @object-ui/app-shell exec eslint src/views/metadata-admin/predicate.ts src/views/metadata-admin/predicate.test.ts` — 0 errors (1 pre-existing `no-explicit-any` warning, unrelated line in `resolveValue`)\n- `node scripts/check-control-bytes.mjs` + explicit control-byte grep on both changed files — clean\n- `node scripts/check-changeset-presence.mjs` — 1 changeset present for the 1 released package touched\n- i18n gates (`check:i18n-keys`/`check:i18n-drift`): N/A — this diagnostic is a dev-mode `console.warn`, same as the two existing diagnostics in this file, neither of which goes through `t()`/i18n\n\nFinal commit: `bb75ca165`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

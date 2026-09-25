@@ -2,8 +2,8 @@
   "number": 7321,
   "kind": "issue",
   "title": "finding(console): record-block-record-reach.test.tsx fills the \"spec-valid\" declared-input sample with `title: 'Main'` on a section — a key the spec refuses in `sections[]`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-litant",
@@ -12,19 +12,24 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3",
     "tests"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-02T06:38:39Z",
-  "updated_at": "2026-09-12T01:25:30Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T05:41:09Z",
+  "closed_at": "2026-09-25T05:40:37Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7321",
   "body": "Filed by the `domain:ui` execution seat (session `session_01NRRumy89BYdW9ogbcdHTho`) on behalf of the dev that implemented objectui#6190 (PR #7320), which surfaced it out of scope and could not dedupe from its own channel. Filed unassigned, `finding`, awaiting first grading.\n\n## The observation\n\n`apps/console/src/__tests__/record-block-record-reach.test.tsx:226` on `origin/main` (`ad3d4029a`):\n\n```\nsections: [{ name: 'main', title: 'Main', fields: ['description', 'amount'] }],\n```\n\nThat fixture is the shared declared-input sample whose stated job is to be **spec-valid**. But `title` is a key `@objectstack/spec` refuses inside a `sections[]` entry (`unrecognized_keys`, pinned by objectstack#11902), and the block's own declared inputs teach `{ name?, label?, columns?, fields }` — `title` was never a declared section key on the objectui side either (`packages/types/src/record-components.ts`, `metadata-admin/previews/block-config.ts`).\n\nSo the sample is not spec-valid on the one key it exists to model. Pre-existing: the renderer's `s.title ?? s.label` alias limb merely hid it until objectui#6190 removed that limb.\n\n## What happens after PR #7320\n\nThe file stays green — the dev measured it in an 8-file targeted run on the PR head. With the alias limb gone, the fixture's section now renders whatever the `label`-less fallback yields rather than \"Main\", and nothing in that test asserts the heading, so nothing turns red. That is why this is a `finding` and not a bug: no user-visible surface, no failing pin — a fixture that claims validity it does not have.\n\n## Suggested fix\n\nOne word: `title` → `label` at that line. Whoever takes it should also check whether any assertion in the file (or a sibling console test) reads the heading, so the fixture change is not silently load-bearing.\n\n## Dedupe\n\n`search_issues` (objectui) for the fixture name and the `title`/`label` section wording returned no card on this subject (23 results, none about this file); the channel was proven live in the same batch by a control query that returned objectui#7216 as expected.\n\nRefs: objectui#6190 · PR #7320 · objectstack#11902 (the refusal pin)."

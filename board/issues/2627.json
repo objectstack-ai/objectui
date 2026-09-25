@@ -1,0 +1,30 @@
+{
+  "number": 2627,
+  "kind": "issue",
+  "title": "fix(ai): 构建方案确认后 ~10s 无中间反馈;随后对话历史短暂整体清空(状态 race)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-07-17T00:49:20Z",
+  "updated_at": "2026-08-18T09:32:47Z",
+  "closed_at": "2026-08-18T09:32:27Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/2627",
+  "body": "## 现象(staging E2E 2026-07-17,AI 构建 CRM 流程)\n\n1. 点「开始搭建」(approve blueprint)后,卡片停留在「Awaiting Approval」约 10 秒,按钮原样、无 spinner/无「搭建中」翻转——用户以为没点上会重复点击;直到 Apply 完成才整体切换到完成态。\n2. 构建完成、预览出现后,左侧**对话历史整体清空**(blueprint 卡片、总结消息、发布按钮全部消失,只剩输入框),切换会话再切回来才恢复。\n\n## 影响\n\n正打在魔法时刻主链路上:确认无反馈 → 重复点击风险;历史清空 → 用户丢失「发布/下一步」入口。P1。\n\n## 修复方向\n\n- approve 提交即乐观翻转卡片到「搭建中」(spinner + 禁用按钮),以服务端事件为准回滚/推进\n- 排查预览布局切换(全屏 → 分栏 LiveCanvas)时对话列表状态被重置的 race(AiChatPage)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+}

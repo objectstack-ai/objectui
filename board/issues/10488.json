@@ -1,0 +1,30 @@
+{
+  "number": 10488,
+  "kind": "issue",
+  "title": "[PM seat] domain:ui @ objectui · seat 5 — 🟢 os-tesla · session_01KUxVUa7 · batch 5 · 1 landed · devs: #10472 #10475 #10425 #10435 #10442",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:seat"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T04:50:36Z",
+  "updated_at": "2026-09-25T07:42:29Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10488",
+  "body": "Seat registration post for `domain:ui` **seat 5** @ objectui. Job description: `objectstack:.claude/skills/pm-dispatch/references/lanes/ui.md`. The body is authoritative; the title and assignee are derived views. Single writer: the sitting seat PM. Readers take this body plus any comments newer than its last edit.\n\nBody refreshed 2026-09-25T07:42Z (a dispatch refresh). This seat was created on the maintainer's order 「新开 seat 5」; the race record is objectui#9800 comment `5826875417`.\n\n## 1. Current PM\n\n| | |\n|:--|:--|\n| status | 🟢 **os-tesla**, `session_01KUxVUa7e39aNjhkKi1gsoy`, writing through the fleet relay as `objectstack-fleet[bot]`. Seated at this post's creation. |\n| wake | Routine `trig_012UeQ1RcRoJrbemR17dCxye` (self-bound, hourly at :40 UTC). |\n| batch | **5**, on the maintainer's word in this session: 「任务很多，并发保持5」. |\n| takeover | `/pm-dispatch ui@objectui`, then read this post first. |\n\n## 2. Ledger\n\n**Landed:** objectui#10433 → PR objectui#10503, `111fa4c`. Verified by content; `pm:dispatched` removed; landed note `5828760691`.\n\n**In the merge queue (ACCEPTed, contract review PASS at tier, ready + auto-merge):** objectui#7588 → PR objectui#10509, record `5828640549`.\n\n**Delivered, at-tier contract review running:** objectui#8235 → PR objectui#10515 · objectui#8667 → PR objectui#10521 · objectui#7597 → PR objectui#10527 · objectui#8678 → PR objectui#10529.\n\n**Devs in flight** (`mode:subagent`, this session; claims `5828704319` / `5828717187` / `5828730386` / `5828747006` / `5828762458`): objectui#10472, objectui#10475, objectui#10425, objectui#10435, objectui#10442.\n\n**Released:** objectui#7469. The maintainer ruled C in this session (retire `actions[]` / `AppAction`; app-level actions use `navigation` items of type `action`), recorded at `5828532177`. The card is back in `pm:queue` with `pm:retriage` asking triage whether it moves to `domain:spec` (its landing point is now `packages/types`).\n\n**Filed this shift:** objectui#10535 (PeoplePicker name and user-cell FLS), objectui#10537 (the simulator writes an envelope through as a literal), objectui#10538 (CEL macro variable flagged as unknown).\n\n**Findings owed to the filing gate** (this fire's three-card quota is spent; next fire):\n- from PR objectui#10515: `data-table.mdx` documents `renderCellEditor`, a key the `DataTableSchema` twin refuses (class b). The `pagination.mdx` prop drift (class c) is the one triage `5568115575` said needs its own card.\n- from PR objectui#10529: the readonly `PasswordField` widget draws the mask for an empty value (class a).\n- from PR objectui#10527: an `ObjectFieldInspector` type switch keeps a key the new type refuses (class a).\n\n**Not taken, with the reason:**\n- objectui#10478: same schema family as seat 1's in-flight objectui#9306 (PR objectui#10534, `complex.zod.ts`); it waits.\n- objectui#8219: needs live-stack browser measurement (`mode:cloud`).\n- objectui#8524 / objectui#10439: need a cloud wire shape this session cannot read (`objectstack-ai/cloud` is not attachable here).\n- objectui#7189: its `pm:retriage` split question was cleared with no visible answer (the events of a suspended account vanish); ask triage before dispatch.\n\n## 3. Hot-file serial queue\n\nHeld by this seat, as regions under live claims: `apps/console/src/components/FormPage.tsx` (`resolveFieldWidgetKey`), `packages/plugin-form/src/ObjectForm.tsx` (`SimpleObjectForm` sections), `packages/components/src/renderers/form/select.tsx`, the `ru` / `ar` count-label values, and the four date faces of objectui#10442.\n\n## 4. Notes\n\n- North Star 「优先级」 clause 3: the lane has open P1s, so this seat takes product cards only, and ⛔ no p2/p3 tooling or contract-hygiene cards.\n- Every PR with changeset or docs prose owes an at-tier contract review. This seat runs at the default tier, so it adopts an isolated `CONTRACT_REVIEW_TIER` subagent's record after reading its transcript.\n"
+}

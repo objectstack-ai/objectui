@@ -1,0 +1,35 @@
+{
+  "number": 5236,
+  "kind": "issue",
+  "title": "examples/hello-world renders four OBJUI-001 panels: schema.json uses PascalCase types (`Page`/`Card`/`Text`/`Button`) and the registry lookup is case-sensitive",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T19:24:04Z",
+  "updated_at": "2026-08-18T20:34:38Z",
+  "closed_at": "2026-08-18T20:34:38Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5236",
+  "body": "Found while measuring the judged-file corpus for #5127 (that card's marker measurement enumerates every in-repo JSON file with a root `type`). Outside that card's radius, not carried into its branch. Filed unassigned, not claiming.\n\n## Symptom\n\n`examples/hello-world/schema.json` — the smallest example in the repo, the one a newcomer opens first — names every node in PascalCase:\n\n```json\n{\n  \"type\": \"Page\",\n  \"title\": \"Hello ObjectUI\",\n  \"children\": [\n    {\n      \"type\": \"Card\",\n      \"children\": [\n        { \"type\": \"Text\", \"content\": \"Welcome to ObjectUI!\" },\n        { \"type\": \"Text\", \"content\": \"This UI is rendered from a JSON schema.\" },\n        { \"type\": \"Button\", \"content\": \"Get Started\", \"variant\": \"default\" }\n      ]\n    }\n  ]\n}\n```\n\n`examples/hello-world/App.tsx` renders it directly:\n\n```tsx\nimport { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';\nimport schema from './schema.json';\n// ... SchemaRenderer schema={schema}\n```\n\nNone of `Page`, `Card`, `Text`, `Button` is a registered key. The registered spellings are the lowercase `page`, `card`, `text`, `button` — all four are present in `packages/cli/src/utils/known-schema-types.ts`, which is derived from the registration calls themselves (#5115).\n\n## Why it does not resolve\n\n`packages/core/src/registry/Registry.ts` resolves through plain `Map` lookups — `this.components.get(namespacedType)` / `this.components.get(type)` in `get()`, and the same in `has()` / `getEntry()`. There is no `toLowerCase` anywhere in `packages/core/src/registry/`, so lookup is case-sensitive and `Page` misses `page`. Every node falls through to the OBJUI-001 \"Unknown component type\" panel.\n\nIndependent corroboration from the CLI: `objectui check` over the repo emits `Unknown schema type \"Page\" in examples/hello-world/schema.json` today. It is one of only two real ObjectUI schema files in the whole repo that the command warns about (the other, `examples/schema-catalog/src/schemas/core-schema-renderer/unknown-component-type.json`, is a deliberate fixture) — so the warning has been on the console output all along, buried under 45 false positives from `package.json` (that is #5127).\n\n## Boundary against #5127\n\nIndependent. #5127 is about which *files* enter type judgement; this is a schema in the repo whose *types* are wrong whichever way that lands. Under every marker variant considered on #5127 this file stays judged (it carries `children`), so #5127 neither introduces nor hides it.\n\n## Prior art\n\nSame failure shape as the closed #4061 (`objectui init` scaffolded an app whose registry was empty, so every node rendered \"Unknown component type\"). That one was fixed at the scaffold; this one is a committed example.\n\n## Direction, not prejudged\n\nThe obvious fix is to lowercase the four `type` values in `examples/hello-world/schema.json`. Worth deciding separately whether the registry should normalise case at lookup — that is a contract question (it would make `Page` and `page` the same key everywhere, and PascalCase is what a React-shaped mental model reaches for first), and the answer should not be inferred from this one example. Recommend fixing the example; file the registry-normalisation question on its own if it is wanted.\n\n## How to reproduce\n\nWith `REPO` the repository root:\n\n```\ncd \"$REPO\" && node packages/cli/dist/cli.js check | grep hello-world\ngrep -rn \"toLowerCase\" packages/core/src/registry/    # no hits: lookup is case-sensitive\n```\n"
+}

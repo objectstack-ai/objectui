@@ -1,0 +1,34 @@
+{
+  "number": 4865,
+  "kind": "issue",
+  "title": "skill 入口 SKILL.md 与 evals/project-setup.json 仍在教/评分「加 @source 扫 ObjectUI 包」—— #4858 修正后的残留",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T16:59:12Z",
+  "updated_at": "2026-08-18T14:14:24Z",
+  "closed_at": "2026-08-18T14:14:24Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4865",
+  "body": "## 发现来源\n\nobjectui#4858 的实施(分支 `claude/issue-4858-skill-source-glob`)。#4858 的文件面是三份指南\n(`skills/objectui/rules/styling.md`、`guides/page-builder.md`、`guides/project-setup.md`),\n已改为教发布态 `@import '@object-ui/components/style.css'` + `@import '@object-ui/fields/style.css'`。\n同一段样板的残留还在另外两个文件里,按「相邻缺陷立新单不扩围」单独记录,未在 #4858 的 PR 里改。\n\n## 事实(实测,`origin/main` = `7458a418b`)\n\n### 1. `skills/objectui/SKILL.md:139-140` —— skill 入口的「Common Mistakes」\n\n```\n- Missing Shadcn CSS variables — components render but look completely unstyled.\n- Forgetting `@source` directives in Tailwind config — utility classes not generated for ObjectUI packages.\n```\n\n对**已发布消费者**这条今天是反向指路:`@object-ui/components` / `layout` / `react` 的 `files`\n只含 `dist`,加 `@source` 指向它们生成不出主题化 utility(`@theme` 块在未发布的源码里),正路是导入\n两张 `style.css`。`packages/components/README.md:64` 与 `content/docs/guide/theming.md:82` 都明确\n写着不要加这条 `@source`。SKILL.md 是 skill 的入口面,三份子指南改对之后,入口仍指旧路。\n\n(在 monorepo 工作区里 `@source` 扫 `packages/*/src` 仍然正确 —— 这条 bullet 的问题是不区分两种场景,\n而不是全错。`page-builder.md` 的同名 bullet 已在 #4858 的 PR 里改成按场景表述。)\n\n### 2. `skills/objectui/evals/project-setup.json` —— 评分断言要求复现被删的样板\n\n三条 eval 的 `must_contain` 仍把旧样板当正确答案:\n\n| eval | `must_contain` |\n| --- | --- |\n| 1(全套 setup) | `@source`、`@theme` |\n| 2(组件完全无样式,怎么办) | `@source`、`@theme`、`--color-`、`:root` |\n| 3(加 grid/kanban 插件) | `@source` |\n\neval 2 的 `expected_output` 写的是「explains need for @source directives, @theme color token mapping,\nand :root CSS variables」—— 这正是 #4858 判定为对 3/4 的包已失效的那段。改对后的指南给出的答案会\n**不含** `@source` / `@theme` / `:root`(发布态消费者只导两张 `style.css`),因此按现有断言评分会判负。\n\n## 影响分级(两半不同,故请 PM 分诊)\n\n- **SKILL.md 那半是具体缺陷**:入口面被每个用该 skill 的 agent 读到,今天就会把人导向已失效的做法。\n- **evals 那半是 unexercised drift**:仓内没有任何 harness 读 `skills/objectui/evals/*.json`\n  (`grep` 全仓无消费者),所以今天不影响任何门;但它是个评分面,方向与指南相反,谁接上 harness\n  谁就会按旧样板打分。\n\n## 建议修法\n\n1. SKILL.md:140 改成按场景表述(已发布 → 两张 `style.css`;工作区 → `packages/*/src` 的 `@source`),\n   或直接指向 `rules/styling.md` 的那一节,避免入口与子指南各存一份说法。\n2. evals 1/2 的 `must_contain` 与 `expected_output` 跟着改为 `style.css` 正路;eval 3 的 `@source`\n   需要单独判别(插件在工作区里确实靠 `@source`,在已发布场景靠插件包自己的样式入口 —— 这一条值得\n   先确认插件包是否发布 `style.css`,再定断言)。\n\n关联:#4858(本单来源,三份指南的修正)、#4059(`style.css` 为何必须存在)、#4856 / #4851\n(`files` 含 `src` 的同族)。未认领。"
+}

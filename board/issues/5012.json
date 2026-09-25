@@ -1,0 +1,36 @@
+{
+  "number": 5012,
+  "kind": "issue",
+  "title": "plugin-gantt README 教的 `ganttComponents` 手动注册与 `GanttSchema` 类型都不存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:15:57Z",
+  "updated_at": "2026-08-17T21:44:05Z",
+  "closed_at": "2026-08-17T21:44:05Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5012",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-gantt/README.md` 两处从本包名导入的标识符不存在:\n\n| README | 实际 |\n| --- | --- |\n| `:108` `import { ganttComponents } from '@object-ui/plugin-gantt'` + `:112` `Object.entries(ganttComponents).forEach(...)` | 全包零命中。注册是 import 的副作用;真实导出在 `src/index.tsx:18-53` 与 `:83`(`ObjectGantt`、`ObjectGanttRenderer`、`GanttView`、`QuickFilterBar`、`ResourceWorkload`、`normalizeDependencies` …)。照抄即 `Object.entries(undefined)` 抛 TypeError。 |\n| `:407` `import type { GanttSchema, GanttTask } from '@object-ui/plugin-gantt'`,`:418` `const gantt: GanttSchema = {…}` | `GanttTask` 是真的(`src/GanttView.tsx:139`);`GanttSchema` 在本包、在 `@object-ui/types` 都不存在,是纯虚构的类型名。 |\n\n## 同族\n\n#5002 是 `mapComponents` 在 plugin-map 上的同一段复制品。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(#5011)、gantt(本单)、grid、view、dashboard、report。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n## 复核方式\n\n```\ngrep -n \"ganttComponents\\|GanttSchema\" packages/plugin-gantt/README.md\ngrep -rn \"ganttComponents\\|\\bGanttSchema\\b\" packages/plugin-gantt/src   # 零命中\ngrep -rn \"GanttSchema\" packages/types/src                               # 零命中\n```\n\n## 分级\n\n交 PM 分诊。包内 README 的 API 断言今天没有门禁看得到。\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4016,
+  "kind": "issue",
+  "title": "objectui: Studio 元数据编辑页从 `?layers=true` 迁到 `GET /meta/:type/:name/layers`(#5882 B 案的消费半边)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T02:04:54Z",
+  "updated_at": "2026-08-18T04:34:20Z",
+  "closed_at": "2026-08-17T12:53:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4016",
+  "body": "> Migrated from objectstack-ai/objectstack#6669 under the file-at-destination ruling (objectstack-ai/objectstack#7167, maintainer 2026-08-10). Originally filed 2026-08-08T09:46:16Z. The full prior thread — including triage rulings and hold/restart conditions — remains on the source issue and MUST be read before acting on this card.\n\n---\n\n跨仓 rule 3 联动单(spec 车道 PM 在验收 PR objectstack-ai/objectstack#6596 时立卡;`domain:*`/`repo:objectui` 路由留分诊席)。\n\nBlocked-by: objectstack-ai/objectstack#6596\n\n## 任务\n\nobjectstack-ai/objectstack#5882 B 案已落地(PR objectstack-ai/objectstack#6596):layered 三层诊断视图有了独立路径 `GET /meta/:type/:name/layers` 与自己的 `GetMetaItemLayeredResponseSchema`;旧 `?layers=true` 进入弃用窗口(仍答同一 body,响应带 RFC 9745 `Deprecation: true` + RFC 8288 `Link: rel=\"successor-version\"` 指路)。本单是消费半边:objectui Studio 元数据编辑页的三层对比页签把调用从 query flag 迁到新路径。迁完后上游可关弃用窗口(硬切时机归维护者)。\n\n注意(PR objectstack-ai/objectstack#6596 正文已核):\n- 新路径与旧 flag 由**同一个** `serveMetaItemLayered` 实现服务,迁移期间两拼法答同 body,可灰度;\n- ADR-0106 元数据面 FLS 已覆盖两个入口(code/overlay/effective 三层各自过掩码)—— Studio 编辑器属 D4 豁免面,行为不变;\n- `?package=` 参数在新路径同样透传(ADR-0048)。\n\n前提:等 objectui `.objectstack-sha` pin 前移覆盖 objectstack-ai/objectstack#6596 后动工(pin 滞后规则)。"
+}

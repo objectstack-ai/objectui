@@ -1,0 +1,35 @@
+{
+  "number": 5115,
+  "kind": "issue",
+  "title": "`objectui check` 的 knownTypes 是手写的注册表副本,已与真实注册表漂移:`crud` 通过校验但无任何渲染器,运行时落 unknown-component 占位符",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T01:46:04Z",
+  "updated_at": "2026-08-18T02:51:16Z",
+  "closed_at": "2026-08-18T02:51:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5115",
+  "body": "发现于 #5098 的实施(核对 `resource` 键归属时,顺着 `CRUDSchema` 追到的)。半径外,未夹带进 PR #5114。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/cli/src/commands/check.ts:34-38` 用一个**硬编码数组**判定 schema 的 `type` 是否已知:\n\n```\nconst knownTypes = [\n  'page', 'form', 'grid', 'crud', 'kanban', 'calendar', 'dashboard',\n  'chart', 'detail', 'list', 'timeline', 'gantt', 'map', 'gallery',\n  'object-view', 'detail-view', 'object-chart',\n];\nif (typeof content.type === 'string' && !knownTypes.includes(content.type)) {\n  console.log(chalk.yellow(`⚠️ Unknown schema type \"${content.type}\" in ${file}`));\n}\n```\n\n这份列表是 `ComponentRegistry` 的**手写副本**,没有任何东西让两者保持一致。已经漂移:\n\n**`crud` 在列表里,但全仓没有任何渲染器注册它。**\n\n```\ngrep -rn \"register('crud'\" packages/*/src apps/*/src    # 零命中\n```\n\n`CRUDSchema` 的其余声明面都在(`packages/types/src/crud.ts:424` 的 interface、`packages/types/src/zod/crud.zod.ts` 的 zod 镜像、`packages/core/src/validation/schema-validator.ts:135` 的 `if (schema.type === 'crud')` 分支、`packages/core/src/builder/schema-builder.ts:168` 的 `CRUDBuilder`),唯独**没有渲染器**。\n\n## 影响\n\n写了 `type: 'crud'` 的作者会一路拿到绿灯:`objectui check` 不告警,`schema-validator` 有专门分支校验它,`CRUDBuilder` 还能把它构建出来 —— 然后在浏览器里拿到 unknown-component 占位符。README 的 `## Schema API` 一节(plugin-form)已经写明这条规则:「A schema whose `type` names something no registration claims does not fall back to a form — it renders the unknown-component placeholder」。\n\n方向上这比单个键的漂移更值得注意:**门禁说 OK 的类型,运行时不存在**。而且列表是手写的,`crud` 未必是唯一一个 —— 反向也成立(注册表里有、列表里没有的类型会被误报为 unknown)。\n\n## 复核方式\n\n```\nsed -n '33,40p' packages/cli/src/commands/check.ts\ngrep -rn \"register('crud'\" packages/*/src apps/*/src        # 零命中\ngrep -n \"type === 'crud'\" packages/core/src/validation/schema-validator.ts\ngrep -n \"class CRUDBuilder\" packages/core/src/builder/schema-builder.ts\n```\n\n## 分级\n\n交 PM 分诊,**未打 `finding` 标签**:这是今天照着写就会撞上的具体缺陷(校验绿灯 → 运行时占位符),不是休眠代码。但修法有选择(把列表换成从 `ComponentRegistry` 派生 / 退役 `CRUDSchema` 走 ADR-0049 enforce-or-remove / 补一个 crud 渲染器),取哪条是契约决定,故只如实立卡不预设方案。\n\n与 #4631(同一 component type 三个声明面互不一致)同族但不同事实:那张卡讲的是 TS type / registry meta / renderer prop reads 三者的分歧,本卡讲的是 **CLI 的第四份手写副本**与注册表的分歧,以及 `crud` 这个具体的零渲染器类型。\n"
+}

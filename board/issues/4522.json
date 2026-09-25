@@ -1,0 +1,35 @@
+{
+  "number": 4522,
+  "kind": "issue",
+  "title": "[console] AppContent's post-publish readiness re-check is skipped for the second of two consecutive missing apps",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-13T04:02:08Z",
+  "updated_at": "2026-08-18T13:45:04Z",
+  "closed_at": "2026-08-18T13:45:04Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4522",
+  "body": "Found while implementing #4252 (PR #4521); not fixed there — out of that card's scope, and it predates it.\n\n## What\n\n`packages/app-shell/src/console/AppContent.tsx` holds the post-publish readiness re-check in `missingRecheck: 'idle' | 'checking' | 'done'`. It is reset to `'idle'` on exactly one condition — `requestedAppMissing` going false:\n\n```ts\nuseEffect(() => {\n  if (!requestedAppMissing) {\n    if (missingRecheck !== 'idle') setMissingRecheck('idle');\n    return;\n  }\n  if (missingRecheck === 'idle' && !metadataLoading && !previewDrafts) {\n    setMissingRecheck('checking');\n    Promise.resolve(refreshMetadata()).finally(() => setMissingRecheck('done'));\n  }\n}, [requestedAppMissing, metadataLoading, previewDrafts, missingRecheck, refreshMetadata]);\n```\n\nNavigating from one missing app to another missing app never satisfies that condition: `requestedAppMissing` is true before the transition and true after it, so `missingRecheck` stays `'done'` and the second app gets **no** re-check. The state is a flag about \"a re-check has run\", not about *which app it ran for*.\n\n## Why it matters\n\nThe re-check exists because \"the registry can lag a beat behind a publish\" — it is what makes a just-built app resolve on its own instead of flashing \"App not available\". An app reached second in a session (launcher → typo'd URL → the real, freshly-published app; or two attempts in a row while a build lands) does not get that grace, and shows the not-available screen with no refresh behind it. Retry still works, so the user has a way out — which is why this reads as low severity rather than a strand.\n\n## Severity note\n\nGraded observation-class at filing time (`finding`, no `pm:queue`): the failure needs two consecutive missing apps in one mount, and the visible cost is one skipped refresh, not a wrong screen. Grade it in triage rather than trusting that line — severity judged at filing time is unreliable in both directions in this repo's history.\n\n## Related but distinct\n\nPR #4521 hit the same shape one state over and had to fix it there, because the consequence differed: the access verdict it introduces would have shown the *wrong screen* (the first app's authorization denial over the second app's absence), rather than merely skipping work. That one is keyed to the app it describes and pinned by a test; `missingRecheck` was deliberately left as-is so the fix stayed inside #4252's surface.\n\nNot to be confused with #4486 (MetadataProvider cache keyed by type, not org) — different layer, different cache."
+}

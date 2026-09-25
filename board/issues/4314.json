@@ -1,0 +1,35 @@
+{
+  "number": 4314,
+  "kind": "issue",
+  "title": "Structured `confirm.message` outranks `confirmText` in ActionRunner but has no translation-bundle key — and the types deprecate authors INTO it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-11T13:40:11Z",
+  "updated_at": "2026-08-18T15:01:31Z",
+  "closed_at": "2026-08-18T15:01:31Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4314",
+  "body": "Observation found while fixing #4265 (PR #4313). **Dormant today** — nothing in this repo authors the structured form, so no user hits it. Filing so the trap is on record rather than rediscovered later.\n\n## What\n\n`ActionRunner` picks the confirm body with a precedence, not a union:\n\n```ts\n// packages/core/src/actions/ActionRunner.ts:896\nconst confirmMessage = action.confirm?.message || action.confirmText;\n```\n\nThe translation channel only knows the second one. The bundle convention is\n`{ns}.objects.{obj}._actions.{name}.confirmText` (`useObjectLabel().actionConfirm`),\nand after #4265 every action-rendering surface resolves that key through one\nshared resolver. There is no key for `confirm.message` anywhere.\n\nSo an action that declares the structured form gets a confirm dialog whose body\n**cannot be translated** — and worse, it does so *silently*: a bundle entry\nspelling `confirmText` still resolves, is still written onto the def, and is\nthen simply outranked by the untranslated `confirm.message`. The failure looks\nexactly like #4265 from the outside, with the opposite cause.\n\n## The part that makes it likelier over time\n\n`@object-ui/types` currently points authors AT the untranslatable form:\n\n```ts\n// packages/types/src/crud.ts:160\n/** @deprecated Use confirm.message instead */\nconfirmText?: string;\n```\n\nThat is backwards relative to where the platform actually landed:\n`@objectstack/spec`'s action surface carries `confirmText`, the TranslationBundle\ncarries `confirmText`, and `ActionDef.confirmText` in `packages/types/src/ui-action.ts`\ncarries no deprecation. An author who follows the `@deprecated` note writes the\none spelling that loses localization.\n\n## Why observation-class, not a defect\n\nRepo-wide grep for an authored `confirm: { … }` on an action turns up nothing\noutside type declarations and the runner's own read — only `confirmText` is\nproduced. Nothing a user can reach today is broken.\n\n## Two candidate dispositions (for triage, not decided here)\n\n1. **Retire the structured arm** — if `confirm: { title, message, confirmText, cancelText }`\n   has no business pull, ADR-0049 enforce-or-remove applies, and the contradictory\n   `@deprecated` note in `crud.ts` goes with it. One spelling, contract-first.\n2. **Give it a bundle key** — keep the arm and resolve `confirm.message` /\n   `confirm.title` / the two button labels through the same `_actions` node, so\n   declared equals enforced on both arms.\n\nDirection 1 looks right on the startup-focus axis (a declared-but-unconsumed\ncapability surface earning a second translation vocabulary is exactly the\nexpansion that needs real pull first), but it is a contract call, so it is the\nmaintainer's rather than mine.\n"
+}

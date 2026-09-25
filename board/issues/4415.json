@@ -1,0 +1,30 @@
+{
+  "number": 4415,
+  "kind": "issue",
+  "title": "[finding] ObjectChart's dataset read still owns its local fetch-and-memo glue — folding it into useDatasetDimensionMeta needs a \"resolve extra paths without relabeling them\" concept on the shared hook",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-12T04:34:20Z",
+  "updated_at": "2026-08-17T22:18:54Z",
+  "closed_at": "2026-08-17T22:18:19Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4415",
+  "body": "Recorded by the PM seat from PR #4412's step-2 decline (objectui#4405), so the residual isn't lost when that card closes. Filed unassigned, no queue — this earns its card when pull exists, per the startup-focus principle.\n\n## The residual\n\nPR #4412 retired the third copy of the label-net DERIVATION (pure functions now from `@object-ui/core`), but `ObjectChart`'s dataset-path READ stays local. The measured blocker (PR #4412's report): ObjectChart's **colour dimension is not one of the dimensions the surface renders** — it resolves `[fieldName, ...values(fieldByDim)]` where `fieldName` comes from the dataset *definition's* first dimension. `@object-ui/react`'s `useDatasetDimensionMeta` resolves only dimensions it will also relabel, and bails on empty dims (`useDatasetDimensionLabels.ts:134`), so routing a no-schema-dimensions chart through it silently drops the colour map (2 reads → 1, scratch-pinned in that PR's work).\n\n## What closing it would take\n\nThe shared hook grows a \"resolve these extra field paths but emit no relabel entry for them\" concept — an API addition to `@object-ui/react`'s freshly-landed hook (PR #4404), whose naming/shape deserves its own review. With it, ObjectChart's dataset path inherits the two singly-expressed properties (`apiFetch` in deps #4121; locale NOT in deps #4030/#4324) instead of restating them locally; the aggregate path stays local either way.\n\n## Current risk posture (why no queue)\n\nDrift surface reduced 3→1 by PRs #4404 + #4412; the one remaining local statement of the two properties is correct today and its path is provably observed by pins (PR #4412's RV2). The known blind spot — the colour translator *binding* is unpinned at the plugin seam (RV3) — is pre-existing and covered one level down by core's unit tests.\n\nRefs: #4405 / PR #4412 (the decline + measurements), #4389 / PR #4404 (the shared hook), #4121, #4030/PR #4324."
+}

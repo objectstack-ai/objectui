@@ -1,0 +1,35 @@
+{
+  "number": 5033,
+  "kind": "issue",
+  "title": "plugin-form: the redirect `delayMs` timer outlives the component — a submitter who leaves during the delay is yanked back by a full-page navigation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T18:27:41Z",
+  "updated_at": "2026-08-17T21:18:19Z",
+  "closed_at": "2026-08-17T21:18:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5033",
+  "body": "Found while implementing objectui#4989 (the contract half of the same two call sites). Filed unassigned, NOT fixed there — #4989's card scopes itself to five named defects and this is not one of them.\n\n## What\n\n`ObjectForm` and `WizardForm` arm the declared `submitBehavior: { kind: 'redirect' }` delay with a bare `setTimeout` inside the submit handler:\n\n- `packages/plugin-form/src/ObjectForm.tsx` (redirect arm of the `submitBehavior` switch)\n- `packages/plugin-form/src/WizardForm.tsx` (same arm)\n\n```\nsetTimeout(() => window.location.assign(verdict.url), behavior.delayMs ?? 0);\n```\n\nNothing ties that timer to the component. It is not stored, not cleared on unmount, and not owned by an effect. So for the whole of `delayMs` there is a pending full-page navigation that survives the form being taken off screen.\n\n## Consequence\n\nA submitter who acts during the delay gets pulled away from wherever they went. The reachable shapes, in rising order of how ordinary they are:\n\n- the form is a modal/drawer variant (`ModalForm`, `DrawerForm` both wrap these), the user dismisses it after the confirmation and starts doing something else — then the timer fires and the browser leaves the page.\n- the host is an SPA and the user clicks any in-app link during the delay; the timer's `window.location.assign` overrides that navigation with a full page load.\n- the host unmounts the form for its own reasons (route change, tab switch, data refresh that re-keys a subtree).\n\n`delayMs` exists precisely so the confirmation is readable before the redirect, so a non-trivial value is the intended authoring, not an edge case. The longer the declared delay, the wider the window.\n\n## Prior art in this repo — the same defect, already fixed on the console side\n\n`apps/console`'s `FormPage` had this and PR #4992 moved the wait into an effect keyed on the pending destination, with a `clearTimeout` cleanup. Its changeset states the reason in one line: \"the wait now lives in an effect tied to the component, so a submitter who navigates away during the delay is no longer yanked back by a timer that outlived the page.\"\n\nSo the fix shape is already decided and demonstrated in this repo; this is the same move for the published renderer's two call sites. It should not change `delayMs` semantics at all — the pause stays a pause, an unset value still means \"go now\".\n\n## Reachability, honestly\n\nNeeds a form authoring a `redirect` behaviour WITH a `delayMs`, and an unmount or navigation inside that window. Nobody loses data — the write has already succeeded before the timer is armed — so the harm is a surprising navigation, not corruption. Cheap to fix and cheap to pin (arm the delay, unmount, assert nothing was assigned).\n\n## Not to be confused with\n\nobjectui#4989, which is about WHAT the url means (relative-only, interpolation, escaping, and refusing an out-of-contract value loudly). That card's PR leaves the timer exactly as it found it. This issue is only about the timer's lifetime."
+}

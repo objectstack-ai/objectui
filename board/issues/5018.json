@@ -1,0 +1,35 @@
+{
+  "number": 5018,
+  "kind": "issue",
+  "title": "`ObjectMapSchema`(types)声明的键几乎与 ObjectMap 实际读的键无交集:`map` 块整体未建模,组件 props 类型写的是 `ObjectGridSchema`,每处 map 读取都走 `as any`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:18:39Z",
+  "updated_at": "2026-08-18T08:19:10Z",
+  "closed_at": "2026-08-18T08:19:10Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5018",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`object-map` 这一个组件有三份互不一致的\"形状\":\n\n**1. 声明面** —— `packages/types/src/objectql.ts:1811-1826` 与 `packages/types/src/zod/objectql.zod.ts:536-542` 的 `ObjectMapSchema`,一共四个键:\n\n```\ntype: 'object-map', objectName(必填), locationField?, titleField?, mapStyle?\n```\n\n**2. 实际读取面** —— `packages/plugin-map/src/ObjectMap.tsx` 读的是:`objectName` / `staticData` / `data`(`getDataConfig`,`:103-123`)、`filter` / `sort`(`:467-468`)、`map` 块的 8 个键(`MapConfigSchema`,`:41-50`:`latitudeField`、`longitudeField`、`locationField`、`titleField`、`descriptionField`、`zoom`、`center`、`style`)、顶层同名的 5 个字段键 + `zoom` / `center`(`:202-213`)、`enableClustering`(`:570`)、`navigation`(`:554`)、`style` / `mapStyle`(`:199`)。\n\n**3. 组件 props 类型** —— `ObjectMapProps.schema` 声明成 `ObjectGridSchema`(`ObjectMap.tsx:61`),不是 `ObjectMapSchema`。于是全部 map 专有读取都得绕过类型:`(schema as any).map`、`(schema as any).enableClustering`、`(schema as any).navigation`、`(schema as any).style`、`(schema as any).mapStyle`。\n\n结果:`map: { … }` 这个**注册时声明的输入**(`src/index.tsx:68` / `:78`,`{ name: 'map', type: 'object' }`)在类型面上完全不存在。一个 TS 作者按 `ObjectMapSchema` 写地图,写不出 `map` 块;按文档(`content/docs/plugins/plugin-map.mdx`)写 `map` 块,则拿不到任何类型检查 —— 拼错 `latitudeField` 为 `latitudeFieId` 没有任何一层会说话,渲染出的是一张\"记录坐标无效\"的空地图。\n\n这正是 AI 生成的 metadata 最容易藏错的形状:声明面松、消费面 `as any`、错了不响。\n\n## 与 #5002 的关系\n\n#5002 只修 README(已按现码重写,教 `map` 块这一个拼法)。本单是它下面那一层:README 现在教的形状,**类型面并不承认**。两者不相交,但 #5002 的 PR 把这个落差看得很清楚,所以在这里记账。\n\n## 可能的修法(供分诊定向,未实施)\n\n1. `ObjectMapSchema` 补齐:`staticData` / `data` / `filter` / `sort` / `map: MapConfigSchema` / `enableClustering` / `navigation`,并把 `MapConfigSchema` 从 `plugin-map` 抬到 `types`(它今天是包内私有的 zod,`ObjectMap.tsx:41`),让声明面与运行时校验共用同一个 schema;`ObjectMapProps.schema` 改成 `ObjectMapSchema`,删掉 `as any`。\n2. 只抬 `MapConfigSchema` 到 types 并让 `ObjectMapSchema.map` 引用它,先解决 `map` 块无类型这一半。\n3. 顺带需要裁一刀的:顶层字段拼法(`:202-213`)与 `map` 块两条路并存,顶层优先且静默胜出 —— 两个拼法同时写,`map` 块整块被忽略。这条 gate 里有钉子(`ObjectMap.filterConfig.test.tsx:164`),但没有任何文档教它,`ObjectView.tsx:770-776` 又正是把 view options 摊平成顶层拼法的生产者。是要把顶层收为内部形态,还是把它也声明出来,是本单真正的裁决点。\n\n## 分级\n\n交 PM 分诊。若认为 3 是独立裁决,可拆子单。\n"
+}

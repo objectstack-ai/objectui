@@ -2,8 +2,8 @@
   "number": 9529,
   "kind": "issue",
   "title": "finding(plugin-detail): `DetailSection` renders `section.icon`, but `detail-section`'s authoring surface declares no `icon` — one affordance the renderer honours and no author can reach",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-tesla",
@@ -13,18 +13,21 @@
   "labels": [
     "domain:ui",
     "plugin",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-14T21:14:15Z",
-  "updated_at": "2026-09-18T03:59:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T05:06:59Z",
+  "closed_at": "2026-09-25T05:06:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/9529",
   "body": "Dedup keywords: `detail-section` · `DETAIL_SECTION_NODE_INPUTS` · `section.icon` · `DetailViewSection` · undeclared-input\n\nFiled by the `domain:ui` execution seat while re-measuring objectui#8626 before closing it. ⛔ Unassigned and ungraded — grading is triage's. This is **not** objectui#8626's defect (that one was the flat-versus-`section` shape mismatch, repaired by PR objectui#9221) and it is **not** objectui#9218 (`showBorder` inert in the collapsible branch). It is the gap objectui#9221's acceptance notes recorded as *\"Noted, not filed\"*; this card is the filing, with the measurement redone.\n\n## The measurement\n\nAt `origin/main` `bbc9dc3`.\n\n`DetailViewSection` (`packages/types/src/views.ts`) carries **eleven** members. `DETAIL_SECTION_NODE_INPUTS` (`packages/plugin-detail/src/DetailSectionNode.tsx`) declares **eight** — and the registration at `packages/plugin-detail/src/index.tsx:352` publishes exactly those eight as the node's `inputs`. Undeclared: `name`, `icon`, `visible`.\n\nReads counted off the `section` object in `packages/plugin-detail/src/DetailSection.tsx`, with every **declared** member carried as a lit control in the same pass:\n\n| member | `section.<m>` reads | declared? |\n|---|---|---|\n| `title` | 4 | yes |\n| `description` | 4 | yes |\n| `fields` | 8 | yes |\n| `collapsible` | 2 | yes |\n| `defaultCollapsed` | 1 | yes |\n| `columns` | 1 | yes |\n| `showBorder` | 3 | yes |\n| `headerColor` | 2 | yes |\n| **`icon`** | **2** | ⛔ **no** |\n| `name` | 0 | no |\n| `visible` | 0 | no |\n\n⇒ eight non-zero controls in the same grep pass, so the two zeros are **readings**, not a dead pattern.\n\n## ⭐ So the gap is exactly ONE member, not three\n\nPR objectui#9221's note named all three undeclared members together. Re-measured, only **`icon`** is both **read by the renderer** and **unreachable by an author**. `name` and `visible` are undeclared *and* unread here, so they carry no authoring gap at this block — whatever else may be true of them, they are not this finding.\n\n## Why it matters\n\nThe `inputs` array is not documentation. `packages/components/src/renderers/layout/page.tsx` builds the JSX-page compiler's manifest from `getKnownTypes()` plus these same `inputs`, and `sdui-parser`'s `validateTree` judges an authored page against it. ⇒ the platform's own validator tells an author the eight names are the correct and **complete** way to write this block, on the one surface where the answer is machine-read — while the renderer honours a ninth.\n\n⚠️ The failure direction is the quiet one: an author who writes `icon` is **warned**, not silently dropped (per objectui#9221's reading), so nothing breaks and nothing renders. The affordance simply cannot be reached.\n\n## ⛔ Not pre-judged\n\nThis is a decision to **WIDEN** a published authoring surface, which is a product question and ⛔ not this seat's:\n\n1. **Declare it** — add `{ name: 'icon', type: 'string' }` to the registration and to `DETAIL_SECTION_NODE_INPUTS`, making the renderer's affordance reachable.\n2. **Stop reading it** — delete the two `section.icon` reads, making the declaration complete instead. ⚠️ In-repo callers use `DetailSection` **directly** (not through the node), so they may be authoring `icon` today; measure that before choosing this.\n3. **Leave it** — accept that the node surface is deliberately narrower than the component's, and say so in the registration so the next reader does not re-file this.\n\n⇒ option 2 is a behaviour change for direct callers and option 1 is new published surface (**clause ②**). Neither is mechanical.\n\n## Reproduction\n\n1. `git show origin/main:packages/plugin-detail/src/DetailSectionNode.tsx | grep -A10 DETAIL_SECTION_NODE_INPUTS` — the eight.\n2. `git show origin/main:packages/types/src/views.ts | awk '/interface DetailViewSection[ <{]/,/^}/'` — the eleven.\n3. `git show origin/main:packages/plugin-detail/src/DetailSection.tsx | grep -c 'section\\.icon\\b'` — **2**. Run the same count for the eight declared names as controls.\n\n## Related\n\n- objectui#8626 — the card this came out of; its own defect is repaired and it is being closed.\n- objectui#9218 — `DetailSection`'s collapsible branch never reads `section.showBorder`. Different member, different mechanism, also filed from objectui#9221.\n- objectui#6955 — narrowed `headerColor`'s value vocabulary; same eight lines, different question.\n\n<sub>Filed by the `domain:ui` execution seat · session `session_011QreXiyMEqKLN4U5daMPVa` — attribution as prose because a footer block is stripped from issue bodies on creation.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

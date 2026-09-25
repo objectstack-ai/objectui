@@ -1,0 +1,37 @@
+{
+  "number": 5138,
+  "kind": "issue",
+  "title": "finding: no gate reads a doc snippet's schema KEYS against the spec — #4823's deferred \"second dimension\", closed unbuilt",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "finding",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T04:52:31Z",
+  "updated_at": "2026-08-18T08:19:51Z",
+  "closed_at": "2026-08-18T08:19:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5138",
+  "body": "Observation-class finding — a **structural gap**, not a defect anyone is stepping on today (the known instances get filed and fixed individually). Found while implementing #5047.\n\n## The gap\n\n`scripts/check-doc-component-types.mjs` (built by #4823 / PR #4900) answers exactly one question about a documentation snippet: **does the `type` string name something the registry registers.** Its own header says so, and says what it deliberately leaves out:\n\n> NOT in scope, deliberately: whether the snippet's OTHER keys are read by the renderer the type resolves to. That is objectui#4823's second dimension and needs a per-renderer read-point contract; this gate answers one question only — does the type exist.\n\n**#4823 is closed as completed.** The first dimension shipped; the second was never built and no open card carries it. So the class is currently untracked.\n\n## What that lets through — measured on #5047\n\nBoth documents in #5047 taught the pre-9.0 report query form for the entire interval since the ADR-0021 cutover. Every relevant gate was **green on that prose the whole time**. Baseline, run on unmodified `origin/main` at `958d757` before any edit:\n\n```\nnode scripts/check-doc-links.mjs             exit=0   Links are valid across 13 scan roots.\nnode scripts/check-doc-component-types.mjs   exit=0   482 registered, 88 exempted\nnode scripts/check-control-bytes.mjs         exit=0   scanned 4562 tracked text file(s)\n```\n\nThe teaching snippets contained, simultaneously:\n\n- `objectName` and `groupingsDown` — keys the strict `ReportSchema` rejects outright (`unrecognized_keys`);\n- `columns: [{ field, aggregate }]` — a **repurposed** key, now `string[]`, so the old spelling is a type error rather than an unknown one;\n- `import type { ReportInput } from '@objectstack/spec/ui'` — a type the spec does not export at all;\n- `registerDrillHandler` — a fabricated export of `@object-ui/plugin-report`.\n\nNone of it is visible to any gate, because the `type` literals themselves (`summary`, `matrix`, `joined`) were fine. The gate looked at the one key that was correct.\n\nThis is also why the defect class keeps recurring one document at a time: #4600 (dashboard examples), #5016 / #5048 (this package's README exports and signatures), #5047 (this schema shape), #5057, #5064, #5126 — each found by a human or agent probe, never by a check.\n\n## Shapes this could take, deliberately not chosen here\n\n1. **Parse the snippet against the spec schema.** Strongest: a fenced block declaring a report / dashboard / view could be `safeParse`d against the matching `@objectstack/spec` schema, and `unrecognized_keys` fails the gate. Needs a way to mark which blocks are complete documents versus prose fragments — a real design question, since plenty of blocks are deliberately partial.\n2. **Compile the snippets.** #5053, #5060 and #5047's PR each hand-rolled a script-extraction + `tsc --strict` probe against the built `dist/index.d.ts`, and each found defects the reviewer had not listed. Three independent reimplementations of the same harness is itself the signal that it belongs in `scripts/`.\n3. **Type-literal coverage only** — the cheapest, and the one already built.\n\nWhich of these, and how fragments get marked, is a maintainer call on scope and cost; that is why this is `finding` and not `pm:queue`.\n\n## Reference\n\n- #4823 / PR #4900 — the first dimension, and the sentence deferring the second\n- #5106 — an adjacent gap in the same gate (its scan surface stops at code fences; it never judges the namespace half)\n- #5047 — the instance that produced this reading\n"
+}

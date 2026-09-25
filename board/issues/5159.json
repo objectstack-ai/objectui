@@ -1,0 +1,34 @@
+{
+  "number": 5159,
+  "kind": "pull_request",
+  "title": "chore(plugin-editor): 移除被跟踪的 Vite temp-config 冻结产物",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: editor",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T07:24:14Z",
+  "updated_at": "2026-08-18T07:39:30Z",
+  "closed_at": "2026-08-18T07:39:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T07:39:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5159",
+  "body": "Fixes #4540\n\n#4540 有两半,**ignore 规则那一半已由他人先行完成**(见状态复核评论 5311364454):`.gitignore:99` 现已有 `*.timestamp-*.mjs`。但加 ignore 规则不会把已在索引里的文件移出去,所以文件一直停在「已被 .gitignore 声明为生成物、却仍被 git 跟踪」的矛盾状态。**本 PR 是剩下的跟踪态清除那一半。**\n\n## 改了什么\n\n1. `git rm` 掉 `packages/plugin-editor/vite.config.ts.timestamp-1768467704562-21cdd04a7c5ed.mjs`(43 行)。\n   用的是完整 `git rm` 而非 `git rm --cached`:该文件内容是垃圾快照,终态应当是「仓库里删掉、且不留幽灵」—— `--cached` 会在每个已有该文件的 clone 里留下一个 ignored untracked 的陈旧副本,正是这次要消除的那种「第二副本」。真正被 Vite 重新生成的临时文件由 ignore 规则接住,不受影响。\n2. 按状态复核评论的建议,简化 `scripts/__tests__/side-effects-declaration-consistency.test.ts` 里点名此文件的注释。**`BUNDLER_CONFIG_RE` 正则本体保留** —— 并且顺手把它「为什么依然 load-bearing」写准了:该门是 `fs.readdirSync` 遍历文件系统的,**被 ignore 不等于不可见**,一个崩溃/被 kill 的 Vite 留下的副本照样会进它的视野。\n\n不改 `vite.config.ts` 本体,不碰 ListView/桥接层。\n\n## 前提复测(在 `da6eda06e` 新基线上逐条重跑)\n\n| 复核评论的读数 | 复测结果 |\n| --- | --- |\n| `.gitignore:99` 有规则且命中该路径 | ✅ `check-ignore -v --no-index` 命中 `.gitignore:99:*.timestamp-*.mjs` |\n| 文件仍被跟踪 | ✅ `git ls-files --error-unmatch` 返回 0;`git ls-tree` 在基线上命中 |\n| 内容是陈旧快照 | ✅ 内嵌 `/home/runner/work/objectui/objectui/...`,固定 vite@5.4.21 / plugin-react@4.7.0 / vite-plugin-dts@3.9.1;仓内现 `^8.2.1`(实装 8.2.1) |\n| 零引用 | ✅ 全仓 grep `timestamp-1768467704562` 仅 `.gitignore:99` 与 #3943 门注释两处 |\n\n## 分诊建议的「再补一条 ignore 规则」按实测收敛为:不补\n\n分诊评论 5320932539 建议加 `vite.config.*.timestamp-*`。读 vite 8 实装(`vite@8.2.1` `dist/node/chunks/node.js:37059`),temp-config 命名恒为:\n\n```js\nconst hash = `timestamp-${Date.now()}-${Math.random().toString(16).slice(2)}`;\nconst tempFileName = viteTempDir ? path.resolve(viteTempDir, `${path.basename(fileName)}.${hash}.mjs`) : `${fileName}.${hash}.mjs`;\n```\n\n两个落点都已被现有规则覆盖(实测,见下方反向验证 b1):\n- 找得到 `node_modules` 时写 `node_modules/.vite-temp/` → `.gitignore:2` 覆盖;\n- 兜底才写在配置旁 → `.gitignore:99` 覆盖。\n\n而且现有的 `*.timestamp-*.mjs` 比建议的形状**更宽**:它还能接住 `vitest.config.mts.timestamp-*.mjs` 这类非 `vite.config.` 前缀的写法,建议形状反而漏。故不重复加规则。\n\n## 验证\n\n- `node scripts/check-control-bytes.mjs` → OK(4570 tracked text file);改动文件另做 `grep -naP` 自扫,0 命中。\n- `node scripts/check-changeset-presence.mjs` → `No source of a released package changed in this range, so no changeset is owed.`(2 file changed,0 在发布包 `src/` 下;删除的文件也不在 plugin-editor 的 `files` 里)→ **不欠 changeset**,同 PR #5104 先例。\n- `turbo run type-check --concurrency=2` → **81 successful, 81 total**。\n- `vitest run scripts/__tests__ --maxWorkers=2` → **53 files / 1222 tests passed**。\n- plugin-editor 包测试(先建依赖闭包 `--filter '@object-ui/plugin-editor^...' build`)→ **1 file / 7 tests passed**。\n\n## 反向验证(先书面预判,再跑)\n\n**(a) 把文件 `git add -f` 加回 —— 预判:零门可抓。** 判据是先验的:这个状态(被跟踪 + 命中 `.gitignore:99`)**就是基线 `da6eda06e` 上 main 的状态**,而 main 的 CI 是绿的,所以按构造不存在能报「tracked 且 ignored」的门。实跑一致:`side-effects-declaration-consistency` + `package-files-exist` 两道门 **46 tests passed 全绿**。其中 side-effects 门是**按设计**绿的 —— 严格 basename 正则正是它拒读该产物的原因,它变红反而说明正则失效了。\n\n所以诚实的结论是:**防线只有 ignore 规则对非 `-f` 路径的拦截**(即原始复发路径——一次宽泛 `git add`),`-f` 是刻意穿透 ignore 的,其下游没有任何东西会反对。不夸大成「有门守着」。\n\n（附带一个小确认:文件重新被跟踪后,不带 `--no-index` 的 `git check-ignore` 就什么都不报了 —— 已跟踪文件不受 ignore 约束,这正是状态复核当初必须用 `--no-index` 的原因。)\n\n**(b1) 实测 vite 8 在本包 load config 时是否真写 timestamp 文件、是否被挡。** 预判:因 `packages/plugin-editor/node_modules` 存在,会走 `.vite-temp` 分支,并在 `finally` 里 unlink。实跑(`loadConfigFromFile` + `fs.watch` 双目录):\n\n```\nconfig loaded from: packages/plugin-editor/vite.config.ts\nalias keys in loaded config: 14\ntemp file observed: packages/plugin-editor/node_modules/.vite-temp/vite.config.ts.timestamp-1787037701984-243cbd255aa39.mjs | still on disk: false\n```\n\n与预判一致:读的是 `vite.config.ts`(14 条 alias = 活配置的 `@` + 13 条),临时文件落在 `.vite-temp` 且随即被删。对观测到的**真实文件名**复验 ignore:`node_modules` 落点命中 `.gitignore:2`,配置旁落点命中 `.gitignore:99` —— **可复发路径已闭合**。\n\n**(b2) 变异:放宽 `BUNDLER_CONFIG_RE` 成 `/^vite\\.config\\./` 并把产物加回,预判该门会不会多出发现 —— 预判「不会,仍绿」,实跑一致(28 tests passed)。** 原因值得记下来,因为它和直觉相反:该冻结快照的 alias 表只有 `{\"@\": resolve(...)}`,**零条 `@object-ui/*`**,而且它写的是裸 `resolve(__vite_injected_original_dirname, ...)` 不是门要求的 `path.resolve(`。也就是说,严格正则对**这一个**具体产物是双保险而非唯一屏障;它真正防的是**这一类**(由今天的 config 现打出来的 temp-config 会带上全部 13 条 `@object-ui/*` 别名)。改后的注释按这个实测口径写,没有替这个已删除的样本夸大。\n\n## 半径外发现\n\n已另立 #5158(unassigned,未打标签,交分诊定级):b2 的测量顺带暴露出 `readAliasEntries()` 的 entry 正则只认字面量 `path.resolve(`,而仓内 15 个 `vite.config.ts` 写的是裸 `resolve(` —— 该门实际只读到 70 条 alias,而按宽松口径共 175 条,`packages/plugin-editor` 自己的 13 条全在测量面之外。本 PR 不修。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

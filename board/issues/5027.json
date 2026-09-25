@@ -1,0 +1,35 @@
+{
+  "number": 5027,
+  "kind": "issue",
+  "title": "`kind:'html'` tier 里 span 标签的内容被静默丢弃 —— span.tsx 只读 `schema.body`,而 parser 产出 `children`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T17:11:23Z",
+  "updated_at": "2026-08-17T21:20:44Z",
+  "closed_at": "2026-08-17T21:20:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5027",
+  "body": "发现于 #4917(span 废弃提示对齐 div)的实施过程中,**不在该 PR 处理** —— 那一单的验收面只是废弃提示的触发条件与去重。\n\n## 现象\n\n`kind:'html'` 页面里写一个 span 标签,编译出的节点渲染成一个**空元素**,作者写的文字消失,无提示、无诊断。\n\n实测(`packages/components` 测试环境,`origin/main` @ `e71c854ce`)。源码:\n\n```\n< div className=\"outer\" >< span className=\"inner\" >hello html tier< /span >< p >page rendered< /p >< /div >\n```\n\n渲染结果:\n\n```\n< div class=\"outer\" data-obj-type=\"div\" >< span class=\"inner\" data-obj-type=\"span\" >< /span >< p data-obj-type=\"p\" >page rendered< /p >< /div >\n```\n\n`hello html tier` 不见了;同一页里 p 标签的文字正常渲染,所以不是整页编译失败。\n\n## 原因\n\n- `packages/sdui-parser/src/parse.ts:95` 产出的节点把子节点放在 **`children`**:`if (children && children.length) node.children = children;`\n- `packages/components/src/renderers/basic/span.tsx` 只读 **`body`**:`renderChildren(schema.body)`\n- 对照 `div.tsx` 读的是 `schema.children || schema.body`,所以 div 在 html tier 正常,span 不正常。\n\n三个声明面同时不一致(#4631 的家族形态):`TextSpanSchema`(`packages/types/src/layout.ts:36-46`)声明 `value?` 与 `children?`,**没有** `body`;registry meta 只声明 `className`;渲染器读 `body`。也就是说**按类型规范拼写 `children` 渲染不出来,而渲染器唯一读得到的 `body` 不在类型里** —— JSON 作者面同样中招,只是仓内既有测试(`packages/components/src/__tests__/basic-renderers.test.tsx:127`)写的正好是 `body`,把这一面盖住了。\n\n## 影响面\n\n- html tier 作者:span 标签的文字全部丢失(parser 的 `validateTree` 不检查子节点键,所以也没有 diagnostic)。\n- JSON 作者面:照 `TextSpanSchema` 写 `children` 的页面渲染出空 span。\n- `examples/schema-catalog` 内 `\"type\": \"span\"` 命中 **0**,仓内 JSON 元数据命中 0,所以今天没有 catalog 层面的可见回归。\n\n## 为什么不在 #4917 里修\n\n#4917 改的是 warn 分支;本条是渲染路径的键读取,是独立缺陷。而且它需要单独裁定「span 的规范子节点键是 `children` 还是 `body`」—— 按 Commandment #0.1 contract-first,这该在类型/规范侧定,不该由渲染器顺手加一个宽容的 `||` 糊掉(即便 `div.tsx` 今天就是那么写的,那本身可能是同一笔债)。\n\n连带说明:#4917 的 provenance 测试因此**没有**照抄 div 那条 `textContent` 对照断言(span 的文字压根不渲染,照抄会红且会诱使把本条一起改掉),改用同页 p 标签的文字 + span 元素本身存在来做「页面确实渲染了、节点确实落到了 span 渲染器」的对照;两条断言在本条修好之后依然成立。\n\n## 建议裁定\n\n1. 规范键定为 `children`(与 `TextSpanSchema`、parser、`div.tsx` 一致),`body` 的旧读法处置按 #4631 / ADR-0049 enforce-or-remove 走;\n2. 或反过来把 `body` 补进 `TextSpanSchema` 并让 parser 也发 `body` —— 但那会让 span 与其余所有容器分叉。\n\n推荐 1。\n\n关联:#4631(三个声明面互不一致的系统性问题,pm:on-hold)、#4917(发现场景)、#4797(`list` 从不渲染 `children` 的同族)"
+}

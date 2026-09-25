@@ -1,0 +1,35 @@
+{
+  "number": 5050,
+  "kind": "issue",
+  "title": "`span` 的 `value` 声明面无人读取 —— 照 `TextSpanSchema` 与已发布文档写 `value` 渲染成空元素",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:54:34Z",
+  "updated_at": "2026-08-18T03:36:15Z",
+  "closed_at": "2026-08-18T03:36:15Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5050",
+  "body": "发现于 #5027(span 只读 `body`、parser 产出 `children`)的实施普查,**不在该 PR 处理** —— 那一单的验收面只有子节点键。填报时未加 label,严重度交 PM triage。\n\n## 现象\n\n同一个类型的两个声明面都把 `value` 当作作者面,渲染器从来不读它:\n\n- `packages/types/src/layout.ts:36-46` 的 `TextSpanSchema` 声明 `value?: string`,注释 `Text content`。\n- 已发布文档 `content/docs/components/basic/span.mdx` 的 Schema 块同样列 `value?: string // Text content`。\n- `packages/components/src/renderers/basic/span.tsx` 从未读 `schema.value`:#5027 之前它只读 `schema.body`,#5027 修完读 `schema.children`,**两个版本都不读 `value`**。\n\n所以 JSON 作者照类型与文档写 `{ \"type\": \"span\", \"value\": \"hello\" }` 得到一个空元素,无警告、无诊断 —— 与 #5027 同一失败形状(内容静默丢弃),只是换了一个键。\n\n## 对照:同族的 `text` 上这个键是活的\n\n`packages/components/src/renderers/basic/text.tsx:35` 与 `:40` 都读 `schema.content || schema.value`,即 `value` 在 `text` 上有效。`span` 是这一族里 `value` 完全无人读的那个;而 `TextSchema` 反过来没有声明渲染器真正首选的 `content`。\n\n一条相关的机制读数(#5027 期间测得):`BaseSchema` 同时声明 `body` 与 `children` 两个子节点键,并且带 `[key: string]: any` 索引签名(`packages/types/src/base.ts:186-195, 250`)。所以在任何类型上写错键都**不是** TS 错误,类型面无法拒绝,只能在读取面或发布期把话说清楚。\n\n## 为什么单独一单,而不是 #4631 的子任务\n\n修它要裁一条 `value` 与 `children` 的**优先级**(两者同时出现谁赢;`text` 的先例是 `content || value` 那种或取)。#5027 的 PR 刻意没有顺手加 —— 那是一条没有裁定的新行为。它可以独立于 #4631 修(照 `text` 的先例落一条,再补 pin 测试),不必等那张类问题的裁定,因此填成独立单而不是子任务。\n\n关联:#5027(同一类型的子节点键缺陷,已修)、#4631(三个声明面互不一致的类问题,pm:on-hold —— 本条是它的第三个实测样本,且是第一个\"声明的键无人读、连 alias 都不是\"的样本)、#4799(规范拼写不参与、被称作 legacy alias 的拼写参与的同族)"
+}

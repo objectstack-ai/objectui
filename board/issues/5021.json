@@ -1,0 +1,33 @@
+{
+  "number": 5021,
+  "kind": "pull_request",
+  "title": "docs(plugin-map): README 按现码重写,不再教包里不存在的那套 API (#5002)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T15:22:03Z",
+  "updated_at": "2026-08-17T15:50:48Z",
+  "closed_at": "2026-08-17T15:50:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T15:50:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5021",
+  "body": "Fixes #5002\n\n## 前提复核:成立,并修正 issue 正文一处措辞\n\n按「issue 正文是线索不是规格」先把卡面对照表逐行对着 `origin/main@25819c42c` 核了一遍。七行里六行准确;第五行需要修正,而且是往反方向修正的:\n\n| 卡面 | 复核结论 |\n| --- | --- |\n| `center: { lat, lng }` 对象形失败并被忽略 | ✅ `MapConfigSchema.center` 是 `z.tuple([z.number(), z.number()])`(`ObjectMap.tsx:48`);对象形 `safeParse` 失败 → 告警(`:224`)→ `center?.[0]` 取不到数 → 不构成已声明相机(`:599-603`),取景照做 |\n| `markers` 从不被读 | ✅ 全无读取点,marker 由记录派生(`:514-545`) |\n| `layers` / `height` 从不被读 | ✅ 零命中;容器是固定响应式高度 `h-[300px] … lg:h-[600px]`(`:670`) |\n| `mapComponents` 导出不存在 | ✅ 运行时导出面实测恰为 `ObjectMap` 与 `ObjectMapRenderer`;`object-map` / `map` 自注册(`index.tsx:62,72`) |\n| `zoom` 没有默认值了 | ✅ 默认分支只回字段名,不造相机(`:237-244`) |\n| **`onMarkerClick` 只是 React prop,不是 schema 键** | ❌ **两者都是。** `SchemaRenderer` 会把节点的非元数据属性摊平成 props(`packages/react/src/SchemaRenderer.tsx:575` 解构、`:619` 展开),实测在 schema 上写 `onMarkerClick` 会带着记录被调用。docs 页把它记为 schema 键是**对的**,所以新 README 没有按卡面去否定它,而是写明这条通道 |\n\n「照抄即空地图且无诊断」也需要一处补充,见下面的反向验证。\n\n## 形态选择:对齐重写,但按减法做(不是指针式)\n\n两个候选形态里选了 ①**对齐重写**,并按 #3881 / PR #4939 的减法路数执行 —— 新文比旧文短 116 行,完整作者参考只留一份。\n\n- **为什么不做纯指针式**:README 会随 npm tarball 发布(`package.json` 的 `files` 含 `README.md`),它就是这个包的 npm 落地页;只留一条「看文档站」对 npm 读者是净损失。而且包本地有三件事 docs 页没有、也不该由 docs 页承担:注册了哪两个类型、导出面是什么、`map.style` 这个键(docs 页的 MapConfig 表里没有它)。\n- **为什么仍然做减法**:把整份 schema 参考重述在一份**没有门禁**的第二副本里,正是这次漂移的生成器 —— 与 #3881(`README_SHADCN_SYNC.md` 的第二份清单)同形。所以完整参考指向 `content/docs/plugins/plugin-map.mdx`(被 `check-doc-component-types` 扫,且刚由 PR #5000 校正过相机语义),README 只保留包本地的事实。\n- **对齐仓内惯例**:结构比着 `plugin-tree/README.md` —— 近期被验收过的那份写法(是什么 / 注册了哪两个类型 / 一段能跑的 usage / 一张小配置表 / 一条\"不会静默丢东西\"的说明 / License)。`plugin-detail`、`plugin-list` 那两份仍是长文旧体例,没有拿它们做样板。\n\n新文另加一节「What this component does not read」,点名旧文那批虚构键。理由:旧文已经进过训练语料,照着旧文(或照着记住旧文的模型)写的读者需要一条能立刻对上的否定清单;这类否定陈述在功能不新增时是稳定的,不构成新的漂移面。\n\n## 每个片段的核实方式\n\nREADME 里没有一行是从旧文或卡面搬的。除逐行对源码坐标外,用一份**临时探针**(未入库,已删)把每个片段与每条断言在真包上跑了一遍,**22 例全绿**:\n\n两个 schema 片段各自渲染出 marker;`filter` / `sort` 透传为 `$filter` / `$orderby` 且不发 `$top`;`map` 块不与默认字段名合并(`map: { titleField: 'name' }` 单独写 → 0 marker + 排除提示);块内省略 `titleField` → 标题兜底 `Marker`;fit 的 padding 48 与上限 12,且不附带合成 zoom;跨反经线取景为 `[[179,-18],[181,-16]]`;空集开在 0,0 / zoom 2;`center` 按 `[latitude, longitude]` 读;半声明相机的两种推导(zoom 单独 → 记录集中心;center 单独 → 大陆级 zoom 3);对象形 `center` 告警且保 fit;`locationField` 的对象 / 字符串 / 数组三形态(含 `latitude`/`longitude`、`lon` 别名);越界记录被排除并计数;`markers` / `layers` / `height` / `useGeolocation` 全部无效果;导出面恰为两项;`object-map` 与 `map` 两个类型自注册;聚合在 100 marker 以上自动开启;Edit / Delete 只在传了处理器时出现;schema 上写 `onMarkerClick` 确实到达组件。\n\n一处**没有照抄源码注释**的地方:`clusterRadius` 的 doc comment 写「in pixels」,而实现是 `radius / 2 ** zoom` 的坐标度数网格(`:326`)。README 写实际语义,并把这条注释单据记为 #5020。\n\n## 反向验证(方向先判后跑)\n\n文档单的等价物:把**旧 README 的片段逐字**跑一遍。预判方向 —— 0 个 marker,且不出现任何提及那些键的诊断。**6 例全绿**,并得到一条对 issue 措辞的修正:\n\n- 上下文里**有** dataSource(应用里的常态,如 docs 画廊):空地图、0 marker、无告警、连\"记录坐标无效\"提示都不会出现(根本没有记录进入管线),相机是空集世界视图 —— 顶层的 `center` / `zoom` 完全没参与。这就是 issue 说的形态。\n- **没有** dataSource(纯照抄的形态):组件反而渲染 `Error: DataSource required for object/api providers` —— 有诊断,但指向完全无关的另一件事,地图根本没挂载。\n\n所以「every snippet renders an empty map with no diagnostic」是**有条件成立**,不是无条件的;PR 描述与 commit 都按实测写。\n\n## 关键断言 → 源码坐标\n\n- `center` 是 `[latitude, longitude]` 元组:`packages/plugin-map/src/ObjectMap.tsx:48`(`center: z.tuple([z.number(), z.number()]).optional()`)+ `:599-600`(`center?.[0]` 取纬度、`center?.[1]` 取经度)\n- 没有默认 zoom:`ObjectMap.tsx:237-244`(默认分支只回 5 个字段名)+ `:612-620`(`markerBounds && !hasDeclaredCamera` → 交 `bounds`)+ `camera.ts:44`(padding 48)/ `:52`(上限 12)/ `:55`(空集 zoom 2)/ `:62`(半声明 zoom 3)\n- `map` 块替换而非合并默认值:`:217-227`(有块则 `{ ...config, style }` 原样返回)对比 `:237-244`\n\n## 验证\n\n- `pnpm exec vitest run`(在 `packages/plugin-map/` 内跑,该包 setupFiles 是 cwd 相对的)→ **7 files / 43 passed**。跑之前先 `pnpm --filter '@object-ui/plugin-map^...' build` —— 新 worktree 里不建依赖,`@object-ui/react` 解析不到,红得像是改坏了导入\n- `node scripts/check-doc-links.mjs` → `Links are valid across 13 scan roots.`(`packages/*/README.md` 确实在扫描面内:`scripts/check-doc-links.mjs:477`,`rule: 'disk'`)\n- `node scripts/check-control-bytes.mjs` → OK(4470 个文本文件,零命中);另做门禁盲区自扫 `grep -naP` 控制字节 → 零命中\n- 仓根 type-check 未全跑:本 PR 只改一份 markdown 与一份 changeset,没有 TS 产物面\n- changeset:`.changeset/plugin-map-readme-truth-5002.md`,按 `ban-package-self-import.md` 的空 frontmatter 先例(无代码/类型/运行时变化 → 不声明发布;文内写明校正后的 README 随 `@object-ui/plugin-map` 下次发布到达 npm)\n\n## 兄弟 README 巡查(按裁定只查不改)\n\n对 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包**真实导出面**做了比对,命中 8 个包(不含本单的 map),各立一单交分诊:#5010 calendar、#5011 form、#5012 gantt、#5013 grid、#5014 view、#5015 dashboard、#5016 report。\n\n方法学备注:第一版用「标识符在 `src/` 是否出现」近似,会被注释里的名字放过(#5015 的 `DashboardSchema` 只在注释里),也会误报 `export * as X`(plugin-chatbot 的 `AIElements` 是真导出)。改成对导出面取名集合后才稳定;多行 import 块仍只按单行匹配,所以报出的范围是**下限**。\n\n顺带记账(均不在本 PR 修):#5017 顶层 `style` 被当 MapLibre style 读、与 `BaseSchema.style`(内联 CSS)撞车,而 types 里 `mapStyle` 这个名字正是为避开它才起的;#5018 `ObjectMapSchema` 没有建模 `map` 块,组件 props 类型写的是 `ObjectGridSchema`、每处 map 读取走 `as any`;#5019 docs 页两处残留不符(`MapConfig` 不从 types 导出、API provider 示例是未实现分支)—— 这一单因为新 README 把读者指向那一页而更值得修;#5020 `clusterRadius` 单位注释(观察类,带 `finding` 标签)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

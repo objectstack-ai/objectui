@@ -1,0 +1,36 @@
+{
+  "number": 5013,
+  "kind": "issue",
+  "title": "plugin-grid README 教 `gridComponents` 手动注册与 `GridSchema` / `GridColumn` 类型 —— 前两者不存在,`GridSchema` 这个名字在 types 里是 CSS Grid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:16:21Z",
+  "updated_at": "2026-08-17T22:22:33Z",
+  "closed_at": "2026-08-17T22:22:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5013",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-grid/README.md` 三处从本包名导入的标识符,在本包导出面上都不存在:\n\n| README | 实际 |\n| --- | --- |\n| `:42` `import { gridComponents } from '@object-ui/plugin-grid'` + `:46` `Object.entries(gridComponents).forEach(...)` | 全包零命中。注册是 import 的副作用;真实导出在 `src/index.tsx:20-56`(`ObjectGrid`、`VirtualGrid`、`ImportWizard`、`InlineEditing`、`ObjectGridComponentProps`、`ObjectGridColumnState` …)。照抄即 `Object.entries(undefined)` 抛 TypeError。 |\n| `:392` `import type { GridSchema, GridColumn } from '@object-ui/plugin-grid'`,`:394`/`:400` 用作数据表格的类型 | `GridColumn` 在本包与 `@object-ui/types` 都不存在。`GridSchema` 在本包不存在,而 `@object-ui/types` 里**有一个同名 export** —— `packages/types/src/layout.ts:202` 的 `GridSchema`,那是 **CSS Grid 布局组件**(`type: 'grid'`,`columns` / `gap`),与数据表格无关。所以这一行照抄之后即便改导入路径也仍然错:一个想写数据表格的读者会拿到布局网格的类型。数据表格那一侧的真名是 `ObjectGridSchema` / `ObjectGridComponentProps`。 |\n\n`README:60`/`:74` 还在 \"Schema API\" 里现场声明了一个 `interface GridColumn { … }` 作为文内说明,与 `:392` 那行导入是两回事,但正好把这个不存在的名字读起来像个真导出。\n\n## 同族\n\n#5002 是 `mapComponents` 在 plugin-map 上的同一段复制品。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(#5011)、gantt(#5012)、grid(本单)、view、dashboard、report。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n本单的同名撞车那一半可能值得单独定级:它不是\"名字不存在\",而是\"名字存在且指向另一个组件族\",按错误路径修好导入之后 TS 依然会绿地通过一个错的形状。\n\n## 复核方式\n\n```\ngrep -n \"gridComponents\\|GridSchema\\|GridColumn\" packages/plugin-grid/README.md\ngrep -rn \"gridComponents\\|\\bGridColumn\\b\" packages/plugin-grid/src   # 零命中\ngrep -rn \"interface GridSchema\" packages/types/src                   # layout.ts:202,CSS Grid\n```\n\n## 分级\n\n交 PM 分诊。包内 README 的 API 断言今天没有门禁看得到。\n"
+}

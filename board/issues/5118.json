@@ -1,0 +1,36 @@
+{
+  "number": 5118,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-form.mdx 的 Form Field 参考块与「Form with Validation」示例是 #5075 的文档站镜像:`validation` 数组拼法让校验静默失效,`ValidationRule` 全仓不存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T01:59:44Z",
+  "updated_at": "2026-08-18T03:59:36Z",
+  "closed_at": "2026-08-18T03:59:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5118",
+  "body": "发现于 #5086 form 处的实施(PR 见下)。Filed unassigned, not claiming。\n\n半径外发现:#5086 的派发边界是 `plugin-form.mdx` 的 **TypeScript Support 块**,本卡说的是**同文件的另外两段**,故分离立卡,未夹带进那个 PR。\n\n读数取自 `origin/main` @ `99d5659df0caece58861435f9914f7ad4ff0d53f`。\n\n## 与 #5075 的关系\n\n#5075(已闭,PR #5100)修的是 **`packages/plugin-form/README.md`** 的同一批缺陷。与 #5076 / #5088 / #5094 完全同一个成因:README 侧修完,`content/docs/**` 的镜像一行未碰。\n\n本页**部分**已被后续 PR 覆盖 —— `### Multi-Step Form`(`:244` 起)已经带上了「无 `multi-step-form` 类型、真身是 `object-form` + `formType: 'wizard'`」的更正,`check-doc-component-types.mjs` 也是绿的。**剩下没镜像过来的是下面两处键面**。\n\n## 现象一:`### Form Field` 参考块(`:51`–`:63`)\n\n写的:\n\n```\ninterface FormField {\n  name: string;\n  type: string;\n  label: string;\n  placeholder?: string;\n  required?: boolean;\n  validation?: ValidationRule[];\n  defaultValue?: any;\n  disabled?: boolean;\n  className?: string;\n}\n```\n\n对照真身 `packages/types/src/form.ts:898`(23 个键,`name` 是唯一必填):\n\n| 写的 | 真身 | 判定 |\n| --- | --- | --- |\n| `validation?: ValidationRule[]` | `validation?: FieldValidationRules`(`form.ts:744`,**按规则名键控的对象**) | ⛔ 双重错:`ValidationRule` 这个类型名**全仓不存在**(`git grep -nE \"(interface\\|type) ValidationRule\\b\" -- packages` 空);且数组拼法正是让校验静默失效的那个写法(下述) |\n| `defaultValue?: any` | FormField **未声明**此键 | ⛔ 被索引签名(`form.ts:1034` 的 `[key: string]: any`)吞掉,永不被读。默认值的真身是 `FormSchema.defaultValues` |\n| `className?: string` | FormField **未声明**此键 | ⛔ 同上,被索引签名吞掉 |\n| `type: string` / `label: string` | `type?` / `label?`,两者都可选 | ⚠️ 标成必填,与真身相反 |\n\n块中**缺席**但真实存在且常用的键:`id`、`description`、`inputType`、`widget`、`options`、`condition`、`readonly`、`hidden`、`colSpan`、`span`、`dependsOn`、`visibleWhen` / `requiredWhen` / `readonlyWhen` / `visibleOn`、`field`。\n\n## 现象二:`### Form with Validation` 示例(`:214`–`:241`)\n\n一段**标题就叫「带校验的表单」**、而实际上一条校验都不生效的 JSON:\n\n```json\n\"validation\": [\n  { \"type\": \"minLength\", \"value\": 3, \"message\": \"Min 3 characters\" },\n  { \"type\": \"maxLength\", \"value\": 20, \"message\": \"Max 20 characters\" }\n]\n```\n\n两层都不成立:\n\n1. **外层是数组**。这个键的唯一读点是基础表单渲染器,它把值**展开进**交给 react-hook-form 的规则对象 —— `const rules: any = { ...validation, … }`(`packages/components/src/renderers/form/form.tsx:1652`)。把**数组**展开进对象字面量得到的是数字键(`{ '0': …, '1': … }`),react-hook-form 一个都不认:**每条规则被丢弃,不抛错**,表单看着已校验,实则什么都没校验。README 在 `247`–`253` 行已把这条写清楚了,文档站这半没跟上。\n2. **内层的 `{ type, value, message }` 也不是真身形状**。`FieldValidationRules` 按**规则名**键控:`minLength: { value: 3, message: 'Min 3 characters' }`。\n\n`FormField` 带索引签名,所以这两处即便被读者抄进 TypeScript 也**不是编译错误** —— 与 #5075 同一类「声明了但永不被读」的静默失败。\n\n## 复核方式\n\n```\ngit grep -nE \"(interface|type) ValidationRule\\b\" -- packages          # 空:该名字不存在\nsed -n '744,800p' packages/types/src/form.ts                          # FieldValidationRules 是对象\nsed -n '1652,1656p' packages/components/src/renderers/form/form.tsx   # 唯一读点,展开进对象\nawk 'NR>=898 && NR<=1050' packages/types/src/form.ts \\\n  | grep -oE \"^  [a-zA-Z]+\\??:\"                                       # FormField 的 23 个声明键\n```\n\n## 分级\n\n未打 `finding` 标签:是读者今天照抄就会撞上的具体缺陷 —— 抄 `### Form with Validation` 得到一个不校验的表单,且没有任何编译期或运行期信号。与 #5075 同性质,只是文件在文档站。交 PM 分诊。"
+}

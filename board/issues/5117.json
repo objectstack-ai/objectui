@@ -1,0 +1,33 @@
+{
+  "number": 5117,
+  "kind": "pull_request",
+  "title": "fix(components): span renders its declared `value` key, child content winning",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T01:50:43Z",
+  "updated_at": "2026-08-18T03:36:15Z",
+  "closed_at": "2026-08-18T03:36:14Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T03:36:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5117",
+  "body": "Fixes #5050\n\n`span` now renders the `value` key that both of its declared authoring surfaces\nname, with child content winning when both are present.\n\n## The defect\n\nTwo declared surfaces called `value` the text content of a span, and the\nrenderer read neither it nor — before #5027 — any key a producer emits:\n\n- `packages/types/src/layout.ts` — `TextSpanSchema` declares `value?: string`,\n  commented `Text content`.\n- `content/docs/components/basic/span.mdx` — the published Schema block lists\n  the same `value?: string  // Text content`.\n\n#5027 moved the read from the nonexistent `body` to the canonical `children`;\n`value` was unread on both sides of that change. So an author writing\n`{ \"type\": \"span\", \"value\": \"hello\" }` — exactly what the type and the docs\ninstruct — got an empty element, silently. Not catchable on the type surface\neither: `BaseSchema` carries an index signature, so no spelling on this node is\never a TS error, which is why the contract is stated on the read side and pinned.\n\n## The fix\n\nRuled 2026-08-17: wire it, rather than retract two published declarations.\nOne line in `packages/components/src/renderers/basic/span.tsx`:\n\n```tsx\n{renderChildren(schema.children) || schema.value}\n```\n\nPrecedence is the family shape `basic/text.tsx` already sets one file over\n(`schema.content || schema.value`) — the richer key wins, the scalar is the\nfallback — so `span` stops being the odd one out instead of growing a bespoke\nrule. `renderChildren` returns `null` for an absent, empty-string or empty-array\n`children`, so \"no child content\" is exactly when `value` renders.\n\nBoth declared faces stay as written. The docs block gains only a precedence note\nnext to the two keys it already lists; nothing is retracted.\n\n## Premise correction — there is no `body` compat path to preserve\n\nThe card and the ruling both mention \"the `body` compat path from #5027\". Read\nagainst `origin/main`, that path does not exist: #5027 deliberately refused\n`body` as a second spelling and pinned the refusal\n(`span-children-rendering.test.tsx`, \"does not accept a `body` alias\"). Nothing\nhere reopens it — the refusal pin is untouched and still green. The asymmetry is\nthe point and is written into the renderer comment: `body` is declared nowhere\nfor this type and stays refused; `value` is declared twice and is honored. The\nquestion is whether a key was published as authorable, never whether a tolerant\nread would be convenient.\n\n## Sibling sweep — reported, not fixed\n\nSwept `packages/types/src/**` for the same shape (a declared `value` that no\nrenderer reads). Only two types declare `value` as text content: `TextSpanSchema`\n(this card) and `TextSchema`, where `basic/text.tsx` does read it. The other\n`value` declarations (`TabsSchema`, the three form types) are controlled-input\nvalues with different semantics and are read by their renderers. No sibling\ninline element has this gap, so nothing new was filed.\n\nThe inverse asymmetry on the same family — `TextSchema` not declaring the\n`content` key the renderer actually prefers — is already recorded in this card's\nbody and is a sample of the class card #4631 (`pm:on-hold`). No duplicate filed.\n\n## Tests\n\nNew pins in `packages/components/src/__tests__/span-value-fallback.test.tsx`:\n\n1. the plain `{ type: 'span', value }` case the card reports rendering empty;\n2. precedence — both keys authored, child content renders and `value` does not\n   (asserted on exact text, so an append instead of a fallback also goes red);\n3. precedence for a single non-array child node, the other `children` arm;\n4. fallback when `children` is authored but empty — the one input where \"has a\n   children key\" and \"has child content\" come apart;\n5. negative control — neither key authored renders an empty element, no crash\n   and no invented placeholder.\n\n### Reverse verification (two legs, prediction recorded before the run)\n\nBoth legs were run from the committed state; the file was restored with\n`git checkout` and confirmed byte-identical to HEAD afterwards.\n\n| Ablation | Predicted red | Observed |\n| --- | --- | --- |\n| Delete the fallback (`renderChildren(schema.children)`) | pins 1 and 4 | exactly those; 2 failed / 7 passed |\n| Invert precedence (`schema.value || renderChildren(...)`) | pins 2 and 3 | exactly those; 2 failed / 7 passed |\n\nThe second leg is the one worth having: under leg A the precedence pins stay\ngreen by construction, so only an inversion proves they can fail at all.\n\n### Gates run, all at `fbb2973` (the head commit of this PR)\n\n- `pnpm exec vitest run packages/components/` — 156 files, 1433 tests passed.\n- `pnpm --filter @object-ui/components type-check` — clean (after\n  `pnpm --filter '@object-ui/components^...' build`, which a fresh worktree\n  needs; without it `tsc` reports missing workspace `.d.ts` files).\n- `pnpm --filter @object-ui/components lint` — 0 errors. The 2 warnings on\n  `span.tsx` are pre-existing, on the untouched `forwardRef` declaration; the\n  new test file is clean.\n- `pnpm run check:doc-types` — green (the docs Schema block changed).\n- `pnpm run check:control-bytes` — green.\n\nChangeset: `.changeset/span-reads-declared-value-key.md` (`@object-ui/components`\npatch) — user-visible renderer behavior.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01NYgmGheCzM6NrHZN436Cxf)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5019,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-map.mdx 两处仍与代码不符:`MapConfig` 类型不从 `@object-ui/types` 导出、API provider 示例是未实现分支",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:19:00Z",
+  "updated_at": "2026-08-18T08:22:56Z",
+  "closed_at": "2026-08-18T08:22:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5019",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 背景\n\n#5002 的裁定把 `content/docs/plugins/plugin-map.mdx` 当作权威页(它被 `check-doc-component-types` 门禁扫,且 PR #5000 刚校正过相机语义),README 重写后把完整作者参考指向了它。指过去之前逐行核了一遍这一页,还剩两处不符 —— 正因为 README 现在把读者送到这里,这两处比之前更值得修。\n\n## 1. `MapConfig` 类型不存在于 `@object-ui/types`\n\n`plugin-map.mdx:472-482`:\n\n```ts\nimport type { ObjectGridSchema, MapConfig } from '@object-ui/types'\n\nconst mapConfig: MapConfig = { latitudeField: 'lat', … }\n```\n\n`MapConfig` 在 `packages/types` 里零命中。它只是 `packages/plugin-map/src/ObjectMap.tsx:74-98` 的一个**包内私有 interface**,既没导出也没抬到 types。同行的 `ObjectGridSchema` 是真的。\n\n(相关:声明面本身的缺口另记在 #5018 —— `ObjectMapSchema` 根本没有 `map` 键。本单只记这一页教的导入跑不通。)\n\n## 2. API provider 示例教的是一条未实现分支\n\n`plugin-map.mdx:232-248` 的 \"API Provider\":\n\n```ts\n{ type: 'object-map', data: { provider: 'api', endpoint: '/api/locations', method: 'GET' }, map: { … } }\n```\n\n`ObjectMap.tsx:474-477` 对这条路的处理是:\n\n```ts\n} else if (dataConfig?.provider === 'api') {\n  console.warn('API provider not yet implemented for ObjectMap');\n  setData([]);\n}\n```\n\n也就是照抄这一节得到一张空地图 + 一条 console.warn,`endpoint` / `method` 都没有读取点。这一节要么标注为未实现,要么删掉,要么把 `provider: 'api'` 实现 —— 属分诊裁决。\n\n## 复核方式\n\n```\ngrep -rn \"MapConfig\" packages/types/src                     # 零命中\ngrep -n \"MapConfig\" packages/plugin-map/src/ObjectMap.tsx   # :74 包内私有 interface\ngrep -n \"not yet implemented\" packages/plugin-map/src/ObjectMap.tsx\n```\n\n## 分级\n\n交 PM 分诊。第 2 条是\"文档教了一个会静默给空结果的形态\",与 #5002 同类(照抄即空地图),只是这次在被门禁扫的那一页上 —— 说明现有 `check-doc-component-types` 门禁校的是组件类型名,不是片段里的键/导入是否有读取点。\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5147,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): ObjectGrid 的 editable 键补 can(object,'update') 门 (#5143)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T05:53:11Z",
+  "updated_at": "2026-08-18T06:13:47Z",
+  "closed_at": "2026-08-18T06:13:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T06:13:46Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5147",
+  "body": "Fixes #5143\n\n## 问题\n\n`ObjectGrid` 早已算出当前 principal 的写判定 —— `permissionUpdate = perms.can(objectName, 'update')` —— 却只把它喂给行 kebab(`resolveRowCrudAffordances`)。三处行内编辑 props 读的是 schema 原值:\n\n- `editable: schema.editable ?? false`\n- `renderCellEditor: schema.editable ? … : undefined`\n- `rowActions: !!(schema.editable && hasActions)`\n\n于是同一个组件对「该用户可否写这些记录」给出**两个相反答案**:无 `update` 授权的 principal 打开一张 grid 块声明 `editable: true` 的 SDUI 页面,点单元格即进入编辑器,只能靠服务端 403 拦住;而**同一批行**的 kebab 正确隐藏了 Edit。没有数据落库(服务端门是牢的),代价是 UI 明知会失败还把用户走完一遍往返。\n\n卡面前提三条已逐条实测复核,全部成立(复核记录见 #5143 评论)。\n\n## 与 #4647 / PR #5145 的关系\n\n#4647 在 **ListView** 层关上了同一个洞(PR #5145 已落 main,本 PR 基线 `dfc697554`):开关、紧凑工具栏入口、以及 ListView 写进 grid schema 的 `editable` 值,都 AND 了 `isObjectInlineEditable(objectDef, effectiveApiOps) && can(objectName, 'update')`。\n\n声明式编写的 `object-grid` schema 是**不经过 ListView 的第二扇门**。本 PR 用同构的合取式把它关上,两扇门因此无从漂移。\n\n## 改动\n\n新增一个已解析的判定,三处 props 共读:\n\n```ts\nconst objectInlineEditable =\n  isObjectInlineEditable(objectSchema, effectiveApiOps) &&\n  (objectName ? perms.can(objectName, 'update') : true);\nconst inlineEditable = (schema.editable ?? false) && objectInlineEditable;\n```\n\n作者声明的键留在合取式左半,所以本门**只收紧、不放宽**:任何判定都无法为「没要求可编辑」的 grid 打开编辑。\n\n### `rowActions` 随同一判定(卡面待核点的定夺)\n\n单独核实后确认**应当随同**,理由不是顺手扩面:该列**唯一**会被填充的状态,就是行有 pending change 时的保存/取消按钮对。ObjectGrid 从不把 `onRowEdit` / `onRowDelete` / `rowActionDefs` 传给 DataTable 的内建菜单(它们走 `columnsWithActions` 另一列),所以 `DataTableRowActionsMenu` 在这里每行都渲染 null。只关编辑而留下该列,无授权用户会拿到一条**永远空的尾列加表头** —— 一种今天并不存在的 grid 形态(不带 `editable` 的 schema 今天就不生成该列)。跟随同一判定,才使被收紧后的 grid 与「本就不可编辑的 grid」逐列一致。测试 (e) 正是钉这一条:`editableNoGrant === neverEditable`,并以 `editableWithGrant === neverEditable + 1` 作对照证明探针确实能分辨两种形态。\n\n### fail-open 语义(与同文件兄弟门一致)\n\n- 无 `PermissionProvider` ⇒ `can()` 答 `true` —— standalone embed、Studio 设计器画布行为不变;\n- 无 objectName 的纯内联 data grid ⇒ `isObjectInlineEditable(null)` 解析到默认可写桶,且 `can()` 根本不会被调用。\n\n收紧只在「确实存在一个对象可供判定」时才生效。\n\n## 反向验证(预判先写,commit 后变异还原)\n\n**(a) 摘门** —— 三处 props 还原为读 schema 原值。预判 7 红 / 4 绿(逐条点名),实测**完全一致**:红 = a / d / e / engine-owned / `userActions.edit: false` / effectiveOps 缺 update / opt-in 敌不过缺授权;绿 = b(有授权)/ c(无 Provider)/ narrows-only / 纯内联 grid。\n\n**(b) 塞假 verdict** —— `objectInlineEditable` 强制为 `false`。预判 6 红 / 5 绿,实测**完全一致**:红 = b / c / d / e(对照半)/ effectiveOps 含 update 的后半 / 纯内联 grid;绿 = a / engine-owned / `userActions.edit: false` / opt-in / narrows-only。两个方向都可观测,证明钉子不是「因为什么都没产出」而绿。\n\n**(c) 自选方向:两条通道在门后的合成语义。** ListView 把 `editable: inlineEdit && inlineEditOffered` **写进 grid schema**,所以 ObjectGrid 的 `schema.editable` 已被同一合取式预先 AND 过一次,本门再 AND 一次。\n\n- 预判 c1「幂等」:A ∧ B 再 ∧ B = A ∧ B,ListView 路径行为不变 —— 实测符合(ListView 说 false 仍 false,说 true 且有授权仍 true;plugin-list 全量 + `ListView.permissions.test.tsx` 全绿)。\n- 预判 c2(非显然的一半)**两门并非字面同一谓词**:ObjectGrid 解析 `objectName = dataConfig.object ?? schema.objectName`,ListView 只读 `schema.objectName`。故当对象身份**仅**经 `data: { provider: 'object', object: X }` 传入、无顶层 `objectName` 时,ListView 的 `schema.objectName ? … : true` 分支会落开,而 ObjectGrid 这门有对象可判 —— 预判**严格更强**。实测证实:该形态下无授权 ⇒ 不进编辑态(`can(X,'update')` 确被调用),有授权 ⇒ 照常。也就是说本门在 dataConfig 寻址的 grid 上**是唯一的门**,不是 ListView 那道的冗余副本。\n\n  这条非显然事实已留成第二个 commit 的钉子(而非只写进正文):变异验证把 `objectName` 收窄回 `schema.objectName`,预判「仅此一例红」,实测恰好 1 红 11 绿 —— 钉子既咬得住又不误伤。同一 commit 另订正了首个 commit 里一句过强的注释(原写「两门是同一谓词」,与此处实测相抵触)。\n\n## 测试\n\n新增 `packages/plugin-grid/src/__tests__/inlineEditPermissionGate.test.tsx`(12 例),断言**用户可见结果**(点单元格是否出现编辑器 / 表头列数 / kebab 条目),而非产生它的 prop。kebab 两例与编辑两例刻意同文件:两个 affordance 的分歧本身就是本卡的缺陷,任何一半被重新打开都必须在这里红。\n\n- `pnpm exec vitest run packages/plugin-grid` ⇒ 76 files / 680 tests 全绿\n- plugin-list + plugin-detail ⇒ 128 files / 1451 tests 全绿\n- plugin-view + react(spec-bridge / element-data-source)+ plugin-tree ⇒ 21 files / 252 tests 全绿\n- `pnpm type-check` ⇒ 81/81\n- eslint 变更文件 ⇒ 0 errors\n- `pnpm check:control-bytes` ⇒ OK;另按 `[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]` 自扫变更文件 ⇒ 无命中\n- CI:20 项检查全部终态,无失败(4 个 test shard / Type Check / Lint / Build & E2E / Control Byte Scan / changeset 三关等)\n\n## 半径外发现\n\n#5148 —— `showAddRow` 骑在作者声明的 `operations.create` 上、无 `can(object,'create')` 门(同族的 create 面)。已按 observation-class 挂 `finding`、不挂 `pm:queue`、不指派,可达性在卡面写明,留给 triage 定级。本 PR 不动它。\n\n## 同族\n\n- #4647 / PR #5145 —— ListView 工具栏那一半(本 PR 的姊妹门)\n- #4096 / PR #4108 —— 行 kebab 曾按 `apiOperations` 而非调用者权限设门\n- #4296 —— 行 kebab 与记录级判定\n- #3492 —— 批量操作按钮忽略 `requiredPermissions`"
+}

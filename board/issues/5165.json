@@ -1,0 +1,32 @@
+{
+  "number": 5165,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 对象列表页「New」与移动端浮动 + 消费 createPredicates (#5153)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:12:01Z",
+  "updated_at": "2026-08-18T08:19:10Z",
+  "closed_at": "2026-08-18T08:19:09Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T08:19:09Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5165",
+  "body": "Fixes #5153\n\n## 背景:这是 create 一族的最后一块\n\n`createPredicates` 在 objectui 里此前只有**一个**消费方 —— 关联列表工具栏(`RelatedRecordActionsBridge`,#4646 / PR #5145)。独立对象列表页把**同一个** create affordance 渲染了**两次**(PageHeader 按钮 + 手机端顶掉 header 后顶上的浮动 +),两处都只看对象级判词 `affordances.create && can(objectDef.name, 'create')`,谓词信封整个被丢掉。\n\n于是作者写一份 `userActions.create` 对象形,会拿到**两种不同判词**,取决于是哪个界面画的按钮:关联列表认,对象列表不认。`visibleWhen: false`(objectui#3492 的形)关不掉这个「New」。\n\n本单补齐消费方,家族闭环:\n\n| issue | 半 | 界面 | 状态 |\n|---|---|---|---|\n| #4646 | create | 关联列表工具栏 | PR #5145 已落 |\n| #5142 | import | 对象列表工具栏 | PR #5154 已落 |\n| **#5153** | **create** | **对象列表页 New + 浮动 +** | **本 PR** |\n\n## 修法:逐字镜像同文件刚落的 import 半\n\nPR #5154 的 `importVisible` / `importDisabled` 就在同一个文件里,本 PR 照抄其语义,不自创、不抽共享 helper(各调用方自答,沿用 PR #5154 的取舍先例):\n\n- `visibleWhen` —— fail **CLOSED**,且用 `?? true` 而非真值性判定「是否声明」,所以 `visibleWhen: false` 是隐藏而不是读成「未设门」(#3492 不变量);默认值是 boolean,求值器直接短路,没声明谓词的对象一次引擎调用都不付。\n- `disabledWhen` —— fail **SOFT**(算不出的谓词不能把按钮永久置灰),`!= null` 的声明性判定放在**求值之外**,所以 `disabledWhen: ''` 读作「无条件」而不是「禁用」。\n- **scope 记录传 `null`** —— spec 原文语义:工具栏谓词每工具栏求值一次,绑定该工具栏所在 scope 的记录;独立对象列表**没有记录在 scope 里**,所以读 `record.*` 的谓词无从绑定、按 fail-closed 隐藏按钮。`os.user.*` / `features.*` 正常绑定,是这里有意义的形。\n- **分层**:谓词叠在既有门**之上**,只在对象级判词已经通过时才浮现 —— 谓词只能收窄,绝不能重新打开 bucket / #3391 有效 API 操作 / principal 授权已经关掉的东西。既有权限门与 affordance 门一律未动。\n\n谓词**只算一次**,两个渲染点消费**同一对**值 —— 这正是让它们不会互相打架的原因。\n\n### 浮动 + 的 disabled 三态如实分层\n\n浮动 + 是个裸 `button`,不是设计系统的 `Button`,自身没有任何置灰形态。这里**没有**把三态压成两态(那会把 `disabledWhen` 映射成「隐藏」,丢掉 spec 明确区分的 hidden vs greyed),而是:原生 `disabled`(这是传达给辅助技术的那一半)+ `Button` 自己用的同一组 `disabled:opacity-50 disabled:pointer-events-none`,让视觉可及性与 header 按钮对齐。\n\n### 无类型改动\n\n`UserActionsOverride.create` 早在 #4646 就已是放宽后的联合类型,core 未动;`RelatedRecordActionsBridge` / RelatedList 未动。半径:`ObjectView.tsx` + 测试 + changeset(patch)。\n\n## 前提复验(先行门)\n\n卡面三条判断逐条复测,**全部成立**(行号因 PR #5154 漂移,现场定位):\n\n1. 两个 create 入口 `ObjectView.tsx:2129/:2194` → 现为 **:2189 / :2258**,确认两处都只有 `affordances.create && can(...)` 合取,无谓词层。\n2. spec docblock 复核 —— `node_modules/@objectstack/spec@17.0.0` 的 `RowCrudActionOverrideSchema` docblock 与 `CrudAffordances.createPredicates` 逐字含卡面引文:「On a standalone object list there is no record in scope … hides the button」。独立列表**在**工具栏谓词适用范围内,缺的只是记录。\n3. **入口全量清点**:仓内 `affordances.create` 的 UI 消费方共三处 —— 关联列表(已落)+ 本文件两处。同文件**无第三个** create 入口(`showCreate: false` 已显式关掉插件自带的 create 按钮)。\n\n## 反向验证(先书面预判,再跑;四组预判全部逐条命中)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| **A1** 只摘浮动 + 的消费 | 7 红 / 15 绿;两条 **FAB-alone 红**、两条 **header-alone 绿** | ✅ 完全一致 |\n| **A2** 只摘 header New 的消费 | 镜像:两条 **header-alone 红**、两条 **FAB-alone 绿** | ✅ 完全一致 |\n| **C** 两处同时还原(改前世界) | 9 红 / 13 绿;家族判词呈现卡面原话 | ✅ 完全一致 |\n| **B** fixture 塞假谓词键 `visibleWhenX` | 1 红且**不抛错**(未知键被忽略 → `?? true` → 按钮渲染) | ✅ 完全一致 |\n\nA1/A2 互为镜像,是「逐入口可观测」的实证:摘掉任一入口,**另一入口的钉子仍然绿**,所以两个渲染点是分别被钉住的,不是一条断言数了两遍。为此专门加了一组 per-entry 钉子 —— 合并断言省事,但会让任一入口的回归都失败在同一个测试名下。\n\n变异 C 的价值在于它把**卡面主张复现成了机器可判的 diff**:\n\n```\n-   \"mobileFab\": false,        +   \"mobileFab\": true,\n-   \"objectListNew\": false,    +   \"objectListNew\": true,\n    \"relatedList\": false,          \"relatedList\": false,\n```\n\n关联列表认这份声明(false = 已隐藏),对象列表两处不认(true = 照样显示)—— 这正是 #5153 描述的缺陷本身。\n\n变异 B 证明「隐藏」是 `visibleWhen` **这个键**造成的,而非任何对象形 `userActions.create` 的存在;顺带确认拼错的键不会抛错。这不构成新缺陷:spec 的 `RowCrudActionOverrideSchema` 声明为 `z.core.$strict`,未知键由**生产方**在发布期严格拒绝,渲染方的宽容位于严格 schema 的下游 —— 契约优先,消费端无需再设兜底。\n\n## 测试\n\n新增 `ObjectView.createPredicates.test.tsx`,22 钉(镜像 import 半 14 钉 + 4 条 per-entry + 4 条家族判词一致性)。家族判词一致性一次渲染三面(关联列表 / 对象列表 New / 浮动 +),对同一份声明断言三者同判 —— 主语必须是 **scope-only** 谓词(`os.user.*`),因为那才是三面都能同样绑定的形;`record.*` 谓词三面**本就不该**一致(关联列表绑宿主记录,本页没有),那是 spec 的绑定规则而非缺陷,单独钉在 fail-closed 用例里。\n\n```\nvitest run packages/app-shell/                                   429 files | 4134 passed | 1 skipped\nvitest run <本单 + PR5154 + PR5145 三个谓词测试>                    3 files  |   52 passed\npnpm type-check                                                  81 successful, 81 total\neslint packages/app-shell/src/views/ObjectView.tsx               0 errors (159 warnings,\n                                                                 与基线 cdac3cc20 逐一相同 —— 本改动 0 新增)\nnode scripts/check-control-bytes.mjs                             OK (4572 files)\ngrep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' 三个改动文件               clean\n```\n\n基线 sha:`cdac3cc20`(含 PR #5154 的 import 半 `9f23d2b32`)。\n\n## 顺带发现(半径外,已单独立卡,未在本 PR 修)\n\n入口清点时发现 **#5164**:`ObjectDataPage`(ADR-0055 的 `/data` 界面)的「New」只看 `can(objectDef.name, 'create')`,整个 CRUD affordance 矩阵在该文件里从未解析 —— 连 `managedBy` bucket 与 `userActions.create: false` 都关不掉它,比本单的缺陷更宽一层。已按查重后 unassigned 立卡,交 PM 分诊;本 PR 半径严守 `ObjectView.tsx`,未动该文件。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

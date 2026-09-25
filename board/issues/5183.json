@@ -1,0 +1,35 @@
+{
+  "number": 5183,
+  "kind": "issue",
+  "title": "[grid/kanban] Four class-string-only badge call sites still quantize the author's declared hex, so one option colour now renders two different ways depending on the surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T10:04:39Z",
+  "updated_at": "2026-08-18T12:25:23Z",
+  "closed_at": "2026-08-18T12:25:22Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5183",
+  "body": "Follow-up to objectui#5141, filed from that card's implementation. Not fixed there: #5141's ruled file surface was `packages/fields/src/index.tsx` plus its tests, and these call sites live in other packages.\n\n## What #5141 changed\n\n`SelectCellRenderer` now renders an explicitly declared `options[].color` hex as declared, for both `appearance: 'badge'` and `appearance: 'dot'`, instead of bucketing it into one of nine palette families. The colours are carried as CSS custom properties consumed by static Tailwind utilities, exposed by two new helpers in `@object-ui/fields`:\n\n- `getBadgeHexAppearance(color)` returns `{ className, style }` or `undefined`\n- `getDotHexAppearance(color)` likewise\n\n## What still quantizes\n\n`getBadgeColorClasses(color, val)` returns only a class string, so it cannot carry a runtime colour — Tailwind can never generate a class for a value that is not in the source at build time. It was deliberately left behaviour-identical in #5141 so no consumer regressed. The consequence is that these four call sites still snap the declared hex to a family:\n\n- `packages/plugin-grid/src/ObjectGrid.tsx` — the compact card/mobile stage badge\n- `packages/plugin-grid/src/ObjectGrid.tsx` — `resolveGroupHeader`, the group-header pills\n- `packages/plugin-kanban/src/ObjectKanban.tsx` — two call sites\n\n## Why this is worth fixing rather than leaving\n\nThe grid's own comment says the card view matches the desktop grid \"via getBadgeColorClasses\". After #5141 that is no longer true: the desktop cell honours the declared hex and the compact card does not. So the same option, in the same object, renders one colour in a grid cell and a different one in the group header above it or the Kanban card beside it. The pre-#5141 state was at least uniformly wrong; this is non-uniform, which is harder for an author to reason about.\n\nThe fix is mechanical — at each site, prefer `getBadgeHexAppearance(color)` when it returns a value and pass its `className` plus `style`, falling back to `getBadgeColorClasses` otherwise, exactly as `SelectCellRenderer` does. Both packages already depend on `@object-ui/fields`.\n\nWorth deciding as part of it: whether `getBadgeColorClasses` should stay class-only forever, or whether the four sites should move to a single shared helper so a fifth caller cannot reintroduce the split.\n\n## Not in scope here\n\nThe quantizer itself (`hexToPaletteName`) stays — `getSemanticColorName` still returns family names and `plugin-gantt` depends on that.\n"
+}

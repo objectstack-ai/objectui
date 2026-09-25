@@ -1,0 +1,32 @@
+{
+  "number": 5052,
+  "kind": "pull_request",
+  "title": "fix(app-shell): CloudConnectionPanel 绑定失败先读 error.message，与同文件 getJson 的优先级一致",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:59:03Z",
+  "updated_at": "2026-08-17T21:13:16Z",
+  "closed_at": "2026-08-17T21:13:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T21:13:15Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5052",
+  "body": "Fixes #5028\n\n`poll()` 的终止分支原来读 `body?.error?.code ?? t('cloudConnection.errors.bindFailed')`，\n所以即使失败信封里已经带着一句人能读的话，渲染出来的仍是机器码。同一文件上方的\n`getJson`（`:76`）早就用 `message ?? code ?? error` 这条链；本 PR 只把唯一偏离的那个\n调用点拉回本文件已有的房规，不是新约定。\n\n## 上游解锁引用\n\nobjectstack-ai/objectstack#9267 已于 2026-08-17 17:59:18Z 经 PR #9369（`d2e6b1d67`）落 main：\n`/bind/poll` 的失败信封现在带 `error.message`（`Device authorization failed: expired_token`）\n与 `error.declaredCode`（RFC 8628 原拼写），`data.pending: false` 刻意保留，轮询状态机不受影响。\n\n## 前提复验读数（基线 `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`）\n\n卡面钉的两处内容级读数，逐字复核，行号与卡面一致：\n\n| 位置 | 基线内容 |\n|---|---|\n| `CloudConnectionPanel.tsx:128` | `setPhase({ kind: 'error', message: body?.error?.code ?? t('cloudConnection.errors.bindFailed') });` |\n| `CloudConnectionPanel.tsx:76` | `const msg = body?.error?.message ?? body?.error?.code ?? body?.error ?? ` 加上 `HTTP ${resp.status}` 模板串 |\n\n**但卡面的「症状归因」不成立，这是本 PR 与卡面唯一的实质差异。** 卡面预测上游落地后用户会看到\n`DEVICE_CODE_FAILED`，即认为设备授权失败是由 `:128` 显示的。实测不是：\n\n- 该信封由 `/bind/poll` 以 **HTTP 400** 下发（`packages/cloud-connection/src/cloud-connection-plugin.ts`，\n  PR #9369 之前是 `pending ? 200 : 400`，之后仍是 `400`）；\n- `getJson` 对任何「非 2xx 且 body 不是 `success: true`」的响应**先抛**（`:75`），\n  `poll()` 的 catch（`:130`）渲染的是 `err.message`；\n- 所以过期/被拒的设备码那句文案，一直由 `getJson` 那条已经正确的链选出。上游 message 一合并就到了 UI，本仓这一侧其实不欠这个。\n\n**那么改动的这一行真正管什么**：只有 `getJson` **交还**的 body（2xx）且既无 `data.pending`\n又无 `data.bound` 也无 `success: true` 才会落到这里。`/bind/poll` 恰有一个这样的出口 —— 它把控制面\n`/bind` 的应答连状态码一起原样转发（`c.json(bindJson, bindResp.status)`）。控制面若以 200 回\n`success: false`（其侧的信封违规，正是 objectstack#9364 还在清点的那一类），就落在这一支，\n而这里过去显示的是码、不是它旁边那句话。\n\n## 反向验证（方向先书面预判，commit 后变异，`git checkout --` 还原）\n\n四个用例，编号见测试文件。注意 PM 派单模板预判的是「新信封用例变红」，而实测新信封用例（① 控制组）\n**不可能**因这一行变红 —— 它从不走这一行；能分辨优先级的只有同时带两半的 ② 号。如实记录：\n\n| 变异 | 预判 | 实测 | 一致 |\n|---|---|---|---|\n| 退回只读 `code` | ② 红（渲染 `ENVIRONMENT_BIND_FAILED`）；①③④ 绿 | `Tests 1 failed \\| 3 passed`，失败即 ②，dump 里正是 `ENVIRONMENT_BIND_FAILED` | ✅ |\n| 优先级写反 `code ?? message` | ② 红（码胜出）；①③④ 绿 | `Tests 1 failed \\| 3 passed`，同一条、同一断言 | ✅ |\n| 还原后 | 全绿 | `Test Files 2 passed / Tests 8 passed` | ✅ |\n\n① 号在两次变异下都保持绿，就是「设备授权那句话不由这一行产生」的实测证据 —— 它作为控制组留在\n文件里，好让下一个读者不必再去 `poll()` 里找那段文案。\n\n## 验证\n\n构建先行：\n\n```\npnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build\n→ 全部 Done\n```\n\n测试（仓根，经共享 verify 锁，`--maxWorkers=2`）：\n\n```\npnpm exec vitest run packages/app-shell/src/console\n→ Test Files 50 passed (50) / Tests 362 passed (362)\n\npnpm exec vitest run \\\n  packages/app-shell/src/console/cloud-connection/__tests__/CloudConnectionPanel.bindError.test.tsx \\\n  packages/i18n/src/__tests__/cloudConnection-locale-parity.test.ts \\\n  packages/app-shell/src/console/marketplace/__tests__/readApiError.test.ts\n→ Test Files 3 passed (3) / Tests 16 passed (16)\n```\n\n类型与门禁：\n\n```\npnpm exec turbo run type-check --concurrency=2\n→ Tasks: 81 successful, 81 total（exit 0）\n\npnpm exec eslint 改动的两个文件\n→ 0 errors（6 warnings 全为基线既有的 no-explicit-any / set-state-in-effect，行号均不在本次改动内）\n\nnode scripts/check-control-bytes.mjs\n→ OK（scanned 4503 tracked text files）\n```\n\n测试范围说明：app-shell 全量过重，按 `packages/app-shell/src/console` 目录跑（含本次新增文件），\n另按消费半径把 `packages/i18n` 的 cloudConnection 平价测试与 marketplace 的 `readApiError` 一并跑过 ——\ngrep 全仓后，这三处是 `cloud-connection` 相关的全部测试面。\n\n## 范围\n\n只这一个调用点 + 一个测试文件 + 一个 changeset。卡面自留的 UX 题（是否一律偏好译文而非任何机器码）\n不在本 PR 裁 —— 复验把它变成了一个更具体的 **翻译** 问题（线上那句话是英文，而面板对同一失败已有译文键\n`cloudConnection.errors.expired`），已另立 finding 单记录（见下方评论），不夹带进本 PR。"
+}

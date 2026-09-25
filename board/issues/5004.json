@@ -1,0 +1,36 @@
+{
+  "number": 5004,
+  "kind": "issue",
+  "title": "objectui: CONSOLE_VALUE_ZH.lock 与 MetadataAuditEntry.lockState 完全错位 —— 唯一调用点能送到的三个值全无中文,表里三条又对不上任何可能值(命中率 0/3)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T14:36:07Z",
+  "updated_at": "2026-08-17T16:34:20Z",
+  "closed_at": "2026-08-17T16:34:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5004",
+  "body": "发现于 #4982 的实施(同一张 `CONSOLE_VALUE_ZH` 表的邻组)。**不在那个 PR 内修复** —— 超出该卡范围,按 Prime Directive #10 立卡,未认领。\n\n## 事实(逐条 file:line,基线 `origin/main` = `85fdb0612`)\n\n1. **词表** —— `packages/app-shell/src/views/metadata-admin/i18n.ts:4124`:\n   `lock: { draft: '草稿', locked: '已锁定', published: '已发布', none: '无' }`\n\n2. **唯一调用点能送的值** —— `packages/app-shell/src/views/metadata-admin/AuditPanel.tsx:191` / `:193`:第 191 行的三元条件是 `ev.lockState && ev.lockState !== 'none'`,只有为真时第 193 行才调 `translateConsoleValue('lock', ev.lockState, locale)`;为假走 `—`。\n\n3. **该字段的类型** —— `packages/data-objectstack/src/metadata-client.ts:311`:\n   `lockState: 'none' | 'no-overlay' | 'no-delete' | 'full' | null;`\n   (`MetadataAuditEntry`,ADR-0010 §3.6 的 4 态锁)\n\n三者对齐后是**完全错位**:\n\n- `draft` / `locked` / `published` 三条对不上 `lockState` 的**任何**可能值 —— 那是一套草稿状态词表,不是 4 态锁的词表;\n- 唯一对得上的 `none`,被调用点第 191 行**显式排除**,所以这一条永远不会被命中;\n- 实际能到 `translateConsoleValue('lock', …)` 的三个值 `no-overlay` / `no-delete` / `full` **一条都没有条目** → zh-CN 下 `CONSOLE_VALUE_ZH[group]?.[value] ?? value` 恒返回原值。\n\n命中率 0/3,且表里 4 条中有 3 条是死条目、第 4 条不可达。`translateConsoleValue` 的签名把 `value` 声明为 `string`,所以类型检查对此毫无意见 —— 与 #4982 里 `overlayScope` 被声明成 `string` 的同一个原因。\n\n## 用户可见后果\n\nzh-CN 管理员打开元数据编辑页的「审计」面板,凡是带锁的审计行,锁状态列显示裸英文 `no-overlay` / `no-delete` / `full`。\n\n## 与 #4982 的关系:同一失败类,但**修法不同**,故单独立卡\n\n#4982(消费侧词表与生产者 enum 漂移)的词表在 `@objectstack/spec` 有 `z.enum` 可派生,已按派生方式修好并附了以 spec union 为键的 `LAYER_SCOPE_ZH`。这里的 4 态锁在本仓是**手写 union**(`MetadataLayered['lock']` / `MetadataAuditEntry['lockState']`),spec 是否该拥有这套词表是另一个问题 —— 所以键类型该绑到哪个来源需要判断,不能照抄 #4982 的形状。不作为 #4982 的子任务,因为它的修复不落在那张卡的完成范围内。\n\n## 建议(交维护者定,不预设)\n\n- `CONSOLE_VALUE_ZH.lock` 补 `no-overlay` / `no-delete` / `full` 三条中文;\n- 处置那三条对不上任何可能值的死条目 —— 删掉,或确认它们服务于另一个尚未接线的调用点(若是后者,该调用点也应立卡);\n- 仿 #4982 的 `LAYER_SCOPE_ZH`,把键类型绑到 `MetadataAuditEntry['lockState']`,使「漏一条」在 `type-check` 处变红而不是在界面上漏英文;\n- 是否把 `translateConsoleValue` 扩到 zh 以外仍是**独立决定**,同样不要顺手改。\n\n未打 `finding` 标签:zh-CN 管理员今天打开任一带锁审计记录就看得到裸值,属具体缺陷,定级交 PM triage。"
+}

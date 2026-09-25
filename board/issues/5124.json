@@ -1,0 +1,30 @@
+{
+  "number": 5124,
+  "kind": "pull_request",
+  "title": "docs(skills): 「Iteration scopes」整节改写为实测的 data-as-nodes 形态",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T02:37:54Z",
+  "updated_at": "2026-08-18T14:13:50Z",
+  "closed_at": "2026-08-18T14:13:49Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T14:13:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5124",
+  "body": "Fixes #4797\n\n按维护者裁定(#4797 评论 5312062029:「docs retreat now;迭代能力**不建、不立卡**」)执行。基线 `8378e9954`。\n\n## 一、前提复测(改前,真实 SchemaRenderer 探针)\n\n卡面三条判断逐条复测,**全部成立**,`premise_still_valid: true`:\n\n1. **文档承诺** —— \"Iteration scopes (loops)\" 一节确实写着 Grid / List / Table \"inject scoped variables for each item ... `item` refers to the current element and `index` to its 0-based position\",并给出 list + bind + children + `${item.name}` 示例(改前 386-406 行)。「Available scope variables」表的 `item` / `index` 两行(改前 139-140 行)是同一承诺的**第二处**,卡面未点名,一并处理。\n2. **实测形态**(happy-dom 吞 console.log,读数经 `fs.appendFileSync` 落盘):\n\n```\n@@P1  list/bind+children       li=2  text=\"\"            与卡面 list/children-toplevel 一致\n@@P1b doc-example-verbatim     li=2  text=\"\"            卡面示例原样(card + props 信封)\n@@P2  list/items-content       li=2  text=\"AdaLinus\"    与卡面 list/items-as-nodes 一致\n@@Q8  list/bind-plain-records  li=2  text=\"\"            绑定普通记录 = 每条一个空 li\n@@Q4a text content=${item.name}  -> \"${item.name}\"      未知根标识符原样上屏\n```\n\n3. **成因读码** —— `packages/components/src/renderers/data-display/list.tsx:42-46` 渲染 `item.content || renderChildren(item.body)`,完全不看 `schema.children`;`packages/react/src/SchemaRenderer.tsx:332-337` 的求值上下文是 `{ ...predicateScope, current_user, data, page }` —— 没有 `item`,没有 `index`。全仓 grep 零命中,用邻近词(`element` / `row` / `idx` / `createScope` / `withScope`)反查同样零命中。\n\n## 二、改了什么\n\n半径:`skills/objectui/guides/schema-expressions.md` 单文件,两处,+99 −14。\n\n- **「Iteration scopes (loops)」→「No per-item template iteration (`list` is data-as-nodes)」**。开门见山写死「没有循环构造,没有 `item` / `index` 作用域」,随后**分层**如实描述三个被点名组件今天的真实形态(它们机制不同,没有一刀切):\n  - `list` —— data-as-nodes:条目本身即节点(字符串 / `content` / `body` / `className`);`content` 优先于 `body`;`content` **不过求值器**;只有 `body` 会回到 SchemaRenderer,因而是列表内唯一能求值的位置(且只对宿主作用域,不存在当前元素);绑定普通记录数组 = 每条一个**空 li**,这正是本单要关掉的 AI 陷阱。\n  - `grid` —— 根本没有数据绑定,是 CSS grid 包装器,`children` 只渲染一次,`bind` 惰性。\n  - `table` —— 从内联 `data` + `columns` 访问键(`accessorKey`,回落 `name`)取值,纯属性查找、从不求值,且不读 `bind`。\n- **替代路径**按裁定写明:逐条模板渲染今天没有任何组件支持;两条可用路线是**宿主预展开**(交给 SchemaRenderer 之前把每条记录展开成节点)与 **data-as-nodes**(`items` 或已是节点形状的 `bind` 数组)。\n- **真正存在的逐行作用域**指向同文件已有的「List-view conditional tier」小节:CEL 的 `record.*`(`@objectstack/formula`)—— 明确写成「另一套引擎、另一套作用域,它不给 `${}` 模板任何 `item`」,避免读者把两者混为一谈。\n- **作用域变量表**删掉 `item` / `index`,补上实测为真的 `current_user` / `user` 与 `page` 两行,并加一句「就这些」收口。\n- ⛔ **不预告迭代能力**:全文无任何「计划中 / 未来 / 待实现」措辞;裁定里的命名重启条件(出现 data-as-nodes 表达不了的真实模板渲染需求)**只留在裁定评论里,文档不引用**。\n\n⚠️ 旧节示例带的 `props` 信封是 #4786 **刻意保留**并指向本单的(信封不是病根,单拆信封会得到一个「看起来修好、实际照样空白」的示例)。改写后的示例按 #4786 教学面定调:`element:*` 之外一律不用信封形,键直接写在节点上。\n\n## 三、验证\n\n- **改后为真**(docs-only 单少见的可运行验证面):改写后的 5 个示例逐条经真实 SchemaRenderer 复测,与散文完全一致 ——\n  `@@DOC-1 li=2 text=\"\"`(❌ 示例)、`@@DOC-2 tag=OL li=2 \"TeamAdaLinus\"`、`@@DOC-3 li=2 \"AdaLinus\"`、`@@DOC-4 \"Owner: Ada\"`、`@@DOC-5 rows=2 \"NameAdaLinus\"`。新表格里的 `current_user` / `page` 两行同样实测:`@@S1 \"cu=ada@example.com u=ada@example.com\"`、`@@S2 \"page=rec_42\"`。\n- **门禁**:`check-doc-links`(13 scan roots 全绿)、`check-control-bytes`(4546 文件)、`check-skills-paths`(93/94 解析 + 1 baselined)、`check-doc-component-types` 全绿;改动文件自扫控制字节 `grep -naP` 零命中。\n- **type-check**:仓根 turbo `81 successful, 81 total`。\n- **changeset**:`check-changeset-presence.mjs` 判**不欠**(退出 0:改动 0 个文件落在发布包 `src/`)。先例一致 —— #4786 自己的教学面提交 `5a3c06afb` 及多数 `docs(skills)` 提交均无 changeset(照 PR #5104 先例把判定写进正文)。本文件无版本字面量,与 #4981 / #5081 的 KNOWN_CLAIMS 无联动。\n\n### 反向验证(先书面预判,后跑)\n\n- **(a) 旧节回填 → 预判「零门可抓」,实测确认零门**:把改前全文原样写回,`check-doc-links` / `check-control-bytes` / `check-skills-paths` / `check-doc-component-types` / `check-changeset-presence` **五个门全部退出 0**。结构性原因已核实:`check-doc-links.mjs` 的 `SCAN_ROOTS` 无 `skills` 行;`check-doc-component-types.mjs` 的 `DOCS_ROOT` 钉死 `content/docs`;`check-skills-paths.mjs` 只判代码跨度里的**仓内路径**,而 `item` / `index` / `${item.name}` 都不是路径;本仓 `scripts/` 下无 version-claims 门。**这个「零门」结论本身是 #4981 / PR #5084 扩面必要性的实测回灌**:agent 面上一整节纯属虚构的能力承诺,今天没有任何机械门看得见。\n- **(b) 探针有牙**:新示例塞假 type / 假键 / 假访问键均被抓 —— `@@MUT-1 fake-type li=0`(落 `Unknown component type: lisst` 占位符)、`@@MUT-2 fake-key(itemss) li=0`(只剩标题 \"Team\")、`@@MUT-3 table/fake-accessor rows=2 text=\"Name\"`(表头在、单元格全空)。\n- **(c) 自选方向 —— 探针自身证伪一次**:第一轮 `PredicateScopeProvider` 我误传了 `value=`(真实 prop 是 `scope=`),读数 `cu= u=${user.email}`。这个「错误」读数反过来印证了散文里的分档:**已知根、缺属性 → 空**(`current_user` 在上下文里但为 undefined),**未知根 → 整段字面量上屏**(`user` 根本不在上下文里)。改用 `scope=` 后两者均正确解析,表格行才落笔。\n\n## 四、与相邻单的关系\n\n- **#4795(D3 方向)** —— 同一裁定轴(同一次裁决同时处理),但**不同文件、无序依赖**:#4795 是「除 `content` 外没有文本键既被求值又被读回」的引擎侧洞,本单是 skills 教学面的迭代承诺回撤。本 PR 不触碰引擎。\n- **#4786** —— 本单的发现来源。它拆 `props` 信封时**刻意保留**了这一节的信封原样并在甄别表里指向本单;这次改写把那处信封一并落到 #4786 的教学面定调上,该悬置项就此关闭。\n- **#4787** —— 探针顺带复现的 grid 键漏成 DOM 属性(`bind=\"users\" columns=\"2\"`)已有在册,不重复立卡。\n\n## 五、合车道\n\n⛔ **skills 人合车道**:`skills/**` 是已发布技能根,ADR 级人合(裁定评论 ⚠️ 注记 + PR #5080 先例)。本 PR 保持 **draft**、**不挂 auto-merge**;PM 验收后只转 ready,留维护者亲合。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

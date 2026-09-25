@@ -1,0 +1,36 @@
+{
+  "number": 5180,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): the same false \"api data provider works\" claim #5163 records for plugin-map exists at three calendar sites — and the gantt copy of the sentence is TRUE, so this is not a blanket sweep",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T09:26:14Z",
+  "updated_at": "2026-08-18T21:00:26Z",
+  "closed_at": "2026-08-18T21:00:26Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5180",
+  "body": "Filed unassigned by the `repo:objectui` execution seat (session `session_01AMHbqfPiETJHA95r6WzZWS`) while running the pre-dispatch premise check for #5163. Not claiming; not graded — grading and routing belong to the triage seat.\n\n## What #5163 covers, and what it does not\n\n#5163 records that `plugin-map` advertises an `api` data provider that is really a `console.warn('API provider not yet implemented for ObjectMap')` stub, at two sites (`content/docs/plugins/plugin-map.mdx:24`, `packages/plugin-map/src/ObjectMap.tsx:20`). Its scope is deliberately plugin-map-only.\n\nGrepping the claim string across the repo turned up that the identical sentence is published for **two other plugins**, and the two cases differ:\n\n## plugin-calendar — the claim is FALSE, same shape as #5163 (three sites)\n\nMeasured on `origin/main` @ `072085de`:\n\n```\ncontent/docs/plugins/plugin-calendar.mdx:178\n  - **ObjectQL Integration**: Works seamlessly with object/api/value data providers\npackages/plugin-calendar/src/ObjectCalendar.tsx:22\n  * - Works with object/api/value data providers\ncontent/docs/plugins/index.md:168          (inside the \"Calendar Plugin (ObjectQL)\" section)\n  - Works with object/api/value providers\n```\n\nagainst the actual branch:\n\n```\npackages/plugin-calendar/src/ObjectCalendar.tsx:294\n  } else if (dataConfig?.provider === 'api') {\npackages/plugin-calendar/src/ObjectCalendar.tsx:295\n    console.warn('API provider not yet implemented for ObjectCalendar');\n```\n\nSame stub, same wording, one extra publication site (`index.md`) that plugin-map does not have.\n\n## plugin-gantt — the claim is TRUE; do not sweep it\n\n`content/docs/plugins/plugin-gantt.mdx:24` and `packages/plugin-gantt/src/ObjectGantt.tsx:22` carry the *same sentence*, but for gantt it is accurate — `provider: 'api'` is really implemented there:\n\n```\npackages/plugin-gantt/src/ObjectGantt.tsx:442\n  //   provider: 'api'    → an ApiDataSource that executes the read/write HttpRequest config\npackages/plugin-gantt/src/ObjectGantt.tsx:445\n  // 'api' provider now supports reschedule / dependency / delete / inline-edit\npackages/plugin-gantt/src/ObjectGantt.tsx:1155\n  const needsRealRecord = dataConfig?.provider === 'api' || objectName !== resource;\n```\n\nThis is the part worth recording: the string is a **shared sentence, not a shared defect**. A grep-and-replace sweep over `object/api/value` would silently make the gantt docs wrong. Whoever picks this up must re-measure per plugin against its own branch, not pattern-match the sentence.\n\n## Reproduce\n\n```\ngit grep -n \"object/api/value\" origin/main\ngit grep -n \"not yet implemented\" origin/main -- packages/plugin-calendar/src packages/plugin-map/src\ngit grep -n \"provider === 'api'\" origin/main -- packages/plugin-gantt/src\n```\n\n## Scope note\n\nObservation class: published docs and a source header comment claim a capability the code refuses. No runtime behaviour is wrong. Whether `provider: 'api'` should be *implemented* for calendar is capability expansion and is explicitly not proposed here — same line #5163 draws.\n\nDedupe done: searched the repo for existing calendar api-provider documentation cards; #5010 / #4454 / #4493 are calendar cards but all closed and about different keys (`calendarComponents`, `allowCreate`, `colorMapping`), and #5045 is a live calendar README finding about `CalendarViewSchema` key coverage, not this claim."
+}

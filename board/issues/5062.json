@@ -1,0 +1,35 @@
+{
+  "number": 5062,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin FieldRow 的宿主 id 不带路径作用域(`mdf-{字段名}`)—— 同名子字段产生重复 DOM id,第二个标签的 `for` 解析到第一个字段的控件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T21:52:47Z",
+  "updated_at": "2026-08-17T23:53:01Z",
+  "closed_at": "2026-08-17T23:53:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5062",
+  "body": "发现于 #5039 的实施(PR #5061)。**未认领,交 PM triage。** 与 PR #5061 无关联改动 —— 该 PR 未触碰 id 方案,此缺陷在 `main` 上同样成立。\n\n## 机制\n\n`SchemaForm.tsx` 的 `FieldRow` 用字段的机器名直接构造宿主 id:\n\n```\nconst id = `mdf-${name}`;\n```\n\n`name` 是**该层的**字段名,不含任何路径前缀。但 `FieldRow` 在多个嵌套层级被递归调用 —— `CompositeField` 的每个子行、`RepeaterField` 卡片布局展开行、`RecordField` 展开项、以及递归 `SchemaForm` 的内层字段。**同名子字段落在同一文档里就会撞 id**,而 `for` 只会解析到文档中的第一个匹配。\n\n## 实测(真 `SchemaForm` 渲染)\n\n两个 `composite` 字段 `a` / `b`,各有一个名为 `field` 的子字段(标签分别为 \"Field A\" / \"Field B\"),值分别为 `x` / `y`:\n\n```\nids: [\"mdf-a-label\",\"mdf-field\",\"mdf-b-label\",\"mdf-field\"]\nDUPLICATES: [\"mdf-field\"]\nField A → for=mdf-field  resolves to value=\"x\"\nField B → for=mdf-field  resolves to value=\"x\"     ← 指向了 Field A 的输入框\n```\n\n即:点击 \"Field B\" 会聚焦到 Field A 的输入框,辅助技术把 Field A 的控件读成 \"Field B\"。这不是悬空(#4871 / #4857 / #4788 那一类「解析到无」),而是**解析到了错的元素** —— 一个交叉接线的关联,比悬空更难从 DOM 上看出来。\n\n## 与既有单的关系\n\n- **不是 #4871 / #5039**:那两单是「宿主标签用哪条通道到达控件面」(`for` vs IDREF),判据在 widget 声明与渲染面;本单是 **id 本身的命名方案**在嵌套下不唯一,与走哪条通道无关 —— 走 `control` 通道的两个同名子字段照样撞。\n- **同一失效类的兄弟单 #3343**(已关闭):`AddressField` / `GeolocationField` 用硬编码固定子输入 id(`street` / `city` / `latitude`…),同表单两个该类型字段即产生重复 DOM id。宿主不同(`packages/fields`),机制同源 —— 该单当时的修法可作本单参照。\n\n## 可能的落地形态(供裁,未实施)\n\n1. **路径作用域 id**:`FieldRow` 接收祖先路径(composite/repeater/record/递归 SchemaForm 各自已知自己的路径段),id 拼成 `mdf-a.field` / `mdf-b.field`。契约清晰、可预测,但要给 `FieldRow` 加一个贯穿所有递归点的 prop。\n2. **React `useId()` 前缀**:天然唯一、改动最小,但 id 不再可预测,现有按 `mdf-{name}` 取元素的测试与 e2e 选择器会一起失效(需先普查),且失去「id 可由字段名推出」这一便利。\n\n倾向 1(声明式、可预测、与既有测试面兼容),但涉及公共 DOM 契约,交维护者裁。\n\n## 复现\n\n`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`,`FieldRow` 内 `const id = ...` 一行;两个 composite 字段带同名子字段即可,读数如上。\n\n## 去重\n\n检索过 open issues(`metadata-admin SchemaForm duplicate id mdf- collision nested composite label wrong control`、`repeater grid cells unnamed label association`),除已关闭的兄弟单 #3343 外无同题单。"
+}

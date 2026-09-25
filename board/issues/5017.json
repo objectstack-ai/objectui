@@ -1,0 +1,35 @@
+{
+  "number": 5017,
+  "kind": "issue",
+  "title": "ObjectMap 把顶层 `schema.style` 当 MapLibre style URL 读 —— 与 `BaseSchema.style`(内联 CSS)撞车,而 types 里 `mapStyle` 这个名字正是为避开它才起的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:18:10Z",
+  "updated_at": "2026-08-18T09:21:41Z",
+  "closed_at": "2026-08-18T09:21:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5017",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-map/src/ObjectMap.tsx:198-199`,地图样式按三个拼法依次取,顶层 `style` 排第一:\n\n```ts\nconst style: string | undefined =\n  (schema as any).style || (schema as any).mapStyle || (schema as any).map?.style;\n```\n\n而 `style` 在 schema 基面上**已经有一个完全不同的含义**:`BaseSchema.style` 是内联 CSS(`packages/types/src/zod/base.zod.ts:80`,`z.record(z.string(), z.union([z.string(), z.number()]))`,describe 为 `'Inline CSS styles'`),每个节点都可以合法地写它。\n\n于是在一个 `object-map` / `map` 节点上写基面允许的 `style: { height: '400px' }`,这个对象会被当作地图样式一路交给 `MapGL` 的 `mapStyle` prop(`ObjectMap.tsx:675`)。它不经过 `MapConfigSchema` —— 那次 `safeParse` 只看 `schema.map`(`:222`),顶层的 `style` / `mapStyle` 是在 `:198` 单独取的,直接 spread 进返回值(`:211` / `:226` / `:243`),所以既没有校验也没有诊断。\n\n## 为什么这条特别值得记\n\n`@object-ui/types` 自己已经写明了这个坑,并且为它改过名:\n\n> `packages/types/src/objectql.ts:1820-1824`\n> MapLibre style URL/spec. … Named `mapStyle` (not `style`) to avoid colliding with `BaseSchema.style` (inline CSS properties).\n\n也就是说声明面为避开撞车专门起了 `mapStyle`,而消费端仍然**优先**读那个被避开的名字。声明与消费在同一件事上给出相反的答案,这正是「declared = enforced」要拦的形状。\n\n## 观察到的三个拼法\n\n| 拼法 | 是否声明 | 是否被读 |\n| --- | --- | --- |\n| `schema.style` | 已声明,但声明的是内联 CSS | 读,优先级最高 |\n| `schema.mapStyle` | `ObjectMapSchema` 声明为 MapLibre style(`objectql.ts:1825`) | 读,第二优先 |\n| `schema.map.style` | `MapConfigSchema` 声明(`ObjectMap.tsx:49`) | 读,最后 |\n\n现有钉子只钉了后两条(`ObjectMap.styleFallback.test.tsx:39-59`、`ObjectMap.filterConfig.test.tsx:153-163` 钉 `map.style`),顶层 `style` 这一腿没有测试,也没有任何一处仓内 metadata 使用它 —— 所以今天没人踩到,但它是每个节点都能写的合法基面键。\n\n## 可能的修法(供分诊定向,未实施)\n\n1. **删掉 `schema.style` 那一腿**,只保留 `mapStyle`(声明面的名字)与 `map.style`(声明的配置块)。风险:若有 in-flight 的 ObjectView 路径依赖顶层 `style`,需先查 —— `ObjectView.tsx:770-776` 把 `viewOptions.map` 摊平到顶层,所以顶层拼法这条路是活的,要确认它有没有可能摊出 `style`。\n2. 保留但**收窄为字符串**(`typeof === 'string'`),对象形态落回 CSS 语义并诊断。仍留着两个含义共用一个键。\n3. 统一到 `map.style` 单一入口,`mapStyle` 走弃用期。\n\n范围与 #5002 不相交(#5002 只重写 README,并且只教了 `map.style` 一个拼法,没有教这两个顶层别名)。\n\n## 分级\n\n交 PM 分诊。这是\"declared 与 consumed 打架\"的合同面缺陷,不是 README 文案问题。\n"
+}

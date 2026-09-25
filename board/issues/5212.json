@@ -1,0 +1,35 @@
+{
+  "number": 5212,
+  "kind": "issue",
+  "title": "Studio block designer publishes three page-component inputs no renderer reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T14:41:51Z",
+  "updated_at": "2026-08-18T15:54:42Z",
+  "closed_at": "2026-08-18T15:54:42Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5212",
+  "body": "> **Moved from `objectstack-ai/objectstack#7973`** by the `repo:objectui` PM seat (session `session_01RV6yuVCxymHYE16PL9vQkE`) under the maintainer's direct-dispatch authorisation, 2026-08-18, verbatim: 「转」.\n>\n> **Reason:** file-at-destination, and the original said so itself — *\"the fix lives in the sibling repo `objectstack-ai/objectui`\"*, with a suggested fix naming only objectui files. It was filed in the platform repo because that is where the sweep that found it ran. Original thread has 1 comment; bare references rewritten to full cross-repo form.\n\nFiled from `objectstack-ai/objectstack#4001` batch A (`ui/component.zod.ts` strictness conversion) under AGENTS.md Prime Directive #10 — out of that PR's scope, and the fix lives in this repo.\n\nBatch A enumerated every registered component type by **the renderer's read pattern** (the `objectstack-ai/objectstack#6276` lesson) before closing the props shapes. That sweep found five renderer-honoured keys the spec had not declared — those are declared in the batch-A PR. It also found the divergence pointing the other way: **inputs objectui's Studio block designer publishes that nothing on the render path reads.** An author who configures a block in Studio, saves, and then looks at the page gets no effect and no diagnostic — the ADR-0078 shape, on the producer side.\n\nMeasured against `objectstack-ai/objectui@d8d0d66`, in `packages/app-shell/src/views/metadata-admin/previews/block-config.ts`:\n\n| Designer input | Read path | Verdict |\n|---|---|---|\n| `page:accordion` → `title` | `PageAccordionRenderer` (`renderers/layout/containers.tsx`) reads `items`, `allowMultiple`, `variant` — no `title` | dead input |\n| `page:accordion` → `items[].value` | the renderer **overwrites** it: `items.map((it, idx) => ({ ...it, value: \\`panel-${idx}\\` }))` (`containers.tsx:793`), so an authored value never reaches the Radix item | dead input |\n| `page:header` → `icon` | **retired** from the spec at `@objectstack/spec` 17.0.0 (`objectstack-ai/objectstack#6946`, ADR-0087 D2) — no renderer ever read it | designer has not caught up with the retirement |\n\nTwo notes that matter for whoever picks this up:\n\n1. **The accordion `value` case is not symmetric with `page:tabs`.** One component over, an authored `items[].value` *is* read (`containers.tsx:566`, with a `tab-` fallback), which is why the spec declares it there and `objectstack-ai/objectstack#5776` exists for the `key` → `value` rewrite. The accordion's is genuinely derived. Batch A therefore declined to declare it and shipped a `guidance` prescription instead, so an author who copies the designer's output is told what happened rather than merely refused.\n2. **`page:header.icon` will now be refused, not dropped.** Batch A closed these shapes, so a designer-authored `icon` raises the `objectstack-ai/objectstack#6946` tombstone (with its `os migrate meta --from 16` prescription) at the authoring gate instead of being stripped in silence. The gate is warning-level, so nothing breaks today — but the designer is publishing an input whose value the platform tells the author to delete.\n\nSuggested fix, objectui side: drop the three inputs from `block-config.ts` (`page:accordion.title`, `page:accordion.items[].value`, `page:header.icon`). If any of them is wanted as a real capability, that is the other direction and needs a renderer read point first — declared-but-unread is the thing to avoid in either repo.\n\nReproduce the sweep: for each type in `ComponentPropsMap`, grep objectui for `properties?.` / hoisted `schema?.` reads and diff against the declared shape. It is cheap and it is what turned both directions up.\n\n⚠️ **Line numbers and the `d8d0d66` baseline are from 2026-08-12** — re-measure against the current tree before acting."
+}

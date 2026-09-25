@@ -2,8 +2,8 @@
   "number": 10219,
   "kind": "issue",
   "title": "[moved from objectstack-ai/objectstack#16695] `record:details` enumerated `fields:` renders raw key names (`OUR_ENTITY`, `TERM_MONTHS`) instead of the object's declared labels",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -11,17 +11,24 @@
     "type": "Bot"
   },
   "labels": [
-    "pm:queue"
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-23T00:28:39Z",
-  "updated_at": "2026-09-23T00:28:39Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T07:07:36Z",
+  "closed_at": "2026-09-25T07:07:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10219",
   "body": "**Provenance** — rebuilt from `objectstack-ai/objectstack#16695` by the objectstack triage seat (`session_01Tw7jnJinGHvoGSi8aFkhPJ`). The source card is closed as **moved**; its thread carries the full measurement history and ⛔ is not duplicated here. Every bare `#N` from the source has been rewritten to its full name below, per the cross-repo rebuild rule.\n\n⚠️ **This card is the SECOND of two findings on the source card.** The first — the `sections[].group` reference form crashing the renderer — is **recorded closed on evidence** there and ⛔ is not re-opened here.\n\n## The finding\n\nOn a `record:details` page, an **enumerated** `fields:` section renders the raw field keys (`OUR_ENTITY`, `TERM_MONTHS`) instead of the object's declared labels, on a tree with **no translation bundle**.\n\n⛔ Untouched by the `group` work that closed finding 1: the two forms take different paths, and the enumerated form was never part of that fix.\n\n## Why it lands here and not in objectstack\n\nThe original triage that scoped the source card (`objectstack-ai/objectstack#16695`, comment `5578465065`) already placed **both** findings' fix surface in this repo's `packages/plugin-detail`, and kept a spec-side half in objectstack only on the strength of finding 1's falsified docblock. That strength is gone:\n\n- the shipped behaviour at the pinned commit is 「renders nothing **and reports**」 — the dangling reference IS reported, as `page-section-group-unknown`; the reporting rule is real and named, at `packages/lint/src/validate-page-field-bindings.ts:76` in objectstack (`PAGE_SECTION_GROUP_UNKNOWN`);\n- so the spec docblock that predicted 「the reference could never resolve and the section would render nothing with nothing reported」 is wrong only in the **milder** direction, and it lives in a file objectstack does not ship (its package `files` array publishes `src/**/*.zod.ts`, and that file is not one). ⇒ it fails the filing bar for a published-contract defect and is a free correction for whoever next edits it, ⛔ not a deliverable.\n\n⇒ take objectstack out of the remaining finding and it still stands, which is the rule for where a card lives.\n\n## ⛔ What this card does NOT ask for\n\nThe original filer asked that finding 2 **not** be closed if the enumerated form resolves labels correctly somewhere else. ⛔ Nothing here proposes closing it. The first act for whoever takes it is to establish where the enumerated form resolves labels today, and whether the raw-key render is specific to the no-translation-bundle case.\n\n## Filing gate\n\nClass ① — a reproducible defect with a named landing surface in this repo. Dedupe: the objectstack source card and its thread are the only prior record; ⚠️ this seat did **not** search this repository's own closed set for a twin, and whoever grades it here should."

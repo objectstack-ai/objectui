@@ -1,0 +1,35 @@
+{
+  "number": 4989,
+  "kind": "issue",
+  "title": "plugin-form: ObjectForm/WizardForm consume submitBehavior.url against the pre-ruling shape — out-of-contract values silently dropped, same-origin absolutes followed, mount-blind",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T12:51:16Z",
+  "updated_at": "2026-08-18T01:34:22Z",
+  "closed_at": "2026-08-18T01:34:22Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4989",
+  "body": "Found while implementing objectui#4190 (the console `FormPage` half of the same ruling). Filed unassigned, NOT fixed there — #4190's scope is `apps/console`, and this surface is a published renderer package with a different routing situation, so it needs its own decision about mechanism.\n\n## What\n\n`packages/plugin-form` consumes `submitBehavior: { kind: 'redirect' }` at two sites, both with the same shape:\n\n- `src/ObjectForm.tsx:803-805`\n- `src/WizardForm.tsx:490-492`\n\n```\nif (isSameOriginUrl(behavior.url)) {\n  setTimeout(() => window.location.assign(behavior.url), behavior.delayMs ?? 0);\n}\n```\n\nos#7496 (ruled 2026-08-11, landed by os#7657, live on this repo's `@objectstack/spec` 17.0.0 GA pin) settled what this value means: **relative paths only**, interpolation **only** from declared record fields spelled `{{record.field_name}}`, every interpolated value **URL-escaped when the redirect is built**. Measured against that, these two sites diverge four ways.\n\n**1. It is explicitly NOT an open redirect** — stating this first so the issue is not over-graded. `isSameOriginUrl` (`src/successBehavior.ts:19-27`) resolves the value against `window.location.href` and compares origins, so a cross-origin destination never reaches the navigation. The open-redirect face is already closed here.\n\n**2. Out-of-contract values are SILENTLY DROPPED.** When the guard answers false, the `if` simply does not fire: no toast, no error, no confirmation panel, no navigation. The write already succeeded, so the submitter is left looking at a still-filled form with zero feedback about what happened — and the obvious next move is to submit again, which writes a second record. Silence is the one outcome the consumer side of the ruling rules out (\"neither silently dropped nor followed\").\n\n**3. A same-origin ABSOLUTE url is followed, where the contract says relative-only.** `isSameOriginUrl('https://own-host/thanks')` is true, so this consumer accepts a spelling the spec now refuses at the authoring door. More permissive than the contract, i.e. metadata that cannot be published still works here — which is how a rejected spelling stays alive in a corpus.\n\n**4. Mount-blindness, the same class as objectui#4190/#4181.** A full-page navigation does not see React Router's `basename`, so a ruled in-app path such as `/thanks` resolves against the ORIGIN root. Under a mounted host (the framework CLI configures one for every embedded deployment) that leaves the app. This is the half that needs a decision rather than a patch: `plugin-form` is a component library that can be rendered outside a router, so it cannot simply call `useNavigate()` the way `apps/console`'s `FormPage` now does. Options include an injected navigate callback, a router-presence check, or declaring the router a peer requirement of these two components — I have no measurement to pick between them and did not guess.\n\n**5. Tokens are never substituted**, so an authored `/thanks?ref={{record.id}}` — a value the contract accepts — navigates with the literal braces in the query.\n\nNote for whoever picks this up: `navigateOnSuccess` (`ObjectForm.tsx:826-828`, `WizardForm.tsx:520-523`, via `resolveSuccessNavigate`) is a *different* declared key with its own `{id}` / `{recordId}` interpolation dialect. It is same-origin-guarded the same way and shares defects 2 and 4, but it is a separate contract question and is only mentioned here so the next reader does not conflate the two.\n\n## Why this was not folded into objectui#4190's PR\n\nPrime Directive #10 — #4190 is scoped to `apps/console/src/components/FormPage.tsx` by its card, its triage chain and its dispatch. Fixing a published package's navigation behaviour in that PR would widen it past the ruling's console half and past the mechanism decision noted in point 4.\n\nReachability, honestly: needs a form authoring a `redirect` behaviour, and for defect 4 a mounted host as well. Defects 2 and 3 need only the authored redirect, and defect 2 has user-visible consequences (duplicate submissions) with no mount involved.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

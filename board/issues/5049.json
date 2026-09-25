@@ -1,0 +1,35 @@
+{
+  "number": 5049,
+  "kind": "issue",
+  "title": "plugin-form: EmbeddableForm's thank-you redirect timer is unowned too — and its default 3s window fires into \"Submit Another Response\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:47:49Z",
+  "updated_at": "2026-08-17T22:26:00Z",
+  "closed_at": "2026-08-17T22:26:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5049",
+  "body": "Tripped over while fixing objectui#5033 (the same defect class at the other two call sites). Filed unassigned and NOT fixed there — #5033's card names `ObjectForm.tsx` and `WizardForm.tsx`, and this is a third call site with its own config keys, so the PR for #5033 left it exactly as found.\n\n## What\n\n`packages/plugin-form/src/EmbeddableForm.tsx` arms its post-submit redirect with a bare `setTimeout` inside the submit handler (around line 306):\n\n```\nconst rawRedirect = config.thankYouPage?.redirectUrl;\nif (rawRedirect) {\n  if (isRedirectUrlSafe(rawRedirect, config.allowedRedirectHosts)) {\n    const delay = config.thankYouPage?.redirectDelay ?? 3000;\n    setTimeout(() => { window.location.href = rawRedirect; }, delay);\n  } else { ... }\n}\n```\n\nNothing stores that handle, nothing clears it, no effect owns it. Identical shape to #5033, with two differences that make it worse rather than milder:\n\n1. **The delay defaults to 3000ms**, and the thank-you panel it renders says so out loud — `Redirecting in {{seconds}} seconds…` (line ~345). A multi-second pending full-page navigation is this surface's NORMAL state, not an edge authoring.\n2. **It does not even need an unmount.** With `config.allowMultiple`, the thank-you panel offers a `Submit Another Response` button whose `handleReset` (line 327) only does `setSubmitted(false); setError(null)` — the pending navigation keeps ticking. So the component invites the submitter back into a fresh form and then, about three seconds later, throws the whole page away while they are typing the next response. The unmount shapes from #5033 (an embed removed by the host page, a route change, a re-keyed subtree) apply on top of that.\n\n## Reachability\n\nLive, published surface, not dormant: `EmbeddableForm` is exported from `packages/plugin-form/src/index.tsx` (line 53) and registered in the ComponentRegistry as `embeddable-form` (line 211), so authored metadata reaches it. It needs `thankYouPage.redirectUrl` to be set; `redirectDelay` may be left unset, which is the 3s default rather than a zero timer. Nobody loses data — the write has already succeeded before the timer is armed — so the harm is a surprising navigation (and, in the `allowMultiple` shape, losing what the submitter had just re-typed).\n\n## Fix shape, if this is queued\n\nThe same move #5033 took, which `apps/console`'s `FormPage` took before it (PR #4992): hold the accepted destination in state, arm the wait in an effect keyed on it, `clearTimeout` in the cleanup. Two things this call site needs that #5033's did not:\n\n- `handleReset` has to clear the pending destination as well, otherwise the \"submit another\" path stays exactly as broken as it is today (unmount safety alone does not cover it). That is the decision worth stating in the card rather than leaving to the implementer: does `Submit Another Response` **cancel** the declared redirect, or does the redirect win because the author declared it? Cancelling matches what the button offers.\n- Its host-allow-list guard (`isRedirectUrlSafe` / `allowedRedirectHosts`) is a DIFFERENT contract from the relative-path-only ruling that #4989 / PR #5032 landed for `submitBehavior.url` (objectstack#7496). This card should not quietly merge the two; whether `thankYouPage.redirectUrl` should be brought under that ruling is its own question and out of a timer-lifetime fix's scope.\n\nCheap to pin the same way #5033 was: arm the delay, unmount (or press `Submit Another Response`), let the clock run past the delay, assert nothing navigated — paired with a mounted case asserting the destination is still reached when the delay ends, so the pin cannot pass by having deleted the redirect.\n"
+}

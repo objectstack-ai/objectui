@@ -1,0 +1,34 @@
+{
+  "number": 3832,
+  "kind": "issue",
+  "title": "`ComponentInput.type` 无法表达 spec 的联合类型,于是发布面永远比契约窄一个 arm —— `page:header.title` 的内联翻译映射今天就会被 manifest 门报 `type-mismatch`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:29:18Z",
+  "updated_at": "2026-08-17T12:53:32Z",
+  "closed_at": "2026-08-17T12:53:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3832",
+  "body": "发现于 #3808 的实施过程(给 `element:text_input.defaultValue` 补声明时撞上;那个 PR 按现有惯例选了一个 arm 并在 description 里写明另一个,没有改 `ComponentInput`)。未认领,交 PM triage。\n\n这是 PR #3795 留下的那个 open question(「`array`/`object` 类型的 input 声明不了成员形状」)的**联合类型孪生**:那一条是成员形状表达不了,这一条是**同一层的类型本身**表达不了。\n\n## 机制\n\n`ComponentInput.type` 是单一粗类型(`packages/types/src/base.ts:215`):\n\n```\ntype: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'color' | 'date' | 'code' | 'file' | 'slot';\n```\n\n`packages/sdui-parser/src/validate.ts` 的 `checkType`(`:106-142`)按它逐一判定,不匹配就发 `type-mismatch` warning:\n\n```\ncase 'string': … return typeof value === 'string' ? null : mismatch('a string');\ncase 'number': … return typeof value === 'number' ? null : mismatch('a number');\n```\n\n而 `@objectstack/spec` 里有一批键是**联合**。声明时只能挑一个 arm,另一个 arm 的合法值就会被自己的 manifest 门报警。\n\n## 今天就能撞到的标本(objectui `origin/main` @ `c85268256`)\n\n| 键 | spec 接受 | 已声明 | 被误报的合法写法 |\n|---|---|---|---|\n| `page:header.title` | 字符串 **或**内联翻译映射 | `type: 'string'`(`containers.tsx:1584`) | `title={{ en: 'Account', 'zh-CN': '客户' }}` |\n| `page:header.subtitle` | 同上 | `type: 'string'` | 同上 |\n| `record:alert.title` / `.body` | 同上,description 原文就写着「Accepts an inline translation map ({ en, \"zh-CN\", … })」 | `type: 'string'` | 同上 |\n| `page:card.title` | 同上 | `type: 'string'`(`containers.tsx:703`) | 同上 |\n| `element:text_input.defaultValue` | `string \\| number`(spec 实测) | `type: 'string'`(#3808 新增) | `defaultValue={42}`,尤其配 `inputType: 'number'` |\n\n前四行尤其刺眼:**input 自己的 description 教作者写内联翻译映射,同一个 input 的 `type` 又让 manifest 门对它报警**。一个平台权威的两半互相矛盾 —— 正是 #3797 / #3808 那条门要消掉的形状,只是这次矛盾在同一个 `ComponentInput` 里面。\n\n触发面:`kind:'jsx'` 页面编译(`packages/components/src/renderers/layout/page.tsx:462` 用 `getKnownTypes()` + `inputs` 现搭 manifest)与 `sdui.manifest.json` 的保存门。severity 是 warning 不是 error,所以页面能编译、能渲染 —— 代价是这类 warning 变成噪音,而噪音会训练作者忽略**真**的 `unknown-prop`。\n\n## 几条可能的方向(不预设结论,改的是发布面契约)\n\n- **(a) `ComponentInput.type` 收 `string[]`**(或加 `types?: ControlType[]`),`checkType` 任一 arm 命中即通过。表达力对上了 spec,但 `type` 是 `sdui.manifest.json` 的已发布字段,读它的消费者(设计器面板、`generateDts`)都要跟。\n- **(b) 加一个显式的 `'i18nString'` 粗类型**,只覆盖「字符串或内联翻译映射」这一个高频模式,`string | number` 之类仍无解。窄、便宜、不通用。\n- **(c) `checkType` 对已知的 i18n 形状放宽**(值是对象且键全为 locale 码时按字符串算)。不动契约,但在消费端加宽容 —— AGENTS.md #0.1 明确反对的方向,列在这里只为对照。\n- **(d) 上游收窄 spec**,让这些键只接受一种形状,内联翻译走独立的键。最彻底,代价最大,而且内联翻译映射已有大量在野产出者。\n\n按 #0.1 的取向 (a) / (d) 是「一个契约」方向,(c) 是造第二种方言;但 (a) 牵动已发布字段的形状,需要维护者定。\n\n## 现状\n\n#3808 的 PR 在 `element:text_input.defaultValue` 的注释里写明了这是一次**有意识的收窄**并指向本单,description 里点出 number arm,没有在 `checkType` 侧加任何宽容。前四行标本是既有状态,本单不动它们,只把机制记档。\n\n## 参考位置\n\n- `packages/types/src/base.ts:215`(`ComponentInput.type`)、`packages/types/src/plugin-scope.ts:172`(同一个类型的第二份声明,一起改)\n- `packages/sdui-parser/src/validate.ts:106-142`(`checkType`)\n- `packages/components/src/renderers/layout/containers.tsx:1584`(`page:header.title`)/ `:703`(`page:card.title`)\n- `packages/plugin-detail/src/index.tsx` —— `record:alert.title` / `.body`、`element:text_input.defaultValue`\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` —— 两个方向的门都只比**键名**,类型宽窄它看不见(和 #3809 的墓碑盲区同一个\"只比键名\"根因)\n\n关联:#3808、#3407 / PR #3795(成员形状的 open question)、#3797 / PR #3806、#3809、AGENTS.md #0.1\n"
+}

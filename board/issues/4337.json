@@ -1,0 +1,30 @@
+{
+  "number": 4337,
+  "kind": "issue",
+  "title": "The legacy `list-view` vocabulary `normalizeListViewSchema` exists to accept has no declared type — every fixture exercising the fold must cast",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-11T15:46:53Z",
+  "updated_at": "2026-08-17T22:18:46Z",
+  "closed_at": "2026-08-17T22:18:16Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4337",
+  "body": "Observation-class finding, surfaced while wiring `@object-ui/plugin-list`'s tests into `tsc` for #4040 (tranche 3). Nothing a user meets today; it costs type safety in exactly the tests that cover the fold.\n\n## What\n\n`normalizeListViewSchema` (`packages/core/src/utils/normalize-list-view.ts`) is the vocabulary bridge #2890 introduced: it folds objectui's historical `list-view` spellings onto `@objectstack/spec`'s canonical ones — `fields` → `columns`, `densityMode` → `rowHeight`, `filters` → `filter`, the `show*` flags → `userActions`, `aria: { label, describedBy }` → `{ ariaLabel, ariaDescribedBy }`, `sharing: { visibility, enabled }` → `{ type }`, and the per-column identity keys.\n\nIts signature is:\n\n```ts\nexport function normalizeListViewSchema< T >(schema: T): T\n```\n\nFully generic. There is no type for what it ACCEPTS. `ListViewSchema` describes the canonical surface — the fold's OUTPUT, which is all `ListView` reads, because `ListView.tsx:581` is `normalizeListViewSchema(propSchema)` before anything else. The legacy INPUT vocabulary is documented only in that function's prose comment.\n\nThat is fine for production code, which passes stored metadata straight through. It bites the tests that exist to prove the fold still happens, because those must author the legacy spelling in a position typed as the canonical one:\n\n```\nsrc/__tests__/ListView.test.tsx(561,9): error TS2353: Object literal may only specify known\n  properties, and 'label' does not exist in type '{ ariaLabel?: ...; ariaDescribedBy?: ...;\n  role?: ...; live?: ... }'.\nsrc/__tests__/ListView.test.tsx(579,9): error TS2353: Object literal may only specify known\n  properties, and 'enabled' does not exist in type '{ type?: \"personal\" | \"collaborative\";\n  lockedBy?: string }'.\n```\n\nBoth compiler verdicts are correct, and neither fixture is wrong — they are pre-fold input, and the two \"obvious\" fixes are both worse than the cast:\n\n- **Re-spell the fixtures canonically** — deletes the only coverage that the fold still runs. The `sharing` case in particular asserts the legacy four-value audience (`team`) collapses onto the spec's ownership type, which is the fold's whole content.\n- **Widen `ListViewSchema` to accept both** — re-forks the vocabulary #2890 unified, and puts the legacy keys back on the canonical surface every consumer reads.\n\nPR (this tranche) therefore casts through a named local helper (`authored(...)`) with the reasoning written next to it. Three test files now carry that helper or an equivalent.\n\n## Worth knowing: the `filter` key is a third case, and a sharper one\n\nThe normalizer's own contract note already records it:\n\n> `filters` → `filter` (#2890 scope A step 4). A key rename only: BOTH keys carry an ObjectQL FilterNode array (`[['stage','=','won']]`) everywhere in objectui — every consumer passes the value straight to `$filter`. The spec types `filter` as `ViewFilterRule[]` (`{field, operator, value}` objects), so objectui's field is typed from the spec but used as something else. That mismatch is real and out of scope here; converting formats inside a vocabulary fold would change what reaches the data source.\n\nSo `ListViewSchema.filter` is declared as one shape and carries another **in production**, not only in tests — the declaration and every real value disagree. `ListView.emptyStateFilteredCopy.test.tsx` authors the ObjectQL form because that is the form the renderer receives, and needs the same cast for it.\n\n## Why it is `finding` and not queued\n\nThe fold is permanent by design — the normalizer's own comment says stored view metadata in user databases still carries the legacy keys, so the renderer cannot stop accepting them. That means this is not absorbed by #2890 finishing; it outlives it.\n\nResolving it is one of two shapes, and picking between them is a contract call:\n\n- **Declare the legacy input surface** next to the vocabulary it bridges — a `ListViewSchemaInput` (or similar) in `@object-ui/core` beside `normalizeListViewSchema`, with `normalizeListViewSchema(schema: ListViewSchemaInput): ListViewSchema` as the signature. Fixtures then say what they are with no cast, and the fold's accepted vocabulary becomes checkable rather than prose. This is the shape #4040 itself prescribes for the dialect problem (\"declare the dialect next to the vocabulary it extends\").\n- **Leave it undeclared** and accept the casts as the marker of pre-fold input, on the grounds that the legacy vocabulary is frozen and should not gain a maintained type.\n\nThe `filter` mismatch above is a separate, larger question (it is a real production divergence, not a test-only one) and may want its own card whichever way this one goes.\n\nFiled standalone rather than as a sub-issue of #2890 for the reason given above — #2890 completing does not close this.\n\nRefs #4040, #2890, #2231.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4982,
+  "kind": "issue",
+  "title": "objectui: MetadataLayered.overlayScope 词表与 spec 漂移(注释声称 organization/environment/package,生产者只发 org/env),LayeredDiff 把该原值当徽标直出",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T12:16:29Z",
+  "updated_at": "2026-08-17T14:54:18Z",
+  "closed_at": "2026-08-17T14:54:18Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4982",
+  "body": "发现于 #4016(Studio layered 读迁到 `GET /meta/:type/:name/layers`)的前提测量。**不在那个 PR 内修复** —— 超出该卡范围,按 Prime Directive #10 立卡,未认领。\n\n## 事实(逐条 file:line)\n\n1. **消费侧类型过宽 + 注释错误** —— `packages/data-objectstack/src/metadata-client.ts`,`MetadataLayered.overlayScope` 声明为 `string | null`,紧邻注释写的是 “Overlay scope (`organization` | `environment` | `package` | null)”。\n2. **生产者(objectui 今天解析到的 GA 包)** —— `@objectstack/spec@17.0.0` 的 `GetMetaItemLayeredResponseSchema`:`overlayScope: z.enum(['org','env']).nullable()`,`.describe()` 明确 “`org` for a tenant overlay, `env` for an environment-level one. `null` exactly when `overlay` is null”。\n3. **生产者实现(framework `origin/main` e4e5c6e3c)** —— `packages/metadata-protocol/src/protocol.ts:6083` 声明 `overlayScope: 'org' | 'env' | null`;6212 / 6222 两处赋值只有 `'org'` / `'env'`。\n\n也就是说注释里那三个拼法**一个都不是**生产者会发的值,`package` 这个 scope 在这个字段上根本不存在。类型是 `string`,所以类型检查对此毫无意见。\n\n## 用户可见后果\n\n`packages/app-shell/src/views/metadata-admin/LayeredDiff.tsx:196` 把该值原样当 overlay 层徽标渲染:\n\n```\n{layered.overlayScope ?? translateConsoleValue('layer', 'set', locale)}\n```\n\n同组件另外三个层标签(189 / 200 / 207,artifact / none / merged)全部过 `translateConsoleValue`。而 `CONSOLE_VALUE_ZH.layer`(`packages/app-shell/src/views/metadata-admin/i18n.ts:4125`)只有 `artifact / none / merged / set / overlay`,没有 `org` / `env`。\n\n于是同一个徽标的语言**取决于有没有 overlay**:有 overlay 的条目在 zh-CN 下显示裸英文 `org` / `env`,没有 overlay 的条目(走 `??` 右支)才显示「已设」。\n\n## 建议(交维护者定,不预设)\n\n- 词表从 spec 派生(读 `z.enum` 的 options)而不是在消费侧复述,`overlayScope` 收窄成 `'org' | 'env' | null`;\n- `CONSOLE_VALUE_ZH.layer` 补 `org` / `env`。注意 `translateConsoleValue` 目前只对 zh 生效、其余语言恒返回原值 —— 那是它的现有设计,是否扩到十个语言包是另一个决定,别顺手改。\n\n未打 `finding` 标签:zh-CN 管理员今天打开任一有 overlay 的元数据编辑页就看得到裸值,属具体缺陷,定级交 PM triage。"
+}

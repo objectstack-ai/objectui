@@ -1,0 +1,35 @@
+{
+  "number": 4917,
+  "kind": "issue",
+  "title": "`span` 的废弃提示落后 `div` 两步:仍是逐次渲染告警,且照旧对 `kind:'html'` tier 自产节点开火",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T05:18:20Z",
+  "updated_at": "2026-08-17T18:11:19Z",
+  "closed_at": "2026-08-17T18:11:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4917",
+  "body": "发现于 #4000 的实施(PR #4916),**不在该 PR 处理** —— 那一单按维护者裁定只收窄 `div`。本条是同族的 `span` 落在两条已裁定纪律之外。\n\n## 现象\n\n`packages/components/src/renderers/basic/span.tsx:20-27` 至今是原始写法:\n\n- **逐次渲染告警。** #3965 / PR #3998 把 `div` 改成了每模块加载一次(`warnDeprecatedOnce` + 模块级 Set),并在该 PR 的「边界」里写明 `span` 「该照抄本 PR 的守卫形状,留作后续」—— 至今没有后续。`span` 仍是每一次渲染 `console.warn` 一条。\n- **provenance 误伤。** #4000 裁定「`kind:'html'` tier 自己的解析器产出的节点豁免废弃提示」,PR #4916 已按此收窄 `div`。`span` 的判断面一字未动:一个 `kind:'html'` 页面里写一个 span 标签 —— 与 div 同理,`basic/html-elements.tsx:36-38` 的 TAGS 列表**故意排除** span(注释写明「已在别处注册」),`parse.ts` 把标签名原样映射成 type —— 编译出的节点落到废弃渲染器上,作者收到一条建议换 `badge` / `text` 的提示,而那两个都不是 html tier 里的等价标签。作者同样无法消除。\n\n两条叠加的后果与 div 当初一致:提示对**引擎自己解析器的输出**开火,且不去重。\n\n## 为什么现在可以直接做\n\nPR #4916 已经把机制落在生产者侧并从包入口导出:`@object-ui/sdui-parser` 的 `isHtmlTierNode`(symbol 标记,`Symbol.for` 注册键,对 JSON / DOM 不可见)。`span.tsx` 只需照抄 `div.tsx` 现在的形状 —— warn-once 守卫 + 豁免判断放在 Set 标记**之前**(顺序本身是被钉住的:html-tier 节点先渲染不得吞掉之后作者节点应得的那一条)。\n\n## 影响面(实测)\n\n- `examples/schema-catalog` 里 `\"type\": \"span\"` 命中 **0**;仓内 JSON 元数据命中 **0**。所以今天没有 catalog 刷屏,与 div 当初的 189 个节点不同。\n- 会撞到的是:JSON 作者面手写 span 的页面(每次渲染一条),以及 `kind:'html'` 页面里写 span 标签的作者(无法消除的一条)。均只在非 production 构建。\n\n## 参考位置\n\n- `packages/components/src/renderers/basic/span.tsx:20-27`(逐次渲染的告警块)\n- `packages/components/src/renderers/basic/div.tsx`(PR #4916 后的目标形状)\n- `packages/components/src/__tests__/div-deprecation-warn-once.test.tsx` / `div-deprecation-provenance.test.tsx`(可照抄的钉子形状)\n- `content/docs/components/basic/span.mdx:11`(与 div.mdx 同样需要补一句作用域说明)\n\n## 验收建议\n\n1. `kind:'html'` tier 自产的 span 节点渲染零提示(含渲染对照断言,防整页编译失败造成的空绿);\n2. JSON 作者面的 span 节点仍报,且每模块加载恰好一条;\n3. 提示文案写明它针对哪一个作者面。\n\n关联:#4000 / PR #4916(机制来源)、#3965 / PR #3998(warn-once 形状与「留作后续」的原话)\n"
+}

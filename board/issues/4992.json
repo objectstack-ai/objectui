@@ -1,0 +1,33 @@
+{
+  "number": 4992,
+  "kind": "pull_request",
+  "title": "fix(console): FormPage 的 redirect 按 os#7496 裁定当 in-shell 相对路由,越契约目标响亮拒绝 (#4190)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T12:53:16Z",
+  "updated_at": "2026-08-17T13:25:39Z",
+  "closed_at": "2026-08-17T13:25:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T13:25:37Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4992",
+  "body": "Fixes #4190\n\n## 前提测量(先行,三项)\n\n**① GA spec 内 `FormView.submitBehavior` 的裁定后形状** —— os#7496(2026-08-11 裁定)经 PR os#7657 落地,本仓 pin 已由 PR #4953 升到 `@objectstack/spec` **17.0.0 GA**,`^17.0.0` 覆盖,实测安装版本 `17.0.0`。形状(实测 parse,非读文档推断):\n\n- `submitBehavior` 是 `z.discriminatedUnion('kind', …)` 四成员;`redirect` 成员为 `{ kind: 'redirect', url: z.string().superRefine(…), delayMs?: int >= 0 }`。\n- `url` 的 refine 按「最具体优先」顺序拒绝七族:空串 / 前导 scheme(含 `javascript:`、`data:`)/ 前导 `//` 协议相对 / 任意反斜杠 / 空白与 C0-DEL 控制字符 / 非 `{{record.field_name}}` 形状的花括号 / 不以 `/` 开头。\n- 插值仅 `{{record.field_name}}`(字段段为扁平 snake_case,与 `object.fields` 键同一文法),且裁定把「每个插值值 URL 转义」划给**构建重定向的时刻**(消费侧)。\n- `delayMs` 仍在契约内 → 延迟语义保留。\n\n即卡正文那句「undecided whether it is a console route or an arbitrary destination」已被裁定解决:**绝对目标出契约**。\n\n**② `FormPage.tsx` redirect 臂现状** —— 行号漂移已重定位(:574 → :1018 → :1102),代码同一行仍在:`setTimeout(() => window.location.assign(behavior.url), delay)`。前提成立。\n\n**③ `withConsoleBase` 现行为** —— `path.startsWith('/_')` 直通,否则拼 `BASE_URL` 前缀。卡里「不能简单套 `withConsoleBase`」的理由仍然成立:它会把绝对值拼坏而不是修好。\n\n## 改动\n\n**redirect 臂按裁定当 in-shell 相对路由走 router 导航。** 本渲染器两个挂载(`/f/:slug`、`/forms/:name`)都是 console 路由内的兄弟路由,故 `navigate()` 由路由自己施加挂载前缀 —— 而整页跳转看不到 basename,把 authored 的 `/objects/lead` 相对 origin 根解析,直接把提交者甩出 SPA(#4181 在 auth 页修掉的同一类)。绝对值既已在门口被拒,`withConsoleBase` 也就不需要了:挂载只有一个来源(注入的 base href 元素,路由与该 helper 读的是同一个),不再有前缀算术。\n\n**越契约目标响亮拒绝。** 写入成功、仅目标越契约时:确认提交(「Your submission has been received.」)+ 屏幕上显示拒绝原因 + toast。既不静默丢弃,也不照跑,更不会让提交者盯着一个不该发生的「Redirecting…」。\n\n**插值 + 转义(裁定 point 2 的消费侧半边)。** 此前 token 从未被替换 —— 契约接受 `{{record.id}}`,而消费侧原样跳转会把花括号送进 URL。作用域是「本次提交刚写入的记录」:提交值 + 服务端回显的 record 覆盖其上 + id;id 用的是 `created-record` 臂**同一条**规则(`editingId ?? readCreatedRecordId(result)`),所以一个 `{{record.id}}` 不会在两条臂里解析出两个答案。\n\n**形状裁决不在本 app 重写一遍。** `resolveSubmitRedirect` 在使用时刻直接 parse spec 自己的 `FormViewSchema`(最小 view,只提交这一个值受审,只回读该 path 上的 issue —— 整份存量 view 会因任何无关键被 strict schema 拒掉,那样一次元数据漂移就能连带毁掉重定向)。\n\n两条轴上都是它更优:\n\n- **长期**:仓里没有第二份安全规则可漂移。裁定明说「绝对源白名单等有度量的需求」再放宽 —— 届时 console 跟着 pin 走,不必再改这里一次。这正是本卡自己卡了六天的 pin-lag 类。\n- **让 AI 写的元数据难以出错**:作者读到的是 spec 自带的处方(点名 key、给出该写什么、并指出真要往站外跳应该用 app navigation item `{ type: 'url', url }`),与发布门说的是同一句话,不可能各说各话。\n\n反面就是「本地重写七族 + 手写 parity 表」:`scripts/check-spec-symbol-derivation.mjs` 存在的理由正是本仓为这个形状付过四次代价(os#4115、#4074/#4588/#4592)—— 手抄件在原件挪动的那个 release 之前,能通过一切值比较。\n\n**`delayMs` 语义保留**,但等待移入绑定组件的 effect:延迟期间离开页面的提交者不再被活过页面的定时器拽回来。\n\n## 反向验证(先预判后跑,commit 后变异,`git checkout` 还原)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| ① 回退到整页跳转 | 路由钉红 | rendered **7 红**(5 导航 + 2 拒绝);单测文件**全绿** |\n| ② 撤掉拒绝逻辑、喂绝对 URL | 拒绝钉红 | **恰好 2 红**(两条拒绝),6 条契约内绿 |\n| ③ 合法相对 URL 对照 | 保持绿 | 变异 ② 下 6 条绿;见下 |\n\n① 有一处值得写下来:该变异杀的是**调用点**,`submitRedirect.test.ts` 34 条全绿 —— 模块仍正确、只是无人使用。所以机制必须钉在 rendered 页,单测钉不住。唯一在 ① 下仍绿的 rendered 用例是那条「整页跳转会解析到哪」的说明性断言,它陈述的是 URL 解析事实、与组件无关。\n\n**④ 额外一跑推翻了我自己写下的理由,已按实测改正。** 删掉转义、原样插值 → 两文件共 10 红,但**重新 parse 发射值不足以**抓住未转义的值:`/t/{{record.slug}}`(slug 为地址)原样插值得到 `/t/https://evil.example/steal`,以 `/` 开头、无前导 scheme,是**完全合法的相对路径**,却指向作者没写的地方。relative-only 管的是路径从哪开始,对更靠后注入的结构无话可说 —— 真正抓住它的是「转义后的值仍在其中」那条断言。schema oracle 只抓那些原样形式在任意位置都破坏形状的值(反斜杠、空白、控制字符)。故该块两条断言覆盖「转义够不够」的两个**不相交**半边,不是双保险;文档与 commit message 已改成这个测得的说法。\n\n## 测试\n\n```\npnpm exec vitest run apps/console/                    → 52 files / 604 tests 全绿\npnpm exec vitest run apps/console/src/components/     → 10 files / 194 tests 全绿\n  ├─ submitRedirect.test.ts        34 passed（含以真 FormViewSchema 为 oracle 的验判平权表）\n  └─ FormPage.redirect.test.tsx     8 passed（basename 挂载下 rendered)\npnpm --filter '@object-ui/console' type-check         → 通过\npnpm --filter '@object-ui/console' lint               → exit 0(200 warnings 全为既存,新增文件 0 条)\ncheck:control-bytes / spec-symbols / phantom-deps / self-import → 全绿\n```\n\n以发射值解析钉契约:两个测试文件都用**真的** `FormViewSchema` 当 oracle(`specAccepts()` 就是授权门做的那次 parse),既钉「拒绝族与契约逐一同判」,也钉「本模块发射的字符串本身仍是契约接受的值」。所以它们是契约的漂移探测器,而不是我这份实现的意见快照:spec 日后收窄或放宽,它们跟着走。\n\nrendered 测试全部挂在 `/_console` 挂载下 —— 裸 `/` 部署上前缀与不带前缀的拼写重合,那正是这个 bug(和 #4181 的兄弟缺陷)藏身之处。\n\n## 顺带发现(⛔ 未并入本 PR,已另立卡)\n\n- **#4989** `plugin-form` 的 `ObjectForm.tsx:803` / `WizardForm.tsx:490` 在**已发布的渲染器包**里消费同一个 key。措辞需要精确,免得被高估:那两处**有** `isSameOriginUrl` 守卫,开放重定向面已经关上。剩下的分歧是另外几条 —— 守卫为假时**静默丢弃**(写入已成功,却无 toast、无错误、无确认面板,提交者面对一张仍填满的表单,下一步很自然就是再提交一次 → 第二条记录);同源**绝对** URL 照跑,而契约是 relative-only;整页跳转同样看不到 basename;token 从未替换。其中「机制」那半在那边不能照抄本 PR:`plugin-form` 是组件库,可能被渲染在 router 之外,不能直接 `useNavigate()` —— 我没有度量去在几个选项间挑,所以没有猜。\n- **#4990** `PublicFormsPage.saveEdit` 是本 console 自己的**授权门**,对 redirect URL 只查非空(七族里只挡了「空」这一族),`https://…` 甚至 `javascript:` 都存得进去。消费侧已被本 PR 收紧,所以导航是安全的;留下的是「授权门比它所服务的 schema 更宽松」这个反过来的形状 —— 而门口才是错值该被拒的地方。\n\n按 Prime Directive #10 立卡不并修;两张都未指派。两张都先做了关键词搜索(open issues 无同类,仅命中 #4190 自身)。\n\n## 一处需要读者知情的读法\n\nspec 的 `describe` 文本把 point 3 写成「a verbatim redirect on the resolved relative path is the intended consumption」,并在注释里提到 `window.location.assign`。我把「verbatim」读作约束**值**(不得改写、不得白名单、不得套信封),而非指定**导航 API**:同一份裁定通篇称它为「the in-app path」「the rooted in-app path」,而挂载下用整页跳转消费一个 in-app 路径恰恰**落不进 app** —— 那就是 #4190 报的缺陷本身。router 导航是让「in-app」为真的那个机制。spec 侧那句 `window.location.assign` 是照当时 objectui 的既有消费点描述的(#4190 正是它的来源卡),不构成对机制的裁定。若维护者读法不同,请在 review 里点出:那会把本 PR 的机制部分反过来,而拒绝与插值两半不受影响。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

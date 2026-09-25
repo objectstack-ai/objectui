@@ -1,0 +1,33 @@
+{
+  "number": 5000,
+  "kind": "pull_request",
+  "title": "fix(plugin-map): 首帧相机取景到查询记录集,经度取短弧 (#4941)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:08:14Z",
+  "updated_at": "2026-08-17T14:22:52Z",
+  "closed_at": "2026-08-17T14:22:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T14:22:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5000",
+  "body": "Fixes #4941\n\n## 前提复核(先证伪,再动手)\n\n卡面两半,一半实测证实、一半重新归因。基线 `origin/main` 实 sha `279fb139d`(派发时刻的 `1f4504bfa` 之后又进了两个 PR)。\n\n**「有数据的视图首开空视口」——证实,并量到了具体相机。** 在 baseline worktree 上用探针跑真组件(showcase 形状的记录:`location: { lat, lng }`,视图不声明任何 map 配置),`MapGL` 拿到的首帧相机是:\n\n```\n{\"longitude\":-98.2127,\"latitude\":38.9367,\"zoom\":10}\n```\n\n即堪萨斯州中部、zoom 10(该纬度上视口约 30km 宽),而最近的一条记录(Austin,-97.74/30.27)在约 950km 之外,其余在 1500–2500km 外 —— 首帧一个 marker 都不在视口里。机械成因是两处叠加:\n\n1. `ObjectMap.tsx` 的 `initialViewState` 里 zoom 从来不由数据推导,只写 `mapConfig.zoom || 3`;\n2. `getMapConfig` 的默认分支 —— 恰恰是「作者什么都没声明」时走到的那一支 —— 凭空造出 `zoom: 10` 与 `center: [0, 0]`。伪造值在读取处与真声明无法区分,于是最需要取景的视图反而被这个默认值挡住了。\n\nshowcase `task` 的 map 视图正是这条路径:`examples/app-showcase/src/ui/views/task.view.ts` 的 map 视图只写了 `type` / `data` / `columns`,没有 map 配置块。\n\n**「markers 落在相邻世界副本」——按 showcase 数据这一半没能复现,重新归因。** 平台 `location` 值是 `{ lat, lng }` 且经度被 spec 约束在 [-180, 180](`packages/spec/src/data/field-value.zod.ts`),showcase 的十个种子坐标全在 -122..-71;旧代码算出的中心 -98.2 与它们的经度差最大约 25 度。MapLibre 的 marker 换副本逻辑(`smartWrap`)只在 marker 与相机中心相差超过 180 度、且该 marker 投影落在画面外时才移动一个整圈 —— 这个条件在 showcase 数据上不成立。所以在这份数据上,「相邻副本」不是本卡代码算出来的。\n\n但这条症状本身有真实的机械通路,而且就在同一段被删掉的算术里:旧的中心取 `(min(lng) + max(lng)) / 2`,把圆当成直线。跨反经线相距两度的两条记录(179 与 -179)会得到一个 358 度宽、中心恰在其对极点的包围盒 —— 相机与 marker 相差 180 度,`smartWrap` 的条件成立,marker 就真的会被放到相邻的世界副本里,并因为它按「离上一次屏幕位置最近」取副本而黏在那儿。报告者在 zoom 10 空视口上缩小观察时(demo 样式默认 `renderWorldCopies`,低 zoom 下世界横向重复,而 marker 只画一次)读成「记录待在另一个世界」也说得通。\n\n结论:卡面要求的修法(经度归一 + fitBounds)两半都需要,并且都做了;只是「相邻副本」在 showcase 数据上是缩小观察时的读解,而不是这份数据触发的路径。\n\n## 契约排查:相机声明位\n\n- `@objectstack/spec` 的 `ListViewSchema` 是 `strictObject`,按可视化类型声明了 `kanban` / `calendar` / `gantt` / `gallery` / `timeline` / `chart` / `tree` 七个配置块,**没有 `map`**,也没有任何 `center` / `zoom` / camera 位。showcase 自己的注释已经记着这件事(「map needs a spec MapConfigSchema the ListViewSchema doesn't yet have」)。也就是说:对象列表视图的 map 目前**无法**声明相机(也无法声明字段映射)—— 这是本卡之外的契约缺口,已另立 finding #5001。\n- objectui 侧:`content/docs/plugins/plugin-map.mdx` 明确文档化了 `map` 块里的 `zoom` 与 `center: [lat, lng]`,注册表也把 `{ name: 'map', type: 'object' }` 声明为输入,本包内的 `MapConfigSchema` 校验它。所以插件层**有**一个已发布的相机声明位。\n\n据此:已声明的相机继续完全胜出,fitBounds 只在没有相机声明时执行,**不新增任何配置键**。\n\n## 改动\n\n- 新增 `packages/plugin-map/src/camera.ts`:纯推导。`computeMarkerBounds` 沿**包含全部 marker 的最短弧**给出包围盒 —— 取相邻经度之间最宽的**空隙**作为切缝,剩下的就是最短弧;跨反经线时东边界写成超过 180 的值,这正是 MapLibre 期望的写法(它自己的 `adjustAntiMeridian` 产出同一形状)。纬度按 Mercator 可用带钳到 85 度,免得极点记录把相机算成无穷。\n- `ObjectMap.tsx`:有记录且无相机声明时,`initialViewState` 交出 `bounds` + `fitBoundsOptions`(padding 48、maxZoom 12),由 MapLibre 在**真实容器尺寸**下完成 fit(`bounds` 覆盖构造期的 center/zoom;构造里 `resize()` 就在 `fitBounds` 之前)。没有再加命令式的 fit 调用:`loading` 门在每次取数期间把 `MapGL` 卸掉,数据一变它必然重挂,一次性的 `initialViewState` 因此总是对应手里的记录集,也就不会去拽用户已经平移过的相机。\n- `getMapConfig` 的默认分支不再合成相机,只留字段名默认值。空视口回退因此落回原本就写在那儿的 `|| 2`(整个世界),而不是原点附近的一块海。\n- 只有**可读**的声明才算声明:`center` 写成 README 里那种 `{ lat, lng }` 对象时,`MapConfigSchema` 已经会告警,此处不做任何迁就地把它当作未声明,视图照常取景 —— 不为坏形状发明第二套读法,也不让它换来一个空视口。\n- 记录坐标一律不挽救:越界经度是生产端缺陷,继续被拒绝并计入视图的 invalid coordinates 提示;上面的归一只是对已合法值做的相机算术。\n\n## 验证\n\n`packages/plugin-map`:7 个测试文件 43 个用例全绿;包内 `tsc --noEmit` 与 `tsc -p tsconfig.test.json` 通过;仓根 `turbo run type-check --concurrency=2` 81/81;`check-control-bytes` OK;改动文件 eslint 0 error。远端 20 个 check 全部 completed:18 success + 2 skipped(`Test (coverage)`、`dependabot`,path/config 过滤),0 failure。\n\n单测钉住:多点集、跨反经线集(179/-179 得到 179..181,而不是 -179..179)、单点与同址多点(零宽盒 + maxZoom)、空集(不 fit)、显式声明相机时不 fit、只声明一半时另一半继续推导、以及不可读声明仍取景。\n\n**反向验证**(先书面预判,后跑;commit 后变异,`git checkout --` 还原):\n\n1. 撤掉经度归一与最短弧(保留 fit)—— 预判 4 红且只红在绕圈用例上:实测正是那 4 个(`fits across the antimeridian` 收到 `[[-179,-18],[179,-16]]`),其余 14 绿。美国点集、单点、全球点集在这个变异下**不会**红 —— 不跨反经线时朴素极值与最短弧一致,所以绕圈用例是归一那一半唯一的守卫,这点如实写在测试注释里。\n2. 撤掉 fit 分支 —— 预判组件用例 4 红、`camera.test.ts` 全绿:实测一致(`bounds` 变 undefined)。纯推导测不到有没有人调用它,这正是另起组件级文件的原因:只有推导测试的话,把接线删掉仍然 100% 绿。\n3. 恢复被删掉的伪造默认值(`zoom: 10, center: [0, 0]`)—— 这一条直接复现卡面症状。预判 5 红,**实测 4 红**,与预判不符的一条如实记录:`still fits when the declared camera cannot be read` 保持绿,因为那条 fixture 声明了 `map` 块,`getMapConfig` 在第二分支就返回了,根本走不到被变异的默认分支。变异的作用面恰好就是「无配置」这条路径 —— 也就是 showcase 与本卡所在的那条。\n\n**活体复现:没有做。** 容器内没有起 objectstack showcase dev server 与浏览器(与并行 agent 共享一台机器,maplibre 还需要 WebGL)。上面 `{\"longitude\":-98.2127,...}` 是在 baseline worktree 里用真组件 + showcase 形状记录量到的,不是浏览器截图;「相邻世界副本」这一半没有活体验证,只有上面的代码级归因。\n\n## 顺带一处必须改的测试\n\n`index.registration.test.tsx` 把待测模块图的导入提到了模块作用域(AGENTS.md §9)。该文件单跑一直超时(baseline 上也是:`tests 6.19s`,预算 5s),只在同批别的测试文件先热了 transform 缓存时才绿 —— 本包新增测试文件后这个顺序依赖立刻断了。按 §9 的办法把成本挪进不受任何 test/hook 超时约束的 import 阶段,不调超时;现在它单跑也绿(`import 6.14s / tests 55ms`)。\n\n## 相关 finding(本 PR 不修)\n\n- #5001 — `ListViewSchema` 没有 map 配置块,map 列表视图整个配置面不可声明(showcase 里 marker 标题因此为空)。\n- #5002 — `packages/plugin-map/README.md` 教的是不存在的 API。\n- #5003 — `finding`:`props.data` 不在取数 effect 的依赖里;聚类用的 zoom 种子看不到首帧相机。"
+}

@@ -2,8 +2,8 @@
   "number": 7750,
   "kind": "issue",
   "title": "[Decision] `DataScopeManager` under ADR-0049: retire it, or canonicalise its operator vocabulary — the spec's real RLS vocabulary is a CEL predicate, not a `RowLevelFilter`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -12,19 +12,24 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p2",
     "security"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-05T14:46:54Z",
-  "updated_at": "2026-09-20T05:58:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T04:19:56Z",
+  "closed_at": "2026-09-25T04:19:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7750",
   "body": "> ⛔⛔ **THIS CARD IS RULED. The first paragraph below is stale — its 「do not dispatch」 no longer applies.**\n>\n> The maintainer ruled it on 2026-09-07, **option C — retire `DataScopeManager` under ADR-0049** — in comment 5564753628 (director seat, decision batch #66; verbatim reply 「同意」). That ruling records the transition it carries: `needs-user-decision` → `pm:queue`. ⇒ this is an **implementation** card and has been one since that date.\n>\n> **What was ruled**: remove the class, the `RowLevelFilter` type and their barrel exports from `@object-ui/core`; regenerate the package surface pin; the changeset states the removed public API (major per the package's policy, ⛔ no alias and no window). The platform keeps **one** row-level-security language — the CEL predicate lowered to an ObjectQL filter in `@objectstack/spec` (`rls.zod.ts:394`, fail-closed). Canonicalisation was **refused with a measurement**: on a permission boundary it would move 44 of 53 operators from refused to evaluated, with three silent semantic changes (`contains` case-folding, `'EQ'` deny→evaluate, `is_empty` answered as `is_null`). Consumers measured **zero** across objectui, objectstack, hotcrm and cloud, with a positive control (`ArtifactKernelFactory`, 36 files) on the same instrument. Clause-② yes ⇒ the landing PR carries `needs:contract-review`.\n>\n> ⛔ Do not re-open 「retire or canonicalise」 below, and ⛔ do not file it as a decision. See comment 5564753628 for the full ruling and its execution notes.\n\nCarved out of the contract review of PR #7748 (card objectui#7378) by the `domain:ui` PM seat. The reviewer made filing this a **condition** on its disposition of that PR's boundary flag, and named an ordering constraint that is the whole point of this card:\n\n> The follow-up must be filed as the **ADR-0049 liveness decision**, with canonicalisation only as a **dependent option on that card, never as a standalone implementation card.**\n\n⛔ So this is a decision card, not an implementation card. Do not dispatch it as \"add canonicalisation\".\n\n## ⭐ The finding that reframes the question\n\n`objectstack/packages/spec/src/security/rls.zod.ts:394` — the platform's **own** row-level security is a **CEL predicate lowered to an ObjectQL filter**, and *\"anything that does not lower fails closed.\"*\n\n⇒ The spec's real RLS vocabulary **is not `RowLevelFilter`-shaped at all**, and `DataScopeManager` is a **third hand-written evaluator vocabulary** (the other two being `@object-ui/permissions`' `evaluateCondition` and the spec's own lowering). That is the context any answer here needs, and it was not on #7378.\n\n## Liveness, as measured for PR #7748\n\n| probe | reading |\n| :-- | :-- |\n| in-repo constructors of a `RowLevelFilter` | **0** — `registerScopeWithConfig` / `setFilters(` / `applyFilters(` hit only the class and its own test |\n| `RowLevelFilter` references at base | **2** files (declaration + barrel) |\n| `@object-ui/types` `DataScope` / `DataContext` (`data.ts:1272-1330`) | carry **no** filters |\n| React provider wiring `DataScopeManager` | none |\n| sibling `objectstack` | **0** (lit control `canonicalAstOperator` fires, 3 files) |\n| org code search `org:objectstack-ai` | `DataScopeManager` 5 · `registerScopeWithConfig` 2 · `RowLevelFilter` 2 — **all in objectui** (control `canonicalAstOperator` fires in both repos, 17) |\n| `hotcrm` | indexed, and **does not depend on `@object-ui/core`** |\n| ⚠️ **`cloud`** | ⛔ **NOT visible to that session — unmeasured, not zero.** Reading it is the first task of this card. |\n\n## The options\n\n**C — retire under ADR-0049 enforce-or-remove.** Closes the operator question for free. Blocked only on the `cloud` consumer read above.\n\n**Canonicalise through `canonicalAstOperator`** (`@objectstack/spec/data`), the way PR #7377 repaired sibling #7349 — **only as a dependent option**, and it carries five measured traps:\n\n1. It maps the nine implemented spellings to **symbolic** forms (`eq`→`=`, `ne`→`!=`, comparisons to their signs; `in`/`nin`/`contains` to themselves) ⇒ the switch is **re-keyed, not prefixed**. That is exactly what `ValueDataSource.matchesComparisonNode` (`:105-118`) keys on.\n2. Unknown strings pass through unchanged ⇒ **the fail-closed default stays load-bearing either way.**\n3. ⭐ **`contains` semantics do not survive the transplant.** `ValueDataSource.ts:125-129` **lowercases both sides** (`contains` and `icontains` share the arm); `DataScopeManager.ts:267` is `fieldValue.includes(String(filterValue))`, **case-sensitive**. Copying #7377 would silently widen `contains` for existing rules **on a permission boundary**. (Related: open #7379.)\n4. ⭐ `canonicalAstOperator` does `String(op).toLowerCase()` **first**. Today `operator: 'EQ'` takes the **deny** arm (probe → `[]`); canonicalised it would **evaluate** — a second silent semantic change.\n5. ⭐ The spec lowers `is_empty` / `isempty` onto `is_null` (`AST_OPERATOR_MAP` → `$null`), so **emptiness would be answered as null-ness**.\n\nPlus: 18 of 20 `VIEW_FILTER_OPERATORS` and 44 of 53 `VALID_AST_OPERATORS` would move refused → evaluated, needing arms for the null-ness family, `between`, `starts_with`/`ends_with`, `not_contains`/`icontains`, and a `like`/`ilike` decision (`matchesLikePattern` is exported); and the public `RowLevelFilter['operator']` union would have to widen.\n\n## Not in scope\n\n⛔ The two pre-existing hardening gaps vs the sibling evaluator are **objectui#7751** — split out deliberately, because they are independently actionable today whichever way this decision goes.\n\nRefs: objectui#7378 · PR #7748 · #7349 / PR #7377 (the precedent) · #7379 (`contains` folds case) · #7383 (`like`/`ilike` refused) · ADR-0049.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -1,0 +1,35 @@
+{
+  "number": 5063,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin RepeaterField 的 grid/table 布局:每个单元格控件完全无可访问名(无 `label for`、无 `aria-label`、`th` 无 id/scope)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T21:53:12Z",
+  "updated_at": "2026-08-17T23:53:02Z",
+  "closed_at": "2026-08-17T23:53:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5063",
+  "body": "发现于 #5039 的实施(PR #5061)。**未认领,交 PM triage。** 与 PR #5061 无关联改动 —— 该 PR 只修外层字段的宿主标签通道(把 grid 列表整体命名为一个 group),单元格内控件的命名不在其范围内,在 `main` 上同样成立。\n\n## 机制\n\n`RepeaterField` 的 `widget: 'grid'` / `'table'` 布局把每行渲染成 `tr`,每个子字段渲染成 `td` 里的一个 `FieldControl`,id 形如 `rep-{行号}-{子字段名}`:\n\n- 列名只作为 `th` 的**可见文本**存在,不是 `label`,也没有 `id` 供 IDREF 引用,更没有 `scope`;\n- 单元格里的控件因此没有任何命名通道:`label[for]`、`aria-label`、`aria-labelledby` 三者全无。\n\n卡片布局(默认)不受影响 —— 它每行走 `FieldRow`,子字段各自带标签。只有 grid/table 布局如此。\n\n## 实测(真 `SchemaForm` 渲染,`widget: 'grid'`,两个子字段 field / order)\n\n```\ncell id=rep-0-field label[for]=NONE aria-label=NONE aria-labelledby=NONE\ncell id=rep-0-order label[for]=NONE aria-label=NONE aria-labelledby=NONE\nth \"Field\" id=NONE scope=NONE\nth \"Order\" id=NONE scope=NONE\nth \"\"      id=NONE scope=NONE\n```\n\n即:屏幕阅读器在该表格里逐个单元格听到的是\"无名编辑框\",列名对辅助技术不可达。这与 #3994(检查器三个共享字段组件把 `Label` 和控件放在一起却不关联,可见标签成了孤立文本)同一失效类,只是宿主换成了 repeater 的表格布局 —— 那里的可见列名同样成了孤立文本。\n\n对照:同一次 probe 里 `RepeaterField` 的**卡片**布局每个子字段都有自己的 `label for` 且解析到可 label 元素,不在本单范围。\n\n## 边界与去重\n\n- **不是 #5039 / PR #5061**:那单修的是外层字段的宿主标签 —— grid 列表现在整体作为一个具名 `role=\"group\"` 被外层标签命名(已闭合)。本单是**该 group 内部**每个单元格控件自身无名,是下一层的问题。\n- **不是 #4871**:那单是 `WIDGETS` 注册表二十项的声明层。\n- 检索过 open issues(`repeater grid table layout cells unnamed label association th header metadata-admin rep- id`、`metadata-admin SchemaForm 单元格 无可访问名`),无同题单;#3994 已关闭且宿主不同。\n\n## 可能的落地形态(供裁,未实施)\n\n1. `th` 各发一个 id,单元格控件以 `aria-labelledby` 指向对应列头(表格语义最自然,列名只写一次);\n2. 每个单元格控件发 `aria-label`(为列名 + 行号,读起来更啰嗦但不依赖 IDREF 解析)。\n\n倾向 1。涉及 DOM 契约与 #4788 容器形的一致性,交维护者裁。\n\n复现位置:`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`,`RepeaterField` 的 `if (useGrid)` 分支。\n"
+}

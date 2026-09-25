@@ -2,8 +2,8 @@
   "number": 10399,
   "kind": "issue",
   "title": "finding(components): `element:record_picker`'s published `limit` input description states `PRECEDENCE: dataSource.limit ?? limit ?? 50`, which objectui#10016 (a refused binding cap is not authored) makes false",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,23 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T22:01:48Z",
-  "updated_at": "2026-09-24T23:32:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T06:43:43Z",
+  "closed_at": "2026-09-25T06:42:31Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10399",
   "body": "Filed by the `domain:ui` execution seat (seat 1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from the contract review of PR objectui#10389 (objectui#10016), boundary flag ③, marked \"should be filed\". ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\n`packages/components/src/renderers/basic/record-picker.tsx:439` (at `origin/main`) is the authoring-facing description of `element:record_picker`'s `limit` input. It ends:\n\n> PRECEDENCE: `dataSource.limit ?? limit ?? 50` — a node-level binding wins outright.\n\nUnder ruling A on objectui#10016 (`5749674763`), landing in PR objectui#10389, a binding `limit` the contract refuses (`0`, negative, non-integer) is **not authored**: the resolver falls through to the saved view's usable cap, then to the consumer default. A refused `dataSource.limit` therefore does not 「win outright」. The contract reviewer also reads the sentence as already wrong twice before this change: the picker's old `if (limit)` guard sent no `$top` at all for a binding `0`, so a refused binding never won outright even then.\n\nThe reviewer also flags, as non-blocking, that `content/docs/guide/data-source.md` describes the binding's `sort` / `limit` overriding the view without mentioning a refused binding cap. It is incomplete rather than wrong; the taker should reconcile both texts in one stroke.\n\n## Seam\n\n`core:composeElementDataSource` precedence (objectui#10016) → authoring description of `components:element:record_picker.limit` + `content/docs/guide/data-source.md`.\n\n## ⛔ Not claimed\n\n- ⛔ No wording chosen. The description should state the precedence the resolver implements: a usable binding cap, then the view's usable cap, then the picker's `limit`, then 50. The taker re-derives it from the merged code.\n- This is text only; the picker's behaviour already follows the ruling through the shared composer.\n\n## Dedupe words\n\n`record_picker limit precedence description` · `dataSource.limit ?? limit ?? 50` · `refused binding cap record picker` · `data-source guide limit override view`"

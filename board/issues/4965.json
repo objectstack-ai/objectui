@@ -1,0 +1,35 @@
+{
+  "number": 4965,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid,plugin-detail,plugin-list,core): 不物化列的字段类型不再给出排序头 (#3950)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T08:17:39Z",
+  "updated_at": "2026-08-17T12:37:43Z",
+  "closed_at": "2026-08-17T12:37:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T12:37:41Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4965",
+  "body": "Fixes #3950\n\n## 结论先说\n\n`formula` 列的排序头是**修改前后都错**的:它提供一个平台无法执行的排序。framework#6994 之前平台不说话(`200`,返回的正是它被要求据以排序的那些值,但没排序 —— 真实 SqlDriver 上 asc 与 desc 逐字节相同);之后是 `400 INVALID_SORT`。所以这个修法不依赖 pin 推进,**无 Blocked-by**。\n\n## 卡面两个开放验证点(先做,结论如下)\n\n**① RelatedList 等 data-table 渲染器是否共享 sortable 派生路径 —— 不共享。** 服务端排序的 affordance 判定在三处**各自**调用 `isExpandableFieldType`,谁也不读谁:\n\n| 位置 | 控件 | 条件 |\n|---|---|---|\n| `packages/plugin-grid/src/ObjectGrid.tsx` `withSortability` | 表头 | `manualSortingOn` |\n| `packages/plugin-detail/src/RelatedList.tsx` `sortableColumns` | 内嵌表头 | `windowed` |\n| `packages/plugin-detail/src/RelatedList.tsx` 排序按钮行 | 按钮(`data-list` 才有) | `windowed` |\n\n`sort-values.ts` 的文档注释其实已经记下了这个状态:「surfaces that sort on the server must instead not offer relational columns as sort keys (that half of #3096 lives at each entry point)」。第四处是 `ListView` 工具栏的排序选择器,它**已经**排除 formula(#4243),但用的是自己文件里的一份私有集合。\n\n派生路径不共享,所以三处都改;并且把成员集合上提到 `@object-ui/core`,让四处读同一个判断。`ListView` 渲染的正是 `type: 'object-grid'`,所以 ObjectGrid 一处即覆盖 ListView 的表头与独立 ObjectGrid 两个入口。\n\n**② corpus 里有没有 list view 真渲染 formula 列 —— 有,两处,所以这是今天就用户可见的缺陷:**\n\n- `examples/app-crm/src/views/opportunity.view.ts` 的默认 `columns` 与 `listViews.all.columns` 都含 `{ field: 'expected_revenue' }`,而 `expected_revenue` 是 `crm_opportunity` 上的 `Field.formula`(`opportunity.object.ts:51`);\n- `examples/app-showcase/src/ui/views/project.view.ts:24` 的 `columns` 含 `{ field: 'budget_remaining' }`,是 showcase `project` 上的 `Field.formula`(`project.object.ts:65`)。\n\n两者都真的会渲染出值(`isProjectableField` 只看字段是否声明,formula 已声明 → 进 `$select`,服务端 on-read 水合),所以是「有值、可点、点了没用/报错」。即:CRM 的 Opportunities 列表、showcase 的 Projects 列表,点「Expected Revenue」/「Budget Remaining」表头 —— pin 推进前是静默的无效点击,推进后是用户可点出来的 400。\n\n## 改法\n\n一个门,两个理由,同一个机制。列被当作排序键的前提是两条同时成立:\n\n- **relational**(`lookup` / `master_detail` / `user` / `tree`):存的是外键 id,显示的是关联记录名;服务端只能按 id 排(objectstack#4256 已定不做 join)。\n- **unmaterialized**(`formula`):没有任何驱动为它物化列,压根没有可排的键。\n\n成员集合从 `ListView` 的私有拷贝搬到 `@object-ui/core`(`UNMATERIALIZED_FIELD_TYPES` / `isUnmaterializedFieldType`),并且**绑定到 `@objectstack/spec` 自己的存储事实**而不是在这里重述一遍 —— 平台的 filter 门对自己用的就是这个理由(「so this gate and the drivers cannot disagree about which types have a column」)。重述会漂移,漂移的两个方向都坏:要么收掉一个能用的 affordance,要么留一个会 400 的。\n\n刻意**窄于** spec 的写入契约 `COMPUTED_VALUE_TYPES`(`formula` / `summary` / `autonumber`):`summary` 和 `autonumber` 各有真实维护的列、排序正常,按写入契约收会误伤两个能用的类型 —— 平台自己的 conformance 用例点名钉了这个坑。测试里两边都钉住。\n\n## 刻意不改的两件事\n\n- **客户端排序不动。** 行全在浏览器里,formula 值是服务端 on-read 水合出来的那一个,按单元格显示的值排是诚实的 —— 与 relational carve-out 同一个切分。所以门只在服务端排序分支上生效(`manualSortingOn` / `windowed`)。\n- **视图元数据里*声明*的排序不动。** 它照旧发出去、照旧被平台点名拒绝。悄悄丢掉作者的声明是把作者的错误藏起来(contract-first);工具栏选择器保留「当前排序已用到的 formula 字段」正是为此 —— 那一行是把这个排序**删掉**的唯一入口。作者侧本该先拒的那一环目前是空的,已另立 objectstack#9257(SORT 轴没有 authoring gate,SEARCH 轴有 `validate-searchable-fields`),不在本 PR 范围。\n\n## 文档(AGENTS.md #2)\n\n两个包的 README 都有「Sorting」小节在讲这条规则,一并跟上:\n\n- `packages/plugin-detail/README.md` —— 原本准确描述了 relational 那一半,补上第二个理由,并点明这条规则作用在本卡片的**两个**排序入口上。\n- `packages/plugin-list/README.md` —— 这一段不是「补充」而是**纠正**,请 reviewer 特意看一眼:它原先写着 column-header sorting 「is unaffected: it is client-side over the rows already loaded」。这句自 objectui#3106 起就不成立(窗口化时表头点击本身就是服务端 `$orderby`),于是它恰好断言了与本次改动相反的事实 —— 两个错误是同一句话,无法只改一个。客户端那一半保留,但挪到它真正成立的地方(inline `data`、以及持有全部行的 grouped 视图)。\n\n## 测试\n\n新增/改动 27 个断言(全绿):\n\n- `packages/core/src/utils/__tests__/unmaterialized-fields.test.ts` —— 成员恰好是 `formula`;**引用同一性**(不是值相等:忠实拷贝写下的当天就通过一切值比较,之后静默漂移);`summary`/`autonumber` 反向钉住;与 `EXPANDABLE_FIELD_TYPES` 互斥(两个理由若重叠,消费端会有一支变成死代码,且两者给的补救建议不同)。\n- `packages/plugin-grid/src/__tests__/ObjectGrid.unmaterializedSort.test.tsx` —— formula 表头无排序 affordance;点它不产生任何 refetch(所以没有请求给平台去回 400);**误伤对照**:`text`/`currency`/`percent`/`autonumber`/`summary` 五列逐个真点表头并断言 `$orderby` 发出;客户端模式下 formula 表头保持可点。\n- `packages/plugin-detail/src/__tests__/RelatedList.unmaterializedSort.test.tsx` —— 两个排序入口各自钉住(表头 + `data-list` 的按钮行),各带 stored 列对照与客户端模式对照。\n- `packages/plugin-list/src/__tests__/ListView.relationalSort.test.tsx` —— #4243 的 formula 规则此前只有文字描述、没有行为钉子(fixture 里根本没有 formula 字段)。往共享 fixture 加一个,该文件原有的精确相等断言就顺带变成了这条规则的钉子。\n\n## 反向验证(先预判后跑)\n\n**变异 1** —— 把 ObjectGrid + RelatedList 两处新加的门撤回(保留 ListView)。预判:恰好 4 红(grid 的表头与点击、related list 的表头与按钮),8 个误伤对照与 2 个客户端模式全绿,**ListView 选择器全绿** —— 因为那条规则先于本 PR 存在。实测完全一致:`Tests 4 failed | 23 passed`。\n\n**变异 2** —— 删掉 ListView 选择器里的第二条规则。预判 1 红,实测 **3 红**,方向一致而数量更多:多出来的两条是该文件原有的精确相等断言(`toEqual(['Name','Amount'])`、`toEqual([…,'Owner (by ID)'])`),因为 `score` 进了共享 fixture,它们免费变成了这条规则的钉子。\n\n**一处照直说明,不套模板**:变异 2 下 `keeps a formula field the current sort already names` 仍然绿。这是可预期的 —— 它断言的是「被保留」,而规则被删掉后该字段本来就不会被收掉,所以它是**因为什么都没发生而通过**。单独看它不承重;承重的是紧邻的 withholding 断言,两条合起来才区分「被例外保留」与「从未被收掉」。保留它是为了钉住例外的**标签形状**(不带 by-ID 后缀 —— 那是关于关系键的陈述,这个字段压根没有键可描述)。\n\n变异都在 commit 之后做、用 `git checkout --` 还原(不用 stash),还原后重跑 27 全绿。\n\n## 门与检查\n\n```\npnpm exec vitest run packages/core/ packages/plugin-grid/             →  163 files, 2544 passed\npnpm exec vitest run packages/plugin-detail/ packages/plugin-list/    →  124 files, 1411 passed\npnpm exec turbo run type-check --concurrency=2                        →  81 successful, 81 total\nturbo run lint(四个包)                                               →  0 errors\nnode scripts/check-control-bytes.mjs                                  →  OK (4437 files)\nnode scripts/check-spec-symbol-derivation.mjs                         →  OK\nnode scripts/check-phantom-dependencies.mjs / -self-import.mjs        →  OK\nnode scripts/check-lint-coverage.mjs / -type-check-coverage.mjs       →  OK\nnode scripts/check-changeset-fixed.mjs / -no-major.mjs                →  OK\nnode scripts/check-doc-links.mjs                                      →  OK\n```\n\nchangeset:`.changeset/formula-column-sort-header-3950.md`(patch × 4 包)。\n\n相邻发现,均已立卡、未认领,不在本 PR:objectstack#9257(SORT 轴缺 authoring gate)、objectui#4966(`ListView.tsx` 一个 docblock 错位)、并在 objectui#4559 上留了坐标漂移说明(它的取证正落在本 PR 改写的那个注释块里,且它本身**未**被本 PR 修掉)。\n"
+}

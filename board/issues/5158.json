@@ -1,0 +1,35 @@
+{
+  "number": 5158,
+  "kind": "issue",
+  "title": "side-effects 门的 alias 表只认 `path.resolve(`,15 个 vite.config.ts 的 105 条 @object-ui/* alias 完全不在测量面内",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T07:23:13Z",
+  "updated_at": "2026-08-18T08:37:49Z",
+  "closed_at": "2026-08-18T08:37:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5158",
+  "body": "Out-of-scope finding,做 #4540(移除被跟踪的 Vite temp-config 产物)时撞到 —— 为核对「宽松 glob 读进陈旧 alias 表」这条风险到底有多大,顺手统计了该门实际读到多少条 alias,结果发现测量面只有意图的 40%。**#4540 的 PR 不修这个**(半径外)。\n\n## 事实\n\n`scripts/__tests__/side-effects-declaration-consistency.test.ts` 的 `readAliasEntries()` 用这条正则从每个 bundler config 的源码里抽 alias:\n\n```js\n/'(@object-ui\\/[^']+)':\\s*path\\.resolve\\(\\s*(?:import\\.meta\\.dirname|__dirname)\\s*,\\s*'([^']+)'\\s*\\)/g\n```\n\n它要求字面量 `path.resolve(`。但仓内绝大多数包的 vite.config.ts 是 `import { resolve } from 'path'` 后直接写 `resolve(__dirname, ...)`,于是一条都匹配不上。\n\n在 `origin/main` @ `da6eda06e` 上按该门自身的 `BUNDLER_CONFIG_RE` 枚举 config、分别用严格正则与「`(?:path\\.)?resolve`」宽松正则计数:\n\n```\n门实际读到的 alias 条数(path.resolve):      70\n把裸 resolve() 也算上:                      175\n完全不可见的 config 数:                      15\n```\n\n逐个(strict=0 全部意味着该 config 在门眼里没有任何 alias):\n\n```\npackages/plugin-ai/vite.config.ts          strict=0 loose=5\npackages/plugin-charts/vite.config.ts      strict=0 loose=7\npackages/plugin-dashboard/vite.config.ts   strict=0 loose=6\npackages/plugin-designer/vite.config.ts    strict=0 loose=9\npackages/plugin-detail/vite.config.ts      strict=0 loose=7\npackages/plugin-editor/vite.config.ts      strict=0 loose=13\npackages/plugin-form/vite.config.ts        strict=0 loose=8\npackages/plugin-grid/vite.config.ts        strict=0 loose=8\npackages/plugin-kanban/vite.config.ts      strict=0 loose=7\npackages/plugin-list/vite.config.ts        strict=0 loose=7\npackages/plugin-map/vite.config.ts         strict=0 loose=1\npackages/plugin-markdown/vite.config.ts    strict=0 loose=13\npackages/plugin-report/vite.config.ts      strict=0 loose=5\npackages/plugin-timeline/vite.config.ts    strict=0 loose=8\npackages/plugin-tree/vite.config.ts        strict=0 loose=1\n```\n\n被读到的只有 3 个:`packages/fields`(7)、`apps/console`(34)、`examples/console-starter`(29) —— 它们恰好写的是 `path.resolve(`。\n\n## 影响\n\n门是绿的,而且会一直绿:它对这 15 个 config 不是「检查后通过」,是「根本没看」。这正好是 #3944 那一类缺陷的藏身处 —— #3944 是根 `vitest.config.mts` 的 alias 表里 4 条指向不存在目录的死条目;同样的死条目如果出现在上面任何一个 plugin 包的 config 里,这道门不会有任何反应。`packages/plugin-editor` 一家就有 13 条 alias 在测量面之外。\n\n没有用户今天会撞到(这是仓内 gate,不是发布代码),所以不确定该算 concrete defect 还是 observation-class,按「filing time 的严重性判断不可靠」的惯例先平铺事实、不自评级,交分诊席定。\n\n## 复现\n\n在干净 worktree 里跑(照抄门自身的 `BUNDLER_CONFIG_RE` 与 entry 正则,只把 `path\\.` 变成可选来做对照):\n\n```js\nconst BUNDLER_CONFIG_RE = /^vite\\.config\\.(ts|mts|cts|js|mjs|cjs)$/;\nconst STRICT = /'(@object-ui\\/[^']+)':\\s*path\\.resolve\\(\\s*(?:import\\.meta\\.dirname|__dirname)\\s*,\\s*'([^']+)'\\s*\\)/g;\nconst LOOSE  = /'(@object-ui\\/[^']+)':\\s*(?:path\\.)?resolve\\(\\s*(?:import\\.meta\\.dirname|__dirname)\\s*,\\s*'([^']+)'\\s*\\)/g;\n```\n\n对 `packages/*`、`apps/*`、`examples/*` 逐目录 readdir + 上面两条正则计数,即得 70 / 175。\n\n## 可能的处置方向(未实现,供分诊参考)\n\n1. 把 entry 正则里的 `path\\.` 放宽成 `(?:path\\.)?` —— 一行,立刻把测量面从 70 拉到 175;风险是裸 `resolve` 也可能来自别处(实测本仓内 `'@object-ui/x': resolve(` 这个形状只出现在 alias 表里)。\n2. 或者反过来立一道「config 里出现了 `@object-ui/*` alias 但本门一条都没读到」的自检,让拼写漂移在增加新写法时自己报出来 —— 比放宽正则更抗未来的第三种拼法(如 `nodePath.resolve`)。\n\n倾向 2 叠加 1:1 补当下的洞,2 防同一个洞以新拼法复发。但这属于门的契约范围,留给分诊/实现席定。\n\nAdjacent but distinct:#3592(28 个 vite/vitest config 里的 `__dirname` 本身)是这些 config 的写法问题,本条是**门读不到它们**;#3944 是被读到的那张表里的死条目。"
+}

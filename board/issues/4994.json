@@ -1,0 +1,34 @@
+{
+  "number": 4994,
+  "kind": "issue",
+  "title": "并行 agent 共享同一个 scratchpad 目录:通用文件名(commitmsg.txt / pr-body.md)会互相顶掉 —— main 上 cf4f8a6e4 的提交信息是 #4974 的、diff 是 #4016 的(20 分钟内撞了两次)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T12:58:41Z",
+  "updated_at": "2026-08-18T05:53:33Z",
+  "closed_at": "2026-08-18T05:53:33Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4994",
+  "body": "Filed **unassigned** while implementing #4974(PR #4993)。不由那个 PR 修:这是 agent 协作纪律面(AGENTS.md §9 / 工具层),不是仓内代码缺陷,且 `main` 上已经落了一条误标的历史,处置方式需要维护者定。\n\n## 已经发生的事实\n\n`main` 的 **cf4f8a6e4**(经 PR #4988 落地)提交信息逐字是**我为 #4974 写的那一份**:\n\n```\n$ git log -1 --format='%s' cf4f8a6e4\ntest(cli,create-plugin): 两处生成器锚规则改累积报全部漂移,前置与漂移分开 (#4974) (#4988)\n\n$ git show cf4f8a6e4 --stat | head -5\n .changeset/layered-read-declared-path-4016.md      |  43 +++++\n .../src/views/metadata-admin/LayeredDiff.tsx       |   2 +-\n .../PermissionMatrixEditor.fieldEnvelope.test.tsx  |  12 +-\n```\n\ndiff 是 **#4016**(layered 读迁到声明路径)的 8 个文件,PR #4988 自己的正文也是 #4016 的。也就是说:**信息说的是一张卡,改动是另一张卡**,两者毫无关系。#4974 在 `main` 上仍未实施(两个目标测试文件在 `7d1017790..origin/main` 区间内未被触碰,`main` 版本仍是逐名 `expect`),所以这不是重复实施,是**纯粹的历史误标**。\n\n## 机制(实测,两次)\n\n容器给每个会话的「scratchpad」目录事实上是**跨会话共享**的:\n\n```\n/tmp/claude-0/-home-user/{一段固定哈希}/scratchpad/\n```\n\n里面躺着 8 月 8 日以来多张卡的临时文件(`3309-pr.md`、`3737-pr-body.md`、`3831-commit-msg.txt` …),说明**多个并行 agent 会话映射到同一个路径**。目录里既有的命名习惯是**带卡号前缀**,而撞车恰好发生在没有前缀的通用名上。20 分钟内两次:\n\n| 时刻 | 事件 |\n|---|---|\n| 12:34 | 我为 #4974 写 `scratchpad/commitmsg.txt`,`git commit -F` 之后**没有删除** |\n| 12:42 | #4016 席建 PR #4988;其提交信息据其内容判断来自同名文件 —— 落在 `main` 上的正文与我的逐字相同 |\n| 12:49 | 我写的 `scratchpad/pr-body.md` **被 #4190 席的 PR 正文整份覆盖**(我读回时看到的是 `Fixes #4190` 的全文) |\n| 12:53 | PR #4988 合入 `main`,携带 #4974 的提交信息 |\n\n第二行是推断机制(我读不到别人的会话),但第三行是我**直接观测**到的同一现象的反向:同一个通用文件名,两个会话,后写者赢。第三行差一点更贵 —— 若我没有读回就用那份文件开 PR,#4974 的 PR 正文会变成 #4190 的正文。\n\n## 为什么这值得一张卡\n\n- **worktree 隔离管不到它。** 与 #3430(`refs/stash` 在所有 worktree 间共享,两个 agent 互相顶掉在途改动)是同一族:一个位于 worktree 之外的共享可写状态,而当前纪律只覆盖了 git 层。#3430 的处置是 CLAUDE.md 明文 + 一个 PreToolUse 钩子,这一族目前**零覆盖**。\n- **失败是静默的且方向不定。** `git commit -F` 读到别人的文件不会报错;受害者是**另一个** agent 的产出(我的提交信息落到了别人的 commit 上,我这边什么都看不出来)。\n- **它污染的是发布面的旁证。** 提交信息是 git 考古与 release-notes 交叉核对的输入;一条声称实施了 #4974 的 commit 里没有任何 #4974 的改动,下一个读者(或下一个 agent)按 `git log --grep` 找这张卡,会得出「已经做过了」的结论。这次刚好被我撞见,是因为我正要为同一张卡开 PR。\n\n## 可能的方向(未替维护者取舍)\n\n1. **纪律面**:AGENTS.md §9「多 agent 协作纪律」加一条 —— 临时文件一律带**卡号/分支前缀**(目录里既有的 `3309-pr.md` 就是这个惯例),且用完即删;这是最小改动,与既有习惯一致。\n2. **机制面**:提交信息不走共享临时文件 —— `git commit -F -` 配 heredoc,或多个 `-m`,让内容随进程走、根本落不到共享盘上。PR 正文同理(直接作为工具参数传)。\n3. **兜底面**:仿 `guard-shared-stash.sh` 加一条 PreToolUse 检查,拦截对该目录下**无前缀通用名**(`commitmsg*`、`pr-body*`、`notes*` …)的写入。成本最高,但这一族的失败是静默的,而静默失败正是前两条会被慢慢忘掉的原因。\n\n## 已落地的历史怎么办(需要裁定)\n\n`main` 是共享的,⛔ 不改写历史 —— 我没有动它。可选的最轻处置是在 PR #4988 下留一条说明,把「该 squash commit 的信息属于 #4974、改动属于 #4016」写在读者会看到的地方(我已留该评论)。是否需要更多(例如在 #4016 关闭时注明),交维护者定。\n\n关联:#3430(共享 `refs/stash`,同族的上一例)· PR #4988 / #4016(被误标的那次合并)· PR #4993 / #4974(误标信息的真实出处)"
+}

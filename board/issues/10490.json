@@ -1,0 +1,35 @@
+{
+  "number": 10490,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): the mobile card's amount line reads the field's own currency (objectui#10423)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T04:55:34Z",
+  "updated_at": "2026-09-25T05:20:48Z",
+  "closed_at": "2026-09-25T05:20:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T05:20:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10490",
+  "body": "Fixes #10423\nClause-②: no\n\n## What\n\n`ObjectGrid`'s mobile card summarises the row's amount on one line. That line picked `amountCol` from the card's secondary columns and resolved its currency with `resolveFieldCurrency(amountCol as any, tenantCurrency)`. `amountCol` is a column draft (`accessorKey`, `header`, `type`, `cell`, ...), so it carries neither `currency` nor `currencyConfig`, and the line always fell through to the tenant currency. Under a USD tenant a JPY-fixed field read `¥1,234,567` in the desktop cell and `$1.2M` on the phone card of the same row.\n\nThe one-line fix resolves from the object schema's field def, `objectSchema?.fields?.[amountCol.accessorKey]`. That is the same lookup this card block already uses for its stage badge options (`resolveOptionMeta`), and the same def the desktop cell bags copy `currencyConfig` from since objectui#10354 (PR objectui#10418). Every column shape emits `accessorKey` as the field name (ListColumn objects: `accessorKey: col.field`; string columns and the inline `fields` projection: `accessorKey: fieldName`), so the lookup hits on all of them. The pin drives all three.\n\nOnly the amount line in the mobile card block changed. The fetch effect (objectui#10035) and the page-size reads (PR objectui#10278) are untouched.\n\n## Pin\n\n`packages/plugin-grid/src/__tests__/mobileCardFieldCurrency-10423.test.tsx` renders the real `ObjectGrid` at `innerWidth = 390` (the card layout; the test asserts that no `table` rendered) with a USD tenant. The field `amount` has `currencyConfig: { currencyMode: 'fixed', defaultCurrency: 'JPY' }`, and `classify` reads it as `amount`. The test waits for the schema-enriched card (the stage badge's option label `Won Label` comes off the fetched field defs), so a `$` read before the defs arrive cannot pass for the wrong reason. Each case runs on all three column shapes:\n\n- JPY-fixed card line reads `¥1.2M`;\n- control 1: `plain_amount` (no `currencyConfig`) still reads the tenant `$1.2M`;\n- control 2: at `innerWidth = 1280` the desktop cell of the same fixture reads `¥1,234,567`.\n\nDirections were predicted before the first run and observed as predicted. On the base tree `2a943bf0c`, the 3 JPY card cases went RED (`expected '$1.2M' to be '¥1.2M'`) and the 6 controls stayed GREEN. With the fix, 9/9 passed.\n\nReverse verification ran on the committed fix `c56ca5efe`. The fix line was mutated back to `resolveFieldCurrency(amountCol as any, tenantCurrency)` under a trap restore, confirmed on disk (fix anchor 1→0, draft anchor 0→1). Result: `Tests 3 failed | 6 passed (9)`, the same three RED. The file was then restored with `git checkout HEAD --`: `git diff HEAD` empty, blob hash equal to HEAD's. The test imports `../ObjectGrid` from source, so no dist rebuild sits between the mutation and the run.\n\n## Gates (head `c56ca5efe`; the merge of `origin/main` before opening was a no-op, main had not moved from `2a943bf0c`)\n\n- `pnpm exec vitest run packages/plugin-grid/`: `Test Files 155 passed (155)`, `Tests 1482 passed (1482)`, exit 0.\n- `packages/plugin-grid` `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`): exit 0, after building the dependency closure (`turbo run build --filter='@object-ui/plugin-grid^...'`, 13/13). `--listFiles` on `tsconfig.test.json` counts the new test file once.\n- `eslint .` in `packages/plugin-grid`: 192 files (from `--format json`), 0 errors, exit 0. The new test file has 0 warnings, and there are none within 6 lines of the changed line.\n- `node scripts/check-changeset-presence.mjs` exit 0; `check-changeset-no-major` exit 0; `check:control-bytes` exit 0; `check:new-line-citations` `0 new citation(s)`; `check:test-path-roots` exit 0; `check:vi-mock-specifiers` exit 0.\n- Repo-wide `pnpm lint` and the full `pnpm test` belong to CI.\n\n## Acceptance notes\n\n- Unprobed observation, not filed: the same card's percent line calls `formatPercent(value, undefined, displayLocale)`, while the desktop `PercentCellRenderer` reads the field's `scale ?? 0`. A percent field that declares `scale` may therefore show different decimals on the card than in the cell. It is not the draft-currency defect, and it was not measured here.\n- The date lines in the card format with no field-def input on either face, so there is no draft-versus-def split for them.\n\nChangeset: `.changeset/10423-mobile-card-field-currency.md` (`@object-ui/plugin-grid`: patch).\n\nImplemented by `session_01D486C1axmXnrkJMNUfz2eb` (seat `domain:ui#3`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

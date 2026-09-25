@@ -1,0 +1,30 @@
+{
+  "number": 5001,
+  "kind": "issue",
+  "title": "map list views have no authorable config surface — `ListViewSchema` declares no `map` block, so marker titles fall back to a field name the object does not have",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:10:35Z",
+  "updated_at": "2026-08-17T14:23:00Z",
+  "closed_at": "2026-08-17T14:23:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5001",
+  "body": "Found while implementing #4941 (camera fit). Filed unassigned, not claiming.\n\n## The gap\n\n`@objectstack/spec@17.0.0` `src/ui/view.zod.ts` — `ListViewSchema` is a `strictObject` and declares a per-visualization config block for **seven** of the nine view types:\n\n```\nkanban / calendar / gantt / gallery / timeline / chart / tree\n```\n\nThere is no `map` block, and no `center` / `zoom` / camera slot anywhere on the schema. The showcase already records this in a comment next to its own visualization switcher (`examples/app-showcase/src/ui/views/task.view.ts`): \"map needs a spec MapConfigSchema the ListViewSchema doesn't yet have\".\n\nMeanwhile `plugin-map` reads its configuration from `schema.map` — a registered component input (`packages/plugin-map/src/index.tsx`, `{ name: 'map', type: 'object' }`), documented as an authoring surface in `content/docs/plugins/plugin-map.mdx` (`latitudeField`, `longitudeField`, `locationField`, `titleField`, `descriptionField`, `zoom`, `center`) and validated by a local zod schema in `ObjectMap.tsx`.\n\nSo the renderer has a config block, the platform metadata contract does not. An object list view of `type: 'map'` cannot declare one: the container schema is strict, so the key is not authorable there at all.\n\n## What that costs today (showcase `task`, \"Work Locations (Map)\")\n\nThe view is `{ label, type: 'map', data, columns: ['title', 'location', 'assignee'] }` — everything else is unauthorable, so `getMapConfig` returns its field-name defaults: `latitude` / `longitude` / `location` / `name` / `description`.\n\n- Coordinates render only by coincidence: the default `locationField` is `location`, which happens to be the seed's field name.\n- `titleField` defaults to `name`, and `showcase_task` has **`title`**, not `name`. Every marker's title is therefore `undefined`: the popup heading renders empty, the mobile record sheet renders empty, and the map's search box (which matches on title/description) matches nothing at all.\n- `columns` is deliberately NOT mapped into the map's config (see the note in `index.tsx`), so declaring `columns: ['title', ...]` does not name the title field either.\n\nAn author looking at that map has no spec-legal way to fix it.\n\n## Direction (contract-first, not a renderer workaround)\n\nDeclare the block in the spec — a map config member on `ListViewSchema`, next to the other seven — and let `plugin-map` read a declared surface. Two things NOT to do: teach the renderer to guess a title field, or accept the config under some other already-declared key. Both would fossilize a second de-facto contract (AGENTS.md #0.1).\n\nNote that the enabling change lands in `@objectstack/spec` (objectstack repo); this issue is filed here because the observable defect and the reader of the missing declaration both live in this repo.\n\n## Not this\n\n#4941 / PR #5000 (initial camera fits the queried records) deliberately did NOT invent a config key: it derives the camera from the data when nothing is declared, and keeps the documented plugin-level `zoom` / `center` winning when it is. That fix is orthogonal to this gap — it makes the *camera* work without a declaration; the *field mapping* still cannot be declared on a list view."
+}

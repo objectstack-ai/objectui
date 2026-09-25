@@ -1,0 +1,36 @@
+{
+  "number": 4941,
+  "kind": "issue",
+  "title": "plugin-map: no fitBounds to data — markers land on an adjacent world copy, initial viewport shows an empty map",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T07:10:50Z",
+  "updated_at": "2026-08-17T14:22:52Z",
+  "closed_at": "2026-08-17T14:22:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4941",
+  "body": "## Observed\n\nMap list view (MapLibre-based `plugin-map`), driven by `objectstack` `examples/app-showcase` at framework SHA `189a732254e6c46af75cfa38462693e67408d2d3` (showcase `task` object, seeded US-city coordinates):\n\n- The initial camera does not fit the data: markers are rendered on an **adjacent world copy** (longitude-wrapped), so the first paint shows a map with **no visible markers**; reaching them takes manual zoom-out + pan.\n- Context: the showcase map view declares no custom `style`, so the plugin falls back to the public MapLibre demo style (`demotiles.maplibre.org`), whose productionization notice banner shares the screen. Not a defect by itself, but it amplifies the empty-first-paint impression.\n\n## Expected\n\nOn load, the camera fits the bounds of the queried records' coordinates (normalized longitudes / `fitBounds` over the marker set), so a view with data never opens on an empty ocean.\n\n## Repro\n\n```\n# in objectstack repo\ngit checkout 189a7322\ncd examples/app-showcase && pnpm dev\n# open the task object's map view — first paint has no markers in viewport;\n# zoom out: markers sit on a neighbouring world copy\n```\n\nRecorded as an unassigned finding (not claiming). Discovered during a read-only promo-video production run (video-studio work order steedos-labs/video-studio#1); relayed by the coordinating PM session as the producing session has no GitHub scope on this repository."
+}

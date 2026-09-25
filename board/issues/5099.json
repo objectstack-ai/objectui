@@ -1,0 +1,35 @@
+{
+  "number": 5099,
+  "kind": "issue",
+  "title": "手写 `FieldValidationRules` 在唯一读点既不校验也不归一:`pattern.value` 写成 string(类型明确允许)被 react-hook-form 静默忽略,未识别的规则名同样静默丢弃",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:50:33Z",
+  "updated_at": "2026-08-18T10:52:27Z",
+  "closed_at": "2026-08-18T10:52:27Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5099",
+  "body": "发现于 #5075 的实施(那一单是 README 键面,本卡是类型与运行时的契约缺口,不同性质,故未夹带进 PR)。Filed unassigned, not claiming.\n\n## 现象\n\n`FieldValidationRules.pattern`(`packages/types/src/form.ts:765` 附近)声明为:\n\n```\npattern?: { value: string | RegExp; message: string };\n```\n\n`string` 是**声明允许**的。但手写 schema 这一路没有任何地方把它编译成正则:基础 form 渲染器的唯一读点是原样展开 —— `const rules: any = { ...validation }`(`packages/components/src/renderers/form/form.tsx:1652`),此后只有 `localizeRule` 填 `message`(`:1752`),`value` 不动。而 react-hook-form 7.85.0 的字段校验器对 pattern 只在 `value instanceof RegExp` 时才应用:\n\n```\nZ=e=>e instanceof RegExp\n… if(V&&!L&&I(E)){const{value:e,message:t}=oe(V); if(Z(e)&&!E.match(e)&&…\n```\n\n(`node_modules/.pnpm/react-hook-form@7.85.0_.../dist/index.cjs.js`,`Z` 即 isRegex)\n\n于是 `validation: { pattern: { value: '^[a-zA-Z0-9_]+$', message: '…' } }` —— 一个类型完全合法的声明 —— **一条也不跑,零报错**。\n\n对象元数据那一路是好的,因为它归一化:`buildValidationRules`(`packages/fields/src/index.tsx:2246`,`:2303`)写的是 `value: typeof field.pattern === 'string' ? new RegExp(field.pattern) : field.pattern`。所以「string 能用」只在元数据路线上为真,而类型把这个保证发给了两条路。\n\n## 同一读点的第二个静默面(机制相同)\n\n`{ ...validation }` 不做任何键名校验,react-hook-form 的字段校验器只解构固定集合:\n\n```\nconst{ref:c,refs:f,required:m,maxLength:y,minLength:p,min:g,max:b,pattern:V,validate:A,name:x,valueAsNumber:S,mount:k}=e._f\n```\n\n任何**未识别的规则名**(拼错的 `minlength`、发明的 `email`、以及 #5075 第 1 组那种数组展开出来的数字键)都被静默丢弃。表单看上去有校验,实际一条不跑。这正是 AI 生成的元数据最容易藏错的地方。\n\n## 两个方向,请维护者定\n\n**A. 收紧声明(producer 侧严格)**:`pattern.value` 在手写面收成 `RegExp`,string 只留给元数据路线的字段声明(`FieldSchema.pattern`,由 `buildValidationRules` 编译)。\n- 长期健壮性:与 AGENTS.md #0.1 一致 —— 声明即强制,错误在**授权时**就被拒,不靠消费端容忍。\n- 让 AI 写的元数据难写错:最强 —— 写 string 直接编译红,不会留下一个「看起来有校验」的表单。\n- 代价:`FieldValidationRules` 是公开类型,收紧是 breaking(按仓库版本策略仍标 `minor`,正文写清 breaking 语义);已有手写 string 的调用方会转红 —— 但它们**今天本来就没在校验**,转红是把静默失效换成显式失败。\n\n**B. 在唯一读点归一 + 对未识别键报错**:`{ ...validation }` 处把 string pattern 编译成 `RegExp`,并对不在 react-hook-form 识别集合内的规则名 `console.error`(或开发期 throw)。\n- 长期健壮性:较弱 —— 这是消费端容忍,等于把 `string | RegExp` 这个二义声明固化成契约;但「对未识别键报错」这半是纯增益,任何选择下都值得做。\n- 让 AI 写的元数据难写错:中等 —— 错误在运行时才发现,但至少不再静默。\n\n倾向 **A + B 的报错半**:A 关掉二义声明(声明即强制),B 的未识别键报错留下一道运行期兜底,让 #5075 那类数组拼法在开发期就喊出来而不是静默。⛔ 不建议只做 B 的归一化那半 —— 那是给一个本该收紧的声明加宽容,正是 #0.1 点名的模式。\n\n## 复核方式\n\n```\nsed -n '760,775p' packages/types/src/form.ts                      # pattern.value: string | RegExp\nsed -n '1650,1655p;1748,1755p' packages/components/src/renderers/form/form.tsx   # 唯一读点,value 不动\nsed -n '2300,2312p' packages/fields/src/index.tsx                 # 元数据路线 new RegExp(...)\ngrep -oE \"Z=e=&gt;e instanceof RegExp\" node_modules/.pnpm/react-hook-form@*/node_modules/react-hook-form/dist/index.cjs.js\n```\n\n## 分级\n\n交 PM 分诊,未打 `finding` 标签:不是休眠代码 —— 任何按公开类型手写 `pattern: { value: '…' }` 的调用方今天就拿到一个静默不校验的字段。与 #5075 第 1 组同族(同一读点、同一「零报错」症状),但那一单只改文档、不动渲染器与类型,所以这一半单独立卡。\n"
+}

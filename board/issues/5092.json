@@ -1,0 +1,35 @@
+{
+  "number": 5092,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin 同一文档里挂两个 SchemaForm(详情抽屉盖在编辑页表单上)—— 顶层 id 全量重复,抽屉里标签的 `for` 解析到页面表单的控件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:34:20Z",
+  "updated_at": "2026-08-18T00:40:55Z",
+  "closed_at": "2026-08-18T00:40:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5092",
+  "body": "发现于 #5062 / #5063 的实施(PR 见下)。**未认领,交 PM triage。**\n\n## 边界:不是 #5062\n\n#5062 修的是**一个表单内部**的嵌套同名子字段(`FieldRow` 的宿主 id 不带路径前缀),已按分诊席级裁定实施方向 1 —— 嵌套行加路径前缀,**顶层字段 id 保持 `mdf-{字段名}` 不变**(保住既有选择器面)。本单是**顶层这一层本身**:同一文档里存在**两个 SchemaForm 实例**时,两边的顶层 id 逐个相同,而这恰恰是 #5062 那次裁定明确不动的那部分。同一失效类(重复 DOM id + 交叉接线),作用域不同,修法也不同 —— 所以单独开单,不作为 #5062 的子单。\n\n## 机制\n\n`FieldRow` 的宿主 id 只由字段路径派生,**没有任何表单实例维度**。顶层字段的 id 就是 `mdf-{字段名}`,与「这是哪个表单」无关。于是两个 SchemaForm 同时挂载、且有同名字段(`name` / `label` / `description` 这类几乎必然重合)时,同一个 id 在文档里出现两次;`label[for]` 只解析到文档中的**第一个**匹配,即先渲染的那个表单的控件。\n\n在途路径(读自 `main`):`ResourceEditPage.tsx` 先渲染自己的 `SchemaForm`(第 2459 / 2482 行,两条互斥分支之一),再在第 2647 行渲染 `MetadataDetailDrawer`;后者是 Radix `Sheet`,**打开时页面表单仍在 DOM 里**,而 Sheet 内部挂的是 `MetadataResourceEditPage`(embedded,自带一个 SchemaForm)或 `EmbeddedItemEditor`(`EmbeddedItemEditor.tsx:221`,也自带一个 SchemaForm)。抽屉在文档顺序上**后于**页面表单,所以被吞掉关联的是**抽屉**这一侧 —— 用户正在看的那个。\n\n## 实测(真 SchemaForm 渲染,两个实例同挂一个文档,字段 name / label)\n\n```\nids: [\"mdf-name\",\"mdf-label\",\"mdf-name\",\"mdf-label\"]\nDUPLICATES: [\"mdf-name\",\"mdf-label\"]\nlabel \"Name\"  for=mdf-name   resolves=\"page\"\nlabel \"Label\" for=mdf-label  resolves=\"pageLabel\"\nlabel \"Name\"  for=mdf-name   resolves=\"page\"        <- 抽屉的标签,指向页面表单的输入框\nlabel \"Label\" for=mdf-label  resolves=\"pageLabel\"   <- 同上\n```\n\n即:点击抽屉里的 \"Name\" 会聚焦到抽屉背后那个(视觉上被遮住的)页面表单的输入框,辅助技术把页面表单的控件读成抽屉的字段名。与 #5062 一样是**解析到了错的元素**,不是悬空。\n\n## 可能的落地形态(供裁,未实施)\n\n1. **每实例 id 命名空间**:`SchemaForm` 用 React `useId()` 生成实例前缀,顶层 id 变成 `{实例}-mdf-{字段名}`。彻底、无需调用方配合,但**顶层 id 不再可预测**,现有按 `mdf-{字段名}` 取元素的四个 metadata-admin 测试文件(#5062 的普查读数)要一起改,且丢掉「id 可由字段名推出」这一便利 —— 这正是 #5062 分诊否掉方向 2 的理由,在本单里要重新权衡:那次否它是因为收益为零(同一表单内路径已足够),这里它解决的是真问题。\n2. **宿主显式传作用域**:复用 #5062 落的 `idPath` prop —— 抽屉/嵌入编辑器这类「第二个表单」的挂载点显式传一个作用域段(如 `idPath=\"drawer\"`),顶层 id 变 `mdf-drawer.{字段名}`;页面主表单不传,顶层 id 一字不动。改动最小、既有选择器面完全不动、契约仍可预测,代价是**靠调用方自觉** —— 漏传一个新的并挂点就静默复发。\n3. 只做 3 个已知并挂点的 2,并在 `SchemaForm` 上加一条开发期重复 id 断言(把「漏传」从静默变成响亮)。\n\n倾向 2 或 3(可预测 + 不动既有面),但涉及公共 DOM 契约与 #5062 刚定的「顶层不变」承诺,交维护者裁。\n\n依赖:方向 2 / 3 直接复用 #5062 落地的 `idPath` 贯穿(已在同一 PR 里到位),先合那条再动本单。\n\n## 去重\n\n检索过 open issues(`metadata-admin SchemaForm duplicate DOM id across two forms mounted at once drawer label for resolves to wrong control`、`mdf- id 前缀 表单实例 命名空间 冲突 SchemaForm 抽屉 EmbeddedItemEditor MetadataDetailDrawer`),无同题单;#5062 / #5063 是同文件的另两个机制(已修),已关闭的 #3343 是 `packages/fields` 内的固定 id 撞车,宿主与作用域都不同。\n"
+}

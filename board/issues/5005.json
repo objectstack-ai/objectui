@@ -1,0 +1,33 @@
+{
+  "number": 5005,
+  "kind": "pull_request",
+  "title": "fix(metadata-admin): overlayScope 收窄为 spec 派生词表,层徽标过 i18n",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:38:47Z",
+  "updated_at": "2026-08-17T14:54:19Z",
+  "closed_at": "2026-08-17T14:54:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T14:54:17Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5005",
+  "body": "Fixes #4982\n\n## 前提复核(锚点在合并后 ref 上重定位)\n\n基线 `origin/main` = `85fdb0612`,#4016 的 PR #4988(`cf4f8a6e4`)已在其中。分诊要求的硬串行门已满足,三处锚点复核如下:\n\n| 卡面锚点 | 合并后 ref 坐标 | 说明 |\n|---|---|---|\n| `metadata-client.ts` 的 `MetadataLayered.overlayScope` | 255(错注释)/ 256(声明) | #4988 之前在 249,被该 PR 下推 7 行 |\n| `LayeredDiff.tsx:196` | 196,未移动 | |\n| `i18n.ts:4125`(`CONSOLE_VALUE_ZH.layer`) | 4125,未移动 | |\n\n卡面三条事实逐条复核**为真**:\n\n1. 声明是 `string | null`,紧邻注释把词表写成 `organization | environment | package`;\n2. 装到本仓的 `@objectstack/spec@17.0.0` 里,`GetMetaItemLayeredResponseSchema` 的 `overlayScope` 是 `z.enum(['org', 'env']).nullable()` —— 实测该 schema 对上面三种拼法**逐个拒绝**,`package` 这个 scope 在此字段上从来没有过;\n3. 全仓 `overlayScope` 的取值面只有 `null`(23 处)与 `'org'`(4 处),没有任何一处写那三种拼法 —— 所以收窄不会打断任何现存调用点。\n\n## 改动\n\n**契约侧(`@object-ui/data-objectstack`)** —— 词表从 spec **派生**,不在消费侧复述:\n\n```ts\nexport type MetadataOverlayScope = GetMetaItemLayeredResponse['overlayScope'];\n```\n\n以索引 spec 已发布响应类型的方式绑定,spec 日后加一个 scope 本仓自动跟随。复述一份局部 union 正是 `check:spec-symbol-derivation` 要拒绝的 fork 的镜像类,所以没有走那条路;别名随包导出(`MetadataOverlayScope`),字段与那条错注释一并改正。\n\n因为原声明是 `string`,编译器对这个字段从来没有意见,那条错注释就成了它**唯一**的说明 —— 不是过时文档,而是给下一位读者(或 agent)埋的前提。\n\n**用户可见侧(`@object-ui/app-shell`)** —— `LayeredDiff` 的 overlay 徽标此前把原值直出,而同一列表另外三个层徽标(artifact / none / merged)全部过 `translateConsoleValue`,且 `CONSOLE_VALUE_ZH.layer` 对该字段能取的两个值都没有条目。结果是同一个徽标的语言取决于数据:zh-CN 管理员打开任一**有** overlay 的元数据项读到裸英文 `org` / `env`,没有 overlay 的走 `set` 支路才读到「已设」。现在它与三个同伴一致过翻译,层词表补入「组织」/「环境」。\n\n补的那两条不是手写键,而是**以 spec union 为键**:\n\n```ts\nconst LAYER_SCOPE_ZH: Record< NonNullable< MetadataOverlayScope >, string > = {\n  org: '组织',\n  env: '环境',\n};\n```\n\nspec 日后新增 scope 会在 `type-check` 处失败并点名缺失的标签,而不是让英文原值悄悄漏到界面上 —— 也就是让这个 bug 的形状在**编写期**就无法再成立。\n\n**禁区已守**:`translateConsoleValue` 仍然只对 zh 生效(所有分组一致,其余语言恒返回原值),这是它的现有设计;是否扩到十个语言包是独立决定,本 PR 不搭车,并且专门留了一条 en-US 用例把「没有顺手改」钉住。\n\n## 测试\n\n- `pnpm exec vitest run packages/data-objectstack/ packages/app-shell/src/views/metadata-admin/ --maxWorkers=2` → **214 files / 2274 passed, 1 skipped**\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → **81 successful, 81 total**,零 TS 错误\n- `node scripts/check-control-bytes.mjs`(4465 个文件)、`node scripts/check-spec-symbol-derivation.mjs`、`node scripts/check-changeset-no-major.mjs` 全绿\n- 改动文件 eslint:**0 error**(仅既有 `no-explicit-any` / `react-refresh` warning,均不在本 diff 触及的行上)\n\n新增两个文件,共 8 条用例。\n\n### 关于「引用同一性 `toBe`」这一钉:此处不适用,如实记录\n\n本仓最强的派生钉形态是 `expect(local).toBe(spec)`(见 `packages/types/src/__tests__/spec-subschema-parity.test.ts` —— 忠实的拷贝也会红,因为拷贝就是 fork)。**这里没有可比的运行期见证**:绑定是**类型**别名,产品代码只 `import type`,不引入任何 spec **值**。为了让一条 `toBe` 有东西可比而从本包导出一份 enum options 拷贝,恰好就是那个 guard 要拒绝的 fork,所以刻意不做。同等强度的替代是三条:\n\n1. 双向 `satisfies`(spec 成员全部流入别名 / 别名不比 spec 更宽)。本包 `tsconfig.json` 的 `include` 覆盖整个 `src`(含测试),所以 `type-check` 真的编译它们 —— 是 enforcement,不是装饰(objectui#3009 的区分);\n2. 一条 `@ts-expect-error`:把收窄退回 `string | null`,`'organization'` 重新可赋值,该指令失去抑制对象,`tsc` 以 TS2578 报红。**这是让本修复的回退变红的那一行**;\n3. app-shell 的 `LAYER_SCOPE_ZH` 键类型 —— 编译期覆盖,见上。\n\napp-shell 一侧的用例不写死 scope 清单,而是从 `GetMetaItemLayeredResponseSchema` 读 options 迭代,spec 新增的 scope 一存在就自动进入覆盖。\n\n### 反向验证(先书面预判,commit 后变异,`git checkout --` 还原,⛔ stash)\n\n三条变异全部**与预判一致**,无一条需要改写预判:\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| ① `overlayScope` 退回 `string \\| null`(保留别名) | `type-check` 红:TS2578(`@ts-expect-error` 失效)+ `_fieldIsAlias` 的 `satisfies` 失败;**vitest 仍绿** | ✅ 一致。`tsc` 恰好两条错误:`metadata-client.overlayScope.test.ts(54,74): error TS1360: Type 'string \\| null' does not satisfy the expected type '\"org\" \\| \"env\" \\| null'` 与 `(58,1): error TS2578: Unused '@ts-expect-error' directive`;同一文件 vitest **2 passed** |\n| ② 去掉 `CONSOLE_VALUE_ZH.layer` 里的 `...LAYER_SCOPE_ZH` | app-shell 套件红:覆盖用例报 `no entry for overlay scope 'org'`,两条渲染用例读到裸英文徽标 | ✅ 一致。**3 failed / 3 passed**,首条错误逐字为 `AssertionError: CONSOLE_VALUE_ZH.layer has no entry for overlay scope 'org': expected 'org' not to be 'org'`;两条渲染用例栽在 `queryByText(scope)` 上 —— 裸值确实在屏幕上 |\n| ③ 徽标退回 `layered.overlayScope ?? …` 原值直出 | 两条 zh 渲染用例红、覆盖用例仍绿 | ✅ 一致。**2 failed / 4 passed**,红的正是 `overlayScope=org` / `=env` 两条 |\n\n① 的预判方向值得单独说明:它**不是**「钉子变红」的常规方向。派生钉是编译期的,所以退回收窄后 `vitest` 会一直绿 —— 只有 `type-check` 会红,实测也正是如此(2 passed)。把它写成「测试变红」会是一份符合模板、读起来却像已验证的伪造,所以这里照实分开写。\n\n②③ 合起来把这个 bug 的两半分开钉住:③ 只动渲染(词表在,徽标不查表)→ 覆盖用例仍绿;② 只动词表(徽标查表,表里没有)→ 覆盖用例也红。两半各有各的红。\n\n还原后三个文件回到 HEAD,`git status` 干净,重跑两文件 **8 passed**。\n\n## 顺手发现(已另立卡,未在本 PR 修复)\n\n同一张 `CONSOLE_VALUE_ZH` 表的邻组 `lock` 与 `MetadataAuditEntry.lockState` **完全错位**(命中率 0/3:表里 4 条有 3 条对不上任何可能值,唯一对得上的 `none` 被调用点显式排除,而实际能送到的 `no-overlay` / `no-delete` / `full` 一条都没有):已按 Prime Directive #10 立为 #5004,未认领,未在本 PR 修复。它的修法与本卡**不同**(那套 4 态锁在本仓是手写 union,spec 没有可派生的 enum),所以不是本卡的子任务。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

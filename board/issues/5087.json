@@ -1,0 +1,36 @@
+{
+  "number": 5087,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-grid.mdx 整片示例教 `type: 'grid'` + `header` / `accessorKey` 列词汇表 —— 落到 CSS Grid 布局容器,列声明被 strict 的 ListColumn 拒绝(#5065 的文档站镜像)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:09:54Z",
+  "updated_at": "2026-08-18T00:31:27Z",
+  "closed_at": "2026-08-18T00:31:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5087",
+  "body": "发现于 #5076 的实施(PR #5085)。Filed unassigned, not claiming。\n\n读数取自 `origin/main` @ `03e5f972a160998a694742bd7c72149ae2fa3d8e`。\n\n## 现象\n\n`content/docs/plugins/plugin-grid.mdx` 的 Schema API、Column Definition 与其后**全部**示例块用的是同一套不成立的键面:\n\n1. **`type: 'grid'` 不是这个插件的。** `packages/plugin-grid/src/index.tsx:193` 的注册带 `skipFallback: true`(`:195`),刻意不认领 bare `grid`;bare `grid` 属于 `@object-ui/components` 的 **CSS Grid 布局容器**(`packages/components/src/renderers/layout/grid.tsx:50`),它的 `columns` 是列**数**。于是 `{ type: 'grid', columns: [...] }` 渲染出的是布局容器,不是数据网格。数据网格是 `object-grid` / `view:grid`。\n2. **列词汇表 `header` / `accessorKey` 不在声明里。** `ObjectGridSchema.columns` 的类型是 `string[] | ListColumn[]`(`packages/types/src/objectql.ts:564`),`ListColumn` 从 `@objectstack/spec/ui` re-export(`:74`),其 `ListColumnSchema` 是 **strict** Zod object —— 列身份键是 `field`,表头是 `label`,`accessorKey` / `header` 是被**拒绝**而不是被忽略。\n3. **`object-grid` 示例用 `\"object\": \"users\"`。** `ObjectGridSchema` 的必填键是 `objectName`(`packages/types/src/objectql.ts:545`),没有 `object`。\n\n涉及的示例块(该文件内,PR #5085 落地后行号前移):Grid with Custom Cells、Selectable Grid、Grid with Pagination、ObjectQL Integration、Sorting、Filtering、Row Actions、Inline Editing、Batch Editing 与 TypeScript Support —— 除 Column Summaries 一节(它已经用对了 `field` / `summary`)外几乎整页。\n\n## 为什么这是一张独立卡\n\n- **README 侧的同一条已在 #5065**(`plugin-grid README 的 10 个示例块整片 schema 键面不成立`),但那单的完成范围是 `packages/plugin-grid/README.md`,不覆盖 `content/docs/**` —— 与 #5011 修 README 却没碰到 #5076 的文档站复制品,是同一种边界。故独立立卡而不是挂 #5065 的子 issue。\n- 与 #5068(渲染器**容忍** `accessorKey` / `header` 的那条支路)是一对但不同层:#5068 说的是运行时容忍,本卡说的是文档教了被声明拒绝的拼法。#5068 若照 contract-first 收紧容忍,本页的示例会从\"渲染不对\"变成\"直接被拒\",两卡的修都需要。\n- 与 #5076 / PR #5085 不重叠:那单只动三处 `*Components` 注册段,本页的示例键面一行未碰。\n\n## 门禁为什么没抓到\n\n`check-doc-component-types` 只核 `type` 值**是否被注册**,而 bare `grid` **确实**被注册(布局容器注册的),所以整页绿。它明确把「snippet 的其它键是否被该 type 解析到的渲染器读」列为 objectui#4823 的第二维度、不在自己范围内(见该脚本头部注释)。本卡正是那第二维度。\n\n## 分级\n\n未打 `finding` 标签:读者照抄拿到的是布局容器 + 被拒绝的列声明,是今天就撞得上的具体缺陷。交 PM 分诊。"
+}

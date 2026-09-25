@@ -1,0 +1,36 @@
+{
+  "number": 4874,
+  "kind": "issue",
+  "title": "FilterBuilder 值落在选项集之外时值控件显示空 —— 文本值切到 picklist 列后行仍带着该值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T19:44:52Z",
+  "updated_at": "2026-08-17T18:22:33Z",
+  "closed_at": "2026-08-17T18:22:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4874",
+  "body": "发现于 #4781 的实施，回传立单。又一处 #4768 / #4781 家族的「控件显示空、行却带着看不见的值」，这次成因是**值域**而不是类型。\n\n## 事实\n\n`packages/components/src/custom/filter-builder.tsx`（origin/main `65e88e6`）：带 `options` 的 select/lookup 列，其值控件是一个受控的 Select，`value={String(condition.value || \"\")}`。Radix 的 SelectValue 只认已挂载的 SelectItem，值不在 `options` 里就什么都不渲染 —— 与 #4768 里 operator trigger 显示空是同一个机制。\n\n复现：筛选面板加一行 → 字段选文本列 → 值输入 `acme` → 字段改成一个 picklist 列（选项 `won` / `lost`）→ 值控件显示空，行里仍是 `value: \"acme\"`，照样持久化、照样下发查询。\n\n实测（jsdom）：切换后 `onChange` 最后一次给出的行 `value` 为 `\"acme\"`，值 trigger 的文本为空串。\n\n## 与 #4781 的边界\n\n#4781 已落的类型重整**刻意不覆盖**这一条：select/lookup 属于文本族，`\"acme\"` 在**类型**上是装得下的，被清掉的只有类型装不下的值。这里要答的是「值在不在该列的选项集里」，是值域问题。\n\n## 定语义前要先答的\n\nlookup 类字段的候选值可能是远程/异步的（`LookupValuePicker` 走远程搜索，`options` 常常为空或未到位）。照本地 `options` 一律清空，会把一个完全合法的 lookup id 清掉 —— 这个风险决定了不能照抄 #4781 的做法：\n\n- **A. 只对「静态 options 已到位」的字段做成员判定**，不匹配就清空；远程/无 options 的一律保留。边界清楚，但同一个控件对两类字段行为不同。\n- **B. 一律保留值，改为让它可见**（例如在选项外时退回可编辑文本并提示），信息不丢，但把一个选项外的值留在了 spec 面前 —— 这正是 #4781 裁定里否掉的 C 方案。\n- **C. 让 Select 在值不匹配时把该值显示为一个临时项**，不改存储，只解决「看不见」。\n\n倾向 A + C 的组合（静态选项列清空，远程列显示为临时项），但这是公共行为，建议按 #4781 的路子交维护者裁定。\n\n## 参考\n\n- #4768（operator trigger 显示空，同一 Radix 机制）\n- #4781（value 的类型重整；本单是它明确留在范围外的值域一半）"
+}

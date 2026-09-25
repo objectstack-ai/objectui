@@ -1,0 +1,32 @@
+{
+  "number": 5244,
+  "kind": "pull_request",
+  "title": "fix(examples): lowercase hello-world schema node types to registered keys",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "examples"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T20:09:39Z",
+  "updated_at": "2026-08-18T20:34:38Z",
+  "closed_at": "2026-08-18T20:34:37Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T20:34:37Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5244",
+  "body": "Fixes #5236\n\n## Problem\n\n`examples/hello-world/schema.json` — the smallest example in the repo, and `App.tsx`'s direct render input (`import schema from './schema.json'` fed to `SchemaRenderer`) — used PascalCase node types (`Page`/`Card`/`Text`/`Button`). `packages/core/src/registry/Registry.ts` resolves through plain `Map.get` with no case normalisation, and the registered spellings are lowercase (`page`/`card`/`text`/`button`, confirmed against `packages/cli/src/utils/known-schema-types.ts`). Every node fell through to the OBJUI-001 \"Unknown component type\" panel.\n\nVerified before the fix:\n\n```\n$ node packages/cli/dist/cli.js check | grep hello-world\n⚠️ Unknown schema type \"Page\" in examples/hello-world/schema.json\n⚠️ Unknown schema type \"module\" in examples/hello-world/package.json\n```\n\n(the `module` line is an unrelated false positive from `package.json`'s `\"type\": \"module\"` field — that's #5127, not this card.)\n\n## Fix — scoped to the example only\n\nLowercased all four `type` values in `examples/hello-world/schema.json` to the registered spellings. **Deliberately did not touch `packages/core/src/registry/**`** — adding case-insensitive lookup there would make `Page` and `page` the same key everywhere, for every component, permanently, which is a contract decision that shouldn't be inferred from one broken example. See \"Open question\" below.\n\nAfter the fix:\n\n```\n$ node packages/cli/dist/cli.js check | grep hello-world\n⚠️ Unknown schema type \"module\" in examples/hello-world/package.json\n```\n\nNo more `hello-world/schema.json` warning; only the pre-existing, out-of-scope `package.json` false positive remains.\n\n## Test — added, then removed after a real CI failure\n\nI initially added `examples/hello-world/schema.test.ts`, picked up by the root `unit` vitest project (`examples/**/*.test.ts` is in its `include`), asserting every node's `type` against the CLI's generated `KNOWN_SCHEMA_TYPES`. It passed locally and in the first CI run's collection sense, but `Test (shard 4/4)` failed:\n\n```\nFAIL scripts/__tests__/check-type-check-coverage.test.ts\n  > lists every package whose tests live outside src/, and holds each one to arriving wired up\nAssertionError: expected [ …(3) ] to deeply equal [ …(2) ]\n    \"@object-ui/example-console-starter\",\n+   \"@object-ui/example-hello-world\",\n    \"@object-ui/example-schema-catalog\",\n```\n\n`@object-ui/example-hello-world` has no `src/` directory at all (`App.tsx`, `README.md`, `package.json`, `schema.json` sit at the package root, and its only script is `lint`), so *any* test file placed in it is unconditionally \"outside `src/`\" to that ledger. The same test then requires every name on that list to have a `tsconfig.test.json` chained off a `type-check` script — a TypeScript build setup this example deliberately does not have. Vitest picking the file up is not the same thing as the repo's type-check-coverage ledger accepting the package into that layout; they're two different gates with two different definitions of \"wired up\", and only the stricter one is required. Giving the example that build setup just to satisfy the ledger would be exactly the infrastructure-as-a-rider the original scoping ruled out.\n\nSo the test file is **removed**; the `schema.json` fix stands alone. The observable outcome is the CLI check before/after above, run again at the final commit:\n\n```\n$ node packages/cli/dist/cli.js check | grep hello-world\n⚠️ Unknown schema type \"module\" in examples/hello-world/package.json\n```\n\nand `scripts/__tests__/check-type-check-coverage.test.ts` now passes clean (37/37) with no `hello-world` test file in the tree to trip its ledger.\n\n## Gates (re-run at final commit `13fe3d1e2`, rebased onto current `main`)\n\n- `pnpm exec vitest run scripts/__tests__/check-type-check-coverage.test.ts` → 37/37 passed (the gate that failed CI, now green).\n- `node scripts/check-changeset-presence.mjs` → no changeset owed (`@object-ui/example-*` is in `.changeset/config.json`'s `ignore` list; the changed file isn't under a released package's `src/`).\n- `node scripts/check-control-bytes.mjs` → OK.\n- `node scripts/check-type-check-coverage.mjs` → OK (`@object-ui/example-hello-world` stays validly `NOT_COMPILED`-exempt).\n- `node scripts/check-phantom-dependencies.mjs`, `check-package-self-import.mjs`, `check-node-esm-load.mjs --specifiers-only` → all clean.\n- `pnpm --filter @object-ui/example-hello-world lint` → clean.\n- `content/docs/**` component-type checks (`doc-component-types.yml`) don't apply — that gate's `DOCS_ROOT` is `content/docs`, not `examples/`.\n\n## Open question (not implemented — for a separate decision card)\n\nHaving fixed the example, I still think case-insensitive registry lookup is a reasonable direction: PascalCase is what a React-shaped mental model reaches for first, and this is the second time a fresh consumer has hit \"every node renders `Unknown component type`\" (the closed #4061 was the same shape at the scaffold level). But that's a contract change for every registered type across the whole stack, and the card is explicit that it should be decided independently rather than inferred from one example — so I did not implement it. Flagging per the card's instruction for the PM to file it as its own decision card if wanted.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

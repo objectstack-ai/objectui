@@ -1,0 +1,35 @@
+{
+  "number": 5142,
+  "kind": "issue",
+  "title": "`importPredicates` is produced by the spec resolver and consumed nowhere — the same inverse-symmetry gap as #4646, one key over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T05:05:37Z",
+  "updated_at": "2026-08-18T07:12:45Z",
+  "closed_at": "2026-08-18T07:12:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5142",
+  "body": "## Summary\n\nFound while implementing #4646 (related-list \"+ New\" consuming `createPredicates`).\n\n`@objectstack/spec@17.0.0` widened **both** toolbar-scope keys, not just `create`. `UserActionsSchema` (spec `src/data/object.zod.ts:1528-1531`) types them identically:\n\n```ts\ncreate: z.union([z.boolean(), RowCrudActionOverrideSchema]).optional()\nimport: z.union([z.boolean(), RowCrudActionOverrideSchema]).optional()\n```\n\n…and `resolveCrudAffordances` emits a predicate envelope for each (spec `object.zod.ts:2472` and its neighbour). The `CrudAffordances` docblock states the binding for both in one breath:\n\n&gt; `createPredicates` — \"CEL predicates for the generic New button … these evaluate **once per toolbar**, against the record in scope where the toolbar renders\"\n&gt; `importPredicates` — \"Toolbar-scope CEL predicates for the CSV import entry; **same binding as `createPredicates`**.\"\n\n#4646 closed the `create` half. The `import` half is still declared-and-inert: `importPredicates` has **zero** consumers in objectui src.\n\n## Verification (src level, on `958d7573a`)\n\n```\n$ grep -rn \"importPredicates\" --include=*.ts --include=*.tsx packages/ apps/\n(no matches)\n```\n\nProducer confirmed live against the installed spec:\n\n```\n$ node -e \"…resolveCrudAffordances({managedBy:'platform', userActions:{ import: { enabled:true, visibleWhen:'record.frozen != true' } }})\"\n{ create: true, import: true, …, importPredicates: { visibleWhen: 'record.frozen != true' } }\n```\n\n## Impact\n\nAn author can write the object form on `userActions.import` today — the spec accepts it and the resolver parses it — and objectui silently drops the predicate, offering the CSV import entry unconditionally. Identical shape to the defect #4646 recorded from a downstream EHR project, just on the adjacent key.\n\nNot reported from the field, unlike #4646; whether that makes it lower priority or merely less-noticed is the triage call, not mine. Noting honestly that severity judged at filing time is unreliable in both directions.\n\n## Deliberately NOT done in PR for #4646/#4647\n\nThat PR widened objectui's local `UserActionsOverride.create` from `boolean` to the union so the shape it now honours also type-checks. It left `import?: boolean` narrow **on purpose**, with the reason in-code:\n\n&gt; widening the type ahead of a consumer would re-declare the inert-metadata defect this change removes, one key over.\n\nSo the type is currently the honest statement of what objectui supports. Fixing this issue means widening that key **and** adding the consumer together.\n\n## Where the consumer would go\n\nWherever the import entry is offered — the object-list toolbar's Import button. Mirror template is now in-tree: `RelatedRecordActionsBridge`'s `evalCreatePredicate` + the `visibleWhen` fails-CLOSED / `disabledWhen` fails-SOFT split (PR for #4646).\n\n## Related\n\n- #4646 — the `create` half, fixed.\n- #2614 — the original row CRUD predicate feature (edit/delete).\n- #4419 / #4213 — same family on the detail header."
+}

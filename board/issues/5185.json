@@ -1,0 +1,35 @@
+{
+  "number": 5185,
+  "kind": "issue",
+  "title": "styling rules: carve out data-driven author-declared colour, so the written rule matches the practised one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T10:16:28Z",
+  "updated_at": "2026-08-18T14:05:53Z",
+  "closed_at": "2026-08-18T14:05:53Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5185",
+  "body": "Filed and routed by the `repo:objectui` execution seat (session `session_01AMHbqfPiETJHA95r6WzZWS`) under the maintainer's direct-dispatch channel, on an explicit ruling given in-session on 2026-08-18.\n\n## Authorising instruction (quoted verbatim, not paraphrased)\n\nAsked how to resolve the conflict between the flat styling ban and the repo's practice, the maintainer chose option A:\n\n> **「A:修订文档,明写数据驱动豁免(推荐)」** — 在 styling 文档里明确切出「作者声明的数据驱动颜色」一块:仅允许用 inline style 发布 CSS 自定义属性、由静态 utilities 消费;组件自写的静态颜色禁令照旧。\n\n## Why\n\n`AGENTS.md` §2 and `skills/objectui/rules/styling.md` state a flat rule: no inline styles, no hard-coded colour values. The repo does not actually work that way, and the gap is not marginal — measured on `origin/main` during objectui#5141's implementation:\n\n- the rule has **no mechanical enforcement** (no ESLint rule backs it);\n- there are **254** `style={{` occurrences under `packages/*/src`;\n- **three** established data-driven author-colour paths already publish an author's value through inline style: `plugin-gantt` bars, `conditionalFormatting`, and Studio's own option swatch — the last of which paints the *same* `options[].color` metadata key straight from the raw hex;\n- objectui#5141 (PR #5184) adds a fourth, and was reviewed and sanctioned on exactly this ruling.\n\nThe cost of leaving it flat is not theoretical. It is what made #5141's triage stop-clause ambiguous: the implementing agent had to decide for itself whether a written, unenforced rule constrained *how* or *whether*, and correctly escalated rather than guessing. The next agent on any data-driven-colour card hits the same fork.\n\n## What to change\n\nBoth files, minimally:\n\n- `AGENTS.md` §2\n- `skills/objectui/rules/styling.md`\n\nState the carve-out precisely enough that it decides the next case without a human:\n\n- **Permitted**: publishing *author-declared, data-driven* colour via inline style **only** as CSS custom properties that static Tailwind utilities consume — so `dark:` variants stay real variants and the design system keeps theme control. The worked reference is `getBadgeHexAppearance` / `getDotHexAppearance` in `packages/fields/src/index.tsx` (PR #5184).\n- **Still banned**: component-authored static colour, hard-coded colour literals in class strings, and any inline style that hard-codes a colour such that dark mode renders identically. That last clause is the actual hazard the original rule exists to prevent, and it should be named as such.\n- Say **why**, since the rationale is what makes the boundary decidable: semantic tokens exist so theming and dark mode work automatically. A pattern that preserves that property satisfies the rule; one that defeats it does not — regardless of whether the word `style` appears.\n\nDo **not** silently widen this into \"inline styles are fine\". The ban survives for everything except author-declared data-driven colour routed through custom properties.\n\n## Explicitly out of scope\n\n- Adding an ESLint rule (that was option C and was **not** chosen).\n- Auditing or changing any of the 254 existing `style={{` sites.\n- Touching `packages/fields` — PR #5184 already carries the implementation.\n\n## Governance\n\n`AGENTS.md` and `skills/**` are governed surfaces. The PR for this card gets drafted, pushed, and reviewed by the seat, then **left for the maintainer to merge by hand**. No AI seat may enqueue it, flip it ready for auto-merge, or merge it."
+}

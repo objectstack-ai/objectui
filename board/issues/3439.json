@@ -1,0 +1,34 @@
+{
+  "number": 3439,
+  "kind": "issue",
+  "title": "内建 form 分支的长文本字段完全没有字数计数,同一个 maxLength 在两条渲染路径上给出两种体验",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-06T04:05:26Z",
+  "updated_at": "2026-08-18T14:00:15Z",
+  "closed_at": "2026-08-18T14:00:15Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3439",
+  "body": "> 做 #3417 时按「规则的消费半径」扫分叉扫到的,**不在该 PR 范围内**,独立记录。\n>\n> **这是 observation-class(建议打 `finding`,不要 `pm:queue`)** —— 我没能证明今天有用户实际撞上它,而且它有相当概率是**有意的分层**(内建分支本就是精简 fallback)。按纪律不压着不报,严重程度交 PM 的 triage 定。我因为 GitHub API rate limit 打不上标签,烦请代打。\n\n## 观察到的现象\n\n同一个 `maxLength`(或旧拼法 `max_length`),在两条渲染路径上产出两种东西:\n\n**注册路径(`field:textarea` → `packages/fields/src/widgets/TextAreaField.tsx`)**\n- 原生 `maxLength` 硬截断;\n- 可见的 `{n}/{max}` 数字(`aria-hidden`);\n- 经 `aria-describedby` 挂到输入框上的描述节点(聚焦时读一次上限);\n- 阈值门控 + debounce 的 `aria-live=\"polite\"` 近上限提示。\n\n(前三项 #3406/#3408 建起来,#3417 刚把它们同时铺到内联与全屏两个面。)\n\n**内建路径(`packages/components/src/renderers/form/form.tsx`,`case 'textarea'` 在 2097 行起)**\n- 整个文件里**没有任何字数计数代码**。`maxLength` 在这个文件里只出现两处,都与计数无关:\n  - `form.tsx:151` —— `'validation.maxLength': '{{field}} must be at most {{max}} characters'`(校验文案);\n  - `form.tsx:1332` —— `if (rules.maxLength) rules.maxLength = localizeRule(...)`(把 react-hook-form 的校验规则本地化)。\n- 也就是说这条路上的上限是**事后校验报错**,而不是「边打边看得见的计数 + 聚焦时读得到的上限」。\n\n结果:读屏用户在内建路径上拿不到任何上限信息(明眼用户也看不到计数),在注册路径上两者都有。\n\n## 为什么值得记一笔\n\n这正是本仓反复修过的那一类「一份声明、两条路径、两种行为」:#3272、#3400/PR #3401、#3402、#3404 都是同一族,而且每次的裁定口径都是「一个表单级设定必须在两条路径上产出同一种行为」。所以看到同族的第四第五个实例,倾向于记下来而不是默认它没事。\n\n## 我**没有**核实的部分(请勿据此直接开工)\n\n- **原生截断到底到没到位**:内建分支把 `stripRendererOnlyProps(fieldProps)` 展开到元素上,`maxLength` 是 textarea 的合法 DOM 属性,**有可能**顺着 `rest` 落到元素上拿到硬截断。我没有追 `ObjectForm` → FormField → `fieldProps` 这一段映射,确认不了 `maxLength` 是否真的在 `fieldProps` 里。若在,则差异只剩「有没有计数/可访问上限」;若不在,差异还包括「有没有硬截断」。\n- **实际命中面有多大**:注册路径带 `skipFallback: true`,调了 `registerAllFields()` 的宿主走的是注册路径。内建分支主要服务于没注册 fields 的 embedded/standalone 宿主(本仓确实照顾这类宿主 —— `useFieldTranslation` 存在的理由就是「standalone/embedded 宿主不挂 `I18nProvider`」)。这类部署占比我判断不了。\n- **是否有意为之**:内建分支可能就是刻意不做到功能对等的精简 fallback。若是,建议把这个取舍写进 `form.tsx` 的注释,让下一个扫到这里的人不用再查一遍。\n\n## 起点\n\n- `packages/components/src/renderers/form/form.tsx:2097`(`case 'textarea'`)\n- `packages/components/src/renderers/form/form.tsx:151`、`:1332`(仅有的两处 `maxLength`)\n- 对照实现:`packages/fields/src/widgets/CharacterCount.tsx`(#3417 抽出的共享计数组件,两个面共用)\n\n## 检索记录\n\n按 objectstack#4949 的要求先搜后立:关键词 + 文件路径三轮检索(`character count maxLength textarea built-in form renderer`、`\"form.tsx\" maxLength counter`、`built-in branch parity registered widget textarea`)在 open issue 里均无命中,故新立而非跟评。\n"
+}

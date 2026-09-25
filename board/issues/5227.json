@@ -1,0 +1,35 @@
+{
+  "number": 5227,
+  "kind": "issue",
+  "title": "A fourth loader in metadata-admin `widgets.tsx` swallows a failed field fetch into an empty field list — `FieldSelectorWidget`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T16:06:23Z",
+  "updated_at": "2026-08-18T22:36:29Z",
+  "closed_at": "2026-08-18T22:36:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5227",
+  "body": "Found while implementing objectui#5170 (PR objectui#5226), which fixed the three option-picker loaders in `ResourceEditPage.tsx` and the Audit tab. Filed unassigned for PM triage — **deliberately not fixed in that PR**, see \"Why not folded in\" below.\n\n## The reading\n\n`packages/app-shell/src/views/metadata-admin/widgets.tsx`, inside `FieldSelectorWidget` (locate by text, not by line number):\n\n```ts\nsetLoading(true);\nfetch(`/api/v1/objects/${objectName}/fields`)\n  .then(r => r.json())\n  .then(data => {\n    setFields(data.fields || []);\n    setLoading(false);\n  })\n  .catch(err => {\n    console.error('Failed to load fields:', err);\n    setFields([]);\n    setLoading(false);\n  });\n```\n\nThis is the **same defect class** objectui#5170 and objectui#5169 were filed for: the `catch` writes `setFields([])` — the exact value a successful response with no fields writes — and clears the loading flag. The picker then renders as a completed, empty field list.\n\n## Why it is a separate card and not part of #5170\n\nIt is a **fourth loader**, and it shares nothing with the three that card named:\n\n- It does **not** go through `MetadataClient`. It is a raw `fetch` to `/api/v1/objects/:name/fields`, a REST path that no other widget in this file uses, and it does not check `r.ok` — so a 4xx/5xx whose body happens to parse as JSON lands in the **success** branch with `data.fields` undefined, and `|| []` renders it as \"no fields\". That is a second, distinct way to reach the same false empty, and it is not reachable in the three loaders #5170 covered.\n- It holds its **own** component-local `fields` / `loading` state, not the shared `WidgetContext` catalogs. So the `catalogErrors` channel PR #5226 added does not reach it, and the shared `PickerLoadFailure` it added is not wired to it.\n- It is slightly **weaker** than #5170's three: it does leave a `console.error`, which those three did not.\n\nSo it needs its own loader rewrite and its own render wiring, not a line in an existing one. #5170's declared completion scope was the three option-picker loaders and their render sites; this one is outside it and would have widened that PR's verification surface without being covered by either card's acceptance criteria.\n\n## Shape, if it is taken\n\nThe same one, already landed twice in this directory: the four-arm `LoadState` union in `views/metadata-admin/loadState.ts` (added by PR objectui#5226, mirroring the union objectui#5110 landed for the References panel), plus the shared `PickerLoadFailure` render that PR added for the other pickers. Both exist now, so this is wiring rather than design. Worth also fixing the missing `r.ok` check while in there, since the current code cannot tell a refusal from an answer at all.\n\n## Dedup\n\nSearched open issues for `FieldSelectorWidget` by name, for the field-fetch loader by path, and for the failure-rendered-as-empty family in `widgets.tsx`; nothing covering it. Control: the same search family returns objectui#5040 and objectui#4871 (both real metadata-admin widget cards, and #4871 closed), so the zero is a measurement rather than a dead query. No duplicate.\n\nDeliberately filed standalone rather than as a sub-issue of objectui#5170: #5170's completion scope is the three `ResourceEditPage` loaders, and its PR is up. This loader is not inside that scope — it only shares its class.\n\n## Related\n\nobjectui#5170 and objectui#5169 (same class, fixed together in PR objectui#5226) · objectui#5110 (the union this shape comes from) · ADR-0110 D3, \"a miss and a fault are different facts\"\n"
+}

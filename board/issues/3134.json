@@ -1,0 +1,30 @@
+{
+  "number": 3134,
+  "kind": "issue",
+  "title": "[Studio i18n] 表单布局设计器未解析已有的对象字段和分组翻译",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-01T04:17:44Z",
+  "updated_at": "2026-08-18T19:58:47Z",
+  "closed_at": "2026-08-18T19:58:47Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3134",
+  "body": "## 复现\n\n1. HotCRM 的 zh-CN 翻译已声明 objects.crm_opportunity.fields.name.label = 商机名称，以及 objects.crm_opportunity._sections.basic.label = 基本信息。\n2. 以中文进入 Studio → 数据 → 商机 → 表单 → 布局。\n3. 画布仍显示 Opportunity Name 和 Basic Information；同一对象的常规数据视图会正确显示商机名称和基本信息。\n\n这不是种子数据的翻译问题：翻译键存在，且运行态其他表面已能解析。\n\n## 根因证据\n\nObjectFormDesigner 的职责说明称布局画布应当与最终用户表单一致，但它直接读取原始元数据：\n\n- SortableField 使用 entry.def.label 作为显示名称。\n- 分组标题使用 g.label 或 g.key。\n- 组件没有调用已经存在的 useObjectLabel().fieldLabel / sectionLabel。\n\n因此，项目可以提供 objects.<object> 的 fields 和 _sections 翻译，却无法让 Studio 的表单布局画布使用它们。\n\n## 期望\n\n- 布局画布按当前语言解析 objects.<object>._sections.<groupKey>.label 与 objects.<object>.fields.<fieldName>.label。\n- 找不到翻译时继续回退到元数据的英文 label。\n- 右侧属性编辑器仍可编辑原始元数据 label；展示值与被编辑的源值不应混淆。\n- 语言切换后画布应重新解析。\n- 为字段和分组各增加一个中文翻译的回归测试。\n\n## 影响\n\n中文 Studio 的表单设计截图和实际 WYSIWYG 预览呈现中英文混排；项目侧补全翻译无法解决。"
+}

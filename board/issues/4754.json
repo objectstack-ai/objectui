@@ -1,0 +1,32 @@
+{
+  "number": 4754,
+  "kind": "issue",
+  "title": "[handoff] repo:objectui PM seat — board state and standing doctrine as of 2026-08-16 ~02:15Z",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T02:16:25Z",
+  "updated_at": "2026-08-18T16:23:32Z",
+  "closed_at": "2026-08-18T16:22:14Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4754",
+  "body": "Handoff from the outgoing `repo:objectui` PM seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`), wrapped up on the maintainer's instruction (quota). The incoming seat should treat this card as the starting index; everything below is verifiable on GitHub and supersedes nothing — cards and their comment threads remain the source of truth.\n\n## Board state (all verified at wrap-up)\n\n- **`pm:queue` / findings pool / in-flight devs: all ZERO.** No PR is awaiting review, flip, or closeout. No dev worktree carries unpushed work owed to any card.\n- **Session-day ledger: 63 PRs merged, zero red merges, zero wrongful closes** (#4713 … #4753). Every closed card's `closed_by_pull_requests` was verified exact at closeout.\n- Self-armed timers from the outgoing session: all fired or deleted; none pending.\n\n## Decision box — 10 items awaiting the maintainer, with dispatch plans pre-recorded\n\n| item | ask | seat's recommendation / plan on ruling |\n|---|---|---|\n| **#4648** GA pin decision | biggest unlock | Rec **A** (reasoned exemptions). Ruling unlocks #4639, #4190, #6275, #4535-item-4, #4668 — dispatch in dependency order |\n| #4692 combo drill | A/B/C | Rec **B**; decision-box comment on card |\n| #4676 placeholder | A/B/C/D | Rec **C** |\n| #4662 engine.* two-locale posture | A/B | Rec **A** (record posture; then one docs card) |\n| #4730 `console.objectView.*` 116 keys | delete vs missing-feature | On **A**: fold into a final trim batch together with the deferred key-level trims (`search`/`table`/`report`/`form`, ~40 keys — deliberately NOT dispatched separately). On **B**: file the feature card |\n| #4085 / objectstack#8593 / #4036-A | standing | unchanged |\n| **#4655 \"Version Packages\"** | ⛔ | **NEVER merge/queue/auto-merge — maintainer's click only** |\n| **#8830** (objectstack lane) | ⛔ | objectstack lane will open its PR; final merge is the maintainer's click. This seat only files issues to objectstack — never claims or dispatches there |\n\n## Archived findings with re-grade triggers (event-driven, do not patrol)\n\n- **#4716** ForgotPasswordForm marker substring — ruled A (leave); triggers on an external consumer report or any touch of that marker logic.\n- **#4738** address order follows reader locale — triggers on demand signal; any `countryCode` channel is an upstream spec question (file to objectstack, don't dispatch).\n- **#4752** ConfigPanelRenderer undo/redo English defaults — dormant; triggers when a caller wires `onUndo`/`onRedo` or `common.undo`/`common.redo` appears.\n\n## Standing doctrine this seat accumulated (each learned the hard way; details in the linked threads)\n\n1. **No skip-changeset mechanism**: the label exists in the registry but **no gate consumes it** — never apply it (three corrected incidents 2026-08-15; root cause filed as objectstack#8915; also objectstack#8891 for publish-preflight).\n2. **objectstack findings are file-only** from this seat — never claim/dispatch cross-lane.\n3. **Landing flow**: ACCEPT (reviewer-of-record, verified against GitHub not the report) → six gates (Lint + Type Check + Test shards 1-4) success **pinned at the PR head** → `draft:false` → auto-merge → merged event → closeout (`closed_by` exact, strip `pm:dispatched`).\n4. **Deletion-class PRs**: PM independently re-tests every reference face on `origin/main` before ACCEPT, commands re-run from the PR body.\n5. **Absence-claim discipline**: never conclude absence from a truncated listing (`head -N`) or an unverified scope (bad pathspec) — **every absence claim needs a positive control first** (two corrected PM errors on 2026-08-15, on the record in PR #4740/#4747 reviews).\n6. **Hot-file serial queue**: same-file cards dispatch serially (e.g. #4744 after PR #4745); ten-pack edits in different namespaces may run in parallel with rebase-on-conflict instruction.\n7. **Test invocation**: repo-root path-filter form only (`pnpm exec vitest run packages/<pkg>/`); `pnpm --filter <pkg> test` is the documented false-green cwd trap, mechanically blocked.\n8. **Umbrella cards** (`Part of #NNNN` + `Fixes #<sub-card>`): verify the umbrella stays open at closeout.\n9. **i18n**: repo-wide single-brace convention (`{{x}}` only i18next holes with args); key-choice by measurement (reuse when packs agree 10/10, author new when scoped spellings diverge — PR #4753 models it); value-to-key lookup tables blind BOTH i18n gates — use literal `t()` builders (PR #4751 models it).\n10. Known flake classes (chart-drill, plugin-dashboard families) were closed at source 2026-08-15; a red shard should still be judged flake-vs-real before rerun, with the criterion recorded first.\n\n## Ops notes\n\n- All agents share the GitHub identity `yinlianghui` — a claim is assign **plus** a claim comment with the claiming session's ID and branch; re-read comments before writing code.\n- The shared account rate-limits under load: back off and retry; a 502 is retryable.\n- Issue comments do **not** generate wake events (only PR subscriptions do) — decision-box rulings are found by patrol reads (`list_issues` with `labels=needs-user-decision`, compare `updated_at`), not by waiting."
+}

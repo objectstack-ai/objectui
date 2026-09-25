@@ -1,0 +1,32 @@
+{
+  "number": 5084,
+  "kind": "pull_request",
+  "title": "test(scripts): doc-version-claims 扫描面加上 skills/,四处脚手架字面量入锚 (#4981)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:07:50Z",
+  "updated_at": "2026-08-18T15:59:10Z",
+  "closed_at": "2026-08-18T15:59:08Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T15:59:08Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5084",
+  "body": "Fixes #4981\n\nBlocked-by: https://github.com/objectstack-ai/objectui/pull/5080 （内容半,人合车道)\n\n本 PR **不含** PR #5080 的 diff(独立自 `origin/main` @ `6098ecd08`)。**PR #5080 合入前请勿挂 auto-merge** —— 本 PR 的 CI 会在不含它的 main 上跑,预期红,见下方「反向验证 ①」。\n\n## 洞\n\n`SCAN_ROOTS` 一直是两条:`content/docs` 与 `packages/*/README.md`。`skills/objectui/**` 那 18 个 markdown 是 **agent 在生成项目前读的面**,从来没有任何门禁读过它们的版本字面量:`check-skills-paths.mjs` 走同一棵树但判**路径**,`check-doc-links.mjs` 连 `skills` 行都没有,grep 完 `scripts/` 之后读版本的只有这一个文件。受害面的差别是这条卡的要点 —— `content/docs` 的化石让一个人构建失败,脚手架指南的化石**每次生成都被复制进用户仓库一遍**。\n\n## 扩面后实测(6098ecd08):命中 12 条,不是 4 条\n\n卡面列了 4 条,扫描面实际命中 12 条,全部逐条入册(棘轮要求每条字面量都有条目):\n\n| 条数 | 内容 | 处置 |\n| --- | --- | --- |\n| 4 | 卡面点名的化石 | PR #5080 修值,本 PR 入锚 |\n| 2 | `SKILL.md:97` 的 `React 18+` / `TypeScript 5.0+` | `unanchored` —— 从 AGENTS.md 第 2 节逐字镜像下来的**能力下限**,同 `troubleshooting.md` 既有条目;只改 skills 这一份会让两份 agent 面文本脱同步 |\n| 2(同一 claim key) | `i18n.md:117,162` 把 label 规则归给 `@objectstack/spec` **v4**,仓内 33 处声明全是 `^17.0.0` | **`stale`** —— 13 个 major,与 #3708 修掉的那条同形。**另开 #5081**,不在本卡内改(修法是「改成 v17」还是「删掉版本限定语」,是另一个判断) |\n| 4 | `react ^19.0.0`、`react ^18.0.0 || ^19.0.0`(peer)、`tailwindcss ^4.0.0`、`@tailwindcss/vite ^4.0.0` | `sample` —— 读者自有的范围,判据同 #3827/#3855 |\n\n## 入锚判据:两种页面,分开说(这是本 PR 最需要复核的一段)\n\n分诊评论把「三条现成锚」派给 `project-setup.md`、把 `lucide-react` 留给 `KNOWN_CLAIMS`,并援引卡面「standalone 指南 vs in-workspace 锚集」的告诫。**实测把这个分配反过来了**,我按证据实施并在此报告:\n\n**① `lucide-react` 反而是最干净的入锚对象。** `plugin-development.md` 的那个 `package.json` 块正是 #3855 描述的形状:块名 `@object-ui/plugin-my-widget`,四个 `@object-ui` 依赖全是 `workspace:*`,构建脚本 `vite build` —— 这样拼写的清单只在这个 workspace 里解析得开,所以那个范围是**本仓的**,不是读者的。锚实测 **16/19** 个 plugin 清单声明 `lucide-react` 且 16 个全是 `^1.31.0`(全仓 23 处一致)。\n\n  ⚠️ 卡面估的是 **9 个**。9 会掉到 `skeletonDep` 既有的「至少 10 个声明」下限之下 —— 那样这条只能记账、不能校验。**这个数必须实测**,否则会因为一个过时的读数把一条本可入锚的行降级。这也是那条下限的价值:它用计数决定条目的类,所以计数不能靠引用。\n\n**② 卡面的告诫落在 `project-setup.md` 上,那正是分诊要入锚的三条。** 那个块**不是插件**:依赖全是 `\"latest\"`,整页没有一处 workspace 协议,是独立应用。这三条仍然入锚,但理由换成了实测的**仓内唯一性**,而不是「它是插件」:声明这三个依赖的清单中,`typescript` **40/40** `^6.0.3`、`vite` **29/29** `^8.2.1`、`@vitejs/plugin-react` **27/27** `^6.0.5`(仓根、`apps/console`、`examples/console-starter` 与 plugin 包一致),断言读的 plugin 集是这个全仓一致集的**真子集**。所以钉住的是「本仓对这个依赖只有一个范围」,不是「plugin 包的私有选择」。\n\n  残留风险照直写进了文件头和断言红字:**若将来 plugin 包搬到一个不该推荐给独立消费者的工具链,这条断言会把那一页判红,而那不是那一页的缺陷**。届时的答案是把这三条改类、或给它们自己的锚集(`apps/console` + `examples/*` starter,今天只有 3–4 个声明者,过不了现有下限),而**不是**把它们降成 `sample` —— 那个类正是让三个 major 的漂移在 `content/docs/guide/plugins.md` 里躺了几个月的原因。\n\n**③ 不入锚的判据(写进文件头)**:一条字面量可入锚,当且仅当**本仓对该依赖只陈述一个范围**,**且**文档那一行是**同一种陈述**。`react` 过不了后半条 —— 本仓精确 pin `19.2.8`(为测试解析确定性),页面给的是消费者的 caret 范围,「文档必须写 19.2.8」是把坏建议机械化。`@tailwindcss/vite` 过不了前半条 —— 本仓**零处**声明它(走 `@tailwindcss/postcss`),没有可比对的东西。\n\n## 反向验证(预判先写,读数如下)\n\n**预判**:① 扩面后的门禁在未修的 main 树上必须**恰好**红那 4 行;② 本地并入 PR #5080 后必须全绿。\n\n**① 未修树(本分支原样,`skills/` 仍是化石)—— 4 行命中,但红的是 3 个测试而不是 2 个,其中一个和我的预判不一样,如实报告:**\n\n- 向上棘轮(`records every version literal`)红,**恰好 4 行,不多不少**:\n  ```\n  - skills/objectui/guides/plugin-development.md:329  \"react\\\": \\\"^0.400.0\"\n  - skills/objectui/guides/project-setup.md:51  \"typescript\\\": \\\"^5.0.0\"\n  - skills/objectui/guides/project-setup.md:52  \"vite\\\": \\\"^6.0.0\"\n  - skills/objectui/guides/project-setup.md:53  \"react\\\": \\\"^4.0.0\"\n  ```\n  这一条同时证明两件事:扩面确实生效(4 行都被读到了),以及**其余 8 条 claim 我全都入册了**(否则它们会一起出现在这张单子上)。\n- 向下棘轮(`no entry may outlive the claim it excuses`)红,**同样 4 条**,从另一侧报同一批事实 —— 我的条目按**修好之后**的值做 key,在未修树上「不在树里」。\n- **我预判错的那一条**:我写的是「骨架断言保持绿,因为四条 `absent` 会被跳过,棘轮是唯一报告者」。比对循环确实一个 failure 都没产出(这半对了),但断言里的**空转下限**红了 —— 我把 `stated.length` 的下限从 3 提到了 7(修好后的实测值),未修树上只有既有的 3 条能解析出行:\n  ```\n  the skeleton assertion compared implausibly few lines … expected 3 to be greater than or equal to 7\n  ```\n  这是下限**按设计**在工作(「不许对着空列表报绿」),但它意味着未修树上的预期红是 **3 个测试**,不是 2 个。留在这里而不是把下限调低到刚好躲过去:下限的数字应该说明这个 PR 买到了多少覆盖。\n\n**② 本地并入 PR #5080 后(`git merge --no-commit --no-ff`,验证后 `git merge --abort`,未进 commit):**\n\n```\nTest Files  1 passed (1)\n      Tests  18 passed (18)\n```\n\n同一棵合并树上跑整个 scripts 套件也全绿(证明扩面没有波及别的门禁):\n\n```\nTest Files  52 passed (52)\n      Tests  1209 passed (1209)\n```\n\n## CI 预期\n\n本 PR 的 CI 在不含 #5080 的 main 上跑,`doc-version-claims` 会红在上面那 3 个测试上 —— **这是预期红,不是回归**。⛔ 没有把 `KNOWN_CLAIMS` 写成化石值来换绿:那会让门禁把化石祝福成正确值,正是这张卡要修的东西。#5080 合入后本 PR 转绿,届时再转 ready。\n\n## 其它验证\n\n- `pnpm run type-check:scripts`(tsconfig.scripts.json,覆盖被改文件)→ 无输出即通过\n- `pnpm exec turbo run type-check --concurrency=2` → `Tasks: 81 successful, 81 total`\n- `pnpm exec eslint scripts/__tests__/doc-version-claims.test.ts` → 无输出\n- `node scripts/check-control-bytes.mjs` → OK(4520 个文件);改动文件 `grep -naP` 控制字节自扫无命中\n\n## 一处顺手更正\n\n`ClaimKind` 的 `restatement` 注释写着「最大的一类(13 of 21)」—— 本 PR 之前实际已是 14/23,加了 11 条之后是 14/34。只改了这个括号里的数,没动那句话的论断(restatement 仍是最大的一类)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

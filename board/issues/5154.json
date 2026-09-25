@@ -1,0 +1,33 @@
+{
+  "number": 5154,
+  "kind": "pull_request",
+  "title": "fix(app-shell,core): 对象列表工具栏 Import 消费 importPredicates (#5142)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T07:01:12Z",
+  "updated_at": "2026-08-18T07:12:45Z",
+  "closed_at": "2026-08-18T07:12:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T07:12:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5154",
+  "body": "Fixes #5142\n\n## 背景：与 #4646 / PR #5145 的镜像关系\n\n`@objectstack/spec@17.0.0` 同时放宽了**两个** toolbar-scope 键,不只 `create`。二者在 spec 中类型完全相同,resolver 对两键各发一个谓词信封,docblock 一句话把绑定绑在一起(`importPredicates` — same binding as `createPredicates`)。#4646 补上了 create 半(PR #5145,关联列表工具栏),import 半仍是「已声明、零消费」。\n\n本 PR 是 import 半,逐一镜像 PR #5145 的 `evalCreatePredicate` 形。\n\n前提三条逐条复测(基线 `b4089beca`,含 PR #5145 与 #5147):\n\n1. **spec 两键同型、双发信封** —— 对已装 `@objectstack/spec@17.0.0` 实测:`userActions.import` 的对象形经 `resolveCrudAffordances` 返回 `importPredicates: { visibleWhen, disabledWhen }`,与 `create` 半逐字对称;`.d.ts` 中 `create:` / `import:` 都是 `z.ZodUnion` of `[ZodBoolean, RowCrudActionOverrideSchema]`(1208 / 1253 行)。**成立**。\n2. **objectui src 零消费** —— cast 感知 grep 在含 PR5145 的新基线上只命中一处,且是 `packages/core/src/utils/managedBy.ts:76` 那条「刻意不放宽」的注释本身,不是读取点。**成立**。\n3. **PR #5145 刻意留窄型并写明理由** —— 注释在 `managedBy.ts` `UserActionsOverride.create` 的 docblock 尾部,原话是「widening the type ahead of a consumer would re-declare the inert-metadata defect this change removes, one key over」。本单正是它指名的那一单。**成立**。\n\n## 消费落点清点\n\n对象列表工具栏的 Import 入口**只有一处**:`ObjectView.tsx` 头部按钮(`data-testid=\"object-view-import-button\"`)。与 create 半不同 —— create 在同文件有两个渲染点(头部按钮 + 手机端浮动 `+`),而 Import 按设计没有移动端对应物(源注释:CSV 导入本质是桌面工作流,移动端不占位)。因此本 PR 关掉的就是全部入口。\n\n## 实施\n\n- `ObjectView.tsx`:`objectCanImport && importVisible` 作可见门,`disabled={importDisabled}` 作置灰门。`visibleWhen` fail-CLOSED、`disabledWhen` fail-SOFT;声明判定沿用家族规则 —— `?? true`(而非真值)使 `visibleWhen: false` 真的隐藏而不是读成「未设门」(#3492 不变量),`!= null` 且在求值之外,使空谓词读成「无条件」而不是「禁用」。求值走 `useRowPredicate(..., { fallback: false, warnOnError: true })`,即记录页头(PR #4515)/ 行 kebab / DetailView 在同一位置的既有形。\n- **分层**:谓词层只叠在对象级判定通过之后(`affordances.import && can(object,'create')`),谓词不能重新打开 bucket / 有效 API 操作集(#3391)/ 主体授权(#4096、#4647)已关闭的东西。identity-import 旁路不读 `affordances.import`,是另一个 affordance,刻意留在该层之外。\n- **scope 记录语义(按 spec docblock 实测判定,不外推)**:toolbar 谓词对「工具栏所在 scope 的记录」求值一次;spec 明写「On a standalone object list there is no record in scope, so a predicate reading `record.*` has nothing to bind and — per the fail-closed rule above — hides the button」。对象列表顶层工具栏正是该面,故此处**故意传 `null`**:`os.user.*` / `features.*` 这类作用域谓词正常绑定(这里有意义的形态),读 `record.*` 的谓词无处绑定 → fail-closed 隐藏。这是 spec 为该面明写的规则,不是本实现的取舍;测试里两半都钉住了。\n- `core/managedBy.ts`:`UserActionsOverride.import` 由 `boolean` 放宽为与 `create` 同一 union,与消费者同车;把那条「刻意窄型」注释改写为指向本单的落地说明。\n\n⛔ 未动 spec、未动 ObjectGrid。\n\n## 测试\n\n新增 `ObjectView.importPredicates.test.tsx`(14 例,真渲染 + `data-testid` 断言,不是纯函数替身):visibleWhen 假 ⇒ 隐藏 / 真 ⇒ 保留;disabledWhen 真 ⇒ 置灰、假 ⇒ 可用、空串 ⇒ 无条件;纯 boolean 旧形与无 `userActions` 不回归;`enabled: false` 对象级关断;权限门(#4647)与谓词层叠加互不短路(谓词为真也无法重开被主体关掉的);`config` bucket 未 opt-in 时谓词不能复活按钮;`record.*` 不可绑定的 fail-CLOSED / fail-SOFT 两向。\n\n`managedBy.test.ts` 增 4 例,其中一例是**编译期**钉:类型放宽在运行时被擦除,vitest 看不见,只有 `tsc` 能看见 —— `packages/core/tsconfig.test.json` 编译该文件且由包 `type-check` 串起(#3181),即 CI 跑的那条。\n\n证据:\n\n```\nvitest packages/app-shell        → Test Files 428 passed | Tests 4116 passed | 1 skipped\nvitest packages/core             → Test Files  89 passed | Tests 1886 passed\nvitest ObjectView.importPredicates + managedBy → 44 passed (44)\nturbo run type-check --concurrency=2 → Tasks: 81 successful, 81 total\neslint（三个改动文件）            → 0 errors（161 warnings 全为既有 any）\ncheck-control-bytes              → OK（4571 tracked text files）+ 自扫含 ESC 位 0 命中\n```\n\n## 反向验证（先书面预判,再跑;结果与预判一致,含一处「反直觉但预判正确」的方向）\n\n**(a) 摘消费** —— 还原改前门(`affordances.import && can(...)`,去掉 `disabled`)。预判:恰 3 例红 —— visibleWhen 假、disabledWhen 真、`record.*` fail-CLOSED;其余 11 例是控制组,压根不进谓词层,两个世界都绿。实测:`Tests 3 failed | 11 passed (14)`,红的正是预判那三条。\n\n**(b) 塞假谓词键** —— 把隐藏用例的 `visibleWhen` 改拼成 `visible_when`。预判:该例翻红(按钮照出),证明门是钉在规范键上,而不是「只要有个像谓词的键就算」。实测:`1 failed | 13 passed`,`AssertionError: expected button… to be null`。\n\n**(c) 自选非显然方向:只回滚类型、保留消费者** —— 预判:**全部运行时用例仍绿**(放宽在运行时被擦除,resolver 是 spec 的,从不查 objectui 本地类型),只有 `tsc` 会红。实测正如预判:`vitest … 44 passed (44)`,而 `tsc -p packages/core/tsconfig.test.json` 报\n\n```\nsrc/utils/managedBy.test.ts(253,9): error TS2322: Type '{ enabled: boolean; visibleWhen: string; disabledWhen: string; }' is not assignable to type 'boolean | undefined'.\nsrc/utils/managedBy.test.ts(286,22): error TS2322: ... is not assignable to type 'boolean | undefined'.\n```\n\n这条正是加编译期钉的理由:类型那一半对整个运行时套件不可见,窄型在仓内也从不承重 —— 它承的是**下游作者 tsc 的判词**。同一次变异下 `@ts-expect-error`（`42` 那行）没有报「未使用」,说明放宽到的是 union 而非 `any`。\n\n三次变异均已还原,commit 后重跑复绿。\n\n## 半径外发现\n\n- 已立 #5153（unassigned,PM 分诊）:对象列表页自己的「New」按钮与手机端浮动 `+` 同样不消费 `createPredicates` —— create 半只在关联列表落地。按 spec 同一段 docblock,独立列表这个面**在 toolbar 谓词的适用范围内**(缺的只是记录),所以同一份 `userActions.create` 声明会因渲染面不同得到两种判词。立卡前已按关键字 + 文件路径查重,只回到 #4646(已关)与 #5142,非重复件。刻意未在本 PR 内修:本单只点名 `import` 键。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

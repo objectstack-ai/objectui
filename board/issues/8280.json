@@ -14,7 +14,6 @@
     "bug",
     "domain:ui",
     "package: app-shell",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,7 +22,7 @@
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-07T07:59:07Z",
-  "updated_at": "2026-09-25T02:07:29Z",
+  "updated_at": "2026-09-25T02:45:38Z",
   "closed_at": "2026-09-25T02:07:29Z",
   "closed_by": {
     "login": "os-elon-musk",

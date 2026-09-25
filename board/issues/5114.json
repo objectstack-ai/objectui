@@ -1,0 +1,33 @@
+{
+  "number": 5114,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): README 的 Integration with Data Sources 一节按 adapter 真实注入路径重写",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T01:43:15Z",
+  "updated_at": "2026-08-18T01:49:18Z",
+  "closed_at": "2026-08-18T01:49:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T01:49:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5114",
+  "body": "Fixes #5098\n\n## 背景\n\n该节把「接后端」教成 form schema 上的两个键 —— `dataSource`(adapter 本体)与 `resource: 'users'` —— 且写在一个**无类型标注**的 `const schema = { … }` 上。两个键在任一 form 路线上都没有读取点,照抄的读者拿到一个静默不连后端的表单,且零报错。\n\n## 前提复测(在本 PR 基线 `b29488f3e` 上逐条重跑,卡面三条判断全部成立)\n\n卡面读数是 PR #5100 之前的,行号已按现基线重取;结论未变。\n\n**1. `resource` —— 零声明、零读取点。** 用 cast 感知五形 grep(plain / `(schema as X)` / `schema['K']` / 解构 / 中间变量)复测,并先用确定存在的邻近键 `objectName`(108 处 plain 命中)反查证明 grep 有效:\n\n- `packages/types/src/form.ts` / `objectql.ts`:零声明。\n- `packages/components/src` + `packages/plugin-form/src`:`resource` 全词仅 5 处命中,全部是 adapter 方法**形参名**(`createExportJob(resource, request)`)、markdown 与一条注释,无一是 `schema.resource`。\n- 全仓 `schema.resource`(转义点)仅 2 处,均在 `packages/core/src/builder/schema-builder.ts:178` 的 **`CRUDBuilder`** 及其测试 —— 该键属于 **`CRUDSchema`**(`packages/types/src/crud.ts:434`,`type: 'crud'`),与 form 无关。\n\n**2. `dataSource` —— 基础 form 不从 schema 读,反而剥掉。** 卡面四个行号在新基线上逐字命中:\n\n| 位置 | 内容 |\n|---|---|\n| `form.tsx:1004` | `const contextDataSource = schemaCtx?.dataSource ?? null` |\n| `form.tsx:2061` | `dataSource: contextDataSource` (逐字段下发) |\n| `form.tsx:304` | `dataSource: _dataSource` (`stripRendererOnlyProps` 丢弃式解构) |\n| `form.tsx:2168` | `dataSource: _dataSource` (同上,props 侧) |\n\n**同族事实的分层判定(#5065 席发现的 cast 读点)**:全仓 `dataSource` 的 cast 读点只有一处 —— `packages/react/src/hooks/useElementDataSource.ts:139` 的 `(schema as Record< string, unknown >).dataSource`。逐条判明:\n\n- **它服务谁**:`record_picker`(`components/src/renderers/basic/record-picker.tsx:97`)与 `ElementDataSourceGate` / `useElementDataSourceSchema` 的消费者(plugin-list、plugin-detail、以及 **`object-form`** 自身)。\n- **是否在基础 form 路径上**:**否**。`form.tsx` 不 import、不调用 `useElementDataSource`(grep 零命中)。\n- **它读的是什么**:`ElementDataSourceConfig` = `{ object, view?, filter?, sort?, limit? }`(`core/src/data-scope/element-data-source.ts:75`)—— 一个**声明式绑定**,不是 adapter。且该 predicate **明确拒收 adapter**:`element-data-source.ts:131` 对任何带 `find` 方法的值返回 false。\n\n所以「别处有读点」与「本路径读它」是两回事,README 按此分层写,未混为一谈。\n\n**3. 同文件自相矛盾成立。** `### Registering a component under your own key`(现 `:137-138`,PR #5100 后文本未变)已写对:「`SchemaRenderer` … but never a `dataSource` — that travels on `SchemaRendererContext`」。本次改写措辞与该节口径一致。\n\n## 改动\n\n仅 `packages/plugin-form/README.md` 的 `## Integration with Data Sources` 一节 + changeset(patch)。**未**动同文件其它节,**未**给 `FormSchema` 加任何键,**未**动任何 src。\n\n按真机制重写为三块:adapter 由 `SchemaRendererProvider` 一次性注入并走 context;元数据侧走 `object-form` 的必填 `objectName` + `mode`;TypeScript 侧是裸 `form`,持久化归 `onSubmit`。两个示例都带真类型标注(`ObjectFormSchema` / `FormSchema`)。并如实说明:schema 上写 `dataSource` 会被丢弃式解构剥掉,旧写法「看起来能跑」的只有 `onSubmit` 闭包。\n\n## 验证\n\n**编译探针(对 dist 产物,strict)—— 分层预判后再跑,预判全中。** 示例**逐字从 README 提取**(非重打),避免测到retyped副本:\n\n| 探针 | 预判 | 实测 |\n|---|---|---|\n| P1 正控:两示例 strict 编译 | 绿 | `rc=0` ✅ |\n| P2 删 `objectName` | 红(必填键有牙) | `TS2741 Property 'objectName' is missing` ✅ |\n| P3 删 `mode` | 红 | `TS2741 Property 'mode' is missing` ✅ |\n| P4 回填旧键 `dataSource` + `resource` | **绿**(索引签名穿透) | `rc=0` ✅ |\n| P5 `mode: 'created'`(坏枚举成员) | 红 | `TS2820 not assignable to '\"create\" | \"edit\" | \"view\"'` ✅(预判 TS2322,实为更具体的 TS2820 变体,方向与含义一致) |\n\n**P4 的绿是预判内的、也是本卡的要害**:`FormSchema` / `ObjectFormSchema` 均 extends `BaseSchema` 的 `[key: string]: any`,节点层未声明键探针无牙。它之所以**有意义**,正因为 P2/P3/P5 是红的 —— 标注确实有牙,却仍看不见这两个键。\n\n**名集合核对**:`SchemaRendererProvider`(`react/src/context/SchemaRendererContext.tsx:23`)、`SchemaRendererContext`(同文件 `:21` 导出)、`createObjectStackAdapter`(`data-objectstack/src/index.ts:4522`)、`ObjectFormSchema`(`types/src/objectql.ts:996`)、`FormSchema`(`types/src/form.ts:1055`)—— import 路径全部亲测可解析(P1 绿即证)。全部 file:line 引用已逐条 `sed -n` 回读核对。\n\n**门禁**:仓根 `turbo run type-check` **81/81 successful**;`check-doc-links`(13 scan roots 全绿)、`check-control-bytes`(4533 文件)、`check-doc-component-types`、`check-changeset-presence` 全绿;改动文件控制字节自扫(`grep -naP` 含 gate 不扫的 `0x01`-类)零命中;7 个文内锚点 0 未解析。\n\n## 反向验证(先书面预判,后变异/还原)\n\n**(a) 旧节回填 → 预判「两道门都抓不到」,实测确认。** 回填后 `check-doc-links`、`check-control-bytes`、`check-doc-component-types`、文内锚点、`plugin-form` type-check **全绿**,无一格报警。根因已实测定位:`check-doc-component-types.mjs` 的 `DOCS_ROOT = 'content/docs'`(实测「Scanned 143 **mdx** file(s)」),**包内 `README.md` 不在任何门禁扫描面上**。这是 #5043 所指盲区的一次实测确认,而非假设。\n\n**(b) 塞假名自证**:`SchemaRendererProvider` → `SchemaRendererProviderX`,探针 `TS2724 has no exported member named …` 变红 —— 证明探针是活的、名集合核对不是空转。\n\n**(c) 自选方向 —— 实测「旧写法为什么看起来能跑」。** 用一次性 runtime 探针(已删,未入 PR)渲染旧节原样 schema,挂三个**可区分**的 adapter:schema 键上一个、`onSubmit` 闭包捕获一个、context 上一个。实测:\n\n```\nclosureAdapter_create_calls:     1          ← 闭包真的跑了,真的写了\nschemaAdapter_total_calls:       0          ← schema 上那个 adapter 一次都没被调用\nlookup_widget_dataSource_tag:    \"CONTEXT\"  ← 数据源族 widget 拿到的是 context 的\ninput_widget_dataSource_tag:     null       ← 非数据源族 widget 不发(allow-list)\nany_widget_saw_resource:         false\nschema_key_reached_any_widget:   false\n```\n\n这给 README 的「只有 onSubmit 闭包在工作」一句提供了实测依据,而非推理。(过程中该探针先因从包目录起 vitest 被仓库 `vitest-invocation-guard` 拦下 —— objectui#3378 的假绿陷阱 —— 改从仓根跑后通过。)\n\n## 与其它卡的关系\n\n- **PR #5100**(同文件 `## Schema API` + `## Examples` 两节重写):本 PR 是其**未覆盖的第三节**,基线已含 #5100(`e09f9e898`),两者不重叠;示例的「带真类型标注」做法与措辞口径沿用 #5100,矛盾的正确侧照抄 `### Registering a component under your own key` 既有表述。\n- **#5043**(门禁盲区):本 PR 不修门禁,只在 (a) 中把「包内 README 无门禁覆盖」从判断升级为实测结论,可作 #5043 的证据补充。\n- **#5075**:本卡由其实施中扫出并如实分离。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

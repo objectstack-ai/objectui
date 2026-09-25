@@ -1,0 +1,30 @@
+{
+  "number": 5119,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): TypeScript Support 块的 import 改指真身 @object-ui/types",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T02:01:49Z",
+  "updated_at": "2026-08-18T02:07:21Z",
+  "closed_at": "2026-08-18T02:07:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T02:07:19Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5119",
+  "body": "Fixes #5086\n\n基线 `origin/main` @ `99d5659df0caece58861435f9914f7ad4ff0d53f`(即 PR #5109 的合入 commit)。\n\n## 本卡三处的分布\n\n#5086 是三处合一卡,本 PR 是**最后一处**:\n\n| 处 | 文件 | 状态 |\n| --- | --- | --- |\n| grid | `content/docs/plugins/plugin-grid.mdx` | 已随 **PR #5103** 落 main(`b29488f3e`) |\n| view | `content/docs/plugins/plugin-view.mdx` | 已随 **PR #5109** 落 main(本 PR 基线 `99d5659df` 就是它) |\n| **form** | `content/docs/plugins/plugin-form.mdx` | **本 PR** |\n\n三处都落齐,故本 PR 用 `Fixes #5086` 收卡。\n\n## 前提复测(改前先验,逐条与卡面对照)\n\n卡面对 form 处的三条判断**全部成立**,证据取自**已构建**的 `dist/index.d.ts`,用 TS 编译器 API `checker.getExportsOfModule`(#5043 规格),非 grep src:\n\n| 判断 | 复测结果 |\n| --- | --- |\n| `FormSchema` / `FormField` 不在 `@object-ui/plugin-form` 导出面 | ✅ 该包 **51** 个导出名(与卡面记的 51 相符),两个都 **ABSENT** |\n| 真身在 `@object-ui/types`(`packages/types/src/form.ts`) | ✅ 该包 **675** 个导出名,两个都 **PRESENT** —— `FormField` @ `form.ts:898`,`FormSchema` @ `form.ts:1055` |\n| `packages/plugin-form/src` 只 import 不 re-export | ✅ 该包 entry 上的 form 类型是逐容器的那批:`TabbedFormSchema`、`WizardFormSchema`、`ModalFormSchema`、`SplitFormSchema`、`DrawerFormSchema`、`MasterDetailFormSchema` |\n\n## 同名陷阱侦查(grid 处 `GridSchema` 的前车)\n\ngrid 那三分之一之所以更糟,是因为两个名字在别包**存在且指别的东西**。form 这两个名字复测如下 —— 结论:**不构成 grid 那种误导**,但 `FormField` 有一个值得记录的同名物:\n\n- **`FormSchema`** —— 全仓只有一处**类型**声明(`packages/types/src/form.ts:1055`),`@objectstack/spec` 无同名类型。无歧义。\n  - 附带:`packages/types/src/zod/form.zod.ts:452` 有一个同名的 **zod 值** `export const FormSchema`,但它不在 types 根 entry 上,且 `import type` 取的是类型位,不影响本页。\n- **`FormField`** —— `@objectstack/spec`(`/ui`)导出**另一个** `FormField`:zod 推导的**线上元数据**形状,身份键是 `field` 而不是 `name`。`@object-ui/types` 正是为了不让两者混同,把它**另名** re-export 为 **`SpecFormField`**(`packages/types/src/index.ts:1154`,#3090 tripwire)。本页要的是运行期那个(`name` 键),即本 PR 指向的 `@object-ui/types` 的 `FormField`,写法与 README 一致。\n  - 另有 `packages/react/src/spec-bridge/bridges/form-view.ts:12` 的**模块内私有** `interface FormField`(spec 形状,键为 `field`),未导出,读者 import 不到。\n\n按 #5011 定调,**未**为让旧路径成立而在 `@object-ui/plugin-form` 新增 re-export —— 加宽包公共面是契约变更,不是文档修复。\n\n## 改了什么\n\n半径 = `content/docs/plugins/plugin-form.mdx` 的 **TypeScript Support 一块**,17 增 3 删,同文件其它段一行未碰。\n\n1. import 从 `@object-ui/plugin-form` 改指 `@object-ui/types`。\n2. 补一段说明:这两个是协议类型,该包 import 而不 re-export;并点名该包自己 entry 上的六个逐容器类型,免得读者继续往这个包里找 schema 类型。口径与 `packages/plugin-form/README.md` 的同名小节(PR #5100 落的)一致 —— 那是本页的 README 半。\n3. 顺带把该块改成**可编译**:原示例的 `fields: [...]` 是**语法错误**,且 `FormField` 导入后从未使用。现在给出真实的 `emailField: FormField`,由 `loginForm.fields` 引用。围栏语言 `plaintext` → `typescript`,与 PR #5103 / #5109 处理 grid / view 两页时同口径。\n\n⛔ 未动 `packages/plugin-form/README.md`(#5098 席在飞的文件)。\n\n## 探针纪律分层(先说清楚什么探针不作数)\n\n`FormField` 自带 `[key: string]: any`(`form.ts:1034`),`FormSchema` 从 `BaseSchema` 继承一个(`base.ts:318`)。所以**未声明键探针在这两个类型上永远是绿的,不作数**。有牙的是必填键与字面量键。下面第 6 条就是为了把这一点钉住而**预判绿**的。\n\n## 验证(先书面预判,再跑;七条全部与预判一致)\n\n| # | 探针 | 预判 | 实测 |\n| --- | --- | --- | --- |\n| 0 | 改后块逐字编译(strict) | rc=0 | ✅ rc=0 |\n| a | **反向**:旧 import 回填到新 body | TS2305 ×2 | ✅ `error TS2305: Module '\"@object-ui/plugin-form\"' has no exported member 'FormSchema'.` / `… 'FormField'.` |\n| b | 假名自证:`FormSchemaThatDoesNotExist` 从**新**路径导入 | TS2305 ×1 | ✅ 证明第 0 条的绿是真解析,不是宽松模块吃掉任何名字 |\n| d | 必填键负控:`FormField` 去掉 `name` | **TS2741** | ✅ `Property 'name' is missing … but required in type 'FormField'.` |\n| e | 字面量负控:`FormSchema` 写 `type: 'grid'` | TS2322 | ✅ `Type '\"grid\"' is not assignable to type '\"form\"'.` |\n| f | 未声明键(**预判绿**) | **rc=0** | ✅ rc=0 —— 索引签名吃掉,坐实「未声明键探针不作数」 |\n| c | 自选非显然方向:**旧 body 逐字** | 语法错误 | ✅ `error TS1109: Expression expected.` —— 旧块是**双重**不可编译(路径错 + `fields: [...]` 语法错),不只是 import 指错 |\n\n名集合核对(#5043 AST 形,对**已构建** dist 导出面):改前 **2 FAIL** → 改后 **0 FAIL**。commit 后又做了一次真实变异还原(把已提交文件的 import 改回旧路径 → 2 FAIL,`git checkout --` 还原 → 0 FAIL,工作区干净)。\n\n仓库门:\n\n```\nnode scripts/check-doc-links.mjs            Links are valid across 13 scan roots.\nnode scripts/check-control-bytes.mjs        OK (scanned 4545 tracked text file(s); skipped 85 binary)\nnode scripts/check-doc-component-types.mjs  Every documented component type is registered.\nturbo run type-check --concurrency=2        Tasks: 81 successful, 81 total  (0 error TS)\n```\n\n改动文件控制字节自扫(`grep -naP` 覆盖 gate 不扫的 `0x01`–`0x08` 等)无命中;commit message 与 diff 双 grep 无模型标识。\n\n## changeset\n\n`node scripts/check-changeset-presence.mjs` 判定 **不欠**,原文:\n\n> Compared the working tree with 99d5659df (merge-base with origin/main): 1 file(s) changed, 0 of them under the src/ of a package the release covers, 0 under a package changesets ignores, 0 changeset(s) added.\n> ✅ No source of a released package changed in this range, so no changeset is owed.\n\n与 PR #5104 同先例,故未加。\n\n## 半径外发现\n\n同文件另外两段的键面漂移已**另立 #5118**(未认领,未夹带):`### Form Field` 参考块写 `validation?: ValidationRule[]` —— `ValidationRule` 这个类型名全仓不存在,且数组拼法正是让校验静默失效的那个写法;`### Form with Validation` 那段 JSON 示例标题叫「带校验」而实际一条校验都不生效。它是 #5075(README 半,已闭)的文档站镜像,与 #5076 / #5088 / #5094 同一成因。立卡前已查重:#5075 已闭且只覆盖 README,无 mdx 侧同族卡。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

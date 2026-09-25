@@ -1,0 +1,36 @@
+{
+  "number": 5150,
+  "kind": "issue",
+  "title": "AGENTS.md §9 的 `git commit -F -` 示例带着 shell 转义残留落地(`&lt;&lt;'\\\"'\\\"'EOF'\\\"'\\\"'`),照抄得到一条不会终止的 heredoc",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T06:27:03Z",
+  "updated_at": "2026-08-18T06:35:17Z",
+  "closed_at": "2026-08-18T06:35:17Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5150",
+  "body": "由 PM 座席在 PR #5135(卡 #4994)合并**之后**的事后核查中发现 —— 那个 PR 未经报告、未经人工核验就入队合并,19 秒落地。这是那次未核验合并的唯一实质代价。\n\n## 缺陷\n\n`AGENTS.md` §9 新增的共享 scratchpad 条款里,「首选机制」那条的代码示例在 `origin/main` 上的真实字节是:\n\n```\n  git commit -F - <<'\"'\"'EOF'\"'\"'\n  fix(scope): 一句话主题\n\n  正文……\n  EOF\n```\n\n`'\"'\"'` 是**在单引号 shell 字符串里嵌入一个单引号**的转义写法。写文件的那次调用本身套在单引号里,转义序列漏进了文件内容。应有的字节是:\n\n```\n  git commit -F - <<'EOF'\n```\n\n实测确认过是文件内容而非渲染问题(`git show origin/main:AGENTS.md | sed -n '222,245p' | cat -A` 明确显示 `git commit -F - <<'\"'\"'EOF'\"'\"'$`),不是 diff 视图的转义。\n\n## 为什么值得单开一卡而不是顺手改\n\n**照抄这条示例得不到一条能用的命令。** heredoc 的终止符不再是 `EOF`:`<<` 后面那个词经 shell 引号消除后不是 `EOF`,所以下面那行 `EOF` 匹配不上,heredoc 不终止 —— 命令要么吞掉后续输入,要么等在那里。\n\n失败形状和这条规则自己描述的那一族同类:**没有报错可看**。作者以为自己照做了「让内容不落共享盘」,拿到的是一条卡住的命令,于是最可能的反应是退回第 2 条(临时文件 + 前缀),也就是这条规则明确说「能用形式解决的,就别退回到纪律」的那一条。**一个教你用机制替代纪律的示例,坏掉之后恰好把人推回纪律。**\n\n这也是 agent 面文本特有的放大:`AGENTS.md` 是之后每一个会话都要读的东西,坏示例不是被一个人踩一次,是被每一个读到它的座席各踩一次。\n\n## 修复\n\n一行,把那行的字节改成 `  git commit -F - <<'EOF'`。周围的散文、编号、排序(机制在前、纪律在后)与那段说明为什么机制优于纪律的论证**都是对的,不要动** —— 事后核查逐条对过 #4994 的裁定,三点全部成立:机制半边在场且排在纪律半边之前、被推迟的 PreToolUse 钩子没有被建、#4016 的历史标注已发(评论 5323653819)。这一条是那次落地里唯一坏掉的东西。\n\n⚠️ 改的时候注意别重蹈覆辙:**不要**用套在单引号里的 shell heredoc 去写这个文件。用编辑工具直接改那一行,或者用不需要嵌套引号的写法,改完 `git show HEAD:AGENTS.md | cat -A` 把那两行的字节读回来确认。\n\n## 复核命令\n\n```\ngit show origin/main:AGENTS.md | grep -n \"commit -F -\"\ngit show origin/main:AGENTS.md | cat -A | grep -n \"EOF\"\n```\n\n关联:#4994(落地本条规则的卡,裁定内容正确)、PR #5135(带着这个缺陷合并的 PR)、#4016 / PR #4988(这条规则要防的那次实际损伤)。"
+}

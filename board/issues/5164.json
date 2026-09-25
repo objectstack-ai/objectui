@@ -1,0 +1,35 @@
+{
+  "number": 5164,
+  "kind": "issue",
+  "title": "`ObjectDataPage` (\"/data\" surface) gates \"New\" on the permission alone — the whole CRUD affordance matrix is unread there",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:10:42Z",
+  "updated_at": "2026-08-18T08:53:33Z",
+  "closed_at": "2026-08-18T08:53:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5164",
+  "body": "## Summary\n\nFound while implementing #5153 (the object-list page's \"New\" / mobile FAB consuming `createPredicates`), during the entry-point census for the `create` affordance.\n\n`ObjectDataPage` — the parameterized bare data surface (ADR-0055, #2251), route `/apps/:appName/:objectName/data` — renders its own \"New\" button gated on **nothing but the principal's grant**:\n\n```\npackages/app-shell/src/views/ObjectDataPage.tsx:447   {can(objectDef.name, 'create') && (\npackages/app-shell/src/views/ObjectDataPage.tsx:455     data-testid=\"object-data-new-button\"\n```\n\nUnlike its sibling `ObjectView`, this file never calls `resolveEffectiveCrudAffordances` at all — the string does not appear in it. So on this surface:\n\n- the **`managedBy` bucket default is ignored**. `append-only`, `engine-owned` and `better-auth` all resolve `create: false`, yet `/data` offers \"New\" for them;\n- **`userActions: { create: false }`** — the object-level opt-out — does not close the button;\n- the **#3391 effective API operations** intersection is absent, so the toolbar can offer a create the server would 405;\n- and by extension `createPredicates` are unread here too (the #5153 defect, but as a consequence of the wider gap rather than the gap itself).\n\nNote the `userActions` block that *does* appear in this file (`:342`) is the **view**'s toolbar vocabulary (`search` / `sort` / `filter` / `rowHeight` / `group` / `hideFields`, per #2890) — a different key space from the object's CRUD `userActions`. The object-level one is genuinely absent, not spelled differently.\n\n## Why this is not a duplicate of #5153\n\n#5153 is scoped to `ObjectView.tsx`, a surface that already honoured the bucket and the permission and was missing only the predicate layer on top. This is the layer *below* that: a surface that honours neither the bucket nor the object-level opt-out. Fixing #5153 does not touch this file, and its PR deliberately does not (radius held to `ObjectView.tsx`). Searched open issues for this file and for the data-surface create gate before filing; only #5153 came back.\n\n## Impact\n\nA user reaching `/apps/:app/:object/data` for an object whose lifecycle bucket forbids creation is offered a \"New\" button that navigates to `../new`. The server is the enforcement point, so this is a UI-truthfulness defect rather than a privilege escalation — but it is user-reachable today, not dormant, and it contradicts the affordance matrix the rest of the console renders from.\n\nSeverity judged at filing time is unreliable in both directions, so this is filed plainly for triage rather than graded here.\n\n## Related\n\n- #5153 — the object-list page's create half (predicates), the run this was found in.\n- #5142 / #4646 — the import and related-list halves of the same family.\n- #2251 / ADR-0055 — the surface itself."
+}

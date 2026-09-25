@@ -1,0 +1,35 @@
+{
+  "number": 5209,
+  "kind": "pull_request",
+  "title": "feat(types,core,plugin-grid): retire the structured confirm arm — one confirm spelling",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T14:38:14Z",
+  "updated_at": "2026-08-18T15:01:31Z",
+  "closed_at": "2026-08-18T15:01:29Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T15:01:29Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5209",
+  "body": "Fixes #4314\n\nMaintainer ruling 2026-08-17 (verbatim 「同意」, disposition 1 — ADR-0049 enforce-or-remove, remove arm), re-scoped to Option A after the fork report on the card: the structured `confirm` object had zero producers, no translation-bundle key, and its `message` OUTRANKED `confirmText` — the only spelling the bundle knows (`{ns}.objects.{obj}._actions.{name}.confirmText`) — so a dialog authored that way silently lost localization, while four surfaces steered authors INTO it.\n\n## What changed\n\n- **`@object-ui/types`** — `packages/types/src/crud.ts`: the structured arm is now a `?: never` tombstone and the backwards `@deprecated` note on `confirmText` is gone. `packages/types/src/zod/crud.zod.ts`: the Zod twin refuses any authored `confirm` value (absent stays valid) instead of accepting the object; its backwards describe-text is fixed.\n- **`@object-ui/core`** — `packages/core/src/actions/ActionRunner.ts`: the precedence read (`action.confirm?.message || action.confirmText`) is deleted; the runner reads only `confirmText`. `ActionDef.confirm` carries the same `never` tombstone. `ConfirmationHandler`'s signature is untouched (see scope note below); the runner now invokes it without the options argument.\n- **`@object-ui/plugin-grid`** — `packages/plugin-grid/src/resolveBulkActions.ts`: the `confirm.message` fallback is dropped — spec's action surface carries only `confirmText` (verified against the installed `@objectstack/spec` dist), so that branch read a key `objectDef.actions` can never deliver.\n- **Docs** — `content/docs/core/enhanced-actions.mdx` (three snippets plus the Confirm Properties reference) and `content/docs/api/schema-reference.md` (example plus property table) now teach `confirmText`. These were the remaining steering faces.\n- Changeset: `minor` for all three packages per this repo's no-major policy, breaking semantics spelled out in the changeset body.\n\n## Retirement convention applied, and why\n\nThis repo's tombstone convention for retired authorable keys (precedent: `packages/types/src/complex.ts` `DashboardWidgetSchema`, mirroring `@objectstack/spec`'s `retiredKey` doctrine), rather than a bare deletion:\n\n1. **TS half**: `confirm?: never` — authoring the key is a tsc error at the author's desk, not a silently-ignored key at runtime; reading it still type-checks during migration.\n2. **Zod half**: `z.never().optional()` — any authored value is a loud parse rejection, never a silent strip that would let an author believe the dialog they configured exists.\n3. **Pins**: a `@ts-expect-error` literal pin (enforced by the types package's `type-check`, which compiles every test file and fails on an unused directive), a Zod refusal pin, an ActionRunner pin (a rejecting confirm handler is NOT invoked by the retired arm — under the old precedence read that handler would have cancelled the action), and a resolveBulkActions pin (structured object promotes to no `confirmText`).\n\nA bare deletion would have left excess-property checking as the only compile-time signal (which spread/indirect objects bypass) and Zod strip-mode acceptance as the runtime behaviour — the silent-behaviour-change shape the dispatch prohibited.\n\n## Scope notes\n\n- `packages/app-shell` is deliberately NOT in this diff (held by another session this round). `ConfirmationHandler`'s optional options parameter — fed only by the retired arm — stays as declared; the follow-up recording that it is now declared-but-never-produced (ADR-0049 shape) is #5205. #5205 remains open and is not addressed here.\n- Reopen condition recorded on the card: real demand for structured confirm dialogs returns the arm WITH its bundle keys (`_actions.{name}.confirm.*`) designed in.\n- Overlap scan: today's main landings (#5196, #5204, #5200, #5199, #5193, #5188) touch app-shell/components/fields/docs-styling — none intersect this diff's files; `origin/main` (4eac264) is merged into the branch.\n\n## Verification (all at head `4e65597eb` unless noted)\n\n- Build: turbo `--filter=\"...@object-ui/types\"` — 43/43 tasks green.\n- Tests (repo root, path-filtered): `pnpm exec vitest run packages/types/ packages/core/ packages/plugin-grid/` — 204 files, 3011 tests, all green.\n- **Consumer radius for `@object-ui/types`** — direction: dependents (prefix filter `...@object-ui/types`): turbo `type-check` — 78/78 tasks green, including app-shell, components, fields, examples, console (read-only type-check; no files edited there).\n- Reverse verification (at `9621a62`, pre-merge; the merge touched none of this diff's files): a temp probe in `packages/core` authoring `confirm: { message: … }` against the REBUILT `@object-ui/types` dist — `error TS2322: Type '{ message: string; }' is not assignable to type 'undefined'` — then removed; observed direction: red, as expected.\n- Gates: `check-changeset-presence`, `changeset:check` (no-major), `check:control-bytes`, `check:doc-snippets` (67/67 blocks), `docs:check-links` — green at `4e65597eb`; `check:action-forward-parity`, `check:doc-types`, `check:spec-symbols`, package `lint` (3 pkgs), package `type-check` (3 pkgs, includes the `@ts-expect-error` enforcement) — green at `9621a62`, diff unchanged since.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

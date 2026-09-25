@@ -1,0 +1,35 @@
+{
+  "number": 10514,
+  "kind": "pull_request",
+  "title": "docs(components): record_picker `limit` states the composer's precedence (objectui#10399)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T06:14:55Z",
+  "updated_at": "2026-09-25T06:42:31Z",
+  "closed_at": "2026-09-25T06:42:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T06:42:29Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10514",
+  "body": "Fixes #10399\nClause-②: no\n\n## What changed\n\n`element:record_picker`'s `limit` input description (the authoring description in `packages/components/src/renderers/basic/record-picker.tsx`) used to end \"PRECEDENCE: `dataSource.limit ?? limit ?? 50` — a node-level binding wins outright\". Two things made it false:\n\n- it skipped the saved view that `dataSource.view` names, whose row cap sits between the binding and the picker's own key;\n- under ruling A on objectui#10016 (PR objectui#10389), a binding cap the contract refuses (`0`, a negative, a non-integer) is not authored and falls through.\n\nIt also cited the renderer by a line address that had drifted. The description now names four sources in order (`dataSource.limit`, the named view's row cap, THIS key, then 50). It says that a cap in the first two counts only when it is a positive integer, and that a refused one falls through exactly as an absent one does. The line address is replaced by a content description (the trailing `?? 50` where the picker resolves its `limit`).\n\n`content/docs/guide/data-source.md`: the sentence where the binding's `sort` / `limit` override the view now adds the refused-cap fall-through in one sentence.\n\nText only. No behaviour changes.\n\n## Derivation (from the merged code, not the card)\n\n- `composeElementDataSource` (`@object-ui/core`): `const limit = bindingLimit(config) ?? savedViewLimit(view);`. Both helpers return a cap only when `isUsableRowLimit` holds (an integer greater than zero).\n- The picker reads `const limit = composed?.limit ?? props.limit ?? 50;` and `composed` comes from its own `useElementDataSource(schema, adapter)`.\n- Result: usable binding cap, then usable view cap, then the picker's `limit`, then 50. This matches triage's reading.\n\n## Sibling `filter` / `sort` descriptions: checked, not edited\n\nThe composer has no refused-value fall-through for them: `const sort = config.sort ?? view?.sort;`, and `filter` is `config.filter ?? viewFilter` (or `mergeFilterNodes` when both are set). `isElementDataSourceConfig` checks only `object`. So \"wins outright\" / \"REPLACES\" is still true for those two, and they are left unchanged.\n\n## Pin\n\nThe existing description test `record-picker-inputs-spec-parity.test.ts` gains one case: \"the `limit` description states the composer's precedence, not the pre-objectui#10016 one (objectui#10399)\". It asserts the description exists (non-vacuity) and does not contain the stale spelling, \"wins outright\" or a `record-picker.tsx:N` address. It also asserts that it mentions `dataSource.view` and \"not authored\".\n\nReverse check, run after the fix was committed: the pre-fix file was restored from `bc4efba73`, and on disk the stale spelling count was 1 and the new text count 0. That case then went red with `expected 'Maximum number of records the picker …' not to contain 'dataSource.limit ?? limit ?? 50'` (`Tests 1 failed | 8 skipped`). The file was restored with `git checkout HEAD`: `git diff HEAD` is 0 bytes and the blob hash matches HEAD.\n\n## Verification (head `c71a9dd95`)\n\n- `pnpm exec vitest run packages/components/`: `Test Files 299 passed | 1 skipped (300)`, `Tests 2910 passed | 17 skipped (2927)`.\n- Four named suites (the three record-picker suites, plus `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`): `222 passed`.\n- `pnpm --filter @object-ui/components type-check`: exit 0, after building the dependency closure. `tsconfig.test.json` includes `src/**/*.test.ts`.\n- eslint on the two touched TS files: 0 errors. There are 10 warnings, all on existing lines of the renderer and none on the edited line or the test. The config is not type-aware, so this narrowing cannot change any verdict on untouched files.\n- Exit 0: `check:new-line-citations` (0 new), `check:control-bytes`, `check-changeset-presence`, `changeset:check` (fixed + no-major), `check:changeset-claims`, `check:pending-changeset-literals`, `check:doc-types`, `check:doc-fences`, `check:doc-example-ids`, `docs:check-links`, `check:test-path-roots`, `check:element-data-source-declaration`, `check:component-surface-parity`.\n- NOT MEASURED, exit 2 because the prerequisite was not met, so these go to CI: `check:doc-snippets` and `check:doc-examples` need 34 packages built, and the .md edit is prose with no code block. `check:sdui-registration-pins` needs a console build.\n\nChangeset: `.changeset/10399-record-picker-limit-precedence-text.md`, `@object-ui/components` patch. The description string is published source under `src/`.\n\n## Acceptance notes\n\n- `@objectstack/spec` `ElementRecordPickerProps.limit`: its JSDoc still spells `ds.limit ?? props.limit ?? 50`, and its `.describe` says the binding \"takes precedence when both are set\". For spec-valid values that is true but incomplete, because it does not mention the named view's cap. This is in the sister repo and is not filed.\n- The picker's own `limit` is not held to the positivity check: `if (limit) query.$top = limit` sends no `$top` for `0`. The spec refuses `0` for that key at authoring, so the description does not claim it is checked. Nothing is filed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

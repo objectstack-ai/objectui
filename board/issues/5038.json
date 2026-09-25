@@ -1,0 +1,33 @@
+{
+  "number": 5038,
+  "kind": "pull_request",
+  "title": "fix(cli): resolve the project root the same way in dev, serve and build (#4923)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T18:48:01Z",
+  "updated_at": "2026-08-17T19:00:37Z",
+  "closed_at": "2026-08-17T19:00:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T19:00:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5038",
+  "body": "Fixes #4923\n\n## 修前实测(三命令,同一 fixture,从上层目录调用)\n\nfixture 是卡面形态:`4923-fixture/app.json` + `4923-fixture/pages/index.json`,在仓根跑。\n\n`objectui dev 4923-fixture/app.json`:\n\n```\n📂 Detected project structure at /home/user/objectui-cli-root-parity/4923-fixture\n⚙️  Loaded App Config from app.json\n📁 Using file-system routing from /home/user/objectui-cli-root-parity/4923-fixture/pages\n✓ Found 1 route(s)\n  / → ./4923-fixture/pages/index.json\n```\n\n`objectui serve 4923-fixture/app.json`:\n\n```\n📋 Loading schema: 4923-fixture/app.json\n📦 Detected monorepo - using root node_modules\n```\n\n`objectui build 4923-fixture/app.json --out-dir 4923-fixture-dist`:同上退化成单 schema 模式,并且 **exit 0** 跑完了整个 Vite 构建。产物验尸:\n\n```\n$ grep -rl \"fixture_app\"      4923-fixture-dist/   # app 配置被当页面 schema 打进去了\n4923-fixture-dist/assets/index-Cyt1JDho.js\n$ grep -rl \"fixture home page\" 4923-fixture-dist/  # pages/ 里的真页面:一个都没有\n(无输出)\n```\n\n即:错产物,静默产出,退出码 0。三命令对同一 invocation 给两种答案,输的那一种不报错。\n\n## 修法\n\n检测面抽成三命令共用的一步(`packages/cli/src/utils/project-source.ts`),解析顺序固定:\n\n1. schema 参数指向的文件旁边有 `pages/` → 文件系统路由,该文件即 app 配置(这条是 serve/build 从来没有的支路);\n2. 否则 cwd 下的 `pages/` → 文件系统路由,`app.json` 存在则作 app 配置;\n3. 否则单 schema 文件模式。\n\n报告(那几行检测输出)拆在同一文件里 `reportProjectSource`,所以两个命令的输出对比,对比的是同一个函数和它自己。serve/build 同时补上了**把解析出的 app 配置传给路由版生成器** —— 它们此前只传两个参数,路由认出来了、布局丢了。\n\n`isWorkspaceRoot` / `prepareWorkspaceTempApp`(#3890 / PR #4922 的别名面)一行未动。\n\n## 分叉出口:先查了「刻意单 schema 语义」是否文档化\n\n结论是**没有**,而且文档三处说反:`cli.ts:62` 把 dev 描述为 “alias for serve”;`packages/cli/README.md` 与 `content/docs/utilities/cli.mdx` 都把 serve 写成 “Legacy alias of `dev`”;文档的 File-system routing 一节承诺 “dev 和 build 在项目含 `pages/` 时自动切文件系统路由”。所以不是二选一的语义之争,是实现没兑现文档 —— 按分诊的机制假设实施,并把文档补上「哪个目录算项目」。\n\n## 修后实测\n\n三命令输出逐字一致(仅 build 多一行自己的构建抬头):\n\n```\n📂 Detected project structure at /home/user/objectui-cli-root-parity/4923-fixture\n⚙️  Loaded App Config from 4923-fixture/app.json\n📁 Using file-system routing from /home/user/objectui-cli-root-parity/4923-fixture/pages\n✓ Found 1 route(s)\n  / → 4923-fixture/pages/index.json\n```\n\n产物同样验尸:`fixture home page`(真页面)、react-router 都进了 bundle。\n\n## 测试\n\n`packages/cli` 全量 144 passed(新增 25)。新测试有意**不用 module mock**:`unit` project 跑在 `isolate: false` 下,mock 掉共享 util 会被同一 worker 里别的文件看见。命令层改用「判决发生在检测步之内」的输入(空 `pages/` 目录、坏的孤立 schema、缺文件),三命令都在碰到 Vite 之前抛错,错误信息里带着**它扫的是哪个目录** —— 那正是三者此前不一致的那个事实。\n\n## 反向验证(先书面预判,再变异)\n\n- **① serve 退回 cwd-only 读法**:预判 1 条行为红 + 3 条源码钉红。实测先只红了 3 条 —— 行为红的形状与预判一致(`expected ... 'No schema files found in /tmp/objectu…' but got 'Failed to install dependencies…'`,11.7s,正是退化后一路走到 `npm install`),但**共享函数钉没红**:变异留下了没人用的 import,而钉子按裸标识符匹配。这条是变异查出来的真漏洞,已把钉子改成匹配调用形(`resolveProjectSource(cwd, schemaPath)`),重跑变异 → 4 条全红,与预判一致。\n- **②a 撤掉 cwd 兜底支路**:预判**只**红 `falls back to the working directory…` 一条,孤立 schema 用例**不**红(它们根本不进这条支路)。实测 1 红 24 绿,与预判一致 —— 派发模板里预判的「孤立 schema 用例红」对应的是另一条支路,照直记在这里。\n- **②b 撤掉单 schema 支路**:预判 10 红(解析器 3 + 报告 1 + 命令层 6)。实测 10 红,逐条对上。\n\n全部变异后 `git checkout --` 还原(未用 stash)。\n\n## 其他\n\n- changeset:`@object-ui/cli` patch。\n- 越界发现另开 #5037(文档化的 `pages/` 目录形参数只在 cwd 下可用,带路径调用报 EISDIR),未在本 PR 修。\n- 仓根 `turbo run type-check` 81/81 绿;`node scripts/check-control-bytes.mjs` 绿;改动文件 eslint 0 error(dev.ts 一条既有的 `any` warning,非本次引入)。"
+}

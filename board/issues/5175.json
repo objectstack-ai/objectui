@@ -1,0 +1,33 @@
+{
+  "number": 5175,
+  "kind": "pull_request",
+  "title": "fix(plugin-map): 顶层 `style` 是内联 CSS,不再被当作 MapLibre style 读 (#5017)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T09:04:45Z",
+  "updated_at": "2026-08-18T09:21:41Z",
+  "closed_at": "2026-08-18T09:21:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T09:21:40Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5175",
+  "body": "Fixes #5017\n\n基线 `7956b9c25`(含 PR #5156 的 `578e02516`)。按分诊评论 5317411990 的 **option 1** 实施:删掉 `schema.style` 那一腿,保留 `mapStyle` 与 `map.style`。\n\n## 改了什么\n\n`getMapConfig` 原先按三个拼法取地图样式,顶层 `style` 排最前:\n\n```ts\nconst style = schema.style || schema.mapStyle || schema.map?.style;\n```\n\n但 `style` 是 `BaseSchema.style` —— 内联 CSS 属性记录(`packages/types/src/zod/base.zod.ts`),每个 schema 节点都可以合法携带。于是 map 节点上一句基面自己的 `style: { height: '400px' }`,这个对象就被交给 MapGL 的 `mapStyle` prop:它不经过配置的 `safeParse`(那次只看 `schema.map`),既无校验也无诊断。\n\n`@object-ui/types` 早已为这件事改过名 —— `mapStyle`「not `style`, to avoid colliding with BaseSchema.style」—— 而消费端仍以最高优先级读那个被特意避开的名字。现在以声明为准:\n\n```ts\nconst style: string | undefined = schema.mapStyle || schema.map?.style;\n```\n\n## 前置核验:摊平能不能把 `style` 送到顶层?(逐面实测,结论 = (b))\n\n派发口径规定「任一面证实存在**受支持的授权路径** ⇒ 停下报 needs_decision,零删除」。三面都量了:\n\n**spec 面 —— 拒。** 对 pinned `@objectstack/spec@17.0.0` 实跑 `safeParse`:`ObjectListViewSchema` / `ListViewSchema` 都是 strict,**根本没有声明 `map` 块**,连 `type: 'map'` 都不在枚举里,也没有 `options` 键:\n\n```\nObjectListViewSchema shape has `options`: false\nObjectListViewSchema shape has `map`:     false\noptions.map.style  => REJECTED  [{\"code\":\"unrecognized_keys\",\"keys\":[\"options\"]}]\nmap.style (direct) => REJECTED  [{\"code\":\"unrecognized_keys\",\"keys\":[\"map\"]}]\n`type` enum accepts \"map\"? false\n```\n\n而且这一面**未来也不会开**给 `style`:#5042 记录的 spec 侧新块 `ListMapConfigSchema`(objectstack#9340 / #9370,尚未进本仓 pinned spec)是 strict 的**七键** —— `latitudeField` / `longitudeField` / `locationField` / `titleField` / `descriptionField` / `zoom` / `center` —— **不含 `style`**。所以视图级 `map.style` 在 spec 面上现在不可授权、将来也不可授权。\n\n**类型面 —— 不拒,但也不声明。** `NamedListView.options?: Record< string, any >`,`generateViewSchema` 返回 `any`,是个无类型口袋。反过来,PR #5156 落的**内部摊平形声明**明确把 `style` 排除在外:`type FlatMapConfigKeys = Omit< ObjectMapConfig, 'style' >`。\n\n**运行时 —— 可达。** 按 PR #5156 新钉 `ObjectView.mapFlatten.test.tsx` 的手法写探测跑了一遍(探测文件已删,未入库;URL 占位一律写成实际用的字面量):\n\n```\nPROBE-A  views[].map = { style: 'https://tiles.example.com/style.json' }\n         flatten product keys: [... ,\"locationField\",\"latitudeField\",\"longitudeField\",\"style\"]\n         top-level style: \"https://tiles.example.com/style.json\"   ← 可达\n         has map key: false\nPROBE-B  views[].map = { mapStyle: 'https://tiles.example.com/style.json' }\n         top-level mapStyle: \"https://tiles.example.com/style.json\"  ← 仍然有效的拼法\n         top-level style: undefined\nPROBE-C  views[].options.map = { style }\n         top-level style: undefined  (`views` prop 路径读的是 view 自身,不读其 options)\n```\n\n**结论 (b):类型面不拒但运行时可达,故仍动刀,并按口径给摊平运行时形补处置** —— 不是留一条宽容读腿(那正是 #5017 要拦的形状),而是:① dev warn-once 诊断,点名两个仍有效的拼法;② 在消费端钉住摊平产物的两种形。\n\n## 摊平运行时形的处置\n\n- **字符串形**才诊断:字符串不是合法的 `BaseSchema.style`(那是 record),所以顶层字符串 `style` 明确就是「作者想配地图样式」,没有第二种读法。诊断按 PR #5156 引入的 warn-once 惯用形写(每个 distinct URL 一次,`getMapConfig` 每帧都跑)。\n- **对象形不诊断**:那是合法的基面写法,丢掉它正是本次修复本身 —— 对它报警会在每个写了 `style: { height }` 的地图上刷屏。(顺带说明:ObjectMap 本来也从不把 `schema.style` 贴到自己的根节点上,所以这次变的只是「不再被误读为地图样式」。)\n- 视图侧的迁移写法是 `map: { mapStyle: 'https://tiles.example.com/style.json' }` —— 摊平后落成顶层 `mapStyle`,第二腿照读(PROBE-B 已证)。\n\n## 钉子\n\n新增 `packages/plugin-map/src/ObjectMap.topLevelStyle.test.tsx`(9 例),钉的是**不变量而非实现** ——「CSS 语义的 `style` 永不被当作地图样式消费」—— 该形状在 #5018 后续裁定落地后依然成立:\n\n- CSS 对象形永不进 MapGL(落回 demo 默认),且不越过 `mapStyle` / `map.style`;\n- 顶层字符串形被丢弃并诊断,warn-once;\n- 合法 CSS 对象形**不**诊断;\n- 两个声明拼法行为不变;\n- 摊平产物两形:`style` 被忽略并诊断、`mapStyle` 生效 —— 这是生产端钉 `ObjectView.mapFlatten.test.tsx` 无法陈述的那一半(它钉产物形状,这里钉产物到达消费端后的语义)。\n\n`ObjectMap.styleFallback.test.tsx` 首例原本用顶层 `style` 配置(写于 #2620,早于该命名之争),按 fixture 三分诊的「改拼法」一档改为 `mapStyle`,**断言一字未动**;`filterConfig` 系列未改。\n\n## 反向验证(commit 后做,如实记录:书面预判漏了一例)\n\n把删掉的腿加回链首、诊断保持原样,预判「恰好 3 例红」:CSS 对象形进 MapGL、顶层字符串被丢弃、摊平 `style` 被忽略。实测 **4 例红** —— 多出的一例是「CSS 语义 `style` 不越过声明的 `mapStyle`」。它在分析时判过红,写预判清单时漏抄了,不是行为意外;`matched=false` 如实记。\n\n```\n× never hands a CSS-meaning `style` object to MapGL\n    expected { height: '400px', …(1) } to be 'https://demotiles.maplibre.org/style.…'\n× does not let a CSS-meaning `style` outrank the declared `mapStyle`\n    expected { height: '400px' } to be 'https://tiles.example.com/style.json'\n× drops a top-level STRING `style` and says so, naming both declared spellings\n    expected 'https://tiles.example.com/style.json' to be 'https://demotiles.maplibre.org/style.…'\n× ignores the `style` a flattened `map: { style }` lands at the top level\n    expected 'https://flattened.example.com/style.j…' to be 'https://demotiles.maplibre.org/style.…'\n Tests  4 failed | 21 passed (25)\n```\n\n预判为绿的都绿了,其中「CSS `style` 不越过 `map.style`」一例**对本次变更不敏感**(它靠 `config.style || style` 的次序保护,不靠删腿),照口径写明,免得被当成覆盖率。`git checkout --` 还原后全绿。\n\n## 验证\n\n```\npnpm exec vitest run packages/plugin-map/src packages/plugin-view/src --maxWorkers=2\n  Test Files  21 passed (21)      Tests  175 passed (175)\n\npnpm --filter @object-ui/plugin-map --filter @object-ui/plugin-view type-check   → Done / Done\npnpm exec turbo run type-check --concurrency=2                                   → 81 successful, 81 total\nnode scripts/check-control-bytes.mjs      → OK (4582 tracked text files)\nnode scripts/check-changeset-presence.mjs → OK (1 changeset)\n```\n\n消费半径扫过一遍:仓内除 plugin-map 自己的测试外,无任何 fixture / metadata / 文档用顶层 `style` 配地图(README 教的是 `map.style`)。\n\n## 半径\n\n`packages/plugin-map/src/ObjectMap.tsx` + 测试 + changeset(`@object-ui/plugin-map` patch)。类型面零改动,故未动 types 包;未碰 ObjectView / ListView 摊平实现,未碰 PR #5156 刚落的声明面与优先级语义。"
+}

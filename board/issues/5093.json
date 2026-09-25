@@ -1,0 +1,33 @@
+{
+  "number": 5093,
+  "kind": "pull_request",
+  "title": "docs(plugin-dashboard): README 的 onSchemaChange 持久化示例与手动注册段按真实契约重写",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:35:39Z",
+  "updated_at": "2026-08-17T23:43:40Z",
+  "closed_at": "2026-08-17T23:43:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T23:43:39Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5093",
+  "body": "Fixes #5066\nPart of #5064\n\n`packages/plugin-dashboard/README.md` 的两处教学片段照抄不成立。docs-only:diff 只有一个 README 与 changeset,无代码/类型/运行时改动。\n\n⛔ 未动 `src/index.tsx` 的 `dashboardComponents` map 本体(A/B 键收敛裁定在 #5064 的决策箱,本 PR 因此 `Part of` 而不关那张卡);⛔ 未动 #5015 / PR #5069 已修的 TypeScript 一节;⛔ 未挂 `Blocked-by: #4600`(诚实处理可选性的示例在任何裁定下都为真)。\n\n## 半 1(#5066)—— `onSchemaChange` 持久化示例\n\n| 项 | 读数(已复测) |\n| --- | --- |\n| 回调签名 | `onSchemaChange?: (schema: DashboardComponentSchema) => void` —— `src/DashboardGridLayout.tsx:83`(卡面记 `:84`,漂移 1 行) |\n| `name` 可选性 | `DashboardComponentSchema extends BaseSchema` 且不重声明 `name`;`name?: string` —— `packages/types/src/base.ts:86`(逐字命中) |\n| `saveItem` 必填 | `saveItem: (type: string, name: string, item: any)` —— `@objectstack/client@17.0.0` `dist/*.d.ts:714`,`:2980` 再现(逐字命中) |\n\n三条读数全部成立,前提为真。这是全页唯一标 `✅ Preferred` 的持久化片段,且紧跟「persistence is the parent's concern」的规则说明 —— 最可能被整段抄走的块。\n\n改法(PM 代裁的最小形):示例先收窄 `next.name` 再写,并加一段散文说明为什么这不是防御性噪声 —— 类型要求它;而 `name` 缺省时服务端到底是 400 还是写出一条名为 \"undefined\" 的记录,**本单未量**(照卡面保留为未量陈述,⛔ 未擅测服务端),所以示例选择不发而不是猜。另加一句:宿主若已知道自己在编辑哪个元数据项,应从宿主自己的 state 传名字,而不是从节点上读。\n\n**编译探针**(对构建产物 `packages/plugin-dashboard/dist/index.d.ts`,tsconfig paths 映射;`client.meta.saveItem` 按上表真签名声明,所以红的是 README 块本身,不是探针假设 —— #5015 探针先例):\n\n```\n改前(旧块逐字):  probe.tsx(29,65): error TS2345: Argument of type 'string | undefined'\n                  is not assignable to parameter of type 'string'.\n                    Type 'undefined' is not assignable to type 'string'.\n                  PROBE-BEFORE rc=2\n改后(新块逐字):  PROBE-AFTER rc=0\n```\n\n## 半 2(#5064 文档半)—— `:42-52` 手动注册循环\n\n| 项 | 读数(已复测) |\n| --- | --- |\n| map 键 | `src/index.tsx:338-350`,11 个键全为 PascalCase 组件类名 |\n| 8 个真 type | `dashboard`:44 / `metric`:65 / `metric-card`:80 / `object-metric`:151 / `pivot`:185 / `object-pivot`:260 / `dashboard-grid`:296 / `object-data-table`:316(卡面行号逐条命中,按调用现场抄) |\n| 弃用告警 | `packages/core/src/registry/Registry.ts:198-208` 的 `if (!meta?.namespace)` 分支,循环每键一条 |\n| 循环非必需 | 第一行 import 已触发入口副作用,8 个真 type 在循环执行前已注册 |\n| 零消费点 | 词边界 grep:除 `src/index.tsx` 与本 README 外,仅 `content/docs/plugins/plugin-dashboard.mdx` 有同一段复制品(见下「另立卡」) |\n\n删该段,改同族形(#5079 / #5078 / #5071 / #5085 的对应节):真实 register 键表(namespaced 键 + bare 兜底规则,`Registry.ts:194` 与 `:226`;本包无任何 `skipFallback`,故 8 个 type 两种拼法都可达)+ 两个 `object-*` 内部包装器诚实指名 + 旧片段真正想做的事(把已导出组件注册到自己的键上,新块 `PROBE-OWNKEY rc=0`)。\n\n`dashboardComponents` 只保留实测事实陈述(键为组件类名、照抄注册的不是 schema type、每次调用触发弃用告警),⛔ 不写推荐用法、⛔ 不预断 A。\n\n## 反向验证(方向预判先写,再跑)\n\n| 预判 | 实测 | 符合? |\n| --- | --- | --- |\n| (a) #5066 旧写法回填 → 必红 TS2345 | `PROBE-BEFORE rc=2`,TS2345 落在 `next.name` 实参(29,65) | 是 |\n| (b) 名集合塞假名 → 必红 | 注入 `MetricCardSchemaZZZ`:`FAIL MetricCardSchemaZZZ` / `NAME-SET FAIL (1)` rc=1 | 是 |\n| (c) 半 2 改前段回填 → **两道门都抓不到** | 见下 | 是 |\n\n(c) 是本单唯一「把抓不到写出来验证」的一格,预判与实测一致:\n\n- **名集合核对抓不到**:`dashboardComponents` 是**真实导出**(dist 20 个导出里有它),门只判「导入的标识符是否存在」。实测改前 README:`OK dashboardComponents` / `NAME-SET OK` rc=0 —— 绿,幻影键完全不在它的视野里。\n- **编译探针也抓不到**:11 个幻影键是 `Object.entries` 的**运行时字符串值**,而 `register` 首参声明为 `string`。预判 rc=0,实测 `PROBE-LOOP-OLD rc=0` —— 旧循环 strict 编译通过。若它真红,也只会红在组件可赋值性上,不可能提到键的词汇表。\n- 因此半 2 的证据只能来自 **register 调用现场与 map 键的逐条比对**(上表)+ `Registry.ts:198` 的告警分支,不是任何门禁的输出。\n\n## 仓级门禁\n\n```\npnpm exec turbo run type-check --concurrency=2   →  Tasks: 81 successful, 81 total   (rc=0)\nnode scripts/check-doc-links.mjs                 →  Links are valid across 13 scan roots\nnode scripts/check-control-bytes.mjs             →  OK (4524 tracked text files)\nnode scripts/check-changeset-fixed.mjs           →  OK      check-changeset-no-major.mjs → OK\nnode scripts/check-doc-component-types.mjs       →  Every documented component type is registered\ngrep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]' 改动文件 →  无命中(改动文件自扫,超出门禁扫描面)\n```\n\n重活经 `flock -w 3600 /tmp/os-heavy-verify.lock` 串行 + `NODE_OPTIONS=--max-old-space-size=4096`。baseline `a0f6f0eb524272e4719bf49df9ce56230800888c`。\n\n## 另立卡(不在本 PR 修)\n\n- 文档站镜像:`content/docs/plugins/plugin-dashboard.mdx:73-79` 是同一段循环的复制品(#5076 / PR #5085 只覆盖了 form/grid/view 三页)。\n- `README.md` 有两个同名 H2「DashboardGridLayout — persisting drag / resize edits」(`:480` 与 `:495`),`### DashboardRenderer` 一节夹在第一个下面。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

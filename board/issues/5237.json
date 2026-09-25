@@ -1,0 +1,35 @@
+{
+  "number": 5237,
+  "kind": "issue",
+  "title": "`objectui check` exits 1 on any TypeScript project: every `tsconfig*.json` is JSONC and `JSON.parse` counts each one as an error — 64 errors and a failing `pnpm check` in this repo today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T19:27:14Z",
+  "updated_at": "2026-08-18T20:22:09Z",
+  "closed_at": "2026-08-18T20:22:08Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5237",
+  "body": "Found while establishing the measured baseline for #5127. Outside that card's radius (different arm of the same command, different mechanism, different fix) — not carried into its branch. Filed unassigned, not claiming.\n\n## Symptom\n\n`objectui check` run at this repository's root, on `main` (`118419214`), with the CLI built from source:\n\n```\n$ node packages/cli/dist/cli.js check\nObject UI Schema Check\nAnalyzing 612 files...\nx Invalid JSON in tsconfig.vitest-setup.json: Unexpected token '/', \"// Type-ch\"... is not valid JSON\nx Invalid JSON in tsconfig.json: Expected double-quoted property name in JSON at position 187 (line 9 column 5)\nx Invalid JSON in packages/types/tsconfig.test.json: Expected property name or '}' in JSON at position 4 (line 2 column 3)\n... 61 more ...\nFound 64 errors\n$ echo $?\n1\n```\n\nAll 64 are `tsconfig*.json` files. Every one of them is **valid JSONC** — the format TypeScript actually specifies for `tsconfig.json` — and every one of them fails `JSON.parse`, on either a `//` comment or a trailing comma.\n\n## Mechanism\n\n`packages/cli/src/commands/check.ts` globs `**/*.{json,yaml,yml}` and hands every `.json` hit straight to `JSON.parse`:\n\n```\nconst content = JSON.parse(readFileSync(join(cwd, file), 'utf-8'));\n```\n\nA throw here is the **only** thing that increments `errors`, and a non-zero `errors` is the only thing that calls `process.exit(1)`. So a comment in a `tsconfig.json` — the normal, documented way to write one — is reported as a malformed file and **fails the run**.\n\n## Severity: this is the blocking arm, not the noisy one\n\n#5127 documents the *warning* arm of the same command and notes, correctly for its own probe directory, that warnings do not affect the exit code. That probe held a bare `package.json` only. Put a `tsconfig.json` next to it — i.e. make it a TypeScript project, which every real consumer of this CLI is — and the command **fails**:\n\n```\nmkdir -p /tmp/oc-tsconfig && cd /tmp/oc-tsconfig\nprintf '{\\n  // a comment, as tsconfig permits\\n  \"compilerOptions\": { \"strict\": true }\\n}\\n' ~ tsconfig.json\nnode \"$REPO/packages/cli/dist/cli.js\" check ; echo \"exit=$?\"\n#  x Invalid JSON in tsconfig.json: ...\n#  Found 1 errors\n#  exit=1\n```\n\n(`~` above stands for the shell redirect, spelled out so the snippet survives issue rendering.)\n\nThe repo's own `pnpm check` script is `node packages/cli/dist/cli.js check`, so **`pnpm check` fails in this repository right now** — 64 errors, exit 1. It appears not to be wired into any workflow, which is presumably why nobody has hit it.\n\n## Boundary against #5127\n\nIndependent, and #5127 cannot fix this as a side effect. The parse happens *before* any judgement of the file's contents, so a positive-marker gate (the ruled direction C) cannot skip it — you have to parse a file to find out whether it carries a marker. The two defects sit on either side of the same `try`:\n\n- this issue — the `catch` arm: valid JSONC counted as a malformed file, run fails;\n- #5127 — the `try` arm: a foreign root `type` judged as a component key, warning printed.\n\nFixing either leaves the other exactly as it is.\n\n## Directions, not prejudged\n\n- Parse `.json` with a JSONC-tolerant reader. Matches what the ecosystem means by these files; `tsconfig`, `.eslintrc.json`, `devcontainer.json` and VS Code's own settings are all JSONC in practice. Adds a dependency (or a small tolerant pre-strip, which has its own string-literal edge cases).\n- Keep strict `JSON.parse` but stop treating a parse failure on a file the tool was never asked about as an *error* — e.g. demote to a warning, or only hard-fail on files that positively read as ObjectUI schemas. Note this couples to whatever #5127 lands, so sequencing matters.\n- Narrow what is scanned in the first place, which is direction A on #5127.\n\nRecommend deciding this one together with #5127's marker, since the second and third options share machinery with it — but it needs its own decision because the exit-code semantics are a separate contract from the warning semantics.\n\n## Reproduce\n\nWith `REPO` the repository root:\n\n```\ncd \"$REPO\"\npnpm --filter @object-ui/types build && pnpm --filter @object-ui/cli build\nnode packages/cli/dist/cli.js check ; echo \"exit=$?\"\n```\n\n(The `@object-ui/types` build is needed first — `dist/cli.js` imports its `dist/zod/index.zod.js` at load time.)\n"
+}

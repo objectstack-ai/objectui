@@ -1,0 +1,30 @@
+{
+  "number": 5104,
+  "kind": "pull_request",
+  "title": "docs(plugin-dashboard): 文档站页的手动注册段按真实 register 键面重写 (#5094)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T00:27:47Z",
+  "updated_at": "2026-08-18T00:33:38Z",
+  "closed_at": "2026-08-18T00:33:36Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T00:33:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5104",
+  "body": "Fixes #5094\n\nbaseline `e09f9e898c7a83de28c9c3c4af934e4c0a640396`(本单 fetch 后的 origin/main)。半径:`content/docs/plugins/plugin-dashboard.mdx` 一个文件,49 增 4 删。\n\n## 前提逐条复测(对 baseline,全部命中)\n\n卡面四条判断我在实现前逐条重测,证据一律取 register 调用现场:\n\n1. `content/docs/plugins/plugin-dashboard.mdx:70-79` 确实是 PR #5093 刚在 README 侧修掉那段循环的逐字复制品(`Object.entries(dashboardComponents).forEach(...)`)。\n2. `dashboardComponents`(`packages/plugin-dashboard/src/index.tsx:338-350`)的 11 个键是 PascalCase 组件类名 —— 用 TS compiler API 对构建产物机器点数,`dashboardComponents keys (11): DashboardRenderer, DashboardGridLayout, MetricWidget, MetricCard, ObjectMetricWidget, PivotTable, ObjectPivotTable, ObjectDataTable, DashboardConfigPanel, WidgetConfigPanel, DashboardWithConfig`,无一是 schema type。\n3. 本包 register 真正 claim 的 8 个 type 与卡面行号逐条一致:`dashboard`:44 / `metric`:65 / `metric-card`:80 / `object-metric`:151 / `pivot`:185 / `object-pivot`:260 / `dashboard-grid`:296 / `object-data-table`:316,循环一个都没注册到。\n4. 每次调用都缺 `meta`,命中 `packages/core/src/registry/Registry.ts:198-208` 的无 namespace 弃用告警;循环本身不是注册所必需 —— 8 次 `register` 都是 `src/index.tsx` 的顶层语句,上一节的副作用导入已经跑完。后果是「11 条噪声 + 一个教错的心智模型」,不是「注册失败」。\n\n## 改了什么\n\n删掉幻影循环,换成 PR #5085 / #5093 的同族三节形。**键与措辞从 register 调用现场亲抄,没有从 README 复制粘贴** —— 两处上下文措辞不同(本页多一句「页内 schema 片段用的是 bare 拼法」),事实同源:\n\n- 「副作用导入即全部注册,没有可迭代的组件表」;\n- 8 行真键表(namespaced 键 + bare 兜底 + 背后的渲染器),附 `Registry.ts:194` / 兜底分支 `:226` 的依据,并写明本包无一处传 `skipFallback`,所以两种拼法都解析得到;\n- 两个 `object-*` 诚实指名内部包装器 `ObjectMetricBlock` / `ObjectPivotBlock`(它们先经 `ElementDataSourceGate` 解析 `dataSource`,再渲染导出的 `ObjectMetricWidget` / `ObjectPivotTable`),所以表里那两行写的是包装器而不是导出名;\n- 「把导出组件挂到自己的键上」的 own-key 示例,注册的是组件而不是 map。\n\n`dashboardComponents` 只留一句实测事实陈述,**不给推荐用法**。\n\n## 与 #5064 / PR #5093 的关系\n\n- **#5064(决策箱,本 PR 不预断)**:map 键收敛题(A 改键成 8 个 schema type / B 留键改文档)按 PM 分层处置(comment 5321347946)入 `needs-user-decision`,派发时仍未裁。本页按 B 形重写,散文里对 A/B 任一方向都不表态 —— 若日后裁 A,这张真键表仍然为真(它抄的是 register 调用现场),只需把 `dashboardComponents` 那句实测陈述随 map 一起更新。本 PR 不关 #5064。\n- **PR #5093(README 半,已并入 main)**:同一缺陷在 `packages/plugin-dashboard/README.md` 的另一半,本 PR 是它的文档站镜像。⛔ 未再动 README、未动 src、未动其它 mdx 页。\n\n## 验证\n\n- `node scripts/check-doc-links.mjs` → `Links are valid across 13 scan roots.`\n- `node scripts/check-control-bytes.mjs` → `OK (scanned 4530 tracked text file(s); skipped 85 binary)`;改动文件自扫 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 零命中。\n- `node scripts/check-doc-component-types.mjs` → `Every documented component type is registered.`(143 页 / 632 code block / 558 个 `type` 字面量)\n- 仓根 `turbo run type-check --concurrency=2`(shared flock)→ `81 successful, 81 total`。\n- **名集合核对(#5043 AST 规格,对 dist 产物走 `checker.getExportsOfModule`)**:新文本出现的每个名字都核过 —— `DashboardRenderer` / `MetricWidget` / `MetricCard` / `ObjectMetricWidget` / `PivotTable` / `ObjectPivotTable` / `DashboardGridLayout` / `ObjectDataTable` / `WidgetConfigPanel` / `dashboardComponents` 全 `exported=true`;两个包装器 `ObjectMetricBlock` / `ObjectPivotBlock` 断言 `exported=false` 且实测为 false(这正是散文所声称的「内部」);`ComponentRegistry` 在 `@object-ui/core`、`ElementDataSourceGate` 在 `@object-ui/react`,均命中。\n- 新增的 own-key 片段对同一批 dist 声明 strict 编译:`PROBE-OWN-KEY rc=0`。\n- **changeset:实测判定不欠**。`node scripts/check-changeset-presence.mjs` → `1 file(s) changed, 0 of them under the src/ of a package the release covers … No source of a released package changed in this range, so no changeset is owed.` `.mdx` 不随 npm 发布,与同族 PR #5085(三页 mdx,同样零 changeset)一致。派发单原写「+ changeset(patch, docs-only)」,这里按实测与先例执行,已在报告注明。\n\n## 反向验证(先书面预判,再跑;commit 后变异,`git checkout --` 还原)\n\n**(a) 旧循环回填 —— 预判「三道面全绿、零红」,实测一致。** 分层写:\n\n| 面 | 预判 | 实测 |\n| --- | --- | --- |\n| 名集合核对 | 绿(`dashboardComponents` 是真实导出) | `OK dashboardComponents exported=true` |\n| 编译探针(旧块 strict) | 绿(`register` 首参声明为 `string`,幻影键是运行时字符串) | `PROBE-LOOP-OLD rc=0` |\n| `check-doc-component-types` | 绿(旧段里 `type` 是解构出的**标识符**,后面没有跟冒号加引号字面量,正则不命中) | rc=0,`Every documented component type is registered.` |\n\n即:把缺陷放回去,三道面一条红都不产生。这与 PR #5093 在 README 侧量到的「两道门都抓不到」同向,并把文档站独有的第三道门也补进了同一张表。\n\n**(b) 键表塞假键 —— 派发单预设「假键应红」,实测按形态分裂,如实记录。** 我事先把它拆成两个子实验:\n\n- **b1 假键放进 markdown 键表行**(`| plugin-dashboard:phantom-widget | phantom-widget | … |`):预判**绿**,因为 `scanDocs` 只在三反引号围栏内取 `type: 'VALUE'` 形的字面量,表格行是散文。实测 rc=0,绿。⇒ **派发单的预设在表格形态下不成立** —— 我加的这张键表不受任何门保护,和 README 侧那张一样。\n- **b2 假键放进本页某个 fenced code block**(JSON 里的 `\"type\": \"phantom-widget\"`):预判**红**。实测 rc=1:`content/docs/plugins/plugin-dashboard.mdx:179 [unregistered-doc-type] type 'phantom-widget' (json)`。⇒ 这道门确实有牙,只是牙长在 code block 上。\n\n**(c) 自选方向:键表内容本身无门在核,改用 gate 自己的推导做机器对账。**\n\n- c1:调用 `check-doc-component-types.mjs` 导出的 `deriveRegistryKeys`(它读 register 调用的**平衡实参跨度**取 namespace / skipFallback),对 `packages/plugin-dashboard/src/index.tsx` 推导出 **16 个键 = 8 namespaced + 8 bare**,与我手抄的 8 行表逐字相等,且每个 namespaced 键都有 bare 孪生 —— 独立证实「本包无一处传 `skipFallback`」这句。\n- c2(证明该对账是活读):把 `dashboard` 那次注册的 `namespace: 'view'` 改成 `'dash'`,推导即翻成 `dash:dashboard`,证明 c1 的相等来自源码而不是文本雷同。**同时量到一个副产物**:c2 之下 `check-doc-component-types` 仍然全绿 —— 它只判 bare 键存在与否,**不判 namespace**,所以键表的 namespaced 那一列同样只有人工 + c1 这类对账在守。\n\n> 正文防吞字备注:上一版这段里的占位符写成尖括号形,被 GitHub 的 body sanitizer 当 HTML 标签吞掉(存下来是空引号),已改为 `type: 'VALUE'` 占位形并回读确认。"
+}

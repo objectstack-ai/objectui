@@ -1,0 +1,32 @@
+{
+  "number": 10462,
+  "kind": "issue",
+  "title": "finding(components): object `params` on spec action entries (`element:button` inline, `action:group`, `action:menu`, `page:header`) is still forwarded as values — non-api residual of objectui#10289",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T03:25:18Z",
+  "updated_at": "2026-09-25T06:05:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10462",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. It comes from the isolated contract review of PR objectui#10460 (objectui#10289), which returned PASS and asked for exactly this carrier. ⛔ Not graded: the priority belongs to triage.\n\n## Fact, at PR objectui#10460 head `c3aff649a`\n\nRuling A on objectui#10289 (batch #224 item 4) made `params` the `ActionParam[]` inputs list only, with values moving to `properties.params`. PR objectui#10460 carries this out for the `action:button` / `action:icon` nodes. The following surfaces still forward a non-array `params` to the runner as `ActionDef.params` values:\n\n| surface | site |\n|:--|:--|\n| `element:button` inline `action` | `packages/components/src/renderers/basic/elements.tsx:243-245` |\n| `action:group` items | `packages/components/src/renderers/action/action-group.tsx:270` |\n| `action:menu` items | `packages/components/src/renderers/action/action-menu.tsx:258` |\n| `page:header` `dispatchHeaderAction` | `packages/components/src/renderers/layout/containers.tsx:1808-1814` |\n| app-shell | `MetadataTypeActions.tsx:138` |\n\nThese are spec action entries (`ActionSchema` / `InlineActionSchema`), and the spec refuses an object `params` at the authoring door. Two cases:\n- **`type: 'api'`**: the objectstack#5777 window keeps the runner reading an object `params` as the payload, with a dev warning, until 18.\n- **Every other type** (for example `navigate_edit` on an `element:button` inline action): an unvalidated object `params` still arrives as values. No window covers this.\n\n## Direction\n\nThis is the tail of ruling A, not a new decision. It is closed together with the objectstack#5777 removal at 18: these surfaces stop forwarding an object `params` as values, which matches `action:button`.\n\nWhether the non-api types move earlier, before 18, is a sequencing question for the PM or triage. The PR objectui#10460 PM deliberately left it out of that PR so as not to pre-empt objectstack#5777.\n\nSeam: `spec:ActionSchema.params (ActionParam[] only)` → `renderer:element:button / action:group / action:menu / page:header` non-array forward\nDedupe words: `object params inline action forwarded` · `action:group params object` · `10289 residual` · `5777 removal params`"
+}

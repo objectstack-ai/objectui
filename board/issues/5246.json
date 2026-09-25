@@ -1,0 +1,36 @@
+{
+  "number": 5246,
+  "kind": "issue",
+  "title": "No workflow runs `pnpm check`, so the CLI's own command can sit red on `main` indefinitely — 64 errors went unnoticed until #5237",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "pm:dispatched",
+    "tooling"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-18T20:11:27Z",
+  "updated_at": "2026-08-18T23:36:52Z",
+  "closed_at": "2026-08-18T23:36:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5246",
+  "body": "Observation recorded while fixing #5237 (PR #5245). Filed unassigned, not claiming; no fix proposed here.\n\n## What was observed\n\nThe root `package.json` declares:\n\n```\n\"check\": \"node packages/cli/dist/cli.js check\"\n```\n\nGrepping `.github/workflows/**` for that script finds no caller. `ci.yml` and `lint.yml` run the `check:*` family (`check:phantom-deps`, `check:control-bytes`, `check:node-esm-load`, and the rest), but the bare `check` script — the product's own `objectui check` command, pointed at this repository — is run by nothing.\n\n## Why it is worth recording\n\nThis is the reason #5237 was able to happen. `objectui check` exited 1 with **64 errors** at this repo's root, on `main`, and had presumably done so since the first `tsconfig.json` grew a comment. No gate observed it, so nobody found out until someone ran the command by hand while measuring something else.\n\nThe same is true going forward: after #5245 the command reports 0 errors and exit 0, and nothing in CI will notice if that stops being true. Whatever the next regression in this command is, it will be found the same way this one was — by accident.\n\nWorth noting alongside it: the command currently prints 47 warnings at this repo's root (the subject of #5127, still open). So \"wire it into CI\" is not a free action — it needs a decision about whether the warning arm is acceptable noise in a required job, which is why this is filed as an observation for triage rather than as a fix.\n\n## Not prejudged\n\nOptions range from adding the script to an existing lint job, to running it only on a schedule, to concluding that a self-check against the repo's own tree is not a meaningful gate and the script should be dropped instead. That call, and its interaction with #5127's warning arm, belongs to triage.\n"
+}

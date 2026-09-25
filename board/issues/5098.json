@@ -1,0 +1,36 @@
+{
+  "number": 5098,
+  "kind": "issue",
+  "title": "plugin-form README 的「Integration with Data Sources」示例把 dataSource / resource 写在 form schema 上 —— 两个键全仓零读取点",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:49:50Z",
+  "updated_at": "2026-08-18T01:49:17Z",
+  "closed_at": "2026-08-18T01:49:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5098",
+  "body": "发现于 #5075 的实施(那一单只改 Schema API + Examples 三组键面,本节是另一节、另一类缺陷,故未夹带进 PR)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-form/README.md` 的 `## Integration with Data Sources` 一节教这么接后端:\n\n```\nconst schema = {\n  type: 'form',\n  dataSource,\n  resource: 'users',\n  fields: [/* fields */],\n  onSubmit: async (data) => { await dataSource.create('users', data); }\n};\n```\n\n两个键都不成立:\n\n1. **`resource`** —— `packages/types/src` 里零声明(`grep -nE \"^\\s*resource\\??:\" packages/types/src/form.ts packages/types/src/objectql.ts` 零命中),`packages/components/src` 与 `packages/plugin-form/src` 里零读取点。对象名在 object-form 路线上是必填的 `objectName`;基础 form 根本不按名取数。\n\n2. **`dataSource`** —— 基础 form 渲染器**不从 schema 读它**:它读的是上下文,`packages/components/src/renderers/form/form.tsx:1004` 的 `const contextDataSource = schemaCtx?.dataSource ?? null`,再逐字段下发(`:2061`);schema/props 上同名键反而是被**剥掉**的(`form.tsx:304`、`:2168` 的 `dataSource: _dataSource` 丢弃式解构)。\n\n两个键都因 `FormSchema extends BaseSchema` 的 `[key: string]: any`(`packages/types/src/base.ts:318`)而编译通过,也因此永远不报错 —— 照抄这段的读者拿到一个**不连后端**的表单,只有手写的 `onSubmit` 闭包在工作(它能跑,但那是闭包捕获的 adapter 在跑,与 schema 无关)。\n\n## 同一 README 已经写对过\n\n本文件 `### Registering a component under your own key` 一节(约 :136-142)已经说明:「`SchemaRenderer` hands a registered component its `schema` (plus the schema's own props), but never a `dataSource` — that travels on `SchemaRendererContext`」。所以这是同文件的**自相矛盾**,不是缺失知识。\n\n## 建议的改法(不新增能力)\n\n按真机制重写该节:adapter 经 `SchemaRendererProvider` / `SchemaRendererContext` 注入(AGENTS.md #1),元数据侧用 `object-form` 的 `objectName` + `mode` 走真实读写路径,并像 #5075 落地的其余示例那样给示例加真类型标注(不带标注的 `const schema = { … }` 写什么都能过编译)。⛔ 不要为了让示例成立而给 `FormSchema` 新增 `resource` 或 `dataSource` 键。\n\n## 复核方式\n\n```\nsed -n '629,650p' packages/plugin-form/README.md\ngrep -rnE \"^\\s*resource\\??:\" packages/types/src/form.ts packages/types/src/objectql.ts   # 零命中\ngrep -rn \"schema.resource\" packages/components/src packages/plugin-form/src              # 零命中\nsed -n '1000,1006p;2060,2062p' packages/components/src/renderers/form/form.tsx           # 真读点在 context\n```\n\n## 分级\n\n交 PM 分诊,未打 `finding` 标签:今天的读者照抄即拿到一个静默不连后端的表单。严重度低于 #5075 第 1 组(那一组是校验静默失效),但同属「照抄即错且零报错」。今天没有门禁看得见包内 README 的键面断言 —— 见 #5043。\n"
+}

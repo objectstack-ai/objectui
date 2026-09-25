@@ -1,0 +1,34 @@
+{
+  "number": 5036,
+  "kind": "pull_request",
+  "title": "feat(core,components,fields): labelling 扩为三值闭枚举,display 四 + grid 可编辑态不再丢 host id (#4857)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T18:36:09Z",
+  "updated_at": "2026-08-17T18:51:46Z",
+  "closed_at": "2026-08-17T18:51:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T18:51:44Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5036",
+  "body": "Fixes #4857\n\n## 实施依据\n\n2026-08-17 05:03Z 维护者裁定(评论 5312059193,与 #4871 合裁)+ 06:36Z 实测更正(评论 5312685254)。卡面三选不再开放:方案 1(disabled→readonly 重映射)被裁否,`ObjectForm.tsx:687` 一字未动;slider / signature 已由 PR #4933 交付,本 PR 不触碰;剩余五行 = display 四 + grid。\n\n## 变更\n\n### 1. 声明扩展(公开契约键,`packages/core`)\n\n`ComponentMeta.labelling` 从二值扩为三值闭枚举 `'control' | 'group' | 'display'` —— 全仓唯一词表,即合裁给「host 如何得知 widget 将渲染什么」的统一答案,⛔ host 本地变体。`'display'` 语义写入注释:渲染面在**任何状态**下都是纯展示、无可聚焦控件;host 不发 label 的 `for`(任何状态下都不存在 labelable 元素可指),改走 #4788 已裁的容器通道(id + `aria-labelledby` + `aria-describedby` + `role=\"group\"`),且与 `'group'` 不同,widget 侧不消费任何键 —— host 容器即命名面。\n\nzod 侧核查:全仓不存在 `ComponentMeta` 的 zod schema(`packages/core` 与 `@objectstack/spec` 均无 `labelling` 相关 schema),无可同步项。\n\n### 2. display 四接 host 容器(`packages/components` + `packages/fields`)\n\n`formula` / `summary` / `auto_number` / `vector` 声明 `'display'`。form renderer 的 host 门从「`readonly === true`」扩为「`readonly === true` **或** 声明 `'display'`」:\n\n- readonly 臂语义一字未动 —— 未声明的第三方 widget 保持 #4788 原行为;\n- display 臂读**声明**而非状态,所以真实对象表单路径(计算字段映射为 `disabled: true`,从不 `readonly`)也被覆盖 —— 这正是 #4788 门管不到这四个的原因;\n- 四个 widget 本体零改动(#4788 的结构性主张:机制落 host 一次,不留「记得 spread」的入口)。\n\n### 3. grid:先重测,实测推翻卡面预设后按复合体落地\n\n06:36Z 更正明言勿按 slider/signature 外推、grid 需重测。同套 probe(真 form renderer + 裸注册,`description` 设置,编辑态,RESOLVES-LABELABLE 口径)实测 `origin/main` `e71c854ce`:\n\n```\nbare(无 columns) for=DANGLING hostIdEl=NONE consumers=0 focusables=[button]\nrealistic(列+行)for=DANGLING hostIdEl=NONE consumers=0 focusables=[drag, input(Item),\n                  input(Qty), button(Duplicate row), button(Remove row),\n                  input(Item), input(Qty), button(Add)]\n```\n\n读数裁决:bare 配置唯一 focusable 是**辅助动作** \"Add line\" button —— 它确实 labelable,但把 host id 落上去意味着字段 label 命名「加行」动作、**点 label 会插行**(label 激活转发);realistic 配置是 8 个 focusable 的单元格输入矩阵。即 grid 是复合体(`address` 形态),「其控件是单个 labelable button」的前提被实测推翻,方案 3 单用不成立。落地:声明 `labelling: 'group'`,root 容器按 `CheckboxesField` 的键位逐键消费 host 通道 —— 编辑/list 态容器收 id、label IDREF、describedby,`name` 与 `aria-invalid` 按 #3291/#3318 界线扣下(grid 的 invalid 本就按单元格上报;`aria-invalid` 轴归 #3318 账本,本 PR 前后都不落任何 host `aria-invalid`,该轴零变化);readonly 分支(替换性表格,无字段输入)走 `toHostGroupProps('instead-of-the-inputs')`,名字与描述同落容器。\n\n### 4. 配套门:registered ⇒ declared\n\n`FIELD_TYPES_GROUP_LABELLED`(Set)升级为 **`FIELD_WIDGET_LABELLING`** —— 以 `fieldWidgetMap` 字面键联合为键的**穷尽 Record**(#3935 的 Record 形态,并照 `group-labelling-declaration.test` 既有集合断言扩展,未另起炉灶):往 map 加 widget 而不定 labelling 是**编译期红**(tsc 报缺键),而非静默退回 control 路径 —— 裁定点名的漏声明陷阱。运行时 meta 侧保留 #3961 已钉的「`'control'` 以缺省拼写」约定(第三方 widget 本就以缺省进入 control 路径,host 读法不因此双轨;Record 里的 `'control'` 条目仍是强制决定 ——「被缺省」与「决定用缺省」是两个事实)。声明测试新增:display 逐项 + 精确集合断言、record↔`FORM_FIELD_TYPES` 键位奇偶断言、record↔注册 meta 逐键一致断言。Record 已导出,供姊妹单 #4871 的 metadata-admin 宿主复用同一词表。\n\n## 测试\n\n- 新增 `packages/fields/src/__tests__/display-grid-host-channels-e2e.test.tsx`:display 四**可编辑态**(含 `disabled: true` 的真实 ObjectForm 形态)+ readonly 态、grid 编辑/readonly/无 label 三态、control 绿对照;\n- `packages/components` `form-readonly-host-group.test.tsx` 增补 display 声明 describe(编辑态包裹、disabled 路径、双臂同真仅一层、未声明回退钉、无 label 不包);\n- `readonly-host-plumbing-e2e.test.tsx` 中 formula 编辑态残留钉按其自述「后改需是 deliberate 的」升级为**未声明回退**钉(该文件裸注册无声明,断言不变,语义改为钉住门要防的静默退化形状);\n- 全量:fields+components 3121 通过、plugin-form/plugin-detail/plugin-grid 1940 通过、app-shell 3952 通过(1 例既有 skip),仓根 `turbo run type-check` 通过,`check-control-bytes` 通过,改动文件 eslint 0 error。\n\n## 反向验证(先书面预判,commit 后变异,checkout 还原)\n\n1. **撤 display 分支(保留声明)**:预判 fields e2e 可编辑态 5 例红于 `expect(host).not.toBeNull()`、components 新 describe 2 例红,readonly 与 grid 全绿 —— 实测 7 红 24 绿,与预判一致。\n2. **从 Record 摘 `vector` 声明**:预判 tsc 红(缺键)+ 声明测试红且点名 vector;实测 tsc `TS2741: Property 'vector' is missing`、vitest 3 红(逐项 + 精确集合 + registered⇒declared 奇偶)—— 比 PR #5023 变异①先例的「tsc 红 vitest 绿」更强一档:本门在 Record 之外另有读 Record 的运行时奇偶断言,vitest 同红。\n3. **把 `formula` 错标 `'control'`**:预判 tsc 绿、声明测试的 display 逐项与精确集合断言红(record↔meta 奇偶断言绿 —— 两者一致地错),e2e 绿(裸注册硬编码 'display',不读 Record)。实测 tsc exit 0、恰好 2 红,与预判一致。声明↔渲染面一致性由两文件**合取**持有:声明文件钉注册边界(本变异被它抓住),e2e 文件钉「声明 ⇒ 渲染」—— #3961 起两文件自述的既有分工,无新缺口,故不另立 finding。\n\n## 边界\n\n- ⛔ `ObjectForm.tsx:687` disabled 映射未动(方案 1 裁否);\n- ⛔ slider / signature(PR #4933 已交付)未触碰 —— 其 widget 文件仅注释里的旧标识符引用更名跟随;\n- ⛔ `app-shell` metadata-admin 宿主(#4871 姊妹单持有)未伸手;其 `DashboardWidgetInspector` 内部 `Field` 组件的本地二值 `labelling` prop 属 #4871 已裁范围,类型上与 `ComponentMeta` 无耦合,本 PR 不动;\n- ⛔ `aria-invalid` 轴归 #3318 账本,前后零变化。\n\nchangeset:core / components / fields 三包 `minor`(公开契约键**扩展**,向后兼容 —— 对照 #3985/#3832 先例;仓规 fixed group ⛔ major)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

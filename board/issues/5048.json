@@ -1,0 +1,36 @@
+{
+  "number": 5048,
+  "kind": "issue",
+  "title": "plugin-report README's export snippets call every real export with the wrong signature — `exportAsCSV(data, 'file.csv')` passes a filename where the data argument goes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:46:19Z",
+  "updated_at": "2026-08-17T21:51:59Z",
+  "closed_at": "2026-08-17T21:51:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5048",
+  "body": "Found while implementing #5016 (three fabricated exports in `packages/plugin-report/README.md`). Filed unassigned, out of that card's scope, and it is a **different defect class**: #5016's three names are not on the export surface at all, while every name below IS real — what is wrong is the **arity and argument order** of the call. The name-set check that #5016 uses cannot see this class, because each of these imports reads as REAL.\n\nMeasured on `origin/main` at `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`. Line numbers are as they will be after the PR for #5016 (they shift, the blocks do not).\n\n## The three blocks\n\n**1. `README.md:229-241` — the six format exporters.** Real signature (`src/ReportExportEngine.ts:19,43,57,96,151`):\n\n```ts\nexport function exportAsCSV(report: ReportComponentSchema, data: any[], config?: ReportExportConfig): void\n```\n\nThe README calls them as `(data, filename)`:\n\n```tsx\nawait exportAsCSV(reportData, 'sales-report.csv');\nawait exportAsPDF(reportData, 'sales-report.pdf');\nawait exportAsExcel(reportData, 'sales-report.xlsx');\n```\n\nSo `reportData` lands in the `report` parameter (the schema, which is where headers, fields and title are read from) and the **filename string lands in `data`**, which the engine iterates as rows. Two further mismatches in the same three lines: there is no filename parameter at all — the name comes from `report.title` / config — and all five are `void`, not async, so the `await` is inert. `exportReport(format, report, data, config)` at `:175` takes the format FIRST, which the import list implies but no snippet shows.\n\n**2. `README.md:245-253` — `exportWithLiveData`.** Real signature (`src/LiveReportExporter.ts:97`) takes `LiveExportOptions`, in which `dataSource` and `resource` are **required** (`:34-45`):\n\n```tsx\nawait exportWithLiveData(reportConfig, { format: 'pdf' });   // README\n```\n\nMissing both required keys, so this is a compile error, not a silent misfire. The function's own doc example at `:88-95` shows the correct shape.\n\n**3. `README.md:249-252` — `exportExcelWithFormulas`.** Real signature (`src/LiveReportExporter.ts:161`) is `(report, data, options)` — three parameters, with the column list inside the third. The README passes two, and spells the column key `field`:\n\n```tsx\nawait exportExcelWithFormulas(reportConfig, {\n  columns: [{ field: 'total', formula: 'SUM(B2:B100)' }],\n});\n```\n\n`ExcelColumnConfig` (`:50-61`) has no `field` — it is `{ name, header, width?, numberFormat?, formula? }`, and `name` is what the exporter reads (`row[col.name]`). The formula template also uses a `{ROW}` placeholder the snippet's `SUM(B2:B100)` does not exercise; the real doc example at `:139-146` shows `'=B{ROW}*C{ROW}'`.\n\n## Impact\n\nBlock 2 fails to compile, so a reader is stopped. Blocks 1 and 3 are worse: they **type-check as written against `any[]`/loose params** and fail at runtime or, in block 1's case, quietly export a spreadsheet built from the characters of a filename. Nothing gates a package README's API assertions today (#5016's grading note).\n\n## Recheck\n\n```\ngrep -n \"export function exportAs\\|export function exportReport\" packages/plugin-report/src/ReportExportEngine.ts\ngrep -n \"export async function exportWithLiveData\" -A 4 packages/plugin-report/src/LiveReportExporter.ts\ngrep -n \"export function exportExcelWithFormulas\" -A 8 packages/plugin-report/src/LiveReportExporter.ts\ngrep -n \"interface ExcelColumnConfig\" -A 12 packages/plugin-report/src/LiveReportExporter.ts\n```\n\nSuggested fix: rewrite the three blocks against the signatures, reusing the JSDoc examples already in `LiveReportExporter.ts` (they are correct). Worth pricing at the same time: whether a docs gate could type-check fenced `ts`/`tsx` blocks in package READMEs — `scripts/extract-mdx-demos.mjs` already does something adjacent for the docs site, and this whole family (#5002, #5010-#5016, this card) exists because nothing checks them.\n\nRelated: #5016 (the fabricated-name half of the same file, in flight), #5047 (the retired query form the same file teaches), #5002 / PR #5021 (precedent)."
+}

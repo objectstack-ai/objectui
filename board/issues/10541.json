@@ -1,0 +1,35 @@
+{
+  "number": 10541,
+  "kind": "pull_request",
+  "title": "fix(app-shell): PageView builds the page context, never reads a refused `context` key (objectui#9673)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T07:44:15Z",
+  "updated_at": "2026-09-25T08:10:32Z",
+  "closed_at": "2026-09-25T08:10:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T08:10:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10541",
+  "body": "Fixes #9673\nClause-②: no\n\n## What changed\n\n`PageView` no longer reads a page-level `context` key. The `context` it hands `SchemaRenderer` is now built only from the route and the refresh counter: exactly `{ params, refreshKey }`. The `(page as any).context` read and the `as any` cast on it are gone. This is the ruling on the card (comment 5811058824, letter **remove**). `context` stays undeclared on `PageSchema`.\n\n`PageSchema` refuses `context`. So every page that parses spread `undefined` there, and the line looked like an author channel that no author could use. `context` is written after `...page`, so a stored document that never passed `PageSchema` and still carries `context` no longer gets it through to the node either.\n\nFiles:\n- `packages/app-shell/src/views/PageView.tsx`: the one `context:` line, plus a comment saying why it is built and not read.\n- `packages/app-shell/src/views/__tests__/PageView.context-9673.test.tsx`: new pin, run through the real `PageView` render.\n- `.changeset/9673-pageview-drop-context-spread.md`: `@object-ui/app-shell` patch.\n\n## Pin and reverse verification\n\nThe pin mounts the real `PageView` with `SchemaRenderer` stubbed to capture the node, using the same harness as `page-kind-writing-end-9718`. It has two cases:\n1. A page that parses (control: `PageSchema.safeParse` succeeds) and a query string `account=42&tab=notes`. The node's `context` must equal `{ params: { account: '42', tab: 'notes' }, refreshKey: 0 }`.\n2. The same page with `context: { leaked, params: forged }` cast in (control: `PageSchema.safeParse` fails). The node's `context` must still equal `{ params: { account: '42' }, refreshKey: 0 }`.\n\nReverse verification, run after the fix was committed: I put the spread back into the committed `PageView.tsx` with a trap-guarded replace. On disk, the injected text counted 1 and the fixed anchor counted 0. Case 2 went **red** (`Tests 1 failed | 1 passed`) and case 1 stayed green, as expected, because spreading `undefined` changes nothing on a page that parses. I restored the file with `git checkout HEAD -- PATH`. After that, `git diff HEAD` was empty, the file on disk matched the HEAD blob hash, and the pin was green again (`Tests 2 passed`).\n\n## Census (objectui#9438)\n\n`node scripts/page-key-read-census.mjs` before the change: `context [REFUSED]`, the `PageView` read, and `1 of 8 page key(s) ... REFUSED`. After the change: `OK every one of the 7 page key(s) read off the metadata cache is one PageSchema accepts`, exit 0.\n\n**The census script and its test are unchanged.** The dispatch expected a live-instance list to edit, but none exists. The script works out its findings on each run, and neither `scripts/page-key-read-census.mjs` nor its test names this site or pins a live count. Adding a count pin would write the instrument's answer into the tree, which AGENTS.md #9 forbids. The card's \"two\" live instances no longer hold either. The other one, the `pageType` read in `usePageAssignment`, was already retired by objectui#9674 (PR #10480). So after this PR the census reports zero refused reads, where the dispatch expected one.\n\n## Checks (at head 16f38e2fb)\n\n- Targeted vitest, `pnpm exec vitest run` on the new pin, `page-kind-writing-end-9718`, `PageView.test.tsx` and `scripts/__tests__/page-key-read-census.test.ts`: `Test Files 4 passed (4)`, `Tests 23 passed (23)`.\n- `@object-ui/app-shell` `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`), run after building the `@object-ui/app-shell^...` closure (28 packages): exit 0. `--listFiles` includes the new test.\n- eslint on the two touched `.ts`/`.tsx` files: 0 errors, 2 files by `-f json`. The only warnings are `no-explicit-any` (5 per file), and `lint.yml` does not set `--max-warnings`. `PageView.tsx` goes from 5 to 4 `as any`.\n- `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:test-path-roots`, `check:new-line-citations` (0 new), `check:control-bytes`, `check:changeset-claims`, `check:pending-changeset-literals`, `check-changeset-presence`, `check-changeset-no-major`: all exit 0.\n- Full `packages/app-shell/` suite: **NOT MEASURED**. It ran past the roughly 10-minute foreground limit and was terminated. The local run is narrowed to every test file that imports `PageView`. CI's `pnpm test` covers the rest.\n\n## Acceptance notes\n\n- No non-test code under `packages/*/src` reads `schema.context` or `context.params` from a page node (hypothesis 2, by grep). None of the page fixtures in the tests that import `PageView` writes `context`. Nothing downstream depended on author-supplied keys, so no fixture needed a fix.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

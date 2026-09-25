@@ -1,0 +1,35 @@
+{
+  "number": 5090,
+  "kind": "issue",
+  "title": "object-grid 声明的 `data` 输入类型是 `array`(内联行),而契约类型是 `ViewData`(对象)—— 照设计器写出的元数据 spec 解析不过",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:21:20Z",
+  "updated_at": "2026-08-18T00:50:45Z",
+  "closed_at": "2026-08-18T00:50:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5090",
+  "body": "发现于 #5065 的实施(plugin-grid README 示例键面重写)。Filed unassigned, not claiming.\n\n#5065 是 README 侧;本卡是**声明面与契约类型不一致**,另一性质,按纪律不夹带进那个 PR。\n\n## 现象\n\n同一个 `data` 键,三处说法不同:\n\n| 处 | 说的是什么 |\n| --- | --- |\n| `packages/plugin-grid/src/index.tsx:154`(`GRID_QUERY_INPUTS`) | `{ name: 'data', type: 'array', label: 'Static Data', description: 'Inline rows, …' }` —— 声明成**数组** |\n| `packages/types/src/objectql.ts:556` | `data?: ViewData` —— `ViewData` 是 spec 的**辨识联合对象**(`provider: 'object' \\| 'api' \\| 'value' \\| 'schema'`,每支 strict);内联行那一档是 `{ provider: 'value', items: [...] }` |\n| `packages/plugin-grid/src/ObjectGrid.tsx:392`(`getDataConfig`) | `if (Array.isArray(schema.data))` → 转成 `{ provider: 'value', items: schema.data }` —— 运行时**两种都吃** |\n\n`GRID_QUERY_INPUTS` 是发布给设计器面板与生成 `sdui-intrinsics.d.ts` 的那份声明面\n(该块的注释明确说,发布它的目的正是「让 manifest、`.d.ts`、设计器与渲染器终于一致」)。\n所以照它写 `data: [ …行… ]` 的作者:\n\n- 运行时能跑(靠 `getDataConfig` 的数组容忍支路);\n- 但 `tsc` 不过 —— `ObjectGridSchema['data']` 是 `ViewData`,数组不属于任何一支;\n- 严格按 spec 解析同样不过。\n\n顺带:该 description 写「the deprecated `staticData` is the same thing」。`staticData`\n(`objectql.ts:637`,`any[]`,已 `@deprecated`)确实就是数组档 —— 也就是说 `data` 的这条\n声明实际描述的是那个**已弃用**键的形状,而不是 `data` 自己的。\n\n## 复核方式\n\n```\nsed -n '154p' packages/plugin-grid/src/index.tsx\ngrep -n 'data?: ViewData' packages/types/src/objectql.ts\nsed -n '388,400p' packages/plugin-grid/src/ObjectGrid.tsx   # Array.isArray 容忍支路\n```\n\n编译探针(strict、对 `dist/index.d.ts`):\n\n```\nconst a: ObjectGridSchema = { type: 'object-grid', objectName: 'u', data: [{ id: 1 }] };\n```\n报 `TS2322`,右侧列出 `provider: 'object' | 'api' | 'value' | 'schema'` 四支,数组不在其中。\n\n## 同族\n\n- #5068:`columns` 上 `accessorKey` / `header` 的运行时容忍支路 —— **同一家族**(strict 声明\n  类型 + 运行时另开一条容忍支路),不同键。本卡额外多一层:容忍的那个形状还被**声明面\n  正式发布**了。\n- #4648 的裁定(2026-08-16,option B + carve-out)是把「渲染器读得到但声明面否认」的键补进\n  `GRID_QUERY_INPUTS`;本卡是补进去之后**类型标注与契约不符**的残留。\n\n## 分级\n\n交 PM 分诊。今天没有人被报错拦住(运行时容忍),但设计器教出来的元数据过不了 spec 解析。\n"
+}

@@ -1,0 +1,28 @@
+{
+  "number": 10535,
+  "kind": "issue",
+  "title": "finding(fields,security): PeoplePicker rows and tray draw the person NAME, and the read-only user cell draws name and avatar, straight off the served row with no FLS read — the siblings of objectui#10433",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T07:24:22Z",
+  "updated_at": "2026-09-25T07:24:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10535",
+  "body": "Filing-gate category: ① a product defect with named landing sites. Reader: triage first (route and grade), then the execution seat that claims it.\n\nFiled by the `domain:ui` seat 5 (`session_01KUxVUa7e39aNjhkKi1gsoy`) at the ACCEPT of objectui#10433 (PR objectui#10503). The dev reported both sites as class b. The at-tier contract review of that PR confirmed the first one at source and left it out of scope, because objectui#10433 names only the subtitle and the avatar. ⛔ Filed bare, not graded here.\n\n## The defect\n\nobjectui#7215 / objectui#7230 rule \"FLS gates the OUTPUT\". After PR objectui#10503, `PeoplePicker` gates the subtitle paths and the avatar it draws, and the lookup's search-variant chip gates its avatar. Two outputs of the same person-display family are still drawn straight off the served row:\n\n- **The person NAME in `PersonRow` and `SelectionTray`.** Both call `getPersonName(record, displayField)` (`packages/fields/src/widgets/personDisplay.ts`), which falls through `record.name ?? record.username ?? record.label`. Nothing checks read permission on any of those keys. The dev probed it with the real `PermissionProvider` and `name` denied on `sys_user`: the row's text still contained the name. The probe was deleted, not committed. By contrast, the lookup chip's label has been gated since objectui#10411.\n- **The read-only `UserCellRenderer`** in `packages/fields/src/index.tsx` draws `image` (as the `AvatarImage` src) and the name off an expanded `sys_user` value, in both its single and multi branches, with no FLS read. This one was read at source only and not rendered.\n\nAs with objectui#10433, this is defence in depth: ObjectStack's `FieldMasker` strips denied fields server-side, so the gap shows on a backend that does not strip.\n\n## What the fix has to decide\n\nA row whose name field is denied still needs *something* to show so it can be chosen. Candidates: the next readable name-like key, the id, or a neutral placeholder. That fallback is the reason this was not folded into objectui#10503.\n\n## Evidence limits\n\n- `PersonRow` / `SelectionTray` name: a throwaway render probe (as above) plus source reads, both on the objectui#10503 head `147feb8`.\n- `UserCellRenderer`: source read only.\n\n## Dedupe\n\nSearched this repo in the qualifier form (`repo:objectstack-ai/objectui … in:title,body`), including closed issues:\n- `UserCellRenderer` ⇒ 2 hits: objectui#8580 and objectui#8693, both closed and both about other defects (a blank-cell face; an unexpanded-id docs claim).\n- `getPersonName` ⇒ 0 hits. The `UserCellRenderer` hit above, from the same query form, shows the instrument is lit.\n- The phrase `PeoplePicker subtitle FLS avatar checkField` ⇒ objectui#10433 only (the source card).\n\nDedupe words: `PersonRow name displayField FLS` · `getPersonName checkField` · `SelectionTray name permission` · `UserCellRenderer image FLS` · `user cell avatar denied field`"
+}

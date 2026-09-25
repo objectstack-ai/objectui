@@ -1,0 +1,36 @@
+{
+  "number": 5014,
+  "kind": "issue",
+  "title": "plugin-view README 教的 `viewComponents` 手动注册不存在,`ObjectViewSchema` 也不从本包导出",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:16:37Z",
+  "updated_at": "2026-08-17T22:39:20Z",
+  "closed_at": "2026-08-17T22:39:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5014",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-view/README.md` 两处从本包名导入的标识符,在本包导出面上不存在:\n\n| README | 实际 |\n| --- | --- |\n| `:41` `import { viewComponents } from '@object-ui/plugin-view'` + `:45` `Object.entries(viewComponents).forEach(...)` | 全包零命中。注册是 import 的副作用;真实导出在 `src/index.tsx:18-49`(`ObjectView`、`ViewSwitcher`、`FilterUI`、`SortUI`、`SharedViewLink`、`ViewTabBar`、`ManageViewsDialog`、`deriveRecordSurface` …)。照抄即 `Object.entries(undefined)` 抛 TypeError。 |\n| `:337` `import type { ObjectViewSchema } from '@object-ui/plugin-view'` | 类型是真的,但在 `@object-ui/types`(`packages/types/src/objectql.ts:1387`);plugin-view 只 import、不 re-export(`src/ObjectView.tsx:27`),按 README 的路径导入是 TS2305。 |\n\n两处修法不同:前者删虚构,后者改导入路径。\n\n## 同族\n\n#5002 是 `mapComponents` 在 plugin-map 上的同一段复制品。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(#5011)、gantt(#5012)、grid(#5013)、view(本单)、dashboard、report。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n## 复核方式\n\n```\ngrep -n \"viewComponents\\|ObjectViewSchema\" packages/plugin-view/README.md\ngrep -rn \"viewComponents\" packages/plugin-view/src            # 零命中\ngrep -n \"ObjectViewSchema\" packages/plugin-view/src/index.tsx # 零命中(未 re-export)\n```\n\n## 分级\n\n交 PM 分诊。包内 README 的 API 断言今天没有门禁看得到。\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 5016,
+  "kind": "issue",
+  "title": "plugin-report README 教三个不存在的导出:`ReportBuilder` 组件、`registerDrillHandler`、`ScheduleConfig` 组件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:17:13Z",
+  "updated_at": "2026-08-17T21:06:22Z",
+  "closed_at": "2026-08-17T21:06:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5016",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-report/README.md` 有三个从本包名导入的标识符在 `packages/plugin-report/src` 里**一次都不出现**:\n\n| README | 用法 | 实际 |\n| --- | --- | --- |\n| `:30` `import { ReportBuilder, ReportViewer, ReportRenderer } …`,`:33` `return <ReportBuilder report={initialReport} />` | 当成主编辑器组件 | 零命中。同一行的 `ReportViewer` / `ReportRenderer` 是真的(`src/index.tsx:15`)。 |\n| `:125` `import { registerDrillHandler } …`,`:126` `registerDrillHandler(actionRunner, { navigate: router.push })` | 注册下钻处理器 | 零命中。 |\n| `:191` `### ScheduleConfig`,`:196` `import { ScheduleConfig, createScheduleTrigger } …`,`:198` 当组件用 | 定时报表配置组件 | `createScheduleTrigger` 是真的(`src/LiveReportExporter.ts:245`,`src/index.tsx:24` 导出);`ScheduleConfig` 不存在 —— 相近的真名是**类型** `ReportScheduleConfig`(`src/LiveReportExporter.ts:27`/`:82`),不是组件。 |\n\n`:155` 还有一句 \"`ReportBuilder`, `ReportViewer` and the export functions below remain\",读起来像是这份 README 曾被部分校正过,而 `ReportBuilder` 在那次校正里被当成存活项留下了。\n\n## 同族\n\n#5002 是同族的源头单(plugin-map README 教 `mapComponents` 手动注册)。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(#5011)、gantt(#5012)、grid(#5013)、view(#5014)、dashboard(#5015)、report(本单)。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n本单与其他单的差别:这里虚构的是**三个不同机制**(一个编辑器组件、一个注册函数、一个配置组件),不是一段被复制的注册样板 —— 需要逐条判断\"该导出是没实现,还是实现了但改了名\",所以定级和修法都比其他单重。\n\n## 复核方式\n\n```\ngrep -n \"ReportBuilder\\|registerDrillHandler\\|ScheduleConfig\" packages/plugin-report/README.md\ngrep -rn \"ReportBuilder\\|registerDrillHandler\" packages/plugin-report/src   # 零命中\ngrep -rn \"ScheduleConfig\" packages/plugin-report/src                        # 只有 ReportScheduleConfig\n```\n\n## 分级\n\n交 PM 分诊。包内 README 的 API 断言今天没有门禁看得到。\n"
+}

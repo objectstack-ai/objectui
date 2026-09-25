@@ -1,0 +1,34 @@
+{
+  "number": 4974,
+  "kind": "issue",
+  "title": "两处生成器锚规则逐名 `expect`、首个不匹配即抛:一批 dependabot 同时漂多个区间时只报第一个,要一轮修一个（#4098 已观察未落地）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T09:02:04Z",
+  "updated_at": "2026-08-17T13:09:23Z",
+  "closed_at": "2026-08-17T13:09:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4974",
+  "body": "Filed **unassigned** while implementing #4968 (PR #4969). 不在那个 PR 范围内(它是区间跟进,这是门自身的报告完整性)。\n\n## 现象\n\n全仓有两个「生成器模板区间 = 仓内区间」的 ratchet 测试:\n\n- `packages/cli/src/__tests__/app-generator.test.ts` — `sources every range from this repo instead of inventing one`,13 个名字(`DEPENDENCY_ANCHORS`)\n- `packages/create-plugin/src/__tests__/templates.test.ts:356` — `sources every devDependency range from this repo instead of inventing them`,8 个名字(`DEV_DEPENDENCY_ANCHORS`)\n\n两者都是**在 `for` 循环里逐名 `expect`**,而 `expect` 失败即抛,所以**一次只报第一个不匹配的名字**。表是插入序遍历的,于是「谁先漂」还取决于名字在表里的位置,而不是严重性。\n\n## 代价(今天实测到的)\n\n#4968 处理时,`lucide-react` 在 cli 表里排在 `postcss` / `react` / `tailwindcss` / `typescript` / `vite` 之前,所以它**遮住了后面 6 个名字的判定** —— 门给不出「这一批 dependabot 到底漂了几个区间」这个信息。我只能另写脚本把两张表全量算一遍才敢说「各只漂一处」(结果见 PR #4969 的两张表)。\n\n更实际的代价是跨包的:`create-plugin` 那处**当时在 `main` 上也是红的**(`@testing-library/jest-dom` `^7.0.0` vs 根 `^7.0.1`,来自 #4948),但因为它在另一个包、另一个测试文件,`packages/cli/` 绿之前根本没有任何东西报它。如果我只按 issue 的包边界扫,#4968 落地后全仓**仍然是红的**,需要第二轮。\n\n## 这条一周前已被写下\n\n#4098 的 \"Suggested first step\" 结尾就写了:\n\n> then re-read both test files for any other range they pin that this morning's other five bumps have already moved — shiki, maplibre-gl, react-hook-form and next all landed in the same window and **only the first mismatch in each file is reported**.\n\n当时靠人工「再读一遍两个文件」补上,机制没改;七天后同一个盲区又让第二处模板藏了一轮。\n\n## 建议修法\n\n把逐名 `expect` 改成**累积后一次断言**,保留现有的信息量。cli 侧大意:\n\n```ts\nconst drifted: string[] = [];\nfor (const [name, anchor] of Object.entries(DEPENDENCY_ANCHORS)) {\n  // ... 前置断言(根里必须存在 / 仓内必须一致)保持立即抛,它们是仓库事实而非漂移\n  if (generated !== expected) {\n    drifted.push(`${generator} manifest's ${name}: ${generated} should be ${expected}`);\n  }\n}\nexpect(drifted).toEqual([]);\n```\n\n要点两条:\n\n1. **前置断言与漂移断言要分开。** 「`name` must exist in the root manifest」「in-repo manifests disagree on `name` … settle on one range first」是关于仓库状态的前提,立即抛是对的;只有**值不匹配**这一类该累积。\n2. **两个文件都要改**,否则跨包盲区还在 —— 这正是今天那处的成因。\n\n顺带:两处的 anchor 表都值得在同一次里加一句注释,说明「门只判本表内的名字」,以及新增模板依赖必须同时进表(完整性门已经在管这个,但两条规则分居两个 `it` 里,读的时候不明显)。\n\n## 分类说明\n\n这条没有用户面影响,只影响门的报告质量与修复轮数,PM 若判为 observation-class 可加 `finding` 标签;我按「今天确实兑现了代价、且是第二次」当作具体缺陷提交,不自行降级。"
+}

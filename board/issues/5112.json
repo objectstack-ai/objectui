@@ -1,0 +1,35 @@
+{
+  "number": 5112,
+  "kind": "issue",
+  "title": "plugin-form: EmbeddableForm's thank-you redirect is mount-blind too — a same-origin relative destination leaves a sub-path-mounted host",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T00:56:20Z",
+  "updated_at": "2026-08-18T09:04:58Z",
+  "closed_at": "2026-08-18T09:04:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5112",
+  "body": "Found while implementing objectui#4989 defect 4 (PR #5111 — the injected navigation seam). Filed unassigned and NOT fixed there: #4989 is scoped to `submitBehavior.url` and its two call sites, and this is a different declared key on a different component with a different guard.\n\n## What\n\n`EmbeddableForm` performs its thank-you redirect with a browser-level navigation:\n\n- `packages/plugin-form/src/EmbeddableForm.tsx:262-268` — `window.location.href = pendingRedirect.url`\n\nand the destination is admitted by `isRedirectUrlSafe` (`EmbeddableForm.tsx:158-174`), whose first answer is:\n\n```\nconst url = new URL(rawUrl, window.location.href);\nif (url.origin === window.location.origin) return true;\n```\n\nSo a **relative in-app path** (`/thanks`) is accepted — it resolves same-origin — and is then travelled to by a navigation that resolves it against the **origin root**. Under a host mounted at a sub-path (the framework CLI configures one for every embedded deployment; the console runs at `basename` `/_console`) that destination leaves the application. This is objectui#4989 defect 4, same shape, on the key that card explicitly did not cover.\n\n## Why it is filed now rather than folded into #5111\n\nTwo reasons, both about the mechanism rather than the effort:\n\n1. **The seam now exists.** #5111 landed `HostNavigationContext` (`@object-ui/react`) plus the console's supplier, and `packages/plugin-form/src/submitRedirectNavigation.ts` is the consumption pattern. The fix here is likely a few lines — read the seam, use it when present — but it lands on a key whose contract is not this card's.\n2. **The key's contract is different and unruled.** `submitBehavior.url` was ruled relative-only by objectstack#7496; `thankYouPage.redirectUrl` is deliberately more permissive (same-origin OR an author-configured `allowedHosts` allowlist), because a public form's thank-you page is often a real external marketing page. Whether an EXTERNAL destination should also go through a host navigate is not obvious — it plainly should not, and an implementer needs that stated rather than inferred. So the arm needs splitting: relative in-app destination ⇒ host seam when present; external destination ⇒ browser navigation, always.\n\n## Reachability, honestly\n\nNarrower than #4989's. It needs a public/embeddable form whose configured thank-you page is an **in-app relative path** (not the more common external URL), rendered inside a **mounted** host. Both halves are legal authoring today and neither is refused anywhere, so the failure is silent when it happens: the submitter lands on an origin-root URL that is usually the host's own 404.\n\nRelated: #4989 (the ruling and the seam), #5034 (`navigateOnSuccess`, the other mount-blind key, blocked on #4989 and now unblocked), #5049 / #5073 (this same redirect's timer ownership and refusal copy)."
+}

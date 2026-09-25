@@ -1,0 +1,32 @@
+{
+  "number": 4610,
+  "kind": "issue",
+  "title": "finding(tooling): rule 2's citation window still reads prose words as cited symbols when the claim sentence never terminates",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-13T19:23:53Z",
+  "updated_at": "2026-08-18T16:22:39Z",
+  "closed_at": "2026-08-18T16:21:56Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4610",
+  "body": "Observation-class finding, measured while implementing #4607 (PR #4609). Nothing is broken today and nothing is changed for it there beyond a pinned test — filing so the next seat to touch `findClaim` finds it measured rather than discovers it.\n\n## Background\n\n`findClaim` in `scripts/check-spec-symbol-derivation.mjs` extracts the symbols a spec-alignment claim CITES by taking the capitalised identifiers in a 48-character window after each `@objectstack/spec` mention.\n\nUntil #4607 that list only decorated the failure message of a declaration that had already failed the tie test, so noise in it was free. #4607 made it load-bearing: a claim whose cited symbols are ALL absent from the installed spec is now flagged regardless of an incidental tie. Noise in the citation list is therefore a potential false-positive source.\n\nPR #4609 contained the reachable half — the window used to run past the end of the claim's sentence and scrape the capitalised opening words of the NEXT one, so `ActionDef` (`packages/core/src/actions/ActionRunner.ts`) reported `Open` as a cited symbol from \"…mirroring `@objectstack/spec`'s `ActionSchema`. Open key set on a data bag is correct\". Symbols are now taken from the mention's own sentence.\n\n## What is left\n\nThe sentence test is \"a `.`, `;`, `!` or `?` followed by whitespace or end-of-string\" — the same shape the claim/mention pairing already uses. A comment whose claim line simply does not end in punctuation is one sentence as far as `normalizeDoc` is concerned, because the line break collapses to a space.\n\nLive instance, `PageNodeSchema` (`packages/types/src/layout.ts:533`):\n\n```\n * Aligned with @objectstack/spec PageSchema\n *\n * This is the SDUI NODE, not the authored page DOCUMENT — the spec's `Page`\n```\n\nmeasured citation list:\n\n```\nmixed  PageNodeSchema  packages/types/src/layout.ts:533  cites: [PageSchema, This, SDUI, NODE]  dangling: [This, SDUI, NODE]\n```\n\n`This`, `SDUI` and `NODE` are prose.\n\n## Why it costs nothing today\n\n`PageSchema` IS exported by the pinned spec, so the citation list is not all-dangling and the declaration is governed by the tie test exactly as before — the verdict is right and only the (unrendered) message would be odd.\n\nThe measured repo-wide population of the shape that would actually misfire — a claim citing NO real symbol, with an incidental live tie — is **zero** (PR #4609's census: 3 declarations carry a claim and pass the tie test; 2 cite only live symbols, 1 is mixed, 0 are all-dangling). So this is a latent precision gap, not a defect anyone hits.\n\n## Why it is not obviously worth closing\n\nTightening further means deciding what a citation LOOKS like, and the two candidate rules both have costs that were not paid down here:\n\n1. **Require the symbol to be code-quoted** (backticked). Real citations are frequently unquoted — the #4607 specimen itself read \"Aligned with @objectstack/spec FeedItemSchema\" — so this trades a rare false positive for a common false negative, which is the wrong direction for a guard whose whole design note says false-positive honesty matters more than catch rate.\n2. **Require the capitalised word to look like a spec symbol** (a `Schema` / `Config` / `Type` suffix, or membership in the spec's export set). Membership is circular: a symbol is \"cited\" only if the spec exports it, which is exactly the question being asked, and it would make every genuinely-retired citation invisible — the #4597 class this guard exists to catch.\n\nA third option is to leave it and fix the two or three comments instead — `PageNodeSchema` only needs a full stop after `PageSchema`. That is a one-character edit in a package `#4580-round2` currently owns, which is why PR #4609 did not make it.\n\n## Deliberately not established here\n\n- **Priority.** No user hits this, no metadata is refused, and no verdict in the tree changes. It is a precision gap in a guard's message-and-input path, which is why this is an observation rather than a defect.\n- **Whether the message noise alone justifies action.** The list is only rendered for a declaration that is already failing, where a reader has the file open anyway.\n\nPinned as a KNOWN LIMITATION test in `scripts/__tests__/check-spec-symbol-derivation.test.ts` (PR #4609) so the behaviour is asserted rather than assumed, and so a future fix shows up as a deliberate change to that assertion.\n\nRefs #4607, #4592, #4597, PR #4609.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

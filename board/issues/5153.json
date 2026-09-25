@@ -1,0 +1,35 @@
+{
+  "number": 5153,
+  "kind": "issue",
+  "title": "Object-list toolbar's \"New\" (and its mobile FAB) does not consume `createPredicates` — the create half is honoured on related lists only",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T06:59:27Z",
+  "updated_at": "2026-08-18T08:19:10Z",
+  "closed_at": "2026-08-18T08:19:10Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5153",
+  "body": "## Summary\n\nFound while implementing #5142 (the object-list toolbar's Import button consuming `importPredicates`).\n\n`createPredicates` has exactly one consumer in objectui: `RelatedRecordActionsBridge` (PR for #4646). That closed the **related-list** toolbar. The **standalone object-list page** has two more create entry points, and neither reads the key:\n\n```\npackages/app-shell/src/views/ObjectView.tsx:2129   header \"New\" button      (b4089beca)\npackages/app-shell/src/views/ObjectView.tsx:2194   phone-only floating \"+\"  (b4089beca)\n```\n\nBoth gate on `affordances.create && can(objectDef.name, 'create')` — the object-level verdict only. `affordances.createPredicates` is right there on the same resolved object and is dropped.\n\n## Why the standalone list is in scope for a toolbar predicate\n\nThe spec does not treat \"standalone list\" as a surface where toolbar predicates are inapplicable — it states the binding for it explicitly (`RowCrudActionOverrideSchema` docblock, `@objectstack/spec@17.0.0`):\n\n&gt; Toolbar affordances (`create`, `import`) have no row to bind … They evaluate **once per toolbar** against the record in scope where the toolbar renders: on a record page's related list that is the **host (parent) record**. On a standalone object list there is no record in scope, so a predicate reading `record.*` has nothing to bind and — per the fail-closed rule above — hides the button.\n\nSo the surface is in scope; what is absent there is only the *record*. Predicates over the host scope (`os.user.*`, `features.*`) bind normally and are the meaningful shape, and a `record.*` one is supposed to fail closed. Today the object-list page does neither: it ignores the envelope entirely.\n\n## Impact\n\nAn author writing one `userActions.create` object form gets two different verdicts for the same declaration, depending on which surface renders the button: honoured on a record page's related list, ignored on the object list page. `visibleWhen: false` — the objectui#3492 shape — does not hide the object list's \"New\".\n\nNot reported from the field. Severity judged at filing time is unreliable in both directions (objectui#4646 came from a downstream project, #5142's twin did not), so this is filed plainly for triage rather than graded here.\n\n## Deliberately NOT done in the PR for #5142\n\nThat PR is scoped to the `import` key: it adds the consumer for `importPredicates` at `ObjectView`'s single Import entry and widens `UserActionsOverride.import` to match. Extending it to `create` would have changed a second affordance on the same surface under an issue that names only one, so the create half is recorded here instead. The consumption shape it would mirror is already in the same file after that PR (`importVisible` / `importDisabled`, `useRowPredicate` with `fallback: false`, `?? true` for `visibleWhen`, `!= null` for `disabledWhen`), and `UserActionsOverride.create` is already the widened union — so this is the consumer half only, no type change needed.\n\nNote the mobile FAB is a second render point of the same affordance, so both need the gate or they disagree with each other. (Import has no mobile counterpart by design — CSV import is desktop-only there — which is why #5142 had exactly one entry to close.)\n\n## Related\n\n- #4646 — the create half on related lists, fixed (PR #5145).\n- #5142 — the import half on the object-list toolbar.\n- #2614 — the original row CRUD predicate feature.\n- #4419 / #4213 — same family on the detail header."
+}

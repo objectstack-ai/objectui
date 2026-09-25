@@ -1,0 +1,36 @@
+{
+  "number": 5086,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-{form,grid,view}.mdx 三处 `import type` 从错误的包导入真实类型 —— 照抄即 TS2305(#5011/#5013/#5014 第二条的文档站镜像)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:09:29Z",
+  "updated_at": "2026-08-18T02:07:21Z",
+  "closed_at": "2026-08-18T02:07:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5086",
+  "body": "发现于 #5076 的实施(PR #5085)。Filed unassigned, not claiming。与 #5076 **不同性质**故分离立卡:#5076 的三个 `*Components` 是**全仓不存在的虚构名**(运行期 `Object.entries(undefined)` 抛 TypeError),本卡的五个名字**都是真类型**,只是声明在别的包 —— 失败发生在编译期而不是运行期。\n\n读数取自 `origin/main` @ `03e5f972a160998a694742bd7c72149ae2fa3d8e`(PR #5085 落地后行号会前移,判定不变)。\n\n## 现象\n\n| 文件 | 行 | 写的 | 该名字在该包 `dist/index.d.ts` | 真身 |\n| --- | --- | --- | --- | --- |\n| `content/docs/plugins/plugin-form.mdx` | `:251` | `import type { FormSchema, FormField } from '@object-ui/plugin-form'` | 两个都不在(51 个导出名) | 协议类型,声明在 `@object-ui/types`(`src/form.ts`);plugin-form 只 import 不 re-export |\n| `content/docs/plugins/plugin-grid.mdx` | `:336` | `import type { GridSchema, GridColumn } from '@object-ui/plugin-grid'` | 两个都不在(49 个导出名) | 真的数据网格类型是 `@object-ui/types` 的 `ObjectGridSchema` 与 `ListColumn`;而 `GridSchema` 这个**名字**在 `@object-ui/types` 里是 **CSS Grid 布局**容器(`columns` 是列**数**不是列表),`GridColumn` 在 `@object-ui/fields` 里是**表单行项**控件的列(键为 `name`) |\n| `content/docs/plugins/plugin-view.mdx` | `:263` | `import type { ObjectViewSchema } from '@object-ui/plugin-view'` | 不在(39 个导出名) | 声明在 `@object-ui/types`(`src/objectql.ts:1387`);plugin-view 只 import 不 re-export |\n\n三处都是 **TS2305**:读者照抄拿不到类型,IDE 直接红。`GridSchema` / `GridColumn` 更糟一层 —— 这两个名字在别处**存在且指别的东西**,读者按名字搜过去会拿到语义完全不同的类型。\n\n## 复核方式\n\n导出面从**已构建的** `dist/index.d.ts` 取(TS 编译器 API `checker.getExportsOfModule`,#5043 规格),不是 grep src:\n\n```\npnpm --filter @object-ui/plugin-form --filter @object-ui/plugin-grid --filter @object-ui/plugin-view build\n# 然后对 dist/index.d.ts 取 getExportsOfModule,五个名字全部不在其中\n```\n\n真身位置:\n\n```\ngit grep -n \"interface ObjectViewSchema\" -- packages/types/src   # objectql.ts:1387\ngit grep -n \"interface ObjectGridSchema\" -- packages/types/src   # objectql.ts:532\ngit grep -n \"ListColumn\" -- packages/types/src/objectql.ts       # :74 从 @objectstack/spec/ui re-export\n```\n\n## 与已有卡的关系\n\n- README 侧的**同一条**缺陷已分别由 #5011 / #5013 / #5014 修完(PR #5079 / #5071 / #5078 的第二条)。那七个 PR 的 changed files 全是 README + changeset,`content/docs/**` 一行未碰 —— 与 #5076 是同一个成因。\n- #5076 / PR #5085 的派发边界是「只动三处 `*Components` 注册段」,故本卡分离。\n- 与 #5019(`plugin-map.mdx` 的 `MapConfig`)不重叠:不同文件、不同名字。\n\n## 修法(与 README 侧三单同口径)\n\n只改 import 路径到 `@object-ui/types`,示例键面随之对齐真身;⛔ **不**为了让旧路径成立而新增 re-export —— 加宽包的公共面是契约变更,不是文档修复(#5011 已就此定调)。\n\n## 分级\n\n未打 `finding` 标签:是读者今天照抄就会撞上的具体缺陷(TS2305),与 #5011 / #5013 / #5014 同性质,只是文件在文档站。交 PM 分诊。"
+}

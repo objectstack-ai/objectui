@@ -1,0 +1,35 @@
+{
+  "number": 5143,
+  "kind": "issue",
+  "title": "`ObjectGrid`'s `editable` schema key offers inline editing with no `can(object,'update')` gate — the SDUI-authored grid path #4647 did not reach",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T05:05:57Z",
+  "updated_at": "2026-08-18T06:13:47Z",
+  "closed_at": "2026-08-18T06:13:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5143",
+  "body": "## Summary\n\nFound while implementing #4647 (gating the list toolbar's inline-edit affordance).\n\n#4647 is fixed at the **ListView** layer: the toggle, the compact-toolbar entry, and the `editable` value ListView hands down are all ANDed with the object's resolved edit affordance and `can(object, 'update')`.\n\n`ObjectGrid` has a **second, independent** door into the same state that ListView does not pass through: a declaratively-authored `object-grid` schema carrying `editable: true`.\n\n## Evidence (`packages/plugin-grid/src/ObjectGrid.tsx`, on `958d7573a`)\n\nThe component already resolves the principal's verdict:\n\n```ts\n// line ~730\nconst permissionUpdate = objectName ? perms.can(objectName, 'update') : undefined;\nconst permissionDelete = objectName ? perms.can(objectName, 'delete') : undefined;\n```\n\n…but `permissionUpdate` is consumed **only** by `resolveRowCrudAffordances` for the row kebab (line ~777). The editability props read the schema raw:\n\n```ts\n// line ~2678\neditable: schema.editable ?? false,\n// line ~2685\nrenderCellEditor: schema.editable\n  ? (ctx) =&gt; { … }\n  : undefined,\n```\n\nNo `permissionUpdate`, no `isObjectInlineEditable`, on either line.\n\n## Consequence\n\nSame round-trip #4647 describes, reached by a different door: a principal with no `update` grant opens an SDUI page whose grid block declares `editable: true`, edits cells, and is stopped only by the server 403. No data lands — the server gate is solid, this is not a security issue — but the UI walks the user through an edit guaranteed to fail, while the row kebab on those same rows correctly hides Edit for them. One component, two opposite answers to \"may this user write these records\".\n\n## Why it was left out of the #4646/#4647 PR\n\nScope. That PR's radius was the list toolbar surface the two issues name; this is a different component and a different declared channel (`editable` on the grid schema, not `userActions` on the view). Filed rather than fixed, per the scope rule.\n\n## Suggested shape\n\nThe same conjunction #4647 used, which is also `permittedBulkActions`' shape in ListView:\n\n```ts\nconst objectEditable =\n  isObjectInlineEditable(objectSchema, effectiveApiOps) &&\n  (objectName ? perms.can(objectName, 'update') : true);\n// then: editable: (schema.editable ?? false) && objectEditable\n```\n\n`can()` answers `true` with no `PermissionProvider`, so standalone embeds and the Studio designer keep today's behaviour — the fail-open every sibling gate in this file relies on.\n\nWorth checking whether `rowActions: !!(schema.editable && hasActions)` (line ~2675) should follow the same verdict, since it exists to carry the inline-edit save/cancel column.\n\n## Related (same family — \"one affordance missing the gate its siblings have\")\n\n- #4647 — the ListView toolbar half.\n- #4096 / PR #4108 — row kebab gated on `apiOperations` instead of the caller's permission.\n- #4296 — row kebab vs the record-level verdict.\n- #3492 — bulk action buttons ignoring `requiredPermissions`."
+}

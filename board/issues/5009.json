@@ -1,0 +1,35 @@
+{
+  "number": 5009,
+  "kind": "pull_request",
+  "title": "feat(components,plugin-detail): 五个 GA 键发布为 inputs,page:tabs 补上被发布的那个拼写的读点 (#4668)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:51:18Z",
+  "updated_at": "2026-08-17T15:03:17Z",
+  "closed_at": "2026-08-17T15:03:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T15:03:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5009",
+  "body": "Fixes #4668\n\n`@objectstack/spec@17.0.0` GA 声明、渲染器一直兑现、`inputs` 从未发布的五个键,现在在各自注册位声明为 `inputs`,每条带 description;parity 门里占位的五条 GA-pending 豁免随之删除。\n\n## 前提验证:五个读点在现 main 重定位\n\n卡面行号来自 `6d4f5bd59`,PR #4975 之后 `containers.tsx` 已动过。基线 `origin/main` @ `ec1f4d728`,逐个重定位并确认仍兑现:\n\n| block | key | 现读点 | 兑现 |\n|---|---|---|---|\n| `page:header` | `maxVisible` | `containers.tsx:1382` | ✅ 双读(顶层 `??` `properties.*`) |\n| `page:header` | `mobileMaxVisible` | `containers.tsx:1381` | ✅ 双读,默认 1 |\n| `page:tabs` | `alwaysShowStrip` | `containers.tsx:637` | ⚠️ **仅** `properties.*`,见下 |\n| `record:details` | `inlineEdit` | `record-details.tsx:234` | ✅ 顶层 |\n| `record:details` | `showHeader` | `record-details.tsx:257` | ✅ 顶层 |\n\n## 类型按实测定,不按措辞猜\n\n实测 `ComponentPropsMap` 的成员与判定:\n\n- `maxVisible` / `mobileMaxVisible` —— `optional -> number`,checks 为 `safeint` + `greater_than 0 (exclusive)`。实测 `1/2/3/100` 通过,`0` / `-1` / `1.5` 全部按值拒。单臂 `'number'`,无联合(#3832 的数组臂用不上)。\n- `alwaysShowStrip` / `inlineEdit` / `showHeader` —— `optional -> boolean`。实测 `true` / `false` 通过,`1` / `0` / `'true'` / `null` 全部 `invalid_type`。单臂 `'boolean'`。\n\n## 用户可见验收面:改前全 unknown-prop,改后全 CLEAN\n\n在 console 自己的 manifest 上(`manifestFromConfigs` + `validateTree`,与 JSX-page 编译器和保存门同一对)实测对照。改前:\n\n```\npage:header.maxVisible        -> unknown-prop: page:header has no prop \"maxVisible\"\npage:header.mobileMaxVisible  -> unknown-prop: page:header has no prop \"mobileMaxVisible\"\npage:tabs.alwaysShowStrip     -> unknown-prop: page:tabs has no prop \"alwaysShowStrip\"\nrecord:details.inlineEdit     -> unknown-prop: record:details has no prop \"inlineEdit\"\nrecord:details.showHeader     -> unknown-prop: record:details has no prop \"showHeader\"\n```\n\n改后五条全部空。`apps/console/src/__tests__/ga-honoured-inputs-author-reach.test.ts` 把这个面钉住,并且**每个正向都配对照**:三个 block 各探一个谁都没声明的键,`unknown-prop` 必须照报(否则「无诊断」和「检查被静默」长得一样);另有 off-arm 探针(`alwaysShowStrip: 1` / `inlineEdit: 'no'` / `maxVisible: true`)确认声明的臂窄得有意义,而不是把 `type-mismatch` 一并关掉。\n\n## page:tabs 另补一个读点(本 PR 唯一超出「加声明」的改动)\n\n`alwaysShowStrip` 原先只按 `schema.properties.alwaysShowStrip` 读,而 `inputs` 发布的是**顶层**键 —— manifest 白名单、生成的 `.d.ts`、`sdui-parser` 的 prop walk、JSX-page 编译器判的都是顶层那个拼写。单标签页实测(改前):\n\n```\nWRAPPED  (properties.alwaysShowStrip: true)  strip present: true\nFLAT     (alwaysShowStrip: true)             strip present: false\nBASELINE (未写该键)                           strip present: false\n```\n\n只声明不补读点,等于发布一个渲染器会丢掉的写法 —— 正是 parity 门文件头写的那个失效模式(「manifest 告诉作者写一个平台会扔掉的键」)往里挪一层。所以规范拼写先读,`properties` 臂保留给不经 `SchemaRenderer` hoist 的路径,与 `maxVisible` 一贯的双读一致。`page-tabs-always-show-strip.test.tsx` 两个拼写都钉住,并含对照(不写该键必须不出条)与范围守卫(多标签页不受影响;`false` 与非布尔都读作「未设」)。\n\n## 反向验证(三个变异,预判先写后跑)\n\n**① 删豁免但不发布 inputs** —— 预判 #3808 那向红点名五键。实测一致,6 红:\n\n```\npage:header    publishes every top-level key … : expected [ 'maxVisible', 'mobileMaxVisible' ] to deeply equal []\npage:tabs      publishes every top-level key … : expected [ 'alwaysShowStrip' ] to deeply equal []\nrecord:details publishes every top-level key … : expected [ 'inlineEdit', 'showHeader' ] to deeply equal []\nthe five GA keys objectui#4668 declared are discoverable: page:header does not publish maxVisible\n+ author-reach 两条(unknown-prop 回来)\n```\n\n**② 发布 inputs 但留豁免**(五条同时加回 `UNPUBLISHED_EXEMPTIONS` 与 `GA_PENDING_UNPUBLISHED_KEYS`)—— 预判 stale-exemption 检查红点名五条。实测一致,2 红:\n\n```\ncarries no stale unpublished-key exemption: expected [ 'page:header.maxVisible', …(4) ] to deeply equal []\nthe five GA keys objectui#4668 declared are discoverable: expected […(17)] to not include 'page:header.maxVisible'\n```\n\n预判里明确写了「arming 检查应当**保持绿**」,实测确认:`every GA-pending exemption arms exactly with the installed spec` 在 GA pin 上要求 `isDormantOnThisPin === false`,而键被 spec 列出所以确实非 dormant —— 该检查管的是休眠是否跟着 spec 走,不是豁免是否过期。两个变异合起来钉住「删豁免与发布必须同 PR」。\n\n**③ 回退 `alwaysShowStrip` 的顶层臂** —— 预判恰好一条红(被发布的那个拼写),wrapped、对照、声明块保持绿。实测一致,1 红:\n\n```\nshows a one-tab strip for the PUBLISHED top-level spelling: expected false to be true\n```\n\n**这一条最值得看的是什么保持了绿**:parity 门 65 条全绿、author-reach 4 条全绿。两者一个比顶层键名、一个读 manifest 诊断,都看不出渲染器读的是哪个载体 —— 只有行为测试能抓到。这也正是那个读点缺口能一路活到今天的原因。\n\n三次变异后一律 `git checkout --` 还原(未用 stash),树回到本 commit。\n\n## parity 门的收尾\n\n五条豁免条目删除,`GA_PENDING_UNPUBLISHED_KEYS` 只剩 `object-grid` 那十条(测试名 `all fifteen together` 随之改为 `all ten together`,doc comment 从「TWO GROUPS」改为「ONE GROUP NOW」并记下离开的是哪一组、为什么 —— 一条永不落地的 pending 条目正是那个集合要暴露的腐坏)。删除处留下墓碑注释,含 `alwaysShowStrip` 读点缺口那笔,给下一个读者。\n\n五个键另按名钉成 DECLARED(`the five GA keys objectui#4668 declared are discoverable`),理由与隔壁 #3808 五条、rc.6 record_picker 三条一致:派生的 reverse 循环在「声明被换回豁免」时一样绿,而那是时间压力下更省事的一步。\n\n## 验证\n\n全部经 `flock /tmp/os-heavy-verify.lock` + `--max-old-space-size=4096` + `--maxWorkers=2`:\n\n| 面 | 结果 |\n|---|---|\n| `apps/console` 全项目 | 52 文件 / 575 测试 绿 |\n| `packages/components/` | 148 文件 / 1327 测试 绿 |\n| `packages/sdui-parser/` + `packages/plugin-detail/` | 89 文件 / 846 测试 绿 |\n| `packages/layout/` + `packages/react/` + `packages/types/` | 99 文件 / 1216 测试 绿 |\n| `packages/app-shell/.../metadata-admin/` + `examples/` | 183 文件 / 3314 绿(1 skipped) |\n| 仓根 `turbo run type-check --concurrency=2` | 81/81 successful |\n| `node scripts/check-control-bytes.mjs` | OK(4459 文件);另做门盲区自扫 `grep -naP` 六个改动文件,干净 |\n| 改动文件 eslint | 0 error(112 warning 全是既有 `react-refresh/only-export-components`) |\n| changeset 门 | `check-changeset-fixed` / `check-changeset-no-major` 均绿 |\n\n消费半径按「规则被谁读」而非「改了哪个包」扫过:`BLOCK_CONFIG`(metadata-admin 设计器面板)是另一套人工策展面、无 parity 门,其 `page:header` 字段集被 `toEqual(['title','subtitle','breadcrumb'])` 精确钉住,本 PR 不动它;`page-container-authorable-keys.test.tsx` 的精确集断言只覆盖 `page:card`。两者都未受影响。\n\n## 顺手记录,未在本 PR 处理\n\n- #5006 —— `ComponentInput.type` 只有粗粒度 `number` 臂,无法表达整数/正数约束:作者写 `maxVisible: 0` 时 objectui 侧零诊断、渲染器照渲、上游 `os validate` 按值拒。附带一半是 `readMax` 比契约更宽(接受 `0`、小数下取整)。是发布契约的形状决定,列了四个方向待裁。\n- #5007 —— parity 门 `GLOBALLY_UNPUBLISHED_SPEC_KEYS` 的理由串引用 `plugin-detail/src/index.tsx:335-337`,实际差约 70 行(本 PR 之前就已错,本 PR 让它更远)。`finding`。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

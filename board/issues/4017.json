@@ -1,0 +1,34 @@
+{
+  "number": 4017,
+  "kind": "issue",
+  "title": "objectui: PRESET_RANGES 改为消费 spec 的 DATE_RANGE_PRESETS 词汇表(#4614 A 案的消费半边)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T02:05:30Z",
+  "updated_at": "2026-08-17T12:22:57Z",
+  "closed_at": "2026-08-17T12:22:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4017",
+  "body": "> Migrated from objectstack-ai/objectstack#6653 under the file-at-destination ruling (objectstack-ai/objectstack#7167, maintainer 2026-08-10). Originally filed 2026-08-08T08:42:13Z. The full prior thread — including triage rulings and hold/restart conditions — remains on the source issue and MUST be read before acting on this card.\n\n---\n\n跨仓 rule 3 联动单(spec 车道 PM 在验收 PR objectstack-ai/objectstack#6652 时立卡;`domain:*`/`repo:objectui` 路由留分诊席)。\n\nBlocked-by: objectstack-ai/objectstack#6652\n\n## 任务\n\nobjectstack-ai/objectstack#4614 A 案第一步已把 dashboard 日期预设词汇表迁入 spec 成唯一来源(`packages/spec/src/ui/dashboard.zod.ts` 的 `DATE_RANGE_PRESETS` 13 名 + `DateRangePreset`、`DATE_RANGE_DEFAULT_RANGES` + `DateRangeDefaultRange`,PR objectstack-ai/objectstack#6652)。本单是裁决写明的消费半边:objectui 的 `PRESET_RANGES` 改为从 spec 导入词汇表(键集由 `DATE_RANGE_PRESETS` 派生或 `satisfies Record<DateRangePreset, …>` 钉死),两处词表的漂移面就此关闭。\n\n注意(objectstack-ai/objectstack#6652 正文已核):objectui 的 `dateRange` def 是 `resolveDashboardFilterDefs` 合成的内部保留名,不是可授权 type —— 本单只动词表消费,不动 def 合成语义;`custom` 在 spec 侧刻意不是 preset(`DATE_RANGE_DEFAULT_RANGES` 才含它),对齐时别把两张表混为一张。\n\n前提:等 objectstack-ai/objectstack#6652 合并且 objectui 的 `.objectstack-sha` pin 前移覆盖后方可动工(pin 滞后规则)。"
+}

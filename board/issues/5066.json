@@ -1,0 +1,36 @@
+{
+  "number": 5066,
+  "kind": "issue",
+  "title": "plugin-dashboard README 的 `onSchemaChange` 示例把 `string | undefined` 传给 `saveItem` 的必填 `name` —— 照抄在 TS 消费者那里是 TS2345",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:01:31Z",
+  "updated_at": "2026-08-17T23:43:40Z",
+  "closed_at": "2026-08-17T23:43:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5066",
+  "body": "发现于 #5015 的实施(编译探针跑全 README 时,这一块在改前改后都红,与本卡所改两处无关)。Filed unassigned, not claiming。**与 #5015 不同性质**:名字与键全真,错的是可选性,所以按纪律另立而不夹带。\n\n## 现象\n\n`packages/plugin-dashboard/README.md:416-422`(改前行号;#5015 的 PR 只动 TypeScript 一节,不影响这一段的内容):\n\n```tsx\n< DashboardGridLayout\n  schema={dashboard}\n  // ✅ Preferred — write the updated schema through your data adapter.\n  onSchemaChange={(next) => client.meta.saveItem('dashboard', next.name, next)}\n/ >\n```\n\n三条读数对不上:\n\n1. `onSchemaChange?: (schema: DashboardComponentSchema) =  > void` —— `packages/plugin-dashboard/src/DashboardGridLayout.tsx:84`。所以 `next` 是 `DashboardComponentSchema`。\n2. `DashboardComponentSchema extends BaseSchema`,而 `name?: string` —— `packages/types/src/base.ts:86`。所以 `next.name` 的类型是 `string | undefined`。\n3. `saveItem: (type: string, name: string, item: any) =  > Promise< SaveMetaItemResponse  >` —— `@objectstack/client@17.0.0` 的 `dist/*.d.ts:714`(同一签名在 `:2980` 再现)。`name` 必填且不接受 `undefined`。\n\n读者照抄,在 `strict` 下直接红:\n\n```\nerror TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.\n  Type 'undefined' is not assignable to type 'string'.\n```\n\n这条是 #5015 的编译探针跑全 README 时唯一剩下的诊断(改前 3 条:两条 `TS2305` 是 #5015 所修,这一条改前改后原样携带)。探针把 `dashboard` / `client` 声明成中性形状,`saveItem` 按上面第 3 条的真签名写,所以红的是这个块本身,不是探针的假设。\n\n## 为什么值得单独一卡\n\n散文把这一段标成 **`✅ Preferred`** —— 它是这个 README 里唯一被推荐的持久化写法,而且紧跟着一段强调「persistence is the parent's concern」的规则说明。也就是说这是本页最可能被整段抄走的片段。\n\n运行时后果比类型面更值得看一眼:`name` 真的缺省时(`DashboardComponentSchema.name` 是可选的,Studio 设计器产出的 SDUI 节点就可以不带),`saveItem('dashboard', undefined, next)` 会以 `undefined` 作为元数据 item 名去写 —— 本单**没有**跑到服务端确认它是 400 还是写出一条名为 `\"undefined\"` 的记录,如实标注为未量。\n\n## 修法(仅供分诊参考,未代裁)\n\n最小改法是让示例把缺名这件事显式处理掉,而不是让读者以为 `next.name` 一定有值,例如把它收窄后再写、或在示例里明确 dashboard 节点带 `name`。**但这牵涉一个契约问题**:一个 SDUI dashboard 组件节点到底该不该有 `name`(#4600 正在等 objectstack#8593 裁「SDUI dashboard 组件节点按哪个 schema 校验」,`name` / `label` 身份键正是那张卡记的两类成因之一)。所以本单可能应当 `Blocked-by: #4600`,由分诊定。\n\n## 复核方式\n\n```\nsed -n '408,425p' packages/plugin-dashboard/README.md\ngrep -n \"onSchemaChange?:\" packages/plugin-dashboard/src/DashboardGridLayout.tsx\ngrep -n \"name?: string\" packages/types/src/base.ts\ngrep -rn \"saveItem:\" node_modules/.pnpm/@objectstack+client@*/node_modules/@objectstack/client/dist/*.d.ts\n```"
+}

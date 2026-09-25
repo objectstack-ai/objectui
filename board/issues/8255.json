@@ -2,8 +2,8 @@
   "number": 8255,
   "kind": "issue",
   "title": "docs(plugin-view): teach the spec-shaped named list view — README `:154`, `plugin-view.mdx:72`, `schema-reference.md:863-864` currently teach the local dialect (label-only view, tuple filter, `default: true`) (docs half of #7928)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-zhuang",
@@ -13,18 +13,21 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-07T05:42:03Z",
-  "updated_at": "2026-09-07T05:42:03Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T06:22:55Z",
+  "closed_at": "2026-09-25T06:20:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8255",
   "body": "Filed by the director seat under the #7928 ruling (decision batch #70, 2026-09-07, option A). #7928 is `pm:blocked` on this card and on the renderer card.\n\n## Why\n\nThree published documents teach `listViews` entries the spec's `ObjectListViewSchema` refuses: `packages/plugin-view/README.md:154` and `content/docs/plugins/plugin-view.mdx:72` (a label-only view with no `columns`), `content/docs/api/schema-reference.md:863-864` (an ObjectQL tuple filter `[[\"owner\", \"=\", \"…\"]]` and `default: true`). Once the mirror is by reference, these examples fail validation.\n\n## Scope\n\n- Rewrite the three examples in the spec shape (`columns` present, spec filter syntax, no `default` unless the spec declares it); keep them as the docs gates compile them.\n- Land after (or with) the renderer card, so the docs never teach a shape the renderer does not yet honour.\n- `skip-changeset` (docs only).\n\n## Acceptance\n\n- [ ] all three examples validate against `ObjectListViewSchema`\n- [ ] docs gates green\n- [ ] #7928 notified\n\nRefs #7928, #7923 (the schema-reference defect measured alongside)."

@@ -1,0 +1,36 @@
+{
+  "number": 5047,
+  "kind": "issue",
+  "title": "plugin-report docs still teach the pre-9.0 query form as the live authoring shape — and name three renderers removed at the ADR-0021 cutover",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T20:45:53Z",
+  "updated_at": "2026-08-18T06:29:09Z",
+  "closed_at": "2026-08-18T06:29:09Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5047",
+  "body": "Found while implementing #5016 (the three fabricated exports in `packages/plugin-report/README.md`). Filed unassigned, out of that card's scope: #5016 is scoped to the fabricated **export names**; this is the **schema shape** the surrounding prose teaches, which is a larger and separately-decidable surface. Measured on `origin/main` at `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`.\n\n## What the code says\n\n`packages/plugin-report/src/ReportRenderer.tsx:6-20` states the single form and the retirement in as many words:\n\n```\n * ADR-0021 single-form: a 9.0 report is **dataset-bound** — it binds a\n * semantic-layer `dataset` and selects its `values` (measure names) grouped\n * by `rows` (dimension names). That is the live rendering path.\n ...\n * The pre-9.0 query-form renderers (SpecReportGrid / MatrixRenderer /\n * JoinedReportRenderer) were retired with the cutover — stored old-shape JSON\n * renders through the lossy {@link specReportToPresentation} bridge until it\n * is migrated to a dataset binding.\n```\n\n`packages/plugin-report/CHANGELOG.md:1284` records the same removal, and `packages/plugin-report/src/index.tsx:33-37` records that `useReportData()` and its `buildAggregateQuery` / `groupAndAggregate` / `pivotRows` helpers were removed with ADR-0021 because dataset-bound reports aggregate in the semantic layer.\n\n## What the docs still teach\n\n**1. `content/docs/plugins/plugin-report.mdx` — names the retired renderers as the live ones.** Its \"At a glance\" table maps each variant to a renderer:\n\n| line | claim |\n| --- | --- |\n| `:22-25` | `tabular` / `summary` renderer is `SpecReportGrid`; `matrix` is `MatrixRenderer`; `joined` is `JoinedReportRenderer` |\n| `:79-83` | `dateGranularity` routes to `POST /api/v1/data/:object/query`, falling back to `applyInMemoryAggregation()` |\n| `:85-86` | \"`MatrixRenderer` renders row totals, column totals and grand total automatically\" |\n\nAll three renderer names and `applyInMemoryAggregation` are zero-hit in `packages/plugin-report/src`. Every authoring example on the page (`:36-50`, `:60-72`, `:92-120`) is in the `objectName` + `columns` + `groupingsDown` / `groupingsAcross` query form.\n\n**2. `packages/plugin-report/README.md` — the same query form, in the sections #5016 does not touch.** After PR-for-#5016 lands, the remaining stale surface is:\n\n| line (at that PR's head) | claim |\n| --- | --- |\n| `:9` | feature bullet: `dateGranularity` on `groupingsAcross` / `groupingsDown` |\n| `:10` | feature bullet: \"tabular/summary delegate to `ObjectGrid`\" |\n| `:12` | feature bullet: each joined block owns its own `objectName` |\n| `:83-146` | the whole \"Spec Reports — the four variants\" section: `ReportInput` examples in the query form, plus `:145` \"each block runs an isolated `useReportData()` call\" |\n\nThe dataset-bound shape those should be describing is `{ name, type, dataset, rows: string[], columns?: string[], values: string[], filter?, order?, drilldown?, chart?, blocks? }` — see `DatasetReportLike` at `packages/plugin-report/src/DatasetReportRenderer.tsx:128-158`.\n\n## Why this is not \"just stale prose\"\n\nThe query form is not rejected, it is **silently degraded**: `ReportRenderer` routes a stored `isSpecReport` document through `specReportToPresentation`, which its own comment calls \"lossy by construction\". So an author following either doc gets a report that renders — differently from what the page promises, with no diagnostic. That is the same failure shape as #4600 (the 9 dashboard examples teaching the pre-ADR-0021 widget shape), one corpus over.\n\nBoth files are also AI-authoring inputs: the mdx is the published authoring reference, and package READMEs ship to npm.\n\n## Open question for triage, not for an implementer\n\nWhether these documents should be **migrated** to the dataset form or should keep a clearly-labelled \"stored pre-9.0 documents\" section describing the bridge. That depends on whether the query form is a supported compat arm or a migration waiting room — `ReportRenderer.tsx:102-105` says \"the proper fix is migrating the stored report to a dataset binding\", which reads like the latter, but the decision belongs to whoever owns ADR-0021's migration story. Same enforce-or-retire question #4600 raised for the widget shape.\n\n## Recheck\n\n```\ngrep -rn \"SpecReportGrid\\|MatrixRenderer\\|JoinedReportRenderer\\|applyInMemoryAggregation\" packages/plugin-report/src   # zero hits\ngrep -n \"SpecReportGrid\\|MatrixRenderer\\|JoinedReportRenderer\" content/docs/plugins/plugin-report.mdx\ngrep -rn \"ReportViewer\" packages/plugin-report/src | head   # positive control: a name that IS real\n```\n\nRelated: #5016 (the export-name half, in flight), #4600 (same class, dashboard examples), #5002 / PR #5021 (the plugin-map precedent for a README rewritten against its code)."
+}

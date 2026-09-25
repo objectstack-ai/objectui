@@ -1,0 +1,34 @@
+{
+  "number": 5031,
+  "kind": "issue",
+  "title": "FilterBuilder:lookup 列的 options 是空数组时被拒掉远程搜索,只剩一个没有搜索框的空 Select",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T17:59:35Z",
+  "updated_at": "2026-08-18T00:57:42Z",
+  "closed_at": "2026-08-18T00:57:42Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5031",
+  "body": "发现于 #4874(PR #5030)的实施,回传立单。**不是** #4874 的一部分:那张卡问的是「值落在选项集外时看不见」,PR #5030 已经让这类值可见了;本单问的是**这一列还能不能筛** —— 值可见了,用户依然挑不出别的记录。\n\n## 事实\n\n`packages/components/src/custom/filter-builder.tsx`(PR #5030 后的行号)`renderValueInput` 里那条远程 picker 分支的条件是:\n\n```\nif (isLookupLike && !field?.options && (field?.referenceTo || field?.type === \"user\" || field?.type === \"owner\"))\n```\n\n`!field?.options` 对 `options: []` 是 **false** —— 空数组是真值。于是一个带 `referenceTo`、`options` 为 `[]` 的 lookup 列**进不到** `LookupValuePicker`,落进下面按 options 画的分支:\n\n- 标量算子 → 一个选项数为 0 的 Select(PR #5030 之后至少会把行里已有的值挂成临时项显示出来,但仍然**没有搜索框、没有任何候选**);\n- 列表算子(`in` / `notIn`)→ 一个空的勾选框列表。\n\n两种形态下用户都无法为这一列选出任何**新**值,而同一列若 `options` 键干脆缺席就能拿到完整的远程搜索。实测(jsdom,`origin/main` e71c854 + PR #5030 分支):字段 `{ value: 'account_pending', type: 'lookup', referenceTo: 'accounts', options: [] }`,值 trigger 只有行里那个值,展开后无候选、无搜索框。\n\n## 可达性\n\n`@object-ui/fields` 的 `deriveFilterFields`(`packages/fields/src/widgets/FilterConditionField.tsx:104`)是 `Array.isArray(f.options) ? f.options.map(…) : undefined`,`plugin-view` 的 `deriveFieldOptions`(`packages/plugin-view/src/config/view-config-utils.ts:279`)是 `options: field.options`。两处都**原样**透传,所以只要对象元数据里某个引用字段声明了 `options: []`,这一列的筛选就退化成上面的样子。没有哪个消费方用 `?? []` 兜底,因此不是「每个 lookup 列都中」,但也不需要任何异常状态就能触发。\n\n## 修法方向(仅供 triage,未实施)\n\nPR #5030 已经为「静态选项集是否真的在位」建了唯一判据 `hasStaticOptionDomain(field)`(= `options` 是**非空数组**),并且正是按「`options: []` 属于远程/未到位」这一侧裁定的值域行为。这条分支条件把同一个问题按 `!field?.options` 又答了一遍,两个答案对 `options: []` 相反:值域侧当它是远程列(保值),控件侧当它是静态列(画空 Select)。让分支条件读同一个判据即可一致。\n\n改的是公共控件对一整类列画哪个控件,属于用户可见行为变更 —— #4874 就是因为这类变更被升级到维护者裁定的,建议同样处理,别自行拍。\n\n## 邻接观察(另一件事,不在本单修法内)\n\n`plugin-view` 的 `deriveFieldOptions` 根本不传 `referenceTo`,所以经它构造的筛选面板里,lookup 列即使 `options` 缺席也拿不到远程 picker(分支的第二个条件不满足),会退到手打 id 的文本框。那是「控件降级得看得见」,没有隐形值,与本单不同源,若要处理请另开。\n"
+}

@@ -2,8 +2,8 @@
   "number": 10397,
   "kind": "issue",
   "title": "finding(components): the `header-bar` renderer ignores the inherited `BaseSchema.className`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,21 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T21:42:47Z",
-  "updated_at": "2026-09-25T01:31:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T05:27:48Z",
+  "closed_at": "2026-09-25T05:27:10Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10397",
   "body": "Surfaced by the dev executing objectui#10387 (PR objectui#10395, `out_of_scope_findings`). Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. ⛔ Not graded: the domain, priority and type all belong to triage. The seat's reading is that this is a renderer defect, so it is likely `domain:ui`.\n\n## Fact (class b: a declared, inherited key has no effect)\n\nThe dev ran a one-off runtime probe with the real `SchemaRenderer` and the real registry, varying one key at a time. Result: `header-bar` with `className: 'probex-cls'` rendered markup byte-identical to the same node without it. The lit control, `rightContent`, did change the markup. The probe code is in the PR objectui#10395 body.\n\n- `BaseSchema` declares `className` as the Tailwind override channel, and `HeaderBarSchema` extends `BaseSchema`.\n- AGENTS.md commandment #3 says every component exposes `className`.\n- The renderer is `packages/components/src/renderers/navigation/header-bar.tsx`.\n\n⛔ Relayed from the dev's probe. The seat did not re-run it.\n\n## Also noted (same renderer, docs)\n\n`content/docs` `header-bar.mdx`:\n- its Schema block lists only `crumbs` plus the base keys, and omits `search`, `actions` and `rightContent`;\n- its usage note says the header is a fixed `h-16`, while the renderer uses `h-14 sm:h-16`.\n\nSeam: `types:BaseSchema.className` → `renderer:packages/components header-bar`\nDedupe words: `header-bar className ignored` · `HeaderBarSchema className` · `header-bar ignores className`"

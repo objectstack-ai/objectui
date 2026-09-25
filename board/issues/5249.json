@@ -1,0 +1,36 @@
+{
+  "number": 5249,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-form.mdx rule table still types `pattern.value` as `string | RegExp`, contradicting both the narrowed contract and its own Notes cell",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T20:18:43Z",
+  "updated_at": "2026-08-18T23:15:53Z",
+  "closed_at": "2026-08-18T23:15:09Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5249",
+  "body": "Found while fixing #5229 (the same defect class in `content/docs/blocks/forms.mdx`). Filed unassigned, not claiming — #5229's PR is scoped to `content/docs/blocks/forms.mdx` and deliberately does not touch this file.\n\n## What\n\n`content/docs/plugins/plugin-form.mdx` line 108, in the `validation` rule table written by #5118:\n\n```\n| `pattern` | `{ value: string \\| RegExp; message: string }` | hand-authored schemas must pass a **RegExp**: … |\n```\n\nThe **Type** column says `string | RegExp`. The public contract says otherwise — `packages/types/src/form.ts`:\n\n```ts\npattern?: { value: RegExp; message: string };\n```\n\n`string` was removed from that union by #5099 and the zod face was aligned to match by #5186 / PR5230, whose `FieldConstraintsSchema.pattern.value` is `z.custom&lt;RegExp&gt;((v) =&gt; v instanceof RegExp, …)`.\n\n## Why it is worth a card rather than a shrug\n\nThe row **contradicts itself**: the Notes cell in the very same row already states the rule correctly (\"hand-authored schemas must pass a **RegExp**\"). So the table tells a reader who scans the Type column one thing and a reader who reads the Notes column another. The Type column is the half a reader copies from.\n\nThis is the same failure mode #5118 closed on this file (a documented `validation` spelling that no declaration has), just narrowed to one cell that the #5118 pass left behind — understandably, since at the time of #5118 the union still had `string` in it on the zod face.\n\n## Fix direction\n\nOne cell: `{ value: RegExp; message: string }`. The Notes cell needs no change — it is already correct and already explains the metadata route (`buildValidationRules` in `@object-ui/fields`) for authors who have only a string.\n\n## Verification available\n\nDocs-only and this file has only `plaintext` fences, so — as measured in #5229 — no shipped gate reads it. The reference is the contract itself: `packages/types/src/form.ts` (`FieldValidationRules.pattern`) and `packages/types/src/zod/form.zod.ts` (`FieldConstraintsSchema.pattern`).\n\nRelated: #5099 (the narrowing), #5186 / PR5230 (the zod alignment), #5118 (the pass that wrote this table), #5229 (same class, different file)."
+}

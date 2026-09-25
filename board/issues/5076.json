@@ -1,0 +1,36 @@
+{
+  "number": 5076,
+  "kind": "issue",
+  "title": "文档站上还有一份未修的 #5002 家族镜像:content/docs/plugins/plugin-{form,grid,view}.mdx 复制了同一段不存在的 `*Components` 手动注册",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:31:48Z",
+  "updated_at": "2026-08-17T23:14:58Z",
+  "closed_at": "2026-08-17T23:14:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5076",
+  "body": "发现于 #5011 的实施(plugin-form README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n#5002 家族修的是**包内 README** 里那段虚构的 `Object.entries(xxxComponents).forEach(register)`。同一段代码在**文档站** `content/docs/plugins/*.mdx` 上还有一份复制品,家族的七个 PR 一个都没碰到它(每个 PR 的 changed files 都是 README + changeset 两个)。\n\n读数取自当前 `origin/main` @ `6098ecd08a8c884b22a4130571d17af1ffafebdb`:\n\n| 文件 | 行 | 名字 | 该名字在对应包的 `src` 里 | 判定 |\n| --- | --- | --- | --- | --- |\n| `content/docs/plugins/plugin-form.mdx` | `:165` / `:168` | `formComponents` | 零命中 | **虚构**;README 侧已由 #5011 修 |\n| `content/docs/plugins/plugin-grid.mdx` | `:121` / `:124` | `gridComponents` | 零命中 | **虚构**;README 侧已由 #5013 / PR #5071 修 |\n| `content/docs/plugins/plugin-view.mdx` | `:70` / `:73` | `viewComponents` | 零命中 | **虚构**;README 侧见 #5014 |\n| `content/docs/plugins/plugin-dashboard.mdx` | `:73` / `:76` | `dashboardComponents` | `packages/plugin-dashboard/src/index.tsx:338` | 名字**是真的**,错的是键的词汇表 —— 已在 #5064,本卡不重复 |\n\n前三行照抄拿到 `undefined`,`Object.entries(undefined)` 当场抛 TypeError —— 与各自 README 上那段完全一样的失败,只是发生在文档站的读者身上。文档站的曝光量比包内 README 高,而且 `.mdx` 不随 npm 发布,所以修它不需要 changeset。\n\n## 为什么单立一卡而不是各包一单\n\n这四处是**同一段被复制的代码**,住在同一个目录、同一种文件里,一次替换就能全改对(改法与 README 侧已落地的三单相同:删虚构节,改写成「注册是 import 副作用」+ 真实 register 键表 + 真实导出面)。按包切成三单反而制造三份孪生。\n\n`content/docs/plugins/plugin-map.mdx` 另有两处**不同性质**的漂移,已在 #5019,与本卡不重叠(那个文件里没有 `mapComponents` 这一段)。\n\n## 复核方式\n\n```\ngit grep -nw -E \"formComponents|gridComponents|viewComponents|dashboardComponents\" -- content/docs\ngit grep -nw formComponents -- packages/plugin-form/src   # 零命中\ngit grep -nw gridComponents -- packages/plugin-grid/src   # 零命中\ngit grep -nw viewComponents -- packages/plugin-view/src   # 零命中\n```\n\n各包的真实 register 键从 `ComponentRegistry.register(...)` 调用现场抄,不要从文档反推:\n\n```\ngit grep -nE \"ComponentRegistry\\.register\\(\" -- packages/plugin-form/src packages/plugin-grid/src packages/plugin-view/src\n```\n\n## 分级\n\n交 PM 分诊,未打 `finding` 标签 —— 照抄即抛,是读者今天就会撞上的具体缺陷,与 #5010 / #5011 / #5013 / #5014 同一性质,只是文件不同。\n\n门禁侧:`check-doc-component-types` 确实扫 `content/docs`,但它核的是组件 type 而不是 import 的名字,所以这四处从它下面穿过去了;包内 README 的同类断言无人核对(#5043)。一道同时覆盖两个扫描根的名集合门禁能把这一整族关掉。\n"
+}

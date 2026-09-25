@@ -1,0 +1,32 @@
+{
+  "number": 4771,
+  "kind": "issue",
+  "title": "[finding] dependentValues 通道的 widget-hint picker 类(filter-condition / recipient-picker / lookup 过滤)在动作与批量对话框是否供给 —— 三表面现均默认不喂,契约未裁",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:42:17Z",
+  "updated_at": "2026-08-18T17:26:10Z",
+  "closed_at": "2026-08-18T17:26:09Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4771",
+  "body": "发现于 #4757 的实施(PR #4763),回传归档。observation-class,待分诊(可能转 spec 席)。\n\n## 事实\n\n`dependentValues` 通道除 option 家族级联外,还被两类 widget 读取特定兄弟 key:`filter-condition` 读 `object_name`、`recipient-picker` 读 `recipient_type`;lookup 家族亦用它过滤查询。三个 param 对话框表面(app-shell ActionParamDialog / plugin-grid BulkActionDialog / #3765 裁定链)目前一致地用允许表把这几类**排除在外** —— 「动作/批量对话框的 param 是否也该喂这几类 widget」是尚未有人裁决的独立接线问题,现状(不喂)只存在于三份注释里。\n\n## 待裁\n\n若该成为正式契约(喂或明确不喂),应写进 spec/文档而非注释;与 #4770(允许表三份重复的收敛)同一收尾工程,建议合并裁决。\n\n## 参考\n\n- #4757 / PR #4763(发现来源)、#3765(Option B 裁定链)、#4770(允许表收敛)"
+}

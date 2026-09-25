@@ -1,0 +1,36 @@
+{
+  "number": 5010,
+  "kind": "issue",
+  "title": "plugin-calendar README 教的 `calendarComponents` 手动注册 API 不存在 —— 照抄即抛",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:13:39Z",
+  "updated_at": "2026-08-17T20:46:44Z",
+  "closed_at": "2026-08-17T20:46:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5010",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-calendar/README.md:106-112` 的 \"Manual Registration\" 一节教:\n\n```ts\nimport { calendarComponents } from '@object-ui/plugin-calendar';\n\nObject.entries(calendarComponents).forEach(([type, component]) => {\n  ComponentRegistry.register(type, component);\n});\n```\n\n`calendarComponents` 在 `packages/plugin-calendar/src` 里**一次都不出现**(`grep -rlnw calendarComponents packages/plugin-calendar/src` 零命中)。包的真实导出在 `src/index.tsx:20-34` 与 `:222`:`ObjectCalendar`、`CalendarView`、`ObjectCalendarRenderer` 及若干类型;注册是 import 的副作用。\n\n照抄这段拿到 `undefined`,`Object.entries(undefined)` 直接抛 TypeError —— 也就是说这一节不是\"渲染结果不对\",而是根本跑不起来。\n\n## 同族(共 7 个包)\n\n#5002 是同一段复制品在 plugin-map 上的实例(`mapComponents`)。实施 #5002 时顺手把 19 个 `packages/plugin-*/README.md` 的自包导入名与各自 `src/` 粗对了一遍,命中 7 个包:\n\n- `*Components` 手动注册虚构:calendar(本单)、form、gantt、grid、view\n- 类型导入虚构:dashboard(`MetricCardSchema`)、report(`ReportBuilder` / `registerDrillHandler` / `ScheduleConfig`)\n\n按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单,本单只覆盖 plugin-calendar。\n\n值得记一笔:`plugin-dashboard` 的 `dashboardComponents` 是**真实存在**的(`src/index.tsx:338`),所以这一族不能按名字模式批量断言,必须逐包对导出。\n\n## 复核方式\n\n```\ngrep -n \"calendarComponents\" packages/plugin-calendar/README.md\ngrep -rlnw \"calendarComponents\" packages/plugin-calendar/src   # 零命中\ngrep -n \"^export\" packages/plugin-calendar/src/index.tsx\n```\n\n## 分级\n\n交 PM 分诊。今天没有门禁看得到包内 README 的 API 断言(`check-doc-links` 只解析链接,`check-doc-component-types` 只扫 `content/docs`),这也是 #5002 那份漂移能活下来的原因。\n"
+}

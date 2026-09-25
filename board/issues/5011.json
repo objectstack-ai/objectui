@@ -1,0 +1,36 @@
+{
+  "number": 5011,
+  "kind": "issue",
+  "title": "plugin-form README 教三个不存在的导入:`formComponents` 手动注册、`FormSchema` / `FormField` 从本包导入",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:15:43Z",
+  "updated_at": "2026-08-17T22:45:28Z",
+  "closed_at": "2026-08-17T22:45:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5011",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-form/README.md` 有三处从本包名导入的标识符,在本包导出面上都不存在:\n\n| README | 实际 |\n| --- | --- |\n| `:41` `import { formComponents } from '@object-ui/plugin-form'` + `:45` `Object.entries(formComponents).forEach(...)` | 全包零命中。注册是 import 的副作用;真实导出在 `src/index.tsx:18-65`(`ObjectForm`、`TabbedForm`、`WizardForm`、`SplitForm`、`DrawerForm`、`ModalForm`、`EmbeddableForm`、`MasterDetailForm`、`LineItemsPanel` …)。照抄拿到 `undefined`,`Object.entries(undefined)` 直接抛 TypeError。 |\n| `:408` `import type { FormSchema, FormField } from '@object-ui/plugin-form'` | 两个类型都**存在但不在本包**:`FormSchema` 在 `@object-ui/types`(`packages/types/src/form.ts:1055`),`FormField` 同包(`:898`)。plugin-form 只 import 它们、不 re-export,所以按 README 写的路径导入是 TS2305。 |\n\n两处的修法不同(前者是删虚构、后者是改导入路径),所以分别记在上表里。\n\n## 同族\n\n#5002 是 `mapComponents` 在 plugin-map 上的同一段复制品。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(本单)、gantt、grid、view、dashboard、report。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n## 复核方式\n\n```\ngrep -n \"formComponents\\|FormSchema, FormField\" packages/plugin-form/README.md\ngrep -rn \"formComponents\" packages/plugin-form/src   # 零命中\ngrep -n \"FormSchema\\|FormField\" packages/plugin-form/src/index.tsx   # 零命中(未 re-export)\n```\n\n## 分级\n\n交 PM 分诊。包内 README 的 API 断言今天没有门禁看得到(`check-doc-links` 只解析链接,`check-doc-component-types` 只扫 `content/docs`),这正是这一族能长期存活的原因。\n"
+}

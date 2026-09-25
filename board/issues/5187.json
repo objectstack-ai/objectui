@@ -1,0 +1,34 @@
+{
+  "number": 5187,
+  "kind": "pull_request",
+  "title": "fix(types,components): FieldValidationRules.pattern.value is RegExp-only; unrecognized rule names shout (#5099)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T10:23:00Z",
+  "updated_at": "2026-08-18T10:52:27Z",
+  "closed_at": "2026-08-18T10:52:26Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T10:52:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5187",
+  "body": "Fixes #5099\n\nImplements the maintainer ruling of 2026-08-18 (comment-5322881617, verbatim 「同意」), all three limbs:\n\n## 1. A — the declaration narrows (producer-side strict)\n\n`FieldValidationRules.pattern.value` is now `RegExp` — no longer `string | RegExp` (`packages/types/src/form.ts`). react-hook-form's field validator applies `pattern` only when `value instanceof RegExp` (re-derived from the installed 7.85.0 bundle, see below), so a string here type-checked for years and then validated nothing, silently. A hand-written string pattern is now a compile-time error. `string` survives only on the metadata route's field declaration (`FieldSchema.pattern`), which `buildValidationRules` in `@object-ui/fields` compiles — that route is untouched (read-only reference in this PR).\n\n**In-repo callers turning red: zero.** Repo-wide sweep (turbo `type-check`, 81/81 tasks) found no caller authoring a string pattern; the docs example (`content/docs/plugins/plugin-form.mdx`) and `packages/types/examples/login-form.ts` already pass RegExp literals.\n\n## 2. B's error half — unrecognized rule names shout\n\nAt the single read point's field list, the renderer now reports rule names react-hook-form does not run (`console.error`, house style of the #3090 vocabulary diagnostic: the message doubles as the fix instruction). A misspelled `minlength`, an invented `email`, and the numeric keys left by spreading an array into `validation` (the #5075 group-1 shape) all shout instead of vanishing.\n\nThe recognized set lives in `packages/components/src/renderers/form/validationRuleKeys.ts` and is **pinned against the installed react-hook-form bundle**, not prose: `rhf-recognized-rule-keys.test.ts` re-derives the validator's fixed `._f` destructure (`ref, refs, required, maxLength, minLength, min, max, pattern, validate, name, valueAsNumber, mount` in 7.85.0) from `dist/index.cjs.js` at test time with shape-based (minifier-safe) regexes, subtracts the descriptor internals, and requires exact set equality — a react-hook-form bump that changes the set turns the test red instead of silently rotting the diagnostic. The `instanceof RegExp` gate (the premise of limb 1) is pinned in the same file.\n\n## 3. B's normalization half — NOT implemented, and pinned that way\n\nNo `new RegExp(...)` was added at the read point: the ruling explicitly rejected compiling strings there as consumer tolerance that would harden the ambiguous declaration into contract (AGENTS.md #0.1). This is pinned by test in both directions — `unrecognized-validation-rules.test.tsx` asserts a smuggled string pattern reaches react-hook-form uncompiled and validates nothing (submit passes), so if someone \"helpfully\" adds the normalization later, the suite goes red.\n\n## Breaking change vs. the no-major gate — the deliberate reconciliation\n\nThis narrows a published type, and `scripts/check-changeset-no-major.mjs` forbids `major`. These do not conflict: this repo's version policy (AGENTS.md §版本号策略) reserves `major` exclusively for tracking `@objectstack` majors (\"major 相同即兼容\") and directs objectui's own breaking changes to ship as **`minor` with the breaking semantics stated plainly in the body** — which is also what the ruling ordered. The changeset (`.changeset/field-validation-rules-pattern-regexp-5099.md`) declares `minor` for `@object-ui/types` + `@object-ui/components` and states the breaking semantics up front: string patterns stop compiling, and red is the fix — every such caller was running zero validations already, so the error converts silent non-validation into explicit failure at authoring time.\n\n## Verification (all at `0b27ef102`)\n\n- New tests: 3 files, 9 tests passed (type pin, bundle pin, diagnostic behavior).\n- Blast radius: `pnpm exec vitest run packages/components/src/renderers/form/ packages/types/` — 80 files, 683 tests passed.\n- `pnpm --filter @object-ui/types type-check` and `...components type-check` green; full consumer radius `turbo run type-check` 81/81 green (every package is downstream of `@object-ui/types`, so the full run covers the whole radius).\n- Lint (types, components) 3/3; `check-changeset-presence` / `check-changeset-fixed` / `check-changeset-no-major` / `check:control-bytes` / `check:doc-types` / `check:phantom-deps` / `check:self-import` green; `check:doc-snippets` green after a full workspace build (doc snippets compile against the narrowed built types).\n- **Reverse verifications, from the committed state:**\n  1. Cross-package `.d.ts` probe: a temp components file with a string pattern → `tsc` red with `Type 'string' is not assignable to type 'RegExp'` → probe deleted. Proves consumers read the rebuilt declaration, not a cache.\n  2. Type ablation: restored `form.ts` from origin/main → types `tsc -p tsconfig.test.json` red (3 errors incl. `TS2578: Unused '@ts-expect-error'`) → restored. This leg's reader is tsc over src (relative import), no dist in the path.\n  3. Diagnostic ablation: restored `form.tsx` from origin/main → the two reporting tests red, the other three green as expected (they pin behavior identical on main: silence for recognized rules, RegExp path validating, strings not compiled), bundle-pin test unaffected → restored. Reader is vitest over src via relative imports, no dist in the path.\n\n## Out of scope, filed\n\n#5186 — `FormFieldSchema.validation`'s zod mirror (`FieldConstraintsSchema`) contradicts `FieldValidationRules` in both directions (rejects the TS-legal object shape, accepts a flat shape the renderer never reads). Adjacent surface, measured evidence in the issue; not touched here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01AMHbqfPiETJHA95r6WzZWS)_"
+}

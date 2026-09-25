@@ -1,0 +1,32 @@
+{
+  "number": 4995,
+  "kind": "pull_request",
+  "title": "fix(scripts): 把 slider 交付补丁的锚点重定到 upstream 实际提供的那一行 (#4976)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T13:05:54Z",
+  "updated_at": "2026-08-17T14:23:44Z",
+  "closed_at": "2026-08-17T13:24:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T13:24:48Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4995",
+  "body": "Fixes #4976\n\n## 病因:既不是本地丢标记,也不是 upstream 移锚\n\n周检报的是 declared local patch `slider-thumb-aria-delivery` 不再适用于当前 upstream。issue 给的两种预设病因都不成立,实测是第三种:**这个锚点当初是照着本地文件写的,从来没有对上过 upstream**,所以从声明落地那一刻就是死的。\n\n三条证据:\n\n1. **盘上标记齐全。** `packages/components/src/ui/slider.tsx` 四个 marker 全在(第 15/19/27/34 行),`verifyLocalPatches('slider', …)` 返回 `[]`。CI 日志自己就是这么说的:`The file on disk is still correct — but the next --update cannot re-apply these`。\n2. **被钉住的那一行是 objectui 自己加的。** commit `a014bc00c`(2026-04-13,\"fix Slider accessibility\")把 upstream 的单行自闭合 Thumb 展开成三行,并加入了把宿主 accessible name 转发到 thumb 的那一行 —— 锚点钉的正是这一行。它是本地编辑,不是 registry 内容。\n3. **upstream 全文根本没有 `aria-label`。** `packages/components/shadcn-components.json` 里 slider 的 `localEdits` 一直写着这件事:\"Upstream renders the Thumb with only a className, so the accessible name never reaches the element screen readers focus.\"\n\nPR #4933 的测试 fixture 也是从本地文件反推出来的(把 objectui 自己的转发行当成 upstream 的),所以它跟锚点自洽、跟 upstream 不符 —— 测试一路绿着,补丁一直是死的。这正是 #4984 那一族的失效方式。\n\n## 修法:只动锚点\n\n`find` 重定到 upstream 实际提供的那一行(下面 `<` 后的空格是为了绕开 GitHub 正文的 HTML 清洗,真实代码里没有):\n\n```\nfind:    「    < SliderPrimitive.Thumb className=\"block h-5 w-5 … disabled:opacity-50\" />」\nreplace: 展开成 Thumb / className / {...splitSliderThumbProps(props).thumb} / 自闭合 四行\n```\n\n- **payload 一个字节没动**,`packages/components/src/ui/slider.tsx` **完全没有出现在 diff 里** —— #3318 的三通道交付行为原样保留。\n- 那串很长的 class list 只拼写一次(`UPSTREAM_THUMB_CLASSNAME`),锚点与替换文本不可能互相写歧 —— 与 sidebar 补丁把 `SIDEBAR_COOKIE_NAME` 传进去的理由相同。\n- 锚点正确之后,slider 与 upstream 的唯一分歧就只剩这一族声明式补丁本身,因此它按 `shadcn-sync.js` 的既有设计从 `Modified` 变成 **`Identical to upstream`**(Identical 29→30,Modified 17→16,documented 列表不再含 slider)。这是预期结果,不是漏统计。\n\n## 防复发:一条能离线判死的断言\n\n新增 `regenerates the shipped slider.tsx byte for byte from registry bytes`:把声明的补丁作用在 registry 逐字节内容上,结果必须逐字节等于我们发布的那个文件。\n\n从本地文件臆造出来的锚点**无法**满足这条断言 —— 这就是它能在 PR 阶段离线抓住整个失效族的原因,不用等下一次周检。fixture 换成 registry 逐字节内容,provenance(URL / 仓内路径 / HEAD sha / content sha256)写在注释里,下一个读者可以复核。模块头的「Adding a patch」也补上了这条规矩:`find` 从 registry 字节写,永远不从 `src/ui/**` 写。\n\n原来那个「refuses when upstream restructures the thumb away」的 fixture 用的恰好是**真实 upstream 形状**,却断言它必须失败 —— 已按两种诚实的情形拆开重写:upstream 改 class list(现实中的 churn),和 upstream 整个删掉 thumb 元素(结构性)。后者加了 fixture 自身的守卫断言,防止 mutation 没生效而空跑成绿。\n\n## 验证\n\n**registry 主机被本环境 egress 策略拒绝**(`ui.shadcn.com:443` → CONNECT 403),所以线上取数不可得,如实记录。替代做法是**真跑 CLI、只把它的磁盘缓存用真实 upstream 字节喂满**:shadcn-ui/ui 把 `ui.shadcn.com/r/styles/default/*.json` 逐字节签入仓内 `apps/v4/public/r/styles/default/`,按 `fetchRegistry` 的信封格式写进 `node_modules/.cache/shadcn-sync/` 即可。脚本本身没有任何 stub。\n\n可信度旁证:这样跑出来的 16 个 modified 组件计数与 CI 线上那次**逐位相同**(badge(4) calendar(7) chart(11) command(35) … tooltip(1)),只少了 slider(4) —— 缓存里的字节就是 CI 当时取到的字节。\n\n- `node scripts/shadcn-sync.js --check` → `✓ slider Identical to upstream`,`DECLARED LOCAL PATCHES` 段整节消失,**exit 0**(修前:同一命令 exit 1,`anchor expected 1x, found 0x`)\n- `pnpm exec vitest run scripts/__tests__` → **50 files / 1173 tests 全绿**\n- `pnpm run type-check:scripts` → exit 0;`node scripts/check-control-bytes.mjs` → OK(4439 文件);`pnpm exec eslint` 三个改动文件 → exit 0\n- changeset 空 frontmatter(只碰 `scripts/`,无发布物变化),`check-changeset-no-major` / `check-changeset-fixed` 均 exit 0\n\n**反向验证**(预判写在前,变异在 commit 之后做,`git checkout HEAD --` 还原):\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| 还原修前锚点 | check exit 1 / `found 0x` / slider 回到 `⚠ 4 local line(s)` / Modified 17;测试恰好 2 红 | 完全一致(2 failed \\| 20 passed) |\n| `find` 只多插一个空格 | 同上形状,`found 0x` | 完全一致(2 failed \\| 20 passed) |\n| `occurrences` 1→2 | 锚点在但计数不符 → `expected 2x, found 1x`,check exit 1 | 完全一致(2 failed \\| 20 passed) |\n\n三次变异下红的都是那两条**正向应用**断言;两条 `refuses …` 断言**保持绿**,因为坏锚点走的也是拒绝路径 —— 这一点如实记下:能区分「锚点对不对」的是新增那条逐字节往返断言,不是那两条拒绝断言。这正是加它的理由。\n\n## upstream 坐标(下周它再动是新事件)\n\n- 源:`https://ui.shadcn.com/r/styles/default/slider.json`\n- 仓内逐字节副本:shadcn-ui/ui `apps/v4/public/r/styles/default/slider.json`,读取于 HEAD `8a7701ec27eb9cb8e0377db769fbe6d744113c52`\n- `files[0].content` sha256:`48bd0ba32cc7f341ecca995374be73111da2f761694cfcf91dbf8d4d9e632c06`(1091 bytes / 29 lines)\n- 锚定行:Thumb 元素,单行自闭合,只带 `className=\"block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50\"`,全文无 `aria-label`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

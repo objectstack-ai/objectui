@@ -1,0 +1,36 @@
+{
+  "number": 5065,
+  "kind": "issue",
+  "title": "plugin-grid README 的 10 个示例块整片 schema 键面不成立 —— `type: 'grid'` 落到布局容器,sortable / filterable / onRowClick 等零命中",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:01:23Z",
+  "updated_at": "2026-08-17T23:24:57Z",
+  "closed_at": "2026-08-17T23:24:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5065",
+  "body": "发现于 #5013 的实施(plugin-grid README 三处标识符漂移)。Filed unassigned, not claiming.\n\n#5013 修的是**标识符**层(`gridComponents` / `GridSchema` / `GridColumn`)。同一文件的**示例 schema 键面**是另一性质的漂移,按纪律不夹带进那个 PR,单立本卡。\n\n## 现象\n\n`packages/plugin-grid/README.md` 的 `## Examples` / `## Features` / `## Integration with Data Sources` 共 10 个示例块,写的键在 `ObjectGrid` 上读不到。\n\n### 1. `type: 'grid'` 根本不是本插件的键\n\n`src/index.tsx:193` 用 `skipFallback: true` 注册 `view:grid`,**故意不认领**裸 `grid` —— 裸 `grid` 属于 `@object-ui/components` 的 CSS Grid 布局容器(`src/renderers/layout/grid.tsx:50`)。所以这些示例照抄之后渲染的是布局容器,不是数据表格。其运行时症状已立 #4787(`columns=\"[object Object]\"`、`mdcolumns=\"2\"` 等无效 HTML 属性泄漏到 DOM)—— 本卡是同一件事的**文档侧成因**。\n\n### 2. 零读取的键\n\n读点数取自 `grep -c \"schema.KEY\" packages/plugin-grid/src/ObjectGrid.tsx`(KEY 为下表首列):\n\n| README 键 | `schema.KEY` 读点数 | 真相 |\n| --- | --- | --- |\n| `sortable` | 0 | 排序是 `ListColumn.sortable`(每列),不是顶层布尔 |\n| `filterable` | 0 | 无此键 |\n| `onRowClick` | 0 | 是**组件 prop**(`ObjectGridComponentProps`),不是 schema 键 |\n| `onSelectionChange` | 0 | 同上(prop 名为 `onRowSelect`) |\n| `onCellChange` | 0 | 是组件 prop |\n| `onRowSave` | 0 | 是组件 prop |\n| `onBatchSave` | 0 | 是组件 prop |\n| `dataSource` | 0 | 从 `useSchemaContext()` 取,不从 schema 取 |\n| `object` | 0 | 真名 `objectName`(必填) |\n\n`:337` 的 \"Integration with Data Sources\" 示例把 `dataSource` 和 `object` 一起写进 schema,两个键都零读取,所以那个示例既取不到数据源也拿不到对象名。\n\n### 3. 列对象形状\n\n示例写 `columns: [{ header: 'Name', accessorKey: 'name' }]`。声明类型是 `ObjectGridSchema['columns']`,即 `string[] | ListColumn[]`;`ListColumnSchema` 是 **strict** Zod 对象,`header` / `accessorKey` 会被拒绝而不是忽略。(运行时另有一条容忍支路,见 #5068。)\n\n### 4. `data` 的类型\n\n示例写 `data: [ …行… ]`。`ObjectGridSchema.data` 是 `ViewData`(对象),内联行数组那一档是 **`staticData`**(已 `@deprecated`)。\n\n## 复核方式\n\n```\nfor k in sortable filterable onRowClick onSelectionChange onCellChange onRowSave onBatchSave dataSource object; do\n  echo \"$k -> $(grep -c \"schema\\.$k\\b\" packages/plugin-grid/src/ObjectGrid.tsx)\"\ndone\ngrep -n \"skipFallback\" packages/plugin-grid/src/index.tsx      # :195,故意不认领裸 grid\ngrep -n \"register('grid'\" packages/components/src/renderers/layout/grid.tsx   # :50,裸 grid 的真主人\n```\n\n抽块编译探针(#5013 实施时所用,strict、对 `dist/index.d.ts`)在这些块上留下 20 条既有红,全部来自无类型标注的 `const schema = { … }` 里的回调(TS7006/TS7031),另有一条 `TS2304 Cannot find name 'dataSource'`(`:455` 的 batch-editing 示例引用了未声明的 `dataSource`)。#5013 修完后这 20 条一条不动 —— 它们属于本卡。\n\n## 同族\n\n`plugin-gantt` 的同一性质卡是 #5057,`plugin-calendar` 的是 #5045。这三个是同一次 README 复核(#5002 起)在各包上的键面残留。\n\n## 分级\n\n交 PM 分诊。照抄任一示例得到的是空表格或布局容器,不是报错。"
+}

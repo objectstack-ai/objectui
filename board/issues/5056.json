@@ -1,0 +1,33 @@
+{
+  "number": 5056,
+  "kind": "pull_request",
+  "title": "fix(components): span 渲染器读规范子节点键 `children`,html tier 的文字不再被静默丢弃",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T21:06:08Z",
+  "updated_at": "2026-08-17T21:20:44Z",
+  "closed_at": "2026-08-17T21:20:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T21:20:42Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5056",
+  "body": "Fixes #5027\n\n基线 `origin/main` @ `dc9d651a2c55c10a9e4d30434e429e5fdc5ae968`。\n\n> 正文里的标签一律写成 `< span >` 这种**尖括号后带空格**的形式 —— GitHub 的正文消毒器会把「尖括号紧跟字母」当 HTML 标签在存储时吞掉。本 PR 第一版正文就被吞掉了三处载荷片段(DOM dump 与两个 html tier 标签),此版已改写并读回确认。\n\n## PM 代裁与否决窗\n\n采卡面建议 1:**规范子节点键 = `children`**。PM 在 #5027 的认领评论(comment 5319770596)里公示了这条代裁并留了否决窗 —— 依据是这不属于在两个候选契约里挑一个,而是执行**已经写下的**契约:`TextSpanSchema` 声明的是 `children`(`packages/types/src/layout.ts:36-46`),parser 产出的是 `children`(`packages/sdui-parser/src/parse.ts:95`),兄弟 `div.tsx` 读得到 `children`,`span.tsx` 是三面之外唯一的离群者。维护者对这条裁定有异议可直接在本 PR 或 #5027 上否决,实施可回退。\n\n按裁定的边界,本 PR **没有**做的事:不新增 `body` 兼容读法(Commandment #0.1:宽容读法会给这个唯一从未在声明面出现过该键的类型固化出第二套事实契约);不动 `div.tsx`(那是 #4631 的系统性面,`pm:on-hold`);不动 `TextSpanSchema` 本身(它已是规范源)。\n\n## 改动\n\n`packages/components/src/renderers/basic/span.tsx` 的 `renderChildren(schema.body)` 改为 `renderChildren(schema.children)`,并把上面这段理由写在读取点旁边。\n\n## 前提复现(基线读数,改之前)\n\n新钉子测试先在**未改动的** `span.tsx` 上跑,四条全红,复刻卡面现象:\n\n```\nFAIL span-children-rendering.test.tsx > renders the text an html-tier author wrote inside the inline tag\nAssertionError: expected '' to be 'hello html tier'\nFAIL ... > renders `children` authored on the JSON surface, as TextSpanSchema declares it\nAssertionError: expected '' to contain 'inline from children'\nFAIL ... > accepts a single child node, not only an array\nAssertionError: expected '' to contain 'lone child'\nFAIL ... > does not accept a `body` alias — one contract, not two spellings\nAssertionError: expected 'must not render' to be ''\nTest Files  1 failed (1)   Tests  4 failed (4)\n```\n\n第一条的控制断言(同页 p 标签的 `page rendered` 在、无 `failed to compile`)在基线上是绿的 —— 所以空元素不是整页编译失败,正是卡面说的那一种静默丢弃。\n\n## 消费面普查(`body` 在 span 上有没有真实消费面)\n\n| 扫描面 | `span` 上写 `body` 的命中 |\n|---|---|\n| 仓内 JSON / mdx / yaml 元数据(键 `type` 值 `span`) | **0** |\n| `examples/schema-catalog`(4 个 `components-basic-span/*` 条目) | **0** —— 那 4 条示范的是替代品(`badge` / `flex` / `text`),没有一条是 `span` 节点 |\n| ts/tsx 里的 `type: 'span'` | 只有 `packages/types` 的声明 + `packages/components` 的 3 个测试文件 |\n| `kind:'html'` tier 的 source(含 `apps/console/src/sdui-tiers-preview.tsx` 的预览页) | 该预览页无 span;仓内 html tier source 里的 span 只出现在 span 自己的两个测试 |\n| 已发布文档 | `content/docs/components/basic/span.mdx` 的 Schema 块列了 `body?`(**是声明面,不是消费面**) |\n\n零命中做了证伪反查(同一扫描器、同一文件集、邻近词):值 `div` 98 命中、`text` 775、`card` 141、`grid` 43 —— 扫描器是活的,`span` 的 0 是真 0。\n\n所以没有兼容义务。唯一需要跟着走的是那条**文档声明**:`span.mdx` 里 `body?: SchemaNode | SchemaNode[]; // Alternative content prop` 一行删掉(留着就等于在文档里继续教一个会静默丢内容的键),`children?` 那行标注为渲染器读的键。\n\n## fixture 逐条判定(不是批量改字)\n\n三个既有测试文件在 span 节点上写 `body`,按「重新拼写 / 补声明 / 整条替换」逐条判定,结论都是**重新拼写**,但其中两条如果只改字就会变成「因为什么都没产生而绿」:\n\n| 文件 | 处置 | 若只改字会怎样 |\n|---|---|---|\n| `basic-renderers.test.tsx:127` | 改 `children` | 直接失效→改后真读 |\n| `span-deprecation-provenance.test.tsx:107` | 改 `children` | 那条 `.authored-inner` 断言是「内层节点确实 mount 了」的控制;`body` 不再被读时它会红,而 `exactly once` 的计数会**照样绿** —— 因为第二个 span 压根没 mount |\n| `span-deprecation-warn-once.test.tsx`(3 处) | 改 `children`,并补一条 DOM 读回 | 同上:`querySelectorAll('span')` 从 4 掉到 1,而「七次调用一条通知」的计数仍绿。补的 `expect(nested.container.querySelectorAll('span')).toHaveLength(4)` 就是把这个空绿关掉 |\n\n#4917 / PR #5029 的 provenance 测试断言**全部保持成立、未改动**(它当时刻意绕开了本缺陷,用同页 p 的文字 + span 元素存在做控制,并预言「修好后两条断言依然成立」 —— 实测确实成立)。该文件里那段解释缺陷的注释改成了过去时,并指明 span 自己的文字现在钉在新文件里。\n\n## 反向验证\n\n两条变异都在 commit 之后做、`git checkout --` 还原,**预判先写后跑**:\n\n| 变异 | 预判 | 实测 | 相符 |\n|---|---|---|---|\n| ① `span.tsx` 改回只读 `body` | 4 个文件共 7 条红:新钉子 4 条 + provenance 的 `.authored-inner` + warn-once 新增的 DOM 读回 + basic-renderers 的 inline content | 7 条红,逐条对上:`expected '' to be 'hello html tier'`、`expected 'must not render' to be ''`、`expected null to be truthy`、`expected < span >< /span > to have a length of 4 but got 1`、`expected '' to contain 'Inline text'` | ✅ |\n| ② parser 侧把产出键改名(`node.children` → `body`) | 只有 1 条红(新钉子的 html tier 那条);`div` 的 provenance 保持绿(它读 `children \\|\\| body`,宽容那一支会吸收改名) | span 那条如预判红、div 如预判绿 —— **但共 3 条红**,多出 `html-page-lazy-blocks.test.tsx` 两条 | ❌ 部分不符,如实记录 |\n\n变异 ② 的预判**低估了产出键的消费半径**,机制如实写下:`flex` 与 span 改后一样是严格读 `children`,所以产出键改名让 `< flex >< object-kanban object=\"showcase_project\" / >< /flex >` 渲染成空元素(失败现场的 DOM dump 就是一个空的 `< div data-obj-type=\"flex\" / >`),嵌套块永不 mount。其中「recovers a page」那条在整文件跑时首个断言变成 `expected '' to contain 'failed to compile'`,而**单独跑该条时首个断言恢复通过**、失败点后移到 `expected null to be truthy` —— 说明整文件跑里那一下是变异改了 case 1 的结局与时序、`object-kanban` 在 case 2 运行时仍被注册的跨用例状态,不是产出键改名本身让编译诊断消失。\n\n变异 ② 是一个**不存在的生产者状态**,记录它的价值在那条对照读数:改名之下只有严格读 `children` 的渲染器会红,`div.tsx`(`children || body`)与 `html-elements.tsx`(`children ?? body`)的宽容支照样绿 —— 也就是说这条 PR 把 span 挪到了严格那一侧,没有新增方言,而宽容支仍是 #4631 的存量债。\n\n## 验证\n\n- 构建先行:`pnpm --workspace-concurrency=2 --filter '@object-ui/components^...' build` 成功。\n- `packages/components` 全量:`Test Files 154 passed (154)` / `Tests 1416 passed (1416)`。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2`:`Tasks: 81 successful, 81 total`。\n- 还原变异后复跑 6 个相关文件:`Test Files 6 passed (6)` / `Tests 40 passed (40)`。\n- `node scripts/check-control-bytes.mjs`:`OK (scanned 4503 tracked text file(s))`;改动文件另做 `grep -naP` 自扫,零命中。\n\n## changeset\n\n`@object-ui/components: patch`(一文件)。parser 未改,所以没给 `@object-ui/sdui-parser` 发 changeset。\n\n## 顺手记录、本 PR 未修\n\n- #5050 —— `span` 的 `value` 声明面(类型 + 已发布文档都列为作者面)**无人读取**,写 `value` 同样渲染空元素。修它要裁 `value` 与 `children` 的优先级,是一条没有裁定的新行为,按纪律没有顺手带过。\n- #5051(`finding`)—— registry meta 的 `defaultChildren` 有 4 处声明、11 处生产、1 处已发布插件文档,**0 处消费**(拖放只读 `defaultProps`)。\n- #4631 补了一条评论:`span` 是那张类问题的第三个实测样本(且是第一个「跟着声明面写的任何键都会空」的样本),外加一条机制读数 —— `BaseSchema` 同时声明 `body?` 与 `children?` 且带 `[key: string]: any` 索引签名,所以写错子节点键在任何类型上都不是 TS 错误,类型面今天无法拒绝。\n"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 5230,
+  "kind": "pull_request",
+  "title": "fix(types): align FieldConstraintsSchema to the FieldValidationRules contract (zod face of FormFieldSchema.validation)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T16:14:50Z",
+  "updated_at": "2026-08-18T19:13:19Z",
+  "closed_at": "2026-08-18T19:13:18Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T19:13:18Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5230",
+  "body": "Fixes #5186\n\n## What\n\n`FormFieldSchema.validation`'s zod face (`FieldConstraintsSchema`, `packages/types/src/zod/form.zod.ts`) declared a flat scalar dialect (`minLength: z.number()`, `pattern: z.string()`) that no read point consumes. The public TS contract (`FieldValidationRules`, `packages/types/src/form.ts`) and the renderer's only read point (`form.tsx`, spread into react-hook-form) use `{ value, message }` objects. So `objectui validate` — a live authoring-time surface — was wrong in both directions: it rejected contract-shaped `validation` (teaching the correct shape as wrong) and passed a dialect react-hook-form silently drops (the #5099 \"looks validated, executes nothing\" symptom, hidden on the zod face).\n\nPer the triage ruling, the TS contract and the renderer read point are the reference; the zod mirror moves to them:\n\n- `required`: `boolean | string` — a string IS the message (react-hook-form semantics); the one rule that does not follow `{ value, message }`.\n- `minLength` / `maxLength` / `min` / `max`: `{ value: number, message: string }`.\n- `pattern`: `{ value: RegExp, message: string }`. A non-RegExp `pattern.value` is rejected **by name** with guidance toward the metadata route (`FieldSchema.pattern`, compiled by `buildValidationRules` in `@object-ui/fields` before it reaches this shape) — JSON/YAML cannot carry a RegExp, so this is the JSON-face half of the #5099 ruling. No silent strip, no string-to-RegExp coercion (that would re-open #5099). Compiled RegExp instances still pass for programmatic callers.\n- `validate`: function, unchanged.\n\n## Why the drift survived, and the pin that stops it re-opening\n\n`form-field-zod-coverage.test.ts` pinned `FormFieldSchema`'s top-level keys only (#3090) — `validation`'s inner shape lived under a green guard. New describe block pins: the contract shape is accepted; the flat dialect is rejected **per key** (each of the five flat keys individually, so none can ride back alone); `pattern.value` is rejected by name with the guidance text; a compiled RegExp still passes; a `FormField` carrying contract-shaped validation round-trips; and a key-set coverage pin one level down. Red-before measured at the unfixed schema: 5 of the 6 new pins failed, including both directions the card measured; all green after.\n\n## Verification (all at `9f85e039c`, the head commit)\n\n- Re-measured the card's probe against the current source tree (post-#5209/#5218) before changing anything: both directions still wrong (contract shape `success:false`, flat dialect `success:true`).\n- `pnpm --filter @object-ui/types run build` and `run type-check` (3 tsconfigs incl. examples + tests) — green, script names echoed.\n- Consumer radius (downstream direction — packages that depend on `@object-ui/types` and parse through its zod face): `pnpm exec vitest run packages/types/ packages/cli/ packages/core/ packages/react/ packages/plugin-form/` from repo root — 236 files / 3710 tests, all green. Narrowing declared: `packages/components` / `packages/fields` / other plugins excluded locally (held by other claims; renderers read plain objects and never parse this schema — CI shards run the full farm). No `z.infer` of `FieldConstraintsSchema` exists anywhere, so the type-level radius is nil.\n- Fixture triage across the rule's consumer radius: every `validation:` literal repo-wide is either already contract-shaped (renderer tests, `packages/types/examples/login-form.ts`) or an unrelated `validation` key (i18n catalogs, object-rule preview sample). No flat-scalar fixture feeds the zod face — the flat dialect is load-bearing nowhere.\n- `eslint` on touched files, `node scripts/check-control-bytes.mjs`, `node scripts/check-changeset-presence.mjs`, `node scripts/check-changeset-no-major.mjs` — all green at `9f85e039c`.\n- Changeset: `minor` for `@object-ui/types` with the accept/reject behaviour change described in the body (never `major`, per AGENTS.md 版本号策略).\n\n## Out of scope, filed\n\n- #5229 — `content/docs/blocks/forms.mdx` \"Add Validation\" teaches a third dialect (flat string `pattern` + a sibling `message` key that exists in neither declaration); docs-only follow-up. #5229 remains open; it is not addressed here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

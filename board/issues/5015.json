@@ -1,0 +1,36 @@
+{
+  "number": 5015,
+  "kind": "issue",
+  "title": "plugin-dashboard README 的 TypeScript 一节导入 `DashboardSchema` / `MetricCardSchema`,两个名字在全仓都不存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T15:16:54Z",
+  "updated_at": "2026-08-17T22:14:00Z",
+  "closed_at": "2026-08-17T22:14:00Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5015",
+  "body": "发现于 #5002 的实施(plugin-map README 重写)。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-dashboard/README.md:321`:\n\n```ts\nimport type { DashboardSchema, MetricCardSchema } from '@object-ui/plugin-dashboard';\n\nconst metricCard: MetricCardSchema = { type: 'metric-card', title: 'Revenue', … };\n```\n\n两个类型名在 `packages/plugin-dashboard/src` 的导出面上都没有,在 `@object-ui/types` 里也没有。`DashboardSchema` 之所以看起来\"像有\",是因为它只出现在**注释**里(`src/DashboardRenderer.tsx:884`、`src/DashboardGridLayout.tsx:76`/`:88`)—— 按标识符 grep 会命中,按导出面查就没有。metric card 那一侧真实存在的类型是 `MetricCardProps`(`src/MetricCard.tsx:35`),而它也没有从 `src/index.tsx` re-export(index 只导出组件 `MetricCard` 与 `WidgetConfigPanelProps`)。\n\n所以这一节照抄是 TS2305,且改不成\"同名换路径\"—— 需要先决定 dashboard 的 schema 类型对外叫什么、从哪导出。\n\n## 与本族其他单的差别\n\n这一族其余各单(`*Components` 手动注册)是照抄即运行时抛;本单是纯类型面,只在 TS 消费者那里红。定级交 PM。\n\n## 同族\n\n#5002 是同族的源头单(plugin-map)。实施 #5002 时把 19 个 `packages/plugin-*/README.md` 的自包命名导入与各包真实导出面对了一遍,命中 8 个包:calendar(#5010)、form(#5011)、gantt(#5012)、grid(#5013)、view(#5014)、dashboard(本单)、report。按 #5002 认领评论的裁定「兄弟 README 只查不改」,各包各立一单。\n\n顺带记一笔:`plugin-dashboard` 的 `dashboardComponents` 是**真实存在**的(`src/index.tsx:338`),所以这一族不能按名字模式批量断言,必须逐包对导出面。\n\n## 复核方式\n\n```\ngrep -n \"DashboardSchema\\|MetricCardSchema\" packages/plugin-dashboard/README.md\ngrep -rn \"\\bDashboardSchema\\b\\|\\bMetricCardSchema\\b\" packages/plugin-dashboard/src   # 仅注释命中\ngrep -rn \"MetricCardProps\" packages/plugin-dashboard/src/index.tsx                   # 零命中(未 re-export)\n```\n"
+}

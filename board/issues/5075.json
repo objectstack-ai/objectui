@@ -1,0 +1,35 @@
+{
+  "number": 5075,
+  "kind": "issue",
+  "title": "plugin-form README 的示例键面与 @object-ui/types 的真身不符:`validation` 数组拼法让校验静默失效、`multi-step-form` 全仓未注册、`FormField` 参考块五处漂移",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:31:19Z",
+  "updated_at": "2026-08-18T00:08:01Z",
+  "closed_at": "2026-08-18T00:08:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5075",
+  "body": "发现于 #5011 的实施(那一单只改**导入面** —— 名字存在与否、来自哪个包)。本卡是同文件的**键面/形状**,不同性质,故未夹带进那个 PR。Filed unassigned, not claiming.\n\n## 现象\n\n`packages/plugin-form/README.md` 教的 form 键面有三组与真身不符。真身:`@object-ui/types` 的 `FormField`(`packages/types/src/form.ts:898`)与 `FormSchema`(`:1055`)。下面每条读数都是对**构建产物** `dist/index.d.ts` 在 `strict` 下真编译出来的。\n\n### 1. `validation:` 写成数组 —— 规则一条都不跑,且不报错\n\nREADME 三处这样写(`:164` 的 `FormField` 参考块、\"Basic Form\" 示例、\"Form with Validation\" 示例):\n\n```\nvalidation: [\n  { type: 'minLength', value: 3, message: '…' },\n  { type: 'pattern', value: '^[a-zA-Z0-9_]+$', message: '…' }\n]\n```\n\n真身是**对象**而不是数组:`FormField.validation?: FieldValidationRules`,`FieldValidationRules`(`form.ts:744`)按规则名开键 —— `required?`、`minLength?: { value: number; message: string }`、`maxLength?`、`min?`、`max?`、`pattern?`、`validate?`。\n\n类型侧(把 \"Basic Form\" 示例标注成 `const schema: FormSchema` 后):\n\n```\nerror TS2559: Type '{ type: string; message: string; }[]' has no properties in common with type 'FieldValidationRules'.\n```\n\n运行时侧是**静默**的,这是本卡最要紧的一半:唯一的读点 `packages/components/src/renderers/form/form.tsx:1652` 写的是 `const rules: any = { ...validation }`。把**数组**展开进对象字面量得到 `{ '0': {…}, '1': {…} }` —— react-hook-form 不认这些数字键,于是 README 教出来的 email / minLength / maxLength / pattern 规则全部不生效,而且没有任何报错。照抄的表单看上去有校验,实际没有。\n\n### 2. `type: 'multi-step-form'` 全仓未注册\n\n\"Multi-Step Form\" 整个示例挂在这个 type 上,而 `git grep -nw multi-step-form -- packages apps` 除该 README 外**零命中**。本包六个 register 调用 claim 的是 `plugin-form:object-form`、`view:form`、`plugin-form:embeddable-form`、`plugin-form:form-analytics`、`plugin-form:object-master-detail-form`、`record:line_items`(`packages/plugin-form/src/index.tsx:100/159/211/232/276/356`)。照抄即未知组件红框,#4616 那一族。\n\n示例里的 `steps` 键同样不在 `FormSchema` 上;多步表单的真实入口是 `WizardForm`(本包导出)或 `object-form` 的 `formType: 'wizard'`。\n\n类型侧:`error TS2322: Type '\"multi-step-form\"' is not assignable to type '\"form\"'.`\n\n### 3. `FormField` 参考块五处漂移\n\n\"Schema API → Form Field\" 一节现场声明了一个本地 `interface FormField`。裸声明**永远编译通过**(它只是个与真类型无关的本地类型),所以按 #5059 的路数对真身做双向 pin,两个方向都红:\n\n| 参考块 | 真身 | pin 读数 |\n| --- | --- | --- |\n| `type: string`(必填) | `type?: string` | real 赋给 doc:`TS2322 … Types of property 'type' are incompatible … Type 'string \\| undefined' is not assignable to type 'string'` |\n| `label: string`(必填) | `label?: string` | 同族 |\n| `validation?: ValidationRule[]` | `validation?: FieldValidationRules` | doc 赋给 real:`TS2322 … Type 'ValidationRule[]' has no properties in common with type 'FieldValidationRules'` |\n| `defaultValue?: any` | 真身无此键(表单级的是 `FormSchema.defaultValues`) | — |\n| `className?: string` | 真身无此键 | — |\n\n`ValidationRule` 这个类型名本身全仓也不存在 —— #5011 的探针在改前与改后都原样携带 `error TS2304: Cannot find name 'ValidationRule'.`,那一单如实列了它并指向本卡。\n\n参考块另外只列了真身 23 个键里的 9 个:`widget`、`dependsOn`、`visibleOn`、`visibleWhen`、`readonlyWhen`、`requiredWhen`、`options`、`condition`、`span`、`colSpan`、`hidden`、`readonly`、`id`、`description`、`field` 全部缺席。\n\n## 为什么不在 #5011 里顺手改\n\n#5011 改的是导入面;本卡是键面,先例上这一类都是分开定级的(plugin-calendar 的 #5045、plugin-gantt 的 #5057、plugin-dashboard 的 #5066)。更实际的理由:这三组是**连体**的 —— 只改参考块、留着两个示例继续教 `validation: [ … ]`,同一个 README 会自相矛盾;要一次改对就得重写整个 \"Schema API\" + \"Examples\" 段落,那是独立的一遍活。\n\n## 复核方式\n\n```\n# 1\ngrep -n \"validation: \\[\" packages/plugin-form/README.md\nsed -n '744,780p' packages/types/src/form.ts          # FieldValidationRules 是对象\nsed -n '1650,1655p' packages/components/src/renderers/form/form.tsx   # { ...validation }\n\n# 2\ngit grep -nw multi-step-form -- packages apps          # 只有该 README\ngit grep -nE \"ComponentRegistry\\.register\\(\" -- packages/plugin-form/src\n\n# 3\nsed -n '898,1050p' packages/types/src/form.ts          # 真身 FormField,23 个键\n```\n\n## 分级\n\n交 PM 分诊,未打 `finding` 标签:三组都是今天的读者会撞上的,而第 1 组还是**静默失效**(拿到一个没有校验的表单,零报错),严重度可能高于纯文档级。\n\n今天没有门禁看得见这一类:`check-doc-links` 只解析链接,`check-doc-component-types` 只扫 `content/docs`,包内 README 的键面断言无人核对 —— 根因与门禁提案见 #5043。\n"
+}

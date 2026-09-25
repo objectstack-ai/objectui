@@ -1,0 +1,33 @@
+{
+  "number": 5032,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): consume submitBehavior.url as objectstack#7496 ruled it (#4989)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T18:26:44Z",
+  "updated_at": "2026-08-17T18:43:16Z",
+  "closed_at": "2026-08-17T18:43:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T18:43:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5032",
+  "body": "Fixes #4989\n\n`ObjectForm` / `WizardForm` 现在按 objectstack#7496 的裁定消费 `submitBehavior: { kind: 'redirect' }`(该裁定由 objectstack#7657 落地,活在本仓 `@objectstack/spec` 17.0.0 GA 钉子上)。卡面五点里的 2、3、5 机械修完;**第 4 点(挂载盲)实测后判定不可按派发的机制落地,已升级为决策题**,详见下文\"未修的一半\"。\n\n## 契约判据不在本包重写一份\n\n两个消费点原来都是 `isSameOriginUrl(behavior.url)` 把 URL 解析到 `window.location.href` 再比 origin。新的 `packages/plugin-form/src/submitRedirect.ts` 不再复述规则,而是在使用的那一刻拿 spec 自己的 `FormViewSchema` 解析最小 form view —— 与 PR #4992(console 侧同裁定实施件)同一份来源。因此绝对 URL、协议相对 `//host`、反斜杠、空白与控制字符走私、畸形 token、文档相对路径,全部用 spec 自己的作者向措辞拒绝;裁定日后放宽(它自己写了绝对 origin 白名单\"等实测需求\")时,本包跟着版本钉子走,不需要再改这里。\n\n⛔ 没有 import console 的模块(已发布包不能依赖 app),⛔ 没有手写第二份七族规则镜像 —— 那正是 `scripts/check-spec-symbol-derivation.mjs` 反对的形状。两包唯一重复的是 token 替换与转义那约 20 行(spec 不导出替换器),docblock 里把两处的差异逐条写明了,便于将来收敛。\n\n## 三处修正\n\n- **缺陷 2 —— 静默丢弃改响亮拒绝。** 旧代码 guard 答否时 `if` 直接不进:无 toast、无错误、无确认面板。写入已经成功了,提交者面对的是一张仍然填满的表单和零反馈,而最自然的下一步 —— 再提交一次 —— 会写出第二条记录。现在拒绝同时说两件事:记录**确实写成了**(保留确认面板,顺带把填满的表单换掉,没有可重复提交的东西了),以及为什么没有跳转(spec 的作者向措辞,`role=\"alert\"` 面板 + `toast.error`)。拒绝挂在 `submitted` 上而不是 `error` 上 —— `error` 是加载/提交失败通道,契约外的目的地不是提交失败,放进去等于告诉用户记录丢了。\n- **缺陷 3 —— 同源绝对地址不再被跟随。** `isSameOriginUrl('https://own-host/thanks')` 为真,所以本消费点接受了一个 spec 已在录入门口拒绝的拼法 —— 被拒拼法就是这样活在语料里的。relative-only 严格强于 same-origin(带根的相对路径天然同源),所以这条 arm 上保留 `isSameOriginUrl` 作纵深毫无增益,已移除;函数本身留着,因为 `resolveSuccessNavigate` 还需要它(见下)。\n- **缺陷 5 —— token 现在会替换。** 作用域是\"这次提交刚写的记录\":提交的值,叠上 DataSource 回答的内容(id、默认值、计算列在那边才是权威)。两个组件走同一个 `submitRedirectScope`,所以 `{{record.id}}` 不会在 wizard 里解析成一个样、在平表单里另一个样。每个插值都过 `encodeURIComponent` —— token 是路径里的**值**,永远不能变成新的路径结构。\n\n`delayMs` 语义一字未动。`navigateOnSuccess` 是另一个声明键(自己的 `{id}` 方言、自己尚未裁定的契约问题),按卡面划界一字未动。\n\n## 未修的一半:缺陷 4(挂载盲)—— 升级为决策题,未擅自选路\n\n派发给我的中间路线是\"可选读 React Router context\"。React 那一半实测**成立**:provider 外 `useInRouterContext()` 返回 `false`、`useContext(UNSAFE_NavigationContext)` 返回 `null`(不抛);挂 `basename=\"/_console\"` 时 context 在场、`basename` 读得到,且 `useNavigate()('/thanks')` 确实吃掉 basename 落在 `/thanks` 路由上。\n\n依赖那一半**不成立**,这是停下的原因:\n\n- `@object-ui/plugin-form` 在 dependencies / peerDependencies / optionalDependencies 里都没有 react-router,本仓能解析到它纯粹因为它是**仓根 devDependency** 被抬上来了 —— 这正是 `scripts/check-phantom-dependencies.mjs`(objectui#4394)存在的理由,它的文件头还记着 `plugin-detail` 那次同类真缺陷。\n- 本包 `vite.config.ts` 把所有裸 specifier 全部 external,所以静态 import 会在发布的 `dist/index.js` 里留下裸 `react-router-dom`,每个消费者都必须解析它。而**确实存在没有 react-router 的消费者**:`apps/site` 把 `@object-ui/plugin-form` 列为真依赖并在 `app/components/PluginLoader.tsx` 里 import,自身任何字段都没有 react-router;`packages/plugin-view` 同样。\n- 改成 dependencies/optionalDependencies 反而自败:那会给本包一份**自己的** react-router 实例,而 React context 是模块实例级的,读到的 context 对象和宿主的不是同一个,永远答 null。要保单实例只能是 peer,而 peer 恰恰就是强迫消费者安装。\n- 惰性 `import()` 也不成立:消费者的打包器仍要在构建期解析它;而用打包器分析不到的 specifier 绕过,是 AGENTS.md 准则 #6 明令禁止的。\n\n按派发纪律,⛔ 没有改走注入回调/新 prop,也没有擅自换第三种机制。选项与两轴分析写在报告的 `open_questions` 里交维护者裁。今天的行为保持不变(相对路径交 `window.location.assign`),`submitRedirect.mountBlind.test.tsx` 把这个开放缺陷的实测钉住 —— 包括对照:同一个字符串按 app-relative 解析确实会落进挂载点内。钉它是为了不让一个\"衡量过、故意留着\"的缺陷退化成口头传说。\n\n⚠️ 因此请维护者注意:本 PR 写的是 `Fixes #4989`(按派发要求逐字),但合并即关闭会连带关掉尚未裁定的第 4 点。合并前请按裁定结果改成 `Refs`、或先把第 4 点拆成后续 issue。\n\n## 验证\n\n- `pnpm exec vitest run packages/plugin-form/`(仓根,与 CI 同路径):**51 文件 / 535 测试全绿**。新增 3 个测试文件、1 个实测记录文件。\n  - 注:`submitRedirect.mountBlind` 一开始写成 `.test.ts`,从仓根跑时被分到 node 环境的 `unit` project,`document is not defined` 3 红 —— 只在包目录里跑是看不到的。按 `vitest.config.mts` 自己写的约定改名 `.test.tsx`(而不是去改共享的根配置)。\n- 消费半径:`packages/plugin-view/` + `packages/react/src/spec-bridge/`(17 文件 / 222 测试全绿);app-shell 里承载这两个组件的 4 个文件(41 测试全绿)。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2`:**81/81 successful**。\n- `node scripts/check-control-bytes.mjs` OK;改动文件另做了含 0x09 的越门自扫(测试里有制表符走私用例,一律写成转义序列)。`check-phantom-dependencies.mjs`、`check-spec-symbol-derivation.mjs`、三个 changeset 门:全绿。改动文件 eslint 0 error。\n\n### 反向验证(先书面预判,再变异,`git checkout --` 还原;预判全部命中)\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| 退回裁定前消费(`isSameOriginUrl` + 直接 assign 原串) | 组件用例大面积红;单元文件**全绿** | 12 红(ObjectForm 6/9、Wizard 6/7),单元文件与 mountBlind **全绿** |\n| 只删拒绝 arm(保留 spec 解析,目的地静默丢弃) | 每个组件恰好 3 个拒绝用例红,契约内全绿 | 6 红,10 个契约内用例全绿 |\n| 拒绝换本地文案 | 文案出处断言红 | 18 红(单元文件 14:13 个拒绝族 + 外部替代项) |\n| 删 `encodeURIComponent` | 转义与恶意值块红 | 10 红(单元 8 + 每组件 1) |\n\n两条值得单独记下来的:①退回裁定前消费时单元文件**全绿** —— 它杀的是调用点而非模块,这就是消费语义必须钉在组件旁边的原因;②\"只删拒绝 arm\"这个变异**就是原始的缺陷 2**,只是 guard 已经变严了 —— 所以\"guard 现在是 relative-only 了\"本身并不构成修复。\n\n派发模板里的第三条反向验证(撤 router 分支 → basename 用例红)**在本 PR 不适用**:没有 router 分支可撤。照直写出来,而不是造一个符合模板形状的证据。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

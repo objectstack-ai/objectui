@@ -1,0 +1,36 @@
+{
+  "number": 5002,
+  "kind": "issue",
+  "title": "plugin-map README teaches an API the package does not implement — every snippet in it renders an empty map",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T14:10:53Z",
+  "updated_at": "2026-08-17T15:50:48Z",
+  "closed_at": "2026-08-17T15:50:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5002",
+  "body": "Found while implementing #4941. Filed unassigned, not claiming.\n\n`packages/plugin-map/README.md` documents a schema and an export that do not exist in the package. A reader who copies any of its snippets gets an empty map with no diagnostic.\n\n## What the README teaches vs what the code reads\n\n| README | Reality (`packages/plugin-map/src/`) |\n| --- | --- |\n| `center: { lat, lng }` (object) | `center` is read as a `[lat, lng]` **tuple** (`MapConfigSchema` = `z.tuple`); the object form fails validation, is warned about, and is ignored |\n| `markers: [{ lat, lng, label }]` | never read — markers come from the queried records via `latitudeField` / `longitudeField` / `locationField` |\n| `layers?: MapLayer[]` | never read; no layer support exists |\n| `height?: number \\| string` | never read; the container height is fixed Tailwind classes |\n| `onMarkerClick` **in the schema** | it is a React prop of `ObjectMap`, not a schema key |\n| `import { mapComponents } from '@object-ui/plugin-map'` + manual `Object.entries(...)` registration | no such export: `index.tsx` exports `ObjectMap` / `ObjectMapRenderer` and self-registers `object-map` / `map` |\n| `zoom?: number // Default: 10` | there is no default zoom any more (PR #5000 — the camera fits the records unless one is declared) |\n\nNothing in the README mentions the keys that actually drive the component (`objectName`, `data`, `map: { latitudeField, longitudeField, locationField, titleField, descriptionField }`).\n\nThe accurate document is `content/docs/plugins/plugin-map.mdx`, which matches the code (and was updated by PR #5000). The README looks like it predates the ObjectQL-driven component and was never reconciled.\n\n## Suggested shape of the fix\n\nRewrite `packages/plugin-map/README.md` against the code, or reduce it to a pointer at the docs page plus the real `ObjectMap` props. Worth checking the sibling `plugin-*` READMEs in the same pass — this one is unlikely to be alone.\n\nNote for whoever picks it up: `content/docs/**` is gated (`check-doc-component-types`), package READMEs are not, which is plausibly why the drift survived."
+}

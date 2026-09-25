@@ -1,0 +1,36 @@
+{
+  "number": 4923,
+  "kind": "issue",
+  "title": "`objectui serve` / `build` 只在 cwd 下找 pages/,dev 却按 schema 文件所在目录定位项目根 —— 同一份工程,serve 退化成单文件模式",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T05:34:10Z",
+  "updated_at": "2026-08-17T19:00:37Z",
+  "closed_at": "2026-08-17T19:00:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4923",
+  "body": "越界发现,记录于 #3890(workspace 内临时 app 模块解析面)的实测期间。#3890 的文件面是 vite 别名表与 monorepo 分支,这一条是同三个命令的**项目根/路由检测**面,与别名无关,因此不在 PR #4922 里做。\n\n## 事实(实测于 `origin/main` = `5ffcc1432`,仓根跑)\n\nfixture:仓根 `dogfood/app.json` + `dogfood/pages/index.json`。\n\n`objectui dev dogfood/app.json` 认出工程结构:\n\n```\n📂 Detected project structure at /home/user/objectui-ws-alias/dogfood\n⚙️  Loaded App Config from app.json\n📁 Using file-system routing from /home/user/objectui-ws-alias/dogfood/pages\n✓ Found 1 route(s)\n  / → ./dogfood/pages/index.json\n```\n\n同一份 fixture,`objectui serve dogfood/app.json` 退化成单 schema 模式,`dogfood/pages/` 从未被扫描:\n\n```\n📋 Loading schema: dogfood/app.json\n📦 Detected monorepo - using root node_modules\n```\n\n即:它把 `app.json`(一份 app 配置)当成页面 schema 渲染,路由目录整个丢失。\n\n## 代码面\n\n- `commands/dev.ts`(`fix(cli): derive the temp app's workspace alias table…` 之后约 :76-115):先 `dirname(absoluteSchemaPath)` 求出工程根,在那里找 `pages/`,找不到再退回 `cwd/pages`。\n- `commands/serve.ts:26-27`、`commands/build.ts:31-32`:只有 `existsSync(join(cwd, 'pages'))` 一句,**完全不看传入的 schema 路径在哪**。\n\n所以只有当用户恰好 `cd` 进工程目录再跑,serve/build 才等价于 dev;从仓根(或任何上层目录)带路径调用,三个命令对\"这是什么工程\"给出三种答案里的两种。\n\n## 影响\n\n- 用户可见:`objectui dev app.json` 能跑通的工程,`objectui serve app.json` / `objectui build app.json` 产出的是另一个东西(单页 + 把 app 配置当 schema),且不报错。\n- PR #4922 让 serve/build 在 workspace 内**能解析模块**了,于是这条从\"反正也跑不起来\"变成了实际可达的错误产出。\n\n## 未预判修法\n\n至少两种读法:把 dev 的工程根解析抽成三命令共用的一步(与 #3890 的 helper 同一方向);或者认定 serve/build 的语义就是\"渲染这一个 schema 文件\",那么 dev 的行为才是特例,应改文档而不是改代码。取舍留给维护者。\n\n## 已搜重\n\n本仓开放 issue 搜过 `serve command pages directory file-system routing detection differs from dev`、`cli serve build temp app command parity divergence` 两组语义搜:命中只有 #3890(本条来源,模块解析面)与已合的 #3827(生成清单声明面)。两者都不含项目根检测。\n"
+}

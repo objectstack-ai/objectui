@@ -1,0 +1,35 @@
+{
+  "number": 5170,
+  "kind": "issue",
+  "title": "[finding] Three option-picker loaders in ResourceEditPage swallow a failed load into an empty option list, with no trace at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T08:41:40Z",
+  "updated_at": "2026-08-18T16:18:26Z",
+  "closed_at": "2026-08-18T16:18:26Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5170",
+  "body": "Found by the sibling-loader sweep ordered on objectui#5110. This is a **measurement**, filed unassigned for PM triage — not fixed in the PR for #5110, whose radius was the References loader only.\n\n## The reading\n\nSame file as #5110 — `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx` — three effects that feed the editor's option pickers. Locate by text, not by line number:\n\n```ts\n// object names\n} catch {\n  if (!cancelled) setObjectNames([]);\n} finally { if (!cancelled) setObjectsLoading(false); }\n\n// the selected object's fields + actions\n} catch {\n  if (!cancelled) { setObjectFields([]); setObjectActions([]); }\n} finally { if (!cancelled) setObjectFieldsLoading(false); }\n\n// the selected object's views\n} catch {\n  if (!cancelled) setObjectViews([]);\n} finally { if (!cancelled) setObjectViewsLoading(false); }\n```\n\nAll three are exactly the shape #5110 was filed for — `catch` writes the same value a successful call returning nothing writes — with one difference that makes them **worse than the original**, not better: #5110 at least left a `console.error`. These leave nothing. There is no error state, no banner, no log; the loading flag flips to false and the picker renders as a completed, empty list.\n\n## The user-visible reading\n\nAn operator authoring a view, a permission row or an action against an object sees an empty picker and reads it as the metadata graph's answer: *this object has no fields* / *there are no objects* / *this object has no views*. The honest answer is that the question was not answered. Unlike a reference check, an empty picker does not directly authorise a destructive act, which is why this is filed as a finding rather than as the same defect — but it does silently steer authoring, and an author who concludes \"no fields exist\" tends to go create one.\n\n`client.list()` throws for every non-ok status other than 404, so these swallow refusals, dropped connections, expired sessions and unparseable bodies alike.\n\n## Shape, if it is taken\n\nThe fix is the one #5110 landed one screen away in the same file: a discriminated union per loader (`idle | loading | loaded | error`) so a fault cannot be spelled as a measurement, and a picker that says it could not load its options rather than showing none. Three loaders, one file, one class — worth doing as one change rather than three.\n\nNote the pickers have no empty-state copy of their own today, so unlike #5110 there is no sentence to keep honest; what is needed is a state that currently does not exist at all.\n\n## Dedup\n\nSearched open issues for these loaders by symbol (`setObjectFields`, `setObjectViews`, `setObjectNames`), for empty metadata-editor pickers, and for failures rendered as empty results. Nothing covering them. Control: the same search family returns objectui#4408 (\"A list request that 404s with `OBJECT_API_DISABLED` renders as the generic empty state\", closed), #2324 and #4271 (both closed, both real empty-dropdown cards with different causes), and #5110 itself — so the zero is a measurement rather than a dead query. No duplicate.\n\nDeliberately filed standalone rather than as a sub-issue of #5110: #5110's completion scope is the References tab, and its PR is up. These three loaders are not inside it — they only share its class.\n\n## Related\n\nobjectui#5110 (same class, References panel, fixed) · objectui#5169 (same sweep, the Audit tab's half) · ADR-0110 D3, \"a miss and a fault are different facts\"\n"
+}

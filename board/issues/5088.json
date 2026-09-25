@@ -1,0 +1,36 @@
+{
+  "number": 5088,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-view.mdx 整片示例的 `object` / `viewMode` / `fields` 键面在 ObjectViewSchema 上一个都不成立(#5077 的文档站镜像)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:10:13Z",
+  "updated_at": "2026-08-18T01:37:08Z",
+  "closed_at": "2026-08-18T01:37:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5088",
+  "body": "发现于 #5076 的实施(PR #5085)。Filed unassigned, not claiming。\n\n读数取自 `origin/main` @ `03e5f972a160998a694742bd7c72149ae2fa3d8e`。\n\n## 现象\n\n`content/docs/plugins/plugin-view.mdx` 的 Schema API 一节与其后**每一个** `object-view` 示例(Grid View / Form View / Detail View、CRUD 四段、Field Configuration、Nested Objects、Tabs View、ObjectQL Integration、TypeScript Support)都建立在同一套非声明键上:\n\n| 页面教的键 | `ObjectViewSchema`(`packages/types/src/objectql.ts:1387`)里的实情 |\n| --- | --- |\n| `object: 'users'` | 无此键;必填的是 **`objectName`**(`:1392`) |\n| `viewMode: 'grid' \\| 'form' \\| 'detail'` | 无此键;视图类型是 `defaultViewType` |\n| `fields: ['name', ...]` | 无此键;列是网格配置,走 `table.columns` |\n| `mode` / `recordId` / `fieldConfig` / `nestedFields` / `tabs` / `enableDelete` / `filters` / `searchable` | 均非 `ObjectViewSchema` 声明成员 |\n\n`type: 'object-view'` 本身是对的(`packages/plugin-view/src/index.tsx:66` 注册),所以渲染器**会**被解析到 —— 但它拿不到 `objectName`,读者照抄得到的是一个空视图,而不是一个报错。这比红框更难诊断。\n\n## 为什么这是一张独立卡\n\n- **README 侧的同一条已在 #5077**(`plugin-view README 整片 schema 键面渲染器一个都不读`),但那单的完成范围是 `packages/plugin-view/README.md`,不覆盖 `content/docs/**`。与 #5011 修 README 却没碰到 #5076 的文档站复制品是同一种边界,故独立立卡而非挂子 issue。\n- 与 #5076 / PR #5085 不重叠:那单只动 `viewComponents` 注册段,本页示例键面一行未碰。\n- PR #5078(#5014)已把 README 的 TypeScript Support 一节改成真键面(`objectName` 必填 / `defaultViewType` / `table.columns`),可直接作为本卡的键面基准。\n\n## 复核方式\n\n```\ngit grep -n \"interface ObjectViewSchema\" -- packages/types/src   # objectql.ts:1387,紧接着 objectName: string(必填)\ngit grep -nw \"viewMode\" -- packages/plugin-view/src              # 渲染路径零命中\n```\n\n## 门禁为什么没抓到\n\n`check-doc-component-types` 只核 `type` 值是否被注册,`object-view` 注册了,故整页绿;该脚本头部明确把「snippet 的其它键是否被渲染器读」列为 objectui#4823 的第二维度、不在自己范围内。本卡是那第二维度。\n\n## 分级\n\n未打 `finding` 标签:照抄即空视图,是读者今天就撞得上的具体缺陷。交 PM 分诊。"
+}

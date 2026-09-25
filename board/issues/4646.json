@@ -1,0 +1,34 @@
+{
+  "number": 4646,
+  "kind": "issue",
+  "title": "Related-list toolbar “+ New” does not consume `userActions.create` predicates — spec 17.0.0 shipped the declaration half, the renderer half is missing (`createPredicates` produced but never consumed)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-14T15:10:00Z",
+  "updated_at": "2026-08-18T05:20:42Z",
+  "closed_at": "2026-08-18T05:20:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4646",
+  "body": "## Summary\n\n`@objectstack/spec@17.0.0` widened `userActions.create` from a plain boolean to `z.union([z.boolean(), RowCrudActionOverrideSchema])` (spec `src/data/object.zod.ts:1529`, the #7692 family). The docblock defines the semantics: the **create** toolbar affordance is evaluated **once against the record of the scope it sits in** — on a record page's related list, that is the host parent record. The spec CHANGELOG entry for that change states explicitly:\n\n> \"The renderer half — the related-list toolbar honouring `create.visibleWhen` — is objectui's downstream card and is not part of this change.\"\n\nThis is that downstream card: as of `@objectstack/console@17.0.0` (stable), the renderer half does not exist.\n\n## Evidence (17.0.0 stable, dist-level survey)\n\n- Across the entire console dist, `createPredicates` appears exactly **2 times**, both on the **producer** side — the data-adapter's `resolveCrudAffordances` output. There is **zero consumption**.\n- By contrast, `editPredicates` and `deletePredicates` each have **~15 consumption sites** and behave correctly (row kebab, related-list rows, and — since #4419 / PR #4515 — the record detail header).\n- `RecordDetailView`'s related-list toolbar affordance is still the old two-axis check: `create: o.create && can(childObject, 'create')` — per-object × per-user only. The component has the `parentId` (host record) in hand, but evaluates no predicate against it.\n\nSo for `create`, someone produces the predicates and nobody consumes them — the exact inverse-symmetry gap the spec CHANGELOG called out.\n\n## Motivating scenario (observed in a downstream EHR project)\n\nA parent record enters a frozen state (`published` / `deprecated`):\n\n- Row-level **Edit/Delete** on the related list correctly grey out / hide via their predicates. ✅\n- The related-list toolbar **“+ New”** stays fully enabled. ❌ The user fills in the entire child form, submits, and only then gets a server-side **409** rejection.\n\nThis is precisely the motivation scenario described in the spec CHANGELOG entry for the `userActions.create` widening. (No security surface — the server gate holds — but the UI walks the user into a form that is guaranteed to fail, while sibling affordances on the same rows are correctly gated.)\n\n## Expected\n\nThe related-list toolbar consumes `userActions.create.visibleWhen` / `disabledWhen`, evaluated **once against the host parent record** (per the spec docblock), on top of the existing `o.create && can(childObject, 'create')` check — mirroring how `editPredicates` / `deletePredicates` are already consumed on the same surface.\n\n## Related\n\n- #4419 / #4213 — same family (a `userActions` predicate reaching some surfaces but not others), for edit/delete on the detail header; both fixed. This issue is the `create` + related-list-toolbar member of the family.\n- #2614 — the original row CRUD predicate feature (edit/delete only).\n- Downstream tracking: steedos-labs/os-project-titanwind-ehr#1070 (private repo)."
+}

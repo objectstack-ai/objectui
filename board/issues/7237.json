@@ -2,8 +2,8 @@
   "number": 7237,
   "kind": "issue",
   "title": "[finding] `ObjectGantt` rebuilds the chart on every non-silent reload — a refetch of an already-rendered view tears down `GanttView` and loses scroll, collapsed groups and in-progress inline edits",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-litant",
@@ -12,18 +12,23 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-02T01:29:25Z",
-  "updated_at": "2026-09-24T23:36:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T08:08:55Z",
+  "closed_at": "2026-09-25T08:08:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 10,
+  "comments": 13,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7237",
   "body": "## 维护者速读\n\n甘特图有个毛病:**宿主稍微动一下,整张图就被拆掉重画** —— 滚动位置、折叠的分组、正在编辑的格子全没了。\n这张卡原本只是一条观察,因为没人知道**真有宿主会这么干吗**。现在量过了:**有**。控制台打开甘特图,走的\n恰好就是那个宿主。\n\n⭐ 但量出来的东西把这件事劈成了**性质不同的两半**,而且只有一半需要你拍板:\n\n- **第一半 —— 白拆的。** 控制台那个宿主每次重新渲染,都会新造一个**内容完全一样**的筛选条件数组。\n  内容没变,只是「换了个盒子装」,图就被拆了。⇒ 这一半是纯粹的浪费,**不需要任何取舍**,\n  修它就是别再换盒子(我们自己的规矩 `AGENTS.md` #10 说的正是这个)。\n- **第二半 —— 真变了的。** 用户在工具栏上真的改了排序,数据确实得重新查。问题只剩:\n  重查的那几秒,**屏幕上放什么**?\n\n第二半的三条路:\n**A** 保留旧图不动,加一个**看得见的「正在刷新」提示**(用户看到的还是旧数据,但知道它是旧的);\n**B** 维持现在的行为(整张图拆掉、显示占位符,几秒后重画),把它写进文档当作既定形状;\n**C** 只修第一半(白拆的那半),第二半原样不动、另立一卡。\n\n请裁一个字母:**A / B / C**?\n\nos-decision-facets\n\n- **① 项目长远合理性**:A 让刷新与重建分开,这正是 `AGENTS.md` #5 诫 #8 的推论「**刷新数据,不要重建 UI**」;但它给图表新增一个忙碌态,是一处**新的已声明表面**。B 不新增任何表面,代价是把一条明写规则的反例固化成「既定形状」。C 最窄:只拿掉**语义上零变化**的那一半,⛔ 不碰任何需要取舍的东西。\n- **② 实际业务拉动**:⭐ 非零,已实测。控制台到甘特图**只有**这一条宿主路径(`packages/app-shell/src/views/ObjectView.tsx` 的 `renderListView` → `packages/plugin-list/src/ListView.tsx` 的 gantt 分支)。每次身份变化的代价实测为 **1 次 unmount + 1 次重建 + 1 次多余的无界查询**。⚠️ ⛔ 未测:真实控制台每分钟产生多少次这样的重渲染 —— 这是本卡**最大的置信缺口**,它决定的是频率而不是方向。\n- **③ 防 AI 犯错**:现状是**静默**的 —— 没有报错、没有红门禁,图看起来只是「闪了一下」。B 把这个静默写进文档,⇒ 至少不再是未记录的行为;A 把它变成用户看得见的状态;C 让「内容相同却换身份」这一类**在本仓多了一个被修掉的实例**,而这一类正是 `AGENTS.md` #10 自陈「**Nothing enforces this rule**」的那一类。\n- **④ 创业阶段不扩散**:A 是三者里唯一新增永久义务的(一个忙碌态,连同它的 pin)。B 零新增但欠一段文档。C 零新增表面,且它要动的那处修改与已立的 objectui#10036(同一条 `AGENTS.md` #10)方向一致,⛔ 不产生第二套做法。\n\nPrior rulings read: `refresh data, don't rebuild UI` · `useMemo identity` → objectui `AGENTS.md` §5 诫 **#8** 的推论与诫 **#10**(两条都逐字读过,⛔ 不是转述);⛔ 与「甘特图重建时屏幕上放什么」直接相关的既有裁决:**none**。\n\n推荐 **C**,回退 **A**。⛔ 不荐 B:它要把一条我们自己明写的规则的反例写成既定形状,而实测显示**至少一半的触发是纯粹白拆的**,把那半也一起固化没有理由。\n自检:**只看①选 A;②③④ 是否翻转:是** —— ② 的实测把两半劈开之后,④ 指出 C 能在**零新增表面**下拿掉其中一半,⇒ 从 A 翻到 C,并把 A 留作第二半的回退答案。\n置信缺口:⛔ 执行席**未**测真实控制台的重渲染频率(见 ②);⛔ 也**未**在浏览器里跑过这两条路径,本卡的读数来自 dev 的两组探针加执行席在源上对其锚点的逐条复核。\n\n<sub>⬆️ 本块由 `domain:ui#2` 执行席(session `session_018HrVaotisyhgmot9o2MLRq`)于 2026-09-19T19:03Z 补进**正文**\n—— 四棱块是**立卡义务**,停在评论里不算(半状态巡查 H62)。普查的完整读数与出处在评论线程里。\n⛔ 正文原文一字未动,全部保留在下方。</sub>\n\n---\n\nFiled unassigned by the dev seat working objectui#7231 (session `session_01NRRumy89BYdW9ogbcdHTho`, branch `claude/issue-7231-gantt-reload-stale-finally`, PR objectstack-ai/objectui#7236). Surfaced while enumerating `reload()`'s callers for that card. Out of scope there — that card is the `finally` guard alone — so it is recorded here rather than folded in.\n\nLine numbers are on `origin/main` at `67dadd602` plus that branch's one-hunk change, i.e. `packages/plugin-gantt/src/ObjectGantt.tsx` as it reads today.\n\n## The observation\n\n`reload()` has two modes. `silent: true` re-reads without touching `loading`, so `GanttView` stays mounted and keeps its scroll offset, collapsed groups, quick-filter state and any in-progress inline edit. Non-silent sets `loading`, and `:1596`'s\n\n```\nif (loading) {\n  return placeholder;\n}\n```\n\nreturns before `GanttView` is rendered at all — so the whole chart unmounts and is rebuilt from scratch when the data comes back.\n\nEvery caller that re-reads an **already-rendered** view uses the silent mode, and deliberately so:\n\n- `:1440` write-readback after a drag / resize / progress update\n- `:1484` write-readback after a dependency-link write\n- `:1585` write-readback after a delete\n- `:1753` toolbar refresh button\n- `:1820` write-readback after an inline edit in the record drawer\n\nThe one caller that does not is `:712`:\n\n```\nuseEffect(() => {\n  reload();\n}, [reload]);\n```\n\nIt is always non-silent, and it fires on **every** change of `reload`'s identity, not only on mount. `reload`'s deps at `:707` are `effectiveDataSource, resource, hasInlineData, dataProvider, dataItems, schema.filter, schema.sort, objectSchema`. So a host that changes `schema.filter`, `schema.sort` or the bound object on an already-rendered chart gets a full teardown and rebuild rather than a data refresh in place — the shape AGENTS.md #8's corollary (\"refresh data, don't rebuild UI\") rules out, reached through a conditional early return rather than through a `key=` bump.\n\n## Not measured\n\n**How often a host actually changes those props at runtime.** The in-component `QuickFilterBar` filters `displayTasks` client-side and does not refetch, so the in-app quick filters are not this path. Whether any shipped host drives `schema.filter` / `schema.sort` / the bound object on a live chart is exactly what someone should establish before deciding this is worth changing — it is why this is filed as an observation and not as a bug.\n\nA second thing not established: what the right shape would be. Making `:712` silent on everything but the first load keeps the old rows on screen while the new query runs, which is a different lie (rows that do not match the new filter) unless it is paired with a visible busy state. That trade is a design call, not a mechanical fix.\n\n## Not this, to keep the boundaries clear\n\n- objectui#7231 (the superseded-`finally` guard) is a different fault and is already fixed on the PR above. That fix does not create or worsen this one: it changes only the two-reloads-in-flight case, and the teardown described here happens with a single reload in flight.\n- objectui#7210, objectui#7225 and objectui#6482 all remain open and are about which queries the gantt issues and whether they are gated or bounded. This observation is about what the component does to its own UI while a query it already decided to issue is running.\n\n_Generated by [Claude Code](https://claude.ai/code)_\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

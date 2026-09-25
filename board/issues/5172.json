@@ -1,0 +1,32 @@
+{
+  "number": 5172,
+  "kind": "pull_request",
+  "title": "fix(app-shell): `/data` 面的「New」读取完整 CRUD affordance 矩阵 (#5164)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:50:59Z",
+  "updated_at": "2026-08-18T08:53:33Z",
+  "closed_at": "2026-08-18T08:53:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T08:53:32Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5172",
+  "body": "Fixes #5164\n\n## 背景\n\n`ObjectDataPage` —— 参数化裸数据面(ADR-0055、#2251,路由 `/apps/:appName/:objectName/data`)—— 的「New」按钮此前只有 `can(objectDef.name, 'create')` 一个门。该文件从头到尾**没有调用过** `resolveEffectiveCrudAffordances`,所以主体授权之下的四层同时缺席,同一份对象元数据在这个面上得到的 affordance 与隔壁对象列表页不一致:\n\n1. **`managedBy` bucket 默认被忽略** —— `append-only` / `engine-owned` / `better-auth` 都解析出 `create: false`,而 `/data` 仍然给出一个指向 `../new` 的「New」;\n2. **对象级 `userActions: { create: false }` 退出开关**关不掉按钮;\n3. **#3391 有效 API 操作交集**缺失,工具条可以给出服务端会 405 的 create;\n4. **`createPredicates`** 谓词层在此未被读取 —— 即 #5153 的缺陷,但在这里是上述更大缺口的**后果**而非缺口本身。\n\n服务端始终是执行点,所以这是 **UI 真实性缺陷**而非提权:按钮被给出,写入照样被拒。但今日用户可达,且与控制台其余部分渲染所依据的 affordance 矩阵自相矛盾。\n\n## 改动\n\n门形完全照 `ObjectView` 的现形(#5153 / PR #5165、#5142 / PR #5154 同族),不作二次发明:\n\n```\naffordances = resolveEffectiveCrudAffordances(objectDef, getObjectApiOperations(objectDef.name))\nobjectCanCreate = affordances.create && can(objectDef.name, 'create')\ncreatePredicates = objectCanCreate ? affordances.createPredicates : undefined\n渲染门 = objectCanCreate && createVisible,disabled = createDisabled\n```\n\n- **`visibleWhen` fail-CLOSED**,声明性由 `?? true` 判定而非由真值判定 —— 所以字面 `visibleWhen: false`(objectui#3492 的形)是隐藏按钮,而不是读作「未设门」;默认值是布尔,求值器直接短路,未声明谓词的对象不付任何求值代价。\n- **`disabledWhen` fail-SOFT**,`!= null` 的声明性判定放在求值**之外** —— 所以 `disabledWhen: ''` 读作「无条件」而非「禁用」,不可求值的谓词也永远不会把按钮永久置灰。\n- **绑定**:工具条谓词按 spec 的规定,针对工具条所处 scope 的记录求值**一次**;本面与独立对象列表一样**没有记录在 scope 内**,故 `useRowPredicate(..., null, ...)` 是刻意的 —— 读 `record.*` 的谓词无从绑定,按 fail-closed 规则隐藏按钮,这正是 spec 写明的绑定,不是本 harness 的缺口。`os.user.*` / `features.*` 正常绑定,是这里有意义的形。\n- **分层只收窄不重开**:既有权限门未被删除,它成为新合取式的一个合取项。谓词无法重新打开 bucket、有效操作或主体授权已关闭的东西。\n\n半径严格限定在 `ObjectDataPage.tsx` + 测试 + changeset,未触碰 `ObjectView.tsx`。\n\n## 其它 CRUD 入口普查(只测量,未夹带)\n\n按派发要求普查了本文件是否还有同形缺门的 edit/delete 入口,**结论为无**,故未开 finding 卡:\n\n- 「Save as view」按 `isAdmin` 设门,写的是 `view` 元数据记录,不是该对象的 CRUD affordance,不属本矩阵;\n- 行级 edit/delete 本文件根本不渲染 —— 这里组装的 `list-view` schema 不声明 `rowActions`,也不传 `onEdit`/`onDelete`,行 affordance 由 `plugin-list` / `plugin-grid` 内部解析,而那两处已各自调用 `resolveEffectiveCrudAffordances` / `isObjectInlineEditable`;\n- 抽屉里的 `RecordDetailView` 是另一张面,有自己的门(此处 `onEdit` 传的是空函数);\n- 本面没有 Import/Export 入口 —— 「按钮不存在」不构成不真实的 affordance,是面设计问题,不在本卡范围。\n\n另:卡面已核实、此处复核一次 —— 文件内 `userActions:`(schema 组装处)是**视图工具条词汇**(`search` / `sort` / `filter` / `rowHeight` / `group` / `hideFields`,#2890),与对象级 CRUD `userActions` 不是同一键空间,未混用。\n\n## 测试\n\n新增 `packages/app-shell/src/views/ObjectDataPage.createAffordances.test.tsx`,29 钉,按四层组合的顺序钉,并把两个 CONTROL 留在旁边,使「整条合取式被删」与「单个合取项被删」可区分:\n\n- bucket 三钉(`append-only` / `engine-owned` / `better-auth`)+ 谓词不得复活已关 bucket + 已关 bucket 上的显式 `create: true` opt-in 仍开;\n- 对象级 `create: false` / `enabled: false`(带谓词)/ 纯布尔臂;\n- #3391 有效操作:排除 `create` 关门、包含 `create` 开门、空集「什么都不暴露」;\n- 谓词层:`visibleWhen` 真/假、字面 `visibleWhen: false`、`disabledWhen` 置灰(渲染且 disabled,隐藏与置灰保持可区分)、`disabledWhen` 不成立、`disabledWhen: ''`、`record.*` 的 `visibleWhen` fail-closed、`record.*` 的 `disabledWhen` fail-soft;\n- 分层:谓词不得重开主体授权关闭的、不得重开有效操作关闭的;\n- 家族 parity 一组:同一份声明在 `/data` 上与对象列表页取得一致的关门结论。\n\n```\npnpm exec vitest run packages/app-shell/src/views/ObjectDataPage.createAffordances.test.tsx\n  Test Files  1 passed (1)\n       Tests  29 passed (29)\n\n# 同族三面回归\npnpm exec vitest run ObjectDataPage.createAffordances ObjectDataPage.saveAsViewFilterFold \\\n  ObjectView.createPredicates ObjectView.importPredicates RelatedRecordActionsBridge.createPredicates\n  Test Files  5 passed (5)\n       Tests  91 passed (91)\n\n# 消费半径全扫(app-shell/src/views 全量)\npnpm exec vitest run packages/app-shell/src/views\n  Test Files  270 passed (270)\n       Tests  2668 passed | 1 skipped (2669)\n\npnpm --filter @object-ui/app-shell type-check   # tsc --noEmit && tsc -p tsconfig.test.json,通过\npnpm --filter @object-ui/app-shell lint         # 0 errors\npnpm run check:control-bytes                    # OK(4581 tracked text files)\n```\n\n## 反向验证\n\n**先书面预判,再跑变异。** 预判:把门改回改动前的裸 `can(objectDef.name, 'create')`(不解析 affordances、不加谓词层、不传 `disabled`),应有 **18 钉转红、11 钉保持绿**;绿的那 11 钉是**对照**而非覆盖 —— 它们本就走不到本次新增的层。\n\n观测:\n\n```\nTests  18 failed | 11 passed (29)\n```\n\n红的 18 钉逐条与预判名单一致:三个 bucket 钉、bucket 不被谓词复活、对象级 opt-out、`enabled: false`、有效操作排除 `create`、空有效集、`visibleWhen` 假、字面 `visibleWhen: false`、`disabledWhen` 置灰、`record.*` fail-closed、谓词不得重开有效操作,以及 parity 五钉。绿的 11 钉:两个 CONTROL、已关 bucket 上的 opt-in、纯布尔臂、有效操作含 `create`、`visibleWhen` 真、`disabledWhen` 不成立、`disabledWhen: ''`、`record.*` 的 `disabledWhen` fail-soft、谓词不得重开主体授权、parity 开门钉。\n\n**预判与观测完全吻合(matched)**,无反转、无「更多诊断」情形。还原后 29/29 复绿。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

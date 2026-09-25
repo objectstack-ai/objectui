@@ -1,0 +1,35 @@
+{
+  "number": 5097,
+  "kind": "issue",
+  "title": "ObjectView 用 `(schema as any)` 从 object-view 节点读 31 个键转发给 renderListView,其中 27 个不是 ObjectViewSchema 声明成员 —— #5091 在 ObjectView 上的同形实例",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-17T23:40:46Z",
+  "updated_at": "2026-08-18T20:42:35Z",
+  "closed_at": "2026-08-18T20:42:35Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5097",
+  "body": "发现于 #5077 的前提门复测(cast 感知口径复查卡面读点)。**Filed unassigned, not claiming.**\n\n## 现象\n\n`packages/plugin-view/src/ObjectView.tsx` 的 `renderListView` 委托分支(`:980` 起)用 `(schema as any).K` 从 object-view 节点上读 **31 个不同的键**并转发给宿主的列表渲染器。其中只有 4 个是 `ObjectViewSchema` 的声明成员,**27 个不是** —— 「渲染器读得到、声明面否认」在 ObjectView 上仍然成立,与 #5091 在 ObjectGrid 上的形状相同。\n\n## 证据(实测,base `9fbb9b52f`)\n\n读点枚举(`grep -o 'schema as any)\\.[A-Za-z_]*'`,排除 `__tests__`,31 个 distinct):\n\n- **是**声明成员的 4 个:`data`、`navigation`、`searchableFields`、`filterableFields`\n- **不是**声明成员的 27 个:`addDeleteRecordsInline, addRecord, addRecordViaForm, allowExport, allowPrinting, aria, bulkActions, clickIntoRecordDetails, collapseAllByDefault, color, compactToolbar, conditionalFormatting, emptyState, fieldTextColor, hiddenFields, inlineEdit, pagination, prefixField, resizable, rowActionDefs, rowActions, selection, sharing, showDescription, showRecordCount, userFilters, wrapHeaders`\n\n声明成员集取自构建产物 `packages/types/dist/objectql.d.ts`(`checker.getPropertiesOfType`,42 个,required 只有 `objectName` / `type`),与 #5077 卡面 ① 逐字一致。\n\n**可达性**:该分支只在宿主传 `renderListView` 时进入。注册渲染器 `ObjectViewRenderer`(`src/index.tsx:58-66`)**不传**该 prop —— 全仓非测试唯一供给方是 `packages/app-shell/src/views/ObjectView.tsx:1618`(React 宿主)。即:这 27 个键在 **app-shell 组合下生效**,在 README/文档站教的 **schema 注册路径上到不了**。\n\n**类型面完全没有牙**(实测 tsc 6.0.3,strict,对构建产物):`ObjectViewSchema extends BaseSchema`,而 `BaseSchema` 带 `[key: string]: any`,excess property 检查整体失效 ——\n\n| 探针 | rc |\n| --- | --- |\n| `{ type: 'object-view', objectName: 'products', pagination: true }`(顶层未声明键) | **0,无诊断** |\n| `{ type: 'object-view', objectName: 'users', table: { zzzNotAGridKey: 1 } }`(嵌套 `table` 里的假名) | **0,无诊断** |\n| 缺 `objectName` | TS2741(唯一有牙的一条) |\n\n即嵌套的 `table` 子配置同样不设防,错拼这 27 个键里的任何一个都静默无声。\n\n## 为什么值得单列\n\n1. AI 作者无法从类型面发现这 27 个键,也无法被 tsc 拦住错拼 —— 正是「声明=强制」要消除的静默成功类。\n2. 文档面无法合法地教它们:教了就把一个 `as any` 逃逸口固化成第二套事实契约(AGENTS.md #0.1);不教则 app-shell 组合下的既有行为无处记载。\n3. 它是 #5077 那类 README 键面漂移**能长期不被发现**的结构原因:object-view 节点上任何键都「看起来合法」。\n\n其中 `pagination` 一键已经在 #5077 的逐键判定表里被记为「渲染器不读」—— 该格由本卡的 `:1032` 读点推翻,已在 #5077 上留证据评论。#5088(文档站镜像)的同一格同理。\n\n## 同族\n\n- **#5091**(open,`bug` + `needs-user-decision`)—— ObjectGrid 的 4 键同形实例。本卡是 ObjectView 面的实例,键集与组件都不同,故独立立卡而非做 #5091 的 sub-issue。\n- **#5018** —— ObjectMap 的整块未建模 + 每处 `as any`。\n- **#4648**(closed,已裁定)—— 「声明但不强制的授权面」doctrine。\n- **#2890** —— ListView 遗留词汇迁移;本卡的转发块正是它的下游。\n\n## 分级\n\n交 PM 分诊(未打标签)。参照 #5091 同类被判 `bug` + `needs-user-decision` —— 本卡同样需要一次裁定:27 个键是**声明上去**(types 变更)、**从转发块删掉**、还是**记为有理由的豁免**。\n"
+}

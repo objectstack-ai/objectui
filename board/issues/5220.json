@@ -1,0 +1,32 @@
+{
+  "number": 5220,
+  "kind": "pull_request",
+  "title": "retire(studio): drop page:accordion title/items.value dead designer inputs (#5212)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T15:30:02Z",
+  "updated_at": "2026-08-18T15:54:42Z",
+  "closed_at": "2026-08-18T15:54:40Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T15:54:40Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5220",
+  "body": "Fixes #5212\n\n## What\n\nStudio's page-block designer was publishing three `page:*` inputs that nothing on the\nrender path reads — an author configures them in the designer, saves, and gets no effect\nand no diagnostic. This drops the two that are still live in `previews/block-config.ts`:\n\n- `page:accordion` → `title` (no accordion-level heading exists; `PageAccordionRenderer`\n  never reads `schema.title`, and `PageAccordionProps` in `@objectstack/spec` never\n  declared a `title` member)\n- `page:accordion` → `items[].value` (the renderer **overwrites** it before render —\n  `itemsWithValue = items.map((it, idx) => ({ ...it, value: \\`panel-${idx}\\` }))` — so an\n  authored value never reaches the Radix item; `PageAccordionProps.items[]` deliberately\n  does not declare `value` either, and now carries a `guidance` prescription pointing an\n  author at this exact fact)\n\nAlso removes the two now-orphaned i18n keys from both locale tables\n(`engine.inspector.pageBlock.field.page:accordion.title` /\n`…field.page:accordion.items.value`), in `packages/app-shell/src/views/metadata-admin/i18n.ts`.\n\n**`page:tabs` is untouched.** One component over, an authored `items[].value` (designer\nfield name `key`) really is read, with a `tab-${idx}` fallback only when absent — the\naccordion's panel id is unconditionally derived, the tabs one is genuinely live. The two\nare not symmetric and this PR only touches the accordion.\n\n`packages/components/src/renderers/layout/containers.tsx` is unchanged — it is the\nevidence these inputs are dead, not something this PR modifies.\n\n## Premise check (the card was measured six days stale)\n\nThe issue's baseline was `objectui@d8d0d66` from 2026-08-12. Re-derived all three verdicts\nagainst the current tree before touching anything:\n\n1. `PageAccordionRenderer` reads `items` / `allowMultiple` / `variant`, never `title` —\n   **holds**.\n2. The accordion renderer overwrites `items[].value` with `panel-${idx}` — **holds**.\n3. `page:header.icon` — **does not hold anymore**. It was already removed from\n   `block-config.ts` on 2026-08-16 by #3829 / PR #4794 (`retire(studio): drop the\n   canonical page:header icon field…`), two days before this issue was even filed (and\n   before the objectstack#7973 → objectui#5212 move). The `page:header` entry in\n   `previews/block-config.ts` already lists only `title` / `subtitle` / `breadcrumb`,\n   with a comment citing the same retirement (ADR-0087 D2, `@objectstack/spec` 17.0.0)\n   this issue describes. **No action needed for `page:header.icon` in this PR** — it is\n   not part of the diff.\n\nSo this PR is two of the three originally-reported deletions; the third had already\nlanded under a separate issue before this card reached the queue.\n\n## Tests\n\n- New `describe('page:accordion \\`title\\` / items \\`value\\` — dead designer inputs\n  (#5212)', …)` in `previews/__tests__/block-config.test.ts`, mirroring the existing\n  `page:header icon` (#3829) pin:\n  - positive half: the panel still offers `items` → `label`\n  - negative half: `title` / `value` are absent from the designer config\n  - spec-side: `PageAccordionProps.safeParse(...)` rejects an authored `title` and an\n    authored item `value` with `unrecognized_keys` naming the refused key (same envelope\n    pattern as `text-input-inputs-spec-parity.test.ts`), plus a non-vacuity check that a\n    base accordion with only declared keys parses clean\n  - i18n side: the two retired keys resolve to themselves (no translation) in both\n    `en-US` and `zh-CN`\n- Updated a stale comment in the same file's `record:details` ordering test that used\n  `page:accordion` (`value`) as a \"stable identifier precedes label\" example — that\n  pattern no longer exists on the accordion now that `value` is gone.\n\n```\npnpm exec vitest run packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config.test.ts packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config-i18n.test.ts\n  Test Files  2 passed (2)\n       Tests  45 passed (45)\n\npnpm --filter @object-ui/app-shell type-check   # clean\n\nnode scripts/check-i18n-call-site-keys.mjs   # every call-site key still resolves (2903 en keys)\nnode scripts/check-i18n-en-drift.mjs         # 0 findings (change is app-shell-local, not the 10 locale packs)\nnode scripts/check-changeset-presence.mjs    # ✅ 1 changeset declared for the 1 released package touched\nnode scripts/check-control-bytes.mjs         # ✅ OK\n```\n\n**Lint narrowing, declared:** the full `pnpm --filter @object-ui/app-shell lint` got\nqueued behind the shared verify lock (5 concurrent devs on this seat) long enough that I\nabandoned the wait rather than stall on it. Ran `eslint` directly on just the three\nchanged files instead:\n\n```\npnpm exec eslint packages/app-shell/src/views/metadata-admin/previews/block-config.ts \\\n  packages/app-shell/src/views/metadata-admin/previews/__tests__/block-config.test.ts \\\n  packages/app-shell/src/views/metadata-admin/i18n.ts\n  4 problems (0 errors, 4 warnings)   # all 4 are pre-existing `no-explicit-any` on lines this diff doesn't touch\n```\n\nCI runs the full lint farm regardless; flagging this as a declared narrowing rather than\na silent skip.\n\n## Changeset\n\n`.changeset/studio-accordion-dead-designer-inputs.md` — `@object-ui/app-shell` patch.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

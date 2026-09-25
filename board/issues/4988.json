@@ -1,0 +1,33 @@
+{
+  "number": 4988,
+  "kind": "pull_request",
+  "title": "fix(data-objectstack): layered 读迁到声明路径 GET /meta/:type/:name/layers (#4016)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T12:42:29Z",
+  "updated_at": "2026-08-17T12:58:52Z",
+  "closed_at": "2026-08-17T12:53:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T12:53:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4988",
+  "body": "Fixes #4016\n\nos#5882 B 案的**消费半边**:Studio 元数据编辑页的三层对比读,从「给普通条目读挂一个查询标记」迁到声明路径 `GET /meta/:type/:name/layers`。服务端半边是 os#6596,已随 `@objectstack/spec@17.0.0` GA 落到本仓 pin(dependabot `7484f7f0a` / PR #4953)。\n\n## 一、前提测量(动工前先量,三项)\n\n**1. GA 契约在位。** 本仓解析到的 `@objectstack/spec@17.0.0` 里,`DEFAULT_METADATA_ROUTES` 声明了 `GET /:type/:name/layers`(prefix `/api/v1/meta`,handler `getMetaItemLayered`,responseSchema `GetMetaItemLayeredResponseSchema`),且该 schema 确实从 `@objectstack/spec/api` 导出(运行时 `typeof` 为 function)。spec 自己的 route 描述也写明老拼法「still works during its deprecation window but is answered with `Deprecation` / `Link` headers pointing here」。\n\n**2. GA 客户端没有 layered 方法 —— 但这不是「缺口」。** `@objectstack/client@17.0.0` 整包 grep `layered` 零命中,两种拼法都没有。framework `origin/main`(e4e5c6e3c)的 `packages/rest/src/rest-route-ledger.ts` 把该路由记作 `disposition: 'server-only'`,note 原文:「consumed by objectui over plain HTTP, and the SDK expressed no layered read under the `?layers=` spelling either」,并明确把「SDK 是否应当表达它」留作独立的产品决定。**所以本仓继续手工构造该请求,是台账声明的消费方式,不是绕过 SDK**;本 PR 只搬路径,不新增任何手拼 URL(那一处手拼在改动前就已经存在)。\n\n**3. 调用点清单。** 构造该查询串的地方全仓**只有一处**:`packages/data-objectstack/src/metadata-client.ts` 的 `MetadataClient.layered()`。app-shell 共 **15** 个 `client.layered()` 调用点全部经由它,零个自己拼 URL —— `studio-design/` 6 处(`PackageOwdOverviewPanel` 2、`StudioDesignSurface` 4),`metadata-admin/` 9 处(`ResourceEditPage` 5、`PermissionMatrixEditor` 3、`EmbeddedItemEditor` 1)。除此之外还有:1 个按老 URL 匹配的 fetch 测试替身、3 处注释、1 处技能指南正文提到老拼法。\n\n前提成立,`premise_still_valid: true`。\n\n## 二、改了什么\n\n- `MetadataClient.layered()` 改读 `…/:type/:name/layers`。\n- **迁移里唯一的活陷阱是 package 参数的连接符**:它此前以 `&` 挂在标记后面。留着 `&` 会把它焊到最后一个 **PATH 段**上(`…/layers&package=crm`),不匹配任何路由 —— 404,而 `layered()` 把 404 报成「空但成功」的层视图,**静默**。已改成 `?package=` 并单独钉了一条。\n- 老拼法归零:注释、技能指南、测试替身一并改到新路径,并加了一条 ratchet 扫描 `packages/*/src`、`apps/*/src` 与 `skills/**/*.md`,阻止任何出货源文件或技能指南再用查询标记去取该投影。\n\n**信封不变(行为等价)**:`code` / `overlay` / `overlayScope` / `effective`、载入期 `_diagnostics`、ADR-0010 完整保护信封仍在同一次往返里回来,`?package=`(ADR-0048)照旧透传 —— 上游两个入口由**同一个** handler 服务,正是为了让弃用窗口的承诺成立。\n\n**一条行为差异,是服务端的设计而不是本仓的选择**:被弃用的标记在后端 protocol 实现缺 `getMetaItemLayered` 时会**下坠**到普通条目读、答 `{ type, name, item }` 信封;专用路径拒绝用本路径声明的形状去答另一个资源,改答 **501 `NOT_IMPLEMENTED`**(rest-server.ts 该挂载点注释原话:「A dedicated path cannot fall through to the plain read the way the flag did」)。于是这里表现为**抛错**,而不是 `code` / `overlay` 无故空白的对比视图。这条已单独钉住。\n\n新测试的路径期望**派生**自装到本地的 `@objectstack/spec` 路由表,而不是抄一份字符串 —— 抄的那份在生产者搬路由之后仍然会绿,而那正是这张卡要消除的失效模式。信封等价那条先用生产者自己的 `GetMetaItemLayeredResponseSchema` 校验 fixture(断的是**值**的判定,所以要求 full parse 绿,不是只看没有 `unrecognized_keys`),再断言解析结果逐键相等。\n\n## 三、反向验证(先预判,后跑;`git checkout` 还原,未用 stash)\n\n**预判(跑之前写下)**:把 `layered()` 的 URL 改回老拼法(含 `&package=`)后 ——\n\n1. ratchet 红,且是**多出一条发现**而红(offenders 从 `[]` 变成 1 个文件),不是「什么都没产出」的空绿;\n2. `metadata-client.layeredRoute.test.ts` 7 条里 **3 红 4 绿**:红的是 3 条 URL 钉,绿的 4 条(spec 声明、信封等价、404、501)**必须**保持绿 —— 它们量的是「回来的东西没变」,而本 PR 改的是「去哪里取」;它们若也红,说明我顺手改了行为;\n3. app-shell `PermissionMatrixEditor.fieldEnvelope.test.tsx` 红(替身按新路径精确匹配,老拼法会掉到 catch-all)。\n\n**实测**:1 与 2 与预判逐条一致 ——\n\n```\n× scripts/__tests__/layered-read-declared-path-4016.test.ts > ... names the retired flag\n  → expected [ Array(1) ] to deeply equal []\n  +   \"packages/data-objectstack/src/metadata-client.ts\",\n✓ ... > is declared by the installed spec as a GET on its own path with its own schema\n× ... > requests the spec-declared path and carries no `layers` query flag\n× ... > leads the query string with `?package=` instead of trailing it (ADR-0048)\n× ... > percent-encodes the type and name into the path\n✓ ... > hands back every layer and protection carrier the declared body sends\n✓ ... > reports an unknown item as an empty layered view (404)\n✓ ... > throws when the backend cannot serve the projection (501)\nTest Files  2 failed | 1 passed (3)      Tests  4 failed | 7 passed (11)\n```\n\n**第 3 条预判错了,如实报告**:`PermissionMatrixEditor.fieldEnvelope.test.tsx` 三条全绿。原因是那个替身的 layered 分支**对该文件的断言没有任何压力**:layered body 只喂「是否 artifact-backed」的判定与 permission 草稿,而这三条断言的字段子表是由下面那条 `get()` 读喂的;掉到 catch-all 的 `{ items: [] }` 也不影响它们(`client.layered(...).catch(() => null)` 是 `PermissionMatrixEditor.tsx:433` 有意的 fail-open,注释已论证过「a transient read failure must not invent a lock」)。\n\n我原本在那处替身上写了一句「老拼法会掉到 catch-all 并把断言一起带红」的注释 —— 实测证明那是假的,已把注释改成实测结论,并注明 URL 的钉在 data-objectstack 那份测试里。替身仍改到新路径:留着老拼法会让这个「用真 client 答真服务端形状」的替身对着线上撒谎,下一个读者会从这里抄走已弃用的拼法。\n\n## 四、测试\n\n仓根跑法(AGENTS.md §9 唯一正确写法),全部在共享验证锁内串行:\n\n- `pnpm exec vitest run packages/data-objectstack/ scripts/__tests__/layered-read-declared-path-4016.test.ts packages/app-shell/src/views/metadata-admin/` → `Test Files 213 passed (213)` / `Tests 2267 passed | 1 skipped (2268)`\n- `turbo run type-check --filter=@object-ui/data-objectstack --filter=@object-ui/app-shell` → `Tasks: 31 successful, 31 total`(首轮曾红:ratchet 用 node 内建但 data-objectstack 的 tsconfig 不带 node types —— 这也是把 ratchet 放进 `scripts/__tests__/` 的原因,那里 `types: [\"node\"]` 且由 `pnpm type-check:scripts` 与 ci.yml 覆盖)\n- `pnpm type-check:scripts` → exit 0\n- `check:control-bytes` / `check:changeset-presence` / `check:changeset-no-major` / `check:spec-symbols` / `check:phantom-deps` / `check:self-import` / `check:skills-paths` / `check:type-check-coverage` / `check:lint-coverage` → 全绿\n- 改动文件 `eslint` → 0 error(只剩本文件既有的 `no-explicit-any` warning,均在未改动行)\n\n## 五、相邻发现(未在本 PR 修)\n\n- **#4982**(未打 finding,具体缺陷):`MetadataLayered.overlayScope` 类型是 `string`、注释声称 `organization | environment | package | null`,而 GA spec 与 framework 生产者都只有 `org` / `env` / null;`LayeredDiff.tsx` 把该原值直接当徽标渲染,同行另外三个层标签都过 `translateConsoleValue` —— zh-CN 下「有 overlay」的条目显示裸英文 `org` / `env`,「没有 overlay」的回退支才是翻译过的。\n- **#4983**(`finding`,观察类):`layered()` 里那段「非 layered 信封」兜底在迁到新路径后已不可达(唯一生产者是老拼法的下坠,新路径答 501)。故意留在本 PR 之外 —— 删它是对「不合规后端」的行为变更,不属于搬路径这件事;等上游关掉弃用窗口后一并删。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

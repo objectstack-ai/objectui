@@ -1,0 +1,38 @@
+{
+  "number": 5218,
+  "kind": "pull_request",
+  "title": "fix(react): make the published entry loadable by Node's own ESM resolver, and gate it",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "configuration",
+    "dependencies",
+    "package: core",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T15:04:05Z",
+  "updated_at": "2026-08-18T15:23:04Z",
+  "closed_at": "2026-08-18T15:23:03Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T15:23:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5218",
+  "body": "Fixes #4538\n\n## Premise check first, as triage asked\n\nThe card is from 2026-08-13. Confirmed still true before anything was changed — built `dist/index.js` carried 10 extensionless re-exports, and the entry did not load:\n\n```\nFAILED ERR_MODULE_NOT_FOUND\nCannot find module '.../packages/react/dist/SchemaRenderer'\n  imported from '.../packages/react/dist/index.js'\n```\n\n## Triage scoped this as \"a build/emit setting\". It is not\n\n`packages/react`'s build is a bare `tsc`, and **TypeScript never rewrites import specifiers** — there is no emit flag that appends `.js`. What the source writes is what `dist` ships. The extensionless form was permitted only because the root `tsconfig.json` sets `\"moduleResolution\": \"bundler\"`. So this is a **source** change, not a build setting.\n\nEnforcement is pinned in `packages/react/tsconfig.json` **only** — `module`/`moduleResolution: nodenext`, which makes a missing extension a compile error rather than a review item. The root `tsconfig.json` is untouched; 38 packages extend it and flipping it there is a different change.\n\nReverse-verified. Restoring the old `src/index.ts` reds both enforcement legs, and restores byte-identically afterwards:\n\n```\ntsc  → src/index.ts(9,15): error TS2835: Relative import paths need explicit file\n       extensions ... Did you mean './SchemaRenderer.js'?   (exit 2)\ngate → ✗ @object-ui/react: 11 relative specifier(s) without an explicit extension\n         packages/react/src/index.ts:9  './SchemaRenderer'  →  './SchemaRenderer.js'\n```\n\nThat ablation needed no rebuild and does not claim one: the specifier leg reads **sources**, so there is no `dist/` for a stale artifact to hide in. The load-leg numbers below are the ones that came from a real build.\n\n## Why three more packages are in the diff\n\nFixing `packages/react` alone did **not** make its entry loadable. Rebuilt clean, it still failed one package over:\n\n```\nCannot find module '.../packages/i18n/dist/i18n'\n```\n\n`@object-ui/react` evaluates into `types`, `core` and `i18n`, each a bare-`tsc` build with the identical defect. Those three are specifier text only — no build-config change, no API change. Declared as a claim-surface amendment on the issue before this PR opened. After them:\n\n```\nLOADED+EVALUATED OK — named exports: 142\n```\n\nAnd the card's original repro — `plugin-charts`, whose own entry was always clean, failing only once evaluation crossed into `@object-ui/react`:\n\n```\nOK    @object-ui/plugin-charts — 6 exports\nOK    @object-ui/react         — 142 exports\n```\n\nSpecifiers changed: react 92, types 95, core 12, i18n 56. Applied by a codemod that resolves every specifier against the filesystem, so a commented-out import to a deleted module is left alone rather than rewritten.\n\n## The check imports and evaluates — it does not stop at resolution\n\n`scripts/check-node-esm-load.mjs`, two legs, because neither is honest alone.\n\n**Specifier leg** (`pnpm check:esm-specifiers`) reads sources, needs no build, runs **per PR** in `ci.yml`'s Type Check job. For a specifier-preserving build the emitted specifier *is* the source specifier, so the defect is judgeable without building anything.\n\n**Load leg** (`pnpm check:node-esm-load`) builds every published package and `import()`s each entry in a child `node`, through its own `exports` map, no bundler and no loader hooks. Nightly workflow, not per-PR — the same trade `published-dist-gate.yml` records, since this repo has no per-PR full-repo build.\n\nMeasured on a full build of all 39 published ESM packages: **17 entries imported and evaluated.** The gate asserts a floor on that count, so \"imported nothing, found nothing\" cannot be a green verdict.\n\nThe load leg attributes a missing module to the package that **owns** it. Four plugins died on `packages/mobile/dist/useBreakpoint` — not their file. Without attribution that is a dozen findings for one cause; with it, one finding against `@object-ui/mobile`.\n\nTwo false-criterion traps the measurements caught, both now pinned by tests:\n\n- Grading the emit question on the build **command** reported 124 findings against `@object-ui/console`, whose `tsc` step carries `\"noEmit\": true` and emits none of them. The gate reads the tsconfig, following `extends`.\n- Stripping comments before scanning shifted every finding in `react/src/index.ts` up by six lines — the license header — so the gate pointed at line 3 for what `tsc` reported at line 9.\n\n## Other packages with the same emission: ledgered, and stated\n\nSeven carry it and are **not** fixed here — `app-shell` (1259), `fields` (295), `auth` (54), `mobile` (27), `collaboration` (15), `permissions` (14), `providers` (9). Filed as #5214. `app-shell` and `fields` are held by other sessions; the rest are outside this card's surface and not needed for its acceptance bar.\n\nThe ledger is a ratchet, not a mute button: an entry whose package has become clean is itself a failure, so it cannot outlive the debt. Clearing those seven would take the repo from 17 to **35 of 39** loadable entries — 11 more packages fail only because of them. Separately ledgered as a different question: `plugin-dashboard` and `plugin-map` fail on a third-party `.css` import, which no extension fixes.\n\n## Verification, all at `98b8d31ef`\n\n| | |\n|---|---|\n| `vitest run packages/{react,types,core,i18n}/ scripts/` | 275 files, 5061 tests passed |\n| `type-check` (react, types, core, i18n) | all 4 Done |\n| `lint` (same 4) | 0 errors |\n| `check:esm-specifiers`, `changeset:check`, changeset-presence, `check:control-bytes`, `lint:coverage`, `type-check:coverage`, `type-check:scripts`, `docs:check-links` | all exit 0 |\n| `turbo run build --filter=!@object-ui/site` | 43/43 successful |\n\nThe full build is the downstream evidence: every consumer of `@object-ui/react` is itself a `tsc` build reading its regenerated `.d.ts`, and all 43 build tasks pass.\n\n`content/docs/guide/ci-cd-pipeline.md` gained the workflow section and job-table entry its pin test requires.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

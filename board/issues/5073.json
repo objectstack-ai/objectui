@@ -1,0 +1,35 @@
+{
+  "number": 5073,
+  "kind": "issue",
+  "title": "plugin-form: EmbeddableForm still promises \"Redirecting in 3 seconds…\" after its own safety guard refused the redirect — and the `redirectBlocked` string it sets can never render",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:17:27Z",
+  "updated_at": "2026-08-17T23:11:06Z",
+  "closed_at": "2026-08-17T23:11:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5073",
+  "body": "Tripped over while fixing objectui#5049 (the thank-you redirect timer's ownership). Filed unassigned and deliberately NOT fixed there: #5049's card and its claim comment both fence the countdown copy out of scope (\"倒计时文案行为不动\"), and PR #5070 touches only who owns the timer. Line numbers below are as of `f68018d565b7c875e652f237b5413b97be5b9012`.\n\n## What\n\n`packages/plugin-form/src/EmbeddableForm.tsx` decides whether to redirect, but the thank-you panel's copy is keyed on something else entirely — whether a `redirectUrl` was *authored*:\n\n- Submit handler, line ~313: when `isRedirectUrlSafe(rawRedirect, config.allowedRedirectHosts)` is false, the redirect is refused with `console.warn(...)` plus `setError(config.texts?.redirectBlocked ?? null)`. `setSubmitted(true)` has already run one statement earlier (line ~303).\n- Thank-you branch, line ~345: `redirectSeconds` is computed unconditionally from `thankYou?.redirectDelay ?? 3000`, and line ~370 renders the countdown paragraph on `thankYou?.redirectUrl && …`.\n\nSo an author who declares a cross-origin `thankYouPage.redirectUrl` without allowlisting its host gets a submitter who is told **\"Redirecting in 3 seconds…\"** and is then never redirected — the guard did its job, but the screen still promises the navigation it just refused. The panel is the terminal state of a public form, so there is nothing after it to correct the impression.\n\nSecond, smaller fact on the same path: the `texts.redirectBlocked` string that refusal sets is **unreachable**. The error banner lives in the form branch (line ~421), and the component has already switched to the thank-you branch, which renders no error at all. `setError(config.texts?.redirectBlocked ?? null)` is the only assignment of that key anywhere, and it only ever fires while `submitted` is true — so the localized string can never appear on screen. Pressing `Submit Another Response` (`handleReset`) clears it rather than showing it.\n\n## Reachability\n\nLive, published surface: `EmbeddableForm` is exported from `packages/plugin-form/src/index.tsx` and registered as `embeddable-form`. Reaching it needs one authoring mistake — a `redirectUrl` pointing off-origin with no matching `allowedRedirectHosts` entry — which is exactly the case the guard was written for, and the guard is silent to the author apart from a console warning. Nothing is lost: the write has already succeeded. The harm is a false statement on the confirmation screen plus a shipped, translated string that no user can ever see.\n\n## Fix shape, if this is queued\n\nThe verdict is already available where the copy is rendered, and PR #5070 makes it explicit: after that PR the accepted destination lives in a `pendingRedirect` state, so the panel can key its countdown on the destination that was actually accepted instead of on the raw authored key. That is a one-condition change plus a decision this card should state rather than leave to the implementer: on a refused redirect, does the panel simply omit the countdown line, or does it surface the refusal to the submitter (and/or to the author more loudly than `console.warn`)? Omitting the line fixes the false promise; surfacing the refusal also makes `texts.redirectBlocked` mean something, but it puts an operational message in front of a member of the public, which may be the wrong audience — the author is the one who mis-declared it.\n\nWorth pinning either way: a fixture with a non-allowlisted cross-origin `redirectUrl` asserting the countdown copy is absent, paired with an allowlisted one asserting it is present, so the pin cannot pass by deleting the countdown outright.\n\n## Not part of this\n\nWhether `thankYouPage.redirectUrl` should be brought under the relative-path-only ruling of objectui#4989 / PR #5032 is a separate open question, recorded in #5049 and untouched here. This card is only about the panel's copy disagreeing with the component's own verdict.\n"
+}

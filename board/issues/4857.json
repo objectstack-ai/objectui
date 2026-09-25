@@ -1,0 +1,36 @@
+{
+  "number": 4857,
+  "kind": "issue",
+  "title": "[fields] 七个 widget 在**可编辑态**也丢掉 host 下发的 id —— label 的 `for` 悬空、description 零消费者(formula / summary / auto_number / vector / grid / slider / signature 实测)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T15:56:18Z",
+  "updated_at": "2026-08-17T18:51:45Z",
+  "closed_at": "2026-08-17T18:51:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4857",
+  "body": "在 #4788(只读替换显示丢整份 host plumbing)的实施中实测发现的相邻一条,**与那个 PR 无关也不由它引入**,按 Prime Directive #10 立单(不认领、不扩围)。\n\n#4788 修的是**只读态**:host 在「readonly + 注册 field widget」时包一层带 `id` / `aria-labelledby` / `aria-describedby` / `role=\"group\"` 的容器。本条是同一族里 **readonly 门管不到的那一半** —— 有七个 widget 在**可编辑态**也一样丢掉 host 下发的 `id`,因为它们**根本没有可编辑分支**,或者有分支但不展开 DOM pass-through。\n\n## 实测\n\n`origin/main` `1ef236e18`,与 #4788 同一套 probe(真 form renderer + 裸注册,字段带 `description: 'Some help'`,一行一个字段),看 **editable** 列:\n\n```\nformula      editable  for=DANGLING hostIdEl=NONE consumers=0\nsummary      editable  for=DANGLING hostIdEl=NONE consumers=0\nauto_number  editable  for=DANGLING hostIdEl=NONE consumers=0\nvector       editable  for=DANGLING hostIdEl=NONE consumers=0\ngrid         editable  for=DANGLING hostIdEl=NONE consumers=0\nslider       editable  for=DANGLING hostIdEl=NONE consumers=0\nsignature    editable  for=DANGLING hostIdEl=NONE consumers=0\n```\n\n对照:其余 27 个注册的非 group-labelled 类型在 editable 列全部是 `for=RESOLVES-LABELABLE hostIdEl=input/textarea/button consumers=1`。\n\n即:可见 label 的 `for` 指向一个整个文档里**没有任何元素带**的 id,只读态之外也一样 —— 这七个字段在无障碍树里**没有名字**,渲染出来的帮助文本零消费者。\n\n## 为什么 #4788 的修法覆盖不到\n\n#4788 的 host 门是 `readonly === true`。而在真实的对象表单路径上,计算型字段并**不**走 readonly:\n\n`packages/plugin-form/src/ObjectForm.tsx:687` 把 `formula` / `summary` / `auto_number` 映射成 `formField.disabled = true`,不是 `readonly: true`。所以 ObjectForm 渲染出来的公式字段拿不到 #4788 的容器,`for` 照旧悬空。\n\n另外三个(`grid` / `slider` / `signature`)与 readonly 无关:它们的**唯一**渲染分支就不展开 host props。\n\n## 涉及文件\n\n- `packages/fields/src/widgets/FormulaField.tsx`、`SummaryField.tsx`、`AutoNumberField.tsx`、`VectorField.tsx` —— 无可编辑分支,整个 widget 即显示面,签名把 props 收进 `...props` 后只读 `props.className`;\n- `packages/fields/src/widgets/GridField.tsx`、`SliderField.tsx`、`SignatureField.tsx` —— 有交互面,但渲染的元素上不展开 DOM pass-through;\n- `packages/plugin-form/src/ObjectForm.tsx:687` —— 计算型字段映射到 `disabled` 而非 `readonly`,是 D 组在真实表单里绕开 #4788 门的原因。\n\n## 需要一次方向裁决,不要直接推\n\n至少三种形状,取舍不同,**不要**按 #4788 外推:\n\n1. **把 D 组映射成 `readonly: true`**(改 ObjectForm)—— 最小,直接落进 #4788 已有的容器机制;但 `disabled` 与 `readonly` 在本仓是**有意区分**的两件事(form.tsx 的注释写明了),这条改的是语义分类而不只是 a11y;\n2. **给 host 一个 display-only 声明**(`ComponentMeta` 加一维,类似 `labelling`)—— 契约优先,host 不再靠「registered + readonly」推断;代价是新增一个公开契约键,且漏声明会静默退回今天的坏形状;\n3. **widget 侧各自展开 pass-through** —— `grid` / `slider` / `signature` 有真控件,这条对它们大概是对的(host id 落到可 label 元素上,`for` 自然解析);但对 D 组无效,它们渲染的 span 不是 labelable 元素,`for` 落上去依然惰性(#3961 当初换掉 `for` 的原因)。\n\n三者可能要分组合用:`grid` / `slider` / `signature` 走 3,D 组走 1 或 2。\n\n## 参考\n\n- #4788 / 2026-08-16 维护者裁定(评论 5307576062)—— 只读态的 host 容器机制\n- #3961 / PR #3978、#3975 / PR #3983、#3990 / PR #4002、#4005 —— group-labelled 一族\n- #3991 —— 内建 select 空选项分支的同类失效(host id 落在 div 上)"
+}

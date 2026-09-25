@@ -1,0 +1,32 @@
+{
+  "number": 10532,
+  "kind": "pull_request",
+  "title": "docs(schema-reference): the kanban mirror sentence says what @object-ui/types declares today",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T06:50:09Z",
+  "updated_at": "2026-09-25T07:19:10Z",
+  "closed_at": "2026-09-25T07:19:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T07:19:09Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10532",
+  "body": "Fixes #9624\nClause-②: no\n\n## What changed\n\nOne sentence in `content/docs/api/schema-reference.md`: the last sentence of the `ObjectKanbanSchema` note that starts \"**`quickAdd` and `allowCollapse` were rows of the table above**\". The rest of the note is unchanged.\n\nBefore:\n\n> ⚠️ `@object-ui/types` still declares **both** on its mirror of this face, so a reader will find them there; that half is objectui#8801, not this table.\n\nAfter:\n\n> ⚠️ `@object-ui/types` mirrors this face and agrees on only one of the two. `allowCollapse` is refused by name there too — `never` on its TypeScript face and a retirement tombstone on its Zod face (objectui#8801). `quickAdd` is still **declared** on both of the mirror's faces, so a reader will find it there; retiring it from the mirror is objectui#8285, not this table.\n\n## Why\n\nSince objectui#9621 merged (`d234fa91e`), `allowCollapse` is no longer declared on the mirror. It is refused by name there, so \"still declares both\" was half false, and \"that half is objectui#8801\" pointed at work that is already done. objectui#8285, which owes the `quickAdd` half, is still open.\n\n## Facts re-read on origin/main (`09ab32bff`) before writing\n\n- `ObjectKanbanSchema` in `packages/types/src/objectql.ts` declares `allowCollapse?: never;` and `quickAdd?: boolean;`. Both lines sit inside the same `export interface ObjectKanbanSchema` block.\n- `ObjectKanbanSchema` in `packages/types/src/zod/objectql.zod.ts` has `allowCollapse: retirementTombstone(` and `quickAdd: z.boolean().optional()`.\n- objectui#8801 is done (state `completed`). objectui#8285 is open, `pm:on-hold`, and unassigned.\n- The rest of the paragraph still holds against the installed `@objectstack/spec@17.4.0`. A `safeParse` probe of `ComponentPropsMap['object-kanban']` gives `{objectName, quickAdd: true}` → success, and `{objectName, allowCollapse: true}` → `unrecognized_keys [\"allowCollapse\"]`. `plugin-kanban/src` has 0 hits for `allowCollapse` (lit control: `quickAdd` has hits under the same pathspec). `INERT_QUICK_ADD = 'inert-quick-add'` is still exported by `packages/sdui-parser/src/kanban-quick-add.ts`.\n\n## Census (`content/docs/**`, enumerated from `origin/main`, 203 files)\n\nPatterns searched: `still declares`, `declares both`, `on its mirror`, `mirror of this face`, `on the mirror`, `still (declared|carries|lists)`, all `mirror` mentions, all `allowCollapse` / `quickAdd` mentions. Lit control: `still declares` hits the target line itself, and the broader `still (accept|parse)` pattern hits several pages.\n\n- `api/schema-reference.md`, the line edited here: false today. Fixed.\n- `plugins/plugin-chatbot.mdx`, `processVisibility` row (\"`ChatbotSchema` still declares it too\"): **true** today (`processVisibility?:` is live on `ChatbotSchema`, in both TS and zod). Not touched.\n- `components/basic/icon.mdx` (\"already declares both keys\"): not the construction (it is not about a retired key). Not touched.\n- `guide/ci-cd-pipeline.md` (\"still lists `'**/*.md'`\"): about workflow config, not a retired key. Not touched.\n- `plugins/plugin-kanban.mdx`, the Quick Add section and its callout (\"`quickAdd` is being retired from `object-kanban`\"): true today. Not touched.\n\nNo other page states that the mirror declares `allowCollapse`.\n\n## Gates (run on head `987cda199`, exit codes written to files before reading)\n\n- `pnpm docs:check-links`: exit 0. \"Links are valid across 17 scan roots.\"\n- `pnpm check:doc-fences`: exit 0.\n- `pnpm check:doc-example-ids`: exit 0.\n- `pnpm check:doc-types`: exit 0. \"Every documented component type is registered.\"\n- `pnpm check:doc-example-readers`: exit 0.\n- `pnpm check:new-line-citations`: exit 0. `VERDICT new-cross-file-line-citations: 0 new citation(s)`\n- `pnpm check:control-bytes`: exit 0.\n- `node scripts/check-changeset-presence.mjs`: exit 0. \"no changeset is owed\" (docs-only, no released package source touched). No `.changeset` file added.\n- `pnpm check:doc-snippets` / `pnpm check:doc-examples`: **NOT MEASURED**. Both stopped with a missing prerequisite (exit 2, `unbuilt-package`: they need the scoped package build). The edited line is prose outside any code fence (the fence count before it is even), and both gates read only fenced code blocks. CI runs them on a built tree.\n\n## Acceptance notes\n\n- The JSDoc on `ObjectKanbanSchema.onQuickAdd` in `packages/types/src/objectql.ts` says \"The other half, `quickAdd`, is deliberately undeclared on this face pending objectui#8285\". In fact `quickAdd?: boolean;` is declared on the same interface. That is a stale code comment, outside this docs-only card, and not filed. The natural carrier is whoever implements objectui#8285.\n- Upstream `@objectstack/spec` main has already tombstoned `object-kanban.quickAdd` for its next major (objectstack #17260). The installed 17.4.0 still declares it, so \"`quickAdd` still parses, because the strict face does declare it\" is true for the tree this page describes. It will go stale when objectui moves to spec 18, and that belongs with the objectui#8285 work.\n- PR objectui#8941 edits a different region of the same file. The hunks do not overlap.\n\nSession: `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb` (seat `domain:ui#3`).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

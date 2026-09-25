@@ -1,0 +1,33 @@
+{
+  "number": 5072,
+  "kind": "pull_request",
+  "title": "docs(plugin-gantt): onTaskUpdate 示例按 Partial 真形加日期守卫,不再在拖进度时写空日期 (#5058)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T22:17:22Z",
+  "updated_at": "2026-08-17T22:26:01Z",
+  "closed_at": "2026-08-17T22:25:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T22:25:59Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5072",
+  "body": "Fixes #5058\n\n基线 `origin/main` @ `82a94170c4058d451ce3ac179d99296d90554479`(含前置 PR #5059 `bb3fab62c`)。\n\n## 本 PR 只修 #5058;#5057 前提被实测部分推翻,未随本 PR 改动\n\n派发时是 #5057 + #5058 合单(PM 认领评论 5320690790)。实施中对 #5057 的「逐键零命中表」逐条复测,**九个键里八个成立、一个被推翻**,而被推翻的那一个恰好是三个待改块的主题。按派发硬规「若实测发现某个假键其实有读取点(卡面零命中被推翻),停下报告勿外推」,#5057 未在本 PR 动手,详见下节,交 PM 重新分诊。\n\n## #5058 判定表\n\n| 块 | 行(改前) | 病灶 | 处置 | 依据 |\n| --- | --- | --- | --- | --- |\n| Drag-and-drop rescheduling 代码块 | `README.md:66-73` | 解构出的 `start` / `end` 实为 `Date 或 undefined`,直接喂 `save()` | 加 `if (!start || !end) return;` 守卫 | `GanttView.tsx:345` 第二参是 `Partial` 包 `Pick` |\n| 同块内注释 | `README.md:69-70` | 断言 start/end 恒为已对齐整日的 `Date`,两层都不成立 | 按真形改写:只有本次编辑触到的键才在,进度手柄只提交 `{ progress }` | `GanttView.tsx:1335` 纯 progress 提交 → `:1091` 原样转发 |\n| 同节散文「optimistic local patch + dataSource.update」 | `README.md:58-60` | 无 —— 这半边是准的 | 不动(卡面已划出范围) | — |\n\n**PM 代裁引用(#5058,评论 5320691422)**:采最小形 —— 只演示日期分支的守卫 + 一句注释说明其余提交形状,⛔ 不扩成按键分派的完整示例。已逐字遵守:实施过程中我一度多写了一句「onTaskUpdate 是所有编辑路径的单一出口」的散文,随即删除 —— 该叙述被 PM 明确划归 API 参考层,不属本块。\n\n运行时后果(改前):宿主照抄该块后,用户每拖一次进度圆点都会 `save(task.id, { start: undefined, end: undefined })`,把记录的开始/结束日期写空。README `:62-64` 教的正是「嵌 GanttView 时只传 `onTaskUpdate` 即开启拖拽」,而进度拖拽不需要额外开关,所以这条路径默认可达。\n\n## 反向验证(方向先预判,后执行)\n\n**预判**(动手前写下):把 `save` 声明成必填 `Date` 版,改前块必须红 TS2322 ×2(正是 `start` 与 `end`),改后守卫版绿。**结果与预判一致,方向未反转。**\n\n探针对**构建产物**编译(`pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-gantt...' build` 后指向 `dist/index.d.ts`),strict、双向 pin:\n\n```\ndeclare function save(id: GanttTask['id'], patch: { start: Date; end: Date }): void;\n```\n\n改前(main 上的块逐字回填):\n\n```\nb1-before-ontaskupdate.tsx(20,23): error TS2322: Type 'Date | undefined' is not assignable to type 'Date'.\n  Type 'undefined' is not assignable to type 'Date'.\nb1-before-ontaskupdate.tsx(20,30): error TS2322: Type 'Date | undefined' is not assignable to type 'Date'.\n  Type 'undefined' is not assignable to type 'Date'.\n--- exit=2\n```\n\n改后(本 PR 落地的块逐字回填,同一个 `save` 签名):\n\n```\n##### B3 (shipped)\n--- exit=0\n```\n\n## #5057:实测读数与被推翻的那一行\n\n复测方式在卡面 grep 之外**加了 cast 感知**(`(schema as any).KEY`),因为卡面的复核命令只写了裸 `schema\\.KEY`,而本文件大量读取点走 `as any` 强转;卡面的正对照 `dependenciesField` 恰好是**不带**强转的读法,所以那个正对照证明不了扫描器对强转形不盲。\n\n九个键,`packages/plugin-gantt/src`(排除测试),cast 感知计数:\n\n| 卡面判「零命中」的键 | 实测(cast 感知) | 结论 |\n| --- | --- | --- |\n| `tasks` | 0 | 成立 |\n| `onTaskClick` | 0 | 成立 |\n| `onTaskUpdate`(schema 上) | 0 | 成立 |\n| `object` | 0 | 成立 |\n| `nameField` | 0 | 成立 |\n| `startField` | 0 | 成立 |\n| `endField` | 0 | 成立 |\n| `fields` | 0 | 成立 |\n| **`viewMode`** | **1** | **推翻** |\n\n被推翻的读取点,逐字:\n\n```\npackages/plugin-gantt/src/ObjectGantt.tsx:1445:            viewMode={((schema as any).viewMode as GanttViewMode) || 'day'}\n```\n\n关键细节:该行位于 `ResourceWorkload` 分支内,由 `:1439` 的 `ganttConfig?.resourceView && assigneeAccessor` 守卫;普通时间轴分支(`:1447` 起的 GanttView)**不**传 `viewMode`。所以真形是「`schema.viewMode` 只被资源负载视图读作粒度;时间轴的初始粒度不可由 schema 设定」—— 与卡面「零命中 / 只是组件 prop」是**两句不同的话**,而 `Basic Gantt Chart`、`View Modes` 两块 + `Schema API` 节正是以 `viewMode` 为主题,整页重写必须对它统一发声,无法干净切除。\n\n顺带一条同向读数(卡面「受影响的块」表把 `readOnly` 列进 Schema API 块的问题键,但它**不在**逐键零命中表内,故不构成正式矛盾):`readOnly` 是**真** schema 键 ——\n\n```\npackages/plugin-gantt/src/ObjectGantt.tsx:1471:          readOnly={!!(schema as any).readOnly}\npackages/plugin-gantt/src/ObjectGantt.tsx:1516:          !!(schema as any).readOnly ||\n```\n\n改写时应保留而非删除。\n\n## 另一条:派发预判的探针方法在 #5057 上不成立(方法学读数,供下一棒)\n\n派发写明「改写后的示例加类型标注(`ObjectGanttSchema` / `satisfies`)让键面进编译期,pin 块钉住假键会红 TS2353」。**这一条实测不成立**,已用探针证伪:\n\n`ObjectGanttSchema` 继承 `BaseSchema`,而后者带索引签名 `[key: string]: any`(`packages/types/src/base.ts:318`);其 Zod 对应物是 `.passthrough()`(`packages/types/src/zod/base.zod.ts:154` 注释明写 \"BaseSchema is `.passthrough()`\")。两层都不拒未知键,所以**加类型标注不会让假键进编译期**:\n\n- 探针 A2(Basic 块,`type` 已先改对,只留假键面 `tasks` / `viewMode` / `onTaskClick` / `fields` / `nameField` / `startField` / `endField`)→ **exit=0,零报错**。TS2353 在此类型上不可能出现。\n- 加标注真能钉住的只有三样:`type` 字面量(探针 A1 → `TS2322: Type '\"gantt\"' is not assignable to type '\"object-gantt\"'`)、必填键 `objectName`(探针 A3 → `TS2741: Property 'objectName' is missing`)、以及**任务字面量**——`GanttTask` 没有索引签名,所以那儿是真门禁:探针 A4 → 8 处 `TS2322: Type 'string' is not assignable to type 'Date'`;探针 A5(把日期先改成真 `Date`,单独隔离标签键)→ `TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'GanttTask'`。\n\n补一条读数细节,免得下一棒误判:A4 里 `name:` 那两条**没有**报 TS2353 —— 字面量一旦已有属性级赋值错误(string→Date),TS 就跳过多余属性的 freshness 检查。要看见 `name` 的红,必须像 A5 那样把日期先修对再单独测。\n\n推论:#5057 的键面正确性**无法**靠类型标注机械保证(#5043 的门禁缺口在这个 vocabulary 上比卡面设想的更宽),证据只能靠读取点 grep;能进编译期的是 `type` / `objectName` / 任务字面量三处。\n\n## 验证\n\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → `Tasks: 81 successful, 81 total`。\n- `node scripts/check-doc-links.mjs` → `Links are valid across 13 scan roots.`\n- `node scripts/check-control-bytes.mjs` → `OK (scanned 4513 tracked text file(s); skipped 85 binary)`;改动文件另做 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 自扫,无命中。\n- `node scripts/check-changeset-presence.mjs` → 绿(1 changeset added)。\n- changeset 一文件:`.changeset/gantt-readme-ontaskupdate-partial-guard.md`(`@object-ui/plugin-gantt: patch`,docs 级)。\n\n## 范围\n\n只动 `packages/plugin-gantt/README.md` + 一个 changeset。`content/docs/releases/**` 零触碰;`content/docs/plugins/plugin-gantt.mdx` 等其它文档未碰(若同病属 #5047 同族另立)。无 force-push,无 `git stash`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

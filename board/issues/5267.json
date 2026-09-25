@@ -1,0 +1,30 @@
+{
+  "number": 5267,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): fix pattern.value Type column to RegExp-only",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T23:12:01Z",
+  "updated_at": "2026-08-18T23:15:10Z",
+  "closed_at": "2026-08-18T23:15:08Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T23:15:08Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5267",
+  "body": "Fixes #5249\n\n## What\n\n`content/docs/plugins/plugin-form.mdx` line 108, in the `validation` rule table, typed the `pattern` rule's Type column as `{ value: string | RegExp; message: string }` while the Notes cell in the same row already correctly said hand-authored schemas must pass a RegExp. Fixed the Type column to `{ value: RegExp; message: string }`. The Notes cell was already correct and needed no change.\n\n## Contract verified on `origin/main` @ `bc2922a8` before editing\n\n**`packages/types/src/form.ts`** — `FieldValidationRules.pattern`:\n\n```ts\npattern?: { value: RegExp; message: string };\n```\n\nNo `string` in the union — narrowed by #5099 (maintainer ruling 2026-08-18, documented inline: react-hook-form's field validator applies `pattern` only when `value instanceof RegExp`, so a string here type-checked and validated nothing).\n\n**`packages/types/src/zod/form.zod.ts`** — `FieldConstraintsSchema.pattern.value`:\n\n```ts\nvalue: z.custom<RegExp>((v) => v instanceof RegExp, {\n  message: 'pattern.value must be a compiled RegExp — react-hook-form runs `pattern` only when ' + ...\n})\n```\n\nAlso RegExp-only — aligned by #5186 / PR5230, same file's header comment confirms this closed the earlier \"flat scalar dialect\" gap (#5186).\n\nBoth declarations confirm `string` no longer belongs in that cell — premise holds, the doc was the only side of the contradiction still stale.\n\n## Scan of the rest of the `validation` table (as requested in the issue)\n\nChecked every other row's Type cell against the current `FieldValidationRules` interface (`packages/types/src/form.ts`) — all match exactly, no other cell needed a change:\n\n- `required` — doc `string | boolean` == interface `required?: string | boolean` ✓\n- `minLength` / `maxLength` — doc `{ value: number; message: string }` == interface ✓\n- `min` / `max` — doc `{ value: number; message: string }` == interface ✓\n- `validate` — doc `(value) => boolean | string | Promise<boolean | string>` is an abbreviation of the interface's `(value: string | number | boolean | null | undefined) => boolean | string | Promise<boolean | string>` (param type omitted for brevity in the doc) — not a contradiction, left as-is per the issue's one-cell-class scope\n\n## Gate-coverage claim in the issue/triage — checked, partially inaccurate\n\nThe issue/triage comment says this file \"has only `plaintext` fences, so … no shipped gate reads it.\" Verified this directly and it's not quite right:\n\n- `content/docs/plugins/plugin-form.mdx` has 5 `plaintext`, 2 `json`, 1 `bash`, and **2 `typescript`** fences (lines 277, 406) — not \"only plaintext\".\n- `scripts/check-doc-snippet-types.mjs` treats `typescript` as a TS fence language (`TS_FENCE_LANGUAGES = new Set(['ts', 'tsx', 'typescript'])`), and the file is **not** listed in that script's `UNGATED_DOCS` exclusion table — so by the script's own \"default is covered\" rule, this file's 2 `typescript` blocks **are** compiled by `check:doc-snippets` today.\n\nThis doesn't affect this PR: the edit is confined to prose inside a Markdown table cell, outside any fenced block, so it cannot change that gate's outcome for this file (the two `typescript` blocks are byte-for-byte unchanged). Flagging the inaccuracy since the issue asked to verify the claim rather than trust it.\n\n`scripts/check-doc-component-types.mjs` (the `type:` literal checker, the gate that genuinely runs unfiltered on every docs-only PR) does read this file, and passed locally.\n\n## Tests / local gates run\n\nAt commit `fb63d159e`:\n\n```\nnode scripts/check-control-bytes.mjs        → ✅ OK (4661 tracked text files scanned)\nnode scripts/check-doc-component-types.mjs  → ✅ Every documented component type is registered.\nnode scripts/check-doc-links.mjs            → ✅ Links are valid across 13 scan roots.\nnode scripts/check-changeset-presence.mjs   → ✅ No source of a released package changed; no changeset owed.\n```\n\n`check:doc-snippets` (`node scripts/check-doc-snippet-types.mjs`) needs a multi-package `turbo build` (`--filter=@object-ui/types` etc.) behind the shared `/tmp/os-heavy-verify.lock`, which stayed contended (another agent's `vitest run packages/app-shell/` held it through two ~180s queue attempts). Not run locally for that reason — see reasoning above for why this specific diff cannot change its outcome; CI (`doc-snippet-types.yml`) runs it definitively on this PR.\n\n## Scope\n\nTouches only `content/docs/plugins/plugin-form.mdx` (one cell). Does not touch `content/docs/blocks/forms.mdx` (sibling card #5229's file), `docs/adr/**`, `.claude/**`, `skills/**`, `AGENTS.md`, or `CLAUDE.md`. No released package `src/` touched — no changeset needed (verified by `check-changeset-presence.mjs` above).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

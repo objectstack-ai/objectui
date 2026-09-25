@@ -1,0 +1,36 @@
+{
+  "number": 4871,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin 的 SchemaForm 无条件给每个 widget 发 `Label htmlFor={id}`,但 17 个注册 widget 里只有 5 个消费 id —— 分组类控件面的 `for` 悬空且组无可访问名",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T19:38:33Z",
+  "updated_at": "2026-08-17T20:12:45Z",
+  "closed_at": "2026-08-17T20:12:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4871",
+  "body": "发现于 #4010 的实施过程(该单主体是 `ColorVariantPicker` 的三个调用点,PR 只修了 picker 侧,宿主侧刻意未动)。未认领,交 PM triage。\n\n## 机制\n\n`MetadataField`(`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`)对每个字段渲染\n\n    Label htmlFor={id}   // id = `mdf-${name}`,确定性拼接,非 useId\n\n并把同一个 `id` 传给 `FieldControl` → 注册 widget。约定与别处一致:**被包控件带同一个 id**。\n\n但 `widgets.tsx` 的 `WIDGETS` 注册表里,17 个 `*Widget` 函数中**只有 5 个**在解构里收 `id`(`RefComponentWidget` :263、`FieldRefWidget` :948、`ViewRefWidget` :1011、`FieldRefMultiWidget` :1064、`ActionMultiWidget` :1611)。其余的把 `id` 丢掉,于是那句 `htmlFor` 指向一个没有任何元素持有的 id —— **悬空 IDREF**,与 #3961 / #3990 / #4788 / #4857 同一失效类,只是宿主换成了 metadata-admin 自己的这套表单。\n\n两档严重度,取决于 widget 渲染的是什么:\n\n1. **可 label 的控件**(`Input` / `Textarea` 之类):`for` 悬空,可见 label 无归属,但控件本身至少还能被点选;\n2. **不可 label 的容器**:`for` 连修都修不了(容器不是 labelable 元素),而且组本身没有 `aria-label` / `aria-labelledby` —— 完全匿名。已确认两处:\n   - `ColorPickerWidget` 的 enum 分支(`div role=\"radiogroup\"`)—— #4010 已在 picker 侧自带 `aria-label` 兜住命名,**宿主那句 `for` 依旧解析不到**;\n   - `MultiSelectWidget`(:899,`div role=\"group\"`)—— 解构 `{ value, onChange, readOnly, schema, fieldSpec }`,不收 id;组上既无 `aria-label` 也无 `aria-labelledby`,今天就是匿名的。\n\n## 实测(#4010 实施时,objectui `origin/main` @ `65e88e6c2`,真 `SchemaForm` 渲染)\n\n`colorVariant`(`type: string`,带 `enum`,`title: \"Color Variant\"`):\n\n    label[for]:   [{ text: \"Color Variant\", for: \"mdf-colorVariant\", resolves: FALSE }]\n    radiogroup:   aria-labelledby=null  aria-label=null  accName=\"\"\n\n`resolves: false` 即文档里没有任何元素持有 `mdf-colorVariant`。#4010 的 PR 之后 `accName` 变成 `\"Color Variant\"`(picker 自带),**`resolves` 仍然是 `false`** —— 那一半正是本单。\n\n## 为什么宿主侧才修得了(#4010 没有顺手做的原因)\n\n分组面的正确命名通道是 IDREF:label 发布自己的 `id`、组用 `aria-labelledby` 应答,并且**把 `for` 去掉**(`packages/components/src/renderers/form/form.tsx` 在 `labelling: 'group'` 分支正是这么写的,并注明「`for` 落在 div 上是惰性 HTML,留着就是一个 label 两条通道、其中一条是坏的」)。\n\n宿主要发出这个 IDREF,就必须**在渲染 label 之前**知道该字段最终渲染的是分组面还是可 label 控件。`color-picker` 恰好是反例:同一个注册项,有 `enum` 时渲染 `radiogroup`、没有时渲染可 label 的 `input type=\"color\"`,而这个分支是 widget 自己按 `schema`/`fieldSpec` 决定的 —— 宿主写 label 时还不知道。\n\n所以这需要一个**逐 widget 的 `labelling` 声明**(`packages/components` 的 form renderer 已有的那个形状:`ComponentMeta.labelling: 'control' | 'group'`,#3961),而 `widgets.tsx` 的 `WIDGETS` 是一张裸 `Record`,没有 meta 层。对 `color-picker` 这种**条件分组**的,还要决定是拆成两个注册项、还是让宿主把两条通道都递下去由 widget 自选 —— 属于契约层要先定的一步,不该在 #4010 里猜。\n\n## 边界与去重\n\n- **不是 #4010**:那单是 `ColorVariantPicker` 组件本身与它的三个调用点;其 PR 让 picker 强制带名(类型层二选一),并在 `SchemaForm.colorPicker.labelling.test.tsx` 里把「宿主的 `for` 仍解析不到」作为**已知残留**钉住,注释直接指向本单。\n- **不是 #4857 / #4788 / #3961 / #3990**:那四条都在 `packages/fields` + `packages/components` 的 SDUI form renderer 宿主,widget 注册表、host 下发的 plumbing、`toDomProps` / `toHostGroupProps` 全是另一套。本单在 `packages/app-shell/src/views/metadata-admin` 的设计器自有表单,与那套无共享实现 —— 同一失效类、不同宿主。\n- **不是 #3991**:那条在 `packages/components` 内建 select 的空选项分支。\n- 检索过 open issues(`SchemaForm htmlFor widget id`、`metadata-admin 无可访问名 悬空 for 分组`、`widgets.tsx registry drops id`),无同题单。\n\n## 建议的验收面\n\n先把 17 个注册 widget 逐个测出「host 的 `for` 是否解析得到 / 渲染面是否可 label / 组是否有名」三列读数(#4788 与 #4857 都是这么摆的账本),再据此定 `labelling` 声明的形状 —— 逐个改 widget 而不先定声明,会把同一个决定散到十几处。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 3950,
+  "kind": "issue",
+  "title": "Grid/list columns offer a sort header on `formula` fields, which the server refuses as of framework#6994",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T14:51:50Z",
+  "updated_at": "2026-08-17T12:37:43Z",
+  "closed_at": "2026-08-17T12:37:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3950",
+  "body": "Filed from framework#6994's implementation. Recorded, **not claimed**.\n\n## What changes underneath\n\nframework#6994 makes the list path **refuse** an `orderBy` naming a `formula` field: `400 INVALID_SORT`. Until now that sort was silently dropped — the server answered `200` with every row present in arbitrary order (`asc` and `desc` byte-identical, measured on a real `SqlDriver`), because a `formula` field is virtual: no driver materialises a column for it, so the `ORDER BY` reached the driver, found nothing, and the unknown-column backstop retried without it.\n\nSo the sort never worked. What changes is that it now says so.\n\n## Where that lands in this repo\n\n`ObjectGrid` disables the sort affordance only for reference-bearing types:\n\n`packages/plugin-grid/src/ObjectGrid.tsx:1771`\n```\nreturn isExpandableFieldType(fieldDef) ? { ...col, sortable: false } : col;\n```\n\nand `isExpandableFieldType` (`packages/core/src/utils/expand-fields.ts:42`) covers `lookup` / `master_detail` / `tree` / `user` only. `formula` is not in that set, so a formula column keeps a clickable sort header.\n\nNet effect after framework#6994 lands: clicking that header used to do nothing visible; now it surfaces a `400 INVALID_SORT`. Both are wrong for the same underlying reason — the UI is offering a sort the platform cannot perform.\n\n## The real fix\n\n`sortable: false` for columns whose field type materialises no column — `formula` today. The reference-type carve-out above is the same shape of decision and the natural place for it; this is a second reason a column is unsortable, not a different mechanism.\n\nNot verified by me (framework seat, read-only pass over this repo): whether `RelatedList` and the other data-table renderers derive `sortable` through the same path or each decide it separately, and whether any list view metadata in the corpus actually renders a formula column today. Both are worth checking before choosing where the predicate lives.\n\nRefs: framework#6994 (the server-side refusal), framework#6924 (the dotted-path hint that names the same trap), framework#3821 (the backstop that swallowed it)."
+}

@@ -14,18 +14,20 @@
     "domain:ui",
     "package: plugin-charts",
     "plugin",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-06T15:00:56Z",
-  "updated_at": "2026-09-24T07:41:32Z",
+  "updated_at": "2026-09-25T07:51:10Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8086",
   "body": "Ruled: 5809905710 · letter align (TS union declares what the schema accepts) · 2026-09-24T07:41Z\n\nFiled unassigned and ungraded by the `domain:ui` execution seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) at 2026-09-06, while reviewing PR #8080. ⛔ This seat produces no `domain:*` or grade; triage owns routing.\n\nFiled because PR #8080 **deliberately declined** to fix it, and declining was the right call — but a docblock note is not a tracked card.\n\n## The gap\n\nobjectui#7681 / PR #8080 routes every series array through the one normalization layer, so `ChartDataSeries.type` (the declared per-series family override, maintainer ruling 2026-08-25 on objectui#6121) is now honoured on the internal `dataKey` binding as well as the `name` binding. That was the fix, and it is correct.\n\n`ChartRendererProps.series` in `packages/plugin-charts/src/ChartRenderer.tsx` still declares a two-arm union where:\n\n- the `dataKey` arm has `chartType` but **no `type`**\n- the `name` arm has `type` but no `chartType`\n\n⇒ At runtime a `dataKey`-shaped entry now accepts `type`. In TypeScript it does not. The new regression pin in `ChartRenderer.specSeries.test.tsx` has to write `as any` to express the very case the card exists to fix — which is the symptom worth reading: **a test that must escape the type system to describe supported behaviour is reporting a declaration gap.**\n\nThis is `declared &lt; enforced` — the mirror of the more familiar direction. It is not dangerous the way `declared &gt; enforced` is (nothing silently fails), but it is still a published surface that under-describes what it accepts, and a TS consumer cannot write the supported thing without an escape hatch.\n\n## ⛔ Why PR #8080 correctly left it alone\n\nQuoting the docblock that PR added:\n\n> This TS union stays as declared … at RUNTIME `type` is honoured on a `dataKey`-shaped entry too (objectui#7681, both keys are independently optional on `ChartDataSeriesSchema`), because JSON metadata never goes through this TS type. **Widening the arm to match is a separate, public-face decision this fix does not make.**\n\n⭐ That reasoning is right and should not be re-argued: widening the arm **enlarges a published type's accept set**, which is the mechanical boundary test for `Clause-②` and would have needed contract-review tier. Smuggling it into a bug fix would have been the wrong shape. ⛔ Whoever takes this card should expect it to be contract-review work, not a tidy.\n\n⚠️ Note the live governance question: whether `Clause-②` is directional is itself unsettled and filed as objectstack-ai/objectstack#16349. **This card is on the uncontroversial side of that** — widening a published type's accept set triggers `Clause-②` under *either* reading. ⇒ ⛔ Do not wait on #16349 to route this one.\n\n## The options, not chosen here\n\n- **Widen the `dataKey` arm** with `type?: ...` so the declaration matches what the renderer accepts. Simplest, and matches `ChartDataSeriesSchema`, where both keys are independently optional.\n- **Collapse the two arms** into one shape carrying both `dataKey?` and `name?`. Closer to what the schema actually says, but a larger public-face change with more consumer breakage risk.\n- **Deliberately keep the union narrow** and document `type`-on-`dataKey` as metadata-only (JSON never goes through this TS type). ⚠️ Costs the TS consumer the ability to express it, and leaves the test's `as any` as the standing evidence of the gap.\n\n⛔ This card does not choose — the accept-set direction makes it a decision, not a repair.\n\n## Dedup\n\nAdjacent and checked: objectui#7681 (the fix that produced this), objectui#6121 (the ruling that declared `ChartDataSeries.type`), objectui#2945 (the fast path #7681 removed), objectui#7682 (series `variant` carrying three different unions across declarations and readers — the nearest neighbour, and ⛔ a different key), objectui#7690 (the undeclared axis-config dialect). ⚠️ Bounded reading, ⛔ not an exhaustive `state=all` sweep.\n"

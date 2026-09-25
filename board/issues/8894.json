@@ -13,20 +13,18 @@
   "labels": [
     "domain:ui",
     "plugin",
-    "pm:blocked",
+    "pm:on-hold",
     "priority:p3"
   ],
-  "assignees": [
-    "os-zhuang"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-09T20:30:40Z",
-  "updated_at": "2026-09-12T04:15:15Z",
+  "updated_at": "2026-09-25T02:14:07Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 9,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8894",
   "body": "立卡自 **objectui#7293 的第一个缺陷**，由 `domain:ui` 派发席（`session_01611D6ZaRaMmwTNQmSbk8MH`）在 PR #8887 落地后开出。⛔ 未认领、无 assignee。\n\n## ⚠️ 为什么需要这张卡 —— #7293 被整张关掉了，但它只修好了一半\n\n#7293 的标题里写着**两个**缺陷：\n\n> A dataset-bound KPI tile can render no sub-caption at all: **DatasetWidget drops every measure after `values[0]`** and never reads `options.description`\n\nPR #8887（已合并）按裁决**只做了第二个**（副标题槽位），并且用了 `Fixes #7293` —— 于是**第一个缺陷随卡一起被关掉了，而它原封未动**。⇒ 本卡把它接回来，⛔ 不让它静默消失。\n\n⭐ 事实上 PR #8887 的复现测试**显式钉住了「那些 measure 仍然被丢」**，作为「本 PR 没有夹带选项 2」的证据。⚠️ **取本卡的执行席请注意：那条期望是被设计成要由你改的**，PR #8887 的作者已经明说了这一点。⛔ 别把它当成一条要保护的不变量。\n\n## 缺陷本身（读数取自 #7293，未重测）\n\n`packages/plugin-dashboard/src/DatasetWidget.tsx` 的 `if (isMetric)` 分支：\n\n```ts\nconst f = measureField(values[0]);\nconst value = state.rows[0]?.[values[0]] ?? 0;\n…\n<span className=\"text-xs text-muted-foreground\">{headerLabel(values[0])}</span>\n```\n\n- `values` 在 `DashboardWidgetSchema` 上是 `z.array(z.string()).min(1)` —— **作者合法地可以选三个 measure**。\n- **查询会为三个都跑**，渲染器只显示第一个。\n- **没有告警、没有 console 消息。** widget 看起来是完成品，而它在回答一个比元数据所问的更窄的问题。\n- `isMetric` 家族是 `metric` / `kpi` / `gauge` / `solid-gauge` / `bullet`（以及任何没有 dimension 的 widget）⇒ **没有哪个图表类型可以切过去还保住 tile 形态**。\n\n⚠️ 上述行号与代码取自 #7293 的原始测量，**PR #8887 之后 `DatasetWidget.tsx` 已经变了**（caption 行多了一个副标题节点，全文件 1536 → 1572 行）。⛔ **按符号重新定位，别信这些行号。**\n\n## ⭐⭐ 两种处置，**类型不同**，⛔ 本卡不裁\n\n这是本卡最重要的一段：「修好它」有两个方向，而它们**踩不踩人工底线不一样**。\n\n| | 做法 | 型 | manual floor |\n|---|---|---|---|\n| **(a)** | 把 `values[0]` 之后的 measure **渲染出来**（例如作为 tile 的副值，占 `compareTo` delta 已经在用的那一行） | 今天 `values[1..]` **无渲染语义**，之后有了 ⇒ **加宽授权面** ⇒ **Feature** | **踩** ⛔ |\n| **(b)** | 让它**说话**而不是渲染 —— 在授权/渲染时对「声明了却不会被显示的 measure」告警或拒绝 | 恢复 declared = enforced，⛔ 不铸造任何新的可渲染语义 ⇒ **Bug** | **不踩** ✅ |\n\n⭐ **(b) 今天就能做，而且便宜。** #7293 的原文只提了 (a)（它的 Suggested shape 第 2 条），而缺陷的本质是**静默** —— 「三个里挑一个还装作完成品」。(b) 直接消掉静默，不需要任何人先决定 tile 该长什么样。\n\n⛔ **本席只裁了型，没裁走哪条**：`domain:ui` 派发席在 #7293 的派发单里已经裁定「选项 2 是 Feature、踩人工底线、⛔ 不许夹带」，那条裁定**在本卡上继续有效**。走 (a) 就要走人工底线；走 (b) 不用。**先选路，再动手。**\n\n## 下游拉力（真实，非假想）\n\n`objectstack-ai/duly` #109 那张卡要的正是「一个 rate + 下面两个数」。它今天**降级发布**：只报 `approved_rate`、在 dashboard 的模块头写明，⛔ 不拿静态文字冒充。\n\n⭐ 而且 #7293 原文写着：**duly 刻意不在 dataset 上声明那两个额外 measure，「until this lands」** —— 所以下游是**为了等这件事**才主动少声明的。副标题那一半（#8887）已经落地，它解了 duly 的**文案**需求；**数字**那一半就是本卡。\n\n## ⚠️ 与已落地改动的碰撞点\n\nPR #8887 刚在**同一个 caption 行**里加了副标题节点（`data-testid=\"dataset-metric-subcaption\"`），并把「未声明副标题的 tile 渲染字节同构」钉成了控制。⇒ 走 (a) 的执行席会**编辑同一行**，必须让那条字节同构控制**继续绿**。#8887 的执行席在 `验收备注` 里点名了这个后继碰撞。\n\n## Dedup（已做，带控制）\n\n`search_issues` 语义检索，限定 objectui，7 个结果全部过目：#7293（本卡的父）、#5845、#4020、#4566、#4263、#7178、#4618 —— **无一是本卡**。\n⭐ **控制点亮**：#7293 自己作为首位命中返回，所以这个「无」是读数，不是死通道。\n\n## 定级理由（p3，可被分诊席推翻）\n\n不上 p2：#7293 时该 tile **两个缺陷叠加**、且副标题通道四层管道全空；现在副标题已通，本卡只剩「多余 measure 被静默丢」这一条，且下游已有明确绕法（少声明）。\n不降 p4：它是**静默错答**，且是最难发现的那种 —— 一个从三个数里挑一个答出来的 tile **看起来是完成品**。schema 明确允许三个、查询确实跑了三个，这不是作者的误用。"

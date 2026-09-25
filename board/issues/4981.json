@@ -1,0 +1,34 @@
+{
+  "number": 4981,
+  "kind": "issue",
+  "title": "doc-version-claims 的 SCAN_ROOTS 不含 skills/:agent 面的 4 处版本字面量从未被任何门禁读过(实测 1–2 个 major 化石)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T12:10:46Z",
+  "updated_at": "2026-08-18T15:59:10Z",
+  "closed_at": "2026-08-18T15:59:10Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4981",
+  "body": "越界发现,记录于 #4961(plugin 骨架补 `@vitejs/plugin-react`)实施期间 —— 为了做「规则消费半径」扫描而 grep 全仓 `@vitejs/plugin-react` 拼写时扫到的。#4961 的完成范围是 `content/docs/guide/plugins.md` 那一行 + 一条 `KNOWN_CLAIMS` 条目,这一条在**另一个扫描面**上,故只记录。\n\n## 事实(对 `origin/main` @ `7d1017790`,即 #4963 落地后实测)\n\n`scripts/__tests__/doc-version-claims.test.ts:274` 的扫描面是两条:\n\n```ts\nconst SCAN_ROOTS = ['content/docs', 'packages/*/README.md'] as const;\n```\n\n`skills/` 不在其中。而 `skills/objectui/guides/` 下有两份**带 `package.json` 代码块的脚手架指南**,共 4 处版本字面量,没有任何门禁读过它们:\n\n| 位置 | 该页教的 | 仓内实测 | 差距 |\n| --- | --- | --- | --- |\n| `skills/objectui/guides/project-setup.md:51` | `typescript ^5.0.0` | `^6.0.3` | 1 个 major |\n| `skills/objectui/guides/project-setup.md:52` | `vite ^6.0.0` | `^8.2.1` | 2 个 major |\n| `skills/objectui/guides/project-setup.md:53` | `@vitejs/plugin-react ^4.0.0` | `^6.0.5`(19/19 plugin 包) | 2 个 major |\n| `skills/objectui/guides/plugin-development.md:329` | `lucide-react ^0.400.0` | `^1.31.0`(9 个包一致) | 跨 major(0.x → 1.x) |\n\n同页的 `react`/`react-dom` `^19.0.0` 与 `^18.0.0 || ^19.0.0`、`tailwindcss`/`@tailwindcss/vite` `^4.0.0` 与仓内同 major,**不在此列**(判据同 #3827 / #3855:peer 说「能接受什么」;tailwind 同 major 不算化石)。\n\n**没有别的门禁兜住**:`scripts/check-skills-paths.mjs` 确实扫 `skills/`,但它判的是**路径/链接**,不读版本;`check-type-check-coverage.mjs` 提到 skills 也与版本无关。grep 全部 `scripts/` 后,读版本字面量的只有 doc-version-claims 一个,而它的 `SCAN_ROOTS` 排除了这里。\n\n## 为什么这不只是「又一处化石」\n\n`skills/` 是**给 agent 读的面**。`content/docs` 化石的受害者是照抄的人类读者(#3855 / #3645 那一族);`skills/objectui/guides/project-setup.md` 化石的受害者是**照它生成项目的 AI**,产物再被提交进用户仓库。同一个数字错一次,前者是一个人构建失败,后者是每次脚手架都复制一遍。\n\n这也正是 #3855 那半个交付物(把值接到锚上,而不是只改值)想解决的失效模式,只是它当时的扫描面到不了这里。\n\n## 修法(两个方向,交 PM 定;不在本卡内做判断)\n\n1. **扩 `SCAN_ROOTS` 到 `skills/`**,再按 #3855/#4961 的 `skeletonDep` 机制给能锚的行入锚(`typescript`/`vite`/`@vitejs/plugin-react` 三条锚现成且一致;`lucide-react` 在 9 个包上一致)。注意 `project-setup.md` 教的是**独立项目**而非 in-workspace 插件,所以 `skeletonDep` 现有的「锚 = 19 个 plugin 清单」判据未必直接适用 —— 这一点需要先想清楚再动,否则会把一个正当的 sample 误判成 anchored。\n2. **去掉这些字面量**,改为指向真源(根 `engines`、包自己的清单),即 PR #3688 / #3698 对 36 个 README 和 CLI 页做过的那一手。\n\n## 同形先例\n\n- **#4938**(open,`finding`)—— **完全同一形状的另一个门禁**:`check-doc-links` 的扫描面漏掉包内非 README markdown,15 个文件的链接从未被解析,实测 1 条死链。那条是链接门的扫描面洞,这条是版本门的扫描面洞。**不是重复,也不是 Blocked-by** —— 两个不同的 gate、不同的文件集合,但值得一起看:两次都说明「门禁的 SCAN_ROOTS 是手写清单」这件事本身有系统性风险。\n- **#3855 / #3708 / #3689 / #3645** —— `content/docs` 与 README 面的同族化石,均已修;它们是这条门禁存在的原因。\n"
+}

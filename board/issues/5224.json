@@ -1,0 +1,33 @@
+{
+  "number": 5224,
+  "kind": "pull_request",
+  "title": "fix(plugin-report): stop reading `report.filter` as an alias for `runtimeFilter`",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T15:52:58Z",
+  "updated_at": "2026-08-18T16:05:53Z",
+  "closed_at": "2026-08-18T16:05:51Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T16:05:51Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5224",
+  "body": "Fixes #5137\n\n`DatasetReportRenderer` read `filter` as a lenient alias for `runtimeFilter` — a key the strict `ReportSchema` in `@objectstack/spec` already rejects, and rejects while naming the replacement itself:\n\n```\nUnrecognized key(s) on this report: `filter`. Did you mean `filter` -> `runtimeFilter`?\n```\n\nSo the producer side was unambiguous and even shipped the migration hint, while the consumer quietly accepted the rejected spelling anyway. Metadata that could not be authored through the validated path still rendered when it arrived by another route, which is the consumer-tolerance shape the declared=enforced doctrine retires. Triage ruled this needs no maintainer decision: the spec has already spoken.\n\n## What changed\n\nBoth alias reads are gone, in `packages/plugin-report/src/DatasetReportRenderer.tsx`:\n\n- the report-level `report.runtimeFilter ?? report.filter`\n- the per-joined-block `block.runtimeFilter ?? block.filter`\n\n`DatasetReportLike.filter` also stops being an undocumented equal-status alias. It stays declared, but now carries a doc comment saying it is not authorable, is never applied, and exists only so the renderer can notice it.\n\n## The consequence, and why the key does not go quiet\n\nRemoving the read alone would have been a **silent** narrowing: a stored document still carrying `filter` now renders **unfiltered**, which for a scoped report is worse than an error. Server-side permissions are unaffected and still apply, so this is **not** an access-control hole — it is a report showing rows its author meant to exclude, with nobody told.\n\nSo the dropped key is reported rather than applied. When a document carrying `filter` reaches the renderer, a dev-mode `console.warn` fires **once per offending report or block**, naming the key, quoting the spec's own rename hint **verbatim**, and stating that no filter was applied. It is a no-op under `NODE_ENV=production`, changes no types, and rejects nothing.\n\nThe rename hint was copied from the spec rather than paraphrased — verified by running `ReportSchema.safeParse` against the pinned `@objectstack/spec` 17.0.0 and matching the exact substring, including its `→` (U+2192), which the issue body transcribed as ASCII `->`. A test pins the two strings together so an author meets one message, not two dialects of one message.\n\nPlacement check, since the ruling asked for it: `console.warn` is this repo's established dev channel for exactly this class of finding (`@object-ui/core` column-identity conflicts, i18n missing keys, `ObjectMap`, `actionKeys`), so the warning does land somewhere a human sees it. Worth stating plainly, though: it reaches a **developer or metadata author** at the devtools console, not the end user looking at the report. Making the unfiltered render visible in the UI itself would be a larger behaviour change than the ruling authorises, so it was not attempted here.\n\n## Tests\n\n`packages/plugin-report/src/__tests__/DatasetReportRenderer.rejectedFilterAlias.test.tsx` — 9 tests pinning all three required facts:\n\n1. **`runtimeFilter` still applies, unchanged** — report-level and per joined block, and the correct spelling stays silent.\n2. **A document carrying only `filter` applies nothing** — asserted on the selection the renderer sends, not merely on the alias value's absence; also that the rejected value does not re-enter the selection under another name, that the report still renders, and that a stored `filter` cannot shadow the host-supplied `runtimeFilter` prop.\n3. **That case is loud** — the warning fires, names the document, the key, the rename and `UNFILTERED`; it quotes the spec's own hint; it fires once per offending block and does not re-spam across re-renders; and it is silent under `NODE_ENV=production` while still applying no filter.\n\nReverse-verified in two legs from the committed fix, each isolating one fact:\n\n- **Leg A** — restore the two alias reads, keep the warning: **4 red**, exactly the \"applies nothing\" assertions. The `runtimeFilter` tests stayed green.\n- **Leg B** — remove the two warn calls, keep the alias removal: **3 red**, exactly the loudness assertions.\n\nRestored after each leg and confirmed byte-identical to the committed fix (`git diff HEAD` empty).\n\n## Verification\n\nGate union run at `e9a7dfb36` (final commit):\n\n- `pnpm exec vitest run packages/plugin-report/` — **13 files, 149 tests passed**\n- `pnpm --filter @object-ui/plugin-report type-check` — clean (`tsc --noEmit && tsc -p tsconfig.test.json`)\n- `pnpm exec eslint` on both changed sources — **0 errors** (remaining warnings are pre-existing lines this PR does not touch)\n- `check:control-bytes`, `check:phantom-deps`, `check:self-import` — green\n- `check-changeset-presence`, `check-changeset-no-major` — green\n\nTest scope was deliberately narrowed to `packages/plugin-report`; the full farm is left to CI. `check:published-dist` builds every published package and exceeded the local 10-minute cap, so it too is left to CI. The published surface is unchanged either way — the new `resetReportFilterAliasWarnings` export (test-only, house precedent from `resetColumnIdentityWarnings`) is not re-exported from the package barrel.\n\n## Changeset\n\n`@object-ui/plugin-report`: **`minor`**, with the break described in the body per AGENTS.md §版本号策略. Deliberately not `major` — that trips the fixed-group gate and versions all 39 packages.\n\n## Scope\n\nThree files: the renderer, its new test, the changeset. Nothing in `content/docs` (#5047 is the docs half and is docs-only). The rest of the lenient-alias family — #5116, #5120, #5067 and #5068 — is untouched here; those are separate cards with separate consumers and remain open.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

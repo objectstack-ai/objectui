@@ -1,0 +1,35 @@
+{
+  "number": 5039,
+  "kind": "issue",
+  "title": "[app-shell] metadata-admin SchemaForm 的 6 条非注册表渲染路径仍发悬空 `for`(composite / repeater / record / 两条结构化兜底 / raw-JSON)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T19:45:57Z",
+  "updated_at": "2026-08-17T22:05:15Z",
+  "closed_at": "2026-08-17T22:05:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5039",
+  "body": "发现于 #4871 的账本实测(PR 分支 `claude/issue-4871-schemaform-labelling`,基线 `167ec42e7`)。未认领,交 PM triage。\n\n## 机制\n\n#4871 给 `WIDGETS` 注册表加了 `labelling` 声明层,`MetadataField` 据此发 `for` 或 IDREF。但 `FieldControl` 里有 6 条**不经过注册表**的渲染路径 —— 它们没有注册键,因而没有声明面,`MetadataField` 一律按默认的 `control` 发 `for`,而这 6 条路径全都不消费 `id`。\n\n同一次 probe(真 `SchemaForm` 渲染,可编辑 + 只读两态,列口径与 #4871 账本一致)测得:\n\n```\n                          editable                        read-only\n(spec) composite          for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n(spec) repeater           for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n(spec) record             for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n(fallback) nested-object  for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n(fallback) array-of-obj   for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n(fallback) raw-json       for=DANGLING hostIdEl=NONE      for=DANGLING hostIdEl=NONE\n```\n\n对照:同一次 probe 里的内建标量分支(string / number / enum-select / array-of-primitive / boolean switch)全部 `for=RESOLVES-LABELABLE`,不在本单范围。\n\n`hostIdEl=NONE` 即文档里没有任何元素持有 `mdf-<字段名>` —— 与 #4871 / #4857 / #4788 同一失效类:可见 label 的关联「解析到无」,工具链读作已闭合的关联,比干脆没有关联更糟。\n\n## 为什么 #4871 没有顺手做\n\n#4871 的合裁(2026-08-17)明确把门定在**注册表**上:「registered ⇒ declared」。这 6 条路径没有注册键,声明层无处挂;更要紧的是**决定权的位置**:\n\n- `composite` / `repeater` / `record` 由 `fieldSpec.type` 决定,`MetadataField` 写 label 前就知道 —— 这三条其实可以直接判定;\n- 但另外三条(`type:'object'` 且带 `properties` ⇒ 递归 SchemaForm / `type:'array'` 且 items 是 object ⇒ RepeaterField / 其余 ⇒ RawJsonEditor)是在 `FieldControl` **内部**、按 union 解析后的 `effective` schema 选的 —— 也就是 label 已经写完之后。这正是 `color-picker` 那个「宿主写 label 时还不知道渲染什么」的形状,#4871 是靠**拆注册项**解决的,这里对应的解法是把这段解析上提到 label 之前,面比 #4871 裁定的范围大。\n\n所以按 Prime Directive #10 单独立卡,不夹带进 #4871 的 PR。\n\n## 建议\n\n两种落地形态,成本差别明显,建议由维护者裁:\n\n1. **上提解析**:把 `FieldControl` 里的 union 解析 + 结构化分支判定抽成一个纯函数,`MetadataField` 先调它拿到「这个字段最终渲染 control 还是 group」,再据此发通道。与 #4871 的 `resolveRegisteredWidget` 同形,契约一致;改动集中在 `SchemaForm.tsx`。\n2. **宿主包裹**:对这 6 条路径套 #4788 的宿主容器(id + `aria-labelledby` + `role=\"group\"`),label 去掉 `for`。不需要上提解析(6 条路径都是「非可 label 面」这一类),但要先确认第 3 点里那三条兜底不会退化到某个可 label 的标量控件。\n\n## 边界与去重\n\n- **不是 #4871**:那单是 `WIDGETS` 注册表的 19 个注册项 + 声明层 + color 拆双注册,已实施。本单是同一宿主里**注册表之外**的路径。\n- 检索过 open issues(`SchemaForm composite repeater record raw JSON dangling label for metadata-admin`),无同题单。"
+}

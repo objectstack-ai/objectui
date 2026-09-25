@@ -1,0 +1,32 @@
+{
+  "number": 5141,
+  "kind": "issue",
+  "title": "[fields] 徽标把选项显式 hex 颜色有损量化成 9 个色族——同族两档语义色(绿/深绿)渲染逐字相同无法区分,与 plugin-gantt 的 metadata-wins 口径相反",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T05:03:59Z",
+  "updated_at": "2026-08-18T12:48:33Z",
+  "closed_at": "2026-08-18T12:48:15Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5141",
+  "body": "## 一句话:选项集里作者明确写的 hex 颜色,徽标渲染时被有损量化成 9 个固定色族,同一色族里的两个档次(比如「绿」和「深绿」)渲染出来逐字节相同,用户无法区分\n\nPart of steedos-labs/os-project-titanwind-ehr#1504\n\n### 现象\n\n业务对象的 select 字段选项集声明了两档绿色:\n\n```ts\noptions: [\n  { label: '进行中', value: 'in_progress', color: '#2ecc71' },  // 绿\n  { label: '已完成', value: 'completed',   color: '#1e8449' },  // 深绿\n]\n```\n\n列表/详情里两个状态的徽标渲染结果完全相同——class 逐字相同(`bg-green-50 text-green-700 border-green-200`),computed style 三项(color / background / border)逐值相同。把深绿再压深到 `#145A32` 复测,输出仍一字不变。终端用户在列表上无法区分「进行中」和「已完成」。\n\n### 根因(main 分支源码定位)\n\n`packages/fields/src/index.tsx`(main,`getBadgeColorClasses` 一带):\n\n1. `resolveColorName(color)`:hex 声明交给 `hexToPaletteName()`;\n2. `hexToPaletteName()`:算 HSL,饱和度 sat < 0.22 归 `gray`,否则按色相分桶——`hue < 15 red / < 30 orange / < 60 yellow / < 170 green / < 238 blue / < 250 indigo / < 295 purple / else pink`,共 9 个色族;\n3. `BADGE_COLOR_MAP` 每族只有唯一一套 Tailwind 类,`green` = `bg-green-50 text-green-700 border-green-200 …`。\n\n`#2ecc71` 与 `#1e8449` 色相都 ≈ 145°,双双落进 `green` 桶 → 输出相同。`appearance: 'dot'` 走 `DOT_COLOR_MAP`,同样每族一档,同病。\n\n也就是说:作者显式声明的精确色值在徽标链路上**必然有损**,信息量上限是 9 档;同族内的任何语义分档(浅绿/深绿、亮红/暗红……)都表达不出来,且 app 侧没有任何通道能下发精确色值(非 `#` 且非族名的值被丢弃,退回按值名的语义映射)。\n\n### 期望(引用的契约)\n\nspec 里 `options[].color` 接受任意 hex,语义是「作者为该选项声明的颜色」;且同仓库 `plugin-gantt` 对 `colorField` 的处理已经是「原值直用 inline style」,源码注释明写 *explicit colorField value (hex or semantic name) — metadata wins*。徽标与甘特对同一类作者声明采取了相反的口径。\n\n**诉求:声明了精确 hex 时按原值渲染(inline style,soft-pill 观感可以由 hex 现算浅底/深字),与 plugin-gantt 的 metadata-wins 口径对齐;或至少每色族提供深/浅两档。**\n\n### 复现版本\n\n- `@objectstack/console@17.0.0`(GA,打包产物 `dist/assets/ui-components-*.js` 中量化逻辑与 main 源码一致,已逐字核对);\n- main 分支 `packages/fields/src/index.tsx` 现行代码同样成立(2026-08-18 拉取核对)。\n\n### 我们没有做的\n\napp 侧未做任何 workaround(换色族=改业务口径,需求方不接受;conditionalFormatting 是整行 CSS 且优先级盖不过徽标类;列声明无单元格样式位)。app 侧 issue 已按「平台能力受限」挂起等本单。\n"
+}

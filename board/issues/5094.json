@@ -1,0 +1,36 @@
+{
+  "number": 5094,
+  "kind": "issue",
+  "title": "content/docs/plugins/plugin-dashboard.mdx 的手动注册循环是 #5064 README 半的文档站镜像 —— 照抄注册 11 个幻影 type + 11 条弃用告警",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T23:36:27Z",
+  "updated_at": "2026-08-18T00:33:37Z",
+  "closed_at": "2026-08-18T00:33:37Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5094",
+  "body": "发现于 #5066 + #5064 文档半的实施(PR #5093,只动 `packages/plugin-dashboard/README.md`)。Filed unassigned, not claiming。\n\n## 现象\n\n`content/docs/plugins/plugin-dashboard.mdx:70-79` 是刚在 README 侧修掉的那段循环的逐字复制品:\n\n```\n### Manual Registration\n\nimport { dashboardComponents } from '@object-ui/plugin-dashboard';\nimport { ComponentRegistry } from '@object-ui/core';\n\nObject.entries(dashboardComponents).forEach(([type, component]) => {\n  ComponentRegistry.register(type, component);\n});\n```\n\n后果与 #5064 卡面已量出的一致(读数在 PR #5093 复测过,逐条命中):\n\n1. `dashboardComponents`(`packages/plugin-dashboard/src/index.tsx:338-350`)的 11 个键是 PascalCase **组件类名**,不是 schema `type`,所以照抄注册的是 11 个没有作者会写进 schema 的名字;\n2. 本包 `ComponentRegistry.register` 真正 claim 的 8 个 type 一个都没被这段循环注册 —— `dashboard`(`:44`)/ `metric`(`:65`)/ `metric-card`(`:80`)/ `object-metric`(`:151`)/ `pivot`(`:185`)/ `object-pivot`(`:260`)/ `dashboard-grid`(`:296`)/ `object-data-table`(`:316`);\n3. 每次调用都缺 `meta`,触发 `packages/core/src/registry/Registry.ts:198-208` 的无 namespace 弃用告警,11 键 11 条;\n4. 该循环**本身不是注册所必需的** —— 上一节的副作用导入已经完成注册。所以后果是「11 条噪声 + 一个教错的心智模型」,不是「注册失败」。\n\n## 为什么它躲过了前面七个 PR\n\n#5076 / PR #5085 修的是 `plugin-{form,grid,view}.mdx` 三页 —— 那三个 `*Components` 名字是**纯虚构**(照抄拿到 `undefined`,`Object.entries(undefined)` 当场抛)。本页不同:`dashboardComponents` 是**真实导出**,所以名集合类的门与探针都看不见它(PR #5093 已把这个「抓不到」预判验证并写进正文:名集合 `OK dashboardComponents` 绿、旧循环 strict 编译 rc=0 —— 证据只能来自 register 调用现场与 map 键的比对)。README 侧同理,是人工探针发现的,不是门禁。\n\n## 与 #5064 的关系(不是 Blocked-by)\n\n#5064 的 map 键收敛题(A 改键 / B 留键改文档)在决策箱里(`needs-user-decision`),但本页**今天**就在教幻影注册,与裁定方向无关 —— 这也正是 PM 把 README 半先修的理由。\n\n- 若裁 A(map 键改成 8 个 schema type):本页那段循环随之变成真话,本卡可由那个 PR 一并收掉;\n- 若裁 B(留键):本页需要与 PR #5093 相同的同族形重写(真实 register 键表 + 副作用导入 + 「把导出组件挂到自己的键上」)。\n\n两条路径下本卡都有活可干,故不挂 `Blocked-by`,由分诊定先后。\n\n## 复核方式\n\n```\nsed -n '60,85p' content/docs/plugins/plugin-dashboard.mdx\ngrep -n \"^export const dashboardComponents\" -A 14 packages/plugin-dashboard/src/index.tsx\ngrep -n \"ComponentRegistry.register\" -A 3 packages/plugin-dashboard/src/index.tsx\nsed -n '196,210p' packages/core/src/registry/Registry.ts\n```\n\n同族基准:PR #5085(三页文档站镜像)、PR #5093(本包 README 半)。"
+}

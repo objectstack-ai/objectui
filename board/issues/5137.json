@@ -1,0 +1,35 @@
+{
+  "number": 5137,
+  "kind": "issue",
+  "title": "DatasetReportRenderer reads `report.filter` as a lenient alias for `runtimeFilter` — a key the strict spec rejects with an explicit rename suggestion",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T04:52:06Z",
+  "updated_at": "2026-08-18T16:05:53Z",
+  "closed_at": "2026-08-18T16:05:53Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5137",
+  "body": "Found while implementing #5047. Filed unassigned; that card is docs-only and explicitly must not change `plugin-report` behaviour, so this was recorded rather than fixed.\n\nMeasured on `origin/main` at `958d757`.\n\n## The read\n\n`packages/plugin-report/src/DatasetReportRenderer.tsx:1246`:\n\n```ts\nconst outerFilter = mergeFilters(\n  (report.runtimeFilter ?? report.filter) as Record< string, unknown > | undefined,\n  runtimeFilter,\n);\n```\n\nand the same alias per joined block a few lines below:\n\n```ts\nconst blockFilter = mergeFilters(outerFilter, (block.runtimeFilter ?? block.filter) as ...);\n```\n\n`filter` is declared on the renderer's local `DatasetReportLike` interface, so it type-checks locally.\n\n## Why this is a contract inversion, not a convenience\n\n`filter` is **not** an authorable key. `ReportSchema` (`@objectstack/spec` 17.0.0) is `z.core.$strict` and rejects it — and the spec goes out of its way to name the replacement:\n\n```\nunrecognized_keys: Unrecognized key(s) on this report: `filter`.\n  Did you mean `filter` -> `runtimeFilter`?\n```\n\nSo the producer side is unambiguous and even ships the migration hint. The consumer then quietly accepts the rejected spelling anyway. The result is the shape this repo keeps closing over elsewhere (#5116, #5120, #5067, #5068): metadata that **cannot** be authored through the validated path still renders when it arrives by some other route, so the strictness the spec promises is not the strictness the runtime enforces.\n\nIt matters most for AI-authored metadata: a generator that emits `filter` gets a working report from this renderer and a hard validation failure from anything that parses the document first. Which one an author meets is a function of which path the document travelled.\n\n## Deciding it needs the migration story, not a guess\n\nTwo readings, and they differ in what happens to stored documents:\n\n1. **Drop the alias** — declared equals enforced; any stored document still carrying `filter` loses its scope filter (it renders unfiltered, which for a filtered report is worse than an error).\n2. **Keep it as an explicit, time-boxed read** with a console warning naming the rename, and remove it on a stated release.\n\nEither way `DatasetReportLike.filter` should stop being an undocumented equal-status alias. Not decided here — it is the same enforce-or-retire question the ADR-0021 migration story owns.\n\n## Recheck\n\n```\ngrep -n \"report.filter\\|block.filter\" packages/plugin-report/src/DatasetReportRenderer.tsx\n```\n\nRelated: #5047 (the docs half — the migration table there routes authors to `runtimeFilter`), #5116 / #5120 / #5067 / #5068 (same lenient-alias family).\n"
+}

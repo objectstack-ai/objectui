@@ -1,0 +1,35 @@
+{
+  "number": 5201,
+  "kind": "issue",
+  "title": "内建 form 分支的 input 字段:legacy `max_length` 拼法拿不到任何 maxlength 上限,只在 DOM 上留下一个失效属性",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T13:38:28Z",
+  "updated_at": "2026-08-18T20:49:37Z",
+  "closed_at": "2026-08-18T20:49:37Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5201",
+  "body": "> 做 #3439(内建 textarea 分支的字数计数)时,按「规则的消费半径」扫同一文件的兄弟分支扫到的,**不在该 PR 范围内**,独立记录。PR #5200 的 \"Out of scope\" 一节点名了它。\n\n## 观察到的现象(已实测,不是推断)\n\n`packages/components/src/renderers/form/form.tsx` 的内建 `case 'input'` 分支把\n`stripRendererOnlyProps(fieldProps)` 展开到 `<Input>` 上,**从不读取**声明的上限。于是同一个上限声明按拼法分成两种结果:\n\n| 声明 | 元素上的 `maxlength` | 效果 |\n|---|---|---|\n| `maxLength: 50` | `\"50\"` | 有硬截断 —— 但是**巧合**:`maxLength` 恰好是合法 DOM 属性名 |\n| `max_length: 50` | `null`,另有一个多余的 `max_length=\"50\"` | **完全没有上限**,且渲染出无效 HTML |\n\n实测方式:在 worktree 里渲染内建分支(不调 `registerAllFields()`),dump 元素的\n`getAttributeNames()` 与 `getAttribute('maxlength')`。两条腿的实测输出:\n\n```\n{ attrs: [class, max_length, id, aria-describedby, aria-invalid, type, ...], maxlength: null }\n{ attrs: [class, maxlength,  id, aria-describedby, aria-invalid, type, ...], maxlength: \"50\" }\n```\n\n## 为什么这是缺陷而不是风格问题\n\n`max_length` 是本仓**活着的**编写拼法,不是历史遗迹:\n\n- 注册路径的 `TextAreaField` 自 framework#1878 §3 起就 dual-read `maxLength ?? max_length`;\n- 三个 form field 生产者都 dual-read 后归一到 `maxLength`(`ObjectForm.tsx`、`sectionFields.ts`、`EmbeddableForm.applyDefaultMaxLengths`);\n- `packages/types/src/field-types.ts` 在多个 field 类型上声明了 `max_length`。\n\n也就是说,除了这条内建分支,仓里每个读到它的地方都认这个拼法。而内建分支恰恰服务于\n**手写 `FormSchema` 直接喂给渲染器**的 standalone/embedded 宿主 —— 那条路上没有任何生产者在中间做归一化,作者就是生产者。\n\n同族口径:一份声明必须在两条渲染路径上产出同一种行为(#3272、#3400/PR #3401、#3402、#3404、#3439)。\n\n## 与 #3439 的关系,以及为什么没有顺手一起修\n\n#3439 的 PR(#5200)在 `case 'textarea'` 分支上修掉了同一个机制:显式解析两种拼法,并把\n`max_length` 挡在 DOM 之外。`input` 分支没有跟着改,是刻意的:\n\n1. 它超出那张卡的范围(卡讲的是长文本的字数计数);\n2. 它**不是纯机械重复** —— 单行 `input` 要不要也配一个可见计数/可访问上限,是一个独立的设计取舍,不能从 textarea 的结论直接推出来。**上限解析**那半是机械的,**计数**那半不是。\n\n所以留给 triage 定:是只补上限解析(小),还是连可访问上限一起补(与 #3439 同形)。\n\n## 起点\n\n- `packages/components/src/renderers/form/form.tsx`,内建 `case 'input'` 分支(行号请从树上取 —— #3439 的历史表明这个文件的行号漂得很快)\n- 参照实现:同文件 `case 'textarea'` 分支在 PR #5200 之后的样子\n- `packages/components/src/renderers/form/form.tsx` 的 `stripRendererOnlyProps`(`max_length` 目前不在剥离表里)\n\n## 检索记录\n\n⚠️ **这一条没做成**:立单时 GitHub API 对本身份 `search_issues` / `list_issues` 均返回\n`API rate limit already exceeded`,三次重试均失败,所以**没能按 objectstack#4949 的要求先搜后立**。若与既有 open issue 重复,请直接合并/关闭本单 —— 缺的是检索,不是现象(现象是实测的)。\n"
+}

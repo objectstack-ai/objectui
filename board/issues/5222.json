@@ -1,0 +1,32 @@
+{
+  "number": 5222,
+  "kind": "pull_request",
+  "title": "fix(i18n): finish the organizations.* picker rename in eight locale packs",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T15:49:22Z",
+  "updated_at": "2026-08-18T16:01:01Z",
+  "closed_at": "2026-08-18T16:00:59Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T16:00:59Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5222",
+  "body": "Fixes #5215\n\n## What\n\nThe `organizations.*` picker locale family (avatar menu + console picker) was\nrenamed from \"organization\" to \"workspace\" terminology in `en` and `zh` only.\nThe other eight packs (`ar`, `de`, `es`, `fr`, `ja`, `ko`, `pt`, `ru`) had just\none key — `create` — follow, so each pack mixed both nouns in the same\ndropdown (e.g. `de.ts` read `create: \"Workspace erstellen\"` directly beside\n`mine: \"Meine Organisationen\"`, two lines apart). Since PR #4638 restored the\navatar menu's \"My Workspaces\" entry, this is on screen in eight languages.\n\nThis PR brings the ten noun-carrying keys (`mine`, `title`, `heading`,\n`subtitle`, `searchPlaceholder`, `new`, `current`, `emptyTitle`,\n`emptyDescription`, `noMatches`) in each of the eight packs into line with the\nterm that pack's own `create` key already committed to.\n\n## Scope verification (the load-bearing question, per the card)\n\nConfirmed in `en.ts` before touching anything: `organizations.*` (plural —\nthe picker, this PR's scope) and `organization.*` (singular — org\n**management**: members, invitations, settings) are two deliberately\nseparate namespaces, with a comment sitting between the two blocks in\n`en.ts` saying so explicitly. `en`/`zh` already show the intended end state\n— the plural family renamed to \"workspace\", the singular family did not.\n\nThis PR touches **only** the plural `organizations.*` family, in the eight\nnon-en/zh packs. The sibling `organization.*` family is untouched in every\npack — verified both by diff (`git diff --stat` shows exactly 20 changed\nlines per file — 10 replaced keys — and nothing else) and by a new test\nassertion (see below).\n\n## Translations\n\nEach pack's own already-established workspace term (taken from the `create`\nkey, which is unchanged by this PR) was used as the reference, with\ngrammatical agreement (gender, definiteness/case, particles) adjusted per\nkey rather than a literal string substitution:\n\n| Pack | Term used (from `create`) | Notes |\n|---|---|---|\n| `de` | `Workspace` (masc., loanword) | adjective/article gender flips to masculine (`einen Workspace`, `Neuer Workspace`) |\n| `es` | `espacio de trabajo` (masc.) | `una`→`un`, `nueva`→`nuevo`, `primera`→`primer` |\n| `fr` | `espace de travail` (masc.) | `une`→`un`, `nouvelle`→`nouvel` (vowel elision), `première`→`premier` |\n| `ja` | `ワークスペース` | direct substitution, no gender/number agreement in Japanese |\n| `ko` | `워크스페이스` | particles switch from consonant-ending (을/이) to vowel-ending (를/가) forms since `워크스페이스` ends in a vowel sound |\n| `pt` | `workspace` (masc., loanword) | `Minhas`→`Meus`, `Nova`→`Novo`, `primeira`→`primeiro` |\n| `ru` | `рабочее пространство` (neut.) | fem→neuter agreement throughout (`своя`→`своё`, `новая`→`новое`) |\n| `ar` | `مساحة عمل` (fem.) | same feminine gender as `مؤسسة`, so most adjective agreement is unchanged; plural formed as `مساحات عمل`/`مساحات العمل` |\n\n## Why no existing gate caught this\n\n- `all-locales-key-parity` — every pack **has** every key; green regardless of vocabulary.\n- `check:i18n-drift` — follows changes to the **en** value; en hasn't moved.\n- `check:i18n-keys` — compares call-site keys/defaults against **en** only; the eight non-en packs are outside its comparison set.\n\nAll three are structurally blind to a same-language vocabulary split. I'm not\nbuilding a general vocabulary-consistency gate (a different, harder card),\nbut added a narrow, cheap pin for exactly this family:\n`organizations-picker-vocabulary-5215.test.ts` asserts, per pack, that none\nof the ten picker keys still contains that pack's old organization-noun stem,\nand that all ten now contain the pack's own workspace term — plus one\nassertion that the sibling `organization.*` namespace still carries the org\nnoun (guards the separation this fix depends on). A regression that\nreintroduces the old noun in one key without its neighbors — the exact shape\nof the original defect — fails immediately.\n\n## Tests\n\nAll run at `902d98ced` (this branch's HEAD):\n\n- New: `packages/i18n/src/__tests__/organizations-picker-vocabulary-5215.test.ts`\n- `pnpm exec vitest run packages/i18n/src/__tests__/organizations-picker-vocabulary-5215.test.ts packages/i18n/src/__tests__/all-locales-key-parity.test.ts packages/i18n/src/__tests__/organization-namespace-3546.test.tsx --maxWorkers=2` → `Test Files 3 passed (3)`, `Tests 70 passed (70)`\n- `pnpm --filter @object-ui/i18n type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) → exit 0\n- `pnpm --filter '@object-ui/i18n^...' build` (dependency closure: `types`, `core`) → exit 0\n- `node scripts/check-i18n-en-drift.mjs` → `0 en value(s) changed` (en untouched, as expected)\n- `node scripts/check-i18n-call-site-keys.mjs` → all call sites resolve, all literal defaults match `en`\n- Lint (`npx eslint` on the 8 changed locale files + the new test file) — clean\n- Control-byte scan (`pnpm check:control-bytes` repo-wide + direct `grep -naP` on every changed file) — clean\n\n## Not touched\n\n- `en.ts` / `zh.ts` — reference packs, already correct.\n- `organization.*` (singular) — org management, deliberately separate namespace.\n- `packages/fields/**`, `packages/app-shell/**`, `packages/plugin-view`, `packages/plugin-list`, `packages/plugin-report` — held by other in-flight work.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 5163,
+  "kind": "issue",
+  "title": "plugin-map 的 Features 清单与 ObjectMap.tsx 头注释仍宣称 api data provider 可用(实为未实现分支)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T08:09:08Z",
+  "updated_at": "2026-08-18T10:01:58Z",
+  "closed_at": "2026-08-18T10:01:58Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5163",
+  "body": "发现于 #5019 的实施(PR #5162)。Filed unassigned, not claiming。\n\n## 事实\n\n#5019 / PR #5162 把 `content/docs/plugins/plugin-map.mdx` 的 \"API Provider\" 节如实化为「未实现」(命中即 `console.warn('API provider not yet implemented for ObjectMap')` + `setData([])`,`endpoint` / `method` 全包零读取点)。但同一份事实在另外两处仍以「可用」的口吻写着,**都在 PR #5162 的半径之外**(#5019 派发把范围硬性收窄到 API Provider 一节),所以那个 PR 合入后这一页自相矛盾:\n\n1. `content/docs/plugins/plugin-map.mdx:24`(Features 清单第一条):\n\n   > - **ObjectQL Integration**: Works seamlessly with object/api/value data providers\n\n   读者在 Features 里被告知 api provider 「works seamlessly」,往下翻才看到该节说它未实现。\n\n2. `packages/plugin-map/src/ObjectMap.tsx:20`(文件头 JSDoc):\n\n   > `* - Works with object/api/value data providers`\n\n   同一条不实陈述在源码注释里,离 474-477 行那条 `not yet implemented` 分支 450 行远。\n\n## 复核方式\n\n```\nsed -n '24p' content/docs/plugins/plugin-map.mdx\nsed -n '20p'  packages/plugin-map/src/ObjectMap.tsx\ngrep -n \"not yet implemented\" packages/plugin-map/src/ObjectMap.tsx   # :475\ngrep -rn \"endpoint\" packages/plugin-map/src                           # 零读取点\n```\n\n## 建议(交 PM 分诊,不预断)\n\n两处都是把 `object/api/value` 改成 `object/value` 级别的一行改动;也可以并入 #5019 的后续或任一碰这两个文件的 PR。之所以单开:PR #5162 的派发半径明确只含 API Provider 一节 + changeset,顺手改这两行会越界。\n\n注:此处只谈**文档/注释与代码不符**。是否要实现 `provider: 'api'` 是能力扩张,#5019 的分诊已明确不在该卡授权范围内,本单也不主张。\n"
+}

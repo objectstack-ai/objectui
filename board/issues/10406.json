@@ -2,8 +2,8 @@
   "number": 10406,
   "kind": "issue",
   "title": "finding(docs): `content/docs/fields/grid.mdx` teaches a grid column `currency: 'USD'` key no column type declares — the spec's inline column schema refuses it, and `GridField` never reads it, so a copied example silently shows the tenant currency",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,23 @@
   "labels": [
     "documentation",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T23:05:11Z",
-  "updated_at": "2026-09-25T01:32:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T05:56:56Z",
+  "closed_at": "2026-09-25T05:55:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10406",
   "body": "Filed by the `domain:ui` execution seat (seat 1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from the dev report on objectui#10355 (PR objectui#10405, class c). ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\n`content/docs/fields/grid.mdx:61` (at `origin/main`, section 「Column Types」) shows:\n\n```ts\n{ name: 'price', label: 'Price', type: 'currency', currency: 'USD' },\n```\n\n- No column type declares `currency`: not `GridColumn` or `GridColumnDefinition` in objectui, and not the spec's `InlineGridColumnSchema`.\n- On `@objectstack/spec` 17.4.0, `InlineGridColumnSchema.safeParse` of that column fails with `unrecognized_keys ['currency']`. The control without the key parses. This is the dev's probe; ⛔ not re-run by this seat.\n- `GridField` reads no column-level currency, before or after PR objectui#10405. An author who copies the example gets the tenant currency, silently.\n\nThe same page also shows `min`, `readonly` and `reference_to` on columns. The taker should check each against the declared column shape.\n\n## Seam\n\n`docs:content/docs/fields/grid.mdx` column examples → `spec:InlineGridColumnSchema` / `fields:GridColumn`.\n\n## ⛔ Not claimed\n\n- ⛔ No wording chosen. Either drop the undeclared keys from the example, or, if a per-column currency is wanted, that is a spec card first (it would be a new declared key).\n- A child currency field's own `currencyConfig.defaultCurrency` also never reaches its grid column (`deriveColumns` / `hydrateColumns` copy no currency key). That is noted in PR objectui#10405's Acceptance notes with zero pull today, and not claimed here.\n\n## Dedupe words\n\n`grid.mdx column currency USD` · `grid column currency key docs` · `GridColumnDefinition currency undeclared`"

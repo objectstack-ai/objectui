@@ -2,8 +2,8 @@
   "number": 10208,
   "kind": "issue",
   "title": "Retire the objectstack tooling port — run the PM scripts from objectstack with --repo, keep hooks as plain copies, delete upstream-port-pin.json and check-upstream-port-parity",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-support-ai",
@@ -12,20 +12,21 @@
   },
   "labels": [
     "domain:devx",
-    "pm:dispatched",
     "tooling"
   ],
-  "assignees": [
-    "os-support-ai"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-22T03:49:40Z",
-  "updated_at": "2026-09-25T02:05:33Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T04:55:04Z",
+  "closed_at": "2026-09-25T04:53:46Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10208",
   "body": "立卡门类别 ③ — maintainer direct dispatch, through the director seat (summon #26, `session_01SPwf6Kmqo1gqzCSWSuMtQM`).\n\n**Source, three parts:** the maintainer · verbatim 「同意,10205 根治(一张 devx 卡,你一字)——退役端口本身」 · in the director seat's chat, 2026-09-22, answering the seat's simplification proposal on objectui#10205 (ruling on that card). **Acting reader:** the `domain:devx` @ objectui seat, claiming from `pm:queue` (pick order: maintainer direct dispatch first). **Dedupe:** MCP `search_issues` on this repo, open + closed, terms `upstream-port-pin check-upstream-port-parity retire port parity ledger divergence` → 10 hits (#10205 #8288 #7263 #6689 #6642 #9303 #7953 #8694 #8385 #8286), all about maintaining the port; none proposes retiring it ⇒ no twin. Write identity: the seat's REST token (`claude[bot]` class is account-side, per objectstack#12708 5769912882).\n\n## What is retired\n\n`scripts/upstream-port-pin.json` (13 entries on `origin/main` `0cf2d6644bdb`), `scripts/check-upstream-port-parity.mjs` with its `--resync`, its self-test, its `package.json` script entry and its workflow step, and the declared-divergence ledger discipline (~123 divergence entries today). Reason, the maintainer's: this is bookkeeping about bookkeeping; the parts go, not the header.\n\n## Three classes, three treatments — re-derive the list at your head; the 13 below are the director seat's reading\n\n| ported file | class | treatment |\n|:--|:--|:--|\n| `scripts/pm/check-half-states.mjs` | PM script | delete; the objectui seats run objectstack's original from an objectstack checkout with `PM_SWEEP_REPO=objectstack-ai/objectui` (it already takes the board from that variable) |\n| `scripts/pm/board-snapshot.mjs` | PM script | delete; run objectstack's with `--repo objectstack-ai/objectui` |\n| `scripts/invoked-as.mjs` | helper | delete if only the two above import it; otherwise keep as a plain copy with the header line |\n| `scripts/check-bash32-floor.mjs` | gate | measure whether objectui has bash scripts it guards; if none, delete; else keep as a plain copy with the header line |\n| `.claude/hooks/guard-main-checkout.sh` + `.selftest.sh` · `guard-main-checkout-bash.sh` + `.selftest.sh` · `guard-shared-stash.sh` + `.selftest.sh` · `guard-tree-enum.sh` + `.selftest.sh` | harness hooks (must live in this repo's `.claude/`) | keep as plain copies; ONE header line `copied from objectstack@<sha>`; no divergence ledger, no parity check |\n| `.github/workflows/board-snapshot.yml` | workflow | plain copy with the header line, or a step that checks out objectstack and runs its script with `--repo` |\n\nThe two objectui-only switches carried as divergences today (`closedWindowDisabled`, `PM_SWEEP_CLOSED_WINDOW_PAGES`) are **dropped, ⛔ not upstreamed** (ruled on objectui#10205): on `origin/main` `0cf2d6644bdb` `PM_SWEEP_CLOSED_WINDOW_PAGES` survives only in commented-out lines of `.github/workflows/half-state-patrol.yml` (escape hatch expired 2026-08-28) and in `scripts/__tests__/check-half-states.test.ts`; `closedWindowDisabled` only in that test file. Delete `scripts/__tests__/check-half-states.test.ts` with the port; re-derive the reading at your head and report a live consumer if one appears, ⛔ do not re-open the question.\n\n## Acceptance\n\n- `git grep -l upstream-port-pin` → 0 outside CHANGELOG; the parity gate is gone from `package.json` scripts and every workflow; CI green.\n- The objectui seats' patrol invocations are documented on the seat post / lane file as objectstack-checkout commands with `--repo`.\n- Every kept copy carries the `copied from objectstack@<sha>` header line.\n- ⛔ No new gate, no new ledger, no `--resync` replacement. Hook drift is found by hand; that cost is accepted by the maintainer's word above.\n\n## Not in scope\n\nAny change to objectstack's scripts. `.claude/**` is a governed surface: Tier H, the maintainer merges.\n\nDedupe: `upstream-port-pin` · `check-upstream-port-parity` · `retire objectui tooling port` · `proxy-rearm-plan` · `copied from objectstack@`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

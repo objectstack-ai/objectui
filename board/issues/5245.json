@@ -1,0 +1,33 @@
+{
+  "number": 5245,
+  "kind": "pull_request",
+  "title": "fix(cli): `objectui check` reads `.json` as JSONC, so a tsconfig no longer fails the run",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-18T20:10:12Z",
+  "updated_at": "2026-08-18T20:22:09Z",
+  "closed_at": "2026-08-18T20:22:07Z",
+  "closed_by": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "merged_at": "2026-08-18T20:22:07Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/5245",
+  "body": "Fixes #5237\n\n`objectui check` globbed every `**/*.{json,yaml,yml}` and handed each `.json` straight to `JSON.parse`. A throw there is the only thing that increments the error count, and a non-zero error count is the only thing that calls `process.exit(1)` — so a `//` comment or a trailing comma, which is how TypeScript documents `tsconfig.json`, was reported as a malformed file and **failed the run**. Every TypeScript project hit it, and this repository's own `pnpm check` was red on `main`.\n\n`.json` on disk means JSONC in practice — `tsconfig.json`, `.eslintrc.json`, `devcontainer.json` and VS Code's own settings are all written that way — so the file is now read with `jsonc-parser` (comments allowed, `allowTrailingComma: true`, `allowEmptyContent` left off so an empty `.json` is still an error exactly as `JSON.parse('')` was).\n\n## Measured, before and after\n\nReproduced at this repo's root with the CLI built from source, per the issue's recipe:\n\n| | errors | exit | warnings |\n|---|---|---|---|\n| `main` (`118419214`) | **64** | **1** | 47 |\n| this branch (`565cfad06`) | **0** | **0** | 47 |\n\nAll 64 error files were `tsconfig*.json` — nothing else in the tree failed to parse. The 47 warnings are unchanged and are not this card's; see the scope note below.\n\n## Two things this deliberately is not\n\n**Not a comment-stripping regex.** A `//` inside a string value — a URL, say — is not a comment, and a stripper that cannot tell the difference corrupts valid files instead of reading them. There is a test for exactly that fixture.\n\n**Not \"never fail on anything\".** This is the subtle half. `jsonc-parser`'s reader is error-**tolerant**: it recovers and returns a best-effort value rather than throwing, so a command that inferred success from the absence of a throw would silently accept genuinely broken files. Measured on the real library:\n\n```\n'{ \"compilerOptions\": }'  ->  errors=1 ValueExpected@21   value={}     (returns, does not throw)\n'{ \"a\": 1'                ->  errors=1 CloseBraceExpected value={\"a\":1}\n```\n\nSo the command consults the reported-error array, and six malformed shapes are pinned as still erroring and still exiting 1. Error output now names the reason plus line and column, since a bare byte offset is not actionable in an editor.\n\n## The dependency\n\n`jsonc-parser` is **already** a declared runtime dependency of `@object-ui/app-shell` and already resolved in the lockfile, so this is a new dependency edge, not a new dependency to the fleet. `@object-ui/cli` is published, so that was verified rather than assumed:\n\n- `jsonc-parser@3.3.1` declares **no `dependencies` and no `peerDependencies`** — only devDependencies. Its lockfile snapshot is literally `jsonc-parser@3.3.1: {}`.\n- The whole `pnpm-lock.yaml` delta is **3 lines**, all of them the `packages/cli` importer entry. Zero new resolutions, zero new snapshots, no version bump anywhere.\n\nNet effect on what users install: one package that the product already ships.\n\n## Scope\n\nDirection 1 of the three the issue lists, only. Directions 2 and 3 (demoting parse failures to warnings; narrowing the scan) encode a decision that belongs to the maintainer, and were not taken.\n\nThe unknown-schema-type warning arm is untouched — #5127 is not addressed here and remains open. It still warns and still does not affect the exit code, with tests pinning both. One honest consequence worth naming: files that previously died at the parse step now reach that arm, so a JSONC file carrying an unrecognised root `type` warns where it used to error. The arm's verdict and its exit-code neutrality are unchanged; only its reach grows, and it grows because the parse step stopped rejecting files that were never malformed.\n\n## Verification\n\nEverything below was run on `565cfad06` with a clean tree.\n\n- `pnpm exec vitest run packages/cli/` — **8 files, 179 tests passed** (15 of them new). Run from the repo root: this repo's guard rejects package-directory vitest as a false-green trap (objectui#3378).\n- `pnpm --filter @object-ui/cli type-check` — clean. `lint` — 0 errors (11 pre-existing warnings, none in the changed files).\n- Gates derived from the diff: `check:phantom-deps`, `check:control-bytes`, `check:self-import`, `check:published-dist`, `changeset:check`, `check:esm-specifiers`, `check:node-esm-load` — all exit 0. `@object-ui/cli` is in the ESM-load gate's scope and is not among its (pre-existing, ledgered) failures.\n- `jsonc-parser` stays **external** in the tsup output, so its resolution is real at runtime rather than bundled away; the built `dist/cli.js` was executed end to end for the table above.\n\n**Reverse verification.** With `check.ts` restored to `main` and the tests kept, the prediction recorded before running was 5 red / 10 green, naming the five. Observed: 5 red / 10 green, the same five —\n\n1. tsconfig with a comment and a trailing comma\n2. a `//` inside a string value\n3. the line/column message shape\n4. a real error counted beside a valid JSONC sibling\n5. the warning arm reached through a JSONC file\n\nThe six genuinely-malformed cases stayed **green** under the old code, which is what makes them load-bearing: they pin behaviour the fix had to preserve, not behaviour it introduced. The tests import `../commands/check.js`, a relative specifier resolved to TypeScript source rather than through the package's `exports` to `dist/`, so no rebuild is involved in either leg — confirmed empirically, since the new tests passed while `dist/` still held the pre-change build.\n\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RV6yuVCxymHYE16PL9vQkE)_"
+}

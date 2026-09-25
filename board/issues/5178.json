@@ -1,0 +1,35 @@
+{
+  "number": 5178,
+  "kind": "issue",
+  "title": "console: an admin-override decision renders as an ordinary Approve — no affordance distinction, no confirm, and the `via_override` marker is never surfaced in any UI",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-18T09:08:35Z",
+  "updated_at": "2026-08-18T12:48:31Z",
+  "closed_at": "2026-08-18T12:48:31Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5178",
+  "body": "Moved from objectstack-ai/objectstack#9464 by the triage seat (file-at-destination: the fix is console rendering/affordance work — the `can_act`/`can_override` flags and the `via_override` column already give the client everything it needs to distinguish an override, and no backend change is required to render the distinction). Original card by @baozhoutao (app project `steedos-labs/os-project-titanwind-ehr#1225`, private); full detail, versions, and stale-premise checks preserved on the source card.\n\n## TL;DR\n\nAn admin viewing a pending approval they hold **no slot in** (or have already voted on) sees the exact same filled **Approve** / **Reject** / **Reassign** buttons as a designated approver — no override styling, no confirmation, nothing. One unmarked click takes the objectstack-ai/objectstack#3424 privileged-override branch, which is *authoritative*: it finalizes the node even under `per_group`/`unanimous`/`quorum`, silently bypassing every remaining co-sign group. And although objectstack-ai/objectstack#4466 made the service record `sys_approval_action.via_override`, **no UI surface anywhere reads that column** — the timeline renders an override byte-for-byte like an ordinary approval.\n\nReal-world consequence measured in the filing app project: a PM walked a 3-stage countersign flow, saw Approve still rendered after each co-signer had voted, clicked it \"to see if it was real\", and it decided the next stage for an approver who never acted — filed as \"countersign is broken\". The backend behavior is the documented design working correctly; the UI gives an admin no way to see that.\n\n## Stale-premise checks (done at filing, 2026-08-18)\n\n- objectui main @ `68d9e282c83a`: `via_override` has **zero** hits in the repo; `can_override` is consumed only to *show* the buttons (`apps/console/src/services/approvalsApi.ts`, `packages/app-shell/src/views/RecordDetailView.tsx`, `ApprovalsInboxPage.tsx`), never to mark them. Same in shipped `@objectstack/console@17.0.0`.\n- objectstack main @ `f63afb237c09`: `plugin-approvals` still gates decision actions on `record.viewer.can_act || record.viewer.can_override`, and an override approve finalizes authoritatively.\n- objectstack-ai/objectstack#4466's own **Expected** said the marker should be \"surfaced in the timeline\" — the half that never landed. QA run objectstack-ai/objectstack#9453 (item 14) empirically re-confirmed `can_override:true` admits the admin with a 200. No open issue in either repo covers the affordance/rendering gap.\n\n## Expected vs actual\n\n| | expected | actual |\n|---|---|---|\n| Affordance | An override-only viewer (`can_act:false, can_override:true`) sees a *visually distinct* action (\"Override approve…\" / warning variant), ideally behind a confirm naming the pending approvers being bypassed | Identical filled Approve; one click, no confirm |\n| Timeline | `via_override` rows marked (\"Approved — admin override\") | Column written, never read by any UI; renders as an ordinary approval |\n\nDocs contract cited (objectstack `content/docs/automation/approvals.mdx`): the decision records \"which door it came through\" precisely because \"an override and an ordinary approval were byte-for-byte identical\" — that argument applies to the rendered timeline exactly as it did to the DB row.\n\n## Repro (standalone)\n\n1. Any flow with an `approval` node; a request goes `pending` with a staffed slate that does **not** include the admin.\n2. View the record (or approvals inbox drawer) as a platform/tenant admin → Approve/Reject/Reassign render exactly as for a designated approver.\n3. Click Approve → 200, node finalizes (multi-group countersign: all remaining groups bypassed), `via_override = true` written.\n4. Timeline shows a plain \"Approved · admin\", indistinguishable from a slot holder's approval.\n\nNote: the client can distinguish the override case today without backend changes (`can_act:false && can_override:true` for the affordance; `via_override` on the action row for the timeline). If implementation finds the timeline data door does not expose `via_override`, file the backend half back to objectstack with `Blocked-by:` linkage rather than widening this card."
+}

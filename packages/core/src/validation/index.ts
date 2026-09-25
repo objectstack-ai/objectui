@@ -1,7 +1,7 @@
 /**
  * @object-ui/core - Validation Module
  * 
- * Phase 3.5: Validation engine
+ * Phase 3.5: Validation module
  *
  * Object-level validation. The rule vocabulary is owned by
  * `@objectstack/spec/data` and derived in `@object-ui/types`; canonicity is

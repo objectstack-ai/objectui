@@ -465,8 +465,9 @@ export const kanbanComponents = {
  *
  * ⚠️ That ruling came: objectui#8932 (2026-09-11, ratified 2026-09-24) deleted
  * `KanbanEnhanced.tsx`, the two test references it had left, and with them the
- * `dist/KanbanEnhanced.d.ts` typings the package used to ship — the only part
- * of the module that was ever published, since the bundle never contained it.
+ * `dist/KanbanEnhanced.d.ts` typings the package still emitted for it. (Through
+ * 17.6.0 the component itself was also bundled into `dist/index.js`, behind the
+ * `kanban-enhanced` key; it left the bundle with this card's retirement.)
  *
  * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
  * (the key) and `src/__tests__/kanbanEnhancedRetired-8932.test.ts` (the file).

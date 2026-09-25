@@ -3725,8 +3725,9 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * ## ⛔ Why this is NOT `KanbanColumn[]`, which is what the card proposed
    *
    * {@link KanbanColumn} requires `cards`. It is the RUNTIME lane shape — what
-   * `bucketCardsIntoColumns` produces and what `KanbanImpl` / `KanbanEnhanced`
-   * consume, with `cards` always filled — and using it as the AUTHORING
+   * `bucketCardsIntoColumns` produces and what `KanbanImpl` consumes (the one
+   * board since objectui#8932 deleted `KanbanEnhanced`), with `cards` always
+   * filled — and using it as the AUTHORING
    * element would refuse three live shapes, each measured rather than argued:
    *
    *   1. the protocol's own gate-validated example
@@ -3747,11 +3748,12 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * ## The member set is the READ set
    *
    * `id` / `title` / `cards` / `limit` / `className` / `collapsed` are exactly
-   * the lane members the two board implementations read, counted off
-   * `KanbanImpl`, `KanbanEnhanced`, `useCrossSwimlaneMove`,
+   * the lane members the board reads, counted when there were two board
+   * implementations off `KanbanImpl`, `KanbanEnhanced`, `useCrossSwimlaneMove`,
    * `useQuickAddReorder` and `bucketCardsIntoColumns`. Their VALUE types come
    * from those read sites too — see {@link id} for the one this card had to
-   * correct.
+   * correct. objectui#8932 later deleted `KanbanEnhanced`; `KanbanImpl` alone
+   * still reads all six members.
    *
    * ## ⭐ The bare-string arm is REACHABLE since objectui#8990
    *

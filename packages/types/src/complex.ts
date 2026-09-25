@@ -57,7 +57,8 @@ import type { DASHBOARD_SPEC_EXCLUDED } from './zod/complex.zod.js';
  * Every member below was carried from the plugin's declaration verbatim. The
  * runtime-computed members (`cardSubtitle`, `cardFieldCells`, `coverImage`,
  * a badge's `colorStyle`) are what `ObjectKanban` writes onto the cards it
- * hands the board and what `KanbanImpl` / `KanbanEnhanced` read back; the Zod
+ * hands the board and what `KanbanImpl` reads back (the one board since
+ * objectui#8932 deleted `KanbanEnhanced`); the Zod
  * mirror (`zod/complex.zod.ts`) passes those through the way it passes
  * `TableColumn.headerIcon` through (objectui#6424).
  *
@@ -128,9 +129,10 @@ export interface KanbanColumn {
   /**
    * Cards in this column.
    *
-   * Named `cards` because that is what every board reads and every authored
-   * document writes: `KanbanImpl` (12 lines), `KanbanEnhanced` (8) and
-   * `bucketCardsIntoColumns` all read `column.cards`, and the two catalog
+   * Named `cards` because that is what the board reads and every authored
+   * document writes: `KanbanImpl` and `bucketCardsIntoColumns` read
+   * `column.cards` (measured at objectui#6939: 12 lines in `KanbanImpl`, and 8
+   * in `KanbanEnhanced` until objectui#8932 deleted it), and the two catalog
    * entries, the plugin docs and `content/docs/api/schema-reference.md` all
    * author it. The retired declarative face spelled this `items` until
    * objectui#6939 — a spelling with zero read sites, which made every authored

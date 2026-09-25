@@ -41,6 +41,7 @@ import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-libra
 import { normaliseClientError } from '@object-ui/data-objectstack';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
+import type { DataSource } from '@object-ui/types';
 import { useOccSave, type OccSaveArgs, type OccSaveOutcome } from './occSave';
 
 registerAllFields();
@@ -268,8 +269,8 @@ describe('ObjectForm edit: two submits from one mounted form (#10565)', () => {
     const onSuccess = vi.fn();
     const { container } = render(
       <ObjectForm
-        schema={{ type: 'object-form', objectName: OBJECT, mode: 'edit', recordId: 'r1', onSuccess } as any}
-        dataSource={dataSource as any}
+        schema={{ type: 'object-form', objectName: OBJECT, mode: 'edit', recordId: 'r1', onSuccess }}
+        dataSource={dataSource as unknown as DataSource}
       />,
     );
     const input = await waitFor(() => {

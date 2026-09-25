@@ -186,10 +186,13 @@ describe.each(ROUTES)('objectui#10176 on $route', ({ render: renderRoute }) => {
 
       const row = rowOf(retiredLabel(spelling));
       const tombstone = row.querySelector('[data-testid="field-retired-tombstone"]');
-      expect(tombstone).not.toBeNull();
-      expect(tombstone).toHaveAttribute('role', 'alert');
-      expect(tombstone).toHaveAttribute('data-retired-field-type', spelling);
-      expect(row.querySelectorAll(EDITABLE_CONTROL)).toHaveLength(0);
+      // One object, so a failure reports every fact at once: a row that
+      // renders a control instead of the refusal fails on both halves.
+      expect({
+        tombstoneNames: tombstone?.getAttribute('data-retired-field-type') ?? null,
+        tombstoneRole: tombstone?.getAttribute('role') ?? null,
+        editableControls: row.querySelectorAll(EDITABLE_CONTROL).length,
+      }).toEqual({ tombstoneNames: spelling, tombstoneRole: 'alert', editableControls: 0 });
     },
   );
 

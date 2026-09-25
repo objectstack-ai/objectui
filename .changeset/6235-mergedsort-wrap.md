@@ -2,8 +2,16 @@
 '@object-ui/plugin-view': patch
 ---
 
-`ObjectView` wraps `table.defaultSort` before handing it to a delegated list view, so a
-view whose only ordering is the deprecated key actually sorts (objectui#6235).
+At this change `ObjectView` wrapped `table.defaultSort` before handing it to a delegated
+list view, so a view whose only ordering was the deprecated key actually sorted
+(objectui#6235).
+
+⚠️ **Dated note, 2026-09-25 — this wrap has since been retired — objectui#5861.** Later in
+this same release `table.defaultSort` became an ADR-0049 retirement tombstone and
+`mergedSort` lost the branch this entry changed: it now ends at `table.sort`, so a
+`table.defaultSort` alone hands the delegated slot no sort at all and the view renders
+unsorted. The rest of this entry is kept as the reading of this change; the objectui#5861
+entry states what ships and the migration (`sort: [{ field, order }]`).
 
 `ObjectGridSchema.defaultSort` is declared a SINGLE `{ field, order }` object — the zod
 mirror agrees (`z.object({ field, order })`, not a union) — while the `list-view` node's
@@ -21,16 +29,16 @@ Studio's `renderStudioGridList`), so the symptom was an unsorted list with no er
 while the SAME metadata sorted correctly as a grid, because `ObjectGrid` performs this
 lowering for the same pair.
 
-The wrap is verbatim the one the non-grid fetch path in this same file already applies
-(`|| (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined)`), so all three
-consumers now agree and no fourth dialect is introduced. The shared sink is deliberately
+The wrap was verbatim the one the non-grid fetch path in this same file then applied
+(`|| (schema.table?.defaultSort ? [schema.table.defaultSort] : undefined)`), so at this
+change all three consumers agreed and no fourth dialect was introduced. The shared sink is deliberately
 NOT widened to accept a bare `{ field, order }`: that is the widening the maintainer ruling
 of 2026-08-22 rejected on the merits, because the same slot legitimately carries
 `$orderby`'s own `Record<field, direction>` map, in which `{ field: 'desc' }` is a legal
 ordering by a column literally named `field`.
 
-Precedence is unchanged — a named view's sort still outranks `table.sort`, which still
-outranks `table.defaultSort`. Only the final branch changes shape.
+Precedence was unchanged — a named view's sort still outranked `table.sort`, which still
+outranked `table.defaultSort`. Only the final branch changed shape.
 
 One behaviour note for hosts writing off-schema metadata: an ARRAY in `table.defaultSort`
 was previously forwarded verbatim by this path alone and is now lowered like every other

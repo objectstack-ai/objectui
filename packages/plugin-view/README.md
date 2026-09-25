@@ -206,9 +206,9 @@ object through. Anything else you put in them is ignored:
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
 
 > **`table.defaultSort` is retired (objectui#5861).** It was the legacy
-> single-entry spelling of `table.sort`. `@objectstack/spec` 17.3.0 turned
-> `object-grid`'s `defaultSort` into a retired-key tombstone the protocol
-> refuses by name, and neither `ObjectView` nor `ObjectGrid` reads it any more:
+> single-entry spelling of `table.sort`. The installed `@objectstack/spec`
+> protocol refuses `object-grid`'s `defaultSort` by name (a retired-key
+> tombstone), and neither `ObjectView` nor `ObjectGrid` reads it any more:
 > a view that still carries it renders **unsorted**. Rename the key to `sort`
 > and wrap the value in an array — `defaultSort: { field: 'name', order: 'asc' }`
 > becomes `sort: [{ field: 'name', order: 'asc' }]`.

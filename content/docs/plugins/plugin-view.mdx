@@ -137,9 +137,9 @@ The forwarding is literal, key by key, spread across three sites in
 so the keys below behave the same on every rendering path.
 
 > **`table.defaultSort` is retired (objectui#5861).** It was the legacy
-> single-entry spelling of `table.sort`. `@objectstack/spec` 17.3.0 turned
-> `object-grid`'s `defaultSort` into a retired-key tombstone the protocol
-> refuses by name, and `ObjectView` no longer reads it on any of the three
+> single-entry spelling of `table.sort`. The installed `@objectstack/spec`
+> protocol refuses `object-grid`'s `defaultSort` by name (a retired-key
+> tombstone), and `ObjectView` no longer reads it on any of the three
 > paths above (nor does `ObjectGrid`): a view that still carries it renders
 > **unsorted**. Rename the key to `sort` and wrap the value in an array —
 > `defaultSort: { field: 'name', order: 'asc' }` becomes

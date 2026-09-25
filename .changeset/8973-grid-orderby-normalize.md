@@ -15,8 +15,13 @@ params.$orderby = schemaSort.map((s) => `${s.field} ${s.order}`).join(', ');
 
 So an entry missing `field` or `order` reached the wire as the literal text
 `undefined`. The legacy `defaultSort` arm one `else` down had the identical defect on a
-single object, and is fixed with it — leaving it would keep the class open inside the
-same `if`/`else` chain.
+single object, and was fixed with it at this change — leaving it would have kept the class
+open inside the same `if`/`else` chain.
+
+⚠️ **Dated note, 2026-09-25 — that legacy arm has since been retired — objectui#5861.**
+Later in this same release `ObjectGrid` stopped reading `defaultSort` at all (an ADR-0049
+retirement tombstone), so the chain has two arms, header sort and `sort`. Everything else
+in this entry, including the table below, concerns `sort` and still holds.
 
 This is a wire failure, not a cosmetic one. `normalizeSortNodes` — the one normalizer
 every `@objectstack` server ingress funnels through — validates the direction token, so

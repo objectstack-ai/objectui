@@ -36,8 +36,11 @@ re-routed into `sort`. Migrate by renaming the key and wrapping the value:
 `defaultSort` wherever both were written, so documents that carry both keep
 their current ordering.
 
-This supersedes the `defaultSort` handling described by earlier changesets
-still pending in the same release (objectui#4869's non-grid lowering,
-objectui#6235's delegated-slot wrap, objectui#8973's normalized grid arm):
-those described how the legacy key was honoured; from this release it is not
-read at all.
+This supersedes the `defaultSort` handling described by five earlier
+changesets still pending in the same release, each of which now carries a dated
+note naming this card: objectui#4869 (the non-grid lowering, and "both
+spellings of the pair keep working"), objectui#6235 (the delegated-slot wrap),
+objectui#8973 (the normalized grid arm), objectui#4082 (the grid's legacy
+`defaultSort` leg, graded as needing no change) and objectui#5293 (which cites
+`ObjectGridSchema.defaultSort` as a live `order` spelling). Those describe how
+the legacy key was honoured; from this release it is not read at all.

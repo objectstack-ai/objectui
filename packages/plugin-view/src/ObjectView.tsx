@@ -1994,18 +1994,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // problem — an ARITY mismatch, not a spelling one. Both of them carry an
   // ARRAY of sort keys (`NamedListView.sort` is `Array< { field, order } >`;
   // the `views` prop declares an array too) and both were being written into
-  // `defaultSort`, which is declared a SINGLE `{ field, order }`. Neither of
-  // ObjectGrid's two readers survives that:
-  //
-  //   header  `parseSchemaSort(schemaSort ?? [schema.defaultSort])` becomes
-  //           `parseSchemaSort([[{ field, order }]])`. The outer array is
-  //           iterated and each entry must be a string or an object with a
-  //           string `field`; a nested ARRAY is neither, so the entry is
-  //           dropped and the result is `[]` — no arrow, the view arrives
-  //           looking unsorted.
-  //   fetch   `` `${(schema.defaultSort as any).field} ${….order}` `` reads two
-  //           missing keys off an array and sends the literal string
-  //           `"undefined undefined"` as `$orderby`.
+  // `defaultSort`, which was declared a SINGLE `{ field, order }`. Neither of
+  // the two `defaultSort` readers ObjectGrid had at the time survived that:
+  // the header reader re-wrapped the array into a nested one that parsed to
+  // no arrow, and the fetch reader read `field` / `order` off the array and
+  // sent the literal string `"undefined undefined"` as `$orderby`. (Both of
+  // those readers are gone since objectui#5861 retired `defaultSort`.)
   //
   // So the view's sort now rides the CANONICAL slot, `ObjectGridSchema.sort`,
   // which holds the multi-key arity a view carries. That is also the shape the

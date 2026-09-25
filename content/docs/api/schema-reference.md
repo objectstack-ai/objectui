@@ -784,8 +784,8 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
 
 > **`defaultSort` is retired (objectui#5861).** `ObjectGridSchema` used to accept a
-> legacy single-entry `defaultSort: { field, order }` beside `sort`. `@objectstack/spec`
-> 17.3.0 turned it into a retired-key tombstone the protocol refuses by name, and no
+> legacy single-entry `defaultSort: { field, order }` beside `sort`. The installed
+> `@objectstack/spec` protocol refuses it by name (a retired-key tombstone), and no
 > renderer reads it any more: a grid that still carries it renders **unsorted**, and
 > `@object-ui/types` refuses it on both faces (a `?: never` member and a named zod
 > refusal). Rename the key to `sort` and wrap the value in an array —

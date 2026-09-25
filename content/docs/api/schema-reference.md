@@ -509,6 +509,8 @@ numbers of its own: `ChartDataSeries.data` is a retirement tombstone
 | `series` | `ChartDataSeries[]` | Data series. Each entry's `name` (or `dataKey`) names the column it plots within a `data` row; optional `label`, `color`, a per-series `type` (`"bar"`, `"line"`, `"area"`) for combo charts, `stack`, `yAxis` (`"left"` / `"right"`), `variant` (`"primary"` / `"comparison"`), `dashArray` and `opacity`. `chartType` on a series is refused by name — it is the renderer's internal spelling of `type`; write `type`. |
 | `data` | `Array<Record<string, any>>` | Rows to plot — one object per row, keyed by column name. |
 | `xAxisKey` | `string` | Row key holding the category (x) axis. The bare-string `xAxis: "month"` spelling folds onto this key at parse. |
+| `xAxis` | `ChartAxis` | The category axis as `@objectstack/spec`'s axis object: `field` (required — the category column; `xAxisKey` wins when both are written), `title`, `format`, `min`, `max`, `stepSize`, `showGridLines`, `position`, `logarithmic`. Strict: an undeclared key is refused at parse. |
+| `yAxis` | `ChartAxis[]` | The value axes — a **list** of the same axis object, one entry per axis; a second entry declares the right-hand axis. A single object or a bare string is refused. |
 | `height` / `width` | `string \| number` | Chart dimensions. |
 | `showLegend` | `boolean` | Display the legend. |
 | `showGrid` | `boolean` | Display grid lines. |

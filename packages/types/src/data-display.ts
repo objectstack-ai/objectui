@@ -15,7 +15,7 @@
  * @packageDocumentation
  */
 
-import type { ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
+import type { ChartAxis as SpecChartAxis, ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreadcrumbSchema } from './navigation.js';
 
@@ -2158,9 +2158,42 @@ export interface ChartSchema extends BaseSchema {
    * the zod mirror parses, and does not survive the parse. The spec's `xAxis`
    * CONFIG OBJECT is a different key and is not folded — its `field` also
    * answers the column question, but its `format` / `title` / `showGridLines`
-   * are presentation the fold would discard.
+   * are presentation the fold would discard. It is declared as {@link xAxis}.
    */
   xAxisKey?: string;
+  /**
+   * The category (x) axis — `@objectstack/spec`'s axis CONFIG object, the type of
+   * `ChartConfigSchema.xAxis`: `{ field, title, format, min, max, stepSize,
+   * showGridLines, position, logarithmic }`, strict, with `field` required.
+   *
+   * Declared by objectui#7690 (ruling 5809510046, branch 2 — declare). The spec
+   * declares the object and this node renders it — `normalizeChartSchema` reads
+   * exactly its nine keys — so the type IS the spec's, not a restatement of it.
+   * Until then the object survived only on `BaseSchema`'s index signature: read
+   * by the renderer, checked by nothing.
+   *
+   * `field` names the category column exactly as {@link xAxisKey} does, and
+   * `xAxisKey` wins when both are written — the renderer's own precedence.
+   *
+   * The `string` arm is NOT a second spelling of the axis object: it is the
+   * objectui#7113 alias of {@link xAxisKey}, accepted at parse and folded onto
+   * that key, so it never survives a parse. Write `xAxisKey` for the column.
+   */
+  xAxis?: string | SpecChartAxis;
+  /**
+   * The value (y) axes — an ARRAY of `@objectstack/spec`'s axis CONFIG objects,
+   * the type of `ChartConfigSchema.yAxis`. The first entry is the primary axis;
+   * a second entry declares the right-hand axis a series binds to with
+   * `yAxis: 'right'`.
+   *
+   * Declared by objectui#7690 beside {@link xAxis}, and for the same reason.
+   * Only the spec's list is a member: a single axis object, or a bare column
+   * name, is refused at parse by name.
+   *
+   * With neither {@link series} nor {@link categories}, the axes' `field`s name
+   * the plotted columns.
+   */
+  yAxis?: SpecChartAxis[];
   /**
    * Chart height
    */

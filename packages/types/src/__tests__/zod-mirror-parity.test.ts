@@ -4142,6 +4142,10 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // (objectui#8802) — it was listed here because `grouping` was
   // `SpecGroupingConfigSchema` by reference, the way `ObjectGallerySchema` below
   // still spells it.
+  // objectui#7690: `xAxis` / `yAxis` are the spec's `ChartAxisSchema` by
+  // reference (the axis config object `ChartConfigSchema` declares), so a spec
+  // bump that moves the axis vocabulary moves ONE side of this pair.
+  'data-display.zod.ts#ChartSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
   // ⭐ ONE entry, FOUR spec crossings — two cards put them there and both grounds

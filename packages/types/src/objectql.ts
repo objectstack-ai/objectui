@@ -4351,10 +4351,11 @@ export interface ObjectChartSchema extends BaseSchema {
    * INTERNAL (relay-composed) — the plotted series, in the renderer's internal
    * `{ dataKey }` contract.
    *
-   * The element type is `ChartRendererProps.schema.series`' internal arm
-   * VERBATIM — that is the read this value ends at, and the ruling on
-   * objectui#7946 asked for the reads rather than a copy of any producer's
-   * literal. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
+   * The element type is `ChartRendererProps.schema.series`' internal arm —
+   * that is the read this value ends at, and the ruling on objectui#7946 asked
+   * for the reads rather than a copy of any producer's literal — every member
+   * of it except `type`, which that arm gained under objectui#8086 and this
+   * copy has not taken up. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
    * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
    * the one translation between them.
    */

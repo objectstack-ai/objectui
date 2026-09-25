@@ -75,7 +75,7 @@ import {
   convertSortToQueryParams,
   recordDelete,
 } from '@object-ui/core';
-import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema } from '@object-ui/react';
+import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { ViewSwitcher } from './ViewSwitcher';
@@ -740,34 +740,6 @@ export const OBJECT_VIEW_HOST_COMPOSITION_VIEW_TYPES = [
 ] as const;
 
 /**
- * objectui#10035 — the non-grid view types whose renderer still has to be
- * REMOUNTED to show a write, because it has no in-place refetch path.
- *
- * AGENTS.md #8's corollary: refresh data, don't rebuild UI. `refreshKey` is
- * this component's refresh signal, and it used to ride in the `key` of every
- * view it renders, so each save, delete or `onMutation` event threw the whole
- * view away. It no longer rides there for a view that refetches in place:
- * `kanban`, `calendar`, `gallery`, `timeline` and `map` draw `data={data}`,
- * the rows the fetch effect above re-reads when `refreshKey` moves, and
- * `tree` re-issues its own query when that `data` array changes.
- *
- * The two members below read nothing that moves on a write, so for them the
- * counter stays in the key until the renderer gains a refresh input:
- *   - `gantt` — the registered `object-gantt` renderer hands `ObjectGantt`
- *     only `schema` and `dataSource`, so `data` never reaches it, and its own
- *     query names no refresh counter, no `onMutation` and no invalidation bus.
- *   - `chart` — `ObjectChart` runs its own aggregate query off the node and
- *     reads neither the host's `data` nor any refresh input.
- * The grid branch keeps the counter for the same reason: `ObjectGrid` fetches
- * for itself and its query moves only on its own internal counter.
- *
- * ⛔ Do not drop a member to "finish" objectui#10035 — that turns a remount
- * into a view that silently stops showing writes. A member leaves when its
- * renderer refetches in place.
- */
-const REMOUNT_TO_REFRESH_VIEW_TYPES: ReadonlySet<string> = new Set(['gantt', 'chart']);
-
-/**
  * ObjectView Component
  *
  * Renders a complete object management interface with multi-view rendering
@@ -882,12 +854,26 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // ListView-driven configurations already manage refreshKey via
   // form success / delete handlers. To avoid double refreshes and
   // duplicate find() calls, skip auto-subscription when renderListView is provided.
+  //
+  // objectui#10035 — the same write is also published on the data-invalidation
+  // bus, because `ObjectGrid`, `ObjectGantt` and `ObjectChart` query for
+  // themselves and read that bus, not `refreshKey` (see `renderContent`). The
+  // console's `useMutationInvalidationBridge` announces every dataSource write
+  // already, so there this is a duplicate raised in the SAME synchronous
+  // `onMutation` dispatch — React batches the two into one render, one
+  // refetch. Where no bridge is mounted (an `object-view` embedded outside the
+  // console) it is the only announcement, and it is what keeps a write reaching
+  // those renderers now that they are no longer remounted to show it.
   useEffect(() => {
     if (!dataSource?.onMutation || !schema.objectName) return;
     if (renderListView) return;
     const unsub = dataSource.onMutation((event: any) => {
       if (event.resource === schema.objectName) {
         setRefreshKey(prev => prev + 1);
+        notifyDataChanged({
+          objectName: event.resource,
+          recordId: event.id != null ? String(event.id) : undefined,
+        });
       }
     });
     return unsub;
@@ -1401,12 +1387,29 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     setDeleteRequest({ open: true, records: valid, bulk: true });
   }, []);
 
+  /**
+   * A write THIS host made — a form save or a delete — reported to both
+   * readers of it (objectui#10035): `refreshKey` for the rows this component
+   * fetches for its non-grid views, and the data-invalidation bus for the
+   * renderers that fetch for themselves (`ObjectGrid`, `ObjectGantt`,
+   * `ObjectChart`). The writer declares the change, as AGENTS.md #8's
+   * corollary asks, so a data source without `onMutation` still refreshes
+   * them. With one, the `onMutation` subscription above has announced the
+   * same write: the two notifications land in one render when React batches
+   * them, and never cost more refetches than the key bumps they replace (each
+   * of those remounted, and every remount fetched).
+   */
+  const announceOwnWrite = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+    if (schema.objectName) notifyDataChanged({ objectName: schema.objectName });
+  }, [schema.objectName]);
+
   // Handle form submission
   const handleFormSuccess = useCallback(() => {
     setIsFormOpen(false);
     setSelectedRecord(null);
-    setRefreshKey(prev => prev + 1);
-  }, []);
+    announceOwnWrite();
+  }, [announceOwnWrite]);
 
   // Handle form cancellation
   const handleFormCancel = useCallback(() => {
@@ -2259,11 +2262,19 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // --- Content renderer ---
   const renderContent = () => {
-    // The view's IDENTITY — switching object, view or type is a real remount.
-    // The refresh counter is appended only where the renderer cannot refetch
-    // in place (objectui#10035, see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
+    // The view's IDENTITY — switching object, view or type is a real remount,
+    // and it is the ONLY thing in the key (objectui#10035; AGENTS.md #8's
+    // corollary: refresh data, don't rebuild UI). A write no longer remounts
+    // any view: `kanban`, `calendar`, `gallery`, `timeline` and `map` draw
+    // `data={data}`, the rows the non-grid fetch effect re-reads when
+    // `refreshKey` moves, and `tree` re-queries when that array changes;
+    // `ObjectGrid`, `ObjectGantt` and `ObjectChart` query for themselves and
+    // refetch in place on the data-invalidation bus, which every site that
+    // moves `refreshKey` also notifies (`announceOwnWrite`, the `onMutation`
+    // subscription). ⛔ Do not put `refreshKey` back in a key: that is the
+    // remount the corollary forbids, and it throws away the view's scroll,
+    // selection, open drawers and in-progress edits on every save.
     const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
-    const remountKey = `${identityKey}-${refreshKey}`;
 
     // If a custom renderListView is provided, use it
     // #region object-view HOST-COMPOSITION SURFACE (objectui#5097)
@@ -2431,7 +2442,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       if (viewSchema && SchemaRendererComponent) {
         return (
           <SchemaRendererComponent
-            key={REMOUNT_TO_REFRESH_VIEW_TYPES.has(currentViewType) ? remountKey : identityKey}
+            key={identityKey}
             schema={viewSchema}
             dataSource={dataSource}
             data={data}
@@ -2449,11 +2460,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       }
     }
 
-    // Default: use ObjectGrid — still remounted to show a write, because
-    // `ObjectGrid` has no refresh input (see `REMOUNT_TO_REFRESH_VIEW_TYPES`).
+    // Default: use ObjectGrid — keyed on identity alone; it refetches in place
+    // on the data-invalidation bus (see `identityKey` above).
     return (
       <ObjectGrid
-        key={remountKey}
+        key={identityKey}
         schema={gridSchema}
         dataSource={dataSource}
         onRowClick={handleRowClick}
@@ -2607,7 +2618,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
                   dataSource,
                   t: tView,
                   toast,
-                  onRefresh: () => setRefreshKey(prev => prev + 1),
+                  onRefresh: announceOwnWrite,
                 },
                 bulk
                   ? { params: { records } }

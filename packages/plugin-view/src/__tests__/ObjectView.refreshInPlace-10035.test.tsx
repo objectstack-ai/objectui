@@ -16,38 +16,40 @@
  * `objectName-view-type-refreshKey`, and `refreshKey` moves on every write
  * this component hears about (`onMutation`, a form save, a delete). So each
  * write REMOUNTED the view: a fresh instance, every piece of component state in
- * it gone. The rows were refetched too — the non-grid fetch effect names
- * `refreshKey` — which is why nothing looked broken: the damage was the
- * remount, not a missing refetch.
+ * it gone. The rows were refetched too — through the remount — which is why
+ * nothing looked broken: the damage was the remount, not a missing refetch.
  *
- * ## The two halves, and which world each one can fail in
+ * ## Two kinds of view, one rule
  *
- * Each in-place case asserts BOTH:
+ * - DATA-FED views (`kanban`, `calendar`, `gallery`, `timeline`, `map`,
+ *   `tree`) draw the `data` this component fetches; its non-grid fetch effect
+ *   re-reads on `refreshKey`.
+ * - SELF-FETCHING views (`gantt`, `chart`, the grid branch) render a component
+ *   that queries for itself. They read the data-invalidation bus
+ *   (`useDataInvalidation`), which every site that moves `refreshKey` also
+ *   notifies. That half used to be missing — they kept `refreshKey` in their
+ *   key instead (`REMOUNT_TO_REFRESH_VIEW_TYPES`), and these cases asserted a
+ *   fresh instance until the renderers gained the bus input.
+ *
+ * Every case asserts BOTH:
  *   (a) the rendered view is the SAME instance after the write, and
- *   (b) it received the refetched rows.
- * Against the pre-fix source (a) is the red half; (b) stays green there,
- * because that world refetched as well — through the remount. (b) is the half
- * that goes red if the refresh SIGNAL is lost (the counter dropped from the
- * key AND from the fetch effect), which is the regression a naive "remove the
- * key" fix would ship.
+ *   (b) it received rows read after the write.
+ * The self-fetching cases also assert (c): the write costs exactly ONE refetch
+ * of that view (no refetch storm).
  *
- * ## The remount that stays, pinned as the refresh it still is
- *
- * `gantt`, `chart` and the grid branch render a component that fetches for
- * itself and reads nothing that moves on a write, so for them a remount is
- * still the only way a write shows up (`REMOUNT_TO_REFRESH_VIEW_TYPES`). Those
- * cases assert the fresh instance. When one of those renderers gains an
- * in-place refresh input, its case moves to the in-place table — it is red
- * until someone does that deliberately, never silently green.
- *
- * The stand-ins below render the props a real data-fed renderer reads (`data`)
- * and carry an instance id from a `useState` initializer, which runs once per
- * mount: a changed id IS a remount.
+ * The stand-ins carry an instance id from a `useState` initializer, which runs
+ * once per mount: a changed id IS a remount. The self-fetching stand-in reads
+ * the REAL bus hook and queries on it exactly as `ObjectGrid` / `ObjectGantt` /
+ * `ObjectChart` now do — each renderer's own pin
+ * (`*.invalidationRefetch-10035.test.tsx` in its package) proves the real
+ * component does that; this file proves the HOST keeps them mounted and tells
+ * the bus.
  */
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, act, cleanup, fireEvent, within } from '@testing-library/react';
+import { useDataInvalidation } from '@object-ui/react';
 import { ObjectView } from '../ObjectView';
 import type { ObjectViewSchema, DataSourceMutationEvent } from '@object-ui/types';
 
@@ -58,10 +60,34 @@ function useInstanceId(): number {
   return id;
 }
 
+/**
+ * A view that queries for itself and refetches on the bus — the idiom the
+ * three real self-fetching renderers follow. Its own reads go through
+ * `selfQuery`, so they are counted apart from the host's non-grid fetch.
+ */
+function SelfFetchingStandIn({ renderedType, objectName, dataSource }: any) {
+  const id = useInstanceId();
+  const nonce = useDataInvalidation(objectName);
+  const [rows, setRows] = React.useState(-1);
+  React.useEffect(() => {
+    let live = true;
+    void dataSource.selfQuery().then((n: number) => {
+      if (live) setRows(n);
+    });
+    return () => {
+      live = false;
+    };
+  }, [dataSource, objectName, nonce]);
+  return <div data-testid="rendered-view" data-type={renderedType} data-instance={id} data-rows={rows} />;
+}
+
 vi.mock('@object-ui/react', async (importOriginal) => {
   const ReactMod = await import('react');
-  function ViewStandIn({ schema, data }: any) {
+  function ViewStandIn({ schema, data, dataSource }: any) {
     const id = useInstanceId();
+    if (schema?.type === 'object-gantt' || schema?.type === 'object-chart') {
+      return <SelfFetchingStandIn renderedType={schema.type} objectName={schema.objectName} dataSource={dataSource} />;
+    }
     return (
       <div
         data-testid="rendered-view"
@@ -75,14 +101,16 @@ vi.mock('@object-ui/react', async (importOriginal) => {
     ...(await importOriginal<Record<string, unknown>>()),
     SchemaRenderer: ViewStandIn,
     SchemaRendererContext: ReactMod.createContext(null),
-    subscribeDataChanges: () => () => {},
-    notifyDataChanged: () => {},
   };
 });
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => {
-  function GridStandIn() {
-    const id = useInstanceId();
-    return <div data-testid="rendered-view" data-type="object-grid" data-instance={id} data-rows={-1} />;
+  function GridStandIn({ schema, dataSource, onDelete }: any) {
+    return (
+      <>
+        <SelfFetchingStandIn renderedType="object-grid" objectName={schema?.objectName} dataSource={dataSource} />
+        <button type="button" data-testid="grid-delete-row" onClick={() => onDelete?.({ id: '1', name: 'Row 1' })} />
+      </>
+    );
   }
   return {
     ...(await importOriginal<Record<string, unknown>>()),
@@ -95,9 +123,10 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
 }));
 
 /**
- * A DataSource that answers one row, then two — so the second delivery is
+ * A DataSource that answers one row, then two — so a later delivery is
  * distinguishable from the first — and hands its `onMutation` subscribers back
  * to the test, so a write can be announced the way a real adapter does.
+ * `selfQuery` is the self-fetching stand-ins' own read, counted separately.
  */
 function makeDataSource() {
   const subscribers: ((event: DataSourceMutationEvent) => void)[] = [];
@@ -107,12 +136,20 @@ function makeDataSource() {
     const rows = Array.from({ length: answered }, (_, i) => ({ id: String(i + 1), name: `Row ${i + 1}` }));
     return { data: rows, total: rows.length };
   });
+  let selfAnswered = 0;
+  const selfQuery = vi.fn(async () => {
+    selfAnswered += 1;
+    return selfAnswered;
+  });
   const ds: any = {
     find,
+    selfQuery,
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
-    delete: vi.fn(),
+    // Resolves WITHOUT announcing itself on `onMutation`: the delete case below
+    // needs a write only the host's own declaration reports.
+    delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn().mockResolvedValue({ name: 'task', fields: {} }),
     onMutation: vi.fn((cb: (event: DataSourceMutationEvent) => void) => {
       subscribers.push(cb);
@@ -122,6 +159,7 @@ function makeDataSource() {
   return {
     ds,
     find,
+    selfQuery,
     write: async () => {
       await act(async () => {
         subscribers.forEach((cb) => cb({ type: 'create', resource: 'task', id: 'new' }));
@@ -141,6 +179,7 @@ function renderView(type: string, ds: unknown) {
 }
 
 const view = () => screen.getByTestId('rendered-view');
+const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 100)));
 
 beforeEach(() => {
   cleanup();
@@ -174,33 +213,69 @@ describe('ObjectView refreshes a data-fed view in place after a write (objectui#
         view().dataset.instance,
         '(a) The write REMOUNTED the view. `refreshKey` is back in its `key`, so every\n'
           + 'save throws the view\'s component state away (AGENTS.md #8: refresh data,\n'
-          + 'don\'t rebuild UI). Only `REMOUNT_TO_REFRESH_VIEW_TYPES` may keep it.',
+          + 'don\'t rebuild UI).',
       ).toBe(before);
     },
   );
 });
 
-describe('the views with no in-place refetch path still show a write — by remount (objectui#10035)', () => {
+describe('ObjectView keeps a self-fetching view mounted and tells the bus instead (objectui#10035)', () => {
   it.each([
     ['gantt', 'object-gantt'],
     ['chart', 'object-chart'],
     ['grid', 'object-grid'],
-  ])('%s: a write mounts a fresh instance', async (type, renderedType) => {
-    const { ds, write } = makeDataSource();
+  ])('%s: after a data-source write, the same instance refetches once', async (type, renderedType) => {
+    const { ds, selfQuery, write } = makeDataSource();
     renderView(type, ds);
     await waitFor(() => expect(view().dataset.type).toBe(renderedType));
+    await waitFor(() => expect(view().dataset.rows).toBe('1'));
+    await settle();
     const before = view().dataset.instance;
+    const queriesBefore = selfQuery.mock.calls.length;
 
     await write();
 
     await waitFor(() =>
       expect(
-        view().dataset.instance,
-        `The ${type} view was NOT remounted after a write. Its renderer fetches for\n`
-          + 'itself and reads no refresh input, so without the remount it silently keeps\n'
-          + 'showing the pre-write rows. Remove it from the remount set only together\n'
-          + 'with a change that makes the renderer refetch in place.',
-      ).not.toBe(before),
+        view().dataset.rows,
+        `(b) The ${type} view never refetched after the write. Its renderer queries for\n`
+          + 'itself and reads the data-invalidation bus, so the host must publish the write\n'
+          + 'there (the `onMutation` subscription) now that it no longer remounts the view.',
+      ).toBe('2'),
     );
+    await settle();
+    expect(selfQuery.mock.calls.length - queriesBefore, '(c) one write, one refetch').toBe(1);
+    expect(
+      view().dataset.instance,
+      `(a) The write REMOUNTED the ${type} view: \`refreshKey\` is back in its key.`,
+    ).toBe(before);
+  });
+
+  it('grid: the host\'s own delete is announced even when the data source does not announce it', async () => {
+    const { ds, selfQuery } = makeDataSource();
+    renderView('grid', ds);
+    await waitFor(() => expect(view().dataset.rows).toBe('1'));
+    await settle();
+    const before = view().dataset.instance;
+    const queriesBefore = selfQuery.mock.calls.length;
+
+    fireEvent.click(screen.getByTestId('grid-delete-row'));
+    const dialog = await screen.findByRole('alertdialog');
+    const buttons = within(dialog).getAllByRole('button');
+    await act(async () => {
+      fireEvent.click(buttons[buttons.length - 1]);
+    });
+
+    await waitFor(() => expect(ds.delete).toHaveBeenCalledWith('task', '1'));
+    await waitFor(() =>
+      expect(
+        view().dataset.rows,
+        '(b) The grid never refetched after the host deleted a row. The delete\'s\n'
+          + '`onRefresh` must declare the write on the bus (`announceOwnWrite`).',
+      ).toBe('2'),
+    );
+    await settle();
+    expect(selfQuery.mock.calls.length - queriesBefore, '(c) one write, one refetch').toBe(1);
+    expect(view().dataset.instance, '(a) the delete REMOUNTED the grid').toBe(before);
   });
 });

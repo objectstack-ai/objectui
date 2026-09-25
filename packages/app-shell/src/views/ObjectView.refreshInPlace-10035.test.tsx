@@ -35,16 +35,21 @@
  * key" fix would ship: the page's own counter used to reach the list through
  * the key alone.
  *
- * ## The remount that stays, pinned as the refresh it still is
+ * ## The lists that draw a self-fetching visualization
  *
  * A list that can draw `gantt` or `chart` — as its own type, or through the
- * author's visualization whitelist — keeps the counter in its key, because
- * those renderers fetch for themselves and read nothing that moves on a write
- * (`REMOUNT_TO_REFRESH_VISUALIZATIONS`). Those cases assert the fresh tree.
+ * author's visualization whitelist — used to keep the counter in its key,
+ * because those renderers query for themselves and read no refresh input
+ * (`REMOUNT_TO_REFRESH_VISUALIZATIONS`), and these cases asserted the fresh
+ * tree. The renderers now refetch in place on the data-invalidation bus, so the
+ * list keeps its tree and the gantt re-issues ITS OWN query, exactly once, when
+ * the write is declared on the bus — by the console for its own writes (the
+ * bridge, undo / redo), and by this page for the changes it learns of another
+ * way (realtime, import, server actions: `refreshData`).
  *
- * Everything here renders for real — the page, `plugin-view`'s `ObjectView`
- * and `plugin-list`'s `ListView` — on the harness of
- * `ObjectView.hostRerenderRefetch-10046.test.tsx`.
+ * Everything here renders for real — the page, `plugin-view`'s `ObjectView`,
+ * `plugin-list`'s `ListView` and `plugin-gantt`'s `ObjectGantt` — on the
+ * harness of `ObjectView.hostRerenderRefetch-10046.test.tsx`.
  */
 
 import * as React from 'react';
@@ -79,10 +84,21 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   createAuthenticatedFetch: () => vi.fn(),
 }));
 
+/**
+ * The page's realtime channel; a case sets it and re-renders to deliver one.
+ * `resolveAllConflicts` is ONE function for the file's life: the page's realtime
+ * effect names it, and the real hook hands back a `useCallback` result, so a
+ * fresh function per render would re-fire that effect on every render.
+ */
+const realtime = vi.hoisted(() => ({
+  lastMessage: null as unknown,
+  conflicts: { hasConflicts: false, resolveAllConflicts: () => {} },
+}));
+
 vi.mock('@object-ui/collaboration', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useRealtimeSubscription: () => ({ lastMessage: null }),
-  useConflictResolution: () => ({ hasConflicts: false, resolveAllConflicts: () => {} }),
+  useRealtimeSubscription: () => ({ lastMessage: realtime.lastMessage }),
+  useConflictResolution: () => realtime.conflicts,
 }));
 
 vi.mock('sonner', () => ({
@@ -98,6 +114,10 @@ vi.mock('./MetadataInspector', () => ({
 }));
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
+import { notifyDataChanged, SchemaRendererProvider } from '@object-ui/react';
+// Registers `object-gantt` at import time, so `ListView`'s gantt branch draws
+// the real `ObjectGantt` (AGENTS.md: import at module scope, never in a hook).
+import '@object-ui/plugin-gantt';
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
@@ -127,13 +147,27 @@ function objectsWith(allView: Record<string, unknown>) {
   ];
 }
 
-/** The list queries `ListView` issued; the page's `$top: 0` count probe is excluded. */
+/**
+ * The list queries `ListView` issued; the page's `$top: 0` count probe is
+ * excluded, and so are `ObjectGantt`'s own queries — told apart by the
+ * platform row ceiling they carry (`$top` of `NON_GRID_ROW_CEILING + 1`),
+ * which no list page size reaches.
+ */
 let listQueries = 0;
+let ganttQueries = 0;
+const GANTT_QUERY_TOP = 2001;
+/**
+ * One row, never none: `ListView` draws its loading skeleton IN PLACE of the
+ * visualization while it refetches an EMPTY list, which would unmount the
+ * gantt for reasons that have nothing to do with the key under test.
+ */
+const ROW = { id: 't1', name: 'Task 1', stage: 'a', starts_on: '2026-01-01', ends_on: '2026-01-05' };
 function makeDataSource() {
   return {
     find: vi.fn(async (_object: string, params: any) => {
-      if (params?.$top !== 0) listQueries++;
-      return { data: [], total: 0 };
+      if (params?.$top === GANTT_QUERY_TOP) ganttQueries++;
+      else if (params?.$top !== 0) listQueries++;
+      return { data: [{ ...ROW }], total: 1 };
     }),
     findOne: vi.fn(async () => null),
     create: vi.fn(async () => ({})),
@@ -146,41 +180,65 @@ function makeDataSource() {
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 400)));
 
 /**
- * Mounts the page and returns the console's write signal: `externalRefreshKey`
- * is what `AppContent` bumps after a record-form save, an undo and a redo.
+ * Mounts the page and returns two ways a write reaches it:
+ *   - `write` — the console's own write, as `AppContent` delivers an undo: it
+ *     bumps `externalRefreshKey` AND declares the change on the bus (a form
+ *     save's declaration comes from the dataSource bridge instead; the two
+ *     signals the page receives are the same);
+ *   - `realtime` — another user's write, which the page learns of on its
+ *     realtime channel and must declare on the bus itself.
  */
-async function mountPage(allView: Record<string, unknown>): Promise<{ write: () => Promise<void> }> {
+async function mountPage(
+  allView: Record<string, unknown>,
+): Promise<{ write: () => Promise<void>; realtime: () => Promise<void> }> {
   const dataSource = makeDataSource();
   const objects = objectsWith(allView);
   let bump: () => void = () => {};
+  let rerender: () => void = () => {};
   function Harness() {
     const [externalRefreshKey, setExternalRefreshKey] = React.useState(0);
+    const [, setTick] = React.useState(0);
     bump = () => setExternalRefreshKey((n) => n + 1);
+    rerender = () => setTick((n) => n + 1);
+    // The console mounts the page under a `SchemaRendererProvider`; the
+    // registered `object-gantt` renderer reads its adapter from there.
     return (
-      <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'admin' }}>
-        <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/all`]}>
-          <Routes>
-            <Route
-              path="/apps/:appName/:objectName/view/:viewId"
-              element={
-                <ObjectView
-                  dataSource={dataSource}
-                  objects={objects}
-                  onEdit={() => {}}
-                  externalRefreshKey={externalRefreshKey}
-                />
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </ExpressionProvider>
+      <SchemaRendererProvider dataSource={dataSource}>
+        <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'admin' }}>
+          <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/all`]}>
+            <Routes>
+              <Route
+                path="/apps/:appName/:objectName/view/:viewId"
+                element={
+                  <ObjectView
+                    dataSource={dataSource}
+                    objects={objects}
+                    onEdit={() => {}}
+                    externalRefreshKey={externalRefreshKey}
+                  />
+                }
+              />
+            </Routes>
+          </MemoryRouter>
+        </ExpressionProvider>
+      </SchemaRendererProvider>
     );
   }
   render(<Harness />);
   await settle();
   return {
     write: async () => {
-      await act(async () => bump());
+      await act(async () => {
+        bump();
+        notifyDataChanged({ objectName: OBJECT_NAME });
+      });
+      await settle();
+    },
+    realtime: async () => {
+      await act(async () => {
+        realtime.lastMessage = { type: 'update', objectName: OBJECT_NAME, at: Date.now() };
+        rerender();
+      });
       await settle();
     },
   };
@@ -192,6 +250,8 @@ const listNode = () => screen.getByTestId('view-description');
 beforeEach(() => {
   cleanup();
   listQueries = 0;
+  ganttQueries = 0;
+  realtime.lastMessage = null;
   vi.stubGlobal(
     'fetch',
     vi.fn(async () =>
@@ -212,6 +272,18 @@ describe('the object page refreshes its list in place after a write (objectui#10
   it.each([
     ['grid', { type: 'grid' }],
     ['kanban', { type: 'kanban', kanban: { groupByField: 'stage' } }],
+    // Used to keep the counter in its key: this host cannot see which
+    // visualization the in-list switcher shows, so a whitelist offering a
+    // self-fetching one remounted the list for EVERY visualization.
+    [
+      'grid whose whitelist offers gantt and chart',
+      {
+        type: 'grid',
+        gantt: { startDateField: 'starts_on', endDateField: 'ends_on' },
+        chart: { xAxisField: 'stage', yAxisFields: ['name'] },
+        appearance: { allowedVisualizations: ['grid', 'gantt', 'chart'] },
+      },
+    ],
   ])('%s: the same list re-issues its query once', async (_label, allView) => {
     const page = await mountPage(allView);
     const node = listNode();
@@ -230,32 +302,48 @@ describe('the object page refreshes its list in place after a write (objectui#10
       '(a) The write REMOUNTED the list: the node read inside `ListView` before the\n'
         + 'write is gone. The refresh counter is back in the `<ListView>` key, so every\n'
         + 'save throws the list\'s UI state away (AGENTS.md #8: refresh data, don\'t\n'
-        + 'rebuild UI). Only lists that can draw a `REMOUNT_TO_REFRESH_VISUALIZATIONS`\n'
-        + 'member may keep it.',
+        + 'rebuild UI).',
     ).toBe(node);
   });
 });
 
-describe('a list that can draw a view with no in-place refetch path still shows a write — by remount (objectui#10035)', () => {
-  it.each([
-    ['its own type is gantt', { type: 'gantt', gantt: { startDateField: 'starts_on', endDateField: 'ends_on' } }],
-    [
-      'gantt is in its visualization whitelist',
-      { type: 'grid', gantt: { startDateField: 'starts_on', endDateField: 'ends_on' }, appearance: { allowedVisualizations: ['grid', 'gantt'] } },
-    ],
-  ])('%s: a write mounts a fresh list', async (_label, allView) => {
-    const page = await mountPage(allView);
+const GANTT_VIEW = { type: 'gantt', gantt: { startDateField: 'starts_on', endDateField: 'ends_on' } };
+
+describe('a list drawing a self-fetching visualization keeps its tree and the visualization refetches in place (objectui#10035)', () => {
+  it('its own type is gantt: a console write re-issues the gantt\'s own query once, in the same list', async () => {
+    const page = await mountPage(GANTT_VIEW);
     const node = listNode();
+    expect(ganttQueries, 'the real ObjectGantt must be drawing this list').toBeGreaterThan(0);
+    const before = ganttQueries;
 
     await page.write();
 
     expect(
+      ganttQueries - before,
+      '(b) The gantt did not re-query after the write, or re-queried more than once. It\n'
+        + 'queries for itself and must refetch on the data-invalidation bus now that the\n'
+        + 'list is no longer remounted to show it the write.',
+    ).toBe(1);
+    expect(
       listNode(),
-      'The list was NOT remounted after a write although it can draw a gantt or chart.\n'
-        + 'Those renderers fetch for themselves and read no refresh input, so without the\n'
-        + 'remount they silently keep showing the pre-write rows. Remove a member from\n'
-        + '`REMOUNT_TO_REFRESH_VISUALIZATIONS` only together with a change that makes its\n'
-        + 'renderer refetch in place.',
-    ).not.toBe(node);
+      '(a) The write REMOUNTED the list: the refresh counter is back in the `<ListView>`\n'
+        + 'key (AGENTS.md #8: refresh data, don\'t rebuild UI).',
+    ).toBe(node);
+  });
+
+  it('its own type is gantt: a realtime change is declared on the bus by the page itself', async () => {
+    const page = await mountPage(GANTT_VIEW);
+    const node = listNode();
+    const before = ganttQueries;
+
+    await page.realtime();
+
+    expect(
+      ganttQueries - before,
+      '(b) The gantt did not re-query after a realtime change. The page learns of that\n'
+        + 'change from no data-source write, so it must declare it on the bus itself\n'
+        + '(`refreshData`).',
+    ).toBe(1);
+    expect(listNode(), '(a) the realtime change REMOUNTED the list').toBe(node);
   });
 });

@@ -1,5 +1,5 @@
 ---
-'@object-ui/plugin-form': patch
+'@object-ui/plugin-form': minor
 ---
 
 fix(plugin-form): `customFields` members render inside explicit `sections` on the drawer, modal, tabbed, wizard and split arms

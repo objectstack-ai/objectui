@@ -33,6 +33,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { isMaskedGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
@@ -3699,7 +3700,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // producer's types have not held in practice. Destructuring a null below
       // would throw where the pre-#6004 code passed it through.
       if (!col) return col;
-      const { type: producerType, ...rest } = col;
+      const { type: producerType, ...draft } = col;
+      // ⭐ THE MASKED FLAG (objectui#10583) — stamped HERE, before the fold,
+      // because the fold is exactly what erases the answer: `password` and
+      // `secret` are not `TableColumnType` members, so `normalizeTableColumnType`
+      // drops them and `data-table` could never tell a masked column from a
+      // text one. It also must not ask the question itself — it cannot import
+      // `@object-ui/fields` — so this producer asks `isMaskedFieldType()` (via
+      // `isMaskedGridColumn`) and the table obeys the flag: no raw value to the
+      // clipboard, a `title` tooltip or its CSV export.
+      //
+      // Every path that writes `type` is covered for the same reason the fold
+      // is: all four `generateColumns()` literals and the enrichment map above
+      // pass through this pass. The object-declared type is read beside the
+      // producer's for the narrow-only union — path A forwards a VIEW-authored
+      // type ahead of the object's, and `type: 'text'` over a `secret` column
+      // must keep the flag. Written only when true, so every unmasked column
+      // reaches the table byte-identical to before.
+      const rest = isMaskedGridColumn(producerType, objectSchema?.fields?.[col.accessorKey]?.type)
+        ? { ...draft, masked: true }
+        : draft;
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;

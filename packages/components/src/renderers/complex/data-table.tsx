@@ -1431,10 +1431,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   };
 
   const handleExport = () => {
+    // A MASKED column is OMITTED from the export (objectui#10583), header and
+    // all: its cells draw a mask, so the file must not carry the raw value.
+    // Omitted rather than blanked — a column of empty strings would assert
+    // the records hold nothing, and a re-import of it would write that.
+    const exportColumns = columns.filter((col) => !col.masked);
     const csvContent = [
-      columns.map(col => col.header).join(','),
+      exportColumns.map(col => col.header).join(','),
       ...sortedData.map(row =>
-        columns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
+        exportColumns.map(col => JSON.stringify(row[col.accessorKey] || '')).join(',')
       )
     ].join('\n');
 
@@ -1814,6 +1819,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
       e.preventDefault();
+      // A MASKED column copies NOTHING (objectui#10583) — the producer drew a
+      // mask, so the keyboard must not hand out what the cell hides. The
+      // detail page's house shape (objectui#8440, option A): no copy at all,
+      // ⛔ not the bullets — which is also why `preventDefault()` above stays:
+      // measured in Chromium, letting the default run copies a selected mask
+      // as `••••••`, the payload that ruling refused. Unmasked cells are
+      // untouched below.
+      if (columns.find((col) => col.accessorKey === columnKey)?.masked) return;
       const globalIdx = (effectivePage - 1) * pageSize + rowIndex;
       const row = sortedData[manualPagination ? rowIndex : globalIdx];
       if (row) {
@@ -2675,7 +2688,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                       ? 'w-full whitespace-normal break-words'
                                       : 'truncate w-full'
                                 }
-                                title={!isFit && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // No tooltip on a MASKED column (objectui#10583):
+                                // the title carried the raw value, so a hover
+                                // showed what the cell's mask hides.
+                                title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)

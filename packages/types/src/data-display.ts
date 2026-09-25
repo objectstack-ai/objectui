@@ -702,6 +702,31 @@ export interface TableColumn {
    * this slot and `data-table` reads it here — declared, forwarded, rendered.
    */
   wrap?: boolean;
+  /**
+   * The column holds a MASKED value — a credential whose cell is drawn as a
+   * mask — so `data-table` hands the raw value to nobody: Ctrl+C / Cmd+C on
+   * one of its cells writes nothing to the clipboard, the cell carries no
+   * `title` tooltip, and the CSV export omits the column. Absent or `false`
+   * leaves every one of those paths exactly as it was.
+   *
+   * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
+   * the column's {@link TableColumn.cell} renderer, which the producer that
+   * sets this flag supplies. A column with no `cell` still draws its value.
+   *
+   * ⭐ The producer decides, and the rule is not restated here: `ObjectGrid`
+   * stamps this flag from `isMaskedFieldType()` in `@object-ui/fields`
+   * (objectui#8686), the one authority for "is this field type's cell drawn as
+   * a mask", reading the view-authored type and the object-declared type as a
+   * narrow-only UNION — a view authoring `type: 'text'` over a `secret`
+   * column keeps the flag. `@object-ui/components` cannot import
+   * `@object-ui/fields`, so the table obeys the flag instead of asking the
+   * question itself.
+   *
+   * Declared by objectui#10583: the grid drew the mask while the table's
+   * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid
+   * face of the disclosure objectui#8440 closed on the detail page.
+   */
+  masked?: boolean;
 }
 
 /**
@@ -761,6 +786,14 @@ export interface StaticTableColumn {
    * @deprecated Not part of the static `table` renderer's contract.
    */
   wrap?: never;
+  /**
+   * NOT on the static `table` surface (objectui#10583) — declared on the rich
+   * {@link TableColumn} only, where `data-table` reads it. The static renderer
+   * has no keyboard copy, tooltip or export for it to withhold. Use
+   * `data-table` for the interactive set.
+   * @deprecated Not part of the static `table` renderer's contract.
+   */
+  masked?: never;
   /**
    * RETIRED from the static `table` surface (objectui#5474, ADR-0049) — the
    * static renderer never read it; a right-aligned column authored here was

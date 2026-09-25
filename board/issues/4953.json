@@ -1,0 +1,42 @@
+{
+  "number": 4953,
+  "kind": "pull_request",
+  "title": "chore(deps): bump @objectstack/spec from 17.0.0-rc.6 to 17.0.0",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "automated",
+    "configuration",
+    "data-adapter",
+    "dependencies",
+    "package: components",
+    "package: core",
+    "package: react",
+    "package: types",
+    "plugin",
+    "plugin: charts"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T08:01:16Z",
+  "updated_at": "2026-08-17T08:12:57Z",
+  "closed_at": "2026-08-17T08:09:21Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-17T08:09:21Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4953",
+  "body": "Bumps [@objectstack/spec](https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/spec) from 17.0.0-rc.6 to 17.0.0.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/objectstack-ai/objectstack/releases\">@​objectstack/spec's releases</a>.</em></p>\n<blockquote>\n<h2><code>@​objectstack/spec</code><a href=\"https://github.com/17\"><code>@​17</code></a>.0.0</h2>\n<blockquote>\n<p>[!IMPORTANT]\n<strong>This release note is truncated.</strong> The changelog entry for <code>@objectstack/spec@17.0.0</code> is\n2,189,996 characters; the GitHub Releases API rejects any body over\n125,000. The complete entry is in <a href=\"https://github.com/objectstack-ai/objectstack/blob/56724c500539f230d2b6e71964c5e980df602aa0/packages/spec/CHANGELOG.md#1700\"><code>packages/spec/CHANGELOG.md</code></a>.</p>\n</blockquote>\n<hr />\n<h3>Major Changes</h3>\n<ul>\n<li>\n<p>e5bd768: refactor(spec)!: retire <code>ActionDescriptor.isAsync</code> — a second spelling of <code>supportsPause</code> that nothing ever read (<a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/spec/issues/6748\">#6748</a>, ADR-0049)</p>\n<!-- raw HTML omitted -->\n<p><strong>FROM → TO:</strong> <code>isAsync: true</code> → delete the key; declare <code>supportsPause: true</code> (plus the\n<code>resumeAuthority</code> its pauses need) and return <code>suspend: true</code> from <code>execute()</code>.\n<code>isAsync: false</code> → delete the key; there was never anything to preserve.</p>\n<p><code>ActionDescriptor.isAsync</code> declared &quot;suspends the flow awaiting an external reply&quot; and no\nexecution path read it. Measured fresh before removal across all three repos — objectstack,\nobjectui and cloud — with zero property reads: every hit was the declaration itself, a\ngenerated baseline, one of five shipped descriptors WRITING it, a fixture pinning the\nshape, or prose. Declaring it never made a node suspend; omitting it never stopped one.</p>\n<p>This is the remove leg of the ADR-0049 disposition its sibling took the other way. The two\nkeys said the same thing — &quot;this node type can suspend the run&quot; — and <a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/spec/issues/6667\">#6667</a> split them by\nevidence: <code>supportsPause</code> became an enforced fact (<code>AutomationEngine</code> now refuses a\nsuspension whose type does not declare it, at the one seam every suspension passes\nthrough), while <code>isAsync</code> had no consumer to grow into. Keeping both would leave the\nplatform publishing two names for one capability with only one of them honoured — and\n<code>screen</code> declared BOTH, so a plugin author copying it had no way to tell which.</p>\n<p>The retirement kit:</p>\n<ul>\n<li><strong>Tombstone, not deletion</strong> (<code>retiredKey()</code>): <code>ActionDescriptorSchema</code> is not <code>.strict()</code>,\nso a plain delete would let existing descriptors parse clean and lose the key in silence\n(the ADR-0104 shape). Authoring <code>isAsync</code> now fails <code>tsc</code> at the descriptor literal and\nfails the parse inside <code>defineActionDescriptor()</code> — with the prescription in the message.</li>\n<li><strong>ADR-0087 D3 <code>SemanticMigration</code></strong> (<code>action-descriptor-is-async-retired</code>) plus the exact\n<code>RETIRED_KEYS_BY_MAJOR</code> entry. No D2 conversion, deliberately: a descriptor is published\nfrom an executor's TypeScript and never stored in stack metadata, so there is no source\nfor <code>os migrate meta</code> to rewrite — the <code>EnhancedApiError.fieldErrors</code> disposition.</li>\n<li>The five shipped writers stop writing it (<code>screen</code>, <code>map</code>, <code>wait</code>, <code>approval</code>,\n<code>approval_revise</code>); the descriptors they publish lose the key, which is why the two\nruntime packages appear here.</li>\n<li>Generated baselines (<code>authorable-surface/automation.json</code> gains <code>[RETIRED]</code>,\n<code>authorable-defaults/automation.json</code> loses the default line), <code>spec-changes.json</code>, the\nupgrade guide and the reference docs regenerated.</li>\n</ul>\n<p>No runtime behaviour changes — that impossibility is the reason for the removal. The same</p>\n</li>\n</ul>\n<!-- raw HTML omitted -->\n</blockquote>\n<p>... (truncated)</p>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/24c1b91e4903adb354adebb27b42702e9fc6df22\"><code>24c1b91</code></a> chore: version packages (<a href=\"https://github.com/objectstack-ai/objectstack/tree/HEAD/packages/spec/issues/6208\">#6208</a>)</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/01a7337fc00a189a9fd0cbb82753471dfa2407dc\"><code>01a7337</code></a> fix(objectql): a tenant's rename beats a package extension's scalar in the ob...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/9f5cc79656c368169f3c053a6283cac9cb368b31\"><code>9f5cc79</code></a> fix(metadata-protocol): a batch row's httpStatus reads the declared status, n...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/1e604c4c46a6c12c0a7124992605a77d63fe6dca\"><code>1e604c4</code></a> refactor(spec): narrow metadata-url-spelling exports to the verdict surface (...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/8af76aebf034557f4db94facbae4954de20132ee\"><code>8af76ae</code></a> fix(cli,spec,i18n): default-locale bundle tracks the source; promote approval...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/b45c71e85a6bcb408d4987cce17195f63789c0da\"><code>b45c71e</code></a> fix(plugin-security,plugin-sharing,plugin-webhooks,platform-objects,service-m...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/3dede582b95f60f9c52e9c7b982a1285f17351ee\"><code>3dede58</code></a> feat(spec): allow external.credentialsRef (and only it) on schemaMode 'manage...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/a98085fec5733b3fb8894102eef47d3d0fe01b82\"><code>a98085f</code></a> feat(spec): declare the viewItems channel — a portable home for non-container...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/6b441a842c7eb405be49393695fb2e355c609a41\"><code>6b441a8</code></a> fix(plugin-security,spec): scope sys_position.name uniqueness per organizatio...</li>\n<li><a href=\"https://github.com/objectstack-ai/objectstack/commit/2a6c27922ef6a963caabfd028e38d10c577cad0a\"><code>2a6c279</code></a> feat(spec): per-type metadata redaction seam in kernel, one credential-key de...</li>\n<li>Additional commits viewable in <a href=\"https://github.com/objectstack-ai/objectstack/commits/@objectstack/spec@17.0.0/packages/spec\">compare view</a></li>\n</ul>\n</details>\n<br />\n"
+}

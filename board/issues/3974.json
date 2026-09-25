@@ -1,0 +1,34 @@
+{
+  "number": 3974,
+  "kind": "issue",
+  "title": "[finding] `form-view.ts` spec bridge also reads `spec.defaultSort` — the same dormant-read shape as #3901, on the sibling key #3901's scope explicitly excluded",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T19:13:38Z",
+  "updated_at": "2026-08-16T09:34:51Z",
+  "closed_at": "2026-08-16T09:34:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3974",
+  "body": "Observation-class finding from the axis-③ liveness audit (ledger claims vs measured objectui readers). **Nothing breaks today** — filed so it is recorded rather than rediscovered, unassigned for triage. #3901 covers the `spec.aria` read at `:193` and states under \"Not in scope\": \"Other `spec.*` reads in this bridge; only `aria` was measured.\" This card is that measurement for the sibling key. **Ledger verdict vs measured reader disagree — not prescribing which side is right** (same delete-vs-document fork, and the same unmeasured non-validated-input precondition, as #3901).\n\n## Audited revisions (E24)\n\n- objectui `origin/main` @ `5bfaabde05c3876c9604a2aa47f4822f9e6de8b5`\n- objectstack `origin/main` @ `4ac12ef4cfe4a1925fb7e950c56d7aff0bbc5381`\n\nBoth read via `git fetch` + `git archive` of `origin/main`, not working trees.\n\n## The finding\n\n`packages/react/src/spec-bridge/bridges/form-view.ts:188`:\n\n```ts\n  if (spec.defaultSort) node.defaultSort = spec.defaultSort;\n```\n\n(the local `FormViewSpec` mirror still declares it at `:81`, `defaultSort?: any;`)\n\nobjectstack's ledger row `packages/spec/liveness/view.json` → `props.form.children.defaultSort` (`status: \"dead\"`, `verifiedAt: \"2026-07-30\"`):\n\n> \"REMOVED 2026-07-30 (#3896 close-out sweep) — tombstoned at the schema (retiredKey carries the prescription; authoring it is a tsc error and a parse error) and stripped from sources by the protocol-17 close-out conversion. … a related list sorts by its own list view's `sort`.\"\n\nSame dormancy analysis as #3901: `retiredKey()` rejects at parse, so `spec.defaultSort` is always `undefined` for any validated FormView and the guard is unreachable — unless some path feeds the bridge a non-validated object (stored pre-17 documents, fixtures), which was not measured here either.\n\n## One difference from the `aria` sibling\n\nDownstream is also empty as far as measured: no object-form renderer consumer of `node.defaultSort` was found (`plugin-view/src/ObjectView.tsx:848` and `plugin-grid/src/ObjectGrid.tsx:637` read `defaultSort` on the *table/grid* schema surface, not the form node; `plugin-detail/src/RelatedList.tsx` takes it as a component prop). So the bridge line copies a parse-rejected key onto a node key nothing reads — dormant at both ends.\n\n## Dedup\n\n- #3901 — same file, `aria` only; its scope section explicitly leaves the other `spec.*` reads unmeasured. The triage comment on #3901 (objectui @50fa376) verified `:193` and did not extend to `:188`.\n- Org-wide open-issue search for `defaultSort`: only objectstack#7118 (`related_list.filter`, unrelated key/surface).\n\n## Suggested direction (non-binding)\n\nWhatever disposition #3901 gets after its promotion gate (\"measure the non-validated-input paths\") almost certainly applies verbatim here; cheapest is to handle both lines in the same card/PR.\n\nSuggested lane: same as #3901 (spec-bridge hygiene, objectui react package).\n\nProvenance: cross-repo read-only audit, session https://claude.ai/code/session_018ffcE95NaMJcL9XJ9VDYgk"
+}

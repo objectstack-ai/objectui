@@ -1,0 +1,35 @@
+{
+  "number": 4014,
+  "kind": "issue",
+  "title": "级联清值 effect 用 RAW type 与裸名集合比对,对象表单的带前缀 id 整体落空 —— 选项收窄后旧值不清、可脏值提交",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T00:21:31Z",
+  "updated_at": "2026-08-16T05:56:02Z",
+  "closed_at": "2026-08-16T05:56:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4014",
+  "body": "发现于 #3986 的波及面测量(PR #4013),**与该 PR 语义中性**(修复前后这条路径同样落空),单独立单。\n\n## 机制\n\n`packages/components/src/renderers/form/form.tsx:944` 的级联清值 effect 取 `resolvedType = f.widget || f.type`(RAW,未过 `normalizeFieldType`)与 `CASCADE_OPTION_FIELD_TYPES`(裸名集合 `{select, radio, multiselect, checkboxes}`)比对。对象表单生产者发出的是**带前缀 id**(`field:select` / `field:multiselect` 等),于是任何来自对象 schema 的选项字段都进不了这个 effect:级联父值变化、子字段选项集收窄后,**旧值不会被清掉**,可能以脏值提交。\n\n同文件 `:1514` 的 `isOptionField` 已在 #3231 里用 `normalizeFieldType` 修过完全同族的问题 —— `:944` 是漏掉的第二处。\n\n## 修法\n\n`:944` 的比对同样过 `normalizeFieldType`(与 `:1514` 对齐)。修复会让对象表单路径**首次**获得级联清值行为 —— 这是行为变化不是等价重构,钉子按「收窄后旧值被清」的正向断言写,并保留裸名路径(手写 SDUI)的既有行为对照。\n\n## 参考\n\n- `packages/components/src/renderers/form/form.tsx:944`(缺陷位)、`:250`(集合定义)、`:1514`(同族已修的先例)\n- #3231(裸名/前缀名同指一种字段、只认裸名致逻辑落空 —— 同根源先例)\n- #3986 / PR #4013(发现来源,测量表在其 PR 正文)"
+}

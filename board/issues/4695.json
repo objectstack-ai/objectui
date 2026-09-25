@@ -2,8 +2,8 @@
   "number": 4695,
   "kind": "issue",
   "title": "finding(plugin-charts): a cartesian chart handed NO series binding at all draws the same silent empty frame #4683 just closed for `series: []`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "yinlianghui",
@@ -12,18 +12,23 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-project-manager"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-15T10:31:15Z",
-  "updated_at": "2026-09-24T05:50:39Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T20:22:14Z",
+  "closed_at": "2026-09-24T20:16:41Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 9,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/4695",
   "body": "Measured while implementing #4683; deliberately left outside that card's guard and filed here.\n\n## What is wrong\n\n#4683 gave `AdvancedChartImpl` a refusal for the shape where a series binding was COMPUTED and came out empty — `Array.isArray(series) && series.length === 0`, which is what both `buildChartSeries` consumers (`ObjectChart`, `DatasetWidget`) hand over when a pivot's second dimension was never projected.\n\nThe neighbouring shape is `series === undefined`: no binding was ever computed, because the caller never went through `buildChartSeries` and the schema declared no `series` / `categories` / `value` / y-axis fields either. `ChartRenderer` forwards `undefined` unchanged, `AdvancedChartImplInner` defaults it to `[]`, and the cartesian families render `series.map(...)` over nothing — so the author gets axes, grid, tooltip and legend around zero marks and no explanation. That is the same harm #4466 and framework#4033 were filed over, on a third entry path.\n\nReproduces at the renderer with no dataset involved — render `AdvancedChartImpl` with these props and no `series` prop at all:\n\n```\nchartType:  \"bar\"\ndata:       [{ status: 'Backlog', est_hours: 12 }]\nxAxisKey:   \"status\"\nseries:     (omitted entirely)\n\nobserved:   no data-chart-error placeholder, no console warning,\n            an svg containing 0 marks\n```\n\nPinned as current behaviour by `AdvancedChartImpl.unprojectedSeriesDimension.test.tsx` → `leaves a caller that computed NO series binding at all untouched`, so whoever takes this card should expect to rewrite that test rather than discover a silent contradiction.\n\n## Why it was left out of #4683\n\nScope, and an honest signal boundary. `[]` and `undefined` are different sentences — \"a binding was computed and is empty\" versus \"nothing ever computed one\" — and only the first is the shape that card measured, reproduced and ruled on. Widening the guard to `undefined` changes behaviour for every hand-authored chart that renders with no series binding, which is a decision about the author-facing contract rather than a mechanism fix, so it is filed instead of assumed.\n\n## Worth noting for whoever triages it\n\nThe refusal copy #4683 landed deliberately does not name the missing dimension key, because the renderer is not told which dimension the pivot grouped by and two upstream shapes reach it byte-identically (an unprojected second dimension, and a chart with no measure selected both produce `{data:[{status:'Backlog'},...], xAxisKey:'status', series:[]}`). If this card is taken up together with plumbing the pivoted dimension into the renderer, both the `undefined` arm and a key-naming message become reachable at once — see the open question recorded on #4683's PR.\n\nRelated: #4683, #4466, #4507, framework#4033.\n"

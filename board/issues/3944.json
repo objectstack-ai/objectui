@@ -1,0 +1,34 @@
+{
+  "number": 3944,
+  "kind": "issue",
+  "title": "根 vitest.config.mts 的 alias 表有 4 个指向不存在目录的死条目(engine / renderer / plugin-aggrid / ui)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:33:04Z",
+  "updated_at": "2026-08-16T09:13:27Z",
+  "closed_at": "2026-08-16T09:13:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3944",
+  "body": "发现于 #3904 的实现(PR #3942)。**不在该 PR 处理** —— 那一单的面是 `apps/site/next.config.mjs` 与 Playground 的注册缺口;这一条在 `vitest.config.mts`(共享热文件),是同一类漂移的另一处实例,单独记录。\n\n## 现象\n\n根 `vitest.config.mts` 的 `resolve.alias` 里有 41 个 `@object-ui/*` 条目,其中 **4 个指向的目录在 workspace 里并不存在**:\n\n```\nvitest.config.mts:246  '@object-ui/engine'        -> packages/engine/src\nvitest.config.mts:247  '@object-ui/renderer'      -> packages/renderer/src\nvitest.config.mts:258  '@object-ui/plugin-aggrid' -> packages/plugin-aggrid/src\nvitest.config.mts:279  '@object-ui/ui'            -> packages/ui/src\n```\n\n其余 37 个都能解析到真实目录。\n\n## 影响(实测,不是推测)\n\n**今天没有任何人会碰到**:这 4 个 specifier 在 `packages/`、`apps/`、`examples/` 里的 import 数都是 **0**,所以 alias 从来没被用到,测试也不会因此变红。纯粹是休眠配置。\n\n之所以还是值得记一条:这正是 #3904 那一类「**配置声明了、依赖图里没有**」的条目 —— 它读起来像是「这些包存在、而且已经接好了」。#3904 里 `@object-ui/i18n` / `@object-ui/plugin-aggrid` 挂在 `transpilePackages` 上什么也不做,而 `@object-ui/layout` 更早以完全相同的形状让人误判能力已就位(列在配置里、既非依赖也无 import),最后是靠浏览器实测才发现渲染是红面板(#3787)。一个死条目比缺一个条目更坏,因为它读起来像已经接好了。`packages/plugin-aggrid` 这个包本身已经整个从 workspace 里消失了(只在各 CHANGELOG 的历史记录里还有 `@object-ui/plugin-aggrid@0.4.1`)。\n\n## 建议\n\n删掉这 4 行;若想让它不再回来,可以加一条机械化断言 —— alias 表里每个 `path.resolve` 目标都必须存在(PR #3942 给 `apps/site` 的 `transpilePackages` 加的就是同形状的守卫:每一项都必须是已声明依赖 + 在 `node_modules` 里真的 link 得到)。\n\n## 相关\n\n- #3904 / PR #3942(同类漂移的 `apps/site` 面,发现于此)\n- #3240(17 个包各自带 vitest.config.ts 与根配置行为分叉)—— 相关但**不同修法**:那一单问的是「哪些包真的需要本地配置」,不涉及根配置这张 alias 表的死条目,所以这条独立记而不是挂成它的 sub-issue。\n"
+}

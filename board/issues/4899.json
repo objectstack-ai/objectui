@@ -1,0 +1,32 @@
+{
+  "number": 4899,
+  "kind": "pull_request",
+  "title": "fix(app-shell): a 400 FLOW_FAILED or 404 on the flow route is terminal, not retryable",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:28:39Z",
+  "updated_at": "2026-08-17T02:43:12Z",
+  "closed_at": "2026-08-17T02:43:11Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T02:43:11Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4899",
+  "body": "Fixes #4784\n\nTeaches `interpretFlowResponse` that two non-2xx classes on the flow trigger/resume\nroute are **terminal**, not transport failures. Lands ahead of the backend flip in\nobjectstack#8684, which is the maintainer's explicit sequencing (ruling of\n2026-08-15, sub-decision 3).\n\n## The bug this prevents\n\n`retryable` is what `FlowRunner` reads to decide whether to keep the wizard dialog\nopen. A transport failure did not consume the suspension, so retrying the same run\nis meaningful; a flow failure is terminal, because the engine consumes the\nsuspension before running downstream nodes (resume-once) and a retry can only reach\n\"No suspended run\".\n\n`interpretFlowResponse` tested `!res.ok || json.success === false` **first** and\nreturned `retryable: true` for everything it caught, so every non-2xx was\nclassified as transport. Two classes were on the wrong side of that line:\n\n**1. `400` + `FLOW_FAILED` — dormant today, the regression objectstack#8684 would\notherwise ship.** That card moves a terminal node failure off\n`200 {data:{success:false}}` onto a real status code, inheriting the\nobjectstack#3962 ruling that business failures must not ride HTTP 200 inside a\ndouble envelope. Had the backend flipped first, that failure would have landed in\nthe retryable branch and the wizard would have stayed open offering a retry\nguaranteed to fail. Nothing sends that body yet, so this arm is dormant until it\ndoes — which is exactly why it can land now, and why waiting is what creates the\nregression window.\n\nOnly that code qualifies. The route's other 400s (`INVALID_SIGNAL`,\n`INVALID_SCREEN_INPUT`) are refused by the engine *before* the signal reaches the\nvariable map, so the suspension survives and a corrected resubmit is meaningful.\nThat distinction is the whole point of the flag and it is pinned by a test.\n\n**2. `404` — NOT dormant; this half is a live fix.** The route already answers\n`404 No such suspended run` (`RUN_NOT_FOUND`) today, and every one of those has\nbeen keeping the wizard open for a retry that could only 404 again. This is the\nquestion the card asked me to answer with the code in front of me, and the code\nanswered it: implement now. It is keyed on the **status alone**, deliberately — a\nproxy or unmounted-route 404 carries no envelope to read a code out of, and the\nuser's disposition must not depend on whether a body parsed. Same reasoning the\nsibling `commitHistory.ts` records for its own classification.\n\n## The authorable `errorMessage` half\n\nA flow declares `errorMessage` so the user sees its words instead of an engine\nstring. The `!res.ok` branch never reached `flowFailureMessage()`, so that\npreference was lost for anything arriving on a status code.\n\nThe error envelope carries no `data`, so it is read from **`error.details`** — the\nenvelope's own declared carrier for structured extras, and the only slot that\nsurvives to the wire (objectstack `error-envelope.ts`: `splitSemanticCode` promotes\n`details.code` into `error.code` and keeps the remaining keys). One location, no\nalias chain hunting for it elsewhere (commandment #0.1). Absent, the message\ndegrades to the envelope's own `error.message`, never to silence.\n\nNote for the backend half: **objectstack#8684 must carry the authorable\n`errorMessage` in `error.details` for this to resolve.** That is the contract this\nPR reads, stated here because landing the consumer first means the consumer is\nwhere the shape gets written down.\n\n## Verification\n\nReverse-verified from the committed fix: reverting `flowResponse.ts` to\n`origin/main` turns **exactly the 6 discriminating new tests red** (17 pass). The\nother 2 new tests stay green under the old code, correctly — they pin behavior this\nchange does **not** alter (a 500 carrying `FLOW_FAILED` stays retryable; the other\n400 codes stay retryable). Restored byte-identically from the commit.\n\nGate union re-run at `3c7107c` (the final commit):\n\n- `pnpm exec vitest run packages/app-shell/src/utils/ .../FlowRunner*.test.tsx .../flow-envelope.ratchet.test.ts` — 25 files, 375 tests passed\n- `turbo run type-check --filter=@object-ui/app-shell` — 30 tasks successful\n- `pnpm check:control-bytes` — OK; plus a direct `grep -naP` control-byte scan of the changed files\n- `node scripts/check-changeset-presence.mjs` — 1 changeset declared for 2 changed source files\n- `eslint` on both changed files — 0 errors (the single remaining `any` warning is the pre-existing one on the public signature)\n\n## Scope\n\n`packages/app-shell/src/utils/flowResponse.ts` and its tests, plus the changeset.\n`FlowRunner.tsx` is untouched: the flag's semantics are unchanged, so its existing\n`if (!outcome.retryable) onClose()` and the comment stating that contract are both\nstill accurate — no plumbing was required. In-flight sibling #4308's\n`metadata-admin/` surface is not touched.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DbRmJD3iPhXjKr6vhd4Qkv)_"
+}

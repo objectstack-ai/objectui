@@ -1,0 +1,34 @@
+{
+  "number": 4796,
+  "kind": "issue",
+  "title": "`content/docs/fields/{grid,location}.mdx` 教的 `plugin:grid` / `plugin:map` 全仓未注册 —— 照抄即 OBJUI-001 红框",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:38:19Z",
+  "updated_at": "2026-08-16T10:23:28Z",
+  "closed_at": "2026-08-16T10:23:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4796",
+  "body": "发现于 #4786 的实施,真实 SchemaRenderer 探针实测。与 #4786 里已修掉的 `stats-card` 是同一类缺陷(教学面给了一个注册表里不存在的 `type`),但落在两个不同文件、且不属于 #4786 的 `props` 信封范围,故单列。\n\n## 实测\n\n```\n@@PROBE plugin:grid\n  text=\"Unknown component type: plugin:grid ... (OBJUI-001)\"\n@@PROBE plugin:map\n  text=\"Unknown component type: plugin:map ... (OBJUI-001)\"\n```\n\n## 真实注册名\n\n- `packages/plugin-grid/src/index.tsx:129` —— `ComponentRegistry.register('object-grid', ObjectGridRenderer, ...)`\n- `packages/plugin-map/src/index.tsx:62` —— `ComponentRegistry.register('object-map', ObjectMapRenderer, ...)`\n\n全仓 `grep -rn \"register('plugin:grid'\\|register('plugin:map'\"` 零命中。\n\n## 命中位置\n\n- `content/docs/fields/grid.mdx` 的 \"Full Grid Functionality\" 段(`type: 'plugin:grid'`)\n- `content/docs/fields/location.mdx` 的 \"With map visualization\" 段(`type: 'plugin:map'`)\n\n#4786 的 PR 已把这两处的 `props` 信封拆掉(键提到节点上,与 `object-grid` / `object-map` 的真实读法一致),**但刻意没有改 `type` 名** —— 那是本单的范围。改完信封后示例仍然渲染红框,直到这里被修。\n\n## 修法\n\n两处 `type` 改成 `object-grid` / `object-map`,并核一遍同段落里其余键是否被对应 renderer 读(`object-grid` 读 `schema.objectName` / `schema.columns` / `schema.fields`,见 `packages/plugin-grid/src/index.tsx:155-157`)。\n\n## 参考\n\n- #4786(发现来源;`stats-card` 同类缺陷在其 PR 中已修)\n- #4616 / `examples/schema-catalog/test/catalog-gallery-render.test.tsx`(catalog 侧已有\"不许出现 OBJUI-001\"的棘轮;教学面 prose 没有等价物 —— 这正是同一结构性缺口的第三次复发)\n"
+}

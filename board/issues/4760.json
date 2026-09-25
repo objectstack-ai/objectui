@@ -1,0 +1,36 @@
+{
+  "number": 4760,
+  "kind": "pull_request",
+  "title": "fix(core,components,plugin-form): create 表单的 `requiredWhen` 让位于 producer-owned runtime default (#4085)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:06:15Z",
+  "updated_at": "2026-08-16T04:32:17Z",
+  "closed_at": "2026-08-16T04:32:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T04:32:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4760",
+  "body": "Fixes #4085\n\n## 问题\n\n#4069 裁定:CREATE 模式下,字段的 `defaultValue` 若是服务端按 insert 解析的运行时指令(`DEFAULT_VALUE_TOKENS` 成员 `NOW()` / `current_user`,或 CEL Expression 信封 `{ dialect, source }`),该字段是 **producer-owned** —— 控件按设计留空,提交时整个键被省略,因为 `ObjectQL.applyFieldDefaults` 只对「缺席或 null」的字段解析声明。PR #4084 把这条实现在了**静态** `required` 标志上,落在 `@object-ui/plugin-form`。\n\n**条件写法没被覆盖。** `requiredWhen` 是在下游一层、由表单渲染器针对**实时记录**解析的(`resolveFieldRuleState`),所以它原封不动地把要求又加了回来:谓词在 create 表单上为 TRUE 时,控件仍然按设计是空的、提交被拒、而用户没有任何可以填进去的东西 —— 正是 #4069 描述的死锁,只是换了一种拼写。\n\n## 裁定与实现\n\n按 2026-08-11 的委任裁定(issue 评论 5249384519):**CREATE 模式下两种拼写在 producer-owned 字段上行为完全一致。** `requiredWhen` 主张的是「在该状态下、值在存储时必须存在」,而 `NOW()` / `current_user` 无论处于哪个状态都会在 insert 时解析,所以 producer 的保证覆盖条件主张的方式,和它覆盖无条件主张的方式是同一个论证。反向读法(「本状态下必须由**用户**提供,压过我自己声明的默认值」)是一种奇异意图 —— 作者真要那样表达有更自然的拼写:不声明默认值。\n\n抑制落在**两层共读的那一个求值器**里,即 `resolveFieldRuleState`:自 #4201 起,提交期的 required 检查与画星号的显示层读的是同一份 live verdict,所以任何加在其上的第二道门都会造成「星号消失、提交照拒」的两层分歧 —— 那正是 #4201 消除掉的形态。具体地,`resolveFieldRuleState` 的 statics 参数新增 `serverOwnedValue`;为 true 时,静态标志与 `requiredWhen` 谓词都不能让该字段 required。\n\n「这个值是不是 producer 的」这个分类器**下沉到了 `@object-ui/core`**(`isRuntimeDefault` / `isServerOwnedValue`,由 `@object-ui/plugin-form` 重新导出),因为 `@object-ui/components` 不能依赖 `plugin-` 前缀的包 —— 只能移下去,不能抄一份。现在表单渲染器、向导的跨步 gate、以及 create 表单的字段构建器读的是**同一份实现**。\n\n**create/edit 这个事实由调用方陈述,绝不在求值器内部推断。** 表单渲染器从 `FormSchema.previousValues` 读它(它的缺席就是仓内已声明的「这是一次 insert」,#3484);向导的步骤 gate 读自己的 `mode` —— 那个 gate 在**两种模式下都**不传 `previous`,若从该参数推断 create,就会把一个 edit 向导本该 enforce 的 `requiredWhen` 悄悄丢掉。\n\n## 边界(都已钉住)\n\n- **EDIT 模式不动。** 默认值不会重新施加到已有记录上,token 在 insert 时已解析完毕,此刻清空该列是一次真实的删除,`requiredWhen` 照常 enforce。\n- **只针对运行时默认值。** 静态字面量默认值**会**被播种进控件(#4068),用户清空它就是移除了一个确实存在过的值 —— 规则照旧。\n- **没有声明默认值的字段完全不受影响** —— 这是证明抑制是定向的、而不是「create 表单不做校验」的对照。\n- **抑制的是规则,不是字段。** 用户真填了值就照常提交,压过声明的默认值。\n- 显示与校验同源:被抑制的字段同时失去必填星号与 `aria-required`,不会出现「无星号却拒交」。\n\n## 测试\n\n全绿(仓根跑,`packages/components packages/plugin-form packages/core`):`Test Files 266 passed (266)` / `Tests 3472 passed (3472)`。仓根 `turbo run type-check`:`Tasks: 81 successful, 81 total`。\n\n新增/扩展的钉:\n\n- `packages/core/src/validation/__tests__/server-owned-value.test.ts`(新增):分类器与 `isServerOwnedValue`,运行时形状取自 spec 自己的 `DEFAULT_VALUE_TOKENS`,不手抄清单 —— 家族里明天新增一个 token 也自动被钉住。\n- `packages/core/src/evaluator/__tests__/fieldRules.test.ts`:求值器层的抑制 + 边界(不影响 visible/readonly;非 producer-owned 时谓词照常裁决;不传该成员时行为与改动前逐字相同)。\n- `packages/components/src/renderers/form/__tests__/form-required-when-server-owned.test.tsx`(新增):渲染器消费处,create / edit / 静态字面量默认值 / 无默认值 / 谓词 FALSE / 用户已填 六个方向。\n- `packages/plugin-form/src/createDefaults.test.tsx`:issue「Reproduce」段点名的现成 fixture —— 把 #4069 fixture 里字段的 `required: true` 换成解析为 TRUE 的 `requiredWhen`,覆盖四个 sectioned 容器 + `ObjectForm`,含 edit 模式边界钉。\n\n## 反向验证(先书面预判方向,再跑变异)\n\n做了两次变异,都只跑上述三个钉文件(118 tests),结果与预判一致。\n\n**变异 A —— 删掉求值器里的 `serverOwnedValue` limb**(threading 保留)。预判:#4085 的钉转红;边界钉**按构造不可能转红**(它们断言的是 enforce,而变异恰好把 enforce 恢复到各处);#4069 的**静态集成钉仍然绿**,因为 plugin-form 的 `isRequiredInForm` 依然在 producer 侧先把静态标志压掉了。实测 `Tests 20 failed | 98 passed`,20 条失败**全部**带 `#4085` 标题,无一条 `#4069`;edit 模式钉、无默认值钉、静态字面量钉全绿。\n\n预判里有**一处偏差,如实记录**:我预判 plugin-form 那条「用户 DOES type 一个值」会保持绿(填了值即满足 required),实测转红。原因是该 fixture 把整个运行时形状家族渲染在同一个表单里 —— 用户只填了其中一个,**其余** `cw_*` 字段在变异下仍然条件必填,于是提交被别的字段拦下,而不是被填了值的那个。同一断言在 components 层(单字段)确实**保持了绿**,正好印证这个解释。\n\n**变异 B —— 保留求值器 limb,只回退 `form.tsx` 里的三处 threading**。预判:components + plugin-form 转红,core 单测**保持全绿**(它们直接调求值器)。实测 `Test Files 2 failed | 1 passed`、`Tests 16 failed | 102 passed`,绿的那个文件正是 `fieldRules.test.ts`。这一次证明 threading 是**承重的**,而不是被 core 单测掩盖的死代码 —— 只有 A 一次变异是证不到这点的。\n\n两次变异都先 commit 了修复再做,还原用 `git checkout` 指定本分支加路径的形式从该 commit 取回(不用 stash —— 共享栈),工作树事后已核对干净。\n\n## 顺带发现(未在本 PR 修)\n\n已另立 #4755:`DrawerForm` 的 no-sections 字段构建器漏掉了 `visibleWhen` / `readonlyWhen` / `requiredWhen` / `group`,而 `ModalForm` 逐行相同的构建器带上了它们(`SplitForm` / `TabbedForm` 无此路径,始终走 `sectionFields.ts`,不受影响)。与本卡无关,未扩围。\n"
+}

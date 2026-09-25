@@ -1,0 +1,35 @@
+{
+  "number": 4823,
+  "kind": "issue",
+  "title": "finding: 教学面 prose(`content/docs/**.mdx` 代码块)没有 catalog 侧 #4616 那样的「不许出现 OBJUI-001」棘轮,同一缺陷已复发三次",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T10:19:47Z",
+  "updated_at": "2026-08-17T02:42:20Z",
+  "closed_at": "2026-08-17T02:42:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4823",
+  "body": "观察类 finding —— 记录一个**结构性缺口**,不是今天有用户正在踩的具体缺陷(具体实例每次都被单独立项修掉了)。发现于 #4796 的实施。\n\n## 缺口\n\ncatalog 侧已经有棘轮:`examples/schema-catalog/test/catalog-gallery-render.test.tsx` 会渲染每一条 catalog entry 并断言不出现 OBJUI-001 红框(#4616 建立)。\n\n**教学面 prose 没有等价物。** `content/docs/**.mdx` 里那些 ` ```plaintext ` 代码块中的 schema 片段不被任何东西渲染、不被任何东西解析、也不被任何东西对着 `ComponentRegistry` 校验。一个片段可以写任意 `type` 字符串,读者照抄得到 OBJUI-001,而 CI 从头到尾全绿。\n\n## 同一缺陷的三次复发\n\n| # | 位置 | 教了什么 | 真实注册名 |\n|---|---|---|---|\n| #4786 | `content/docs/**` | `stats-card` | 已在其 PR 中修掉 |\n| #4796 | `content/docs/fields/grid.mdx` | `plugin:grid` | `object-grid` |\n| #4796 | `content/docs/fields/location.mdx` | `plugin:map` | `object-map` |\n\n三次都是同一个形状:教学面给了一个注册表里**不存在**的 `type`。三次都靠人工探针发现,没有一次是门禁抓到的。\n\n顺带一提,#4796 还暴露了缺口的第二个维度:即使 `type` 名对了,片段里的**其余键**也没人核对是否真的被对应 renderer 读。`location.mdx` 那段的 `bind` / `markers` 就是零读点的死键(`ObjectMap` 根本没有 `useDataScope` 调用,markers 是从抓到的记录派生的),`grid.mdx` 那段的节点级 `sortable` / `filterable` 同理。\n\n## 为什么标 `finding` 而不是 `pm:queue`\n\n这是一个**缺失的门禁**,不是一个待修的 bug —— 已知的三个实例都已经修了或正在修。要不要建这道门、建成什么形状(在 mdx 里给可执行片段加标记?把片段抽进 catalog?还是只做一个「`type:` 字面量必须在注册表里」的静态扫描?),是个需要维护者定方向的设计决策,不适合我这边替它选。交给分诊轮定级。\n\n## 参考\n\n- #4616 / `examples/schema-catalog/test/catalog-gallery-render.test.tsx`(catalog 侧的既有棘轮)\n- #4786(第一次复发,`stats-card`)\n- #4796 / PR #4822(第二、三次复发,本 finding 的发现来源)\n"
+}

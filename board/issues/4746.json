@@ -1,0 +1,34 @@
+{
+  "number": 4746,
+  "kind": "issue",
+  "title": "Delete the dead `configPanel.*` (~16 keys) and `renderer.*` (~13 keys) i18n namespaces across the ten packs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T23:18:45Z",
+  "updated_at": "2026-08-15T23:46:34Z",
+  "closed_at": "2026-08-15T23:46:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4746",
+  "body": "Part of #4730 — the second mechanically-safe carve-out of its CONFIRMED tier, following #4742 (`workflow.*` + `publicForm.demo.*`, landed as PR #4743). The umbrella stays open for `console.objectView.*` (maintainer decision pending) and the partially-live namespaces (`search`, `table`, `report`, `form`, `appDesigner` — key-level trims, not whole-namespace).\n\n## PM spot-check (2026-08-15, `origin/main` post-PR #4743)\n\nBoth namespaces pass the #4658 / PR #4731 evidence standard at the whole-namespace level:\n\n1. **`configPanel.*`** (16 keys: `save`/`discard`/`close`/`layout`/`columns`/`gap`/`rowHeight`/`data`/`refreshInterval`/`appearance`/`title`/`showDescription`/`theme`/`configuration`/`general`/`advanced`) — a dashboard-widget config-panel vocabulary. Zero `t()` call sites repo-wide; **no component named `*ConfigPanel*` exists anywhere in `packages/*/src`** — the panel this vocabulary was written for either never landed or was replaced.\n2. **`renderer.*`** (13 keys: `noPageSchema`/`noFormSchema`/`noDashboardSchema`/`pageRendering`/`dashboardRendering`/`formRenderingMode`/`formRenderingFor`/`createRecord`/`editRecord`/`page`/`dashboard`/`save`/`cancel`) — SchemaRenderer placeholder/status vocabulary. Zero `t()` call sites, **and the English strings have no hardcoded twin anywhere either** (`grep \"No page schema provided\"` etc. → zero hits outside packs) — unlike `workflow.*`, the messages themselves are gone from the product, which is the stronger form of dead.\n\nUmbrella measurement agrees: `configPanel` 16 CONFIRMED / 0 NEEDS-REVIEW, `renderer` 13 CONFIRMED / 0 NEEDS-REVIEW.\n\n## Deliverables\n\n- Re-run `node scripts/check-i18n-dead-keys.mjs` at your tree first (numbers may have drifted); verify every key in both namespaces is CONFIRMED-tier; if any key has gained a reader, exclude it and say so.\n- Delete both namespaces from all ten packs; post-deletion the dead-keys report lists neither; `check-i18n-call-site-keys` stays green; `check-i18n-en-drift` abstains.\n- Check the i18n test fixtures (`ellipsis-glyph-3878`, `untranslated-identity-4376`, and any other key-pinning fixture) for mentions — handle per the #4742 precedent: a fixture pinning those specific keys gets its rows deleted with reasoning; the ellipsis census note explains count drops.\n- Check both i18n baseline JSONs (`i18n-en-drift-baseline.json`, `i18n-call-site-key-baseline.json`) name no key in either namespace.\n- Changeset: `@object-ui/i18n` patch stating counts and that no reader exists.\n\n## Out of scope\n\n`console.objectView.*`, the partially-live namespaces (`search` has 7 live call sites in `SearchResultsPage.tsx`; `table`/`report`/`form` have NEEDS-REVIEW entries), red-ifying the script.\n\n## PR discipline\n\nPR body line 1: `Part of #4730` — no closing keyword; line 2: `Fixes #<this issue>` as the sole closing keyword."
+}

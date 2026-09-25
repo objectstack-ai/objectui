@@ -1,0 +1,32 @@
+{
+  "number": 4206,
+  "kind": "issue",
+  "title": "[finding] The interpolation-parity gate cannot see an unfilled `{{count}}` hole: `count` is reserved in BOTH directions, not just the one that needs it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T23:29:18Z",
+  "updated_at": "2026-08-15T16:34:04Z",
+  "closed_at": "2026-08-15T16:33:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4206",
+  "body": "Measured while fixing objectui#4157 (PR #4205) — **not in that PR's scope**, since `scripts/check-i18n-call-site-keys.mjs` belongs to the objectui#3845 gate family. Observation-class: once #4205 lands, nothing a user hits today depends on this (measured below).\n\n## The blind spot\n\n`check:i18n-call-site-keys` runs an interpolation-parity check that is explicitly bidirectional — `inert` (an option passed that the `en` value has no hole for) and `unfilled` (a hole the call site passes nothing for). That is exactly the shape of #4157: `t('gantt.conflict.body')` passed no options while the `en` value read `…Auto-reschedule {{count}} affected task(s)?`.\n\nThe gate was green on it. Mechanism, `scripts/check-i18n-call-site-keys.mjs:325`:\n\n```js\nexport const RESERVED_OPTION_NAMES = new Set([\n  // plural / context selection — and `count` is also its own `{{count}}` hole\n  'count',\n```\n\nand at the comparison (`:1101`):\n\n```js\nconst holes = new Set(\n  [...holesOf(enValue)].filter((hole) => !RESERVED_OPTION_NAMES.has(hole) && !downstream.has(hole)),\n);\nconst inert = [...options.names].filter((option) => !holes.has(option)).sort();\nconst unfilled = [...holes].filter((hole) => !options.names.has(hole)).sort();\n```\n\nThe reservation is applied to `holes` **before** both directions are computed, so a `{{count}}` hole is removed from the comparison entirely and `unfilled` can never contain `count`.\n\nThe reservation is correct for the direction it was written for. `count` is i18next's plural selector, so passing it is legitimate even when the resolved `en` form shows no visible `{{count}}` — suppressing that `inert` report is right. What is over-broad is that the same filter also suppresses the opposite direction, where the `en` value **does** carry the hole and the call site fills nothing.\n\n## Measurement\n\nRe-ran the gate's own `analyze(root)` with `count` deleted from `RESERVED_OPTION_NAMES`, against two trees:\n\n| tree | with `count` reserved | without | newly revealed |\n|---|---|---|---|\n| `origin/main` @ `b1e42d09b` | 0 | 1 | **1** |\n| #4205's fix applied | 0 | 0 | 0 |\n\nThe one finding revealed at `main` is #4157 itself, exactly:\n\n```\npackages/plugin-gantt/src/GanttView.tsx:4984  gantt.conflict.body\n    unfilled=[count] inert=[]\n    en: \"This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task(s)?\"\n```\n\nSo the narrower reservation would have caught #4157 at authoring time, and across all 2277 judged call sites it produces **zero** other reports — no false-positive cost to absorb, and no second live defect of this class hiding behind the reservation today. That is what makes this observation-class rather than a queued defect: the blind spot is real and the class recurs, but after #4205 there is nothing currently unfilled.\n\n## Option\n\nApply the reservation per direction rather than to the shared `holes` set: keep `count` filtered out when computing `inert`, and leave it in when computing `unfilled`. Plural families are already unjudged upstream (`enValue === undefined` — \"including the plural families, where there is no one form to compare against\"), so the case the reservation exists to protect does not reach this comparison in the first place.\n\nWorth noting what this would and would not have bought. It catches the *general* class — an `en` value with a hole and a call site that fills nothing. It does not, on its own, catch the narrower thing #4157 actually was: a call site that fills the hole **downstream**, with a literal `.replace()` in a different brace syntax than the pack uses. A `t(key).replace('{count}', n)` chain still reads to this gate as a call site passing no options; it is only visible because the pack spells the hole `{{count}}` while the replace targets `{count}`. Whether the gate should also learn to read the `.replace()` chain is a larger question and adjacent to objectui#4135's `EXTERNALLY_INTERPOLATED_HOLES` registry, which is the same family from the other side (a hole i18next must deliberately NOT fill).\n\nNo recommendation on timing attached — the change is inside the #3845 gate's own contract, so it belongs to whoever owns that gate's next pass.\n\nRelated: objectui#3845 (the gate and its bidirectional parity check), objectui#4135 (same family — downstream-filled holes and their two spellings), objectui#4157 / #4205 (the defect that measured this).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017Qqyix2QcnpUC9XeYVDzx3)_\n"
+}

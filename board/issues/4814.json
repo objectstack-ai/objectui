@@ -1,0 +1,32 @@
+{
+  "number": 4814,
+  "kind": "issue",
+  "title": "`owner` widget 拿不到表单下发的 dataSource,而 plugin-grid 认为它需要 —— 且 `owner` 根本不在 spec 的 FieldType 里(enforce-or-remove 待判)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:51:25Z",
+  "updated_at": "2026-08-17T05:38:48Z",
+  "closed_at": "2026-08-17T05:38:16Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4814",
+  "body": "发现于 #4790 的实施(表单 data-source 允许表收敛)。测量副产物,**不在该卡范围内**,单独立此单。\n\n## 事实(实读 origin/main @ f2dc8fa96)\n\n1. `packages/fields/src/field-type-alias.ts:105` 把字段类型 `owner` 映射到 `field:owner`;`packages/fields/src/index.tsx:2435` 把 `field:owner` 注册到 **`UserField`**(与 `user` 同一个 widget);`index.tsx:2190` 另有 `registerFieldRenderer('owner', UserCellRenderer)` 管单元格展示。即 `owner` 在本仓是一个**活的 widget 键**。\n\n2. 但 `owner` **不在 `@objectstack/spec` 的 `FieldType` 枚举里**(17.0.0-rc.6,`dist/percent-scale-DQMCB4dC.d.ts` 的 `declare const FieldType`:… `lookup` / `master_detail` / `tree` / `user` / `image` … 全表 48 个成员,无 `owner`)。所以**没有任何对象 schema 能声明 `type: 'owner'`** —— 它只能经 `widget: 'field:owner'` 这条手写 SDUI 路径到达。\n\n3. 两个消费面对它的判断相反:\n   - `packages/plugin-grid/src/components/bulkParamToField.ts:43` `USER_WIDGET_TYPES = new Set(['user', 'owner'])`,并入 `DATA_SOURCE_WIDGET_TYPES`,批量动作对话框**会**给 `owner` 线上 `dataSource`(`BulkActionDialog.tsx:600`);\n   - 对象表单的 data-source 规则(#4790 后是 `needsDataSourceWiring`,此前是 `DATA_SOURCE_FIELD_TYPES`)**不含** `owner` —— 实测 probe(真渲染 `field:owner`,跑完即删)读数:`{hasDataSource:false, hasDependentValues:false, hasDependsOnLabels:false}`,与 `field:user` 修复前完全同形。\n\n4. 同一 probe 还读到 `field:grid` 三项皆 false。而 `packages/fields/src/widgets/types.ts:166` 的 `dataSource` TSDoc 写的是「DataSource for widgets that query records (lookup / user / object-ref / recipient-picker / **grid**). Injected by the form renderer for the field types that need it」—— `grid` 从来不在任何 data-source 表里,`GridField.tsx` 也 grep 不到 `dataSource`。这句契约文档的 `grid` 是零消费者的声明。(`user` 那半已由 #4790 / PR 补齐。)\n\n## 影响\n\n- `owner`:手写 `widget: 'field:owner'` 的字段落到 `UserField` → `LookupField`。`dataSource` / `dependentValues` 各有 `SchemaRendererContext` 兜底,所以有 provider 时能瘸着跑;`dependsOnLabels` **没有任何兜底**,于是带 `depends_on` 的 owner 选择器把裸 API 名插进「先选 … 」提示句 —— objectstack#5407 给 lookup 关掉、这里仍开着的同一个洞。\n- `grid`:纯文档失真,今天没有用户碰得到。\n\n## 需要裁决的是「接线还是退役」,不是补一个 string\n\n`owner` 既然不是 spec 声明得出来的类型,把它加进表单的 `DATA_SOURCE_ONLY_WIDGET_TYPES` 等于**新造一条 declared-but-unexercised 条目** —— 正是 ADR-0049 enforce-or-remove 要消灭的东西,也正是 #4790 这一族在关的失效模式。所以 #4790 的实施**故意没有顺手加**,留给分诊:\n\n- **A. 退役 `owner` 别名**:删 `field-type-alias.ts` 的 `owner` 映射、`index.tsx` 的 `field:owner` 注册与 plugin-grid 的 `USER_WIDGET_TYPES` 成员,cell renderer 另议。前提是确认没有产品在用 `widget: 'field:owner'`。\n- **B. 承认它是一个 widget-hint-only 名**(与 `object-ref` / `filter-condition` / `recipient-picker`同类),补进表单规则并在 `paramValueShape.ts` 之类的地方登记 `widgetHintOnly: true`,让「声明即强制」。\n- `grid` 那句 TSDoc 无论 A/B 都应改掉或补消费者。\n\n## 参考\n\n- #4790 / 本卡 PR(表单 data-source 规则改为派生自 core 的 `EXPANDABLE_FIELD_TYPES`)\n- `packages/fields/src/field-type-alias.ts:104-105`、`packages/fields/src/index.tsx:2435`、`packages/plugin-grid/src/components/bulkParamToField.ts:43-46`、`packages/fields/src/widgets/types.ts:166`\n"
+}

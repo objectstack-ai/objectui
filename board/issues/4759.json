@@ -1,0 +1,34 @@
+{
+  "number": 4759,
+  "kind": "pull_request",
+  "title": "refactor(layout)!: retire the PageHeader `description` legacy alias (#3789)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "examples",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T03:50:32Z",
+  "updated_at": "2026-08-16T04:32:17Z",
+  "closed_at": "2026-08-16T04:32:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T04:32:16Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4759",
+  "body": "Fixes #3789\n\nBase: `2e82ab2ae73c5398faf01a88c906f31bc946ea4c` (`origin/main`)\n\n## 阶段 1:重新测量 —— 七条路径全部通过\n\n本单是测量门控型任务。2026-08-08 的旧测量**未复用**,全部重跑。\n\n**实装 spec 版本核验(版本号 + CHANGELOG + 实测,三重确认)**\n\n- `node_modules/@objectstack/spec` 解析到 **17.0.0-rc.6**(`packages/layout/package.json` 声明 `^17.0.0-rc.6`)。\n- 该构建的 CHANGELOG 同时含两半修复:`f764691 fix(spec): a page-component conversion reaches components nested inside a container, not only region- and slot-level ones (#6775)`(即 os PR #7034 的容器嵌套下钻),以及 `page-tabs-type-to-tab-style` 条目里 slots 那一半的记述(#6776)。\n- 实测复核:`applyConversionsToStoredItem('pages', row)` 之后逐条断言 `properties.description` 已改写为 `properties.subtitle`,且每个形状先过 `PageSchema.safeParse`(spec-valid 是关键前提 —— 正是「合法却被静默跳过」才让旧缺口无声)。\n\n**七条路径重测表(以 objectstack#6775 正文 + PR #7034 表为清单)**\n\n| # | 形状 | spec-valid | 2026-08-08 @ rc.5 | 本次 @ rc.6 |\n|---|---|---|---|---|\n| 1 | `regions[].components[]`(基线) | 是 | 改写 | **改写** |\n| 2 | `slots.header`(`regions: []` 的 slotted 记录页) | 是 | 不改写 | **改写** |\n| 3 | `page:card` → `properties.children[]` | 是 | 不改写 | **改写** |\n| 4 | `page:tabs` → `properties.items[].children[]` | 是 | 不改写 | **改写** |\n| 5 | `page:card` → `properties.body[]` | 是 | 不改写 | **改写** |\n| 6 | `page:card` → `properties.footer[]` | 是 | 不改写 | **改写** |\n| 7 | `slots.header` → 容器嵌套两层 `children[]` | 是 | 不改写 | **改写** |\n\n七条全过,门开 —— #3226「删了会静默丢副标题」的裁定前提到此消失,阶段 2 执行。\n\n顺带核对的两条负向事实,同样在钉里:改写**不**触碰已有 canonical `subtitle` 的节点(shadowed 的 `description` 原样留着让作者自己收敛,objectstack#4923),也**不**触碰 `element:text_input` 这类自己真有 `description` 声明的组件(type gate 挡住了容器下钻的误伤面)。\n\n## 阶段 2:退役\n\n- `packages/layout/src/PageHeader.tsx` —— 删 `description` prop 与 `subtitle ?? description` 回退(旧锚 `:36` / `:143` 已漂移到 `:36` / `:143` 附近,按实读定位)。\n- `packages/layout/src/index.ts` —— 注释里的退役条件改成已结算状态,并从「NOT declared」那一行摘掉 `description`(那一行的理由是「renderer reads it」,现在不再成立)。\n- `packages/layout/README.md` —— `PageHeader` 示例由 `description=` 改为 `subtitle=`,补一句去向。\n- `content/docs/layout/page-header.mdx` —— legacy 段改写为「已退役 + 上游 conversion 兜底 + 测量经过」。同页 `Usage with Page Component` 那段特意加固:那里的 `description` 是 **`page` 节点自己的活键**,与本次退役无关,别顺手改名。\n- `content/docs/guide/layout.md` —— Schema API 的 legacy 行删除,下方 blockquote 改写。\n- 退役 pin —— `page-header-authorable-keys.test.tsx` 末两测试按其 SEQUENCING 注释同 change 删除,换成反向断言(单独给 `description` 不渲染第二行 / 两者并存只渲染 `subtitle`),并用 `@ts-expect-error` 把「它已不是本组件的 prop」钉在类型层。\n\n**七路径测量转常驻钉** —— 新增 `packages/layout/src/__tests__/page-header-subtitle-conversion-coverage.test.ts`。\n\n这不是重复 spec 侧的 parity 钉。上游 `packages/spec/src/conversions/page-component-walk.test.ts` 与 `packages/lint` 的 cross-walker parity 钉守的是**那个仓里**的 reachable set;本钉守的是**objectui 实际解析到的 spec 构建**在这七个位置上确实改写 —— 依赖被回钉到 rc.6 以下、或走查面日后再收窄,都在这里先红,而不是变成消费者应用里悄悄不再渲染的第二行。注释里写明了读法:红了就修上游走查面或上报 spec 侧回归,**不许**回加 `?? description`(那正是 AGENTS.md #0.1 与 #3226 都拒绝的消费端容忍)。\n\n## 反向验证 —— 方向先预判,再测\n\n**预判(改动前写下)**:把 `?? description` 回退连同 prop 一起恢复,则 ①新钉「单独 `description` 不渲染第二行」**转红**;②它的姊妹「两者并存只渲染 `subtitle`」**保持绿** —— 因为旧链本来就是 `subtitle` 优先,这一条在回退存在时同样成立,两条新钉里只有一条会翻;③两处 `@ts-expect-error` 变成 unused,`tsc -p tsconfig.test.json` **转红**;④七路径覆盖钉**不受影响** —— 它钉的是上游前提,不是渲染器。\n\n**实测(变异未提交)**:\n\n```\n× ... > 渲染 no secondary line for a lone `description`   ← 转红,如预判\n✓ ... > 渲染 `subtitle` and only `subtitle` when both are present   ← 仍绿,如预判\n Tests  1 failed | 22 passed (23)\n\nsrc/__tests__/page-header-authorable-keys.test.tsx(191,7): error TS2578: Unused '@ts-expect-error' directive.\nsrc/__tests__/page-header-authorable-keys.test.tsx(200,7): error TS2578: Unused '@ts-expect-error' directive.\n```\n\n四条预判全部命中,含「只有一条翻转」这条非平凡的方向判断。恢复后全绿。\n\n## 消费半径清扫\n\n按规则的消费半径而非改动包清扫:`git grep` 全仓找 `page-header` / `page:header` 节点上写 `description` 的 fixture 与授权点 —— `apps/console/src/preview-samples.ts`、`examples/schema-catalog/**`、`apps/site/**` 均无命中(命中的 `description` 全是别的节点自己的活键:`page`、`flow` 变量、`alert`、`card` 等)。唯一需要动的是 `examples/schema-catalog/test/pageheader-with-actions.test.tsx` 里一句**注释**,它写着「`description` 是 `PageHeader.tsx:143` 仍在 READ 的 legacy alias」—— 断言本身(该键仍应画 `unknown-prop`)退役后照旧成立且更强,只把已成假的注释更正。\n\n## 验证\n\n- 构建先行:`pnpm --workspace-concurrency=2 --filter '@object-ui/layout^...' build` —— 通过。\n- `pnpm exec vitest run packages/layout --maxWorkers=2` —— **10 files / 131 tests passed**(新钉 9 例逐条列名通过)。\n- `pnpm exec vitest run packages/layout examples/schema-catalog --maxWorkers=2` —— **18 files / 1707 passed**。\n- `pnpm exec vitest run apps/console --maxWorkers=2` —— **50 files / 553 passed**。\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` —— **81 successful, 81 total**。\n- `pnpm --filter '@object-ui/layout' lint` —— **0 errors**(46 warnings 全为既存 `no-unused-vars`)。\n- 按改动路径 re-derive 的 gate,逐条:`check-control-bytes`(4275 文件 OK)、`check-changeset-fixed`、`check-changeset-no-major`、`check-changeset-presence`(认到本 PR 的 1 个 changeset)、`check-spec-symbol-derivation`、`check-doc-links`(13 个 scan root 全通)、`check-lint-coverage`(46/46)、`check-type-check-coverage`(45/46 + 测试 41/41)、`check-phantom-dependencies`、`check-skills-paths` —— 全 PASS。\n- 改动文件超出门禁扫描面的自查:`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 九个文件零命中。\n\n## changeset 定档\n\n`.changeset/page-header-description-alias-retired.md`:`@object-ui/layout: minor`,正文写明破坏面与 FROM → TO。\n\n依仓内退役先例 PR #3793 与 `scripts/check-changeset-no-major.mjs` 的成文理由:39 个可发布包同处一个 `fixed` 组,`major` 会把整族抬到 18.0.0 去对一个仍在 17 的 `@objectstack`,打断两仓「同 major ⇒ 兼容」的钉(AGENTS.md §版本号策略)。objectui 自己的破坏性变更一律 `minor` + 正文写清破坏面 —— 无两难,故未上报;也**未**静默降档:破坏面在 changeset 正文、commit message 与本正文里各写了一遍。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

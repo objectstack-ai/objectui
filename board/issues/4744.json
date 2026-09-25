@@ -1,0 +1,34 @@
+{
+  "number": 4744,
+  "kind": "issue",
+  "title": "`ListView.convertFilterGroupToAST` drops a fresh `Is null` / `Is not null` row as incomplete, so the list filter silently applies nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T22:45:34Z",
+  "updated_at": "2026-08-15T23:57:28Z",
+  "closed_at": "2026-08-15T23:57:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4744",
+  "body": "Measured on `claude/issue-4736-list-exists-operator-gap` (branched from `origin/main` at `69251bfb5`). Found while implementing #4736; a different axis from that card and not addressed by it.\n\n## What happens\n\n`convertFilterGroupToAST` (`packages/plugin-list/src/ListView.tsx`) drops any condition whose value is `null` / `''` / `[]` as an unfinished row, and exempts exactly two operators:\n\n```\n.filter(c => {\n  // isEmpty/isNotEmpty carry no value input — always keep them.\n  if (c.operator === 'isEmpty' || c.operator === 'isNotEmpty') return true;\n  const v = c.value;\n  return !(v == null || v === '' || (Array.isArray(v) && v.length === 0));\n})\n```\n\nBut the FilterBuilder renders no value input for **six** operators, not two — `needsValueInput` in `packages/components/src/custom/filter-builder.tsx` excludes `isEmpty`, `isNotEmpty`, `isNull`, `isNotNull`, `exists`, `notExists`. So for the four it does not exempt, \"no value\" is the row's **finished** state and it is treated as unfinished.\n\nMeasured, one condition per operator with `value: ''`:\n\n```\nFRESH-ROW isEmpty    -> [\"name\",\"=\",null]\nFRESH-ROW isNotEmpty -> [\"name\",\"!=\",null]\nFRESH-ROW isNull     -> []\nFRESH-ROW isNotNull  -> []\nFRESH-ROW exists     -> []\nFRESH-ROW notExists  -> []\n```\n\n`[]` is \"no filter\". Nothing is sent, nothing errors, the grid returns every row.\n\n## Why it is reachable in the normal flow\n\n`addCondition` inserts `{ field: firstColumn, operator: 'equals', value: '' }`, and the operator dropdown's `onValueChange` updates `operator` alone — `value` is preserved, so on a fresh row it stays `''`. Picking **Is null** as the first thing you do therefore always produces the dropped shape. The only way to reach a non-empty value is to type one under a value-taking operator and then switch, which is the uncommon path.\n\n`isNull` / `isNotNull` are fully expressible on this dialect — `mapOperator` maps them to `isnull` / `isnotnull`, both members of `VALID_AST_OPERATORS`. The bridge is fine; the row never reaches it.\n\n## Why nothing catches it\n\nThe saved-view side already solved this and the live-grid side never got the same treatment:\n\n- `packages/app-shell/src/views/viewFilterFold.ts` keeps `VALUELESS_FILTER_OPERATORS`, which lists all six, and `viewFilterFold.emptyValue.test.ts` pins that set against the builder's own `needsValueInput` list by reading the source, so the two cannot drift.\n- `convertFilterGroupToAST` has the same concept written inline as a two-operator literal, with no parity assertion against `needsValueInput` at all.\n\nThe two paths are documented as agreeing — the fold's header says \"what is not applied is not persisted\" and cites this very function — and on these four operators they do not.\n\n## Scope note\n\n`exists` / `notExists` appear in the measurement above but stop being reachable from this toolbar once #4736 lands (they move behind `OPT_IN_OPERATORS`). The live surface of this bug after that is `isNull` / `isNotNull`, which stay offered because both dialects genuinely express them. #4736 is a separate concern: it is about operators the dialect has no word for, not about value-completeness.\n\n## Suggested shape (not a decision)\n\nGive the live-grid path the same shared notion of a value-less operator the fold has, and pin it against `needsValueInput` the same way — one set, two consumers, one assertion. Where that set should live is the open question: `VALUELESS_FILTER_OPERATORS` is currently exported from `app-shell`, which depends on `plugin-list`, so `plugin-list` cannot import it as-is.\n\nFiled unassigned for triage.\n"
+}

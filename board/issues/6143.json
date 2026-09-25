@@ -2,8 +2,8 @@
   "number": 6143,
   "kind": "issue",
   "title": "finding(docs): component reference pages declare their own `interface`, so the doc-snippet gate can never see the props they invent — 4 measured on the 5 pages #6122 PR 2 touched alone",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "not_planned",
   "draft": null,
   "author": {
     "login": "yinlianghui-tw",
@@ -12,20 +12,21 @@
   },
   "labels": [
     "documentation",
-    "domain:devx",
-    "pm:blocked"
+    "domain:devx"
   ],
-  "assignees": [
-    "yinlianghui-tw"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-08-24T20:52:49Z",
-  "updated_at": "2026-08-30T15:02:05Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T02:11:23Z",
+  "closed_at": "2026-09-25T02:11:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/6143",
   "body": "Measured by #6122 PR 2 (PR #6142) on `origin/main` `bfdb9f906`, against a freshly built `packages/types/dist/*.d.ts`. Filed unassigned, not fixed — the dispatch for that PR ruled *\"anything else is a finding — report it, do not reconcile it.\"*\n\n## The structural hole, which is the point\n\nThe `## Schema` block on a `content/docs/components/**` reference page does not **import** the type it describes. It **re-declares** it:\n\n```ts\ninterface RadioGroupSchema {\n  type: 'radio-group';\n  ...\n}\n```\n\nA self-declared interface compiles no matter what it says. So `check-doc-snippet-types` — even once #5867 re-fences these blocks as `ts` — will judge them **green** while every key inside is invented. The gate's own header already names this failure mode for a different case:\n\n> A gate that checks the one thing that is right converts \"unverified\" into a green, which is worse than no gate.\n\n`ActionConfig` (#6122) was only ever visible because it was an *undefined name*. A key that is merely **wrong** produces no diagnostic at all. #6122 is therefore not the disease; it is the one symptom that happened to be detectable.\n\n## What was measured\n\nFive pages were swept — the exact five PR #6142 corrected, chosen only because they were already open. Documented props were compared against the shipped interface body plus everything inherited from `BaseSchema`, so `className`, `disabled` and friends are correctly counted as real. Four divergences remain:\n\n| page | documented | shipped type says | read by a renderer? |\n| --- | --- | --- | --- |\n| `form/radio-group.mdx` | `direction?: 'vertical' \\| 'horizontal'` | no `direction`; the slot is **`orientation?: 'horizontal' \\| 'vertical'`** — `form.d.ts:377` | **no** — neither name appears in `packages/components/src/renderers/form/radio-group.tsx` |\n| `form/combobox.mdx` | `searchPlaceholder?: string`, `emptyText?: string` | **neither is declared** on `ComboboxSchema` — `form.d.ts:1283` | **no** — neither appears in `renderers/form/combobox.tsx` |\n| `form/command.mdx` | `CommandItem.shortcut?: string[]` | `CommandItem` declares **only** `value`, `label`, `icon` — `form.d.ts:1329` | **no** |\n| `feedback/toast.mdx` | `variant?: 'default' \\| 'destructive'` | `variant?: 'default' \\| 'success' \\| 'warning' \\| 'error' \\| 'info'` — `feedback.d.ts:123`. **`'destructive'` is not a member**, and four real variants are undocumented | `'destructive'` appears nowhere in `renderers/feedback/toast.tsx` |\n\n`toast.mdx` additionally omits two props the type does declare: `position` (`feedback.d.ts:133`) and `onDismiss` (`feedback.d.ts:144`).\n\n⚠️ **`toast.mdx`'s `variant` is the worst of the four**, because it is the one an author is most likely to copy: `variant: 'destructive'` is a plausible-looking value, it matches the Shadcn vocabulary a reader arrives with, and it is not in the union. It fails no gate today and it would fail no gate after re-fencing.\n\n## Why this is not the same card as #6122\n\n#6122 asks *which type did these props mean* and is answered from the `.d.ts`. This asks *why can a reference page say anything at all and stay green*, and the answer is the self-declared interface. The two ship independently: PR #6142 corrects the `ActionConfig` sites without touching any of the above, and none of the above would be caught by the correction.\n\nThe class also recurs. #4653 — *\"the toggle-group schema block teaches `type` for the selection mode, but the renderer reads `selectionType`\"* — is the identical defect, found by eye and closed one page at a time. It has no mechanical guard, so it comes back.\n\n## The deciding question, ⛔ not decided here\n\n⚠️ Only **five** of roughly 80 `content/docs/components` pages were swept, and 4 divergences fell out of those five. The unswept remainder is unmeasured and should be measured before anything is decided.\n\n1. **Sweep and fix by hand** — extend the measurement to every `components` page and correct each divergence. Honest, but it is #4653's approach at scale, and it buys no guard against the next one.\n2. **Make the blocks import instead of re-declare** — a page that writes `import type { RadioGroupSchema } from '@object-ui/types';` and then annotates an authored literal is checked by the gate that already exists. Costs a rewrite of the block's shape and changes what the reader copies.\n3. **A new gate that compares a self-declared `interface Foo` in docs against the shipped `Foo` of the same name** — catches the class without rewriting the pages, but has to answer what a page is allowed to omit (all four pages above legitimately show a subset).\n\n⚠️ Option 2 or 3 decides whether these reference pages are *documentation of a type* or *prose that resembles one*, which is a lane-shaping question for #5867 rather than a per-page fix. It needs a ruling, not a guess.\n\nRefs: #6122 / PR #6142 (where this was measured) · #5867 (the lane whose re-fencing will report these pages green) · #4653 (same class, closed per-page) · #4895.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_\n"

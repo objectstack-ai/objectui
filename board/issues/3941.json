@@ -1,0 +1,34 @@
+{
+  "number": 3941,
+  "kind": "issue",
+  "title": "[finding] record:alert 的谓词管道在自己的 suite 里被整体替成 stub(toPredicateInput + useCondition),该面的 visible 判定零可观测 —— #3871 的缺陷就藏在这里",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T13:29:51Z",
+  "updated_at": "2026-08-16T09:25:41Z",
+  "closed_at": "2026-08-16T09:25:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3941",
+  "body": "## 发现来源\n\n实施 #3871(`toPredicateInput` 对已是 `${…}` 模板的字符串二次包裹)时,按「规则消费半径」\n清点 `toPredicateInput` 的全部调用点。#3871 正文列了七个,实际还有第八个:\n\n- `packages/plugin-detail/src/renderers/record-alert.tsx:140-141`\n\n```ts\nconst predicateInput = toPredicateInput(props.visible);\nconst passesPredicate = useCondition(predicateInput, { record });\n// :193\nif (predicateInput !== undefined && !passesPredicate) return null;\n```\n\n这一处与其它落点一样中了 #3871:`visible: '${…}'` 走 fail-soft(不传 `throwOnError`),\n二次包裹后的字符串解析失败被 catch 原样退回,`Boolean(非空串)` 恒 true —— 一条作者写了\n`visible` 想按条件收起的 record 横幅**永远显示**。生产端缺陷已由 #3871 的 PR 一并治好\n(改的是共享归一器),**本单不是那个缺陷**。\n\n## 本单要记录的是:这一面的谓词判定从它自己的测试里根本观察不到\n\n`packages/plugin-detail/src/renderers/__tests__/record-alert.test.tsx:32-46` 把\n`@object-ui/react` 整个 mock 掉,其中**谓词管道的两端一起被替成了替身**:\n\n```ts\nvi.mock('@object-ui/react', () => ({\n  // …\n  useCondition: (_input: unknown, _scope: unknown) => stub.predicate.passes,\n  toPredicateInput: (visible: unknown) => {\n    stub.predicate.input = visible;   // 仅记录入参\n    return visible;                   // 恒等函数\n  },\n  // …\n}));\n```\n\n于是:\n\n1. `toPredicateInput` 被换成**恒等函数** —— 归一(以及 #3871 的二次包裹)在这个 suite 里\n   根本不发生;\n2. `useCondition` 被换成**常量** `stub.predicate.passes` —— 求值也不发生。\n\n该面只剩「渲染器有没有把 `props.visible` 传下去」这一个可断言点(`stub.predicate.input`),\n「这个 `visible` 会得到什么 verdict」完全不可观测。任意归一器缺陷、任意求值缺陷,在这个\n文件里都是绿的。这就是 objectstack#4984 家族(fixture 让坏掉的规则保持绿),而\n`DeclaredActionsBar.test.tsx:22-34` 的注释已经把同一个教训写过一遍 —— 它自己曾把\n`useCondition` 钉成常量真,导致 #3835 的真值性缺陷在那个 suite 眼皮底下活了很久,后来\n改成用真实的评估入口。record:alert 是同一形状还没被改的那个。\n\n## 影响判断(observation-class)\n\n- 用户**今天**踩不到本单本身:唯一已知的实际缺陷(#3871)已在生产端修掉,record:alert 随\n  之恢复按取值判定。\n- 代价是**回归探测能力**:该面的 `visible` 语义(含「`predicateInput !== undefined` 才算\n  已声明门」这条与 #3842 / #3850 家族口径相关的判断)没有任何活钉子。下一次归一器或\n  `useCondition` 侧改动打坏它,CI 不会红。\n- 因此按 `finding` 记录、不挂 `pm:queue`,由 PM 的 triage 轮定级。\n\n## 建议修法(未裁)\n\n参照 `DeclaredActionsBar.test.tsx` 与 `packages/components/.../__tests__/` 里几个动作面\ngate suite 的做法:保留 dispatch / metadata / components 的替身,但让**谓词入口用真的**\n(`@object-ui/react` 的 `toPredicateInput` + `useCondition`,配 `PredicateScopeProvider`\n喂 scope),补上四种形态(`false` / `true` / `''` / 表达式,两个极性)与 `${…}` 拼法的\nverdict 钉子。`@object-ui/react` 的 barrel 对轻量 `dom` project 是便宜的(components 自己\n的 gate suite 就是不 mock 直接 import 的)。\n\nRelated: #3871(发现出处,生产端已修)、#3850 /#3862(「空谓词 / 已声明门」口径分歧的两单)。\n未认领。\n"
+}

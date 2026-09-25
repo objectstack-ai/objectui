@@ -1,0 +1,35 @@
+{
+  "number": 3765,
+  "kind": "issue",
+  "title": "[finding] 动作对话框的继承选项谓词只认外层页面的 record:自己在途的 param 值不参与,select 的 dependsOn 门根本到不了",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T12:51:39Z",
+  "updated_at": "2026-08-16T03:47:34Z",
+  "closed_at": "2026-08-16T03:47:34Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3765",
+  "body": "发现于 #3559 的实施与端到端验证过程(PR #3764),**与那单的修复无关**(那单修的是 `normaliseOptions` 把继承来的选项重建掉、`visibleWhen` 直接丢失;本单是键送到之后、消费侧拿哪份 record 去算它)。按 Prime Directive #10 单独立单,**未认领**。观察类:今天没有人因此看到被错藏的选项(不可解谓词 fail-open,是全给不是全藏),但语义未定,值得先裁一次再动。\n\n## 事实(全部实测于 `origin/main` @ `b1204af0a`)\n\n#3559 修好之后,字段声明的逐选项 `visibleWhen` 确实到达对话框控件并逐项收窄了 —— 前提是谓词只读 **scope**(`current_user` / `app` / `features`)。读 **record** 的谓词是另一回事:\n\n1. `packages/app-shell/src/views/ActionParamDialog.tsx:294` 渲染控件时传的是 `id` / `value` / `onChange` / `field` 四项,**不传 `dependentValues`**;param 的在途取值存在对话框自己的 local state(`:136` 的 `const [values, setValues] = useState(...)`)。\n2. `packages/fields/src/widgets/useCascadingOptions.ts:38` 的 record 取值口径:`dependentValues ?? ctx?.formValues ?? ctx?.data ?? {}`。于是对话框里的谓词算在**外层页面**的 `formValues`/`data` 上(挂在记录页时大致是那条记录),或者干脆是 `{}`。**对话框自己正在填的 param 值,永远不参与。**\n3. 实测 `resolveVisibleOptions` 在三种 record 下的表现(选项 `{ label: 'Zhejiang', value: 'zj', visibleWhen: \"record.country == 'cn'\" }`):\n\n   | record | 结果 |\n   |---|---|\n   | `{}` | **保留该选项**(谓词不可解,走模块既有的 fail-open 默认) |\n   | `{ country: 'us' }` | `[]` — 正常过滤掉 |\n   | `{ country: 'cn' }` | 保留 |\n\n   即缺口的默认方向是**安全**的(不会把该给的藏掉),但\"随外层页面变\"而不是\"随对话框里刚选的值变\"。\n4. 连带一条更彻底的:**`select` 类型的 param 压根继承不到 `dependsOn`**。`resolveActionParams.ts:368` 的 `lookupExtras` 被 `:367` 的 `isLookupResolvedType`(只有 `lookup` / `reference`)把住,`field.depends_on` 只在那一支里复制(`:380`);`paramToField.ts:94` 也只对 lookup / user / owner 家族映射 `depends_on`。所以 `#2284` / `#2215` 那套\"先选父字段\"的 gate 在对话框的 select 上**在原理上就不会发生** —— 不是算错,是这条线不存在。\n\n## 为什么值得先裁一次,而不是直接接上\n\n\"对话框里一个继承来的选项列表,应该按哪份 record 收窄?\"两种读法都站得住,而且导向不同实现:\n\n- **A:按行/页面记录**(现状的偶然行为)。语义是\"这条记录的上下文决定给哪些选项\",对 list_item / record 动作讲得通。代价:对话框里刚选的 `country` param 改不动 `province` param 的候选集,作者写出来的级联在这个 surface 上是死的。\n- **B:按对话框自己的 param 取值**(把 `values` 当 `dependentValues` 传下去)。语义是\"对话框是一张小表单\",级联/`dependsOn` 立刻活;代价:引用了行记录字段(`record.owner_id` 之类)的谓词在对话框里失去依据 —— 除非\n- **C:两者合并**(`{ ...rowRecord, ...values }`,param 值覆盖同名键)。表达力最强,但引入一个新的作用域口径,得写进契约、并想清同名键的优先级,否则就是第三种事实上的方言。\n\n`resolveActionParams` 已经有 `ctx.row`(`defaultFromRow` 用它取行记录),所以 C 在数据可得性上不缺什么,缺的是裁决。\n\n另外 4 那条(`select` 拿不到 `dependsOn`)如果按 B/C 走,还要顺带回答:`dependsOn` 是否该对非 lookup 的 param 继承 —— 它当下也是 `RESOLVED_ONLY_PARAM_KEYS` 里\"从字段继承\"的一员,即作者不能在 param 上手写。\n\n## 现有覆盖\n\nPR #3764 把上面第 3 条按**实测方向**钉在 `packages/app-shell/src/utils/resolveActionParams.optionVisibleWhen.test.tsx` 的最后一例里(`MEASURES a record-relative predicate with no record in context: fails OPEN`),并在注释里写明它是测量、不是对语义的主张 —— 本单裁完往哪边走,那一例就该跟着改。\n\n## 参考\n\n- #3559 / PR #3764(键的那一半:继承选项不再被重建)\n- `resolveVisibleOptions` / `resolveCascadingOptions`(`packages/core/src/evaluator/optionRules.ts`)—— fail-open 与 gate 的定义处\n- ADR-0058 / #2284(逐选项 `visibleWhen`)、#2215(依赖 gate 的 UX)\n"
+}

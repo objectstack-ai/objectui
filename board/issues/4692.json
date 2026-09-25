@@ -1,0 +1,34 @@
+{
+  "number": 4692,
+  "kind": "issue",
+  "title": "A combo chart silently has no drill-through: ComposedChart is the one cartesian branch that never receives the click props",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T09:35:19Z",
+  "updated_at": "2026-08-16T20:01:54Z",
+  "closed_at": "2026-08-16T20:01:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4692",
+  "body": "Measured while implementing #4672's ruled item-level series work, and deliberately not widened into it: different defect class (a whole family's wiring, not the series a click reports), and it would add a verification surface that card does not carry.\n\n## What is measured\n\n`AdvancedChartImpl` builds `cartesianClickProps` once and applies it to exactly one element:\n\n- `packages/plugin-charts/src/AdvancedChartImpl.tsx` — `cartesianClickProps` is constructed near the other click props, and its only application is on the final cartesian `ChartComponent` (the bar / horizontal-bar / line / area branch).\n- The **combo** branch returns earlier, from its own `ComposedChart` element, which is rendered with `data` and no click props at all.\n\nSo a chart whose family resolves to `combo` fires `onChartClick` never — not on a mark, not on the axis. Its marks are the same `Bar` / `Line` / `Area` components the drillable branch renders.\n\n## Why it is worth a card rather than nothing\n\nThe prop's own doc comment says drill is \"Wired for bar/horizontal-bar/line/area/pie/donut/funnel. Other chart types are no-ops in L1\", so combo being a no-op is **declared**, and this is not a contract breach. Two things still make it worth recording:\n\n1. **The family is DERIVED, not only authored.** `effectiveChartFamily(baseChartType, series)` resolves a chart to `combo` when its series declare different families (#2945's fix). So adding `type: 'line'` to one series of a drillable bar chart silently turns that chart's drill-through **off**, with nothing in the authored spec saying drill was touched. The author changed a mark and lost an interaction.\n2. **The same doc line is already drifting.** It lists scatter / treemap / sankey as no-ops, but those three each have a wired handler (`scatterClickProps`, `treemapClickProps`, `sankeyClickProps`). So the comment is not a reliable statement of what is wired, in either direction.\n\n## Not measured, deliberately\n\nWhether combo *should* drill is a product question, not a defect reading — a combo plots several measures on one plot, so what a click there means (which series, which axis) needs the same kind of answer #4672's ruling gave the pivoted case. This card records the state and the derived-family trap; it does not presume the fix.\n\nRelated: #4672 (the cartesian click's series resolution, where this was measured), #2945 (derived combo family).\n"
+}

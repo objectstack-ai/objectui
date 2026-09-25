@@ -1,0 +1,34 @@
+{
+  "number": 3846,
+  "kind": "issue",
+  "title": "[finding] marketplaceApi 把插件信任层级 runtime 声明为开放 string，而生产方 spec 的 PluginRuntimeSchema 是三成员封闭枚举 —— 消费侧比契约宽松，PluginDisclosure 的 as any 与开放兜底表都由此而来",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T20:10:01Z",
+  "updated_at": "2026-08-17T07:40:33Z",
+  "closed_at": "2026-08-17T07:40:33Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3846",
+  "body": "在 #3546 切片五处理 `marketplace.disclosure.runtime.` 这个模板 key 家族时量出,**不在该 PR 范围内**(切片五只动语言包与棘轮)。观察级:类型比契约宽松,今天没有用户可见的后果 —— 但它正是\"AI 写的元数据出错时藏身的地方\"那一类。\n\n## 两边的声明\n\n**生产方(objectstack 仓,spec,ADR-0025 §3.6)** —— `packages/spec/src/kernel/manifest.zod.ts:84`:\n\n```ts\n/**\n * Trust / isolation tier the plugin runs under (ADR-0025 §3.6):\n * - `node`    — in-process, full PluginContext (first-party / verified only)\n * - `sandbox` — QuickJS-WASM, capability-gated surface\n * - `worker`  — out-of-process (reserved)\n */\nexport const PluginRuntimeSchema = z\n  .enum(['node', 'sandbox', 'worker'])\n  .describe('Plugin trust tier (ADR-0025 §3.6)');\n```\n\n**消费方(本仓)** —— `packages/app-shell/src/console/marketplace/marketplaceApi.ts:157`,`MarketplacePackageVersion` 上:\n\n```ts\nruntime?: string;\n```\n\n同一个字段,一边是三成员封闭枚举,一边是任意字符串。\n\n## 宽松处一路传染下去\n\n`packages/app-shell/src/console/marketplace/PluginDisclosure.tsx`:\n\n```ts\nconst RUNTIME_FALLBACK: Record< string, string > = {\n  node: 'In-process · full trust',\n  sandbox: 'Sandboxed',\n  worker: 'Out-of-process',\n};\n…\n{t(`marketplace.disclosure.runtime.${version.runtime}` as any, {\n  defaultValue: RUNTIME_FALLBACK[version.runtime] ?? version.runtime,\n})}\n```\n\n三处都是同一个宽松的下游产物:\n\n1. **兜底表被声明成 `Record< string, string >`** 而不是 `Record< PluginRuntime, string >`,所以少写一个层级不会红;\n2. **`?? version.runtime`** —— 未知层级时把**原始 wire 值**当界面文案直接渲染给用户。这是个安装前的**信任层级徽章**:一个控制面新增(或写错)的层级名会以原样字符串出现在用户即将授予代码执行权限的那块面板上,而不是报错;\n3. **`as any`** —— 因为 key 类型推不出来,把 `TranslationKeys` 的类型保护整个关掉了。\n\n这正是 AGENTS.md 讲的 contract-first 反面:消费方比生产方宽松,于是\"声明\"和\"强制\"脱钩。\n\n## 影响面为什么今天是零\n\n控制面只会发 spec 允许的三个值,所以 `?? version.runtime` 这条分支在真实数据上从未走到。#3546 切片五也**按封闭枚举**回填了这三个成员(不是补通配前缀),并加了断言:`en` 的 `marketplace.disclosure.runtime` 子对象键集合必须等于 `RUNTIME_FALLBACK` 的键集合,任何一边加第四层级都会红。\n\n所以本条不是\"现在坏了\",而是\"**类型没有把 spec 已经说清楚的事说清楚**\"。\n\n## 顺带一提:切片五的测试为什么读组件而不读 spec\n\n`PluginRuntimeSchema` 在**姐妹仓** objectstack 里,本仓测试读不到。切片五因此把仓内权威定为组件自己的 `RUNTIME_FALLBACK`(它也正是 `defaultValue` 实际读的那张表),并在注释里引用 spec 的枚举作为最终依据。如果本条收口后 `runtime` 变成一个从 spec 导出的联合类型,那条断言应当同步改成读那个类型 —— 记在这里,免得它变成两处各自漂移的真相。\n\n## 收口方向(未裁决)\n\n- **A. 把 `runtime?: string` 收窄成本仓自己的字面量联合** `runtime?: 'node' | 'sandbox' | 'worker'`,并把 `RUNTIME_FALLBACK` 改成 `Record< NonNullable< MarketplacePackageVersion['runtime'] >, string >`、删掉 `?? version.runtime` 与 `as any`。改动小、当场生效。代价:spec 与本仓各写一份枚举,将来加第四层级要改两处 —— 但会在 `RUNTIME_FALLBACK` 的完整性检查上红,不是静默漂移。\n- **B. 从 `@objectstack/spec` 导入 `PluginRuntime` 类型**(若本仓已经依赖 spec 或可以依赖)。单一真相源,是长期正确的形状。代价:要先确认 app-shell 到 spec 的依赖方向是允许的 —— 这条得维护者裁。\n- **C. 不收窄类型,只把 `?? version.runtime` 换成一个已知的中性文案**(例如复用 `marketplace.disclosure.containsCode` 旁边的通用措辞)。只堵住\"把 wire 值当文案渲染\"这一处,不解决声明与强制脱钩。**不建议**:它把宽松保留在类型里,正是这条 finding 想指出的问题。\n\n倾向 **B**(单一真相源,契约优先),若依赖方向不允许则 **A**。两条都必须一并删掉 `as any` 和 `?? version.runtime` —— 那两个是宽松的症状,单独留着就等于没修。\n\n关联:#3546(切片五按封闭枚举回填该家族并加了完整性断言)、ADR-0025 §3.6(信任层级定义)、objectstack `packages/spec/src/kernel/manifest.zod.ts`(生产方枚举)。\n"
+}

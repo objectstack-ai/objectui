@@ -1,0 +1,33 @@
+{
+  "number": 4839,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): stamp mobile.fullscreenLongText onto field:richtext too (#4831)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:32:40Z",
+  "updated_at": "2026-08-16T11:46:23Z",
+  "closed_at": "2026-08-16T11:46:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T11:46:22Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4839",
+  "body": "Fixes #4831\n\n## 改了什么\n\n`ObjectForm` 是 `mobile_fullscreen` 这个 flag 的**唯一生产者**:表单声明 `mobile: { fullscreenLongText: true }` 时,它把 flag 盖到每个长文本字段的 metadata 上,widget 据此渲染展开按钮和全高编辑对话框。那份类型清单是四个手写字面量,`field:richtext` 不在其中 —— 本 PR 把它加进去,一处生产者改动,别的类型行为不动。\n\n三层事实都已实读复核,issue 正文的前提成立:\n\n| 层 | 事实 | 位置 |\n|:--|:--|:--|\n| spec | `FieldType` 唯一拼法是 `richtext`(#4250 已钉死) | — |\n| alias | `richtext: 'field:richtext'` | `packages/fields/src/field-type-alias.ts:72` |\n| 注册表 | `'richtext'` 解析到 `RichTextField`,与 `markdown` / `html` 同一个 widget | `packages/fields/src/index.tsx:2411-2413` |\n| 读者 | `Boolean(richField?.mobile_fullscreen)`,自 #3301 就在 | `packages/fields/src/widgets/RichTextField.tsx:175` |\n\n即消费者一侧早就完整,同一个 widget 的**三个注册键里只盖了两个**:按 spec 写 `type: richtext` 的字段渲染出富文本编辑器却没有展开按钮,而旁边的 `markdown` / `html` 有。同包孪生集合 `WIDE_FIELD_TYPES` 已经在 #4250 里踩过同一个坑并已收 `richtext`,这份清单没跟上。\n\n## 选型:补字面量(a)vs 改成派生(b)—— 选 (a),测量依据如下\n\n按卡内要求两者一并判。**(b) 的判据在仓内不存在**,三处实测:\n\n1. **widget 注册表 `fieldWidgetMap`**(`packages/fields/src/index.tsx:2385`)是真正决定「解析到哪个 widget」的那份事实,但它是 **module-private**;对外只导出 `FORM_FIELD_TYPES`(键名)、`resolveFormWidgetType`、`getLazyFieldWidget`,没有任何 widget **身份**出口。每个条目是各自独立的箭头闭包包住各自的 `import()`,`markdown`/`html`/`richtext` 是三个不同的函数对象 —— 要看出「它们是同一个 widget」只能 **await 那次动态导入**。而本处盖章是 render 期的同步 `.map()`,照这条派生等于在渲染表单时把每个 widget 模块全部 eager 加载,正是 lazy 注册表存在的目的所反对的。\n2. **alias 表 `mapFieldTypeToFormType`**(`packages/fields/src/field-type-alias.ts:66`)是 1:1 映射,三个拼法映射到三个不同的值,表里**根本没有记录「这三个是同一个 widget」这条事实**;从它派生仍然需要在其输出上再手写一个谓词 —— 只是把同一份清单挪远一格。\n3. 两个候选源**都盖不住裸 `'textarea'` 这一员**:它根本不是注册表键,而是表单渲染器的**内建分支**(`BUILTIN_FIELD_TYPES`,`packages/components/src/renderers/form/form.tsx:235`;真正读 flag 的是同文件 :2493 的 `case 'textarea'`)。任何按注册表派生的谓词都会把它悄悄丢掉。\n\n结论:**没有可派生的单一真源**,硬造一个等于在仓里新增第二份「什么算长文本」的定义 —— 恰是卡内「若 (b) 的判据牵出新的契约问题(派生源本身多份)则退回 (a)」那一条。同时 #4770/#4790 那种「抽成共享允许表 + identity 钉」的形态在这里**尚未挣到**:那次收敛是因为**三个** surface 各持私有副本;本处 grep 确认 `ObjectForm` 是唯一生产者,今天抽出去会造出一个只有一个消费者的跨包导出。\n\n于是 (a),并把上面这份测量连同「为什么不派生」写进了 `ObjectForm.tsx` 的注释里,免得下一个读者重做一遍。\n\n## 钉子形态\n\n行为钉,不是「清单里含这个字面量」的断言 —— 后者只要字符串在就绿,无论下游是否真能据此渲染,正是 #4250 点名的假绿形态。新增两例在 `packages/plugin-form/src/__tests__/ObjectForm.mobileFullscreen.test.tsx`(该文件是这个特性唯一的集成覆盖,用真 `ObjectForm` + 真 form renderer + 真注册表 + 真 widget,只 mock 数据源):\n\n- 正向:`type: 'richtext'` 的对象字段 + `mobile: { fullscreenLongText: true }` → 断言渲染出 `richtext-fullscreen-toggle`(走真 alias 映射 → 真注册表 → 真 widget,只有按钮真的渲染出来才可能绿);\n- 负向对照:同一字段不开 opt-in → 断言**没有**展开按钮,防止新成员变成无条件盖章。\n\n## 反向验证(先预判,后跑;先 commit 再变异,已还原)\n\n**预判**:删掉新增的 `t === 'field:richtext'` 一项后,只有新增的**正向**用例应当变红;新增的**负向**用例断言的是「不存在」,删掉支持后它依然不存在,故按设计两个方向都绿 —— 它钉的是「不要无条件盖章」,不是清单成员,如实记在这里而不硬套 before-green/after-red 模板;既有 6 例不受影响。预期 1 failed / 8 passed。\n\n**实跑,与预判逐条吻合**:\n\n```\n × … reaches the widget for a field the SPEC spells `richtext` (objectui#4831) 1008ms\n   → Unable to find an element by: [data-testid=\"richtext-fullscreen-toggle\"]\n ✓ … does NOT render the affordance for a `richtext` field when the form did not opt in 13ms\n Test Files  1 failed (1)\n      Tests  1 failed | 8 passed (9)\n```\n\n随后用 `git checkout 本分支名 -- packages/plugin-form/src/ObjectForm.tsx` 还原(未用 `git stash`,遵 AGENTS.md §9)。\n\n## 验证\n\n- `pnpm exec vitest run packages/plugin-form/src/__tests__/ObjectForm.mobileFullscreen.test.tsx --maxWorkers=2 --reporter=verbose` → **Test Files 1 passed / Tests 9 passed**(新增 2 例含在内)\n- `pnpm exec vitest run packages/plugin-form/ --maxWorkers=2` → **Test Files 46 passed (46) / Tests 473 passed (473)** —— 既有三键(textarea / markdown / html)零回归\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → **81 successful, 81 total**\n- `node scripts/check-control-bytes.mjs` → OK(4330 个文件);改动路径另做 `grep -naP` 自查,无控制字节\n- `node scripts/check-changeset-presence.mjs` → OK;`check-changeset-no-major.mjs` → OK\n- 改动路径 `eslint` → **0 errors**(57 个 warning 全是未改动行上既有的 `no-explicit-any`)\n\n## 范围\n\n只动生产者一侧的 `packages/plugin-form`;`packages/fields`(读者)未碰;#4824 决策箱范围(对话框内的 aria-invalid / 播报 / 命名、`FullscreenEditor` primitive 签名)未碰。\n\n顺带发现已按 Prime Directive #10 另立 **#4838**(observation-class,`finding`,未挂 `pm:queue`):同一份清单收裸 `textarea` 却不收裸 `markdown`/`html`/`richtext`,而后三者经 `renderFieldComponent` 的命名空间兜底照样解析到 `RichTextField` —— 那是**另一条输入路径**,且修法方向取决于「裸 spec 类型名算不算 `FormField.type` 合法拼法」这个未定契约问题,故未在本 PR 内改动。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4816,
+  "kind": "pull_request",
+  "title": "refactor(core,components): 表单 data-source 规则派生自 core 的引用字段族,不再自留一份副本 (#4790)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:53:07Z",
+  "updated_at": "2026-08-16T10:06:53Z",
+  "closed_at": "2026-08-16T10:06:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T10:06:51Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4816",
+  "body": "Fixes #4790\n\n⛔ 不预设「必须合一」,先测量。结论:**两表不是同一个域,但共享同一个概念**,且「mirrors」那句注释确实已经是假话 —— 按 (b)「一表 + 显式超集」定型,并顺带修掉超集关系成立所必需的那半个活缺口。\n\n## 一、测量:两表各自在判什么\n\n| | `EXPANDABLE_FIELD_TYPES`(core) | `DATA_SOURCE_FIELD_TYPES`(form,改前) |\n|---|---|---|\n| 键入的域 | 对象 schema 的 `fieldDef.type` | `normalizeFieldType` 输出的 **widget 键**(剥掉 `field:` 前缀) |\n| 成员 | lookup / master_detail / tree / user | lookup / master_detail / tree + object-ref / filter-condition / recipient-picker |\n| 判什么 | 哪些字段名进查询的 `$expand` | 哪些注册 widget 收到 `dataSource` / `dependentValues` / `dependsOnLabels` |\n\n消费点逐个实读:\n\n- core 侧 **三个**消费面,而且已经在用三个不同的词称呼它:`buildExpandFields`(`$expand`,\"expandable\")、`predicate-record.ts:75,80`(\"relational\")、`plugin-list/ListView.tsx:2157`(变量名就叫 `relational`)。所以它早就是「引用字段族」这张表,不是 `$expand` 的私有清单。\n- form 侧唯一消费点是 `stripRegisteredFieldProps`(form.tsx:398),决定三个 prop 的下发。\n\n两表**在任一方向上都不是子集关系**:`user` 只在 core,三个 picker 名只在 form。issue 正文说的「不完全同集」是对的,但比正文更狠 —— 不存在可以直接写 `new Set([...DATA_SOURCE_FIELD_TYPES, 'user'])` 的超集形态。\n\n## 二、`user` 的考古:有意语义差?不是,是漂移\n\n- `196aa5330`(#2032,2026-06-28)一次性把 `tree` 和 `user` 加进 core 表,commit 正文写明理由:`user` 是特化到 `sys_user` 的 lookup,同一条 expand 路径,不请求展开就回裸 id、渲染成「—」。同一个 commit 写下「mirrors the form layer's `DATA_SOURCE_FIELD_TYPES` (`lookup` / `master_detail` / `tree`)」。\n- 查 form 表当时的成员:`ed1c50247`(#1481,2026-06-04)出生即 `{lookup, master_detail, tree}` —— **那句注释写下时是真的**。\n- 然后 2026-07-13 同一天两次加键:`e492b9d01`(#2403)加 `capability-multiselect`,`6a741605b`(#2421)加三个 picker。**「mirrors」真了 15 天,已经假了 34 天。**\n\n漂移方向全在 form 一侧,且加的都是 widget-hint 名。所以 `user` 不在 form 表**不是有意语义差,是 form 表出生时就漏了**(它出生比 `user` 进 core 早 24 天,那时 core 表还不存在)。\n\n## 三、probe 读数(真渲染,跑完即删)\n\n在 form 渲染器上注册探针 widget,读三个 prop 的实际到达情况:\n\n```\na_lookup {\"hasDataSource\":true, \"hasDependentValues\":true, \"hasDependsOnLabels\":true}\nb_user   {\"hasDataSource\":false,\"hasDependentValues\":false,\"hasDependsOnLabels\":false}\nc_owner  {\"hasDataSource\":false,\"hasDependentValues\":false,\"hasDependsOnLabels\":false}\nd_md     {\"hasDataSource\":true, \"hasDependentValues\":true, \"hasDependsOnLabels\":true}\ne_tree   {\"hasDataSource\":true, \"hasDependentValues\":true, \"hasDependsOnLabels\":true}\nf_objref {\"hasDataSource\":true, \"hasDependentValues\":true, \"hasDependsOnLabels\":true}\ng_grid   {\"hasDataSource\":false,\"hasDependentValues\":false,\"hasDependsOnLabels\":false}\n```\n\n`user` 三项全无 —— 是活缺口,不是纸面差异:\n\n- `dataSource` / `dependentValues` 在 `LookupField` 里各有 `SchemaRendererContext` 兜底(`LookupField.tsx:321-330`),所以人员选择器在有 provider 时能瘸着跑;\n- **`dependsOnLabels` 没有任何兜底**(`LookupField.tsx:307` 只读 prop),于是带 `depends_on` 的 user 选择器把裸 API 名插进「先选 … 」提示句 —— objectstack#5407 给 lookup 关掉、给 user 留着的同一个洞;\n- 而 widget 契约自己的 TSDoc 一直把 `user` 列在「Injected by the form renderer」里(`fields/src/widgets/types.ts:166`)。声明与实现互相矛盾,矛盾的那一侧是 form。\n\n## 四、选择的形态:(b) 一表 + 显式超集,超集方向是 form ⊃ core\n\n补上 `user` 之后,超集关系才**真正成立**并可以写成代码:\n\n```\nform 的 data-source 规则  ==  EXPANDABLE_FIELD_TYPES + 三个 widget-hint-only picker 名\n```\n\n```ts\nfunction needsDataSourceWiring(widgetType: string): boolean {\n  return EXPANDABLE_FIELD_TYPES.has(widgetType) || DATA_SOURCE_ONLY_WIDGET_TYPES.has(widgetType);\n}\n```\n\n为什么这个扩展**方向上不可能折回** core:`object-ref` / `filter-condition` / `recipient-picker` 是 widget 提示,不是可声明的字段类型(`app-shell/src/utils/paramValueShape.ts:174-176` 明写 `widgetHintOnly: true`),任何对象 schema 都产不出 `type` 等于它们的字段。所以它们只能留在 form 侧,这不是妥协,是域的性质。\n\n写成函数而不是 `new Set([...EXPANDABLE_FIELD_TYPES, ...])`,是为了让 identity 钉钉得住:派生出的新 Set 与「成员相同的私有副本」在运行期无法区分,而**每次判定都去问共享对象**就可以。\n\n两侧 TSDoc 都写清了随之而来的耦合:**往 core 表里加成员,同时也就给了那个类型表单侧的 data-source 接线** —— 这是有意为之(值是外键的类型,读路径要 expand、编辑路径要 picker,需要的是同一个 DataSource),写下来免得下次成为惊喜。「mirrors」那句已删。\n\n未改动的:core 表成员一个没动,`$expand` / predicate-record / list / grid 行为逐字节不变。\n\n## 五、测试与反向验证(先预判后跑)\n\n新增 `packages/components/src/renderers/form/__tests__/form-data-source-wiring.test.tsx`(5 例):遍历 `EXPANDABLE_FIELD_TYPES` 全体成员断言三个 prop 到位(stub 由该集合**派生**注册,将来加成员自动覆盖)、`user` 专项、三个 picker 仍在、族外 widget 三项被 strip、以及 identity 钉。\n\n**变异 A** —— 把派生换成成员逐字节相同的私有副本(7 个字符串全同)。预判:4 条成员/行为断言**全绿**(成员没变,prop 照样下发),**只有** identity 钉红在 `expected [] to include 'lookup'`。实跑:\n\n```\n× asks @object-ui/core EXPANDABLE_FIELD_TYPES which fields get a dataSource\nAssertionError: expected [] to include 'lookup'\n Tests  1 failed | 4 passed (5)\n```\n\n与预判逐条相符 —— 这正是 issue 描述的失效模式:成员断言对私有副本一律放行,只有身份钉认得出来。\n\n**变异 B** —— 从派生规则里减掉 `user`。预判:`user` 专项 + 遍历成员两条红,identity 钉保持绿。实跑:\n\n```\n× threads all three props to every EXPANDABLE_FIELD_TYPES member\n× threads them to `user` — the member the private copy never had\nAssertionError: user lost dataSource: expected undefined to be { find: [AsyncFunction find] }\n Tests  2 failed | 3 passed (5)\n```\n\n同样相符。两次变异均先 commit 后变异、`git checkout` 还原,变异不提交。\n\n## 六、验证\n\n- `pnpm exec vitest run packages/core/ packages/components/` → **227 files / 3087 tests passed**\n- `pnpm exec vitest run packages/plugin-form/ packages/plugin-detail/ packages/plugin-grid/ packages/plugin-list/` → **241 files / 2510 tests passed**(规则的消费半径:core 表的四个下游包)\n- `pnpm exec turbo run type-check --concurrency=2` → **81 successful, 81 total**\n- `node scripts/check-changeset-presence.mjs` / `check-changeset-no-major.mjs` / `check-control-bytes.mjs` 全绿;改动路径 eslint **0 errors**\n\n## 七、范围外发现(已另立,均未指派)\n\n- **#4814** —— `owner` widget 拿不到表单下发的 dataSource,而 plugin-grid 认为它需要;且 `owner` 根本不在 spec 的 `FieldType` 枚举里(48 个成员实读,无它)。因此「顺手加一个 string」等于新造一条 declared-but-unexercised 条目,正是本族在关的失效模式 —— 故意没加,留给分诊判 enforce-or-remove。附带记录 `types.ts:166` 那句 TSDoc 里的 `grid` 是零消费者的声明。\n- **#4815**(`finding`)—— plugin-grid `bulkParamToField.ts:40-46` 的 `DATA_SOURCE_WIDGET_TYPES` 是同一概念的第四份私有副本(lookup/master_detail/user/owner),与本 PR 定型后的规则仍不同集、零 gate;今天没有用户症状,但正是 #4770/#4790 两次描述的前夜状态。已标 `Blocked-by: #4814`。\n\nmetadata-admin 三处近似副本按派单要求未碰。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

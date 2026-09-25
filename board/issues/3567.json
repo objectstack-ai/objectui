@@ -1,0 +1,30 @@
+{
+  "number": 3567,
+  "kind": "issue",
+  "title": "FilterConditionField 无法生成 spec 新增的 $icontains(大小写不敏感 contains)—— 服务端已接受,筛选 UI 到不了",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-07T13:13:23Z",
+  "updated_at": "2026-08-16T03:42:29Z",
+  "closed_at": "2026-08-16T03:42:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3567",
+  "body": "升级 `@objectstack/spec` 到 `17.0.0-rc.5`(objectui#3560)时实测发现,**不是该升级引入的破坏,是升级暴露出的能力缺口**。\n\n## 实测\n\n`FieldOperatorsSchema` 在 rc.2 → rc.5 之间新增了 `$icontains`(spec 侧 describe:「folds ASCII case」,即大小写不敏感的 contains):\n\n```\nrc.2  $eq $ne $gt $gte $lt $lte $in $nin $between $contains $notContains $startsWith $endsWith $null $exists\nrc.5  $eq $ne $gt $gte $lt $lte $in $nin $between $contains $notContains $startsWith $endsWith $icontains $null $exists\n                                                                                       ^^^^^^^^^^\n```\n\n`packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts` 的双向 parity 测试\n「every spec field operator is reachable from the builder (#2942)」因此变红:\n\n```\nAssertionError: FieldOperatorsSchema accepts these but no builder operator can author them:\n  expected [ '$icontains' ] to deeply equal []\n```\n\n即:**服务端接受这个 token,而筛选构建器没有任何 operator 能生成它** —— 该能力从筛选 UI 完全不可达。\n\n## 为什么不在 objectui#3560 里顺手补\n\n补齐需要新增一个 builder operator(如 `containsIgnoreCase`)并带**用户可见的标签**,也就是十个 locale pack 各加一个 key(`t()` call-site key 闸门,objectui#3547)。这属于功能增量,依赖升级 PR 按 rider 纪律不做功能类适配。\n\nobjectui#3560 的处理是**显式登记而非静默吞掉**:把 `$icontains` 加进该测试的 `KNOWN_UNREACHABLE` 排除集(与 `$eq`/`$between` 同列,各自带理由),并**新增一条棘轮**断言每个被排除的 token 仍然是真实的 spec operator —— 排除项不得比它的理由活得更久。\n\n## 本单要做的\n\n1. 在 `FilterConditionField` 的 builder operator 词表里增加一个大小写不敏感的 contains(命名待定,见下),`condToMongo` 生成 `{ field: { $icontains: value } }`;\n2. `kvToCondition` 反向读回(筛选器要能往返,否则存下来的视图打开就退化);\n3. 十个 locale pack 补标签 key;\n4. 删除 `FilterConditionField.operators.test.ts` 里的 `$icontains` 排除项 —— parity 断言随即接管,棘轮那条也会同时验证删除是正当的。\n\n## 一个需要定夺的小决定\n\n现有 `contains` 是否本来就该是大小写不敏感的?若产品意图是「用户输入的 contains 一律忽略大小写」,更好的做法可能是让现有 `contains` 改emit `$icontains`、另加一个 `containsCaseSensitive` 走 `$contains` —— 那是行为变更,影响存量视图,需要维护者确认。本单默认按「新增一个 operator、不动 `contains` 语义」执行,如需前者请在本单说明后再动工。\n\n发现来源:objectui#3560(升级到 17.0.0-rc.5)的 out-of-scope finding,未认领。"
+}

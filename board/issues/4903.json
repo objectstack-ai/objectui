@@ -1,0 +1,32 @@
+{
+  "number": 4903,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 重置/删除按钮渲染它真正执行的动词 —— 渲染侧与执行侧同读服务端 verdict (#4886)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T03:39:54Z",
+  "updated_at": "2026-08-17T03:52:40Z",
+  "closed_at": "2026-08-17T03:52:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T03:52:38Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4903",
+  "body": "Fixes #4886\n\n按维护者 2026-08-17 裁定实施 **A 案(渲染语义胜出,经服务端 verdict 实现)**。\n\n## 缺陷\n\n一颗按钮,两份各自手搓的 artifact 判定。渲染侧问页面的两级判定 `isArtifactItem`(排除 `sys_metadata` 保存路径哨兵与 ADR-0010 `provenance: 'org'`),`doReset()` 却自己另算一份更松的 `layered?.code != null`。对**已发布的组织自有条目**二者必然分叉 —— 该条目的 `code` 层正是它自己被重新注册回来的 `sys_metadata` 行:按钮画出垃圾桶、`title` 写「Delete」,点下去却问「Reset overlay for …?」,然后走重置分支(重拉 layered、留在本页),把操作者留在一个刚刚被请求销毁掉的条目的页面上。\n\nPR #4885 既非引入方也未修复它,但扩大了能看见这颗按钮的人群。\n\n## 两项派发前提测量(写代码之前完成,读数如下)\n\n两项都是对 framework 仓 **`origin/main`** 实测的(注意:容器里共享 checkout 的 HEAD 落后于 origin/main,前后两次读数已按 origin/main 复核)。\n\n### ① `client.reset()` 对无 artifact 基线条目的实际行为 —— 它是真删除\n\n`client.reset()` 就是 `DELETE /meta/:type/:name`(`packages/data-objectstack/src/metadata-client.ts` `reset()`)。服务端 `deleteMetaItem` 对无基线条目:\n\n- 走 `SysMetadataRepository.delete` → `engine.delete('sys_metadata', { where: { id } })`,**硬删行**,并写入 `operation_type: 'delete'` 墓碑历史;\n- `intent` 取 `runtime-only`(`artifactBacked` 为假);\n- `restoreArtifactRegistryView` 的第三层(objectstack#5079 / PR #6687)在「下面没有任何一层能承接这个名字」时把 plain-key 注册项一并退役,所以列表/详情/派发三面一致地不再供应它;\n- 最有力的一条:服务端**自己的回执就这么说**(objectstack#5927 把四句回执按 `artifactBacked` 拆开)——\n  - artifact-backed:`Customization overlay deleted — … reset to artifact default.`\n  - **无基线:`Deleted … — it no longer exists.`**\n\n也就是说,服务端早已把这件事当作删除;唯一还在说「重置」的是客户端。\n\n### ② 服务端对 `sys_metadata` 哨兵人群下发的 `resettable` —— 答 `false`\n\n`resolveLockState` 里 `resettable = artifactBacked`(`packages/spec/src/kernel/metadata-protection.zod.ts`),而 `isArtifactBacked` → `lookupArtifactItem` → `SchemaRegistry.getArtifactItem`,其 `isCodeArtifactBody` 对 `_packageId === 'sys_metadata'` 与 `_provenance === 'org'`(`isTenantAuthored`)一律返回 false(`packages/objectql/src/registry.ts`)。framework 侧已有钉子:`protocol-registry-shadow.test.ts` 的 “getArtifactItem returns undefined for runtime-only and sys_metadata-sentinel items”。\n\n**结论:服务端答 `resettable: false`,是对的。缺陷全在客户端两份重导出的判定上 —— 不触发 fork report,不归 framework 仓,前提成立。**\n\n## 改动\n\n`packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx`\n\n- 新增单一 verdict `isResetSemantic`,渲染侧(图标 / `title`)、确认框文案、执行分支**三者同源**;废掉 `doReset()` 里的 `itemIsArtifact = layered?.code != null`。\n- 图标 `RotateCcw` / `Trash2`、`title` 的 `engine.edit.reset` / `engine.edit.delete`、确认框的 `engine.edit.resetConfirm` / `engine.edit.deleteConfirm`、导航行为(删除 → `navigate('../')` 回列表;重置 → 重拉 layered 留在本页)全部由同一个布尔决定。\n\n## 三态读的取舍(behavior change,写明)\n\n`resettable` 是 `boolean | undefined`,原来的 `layered?.resettable !== false` 把「没意见」并进了「true」——即向用户承诺一个可能并不存在的基线。现在:\n\n| 读数 | 语义 | 行为 |\n|---|---|---|\n| `true` | 有包基线 | 重置覆盖层,留在本页重拉 layered |\n| `false` | 无基线可回退 | 删除,回列表 |\n| `undefined` | 服务端没意见(ADR-0010 之前的信封) | 回落到本页自己的保守分层 `isArtifactItem` |\n\n`undefined` 这一档**不替服务端猜**:回落值恰好就是这次改动之前渲染侧已经在用的那一个,所以老服务端保持原有渲染,而渲染与执行仍然读同一个值 —— 这正是本卡要的性质。用 `??` 而非 `||`:服务端给的 `false` 是**一个答案**,不能掉进客户端启发式。\n\n另一处 behavior change:按钮的锁闸从 `isArtifactItem ? lockResettable : lockDeletable` 改为**两个动词统一用 `lockDeletable`**。理由是契约面的:重置与删除是同一个请求,服务端只在一处闸它(`assertLockAllowsDelete` → `evaluateLockForDelete`),而 `resettable` 根本不是权限位,它是 `artifactBacked`。于是 `_lock: 'no-delete'` 的 artifact 条目不再渲染一颗服务端必然回 `403 ITEM_LOCKED` 的重置按钮。渲染一颗注定被拒的按钮,正是本卡要清掉的「契约的第二份副本」。\n\n## 测试\n\n新增 `ResourceEditPage.resetVerdict.test.tsx`(6 例)。每一例都**同时**断言三个面 —— 图标 + `title`、确认框文案、真正走到的分支(用真实 `Routes` + `useLocation` 探针观察导航,而非 mock `navigate`)。只断言其中一面正是这个缺陷能活下来的原因:每一面单独看都自洽,只有三者放在一起才矛盾。\n\n覆盖:`resettable:false` 哨兵条目 → 删除三面一致;`resettable:true` → 重置三面一致;缺省 + 包条目 → 保守回落为重置;缺省 + 哨兵条目 → 「没意见」不被并进 true;`provenance:'org'` 但服务端答 `resettable:true` → verdict 压过客户端分层(证明客户端不再自己拿主意);`deletable:false` → 两个动词都不渲染。\n\n```\npnpm exec vitest run packages/app-shell/src/views/metadata-admin/ --maxWorkers=2\n Test Files  173 passed (173)\n      Tests  1720 passed | 1 skipped (1721)\n\npnpm exec turbo run type-check --concurrency=2\n Tasks:    81 successful, 81 total\n\nnode scripts/check-control-bytes.mjs\n OK (scanned 4386 tracked text file(s); skipped 85 binary).\n```\n\n## 反向验证(先预判,后跑)\n\n**预判(变异前记录):** 把执行侧翻回手搓判定 `itemIsArtifact = layered?.code != null`、渲染侧保留 verdict → 对两个 `code` 层为 `sys_metadata` 哨兵(非空 `code`、删除语义)的 fixture,确认框文案退回 `resetConfirm`、导航不发生 → **6 例中恰好 2 例红**(第 1、4 例),另外三个重置语义例与锁闸例保持绿。方向:红。\n\n**实测:**\n\n```\n× resettable:false — renders Delete, ASKS delete, and leaves the page\n× no verdict + org-own code layer — \"no opinion\" is NOT collapsed into resettable\n Tests  2 failed | 4 passed (6)\n```\n\n与预判逐例一致。还原用 `git checkout`(⛔ 未用 stash)。\n\n## 相邻观察(已核,无需立卡)\n\n读 framework 代码时注意到「runtime-only 条目删除后注册表残留 → 列表仍列出」这一路径,搜索既有 issue 后确认**已由 objectstack#5079 / PR #6687 修复**(`restoreArtifactRegistryView` 第三层),回执文案也已由 objectstack#5927 拆开。故不重复立卡。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

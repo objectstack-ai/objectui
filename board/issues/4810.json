@@ -1,0 +1,34 @@
+{
+  "number": 4810,
+  "kind": "issue",
+  "title": "[fields] markdown / html / richtext 的**可编辑**分支从不转发 host 下发的 `id` 与 `aria-describedby` —— label `for` 悬空、description 零消费者,且 #3318 的 aria-invalid 账本按设计看不见这一半",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:27:03Z",
+  "updated_at": "2026-08-16T10:28:16Z",
+  "closed_at": "2026-08-16T10:28:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4810",
+  "body": "在 #4788 的形态扫描中实测到的相邻一条,**与 #4788 无关**(#4788 只谈只读替换显示,本条发生在**可编辑**态),也**不在 #3318 的完成范围内**(理由见下)。不认领、不扩围。\n\n## 实测\n\n真 form renderer + 裸注册(与 #3990 / #4005 / #4788 的 probe 同一套),字段带 `description: 'Some help'`,数「引用 `…-form-item-description` 这个 id 的元素个数」,并单独看 host label 的 `for` 解析到什么:\n\n```\nmarkdown  editable  descEl=SET  consumers=0  hostIdEl=NONE  for=DANGLING\nmarkdown  readonly  descEl=SET  consumers=0  hostIdEl=NONE  for=DANGLING     ← 这一半属于 #4788\ntext      editable  descEl=SET  consumers=1  hostIdEl=input  for=RESOLVES    ← 对照组\ntextarea  editable  descEl=SET  consumers=1  hostIdEl=textarea for=RESOLVES  ← 对照组\n```\n\n`html` / `richtext` 与 `markdown` 是同一个 widget(`fieldWidgetMap` 里三个键都指向 `RichTextField`),读数相同。\n\n## 机理\n\n`packages/fields/src/widgets/RichTextField.tsx` 全文没有 `toDomProps`(实测 grep 计数 0)。可编辑分支把 `props` 只用来取 `className` / `disabled`,渲染 `RichTextEditorSurface` 时不铺任何 DOM pass-through:\n\n- host `id`(`…-form-item`)整个文档无元素承载 → 可见 label 的 `for` 指向一个不存在的 id;\n- `FormControl` 的 Slot 注入的 `aria-describedby` 同样落地失败 → 渲染出来的 `FormDescription` 零消费者。\n\n对照组 `TextAreaField` / `TextField` 同一 host 同一 Slot,`toDomProps(props)` 一铺就都对了。\n\n## 为什么这不在 #3318 的完成范围内(所以立成独立单,不是 #3318 的子单)\n\n#3318 的账本是按 **`aria-invalid` 一根轴**扫出来的,而 `markdown` / `html` / `richtext` 在那次实测里是 **PASS 的 17 个之一**(`RichTextEditorSurface` 自己读 `error` 并置 `aria-invalid`)。也就是说:\n\n- #3318 关掉的那天,这三个类型的 ledger 行**本来就不在**;\n- 它们的 `id` / `aria-describedby` 依旧不落地,而那次 sweep 的断言维度看不到这一点。\n\n#3318 正文给的修法(「把 `toDomProps(props)` spread 到 widget 的真实可聚焦控件」)如果照做在 RichTextField 上,顺手也修了本条 —— 但 RichTextField 不在它的待修名单里,所以照 #3318 收工不会碰到它。\n\n## 相关但不同的\n\n- `slider` / `grid` / `signature` 的可编辑分支同样一个 pass-through 都不铺,但它们**在** #3318 的 ledger 里,按其修法会一并修好 —— 已在 #3318 下留言补充读数,不在本单重复立。\n- #4788:同一族的**只读替换显示**那一半(含 markdown 只读行),机制方向待维护者裁决。\n\n## 参考\n\n- #3318(29 个 widget 的 aria-invalid 账本 —— 本条正是它的断言维度之外的残留)\n- #3291(`toDomProps` 白名单与 sweep 范式)、#3222 / #3306(同一失败类的前两批)\n- #3990 / #4005 / #4788(host plumbing 落地的家族)\n\n---\n备注:由 os-dev 在 #4788 的实施中实测发现并按 Prime Directive #10 立单(不认领、不扩围到 #4788)。\n"
+}

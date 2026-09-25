@@ -1,0 +1,34 @@
+{
+  "number": 3951,
+  "kind": "issue",
+  "title": "[fields] grid columns have two incompatible key spellings: declared type says `name`, GridField reads `field` — spec-compliant grid metadata renders empty cells",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T15:29:58Z",
+  "updated_at": "2026-08-17T05:35:41Z",
+  "closed_at": "2026-08-17T05:35:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3951",
+  "body": "Found while implementing #3910 (converting the docs field catalog to form hosting). Out of that card's scope — filed rather than fixed, because picking the surviving spelling is a contract decision with a live blast radius.\n\n## The divergence\n\nA grid field's `columns` are declared by **`GridColumnDefinition`** in `packages/types/src/field-types.ts:677`, which is also the declared type of `GridFieldMetadata.columns` (`field-types.ts:651`):\n\n```ts\nexport interface GridColumnDefinition {\n  /** Column field name */\n  name: string;\n  label?: string;\n  type: string;\n  // ...\n}\n```\n\nBut the widget that renders those columns, `packages/fields/src/widgets/GridField.tsx:41`, declares its own local interface and reads a different key:\n\n```ts\nexport interface GridColumn {\n  field: string;\n  // ...\n}\n```\n\nEvery read in `GridField` is `c.field` — `key={c.field}` (`:558`, `:590`, `:620`), `blank[c.field]` (`:399`), `applyCell(rowIdx, col.field, …)` (`:449`), `columns.findIndex((c) => c.field === totalField)` (`:528`), `extraShown.has(c.field)` (`:361`). There is no normalization from `name`.\n\n## Consequence\n\nMetadata authored against the **declared** type renders a grid whose cells are all empty, plus a React key warning (because `key={c.field}` is `undefined` for every column).\n\nMeasured by rendering `GridField` directly — no form, no docs wrapper, identical rows, only the column key spelling differs:\n\n```\nname-spelled  (GridColumnDefinition / catalog): key-warnings=1  rows=[[\"1\",\"IN[]\",\"IN[]\",\"IN[]\"],[\"2\",\"IN[]\",\"IN[]\",\"IN[]\"],[\"3\",\"IN[]\",\"IN[]\",\"IN[]\"]]\nfield-spelled (GridField GridColumn)          : key-warnings=0  rows=[[\"1\",\"IN[Widget A]\",\"IN[2]\",\"IN[29.99]\"],[\"2\",\"IN[Widget B]\",\"IN[1]\",\"IN[49.99]\"],[\"3\",\"IN[]\",\"IN[]\",\"IN[]\"]]\n```\n\n(`IN[x]` = the cell input's value; row 3 is the ghost/new row.)\n\nWhich side each producer is on:\n\n- **`name`** — `GridColumnDefinition` (the declared type), the three `fields-grid` catalog examples, and the prose on `content/docs/fields/grid.mdx` (\"`name: string; // Column field name`\").\n- **`field`** — `GridField` itself, and the master-detail derivation in `packages/plugin-form/src/deriveMasterDetail.ts` (`hydrateColumns` reads `fields[col.field]` at `:261`).\n\nSo real app paths that go through `deriveMasterDetail` work, and anything authored from the published type or the documentation does not. That is the worst direction for this repo's second axis: an AI author reading `GridColumnDefinition` or the grid docs page produces a grid that silently renders nothing in every cell.\n\n## Visible today\n\nThe three demos on `/docs/fields/grid` render tables with the correct row COUNT and every cell empty (browser-verified during #3910). This predates #3910 — the old docs-demo wrapper passed the same `name`-spelled `columns` through, so the cells were empty there too. #3910 deliberately did not re-spell the examples to `field`: that would fossilize into the documentation a key the declared type does not have, which is the exact failure class #3798 ruling B set out to remove.\n\n## Two resolutions, and why this needs a maintainer\n\n1. **Make `GridField` read the declared `name`** (contract-first, AGENTS.md #0.1 — the consumer is the divergent side). Cost: must migrate `deriveMasterDetail`/`hydrateColumns` and any app metadata already passing `field`, or accept both during a deprecation window, which is itself the tolerant-alias smell.\n2. **Change the declared type to `field`** and fix `GridColumnDefinition`, the catalog examples and the grid docs prose. Cost: breaks any metadata authored against the currently published type.\n\nOption 1 matches the stated contract and the documentation; option 2 matches what the live code actually does. Either way the fix must land on ONE side — a renderer-side `col.field ?? col.name` alias is the thing AGENTS.md #0.1 forbids, and would leave two dialects in the catalog forever.\n\nRelated family (types-vs-spec drift, not the same key): #2231, #2890.\n\n## Reproduce\n\n```\npnpm exec vitest run packages/fields/src/widgets/  # existing tests all pass — nothing covers this\n```\nRender `GridField` with `value` set to two row objects and `columns` spelled `name`, and observe empty cells plus the key warning; re-spell to `field` and both go away.\n"
+}

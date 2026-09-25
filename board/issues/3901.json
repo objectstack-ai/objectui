@@ -1,0 +1,34 @@
+{
+  "number": 3901,
+  "kind": "issue",
+  "title": "[finding] `form-view.ts`'s spec bridge still reads `spec.aria`, a key `FormViewSchema` retired — a dormant read that can never fire",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T01:07:04Z",
+  "updated_at": "2026-08-16T09:34:51Z",
+  "closed_at": "2026-08-16T09:34:51Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3901",
+  "body": "Observation-class finding. **Nothing breaks today** — filed so it is recorded rather than rediscovered. Unassigned and unlabelled for triage to grade.\n\nSurfaced during objectstack PR #6854 (the `aria` tombstone re-aim, objectstack#6756) by a dev working the spec side; it had no worktree in this repo, so it reported the observation upward rather than opening a cross-repo PR. Verified independently here before filing.\n\n## The finding\n\n`packages/react/src/spec-bridge/bridges/form-view.ts:193`:\n\n```ts\nif (spec.aria) node.aria = spec.aria;\n```\n\n`FormViewSchema.aria` is a `retiredKey()` tombstone — `objectstack` `packages/spec/src/ui/view.zod.ts:1807` — so a form view carrying `aria` no longer parses. The guard can never be true for any spec that passed validation, and the assignment is unreachable.\n\n## Why it is dormant rather than broken\n\n`retiredKey()` returns `z.never({ error: … }).optional()`, so the key is rejected at the parse rather than stripped. A `FormView` reaching this bridge has therefore already been validated without an `aria`, and `spec.aria` is always `undefined`. No renderer output changes, and no test can distinguish the branch from its absence — which is exactly why it survived the retirement.\n\n## Corroborating measurement (from PR #6854's ledger sweep)\n\n`aria` is a live authoring surface on some carriers and retired on others, and the split is recorded in objectstack's own liveness ledgers:\n\n| carrier | ledger verdict |\n|---|---|\n| `page.aria`, `page.components[].aria` | **live** — applied by objectui renderers |\n| list view `aria` (`view.zod.ts:1280`) | **live** — `plugin-list/src/ListView.tsx` applies `aria-label`/`-describedby`/`-live` |\n| `action.aria` | live, but graded **PARTIAL** |\n| **form view `aria`** | **dead** — this finding |\n| `app.aria`, `dashboard.aria`, `dashboard.widgets[].aria` | dead |\n\nSo this is not \"ARIA support was removed\"; it is one carrier among several, and the bridge kept a read for the one that went away.\n\n## Suggested direction\n\nNon-binding: delete the line. If instead it is kept deliberately — e.g. as tolerance for pre-17 stored documents that bypass validation on some path — that intent should be written down at the site, because as it stands the code reads as live support for an authoring key the contract refuses.\n\n⚠️ Worth measuring before deleting: whether any path feeds this bridge a **non-validated** object (a stored document read straight from persistence, a fixture, or a test double). If one exists, the line is load-bearing for that path and the fix is different. I did not measure that here.\n\n## Not in scope\n\n- The objectstack-side tombstone and its prescription — correct as of objectstack PR #6854, which re-aimed the sibling `aria` prescriptions at their measured-live carriers.\n- Other `spec.*` reads in this bridge; only `aria` was measured.\n\n## Provenance\n\n- `objectui` `origin/main`: `git grep -n \"spec.aria\" -- packages/react/src/spec-bridge/bridges/form-view.ts` → single hit at `:193`.\n- `objectstack` `origin/main`: `git grep -n \"aria:\" -- packages/spec/src/ui/view.zod.ts` → `:1280` live (list view), `:1807` `retiredKey(` (form view). Both read at their respective `origin/main`, not a working tree.\n- Control against a false reading: the same query distinguishes the live list-view carrier from the retired form-view one in the same file, so the instrument is not simply matching any `aria`."
+}

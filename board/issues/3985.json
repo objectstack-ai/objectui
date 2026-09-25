@@ -1,0 +1,34 @@
+{
+  "number": 3985,
+  "kind": "issue",
+  "title": "app-schema-renderer 的 mobileNavMode 声明成自由文本 string,实现却是三值联合 —— 写错的值静默回落,且词表里的 'hamburger' 在渲染器零读点",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T20:55:40Z",
+  "updated_at": "2026-08-17T05:35:41Z",
+  "closed_at": "2026-08-17T05:35:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3985",
+  "body": "发现于 #3972 的实施(PR #3984),**不在该 PR 处理** —— #3972 的完成范围是\"对正确写法报假诊断\"那一类(`page-header` 漏 `icon`/`actions`、`navigation-renderer.items` 类型写错),这一条相反:声明面比实现**更宽**,于是该报的一条 `invalid-enum` 从来没报过。而且它的修法需要先定词表,不该由实施 agent 猜。未认领,交 PM triage。\n\n与 #3818 同一失效家族(声明的语义与渲染器实际读点不符),但方向相反:#3818 是发布了 `auto|custom` 而渲染器只认已退役的旧词表;这里是**根本没发布词表**,而实现只兑现三值中的一个。\n\n## 机制\n\n`packages/layout/src/index.ts` 的 `app-schema-renderer` 声明:\n\n```\n{ name: 'mobileNavMode', type: 'string' },\n```\n\n而实现是三值联合(`packages/layout/src/AppSchemaRenderer.tsx:57`):\n\n```\nexport type MobileNavMode = 'drawer' | 'bottom_nav' | 'hamburger';\n```\n\n`ManifestInputType` 有 `'enum'`,`ManifestInput` 有 `enum` 数组字段(`packages/sdui-parser/src/types.ts:51-73`),`checkType` 对 `'enum'` 会给出 **error** 级的 `invalid-enum`(`validate.ts:130-140`)—— 所以这个词表是完全表达得了的,和 #3832 的联合类型表达力问题无关。\n\n后果是两条,都无诊断:\n\n1. **写错值静默回落。** 作者(尤其 AI 作者)写 `mobileNavMode: \"bottom-nav\"`(连字符,而实现要的是下划线 `bottom_nav`)拿不到任何诊断:`type: 'string'` 判的只是 `typeof value === 'string'`,于是通过;渲染器 `:538` 的 `showBottomNav = mobileNavMode === 'bottom_nav'` 不成立,静默走 drawer。设计器那边同样把它渲染成自由文本输入框,而不是三选一。\n2. **词表里的 `'hamburger'` 本身零读点。** 全文件对 `mobileNavMode` 的读只有 `:430` 的默认值(`= 'drawer'`)与 `:538` 的 `=== 'bottom_nav'`,所以 `'hamburger'` 与 `'drawer'` 行为**完全一致** —— 而 `:411` 的 JSDoc 把它写成 \"`hamburger`(collapsed sidebar)\",是个已发布却未实装的语义(#3829 / #3818 的同一类)。\n\n## 为什么不在 #3972 的 PR 里顺手改\n\n\"声明成 enum\"这个动作要求先回答\"三个值里哪些是真的\",而两条路的公开契约不同:\n\n- (a) `enum: ['drawer', 'bottom_nav', 'hamburger']` —— 与 TS 类型一致,但把一个渲染器不实装的值正式发布成合法作者面(#3829 的方向);\n- (b) `enum: ['drawer', 'bottom_nav']` —— 与渲染器实际行为一致,但与 `MobileNavMode` 类型矛盾,等于同时宣布 `'hamburger'` 该按 ADR-0049 enforce-or-remove 处理(实装 collapsed-sidebar,或从类型里删掉)。\n\n另外任一条路都会**新增 error 级诊断**:今天写了词表外值的仓外消费者会从\"静默回落\"变成\"校验报错\"。方向上这是对的(declared = enforced,让 AI 作者当场被拦),但它是收紧决定,得有人拍。\n\n## 可达性诚实标注\n\n仓内没有任何 JSON 元数据把 `app-schema-renderer` 当 schema 节点写(全仓 grep 只命中注册本身);React 调用侧受 TS 约束,`mobileNavMode` 传错值编译期就红。所以今天的实际受害者只有仓外按 `inputs` / `packages/layout/README.md` 作 schema 驱动的消费者,以及\"以为 `'hamburger'` 有效\"的任何调用方(仓内是 0 个:唯一传值处是 `__tests__/AppSchemaRenderer.test.tsx:513` 传的 `'bottom_nav'`)。因此按 observation-class 打 `finding`、不挂 `pm:queue`,定级请分诊时自行判断。\n\n## 参考位置\n\n- `packages/layout/src/index.ts` —— `app-schema-renderer` 的 `mobileNavMode` input\n- `packages/layout/src/AppSchemaRenderer.tsx:57` —— `MobileNavMode` 三值联合\n- `packages/layout/src/AppSchemaRenderer.tsx:430` / `:538` —— 全部两个读点\n- `packages/layout/src/AppSchemaRenderer.tsx:411` —— 把 `hamburger` 写成 collapsed sidebar 的 JSDoc\n- `packages/sdui-parser/src/validate.ts:130-140` —— `invalid-enum`(error 级)\n\n关联:#3972(发现于此实施)、#3984(该单的 PR)、#3818(同族、方向相反)、#3829(声明了却零读点)、#3832(不同根因:`ComponentInput.type` 表达力)"
+}

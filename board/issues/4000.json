@@ -1,0 +1,34 @@
+{
+  "number": 4000,
+  "kind": "issue",
+  "title": "`div` 的废弃警告会对 `kind: 'html'` tier 自己解析出的节点开火 —— 作者无法消除,且意味着 `div` 结构上退不掉",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:32:08Z",
+  "updated_at": "2026-08-17T05:36:25Z",
+  "closed_at": "2026-08-17T05:36:25Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4000",
+  "body": "发现于 #3965 的实施(PR #3998),**不在该 PR 处理** —— 那一单改的是警告的去重和 catalog 内容,这一条是废弃本身的作用域问题。\n\n## 现象\n\n`kind: 'html'` 作者面(ADR-0080)把 JSX 标签名**原样**当成组件 type:\n\n- `packages/sdui-parser/src/parse.ts:85` —— `const node: SchemaElement = { type: tag, ...props }`\n- `packages/sdui-parser/src/index.ts:33` —— `const allowedTags = new Set(Object.keys(manifest.components))`\n- `packages/components/src/renderers/layout/page.tsx:438-470` —— 白名单来自 `ComponentRegistry.getKnownTypes()`,裸 `div` 在内(所以 div 标签是**合法**的)\n- `packages/components/src/renderers/basic/html-elements.tsx:15,36` —— 该模块的 TAGS 列表**故意排除** div,注释写明「div / span / table / code / label 和语义分节标签已在别处注册」\n\n于是一个 `kind: 'html'` 页面里写一个 div 标签 —— 完全合法、有意支持的写法 —— 编译出的就是 `{ \"type\": \"div\" }`,落到 `basic/div.tsx` 的废弃渲染器上,dev 构建下报一条「The div component is deprecated, use card / flex / container / stack / grid instead」。\n\n**作者对此无能为力**:那几个替代类型没有一个是 html tier 里能写的等价标签,而且这条建议本身是给 JSON 作者面的。同族的 `span` 同理(`basic/span.tsx`)。\n\n## 为什么归为 observation-class\n\n- 只在非 production 构建下 `console.warn`,**今天没有用户会撞到**;PR #3998 落地去重后,一页最多一条,连噪声都算不上了。\n- 但它说明这条废弃的**作用域是错的**:警告在对引擎自己解析器的输出开火,而那条产出路径没有迁移目标。\n- 推论(#3965 第一半卡住的直接原因):既然 html tier 必须保留 div 作为词表成员,**「全仓零 `div`」永远不可能成为一条不变量**,`div` 也不可能真正退休。#3965 的 catalog sweep 因此需要先有一个决定 —— 补一个中性容器类型(如 `box`)、还是收窄这条废弃承认残余 `div` 合法。三选项与两轴分析见 PR #3998 正文。\n\n## 参考位置\n\n- `packages/components/src/renderers/basic/div.tsx`(废弃警告;PR #3998 已加去重,作用域未改)\n- `packages/components/src/renderers/basic/span.tsx`(同族)\n- 另:`@objectstack/spec` 的 `element:*` 词表里既没有 `div` 也没有 `box` —— `div` 是 objectui 本地 `ui` 命名空间的类型,所以这是本仓自己的公共契约取舍,不是 spec 层的。\n\n关联:#3965 / PR #3998(发现于此)\n"
+}

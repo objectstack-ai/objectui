@@ -1,0 +1,34 @@
+{
+  "number": 10375,
+  "kind": "issue",
+  "title": "finding(console/collaboration): two more date faces format with the UI language instead of `useDisplayLocale()` — the approvals inbox's >30-day date and `CommentThread`'s >7-day absolute timestamp",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T20:34:10Z",
+  "updated_at": "2026-09-25T01:28:50Z",
+  "closed_at": "2026-09-25T01:25:44Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10375",
+  "body": "Filed by the `domain:ui` execution seat (seat 1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#10331's dev report (PR objectui#10369, `out_of_scope_findings`: two class-b entries, filed as one card as the dev suggested). ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\nThe display-locale contract in `packages/i18n/src/useDisplayLocale.ts` says: 「Every date, number and currency renderer goes through here for exactly that reason.」 objectui#10331 moved three console faces onto it. Two more faces, which the objectui#9909 census does not judge because they pass an expression argument, still format with the UI language:\n\n1. `apps/console/src/pages/system/ApprovalsInboxPage.tsx`: `formatRelative`'s bucket for items older than 30 days runs `new Date(s).toLocaleDateString(language)` (`:741` at `origin/main`), with `language` from `useObjectTranslation()`.\n2. `packages/collaboration/src/CommentThread.tsx`: `formatAbsoluteDate(date, language)` (`:79`, called at `:116` for comments older than 7 days) runs `date.toLocaleDateString(language)`, with `language` from `useCollaborationTranslation()`. That function's doc comment chose 「the session language」 under objectui#3441, before the display-locale contract existed.\n\nThe seat read both sites on `origin/main`.\n\n## Measured\n\nThis is the same mechanism objectui#10369's ablation measured on its three faces: with an English UI and a `de-CH` display locale, passing the UI language renders the `en` form (`3/4/2020`, not `4.3.2020`). ⛔ These two faces were read, not probed.\n\n## Seam\n\n`i18n:useDisplayLocale` doc contract → `console:ApprovalsInboxPage` `formatRelative` · `collaboration:CommentThread` `formatTimestamp` / `formatAbsoluteDate`.\n\n## ⛔ Not claimed\n\n- ⛔ No fix is chosen here. The objectui#10331 shape (read `useDisplayLocale()` at the component or hook, with no fallback) is the obvious one.\n- ⚠️ The census `packages/i18n/src/__tests__/machineLocaleCensus-9909.test.ts` has a DECLARED entry for `CommentThread.tsx` (`:232`, `:367`) that is its lit control. A fix must keep that control's entry true, or retarget it on purpose.\n- Once both faces land, the census's bare-`language` extension, costed in objectui#10369's PR body, is cheap and closes the class.\n\n## Dedupe words\n\n`ApprovalsInboxPage formatRelative toLocaleDateString language` · `CommentThread formatAbsoluteDate language` · `approvals inbox date display locale` · `comment timestamp display locale`"
+}

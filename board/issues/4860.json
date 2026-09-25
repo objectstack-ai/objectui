@@ -1,0 +1,34 @@
+{
+  "number": 4860,
+  "kind": "issue",
+  "title": "[finding] `packages/layout/README.md` 的注册键表是三处同源键表里唯一没有钉子的一处 —— #4841 撤 `app-shell` 时它是唯一没被打红的",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T16:17:12Z",
+  "updated_at": "2026-08-17T02:41:29Z",
+  "closed_at": "2026-08-17T02:41:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4860",
+  "body": "发现于 #4841 的实施（撤销 `app-shell` 组件键注册，PR #4859），回传立单。**未认领，交 PM 三角。观察类** —— 本条记录的是钉子覆盖面的不对称；#4841 的 PR 已把当下这份列表改对，今天没有用户路径会踩到。\n\n## 事实\n\n`packages/layout/README.md` 的「Registration」小节逐字列举本包注册的组件键：\n\n```\nImporting this package registers its component keys (`page-header`, `page:card`,\n`responsive-grid`, `navigation-renderer`, `app-schema-renderer`) on the\n`ComponentRegistry` as a module load side effect …\n```\n\n同一份键表在仓内出现在三处，其中**两处有机械钉子，这一处没有**：\n\n| 位置 | 钉子 | 机制 |\n|---|---|---|\n| `content/docs/guide/layout.md`（SidebarNav 小节「registers five keys — …」句） | 有 | `guide-layout-sidebar-nav-doc.test.ts`：正则从 `packages/layout/src/index.ts` 读出 register 的键表，与页面所列逐项比对 |\n| `packages/layout/src/index.ts` 自身（键的存废） | 有 | `app-shell-not-a-component-key.test.tsx`（#4841 新增，但只覆盖 `app-shell` 一个键）+ `side-effects-manifest.test.ts`（只保证数量下限） |\n| `packages/layout/README.md`「Registration」小节 | **无** | —— |\n\n`readme-app-shell-example.test.ts`（#4817）确实读这份 README，但它的判定面只有两项：`AppShellProps` 表格，与 fence 里 AppShell 开标签上的 prop 名。注册键表不在它的扫描面内 —— 该文件头的「Scan surface」段落也是这么写的。\n\n## 为什么值得记一笔\n\n这正是 #4841 里 `app-shell` 那一行的漂移方式：撤注册时 guide 的键表**会**被钉子打红（实施中确实红了，是它逼出的文档修改），README 的键表不会 —— 只能靠人读到。已发布包的 README 是 npm 页面的第一屏；列一个不存在的组件键，读者照着写会拿到 `Unknown component type` 红框。\n\n方向上与 guide 那条同构：期望值**从 `index.ts` 读出**，而不是在测试里硬编码一份键表 —— 后者正是 #3899 踩过的坑（它的散文里列了一个本包从未注册过的 `sidebar-nav`）。\n\n## 可能的处置（交维护者定，本单不预判）\n\n- **A.** 给 README 的「Registration」列表补一个与 guide 同机制的钉子（读 `index.ts` 的 register 键表，比对 README 该小节所列）。约 20 行，与 `guide-layout-sidebar-nav-doc.test.ts` 的 `registeredKeys()` 同构；该 helper 现在已在两个文件里各有一份副本，顺带可考虑提取共用。\n- **B.** 让 README 不再复述键表，改为指向 guide / 源码。代价是 npm 首屏少一份速查表。\n\n倾向 A：这份列表对 README 读者是有用的速查信息，问题不在它存在，而在没有东西看着它。\n\n## 参考\n\n- `packages/layout/README.md`（「Registration」小节）\n- `packages/layout/src/index.ts`（`registerLayout()` 的 register 调用）\n- `packages/layout/src/__tests__/guide-layout-sidebar-nav-doc.test.ts`（`registeredKeys()` 与键表比对，可复用的机制）\n- `packages/layout/src/__tests__/readme-app-shell-example.test.ts`（读这份 README，但扫描面不含键表）\n- #4841 / PR #4859（发现于此）、#4817（README 的 AppShell 示例钉子）、#3899（硬编码键表列出不存在的键的先例）"
+}

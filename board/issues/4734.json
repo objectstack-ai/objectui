@@ -1,0 +1,34 @@
+{
+  "number": 4734,
+  "kind": "issue",
+  "title": "Nothing mechanically catches OData query params nested under a dead `options` key in a `find()` call",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T21:22:07Z",
+  "updated_at": "2026-08-15T22:08:52Z",
+  "closed_at": "2026-08-15T22:08:42Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4734",
+  "body": "Follow-up from #4025 (the third bullet of its \"建议范围\"), split out rather than carried in that card's PR — see \"Why this is not in that PR\" below.\n\n## The gap\n\n`QueryParams` (`packages/types/src/data.ts`) declares its paging keys at the **top level** (`$top` / `$skip`) and carries an index signature (`[key: string]: any`). That index signature means the type system can never reject a misspelled or misplaced query key: `find(obj, { options: { $top: 100 } })` type-checks exactly as well as `find(obj, { $top: 100 })`, and the two mean completely different things — the first means nothing at all. No adapter in this repo reads `params.options` (`convertQueryParams` in `@object-ui/data-objectstack` and `ApiDataSource` both read `params.$top`), so a cap written there never reaches the wire.\n\nTwo live instances existed, both written by different people at different times:\n\n- `object-timeline` — the whole fetch was `find(objectName, { options: { $top: 100 } })`; fixed in PR #4009 (objectstack#7137).\n- `object-kanban` — `$filter` at the top level, the cap under `options`; fixed for #4025. A board over a large object fetched every row the server would return, for as long as the block existed.\n\nPlus a harmless one in `@object-ui/fields` (primary-key equality, at most one row), spelled top-level as of the same PR.\n\nThe pattern is exactly the kind that a review will not catch twice in a row: it reads as a deliberate grouping (\"query options\"), it type-checks, it publishes, and the symptom (too many rows) looks like a data problem rather than a code problem.\n\n## State right now\n\nAfter the #4025 PR there are **zero live instances in the repo** — the only remaining textual matches are prose in comments and test headers describing the history. That makes this the cheapest possible moment to install the gate: it starts green with no allowlist and no debt entry.\n\nVerified with:\n\n```\ngrep -rnE 'options\\s*:\\s*\\{[^}]*\\$(top|skip|filter|orderby|select|expand)' packages apps examples --include=*.ts --include=*.tsx\n```\n\n## What to build — a decision this issue exists to make\n\n**Option A — a `check:*` script** (the shape #4025 suggested). Consistent with the repo's other correctness gates (`check:phantom-deps`, `check:action-forward-parity`, `check:i18n-keys` all parse sources with `typescript`), so this one should too rather than regex over raw text: comments and test headers legitimately contain the dead spelling, and a text scan would have to strip comments approximately to avoid flagging them. Suggested AST signature, which needs no allowlist:\n\n> an object-literal property named `options` whose initialiser is an object literal containing at least one property whose name starts with `$`\n\nCost: script + a pin test in `scripts/__tests__/` + a step in `ci.yml`'s type-check job (the house pattern for every gate there).\n\n**Option B — an `object-ui/*` ESLint rule** in `eslint-rules/`, alongside `no-dynamic-import-in-test-hook` and friends. Same AST precision, plus an editor-time squiggle at the moment the mistake is typed rather than at CI, and `eslint.config.js` already carries the `error`-level ratchet convention (and `check-lint-coverage.mjs` guarantees every package runs ESLint). Cost: rule + RuleTester test.\n\nThe two are not equivalent in reach: the ESLint rule sees only linted workspace packages, while a `check:*` script chooses its own scan roots. Whoever picks this up should pick one deliberately — not both.\n\n## Acceptance\n\n- A newly introduced `find(obj, { options: { $top: N } })` (or any `$`-prefixed key nested under `options`) fails CI with a message that says where the key belongs.\n- Existing prose mentioning the dead spelling (comments in `plugin-timeline`, `plugin-kanban`, `fields`, and the test headers) does not trip it.\n- The gate ships green against `main` with no allowlist.\n\n## Not in scope here\n\nAny wider \"unknown `QueryParams` key\" gate. The index signature is deliberate (adapters accept adapter-specific params), so a general unknown-key check would be a much larger design question about tightening the type itself. This issue is the one spelling that has already cost two blocks their row caps.\n\n## Why this is not in the #4025 PR\n\nThat card adjudicated the gate as in-scope \"only if it lands as a small `check:*` script addition\". By this repo's convention a new gate is a script plus a pin test plus a workflow step (or a rule plus a RuleTester test), and the mechanism choice above is a real decision with a reviewable trade-off — neither fits inside a three-line behaviour fix without making that fix harder to review. Filing it here keeps both reviewable.\n"
+}

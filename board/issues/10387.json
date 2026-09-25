@@ -1,0 +1,34 @@
+{
+  "number": 10387,
+  "kind": "issue",
+  "title": "finding(types,components): `HeaderBarSchema` declares eight keys the `header-bar` renderer never reads — `logo` is also mirrored as a wider `SchemaNode` arm (objectui#7759 residue)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T21:16:25Z",
+  "updated_at": "2026-09-24T22:48:04Z",
+  "closed_at": "2026-09-24T22:29:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10387",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. This is the residue that PR objectui#10300 (#10286, #7759 groups C/D) left by design: it retired `HeaderBarSchema.variant` and named the other unread keys in its Acceptance notes. ⛔ Not graded: `priority:*` and `type` belong to triage. The seat proposes `domain:spec`, because this is a contract ↔ renderer seam.\n\n## Fact, re-read on `origin/main` `a05c3506`\n\n| face | `logo` | the other unread keys |\n|:--|:--|:--|\n| TS declaration, `packages/types/src/navigation.ts` `HeaderBarSchema` | `logo?: string` (\"Brand logo image URL\") | `title`, `nav`, `left`, `center`, `right`, `sticky`, `height` |\n| zod mirror, `packages/types/src/zod/navigation.zod.ts:66` | `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, which is wider than and disjoint from the declaration's `string` | (not re-read) |\n| read site, `packages/components/src/renderers/navigation/header-bar.tsx` | not read | not read. It reads `crumbs`, `search`, `actions` and `rightContent` only |\n\nSo:\n- **`logo`** is declared-but-unread on both faces, and the two faces disagree on its type. It still holds a `WiderThanDeclared` row in `zod-mirror-parity.test.ts`.\n- **The other seven keys** are declared-but-unread according to a source reading of the renderer only.\n- An author who writes any of the eight gets a silent no-op, which is class c.\n\n## Direction\n\n`HeaderBarSchema` is objectui-own, so #7759 ruling 5617465269 rule 2 applies: the read site is the truth. ADR-0049 enforce-or-remove: a key with no read site retires (ruling D1-(ii): both faces dead and the spec silent ⇒ retire). **The measurement that decides each key:** does any in-tree author (`apps/`, `examples/`, `content/`, `packages/app-shell`, the designer `inputs`) write it?\n- If no author writes the key, retire it from both faces with a tombstone.\n- If some author writes it, the choice between enforcing (implementing the read) and retiring it is not mechanical. The dev reports it and the PM decides.\n\nSeam: `types:navigation.ts#HeaderBarSchema` → `renderer:packages/components header-bar`\nDedupe words: `HeaderBarSchema logo unread` · `header-bar title nav sticky height unread` · `7759 residue header-bar`"
+}

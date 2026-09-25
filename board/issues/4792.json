@@ -1,0 +1,33 @@
+{
+  "number": 4792,
+  "kind": "pull_request",
+  "title": "docs(layout): SidebarNav README 示例改回 NavItem 真实形状,补 props 表并钉住 (#3999)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:22:46Z",
+  "updated_at": "2026-08-16T08:33:12Z",
+  "closed_at": "2026-08-16T08:33:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T08:33:11Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4792",
+  "body": "Fixes #3999\n\n## 问题\n\n`packages/layout/README.md` 是本包在 npm 上的门面页(`package.json` 的 `files` 里明确列了 `README.md`),而它的 `SidebarNav` 示例把每个导航项写成 `{ label, path, icon: 'home' }` —— 三个键 `NavItem` 一个都没有。行号按当下 main(基线 `c25222758`)自核过:\n\n| README 旧写法 | `NavItem` 真实键(`SidebarNav.tsx:23-30`) |\n| --- | --- |\n| `label` | `title`(`:24`) |\n| `path` | `href`(`:25`) |\n| `icon: 'home'` | `icon?: React.ComponentType`(参数 `{ className?: string }`,`:26`)—— **组件**,不是图标名 |\n\n照抄的后果不是「样式不对」。`isNavGroup`(`:47`,判据 `'items' in item && !('href' in item)`)对这些对象返回 false,于是走 `NavItem` 分支:\n\n- `< span >{item.title}< /span >`(`:61`、`:110`)拿到 `undefined` —— 每行**没有标签**;\n- `< NavLink to={item.href} >`(`:79`、`:108`)拿到 `undefined`;\n- 字符串 `'home'` 经 `item.icon && < item.icon / >`(`:60`、`:109`)被 React 当作未知小写标签渲染。\n\nTS 消费者当场类型报错;真正的受害者是 JS 消费者、以及照抄后自己「改到能编译」的作者(含 AI 作者)—— 后者正是 README 的读者。\n\n## 改动\n\n**① 两处示例改真实形状。** `### SidebarNav` 与「Usage with React Router」都改成 `title` / `href` + 从 `lucide-react` 导入的真实组件,并把数组标注成 `NavItem[]`。标注是这一改的关键一半:它把这类笔误从「运行时空白侧边栏」变回「书写处的编译错误」,也就是本仓 contract-first 的方向 —— 不在消费端容错,而在写下的地方拒绝。\n\n**② 补 props 表(分诊裁定)。** README 从来没有形状表,只改示例等于让下一个作者再猜一次。新增 `SidebarNavProps`、`NavItem`(含 `badge` / `badgeVariant` / `children`)、`NavGroup` 三张表,外加一段分组 + 嵌套的示例。表里写进了几条只有读源码才知道的事实:`items` 必须同质(`:128` 只探 `items[0]` 决定整个数组走哪支)、`title` 在分组模式下被忽略、`href` 兼作 React key、`children` 非空时父行本身不再是链接、`badge` 判据是 `!= null` 所以 `0` 会显示。\n\n**③ 旁证判定:确属失真,同 PR 改注释。** `side-effects-manifest.test.ts:289` 邻域注释写着「the SidebarNav component reaches the registry under `navigation-renderer`」。实读为**假**:`navigation-renderer` 注册的是另一个文件里的另一个组件 `NavigationRenderer`(`NavigationRenderer.tsx` 全文 grep 不到 `SidebarNav`),`src/index.ts` 导入 `SidebarNav` 只为 `export *` 再导出 —— 它**没有任何注册键**。注释改为陈述这一事实,并说明这正是 README 把它记成 JSX 而非 JSON 节点类型的原因。\n\n**④ 钉子。** 新增 `packages/layout/src/__tests__/readme-sidebar-nav-example.test.ts`,三半各钉一类事实:\n\n- **编译期** —— README 的示例数组就是这个文件里的**真代码**,用真的 `NavItem` / `NavGroup` 标注、`icon` 放真的 lucide 组件,由本包 `tsconfig.test.json` 编译。这是唯一抓得住 `icon: 'home'` 的一半:合法键上的错误**值**类型,任何键名检查都看不见(key-vs-value:表只可能在「键存不存在」上出错,所以表那半只断言键;值归编译期)。\n- **文档同源** —— 同一段代码用 BEGIN/END 标记取出,断言它作为**连续行**出现在 README 里(按 trim 比较,所以 JSX 缩进不进契约)。没有这一半,上一半就退化成给「没人发布的片段」做类型检查。\n- **表同源** —— 表的期望键**每次运行从 `SidebarNav.tsx` 的接口体里读**,不硬编码。给 `NavItem` 加键却不写进表、或表里留着已删的键,都会红。外加一条窄扫描:提到 `SidebarNav` 的代码围栏里 `icon:` 不得是引号字符串;这条刻意只限本组件的围栏 —— `page-header` 的 `icon` 确实是字符串图标名(`index.ts` 里 `type: 'string'`),扩成 README 全局禁令就是这条钉子越权。\n\n## 反向验证(先预判,后实测)\n\n**变异 A —— 把 README 恢复成旧形状(`git checkout c25222758 -- packages/layout/README.md`)。**\n预判:8 条里 7 红 —— 三条示例同源(basic/grouped/router 的行对不上)、三条表同源(`####` 小节整个消失,`documentedKeys` 抛错)、一条 icon 引号扫描;**唯一该绿的是** `and that code really is a NavItem[] / NavGroup[]`,因为它只断言本文件自己的常量,README 怎么改都碰不到它。\n实测:`Tests 7 failed | 1 passed (8)`,绿的正是预判的那一条。7 条全部以**断言/抛错**转红,没有一条靠超时。\n\n**变异 B —— 把整个旧形状(`{ label, path, icon: 'home' }`)放回被类型检查的示例代码里。**\n预判:`type-check` 红,并报**三类**错 —— `icon` 的值类型、`label`/`path` 的多余属性、缺 `title`/`href`。\n实测:红(exit 2),但**只报了一类**:\n\n```\nsrc/__tests__/readme-sidebar-nav-example.test.ts(79,45): error TS2322: Type 'string' is\n  not assignable to type 'ComponentType< { className?: string | undefined; } > | undefined'.\n```\n\n预判在这里不准,如实记下:同一个对象字面量既有「共有属性类型不符」又有「多余属性/缺必需属性」时,TS 只报更具体的前者,后两类被它盖住。**红的方向对,红的数量不对** —— 于是「三个键都会变成编译错误」这句话,在变异 B 里只证到了 `icon` 一个。\n\n**变异 C —— 因此单独测另一半:只把键写错(`label`/`path`),`icon` 留正确的组件。**\n预判:仍红,报多余属性(TS2353)或缺必需属性(TS2739)。\n实测:红(exit 2):\n\n```\nsrc/__tests__/readme-sidebar-nav-example.test.ts(79,5): error TS2353: Object literal may\n  only specify known properties, and 'label' does not exist in type 'NavItem'.\n```\n\nB 与 C 合起来才支撑 README 里那句「标注成 `NavItem[]` 把这一类笔误变成书写处的编译错误」:键错 → TS2353,值错 → TS2322。只跑 B 会让这句话有一半没被测过。\n\n三次变异都在 commit 之后做,还原用 `git checkout claude/issue-3999-sidebarnav-readme -- 路径`(AGENTS.md §9:反向验证前先 commit;⛔ 未用共享 stash 栈),工作区无残留。\n\n## 验证\n\n- 仓根 `turbo run type-check --concurrency=2` → `Tasks: 81 successful, 81 total`。\n- `pnpm exec vitest run packages/layout --maxWorkers=2` → `Test Files 11 passed (11)` / `Tests 139 passed (139)`,exit 0。\n- `check-control-bytes`(4307 个文件)、`check-doc-links`(13 个 scan root)、`check-changeset-presence` / `-fixed` / `-no-major` 全绿;改动的两个测试文件 eslint 0 error。\n\n## 范围\n\n- ⛔ 未动 `SidebarNav.tsx` 本体 —— 这单是文档面缺陷,组件行为不变。\n- ⛔ 未动 README 的 PageHeader 段(PR #4759 刚改过)。\n- ⛔ 未碰 `content/docs/releases/`。\n- 「给 README 代码块上门禁」是 #3786 家族的大题,按分诊裁定不入本单;本 PR 的钉子只覆盖 `packages/layout/README.md` 这一张页面。\n- changeset:`patch`(`@object-ui/layout`)。触发门禁的其实是 `packages/layout/src/` 下的新测试文件(实测 `check-changeset-presence.mjs` 只点名了这两个测试文件,只改 README 不会触发);声明成 `patch` 而不是空 frontmatter 的理由是 —— `README.md` 在 `files` 里,改正后的门面页**只能靠一次发布**才到得了 npm。\n\n## 消费半径扫查\n\n`SidebarNav` 的示例载体全仓枚举过一遍(`grep -rn SidebarNav`,排除 node_modules/dist):`content/docs/layout/sidebar-nav.mdx` 早就写对;`packages/react/src/hooks/useFocusManagement.ts:110` 是某 hook 的 JSDoc 里同名但无关的局部示例组件(`items: string[]`);`ROADMAP.md` / `CHANGELOG.md` 只是提及。**唯一另一处同族缺陷在 `content/docs/layout/app-shell.mdx`**(两处示例用 `label:` 与字符串 `icon:`,并写了 `SidebarNavProps` 没有的 `header` prop)—— 那是 `content/docs/**`、超出本单 file surface,已按调度约定回传给 PM,未在此 PR 修改。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

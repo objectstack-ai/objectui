@@ -1,0 +1,34 @@
+{
+  "number": 4658,
+  "kind": "issue",
+  "title": "Dead locale strings: console.objectView.striped/bordered/virtualScroll and appDesigner.stripedRows/bordered have no call site in any of the ten packs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T16:23:43Z",
+  "updated_at": "2026-08-15T20:00:15Z",
+  "closed_at": "2026-08-15T20:00:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4658",
+  "body": "Observation-class finding, recorded while unwinding the objectstack#7176 retirement chain (#4649 / PR #4657). **Not fixed there** — different package, and the dormancy predates that change. Unassigned, no `pm:queue`; grade it in triage.\n\n## What was measured\n\n`packages/i18n/src/locales/*.ts` defines five labels, in **all ten packs**, that nothing asks for:\n\n| Key | en value |\n|---|---|\n| `console.objectView.striped` | `Striped rows` |\n| `console.objectView.bordered` | `Bordered cells` |\n| `console.objectView.virtualScroll` | `Virtual scroll` |\n| `appDesigner.stripedRows` | `Striped Rows` |\n| `appDesigner.bordered` | `Bordered` |\n\nA repo-wide search over `packages/*/src`, `apps/*/src`, `examples/` and `e2e/` returns no `t()` call site for any of them — literal or template-built. `ViewConfigPanel.tsx` (the view configure panel, the plausible consumer) never mentions the three; `app-shell` builds no `console.objectView.*` key dynamically. So these are labels for a control that no longer exists on any screen.\n\nThe `appDesigner` pair is unrelated to the retirement by name only — the same measurement applies, which is why they are on one card rather than two.\n\n## Why no gate sees it\n\nThe three i18n gates each read the direction that cannot catch this, and the division is deliberate and documented in their headers:\n\n- `all-locales-key-parity.test.ts` — pack vs pack. **Ten packs identically defining a dead key is full parity.**\n- `check-i18n-call-site-keys.mjs` — call site to `en`. It asks whether a key a component wants exists, never whether a key that exists is wanted.\n- `check-i18n-en-drift.mjs` — `en` value changes to the other nine. A value that never changes never registers.\n\nSo the class \"key defined by every pack, referenced by nobody\" is invisible by construction, and these five are unlikely to be the only members. The generalisable half of this card is a reverse sweep (pack key set minus referenced key set), which is why it may be worth more than deleting five strings.\n\n## Extra context after objectstack#7176\n\nThe three `console.objectView.*` labels can no longer acquire a consumer: the keys they described are retired upstream, and objectui stopped declaring and forwarding them in PR #4657. Whatever the verdict on the general sweep, that subset is dead permanently rather than merely dormant.\n\n## Suggested scope\n\nDelete the five keys from all ten packs (`en` plus the nine translations, so key parity stays green), or — if the reverse sweep is judged worth having — add it as a gate and let it produce the full list first."
+}

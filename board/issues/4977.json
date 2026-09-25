@@ -1,0 +1,35 @@
+{
+  "number": 4977,
+  "kind": "issue",
+  "title": "GA pin 适配残余两处(shard 3 常红):quick-reference 仍教 ^17.0.0-rc.6;$like/$ilike 按 B-as-temporary 加「未裁」引用式豁免(#4911)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T09:16:36Z",
+  "updated_at": "2026-08-17T10:25:45Z",
+  "closed_at": "2026-08-17T10:25:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4977",
+  "body": "## 背景\n\ndependabot GA 批次(#4953-#4960)落 main 后,除 #4968(已修)外 shard 3 还有两处常红,任何 PR 的 merge-ref 均中(PR #4969 的 run 实测;#4911 评论区另有纯 main 独立复现):\n\n1. `scripts/__tests__/quick-reference-current-release-4143.test.ts:365` —— quick-reference 文档仍有两处 `^17.0.0-rc.6` 字面量,pin 已是 `^17.0.0` GA。\n2. `packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts:134` —— GA 的 `FieldOperatorsSchema` 新增 `$like`/`$ilike`,builder 无对应算子(#2942 可达性门按设计咬红)。\n\n## 修法\n\n1. quick-reference 两处字面量跟到 GA(按该钉的派生期望改,读钉源确定正确形态)。\n2. **$like/$ilike 走 #2942 门的引用式豁免,按 #4911 评论区的 B-as-temporary 措辞纪律**:豁免文本必须写「**undecided — see #4911**」,⛔ 不得写成「deliberately unsupported」(那会预判尚未做出的 A/B 裁定);附收割条件:#4911 裁定落地时本豁免必须随之删除或改写(A 则删豁免建算子,B 则改写为 deliberate + reopen 条件)。\n\n⛔ 不实现算子、不动 #4911 的决策;豁免是队列解阻的临时件,决策仍在维护者。\n\n## 参考\n\n#4911(决策箱,两 PM 席分析在案)、#4968/PR#4969(同批次第一处)、#4973(病根:dependabot auto-merge 不等慢 shard)。"
+}

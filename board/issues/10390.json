@@ -1,0 +1,34 @@
+{
+  "number": 10390,
+  "kind": "pull_request",
+  "title": "fix(plugin-map, plugin-gantt): objectName is not a required registration input (objectui#7470)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T21:34:32Z",
+  "updated_at": "2026-09-24T22:00:56Z",
+  "closed_at": "2026-09-24T22:00:55Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T22:00:54Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10390",
+  "body": "Fixes #7470\nClause-②: no\n\n## What changed\n\nRuling 5809231477 (letter align, maintainer 「同意」), executed as written:\n\n- `objectName` loses `required: true` on every map and gantt registration key, re-derived by symbol on `origin/main` `62bc8a250`: `object-map` (namespace `plugin-map`), `map` (namespace `view`) and `object-gantt` (namespace `plugin-gantt`). The bare `gantt` key is already retired (objectui#8008), so gantt has one key today, not two.\n- Its `description` now states the rule: the record source is one of `data`, `staticData` and `objectName`, and the `object-map` / `object-gantt` schema refuses a block that declares none of them.\n- `packages/plugin-gantt/README.md`: the \"`objectName` (required)\" sentence is corrected.\n- No one-of vocabulary was added to the input declaration. The renderers' read order and the zod mirrors are unchanged.\n\n## Why the description is true (hypothesis 3)\n\n`requireRecordSource` in `packages/types/src/zod/objectql.zod.ts` checks `RECORD_SOURCE_KEYS` (`data`, `staticData`, `objectName`) and adds an issue with `params.code` `RECORD_SOURCE_REQUIRED` when none is present. It is attached with `superRefine(requireRecordSource('object-map'))` on `ObjectMapSchema` and `superRefine(requireRecordSource('object-gantt'))` on `ObjectGanttSchema`. The new tests assert this directly, so the sentence in the description is checked by a test, not copied prose.\n\n## What the required flag did at runtime\n\n`sdui-parser`'s `validateTree` turns a required input into a `missing-required-prop` ERROR. A `staticData`-only map or gantt drew that error while the schema accepted the block and the renderer drew it. After this change it no longer does.\n\n## Hypothesis 2: pins and generated artefacts\n\nNo pin or generated artefact asserted `required: true` for these inputs. `apps/console/public/manifest.json` (public-tier manifest) carries no map or gantt entry. No test in `plugin-map` / `plugin-gantt` read the inputs' `required`. `content/docs/plugins/plugin-map.mdx` and `plugin-gantt.mdx` already say \"At least one of data / staticData / objectName is required\", which is correct, so they are not touched. `packages/plugin-map/README.md` makes no required claim.\n\n## Tests\n\nNew tests: `packages/plugin-map/src/index.recordSourceInput-7470.test.tsx` (both map keys) and `packages/plugin-gantt/src/__tests__/recordSourceInput-7470.test.ts`. For each key they check four things: `objectName` is declared (non-vacuity) and is not required; the description names the three sources; the named schema refuses a block with no source, with `RECORD_SOURCE_REQUIRED`; and, as a control, the same schema accepts a `staticData`-only block.\n\nAll runs are on head `2083a24f8`:\n\n- `pnpm exec vitest run packages/plugin-map/ packages/plugin-gantt/`: `Test Files 97 passed (97)`, `Tests 705 passed (705)`.\n- Reverse verification, done after the fix was committed. The mutation was put back with `ablation-replace.mjs`, and each anchor was confirmed to hit once. `required: true` restored on `object-gantt` gave `1 failed / 9 passed`. On `object-map` alone it gave `× 'object-map' — objectName is declared and not required`, and on `map` alone `× 'view:map' — …`. Each file was restored with `git checkout HEAD`, the restore was proved by matching the HEAD blob hash, and `git diff HEAD` was empty afterwards. The re-run was 10/10 green. The first map attempt was a no-op: the anchor was ambiguous (x2) and the tool refused it, so it was redone with per-key anchors.\n- `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) for both packages: exit 0, after building the dependency closure. `--listFiles` confirms that both new test files are in the test program.\n\n## Acceptance notes\n\n- The `map` key has no zod arm. `safeValidateSchema` on a `map` node with `staticData` gives `invalid_union` (\"Invalid input\"), while `object-map` with the same content passes. So on the `map` key the description's sentence talks about the `object-map` schema, and a bare `map` node is refused whatever it carries. This is reported to the seat as a finding and not changed here.\n- `data` / `staticData` are still not declared inputs on map or gantt. `validateTree` therefore reports a `staticData`-only block as `unknown-prop`, which is a warning, not an error. The ruling did not order declaring them, so this is reported to the seat.\n- `object-calendar` / `calendar` have the same disagreement one plugin over: `objectName` is `required: true` while `ObjectCalendarSchema` carries `requireRecordSource('object-calendar')`. That is out of this card's ruling and reported to the seat.\n\n## Gates (local, targeted)\n\nExit 0: `check:new-line-citations` (`VERDICT … 0 new citation(s)`), `check:control-bytes`, `check:element-data-source-declaration`, `check:component-surface-parity` (report-only; its divergences are on the `map` / `gantt` config inputs and existed before this change), `check:changeset-claims` (it points at `.changeset/6470-gantt-dependency-field-deprecated.md`, which names the gantt README; I read that paragraph and it is still true), `check:pending-changeset-literals`, `check:vi-mock-*`, `check:test-path-roots`, `check:registry-bare-names`, `check:phantom-deps`, changeset presence, and `check-governed-queue-guard --test` (NOT GOVERNED).\n\nNOT MEASURED, left to CI:\n- `check:sdui-registration-pins` exited 2 because the console build it reads was absent.\n- `check:readme-exports` exited 1 because only part of the packages were built, so its population collapsed below its floors.\n\nESLint over the 4 touched source and test files: 0 errors (warnings only, the same kinds as the file's existing ones). The config is not type-aware, so this diff cannot change verdicts on untouched files.\n\nSession `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb`, `domain:ui#3` seat.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

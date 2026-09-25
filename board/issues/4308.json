@@ -1,0 +1,35 @@
+{
+  "number": 4308,
+  "kind": "issue",
+  "title": "metadata-admin declares an object \"provided by an installed package, so it is read-only\" even in a writable package — Studio treats the same object as editable and the server accepts the PUT",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T12:30:05Z",
+  "updated_at": "2026-08-17T02:10:49Z",
+  "closed_at": "2026-08-17T02:10:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4308",
+  "body": "## Symptom\n\nThree surfaces disagree about whether one object is editable.\n\nFor an object published into a **writable** package:\n\n- **metadata-admin designer** shows the artifact-locked banner — *\"This {type} is provided by an installed package, so it is read-only at runtime. To change it, edit it in its source package and republish — or create a new {type} from scratch.\"*\n- **Studio** treats the same object as **editable**.\n- **The server accepts the PUT.**\n\nSo the banner asserts a lock that neither the other console pillar nor the runtime applies. An operator who believes it goes off to \"edit it in its source package and republish\" for a change they could have made in front of them.\n\n## Root cause (located)\n\nThe banner is gated on metadata-admin's own artifact-backed heuristic in `packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx`:\n\n```\n… layered.code != null\n  && (layered.code as { _packageId?: string } | null)?._packageId !== 'sys_metadata';\n```\n\n— lines 951-955, repeated at 1311-1323, where the comment states the intent: *\"artifact-backed items (`layered.code != null`) need allowOrgOverride … Mirror the server's `isArtifactBacked` (which excludes `_packageId === 'sys_metadata'`)\"*. The banner string is `i18n.ts:864`.\n\nThe heuristic asks only \"is there a code layer, and is it not the `sys_metadata` sentinel\". An object published into a **writable** package satisfies both — it has a code layer, tagged with that package — so it is classed artifact-backed and locked in this pillar, even though the writability question the other two surfaces answer is a different one (is *this package* writable), and they answer it yes.\n\n**Stale-premise check:** re-verified on `objectui` `origin/main` (`33c32bf`) — both heuristic sites and the banner string are present and unchanged.\n\n## Relationship to #4036 — same disagreement, opposite direction\n\n#4036 reports the mirror case: in a **code-defined (read-only)** package, Studio disables editing for all 15 overlay-allowed types while the runtime accepts those writes, and a \"writable\" badge sits on a screen of disabled controls. This card is the same class with the polarity flipped — a **writable** package where metadata-admin claims read-only while Studio and the server say editable.\n\nTaken together they argue for one shared writability predicate rather than three per-surface heuristics: today each pillar derives the answer independently, so both false-positive and false-negative lockouts exist simultaneously in the same console. Whoever rules on #4036's question A should rule on this at the same time — the two cards will otherwise get opposite answers.\n\n## Reproduction\n\n1. Boot the showcase and publish an object into a **writable** package.\n2. Open that object in the metadata-admin designer → the \"provided by an installed package, so it is read-only at runtime\" banner is shown.\n3. Open the same object in Studio → it is presented as editable.\n4. `PUT /api/v1/meta/object/&lt;name&gt;` with the full body → the server accepts it.\n\n## Source\n\nExtracted from the QA run objectstack-ai/objectstack#7695 (framework 92f26f75, console 09987b680) — \"Corrections and notes\" item 5, split out of the consolidated notes card because the three-way disagreement is a product defect rather than a run note."
+}

@@ -2,24 +2,32 @@
   "number": 10223,
   "kind": "issue",
   "title": "[fields] Lookup 下拉候选列含 lookup 字段时,每条候选单独发一次请求(N+1)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "baozhoutao",
     "id": 6194462,
     "type": "User"
   },
-  "labels": [],
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-23T11:09:41Z",
-  "updated_at": "2026-09-23T11:15:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T20:45:40Z",
+  "closed_at": "2026-09-24T20:45:04Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10223",
   "body": "## 现象\n\n打开一个 lookup 字段的下拉，Network 中出现 55 个请求：1 个候选列表查询，另外 50 个是按 id 逐条查询的 GET。\n\n下拉列表的显示和使用不受影响。这 50 个请求只在后台补全副标题里关联字段的名称，但每打开一次下拉都会产生这些多余的请求，增加服务端负载。\n\n复现场景：排班计划(`production_plan`)新建表单 →「任务」字段(引用 `task_version`)→ 打开下拉。\n\n## 触发条件\n\n被引用对象的 `highlightFields` 前几列(下拉默认取前 4 列)包含 lookup 或 master_detail 字段，且该 lookup 字段没有声明 `lookup_columns`。\n\n本例：`task_version.highlightFields = ['code', 'task', 'version', ...]`，其中 `task` 是 master_detail 字段(指向 `task`)。50 条候选各自触发一次对 `task` 的逐条查询。\n\n请求数 ≈ 1 + 候选条数(最多 50)× 关联列数。\n\n## 定位\n\n- `packages/fields/src/widgets/LookupField.tsx:545` 的候选查询(`useRecordQuery`)没有传 `expand`。`RecordPickerDialog.tsx:596` 也一样。\n- 候选记录里的关联列因此只拿到外键 id。显示时 `packages/fields/src/index.tsx` 的 `useLookupName` 对每个 id 单独调用一次 `findOne`。\n- 对比：列表视图 `ObjectGrid.tsx` 用 `buildExpandFields` 自动为 lookup 字段加 `$expand`，没有这个问题。"

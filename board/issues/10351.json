@@ -1,0 +1,34 @@
+{
+  "number": 10351,
+  "kind": "pull_request",
+  "title": "fix(plugin-timeline): refuse a gantt row that is not an object",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T19:46:16Z",
+  "updated_at": "2026-09-24T20:15:38Z",
+  "closed_at": "2026-09-24T20:15:36Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T20:15:36Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10351",
+  "body": "Fixes #7364\nClause-②: no\n\n## What this does\n\n`classifyGanttRows` (plugin-timeline `renderer.tsx`) now refuses every gantt ROW that is not an object, not only `null`. A row that is a number, a string, a boolean or an array (`items: [0]`, `['x']`, `[true]`, `[[]]`) used to draw an empty, unlabelled row with no word to the author. It is now refused through the EXISTING `timeline.gantt.unusableRange.malformedRow` key, naming the path and value, for example `items[0] is 0, which is not a row shape` and `items[0] is an array, which is not a row shape`. No new key, no locale pack edit, no change to `validate`. The renderer now agrees with `validate`, which already refused these shapes at authoring time.\n\n\"Not an object\" is `typeof row !== 'object' || row === null || Array.isArray(row)`: the set JSON can spell and the zod mirror (`z.object`) refuses. No prototype test is made (a `Date`, class instance or `Proxy` row cannot be written in JSON; the live-Proxy row control keeps drawing).\n\n## This deliberately supersedes one clause of the objectui#7164 A+ ruling\n\nRuling: objectui#7364 comment 5809218505, UI closure batch 2 item 1, letter A, maintainer 「同意」. The #7164 A+ ruling required the control rows `items: [0]` and `items: [[]]` to keep DRAWING, and they were pinned as controls. **We are overriding that clause of the A+ ruling on the maintainer's word above.** The control assertions were not quietly \"made green\": each is rewritten to expect the refusal, with the ruling id stated beside it, and none is deleted:\n\n- `timeline-gantt-malformed-row-7164.test.tsx`: the two control rows are removed from the DRAWS table with a comment pointing at the new block; a new block `a row that is NOT AN OBJECT is refused — objectui#7364 supersedes the #7164 control` pins `[0]`, `[[]]`, `['x']`, `[true]` as REFUSED at `items[0]` (diagnostic text, row clause, not the date clause, zero bars, empty axis, `role=\"alert\"`), a non-object row beside good rows (`items[1] is 0`, wins over a later bad date), and a control that well-formed object rows (1 and 2 rows), a row with no `items` key and a row whose `items` is `null` still DRAW. The file header records the supersession.\n- `timeline-gantt-date-brand-7027.test.tsx` pin 6: the same two former controls move out of the DRAWN list and are asserted as refusals, with the reason.\n- `packages/types/src/__tests__/timeline-items-row-shape-7164.test.ts`: header comment only. It said `[0]` and `[[]]` \"still DRAW in the renderer\", which this change makes false; corrected. No assertion changed.\n\n## One exclusion site moved (stated, not hidden)\n\n`Array.isArray(row)` now runs before U3 reads `row.items`, so a revoked Proxy handed as a ROW dies at `IsArray` rather than `get`. That is the same move objectui#7164 already made for `items` and a row's `items`: same exclusion (JSON cannot spell a proxy), the site moved one operation up inside the same function. The pin 5 row in `timeline-gantt-date-brand-7027.test.tsx` is updated with that reason, and the `classifyGanttRows` docblock says so.\n\n## Verification (head `9e09349a9`)\n\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-timeline/ packages/types/src/__tests__/timeline-items-row-shape-7164.test.ts` (repo root, under the shared verify lock): `Test Files 28 passed (28)`, `Tests 353 passed (353)`.\n- Reverse verification, from the committed fix: the predicate mutated back to `row == null` (mutant marker count 1, fix marker count 0 on disk), then the two edited test files run: `Tests 7 failed | 55 passed (62)`. Red: the four non-object rows, the beside-good-rows case, the revoked-Proxy-as-ROW site pin, and pin 6's control block. The well-formed row controls stayed green. Restored with `git checkout HEAD --`; `git diff HEAD` empty and the on-disk blob hash equals the HEAD blob hash.\n- `turbo run build --filter=@object-ui/plugin-timeline^...` (10/10) then plugin-timeline `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`, which lists both edited test files): exit 0.\n- ESLint `--no-inline-config` on the four touched source/test files: 0 errors (17 pre-existing warnings, none on changed lines).\n- `check:new-line-citations` (0 new), `check:control-bytes`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:test-path-roots`, `check-changeset-presence.mjs`, `check-changeset-no-major.mjs`: all exit 0.\n- Repo-wide `pnpm lint` / full `pnpm test` shards: declared to CI, not run locally.\n\n## Acceptance notes\n\n- `items: [{ label: 'R', items: null }]` is still refused by `validate` and still DRAWS as an empty row in the renderer. That corner is a #7164 control this ruling did not name, so it is untouched here.\n- Changeset: `.changeset/7364-timeline-nonobject-row.md`, `@object-ui/plugin-timeline` patch.\n\nSession: `https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4884,
+  "kind": "issue",
+  "title": "[finding] plugin-gantt 其余六个源码文件共 163 行中文注释(诫条 #-1),仓内无任何门机械强制该条款",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T23:43:07Z",
+  "updated_at": "2026-08-17T02:10:49Z",
+  "closed_at": "2026-08-17T02:10:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4884",
+  "body": "实施 #4021(`QuickFilterBar.tsx` 注释中文改英文,PR #4883)时,按派发要求顺扫了 `packages/plugin-gantt` 全包源码注释。#4021 修掉的是**同文件**的三行;**别的文件**里同形残留规模远大于此,按\"不扩围\"另单记录,未在该 PR 顺手改。\n\n## 现状(origin/main `718ca9d45`)\n\n`packages/plugin-gantt/src/` 下**非测试**源码,ripgrep `\\p{Han}` 命中行数:\n\n| 文件 | 命中行 |\n|---|---|\n| `GanttView.tsx` | 93 |\n| `ObjectGantt.tsx` | 51 |\n| `shifts.ts` | 9 |\n| `scheduling.ts` | 8 |\n| `ResourceWorkload.tsx` | 1 |\n| `workload.ts` | 1 |\n| 合计 | **163** |\n\n样本:\n\n- `GanttView.tsx:51` — 行尾注释 `starting a MOVE instead of a resize (命中不稳)`\n- `GanttView.tsx:146` — JSDoc `Per-task alert stroke (逐任务预警描边)`\n- `ObjectGantt.tsx:68` — JSDoc `One quick-filter dimension (快速筛选维度)`\n- `ObjectGantt.tsx:1254` — 行尾注释 `// 写后回读`\n- `shifts.ts:4` — 模块 JSDoc `named time bands (白班 08:00-20:00, 夜班 …)`\n- `scheduling.ts:9` — 模块 JSDoc `moved *later* (顺延)`\n\n形态与 #4021 完全同类:英文正文里嵌中文括注 / 行尾中文小注 / JSDoc 里的中文术语。\n\n## 为什么是 observation-class 而不是缺陷\n\n- **已逐一确认全部位于注释内**:JSDoc、行尾 `//`、JSX `{/* … */}` 注释块。非测试源码里**没有**中文运行期字符串 —— 唯二看着像字符串的是 `ObjectGantt.tsx:216-217` 的 JSDoc **代码示例**(`label: '白班'`),是文档示例不是运行期取值。所以这不是 i18n 缺陷,用户看不到,今天没有人会撞上;\n- 纯注释,不进产物,零行为风险;\n- 严重度交 PM triage,不自行判定。\n\n## 为什么它能长期存在(值得单独记一笔)\n\n仓内**没有任何门机械强制**诫条 #-1 的英文注释条款:`eslint.config.js` 无对应规则,`scripts/` 下也没有对应检查(已 grep `chinese|han|non-ascii|english-only` 确认)。诫条其余条款多半有门(如 `check:control-bytes`、`check-changeset-no-major`),这一条靠人读。因此这类残留只能靠人工发现,规模也就随包一起长 —— 如果决定修,顺带考虑加一条只扫**注释**的 lint 规则会比再来一次人工顺扫更耐久(注意:必须只扫注释,测试夹具的中文字面量是被验证的数据,见下)。\n\n## 明确不在本条范围内\n\n- **测试文件的中文**(夹具字面量、`it()` 描述):#4021 正文已裁明那是被验证的测试数据,是否统一按英文改写**由维护者定**,不属那一单,也不属本条。本条只针对非测试源码的注释。\n- 本包外的其他包未扫,本条不作任何断言。\n\n## 复现\n\n```\nrg -c '\\p{Han}' packages/plugin-gantt/src --glob '!*.test.*'\n```\n"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 4880,
+  "kind": "pull_request",
+  "title": "fix(studio): the Interfaces rail opens `action` nav entries instead of disabling them (#4019)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T22:55:40Z",
+  "updated_at": "2026-08-16T23:29:22Z",
+  "closed_at": "2026-08-16T23:29:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T23:29:21Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4880",
+  "body": "Fixes #4019\n\n> ⚠️ **本 PR 只落了卡片的 `action` 一半。`dataset` 一半没有实现,也不应该在本 PR 里猜着实现** —— 理由见下面「前提复核」。合并前建议 PM 先把 `dataset` 拆成独立卡(否则 `Fixes` 会把一个尚有未决半边的卡片自动关掉)。\n\n## 前提复核(stale-premise,卡片自己要求先做)\n\n卡片的前提是「两类 preview 已注册,**只差 Interfaces pillar rail 接线**,与 view/page/dashboard/app/report 并列」。按 `origin/main` 逐条实测:\n\n| 前提 | 实测 | 依据 |\n|---|---|---|\n| 两类 preview 已注册 | ✅ 属实,而且不止 preview —— 两类**还都注册了 default inspector** | `previews/index.ts` 的 `action` / `dataset` 两行;`inspectors/index.ts` 的 `ActionDefaultInspector` / `DatasetDefaultInspector` |\n| Interfaces rail 是一个「类型列表」,把两类加进去即可 | ❌ **不成立**。该 pillar 的 rail 是当前包 App 的 `navigation` 树:`client.list('app')` → `appDraft.navigation` → `NavTree` → `resolveSurface`。view/page/dashboard/report 不是「并列列在 rail 上」,而是被 app 导航引用到才出现 | `StudioDesignSurface.tsx` 的 `InterfacesPillar`;#2657 的 2026-08-07 审计 §2(a) 早已记录「rails load exactly four types: object / flow / app / permission」 |\n| 两类「无处可去」 | ❌ 两类今天都能在 Metadata Directory 列出/新建/编辑(注册表驱动) | 同一份审计 §2(b) |\n\n也就是说卡片描述的那个「rail」在 main 上不存在。两个半边因此分道扬镳:\n\n- **`action` 能落,而且是个真缺陷**:`NavigationItemSchema` 里**有** `action` 成员(`ActionNavItemSchema`),运行时也**真的**渲染并派发它(`NavigationRenderer` + `useNavActionDispatch`,framework#4509)。但 `resolveSurface` 没有 `action` 分支,于是同一个条目在设计器里是 `disabled` 的死条目 —— 产品里能用,设计器里点不开。这就是本 PR。\n- **`dataset` 落不了**:`NavigationItemSchema` 是 `object | dashboard | page | url | report | action | component | separator | group` 九选一的判别联合,**没有 `dataset` 成员**。dataset 根本无法出现在 app 导航树里,除非改 spec(卡片明令「no framework/spec change required」),或者给 Interfaces pillar 新造一个「非导航的类型列表区」—— 后者是架构决策,不是 quick win。已按硬规停手回报,未写任何投机代码。\n\n## 本 PR 做了什么\n\n`resolveSurface` 增加 `action` 分支;导航里的 action 条目变为可点,打开标准设计面(`ActionPreview` 画布 + 已注册的 action inspector),草稿保存走 pillar 其余叶子完全相同的通用路径。\n\n- **`navSurface.ts`(新)**:把 `resolveSurface` / `findSurfaceInTree` / `NavNode` / `Surface` 从 3729 行的 `StudioDesignSurface.tsx` 里抽出来,让这段绑定不用挂载整个 pillar 就能单测 —— 与同目录的 `packageSurfaces.ts`、`centerTab.ts` 是同一个既有做法。**新增的 `action` 分支是唯一的行为改动**,其余逐行照搬。\n- **只读 `actionDef.actionName` 这一种拼写**。spec 对 `action` / `name` / `args` / `input` 是**具名拒绝**(objectstack#4001),不是第二拼写;实测 17.0.0-rc.6:`unrecognized_keys` on `actionDef` + `actionName` 缺失。这里加 `??` 兜底等于把 #4001 关掉的 bug(条目派发了作者没声明的 action)重新打开 —— 契约优先(Commandment #0.1)。\n- **`url` / `separator` / `component` 仍然不可解析,这是对的**:站外链接、分隔线、代码内置 UI,都没有可设计的元数据条目。唯独 `action` 是「有元数据类型却被漏在这一桶里」。\n- **对象级 action 不受影响**:`ActionNavItemSchema` 是严格的 `{ actionName, params? }`,**没有 `objectName`**,所以导航 action 天然只能是全局 action,这条路径够不着对象级的,也不该够着 —— 它们的家是对象的 Actions 页签(objectui#2330)。\n- `InterfacesPillar` 导出(`DataPillar` / `AccessPillar` 早就是导出的),供 rail 级验收测试挂载。\n\n## 验收实测\n\n| 卡片验收 | 实测 |\n|---|---|\n| Interfaces pillar **列出** action 条目 | 改动前后都渲染,但改动前 `disabled`(40% 透明、点击无效);现在 `toBeEnabled()` 通过 |\n| Interfaces pillar **打开** action 条目的标准编辑面 | 点击后画布面包屑变为 `action · sync_now`,`ActionPreview` 渲染出该 action 的标签 |\n| dataset 同上 | **未实现** —— 见上,需要决策 |\n\n## 测试\n\n仓根跑,路径过滤:\n\n```\npnpm exec vitest run packages/app-shell/src/views/studio-design/ --maxWorkers=2\n  Test Files  28 passed (28)\n       Tests  155 passed (155)\n```\n\n新增 9 个钉子(`navSurface.test.ts` 7 + `StudioDesignSurface.interfacesAction.test.tsx` 2)。fixture 不是靠眼睛判定的:正例直接过 spec 自己的 `NavigationItemSchema.safeParse` 断言为真,别名反例断言 spec 拒绝**且**设计器同样不解析 —— 免得钉子钉在一个 schema 根本不认的形状上。\n\n`turbo run type-check --concurrency=2` → **81 successful, 81 total**。`node scripts/check-control-bytes.mjs` → OK;改动文件另做了一次 `grep -naP` 自查(0 命中)。新增文件 eslint 零告警。\n\n## 反向验证(先预判方向,再跑)\n\n摘掉 `case 'action'` 一条腿。**预判**:红 4 条 —— `navSurface.test.ts` 的「binds an action nav leaf」「reaches an action leaf nested in a group」,以及两条 pillar 测试(且**红在查询而非断言**上:叶子解析不出来时 rail 的 `title` 回落成 `node.label`,`findByTitle('action · sync_now')` 直接找不到)。\n\n**实测:4 failed | 5 passed,恰好是点名的那 4 条**;两条 pillar 用例各耗时约 1050ms,正是 `findBy` 的 1000ms 超时,确认红在查询上。`git checkout` 还原(未用 `git stash`),复跑 9/9 绿。\n\n**诚实标注**:5 条绿里有 **2 条是「因为什么都没产出而绿」**,不是覆盖 —— 「no actionName 时不解析」和「只认规范拼写」这两条都断言 `null`,腿被删掉后一切 action 形状都是 `null`,照样通过。它们防的是「产出一个无名 surface」和「接受 schema 拒绝的拼写」,不防这条腿本身;真正防这条腿的是上面点名的 4 条。\n\n## 与源单裁定的核对(objectstack#6411 / #2657)\n\n- #2657 的 2026-07-07 增量裁定:对象级 action 归对象页签,Interfaces 只放**全局** action。本 PR 与之一致,且是 spec 强制的(导航 action 结构上就没有 `objectName`)。\n- 同一句里的另一半理由「`global_nav`」**已经作废**:`global_nav` 已随 objectstack#6888(protocol 17,维护者 2026-08-09 裁定)移出 `ACTION_LOCATIONS`,objectui#4169 于 2026-08-11 删掉了它的设计器面 —— 都发生在本卡建卡(2026-08-07/08-10)**之后**。这不影响本 PR:本 PR 接的是「全局 action 的编辑入口」,而全局 action 在运行时的家就是 app 导航本身,与 `locations` 无关。\n- Part B 全线 `pm:on-hold`,本 PR 不触碰;framework/spec 零改动。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

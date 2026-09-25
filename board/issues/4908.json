@@ -1,0 +1,34 @@
+{
+  "number": 4908,
+  "kind": "pull_request",
+  "title": "fix(plugin-report): 报表内嵌图表分桶 null 类目并转发作者声明的图表 chrome (#4877, #4878)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T04:00:40Z",
+  "updated_at": "2026-08-17T04:14:47Z",
+  "closed_at": "2026-08-17T04:14:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T04:14:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4908",
+  "body": "Fixes #4878\nFixes #4877\n\n数据集报表的内嵌图表,是唯一一个**两半都没接上**的图表面:它只转发六个键 —— `chartType`、`data`、`height`、`isAnimationActive`、`series`、`xAxisKey`。两卡各修一半,同一条转发线,故合单。\n\n---\n\n## #4878 — DATA 半:改走 `buildChartSeries`,继承整个 null 家族\n\n**前提复核(main 现状与卡述一致)**:`DatasetReportChart` 把 `relabelDimensions(state.rows, dimensionLabels)` 直通渲染器,链路上没有任何分桶。这正是 #4466 实测「一个 mark 都不画」的输入 —— 代价不是空图,而是**静悄悄画错**:主导分组消失,而 y 轴刻度仍按它撑开,图看上去完全合法。\n\n仪表盘与图表视图从来没有这个缺陷,因为它们走 `buildChartSeries`(`@object-ui/core`),null 家族的修复全在那里。现在报表也走它,于是这些性质是**继承**来的,而不是在第三个面上重新派生:\n\n| 性质 | 出处 |\n|---|---|\n| null 桶本身 | #4466 |\n| 桶标签取自调用侧 i18n bundle | #4500 |\n| 桶 IDENTITY 与桶标签分离(库里存的 `(None)` 仍是另一个分组) | #4508 |\n\n**承重约束①(#4020 三级显示名必须压过派生的 `fields[].label`)** —— 已保住。`buildChartSeries` 赋的 `label` 是 `fields[].label ?? name`;#4020 的解析更高一级(作者 `chart.series[].label` → `headerLabel` → measure 名),所以落点处显式覆盖,并钉住了 `{ en, 'zh-CN' }` 记录形式:core 里没有 provider,它自己的取法是「第一个字符串胜出」,那正是 #4020 关掉的缺陷类。\n\n**承重约束②(null 桶标签走 i18n bundle)** —— `tt('chart.nullCategory', '(None)')` 在渲染器里解析后作为 `nullCategoryLabel` 传入,与仪表盘 #4500 的分工一致(core 无 React,拿不到 bundle)。zh 控制台读 `(未指定)`。\n\n### 量到的转发键前后对照(DATA 半)\n\n| | 之前 | 之后 |\n|---|---|---|\n| `data` | `relabelDimensions(rows, …)` 直通,null 类目原样到达 | `buildChartSeries(...).data`,null 归入本地化桶 |\n| `xAxisKey` | `xAxis` | `buildChartSeries(...).xAxisKey`(同值,同一处派生) |\n| `series` | 手搓 `[{ dataKey, label }]` | 派生所得,再叠加作者表现键与 #4020 标签 |\n\n---\n\n## #4877 — PRESENTATION 半:声明即生效\n\n`ReportChartSchema` 声明、而这条路径全部丢弃的键,现在按 #4229 的 data/presentation 分界下放。\n\n`showLegend` 是其中最锋利的一个:它不是「被忽略」,而是**效果被反转** —— `AdvancedChartImpl` 算的是 `legendVisible = showLegend !== false`,键缺席即图例开,于是作者写的 `false` 照样画出图例。\n\n### 量到的转发键前后对照(PRESENTATION 半)\n\n| 键 | 之前 | 之后 |\n|---|---|---|\n| `showLegend` | 丢弃(且效果反转) | 转发 |\n| `showDataLabels` | 丢弃 | 转发 |\n| `colors`(数组 → 位置调色板) | 丢弃 | 转发为 `colors` |\n| `colors`(记录 → 按类目着色) | 丢弃 | 转发为 `categoryColors` |\n| `subtitle` / `description` | 丢弃 | 转发 |\n| `annotations` / `interaction` | 丢弃 | 转发 |\n| `height` | 直读(`0` 会压塌绘图区) | 走白名单(非正值退回 280 默认) |\n| `series[]` 的 `color`/`stack`/`type`/`yAxis`/`dashArray`/`opacity`/`variant` | 全部丢弃 | 按 `series[].name` 匹配后合并 |\n| `title` | 渲染器自绘 `h3` | **不变**(见下方偏离清单) |\n| `aria` | 丢弃 | **仍不转发**(见下方偏离清单) |\n\nseries 的匹配规则是 `series[].name` → 派生 `dataKey`,所以**成员资格仍归数据集**:作者点名一个本图不绘制的 measure,该条目被忽略,不能增删或改指一条 series。\n\n### 卡面警告的处理:`xAxis`/`yAxis` 是裸名字符串\n\n卡里点名的坑 —— 直接把报表 chart 喂给 `mergeAuthoredPresentation` 会让 `axisPresentation` 读一个字符串,合成 `yAxis: [{}]` 这个「只声明自己存在」的空条目,而 y 轴条目的**数量**正是开启副轴的开关。\n\n这里**从结构上**规避,而不是加一道守卫:core 额外导出 `mergeAuthoredSeries`(只做 series 合并),报表调它。轴在这个面上是纯 DATA(它们就是选择集本身),所以那个面根本够不到读轴表现的代码。\n\n---\n\n## 共享 helper 上提(卡面给的第二条路)\n\n`chartConfigPresentation` 与 `mergeAuthoredPresentation` 从 `plugin-dashboard/src/DatasetWidget.tsx` 移到 `@object-ui/core/src/utils/chart-presentation.ts`,紧挨着它们所合并的那个派生 `buildChartSeries`。\n\n理由是 #4389 的先例:两个 plugin 各写一份同样的分析标签网,被当作缺陷立卡并把纯数据的那半上提到 core。`ReportChartSchema` 与 `ChartConfigSchema` 声明的是**同一套词汇**,在报表侧再抄一份就是同一个缺陷再来一次。\n\n- 两个 helper 全是纯数据变换,无 React、无 i18n,层级与 `chart-series.ts` 一致;\n- `DatasetWidget` 以原名 re-export,模块公开面与渲染行为**逐字节不变**(其既有测试全绿,见下);\n- 教条(两条准入判据、data/presentation 裁定、`aria` 为何不转发)随代码一起搬到了新模块头部。\n\n---\n\n## 有据偏离清单\n\n两处偏离卡面的键清单,均为**刻意**,并各有一条钉子把它记成决定而非疏漏:\n\n1. **`aria` 不转发。** 它是 `ReportChartSchema` 声明的键里,这条路径上**唯一无人读取**的那个:`AdvancedChartImpl` 没有 `aria` prop,而本渲染器是把 schema 直接交给组件,并不经过 `SchemaRenderer` 的扁平 ARIA 注入(所以连仪表盘那条「扁平化」的可能性在这里都不存在)。转发它只是把「声明了却没人读」下移一层,而那正是本卡要消除的失败模式。这沿用仪表盘的既有裁定(其注释将此上报到 objectstack#5175 的收窄那一半;该编号属 objectstack 仓,本 PR 未独立核实)。\n2. **`title` 不转发。** 本渲染器自己把它画成图上方的 `h3`(卡里也确认 `title` 本就生效),再转发一次会在图表自身的 frame 里画出**第二个**标题。\n\n另有一处**顺带的行为收紧**:`height: 0` 之前直读会压塌绘图区,现在走白名单被丢弃、退回 280 默认 —— 与仪表盘同判据,已钉。\n\n---\n\n## 验收证据(按卡分节)\n\n### 反向验证:两卡各一次变异证负,方向**先书面预判再跑**\n\n变异前已 commit,还原一律 `git checkout 分支名 -- 文件路径`(不用 stash,共享栈)。\n\n**#4878** —— 把 DATA 半还原成改前那几行(rows 直通、series 手搓),#4877 的转发保持在位:\n\n> 预判:`chartNullCategory.test.tsx` 10 例 → **5 红 / 5 绿**。红:① 裸 null 被替换、① 度量值挂在桶上、② zh `(未指定)`、② en `(None)`、③ #4508 身份。绿:① series 仍绑定、BOUNDARY 无 null 分组、④ 三条标签例。\n\n实测 **5 红 / 5 绿,逐例吻合**;`chartChrome.test.tsx` 19/19 全绿,证明变异只切到了 #4878。\n\n**#4877** —— 去掉 `...chrome` spread 并把 series 还原成手搓,#4878 的路由保持在位:\n\n> 预判:`chartChrome.test.tsx` 19 例 → **11 红 / 8 绿**。红:8 个 chrome 键 + 作者 `height` + 3 条 series 表现例。绿:非正 `height`、未声明 chrome、两条 `title`、`aria`、成员资格被忽略、越族 `type`、未声明 series。\n\n实测 **11 红 / 8 绿,逐例吻合**;`chartNullCategory.test.tsx` 10/10 全绿。\n\n**一处预判与模板预设不符,如实记录**(已回写进测试文件头):`en` 桶标签那条 BOUNDARY 例,我原先按「两侧都绿」写注释。那对 #4500 **自己**的变异成立(去掉 `nullCategoryLabel` 选项但保留路由 —— core 的英文兜底与 `en` 语言包经不同通道产出同样的字节),对 #4878 的变异则**不成立**:桶本身被移除时,两种语言都没有标签可读,它必然红。两个测试文件现在都把实测计数写在预判旁边,而不是留一个想当然的方向。\n\n### 测试与门禁\n\n| 命令 | 结果 |\n|---|---|\n| `vitest run packages/plugin-report/ packages/plugin-dashboard/ packages/core/` | `Test Files 162 passed (162)` / `Tests 2584 passed (2584)` |\n| 最终一轮 `vitest run packages/plugin-report/ packages/plugin-dashboard/ packages/core/src/utils/` | `Test Files 106 passed (106)` / `Tests 1343 passed (1343)` |\n| 仓根 `turbo run type-check --concurrency=2` | `Tasks: 81 successful, 81 total` |\n| `node scripts/check-control-bytes.mjs` | `OK (scanned 4390 tracked text file(s))` |\n| `node scripts/check-changeset-presence.mjs` / `check-changeset-no-major.mjs` | 均通过,2 个 changeset,无 `major` |\n| `eslint`(改动文件) | 0 errors(仅既有风格 warning) |\n\n新增钉子 29 条:`DatasetReportRenderer.chartNullCategory.test.tsx`(10)与 `DatasetReportRenderer.chartChrome.test.tsx`(19)。既有的 `DatasetReportRenderer.chartMeasureLabel.test.tsx`(#4020 的钉子)全程未改动且全绿 —— 那是承重约束①的独立见证。\n\nchangeset **两个文件**,按卡分开:`.changeset/report-chart-null-category-bucket.md`(#4878)、`.changeset/report-chart-authored-chrome.md`(#4877,含 core / plugin-dashboard 的上提)。均为 `patch`。\n\n### 相邻发现,未扩围\n\n立卡 #4906(`finding` 标签,未指派):报表图表既不派生维度选项**颜色**(`buildOptionColorMap` → `categoryColors`),也不派生声明的**类目顺序**(`buildCategoryOrder`,framework#3588),而仪表盘两者都派生。今天没有东西渲染错 —— 调色板是位置式而非语义式、漏斗按值降序而非按声明管道序 —— 属跨面 drift,故按 observation 类立卡,不在本 PR 修。\n\n---\n\n_本 PR 为 draft,不挂 auto-merge,等 PM 验收。_\n"
+}

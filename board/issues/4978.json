@@ -1,0 +1,33 @@
+{
+  "number": 4978,
+  "kind": "pull_request",
+  "title": "fix(ga-pin): quick-reference 两行跟到 GA;$like/$ilike 按「未裁」引用式豁免(#4977)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T09:52:25Z",
+  "updated_at": "2026-08-17T10:25:46Z",
+  "closed_at": "2026-08-17T10:25:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T10:25:44Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4978",
+  "body": "Fixes #4977\n\n基线:`origin/main` @ `590dd63560cdbc58439c0ffa5a58ac1bdd1100c7`(worktree 取的是 fetch 后的实 sha,不是 FETCH_HEAD)。\n\nGA 批次(#4953-#4960)落 main 后 shard 3 的两处常红,任何 PR 的 merge-ref 都继承。两处**先在本基线复现红、再修绿**:\n\n```\n❯ scripts/__tests__/quick-reference-current-release-4143.test.ts (8 tests | 1 failed)\n  AssertionError: QUICK_REFERENCE.md's \"Current Release\" block states [\"^17.0.0-rc.6\",\"^17.0.0-rc.6\"],\n  which no manifest in this tree produced. … Derived values are: [\"17.5.0\",\"^17.0.0\", …]\n❯ packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts (45 tests | 1 failed)\n  AssertionError: FieldOperatorsSchema accepts these but no builder operator can author them:\n  expected [ '$like', '$ilike' ] to deeply equal []\nTest Files  2 failed (2) | Tests  2 failed | 51 passed (53)\n```\n\n## 1. quick-reference 的 Spec / Client 两行跟到 GA\n\n`QUICK_REFERENCE.md` 的 `## Current Release` 块里,`@objectstack/spec` 与 `@objectstack/client` 仍写 `^17.0.0-rc.6`,而它自己在行内点名的锚(根 `package.json`、`apps/console/package.json`、`packages/data-objectstack/package.json`)已经是 `^17.0.0`。**改文档跟锚,钉一行没放宽** —— 期望值本来就是从 manifest 派生的,`scripts/__tests__/quick-reference-current-release-4143.test.ts` 一字未动。\n\n这里有个值得写下来的细节:该钉的**正向**两条(Spec / Client 行必须 `toContain` manifest 声明的 range)在 rc.6 下**是绿的** —— 因为 `^17.0.0-rc.6` 作为字符串确实包含子串 `^17.0.0`。所以这处腐烂只有**反向**那条(「no un-derived literal」)抓得住,基线里 8 条只红 1 条正是这个原因。谁将来改这个块,别指望正向断言会兜住。\n\n## 2. `$like` / `$ilike`:#2942 门的引用式豁免,措辞为「未裁」\n\nGA 的 `FieldOperatorsSchema` 新增两个 token,builder 无对应算子,所以 #2942 可达性 sweep **按设计**报了它们。用该门自己设计的引用机制豁免,写进 `KNOWN_UNREACHABLE` 及其注释,**措辞按 #4911 评论区的纪律**:\n\n- 写「**undecided — see #4911**」「a CITED OPEN QUESTION, not a finding that the tokens should stay unauthorable」;\n- ⛔ **不写**「deliberately unsupported」之类 —— 那会预判尚未做出的 A/B 裁定;\n- 注释里写死**收割条件**:裁 A 则删这两个成员并补算子(如 #4023 退役 `$icontains` 那样);裁 B 则把这段改写成「决定」并带上裁定给出的 reopen 条件。并点明为什么必须收割:下面那条 ratchet 只能检查成员**仍是 spec 算子**,永远检查不了它的**理由是否还成立**。\n\n⛔ 未实现任何算子、未改门的其余逻辑。**A / B 的产品裁定完整留在 #4911 等维护者**;豁免一行可删。\n\n## 反向验证(先书面预判,commit 后变异,`git checkout` 还原,⛔ 未用 stash)\n\n| 变异 | 预判 | 实测 |\n| --- | --- | --- |\n| 抠掉 `$like`/`$ilike` 两个成员 | **只**红 sweep 那条,报 `[ '$like', '$ilike' ]`;豁免喂的是**谓词**(`!KNOWN_UNREACHABLE.has(op)`)不是计数,少一个成员就回到被报数组里。ratchet 那条**必须仍绿**(成员少了仍都是 spec 算子)—— 若它也红,说明我加的 token 根本不是 spec key,豁免就是错的 | `× some builder operator emits every spec $-token` / `expected [ '$like', '$ilike' ] to deeply equal []` / `Tests 1 failed, 44 passed (45)` —— 与预判逐项一致,ratchet 绿 |\n| 文档两行改回 `^17.0.0-rc.6` | **只**红反向那条(un-derived literal);正向两条因 `toContain` 子串关系**保持绿** | `× contains only version literals this test derives from a manifest` / `states [\"^17.0.0-rc.6\",\"^17.0.0-rc.6\"]` / `Tests 1 failed, 7 passed (8)` —— 正向确实没红,如预判 |\n\n即两处豁免/改动都**真在被读**,且两条钉红的方向都是事先说定的那一条。\n\n## 验证\n\n```\npnpm exec vitest run scripts/__tests__/quick-reference-current-release-4143.test.ts \\\n  packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts --maxWorkers=2\n  → Test Files 2 passed (2) | Tests 53 passed (53)      (改前:2 failed)\n\npnpm exec vitest run packages/fields/ scripts/__tests__/ --maxWorkers=2\n  → Test Files 154 passed (154) | Tests 2887 passed (2887)   无连带\n\npnpm exec turbo run type-check --concurrency=2   → 81 successful, 81 total\nnode scripts/check-control-bytes.mjs             → OK (scanned 4435 tracked text file(s))\nnode scripts/check-changeset-presence.mjs        → OK(空 frontmatter changeset,按 #4808 先例)\n```\n\n另外自查了控制字节的门盲区:`grep -naP` 扫本 PR 三个文件,零命中。\n\n## ⚠️ 未携带 #4968 / PR #4969 的 diff —— merge 被权限层拒绝,请 PM 定序\n\nPM 加急指令要求本分支 `git merge origin/claude/issue-4968-lucide-range-hotfix`,让一单 PR 独立全绿。**我执行不了**:`git merge`(两种写法,含 `--no-ff -F msgfile`)都被权限分类器拒绝,而我的派发硬规同样是「⛔ 不 merge 任何东西」。⛔ 我没有绕开它 —— 也**没有**把 #4969 的两行 literal 手抄进本 PR:那会复制一张**已被认领的在途 PR** 的 diff,正是 AGENTS.md 禁止的「两个 agent 为同一问题落两个形状」。\n\n死锁是真的,已实测(本分支 = main + 本 PR 两处修复):\n\n```\npnpm exec vitest run packages/cli/src/__tests__/app-generator.test.ts packages/create-plugin/ --maxWorkers=2\n  × sources every devDependency range from this repo instead of inventing them\n  × sources every range from this repo instead of inventing one\n  × writes a manifest whose @object-ui ranges name this CLI version\n  AssertionError: routed manifest's lucide-react must match its in-repo range: expected '^1.29.0' to be '^1.31.0'\n  AssertionError: @testing-library/jest-dom range must match the repo root: expected '^7.0.0' to be '^7.0.1'\n  Tests  3 failed | 57 passed (60)\n```\n\n这 3 条红**不是本 PR 造成的**,它们活在纯 main 上,正是 PR #4969 修的面;而 PR #4969 红在本 PR 修的那两处。两张热修互卡。有 merge 权限的一方,一条命令即可把它们合成一单:\n\n```\ngit checkout claude/issue-4977-ga-pin-residue\ngit merge --no-ff e7b77777b0c7f17557f344987d51865046d391db   # = origin/claude/issue-4968-lucide-range-hotfix\n```\n\n或者先落 PR #4969、再让本 PR rebase/合 main。**定序权在 PM**;本 PR 保持 draft 等加急验收。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

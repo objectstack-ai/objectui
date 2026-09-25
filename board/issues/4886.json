@@ -1,0 +1,34 @@
+{
+  "number": 4886,
+  "kind": "issue",
+  "title": "ResourceEditPage 的重置/删除按钮与它执行的动作用两份不同的 artifact 判定：图标与提示写「删除」，确认框却问「重置」，且条目并不会被删除",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T23:57:42Z",
+  "updated_at": "2026-08-17T03:52:39Z",
+  "closed_at": "2026-08-17T03:52:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4886",
+  "body": "## 症状\n\nmetadata-admin 编辑页右上角那颗重置/删除按钮，**渲染出来的语义**和**点下去执行的动作**由两份不同的判定决定，二者对同一个条目可以给出相反的答案。\n\n对一个「有 `code` 层、但不属于 artifact 档」的条目（下详），实际表现是：\n\n- 按钮渲染成 `Trash2` 垃圾桶图标，`title` 为 `engine.edit.delete`（「删除」）；\n- 点下去，确认框问的却是 `engine.edit.resetConfirm`（「重置……」）；\n- 确认之后条目**不会消失** —— 走的是重置分支：重新拉 layered、留在原页；而按钮承诺的「删除后回到列表」不会发生。\n\n也就是说：一颗写着「删除」的按钮，问了一句「要重置吗」，然后重置了。\n\n## 位置与机制\n\n`packages/app-shell/src/views/metadata-admin/ResourceEditPage.tsx`\n\n**渲染侧**用的是页面的两级授权判定 `isArtifactItem`：\n\n```\n{!createMode && canWrite && layered?.overlay && (isArtifactItem ? lockResettable : lockDeletable) && (\n  <Button … title={isArtifactItem ? t('engine.edit.reset') : t('engine.edit.delete')}>\n    {isArtifactItem ? <RotateCcw …/> : <Trash2 …/>}\n```\n\n**执行侧** `doReset()` 却自己重新算了一份，而且更松 —— 只问「有没有 `code` 层」，连 `sys_metadata` 哨兵都不排除：\n\n```\nconst itemIsArtifact = !createMode && layered?.code != null;\nconst confirmKey = itemIsArtifact ? 'engine.edit.resetConfirm' : 'engine.edit.deleteConfirm';\n…\nif (itemIsArtifact) { /* 重置：重拉 layered，留在本页 */ }\nelse { navigate(`../`); /* 删除：回列表 */ }\n```\n\n两者在「有 `code` 层但不在 artifact 档」的条目上必然分叉。\n\n## 谁会落进这个缺口\n\n**今天就可达**：已发布的组织自有条目 —— 其 `code` 层带 `sys_metadata` 哨兵，`isArtifactItem` 为 false（渲染成「删除」），而 `itemIsArtifact` 为 true（执行「重置」）。这一分叉在 `sys_metadata` 豁免加入时就已存在。\n\n**PR #4885（#4308）会扩大这一人群**：该 PR 让「可写包里的组织自有对象」也正确地退出 artifact 档，于是这些条目的 `canWrite` 由 false 变 true —— 按钮从此会**渲染出来**（此前整个控件因 `canWrite` 为 false 而不显示）。#4885 只修 banner，未触碰 `doReset`，故本缺陷既非其引入、也未被其修复，但暴露面变大，因此单独提出。\n\n## 该以哪份为准（需判定，故未自行修）\n\n服务端其实已经给了答案：`resolveLockState` 里 `resettable = artifactBacked`，并随 layered 信封下发。页面已读为 `lockResettable`，但 `lockResettable = layered?.resettable !== false` 把「没意见」和「true」合并了，因此不能直接当判据用。\n\n两条路，代价不同：\n\n- **A. 执行侧对齐渲染侧**（`doReset` 改用 `isArtifactItem`）：按钮说什么就做什么。但对组织自有条目意味着走**删除**分支 —— 这是破坏性动作，需确认「重置一个没有包基线的条目」到底应该删掉还是剥离 overlay。\n- **B. 渲染侧对齐执行侧**：按钮改说「重置」。语义上更保守（不删数据），但要确认 `client.reset()` 对无 artifact 基线的条目行为为何。\n\n因为涉及**破坏性动作**且两种读法导向不同产品语义，未在 #4885 中顺手改。请 PM 分诊后再定方向。\n\n## 来源\n\n实施 #4308（PR #4885）时在相邻代码路径上发现，按 Prime Directive #10 立单不扩围。已搜索既有 open issue（关键词 reset/delete confirm mismatch、`itemIsArtifact`、文件路径）无命中。"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 4864,
+  "kind": "pull_request",
+  "title": "fix(components,fields): 全屏长文本对话框播报校验状态、控件拿到可访问名 (#4824, #4832)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T16:36:08Z",
+  "updated_at": "2026-08-16T17:31:57Z",
+  "closed_at": "2026-08-16T17:31:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T17:31:55Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4864",
+  "body": "Fixes #4824\nFixes #4832\n\n按 2026-08-16 维护者裁定(#4824 评论 5307575529)实施,两单同批同 PR —— 同一批对话框控件、同一段 JSX。**三个面全部落地。**\n\n> **前置门已通过(记录在案)。** 第三面(form.tsx 内置 FullscreenTextarea)与在飞的 #4788 同文件。按门规 60 秒一轮循环等它落 main,**等满 40 轮超时**,当时它连分支都还没 push,遂先按超时分支交付了两个面。随后 #4788 以 PR #4862 落地(`7458a418b`),本分支 `git merge origin/main`(无冲突)后补上第三面。⛔ 全程未抢改同文件;两边的改动落在 form.tsx 的不同区域(它改 `renderFormField` 的只读路径,本 PR 改 `FullscreenTextarea` 与 `case 'textarea'`)。\n\n## 这条修的是什么\n\n`mobile.fullscreenLongText` 是已发布的 opt-in:开了它,手机用户就是在这个全屏对话框里写长文本。#4824 的测量在**字段真的处于校验失败态**时读到:\n\n```\nINLINE  richtext  aria-invalid= true\nDIALOG  richtext  aria-invalid= false   aria-describedby= null\nINLINE  textarea  aria-invalid= true\nDIALOG  textarea  aria-invalid= null    aria-describedby= null\n```\n\nrichtext 那一行是更尖锐的一半:对话框不是「没说」,而是在同一时刻**主动播报了与 inline 面相反的结论** —— 因为 RichTextEditorSurface 用 `aria-invalid={!!error}` 计算,而对话框那次渲染从来没拿到 `error`。#4832 在同一批控件上读可访问名:inline 面 `F`,对话框面全空。\n\n三个渲染面、3/3 全坏,根因是同一个:对话框里那份编辑控件是**宿主从零构造**的,inline 控件从表单渲染器白拿的那套 plumbing 一件都到不了它身上。\n\n### 三面读数(改前 → 改后)\n\n| 面 | aria-invalid | aria-errormessage | 可访问名 |\n|---|---|---|---|\n| richtext 对话框 | `false`(字段实为 invalid) → `true` | 无 → 对话框内节点 | 空 → `F` |\n| textarea 对话框 | 属性缺席 → `true` | 无 → 对话框内节点 | 空 → `F` |\n| 内置 textarea 对话框 | 属性缺席 → `true` | 无 → 对话框内节点 | 空 → `F` |\n\n## 落点:E1,一处回答,必填参数交出\n\n`FullscreenEditor`(components 包 primitive)现在接收字段的 `error`,并独占这两件事的答案:\n\n- 在**对话框内部**渲染错误文案节点;\n- 把结果作为 children render prop 的**必填第 4 个参数**交给宿主 —— 一个可直接展开的 DOM 属性集,含 `aria-labelledby`(对话框标题的文本节点,即 #3393 已经放在那里的字段 label)、`aria-invalid`、以及单 IDREF 的 `aria-errormessage`。\n\n宿主只管展开,**永远不知道任何 id**。所以它无法指向对话框外的节点、无法把属性组合错、也无法用一个忘了接线的 prop 自己算 `aria-invalid` —— 这三样正是三个面各自出错的方式。让三个宿主各自回答,就是造出三个同样的洞的那个形状。\n\n## 关于 #3222「文案归 FormMessage」\n\n维护者裁定把该规则重述为它一直在保护的东西 —— **同一时刻只有一份错误文案在无障碍树内** —— 而对话框本地的这个节点满足它:它只在对话框打开期间存在(Radix 关闭即卸载),而恰恰在这个窗口里 Radix 把模态外的一切、包括 FormMessage,`aria-hidden` 掉了。两份可读文案的窗口不存在。\n\n⛔ **硬禁,已写进 primitive 的注释与钉子**:把对话框内控件的 `aria-describedby` / `aria-errormessage` 指回模态外那个被 `aria-hidden` 的 FormMessage。它是最省事的写法 —— id 解析得到、节点文字正确、所有关于名与描述的断言都会绿 —— 而它是 ARIA MUST 违规:引用存活的整个期间,目标都是 `aria-hidden` 的。happy-dom 与 jsdom 都直接按 IDREF 算可访问名/描述,**对这条同盲**。\n\n所以本 PR 的每一条 IDREF 断言都**同时**断言容器归属:被指向的节点在**这个**对话框内,而不只是「存在」。第三面那份钉子里还多一条 —— 它是三个面里唯一能对着**真实的 FormMessage** 测的(该分支渲染在 FormControl 里,表单自己的 message 节点就在旁边),所以直接断言 `aria-errormessage` 的 id 不等于表单项的 message id、且该节点不在对话框内。\n\n`aria-errormessage` 只带单 ID(本仓工具链不认列表),且只在 `aria-invalid=\"true\"` 时发出;**刻意不**并进宿主的 `aria-describedby` 链 —— textarea 面那条链上已经有全屏字数计数的句子,钉子断言两者互不污染。\n\n## 可访问名:复用可见文本,不新造名字来源\n\n`aria-labelledby` 指向 DialogTitle **内部的一个 span**,而不是 DialogTitle 本身:Radix 渲染的是 h2 元素并把 `id={context.titleId}` 放在属性展开之前,给 DialogTitle 传 `id` 会**替换掉** DialogContent 自己 `aria-labelledby` 所指的那个 id —— 等于用对话框的名字换控件的名字(#3393 的回退)。钉子两边都钉了:控件有名 **且** 对话框仍有名。\n\n⛔ 不新造 `aria-label` 文案来源(#3978 单一命名通道)—— 钉子里有「控件不带 `aria-label`」这一条,一个自己 mint 字符串的实现会在那里红。\n\n## Breaking(按仓约定发 `minor`),仅 `@object-ui/components`\n\n`FullscreenEditorProps.error` 是**必填**而非可选,`children` 多一个第 4 参数。\n\nrender prop 少声明参数在 TS 里合法,所以**真正编译报错的只有 `error`** —— 这正是把它设成必填的理由,也是裁定里「3 个消费者编译强制迁移」的落点。它确实起了作用:第三面未迁移时,type-check 精确地指着那一个调用点(`form.tsx(519,8) error TS2741: Property 'error' is missing ... but required in type 'FullscreenEditorProps'`),迁完即转绿。\n\n每个消费者手上本来就有这个值(注册 widget 从 #3222 的 widget props 契约取 `error`;built-in 分支取 `fieldState.error?.message`),而漏掉 `error` 复现的正是本单的缺陷:表单已经判失败,对话框却播报 `aria-invalid=\"false\"`。可选键被三个面连续忘了三次;必填键忘不掉。\n\n`@object-ui/fields` 记 `patch`:`FullscreenFieldEditor` 是该包内部件(未从入口再导出),公开面无变化。\n\n`minor` 而非 `major` 依仓内既有先例(AGENTS.md 版本号策略,由 `scripts/check-changeset-no-major.mjs` 机械强制):全部可发布包在一个 `fixed` 组里,`major` 会把整组顶上去、脱离 `@objectstack` 的节奏。\n\n## 验证\n\n- 新钉子 3 个文件、合计 **38 条执行用例**,全绿:\n  - `packages/components/src/__tests__/fullscreen-editor-dialog-aria.test.tsx` —— primitive 契约,**10 条**;\n  - `packages/fields/src/widgets/__tests__/FullscreenFieldEditor.dialogAria.test.tsx` —— 9 个 `it` 块,其中 8 个在 `describe.each` 里对**两个 widget 面**各跑一遍,合计 **17 条**(#4250 的半修教训:同一组断言两个面一起跑,修一个漏一个必红);\n  - `packages/components/src/renderers/form/__tests__/form-fullscreen-textarea-dialog-aria.test.tsx` —— 内置面,对着真实 FormMessage 测,**11 条**。这一份是**先写后修**的:实现落地前 `7 failed | 4 passed`,落地后 `11 passed`。\n- 合并 main 后的回归扫:`vitest run packages/fields packages/components packages/plugin-form` —— **Test Files 287 passed (287),Tests 3400 passed (3400)**(含 #4788 随 main 带进来的两份新测试)。\n- `turbo run type-check --filter=@object-ui/components --filter=@object-ui/fields` —— **Tasks: 12 successful, 12 total**。\n- `check-control-bytes`、`check-changeset-fixed`、`check-changeset-no-major`、`check-phantom-dependencies` 全绿;改动文件另做了控制字符自查,无命中。\n\n### 反向验证(先预判,后跑)\n\n变异:把 richtext 对话框面的第 4 参数展开断开(只动 RichTextEditorSurface 那一处),已 commit 后做,复原用 `git checkout --`(⛔ 未用 stash)。\n\n**预判**:红 4 条,且**全部**落在 richtext 面 —— aria-invalid 真值、errormessage 归属、与 inline 面一致、可访问名。\n\n预判里同样写清了**不会**红的部分,因为这才是这条变异的关键:richtext 的「字段有效时播报 `aria-invalid=\"false\"`」**保持绿**,因为断开后该面退回自己的 `aria-invalid={!!error}`、而对话框那次渲染不传 `error`,于是照样渲染出字面的 `false` —— 那正是修复前的缺陷本身,只是在「有效」这一格上碰巧看起来是对的。这也是为什么钉住它的必须是「无效」那一格。同理,错误节点由 primitive 渲染,所以「对话框内只有一份文案」「关闭后节点消失」「对话框自身有名」三条也保持绿。\n\n**实测**:`Tests 4 failed | 23 passed (27)`,四条逐字就是预判的那四条,零条红出现在 richtext 之外。\n"
+}

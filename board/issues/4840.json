@@ -1,0 +1,34 @@
+{
+  "number": 4840,
+  "kind": "issue",
+  "title": "content/docs/guide/layout.md 的 SidebarNav 两块教一个从未注册的 `sidebar-nav` JSON 节点,键表也与 SidebarNavProps/NavItem 全面不符",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:45:43Z",
+  "updated_at": "2026-08-16T12:48:02Z",
+  "closed_at": "2026-08-16T12:48:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4840",
+  "body": "发现于 #4827 的实施(PR 见该单),回传立单。**未认领,交 PM 三角。**\n\n同一页(`content/docs/guide/layout.md`)、同一族(#3999 / #4793 的 SidebarNav 幻影键),但**第三个载体**,而且这次比幻影键更彻底:节点类型本身不存在。\n\n## 事实(基线 `378dc920b` 实测)\n\n### 1. `sidebar-nav` 这个组件键从来没有被注册过\n\n`packages/layout/src/index.ts` 的 `registerLayout()` 只注册六个键:\n\n```\npage-header / page:card / app-shell / responsive-grid / navigation-renderer / app-schema-renderer\n```\n\n全仓 `packages/*/src` 与 `apps/*/src` 里 `grep -n \"sidebar-nav\"` 的注册命中数为 **0** —— `SidebarNav` 只作为 React 组件从 `@object-ui/layout` 导出。\n\n而该页 `:284-308` 教的是一个 JSON 节点:\n\n```\n{\n  \"type\": \"sidebar-nav\",\n  \"items\": [ ... ]\n}\n```\n\n照抄它的读者拿到的不是\"某个键被丢弃\",而是渲染器的红框 `Unknown component type: sidebar-nav` —— 整个侧边栏一个字都不出。这一点上它比 #4827 更硬:#4827 的 `app-shell` 至少解析得到组件。\n\n### 2. 同页 `### Schema API` 块(`:311-338`)的键表与真实 interface 全面不符\n\n真实声明在 `packages/layout/src/SidebarNav.tsx:23-44`:\n\n```\ninterface NavItem { title; href; icon?: React.ComponentType; badge?; badgeVariant?; children? }\ninterface SidebarNavProps { items; title?; className?; collapsible?; searchEnabled?; searchPlaceholder? }\n```\n\n逐条对照文档块:\n\n| 文档教的 | 真实情况 |\n| --- | --- |\n| `items[].label` | 不存在,真实键是 `title`(`SidebarNav.tsx:24`)—— 与 #3999 / #4793 修掉的完全同一个键 |\n| `items[].icon?: string` | 类型错:真实是 `React.ComponentType`(`:26`),给字符串会当组件渲染 |\n| `items[].items`(嵌套子项) | 不存在,嵌套子项的真实键是 `children`(`:29`);`items` 只在 `NavGroup`(`:32-35`)上 |\n| `items[].active` / `items[].disabled` | `NavItem` 两个都没有 |\n| `collapsible?: boolean` | 类型错:真实是 `\"offcanvas\" \\| \"icon\" \\| \"none\"`(`:41`),默认 `\"icon\"`(`:122`) |\n| `defaultOpen?: boolean` | `SidebarNavProps` 没有这个键 |\n| (缺) | 真实的 `title?: string`(`:39`,默认 `\"Application\"`)文档块里没有 |\n\n`searchEnabled` / `searchPlaceholder` / `className` / `badge` / `badgeVariant` 是对的。\n\n## 为什么不是 #3999 / #4793 的重复\n\n- #3999 = `packages/layout/README.md` 的 SidebarNav 示例,**React props** 载体,已修 + 已钉(`readme-sidebar-nav-example.test.ts`);\n- #4793 = `content/docs/layout/app-shell.mdx` 的导航示例,同样 **React** 载体,已修 + 已钉(`app-shell-docs-nav-example.test.ts`);\n- 本单 = `content/docs/guide/layout.md`,**JSON** 载体,而且比那两条多一层:教的节点类型压根没注册。\n\n三条既有钉子(含 #4827 新加的 `guide-layout-app-shell-doc.test.ts`)的扫描面都写死在各自的文件/组件上,**没有一条**覆盖本页的 SidebarNav 段 —— #4827 的钉子头注释里明确把本页的 `sidebar-nav` 段排除在扫描面之外。\n\n## 参考\n\n- `packages/layout/src/SidebarNav.tsx:23-44`(`NavItem` / `SidebarNavProps`)、`:122`(默认值)、`:147`\n- `packages/layout/src/index.ts`(`registerLayout()` 的六个键,无 `sidebar-nav`)\n- `content/docs/guide/layout.md:278-338`\n- #3999、#4793、#4827(同页 app-shell 段,已修)\n"
+}

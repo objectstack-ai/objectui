@@ -1,0 +1,35 @@
+{
+  "number": 4968,
+  "kind": "issue",
+  "title": "CLI app-generator 的 lucide-react 区间字面量落后 workspace(^1.29.0 vs ^1.31.0)—— 派生钉现在把全仓所有 PR 的 test shard 判红",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T08:32:35Z",
+  "updated_at": "2026-08-17T10:27:52Z",
+  "closed_at": "2026-08-17T10:27:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4968",
+  "body": "## 事实(PM 亲读 CI 日志 + main 考古,2026-08-17 08:3xZ)\n\n- `c1454a2d9`(dependabot PR #4959)把 workspace 的 `lucide-react` 从 ^1.29.0 升到 ^1.31.0,已落 main。\n- `packages/cli/src/utils/app-generator.ts` 生成的 manifest 仍写 `^1.29.0` 字面量。\n- `packages/cli/src/__tests__/app-generator.test.ts:574` 与 `:1139` 的钉从仓内区间**派生**期望值(`inRepoRangesOf('lucide-react')`),于是在任何 PR 的 merge-ref 上都红:\n\n```\nAssertionError: routed manifest's lucide-react must match its in-repo range: expected '^1.29.0' to be '^1.31.0'\n```\n\n- 实测受害者:PR #4963 的 Test shard 1/4 与 3/4(该 PR 只改 plugins.md 与 doc-version-claims 测试,与本缺陷零交集);PR #4965 在跑的 run 预计同红。**这是全仓阻断:auto-merge 队列里的一切都过不去,直到本卡落地。**\n\n## 修法\n\n`app-generator.ts` 的 lucide-react 字面量跟到 `^1.31.0`(或按钉的设计意图改为从 workspace 派生 —— 钉注释自述「A literal here is the very fossil generator this file exists to prevent」,实施者读现场后择一,选择写进 PR)。顺手核对同一模板里其它第三方区间是否也在本轮 dependabot 批次(#4953-#4960)里被升而模板未跟。\n\n## 为何 #4959 自己的 CI 没拦住\n\n留给实施者顺手回答(一段即可,不扩围):dependabot PR 的检查面或时序为何没触发该钉。\n\nPart of 今日 dependabot GA 批次的消费侧跟进。"
+}

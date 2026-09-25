@@ -1,0 +1,35 @@
+{
+  "number": 3888,
+  "kind": "issue",
+  "title": "ADR-0036「Server enforcement」段的「fails to evaluate ⇒ fail-open」写成无条件成立 —— 与 #3828 同源,objectstack#4889 之后 readonlyWhen 未绑定根一类是 fail-CLOSED",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:05:56Z",
+  "updated_at": "2026-08-17T08:03:57Z",
+  "closed_at": "2026-08-17T08:03:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3888",
+  "body": "越界发现,来自 #3828 的实现(PR #3887)。按 PD #10 立案,**未认领、未定级**。观察类:同样是一段**文档**,今天没有用户会撞到它,但它对姊妹系统的失败方向做了一个**已经不成立**的断言 —— 而且这次是在本仓的 ADR 里,即这套设计的权威记录处。\n\n## 事实\n\n`docs/adr/0036-field-conditional-rules.md` 的 `## Server enforcement (framework)` 段(`:55` 起)在逐条讲完 `requiredWhen` / `readonlyWhen` 的服务端行为后,`:67-68` 写:\n\n> - A predicate that fails to evaluate is **fail-open** and logged (a broken rule must never block a legitimate write).\n\n这一条**无条件**覆盖上面两个 bullet(`requiredWhen` 与 `readonlyWhen`),而自 objectstack#4889 起它对 `readonlyWhen` 的一个 fault 类**不成立**:谓词因为引用了本次写入没有绑定的 scope 根(`parent.status == 'paid'` 而手里没有 master-detail 头)而 fault 时,服务端是 fail-CLOSED。\n\nobjectstack `origin/main` @ `fec784863`,`packages/objectql/src/validation/rule-validator.ts`:\n\n| 事实 | 位置 |\n|---|---|\n| 未绑定根 → 记日志 `treating the field as LOCKED` | `:599-603` |\n| 同一分支 `return true`(= LOCKED) | `:604` |\n| **其他** fault 才是 `failed to evaluate — change allowed through` + `return false` | `:606-607` |\n| `stripReadonlyWhenFields` 随即 `delete` 掉该 key | `:522` / `:537` |\n| 设计说明「`readonlyWhen`: the UNBOUND-ROOT case is fail-CLOSED (#4889)」,并明确「Every OTHER `readonlyWhen` fault … keeps the fail-open policy」 | `:99-109` |\n\n`requiredWhen` 那一半仍准确(objectstack#4977 绑了 `parent` scope 但刻意保留 fail-open 语义,`:117-141`、`:1416-1430`),所以**要收窄的只是 `:67-68` 这条概括**,不是整段。\n\n## 与 #3828 的关系,以及为什么另立一单\n\n#3828 / PR #3887 修的是 `packages/core/src/evaluator/fieldRules.ts` 的模块头,文件面被 issue 明确限定为那一个 docblock,所以本条没有捎带修。两者是**同一个陈旧断言的两个副本**:代码注释那一份已收窄,ADR 这一份仍在,而 ADR 是新读者查「服务端到底怎么办」时的第一站,留着它等于把刚拆掉的错误心智模型原样保存在更权威的位置。\n\n顺带记录一处**已核准确、不需要动**的地方,免得后来者重复排查:`packages/types/src/form.ts:1076-1085` 关于 `previousValues` 的注释把这条链路讲对了 —— 「faulting on an unbound root and failing OPEN — which let a user edit a locked field and have the change silently dropped on save」,正是本条要补上的那个后果。\n\n## 建议修法(留给分诊,不自选)\n\n1. 把 `:67-68` 收窄为「多数 fault fail-open;`readonlyWhen` 的未绑定根一类自 objectstack#4889 起 fail-CLOSED(锁死并丢弃写入),按 ADR-0057 D10 以服务端为准」,并在 `## Client enforcement (objectui)` 段点一句两端在这一格方向相反(PR #3887 的 docblock 已是现成措辞,可直接对齐,注意 framework 的 ADR-0057 与本仓 `docs/adr/0057-console-ai-chat-one-conversation-docked.md` 撞号,引用需写明是 framework 编号);\n2. 只在 `:67` 加「except an unbound scope root for `readonlyWhen`(objectstack#4889)」一句,不展开;\n3. 不动,记录为已知边界。\n\n倾向 1:这段的价值就是给出服务端行为的权威概括,而概括错了方向比缺失更贵 —— #3828 的成本正是如此。\n\n## 查重\n\n仓内三次检索:`ADR-0036 fail-open`(0 命中)、`readonlyWhen 4889`(仅 #3828 本身)、`0036-field-conditional-rules`(0 命中);另检 `fail-CLOSED` 全文(#3792 / #3368 / #3871 主题不同),无同题单。\n\nRefs: #3828、PR #3887、objectstack#4889、objectstack#4977、ADR-0057 D10(framework 编号)。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 4798,
+  "kind": "issue",
+  "title": "auth-permissions.md 教的 `\"hidden\": \"${!canDeleteContacts}\"` 裸根不解析 —— 按钮无条件消失,与权限位取值无关",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:38:56Z",
+  "updated_at": "2026-08-16T09:47:29Z",
+  "closed_at": "2026-08-16T09:47:29Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4798",
+  "body": "发现于 #4786 的实施,真实 SchemaRenderer 探针实测。\n\n## 教学面\n\n`skills/objectui/guides/auth-permissions.md` 说「derive permission flags in the dataSource object」,然后给出:\n\n```json\n{ \"type\": \"button\", \"label\": \"Delete\", \"hidden\": \"${!canDeleteContacts}\" }\n```\n\n## 实测:裸根不解析,按钮两种取值都消失\n\ndataSource 分别取 `{ canDeleteContacts: true }` 和 `{ canDeleteContacts: false }`:\n\n```\n@@PROBE bare/flag-true   text=\"\"          ← 有权限,按钮却没了\n@@PROBE bare/flag-false  text=\"\"\n@@PROBE data/flag-true   text=\"Delete\"    ← 改成 ${!data.canDeleteContacts} 才对\n@@PROBE data/flag-false  text=\"\"\n```\n\n## 成因\n\n`packages/react/src/SchemaRenderer.tsx` 建的求值作用域是\n`{ ...predicateScope, current_user, data: dataSource, page: pageVariables }` ——\n`predicateScope` 来自 `usePredicateScope()`(user / app / features),**不含 dataSource**。\n所以 dataSource 上的键只能经 `data.` 根访问;裸名解析成 `undefined`,`!undefined` 恒为 `true`,`hidden` 恒真。\n\n失效方向恰好是最坏的那个:**有权限的用户看不到按钮**,而且和权限位取值无关,所以\"改一下权限再试\"这条最自然的排查路径不会给出任何信号。\n\n## 与 #4786 的关系\n\n#4786 的 PR 改了这个示例的 `props` 信封(`\"props\": { \"label\": ... }` → `\"label\": ...`),那部分实测已通过。**表达式根写错是另一处独立缺陷,刻意未改** —— 同文件同段落,但不属于信封范围。\n\n需要顺带核一遍同文件里其它裸根表达式(`${data.userRole !== 'admin'}` 那几处是对的,已实测)。\n\n## 参考\n\n- #4786(发现来源)\n"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 10337,
+  "kind": "issue",
+  "title": "finding(types/skills): four more texts still say the manifest serializer forwards SIX keys per input and omit `of` — a governed skills guide, a published `widget.ts` docblock and two test comments",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T18:28:22Z",
+  "updated_at": "2026-09-24T20:48:25Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10337",
+  "body": "Filed by the `domain:ui` execution seat (seat #1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#10298's hand-back (`out_of_scope_findings`). The seat re-measured every site below on `origin/main` `8b1f0661` before filing. ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\n`manifestFromConfigs` in `packages/sdui-parser/src/index.ts` maps each input to **seven** keys: `name`, `type`, `of`, `required`, `enum`, `binding`, `description`. `of` has been one of them since objectui#8067 (`cf1d29e2fc`). PR objectui#10318 corrects the three pending changesets that said six. Four other texts still say six and omit `of`:\n\n| site | text | face |\n|:--|:--|:--|\n| `skills/objectui/guides/plugin-development.md`, the tombstones comment in the `ComponentInput` example | 「the manifest serializer forwards only `name`, `type`, `required`, `enum`, `binding` and `description`」 | ⚠️ **governed** (skills catalogue, Tier H), read by agents authoring plugins |\n| `packages/types/src/widget.ts`, the `WidgetInput` divergence docblock, clause 2 | 「`sdui-parser`'s serializer forwards six keys (`name`, `type`, `required`, `enum`, `binding`, `description`)」 | published source of a released package (reaches `.d.ts`) |\n| `packages/plugin-markdown/src/index.test.ts`, the `no longer authors inputType` case | 「serializer forwards six keys — `name`, `type`, `required`, `enum`, …」 | test comment |\n| `packages/types/src/__tests__/component-input-retired-constraint-keys.test.ts`, the header's 「What was measured」 | 「exactly six keys per input — `name`, `type`, `required`, `enum`, …」 | test comment |\n\nControl: the same guide's own example comment a few lines above says 「SIX keys are writable — `name`, `type`, `of`, `required`, `enum`, `description`」. That sentence is about the WRITABLE authoring keys, not the serializer, and it already includes `of`, so it is not part of this finding.\n\n## Why it matters\n\nEach text concludes that a retired key cannot reach the published manifest. That conclusion still holds, because none of the retired keys is `of`. What misleads is the list: a reader, or an agent following the skills guide, learns that `of` is not published, and it is.\n\n## ⛔ Not claimed\n\n- ⛔ No wording is chosen. The repair precedent is the uncounted 「fixed key list per input, `of` included since objectui#8067」 in `packages/types/src/base.ts` and `component-input-retired-keys-7493.test.ts`.\n- ⛔ The skills-guide row is a governed surface. Its fix needs the governed route (maintainer quick-read, human merge), so it may belong on its own PR.\n- ⛔ No other count is claimed. Sites that count six keys of OTHER shapes (chart relay, D3 findings, `AdminScope`) were read and are unrelated.\n\n## Dedupe words\n\n`serializer forwards six keys` · `forwards only name type required enum binding description` · `manifest of key omitted` · `skills plugin-development six keys` · `WidgetInput divergence six keys`"
+}

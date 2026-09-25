@@ -1,0 +1,34 @@
+{
+  "number": 4841,
+  "kind": "issue",
+  "title": "[finding] `app-shell` 注册后在 schema 路径上不可用:四个 ReactNode 插槽 JSON 一个都填不了,inputs 又为空,节点解析得到却永远渲染不出壳",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:46:20Z",
+  "updated_at": "2026-08-16T16:29:23Z",
+  "closed_at": "2026-08-16T16:29:23Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4841",
+  "body": "发现于 #4827 的实施(PR 见该单),回传立单。**未认领,交 PM 三角。观察类**(#4827 的 PR 落地后,文档已不再引导任何人写这个节点 —— 今天没有用户路径会踩到;记录的是这个注册面本身)。\n\n## 事实(基线 `378dc920b` 实测)\n\n`packages/layout/src/index.ts` 把 `AppShell` 注册成组件键 `app-shell`,不声明 `inputs`:\n\n```\nComponentRegistry.register('app-shell', AppShell, {\n  namespace: 'layout', label: 'App Shell', category: 'Layout',\n});\n```\n\n于是 `{ \"type\": \"app-shell\" }` **解析得到**这个组件。但 `AppShellProps`(`packages/layout/src/AppShell.tsx:25-40`)七个键里有四个是 `React.ReactNode` 插槽 —— `sidebar` / `navbar` / `children` / `rightRail` —— 而 JSON 一个都填不了。用一个探针组件量过 `SchemaRenderer` 递给组件的 props(schema 里八个键全给):\n\n```\nsidebar:     present=true  value={\"type\":\"text\",\"value\":\"side\"}   ← 纯对象,不是节点\nnavbar:      present=true  value={\"type\":\"text\",\"value\":\"nav\"}\nrightRail:   present=true  value={\"type\":\"text\",\"value\":\"rail\"}\nclassName:   present=true  value=\"custom-app\"\ndefaultOpen: present=true  value=false\nbranding:    present=true  value={\"primaryColor\":\"#3B82F6\",\"title\":\"T\"}\nchildren:    present=false (absent)\nbody:        present=false (absent)\nschema.children (经 `schema` prop) = [{\"type\":\"text\",\"value\":\"kid\"}]\n```\n\n两种结局,都不是壳:\n\n1. **`children` 被剥掉,静默。** `SchemaRenderer.tsx:550-579` 的元数据解构把 `children`(和 `body`)摘出去再 spread 其余键,而 `AppShell` 读的是 `children` **prop**、从不读 `schema.children`。实测渲染 `{ \"type\": \"app-shell\", \"className\": \"custom-app\", \"children\": [...] }`:`<main class=\"… custom-app\">` 是空的,`console.error` 计数 **0**。\n2. **三个节点插槽直接崩。** 给 `sidebar`/`navbar`/`rightRail` 一个 schema 对象,`AppShell` 把它当 ReactNode 渲染,React 拒绝:节点被换成渲染器错误框 `Component \"app-shell\" failed to render — Objects are not valid as a React child (found: object with keys {type, value})`。\n\n只有三个纯数据键(`className` / `defaultOpen` / `branding`)真的通过 JSON 路径生效 —— 实测 `branding` 经 JSON 设到了 `document.title` 与 `--primary`。也就是说 JSON 侧能拿到的最好结果,是**一个没有导航、没有顶栏、内容区空着的壳**。\n\n`inputs` 为空是第二层:`sdui-parser` 的 unknown-prop 检查没有可比对的声明面(同族 #3972),所以上面任何一种写法都不会被校验器说一句话。\n\n## 为什么记成观察类\n\n#4827 的 PR 落地后,`content/docs/guide/layout.md` 已改成教 React 组合,并加了钉子禁止本页再出现 `app-shell` 的 JSON 节点;`packages/layout/README.md`(#4817)与 `content/docs/layout/app-shell.mdx`(#4793/#4808)本来就只教 React。所以今天**没有教学面把人引到这个节点上**,这条记录的是注册面自身的状态,不是在途用户故障。\n\n## 可能的处置(交维护者定,本单不预判)\n\n- **A. 撤掉注册**(ADR-0049 enforce-or-remove 的\"移除\"侧):`AppShell` 是 React 组合原语,`app-schema-renderer` 才是\"从一份 JSON 渲染整壳\"的入口(`AppSchemaRenderer.tsx:9-19` 自陈如此,且已声明 `inputs`)。撤掉后 `{ \"type\": \"app-shell\" }` 会得到明确的\"未注册\"诊断,而不是今天这个\"解析得到但永远渲染不出东西\"的中间态。\n- **B. 让它真的可授权**:声明 `inputs`,并在渲染适配层把 `sidebar`/`navbar`/`rightRail` 的 schema 值渲染成节点、把 `schema.children` 接到 `children` 上。这是新增能力,代价明显更大,而且要先回答\"它与 `app-schema-renderer` 的分工\"。\n\n倾向 A —— 契约优先:两个键各自一个渲染器,而不是留一个解析得到却填不满的壳。但这是公共注册面的取舍,不该由实施单自行决定。\n\n## 参考\n\n- `packages/layout/src/index.ts`(`app-shell` 注册,无 `inputs`)\n- `packages/layout/src/AppShell.tsx:25-40`(`AppShellProps`)、`:233-241`(固定键表解构,无 rest)、`:246-264`(`{navbar}` / `{sidebar}` / `{rightRail}` 的直接渲染)\n- `packages/react/src/SchemaRenderer.tsx:550-579`(`children` / `body` 的剥离)、`:620-634`(props spread)\n- `packages/layout/src/AppSchemaRenderer.tsx:9-19`、`packages/layout/src/index.ts` 的 `app-schema-renderer` 注册(声明了 `inputs`)\n- #4827(本页文档已按真实 props 改写并钉住)、#3972(注册面与实现不符导致校验说不出话,同族)\n"
+}

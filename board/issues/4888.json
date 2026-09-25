@@ -1,0 +1,32 @@
+{
+  "number": 4888,
+  "kind": "pull_request",
+  "title": "docs(gantt): make the remaining plugin-gantt source comments English (#4884)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T01:33:10Z",
+  "updated_at": "2026-08-17T02:10:49Z",
+  "closed_at": "2026-08-17T02:10:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T02:10:47Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4888",
+  "body": "Fixes #4884\n\n诫条 #-1 覆盖的是代码注释,不只是面向用户的文案。本 PR 是 #4021 / PR #4883 的同形续集 —— 那一单清掉了同包 `QuickFilterBar.tsx`,本单清掉 `packages/plugin-gantt/src` 下**其余六个非测试源码文件**共 163 行中文注释(JSDoc、行尾 `//`、JSX 注释块)。\n\n## 前提复核(stale-premise)\n\n立卡时 origin/main 是 `718ca9d45`,本 PR 基线是 `372d9f9b4`(即 PR #4883 的合并提交)。逐文件重扫,**六文件行数与卡内清单逐一吻合,合计 163**,前提成立。`QuickFilterBar.tsx` 已不在非测试命中列表内(#4883 已清)。\n\n## 逐文件 Han 计数 before / after\n\n| 文件 | before | after |\n|---|---|---|\n| `GanttView.tsx` | 93 | 0 |\n| `ObjectGantt.tsx` | 51 | 0 |\n| `shifts.ts` | 9 | 0 |\n| `scheduling.ts` | 8 | 0 |\n| `ResourceWorkload.tsx` | 1 | 0 |\n| `workload.ts` | 1 | 0 |\n| **合计** | **163** | **0** |\n\n复现:`rg -c '\\p{Han}' packages/plugin-gantt/src --glob '!*.test.*'` —— 改后零命中,**无声明例外**。\n\n包内其余非测试源码(`index.tsx`、`useGanttTranslation.ts`、`QuickFilterBar.tsx`)顺扫零残留,所以六文件即全集。\n\n## 额外:`\\p{Han}` 扫不到的一处\n\n`GanttView.tsx:3725` 的 `「→」` 用的是 CJK 括号(Unicode 类别 Po,不是 Han),卡内那条 `rg '\\p{Han}'` **扫不到它**,163 这个数因此是偏低的。已一并改成 `` `→` ``,并补扫 CJK 标点/全角区(`U+3000-303F`、`U+FF00-FFEF`、`U+FE10-FE1F`)确认归零。记一笔:若后续真要建门,判据不能只有 `\\p{Han}`。\n\n## 按现状改写处(注释与代码现状矛盾)\n\n### 1. 引用 UI 字面量的注释 → 改指真实 bundle 键\n\n这些注释引用的中文按钮/菜单文案,现已由 `useGanttTranslation.ts` 的 `gantt.*` 键解析(英文默认值),注释里的中文literal 早已不对应任何调用点 —— 与 #4883 修 quick-filter labels 的同一类过期。改写后直接指键:\n\n| 原注释引用 | 改后指向 |\n|---|---|\n| `\"保存布局\"`(2 处:`persistLayoutKey` JSDoc、`GanttLayout` JSDoc) | `gantt.toolbar.saveLayout` |\n| `\"移除依赖\"` | `gantt.menu.removeDependency` |\n| `手动刷新` | `gantt.toolbar.refresh` |\n| `\"添加紧前/紧后\"`(2 处) | `gantt.menu.addPredecessor` / `gantt.menu.addSuccessor` |\n| `查看`(context menu / focus 注释) | `gantt.menu.view` |\n| `开始/结束 labels` | `gantt.column.start` / `gantt.column.end` |\n| `自动顺延` / `取消保留` | `gantt.conflict.confirm` / `gantt.conflict.cancel` |\n| `无需排程` | `gantt.autoScheduleDlg.none` |\n\n### 2. 注释块贴错了 JSX(位置漂移)\n\n`GanttView.tsx` 里 `拖拽冲突 → 顺延确认 (Group 2)` 这段注释,**贴在 `pendingAutoSchedule`(自动排程对话框)上方**,而它描述的冲突对话框在约 60 行之后的 `pendingConflict` 处 —— 两段注释叠在同一个 JSX 上,下面那段才是对的。已把冲突对话框的注释移回 `pendingConflict` 上方,自动排程那段留在原位。纯注释挪位,零行为。\n\n### 3. `ObjectGantt.tsx` JSDoc 代码示例的取舍(216-217)\n\n卡内点名的 `label: '白班'` / `label: '夜班'` 是 **JSDoc 代码示例**,不是运行期取值。二选一里我选了**改成英文示例**(`'Day shift'` / `'Night shift'`),理由三条:\n\n1. **与同一字段的另一处文档一致** —— 这两行示例填的是 `ShiftBandConfig.label`,而 `shifts.ts` 里该字段自己的 JSDoc 我也改成了 `'Day shift' / 'Night shift'`;同一个字段在两个文件里给出不同语言的示例是新的不一致。\n2. **示例演示的是形状,不是语言** —— 该字段文档明写 `label` 是「caller 已本地化的显示文本」,所以英文标签与中文标签作为示例**同样真实**,不存在失真;示例要传达的信息是 `key`/`label`/`start`/`end` 这四个键的结构。\n3. **先例** —— #4883 处理 `QuickFilterLabels` 时,对同类中文示例字面量的处置就是移除/英文化,而非保留。\n\n顺带在该 JSDoc 里补了一句 `label` 是 caller 已本地化文本,让示例的英文标签不被误读成硬编码默认值。\n\n其余中文按语义译,不逐字直译;仓内统一术语:`顺延` 一律作 `forward-only`(与该模块既有英文 \"moved *later*, never pulled earlier\" 一致),`仅查看` 作 `view-only`,`写后回读` 作 `write-readback`,`排班日/白班/夜班` 作 `shift-day / day shift / night shift`。\n\n## 验证\n\n**注释-only 的机械证明**(比测试更强的判据):用 TypeScript 编译器对六个文件做 `removeComments` 转译,改前(`HEAD`)与改后逐文件比对 —— **六个文件全部 byte-identical**,即代码/类型/字符串一个字节没动:\n\n```\nIDENTICAL after comment-strip: GanttView.tsx\nIDENTICAL after comment-strip: ObjectGantt.tsx\nIDENTICAL after comment-strip: ResourceWorkload.tsx\nIDENTICAL after comment-strip: scheduling.ts\nIDENTICAL after comment-strip: shifts.ts\nIDENTICAL after comment-strip: workload.ts\n```\n\n**测试**(`pnpm --filter @object-ui/plugin-gantt test`,先 `--filter '@object-ui/plugin-gantt^...' build` 备好依赖):\n\n```\n Test Files  44 passed (44)\n      Tests  386 passed (386)\n   Duration  84.08s\n```\n\n**type-check**(`turbo run type-check --filter @object-ui/plugin-gantt`):`Tasks: 14 successful, 14 total`。\n\n**lint**:`0 errors`(259 warnings 全部落在未改动的 `index.tsx` / `vitest.config.ts`,与 main 同)。\n\n**门**:`check-control-bytes` OK(4370 文件);`check-changeset-presence` / `no-major` / `fixed` 均 OK。另按字节纪律对六文件自扫 `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` —— 零命中。\n\n### 反向验证:如实记录方向\n\n**无门可红**。仓内没有任何门机械强制诫条 #-1 的英文注释条款(#4884 正文已 grep 证实 `eslint.config.js` 与 `scripts/` 下都没有对应规则),#4021 也已证同一点。所以「把中文改回去看测试变红」在本单**不可能成立** —— 没有任何断言读注释。判据只能是:\n\n- **Han grep 读数**:163 → 0(逐文件表如上),外加 CJK 标点补扫 1 → 0;\n- **行为不变**:comment-strip 后六文件 byte-identical(充分条件),测试 386 全绿、计数与基线一致。\n\n## changeset\n\n`.changeset/gantt-source-comments-english.md`,**空 frontmatter** —— 声明「不发布任何东西」,这是该门的显式豁免而非绕行,与 PR #4883 同形。\n\n## 范围\n\n⛔ 未动测试文件(其中文夹具字面量是被验证的数据,#4021 正文已裁明,归维护者定,不属本单);⛔ 未动行为代码;⛔ 未动运行期字符串(复核确认非测试源码里没有中文运行期字符串);⛔ 未动 `content/docs/releases/`。\n\n「仓内无门强制该条款」的**机制化半边不在本单**(属门禁强度,归维护者),按派发要求留在卡内记录。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

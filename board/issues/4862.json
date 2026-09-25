@@ -1,0 +1,33 @@
+{
+  "number": 4862,
+  "kind": "pull_request",
+  "title": "fix(components): 只读注册字段的替换显示接上 host 的命名与描述通道 (#4788)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T16:27:49Z",
+  "updated_at": "2026-08-16T16:34:43Z",
+  "closed_at": "2026-08-16T16:34:41Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T16:34:41Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4862",
+  "body": "Fixes #4788\n\n按 2026-08-16 维护者裁定(A / A / E,评论 5307576062)实施:只读态 host label 去 `for` 改发 id;只读值面接受 `role=\"group\"`;机制落 `packages/components/src/renderers/form/form.tsx` 一处包容器。**`packages/fields/src/widgets/` 下零改动** —— 这是 E 方案的结构卖点。\n\n## 缺陷(复跑的实测读数)\n\n注册 field widget 的只读分支渲染的是「替换显示」(mailto 锚、格式化 span、chip 行、预览表),并且在自己的 DOM pass-through **之前**提前 return,所以 host 下发的东西一件都没落到元素上。在 `origin/main` `1ef236e18` 上复跑测量评论的 probe(真 form renderer + 裸注册,每字段带 `description: 'Some help'`,一行一个字段):\n\n```\n                readonly                                      editable\ntext      for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=input  consumers=1\nnumber    for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=input  consumers=1\nboolean   for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=switch consumers=1\nemail     for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=input  consumers=1\nphone     for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=input  consumers=1\nurl       for=DANGLING hostIdEl=NONE consumers=0    for=RESOLVES-LABELABLE hostIdEl=input  consumers=1\nformula   for=DANGLING hostIdEl=NONE consumers=0    for=DANGLING           hostIdEl=NONE   consumers=0\n…(34 个注册的非 group-labelled 类型,只读行逐字相同)\n```\n\n`hostIdEl=NONE` 是关键读数:只读态下 `…-form-item` 这个 id **整个文档里没有任何元素带**,所以可见 label 的 `for` 悬空、只读面在无障碍树里**没有名字**,同时渲染出来的帮助文本零消费者。D 组四件(formula / summary / auto_number / vector)没有可编辑分支,整个 widget 就是替换显示,两列读数相同。\n\n修复后同一 probe 的只读列(36 行,逐字相同):\n\n```\nfor=NO-FOR  labelId=SET  hostIdEl=div[group]  consumers=1  ariaInvalid=(absent)  name=\"Label email user@example.com\"\n```\n\n36 行 editable 读数改动前后 diff 为空。\n\n## 修法\n\nform renderer 在「readonly + 有 label + 非 group-labelled + 解析到注册 field widget」时,把 widget 的渲染结果包进一个容器,同时 label 发 id 去 `for`。`FormControl` 是 Radix Slot,于是它原本注给 widget 根元素的 `id` / `aria-describedby` / `aria-invalid` 改注到这一层,widget 自己渲染的标记一个字节都没变。\n\n容器上:\n\n- `role=\"group\"` —— 与 #3990 为七个复合面确立的同一语义主张。没有它,`aria-labelledby` 落在无 role 的 span / div 上命名的是 NOTHING(`generic` 禁止作者名);\n- `aria-labelledby` 是**复合**的 `\"labelId hostId\"` —— label 的 id 加容器自身的 id。`group` 不是 name-from-content 角色,自引用是把**值**留在可访问名里的唯一办法:email 面读作 `Email user@example.com` 而不是丢掉屏幕上唯一那行内容(accname §2F:经 `aria-labelledby` 到达的节点无论什么 role 都按内容取名);\n- `aria-describedby` 原样转发。ARIA 1.2 下 group 是描述载体,不需要可聚焦控件 —— 即 #4005 的同一条理由用在第二个面上;\n- `aria-invalid` **剥掉**。它是控件通道状态,报告使用者自己的编辑可能错在哪;只读显示不可编辑,也不可能被阅读它的人弄成非法。这正是 #3291 / #3318 / #4005 划的那条线,测试从两侧钉住。\n\n`aria-required` 根本到不了这一层 —— 它照旧随 widget props 走,理由相同。\n\n## 为什么落 host 而不是 33 个 widget\n\n测量评论用受控实验否掉了 widget 侧的写法:`aria-labelledby` 落在无 role 的 span / div 上在 ARIA 上惰性,而 jsdom 里 `toHaveAccessibleName()` 对这份标记**答 PASS**。照那条路走会得到 26 个惰性面 + 一条把它们认证下来的钉子测试 —— 本仓视为一等失败的「declared but not delivered」。落在 host 一处之后,「下一个作者忘了 spread」这个入口不存在了,当下 34 个和将来任意第三方 widget 一律正确。\n\n也因此本 PR 的断言全部写成 **DOM 归属**:每个 IDREF 都用 `getElementById` 解析,再断言解析到的节点是正确 form item 内的正确元素,而不是靠 `toHaveAccessibleName` —— 它分不出真关联和惰性关联。\n\n## 未改变的路径(逐条钉住)\n\n内建类型(input / textarea / checkbox / switch / select)、可编辑字段、group-labelled widget、无 label 渲染的字段:逐字节不变。\n\n## 两个需要说清的后果\n\n1. 只读注册字段多一层 DOM。按 widget 根元素是 form item 直接子元素来写的 e2e 选择器会看到它;该层带 `data-slot=\"readonly-field-group\"` 作为稳定定位器(ADR-0054 C4)。\n2. 那一层是块级盒,而好几个只读面原本是行内元素 —— 于是这些行现在拿到表单标准的 label 到值间距,与可编辑态一致。\n\n## 一处如实记录的测试自我修正\n\n`readonly-host-plumbing-e2e.test.tsx` 里「widget 输出在容器内」这条,第一版断言写的是 `textContent` 非空,对 `image` / `signature` **变红**:它们的只读面渲染的是 img,值在 `alt` 里,文本为空。断言换成了更强也更贴题的一条 —— 容器的**可访问名**必须超出 label 本身(`Label image a.png` / `Label signature Signature`),这正是复合命名要保证的事。读数在先,断言在后。\n\n## 验证(全部实跑)\n\n新增两个测试文件:\n\n- `packages/components/src/renderers/form/__tests__/form-readonly-host-group.test.tsx` —— host 机制钉子(合成 widget:锚面 / 纯文本面 / display-only 面 / group-labelled 面 / 裸名 SDUI 组件),含容器归属、控件通道边界、五条「什么都没变」;\n- `packages/fields/src/__tests__/readonly-host-plumbing-e2e.test.tsx` —— 34 个真 widget 全量扫(每个三条),加 email / text / boolean / formula 四类抽样,再加四条可编辑态回归。\n\n```\nvitest run packages/components packages/fields packages/plugin-form --maxWorkers=2\n  Test Files  284 passed (284)\n       Tests  3362 passed (3362)          SWEEP_EXIT=0\n\nvitest run packages/fields/src/__tests__/readonly-host-plumbing-e2e.test.tsx\n  Test Files  1 passed (1)\n       Tests  116 passed (116)\n\nturbo run type-check --concurrency=2 --filter=@object-ui/components --filter=@object-ui/fields\n  Tasks:    12 successful, 12 total       TC_EXIT=0\n\nnode scripts/check-control-bytes.mjs      OK (scanned 4343 tracked text files)\nnode scripts/check-changeset-presence.mjs / -no-major / -fixed      OK\ngrep -naP 控制字符自查(四个改动文件)      零命中\n```\n\n### 反向验证(方向先判后跑,预判写在跑之前)\n\n先 commit,再把包容器逻辑临时摘掉(`withReadonlyHostGroup` 恒等返回,label 发 id 那半故意留着,所以唯一被删的就是容器);`git checkout` 对着文件路径还原,**未用 stash**。\n\n**预判**:方向是**红**,不是反转 —— 断言的是一个被实验删掉的容器的存在与归属;而「什么都没变」那组断言的是该容器在未受影响路径上的**不存在**,所以必须保持绿。逐条点名 8 条应红、5 条应绿,并预测 fields 侧 112 红 / 4 绿。\n\n**实跑,与预判逐条一致**:\n\n```\nform-readonly-host-group.test.tsx        13 tests | 8 failed   (8 条名字与预判完全相同)\nreadonly-host-plumbing-e2e.test.tsx     116 tests | 112 failed\nTest Files  2 failed (2)\n     Tests  120 failed | 9 passed (129)  REV_EXIT=1\n```\n\n保持绿的 9 条正是「什么都没变」那 5 条 + fields 侧 4 条可编辑态回归。\n\n## 范围外\n\n- 相邻缺陷 **#4857**:七个 widget(formula / summary / auto_number / vector / grid / slider / signature)在**可编辑态**也丢 host id,`for` 同样悬空 —— readonly 门管不到,且真实 ObjectForm 把计算型字段映射成 `disabled` 而非 `readonly`。已另立单,未在本 PR 修。\n- 未碰 `packages/fields/src/widgets/` 任何源码。\n- 未碰 `content/docs/releases/**`。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

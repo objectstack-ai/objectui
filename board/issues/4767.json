@@ -1,0 +1,35 @@
+{
+  "number": 4767,
+  "kind": "issue",
+  "title": "modal target 的失败诊断三处文案不一致 —— console 用户实际看到的两处仍指 type:'script',不指 type:'form'",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:38:14Z",
+  "updated_at": "2026-08-16T06:28:15Z",
+  "closed_at": "2026-08-16T06:28:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4767",
+  "body": "发现于 #3925 的实施(PR #4764),按派发边界回传立单。XS。\n\n## 事实\n\nPR #4764 让 `useActionModal.modalHandler` 的拒绝诊断点名 target 并指向 `type: 'form'` —— 但该消息只在 ActionProvider onModal 路径可达。console 用户实际看到的是另外两处:\n\n- `packages/app-shell/src/hooks/useConsoleActionRuntime.tsx:600`\n- `packages/app-shell/src/views/RecordDetailView.tsx:883`\n\n两处仍是旧文案 `names no page or object to open` 且只指 `type: 'script'`,从不提 `type: 'form'` —— 在 object fallback 已退役后,「or object」半句也成了错话。\n\n## 待做\n\n三处文案统一为 PR #4764 的形态(点名 target + 指向 type:'form');优先提取为一处共享常量/构造器防再漂移。行号以实测为准。\n\n## 参考\n\n- #3925 / PR #4764(发现来源与目标文案)"
+}

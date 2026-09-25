@@ -1,0 +1,35 @@
+{
+  "number": 3789,
+  "kind": "issue",
+  "title": "retire page-header 的 description legacy alias —— 上游 conversion page-header-subtitle-alias 已 live,subtitle ?? description 回退具备退役条件",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T15:29:04Z",
+  "updated_at": "2026-08-16T04:32:17Z",
+  "closed_at": "2026-08-16T04:32:17Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3789",
+  "body": "**状态(2026-08-08,objectui 分片 PM):测量门未过,阻塞于上游。**\n`Blocked-by: objectstack-ai/objectstack#6775`\n\n阶段 1 实测(报告见评论):conversion `page-header-subtitle-alias` 虽 live,其 page-component 走查面只有 `pages[].regions[].components[]` 一层(`walk.ts:193 mapPageComponents`),**7 条绕过路径不被改写**,含 spec-valid 的 `slots.header`(objectui 文档推荐写法)与容器嵌套 `properties.children[]` —— #3226「现在删会静默丢副标题」的裁定**原样成立**。阶段 2 未启动,零代码改动。上游 #6775(走查面与 lint 的 `page-walk.ts` 对齐)落地后须**重新测量**再派发,不得复用本次测量。\n\n---\n\n以下为原正文:\n\n跨仓跟进单(objectui 分片 PM 按 linkage-chore 规则代立,不认领)。#3226 PM 裁定「现在删 `description` 会让存量页面静默丢副标题」的前提是上游 conversion 未落地 —— **该前提已变化**:\n\n## 上游现状(objectstack `origin/main`,2026-08-08 实读)\n\n- ADR-0087 D2 conversion 条目 `page-header-subtitle-alias` 已落地:`docs/protocol-upgrade-guide.md:273` 标 **live — protocol 17 loader accepts the old shape**;\n- 语义:加载期(`defineStack` / `validate` / `lint`)把 `page.component.page-header.description` 改写为 `subtitle`(spec CHANGELOG 089767f,objectstack#4827;#5509 已入 retired-keys 登记);\n- `packages/lint/src/authoring-rules.ts:550` 与 `validate-component-props.test.ts:362` 均以该改写为前提。\n\n## 任务(测量门控 —— 先测后删,测不过即停)\n\n1. **测量**:核实 objectui 实际消费的 `@objectstack/spec` 版本包含该 conversion;枚举 objectui 侧所有 `page-header` 元数据进入渲染器的路径,确认**每一条**都经过执行改写的 loader(若存在 raw JSON 直喂 ComponentRegistry、绕过 loader 的路径,逐一列出)。\n2. **测量通过则退役**:删 `packages/layout/src/PageHeader.tsx` 的 `description` prop(`:36`)与 `:143` 的 `subtitle ?? description` 回退;清 `packages/layout/src/index.ts:41-49` 注释里的退役条件;同步 `content/docs/layout/page-header.mdx` 的 legacy 段与 `content/docs/guide/layout.md` Schema API 中的 legacy 行(PR #3785 的措辞已指向本单)。**追加**:`packages/layout/README.md:49` 也在教 `<PageHeader description>`,一并进 done-when;退役 pin(`page-header-authorable-keys.test.tsx` 末两测试)按其 SEQUENCING 注释与回退同一 change 删除。\n3. **发现绕过路径则停**:挂 needs_decision,附绕过面清单 —— 那时删除仍会静默丢副标题,#3226 裁定继续有效。**(2026-08-08:已触发,见状态头。)**\n\n## 语义化版本\n\n删公开 prop 是 breaking:结合 `check-changeset-no-major` 门禁与仓内退役先例(PR #3793:fixed-group 下 minor + 正文写明破坏面)定档;两难无解时上报,不许静默降档。\n\n## Refs\n\n#3226(原裁定)、#3267 / PR #3785(文档面,本单的措辞锚点)、objectstack#4827 / #5509、ADR-0087 D2、objectstack#6775(阻塞项)。"
+}

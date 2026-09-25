@@ -1,0 +1,32 @@
+{
+  "number": 4648,
+  "kind": "issue",
+  "title": "[Decision] spec 17.0.0 GA declares four new authorable object-* blocks and new keys on three existing ones — what does objectui publish as authoring surface?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-08-14T15:20:26Z",
+  "updated_at": "2026-08-17T03:14:52Z",
+  "closed_at": "2026-08-17T03:14:52Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4648",
+  "body": "Filed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, 2026-08-14), from the #4636 / PR #4639 pin-bump measurement. This is the (a)+(d) product half of that card's `needs_decision` report; the mechanical halves proceed separately (**#4649** retirement unwind, **#4650** symbol collisions).\n\n## Premise (re-check: run `pnpm exec vitest run apps/console` on the PR #4639 branch, or read that PR's body)\n\nWith `@objectstack/spec@17.0.0` installed, apps/console's repo-wide registry-inputs parity test auto-discovers **four new authorable blocks** — `object-form`, `object-grid`, `object-master-detail-form`, `object-metric` — and objectui publishes **zero** of their keys (`object-grid` alone: 34 top-level keys). `page:header`, `page:tabs`, `record:details` also gained keys. Nothing measured shows a consumer for the four blocks' authoring surfaces in this repo today: no example app or console flow reads them (dev measurement on PR #4639).\n\n## The question\n\nShould objectui build inspector/registry authoring surfaces for these blocks (new-feature work), or record reasoned exemptions in the parity gate (the #7176 doctrine: a spec key objectui only forwards without applying is dead — \"if objectui wants one as real behavior, that is an implementation card filed first\")?\n\n**Options:**\n- **A. Reasoned exemptions now; implementation cards only on demand.** The parity gate carries an explicit, cited exemption per block; any future real need files an implementation card first. Smallest change; keeps the gate honest (exemption ≠ skip).\n- **B. Build the authoring surfaces** (per-block implementation cards; `object-grid` is the big one at 34 keys).\n- **C. Split**: exempt the three form/grid blocks, implement `object-metric` only (smallest block) if the dashboard story wants it.\n\n**Four-prong:**\n- *Platform long-term coherence*: A keeps declared=enforced honest via cited exemptions rather than 34 keys of untested inspector surface; B grows surface ahead of any consumer.\n- *Measured business pull*: zero today (measured — no reader of these blocks' keys in objectui, no example authoring them). The spec declared them for the platform; objectui-side pull has not appeared.\n- *AI-agent error-resistance*: an unpublished-but-declared surface teaches AI authors keys the renderer ignores — the exact silent-success class. A closes it with an explicit refusal story; B closes it with real implementation but only if the keys actually apply.\n- *Startup scope discipline*: A is remove/defer-shaped; B is a permanent maintenance obligation on four blocks.\n\n**Recommendation: A** (matches the #7176 ruling's own logic from the producer side).\n\n## Six key-level parity dispositions from the same measurement (rule together; each is one line of the same doctrine)\n\n1. `record_picker` inputs: spec declares `filter` — publish it (real read exists) **or** exempt. Rec: publish (it is applied by the picker's query path — dev to verify before wiring).\n2. `text_input` inputs: spec declares `defaultValue` — same shape. Rec: publish if applied, exempt if not.\n3. `record:highlights`: top-level `readonly` is now **stripped** by the spec — objectui must stop publishing it. Rec: stop (mechanical, contract pull-back).\n4. `record:details`: a section member key the spec now strips — same. Rec: stop publishing.\n5. `FormFieldSchema` gained a key needing a behavioral row or a reasoned exemption in `sectionFields.spec-parity`. Rec: exemption unless a real read exists.\n6. GA accepts `$like` / `$ilike` filter operators that no filter-builder operator can author — sibling of the existing $icontains gap cards (#4023/#3567). Rec: fold into the existing filter-operator card family, not a new build here.\n\nItems 3–4 are contract pull-backs (auto-adjudicable class) and will be folded into the adaptation cards regardless; items 1–2, 5–6 follow this card's ruling.\n\n## What gates on this\n\nPR #4639 (the pin bump) cannot go green until this is ruled and the adaptation cards land — sequencing recorded on #4636 (option A: main stays green throughout; no gate weakening — option C from the dev's report is rejected outright and would need your explicit order anyway).\n\n---\nCorrection note (seat, same day): the first revision of this body guessed the sibling card numbers before they existed (#4645/#4646); corrected above to the real ones (#4649/#4650). No other change."
+}

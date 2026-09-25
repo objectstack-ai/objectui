@@ -1,0 +1,35 @@
+{
+  "number": 4786,
+  "kind": "issue",
+  "title": "教学面成体系教 `props` 信封,而渲染器从节点本身读键 —— 照 page-builder.md 写出的页面渲染一片空白框",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T07:48:36Z",
+  "updated_at": "2026-08-16T08:57:40Z",
+  "closed_at": "2026-08-16T08:57:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4786",
+  "body": "发现于 #4011 的实施(PR #4785),回传立单。**可能比 #4011 本身更大**:那是一个键教错,这是一个信封形态教错,覆盖任意组件类型。\n\n## 实测(PR #4785 报告,真实 SchemaRenderer 探针)\n\n- `{type:'text',props:{content}}` → 渲染文本为**空**;`{type:'statistic',props:{label,value}}` → 空;`{type:'card',props:{title}}` → 空;\n- 同键提到节点顶层后分别渲染出 'HELLO' / 'Active42' / 'KPI 1';\n- 成因:`SchemaRenderer.tsx:621-624` 把 `schema.props` 作为 React props 展开,而各 renderer 读 `schema.*` —— 信封内容被静默丢弃(且 `props=\"[object Object]\"` 落进 DOM)。\n\n## 教学面命中\n\n- `skills/objectui/guides/page-builder.md` **成体系**教该形态(:76 card.props.title、:83 text.props.content、:188 statistic.props.label/value)—— 照该 guide 写出的页面是一片空白框;\n- 含 `props` 的 docs/skills 文件共 10 个,**需逐个甄别**(部分可能讲 React 组件 props 而非 schema 节点,不宜一刀切);\n- catalog 里 props 信封出现 **0 次** —— 真实契约是顶层键,信封是教学面自己长出来的方言。\n\n## 修法方向\n\n生产者侧:10 个文件逐个甄别改写(schema 节点示例拆信封;React props 教学保留);待裁半边:SchemaRenderer 对 `schema.props` 是否该给发布期/运行期诊断(而非静默展开成无效 DOM 属性)—— 属契约收紧,实施时按 #3972/#3987 家族先例单列一节评估,拿不准回传。\n\n## 关联附注(同营销组件,不另立)\n\n`apps/site/app/components/ReactVsObjectUI.tsx:58-69` 的营销示例除 props 信封外,子组件类型 `stats-card` 全仓未注册 —— 整块 JSON 实际不可复制运行,「少 X% 代码」卖点建立在跑不起来的示例上。修 props 信封时该组件一并甄别。\n\n## 参考\n\n- #4011 / PR #4785(发现来源,探针实测记录)\n- #3972 / #3987 / #3999(声明面/文档面教错形状家族)"
+}

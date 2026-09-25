@@ -1,0 +1,34 @@
+{
+  "number": 4003,
+  "kind": "issue",
+  "title": "catalog:106 个 className 明确写着布局意图的 div 节点转成 flex/stack/grid/container props(#3965 的词表无关部分)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:44:26Z",
+  "updated_at": "2026-08-17T02:11:06Z",
+  "closed_at": "2026-08-17T02:11:06Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4003",
+  "body": "Part of #3965(其词表终态 A/B 决策挂 `needs-user-decision`,本单是 PR #3998 测量确认**任何终态下都成立**的部分,提前拆出)。\n\n## 范围(测量出处:PR #3998 正文的判定表,基 `0cbdca888`)\n\n189 个 `div` 节点中 **106 个**的 className 字面写着一等公民布局组件的能力,JSON 手写 Tailwind 复刻 props 本就是反模式,转换是纯赚:\n\n| 类别 | 节点数 | 目标 |\n|---|---|---|\n| className 含 `flex`(不含 `flex-col`) | 84 | `flex` + align/justify/gap props |\n| className 含 `space-y-*` | 9 | `stack` + gap |\n| className 含 `max-w-*` | 8 | `container` + maxWidth/padding(注意默认 padding 4,需显式 `padding: 0` 保等价) |\n| className 含 `grid`/`grid-cols-*` | 5 | `grid` + columns 对象 + gap(此类逐字节等价) |\n\n## 已知坑(PR3998 已测量,照做省一轮返工)\n\n- **4 个节点用 `body` 而非 `children`**:flex/stack/grid/container 只渲染 `children`,naive 换类型会**静默丢内容** —— 这 4 个先改 `body`→`children` 再换。\n- **flex 的 gap 是 mobile-first 阶梯**(gap:3 渲染 `gap-2 sm:gap-3`),转换语义保持但 640px 下非逐字节等价 —— 这是**正确的**范本写法,⛔ 不要用 `gap:0 + className 保留 gap-3` 硬凑逐字节(自相矛盾的授权)。\n- 83 个无对等物节点与 div.mdx 的 2 个刻意 legacy 示例**不在本单范围**(等 #3965 决策)。\n- ⚠️ 13 个 grid 示例的 `cols` 错键由 #4001 修 —— 若两单相邻执行,后派的基于先合的 main。\n\n## 验收\n\n- 106 节点逐个转换,转换清单(文件→原 className→新 props)进 PR;\n- 渲染等价抽样断言(沿 fields-form-hosted 的 harness 形态);\n- 浏览器抽查 2-3 页缩略图正常;\n- ⛔ 不碰 releases/;changeset 按 catalog ignore 判(报告写依据)。"
+}

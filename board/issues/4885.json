@@ -1,0 +1,32 @@
+{
+  "number": 4885,
+  "kind": "pull_request",
+  "title": "fix(app-shell): metadata-admin 的 artifact 锁改问 provenance，可写包里的对象不再误挂只读 banner (#4308)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T23:56:35Z",
+  "updated_at": "2026-08-17T02:10:49Z",
+  "closed_at": "2026-08-17T02:10:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T02:10:47Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4885",
+  "body": "Fixes #4308\n\n## 症状与病灶\n\n发布到**可写**包里的对象，三个面各说各话：metadata-admin 设计器挂出 “provided by an installed package, so it is read-only at runtime” 的 artifact 锁 banner，Studio 却把同一个对象当作可编辑，服务端也接受 PUT。banner 断言了一把没人执行的锁 —— 运维照着它去「回源包改了再发布」，而这个改动本来在眼前就能做。\n\n病灶在本页选择两级授权闸门的判定。覆盖代码包发来的 artifact 需要 `allowOrgOverride`；编写组织自有内容只需要 `allowRuntimeCreate`。旧判定只问两件事 —— 有没有 `code` 层、是不是 `sys_metadata` 哨兵 —— 而**组织自有条目两条都满足**：`sys_metadata` 哨兵只在保存路径上成立，启动期回灌会按**真实包 id** 重新注册每一行。`object` 恰好是两级闸门分叉的类型（`allowOrgOverride: false`、`allowRuntimeCreate: true`），所以误判直接表现为一把硬锁。\n\n## 裁定源与判定源（未发明第四份口径）\n\n本卡正文点名与 #4036 的 question A 同裁。#4036 已于 08-15 裁定 A1：**「代码定义的包在 Studio 里只读，去可写包里定制」是一条包级规则**（B 半 PR #4341 已把误导性 affordance 收敛到这条规则，A2 已在服务端落地）。该裁定覆盖本卡且极性一致：真正该被锁的是**代码定义的包**，而不是「带包标签」。本次只是让这条规则不再落到并非代码定义的包上。\n\n判定源直接取**服务端已经算好并挂在 layered 信封上**的 ADR-0010 `provenance`，而不是在客户端第三次推导包可写性：\n\n- 框架被同一个读法咬过并以同样方式修复过 —— `isTenantAuthored`（cloud#970：用户刚在 Studio 里建好的应用，第一次内核重建后就再也改不动），其注释明写「`_packageId !== 'sys_metadata'` 单独回答不了这个问题……provenance 才是真正区分的那根轴」。\n- 本页留的正是 cloud#970 **之前**的那份拼写。所以这不是新增一份口径，而是把客户端对齐到服务端现行的那一份。\n\n原先散在两处的同一判定（:951-955 与 :1311-1323 —— 它们正是这样漂开的）合并为**一处推导**，两个站点同修。\n\n## 未放松任何闸门\n\n- 真正的代码包 `provenance` 为 `package`，在此仍然只读 —— #4036 裁定原样保留。\n- 遗留 `sys_metadata` 哨兵的豁免**保留**：provenance 是**新增**的排除项，不是替换。\n- 未打 provenance 的条目（旧服务端）保持保守的 artifact 读法，不因缺字段而擅自解锁 —— 与旁边的 `lock` 系列标志同向。\n\nbanner 文案（`i18n.ts`）未改：语义没变，它现在只出现在本来就说得对的地方。\n\n## 反向验证（先预判方向，再跑）\n\n预判：删掉 `provenance` 那条肢，**可写包的两条钉红**，其余三条「未放松」控制项**保持绿**（控制项若变红，说明修复过界了）。实测与预判一致：\n\n```\n× writable package: an org-authored object carries NO installed-package lock\n× writable package: the editor is actually editable, not merely un-bannered\n  Tests  2 failed | 3 passed (5)\n```\n\n第二条钉子专门防「只拆 banner、表单仍然锁着」的假修 —— 它同样变红，证明断言非空转。还原后 5/5 全绿。\n\n## 提交构成\n\n1. **修复 + 测试 + changeset**（`ResourceEditPage.tsx`）。\n2. **仅注释**（`PermissionMatrixEditor.tsx`）：该文件的 doc 原本自陈与本页判定「byte-for-byte 相同」并引用了行号 `ResourceEditPage:1332` —— 第 1 个提交让这句话变成假的、行号也失效。改为写明分叉内容、以及它今天为何不可达（本编辑器的 artifact 档由 `!packageId` 把关，包门下根本不查该谓词），并指向 #4526 统一处理。无行为改动。\n\n## 测试\n\n- 新增 `ResourceEditPage.artifactTier.test.tsx`：5 例，双向都钉（可写包无 banner 且可编辑；代码包、遗留哨兵、未打 provenance 三形态 banner 仍在）。\n- `metadata-admin` + `studio-design` 全量回归：200 文件 / 1869 通过。\n- 仓根 `turbo run type-check`：81/81。ESLint 改动文件 0 error。\n\n## 相邻发现（未在本 PR 扩围）\n\n- `PermissionMatrixEditor.isArtifactBackedLayer` 的同款陈旧拼写：env 门下的残留已评注到既有 open 卡 **#4526**（未开孪生单）；本 PR 只更正其失效注释。\n- **#4886**（新立）：`doReset` 用的是第三份更松的读法（`layered?.code != null`），与按钮图标/提示所用的判定不一致 —— 图标写「删除」、确认框却问「重置」，且条目不会被删除。今日即可达（已发布的组织自有条目），本 PR 会扩大暴露面但既未引入也未修复；涉及破坏性动作与产品语义判定，故立单不顺手改。"
+}

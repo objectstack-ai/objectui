@@ -1,0 +1,34 @@
+{
+  "number": 4793,
+  "kind": "issue",
+  "title": "app-shell.mdx 的导航示例 2/3 键错(label/icon 字符串)+ 教了一个被整个丢弃的 header prop + searchEnabled 下必抛 TypeError 的隐患",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:24:28Z",
+  "updated_at": "2026-08-16T10:18:16Z",
+  "closed_at": "2026-08-16T10:18:16Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4793",
+  "body": "发现于 #3999 的实施(PR #4792),回传立单。同族第二载体(SidebarNav 教学面),发布在 objectui.org/docs/layout/app-shell。查重:#3946 是**同文件另一段落另一事实**(AppShell 自带 toggle 的失真),完成范围不含本条 —— 独立立单;#3914 已关且是数值类。\n\n## 事实(基线 c25222758 实测计数,PR #4792 报告)\n\n- 两处示例(`content/docs/layout/app-shell.mdx:16-22`、`:154-190`)导航项写 `{ label, href, icon:'home' }`:**9 处项级 `label:`**(真实键 `title`;同目录 sidebar-nav.mdx 的 5 处 label 全是合法 NavGroup 用法,此处不是)、**7 处字符串 `icon:`**(应为组件);`href` 是对的 —— 2/3 错:跳转能走,坏的是标签(span 得 undefined)、collapsed tooltip 与图标;\n- 第二处示例多教一个 `SidebarNav header={{ logo, title }}` prop:`SidebarNavProps`(:37-44)没有它、组件解构无 rest,**整个对象被丢弃** —— 示例承诺的 logo 与标题永不出现;\n- 附带风险:照示例开 `searchEnabled` 后输入任意字符,`SidebarNav.tsx:140-141` 的 `item.title.toLowerCase()` 对 title=undefined 的项**直接抛 TypeError**(:135 空串短路只挡空输入)。\n\n## 修法\n\n照 PR #4792 的 README 定型:示例改真实键 + lucide 组件 icon;删或改写 header prop 示例(该 prop 不存在 —— 若维护者想要它是产品增强另立);#3946 的段落不碰(它另有认领时序)。PR #4792 的钉子只覆盖 packages/layout/README.md,够不到 content/docs —— 防回潮缺口如实存在,`content/docs` 代码块门禁属 #3786 家族不入本单。\n\n## 参考\n\n- #3999 / PR #4792(README 侧定型与 props 表)、#3946(同文件另一事实,互不包含)、`packages/layout/src/SidebarNav.tsx:37-44/:135-141`"
+}

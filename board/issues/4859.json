@@ -1,0 +1,33 @@
+{
+  "number": 4859,
+  "kind": "pull_request",
+  "title": "feat(layout)!: 撤销 app-shell 组件键注册 (#4841)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T16:16:02Z",
+  "updated_at": "2026-08-16T16:29:23Z",
+  "closed_at": "2026-08-16T16:29:22Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T16:29:22Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4859",
+  "body": "Fixes #4841\n\n按 2026-08-16 维护者裁定（#4841 评论 5307574602）执行**方案 A —— 撤销 `app-shell` 组件键注册**（ADR-0049 enforce-or-remove 的 remove 侧）。`AppShell` 组件本体与导出保留；`app-schema-renderer` 不动。\n\n## 为什么撤\n\n`registerLayout()` 把 `AppShell` 注册成 `app-shell`，且不声明 `inputs`。键能解析，但这个组件 JSON 永远填不满：`AppShellProps` 七个键里四个是 `React.ReactNode` 插槽（`sidebar` / `navbar` / `children` / `rightRail`），JSON 一个都填不了。于是节点只有两种结局，没有一种是壳：\n\n- **`children` 被静默剥掉。** `SchemaRenderer` 在 spread 节点其余键之前把 `children`（和 `body`）摘出去，而 `AppShell` 读的是 `children` **prop**、从不读 `schema.children`。main 元素渲染为空，`console.error` 计数 0。\n- **三个节点插槽直接崩。** `sidebar` / `navbar` / `rightRail` 里的 schema 以纯对象抵达组件，React 拒绝渲染，节点被换成渲染器的错误框。\n\n只有 `className` / `defaultOpen` / `branding` 三个纯数据键真的走通 JSON 路径 —— JSON 侧能拿到的最好结果，是一个没有导航、没有顶栏、内容区空着的壳。`inputs` 为空是第二层：`sdui-parser` 没有可比对的声明面，上述任一种写法都不会被校验器说一句话。\n\n## 撤除后的诊断读数\n\n**渲染面（实测，由新钉子逐字断言）**：`{ \"type\": \"app-shell\" }` 经 `SchemaRenderer` 得到 `role=\"alert\"` 的红框，正文首行逐字为\n\n```\nUnknown component type: app-shell\n```\n\n开发态另有一行建议文案，携带错误码 `OBJUI-001`（`ERROR_CODES` 表，`packages/core/src/errors/index.ts:23-30`）。这两条都是 `app-shell-not-a-component-key.test.tsx` 里的断言，不是从 JSX 反推的。\n\n**校验面（源码面，未在本 PR 中渲染实测）**：`sdui-parser` 的 manifest 由注册表投影而来（`manifestFromConfigs`，`packages/sdui-parser/src/index.ts:125-155`），键消失后 `validateTree` 走 `!comp` 分支，产出 `severity: 'error'` / `code: 'unknown-component'` 的诊断，message 模板见 `packages/sdui-parser/src/validate.ts:44-50`（形如 `... is not a known component`，尖括号包裹节点 type —— 此处不逐字贴，避免被 GitHub 正文的 HTML 清洗吞掉）。\n\n也就是说：从「解析成功、渲染不出东西」的中间态，换成了一条指名道姓的拒绝。\n\n## 前置扫描面记录（撤已发布键的标准动作）\n\n在两个本地可达仓的 `origin/main` 上扫 `\"type\": \"app-shell\"`（含 `\"type\":\"app-shell\"` 紧凑写法、`type: 'app-shell'` JS 写法、`type: app-shell` YAML 写法）：\n\n| 仓 | commit | 命中 |\n|---|---|---|\n| `objectstack-ai/objectui` | `1ef236e18` | 只有 `content/docs/guide/layout.md` 的说明性散文与 `guide-layout-app-shell-doc.test.ts` 的钉子文案；**无任何真实节点** |\n| `objectstack-ai/objectstack` | `d491625c1` | 0 |\n\n`examples/`、`apps/`、`e2e/`、`skills/`、`public/` 全域再扫一遍 `app-shell` 裸词，命中全部是 `@object-ui/app-shell` **包名**（另一个包）或 `namespace: 'app-shell'`，与本组件键无关。\n\n**扫描器反查（负控制）**：同一套命令扫邻近键 `\"type\": \"page\"`，在 `examples/schema-catalog` 命中 5 个文件、`content/docs` 6 个、`packages/runner` 1 个 —— 证明扫描面确实覆盖 examples/catalog 目录，`app-shell` 的 0 命中是真 0，不是扫不到。\n\n## 改动面\n\n- `packages/layout/src/index.ts` —— 删注册块与随之无用的 `AppShell` 具名 import（`export * from './AppShell'` 保留，组件照常导出）。原地留了一段注释，写明撤除理由、两个幸存入口、以及「要恢复注册需要什么」。注释里**不逐字抄那行 register 调用** —— 读这个文件取注册键表的钉子用的是 `ComponentRegistry` + `.register(` 正则，抄一份进注释会被它当成活注册（第一轮实测就红在这里）。\n- **文档（非可选，说明如下）**：\n  - `content/docs/guide/layout.md` —— AppShell 小节原有一整块「In a JSON node」，逐条陈述「`app-shell` 已注册、节点确实解析到本组件、三个纯数据键生效」。这些陈述被本次改动**直接证伪**，改写为「There is no `app-shell` node」并给出新诊断；props 表删掉「In a JSON node」列（不再有节点可写）。\n  - 同页 SidebarNav 小节的「registers six keys — …」句列举了注册键表，其中含 `app-shell`。这句由 `guide-layout-sidebar-nav-doc.test.ts` **机械比对** `index.ts` 的 register 调用 —— 不改文档，这条钉子必红。已改为 five keys 并去掉 `app-shell`。\n  - `packages/layout/README.md` —— 「Registration」小节同样列举注册键表（已发布包的 README），去掉 `app-shell`，并补一句与既有 `SidebarNav` 说明同构的短注。\n- 钉子：\n  - 新增 `packages/layout/src/__tests__/app-shell-not-a-component-key.test.tsx` —— 从**两个面**断言键不在（源码正则 + 活注册表的裸键/命名空间键两种拼写），断言渲染出的诊断，并断言两个幸存入口（`AppShell` 仍导出、`app-schema-renderer` 仍注册且仍声明 `inputs`）。带一个负控制：`responsive-grid` 走同一条渲染路径**不**出错误框 —— 否则「没出现未注册红框」这种断言在一个对所有节点都报错的渲染器上同样会绿。\n  - `guide-layout-sidebar-nav-doc.test.ts` —— 键数从硬编码 `6` 改成从页面的数词读（`NUMBER_WORDS`），并把句子匹配的空白改成 `\\s+`：这句是会随键表长度重新折行的散文，原来的字面空格让一次**折行**（`and` 与 `nothing` 被换行分开）也判红，那不是漂移。\n  - `side-effects-manifest.test.ts` —— 注册数下限 `>= 6` 改 `>= 5`（它是「正则没失效」的底线，不是键表普查；键表本身由上一条按名钉住）。\n  - `guide-layout-app-shell-doc.test.ts` —— 只改被证伪的失败文案与文件头叙述，判定面一行未动。\n\n## 验证\n\n```\npnpm exec vitest run packages/layout/ --maxWorkers=2\n  Test Files  16 passed (16)        Tests  181 passed (181)\n\npnpm exec vitest run examples/schema-catalog/ packages/sdui-parser/ --maxWorkers=2\n  Test Files  12 passed (12)        Tests  1591 passed (1591)\n\npnpm exec vitest run apps/console/src/__tests__/ --maxWorkers=2\n  Test Files  12 passed (12)        Tests  176 passed (176)\n\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    81 successful, 81 total\n\nnode scripts/check-control-bytes.mjs\n  OK (scanned 4342 tracked text file(s); skipped 85 binary)\n\nnode scripts/check-doc-links.mjs\n  Links are valid across 13 scan roots.\n```\n\n消费半径不止 `packages/layout`：`examples/schema-catalog` 与 `apps/site` 各自显式调 `registerLayout()`，catalog 的 gallery 测试会把每份 catalog schema 都渲染一遍 —— 这是本改动最可能把别人的 fixture 打红的地方，所以单独跑了。`apps/console` 一组是注册表全量枚举类测试（`public-contract` / `public-block-binding-reach` 等）所在处。\n\n## 反向验证\n\n把注册加回（import + register 块），**方向先写死、再跑**。预判与实测逐条对上：\n\n| 预判 | 实测 |\n|---|---|\n| 🔴 `app-shell-not-a-component-key` › 源码正则重新看见键 | 🔴 `expected [...] to not include 'app-shell'` |\n| 🔴 同文件 › 活注册表两种拼写都能取到 | 🔴 `expected { type: 'layout:app-shell', …(4) } to be undefined` |\n| 🔴 同文件 › 不再出未注册红框，且失败形态应是**「panel 为 null」**而非换成另一种文案 | 🔴 `expected null not to be null` —— 形态也对上：无 props 的 `AppShell` 不抛异常，安静地渲染出一个空壳，所以根本没有 `role=\"alert\"` 节点 |\n| 🔴 `guide-layout-sidebar-nav-doc` › 键表比对（页面 five vs 源码 six） | 🔴 `expected [ 'app-schema-renderer', …(4) ] to deeply equal [ …(5) ]` |\n| 🟢 `guide-layout-app-shell-doc.test.ts` 全绿（判的是页面的 React 素材与 fence，从没钉过注册面） | 🟢 |\n| 🟢 `side-effects-manifest.test.ts` 全绿（`>= 5` 是下限，6 照样过） | 🟢 |\n\n合计 `Test Files 2 failed / 14 passed (16)`、`Tests 4 failed / 177 passed (181)` —— 红的正好是预判的那 4 条，没有多、没有少。还原用 `git checkout --`，未用 `git stash`（本仓 stash 栈跨 worktree 共享，见 CLAUDE.md）。\n\n还原后的复跑正在排队等本容器的共享验证锁（多 agent 并行，锁上此刻还有 6 个等待者），结果落地后补一条评论；上面「验证」一节的 16/16、181/181 是**撤除态**下已经跑出的数字，复跑只是确认还原动作本身没带进别的东西。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

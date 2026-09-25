@@ -1,0 +1,33 @@
+{
+  "number": 4717,
+  "kind": "pull_request",
+  "title": "test(data-objectstack): re-point v3-compat's vacuous PaginatedResult block at real ObjectStackAdapter.find()",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T15:54:57Z",
+  "updated_at": "2026-08-15T16:33:45Z",
+  "closed_at": "2026-08-15T16:33:44Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T16:33:44Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4717",
+  "body": "Fixes #4712\n\n## What was wrong\n\n`packages/data-objectstack/src/v3-compat.test.ts`'s `PaginatedResult API` block asserted only on an inline object literal it constructed itself, with no import from `./index` or anywhere else in the package:\n\n```ts\nconst result = { data: [{ id: '1' }], total: 10, page: 1, pageSize: 5, hasMore: true };\nexpect(result.data).toHaveLength(1);\nexpect(result.total).toBe(10);\nexpect(result.hasMore).toBe(true);\n```\n\nThis passes unconditionally regardless of what production code does — it is unreachable from any real query path and cannot fail in a way that signals anything about the codebase (dormant/tautological coverage).\n\n## Measurement (route A vs B)\n\n- `grep -rn \"PaginatedResult\"` under `packages/` finds no interface, type, or export literally named `PaginatedResult` anywhere in this repo (only prose hits in `CHANGELOG.md` referencing an old upstream `@objectstack` v3.0.0 migration note).\n- The real production shape the block's comment was gesturing at is `QueryResult` (generic over T), exported from `@object-ui/types` (`packages/types/src/data.ts:109`) with exactly the `data`/`total`/`page`/`pageSize`/`hasMore` fields the literal hand-copied.\n- `QueryResult` is returned by `ObjectStackAdapter.find()` (`packages/data-objectstack/src/index.ts:1418`), via the private `normalizeQueryResult()` (`index.ts:2565`), which computes `total` (`total ?? count ?? records.length`), the `hasMore` fallback (prefers the server's `hasMore`, else `records.length === $top`), and `page` (`floor($skip / $top) + 1`).\n- That computation had **zero coverage anywhere else in this package** — `queryDataset.test.ts` and `listViews.test.ts` (cited by the issue) exercise other parts of the adapter's return shape but never `total`/`hasMore`/`page`/`pageSize` on `.find()`.\n\n⇒ **Route A**: a real production surface exists to pin, and it was genuinely uncovered, so the block is re-pointed rather than deleted.\n\n## What changed\n\nThe block now constructs an `ObjectStackAdapter` with a mocked `fetch` (same pattern as `orderby-serialization.test.ts` / `queryDataset.test.ts` in this package) and drives the **real** `find()` to `normalizeQueryResult()` path:\n\n- normalizes a server `records`/`total`/`hasMore` envelope into the returned `QueryResult` (`data`/`total`/`hasMore`/`pageSize`/`page`)\n- computes `page` from `$skip`/`$top`\n- falls back to the page-local `hasMore` estimate (`records.length === $top`) when the server omits it\n- reports `hasMore: false` for a short (non-full) page with no server hint\n\n## Positive control (route A requires one)\n\nBefore pushing, I temporarily hardcoded `hasMore = false` and `page = 1` in `normalizeQueryResult()` as an uncommitted local edit (reverted afterward with `git checkout` against the already-committed branch, pointed at `packages/data-objectstack/src/index.ts` — the fix commit went in first per this repo's reverse-verification discipline), and re-ran the suite:\n\n```\nFAIL  packages/data-objectstack/src/v3-compat.test.ts (4 tests | 3 failed)\n × normalizes the server records/total/hasMore envelope into QueryResult\n × computes page from $skip/$top\n × falls back to a page-local hasMore estimate when the server omits it\n```\n\n3 of 4 new assertions went red (the 4th — \"reports hasMore false for a short page\" — stayed green because the mutation coincidentally also produced `hasMore: false`, which is expected and not a gap: that test is there to guard against `hasMore` defaulting to `true`, the opposite direction). Reverting restored all 4 green, confirming the block now actually exercises and can detect drift in production code, unlike the block it replaces.\n\n## Tests\n\nAt final commit `820b4d716`:\n\n```\npnpm --filter '@object-ui/data-objectstack^...' build   # deps built (types, core)\npnpm exec vitest run packages/data-objectstack/ --maxWorkers=2\n  Test Files  37 passed (37)\n       Tests  526 passed (526)\n\npnpm --filter @object-ui/data-objectstack type-check     # tsc --noEmit — clean\npnpm --filter @object-ui/data-objectstack lint            # 0 errors, 396 pre-existing no-explicit-any warnings (unrelated to this change)\n\nnode scripts/check-changeset-presence.mjs   # empty-frontmatter changeset declared\nnode scripts/check-changeset-no-major.mjs   # pass\nnode scripts/check-control-bytes.mjs        # pass, 4237 files scanned\n```\n\n## Changeset\n\nTest-only change — added `.changeset/paginated-result-vacuous-block-4712.md` with empty frontmatter (declares \"releases nothing\", the repo's explicit first-class pass for internal-only changes).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_\n"
+}

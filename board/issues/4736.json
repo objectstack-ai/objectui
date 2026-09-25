@@ -1,0 +1,32 @@
+{
+  "number": 4736,
+  "kind": "issue",
+  "title": "The list filter builder offers `exists` / `notExists`, which `ListView.mapOperator` cannot express — the query goes out with a raw operator",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T21:41:13Z",
+  "updated_at": "2026-08-15T23:10:07Z",
+  "closed_at": "2026-08-15T23:09:58Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4736",
+  "body": "Filed while implementing #4023 (the `$icontains` builder operator). Measured on `origin/main` at `baa89a1ea`.\n\n## What happens\n\n`ListView` renders the shared `FilterBuilder` in its filter popover, and the group it produces goes straight to `convertFilterGroupToAST` → `mapOperator` → the wire:\n\n- `packages/components/src/custom/filter-builder.tsx` — `NULLNESS_OPERATORS = [\"isNull\", \"isNotNull\", \"exists\", \"notExists\"]`, spread into `textOperators`, so all four are selectable for a text field. `exists` / `notExists` were added by #2942 to make the spec's `$exists` reachable from `FilterConditionField`.\n- `packages/plugin-list/src/ListView.tsx` — `mapOperator` has rows for `isnull` / `isnotnull` but **none for `exists` / `notexists`**, so its `default:` arm returns the id verbatim:\n\n```\nconvertFilterGroupToAST({ id:'root', logic:'and', conditions:[\n  { id:'c1', field:'name', operator:'exists', value:'x' },\n]})\n// => ['name', 'exists', 'x']\n```\n\n`exists` is not a member of `@objectstack/spec/data`'s `VALID_AST_OPERATORS`. Per this repo's own `packages/data-objectstack/src/filter-operator-ast-parity.test.ts`, an operator outside that set costs either an unfiltered read or a 400 (`unsupportedFilterError`) depending on which door the array reaches — \"Both are a broken query.\"\n\nThe same two ids also fail the saved-view path: `viewFilterFold` normalizes through the spec's `normalizeFilterOperator`, which does not know them, so `ViewFilterRuleSchema`'s enum refuses the rule.\n\n## Why nothing catches it\n\nThe three operator-parity guards all sweep **spec vocabulary → objectui**, never the reverse:\n\n- `filter-operator-ast-parity.test.ts` iterates `VIEW_FILTER_OPERATORS`; `exists` is not a member, so it is out of scope by construction.\n- `view-operator-builder-parity.test.ts` iterates `__CANONICAL_TO_BUILDER`, keyed by the same view vocabulary.\n- `FilterConditionField.operators.test.ts` asks whether every spec `$`-token is reachable, not whether every builder id is storable.\n\nNothing asserts that an id the dropdown can draw is an id the consumer's dialect can persist, which is the direction that breaks here.\n\n## Suggested shape (not a decision)\n\nTwo candidate fixes, and they are not equivalent:\n\n1. **Make the operators opt-in per consumer.** #4023 added exactly this mechanism — `FilterBuilder`'s `extraOperators` prop plus `OPT_IN_OPERATORS` — for `containsCaseInsensitive`, whose dialect problem is identical. Moving `exists` / `notExists` behind it withdraws them from `ListView` and the view config while leaving `FilterConditionField` (which stores MongoDB-style criteria and handles `$exists`) unchanged.\n2. **Give the bridges a row.** `mapOperator` could map `exists` → `isnotnull` and `notExists` → `isnull`, but that is a semantic claim — `$exists` and `$null` are deliberately distinct operators in `FilterConditionField.condToMongo`, and `view-operator-builder-parity.test.ts` explicitly refuses the analogous `is_null` → `isEmpty` collapse.\n\nA guard in the missing direction (every id in `FILTER_BUILDER_OPERATORS` that a given consumer offers is one that consumer can persist) is what keeps the class closed either way.\n\n## Provenance\n\nMeasured during #4023, which did not widen this class: its new operator ships opt-in precisely so it does not reach these two paths. Pre-existing since #2942.\n"
+}

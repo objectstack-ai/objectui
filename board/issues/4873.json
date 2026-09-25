@@ -1,0 +1,34 @@
+{
+  "number": 4873,
+  "kind": "issue",
+  "title": "FilterBuilder 值控件把「假值」当成「空」—— 布尔 false 与数字 0 显示为空，行却带着该值",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T19:44:35Z",
+  "updated_at": "2026-08-17T02:42:20Z",
+  "closed_at": "2026-08-17T02:42:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4873",
+  "body": "发现于 #4781 的实施，回传立单。与 #4768 / #4781 同一症状家族（控件显示空、行却带着看不见的值），但成因不同：这里不是切换字段，而是渲染值控件时把「假值」当成了「没填」。\n\n## 事实\n\n`packages/components/src/custom/filter-builder.tsx`（origin/main `65e88e6`，`renderValueInput` 内）：\n\n- 默认值输入框的 `formatValue()` 头一句是 `if (!condition.value) return \"\"`。数字 `0` 是假值，于是 `equals 0` 的行输入框显示空白。用户在数字列里敲 `0` 更直观：`handleValueChange(\"0\")` 把值写成数字 `0`，重新渲染时输入框立刻清空，看起来像根本没输进去。\n- 布尔列的值控件用 `value={String(condition.value || \"\")}`。`false || \"\"` 是 `\"\"`，于是用户选完 **False**，trigger 立刻退回 placeholder「Select value」，而行里 `value: false` 正常保存并持久化。\n\n## 实测（jsdom，`@object-ui/components`）\n\n| 行 | 控件显示 | 行实际带着 |\n| --- | --- | --- |\n| 布尔列 `{operator:'equals', value:false}` | `Select value`（placeholder） | `false` |\n| 数字列 `{operator:'equals', value:0}` | 空字符串 | `0` |\n\n两条都是用户可直接触达的：选一个布尔列 → 点 **False**；或在数字列输入 `0`。\n\n## 为什么值得单独修\n\n`0` 和 `false` 是完全合法、用户明确选择的筛选值，`''` 才是「没填」。#4744 已经在 operator 一侧把「值为空的行算不算完成态」定过一次；这是 value 一侧的同一个问题，而 #4781 的类型重整刻意不碰它（那边答的是「新列装不装得下这个值」，这里的值本来就属于该列）。\n\n修的时候要注意两点：判定要写成 `value === \"\" || value == null` 而不是 `!value`；布尔控件还得能同时表达「未选」和「选了 False」两种状态，否则换个写法就把坑挪个位置。\n\n## 参考\n\n- #4768 / #4781（同一症状家族，不同成因）\n- #4744（值为空的行的完成态，operator 一侧）"
+}

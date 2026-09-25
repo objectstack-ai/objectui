@@ -1,0 +1,34 @@
+{
+  "number": 4836,
+  "kind": "issue",
+  "title": "finding: @object-ui/core 的 build 程序把 __benchmarks__ 一起编译,core.bench.js/.d.ts 落进已发布的 dist/(#4006 同族,新实例)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:24:20Z",
+  "updated_at": "2026-08-16T12:22:04Z",
+  "closed_at": "2026-08-16T12:22:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4836",
+  "body": "## 发现来源\n\nobjectui#4801(PR:包内 self-import 门)在核对 `packages/core/src/__benchmarks__/core.bench.ts` 的落点时实测到的旁证,不属于 #4801 的范围,单独记录。\n\n## 事实(实测,非推断)\n\n`packages/core/package.json`:\n\n- `\"build\": \"tsc\"`,`\"files\": [\"dist\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]`\n\n`packages/core/tsconfig.json`:\n\n- `\"include\": [\"src\"]`,`\"exclude\": [\"src/**/*.test.ts\"]`,`\"noEmit\": false`、`\"outDir\": \"dist\"`、`\"declaration\": true`\n\n`exclude` 只排掉 `*.test.ts`,**没有排掉 `__benchmarks__`**。于是 bench 文件进入 build 程序并被 emit。干净 worktree 里 `rm -rf packages/core/dist packages/core/tsconfig.tsbuildinfo && pnpm --filter @object-ui/core build` 后:\n\n```\n$ ls packages/core/dist/__benchmarks__\ncore.bench.d.ts\ncore.bench.js\n```\n\n`files` 里是整个 `dist`,所以这两个文件进 tarball。`core.bench.js` 的首行 import 是 `import { bench, describe } from 'vitest';` —— 一个**运行期 import**,而 `@object-ui/core` 的任何依赖字段里都没有 `vitest`(它靠 workspace 根的 devDependencies 解析,见 #4394)。\n\n## 与 #4006 的关系\n\n#4006(已关闭)量到并修掉的是 `@object-ui/fields` / `@object-ui/plugin-editor` 的 73 个 `*.test.d.ts` 落进 dist:修法是给 build 配置加 test 的 `exclude`,并把类型覆盖搬去链式的 `tsconfig.test.json`。core 这处是**同一形态的另一个实例**,#4006 的排除表按 `*.test.*` 写,`__benchmarks__/` 不在其中,所以没被顺带修掉。\n\n`scripts/check-phantom-dependencies.mjs` 的表头把这一类明确记在名下 —— 它按 `TOOLING_FILE`(含 `__benchmarks__/`)把 bench 归为 tooling 层、判给根 devDependencies 放行,并写明「落进 tarball 的 tooling 物料是 objectui#4006 的,不是这个门的」。所以现有任何门都不会报它。\n\n## 为什么值得记\n\n- 消费者装 `@object-ui/core` 会拿到一个 import `vitest` 的 `.js`,而 `vitest` 不在这个包的任何依赖字段里。今天没人 resolve 它(不在 `exports` 映射里),所以**不是**用户现在会踩到的缺陷 —— 按 observation-class 记录,严重度交 PM 分诊。\n- 但它同时是「build 的 `exclude` 与实际 tooling 目录约定脱节」的可测症状:排除表按 `*.test.*` 命名判断,而仓内 tooling 目录约定(`__tests__` / `__mocks__` / `__benchmarks__`)比它宽。别的包若新增 `__benchmarks__/` 会静默走同一条路。\n\n## 可能的修法(未裁,留给实施者)\n\n1. 把 `__benchmarks__` 加进 `packages/core/tsconfig.json` 的 `exclude`;若要保留 bench 的类型覆盖,按 #4006 的做法挂到链式的 `tsconfig.test.json`(注意 `scripts/check-type-check-coverage.mjs` 会核对这个链)。\n2. 或者按仓内既有的 tooling 目录约定统一 `exclude` 的判据(与 `check-phantom-dependencies.mjs` 的 `TOOLING_FILE` 对齐),让排除表不再只认 `*.test.*`。\n\nRelated:#4006(同族,已关闭)、#4394(phantom-deps 门的 tooling 层判据)、#4801(发现来源)。observation-class,未认领。\n"
+}

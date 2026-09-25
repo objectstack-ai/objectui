@@ -1,0 +1,34 @@
+{
+  "number": 4887,
+  "kind": "issue",
+  "title": "Six console comments describe `GET /api/v1/meta/apps` and its per-session filtering — that route does not exist in the framework's route ledger, and no fetch in this repo requests it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-17T01:19:25Z",
+  "updated_at": "2026-08-17T07:09:13Z",
+  "closed_at": "2026-08-17T07:09:13Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4887",
+  "body": "**Moved from objectstack-ai/objectstack#9181** (filed unassigned by the `domain:metadata` execution seat, PM session `session_01NTKPDRoynY8i3HmdSFUxFj`; transferred by the triage seat 2026-08-17 under the file-at-destination rule — the fix lands in this repo's comments/tests). Original card retains the full measurement record.\n\n## What was measured (against framework `origin/main`, 2026-08-16)\n\nSix comments across `objectui` describe a route by name and by behaviour:\n\n```\npackages/app-shell/src/console/AppContent.tsx:246   \"`GET /meta/apps` is filtered per session server-side\"\npackages/app-shell/src/console/AppContent.tsx:676   \"`GET /meta/apps` is filtered PER SESSION server-side\"\npackages/app-shell/src/console/__tests__/AppContent.deniedVsUnpublished.test.tsx:9\npackages/app-shell/src/console/__tests__/AppContent.inaccessibleAppStrand.test.tsx:17\npackages/data-objectstack/src/appAccessProbe.test.ts:13\npackages/data-objectstack/src/index.ts:3800\n```\n\n- **No fetch anywhere in `objectui` requests that path** — all six hits are comments; probes for the actual request construction (`'/api/v1/meta/apps'`, `` `/meta/apps` ``, `listApps`, `meta.apps`) return zero.\n- **`/meta/apps` is not in the framework's `packages/rest/src/rest-route-ledger.ts`** and not registered in `rest-server.ts`.\n- Positive control: the same probes find 29 files in `objectui` constructing singular meta item routes.\n\n## Why this is worth a card\n\nThe sentence asserts a **security property** — \"filtered per session server-side\" is a claim about where access control happens, sitting above console code that decides what a user may see, and repeated in three test files where it reads as the rationale for what the tests assert. Same drifting-mirror class as objectstack-ai/objectstack#8739, objectstack-ai/objectstack#9164, objectstack-ai/objectstack#9175.\n\nEither the real route has a different name (six comments point at a name that does not exist), or the per-session filtering happens somewhere other than where the comments say (the console's display reasoning rests on a misplaced guarantee). Both matter; neither is an demonstrated access-control defect.\n\n## Scope for the fix\n\n1. **First establish which endpoint the console actually uses to list apps** and where per-session filtering really happens (the original seat explicitly did not trace this).\n2. Correct all six comments — including the three test files, where the claim currently reads as the test's justification — to name the real route and the real filtering locus.\n3. ⛔ Not claimed and not in scope: any access-control defect, and no repo-wide sweep for other phantom-route prose (six hits were an incidental sample).\n\nBacklinks: objectstack-ai/objectstack#9181 (original) · objectstack-ai/objectstack#9180 (the ruling whose measurement surfaced this)."
+}

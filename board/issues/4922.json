@@ -1,0 +1,32 @@
+{
+  "number": 4922,
+  "kind": "pull_request",
+  "title": "fix(cli): derive the temp app's workspace alias table from pnpm-workspace.yaml (#3890)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:32:47Z",
+  "updated_at": "2026-08-17T05:46:57Z",
+  "closed_at": "2026-08-17T05:46:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T05:46:55Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4922",
+  "body": "Fixes #3890\n\n## 前提验证(先于实现)\n\n卡面前提在 `origin/main` = `5ffcc1432` 上**完全成立**,并且实测发现缺失面**比卡面记的更大**:\n\n- `commands/dev.ts:228-240` 的别名表仍是 11 个包的手工清单,`@object-ui/fields` 零命中(反证:同文件里别名表本身找得到)。\n- `serve.ts` / `build.ts` 的 `isMonorepo` 零命中,vite 配置里没有 `resolve.alias`。\n- 按卡面脚本复现(仓根 `dogfood/app.json` + `pages/index.json`,`node packages/cli/dist/cli.js dev … --port 5893 --no-open`):Vite 依赖扫描报出卡面点名的那 4 个包,页面模块 500。\n\n**但缺的不是 4 个,是 10 个。** 生成 app 入口静态 import 9 个平台包,其**传递 value-import 闭包**是 21 个包,表里只有 11 个:\n\n| 卡面列出(依赖扫描可见) | 扫描看不到、藏在它们后面的 |\n|---|---|\n| `@object-ui/fields`、`@object-ui/permissions`、`@object-ui/mobile`、`@object-ui/plugin-detail` | `@object-ui/data-objectstack`、`@object-ui/i18n`、`@object-ui/plugin-map`、`@object-ui/providers`、`@object-ui/react-runtime`、`@object-ui/sdui-parser` |\n\nVite 的依赖扫描在**第一层解析不了的地方就停**,所以它只报得出前 4 个。这条实测直接决定了路线。\n\n## 路线选择:B(从 `pnpm-workspace.yaml` 派生)\n\nA(回填 4 条)在本仓当场就是**不完整的修法** —— 补完卡面点名的 4 个之后还剩 6 个继续 500,页面照旧空白。而\"手工清单必须追传递导入图\"这个结构本身才是产生本卡的原因:清单要维护的不是\"app import 了什么\",而是\"app 传递 import 了什么\",即表内每个包每个源文件的导入图,没有任何门禁钉住它。\n\n新增 `packages/cli/src/utils/workspace-vite.ts`,三命令共用:\n\n- **别名表派生**:读 `pnpm-workspace.yaml` 的 `packages:` 模式(用已是 cli 依赖的 `glob` 展开,`!` 排除也支持),取 `@object-ui/` scope 且**有 src barrel** 的成员,别名指向其 `src` **目录**。\n- **入口推断规则**(卡面记的 B 的代价):按 Vite 自己的 `resolve.extensions` 顺序探测 `index.*`。仓内 `.ts` / `.tsx` 两种拼法都在(`core` vs `fields`),按解析器的顺序探测不是猜测,而是解析器自己会给的答案。\n- **为什么指向目录而不是 barrel 文件**:仓内所有 checked-in bundler 配置都这么写(`apps/console/vite.config.ts:117-136`);更重要的是别名替换的是**匹配到的前缀并保留其余部分**,文件目标会把子路径 import 改写成一个不可能存在的路径。\n- **完整性是安全方向**:表里列了包但没人 import 是惰性的(别名只对匹配的 import 生效),表里缺了包而有人 import 就是 500。两个方向的代价不对称,所以规则偏向\"多列\",并由与 `pnpm-workspace.yaml` 对账的测试兜住\"不能少列\"。\n- `serve` / `build` 补上 monorepo 分支:workspace 内跳过 `npm install`(那份清单在 workspace 下本就是空的),并共用同一份 vite 覆盖。\n\n### 一处顺带必须修的:`lucide-react` 别名\n\n它和平台包在**同一张表**里,而且是平台包解析通了之后才暴露出来的:原来的目标是 `require.resolve` 给的**入口文件**,于是每个 `lucide-react/…` 子路径 import 都被改写成\"入口文件路径 + 子路径\",`packages/components/src/lib/lazy-icon.tsx` 因此 500(它 import 该库的 dynamic-icon 子路径)。改成指向**包根目录**后,裸 specifier 与子路径落在同一个目录上,入口交给包自己的 `exports` 决定。不修它本卡的验收状态(页面能渲染)达不到,故在本 PR 内一并改,并有专门的钉。\n\n## 复现前后读数(同一脚本、同一 fixture,仓根)\n\n按浏览器的方式走模块图(取回一个模块 → 解析它被改写后的 import URL → 继续取回):\n\n| | 前(`5ffcc1432`,端口 5893) | 后(端口 5894/5895) |\n|---|---|---|\n| 依赖扫描 | `Failed to run dependency scan`,报 4 个包 | 无报错 |\n| 前 400 个模块 | 392 × 200,**8 × 500** | 400 × 200,**0 非 200** |\n| 整图 | (走不下去) | **2498 × 200,0 非 200** |\n| 真浏览器(chromium,`document.body.innerText`) | 卡面实测:空 | 88 字符,含页面 schema 的 `hello from the dogfood app`;失败响应 0 |\n| `objectui build`(workspace 内) | 无 monorepo 分支,不可能解析平台包 | 构建成功,产出 `index.html` + assets |\n| `objectui serve`(workspace 内) | 同上 | 400 × 200,0 非 200;日志显示跳过 `npm install` |\n\n500 的 8 个模块:`plugin-grid/src/ObjectGrid.tsx`、`plugin-form/src/{ObjectForm,ModalForm,MasterDetailForm,LineItemsPanel,sectionFields}`、`plugin-kanban/src/ObjectKanban.tsx`、`components/src/lib/lazy-icon.tsx`(最后一个即上节的 lucide 子路径)。\n\n## 反向验证(先书面预判,后跑;变异前已 commit,还原用 `git checkout`)\n\n三次变异,方向都**先写后跑**:\n\n1. **从派生源抠掉一个包**(`@object-ui/fields`)。预判:与 manifest 对账的钉必须红;\"别名目标都是目录\"那条**保持绿**(它只遍历表里产出的东西 —— 正是\"产出为空所以绿\"的形状,也正是对账钉存在的理由)。实测:**3 红 11 绿**,对账钉与\"卡面点名的 4 个\"钉如预判红;第 3 条超出预判 —— `resolves barrels spelled .ts and .tsx alike` 恰好拿 `fields` 当 `.tsx` 样本,一起红了。方向一致,数量我预判少了一条,如实记录。\"目标都是目录\"确实保持绿。\n2. **还原 lucide 的旧入口文件目标**。预判:两条 lucide 钉红。实测:**2 红**,失败信息直接打印出被改写成的那条不存在路径(`…/dist/cjs/lucide-react.js/dynamic.mjs`),即缺陷的活体。\n3. **把 `serve.ts` 整个还原到改动前**。预判:三命令一致性的两条钉红。实测:**2 红**,都点名 serve.ts。\n\n还原后全量重跑复绿(147/147)。\n\n## 测试\n\n新增 `packages/cli/src/__tests__/workspace-vite.test.ts`(14 条):与 `pnpm-workspace.yaml` **独立走一遍**的对账钉(被测函数用 `glob` 展开,测试用自己的 `readdirSync`;用被测函数重算期望值只能证明它是确定性的)、卡面点名的 4 个 + 扫描看不到的 6 个、`.ts`/`.tsx` barrel 推断、别名目标必须是目录、无 barrel 的包必须被排除(`@object-ui/runner`)、lucide 指向包根且子路径可解析(子路径**从真实 importer 里读出来**而不是写死)、临时 fixture workspace 上的派生规则自测(含\"barrel 一没就掉出表\"的植入缺陷方向)、以及三命令一致性(都走同一 helper、都有 workspace 分支、都不许再出现手写别名条目)。\n\n```\npnpm exec vitest run packages/cli/ scripts/__tests__/side-effects-declaration-consistency.test.ts --maxWorkers=2\n  Test Files  6 passed (6)       Tests  147 passed (147)\npnpm exec turbo run type-check --concurrency=2\n  Tasks:    81 successful, 81 total\npnpm --filter @object-ui/cli lint      -> 0 errors（12 warnings，全部既有）\nnode scripts/check-control-bytes.mjs   -> OK (4397 tracked text files)\nnode scripts/check-phantom-dependencies.mjs -> OK\n```\n\nsideEffects 门(#3943)按 PM 提示单独确认:它只扫 workspace 包目录下 basename 匹配 `vite.config.*` 的文件,本改动落在 `packages/cli/src/`,不在其扫描面内,实测同批绿。\n\n## 未做的事(如实记录)\n\n`objectui build` 的**改动前**状态没有实测跑:那条路径会先无条件 `npm install` 把整套已发布平台包装进 `.objectui-tmp`(联网、慢),不划算。改动前的判据用的是 `origin/main` 上的静态事实(`serve.ts`/`build.ts` 里 `isMonorepo` 与 `resolve.alias` 皆零命中)+ 变异 3 的红。改动后的构建成功是实测的。\n\nchangeset:`.changeset/cli-workspace-alias-derivation-3890.md`(patch)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

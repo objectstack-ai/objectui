@@ -1,0 +1,32 @@
+{
+  "number": 4872,
+  "kind": "pull_request",
+  "title": "fix(app-shell): 颜色 radiogroup 有可访问名,widget-color 的 for 不再悬空 (#4010)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T19:43:12Z",
+  "updated_at": "2026-08-16T20:02:40Z",
+  "closed_at": "2026-08-16T20:02:39Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T20:02:39Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4872",
+  "body": "Fixes #4010\n\n`ColorVariantPicker` 的色块行渲染在一个 `div role=\"radiogroup\"` 里。每个色块早就有自己的颜色名(\"Blue\"、\"Success\"),**组本身一个名都没有** —— 焦点进组读到的是匿名 radiogroup:八个颜色,不知道改的是哪个字段;旁边那行可见文本无人归属。\n\n`DashboardWidgetInspector` 还多坏一档:它的 `Field` 包装器渲染 `Label htmlFor={id}` 并约定被包控件带同一个 id,而 picker 根本不收 id,于是 `htmlFor=\"widget-color\"` 是**悬空 IDREF** —— 静态检查看到 `for` 存在就以为命名闭合了,实际指向一个没有任何元素持有的 id。\n\n## 先复核前提(行号已漂移,结论成立)\n\n分诊席的锚点是 08-10 的读数,此后 main 多次合并。按 `origin/main` @ `65e88e6c2` 逐条重测:\n\n| 分诊锚点 | 现状 | 结论 |\n|---|---|---|\n| `Field` 包装器 ~:447 | :496 | 位置漂移,形状不变 |\n| `Field id=\"widget-color\"` :377 | :426 | 同上 |\n| `color-variant-field.tsx:43-48` props 无 id/aria 通道 | :43-48 一字不差 | 成立 |\n| radiogroup 无名 :54 | :55 | 成立 |\n| `PageBlockInspector.tsx:438` | :476 | 位置漂移,**形态不同**(见下) |\n| `widgets.tsx:1790` | :1790 | 成立 |\n\n## 实测读数(真组件渲染,探针逐站点数)\n\n**改前**(`origin/main` @ `65e88e6c2`):\n\n```\n                                label[for]                          radiogroup accName\nA DashboardWidgetInspector      widget-color      resolves=FALSE     \"\"\nB PageBlockInspector            (该字段没有 for)   —                  \"\"\nC SchemaForm color-picker       mdf-colorVariant  resolves=FALSE     \"\"\n```\n\n**改后**:\n\n```\nA  label 改发 id=widget-color-label 且不再发 for;组 aria-labelledby 解析到该 label\n   accName=\"Color Variant\"。面板内 label[for] 由 6 条降为 5 条,且全部 resolves=true\nB  label 发布 useId 铸的 id;组 aria-labelledby 解析到该 label,accName=\"Color\"\nC  组自带 aria-label=\"Color Variant\",accName=\"Color Variant\"\n   宿主那句 for 仍 resolves=FALSE —— 已知残留,见下\n```\n\n## 修法:ARIA 组命名,类型层强制且单一通道\n\n`for` 修不了这个:`role=\"radiogroup\"` 是容器不是 labelable 元素,`for` 指过去是惰性 HTML,谁也命名不了。这正是本仓把 group-labelled field widget 迁到 WAI-ARIA group pattern 的理由(#3961 → #3990),也是 `form.tsx` 在该分支把 `for` **整个去掉**的理由 —— 它的注释写得很直白:留着就是「一个 label 两条关联通道、其中一条是坏的」。\n\n所以 picker 改为通过 ARIA 拿名字,`ariaLabelledBy` 与 `ariaLabel` **二选一、且必选**,无名的颜色组不再可编译(与 #3997 给 `InspectorComboField` 定下的同一契约)。刻意**没有** `id` 变体:把 `for` 指向的 id 塞给容器只会让 IDREF「解析得到」而依然什么都不命名 —— 那是本单要消除的形状,不是要搬家的形状。\n\n## 三个调用点逐处审计:同形同修,异形不外推\n\n- **A `DashboardWidgetInspector`**(悬空 `for` + 匿名组,两半齐全):`Field` 新增 `labelling=\"group\"`,该分支只发 `id={groupLabelId(id)}` 不发 `htmlFor`;组用 `aria-labelledby` 应答。可见文本即可访问名,zh-CN 下无需第二个待翻译串。另外五个 field 逐字节不变。\n- **B `PageBlockInspector`**(**异形**:只有匿名组这一半):那个 label 从未带过 `for`,没有悬空可修 —— 它只是无归属文本。匿名组这一半与 A 完全同形,用同样的 IDREF 修好。抽成独立组件 `ColorPropField` 是为了用 `React.useId()` **逐实例**铸 id:`renderField` 是在循环里跑的函数(会带 `keyPrefix` 递归进数组项),既不能在里面调 hook,按字段名派生的 id 也会在两行之间相撞 —— 相撞是静默的,两个 label 都解析到第一个组。\n- **C `widgets.tsx` 的 `color-picker`**(**半异形**:悬空 `for` 这一半只有宿主侧修得了):`MetadataField` 在得知该字段渲染的是色块组、还是可 label 的 `input type=\"color\"` **之前**就写好了 `Label htmlFor={id}`,而这个分支是 widget 自己按 `schema`/`fieldSpec` 决定的。宿主因此发不出可供应答的 IDREF。匿名组这一半按本文件既有惯例自带 `aria-label`(文本取宿主自己的首选 label 源,与可见文本一致,免得踩 WCAG 2.5.3);宿主那句仍解析不到的 `for` 需要 per-widget `labelling` 声明,已另开 #4871,本 PR 不扩围,并在测试里留了路标断言。\n\n顺带核到的第四处 `widget-color`:`plugin-designer/src/DashboardEditor.tsx:337` 是原生 `select id=\"widget-color\"` —— 可 label 元素,关联正确,无缺陷,未动。\n\n## 反向验证(方向在跑之前预判,变异未提交)\n\n两次都是**普通 RED**,且失败点指名:\n\n1. **断开 picker 的 IDREF 消费**(radiogroup 不再读 `ariaLabelledBy`)→ 预判 A/B 的命名钉子红、C 绿、`for` 那半的钉子绿。实测 **9 红 20 绿**,失败信息 `expected null to be 'widget-color-label'`;`SchemaForm.colorPicker.labelling.test.tsx` 整文件绿(它走 `aria-label` 通道),`leaves no for…` / `introduces no for…` 也绿 —— 它们守的是另一个事实。\n2. **把悬空 `for` 放回去**(`Field` 的 group 分支同时发 `htmlFor`)→ 预判只有 A 红。实测 **2 红 27 绿**,`expected [ { text: 'Color Variant', … } ] to deeply equal []`,B/C 全绿。\n\n两半由不同断言分别把守,是刻意的:变异 1 下 `for` 那半仍然绿(它没被破坏),不会因为「什么都没产出」而假绿。\n\n## 测试\n\n- `vitest run packages/app-shell/src/views/metadata-admin`(消费半径全量):**171 文件 / 1708 通过、1 skipped**。\n- 四个钉子文件:30 通过。\n- `pnpm --filter @object-ui/app-shell type-check`(含 `tsconfig.test.json`,即 `@ts-expect-error` 真的被编译):通过。中途它抓到我自己写错的一处 —— 联合类型不兼容报在**元素**上而非那个属性上,写在属性行的指令成了 `Unused '@ts-expect-error' directive` 并让编译失败,已改正并在注释里写明原因,这也反证了这些指令是有载荷的。\n- 仓根 `turbo run type-check --concurrency=2`:**81/81 成功**。\n- `node scripts/check-control-bytes.mjs`:OK;改动文件另做了 `grep -naP` 自查,无控制字节。\n- eslint 改动文件:0 error(仅 `widgets.tsx` / `color-variant-field.tsx` 既有的 `any` 与 fast-refresh warning,均非本次新增)。\n\nchangeset:`.changeset/color-variant-picker-radiogroup-name.md`(app-shell patch)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

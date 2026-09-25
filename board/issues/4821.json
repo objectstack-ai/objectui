@@ -1,0 +1,32 @@
+{
+  "number": 4821,
+  "kind": "pull_request",
+  "title": "fix(fields): 可编辑 rich-text 把 host 的 id 与 aria-describedby 铺到真正的编辑控件 (#4810)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T10:17:48Z",
+  "updated_at": "2026-08-16T10:28:16Z",
+  "closed_at": "2026-08-16T10:28:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T10:28:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4821",
+  "body": "Fixes #4810\n\n## 问题\n\n`RichTextField` 是 `markdown` / `html` / `richtext` 三个注册键共用的同一个 widget,而全文没有 `toDomProps`(grep 计数 0)。可编辑分支只从 `props` 取 `className` / `disabled`,`FormControl`(Radix Slot)下发的 `id` 与 `aria-describedby` 到达组件后就没有任何元素承载:\n\n- 可见 label 的 `for` 指向一个不存在的 id —— 点击 label 到不了编辑框,控件没有 accessible name;\n- 表单渲染出的 FormDescription 零消费者 —— 屏幕阅读器从不朗读帮助文本;提交失败时同一条 `aria-describedby` 里的 error message id 也一并丢失。\n\n## probe 读数(卡内读数,已入仓复现)\n\n新增的钉子文件就是卡里那套 probe:真 form renderer + 裸注册,字段带 `description`,数「引用 `…-form-item-description` 的元素个数」,并单独看 label 的 `for` 解析到什么。\n\n| | 修前 | 修后 |\n|---|---|---|\n| `markdown` editable | `descEl=SET consumers=0 hostIdEl=NONE for=DANGLING` | `descEl=SET consumers=1 hostIdEl=textarea for=RESOLVES` |\n| `html` editable | 同上 | 同上 |\n| `richtext` editable | 同上 | 同上 |\n| 对照组 `text` / `textarea` | `consumers=1 for=RESOLVES`(一直正常) | 不变 |\n\n跑测数字:修前 `18 failed | 3 passed (21)`,修后 `21 passed (21)`。\n\n## 修法\n\n照 #3318 的既定配方:`toDomProps(props)` 铺到**真正可聚焦的控件**上 —— 这里是 `RichTextEditorSurface` 内部的那个 Textarea,而不是外层任何 div(非可聚焦 wrapper 承载 id 能骗过 `getElementById`,label 照样是死的)。\n\n几处落点判断写在代码注释里:\n\n- **只给 inline 那一份 surface**。fullscreen 对话框里渲染的是同一个 surface 组件,给它同一份 domProps 会让两个同时挂载的 Textarea 共用一个 host id;而且 host 的 `aria-describedby` 指的节点在对话框外,modal 打开时被 Radix `aria-hidden` 掉。`TextAreaField` 对同一对 surface 做的是同一个切分。\n- **`aria-invalid={!!error}` 留在 spread 之后**。`toDomProps` 是按前缀转发整个 `aria-` 家族的,`FormControl` 自己的 `aria-invalid` 也在 domProps 里;widget 自读 `error` 是 #3318 的 17 个 PASS 项之一,读在最后才保得住这条既有行为。\n- **`autoFocus` / `data-testid` 放在 spread 之前**。放在之后会在 inline 那一份上被重新赋成 `undefined` —— 那正是「pass-through 悄悄丢掉自己拿到的键」的写法。\n- **`className` 放在 spread 之后**,因为它是 `cn()` **组合**(host 的 className 经 `className` prop 进来),不是让 host 原值顶掉 surface 自己的类。\n\n## 范围\n\n- ⛔ **只读分支一个字符没动** —— 只读那一半的同类读数属于 #4788,机制方向尚未裁决,在这里钉住今天的读数等于把一个还有开放设计问题的缺陷冻结掉。测试文件头部写明了这一点。\n- ⛔ 其它 widget 没碰(`slider` / `grid` / `signature` 归 #3318 账本,按它的配方一并修)。\n- 改动全部落在 `packages/fields`,无跨包改动。\n\n## 反向验证(先预判后跑)\n\n预判:去掉编辑框元素上的 `{...domProps}` 一行 → 18 条 plumbing 钉子转红,3 条 `aria-invalid='false'` 钉子**保持绿**(它们在修前也是绿的,#3318 的 PASS 项与本次 spread 无关);另外 3 条 required-failure 用例应当只在最后一句 `aria-describedby` 含 message id 上失败,`aria-invalid='true'` 的 `waitFor` 仍应通过。\n\n实跑(先 commit 再变异,变异未提交,`git checkout` 还原):\n\n```\nTests  18 failed | 3 passed (21)\nAssertionError: expected 'DANGLING' to be 'RESOLVES'\nTestingLibraryElementError: Found a label with the text of: Body, however no form control was found associated to that label.\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times\nAssertionError: expected [] to have a length of 1 but got +0\nAssertionError: expected [ '' ] to include '_r_p_-form-item-description'\nAssertionError: expected [ '' ] to include '_r_15_-form-item-message'\n```\n\n与预判逐条一致,包括 required-failure 三条只在 message-id 那句红 —— 即 `aria-invalid` 在「修前 / 修后 / 变异后」三态完全相同,#3318 的 PASS 项确认无回归。\n\n(第一次变异写成了 JSX 属性列表里的注释,是 parse error 的假红,已重跑为整行删除。)\n\n## 验证\n\n- `pnpm exec vitest run packages/fields/src/__tests__/richtext-host-plumbing-e2e.test.tsx` → `21 passed (21)`\n- `pnpm exec vitest run packages/fields/` → `Test Files 97 passed (97) / Tests 1551 passed (1551)`\n- 消费半径扫描(规则跑到哪就扫到哪,不按改动包划线):`plugin-form/ObjectForm.mobileFullscreen`、`plugin-form/EmbeddableForm`、`plugin-detail/inlineEditTypeCoverage`、`plugin-detail/RelatedList.longFormColumns`、`app-shell/richtextSurfaceParity` → `104 passed (104)`\n- 仓根 `pnpm exec turbo run type-check --concurrency=2` → `81 successful, 81 total`\n- `node scripts/check-control-bytes.mjs` → OK(4316 文件);改动文件另做了越过门禁盲区的自扫(`grep -naP` 控制字符,零命中)\n- changeset 三门:`check-changeset-presence` / `check-changeset-fixed` / `check-changeset-no-major` 全绿\n- 改动路径 eslint:0 error(2 warning 均为既有 `as any` 写法,与对照测试文件一致)\n"
+}

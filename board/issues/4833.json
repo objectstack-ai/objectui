@@ -1,0 +1,34 @@
+{
+  "number": 4833,
+  "kind": "issue",
+  "title": "finding: 45 条 eslint-disable 指令已经失效(ESLint 每次都在报,但淹没在 10437 条 warning 里),其中 20 条压的是 error 级 ratchet no-console",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:15:21Z",
+  "updated_at": "2026-08-16T13:32:35Z",
+  "closed_at": "2026-08-16T13:32:35Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4833",
+  "body": "量于 #4806 的测量型派发,实测基线 `origin/main` @ `610de765f`。与 #4806 相邻但不同事实:#4806 说的是未使用的**变量/导入**,这条说的是未使用的**抑制注释**,互不包含,所以单独留档。observation-class:今天没有用户会因此出错。\n\n## 现象\n\n仓根 `pnpm exec eslint . -f json` 覆盖 3173 个文件,实测 **0 errors / 10437 warnings**,共 11 个不同 rule id。其中 **45 条的 `ruleId` 是 `null`** —— 它们不是某条规则的报告,而是 ESLint 自己的 \"Unused eslint-disable directive (no problems were reported from 'X')\",即**这条 `eslint-disable` 压的问题已经不存在了**。\n\n按被压制的规则拆分:\n\n```\n20  no-console\n10  react-hooks/exhaustive-deps\n 4  eqeqeq\n 3  no-constant-condition\n 2  no-new-func\n 2  react-hooks/set-state-in-effect\n 4  其余\n```\n\n## 为什么一直没人看见\n\n- ESLint 9+ 对这一类默认就是 `warn`,`eslint.config.js` 没有设 `linterOptions.reportUnusedDisableDirectives`,所以**它一直在报**。\n- 但 `.github/workflows/lint.yml` 有意不设 `--max-warnings`(注释写明 \"This gate is about errors\")。这 45 条占 10437 条 warning 的 **0.43%**,而同一片 warning 里 79.2% 是 `no-explicit-any`。于是它每次 CI 都被打印、每次都没人读。\n\n## 为什么值得记一笔\n\n20 条压的是 `no-console`,而 `eslint.config.js` 把 `no-console` 设成 **`error`**,是 #4029 专门加的 ratchet。一条挂在 error 级 ratchet 上、实际已经不需要的 `eslint-disable`,正是后来的人会当成\"这里有正当理由\"而照抄的注释 —— 抑制注释的说服力来自\"它必须存在\",一旦不必存在,它就只剩误导。\n\n## 处置方向(仅列,不预判)\n\n`linterOptions.reportUnusedDisableDirectives: 'error'`(或 CLI 的 `--report-unused-disable-directives-severity=error`)正好只让这一类变红。与 #4806 里那些动辄数百上千的 warning 类别不同,这一类总量就是 45,且**每一条的修法都是删掉一行注释**,可以一次清干净、当天就把门关上。\n\n## 参考位置\n\n- `eslint.config.js`(未设 `linterOptions`)\n- `.github/workflows/lint.yml:20-28`(有意不设 `--max-warnings` 的那段)\n\n关联:#4806(量于此)、#4029(`no-console` 这条 ratchet 的出处)。"
+}

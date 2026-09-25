@@ -1,0 +1,33 @@
+{
+  "number": 4825,
+  "kind": "pull_request",
+  "title": "chore(tsconfig): 删根 tsconfig.json 六条死 paths,并把守卫扩到这张表 (#4804)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "configuration",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T10:25:25Z",
+  "updated_at": "2026-08-16T10:43:50Z",
+  "closed_at": "2026-08-16T10:43:48Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T10:43:48Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4825",
+  "body": "Fixes #4804\n\n## 做了什么\n\n1. 删掉根 `tsconfig.json` `compilerOptions.paths` 里的六行(实读为 :34-:39):`@object-ui/engine`、`@object-ui/engine/[star]`、`@object-ui/ui`、`@object-ui/ui/[star]`、`@object-ui/renderer`、`@object-ui/renderer/[star]`(`[star]` 即通配符 `*`,下同)。目标 `packages/{engine,ui,renderer}/src` 三个目录在 workspace 里都不存在。\n2. 扩展 `scripts/__tests__/vitest-config-alias-targets-3944.test.ts`,让它顺带读 tsconfig 的 paths 表,复用它已有的「每个声明目标必须存在」断言 —— 这是 PR #4802 的 dev 自己给出的完成态建议,一个守卫盯两张表。\n\n`@object-ui/plugin-aggrid` **不在**本次删除之列:它只在 vitest alias 表里出现过,从来没进过 `paths`。两张表的死条目集刻意不同,两侧的钉子也就不同,测试注释里写明了。\n\n## 删前的消费面核实\n\n**三个目标目录确不存在**:\n\n```\n$ ls -d packages/engine packages/ui packages/renderer\nls: cannot access 'packages/engine': No such file or directory\nls: cannot access 'packages/ui': No such file or directory\nls: cannot access 'packages/renderer': No such file or directory\n```\n\n**六个 specifier 全仓零消费**(带引号精确名,裸名与 `/` 子路径两种形态都扫):\n\n```\n$ grep -rn --exclude-dir=node_modules --exclude=pnpm-lock.yaml -F -e \"'@object-ui/engine'\" -e '\"@object-ui/engine\"' .\n(除 tsconfig.json 本身与守卫测试的反向断言外,零命中;ui / renderer 同)\n```\n\n扫描器反查证伪 —— 同一把 grep 对 `@object-ui/core`:**559 个文件 / 637 行命中**。所以零命中是事实,不是 grep 写错了。\n\n**tsconfig 特有的消费面(与 vitest 表不同,额外查了 extends 链)**:全仓 91 个 `tsconfig*.json`,其中 74 个 `extends` 到根 `../../tsconfig.json`,因此这张 paths 表**确实**被广泛继承 —— 但继承者里没有任何一个引用这六条:\n\n```\n$ grep -rn --exclude-dir=node_modules -E 'packages/(engine|ui|renderer)(/|\"|'\"'\"'|$)' .\n./tsconfig.json:34-39            (即本次删掉的六行)\n./scripts/__tests__/vitest-config-alias-targets-3944.test.ts:11-13   (#3944 的历史说明注释)\n```\n\n即整仓对这三个目录路径的引用,只有这六行自己。\n\n## 爆炸半径:类型解析未伤\n\n删的是共享基建,所以按硬要求跑了仓根全量 type-check:\n\n```\n$ pnpm exec turbo run type-check --concurrency=2\n Tasks:    81 successful, 81 total\n  Time:    5m54.514s\n```\n\n`scripts/` 自己的程序(本次改的测试文件归它管)另跑:\n\n```\n$ pnpm type-check:scripts        →  exit=0\n```\n\n## 守卫怎么写的\n\n- **解析策略:文本解析,不 `JSON.parse`。** 根 `tsconfig.json` 实际是 **JSONC** —— `compilerOptions` 里有两处块注释,`JSON.parse` 直接抛:`Expected double-quoted property name in JSON at position 187`。备选是「先剥注释再 parse」,那等于手搓第二个 parser 且必须正确处理字符串字面量。改成沿用本文件既有的花括号配平文本读法:一套读法喂两张表,面更小,两半形状也对称。原因写进了文件头注释。\n- **通配符不是路径。** `packages/core/src/[star]` 里的 `[star]` 是替换符,`existsSync` 对它恒为 false。存在性检查对模式项改判**替换前缀**,并额外要求前缀是目录(否则深层 import 无从解析)。\n- **断言结构照抄既有**:逐条存在性 + 「块内每个 key 都被解析覆盖」(否则写成别的形式的条目会静默逃逸) + 非空防陷阱(`>= 10` 条且必含 `@object-ui/core`,防重排后正则失配变成「零条目全绿」的空 fixture 陷阱)。\n\n## 范围外发现:同表另有 2 条死条目,已单开卡,未在本 PR 删\n\n`@objectstack/plugin-msw` 与 `@objectstack/objectql` 指向 `node_modules/@objectstack/[包名]/src/index.ts`,两个目标也不存在 —— 而且不是「装了但布局不同」:这两个包整个不在依赖图里(`node_modules/@objectstack/` 只有 `spec`,pnpm store 零命中,38 个 package.json 都没声明)。**成因与本卡的六行不同**(指向 node_modules 而非 workspace 目录),且牵扯「这两个包是不是本该成为依赖」的产品取舍,故按范围纪律未在本 PR 一并删,单开 **#4820** 交维护者定。\n\n它们会让新断言变红,因此进了一条**只准缩短的棘轮豁免名单** `KNOWN_MISSING_TARGETS`,而不是一个口子:\n\n- 名单**不能变长** —— 任何新的死目标照常红;\n- 名单里的条目若已从 tsconfig 删掉、或其目标开始存在,守卫也红,强制同步清掉豁免项。\n\n所以 #4820 无论怎么收口,都必须顺手把名单清空,豁免不会烂在那里。\n\n## 反向验证(先预判方向,再实跑)\n\n两次都预判为**纯红**(无反转):paths 表是该断言的唯一输入,加一条坏条目只能**新增**一个 finding,不可能减少 —— 与 alias 那半的既有结论同理。\n\n**A. 注入假条目** `\"@object-ui/ghost-4804\": [\"packages/ghost-4804/src\"]`。预判:恰好 1 条红且指名该条,两条覆盖用例与两条钉子全绿。实跑:\n\n```\n × '@object-ui/ghost-4804' maps to a path that exists ('packages/ghost-4804/src')\n   → paths['@object-ui/ghost-4804'] maps to packages/ghost-4804/src, which does not exist ...\n Tests  1 failed | 58 passed (59)\n```\n\n**B. 把删掉的六行装回去。** 预判:7 条红 —— 6 条存在性 + 「no longer carries the six」那条钉子。实跑:\n\n```\n × '@object-ui/engine' / '@object-ui/engine/[star]' / '@object-ui/ui' / '@object-ui/ui/[star]'\n × '@object-ui/renderer' / '@object-ui/renderer/[star]'  maps to a path that exists\n × no longer carries the six dead engine/ui/renderer entries\n Tests  7 failed | 57 passed (64)\n```\n\n两次预判与实跑逐条吻合。变异均在 commit 之后进行、`git checkout [分支] -- tsconfig.json` 还原,未提交;还原后复跑 58 passed (58),工作树 diff 为空。\n\n## 测试与门禁\n\n```\n$ pnpm exec vitest run scripts/__tests__/vitest-config-alias-targets-3944.test.ts --reporter=verbose\n  Test Files  1 passed (1)\n       Tests  58 passed (58)\n\n$ pnpm exec vitest run scripts/__tests__/        # 消费半径整扫\n  Test Files  45 passed (45)\n       Tests  1041 passed (1041)\n\n$ node scripts/check-control-bytes.mjs\n  ✅ check-control-bytes: OK (scanned 4320 tracked text file(s); skipped 85 binary)\n\n$ pnpm exec eslint scripts/__tests__/vitest-config-alias-targets-3944.test.ts   → exit=0\n```\n\n**changeset 三门:不欠**,按 presence 门实测判(与 PR #4802 先例一致):\n\n```\n$ node scripts/check-changeset-presence.mjs\nCompared the working tree with ac600e5d2 (merge-base with origin/main): 2 file(s) changed,\n0 of them under the src/ of a package the release covers, 0 under a package changesets ignores,\n0 changeset(s) added.\n✅  No source of a released package changed in this range, so no changeset is owed.\n```\n\n改的两个文件是仓根配置与 `scripts/` 下的测试,都不在发版包的 `src/` 里,门禁自己判定无需声明。\n\nRelated: #3944 / PR #4802、#3904 / PR #3942、#4820(本 PR 新开的范围外卡)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

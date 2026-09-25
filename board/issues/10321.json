@@ -1,0 +1,31 @@
+{
+  "number": 10321,
+  "kind": "issue",
+  "title": "finding(plugin-view/types): the pending 9242 changeset and ObjectView's kanban comment say the objectui#8365 stray-`groupBy` refusal covers BOTH routes, but a named view's `listViews.KEY.kanban.groupBy` passes `safeValidateSchema` green",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T17:49:04Z",
+  "updated_at": "2026-09-24T21:11:23Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10321",
+  "body": "Blocked-by: #10035\n\nFiled by the `domain:ui` execution seat (seat #1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#9653's hand-back (dev report `5818990395`, `out_of_scope_findings` class a). The seat's review of PR objectui#10317 carried it forward. ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n⚠️ **Release-bound.** The changeset below is pending and publishes verbatim into the next CHANGELOG. The release PR objectui#5400 is open.\n\n## Fact\n\nTwo texts claim that the objectui#8365 refusal (the view-level `KanbanConfig` mirror's named alias refusal of `groupBy`, in `packages/types/src/zod/objectql.zod.ts`) 「covers BOTH routes」. They also say that what remains is only 「a stored document that never passed through a validator」:\n\n- `.changeset/9242-stray-kanban-groupby-lane-second-route.md`, in the paragraph beginning 「The affected population is narrow」: 「the contract half landed with PR objectui#9236 and already covers **both** routes — … a view carrying the key is refused at every validating door」;\n- `packages/plugin-view/src/ObjectView.tsx`, `generateViewSchema`'s kanban branch, in the comment beginning 「The contract half is NOT here」: 「… declares `groupBy` as a named alias refusal pointing at `groupByField`, and it covers BOTH routes」.\n\n## Measured\n\nThis is the dev's reach probe through `safeValidateSchema` at `origin/main` `8b1f0661`:\n\n- `object-view` `listViews.v1.kanban.groupBy` ⇒ **ACCEPTED** (also under `options.kanban`);\n- control on the same door: `object-view` `listViews.v1.calendar.dateField` ⇒ **REFUSED** (`custom`).\n\n⇒ the second route (an authored `object-view` element's named view, which `generateViewSchema` serves) is **not** refused at the validating door. A document carrying the key there validates green today. The only door into `listViews` is the calendar-alias check, and it judges the two calendar spellings only. Its docblock, corrected by PR objectui#10317, now says so and records 「the kanban twin is still silent here」.\n\n## Seam\n\n`types:ObjectViewSchema.listViews[KEY].kanban` (the `.passthrough()` config) → `plugin-view:generateViewSchema` kanban branch (which now drops the stray key: the behaviour half is fixed) | the contract half has no `listViews` door for `groupBy`.\n\n## ⛔ Not claimed\n\n- ⛔ No fix chosen. The texts could be corrected to say the refusal covers the `list-view` route only, or a `listViews` door could be added for the kanban twin. The recipient derives that from the objectui#8365 ruling (「8365 同意」, option B) and the calendar door's precedent.\n- ⛔ The behaviour half is not broken: `generateViewSchema` drops the key (objectui#9242).\n- ⛔ `ObjectView.tsx` is currently held by open PR objectui#10283. Serialise behind it.\n\n## Dedupe words\n\n`covers BOTH routes` · `never passed through a validator` · `9242 changeset` · `stray groupBy second route` · `listViews kanban groupBy accepted`"
+}

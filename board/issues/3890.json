@@ -1,0 +1,34 @@
+{
+  "number": 3890,
+  "kind": "issue",
+  "title": "在 workspace 内运行时,生成的临时 app 模块解析面是死的:dev 的 alias 表漏 4 个 workspace 包(整页 500),serve/build 连 monorepo 分支都没有",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T00:10:55Z",
+  "updated_at": "2026-08-17T05:46:56Z",
+  "closed_at": "2026-08-17T05:46:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3890",
+  "body": "越界发现,记录于 #3852(生成物 Tailwind 4 迁移)的浏览器实证期间。#3852 的文件面是生成的 CSS 管线;这一条是同一个临时 app 的**模块解析**面,与 Tailwind 无关,因此不在那个 PR 里做。\n\n## 事实(实测于 `origin/main` = `56ff0916e`,`objectui dev` 从仓根跑)\n\n复现:仓根建一个 `app.json` + `pages/index.json`,`node packages/cli/dist/cli.js dev dogfood/app.json --port 5852 --no-open`。服务起得来,但**页面里每一个模块请求都是 500**,浏览器控制台 16 条 `Failed to load resource: 500`,`document.body.innerText` 为空。\n\nVite 的依赖扫描先给出名单:\n\n```\n(!) Failed to run dependency scan. The following dependencies are imported but could not be resolved:\n  @object-ui/fields        (imported by packages/plugin-grid/src/components/bulkParamToField.ts)\n  @object-ui/permissions   (imported by packages/plugin-grid/src/ObjectGrid.tsx)\n  @object-ui/plugin-detail (imported by packages/plugin-kanban/src/ObjectKanban.tsx)\n  @object-ui/mobile        (imported by packages/plugin-grid/src/ObjectGrid.tsx)\n```\n\n随后每次 transform 都报:\n\n```\nPre-transform error: Failed to resolve import \"@object-ui/fields\" from\n  \"packages/plugin-form/src/MasterDetailForm.tsx\". Does the file exist?\n```\n\n原因是两层:\n\n1. **`commands/dev.ts:178-190` 的 alias 表是 11 个包的硬编码清单**(react / components / core / types + 7 个 plugin)。它把这些包指向各自的 `src/`,于是 Vite 要连带编译那些 `src/` **自身**的 import —— 而 `@object-ui/fields`、`@object-ui/permissions`、`@object-ui/mobile`、`@object-ui/plugin-detail` 不在表里。\n2. 表外的包在本仓**没有任何后备解析路径**:仓根 `package.json` 不依赖任何 `@object-ui/*`,`ls node_modules/@object-ui/` 直接 `No such file or directory`。临时 app 建在 `cwd/.objectui-tmp` 下靠 hoist 解析(#3742 / #3827 记过这条),但 hoist 到的仓根没有这些包。\n\n即:alias 表是一份必须与 `packages/*/src` 的**传递** import 图保持同步的手工清单,而没有任何门禁钉住它 —— 每新加一个跨包 import 就会静默多一条 500。\n\n## serve / build:同一处更深\n\n`commands/serve.ts:98-106` 与 `commands/build.ts:106-115` 的 vite 配置里**没有 `resolve.alias`,也没有 `isMonorepo` 分支**,而它们照样把临时 app 建在 `join(cwd, '.objectui-tmp')`:\n\n- `createTempApp` 在 monorepo 下两个依赖 map 都写空(`app-generator.ts` 的 `buildAppPackageJson`,#3827 记录的既有行为),\n- serve/build 接着无条件 `npm install`(serve.ts:85、build.ts:86)—— 装一份空清单,什么也没装,\n- 于是 `@object-ui/react` 等既没有 alias、也没有 node_modules、也 hoist 不到。\n\n所以在 workspace 内 `objectui serve` / `objectui build` 从一开始就不可能解析平台包,不只是缺样式。\n\n## 影响\n\n- 仓内 dogfood(`objectui dev`)今天看不到页面:#3852 的 CSS 管线修好之后,样式表 200 且 utility 都编出来了(实测 422 kB / `h-16` = 64px),但**页面本身仍是空白**,因为模块面还是这条。这两条互相独立。\n- 仓外(非 workspace)不受影响:那条路径走生成清单 + 真装依赖。\n\n## 不预判修法\n\n至少两种读法,取舍不同,留给维护者定:\n\n- **A. 补全清单**:把 4 个漏的包加进 `dev.ts` 的 alias 表,并给 serve/build 复制同一分支。最小,但把\"手工清单必须追传递 import 图\"这个结构留在原地,下一次跨包 import 照样静默。\n- **B. 从 `pnpm-workspace.yaml` 生成 alias**:按 workspace 成员枚举 `@object-ui/*` → 各自 `src` 入口,dev/serve/build 共用一个 helper。一次修掉整类,代价是要决定入口文件的推断规则(现表里既有 `src/index.ts` 也有 `src/index.tsx`)。\n\n## 已搜重\n\n本仓开放 issue 搜过 `cli alias resolve workspace`、`objectui serve build temp app`、标题含 `cli` 三组:命中只有 #3852(本条的来源,CSS 面)与 #3853(生成 tsconfig 的 strict,质量门面)。两者都不含模块解析面。#3827(已合,PR #3854)修的是生成**清单**的声明面,不涉及 vite alias。\n"
+}

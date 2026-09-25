@@ -2,8 +2,8 @@
   "number": 7495,
   "kind": "issue",
   "title": "plugin-dashboard: the `compareTo` chart-family exclusion list exists twice and disagrees — DatasetWidget still runs a comparison query and synthesises an unused overlay series for pie / donut / funnel",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-project-manager",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-03T11:08:30Z",
-  "updated_at": "2026-09-24T06:51:01Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-24T22:55:12Z",
+  "closed_at": "2026-09-24T22:45:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7495",
   "body": "## 维护者速读\n\n同一条规则,我们在代码里写了**两遍,而且两遍不一样**:哪几种图表「不做同比」。\n\n- 图表包那边写的是:**饼图、环形图、漏斗图、散点图**都不做。\n- 仪表盘那边写的是:**只有散点图**不做。\n\n⇒ 于是一个带同比的饼图 widget 今天会:多跑一次数据库查询、多拿一批数据、多合成一条曲线 ——\n**然后被渲染器扔掉**。用户看到的图是对的,代价全在**看不见的地方**(服务端多跑一次)。\n\n⭐ 还有一件更要紧的事:这两份清单**可以继续各走各的**。上一次有人给散点图加规则时,\n就只改了其中一份 —— 这张卡正是那次留下的。\n\n⚠️ 依赖关系决定了**只有一个**地方能放「唯一的那份」:`@object-ui/core`。\n仪表盘在运行时根本够不到图表包(实测:它只在 devDependencies 里),所以「直接 import」这条路不存在。\n\n三条路:\n**A** 以图表包那份为准 —— 把谓词搬到 core,两边都读它;饼/环/漏斗**不再跑那次查询**。\n用户看到的东西不变,省掉的是服务端的白工。\n**B** 以仪表盘的实际行为为准 —— 把图表包那句公开陈述改窄。\n**C** 两份都留着,只把分歧写进文档。\n\n请裁一个字母:**A / B / C**?\n\nos-decision-facets\n\n- **① 项目长远合理性**:A 让一条规则只有**一个**生产者,而这正是 `@object-ui/core` 的 `chart-presentation` 已有的先例(`buildChartSeries` / `mergeAuthoredPresentation` 就是为同一个理由抬上去的,objectui#4389 把「在它旁边再放一份副本」记为缺陷)。C 明确保留两个生产者 ⇒ 下一次规则变化会再来一张同形状的卡。B 把公开陈述向**实现**靠,方向与 `AGENTS.md` 诫 #0.1(「修元数据,不修渲染器」的同族:让契约说真话,而不是让契约迁就现状)相反。\n- **② 实际业务拉动**:⭐ **仓内为零** —— 分诊实测 `compareTo` 在 `examples/**/*.json` 里 **0** 处(对照 `\"type\": \"bar\"` 命中 5 个示例文件)。⚠️ 租户元数据里的发生率**从这里测不了**,卡片与分诊都如实标注。⇒ 拉动是**未知而非零**,⛔ 不能用「仓内零」推出「没人用」。\n- **③ 防 AI 犯错**:现状是**静默**的 —— 图画对了,多出来的查询没有任何提示。一个 AI 作者给饼图写上 `compareTo`,会得到一个「看起来生效了」的配置(因为没报错),实际上那个同比**永远不会显示**。A 让这件事在**一个**地方有答案;C 让它继续有两个答案。\n- **④ 创业阶段不扩散**:A 移动一个谓词、删一处重复,⛔ 不新增任何已声明的键。B 只改散文但**留下**了重复。C 零改动、零新增,但把「两份清单」固化成既定形状,而修它的成本只会随时间上升。\n\nPrior rulings read: `compareTo` · `chart-presentation` · 重复声明 → objectui#4389(「在它旁边再放一份副本」判为缺陷,即 A 的先例)· objectui#7402(上一次只改了一份清单,本卡由它派生);⛔ 与「饼/环/漏斗该不该跑那次查询」直接相关的既有裁决:**none**。\n\n推荐 **A**,回退 **C**。⛔ 不荐 B:它把一句今天**视觉上成立**的公开陈述改窄,去迁就一段谁也不消费的工作。\n自检:**只看①选 A;②③④ 是否翻转:否** —— ② 的「仓内零」一度像是支持 C(没人撞上,何必动),\n但 ③ 指出静默的是**作者体验**而不是查询次数,而那件事与实例数无关。\n置信缺口:⛔ 执行席**未**测租户元数据里 `compareTo` 的真实发生率(⛔ 从本仓测不了);\n⛔ 也**未**在浏览器里确认那条被丢弃的序列真的不影响任何渲染分支 —— 本卡的读数来自源码与分诊复核。\n\n<sub>⬆️ 本块由 `domain:ui#2` 执行席(session `session_018HrVaotisyhgmot9o2MLRq`)于 2026-09-19T22:07Z 补进**正文**\n—— 四棱块是**立卡义务**,停在评论里不算(半状态巡查 H62)。\n⚠️ 本卡此前挂 `pm:queue`,而**卡片自己与分诊都写明它需要一次裁决**(「a behaviour statement change,\nso it wants its own decision」/「⛔ 定型:这是**行为陈述变更**,不是纯去重」)——\n⇒ `pm:queue` 与那两句话矛盾,本席同笔改判进决策箱。⛔ 正文原文一字未动,全部保留在下方。</sub>\n\n---\n\nFound while implementing #7402 (scatter joins the `compareTo`-ignoring list). Filed unassigned, not fixed there — out of that card's declared scope.\n\n## The divergence\n\nThere are now **two** declarations of \"which chart families ignore `compareTo`\", and they do not agree:\n\n| site | list | effect |\n|:--|:--|:--|\n| `packages/plugin-charts/src/ObjectChart.tsx` — `supportsCompareTo` | pie · donut · funnel · scatter (scatter added by #7402) | skips the comparison **fetch** entirely; no `__comparison` column, no overlay series |\n| `packages/plugin-dashboard/src/DatasetWidget.tsx` — `comparisonSeries` | scatter only (added by #7402) | pie / donut / funnel still forward `compareTo` to the executor, still receive `MEASURE__compare` columns, and still get a `variant: 'comparison'` series appended |\n\n## What actually happens on the dashboard path today\n\nA `type: 'pie'` (or `donut` / `funnel`) dataset widget with `compareTo`:\n\n1. lowers the comparison window and runs the extra dataset query — real work on the server;\n2. gets `MEASURE__compare` columns back;\n3. appends a second series `{ dataKey: 'MEASURE__compare', variant: 'comparison' }` to the chart schema;\n4. the renderer **drops it** — the pie arm (`AdvancedChartImpl.tsx`, `chartType === 'pie' || chartType === 'donut'`) draws `series[0]?.dataKey` and nothing else.\n\nSo the published statement (\"pie / donut / funnel ignore `compareTo`\") holds *visually*, but only because the renderer happens to look at one series. The cost is a doubled dataset query per compare-to pie widget plus a synthesised series nothing consumes, and the two lists are free to drift further apart.\n\n## Suggested direction (not a ruling)\n\nHost ONE predicate both paths read. `@object-ui/core`'s `chart-presentation` is the precedent home: `buildChartSeries` / `mergeAuthoredPresentation` were lifted there for exactly this reason (see that module's header — a second copy of the split beside it is what objectui#4389 filed as a defect), and both packages already depend on `@object-ui/core` at runtime, while `@object-ui/plugin-charts` is only a **devDependency** of `plugin-dashboard`, so the dashboard cannot import the predicate from where it lives today.\n\n⚠️ Landing that would change dashboard behaviour for pie / donut / funnel (the comparison query stops running) — a behaviour statement change, so it wants its own decision, which is why #7402 deliberately did not do it.\n\n## Reachability\n\n`compareTo` on a pie/donut/funnel dataset widget: **0** authored instances in-repo (`grep` over `examples/**/*.json` finds no `compareTo` at all; control `\"type\": \"bar\"` fires at 5 example files). Incidence in cloud tenant metadata is unmeasurable from here.\n\n## Related\n\n#7402 (the scatter exclusion that created the second list) · #7194 · objectui#4389 (the precedent that duplicate chart-presentation logic is a defect)\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

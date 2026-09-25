@@ -1,0 +1,35 @@
+{
+  "number": 4768,
+  "kind": "issue",
+  "title": "FilterBuilder 切换行的 field 后 operator 不重置 —— select 改 text 后 operator 可停留在下拉里已不存在的 in,trigger 显示空",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:38:22Z",
+  "updated_at": "2026-08-16T06:10:40Z",
+  "closed_at": "2026-08-16T06:10:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4768",
+  "body": "发现于 #3958 的实施(PR #4762),回传立单。可见 UI 不一致(#4762 之后该行仍渲染 token 输入、产出合法数组,不再是 spec 拒绝类缺陷,但 operator 下拉显示空白)。\n\n## 事实\n\n`packages/components/src/custom/filter-builder.tsx`:切换行的 **field** 时不重置 operator —— 把行的字段从 select(算子桶含 `in`)改成 text(桶不含)后,operator 仍停留在 `in`,Radix trigger 因下拉无该项而显示空。\n\n## 待做\n\nfield 切换时若当前 operator 不在新字段的算子桶内,重置为新桶的首项(与 #4762 已落的「operator 切换重整 value」同一家族语义,机制可对照 `changeOperator`);钉:切换后 operator 恒在新桶内。\n\n## 参考\n\n- #3958 / PR #4762(发现来源;operator 切换侧的既定形态)"
+}

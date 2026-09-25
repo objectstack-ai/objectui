@@ -1,0 +1,33 @@
+{
+  "number": 4916,
+  "kind": "pull_request",
+  "title": "fix(components): div 废弃提示按 provenance 收窄到 JSON 作者面 (#4000)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T05:17:26Z",
+  "updated_at": "2026-08-17T05:36:25Z",
+  "closed_at": "2026-08-17T05:36:24Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T05:36:24Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4916",
+  "body": "Fixes #4000\n\n基 sha `5ffcc1432`。按 2026-08-10 维护者裁定实施:**废弃提示按 provenance 拆分** —— `kind:'html'` tier 自己的解析器产出的节点豁免,JSON 作者面的节点照旧告警。\n\n---\n\n## 前提验证(先跑,后写实现)\n\n新钉子在**未改任何实现**的基线上先跑了一遍,证实卡面立论成立:\n\n```\nFAIL packages/components/src/__tests__/div-deprecation-provenance.test.tsx\n  × stays silent for nodes the html tier compiled from its own source\n    AssertionError: expected [ Array(1) ] to have a length of +0 but got 1\n  × still reports a JSON-authored node, exactly once, …\n    AssertionError: expected [] to have a length of 1 but got +0\n Test Files  1 failed (1)   Tests  2 failed | 2 passed (4)\n```\n\n第一条正是 issue 描述的误伤:一个 `kind:'html'` 页面里的盒子标签,编译渲染后收到一条提示。这一条的**对照断言先于警告断言**通过(页面确实渲染出了 `.outer` / `.inner` 与文本,没有落到 \"failed to compile\" 面板)—— 否则「零提示」可能只是因为整页编译失败,那是空绿。\n\n第二条红是第一条的连带:warn-once 的 Set 是模块级的,前一条已经 latch,所以作者节点那一条反而观测到 0。修好后两条同时转绿,这个互相牵制正是钉子的设计(见文件头注释)。\n\n## 机制\n\n判据是**来源,由生产者确立**,不是消费端按节点形状猜。\n\n**生产者**(`packages/sdui-parser`)。解析器在造出每个元素节点时打一个标记 —— `parse.ts` 里 `markHtmlTierNode({ type: tag, ...props })`。新文件 `src/provenance.ts` 持有标记与谓词 `isHtmlTierNode`,并从包入口导出。\n\n标记是一个 **symbol**,而且是 `Symbol.for` 注册键(`@object-ui/sdui-parser.html-tier-node`),三点都是有意的:\n\n- **symbol 对 `JSON.stringify` / `Object.keys` / `for...in` 不可见。** 于是它落不进被持久化的文档 —— 这是要点而不是限制:「本进程里我们的解析器产出了这个节点」不是保存文档的属性,保存下来的文档**也不该能重放它**。若写成 `_provenance: 'html'` 这样的字符串键,一份手写或 AI 生成的 JSON 元数据把它抄进去,就给自己买到了本该冲它来的那条提示的豁免。作者面能伪造的 provenance 不是 provenance。同理它也漏不到 DOM 上变成野生属性。\n- **但它是 enumerable 的**,这一条比看上去关键:`SchemaRenderer` 交给渲染器的是节点的浅拷贝(`{ ...schema }`),对象展开会带走**可枚举**的 symbol 键而丢掉不可枚举的。写成不可枚举,标记会在那次拷贝里消失,原缺陷**只在渲染路径上、悄无声息地**回来。这一条由 `provenance.test.ts` 的「survives the shallow copy」和组件侧走真实 `SchemaRenderer` 的钉子共同压住。\n- **`Symbol.for` 而非模块内 `Symbol()`。** 本包同时出 ESM/CJS 且被多个包消费,存在两份模块实例的可能;两个局部 symbol 不相等,而这种不匹配的失败形态就是**原缺陷无声回归**。注册键不会漂移。\n\n花括号属性里夹带的 JSON(`body={[{\"type\":\"div\"}]}`)**不打标记** —— 那段 JSON 是手写的,JSON 作者面的建议对它成立。豁免只覆盖解析器真正产出的节点,不多一寸。\n\n**消费者**(`packages/components/src/renderers/basic/div.tsx`)。渲染器读谓词决定是否告警。**顺序**与 #3998 的 production 提前返回同一纪律:豁免判断在 warn-once 的 Set 标记**之前** —— html-tier 节点先渲染不得 latch 守卫,否则它会吞掉同一页里 JSON 作者节点应得的那一条,恰好把这条提示唯一该服务的读者静音掉。\n\n**文案。** 迁移建议两行逐字节未动(#3998 的断言仍绿);首行改为「deprecated for JSON-authored pages」,并补一句说明:在 `kind:'html'` 页面里该标签是那一层词表的一等成员,原样编译,不在此报告。一条说「这个类型废弃了,句号」的提示,在另一层把它当作永久词表成员的情况下对它的两类读者之一就是假的 —— 而一直收到它的恰恰是无能为力的那一类。`content/docs/components/basic/div.mdx` 同步补了同一句话的作用域说明。\n\n## 钉子\n\n`packages/components/src/__tests__/div-deprecation-provenance.test.tsx`(4 条,顺序是断言的一部分):\n\n1. **html tier 自产节点零提示** —— 走真实 `PageRenderer` 编译 + 渲染,虚拟机内 Set 尚为处女态,所以「零」不可能由「之前有人 latch 过」解释。含渲染对照断言(防空绿)。\n2. **JSON 作者节点仍报,且恰好一条** —— 只有在第 1 条没有标记 Set 的前提下才成立;顺带断言迁移建议原样保留、文案写明了作用域(验收点 ③)。\n3. **后续渲染不再报**(warn-once 语义保持,验收点 ②)。\n4. **provenance 不落到 DOM、不进序列化** —— 断言元素上没有相关属性。\n\n`packages/sdui-parser/src/__tests__/provenance.test.ts`(6 条):逐层打标记、活过对象展开、对 JSON 不可见且**往返后为 false**(反伪造)、花括号夹带的 JSON 不打标记、非对象输入不抛、注册键稳定。\n\n## 反向验证(两面各证一次,先书面预判后执行)\n\n变异前已 commit;还原用 `git checkout --`(未用 stash)。\n\n**A. 撤掉 provenance 豁免**(改回无条件告警)。\n预判:钉子 1 转红(1 条提示);钉子 2 连带转红(0 条,守卫被 latch);3、4 绿;**解析器侧文件整体保持全绿** —— 生产者钉子看不见「消费者不读了」,这正是组件侧那条钉子存在的理由。\n实测与预判一致:\n\n```\n× stays silent for nodes the html tier compiled from its own source\n    AssertionError: expected [ Array(1) ] to have a length of +0 but got 1\n× still reports a JSON-authored node, exactly once, …\n    AssertionError: expected [] to have a length of 1 but got +0\n Test Files  1 failed | 1 passed (2)   Tests  2 failed | 8 passed (10)\n```\n\n**B. 把豁免扩到作者节点**(条件恒假,任何节点都不报)。\n预判:钉子 1 保持绿(仍然静默);钉子 2 转红(期望 1 条、实得 0);3、4 绿。这一面专门防豁免面写反 —— 若两面都只由同一条钉子把守,把判断写反会两面都「过」。\n实测与预判一致:\n\n```\n× still reports a JSON-authored node, exactly once, …\n    AssertionError: expected [] to have a length of 1 but got +0\n Test Files  1 failed | 1 passed (2)   Tests  1 failed | 9 passed (10)\n```\n\n## 验证\n\n- `pnpm --workspace-concurrency=2 --filter '@object-ui/components^...' build` —— 绿(新 worktree 先建依赖)。\n- `pnpm exec vitest run packages/sdui-parser packages/components/src/__tests__ examples/schema-catalog --maxWorkers=2` —— `Test Files 98 passed (98) / Tests 2359 passed (2359)`。\n- `pnpm exec turbo run type-check --concurrency=2` —— `Tasks: 81 successful, 81 total`。\n- `pnpm exec turbo run lint --filter=@object-ui/components --filter=@object-ui/sdui-parser` —— `0 errors`(849 条既有 warning,与本改动无关)。\n- `node scripts/check-control-bytes.mjs` —— `OK (scanned 4397 tracked text file(s))`;改动文件另做了越过门禁盲区的自查(`grep -naP`),零命中。\n- `check-changeset-presence` / `check-changeset-no-major` / `check-phantom-deps` / `check-self-import` / `check-doc-types` —— 均绿。\n\n消费半径清点:`@object-ui/sdui-parser` 的消费者是 `page.tsx`、codegen、manifest-dump 与四处测试;`div` 渲染面另含 `examples/schema-catalog`(189 个作者面节点,行为不变)与 `html-*` 组件测试 —— 都在上面这轮里跑到了。\n\n## 边界\n\n只动了解析器的 provenance 面、`basic/div.tsx`、两个测试、一个 changeset 与 `components/basic/div.mdx` 的一段作用域说明。**没有**碰 `content/docs/releases/`,**没有**碰 `examples/schema-catalog/**` 的示例(#3965 的清扫排在本卡之后)。\n\n`basic/span.tsx` 是同族但**未动**:它比 div 还早一步 —— 至今仍是逐次渲染告警(#3998 把 warn-once 留作后续),叠加同一条 provenance 误伤。按不扩围原则另立 finding 卡,不在本 PR 处理。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 4748,
+  "kind": "issue",
+  "title": "plugin-dashboard: `WidgetConfigPanel` / `DashboardConfigPanel` hardcode ~61 English labels and import no translation hook — the dashboard config sidebar stays English in every locale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "bug"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T23:37:10Z",
+  "updated_at": "2026-08-16T00:34:29Z",
+  "closed_at": "2026-08-16T00:34:19Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4748",
+  "body": "Found while implementing #4746 (deleting the dead `configPanel.*` i18n namespace). Filed unassigned, not fixed there: out of that card's scope, which is locale-pack deletion only.\n\n## What was measured (on `origin/main` at `616a2a547`)\n\n`packages/plugin-dashboard/src/WidgetConfigPanel.tsx` and `packages/plugin-dashboard/src/DashboardConfigPanel.tsx` contain **no translation hook at all**:\n\n```bash\ngrep -cE \"useTranslation|useObjectTranslation|@object-ui/i18n|react-i18next\" \\\n  packages/plugin-dashboard/src/WidgetConfigPanel.tsx \\\n  packages/plugin-dashboard/src/DashboardConfigPanel.tsx    # 0 and 0\n```\n\nThey hardcode their user-visible labels in English instead — 37 and 24 literal `title:` / `label:` / `placeholder:` / `breadcrumb:` strings respectively by\n\n```bash\ngrep -cE \"(title|label|placeholder|breadcrumb): *\\[?'\" \\\n  packages/plugin-dashboard/src/WidgetConfigPanel.tsx \\\n  packages/plugin-dashboard/src/DashboardConfigPanel.tsx\n```\n\nExamples: `title: 'General'`, `title: 'Layout'`, `title: 'Appearance'` (WidgetConfigPanel); `breadcrumb: ['Dashboard', 'Configuration']`, `label: 'Columns'`, `label: 'Gap'`, `label: 'Show description'`, `label: 'Theme'` (DashboardConfigPanel).\n\n## Why it is user-visible, not dormant\n\nBoth are exported from `packages/plugin-dashboard/src/index.tsx` and mounted by `DashboardWithConfig.tsx` (lines 224 and 234) as the dashboard editing sidebar — the panel a user opens to configure a dashboard or a widget. Under `zh-CN` / `ja-JP` / any non-English locale the surrounding console chrome translates and this sidebar does not.\n\n## Relationship to #4746 / #4730\n\nThe locale packs used to carry a `configPanel.*` namespace whose 16 keys are almost exactly this panel's vocabulary (`layout`, `columns`, `gap`, `rowHeight`, `refreshInterval`, `appearance`, `theme`, `showDescription`, `general`, `advanced`, …). Nothing ever read those keys — no `t()` call site, no textual footprint — so they were deleted as dead by #4746. The reading that fits the evidence is that the translations were authored for this panel and the wiring never landed. **Deleting the dead keys does not create this gap and does not deepen it**: the panel rendered hardcoded English before the deletion and renders the same hardcoded English after. What changed is only that the dormant vocabulary is no longer sitting in the packs pretending the surface is covered.\n\nWhoever fixes this should author fresh keys against the wording the panel actually uses today rather than restoring the deleted block from history — the old vocabulary was never validated against the shipped labels, and `WidgetConfigPanel`'s 37 strings are noticeably more than the 16 keys that existed.\n\nSame defect class as the closed #4024 (list-view chrome hardcoded English) and #1713 (view inspector section labels), neither of which covers these two files.\n\nBacklinks: #4746, #4730.\n"
+}

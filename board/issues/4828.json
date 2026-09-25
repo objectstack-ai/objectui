@@ -1,0 +1,33 @@
+{
+  "number": 4828,
+  "kind": "pull_request",
+  "title": "docs(layout): README 的 AppShell 示例传 `navbar` 而非幻影 `header`,并加键表钉 (#4817)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T10:36:50Z",
+  "updated_at": "2026-08-16T10:56:12Z",
+  "closed_at": "2026-08-16T10:56:11Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T10:56:11Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4828",
+  "body": "Fixes #4817\n\n## 事实\n\n`packages/layout/README.md` 的 AppShell 示例传 `header=`,而 `AppShellProps`(`packages/layout/src/AppShell.tsx:25-40`)从未声明该键 —— 顶栏内容的唯一入口是 `navbar`:AppShell 自己渲染那个 header 元素(`:248`),`{navbar}` 是唯一填充它的东西(`:249`)。组件解构(`:233-241`)是固定键表、**无 rest**,所以传进去的节点被整个构造出来再丢掉:照抄这个 npm 落地页的读者得到一个永远空的顶栏,而且零诊断。\n\n## 改了什么\n\n1. **`### AppShell` 示例**:`header=` 改 `navbar=`,并补一段散文写清 header 元素由 AppShell 自渲染、`navbar` 才是入口。\n2. **`#### AppShellProps` 键表**(新增):7 个真实 props 逐条列出(含此前文档面看不到的 `branding` / `rightRail`)。\n3. **`## Usage with React Router` 示例**:同一个 `header=` 幻影键,同样改 `navbar=`。\n4. **`## Customization` 示例**:原来教 `headerClassName` / `sidebarClassName`,这两个键 `AppShellProps` 同样没有 —— 根本不存在按槽位的 className。改成演示真实的 `className`(它落在 main 元素上,`:256`,不是外层容器)+ 在你自己构建的 navbar / sidebar 节点上加类。\n5. **钉子**(新增 `packages/layout/src/__tests__/readme-app-shell-example.test.ts`)。\n\n### 为什么 3、4 也在本 PR 里\n\n3 和 4 与 1 是**同一个文件、同一个组件、同一条事实**(AppShellProps 没有这些键)的另外两处实例。更关键的是钉子的诚实性:新钉子的扫描面是「该 README 里所有 AppShell 开标签」,留着 3、4 不改就等于在覆盖面里手工挖一个正好套住已知 bug 的洞 —— 那种「因为什么都没产出所以断言通过」的空绿是明确的反面教材。范围硬边按派单严格执行:SidebarNav 段与 `readme-sidebar-nav-example.test.ts` **零触碰**、`AppShell.tsx` 生产代码**零触碰**(「要不要加 header 插槽」是产品增强,不在本单)、`content/docs/layout/app-shell.mdx` **零触碰**。`## Features` 的两条 bullet 也**未动**:它们描述的是版面区域而不是 prop 名,而 AppShell 确实渲染一个 header 元素,那句话本身不假。\n\n## 钉子的三半(照 PR #4819 的写法)\n\n- **编译期**:两个示例的 props 写成真实 `AppShellProps` 值。重新加回 `header` 或 `headerClassName` 会在 `pnpm type-check` 报 TS2353,而不是静默渲染空白。\n- **键表对齐**:`AppShellProps` 表的首列键**现读自** `AppShell.tsx` 的 interface 体,不硬编码 —— 表与接口任一侧单独漂移即红,永远不会退化成「改一下测试」。\n- **整段扫描**:重读该 README 里所有提到 AppShell 的 fence,用花括号深度游走每个 AppShell 开标签来收键(所以嵌套在 `sidebar=` 表达式里的 SidebarNav 的 props 绝不会被误收成 AppShell 自己的),拒绝接口未声明的任何键;外加一条**正向**断言「README 确实还在教 `navbar`」,防止扫描退化成对空集合成立。\n\n扫描面在文件头注释里写死:只有 `packages/layout/README.md` + `packages/layout/src/AppShell.tsx`。SidebarNav 面归 #3999 的钉子,app-shell.mdx 面归 #4793 的钉子。注释里另记了一条容易踩的坑:`@object-ui/app-shell` 导出的是**另一个** `AppShellProps`,那个确实声明 `header` —— 键表现读自本组件的源码,正是防止两者再被混为一谈。\n\n## 反向验证(先预判,后实跑)\n\n先 commit,再把 `### AppShell` 那一处改回 `header=`(⛔ 未用 stash;还原走 `git checkout 分支名 -- 路径`)。\n\n**预判**:4 个测试 2 红 2 绿。「every AppShell prop 是真的」红在 `['header']` 不等于 `[]`;「actually teaches navbar」**只红在它的第二条断言**(`used.has('header')`),第一条(`used.has('navbar')`)仍绿 —— 因为 router 与 Customization 两处 fence 还在传 `navbar`;键表与编译期两条绿(表没动,且类型化的常量在测试文件里,单改 README 够不到它),`type-check` 不受影响。\n\n**实跑:完全命中**,`Tests 2 failed | 2 passed (4)`,且第二条红的失败行正是 `:271`(`header` 那条),不是更靠前的 `navbar` 那条:\n\n```\nAssertionError: An `AppShell` example in packages/layout/README.md passes a prop the component does\nnot declare. ... Declared: sidebar, navbar, children, className, defaultOpen, branding, rightRail\n  : expected [ 'header' ] to deeply equal []\n ❯ packages/layout/src/__tests__/readme-app-shell-example.test.ts:241:7\n\nAssertionError: An `AppShell` example in packages/layout/README.md is passing `header` again.\n  : expected true to be false\n ❯ packages/layout/src/__tests__/readme-app-shell-example.test.ts:271:7\n```\n\n还原后整包复跑仍是 `13 passed / 152 passed`。\n\n## 测试与门禁(均为实跑输出)\n\n```\npnpm exec vitest run packages/layout/src/__tests__/readme-app-shell-example.test.ts --maxWorkers=2\n  Test Files  1 passed (1)        Tests  4 passed (4)\n\npnpm exec vitest run packages/layout/ --maxWorkers=2\n  Test Files  13 passed (13)      Tests  152 passed (152)\n\npnpm exec turbo run type-check --concurrency=2\n  Tasks: 81 successful, 81 total\n\nnode scripts/check-control-bytes.mjs      OK (scanned 4324 tracked text file(s))\nnode scripts/check-changeset-presence.mjs OK   node scripts/check-changeset-no-major.mjs OK\nnode scripts/check-changeset-fixed.mjs    OK   node scripts/check-doc-links.mjs          OK\npnpm exec eslint <改动路径>                0 errors\n```\n\n控制字节除门禁外另做了一次自查(`grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'`,零命中)。\n\n## changeset\n\n`.changeset/readme-app-shell-navbar-example.md`,**空 frontmatter**。依据:本 PR 没有任何发版包的运行时源码改动,但新增的测试文件位于 `packages/layout/src/__tests__/`,而 `check-changeset-presence.mjs` 对 `src/**` **没有**测试文件豁免(脚本注释 `:91-92` 明写「No carve-out for test files under `src/`」),所以必须声明一次 —— 空 frontmatter 正是 AGENTS.md 认可的一等写法:显式声明「不发版」。\n\n## 顺带发现(未在本 PR 修)\n\n- **#4827**:`content/docs/guide/layout.md` 的 app-shell「Schema API」块(`:73-88`)与「Custom Classes」示例(`:478-486`)教了 7 个 `AppShellProps` 从未声明的键(`header` / `body` / `sidebarCollapsible` / `sidebarDefaultOpen` / `headerClassName` / `sidebarClassName` / `contentClassName`)。同族事实的**第三个载体**,而且是 JSON 载体 —— 比 React 载体更糟,因为 `app-shell` 注册时 `inputs` 为空,连 unknown-prop 校验都说不出话。已按未认领立单交 PM 分诊。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

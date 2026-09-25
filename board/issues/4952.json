@@ -1,0 +1,32 @@
+{
+  "number": 4952,
+  "kind": "pull_request",
+  "title": "docs(adr): ADR-0036 服务端 fault 策略收窄,未绑定根一类是 fail-CLOSED (#3888)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T08:00:16Z",
+  "updated_at": "2026-08-17T08:03:58Z",
+  "closed_at": "2026-08-17T08:03:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T08:03:56Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4952",
+  "body": "Fixes #3888\n\nADR-0036 的 `## Server enforcement (framework)` 段把服务端 fault 策略写成**无条件**成立:\n\n> - A predicate that fails to evaluate is **fail-open** and logged (a broken rule must never block a legitimate write).\n\n这一句一行覆盖了该段上面两个服务端谓词(`requiredWhen` 与 `readonlyWhen`),而自 objectstack#4889 起它对 `readonlyWhen` 的一个 fault 类不成立。这是同一个陈旧断言的**最后一份未改副本** —— 代码注释那一份(`packages/core/src/evaluator/fieldRules.ts` 模块头)已由 #3828 / PR #3887 收窄,ADR 是读者问「服务端到底怎么办」时的第一站,留着它等于把刚拆掉的错误心智模型原样保存在更权威的位置。文档改动,无行为、无授权面变化。\n\n## 前提验证(先行)\n\n卡片正文与晋级评论给的 framework 行号已经漂了两次(正文按 `fec784863` 写 `:599-603`/`:604`/`:606-607`,晋级评论按 `86e6f6c` 写 `:601` vs `:606`),按硬规重新定位。以下全部读自 objectstack `origin/main` @ `23abe2782` 的 `packages/objectql/src/validation/rule-validator.ts`(读法:`git -C /home/user/objectstack fetch origin main` 后 `git show origin/main:PATH`,未碰共享工作树):\n\n| 事实 | 重定位后的位置 |\n|---|---|\n| 设计小节「`readonlyWhen`: the UNBOUND-ROOT case is fail-CLOSED (#4889)」 | `:99`(正文 `:99-113`) |\n| 「Every OTHER `readonlyWhen` fault … keeps the fail-open policy」 | `:106-108` |\n| `isReadonlyWhenLocked` | `:588` |\n| 未绑定根 → 记日志 `treating the field as LOCKED` | `:607-611` |\n| 同一分支 `return true`(= LOCKED) | `:612` |\n| **其他** fault → `failed to evaluate — change allowed through` | `:614` |\n| 同一分支 `return false`(= fail-open) | `:615` |\n| `stripReadonlyWhenFields` 及其 `delete` | `:530` / `:545` |\n| 批量孪生 `stripReadonlyWhenFieldsMulti` 及其 `delete` | `:749` / `:780` |\n| `requiredWhen` fault(含未绑定根)记日志后 `continue` —— 仍是 fail-OPEN | `:1695-1712` |\n| 「Do NOT copy the fail-CLOSED carve-out」(#4977 裁定) | `:136` |\n\n另两条新声称的出处:`droppedFields` 的 `reason: 'readonly_when'` 见 objectstack `packages/objectql/src/engine-dropped-fields-primary-key.test.ts:205`(契约来自 objectstack#3794);客户端 readonly fallback 为 `false` 见本仓 `packages/core/src/evaluator/fieldRules.ts:253`。\n\npremise **成立**:那一句仍在,仍是无条件写法,且对 `readonlyWhen` 的未绑定根一类确实反了方向。\n\n## 改了什么\n\n1. **概括那条 bullet 带上例外**并指向新增小节 —— 它的职责就是给出正确的一眼概括,所以收窄而非删除。\n2. **新增 `### The one fail-CLOSED fault (objectstack#4889)`**:为什么未绑定根不是「谓词坏了」(是 spec 支持的构造,只是求值点答不上来)、服务端拿它怎么办(判锁死 + 从 payload 删 key + 记 `droppedFields`)、以及两条**非例外**:其他 `readonlyWhen` fault 仍 fail-open(并说明两类 fault 靠引擎错误文本区分,不靠猜),`requiredWhen` 没有这个 carve-out(#4977 绑了 scope 但刻意保留 fail-open 语义)。\n3. **`## Client enforcement (objectui)` 段**:原文「the same posture as the server」断言的是同一件事,同样收窄,并点明两端在这一格方向相反是刻意的,附上那个静默症状(表单可编辑、保存报成功、值不落库)与该往哪一端排障(服务端 `treating the field as LOCKED` 警告 + 写响应的 `droppedFields`,不是客户端谓词)。措辞与 PR #3887 的 docblock 对齐。\n\n## ADR-0057 编号:两层,一层修了一层立案\n\n**本仓撞号(已按卡片处理)**:引用写明是 **framework** 编号 —— 本仓另有一份无关的 `docs/adr/0057-console-ai-chat-one-conversation-docked.md`,裸编号会把本仓读者送到错误的文档。\n\n**framework 侧 D 锚点不可解(未修,已立案)**:核验时顺手查了这个引用能不能落地,结论是不能 —— framework 的两份 ADR-0057 里都没有内容对得上的 D10(`0057-erp-authorization-core-business-units-and-scope-depth.md:422` 的 D10 是 \"Setup-nav surfacing follows the capability\";`0057-system-data-lifecycle-and-retention.md` 没有任何 D 编号决策,它用 P0–P4)。规则本身是真的、代码自证,不成立的只是锚点。\n\n所以本 PR 把它写成**归属式**表述(「the rule the framework cites throughout its rule-validator, its lint diagnostics and its QA runner as **ADR-0057 D10**」)而不是断言该锚点可解 —— 本卡的全部要点就是不要在权威记录里保存一个查不实的断言,那么在同一次改动里新种一个会很讽刺。framework 侧共 20 个文件 + 一条 `adr-anchors/` invariant 骑在这个锚点上,已单独立案 **objectstack#9255**(观察类,`finding`,未定级),本 PR 不修。\n\n## 验证(文档类:正向判据)\n\n- `node scripts/check-control-bytes.mjs` → `OK (scanned 4432 tracked text file(s); skipped 85 binary)`\n- 门外自扫 `grep -naP` + 控制字符类(U+0000–U+0008、U+000B、U+000C、U+000E–U+001F)两个改动文件 → 零命中(本 PR 的散文完全不提及控制字符,仍按规矩自扫)\n- `node scripts/check-doc-links.mjs` → `Links are valid across 13 scan roots.`(`docs/**` 是它的扫描面之一;本 PR 未新增任何链接,ADR-0057 的文件名以反引号给出而非链接)\n- `node scripts/check-doc-component-types.mjs` → `Every documented component type is registered.`\n- `node scripts/check-changeset-fixed.mjs` / `check-changeset-no-major.mjs` → 均绿\n- 仓根 `flock … 'NODE_OPTIONS=--max-old-space-size=4096 pnpm exec turbo run type-check --concurrency=2'` → **81 successful, 81 total**(6m11s)。跑在正文定稿前;此后三处编辑全部落在 `docs/adr/**` 与 `.changeset/**`,这两处不进任何 tsconfig program(按 `--include=tsconfig*.json` 搜 `docs/` 前缀零命中),故未复跑。\n- **无新增/更新测试,这是诚实的**:改动是一份 markdown ADR,零代码。「新增测试」这一栏对本改动没有可测对象 —— 断言的正确性由上表每条声称配一个 framework `file:line` 指针来承担,这是文档类改动的正向判据。\n\n改前/改后的逐字对照见 issue 与下方 diff:改前一句 = `A predicate that fails to evaluate is **fail-open** and logged (a broken rule must never block a legitimate write).`;改后同一 bullet 追加 `— **except** a readonlyWhen whose fault is an unbound scope root, which has been fail-CLOSED since objectstack#4889.`,细节移入新小节。\n\n分支基于 `1b21b1aaa`;此后 `main` 已前移,但 `docs/adr/0036-field-conditional-rules.md` 与 `.changeset/` 在这段区间内无改动(按路径比对为空),无冲突。\n\n草稿 PR,不 undraft。\n"
+}

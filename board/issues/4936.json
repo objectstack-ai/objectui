@@ -1,0 +1,32 @@
+{
+  "number": 4936,
+  "kind": "pull_request",
+  "title": "fix(app-shell): word every dropped-fields reason on its own instead of calling the rest \"Read-only\" (#3935)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T06:58:30Z",
+  "updated_at": "2026-08-17T07:12:27Z",
+  "closed_at": "2026-08-17T07:12:26Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T07:12:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4936",
+  "body": "Fixes #3935\n\n## 前提复核(先行) —— 成立,而且**已经激活**\n\n- 三元式确实在 `packages/app-shell/src/providers/writeWarningToast.ts:114`(基线 `origin/main` @ `25c8007d4`),`else` 臂给出 `detail.writeStrippedReadonly`。\n- **`DroppedFieldsEvent['reason']` 现在是三个成员,不是两个。** 本仓 lockfile 已把 `@objectstack/spec` 解析到 `17.0.0-rc.6`;运行时 `DroppedFieldsEventSchema.shape.reason.options` 返回 `[\"readonly\",\"readonly_when\",\"primary_key\"]`。\n- 更硬的现场证据来自本仓自己:`packages/data-objectstack/src/spec-symbol-batch6.test.ts:221` 早已把三成员并集钉死,其注释原文写着 rc.6「是 #3935 预言的那一刻,#3935 stops being a prediction」,并明确把消费者侧的修法留给本卡(「needs replacing with an exhaustive map plus a third wording」)。\n- 所以这不是「等上游到 pin 才会错」的预防性重构:**今天**触发 primary-key strip 的用户已经被告知字段只读,并被指向一个不存在的权限问题。派发卡「现两 reason 即可动手」的口径已过期 —— 形态不变,但第三条文案必须当场给出,这是本 PR 与卡面唯一的偏差。\n\n## 改法\n\n`STRIPPED_LINE` 声明为 `Record< DroppedFieldsEvent['reason'], StrippedLine >`,镜像 framework `service-automation` 的 `DROPPED_REASON_LABEL`,也正是 spec `DroppedFieldsEventSchema` 注释向「凡按 reason 分支的消费者」点名要求的形状。`byReason` 的键从 `string` 收窄到该并集,穷尽性交给类型系统:上游再加 reason,这里是 `type-check` 红(缺臂),而三元式会永远编译通过 —— 那正是 #3160 坚持复用 spec 类型(而非手工放宽成 `string`)想换来的编译期信号。\n\n文案走现行通道,未发明新通道:`t('detail.…', { defaultValue })` + 十个 locale pack(全量 key parity 是强制的)。新增两个 key:\n\n- `detail.writeStrippedPrimaryKey` —— `primary_key` 专属句子:「记录的标识符在保存时无法修改,未生效」。\n- `detail.writeStrippedUnknownReason` —— 超出本包 pin 的 reason:只点字段,不声称原因。\n\n第二个 key 需要交代,因为它形似被禁的宽容兜底。adapter 的 `notifyDroppedFields` 只按**形状**过滤(`fields` 是非空数组),从不拿 `reason` 校验 enum,却把整条断言成 `DroppedFieldsEvent` —— 所以并集外的值真的会到达,而类型说不会。表不可能为它备臂,另两种处置都更差:盲取会在 adapter 以 `void emitWriteWarning(...)` 调用的 async 函数里抛,rejection 无人接管,用户连**已正确解析的那些 reason** 的整条 toast 都丢掉(正是 #3484 要消除的沉默);借用已知臂就是本卡要删的那句假话。未校验的边界本身不在本 PR 范围,已记为 #4934(observation-class,未排队)。\n\n## 钉证\n\n- 三个现有 reason 各一条,各自断言自己的句子;`readonly_when` 与 `primary_key` 另断言 **不含** `Read-only`。\n- 多 reason 同一事件:两行,逐行全等比对。\n- **穷尽性运行时钉**:从 `DroppedFieldsEventSchema.shape.reason.options` 逐个驱动 toast,要求每个 reason 都不落到 skew 文案、且彼此互异。钉的是「表键 ⊇ 类型成员」,来源是装好的 spec 本身,不会与类型漂移(「⊆」由 `Record` 对多余键报错承担)。pin 升级加了 reason,vitest 会与编译错误一起红。\n- 超前 pin 的 skew reason:不抛、不沉默、不编原因。\n\n## 反向验证(先书面预判,后跑)\n\n**变异 A —— 从 `STRIPPED_LINE` 抠掉 `primary_key` 臂。**\n预判:红落在 **type-check 门**;并且 —— 与派发卡「换门(而非 vitest)」的模板相反 —— vitest **也**会红,因为上面那条运行时穷尽钉是照卡面选项特意加的。实跑证实,两门皆红:\n\n```\nsrc/providers/writeWarningToast.ts(107,7): error TS2741: Property 'primary_key' is missing in type\n  '{ readonly: …; readonly_when: …; }' but required in type\n  'Record< \"readonly\" | \"readonly_when\" | \"primary_key\", StrippedLine >'.\n```\n```\n× uses the identifier wording for reason `primary_key` (objectstack#6437)\n× keeps one line per reason when a save was stripped for several\n× gives every reason the pinned spec declares its own wording (#3935)\n  AssertionError: reason `primary_key` has no wording of its own\nTests  3 failed | 10 passed (13)\n```\n\n如实记下与模板的差异:「换门」对**类型**机制成立(旧三元式在任何门都不会红),但运行时钉让 vitest 一并报警,实测失败数是 3 而非预判的 2 —— 多 reason 那条也用了 `primary_key`。\n\n**变异 B —— 互换 `readonly` / `readonly_when` 的 defaultValue。**\n预判:vitest 红、type-check 绿、`check-i18n-call-site-keys.mjs` 红。三项全部落实:\n\n```\nTSC_EXIT=0\n× uses the static read-only wording for reason `readonly`\n× uses the state wording for reason `readonly_when`, which is NOT read-only\n× keeps one line per reason when a save was stripped for several\nTests  3 failed | 10 passed (13)\n```\n```\n2 inline defaultValues contradict the en value of a key that EXISTS (2 distinct keys)\n  writeWarningToast.ts:109:5  [default-value-drift]  detail.writeStrippedReadonly\n  writeWarningToast.ts:114:5  [default-value-drift]  detail.writeStrippedByState\nGATE_EXIT=1\n```\n\n## 第二个 commit:一处被我自己弄丢又补回的门覆盖\n\n把四个 `t('detail.writeStripped…')` 搬进箭头函数,**静默地**把它们踢出了 `check-i18n-call-site-keys.mjs` 的视野:该门是按绑定上的**类型标注**(`TRANSLATOR_TYPE`)判断 `t` 是否真译器的,而箭头参数的 `t` 由 `StrippedLine` 推断、没有标注,于是四处都被判为「not a translator」(计数 36 -> 40),不再参与 en pack 解析、inline `defaultValue` 一致性与插值 parity 检查 —— 恰恰是这门最该盯的代码。逐个补回 `t: TranslateFn` 标注后恢复:pack-backed 2556 -> 2558、literal keys 2504/2504 全解析、literal inline defaults 909 -> 911、not-a-translator 回到 36(各 +2 即本 PR 两个新 key)。理由写在 `StrippedLine` 的注释里。变异 B 里那门能红,靠的就是这次补回。\n\n## 验证命令与实际输出\n\n```\npnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build      # exit 0\npnpm exec turbo run type-check --concurrency=2                                # Tasks: 81 successful, 81 total\npnpm exec vitest run packages/app-shell/src/providers/ --maxWorkers=2         # 6 files, 44 tests passed\npnpm exec vitest run packages/i18n --maxWorkers=2                             # 46 files, 822 tests passed\nnode scripts/check-i18n-call-site-keys.mjs                                    # exit 0\nnode scripts/check-i18n-en-drift.mjs                                          # 0 en value(s) changed (2 key(s) added)\nnode scripts/check-control-bytes.mjs                                          # OK (4418 files)\n```\n\n`check-i18n-en-drift` 明确报「0 en value changed, 2 keys added」—— 本 PR 没有改动任何既有 en 文案,只新增 key,十个 pack 同步。\n\nchangeset:`.changeset/write-warning-reason-table-3935.md`(`patch`,`@object-ui/app-shell` + `@object-ui/i18n`)。未触及 `content/docs/releases/`,未 force-push。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

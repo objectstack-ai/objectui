@@ -1,0 +1,32 @@
+{
+  "number": 4164,
+  "kind": "issue",
+  "title": "spec rc.6 vacated `WidgetManifest` / `WidgetSource` — the `Runtime…` prefixes may be reclaimed",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-10T15:12:21Z",
+  "updated_at": "2026-08-17T05:48:12Z",
+  "closed_at": "2026-08-17T05:47:51Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4164",
+  "body": "Recorded from the `@objectstack/spec` `17.0.0-rc.6` bump in objectstack#7100. Observation-class: nothing a user hits, no defect — an unlock that would otherwise be forgotten.\n\n`@object-ui/types` carries `RuntimeWidgetManifest` and `RuntimeWidgetSource` under prefixes added purely to avoid colliding with spec exports of the same bare names (the objectui#3074 lesson, pinned in `packages/types/src/__tests__/page-nav-misc-spec-parity.test.ts`).\n\nrc.6 retired the whole widget-manifest vocabulary from `@objectstack/spec/ui` — `WidgetManifest`, `WidgetSource`, `WidgetProperty`, `WidgetEvent`, `WidgetLifecycle` and their `…Schema` / `…Parsed` twins. The tripwire in that test fired exactly as designed, for the second time (objectui#3363 was the first, and reclaimed `GestureType` / `GestureConfig` on the same signal).\n\nThe reclaim is **available, not required**, so objectstack#7100's PR did not take it: both names are exported, so renaming them is a cross-package change with its own review, and that card is a `global_nav` retirement. What that PR did instead was move the two rows into the \"spec no longer owns\" list, so the vacancy stays pinned — if the spec ever re-publishes either name while objectui holds it, that becomes a live collision and the test goes red.\n\nWhoever picks this up: the precedent to follow is objectui#3363's reclaim, and the reason a reclaim can be declined is written beside `PWAOfflineConfig` in the same file (there the name has a second claimant, so the prefix is still load-bearing — check that neither of these two does before renaming)."
+}

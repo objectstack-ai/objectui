@@ -1,0 +1,35 @@
+{
+  "number": 3999,
+  "kind": "issue",
+  "title": "packages/layout/README.md 的 SidebarNav 示例三个键全错(label/path/icon 字符串),按它写出的侧边栏无标签、且 NavLink to=undefined",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:31:29Z",
+  "updated_at": "2026-08-16T08:33:12Z",
+  "closed_at": "2026-08-16T08:33:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3999",
+  "body": "发现于 #3987 的实施(PR #3995),**不在该 PR 处理** —— 那单的边界是 `navigation-renderer` 的 `items` 声明面 + 测试,这里是另一个组件、另一个文件(README),未认领,交 PM triage。\n\n## 机制\n\n`packages/layout/README.md` 的 `### SidebarNav` 段落(约 :76-90)给的示例:\n\n```typescript\nconst navItems = [\n  { label: 'Dashboard', path: '/dashboard', icon: 'home' },\n  { label: 'Users', path: '/users', icon: 'users' },\n  { label: 'Settings', path: '/settings', icon: 'settings' }\n];\n```\n\n而 `packages/layout/src/SidebarNav.tsx:23-30` 的 `NavItem` 是:\n\n```\ntitle: string;\nhref: string;\nicon?: React.ComponentType< { className?: string } >;\nbadge?: string | number;\nbadgeVariant?: ...;\nchildren?: NavItem[];\n```\n\n三个键**全错**,不是一个笔误:\n\n- `label` → 真实键是 `title`;\n- `path` → 真实键是 `href`;\n- `icon: 'home'` → 类型错。`icon` 是**组件**而不是图标名,渲染点是 `item.icon && < item.icon / >`(`:60`、`:110`)。\n\n## 后果(不是\"文档不全\")\n\n按示例写出来的对象既没有 `items` 也没有 `href`,`isNavGroup`(`:45`,判据 `'items' in item && !('href' in item)`)因此返回 false,走 `NavItem` 分支:\n\n- `< span >{item.title}< /span >`(`:110-111`)拿到 `undefined` —— 每一行**没有标签**;\n- `< NavLink to={item.href} >`(`:109`)拿到 `undefined` —— react-router 的 `to` 必填,实际表现待复现(warning / 抛错);\n- `item.icon` 是字符串 `'home'`,`< item.icon / >` 会被 React 当作未知小写标签渲染,而不是图标。\n\n在 TS 消费者里这段会直接类型报错(`label` 不在 `NavItem` 上),所以最直接的受害者是 JS 消费者、以及**照抄后自己\"改到能编译\"的作者(含 AI 作者)** —— 而 README 是这个包在 npm 上的门面页。这与 #3972 / #3987 是同一族缺陷(**声明面/文档面教了组件消费不了的形状**),只是载体从 `inputs` 换成了 README。\n\n## 可达性诚实标注\n\n- `SidebarNav` **没有**注册到 `ComponentRegistry`(`packages/layout/src/index.ts` 只 `import` 了它却没 `register`,eslint 因此报 `'SidebarNav' is defined but never used` —— 该 warning 在 `main` 上已存在);它只是被 `export * from './SidebarNav'` 导出的 React 组件。所以这条**只影响 React 直调侧**,与 schema/manifest 那条链无关。\n- 仓内没有任何地方按这个示例的形状调用 `SidebarNav`(仓内调用点都用 `title`/`href`),所以是**仓外消费者**受影响 —— 与 #3972 现象二同级的可达性标注。\n- 顺带一处**未核实**的旁证,留给 triage:`packages/layout/src/__tests__/side-effects-manifest.test.ts:289` 的注释写着 \"the SidebarNav component reaches the registry under `navigation-renderer`\" —— 但注册的是 `NavigationRenderer`,`SidebarNav` 是另一个文件里的另一个组件。若该说法确实不成立,那是同一段文档链上的第二处失真,但**是不是**只是措辞松散,我没有判定。\n\n## 修法(未做决定,PM 定)\n\n最小修法是把示例改成 `title` / `href`,并给 `icon` 用真实的组件写法(如 lucide 的 `Home`),或在示例里干脆省掉 `icon`。要不要顺带给 `SidebarNav` 补一段 props 表、以及要不要为 README 的代码块上门禁(#3786 家族的\"文档与代码同源\"问题),都超出这条 finding 的判断范围。\n\n参考位置:\n\n- `packages/layout/README.md:76-90` —— 出错的示例\n- `packages/layout/src/SidebarNav.tsx:23-30` —— `NavItem` 真实形状\n- `packages/layout/src/SidebarNav.tsx:45` / `:60` / `:109-111` —— `isNavGroup` 与两个渲染点\n\n关联:#3987 / #3972(同族,声明面/文档面教错形状)、#3786(文档与实现漂移)。"
+}

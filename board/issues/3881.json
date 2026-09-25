@@ -1,0 +1,35 @@
+{
+  "number": 3881,
+  "kind": "issue",
+  "title": "packages/components/README_SHADCN_SYNC.md 的组件清单与 shadcn-components.json 相互矛盾:resizable 被标成\"可从 registry 更新\"(manifest 说重同步会构建失败)、chart 缺席、custom 计数 14≠15",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:30:34Z",
+  "updated_at": "2026-08-17T07:22:02Z",
+  "closed_at": "2026-08-17T07:22:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3881",
+  "body": "## 现象\n\n`packages/components/README_SHADCN_SYNC.md` 把 shadcn 组件分成两类并逐个列名,权威口吻:\n\n- `### Shadcn Components (46)` —— \"These components come from Shadcn UI and **can be updated from the registry**\"\n- `### Custom ObjectUI Components (14)` —— \"These are custom to ObjectUI and **should NOT be auto-updated**\"\n\n同一事实的真正数据源是 `packages/components/shadcn-components.json`(`components` / `customComponents` 两个对象,`shadcn-sync.js` 按它决策)。两边逐项比对,三处矛盾:\n\n| 项 | README_SHADCN_SYNC.md | shadcn-components.json |\n|---|---|---|\n| `resizable` | 列在 **Shadcn Components → Layout**,即\"可从 registry 更新\" | 在 `customComponents` 里 |\n| `chart` | 整篇未出现 | 在 `components` 里(registry 同步) |\n| custom 计数 | 标题写 `(14)`,正文列 14 条 | `customComponents` 实为 **15** 条 |\n\n`resizable` 那条是有后果的一条 —— manifest 自己写明了为什么它不能重同步:\n\n> \"Diverged from Shadcn - hand-migrated to react-resizable-panels v4. Upstream still ships v3 (imports PanelGroup/PanelResizeHandle, which v4 does not export), so **re-syncing would break the build**. Restore to `components` only once upstream regenerates for v4.\"\n\n也就是说:按这份 README 的分类去读,`resizable` 是一个\"照常从 registry 更新\"的组件,而 manifest 说更新它会让构建挂掉。\n\n另有一处轻微路径漂移:`## Files` 小节称\"This directory contains tools…- `shadcn-sync.js` - Automated sync script\",但该目录下并没有这个文件 —— `git ls-files packages/components/ | grep shadcn` 只有 `shadcn-components.json`,脚本实际在仓根 `scripts/shadcn-sync.js`。\n\n## 为什么是同一个失效族\n\n这与 #3767(`scripts/README.md`)、#3724(`.github/WORKFLOWS.md`)是同一形状:**一份没有任何门禁钉住的第二份清单,按构造会漂移,而读起来同样权威**。两个使它无声的因素:\n\n- **没有门禁看得到它。** `check-doc-links.mjs` 的 `SCAN_ROOTS` 里那行是 `packages/*/README.md` —— 精确匹配 `README.md` 这个文件名,`README_SHADCN_SYNC.md` 不在扫描面内(该脚本自己的注释也把\"包内非 README markdown 未被扫描\"记为已知边界)。\n- **没有 pin test。** 全仓 `README_SHADCN_SYNC` 只有一处命中(`packages/components/README.md` 的一条链接),`scripts/__tests__/shadcn-*.test.ts` 钉的是 local patches 与 fetch cache,不是这份清单。\n\n值得单独记一笔的细节:**\"(46)\" 这个计数今天仍然对得上** —— doc 枚举 46 个名字、manifest `components` 也是 46 个,因为两处成员错误刚好互相抵消(多算了 `resizable`、漏掉了 `chart`)。所以只钉\"数量相等\"的检查会绿着放过它;要钉的是**成员集合**。\n\n## 分级\n\n按 `finding` 归档,不带 `pm:queue`,交分诊定级。今天没有 CI 会因它变红;成本是读它的人(或 agent)按错误分类去动 `resizable`。\n\n## 可选修法(供分诊定向)\n\n1. **按 manifest 校正正文**(`resizable` 移入 custom、补 `chart`、计数 14→15、`## Files` 的脚本路径改指 `scripts/shadcn-sync.js`)—— 但不加钉子的话只是把同一个漂移生成器重新上膛。\n2. **正文改成不逐项枚举**:分类事实只留在 `shadcn-components.json`,README 只讲流程,把\"哪些是 custom\"指向 manifest(`pnpm shadcn:list` 已能打印)。这一档天然免疫漂移。\n3. **加 pin test**(比对 doc 枚举的成员集合 vs manifest 两个对象的 key 集合,双向),与 1 同 PR。若走这条,建议顺带考虑把 `packages/*/README*.md` 纳入 `check-doc-links` 的扫描面 —— 与 #3735 的\"反引号内仓内路径必须存在\"是同类失效。\n\n发现于 #3767 的实施过程:删除 `scripts/README.md` 前需要证明它尾部那节(setup.sh / shadcn-sync 的存活内容)在别处已有覆盖,顺着 `README_SHADCN_SYNC.md` 这条\"覆盖来源\"核对时撞到本条。#3767 的删除结论不受影响(那节的 5 条 `shadcn:*` 命令用法在本文件里是准确的,漂的是组件分类清单)。"
+}

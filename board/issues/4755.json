@@ -1,0 +1,36 @@
+{
+  "number": 4755,
+  "kind": "issue",
+  "title": "DrawerForm's no-sections field builder drops `visibleWhen` / `readonlyWhen` / `requiredWhen` (and `group`) — ModalForm's identical builder carries them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T03:24:43Z",
+  "updated_at": "2026-08-16T05:04:32Z",
+  "closed_at": "2026-08-16T05:04:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4755",
+  "body": "Found while implementing #4085 (the `requiredWhen` + runtime-`defaultValue` create-form deadlock). Filed unassigned and deliberately out of that card's scope — it is a different bug on a neighbouring line.\n\n## The asymmetry\n\n`ModalForm` and `DrawerForm` each carry a *flat* field builder for the case where the caller supplies `objectName` (or `fields`) but no `sections` and no `customFields`. The two builders are otherwise line-for-line the same auto-generated `FormField`. One carries the ADR-0036 field-level conditional rules through to the renderer; the other does not.\n\n`packages/plugin-form/src/ModalForm.tsx` (~:423, inside the no-sections `useEffect`) ends with:\n\n```ts\n        options: field.options,\n        multiple: field.multiple,\n        // Field-level conditional rules (ADR-0036) — resolved reactively by\n        // the form renderer via the canonical engine (#2212).\n        visibleWhen: (field as any).visibleWhen,\n        readonlyWhen: (field as any).readonlyWhen,\n        requiredWhen: (field as any).requiredWhen,\n        // Field-group membership (Field.group → object.fieldGroups[].key) —\n        // read by deriveFieldGroupSections for the fieldGroups fallback.\n        group: (field as any).group,\n```\n\n`packages/plugin-form/src/DrawerForm.tsx` (~:348, the same `useEffect`) stops at `multiple: field.multiple,` — no `visibleWhen`, no `readonlyWhen`, no `requiredWhen`, no `group`.\n\nVerified on `origin/main` @ `2e82ab2ae`:\n\n```\n$ git grep -n \"requiredWhen\\|visibleWhen\" -- packages/plugin-form/src/DrawerForm.tsx\n(no output)\n$ git grep -n \"requiredWhen\" -- packages/plugin-form/src/ModalForm.tsx\n435:        requiredWhen: (field as any).requiredWhen,\n```\n\n`SplitForm` and `TabbedForm` are NOT affected — they have no flat builder at all and always route through `sectionFields.ts`, whose `fromObjectSchema` carries all three (`packages/plugin-form/src/sectionFields.ts:131-133`). So the gap is exactly one file.\n\n## Effect\n\nA drawer form opened over an object whose fields declare conditional rules ignores every one of them: a `visibleWhen`-FALSE field renders anyway, a `readonlyWhen`-TRUE field stays editable (and the server then strips the write and reports `droppedFields`), and a `requiredWhen` predicate never fires. The renderer is not at fault — `resolveFieldRuleState` never receives the predicates, because the builder did not copy them onto the runtime `FormField`.\n\nThe dropped `group` has a second effect: `deriveFieldGroupSections`'s `fieldGroups` fallback has nothing to group on, so a drawer form cannot auto-derive sections from the object's declared field groups the way the modal can.\n\n## Not measured\n\nI did not measure a shipped app that opens a drawer form with no `sections` over an object declaring conditional rules — the #4085 work only needed the sectioned path, so this was found by reading the sibling builders side by side rather than from a report. Filing plainly for triage to grade rather than sitting on it; severity judged at filing time is unreliable in both directions.\n\n## Fix shape (not attempted here)\n\nCopy the four keys onto `DrawerForm`'s generated field, matching `ModalForm`. The durable version is to stop maintaining two hand-copied builders: both are the same \"object schema field to runtime FormField\" mapping that `sectionFields.ts`'s `fromObjectSchema` already implements and keeps current — that is where the #3986 widget-arity fix, the #4069 create-mode `required` rule and the ADR-0036 rules all landed once. A parity test over the three producers would catch the next divergence, which is how this one survived: nothing asserts that the flat builders agree with the sectioned one.\n"
+}

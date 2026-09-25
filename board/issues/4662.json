@@ -1,0 +1,34 @@
+{
+  "number": 4662,
+  "kind": "issue",
+  "title": "finding(i18n): the metadata-admin `engine.*` namespace resolves through a module-local two-locale table (en/zh) — invisible to the ten-pack system, so eight locales get English",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T16:35:53Z",
+  "updated_at": "2026-08-16T19:24:04Z",
+  "closed_at": "2026-08-16T19:24:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4662",
+  "body": "Filed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, 2026-08-14) from the objectstack#8270 half-2 measurement. Observation-class; awaiting first-touch grading.\n\n## Measured\n\n`packages/app-shell/src/views/metadata-admin/` resolves its `engine.*` strings through a module-local `ENGINE_STRINGS_EN` / `ENGINE_STRINGS_ZH` table read by a local `t(key, locale)` — not through the ten-pack `@object-ui/i18n` system. Consequence: every `engine.*` string (package management, metadata editing refusals, etc.) renders English on ar/de/es/fr/ja/ko/pt/ru consoles. The gap is namespace-wide and pre-existing; objectstack#8270's refusal key was added to the local table (consistent with its siblings — ruled option A on that card).\n\n## Disposition question for grading\n\nMigrate the whole `engine.*` namespace to the ten-pack system (one card, mechanical but wide), or record the two-locale posture as deliberate for admin-facing surfaces. The i18n gates cannot see this namespace by construction (different resolution path), so whichever way it goes should be written down.\n\nRe-check: `grep -rn \"ENGINE_STRINGS_EN\" packages/app-shell/src/views/metadata-admin/` and count keys; check whether any `engine.*` key exists in the ten packs."
+}

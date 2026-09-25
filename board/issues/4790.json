@@ -1,0 +1,34 @@
+{
+  "number": 4790,
+  "kind": "issue",
+  "title": "DATA_SOURCE_FIELD_TYPES(form 层)与 core 的 EXPANDABLE_FIELD_TYPES 已知不同集且零 gate —— 同 #4770 的第二张允许表待收敛",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:15:02Z",
+  "updated_at": "2026-08-16T10:06:53Z",
+  "closed_at": "2026-08-16T10:06:52Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4790",
+  "body": "发现于 #4770 的实施(PR #4789),回传立单。与 #4770 同族且**已知漂移**(不是理论风险):\n\n## 事实\n\n- `packages/components/src/renderers/form/form.tsx` 的模块私有 `DATA_SOURCE_FIELD_TYPES`(lookup/master_detail/tree/object-ref/filter-condition/recipient-picker);\n- `packages/core/src/utils/expand-fields.ts:29` 的 `EXPANDABLE_FIELD_TYPES`,其 TSDoc **自述**「mirrors the form layer's DATA_SOURCE_FIELD_TYPES」且额外覆盖 `user` —— 即两表已在两侧各存一份、**已知不完全同集**(`user` 只在 core 侧),没有任何 gate 能发现继续漂移;\n- 「mirrors」注释本身就是 #4770 关掉的那类失效模式:注释声称同步,机制不保证。\n\n## 修法方向\n\n照 PR #4789 的定型机制:单一定义(落点按两表的真实语义关系定 —— 先量清 `user` 差异是有意还是漂移产物,有意则是「一表 + 显式超集」形态,漂移则收敛为一表)+ identity 钉。⚠️ 与 #4770 不同点:两表语义可能真的不同(expandable vs data-source-needing),测量先行,不预设「必须合一」。\n\n## 附注(同族清单,供分诊)\n\nmetadata-admin 三处「有 options 编辑器的字段类型」近似副本(field-types.ts:35 / object-fields-io.ts:126 / ObjectFieldInspector.tsx:87)—— 不同概念同失效模式,#4770 首派报告记录在案,是否随本卡或另立由分诊判。\n\n## 参考\n\n- #4770 / PR #4789(定型机制与 identity 钉形态)\n- `packages/core/src/utils/expand-fields.ts:29`、`packages/components/src/renderers/form/form.tsx`(DATA_SOURCE_FIELD_TYPES)"
+}

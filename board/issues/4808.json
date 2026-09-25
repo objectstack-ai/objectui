@@ -1,0 +1,34 @@
+{
+  "number": 4808,
+  "kind": "issue",
+  "title": "finding: app-shell.mdx 的 AppShellProps 声明块漏了 2 个真实 props(`branding`、`rightRail`/ADR-0057 P3a),读者从文档看不到它们存在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:17:16Z",
+  "updated_at": "2026-08-16T10:56:12Z",
+  "closed_at": "2026-08-16T10:56:12Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4808",
+  "body": "发现于 #3946 / #3947 的实施(PR #4805)。**不在该 PR 处理**:那单的完成面被钉死在「AppShell 自带 toggle」这一条声称上,且同文件的示例代码块归 #4793,本条两边都不属于 —— 独立立单。observation-class:不是假断言(写着的都对),是**漏写**,今天没有用户会因此出错,只是两个能力在文档里不存在。\n\n在 `origin/main` @ `8a9deceea` 核过。\n\n## 现象\n\n`content/docs/layout/app-shell.mdx` 的 `## Component Props` 段(`:37-45`)贴了一份 `AppShellProps`:\n\n```\ninterface AppShellProps {\n  sidebar?: React.ReactNode;\n  navbar?: React.ReactNode;\n  children: React.ReactNode;\n  className?: string;\n  defaultOpen?: boolean;\n}\n```\n\n`packages/layout/src/AppShell.tsx:26-41` 的真实声明是 **7 个** props,文档写了 5 个,漏掉的两个是:\n\n- `branding?: AppShellBranding` —— 同文件 `:13-24` 有完整的 `AppShellBranding`(`primaryColor` / `accentColor` / `favicon` / `logo` / `title`),`:123` 的 `useAppShellBranding` 会把它翻成 Shadcn 主题变量(`--primary` / `--ring` / `--sidebar-primary` 等)并跟随 dark class 重算。这是个有实现、有注释、有导出类型的能力,文档零字提及;\n- `rightRail?: React.ReactNode` —— ADR-0057 P3a 的 ChatDock 右栏,`:254-263` 作为主内容的 flex 兄弟渲染(reflow 而非覆盖)。同样零字提及。\n\n对照:文档的 `## Styling` / `## Features` 段落也没有任何一处提到 branding 或 right rail,所以不是「写在别处了」。\n\n## 为什么值得记一笔\n\n与 #3914(数值漂移)、#3946(声称一个不存在的能力)是同一页的同一家族,但方向相反:**这两条是存在的能力在文档里不存在**。后果比假断言温和 —— 不会把人带沟里,只是让 `branding`(整套主题定制入口)和 `rightRail` 变成得读源码才知道的隐藏 API。`branding` 尤其可惜:它是 `AppSchema.branding.primaryColor` 从 spec 落到渲染器的那一段,是给元数据作者看的。\n\n## 建议处置\n\n把 `## Component Props` 的声明块补齐到 7 个 props,并给 `branding` 加一小段(至少把 `AppShellBranding` 的五个字段和「它会覆盖 Shadcn 主题 token」写出来)、给 `rightRail` 一行说明。不涉及任何代码改动。\n\n派单时请注意本页的**热文件时序**:#4793(示例键错/不存在的 header prop)未派、#3946 的 PR #4805 在途,三者段落互不重叠,但同文件并行会撞。\n\n## 参考位置\n\n- `content/docs/layout/app-shell.mdx:37-45`\n- `packages/layout/src/AppShell.tsx:13-24`(`AppShellBranding`)、`:26-41`(`AppShellProps`)、`:119-232`(`useAppShellBranding`)、`:254-263`(`rightRail` 渲染点)\n\n关联:#3946 / PR #4805(同页另一事实,已处理)、#4793(同页示例代码块,未派)、#3914(同页数值,已关)"
+}

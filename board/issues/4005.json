@@ -1,0 +1,35 @@
+{
+  "number": 4005,
+  "kind": "issue",
+  "title": "[fields] 只读态的 group-labelled 字段:description 的 IDREF 同样没有消费者(#3990 修的是「名」,这条是「描述」)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T22:45:59Z",
+  "updated_at": "2026-08-16T08:32:56Z",
+  "closed_at": "2026-08-16T08:32:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4005",
+  "body": "在 #3990(PR #4002)的逐 widget 实测中量到的另一条,**与那个 PR 无关也不由它引入**,而是同一族的另一半:名(`aria-labelledby`)已在 #4002 里接上,**描述(`aria-describedby`)在只读态仍然是「发了 id 没人引用」**。单独立单。\n\nBlocked-by: #3990(PR #4002)—— 见下「为什么现在才好修」。\n\n## 实测\n\n一次性 probe(未提交),真 form renderer + 裸注册 `labelling: 'group'`,字段带 `description: 'Some help'`,数「引用 `…-form-item-description` 这个 id 的元素个数」:\n\n```\ncheckboxes  editable   descEl=SET  describedbyConsumers=1  consumerTags=[div[group]]\ncheckboxes  readonly   descEl=SET  describedbyConsumers=0  consumerTags=[]\nradio       editable   descEl=SET  describedbyConsumers=1  consumerTags=[div[radiogroup]]\nradio       readonly   descEl=SET  describedbyConsumers=0  consumerTags=[]\naddress     editable   descEl=SET  describedbyConsumers=1  consumerTags=[input]\naddress     readonly   descEl=SET  describedbyConsumers=0  consumerTags=[]\n```\n\n即:`FormDescription` 元素照常渲染、照常带 id(`descEl=SET`),可编辑态有 1 个消费者,**只读态 0 个**。可见的帮助文本在只读态与它描述的那个字段之间没有任何程序化关联。\n\n## 机理\n\n`FormControl` 是 Radix Slot,把 `id` / `aria-describedby` / `aria-invalid` 递给它包的那个 child(`packages/components/src/ui/form.tsx:118-127`)。\n\n- 可编辑态:widget 把这份 pass-through 铺到它渲染的容器或首个 sub-input 上,`aria-describedby` 随之落地(#3318 的既定分工);\n- 只读态:七个 widget 的提前 return 在 #4002 之前**一个属性都不带**;#4002 让它们带上「整字段」两键(host `id` + `aria-labelledby`)+ `role=\"group\"`,**刻意没带 `aria-describedby`** —— 当时的理由写在 `packages/fields/src/widgets/toHostGroupProps.ts` 的注释里:只读面没有可聚焦控件,而 `aria-describedby` 是「焦点落到可聚焦元素上时宣读」的通道。\n\n## 为什么现在才好修(不是当时该顺手做的)\n\n#4002 之前只读面**根本没有一个可承载的 role**:role-less 的 div / span 上 `aria-describedby` 与 `aria-labelledby` 一样是空转。#4002 之后只读面有了 `role=\"group\"`,而 group **是**一个合法的描述承载者 —— 辅助技术进入一个 group 时会宣读它的名与描述,不需要里面有可聚焦控件。所以「只读面该不该带 `aria-describedby`」这个问题现在才有一个明确的、能落地的答案,而当时按 #3990 的范围(把「名」接上)刻意留窄是对的。\n\n## 未实测(不要按本单推断)\n\n- 只量了 `checkboxes` / `radio` / `address` 三类;另外四类(`multiselect` / `rating` / `file` / `geolocation`)的只读面形态各异,应比照 #3990 逐个量;\n- **非** group-labelled 的 widget 里也有替换掉真实控件的只读显示(例如 EmailField 的 mailto 链接一类),它们的 description 关联未量;\n- 内建(未注册)分支的只读态未得出可信读数 —— 我第一次的对照行是**噪声**(那次 setup 下 `type: 'text'` 的字段容器里根本没有 input 元素),已作废,不作为本单证据。谁接这条请自己量。\n\n## 处置方向(未裁决)\n\n- 让只读面也带上 `aria-describedby`(它已经有 `role=\"group\"` 这个承载者),`toHostGroupProps` 从两键扩到三键 —— 但要一并想清楚 `aria-invalid` / `aria-required` 在只读面的去留,别把「控件通道」整份铺回一个非控件表面(那正是 #3291 与 #3318 在防的事);\n- 或者判定只读字段的可见帮助文本按阅读顺序已经够用,把这条按「不修」结案 —— 那也应当有一条钉子把这个判断写死,而不是留成沉默现状。\n\n## 参考\n\n- #3990 / PR #4002(只读/零选项态的 group 名接上,本条即在其验证中实测到)\n- #3961 / PR #3978,#3975 / PR #3983(group 机制两次奠定)\n- #3318(pass-through 的分工:describedby 留在可聚焦元素上)、#3291(白名单,不得重开 spread)"
+}

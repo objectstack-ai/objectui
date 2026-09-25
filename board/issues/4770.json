@@ -1,0 +1,35 @@
+{
+  "number": 4770,
+  "kind": "issue",
+  "title": "CASCADE option 允许表现存三份未导出的重复(app-shell / components / plugin-grid)—— 抬升到 @object-ui/fields 并让三处 import 同一常量",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:42:10Z",
+  "updated_at": "2026-08-16T08:45:54Z",
+  "closed_at": "2026-08-16T08:45:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4770",
+  "body": "发现于 #4757 的实施(PR #4763),回传立单。#3765 家族的收尾工程。\n\n## 事实\n\n「哪些 widget 类型吃 dependentValues」的允许表(select/multiselect/radio/checkboxes)现有三份**互不导出**的拷贝:\n\n1. `packages/app-shell/src/views/ActionParamDialog.tsx:227` — CASCADE_OPTION_WIDGET_TYPES(PR #4756)\n2. `packages/components/src/renderers/form/form.tsx:253` — CASCADE_OPTION_FIELD_TYPES\n3. `packages/plugin-grid/src/components/BulkActionDialog.tsx` — PR #4763 新增的同集(其 doc 注释单向指向前两处并写明「动一处三处一起动」)\n\n三者必须同集,否则三个表面对「record 是什么」漂移,且**没有任何 gate 能发现漂移**。\n\n## 修法\n\n抬升到 `@object-ui/fields` 导出(三处都已 import 该包的 `resolveFormWidgetType`,依赖方向成立),三处改 import 同一常量;可加一条 parity 钉断言三处引用同源(防将来再内联)。\n\n## 参考\n\n- #3765 / PR #4756、#4757 / PR #4763(三份拷贝的来历,取舍论证在 4763 正文)"
+}

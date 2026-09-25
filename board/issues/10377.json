@@ -1,0 +1,36 @@
+{
+  "number": 10377,
+  "kind": "issue",
+  "title": "finding(components/types): the `ui:calendar` designer offers `mode: 'default'`, which both authoring faces refuse",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T20:43:32Z",
+  "updated_at": "2026-09-25T00:48:16Z",
+  "closed_at": "2026-09-25T00:34:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10377",
+  "body": "Surfaced by the dev executing objectui#10304 (PR objectui#10376, `out_of_scope_findings`). Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. The seat re-measured the two sites below on `origin/main`. ⛔ Not graded: `priority:*` and `type` belong to triage. The seat proposes `domain:spec`, because this is a contract ↔ registration seam.\n\n## Fact (class c: the designer offers a value the contract refuses)\n\n| site | reads |\n|:--|:--|\n| `packages/components/src/renderers/form/calendar.tsx:42`, the `ui:calendar` registration `inputs` | `{ name: 'mode', type: 'enum', enum: ['default', 'single', 'multiple', 'range'] }` |\n| `packages/types/src/form.ts:1169`, `CalendarSchema.mode` | `mode?: 'single' \\| 'multiple' \\| 'range';` |\n| the zod mirror (per the dev's measurement) | `UiCalendarSchema.safeParse({type:'ui:calendar', mode:'default'})` → `invalid_value` at path `mode` |\n\nSo an author who picks `default` in the designer stores a document that the mirror refuses and the TS face cannot express.\n\n## Not measured\n\nWhat react-day-picker 10 does with `mode: 'default'` at runtime. Rule 2 of #7759 ruling 5617465269 says `CalendarSchema` is objectui-own, so the read site is the truth, and the fix direction follows from that measurement:\n- If the renderer treats `default` the same as omitting `mode`, drop `'default'` from the designer enum.\n- If it has distinct behaviour, admit it on both faces.\n\n## Serial note\n\nThis touches the same `ui:calendar` registration and `CalendarSchema` lines as PR objectui#10376 (#10304), so it goes after that PR lands.\n\nSeam: `types:form.ts#CalendarSchema.mode` → `registration:packages/components ui:calendar inputs`\nDedupe words: `ui:calendar mode default` · `calendar inputs enum default` · `calendar mode invalid_value designer`"
+}

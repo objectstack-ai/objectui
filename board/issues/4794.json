@@ -1,0 +1,33 @@
+{
+  "number": 4794,
+  "kind": "pull_request",
+  "title": "retire(studio): drop the canonical page:header icon field, restate the alias's on its renderer read (#3829)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T08:28:58Z",
+  "updated_at": "2026-08-16T08:57:02Z",
+  "closed_at": "2026-08-16T08:57:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T08:57:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4794",
+  "body": "Fixes #3829\n\n落地本卡 2026-08-16 的「PM 裁定 · 测量回贴」:route (c) 的 objectui follow-through,\nalias 半边按代裁的 **A 案**。维护者 2026-08-09 已裁 route (c),上游 objectstack#6946 /\nPR objectstack#7115 已执行,并随本仓现锁的 `@objectstack/spec@17.0.0-rc.6` 生效 ——\n`PageHeaderProps.icon` 与 `PageCardProps.actions` 均已是 ADR-0087 D2 墓碑(成员被替换为\n`z.never()`,带具名迁移文案)。\n\n## 为什么 objectui 这半边比原裁定预想的大\n\n退役 prescription 写的是「零生产者」。这对 `page:card.actions` 成立 —— 它是干净完整的\n退役;对 `page:header.icon` **不成立**:metadata-admin 设计器的 BLOCK_CONFIG 仍在为\ncanonical `page:header` 发布 `icon` 编辑框。退役前作者填进去的值被静默丢弃,退役后平台\n**按名拒绝整个节点** —— 留着生产面比退役前更糟,因为它在教作者(尤其是 AI 作者)写出\n解析失败的元数据。\n\n原裁定描述的完成机制也需要修正:D2 退役是把成员**替换**成 `z.never()`,不是删除,两键\n因此仍留在 `Object.keys(shape)` 里 —— pin bump 并不会让那两条 exemption 变 stale\n(gate 源码自己写明了这一点)。所以正确的 sequencing 是**重写**而不是删除,删除权归\nobjectui#3809。\n\n## 四件事\n\n**1. 两条 exemption 重写**(`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`)\n\n从「wire it or declare it」菜单改写为 retired-upstream 类,模板逐字取自同文件的\n`record:details.layout` 条目:引用 objectstack#6946 / PR objectstack#7115、写明墓碑留在\n`Object.keys(shape)`、删除权交 objectui#3809。顺带修陈旧行号(822-1570 改为 973-1677、\n666-695 改为 703-745,均按当前 `containers.tsx` 自核)与块头的 rc.5 注。\n两条 exemption **不删** —— 删了 gate 会反向变红。\n\n**2. 移除设计器 canonical `page:header` 的 icon 字段**\n\n`previews/block-config.ts` 的字段,加上此时已成孤儿的两条 i18n 键(en / zh 同一次改动,\n两张表键集保持一致)。先例逐字:commit 38ab5054f(PR #4169)对 global_nav 的同类清理\n(「the palette option and its now-orphaned i18n key」)。防回潮钉在\n`previews/__tests__/block-config.test.ts`:正面非空半 + 「不提供 icon」负钉 + spec 侧\n墓碑断言(含探针自身的非空性)+ 两条 i18n 键在两个 locale 都已无译文。\n\n**3. docs 修正**(`content/docs/layout/page-header.mdx`)\n\n第 40 行仍把 `icon` 教成 `PageHeaderProps` 的成员。改按 rc.6 现实重写,并把**组件自有\nprop** 与**已退役的 spec 键**如实区分 —— 这页文档写的是 `@object-ui/layout` 的\n`PageHeader` 组件,它的 `icon` 是 renderer 自有能力;canonical 节点上同名键已被按名拒绝。\n未碰 `content/docs/releases/`。\n\n**4. alias 半边(A 案)**\n\n`packages/layout` 的 `page-header` / `layout:page-header` 的 `icon` input **保留**:那是\n另一个渲染器,它真读真画(`PageHeader.tsx:123` 读、`:231-233` 画),文档发布它,本仓唯一\n的活 demo(`layout-page-header/pageheader-with-actions`)写 `\"icon\": \"users\"`。撤掉等于\n删除一项工作能力并弄坏 demo —— B 案已拒。\n\n变的是**依据**:注释从 spec parity 改述为 renderer-read 事实;\n`page-header-authorable-keys.test.tsx` 的 specKeys 派生**跳过墓碑**(unwrap optional 后\ninner 为 `never` 即墓碑,判据与 objectui#3809 一致,实现为局部 helper 并注释指向 #3809\n收敛),让 `icon` 不再因为 `Object.keys(shape)` 仍列着它而假绿。豁免写成具名、引单、\n自清的 `RENDERER_OWN_DECLARED`,并附一条纪律断言:条目必须对应一个 spec **曾经声明、\n现已退役**的键(spec 从未有过的键就是方言,`showBack` 就在同文件被钉为「不声明」)。\n未碰 alias renderer 的读点。\n\n顺带:`PageBlockInspector.i18n.test.tsx` 的 #3979 placeholder 测试对从 `page:header`\n改指 `record:alert` —— 同样的症状(译过的标签下一条 prose 提示),但钉在渲染器真读的键上。\n同一处几行之上的 objectui#4649 就是同样的动作与同样的理由。\n\n## 反向验证(先预判后跑,两次都未提交,跑完 `git checkout HEAD --` 还原,工作树 0 dirty)\n\n预判写在跑之前。两个实验的结果与预判**逐条一致**。\n\n**实验 A —— 把删掉的 BLOCK_CONFIG icon 字段装回去**(两条 i18n 键保持删除,隔离两半)\n\n预判红 7 条,实测红 7 条,无一条计划外:\n\n```\n× still offers the canonical header fields the renderer does implement\n    expected [ 'title', 'subtitle', 'icon', …(1) ] to deeply equal [ 'title', 'subtitle', 'breadcrumb' ]\n× does NOT offer the retired `icon` field\n    expected [ 'title', 'subtitle', 'icon', …(1) ] to not include 'icon'\n× collects every label site — the walk itself is not empty      expected 8 to be 7\n× collects all 17 placeholders — 7 keyed, 10 literal            expected 18 to be 17\n× every key resolves in en-US                                   expected [ …(2) ] to deeply equal []\n× every key resolves in zh-CN                                   expected [ …(2) ] to deeply equal []\n× zh-CN is actually translated, not a copy of en-US             expected [ …(2) ] to deeply equal []\n Tests  7 failed | 31 passed (38)\n```\n\n预判绿且实测绿的两条也是有意义的:spec 侧墓碑断言与「两个 locale 都已无译文」都**不**受\n设计器字段影响 —— 这正说明字段与 i18n 键必须同进同出,而不是任一可选。后三条红是派生的\n双 locale walk 抓到的,它才是这个纪律的机械保证。\n\n**实验 B —— 只撤回 specKeys 的墓碑窄化**(断言全部保留原样)\n\n这一条的方向**不是**「全红」,预判时就写明了,实测确认:\n\n```\n× the tombstone probe really reads the spec — not `undefined` for everything\n    expected 9 to be less than 9\n× declares `icon` with type `string` on both keys — on the renderer read, not spec parity\n    expected true to be false\n Tests  2 failed | 14 passed (16)\n```\n\n红的恰好是本次**新增**的两条断言。原有的方言守卫\n(`declares nothing @objectstack/spec accepts, beyond the declared renderer-own keys`)\n**仍然绿**,而且这是重点而非缺陷:撤回窄化只是把 `icon` 从「被 carve-out 放行」换回\n「被 `specKeys.has` 放行」,守卫两个世界都分辨不出来 —— 那份分辨不出来,正是 #3829 在被\n测量之前一直隐形的原因。若这里报「方言守卫转红」,那就是照模板编的。\n\n## 测试\n\n```\npnpm exec vitest run packages/app-shell/src/views/metadata-admin packages/layout \\\n  apps/console/src/__tests__/registry-inputs-spec-parity.test.ts --maxWorkers=2\n  Test Files  179 passed (179)\n       Tests  1874 passed | 1 skipped (1875)\n\n# 消费半径复跑(alias demo 的 manifest 门、console 全部 parity 门、app-shell 全量)\npnpm exec vitest run examples/schema-catalog apps/console packages/app-shell --maxWorkers=2\n  Test Files  465 passed (465)\n       Tests  5998 passed | 1 skipped (5999)\n\npnpm type-check --concurrency=2\n  Tasks:    81 successful, 81 total\n\ncheck:control-bytes OK(4307 个文件)· check:i18n-keys OK · check:i18n-en-drift 0 changed ·\ncheck:doc-links OK · changeset presence / fixed / no-major 均 OK · eslint 改动文件 0 error\n```\n\nBase:`c25222758598aec3d17c5aa22f1640659f1ecacc`(显式 sha,非 FETCH_HEAD)。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

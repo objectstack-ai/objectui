@@ -1,0 +1,33 @@
+{
+  "number": 10420,
+  "kind": "pull_request",
+  "title": "fix(components): ui:calendar designer stops offering mode default (objectui#10377)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T00:08:33Z",
+  "updated_at": "2026-09-25T00:34:12Z",
+  "closed_at": "2026-09-25T00:34:10Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-25T00:34:10Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10420",
+  "body": "Fixes #10377\n\nClause-②: conditional.\nThe branch taken is the first one: only the designer enum drops `'default'`; `CalendarSchema.mode` (TS) and the `UiCalendarSchema` mirror are byte-unchanged.\n\n## What changed\n\n- `packages/components/src/renderers/form/calendar.tsx`: the `ui:calendar` registration `inputs` enum for `mode` is now `['single', 'multiple', 'range']`, exactly what `CalendarSchema.mode` and `UiCalendarSchema` admit. `'default'` is gone.\n- New pin `packages/components/src/renderers/form/__tests__/calendar.designerModeEnum-10377.test.ts`: every value in the `ui:calendar` designer `mode` enum passes `UiCalendarSchema.safeParse` (enum is a subset of the contract). The list of modes is not restated; the mirror is the judge. It also has a non-vacuity row and a control row showing the mirror still refuses `default`, so the pin can fail.\n- `.changeset/10377-calendar-designer-mode-enum.md`: patch for `@object-ui/components`.\n\n## Measurement (step 1, before any edit)\n\nA throwaway probe rendered the real `ui:calendar` renderer (real `ComponentRegistry`, react-day-picker 10.0.1, clock frozen inside 2026-09) and compared `mode` omitted, `mode: 'single'` and `mode: 'default'`, each with no value, with `value` and with `defaultValue`, then clicked two days:\n\n| case | selected before | after clicking the 20th | after clicking the 22nd | root `data-mode` |\n|:--|:--|:--|:--|:--|\n| mode omitted | none | 2026-09-20 | 2026-09-22 | `single` |\n| `mode: 'single'` | none | 2026-09-20 | 2026-09-22 | `single` (DOM byte-identical to omitted) |\n| `mode: 'default'` | none | none | none | `default` |\n| omitted + `value: '2026-09-15'` | 2026-09-15 | 2026-09-20 | 2026-09-22 | `single` |\n| `'default'` + `value: '2026-09-15'` | **none** | none | none | `default` |\n| `'default'` + `defaultValue: '2026-09-15'` | **none** | none | none | `default` |\n\nSo `'default'` is distinct from omitting `mode`, but it is not a meaningful mode. react-day-picker 10's `Mode` union is only `single | multiple | range`, and its `useSelection` switch sends any other string to the no-selection branch. `isInteractive` is `mode !== undefined`, so all 35 day cells still render as buttons, but clicking them does nothing, and the authored `value` / `defaultValue` is silently dropped. That is a value falling through an unrecognised string, not a designed mode. That is why this PR takes the drop-from-the-enum branch. A read-only calendar is a separate question, raised in the report as an open question for the PM rather than widened here.\n\nThe corpus check found no document authoring `mode: 'default'`. The only hit in the tree was the registration itself.\n\n## Ablation (after the fix commit)\n\nThe fix was committed first (`3d90a1259`). Then `'default'` was put back into the enum on disk. The anchor count went from 0 to 1 for the old spelling and from 1 to 0 for the new one. The new pin went red: `Tests 1 failed | 2 passed (3)`, and the diff showed `+ \"default\"` as the refused value. The restore used `git checkout HEAD --`; `git diff HEAD` was empty and the disk hash matched the HEAD blob `b9a6e73df`. After the restore the pin was green: `Tests 3 passed (3)`.\n\n## Checks, run on `3d90a1259`\n\n- `pnpm --filter @object-ui/components type-check` (after `turbo run build --filter='@object-ui/components^...'`, 7/7 tasks): exit 0. The `--listFiles` output of `tsconfig.test.json` includes the new test.\n- `pnpm exec vitest run packages/components/`: `Test Files 295 passed | 1 skipped (296)`, `Tests 2845 passed | 17 skipped (2862)`.\n- eslint on the two touched source files: 0 errors and 3 warnings, all pre-existing `no-explicit-any` on unchanged lines (the base file has the same 3). Type-aware linting is not enabled in `eslint.config.js`, so this diff cannot move the verdict of any untouched file.\n- `check:designer-field-key-parity` OK · `check:control-bytes` OK · `check:new-line-citations` 0 new · `check:changeset-claims` pass · `check:pending-changeset-literals` pass · `check:component-surface-parity` report-only, exit 0 (its `ui:calendar` rows are the pre-existing `minDate`/`maxDate` rows and are unchanged) · `scripts/check-changeset-presence.mjs` pass.\n- NOT MEASURED: `check:sdui-registration-pins`. Reason: it reads the console bundle and refuses to run without `pnpm --filter @object-ui/console build`. Left to CI.\n\n## Acceptance notes\n\n- I found no generic designer-enum-vs-objectui-mirror check to extend. `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` judges enum arms against `@objectstack/spec` `ComponentPropsMap`, which does not carry the objectui-own `ui:calendar`. The existing enum-vs-mirror pins are per-component (`text-variant-align-6942`, `toast-sonner-button-variant-inputs-7316`). So the pin is per-component too.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_01877XiBYSaRCk2CU7cMSg3S)_\n"
+}

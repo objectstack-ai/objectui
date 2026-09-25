@@ -1,0 +1,32 @@
+{
+  "number": 4910,
+  "kind": "issue",
+  "title": "spec 17.0.0 GA made the element props schemas strict — two spec-parity tests still encode rc.6 strip-mode as their control",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T04:39:25Z",
+  "updated_at": "2026-08-17T05:38:49Z",
+  "closed_at": "2026-08-17T05:38:16Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4910",
+  "body": "Found while re-pointing PR #4639 (the `@objectstack/spec` GA pin bump, #4636). Filed\nunassigned; **not** fixed on that branch, because the pin-bump card's file surface is the\n`package.json` range lines plus the lockfile, and this is a real GA behaviour change rather\nthan a mirror of those lines.\n\n## What changed at GA\n\n`@objectstack/spec@17.0.0` flipped the `element:*` props schemas from **strip** mode to\n**strict**. An undeclared key used to parse green and simply vanish from `data`; it now\nfails with `unrecognized_keys`. The spec's own diagnostic states the intent:\n\n```\nUnrecognized key(s) on this `element:record_picker`: `notASpecKey`. Until #4001 batch A an\nundeclared prop was dropped in silence: the props schema stripped it and\n`PageComponent.properties` is an open bag, so the key reached objectui's renderer, was not\nread there, and the author got a success receipt for configuration that did nothing.\n```\n\nMeasured directly against the installed GA package:\n\n```\nElementRecordPickerPropsSchema.safeParse({ object: 'account', notASpecKey: 1 })\n  -> success: false, issues[0].code === 'unrecognized_keys'\n```\n\nThis is the change working as designed. The problem is only that two of our tests pin the\n**old** behaviour as their deliberate contrast probe.\n\n## The two failing tests\n\nBoth fail on the same assertion shape — the *contrast* half of an otherwise-passing test.\nTheir subject claims (the key is declared, published, and survives the parse) all pass.\n\n| file | failing assertion |\n|---|---|\n| `packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts:101` | `expect(undeclared.success).toBe(true)` |\n| `packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts:83` | `expect(undeclared.success).toBe(true)` |\n\nEach sits under a comment that states the now-falsified premise verbatim, e.g.\n\n```\n// This props schema is a strip-mode `z.object`, so an UNDECLARED key parses green too and\n// is simply absent from `data` afterwards; asserting `success` alone would prove nothing.\n```\n\n## The decision this needs\n\nThe probe exists to keep the surrounding key-reachability claim non-vacuous — it shows what\nan *unpublished* key looks like, so \"the key survives the parse\" means something. Under\nstrict mode that contrast has to be re-expressed. The candidate shapes:\n\n- **A — assert the rejection.** Replace `success === true` with an assertion that the\n  undeclared key now yields `success === false` and `issues[0].code === 'unrecognized_keys'`.\n  Keeps the contrast (declared key survives / undeclared key is refused by name), and upgrades\n  it: the probe now pins the *stronger* GA guarantee rather than the silent-strip behaviour the\n  spec deliberately retired.\n- **B — drop the probe.** Smallest diff, but it removes the non-vacuity guard the test's own\n  comments say is load-bearing, and the remaining assertions would then pass against a schema\n  that had stopped declaring anything.\n\nA looks clearly right, but it is a test-contract change on the repo's key-reachability\nconvention (declared-key reachability is asserted by key survival, per the comments in both\nfiles), so it wants a deliberate call rather than a drive-by edit — and the same convention\nis spelled out in other parity tests that do not currently fail.\n\n## Scope note\n\nA repo-wide scan for this exact spelling finds only these two files:\n\n```\ngrep -rn \"undeclared.success\\|notASpecKey\" --include=*.ts --include=*.tsx packages apps examples scripts\n  -> packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts:82,83,84\n     packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts:99,101,102\n```\n\nWorth widening once during the fix to any parity test asserting a green `safeParse` on a\nprops schema carrying an extra key, since the strict flip is schema-wide and not specific to\nthese two blocks.\n\n## Reproduce\n\nOnly after the GA pin resolves — on `main` (still `^17.0.0-rc.6`) both tests pass.\n\n```\ngit checkout claude/issue-4636-spec-pin-ga   # PR #4639, at 47c7cc3\npnpm exec vitest run --maxWorkers=2 packages/components/src/__tests__/record-picker-inputs-spec-parity.test.ts \\\n                                     packages/components/src/__tests__/text-input-inputs-spec-parity.test.ts\n```\n\nBlocked-by: #4636 (the failure is only reachable once the GA pin lands).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DbRmJD3iPhXjKr6vhd4Qkv)_"
+}

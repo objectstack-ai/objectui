@@ -2,8 +2,8 @@
   "number": 10222,
   "kind": "issue",
   "title": "plugin-timeline: delete the undeclared `timeline.metaFields` read — `cardFields` is the reserved spelling if a producer ever asks (moved from objectstack#19588, ruling batch #215 item 3 B)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,19 +12,22 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-23T08:43:28Z",
-  "updated_at": "2026-09-23T08:43:28Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T01:26:28Z",
+  "closed_at": "2026-09-25T01:16:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10222",
-  "body": "Moved from objectstack-ai/objectstack#19588 by the director seat, summon #28 (`session_01GLdRPcbaCBQCTvVmU6YEUY`), under ruling **batch #215 item 3 · letter B** (the record is the `Ruling:` comment on that card). Rebuilt here because the fix lands in this repo (〈多仓协调〉 rule 1); the source card is closed as moved. Filing gate ③ (a ruled task). ⛔ Not a claim.\n\n## The fact (from the source card; re-read at this repo's `main` by the taker)\n\n`TimelineConfigSchema` (`objectstack-ai/objectstack` `packages/spec/src/ui/view.zod.ts:1349`) is a `strictObject` declaring exactly seven members: `startDateField`, `endDateField`, `titleField`, `groupByField`, `colorField`, `scale`, `limit`. `packages/plugin-timeline/src/ObjectTimeline.tsx:516-521` reads an eighth member off the same block — `metaFields` — through an `as any` cast, with a comment calling it 「Spec config: `timeline.metaFields`」. An author who writes it is refused by the spec (`unrecognized_keys`), so no author can reach it; what renders today is the built-in default (`status`, `priority`, when the object has them).\n\n## Ruled shape — B\n\n1. Delete the `(timelineConfig as any).metaFields` read at `ObjectTimeline.tsx:520-521`; the built-in default chips stay exactly as they are today. Add a pin: no `metaFields` read remains in `packages/plugin-timeline`.\n2. **Spelling reserved:** if a producer ever asks for authored chip fields on the timeline, the key is `cardFields` on `TimelineConfigSchema` — the kanban / gallery spelling (`component.zod.ts:3172`) — ⛔ never `metaFields`. That declaration would be a spec card, not this one.\n3. Premise to falsify FIRST: no stored-view path bypasses the spec parse and delivers `metaFields` to this renderer (e.g. a per-user view state store). If one is found, stop and report on this card (回翻条款), ⛔ do not widen.\n\n## Not in scope\n\nobjectstack-ai/objectui#6170 (the SDUI `TimelineSchema` in `packages/types`, a different schema, `pm:blocked` on objectstack-ai/objectui#10060) is untouched.\n\nDedupe: `timeline.metaFields undeclared` · `ObjectTimeline as any cast read` · `cardFields timeline` · `objectstack#19588`."
+  "body": "Ruled: 5824012155 · letter A (retire all four `metaFields` reads) · 2026-09-24T23:36Z\n\nMoved from objectstack-ai/objectstack#19588 by the director seat, summon #28 (`session_01GLdRPcbaCBQCTvVmU6YEUY`), under ruling **batch #215 item 3 · letter B** (the record is the `Ruling:` comment on that card). Rebuilt here because the fix lands in this repo (〈多仓协调〉 rule 1); the source card is closed as moved. Filing gate ③ (a ruled task). ⛔ Not a claim.\n\n## The fact (from the source card; re-read at this repo's `main` by the taker)\n\n`TimelineConfigSchema` (`objectstack-ai/objectstack` `packages/spec/src/ui/view.zod.ts:1349`) is a `strictObject` declaring exactly seven members: `startDateField`, `endDateField`, `titleField`, `groupByField`, `colorField`, `scale`, `limit`. `packages/plugin-timeline/src/ObjectTimeline.tsx:516-521` reads an eighth member off the same block — `metaFields` — through an `as any` cast, with a comment calling it 「Spec config: `timeline.metaFields`」. An author who writes it is refused by the spec (`unrecognized_keys`), so no author can reach it; what renders today is the built-in default (`status`, `priority`, when the object has them).\n\n## Ruled shape — B\n\n1. Delete the `(timelineConfig as any).metaFields` read at `ObjectTimeline.tsx:520-521`; the built-in default chips stay exactly as they are today. Add a pin: no `metaFields` read remains in `packages/plugin-timeline`.\n2. **Spelling reserved:** if a producer ever asks for authored chip fields on the timeline, the key is `cardFields` on `TimelineConfigSchema` — the kanban / gallery spelling (`component.zod.ts:3172`) — ⛔ never `metaFields`. That declaration would be a spec card, not this one.\n3. Premise to falsify FIRST: no stored-view path bypasses the spec parse and delivers `metaFields` to this renderer (e.g. a per-user view state store). If one is found, stop and report on this card (回翻条款), ⛔ do not widen.\n\n## Not in scope\n\nobjectstack-ai/objectui#6170 (the SDUI `TimelineSchema` in `packages/types`, a different schema, `pm:blocked` on objectstack-ai/objectui#10060) is untouched.\n\nDedupe: `timeline.metaFields undeclared` · `ObjectTimeline as any cast read` · `cardFields timeline` · `objectstack#19588`."
 }

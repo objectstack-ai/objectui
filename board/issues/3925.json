@@ -1,0 +1,35 @@
+{
+  "number": 3925,
+  "kind": "issue",
+  "title": "Retire resolveModalTarget's object fallback — a modal target names a page, only (maintainer ruling objectstack#6739-A)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T05:45:25Z",
+  "updated_at": "2026-08-16T04:57:21Z",
+  "closed_at": "2026-08-16T04:57:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3925",
+  "body": "Blocked-by: objectstack-ai/objectstack#6739\n\nMaintainer ruling 2026-08-09 on objectstack#6739 (decision-inbox round, 「全部接受」): **a `type: 'modal'` action's string `target` names a PAGE, only.** The spec TSDoc, the published docs, and `defineStack`'s cross-reference walk are the contract; this repo's page-then-object resolution is consumer leniency and retires.\n\n## Deliverable\n\nIn `packages/app-shell/src/hooks/useActionModal.tsx`:\n\n- `resolveModalTarget` (`:165-196`, introduced `6632114bc` 2026-08-07): remove the object-name fallback — a `modal` target that is not a page name is a refusal (diagnostic naming the target and pointing at `type: 'form'`), not a silent object resolution.\n- The `create_x` / `new_x` prefix convention riding the same branch retires with it, and `normalizeModalSchema`'s `objectName` back-compat note (`:66`) is re-judged in the same PR. The ruling explicitly declined the third shape (keep prefix, reject bare object names).\n- \"Open an object's form from an action\" remains fully served by `type: 'form'` (validated end-to-end upstream).\n\n## Sequencing — why Blocked-by\n\nThe showcase corpus fix on objectstack#6739 (registry action AND PR #6737's inline button both move to `type: 'form'` + `target: 'showcase_task.edit'`) must land **first**, so the reference corpus never depends on the branch being deleted here. objectstack#6889 (inline actions bypass cross-reference validation) proceeds upstream after the same fix; its new checks are what will keep this contract held on the authoring side.\n\n## Risk note (from the ruling)\n\nThe object branch is 2 days old and its only in-repo consumer is the showcase line being fixed; if implementation discovers deployed metadata relying on the prefix convention, STOP and report the measurement instead of shipping the removal.\n\nRefs: objectstack#6739 (ruling + 5-shape probe), objectstack#6737, objectstack#6889, framework#3530."
+}

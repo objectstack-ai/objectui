@@ -1,0 +1,34 @@
+{
+  "number": 4726,
+  "kind": "issue",
+  "title": "finding(examples): schema-catalog's basic-accordion.json omits the required `value` key on every item",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T18:23:58Z",
+  "updated_at": "2026-08-15T19:20:56Z",
+  "closed_at": "2026-08-15T19:20:46Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4726",
+  "body": "Measured while implementing #4722. Filed unassigned. Duplicate-searched (keyword +\n`basic-accordion` + `schema-catalog accordion value`): no open issue covers it.\n\n## The finding\n\n`examples/schema-catalog/src/schemas/components-disclosure-accordion/basic-accordion.json`\n— the example rendered by `content/docs/components/disclosure/accordion.mdx` via\n`<SchemaExample id=\"components-disclosure-accordion/basic-accordion\" />` — declares three\nitems, none of which set `value`:\n\n```json\n{\n  \"type\": \"accordion\",\n  \"items\": [\n    { \"title\": \"Section 1\", \"content\": \"Content for section 1\" },\n    { \"title\": \"Section 2\", \"content\": \"Content for section 2\", \"disabled\": true },\n    { \"title\": \"Section 3\", \"content\": \"Content for section 3\" }\n  ]\n}\n```\n\n`AccordionItemSchema` (`packages/types/src/zod/disclosure.zod.ts`) declares `value` as a\nplain `z.string()` with no `.optional()` — i.e. required — and the TypeScript mirror\n`AccordionItem` (`packages/types/src/disclosure.ts`) agrees (`value: string;`, no `?`).\n\n## Why it is silently green today\n\nNothing currently runs this JSON through the Zod schema: `examples/schema-catalog/test/\nsmoke.test.tsx` only asserts each catalog entry is an object with a non-empty string\n`type` (structural, by design — see the file's own header comment). And the renderer\nitself tolerates the missing key —\n`packages/components/src/renderers/disclosure/accordion.tsx:23`:\n\n```tsx\n<AccordionItem key={item.value || index} value={item.value || `item-${index}`} disabled={item.disabled}>\n```\n\n— falling back to a synthesized `item-${index}` value. So the demo on the accordion docs\npage renders fine, and the catalog's own \"canonical\" accordion example teaches (by being\nthe one JSON authors will copy) a shape the declared contract rejects.\n\n## Impact\n\nDormant, same shape as the sibling `#4652`/`#4632`/`#4721` family: nothing goes red, but\nan AI authoring tool or human copying this catalog entry produces metadata that fails\n`AccordionItemSchema.parse()` the moment anything actually validates it — and per\nAGENTS.md #0.1 (fix the metadata, not the renderer), the renderer's `item.value ||\nitem-${index}` fallback is itself the wrong-direction fix: the producer (this example)\nshould supply the required key, not the consumer tolerate its absence.\n\n## Options\n\n1. Add `value` to each item in `basic-accordion.json` (mechanical — the Zod schema and TS\n   interface already agree it's required).\n2. Leave as-is (not recommended — the catalog's own example doesn't satisfy the schema it\n   claims to demonstrate).\n\nRelated: #4722 (the docs schema-block truth pass this was measured alongside), #4652 (the\nestablished finding shape for this file/interface pair).\n"
+}

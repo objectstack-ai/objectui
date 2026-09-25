@@ -1,0 +1,30 @@
+{
+  "number": 4813,
+  "kind": "pull_request",
+  "title": "docs(skills): auth-permissions 的 hidden 示例改用 `data.` 根,并写清表达式作用域",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:44:25Z",
+  "updated_at": "2026-08-16T09:47:29Z",
+  "closed_at": "2026-08-16T09:47:28Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T09:47:28Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4813",
+  "body": "Fixes #4798\n\n## 问题\n\n`skills/objectui/guides/auth-permissions.md` 教的 `\"hidden\": \"${!canDeleteContacts}\"` 用的是裸根。`SchemaRenderer` 的求值作用域是\n\n`packages/react/src/SchemaRenderer.tsx:336-341`\n```js\nconst evaluator = new ExpressionEvaluator({\n  ...predicateScope,\n  current_user: (predicateScope as any)?.user,\n  data: dataSource,\n  page: pageVariables,\n});\n```\n\n`predicateScope` 来自 `usePredicateScope()`(user / app / features,由 app-shell 的 `ExpressionProvider` 喂),**不含 dataSource**。dataSource 的键只能经 `data.` 根访问 —— 裸名解析成 `undefined`,`!undefined` 恒为 `true`,`hidden` 恒真,按钮对所有人隐藏,**包括有权限的人**,且与权限位取值无关,所以\"改一下权限再试\"这条最自然的排查路径不给任何信号。\n\n## 改动\n\n1. 该示例改 `${!data.canDeleteContacts}`。\n2. 紧邻处新增「Expression scope: which roots resolve」一节:作用域根对照表 + 明写「dataSource 的键只能经 `data.` 根访问,不会另行摊平成裸名」,并说清失效为何是静默的、同样适用于 `visible` / `disabled`。表内 ambient 根按实测的 `ExpressionProvider` 契约写(`packages/app-shell/src/providers/ExpressionProvider.tsx:59` 的 `{ current_user, user, ctx: {user}, os: {user}, app, data, features }`),并注明无 host scope 时只剩 `data` / `page`。\n\n未动 #4786 已改的信封写法,未动其它段落的教学内容。\n\n## 全文件表达式核对表\n\n同文件 `${…}` 共三处,逐个对照作用域判定:\n\n| 行 | 表达式 | 归属 | 判定 | 处置 |\n|---|---|---|---|---|\n| 157 | `'${user.id}'`(rowPermissions 的 filter 内) | **不是** SchemaRenderer 表达式 | 不在本作用域管辖内 —— `getRowFilter()` 把 filter **原样**返回(`PermissionProvider.tsx:108`、`evaluator.ts:78`),`@object-ui/permissions` 全程不插值 | 未动;形状问题另见 #4812 |\n| 231 | `${data.userRole !== 'admin'}` | SchemaRenderer | ✅ 对,`data.` 根 | 未动(实测复核见下) |\n| 255 | `${!canDeleteContacts}` | SchemaRenderer | ❌ 裸根 | **本 PR 修** |\n\n全文件只有这一处同类缺陷,无其它裸根需一并修。\n\n## probe 读数(真实 SchemaRenderer)\n\nprobe 从**文档正文**里抽 ```json 围栏、把带 `hidden` 的节点喂给真实 `SchemaRenderer` 渲染 —— 钉的是提交进仓的文本本身,而不是我另手敲的一份副本。probe 为临时文件,已删,未入仓。\n\n**修前(基线 209545086,复现 issue 的四态读数,逐字一致):**\n```\n@@PROBE bare/flag-true    text=\"\"          ← 有权限,按钮却没了\n@@PROBE bare/flag-false   text=\"\"\n@@PROBE data/flag-true    text=\"Delete\"\n@@PROBE data/flag-false   text=\"\"\n```\n\n**修后(文档抽取):**\n```\n--- doc expression: ${data.userRole !== 'admin'}\n@@PROBE userRole=admin   text=\"Delete Selected\"\n@@PROBE userRole=viewer  text=\"\"\n--- doc expression: ${!data.canDeleteContacts}\n@@PROBE flag-true   text=\"Delete\"          ← 有权限,按钮出来了\n@@PROBE flag-false  text=\"\"\n```\n\n`userRole` 两行一并复测,确认卡内「那几处是对的」的结论在今天的 main 上仍成立。\n\n## 反向验证\n\n**先声明预期方向再跑**:把裸根改回去,`flag-true` 应从 `\"Delete\"` 掉回 `\"\"`(常规红)。实测:\n\n```\n--- doc expression: ${!canDeleteContacts}\n@@PROBE flag-true   text=\"\"     ← 掉回空,与预期一致\n@@PROBE flag-false  text=\"\"\n```\n\n`userRole` 两行不受影响(本就正确)。随后用 `git checkout 本分支名 -- 该文件路径` 还原(改动已先 commit,有还原点)。\n\n## 门禁(实测输出)\n\n| 门 | 结果 |\n|---|---|\n| `node scripts/check-doc-links.mjs` | `Links are valid across 13 scan roots.` |\n| `node scripts/check-skills-paths.mjs` | `OK (88/89 stated path(s) resolve across 18 guide file(s); 1 baselined).` |\n| `node scripts/check-control-bytes.mjs` | `OK (scanned 4315 tracked text file(s); skipped 85 binary).` |\n| doc-truth 家族 4 个测试 | `Test Files 4 passed (4) / Tests 168 passed (168)` |\n| `node scripts/check-changeset-presence.mjs` | `No source of a released package changed in this range, so no changeset is owed.` |\n\ndoc-truth 家族跑的是 `scripts/__tests__/` 里 `doc-version-claims` / `check-skills-paths` / `check-doc-links` / `check-control-bytes` 四个。\n\n**changeset:不欠**,依据是门自己的输出 —— 「1 file(s) changed, 0 of them under the src/ of a package the release covers」。本 PR 只改 `skills/**` 的一个 md,不触发版包 `src/`。\n\n**doc-version-claims 棘轮**:本 PR 未新增任何版本字面量(`git diff` 的 `+` 行 grep 版本号形式为空)。\n\n控制字节除跑门外另做了一次自扫(`grep -naP` 扫 `[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]`),零命中。\n\n改动路径无 ts,免仓根 type-check;probe 临时文件已删,不影响。\n\n## 顺带发现(未在本 PR 修)\n\n同文件的 PermissionProvider 配置示例有四处形状与导出类型不符,其中一处照抄会让 `check()` 抛 TypeError —— 属**另一缺陷类**(配置形状,非表达式根),已单开 #4812,本 PR 不碰。\n"
+}

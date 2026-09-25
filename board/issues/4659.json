@@ -1,0 +1,35 @@
+{
+  "number": 4659,
+  "kind": "issue",
+  "title": "packages/components/metadata/*.component.yml is read by nothing — unpublished, ungated, and ObjectGrid's still claims a virtual_scroll feature that has no implementation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T16:24:04Z",
+  "updated_at": "2026-08-15T20:44:28Z",
+  "closed_at": "2026-08-15T20:42:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4659",
+  "body": "Observation-class finding, recorded while unwinding the objectstack#7176 retirement chain (#4649 / PR #4657), which edited one of these files. Unassigned, no `pm:queue`; grade it in triage.\n\n## What was measured\n\n`packages/components/metadata/` holds seven `*.component.yml` files (`ObjectGrid`, `ObjectForm`, `Page`, `Chart`, `Menu`, `GridLayout`, `FilterBuilder`) describing each component's props, events and features. On current `main`:\n\n- **Nothing imports or reads them.** No source file, no script under `scripts/`, no workflow references `component.yml` or the `metadata/` directory.\n- **They are not published.** `packages/components/package.json` has `\"files\": [\"dist\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]`, so the directory never leaves the repo.\n- **No gate compares them to anything.** In particular nothing checks a declared prop against the zod schema or the renderer, which is the check that would give the files a job.\n\nSo they are hand-maintained documentation with no reader and no consistency guarantee — and the guarantee is the part that matters, because they drift silently.\n\n## The drift that is already there\n\n`ObjectGrid.component.yml` ends with:\n\n```yaml\nfeatures:\n  remote_data: true\n  virtual_scroll: true\n  inline_edit: true\n  view_zod_aligned: true\n```\n\n`packages/plugin-grid` — the package that implements `object-grid` — contains **zero** references to `virtualScroll`, `virtual_scroll` or any virtualization. The claim was already false before objectstack#7176 retired the upstream `list.virtualScroll` key; the retirement just removed any prospect of it becoming true. PR #4657 deleted this file's `striped` / `bordered` **prop** declarations (the ADR-0049-style dead keys the `domain:spec` seat flagged) but deliberately left the `features:` block alone: it is a different vocabulary, and a capability claim nobody reads is a different question from an authorable key.\n\n`view_zod_aligned: true` is the same shape of claim — an alignment assertion with no gate behind it.\n\n## Why this is worth a card rather than a shrug\n\nTwo honest dispositions, and they point opposite ways, which is exactly why it should be decided rather than drifted:\n\n1. **Delete the directory.** Seven unread files that can contradict the code at no cost are worse than nothing — an agent or contributor reading `virtual_scroll: true` learns something false about the grid.\n2. **Give them a reader.** If the intent was a published component catalog (a designer palette, docs generation, an MCP capability manifest), wire it up and gate prop-name parity against the zod schemas — then the files pay for their maintenance and the drift above becomes a red test.\n\nWhat should not persist is the current state, where the files look authoritative and are neither. Startup-focus reading favours (1) unless a consumer is actually planned, since a declared surface with no pull is expansion nobody asked for.\n\n## Verification pointers\n\n- `grep -rn \"component.yml\\|components/metadata\" scripts/ .github/workflows/ packages/*/src` — no hits.\n- `grep -rn \"virtualScroll\\|virtual_scroll\" packages/plugin-grid/` — no hits."
+}

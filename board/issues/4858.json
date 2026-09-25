@@ -1,0 +1,34 @@
+{
+  "number": 4858,
+  "kind": "issue",
+  "title": "三份 skill 指南教消费者 `@source` 扫 `node_modules/@object-ui/*/src` —— 四个包里三个从不发布 src,且三份文件完全不提 style.css",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T16:00:45Z",
+  "updated_at": "2026-08-16T17:03:57Z",
+  "closed_at": "2026-08-16T17:03:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4858",
+  "body": "## 发现来源\n\nobjectui#4856(`@object-ui/fields` 的 `files` 去 `src`)的前置核查 ③(「全仓与文档是否教过 `src` deep-path」)。#4847 / PR #4852 在 `data-objectstack` 上做同一项核查时是干净的;在 `fields` 上**命中了**,追下去发现命中的不是 fields 专有问题,而是三份 skill 指南里一段对四个包都写着、且对其中三个今天就已失效的样板。单独记录,不在 #4856 里改(那卡的范围是 `package.json` 的 `files` 数组)。\n\n## 事实(实测,非推断)\n\n三份文件给出同一段 Tailwind 样板:\n\n| 文件 | 行 |\n| --- | --- |\n| `skills/objectui/rules/styling.md` | 187-190 |\n| `skills/objectui/guides/page-builder.md` | 251-252 |\n| `skills/objectui/guides/project-setup.md` | 131-134 |\n\n```css\n@source \"../node_modules/@object-ui/components/src/**/*.tsx\";\n@source \"../node_modules/@object-ui/fields/src/**/*.tsx\";\n@source \"../node_modules/@object-ui/layout/src/**/*.tsx\";\n@source \"../node_modules/@object-ui/react/src/**/*.tsx\";\n```\n\n四个包的 `files` 实测(`origin/main` = `1ef236e18`):\n\n| 包 | `files` | `node_modules/<pkg>/src/**` 对已发布消费者匹配 |\n| --- | --- | --- |\n| `@object-ui/components` | `[\"dist\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]` | **0 个文件** |\n| `@object-ui/layout` | 同上 | **0 个文件** |\n| `@object-ui/react` | 同上 | **0 个文件** |\n| `@object-ui/fields` | `[\"dist\",\"src\",…]` | 173 个(#4856 之后为 0) |\n\n也就是说这四条 glob 里**三条今天就已经匹配不到任何文件**;第四条能匹配,只是因为 `fields` 是同族三例里最后一个还把整棵 `src` 装进 tarball 的包(objectui#4851 的测量)。\n\n三份文件里 `style.css` **零命中** —— 它们从不教 `@import '@object-ui/components/style.css'` 或 `@import '@object-ui/fields/style.css'`,而 objectui#4059 之后那才是正路(`packages/fields/scripts/build-css.mjs` 就是为此建的,并实测过扫源码**生成不出** 17 个主题化 utility,因为 `@theme` 块在未发布的源码里)。\n\n**仓内维护中的两处说的是相反的话:**\n\n- `packages/components/README.md:64` —— 「You do **not** add a `@source` line for `node_modules/@object-ui/components`.」并给出理由:指向已发布文件只会把 shape-only utility 再生成一遍,而主题化的那些仍然生成不出来。\n- `packages/cli/src/utils/app-generator.ts:335` —— scaffold 给非 monorepo 消费者的是 `@source '../node_modules/@object-ui/*/dist/**/*.js';`,扫的是 **dist**,不是 src;`packages/cli/src/__tests__/app-generator.test.ts` 对这段有测试。\n\n## 用户面影响(今天,与 #4856 无关)\n\n按这三份指南搭起来的第三方项目:components / layout / react 的 utility class 一个都不会被生成(那是绝大部分渲染表面),同时没有任何 `style.css` 导入兜底 —— 页面基本无样式。这不是 dormant 观察:`skills/objectui/**` 正是写 ObjectUI 应用的 agent 读的那份指南,`scripts/__tests__/check-skills-paths.test.ts` 的表头把它记为「read by every agent that writes code」。\n\n## 与 #4856 的关系(合并顺序有意义)\n\n#4856 把 `src` 从 `fields` 的 `files` 移出后,上面四条 glob 里**最后一条也归零**。#4856 的判断是:tarball 里的 `packages/fields/src` 不是受支持的入口 —— 仓内两处维护中的答案(CLI scaffold 扫 dist、components README 明确禁止这条 `@source`)是一致的,而 `src` 只是同族三例里最后一个没清掉的历史残留(`files` 从包的第一个 commit `780a1b993` 起就含 `src`,而 `exports` 当时已只指 `dist`)。所以正确的修法在**指南侧**,不是把 `src` 留在 tarball 里迁就一段已经对 3/4 的包失效的样板。\n\n⚠️ 但顺序有影响:#4856 合并前先修掉这三份指南,跟着旧样板走的项目就不会经历「fields 的 shape utility 也没了」这一步。\n\n## 可能的修法(未裁,留给实施者)\n\n1. 把三份指南里的 `node_modules` `@source` 段换成 `content/docs/guide/theming.md` 教的导入顺序(`@import '@object-ui/components/style.css';` 然后 `@import '@object-ui/fields/style.css';`),monorepo 场景保留指向 `packages/*/src` 的 `@source`(那是工作区路径,与 tarball 无关,今天有效)。\n2. 或让某个门看住这类样板:`scripts/__tests__/check-skills-paths.test.ts` 今天只校验指南里引用的**仓内**路径存在,看不见 `node_modules/<pkg>/<subpath>` 这种针对**已发布**包的断言。判据可以是「指南里出现的 `node_modules/@object-ui/<pkg>/<path>` 必须落在该包 `files` 覆盖的范围内」——与 objectui#4846 记的产物级判据是同一族的成本问题。\n\n关联:#4856(发现来源)、#4851(fields / types 的 `files` 含 src 的来源卡)、#4059(`style.css` 为何必须存在,以及扫源码为何不够)、#4846(判据机制化的成本测量)。未认领。"
+}

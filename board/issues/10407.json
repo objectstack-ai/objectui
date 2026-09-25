@@ -1,0 +1,33 @@
+{
+  "number": 10407,
+  "kind": "pull_request",
+  "title": "fix(app-shell): keep the resolved list filter identity while its content is unchanged (objectui#7237, C half)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T23:10:53Z",
+  "updated_at": "2026-09-24T23:35:14Z",
+  "closed_at": "2026-09-24T23:35:12Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T23:35:12Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10407",
+  "body": "Part of #7237\nClause-②: no\n\nThe C half of ruling 5749198903 (letter C+A′). The A′ half (the gantt's in-place refresh with a visible refreshing state) is PR (2) and is not here; #7237 remains open for it. `ObjectGantt.tsx`, `ListView.tsx` and plugin-view's `ObjectView.tsx` are untouched.\n\n## What changed\n\n`renderListView` in `packages/app-shell/src/views/ObjectView.tsx` resolved the view's filter through `substituteFilterTokens` (`resolveFilterPlaceholders`), which returns a fresh array of identical content on every call. It now holds the previous value in a component-level ref (`heldListFilter`) while the resolved content is unchanged, compared by value through the file's existing `isSameOptionsValue`. That is the same ref-plus-value-comparison shape objectui#10046 put on the `options` bag in this same callback: no second convention, no `useMemo` identity leaned on (AGENTS.md #10). A real change (another URL filter, another session scope, a date placeholder that resolves differently) compares unequal and hands over the new value.\n\n## Measured first: the gantt node seam already reads 1 against 1 on main\n\nHypothesis 1 of the dispatch was re-measured before any edit, through a real render (page, plugin-view `ObjectView`, plugin-list `ListView`; only the `object-gantt` renderer is a recording stand-in), gantt view declaring a filter, two forced host re-renders, base `74783345a`:\n\n| reading | before (base) | after (this branch) |\n|:--|:--|:--|\n| filter identities at the gantt node | 1 | 1 |\n| sort identities at the gantt node (control) | 1 | 1 |\n| ListView list queries, mount | 2 | 1 |\n| ListView list queries, after 2 bare re-renders | 4 | 1 |\n| grid view with a filter, queries added by 2 bare re-renders | +2 | +0 |\n\nSo the census's 2 filter identities at the node no longer reproduce: `ListView`'s `selfQueryFilter` hold (objectui#10037) re-derives the node's filter and keeps its identity while the serialised value is unchanged, which stops the churn one layer above the chart. The producer churn was still live, though: `ListView` names `schema.filter` by identity in its own fetch effect, so every host re-render of a view with a filter issued one byte-identical list query (gantt and grid alike). This PR removes that at the producer, as ruling C words it. The node-seam case in the pin is therefore a regression pin that is green on the defect too, and its header says so.\n\n## Pin\n\n`packages/app-shell/src/views/ObjectView.stableFilterIdentity-7237.test.tsx`, 4 cases: two FIX cases (gantt and grid list-query counts), the node seam (filter 1, sort 1 across re-renders), and a CONTROL (a real filter change reaches the gantt node as a new identity carrying the new value, and still refetches).\n\nReverse runs, both from the committed fix, restored with `git checkout HEAD` and proven by HEAD-blob hash match plus an empty `git diff HEAD`:\n- fix reverted to base: predicted the two FIX cases red, the rest green; observed exactly that, `2 failed | 2 passed (4)` (`expected 2 to be 1`, `expected 2 to be +0`).\n- fix over-applied (hold kept whatever arrives; marker counted on disk before the run, 1 hit, 0 after restore): the CONTROL goes red alone, `1 failed | 3 passed (4)`.\n\n## Gates, at head `909629e85`\n\n- `pnpm --filter @object-ui/app-shell lint` (full `eslint .`): exit 0, 0 errors. A first run was red on 2 `react-hooks/globals` errors in the new test's harness; the handles are now published from an effect.\n- `pnpm --filter @object-ui/app-shell type-check`: exit 0 after `turbo run build --filter='@object-ui/app-shell^...'`; the test file is in `tsconfig.test.json`'s `--listFiles`.\n- app-shell tests, full package in three shards (`pnpm exec vitest run packages/app-shell/ --shard=N/3`): 259, 257 (+1 skipped), 258 files passed, all exit 0.\n- `check:new-line-citations`, `check:control-bytes`, `check:test-path-roots`, `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:unreferenced-sources`, `node scripts/check-changeset-presence.mjs`: all exit 0.\n- Changeset: `.changeset/7237-stable-list-filter-identity.md`, `@object-ui/app-shell` patch.\n\n## Acceptance notes\n\n- The ruling's pin wording \"2 to 1 identities at the gantt node\" is not reproducible on today's main (1 to 1 both worlds, above). The failing-on-defect pin is the list-query count at the ListView seam instead; the node seam is pinned as a non-regression.\n- `ObjectGantt`'s record fetch still lists `schema.filter` by identity; it is shielded here by ListView's hold, not re-keyed. That file belongs to PR (2).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

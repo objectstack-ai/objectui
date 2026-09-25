@@ -1,0 +1,35 @@
+{
+  "number": 4011,
+  "kind": "issue",
+  "title": "教学面仍在教未声明的 `cols` 键(AGENTS.md #5 / skills 两处 / site 营销样例)—— #4001 修了 catalog,生成器还在",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-10T00:08:28Z",
+  "updated_at": "2026-08-16T07:49:57Z",
+  "closed_at": "2026-08-16T07:49:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4011",
+  "body": "来源:#4001 实施(PR #4008)的 out-of-scope 回传,PM 立单跟踪。catalog 的 13 个 `cols` 实例已修 + 防回潮棘轮已钉,但产出这些实例的**教学源**未动 —— 照着它们写的作者(人和 AI)会继续产出 `cols`,只是进不了 catalog 而已。\n\n## 命中清单(dev 实测回传,立单时未逐条复核行号,实施者先核)\n\n1. `skills/objectui/rules/protocol.md:162` —— 教 `cols: { sm: 1, md: 2, lg: 4 }`\n2. `skills/objectui/guides/mobile.md:87` —— 同上形态\n3. `apps/site/app/components/ReactVsObjectUI.tsx:56` —— 营销示例 JSON 里 `\"props\": { \"cols\": { \"md\": 2, \"lg\": 4 } }`\n4. **根子:AGENTS.md 第 5 条自己写着** \"Layout schemas support responsive props (`cols`: { sm: 1, md: 2, lg: 4 })\" —— 仓的约束性指令文件教未声明键,读它的每个 agent 都会继续写 `cols`。\n\n另注:1/2/4 教的是**响应式对象形态**,与渲染器的真实契约(`columns` 数字 + `smColumns`/`mdColumns`/... 分键,读 `columns.xs/sm/md/lg/xl` 时无 `xs` 会落到 baseCols=1)是**双重错位** —— 键名错 + 值形态错。修正时以 `packages/types/src/layout.ts` 的 `GridSchema` 与 `grid.tsx` 读点为准,不要只做词法替换。\n\n## 观察类附注(不入本单修改范围,记录在案)\n\n`examples/schema-catalog/src/schemas/dashboard/*.json` 等多处用 `className` 直写 Tailwind(`md:grid-cols-2 lg:grid-cols-4`)表达列数 —— 今天渲染不错,但它是同一事实的第二方言,且绕开 #4008 的棘轮。要不要归一到声明键属产品口味,分诊时再判。\n\n## 关联\n\n- #4001 / PR #4008(catalog 侧已修,发现来源)\n- #3999(README 教错形状,同族:文档面教组件消费不了的东西)\n\nPart of #4001 的教学面收尾;修改面:两个 skills 文档 + 一个 site 组件 + AGENTS.md 一句。⛔ 不碰 `content/docs/releases/**`。"
+}

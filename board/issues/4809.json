@@ -1,0 +1,33 @@
+{
+  "number": 4809,
+  "kind": "pull_request",
+  "title": "fix(react): 删除 form-view bridge 对 spec 已退休 defaultSort/aria 的休眠读 (#3901, #3974)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: react",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:25:21Z",
+  "updated_at": "2026-08-16T09:34:52Z",
+  "closed_at": "2026-08-16T09:34:49Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T09:34:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4809",
+  "body": "Fixes #3901\nFixes #3974\n\n维护者 2026-08-11 裁定 **enforce-or-remove**,一 PR 双关两卡:删掉 `form-view.ts` 里两条永不可能命中的休眠读 —— `spec.defaultSort`(旧 `:188`)与 `spec.aria`(旧 `:193`),以及本地 `FormViewSpec` mirror 中对应的声明。\n\n## 前置门:非验证输入路径测量(裁定要求的产物)\n\n两卡都把「是否存在把**未经 schema 验证**的对象喂进这个 bridge 的路径」列为删除前必须回答的问题。测量结论:**零 load-bearing 路径**,可以安全删除。\n\n| 候选路径 | 测量方法 | 结果 |\n|---|---|---|\n| 仓内生产调用点 | `git grep -n \"bridgeFormView\\|transformFormView\\|transform('form'\"` 全仓 | **零**。只有 `SpecBridge.ts:49` 自身与 5 个测试文件。与 PR #4603 独立测得的结论一致(记在 `packages/types/src/__tests__/base-schema-label-vocabulary.test.ts:71`:「`SpecBridge` has zero in-repo production consumers」) |\n| `apps/` `examples/` 演示数据 | `git grep -rn \"SpecBridge\\|transformFormView\\|bridgeFormView\" -- apps examples` | **零命中**。仓内无 `.stories.tsx` |\n| 持久化直读 / 存储文档 | 同上;bridge 无任何仓内生产调用者,故无「读库直喂」路径 | **零** |\n| 外部 host(bridge 经 `@object-ui/react` 公开导出) | `packages/react/src/index.ts:14` 确实公开导出,`transformFormView(spec: any)` 是真实的非验证边界(`list-view.ts:81` 记过同一边界,#4442 曾在此踩实) | 边界**存在**,但对这两个键**非 load-bearing** —— 见下面「下游同样是空的」 |\n| fixture / 测试替身 | `git grep -rn \"defaultSort\"`、`aria` 全仓 | 命中 **2 处,全部是测试**,无生产:`FormViewSpecConformance.test.ts:80,83` 与 `P1SpecBridge.test.ts:344`。本 PR 按 fixture 分诊逐个处置(见下) |\n\n**下游同样是空的**(这是外部 host 边界不构成 load-bearing 的决定性一环):\n\n- `plugin-form` 对 `schema.aria` 与 `schema.defaultSort` 的读取数为 **0**。\n- `SchemaRenderer` 的通用 ARIA 注入读的是**扁平**的 `ariaLabel` / `ariaDescribedBy` / `role`(`SchemaRenderer.tsx:109-119`),**不是**嵌套的 `aria` 对象 —— 所以 bridge 写出的 `node.aria` 连通用渲染路径也接不上。\n- `object-form` 的 registry inputs 两个键都未声明。\n\n即:即使某个 host 拿一份 pre-17 存储文档直喂 bridge,这两条读也只是把键抄到一个**无人消费**的 node 槽位上,删前删后行为一致。这正是与 `rowHeight`(#4442)先例的分野 —— 那个键抄过去是**真被下游读的**。\n\n**反查(证明扫描器没坏)** —— 零命中必须用确定存在的邻近词反证:\n\n- `submitBehavior`(同一尾块 `:189`):同样的 grep 找到真实下游 `ObjectForm.tsx:799-800`、`:1197`。\n- `sharing`(同一尾块 `:192`):找到 `ListView.tsx:2924`。\n- `aria` 的 **live 对照**:list view 载体仍是活的,同一套 grep 在 `plugin-list/src/ListView.tsx:2389-2392` 找到嵌套 `schema.aria?.ariaLabel` / `ariaDescribedBy` / `live` / `role` 的消费。**同样的嵌套形状、同样的方法,在 plugin-form 是零** —— 仪器可用,零就是真零。\n\n## 生产者侧核验(ledger 的 dead 判定)\n\nobjectstack `origin/main` @ `35ceabb09`,`packages/spec/src/ui/view.zod.ts`:`defaultSort`(`:2432`)与 `aria`(`:2565`)在 FormViewSchema 上都是 `retiredKey()` 墓碑。`aria` 墓碑的理由本身就独立复述了我上面测到的下游结论:「no form renderer applied it (plugin-form/SchemaForm never read schema.aria)」。\n\n**正向证据 —— 删读不是删功能**:对本仓实际依赖的 `@objectstack/spec@17.0.0-rc.6` 实跑 `FormViewSchema.safeParse`:\n\n```\n--- baseline (no retired keys): success=true\n--- with aria: success=false\n    path=[\"aria\"] code=invalid_type\n      msg=`form.aria` was removed in @objectstack/spec 17.0.0 (#3896 audit close-out) — no form\n          renderer ever applied it, so declared ARIA attributes silently did not reach the DOM...\n--- with defaultSort: success=false\n    path=[\"defaultSort\"] code=invalid_type\n      msg=`form.defaultSort` was removed in @objectstack/spec 17.0.0 (#3896 audit close-out) —\n          nothing read it: a related list inside a form sorts by its own list view's `sort`...\n```\n\n能力早已在**契约**处被移除,且是带指引的具名拒绝;renderer 这两条读只是墓碑立起来之后留下的残肢。契约优先(AGENTS.md #0.1):留着它等于在消费端替一个契约明确拒绝的键做容错。\n\n## 改动\n\n- `packages/react/src/spec-bridge/bridges/form-view.ts`:删两条读 + mirror 里 `defaultSort` 与 `aria` 的声明;原 `// P1.6 — i18n & ARIA` 注释已随之改成 `// P1.6 — sharing`(它现在只覆盖 `sharing`);原地留下退休说明,并**显式写明 list bridge 的同名拷贝是对的、不要去「对齐」二者** —— 裁定里点名的「模仿陷阱」就是这个。\n- **fixture 分诊**(逐条判,不是批量重拼):\n  - `FormViewSpecConformance.test.ts` —— fixture 自称「every top-level key of spec FormViewSchema」,而这两个键在 spec 17 已不再是 FormViewSchema 的键,**从 fixture 移除**;同时说明为什么**不**放进 `IGNORED_SPEC_KEYS`(那份清单的语义是「确实是 spec 键、但我们故意不抄」)。\n  - `P1SpecBridge.test.ts` 的 `should pass through aria properties` —— 它钉的正是被删的那条肢。**整条替换**而非改写:一个断言「键被抄过去」的用例,在读被删后会因为「什么都没产出」而继续绿,那是假绿。\n- 新增 `packages/react/src/spec-bridge/__tests__/FormViewRetiredKeys.test.ts`(仿仓内 `spec-symbol-parity.test.ts` 的退休键先例):两端一起钉 —— 生产者侧 `safeParse` 仍具名拒绝两个键(墓碑若被解除,这半边先红,提醒下一个 agent 先回到裁定而不是直接加读);bridge 侧**故意喂原始未验证对象**(唯一还可能带这两个键的输入类别),断言 node 两个槽位都不产生。用**键存在性**断言(`'aria' in node`)而不是值断言 —— 被守的事实是「bridge 不产出这两个 node 槽位」。\n\n## 反向验证(先预判、后实跑)\n\n**预判(跑之前写死)**:只把 `aria` 那条读加回去 → 2 个文件、3 个测试变红,即 `FormViewRetiredKeys` 的两条 bridge 用例 + `P1SpecBridge` 那条;生产者半边**必须仍绿**(消费端加一条读不可能改变 schema);`FormViewSpecConformance` **也必须仍绿**,因为它的 fixture 已不再带这个键 —— 换句话说那套 conformance 用例**不是**这个回归的探测器,这正是新增独立钉子文件的理由。\n\n**实跑结果:与预判逐条吻合。**\n\n```\n× does not carry the retired form `aria` onto the node\n× does not carry `aria` or `defaultSort` onto the node\n× holds when the bridge function is called directly, not just via SpecBridge\nAssertionError: expected true to be false\n Test Files  2 failed | 4 passed (6)\n      Tests  3 failed | 108 passed (111)\n```\n\n还原后 6 files / 111 tests 全绿。反向验证在**已 commit** 的修复上做,还原走 `git checkout` 分支加路径的形式(AGENTS.md §9),不用 `git stash`。\n\n## 验证\n\n```\npnpm exec vitest run packages/react/                  → 45 files / 599 tests passed\npnpm exec vitest run packages/plugin-form/ \\\n    packages/plugin-list/ packages/plugin-grid/       → 160 files / 1727 tests passed\npnpm exec turbo run type-check --concurrency=2        → 81 successful, 81 total\nnode scripts/check-control-bytes.mjs                  → OK (4312 files)\nnode scripts/check-changeset-presence.mjs             → OK (1 changeset)\nnode scripts/check-changeset-no-major.mjs             → OK\nnode scripts/check-changeset-fixed.mjs                → OK\neslint(改动路径)                                      → 0 errors(15 warnings 均为既有 `any`)\n```\n\n消费面按「规则的调用半径」扫过,不只是被改的包:bridge 的输出被 `plugin-form` 消费、`plugin-grid` 有一个 `SpecBridge` 测试(走的是 list 路径)、`plugin-list` 是 live `aria` 载体 —— 三个包整包跑过,全绿。\n\nChangeset:`@object-ui/react: patch`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

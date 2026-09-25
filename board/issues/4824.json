@@ -1,0 +1,34 @@
+{
+  "number": 4824,
+  "kind": "issue",
+  "title": "[fields] 全屏长文本对话框不播报校验失败：richtext 的对话框编辑面恒 aria-invalid=\"false\"(字段实为 invalid),textarea 的干脆没有该属性,两者都不指向错误信息",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T10:24:16Z",
+  "updated_at": "2026-08-16T17:31:57Z",
+  "closed_at": "2026-08-16T17:31:57Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4824",
+  "body": "在 #4810 的实施中实测发现并按 Prime Directive #10 立单(不认领、不扩围到 #4810)。与 #4810 无关:#4810 只谈 **inline** 编辑面的 host plumbing,本条发生在 **fullscreen 对话框**那一份编辑面上。\n\n## 实测\n\n裸渲染 widget,`error` 有值(字段处于校验失败态)、`mobile_fullscreen: true`,点开展开按钮后读对话框内编辑面的属性:\n\n```\nINLINE  richtext  aria-invalid= true\nDIALOG  richtext  aria-invalid= false   aria-describedby= null\nINLINE  textarea  aria-invalid= true\nDIALOG  textarea  aria-invalid= null    aria-describedby= null\n```\n\nrichtext 那一行是更尖锐的一半:对话框不是「没说」,而是**主动播报 `aria-invalid=\"false\"`** —— 同一时刻同一字段的 inline 面正播报 `true`。机理是 `RichTextEditorSurface` 在对话框那次渲染里没有拿到 `error` prop,于是 `aria-invalid={!!undefined}` 落成字面的 `false`。textarea 那一半是属性整个缺席。\n\n## 影响\n\n`mobile.fullscreenLongText` 是已发布的 opt-in:开了它,用户在手机上就是在这个对话框里写长文本。校验失败后再打开对话框修改时,读屏用户在对话框内既拿不到「此字段无效」状态,也拿不到错误文案 —— 表单的 `FormMessage` 在对话框外,modal 打开期间被 Radix `aria-hidden` 掉。\n\n## 为什么需要设计裁决而不是照抄一行\n\n`TextAreaField` 现有注释已经点到一半:对话框里的 `aria-describedby` 是**重新构造**的,因为 host 给的那些 id 指向对话框外的节点、\"There is nothing to preserve\"。这个判断对字数说明成立,但正因为它成立,**错误状态就必须在对话框内另有承载**:是把 `FormMessage` 的文案复制一份进对话框(要防双份显示,#3222 明确把文案留给 `FormMessage`),还是只置 `aria-invalid` + 一个对话框本地的 `aria-errormessage` 节点,是两种不同的形状。两个 widget 与共享的 `FullscreenFieldEditor` 应当一次定齐,别只修一个(#4250 的教训:半修比统一的缺口更糟)。\n\n## 相关\n\n- #3417(同一族的前一条:对话框里的字数计数只有数字,读屏拿不到 —— 已修)\n- #3222(`error` 槽位的产者/消费者约定:widget 只用它驱动 `aria-invalid`,文案归 `FormMessage`)\n- #3318(`aria-invalid` 的 29 widget 账本 —— 那次的断言维度是 inline 面,看不到对话框这一份)\n- #4810(同一天相邻发现的另一条,inline 面的 `id` / `aria-describedby`)\n"
+}

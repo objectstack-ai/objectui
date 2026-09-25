@@ -1,0 +1,33 @@
+{
+  "number": 4939,
+  "kind": "pull_request",
+  "title": "docs(components): stop restating the shadcn classification in README_SHADCN_SYNC.md, pin what survives",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "package: components",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T07:00:38Z",
+  "updated_at": "2026-08-17T07:22:03Z",
+  "closed_at": "2026-08-17T07:22:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T07:22:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4939",
+  "body": "Fixes #3881\n\n## 前提复核(`origin/main` @ `25c8007d4`,逐条实测)\n\n三处矛盾**全部现存**,premise 成立:\n\n| 项 | README(改前) | shadcn-components.json |\n|---|---|---|\n| `resizable` | Shadcn Components → Layout,即「可从 registry 更新」 | `customComponents`,条目自述「重同步会构建失败」 |\n| `chart` | 全文零命中 | `components`(registry 同步) |\n| custom 计数 | 标题 `(14)`,正文 14 条 | `customComponents` 实为 **15** 条 |\n\n机械比对(README 枚举 ↔ manifest 键集)输出:\n\n```\nmanifest components: 46          doc shadcn enumerated: 46\nmanifest customComponents: 15    doc custom enumerated: 14\nSHADCN doc-only:      [ 'resizable' ]\nSHADCN manifest-only: [ 'chart' ]\nCUSTOM manifest-only: [ 'resizable' ]\n```\n\n卡面最关键那句实测成立:**两侧计数都是 46,`(46)` 在整个缺陷期间都对得上**,因为两处成员错误刚好互相抵消(多算 `resizable`、漏掉 `chart`)。\n\nmanifest 与磁盘**一致**,没有第二处缺陷需要另立卡:`packages/components/src/ui/resizable.tsx` 的文件头自己写明它不再是 upstream 同步文件、重同步会挂(v4 已把 `PanelGroup`/`PanelResizeHandle` 改名),与 manifest 的分类同向。**manifest 是真源**,漂的是 README。\n\n外加卡面记的路径漂移一处:`## Files` 称 `shadcn-sync.js` 在本目录,实际一直在仓根 `scripts/shadcn-sync.js`。\n\n## 实施(按分诊非绑定方向 2+3)\n\n**散文停止枚举成员。** 两份点名清单(46 + 14)整段删除,**不是**逐条校正 —— 校正只会把同一个漂移生成器重新上膛(#3767 / #3724 同族)。改为讲两类的**含义**(`components` 会被 `pnpm shadcn:update` 拉取覆写;`customComponents` 一律跳过),成员归属指向 manifest 与 `pnpm shadcn:list`。\n\n这个指向已实测兑现:`listComponents()` 只调 `loadManifest()`,**不碰网络**,两类都打印,并把每条 custom 的原因一并打出来(含 resizable 那句 \"re-syncing would break the build\")—— 严格强于原散文。顺带把 `shadcn:list` 从「Requires Internet」小节下挪出并新增一个 Offline 小节,否则新指向自相矛盾。\n\n**幸存的唯一枚举 = diverged 集合,且入钉。** `customComponents` 里带 `divergedFrom` 的那一类不是「天生 custom」,而是曾是 Shadcn、被手工迁过破坏性升级,upstream 仍在发的版本在本仓**编译不过**。这一条的误读代价不是「清单陈旧」而是**构建挂掉**,读者必须不跑命令就看得见 —— 所以名字保留,并由钉子按**成员集合**双向对住 manifest。\n\n**⛔ 不钉计数。** 如上,`(46)` 在整个缺陷期间都是绿的;计数钉在这里不是弱守卫,是**假守卫**。钉子里没有任何总数断言。\n\n## 钉子:`packages/components/src/__tests__/readme-shadcn-sync-categories.test.ts`\n\n照 #4860 / PR #4893 的 README 键表钉形态(双向 + 非空下限 + 无重复;期望集**一律从源头解析**,绝不硬编码 —— 硬编码 `resizable` 等于把同一个缺陷搬高一层),共 5 条:\n\n1. README 列的 diverged 名字,manifest 必须都标了 `divergedFrom`\n2. manifest 标了 `divergedFrom` 的,README 必须都列(**#3881 缺陷本体方向**)\n3. 两侧确实读到了 + 无重复 + `components`/`customComponents` 必须是划分(无交集)+ 空集情形显式处理\n4. `## Component Categories` 散文不得点名任何 `components` 键 —— 让这次「删除」不被悄悄撤销\n5. README 反引号里的仓内路径必须存在(本仓**没有任何链接门禁看得见这个文件**)\n\n第 3 条的空集处理值得单说:`resizable` 在 upstream 为 v4 重新生成后回到 `components` 是**预期未来,不是缺陷**,所以没有用「会在那天变红」的下限,而是写成 **iff** —— manifest 不标任何 diverged 时,README 的该小节必须一并消失。围栏代码块在判定前被剥掉,所以 Usage 小节里 `pnpm shadcn:update button` 这类合法命令示例不受第 4 条约束。\n\n钉子落在 `packages/components` 包内测试邻域(README 与 manifest 都是该包的文件),进 `unit` project(纯 fs 读、node 环境,无需 build 依赖)。\n\n## 反向验证(先书面预判,后跑;变异前已 commit,还原一律 `git checkout`,⛔ stash)\n\n五次变异,预判与实测**逐条相符**:\n\n| 变异 | 预判 | 实测 |\n|---|---|---|\n| A. README diverged 列表加一个 manifest 没标的名字(`chart`) | 钉 1 + 钉 4 红 | `2 failed \\| 3 passed` ✔ |\n| B. manifest 侧把 `resizable` 从 `customComponents` 挪进 `components` | 钉 1 + 钉 3 + 钉 4 红 | `3 failed \\| 2 passed` ✔,钉 3 命中空集分支的正确文案 |\n| C. 改写锚点 `Currently diverged:`(reader 停止匹配) | 钉 2 + 钉 3 红,**不得静默绿** | `2 failed \\| 3 passed` ✔ |\n| D. 改掉 `## Component Categories` 标题 | 钉 1-4 硬抛,钉 5 绿 | `4 failed \\| 1 passed` ✔ |\n| E. 复原卡面那处路径漂移 | **仅**钉 5 红 | `1 failed \\| 4 passed` ✔ |\n\nA 与 B 各证一面(README 侧 / manifest 侧);A 落在**两条**钉上而非一条,是因为 `chart` 同时是 `components` 的键,钉 4 也会命中 —— 这一点预判时已写明。C 是零命中断言的**防空绿正查**:锚点一旦失配,两条 `toEqual([])` 会双双退化成 no-op,C 证明它们反而变红(钉 2 与钉 3 各报一句可执行的修法)。\n\n## 验证\n\n```\npnpm exec vitest run packages/components/src/__tests__/readme-shadcn-sync-categories.test.ts --maxWorkers=2\n  Test Files  1 passed (1)        Tests  5 passed (5)\n\n# 消费半径清扫(manifest 的既有读者 + 链接门禁自测)\npnpm exec vitest run scripts/__tests__/shadcn-check-report.test.ts \\\n  scripts/__tests__/shadcn-local-patches.test.ts \\\n  scripts/__tests__/shadcn-sync-fetch-cache.test.ts \\\n  scripts/__tests__/check-doc-links.test.ts --maxWorkers=2\n  Test Files  4 passed (4)        Tests  157 passed (157)\n\npnpm exec turbo run type-check --concurrency=2\n  Tasks: 81 successful, 81 total\n\nnode scripts/check-control-bytes.mjs      → OK (4417 tracked text files)\nnode scripts/check-doc-links.mjs          → Links are valid across 13 scan roots.\nnode scripts/check-changeset-presence.mjs → 空 frontmatter,显式豁免,通过\nnode scripts/check-changeset-no-major.mjs → 无 major\npnpm exec eslint  (新钉文件)              → exit 0\n```\n\n全部重验证走共享锁 `/tmp/os-heavy-verify.lock`。changeset 用**空 frontmatter**(纯文档 + 钉,无发布语义;`packages/components/src/**` 触发门禁,空 frontmatter 是该门禁写明的完整答案)。\n\n## 相邻发现(未扩围)\n\n已另立 finding 卡 **#4938**:`check-doc-links` 的包级扫描面是精确文件名匹配,包内非 README markdown(15 个文件)从未被任何门禁解析过,实测 1 条死链(`TIMELINE.md` 指向不存在的 prototype app)。#3881 可选修法 3 提过「顺带把包内 README* 纳入扫描面」,本 PR **刻意未取** —— 那是独立的门禁扩面,有自己的入场价,按 #3536 → #3572 → #3603/#3622 → #4148 的先例链每次都是独立一张卡;本 PR 只在包内测试里把**这一个文件**的反引号路径局部钉住(钉 5)。\n\n## 未改动\n\n`shadcn-components.json`(真源,无需改)、`content/docs/releases/**`、`scripts/shadcn-sync.js`、任何 `src/ui/**` 组件文件。无 force-push。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

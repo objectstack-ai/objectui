@@ -1,0 +1,32 @@
+{
+  "number": 4227,
+  "kind": "issue",
+  "title": "Personalising a system view makes it look user-created — its override row comes back from `listViews()` as a saved view",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-11T04:19:56Z",
+  "updated_at": "2026-08-15T16:17:09Z",
+  "closed_at": "2026-08-15T16:16:59Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4227",
+  "body": "Filed unassigned from #4211's dispatch (PR #4224), per the \"measure the side-symptom, don't fix out of scope\" split. #4211 made the switcher's two reads agree on a view's **identity**; this is the adjacent question that fix deliberately does not answer — **which rows count as saved views at all** — and it fails in the opposite direction.\n\n## What happens\n\nToggle any per-view personalization on a **code-defined (system) view** — density, sort, hidden columns, column widths, inline edit. From the next load on, that view is presented as user-created: the tab loses its read-only lock badge and gains **Rename**, **Delete**, **Set as default**, **Pin** and **Edit view config** in both its dropdown and its context menu.\n\nIt is not a display-only slip. `handleDeleteView` calls `dataSource.deleteView(objectName, vid)` against a view that lives in code, and `handleRenameView` writes a `label` overlay onto it.\n\n## Why — one metadata namespace, two meanings\n\nPersonalization and saved views are stored in the **same** `type='view'` namespace, and nothing distinguishes them on read.\n\nThe write side stamps the row so it looks object-owned (`packages/data-objectstack/src/index.ts`, `updateViewConfig`):\n\n```js\nconst merged = { ...(config || {}), object: (config as any)?.object || objectName, name: viewId };\nawait this.client.meta.saveItem('view', viewId, merged);\n```\n\nThe read side narrows by exactly that field (`viewItemObjectName`, same file):\n\n```js\nfunction viewItemObjectName(item: any): string | undefined {\n  const spec = item?.list ?? item;\n  return spec?.data?.object ?? spec?.object ?? spec?.objectName;\n}\n```\n\n`listViews()` filters on `viewItemObjectName(v) !== objectName` and drops only form-family rows, so a personalization row for a system view passes both tests and is returned as an ordinary overlay row. It is keyed by `name: viewId` — the system view's own id — so it matches that tab exactly.\n\n`ObjectView` then reads \"an overlay row exists for this tab id\" as \"this view is user-created\":\n\n```js\nconst saved = savedViews.find((sv: any) => viewRowId(sv) === view.id);\nconst isSystem = !saved;                 // ObjectView.tsx:2022\nreadonly: isSystem,\n```\n\nand the same predicate is the guard in all five mutating handlers, so the menu entries render *and* their handlers accept.\n\n`listViewOverrides` in the same adapter reads these rows for their intended purpose. The two readers disagree about what a row means, and only one of them is right.\n\n## Measured\n\nReproduced at component level while mapping #4211's seam, with rows in the shape `updateViewConfig` actually writes:\n\n```\nsavedViews keys : [ 'crm_lead.default' ]\ntab ids         : [ 'crm_lead.default' ]\n  tab \"crm_lead.default\" readonly=false isSavedView=true\n```\n\n`crm_lead.default` is a metadata-declared view with no user-created counterpart; the only row backing it is the density override. Expected `readonly=true`.\n\n## Not caused by, and not fixed by, #4211\n\nPre-existing, and untouched by PR #4224. That PR replaced three spellings of a row's identity with one (`viewRowId`) so the tab id and the overlay key agree; it did not change **which** rows enter `savedViews`, and this defect needs no id disagreement — the ids here match perfectly, which is precisely the problem. PR #4224 pins the correct behaviour as a control (\"a genuine system view stays readonly — its missing menu entry is CORRECT\"), and that control passes today only because its fixture has no override row.\n\n## Sketch of the fix, for triage — not a decision\n\nThe rows are already distinguishable; nobody looks. A personalization row has no `viewKind` and no view body of its own, while a real saved view is created through `createView` with a generated `name` and a full `fullSpec`. Options, roughly ordered by how contract-first they are:\n\n1. **Separate the namespaces** — write personalization under its own metadata type. Cleanest, and makes \"declared = enforced\" true on read; costs a migration for existing rows.\n2. **Mark the row on write** and filter on read — e.g. an explicit discriminant stamped by `updateViewConfig` and excluded by `listViews()`. Cheaper, and it is a producer-side fix rather than a consumer-side tolerance.\n3. **Infer on read** (a row with no view body is an override). Consumer-side leniency of exactly the kind that lets authoring mistakes hide — noted for completeness, not recommended.\n\nWhich one is right is a spec/ownership question about the `view` metadata namespace rather than a rendering detail, so it wants a maintainer read before code."
+}

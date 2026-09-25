@@ -2,8 +2,8 @@
   "number": 8130,
   "kind": "issue",
   "title": "finding(plugin-chatbot): two files named `tool-display.test.ts` in one package — the 460-line quota-pin file sits outside `__tests__/`, so a basename citation addresses either one",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -13,7 +13,6 @@
   "labels": [
     "domain:ui",
     "plugin",
-    "pm:queue",
     "priority:p3",
     "tests"
   ],
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-06T17:42:49Z",
-  "updated_at": "2026-09-07T13:12:00Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T00:14:02Z",
+  "closed_at": "2026-09-25T00:01:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8130",
   "body": "Found while implementing #7587 (the 429 quota envelope). Not claimed as a live false-green: both files DO run in CI today. What is claimed is measured below.\n\n## The measurement — `origin/main` `cf1d29e2f`\n\n```\npackages/plugin-chatbot/src/tool-display.test.ts             460 lines\npackages/plugin-chatbot/src/__tests__/tool-display.test.ts    91 lines\n```\n\nBoth import the same module (`../tool-display` / `./tool-display`) and both are named `tool-display.test.ts`. The split is not by subject in any way a reader can predict from the paths: the 91-line file inside `__tests__/` holds the display helpers (`humanizeToolName`, `unwrapToolResult`, `summarizeChatError`); the 460-line file OUTSIDE `__tests__/` holds every `parseAiQuotaError` pin, including the contract pin #6385 left behind.\n\nRepo-wide this is an outlier, not a convention. Counting `(package, basename)` collisions across `packages/` and `examples/`:\n\n```\ncore/chart-series.test.ts\nplugin-chatbot/tool-display.test.ts\n```\n\nTwo, total.\n\n## Why it is worth a line\n\nThe citation form both #6385 and #7587 use is the bare basename plus a line number — *\"`tool-display.test.ts:276`\"*. That resolves to the intended file here only by luck (the other file is 91 lines, so `:276` does not exist in it). Nothing keeps that luck: the day the `__tests__/` file passes ~276 lines, the same citation names two real lines in two real files and a reader has no way to tell which card meant which.\n\nThe sharper edge is the path-filtered run. objectui#3240 made a zero-match path filter fail loudly, which is the protection this case does NOT get: both spellings match a real file, so\n\n```\npnpm exec vitest run packages/plugin-chatbot/src/__tests__/tool-display.test.ts\n```\n\nruns 6 tests, exits 0, and runs none of the quota pins — while reading exactly like \"the tool-display tests pass\". An agent verifying a `tool-display.ts` change by that path gets a green that says nothing about the change.\n\n## Not claimed\n\n- No test is currently mis-run. CI's `packages/**/*.test.ts` globs collect both files; the whole-package run (`pnpm exec vitest run packages/plugin-chatbot/`) reports 39 files / 461 tests with both included.\n- No opinion on the fix. Renaming the 460-line file (e.g. `tool-display.quota.test.ts`) and moving it under `__tests__/` are two different changes with different blast radii — the file is cited by number in at least two cards, so a rename has a documentation cost worth weighing. `core/chart-series.test.ts` is the same shape and was not inspected.\n\nFiled unassigned; lane and priority are the triage seat's."

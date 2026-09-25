@@ -1,0 +1,35 @@
+{
+  "number": 3808,
+  "kind": "issue",
+  "title": "parity 门的反方向没推到全仓:7 个 block 共 15 个 spec 已声明的顶层键没有任何 `inputs` 发布,其中 3 个渲染器实读(`record:details.hideFields` / `record:related_list.relationshipValueField` / `element:text_input.defaultValue`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T17:21:09Z",
+  "updated_at": "2026-08-17T09:02:36Z",
+  "closed_at": "2026-08-08T19:55:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3808",
+  "body": "发现于 #3797 / PR #3806 的实施过程。那一单按判级只推了**一个方向**(「registry 不得声明 spec 不接受的顶层 input」),PR #3795 的单块版其实有**两个方向**,另一个是「spec 有的键,`inputs` 里必须能被作者发现」。反方向没推到全仓,本单是把它补上。未认领,交 PM triage。\n\n## 为什么反方向同样有害\n\n`inputs` 是 `gen-manifest.ts` 序列化进 `sdui.manifest.json` 与 `sdui-intrinsics.d.ts` 的**发布面**。一个 spec 声明了、渲染器也兑现了、但 `inputs` 不提的键,对读 manifest 的作者(尤其是 AI 作者)就是**不存在**:它不在设计器面板里,不在生成的 `.d.ts` 里,写了还会被 `sdui-parser` 的 manifest 门报 `unknown-prop` warning。这正是 #3407 的原始抱怨(`readonly` 早已被兑现,只是 description 没提,作者读不到)。\n\n## 实测清单(objectui `origin/main` @ `c4c0ac897`,pin `@objectstack/spec@17.0.0-rc.5`)\n\n用 PR #3806 落的门同一套 derivation 反着跑(`specTopLevelKeys(type)` 减去 `inputs` 名,`aria` 已排除 —— 它是无障碍逃生口,`record:details` / `record:activity` 都有成文理由不声明):\n\n```\nelement:record_picker  displayField, searchFields, filter, multiple, targetVariable\nelement:text_input     defaultValue, targetVariable\npage:card              actions\npage:header            icon\npage:tabs              type\nrecord:details         hideFields\nrecord:related_list    relationshipValueField, add\n```\n\n**这 15 条不是一类东西,triage 时请分开看**:\n\n### A 类 —— 真缺口:渲染器实读、作者读不到(3 条,最该修)\n\n| 键 | 渲染器读点 | 证据 |\n|---|---|---|\n| `record:details.hideFields` | `packages/plugin-detail/src/renderers/record-details.tsx:147` | spec 那段注释原文说它「由已发布的 `sys_user` 平台页面书写、由 `RecordDetailsRenderer` 读取,只是从来没被声明过」(objectstack#5611 已在 spec 侧补声明);本仓 `inputs` 至今不提 |\n| `record:related_list.relationshipValueField` | `packages/plugin-detail/src/renderers/record-related-list.tsx:95`(`schema.relationshipValueField \\|\\| 'id'`) | 注释原文即写 `spec relationshipValueField, default 'id'` |\n| `element:text_input.defaultValue` | `packages/components/src/renderers/basic/text-input.tsx:73/76/119` | 用来给绑定的 page 变量播种初值 |\n\n`record:related_list.add` 也可能属于这一类,没细查,triage 时一并看。\n\n### B 类 —— 声明了但渲染器不读(`showSubscriptionToggle` 同族,2 条)\n\n`page:header.icon` 与 `page:card.actions`:spec 声明、`containers.tsx` 里**没有任何读点**。这两条的正确方向不是「补 input」,而是二择一 —— 要么接线,要么按 `record:activity.showSubscriptionToggle` 的先例(`packages/plugin-detail/src/index.tsx:350-360`)声明出来并在 description 写明 KNOWN GAP,让双向 parity 成立而不假装可配。**不要**无脑补 input:那会发布一个平台默默丢掉的键,正是 #3797 修的那个方向。\n\n### C 类 —— 已知的、不该动的(5 条)\n\n- `element:record_picker` 的 `displayField` / `searchFields` / `multiple`:objectstack#5775 已在上游转成 `retiredKey()` 墓碑,pin 升上来后它们会从 spec 的接受集消失,本仓正确的做法就是不声明。\n- `page:tabs.type`:载体冲突,`type` 是节点分发键,扁平载体里不可授权;正在 objectstack#6776 里定收敛方向。见 PR #3806 的 body。\n- `element:record_picker.targetVariable` / `element:text_input.targetVariable`:spec 自己写明这是「declarative hint」,实际绑定靠 `PageVariableSchema` 的 `source` 反查;要不要发布是个判断题,不是漏声明。\n\n反过来还有一条**本仓读了、pin 版 spec 没声明、上游已声明**的:`element:record_picker` 的 `emptyText` / `sort` / `limit`(`renderers/basic/record-picker.tsx` 实读,objectstack#5775 已声明)。pin 升上来后它们会变成新的 A 类缺口,建议和这一单一起收。\n\n## 建议的落地\n\n在 PR #3806 落的 `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` 里加第二个方向的断言,同样**运行时从 spec 推导 + 显式豁免名单 + 每条豁免理由**(B/C 两类就是豁免的正当来源,理由写清是「不读,按先例处理」还是「载体冲突,见 objectstack#6776」)。这样两个方向同一处、同一套豁免纪律,不会再有一个方向被单独忘掉。\n\n关联:#3797 / PR #3806(正方向,已落)、#3407 / PR #3795(单块双向版)、objectstack#5611、objectstack#5775、objectstack#6776\n"
+}

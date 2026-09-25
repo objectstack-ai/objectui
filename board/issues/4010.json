@@ -1,0 +1,34 @@
+{
+  "number": 4010,
+  "kind": "issue",
+  "title": "[app-shell] DashboardWidgetInspector 的 Field(id=\"widget-color\") 的 for 悬空 —— ColorVariantPicker 不收 id,颜色 radiogroup 完全无可访问名",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-09T23:57:16Z",
+  "updated_at": "2026-08-16T20:02:40Z",
+  "closed_at": "2026-08-16T20:02:40Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4010",
+  "body": "发现于 #3997 的实施过程(该单主体是 `InspectorComboField`,PR 未夹带本条)。未认领,交 PM triage。\n\n## 机制\n\n`DashboardWidgetInspector` 用一个本地 `Field` 包装器给控件命名,约定是「包装器渲染 Label htmlFor={id},被包的控件自己带同一个 id」:\n\n- `packages/app-shell/src/views/metadata-admin/inspectors/DashboardWidgetInspector.tsx:447-464` —— `Field({ id, label, children })` 渲染 Label htmlFor={id}。\n- 其余站点都履行了这个约定:`widget-title` / `widget-w` / `widget-h` 落在 `Input id`,`widget-type` 落在 `SelectTrigger id`。\n- `widget-dataset` 原本落不下去(combo 根本不收 id),已随 #3997 修好。\n- **剩下 `widget-color`(:377)**:子节点是 `ColorVariantPicker`,其 props 只有 `{ value, onChange, disabled, options }`(`packages/app-shell/src/views/metadata-admin/color-variant-field.tsx:43-48`),不接受 id。\n\n所以 `htmlFor=\"widget-color\"` 指向一个**没有任何元素持有**的 id —— 悬空 IDREF。按 #3994 / #3997 的判据这比「没有标签」更糟:工具会报告一个解析不到的关联,静态检查看到 for 存在就以为命名闭合了。\n\n第二层(同一处、更实的一档):`ColorVariantPicker` 渲染 div role=\"radiogroup\"(`color-variant-field.tsx:55`),这个 radiogroup 既没有 `aria-label` 也没有 `aria-labelledby`。组内每个 radio 各自有 `aria-label`(颜色名),但**组本身完全无名** —— 焦点进组读到的是一个匿名 radiogroup,不知道这组颜色改的是什么;可见的「Color」标签是一段无归属文本。\n\n## 是不是 dormant\n\n不是。`widget-color` 是 `Field` 的无条件分支,打开任一 dashboard widget 检查器即渲染。另外 `widgets.tsx:1790` 与 `PageBlockInspector.tsx:30` 也消费 `ColorVariantPicker`,那两处外层是否也有一个无归属的 Label 没有逐处核过,实施时应一并核。\n\n## 修法方向(未实施,供分诊)\n\nradiogroup 是容器,不是 labelable 元素,所以 `for` 指向它本身也不合法(与 #3991 同类:host id 落在不可 label 的元素上不算关联)。两条候选:\n\n1. `ColorVariantPicker` 收 `ariaLabelledBy`,`Field` 把它那个 Label 的 id 传进来,radiogroup 用 `aria-labelledby` 命名 —— 与 #3990(PR #4002)的 group-labelled widget 用 IDREF 命名同构,可见文本即可访问名,单一通道。\n2. `ColorVariantPicker` 自带 `ariaLabel`,`Field` 的可见 Label 不再 for 任何东西 —— 但那把可见文本重新变成无归属文本,只解决了悬空、没解决命名。\n\n倾向 1,但它改的是 `Field` 包装器的对外形状(目前 `Field` 的契约是「id 给控件」,IDREF 命名要的是「label 的 id 给控件」),属于 contract-first 该单独定的一步,故只记录不动手。\n\n## 边界与去重\n\n- **不是 #3997**:那单主体是 `InspectorComboField`;同一个 `Field` 包装器的 `widget-dataset` 分支已在该 PR 里修好(combo 新增 `id` 命名通道),但 `widget-color` 分支与 `ColorVariantPicker` 该 PR 一字未动。该 PR 的回归钉子刻意只锁 Dataset 那一对,没有做整面板的「无悬空 for」扫描,正是为了不把本条锁成绿色或红色。\n- **不是 #3991**:那条在 `packages/components` 内建 select,host id 落到 div 上;本单在 app-shell,且 id 连落点都没有。同族不同站点、无共享实现。\n- **不是 #3994(PR #3996)**:`_shared.tsx` 三个原子,已修。\n- **不是 #3997 正文附的 18 处宽面清单**:那份清单是「Label 兄弟节点、缺 htmlFor」;本单相反 —— htmlFor 有,指向空。\n- 检索过 open issues(`ColorVariantPicker`、`widget-color radiogroup htmlFor dangling`、`label 关联 可访问名`、`color variant picker 颜色`),无同题单。\n"
+}

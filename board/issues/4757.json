@@ -1,0 +1,35 @@
+{
+  "number": 4757,
+  "kind": "issue",
+  "title": "BulkActionDialog 的 ParamField 不传 dependentValues —— 批量动作对话框的 option param 拿不到自己的在途值(#3765 B 案的第二落点)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T03:42:38Z",
+  "updated_at": "2026-08-16T04:57:21Z",
+  "closed_at": "2026-08-16T04:57:21Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4757",
+  "body": "发现于 #3765 的实施(PR #4756),按裁定范围(「scope 仅 app-shell 那一个接线缺口」)未动,回传立单。\n\n## 事实\n\n`packages/plugin-grid/src/components/BulkActionDialog.tsx` 的 `ParamField`(约 :574-620)与 #3765 修掉的缺口**同形**:经 `getLazyFieldWidget` 渲染共享 widget,只按 `fieldNeedsDataSource` 投放 dataSource,**不传 `dependentValues`** —— 批量动作对话框里逐选项 `visibleWhen` / 级联算的仍是空 record(fail-open,方向安全,选项全给不藏)。\n\n## 修法\n\n照 PR #4756 的既定形态:对话框在途 values 作为 `dependentValues` 传入 option 家族 widget(允许表对齐 `CASCADE_OPTION_WIDGET_TYPES`),共享 evaluator 零改动。注意 bulk 语境无单行记录 —— 恰好落在 B 案语义内(对话框 record 即全部依据),无额外裁决。钉子形态照抄 `ActionParamDialog.dialogRecord.test.tsx` 四例。\n\n## 参考\n\n- #3765(维护者 Option B 裁定,评论 5248476948)/ PR #4756(机制与允许表定义处)\n- `packages/plugin-grid/src/components/BulkActionDialog.tsx:574-620`(缺口位,行号以实测为准)\n\nPart of #3765 的同裁定第二落点。"
+}

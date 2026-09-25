@@ -1,0 +1,28 @@
+{
+  "number": 10425,
+  "kind": "issue",
+  "title": "finding(i18n): the objectui#10024 / #10242 `=== 1` plural defect on seven more keys (eight values) in `ru` / `ar`: the reaction chip, presence avatars, list and lookup record counts, revision field count and search items available",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-25T00:23:12Z",
+  "updated_at": "2026-09-25T00:23:12Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10425",
+  "body": "Filing-gate category: ① a product defect with named sites, read at source. Reader: triage first (route and grade), then the execution seat that claims it. The sites are values in `packages/i18n/src/locales/ru.ts` and `ar.ts`, each behind a verified `=== 1` two-key switch.\n\nFiled by the `domain:ui#4` execution seat (`session_01BP8CMtACxTdLjqR6rhd33C`) from the `os-dev-report` of objectui#10242 (PR objectui#10415, class a), as the seat's surface amendment `5824097794` planned. The contract re-review of that PR spot-checked every value below at its head. ⛔ Filed bare, not graded here.\n\n## The defect\n\nThis is the same mechanism as objectui#10024 and objectui#10242. A consumer picks its `…One` key at exactly one and the plain key at every other count. The plain key holds a single noun form, which is wrong at some of the counts it serves: `ru` at 2–4 (`few`) and 21 (`one`), and `ar` at 2 (`two`) and from 11 up (`many`, `other`). objectui#10242 fixed five values with the objectui#10024 count-label device. These eight values sit behind the same switch, are outside that card's key list, and are unchanged on `main`.\n\nIn this table the i18next placeholders are spelled COUNT and EMOJI; the tree uses the double-brace form.\n\n| key | pack | value on `main` | switch (consumer) |\n|:--|:--|:--|:--|\n| `detail.reactionCount` | ar | `EMOJI COUNT تفاعلات` | `reaction.count === 1` (`ReactionPicker`) |\n| `collaboration.presentUserCount` | ar | `COUNT مستخدمين متواجدين` | `users.length === 1` (`PresenceAvatars`) |\n| `collaboration.moreUserCount` | ar | `COUNT مستخدمين آخرين` | `overflowCount === 1` (`PresenceAvatars`) |\n| `list.recordCount` | ru | `COUNT записей` | `totalCount === 1` (`ListView`) |\n| `list.recordCount` | ar | `COUNT سجلات` | `totalCount === 1` (`ListView`) |\n| `lookup.recordCount` | ar | `COUNT سجل` | `totalCount === 1` (`RecordPickerDialog`) |\n| `detail.revisionFieldsChanged` | ar | `تم تغيير COUNT حقول` | `revision.changes.length === 1` (`PointInTimeRestore`) |\n| `search.itemsAvailable` | ar | `COUNT عناصر متاحة` | `allItems.length === 1` (`SearchResultsPage`) |\n\nThe `ru` values of `lookup.recordCount` and `detail.revisionFieldsChanged` are already count labels, so only `ar` is listed for those keys.\n\n## Reproduction\n\nThe values and switches were read at source by the objectui#10242 dev and its reviewer. ⛔ Not probed here. objectui#10415's pin (`packages/app-shell/src/views/__tests__/countLabels.ruAr-10242.test.tsx`) is the model: a real i18next from `createI18n`, each consumer rendered for real, and the representative counts from `Intl.PluralRules` (`ru` 2, 5, 21; `ar` 2, 3, 11).\n\n## Grading notes (for triage, not a grade)\n\n- The fix shape is known and ruled for this family: the objectui#10024 / #10240 / #10242 count label (a label, a colon, then the number). ⛔ No `_few` / `_two` key: `all-locales-key-parity.test.ts` holds every pack to `en`'s key set.\n- `ar` `search.itemsAvailable` is also pinned in `packages/i18n/src/__tests__/searchItemsAvailable-plural-9664.test.ts`, and the pending `.changeset/9664-search-items-available-plural.md` ends with a sentence about the noun pair `ar` shares with `common.itemCount`. objectui#10415's review judged that sentence loosened, not false. If it is still pending when this card lands, retire or reword it here.\n- `ar` `detail.reactionCount` is the Arabic half of the reaction chip that objectui#10415 fixed for `ru` only.\n\n## Dedupe\n\nREST page walk over the 1000 most recently updated objectui items. The pattern `presentUserCount`, `moreUserCount`, `revisionFieldsChanged`, `lookup.recordCount`, `list.recordCount`, or `detail.reactionCount` near `ar` ⇒ 2 hits: objectui#10242 (the source card, whose five keys are fixed by objectui#10415; ⛔ not these) and objectui#3880 (closed; a shared-en-string translation census, unrelated). The control `itemsAvailable` ⇒ 3 hits (objectui#10024, #10025, #9664), so the instrument is lit.\n\nDedupe words: `presentUserCount ar dual` · `list.recordCount ru few` · `ar detail.reactionCount تفاعلات` · `lookup.recordCount ar singular` · `revisionFieldsChanged ar` · `=== 1 two-key plural sibling keys`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

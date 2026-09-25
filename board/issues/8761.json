@@ -2,8 +2,8 @@
   "number": 8761,
   "kind": "issue",
   "title": "bug(schema-catalog): two `components-form-label` fixtures author `direction: \"column\"` on a `flex` node — the renderer draws a ROW and `objectui check` refuses the key",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-warren",
@@ -12,18 +12,21 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": "Bug",
   "created_at": "2026-09-09T04:34:14Z",
-  "updated_at": "2026-09-10T14:06:55Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T00:14:07Z",
+  "closed_at": "2026-09-25T00:13:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/8761",
   "body": "Filed unassigned by the `os-dev` seat while implementing objectui#8499 (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`). Grading and `domain:*` are the triage seat's. Deliberately NOT repaired on #8499's PR: that card is about `type` literals resolving at node slots, and this is a VALUE defect on a different key.\n\n## The claim\n\n`examples/schema-catalog/src/schemas/components-form-label/form-label.json` and `.../required-label.json` both author a vertical stack as:\n\n```json\n{ \"type\": \"flex\", \"direction\": \"column\", \"gap\": 2, \"children\": [ ... ] }\n```\n\n`column` is not in the vocabulary either face declares, and it is not what the renderer draws.\n\n- **Declaration.** `FlexSchema.direction` is `z.enum(['row', 'col', 'row-reverse', 'col-reverse'])` (`packages/types/src/zod/layout.zod.ts`). `AnyComponentSchema.safeParse` refuses both fixtures with `invalid_value` at `path: [\"direction\"]`.\n- **Renderer.** `packages/components/src/renderers/layout/flex.tsx:16` reads `const direction = schema.direction || 'row'`, then maps `direction === 'col'` and `direction === 'col-reverse'` to `flex-col` / `flex-col-reverse`. `'column'` matches neither, so nothing is added and the element keeps the flex default — a **row**.\n\nSo a fixture whose whole subject is \"a label stacked above its input\" renders the label BESIDE the input, and the validator refuses it for the same key. Both faces agree it is wrong; only the fixture disagrees.\n\n## Why it survived\n\n`examples/schema-catalog/test/catalog-gallery-render.test.tsx` fails when a catalog entry paints OBJUI-001 \"Unknown component type\". `flex` IS registered, so the entry renders — just wrongly. Nothing in the gallery test compares the picture against the fixture's intent, and the validation side is not run over the catalog.\n\n## Reproduction\n\nMeasured on `claude/issue-8499-node-slot-unresolved-arms` (the branch does not touch `flex` or these fixtures):\n\n```\nREFUSE  components-form-label/form-label.json\n        [{\"code\":\"invalid_value\",\"values\":[\"row\",\"col\",\"row-reverse\",\"col-reverse\"],\"path\":[\"direction\"], ...}]\nREFUSE  components-form-label/required-label.json\n        (same issue)\n```\n\nControl, same run, same reader: the fifteen `components-layout-semantic/` and `components-form-calendar/` fixtures all ACCEPT — so the reader is not refusing everything.\n\n## The repair, and the reason it is worth a card rather than a rider\n\nMechanically it is `\"column\"` to `\"col\"` in two files. It is filed rather than fixed in flight because the second half is the interesting one: the same misspelling renders SILENTLY WRONG rather than not at all, so a grep for `\"direction\": \"column\"` across the corpora — and a decision about whether `flex.tsx` should refuse an unknown `direction` instead of falling through to a row — belongs to whoever takes it. `objectui check` already refuses the document, so the validator is not the gap; the renderer's silent fall-through is."

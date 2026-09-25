@@ -1,0 +1,32 @@
+{
+  "number": 4636,
+  "kind": "issue",
+  "title": "chore: raise the `@objectstack/spec` pin from `^17.0.0-rc.6` to 17.0.0 GA (lockfile resolution + green-keeping adaptations)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-14T10:07:40Z",
+  "updated_at": "2026-08-17T10:56:34Z",
+  "closed_at": "2026-08-17T10:56:33Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4636",
+  "body": "Filed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, round 1, 2026-08-14), acting on the handoff record #4635's first-check item.\n\n**Blocked-by: #4910**\n**Blocked-by: #4911**\n\n(Blocker history — #4648 exhausted 2026-08-17: PR #4901 merged 03:05Z. The 2026-08-17 re-point round (PR #4639 @ `47c7cc3`, takeover claim by session `session_01DbRmJD3iPhXjKr6vhd4Qkv`) then met the lockfile criterion in full and cut the farm red from 9 files / 17 tests to 3 / 3 — every remaining red owned by the two cards above (#4910 owns two, #4911 owns one); see the os-dev report and PM disposition comments of 2026-08-17. Earlier: Blocked-by lines for #4649 and #4650 removed 2026-08-14 ~16:35Z — both adaptation PRs MERGED (#4657, #4660). Sequencing ruled 2026-08-14, option A of the dev report on this card: the bump PR #4639 stays a parked draft until its expected-red list is empty, then flips; gate-weakening option C is rejected.)\n\n## Context\n\n`@objectstack/spec@17.0.0` (GA) is published on npm (`dist-tags.latest = 17.0.0`; the former `rc` tag stops at `17.0.0-rc.6`). objectui's `package.json` ranges say `^17.0.0-rc.6`, and the criterion that matters is the **lockfile-resolved version** (established on the old tracking card #3374: the `^` range is not the pin).\n\nRe-check commands:\n- `git grep -h '\"@objectstack/spec\"' origin/main -- '**/package.json' | sort -u`\n- `grep -A1 '@objectstack/spec' pnpm-lock.yaml | head` (resolved version)\n- `npm view @objectstack/spec dist-tags --json`\n\n## The work\n\n1. Raise the pin so the lockfile resolves `@objectstack/spec@17.0.0` everywhere in the workspace (all `package.json` occurrences + `pnpm-lock.yaml`). **Done in PR #4639** (with `client`/`formula`/`lint` raised too — their exact pins otherwise nest a second rc.6 spec copy; measured in that PR). **Re-pointed onto post-adaptation main 2026-08-17 (`47c7cc3`): all 30 importers resolve 17.0.0, single physical copy, zero rc.6 strings in the lockfile.**\n2. Run the full regression; adaptations beyond green-keeping were split out: #4649 (retirement unwind, **MERGED** as PR #4657), #4650 (symbol collisions, **MERGED** as PR #4660), #4648 (authoring-surface ruling, **CLOSED** via PR #4901), **#4910** (GA strict-mode parity probes, open), **#4911** ($like/$ilike builder reachability, open — decision box).\n\n## Known unlocks gated on this bump (do NOT do them in this PR)\n\n- #4190 and #4535 (item 4) — both hold on \"the spec pin covers objectstack#7657's schema change\"; their restart conditions are written on each card.\n- ~~objectstack#7100~~ — **already unblocked** (retirement present in rc.6; measured in PR #4639); dispatched independently.\n- objectstack#6275 — final pin-bump batch anchor.\n- #3374 — the stale rc.4-era tracking umbrella; the seat will disposition it separately after this lands.\n\n## Acceptance\n\n- Lockfile resolves 17.0.0 (evidence in PR #4639's body). ✅ met at `47c7cc3`\n- Full farm green; every adaptation included is named in the PR body with its trigger. ⏳ 3 tests red, owned by #4910 / #4911"
+}

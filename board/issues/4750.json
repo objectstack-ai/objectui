@@ -1,0 +1,35 @@
+{
+  "number": 4750,
+  "kind": "issue",
+  "title": "components: `ConfigPanelRenderer`'s Save / Discard footer buttons hardcode English — every config panel's footer stays English in all locales",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "bug"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T00:11:53Z",
+  "updated_at": "2026-08-16T01:24:06Z",
+  "closed_at": "2026-08-16T01:23:38Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4750",
+  "body": "Found while implementing #4748 (wiring the two dashboard config panels through `t()`). Filed unassigned, not fixed there: that card's scope is the two `plugin-dashboard` panel files, and this string lives one package down, in a component shared by every config panel.\n\n## What was measured (on `origin/main` at `616a2a547`)\n\n`packages/components/src/custom/config-panel-renderer.tsx` gives its two footer button labels English literals as parameter defaults:\n\n```\n107:  saveLabel = 'Save',\n108:  discardLabel = 'Discard',\n```\n\nBoth are rendered verbatim as the button text of the sticky footer that appears as soon as the draft is dirty — the save button (testid `config-panel-save`) renders `{saveLabel}` beside the `Save` icon, the discard button (testid `config-panel-discard`) renders `{discardLabel}`.\n\nThe component imports no translation hook, and **no caller overrides either prop**. Every `ConfigPanelRenderer` mount in the repo:\n\n- `packages/app-shell/src/views/ReportConfigPanel.tsx`\n- `packages/plugin-dashboard/src/WidgetConfigPanel.tsx`\n- `packages/plugin-dashboard/src/DashboardConfigPanel.tsx`\n\n```bash\ngrep -rn \"saveLabel=\\|discardLabel=\" packages/*/src apps/*/src | grep -v components/src   # zero hits\n```\n\nSo a user editing a report, a dashboard or a widget in a `zh-CN` / `ja-JP` / `ar` console sees a translated panel whose two action buttons say `Save` and `Discard`.\n\n## Why this is not covered by #4748\n\n#4748 translates the *schema* each panel builds (breadcrumb, section titles, field labels, placeholders, help text, option labels) — the strings the panels own. `saveLabel` / `discardLabel` are the renderer's own chrome, defaulted inside `@object-ui/components`, and fixing them per-caller would translate the dashboard's footer while leaving `ReportConfigPanel`'s English. The fix that closes the class belongs in the renderer itself, the way `FullscreenEditor` carries its own `createSafeTranslation` defaults for the copy it owns (objectui#3398).\n\nFour neighbouring props are a different, smaller question and are called out so a fixer does not conflate them: `closeTitle`, `ariaLabel`, `undoLabel` and `redoLabel` have **no** default at all, so they contribute no English — they are simply absent accessible names when a caller passes nothing.\n\n## Note on key choice\n\nThe packs used to carry `configPanel.save` / `.discard` / `.close`. Those keys had zero readers and were deleted by #4746 / PR #4747, and #4748's adjudication was explicit that fresh keys authored against shipped wording beat restoring an unvalidated block. Whoever fixes this should decide the namespace by measurement rather than reaching for the deleted spelling; `common.save` / `common.discard` may already serve.\n\nSame defect class as #4024 and #4386, both already landed. Backlinks: #4748, #4746.\n"
+}

@@ -2,8 +2,8 @@
   "number": 7715,
   "kind": "issue",
   "title": "objectui's `ListViewSchema` derivation structurally drops the spec's object-level refinements — carrying them is an accept-set narrowing (Clause-② yes), ruled to its own card by #7122 item 6-B",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-justin",
@@ -13,18 +13,24 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-05T10:34:52Z",
-  "updated_at": "2026-09-24T18:02:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T02:07:29Z",
+  "closed_at": "2026-09-25T02:07:29Z",
+  "closed_by": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7715",
   "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01BAZFhALsQsGqxui8sNqM8s`) as the follow-up card the #7122 ruling requires. ⛔ Unassigned; `domain:*` and grading are triage's — the ruling names the landing lane as the `domain:ui` zod-mirror lane, recorded here rather than stamped.\n\n## The measured divergence (PR #7685, `aabc527cb`)\n\nobjectui's `ListViewSchema` is rebuilt as `BaseSchema.extend(specFieldsExcept(SpecListViewSchema.shape, …).shape)` (`packages/types/src/zod/objectql.zod.ts`) — a fresh `ZodObject` carrying spec **fields** by reference. A spec refinement lives on the spec **object**, not on any field, so the rebuild drops it. Measured on the derived schema at `@objectstack/spec` 17.3.0: every case ACCEPTS, including `appearance.allowedVisualizations: ['calendar']` with no `calendar:` block, which the spec now refuses (`checkListViewCalendarVisualization`, `src/ui/view.zod.ts`). So objectui's authoring door accepts a shape the spec's publish door refuses — declared ≠ enforced, in the direction that gives an AI author no signal until publish.\n\n## What the #7122 ruling did with it (director seat, comment 5549255921, 2026-09-05T04:11Z)\n\n> **6** | spec's ListView refinement structurally never reaches objectui (derivation rebuilds the object and drops it) | **A** — a tripwire pin recording the measured divergence (spec refuses, objectui accepts), test-only. Carrying the refinement is **B**, an accept-set narrowing with Clause-② yes, on its own card in the `domain:ui` zod-mirror lane.\n\n**A lands in the #7122 chain** (a test-only tripwire, so the next spec refinement is loud instead of invisible). **This card is B.**\n\n## What B is\n\nMake objectui's derived `ListViewSchema` (and by the same mechanism every other spec-derived object that has upstream refinements — the dev enumerates them) carry the spec's `superRefine` / `refine` checks, so objectui's `validate` refuses what the spec refuses. This is an accept-set **narrowing** of objectui's own published validation ⇒ **Clause-② yes**, `CONTRACT_REVIEW_TIER`, `needs:contract-review` on the PR, `@object-ui/types` changeset per the repo's convention for accept-set changes.\n\nIt is a published-contract change and a design choice (how the derivation carries refinements: re-attach the spec object's checks, or derive by `.pick()` from the spec object rather than rebuilding from `.shape`), so it is a maintainer decision rather than a dispatch — the four-facet analysis is triage's to attach at grading.\n\n## Order\n\nAfter the #7122 chain lands (the tripwire pin in A is the control this card flips). Related: #7122 · PR #7685 · #2231 (the long-running hand-written-zod vs spec drift card) · #5435 / #2890 (the list-view normalisation chain)."

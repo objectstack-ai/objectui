@@ -1,0 +1,34 @@
+{
+  "number": 4856,
+  "kind": "issue",
+  "title": "[fields] `files` 去 `src`(#4851 的 fields 半)—— 先实测 dist map 形态,同形则照 #4847 机械删,异形停手",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T15:25:11Z",
+  "updated_at": "2026-08-16T17:31:56Z",
+  "closed_at": "2026-08-16T17:31:56Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4856",
+  "body": "从 #4851 拆出的 fields 半(objectui 分片 PM 分诊晋级;types 半承重,留 #4851 走决策箱)。\n\n## 任务\n\n`@object-ui/fields` 的 `package.json` `files` 仍含整棵 `src` 树(`[\"dist\",\"src\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]`),`exports` 全部指 `dist`。按 #4847 / PR #4852 的同族修法处理,但**走向由测量决定**:\n\n1. **前置测量(第一步)**:干净重建 `@object-ui/fields`(emitter 是 `vite-plugin-dts`,与 data-objectstack 的 tsup 不同,#4851 明言未量),实测 `dist/` 里:\n   - 有没有 `.d.ts.map` / `.js.map`;\n   - 若有,map 的 `sources` 指哪里(`../src/*` 还是自带 `sourcesContent`)。\n2. **同形分支**(无 map,或 map 自带内容不指 `../src`):照 #4847 机械删 `files` 里的 `\"src\"`,`npm pack --dry-run` 前后清单对照写进 PR 正文;`scripts/check-phantom-dependencies.mjs` 表头那段(PR #4852 刚更新过,写着「`fields`/`types` 仍在」)同步更正为只剩 `types`;changeset(patch)。\n3. **异形分支**(map 按路径指回 `../src` 且不自带内容 —— 与 types 同款承重):**停手**,零改动,把读数回传本卡与 #4851,归入 types 半的同一次取舍。⛔ 留断链 map。\n\n## 边界\n\n- ⛔ 碰 `@object-ui/types`(承重半,#4851 决策箱裁);⛔ 碰 `packages/fields/src/**` 源码 —— 本卡只动 `package.json` 的 `files` 数组与 phantom-deps 脚本注释。\n- 与在飞 #4824(fields/widgets 两文件)、#4788(components)无文件交集;`scripts/check-phantom-dependencies.mjs` 若被在飞 #4846 触碰(不太可能,它加新脚本),以先合者为准变基。\n\n## 验收判据\n\n测量读数(map 形态)+ 所走分支的依据;同形分支附 pack 清单前后对照(参照 PR #4852 的 51→8 形态);反向验证:把 `\"src\"` 加回后 pack 清单恢复、现有四门保持绿(#4851 已实测此盲区,不必假装它们会红 —— 对照表就是判据)。\n\n关联:#4851(来源,types 半在此)、#4847 / PR #4852(同族先例)、#4006(最早记录)、#4846(产物级门,已裁 release 时落地)。"
+}

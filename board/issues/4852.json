@@ -1,0 +1,33 @@
+{
+  "number": 4852,
+  "kind": "pull_request",
+  "title": "chore(data-objectstack): files 不再列 src —— 43 个源码文件(38 个测试)退出发布物 (#4847)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "data-adapter",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T13:26:25Z",
+  "updated_at": "2026-08-16T14:02:15Z",
+  "closed_at": "2026-08-16T14:02:14Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T14:02:14Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4852",
+  "body": "Fixes #4847\n\n## 缺陷形态(一句话)\n\n`packages/data-objectstack/package.json` 的 `files` 列了 `src`,于是每个发布 tarball 都带上 43 个源码文件(其中 38 个 `*.test.ts`)。这一条从包的**第一个 commit**(`780a1b993`)就在,不是为哪个消费者加的。与 #4836 / PR #4845 是同一个问题的两个入口(emit 进 dist / 直接列进 files),那条路在本包上已实测为 0(tsup 只从 entry 出料)。\n\n## 前置核查:四项全部否定(实施前先做,任一命中即停手)\n\n派发要求实施前核实 `src` 在发布物里有没有真实消费者。四条路全部关着,证据是干净重建后的实测,不是推断:\n\n| 核查项 | 结果 | 证据 |\n| --- | --- | --- |\n| ① `exports` map 是否有条目解析进 `src` | 否 | 只有一个条目 `\".\"`,其下 `types`/`import`/`require` 三个条件全指 `./dist/*` |\n| ② `main` / `module` / `types` 是否指 `src` | 否 | `./dist/index.js` / `./dist/index.js` / `./dist/index.d.ts` |\n| ③ 全仓与文档是否教过 `src` deep-import | 否 | 引号精确路径 grep 全仓 + `content/docs/**` + 包内 README:`@object-ui/data-objectstack/` 带子路径的 specifier **零命中**,只教根 specifier |\n| ④ sourcemap 是否落在 `src` 上 | 否 | `tsup.config.ts` 里 `sourcemap: false`,bundled dts 不产 `.d.ts.map`;干净重建后 `dist` 共 4 个文件,`.map` 0 个,`sourceMappingURL` 与 `../src` 各 0 处 |\n\n③ 有一个**看起来像命中、实际不是**的形态,写清楚以免下一个读者按 grep 结果误判:`packages/plugin-form/vite.config.ts`、`packages/runner/vite.config.ts`、根 `vitest.config.mts` 等 7 处确实出现 `data-objectstack/src`,但它们是 `path.resolve(__dirname, '../data-objectstack/src')` 形式的**工作区别名**,解析的是仓内源码树,走不到 tarball —— `files` 只塑造 npm 包内容,对 workspace 的 symlink 解析没有任何作用。\n\n干净重建后的 `dist` 全貌(precheck ④ 的原始材料):\n\n```\ndist/index.cjs   dist/index.d.cts   dist/index.d.ts   dist/index.js\n```\n\n## 打包验证:pack 清单前后对照\n\n同一份 `dist`,只改 `files`,`npm pack --dry-run --json` 两侧:\n\n| | 修复前 | 修复后 |\n| --- | --- | --- |\n| 条目数 | 51 | 8 |\n| unpacked | 1356830 B | 719876 B |\n| tarball | 393379 B | 222157 B |\n\n**消失 43,新增 0**,幸存条目逐个大小不变(唯一变的是被编辑的 `package.json` 自身)。消失的 43 = 38 个 `*.test.ts` + 5 个实现源码(`index.ts`、`errors.ts`、`metadata-client.ts`、`userState.ts`、`cache/MetadataCache.ts`),后者的发布形态仍是打包好的 `dist/index.js`。\n\n修复后 tarball 的完整清单(入口/README/许可证全在):\n\n```\nCHANGELOG.md  LICENSE  README.md  package.json\ndist/index.cjs  dist/index.d.cts  dist/index.d.ts  dist/index.js\n```\n\n## 反向验证(方向先判后跑;方向与「钉子变红」模板**不同**,如实记录)\n\n**预判**(跑之前写下的):本改动删的是一个 `files` 条目,而**仓内没有任何门在看这个数组的内容** —— `scripts/__tests__/package-files-exist.test.ts` 只断言「声明了的条目在磁盘上存在」,且用的是 `toBeGreaterThanOrEqual` 下限,删一条不会触底,加回来 `src` 也确实存在。所以正确预判**不是**「新钉子变红」,而是 PR #4845 记过的同一形态:(a) 把 `src` 加回 `files`、同一份 `dist` 重跑 pack,43 个文件原样重现;(b) **所有门在缺陷态保持全绿**,因为今天没有任何门看得见这一类缺陷 —— 这正是 #4847 判 observation-class 的依据本身。\n\n**实跑,两半都与预判一致**(先 commit 修复再变异,变异不提交,已用 `git checkout` 对着分支名还原):\n\n(a) 条目数 8 -> 51,重现 43 个(38 个 `*.test.ts` + 5 个实现源码),与修复前清单**逐字节相同**(`JSON.stringify` 全等),`src/` 以外**零条目**移动。\n\n(b) 在同一个缺陷态下跑全部相关门,全部退 0:\n\n```\nnode scripts/check-phantom-dependencies.mjs                       rc=0\nnode scripts/check-control-bytes.mjs                              rc=0\nnode scripts/check-package-self-import.mjs                        rc=0\npnpm exec vitest run scripts/__tests__/package-files-exist.test.ts  1 file / 18 tests passed\n```\n\n「什么都没变红」**就是结论本身**:缺陷在 CI 里完全不可见,与 PR #4845 对同族问题的测量一致。\n\n## 验证(全部实跑)\n\n```\n干净重建(rm -rf dist tsconfig.tsbuildinfo 后 build)      tsup 出 4 个文件,tooling 产物 0\n\npnpm exec vitest run packages/data-objectstack/ \\\n  scripts/__tests__/package-files-exist.test.ts          39 files / 557 tests passed\npnpm exec vitest run packages/react/ \\\n  packages/plugin-designer/ packages/app-shell/          460 files / 4518 passed | 1 skipped\n    (三个运行期 dependents;其余 6 个 dependent 只在 devDependencies 里用它)\n\npnpm exec turbo run type-check --concurrency=2           81 successful, 81 total\n\nnode scripts/check-control-bytes.mjs             OK 4339 文件\nnode scripts/check-phantom-dependencies.mjs      OK\nnode scripts/check-changeset-presence.mjs        OK\nnode scripts/check-changeset-no-major.mjs        OK\nnode scripts/check-changeset-fixed.mjs           OK\nnode scripts/check-package-self-import.mjs       OK\neslint(改动路径)                                  rc=0\ngrep -naP 控制字符自查(三个改动文件)                 零命中\n```\n\n## 顺带更新的一处仓内记载\n\n`scripts/check-phantom-dependencies.mjs` 的表头写着「三个包(`fields`、`types`、`data-objectstack`)list `src` in `files`,所以它们的 tarball 也带测试**源码**」。这是本改动**直接证伪**的一句事实陈述,所以同 PR 更新,而不是留一句将来会误导人的话。更新后它记的是:`data-objectstack` 已退出(本卡),`fields` 与 `types` 仍在,**且 `types` 那处是承重的**(见下)。门的判决一个字节没变(改的是块注释)。\n\n## 为什么本 PR 只修一个包(#4847 修法 3 的裁决,依据是测量)\n\n#4847 的修法 3 提议「先量全仓还有哪些包的 `files` 含 `src`,同缺陷同 PR 处理」。量了:发布包里共 3 个 —— `data-objectstack`(本卡)、`fields`、`types`(`app-shell` 只列 `src/styles.css`,是精确文件不是整棵树,不同形态)。**但它们不是同一个判定**,所以没有并进本 PR:\n\n- `@object-ui/types` 的 `build` 是裸 `tsc`,自己的 tsconfig 显式 `declarationMap: true`,根 `tsconfig.base.json` 还给了 `sourceMap: true` 且**没有** `inlineSources`。实测它已构建的 `dist/ai.d.ts.map`:`sources` 为 `[\"../src/ai.ts\"]`,`sourcesContent` 为 `false`。也就是说**它的 `src` 是承重的** —— 去掉后随包发布的 declaration map 指向一个不存在的文件,消费者编辑器的 go-to-source 会断。这恰好是派发要求的 precheck ④ 在**另一个包上命中**的样子,按「任一命中即停手」的纪律,它不该被顺手删掉。\n- `@object-ui/fields` 的 emitter 是 `vite-plugin-dts`,与上面两者都不同,要单独测。\n\n三个包共享一个症状、不共享一个判定,合成一个 PR 会把一次机械删除和一次真实取舍混在一起。已另开 finding #4851 记录余下两个,不在本 PR 处理。\n\n## 范围外\n\n- 未建任何门(全仓判据的成本测量在 #4846,与 PR #4845 的结论一致:真正正确的判据是产物级的,而今天 CI 没有全仓 build)。\n- 未碰 `content/docs/releases/**`、未碰任何 `src/` 源码、未碰任何 tsconfig 与 build 配置。\n- `fields` / `types` 的同形态已另记 finding #4851,理由见上。\n\n## Changeset\n\n按 PR #4845 / #4006 的先例写了**真 patch changeset**(`.changeset/data-objectstack-files-drops-src-4847.md`):`check-changeset-presence.mjs` 不索要(没动发版包的 `src/`),但**发布物内容变了**,得让它出现在 CHANGELOG 里。未声明 `major`。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

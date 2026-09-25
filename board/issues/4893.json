@@ -1,0 +1,32 @@
+{
+  "number": 4893,
+  "kind": "pull_request",
+  "title": "test(layout): pin the README Registration key list to registerLayout() (#4860)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:04:48Z",
+  "updated_at": "2026-08-17T02:41:29Z",
+  "closed_at": "2026-08-17T02:41:27Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T02:41:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4893",
+  "body": "Fixes #4860\n\n## 背景:三处同源键表,只有这一处没有钉子\n\n`@object-ui/layout` 的组件键表在仓内发布在三个地方,其中两处早已机械钉到源码:\n\n| 位置 | 钉子 |\n|---|---|\n| `content/docs/guide/layout.md` 的 \"registers five keys …\" 句 | `guide-layout-sidebar-nav-doc.test.ts`(#4840) |\n| `packages/layout/src/index.ts` 键的存废 | `app-shell-not-a-component-key.test.tsx`(#4841)+ `side-effects-manifest.test.ts`(只有数量下限) |\n| `packages/layout/README.md` 的 `## Registration` 段 | **无** |\n\n这个不对称是**实测**出来的,不是推断:#4841 撤销 `app-shell` 注册时,guide 的键表被钉子打红、逼出了文档修改;README 的键表列着同一个已撤销的键,**没有任何测试发现**,最后是 PR #4859 里人工改对的。「有人读到了」不是机制。README 是本包的 npm 首屏 —— 列一个没人注册的键,等于读者照着写那个节点、拿到渲染器的红框 `Unknown component type`(OBJUI-001)。\n\n## 改动\n\n只加两个文件,**README.md 本体零修改**(自 PR #4859 起它就是对的):\n\n- `packages/layout/src/__tests__/readme-registration-keys.test.ts` — 新钉子\n- `.changeset/layout-readme-registration-keys-pin.md` — 空 frontmatter(纯测试,不发布任何包)\n\n### 钉子形态:双向\n\n照 #4840 钉 guide 的形态,但拆成**两个方向、两条独立诊断**,因为它们是两种不同的缺陷:\n\n1. **README 多列** → 教了一个不解析的节点类型(#4841 的形状;更早是 #3899 的幽灵 `sidebar-nav`)。\n2. **README 少列** → npm 首屏藏起一个活的可编写面;而一个哪里都没写的键,接下来就是被当成死代码撤掉。\n\n第三条测试把**下限**断言成显式事实:两个集合差在两个空列表上都是平凡绿,所以正则一旦不再匹配(README 改写、注册调用改用双引号),上面两条会静默变成空操作。这条同时挡住重复项 —— 重复项能让两个集合差都为空,而两份列表其实并不相同。\n\n**顺序不比较**:列表恰好按注册顺序排列是好习惯、不是契约;一个因重排就变红的钉子,读者会学会绕开它。\n\n### 期望值一律从源码读出,绝不写死\n\n在测试里硬编码这五个键,正是这个钉子要防的缺陷本身:#3899 自己的散文就自信地列了一个本包从未注册过的 `sidebar-nav`。所以两侧每次运行都重新解析 —— 红了永远是「改 README(或改 barrel)」,绝不是「更新测试」。\n\n这个解析有一个值得写下来的依赖:源码侧读的是 `ComponentRegistry` + `.register(` 的正则,因此 `src/index.ts` 注释里**逐字引用**一个 register 调用会被当成活注册。`index.ts` 用散文描述那个已撤销的 `app-shell` 调用正是为此(#4841 留下的注释),本钉子是第三个受益者,文件头注释里也记了这条。\n\n### 为什么是新文件,而不是扩 `readme-app-shell-example.test.ts`\n\n那个文件(#4817)自述的扫描面是 AppShell 开标签与 `AppShellProps` 表格,且只读 README 与 `AppShell.tsx`。Registration 键表是关于 `src/index.ts` 的事实 —— 本包已有的 README 钉子从不打开这个源。按包内既有惯例(`readme-sidebar-nav-example.test.ts` / `readme-app-shell-example.test.ts`),一个被记录的关注点配一个钉子文件。\n\n### 两处与派单预判不同的形态,记录在案\n\n1. **README 侧不是 markdown 表格。** 派单预判需要解析表格行;实际上 Registration 键表是一句散文里括号内的反引号列表(README.md:26-27),而且**跨行折行**。所以解析照 #4840 的 guide 句子做(锚点词之间用 `\\s+`,列表体用 `[^)]*`),而不是照表格行做 —— guide 那条钉子正是被一次纯重排打红过,才留下这个教训。\n2. **共用 helper 没有提取。** #4860 把它列为选项 A 的附带项。这条正则在仓内已有三份副本(`guide-layout-sidebar-nav-doc.test.ts`、`app-shell-not-a-component-key.test.tsx`、`side-effects-manifest.test.ts`),本 PR 是第四份。刻意不提取:为服务一个钉子去改三个钉子文件,而这些文件是**故意自包含**的 —— 一个从共享模块导入自己读取器的钉子,可以在它所守护的文件之外被静默架空。理由写在新文件的头注释里。\n\n## 反向验证(两个方向,先预判后跑)\n\n预判写在跑之前:方向 A 只让第 1 条红、方向 B 只让第 2 条红,且**两次 `packages/layout` 其余 16 个测试文件全绿** —— 后者才是本单前提的实测证据。\n\n**方向 A —— README 键表加一个假键 `fake-key`:**\n\n```\n× names no key `registerLayout()` does not register\nAssertionError: The `## Registration` list in packages/layout/README.md names a component key that\n`registerLayout()` does not register. This README is the npm landing page for @object-ui/layout …\nRegistered: page-header, page:card, responsive-grid, navigation-renderer, app-schema-renderer\n: expected [ 'fake-key' ] to deeply equal []\n\n Test Files  1 failed | 16 passed (17)\n      Tests  1 failed | 183 passed (184)\n```\n\n**方向 B —— README 键表删掉活键 `app-schema-renderer`:**\n\n```\n× and names every key `registerLayout()` does register\nAssertionError: packages/layout/src/index.ts registers a component key the `## Registration` list in\npackages/layout/README.md does not name …\nRegistered: page-header, page:card, responsive-grid, navigation-renderer, app-schema-renderer\nDocumented: page-header, page:card, responsive-grid, navigation-renderer\n: expected [ 'app-schema-renderer' ] to deeply equal []\n\n Test Files  1 failed | 16 passed (17)\n      Tests  1 failed | 183 passed (184)\n```\n\n两次都与预判逐字相符,而且两次**其余 16 个文件全绿** —— 即在本 PR 之前,README 键表向任一方向漂移,仓内没有任何东西会发现。这正是 #4860 立单所依据的事实,现在被测量下来了。\n\n还原用 `git checkout -- packages/layout/README.md`,**未用 `git stash`**(stash 栈跨 worktree 共享,AGENTS.md 明令禁止)。\n\n## 验证\n\n还原后全绿:\n\n```\n$ pnpm exec vitest run packages/layout --maxWorkers=2\n Test Files  17 passed (17)\n      Tests  184 passed (184)\n```\n\n```\n$ pnpm --filter @object-ui/layout type-check     # tsc --noEmit && tsc -p tsconfig.test.json\n(无输出,exit 0)\n\n$ pnpm --filter @object-ui/layout lint\n✖ 41 problems (0 errors, 41 warnings)            # 全部是既有告警,新文件零告警\n\n$ node scripts/check-control-bytes.mjs\n✅  check-control-bytes: OK (scanned 4371 tracked text file(s); skipped 85 binary).\n\n$ node scripts/check-changeset-presence.mjs --base origin/main\n✅  1 source file(s) of 1 released package(s) changed, and this change declares 1 changeset(s)\n    Every one of them has an EMPTY frontmatter — declared as releasing nothing …\n\n$ node scripts/check-changeset-no-major.mjs\n✅  No changeset declares a `major` bump.\n```\n\ntype-check 用的是包级脚本而非仓根 `turbo run type-check` 全量:改动是 `packages/layout` 内一个新增测试文件,不被任何包导入,能编译它的正是该包的 `tsconfig.test.json`(已跑,干净);容器内多 agent 并行,全量 type-check 属于无谓的重扫。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

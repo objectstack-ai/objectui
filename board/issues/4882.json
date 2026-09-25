@@ -1,0 +1,30 @@
+{
+  "number": 4882,
+  "kind": "issue",
+  "title": "[决策] `dataset` 要不要一个 Studio Interfaces pillar 落位 —— nav 树无 dataset 成员,而 Metadata Directory 已全功能可编辑(#4019 的 dataset 半)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T23:03:17Z",
+  "updated_at": "2026-08-17T03:19:36Z",
+  "closed_at": "2026-08-17T01:57:36Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4882",
+  "body": "从 #4019 拆出(objectui 分片 PM,批次 14)。#4019 的 action 半由 PR #4880 落地(designer 的 `resolveSurface` 缺 `action` case,致 schema 合法、运行时可派发的 nav action 条目在 Interfaces pillar 恒 disabled —— 已修);dataset 半经 dev 测量**不可按卡面「rail 接线」实施**,是产品裁定题,移到本卡。\n\n## 测量事实(dev 实测 origin/main @ 6bb39c41,完整读数见 #4019 的 dev 回报与 PR #4880)\n\n1. Interfaces pillar 的 rail **是 app navigation 树**(`client.list('app')` → `appDraft.navigation` → NavTree → resolveSurface),不存在「per-type rail load」可 append —— view/page/dashboard/report 也只在 app nav 引用它们时出现。#2657 的 08-07 审计 §2(a) 早已记录此事,卡面表述来自七月的过期矩阵。\n2. **dataset 结构上进不了 nav 树**:spec `NavigationItemSchema` 是 9 成员判别联合(object|dashboard|page|url|report|action|component|separator|group),无 `dataset` 成员。\n3. dataset 今天**并非无家**:注册表驱动的 Metadata Directory 已可 list/create/edit(审计 §2(b));preview 与 default inspector 均已注册。\n\n## 三选项(dev 分析,PM 附议其推荐结构)\n\n- **A — Interfaces rail 增一个非 nav 的「package surfaces」区段**,由注册表 `domain: 'ui'` 派生驱动(⛔ 手写 action+dataset 两名 —— 那是第六份独立类型枚举,objectstack#6242 已记录五份枚举漂移无门可拦;派生规则让后续 job/role/seed/mapping/datasource 落位卡免费继承)。子决策:同 domain 的 view/page/dashboard/report 是否也列、action 双入口(nav 树 + 区段)重叠是否接受。\n- **B — spec nav 联合加 `dataset` 成员**:⛔ 建议直接否 —— 本卡明言 no spec change,且运行时无消费者,先造 authoring 面就是 objectstack#6888 刚惩罚过的「designer 教作者写死元数据」(ADR-0078)形。\n- **C — 裁定 dataset 的家就是 Metadata Directory**,dataset 半按「已交付」关闭。审计已把问题从「无家」改写为「无专属 pillar」—— 若 pillar 槽位买不到可测的东西,C 是诚实收法,appetite 留给真买到东西的落位卡。\n\n**PM 建议**:先答 dev 点出的那个真问题 ——「Directory 已全功能的前提下,pillar 槽位买什么?」有具体答案 ⇒ A(registry 派生形态);没有 ⇒ C。\n\n关联:#4019(action 半,PR #4880)、objectstack#2657(Part A 裁定与 08-07 审计)、objectstack#6242(类型集五份枚举漂移)、#4881(resolveSurface 六种 schema 拒收拼法的休眠限,dev 顺手立)。"
+}

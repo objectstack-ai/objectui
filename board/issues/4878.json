@@ -1,0 +1,34 @@
+{
+  "number": 4878,
+  "kind": "issue",
+  "title": "A report's embedded chart never buckets a NULL category — the #4466 family fix lives in `buildChartSeries`, which the report path does not call",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-16T21:29:00Z",
+  "updated_at": "2026-08-17T04:14:47Z",
+  "closed_at": "2026-08-17T04:14:47Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4878",
+  "body": "## Summary\n\n`DatasetReportChart` builds its chart rows as `relabelDimensions(state.rows, dimensionLabels)` and forwards them straight to the chart component. Nothing on that path buckets a `null` dimension value, so a report chart hands the renderer a null category — the exact input #4466 measured as drawing **no mark at all**.\n\nThe dashboard and chart-view surfaces do not have this problem because they route through `buildChartSeries` (`packages/core/src/utils/chart-series.ts`), whose `bucketNullCategories` limb is where #4466 / #4497 / #4673 / #4500 were all fixed. The report chart calls none of it.\n\nFound while implementing #4020 on the same forwarding line; out of that card's scope, so filed here.\n\n## Measured\n\nA dataset-bound report chart over rows containing a null group, capturing the props handed to the registered `chart` component:\n\n```\ndata = [{\"owner\":null,\"n\":51},{\"owner\":\"Dev Admin\",\"n\":2}]\n```\n\nThe null reaches the renderer verbatim. On the dashboard path the same rows arrive as the bucket label (`(None)`, localized per #4500) and draw a bar.\n\n## Why it matters\n\n#4466 recorded that the cost is not an empty chart but a quietly **wrong** one: the dominant group vanishes while the y-axis scale still accommodates it, so the chart reads as valid data. A report chart is the surface most likely to be exported or read in a background tab, where there is no second view to cross-check against.\n\nThe report renderer is also missing the collision-safe bucketing that came with #4508 (a stored value literally spelling the bucket label) and the `(None)` localization of #4500 — those are properties of the shared helper, so they arrive together if the path is unified rather than re-implemented.\n\n## Suggested direction\n\nRoute the report chart's rows through `buildChartSeries` rather than passing `state.rows` through, so the whole null-category family is inherited instead of re-derived. Two things to check first, which is why this is not a one-liner:\n\n1. `buildChartSeries` also DERIVES the series (one per measure, with `fields[].label`). The report chart plots exactly one measure and, since #4020, resolves its display name through a three-level fallback that outranks the plain `fields[].label` pick. The authored `chart.series[].label` override must survive the switch.\n2. The null bucket label must come from the i18n bundle at the call site (`@object-ui/core` is React-free — see the `nullCategoryLabel` option and #4500), otherwise a zh console gains an English `(None)`.\n\n## Related\n\n- #4466 / #4497 / #4673 — the null-category family, all fixed inside `buildChartSeries`.\n- #4508 — bucket identity collisions, same helper.\n- #4500 — the localized null-bucket label, same helper.\n- #4877 — the sibling gap on the same forwarding line (authored chart chrome dropped).\n- #4020 — the measure display name, fixed on this line.\n"
+}

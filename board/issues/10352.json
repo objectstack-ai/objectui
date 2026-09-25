@@ -1,0 +1,33 @@
+{
+  "number": 10352,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): carry a field's declared scale into gallery card cells",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T19:47:25Z",
+  "updated_at": "2026-09-24T20:15:56Z",
+  "closed_at": "2026-09-24T20:15:54Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T20:15:54Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10352",
+  "body": "Fixes #9575\nClause-②: no\n\n## What\n\n`ObjectGallery`'s `buildEnrichedField` copied `precision` but never `scale`. The shared `NumberCellRenderer` and `PercentCellRenderer` pad decimals to `scale` only (`precision` is the total digit count), so a gallery card rendered a `scale: 2` percent as `25%` while Grid and Detail rendered `25.00%`; a `scale` number field was likewise unpadded. The builder now copies `scale` with the same presence test (`!== undefined`) the ObjectGrid and RelatedList builders already use, and the two docblocks that enumerate the copied members name it.\n\n## Premise check (against `origin/main` at 1f8ef0a89)\n\n- Confirmed: the copy list was `type / label / options / currency / precision / format` plus the relational pair; the field member `scale` had zero reads in the file (the other `scale` hits are Tailwind classes and prose, as the card warned).\n- Confirmed: `NumberCellRenderer` reads `numField.scale`, `PercentCellRenderer` reads `percentField.scale ?? 0`; neither reads `precision` for decimals. The gallery reaches them via `resolveCellRendererType` then `getCellRenderer`.\n- Sibling member lists compared: ObjectGrid's three `fieldMeta` builders and RelatedList copy `label / currency / precision / scale / format / options` plus relational meta; RecordDetailPanel copies `scale` too. So `scale` was the only member the gallery lacked relative to its siblings. `step` and `unit` are read by no cell renderer. Members some renderers read that no sibling builder copies either (`multiple` on the file cell, `dueLike` on date cells, `currencyConfig` on the currency cell, `appearance` on the select cell) do not touch the number/percent face and are left as they are (see Acceptance notes).\n\n## Tests\n\nNew `packages/plugin-list/src/__tests__/ObjectGallery.scale-9575.test.tsx` drives the real `ObjectGallery` render. `getCellRenderer` is wrapped only to record the `field` the gallery hands over; it still returns the real renderer, so the DOM text is the shared renderer's own output.\n\n- percent `scale: 2`, value `0.25` renders `25.00%` (and not `25%`); handed field carries `scale: 2, precision: 5`.\n- number `scale: 3`, value `3.14` renders `3.140`.\n- control: percent with `precision: 10` and no `scale` still renders `25%`; handed field carries `precision: 10` and has no `scale` key, so precision still flows and is not misread as decimals.\n\nReverse verification (fix committed first, the one `enriched.scale` line removed by an anchored replace confirmed by grep count 1 then 0, restored with `git checkout HEAD`, `git diff HEAD` empty and the blob hash equal to HEAD's): the two scale cases went red (`Tests 2 failed | 1 passed (3)`), the control stayed green. No build step involved: the vitest config aliases `@object-ui/fields` and `@object-ui/react` to source.\n\n## Gates (final head e6c912430)\n\n- `pnpm exec vitest run packages/plugin-list/` : `Test Files 84 passed (84)`, `Tests 1012 passed (1012)` (run on the fix commit; the later commit only retypes the new test, rerun of the new file plus `ObjectGallery.cells.test.tsx` on e6c912430: 7 passed).\n- `@object-ui/plugin-list` `type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`) exit 0 after building the dependency closure; `--listFiles` includes the new test; test tsconfig rerun on e6c912430 exit 0.\n- eslint `--no-inline-config` on the two touched source files: 2 files, 0 errors; the new test has 0 warnings, the gallery file's warnings sit on untouched lines.\n- `check:vi-mock-specifiers`, `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:test-path-roots`, `check:new-line-citations` (0 new), `check:control-bytes`, `check:changeset-claims`, `check:pending-changeset-literals`, `scripts/check-changeset-presence.mjs`: all exit 0 on e6c912430.\n- Repo-wide `pnpm lint` / `pnpm test` are left to CI.\n\n## Changeset\n\n`.changeset/9575-gallery-scale.md`, patch on `@object-ui/plugin-list` (published source changed).\n\n## Acceptance notes\n\n- Not filed, observations only: the gallery (like ObjectGrid) hands cell renderers a hand-maintained member list, so a future renderer input can go missing the same way. Members read by some cell renderer that no list-view builder copies today: `multiple` (file cell count), `dueLike` (date cells), `currencyConfig.defaultCurrency` (currency cell), `appearance` (select cell). None changes the number/percent face; whether any is a live defect on the gallery was not measured here.\n- The issue's suggestion to derive the copy from the renderers' declared inputs would close the class; that is a design change across four builders and is out of this card's scope.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

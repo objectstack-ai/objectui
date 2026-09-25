@@ -1,0 +1,31 @@
+{
+  "number": 10380,
+  "kind": "issue",
+  "title": "finding(app-shell/plugin-list + spec door): a stored view overlay's top-level `options` bag is stripped unjudged, persisted verbatim, and rendered on the interface page — `options.KIND` bypasses its strict schema",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T20:48:38Z",
+  "updated_at": "2026-09-24T23:40:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10380",
+  "body": "Ruled: 5824043998 · letter A (judge `options.KIND` at the door; persist parsed) · 2026-09-24T23:37Z\nBlocked-by: objectstack-ai/objectstack#20051\n\nFiled by the `domain:ui` execution seat (seat 1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#10222's dev report (`out_of_scope_findings`, class b). ⛔ Not graded and not routed: `domain:*`, `priority:*`, `type`, and which repo carries which half are the triage seat's. The seam spans objectstack (the door) and objectui (the consumer).\n\n## Fact\n\nA `view` document written through `PUT /api/v1/meta/view` as a **flattened list overlay** can carry a top-level `options` bag, for example `options: { timeline: { metaFields: ['region'] } }`. This bag:\n\n1. **is not judged at the door.** The overlay member is `ListViewShapeSchema.extend(flattenedViewOverlayFields()).strip()` (objectstack `packages/spec/src/ui/view.zod.ts:5619` @ `44639665`). `options` is dropped from the parse output, not refused. The same key written directly as `timeline.metaFields` IS refused (`unrecognized_keys`);\n2. **is persisted anyway.** `saveMetaItem` keeps the original request body (「The original `item` is kept verbatim」), so the stripped bag reaches storage. This was read from source and ⛔ not measured at runtime;\n3. **is rendered.** The console merges the stored overlay verbatim into `objectDef.listViews`. `InterfaceListPage` forwards `view.options` to `ListView`, which merges `options.KIND` into the per-kind node. The object page (app-shell `ObjectView`) does not forward `options`, so one stored view renders two ways.\n\nThe spec's own comment on the overlay member says the `.strip()` 「exists precisely to carry Studio's auxiliary round-trip keys (`isPinned`, `sortOrder`, …)」. `options` is not an auxiliary round-trip key.\n\n## Measured (the objectui#10222 dev, temporary probes, not committed)\n\n- The spec door, with the installed `@objectstack/spec` 17.4.0: flat overlay + `timeline.metaFields` ⇒ `success=false`. Flat overlay + top-level `options.timeline.metaFields` ⇒ `success=true`, with `options` absent from the output. Controls: a ViewItem `config.options` and an object `listViews` entry with `options` are both refused.\n- The console: `mergeViewsIntoObjects` keeps `\"options\":{\"timeline\":{\"metaFields\":[\"region\"]}}`, and `InterfaceListPage` hands `ListView` `schema.options = {\"timeline\":{\"metaFields\":[\"region\"]}}`. Its existing pin 「CONTROL: the legacy `options.map` bag is still forwarded on its own path」 guards this forward.\n- The renderer: `ObjectTimeline` then shows the `region` chip instead of the default `status` / `priority` chips.\n\n## Seam\n\n`spec:VIEW_METADATA_MEMBERS.listOverlay` (top-level `.strip()`) + `metadata-protocol:saveMetaItem` (verbatim persist) → `app-shell:InterfaceListPage` (`options` forward) → `plugin-list:ListView` (`options.KIND` merge).\n\n## ⛔ Not claimed\n\n- ⛔ No fix is chosen: judge or refuse `options` at the door, persist the parse output, or stop forwarding `options` on the interface page. A door change does not heal rows already stored.\n- The legacy `options.kanban` nesting is a known path (`.changeset/8365-stray-kanban-groupby-refused.md` refuses `groupBy` in it on the `list-view` route); how many stored views use `options.*` is not censused.\n- objectui#10222 (the timeline `metaFields` retirement) is in the decision box partly because of this path.\n\n## Dedupe words\n\n`view overlay options bag unjudged` · `listOverlay strip options persisted verbatim` · `InterfaceListPage forwards view.options` · `options.timeline stored view bypass`"
+}

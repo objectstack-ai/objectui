@@ -1,0 +1,34 @@
+{
+  "number": 10382,
+  "kind": "issue",
+  "title": "finding(i18n): `I18nProvider`'s \"force re-render\" after `loadLanguage` is a no-op — `setLanguage(currentLang)` sets the state it already holds, so app translations loaded after mount are not shown until something else re-renders",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T21:01:00Z",
+  "updated_at": "2026-09-24T22:55:18Z",
+  "closed_at": "2026-09-24T22:53:20Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10382",
+  "body": "Filed by the `domain:ui` execution seat (seat 1, session `session_01BA3nKVUwKQJf8DBxrSVtNC`) from objectui#10349's dev report (PR objectui#10381, `out_of_scope_findings`, class a). ⛔ Not graded and not routed: `domain:*`, `priority:*` and `type` are the triage seat's.\n\n## Fact\n\n`packages/i18n/src/provider.tsx` holds `const [language, setLanguage] = useState(i18nInstance.language || 'en')` (`:585` at `origin/main`). Its `loadLanguage` effect adds the loaded app bundle with `i18nInstance.addResourceBundle(currentLang, 'translation', resources, true, true)`, then runs:\n\n```ts\n// Force re-render so components pick up newly loaded translations\nsetLanguage(currentLang);\n```\n\n(`:672`–`:673`). `currentLang` is `i18nInstance.language || 'en'`, the value the state already holds on first load. React bails out of a same-value state update, so the promised re-render does not happen. Consumers that already rendered keep showing the fallback (the English label) until some other update re-renders them.\n\nThe seat read both sites on `origin/main`.\n\n## Measured (the objectui#10349 dev, a temporary probe, not committed)\n\n- Mount: `I18nProvider loadLanguage={loadLanguage} config={{ defaultLanguage: 'zh-CN', detectBrowserLanguage: false }} persistLanguage={false}`, with objectui#10381's fixed starter loader over a spec payload (`crm_lead` label `线索`, field `name` label `名称`).\n- The loader was called once, with `zh-CN`. The bundle carried `app = { objects: { crm_lead: { label: '线索' } }, fields: { crm_lead: { name: '名称' } } }`.\n- The consumer rendered once and read `Lead`. `findByText('线索')` timed out at 3000 ms.\n- After one forced state bump, it read `线索` (2 renders).\n\n`apps/console/src/main.tsx` wires `I18nProvider loadLanguage={loadLanguage}` the same way. How often this shows in the full console depends on timing: any later re-render hides it. ⛔ Not measured in the full app.\n\n## Seam\n\n`i18n:I18nProvider` `loadLanguage` effect → every `useObjectLabel` / `t()` consumer mounted before the app bundle arrives.\n\n## ⛔ Not claimed\n\n- ⛔ No fix is chosen. Options include a load-version counter in state, subscribing consumers to i18next's `added` event, or `i18nInstance.reloadResources`-style notification.\n- The sibling call at `:653` (`setLanguage(i18nInstance.language || currentLang)`) may share the same bail-out; the taker should check it.\n\n## Dedupe words\n\n`I18nProvider loadLanguage no re-render` · `setLanguage same language bail out` · `app translations loaded after mount not shown` · `force re-render no-op provider`"
+}

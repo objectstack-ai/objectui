@@ -1,0 +1,33 @@
+{
+  "number": 4897,
+  "kind": "pull_request",
+  "title": "fix(types): drop declarationMap and src from published files",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "package: types"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T02:13:33Z",
+  "updated_at": "2026-08-17T02:25:51Z",
+  "closed_at": "2026-08-17T02:25:49Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": "2026-08-17T02:25:49Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4897",
+  "body": "Fixes #4851\n\n## What\n\nThe `@object-ui/types` half of the `src`-in-`files` finding, ruled option (b) in the\n[maintainer ruling](https://github.com/objectstack-ai/objectui/issues/4851#issuecomment-5310924919):\nturn `declarationMap` off at the source, then trim `files` to dist-only, matching the\nshape #4847 (`@object-ui/data-objectstack`) and #4856 (`@object-ui/fields`) already used.\n\nUnlike those two, this one was not a mechanical delete: `packages/types` builds with a\nbare `tsc` and had `declarationMap: true`, and its shipped `dist/*.d.ts.map` named\n`sources: [\"../src/*.ts\"]` with `sourcesContent: false` — a real (if small) consumer:\neditor go-to-source. Deleting `src` from `files` while that map still pointed at it\nwould have shipped a tarball with broken-link maps, the one state the ruling excludes.\n\n## Order followed (per the ruling)\n\n1. Flipped `declarationMap: false` in `packages/types/tsconfig.json`. Checked the\n   inheritance chain: `packages/types/tsconfig.json` extends the **repo-root**\n   `tsconfig.json` (not `tsconfig.base.json` — nothing under `packages/types` is on\n   that chain), and neither the root nor the package config ever set `sourceMap: true`\n   for this package (confirmed via `tsc --showConfig`), so the bare-`tsc` build only\n   ever emitted `.d.ts` + `.d.ts.map`, never `.js.map`.\n2. Clean rebuild (`rm -rf dist tsconfig.tsbuildinfo && tsc`) — no workspace dependency\n   build was needed (`@object-ui/types` has none in this package's own build graph\n   beyond `@objectstack/spec`, already installed).\n3. Verified `dist` with a positive control:\n\n   | | pre-flip (baseline) | post-flip |\n   | --- | --- | --- |\n   | `.map` files | 54 | **0** |\n   | `sourceMappingURL` occurrences | 54 | **0** |\n   | `../src` references | 54 | **0** |\n\n   The pre-flip run is the positive control proving the greps actually hit something\n   (not a vacuously-passing pattern) before trusting the post-flip zeros.\n4. Trimmed `files` to `[\"dist\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]`, after\n   confirming all four points of #4847's pre-deletion checklist for this package:\n   - `exports` map: 11 subpath entries, every condition targets `dist`.\n   - `main` / `module` / `types`: all `./dist/...`.\n   - Repo-wide grep for `@object-ui/types/src` (docs, code) — zero hits; no guide\n     teaches a `src` deep-import for this package (unlike `fields`, which had this in\n     3 skill guides per #4851's own investigation — filed separately as #4858, not\n     applicable here since `types` has no such guide text at all).\n   - Sourcemaps: covered by step 3 above.\n\n   `npm pack --dry-run` before/after, on the freshly rebuilt `dist`:\n\n   | | before | after |\n   | --- | --- | --- |\n   | entries | 203 | 112 |\n   | unpacked | 3974143 B | 2828454 B |\n   | tarball | 656307 B | 414644 B |\n\n   91 `src/*.ts` files leave, none arrives; the `dist/` entry count (108) is unchanged\n   byte-for-byte apart from the edited `package.json`.\n5. Updated the `scripts/check-phantom-dependencies.mjs` header paragraph: it previously\n   read \"`fields`/`types` still list `src`, and `types`'s entry is load-bearing\" (already\n   updated once by #4856/PR #4861 to retire the `data-objectstack` example). This PR\n   retires the last of the three — the paragraph now states all three originally-recorded\n   packages have dropped `src` from `files`, and explains why `types` needed the\n   `declarationMap` flip first rather than a bare delete.\n\n## Consumer impact\n\nGo-to-source for `@object-ui/types` consumers now resolves to the shipped `.d.ts`\ninstead of the original `.ts` — a deliberate, near-zero-pull trade per the ruling\n(`types` is a pure-types package built by bare `tsc`, so its declarations are\nnear-isomorphic to their source). No public type surface changed; `exports` targets are\nunchanged.\n\n## Tests (HEAD `903f47f`)\n\n- `pnpm exec vitest run --root . scripts/__tests__/package-files-exist.test.ts` — 18/18 passed\n- `pnpm exec vitest run packages/types/ --maxWorkers=2` — 36 files / 428 tests passed\n- `node scripts/check-phantom-dependencies.mjs` — passing (re-run at HEAD)\n- `cd packages/types && npm run type-check` (`tsc --noEmit && tsc -p tsconfig.examples.json && tsc -p tsconfig.test.json`) — clean\n- `node scripts/check-control-bytes.mjs` — passing\n- `node scripts/check-package-self-import.mjs` — passing\n- `node scripts/check-changeset-presence.mjs` / `check-changeset-no-major.mjs` — passing (re-run at HEAD)\n- `node scripts/check-published-dist-tooling.mjs` — **not run locally**: this gate costs\n  a full monorepo build (objectui#4846) and is not implicated by this diff (no change to\n  what any package's build program emits); left to CI per \"本地验证范围\".\n\n## Out-of-scope finding (not fixed here)\n\nWhile auditing `packages/types/package.json`'s `exports` map against the built `dist`,\nfound `exports[\".\"].require` points at `./dist/index.cjs`, which the package's bare\n`tsc` build (`\"build\": \"tsc\"`) never emits — confirmed pre-existing on `origin/main`,\nunrelated to this change. Filed as #4896, out of this PR's file surface.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DbRmJD3iPhXjKr6vhd4Qkv)_"
+}

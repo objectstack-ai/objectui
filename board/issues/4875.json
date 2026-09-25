@@ -1,0 +1,34 @@
+{
+  "number": 4875,
+  "kind": "issue",
+  "title": "FilterBuilder 三处数值输入用 `parseFloat(raw) || 0` —— 半截读数与 NaN 都落成 0（今天被 number 输入框挡着）",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T19:45:14Z",
+  "updated_at": "2026-08-17T02:42:20Z",
+  "closed_at": "2026-08-17T02:42:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4875",
+  "body": "发现于 #4781 的实施，回传立单。**观察类**：今天用户碰不到，记录在案是因为 #4781 刚在同一个文件里立了一份严格的转换判定，两者口径不一致，将来谁先松动都不会有人发现。\n\n## 事实\n\n`packages/components/src/custom/filter-builder.tsx`（origin/main `65e88e6`）里同一个宽松写法出现三次，全部作用在数值列上：\n\n1. `MultiValueInput` 的 `commit()`：`const next = numeric ? (parseFloat(trimmed) || 0) : trimmed`\n2. `between` 的 `setBound()`：`next[index] = numeric && raw !== \"\" ? parseFloat(raw) || 0 : raw`\n3. 单值输入的 `handleValueChange()`：`convertedValue = parseFloat(newValue) || 0`\n\n`parseFloat` 读半截（`\"42abc\"` → `42`），读不出来给 `NaN`，再被 `|| 0` 兜成 `0`。也就是说，只要有别的路径把非数字字符串喂进这三处，用户会得到一条自己没写过的筛选：`amount equals 0`。\n\n## 为什么今天碰不到\n\n三处的输入框都是数值输入框（`type` 为 `number`），浏览器对非数字输入直接把 `.value` 交成空串，宽松分支实际到不了。所以这是一处休眠的宽松，不是线上缺陷 —— 故打 `finding`，不入 `pm:queue`。\n\n## 为什么仍然要记一笔\n\n#4781 落地后，同一文件里的 `convertScalarToFamily` 对「字符串能不能当数字」给的是严格读数：整串 `Number()` 且有限才收，`\"acme\"` / `\"42abc\"` / `\"1,000\"` 一律清空 —— 理由正是「`parseFloat` 会把 `\"acme\"` 变成 `0`，写出用户从未写过的筛选」。两份口径就此并存在一个文件里：一份严格（字段切换路径），一份宽松（键入路径）。今天靠输入框类型隔开，明天任何一个改动（换成 text 输入以支持公式/变量、粘贴、程序化写值）都会让宽松那份直接暴露，且症状是静默的错值而不是报错。\n\n收敛的做法：三处改成走同一份判定，读不出数就当「没填」（空串），而不是 `0`。\n\n## 参考\n\n- #4781（字段切换时的严格转换判定，本单的对照面）"
+}

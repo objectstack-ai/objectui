@@ -1,0 +1,30 @@
+{
+  "number": 4866,
+  "kind": "pull_request",
+  "title": "docs(skills): 三份指南改教发布态 style.css 导入,停教扫 node_modules 源码",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T17:00:01Z",
+  "updated_at": "2026-08-16T17:03:57Z",
+  "closed_at": "2026-08-16T17:03:55Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T17:03:55Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4866",
+  "body": "Fixes #4858\n\n## 改了什么\n\n三份 skill 指南给消费者的 Tailwind 样板是 `@source` 扫 `node_modules/@object-ui/*/src`。\n按 #4858 的实测:`components` / `layout` / `react` 三个包的 `files` 只含 `dist`,那三条 glob\n今天匹配 **0 个文件**;`fields` 是同族最后一个还把 `src` 装进 tarball 的包(PR #4861 之后也归零)。\n三份文件同时 **零提及** `style.css` —— 而 objectui#4059 之后那才是正路。\n\n按 #4858 正文修法 1 改为发布态导入,逐处判别场景:\n\n| 文件 | 行(原) | 场景 | 动作 |\n| --- | --- | --- | --- |\n| `skills/objectui/rules/styling.md` | 187-190 | published-consumer | 整段样板换成两张 `style.css` 导入 |\n| `skills/objectui/guides/page-builder.md` | 251-252 | published-consumer | 同上;同段 247-250 的 `packages/*/src` 是 **monorepo** 路径,**保留** |\n| `skills/objectui/guides/project-setup.md` | 131-134 | published-consumer | 整段样板换成两张 `style.css` 导入 |\n\n`page-builder.md` 那段原本把两种路径混在同一个模板里(既 `packages/*/src` 又 `node_modules/*/src`),\n已拆成「Installed from npm」与「Inside the ObjectUI workspace」两个场景;工作区的四条 `@source`\n原样保留(那是工作区路径,与 tarball 无关,今天有效)。\n\n## 与仓内三处维护中答案的对齐读数\n\n1. **`content/docs/guide/theming.md:66-82`** —— 导入顺序与包清单以它为准:\n   `@import \"tailwindcss\"` → `@import \"@object-ui/components/style.css\"` → `@import \"@object-ui/fields/style.css\"`。\n   顺序不是装饰:fields 表是**减法补充**(compiled against components theme,再减去 components 已发的每条规则),\n   先导或单独导,其规则解析的 token 还不存在。它并写明「Do **not** point Tailwind at the packages inside\n   `node_modules`」与「You do not restate those tokens in a config of your own」。\n2. **`packages/components/README.md:55-68`** —— 「importing it is the whole of the styling setup」,\n   以及 64 行「You do **not** add a `@source` line for `node_modules/@object-ui/components`」,\n   理由与上同(shape-only utility 重复生成,主题化的仍生成不出)。\n3. **`packages/cli/src/utils/app-generator.ts:329-337`** —— scaffold 的两个分支:非 monorepo 扫\n   **dist**(`@source '../node_modules/@object-ui/*/dist/**/*.js';`),monorepo 扫 `packages/components/src`\n   与 `packages/plugin-*/src`。**从不扫已发布的 `src`** —— 与本 PR 删掉的正是同一条判据。\n\n第四处旁证(非派发指定,实读时撞上):`packages/fields/src/index.css:1-24` 的文件头把消费者该写的\n两行原样写着,并说明「the import ORDER above is not cosmetic」。\n\n## 一处超出「只换 @source」的改动,以及为什么必须一起改\n\n三份样板在 `@source` 之后还重述了一份 `@theme` + `:root` token 表,用的是 **oklch 字面色** 配\n`--color-x: var(--x)`;而发布的 `style.css`(源自 `packages/components/src/index.css`)走\n**Shadcn HSL 通道值** 配 `--color-x: hsl(var(--x))`,并且自带 `:root` / `.dark` 默认值。\n\n两者并存会让 components 已编译好的 utility 拿到 `hsl(oklch(1 0 0))` —— 无效值。也就是说:**只把\n`@source` 换成 `style.css` 导入、却留下那份 token 表,会把「不生成 utility」换成「颜色全废」**,\n比改之前更糟。theming.md 与 components README 都明说这些 token 不该由消费者重述,故一并删除;\n需要改色的场景改成按 theming.md 的 HSL 通道值覆盖 token,并指向该文档。\n\n`project-setup.md` 的依赖清单同步加了 `@object-ui/fields`(实测 `@object-ui/components` 的\n`dependencies` 不含 fields,不是传递依赖),否则新模板里第二行导入解析不到。\n\n## 验证\n\n- `pnpm exec vitest run scripts/__tests__/ --maxWorkers=2`(套 flock):**46 files / 1065 tests passed**。\n  `check-skills-paths` 的钉子里没有引用这三份文件的行号或内容(只有 `console-development.md` 有 per-file 钉),\n  无需更新。\n- `node scripts/check-skills-paths.mjs`:OK,93/94 stated path 解析(新增的 `apps/console/src/index.css`\n  与 `content/docs/guide/theming.md` 两处散文坐标都落在实文件上)。\n- `node scripts/check-control-bytes.mjs`:OK(4345 tracked text files);另做超出门的自扫\n  `grep -naP '[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]'` 三份文件,零命中。\n- 仓根 `turbo run type-check --concurrency=2`:**81 successful, 81 total**(本 PR 纯 markdown,预期无影响,\n  按流程跑满)。\n- `node scripts/check-changeset-presence.mjs`:「0 of them under the src/ of a package the release covers …\n  **No source of a released package changed in this range, so no changeset is owed**」—— 故本 PR 不带 changeset。\n\n### 反向验证(方向先判后跑)\n\n预判:**没有任何门会红**。判据是两条 —— `check-skills-paths` 明确只读散文里的行内 code span、\n**从不读 fenced block**,且其 `PATH_PREFIXES` 只有 `apps|packages|examples|scripts|content`\n(`node_modules/...` 不在内,且含 `**` 会被 pattern 规则排除)。实跑:把 `styling.md` 整份还原成旧样板后,\n`check-skills-paths` 仍 OK(91/92)、`check-control-bytes` 仍 OK、`check-skills-paths.test.ts` 31 tests 全绿。\n与 #4858 正文的判断一致 —— **今天唯一看得见这类样板的判据是 grep 自查读数**:\n三份文件里 `node_modules/@object-ui` 与 `/src` 的组合由 4 处归零(全 `skills/` 树为 0),\n`style.css` 在每份文件的样板里都出现。还原用 `git checkout`,未用 stash。\n\n机制化的门(#4858 方向 2)按派发不在本单做 —— 与 #4846 记的产物级判据同族成本。\n\n## 顺序\n\n本 PR 落 main 后,跟着旧样板走的项目不会经历「fields 的 shape utility 也没了」这一步,\n再放 PR #4861(#4856,fields `files` 去 `src`)。\n\n## 相邻缺陷(未在本 PR 修,已立新单)\n\n- #4865 —— `skills/objectui/SKILL.md:140` 的「Common Mistakes」仍教「加 `@source`」,\n  `skills/objectui/evals/project-setup.json` 三条 eval 的 `must_contain` 仍把 `@source` / `@theme` /\n  `:root` 当正确答案(仓内无 harness 读它,今天不影响任何门)。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

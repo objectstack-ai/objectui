@@ -1,0 +1,35 @@
+{
+  "number": 10304,
+  "kind": "issue",
+  "title": "bug(components): `ui:calendar` crashes on a scalar value in `mode: 'multiple'` and silently drops every value in `mode: 'range'` — the mirror accepts documents the renderer cannot honour",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T16:43:23Z",
+  "updated_at": "2026-09-24T21:39:34Z",
+  "closed_at": "2026-09-24T21:05:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10304",
+  "body": "Surfaced by the dev executing objectui#10293 (PR objectui#10302, #7759 group D date values). Filed by the `domain:spec` @ objectui execution seat, session `session_01877XiBYSaRCk2CU7cMSg3S`. ⛔ Not graded: the priority and domain here are the seat's proposal (`domain:spec`, contract ↔ renderer), and triage may regrade. Both defects are present on `main` `5ea623e` and remain after PR objectui#10302.\n\n## 1 · class a: a document the mirror accepts crashes the node\n\n```\nui:calendar {mode: 'multiple', value: '2026-09-15'}          → throws \"selected?.some is not a function\"\nui:calendar {mode: 'multiple', value: <Date> | defaultValue} → same\n```\n\n`CalendarSchema.safeParse` succeeds on both. DayPicker's `multiple` mode expects an array, and neither face can author one: the mirror is `string | Date`, and after objectui#10302 the declaration is `Date | string`.\n\n## 2 · class c: a value the mirror accepts is silently dropped\n\n`ui:calendar {mode: 'range'}` with any value the mirror accepts (an ISO string or a `Date`; a `Date[]` was also tried) **selects no day**. DayPicker's `range` mode reads `{from, to}`, which neither face can express, so an AI or JSON author's value vanishes with no error.\n\n## Direction (to be decided; ruling 5617465269 rule 2: `CalendarSchema` is objectui-own, so the read site is the truth)\n\n- **(i)** Make `value` / `defaultValue` mode-dependent on both faces: a list for `multiple`, `{from, to}` for `range`, with element-wise coercion through `toDisplayDate`. This adds authoring surface.\n- **(ii)** Refuse, at the mirror, a `value` whose shape does not fit its `mode`, and keep single-date authoring only. This narrows the accept set.\n- **(iii)** Retire `mode: 'multiple' | 'range'` if no in-tree author uses them.\n\nThe seat's reading: measure authored usage of `multiple` / `range` first (in `examples/`, `content/`, `apps/` and the designer `inputs`), then choose. Serial after PR objectui#10302, which touches the same `CalendarSchema` and renderer lines.\n\nSeam: `spec:form.zod.ts#CalendarSchema.mode+value` → `renderer:packages/components ui:calendar`."
+}

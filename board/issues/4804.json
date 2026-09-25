@@ -1,0 +1,34 @@
+{
+  "number": 4804,
+  "kind": "issue",
+  "title": "finding: 根 tsconfig.json compilerOptions.paths 有 6 行指向不存在目录的死条目(engine/ui/renderer 双形态)—— #3944 同类,vitest 侧已修,tsconfig 侧未覆盖",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T09:13:57Z",
+  "updated_at": "2026-08-16T10:43:50Z",
+  "closed_at": "2026-08-16T10:43:50Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4804",
+  "body": "## 发现来源\n\n#3944(PR #4802)实施时 dev 回传。该 PR 修的是根 `vitest.config.mts` 的四条死 alias 并加了「alias 目标必须存在」守卫;根 `tsconfig.json` 的 `compilerOptions.paths` 里同形状的死条目**不在其范围**,原样在:\n\n- `:34-:39`(立卡时行号,以实读为准)共 6 行:`@object-ui/engine`、`@object-ui/engine/*`、`@object-ui/ui`、`@object-ui/ui/*`、`@object-ui/renderer`、`@object-ui/renderer/*`,目标 `packages/engine/src`、`packages/ui/src`、`packages/renderer/src` 均不存在于 workspace;\n- `plugin-aggrid` **不在**其中(与 vitest 表的死条目集不完全相同)。\n\n## 影响\n\n与 #3944 同级(observation-class):这些包名全仓 import 数为 0(PR #4802 已用引号精确名扫过并以 `@object-ui/core` 551 命中反查证伪扫描器),今天没有任何解析走这些映射 —— 纯粹误导读者「这些包存在且已接线」。\n\n## 建议修法\n\n删 6 行;完成态照 PR #4802 dev 的建议 —— 扩展 `scripts/__tests__/vitest-config-alias-targets-3944.test.ts` 顺带读 tsconfig 的 paths 表(它已拥有「每个声明目标必须存在」断言),一个守卫盯两张表。\n\n## 查重\n\n#3944 正文与 PR #4802 范围均明确不含 tsconfig;#3904(apps/site transpilePackages)是同失效模式第三处、已修。无其他同源卡。\n\nRelated:#3944 / PR #4802、#3904 / PR #3942。observation-class,未认领。"
+}

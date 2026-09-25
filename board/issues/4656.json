@@ -1,0 +1,34 @@
+{
+  "number": 4656,
+  "kind": "issue",
+  "title": "finding(permissions): MePermissionsProvider collapses an ABSENT systemPermissions (pre-ADR-0066 backend) and a genuinely EMPTY one into the same [] — capability gates cannot distinguish \"no answer\" from \"no grants\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-14T16:13:53Z",
+  "updated_at": "2026-08-15T18:19:14Z",
+  "closed_at": "2026-08-15T18:18:54Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4656",
+  "body": "Filed by the `repo:objectui` seat (session `session_01RnQd8iMMUwXQEV1crFmQiQ`, 2026-08-14) from the objectstack#8270 dev measurement. Observation-class; awaiting first-touch grading.\n\n## Measured\n\n`MePermissionsProvider` (packages/permissions) surfaces `GET /api/v1/auth/me/permissions` → `systemPermissions`, but a backend that predates ADR-0066 (field absent) and a session with genuinely zero system permissions both reach consumers as `[]`. Call sites that gate on `hasCapabilities([...])` therefore cannot gate strictly without stripping UI from every user on a non-reporting deployment — the objectstack#8270 gate had to adopt a call-site fail-open heuristic (empty set ⇒ treat as \"backend does not report\"), consistent with the `useCapabilityGate` doctrine for ADR-0066 gates (framework#3923), and pinned it in `HomePage.authoringCapabilityGate.test.tsx`.\n\n## The improvement this records\n\nTeach the provider/context to preserve the distinction (`systemPermissions?: string[] | undefined` carried through, or an explicit `capabilitiesReported: boolean`), so gates can be strict on a real answer and lenient only on a genuinely missing one — per-call-site heuristics then retire. Touches `packages/permissions/` and every gating consumer; wants its own card, not a rider.\n\nRe-check: read `MePermissionsProvider` for the collapse; grep call sites of `hasCapabilities(` for fail-open heuristics that would simplify.\n\nProvenance: objectstack#8270 report + PR #4654 (\"The one judgement call worth review\" section)."
+}

@@ -1,0 +1,33 @@
+{
+  "number": 4775,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): a no-sections drawer form honours field-level conditional rules (#4755)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:55:05Z",
+  "updated_at": "2026-08-16T05:04:32Z",
+  "closed_at": "2026-08-16T05:04:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T05:04:31Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4775",
+  "body": "Fixes #4755\n\nBase: `d971e51c0`(含刚落 main 的 PR #4760)。\n\n## 前提核验(自证,未采信 issue 正文)\n\n两个 flat builder 逐行取出对比,确认 issue 报的「line-for-line identical except keys」属实:\n\n```\n$ diff -u <(sed -n '313,361p' packages/plugin-form/src/DrawerForm.tsx) \\\n          <(sed -n '389,443p' packages/plugin-form/src/ModalForm.tsx)\n```\n\n差异只有三处:两行注释措辞,以及 ModalForm 多出的四个键 —— `visibleWhen` / `readonlyWhen` / `requiredWhen` / `group`。依赖数组、`isRequiredInForm(field, isCreateFormMode(schema))`、`mapFieldTypeToFormType(field.type, { multiple })`、跳过未声明字段的 `continue`,两边完全一致。\n\n`SplitForm` / `TabbedForm` 复核:两者都没有 flat builder,恒经 `buildSectionFieldsShared` 走 `sectionFields.ts`(SplitForm.tsx:201-203、TabbedForm.tsx:276-278),而 `fromObjectSchema` 本就带三条规则 —— 确认不受影响,与 #4085 dev 的结论一致。\n\n## 取舍:走了收敛,不是补齐\n\n分诊给的第一选择是收敛,实测后确认成本没有超出:两份循环的**唯一**实质差异就是那四个键,且 `sectionFields.ts` 的 `fromObjectSchema` 已经是同一个「对象字段 → 运行时 FormField」映射的第三份实现(它带三条 ADR-0036 规则,不带 `group`)。所以没有做「DrawerForm 补齐四键 + parity 钉」,而是:\n\n- `sectionFields.ts` 导出 `fromObjectSchema`(纯导出,零行为改动);\n- 新增 `packages/plugin-form/src/flatFields.ts`,`buildFlatFields` 在其上加一个 `group` 组成扁平路径的映射;\n- `ModalForm` / `DrawerForm` 的 useEffect 各自换成一次 `buildFlatFields(...)` 调用,**依赖数组一字未动** —— 两个容器读的还是原来那几个值(`schema.recordId` / `schema.objectName` / `fieldLabel` 改动前后都被读、都不在依赖里),所以重跑时机与旧行为逐字相同。\n\n包内因此只剩**一份**映射,由分区路径与扁平路径共用。下一次 widget arity(#3986)、create 模式 `required`(#4069)或 ADR-0036 的改动落一次即可覆盖所有容器 —— 这正是 issue 里「stop maintaining two hand-copied builders」的诉求。\n\n`group` 为什么只加在 `buildFlatFields` 而不是 `fromObjectSchema`:它唯一的读者 `deriveFieldGroupSections` 只在扁平字段列表上跑,两个调用点(ObjectForm.tsx:909、ModalForm.tsx:258)在存在显式 sections 时都会跳过,放进 `fromObjectSchema` 只会给分区字段加一个没有读者的键。代码里写了这条理由。\n\n## 钉子\n\n`packages/plugin-form/src/flatFields.test.ts`(单元,6 例)\n- 四个键各自被带上;\n- **双向 parity 钉**:对每个字段,`buildFlatFields` 与 `normalizeSectionField` 的输出**逐键相等**,键集合只允许多出 `group`。任何一侧被重新分叉都先在这里红。\n\n`packages/plugin-form/src/flatFieldRules.test.tsx`(容器级,Modal/Drawer 同一张 `describe.each`,12 例)\n- `visibleWhen` 为假的字段不渲染、为真时渲染;\n- `readonlyWhen` 为真时字段失去可编辑控件(该设计系统下锁定字段渲染为只读值展示,不是 disabled 输入框 —— 测试里注明了为何不断言 `readonly` 属性);\n- `requiredWhen` 为真时 `aria-required` 与提交校验**两层**一致:空值拦提交(`create` 未被调用),填值后放行且 payload 带上该字段;为假时不拦。\n\nmodal 行是防回归(收敛后行为必须不变),drawer 行是本次修复;将来任一侧再分叉,表现为一个容器整片红、另一个全绿。\n\n`requiredWhen` 与 PR #4760 的 serverOwnedValue 让位语义:构建器层不做任何判断,`requiredWhen` 原样带下去,create 模式的让位由下游 `resolveFieldRuleState` 统一裁决 —— 与分诊要求一致。\n\n## 反向验证(先预判,后跑)\n\n预判:把 DrawerForm 还原成修复前那份不带四键的内联循环(ModalForm 保持共享构建器),应当 **drawer 6 行里红 3 行**,即三条断言「规则确实生效」的用例;另外三条 FALSE 方向的用例**应当保持绿**,因为「谓词判假」与「谓词根本没送达」在 DOM 上完全同形,这三行本就区分不了该 bug。modal 6 行全绿,`flatFields.test.ts` 6 例全绿(它直接测共享构建器,不受容器层变异影响)。\n\n实测与预判逐条吻合:\n\n```\n Test Files  1 failed | 1 passed (2)\n      Tests  3 failed | 15 passed (18)\n FAIL  ... DrawerForm — no-sections form honours field-level rules (#4755) > hides a `visibleWhen`-FALSE field and shows it when the predicate holds\n FAIL  ... DrawerForm — no-sections form honours field-level rules (#4755) > locks a `readonlyWhen`-TRUE field\n FAIL  ... DrawerForm — no-sections form honours field-level rules (#4755) > refuses the submit while a `requiredWhen` field is empty\n```\n\n变异已还原(`git checkout` 回本分支的提交),未提交。\n\n## 消费半径扫描\n\n改动只在 plugin-form 内部(`flatFields.ts` 不从 index 导出)。跨包只可能经 DrawerForm 的新增键影响到:枚举了仓内所有跑 drawer 表单的测试,与 `visibleWhen|readonlyWhen|requiredWhen` 取交集为空,无 fixture 需要改。\n\n## 验证\n\n- `pnpm exec vitest run packages/plugin-form/` → **45 files / 462 tests passed**\n- `pnpm exec turbo run type-check --concurrency=2` → **81/81 successful**\n- `check-control-bytes` / `check-changeset-presence` / `check-changeset-no-major` / `check-changeset-fixed` / `check-phantom-dependencies` / `check-lint-coverage` / `check-type-check-coverage` 全绿\n- `eslint` 改动文件:0 error(仅既有的 `no-explicit-any` warning,与周边同型)\n- changeset:`.changeset/drawer-flat-field-rules-4755.md`(patch,`@object-ui/plugin-form`)\n\n## 超范围发现(已另立,未在本 PR 修)\n\nissue 正文里 `group` 那段的因果写反了:`DrawerForm` 并不是「fallback 没东西可分组」,而是**根本没有 fallback** —— 全仓 `deriveFieldGroupSections` 只有 ObjectForm 与 ModalForm 两个调用点。本 PR 让 drawer 的运行时字段带上了 `group`(fallback 需要的输入已就位),缺的是调用点本身。已作为 #4774 单独立单(unassigned),不在本卡范围内修。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01GTRjn8xBqp75dk7kFupVRt)_"
+}

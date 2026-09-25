@@ -1,0 +1,32 @@
+{
+  "number": 4980,
+  "kind": "issue",
+  "title": "[finding] main is red on THREE independent counts at once, and two share one mechanism: a dependency bump lands without the in-repo range pin that asserts against it",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T11:02:35Z",
+  "updated_at": "2026-08-17T11:45:18Z",
+  "closed_at": "2026-08-17T11:45:18Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4980",
+  "body": "Filed unassigned by the PM dispatch seat (session `session_01Y26DJEHSBhhAQ6wwfsHNza`), measured while driving PR #4962 (objectstack#8815, a `priority:p0` card) to green. ⛔ Not fixed here — no single lane owns all three, and one of them is a maintainer decision.\n\n## ⚠️ `main` is red, so every open PR inherits it\n\nMeasured on PR #4962 at `1563d47` (which had just merged current `main`), run [32012778363](https://github.com/objectstack-ai/objectui/actions/runs/32012778363). **Three of four test shards failed, on three unrelated assertions.** There are 8+ open PRs across several seats; none of them can go green.\n\n| shard | failing test | assertion | cause on `main` |\n|---|---|---|---|\n| **1/4** | `packages/cli/src/__tests__/app-generator.test.ts:1139` | `expected '^1.29.0' to be '^1.31.0'` | `c1454a2` bumped `lucide-react` 1.29.0→1.31.0 |\n| **2/4** | `packages/create-plugin/src/__tests__/templates.test.ts:356` | `@testing-library/jest-dom range must match the repo root: expected '^7.0.0' to be '^7.0.1'` | `590dd63` bumped the dev-dependencies group (11 updates) |\n| **3/4** | `packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts:134` | `FieldOperatorsSchema accepts these but no builder operator can author them: [ '$like', '$ilike' ]` | the `@objectstack/spec` GA pin widened the schema 16→18 keys |\n\nEach was verified to be pre-existing rather than PR #4962's: shard 3/4 was reproduced on a **clean `origin/main` worktree with none of that PR's changes present** (`grep -c isFilterValueComplete` = 0, `--frozen-lockfile`), giving the identical failure. Shards 1/4 and 2/4 name files that PR touches not at all.\n\n## ⭐ Two of the three are the SAME mechanism, which is why this is a class and not a list\n\nShards 1/4 and 2/4 are one fault: **a test asserts that a generated/template manifest carries the same dependency range as the repo root, and a bump changed the root without updating the template.** The tests are correct — that is exactly the drift they exist to catch — and they are doing their job. What is missing is that **the bump and the pin are not landed together**, so the gate fires *after* the bump is already on `main` rather than blocking it.\n\n⚠️ Both bumps are automated (dependabot). This will recur on **every** dependabot batch that touches a range one of these templates mirrors, which means the cost is not \"fix these two\", it is \"fix these two again next week\". Two instances live simultaneously today is the measurement that makes it a class.\n\nKnown state per instance:\n- lucide-react — a fix is already in flight as PR #4969 (`fix(cli): catch the app-generator lucide-react range up to the workspace`).\n- `@testing-library/jest-dom` — ⛔ **no fix in flight that I can find.** This is the one currently unowned.\n- `$like`/`$ilike` — **#4911**, open and `needs-user-decision`. ⛔ Not fixable by any seat: it asks whether the visual builder should offer pattern matching at all, which is an authoring-surface product call. I recorded on that card that its `Blocked-by: #4636` precondition has now fired.\n\n## Suggested shape (⛔ not decided, and deliberately not attempted here)\n\nFor the recurring pair, the durable fix is to stop hand-mirroring: have the template **read** the root manifest's range at generation time (or generate the template's manifest from the root), so there is one source of the range and no second copy to drift. That converts \"a test that catches drift after the fact\" into \"a structure with no drift to catch\" — the same move this org has taken elsewhere (a derived value should be derived, not restated).\n\n⚠️ A narrower option is to teach the dependabot flow to update the mirrored pins in the same PR, but that keeps two copies and relies on the automation knowing every mirror site — a list that is itself unenforced, which is the shape that produced this.\n\n⛔ I did not just bump the two stale ranges to green the queue. It would take minutes, but it is another lane's surface, it leaves the mechanism intact, and it would not actually unblock anything while #4911 is undecided — so it would buy nothing and hide the class.\n\nRe-check commands:\n\n```\nnode --version && git log --oneline -6 origin/main\npnpm vitest run packages/create-plugin/src/__tests__/templates.test.ts\npnpm vitest run packages/cli/src/__tests__/app-generator.test.ts\npnpm vitest run packages/fields/src/widgets/__tests__/FilterConditionField.operators.test.ts\n```\n\nRefs: #4911 (the undecided third), PR #4969 (lucide fix in flight), PR #4962 and objectstack#8815 (where all three surfaced together), `c1454a2` / `590dd63` (the two bumps)."
+}

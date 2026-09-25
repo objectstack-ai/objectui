@@ -1,0 +1,32 @@
+{
+  "number": 4764,
+  "kind": "pull_request",
+  "title": "feat(app-shell)!: modal target 只命名 page,退役 object fallback 与前缀约定 (#3925)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T04:35:32Z",
+  "updated_at": "2026-08-16T04:57:22Z",
+  "closed_at": "2026-08-16T04:57:20Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-16T04:57:20Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4764",
+  "body": "Fixes #3925\n\n按维护者裁定 **objectstack#6739-A**(2026-08-09,decision-inbox 轮次「全部接受」):`type: 'modal'` 动作的字符串 `target` 只命名 **PAGE**。本仓的 page-then-object 解析属于消费端宽容,退役。\n\nBase: `2646ccb728e36af1e7b38d79de49c09f041e4ed6`\n\n## 改了什么\n\n`packages/app-shell/src/hooks/useActionModal.tsx`:\n\n1. **`resolveModalTarget`** —— 删掉 page 未命中后的 object 元数据回落。非 page 名是**拒绝**,不再静默解析为 object。\n2. **`create_`/`new_`/`add_`/`edit_`/`update_` 前缀约定** —— 随同退役。`normalizeModalSchema` 对字符串一律返回 `{ targetName }`,不再拆成动词 + object。裁定明确拒绝了第三形态(保前缀、弃裸名)。\n3. **诊断** —— `modalHandler` 点名被拒 target 并给出替代:``Modal target \"contact\" names no page — a modal action's `target` names a PAGE, only. To open an object's form, use `type: 'form'` with an `object.view` target.``\n4. **`ModalDescriptor.objectName` 的 \"Back-compat\" 注记(交付清单第 3 项)—— 重判为「保留,但注记是错的」**。理由见下。\n5. 顺带纠正 `resolveModalTarget` 一段**过期 TSDoc**:它仍写着 `null` 会回落到服务端处理器,而该回落早已由 objectstack#3959 / objectui#3320 移除。这段在 `main` 上就已与同文件消费者的实际行为矛盾。\n\n### 为什么 `objectName` 保留而不是一并删\n\n它**不是** back-compat,也不是宽容 —— 它的唯一在产者是 lookup 字段的行内「创建被引用记录」:`@object-ui/fields` 的 `LookupField` 调用 `execute({ type: 'modal', modal: { objectName, mode } })`,传入的是**完整 descriptor**,object 身份来自字段的 `referenceTo`,而不是从名字猜出来的。这条路径与动作的 `target` 无关,因而不在裁定退役范围内。真正退役的是**推断**:字符串 target 不再能变成 `objectName`。注记已按此改写。\n\n## 风险门(卡内明示:发现真实依赖 → 停手报测量)—— 已枚举,**未发现依赖,放行**\n\n| 位置 | 形态 | 是否依赖被删分支 |\n|---|---|---|\n| objectstack `examples/app-showcase` `QuickViewAction` | `type: 'modal'` + `target: 'showcase_component_gallery'` | **否** —— 目标是已声明 page,走 page 分支 |\n| objectstack showcase 「Create Task」行内按钮 | 已迁至 `type: 'form'` + `showcase_task.edit` | **否** —— os#6737 已落地,实测确认 |\n| objectstack `examples/app-showcase/test/actions.test.ts` | 语料钉:每个 modal target 必须是已声明 page | **否** —— 与本变更同向 |\n| objectui `apps/` `examples/` | 全仓无 `type: 'modal'` 动作携带字符串 target(命中项均为 FormView 的 `type: 'modal'`,另一个概念) | **否** |\n| objectui `packages/fields` `LookupField.tsx:823` | `{ objectName, mode }` **descriptor**,非字符串 target | **否** —— 见上,保留且有测试钉 |\n| objectui `packages/app-shell/.../metadata-admin/package-schema.ts:81` | `FormViewSpec` 的 `type: 'modal'`(表单呈现模式) | **否** —— 不同概念 |\n| 全仓前缀约定 target 元数据 | 无 | **否** |\n\n## 测试\n\n`packages/app-shell` 全量:**403 文件 / 3831 通过 | 1 skipped**。\n\n按三类处置逐条重判 fixture,而非批量改写:\n\n- **整体替换**(原用例正好钉住被删的那条肢体):「falls back to an object create form」→ 改为拒绝钉;「still honors the create_ prefix」→ 改为拒绝钉(与裸名同判,即钉 ③)。两个拒绝钉的 fixture 都**故意让 object 真实存在**于元数据里 —— 对空 object 列表断言 null 会**空洞通过**,只证明没找到,而非证明没去找。同时断言 `getItem` 从未以 `('object', …)` 被调用。\n- **改写**(原用例断言的是被删语义):`useActionModal.test.ts` 的两条前缀用例改为断言前缀**不**被解析;新增一条「前缀名与裸名判定完全一致」,直接钉裁定拒绝的第三形态。\n- **保留为对照**:page 解析、`{ objectName, mode }` descriptor 直通(LookupField 路径)、缺失 target 的独立诊断。\n\n## 反向验证 —— 先预判,后跑变异\n\n预判(恢复两条被删肢体后):3 条 normalize 钉转红、2 条拒绝钉转红、诊断钉**以超时而非断言转红**(因为 target 一旦可解析,`modalHandler` 会打开对话框并返回一个只在关闭时 settle 的 promise),5 条对照保持绿。\n\n实测:**7 红 8 绿**,比预判多一条。多出来的是诊断钉的**邻居**「reports a missing target distinctly」—— 单独隔离跑(`-t`)在变异下**通过**,证明它是被上一条超时用例污染的级联失败,不是独立信号。\n\n这条不写进报告了事:我据此**加固了诊断钉** —— 在调用 `modalHandler` 前先断言 `resolveModalTarget` 返回 `null`。这样一旦回落复活,用例会立刻以干净断言失败,而不是挂到超时再把状态泄漏给邻居。\n\n`type: 'form'` 对照(交付清单第 4 项)诚实说明:该路径由 `packages/core` 的 `ActionRunner.executeForm` 承接(导航至 `/forms/` + 表单名),与 `useActionModal` **无任何共享代码**,结构上不可能被本变更影响 —— 所以我没有新造一条形式上好看的\"form 钉\",而是把既有 `ActionRunner.formObjectIdentity.test.ts` + `ActionRunner.test.ts` 作为对照跑通(6 文件 / 159 通过)。\n\n## 门禁\n\n- `turbo run type-check --concurrency=2` → **81/81 successful**\n- `node scripts/check-control-bytes.mjs` → OK(4277 文件);另按纪律自扫改动文件的控制字节,干净\n- `check:action-forward-parity` / `check:spec-symbols` / `check:phantom-deps` → 通过\n- `eslint`(改动文件)→ **0 error**(25 条既有 `any` warning)\n\n## 超范围发现(未立单,按派发词回传 PM)\n\n1. **两处诊断文案已随本变更过期**:`useConsoleActionRuntime.tsx:600` 与 `RecordDetailView.tsx:883` 都写 `names no page or object to open`,且只指向 `type:'script'`,不提 `type: 'form'`。**控制台动作的实际用户可见文案出自这两处**,而非 `useActionModal.modalHandler`。按边界(views/ 属 #3765 面)未改。建议单独一张卡统一三处文案。\n2. **`DashboardView.tsx:70-93` 自带一份独立的前缀约定实现**,不经过 `useActionModal`,因此本次退役影响不到它 —— 但这意味着同一个已被裁定退役的约定在仓内仍有第二份活体,注释还自称支持「server-driven dashboard schemas」发出的 `verb_object`。属 views/ 面,未改。\n"
+}

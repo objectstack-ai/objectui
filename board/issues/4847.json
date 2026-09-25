@@ -1,0 +1,34 @@
+{
+  "number": 4847,
+  "kind": "issue",
+  "title": "finding: @object-ui/data-objectstack 的 files 含 src,38 个测试源码文件随包发布",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T12:12:28Z",
+  "updated_at": "2026-08-16T14:02:15Z",
+  "closed_at": "2026-08-16T14:02:15Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4847",
+  "body": "## 发现来源\n\nobjectui#4836 / PR #4845 的全仓面测量顺手量到的旁证。该 PR 的范围是「build 程序把 tooling 物料 **emit 进 `dist/`**」,这一条是**另一个入口**(`files` 直接把 `src` 装进 tarball),所以不在 #4845 里处理,单独记录。\n\n## 事实(实测,非推断)\n\n`packages/data-objectstack/package.json`:\n\n```\n\"files\": [\"dist\", \"src\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]\n```\n\n`private` 未设(即 `false`),包会发布。`src/` 下有 **38 个 `*.test.ts`**(PR #4845 按 `scripts/check-phantom-dependencies.mjs` 的 `TOOLING_FILE` 判据在 tsconfig 程序里点名了同一组文件)。也就是说这 38 个测试**源码**随每次发版进 tarball。\n\n顺带说明这个包**不是** #4836 那类缺陷:它的 build 是 `tsup`,只从 `entry: ['src/index.ts']` 出料,dts 也是 entry 卷的 —— 干净重建后 `dist/` 里 tooling 产物为 **0**。测试留在它的 tsconfig 程序里是好事,那正是这些测试拿到 `tsc --noEmit` 覆盖的方式。问题只在 `files` 这一处。\n\n## 与 #4006 的关系\n\n#4006 正文里有一句同形态的记录:「`@object-ui/fields` 的 `files` 本来就含 `src`,测试**源码**已经在发布内容里了 —— 所以那 73 个 `.d.ts` 只是增量,不是新暴露」。#4006 修的是 `.d.ts` 那一半,**`files` 含 `src` 这一半从未被处理**,而 data-objectstack 是它今天仍然存在的实例之一。\n\n## 为什么值得记\n\n- 今天没有用户面缺陷:测试源码不在 `exports` 映射里,没人 resolve 得到,只是 tarball 体积与发布面噪音。所以按 observation-class 记录,严重度交分诊。\n- 但它是「发布内容清单与实际意图脱节」的可测症状,且与 #4836 是**同一个问题的两个入口**(emit 进 dist / 直接列进 files)。真要机制化「已发布物不得含 tooling 物料」,判据必须同时覆盖这两条路径 —— 见 #4846 里对判据层次与成本的测量。\n\n## 可能的修法(未裁,留给实施者)\n\n1. 从 `files` 去掉 `src`(先确认没有消费者依赖源码调试;`sourcemap` 在该包的 tsup 配置里是 `false`,所以 `src` 不是 sourcemap 的落点)。\n2. 或保留 `src` 但把 tooling 目录排掉 —— npm 的 `files` 支持否定模式(`!src/**/*.test.ts`),代价是这条判据又多了一处要跟 tooling 约定保持同步的地方。\n3. 先量全仓还有哪些包的 `files` 含 `src`,同缺陷同 PR 处理(#4006 与 #4836 两次都是因为只修了点名的那一个包,同族实例留到下一次才被发现)。\n\n关联:#4836 / PR #4845(发现来源)、#4006(同形态的另一半,已关闭)、#4846(判据机制化的成本测量)。observation-class,未认领。\n"
+}

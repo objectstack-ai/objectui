@@ -1,0 +1,33 @@
+{
+  "number": 10403,
+  "kind": "pull_request",
+  "title": "fix(plugin-list): clamp the server pager after a write empties the page",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-24T22:34:53Z",
+  "updated_at": "2026-09-24T23:01:47Z",
+  "closed_at": "2026-09-24T23:01:46Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": "2026-09-24T23:01:46Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10403",
+  "body": "Fixes #10384\nClause-②: no\n\n## What changed\n\n`ListView` (`packages/plugin-list/src/ListView.tsx`) now clamps its server pager in the fetch-result path. When a refetch comes back with **zero rows past page 1** and the server's numeric `total` puts the last page **strictly below** the requested one, `serverPage` steps to `max(1, ceil(total / pageSize))`. Moving `serverPage` moves `fetchSkip`, which re-runs the fetch effect once for the clamped window.\n\n- **Placement.** The clamp is on the result, not in `pageResetSignature`. Widening the signature to the refresh inputs would send every write back to page 1, which is the remount behaviour objectui#10378 removed. `pageResetSignature` is unchanged.\n- **No loop.** Each firing strictly lowers the page and the target is floored at 1, so a chain of clamps ends at the first window the total says is reachable. A server whose total still reaches the empty page gets no clamp. A test pins that the refetch count settles in that case.\n- **No flash.** On a clamping result, `loading` stays on until the clamped window lands. Otherwise React commits one frame with `data = []` and `loading = false`, and that frame is exactly the first-run empty state this card is about. A `MutationObserver` in the probe records any `empty-state` node the DOM ever receives, so that frame is caught even though it is replaced on the next render.\n- **No total.** The grid gets a pager only under `paginate && serverTotal != null`. Without a numeric total there is no `onPageChange`, so no page past 1 is reachable to clamp from. The objectstack adapter's `normalizeQueryResult` always returns a numeric `total`: the server's value, else `count`, else the window length.\n- No new i18n key and no copy change.\n\n## Tests\n\nNew `packages/plugin-list/src/__tests__/ListView.pagerClampAfterWrite-10384.test.tsx`. The render is a real `ListView` with a stubbed `object-grid`, for the reason `ListView.serverPagination.test.tsx` gives. The data source sits over a mutable store with 25 rows in pages of 10 / 10 / 5. The write arrives through `dataSource.onMutation`, the same channel a grid bulk delete reaches `ListView` on.\n\n- Probe: on page 3, delete all five rows. The list lands on page 2 with rows 10 to 19 and `rowCount` 20, the skeleton shows while the clamped fetch is in flight, and no empty state is ever mounted.\n- Control (a): delete 2 of 5 rows on page 3. The list stays on page 3 with 3 rows.\n- Control (b): an object with 0 records shows the first-run empty state, and every request is for page 1. Deleting all 25 rows from page 3 clamps to page 1 and shows the first-run empty state.\n- Control (c): turning to page 2 refetches with skip 10, and a header sort from page 3 resets to page 1.\n- Inconsistent server (the total still reaches page 3): no clamp, and the fetch count settles.\n\nMeasured at head `8506c2f76`:\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-list/`: 88 files and 1044 tests passed, exit 0.\n- `pnpm --filter @object-ui/plugin-list type-check`: exit 0, after building the `@object-ui/plugin-list^...` closure. `tsc -p tsconfig.test.json --listFiles` lists both the new test and `ListView.tsx`.\n- `pnpm --filter @object-ui/plugin-list lint` (`eslint .`, the full package): 0 errors. The diff to `ListView.tsx` adds no `any`.\n- `check:new-line-citations`: 0 new. `check:control-bytes`, `check:test-path-roots`, `check:i18n-keys`, `check:vi-mock-specifiers`, `check:pending-changeset-literals`, `check-changeset-presence.mjs` and `check-changeset-no-major.mjs`: all exit 0. `check:changeset-claims` is report-only. Its hits are pending gantt and kanban changesets that name `ListView.tsx`, and this diff does not touch those claims.\n\n**Ablations** (committed first, mutated through `ablation-replace.mjs`, restored to the HEAD blob with `git diff HEAD` empty):\n1. Clamp disabled (`if (false && lastReachablePage ...`): the probe and the delete-all control (b) go red, 2 failed and 5 passed. The other controls stay green, which is the expected direction.\n2. Loading-hold disabled (`clampedToPage === null || true`): the probe goes red on `expected true to be false` (the empty state was mounted), 1 failed and 6 passed. The first attempt at this ablation was a no-op: the tool refused because the replacement text was not unique, and no test ran. The first spelling of the probe checked the screen only at one instant and stayed green under this mutation. That is why it now records DOM mutations.\n\n## Acceptance notes\n\n- Client-side pagination: on the paths reviewed here (inline `schema.data`, or no numeric total), `ListView` holds no page. The page lives in `DataTable` (`packages/components`, `currentPage`), and `ListView` hands down the whole window, so its own empty state is not the renderer on that path. `DataTable` does not clamp `currentPage` when its `data` shrinks. This was read at source and not probed, and it is outside this PR's file surface. Recorded here only. Carrier: none.\n- `schema.data` inline sources are never written through `ListView`, so no refetch-after-write path exists for them here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01D486C1axmXnrkJMNUfz2eb)_\n"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 3173,
+  "kind": "issue",
+  "title": "`DashboardWidgetSchema.responsive` 仍是 `any` —— 渲染器读按断点的 record,spec 建模单个对象",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-01T16:19:08Z",
+  "updated_at": "2026-08-16T05:24:04Z",
+  "closed_at": "2026-08-16T05:24:04Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3173",
+  "body": "批次 1 燃尽(objectui#3167 / objectstack#4115)的遗留。该 PR 把 `DashboardWidgetSchema` 从\"只声明 spec 22 个键中的 10 个\"改为按引用派生,**唯独 `responsive` 保留为 `any`**,并在声明处写明了原因,没有擅自调和。\n\n## 冲突\n\n| 侧 | `responsive` 的形状 |\n|:--|:--|\n| objectui 渲染器 | 按断点分的 record(每个断点一份配置) |\n| `@objectstack/spec` | 单个 `responsive` 对象 |\n\n两者不是宽窄之别,是结构不同。强行取任一侧都会让另一侧的现有写法失效,所以需要产品决定。\n\n## 三条可能的出路\n\n1. **spec 侧改为按断点建模** —— 若\"每个断点不同配置\"是真实需求,这是正解,但要 spec 出版本。\n2. **objectui 收敛到单对象** —— 若按断点配置实际没人用,这是最省的,但要先确认存量仪表盘里没有依赖。\n3. **确认为两层词汇** —— authored 层是单对象、runtime 层展开成按断点 record,那正解不是派生而是\"**枢纽 + 键集覆盖闸门**\"(参照 objectstack#4115 里 `FormField` 的论证:枢纽做翻译、闸门枚举 `SpecSchema.in.shape` 双向比对)。\n\n判别法同样是那一句:**这两者描述的是同一个对象,还是管道上下游的两个阶段?**\n\n## 在此之前\n\n`any` 是**有意的、写明理由的**占位,不是遗漏。但它也意味着这个键当前完全不受校验——`objectui validate` 对 `responsive` 里的任何内容都放行,包括拼写错误。这是选项 3 若成立时要补的闸门所要解决的。"
+}

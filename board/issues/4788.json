@@ -1,0 +1,34 @@
+{
+  "number": 4788,
+  "kind": "issue",
+  "title": "[fields] 非 group-labelled widget 的只读替换显示丢掉 host 下发的整份 plumbing —— label 的 `for` 悬空、description 零消费者(email / url / phone 实测)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T07:50:00Z",
+  "updated_at": "2026-08-16T16:34:43Z",
+  "closed_at": "2026-08-16T16:34:43Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4788",
+  "body": "在 #4005(group-labelled 只读态 `aria-describedby`)的实测中量到的相邻一条,**与那个 PR 无关也不由它引入**:group-labelled 的七个 widget 走 `toHostGroupProps`,#3990 接上了名、#4005 接上了描述;**非** group-labelled 但有「只读替换显示」的 widget 走的是另一条路,那条路上 host 下发的东西**一件都没落地**。\n\n## 实测\n\n真 form renderer + 裸注册(与 #3990 / #4005 的 probe 同一套),字段带 `description: 'Some help'`,数「引用 `…-form-item-description` 这个 id 的元素个数」,并单独看 host label 的 `for` 解析到什么:\n\n```\nemail    editable   descEl=SET  consumers=1  hostIdEl=input  for=RESOLVES\nemail    readonly   descEl=SET  consumers=0  hostIdEl=NONE   for=DANGLING\nurl      editable   descEl=SET  consumers=1  hostIdEl=input  for=RESOLVES\nurl      readonly   descEl=SET  consumers=0  hostIdEl=NONE   for=DANGLING\nphone    editable   descEl=SET  consumers=1  hostIdEl=input  for=RESOLVES\nphone    readonly   descEl=SET  consumers=0  hostIdEl=NONE   for=DANGLING\n```\n\n`hostIdEl=NONE` 是关键读数:只读态下 `…-form-item` 这个 id **整个文档里没有任何元素带**。所以这条比 #3990 那族更重一档 —— 不只是「描述没人引用」,而是**可见 label 的 `for` 指向一个不存在的 id**,只读态的那个链接在无障碍树里**没有名字**。\n\n## 机理\n\n三个 widget 的只读分支都在 `toDomProps(props)` **之前**提前 return,并且返回的元素上一个 prop 都不展开:\n\n- `packages/fields/src/widgets/EmailField.tsx` —— `readonly` 返回 `mailto:` 锚元素;\n- `packages/fields/src/widgets/UrlField.tsx` —— 返回外链锚元素(或非法 URL 时的 span 元素);\n- `packages/fields/src/widgets/PhoneField.tsx` —— 返回 `tel:` 锚元素。\n\n可编辑分支各自 `const domProps = toDomProps(props)` 再铺到它渲染的 Input 上,`id` / `aria-describedby` 随之落地(上表 editable 行);只读分支拿不到其中任何一个。\n\n与 #3990 的差别在于:这些字段**不是** group-labelled,host label 保留的是普通 `for`,所以修法**不是**照搬 `toHostGroupProps`(那会给单控件面发一个不该有的 `role=\"group\"`);正确的形状要单独裁 —— 最小的一种是只读元素带上 host 的 `id`(`for` 自然解析),但锚元素 / span 元素**不是** labelable 元素,`for` 落在上面依然是惰性 HTML,这正是 #3961 当初为复合字段换掉 `for` 的原因。**故本条需要一次方向裁决,不要按 #4005 的做法直接推**。\n\n## 未实测(不要按本单推断)\n\n- 只量了 `email` / `url` / `phone` 三个。`packages/fields/src/widgets/` 里有 **32 个** widget 带 `if (readonly)` 提前 return 且不碰 `toHostGroupProps`(`AvatarField` `BooleanField` `CodeField` `ColorField` `CurrencyField` `DateField` `DateTimeField` `ImageField` `LookupField` `NumberField` `SelectField` `TagsField` `TextField` `TextAreaField` `TimeField` …),它们的只读面形态各异 —— 有的只读仍渲染真控件(那就没有这条),有的换成纯文本。**接这条的人请逐个量**,别按这三行外推。\n- 内建分支(`BUILTIN_FIELD_TYPES` = `input` / `textarea` / `checkbox` / `switch` / `select`)**没有**这个缺陷,已实测:只读态照样在表单渲染器的 FormControl 里渲染真控件,Slot 的 `id` / `aria-describedby` 正常落地,`consumers=1`、`for=RESOLVES`。\n\n## 参考\n\n- #3961 / PR #3978、#3975 / PR #3983(group 机制两次奠定)、#3990 / PR #4002(只读态接名)、#4005(只读态接描述 —— 本条即在其实测中量到)\n- #3318(pass-through 的分工)、#3291(白名单)\n\n---\n备注:本单由 os-dev 在 #4005 的实施中实测发现并按 Prime Directive #10 立单(不认领、不扩围到 #4005 的 PR)。上一版正文里的 JSX 标签被 GitHub 的正文清洗吃掉了,已改写为不含尖括号的措辞。\n"
+}

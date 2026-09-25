@@ -1,0 +1,34 @@
+{
+  "number": 4835,
+  "kind": "issue",
+  "title": "eslint 配置兑现 `_` 前缀约定:补 varsIgnorePattern / caughtErrorsIgnorePattern(#4806 测量的 R1,822 条 warning 中 74.6% 是已标注「故意不用」的噪声)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T11:19:18Z",
+  "updated_at": "2026-08-16T12:09:08Z",
+  "closed_at": "2026-08-16T12:09:08Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4835",
+  "body": "## 来源\n\n#4806 测量回报的 R1(判别材料全文见该卡回报)。PM 按契约机械类代裁派发,留否决窗。\n\n## 事实(#4806 测量实测)\n\n- `eslint.config.js:45` 只设了 `argsIgnorePattern: '^_'`(只管参数),没设 `varsIgnorePattern` / `caughtErrorsIgnorePattern`;\n- 全仓 `@typescript-eslint/no-unused-vars` 822 条 warning 里 **613 条(74.6%)已是 `_` 开头** —— 作者早就按约定标注「故意不用」,配置没兑现;\n- 两大主类都是正当写法不是死代码:type-alias 442 条主体是测试里的类型级断言(`type _NotAny = Assert<...>`),destructuring 216 条主体是故意 omit 惯用法;\n- 修后预期 822 → 约 209,**不掩盖任何真实缺陷**(被消掉的全是 `_` 标注项),零门禁强度变化(warning→warning)。\n\n## 完成范围\n\n1. `eslint.config.js` 的 no-unused-vars 配置补 `varsIgnorePattern: '^_'` + `caughtErrorsIgnorePattern: '^_'`;是否同时把 `ignoreRestSiblings` 修对(#4806 实测 rest-sibling 当前**会**被报,与 omit 惯用法冲突)由实施者实读现配置后判,披露依据;\n2. 修前修后各跑一遍全仓 eslint 计数,报文写进 PR(预期 822→~209 量级,偏差要解释);\n3. 反向验证:去掉新增 pattern 预判计数回升;\n4. ⛔ 不动任何规则的 severity;⛔ 不删任何代码;⛔ R2(import 子类提 error)/R3(base tsconfig)/R4/R5 不入本单。\n\n## 参考\n\n- #4806(测量全文)、#3947/PR #4805(lint_gap 出处)"
+}

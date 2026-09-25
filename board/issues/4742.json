@@ -1,0 +1,34 @@
+{
+  "number": 4742,
+  "kind": "issue",
+  "title": "Delete the two spot-verified dead i18n namespaces: `workflow.*` (54 keys) and `publicForm.demo.*` (36 keys) across the ten packs",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T22:09:40Z",
+  "updated_at": "2026-08-15T22:40:43Z",
+  "closed_at": "2026-08-15T22:40:31Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4742",
+  "body": "Part of #4730 — the mechanically-safe carve-out of its CONFIRMED tier. The umbrella card stays open for `console.objectView.*` (needs a product decision: is the `ListViewSchema`-backed settings panel meant to exist?) and the not-yet-spot-checked smaller namespaces (`configPanel`, `renderer`, `table`, `report`, `search`, `form`, …).\n\n## Scope — exactly two namespaces, both spot-verified on the umbrella card\n\n1. **`workflow.*`** — 54 of 58 keys CONFIRMED dead by `scripts/check-i18n-dead-keys.mjs` (the other 4 appear only as test-fixture mentions in `ellipsis-glyph-3878.test.ts` / `untranslated-identity-4376.test.ts`, not consumers — re-measure and handle per evidence: a fixture mention is not a reader). The plausible consumer, `packages/plugin-designer/src/ProcessDesigner.tsx`, hardcodes English labels and imports no translation hook at all — the vocabulary has zero i18n integration anywhere.\n2. **`publicForm.demo.*`** — 36/36 CONFIRMED, zero hits anywhere in the repo outside the locale packs.\n\nEvidence standard is #4658's (PR #4731): zero call sites per the AST pass, zero textual footprint per the safety net, plus a spot-checked plausible consumer confirming no wiring exists. Re-run `node scripts/check-i18n-dead-keys.mjs` at your tree first — the numbers will have drifted since the umbrella card's measurement (today's merges added keys).\n\n## Deliverables\n\n- Delete the two namespaces from all ten packs (`packages/i18n/src/locales/*.ts`).\n- Post-deletion, `check-i18n-dead-keys.mjs` no longer lists either namespace; `check-i18n-call-site-keys.mjs` stays green (nothing referenced them — that is the point); `check-i18n-en-drift` abstains (deletions are parity's business).\n- The four `workflow.*` test-fixture mentions: update the fixtures to use live keys if the fixtures merely need *a* key, or delete the fixture rows if they exist to pin those specific keys — judge by what each test asserts and say which in the PR body.\n- Changeset: `@object-ui/i18n` patch, stating the count and that no reader exists.\n\n## Explicitly out of scope\n\n- `console.objectView.*` in any form (umbrella card, decision pending).\n- The smaller namespaces from the umbrella table (not yet spot-verified — do not sweep them in).\n- Red-ifying the dead-keys script (`--strict` stays unwired per #4658's ruling).\n\n## PR discipline\n\nPR body first line: `Part of #4730` — **no closing keyword anywhere**; this card is the one the PR closes (`Fixes #<this>` as sole closing keyword on line 2)."
+}

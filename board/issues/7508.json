@@ -2,8 +2,8 @@
   "number": 7508,
   "kind": "issue",
   "title": "决策：#7391 在 `@object-ui/react` 唯一入口上发布了 5 个符号，而裁定 a′ 写的是「the constant is internal」——就地追认、迁 core、还是收回？",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-project-manager",
@@ -12,18 +12,24 @@
   },
   "labels": [
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-03T15:25:11Z",
-  "updated_at": "2026-09-20T05:58:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-25T02:07:29Z",
+  "closed_at": "2026-09-25T02:07:29Z",
+  "closed_by": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/7508",
   "body": "> ⛔⛔ **THIS CARD IS RULED. The paragraph below is stale — do not read it as a bar on dispatch.**\n>\n> The maintainer ruled it on 2026-09-03, **A′**, in comment 5529427804 (director seat, decision batch #24; verbatim reply 「11977 转维护者,其他同意」). That ruling also records the state transition it carries: `needs-user-decision` → `pm:queue`. ⇒ this is an **implementation** card and has been one since that date.\n>\n> **What was ruled**: `applyNonGridRowCeiling` / `NonGridCeilingResult` / `NON_GRID_ROW_CEILING` move to `@object-ui/core`, with `@object-ui/react` keeping the names by re-export; **`NON_GRID_ROW_CEILING_TOP` is deleted** from the public surface and the `+1` lives only in an exported `nonGridRowCeilingQuery(): { $top }`; **`NonGridRowCeilingNote` takes `result: NonGridCeilingResult`** and nothing else, ⛔ with no deprecated prop path. The a′ 「the constant is internal」 line is **corrected on the record**: in this repo's package shape a helper shared by four packages is public by construction, and `core` is its correct home. Execution: `domain:ui`, S–M, `Part of #7210` / `Fixes #7508`, **Clause-② yes** ⇒ the landing PR carries `needs:contract-review`; changeset `minor` on `core` and `react`.\n>\n> ⛔ Do not re-open the three-way question below, and ⛔ do not file it as a decision. See comment 5529427804 for the full ruling and its execution notes.\n\n## 一句话\n\n#7210 的裁定 a′ 逐字写着 **「Clause-② no (no contract change; **the constant is internal** and the footnote is renderer copy)」**，而落地的 PR #7391 在 `packages/react/src/index.ts` 上**发布了五个符号**。裁定的前提没有成立,该发布面今天已经在 `main` 上。⛔ 本席不裁——这是对已发布 API 的处置,且与维护者裁定的字面直接相抵。\n\n**现在做便宜,以后不便宜**:审计实测,除四个渲染器与测试外**今天没有任何消费者 import 这五个符号中的任何一个**。这个窗口一旦有下游采纳就关上了。\n\n## 发布了什么\n\n`packages/react/src/index.ts:100-113`:\n\n```ts\nexport {\n  NON_GRID_ROW_CEILING,\n  NON_GRID_ROW_CEILING_TOP,\n  applyNonGridRowCeiling,\n  NonGridRowCeilingNote,\n} from './utils/nonGridRowCeiling.js';\nexport type { NonGridCeilingResult } from './utils/nonGridRowCeiling.js';\n```\n\n## 为什么会走到这里(责任在派发席,记在明处)\n\n不是执行车道擅自扩面。那一轮**本席自己下的 barrel 围栏**把出路堵死了:#7210 评论 5511301369 声明 `core` 归 #7349、`types`+`components` 归 #7182 当轮所有,「需要就停下回报」。四个渲染器共用一个常量,唯一没被围住的包是 `react`,而 `react` **没有 subpath export** ⇒ 「把常量放进 react」在物理上只能等于「发布它」。\n\n⚠️ 车道当时应当**停下回报**(围栏原话如此),而不是铸出 API;但围栏的写法没有点明「若唯一剩下的家是已发布入口,停」。两边各承一半,前一半是本席的。\n\n`index.ts:100-104` 的注释还把这段历史写成了一个**实测为假**的技术理由——「the only package all four already depend on」;四个插件的 `package.json` 各自同时依赖 `core`、`components`、`types`。该注释的订正已单独立卡 #7507(仅改注释,⛔ 不动符号)。\n\n## 逐符号的可支撑性(审计读数)\n\n| 符号 | 读数 |\n|:--|:--|\n| `applyNonGridRowCeiling` / `NonGridCeilingResult` | **可支撑**,可加性演进(可选 options 参数、可加字段)。⚠️ 但 `total` 非来源可信:服务端不报 `total` 时 `data-objectstack` 用 `records.length` 顶替(`packages/data-objectstack/src/index.ts:3624-3646`),这类服务端上脚注会读成「first 2000 of 2001」。ObjectStack 服务端报 `total`,故属边界注记。 |\n| `NON_GRID_ROW_CEILING` | 可支撑,但**家不对**:`applyNonGridRowCeiling` 是 `core` 自己的 `extractRecords` 的包装,四个插件本来就从 `core` import 它。 |\n| `NON_GRID_ROW_CEILING_TOP` | **实现细节被发布**。它存在只因机制被劈成两半(`$top` 在调用点、切片在 helper)。任何未来的截断探测策略(`hasMore`、可信 `total`)都会让它退化成残件。 |\n| `NonGridRowCeilingNote` | **形状是陷阱**:收 `drawn`/`total`/`truncated` 三个散 prop,而每个调用点都硬写 `drawn={NON_GRID_ROW_CEILING}`。组件从不见到它本该渲染的 `NonGridCeilingResult` ⇒ 不自洽的脚注是可表达的。(组件出现在该入口本身有先例:`SchemaRenderer`、`I18nProvider`、`ElementDataSourceGate`。异议在形状,不在类别。) |\n\n## 选项\n\n**A —— 迁 `@object-ui/core`,`react` 保留再导出(审计的建议)。** 把 `NON_GRID_ROW_CEILING`、`applyNonGridRowCeiling`、`NonGridCeilingResult` 移到 `core`(`extractRecords` 旁边),`react` 继续 `export … from '@object-ui/core'`——`react` 早已这样再导出下层符号(`export { I18nProvider, … } from '@object-ui/i18n'`),先例在。**零破坏。** 另加性收 `_TOP`(导出一个 `nonGridRowCeilingQuery(): { $top }`,调用点再不手写 `+1`)与重塑 `Note`(收 `result: NonGridCeilingResult`,`drawn` 由 `result.rows.length` 推得,旧散 prop 保留为 deprecated 路径)。\n⇒ 修好了家与形状,但**五个符号仍是公开 API**,裁定 a′ 的「internal」并未回复。\n\n**B —— 回到裁定的字面:收回发布面。** 五个符号全部下架,常量落在一个四个插件都能吃到而不经已发布入口的位置。⚠️ 本席读下来这可能**做不到**:每个包都只有唯一入口,`react` 无 subpath export ⇒ B 实际要求先给某个包开 subpath export(或新开一个内部包),那本身是更大的一步。若维护者要 B,请一并裁明这一步走哪条。\n\n**C —— 就地追认。** 承认裁定 a′ 的「internal」前提在本仓的包形状下不可达,把五个符号作为公开 API 追认,只做 #7507 的注释订正与 `_TOP` 的文档降级(标注为派生/测试用)。\n⇒ 最省,但把一个「因排期围栏而选中的家」永久冻进公开 API。\n\n## 本席倾向:A\n\n理由:(a) 真实需求——`core` 是四个插件本来就依赖并从中取 `extractRecords` 的包,家对了代码才读得顺;(b) 长期健全——`_TOP` 与 `Note` 的两处加性修整把「不自洽脚注可表达」和「调用点手写 `+1`」两个真陷阱都关掉,且都零破坏;(c) AI 不易做错——`nonGridRowCeilingQuery()` 让 `+1` 只有一处;(d) 创业期尺度——今天零外部消费者,A 是一次性的便宜迁移,B 要先开 subpath export(实现优先、无人拉动),C 则把已知错的家冻住。\n\n⛔ 但 A **不回复**裁定 a′ 的字面前提,所以它需要维护者点头而不是本席自裁。\n\n## 派工状态\n\n⛔ 本卡不可派工,`needs-user-decision`。不带 `pm:queue` 标签——本卡在裁定前不进队列,这是 #6853 点名的缺陷(卡片自己说不可派工,而标签仍在招手)。\n\n不受本卡阻塞、已单独立卡并本轮派工的:**#7507**(pin 不判定上限、docblock 判别机制写错、changeset 档位与文案、calendar 陈旧 ceiling、假的依赖注释)。审计全文逐字见 #7391 评论 5527977938。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

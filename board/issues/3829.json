@@ -1,0 +1,35 @@
+{
+  "number": 3829,
+  "kind": "issue",
+  "title": "`page:header.icon` 与 `page:card.actions`:spec 声明、渲染器零读点 —— 二择一(接线 / 按 showSubscriptionToggle 先例声明并写明 KNOWN GAP)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched",
+    "pm:queue"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T18:27:40Z",
+  "updated_at": "2026-08-16T08:57:02Z",
+  "closed_at": "2026-08-16T08:57:02Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3829",
+  "body": "发现于 #3808 / 反方向 parity 门的实施过程(围栏外,本 PR 未夹带 —— 判级评论明确「B 类不许无脑补 input,若处理须逐条按 #3797 的两向判定另立」)。未认领,交 PM triage。\n\n## 机制\n\npin 版 `@objectstack/spec@17.0.0-rc.5` 声明这两个顶层键,渲染器**一个读点都没有**(objectui `origin/main` @ `c85268256` 实测):\n\n| 键 | spec | 渲染器 | 证据 |\n|---|---|---|---|\n| `page:header.icon` | `PageHeaderProps.icon`,describe `Icon name` | 零读点 | `packages/components/src/renderers/layout/containers.tsx` 的 `PageHeaderRenderer`(822-1570)里 `icon` 只出现在**每个 action 自己的** `action.icon`(`:1321` / `:1365`)与导航项 `item.icon`(`:604`);`schema?.icon` / `properties?.icon` 全仓零命中 |\n| `page:card.actions` | `PageCardProps.actions` | 零读点 | `PageCardRenderer`(`containers.tsx:666-695`)只渲染 `title` / `body`(或 `children`)/ `footer`;没有任何 actions 槽 |\n\n两者 `inputs` 也都不声明(`containers.tsx:1583-1590` / `:703-706`),所以**今天**发布面与运行时是一致的「都没有」—— 这就是它不是 P0 的原因。但 spec 是平台契约:`os validate` / `os build` 侧的 `validateComponentProps`(objectstack#5068)按 spec 判定,一个写了 `properties.icon` 的页面在上游**不报错**(spec 接受),到了本仓渲染器却什么都不发生,零诊断。作者的心智模型里「spec 声明了 = 可配」,这是 `record:activity.showSubscriptionToggle`(#3165)同一个失效家族,只是那一条至少在 `inputs` 里写明了 NOT IMPLEMENTED,这两条连这层告知都没有。\n\n## 为什么不在 #3808 里顺手做\n\n#3808 的判级评论把 B 类明确排除,理由正确:**方向是二择一,不是补声明**。\n\n- **(a) 接线**。`page:header.icon` 在 record chip / bare-h1 两种布局里放哪、和 `RecordTitleChip` 的对象图标怎么共存,是视觉决定;`page:card.actions` 要不要 `CardHeader` 右侧动作区、用不用 `action:bar`,牵扯 `components/renderers/action/**`(#3812 / PR #3825 刚动过那片)。\n- **(b) 按 `showSubscriptionToggle` 先例声明 + description 写明 KNOWN GAP**。双向 parity 成立、作者被告知「声明了但不兑现」,零运行时风险,但发布了一个不可配的键。\n- **(c) 上游删键**。若这两个键从来没有产出者也没有消费者,ADR-0049 enforce-or-remove 的正解是在 spec 侧退役(objectstack 侧 `retiredKey()`),本仓跟随。注意 `page:card` 已有一个同类墓碑在路上(#3809:`PageCardProps.body` 已在上游退役)。\n\n三条路改的都是公开契约,不该由实施 agent 猜。\n\n## 当前的兜底\n\n#3808 落的反方向门(`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`)把这两条列为**带理由的显式豁免**并引用本单,所以它们不会静默通过;豁免纪律断言要求每条豁免引用一个 tracking issue,本单就是那个 issue。一旦有人声明了这两个键,门里的 `carries no stale exemption` 断言会立刻要求删掉豁免条目。\n\n## 参考位置\n\n- `packages/components/src/renderers/layout/containers.tsx:666-695`(page:card 渲染)/ `:703-706`(page:card inputs)\n- `packages/components/src/renderers/layout/containers.tsx:822-1570`(page:header 渲染)/ `:1583-1590`(page:header inputs)\n- `packages/plugin-detail/src/index.tsx` 的 `record:activity.showSubscriptionToggle` —— (b) 路线的现成先例\n\n关联:#3808、#3797 / PR #3806、#3165、#3809、objectstack#5068、objectstack#6776、ADR-0049\n"
+}

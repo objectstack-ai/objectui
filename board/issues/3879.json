@@ -1,0 +1,34 @@
+{
+  "number": 3879,
+  "kind": "issue",
+  "title": "[finding] AuthInvitation.status 声明成开放 string,而它自己的文档注释只枚举四个成员 —— 未知状态会把 wire 原值当界面文案渲染进邀请徽章",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T23:24:31Z",
+  "updated_at": "2026-08-17T07:40:32Z",
+  "closed_at": "2026-08-17T07:40:32Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3879",
+  "body": "与 #3846(`marketplaceApi.ts` 把 `runtime` 声明成开放 `string`)同一类:消费方比契约宽松。#3546 切片七枚举 `organization.invitations.status.` 前缀家族时量出来的。\n\n## 生产方自己就写了枚举,只是写在注释里\n\n```\npackages/auth/src/types.ts:404\nexport interface AuthInvitation {\n  …\n  /** Status: 'pending' | 'accepted' | 'rejected' | 'canceled' */\n  status: string;      ← 类型是开放 string\n}\n```\n\n`createAuthClient.ts` 的 `listInvitations` 直接 `as AuthInvitation[]`,没有运行时校验,所以后端返回什么都进得来。\n\n## 由此长出的两处宽松\n\n`packages/app-shell/src/console/organizations/manage/InvitationsPage.tsx`:\n\n1. **徽章配色**有 `default:` 兜底 —— 未知状态渲染成 `secondary`,不报错:\n   ```ts\n   function statusBadgeVariant(status: string): 'outline' | 'default' | 'destructive' | 'secondary' {\n     switch (status) { case 'pending': … default: return 'secondary'; }\n   }\n   ```\n2. **徽章文案**是模板 key,`defaultValue` 取 wire 原值:\n   ```ts\n   {t(`organization.invitations.status.${inv.status}`, { defaultValue: inv.status })}\n   ```\n   #3546 切片七按同文件的封闭联合 `type StatusFilter = 'all' | 'pending' | 'accepted' | 'rejected' | 'canceled'` 枚举了五个成员并回填十包,并在测试里钉住\"key 集合 === StatusFilter\",所以**第五个后端状态一出现,那条断言会红** —— 这是好事,它逼人正面处理。但在门禁红之前,线上行为是把 wire 字符串(英文、小写、CSS 首字母大写后)当界面文案给用户看,十种语言都是。\n\n## 为什么现在算 finding 而不是 bug\n\n今天后端的取值域就是这四个,所以没有用户能触发。它是**契约方向**的问题:枚举写在注释里而不是类型里,于是消费侧只能宽松。\n\n## 建议修法\n\n把注释里的枚举提到类型里:\n\n```ts\nexport type AuthInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'canceled';\nexport interface AuthInvitation { …; status: AuthInvitationStatus; }\n```\n\n再让 `listInvitations` 的边界处对未知值**响亮失败或显式降级**,而不是让 `statusBadgeVariant` 的 `default:` 和 `defaultValue: inv.status` 各自悄悄兜住。这正是 AGENTS.md 的 contract-first 取向:声明即强制,宽松的消费方是 AI 生成的元数据错误藏身的地方。\n\n⚠️ 与 #3546 切片七同触 `InvitationsPage.tsx` 的读取面(切片七零组件改动,只读源码做断言),但改的文件不同(`packages/auth/src/types.ts`),无冲突。\n\n关联:#3846(同类,marketplace runtime)、#3790 / #3447(同类\"未知 status 无兜底/悄悄兜底\")、#3546(切片七,发现路径)。"
+}

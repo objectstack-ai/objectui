@@ -1,0 +1,34 @@
+{
+  "number": 4951,
+  "kind": "pull_request",
+  "title": "chore(deps-dev): bump rollup-plugin-visualizer from 7.0.1 to 7.1.1",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "dependabot[bot]",
+    "id": 49699333,
+    "type": "Bot"
+  },
+  "labels": [
+    "automated",
+    "configuration",
+    "dependencies"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-17T07:59:57Z",
+  "updated_at": "2026-08-17T08:03:52Z",
+  "closed_at": "2026-08-17T08:00:34Z",
+  "closed_by": {
+    "login": "github-actions[bot]",
+    "id": 41898282,
+    "type": "Bot"
+  },
+  "merged_at": "2026-08-17T08:00:34Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4951",
+  "body": "Bumps [rollup-plugin-visualizer](https://github.com/btd/rollup-plugin-visualizer) from 7.0.1 to 7.1.1.\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a href=\"https://github.com/btd/rollup-plugin-visualizer/blob/master/CHANGELOG.md\">rollup-plugin-visualizer's changelog</a>.</em></p>\n<blockquote>\n<h1>Changelog</h1>\n<h2>7.1.0</h2>\n<ul>\n<li>Published types no longer import from <code>rollup</code>, so they resolve with <code>rollup</code>, <code>rolldown</code> or <code>vite</code> installed alone. Previously they silently degraded to <code>any</code> under <code>skipLibCheck</code>, and failed with <code>TS2307</code> without it — which affected every <code>vite</code> 8 user, since <code>vite</code> 8 depends on <code>rolldown</code> and ships no <code>rollup</code>. Merge <a href=\"https://redirect.github.com/btd/rollup-plugin-visualizer/issues/218\">#218</a>. Thanks to <a href=\"https://github.com/birkskyum\"><code>@​birkskyum</code></a></li>\n<li>Update deps</li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/3374f6e6e7bc109e266cfe035db7c69be4973f37\"><code>3374f6e</code></a> 7.1.1</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/783bb7095e4e577d32ff2fddfb3fe1d054090a64\"><code>783bb70</code></a> Fix consumer fixture harness under npm 12</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/02e36d5b0af183a08646820369e3e40bf23a526e\"><code>02e36d5</code></a> 7.1.0</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/8f948285b0a61bb956bf9952a6f5d4baf5ffaba8\"><code>8f94828</code></a> Update changelog</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/3a2dfe826c8d36f8b68e74540dc8f78722e87c5a\"><code>3a2dfe8</code></a> Update changelog</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/a5b537f3589824b075843589929e8fc31ee3b9f5\"><code>a5b537f</code></a> Tighten bundler type stubs and extend consumer coverage</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/3a7972b6fe8c86a1ecfcf35dccd003df997bca40\"><code>3a7972b</code></a> fix: dual rollup and rolldown compat</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/4b8d451978a3421d1e9139e318d3239b36b478bc\"><code>4b8d451</code></a> Update deps</li>\n<li><a href=\"https://github.com/btd/rollup-plugin-visualizer/commit/73e98c50659ed7ad94cf6bfd1bb31037a6ca1e01\"><code>73e98c5</code></a> Update changelog</li>\n<li>See full diff in <a href=\"https://github.com/btd/rollup-plugin-visualizer/compare/v7.0.1...v7.1.1\">compare view</a></li>\n</ul>\n</details>\n<br />\n\n\n[![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=rollup-plugin-visualizer&package-manager=npm_and_yarn&previous-version=7.0.1&new-version=7.1.1)](https://docs.github.com/en/github/managing-security-vulnerabilities/about-dependabot-security-updates#about-compatibility-scores)\n\nDependabot will resolve any conflicts with this PR as long as you don't alter it yourself. You can also trigger a rebase manually by commenting `@dependabot rebase`.\n\n[//]: # (dependabot-automerge-start)\n[//]: # (dependabot-automerge-end)\n\n---\n\n<details>\n<summary>Dependabot commands and options</summary>\n<br />\n\nYou can trigger Dependabot actions by commenting on this PR:\n- `@dependabot rebase` will rebase this PR\n- `@dependabot recreate` will recreate this PR, overwriting any edits that have been made to it\n- `@dependabot show <dependency name> ignore conditions` will show all of the ignore conditions of the specified dependency\n- `@dependabot ignore this major version` will close this PR and stop Dependabot creating any more for this major version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this minor version` will close this PR and stop Dependabot creating any more for this minor version (unless you reopen the PR or upgrade to it yourself)\n- `@dependabot ignore this dependency` will close this PR and stop Dependabot creating any more for this dependency (unless you reopen the PR or upgrade to it yourself)\n\n\n</details>"
+}

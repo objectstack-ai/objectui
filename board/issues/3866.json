@@ -1,0 +1,34 @@
+{
+  "number": 3866,
+  "kind": "issue",
+  "title": "[finding] PR #3847 的「括号复数记法」普查用了 ASCII `\\w`,所以 ru 的结论(0 处)是错的(实为 13 处),同一写法的断言对全部非拉丁语言包空转",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "yinlianghui"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-08T22:25:09Z",
+  "updated_at": "2026-08-17T06:13:45Z",
+  "closed_at": "2026-08-17T06:13:45Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3866",
+  "body": "在 #3546 切片六复用切片五(PR #3847)的取证方法时发现。观察级:结论本身没害到用户,坏的是**方法**和一条**空转的断言**,而后者会让下一个切片踩同一个坑。\n\n## 事实\n\nPR #3847 正文写:\n\n> ru | 全包 **0 处**使用括号复数记法(改写句式或缩写,如 `{{count}} дн.`)\n\n实测(用 Unicode 属性类 `/\\([\\p{L}]{1,4}\\)/u` 扫十包全部值):\n\n| 包 | 命中 | 例 |\n|---|---|---|\n| en | 28 | `{{count}} row(s) with errors` |\n| ko | 63 | `{{field}}은(는) 필수입니다` |\n| fr | 36 | `{{count}} ligne(s) modifiée(s)` |\n| pt | 33 | `{{count}} linha(s) modificada(s)` |\n| es | 27 | `{{count}} fila(s) corregida(s)` |\n| ar | 24 | `{{count}} صف(صفوف) معدّل(ة)` |\n| de | 16 | `{{count}} Zeile(n) importiert.` |\n| **ru** | **13** | **`appDesigner.objectManager.fieldCount` = `{{count}} поле(й)`** |\n| zh | 9 | `(已编辑)` |\n| ja | 8 | `(編集済み)` |\n\n原因:JS 正则的 `\\w` 不带 `u` 时等于 `[A-Za-z0-9_]`,所以 `поле(й)` / `صف(صفوف)` / `(已编辑)` 一个都匹配不到。ru 的真实结论恰恰相反 —— 该包**用**这个记法,而且用在与切片五那个 key 结构完全相同的「计数 + 单位」标签上(`{{count}} поле(й)`)。\n\n## 连带:一条已合并的空转断言\n\n`packages/i18n/src/__tests__/marketplace-preview-namespace-3546.test.tsx` 里(PR #3847):\n\n```ts\nfor (const lang of LANGS.filter((l) => l !== 'en')) {\n  expect(\n    /\\(\\w{1,4}\\)/.test(at(builtInLocales[lang], 'preview.history.items') as string),\n    `${lang} items reintroduced a \"(s)\" marker`,\n  ).toBe(false);\n}\n```\n\n对 **zh / ja / ko / ru / ar 五个包这条恒为 `false`**,无论值写成什么 —— 它只对 de/fr/es/pt 真正起作用。断言想守的正是\"ru 不要引入 `(ов)` 这类记法\",而那一半守不到。\n\n## 影响与不影响\n\n- **不影响** PR #3847 的落值:`preview.history.items` 最终改用 `common.itemCount` 的既有单位词(`элементов` / `عناصر` …),那个决定的依据是\"复用既有邻键译文\",与本条无关,结论正确。\n- **影响**下一个切片的取证:凡\"这个包用不用某种记法\"的普查,ASCII `\\w` 会对五个包给出假的 0。#3546 切片六因此改用 `/\\([\\p{L}]{1,4}\\)/u`,并在自己的测试里把这一点连同反例一起钉住:\n\n```ts\nexpect(MARKER.test('поле(й)')).toBe(true);\nexpect(/\\(\\w{1,4}\\)/.test('поле(й)')).toBe(false);   // 记录旧写法为什么不行\n```\n\n## 建议\n\n1. 把 #3847 那条断言的正则改成 Unicode 属性类(一行),它就恢复对五个包的覆盖 —— 顺手核实一下改完是否仍绿(切片六实测:ru/ar 的 `preview.history.items` 是 `элементов` / `عناصر`,不含括号,所以应当仍绿)。\n2. `packages/i18n` 的测试里凡按\"排版记法\"做普查/断言的正则,一律带 `u` + `\\p{L}`;这条值得进 AGENTS.md 的 i18n 取证纪律,因为本仓十个包里有五个是非拉丁文字。\n\n关联:#3546(切片五 PR #3847 是本条的来源,切片六实测)、#3847。"
+}

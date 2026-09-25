@@ -1,0 +1,34 @@
+{
+  "number": 4735,
+  "kind": "pull_request",
+  "title": "fix(plugin-kanban): the board's row cap reaches the wire as a top-level $top",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-15T21:23:28Z",
+  "updated_at": "2026-08-15T21:38:02Z",
+  "closed_at": "2026-08-15T21:38:01Z",
+  "closed_by": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "merged_at": "2026-08-15T21:38:01Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/4735",
+  "body": "Fixes #4025\n\n`object-kanban` fetched with `find(objectName, { options: { $top: 100 }, $filter: schema.filter })`: `$filter` at the top level where the adapters read it, the row cap one level down under `options`, which is not a `QueryParams` key. Nothing in this repo reads `params.options` — `convertQueryParams` in `@object-ui/data-objectstack` and `ApiDataSource` both read `params.$top` — so the author's 100 never reached the wire. A board over a large object fetched every row the server would return and grouped all of it into lanes client-side.\n\n## What changed\n\n- **`packages/plugin-kanban/src/ObjectKanban.tsx`** — the fetch sends `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT` (100), a real top-level key. `schema.limit` joins the effect's dependency list so a changed window refetches. The default is exported as `DEFAULT_KANBAN_LIMIT` for the test to assert against, matching `DEFAULT_TIMELINE_LIMIT` in `plugin-timeline`; it is not added to the package barrel (neither is the timeline's).\n- **`packages/plugin-kanban/src/index.tsx`** — the `ElementDataSourceMapping` gains `limit: 'limit'`. It omitted `limit` on the rationale that \"the board fetches with a fixed `$top: 100`, so there is no key to write it to\" — the rationale this card falsifies: the window was not fixed, it did not exist. The flag comes with the read site, the order PR #4009 used for `object-timeline`. `sort` stays unmapped (the board still has no `$orderby` read site) and `columns` stays unmapped (a board's columns are its swimlanes, not a field projection); the comment now says which of the three is which and why.\n- **`packages/plugin-kanban/src/types.ts`** — `KanbanSchema` gains `limit?: number`, documented as the board's row cap and explicitly distinguished from `KanbanColumn.limit`, one level down, which is a lane's WIP limit and never touches the query.\n- **`packages/fields/src/index.tsx`** — the same nesting in the lookup-name fallback, adjudicated harmless on the card. Verified harmless (the filter is `{ id: value }`, primary-key equality, so the answer is at most one row with or without a cap) and taken anyway as the zero-cost top-level move, so **no live instance of the dead spelling is left in the repo** to read as precedent. No behaviour change.\n- **Docs** — `content/docs/guide/data-source.md`'s per-block table said `— fixed window` in the `object-kanban` `limit` cell; that is the sentence this card exists to falsify. The cell is now checked, the `view` column lists `filter / limit`, and a paragraph records what was actually wrong and why `sort` still reads `— no ordering`. `content/docs/plugins/plugin-kanban.mdx` documents the board's `limit`, its default, and the collision with a column's WIP `limit`.\n- **Changeset** — `plugin-kanban` and `fields`, both patch (`objectui` has no skip-changeset mechanism; `node scripts/check-changeset-presence.mjs` is green on this tree).\n\n## Behaviour change worth reading before merging\n\nA board that previously fetched unbounded now fetches **100 rows by default**. That is the previously-declared intent taking effect rather than a new limit, but a board over an object with more than 100 matching records will show fewer cards than it did today. The changeset says so in those words. Authors who want the old reach should declare the window they want (`limit: 500`), not rely on the absence of one.\n\nBoards hosted inside `ListView` are unaffected: they receive pre-fetched records through the `data` prop and never run this fetch.\n\n## Verification\n\nAll commands run from the repo root on `b0fb625fd`, the head of this branch:\n\n- `pnpm exec vitest run packages/plugin-kanban/ packages/fields/ --maxWorkers=2` — `Test Files 104 passed (104)`, `Tests 1493 passed (1493)`.\n- `pnpm --workspace-concurrency=2 --filter @object-ui/plugin-kanban --filter @object-ui/fields run type-check` — both `Done` (after `pnpm --filter '@object-ui/fields^...' --filter '@object-ui/plugin-kanban^...' run build`, which a fresh worktree needs before any of this means anything).\n- `pnpm --workspace-concurrency=2 --filter @object-ui/plugin-kanban --filter @object-ui/fields run lint` — `0 errors` (103 pre-existing warnings, unchanged).\n- `node scripts/check-changeset-presence.mjs`, `node scripts/check-changeset-no-major.mjs`, `node scripts/check-control-bytes.mjs`, `node scripts/check-doc-links.mjs` — all green.\n\n**Reverse verification** (fix committed first, then reverted with `git checkout origin/main -- ...`, then restored from the branch): the four new assertions go **red** — `expected undefined to be 100 / 20 / 7 / 3` — while the four pre-existing tests in the file stay green. So the new tests fail for the reason they claim to and not because the file merely exercises the board.\n\n## Tests\n\n`packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx` gains a describe block with the four sources a window can come from: the default (a real `$top`, not a nested one), a `limit` authored on the block, a bound view's `pagination.pageSize`, and a binding `limit` overriding that view. Every one of them also asserts `params.options` is `undefined` — the defect was a right number written where nothing reads it, so a test that only checked `$top` would stay green if the dead nesting were re-added beside it.\n\n## The card's fourth item, deferred\n\nThe suggested mechanical defence (something that makes a third occurrence of `options: { $top: … }` fail CI) is filed as #4734 instead of riding along here. In this repo a new gate is a script plus a pin test in `scripts/__tests__/` plus a step in `ci.yml` — or an `eslint-rules/` rule plus its RuleTester test — and choosing between those two is a real trade-off with different reach. That decision deserves its own review rather than being settled inside a behaviour fix. The follow-up records the AST signature that needs no allowlist, and notes that after this PR the repo is at zero live instances, which is the cheapest moment to install it.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01RnQd8iMMUwXQEV1crFmQiQ)_"
+}

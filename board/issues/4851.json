@@ -1,0 +1,34 @@
+{
+  "number": 4851,
+  "kind": "issue",
+  "title": "finding: @object-ui/fields 与 @object-ui/types 的 files 仍含 src(#4847 同族余下两例;types 那处承重,不是机械删除)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "pm:queue"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-16T13:25:31Z",
+  "updated_at": "2026-08-17T03:19:37Z",
+  "closed_at": "2026-08-17T02:25:50Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/4851",
+  "body": "## 发现来源\n\nobjectui#4847(`@object-ui/data-objectstack` 的 `files` 去 `src`,PR #4852)实施时,按该卡「修法 3」的要求量全仓得到的旁证。#4847 只修了它自己点名的那个包,余下两例单独记在这里 —— 理由不是「懒得一起修」,而是**测量表明它们不是同一个判定**(见下)。\n\n## 事实(实测,非推断)\n\n发布包(`private` 未设)里 `files` 含**整棵 `src` 树**的,共 3 个,#4847 修掉其中一个:\n\n| 包 | `files` | build | 状态 |\n| --- | --- | --- | --- |\n| `@object-ui/data-objectstack` | ~~`[\"dist\",\"src\",…]`~~ → `[\"dist\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]` | `tsup` | **已修(#4847 / PR #4852)** |\n| `@object-ui/fields` | `[\"dist\",\"src\",\"README.md\",\"CHANGELOG.md\",\"LICENSE\"]` | `tsc && vite build && node scripts/build-css.mjs` | 仍在 |\n| `@object-ui/types` | `[\"dist\",\"src\",\"README.md\",\"LICENSE\",\"CHANGELOG.md\"]` | `tsc` | 仍在,**且 `src` 承重** |\n\n(`@object-ui/app-shell` 的 `files` 里是 `src/styles.css` —— 精确文件而非整棵树,是另一种形态,不在此列。)\n\n## 为什么这两例不能照 #4847 的做法机械删掉\n\n#4847 的四项前置核查里,第 ④ 项(sourcemap 是否落在 `src` 上)在 `data-objectstack` 上是否定的 —— 它的 `tsup.config.ts` 写着 `sourcemap: false`,bundled dts 也不产 `.d.ts.map`,干净重建后的 `dist` 里 `.map` 为 0、`sourceMappingURL` 与 `../src` 各 0 处。所以那次删除是安全的。\n\n`@object-ui/types` 上**同一项命中**:\n\n- `packages/types/tsconfig.json` 显式 `\"declarationMap\": true`,`build` 是裸 `tsc`;\n- 根 `tsconfig.base.json` 另给了 `\"sourceMap\": true`,且全仓**没有** `inlineSources`;\n- 实测已构建产物 `packages/types/dist/ai.d.ts.map`:`sources` 为 `[\"../src/ai.ts\"]`,`sourcesContent` 为 `false`。\n\n也就是说它随包发布的 declaration map / sourcemap **按路径指回 `../src/*.ts` 且不自带内容**。把 `src` 从 `files` 拿掉,这些 map 就指向 tarball 里不存在的文件,消费者编辑器的 go-to-source 会从「跳进真源码」退化成「跳进 `.d.ts`」。这是一个**真实但很小**的消费者,不是垃圾 —— 按 #4847 派发时那条「别把活入口当垃圾删」的纪律,它需要一次取舍(要么保留 `src`,要么关掉 `declarationMap`/改用 `inlineSources`,要么接受退化),不是一行删除。\n\n`@object-ui/fields` 的 emitter 是第三种(`vite-plugin-dts`),它的 dts 是否产 `.d.ts.map`、产的 map 指哪里,得单独干净重建后实测,本卡没有量。\n\n## 为什么值得记(以及为什么仍是 observation-class)\n\n- 今天没有用户面缺陷:两个包的 `exports` 映射都只指 `dist`(`fields` 另有 `./style.css` → `./dist/index.css`;`types` 有 11 个子路径条目,**全部**指 `dist`),没人 resolve 得到 `src` 里的测试。成本是 tarball 体积与发布面噪音。\n- 但「发布内容清单与实际意图脱节」这件事在 `fields` 上已经被记过两次仍未处理:#4006 正文的那句旁证(「`@object-ui/fields` 的 `files` 本来就含 `src`,测试源码已经在发布内容里了」),以及 #4006 的第二条评论里那张三包表格。#4006 的 PR 范围被明确裁到 `*.test.d.ts` 那一半(见其派发评论的 5 条),所以这一半从未被处理 —— 这是它今天仍然存在的**记录在案的原因**,不是遗漏。\n- `scripts/check-phantom-dependencies.mjs` 的表头依赖这个事实来说明它的判据边界(「not resolved」而非「not present in the tarball」)。PR #4852 已把那段更新为「`data-objectstack` 已退出,`fields`/`types` 仍在,且 `types` 那处承重」;这两例一旦处理,那段还要再改一次。\n\n## 可能的修法(未裁,留给实施者)\n\n1. `@object-ui/fields`:先干净重建实测 `dist` 里有没有 `.map`、map 的 `sources` 指哪里;若与 `data-objectstack` 同形(无 map 或 map 自带内容),则照 #4847 机械删 `src` + pack 清单前后对照。\n2. `@object-ui/types`:先裁「发布的 declaration map 要不要能跳回源码」。保留 `src` 是一个正当选项(那 map 就是它的消费者);想瘦身则应在**产出侧**动(关 `declarationMap`,或开 `inlineSources` 把源码塞进 map —— 后者并不省体积),而不是留下断链的 map。\n3. 三例的共同点是没有任何门在看 `files` 的内容:#4847 的反向验证实测到,把 `src` 加回去之后 `check-phantom-dependencies` / `check-control-bytes` / `check-package-self-import` / `scripts/__tests__/package-files-exist.test.ts` **全部保持绿**。机制化的判据是产物级的(「已发布 tarball 不得含 `TOOLING_FILE`」),其成本与 #4846 / PR #4845 记的是同一笔:今天 CI 没有任何 job 做全仓 build。\n\n关联:#4847 / PR #4852(同族,已修其一)、#4006(最早记录这一半,已关闭,PR #4539 只修 dist 那一半)、#4836 / PR #4845(另一个入口)、#4846(判据机制化的成本测量)。observation-class,未认领。\n"
+}

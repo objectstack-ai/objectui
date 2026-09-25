@@ -62,6 +62,13 @@ import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
+import {
+  NO_LOAD_FAILURES,
+  beginLoadRun,
+  shownLoadFailure,
+  type LoadFailures,
+  type LoadRunSeq,
+} from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 
 // Localized strings for the unsaved-changes guard. Falls back to English when
@@ -236,7 +243,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // objectui#10682 — the load error, kept per read (the object schema and the
+  // record), each written only by the current run of its read and cleared when
+  // a later run of that read commits: see `loadFailure.ts`. `error` is what
+  // the error screen reports.
+  const [loadFailures, setLoadFailures] = useState<LoadFailures>(NO_LOAD_FAILURES);
+  const loadRunSeqRef = useRef<LoadRunSeq>({ schema: 0, record: 0 });
+  const error = shownLoadFailure(loadFailures);
   // Unsaved-changes guard (mirrors ModalForm). `isDirty` is fed up from the
   // inner form renderer via onDirtyChange; `discardOpen` controls the confirm
   // dialog shown when the user tries to close a dirty form.
@@ -264,6 +277,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
   // Fetch object schema
   useEffect(() => {
+    // objectui#10682 — this run's writes to the schema read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
     const fetchSchema = async () => {
       if (!dataSource) {
         setLoading(false);
@@ -272,8 +288,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       try {
         const data = await dataSource.getObjectSchema(schema.objectName);
         setObjectSchema(data);
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        run.fail(err);
         setLoading(false);
       }
     };
@@ -304,6 +321,9 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     //  - ignore a response that is no longer the one being awaited, so two
     //    overlapping reads land in REQUEST order, not completion order.
     let cancelled = false;
+    // objectui#10682 — this run's writes to the record read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId) {
         // Seeded from something other than a read: no baseline to diff against.
@@ -312,6 +332,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // see `schemaDefaults` for the create-only boundary and for why
         // runtime defaults are left to the server.
         setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
+        // Not a read, so no earlier record read's failure describes the form.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -319,6 +341,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       if (!dataSource) {
         loadedRecordRef.current = null;
         setFormData(resolveInitialRecord(schema));
+        // Not a read either.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -339,9 +363,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         loadedRecordIdRef.current = schema.recordId;
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
+        // The record on screen is the one this run read, so an earlier record
+        // read's failure no longer describes it. A schema failure stays: this
+        // read says nothing about the object's fields.
+        run.commit();
       } catch (err) {
         if (cancelled) return;
-        setError(err as Error);
+        run.fail(err);
       } finally {
         if (!cancelled) setLoading(false);
       }

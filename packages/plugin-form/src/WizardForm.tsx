@@ -36,6 +36,13 @@ import {
   type PendingSubmitRedirect,
 } from './submitRedirectNavigation';
 import { useOccSave } from './occSave';
+import {
+  NO_LOAD_FAILURES,
+  beginLoadRun,
+  shownLoadFailure,
+  type LoadFailures,
+  type LoadRunSeq,
+} from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
@@ -426,7 +433,13 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // objectui#10682 — the load error, kept per read (the object schema and the
+  // record), each written only by the current run of its read and cleared when
+  // a later run of that read commits: see `loadFailure.ts`. `error` is what
+  // the error screen reports.
+  const [loadFailures, setLoadFailures] = useState<LoadFailures>(NO_LOAD_FAILURES);
+  const loadRunSeqRef = React.useRef<LoadRunSeq>({ schema: 0, record: 0 });
+  const error = shownLoadFailure(loadFailures);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -492,6 +505,9 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Fetch object schema
   React.useEffect(() => {
+    // objectui#10682 — this run's writes to the schema read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
     const fetchSchema = async () => {
       if (!dataSource) {
         setLoading(false);
@@ -501,8 +517,9 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
         setObjectSchema(schemaData);
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        run.fail(err);
       }
     };
     
@@ -511,6 +528,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Fetch initial data
   React.useEffect(() => {
+    // objectui#10682 — this run's writes to the record read's failure; a newer
+    // run of this effect makes them no-ops. Only the failure is scoped: the
+    // values this run commits are written as they always were.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId || !dataSource) {
         // Seeded from something other than a read: no baseline to diff against.
@@ -522,6 +543,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
           seededRef.current = true;
         }
+        // Not a read, so no earlier record read's failure describes the form.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -531,8 +554,12 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
         setPersistedRecord(data || {});
+        // The record on screen is the one this run read, so an earlier record
+        // read's failure no longer describes it. A schema failure stays: this
+        // read says nothing about the object's fields.
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        run.fail(err);
       } finally {
         setLoading(false);
       }

@@ -2635,6 +2635,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
 
+        /**
+         * objectui#10694, ruling 5839344270 (B) — where the hide-column
+         * toggle's choice is stored. On a view that declares no projection
+         * the relay applies no `hiddenFields` (see `activeViewDeclaresColumns`),
+         * so an overlay write of one would be read by nothing. A SYSTEM view's
+         * overlay cannot carry `columns` either (`VIEW_OVERLAY_OWNED_KEYS`), so
+         * there the toggle is session-only: `ListView` still hides the column
+         * in its own state, and nothing is written. A SAVED view's write is
+         * the whole view, drawn `columns` included, so it keeps persisting.
+         * The author's remedy on a system view is to declare `columns`.
+         */
+        const persistHiddenFields = (hidden: string[]) => {
+            if (!activeViewDeclaresColumns && !isSavedViewId(savedViewsRef.current, viewDef.id)) return;
+            persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
+        };
+
 
         /**
          * ⚠️ THE RELAY. Every key below is a rung carrying the ACTIVE VIEW's
@@ -2768,9 +2784,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             // NO `onFilterChange` (objectui#4155): the filter panel is session
             // state. ListView keeps it in `currentFilters` and applies it to the
             // live query; nothing about it reaches the stored view.
-            onHiddenFieldsChange: (hidden: string[]) => {
-                persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-            },
+            onHiddenFieldsChange: persistHiddenFields,
             onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
                 persistViewPatch(viewDef.id, viewDef, { columnState: state });
             },
@@ -3076,9 +3090,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 onSearchChange={(search: string) => {
                     writeListFilterState(listFilterKey, { search });
                 }}
-                onHiddenFieldsChange={(hidden: string[]) => {
-                    persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-                }}
+                onHiddenFieldsChange={persistHiddenFields}
                 onInlineEditChange={(next: boolean) => {
                     persistViewPatch(viewDef.id, viewDef, { inlineEdit: next });
                 }}

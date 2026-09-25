@@ -26,18 +26,29 @@
  * `fieldOrder` over those defaults, so the defaults came out subtracted and
  * re-sorted.
  *
+ * ## The hide-column toggle on such a view (ruling 5839344270, B)
+ *
+ * With neither key applied, a `hiddenFields` the toggle persisted into a SYSTEM
+ * view's overlay would be read by nothing on reload, and that overlay cannot
+ * carry `columns` (`VIEW_OVERLAY_OWNED_KEYS`). So on a system view that
+ * declares no projection the toggle is session-only: it hides the column in
+ * `ListView`'s own state and writes nothing. A SAVED view's write is the whole
+ * view, drawn `columns` included, so it keeps persisting and the reload
+ * applies it.
+ *
  * ## What this file measures
  *
  * The column list the grid is handed, from a real `ObjectView` mount: the
  * real `plugin-view` host, the real `ListView`, and only `object-grid` stubbed
  * so it records its `columns`. The renderer's own columns are read off a view
  * that declares no projection and carries neither key, so the defaults are
- * never restated here.
+ * never restated here. The toggle is driven through `ListView`'s own hide-fields
+ * popover, and the writes are read off the data source's `updateViewConfig`.
  */
 
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
 
@@ -125,29 +136,27 @@ const FIELDS = {
 /** Both composition keys. Each would change the defaults if applied. */
 const KEYS = { hiddenFields: ['stage'], fieldOrder: ['owner', 'name'] };
 
-/** Draw one list view on the object route; return the columns the grid got. */
-async function drawView(view: Record<string, unknown>): Promise<string[] | undefined> {
-  const id = `${OBJECT_NAME}.probe`;
-  const objects = [
-    {
-      name: OBJECT_NAME,
-      label: 'Task',
-      fields: FIELDS,
-      listViews: { [id]: { name: id, label: 'Probe', type: 'grid', ...view } },
-    },
-  ];
-  // One row, so `ListView` draws the grid rather than its empty state.
-  const dataSource = {
+const PROBE_ID = `${OBJECT_NAME}.probe`;
+
+/** A data source with one row, so `ListView` draws the grid rather than its empty state. */
+function makeDataSource(extra: Record<string, unknown> = {}) {
+  return {
     find: vi.fn(async () => ({ data: [{ id: 'r1', name: 'Row one' }], total: 1 })),
     findOne: vi.fn(async () => null),
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
-  } as never;
+    ...extra,
+  } as any;
+}
+
+/** Mount the object route on `viewId` and wait until the grid is drawn. */
+async function mountRoute(listViews: Record<string, unknown>, viewId: string, dataSource: any): Promise<void> {
+  const objects = [{ name: OBJECT_NAME, label: 'Task', fields: FIELDS, listViews }];
   drawn = undefined;
   render(
     <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'user' }}>
-      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/${id}`]}>
+      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/${viewId}`]}>
         <Routes>
           <Route
             path="/apps/:appName/:objectName/view/:viewId"
@@ -158,10 +167,30 @@ async function drawView(view: Record<string, unknown>): Promise<string[] | undef
     </ExpressionProvider>,
   );
   await screen.findByTestId('grid-stub', undefined, { timeout: 8000 });
+}
+
+/** Draw one system list view on the object route; return the columns the grid got. */
+async function drawView(view: Record<string, unknown>): Promise<string[] | undefined> {
+  await mountRoute({ [PROBE_ID]: { name: PROBE_ID, label: 'Probe', type: 'grid', ...view } }, PROBE_ID, makeDataSource());
   const got = drawn;
   cleanup();
   return got;
 }
+
+/** Untick `field` in `ListView`'s hide-fields popover, as a user does. */
+async function hideThroughToggle(field: string): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: /hide fields/i }));
+  await screen.findByText('Hide Fields');
+  const label = await screen.findByText(new RegExp(`^${field}$`, 'i'));
+  fireEvent.click(label.closest('label')!.querySelector('input')!);
+}
+
+/** The `updateViewConfig` calls whose body carries `hiddenFields`. */
+const hiddenFieldsWrites = (dataSource: any) =>
+  dataSource.updateViewConfig.mock.calls.filter((call: any[]) => call[2] && 'hiddenFields' in call[2]);
+
+/** Longer than `persistViewPatch`'s 300ms debounce, with room to spare. */
+const PAST_DEBOUNCE_MS = 900;
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -203,5 +232,75 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     // `owner` and `name` first and leaves the unlisted `amount` last.
     expect(await drawView({ columns: ['name', 'stage', 'owner', 'amount'], ...KEYS }))
       .toEqual(['owner', 'name', 'amount']);
+  });
+
+  it('THE FIX: on a system view with no declared `columns`, the hide toggle is session-only', async () => {
+    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    await mountRoute(
+      { [PROBE_ID]: { name: PROBE_ID, label: 'Probe', type: 'grid', columns: [], userActions: { hideFields: true } } },
+      PROBE_ID,
+      dataSource,
+    );
+    expect(drawn).toContain('region');
+
+    await hideThroughToggle('region');
+    // The column goes, in this session.
+    await waitFor(() => expect(drawn).not.toContain('region'));
+    // And nothing is written: an overlay `hiddenFields` on this view would be
+    // read by nothing on reload (the CONTROL below shows the write is live).
+    await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
+    expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+  });
+
+  it('CONTROL: on a system view that declares `columns`, the toggle still persists to the overlay', async () => {
+    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    await mountRoute(
+      {
+        [PROBE_ID]: {
+          name: PROBE_ID, label: 'Probe', type: 'grid',
+          columns: ['name', 'stage', 'region'], userActions: { hideFields: true },
+        },
+      },
+      PROBE_ID,
+      dataSource,
+    );
+    await hideThroughToggle('region');
+    await waitFor(() => expect(hiddenFieldsWrites(dataSource)).toHaveLength(1), { timeout: 3000 });
+    const [, viewId, body, opts] = hiddenFieldsWrites(dataSource)[0];
+    expect(viewId).toBe(PROBE_ID);
+    expect(body).toEqual({ hiddenFields: ['region'] });
+    expect(opts).toEqual({ isSavedView: false });
+  });
+
+  it('CONTROL: a saved view with no `columns` keeps persisting, and the reload applies it', async () => {
+    const savedId = `${OBJECT_NAME}.mine`;
+    const savedRow = { name: savedId, label: 'Mine', type: 'grid', userActions: { hideFields: true } };
+    // A system view beside it, so the saved one is not the only tab.
+    const systemViews = {
+      [`${OBJECT_NAME}.other`]: { name: `${OBJECT_NAME}.other`, label: 'Other', type: 'grid', columns: ['name'] },
+    };
+
+    const first = makeDataSource({
+      updateViewConfig: vi.fn(async () => ({})),
+      listViews: vi.fn(async () => [savedRow]),
+    });
+    await mountRoute(systemViews, savedId, first);
+    await waitFor(() => expect(drawn).toContain('region'), { timeout: 5000 });
+    await hideThroughToggle('region');
+    await waitFor(() => expect(hiddenFieldsWrites(first)).toHaveLength(1), { timeout: 3000 });
+    const [, viewId, body, opts] = hiddenFieldsWrites(first)[0];
+    expect(viewId).toBe(savedId);
+    expect(opts).toEqual({ isSavedView: true });
+    // The whole view is written, the drawn columns with it: the reload reads
+    // a view that declares a projection.
+    expect(body.hiddenFields).toEqual(['region']);
+    expect(Array.isArray(body.columns) && body.columns.length > 0).toBe(true);
+    expect(body.columns).toContain('region');
+    cleanup();
+
+    // Reload: the saved row is now what the toggle wrote.
+    const reloaded = makeDataSource({ listViews: vi.fn(async () => [body]) });
+    await mountRoute(systemViews, savedId, reloaded);
+    await waitFor(() => expect(drawn).toEqual(body.columns.filter((c: string) => c !== 'region')), { timeout: 5000 });
   });
 });

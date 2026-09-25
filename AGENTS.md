@@ -220,6 +220,15 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
     `scripts/__tests__/vitest-invocation-guard.test.ts` 会红。
 - **路径过滤零匹配也不再是绿的**:一旦命令行点名了文件,`passWithNoTests` 自动关闭 ——
   写错的路径 / 相对错目录的路径 → 非零退出,而不是「跑了 0 个文件然后绿」。
+- **`-t` 是正则,不是字面量(objectui#9660)。** 本仓的 `describe` 名普遍以 `(objectui#NNNN)`
+  结尾,整段复制粘贴进 `-t`,那对括号就成了捕获组 —— 一个测试都匹配不到,而「名字过滤零匹配」
+  在 vitest 里算 **skipped、不算失败**:`Tests 22 skipped (22)` + **退出码 0**。文件过滤是匹配上
+  了的,所以上一条的 `passWithNoTests` 在这里什么都管不到,屏幕上也没有任何 `0 tests matched`。
+  于是「跑一下那条具名 pin 看过没过」得到的是一个**假绿**。正确写法两种:把元字符转义
+  (`-t 'not prose \(objectui#7733\)'`),或者只取名字里一段**不含元字符的子串**
+  (`-t 'are derived, not prose'`)。⛔ 别按退出码读结论 —— 读「passed 的计数不是 0」。
+  这一形态现已由 `scripts/vitest-invocation-guard.mjs` 直接拒绝;⛔ 它今天拒绝哪些形态同样不写在这里,
+  以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准。
 - 确需从包目录启动,把 root 显式指回仓根:`pnpm exec vitest run --root ../.. packages/<pkg>/`
   —— 这正是 objectui#3240 给每个包级 `test` 脚本定下的写法。
   真要临时绕过 guard(自担风险):`OBJECTUI_VITEST_GUARD=off`。

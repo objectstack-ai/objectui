@@ -989,11 +989,6 @@ const ko = {
     attachmentsLoadFailed: "이 레코드의 첨부파일을 불러오지 못했습니다.",
     attachmentsApiUnavailable: "이 객체에서는 첨부 파일 목록을 사용할 수 없습니다.",
     retryLoadAttachments: "다시 시도",
-    unifiedDiff: "통합 보기",
-    sideBySideDiff: "나란히 보기",
-    noChanges: "변경 없음",
-    previousVersion: "이전 버전",
-    currentVersion: "현재 버전",
     discussion: "토론",
     showDiscussion: "토론 보기 ({{count}})",
     hideDiscussion: "토론 숨기기",
@@ -1008,13 +1003,7 @@ const ko = {
     writeComment: "댓글 작성…",
     subscribedTooltip: "구독 중 — 클릭하여 구독 취소",
     unsubscribedTooltip: "알림 구독",
-    firstRecord: "첫 번째 레코드 (Home)",
-    previousRecordKey: "이전 레코드 (←)",
-    nextRecordKey: "다음 레코드 (→)",
-    lastRecord: "마지막 레코드 (End)",
     noRecords: "레코드 없음",
-    searchWhileNavigating: "탐색 중 검색",
-    searchRecords: "레코드 검색…",
     allActivity: "모든 활동",
     commentsOnly: "댓글만",
     fieldChangesFilter: "필드 변경",
@@ -1128,21 +1117,6 @@ const ko = {
     fileCount: "파일 {{count}}개",
     fileCount_one: "파일 {{count}}개",
     fileCount_other: "파일 {{count}}개",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: '수정 기록',
-    noRevisions: '기록된 수정 없음',
-    revisionFieldsChanged: '필드 {{count}}개 변경됨',
-    revisionFieldsChangedOne: '필드 {{count}}개 변경됨',
-    revisionPreview: '수정 미리보기',
-    revisionSnapshot: '이 시점의 레코드 상태',
-    restoreConfirm: '레코드를 {{when}} 시점의 상태로 복원합니다. 계속하시겠습니까?',
-    restoring: '복원 중…',
-    confirmRestore: '복원 확인',
-    restoreToPoint: '이 시점으로 복원',
   },
   chart: {
     loading: "차트 로딩 중…",

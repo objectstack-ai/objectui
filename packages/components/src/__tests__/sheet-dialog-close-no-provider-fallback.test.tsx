@@ -15,9 +15,7 @@
  * `DialogContent` consumer in the repo, and a large amount of existing
  * coverage addresses those controls by their ENGLISH accessible name with no
  * provider in the tree — `packages/plugin-form/src/discardGuard.test.tsx`
- * (`getByRole('button', { name: 'Close' })`) and
- * `packages/plugin-detail/src/__tests__/InlineCreateRelated.closeButtonName.test.tsx`
- * (`/^Close$/`) among them. A `t()` call without a working default renders the
+ * (`getByRole('button', { name: 'Close' })`) among them. A `t()` call without a working default renders the
  * raw `common.close` key and breaks all of it — in other packages' suites, not
  * this one's.
  *

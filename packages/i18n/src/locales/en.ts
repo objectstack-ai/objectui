@@ -1218,12 +1218,6 @@ const en = {
     attachmentsLoadFailed: "We couldn't load the attachments for this record.",
     attachmentsApiUnavailable: 'The attachments list is not available on this object.',
     retryLoadAttachments: 'Retry',
-    // Diff
-    unifiedDiff: 'Unified diff',
-    sideBySideDiff: 'Side-by-side diff',
-    noChanges: 'No changes',
-    previousVersion: 'Previous',
-    currentVersion: 'Current',
     // Discussion
     discussion: 'Discussion',
     showDiscussion: 'Show Discussion ({{count}})',
@@ -1241,11 +1235,7 @@ const en = {
     // Subscription
     subscribedTooltip: 'Subscribed — click to unsubscribe',
     unsubscribedTooltip: 'Subscribe to notifications',
-    // Navigation
-    firstRecord: 'First record (Home)',
-    previousRecordKey: 'Previous record (←)',
-    nextRecordKey: 'Next record (→)',
-    lastRecord: 'Last record (End)',
+    // The reference rail's empty related-record list
     noRecords: 'No records',
     // objectui#3863 — the BASE key is the slot every plural category a pack did not
     // enumerate resolves to, keeping that pack in its own language instead of falling
@@ -1256,8 +1246,6 @@ const en = {
     showEmptyRelated: '+ {{count}} empty',
     showEmptyRelated_one: '+ {{count}} empty',
     showEmptyRelated_other: '+ {{count}} empty',
-    searchWhileNavigating: 'Search while navigating',
-    searchRecords: 'Search records…',
     // Activity timeline
     allActivity: 'All Activity',
     commentsOnly: 'Comments Only',
@@ -1320,21 +1308,6 @@ const en = {
     fileCount: '{{count}} files',
     fileCount_one: '{{count}} file',
     fileCount_other: '{{count}} files',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Revision History',
-    noRevisions: 'No revisions recorded',
-    revisionFieldsChanged: '{{count}} fields changed',
-    revisionFieldsChangedOne: '{{count}} field changed',
-    revisionPreview: 'Revision Preview',
-    revisionSnapshot: 'Record state at this point',
-    restoreConfirm: 'This will restore the record to its state at {{when}}. Continue?',
-    restoring: 'Restoring…',
-    confirmRestore: 'Confirm Restore',
-    restoreToPoint: 'Restore to this point',
   },
   chart: {
     loading: 'Loading chart…',

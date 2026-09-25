@@ -991,11 +991,6 @@ const fr = {
     attachmentsLoadFailed: "Impossible de charger les pièces jointes de cet enregistrement.",
     attachmentsApiUnavailable: "La liste des pièces jointes n'est pas disponible sur cet objet.",
     retryLoadAttachments: "Réessayer",
-    unifiedDiff: "Vue unifiée",
-    sideBySideDiff: "Vue côte à côte",
-    noChanges: "Aucune modification",
-    previousVersion: "Précédent",
-    currentVersion: "Actuel",
     discussion: "Discussion",
     showDiscussion: "Afficher la discussion ({{count}})",
     hideDiscussion: "Masquer la discussion",
@@ -1010,13 +1005,7 @@ const fr = {
     writeComment: "Écrire un commentaire…",
     subscribedTooltip: "Abonné — cliquez pour vous désabonner",
     unsubscribedTooltip: "S'abonner aux notifications",
-    firstRecord: "Premier enregistrement (Début)",
-    previousRecordKey: "Enregistrement précédent (←)",
-    nextRecordKey: "Enregistrement suivant (→)",
-    lastRecord: "Dernier enregistrement (Fin)",
     noRecords: "Aucun enregistrement",
-    searchWhileNavigating: "Rechercher pendant la navigation",
-    searchRecords: "Rechercher des enregistrements…",
     allActivity: "Toute l'activité",
     commentsOnly: "Commentaires uniquement",
     fieldChangesFilter: "Modifications de champs",
@@ -1130,21 +1119,6 @@ const fr = {
     fileCount: "{{count}} fichiers",
     fileCount_one: "{{count}} fichier",
     fileCount_other: "{{count}} fichiers",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Historique des révisions',
-    noRevisions: 'Aucune révision enregistrée',
-    revisionFieldsChanged: '{{count}} champs modifiés',
-    revisionFieldsChangedOne: '{{count}} champ modifié',
-    revisionPreview: 'Aperçu de la révision',
-    revisionSnapshot: "État de l'enregistrement à ce moment",
-    restoreConfirm: "Cela restaurera l'enregistrement à son état du {{when}}. Continuer ?",
-    restoring: 'Restauration…',
-    confirmRestore: 'Confirmer la restauration',
-    restoreToPoint: 'Restaurer à ce point',
   },
   chart: {
     loading: "Chargement du graphique…",

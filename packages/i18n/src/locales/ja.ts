@@ -1001,11 +1001,6 @@ const ja = {
     attachmentsLoadFailed: "このレコードの添付ファイルを読み込めませんでした。",
     attachmentsApiUnavailable: "このオブジェクトでは添付ファイルの一覧を利用できません。",
     retryLoadAttachments: "再試行",
-    unifiedDiff: "統合差分",
-    sideBySideDiff: "横並び差分",
-    noChanges: "変更なし",
-    previousVersion: "前のバージョン",
-    currentVersion: "現在のバージョン",
     discussion: "ディスカッション",
     showDiscussion: "ディスカッションを表示 ({{count}})",
     hideDiscussion: "ディスカッションを非表示",
@@ -1020,13 +1015,7 @@ const ja = {
     writeComment: "コメントを入力…",
     subscribedTooltip: "購読中 — クリックで解除",
     unsubscribedTooltip: "通知を購読",
-    firstRecord: "最初のレコード (Home)",
-    previousRecordKey: "前のレコード (←)",
-    nextRecordKey: "次のレコード (→)",
-    lastRecord: "最後のレコード (End)",
     noRecords: "レコードなし",
-    searchWhileNavigating: "ナビゲーション中に検索",
-    searchRecords: "レコードを検索…",
     allActivity: "すべてのアクティビティ",
     commentsOnly: "コメントのみ",
     fieldChangesFilter: "フィールド変更",
@@ -1128,21 +1117,6 @@ const ja = {
     fileCount: "ファイル {{count}} 件",
     fileCount_one: "ファイル {{count}} 件",
     fileCount_other: "ファイル {{count}} 件",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'リビジョン履歴',
-    noRevisions: 'リビジョンの記録なし',
-    revisionFieldsChanged: '{{count}} 件のフィールドを変更',
-    revisionFieldsChangedOne: '{{count}} 件のフィールドを変更',
-    revisionPreview: 'リビジョンのプレビュー',
-    revisionSnapshot: 'この時点のレコード状態',
-    restoreConfirm: 'レコードを {{when}} の状態に復元します。続行しますか?',
-    restoring: '復元中…',
-    confirmRestore: '復元を確認',
-    restoreToPoint: 'この時点に復元',
   },
   chart: {
     loading: "チャート読み込み中…",

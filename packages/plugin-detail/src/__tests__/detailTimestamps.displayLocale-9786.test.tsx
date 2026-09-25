@@ -16,8 +16,12 @@
  * caller must not do is reach past the hook and hand `Intl` the `undefined` it
  * gets on an unconfigured workspace, because `undefined` means "the MACHINE's
  * locale, which is neither channel". objectui#9453 put the `summaryFields`
- * chip on the hook; this file covers the timeline / history / diff / footer
+ * chip on the hook; this file covers the timeline / history / dialog / footer
  * surfaces in the same package, which were still passing nothing at all.
+ *
+ * The census also named `PointInTimeRestore.tsx` and `DiffView.tsx`. Their rows
+ * left this file when objectui#7192 deleted both components (with five other
+ * unregistered, unmounted `plugin-detail` exports, by maintainer ruling).
  *
  * ## ⭐ Why every family is measured as a DIFFERENCE, not as a literal
  *
@@ -60,9 +64,7 @@ import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support'
 import type { ActivityEntry, CommentEntry, FeedItem } from '@object-ui/types';
 import { ActivityTimeline } from '../ActivityTimeline';
 import { ConcurrentUpdateDialog } from '../ConcurrentUpdateDialog';
-import { DiffView } from '../DiffView';
 import { HistoryTimeline, type HistoryEntry } from '../HistoryTimeline';
-import { PointInTimeRestore, type RevisionEntry } from '../PointInTimeRestore';
 import { RecordActivityTimeline } from '../RecordActivityTimeline';
 import { RecordComments } from '../RecordComments';
 import { RecordMetaFooter } from '../RecordMetaFooter';
@@ -76,8 +78,6 @@ afterEach(() => cleanup());
  * UTC (`vitest.config.mts` pins it), so the local face is deterministic.
  */
 const STORED = '2020-03-04T15:30:00.000Z';
-/** A second instant, so `DiffView` has a change to draw rather than "No changes". */
-const STORED_LATER = '2021-07-09T08:15:00.000Z';
 
 /**
  * The session locale is DECLARED, never inherited from the runner — the same
@@ -141,9 +141,6 @@ const feedItems: FeedItem[] = [
 const replies: FeedItem[] = [
   { id: 'f2', type: 'comment', actor: 'Grace', body: 'reply', createdAt: STORED } as FeedItem,
 ];
-const revisions: RevisionEntry[] = [
-  { id: 'r1', timestamp: STORED, user: 'Ada', changes: [{ field: 'stage', oldValue: 'a', newValue: 'b' }] },
-];
 const historyEntries: HistoryEntry[] = [
   { id: 'h1', created_at: STORED, action: 'update', user_name: 'Ada' },
 ];
@@ -202,13 +199,6 @@ const SURFACES: Surface[] = [
     reveal: expandReplies,
   },
   {
-    file: 'PointInTimeRestore.tsx',
-    site: 'past-a-day toLocaleString tail',
-    node: <PointInTimeRestore recordId="rec_1" revisions={revisions} />,
-    de: DE_DATETIME,
-    en: EN_DATETIME,
-  },
-  {
     file: 'ConcurrentUpdateDialog.tsx',
     site: "the racer's updated_at",
     node: (
@@ -226,13 +216,6 @@ const SURFACES: Surface[] = [
         onCancel={() => {}}
       />
     ),
-    de: DE_DATETIME,
-    en: EN_DATETIME,
-  },
-  {
-    file: 'DiffView.tsx',
-    site: "a `date` field's diff lines",
-    node: <DiffView fieldName="closed_at" fieldType="date" oldValue={STORED} newValue={STORED_LATER} />,
     de: DE_DATETIME,
     en: EN_DATETIME,
   },

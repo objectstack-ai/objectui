@@ -989,11 +989,6 @@ const de = {
     attachmentsLoadFailed: "Die Anhänge dieses Datensatzes konnten nicht geladen werden.",
     attachmentsApiUnavailable: "Die Anhangsliste ist für dieses Objekt nicht verfügbar.",
     retryLoadAttachments: "Erneut versuchen",
-    unifiedDiff: "Einheitliche Ansicht",
-    sideBySideDiff: "Nebeneinander-Ansicht",
-    noChanges: "Keine Änderungen",
-    previousVersion: "Vorherige",
-    currentVersion: "Aktuelle",
     discussion: "Diskussion",
     showDiscussion: "Diskussion anzeigen ({{count}})",
     hideDiscussion: "Diskussion ausblenden",
@@ -1008,13 +1003,7 @@ const de = {
     writeComment: "Kommentar schreiben…",
     subscribedTooltip: "Abonniert — Klicken zum Abbestellen",
     unsubscribedTooltip: "Benachrichtigungen abonnieren",
-    firstRecord: "Erster Datensatz (Pos1)",
-    previousRecordKey: "Vorheriger Datensatz (←)",
-    nextRecordKey: "Nächster Datensatz (→)",
-    lastRecord: "Letzter Datensatz (Ende)",
     noRecords: "Keine Datensätze",
-    searchWhileNavigating: "Während der Navigation suchen",
-    searchRecords: "Datensätze suchen…",
     allActivity: "Alle Aktivitäten",
     commentsOnly: "Nur Kommentare",
     fieldChangesFilter: "Feldänderungen",
@@ -1128,21 +1117,6 @@ const de = {
     fileCount: "{{count}} Dateien",
     fileCount_one: "{{count}} Datei",
     fileCount_other: "{{count}} Dateien",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Versionsverlauf',
-    noRevisions: 'Keine Versionen aufgezeichnet',
-    revisionFieldsChanged: '{{count}} Felder geändert',
-    revisionFieldsChangedOne: '{{count}} Feld geändert',
-    revisionPreview: 'Versionsvorschau',
-    revisionSnapshot: 'Datensatzstand zu diesem Zeitpunkt',
-    restoreConfirm: 'Dadurch wird der Datensatz auf seinen Stand von {{when}} zurückgesetzt. Fortfahren?',
-    restoring: 'Wird wiederhergestellt…',
-    confirmRestore: 'Wiederherstellung bestätigen',
-    restoreToPoint: 'Auf diesen Zeitpunkt zurücksetzen',
   },
   chart: {
     loading: "Diagramm wird geladen…",

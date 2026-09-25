@@ -1083,11 +1083,6 @@ const zh = {
     attachmentsApiUnavailable: '此对象上的附件列表不可用。',
     retryLoadAttachments: '重试',
     // Diff
-    unifiedDiff: '统一视图',
-    sideBySideDiff: '并排视图',
-    noChanges: '无变更',
-    previousVersion: '旧版本',
-    currentVersion: '新版本',
     // Discussion
     discussion: '讨论',
     showDiscussion: '显示讨论 ({{count}})',
@@ -1106,18 +1101,12 @@ const zh = {
     subscribedTooltip: '已订阅 — 点击取消订阅',
     unsubscribedTooltip: '订阅通知',
     // Navigation
-    firstRecord: '第一条记录 (Home)',
-    previousRecordKey: '上一条记录 (←)',
-    nextRecordKey: '下一条记录 (→)',
-    lastRecord: '最后一条记录 (End)',
     noRecords: '无记录',
     // objectui#3863 — base key. zh has a single plural category (`other`), so this
     // slot is unreachable here and equals `_other` for key-set parity.
     showEmptyRelated: '+ {{count}} 个为空',
     showEmptyRelated_one: '+ {{count}} 个为空',
     showEmptyRelated_other: '+ {{count}} 个为空',
-    searchWhileNavigating: '导航时搜索',
-    searchRecords: '搜索记录…',
     // Activity timeline
     allActivity: '全部动态',
     commentsOnly: '仅评论',
@@ -1167,21 +1156,6 @@ const zh = {
     fileCount: '{{count}} 个文件',
     fileCount_one: '{{count}} 个文件',
     fileCount_other: '{{count}} 个文件',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: '修订历史',
-    noRevisions: '暂无修订记录',
-    revisionFieldsChanged: '已更改 {{count}} 个字段',
-    revisionFieldsChangedOne: '已更改 {{count}} 个字段',
-    revisionPreview: '修订预览',
-    revisionSnapshot: '此时间点的记录状态',
-    restoreConfirm: '这会将记录恢复到 {{when}} 时的状态。是否继续?',
-    restoring: '正在恢复…',
-    confirmRestore: '确认恢复',
-    restoreToPoint: '恢复到此时间点',
   },
   chart: {
     loading: '图表加载中…',

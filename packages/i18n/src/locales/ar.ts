@@ -999,11 +999,6 @@ const ar = {
     attachmentsLoadFailed: "تعذر تحميل مرفقات هذا السجل.",
     attachmentsApiUnavailable: "قائمة المرفقات غير متاحة على هذا الكائن.",
     retryLoadAttachments: "إعادة المحاولة",
-    unifiedDiff: "عرض موحد",
-    sideBySideDiff: "عرض جنباً إلى جنب",
-    noChanges: "لا توجد تغييرات",
-    previousVersion: "السابق",
-    currentVersion: "الحالي",
     discussion: "المناقشة",
     showDiscussion: "إظهار المناقشة ({{count}})",
     hideDiscussion: "إخفاء المناقشة",
@@ -1018,13 +1013,7 @@ const ar = {
     writeComment: "اكتب تعليقاً…",
     subscribedTooltip: "مشترك — انقر لإلغاء الاشتراك",
     unsubscribedTooltip: "الاشتراك في الإشعارات",
-    firstRecord: "السجل الأول (Home)",
-    previousRecordKey: "السجل السابق (←)",
-    nextRecordKey: "السجل التالي (→)",
-    lastRecord: "السجل الأخير (End)",
     noRecords: "لا توجد سجلات",
-    searchWhileNavigating: "البحث أثناء التصفح",
-    searchRecords: "البحث في السجلات…",
     allActivity: "كل النشاط",
     commentsOnly: "التعليقات فقط",
     fieldChangesFilter: "تغييرات الحقول",
@@ -1139,21 +1128,6 @@ const ar = {
     fileCount: "{{count}} ملف (ملفات)",
     fileCount_one: "{{count}} ملف",
     fileCount_other: "{{count}} ملفات",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'سجل المراجعات',
-    noRevisions: 'لا توجد مراجعات مسجلة',
-    revisionFieldsChanged: 'تم تغيير {{count}} حقول',
-    revisionFieldsChangedOne: 'تم تغيير {{count}} حقل',
-    revisionPreview: 'معاينة المراجعة',
-    revisionSnapshot: 'حالة السجل في هذه النقطة',
-    restoreConfirm: 'سيؤدي هذا إلى استعادة السجل إلى حالته في {{when}}. هل تريد المتابعة؟',
-    restoring: 'جارٍ الاستعادة…',
-    confirmRestore: 'تأكيد الاستعادة',
-    restoreToPoint: 'الاستعادة إلى هذه النقطة',
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",

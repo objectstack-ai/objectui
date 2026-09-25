@@ -993,11 +993,6 @@ const es = {
     attachmentsLoadFailed: "No se pudieron cargar los adjuntos de este registro.",
     attachmentsApiUnavailable: "La lista de adjuntos no está disponible en este objeto.",
     retryLoadAttachments: "Reintentar",
-    unifiedDiff: "Vista unificada",
-    sideBySideDiff: "Vista lado a lado",
-    noChanges: "Sin cambios",
-    previousVersion: "Anterior",
-    currentVersion: "Actual",
     discussion: "Discusión",
     showDiscussion: "Mostrar discusión ({{count}})",
     hideDiscussion: "Ocultar discusión",
@@ -1012,13 +1007,7 @@ const es = {
     writeComment: "Escribe un comentario…",
     subscribedTooltip: "Suscrito — clic para cancelar suscripción",
     unsubscribedTooltip: "Suscribirse a notificaciones",
-    firstRecord: "Primer registro (Inicio)",
-    previousRecordKey: "Registro anterior (←)",
-    nextRecordKey: "Siguiente registro (→)",
-    lastRecord: "Último registro (Fin)",
     noRecords: "Sin registros",
-    searchWhileNavigating: "Buscar mientras navegas",
-    searchRecords: "Buscar registros…",
     allActivity: "Toda la actividad",
     commentsOnly: "Solo comentarios",
     fieldChangesFilter: "Cambios de campo",
@@ -1132,21 +1121,6 @@ const es = {
     fileCount: "{{count}} archivos",
     fileCount_one: "{{count}} archivo",
     fileCount_other: "{{count}} archivos",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Historial de revisiones',
-    noRevisions: 'Sin revisiones registradas',
-    revisionFieldsChanged: '{{count}} campos modificados',
-    revisionFieldsChangedOne: '{{count}} campo modificado',
-    revisionPreview: 'Vista previa de la revisión',
-    revisionSnapshot: 'Estado del registro en este punto',
-    restoreConfirm: 'Esto restaurará el registro a su estado del {{when}}. ¿Continuar?',
-    restoring: 'Restaurando…',
-    confirmRestore: 'Confirmar restauración',
-    restoreToPoint: 'Restaurar a este punto',
   },
   chart: {
     loading: "Cargando gráfico…",

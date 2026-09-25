@@ -683,6 +683,14 @@ export function buildEffectiveFilter(
   );
 }
 
+/**
+ * What `ListView` applies in place of a held user filter it withholds
+ * (`appliedFilters` / `appliedUserFilterConditions`, objectui#10512). Module
+ * constants, so every render hands the fetch effect the same identity.
+ */
+const WITHHELD_FILTER_GROUP: FilterGroup = { id: 'root', logic: 'and', conditions: [] };
+const WITHHELD_USER_FILTER_CONDITIONS: any[] = [];
+
 export function convertFilterGroupToAST(group: FilterGroup): any[] {
   if (!group || !group.conditions || group.conditions.length === 0) return [];
 
@@ -1145,6 +1153,15 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * a dataset chart — is refused at authoring by `@object-ui/types`'
    * `ListViewSchema`.
    *
+   * Two readers, one answer: the toolbar flags below, and the APPLIED user
+   * filter (`appliedFilters` / `appliedUserFilterConditions`, objectui#10512).
+   * A group the host restores at mount, or one set on a grid before a switch,
+   * therefore does not go on narrowing this component's fetch — and with it the
+   * record-count bar — with no control on screen to show or clear it. ⛔ The
+   * held state itself is kept: switching back to a view that offers the
+   * controls applies it again. The view's own `schema.filter` is not the
+   * user's filter and stays applied.
+   *
    * Asked of `resolveListChartBinding`, the SAME resolver `case 'chart'` routes
    * on, so the toolbar and the render branch cannot disagree about the shape.
    * A primitive, so the memo below keys on the answer, not on an identity
@@ -1487,6 +1504,22 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // User Filters State (Airtable Interfaces-style)
   const [userFilterConditions, setUserFilterConditions] = React.useState<any[]>([]);
+
+  // The user filter this component APPLIES — its fetch, the export, the node of
+  // a view that queries for itself, the empty-state copy. Empty while a
+  // dataset-bound chart is on screen (`datasetChartOnScreen`, objectui#10512).
+  // The held `currentFilters` / `userFilterConditions` stay as they are, for
+  // the controls and for the host's storage. Each is swapped only when it holds
+  // something, so a switch with nothing held hands the fetch effect the
+  // identities it already had and re-issues no query (objectui#7394).
+  const appliedFilters =
+    datasetChartOnScreen && currentFilters.conditions && currentFilters.conditions.length > 0
+      ? WITHHELD_FILTER_GROUP
+      : currentFilters;
+  const appliedUserFilterConditions =
+    datasetChartOnScreen && userFilterConditions.length > 0
+      ? WITHHELD_USER_FILTER_CONDITIONS
+      : userFilterConditions;
 
   // User filters render ONLY when explicitly configured (ADR-0047 §data
   // mode): saved list views already act as the preset switcher, so an
@@ -2154,7 +2187,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
-        const finalFilter = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+        const finalFilter = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
 
         // Convert sort to query format
         // Use array format to ensure order is preserved (Object keys are not guaranteed ordered)
@@ -2663,7 +2696,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, currentFilters, userFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2674,7 +2707,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // the signature, so turning the page never triggers a reset.
   const pageResetSignature = JSON.stringify([
     schema.objectName, schema.filter, effectivePageSize, currentSort,
-    currentFilters, userFilterConditions, searchTerm, currentView, groupingConfig,
+    appliedFilters, appliedUserFilterConditions, searchTerm, currentView, groupingConfig,
   ]);
   const prevPageResetSignature = React.useRef(pageResetSignature);
   React.useEffect(() => {
@@ -3042,7 +3075,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   let selfQueryFilter: unknown = schema.filter;
   if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
     try {
-      const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const value = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
       const cached = selfQueryFilterRef.current;
       if (cached && cached.key === key) {
@@ -3964,7 +3997,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         .filter(Boolean) as string[];
 
       // The same three filter sources as the data fetch, from the same function.
-      const finalFilter = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const finalFilter = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
 
       const sort = currentSort.length > 0
         ? currentSort
@@ -4066,7 +4099,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     setShowExport(false);
     // `searchTerm` / `searchableFields` belong here: the export now narrows by
     // the active search, so a stale closure would export the wrong row set.
-  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, schema.filter, schema.searchableFields, exportPermitted, dataSource, currentFilters, userFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
+  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, schema.filter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
 
   // All available fields for hide/show (with i18n)
   const allFields = React.useMemo(() => {
@@ -4933,8 +4966,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             const hasActiveQuery =
               !!(searchTerm && searchTerm.trim()) ||
               hasBaseFilter ||
-              (Array.isArray(userFilterConditions) && userFilterConditions.length > 0) ||
-              (Array.isArray(currentFilters?.conditions) && currentFilters.conditions.length > 0);
+              (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
+              (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
             const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
               ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
             const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)

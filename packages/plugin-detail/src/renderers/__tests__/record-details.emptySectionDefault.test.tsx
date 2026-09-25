@@ -52,11 +52,13 @@
  * section whose fields are ALL empty renders nothing unless the page writes
  * `false`. WHERE that default is resolved is the design, and the last describe
  * block below is what pins it: `RecordDetailsRenderer` applies `?? true` to an
- * authored section and `DetailSection` tests `=== true`, so a section nobody
- * could have written the key on — the direct-`fields` fallback body, the
- * `detail-section` node — keeps its skeleton. A hide there would be a hide
- * with no declarable spelling to ask the skeleton back, which is the defect
- * upstream declared the key to fix.
+ * authored section and `DetailSection` tests `=== true`, so a section this
+ * renderer did not resolve keeps its skeleton. The direct-`fields` fallback
+ * body is one nobody could have written the key on; a hide there would be a
+ * hide with no declarable spelling to ask the skeleton back, which is the
+ * defect upstream declared the key to fix. The `detail-section` node declares
+ * the key (objectui#10485) but resolves no default of its own, so an omitted
+ * key keeps the skeleton there too and only an authored `true` hides.
  *
  * Deliberately no i18n provider, so the row labels below are rung 2 of the
  * label ladder: the object's own DECLARED `label`. They read as field NAMES

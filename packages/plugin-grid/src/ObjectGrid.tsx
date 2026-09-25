@@ -2860,6 +2860,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (objectDefField) {
               if (objectDefField.label) fieldMeta.label = objectDefField.label;
               if (objectDefField.currency) fieldMeta.currency = objectDefField.currency;
+              // objectui#10354 — `currencyConfig` is the spec's one fixed-currency
+              // spelling (a field key `currency` is refused by name), so a
+              // JPY-fixed field reaches the cell only through it. Copied
+              // VERBATIM: the cell's `resolveFieldCurrency` owns what it means,
+              // `currencyMode` included, so this bag holds no second opinion.
+              // Dropped, the cell fell through to the tenant currency while the
+              // metric tile and every whole-def cell read the field's own.
+              if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
@@ -3081,6 +3089,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
@@ -3247,6 +3257,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;

@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import type { ListColumn } from '@object-ui/types';
 import type { ColumnSummary } from '@objectstack/spec/ui';
+import type { CurrencyConfig } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
 import { formatCurrency, formatPercent } from '@object-ui/fields';
 
@@ -438,15 +439,17 @@ function formatSummaryLabel(
  * @param columns - Column definitions (may include `summary` config)
  * @param data - Row data array
  * @param fieldMetadata - Optional `objectSchema.fields` map; when present
- *   the hook reads `type`/`currency`/`defaultCurrency` and, for a percent
- *   column, `scale` to format the summary in the column's native unit
- *   (currency → `$1,234.56`, percent → `12%`).
+ *   the hook reads `type`/`currency`/`currencyConfig`/`defaultCurrency` and,
+ *   for a percent column, `scale` to format the summary in the column's native
+ *   unit (currency → `$1,234.56`, percent → `12%`).
  * @returns Map of field name to summary result, and a flag if any summaries exist
  */
 export function useColumnSummary(
   columns: ListColumn[] | undefined,
   data: any[],
-  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; precision?: number | null; scale?: number | null }>
+  // `currencyConfig` is the spec's own type, not a restated subset, so a field
+  // def written in the spec's shape (`currencyMode` included) is accepted as is.
+  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null }>
 ): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
@@ -489,6 +492,12 @@ export function useColumnSummary(
         type: (col as any).type ?? meta?.type,
         currency: (col as any).currency ?? meta?.currency,
         defaultCurrency: (col as any).defaultCurrency ?? meta?.defaultCurrency,
+        // objectui#10354 — the spec's one fixed-currency spelling, handed to
+        // `resolveFieldCurrency` verbatim, as the cell's bag carries it, so the
+        // footer and the cell above it resolve the same code. Read off the
+        // FIELD only: `ListColumnSchema` declares no `currencyConfig`, and a
+        // column-level read would be a second, undeclared spelling.
+        currencyConfig: meta?.currencyConfig,
         precision: (col as any).precision ?? meta?.precision,
         scale: (col as any).scale ?? meta?.scale,
       };

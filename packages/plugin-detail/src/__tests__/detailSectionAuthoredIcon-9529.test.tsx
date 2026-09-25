@@ -55,14 +55,14 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
 import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
-// The reference glyph for the render rows. Imported at module scope, not in a
-// hook (AGENTS.md 测试纪律): `LazyIcon` resolves `map-pin` through lucide's
-// `DynamicIcon`, whose lazy `import()` lands on the same icon module this
-// import loads, so `waitFor` below waits on React rather than on the module
-// loader.
+// The reference glyph the render rows compare against, imported at module
+// scope rather than in a hook (see the test-discipline section of AGENTS.md):
+// `LazyIcon` draws `map-pin` through lucide's `DynamicIcon`, which fetches the
+// icon module with a lazy `import()`, and lucide's ESM entry re-exports
+// `MapPin` from that same icon module.
 import { MapPin } from 'lucide-react';
 
-// Module scope, not a hook (AGENTS.md 测试纪律): importing the package index
+// Module scope, not a hook (same section of AGENTS.md): importing the package index
 // executes its registration side-effects, so the entry under test is the very
 // one production resolves.
 import '../index';

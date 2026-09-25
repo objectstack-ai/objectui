@@ -1854,7 +1854,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     }, [dataSource, objectName, objectDef.listViews, objectDef.list_views, (objectDef as any).list, refreshKey]);
 
     // Resolve Views from objectDef.listViews (camelCase per @objectstack/spec)
-    const views = useMemo(() => {
+    const { list: views, derivedColumnViewIds } = useMemo(() => {
         // Default columns for the auto-generated "所有记录" view (and any saved
         // grid view with no explicit columns). `highlightFields` (ADR-0085) wins;
         // otherwise the first business fields — framework-injected system / audit
@@ -1870,11 +1870,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             primaryId: defaultListViewId(objectDef.name, (objectDef as any).list),
             savedViews,
             viewOverrides,
+            // No `columns` here: the fill below derives them, and records
+            // the tab as one whose columns the author never declared.
             fallbackTab: () => ({
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
-                columns: resolveDefaultColumns(),
             }),
         });
 
@@ -1882,11 +1883,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // columns (e.g. saved views created via "Add View" before the user
         // configured fields). Without this, the grid renders an empty header
         // row and the data fetch omits a `select` clause.
+        //
+        // objectui#10694 — the fill DRAWS defaults; it does not DECLARE a
+        // projection. `ListViewSchema.columns` (spec source at objectstack
+        // `origin/main`, objectstack#19598): "An empty list declares no
+        // projection, so neither of them applies" — `hiddenFields` and
+        // `fieldOrder`. So every tab filled here is recorded, and the relay
+        // applies neither key to it (see `activeViewDeclaresColumns`). An
+        // ABSENT `columns` reads the same as an empty one: the spec requires
+        // the key, so absence declares no projection either.
         const GRID_LIKE = new Set(['grid', 'list', 'table']);
+        const derived = new Set<string>();
         for (const v of viewList) {
             if (!GRID_LIKE.has(v.type)) continue;
             if (!Array.isArray(v.columns) || v.columns.length === 0) {
                 v.columns = resolveDefaultColumns();
+                derived.add(v.id);
             }
         }
 
@@ -1928,7 +1940,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             return (indexOf.get(a.id) ?? 0) - (indexOf.get(b.id) ?? 0);
         });
 
-        return viewList;
+        return { list: viewList, derivedColumnViewIds: derived };
     }, [objectDef, savedViews, viewOverrides, t, orgAttribution]);
 
     // Active View State — merge saved draft if available for this view.
@@ -1960,6 +1972,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     const activeView = viewDraft && viewDraft.id === baseView?.id
         ? { ...baseView, ...viewDraft }
         : baseView;
+    // objectui#10694 — does the active view, as AUTHORED, declare a non-empty
+    // `columns`? A draft that carries `columns` answers for itself; otherwise
+    // the tab does, unless the views memo filled its columns with defaults.
+    // A boolean, so the relay keys on a value and not on the memo's Set
+    // (AGENTS.md #10).
+    const activeViewDeclaresColumns = viewDraft && viewDraft.id === baseView?.id && 'columns' in viewDraft
+        ? Array.isArray(viewDraft.columns) && viewDraft.columns.length > 0
+        : !!baseView && !derivedColumnViewIds.has(baseView.id)
+            && Array.isArray(baseView.columns) && baseView.columns.length > 0;
 
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
@@ -2699,7 +2720,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 heldListFilter.current = resolved;
                 return resolved;
             })(),
-            hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
+            /**
+             * objectui#10694 — both composition keys apply only when the view
+             * declares a non-empty `columns`. The views memo draws defaults
+             * into an unprojected view, and `ListViewSchema.columns` (spec
+             * source at objectstack `origin/main`, objectstack#19598) says an
+             * empty list "declares no projection, so neither of them applies".
+             * The same gate `InterfaceListPage` puts on a source view
+             * (objectui#10638), so the two routes compose a view one way. The
+             * value is set to `undefined`, not omitted: `...listSchema` above
+             * already carries the host's echo of the view's keys.
+             */
+            hiddenFields: activeViewDeclaresColumns
+                ? ((viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+                : undefined,
             /**
              * The per-view ORDERING of the field composition
              * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
@@ -2716,7 +2750,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
              * was the one per-view half of the composition with no rung:
              * authored, served, then dropped here.
              */
-            fieldOrder: viewDef.fieldOrder ?? listSchema.fieldOrder,
+            fieldOrder: activeViewDeclaresColumns
+                ? (viewDef.fieldOrder ?? listSchema.fieldOrder)
+                : undefined,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the
@@ -3056,7 +3092,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 dataSource={ds}
             />
         );
-    }, [activeView, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

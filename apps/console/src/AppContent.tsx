@@ -3,9 +3,9 @@
  *
  * The full inner-SPA shell (ConsoleLayout, CommandPalette, ObjectView etc.)
  * lives in @object-ui/app-shell as DefaultAppContent. This wrapper only
- * injects console-specific system routes (SystemHub / AppManagement /
- * Profile) plus the optional legacy metadata editor — third-party hosts
- * that don't need those routes use DefaultAppContent directly.
+ * injects console-specific system routes (AppManagement / Profile / Settings
+ * and the legacy-URL redirects) — third-party hosts that don't need those
+ * routes use DefaultAppContent directly.
  */
 
 import { lazy, Suspense, useMemo } from 'react';
@@ -15,7 +15,6 @@ import { MePermissionsProvider } from '@object-ui/permissions';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
 
-const SystemHubPage = lazy(() => import('./pages/system/SystemHubPage').then(m => ({ default: m.SystemHubPage })));
 const AppManagementPage = lazy(() => import('./pages/system/AppManagementPage').then(m => ({ default: m.AppManagementPage })));
 const ProfilePage = lazy(() => import('./pages/system/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ApprovalsInboxPage = lazy(() => import('./pages/system/ApprovalsInboxPage').then(m => ({ default: m.ApprovalsInboxPage })));
@@ -107,8 +106,11 @@ function MetadataRedirect() {
  * (User/Role/Permission/Audit/Org) … these objects are now contributed by
  * framework plugins (plugin-auth, -security, -audit) into the Setup app
  * navigation and resolved via the generic /apps/setup/<object_name> route."
- * The pages went; the URLs did not — `SystemHubPage`'s cards and both sidebars'
- * `sys-*` cluster still emit them, and so do bookmarks. Nothing declared them
+ * The pages went; the URLs did not — both sidebars' `sys-*` cluster still
+ * emits three of them (`users`, `organizations`, `roles`), bookmarks carry all
+ * five. Until objectui#3743 retired it, the system hub's card wall was the
+ * in-app producer of the other two (`positions`, `permissions`); those two now
+ * arrive from bookmarks only. Nothing declared them
  * afterwards, so they fell through to app-shell's tail and produced TWO
  * different failures depending on the word's length (`looksLikeRecordId`
  * requires 6+ chars): `users` / `roles` reached `RouteNotFound`, while
@@ -127,8 +129,9 @@ function MetadataRedirect() {
  *                                       that a static redirect cannot resolve)
  *   roles         -> sys_position      (ADR-0090 D3 renamed `sys_role` ->
  *                                       `sys_position`; the sidebar's "Roles"
- *                                       and the hub's "Positions" are the same
- *                                       surface under old/new vocabulary)
+ *                                       and the retired hub's "Positions" were
+ *                                       the same surface under old/new
+ *                                       vocabulary)
  *   positions     -> sys_position      (`nav_positions`)
  *   permissions   -> sys_permission_set(`nav_permission_sets`; this one was
  *                                       held back in PR #3673 and is resolved
@@ -149,6 +152,48 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
   return <Navigate to={`${prefix}/${objectName}`} replace />;
 }
 
+/**
+ * The bare `…/system` landing: forwards onto `…/system/settings`, the settings
+ * hub (objectui#3743).
+ *
+ * This URL used to render `SystemHubPage`, a hand-written card wall that
+ * mirrored the navigation next to it: its own card array, its own count
+ * queries, its own badge copy. Every change to the object or permission model
+ * had to be copied into it by hand, and the retirement ruling lists the repair
+ * rounds it needed for drifting (objectui#3670, #3679, #3680, #3686, #3655).
+ * objectui#3743 retired it. The
+ * URL stays, because app-shell sends users here: both sidebars' `sys-settings`
+ * entry, the zero-app empty state's "System Settings" button, the home Quick
+ * Action, the sidebar header and user menu, and the legacy `/system` bookmark
+ * redirect all target `/apps/setup/system`.
+ *
+ * WHERE it lands is read off the navigation, not chosen here. `system/settings`
+ * is the one system entry that all three navigations declared when this
+ * redirect landed (a reading taken once — nothing re-derives it):
+ *
+ *   - the framework Setup app: `nav_settings_hub` ("All Settings",
+ *     `/apps/setup/system/settings`), from `platform-objects`' Setup
+ *     navigation contributions;
+ *   - `AppSidebar.systemFallbackNavigation`: `sys-config`;
+ *   - `UnifiedSidebar`'s `/home` Administration cluster: `sys-config`.
+ *
+ * The page is driven by a registry too: `SettingsHub` lists the settings
+ * manifests the server returns for this user, so nothing on it is hand-kept.
+ * The target is also declared in both `DefaultAppContent` route tables (this
+ * fragment is passed as `extraRoutes` AND `extraRoutesNoApp`), so it renders on
+ * a zero-app deployment. Redirecting to the app root instead would not: there,
+ * `/apps/setup` is the "No Apps Configured" empty state whose "System Settings"
+ * button brings the user here, which would be a loop (objectui#3590).
+ *
+ * Resolved relative to this route's own match (`…/system`), so the active-app
+ * prefix is kept. Same treatment of `location.search` / `location.hash` as
+ * `SystemObjectRedirect` above: neither is forwarded, because no producer
+ * sends either.
+ */
+function SystemLandingRedirect() {
+  return <Navigate to="settings" replace />;
+}
+
 // Exported for `__tests__/AppContent.legacyRedirects.test.tsx`, which mounts
 // this exact fragment in a bare `MemoryRouter` to measure the redirect chain.
 // Transcribing the routes into the test instead would let the copy drift from
@@ -156,7 +201,7 @@ function SystemObjectRedirect({ objectName }: { objectName: string }) {
 // spelling survived here long after it stopped being canonical (objectui#3639).
 export const systemRoutes = (
   <>
-    <Route path="system" element={<Suspense fallback={<LoadingScreen />}><SystemHubPage /></Suspense>} />
+    <Route path="system" element={<SystemLandingRedirect />} />
     <Route path="system/apps" element={<Suspense fallback={<LoadingScreen />}><AppManagementPage /></Suspense>} />
     <Route path="system/profile" element={<Suspense fallback={<LoadingScreen />}><ProfilePage /></Suspense>} />
     <Route path="system/approvals" element={<Suspense fallback={<LoadingScreen />}><ApprovalsInboxPage /></Suspense>} />
@@ -200,13 +245,12 @@ export const systemRoutes = (
             capability container" (object CRUD + field security + access depth
             + system capabilities). FUNCTION points here.
 
-        Decided as A, `sys_permission_set` (objectui#3655): the card that emits
-        this URL reads "Manage permission rules and assignments", and
+        Decided as A, `sys_permission_set` (objectui#3655): the card that
+        emitted this URL read "Manage permission rules and assignments", and
         rules-and-assignments is layer 2 — the definition catalog is what you
-        reference BY NAME from a set, not what you assign. Deliberately a
-        transitional alias: option C (retiring this bespoke card wall together
-        with the hub, already `@deprecated`) stays open and does not conflict,
-        because a redirect keeps old bookmarks resolving either way.
+        reference BY NAME from a set, not what you assign. Option C, retiring
+        that bespoke card wall, was ruled and carried out later (objectui#3743);
+        the redirect stays, because it is what keeps old bookmarks resolving.
 
         One correction worth leaving here, since it circulated while this was
         open: the "capabilities are platform-locked, permission sets are the

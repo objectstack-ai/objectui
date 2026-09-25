@@ -1,6 +1,6 @@
 {
   "type": "flex",
-  "direction": "column",
+  "direction": "col",
   "gap": 4,
   "children": [
     {

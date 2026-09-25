@@ -1972,14 +1972,14 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    * `sortableColumns` hands it on (the data-table re-seed, objectui#4618).
    */
   const tableColumns = React.useMemo(() => {
-    const stamped = sortableColumns.map((col: any) => {
+    const stamped = sortableColumns.map((col) => {
       if (!col || typeof col !== 'object') return col;
       const field = col.accessorKey || columnIdentity(col);
-      const fieldDef = field ? (objectSchema?.fields as any)?.[field] : undefined;
+      const fieldDef = field ? objectSchema?.fields?.[field] : undefined;
       const masked = objectTypesPending || isMaskedDetailFieldType(col.type, fieldDef?.type);
       return masked && col.masked !== true ? { ...col, masked: true } : col;
     });
-    return stamped.every((col: any, i: number) => col === sortableColumns[i]) ? sortableColumns : stamped;
+    return stamped.every((col, i) => col === sortableColumns[i]) ? sortableColumns : stamped;
   }, [sortableColumns, objectSchema, objectTypesPending]);
 
   // A `grid`/`table` list renders a real table, whose column headers carry the

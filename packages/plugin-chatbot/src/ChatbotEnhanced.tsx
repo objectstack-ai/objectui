@@ -756,6 +756,14 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    */
   surfaceContextLabel?: string;
   /**
+   * objectui#8219 — the tooltip (`title`) of the {@link surfaceContextLabel}
+   * chip. Per objectui#7254, what the chip READS is the display label, and the
+   * internal identity (e.g. `dashboard · customer_dashboard`) stays REACHABLE
+   * here instead of being printed at the reader. Display-only; ignored when
+   * there is no `surfaceContextLabel`; absent = no `title`, as before.
+   */
+  surfaceContextTitle?: string;
+  /**
    * Live draft-status resolver: how many drafts are still PENDING in a
    * package (e.g. `GET /metadata/_drafts?packageId=` count). When provided,
    * each draft card's Publish/Published affordance reflects the SERVER's
@@ -1429,6 +1437,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       changesDraftedLabel = 'Saved as draft',
       changesFailedLabel = 'Not applied',
       surfaceContextLabel,
+      surfaceContextTitle,
       fetchPendingDraftCount,
       autoPublishDrafts = false,
       processVisibility = 'summary',
@@ -3340,7 +3349,10 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
         >
           {surfaceContextLabel ? (
             <div className="mb-1 flex" data-testid="surface-context-chip">
-              <span className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span
+                className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
+                title={surfaceContextTitle}
+              >
                 {surfaceContextLabel}
               </span>
             </div>

@@ -71,6 +71,11 @@
  *   metadata `actions[]` and executed via the shared `<ActionProvider>`
  *   runner — so confirm dialogs, param dialogs, toast, and reload
  *   handlers all work exactly as they do in `record:quick_actions`.
+ *
+ *   The by-name lookup is `resolveDeclaredActionIds` from `@object-ui/types`
+ *   — the one function `page:header` and `record:quick_actions` call — not a
+ *   hand-written `find` of its own (objectui#7382). Only its ACTION-ID arm
+ *   reaches the CTA: see the comment at the lookup below.
  */
 
 import * as React from 'react';
@@ -89,6 +94,7 @@ import { Alert, AlertTitle, AlertDescription, Button, cn, LazyIcon } from '@obje
 import { readProps } from './record-alert.readProps';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { ActionDef } from '@object-ui/core';
+import { resolveDeclaredActionIds } from '@object-ui/types';
 // The spec's INLINE locale-map form (`string | Record< string, string >`), bound
 // by reference rather than re-spelled — same import and same spelling as
 // `BaseSchema.label` / `.description` in `packages/types/src/base.ts`, which
@@ -258,9 +264,31 @@ export const RecordAlertRenderer: React.FC<RecordAlertRendererProps> = ({ schema
   const ctaName = props.action?.actionName as string | undefined;
   const needsMeta = !!ctaName && !!objectName;
   const { item: objectMeta } = useMetadataItem('object', needsMeta ? objectName : null);
+  // The lookup itself is the shared `resolveDeclaredActionIds` — the one home
+  // for "an authored action id → the object's registered definition", which
+  // `page:header` and `record:quick_actions` also call (objectui#7182,
+  // objectui#7382). A single CTA is a one-element declared array; no CTA is
+  // the empty array, never `[undefined]`, which the shared element rule
+  // refuses.
+  //
+  // ⛔ ONLY the `ids` arm resolves a CTA. `actionName` names an action; it is
+  // not a slot for an action DEFINITION. An object authored there would
+  // classify as the shared rule's inline-object arm and come back as an
+  // "action" — handed to the engine and executed on click, even though the
+  // object declares no such action. That is renderer tolerance
+  // `page:header` keeps for its own transition, and it is not this surface's
+  // to inherit: here it would widen what an alert can run.
+  //
+  // An id that resolves to nothing renders no CTA and says nothing at
+  // runtime. Refusing a misspelled `actionName` belongs to authoring time —
+  // objectstack's `action-name-undefined` lint (objectstack#20105) — not to a
+  // console line the author never reads.
   const ctaAction: ActionDef | undefined = React.useMemo(() => {
-    if (!ctaName || !objectMeta?.actions) return undefined;
-    return (objectMeta.actions as ActionDef[]).find((a) => a.name === ctaName);
+    const declared = resolveDeclaredActionIds<ActionDef>(
+      ctaName ? [ctaName] : [],
+      Array.isArray(objectMeta?.actions) ? (objectMeta.actions as ActionDef[]) : undefined,
+    );
+    return declared.kind === 'ids' ? declared.actions[0] : undefined;
   }, [ctaName, objectMeta]);
 
   // Route execution through the shared ActionEngine so confirm /

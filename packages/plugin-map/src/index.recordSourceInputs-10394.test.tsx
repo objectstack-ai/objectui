@@ -248,7 +248,7 @@ describe('objectui#10394 — what the declared descriptions claim, through Schem
     });
     expect(lats).toEqual([]);
     expect(queried).toEqual([]);
-    expect(warn.mock.calls.map((call) => String(call[0]))).toContain(
+    expect(warn.mock.calls.map((call: unknown[]) => String(call[0]))).toContain(
       'API provider not yet implemented for ObjectMap',
     );
   });

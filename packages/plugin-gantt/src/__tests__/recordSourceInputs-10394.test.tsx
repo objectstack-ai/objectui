@@ -243,7 +243,7 @@ describe('objectui#10394 — what the declared descriptions claim, through Schem
     );
     expect(ids).toBe('a1');
     expect(queried).toEqual([]);
-    expect(fetchSpy.mock.calls.map((call) => String(call[0]).split('?')[0])).toContain('https://api.test/tasks');
+    expect(fetchSpy.mock.calls.map((call: unknown[]) => String(call[0]).split('?')[0])).toContain('https://api.test/tasks');
   });
 
   it('a bare array under data is not a record source', async () => {

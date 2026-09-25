@@ -160,3 +160,175 @@ export function sanitizeFormData(
 
   return out;
 }
+
+/**
+ * Whether two payload values are the SAME stored value — the one comparison
+ * every dirty-field diff in this package uses: the master-detail child rows in
+ * `masterDetailTx.ts` (objectui#10108) and the edit form's own record
+ * (objectui#10156). ⛔ Do not write a second equality rule beside it; two rules
+ * would drift, and the one that drifted towards "equal" would drop edits.
+ *
+ * ⚠️ The comparison is deliberately asymmetric in its failure direction. Saying
+ * "changed" about an equal pair costs one redundant column on the wire; saying
+ * "unchanged" about a changed pair DISCARDS the user's edit, silently, with a
+ * 200 back. So every case this cannot settle confidently reads as changed.
+ *
+ * The rule, pair by pair:
+ *
+ * - The same value (`===`) is equal.
+ * - `null` and `undefined` are one blank — the only two blanks a form
+ *   round-trip actually interchanges. `''` is NOT a blank here: `null` and
+ *   `''` read as different, and so do `undefined` and `''`.
+ * - Numbers never equal strings: `1000` and `'1000'` read as different.
+ * - Two `Date`s are equal only when both hold the same finite time. A `Date`
+ *   and a date STRING read as different, and so do two date strings in
+ *   different formats (`'2026-01-02'` and `'2026-01-02T00:00:00Z'`).
+ * - Two objects or arrays are equal only when they serialize identically. A
+ *   reordered key or array element reads as changed, which is the safe side.
+ * - A lookup's id and its expanded object (`'a1'` and `{ id: 'a1', … }`) read
+ *   as different: one is a string and the other an object.
+ * - Anything else is different, including `NaN` against itself.
+ */
+export function isSameStoredValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a == null && b == null) return true; // null/undefined are one blank
+  if (a == null || b == null) return false;
+  if (a instanceof Date || b instanceof Date) {
+    const ta = a instanceof Date ? a.getTime() : NaN;
+    const tb = b instanceof Date ? b.getTime() : NaN;
+    return Number.isFinite(ta) && ta === tb;
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return false;
+}
+
+/**
+ * The subset of `next` that differs from the loaded snapshot `prev` — the
+ * DIRTY fields, and only those, judged by {@link isSameStoredValue}.
+ *
+ * An update that carries an unchanged column is not free: the platform refuses
+ * a write to a system-managed ownership column unless the caller holds the
+ * transfer grant, and it cannot tell a round-trip of the value it just served
+ * from an attempted transfer. A master-detail save commits as ONE atomic batch,
+ * so one such column on any row refuses every row (objectui#10108).
+ * `sanitizeFormData` already refuses the columns the server owns by name;
+ * sending only what the user actually changed is the half that does not depend
+ * on a roster being complete.
+ */
+export function changedFields(
+  next: Record<string, any>,
+  prev: Record<string, any>,
+): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(next)) {
+    if (!isSameStoredValue(v, prev[k])) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * The record an edit form READ from its data source, tagged with the object
+ * and record it was read for (objectui#10156).
+ *
+ * It is the baseline an edit save diffs against, and it is held by the form
+ * component that performed the read — never passed in by a host. A record a
+ * caller supplied (`initialData`, inline `customFields`) is a prefill, not the
+ * row as stored, so no snapshot is taken for it and its save sends every field.
+ */
+export interface LoadedRecordSnapshot {
+  objectName: string;
+  recordId: string;
+  record: Record<string, any>;
+}
+
+/** The three facts of a form schema that decide whether a snapshot applies. */
+export interface EditSaveTarget {
+  mode?: string;
+  objectName: string;
+  recordId?: string | number | null;
+}
+
+/**
+ * Take the snapshot for a record just read with `findOne`, or `null` when the
+ * read returned nothing usable.
+ */
+export function snapshotLoadedRecord(
+  target: EditSaveTarget,
+  data: unknown,
+): LoadedRecordSnapshot | null {
+  if (target.recordId == null || target.recordId === '') return null;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  return {
+    objectName: target.objectName,
+    recordId: String(target.recordId),
+    record: { ...(data as Record<string, any>) },
+  };
+}
+
+/** The snapshot's record when it was read for THIS edit, else `null`. */
+function loadedRecordFor(
+  snapshot: LoadedRecordSnapshot | null | undefined,
+  target: EditSaveTarget,
+): Record<string, any> | null {
+  if (!snapshot || target.mode !== 'edit') return null;
+  if (target.recordId == null || target.recordId === '') return null;
+  if (snapshot.objectName !== target.objectName) return null;
+  if (snapshot.recordId !== String(target.recordId)) return null;
+  return snapshot.record;
+}
+
+/**
+ * The payload an EDIT save writes: only the fields that differ from the record
+ * the form loaded (objectui#10156).
+ *
+ * `payload` is the output of {@link sanitizeFormData}. Every case that cannot
+ * be settled resolves towards SENDING, because a false "clean" drops the user's
+ * edit and the server still answers 200:
+ *
+ * - Not an edit, or no snapshot was read for this object and record (a create,
+ *   a caller-supplied record, a record swap still in flight) → `payload`
+ *   unchanged, every field sent.
+ * - A snapshot applies → the fields {@link changedFields} reports. Fields the
+ *   form itself moved after the load — a cascade clear, a clear-on-hide, a
+ *   value the form computed — differ from the loaded record, so they are sent.
+ * - The diff is EMPTY → `payload` unchanged. A save with nothing changed stays
+ *   the request it has always been: the same write, the same OCC guard and a
+ *   real server record for `onSuccess`. Emitting no request instead would
+ *   report success for a save no server saw, and that is the one outcome a
+ *   wrong baseline must never be able to produce.
+ */
+export function dirtyEditPayload(
+  payload: Record<string, any>,
+  snapshot: LoadedRecordSnapshot | null | undefined,
+  target: EditSaveTarget,
+): Record<string, any> {
+  if (!payload || typeof payload !== 'object') return payload;
+  const loaded = loadedRecordFor(snapshot, target);
+  if (!loaded) return payload;
+  const changed = changedFields(payload, loaded);
+  return Object.keys(changed).length > 0 ? changed : payload;
+}
+
+/**
+ * The snapshot after an edit save SUCCEEDED: the fields just written, laid over
+ * the record as read.
+ *
+ * A form that stays mounted after a save must not diff its next save against
+ * the row as FIRST read. Changing a field and then changing it back to the
+ * value first read would compare equal to that stale baseline and be dropped,
+ * while the server still holds the first save's value. Advancing the baseline
+ * by what the server accepted closes that. A snapshot read for another record
+ * is returned untouched.
+ */
+export function advanceLoadedRecord(
+  snapshot: LoadedRecordSnapshot | null | undefined,
+  target: EditSaveTarget,
+  written: Record<string, any>,
+): LoadedRecordSnapshot | null {
+  const loaded = loadedRecordFor(snapshot, target);
+  if (!snapshot || !loaded) return snapshot ?? null;
+  if (!written || typeof written !== 'object') return snapshot;
+  return { ...snapshot, record: { ...loaded, ...written } };
+}

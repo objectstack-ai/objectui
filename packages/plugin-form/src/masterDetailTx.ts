@@ -16,7 +16,9 @@
  */
 
 import type { BatchTransactionOperation } from '@object-ui/types';
-import { sanitizeFormData } from './sanitize';
+// `changedFields` is the ONE dirty-field comparison, shared with the edit
+// form's own record diff (objectui#10156) — see `isSameStoredValue` there.
+import { sanitizeFormData, changedFields } from './sanitize';
 
 export const idOf = (rec: any): string | undefined =>
   rec == null ? undefined : (rec.id ?? rec._id ?? rec.recordId);
@@ -53,58 +55,6 @@ const toWritable = (data: Record<string, any>, childSchema: ChildSchema): Record
  */
 const parentWritable = (data: Record<string, any>): Record<string, any> =>
   sanitizeFormData(data, null);
-
-/**
- * Whether two payload values are the SAME stored value, for the dirty-field
- * diff below.
- *
- * ⚠️ The comparison is deliberately asymmetric in its failure direction. Saying
- * "changed" about an equal pair costs one redundant column on the wire; saying
- * "unchanged" about a changed pair DISCARDS the user's edit, silently, with a
- * 200 back. So every case this cannot settle confidently reads as changed:
- * `1000` and `'1000'` are different, two objects are the same only when they
- * serialize identically (a reordered key reads as changed, which is the safe
- * side), and only the two blanks a form round-trip actually interchanges —
- * `null` and `undefined` — are treated as one value.
- */
-function isSameStoredValue(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a == null && b == null) return true; // null/undefined are one blank
-  if (a == null || b == null) return false;
-  if (a instanceof Date || b instanceof Date) {
-    const ta = a instanceof Date ? a.getTime() : NaN;
-    const tb = b instanceof Date ? b.getTime() : NaN;
-    return Number.isFinite(ta) && ta === tb;
-  }
-  if (typeof a === 'object' && typeof b === 'object') {
-    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
-  }
-  return false;
-}
-
-/**
- * The subset of `next` that differs from the loaded snapshot `prev` — the
- * DIRTY fields, and only those.
- *
- * An update operation that carries an unchanged column is not free: the
- * platform refuses a write to a system-managed ownership column unless the
- * caller holds the transfer grant, and it cannot tell a round-trip of the value
- * it just served from an attempted transfer. A master-detail save commits as
- * ONE atomic batch, so one such column on any row refuses every row
- * (objectui#10108). `sanitizeFormData` already refuses the columns the server
- * owns by name; sending only what the user actually changed is the half that
- * does not depend on a roster being complete.
- */
-function changedFields(
-  next: Record<string, any>,
-  prev: Record<string, any>,
-): Record<string, any> {
-  const out: Record<string, any> = {};
-  for (const [k, v] of Object.entries(next)) {
-    if (!isSameStoredValue(v, prev[k])) out[k] = v;
-  }
-  return out;
-}
 
 export interface RowDiff {
   toCreate: Record<string, any>[];

@@ -453,10 +453,13 @@ export interface CheckboxSchema extends BaseSchema {
    * Whether the box must be checked — drives a VISIBLE affordance, not just
    * form semantics.
    *
-   * READ SITES: `packages/components/src/renderers/form/checkbox.tsx:45` —
-   * `required={schema.required}` on the Radix `Checkbox` — and `:49`, where it
-   * gates the label's required marker
-   * (`schema.required && "text-destructive after:content-['*']"`).
+   * READ SITES, both in `packages/components/src/renderers/form/checkbox.tsx`:
+   * `required={schema.required}` on the Radix `Checkbox`, and the label's
+   * required marker it gates — the label turns `text-destructive` and carries a
+   * real `aria-hidden` `*` span (`data-required-marker`). Not CSS generated
+   * content: the label names the checkbox, and an `::after` asterisk enters
+   * that accessible name ("Title*"), where `aria-hidden` cannot reach a
+   * pseudo-element (objectui#10368).
    *
    * Declared by objectui#6150; one of the two behavioural keys in that census.
    */

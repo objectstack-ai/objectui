@@ -124,11 +124,22 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
       data-input-id={schema?.id}
     >
       {label && (
-        <Label
-          htmlFor={schema?.id}
-          className={cn(props.required && "after:ml-0.5 after:text-destructive after:content-['*']")}
-        >
+        <Label htmlFor={schema?.id}>
           {label}
+          {props.required && (
+            // A real `aria-hidden` element, not CSS generated content: this
+            // label names the input, and `::after` content enters the
+            // accessible name ("Title*") where `aria-hidden` cannot reach it
+            // (objectui#10368; the full note is on `FieldContainer`). The
+            // required STATE is the input's native `required` below.
+            <span
+              className="ml-0.5 text-destructive"
+              data-required-marker="true"
+              aria-hidden="true"
+            >
+              *
+            </span>
+          )}
         </Label>
       )}
       <Input

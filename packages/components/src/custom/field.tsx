@@ -53,11 +53,32 @@ const FieldContainer = React.forwardRef<HTMLDivElement, FieldProps>(
     return (
       <div ref={ref} className={cn(fieldVariants(), className)} {...props}>
         {label && (
-          <Label 
+          <Label
             htmlFor={fieldId}
-            className={cn(error && "text-destructive", required && "after:content-['*'] after:ml-0.5 after:text-destructive")}
+            className={cn(error && "text-destructive")}
           >
             {label}
+            {required && (
+              // The visual asterisk is a REAL element, never CSS generated
+              // content (objectui#10368). This label names the slotted control,
+              // and the accessible-name computation includes `::after`
+              // content: while this marker was a Tailwind `after:` content
+              // utility, Chromium's accessibility tree named the control
+              // "Title*". A pseudo-element cannot carry `aria-hidden`; this span
+              // can, so the `*` stays paint and `aria-required` below stays the
+              // only required signal. `data-required-marker` is the stable
+              // locator, the same one the form renderer's `FormLabel` marker
+              // carries (ADR-0054 C4). The literal utility is deliberately not
+              // spelled here: Tailwind scans comments too, and would compile
+              // it back into the published sheet.
+              <span
+                className="ml-0.5 text-destructive"
+                data-required-marker="true"
+                aria-hidden="true"
+              >
+                *
+              </span>
+            )}
           </Label>
         )}
         
@@ -71,9 +92,11 @@ const FieldContainer = React.forwardRef<HTMLDivElement, FieldProps>(
           aria-invalid={!!error}
           // Required is a STATE, so it rides the same Slot injection as the
           // other a11y wiring (objectui#3299) — one line here covers every
-          // consumer of FieldContainer. Until now `required` drove only the
-          // label's CSS asterisk (`after:content-['*']`), which never enters
-          // the a11y tree as a state. `|| undefined` so an optional field
+          // consumer of FieldContainer. Before objectui#3299 `required` drove
+          // only the label's visual asterisk, which is paint, not a STATE: an
+          // asterisk can reach the accessible NAME (it did, as CSS generated
+          // content, until objectui#10368) but never the required state.
+          // `|| undefined` so an optional field
           // carries no attribute. Deliberately NOT the native `required`
           // attribute (#3290 ruling: it arms browser constraint validation
           // alongside the host's own `error` slot).

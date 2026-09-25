@@ -78,7 +78,7 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 
 import { toast } from '@object-ui/components';
 import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
-import type { DataSource } from '@object-ui/types';
+import type { DataSource, ObjectViewSchema } from '@object-ui/types';
 import { ObjectView } from '../ObjectView';
 import { installExplainDouble } from './explainDouble';
 
@@ -86,7 +86,7 @@ const OBJECT = 'test_object';
 
 beforeAll(() => {
   if (!Element.prototype.scrollIntoView) {
-    Element.prototype.scrollIntoView = vi.fn() as any;
+    Element.prototype.scrollIntoView = vi.fn() as unknown as Element['scrollIntoView'];
   }
 });
 
@@ -150,7 +150,7 @@ function renderView(ds: ReturnType<typeof makeDataSource>, extra: Record<string,
             objectName: OBJECT,
             table: { columns: ['name'] },
             ...extra,
-          } as any}
+          } as unknown as ObjectViewSchema}
           dataSource={ds as unknown as DataSource}
         />
       </SchemaRendererProvider>

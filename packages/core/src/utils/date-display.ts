@@ -28,11 +28,12 @@
  * to numbers: the pure function moves DOWN into the React-free engine and the
  * upper package re-exports it, so there is one home and nothing to drift.
  *
- * `@object-ui/fields` re-exports every symbol below under its original name,
- * so `formatDate` / `formatDateTime` / `formatDateTimeCompactParts` /
- * `formatRelativeDate` / `DateDisplayOptions` keep working unchanged for
- * `ObjectGrid`, `ObjectGantt`, `plugin-dashboard`'s `recordFields` and the
- * `date` cell renderer.
+ * `@object-ui/fields` re-exports the formatting symbols below under their
+ * original names, so `formatDate` / `formatDateTime` /
+ * `formatDateTimeCompactParts` / `formatRelativeDate` / `DateDisplayOptions`
+ * keep working unchanged for `ObjectGrid`, `ObjectGantt`,
+ * `plugin-dashboard`'s `recordFields` and the `date` cell renderer.
+ * `toDisplayDate` is exported from `@object-ui/core` alone (objectui#10183).
  *
  * The `datetime` CELL face joined this file in objectui#7443. It used to be a
  * second convention inlined in `DateTimeCellRenderer`: two `Intl` option bags
@@ -44,6 +45,15 @@
  * and the clock, and the one phrase `Intl` cannot produce ("Overdue Nd") comes
  * in through the INJECTED `options.t`, the same way `buildDatasetFieldHelpers`
  * in `dataset-format.ts` takes `fieldLabel`.
+ *
+ * ⚠️ There is a third ambient input, and it is the one this module has to
+ * decide about rather than pass on: the VIEWER's timezone. A value carrying a
+ * time is an instant and renders in that zone; a DATE-ONLY value names a
+ * calendar day, carries no instant, and must render as that day everywhere.
+ * `toDisplayDate` below is the single parse step that tells the two apart —
+ * every function here goes through it (objectui#10110), and so does every
+ * caller elsewhere that needs a face or a day comparison none of these
+ * functions produce (objectui#10183).
  */
 
 /**
@@ -83,6 +93,153 @@ export interface DateDisplayOptions {
    * separate, deliberate call (objectui#7745's report).
    */
   style?: string;
+}
+
+/**
+ * The date-only ISO spelling — `2026-08-01`, and nothing else.
+ *
+ * Spelled exactly as `dataset-format.ts`'s `ISO_DATE_ONLY_RE`, which sniffs
+ * the same shape one file over to decide which arm a measure takes. Two
+ * spellings of one convention is what this module exists to prevent, so the
+ * two regexes are kept identical on purpose.
+ */
+const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A date that exists — the pattern alone would accept `2024-02-31`.
+ *
+ * `true` only for a date-only ISO string (`YYYY-MM-DD`, the shape
+ * {@link ISO_DATE_ONLY_RE} names) whose year, month and day read back
+ * unchanged from the calendar. Anything else — another shape, a time part, an
+ * out-of-range month, or a day its month does not have — is `false`.
+ *
+ * ## Why this lives here (objectui#10026)
+ *
+ * It used to be module-private in `@object-ui/components`' filter builder,
+ * which refused `2026-02-30` at the AUTHORING boundary, while this module — a
+ * package below it, unable to import it — ROLLED the same value into March 2nd
+ * on every display face. One concept, two answers. It moved down, exactly as
+ * `formatDate` itself moved into this package (see the header), so the filter
+ * builder and {@link toDisplayDate} now ask the one function. ⛔ A move, not a
+ * copy: `@object-ui/components` imports it from here.
+ *
+ * ## Why the engine cannot answer this on its own
+ *
+ * ECMAScript's date-string parse accepts a DAY of `01`-`31` for every month
+ * and rolls the surplus forward: `Date.parse('2026-02-30')` is March 2nd, not
+ * `NaN`. It rejects an out-of-range MONTH (`2026-13-01`), which is why a
+ * bad month was always a dash on the display path and a bad day never was.
+ * So the day is read back instead: build the date in UTC (no zone, so no DST
+ * gap can move it) and require all three parts to survive.
+ *
+ * `setUTCFullYear` rather than `Date.UTC(year, …)`: the latter maps years
+ * 0-99 onto 1900+y, so it answered `false` for `0026-08-01` — a real day,
+ * and one {@link toDisplayDate} renders (it undoes the same legacy mapping for
+ * the same reason). The move had to fix that, or refusing through this
+ * function would have dashed every year below 100.
+ */
+export function isRealCalendarDate(dateOnly: string): boolean {
+  if (!ISO_DATE_ONLY_RE.test(dateOnly)) return false;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const probe = new Date(0);
+  probe.setUTCFullYear(year, month - 1, day);
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
+/**
+ * The ONE `value -> Date` step behind every function below.
+ *
+ * ## The defect (objectui#10110)
+ *
+ * ECMAScript parses the two ISO shapes into two different zones: a DATE-ONLY
+ * form is UTC, while a date-TIME form without an offset is local. So
+ * `new Date('2026-08-01')` is UTC midnight, and every getter this module then
+ * uses — `getFullYear`, `getMonth`, `getDate`, and `toLocaleDateString`'s own
+ * internal ones — reads it back in the VIEWER's zone. West of UTC that lands
+ * on the previous calendar day: `2026-08-01` rendered `Jul 31` for a UTC-7
+ * viewer while the stored value, the API response and a UTC+8 viewer all said
+ * August 1st. The relative branch shifted with it, one day per day
+ * (`2026-08-31` read `4 days ago` on the 3rd instead of `3 days ago`),
+ * because it compares two LOCAL start-of-days.
+ *
+ * ## The repair, and why it is not an offset
+ *
+ * A date-only value names a CALENDAR DAY and carries no instant, so there is
+ * no conversion to perform: this rebuilds it at LOCAL midnight of the day it
+ * names, and every local getter downstream then reports that same day in
+ * every zone. ⛔ Nothing here adds or subtracts hours. An offset that
+ * cancels the shift would be wrong again at the next DST boundary and wrong
+ * in the opposite direction for a viewer EAST of UTC, where the UTC-midnight
+ * parse already lands on the right day — the co-located suite drives both.
+ * `GridField`'s sub-grid cell already parsed its own date-only values this
+ * way before reaching `formatDate`; this is that treatment, moved to the one
+ * place every caller passes through.
+ *
+ * A value with a time part is untouched, in both spellings: it HAS an
+ * instant, and rendering an instant in the viewer's zone is the whole point
+ * of a `datetime`. The regex is what separates them, so the split is the
+ * VALUE's shape and never the field's declared type, which this module (pure,
+ * no schema) cannot see.
+ *
+ * ## What it refuses (objectui#10026)
+ *
+ * The engine's own parse still decides what is a date at all (`2026-13-01`
+ * is an Invalid Date, and so every face below renders `—`), with ONE
+ * addition: a date-only value naming a day its month does not have. The
+ * engine accepts `2026-02-30` and rolls it into March 2nd, so before this
+ * card every date face showed a real day nobody wrote, with nothing to say
+ * so. This step hands back an Invalid Date for it instead — the same answer
+ * the engine gives a bad month — so every caller renders the face it already
+ * renders for an unparsable value: `—` from the functions below, `EmptyValue`
+ * from the field carriers that read validity here, the raw stored string from
+ * a caller whose unparsable face is the raw string. ⛔ No new marker.
+ *
+ * The maintainer's ruling on objectui#10026 (option A) placed the refusal on
+ * the SHARED path, in this step and not in any one consumer: refusing in a
+ * single face would re-create the list-cell-versus-measure split
+ * objectui#4576 recorded. {@link isRealCalendarDate} is the one judgement,
+ * shared with the filter builder's authoring boundary.
+ *
+ * ⚠️ A value that carries a TIME (`2026-02-30T10:00:00Z`) is not judged here
+ * and still rolls. The ruling names date-only values; whether an instant
+ * spelled on a nonexistent day is refused too is an open question on that
+ * card, not a decision this step makes by itself.
+ *
+ * ## Why it is exported (objectui#10183)
+ *
+ * A caller that formats with its own `Intl` options — a face none of the
+ * functions below produce, such as the record summary chip's
+ * `dateStyle: 'medium'` — or that compares a value against "today" needs the
+ * `Date` itself, not a string. Such callers used to parse the value on their
+ * own (`new Date(value)`, or `Date.parse` and then a `Date` handed to
+ * `formatDate`, which this step then leaves alone), so the objectui#10110
+ * repair never reached them and each still read a date-only value one day
+ * early west of UTC. They take the `Date` from here instead.
+ *
+ * ⛔ Read the result with LOCAL getters or local-zone `Intl` formatting only.
+ * For a date-only value it is local midnight of the named day, so its
+ * `toISOString()` / UTC getters name the previous day east of UTC — hand
+ * those the stored value, never this.
+ */
+export function toDisplayDate(value: string | Date | number): Date {
+  const parsed = value instanceof Date ? value : new Date(value as any);
+  if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
+    return parsed;
+  }
+  // The engine rolled a nonexistent day forward; refuse it (objectui#10026).
+  if (!isRealCalendarDate(value)) return new Date(NaN);
+  const [year, month, day] = value.split('-').map(Number);
+  const local = new Date(year, month - 1, day);
+  // Years 0-99 only: the multi-argument constructor maps them onto 1900+y, so
+  // `0026-08-01` would render as 1926 where the string parse read year 26.
+  // Setting the year back is co-extensive with that legacy mapping and a
+  // no-op on every other year.
+  local.setFullYear(year);
+  return local;
 }
 
 /**
@@ -139,7 +296,7 @@ function absoluteFallbackOptions(options?: DateDisplayOptions): DateDisplayOptio
  */
 export function formatRelativeDate(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   const now = new Date();
@@ -197,7 +354,7 @@ export function formatRelativeDate(value: string | Date | number, options?: Date
  */
 export function formatDate(value: string | Date | number, style?: string, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   const effectiveStyle = style ?? options?.style;
@@ -252,7 +409,7 @@ export function formatDateTimeCompactParts(
   options?: DateDisplayOptions,
 ): { date: string; time: string } | null {
   if (value === null || value === undefined || value === '') return null;
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return null;
 
   return {
@@ -299,7 +456,7 @@ export function formatDateTimeCompactParts(
  */
 export function formatDateTime(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
-  const date = value instanceof Date ? value : new Date(value as any);
+  const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   if (options?.style === 'compact') {

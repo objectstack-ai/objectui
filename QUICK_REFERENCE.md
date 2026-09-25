@@ -128,7 +128,7 @@ behind (objectui#5394 — that had happened once per release, three times).
   `fixed` group in `.changeset/config.json`, so a release moves all of them together)
 - **Spec:** `@objectstack/spec` ^17.0.0 (declared by the root `package.json` and by
   `apps/console/package.json`)
-- **Client:** `@objectstack/client` ^17.0.0 (declared by `apps/console/package.json`
+- **Client:** `@objectstack/client` ^17.3.0 (declared by `apps/console/package.json`
   and `packages/data-objectstack/package.json`)
 - **Node.js:** ≥ 22.11 (see root `engines.node`)
 - **pnpm:** ≥ 10 (the workspace pins `pnpm@10.31.0` via `packageManager`)

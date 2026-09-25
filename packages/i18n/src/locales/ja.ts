@@ -147,6 +147,7 @@ const ja = {
       acknowledge: '保存しました',
       copyAll: 'すべてコピー',
     },
+    notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
   },
   validation: {
     required: "{{field}}は必須です",
@@ -165,6 +166,7 @@ const ja = {
   form: {
     noPermissionToSave: "このレコードを保存する権限がありません。",
     submitFailed: "保存できませんでした。もう一度お試しください。",
+    uploadInFlight: "アップロードが完了してから保存してください。",
     discardTitle: "変更を破棄しますか？",
     discardMessage: "保存されていない変更があります。このままフォームを閉じると編集内容は失われます。",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -901,6 +903,7 @@ const ja = {
     tabActionsFor: "{{name}} のビュー操作",
     readonlyAriaLabel: "読み取り専用ビュー",
     readonlyTooltip: "システムビュー — コードで定義され、読み取り専用です。",
+    malformedFilter: "このビューのフィルターが不正なため、レコードを表示しません：{{subject}} の条件を適用できません。",
   },
   designer: {
     undo: "元に戻す",
@@ -1395,6 +1398,7 @@ const ja = {
     navTypeSeparator: "区切り",
     navTypeAction: "アクション",
     navTypeComponent: "コンポーネント",
+    navTypeDoc: "ドキュメント",
     navEditIcon: "アイコンを編集",
     navToggleVisible: "表示を切り替え",
     navHidden: "非表示",
@@ -2580,6 +2584,7 @@ const ja = {
     selectPlaceholder: "{{label}} を選択",
     requiredError: "{{label}} は必須です",
     unresolvedParam: 'このパラメーターは表示できません。参照元のフィールドがオブジェクトのメタデータに存在しないため、必要なコントロールを生成できません。管理者にアクション定義の修正を依頼してください。',
+    carryOverHint: 'そのまま引き継ぎ（読み取り専用）',
     cancel: "キャンセル",
     confirm: "確認",
     uploading: "アップロード中…",
@@ -2911,6 +2916,31 @@ const ja = {
     createEnvironment: "環境を作成",
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "データについて質問してください…",
+      ask: "質問",
+      results: "結果",
+      match: "一致度 {{percent}}",
+      simulatedSummary: "検索結果: {{query}}",
+      noResults: "一致するレコードが見つかりません",
+      recentQueries: "最近のクエリ",
+    },
+    formAssist: {
+      title: "AI の提案",
+      suggestionCount: "{{count}} 件の提案",
+      suggestionCountOne: "{{count}} 件の提案",
+      applyAll: "すべて適用",
+      confidence: "信頼度 {{percent}}",
+      appliedCount: "{{count}} 件の提案を適用しました",
+      appliedCountOne: "{{count}} 件の提案を適用しました",
+    },
+    recommendations: {
+      title: "おすすめ",
+      generating: "おすすめを生成しています…",
+      empty: "おすすめはありません",
+    },
   },
   aiApprovals: {
     title: "AI 承認",

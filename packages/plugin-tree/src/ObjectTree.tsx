@@ -72,6 +72,7 @@ import {
   humanizeLabel,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  ValueDataSource,
 } from '@object-ui/core';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -231,9 +232,19 @@ function fieldKey(f: any): string | undefined {
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
+ *
+ * ## The `filter`-as-block-holder arm is GONE (objectui#9549)
+ *
+ * The block used to be looked up on the node's `tree` key OR on a `tree`
+ * member of the node's `filter`. `filter` is declared as the query filter
+ * (`QueryParams['$filter']`, forwarded as `$filter` by the fetch below), so
+ * that second arm read the same key in a second dialect. Measured before the
+ * removal: no example, fixture, test or doc in this repo or in `../objectstack`
+ * authors a `tree` under `filter`, and the arm dates from the renderer's first
+ * commit with no stated reason. The block's one home is `tree`.
  */
 function getTreeConfig(schema: ObjectTreeSchema): ResolvedTreeConfig {
-  const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
+  const nested = (schema.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields
     : Array.isArray(nested.fields)
@@ -783,9 +794,64 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         }
 
         if (dataProvider === 'value') {
+          // THE INLINE PROVIDER NO LONGER EXITS BEFORE THE QUERY
+          // (objectui#9136, the fourth surface of objectui#8769's repair after
+          // objectui#9061 ported it to `ObjectCalendar` and `ObjectMap`).
+          //
+          // This branch used to be `setRecords(dataItems); return;` — so it
+          // never reached the `find` in the `object` arm above, which is the
+          // ONE site in this file that lowers `schema.filter` onto `$filter`
+          // and the objectui#7210 ceiling onto `$top`. An authored `filter`
+          // therefore reached nothing and the tree drew EVERY authored row:
+          // the fail-OPEN direction, because the key that was dropped is the
+          // key that NARROWS. Accepting a declared key one cannot honour is the
+          // defect, and `ValueDataSource` honours both over its own array, so
+          // they are honoured here.
+          //
+          // TWO keys, not the twins' three: this component reads `schema.sort`
+          // on NO provider, so there is no `$orderby` to lower on either arm.
+          //
+          // ⚠️ `ObjectCalendar`'s shape, not `ObjectGantt`'s. The gantt resolves
+          // ONE `effectiveDataSource` for every provider, so its repair was to
+          // delete the branch and fall through to the shared query. Here the
+          // `find` sits INSIDE the `dataProvider === 'object' && dataSource`
+          // arm, behind an `$expand` projection an inline set has no metadata
+          // to build and behind the `schemaSettled` gate deliberately scoped to
+          // that same arm. So the adapter is resolved for the inline provider
+          // ONLY and the same keys are lowered onto the same query shape.
+          //
+          // Built here rather than memoised at render scope so this effect goes
+          // on reading only the primitive fields objectui#6592 named
+          // (`dataProvider`, `dataObjectName`, `dataItems`): no dependency is
+          // added or removed — `schema.filter` was already listed — so nothing
+          // about WHEN this effect re-runs changes with this repair.
+          //
+          // The adapter's constructor clone is `structuredClone` (objectui#9175,
+          // ruling A on objectui#9061), so a back-referencing record graph
+          // still renders: an inline value never has to be serializable.
+          //
+          // `ValueDataSource` ignores the resource name — it queries its own
+          // array — so this branch needs no object name.
+          const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
+          const result = await inlineSource.find('', {
+            $filter: schema.filter,
+            // The same platform ceiling the `object` arm sends, on the same
+            // probe-row convention (objectui#7210, ruling a′). This is the view
+            // the ceiling's VALUE was measured on — ~5.2 DOM elements per
+            // record with no virtualisation — and an inline node costs the
+            // browser exactly what a fetched one costs.
+            // ⛔ Still not authorable: no view key reaches this `$top`.
+            $top: NON_GRID_ROW_CEILING_TOP,
+          });
+          // Filter first, ceiling second — `ValueDataSource` applies `$filter`
+          // before `$top`, which is what the fetching path gets for free from
+          // every backend. A large inline array that an authored `filter` cuts
+          // below the ceiling therefore draws every matching row and stays
+          // quiet.
+          const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
-            setRecords((dataItems as any[]) ?? []);
-            setRowCeiling({ truncated: false });
+            setRecords(capped.rows);
+            setRowCeiling({ truncated: capped.truncated, total: capped.total });
             setLoading(false);
           }
           return;

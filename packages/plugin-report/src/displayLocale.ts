@@ -30,8 +30,9 @@
  *
  * So this constant may become neither `'en-US'` (the tag objectui#10020 removed
  * from five display sites in this package) nor `undefined` (objectui#9909's
- * separate defect shape, which is still present in `ReportExportEngine.ts` and
- * is deliberately NOT merged into this one).
+ * separate defect shape, which `ReportExportEngine.ts`'s "Generated:" time
+ * carried until that card threaded a locale there, defaulting to this same
+ * constant).
  *
  * ⚠️ It is a local re-spelling of that literal, not an import of it:
  * `@object-ui/i18n` exports the HOOK but no constant for the tag inside it, and
@@ -55,10 +56,19 @@ export const DISPLAY_LOCALE_LAST_RESORT = 'en';
  * report down rather than misformatting one number.
  *
  * ⚠️ The degradation is to {@link DISPLAY_LOCALE_LAST_RESORT}, NOT to a dropped
- * tag. `@object-ui/core`'s sibling retry (`formatNumberInLocale`) drops it, and
- * that is a deliberate difference, not an oversight: dropping the tag hands
- * `Intl` the machine's locale, which is the other wrong answer the contract
- * quoted above names — non-deterministic in CI and invisible in review.
+ * tag, because this package's display tags follow `useDisplayLocale`'s
+ * contract: in React the tag IS that hook's value, and an omitted one defaults
+ * to the hook's own last resort. Under that contract, dropping the tag hands
+ * `Intl` the machine's locale — the other answer the contract quoted above
+ * rules out, non-deterministic in CI and invisible in review.
+ *
+ * `@object-ui/core`'s sibling retry (`formatNumberInLocale`, through
+ * `formatDisplayNumber`) drops the tag instead. That is a deliberate
+ * difference, not an oversight, and not a wrong answer: `core` is the
+ * React-free formatter, and where its retry lands is what its own declared
+ * contract (`DisplayNumberFormatOptions.locale`) gives a caller with no tag in
+ * hand — the runtime default, the viewer's own environment. Each retry follows
+ * its own package's declared contract (objectui#10098).
  */
 export function formatNumberInDisplayLocale(
   value: number,

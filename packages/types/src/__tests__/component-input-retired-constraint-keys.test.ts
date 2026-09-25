@@ -23,8 +23,9 @@
  *
  *   - no consumer reads them off a `ComponentInput` value; and
  *   - the manifest serializer (`packages/sdui-parser/src/index.ts`) forwards
- *     exactly six keys per input — `name`, `type`, `required`, `enum`,
- *     `binding`, `description` — so an authored value could not reach the
+ *     a fixed key list per input, `of` included since objectui#8067 — `name`,
+ *     `type`, `of`, `required`, `enum`, `binding`, `description` — so an
+ *     authored value could not reach the
  *     published `sdui.manifest.json` even in principle.
  *
  * A structural census over EVERY `inputs:` array in the repository found zero

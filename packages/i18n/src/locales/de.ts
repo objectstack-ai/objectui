@@ -147,6 +147,7 @@ const de = {
       acknowledge: 'Ich habe ihn gespeichert',
       copyAll: 'Alle kopieren',
     },
+    notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
   },
   validation: {
     required: "{{field}} ist erforderlich",
@@ -165,6 +166,7 @@ const de = {
   form: {
     noPermissionToSave: "Sie haben keine Berechtigung, diesen Datensatz zu speichern.",
     submitFailed: "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    uploadInFlight: "Warten Sie, bis der Upload abgeschlossen ist, bevor Sie speichern.",
     discardTitle: "Änderungen verwerfen?",
     discardMessage: "Sie haben ungespeicherte Änderungen. Wenn Sie dieses Formular jetzt schließen, gehen Ihre Bearbeitungen verloren.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -901,6 +903,7 @@ const de = {
     tabActionsFor: "Ansichtsaktionen für {{name}}",
     readonlyAriaLabel: "Schreibgeschützte Ansicht",
     readonlyTooltip: "Systemansicht — im Code definiert, schreibgeschützt.",
+    malformedFilter: "Der Filter dieser Ansicht ist fehlerhaft, daher werden keine Datensätze angezeigt: Die Bedingung {{subject}} kann nicht angewendet werden.",
   },
   designer: {
     undo: "Rückgängig",
@@ -1395,6 +1398,7 @@ const de = {
     navTypeSeparator: "Trenner",
     navTypeAction: "Aktion",
     navTypeComponent: "Komponente",
+    navTypeDoc: "Dokument",
     navEditIcon: "Symbol bearbeiten",
     navToggleVisible: "Sichtbarkeit umschalten",
     navHidden: "Ausgeblendet",
@@ -2578,6 +2582,7 @@ const de = {
     selectPlaceholder: "{{label}} auswählen",
     requiredError: "{{label}} ist erforderlich",
     unresolvedParam: 'Dieser Parameter kann nicht angezeigt werden: Das zugrunde liegende Feld fehlt in den Objektmetadaten, daher lässt sich das benötigte Steuerelement nicht erzeugen. Bitten Sie eine Administratorin oder einen Administrator, die Aktionsdefinition zu korrigieren.',
+    carryOverHint: 'Unverändert übernommen (schreibgeschützt)',
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     uploading: "Wird hochgeladen…",
@@ -2909,6 +2914,31 @@ const de = {
     createEnvironment: "Umgebung erstellen",
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Stellen Sie eine Frage zu Ihren Daten…",
+      ask: "Fragen",
+      results: "Ergebnisse",
+      match: "{{percent}} Übereinstimmung",
+      simulatedSummary: "Ergebnisse für: {{query}}",
+      noResults: "Keine passenden Datensätze gefunden",
+      recentQueries: "Letzte Abfragen",
+    },
+    formAssist: {
+      title: "KI-Vorschläge",
+      suggestionCount: "{{count}} Vorschläge",
+      suggestionCountOne: "{{count}} Vorschlag",
+      applyAll: "Alle übernehmen",
+      confidence: "{{percent}} Konfidenz",
+      appliedCount: "{{count}} Vorschläge übernommen",
+      appliedCountOne: "{{count}} Vorschlag übernommen",
+    },
+    recommendations: {
+      title: "Empfehlungen",
+      generating: "Empfehlungen werden generiert…",
+      empty: "Keine Empfehlungen verfügbar",
+    },
   },
   aiApprovals: {
     title: "KI-Genehmigungen",

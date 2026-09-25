@@ -844,6 +844,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRuns.iterationN': 'Iteration {n}',
   'engine.flowRuns.branch': 'Branch',
   'engine.flowRuns.branchN': 'Branch {n}',
+  'engine.flowRuns.branchNIterationM': 'Branch {n} · Iteration {m}',
   'engine.flowRuns.try': 'Try',
   'engine.flowRuns.catch': 'Catch',
   'engine.flowRuns.status.completed': 'Completed',
@@ -1003,6 +1004,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
     'This list did not load, so it is not a statement that no options exist. Reload the editor to ask again.',
   'engine.form.none': '— None —',
   'engine.form.notInObject': '(not in object)',
+  // The flags a designer picker puts on a STORED value its roster does not
+  // offer (objectui#9652). Each is a bare suffix, like `notInObject` above,
+  // which `widgets.tsx` draws in a muted span of its own. A picker that shows
+  // the value and its flag as ONE option label joins them through
+  // `flaggedValue`, so the order of the two and the gap between them belong to
+  // the locale rather than to the call site: zh sets no space before the
+  // full-width bracket its flags open with.
+  'engine.form.notFound': '(not found)',
+  'engine.form.deprecated': '(deprecated)',
+  'engine.form.flaggedValue': '{value} {flag}',
   'engine.form.searchIcons': 'Search icons…',
   'engine.form.chooseIcon': 'Choose an icon',
   'engine.form.iconsTruncated': 'Showing the first {shown} of {total} — type to narrow.',
@@ -1299,6 +1310,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.admin.help':
     'Lets holders administer a business-unit subtree (assign users, manage bindings) without full admin.',
   'perm.admin.businessUnit': 'Business unit',
+  // The dependent controls' disabled reason (objectui#9464): `businessUnit` is
+  // the one key the framework's admin-scope shape requires, so a scope written
+  // before one is named is refused wholesale when the record is saved.
+  'perm.admin.businessUnitRequired':
+    'Name a business unit first — a scope without one is refused when the record is saved.',
   'perm.admin.includeSubtree': 'Include subtree',
   'perm.admin.manageAssignments': 'Manage assignments',
   'perm.admin.manageBindings': 'Manage bindings',
@@ -2827,6 +2843,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRuns.iterationN': '第 {n} 次迭代',
   'engine.flowRuns.branch': '分支',
   'engine.flowRuns.branchN': '分支 {n}',
+  'engine.flowRuns.branchNIterationM': '分支 {n} · 第 {m} 次迭代',
   'engine.flowRuns.try': '尝试',
   'engine.flowRuns.catch': '捕获',
   'engine.flowRuns.status.completed': '已完成',
@@ -2973,6 +2990,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
     '这个列表没有加载成功,因此它并不表示不存在可选项。请重新加载编辑器后再试。',
   'engine.form.none': '— 无 —',
   'engine.form.notInObject': '（不在对象中）',
+  // The zh half of the unknown-value flags (objectui#9652). No space in
+  // `flaggedValue`: every flag opens with a full-width bracket.
+  'engine.form.notFound': '（未找到）',
+  'engine.form.deprecated': '（已弃用）',
+  'engine.form.flaggedValue': '{value}{flag}',
   'engine.form.searchIcons': '搜索图标…',
   'engine.form.chooseIcon': '选择图标',
   'engine.form.iconsTruncated': '显示前 {shown} 个，共 {total} 个 —— 继续输入以缩小范围。',
@@ -3285,6 +3307,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.admin.title': '委派管理范围',
   'perm.admin.help': '允许持有者管理某业务单元子树(分配用户、管理绑定),无需完全管理员权限。',
   'perm.admin.businessUnit': '业务单元',
+  // objectui#9464 — 见 EN 表同键注释。
+  'perm.admin.businessUnitRequired':
+    '请先填写业务单元 — 没有业务单元的范围在保存记录时会被拒绝。',
   'perm.admin.includeSubtree': '包含子树',
   'perm.admin.manageAssignments': '管理分配',
   'perm.admin.manageBindings': '管理绑定',
@@ -4748,6 +4773,14 @@ export function detectLocale(): SupportedLocale {
  * follows the live `useObjectTranslation().language`, so the Studio pillars
  * re-render in lock-step with the console locale — the same source the rest of
  * the app (Home, forms, list views) renders from.
+ *
+ * ⛔ Never hand this value to `Intl` (`Intl.*Format`, `toLocale*String`) as the
+ * locale a date, time or number is formatted in. It picks one of this file's
+ * TWO string tables, so it is `'en-US'` for every language that is not zh — a
+ * de-DE session would read its faces in US English (objectui#10232). Faces
+ * format with `useDisplayLocale()` from `@object-ui/i18n`, the channel every
+ * date and number renderer resolves through; keep this value for `t()` /
+ * `tFormat()` and the other lookups into the tables here.
  */
 export function useMetadataLocale(): SupportedLocale {
   const { language } = useObjectTranslation();

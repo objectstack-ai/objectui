@@ -197,14 +197,12 @@ describe('objectui#10031 — ObjectCalendar renders no hard-coded English under 
   });
 
   it('the pull-to-refresh affordance is localized', async () => {
-    // ⚠️ PRE-FETCHED `data`, not the internal fetch, and the reason is a
-    // SEPARATE defect this card does not fix and must not paper over:
-    // `usePullToRefresh` attaches its listeners in a mount effect whose
-    // dependencies are all stable here, and on the internal-fetch path the
-    // first render is the loading screen — so `pullRef.current` is `null` at
-    // that moment and the listeners are never attached at all. Reached through
-    // pre-fetched data the first render already mounts the host, which is the
-    // only door this affordance has in a test today. Filed separately.
+    // PRE-FETCHED `data`: this case is about the LABEL, and on this path the
+    // first render already mounts the host. It used to be the only path that
+    // worked: `usePullToRefresh` bound its listeners once, while the
+    // internal-fetch path was still showing the loading screen, so they were
+    // never attached. objectui#10105 fixed that in the hook. Both paths are
+    // pinned in `ObjectCalendar.pullToRefresh-10105.test.tsx`.
     const { container } = await renderZh(
       <ObjectCalendar schema={CONFIGURED} dataSource={makeDataSource()} data={ROWS as any} />,
     );

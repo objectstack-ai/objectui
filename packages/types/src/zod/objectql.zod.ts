@@ -315,7 +315,14 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'nothing in this renderer ever read the key, so an authored value parsed green and drew nothing. '
     + '`operations` is the CRUD-affordance toggle object ({ create, read, update, delete }).',
   ),
-  rowActions: z.array(z.string()).optional(),
+  rowActions: z.array(z.string()).optional().describe(
+    'Names of actions offered on each row\'s menu. `edit` and `delete` are canonical: they select the grid\'s generic Edit / Delete entries; '
+    + 'any other name is a custom action resolved against the object\'s declared actions. '
+    + '`operations` is the CEILING: `operations.update: false` (or `delete: false`), or a member a declared `operations` block does not name, '
+    + 'withholds that generic entry whatever this list says. Inside that ceiling a declared list NARROWS: the generic Edit / Delete are offered '
+    + 'only for the canonical names it carries, so `[]` or a list naming only custom actions offers neither. '
+    + 'Omit `rowActions` to keep the default generic entries.',
+  ),
   batchActions: z.array(z.string()).optional(),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
@@ -834,11 +841,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
   '`groupBy` is the lane key of the generated `object-kanban` NODE, not of the view-level '
   + 'kanban configuration (objectui#8365). `@objectstack/spec`\'s `KanbanConfigSchema` is a '
   + 'strict object of `columns` / `groupByField` / `summarizeField` and refuses `groupBy` by '
-  + 'name, so a view carrying it never came through the validated path. Write `groupByField` '
-  + '(or the deprecated `groupField`, which folds onto it). Until this refusal the key rode '
-  + 'this object\'s `.passthrough()` into `ListView`\'s kanban branch and OVERRODE the lane '
-  + 'that branch had already resolved from `groupByField` — the board grouped by the stray '
-  + 'key, and nothing said so.',
+  + 'name. Write `groupByField` (or the deprecated `groupField`, which folds onto it). This '
+  + 'package, by contrast, accepted the key green until this refusal: it passed '
+  + '`safeValidateSchema` in either nesting, kept by this object\'s `.passthrough()` or by the '
+  + 'untyped legacy `options` bag, and reached `ListView`\'s kanban branch, where it OVERRODE the '
+  + 'lane that branch had already resolved from `groupByField` — the board grouped by the stray '
+  + 'key, and nothing said so. That branch now drops the key, so it is refused here instead of '
+  + 'being kept and then ignored.',
 );
 
 /**
@@ -995,11 +1004,13 @@ const CALENDAR_DATE_ALIAS_CONSEQUENCE: Record<
   Record<CalendarAliasSurfaceKind, string>
 > = {
   dateField: {
+    // Quotes the refusal screen's FIRST clause only — the one objectui#8170 kept.
+    // Its second clause was rewritten there, so a whole-screen quote goes false
+    // the next time that copy moves (objectui#10030).
     binding:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
-      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required. '
-      + 'Please specify startDateField and titleField.", a screen that names the canonical keys and '
-      + 'never the key you wrote.',
+      + '`dateField` binds nothing: the calendar falls through to "Calendar configuration required", '
+      + 'a screen that names the canonical keys and never the key you wrote.',
     container:
       'Write `startDateField` for the event start. Kept rather than refused, an authored '
       + '`dateField` fails without even reaching that refusal screen: this container is read WHOLE, '
@@ -1095,12 +1106,16 @@ const CalendarNodeDateAliasRefusals = {
  * check is for. The gap here is NOT specific to the calendar and was NOT opened
  * by this card: measured on the same instrument, a named view carrying the
  * objectui#8365 stray `kanban.groupBy` is ACCEPTED, while the identical key on a
- * `list-view` document is refused. Every alias refusal this module declares
- * stops at `listViews`. What this card regressed on the object-view route is the
- * BEHAVIOUR — a document that drew at the merge-base goes mute once the ladder
- * is gone — and this check is what makes that failure loud. ⛔ It is not a
- * general repair of the unmirrored key, and the kanban twin is still silent
- * here; that belongs to objectui#8365's own text, not to this card.
+ * `list-view` document is refused. Until this check, no alias refusal this
+ * module declares reached inside `listViews`. This check is the only door in,
+ * and it judges the two calendar spellings only, at both nestings (so
+ * `listViews.KEY.calendar.dateField` IS refused); a search for `listViews` in
+ * this file re-derives that. What this card regressed on the object-view route
+ * is the BEHAVIOUR — a document that drew at the merge-base goes mute once the
+ * ladder is gone — and this check is what makes that failure loud. ⛔ It is not
+ * a general repair of the unmirrored key, and the kanban twin is still silent
+ * here (no pin re-derives that silence); that belongs to objectui#8365's own
+ * text, not to this card.
  *
  * ⛔ Scoped to the TWO keys under `calendar`: `timeline.dateField` on a named
  * view stays accepted (the timeline alias is live by ruling), and nothing else
@@ -1689,6 +1704,15 @@ export const ObjectMapSchema = BaseSchema.extend({
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#9549 — declared in step with the twin in `../objectql.ts`
+  // (`QueryParams['$filter']`), spelled exactly as `ObjectGallerySchema.filter`
+  // below spells it (objectui#9309): the two arms of that slot, ARRAY FIRST.
+  // Before this the key rode `.passthrough()` unjudged, so a string or number
+  // parsed clean while the renderer forwarded it into `$filter`.
+  filter: z.union([
+    z.array(z.any()),
+    z.record(z.string(), z.any()),
+  ]).optional().describe('Query filter, forwarded verbatim as $filter. FilterArray (the spec array sugar) OR the ObjectQL $filter object — the two arms of QueryParams[$filter]'),
   parentField: z.string().optional().describe('Single-parent pointer field (auto-detected when omitted)'),
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),
@@ -1834,6 +1858,11 @@ export const ObjectGanttSchema = BaseSchema.extend({
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by getDataConfig'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#10250 — the full-text pair the record query carries, declared in
+  // step with the twin in `../objectql.ts`. ListView's toolbar Search writes
+  // both onto a gantt node, because the chart queries for itself.
+  search: z.string().optional().describe('Full-text search term, forwarded as $search (the server resolves the matched fields, ADR-0061)'),
+  searchableFields: z.array(z.string()).optional().describe('Narrows the fields `search` matches, forwarded as $searchFields alongside a term'),
 }).superRefine(requireRecordSource('object-gantt'));
 
 /**
@@ -2149,9 +2178,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // as `../objectql.ts` (optional) so the zod-mirror-parity ratchet stays at
   // zero drift for this pair.
   //
-  // ⚠️ No `sort` twin here, and the absence is measured: `ObjectKanban.tsx` has
-  // ZERO `schema.sort` read sites and the spec's `object-kanban` entry declares
-  // no `sort` either. Only `ObjectCalendarSchema` above carries both.
+  // ⚠️ No `sort` twin here: the spec's `object-kanban` entry declares no
+  // top-level `sort`. `ObjectKanban.tsx` reads `schema.sort` only as the
+  // `ElementDataSourceGate` carrier for the binding's `dataSource.sort`
+  // (objectui#10068). Only `ObjectCalendarSchema` above carries both.
   filter: z.array(z.any()).optional().describe('Query filter, forwarded verbatim as $filter'),
   // objectui#9606 — the CANONICAL card-title spelling, declared beside the
   // legacy alias below exactly as `@objectstack/spec` declares the pair on

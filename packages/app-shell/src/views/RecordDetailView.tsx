@@ -29,13 +29,14 @@ import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDia
 import { ActionParamDialog, type ParamDialogState } from './ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from './ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from './FlowRunner.js';
+import { FlowRefusalNotice, type FlowRefusalState } from './FlowRefusalNotice.js';
 import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { withPageTabsUrlSync } from '../utils/pageTabsUrlSync.js';
 import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
@@ -298,6 +299,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   >([]);
   // Screen-flow runtime: a paused `screen`-node flow launched from a record action.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A record-action flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   const [historyEntries, setHistoryEntries] = useState<any[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recordTitle, setRecordTitle] = useState<string | undefined>();
@@ -909,30 +912,31 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // useConsoleActionRuntime's copy of this handler and FlowRunner's resume.
-      // This copy checked only the transport envelope and then treated
-      // everything else as terminal success, so a run that failed on its first
-      // node fired a green toast (#2958); it also passed `json.error` through
-      // raw, and the nested `{code, message}` shape reaches `toast.error()` as
-      // a React child and crashes the page (React #31). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with useConsoleActionRuntime's copy of this handler
+      // (and the interpretation with FlowRunner's resume). This copy once
+      // checked only the transport envelope and treated everything else as
+      // terminal success, so a run that failed on its first node fired a green
+      // toast (#2958) and passed the nested `{code, message}` error through raw
+      // (React #31); later, a run that ended `refused` without pausing toasted
+      // the action's `successMessage` and refreshed while the refusal was never
+      // shown (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: the run paused at a `screen` node awaiting input —
-      // open the FlowRunner to render the form + resume (refresh on completion).
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) {
-        notifyRecordChanged();
-      }
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) notifyRecordChanged();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -2629,6 +2633,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); notifyRecordChanged(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
     </div>
   );

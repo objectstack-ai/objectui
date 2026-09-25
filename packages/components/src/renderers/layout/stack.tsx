@@ -127,11 +127,12 @@ ComponentRegistry.register('stack',
         type: 'enum', 
         
         enum: ['start', 'end', 'center', 'stretch', 'baseline']      },
-      { 
-        name: 'justify', 
-        type: 'enum', 
+      {
+        name: 'justify',
+        type: 'enum',
         enum: ['start', 'end', 'center', 'between', 'around', 'evenly']      },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       direction: 'col',

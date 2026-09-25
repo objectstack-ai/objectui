@@ -10,6 +10,7 @@
 
 import * as React from "react"
 import { ResponsiveContainer, Tooltip, Legend } from "recharts"
+import { useDisplayLocale } from "@object-ui/i18n"
 
 // Utility function to merge class names (inline to avoid external dependency)
 const cn = (...classes: (string | undefined)[]) => classes.filter(Boolean).join(' ')
@@ -317,6 +318,10 @@ function ChartTooltipContent({
   labelKey,
 }: any) {
   const { config } = useChart()
+  // The tooltip value is a number face a user reads off the chart, so it is
+  // formatted in the display locale like the axis ticks beside it — a bare
+  // `toLocaleString()` handed `Intl` the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale()
 
   const tooltipLabel = React.useMemo(() => {
     if (hideLabel || !payload?.length) {
@@ -424,7 +429,7 @@ function ChartTooltipContent({
                       </div>
                       {item.value && (
                         <span className="text-foreground font-mono font-medium tabular-nums">
-                          {item.value.toLocaleString()}
+                          {item.value.toLocaleString(displayLocale)}
                         </span>
                       )}
                     </div>
@@ -477,11 +482,17 @@ function ChartLegendContent({
               {itemConfig?.icon && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
+                // The series colour is author-declared, so it reaches the DOM
+                // only as a custom property a static utility consumes — the
+                // same shape as the tooltip indicator above (AGENTS.md styling
+                // carve-out; objectui#10021).
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor: item.color,
-                  }}
+                  className="h-2 w-2 shrink-0 rounded-[2px] bg-(--color-bg)"
+                  style={
+                    {
+                      "--color-bg": item.color,
+                    } as React.CSSProperties
+                  }
                 />
               )}
               {/* Fall back to the series name recharts itself put on the

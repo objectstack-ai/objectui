@@ -147,6 +147,7 @@ const ko = {
       acknowledge: '저장했습니다',
       copyAll: '모두 복사',
     },
+    notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -165,6 +166,7 @@ const ko = {
   form: {
     noPermissionToSave: "이 레코드를 저장할 권한이 없습니다.",
     submitFailed: "저장하지 못했습니다. 다시 시도해 주세요.",
+    uploadInFlight: "업로드가 완료된 후에 저장하세요.",
     discardTitle: "변경 내용을 버릴까요?",
     discardMessage: "저장하지 않은 변경 내용이 있습니다. 지금 이 양식을 닫으면 편집 내용이 사라집니다.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -901,6 +903,7 @@ const ko = {
     tabActionsFor: "{{name}}의 보기 작업",
     readonlyAriaLabel: "읽기 전용 보기",
     readonlyTooltip: "시스템 보기 — 코드에 정의되어 있으며 읽기 전용입니다.",
+    malformedFilter: "이 뷰의 필터가 잘못되어 레코드를 표시하지 않습니다: {{subject}} 조건을 적용할 수 없습니다.",
   },
   designer: {
     undo: "실행 취소",
@@ -1395,6 +1398,7 @@ const ko = {
     navTypeSeparator: "구분선",
     navTypeAction: "작업",
     navTypeComponent: "컴포넌트",
+    navTypeDoc: "문서",
     navEditIcon: "아이콘 편집",
     navToggleVisible: "가시성 토글",
     navHidden: "숨김",
@@ -2577,6 +2581,7 @@ const ko = {
     selectPlaceholder: "{{label}} 선택",
     requiredError: "{{label}}은(는) 필수입니다",
     unresolvedParam: '이 매개변수는 표시할 수 없습니다. 기반이 되는 필드가 개체 메타데이터에 없어 필요한 컨트롤을 만들 수 없습니다. 관리자에게 작업 정의를 수정하도록 요청하세요.',
+    carryOverHint: '그대로 전달됨(읽기 전용)',
     cancel: "취소",
     confirm: "확인",
     uploading: "업로드 중…",
@@ -2908,6 +2913,31 @@ const ko = {
     createEnvironment: "환경 만들기",
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "데이터에 대해 질문하세요…",
+      ask: "질문",
+      results: "결과",
+      match: "일치도 {{percent}}",
+      simulatedSummary: "검색 결과: {{query}}",
+      noResults: "일치하는 레코드가 없습니다",
+      recentQueries: "최근 쿼리",
+    },
+    formAssist: {
+      title: "AI 제안",
+      suggestionCount: "제안 {{count}}개",
+      suggestionCountOne: "제안 {{count}}개",
+      applyAll: "모두 적용",
+      confidence: "신뢰도 {{percent}}",
+      appliedCount: "제안 {{count}}개 적용됨",
+      appliedCountOne: "제안 {{count}}개 적용됨",
+    },
+    recommendations: {
+      title: "추천",
+      generating: "추천을 생성하는 중…",
+      empty: "추천 항목이 없습니다",
+    },
   },
   aiApprovals: {
     title: "AI 승인",

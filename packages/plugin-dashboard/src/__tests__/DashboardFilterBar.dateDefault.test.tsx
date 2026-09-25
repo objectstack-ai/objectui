@@ -97,3 +97,21 @@ describe('DashboardFilterBar — legacy `{ preset }` default (objectui#4165)', (
     }
   });
 });
+
+/**
+ * objectui#10339 — the built-in `dateRange` with NO `defaultRange` takes the
+ * spec's declared default preset (`this_month` on the pinned spec), so the
+ * control must read that preset rather than "All time".
+ */
+describe('DashboardFilterBar — built-in dateRange omitting defaultRange (objectui#10339)', () => {
+  it('shows the spec default preset, not "All time"', () => {
+    const defs = resolveDashboardFilterDefs({ dateRange: { field: 'created_at' } });
+    const values = Object.fromEntries(defs.map((d) => [d.name, d.defaultValue]));
+
+    render(<DashboardFilterBar defs={defs} values={values} onChange={vi.fn()} />);
+
+    const control = screen.getByTestId('dashboard-filter-dateRange');
+    expect(control.textContent).not.toMatch(/All time/i);
+    expect(control.textContent).toMatch(/this month/i);
+  });
+});

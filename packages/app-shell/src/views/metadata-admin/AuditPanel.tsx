@@ -20,6 +20,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { RefreshCw, Loader2, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
@@ -38,11 +39,17 @@ export interface AuditPanelProps {
   locale?: SupportedLocale | string;
 }
 
-function fmtTime(iso: string): string {
+/**
+ * `displayLocale` is the session's DISPLAY locale (`useDisplayLocale()`), not
+ * this panel's `locale` prop: that prop picks the metadata-admin UI strings
+ * and defaults to `'en-US'`, a hard-coded tag. The bare `toLocaleString()`
+ * this replaced used the MACHINE's locale (objectui#9909).
+ */
+function fmtTime(iso: string, displayLocale: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return d.toLocaleString(displayLocale);
 }
 
 function outcomeBadge(outcome: MetadataAuditEntry['outcome'], locale?: SupportedLocale | string) {
@@ -84,6 +91,7 @@ export function AuditPanel({
   client,
   locale = 'en-US',
 }: AuditPanelProps) {
+  const displayLocale = useDisplayLocale();
   /**
    * The audit read, as one four-arm `LoadState` (objectui#5169).
    *
@@ -233,7 +241,7 @@ export function AuditPanel({
                   className="border-t border-border/50 align-top hover:bg-muted/20"
                 >
                   <td className="whitespace-nowrap px-2 py-1.5 font-mono text-[11px]">
-                    {fmtTime(ev.occurredAt)}
+                    {fmtTime(ev.occurredAt, displayLocale)}
                   </td>
                   <td className="px-2 py-1.5">{ev.actor}</td>
                   <td className="px-2 py-1.5">

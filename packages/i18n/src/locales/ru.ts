@@ -123,7 +123,11 @@ const ru = {
     closeChat: "Закрыть чат",
     closePanel: "Закрыть панель",
     resizeDrawer: "Изменить ширину панели",
-    itemCount: "{{count}} элементов",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves one (21, 31…), few (2-4, 22-24…) AND many (5-20…). No
+    // single `{{count}} <noun>` form agrees with all three; a count label does,
+    // the same device as `detail.repeaterItemCount`.
+    itemCount: "Элементов: {{count}}",
     itemCountOne: "{{count}} элемент",
     toggleSidebar: "Переключить боковую панель",
     package: "Пакет",
@@ -153,6 +157,7 @@ const ru = {
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
     },
+    notAvailableHere: '«{{action}}» недоступно на текущей странице.',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",
@@ -171,6 +176,7 @@ const ru = {
   form: {
     noPermissionToSave: "У вас нет прав на сохранение этой записи.",
     submitFailed: "Не удалось сохранить. Попробуйте ещё раз.",
+    uploadInFlight: "Дождитесь завершения загрузки, прежде чем сохранять.",
     discardTitle: "Отменить изменения?",
     discardMessage: "Есть несохранённые изменения. Если закрыть форму сейчас, правки будут потеряны.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -907,6 +913,7 @@ const ru = {
     tabActionsFor: "Действия с представлением {{name}}",
     readonlyAriaLabel: "Представление только для чтения",
     readonlyTooltip: "Системное представление — определено в коде, только для чтения.",
+    malformedFilter: "Фильтр этого представления некорректен, поэтому записи не отображаются: условие {{subject}} невозможно применить.",
   },
   designer: {
     undo: "Отменить",
@@ -933,7 +940,10 @@ const ru = {
     addReaction: "Добавить реакцию",
     pageHeaderActions: "Действия в заголовке страницы",
     emojiPicker: "Выбор эмодзи",
-    reactionCount: "{{emoji}} {{count}} реакций",
+    // objectui#10242 — the chip picks this half at every count but 1, which
+    // spans one, few and many; a count label reads right at all three, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} Реакций: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} реакция",
     recordDetail: "Сведения о записи",
     recordDetailWithLabel: "Сведения: {{label}}",
@@ -1405,6 +1415,7 @@ const ru = {
     navTypeSeparator: "Разделитель",
     navTypeAction: "Действие",
     navTypeComponent: "Компонент",
+    navTypeDoc: "Документ",
     navEditIcon: "Редактировать значок",
     navToggleVisible: "Переключить видимость",
     navHidden: "Скрыто",
@@ -2544,7 +2555,11 @@ const ru = {
     placeholder: "Поиск объектов, панелей, страниц, отчётов…",
     inputAriaLabel: "Поиск объектов, панелей, страниц, отчётов",
     resultsCount: "{{count}} результат для \"{{query}}\"",
-    resultsCountPlural: "{{count}} результатов для \"{{query}}\"",
+    // objectui#10024 — the page switches keys only at exactly 1, so this half
+    // serves one (21, 31…), few (2-4, 22-24…) AND many (0, 5-20…). No single
+    // `{{count}} <noun>` form agrees with all three; «Существительное:
+    // {{count}}» does, the same device as `collaboration.commentCount`.
+    resultsCountPlural: "Результатов по запросу \"{{query}}\": {{count}}",
     itemsAvailable: "{{count}} доступно",
     itemsAvailableOne: "{{count}} доступно",
     noResults: "Результатов не найдено",
@@ -2591,6 +2606,7 @@ const ru = {
     selectPlaceholder: "Выбрать {{label}}",
     requiredError: "{{label}} обязательно",
     unresolvedParam: 'Этот параметр невозможно показать: поле, на котором он основан, отсутствует в метаданных объекта, поэтому нужный элемент управления нельзя построить. Попросите администратора исправить определение действия.',
+    carryOverHint: 'Переносится без изменений (только чтение)',
     cancel: "Отмена",
     confirm: "Подтвердить",
     uploading: "Загрузка…",
@@ -2922,6 +2938,31 @@ const ru = {
     createEnvironment: "Создать окружение",
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Задайте вопрос о своих данных…",
+      ask: "Спросить",
+      results: "Результаты",
+      match: "Совпадение: {{percent}}",
+      simulatedSummary: "Результаты по запросу: {{query}}",
+      noResults: "Подходящие записи не найдены",
+      recentQueries: "Недавние запросы",
+    },
+    formAssist: {
+      title: "Предложения ИИ",
+      suggestionCount: "Предложений: {{count}}",
+      suggestionCountOne: "{{count}} предложение",
+      applyAll: "Применить все",
+      confidence: "Уверенность: {{percent}}",
+      appliedCount: "Применено предложений: {{count}}",
+      appliedCountOne: "Применено {{count}} предложение",
+    },
+    recommendations: {
+      title: "Рекомендации",
+      generating: "Формирование рекомендаций…",
+      empty: "Нет доступных рекомендаций",
+    },
   },
   aiApprovals: {
     title: "Согласования ИИ",

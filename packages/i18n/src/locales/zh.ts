@@ -154,6 +154,7 @@ const zh = {
       acknowledge: '我已保存',
       copyAll: '全部复制',
     },
+    notAvailableHere: '「{{action}}」在当前页面不可用。',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -172,6 +173,7 @@ const zh = {
   form: {
     noPermissionToSave: '您没有权限保存这条记录。',
     submitFailed: '保存失败，请重试。',
+    uploadInFlight: '请等待上传完成后再保存。',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -925,6 +927,7 @@ const zh = {
     tabActionsFor: '{{name}} 的视图操作',
     readonlyAriaLabel: '只读视图',
     readonlyTooltip: '系统视图 — 由代码定义，只读。',
+    malformedFilter: '此视图的筛选条件有误，因此不显示任何记录：无法应用 {{subject}} 条件。',
   },
   designer: {
     undo: '撤销',
@@ -1460,6 +1463,7 @@ const zh = {
     navTypeSeparator: '分隔线',
     navTypeAction: '操作',
     navTypeComponent: '组件',
+    navTypeDoc: '文档',
     navEditIcon: '编辑图标',
     navToggleVisible: '切换可见性',
     navHidden: '已隐藏',
@@ -2742,6 +2746,7 @@ const zh = {
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
     unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
+    carryOverHint: '原样带入（只读）',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',
@@ -3046,6 +3051,31 @@ const zh = {
     createEnvironment: '创建你的环境',
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
+  },
+  ai: {
+    nlQuery: {
+      placeholder: '就您的数据提问…',
+      ask: '提问',
+      results: '结果',
+      match: '匹配度 {{percent}}',
+      simulatedSummary: '查询结果:{{query}}',
+      noResults: '未找到匹配的记录',
+      recentQueries: '最近的查询',
+    },
+    formAssist: {
+      title: 'AI 建议',
+      suggestionCount: '{{count}} 条建议',
+      suggestionCountOne: '{{count}} 条建议',
+      applyAll: '全部应用',
+      confidence: '置信度 {{percent}}',
+      appliedCount: '已应用 {{count}} 条建议',
+      appliedCountOne: '已应用 {{count}} 条建议',
+    },
+    recommendations: {
+      title: '推荐',
+      generating: '正在生成推荐…',
+      empty: '暂无推荐',
+    },
   },
   aiApprovals: {
     title: 'AI 审批',

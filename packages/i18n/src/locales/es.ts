@@ -146,6 +146,7 @@ const es = {
       acknowledge: 'Lo he guardado',
       copyAll: 'Copiar todo',
     },
+    notAvailableHere: '«{{action}}» no está disponible en la página actual.',
   },
   validation: {
     // "{{field}} es obligatorio" only agreed with masculine field labels —
@@ -169,6 +170,7 @@ const es = {
   form: {
     noPermissionToSave: "No tienes permiso para guardar este registro.",
     submitFailed: "No se pudo guardar. Inténtalo de nuevo.",
+    uploadInFlight: "Espere a que finalice la carga antes de guardar.",
     discardTitle: "¿Descartar los cambios?",
     discardMessage: "Tiene cambios sin guardar. Si cierra este formulario ahora, sus ediciones se perderán.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -905,6 +907,7 @@ const es = {
     tabActionsFor: "Acciones de vista para {{name}}",
     readonlyAriaLabel: "Vista de solo lectura",
     readonlyTooltip: "Vista del sistema — definida en el código, solo lectura.",
+    malformedFilter: "El filtro de esta vista no es válido, por lo que no se muestra ningún registro: la condición {{subject}} no se puede aplicar.",
   },
   designer: {
     undo: "Deshacer",
@@ -1399,6 +1402,7 @@ const es = {
     navTypeSeparator: "Separador",
     navTypeAction: "Acción",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar icono",
     navToggleVisible: "Alternar visibilidad",
     navHidden: "Oculto",
@@ -2582,6 +2586,7 @@ const es = {
     selectPlaceholder: "Seleccionar {{label}}",
     requiredError: "{{label}} es obligatorio",
     unresolvedParam: 'No se puede mostrar este parámetro: el campo en el que se basa no está en los metadatos del objeto, por lo que no se puede construir el control necesario. Pide a un administrador que corrija la definición de la acción.',
+    carryOverHint: 'Se conserva sin cambios (solo lectura)',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Subiendo…",
@@ -2913,6 +2918,31 @@ const es = {
     createEnvironment: "Cree su entorno",
     openProduction: "Abrir producción",
     manageEnvironments: "Gestionar entornos",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Haga una pregunta sobre sus datos…",
+      ask: "Preguntar",
+      results: "Resultados",
+      match: "Coincidencia: {{percent}}",
+      simulatedSummary: "Resultados de: {{query}}",
+      noResults: "No se encontraron registros coincidentes",
+      recentQueries: "Consultas recientes",
+    },
+    formAssist: {
+      title: "Sugerencias de IA",
+      suggestionCount: "{{count}} sugerencias",
+      suggestionCountOne: "{{count}} sugerencia",
+      applyAll: "Aplicar todo",
+      confidence: "Confianza: {{percent}}",
+      appliedCount: "{{count}} sugerencias aplicadas",
+      appliedCountOne: "{{count}} sugerencia aplicada",
+    },
+    recommendations: {
+      title: "Recomendaciones",
+      generating: "Generando recomendaciones…",
+      empty: "No hay recomendaciones disponibles",
+    },
   },
   aiApprovals: {
     title: "Aprobaciones de IA",

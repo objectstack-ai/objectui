@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   Unplug,
 } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { ComponentRegistry } from '@object-ui/core';
 
 const BASE = '/api/v1/cloud-connection';
@@ -128,7 +128,10 @@ async function getJson(url: string, init?: RequestInit): Promise<any> {
 }
 
 export function CloudConnectionPanel() {
-  const { t, language } = useObjectTranslation();
+  const { t } = useObjectTranslation();
+  // The bound-since date reads the DISPLAY locale, never the UI language, so
+  // a regional locale (`de-CH` under an English UI) reaches it (objectui#10331).
+  const displayLocale = useDisplayLocale();
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -369,7 +372,7 @@ export function CloudConnectionPanel() {
           {conn.account_email ? (<><dt className="text-muted-foreground">{t('cloudConnection.bound.approvedBy')}</dt><dd>{conn.account_email}</dd></>) : null}
           {runtimeId ? (<><dt className="text-muted-foreground">{t('cloudConnection.bound.runtimeId')}</dt><dd className="font-mono text-xs">{runtimeId}</dd></>) : null}
           {phase.status.environmentId ? (<><dt className="text-muted-foreground">{t('cloudConnection.bound.environment')}</dt><dd className="font-mono">{phase.status.environmentId}</dd></>) : null}
-          {conn.bound_at ? (<><dt className="text-muted-foreground">{t('cloudConnection.bound.since')}</dt><dd>{new Date(conn.bound_at).toLocaleString(language)}</dd></>) : null}
+          {conn.bound_at ? (<><dt className="text-muted-foreground">{t('cloudConnection.bound.since')}</dt><dd>{new Date(conn.bound_at).toLocaleString(displayLocale)}</dd></>) : null}
         </dl>
         <p className="text-sm text-muted-foreground">
           {t('cloudConnection.bound.privatePackages')}

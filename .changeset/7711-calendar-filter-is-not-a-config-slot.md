@@ -7,8 +7,8 @@ Retire the `filter.calendar` configuration spelling on `object-calendar` (object
 **Breaking, deliberately.** `getCalendarConfig` no longer probes `schema.filter` for a
 `calendar` key. A calendar whose configuration was written as
 `filter: { calendar: { startDateField: … } }` no longer resolves a configuration at all
-and now renders the component's existing "Calendar configuration required. Please
-specify startDateField and titleField." refusal screen. Write the configuration under
+and now renders the component's existing "Calendar configuration required" refusal
+screen. Write the configuration under
 the declared `calendar` container instead — the read for it already existed, directly
 below the retired arm.
 

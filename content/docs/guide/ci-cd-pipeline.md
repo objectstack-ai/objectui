@@ -60,6 +60,7 @@ one has its own section below.
 | `spec-range-floors.yml` | Spec Range Floor Scan | Nightly cron `11 4 * * *`; push to `main` touching the gate; manual | No — the blocking copy runs on the publish path, not here |
 | `node-esm-load-gate.yml` | Node ESM Load Scan | Nightly cron `17 4 * * *`; push to `main` touching the gate; manual | No — the per-PR half is `pnpm check:esm-specifiers` in **Type Check** |
 | `half-state-patrol.yml` | Half-State Patrol | 6-hourly cron `37 1,7,13,19 * * *`; manual; PR touching the sweeper or the workflow | No — **report-only**; it fails only when the sweep could not run, or a *configured* anchor could not be written |
+| `board-snapshot.yml` | Snapshot the board to the archive branch | 6-hourly cron `14 2,8,14,20 * * *`; manual; PR touching the archiver, the sweeper it imports, the entry-guard helper or the workflow | No — it is path-filtered, so it does not report on most PRs; **blocking when it does run** |
 | `merge-queue-head-patrol.yml` | Merge queue head patrol | Every 15 minutes (cron `7,22,37,52 * * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge-queue head with no `merge_group` build is a live repo-wide block |
 | `required-check-set-patrol.yml` | Required check set patrol | Daily (cron `23 5 * * *`); manual | No — it gates no branch and blocks no queue, but it **goes red on a finding**: a merge queue whose required set has lost `Type Check` validates nothing that a type error would fail |
 | `hook-selftests.yml` | Hook Self-Tests | PR / push touching `.claude/hooks/**` or the workflow | **Yes** |
@@ -2694,6 +2695,69 @@ would restore the flood four times a day and a flooded anchor reads exactly like
 The sweeper still carries an objectui-only escape hatch that switches the closed reader fully off —
 that is what this install ran until the cutover; it is unset now, and while it is set the rendered
 summary says that surface is **UNREAD**, never that it is clean.
+
+### Board Snapshot (`board-snapshot.yml`)
+
+**Trigger:** four times a day at `:14` past the hour (cron `14 2,8,14,20 * * *`), manual dispatch,
+or a pull request touching one of the four paths the run actually loads — `'scripts/pm/board-snapshot.mjs'`,
+`'scripts/pm/check-half-states.mjs'`, `'scripts/invoked-as.mjs'` or the workflow itself. That list is the
+archiver's import closure, not a guess: the archiver imports the sweeper module and the entry-guard helper,
+and the sweeper imports the helper too.
+
+Runs scripts/pm/board-snapshot.mjs against **this** repository's issue board and commits what it read
+to `board-archive`, an **orphan branch** of this same repository. Why a branch: a suspended GitHub
+account loses every issue, pull request and comment it authored, while every branch and commit
+survives, because those belong to the repository rather than to a user. The job runs as
+`github-actions[bot]`, which is not an account that can be suspended with a person's.
+
+⛔ **Nothing reads `board-archive` for state.** Not a seat, not a patrol, not a gate. Every reading of
+the board still goes to GitHub; the archive answers one question, after a loss: what did the record
+say? The tool has no write path to GitHub in any mode, and `--restore` *prints* a recreate payload
+rather than posting one.
+
+**A run may stop before it is finished, and that is a planned pause.** The job is capped at 800 API
+requests — one shared `GITHUB_TOKEN` budget of 1,000/hour covers every workflow in this repository —
+so a first full walk spends several runs, writing a phase cursor into the manifest and exiting 0 each
+time. It walks the OPEN board to completion first, because the open board is exactly what a suspension
+destroys. A real rate-limit refusal stops the run rather than retrying: a loop against a spent budget
+starves every other automated caller for the rest of the hour.
+
+**The schedule was re-derived for this repository, and only the minute moved.** The hours avoid the
+half-state patrol's `1,7,13,19` because both are heavy board readers on that one hourly budget, and of
+the six-hourly sets that avoid it, `2,8,14,20` is the only one whose hours carry no other scheduled
+workflow. The minute is `14` rather than upstream's `7`: the merge queue head patrol runs every hour at
+`7,22,37,52`, so upstream's minute would collide with it in all four hours
+([#9387](https://github.com/objectstack-ai/objectui/issues/9387)).
+
+**A pull-request run writes nothing.** No archive branch is checked out, the snapshot goes `--dry-run`
+into the runner's temp dir capped to a handful of numbers, and the commit step is skipped. What it does
+prove is the tool on a real runner — and, before that, the archiver's own `--self-test`, which is the
+only thing in this repository that exercises the archiver before it merges. ⚠️ That makes this
+workflow's own path filter the whole of its pre-merge coverage: unlike upstream, this repository has no
+lint-job step running the self-test unconditionally, so a change that breaks the archiver while touching
+none of the four paths above merges unexercised.
+
+**The Cloudflare R2 mirror is optional and unset is a supported configuration.** After the commit, the
+job mirrors the archive checkout to one R2 prefix and, once per UTC day, writes the tree as a tarball
+outside that prefix so the `--delete` sync cannot eat the history. Until all four of `R2_ACCOUNT_ID`,
+`R2_BUCKET`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` exist as repository secrets the step prints
+one `::notice::` and **exits 0**. A *configured* upload that then fails goes red — a backup that
+silently stops copying is the failure this whole workflow exists to prevent.
+
+⭐ **The R2 prefix is this repository's name, and it is the one thing an adopter must change.** Upstream
+hard-codes its own repository name in the sync target and the tarball key while passing the board it
+archives in as `github.repository`. Two repositories aimed at one bucket with the same literal would
+share a single `--delete` target and each run would erase the other's objects.
+
+**Ported from objectstack, with the divergences declared in the pin.** Both this workflow and the
+archiver are adopted from `objectstack-ai/objectstack` and registered in `scripts/upstream-port-pin.json`,
+so the **upstream port parity** gate — which runs in the `Lint` workflow, not here — holds them to their
+upstream bytes modulo the divergences declared in that pin. The archiver is byte-identical; the workflow's divergences are the schedule, the R2 prefix, and
+the header paragraphs that named gates this repository does not have.
+
+**The order of the steps is deliberate.** The commit and the R2 mirror run BEFORE the step that reads
+the snapshot's exit code, so a failing count check or a stale-archive verdict never costs the records
+the same run archived. ⛔ Do not move the failing step above them — a stale archive is better than none.
 
 ### Merge Queue Head Patrol (`merge-queue-head-patrol.yml`)
 

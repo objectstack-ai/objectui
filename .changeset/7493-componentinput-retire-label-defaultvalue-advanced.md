@@ -32,8 +32,8 @@ They are the three keys the manifest serializer does not forward, and nothing re
 publication or consumption path.
 
 No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
-serializer (`packages/sdui-parser/src/index.ts`) forwards exactly six keys per input — `name`,
-`type`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+serializer (`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`,
+`type`, `of`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
 never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
 has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
 nor the app-shell inspectors consult registry `inputs` at all. A structural census over every

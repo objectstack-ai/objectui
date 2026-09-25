@@ -33,5 +33,5 @@ spelled `any`, so a handler that annotated it `React.MouseEvent` is not refused
 contravariantly.
 
 **Not in this change.** `ObjectDataTableSchema.onRowClick` (`@object-ui/types`) feeds
-the same `data-table` channel and therefore now receives the payload too, while still
-declaring one parameter. It is reported separately rather than widened here.
+the same `data-table` channel and therefore now receives the payload too. Its
+declaration was widened separately, by objectui#9799, rather than here.

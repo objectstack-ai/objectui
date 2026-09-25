@@ -59,12 +59,17 @@ export const ObjectMapRenderer: React.FC<any> = elementDataSourceBlock(({ schema
   );
 });
 
+// `objectName` is NOT a required input (objectui#7470): `getDataConfig` reads
+// `data`, then `staticData`, then `objectName`, and the `object-map` zod schema
+// (`requireRecordSource`, objectui#6939) is where "one of the three" is
+// enforced. The input list is a flat declaration with a boolean `required`, so
+// it states the rule in the description rather than growing a one-of form.
 ComponentRegistry.register('object-map', ObjectMapRenderer, {
   namespace: 'plugin-map',
   label: 'Object Map',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-map` schema refuses a block that declares none of them.' },
     { name: 'map', type: 'object', description: 'latitudeField, longitudeField, titleField' },
   ],
 });
@@ -74,7 +79,7 @@ ComponentRegistry.register('map', ObjectMapRenderer, {
   label: 'Map View',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-map` schema refuses a block that declares none of them.' },
     { name: 'map', type: 'object', description: 'latitudeField, longitudeField, titleField' },
   ],
 });

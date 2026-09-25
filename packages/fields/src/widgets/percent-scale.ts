@@ -104,6 +104,20 @@
  * the safe one — a reader who spot-checks it confirms it and is wrong the
  * moment a caller is added.
  *
+ * ── Also the NUMBER faces (objectui#10071) ─────────────────────────────
+ * The ceiling is the engine's, ⛔ not the percent format's, so the three
+ * non-percent readers of a declared `scale` hit it identically: the number
+ * cell (`NumberCellRenderer`, through `formatDisplayNumber`'s `Intl`), a
+ * grid's computed column (`computeRow`'s `toFixed`), and the grid currency
+ * cell display (`currencyText` in `GridField`, face label
+ * `grid currency cell`, through `formatDisplayNumber`'s `Intl` —
+ * objectui#10355). They take this SAME
+ * ruling through `renderableFractionScale`, each under its own face label and
+ * card, so the percent diagnostic above stays byte-identical. The SUNSET
+ * applies to them unchanged: `NumberScaleOutOfRange-10071.test.tsx` asks the
+ * installed spec the same question for a computed number field, and on the
+ * day it answers differently every importer of this module goes with it.
+ *
  * ⛔ This says nothing about which MEMBER a face reads, nor about what an
  * ABSENT `scale` means — the two faces still spell that absence differently
  * (`PercentField` 2, `PercentCellRenderer` 0) and objectui#9810 holds the
@@ -145,15 +159,25 @@
  */
 export const PERCENT_SCALE_CEILING = 100;
 
-/** Declared widths already reported, so a 1,000-row grid warns once. */
-const warnedPercentScales = new Set<number>();
+/** Declared widths already reported, keyed by face and width, so a 1,000-row
+ *  grid warns once per face. */
+const warnedScales = new Set<string>();
 
 /**
- * Clamp a declared fraction width into the renderable domain, reporting any
- * width the engine could not have rendered. See this module's header for the
- * ruling, the sunset condition and what actually reaches here.
+ * Clamp a declared fraction width into the renderable domain for the percent
+ * faces (objectui#9808). See this module's header for the ruling, the sunset
+ * condition and what actually reaches here.
  */
 export function renderablePercentScale(declared: number): number {
+  return renderableFractionScale(declared, 'percent field', 'objectui#9808');
+}
+
+/**
+ * The one ruling, for any face that turns a declared `scale` into fraction
+ * digits: a width the installed spec accepts and the engine refuses is clamped
+ * to the ceiling and reported once per `face` and width, naming `card`.
+ */
+export function renderableFractionScale(declared: number, face: string, card: string): number {
   // ⭐ The predicate is the WHOLE ruling, so read it as one sentence: fire on a
   // width the installed spec ACCEPTS and the engine REFUSES, and on nothing
   // else. `Number.isInteger` is the spec's own `int()` shape and `> ceiling`
@@ -180,12 +204,13 @@ export function renderablePercentScale(declared: number): number {
   // metadata.
   const refused = Number.isInteger(declared) && declared > PERCENT_SCALE_CEILING;
   if (!refused) return declared;
-  if (!warnedPercentScales.has(declared)) {
-    warnedPercentScales.add(declared);
+  const key = `${face}|${declared}`;
+  if (!warnedScales.has(key)) {
+    warnedScales.add(key);
     console.warn(
-      `[ObjectUI] percent field: a declared \`scale\` of ${declared} is above the ` +
+      `[ObjectUI] ${face}: a declared \`scale\` of ${declared} is above the ` +
         `${PERCENT_SCALE_CEILING}-digit fraction width this platform can render; ` +
-        `rendering at ${PERCENT_SCALE_CEILING} instead (objectui#9808).`,
+        `rendering at ${PERCENT_SCALE_CEILING} instead (${card}).`,
     );
   }
   return PERCENT_SCALE_CEILING;

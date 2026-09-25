@@ -60,6 +60,11 @@ const EXPECTED_COVERED = [
   'object-gantt',
   'object-timeline',
   'object-map',
+  // Curated by objectui#10064 (the roster entry states the reasoning). Listed
+  // here because this file's assertions are EXACT lists, so an admission the
+  // console ships has to be a deliberate edit on both faces — which is the
+  // property that makes a SHRINKING contract visible.
+  'object-tree',
   'object-metric',
   'object-chart',
   'dashboard',
@@ -144,6 +149,7 @@ const EXPECTED_LAZY = [
   'object-gantt',
   'object-timeline',
   'object-map',
+  'object-tree',
   'object-chart',
   'markdown',
 ];

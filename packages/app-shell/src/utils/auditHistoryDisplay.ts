@@ -22,6 +22,8 @@
  *     names via a caller-resolved id → label map).
  */
 
+import { toDisplayDate } from '@object-ui/core';
+
 /** Minimal structural view of an object field definition. */
 export interface AuditFieldDef {
   type?: string;
@@ -216,7 +218,10 @@ function formatScalar(def: AuditFieldDef | undefined, value: unknown, ctx: Audit
   }
 
   if (type === 'date' || type === 'datetime') {
-    const d = new Date(value as string | number);
+    // The shared parse step, never `new Date(value)`: a date-only value is UTC
+    // midnight to the engine and read back below in the viewer's zone, one day
+    // early west of UTC (objectui#10183). The faces stay this helper's own.
+    const d = toDisplayDate(value as string | number);
     if (!Number.isNaN(d.getTime())) {
       try {
         return type === 'date'

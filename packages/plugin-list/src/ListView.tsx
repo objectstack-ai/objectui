@@ -21,7 +21,7 @@ import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -1834,10 +1834,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+        // ⛔ No timeline chip-field list (the retired `metaFields`) is
+        // collected: the spec declares none, and the timeline no longer reads
+        // one (objectui#10222).
         ...(Array.isArray(v.columns) ? v.columns : []),
         ...(Array.isArray(v.cardFields) ? v.cardFields : []),
         ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-        ...(Array.isArray(v.metaFields) ? v.metaFields : []),
       ];
       for (const f of candidates) {
         if (typeof f === 'string' && f) collected.add(f);
@@ -2057,6 +2059,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       
       setLoading(true);
       setLoadError(null);
+      // [objectui#10384] Set when this result clamps the pager (see below).
+      // The window it moves to is already being fetched, so loading stays on:
+      // settling it here would paint the empty window — and with it the
+      // first-run empty state — for one frame before the clamped rows arrive.
+      let clampedToPage: number | null = null;
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
@@ -2084,10 +2091,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 .map(f => columnIdentity(f))
                 .filter((v): v is string => typeof v === 'string' && v.length > 0)
             : [];
+          // [objectui#10275] "Is there a projection?" is asked of the AUTHORED
+          // columns, never of what survived the FLS gate below — the rule
+          // `hasAuthoredColumns` applies to what the grid draws. No authored
+          // column ⇒ no `$select`, as before. An authored list that FLS EMPTIES
+          // used to land here too, so the request carried no `$select` key and
+          // asked for every field, the denied ones included: an emptied list
+          // read as "no restriction", the widening objectui#7215 measured on
+          // `$expand`. It now falls through and projects to `id` plus the
+          // routes below, each already FLS-gated as it enters (the `$expand`
+          // roots, the view bindings, the grouping fields, the row predicates'
+          // operands; the platform columns excepted, for the reason stated at
+          // `addSpeculative`) — the shape `ObjectGrid` (`ensureId([])` keeps
+          // `['id']`) and `RelatedList` (objectui#10186) send.
+          if (rawCols.length === 0) return undefined;
           const cols = (perms?.isLoaded && schema.objectName)
             ? rawCols.filter(c => perms.checkField(schema.objectName!, c, 'read'))
             : rawCols;
-          if (cols.length === 0) return undefined;
           // Don't speculatively add `_id` / `name` — some backends reject
           // unknown select keys with an empty result set rather than
           // ignoring them. Stick to the user-requested columns plus the
@@ -2188,10 +2208,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               v.coverField, v.imageField,
               v.swimlaneField, v.valueField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+              // ⛔ No timeline chip-field list (the retired `metaFields`) is
+              // collected: the spec declares none, and the timeline no longer
+              // reads one (objectui#10222).
               ...(Array.isArray(v.columns) ? v.columns : []),
               ...(Array.isArray(v.cardFields) ? v.cardFields : []),
               ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-              ...(Array.isArray(v.metaFields) ? v.metaFields : []),
             ];
             for (const f of candidates) addSpeculative(f);
           };
@@ -2204,14 +2226,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           collectViewFields(schema.timeline);
           collectViewFields(schema.options?.timeline);
           // Timeline plugin shows status / priority chips inline. Auto-include
-          // them when no explicit metaFields was configured so views like
-          // `task_timeline` ({ columns: ['subject', 'status'] }) still get
-          // priority badges out of the box. Gated through addSpeculative: only
-          // added when the object actually has these fields (a `product` with
-          // no status/priority must not get them, or the list goes empty).
+          // them for every timeline view so views like `task_timeline`
+          // ({ columns: ['subject', 'status'] }) still get priority badges out
+          // of the box. Gated through addSpeculative: only added when the
+          // object actually has these fields (a `product` with no
+          // status/priority must not get them, or the list goes empty).
+          //
+          // Unconditional on purpose (objectui#10222, ruling batch #223 item
+          // 5b, letter A): this used to be skipped when the block carried an
+          // undeclared `metaFields` list, which the spec refuses and the
+          // timeline no longer reads. The chips are always the built-in pair
+          // now, so their values are always fetched.
           {
-            const tCfg: any = schema.timeline ?? schema.options?.timeline;
-            if (tCfg && !Array.isArray(tCfg.metaFields)) {
+            const tCfg = schema.timeline ?? schema.options?.timeline;
+            if (tCfg) {
               addSpeculative('status');
               addSpeculative('priority');
             }
@@ -2400,6 +2428,34 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // render (objectui#7394), so this effect no longer has to re-run just
         // because a different visualization is now drawing the same rows.
         setFetchedTotal(knownTotal);
+        // [objectui#10384] Clamp the pager after a write empties this window.
+        // `pageResetSignature` below deliberately leaves the refresh inputs out
+        // (a write must not throw the user back to page 1), so a refetch that
+        // lands on a page the data no longer reaches — every row of the last
+        // page bulk-deleted, or a concurrent deleter — used to stay there with
+        // zero rows and the FIRST-RUN empty state over an object that still
+        // has records on earlier pages. The clamp lives HERE, on the result,
+        // because only the result knows the page is now past the end.
+        //
+        // It fires only when this window came back empty past the first page
+        // AND the server's total puts the last page strictly below the one
+        // requested; it then moves `serverPage` there, which moves `fetchSkip`
+        // and re-runs this effect once. It cannot loop: each firing strictly
+        // lowers the page and the target is floored at 1, so the chain ends
+        // at the first window the total says is reachable. A server whose
+        // total disagrees with its own empty window (total still reaching this
+        // page) gets no clamp, which is the other half of that guarantee.
+        // Without a numeric total the grid is never handed a pager (the
+        // `serverTotal != null` gate on the handoff), so no page past 1 is
+        // reachable to clamp from.
+        if (skip > 0 && items.length === 0 && knownTotal !== null) {
+          const lastReachablePage = Math.max(1, Math.ceil(knownTotal / effectivePageSize));
+          const requestedPage = Math.floor(skip / effectivePageSize) + 1;
+          if (lastReachablePage < requestedPage) {
+            clampedToPage = lastReachablePage;
+            setServerPage(lastReachablePage);
+          }
+        }
         // Past the stale-request guard, so this is the query behind the rows
         // that were just set — never an in-flight one that lost the race.
         setLastFindParams(findParams);
@@ -2419,7 +2475,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           setLoadErrorKind(classifyLoadError(err));
         }
       } finally {
-        if (isMounted && requestId === fetchRequestIdRef.current) {
+        if (isMounted && requestId === fetchRequestIdRef.current && clampedToPage === null) {
           setLoading(false);
         }
       }
@@ -2830,6 +2886,81 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     [schema.columns],
   );
 
+  /**
+   * The filter a SELF-QUERYING view queries with — `gantt` (objectui#10037),
+   * `tree` and `chart` (objectui#10250).
+   *
+   * Most views draw the rows this component fetched, so the toolbar's Filter
+   * control and the `UserFilters` chips reach them through `data`. Three views
+   * run their OWN query from the node's `filter` instead, and a node carrying
+   * only the authored `schema.filter` left both controls on screen, changing
+   * this component's fetch and nothing the user could see:
+   *
+   *   - `gantt`: the registered `object-gantt` renderer forwards no host prop
+   *     (see `ganttOwnsData` above) and `ObjectGantt.reload` hands
+   *     `schema.filter` to `$filter`;
+   *   - `tree`: `ObjectTree`'s object-provider branch runs its own `find` with
+   *     `$filter: schema.filter`, and it runs BEFORE its host-`data` branch;
+   *   - `chart` (the object-bound shape): `ObjectChart` reads no host rows and
+   *     aggregates with `schema.filter`.
+   *
+   * Each of those nodes therefore carries the SAME effective filter this
+   * component's own fetch sends (`buildEffectiveFilter`: authored filter AND
+   * toolbar group AND chips), and each renderer hands it to its query
+   * unchanged.
+   *
+   * ⭐ Stable for an equal payload, and keyed on the payload — not on a memo
+   * identity (AGENTS.md #10). `ObjectGantt`'s reload effect and `ObjectTree`'s
+   * record effect both list `schema.filter` as a dependency, so a fresh array
+   * for a byte-identical filter would refetch the view on every density toggle
+   * or discarded memo. The ref below hands back the previous object whenever
+   * the serialised filter is unchanged. (`ObjectChart` keys its fetch on the
+   * serialised filter already; it gets the same value for one rule.)
+   *
+   * ⚠️ A filter `buildEffectiveFilter` refuses (a `FilterOperatorError`) is
+   * NOT turned into "no filter" here — that would widen the view to every row.
+   * The node keeps the last filter it was handed (or, before any, the authored
+   * one, exactly what it carried before objectui#10037), and this component's
+   * own fetch, which throws the same refusal inside its load `try`, raises the
+   * load-error panel that replaces the view.
+   */
+  const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
+  let selfQueryFilter: unknown = schema.filter;
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
+    try {
+      const value = buildEffectiveFilter(schema.filter, currentFilters, userFilterConditions);
+      const key = JSON.stringify(value ?? null);
+      const cached = selfQueryFilterRef.current;
+      if (cached && cached.key === key) {
+        selfQueryFilter = cached.value;
+      } else {
+        selfQueryFilterRef.current = { key, value };
+        selfQueryFilter = value;
+      }
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : schema.filter;
+    }
+  }
+
+  /**
+   * The toolbar Search term the GANTT CHART queries with (objectui#10250).
+   *
+   * Same seam as `selfQueryFilter` above, other control: this component's own
+   * fetch sends `$search` (and, when the view declares `searchableFields`,
+   * `$searchFields`), and the chart — which queries for itself — never saw the
+   * term. The gantt node carries it as `search`, which `ObjectGantt.reload`
+   * sends as `$search` together with the node's `searchableFields`.
+   *
+   * Gantt-only, and a primitive: the memo below lists it as a dependency, so
+   * scoping it keeps a keystroke from rebuilding every other view's node, and
+   * a string compares by value, so an unchanged term rebuilds nothing.
+   * ⛔ `tree` and `chart` are not handed a term: neither renderer has a search
+   * channel in its own query today, so a key written onto their nodes would be
+   * accepted and read by nothing.
+   */
+  const ganttSearchTerm = currentView === 'gantt' ? searchTerm : '';
+
   // Generate the appropriate view component schema
   const viewComponentSchema = React.useMemo(() => {
     const densityRowHeight = density.mode === 'compact'
@@ -3159,6 +3290,23 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-gantt',
           ...baseProps,
+          // objectui#10037 — the EFFECTIVE filter, not the authored one: the
+          // chart queries for itself, so this key is the only way the
+          // toolbar's Filter control and the `UserFilters` chips reach it.
+          // See `selfQueryFilter` above.
+          filter: selfQueryFilter,
+          // objectui#10250 — the toolbar Search term, by the same door and for
+          // the same reason; `searchableFields` rides with it exactly as it
+          // rides with this component's own `$search`. Absent keys, not
+          // present-and-empty, when there is no term. See `ganttSearchTerm`.
+          ...(ganttSearchTerm
+            ? {
+                search: ganttSearchTerm,
+                ...(schema.searchableFields && schema.searchableFields.length > 0
+                  ? { searchableFields: schema.searchableFields }
+                  : {}),
+              }
+            : {}),
           // objectui#7334 — the view-level `navigation` the author wrote.
           //
           // `ObjectGantt` owns a record drawer of its own and resolves
@@ -3266,6 +3414,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         return {
           type: 'object-tree',
           ...baseProps,
+          // objectui#10250 — the EFFECTIVE filter: `ObjectTree`'s object
+          // provider runs its own `find` from this key before it looks at the
+          // `data` handed down, so the toolbar Filter and the chips reach the
+          // tree only here. See `selfQueryFilter` above.
+          filter: selfQueryFilter,
           parentField: treeCfg.parentField,
           labelField: treeCfg.labelField || treeCfg.titleField || 'name',
           fields: treeCfg.fields || effectiveFields,
@@ -3316,8 +3469,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           chartType: chartCfg.chartType || 'bar',
           // `ObjectChart` reads `schema.filter` and never read `filters`, so a
           // chart list view with a base filter used to aggregate the WHOLE
-          // object (#2890).
-          filter: schema.filter,
+          // object (#2890). It reads no host rows either, so this key is also
+          // the only way the toolbar Filter and the chips reach the aggregate:
+          // the EFFECTIVE filter, not the authored one (objectui#10250). See
+          // `selfQueryFilter` above.
+          filter: selfQueryFilter,
           aggregate: {
             field: valueField,
             function: chartCfg.aggregation || 'count',
@@ -3336,7 +3492,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef]);
+  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 

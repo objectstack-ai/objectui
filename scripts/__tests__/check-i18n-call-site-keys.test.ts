@@ -898,8 +898,12 @@ export const A = () => { const { t } = useObjectTranslation(); return t('auth.fo
         "t('home.welcome', { defaultValue: 'Build your business system with AI' })",
       ],
       [
-        'packages/app-shell/src/hooks/useObjectActions.ts',
-        "t('objectActions.resetPackageSetSuccess', {\n                label:",
+        // objectui#10383 moved this call, unchanged, out of `app-shell`'s
+        // `useObjectActions.ts` into the one record-delete core both hosts now
+        // bind to. Same call, same argument list; the indentation is the new
+        // file's.
+        'packages/core/src/actions/recordDelete.ts',
+        "t('objectActions.resetPackageSetSuccess', {\n              label:",
         "t('objectActions.resetPackageSetSuccess', {",
       ],
     ];
@@ -915,6 +919,14 @@ export const A = () => { const { t } = useObjectTranslation(); return t('auth.fo
       'utf8',
     );
     expect(marketplace).toContain("t('marketplace.install.updateTo', { defaultValue: 'Update \\u2192 v{{version}}', version: latestVersion })");
+    // Same guard for the record-delete core: `resetPackageSetSuccess` lost its
+    // inert `label`, and the sister `deleteSuccess` beside it — whose en value
+    // HAS a `{{label}}` hole — still passes it.
+    const recordDeleteCore = fs.readFileSync(
+      path.join(repoRoot, 'packages/core/src/actions/recordDelete.ts'),
+      'utf8',
+    );
+    expect(recordDeleteCore).toContain("t('objectActions.deleteSuccess', { label })");
   });
 });
 

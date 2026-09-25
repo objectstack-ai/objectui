@@ -163,6 +163,30 @@ const authedFetch = createAuthenticatedFetch();
 const apiProviderFetch = createAuthenticatedFetch({ sameOriginOnly: true });
 ```
 
+### getSessionOwnerChangeCount / subscribeSessionOwnerChange
+
+When the session resolves to a different user than the one this browser last
+held, `AuthProvider` drops the previous user's client state (objectui#5664).
+That clears storage only. State already derived from that storage and held in
+memory, such as the UI language the boot resolved, has to be re-derived by
+whoever owns it. These two exports tell that owner a change happened in this
+page-load (objectui#10193). The count lets an owner that mounts after the purge
+still see it:
+
+```tsx
+import { useSyncExternalStore } from 'react';
+import { getSessionOwnerChangeCount, subscribeSessionOwnerChange } from '@object-ui/auth';
+
+const ownerChanges = useSyncExternalStore(
+  subscribeSessionOwnerChange,
+  getSessionOwnerChangeCount,
+  getSessionOwnerChangeCount,
+);
+```
+
+The count lives in memory for one page-load and is never persisted.
+`@object-ui/app-shell`'s `useSignedInUserLocale` is the in-repo consumer.
+
 ## The `X-Tenant-ID` edge contract
 
 `createAuthenticatedFetch` stamps `X-Tenant-ID` on the requests it wraps. This section is

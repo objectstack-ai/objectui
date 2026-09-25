@@ -239,6 +239,18 @@ pins param support ⊇ form support. `required` validation and `visible` CEL
 gating are applied by the dialog; file/image uploads use the ambient
 `UploadProvider`, lookup/user pickers the surrounding `SchemaRendererContext`.
 
+A param that declares the spec's `carryOver` (with the `defaultFromRow: true`
+the spec requires beside it) is **shown, never collected**: it renders as a
+collapsed read-only summary with no field widget at all, and its row value is
+submitted verbatim — `serializeParamValues` leaves it untouched even on an
+upload field (objectui#6246). The permission-set Clone action declares it on
+its JSON permission facets, so a clone cannot be hand-edited into granting more
+than its base.
+
+```json
+{ "field": "row_level_security", "defaultFromRow": true, "carryOver": true }
+```
+
 Because each param now emits its widget's own value shape on confirm, the shape
 the dialog **POSTs** for every type is pinned as a contract in
 `utils/paramValueShape.ts` (`PARAM_VALUE_SHAPES` / `expectedParamShape`) and

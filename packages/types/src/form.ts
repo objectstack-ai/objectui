@@ -453,10 +453,13 @@ export interface CheckboxSchema extends BaseSchema {
    * Whether the box must be checked — drives a VISIBLE affordance, not just
    * form semantics.
    *
-   * READ SITES: `packages/components/src/renderers/form/checkbox.tsx:45` —
-   * `required={schema.required}` on the Radix `Checkbox` — and `:49`, where it
-   * gates the label's required marker
-   * (`schema.required && "text-destructive after:content-['*']"`).
+   * READ SITES, both in `packages/components/src/renderers/form/checkbox.tsx`:
+   * `required={schema.required}` on the Radix `Checkbox`, and the label's
+   * required marker it gates — the label turns `text-destructive` and carries a
+   * real `aria-hidden` `*` span (`data-required-marker`). Not CSS generated
+   * content: the label names the checkbox, and an `::after` asterisk enters
+   * that accessible name ("Title*"), where `aria-hidden` cannot reach a
+   * pseudo-element (objectui#10368).
    *
    * Declared by objectui#6150; one of the two behavioural keys in that census.
    */
@@ -821,13 +824,24 @@ export interface SliderSchema extends BaseSchema {
    */
   label?: string;
   /**
-   * Default value
+   * Default value(s) — a single number or one number per thumb.
+   *
+   * READ SITE: `packages/components/src/renderers/form/slider.tsx`, which wraps
+   * a scalar into a one-element list on purpose ("Ensure defaultValue is an
+   * array for backward compatibility"). Both spellings therefore render, and
+   * this declaration states both, matching its zod mirror (objectui#10280,
+   * objectui#7759 group B: an objectui-own key follows its read site).
    */
-  defaultValue?: number[];
+  defaultValue?: number | number[];
   /**
-   * Controlled value
+   * RETIRED (objectui#10280, ADR-0049) — no read site. The `slider` renderer
+   * reads `defaultValue`, `max`, `min` and `step` off the node and nothing
+   * else; `value` reaching it through the props spread is dropped by the
+   * form-control DOM whitelist. An authored `value` rendered nothing. The zod
+   * twin refuses it by name; author `defaultValue` for the initial position.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  value?: number[];
+  value?: never;
   /**
    * Minimum value
    * @default 0
@@ -1135,20 +1149,49 @@ export interface DatePickerSchema extends BaseSchema {
 }
 
 /**
+ * One calendar day as authored: an ISO 8601 date string (the JSON authoring
+ * type) or a `Date` (in-process callers). The `calendar` renderer coerces a
+ * string to a `Date` at its read site; a date-only string (`2026-09-15`)
+ * selects the day it names in every zone (objectui#10293).
+ */
+type CalendarDay = Date | string;
+
+/**
+ * A `mode: 'range'` selection (objectui#10304): the `{ from, to }` pair the
+ * range picker reads. `to` is optional — a range whose end is not chosen yet.
+ */
+interface CalendarDayRange {
+  from: CalendarDay;
+  to?: CalendarDay;
+}
+
+/**
  * Calendar component
  */
 export interface CalendarSchema extends BaseSchema {
   type: 'calendar';
   /**
-   * Default selected date(s)
+   * Default selection. Its shape follows {@link CalendarSchema.mode}
+   * (objectui#10304), because that is what the date picker reads:
+   * - `single` (and `mode` absent): one day, an ISO 8601 string or a `Date`;
+   * - `multiple`: a list of days;
+   * - `range`: `{ from, to }`, `to` optional.
+   *
+   * ⚠️ This declaration admits every shape on every mode: the pairing is a
+   * property of the node, not of this key, and the MIRROR enforces it —
+   * `zod/form.zod.ts#CalendarSchema` refuses a value whose shape does not
+   * fit its mode. The renderer coerces every string day through the shared
+   * date parse (objectui#10293).
    */
-  defaultValue?: Date | Date[];
+  defaultValue?: CalendarDay | CalendarDay[] | CalendarDayRange;
   /**
-   * Controlled selected date(s)
+   * Controlled selection, shaped by {@link CalendarSchema.mode} exactly as
+   * {@link CalendarSchema.defaultValue} is.
    */
-  value?: Date | Date[];
+  value?: CalendarDay | CalendarDay[] | CalendarDayRange;
   /**
-   * Selection mode
+   * Selection mode. It also decides the shape of `value` / `defaultValue`:
+   * one day, a list of days, or a `{ from, to }` range (objectui#10304).
    * @default 'single'
    */
   mode?: 'single' | 'multiple' | 'range';
@@ -1426,6 +1469,12 @@ export interface FieldValidationRules {
   pattern?: { value: RegExp; message: string };
   /**
    * Custom validation function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because the form renderer
+   * spreads `validation` into react-hook-form's `rules` and keeps a supplied
+   * `validate` running beside its own `required` entry.
    * @param value - The field value to validate
    * @returns true if valid, false or error message if invalid
    */
@@ -1453,9 +1502,14 @@ export interface FieldCondition {
    */
   in?: any[];
   /**
-   * Custom condition function
+   * RETIRED (objectui#7759 group E, objectui#6124 shape, ADR-0049) — JSON has no
+   * function value, and nothing reads this key: the form renderer translates
+   * `condition` to CEL from `field` / `equals` / `notEquals` / `in` only, so a
+   * supplied function never ran. The zod twin refuses it by name; express the
+   * condition with those keys, or with the field's `visibleWhen` CEL predicate.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  custom?: (formData: any) => boolean;
+  custom?: never;
 }
 
 /**
@@ -1830,10 +1884,25 @@ export interface FormSchema extends BaseSchema {
    */
   resetOnSubmit?: boolean;
   /**
-   * Form mode
-   * @default 'edit'
+   * RETIRED (objectui#10286, ADR-0049) under the objectui#7759 ruling, item
+   * D1-(ii): both faces dead and no spec declaration, so the key retires.
+   *
+   * `@objectstack/spec` declares no `form` node, so this is an objectui-own
+   * key whose read site is the truth, and it has none: the `form` renderer
+   * reads no `mode`, and the forms that build a `form` node (`ObjectForm`,
+   * `ModalForm`, `DrawerForm`) consume their OWN `mode` and never set this
+   * one. Measured through the real `SchemaRenderer`, every spelling rendered
+   * the same form as its absence. The two faces had also drifted apart — this
+   * declaration offered `edit | read | disabled`, the zod mirror `create |
+   * edit | view` — and neither vocabulary was honoured.
+   *
+   * The live create / edit / view mode is `ObjectFormSchema.mode`
+   * (`../objectql.ts`): author an `object-form` node for that. To make a
+   * plain form non-editable, use `disabled` (inherited from `BaseSchema`).
+   *
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  mode?: 'edit' | 'read' | 'disabled';
+  mode?: never;
   /**
    * Custom action buttons (replaces default submit/cancel)
    */

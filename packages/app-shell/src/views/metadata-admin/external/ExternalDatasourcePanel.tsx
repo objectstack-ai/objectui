@@ -19,6 +19,7 @@
  */
 
 import * as React from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { DatabaseZap, RefreshCw, Loader2, Clock } from 'lucide-react';
 import {
   Button,
@@ -49,6 +50,9 @@ export function ExternalDatasourcePanel({
   schemaMode,
   allowWrites,
 }: ExternalDatasourcePanelProps) {
+  // Dates and numbers on this surface read the display locale; a bare
+  // `toLocale*()` call used the MACHINE's locale (objectui#9909).
+  const displayLocale = useDisplayLocale();
   const [catalog, setCatalog] = React.useState<ExternalCatalog | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -109,7 +113,7 @@ export function ExternalDatasourcePanel({
           {catalog?.snapshotAt && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" />
-              snapshot {formatSnapshot(catalog.snapshotAt)}
+              snapshot {formatSnapshot(catalog.snapshotAt, displayLocale)}
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
@@ -145,11 +149,11 @@ export function ExternalDatasourcePanel({
   );
 }
 
-function formatSnapshot(iso: string): string {
+function formatSnapshot(iso: string, locale: string): string {
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return iso;
   try {
-    return new Date(t).toLocaleString();
+    return new Date(t).toLocaleString(locale);
   } catch {
     return iso;
   }

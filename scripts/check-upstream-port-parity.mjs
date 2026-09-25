@@ -900,15 +900,58 @@ function selfTest() {
   return 0;
 }
 
+// ── the entrypoint ───────────────────────────────────────────────────────────
+//
+// ⛔ NEVER `process.exit(code)` here, and ⛔ never anywhere else in this file.
+// Set `process.exitCode` and let the process end on its own (objectui#10006).
+//
+// Every path above reports by WRITING -- `list()` is nothing but a `console.log`
+// loop -- and on POSIX `process.stdout` is asynchronous when it is a PIPE (it is
+// synchronous only for files and TTYs). `process.exit()` terminates the process
+// immediately, so whatever is still queued in the stream is DISCARDED. Run
+// interactively the gate is on a TTY and nothing is ever lost, which is why the
+// defect could not be reproduced by hand.
+//
+// The harm was never a wrong verdict from this gate; it was a wrong verdict
+// pinned on somebody else. `scripts/__tests__/upstream-port-parity-wiring.test.ts`
+// captures `--list` with `execFileSync` -- a pipe -- and asserts against what it
+// receives. A truncated capture makes a divergence line simply absent, so the
+// assertion failed as `no listing line for <ID> under <FILE>`: a confident,
+// specific, and FALSE claim about a file the branch under test had never
+// touched. Four recorded instances, on four unrelated pull requests, naming
+// three different divergences; one of them was ejected from the merge queue and
+// another was a comment-only diff with no executable change at all. The control
+// that closed it: the same commit `0a4bf6deb`, no new commits and no rebase,
+// went red and then green.
+//
+// Measured here, on this file, before the change -- a synthetic pin driving a
+// ~1.2 MB listing captured through `execFileSync`, three consecutive runs:
+// 96,217 / 175,153 / 161,703 bytes received, **exit 0 every time**. Same source,
+// three different cut points, and the caller is told the run succeeded. After
+// the change the same three runs receive the listing whole.
+//
+// Why `process.exitCode` is safe to substitute here, spelled out because it is
+// NOT a safe substitution in general: it lets Node exit naturally, which means
+// the code is only honoured if nothing keeps the event loop alive and nothing
+// after this point can run. Both hold, and both are properties of THIS file --
+// it is fully synchronous (`readFileSync`/`writeFileSync` only; no timer, no
+// socket, no child process, no handle of any kind), and this block is the last
+// statement in the module. A pending write to stdout is itself a referenced
+// handle, so the loop stays alive precisely until the listing has drained. An
+// uncaught throw below still exits 1 with its stack, exactly as before: the
+// exception escapes before the assignment happens, just as it escaped before
+// the `process.exit()` call did.
+//
+// ⚠️ Add anything asynchronous to this file and this entrypoint becomes a hang
+// rather than an exit. The fix is then to drain stdout explicitly and still not
+// to reintroduce `process.exit`.
 if (isEntrypoint(import.meta.url)) {
   const argv = process.argv;
-  process.exit(
-    argv.includes('--self-test')
-      ? selfTest()
-      : argv.includes('--resync')
-        ? resync(argv)
-        : argv.includes('--list')
-          ? list()
-          : main(),
-  );
+  process.exitCode = argv.includes('--self-test')
+    ? selfTest()
+    : argv.includes('--resync')
+      ? resync(argv)
+      : argv.includes('--list')
+        ? list()
+        : main();
 }

@@ -119,8 +119,11 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ schema, onRefresh })
       console.warn('ReportViewer: Cannot export, no report defined');
       return;
     }
+    // objectui#9909 — the HTML / PDF export stamps a "Generated:" time; it is
+    // formatted in the same display locale as the cells above.
     exportReport(format as ReportExportFormat, report, data || [], 
-      report.exportConfigs?.[format as ReportExportFormat]
+      report.exportConfigs?.[format as ReportExportFormat],
+      displayLocale,
     );
   };
 

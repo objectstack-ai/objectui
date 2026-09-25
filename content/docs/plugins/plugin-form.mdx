@@ -92,7 +92,7 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `hidden` | `boolean` | the field is not rendered at all |
 | `options` | `SelectOption[] \| RadioOption[]` | choices for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
-| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in, custom }` matcher |
+| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
 | `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server enforces. They fail open |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate (spec `FormField.visibleOn`) |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
@@ -276,6 +276,34 @@ naming the layout and the sections whose predicate is being dropped:
 It changes no behaviour — the predicate is still dropped on that one arm — it
 only stops the drop from being invisible. Nothing warns on the five arms that
 honour the key.
+
+### Section rows: heading, blurb and collapse
+
+The stacked layouts (the default layout, `formType: 'modal'` and
+`formType: 'drawer'`, with explicit `sections` or with sections derived from
+the object's `fieldGroups`) follow one rule for a section's divider row:
+
+- A section's **own settings apply whether or not it has a heading.** Its
+  `visibleWhen` hides the whole group, fields included, on these three
+  layouts. A section with no `label` is never un-gated there. (The split
+  layout still draws and gates a section's row only when it has a `label` or a
+  `description`, and the wizard drops a step predicate, as described above.)
+- The **divider row is drawn when the section has a `label` or a
+  `description`**. With a `description` alone it is a blurb-only row: no
+  heading, just the blurb.
+- The **collapse control sits on that row**, so `collapsible` / `collapsed`
+  work on a titled row and on a blurb-only row alike (`collapsed: true` implies
+  `collapsible`).
+- A section that declares `collapsible` or `collapsed` but has neither a
+  `label` nor a `description` has no row to hold the control. It renders open
+  and a console warning says so ("collapsible section has no heading or
+  description to carry its control"). Its fields are never hidden without a
+  control to bring them back.
+
+A modal with `contentLayout: 'tabbed'` and more than one explicit section draws
+tabs instead of rows, and tabs do not collapse. With a single section, or with
+sections derived from `fieldGroups`, it renders stacked and follows the rules
+above.
 
 ### Wizard steps and `allowSkip`
 

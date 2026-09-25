@@ -292,15 +292,33 @@ export interface SysActivityRow {
  * The message is built from the keys that were actually fresh, so a list whose
  * second render adds one new typo names that typo rather than repeating a
  * warning the author has already read.
+ *
+ * ## Scoped per BLOCK on the authored channels (objectui#9557)
+ *
+ * The `filterMode` / `types` diagnostics report a value an author wrote on ONE
+ * block, and three blocks run this pipeline: `record:activity` reads the
+ * members off its own node, and `record:chatter` / `record:discussion` read
+ * them off their nested `feed` (`RecordChatterProps.feed` is
+ * `RecordActivityProps`). So those channels pass the calling block's name as
+ * `scope`: the message is prefixed with it, and the dedupe key is the pair
+ * (block, value) rather than the value alone. The same bad value on two block
+ * kinds is two authoring mistakes with two authors to tell — keyed on the value
+ * alone, the second block was never reported, and the first was reported under
+ * whichever name this file hard-coded. The same block with the same value is
+ * still ONE mistake and still warns once.
+ *
+ * The pair is joined with `JSON.stringify` so no block name and value can
+ * collide with another pair by concatenation.
  */
 function warnOnce(
   bucket: Set<string>,
+  scope: string,
   keys: readonly string[],
   build: (fresh: readonly string[]) => string,
 ): void {
-  const fresh = keys.filter((k) => !bucket.has(k));
+  const fresh = keys.filter((k) => !bucket.has(JSON.stringify([scope, k])));
   if (fresh.length === 0) return;
-  for (const k of fresh) bucket.add(k);
+  for (const k of fresh) bucket.add(JSON.stringify([scope, k]));
   console.warn(build(fresh));
 }
 
@@ -351,7 +369,14 @@ export function resetUnrecognisedFilterModeWarnings(): void {
  * INVISIBILITY, not the fallback: `filterMode` seeds a control the user can
  * change, and there is no defensible narrower default to fall back to instead.
  * So nothing that renders changes here — what changes is that the fold is now
- * SAID OUT LOUD, once per distinct offending value (see {@link warnOnce}).
+ * SAID OUT LOUD, once per distinct offending value on each block (see
+ * {@link warnOnce}).
+ *
+ * `block` is the registered name of the block the value was authored on
+ * (`record:activity`, `record:chatter`, `record:discussion`). It is REQUIRED,
+ * not defaulted: the message is addressed to that block's author, and a default
+ * would hand every caller that forgot it some other block's name — the defect
+ * objectui#9557 removed.
  *
  * Absent (`undefined` / `null`) is silent: no `filterMode` was authored, which
  * is not a mistake, and a warning about a decision teaches authors to ignore
@@ -361,7 +386,7 @@ export function resetUnrecognisedFilterModeWarnings(): void {
  * `FeedFilterMode` at runtime, never re-typed here — see the file header for
  * what a hand copy of a spec enum cost.
  */
-export function normalizeFilterMode(value: unknown): FeedFilterMode {
+export function normalizeFilterMode(value: unknown, block: string): FeedFilterMode {
   if (typeof value === 'string' && FILTER_MODE_VALUES.includes(value)) {
     return value as FeedFilterMode;
   }
@@ -371,8 +396,8 @@ export function normalizeFilterMode(value: unknown): FeedFilterMode {
   if (value !== undefined && value !== null) {
     const shown = typeof value === 'string' ? `"${value}"` : typeof value;
     const key = typeof value === 'string' ? value : `non-string ${shown}`;
-    warnOnce(warnedUnrecognisedFilterModes, [key], () =>
-      `[record:activity] ignoring an unrecognised \`filterMode\` (${shown}) and opening `
+    warnOnce(warnedUnrecognisedFilterModes, block, [key], () =>
+      `[${block}] ignoring an unrecognised \`filterMode\` (${shown}) and opening `
         + 'on "all" instead — the WIDEST mode, which shows EVERY activity rather than the '
         + 'slice that was asked for. No declared filter mode matches it. The fallback is '
         + 'kept rather than passing the value through because a dropdown handed a value '
@@ -430,17 +455,17 @@ export function normalizeFilterMode(value: unknown): FeedFilterMode {
  * mistake however many times React re-runs the filter, and the unrecognised
  * channel must not silence this one (see {@link warnOnce}).
  */
-function warnUnproducedFeedTypes(kinds: readonly FeedItemType[]): void {
+function warnUnproducedFeedTypes(kinds: readonly FeedItemType[], block: string): void {
   const unproduced = kinds.filter((k) => !PRODUCED_FEED_TYPES.has(k));
   if (unproduced.length === 0) return;
 
-  warnOnce(warnedUnproducedFeedTypes, unproduced, (fresh) => {
+  warnOnce(warnedUnproducedFeedTypes, block, unproduced, (fresh) => {
     const quoted = (list: readonly string[]) => list.map((t) => `"${t}"`).join(', ');
     const unadopted = fresh.filter((t) => DELIBERATELY_UNADOPTED_FEED_TYPES.includes(t as FeedItemType));
     const noProducer = fresh.filter((t) => !DELIBERATELY_UNADOPTED_FEED_TYPES.includes(t as FeedItemType));
 
     let message =
-      `[record:activity] \`types\` names ${fresh.length} declared feed item `
+      `[${block}] \`types\` names ${fresh.length} declared feed item `
       + `type${fresh.length === 1 ? '' : 's'} that NO ObjectUI producer emits, so `
       + `${fresh.length === 1 ? 'it selects' : 'they select'} nothing: `
       + `${quoted(fresh)}. The entr${fresh.length === 1 ? 'y is' : 'ies are'} honoured as `
@@ -515,8 +540,11 @@ function warnUnproducedFeedTypes(kinds: readonly FeedItemType[]): void {
  *  - a RECOGNISED entry that no producer emits logs once as well, on its own
  *    channel — see {@link warnUnproducedFeedTypes}. That one changes nothing
  *    about the return value: the kind is declared, so it is kept and honoured.
+ *
+ * Both channels name, and dedupe per, the REQUIRED `block` the list was
+ * authored on — see {@link normalizeFilterMode} for why it has no default.
  */
-export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
+export function normalizeFeedTypes(value: unknown, block: string): FeedItemType[] | undefined {
   // The only shape that means "no filter": the author never wrote the key.
   if (value === undefined || value === null) return undefined;
 
@@ -525,8 +553,8 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
   // that cannot be read is not a request to REMOVE the filter.
   if (!Array.isArray(value)) {
     const shown = typeof value === 'string' ? `"${value}"` : typeof value;
-    warnOnce(warnedUnrecognisedFeedTypes, [`non-array ${shown}`], () =>
-      `[record:activity] ignoring an authored \`types\` that is not an array (${shown}). `
+    warnOnce(warnedUnrecognisedFeedTypes, block, [`non-array ${shown}`], () =>
+      `[${block}] ignoring an authored \`types\` that is not an array (${shown}). `
         + '`types` must be a LIST of feed item types. The timeline renders empty rather '
         + 'than falling back to every kind, because a filter that cannot be read is not a '
         + 'request to remove the filter. Declared feed item types: '
@@ -545,8 +573,8 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
   }
 
   if (unrecognised.length > 0) {
-    warnOnce(warnedUnrecognisedFeedTypes, unrecognised, (fresh) =>
-      `[record:activity] ignoring ${fresh.length} unrecognised \`types\` `
+    warnOnce(warnedUnrecognisedFeedTypes, block, unrecognised, (fresh) =>
+      `[${block}] ignoring ${fresh.length} unrecognised \`types\` `
         + `entr${fresh.length === 1 ? 'y' : 'ies'}: ${fresh.map((t) => `"${t}"`).join(', ')}. `
         + 'No declared feed item type matches, so they select nothing; only the recognised '
         + 'entries narrow the timeline, and a list with NO recognised entry renders an '
@@ -556,41 +584,51 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
 
   // Second channel, over the entries that WERE recognised: a declared kind that
   // no producer emits is honoured exactly, and says so (objectui#5877).
-  warnUnproducedFeedTypes(kept);
+  warnUnproducedFeedTypes(kept, block);
 
   return kept;
 }
 
 /**
- * The ONE resolver for this block's row cap (objectui#10096).
+ * What the contract admits as this block's row cap: a positive integer NUMBER.
  *
- * `@objectstack/spec` declares the member a POSITIVE INTEGER
- * (`RecordActivityProps.limit`: `z.number().int().positive().default(20)`,
- * described there as "Number of items to load per page"), so a fractional cap
- * is not a spelling this renderer may interpret — it is a value the contract
- * REFUSES. A refused value is therefore dropped for this block's own default.
+ * `@objectstack/spec` declares the member `z.number().int().positive()`
+ * (`RecordActivityProps.limit`, `.default(20)`, described there as "Number of
+ * items to load per page"). `z.number()` refuses every non-number outright, so
+ * a numeric STRING (`'5'`, `' 5 '`, `'0x10'`), a boolean and an array are values
+ * the contract REFUSES, not spellings this renderer may read (objectui#10145,
+ * ruled STOP). ⛔ No `Number(value)` in front of this check: that coercion
+ * admitted `'5'` -> 5, `true` -> 1, `[7]` -> 7 and `'0x10'` -> 16, a second
+ * accepted set wider than the declaration (AGENTS.md #0.1).
  *
- * ⛔ Not `Math.floor`, which is what this replaces: flooring REPAIRED an
+ * The predicate lives ONCE, here; the resolver and the diagnostic both read it,
+ * so a value refused by one cannot be admitted by the other.
+ */
+function isUsableActivityLimit(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The ONE resolver for this block's row cap (objectui#10096, objectui#10145).
+ *
+ * A refused value is dropped for this block's own default.
+ *
+ * ⛔ Not `Math.floor`, which objectui#10096 replaced: flooring REPAIRED an
  * authored `2.5` into a two-row window and handed it back as a result, so the
- * author got a silently different number than the one they wrote and no
- * channel named it. Refusing and defaulting is the answer the sibling
- * `record:history` gives through `normalizeHistoryLimit` (objectui#10093), and
- * the answer objectui#9925 landed at three further read points.
+ * author got a silently different number than the one they wrote. Refusing and
+ * defaulting is the answer the sibling `record:history` gives through
+ * `normalizeHistoryLimit`, and the answer objectui#9925 landed at three further
+ * read points (all three test `typeof value === 'number'` first, as this does).
  *
- * `Number.isInteger` replaces `Number.isFinite` and nothing else: `NaN` and
- * both infinities were already refused by the old arm and are refused by this
- * one too. What the swap removes is the fractional ADMISSION.
+ * `NaN` and both infinities are refused (not integers); `0` and negatives are
+ * refused (not positive); `undefined` is the unauthored case and resolves to
+ * the default without being a refusal.
  *
- * ⚠️ FAIL-SOFT and SILENT, both on purpose. Fail-soft because throwing would
- * take out a record page over one declaration. Silent because the sibling this
- * block is matched to refuses silently too — the three objectui#9925 read points
- * warn instead, so the family holds two answers on loudness and that question
- * is ruled on its own card (objectui#10097), not decided here by accident. The
- * silence is pinned.
- *
- * Coercion is kept exactly where the sibling keeps it: a numeric STRING still
- * resolves (`normalizeLimit('5')` is pinned to `5`). What narrows is the
- * admitted value SET, not how a node's value is read.
+ * ⚠️ FAIL-SOFT on purpose: throwing would take out a record page over one
+ * declaration. It is NOT silent — the renderers that call this state every
+ * refusal through `describeRefusedFeedLimit` (objectui#10097 ruled "always
+ * warn" for the family; objectui#10145 extends the refused set to non-numbers).
+ * This function stays pure so it can run on every render.
  *
  * ⭐ Shared with `record:chatter` / `record:discussion`, which resolve
  * `feed.limit` through this same function — `RecordChatterProps.feed` is
@@ -598,8 +636,44 @@ export function normalizeFeedTypes(value: unknown): FeedItemType[] | undefined {
  * refusal.
  */
 export function normalizeLimit(value: unknown): number {
-  const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : DEFAULT_ACTIVITY_LIMIT;
+  return isUsableActivityLimit(value) ? value : DEFAULT_ACTIVITY_LIMIT;
+}
+
+/**
+ * Render an authored value so its TYPE survives into the message: `'5'` and
+ * `5` must not print identically, since the difference is the whole refusal.
+ */
+function formatAuthoredLimit(value: unknown): string {
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') return JSON.stringify(value);
+  try {
+    const json = JSON.stringify(value);
+    if (json !== undefined) return json;
+  } catch {
+    // fall through to String()
+  }
+  return String(value);
+}
+
+/**
+ * The diagnostic half of the row-cap refusal for the blocks that resolve
+ * through `normalizeLimit` (`record:activity`, `record:chatter`,
+ * `record:discussion`). `null` means "nothing to say": an absent `limit`
+ * (`undefined` / `null`) is not a mistake, and a usable one is not either.
+ *
+ * Callers fire it from an effect keyed on the declaration — the channel
+ * objectui#9925 uses at its three read points — never from render.
+ */
+export function describeRefusedFeedLimit(block: string, authored: unknown): string | null {
+  if (authored === undefined || authored === null) return null;
+  if (isUsableActivityLimit(authored)) return null;
+  return (
+    `[ObjectUI] ${block} row cap: declared limit: ${formatAuthoredLimit(authored)} `
+    + `(${Array.isArray(authored) ? 'array' : typeof authored}), which is not a positive integer number. `
+    + 'The spec declares `limit` as z.number().int().positive() and refuses strings, '
+    + 'booleans, fractions, zero and negatives, so it was ignored and this block '
+    + `fell back to its default row cap (${DEFAULT_ACTIVITY_LIMIT}).`
+  );
 }
 
 /**
@@ -645,7 +719,10 @@ const warnedUnknownActivityTypes = new Set<string>();
  * becomes a mapping somebody made on purpose.
  */
 function warnUnknownActivityType(type: string): void {
-  warnOnce(warnedUnknownActivityTypes, [type], () =>
+  // Unscoped: `sys_activity.type` is a value in the DATA, not a member any
+  // block's author wrote, so one unknown type is one missing mapping wherever
+  // it renders.
+  warnOnce(warnedUnknownActivityTypes, '', [type], () =>
     `[record:activity] rendered a sys_activity row with type "${type}" through the `
       + `generic "${UNMAPPED_ACTIVITY_FEED_TYPE}" presentation: no feed item type is `
       + 'mapped for it. `sys_activity.type` is author-extensible (objectstack#11507, '
@@ -727,11 +804,16 @@ export interface AppliedFeed {
  * `pageSize` is the effective window (`limit` on first render, grown by
  * "Load more"); it is separate from `config.limit` so paging does not have to
  * rewrite the authored config.
+ *
+ * `block` is the registered name of the block whose config this is; the
+ * `types` diagnostics are addressed to it (objectui#9557, see
+ * {@link normalizeFilterMode}).
  */
 export function applyFeedConfig(
   items: readonly FeedItem[],
   config: FeedConfigFilters,
   pageSize: number,
+  block: string,
 ): AppliedFeed {
   let kept = items.slice();
 
@@ -761,7 +843,7 @@ export function applyFeedConfig(
   // — `types: []`, or a list whose every member is unrecognised. Both filter to
   // nothing, which is the NARROW answer. Reading either as "no filter" was the
   // defect: it widened a typo into "show the user every activity on the record".
-  const types = normalizeFeedTypes(config.types);
+  const types = normalizeFeedTypes(config.types, block);
   if (types !== undefined) {
     const allowed = new Set<string>(types);
     kept = kept.filter((i) => allowed.has(i.type));

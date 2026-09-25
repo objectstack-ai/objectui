@@ -585,6 +585,11 @@ export interface TableColumn {
   editable?: boolean;
   /**
    * Custom cell renderer function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * calls `col.cell(cellValue, row)` (as do `ObjectGrid` and `VirtualGrid`).
    */
   cell?: (value: any, row: any) => any;
   /**
@@ -1287,6 +1292,11 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Host-supplied cell editor for inline editing (objectui#6882).
    *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * reads `schema.renderCellEditor` and calls it; `ObjectGrid` supplies it.
+   *
    * When a cell enters edit mode the table calls this FIRST and renders what it
    * returns; returning `null` means "no widget for this column" and the table
    * falls through to its built-in text / number / date inputs. It exists so a
@@ -1380,9 +1390,11 @@ export interface DataTableSchema extends BaseSchema {
    * callable here because it is called by `renderers/complex/data-table.tsx`
    * (`schema.onRowClick(row, e)`, gated on `!e.defaultPrevented`). THREE
    * suppliers, measured: `ObjectGrid` passes `navigation.handleClick`,
-   * `ObjectDataTable` passes `schema.onRowClick ?? handleRowClick` (its own
-   * forwarding face, `ObjectDataTableSchema.onRowClick`, carries the same
-   * refusal arm), and `RelatedList` forwards its own React prop of this name.
+   * `ObjectDataTable` passes
+   * `schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * (its own forwarding face, `ObjectDataTableSchema.onRowClick`, carries the
+   * same refusal arm), and `RelatedList` forwards its own React prop of this
+   * name.
    *
    * TWO parameters since objectui#9462, and the second is the reason that card
    * exists: the renderer's two call sites — the row's own click handler and the

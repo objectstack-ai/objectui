@@ -147,6 +147,7 @@ const fr = {
       acknowledge: 'Je l\'ai enregistrée',
       copyAll: 'Tout copier',
     },
+    notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
   },
   validation: {
     required: "{{field}} est obligatoire",
@@ -165,6 +166,7 @@ const fr = {
   form: {
     noPermissionToSave: "Vous n'avez pas l'autorisation d'enregistrer cet enregistrement.",
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
+    uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
     discardTitle: "Abandonner les modifications ?",
     discardMessage: "Vous avez des modifications non enregistrées. Si vous fermez ce formulaire maintenant, vos modifications seront perdues.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -901,6 +903,7 @@ const fr = {
     tabActionsFor: "Actions de vue pour {{name}}",
     readonlyAriaLabel: "Vue en lecture seule",
     readonlyTooltip: "Vue système — définie dans le code, en lecture seule.",
+    malformedFilter: "Le filtre de cette vue est incorrect, aucun enregistrement n’est donc affiché : la condition {{subject}} ne peut pas être appliquée.",
   },
   designer: {
     undo: "Annuler",
@@ -1397,6 +1400,7 @@ const fr = {
     navTypeSeparator: "Séparateur",
     navTypeAction: "Action",
     navTypeComponent: "Composant",
+    navTypeDoc: "Document",
     navEditIcon: "Modifier l'icône",
     navToggleVisible: "Basculer la visibilité",
     navHidden: "Masqué",
@@ -2580,6 +2584,7 @@ const fr = {
     selectPlaceholder: "Sélectionner {{label}}",
     requiredError: "{{label}} est obligatoire",
     unresolvedParam: 'Ce paramètre ne peut pas être affiché : le champ dont il dépend est absent des métadonnées de l’objet, le contrôle nécessaire ne peut donc pas être construit. Demandez à un administrateur de corriger la définition de l’action.',
+    carryOverHint: 'Repris tel quel (lecture seule)',
     cancel: "Annuler",
     confirm: "Confirmer",
     uploading: "Téléversement…",
@@ -2911,6 +2916,31 @@ const fr = {
     createEnvironment: "Créer votre environnement",
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Posez une question sur vos données…",
+      ask: "Demander",
+      results: "Résultats",
+      match: "Correspondance : {{percent}}",
+      simulatedSummary: "Résultats pour : {{query}}",
+      noResults: "Aucun enregistrement correspondant",
+      recentQueries: "Requêtes récentes",
+    },
+    formAssist: {
+      title: "Suggestions de l’IA",
+      suggestionCount: "{{count}} suggestions",
+      suggestionCountOne: "{{count}} suggestion",
+      applyAll: "Tout appliquer",
+      confidence: "Confiance : {{percent}}",
+      appliedCount: "{{count}} suggestions appliquées",
+      appliedCountOne: "{{count}} suggestion appliquée",
+    },
+    recommendations: {
+      title: "Recommandations",
+      generating: "Génération des recommandations…",
+      empty: "Aucune recommandation disponible",
+    },
   },
   aiApprovals: {
     title: "Approbations IA",

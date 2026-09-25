@@ -8,9 +8,26 @@
 
 import type { ReportComponentSchema, ReportExportConfig, ReportExportFormat, ReportField } from '@object-ui/types';
 
+import { DISPLAY_LOCALE_LAST_RESORT } from './displayLocale';
+
 /**
  * Report Export Engine
  * Handles exporting report data to various formats using browser-native APIs.
+ *
+ * ## The export's display locale (objectui#9909)
+ *
+ * The HTML and PDF exports stamp a "Generated:" time into a file the reader
+ * downloads and keeps. That time used to be `new Date().toLocaleString()` —
+ * no tag, i.e. the MACHINE's locale, which is neither of the repo's two
+ * locale channels. The functions below take the tag as a trailing, OPTIONAL
+ * `locale` parameter — the same additive shape `formatValue` took in
+ * objectui#10020, and for the same reason: they are published exports, so a
+ * required parameter would break every existing caller. Omitted, it falls back
+ * to {@link DISPLAY_LOCALE_LAST_RESORT}, the display channel's own last resort
+ * — never to a dropped tag. In React the caller passes `useDisplayLocale()`;
+ * `ReportViewer` does. ⚠️ A display locale is a property of the SESSION, not
+ * of the authored report, so it is deliberately NOT a `ReportExportConfig`
+ * member: that type is authored metadata (`exportConfigs` on the schema).
  */
 
 /**
@@ -54,7 +71,12 @@ export function exportAsJSON(report: ReportComponentSchema, data: any[], config?
 /**
  * Export report as HTML (printable format)
  */
-export function exportAsHTML(report: ReportComponentSchema, data: any[], config?: ReportExportConfig): void {
+export function exportAsHTML(
+  report: ReportComponentSchema,
+  data: any[],
+  config?: ReportExportConfig,
+  locale: string = DISPLAY_LOCALE_LAST_RESORT,
+): void {
   const fields = report.fields || [];
   const orientation = validateOrientation(config?.orientation);
   const pageSize = validatePageSize(config?.pageSize);
@@ -79,7 +101,7 @@ export function exportAsHTML(report: ReportComponentSchema, data: any[], config?
 <body>
 <h1>${escapeHTML(report.title || 'Report')}</h1>
 ${report.description ? `<p class="description">${escapeHTML(report.description)}</p>` : ''}
-<p class="meta">Generated: ${new Date().toLocaleString()}</p>
+<p class="meta">Generated: ${new Date().toLocaleString(locale)}</p>
 <table>
 <thead><tr>${fields.map((f: ReportField) => `<th>${escapeHTML(f.label || f.name)}</th>`).join('')}</tr></thead>
 <tbody>${data.map((row: Record<string, any>) => `<tr>${fields.map((f: ReportField) => `<td>${escapeHTML(String(row[f.name] ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -93,7 +115,12 @@ ${report.description ? `<p class="description">${escapeHTML(report.description)}
 /**
  * Export report as PDF using browser print
  */
-export function exportAsPDF(report: ReportComponentSchema, data: any[], config?: ReportExportConfig): void {
+export function exportAsPDF(
+  report: ReportComponentSchema,
+  data: any[],
+  config?: ReportExportConfig,
+  locale: string = DISPLAY_LOCALE_LAST_RESORT,
+): void {
   const fields = report.fields || [];
   const orientation = validateOrientation(config?.orientation);
   const pageSize = validatePageSize(config?.pageSize);
@@ -106,7 +133,7 @@ export function exportAsPDF(report: ReportComponentSchema, data: any[], config?:
       format: 'html',
       filename: config?.filename?.replace(/\.pdf$/, '.html') || `${report.title || 'report'}.html`,
     };
-    exportAsHTML(report, data, fallbackConfig);
+    exportAsHTML(report, data, fallbackConfig, locale);
     return;
   }
   
@@ -131,7 +158,7 @@ export function exportAsPDF(report: ReportComponentSchema, data: any[], config?:
 <body>
 <h1>${escapeHTML(report.title || 'Report')}</h1>
 ${report.description ? `<p class="description">${escapeHTML(report.description)}</p>` : ''}
-<p class="meta">Generated: ${new Date().toLocaleString()}</p>
+<p class="meta">Generated: ${new Date().toLocaleString(locale)}</p>
 <table>
 <thead><tr>${fields.map((f: ReportField) => `<th>${escapeHTML(f.label || f.name)}</th>`).join('')}</tr></thead>
 <tbody>${data.map((row: Record<string, any>) => `<tr>${fields.map((f: ReportField) => `<td>${escapeHTML(String(row[f.name] ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -176,7 +203,8 @@ export function exportReport(
   format: ReportExportFormat, 
   report: ReportComponentSchema, 
   data: any[], 
-  config?: ReportExportConfig
+  config?: ReportExportConfig,
+  locale: string = DISPLAY_LOCALE_LAST_RESORT,
 ): void {
   switch (format) {
     case 'csv':
@@ -186,10 +214,10 @@ export function exportReport(
       exportAsJSON(report, data, config);
       break;
     case 'html':
-      exportAsHTML(report, data, config);
+      exportAsHTML(report, data, config, locale);
       break;
     case 'pdf':
-      exportAsPDF(report, data, config);
+      exportAsPDF(report, data, config, locale);
       break;
     case 'excel':
       exportAsExcel(report, data, config);

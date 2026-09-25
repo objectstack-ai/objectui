@@ -43,13 +43,28 @@
  *     dedupe exists for, and it still goes.
  *
  * The last two are the lit controls: a rule that suppressed the dedupe on the
- * mere PRESENCE of a resolving `titleFormat` prints "Contract No: HT-2026-003"
- * directly under an H1 reading `HT-2026-003`, which is the exact duplication
+ * mere PRESENCE of a resolving `titleFormat` prints "Name: Acme Holdings"
+ * directly under an H1 reading `Acme Holdings`, which is the exact duplication
  * Phase P.0 of the ladder exists to remove.
  *
  * ⛔ Out of scope by the same ruling: `page:header`'s own `schema.title`, which
- * this package cannot see, and the ORDER in which `PageHeaderRenderer` ranks
- * `titleFormat` against the ADR-0079 pointer (its own card).
+ * this package cannot see.
+ *
+ * ## The ORDER, ruled later (objectui#9436, C1)
+ *
+ * The ADR-0079 declared pointer (`nameField`, then its `displayNameField`
+ * alias) OUTRANKS the template in the header, as it does in
+ * `getRecordDisplayName`. So the ladder reads the pointer FIRST: when it holds
+ * a value, that field IS the H1 and its row goes, and the template is never
+ * consulted. The three template outcomes above therefore only arise on a
+ * record where the pointer is absent or blank, and their cases below run on
+ * {@link templateOnlySchema}, which declares none.
+ *
+ * Two cases here pinned the OLD order, where the template outranked the
+ * pointer on an object declaring both. They are rewritten to the protocol
+ * order, not deleted: "HALF 1" and "hides the row the DECLARED POINTER
+ * names". The header and this dedupe are also pinned RENDERED TOGETHER in
+ * `record-details.headerDedupeAgreement-9436.test.tsx`.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -74,6 +89,14 @@ const contractSchema = {
     amount: { type: 'number', label: 'Amount' },
   },
 };
+
+/**
+ * The same object with NO declared pointer (objectui#9436). This is where the
+ * template IS the H1, so the ruled option-B outcomes are measured here. The
+ * type-aware derivation still names `name` (a name-ish exact key), which makes
+ * `resolveNameField` answer `name`, the row the pre-#8351 walk used to hide.
+ */
+const { nameField: _declaredPointer, ...templateOnlySchema } = contractSchema;
 
 const CONTRACT_FIELDS = ['contract_no', 'name', 'amount'];
 
@@ -115,17 +138,19 @@ describe('record:details dedupe — an interpolated `titleFormat` hides no row (
    * the second, so an ablation of the read site reddens one half and says
    * nothing at all about the other.
    */
-  it('HALF 1 — KEEPS the declared `nameField` row (the H1 is not its value)', () => {
+  it('HALF 1 — DROPS the declared `nameField` row: the H1 is its value, not the template (#9436)', () => {
+    // Rewritten, not deleted. Under the OLD order this case asserted that the
+    // row was KEPT, because the H1 read `HT-2026-001 - Acme Corporation`.
+    // Under the protocol order (objectui#9436) the declared pointer outranks
+    // the template, so the H1 reads `HT-2026-001`, and the `contract_no` row
+    // IS the duplicate the dedupe exists to remove.
     renderBody(
       { id: 'C1', contract_no: 'HT-2026-001', name: 'Acme Corporation', amount: 42 },
       contractSchema,
       CONTRACT_FIELDS,
     );
 
-    // The H1 for this record reads `HT-2026-001 - Acme Corporation`. It is not
-    // `contract_no`'s value, so `contract_no` duplicates no heading — and the
-    // ladder used to hide it anyway, because `resolveNameField` names it.
-    expect(screen.getByText('HT-2026-001')).toBeInTheDocument();
+    expect(screen.queryByText('HT-2026-001')).toBeNull();
 
     // CONTROL — the grid rendered at all. Without it a build that rendered
     // nothing would satisfy nothing here, and `queryByText === null` cases
@@ -134,47 +159,78 @@ describe('record:details dedupe — an interpolated `titleFormat` hides no row (
     expect(screen.getByText('Amount')).toBeInTheDocument();
   });
 
-  it('HALF 2 — KEEPS the ordinary `name` row too (the template names no ONE field)', () => {
+  it('HALF 2 — KEEPS the ordinary `name` row (the H1 is the declared pointer, not `name`)', () => {
     renderBody(
       { id: 'C1', contract_no: 'HT-2026-001', name: 'Acme Corporation', amount: 42 },
       contractSchema,
       CONTRACT_FIELDS,
     );
 
+    // The template's `{name}` placeholder does not make `name` the heading.
+    // The H1 is `contract_no`'s value, so `name` duplicates nothing.
     expect(screen.getByText('Acme Corporation')).toBeInTheDocument();
 
     // CONTROL — the grid rendered at all.
     expect(screen.getByText('42')).toBeInTheDocument();
   });
 
-  it('LIT CONTROL A — a `titleFormat` that resolves to NOTHING leaves the ladder alone', () => {
-    // No placeholder resolves on this record, so `formatTitleTemplate` returns
-    // '' and the header has already walked PAST the template rung onto the
-    // declared pointer. The H1 reads `HT-2026-002`, and that row must still go.
+  it('HALF 1b — with NO declared pointer, a composite template KEEPS the derived `name` row', () => {
+    // The ruled option-B case, on an object where the template really is the
+    // H1 (objectui#9436 moved it below a declared pointer). The H1 reads
+    // `HT-2026-011 - Acme Corporation`, which is no field's value, so no row
+    // duplicates it. The walk would hide `name`, the row `resolveNameField`
+    // derives, and the H1 never showed it.
     renderBody(
-      { id: 'C2', contract_no: 'HT-2026-002', name: 'internal-name', amount: 7 },
-      { ...contractSchema, titleFormat: '{ref_a} - {ref_b}' },
+      { id: 'C11', contract_no: 'HT-2026-011', name: 'Acme Corporation', amount: 12 },
+      templateOnlySchema,
       CONTRACT_FIELDS,
     );
 
-    expect(screen.queryByText('HT-2026-002')).toBeNull();
-    expect(screen.getByText('internal-name')).toBeInTheDocument();
+    expect(screen.getByText('Acme Corporation')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument(); // CONTROL: grid rendered
+  });
+
+  it('HALF 2b — with NO declared pointer, a composite template KEEPS the `contract_no` row too', () => {
+    renderBody(
+      { id: 'C11', contract_no: 'HT-2026-011', name: 'Acme Corporation', amount: 12 },
+      templateOnlySchema,
+      CONTRACT_FIELDS,
+    );
+
+    expect(screen.getByText('HT-2026-011')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument(); // CONTROL: grid rendered
+  });
+
+  it('LIT CONTROL A — a `titleFormat` that resolves to NOTHING leaves the ladder alone', () => {
+    // No pointer is declared and no placeholder resolves on this record, so
+    // `formatTitleTemplate` returns '' and the header walks past the template
+    // rung to the unified resolver, which derives `name`. The H1 reads
+    // `internal-name`, and that row must still go.
+    renderBody(
+      { id: 'C2', contract_no: 'HT-2026-002', name: 'internal-name', amount: 7 },
+      { ...templateOnlySchema, titleFormat: '{ref_a} - {ref_b}' },
+      CONTRACT_FIELDS,
+    );
+
+    expect(screen.queryByText('internal-name')).toBeNull();
+    expect(screen.getByText('HT-2026-002')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument(); // CONTROL: grid rendered
   });
 
   it('LIT CONTROL B — a template that COLLAPSES onto one field still hides that row', () => {
-    // `name` is blank, so `formatTitleTemplate` drops that placeholder and the
-    // orphan separator with it: the H1 reads exactly `HT-2026-003`. That IS
-    // `contract_no`'s value, so the row is a real duplicate and still goes.
-    // This is the case a presence-only rule gets wrong — it would print
-    // "Contract No: HT-2026-003" directly under an identical H1.
+    // No pointer is declared and `contract_no` is blank, so
+    // `formatTitleTemplate` drops that placeholder and the orphan separator
+    // with it. The H1 reads exactly `Acme Holdings`. That IS `name`'s value,
+    // so the row is a real duplicate and still goes. This is the case a
+    // presence-only rule gets wrong: it would print "Name: Acme Holdings"
+    // directly under an identical H1.
     renderBody(
-      { id: 'C3', contract_no: 'HT-2026-003', name: '', amount: 9 },
-      contractSchema,
+      { id: 'C3', contract_no: '', name: 'Acme Holdings', amount: 9 },
+      templateOnlySchema,
       CONTRACT_FIELDS,
     );
 
-    expect(screen.queryByText('HT-2026-003')).toBeNull();
+    expect(screen.queryByText('Acme Holdings')).toBeNull();
     expect(screen.getByText('9')).toBeInTheDocument(); // CONTROL: grid rendered
   });
 
@@ -200,22 +256,49 @@ describe('record:details dedupe — an interpolated `titleFormat` hides no row (
     expect(screen.getByText('5')).toBeInTheDocument(); // CONTROL: grid rendered
   });
 
-  it('hides the row the TEMPLATE names, not the one the declared pointer names', () => {
-    // `titleFormat` is `{name}` while `nameField` points at `contract_no`. The
-    // H1 reads `Acme Corporation`. The ladder's first candidate WITH A VALUE
-    // is `contract_no` — so a walk that stops at the first resolving candidate
-    // hides `HT-2026-005`, a row the H1 never showed, and leaves the real
-    // duplicate printed underneath. Both halves wrong at once, the objectui#8175
-    // shape one rung further along.
+  it('hides the row the DECLARED POINTER names, not the one the template names (#9436)', () => {
+    // Rewritten, not deleted. Under the OLD order this case hid `name`,
+    // because the template `{name}` was the H1. Under the protocol order
+    // (objectui#9436) `nameField: 'contract_no'` outranks the template, so
+    // the H1 reads `HT-2026-005`. A ladder still checking the template first
+    // hides `Acme Corporation`, a row the H1 never showed, and leaves the real
+    // duplicate printed underneath. Both halves are wrong at once, the
+    // objectui#8175 shape again.
     renderBody(
       { id: 'C5', contract_no: 'HT-2026-005', name: 'Acme Corporation', amount: 3 },
       { ...contractSchema, titleFormat: '{name}' },
       CONTRACT_FIELDS,
     );
 
-    expect(screen.queryByText('Acme Corporation')).toBeNull();
-    expect(screen.getByText('HT-2026-005')).toBeInTheDocument();
+    expect(screen.queryByText('HT-2026-005')).toBeNull();
+    expect(screen.getByText('Acme Corporation')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument(); // CONTROL: grid rendered
+  });
+
+  it('hides the row the TEMPLATE names when no pointer is declared: a scan, not a peek', () => {
+    // No pointer is declared, so the template `{subject}` IS the H1 and reads
+    // `Renewal`. The ladder's first candidate WITH A VALUE is `name` (the
+    // derived title field), so a walk that stops at the first resolving
+    // candidate hides `Acme Corporation`, a row the H1 never showed, and
+    // leaves the real duplicate. The match has to scan every candidate.
+    renderBody(
+      { id: 'C7', name: 'Acme Corporation', subject: 'Renewal', amount: 4 },
+      {
+        name: 'deal',
+        label: 'Deal',
+        titleFormat: '{subject}',
+        fields: {
+          name: { type: 'text', label: 'Name' },
+          subject: { type: 'text', label: 'Subject' },
+          amount: { type: 'number', label: 'Amount' },
+        },
+      },
+      ['name', 'subject', 'amount'],
+    );
+
+    expect(screen.queryByText('Renewal')).toBeNull();
+    expect(screen.getByText('Acme Corporation')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument(); // CONTROL: grid rendered
   });
 
   it('CONTROL — an object with NO `titleFormat` dedupes exactly as before', () => {

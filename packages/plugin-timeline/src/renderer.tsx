@@ -292,7 +292,9 @@ type GanttRowsVerdict =
  * ## The three refusals, in walk order
  *
  *   1. `items` is not an array         -> path `items`
- *   2. a row is `null` (or `undefined`) -> path `items[i]`
+ *   2. a row is not an object           -> path `items[i]`
+ *      (`null`, `undefined`, a number, a string, a boolean, an array, or
+ *      any other non-object — objectui#7364 widened this line from `null`)
  *   3. `row.items` is a TRUTHY non-array -> path `items[i].items`
  *
  * Each names the authored location and the value — spelled by
@@ -308,15 +310,31 @@ type GanttRowsVerdict =
  * REFUSE, not skip: drawing the well-formed rows and dropping the malformed
  * one silently is the consumer-side tolerance objectui#6750 and objectui#6759
  * both refused, and the ruling declined it (option B). Nor is the set widened
- * past the three lines above. The shapes NEXT to them keep drawing, as
- * measured before the change and pinned as CONTROLS: `items: []`, a row with
- * no `items` key, a row whose `items` is `null` (both the empty row), and a
- * row that is a non-null primitive or an array (`[0]`, `[[]]`), which has no
- * `.items` and draws as an unlabelled empty row. The zod mirror
- * (`@object-ui/types`, `TimelineSchema.items`) refuses those last two at
- * AUTHORING time — an element must be an object — so the door a document
- * meets first is the stricter one; the renderer is only ever more lenient than
- * `validate`, never the reverse, and never crashes on what `validate` admits.
+ * past the three lines above. The shapes NEXT to them keep drawing, pinned as
+ * CONTROLS: `items: []`, a row with no `items` key, and a row whose `items`
+ * is `null` (all the empty row). The renderer is only ever as lenient as
+ * `validate` or more, never the reverse, and never crashes on what `validate`
+ * admits.
+ *
+ * ## A row that is not an object (objectui#7364, ruling 5809218505, A)
+ *
+ * objectui#7164's ruling kept `items: [0]` and `items: [[]]` DRAWING, as
+ * CONTROLS: a non-null primitive or an array has no `.items` and no `.label`,
+ * so it drew an EMPTY, UNLABELLED row and nothing told the author. The zod
+ * mirror (`@object-ui/types`, `TimelineSchema.items`) already refused both at
+ * AUTHORING time, so the declared and the rendered accept sets disagreed in
+ * that corner. The objectui#7364 ruling (letter A, maintainer 2026-09-24)
+ * DELIBERATELY SUPERSEDES that clause: line 2 now refuses every row that is
+ * not an object, through the SAME `malformedRow` key — the existing copy
+ * already reads `items[0] is 0, which is not a row shape` — so no key and no
+ * pack string was added.
+ *
+ * "Not an object" is `typeof row !== 'object' || row === null ||
+ * Array.isArray(row)`. That is the set JSON can spell and the mirror refuses
+ * (`z.object` refuses `null`, numbers, strings, booleans and arrays). No
+ * prototype test is made: a `Date`, a class instance or a `Proxy` row cannot
+ * be written in JSON, a prototype read would be one more non-total site for a
+ * revoked proxy, and the live-`Proxy` row control must keep drawing.
  *
  * ## What this does to the exotic exclusion (objectui#7153, pin 5)
  *
@@ -326,13 +344,17 @@ type GanttRowsVerdict =
  * trap writes them. `Array.isArray` is a NEW non-total site for a revoked
  * `Proxy` (it throws `Cannot perform 'IsArray' …`, the same class
  * `spellGanttDateValue` already declares), so a revoked proxy handed as `items`
- * or as a row's `items` now dies here rather than at U1 / U4. Both moves are
- * stated and exercised in `timeline-gantt-date-brand-7027.test.tsx`, and the
- * reachability argument is unchanged: JSON cannot spell a proxy.
+ * or as a row's `items` now dies here rather than at U1 / U4 — and, since
+ * objectui#7364 asks `Array.isArray(row)` before U3 reads `row.items`, a
+ * revoked proxy handed as a ROW dies at `IsArray` too rather than at U3. All
+ * three moves are stated and exercised in
+ * `timeline-gantt-date-brand-7027.test.tsx`, and the reachability argument is
+ * unchanged: JSON cannot spell a proxy.
  *
  * Pinned by `./__tests__/timeline-gantt-malformed-row-7164.test.tsx`, which
  * re-runs the card's THREW table (now REFUSED, each naming its path) with the
- * five drawing controls unchanged.
+ * drawing controls unchanged, and — objectui#7364 — the non-object rows that
+ * table used to keep as controls, now REFUSED.
  */
 function classifyGanttRows(items: unknown): GanttRowsVerdict {
   if (!Array.isArray(items)) return { ok: false, path: 'items', value: items };
@@ -340,7 +362,10 @@ function classifyGanttRows(items: unknown): GanttRowsVerdict {
   const rows: GanttRow[] = [];
   for (let rowIndex = 0; rowIndex < items.length; rowIndex++) {
     const row = items[rowIndex];
-    if (row == null) return { ok: false, path: `items[${rowIndex}]`, value: row };
+    // objectui#7364 — any non-object row, not only `null` (see above).
+    if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+      return { ok: false, path: `items[${rowIndex}]`, value: row };
+    }
 
     const rowItems = row.items;
     if (rowItems && !Array.isArray(rowItems)) {
@@ -1003,7 +1028,7 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *
  * 2. `calculateDateRange`'s THREE — ordinary JSON, and a live defect until
  *    objectui#7164 REPAIRED it: `classifyGanttRows` now refuses `items` that is
- *    not an array, a `null` row and a truthy non-array `row.items` through
+ *    not an array, a non-object row and a truthy non-array `row.items` through
  *    `timeline.gantt.unusableRange.malformedRow`, and every reader below it
  *    consumes that verdict. They were never this class and never p3, and the
  *    repair does not change that: the sentence "JSON cannot spell this" is
@@ -1375,10 +1400,11 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     if (variant === 'gantt') {
       /**
        * objectui#7164 — the rows are judged as ROWS, once, before anything
-       * reads them. `items` not an array, a `null` row, or a row whose `items`
-       * is a truthy non-array refuses the chart through its own key, naming the
-       * authored path and the value; see `classifyGanttRows` for the table,
-       * the accept set and why a guard in one reader only relocated the crash.
+       * reads them. `items` not an array, a non-object row (objectui#7364), or
+       * a row whose `items` is a truthy non-array refuses the chart through its
+       * own key, naming the authored path and the value; see
+       * `classifyGanttRows` for the table, the accept set and why a guard in
+       * one reader only relocated the crash.
        * The refusal surface is the one #6759 established below (same element,
        * same channel) — one `role="alert"` for every way a gantt cannot draw.
        */

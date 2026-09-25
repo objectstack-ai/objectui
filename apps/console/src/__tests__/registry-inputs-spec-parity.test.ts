@@ -244,7 +244,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  PageComponentSchema,
+  PageComponentType,
+  RETIRED_PAGE_COMPONENT_TYPES,
+} from '@objectstack/spec/ui';
 import { MANIFEST_INPUT_TYPES, inputTypeArms } from '@object-ui/sdui-parser';
 import type { ComponentInput } from '@object-ui/types';
 import {
@@ -617,6 +622,33 @@ const EXPECTED_WITHOUT_INPUTS = [
 ];
 
 /**
+ * Has `@objectstack/spec` RETIRED this block, keeping its `ComponentPropsMap`
+ * row only as a refusal door? (objectui#10033)
+ *
+ * Read from the spec, never listed here. The spec retires a page component type
+ * in one of two spellings, and both drop the value from `PageComponentType`:
+ *
+ *   - REFUSED BY NAME — the type is a key of `RETIRED_PAGE_COMPONENT_TYPES`
+ *     (`page.zod.ts`), and its row is `retiredComponentProps(type)`: a `never`
+ *     that refuses every props bag, `{}` included. It lists no key at all, so
+ *     the tombstone reading below cannot see it; the table is the signal.
+ *   - ELEMENT GRAIN — no table names the type; the retirement IS the row, kept
+ *     with every key it lists a `retiredKey()` tombstone. It lists keys and
+ *     accepts none of them.
+ *
+ * Absence from `PageComponentType` is required and is not enough on its own:
+ * the enum is the page-authoring vocabulary, and live blocks sit outside it
+ * too — every `object-*` block, and empty-shaped ones such as
+ * `cloud-connection:panel`. A row that merely accepts no key is the EMPTY SPEC
+ * SHAPE class below, not a retirement.
+ */
+function isRetiredUpstream(type: string): boolean {
+  if ((PageComponentType.options as readonly string[]).includes(type)) return false;
+  if (RETIRED_PAGE_COMPONENT_TYPES.has(type)) return true;
+  return specTombstonedKeys(type).length > 0 && specTopLevelKeys(type).length === 0;
+}
+
+/**
  * The third and last place a `ComponentPropsMap` entry may land: blocks this
  * gate CANNOT judge, each with the reason it cannot (objectui#8176).
  *
@@ -632,11 +664,17 @@ const EXPECTED_WITHOUT_INPUTS = [
  * a block can no longer leave the judged population without a line here saying
  * so and a diff someone reviews.
  *
- * ## Two classes, each mechanically checked so an entry cannot rot
+ * ## Three classes, each mechanically checked so an entry cannot rot
  *
  * `every unjudged-block ledger entry still describes a block this gate cannot
  * judge` asserts the reason, not just the name:
  *
+ *   - RETIRED UPSTREAM — the spec retired the type and keeps its row only as a
+ *     refusal door, so the row accepts no authoring key and neither direction
+ *     has a question to ask. Asserted as `isRetiredUpstream(type)`, which reads
+ *     the retirement from the spec rather than from a list here, plus
+ *     `specTopLevelKeys(type).length === 0` — so the day upstream restores the
+ *     type, or gives its row a key, this entry goes red.
  *   - EMPTY SPEC SHAPE — `ComponentPropsMap[type]` accepts no top-level key at
  *     all, so neither direction has a question to ask. Whether this repo happens
  *     to register the block is irrelevant to that, which is why it is the
@@ -651,6 +689,27 @@ const EXPECTED_WITHOUT_INPUTS = [
  *     assertion cannot be satisfied by the very stub-blindness objectui#8176 is
  *     about), so registering one of them forces this entry out.
  *
+ * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
+ * from outliving a retirement (objectui#10033): an entry under either of the
+ * other two reasons FAILS when the spec retires its type. Before that check, a
+ * retirement changed what an entry was about and nothing told the entry — two
+ * rows the spec retired in the same release sat here under two unrelated
+ * reasons, neither of which mentioned the retirement, and one of which cited a
+ * palette exclusion that release's reconciliation had deleted.
+ *
+ * ## Why a retired block stays in this population
+ *
+ * The population is `Object.keys(ComponentPropsMap)`, and the spec KEEPS a
+ * retired type's row on purpose: the row is one of the retirement's refusal
+ * doors, and it is what lets every reader that dispatches on the map still
+ * recognise the name. Dropping retired rows from the population here would
+ * reopen the absence this ledger exists to close — a registration of a retired
+ * type in this repo would leave `covered` along with the row, and go unjudged.
+ * Kept in, such a registration is judged (every input it publishes is
+ * off-spec) and is accounted for twice, which the partition refuses. A ledger
+ * entry for a type the map no longer carries at all is the opposite case, and
+ * already fails twice over: in the partition's converse and in the rot check.
+ *
  * `aria` is not a member of the empty-shape reasoning: it is a key on non-empty
  * shapes and has its own uniform cover in `GLOBALLY_UNPUBLISHED_SPEC_KEYS`.
  */
@@ -662,9 +721,9 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'cloud-connection:panel':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all, so neither direction has a question to ask. It IS registered — `app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx` registers it propless — but by `@object-ui/app-shell`, which this file does not import; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#7122, ledger objectui#8176.',
   'element:filter':
-    'EMPTY SPEC SHAPE. The pin declares no top-level key for it, and no package in this repo registers the tag. Nothing to judge on either count. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.1.0 retired it at element grain (objectstack#9220, ADR-0049): out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone, so it accepts no authoring key and neither direction has a question to ask. objectui#10033, ledger objectui#8176.',
   'element:form':
-    'NOT REGISTERED, DELIBERATELY. `app-shell/src/views/metadata-admin/previews/block-types.ts` records the reason verbatim: no renderer, use the object-bound `object-form` block, which IS registered and IS judged here. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it at element grain (objectstack#9249, ADR-0049), the `element:filter` shape one element over: out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone whose prescription names the live replacement — the object-bound `object-form` block, which IS registered and IS judged here. objectui#10033, ledger objectui#8176.',
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
@@ -672,7 +731,7 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'user:profile':
-    'EMPTY SPEC SHAPE. Declared by the spec with no top-level key; in this repo it exists only as a `PROTOCOL_COMPONENTS` placeholder name, which is a scaffold rather than a renderer and publishes no authoring surface. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
 
 /*
@@ -2424,7 +2483,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.columns': {
     file: 'packages/plugin-kanban/src/__tests__/objectKanbanColumnMembers-8071.test.tsx',
-    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is read TWICE with two unrelated meanings — as the lane\'s accessible name, and as a BUCKETING ALIAS (`labelToColumnId[String(col.title).toLowerCase()] = col.id`), so a record whose stored group value is the lane\'s TITLE lands in that lane as surely as one carrying its id: nothing on the authoring surface says so, and renaming a lane therefore MOVES RECORDS. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
+    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is the lane\'s accessible name and ⛔ NOT a bucketing key: it used to be a second, undeclared BUCKETING ALIAS, so renaming a lane moved records; objectui#10069 (ruling A) retired it and FLIPPED that row, so a record whose stored group value is the lane\'s TITLE is now swept into the trailing lane with a console warn. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -2436,7 +2495,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.dataSource': {
     file: 'packages/plugin-kanban/src/ObjectKanban.elementDataSource.test.tsx',
-    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` is the loud one: the spec declares it, this block IGNORES it, and the row asserts no `$orderby` and no `sort` reaches the query with a mapped `limit` moving in the SAME binding as the lit control — without it a later contributor "completing the mapping" would wire it onto a key nothing reads. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
+    pins: 'The five members of the spec\'s `ElementDataSourceSchema` binding (`{ object, view, filter, sort, limit }`) as THIS block reads them, which is one line of this package — `OBJECT_KANBAN_DATA_SOURCE = { filter: true, sort: true, limit: \'limit\' }`, consumed by `ElementDataSourceGate`. Each member is stated with its disposition, and the five are not alike: `object` is mapped and OUTRANKS an `objectName` the board authored itself (`next[objectKey] = composed.object`, unconditional — the `??=` spelling would leave a rebound board querying the old object with the same lanes and no diagnostic); `view` supplies the baseline the others are contested against, and an unresolvable one REPORTS instead of widening the query to every record; `filter` is ADDITIONAL and AND-combines with the board\'s OWN `filter` as well as the view\'s, with the measured nesting pinned (`[\'and\', <rule list>, <rule list>]`, each source keeping its own list) and a lone source passing through verbatim; `limit` is mapped onto the block\'s `limit` with binding > block > view, asserted as a PAIR so neither branch reads as a renderer that simply takes the last writer. ⭐ `sort` was the loud one — declared by the spec, silently IGNORED by this block — until objectui#10068 flipped the row: a binding `sort` now reaches the query as `$orderby` (`convertSortToQueryParams`, the `field -> direction` map every sibling block sends) with a mapped `limit` moving in the SAME binding as the lit control, a named view\'s `sort` reaches it too and the binding\'s own `sort` beats the view\'s, cards inside a lane keep the sorted fetch order rather than being re-sorted, and an absent `sort` sends no `$orderby` as the control. `columns` is deliberately NOT mapped and the pre-existing rows say why: a board\'s `columns` are its SWIMLANES, so a view\'s field list written there would render one empty lane per field name. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block, so the declaration says `type: \'object\'` and nothing about members at all — the read site is the whole member contract. Pre-existing file (objectstack#6953 + objectui#4025), promoted after being read end to end and GROWN by the five disposition rows (objectui#8071 slice 16).',
   },
   'object-kanban.filter': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.filterMembersReachTheWire-8176.test.tsx',
@@ -3707,6 +3766,27 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         Object.keys(ComponentPropsMap),
         `${type} is ledgered but the spec no longer carries it — delete the entry`,
       ).toContain(type);
+      if (reason.startsWith('RETIRED UPSTREAM')) {
+        // Both halves, so neither can rot alone: the spec still retires the
+        // type, and its kept row still accepts nothing.
+        expect(
+          isRetiredUpstream(type),
+          `${type} is ledgered as retired upstream, and the spec does not retire it — ` +
+            'give the entry its real reason, or judge the block',
+        ).toBe(true);
+        expect(
+          specTopLevelKeys(type),
+          `${type} is ledgered as retired upstream, and its row accepts keys — judge it`,
+        ).toEqual([]);
+        continue;
+      }
+      // objectui#10033: the other two reasons may not describe a retired type,
+      // or a retirement leaves a reason in place that no longer says why.
+      expect(
+        isRetiredUpstream(type),
+        `${type} is retired upstream, and its ledger reason does not say so — ` +
+          'rewrite the entry as RETIRED UPSTREAM',
+      ).toBe(false);
       if (reason.startsWith('EMPTY SPEC SHAPE')) {
         expect(
           specTopLevelKeys(type),

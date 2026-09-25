@@ -22,7 +22,7 @@
 
 import type { DashboardComponentSchema, DashboardWidgetSchema, I18nLabel, PageVariable } from '@object-ui/types';
 import { liftLegacyGlobalFilterDefault } from '@object-ui/types';
-import { DATE_RANGE_PRESETS, type DateRangePreset } from '@objectstack/spec/ui';
+import { DATE_RANGE_PRESETS, DashboardSchema as SpecDashboardSchema, type DateRangePreset } from '@objectstack/spec/ui';
 import { resolveDateMacros } from './date-macros.js';
 
 /** Reserved filter name for the dashboard's built-in date range. */
@@ -30,6 +30,34 @@ export const DATE_RANGE_FILTER_NAME = 'dateRange';
 
 /** Default target field for the built-in date range filter. */
 const DATE_RANGE_DEFAULT_FIELD = 'created_at';
+
+/**
+ * The preset an authored `dateRange` resolves to when it omits `defaultRange`
+ * (objectui#10339) — READ FROM THE SPEC, never restated here.
+ *
+ * `@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` with a
+ * `.default(...)`, so the platform's parse of `dateRange: { field: 'created_at' }`
+ * carries that preset, and a renderer that treated the omission as "no filter"
+ * showed an UNFILTERED dashboard for a document the protocol says is filtered
+ * (#7759 ruling 5617465269, rule 1: the read site implements every arm the spec
+ * declares). The value is derived by parsing an EMPTY `dateRange` element
+ * through the spec's own schema: the only keys that come back are the ones the
+ * spec supplies by default, so this reads the spec's answer rather than a
+ * hand-copied string that could drift from it. `allowCustomRange` is the
+ * sibling default and needs no such read — it is consumed as `!== false`,
+ * which already is its spec default.
+ *
+ * Computed on first use and cached: `DashboardSchema` is a lazy schema, and
+ * forcing its construction at module load would cost every importer of
+ * `@object-ui/core` for a value only a dashboard with a bare `dateRange` needs.
+ */
+let specDateRangeDefault: string | undefined;
+function specDefaultDateRangePreset(): string | undefined {
+  if (specDateRangeDefault === undefined) {
+    specDateRangeDefault = SpecDashboardSchema.shape.dateRange.parse({})?.defaultRange;
+  }
+  return specDateRangeDefault;
+}
 
 export interface DashboardFilterDef {
   /** Stable name — the variable key and the key widgets bind against. */
@@ -489,7 +517,11 @@ export function resolveDashboardFilterDefs(
   const byName = new Map<string, DashboardFilterDef>();
 
   if (schema.dateRange) {
-    const preset = schema.dateRange.defaultRange;
+    // An omitted `defaultRange` takes the spec's declared default (#10339); an
+    // explicit value — `'custom'` included — is used exactly as authored.
+    const preset = schema.dateRange.defaultRange === undefined
+      ? specDefaultDateRangePreset()
+      : schema.dateRange.defaultRange;
     byName.set(DATE_RANGE_FILTER_NAME, {
       name: DATE_RANGE_FILTER_NAME,
       field: schema.dateRange.field || DATE_RANGE_DEFAULT_FIELD,

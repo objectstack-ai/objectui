@@ -81,7 +81,7 @@ function renderRightContent(rightContent: unknown) {
   const C = ComponentRegistry.get('header-bar') as React.ComponentType<any>;
   const { container } = render(
     <SidebarProvider>
-      <C schema={{ type: 'header-bar', title: 'H', rightContent }} />
+      <C schema={{ type: 'header-bar', rightContent }} />
     </SidebarProvider>,
   );
   const header = container.querySelector('header');
@@ -94,7 +94,7 @@ function renderBaseline() {
   const C = ComponentRegistry.get('header-bar') as React.ComponentType<any>;
   const { container } = render(
     <SidebarProvider>
-      <C schema={{ type: 'header-bar', title: 'H' }} />
+      <C schema={{ type: 'header-bar' }} />
     </SidebarProvider>,
   );
   const header = container.querySelector('header');
@@ -128,7 +128,7 @@ describe('ui:header-bar rightContent numeric-falsy leak (objectui#9033)', () => 
       // slot stopped admitting numbers and the rows below stopped being about
       // anything — ⛔ that is a declaration change, not a licence to delete them
       // (objectui#7105: node slots relax the RENDERER).
-      const parsed = HeaderBarSchemaZod.safeParse({ type: 'header-bar', title: 'H', rightContent: 0 });
+      const parsed = HeaderBarSchemaZod.safeParse({ type: 'header-bar', rightContent: 0 });
       expect(parsed.success).toBe(true);
     });
   });

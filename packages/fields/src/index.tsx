@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -30,7 +30,7 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // deliberately NOT re-exported from the `export *` block at the end of this
 // file, so this package's published surface is unchanged. Pure, no React, so
 // it pulls no widget out of its lazy chunk (objectui#4037).
-import { renderablePercentScale } from './widgets/percent-scale.js';
+import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`.
@@ -763,7 +763,13 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // year finally shows `2026` instead of `2,026`. An ABSENT scale keeps
   // grouping: absent means "decimals unknown", not "integer". The policy and
   // its interim status live in `formatDisplayNumber`, not here.
-  const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
+  //
+  // A declared width above the engine's fraction ceiling is clamped and
+  // reported, never carried into `Intl` (objectui#10071 — the objectui#9808
+  // ruling; see `./widgets/percent-scale.js`).
+  const scale = typeof numField.scale === 'number'
+    ? renderableFractionScale(numField.scale, 'number field', 'objectui#10071')
+    : undefined;
   const num = Number(safe);
   const formatted = !isNaN(num)
     ? formatDisplayNumber(num, {
@@ -839,7 +845,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
   // straight to the user. `NumberCellRenderer` can afford max 20 because it
-  // does no arithmetic on the value. The grid footer's currency arm spells the
+  // does no arithmetic on the value. The grid footer's percent arm spells the
   // same absence the same way (`?? 0`), so the cell and the footer agree.
   const scale = percentField.scale ?? 0;
   const numValue = Number(safe);
@@ -1116,12 +1122,24 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // occurrences of `isoString` are its assignment and its one use. A
   // PARSEABLE value keeps its `title` unchanged.
   //
-  // `new Date(safe)` reproduces `formatDate`'s own parse exactly (it receives
+  // `toDisplayDate(safe)` IS `formatDate`'s own parse step (it receives
   // `safe`, and `coerceToSafeValue` never returns a `Date`), so this branch
-  // is co-extensive with the dash it replaces — never wider. In particular a
-  // numeric timestamp stays a number through the coercion and still renders.
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // is co-extensive with the dash it replaces — never wider, never narrower.
+  // In particular a numeric timestamp stays a number through the coercion and
+  // still renders. The guard read `new Date(safe)` until objectui#10026, when
+  // that step began refusing a date-only value naming a day its month does
+  // not have (`2026-02-30`). The engine's parse accepts one, so the old guard
+  // let it through to `formatDate`'s bare dash — objectui#8581's defect back,
+  // on the refusal's own input.
+  //
+  // ⚠️ The `title` keeps the engine's `new Date(safe)`: for a date-only value
+  // the parse step answers LOCAL midnight, whose `toISOString()` names the
+  // previous day east of UTC (its own doc says so). So `displayDate` answers
+  // validity and the overdue day — the day the text went through
+  // (objectui#10183) — and `date` answers the `title` only.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   const dateField = field as any;
   const style = dateField.format || 'relative';
@@ -1131,7 +1149,7 @@ export function DateCellRenderer({ value, field }: CellRendererProps): React.Rea
   // instead of carrying a second copy (objectui#8958).
   const dueLike = resolveDueLike(field);
   const formatted = formatDate(safe as string | Date, style, { dueLike, locale, t });
-  const isOverdue = isOverdueInstant(date, dueLike);
+  const isOverdue = isOverdueInstant(displayDate, dueLike);
 
   return (
     <span
@@ -1160,8 +1178,14 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // `coerceToSafeValue([])` reaches as `''`.
   if (!value) return <EmptyValue />;
   const safe = coerceToSafeValue(value);
-  const date = safe != null ? new Date(safe as string | number) : null;
-  if (date === null || isNaN(date.getTime())) return <EmptyValue />;
+  // The validity guard reads the shared parse step, spelled EXACTLY as
+  // `DateCellRenderer`'s one function up, so the two siblings refuse the same
+  // inputs — a date-only nonexistent day included (objectui#10026). The
+  // formatters below still take the engine's `new Date(safe)`: this cell
+  // renders an INSTANT, and that is unchanged.
+  const displayDate = safe != null ? toDisplayDate(safe as string | number) : null;
+  if (displayDate === null || isNaN(displayDate.getTime())) return <EmptyValue />;
+  const date = new Date(safe as string | number);
 
   // `field.format` is read as a display style here for the same reason
   // `DateCellRenderer` reads it one function up: `datetime` had no style
@@ -4184,6 +4208,23 @@ export {
   toDateTimeInputValue,
   fromDateTimeInputValue,
 } from './widgets/nativeDateValue.js';
+
+// The AGGREGATED half of the upload-in-flight signal (objectui#10166).
+// `onUploadingChange` answers "is THIS widget uploading" to a host that renders
+// the control itself; a record form hands a `fields` array to the `form` node
+// renderer and never touches a widget, so it has no place to attach that
+// callback. `useUploadingScope` + `UploadingScopeProvider` let such a host ask
+// "is ANYTHING below me uploading" and gate its own Save on the answer.
+// Exported because the hosts that need it live in other packages
+// (`@object-ui/plugin-form`), and because a second, host-local implementation
+// of the same aggregation would drift from the one `useUploadingSignal` feeds.
+export { useUploadingScope, UploadingScopeProvider } from './widgets/uploadingScope.js';
+// The producer side of that same signal, exported for the same reason
+// `toDomProps`/`toHostProps` are: a widget authored outside this repo publishes
+// its in-flight state through this ONE hook, and a second implementation of
+// "tell my host I am uploading" would reach only half the sinks.
+export { useUploadingSignal } from './widgets/useUploadingSignal.js';
+export type { UploadingScope } from './widgets/uploadingScope.js';
 
 // Initialize registry
 registerAllFields();

@@ -183,7 +183,7 @@ unknown-component placeholder.
 | `columns` | `number` | grid width (1–4) |
 | `validationMode` | `'onSubmit' \| 'onBlur' \| 'onChange' \| 'onTouched' \| 'all'` | when the rules run |
 | `resetOnSubmit` / `disabled` | `boolean` | |
-| `mode` | `'edit' \| 'read' \| 'disabled'` | whole-form mode |
+| `mode` | — | **retired** (objectui#10286): nothing read it, and validation now refuses it. Use `disabled` for a read-only basic form, or `object-form` for create / edit / view |
 | `objectName` | `string` | enables metadata field locators `data-testid="field:{objectName}.{field}"` (ADR-0054 C4) |
 | `previousValues` | `Record<string, any>` | edit-mode hosts only — the persisted record, as evaluation context for `previous` / `readonlyWhen`. Never sent anywhere |
 | `fieldContainerClass` | `string` | class for the field grid inside the `<form>` |
@@ -221,7 +221,7 @@ only **required** one:
 | `hidden` | `boolean` | field is not rendered at all |
 | `options` | `SelectOption[] \| RadioOption[]` | for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
-| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in, custom }` matcher |
+| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
 | `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server uses. Fail open |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate (spec `FormField.visibleOn`) |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
@@ -914,8 +914,8 @@ export const App = () => (
 
 The object comes from `objectName`; there is no `resource` key. For `mode: 'edit'`
 or `'view'`, add the `recordId` of the record being opened. Note that this
-`mode` vocabulary is `'create' | 'edit' | 'view'` — the basic form's `mode` is a
-different key with a different vocabulary (`'edit' | 'read' | 'disabled'`, see
+`mode` vocabulary is `'create' | 'edit' | 'view'` and it lives on `object-form`
+only — the basic `form` node has no `mode` (retired by objectui#10286, see
 [Schema API](#schema-api)).
 
 ### The TypeScript route — basic `form`

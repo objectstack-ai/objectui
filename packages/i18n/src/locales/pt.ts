@@ -146,6 +146,7 @@ const pt = {
       acknowledge: 'Eu o salvei',
       copyAll: 'Copiar tudo',
     },
+    notAvailableHere: '"{{action}}" não está disponível na página atual.',
   },
   validation: {
     required: "{{field}} é obrigatório",
@@ -164,6 +165,7 @@ const pt = {
   form: {
     noPermissionToSave: "Você não tem permissão para salvar este registro.",
     submitFailed: "Não foi possível salvar. Tente novamente.",
+    uploadInFlight: "Aguarde a conclusão do upload antes de salvar.",
     discardTitle: "Descartar as alterações?",
     discardMessage: "Você tem alterações não salvas. Se fechar este formulário agora, suas edições serão perdidas.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -900,6 +902,7 @@ const pt = {
     tabActionsFor: "Ações de exibição para {{name}}",
     readonlyAriaLabel: "Exibição somente leitura",
     readonlyTooltip: "Exibição do sistema — definida no código, somente leitura.",
+    malformedFilter: "O filtro desta exibição é inválido, por isso nenhum registro é exibido: a condição {{subject}} não pode ser aplicada.",
   },
   designer: {
     undo: "Desfazer",
@@ -1394,6 +1397,7 @@ const pt = {
     navTypeSeparator: "Separador",
     navTypeAction: "Ação",
     navTypeComponent: "Componente",
+    navTypeDoc: "Documento",
     navEditIcon: "Editar ícone",
     navToggleVisible: "Alternar visibilidade",
     navHidden: "Oculto",
@@ -2577,6 +2581,7 @@ const pt = {
     selectPlaceholder: "Selecionar {{label}}",
     requiredError: "{{label}} é obrigatório",
     unresolvedParam: 'Não é possível exibir este parâmetro: o campo em que ele se baseia não está nos metadados do objeto, portanto o controle necessário não pode ser construído. Peça a um administrador para corrigir a definição da ação.',
+    carryOverHint: 'Mantido sem alterações (somente leitura)',
     cancel: "Cancelar",
     confirm: "Confirmar",
     uploading: "Enviando…",
@@ -2908,6 +2913,31 @@ const pt = {
     createEnvironment: "Crie seu ambiente",
     openProduction: "Abrir produção",
     manageEnvironments: "Gerenciar ambientes",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Faça uma pergunta sobre seus dados…",
+      ask: "Perguntar",
+      results: "Resultados",
+      match: "Correspondência: {{percent}}",
+      simulatedSummary: "Resultados para: {{query}}",
+      noResults: "Nenhum registro correspondente encontrado",
+      recentQueries: "Consultas recentes",
+    },
+    formAssist: {
+      title: "Sugestões de IA",
+      suggestionCount: "{{count}} sugestões",
+      suggestionCountOne: "{{count}} sugestão",
+      applyAll: "Aplicar tudo",
+      confidence: "Confiança: {{percent}}",
+      appliedCount: "{{count}} sugestões aplicadas",
+      appliedCountOne: "{{count}} sugestão aplicada",
+    },
+    recommendations: {
+      title: "Recomendações",
+      generating: "Gerando recomendações…",
+      empty: "Nenhuma recomendação disponível",
+    },
   },
   aiApprovals: {
     title: "Aprovações de IA",

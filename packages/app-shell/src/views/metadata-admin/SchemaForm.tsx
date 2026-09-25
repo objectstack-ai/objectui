@@ -68,6 +68,7 @@ import {
   type WidgetRenderer,
 } from './widgets.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage, translateEnumOption, translateSchemaFieldLabel, translateSchemaFieldHelp } from './i18n.js';
+import { untranslatedFieldLabel } from './field-source-label.js';
 
 /**
  * The form authoring surface — `FormFieldSpec` and the `VisibilityPredicate`
@@ -1338,6 +1339,15 @@ function SectionedSchemaForm({
                 </div>
               );
             }
+            // The row schema's `title` takes the form label's UNTRANSLATED
+            // source, never a locale overlay's translation (objectui#8231):
+            // the translation reaches every reader through `fieldSpec.label`,
+            // which each of them prefers over `title`, while `FieldRow`'s
+            // machine-name chip falls back to `title` as the source label when
+            // the form authored none — so copying a translation here would
+            // hand the chip the very string it must not judge. With no
+            // overlay involved the source IS `f.label`: nothing changes.
+            const sourceTitle = untranslatedFieldLabel(f);
             return (
               <div
                 key={f.field}
@@ -1348,7 +1358,7 @@ function SectionedSchemaForm({
                   idPath={idPath}
                   schema={{
                     ...propSchema,
-                    ...(f.label ? { title: f.label } : {}),
+                    ...(sourceTitle ? { title: sourceTitle } : {}),
                     ...(f.helpText ? { description: f.helpText } : {}),
                     ...(f.placeholder ? { placeholder: f.placeholder } : {}),
                   }}
@@ -1614,7 +1624,21 @@ function FieldRow({
   // Only show the machine name when it materially differs from the
   // prettified label (e.g. `is_active` → "Is Active" matches, hide it;
   // `rls` → "Rls" doesn't, show it). Cuts ~50% of the visual noise.
-  const labelMatchesName = prettify(name).toLowerCase() === label.toLowerCase();
+  //
+  // Judged against the UNTRANSLATED source label — the label this row would
+  // show in English — never against `label` above (objectui#8231). The visible
+  // label is a translation in a localized panel, and `prettify('columns')` can
+  // never equal 「列数」, so the old comparison showed the chip beside every
+  // field in Chinese and hid it beside the same fields in English. The source
+  // label is the one a locale overlay replaced (`untranslatedFieldLabel`, in
+  // `./field-source-label.ts`), else the schema's own title, else the
+  // prettified name — the same chain as `label`, minus every translation
+  // step, so the chip answers alike in every locale.
+  const sourceLabel =
+    untranslatedFieldLabel(fieldSpec) ||
+    (schema?.title as string | undefined) ||
+    prettify(name);
+  const labelMatchesName = prettify(name).toLowerCase() === sourceLabel.toLowerCase();
 
   // Booleans render inline (label · description · switch) on one row to
   // save vertical space and feel like a real settings panel.

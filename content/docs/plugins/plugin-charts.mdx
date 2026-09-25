@@ -250,7 +250,7 @@ import type { ChartSchema } from '@object-ui/types'
 
 const schema: ChartSchema = {
   type: 'chart',
-  chartType: 'bar',
+  chartType: 'line',
   data: [
     { month: 'Jan', revenue: 4000, margin: 0.21 },
     { month: 'Feb', revenue: 3000, margin: 0.18 }
@@ -258,12 +258,12 @@ const schema: ChartSchema = {
   xAxis: { field: 'month', title: 'Month' },
   yAxis: [
     { field: 'revenue', title: 'Revenue', format: '$0,0', min: 0 },
-    // the second entry is the right-hand axis the `margin` line binds to
+    // the second entry is the right-hand axis the `margin` series binds to
     { field: 'margin', title: { en: 'Margin', fr: 'Marge' }, format: '0.0%' }
   ],
   series: [
     { name: 'revenue' },
-    { name: 'margin', type: 'line', yAxis: 'right' }
+    { name: 'margin', yAxis: 'right' }
   ]
 }
 ```

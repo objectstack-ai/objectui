@@ -241,8 +241,6 @@ const schema: ChartSchema = {
 | `position` | `'left' \| 'right' \| 'top' \| 'bottom'` | The side of the chart the axis belongs to. |
 | `logarithmic` | `boolean` | Logarithmic scale on a numeric axis. |
 
-⚠️ On `xAxis`, `min`, `max`, `stepSize` and `logarithmic` currently take effect only when the same object also carries `title`, `format` or `showGridLines`.
-
 A bare string is not an axis object. `xAxis: 'month'` is the sibling spelling of `xAxisKey` and folds onto it at parse; a single object or a bare string on `yAxis` is refused — write a one-entry list.
 
 ```tsx

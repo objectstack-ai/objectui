@@ -504,6 +504,14 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.view.object': 'Object',
   'engine.inspector.view.objectPlaceholder': 'e.g. crm_lead',
   'engine.inspector.view.noSchema': 'Spec schema unavailable — basic properties only.',
+  // objectui#6900 — an object-required field inside a predicate-gated form
+  // section (ruling 5749269225): name both facts, then the three remedies.
+  'engine.inspector.view.gatedRequired.title': 'Save is blocked: a required field sits in a conditional section.',
+  'engine.inspector.view.gatedRequired.issue': 'Field "{fieldLabel}" ({field}) is required on object "{object}", but it sits in section "{section}", which is shown only when {predicate}. The server never evaluates that condition, so whenever the section is hidden the form cannot be completed — the record save is refused over a field the user cannot see.',
+  'engine.inspector.view.gatedRequired.remedies': 'Fix it one of three ways:',
+  'engine.inspector.view.gatedRequired.remedyMove': 'Move "{fieldLabel}" into a section that has no visibleWhen.',
+  'engine.inspector.view.gatedRequired.remedyDrop': 'Remove visibleWhen from section "{section}".',
+  'engine.inspector.view.gatedRequired.remedyUnrequire': 'Make "{fieldLabel}" not required on object "{object}".',
   // Conditional formatting editor (list/grid views)
   'engine.inspector.view.cf.title': 'Conditional formatting',
   'engine.inspector.view.cf.add': 'Add rule',
@@ -1286,6 +1294,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'perm.cel.type.unknownHint':
     'the engine cannot prove a single type. Wrap operands in double() / int() / string() to pin it — only proven-Number formulas are offered as dataset measures.',
   'perm.cel.saveBlocked': 'Fix the CEL syntax errors before saving.',
+  // The editor's inspector-blocked Save title (objectui#6900, ruling 5831744213):
+  // that channel carries more than CEL faults, so its copy names no one kind.
+  'perm.inspector.saveBlocked': 'Fix the issues shown in the inspector before saving.',
   'perm.cel.test.title': 'Test policy',
   'perm.cel.test.help':
     'Dry-run this predicate against a sample record and acting user — the same CEL engine the server uses — to see whether the row is allowed or denied before you save.',
@@ -2479,6 +2490,13 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.view.object': '对象',
   'engine.inspector.view.objectPlaceholder': '例如：crm_lead',
   'engine.inspector.view.noSchema': 'spec 模式不可用 —— 仅显示基础属性。',
+  // objectui#6900 — 见英文表同名条目。
+  'engine.inspector.view.gatedRequired.title': '保存已被拦截：必填字段位于条件区块中。',
+  'engine.inspector.view.gatedRequired.issue': '字段“{fieldLabel}”（{field}）在对象“{object}”上是必填的，但它位于区块“{section}”中，而该区块仅在 {predicate} 时显示。服务端从不计算这个条件，因此区块被隐藏时表单无法完成——保存记录会被拒绝，报错指向一个用户看不到的字段。',
+  'engine.inspector.view.gatedRequired.remedies': '可用以下三种方式之一修复：',
+  'engine.inspector.view.gatedRequired.remedyMove': '把“{fieldLabel}”移到没有 visibleWhen 的区块中。',
+  'engine.inspector.view.gatedRequired.remedyDrop': '去掉区块“{section}”上的 visibleWhen。',
+  'engine.inspector.view.gatedRequired.remedyUnrequire': '在对象“{object}”上把“{fieldLabel}”改为非必填。',
   // 条件格式化编辑器（列表/表格视图）
   'engine.inspector.view.cf.title': '条件格式化',
   'engine.inspector.view.cf.add': '添加规则',
@@ -3290,6 +3308,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'perm.cel.type.unknownHint':
     '引擎无法证明唯一类型。用 double() / int() / string() 包裹操作数以固定类型——只有可证明为数字的公式才能作为数据集度量。',
   'perm.cel.saveBlocked': '请先修复 CEL 语法错误再保存。',
+  // objectui#6900 — 见英文表同名条目。
+  'perm.inspector.saveBlocked': '请先修复检查器中列出的问题再保存。',
   'perm.cel.test.title': '测试策略',
   'perm.cel.test.help': '用示例记录与操作用户对该条件进行试运行(与服务端同一 CEL 引擎),在保存前查看该行是允许还是拒绝。',
   'perm.cel.test.run': '测试',

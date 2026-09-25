@@ -407,8 +407,7 @@ describe('LookupField — expansion changes the request count and nothing else (
           onOpenChange={() => {}}
           dataSource={backend.dataSource}
           objectName="task_version"
-          displayField="name"
-          titleFormat={TITLE_FORMAT}
+          objectSchema={{ name: 'task_version', fields: TASK_VERSION_FIELDS, titleFormat: TITLE_FORMAT }}
           columns={['name', 'code', 'task', 'version']}
           onSelect={() => {}}
           onSelectRecords={onSelectRecords}

@@ -774,7 +774,7 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `objectName` | `string` | **Required.** ObjectQL object API name. |
 | `columns` | `string[] \| ListColumn[]` | Columns to display. Either a plain array of field names (`["name", "email"]`), which auto-resolve from object metadata, or an array of `ListColumn` objects whose identity key is `field` (`{ "field": "status", "label": "Status" }`) — never `name`. **Do not mix the two forms in one array:** the array is dispatched on its first entry, so column objects sitting behind a bare string are dropped. |
 | `filter` | `any[]` | Pre-applied filter conditions. |
-| `sort` | `string \| SortConfig[]` | Default sort configuration. |
+| `sort` | `SortConfig[]` | Default sort configuration. The string clause (`"name desc"`) was retired in objectui#8221 and now fails validation. |
 | `searchableFields` | `string[]` | Fields included in search. |
 | `selection` | `SelectionConfig` | Row selection configuration. |
 | `pagination` | `PaginationConfig` | Pagination settings. |
@@ -907,7 +907,7 @@ A complete object management interface combining grid, form, search, filters, an
 }
 ```
 
-`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the host that renders the list resolves it to the signed-in user's id before the query runs, and resolving it on the `object-view` node path itself is tracked in objectui#10506.
+`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the `object-view` node resolves it to the signed-in user's id before the query runs (objectui#10506), through the same `resolveFilterPlaceholders` from `@object-ui/core` that the app-shell host, the charts and the dashboard widgets call, with the user taken from the nearest `FilterScopeProvider` (`@object-ui/react`; the console shell mounts one). With no provider mounted the token is left as written and the filter is never widened: the ObjectStack server resolves the literal token for a signed-in request and refuses the request otherwise (the REST face answers 401 at its auth gate before the filter is read, and where a guest context reaches the engine the resolver answers 400), and a backend with no resolver of its own matches no record.
 
 | Property | Type | Description |
 |----------|------|-------------|

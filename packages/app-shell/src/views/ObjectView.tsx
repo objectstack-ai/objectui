@@ -2608,7 +2608,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          * lint and to the tests — `viewDef` is `Record<string, any>`, so
          * nothing REQUIRES a key to be written. That silence shipped the same
          * defect three times (objectui#7199 `description`, objectui#7218
-         * `rowColor`, objectui#7516 `fieldOrder`), and objectui#7559 ended it:
+         * `rowColor`, objectui#7516 `fieldOrder` — all three carry their rung
+         * below now), and objectui#7559 ended it:
          * `ObjectView.relayRungCensus-7559.test.ts` re-derives the member set
          * from the zod mirror at test time and requires every member to have
          * either a rung here or a DECLARED absence with a reason.
@@ -2684,6 +2685,23 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 return resolved;
             })(),
             hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
+            /**
+             * The per-view ORDERING of the field composition
+             * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
+             * objectstack#15184 ruling B kept the key and wrote the
+             * composition into the contract: `columns` projects,
+             * `hiddenFields` (the rung above) subtracts, `fieldOrder` sorts
+             * what survives, an unlisted survivor sorting last. `ListView`'s
+             * `effectiveFields` memo runs those steps on `schema.fieldOrder`;
+             * this rung only delivers the view's value into that slot, the
+             * one the list-node spelling fills, so the two compose alike.
+             *
+             * View over list node — the precedence of the `hiddenFields` rung
+             * above; a view that authors no order keeps the list node's. It
+             * was the one per-view half of the composition with no rung:
+             * authored, served, then dropped here.
+             */
+            fieldOrder: viewDef.fieldOrder ?? listSchema.fieldOrder,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the

@@ -167,6 +167,7 @@ const ja = {
     noPermissionToSave: "このレコードを保存する権限がありません。",
     submitFailed: "保存できませんでした。もう一度お試しください。",
     uploadInFlight: "アップロードが完了してから保存してください。",
+    clearedOnHide: "現在の値に該当しなくなった項目をクリアしました: {{fields}}",
     discardTitle: "変更を破棄しますか？",
     discardMessage: "保存されていない変更があります。このままフォームを閉じると編集内容は失われます。",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
@@ -288,6 +289,10 @@ const ja = {
         "保存されていません: {{name}}「{{text}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
+    },
+    date: {
+      impossibleDay:
+        "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付を選択してください。",
     },
     dateTime: {
       impossibleDay:

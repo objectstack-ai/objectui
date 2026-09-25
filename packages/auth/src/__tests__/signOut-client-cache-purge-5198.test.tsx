@@ -4,7 +4,7 @@
  * ## The defect
  *
  * `sessionStorage` is per-TAB, not per-session, and no sign-out call site in
- * the console reloads the page (`AppSidebar`, `AppHeader`, `UserMenu` and
+ * the console reloads the page (`AppHeader`, `UserMenu` and
  * `RemediationOverlay` all just call `signOut()` and let the SPA keep running).
  * So everything `MetadataProvider` cached under `objectui:metadata:*` — the
  * app list the server PERMISSION-FILTERED for that session — plus the active

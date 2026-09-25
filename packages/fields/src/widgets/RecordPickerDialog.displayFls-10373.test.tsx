@@ -123,13 +123,12 @@ function Picker({
         onOpenChange={() => {}}
         dataSource={ds}
         objectName="account"
-        displayField="name"
         columns={columns}
         onSelect={onSelect}
         cellRenderer={getCellRenderer}
         fieldsMeta={ACCOUNT_FIELDS}
         renderGrid={renderGrid}
-        titleFormat={titleFormat}
+        objectSchema={titleFormat ? { name: 'account', fields: ACCOUNT_FIELDS, titleFormat } : undefined}
       />
     </SchemaRendererContext.Provider>
   );

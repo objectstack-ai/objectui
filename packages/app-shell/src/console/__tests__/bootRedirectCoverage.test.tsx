@@ -272,8 +272,8 @@ describe('boot-gate coverage — control arm (the probe can report "covered")', 
    * pinned here as a bare redirect. It carries the card's shape on a first
    * navigation, but unlike every gate above it is also reached from INSIDE a
    * painted console — `SettingsView.tsx` navigates to `/system/settings` from a
-   * button, and `AppSidebar.tsx` links to `/system` — and on those paths a
-   * splash would cover a layout that is already on screen. That is exactly the
+   * button — and on that path a splash would cover a layout that is already on
+   * screen. That is exactly the
    * regression the #6507 triage ruling bans, so this site keeps its bare
    * `<Navigate>` until someone can measure the two paths apart.
    */

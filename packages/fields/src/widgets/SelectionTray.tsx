@@ -30,6 +30,12 @@ export interface SelectionTrayProps {
   onRemove: (id: any) => void;
   displayField?: string;
   /**
+   * The fields each chip's name is read from, in order; defaults to the ladder
+   * of `displayField` (`getPersonNameFields`). PeoplePicker passes the fields
+   * of that ladder the loaded policy lets the viewer read (objectui#10535).
+   */
+  nameFields?: string[];
+  /**
    * Avatar image field (default `image`). `null` draws no image, only the
    * initials: what PeoplePicker passes when field-level security withholds the
    * field (objectui#10433).
@@ -51,6 +57,7 @@ export function SelectionTray({
   records,
   onRemove,
   displayField = 'name',
+  nameFields,
   avatarField = 'image',
   idField = 'id',
   label,
@@ -83,7 +90,7 @@ export function SelectionTray({
         <div className="flex flex-wrap gap-1.5">
           {records.map(record => {
             const id = getPersonId(record, idField);
-            const name = getPersonName(record, displayField);
+            const name = getPersonName(record, nameFields ?? displayField);
             const avatarUrl = getPersonAvatarUrl(record, avatarField);
             const initials = getPersonInitials(name);
             return (

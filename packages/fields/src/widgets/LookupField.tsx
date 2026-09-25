@@ -487,16 +487,6 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     return () => { alive = false; };
   }, [dataSource, referenceTo]);
 
-  // Feeds the browse-all picker (`RecordPickerDialog`) only. The option label
-  // does not read it: `recordToOption` hands the whole schema to the unified
-  // resolver, which renders `titleFormat` at its own ADR-0079 rung.
-  const refTitleFormat: string | null = useMemo(() => {
-    const raw = refObjectSchema?.titleFormat;
-    if (typeof raw === 'string') return raw;
-    if (raw && typeof raw === 'object' && typeof raw.source === 'string') return raw.source;
-    return null;
-  }, [refObjectSchema]);
-
   /**
    * Picker columns. Honour explicit `lookup_columns` when authored; otherwise
    * derive a multi-column, disambiguating set from the referenced object's
@@ -1733,8 +1723,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           dataSource={dataSource}
           objectName={referenceTo}
           columns={pickerColumns}
-          displayField={displayField}
-          titleFormat={refTitleFormat}
+          // The declared display field, never the `name` default, and the whole
+          // schema, never a template cut out of it: the picker's display column
+          // then makes `recordToOption`'s exact resolver call (objectui#10486).
+          displayField={declaredDisplayField}
+          objectSchema={refObjectSchema}
           idField={idField}
           pageSize={lookupPageSize}
           value={pickerValue}

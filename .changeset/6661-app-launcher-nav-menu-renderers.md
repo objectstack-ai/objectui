@@ -36,7 +36,7 @@ and neither issues a request or touches an adapter:
   from `resolveActiveNavItem`, and the item-level guards (`visible`,
   `requiredPermissions`, `requiresObject` / `requiresService`) in the order
   `NavigationItemRenderer` applies them, wired to the same console providers
-  `AppSidebar` wires them to. `action` items dispatch through
+  `UnifiedSidebar` wires them to. `action` items dispatch through
   `useNavActionDispatch`, so framework#4509's "renders but dead-clicks" shape is
   not reintroduced.
 

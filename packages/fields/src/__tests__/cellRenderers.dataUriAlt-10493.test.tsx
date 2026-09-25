@@ -55,11 +55,16 @@ const HTTPS_URL = 'https://cdn.example.com/a/photo.png';
 /** The three cell types that draw through the image renderer. */
 const IMAGE_CELLS = ['image', 'avatar', 'signature'] as const;
 
-type Pack = typeof en;
+/**
+ * The two members of a locale pack this file reads. The packs are `as const`,
+ * so their types are literal and differ per locale: a structural type both
+ * satisfy, rather than `typeof en`.
+ */
+type Pack = { fields: { image: { imageAlt: string; preview: string } } };
 
 const LOCALES: ReadonlyArray<readonly [language: string, pack: Pack]> = [
   ['en', en],
-  ['zh', zh as Pack],
+  ['zh', zh],
 ];
 
 /** The translated alt, read from the pack itself: `fields.image.imageAlt` with `{{index}}` filled. */
@@ -82,7 +87,7 @@ describe('objectui#10493 — a `data:` URI names no image, so the cell alt is th
   it('THE PREMISE — the two locale packs spell the alt differently', () => {
     // Every locale leg below is only as strong as this: two equal pack values
     // would let one literal satisfy both.
-    expect(packAlt(zh as Pack, 1), 'zh and en must differ, or the locale legs prove nothing').not.toBe(
+    expect(packAlt(zh, 1), 'zh and en must differ, or the locale legs prove nothing').not.toBe(
       packAlt(en, 1),
     );
   });
@@ -104,7 +109,7 @@ describe('objectui#10493 — a `data:` URI names no image, so the cell alt is th
       const { container } = renderCell(type, { url: DATA_URI }, 'zh');
       const [img] = imgsOf(container);
       expect(img?.getAttribute('alt'), `${type}: an object value's data URL names nothing either`).toBe(
-        packAlt(zh as Pack, 1),
+        packAlt(zh, 1),
       );
       expect(img?.getAttribute('src')).toBe(DATA_URI);
     });
@@ -127,14 +132,14 @@ describe('objectui#10493 — a `data:` URI names no image, so the cell alt is th
     const { container } = renderCell('image', 'file_a', 'zh');
     const [img] = imgsOf(container);
     expect(img?.getAttribute('src')).toBe('/api/v1/storage/files/file_a');
-    expect(img?.getAttribute('alt')).toBe(packAlt(zh as Pack, 1));
+    expect(img?.getAttribute('alt')).toBe(packAlt(zh, 1));
   });
 
   it('several data URIs are numbered by position through the same translated string', () => {
     const { container } = renderCell('image', [DATA_URI, DATA_URI], 'zh');
     expect(imgsOf(container).map((img) => img.getAttribute('alt'))).toEqual([
-      packAlt(zh as Pack, 1),
-      packAlt(zh as Pack, 2),
+      packAlt(zh, 1),
+      packAlt(zh, 2),
     ]);
   });
 
@@ -144,8 +149,8 @@ describe('objectui#10493 — a `data:` URI names no image, so the cell alt is th
     const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
     expect(dialog, 'clicking the thumbnail opens the lightbox').not.toBeNull();
     const [img] = imgsOf(dialog as HTMLElement);
-    expect(img?.getAttribute('alt')).toBe(packAlt(zh as Pack, 1));
+    expect(img?.getAttribute('alt')).toBe(packAlt(zh, 1));
     expect(dialog?.textContent ?? '', 'the dialog title names no payload').not.toContain('base64');
-    expect(dialog?.textContent ?? '').toContain((zh as Pack).fields.image.preview);
+    expect(dialog?.textContent ?? '').toContain(zh.fields.image.preview);
   });
 });

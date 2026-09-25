@@ -44,19 +44,19 @@ interface ObjectDecl {
   titleFormat?: string;
 }
 
-const CONTRACT_FIELDS: Record<string, any> = {
+const CONTRACT_FIELDS: Record<string, unknown> = {
   contract_no: { type: 'text', label: 'Contract No' },
   name: { type: 'text', label: 'Name' },
   party: { type: 'text', label: 'Party' },
   short_code: { type: 'text', label: 'Short Code' },
 };
 
-const ROWS: Record<string, any>[] = [
+const ROWS: Record<string, unknown>[] = [
   { id: 'c1', contract_no: 'HT-001', name: 'Acme', party: 'Globex', short_code: 'AC' },
   { id: 'c2', contract_no: 'HT-002', name: 'Initech', party: 'Umbrella', short_code: 'IN' },
 ];
 
-function makeBackend(decl: ObjectDecl, rows: Record<string, any>[] = ROWS) {
+function makeBackend(decl: ObjectDecl, rows: Record<string, unknown>[] = ROWS) {
   const find = vi.fn(async (objectName: string) =>
     objectName === 'contract' ? { data: rows.map((r) => ({ ...r })), total: rows.length } : { data: [], total: 0 },
   );

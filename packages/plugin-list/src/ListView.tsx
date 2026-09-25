@@ -1834,10 +1834,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         v.coverField, v.imageField,
         v.swimlaneField, v.valueField,
         // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+        // ⛔ No timeline chip-field list is collected: the spec declares none,
+        // and the timeline no longer reads one (objectui#10222).
         ...(Array.isArray(v.columns) ? v.columns : []),
         ...(Array.isArray(v.cardFields) ? v.cardFields : []),
         ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-        ...(Array.isArray(v.metaFields) ? v.metaFields : []),
       ];
       for (const f of candidates) {
         if (typeof f === 'string' && f) collected.add(f);
@@ -2206,10 +2207,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               v.coverField, v.imageField,
               v.swimlaneField, v.valueField,
               // Spec `columns` = the fields shown on each kanban card (legacy: cardFields).
+              // ⛔ No timeline chip-field list is collected: the spec declares
+              // none, and the timeline no longer reads one (objectui#10222).
               ...(Array.isArray(v.columns) ? v.columns : []),
               ...(Array.isArray(v.cardFields) ? v.cardFields : []),
               ...(Array.isArray(v.visibleFields) ? v.visibleFields : []),
-              ...(Array.isArray(v.metaFields) ? v.metaFields : []),
             ];
             for (const f of candidates) addSpeculative(f);
           };
@@ -2222,14 +2224,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           collectViewFields(schema.timeline);
           collectViewFields(schema.options?.timeline);
           // Timeline plugin shows status / priority chips inline. Auto-include
-          // them when no explicit metaFields was configured so views like
-          // `task_timeline` ({ columns: ['subject', 'status'] }) still get
-          // priority badges out of the box. Gated through addSpeculative: only
-          // added when the object actually has these fields (a `product` with
-          // no status/priority must not get them, or the list goes empty).
+          // them for every timeline view so views like `task_timeline`
+          // ({ columns: ['subject', 'status'] }) still get priority badges out
+          // of the box. Gated through addSpeculative: only added when the
+          // object actually has these fields (a `product` with no
+          // status/priority must not get them, or the list goes empty).
+          //
+          // Unconditional on purpose (objectui#10222, ruling batch #223 item
+          // 5b, letter A): this used to be skipped when the block carried an
+          // undeclared chip-field list, which the spec refuses and the
+          // timeline no longer reads. The chips are always the built-in pair
+          // now, so their values are always fetched.
           {
-            const tCfg: any = schema.timeline ?? schema.options?.timeline;
-            if (tCfg && !Array.isArray(tCfg.metaFields)) {
+            const tCfg = schema.timeline ?? schema.options?.timeline;
+            if (tCfg) {
               addSpeculative('status');
               addSpeculative('priority');
             }

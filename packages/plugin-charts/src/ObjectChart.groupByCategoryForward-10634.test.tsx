@@ -176,24 +176,23 @@ describe('a groupBy-only object-bound chart draws its categories (objectui#10634
   });
 
   it('the forwarded key survives the groupBy label rewrite: the ticks are the option labels', async () => {
-    const { drawn, dataSource } = await drawObjectChart(
+    const getObjectSchema = vi.fn(async () => ({
+      fields: {
+        stage: {
+          type: 'select',
+          options: [
+            { value: 'won', label: 'Closed won' },
+            { value: 'lost', label: 'Closed lost' },
+          ],
+        },
+      },
+    }));
+    const { drawn } = await drawObjectChart(
       { aggregate: { ...GROUP_BY_STAGE }, series: [{ dataKey: 'amount' }] },
       STAGE_ROWS,
-      {
-        getObjectSchema: vi.fn(async () => ({
-          fields: {
-            stage: {
-              type: 'select',
-              options: [
-                { value: 'won', label: 'Closed won' },
-                { value: 'lost', label: 'Closed lost' },
-              ],
-            },
-          },
-        })),
-      },
+      { getObjectSchema },
     );
-    expect(dataSource.getObjectSchema).toHaveBeenCalled();
+    expect(getObjectSchema).toHaveBeenCalled();
     expect(drawn.refusal).toBeNull();
     expect(drawn.marks).toBe(2);
     expect(drawn.ticks).toEqual(expect.arrayContaining(['Closed won', 'Closed lost']));

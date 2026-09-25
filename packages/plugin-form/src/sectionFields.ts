@@ -100,8 +100,11 @@ export interface SectionFieldsContext {
    *     spec entry's overrides are written onto (a copy), in place of
    *     `fromObjectSchema` / the member lookup. The pool already resolved the
    *     member-over-generated precedence, and its generated fields carry the
-   *     default arm's own per-field facts (the managed-object lock, the input
-   *     type, the step), which only LAYOUT and per-entry overrides may move.
+   *     default arm's own per-field facts (the lock on a computed `formula` /
+   *     `summary` / `auto_number` field, the input type, the step), which only
+   *     LAYOUT and per-entry overrides may move. The managed-object lock is
+   *     not one of them: every arm applies it after this builder, in
+   *     `gateFormFields` (objectui#10612).
    *
    * An already-built runtime FormField entry (shape 3) is its own definition
    * with or without a pool; the pool decides only whether it is drawn.

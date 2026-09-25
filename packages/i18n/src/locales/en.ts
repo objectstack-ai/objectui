@@ -1337,6 +1337,7 @@ const en = {
   },
   chart: {
     loading: 'Loading chart…',
+    refreshing: 'Refreshing…',
     nullCategory: '(None)',
     // The refusal a scatter renders when handed more than one series
     // (objectui#7194): it binds ONE measure, so a second series was painted at
@@ -1421,6 +1422,7 @@ const en = {
       sourceLabel: 'Source:',
     },
     loading: 'Loading…',
+    refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
     details: 'Details',

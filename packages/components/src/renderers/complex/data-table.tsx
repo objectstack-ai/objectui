@@ -12,7 +12,7 @@ import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
-import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, getSortValue } from '@object-ui/core';
+import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
@@ -64,41 +64,15 @@ import {
 } from '../../ui/dropdown-menu';
 
 /**
- * Inline-edit helpers: convert a stored cell value to the string a native
- * `<input type="date">` / `<input type="datetime-local">` expects, and back.
- *
- * Native date inputs require `yyyy-MM-dd`; datetime-local requires
- * `yyyy-MM-ddTHH:mm`. We pad to the LOCAL wall-clock so the picker shows the
- * same day the user sees, then convert back on change. A `date` field stays a
- * plain `yyyy-MM-dd` string; a `datetime` field round-trips through an ISO
- * string (matching how display/format code already treats ISO datetimes).
+ * The inline date editors read and write through `@object-ui/core`'s native
+ * date adapters (`toDateInputValue` / `toDateTimeInputValue` /
+ * `fromDateTimeInputValue`), the one set `@object-ui/fields`' date widgets
+ * use. The table used to keep private copies of them, with no check for a
+ * stored day that does not exist: a `datetime` value written on 30 February
+ * showed as March 2nd and a minutes-only edit wrote that day back, and a
+ * `date` value on it blanked silently (objectui#10625). A `date` field stays a
+ * plain `yyyy-MM-dd` string; a `datetime` field round-trips through ISO.
  */
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-function toDateInputValue(value: unknown): string {
-  if (value == null || value === '') return '';
-  // A bare yyyy-MM-dd (or its leading slice of an ISO string) is already in the
-  // exact shape the native control wants. Pass it through verbatim — parsing it
-  // through `new Date()` would interpret it as UTC midnight and can shift the
-  // displayed day by one in negative-offset timezones.
-  if (typeof value === 'string') {
-    const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (m) return m[1];
-  }
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function toDateTimeInputValue(value: unknown): string {
-  if (value == null || value === '') return '';
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
 // Column types that should edit as a numeric `<Input type="number">`.
 //
 // `int` / `integer` / `float` / `double` USED to be members (objectui#5853).
@@ -158,6 +132,14 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.edit': 'Edit',
   'table.delete': 'Delete',
   'common.actions': 'Actions',
+  // objectui#10625 — the inline date editors' notice for a stored value
+  // written on a day that does not exist. The SAME keys `DateField` /
+  // `DateTimeField` use, with the `en` pack's values, for provider-less
+  // rendering.
+  'fields.date.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date to replace it.',
+  'fields.dateTime.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
 };
 
 /**
@@ -778,6 +760,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
 
   // i18n support for pagination labels
   const { t } = useTableTranslation();
+  // The id of the inline date editor's impossible-day notice (objectui#10625).
+  // One per table: at most one cell is in edit mode at a time.
+  const impossibleDayNoticeId = React.useId();
   // The DISPLAY locale, not the UI language: an English UI with a `de-CH`
   // display locale reads `4.3.2020`, never `3/4/2020` (objectui#10442). The
   // hook's own fallback chain answers when no tenant locale is configured, so
@@ -2599,40 +2584,57 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                   }
                                 }
 
-                                if (editType === 'date') {
-                                  return (
+                                if (editType === 'date' || editType === 'datetime') {
+                                  const isDateTime = editType === 'datetime';
+                                  // A stored value written on a day that does not
+                                  // exist (objectui#10625): the control can paint it
+                                  // only blank, so it gets `""`, is marked invalid,
+                                  // and the stored string is NAMED beside it —
+                                  // `DateField` / `DateTimeField`'s face. Nothing
+                                  // changes until the user picks a new value: an
+                                  // Enter with no edit stages the stored string as
+                                  // it was, never a rolled day.
+                                  const impossible = isImpossibleStoredDay(editValue);
+                                  const control = (
                                     <Input
                                       ref={editInputRef}
-                                      type="date"
-                                      value={toDateInputValue(editValue)}
-                                      // Store a plain yyyy-MM-dd string — matches how
-                                      // date fields are displayed/persisted elsewhere.
-                                      onChange={(e) => setEditValue(e.target.value)}
+                                      type={isDateTime ? 'datetime-local' : 'date'}
+                                      value={
+                                        impossible
+                                          ? ''
+                                          : isDateTime
+                                            ? toDateTimeInputValue(editValue)
+                                            : toDateInputValue(editValue)
+                                      }
+                                      // `date` stores the control's plain yyyy-MM-dd;
+                                      // `datetime` stores ISO, read back on the same
+                                      // basis the control was written on.
+                                      onChange={(e) =>
+                                        setEditValue(
+                                          isDateTime ? fromDateTimeInputValue(e.target.value) : e.target.value,
+                                        )
+                                      }
                                       onKeyDown={handleEditKeyDown}
                                       onBlur={handleEditBlur}
+                                      aria-invalid={impossible || undefined}
+                                      aria-describedby={impossible ? impossibleDayNoticeId : undefined}
                                       className="h-8 px-2 py-1"
                                     />
                                   );
-                                }
-
-                                if (editType === 'datetime') {
+                                  if (!impossible) return control;
                                   return (
-                                    <Input
-                                      ref={editInputRef}
-                                      type="datetime-local"
-                                      value={toDateTimeInputValue(editValue)}
-                                      // The native control yields a local `yyyy-MM-ddTHH:mm`;
-                                      // store back as an ISO string so display/format code
-                                      // (formatCellValue) renders it consistently.
-                                      onChange={(e) => {
-                                        const v = e.target.value;
-                                        const d = v ? new Date(v) : null;
-                                        setEditValue(d && !Number.isNaN(d.getTime()) ? d.toISOString() : v);
-                                      }}
-                                      onKeyDown={handleEditKeyDown}
-                                      onBlur={handleEditBlur}
-                                      className="h-8 px-2 py-1"
-                                    />
+                                    <div className="space-y-1">
+                                      {control}
+                                      <p
+                                        id={impossibleDayNoticeId}
+                                        className="text-xs text-destructive"
+                                        data-testid={isDateTime ? 'datetime-impossible-day' : 'date-impossible-day'}
+                                      >
+                                        {isDateTime
+                                          ? t('fields.dateTime.impossibleDay', { value: String(editValue) })
+                                          : t('fields.date.impossibleDay', { value: String(editValue) })}
+                                      </p>
+                                    </div>
                                   );
                                 }
 

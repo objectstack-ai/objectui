@@ -176,30 +176,37 @@ describe.each(ARMS)('`object-form` `formType: %s` — a section entry is drawn b
 });
 
 describe('`object-form` default arm — what stays pool-driven after the switch (objectui#10475)', () => {
-  it('the POOLED field is the base: an entry override does not lift the managed-object lock the pool carries', async () => {
-    // `managedBy: 'better-auth'` with no `userActions.create` closes the create
-    // affordance, so the default arm's field generator disables every field
-    // (ADR-0092 D4). That lock is a fact of the POOL — the shared
-    // `fromObjectSchema` never produces it — so it survives only if the
-    // entry's overrides are written onto the pooled field.
-    const MANAGED = { ...OBJECT_SCHEMA, name: 'sys_session', managedBy: 'better-auth' };
-    await mount(
-      'simple',
-      { sections: MAIN_SECTION([{ field: 'note', label: 'SECTION LABEL' }, 'customer']) },
-      { objectSchema: MANAGED },
-    );
-    expect(drawnFields()).toEqual(['note', 'customer']);
-    expect(labelOf('note'), 'the override applies').toBe('SECTION LABEL');
-    expect(
-      enabledControlOf('note'),
-      '…and the pooled lock stays: no enabled control is drawn for the member',
-    ).toBeNull();
+  it('the POOLED field is the base: an entry override keeps a per-field fact only the pool carries', async () => {
+    // The default arm's field generator writes facts the shared
+    // `fromObjectSchema` never produces — here the numeric `step` derived from
+    // `scale`, which the form renderer's unregistered-widget fallback spreads
+    // onto its input (the route `objectFormNumericStep-9574` pins). So the step
+    // survives an entry override only if the override is written onto the
+    // pooled field. This row used the ADR-0092 D4 managed-object lock until
+    // objectui#10612 moved that lock out of the generator into
+    // `gateFormFields`, which every arm applies after the builder: a lock
+    // every arm draws can no longer tell a pooled base from any other.
+    const STEPPED = {
+      ...OBJECT_SCHEMA,
+      fields: {
+        ...OBJECT_SCHEMA.fields,
+        qty: { type: 'number', label: 'Qty', scale: 2, widget: 'nothing-registers-this' },
+      },
+    };
+    const sections = MAIN_SECTION([{ field: 'qty', label: 'SECTION LABEL' }, 'customer']);
+    await mount('simple', { sections }, { objectSchema: STEPPED });
+    expect(drawnFields()).toEqual(['qty', 'customer']);
+    expect(labelOf('qty'), 'the override applies').toBe('SECTION LABEL');
+    expect(controlOf('qty')?.getAttribute('step'), '…and the pooled step stays').toBe('0.01');
 
-    // The control: the same section on an unmanaged object draws an enabled
-    // control, so the null above is the pool's lock and not the instrument.
+    // The control: the same section on an arm with no pool, whose base is
+    // `fromObjectSchema`, draws the same fallback input with no step — so the
+    // `0.01` above is the pool's fact and not the renderer's.
     cleanup();
-    await mount('simple', { sections: MAIN_SECTION([{ field: 'note', label: 'SECTION LABEL' }, 'customer']) });
-    expect(enabledControlOf('note')).not.toBeNull();
+    await mount('drawer', { sections }, { objectSchema: STEPPED });
+    expect(labelOf('qty')).toBe('SECTION LABEL');
+    expect(controlOf('qty')).not.toBeNull();
+    expect(controlOf('qty')?.getAttribute('step')).toBeNull();
   });
 
   it('field-level permissions still gate every member: a read-denied member is not drawn, a write-denied one is locked', async () => {

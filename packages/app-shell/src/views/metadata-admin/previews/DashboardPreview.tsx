@@ -115,6 +115,19 @@ export function DashboardPreview({
     ? widgets.find((w) => w?.id === selectedWidgetId) ?? null
     : null;
 
+  // objectui#8219 — a dashboard with ONE widget shows it across the whole
+  // grid. The renderer sizes each widget by its authored span (a half-width
+  // chart is `w: 6` of 12), which leaves a lone widget using half the canvas
+  // beside empty space. Rendering that draft as a one-column grid gives the
+  // lone widget the full width while its authored row count (`layout.h`) and
+  // the renderer's content-sized rows stay as they are. Preview only: the
+  // draft handed to `onPatch` is never this copy.
+  const loneWidget = widgets.length === 1;
+  const renderedSchema = React.useMemo(
+    () => (loneWidget ? { ...(draft as Record<string, unknown>), columns: 1 } : draft),
+    [draft, loneWidget],
+  );
+
   const addButton = canEdit ? (
     <AddWidgetPicker onAdd={handleAddWidget} label={tr('engine.inspector.add.widget', locale)} />
   ) : null;
@@ -158,11 +171,13 @@ export function DashboardPreview({
              * characters ("管道…"). Pin a desktop-like minimum width so
              * the grid lays out as end users see it; the parent's
              * overflow-auto adds a horizontal scrollbar when the canvas is
-             * narrower.
+             * narrower. The minimum applies only with several widgets: a lone
+             * widget fills the grid instead (objectui#8219), so it has no row
+             * to squeeze and a pinned width would only add a scrollbar.
              */}
-            <div className="min-w-[768px]">
+            <div className={loneWidget ? undefined : 'min-w-[768px]'}>
               <DashboardRenderer
-                schema={draft as any}
+                schema={renderedSchema as any}
                 dataSource={adapter as any}
                 designMode={designMode}
                 selectedWidgetId={selectedWidgetId}

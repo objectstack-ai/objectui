@@ -18,7 +18,6 @@ import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@objec
 import { SchemaRenderer, useSafeFieldLabel, useDataInvalidation } from '@object-ui/react';
 import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
 import { useIsMobile, toast } from '@object-ui/components';
-import { resolveEffectiveCrudAffordances } from '@object-ui/core';
 import { resolveSuccessNavigate } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
 import {
@@ -57,7 +56,7 @@ import {
   type LoadedRecordSnapshot,
 } from './sanitize';
 import { formWritePayload } from './writePayload';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { applyFieldPermissions, fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
@@ -565,18 +564,22 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   // a permissive default (isLoaded:false, checkField always true) so we
   // remain backward-compatible.
   const perms = usePermissions();
-  const applyFieldPerms = useCallback(
+
+  const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The ONE field-gate step every layout draws through (objectui#10612):
+  // field-level security plus the ADR-0092 D4 managed-object lock, which this
+  // arm's field generator used to stamp on its own — see `gateFormFields`.
+  const gateFields = useCallback(
     (fields: FormField[]): FormField[] =>
-      applyFieldPermissions(fields, {
+      gateFormFields(fields, {
         perms,
         objectName: schema.objectName,
         mode: schema.mode,
+        objectSchema,
         deniedDescription: 'You do not have edit access to this field.',
       }) as FormField[],
-    [perms, schema.objectName, schema.mode],
+    [perms, schema.objectName, schema.mode, objectSchema],
   );
-
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [initialData, setInitialData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -844,35 +847,11 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
   useEffect(() => {
     if (!objectSchema) return;
 
-    // Managed-object blanket lock (ADR-0092 D4 / ADR-0103). We disable every
-    // field when the object's resolved CRUD affordance for the CURRENT mode is
-    // closed — `edit` for edit mode, `create` for create mode. This routes
-    // through the SAME shared `resolveEffectiveCrudAffordances` policy the detail
-    // (`isObjectInlineEditable`) and grid surfaces use, instead of re-deriving
-    // the bucket lock here: `platform` and admin-editable `config` resolve open;
-    // engine-owned `system` / `append-only` / `better-auth` resolve closed
-    // unless the object OPENED per-record writing via `userActions.{edit,create}`
-    // (e.g. sys_user opens `edit` for its profile fields). When open, the lock
-    // lifts and each field's own `readonly` flag decides. The server-side write
-    // guard remains the real boundary; this is UX only.
-    // [#3546] Intersect the bucket/userActions affordance with the server's
-    // effective API operation set for this object (`/me/permissions`
-    // `apiOperations`), so the form's blanket field lock also engages when the
-    // server denies `update` (edit mode) / `create` (create mode) — the same
-    // intersection the detail header and list/toolbar surfaces apply.
-    // `undefined` (unrestricted object / no PermissionProvider) leaves the
-    // resolved affordance untouched (backward-compatible).
-    const affordances = resolveEffectiveCrudAffordances(
-      objectSchema as any,
-      perms?.getObjectApiOperations?.(schema.objectName),
-    );
-    const modeAffordanceOpen =
-      schema.mode === 'edit'
-        ? affordances.edit
-        : schema.mode === 'create'
-          ? affordances.create
-          : true; // view mode disables fields elsewhere — never double-lock here
-    const managedBlanketLock = !modeAffordanceOpen;
+    // ⛔ No managed-object lock here (ADR-0092 D4). This generator used to
+    // stamp it on the fields it generates, so only this arm drew it — and an
+    // inline member replacing a generated field escaped it. The lock now runs
+    // in `gateFormFields`, the one step every layout draws its resolved fields
+    // through, with field-level security (objectui#10612).
 
     // Determine which fields to include
     const fieldsToShow = schema.fields || Object.keys(objectSchema.fields || {});
@@ -900,7 +879,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
     // The generated half of the merge: `undefined` for a name the object does
     // not declare, which `mergeCustomFields` then draws only if a member names
-    // it. Field-level permissions are enforced downstream by `applyFieldPerms`
+    // it. Field-level permissions are enforced downstream by `gateFields`
     // (the real per-caller gate via `perms.checkField`); the schema itself
     // carries no per-caller permission bits (objectstack#3661).
     const generateField = (name: string, index: number): FormField | undefined => {
@@ -922,7 +901,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
           // server resolves it — refusing the submit would leave the user with
           // nothing sensible to type.
           required: isRequiredInForm(field, isCreateFormMode(schema)),
-          disabled: schema.readOnly || schema.mode === 'view' || field.readonly || managedBlanketLock,
+          disabled: schema.readOnly || schema.mode === 'view' || field.readonly,
           placeholder: field.placeholder,
           description: field.help || field.description,
           validation: buildValidationRules(field),
@@ -1104,7 +1083,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (!willFetchData) {
       setLoading(false);
     }
-  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource, perms]);
+  }, [objectSchema, schema.fields, schema.customFields, schema.readOnly, schema.mode, schema.objectName, hasInlineFields, schema.recordId, dataSource]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (formData: any, e?: any) => {
@@ -1575,7 +1554,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // renderer never honoured. objectui#9884 corrected the sentence and
       // added this warning; see `warnSectionMemberExcludedByFields`.
       //
-      // Measured BEFORE `applyFieldPerms`, on purpose: a field the pool holds
+      // Measured BEFORE `gateFields`, on purpose: a field the pool holds
       // and per-caller permissions then remove is not an authoring mistake and
       // must not be reported as one.
       if (schema.fields != null && schema.sections?.length) {
@@ -1601,7 +1580,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // Field-level permissions gate the BUILT members, after the entry
       // overrides — the order the drawer and modal arms apply them in — so no
       // override can re-open a field the caller may not edit.
-      const sectionFields = applyFieldPerms(buildSectionFields(section, sectionCtx));
+      const sectionFields = gateFields(buildSectionFields(section, sectionCtx));
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);
@@ -1701,7 +1680,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
 
   // Apply auto-layout: infer columns and colSpan when not explicitly configured
   const hasSections = schema.sections?.length;
-  const gatedFormFields = applyFieldPerms(formFields);
+  const gatedFormFields = gateFields(formFields);
   const autoLayoutResult = !hasSections
     ? applyAutoLayout(gatedFormFields, objectSchema, schema.columns, schema.mode)
     : { fields: gatedFormFields, columns: schema.columns };

@@ -2387,6 +2387,52 @@ export interface DrillDownConfig {
 }
 
 /**
+ * The `object-metric` block's drill-down shape: {@link DrillDownConfig} with
+ * `filter` and `mode` REFUSED BY NAME (objectui#9002, ruling B, a per-block
+ * refusal). The shared type keeps both members for the blocks that read them;
+ * only this block's declaration takes them away.
+ *
+ * A metric is one aggregated number, so neither member has anything to act on:
+ *
+ *  - `filter` is interpolated against a click event (`${event.*}`) by
+ *    `computeDrillFilter`, and a metric tile has no click context: no row,
+ *    column, category or series. The drilled list is scoped by the metric's
+ *    OWN `filter` instead, which is the block's registered promise that the
+ *    number and the records behind it always agree. An override would break
+ *    that promise.
+ *  - `mode` decides drill-to-record versus drill-through for a clicked ROW. A
+ *    metric has no row. It always drills through to its records.
+ *
+ * Refused as `?: never` tombstones rather than omitted: an omitted key on an
+ * object literal is an excess-property error only while the literal is fresh,
+ * and a tombstone also carries the reason and the block that does read the key
+ * into the error an author (or an AI) sees at the declaration.
+ *
+ * ⚠️ This is a TypeScript declaration, so it refuses the keys where an author
+ * types against it (`ObjectMetricWidget`'s `drillDown` prop). A stored JSON
+ * config reaches the block without passing through this type.
+ */
+export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-metric` (objectui#9002). A metric has no click
+   * event for `${event.*}` to resolve against, and its drilled list is scoped
+   * by the metric's own `filter`. Drill filters apply on `object-chart` and
+   * `object-pivot`, which hand this member to `computeDrillFilter`.
+   *
+   * @deprecated Not a member `object-metric` reads. Scope the metric with its own `filter`.
+   */
+  filter?: never;
+  /**
+   * REFUSED BY NAME on `object-metric` (objectui#9002). A metric has no row to
+   * open as a record, so it always drills through to the records behind the
+   * number. `mode` applies on `object-data-table`, whose row click reads it.
+   *
+   * @deprecated Not a member `object-metric` reads. A metric always lists its records.
+   */
+  mode?: never;
+}
+
+/**
  * Pivot table (cross-tabulation) component
  *
  * Renders a matrix where rows correspond to one field,

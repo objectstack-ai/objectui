@@ -380,6 +380,26 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
       description:
         'Header tint, from the design system\'s closed palette: one of `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`, `destructive/10`. Any other value is refused — `@object-ui/types` parses this key as that same six-member enum (objectui#6594), matching @objectstack/spec\'s strict `record:details` section schema. Omit the key for no tint.',
     },
+    {
+      /**
+       * objectui#10485 — declared because `DetailSection` already honours it
+       * (`section.hideEmpty === true`), the objectui#9529 ruling applied to a
+       * second key on this node.
+       *
+       * The description states THIS node's omitted default, and it is one
+       * value: nothing on the node's path resolves a default, and
+       * `DetailSection` tests `=== true`, so an omitted key keeps the
+       * all-empty section. That matches `detail-view`, which hands its
+       * sections on unchanged; `record:details` resolves `?? true` on its OWN
+       * authored sections, which never pass through this node. `true` and
+       * `false` mean the same on all three. No `defaultValue`: no other input
+       * of this node carries one.
+       */
+      name: 'hideEmpty',
+      type: 'boolean',
+      description:
+        'When every field in the section is empty, `true` hides the whole section (no heading, no skeleton). Omitted or `false`, an all-empty section keeps its heading and label skeleton. Empty fields in a section that still has a filled one are not governed by this key.',
+    },
   ],
 });
 

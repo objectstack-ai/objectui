@@ -237,7 +237,9 @@ export function resolveRecordHeaderActionGates(
 
 /**
  * `record` without the fields the loaded permission policy denies on
- * `objectName`, for building the record's TITLE (objectui#10434). What is
+ * `objectName`, for building the record's TITLE (objectui#10434) and for the
+ * row the record page's blocks read, `page:header`'s H1 among them
+ * (objectui#10499). What is
  * left is the row ObjectStack's `FieldMasker` already serves. `id` and `_id`
  * are never judged: the resolver's `Record #<id>` floor reads them. Before a
  * policy loads (also the answer with no provider mounted) the record comes
@@ -529,24 +531,49 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // record (or its object) is invalidated on the bus.
   }, [effectivePage, objectName, pureRecordId, dataSource, objectDef, recordInvalidationNonce, perms]);
 
-  // Derive a human-readable record title from the loaded `pageRecord` so
-  // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"
-  // instead of the raw record id.
+  // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
+  // objectui#10499): `withoutDeniedFields` removes the fields the loaded
+  // policy denies on this object, `id` kept, which leaves the row
+  // ObjectStack's `FieldMasker` already serves. Two readers take it:
   //
-  // The title is built from the record AS THE VIEWER MAY READ IT
-  // (objectui#10434): `withoutDeniedFields` removes the fields the loaded
-  // policy denies on this object, `id` kept, so a denied name pointer or
-  // `titleFormat` token reads as an absent one and the resolver falls through
-  // to its next rung. The breadcrumb, the favourite and the "Recently
-  // Accessed" label all carry this title. Before the policy loads nothing is
-  // removed; `perms` in the deps re-derives the title when it arrives.
+  //   - the record title below (breadcrumb, favourite, "Recently Accessed");
+  //   - `RecordContext.data`, the row every block of the record page reads.
+  //     `page:header` builds the page H1 from it, and `@object-ui/components`
+  //     has no permission source of its own, so this hand-off is where its
+  //     title ladder gets gated (objectui#10499). On a backend that strips
+  //     denied fields the row is unchanged; on one that does not, every block
+  //     now reads a denied field exactly as an absent one, as it would on the
+  //     stripping backend.
+  //
+  // Before the policy loads (and with no provider mounted) nothing is removed,
+  // the objectui#10411 rule. When nothing is withheld the served object itself
+  // comes back. When something is, the gated copy is cached on the served row
+  // and the set of kept keys, NOT on a `useMemo` (AGENTS.md #10), so a
+  // re-render never republishes an equal row as a new object to the page.
+  const readableRecordCache = useRef<{ served: unknown; kept: string; row: unknown } | null>(null);
+  const readablePageRecord = (() => {
+    const row = withoutDeniedFields(pageRecord, perms, objectName);
+    if (row === pageRecord) return pageRecord;
+    const kept = JSON.stringify(Object.keys(row));
+    const cached = readableRecordCache.current;
+    if (cached && cached.served === pageRecord && cached.kept === kept) return cached.row as typeof pageRecord;
+    readableRecordCache.current = { served: pageRecord, kept, row };
+    return row;
+  })();
+
+  // Derive a human-readable record title from the loaded record so
+  // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"
+  // instead of the raw record id. It reads `readablePageRecord` above, so a
+  // denied name pointer or `titleFormat` token reads as an absent one and the
+  // resolver falls through to its next rung (objectui#10434). When the policy
+  // arrives the readable row changes, which re-derives the title.
   useEffect(() => {
-    if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
-    const resolved = getRecordDisplayName(objectDef, withoutDeniedFields(pageRecord, perms, objectName));
+    if (!readablePageRecord || typeof readablePageRecord !== 'object' || !objectDef) return;
+    const resolved = getRecordDisplayName(objectDef, readablePageRecord);
     if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
-  }, [pageRecord, objectDef, recordTitle, perms, objectName]);
+  }, [readablePageRecord, objectDef, recordTitle]);
 
   // Once we have a human-readable title, (a) record this visit into the
   // "Recently Accessed" rail on the home page and (b) self-heal any
@@ -2430,7 +2457,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       <RecordContextProvider
         objectName={objectName!}
         recordId={pureRecordId}
-        data={pageRecord}
+        data={readablePageRecord}
         objectSchema={objectDef}
         dataSource={dataSource}
         embedded={embedded}

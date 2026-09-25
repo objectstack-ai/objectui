@@ -39,10 +39,10 @@ import { render, cleanup, waitFor } from '@testing-library/react';
 // under the headless DOM, so nothing paints. Hand it the box the
 // objectui#9675 scatter file uses, so the two read the same geometry.
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) =>
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width?: number; height?: number }> }) =>
       React.cloneElement(children, { width: 510, height: 350 }),
   };
 });
@@ -82,7 +82,7 @@ async function renderScatter(xAxis: Record<string, unknown>) {
         xAxis,
         yAxis: [{ field: 'avg_estimate' }],
         isAnimationActive: false,
-      } as any}
+      }}
     />,
   );
   await waitFor(() => expect(container.querySelector('.recharts-surface')).toBeTruthy());

@@ -310,7 +310,9 @@ export interface AdvancedChartImplProps {
   onChartClick?: (event: ChartSegmentClickEvent) => void;
   /**
    * Spec `ChartAxis` presentation for the category axis — `format` (tick
-   * formatter), `title`, `showGridLines`. Its `field` already arrived as
+   * formatter), `title`, `showGridLines`, `position` (the side it is drawn
+   * on — see `placeXAxis`), and on scatter's measure x axis `min` / `max` /
+   * `stepSize` / `logarithmic` as well. Its `field` already arrived as
    * {@link AdvancedChartImplProps.xAxisKey}. Resolved by
    * `normalizeChartSchema`, so the renderer never parses the author shape.
    */
@@ -490,6 +492,99 @@ const SCATTER_Y_AXIS_PADDING = {
  */
 const Y_AXIS_TITLE_LAYOUT = { angle: -90, position: 'insideLeft' } as const;
 const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
+/**
+ * The x-axis title of an axis drawn along the TOP (objectui#10587): the
+ * bottom layout mirrored, so the title sits on the far side of the tick labels
+ * from the plot, as it does below a bottom axis. `insideBottom` on a top axis
+ * would put it between the ticks and the plot.
+ */
+const X_AXIS_TOP_TITLE_LAYOUT = { position: 'insideTop', offset: -4 } as const;
+
+/** The x-axis title layout for the side {@link placeXAxis} put the axis on. */
+function xAxisTitleLayoutFor(across: 'top' | 'bottom' | undefined) {
+  return across === 'top' ? X_AXIS_TOP_TITLE_LAYOUT : X_AXIS_TITLE_LAYOUT;
+}
+
+/** The four sides the spec `ChartAxis.position` enumerates. */
+type AxisSide = 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Where the spec `xAxis` is drawn, read from its `position` (objectui#10587).
+ *
+ * The spec declares `position` on `ChartAxisSchema` for both axes, and the
+ * docs row says it names "the side of the chart the axis belongs to". Which two
+ * sides are open to the x axis depends on which way that axis runs, and the
+ * answer is read off the branches below rather than decided here:
+ *
+ *   - **bar / line / area / combo / scatter** draw the spec `xAxis` as a
+ *     recharts `<XAxis>` running ACROSS the plot (scatter's is a number axis,
+ *     the rest a category band), so `top` / `bottom` are its sides.
+ *   - **horizontal-bar** swaps the axis roles. Its categories run DOWN the plot
+ *     on a `<YAxis type="category">`, and the spec `yAxis` configures its
+ *     number `<XAxis>` (`yAxisSpecProps(primaryY)` in that branch). The `xAxis`
+ *     object already follows the categories there — its `format` is that
+ *     `<YAxis>`'s tick formatter — so its `position` follows them too, and
+ *     `left` / `right` are its sides. Reading it as "the horizontal axis"
+ *     instead would split one axis object across two drawn axes.
+ *
+ * A side the axis cannot take is REFUSED, not dropped and not guessed at: the
+ * axis draws at its default side (the bottom; the left on horizontal-bar) and
+ * the chart carries {@link xAxisPositionNote}. ⛔ Never mapped to a "nearest"
+ * open side: `left` names no side of an axis that runs across the plot, and
+ * any side chosen for it would be one the author did not write.
+ *
+ * No `position` returns nothing, so no `orientation` prop is emitted and a chart
+ * that declares none renders exactly as it did before.
+ */
+function placeXAxis(
+  position: AxisSide | undefined,
+  categoriesRunDown: boolean,
+): { across?: 'top' | 'bottom'; down?: 'left' | 'right'; refused?: AxisSide } {
+  if (!position) return {};
+  if (categoriesRunDown) {
+    return position === 'left' || position === 'right' ? { down: position } : { refused: position };
+  }
+  return position === 'top' || position === 'bottom' ? { across: position } : { refused: position };
+}
+
+/**
+ * The note a cartesian chart carries when its `xAxis.position` names a side
+ * that axis cannot take — see {@link placeXAxis}. `null` otherwise, which keeps
+ * every other chart's DOM unchanged (`ChartFootnote` with no note returns its
+ * children as they are).
+ *
+ * The chart still draws: the axis sits at its default side, and every other
+ * key on the axis object is honoured. That is why this is a note in the
+ * `ChartFootnote` channel the file's other partial answers use, and not a
+ * `ChartRefusal`, which replaces the whole tile — a refusal there would blank a
+ * chart that plots correctly over one presentation key. No console warning
+ * either, for the reason the other notes give: the sentence already names the
+ * key, the value and the side the axis was drawn on.
+ */
+function xAxisPositionNote(refused: AxisSide | undefined, categoriesRunDown: boolean): React.ReactNode {
+  if (!refused) return null;
+  return (
+    <p role="note" data-chart-note="x-axis-position" className="px-1 text-xs text-muted-foreground">
+      <code className="font-mono">xAxis.position</code> is{' '}
+      <code className="font-mono">{refused}</code> &mdash;{' '}
+      {categoriesRunDown ? (
+        <>this chart&apos;s categories run down its side, so its x axis sits on the left or the right. It is drawn on the left.</>
+      ) : (
+        <>this chart&apos;s x axis runs across it, so it sits at the top or the bottom. It is drawn at the bottom.</>
+      )}
+    </p>
+  );
+}
+
+/**
+ * Several notes for one `ChartFootnote`. With one note (or none) it returns that
+ * note itself, so a chart that already carried a single note keeps its exact DOM.
+ */
+function joinNotes(...notes: React.ReactNode[]): React.ReactNode {
+  const present = notes.filter((n) => n != null && n !== false);
+  if (present.length <= 1) return present[0] ?? null;
+  return <>{present.map((n, i) => <React.Fragment key={i}>{n}</React.Fragment>)}</>;
+}
 
 /**
  * Recharts props derived from one spec axis that plots NUMBERS — the domain
@@ -508,7 +603,7 @@ const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
 function numericAxisSpecProps(
   axis: NormalizedAxis | undefined,
   values: number[],
-  labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
+  labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT | typeof X_AXIS_TOP_TITLE_LAYOUT,
 ) {
   if (!axis) return {};
   const domain = domainFor(axis);
@@ -1579,6 +1674,20 @@ function AdvancedChartImplInner({
     horizontal: showYGrid,
   };
 
+  // Spec `xAxis.position` — which side the category axis sits on, or the side
+  // it was refused (objectui#10587; see `placeXAxis`). `chartType` is the
+  // EFFECTIVE family: a bar / line / area whose series disagree is placed as
+  // the vertical combo it became; `comboBaseFamily` never widens a
+  // horizontal-bar, so one with mixed series stays horizontal and keeps the
+  // `left` / `right` reading.
+  const categoriesRunDown = chartType === 'horizontal-bar';
+  const {
+    across: xAxisAcross,
+    down: xAxisDown,
+    refused: xAxisPositionRefused,
+  } = placeXAxis(xAxisSpec?.position, categoriesRunDown);
+  const xPositionNote = xAxisPositionNote(xAxisPositionRefused, categoriesRunDown);
+
   // Legend is on unless the author turned it off (spec default `true`).
   const legendVisible = showLegend !== false;
 
@@ -1688,9 +1797,15 @@ function AdvancedChartImplInner({
       ? { interval: 0 as const }
       : { interval: 'preserveStartEnd' as const, minTickGap: 0 }),
     tickFormatter: xAxisTickFormatter,
-    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...X_AXIS_TITLE_LAYOUT } } : {}),
-    ...(rotateXLabels && { angle: -35, textAnchor: 'end' as const, height: 60 }),
-  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
+    // objectui#10587 — the declared side, emitted only when one was declared
+    // and is open to this axis (see `placeXAxis`).
+    ...(xAxisAcross ? { orientation: xAxisAcross } : {}),
+    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayoutFor(xAxisAcross) } } : {}),
+    // A rotated label hangs AWAY from the plot: down-left under a bottom axis
+    // (`-35`), and up-left over a top one (`35`) — the same `-35` above the
+    // plot would slant every label down into the marks.
+    ...(rotateXLabels && { angle: xAxisAcross === 'top' ? 35 : -35, textAnchor: 'end' as const, height: 60 }),
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
@@ -2156,7 +2271,7 @@ function AdvancedChartImplInner({
     }
     return (
       <ChartFootnote
-        note={unplottedPointsNote(points.plottable, points.total, xAxisKey, scatterYKey)}
+        note={joinNotes(unplottedPointsNote(points.plottable, points.total, xAxisKey, scatterYKey), xPositionNote)}
       >
       <ChartContainer config={config} className={className} {...containerProps}>
         <ScatterChart>
@@ -2187,7 +2302,11 @@ function AdvancedChartImplInner({
             minTickGap={isMobile ? 32 : 48}
             padding={SCATTER_X_AXIS_PADDING}
             {...(scatterXTickFormatter ? { tickFormatter: scatterXTickFormatter } : {})}
-            {...numericAxisSpecProps(xAxisSpec, scatterXValues, X_AXIS_TITLE_LAYOUT)}
+            // objectui#10587 — scatter's measure axis runs across the plot like
+            // every category x axis, so `top` / `bottom` are its sides too
+            // (see `placeXAxis`).
+            {...(xAxisAcross ? { orientation: xAxisAcross } : {})}
+            {...numericAxisSpecProps(xAxisSpec, scatterXValues, xAxisTitleLayoutFor(xAxisAcross))}
           />
           <YAxis
             type="number"
@@ -2272,6 +2391,7 @@ function AdvancedChartImplInner({
   if (chartType === 'combo') {
     return (
       <ChartFrame title={title} subtitle={subtitle}>
+      <ChartFootnote note={xPositionNote}>
       <ChartContainer config={config} className={className} {...containerProps}>
         {/* `ComposedChart`, not `BarChart`, is the Recharts container built to
             host mixed marks. Under `BarChart` an `<Area>` child renders nothing
@@ -2340,6 +2460,7 @@ function AdvancedChartImplInner({
           })}
         </ComposedChart>
       </ChartContainer>
+      </ChartFootnote>
       </ChartFrame>
     );
   }
@@ -2363,6 +2484,7 @@ function AdvancedChartImplInner({
 
   return (
     <ChartFrame title={title} subtitle={subtitle}>
+    <ChartFootnote note={xPositionNote}>
     <ChartContainer config={config} className={className} {...containerProps}>
       <ChartComponent data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
         <defs>
@@ -2385,6 +2507,9 @@ function AdvancedChartImplInner({
             {/* Horizontal bars swap the axis roles: the VALUE axis is x, so the
                 spec y-axis config (domain/format/scale) applies to it. */}
             <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={yTickFormatter} {...yAxisSpecProps(primaryY)} />
+            {/* The spec `xAxis` follows the categories onto this axis, its
+                `position` included: `left` / `right` are its sides here
+                (objectui#10587, see `placeXAxis`). */}
             <YAxis
               type="category"
               dataKey={xAxisKey}
@@ -2392,6 +2517,7 @@ function AdvancedChartImplInner({
               axisLine={false}
               width={Math.min(140, Math.max(60, Math.max(...data.map(d => String(d[xAxisKey] ?? '').length)) * 7))}
               tickFormatter={xTickFormatter}
+              {...(xAxisDown ? { orientation: xAxisDown } : {})}
             />
           </>
         ) : (
@@ -2488,6 +2614,7 @@ function AdvancedChartImplInner({
         })}
       </ChartComponent>
     </ChartContainer>
+    </ChartFootnote>
     </ChartFrame>
   );
 }

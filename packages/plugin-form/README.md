@@ -887,6 +887,11 @@ computed, formula and read-only columns, keys the object does not declare, and
 every field the caller's field-level security refuses. A create is stripped the
 same way. Every layout also renders a field the caller may read but not edit as
 a disabled input, so nothing is typed into a field the save would leave out.
+Every layout likewise disables every field of a managed object (ADR-0092 D4)
+whose `userActions` do not open the form's mode, `create` on a create form and
+`edit` on an edit form, and of any object whose `create` or `update` the
+server's effective API operations deny (objectui#10612). The submit button stays
+on screen; the server's write guard is what refuses the save.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still

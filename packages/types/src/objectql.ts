@@ -3232,7 +3232,7 @@ export interface ObjectGanttSchema extends BaseSchema {
   // PARSED, and `GanttConfig` derives from the spec's `GanttConfigSchema`, which
   // REQUIRES `startDateField`, `endDateField` and `titleField`. Because
   // `ObjectGanttSchema` is a member of `AnyComponentSchema`, that reaches
-  // `safeValidateSchema` and therefore the CLI's `validate` / `check` commands: a
+  // `safeValidateSchema` and therefore the CLI's `validate` command: a
   // block missing one of the three moves from "accepted, then warned about at
   // runtime" to "refused at authoring time".
   //

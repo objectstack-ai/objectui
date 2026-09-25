@@ -1956,7 +1956,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // `gantt` block previously rode through `.passthrough()` entirely unvalidated;
   // now it is PARSED against the spec's `GanttConfigSchema`, which REQUIRES
   // `startDateField`/`endDateField`/`titleField`. This mirror reaches the CLI's
-  // `validate`/`check` through `AnyComponentSchema` → `safeValidateSchema`, so a
+  // `validate` through `AnyComponentSchema` → `safeValidateSchema`, so a
   // block missing the trio moves from "accepted, then warned about at runtime"
   // to "refused at authoring time" — a `declared = enforced` restoration, not
   // new requiredness: the renderer already fed the block to
@@ -2085,7 +2085,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // index-signature ceiling: that ceiling is about a MISSPELLED key, which
   // stays admitted either way. A DECLARED key is now VALUE-validated, and this
   // mirror reaches `safeValidateSchema` through `AnyComponentSchema` and so
-  // reaches the CLI's `validate` / `check` — `sort: 'name asc'`, the string
+  // reaches the CLI's `validate` — `sort: 'name asc'`, the string
   // clause objectui#8221 retired, moves from "parses green here, then silently
   // dropped by `convertSortToQueryParams` at runtime" to "refused at authoring
   // time".

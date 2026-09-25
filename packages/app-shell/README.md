@@ -668,32 +668,36 @@ JSON `action:button` schemas can also trigger the page routes directly
 via the action runner, regardless of the object's `editMode`. The handler
 name goes in `actionType` — that is the key the button renderer forwards
 to the action runner as the action's type, and the runner dispatches to
-the handler registered under it. Arguments go in a top-level `params`
-object:
+the handler registered under it. Arguments are static values under
+`properties.params` (an action's `params` is only the `ActionParam[]`
+list of inputs to collect; a node-level `params` object is ignored):
 
 ```json
 {
   "type": "action:button",
   "label": "New Account",
   "actionType": "navigate_create",
-  "params": { "objectName": "account" }
+  "properties": {
+    "params": { "objectName": "account" }
+  }
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. Every string in
+`properties.params` is a template, evaluated like other `properties`
+values, so a button on a record page names its record with
+`${record.id}`:
 
 ```json
 {
   "type": "action:button",
   "label": "Edit",
   "actionType": "navigate_edit",
-  "params": {
-    "objectName": "account",
-    "recordId": "0015e000abcd"
+  "properties": {
+    "params": {
+      "objectName": "account",
+      "recordId": "${record.id}"
+    }
   }
 }
 ```

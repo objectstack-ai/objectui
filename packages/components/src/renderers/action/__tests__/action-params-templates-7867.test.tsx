@@ -10,11 +10,16 @@
  * objectui#7867 (ruling A, maintainer 「其他同意」 2026-09-20): an action's
  * `params` values are templates, evaluated where `properties` are.
  *
- * Every string leaf of a node's `params` bag - the node-level `params` and
- * `properties.params` alike, at any depth - is template-evaluated in the
- * `SchemaRenderer` evaluation memo. Before this, CASE A and CASE B below reached
- * the handler as the raw `${record.id}` text, so a metadata-authored
- * `navigate_edit` button could not name the record it sits on.
+ * Every string leaf of a node's `properties.params` bag, at any depth, is
+ * template-evaluated in the `SchemaRenderer` evaluation memo. Before this, CASE
+ * B below reached the handler as the raw `${record.id}` text, so a
+ * metadata-authored `navigate_edit` button could not name the record it sits on.
+ *
+ * objectui#10289 (ruling A) narrowed where the values live: an action's
+ * `params` is only the `ActionParam[]` input list, so `action:button` reads
+ * static values from `properties.params` alone. CASE A (a node-level `params`
+ * OBJECT) is therefore pinned as NOT reaching the handler; the full contract is
+ * pinned in `action-params-properties-10289.test.tsx`.
  *
  * Driven end to end through the REAL pieces, which is why this pin lives in
  * `@object-ui/components` rather than beside `SchemaRenderer` (that package
@@ -84,17 +89,20 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
     expect(screen.getByRole('button', { name: 'L-rec_1' })).toBeInTheDocument();
   });
 
-  it('CASE A: node-level `params.recordId` resolves to the bound record id', async () => {
-    renderOnRecordPage({
-      type: 'action:button',
-      label: 'Edit',
-      actionType: 'navigate_edit',
-      params: { objectName: 'account', recordId: '${record.id}' },
-    });
-    const params = await paramsReceived('Edit');
-    expect(params.recordId).toBe('rec_1');
-    // A literal leaf is handed over untouched.
-    expect(params.objectName).toBe('account');
+  it('CASE A: a node-level `params` OBJECT is not a values channel (objectui#10289)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderOnRecordPage({
+        type: 'action:button',
+        label: 'Edit',
+        actionType: 'navigate_edit',
+        params: { objectName: 'account', recordId: '${record.id}' },
+      });
+      const params = await paramsReceived('Edit');
+      expect(params).toBeUndefined();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('CASE B: `properties.params.recordId` resolves to the bound record id', async () => {
@@ -114,10 +122,12 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
       type: 'action:button',
       label: 'Edit',
       actionType: 'navigate_edit',
-      params: {
-        target: { record: { id: '${record.id}' } },
-        ids: ['${record.id}', 'literal'],
-        caption: 'Edit ${record.name}',
+      properties: {
+        params: {
+          target: { record: { id: '${record.id}' } },
+          ids: ['${record.id}', 'literal'],
+          caption: 'Edit ${record.name}',
+        },
       },
     });
     const params = await paramsReceived('Edit');
@@ -131,7 +141,7 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
       type: 'action:button',
       label: 'Edit',
       actionType: 'navigate_edit',
-      params: { recordId: '${nope.id}' },
+      properties: { params: { recordId: '${nope.id}' } },
     });
     const params = await paramsReceived('Edit');
     // The evaluator hands an expression that throws back as its own source, so
@@ -140,7 +150,7 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
     // ... and the unevaluated-expression diagnostic names the leaf by its path.
     const reports = consoleError.mock.calls
       .map((c: unknown[]) => String(c[0]))
-      .filter((m: string) => m.includes('params.recordId'));
+      .filter((m: string) => m.includes('properties.params.recordId'));
     expect(reports).toHaveLength(1);
     expect(reports[0]).toContain('${nope.id}');
   });

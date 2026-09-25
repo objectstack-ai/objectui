@@ -489,9 +489,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // imperative `handleEdit` callback. These let JSON schemas open the
     // full-screen create/edit pages directly via `<action:button>` without
     // any custom code:
-    //   { "action": "navigate_create", "params": { "objectName": "..." } }
-    //   { "action": "navigate_edit",
-    //     "params": { "objectName": "...", "recordId": "..." } }
+    //   { "type": "action:button", "actionType": "navigate_create",
+    //     "properties": { "params": { "objectName": "..." } } }
+    //   { "type": "action:button", "actionType": "navigate_edit",
+    //     "properties": { "params": { "objectName": "...", "recordId": "..." } } }
+    // The button forwards `properties.params` as the runner's `params`,
+    // which is what the handlers below read (objectui#10289, ruling A: a
+    // node-level `params` is only the `ActionParam[]` input list).
     // The `objectName` param falls back to the action context's
     // `objectName` (set per view) so action buttons mounted inside an
     // ObjectView can omit it.

@@ -30,6 +30,7 @@ import { Loader2 } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
+import { readStaticParamValues } from './static-params';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418): every key
@@ -156,18 +157,26 @@ const ActionButtonRenderer = forwardRef<
           return;
         }
 
-        // Route params correctly:
-        // - Array of objects with name+type → ActionParamDef[] → pass as actionParams for collection
-        // - Otherwise → pass as actual param values
+        // Route params (objectui#10289, ruling A):
+        // - `params` is only ever the `ActionParam[]` input list → forwarded as
+        //   `actionParams` for collection.
+        // - Static execution values come from `properties.params` (see
+        //   `./static-params`) → forwarded as the runner's `params`. A
+        //   node-level OBJECT `params` is not read as values; it is ignored
+        //   with a development warning.
         //
         // Annotated rather than inferred: a spread SOURCE's own keys are not
         // excess-property checked through the spread, so an invented key in
         // either branch would be absorbed silently. Measured on objectui#4281 —
         // `const p = cond ? { actionParams } : { zzBogus }` is accepted by an
         // `ActionDef` literal that spreads it; annotating `p` rejects it here.
+        //
+        // The two channels are independent, so the input-list branch forwards
+        // the static values too.
+        const staticValues = readStaticParamValues(schema, 'action:button');
         const paramsPayload: ActionDef = Array.isArray(schema.params)
-          ? { actionParams: schema.params as any }
-          : { params: schema.params as Record<string, any> | undefined };
+          ? { actionParams: schema.params as any, params: staticValues }
+          : { params: staticValues };
 
         // ── Why this is a named `ActionDef` binding and not an inline literal ──
         //

@@ -197,8 +197,11 @@ async function mountPage(
   function Harness() {
     const [externalRefreshKey, setExternalRefreshKey] = React.useState(0);
     const [, setTick] = React.useState(0);
-    bump = () => setExternalRefreshKey((n) => n + 1);
-    rerender = () => setTick((n) => n + 1);
+    // Handed out from an effect, not assigned during render (react-hooks/globals).
+    React.useEffect(() => {
+      bump = () => setExternalRefreshKey((n) => n + 1);
+      rerender = () => setTick((n) => n + 1);
+    }, []);
     return (
       <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'admin' }}>
         <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/all`]}>

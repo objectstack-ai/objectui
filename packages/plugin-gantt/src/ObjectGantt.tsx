@@ -990,18 +990,20 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    *
    * Subscribed only when the rows come from an adapter this gantt queries
    * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
-   * set are not ours to refresh. The first load gate is respected through a
-   * ref rather than a dependency: re-running this effect when the object
-   * schema settles would add a second query beside the gated first load,
-   * which already reads rows written before it.
+   * set are not ours to refresh. Each nonce is answered at most once
+   * (`handledInvalidationRef`): one that lands while the object-schema gate
+   * above is still closed is marked handled and dropped, because the gated
+   * first load has not run yet and reads rows written before it — so the gate
+   * opening later can never add a second query beside that load.
    */
   const invalidationNonce = useDataInvalidation(recordQueryDerivesExpand && resource ? resource : undefined);
-  const firstLoadGateOpenRef = useRef(false);
-  firstLoadGateOpenRef.current = !recordQueryDerivesExpand || objectSchemaReady;
+  const handledInvalidationRef = useRef(0);
   useEffect(() => {
-    if (invalidationNonce === 0 || !firstLoadGateOpenRef.current) return;
+    if (invalidationNonce === handledInvalidationRef.current) return;
+    handledInvalidationRef.current = invalidationNonce;
+    if (recordQueryDerivesExpand && !objectSchemaReady) return;
     void reloadRef.current({ silent: true });
-  }, [invalidationNonce]);
+  }, [invalidationNonce, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {

@@ -443,12 +443,18 @@ Validation happens at three doors, all of them outside the render path:
    against its Zod schema when the framework loads it; the result travels with the item as a
    `_diagnostics` envelope, which Studio surfaces. See
    [Metadata Diagnostics](./metadata-diagnostics.md).
-2. **Authoring time — the CLI.** `objectui validate` parses one document against the published
-   schema and prints the schema's own errors when it fails. `objectui check` sweeps a project
-   and lists the files that carry a registered component type but did not validate, pointing at
-   `objectui validate` for the reason.
+2. **Authoring time — `objectui validate`.** It parses one document, JSON or YAML, against the
+   published schema, prints the schema's own errors when it fails, and exits non-zero. That exit
+   code is the CLI's validation verdict. `objectui check` does not give it. `check` sweeps a
+   project's JSON files and checks the `type` of each file it recognises, and a file whose root
+   carries an ObjectUI structural key (`children`, `className`, `body`, …) is recognised by that
+   key alone, without being parsed against the schema — so an invalid document of that shape is
+   not reported at all. Only a file with none of those keys is parsed; it is listed by name when
+   its root `type` names a registered component but the document does not validate, and that
+   list is advisory: `check` exits non-zero on unreadable JSON only. See
+   [`objectui check`](/docs/utilities/cli#objectui-check).
 3. **Wherever else you need it — `safeValidateSchema`.** Exported from `@object-ui/types/zod`,
-   it is the same parse both CLI commands run, so a build step, a CI job or a save handler can
+   it is the parse `objectui validate` runs, so a build step, a CI job or a save handler can
    apply the identical contract.
 
 Put the check where documents are authored, saved or loaded — not in the paint. A document that

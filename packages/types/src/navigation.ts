@@ -61,8 +61,8 @@ export interface HeaderBarSchema extends BaseSchema {
    *
    * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
    * site the truth, and there is none: the renderer's one function reads
-   * `actions`, `crumbs`, `rightContent` and `search` off `schema` and takes no
-   * spread props. Through the real `SchemaRenderer` an authored title drew the
+   * `actions`, `crumbs`, `rightContent`, `search` and the inherited
+   * `className` off `schema` and takes no spread props. Through the real `SchemaRenderer` an authored title drew the
    * header byte-identical to its absence. For the current page name, use the
    * last entry of `crumbs`.
    *
@@ -85,8 +85,8 @@ export interface HeaderBarSchema extends BaseSchema {
    *
    * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
    * site the truth, and there is none: the renderer's one function reads
-   * `actions`, `crumbs`, `rightContent` and `search` off `schema` and takes no
-   * spread props. Through the real `SchemaRenderer` an authored link list drew
+   * `actions`, `crumbs`, `rightContent`, `search` and the inherited
+   * `className` off `schema` and takes no spread props. Through the real `SchemaRenderer` an authored link list drew
    * the header byte-identical to its absence. No in-tree document authored it.
    * For links, use `crumbs` here, or a `navigation-menu` / `sidebar` node.
    *
@@ -113,8 +113,8 @@ export interface HeaderBarSchema extends BaseSchema {
    * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no left slot.
    *
    * Not in `@objectstack/spec`; the renderer reads only `actions`, `crumbs`,
-   * `rightContent` and `search` and takes no spread props, so an authored node
-   * rendered nothing. No in-tree document authored it. For custom content use
+   * `rightContent`, `search` and the inherited `className`, and takes no spread
+   * props, so an authored node rendered nothing. No in-tree document authored it. For custom content use
    * `rightContent` or `actions`.
    *
    * @deprecated Nothing renders it; the zod mirror refuses it by name.
@@ -152,9 +152,10 @@ export interface HeaderBarSchema extends BaseSchema {
   /**
    * RETIRED (objectui#10387, ADR-0049) — `header-bar` reads no `height`.
    *
-   * The header's height is fixed by the renderer's own classes (`h-14`, and
-   * `sm:h-16` from the `sm` breakpoint); no read of this key exists, and no
-   * in-tree document authored it. Not in `@objectstack/spec`.
+   * No read of this key exists, and no in-tree document authored it. Not in
+   * `@objectstack/spec`. The renderer's own classes set the height (`h-14`, and
+   * `sm:h-16` from the `sm` breakpoint); to change it, author `className` (for
+   * example `h-20 sm:h-20`), which is merged after them (objectui#10397).
    *
    * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
@@ -164,9 +165,9 @@ export interface HeaderBarSchema extends BaseSchema {
    *
    * The key is not in `@objectstack/spec`, so the objectui#7759 ruling makes
    * the read site the truth, and the read site has none: the renderer's one
-   * function reads `actions`, `crumbs`, `rightContent` and `search` off
-   * `schema` and takes no spread props, so every spelling rendered the same
-   * header. The two faces had also drifted apart on the way there — this
+   * function reads `actions`, `crumbs`, `rightContent`, `search` and the
+   * inherited `className` off `schema` and takes no spread props, so every
+   * spelling rendered the same header. The two faces had also drifted apart on the way there — this
    * declaration offered `floating`, the zod mirror `transparent` — and
    * neither word had ever reached a class name.
    *
@@ -184,8 +185,8 @@ export interface HeaderBarSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `actions`, `crumbs`, `rightContent`, `search` (in
-   * `packages/components/src/renderers/navigation/header-bar.tsx`).
+   * `actions`, `className` (since objectui#10397), `crumbs`, `rightContent`,
+   * `search` (in `packages/components/src/renderers/navigation/header-bar.tsx`).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -210,8 +211,8 @@ export interface HeaderBarSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `actions`, `crumbs`, `rightContent`, `search` (in
-   * `packages/components/src/renderers/navigation/header-bar.tsx`).
+   * `actions`, `className` (since objectui#10397), `crumbs`, `rightContent`,
+   * `search` (in `packages/components/src/renderers/navigation/header-bar.tsx`).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

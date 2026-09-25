@@ -41,6 +41,23 @@ import { ChevronDown, Search } from 'lucide-react';
 // an unknown or RETIRED spelling renders NOTHING, never `LazyIcon`'s `Database`
 // fallback (ruled out for authored icon fields by objectui#5622 / #5633).
 import { resolveIcon } from '../action/resolve-icon';
+import { cn } from '../../lib/utils';
+
+// The header's own chrome classes. The authored `BaseSchema.className` is merged
+// AFTER them through `cn()` (tailwind-merge), so a utility the author writes that
+// conflicts with one of these replaces it — `h-20` drops `h-14` — and every other
+// authored class is added (objectui#10397). Before that the root was this string
+// alone, and an authored `className` rendered byte-identical to its absence.
+//
+// A conflict is per VARIANT: `h-20` replaces `h-14` and leaves `sm:h-16` in
+// place, so an author who wants one height at every width writes `h-20 sm:h-20`.
+//
+// `schema.className` is the one channel read. `SchemaRenderer` hands a node's
+// className to the component twice, on `schema` and as the `className` prop,
+// with the same value (its `responsiveStyles` scope class included), so that a
+// renderer honours ONE of them. tailwind-merge does not collapse a repeated
+// non-Tailwind class, so reading both would print every custom class twice.
+const HEADER_BAR_CLASS = 'flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4';
 
 function BreadcrumbLabel({ crumb, isLast }: { crumb: BreadcrumbItemType; isLast: boolean }) {
   const label = resolveKeyedI18nLabel(crumb.label) ?? '';
@@ -75,7 +92,7 @@ function BreadcrumbLabel({ crumb, isLast }: { crumb: BreadcrumbItemType; isLast:
 
 ComponentRegistry.register('header-bar', 
   ({ schema }: { schema: HeaderBarSchema }) => (
-    <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
+    <header className={cn(HEADER_BAR_CLASS, schema.className)}>
       <SidebarTrigger />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <Breadcrumb>

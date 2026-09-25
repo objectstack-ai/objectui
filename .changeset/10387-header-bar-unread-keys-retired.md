@@ -6,9 +6,10 @@ fix(types): retire the eight `header-bar` keys the renderer never read (objectui
 
 `HeaderBarSchema.title`, `logo`, `nav`, `left`, `center`, `right`, `sticky` and
 `height` are retired on both faces (ADR-0049). None of them is in the spec, and
-the `header-bar` renderer reads only `actions`, `crumbs`, `rightContent` and
-`search`. Rendered through the real `SchemaRenderer`, a header with any of these
-keys was identical to one without them.
+of the keys `HeaderBarSchema` declares for itself, the `header-bar` renderer reads
+only `actions`, `crumbs`, `rightContent` and `search`. Rendered through the real
+`SchemaRenderer`, a header with any of these keys was identical to one without
+them.
 
 - The zod mirror (`HeaderBarSchema` in `@object-ui/types/zod`) now refuses each
   key by name. The refusal says what the renderer reads instead.
@@ -27,7 +28,9 @@ type-checks. To migrate, delete the key:
 - `left` / `center`: put custom content in `rightContent` or `actions`.
 - `right`: use `actions` (a node list) or `rightContent` (one node).
 - `sticky`: make the parent layout sticky; the header itself never was.
-- `height`: remove it. The header's height is fixed by the renderer.
+- `height`: remove it, and set the height with `className` instead (for example
+  `h-20 sm:h-20`). By default the header is `h-14`, and `sm:h-16` from the `sm`
+  breakpoint up.
 
 The in-tree examples that used these keys (`packages/types/examples/dashboard.ts`,
 the `@object-ui/types` README and the ObjectOS integration guide) now use

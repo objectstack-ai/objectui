@@ -32,6 +32,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import { scopeClassFor } from '@object-ui/core';
 // Registered at module scope, NOT in a `beforeAll`: there the cold transform is
 // billed to `hookTimeout`, which is narrower than the timeout it replaces
 // (objectui#3010 / #3021, and `object-ui/no-dynamic-import-in-test-hook`).
@@ -99,6 +100,16 @@ describe('ui:header-bar merges the authored className onto its root (objectui#10
     expect(classes).toEqual(expect.arrayContaining(['h-20', 'sm:h-20']));
     expect(classes).not.toContain('h-14');
     expect(classes).not.toContain('sm:h-16');
+  });
+
+  it('a `responsiveStyles` scope class rides the same channel and reaches the root', () => {
+    // `SchemaRenderer` compiles a node's `responsiveStyles` to CSS scoped to a
+    // class it appends to the node's className. Before the repair that class
+    // never reached this root either, so the compiled rules matched nothing.
+    const classes = classesOf(
+      headerFor({ id: 'hb-10397', responsiveStyles: { large: { color: 'red' } } }),
+    );
+    expect(classes).toContain(scopeClassFor('hb-10397'));
   });
 
   it('control: without className the root is exactly what it was before the repair', () => {

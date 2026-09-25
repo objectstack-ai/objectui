@@ -27,6 +27,10 @@
  *  - {@link applyColumnPermissions} — the same pass over a line-items grid's
  *    columns, spelled in the one lock the grid reads (objectui#10163).
  *
+ * And one form-level step built on the render pass: {@link gateFormFields},
+ * which adds the ADR-0092 D4 managed-object lock to it. It is the ONE step
+ * every `ObjectForm` layout draws its resolved fields through (objectui#10612).
+ *
  * ## Why both halves live in one module
  *
  * They express ONE invariant — *a form never submits a field it refuses to
@@ -50,7 +54,16 @@
  * resolvable principal, and the server still enforces. Tightening it here
  * would brick those surfaces without adding any security the server does not
  * already provide.
+ *
+ * ⚠️ The managed-object lock {@link gateFormFields} adds is NOT a
+ * per-principal answer, so it does not fail open with the field-level half:
+ * its first input is the object's own `managedBy` bucket and `userActions`,
+ * read with no principal at all, exactly as the default arm has always read
+ * it. Only its second input — the server's effective API operation set — is
+ * absent without a provider, and absent leaves the bucket's answer standing.
  */
+
+import { resolveEffectiveCrudAffordances, type SchemaLike } from '@object-ui/core';
 
 /**
  * The permission surface this module consumes — structurally the subset of
@@ -144,6 +157,97 @@ export function applyFieldPermissions<T extends Record<string, any>>(
       ? { ...f, readOnly: true, disabled: true, description: f.description ?? deniedDescription }
       : { ...f, readOnly: true, disabled: true },
   );
+}
+
+/**
+ * The principal surface {@link gateFormFields} reads: the field-level resolver
+ * plus the server's effective API operation set for an object (`/me/permissions`
+ * `apiOperations`, #3391). `undefined` from it means "no effective set", which
+ * leaves the object's own affordance standing.
+ */
+export interface FormFieldPrincipal extends FieldWritePrincipal {
+  getObjectApiOperations?: (object: string) => readonly string[] | undefined;
+}
+
+export interface GateFormFieldsOptions extends ApplyFieldPermissionsOptions {
+  perms: FormFieldPrincipal | null | undefined;
+  /**
+   * The object schema the form resolved (its `managedBy` bucket and
+   * `userActions` opt-ins). `null` while it has not loaded, or when the form
+   * has no metadata source, reads as the default bucket.
+   */
+  objectSchema: SchemaLike | null | undefined;
+}
+
+/**
+ * The managed-object blanket lock (ADR-0092 D4 / ADR-0103): `true` when the
+ * object's resolved CRUD affordance for the form's mode is CLOSED — `edit` for
+ * an edit form, `create` for a create form.
+ *
+ * It routes through the SAME shared `resolveEffectiveCrudAffordances` policy
+ * the detail (`isObjectInlineEditable`) and grid surfaces use, instead of
+ * re-deriving the bucket lock: `platform` and admin-editable `config` resolve
+ * open; the engine-owned buckets (`engine-owned`, `append-only`,
+ * `better-auth`) resolve closed unless the object OPENED per-record writing via
+ * `userActions.{edit,create}` (e.g. sys_user opens `edit` for its profile
+ * fields). #3546 intersects that with the server's effective API operation set
+ * for the object, so the lock also engages when the server denies `update`
+ * (edit) or `create` (create) — the intersection the detail header and the
+ * list toolbar apply.
+ *
+ * Any other mode never locks here: a `view` form disables every field on its
+ * own, and a form with no declared mode was never locked by the default arm.
+ * The server-side write guard remains the real boundary; this is UX only.
+ */
+function managedModeLocked(
+  objectSchema: SchemaLike | null | undefined,
+  perms: FormFieldPrincipal | null | undefined,
+  objectName: string,
+  mode: string | undefined,
+): boolean {
+  if (mode !== 'edit' && mode !== 'create') return false;
+  const affordances = resolveEffectiveCrudAffordances(
+    objectSchema,
+    perms?.getObjectApiOperations?.(objectName),
+  );
+  return mode === 'edit' ? !affordances.edit : !affordances.create;
+}
+
+/**
+ * The ONE field-gate step every `ObjectForm` layout draws its RESOLVED fields
+ * through (objectui#10612): the default arm (flat and sectioned), `DrawerForm`
+ * and `ModalForm` (sections, derived field groups and flat), and `TabbedForm`,
+ * `SplitForm` and `WizardForm` (sections).
+ *
+ * Two gates, in one pass, so no layout can apply one and skip the other:
+ *
+ *  1. field-level security — {@link applyFieldPermissions}: drop what the
+ *     caller may not READ, lock what they may read but not WRITE;
+ *  2. the managed-object lock — every drawn field is `disabled` when
+ *     {@link managedModeLocked} says the mode's affordance is closed. Only
+ *     `disabled`, not `readOnly`: the default arm's lock always drew a
+ *     disabled input, and the submit button is left as it is.
+ *
+ * Before this step the lock was stamped by the default arm's field generator
+ * alone, so the drawer, modal, tabbed, split and wizard layouts drew live
+ * inputs on a managed object whose write the server refuses (objectui#10613,
+ * folded into objectui#10612). It runs on the resolved list rather than in a
+ * generator, so every drawn field is locked — an inline `customFields` member
+ * and an already-built section entry as much as a field generated from the
+ * object — which is what "blanket" says.
+ *
+ * Entries with no `name` pass through untouched, as in the render pass.
+ */
+export function gateFormFields<T extends Record<string, any>>(
+  fields: T[] | undefined,
+  { objectSchema, ...options }: GateFormFieldsOptions,
+): T[] | undefined {
+  const permitted = applyFieldPermissions(fields, options);
+  if (!Array.isArray(permitted)) return permitted;
+  if (!managedModeLocked(objectSchema, options.perms, options.objectName, options.mode)) {
+    return permitted;
+  }
+  return permitted.map((f) => (f?.name ? { ...f, disabled: true } : f));
 }
 
 /**

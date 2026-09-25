@@ -27,9 +27,9 @@
  *      resolve, so a chat would just error.
  *   2. AI calls cost real money; a preview tab that silently spends
  *      tokens whenever someone clicks the tab is bad UX.
- * Instead we render a "Try it" button that links to the runtime
- * agent chat (`/console/ai/agents/<name>/chat`) where the saved
- * version of this agent can be exercised properly.
+ * Instead the toolbar carries a "Try in chat" link to the console's agent
+ * chat, where the saved version of this agent can be exercised properly —
+ * see `AgentChatLink` below for where it points (objectui#10640).
  */
 
 import * as React from 'react';
@@ -46,7 +46,9 @@ import {
   Shield,
   Sparkles,
 } from 'lucide-react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import { cn, EmptyDescription } from '@object-ui/components';
+import { agentRouteName } from '@object-ui/plugin-chatbot';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
@@ -55,6 +57,47 @@ interface ModelConfig {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+}
+
+/**
+ * "Try in chat" (objectui#10640).
+ *
+ * The link used to be the plain anchor `/console/ai/agents/NAME/chat`. The
+ * console declares no path beginning with `/console`, so its root catch-all
+ * sent the author home. It now points at the agent chat route the console
+ * declares, `/ai/:agent`, which `AiChatPage` resolves against the live agent
+ * catalog. The segment comes from `agentRouteName`, the helper that builds
+ * `/ai/:agent` links: a custom agent routes by its own name, a built-in by its
+ * friendly alias, the form the chat page canonicalizes to. The chat route is
+ * app-less, so no app segment is carried.
+ *
+ * `new=1` is the chat page's explicit new-conversation intent (the same flag
+ * its sidebar's New button sends), so the link opens the fresh chat its title
+ * promises instead of resuming whatever thread was cached for the chat scope.
+ *
+ * Rendered through `Link`, so the router's basename is applied: the console
+ * ships under a mount path (`/_console`), which a bare rooted `href` would step
+ * outside of. The anchor still opens in a new tab, as the tool preview's
+ * "Open in API Console" link does.
+ *
+ * With no router above the preview (the designer gallery harness) there is no
+ * console to open the chat in, so no link is drawn rather than one that goes
+ * nowhere.
+ */
+function AgentChatLink({ agentName }: { agentName: string }) {
+  // Rules-of-hooks safe: whether a router sits above is a fact about the
+  // mount, and cannot change under it.
+  return useInRouterContext() ? (
+    <Link
+      to={`/ai/${encodeURIComponent(agentRouteName(agentName))}?new=1`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+      title="Open the saved version of this agent in a new chat"
+    >
+      Try in chat <ExternalLink className="h-3 w-3" />
+    </Link>
+  ) : null;
 }
 
 export function AgentPreview({ name, draft }: MetadataPreviewProps) {
@@ -80,24 +123,10 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
     );
   }
 
-  const chatUrl = agentName ? `/console/ai/agents/${encodeURIComponent(agentName)}/chat` : null;
-
   return (
     <PreviewShell
       hint="agent"
-      toolbar={
-        chatUrl && (
-          <a
-            href={chatUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            title="Open the saved version of this agent in a new chat"
-          >
-            Try in chat <ExternalLink className="h-3 w-3" />
-          </a>
-        )
-      }
+      toolbar={agentName && <AgentChatLink agentName={agentName} />}
     >
       <PreviewErrorBoundary>
         <div className="grid lg:grid-cols-[1fr_240px] gap-0">

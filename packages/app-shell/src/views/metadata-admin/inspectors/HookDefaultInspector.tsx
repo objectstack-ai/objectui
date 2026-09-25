@@ -20,7 +20,8 @@
  * `object` is spec `string | string[]` (or `'*'` for every object). The picker
  * normalises to/from that: `'*'` ⇒ all, one selection ⇒ a string, many ⇒ an
  * array. Any already-selected object not in the live catalog is preserved as a
- * synthesized option so a value is never silently dropped.
+ * synthesized option so a value is never silently dropped; it is flagged as not
+ * published only once the catalog has answered (objectui#10585).
  */
 
 import * as React from 'react';
@@ -35,6 +36,7 @@ import {
   InspectorNumberField,
   InspectorCheckboxField,
   flagUnknownValue,
+  rosterFrom,
 } from './_shared.js';
 import { useObjectOptions } from '../previews/useObjectOptions.js';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from './ConditionBuilder.js';
@@ -125,18 +127,32 @@ export function HookDefaultInspector({
   const events: string[] = Array.isArray(draft.events) ? (draft.events as string[]) : [];
   const { all: allObjects, names: objectNames } = readObjects(draft.object);
 
-  const { options: objectOptions } = useObjectOptions();
+  const {
+    options: objectOptions,
+    loading: objectsLoading,
+    error: objectsError,
+  } = useObjectOptions();
+  // objectui#10585 — the roster's ONE state, read the way the objectui#8862 /
+  // objectui#9651 family reads it: only an ANSWERED roster may say an object is
+  // missing. While the fetch is in flight, or after it failed, `objectOptions`
+  // is `[]` exactly as it is for a catalog with no objects, so a claim made
+  // from the list alone told the author that every selected object was
+  // unpublished and that they should publish one.
+  const roster = rosterFrom({ loading: objectsLoading, error: objectsError });
+  const rosterAnswered = roster.status === 'loaded';
   // Preserve any selected object missing from the live catalog (draft-only /
   // cross-package) so it is never dropped from the picker. Its flag reads in
-  // the designer's locale (objectui#10448).
+  // the designer's locale (objectui#10448), and it is drawn only once the
+  // roster answered — until then the name is shown bare, which asserts nothing.
   const pickerOptions = React.useMemo(() => {
     const known = new Set(objectOptions.map((o) => o.value));
     const notPublished = t('engine.form.notPublished', locale);
     const extra = objectNames
       .filter((n) => !known.has(n))
-      .map((n) => ({ value: n, label: flagUnknownValue(n, notPublished, locale) }));
+      .map((n) => ({ value: n, label: rosterAnswered ? flagUnknownValue(n, notPublished, locale) : n }));
     return [...extra, ...objectOptions];
-  }, [objectOptions, objectNames, locale]);
+  }, [objectOptions, objectNames, locale, rosterAnswered]);
+  const rosterFailure = roster.status === 'error' ? roster.message : undefined;
 
   const patchBody = (p: Record<string, unknown>) => onPatch({ body: { ...body, ...p } });
 
@@ -206,10 +222,18 @@ export function HookDefaultInspector({
           onCommit={(on) => onPatch({ object: on ? ALL_OBJECTS : writeObjects(false, objectNames) })}
           disabled={readOnly}
         />
-        {!allObjects && (
+        {/* The empty-list copy is a MEASUREMENT ("no objects found"), so only
+            an answered roster may print it; in flight it says it is loading.
+            A failed roster with nothing selected draws no list at all — the
+            notice below is the whole answer there. */}
+        {!allObjects && (pickerOptions.length > 0 || rosterFailure === undefined) && (
           <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-2">
             {pickerOptions.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground">No objects found — publish an object, then pick it here.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {rosterAnswered
+                  ? 'No objects found — publish an object, then pick it here.'
+                  : tr('engine.form.loadingOptions')}
+              </p>
             ) : (
               pickerOptions.map((o) => (
                 <InspectorCheckboxField
@@ -222,6 +246,27 @@ export function HookDefaultInspector({
               ))
             )}
           </div>
+        )}
+        {/* objectui#10585 — a failed roster says so, with its cause. This is
+            the notice `InspectorSelectField` renders for the same fact
+            (objectui#9651): the same role, tone, localized title and cause
+            span. That notice lives inside the primitive and is not exported,
+            and this picker is a checkbox list rather than a select, so the
+            markup is repeated here; the wording is the shared catalogue key. */}
+        {!allObjects && rosterFailure !== undefined && (
+          <p
+            role="status"
+            data-testid="hook-object-roster-failure"
+            className="text-[11px] leading-snug text-amber-600 dark:text-amber-300"
+          >
+            {tr('engine.form.optionsLoadFailedTitle')}
+            {rosterFailure ? (
+              <>
+                {' '}
+                <span className="break-words font-mono text-[10px] opacity-80">{rosterFailure}</span>
+              </>
+            ) : null}
+          </p>
         )}
         {!allObjects && objectNames.length === 0 && (
           <p className="text-[11px] text-amber-600 dark:text-amber-400">Pick at least one object (or All objects).</p>

@@ -887,6 +887,11 @@ computed, formula and read-only columns, keys the object does not declare, and
 every field the caller's field-level security refuses. A create is stripped the
 same way. Every layout also renders a field the caller may read but not edit as
 a disabled input, so nothing is typed into a field the save would leave out.
+Every layout likewise disables every field of a managed object (ADR-0092 D4)
+whose `userActions` do not open the form's mode, `create` on a create form and
+`edit` on an edit form, and of any object whose `create` or `update` the
+server's effective API operations deny (objectui#10612). The submit button stays
+on screen; the server's write guard is what refuses the save.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still
@@ -917,10 +922,12 @@ After a successful save, the form treats the fields it just wrote as saved. A
 form that stays open therefore compares its next save with the record as it
 stands now, not as it was first read.
 
-The concurrency guard is unchanged. The update still carries
-`ifMatch` = the `updated_at` the form read, and a `409` still offers
-**Keep editing** or **Overwrite**. **Overwrite** now resends only the changed
-fields, so it no longer rewrites fields this user never touched.
+The concurrency guard is unchanged by this rule. The update carries
+`ifMatch` = the `updated_at` the form read. Once a form that stays open has
+saved the record, its next save carries the `updated_at` that save returned
+instead, so the form is not refused over its own earlier save. A `409` still
+offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the
+changed fields, so it no longer rewrites fields this user never touched.
 
 ⚠️ A host `submitHandler` gets the same payload in edit mode. Normally that is
 the changed fields; after a save with nothing changed, it is the full payload.

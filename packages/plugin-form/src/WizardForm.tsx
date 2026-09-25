@@ -25,7 +25,7 @@ import { buildSectionFields as buildSectionFieldsShared } from './sectionFields'
 import { seedCreateValues, isCreateFormMode } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
@@ -561,18 +561,23 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // is on every other arm (objectui#10254).
         customFields: schema.customFields,
       });
-      // The ONE render gate (objectui#10120), applied to the RESOLVED fields.
-      // `ObjectForm` gates a section's field OBJECTS before routing here, but a
-      // field named by a bare string has no `name` to ask about until it is
-      // resolved just above. Without this pass a field the caller may read but
-      // not edit rendered as a live input, and with the save's strip in place
-      // (`formWritePayload`, objectui#10563) whatever the user typed there
-      // would be dropped behind a 200. A field already gated upstream is gated
-      // again to the same answer.
-      return (applyFieldPermissions(fields, {
+      // The ONE field-gate step every layout draws through (`gateFormFields`,
+      // objectui#10612), applied to the RESOLVED fields. Its field-level half
+      // (objectui#10120): `ObjectForm` gates a section's field OBJECTS before
+      // routing here, but a field named by a bare string has no `name` to ask
+      // about until it is resolved just above. Without this pass a field the
+      // caller may read but not edit rendered as a live input, and with the
+      // save's strip in place (`formWritePayload`, objectui#10563) whatever the
+      // user typed there would be dropped behind a 200. A field already gated
+      // upstream is gated again to the same answer. Its managed-object half
+      // (ADR-0092 D4): every field is disabled when the object's affordance for
+      // the mode is closed — before objectui#10612 only the default arm drew
+      // that lock, and this layout drew live inputs on a managed object.
+      return (gateFormFields(fields, {
         perms,
         objectName: schema.objectName,
         mode: schema.mode,
+        objectSchema,
       }) ?? fields) as FormField[];
     },
     [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],

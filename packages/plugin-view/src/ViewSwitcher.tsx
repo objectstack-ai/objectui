@@ -23,6 +23,7 @@ import {
 import { cva } from 'class-variance-authority';
 import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import type { ViewSwitcherSchema, ViewType } from '@object-ui/types';
+import { notifyViewHandlerChannels } from './viewHandlerChannels';
 import {
   Activity,
   Calendar,
@@ -270,15 +271,10 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   }, [activeView, schema.activeView, schema.persistPreference, storageKey]);
 
   const notifyChange = React.useCallback((nextView: ViewType) => {
-    onViewChange?.(nextView);
-
-    if (schema.onViewChange && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent(schema.onViewChange, {
-          detail: { view: nextView },
-        })
-      );
-    }
+    // Host function, then the authored event name (objectui#6124). The helper
+    // calls the prop only when it is a function: through `SchemaRenderer` the
+    // prop can hold the authored string (objectui#10616).
+    notifyViewHandlerChannels(onViewChange, schema.onViewChange, nextView, { view: nextView });
   }, [onViewChange, schema.onViewChange]);
 
   const handleViewChange = React.useCallback((nextView: ViewType) => {

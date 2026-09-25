@@ -15,13 +15,13 @@ import { VALUELESS_FILTER_BUILDER_OPERATORS, isFilterValueComplete } from '@obje
 import { ViewSwitcherDropdown, ViewType } from './ViewSwitcher';
 import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
-import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation } from '@object-ui/react';
+import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
 import { useDensityMode } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort } from '@object-ui/core';
+import { resolveConditionalFormatting, buildExpandFields, buildExportFileName, resolveEffectiveCrudAffordances, isObjectInlineEditable, partitionRowsByPredicate, normalizeListViewSchema, isListViewVisualization, rowHeightToDensityMode, mergeFilterNodes, FilterOperatorError, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, PLATFORM_RECORD_COLUMNS, EXPANDABLE_FIELD_TYPES, UNMATERIALIZED_FIELD_TYPES, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
 import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -691,6 +691,107 @@ export function buildEffectiveFilter(
 const WITHHELD_FILTER_GROUP: FilterGroup = { id: 'root', logic: 'and', conditions: [] };
 const WITHHELD_USER_FILTER_CONDITIONS: unknown[] = [];
 
+/** One resolution of the node's own `filter`, remembered with its inputs. */
+interface HeldAuthoredFilter {
+  authored: unknown;
+  currentUserId: FilterTokenScope['currentUserId'];
+  currentOrgId: FilterTokenScope['currentOrgId'];
+  onUnresolved: FilterTokenScope['onUnresolved'];
+  resolved: unknown;
+}
+
+function resolveAuthoredFilter(authored: unknown, scope: FilterTokenScope): HeldAuthoredFilter {
+  return {
+    authored,
+    currentUserId: scope.currentUserId,
+    currentOrgId: scope.currentOrgId,
+    onUnresolved: scope.onUnresolved,
+    resolved: resolveFilterPlaceholders(authored, scope),
+  };
+}
+
+/** Depth past which {@link isSameAuthoredFilter} gives up and answers "changed". */
+const AUTHORED_FILTER_MAX_DEPTH = 12;
+
+function isPlainFilterObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Compare two authored filters by structure, never by serialising them.
+ *
+ * The same rules as `plugin-view`'s `isStructurallyEqual` (objectui#6460),
+ * which this package does not depend on: primitives by `Object.is`, a `Date`
+ * by its instant, arrays element by element and in order, plain objects by key
+ * set and value. Anything else is equal only as the same reference, and a
+ * structure deeper than the bound is "changed". Every uncertainty answers
+ * "changed", which re-resolves and re-queries; the comparison can drop a
+ * redundant query, never a needed one.
+ */
+function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
+  if (Object.is(a, b)) return true;
+  if (depth >= AUTHORED_FILTER_MAX_DEPTH) return false;
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => isSameAuthoredFilter(item, b[i], depth + 1));
+  }
+  if (isPlainFilterObject(a) && isPlainFilterObject(b)) {
+    const keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    return keys.every((key) => (
+      Object.prototype.hasOwnProperty.call(b, key) && isSameAuthoredFilter(a[key], b[key], depth + 1)
+    ));
+  }
+  return false;
+}
+
+/**
+ * objectui#10607 — resolve the node's own `filter` ONCE, through
+ * `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the session
+ * scope the host provides (`useFilterScope`). Before this, a directly authored
+ * `list-view` with `filter: [['owner', '=', '{current_user_id}']]` sent the
+ * literal token on `$filter`, and handed it to the child view it renders.
+ * `object-view` already resolves the filters it hands a `list-view` host
+ * (objectui#10506); resolving that value again changes nothing, because a
+ * resolved id no longer matches the whole-token pattern.
+ *
+ * ⛔ Not a second resolver, and no fallback: a token the scope cannot resolve
+ * is whatever `resolveFilterPlaceholders` makes of it (left intact, with one
+ * warning naming it).
+ *
+ * The result is HELD against its inputs, the shape `plugin-view`'s
+ * `useResolvedFilterSegments` uses. The fetch effect keys on this filter, so a
+ * resolved copy minted on every render would refetch on every render; and a
+ * date macro such as `{now}` resolves to a new value at every call, so
+ * comparing OUTPUTS cannot stop that. The key is the authored filter, compared
+ * by structure (a host that rebuilds an equal filter inline must not
+ * re-query), plus the scope's three members read one by one, never the scope
+ * object's identity (AGENTS.md #10). The held pair lives in state, so the
+ * value handed out is always the one React committed.
+ */
+function useResolvedAuthoredFilter<T>(authored: T, scope: FilterTokenScope): T {
+  const [held, setHeld] = React.useState(() => resolveAuthoredFilter(authored, scope));
+  if (
+    held.currentUserId !== scope.currentUserId
+    || held.currentOrgId !== scope.currentOrgId
+    || held.onUnresolved !== scope.onUnresolved
+    || !isSameAuthoredFilter(held.authored, authored)
+  ) {
+    // React's documented "information from previous renders" shape: a set
+    // during render re-renders this component at once, before any child sees
+    // the discarded pass, and the re-render finds the inputs equal.
+    const next = resolveAuthoredFilter(authored, scope);
+    setHeld(next);
+    return next.resolved as T;
+  }
+  return held.resolved as T;
+}
+
 export function convertFilterGroupToAST(group: FilterGroup): any[] {
   if (!group || !group.conditions || group.conditions.length === 0) return [];
 
@@ -1103,6 +1204,14 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // to fold, so downstream useMemos keep a stable dependency identity on the
   // already-canonical path (the common case).
   const schema = React.useMemo(() => normalizeListViewSchema(propSchema), [propSchema]);
+
+  // objectui#10607 — the node's own `filter`, with every placeholder resolved
+  // once against the host's session scope and held (see
+  // `useResolvedAuthoredFilter`). The fetch, the page-reset signature, the
+  // self-querying views, the child view's node, the export and the empty-state
+  // copy below all read THIS, never the raw `schema.filter`.
+  const filterScope = useFilterScope();
+  const authoredFilter = useResolvedAuthoredFilter(schema.filter, filterScope);
 
   // Convenience: resolve field label with schema.objectName pre-bound
   const tFieldLabel = React.useCallback(
@@ -2199,7 +2308,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       try {
         // Construct filter — shared with the export path so the file a user
         // downloads is built from the same three sources as the rows on screen.
-        const finalFilter = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
+        const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
 
         // Convert sort to query format
         // Use array format to ensure order is preserved (Object keys are not guaranteed ordered)
@@ -2708,7 +2817,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, schema.filter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to
@@ -2718,7 +2827,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // from under a user who just turned it. serverPage is deliberately NOT part of
   // the signature, so turning the page never triggers a reset.
   const pageResetSignature = JSON.stringify([
-    schema.objectName, schema.filter, effectivePageSize, currentSort,
+    schema.objectName, authoredFilter, effectivePageSize, currentSort,
     appliedFilters, appliedUserFilterConditions, searchTerm, currentView, groupingConfig,
   ]);
   const prevPageResetSignature = React.useRef(pageResetSignature);
@@ -3084,10 +3193,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * load-error panel that replaces the view.
    */
   const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
-  let selfQueryFilter: unknown = schema.filter;
+  let selfQueryFilter: unknown = authoredFilter;
   if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
     try {
-      const value = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
+      const value = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
       const cached = selfQueryFilterRef.current;
       if (cached && cached.key === key) {
@@ -3098,7 +3207,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       }
     } catch (error) {
       if (!(error instanceof FilterOperatorError)) throw error;
-      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : schema.filter;
+      selfQueryFilter = selfQueryFilterRef.current ? selfQueryFilterRef.current.value : authoredFilter;
     }
   }
 
@@ -3137,7 +3246,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       // surface speaking `filters`, so a child that fetches its own rows (the
       // chart branch below, and any of these rendered standalone) never saw the
       // view's base filter at all.
-      filter: schema.filter,
+      filter: authoredFilter,
       sort: currentSort,
       className: "h-full w-full",
       // Disable internal controls that clash with ListView toolbar
@@ -3661,7 +3770,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -4020,7 +4129,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         .filter(Boolean) as string[];
 
       // The same three filter sources as the data fetch, from the same function.
-      const finalFilter = buildEffectiveFilter(schema.filter, appliedFilters, appliedUserFilterConditions);
+      const finalFilter = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
 
       const sort = currentSort.length > 0
         ? currentSort
@@ -4122,7 +4231,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     setShowExport(false);
     // `searchTerm` / `searchableFields` belong here: the export now narrows by
     // the active search, so a stale closure would export the wrong row set.
-  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, schema.filter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
+  }, [data, effectiveFields, resolvedExportOptions, schema.objectName, authoredFilter, schema.searchableFields, exportPermitted, dataSource, appliedFilters, appliedUserFilterConditions, currentSort, searchTerm, objectDef, resolveObjectLabel]);
 
   // All available fields for hide/show (with i18n)
   const allFields = React.useMemo(() => {
@@ -4981,10 +5090,10 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // and sends triage away from the view layer, which is exactly what
             // this issue reported.
             const hasBaseFilter =
-              Array.isArray(schema.filter)
-                ? schema.filter.length > 0
-                : !!schema.filter && typeof schema.filter === 'object'
-                  ? Object.keys(schema.filter).length > 0
+              Array.isArray(authoredFilter)
+                ? authoredFilter.length > 0
+                : !!authoredFilter && typeof authoredFilter === 'object'
+                  ? Object.keys(authoredFilter).length > 0
                   : false;
             const hasActiveQuery =
               !!(searchTerm && searchTerm.trim()) ||

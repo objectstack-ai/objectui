@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
-import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
+import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
@@ -341,6 +341,17 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const filterKey = JSON.stringify(schema.filter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this timeline QUERIES is declared, and the fetch
+  // effect below names it, so the rows are re-read in place. The canvas stays
+  // mounted through the re-read (the skeleton below is drawn only while there
+  // are no items yet), so its scroll position survives. Subscribed only when
+  // the timeline fetches for itself: authored `items`, host `data` and bound
+  // rows are not this effect's query.
+  const fetchesForItself = !!schema.objectName && !boundData && !schema.items && !(props as any).data;
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
     const fetchData = async () => {
         if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) {
@@ -417,7 +428,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         }
     };
 
-    if (schema.objectName && !boundData && !schema.items && !(props as any).data) {
+    if (fetchesForItself) {
         // ⭐ objectui#7895 — the object definition GATES this query; it does not
         // refine it afterwards. `objectDef` stays in the dependency list below
         // and the two are ONE mechanism, not two: the dependency is what makes
@@ -439,7 +450,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.filter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
-  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms]);
+  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms, invalidationNonce]);
 
   const rawData = (props as any).data || boundData || fetchedData;
   const { t } = useTimelineTranslation();

@@ -19,6 +19,7 @@ import {
   PER_CHUNK_BASELINE,
   PER_CHUNK_GZIP_CEILINGS,
   PER_CHUNK_MEMBERSHIP,
+  PER_CHUNK_MEMBERSHIP_CARVE_OUTS,
   REGRESSION_THIS_GATE_MUST_CATCH_BYTES,
   SUPPORTED_REPORT_VERSION,
   VERDICT_CEILING_CONSTANTS,
@@ -977,21 +978,74 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
 
 /**
  * A membership artifact shaped exactly like `emitChunkMembershipReport`'s
- * output, with every declared package landing wholly in its declared chunk.
+ * output, with every declared package landing exactly where declared: wholly
+ * in its declared chunk, or — for a package with a carve-out — its carved
+ * subtree in the carve-out's chunk and every other directory in its declared
+ * chunk.
  *
- * Built FROM {@link PER_CHUNK_MEMBERSHIP} rather than written out, so a package
- * added to the declaration cannot be left silently unrepresented here — which
- * would make the pass case pass for a package nobody checked.
+ * Built FROM {@link PER_CHUNK_MEMBERSHIP} and
+ * {@link PER_CHUNK_MEMBERSHIP_CARVE_OUTS} rather than written out, so a package
+ * or a carve-out added to either table cannot be left silently unrepresented
+ * here — which would make the pass case pass for a subject nobody checked.
+ * `packages` is DERIVED from `directories`, the way the emitter's two tables
+ * are filled by the one loop.
  */
 function passingMembership(overrides: Record<string, unknown> = {}) {
-  const packages: Record<string, Record<string, number>> = {};
+  const directories: Record<string, Record<string, Record<string, number>>> = {};
   for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
-    for (const pkg of pkgs) packages[pkg] = { [chunk]: 12 };
+    for (const pkg of pkgs) {
+      directories[pkg] = { src: { [chunk]: 12 } };
+      for (const carve of carveOutsOf(pkg)) directories[pkg][carve.subtree] = { [carve.chunk]: 5 };
+    }
   }
   // A package nothing budgets, present in every real build, so the evaluator is
   // never handed a map containing only its own subjects.
-  packages['app-shell'] = { index: 40, 'some-lazy-view': 3 };
-  return { membershipReportVersion: 1, totalChunkCount: 2_000, packages, ...overrides };
+  directories['app-shell'] = { src: { index: 40 }, 'src/views': { 'some-lazy-view': 3 } };
+  return {
+    membershipReportVersion: 2,
+    totalChunkCount: 2_000,
+    packages: packageCountsOf(directories),
+    directories,
+    ...overrides,
+  };
+}
+
+/** The carve-outs declared for one package, `[]` when it has none. */
+function carveOutsOf(pkg: string): readonly { subtree: string; chunk: string }[] {
+  return (PER_CHUNK_MEMBERSHIP_CARVE_OUTS as Record<string, readonly { subtree: string; chunk: string }[]>)[pkg] ?? [];
+}
+
+/** Sums a `directories` table into the per-package table the artifact also carries. */
+function packageCountsOf(directories: Record<string, Record<string, Record<string, number>>>) {
+  const packages: Record<string, Record<string, number>> = {};
+  for (const [pkg, dirs] of Object.entries(directories)) {
+    for (const byChunk of Object.values(dirs)) {
+      for (const [chunk, count] of Object.entries(byChunk)) {
+        (packages[pkg] ??= {})[chunk] = (packages[pkg][chunk] ?? 0) + count;
+      }
+    }
+  }
+  return packages;
+}
+
+/**
+ * The eager closure the unit cases judge carve-outs against, by chunk name:
+ * the four budgeted chunks, the entry, and `data-adapter` — eager and carrying
+ * no ceiling, which is exactly the destination a carve-out must never name.
+ * `types-zod` is absent, as it is from a real build's closure.
+ */
+const EAGER_CHUNK_NAMES = Object.freeze([
+  'index',
+  'vendor-objectstack',
+  'i18n-locale-en',
+  'framework',
+  'ui-components',
+  'data-adapter',
+]);
+
+/** The evaluator, handed the unit-case eager closure unless a case overrides it. */
+function judgeMembership(input: NonNullable<Parameters<typeof evaluatePerChunkMembership>[0]>) {
+  return evaluatePerChunkMembership({ eagerChunkNames: EAGER_CHUNK_NAMES, ...input });
 }
 
 /**
@@ -1006,8 +1060,8 @@ function passingMembership(overrides: Record<string, unknown> = {}) {
  * bought by measuring less.
  */
 describe('chunk membership (objectui#9345)', () => {
-  it('passes when every declared package landed wholly in its declared chunk', () => {
-    const result = evaluatePerChunkMembership({ membership: passingMembership() });
+  it('passes when every declared package landed exactly where declared', () => {
+    const result = judgeMembership({ membership: passingMembership() });
     expect(result.status).toBe('pass');
     // The population, named in the verdict: a green line that does not say what
     // it weighed is indistinguishable from a green line that weighed nothing.
@@ -1024,7 +1078,7 @@ describe('chunk membership (objectui#9345)', () => {
       framework: 11,
       'data-adapter': 1,
     };
-    const result = evaluatePerChunkMembership({ membership });
+    const result = judgeMembership({ membership });
     expect(result.status).toBe('fail');
     expect(result.message).toContain('`packages/core`');
     expect(result.message).toContain('`data-adapter`');
@@ -1036,7 +1090,7 @@ describe('chunk membership (objectui#9345)', () => {
   it('FAILS when the whole package moved, not only when it split', () => {
     const membership = passingMembership();
     (membership.packages as Record<string, Record<string, number>>).core = { 'data-adapter': 92 };
-    const result = evaluatePerChunkMembership({ membership });
+    const result = judgeMembership({ membership });
     expect(result.status).toBe('fail');
     expect(result.message).toContain('0 of its 92 modules landed in `framework`');
   });
@@ -1049,18 +1103,18 @@ describe('chunk membership (objectui#9345)', () => {
       framework: 99,
       'plugin-grid': 1,
     };
-    expect(evaluatePerChunkMembership({ membership }).status).toBe('fail');
+    expect(judgeMembership({ membership }).status).toBe('fail');
   });
 
   describe('refuses a verdict rather than passing by measuring nothing', () => {
     it('errors when the artifact is absent', () => {
-      const result = evaluatePerChunkMembership({ membership: null });
+      const result = judgeMembership({ membership: null });
       expect(result.status).toBe('error');
       expect(result.message).toContain('PREREQUISITE NOT MET');
     });
 
     it('errors on a version it does not understand', () => {
-      const result = evaluatePerChunkMembership({
+      const result = judgeMembership({
         membership: passingMembership({ membershipReportVersion: 99 }),
       });
       expect(result.status).toBe('error');
@@ -1068,7 +1122,7 @@ describe('chunk membership (objectui#9345)', () => {
     });
 
     it('errors when the artifact attributes no package at all', () => {
-      const result = evaluatePerChunkMembership({
+      const result = judgeMembership({
         membership: passingMembership({ packages: {} }),
       });
       expect(result.status).toBe('error');
@@ -1076,7 +1130,7 @@ describe('chunk membership (objectui#9345)', () => {
     });
 
     it('errors when the bundle it describes has no chunk in it', () => {
-      const result = evaluatePerChunkMembership({
+      const result = judgeMembership({
         membership: passingMembership({ totalChunkCount: 0 }),
       });
       expect(result.status).toBe('error');
@@ -1089,7 +1143,7 @@ describe('chunk membership (objectui#9345)', () => {
       // stray scan agrees with everything about it.
       const membership = passingMembership();
       delete (membership.packages as Record<string, unknown>).core;
-      const result = evaluatePerChunkMembership({ membership });
+      const result = judgeMembership({ membership });
       expect(result.status).toBe('error');
       expect(result.message).toContain('contributed no module');
       expect(result.message).toContain('`packages/core`');
@@ -1098,16 +1152,239 @@ describe('chunk membership (objectui#9345)', () => {
     it('errors when a declared package is present but attributed to nothing', () => {
       const membership = passingMembership();
       (membership.packages as Record<string, Record<string, number>>).core = {};
-      expect(evaluatePerChunkMembership({ membership }).status).toBe('error');
+      expect(judgeMembership({ membership }).status).toBe('error');
     });
 
     it('errors when the declaration names a chunk no ceiling governs', () => {
-      const result = evaluatePerChunkMembership({
+      const result = judgeMembership({
         membership: passingMembership(),
         declaration: { 'data-adapter': ['data-objectstack'] },
       });
       expect(result.status).toBe('error');
       expect(result.message).toContain('PER_CHUNK_GZIP_CEILINGS');
+    });
+  });
+
+  /**
+   * objectui#10065 split `packages/types` on purpose — `src/zod/**` to the lazy
+   * `types-zod`, the rest to `framework` — and this block pins that the split
+   * is held EXACTLY, to the directory, in both directions.
+   *
+   * ⭐ The first FAIL case is the failure the split was measured to produce on
+   * its own first build: three shared `src/` neighbours absorbed into
+   * `types-zod` along an import. At package granularity that reads as
+   * "types landed in `framework` and `types-zod`" — the healthy split. Only the
+   * directory counts tell it apart, which is why a carved package is judged on
+   * them.
+   */
+  describe('the declared `packages/types` split (objectui#10065)', () => {
+    /** The artifact with `packages/types`' directories replaced, `packages` re-derived. */
+    function withTypes(dirs: Record<string, Record<string, number>>) {
+      const membership = passingMembership();
+      const directories = membership.directories as Record<
+        string,
+        Record<string, Record<string, number>>
+      >;
+      directories.types = dirs;
+      membership.packages = packageCountsOf(directories);
+      return membership;
+    }
+
+    it('is declared, not dropped: `types` stays in `framework` with ONE carve-out', () => {
+      expect(PER_CHUNK_MEMBERSHIP.framework).toContain('types');
+      expect(PER_CHUNK_MEMBERSHIP_CARVE_OUTS).toEqual({
+        types: [{ subtree: 'src/zod', chunk: 'types-zod' }],
+      });
+    });
+
+    it('passes the ruled split and names both sides of it', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } }),
+      });
+      expect(result.status).toBe('pass');
+      expect(result.message).toContain(
+        '`packages/types` 40 modules in `framework` and its `src/zod` subtree 9 in `types-zod`, exactly',
+      );
+    });
+
+    it('holds the subtree at ANY depth, not only its top directory', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 40 },
+          'src/zod': { 'types-zod': 9 },
+          'src/zod/nested': { 'types-zod': 2 },
+        }),
+      });
+      expect(result.status).toBe('pass');
+      expect(result.message).toContain('subtree 11 in `types-zod`');
+    });
+
+    it('FAILS when shared `src/` modules ride into `types-zod` with the validators', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 37, 'types-zod': 3 },
+          'src/zod': { 'types-zod': 9 },
+        }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain(
+        '`packages/types/src` 3 in `types-zod` (declared `framework`)',
+      );
+    });
+
+    it('FAILS when the validators are back on the eager `framework` line', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { framework: 9 } }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain(
+        '`packages/types/src/zod` 9 in `framework` (declared `types-zod`)',
+      );
+    });
+
+    it('FAILS on a subtree that split across two chunks — one stray is a finding', () => {
+      const result = judgeMembership({
+        membership: withTypes({
+          src: { framework: 40 },
+          'src/zod': { 'types-zod': 8, 'plugin-map': 1 },
+        }),
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('`packages/types/src/zod` 1 in `plugin-map`');
+    });
+
+    /**
+     * ⭐ The mis-declaration the old, wholesale pin amounts to on today's
+     * bundle: with the carve-out gone, the ruled split IS a stray. This is the
+     * pin firing on its own declaration rather than on the bundle.
+     */
+    it('FAILS the ruled split when the carve-out is not declared', () => {
+      const result = judgeMembership({
+        membership: withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } }),
+        carveOuts: {},
+      });
+      expect(result.status).toBe('fail');
+      expect(result.message).toContain('`packages/types` is declared in `framework` but 9 in `types-zod`');
+    });
+
+    describe('refuses a carve-out it cannot check, rather than reading it', () => {
+      it('errors when the carve-out chunk is EAGER and carries no ceiling', () => {
+        // objectui#9345's incident, written down as though it were a ruling.
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { core: [{ subtree: 'src', chunk: 'data-adapter' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/core/src` is carved into `data-adapter`');
+        expect(result.message).toContain('EAGER');
+      });
+
+      it('errors on the live carve-out once `types-zod` joins the eager closure', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          eagerChunkNames: [...EAGER_CHUNK_NAMES, 'types-zod'],
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/types/src/zod` is carved into `types-zod`');
+        // Control, same artifact, same declaration: the closure the build
+        // actually produces admits it.
+        expect(judgeMembership({ membership: passingMembership() }).status).toBe('pass');
+      });
+
+      it('errors when the eager closure could not be read at all', () => {
+        const result = judgeMembership({ membership: passingMembership(), eagerChunkNames: null });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('could not read the eager closure');
+      });
+
+      it('errors on a carve-out of a package no budgeted chunk declares', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { ...PER_CHUNK_MEMBERSHIP_CARVE_OUTS, 'app-shell': [{ subtree: 'src/views', chunk: 'some-lazy-view' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('`packages/app-shell` has a carve-out but no budgeted chunk');
+      });
+
+      it('errors on a carve-out into the package`s own declared chunk', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { types: [{ subtree: 'src/zod', chunk: 'framework' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('a carve-out that moves nothing');
+      });
+
+      it.each([
+        ['an absolute path', '/src/zod'],
+        ['a trailing slash', 'src/zod/'],
+        ['the whole package', '.'],
+        ['a parent hop', 'src/../zod'],
+      ])('errors on a subtree written as %s', (_what, subtree) => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: { types: [{ subtree, chunk: 'types-zod' }] },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('not a package-relative directory');
+      });
+
+      it('errors on two carve-outs that nest', () => {
+        const result = judgeMembership({
+          membership: passingMembership(),
+          carveOuts: {
+            types: [
+              { subtree: 'src/zod', chunk: 'types-zod' },
+              { subtree: 'src/zod/deep', chunk: 'plugin-map' },
+            ],
+          },
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('which nest');
+      });
+    });
+
+    describe('refuses a split it cannot weigh, rather than passing it', () => {
+      it('errors when the carved subtree holds no module in the bundle', () => {
+        const result = judgeMembership({ membership: withTypes({ src: { framework: 40 } }) });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain(
+          'the carve-out `packages/types/src/zod` -> `types-zod` matched no module',
+        );
+      });
+
+      it('errors when nothing OUTSIDE the carve-out landed anywhere', () => {
+        const result = judgeMembership({ membership: withTypes({ 'src/zod': { 'types-zod': 9 } }) });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('outside its carve-out(s) contributed no module');
+      });
+
+      it('errors when the artifact carries no directory table for the carved package', () => {
+        const membership = passingMembership();
+        delete (membership.directories as Record<string, unknown>).types;
+        const result = judgeMembership({ membership });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('no directory attribution');
+      });
+
+      it('errors when the two tables in one artifact disagree', () => {
+        const membership = withTypes({ src: { framework: 40 }, 'src/zod': { 'types-zod': 9 } });
+        (membership.packages as Record<string, Record<string, number>>).types = {
+          framework: 40,
+          'types-zod': 8,
+        };
+        const result = judgeMembership({ membership });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('do not add up');
+      });
+
+      it('refuses a v1 artifact, which carries no directories at all', () => {
+        const result = judgeMembership({
+          membership: passingMembership({ membershipReportVersion: 1 }),
+        });
+        expect(result.status).toBe('error');
+        expect(result.message).toContain('membershipReportVersion 1, expected 2');
+      });
     });
   });
 
@@ -1156,6 +1433,60 @@ describe('chunk membership (objectui#9345)', () => {
         expect(test.test(path.join(repoRoot, 'packages/not-a-real-package/src/index.ts'))).toBe(
           false,
         );
+      }
+    });
+
+    /**
+     * ⭐ The same cross-check for the EXCEPTIONS, and it has more to prove: a
+     * carve-out is only true of the bundle if rolldown can actually do it. So
+     * against the console config's own group table, for every carve-out:
+     *
+     *   - the carve-out group's test matches the subtree (it can take it);
+     *   - the declared chunk's test matches the subtree TOO (or this is not a
+     *     carve FROM that chunk, just another package);
+     *   - the carve-out group outranks the declared chunk (or it loses the tie);
+     *   - it declares `includeDependenciesRecursively: false` (or it takes the
+     *     subtree's imports as well, which is the measured failure);
+     *   - and — the must-miss control — its test does NOT match the rest of the
+     *     package, so a regex that matched the whole package could not pass.
+     */
+    it('carves only what the carve-out group`s own regex takes, from a group it outranks', () => {
+      const source = fs.readFileSync(viteConfigPath, 'utf8');
+      const groupNamed = (name: string) => {
+        const found = new RegExp(
+          String.raw`\{\s*name:\s*'${name}',\s*test:\s*(/(?:[^/\\\n]|\\.|\[[^\]\n]*\])+/[a-z]*)\s*,\s*priority:\s*(\d+)\s*((?:,\s*[A-Za-z_$][\w$]*:\s*[^,{}]+)*)`,
+        ).exec(source);
+        expect(found, `no regex-tested group named \`${name}\` in the console config`).not.toBeNull();
+        const literal = /^\/(.*)\/([a-z]*)$/s.exec(found![1])!;
+        return {
+          test: new RegExp(literal[1], literal[2]),
+          priority: Number(found![2]),
+          options: found![3],
+        };
+      };
+      const homeOf = new Map<string, string>();
+      for (const [chunk, pkgs] of Object.entries(PER_CHUNK_MEMBERSHIP)) {
+        for (const pkg of pkgs) homeOf.set(pkg, chunk);
+      }
+      const carves = Object.entries(PER_CHUNK_MEMBERSHIP_CARVE_OUTS);
+      // Non-vacuity: the loop below has a subject.
+      expect(carves.length).toBeGreaterThan(0);
+      for (const [pkg, list] of carves) {
+        const home = homeOf.get(pkg);
+        expect(home, `packages/${pkg} is carved but declared nowhere`).toBeDefined();
+        const homeGroup = groupNamed(home!);
+        for (const { subtree, chunk } of list) {
+          const carveGroup = groupNamed(chunk);
+          const inside = path.join(repoRoot, `packages/${pkg}/${subtree}/index.ts`);
+          const outside = path.join(repoRoot, `packages/${pkg}/src/index.ts`);
+          expect(subtree).not.toBe('src');
+          expect(carveGroup.test.test(inside), `\`${chunk}\` does not match packages/${pkg}/${subtree}`).toBe(true);
+          expect(homeGroup.test.test(inside), `\`${home}\` never claimed packages/${pkg}/${subtree}`).toBe(true);
+          expect(carveGroup.priority).toBeGreaterThan(homeGroup.priority);
+          expect(carveGroup.options).toContain('includeDependenciesRecursively: false');
+          expect(carveGroup.test.test(outside), `\`${chunk}\` also takes the rest of packages/${pkg}`).toBe(false);
+          expect(homeGroup.test.test(outside)).toBe(true);
+        }
       }
     });
   });

@@ -1337,7 +1337,7 @@ const MEMBERSHIP_REPORT_PATH = `apps/console/dist/${MEMBERSHIP_REPORT_FILE_NAME}
  * version is REFUSED. Two artifacts, two versions, each bumped by the reader
  * that has to understand it.
  */
-const SUPPORTED_MEMBERSHIP_REPORT_VERSION = 1;
+const SUPPORTED_MEMBERSHIP_REPORT_VERSION = 2;
 
 /**
  * WHERE each budgeted group's declared packages must land — an EXACT claim,
@@ -1387,6 +1387,56 @@ export const PER_CHUNK_MEMBERSHIP = Object.freeze({
 });
 
 /**
+ * The declared EXCEPTIONS to {@link PER_CHUNK_MEMBERSHIP}'s "wholly": a
+ * package-relative subtree of a declared package that a narrower,
+ * higher-priority group takes BY DESIGN — keyed by package, each entry naming
+ * the subtree and the one chunk it must land in (objectui#10065).
+ *
+ * ## Why this exists, and why it is not a looser rule
+ *
+ * objectui#10082 split `packages/types` on purpose: the `src/zod/**`
+ * validators go to `types-zod`, which only the lazy `plugin-map` chunk reads,
+ * and the rest stays in `framework`. "`packages/types` lands wholly in
+ * `framework`" became false by ruling, not by accident. The two repairs this
+ * half refuses are the two that would make it pass by weighing less:
+ *
+ *   - ⛔ dropping `types` from `framework`'s list — the whole package would
+ *     then be unwatched, including the split's own failure mode;
+ *   - ⛔ allowing `types` "anywhere but a stray chunk" — which is a ratchet.
+ *
+ * So the split is DECLARED, and held to the module: every module under the
+ * subtree must land in the carve-out's chunk, every other module of the package
+ * in the package's declared chunk, nowhere else, and each side must hold at
+ * least one module. ⭐ That is what catches the failure the split was measured
+ * to produce on its first build: rolldown's default
+ * `includeDependenciesRecursively` absorbed three shared `src/` neighbours into
+ * `types-zod` along an import, the eager `plugin-grid` chunk then imported it
+ * statically, and every byte stayed eager. A per-package count reads that as
+ * the healthy split; the directory counts it is judged against here do not.
+ *
+ * ## Why a carve-out may name a chunk no ceiling governs — and when it may not
+ *
+ * This half's keys are limited to budgeted chunks because it guards a byte
+ * budget's flank. A carve-out's destination is not a key: it is where declared
+ * bytes LEAVE that budget. That is only honest when they also leave the thing
+ * every budget here weighs — so a destination that carries no ceiling must be
+ * ABSENT from the eager closure of the same build, read from
+ * `eager-closure.json`. ⛔ A carve-out into an unbudgeted EAGER chunk is refused
+ * as an error: it is objectui#9345's incident — `packages/core` in
+ * `data-adapter`, bytes downloaded and weighed by nothing — written down as
+ * though it were a ruling.
+ *
+ * `scripts/__tests__/check-eager-closure-budget.test.ts` cross-checks each
+ * entry against `apps/console/vite.config.ts`: the carve-out group's own test
+ * must match the subtree and must miss the rest of the package, the declared
+ * chunk's test must match the subtree too (or this is not a carve FROM it), and
+ * the carve-out group must outrank it.
+ */
+export const PER_CHUNK_MEMBERSHIP_CARVE_OUTS = Object.freeze({
+  types: Object.freeze([Object.freeze({ subtree: 'src/zod', chunk: 'types-zod' })]),
+});
+
+/**
  * Read the membership artifact, or `null` when it is not there / not JSON.
  *
  * @param {string} [reportPath]
@@ -1406,21 +1456,35 @@ export function readMembershipReport(reportPath = MEMBERSHIP_REPORT_PATH) {
  * ⚠️ Read the ERROR branches before the fail branch. Every one of them exists
  * because this half's green state is "no declared package was found anywhere it
  * should not be" — a sentence that is also true of a report that attributed
- * nothing, of a package that vanished from the bundle, and of a declaration
- * that names a chunk no ceiling governs. A check whose pass condition is an
- * ABSENCE has to prove it looked.
+ * nothing, of a package that vanished from the bundle, of a declaration that
+ * names a chunk no ceiling governs, and of a carve-out whose subtree holds
+ * nothing. A check whose pass condition is an ABSENCE has to prove it looked.
+ *
+ * A declared package WITHOUT a carve-out is judged on the per-package counts
+ * and must land wholly in its declared chunk. A package WITH one
+ * ({@link PER_CHUNK_MEMBERSHIP_CARVE_OUTS}) is judged on the per-directory
+ * counts: each module lands in the carve-out's chunk when its directory is
+ * under the carved subtree and in the declared chunk otherwise — exactly, one
+ * stray module is a finding, named by its directory.
  *
  * @param {object} input
  * @param {unknown} input.membership  parsed `chunk-membership.json`, or null
  * @param {Record<string, readonly string[]>} [input.declaration]
+ * @param {Record<string, readonly { subtree: string, chunk: string }[]>} [input.carveOuts]
  * @param {Record<string, number>} [input.budgetedChunks]
+ * @param {Iterable<string> | null} [input.eagerChunkNames]  the `name` of every
+ *        chunk in the SAME build's eager closure (`eager-closure.json`'s
+ *        `files[].name`), or null when that report could not be read. Needed
+ *        only to admit a carve-out whose chunk carries no ceiling.
  * @param {string} [input.reportPath]
  * @returns {{ status: 'pass' | 'fail' | 'error', message: string }}
  */
 export function evaluatePerChunkMembership({
   membership,
   declaration = PER_CHUNK_MEMBERSHIP,
+  carveOuts = PER_CHUNK_MEMBERSHIP_CARVE_OUTS,
   budgetedChunks = PER_CHUNK_GZIP_CEILINGS,
+  eagerChunkNames = null,
   reportPath = MEMBERSHIP_REPORT_PATH,
 } = {}) {
   if (membership === null || membership === undefined || typeof membership !== 'object') {
@@ -1468,6 +1532,9 @@ export function evaluatePerChunkMembership({
     };
   }
   const attribution = /** @type {Record<string, Record<string, number>>} */ (packages);
+  const directories = /** @type {Record<string, Record<string, Record<string, number>>>} */ (
+    r.directories !== null && typeof r.directories === 'object' ? r.directories : {}
+  );
 
   // The declaration is about BUDGETED chunks. A key here that carries no
   // ceiling would be pinning membership for a line nothing weighs — harmless
@@ -1485,8 +1552,96 @@ export function evaluatePerChunkMembership({
     };
   }
 
+  // The carve-outs are judged BEFORE any module is counted: an inadmissible
+  // exception makes every verdict built on it meaningless, in either direction.
+  /** @type {Map<string, string>} */
+  const homeOf = new Map();
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) homeOf.set(pkg, chunk);
+  }
+  const eager = eagerChunkNames === null ? null : new Set(eagerChunkNames);
+  /** @type {string[]} */
+  const inadmissible = [];
+  for (const [pkg, carves] of Object.entries(carveOuts)) {
+    const home = homeOf.get(pkg);
+    if (home === undefined) {
+      inadmissible.push(
+        `\`packages/${pkg}\` has a carve-out but no budgeted chunk declares the package — an ` +
+          `exception to a claim nobody makes`,
+      );
+      continue;
+    }
+    if (!Array.isArray(carves) || carves.length === 0) {
+      inadmissible.push(`\`packages/${pkg}\` has an EMPTY carve-out list`);
+      continue;
+    }
+    for (const carve of carves) {
+      const subtree = carve?.subtree;
+      const chunk = carve?.chunk;
+      if (
+        typeof subtree !== 'string' ||
+        subtree.split('/').some((part) => part === '' || part === '.' || part === '..')
+      ) {
+        inadmissible.push(
+          `\`packages/${pkg}\` carves ${JSON.stringify(subtree)}, which is not a ` +
+            `package-relative directory written the way the emitter keys them (\`src/zod\`)`,
+        );
+        continue;
+      }
+      if (typeof chunk !== 'string' || chunk === '') {
+        inadmissible.push(`\`packages/${pkg}/${subtree}\` is carved into no named chunk`);
+        continue;
+      }
+      if (chunk === home) {
+        inadmissible.push(
+          `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, the package's own declared ` +
+            `chunk — a carve-out that moves nothing`,
+        );
+        continue;
+      }
+      if (!(chunk in budgetedChunks)) {
+        if (eager === null) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which carries no ceiling, ` +
+              `and this run could not read the eager closure to confirm that chunk is LAZY`,
+          );
+        } else if (eager.has(chunk)) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which is in the EAGER ` +
+              `closure and carries no ceiling — declared bytes downloaded on every page load and ` +
+              `weighed by nothing, which is the bypass this half exists to catch (objectui#9345)`,
+          );
+        }
+      }
+    }
+    const subtrees = carves.map((c) => c?.subtree).filter((t) => typeof t === 'string');
+    for (const a of subtrees) {
+      for (const b of subtrees) {
+        if (a !== b && b.startsWith(`${a}/`)) {
+          inadmissible.push(
+            `\`packages/${pkg}\` carves both \`${a}\` and \`${b}\`, which nest — a module under ` +
+              `both would have two declared chunks`,
+          );
+        }
+      }
+    }
+  }
+  if (inadmissible.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS holds ${inadmissible.length} inadmissible ` +
+        `entr${inadmissible.length === 1 ? 'y' : 'ies'}:\n` +
+        inadmissible.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\nA carve-out is an EXCEPTION to a budgeted chunk's claim, so it is refused rather ` +
+        `than read: an exception nobody can check turns an exact pin into a permissive one.`,
+    };
+  }
+
   /** @type {string[]} */
   const missing = [];
+  /** @type {string[]} */
+  const unmeasured = [];
   /** @type {string[]} */
   const strays = [];
   /** @type {string[]} */
@@ -1500,18 +1655,108 @@ export function evaluatePerChunkMembership({
         continue;
       }
       const total = Object.values(landed).reduce((n, count) => n + count, 0);
-      const elsewhere = Object.entries(landed).filter(([name]) => name !== chunk);
-      if (elsewhere.length > 0) {
-        const where = elsewhere
-          .sort((a, b) => b[1] - a[1])
-          .map(([name, count]) => `${count} in \`${name}\``)
-          .join(', ');
+      const carves = carveOuts[pkg] ?? [];
+
+      if (carves.length === 0) {
+        const elsewhere = Object.entries(landed).filter(([name]) => name !== chunk);
+        if (elsewhere.length > 0) {
+          const where = elsewhere
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => `${count} in \`${name}\``)
+            .join(', ');
+          strays.push(
+            `\`packages/${pkg}\` is declared in \`${chunk}\` but ${where} ` +
+              `(${landed[chunk] ?? 0} of its ${total} modules landed in \`${chunk}\`)`,
+          );
+        } else {
+          held.push(`\`packages/${pkg}\` ${total} modules in \`${chunk}\``);
+        }
+        continue;
+      }
+
+      // A carved package is judged per DIRECTORY, so it needs the directory
+      // table — and that table must add up to the package's own counts, or the
+      // two halves of one artifact describe two different bundles.
+      const dirs = directories[pkg];
+      if (dirs === undefined || dirs === null || typeof dirs !== 'object' || Object.keys(dirs).length === 0) {
+        unmeasured.push(
+          `\`packages/${pkg}\` is declared with a carve-out but the artifact carries no ` +
+            `directory attribution for it, so the split cannot be held to the module`,
+        );
+        continue;
+      }
+      /** @type {Record<string, number>} */
+      const summed = {};
+      for (const byChunk of Object.values(dirs)) {
+        for (const [name, count] of Object.entries(byChunk)) summed[name] = (summed[name] ?? 0) + count;
+      }
+      const chunkNames = new Set([...Object.keys(summed), ...Object.keys(landed)]);
+      if ([...chunkNames].some((name) => (summed[name] ?? 0) !== (landed[name] ?? 0))) {
+        unmeasured.push(
+          `\`packages/${pkg}\`'s directory counts (${JSON.stringify(summed)}) do not add up to ` +
+            `its package counts (${JSON.stringify(landed)})`,
+        );
+        continue;
+      }
+
+      const carveFor = (/** @type {string} */ dir) =>
+        carves.find((c) => dir === c.subtree || dir.startsWith(`${c.subtree}/`));
+      let restTotal = 0;
+      /** @type {Map<object, number>} */
+      const carvedTotal = new Map(carves.map((c) => [c, 0]));
+      /** @type {string[]} */
+      const misplaced = [];
+      for (const [dir, byChunk] of Object.entries(dirs).sort(([a], [b]) => a.localeCompare(b))) {
+        const carve = carveFor(dir);
+        const expected = carve ? carve.chunk : chunk;
+        for (const [name, count] of Object.entries(byChunk).sort((a, b) => b[1] - a[1])) {
+          if (carve) carvedTotal.set(carve, /** @type {number} */ (carvedTotal.get(carve)) + count);
+          else restTotal += count;
+          if (name !== expected) {
+            misplaced.push(
+              `\`packages/${pkg}/${dir}\` ${count} in \`${name}\` (declared \`${expected}\`)`,
+            );
+          }
+        }
+      }
+
+      // Both sides of the split must hold something. A carve-out whose subtree
+      // contributed no module describes a bundle that does not exist, and a
+      // package whose REMAINDER contributed none is no longer declared in its
+      // chunk at all — each would otherwise pass by weighing nothing.
+      const emptyCarves = carves.filter((c) => carvedTotal.get(c) === 0);
+      if (emptyCarves.length > 0 || restTotal === 0) {
+        unmeasured.push(
+          [
+            ...emptyCarves.map(
+              (c) =>
+                `the carve-out \`packages/${pkg}/${c.subtree}\` -> \`${c.chunk}\` matched no ` +
+                `module in the bundle`,
+            ),
+            ...(restTotal === 0
+              ? [`\`packages/${pkg}\` outside its carve-out(s) contributed no module to \`${chunk}\``]
+              : []),
+          ].join('; '),
+        );
+        continue;
+      }
+
+      const carvedText = carves
+        .map((c) => `its \`${c.subtree}\` subtree -> \`${c.chunk}\``)
+        .join(', ');
+      if (misplaced.length > 0) {
         strays.push(
-          `\`packages/${pkg}\` is declared in \`${chunk}\` but ${where} ` +
-            `(${landed[chunk] ?? 0} of its ${total} modules landed in \`${chunk}\`)`,
+          `\`packages/${pkg}\` is declared in \`${chunk}\` with ${carvedText}, but ` +
+            misplaced.join(', '),
         );
       } else {
-        held.push(`\`packages/${pkg}\` ${total} modules in \`${chunk}\``);
+        held.push(
+          `\`packages/${pkg}\` ${restTotal} modules in \`${chunk}\` and ` +
+            carves
+              .map((c) => `its \`${c.subtree}\` subtree ${carvedTotal.get(c)} in \`${c.chunk}\``)
+              .join(', ') +
+            ', exactly',
+        );
       }
     }
   }
@@ -1530,6 +1775,20 @@ export function evaluatePerChunkMembership({
         `agree with everything about it. Either the package was renamed or removed — update ` +
         `PER_CHUNK_MEMBERSHIP deliberately — or the emitter has stopped recognising its module ` +
         `ids, in which case this gate is matching nothing.`,
+    };
+  }
+
+  // Same reasoning, one level down: a carved package whose split cannot be
+  // weighed is not a package whose split is right.
+  if (unmeasured.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${unmeasured.length} carved package(s) could not be held to their declared split:\n` +
+        unmeasured.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\n⛔ Not a pass: the carve-out table and the bundle no longer describe each other. ` +
+        `Rebuild the console if the artifact is stale; otherwise update ` +
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS deliberately and say in the PR why.`,
     };
   }
 
@@ -1554,9 +1813,9 @@ export function evaluatePerChunkMembership({
   return {
     status: 'pass',
     message:
-      `Chunk membership: ${held.length} budgeted package(s) each landed wholly in their ` +
-      `declared chunk — ${held.join('; ')}. (Counted over every emitted chunk, lazy ones ` +
-      `included, from \`${reportPath}\`.)`,
+      `Chunk membership: ${held.length} budgeted package(s) each landed exactly where declared ` +
+      `— ${held.join('; ')}. (Counted over every emitted chunk, lazy ones included, from ` +
+      `\`${reportPath}\`.)`,
   };
 }
 
@@ -2723,6 +2982,13 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const membershipPath = path.join(path.dirname(resolved), MEMBERSHIP_REPORT_FILE_NAME);
   const membership = evaluatePerChunkMembership({
     membership: readMembershipReport(membershipPath),
+    // The SAME build's eager closure, by chunk name — needed only to admit a
+    // carve-out into a chunk no ceiling governs, which is admissible only while
+    // that chunk stays out of the closure. `null` when the report is unreadable,
+    // and the half then refuses such a carve-out rather than assuming it lazy.
+    eagerChunkNames: Array.isArray(report?.files)
+      ? report.files.map((/** @type {{ name?: unknown }} */ file) => String(file?.name ?? ''))
+      : null,
     reportPath: membershipPath,
   });
   const sensitivity = evaluateHeadroomSensitivity({ report, reportPath });

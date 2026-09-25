@@ -418,6 +418,21 @@ function emitEagerClosureReport(reportFileName = 'eager-closure.json'): Plugin {
  * chunk is exactly as much a membership breach as one hiding in an eager
  * neighbour, and the eager-closure walk cannot see it.
  *
+ * ## Why it counts DIRECTORIES as well as packages (objectui#10065)
+ *
+ * A package is not always one chunk's by design. `packages/types` is split on
+ * purpose: its `src/zod/**` validators go to the lazy `types-zod` group and the
+ * rest stays in `framework`. A per-package count can say "types landed in
+ * `framework` and `types-zod`", and it cannot say WHICH modules — so the
+ * failure that split was measured to produce (three shared `src/` neighbours
+ * absorbed into `types-zod` along an import, every byte of it eager again)
+ * reads exactly like the healthy split. `directories` keys the same counts by
+ * each module's package-relative directory, which is the granularity a
+ * declared carve-out is written at, so the checker can hold the split to the
+ * module rather than to the package. ⛔ It records what landed, and nothing
+ * about what was DECLARED — this plugin reads no declaration, so the artifact
+ * cannot agree with a wrong one.
+ *
  * ⚠️ This plugin only MEASURES — same split as `emitEagerClosureReport` above,
  * and for the same reason: a membership verdict that failed `vite build` would
  * fail every preview deploy too, which is how a gate gets switched off.
@@ -426,7 +441,15 @@ function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Pl
   // The module ids rolldown records are realpaths, so a workspace module reads
   // as `<repo>/packages/<name>/src/...` no matter which symlink resolved it —
   // the same assumption the `advancedChunks` group tests above are written on.
-  const WORKSPACE_MODULE = /[\\/]packages[\\/]([^\\/]+)[\\/]/;
+  // The second capture is the rest of the id — the package-relative path the
+  // `directories` table is keyed by (its directory, `/`-separated, any query
+  // suffix dropped: `?inline` and friends are the same file).
+  const WORKSPACE_MODULE = /[\\/]packages[\\/]([^\\/]+)[\\/](.*)$/;
+  const directoryOf = (rest: string) => {
+    const file = rest.split('?')[0].replace(/\\/g, '/');
+    const slash = file.lastIndexOf('/');
+    return slash === -1 ? '.' : file.slice(0, slash);
+  };
 
   return {
     name: 'emit-chunk-membership-report',
@@ -435,6 +458,8 @@ function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Pl
 
       /** package name -> chunk name -> how many of its modules landed there. */
       const packages: Record<string, Record<string, number>> = {};
+      /** package name -> package-relative directory -> chunk name -> count. */
+      const directories: Record<string, Record<string, Record<string, number>>> = {};
       let totalChunkCount = 0;
       let unnamedChunks = 0;
 
@@ -451,6 +476,8 @@ function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Pl
           if (!match) continue;
           const pkg = match[1];
           (packages[pkg] ??= {})[chunkName] = (packages[pkg][chunkName] ?? 0) + 1;
+          const byChunk = ((directories[pkg] ??= {})[directoryOf(match[2])] ??= {});
+          byChunk[chunkName] = (byChunk[chunkName] ?? 0) + 1;
         }
       }
 
@@ -487,10 +514,12 @@ function emitChunkMembershipReport(reportFileName = 'chunk-membership.json'): Pl
       const report = {
         // Independent of `eager-closure.json`'s version on purpose; see the
         // docblock above. Bump when the shape below changes, so a stale report
-        // is REFUSED rather than read for fields it does not carry.
-        membershipReportVersion: 1,
+        // is REFUSED rather than read for fields it does not carry. v2 added
+        // `directories` (objectui#10065's split, see the docblock).
+        membershipReportVersion: 2,
         totalChunkCount,
         packages,
+        directories,
       };
 
       fs.writeFileSync(path.join(outDir, reportFileName), `${JSON.stringify(report, null, 2)}\n`);
@@ -1081,6 +1110,12 @@ export default defineConfig({
             // bytes, not lines (objectui#10065 below takes the zod validators off
             // this chunk); the figure in force is the one
             // `scripts/check-eager-closure-budget.mjs` prints on every run.
+            //
+            // The membership half of that gate pins the result: `framework`'s
+            // declared packages land in `framework`, with ONE declared carve-out
+            // — `packages/types/src/zod/**` in `types-zod`, exactly — and nowhere
+            // else (`PER_CHUNK_MEMBERSHIP` and `PER_CHUNK_MEMBERSHIP_CARVE_OUTS`
+            // there, judged against this build's `chunk-membership.json`).
             //
             // ⚠️ Rolldown documents a cost for turning this off: recursive capture
             // "reduces the chance of generating circular chunks", and the same

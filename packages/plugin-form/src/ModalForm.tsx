@@ -40,6 +40,7 @@ import { SchemaRenderer, useSafeFieldLabel, usePreviewMode } from '@object-ui/re
 import { createSafeTranslation } from '@object-ui/i18n';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
+import { isRecordReadOutstanding } from './recordReadGate';
 import {
   applyAutoColSpan,
   applyAutoLayout,
@@ -486,8 +487,23 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   useEffect(() => {
     if (!objectSchema && dataSource) return;
 
+    // Ending the loading state here is only this effect's call when no record
+    // read is outstanding (objectui#10659, the gate objectui#10190 gave the
+    // drawer). Ended unconditionally, it painted an editable form while the
+    // first read was in flight, and the landing record discarded what had been
+    // typed — see `isRecordReadOutstanding`.
+    const recordReadOutstanding = isRecordReadOutstanding({
+      mode: schema.mode,
+      recordId: schema.recordId,
+      dataSource,
+      loadedRecordId: loadedRecordIdRef.current,
+    });
+    const endLoading = () => {
+      if (!recordReadOutstanding) setLoading(false);
+    };
+
     if (schema.sections?.length) {
-      setLoading(false);
+      endLoading();
       return;
     }
 
@@ -511,7 +527,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         customFields: schema.customFields,
       }),
     );
-    setLoading(false);
+    endLoading();
   }, [objectSchema, schema.fields, schema.customFields, schema.sections, schema.readOnly, schema.mode, dataSource]);
 
   // Handle form submission

@@ -108,7 +108,7 @@ function Page() {
       </div>
       <div className="grid grid-cols-5 gap-6">
         <section className="col-span-3 rounded-xl border border-slate-200 bg-white p-2">
-          <ListView key={reloadKey} objectName="showcase_project" fields={['name','status','health','budget','owner']} navigation={{ mode: 'none' }} onRowClick={onRowClick} />
+          <ListView key={reloadKey} data={{ provider: 'object', object: 'showcase_project' }} fields={['name','status','health','budget','owner']} navigation={{ mode: 'none' }} onRowClick={onRowClick} />
         </section>
         <section className="col-span-2 rounded-xl border border-slate-200 bg-white p-5">
           {editing ? (

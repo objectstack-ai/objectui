@@ -25,20 +25,30 @@
  *    list, never a report. This half was already refused before this card, by
  *    omission from the spec type; it is pinned here so each block's refused
  *    set sits in one place.
+ *  - `object-data-table`: `filter`, `maxRows`, `report`, and `target:
+ *    'navigate'`. A row drills to the one record it already is, so a drilled
+ *    list's filter, row cap and report have nothing to act on, and
+ *    `'navigate'` (the object's list page) is the wrong destination. This is
+ *    the one block with a zod door that reads its drill members
+ *    (`safeValidateSchema`, which `objectui validate` runs), so it is pinned on
+ *    both doors.
  *
- * ## These assertions are compile-time only
+ * ## Two instruments
  *
- * Judged by `tsc -p tsconfig.test.json`, the third leg of this package's
- * `type-check` script. Vitest strips types, so the `expect` at the bottom only
- * keeps each block a collected suite. A `@ts-expect-error` line whose error
- * disappears is itself an error (TS2578), which is what lets each refusal fail.
+ * The `@ts-expect-error` lines are judged by `tsc -p tsconfig.test.json`, the
+ * third leg of this package's `type-check` script. Vitest strips types, so for
+ * those blocks the `expect` only keeps the block a collected suite. A
+ * `@ts-expect-error` line whose error disappears is itself an error (TS2578),
+ * which is what lets each refusal fail. The zod `describe` at the bottom is a
+ * RUNTIME pin, judged by vitest.
  */
 
 import { describe, it, expect } from 'vitest';
 // The per-block shapes through the module the published
 // `@object-ui/types/data-display` subpath serves; the chart through the barrel.
-import type { DrillDownConfig, ObjectPivotDrillDownConfig } from '../data-display';
-import type { ObjectChartSchema } from '../index';
+import type { DrillDownConfig, ObjectDataTableDrillDownConfig, ObjectPivotDrillDownConfig } from '../data-display';
+import type { ObjectChartSchema, ObjectDataTableSchema } from '../index';
+import { safeValidateSchema } from '../zod/index.zod';
 
 type Assert<T extends true> = T;
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
@@ -101,5 +111,82 @@ describe('object-chart refuses drillDown.mode and drillDown.report (objectui#106
     };
 
     expect([withMode, withReport, live]).toHaveLength(3);
+  });
+});
+
+describe('object-data-table refuses drillDown.filter, .maxRows, .report and target navigate (objectui#10685)', () => {
+  it('is pinned at compile time, on the per-block shape and on the schema the prop is anchored to', () => {
+    type _TableShapeIsReal = Assert<Equal<IsAny<ObjectDataTableDrillDownConfig>, false>>;
+    // The anchored schema takes the per-block shape, not the shared one.
+    type _SchemaTakesTheTableShape = Assert<
+      Equal<ObjectDataTableSchema['drillDown'], ObjectDataTableDrillDownConfig | undefined>
+    >;
+
+    // One refused member per line, so each directive owns exactly one error.
+    // @ts-expect-error `filter` is refused on `object-data-table` (objectui#10685).
+    const withFilter: ObjectDataTableDrillDownConfig = { enabled: true, filter: { stage: 'won' } };
+    // @ts-expect-error `maxRows` is refused on `object-data-table` (objectui#10685).
+    const withMaxRows: ObjectDataTableDrillDownConfig = { enabled: true, maxRows: 25 };
+    // @ts-expect-error `report` is refused on `object-data-table` (objectui#10685).
+    const withReport: ObjectDataTableDrillDownConfig = { enabled: true, report: { name: 'pipeline' } };
+    // @ts-expect-error `target: 'navigate'` is refused on `object-data-table` (objectui#10685).
+    const withNavigate: ObjectDataTableDrillDownConfig = { enabled: true, target: 'navigate' };
+    const shared: DrillDownConfig = { enabled: true, mode: 'record' };
+    // @ts-expect-error a shared config that may carry any of them is not a table drill config.
+    const handedAcross: ObjectDataTableDrillDownConfig = shared;
+
+    const base = { type: 'object-data-table', objectName: 'opportunity' } as const;
+    // @ts-expect-error the same refusal through the node an author writes.
+    const nodeWithFilter: ObjectDataTableSchema = { ...base, drillDown: { enabled: true, filter: { stage: 'won' } } };
+    // @ts-expect-error the same refusal through the node an author writes.
+    const nodeWithNavigate: ObjectDataTableSchema = { ...base, drillDown: { enabled: true, target: 'navigate' } };
+
+    // Control: every member the block reads still compiles, `enabled` and `mode` first.
+    const live: ObjectDataTableDrillDownConfig = {
+      enabled: true,
+      mode: 'record',
+      title: 'Opportunity',
+      columns: ['name', 'amount'],
+      target: 'dialog',
+    };
+    const liveNode: ObjectDataTableSchema = { ...base, drillDown: { enabled: false, mode: 'filter', target: 'drawer' } };
+    // Still a `DrillDownConfig`, so `isDrillEnabled` takes it.
+    const liveAsShared: DrillDownConfig = live;
+
+    expect([
+      withFilter, withMaxRows, withReport, withNavigate, handedAcross,
+      nodeWithFilter, nodeWithNavigate, liveNode, liveAsShared,
+    ]).toHaveLength(9);
+  });
+});
+
+describe('object-data-table: the zod door refuses the same members by name (objectui#10685)', () => {
+  const table = (drillDown: unknown) => ({ type: 'object-data-table', objectName: 'opportunity', drillDown });
+
+  it('accepts a config carrying every member the block reads', () => {
+    for (const drillDown of [
+      {},
+      { enabled: true, mode: 'record', title: 'Opportunity', columns: ['name', 'amount'], target: 'dialog' },
+      { enabled: false, mode: 'filter', target: 'drawer' },
+    ]) {
+      const r = safeValidateSchema(table(drillDown));
+      expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
+    }
+  });
+
+  it.each([
+    ['filter', { filter: { stage: 'won' } }, 'invalid_type'],
+    ['maxRows', { maxRows: 25 }, 'invalid_type'],
+    ['report', { report: { name: 'pipeline' } }, 'invalid_type'],
+    ['target', { target: 'navigate' }, 'invalid_value'],
+  ] as const)('refuses drillDown.%s, and the issue names the key', (key, member, code) => {
+    const r = safeValidateSchema(table({ enabled: true, ...member }));
+    expect(r.success).toBe(false);
+    const issues = r.success ? [] : r.error.issues;
+    const mine = issues.filter((i) => i.path.join('.') === `drillDown.${key}`);
+    expect(mine, JSON.stringify(issues)).toHaveLength(1);
+    expect(mine[0].code).toBe(code);
+    // The named subject, not the wording: the message spells out the key it refuses.
+    expect(mine[0].message).toContain(`drillDown.${key}`);
   });
 });

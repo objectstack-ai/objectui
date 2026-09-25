@@ -2246,9 +2246,15 @@ export type PivotAggregation = 'sum' | 'count' | 'avg' | 'min' | 'max';
  *
  * ## Declared = delivered (objectui#3354)
  *
- * Every key below is read by at least one of the five widgets that share this
- * interface, and `target` is honoured by all of them. Two keys used to break
- * that rule and were removed rather than left as authoring bait:
+ * Every key below is read by at least one block that takes this interface or a
+ * per-block shape derived from it. A block that can never honour a key refuses
+ * it by name on its own shape rather than accepting and dropping it
+ * ({@link ObjectMetricDrillDownConfig}, {@link ObjectPivotDrillDownConfig},
+ * {@link ObjectDataTableDrillDownConfig}; objectui#9002, objectui#10685), so
+ * every `target` arm a block's shape admits is one that block honours:
+ * `object-data-table`'s shape admits `'drawer'` and `'dialog'` only. Two keys
+ * used to break that rule for every block and were removed rather than left as
+ * authoring bait:
  *
  *  - `view?: string` — self-described as "reserved"; no renderer ever looked it
  *    up, so the drawer rendered its inline `object-data-table` regardless.
@@ -2419,6 +2425,73 @@ export interface ObjectPivotDrillDownConfig extends DrillDownConfig {
    * @deprecated Not a member `object-pivot` reads. A pivot always lists the records behind the clicked value.
    */
   mode?: never;
+}
+
+/**
+ * The `object-data-table` block's drill-down shape: {@link DrillDownConfig}
+ * with `filter`, `maxRows` and `report` REFUSED BY NAME and `target` narrowed
+ * to its two in-place arms (objectui#10685, which applies objectui#9002's ruling
+ * B, a per-block refusal, to the sibling blocks of `object-metric`).
+ *
+ * A data table drills to the RECORD its clicked row already is: the row click
+ * opens that record in `RecordDetailDrawer`, which lists nothing. The three
+ * refused members each configure a drilled record LIST (the filter that scopes
+ * it, the cap on its rows, the report that replaces it), and this block has no
+ * list drill for them to apply to: `mode: 'filter'` turns its row drill off
+ * rather than drilling through. `target: 'navigate'` opens the object's full
+ * LIST page through the host's `openRecordList`, which is the wrong destination
+ * for one record, and the block used to draw it as a drawer instead.
+ *
+ * What the block reads: `enabled` by `isDrillEnabled`; `mode`, where `'record'`
+ * (the default) opens the row and `'filter'` turns the drill off; `title`, a
+ * non-template title that heads the record drawer; `columns`, the record
+ * drawer's field whitelist; and `target`, `'drawer'` or `'dialog'`.
+ *
+ * `?: never` tombstones for the reason {@link ObjectMetricDrillDownConfig}
+ * gives: they refuse a value that is not a fresh literal too, and they carry
+ * the reason into the error an author (or an AI) sees.
+ *
+ * Twin of the `drillDown` member of `ObjectDataTableSchema`'s zod mirror
+ * (`zod/objectql.zod.ts`), which refuses the same members by name, so a stored
+ * JSON config carrying one is refused at `objectui validate` as well.
+ */
+export interface ObjectDataTableDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). A drill `filter`
+   * scopes a drilled record list, and this block drills to the one record its
+   * row already is. Drill filters apply on `object-chart` and `object-pivot`,
+   * which hand this member to `computeDrillFilter`.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  filter?: never;
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). `maxRows` caps a
+   * drilled record list, and this block drills to one record. It applies on
+   * `object-chart`, `object-pivot` and `object-metric`, whose drill lists page
+   * by it.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  maxRows?: never;
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). A drill `report`
+   * replaces a drilled record list, and this block drills to one record. It
+   * applies on `object-pivot` and `object-metric`, whose `DrillDownDrawer`
+   * renders it.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  report?: never;
+  /**
+   * Where the record drill lands: `'drawer'` (the default) or `'dialog'`.
+   *
+   * `'navigate'` is REFUSED on `object-data-table` (objectui#10685): it opens
+   * the object's full list page through the host's `openRecordList`, and this
+   * block's row opens one record. `'navigate'` applies on `object-chart`,
+   * `object-pivot` and `object-metric`.
+   */
+  target?: 'drawer' | 'dialog';
 }
 
 /**

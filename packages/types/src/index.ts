@@ -253,6 +253,7 @@ export type {
   DrillDownConfig,
   ObjectMetricDrillDownConfig,
   ObjectPivotDrillDownConfig,
+  ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
   TimelineSchema,

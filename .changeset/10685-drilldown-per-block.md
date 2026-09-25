@@ -3,28 +3,41 @@
 '@object-ui/plugin-dashboard': patch
 ---
 
-`object-pivot` refuses `drillDown.mode` on its prop type (objectui#10685)
+`object-data-table` refuses `drillDown.filter`, `.maxRows`, `.report` and `target: 'navigate'`, and `object-pivot` refuses `drillDown.mode` (objectui#10685)
 
-Refused at the TypeScript door only. A stored JSON pivot config carrying the key is still
-accepted and ignored at render, as it was before: neither `object-pivot` nor
-`PivotTableSchema` has a zod mirror, so no validator in this repository reads the members
-of a pivot's `drillDown`.
+**Stored JSON: `objectui validate` now refuses an `object-data-table` config that carries
+`drillDown.filter`, `drillDown.maxRows`, `drillDown.report` or `drillDown.target: 'navigate'`.**
+Each refusal names the key and the blocks that do read it. None of the four was ever read by
+this block. Its row drills to the one record it already is, so a drilled list's filter, row
+cap and report had nothing to act on, and `'navigate'` was drawn as a drawer. Before this
+change the table's zod mirror took the shared `DrillDownConfigSchema` and accepted all four.
+Delete the key; for the drill target, write `'drawer'` or `'dialog'`. `enabled`, `mode`,
+`title` and `columns` are accepted exactly as before.
 
-The key never had a read site on a pivot. Every pivot click point is an aggregated bucket
-(a cell, a row or column header, or a total), so the block always drills through to the
-records behind the clicked value, and `mode`, which chooses drill-to-record for a clicked
-row, had nothing to choose. It still type-checked on `ObjectPivotTable`'s
-`schema.drillDown` and then did nothing, with no diagnostic.
+`object-pivot` is refused at the TypeScript door only. A stored JSON pivot config carrying
+`mode` is still accepted and ignored at render, as it was before: neither `object-pivot` nor
+`PivotTableSchema` has a zod mirror, so no validator in this repository reads the members of
+a pivot's `drillDown`. `mode` never had a read site on a pivot. Every pivot click point is an
+aggregated bucket (a cell, a row or column header, or a total), so the block always drills
+through, and `mode`, which chooses drill-to-record for a clicked row, had nothing to choose.
 
-- `@object-ui/types` adds `ObjectPivotDrillDownConfig`, published on the root entry
-  `@object-ui/types` and on the `@object-ui/types/data-display` subpath: `DrillDownConfig`
-  with a `mode?: never` tombstone whose docblock names the block that does read the key,
-  `object-data-table`. The shared `DrillDownConfig` keeps `mode` for that block, and its
-  `mode` docblock now names only that block instead of charts, pivot tables and metric
+- `@object-ui/types` adds two per-block shapes beside `ObjectMetricDrillDownConfig`, both
+  published on the root entry `@object-ui/types` and on the `@object-ui/types/data-display`
+  subpath. Each tombstone's docblock names the blocks that do read the key.
+  - `ObjectDataTableDrillDownConfig`: `DrillDownConfig` with `filter?: never`,
+    `maxRows?: never` and `report?: never`, and `target?: 'drawer' | 'dialog'`.
+    `ObjectDataTableSchema.drillDown` is typed with it, and the `drillDown` member of its zod
+    mirror (`@object-ui/types/zod`) refuses the same members by name.
+  - `ObjectPivotDrillDownConfig`: `DrillDownConfig` with `mode?: never`.
+- The shared `DrillDownConfig` keeps every member for the blocks that read them. Its `mode`
+  docblock now names only `object-data-table` instead of charts, pivot tables and metric
   cards, none of which read it.
-- `@object-ui/plugin-dashboard` types `ObjectPivotTable`'s `schema.drillDown` with it, and
-  the component reads its drill config through that type instead of through `any`.
+- `@object-ui/plugin-dashboard` types `ObjectPivotTable`'s `schema.drillDown` with
+  `ObjectPivotDrillDownConfig`, and the component reads its drill config through that type
+  instead of through `any`. `ObjectDataTable`'s prop is `ObjectDataTableSchema`, so it takes
+  the table's shape with it.
 
-TSX code that passes `mode` inside `ObjectPivotTable`'s `schema.drillDown` now fails to
-compile, and so does a value typed as the shared `DrillDownConfig`. Delete the key: the
-pivot always drilled through. Runtime behaviour is unchanged.
+TSX code now fails to compile in two places. The first is a refused member inside
+`ObjectDataTableSchema.drillDown`, or inside `ObjectPivotTable`'s `schema.drillDown`. The
+second is a value typed as the shared `DrillDownConfig` handed to either. Delete the key.
+Runtime rendering is unchanged.

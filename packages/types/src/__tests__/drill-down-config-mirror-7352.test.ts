@@ -123,6 +123,19 @@ const ACCEPTED: Array<[string, DrillDownConfig]> = [
   ['an inline report missing objectName, which the reference arm accepts', { report: { name: 'pipeline', columns: [] } }],
 ];
 
+/**
+ * objectui#10685 — the `object-data-table` mirror takes that block's OWN drill
+ * shape: the shared mirror with `filter`, `maxRows` and `report` refused by name
+ * and `target` narrowed to `'drawer'` / `'dialog'`
+ * (`drill-down-per-block-10685.test.ts` pins those refusals on both doors). So
+ * the table leg below runs over the ACCEPTED entries that carry none of them;
+ * the rest are that pin's refusals, not this ledger's acceptances.
+ */
+const TABLE_REFUSED_KEYS = ['filter', 'maxRows', 'report'] as const;
+const TABLE_ACCEPTED = ACCEPTED.filter(
+  ([, value]) => !TABLE_REFUSED_KEYS.some((key) => key in value) && value.target !== 'navigate',
+);
+
 /** Each is a DECLARED key with a value outside its declared type. */
 const REFUSED: Array<[string, unknown, string]> = [
   ['enabled as a string', { enabled: 'yes' }, 'enabled'],
@@ -166,8 +179,18 @@ describe('objectui#7352 — DrillDownConfigSchema is the zod mirror of DrillDown
 
 describe('objectui#7352 — both declaring mirrors read the key', () => {
   it('ChartSchema and ObjectDataTableSchema declare drillDown through the shared mirror', () => {
+    // The table's through its per-block extension of it (objectui#10685).
     expect(ChartSchema.shape.drillDown).toBeDefined();
     expect(ObjectDataTableSchema.shape.drillDown).toBeDefined();
+  });
+
+  it('the table leg still covers every value hosts synthesise for a table (objectui#10685)', () => {
+    // Non-vacuity for the filtered leg below: the blocks `DashboardRenderer`,
+    // `DrillDownDrawer` and `ObjectChart` write onto an `object-data-table`, and
+    // the drill tests' disabled and filter-mode blocks, all stay in it.
+    expect(TABLE_ACCEPTED.map(([label]) => label)).toEqual(expect.arrayContaining([
+      'the empty block', 'enabled', 'disabled', 'record mode', 'filter mode', 'record mode in a dialog',
+    ]));
   });
 
   it.each(ACCEPTED)('a chart carrying %s validates', (_label, value) => {
@@ -175,7 +198,7 @@ describe('objectui#7352 — both declaring mirrors read the key', () => {
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues, null, 2)).toBe(true);
   });
 
-  it.each(ACCEPTED)('an object-data-table carrying %s validates', (_label, value) => {
+  it.each(TABLE_ACCEPTED)('an object-data-table carrying %s validates', (_label, value) => {
     const r = safeValidateSchema(table(value));
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues, null, 2)).toBe(true);
   });

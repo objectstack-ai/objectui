@@ -131,7 +131,7 @@ the renderer:
 }
 ```
 
-**Note**: the map plots the records it fetches, so it takes an `objectName` (or an explicit `data` array) rather than a `bind` path, and it derives its markers from those records — a `markers` key on the node is not read. Every marker setting lives under the declared `map` input.
+**Note**: the map plots the records it fetches, so it takes an `objectName` (or inline rows under `staticData`, or a `data: { provider: 'value', items }` configuration — a bare array under `data` is not a record source) rather than a `bind` path, and it derives its markers from those records — a `markers` key on the node is not read. Every marker setting lives under the declared `map` input.
 
 ## Validation
 

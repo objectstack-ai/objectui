@@ -47,8 +47,19 @@ const SelectRenderer = ({ schema, className, onChange, value, disabled: hostDisa
         data-obj-type={dataObjType}
         style={style}
     >
+      {/*
+        The label names the trigger through a plain `htmlFor` / `id` pair on
+        `schema.id` (objectui#10435), the shape `element:record_picker` landed
+        for the same defect (objectui#5771): `SelectTrigger` renders a `button`
+        with `role="combobox"`, a labelable element, and that role takes no
+        name from its content, so without the pair the placeholder or value
+        text inside it named nothing and the combobox's accessible name was
+        empty. Only the author supplies `schema.id`, so a select authored
+        without one keeps an unassociated caption, as on the sibling `input` /
+        `textarea` renderers, rather than a minted `useId()` fallback.
+      */}
       {schema.label && (
-        <Label className={cn(schema.required && "text-destructive")}>
+        <Label htmlFor={schema.id} className={cn(schema.required && "text-destructive")}>
           {schema.label}
           {schema.required && (
             // A real `aria-hidden` element, not CSS generated content, the
@@ -72,7 +83,7 @@ const SelectRenderer = ({ schema, className, onChange, value, disabled: hostDisa
         name={schema.name}
         {...selectProps}
       >
-        <SelectTrigger className={className}>
+        <SelectTrigger id={schema.id} className={className}>
           <SelectValue placeholder={schema.placeholder} />
         </SelectTrigger>
         <SelectContent>

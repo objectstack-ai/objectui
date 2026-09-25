@@ -34,6 +34,7 @@ import {
   InspectorSelectField,
   InspectorNumberField,
   InspectorCheckboxField,
+  flagUnknownValue,
 } from './_shared.js';
 import { useObjectOptions } from '../previews/useObjectOptions.js';
 import { ConditionBuilder, RECORD_CONDITION_SUBJECTS } from './ConditionBuilder.js';
@@ -126,14 +127,16 @@ export function HookDefaultInspector({
 
   const { options: objectOptions } = useObjectOptions();
   // Preserve any selected object missing from the live catalog (draft-only /
-  // cross-package) so it is never dropped from the picker.
+  // cross-package) so it is never dropped from the picker. Its flag reads in
+  // the designer's locale (objectui#10448).
   const pickerOptions = React.useMemo(() => {
     const known = new Set(objectOptions.map((o) => o.value));
+    const notPublished = t('engine.form.notPublished', locale);
     const extra = objectNames
       .filter((n) => !known.has(n))
-      .map((n) => ({ value: n, label: `${n} (not published)` }));
+      .map((n) => ({ value: n, label: flagUnknownValue(n, notPublished, locale) }));
     return [...extra, ...objectOptions];
-  }, [objectOptions, objectNames]);
+  }, [objectOptions, objectNames, locale]);
 
   const patchBody = (p: Record<string, unknown>) => onPatch({ body: { ...body, ...p } });
 

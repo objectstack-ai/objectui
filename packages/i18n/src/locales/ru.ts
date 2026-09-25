@@ -299,6 +299,10 @@ const ru = {
       refusedResidue:
         "Не сохранено: {{name}} «{{text}}» и {{otherName}} «{{otherText}}» — не числа. Введите обычные десятичные дроби (например: 30.2741, 120.1551).",
     },
+    dateTime: {
+      impossibleDay:
+        "Сохранённое значение «{{value}}» — несуществующая дата. Выберите дату и время, чтобы заменить его.",
+    },
     number: {
       badInput:
         "Не сохранено: текст в этом поле — не число. Введите обычную десятичную дробь (например: {{example}}).",
@@ -653,7 +657,10 @@ const ru = {
     },
     refresh: "Обновить",
     loading: "Загрузка записей…",
-    recordCount: "{{count}} записей",
+    // objectui#10425 — the record-count bar picks this half at every count but
+    // 1, which spans one (21), few (2-4) and many (5-20); a count label reads
+    // right at all three, the same form as `lookup.recordCount`.
+    recordCount: "Записей: {{count}}",
     recordCountOne: "{{count}} запись",
     addRecord: "Добавить запись",
     tabs: "Вкладки",

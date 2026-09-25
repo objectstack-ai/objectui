@@ -1643,6 +1643,16 @@ export interface ObjectFormSchema extends BaseSchema {
    * dataSource.update — the host owns the write (e.g. MasterDetailForm batching
    * the parent + child line items into one atomic server transaction). The
    * returned record is passed on to `onSuccess`.
+   *
+   * In `edit` mode, for a record the form read itself, the simple, `modal` and
+   * `drawer` layouts hand over what the form would have written
+   * (objectui#10156): the fields that differ from the record it read, or the
+   * full sanitized payload when nothing changed — every value except the ones
+   * the form never writes (server-owned, computed, read-only, refused by
+   * field-level security, or unknown to the object). A field whose sameness
+   * cannot be settled counts as changed, so it is handed over. The `tabbed`,
+   * `wizard` and `split` layouts, and a simple form that the mobile `stepper`
+   * option routes through the wizard, still hand over every collected value.
    */
   submitHandler?: (values: Record<string, any>) => any | Promise<any>;
 
@@ -2938,9 +2948,9 @@ export interface ObjectTreeSchema extends BaseSchema {
 export interface ObjectGanttSchema extends BaseSchema {
   type: 'object-gantt';
   /**
-   * ObjectQL object name — the THIRD record source `getDataConfig` resolves,
-   * after {@link ObjectGanttSchema.data} and {@link ObjectGanttSchema.staticData}
-   * (`plugin-gantt/src/ObjectGantt.tsx`).
+   * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
+   * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
+   * {@link ObjectGanttSchema.staticData} (called by `plugin-gantt/src/ObjectGantt.tsx`).
    *
    * Optional since objectui#6939: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
@@ -2951,8 +2961,9 @@ export interface ObjectGanttSchema extends BaseSchema {
    */
   objectName?: string;
   /**
-   * Data source configuration. Read FIRST by `getDataConfig` — `if
-   * (schema.data) return schema.data;` — ahead of `staticData` / `objectName`.
+   * Data source configuration. Read FIRST by `resolveRecordSourceConfig`
+   * (`@object-ui/core`), which returns it verbatim when it is on the block's
+   * declared arm — ahead of `staticData` / `objectName`.
    *
    * Declared by objectui#6939, in the same stroke as the mirror's `data`: until
    * then the read landed on `BaseSchema`'s index signature on this side and
@@ -3242,7 +3253,7 @@ export interface ObjectGanttSchema extends BaseSchema {
   // correct and is why they now have to be declared HERE. `plugin-gantt`'s
   // registry mapping (`OBJECT_GANTT_DATA_SOURCE` in `index.tsx`) names `filter`
   // and `sort` as the two keys the element data-source binding maps onto.
-  /** Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`. */
+  /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
   /** Query filter (JSON Rules format), forwarded verbatim as `$filter`. */
   filter?: any[];
@@ -3270,9 +3281,9 @@ export interface ObjectGanttSchema extends BaseSchema {
 export interface ObjectCalendarSchema extends BaseSchema {
   type: 'object-calendar';
   /**
-   * ObjectQL object name — the THIRD record source `getDataConfig` resolves,
-   * after {@link ObjectCalendarSchema.data} and {@link ObjectCalendarSchema.staticData}
-   * (`plugin-calendar/src/ObjectCalendar.tsx`).
+   * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
+   * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and
+   * {@link ObjectCalendarSchema.staticData} (called by `plugin-calendar/src/ObjectCalendar.tsx`).
    *
    * Optional since objectui#7313 (the objectui#6939 shape): a calendar authored
    * on inline rows never reads this key, and requiring it refused the two
@@ -3325,7 +3336,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * — `ViewData` on both, deliberately kept.
    */
   data?: SpecObjectCalendarProps['data'];
-  /** Inline records, wrapped into a `{ provider: 'value' }` config by `getDataConfig`. */
+  /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
   /**
    * The configuration container, and the FIRST thing this element's renderer
@@ -3737,7 +3748,7 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * `id` / `title` / `cards` / `limit` / `className` / `collapsed` are exactly
    * the lane members the two board implementations read, counted off
-   * `KanbanImpl`, `KanbanEnhanced`, `useColumnWidths`, `useCrossSwimlaneMove`,
+   * `KanbanImpl`, `KanbanEnhanced`, `useCrossSwimlaneMove`,
    * `useQuickAddReorder` and `bucketCardsIntoColumns`. Their VALUE types come
    * from those read sites too — see {@link id} for the one this card had to
    * correct.
@@ -4361,10 +4372,11 @@ export interface ObjectChartSchema extends BaseSchema {
    * INTERNAL (relay-composed) — the plotted series, in the renderer's internal
    * `{ dataKey }` contract.
    *
-   * The element type is `ChartRendererProps.schema.series`' internal arm
-   * VERBATIM — that is the read this value ends at, and the ruling on
-   * objectui#7946 asked for the reads rather than a copy of any producer's
-   * literal. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
+   * The element type is `ChartRendererProps.schema.series`' internal arm —
+   * that is the read this value ends at, and the ruling on objectui#7946 asked
+   * for the reads rather than a copy of any producer's literal — every member
+   * of it except `type`, which that arm gained under objectui#8086 and this
+   * copy has not taken up. The spec's AUTHOR-facing `ChartSeriesSchema` is the other arm
    * (`{ name }`), and it refuses `dataKey` by name; `normalizeChartSchema` is
    * the one translation between them.
    */

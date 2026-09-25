@@ -133,11 +133,9 @@ const SITES: Site[] = [
         required,
         options: [{ label: 'A', value: 'a' }],
       }),
-    // This label carries no `for` today. Whether it SHOULD name the trigger is
-    // outside objectui#10368 and deliberately not pinned either way here; the
-    // marker must be an element regardless, because it would enter the name
-    // the moment the label is associated.
-    label: () => document.querySelector('label'),
+    // The label names the trigger through `for` since objectui#10435, whose
+    // own pin (`select-label-association.test.tsx`) reads the resulting name.
+    label: () => document.querySelector('label[for="sel-ctl"]'),
     // Radix writes `aria-required` on the combobox trigger from `required`.
     expectRequiredState: () => expect(screen.getByRole('combobox')).toHaveAttribute('aria-required', 'true'),
   },

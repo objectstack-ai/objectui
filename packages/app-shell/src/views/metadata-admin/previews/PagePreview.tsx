@@ -123,17 +123,9 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   // A record page is keyed by `type: 'record'` — the one discriminator
   // `PageSchema` declares, and the only one the runtime resolver
   // (usePageAssignment) reads (objectui#9674).
-  //
-  // ⚠️ `pageType: 'record'` is ALSO read here, and the runtime does NOT match
-  // on it: `PageSchema` refuses `pageType` (a declared alias of `type`), the
-  // `/meta` save validates the body against `PageSchema`, and no page that
-  // parses carries it. The read is reachable only because this draft is not
-  // parsed — the JSON source editor hands raw edits straight to the preview —
-  // so a draft typed with `pageType: 'record'` still binds a sample record
-  // here although it can never be saved. Whether to drop it is its own
-  // question, separate from objectui#9674.
-  const isRecordPage = (draft as { type?: string; pageType?: string })?.type === 'record'
-    || (draft as { pageType?: string })?.pageType === 'record';
+  // The preview reads `type` alone, as the runtime does: `pageType` is an
+  // alias `PageSchema` refuses (objectui#10482).
+  const isRecordPage = (draft as { type?: string })?.type === 'record';
   const recordObject = isRecordPage ? (draft as { object?: string })?.object : undefined;
   const [recordSamples, setRecordSamples] = React.useState<any[]>([]);
   const [recordSchema, setRecordSchema] = React.useState<any>(null);

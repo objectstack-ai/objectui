@@ -24,9 +24,11 @@ import type { ViewData } from '@object-ui/types';
  *     more than one binding?** — the published three-rung record-source ladder
  *     (`data`, then `staticData`, then `objectName`), declared on both faces of
  *     the contract (`ObjectMapSchema.objectName` / `ObjectGanttSchema.objectName`
- *     in `@object-ui/types`, and the `.describe` on their zod twins:
- *     *"objectName — the THIRD record source `getDataConfig` resolves, after
- *     `data` and `staticData`"*), ruled objectui#6939 (2026-09-02) and pinned by
+ *     in `@object-ui/types`, and the `.describe` on their zod twins — the map
+ *     twin's reads *"objectName — the THIRD record source `getDataConfig`
+ *     resolves, after `data` and `staticData`"*, naming `ObjectMap.tsx`'s local
+ *     wrapper; the gantt twin names `resolveRecordSourceConfig` itself), ruled
+ *     objectui#6939 (2026-09-02) and pinned by
  *     `objectql-record-source-refinement-6939.test.ts`. **That is this
  *     function.**
  *  2. **How does `objectName` get POPULATED when it is absent?** — the
@@ -47,8 +49,9 @@ import type { ViewData } from '@object-ui/types';
  * ladder reduces to two rungs — the resolved config's object when it names one,
  * else the schema's own `objectName`, which is what a `value`/`api`-backed block
  * still needs for metadata reads, i18n field labels and permission verdicts.
- * Callers pass the ALREADY-RESOLVED config (their `getDataConfig(schema)`
- * output), so rung ordering is settled before this function is reached.
+ * Callers pass the ALREADY-RESOLVED config (their
+ * {@link resolveRecordSourceConfig} output, direct or through a local wrapper),
+ * so rung ordering is settled before this function is reached.
  *
  * ## No lenient rung was added (AGENTS.md #0.1)
  *
@@ -62,7 +65,7 @@ import type { ViewData } from '@object-ui/types';
  *
  * @param schema - The block's schema; only `objectName` is read.
  * @param dataConfig - The RESOLVED data config — the caller's own
- *   `getDataConfig(schema)` output, `null` when nothing is bound.
+ *   {@link resolveRecordSourceConfig} output, `null` when nothing is bound.
  * @returns The bound object's name, or `undefined` when neither the resolved
  *   config nor the schema names one.
  *
@@ -100,8 +103,9 @@ export function resolveRecordSourceObjectName(
  *    a block the ruling does not decide, and it is reported rather than guessed.
  *
  * The arm is passed BY THE CALL SITE rather than looked up from `schema.type`
- * on purpose. Every one of these renderers is registered twice — `object-grid`
+ * on purpose. Most of these renderers are registered twice — `object-grid`
  * and the `view:grid` alias `grid`, `object-calendar` and `calendar`, and so on
+ * (the bare `gantt` and `map` keys are retired, objectui#8008 / objectui#10393)
  * — so a node reaches the same component under either spelling, and a table
  * keyed by `type` would answer for one tag and silently miss the other. A
  * REQUIRED parameter makes the arm a compile-time obligation at each of the
@@ -185,7 +189,10 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
  *
  * `data`, then `staticData`, then `objectName` — declared on both faces of the
  * published contract and pinned by
- * `objectql-record-source-refinement-6939.test.ts`:
+ * `objectql-record-source-refinement-6939.test.ts`. Quoted here from the
+ * `ObjectMapSchema` faces, whose `getDataConfig` is `ObjectMap.tsx`'s local
+ * wrapper around this function; the gantt and calendar faces name
+ * `resolveRecordSourceConfig` instead (objectui#9618):
  *
  *  1. **`data`** — *"Data source configuration. Read FIRST by `getDataConfig`"*,
  *     honoured ONLY on the arm `dataArm` names. Returned verbatim, so a config
@@ -317,8 +324,8 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * ## Why a type-keyed table exists beside the REQUIRED parameter
  *
  * {@link RecordSourceDataArm}'s docblock states, correctly, why
- * {@link resolveRecordSourceConfig} takes the arm as a required PARAMETER: each
- * of these renderers is registered under two spellings, a node reaches the same
+ * {@link resolveRecordSourceConfig} takes the arm as a required PARAMETER: most
+ * of these renderers are registered under two spellings, a node reaches the same
  * component under either, and a table keyed by `type` would answer for one tag
  * and silently miss the other. That argument is about a call site that already
  * has one block in front of it — there a parameter is strictly better, and it
@@ -345,7 +352,7 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * ⚠️ ONE `register()` CALL PRODUCES SEVERAL KEYS, and a row must be written for
  * each of them — `SchemaRenderer` looks this table up with the raw
  * `schema.type`, which is whatever spelling the author wrote. A registration
- * with `namespace: 'view'` is reachable as `view:map` AND as bare `map`; one
+ * with `namespace: 'view'` is reachable as `view:calendar` AND as bare `calendar`; one
  * with `skipFallback` is reachable ONLY under its namespaced key. MEASURED via
  * `ComponentRegistry.getAllTypes()` with the five plugins loaded, grouped by
  * the renderer each key resolves to.
@@ -366,7 +373,9 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  * it does not compute one.
  *
  *  - `ObjectGrid.tsx`'s `getDataConfig` — `'view-data'`.
- *  - `ObjectMap.tsx`'s `getDataConfig` — `'view-data'`.
+ *  - `ObjectMap.tsx`'s `getDataConfig` — `'view-data'`. One block spelling
+ *    only: the bare `map` key (and with it `view:map`) is retired
+ *    (objectui#10393).
  *  - `ObjectGantt.tsx`'s `rawDataConfig` — `'view-data'`. One block spelling
  *    only: the bare `gantt` key is retired (objectui#8008).
  *  - `ObjectCalendar.tsx`'s `dataConfig` — `'array'`.
@@ -383,8 +392,6 @@ const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataAr
     'view:grid': 'view-data',
     'object-map': 'view-data',
     'plugin-map:object-map': 'view-data',
-    'view:map': 'view-data',
-    map: 'view-data',
     'object-gantt': 'view-data',
     'plugin-gantt:object-gantt': 'view-data',
     // — array arm: `z.array(...)`, pre-fetched records —

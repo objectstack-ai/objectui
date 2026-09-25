@@ -159,9 +159,10 @@ describe('objectui#10291 — form: a cascade-cleared scalar reaches the wire as 
     // (c) positive control: the multi-value prune still writes a real array.
     expect(body).toHaveProperty('tags', []);
     // (d) negative control: a select no parent governs is not nulled. An edit
-    // form sends its whole value set today (objectui#10156 tracks "only
-    // dirty"), so the untouched field rides along with its stored value.
-    expect(body).toHaveProperty('tier_any', 'gold');
+    // form writes only the fields that differ from the record it read
+    // (objectui#10156), so the untouched select is not on the wire at all —
+    // while a wrongful null WOULD be, because it differs from the stored 'gold'.
+    expect(body).not.toHaveProperty('tier_any');
   });
 
   it('EDIT, no widget mounted: a dependent select `visibleWhen` keeps hidden is cleared by the FORM HOST alone — and that clear reaches the wire as null too', async () => {
@@ -202,7 +203,8 @@ describe('objectui#10291 — form: a cascade-cleared scalar reaches the wire as 
     const body = JSON.parse(bodies[0].body);
     expect(body).toHaveProperty('region', 'apac');
     expect(body).toHaveProperty('tier', null);
-    expect(body).toHaveProperty('tier_any', 'gold');
+    // Untouched, so not written (objectui#10156); a wrongful null would be.
+    expect(body).not.toHaveProperty('tier_any');
   });
 
   it('CREATE: the pruned scalar is null on the POST body, and an untouched empty select is absent — never a spurious null', async () => {

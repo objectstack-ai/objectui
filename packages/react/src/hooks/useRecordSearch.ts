@@ -65,7 +65,10 @@ export interface RecordSearchHit {
    * objects. Stable across runs for the same (query, display) pair.
    */
   score: number;
-  /** Raw record payload, for callers that want extra context. */
+  /**
+   * Raw record payload, for callers that want extra context. It is the row as
+   * served: `fieldReadPolicy` gates the `display` label, not this payload.
+   */
   raw: any;
 }
 
@@ -109,6 +112,53 @@ export interface UseRecordSearchOptions {
    * labels the hits of the next run; results already shown keep their labels.
    */
   getDisplayName?: (objectDef: any, record: any) => string;
+  /**
+   * Optional field-level read policy: pass `usePermissions()` from
+   * `@object-ui/permissions` (objectui#10500). Once it is loaded, a hit is
+   * labelled from its record with the fields the policy denies on the hit's
+   * object removed, `id` and `_id` kept. The row is gated BEFORE
+   * `getDisplayName` reads it, so a caller-supplied resolver is gated too. A
+   * denied field then reads exactly as an absent one and the resolver falls
+   * through to its next rung, the label a backend that strips denied fields
+   * (ObjectStack's `FieldMasker`) already yields. The record title
+   * (objectui#10434) and the lookup option label (objectui#10411) apply the
+   * same rule.
+   *
+   * Omitted, or not loaded yet, the row is labelled as served. A title the
+   * server computed (`searchAll`'s `hit.title`) is the server's answer and is
+   * not re-judged here.
+   *
+   * Safe to pass inline: only `isLoaded` decides whether a run happens. When
+   * it changes the search re-runs, so hits labelled before the policy loaded
+   * are relabelled from the gated row. Otherwise each run reads the policy of
+   * the latest render, as it does `getDisplayName`.
+   */
+  fieldReadPolicy?: {
+    isLoaded: boolean;
+    checkField: (object: string, field: string, action: 'read') => boolean;
+  };
+}
+
+/**
+ * `record` as the viewer may READ it on `objectName`, for labelling a search
+ * hit (objectui#10500). Every field the loaded `policy` denies is removed, `id`
+ * and `_id` kept: the `Record #<id>` floor reads them, and the id is not a
+ * field value the policy withholds. Before the policy loads, with no policy,
+ * or with nothing withheld, the SAME object comes back.
+ */
+function readableRow<T>(
+  record: T,
+  objectName: string,
+  policy: UseRecordSearchOptions['fieldReadPolicy'],
+): T {
+  if (!policy?.isLoaded || !objectName || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
 }
 
 export interface UseRecordSearchResult {
@@ -154,7 +204,12 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
     debounceMs = 250,
     enabled = true,
     getDisplayName = defaultDisplayName,
+    fieldReadPolicy,
   } = opts;
+
+  // The one member of the read policy that decides whether a run happens: a
+  // primitive, so an inline policy object never re-runs the search by identity.
+  const policyLoaded = fieldReadPolicy?.isLoaded === true;
 
   const [results, setResults] = useState<RecordSearchHit[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -218,9 +273,15 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
   // cleared the pending debounce timer: renders faster than `debounceMs` never
   // searched, and sparser renders issued a second identical request. Declared
   // before the search effect, so it is current before any timer is armed.
+  //
+  // `fieldReadPolicy` is read the same way (objectui#10500): the run reads the
+  // latest policy through a ref, and only its `isLoaded` primitive
+  // (`policyLoaded`) is a dependency of the search effect.
   const getDisplayNameRef = useRef(getDisplayName);
+  const fieldReadPolicyRef = useRef(fieldReadPolicy);
   useEffect(() => {
     getDisplayNameRef.current = getDisplayName;
+    fieldReadPolicyRef.current = fieldReadPolicy;
   });
 
   useEffect(() => {
@@ -297,7 +358,12 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
               const title =
                 typeof h?.title === 'string' && h.title.trim() !== '' ? h.title.trim() : '';
               const display =
-                title || getDisplayNameRef.current(objDef, h?.record ?? {}) || `Record #${recordId}`;
+                title ||
+                getDisplayNameRef.current(
+                  objDef,
+                  readableRow(h?.record ?? {}, objectName, fieldReadPolicyRef.current),
+                ) ||
+                `Record #${recordId}`;
               const snippet = typeof h?.snippet === 'string' ? h.snippet.trim() : '';
 
               hits.push({
@@ -375,7 +441,10 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
           for (const record of rows.slice(0, topPerObject)) {
             const recordId = record?.id ?? record?._id;
             if (recordId == null) continue;
-            const display = getDisplayNameRef.current(obj, record);
+            const display = getDisplayNameRef.current(
+              obj,
+              readableRow(record, obj.name, fieldReadPolicyRef.current),
+            );
             hits.push({
               objectName: obj.name,
               objectLabel:
@@ -413,6 +482,7 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
     maxObjectsQueried,
     minLength,
     debounceMs,
+    policyLoaded,
   ]);
 
   return { results, isSearching, error };

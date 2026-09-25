@@ -22,11 +22,13 @@
  * What this card unifies is the BASE definition a section member starts from:
  * a member naming the field supplies the whole definition, in place of the
  * generated one, through the one lookup the default arm's merge uses
- * (`findCustomFieldMember`). What it deliberately does NOT unify is each arm's
- * section-entry override rules, which differ (the default arm copies only
- * `visibleOn` / `colSpan` / `span` from a spec entry; the other five apply
- * `normalizeSectionField`'s full set) — no row below authors an override the
- * two rule sets answer differently.
+ * (`findCustomFieldMember`). What it deliberately did NOT unify is each arm's
+ * section-entry override rules, which differed then (the default arm copied
+ * only `visibleOn` / `colSpan` / `span` from a spec entry; the other five
+ * applied `normalizeSectionField`'s full set) — no row below authors an
+ * override the two rule sets answered differently. objectui#10475 later moved
+ * the default arm onto the same builder; its six-arm pins are
+ * `sectionEntryOverrides-10475`.
  *
  * Every row mounts the real `ObjectForm` with the arm's `formType`, the path an
  * author reaches. The `simple` rows are the default-arm control: that arm

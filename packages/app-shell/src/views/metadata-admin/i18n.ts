@@ -1014,6 +1014,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // full-width bracket its flags open with.
   'engine.form.notFound': '(not found)',
   'engine.form.deprecated': '(deprecated)',
+  // objectui#10448: a stored tier outside the org-membership-level enum, and a
+  // hook's selected object that the live catalog does not list.
+  'engine.form.invalid': '(invalid)',
+  'engine.form.notPublished': '(not published)',
   'engine.form.flaggedValue': '{value} {flag}',
   'engine.form.searchIcons': 'Search icons…',
   'engine.form.chooseIcon': 'Choose an icon',
@@ -2998,6 +3002,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // `flaggedValue`: every flag opens with a full-width bracket.
   'engine.form.notFound': '（未找到）',
   'engine.form.deprecated': '（已弃用）',
+  'engine.form.invalid': '（无效）',
+  'engine.form.notPublished': '（未发布）',
   'engine.form.flaggedValue': '{value}{flag}',
   'engine.form.searchIcons': '搜索图标…',
   'engine.form.chooseIcon': '选择图标',

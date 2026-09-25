@@ -83,7 +83,7 @@ import { DetailSection, type DetailSectionProps } from './DetailSection';
  * is a name that stops reaching `DetailSection` — which is how the ablation
  * for objectui#8626 reddens a per-input row.
  * `detailSectionAuthoredNode-8626.test.tsx` additionally pins the list against
- * the registration's own declared input names in BOTH directions, so a ninth
+ * the registration's own declared input names in BOTH directions, so a new
  * input declared without a fold — the shape of the original defect — reds
  * rather than arriving silently inert.
  */
@@ -100,6 +100,10 @@ export const DETAIL_SECTION_NODE_INPUTS = [
   'columns',
   'showBorder',
   'headerColor',
+  // objectui#10485: `DetailSection` reads `section.hideEmpty === true` (the
+  // all-empty hide), so it is declared and folded like the rest. Nothing here
+  // defaults it: an omitted key stays omitted, and keeps the section.
+  'hideEmpty',
 ] as const;
 
 type DetailSectionNodeInput = (typeof DETAIL_SECTION_NODE_INPUTS)[number];

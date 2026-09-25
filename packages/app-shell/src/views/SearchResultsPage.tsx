@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useRecordSearch } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
@@ -141,6 +142,9 @@ export function SearchResultsPage() {
       .map((i: any) => i.objectName as string);
   }, [activeApp]);
 
+  // A hit is labelled from the row as the viewer may read it: the hook removes
+  // the fields this policy denies before the resolver reads it (objectui#10500).
+  const perms = usePermissions();
   const { results: recordHits, isSearching: recordsSearching } = useRecordSearch({
     query,
     objects,
@@ -151,6 +155,7 @@ export function SearchResultsPage() {
     topPerObject: 5,
     maxObjectsQueried: 12,
     getDisplayName: getRecordDisplayName,
+    fieldReadPolicy: perms,
   });
 
   // Index object defs by name for i18n-resolved group headings and icons.

@@ -76,7 +76,6 @@ describe('plugin-map module load', () => {
     // reason — green because nothing happened, not because nothing printed.
     const { ComponentRegistry } = await import('@object-ui/core');
     expect(ComponentRegistry.has('object-map', 'plugin-map')).toBe(true);
-    expect(ComponentRegistry.has('map', 'view')).toBe(true);
 
     const printed = NOISE_CHANNELS.flatMap((channel) =>
       spies.get(channel)!.mock.calls.map((args) => `console.${channel}(${JSON.stringify(args)})`)

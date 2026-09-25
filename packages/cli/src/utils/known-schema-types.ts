@@ -231,7 +231,6 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'location',
   'lookup',
   'main',
-  'map',
   'mark',
   'markdown',
   'marketplace:installed-list',

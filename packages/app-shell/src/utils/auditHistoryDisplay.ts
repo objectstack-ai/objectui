@@ -50,7 +50,11 @@ export interface RawAuditChange {
 export interface AuditValueFormatContext {
   /** i18n translate fn (i18next-style). Optional — falls back to English. */
   t?: (key: string, options?: Record<string, unknown>) => string;
-  /** BCP-47 locale for date formatting. Defaults to the browser locale. */
+  /**
+   * BCP-47 DISPLAY locale for date formatting: a React caller passes
+   * `useDisplayLocale()`, never the UI language (objectui#10442). Absent, the
+   * runtime default answers.
+   */
   locale?: string;
   /** target object name → (record id → display label), for lookup fields. */
   lookupLabels?: Map<string, Map<string, string>>;

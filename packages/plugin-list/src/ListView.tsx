@@ -3700,8 +3700,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // reading it here would resurrect the second spelling.
               label: tFieldLabel(fieldName, f.label || fieldName),
               type: f.type || 'text',
-              options: buildOptions(fieldName, f.options),
               // objectui#7531 (ruled): a list column declares no relational target; it comes from the object definition once loaded.
+              // objectui#10547 (same ruling): nor select options — `ListColumnSchema` refuses `options` with `unrecognized_keys`; they come from the object definition once loaded.
            }];
         });
     } else {

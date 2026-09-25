@@ -29,3 +29,10 @@ The two readers also stop reading `id_field` as the lookup's id column.
 `idField`, so the picker now always keys a lookup by `id`, its default. A
 definition that carried `id_field` used to make the picker match and emit that
 column's values instead.
+
+Also (objectui#10547): before a list view's object definition loads, the filter
+builder's candidates come from the view's declared `columns`, and that fallback
+no longer reads `options` off a list column. `ListColumnSchema` refuses the key
+with `unrecognized_keys`, so a spec-compliant view never carries it. A select
+field's options now reach the filter builder only from the object definition,
+once it loads, which is where they already came from after the load.

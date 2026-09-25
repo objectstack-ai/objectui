@@ -178,6 +178,7 @@ const ar = {
     noPermissionToSave: "ليس لديك إذن لحفظ هذا السجل.",
     submitFailed: "تعذّر الحفظ. يرجى المحاولة مرة أخرى.",
     uploadInFlight: "انتظر حتى ينتهي الرفع قبل الحفظ.",
+    clearedOnHide: "تم مسح ما لم يعد ينطبق على القيم الحالية: {{fields}}",
     discardTitle: "تجاهل التغييرات؟",
     discardMessage: "لديك تغييرات غير محفوظة. إذا أغلقت هذا النموذج الآن، ستفقد تعديلاتك.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

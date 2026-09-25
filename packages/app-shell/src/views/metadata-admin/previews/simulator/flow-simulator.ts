@@ -311,8 +311,10 @@ export class FlowSimulator {
     //
     // `evalGuard` evaluates it as the runtime does, on the runtime's CEL engine
     // and scope (objectui#10615). A guard that is refused or fails to evaluate
-    // stops the run on this decision: the runtime throws on it and the run
-    // fails, so no branch, the default included, is taken.
+    // stops the run on this decision, and no branch, the default included, is
+    // taken. A CEL fault on live values throws at this point in the runtime; a
+    // refused guard is refused earlier, at `registerFlow`, so the runtime never
+    // starts the run.
     for (const { e, i } of out) {
       if (e.isDefault) continue;
       const cond = conditionText(e.condition);

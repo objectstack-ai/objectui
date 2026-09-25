@@ -592,8 +592,9 @@ be faithfully modelled is surfaced loudly instead of faked.
   else a surfaced dead-end), evaluating each guard as CEL on the runtime's
   engine and variable scope (`@objectstack/formula`'s `ExpressionEngine`:
   bare names, `vars.*`, `record.*`); a guard the runtime refuses or cannot
-  evaluate **stops the run** on that decision with the error, as it fails the
-  run at runtime (objectui#10615); an assignment interpolates `{var}` tokens
+  evaluate **stops the run** on that decision with the error, a CEL fault fails
+  the run at runtime, and a refused guard is refused at registration
+  (objectui#10615); an assignment interpolates `{var}` tokens
   inside nested objects and arrays too, as the runtime's `interpolate` does;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,

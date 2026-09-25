@@ -18,7 +18,7 @@ import {
   structuralConditionRefusal,
   type AssignmentExpressionValue,
 } from '@objectstack/spec/automation';
-import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
+import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from '@objectstack/spec/shared';
 import type { Diagnostic, FlowValidation, SimEdge, SimNode } from './flow-sim-types.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { valueEnvelopeRefusal } from '../../inspectors/flow-value-envelope.js';
@@ -131,9 +131,12 @@ export function evalValueEnvelope(
 
 /** What {@link evalGuard} made of one edge guard. */
 export type GuardEvaluation =
-  /** No readable guard: absent, empty, or an envelope with no `source`. */
+  /** No guard: the condition is omitted (`undefined`). */
   | { kind: 'absent' }
-  /** Refused or failed. The runtime throws here, so the run fails. */
+  /**
+   * Refused or failed. A refused guard never runs at runtime (`registerFlow`
+   * refuses the flow); a CEL fault on live values throws and fails the run.
+   */
   | { kind: 'fault'; error: string }
   /** Evaluated. `result` is the value's truthiness, as the runtime reads it. */
   | { kind: 'value'; result: boolean };
@@ -142,24 +145,34 @@ export type GuardEvaluation =
  * Evaluate an edge guard the way the runtime does (objectui#10615): on
  * {@link evalValueEnvelope}'s engine and scope, `ExpressionEngine.evaluate`
  * against {@link flowCelScope}. There is no second evaluator. The runtime's
- * reading, from `AutomationEngine` in `@objectstack/service-automation` on
- * objectstack main (`registerFlow`'s edge pass, then `evaluateCondition`), in
- * order:
+ * reading on objectstack main, in order: `FlowSchema.parse` (the edge's
+ * `condition` schema), `registerFlow`'s edge pass, then `evaluateCondition`
+ * in `AutomationEngine` (`@objectstack/service-automation`).
  *
- * 1. Shape: the spec's `structuralConditionRefusal`, the first thing both of
- *    those do. A boolean, number, array or source-less object is refused. An
- *    `ast`-only envelope gets whatever that refusal says; admitted, it has no
- *    source and step 2 reads it as absent.
- * 2. Nothing to read: absent, `''`, or an envelope without a `source`, through
- *    `conditionText`, the one reader of an edge guard. Not evaluated.
- * 3. Blank: a whitespace-only source is refused with the spec's
- *    `EVALUATED_EXPRESSION_SOURCE_REQUIRED` sentence, as `FlowEdgeSchema` and
- *    `registerFlow` refuse it there.
+ * 1. Absent: only an omitted guard (`undefined`). `FlowEdgeSchema.condition`
+ *    is `.optional()`, which admits a missing value and nothing else, so no
+ *    other value is read as "no condition".
+ * 2. Shape: the spec's `structuralConditionRefusal`, the first thing
+ *    `registerFlow`'s edge pass and `evaluateCondition` do. A boolean, number,
+ *    array or source-less object is refused.
+ * 3. Evaluated slot: the rule `FlowEdgeSchema.condition` applies on main
+ *    (`EvaluatedExpressionInputSchema`), from its two installed parts. A string
+ *    must be non-blank (main's `NON_BLANK_STRING`), so `''` and `'   '` are
+ *    refused with the spec's `EVALUATED_EXPRESSION_SOURCE_REQUIRED`. Anything
+ *    else must satisfy `EvaluatedExpressionSchema`: an envelope with a
+ *    `dialect` (`ExpressionSchema` requires one, so `{ source: 'n == 2' }` is
+ *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }`
+ *    and an `ast`-only envelope are refused). `null` is not an envelope and is
+ *    refused here too.
  * 4. CEL: `validateExpression('predicate', …)`, the parse `registerFlow`
  *    refuses a flow with. A dialect other than `cel` is refused, and so is a
  *    `{var}` or `${…}` template, which is not CEL.
  * 5. Value: `ExpressionEngine.evaluate`. A CEL error is a fault. A value is
  *    read as `Boolean(value)`, as `evaluateCondition` reads it.
+ *
+ * Steps 2 to 4 are refusals the runtime makes before any node runs; step 5's
+ * fault is the one it throws mid-run. The simulator reports both on the
+ * decision and stops there.
  *
  * A bare string is CEL. The runtime's legacy `{var}` template dialect is never
  * reached for an edge: `FlowEdgeSchema` turns every bare string into a
@@ -168,12 +181,22 @@ export type GuardEvaluation =
  */
 export function evalGuard(condition: unknown, variables: Record<string, unknown>): GuardEvaluation {
   try {
+    if (condition === undefined) return { kind: 'absent' };
     const shape = structuralConditionRefusal(condition);
     if (shape) return { kind: 'fault', error: shape.message };
+    if (typeof condition === 'string') {
+      if (!condition.trim()) return { kind: 'fault', error: EVALUATED_EXPRESSION_SOURCE_REQUIRED };
+    } else {
+      const envelope = EvaluatedExpressionSchema.safeParse(condition);
+      if (!envelope.success) {
+        return {
+          kind: 'fault',
+          error: envelope.error.issues.map((i) => (i.path.length ? `${i.path.join('.')}: ${i.message}` : i.message)).join(' '),
+        };
+      }
+    }
     const input = condition as SimEdge['condition'];
-    const source = conditionText(input);
-    if (!source) return { kind: 'absent' };
-    if (!source.trim()) return { kind: 'fault', error: EVALUATED_EXPRESSION_SOURCE_REQUIRED };
+    const source = conditionText(input) ?? '';
     const parsed = validateExpression('predicate', input as string | { dialect?: string; source?: string });
     if (parsed.errors.length > 0) {
       return { kind: 'fault', error: parsed.errors.map((e) => e.message).join(' ') };

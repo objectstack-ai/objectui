@@ -8,8 +8,9 @@
  * CEL: `size(rows) > 0` failed and took the default branch, `n == "2"` was true
  * for `n = 2`, `7 / 2` was 3.5, `vars.n` and `record.n` were not defined while
  * `data.n` was. The runtime evaluates a guard on `@objectstack/formula`'s
- * `ExpressionEngine` against its flow scope, and throws on one it cannot
- * evaluate, which fails the run. The expected answers below are the runtime's,
+ * `ExpressionEngine` against its flow scope. It refuses a malformed guard at
+ * `registerFlow`, before the run, and throws on a CEL fault, which fails the
+ * run. The expected answers below are the runtime's,
  * read from `AutomationEngine.evaluateCondition` and `registerFlow` in
  * `@objectstack/service-automation`.
  *
@@ -20,6 +21,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { STRUCTURAL_CONDITION_SHAPE_REFUSAL } from '@objectstack/spec/automation';
 import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
 import { FlowSimulator } from '../flow-simulator';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -107,7 +109,8 @@ describe('a guard the runtime refuses or cannot evaluate fails the run (objectui
     expect(guard?.result).toBe(false);
     expect(step?.status).toBe('error');
     expect(sim.state.status).toBe('error');
-    // The runtime throws on the guard: no branch runs, the default included.
+    // No branch runs, the default included: the runtime throws on a CEL fault
+    // here, and refuses the other shapes at `registerFlow`, before the run.
     expect(sim.state.visitedNodeIds).not.toContain('yes');
     expect(sim.state.visitedNodeIds).not.toContain('no');
   });
@@ -117,6 +120,12 @@ describe('a guard the runtime refuses or cannot evaluate fails the run (objectui
     expect(step?.status).toBe('error');
     expect(step?.error).toContain(EVALUATED_EXPRESSION_SOURCE_REQUIRED);
     expect(sim.state.visitedNodeIds).not.toContain('no');
+  });
+
+  it('a boolean is refused by the structural-condition rule', () => {
+    const { step } = runGuard(true);
+    expect(step?.status).toBe('error');
+    expect(step?.error).toContain(STRUCTURAL_CONDITION_SHAPE_REFUSAL);
   });
 
   it('a failing guard after a true one still fails the run', () => {
@@ -138,6 +147,31 @@ describe('a guard the runtime refuses or cannot evaluate fails the run (objectui
     expect(sim.state.status).toBe('error');
     expect(sim.state.steps.find((st) => st.nodeId === 'd')?.status).toBe('error');
     expect(sim.state.visitedNodeIds).not.toContain('b');
+  });
+});
+
+/**
+ * Shapes the edge's `condition` schema refuses at `FlowSchema.parse`, so the
+ * runtime never registers the flow. They used to read as "no condition" and
+ * take the default branch; only an omitted guard (`undefined`) does that now.
+ */
+describe('a guard shape the edge schema refuses is refused, not read as absent (objectui#10615)', () => {
+  const refused: Array<[string, unknown, string | undefined]> = [
+    ["an empty string (the evaluated slot's non-blank rule)", '', EVALUATED_EXPRESSION_SOURCE_REQUIRED],
+    ["an envelope with an empty source (`EvaluatedExpressionSchema`'s source rule)", { dialect: 'cel', source: '' }, EVALUATED_EXPRESSION_SOURCE_REQUIRED],
+    ['an envelope with no dialect (`ExpressionSchema` requires one)', { source: 'n == 2' }, undefined],
+    ['null (the condition is optional, not nullable)', null, undefined],
+  ];
+
+  it.each(refused)('%s', (_name, condition, rule) => {
+    const { sim, step, guard } = runGuard(condition, { n: 2 });
+    expect(guard?.error).toBeTruthy();
+    expect(guard?.error).not.toBe('Branch has no condition.');
+    expect(step?.status).toBe('error');
+    if (rule) expect(step?.error).toContain(rule);
+    expect(sim.state.status).toBe('error');
+    expect(sim.state.visitedNodeIds).not.toContain('yes');
+    expect(sim.state.visitedNodeIds).not.toContain('no');
   });
 });
 

@@ -16,14 +16,20 @@ defined while `data.n` was.
   dotted keys nested, no `data` root. A value counts as true when it is truthy, as at
   runtime.
 - A guard the runtime refuses or cannot evaluate stops the run on the decision, with the
-  error, and no branch is taken, the default included. The runtime fails the run there.
+  error, and no branch is taken, the default included. A CEL fault fails the run there
+  at runtime; a refused guard is refused at registration, before any node runs.
   That covers a CEL error on the live values (an unknown variable, `data.n`), a guard
   that does not parse as CEL (a `{var}` or `${…}` template), an envelope in a dialect
   other than `cel`, a blank guard, and a value that is not a condition shape (a
   boolean). Before, the Debug run recorded the error on the edge and took the default
   branch.
-- Unchanged: an edge with no condition is still reported as "Branch has no condition."
-  and not taken, and when several guards are true the Debug run still takes the first.
+- A guard shape the edge's `condition` schema refuses is refused too, where it used to
+  read as "no condition" and take the default branch: an empty string, an envelope with
+  an empty or missing `source` (`{ dialect: 'cel', source: '' }`, an `ast`-only
+  envelope), an envelope with no `dialect` (`{ source: 'n == 2' }`), and `null`.
+- Unchanged: an edge whose condition is omitted is still reported as "Branch has no
+  condition." and not taken, and when several guards are true the Debug run still takes
+  the first.
 
 **Assignments.** A `{token}` inside a nested object or array value of an `assignments`
 map was left as written. The Debug run now interpolates values the way the runtime's
@@ -36,4 +42,5 @@ map was left as written. The Debug run now interpolates values the way the runti
 - `{order.amount}` walks into an object variable and `{list.1}` indexes an array.
 
 The runtime's `NOW()` / `TODAY()`, `$User.*`, function and arithmetic tokens are not
-modelled; a whole-token string holding one is kept as written.
+modelled; a whole-token string holding one is kept as written. Inside a longer string
+such a token renders as `''`, as it did before; the runtime renders its value.

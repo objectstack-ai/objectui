@@ -40,7 +40,7 @@ let mountedCameras: any[] = [];
 // No WebGL in the test env. The stub records `initialViewState` once per MOUNT
 // (a ref, so a re-render of the same map adds nothing).
 vi.mock('react-map-gl/maplibre', () => ({
-  default: (props: any) => {
+  default: function MapStub(props: any) {
     const seen = React.useRef(false);
     if (!seen.current) {
       seen.current = true;
@@ -120,14 +120,18 @@ function makeDataSource() {
 
 const MAP = { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' };
 
-let setFilter: (f: unknown) => void = () => {};
+type HostHandle = { setFilter: (f: unknown) => void };
 
-function Host({ ds }: { ds: ReturnType<typeof makeDataSource> }) {
+/** Holds the map's `filter` as state, so a test can change the query in one commit. */
+const Host = React.forwardRef<HostHandle, { ds: ReturnType<typeof makeDataSource> }>(function Host({ ds }, ref) {
   const [filter, set] = React.useState<unknown>(NORTH);
-  setFilter = set;
+  React.useImperativeHandle(ref, () => ({ setFilter: set }), []);
   const schema = React.useMemo(() => ({ type: 'object-map', objectName: 'store', map: MAP, filter }), [filter]);
   return <ObjectMap schema={schema as any} dataSource={ds as any} />;
-}
+});
+
+const host = React.createRef<HostHandle>();
+const setFilter = (f: unknown) => host.current!.setFilter(f);
 
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 100)));
 
@@ -137,7 +141,7 @@ const markerLats = () => screen.queryAllByTestId('map-marker').map((m) => Number
 const lastFittedLat = () => mountedCameras[mountedCameras.length - 1]?.bounds?.[0]?.[1];
 
 async function mountSettled(ds: ReturnType<typeof makeDataSource>) {
-  render(<Host ds={ds} />);
+  render(<Host ref={host} ds={ds} />);
   await waitFor(() => expect(markerLats()).toEqual([59.9]));
   await settle();
   return screen.getByLabelText('Map');

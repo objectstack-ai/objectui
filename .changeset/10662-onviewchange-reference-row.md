@@ -16,4 +16,6 @@ accept set and no runtime behaviour changes.
   that expression lives only in `notifyViewHandlerChannels`
   (`plugin-view/src/viewHandlerChannels.ts`), which all three controls call.
   Each docblock now names that function as the dispatcher and keeps the
-  control as the read site.
+  control as the read site. The docblocks are emitted into `views.d.ts` as
+  documentation on the same members, and `views.ts` is type-only, so no
+  emitted JavaScript changes; hence the empty declaration.

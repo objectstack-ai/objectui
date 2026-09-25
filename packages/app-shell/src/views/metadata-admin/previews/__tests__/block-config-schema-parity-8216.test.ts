@@ -144,9 +144,14 @@ function oraclesFor(blockType: string): Array<{ face: OracleFace; schema: unknow
  * props shape or a node arm, this file goes red and the row must go.
  *
  * `card` owns the decision about the absence itself, not about any particular
- * key. objectui#8281 censuses all three together and lays out the four routes;
- * the two blocks with their own separate defects carry those card numbers in
- * the reason so a reader lands on the right one.
+ * key. objectui#8281 censused the blocks together and lays out the four routes;
+ * a block with its own separate defect carries that card number in the reason
+ * so a reader lands on the right one.
+ *
+ * `ai:input` was the third row until objectui#8280 removed its panel instead of
+ * judging it: the palette never offered the block, so there was nothing to
+ * author and nothing to exempt. The row went in the same change, because
+ * "every exemption names a real block" below would have failed on it.
  */
 const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
   'element:definition-list': {
@@ -157,11 +162,6 @@ const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
   'element:repeater': {
     reason:
       'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Same registry-`inputs`-only face as element:definition-list.',
-    card: 'objectui#8281',
-  },
-  'ai:input': {
-    reason:
-      'Not a spec PageComponentType, no ComponentPropsMap row, no @object-ui/types/zod arm, and no renderer beyond the opt-in PROTOCOL_COMPONENTS placeholder. That the block has a curated panel at all is objectui#8280.',
     card: 'objectui#8281',
   },
 };

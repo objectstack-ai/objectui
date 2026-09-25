@@ -32,7 +32,7 @@ import {
   type BlockPropField,
   type PlaceholderSpec,
 } from '../block-config';
-import { BLOCK_TYPE_META, PALETTE_EXCLUSIONS } from '../block-types';
+import { BLOCK_TYPE_META, PALETTE_EXCLUSIONS, TYPES_BY_CATEGORY } from '../block-types';
 import { t } from '../../i18n';
 
 describe('block-config', () => {
@@ -41,7 +41,7 @@ describe('block-config', () => {
       'element:text', 'element:image', 'element:number', 'element:button',
       'page:header', 'page:card', 'page:tabs', 'page:accordion',
       'record:related_list', 'record:highlights', 'record:details', 'record:alert',
-      'record:path', 'record:quick_actions', 'ai:input',
+      'record:path', 'record:quick_actions',
       'element:definition-list', 'element:repeater',
     ]) {
       expect(blockHasConfig(type), type).toBe(true);
@@ -320,11 +320,18 @@ describe('page palette ↔ spec PageComponentType coverage', () => {
 
   it('a block with a config panel is a block the palette offers', () => {
     // A panel for an unauthorable block is how the ai:chat_window
-    // contradiction stayed invisible. Non-spec objectui blocks (`object-grid`,
-    // `grid`, …) are exempt — they are palette-native, not PageComponentType.
-    const orphanPanels = Object.keys(BLOCK_CONFIG).filter(
-      (t) => specNames.includes(t) && !(t in (BLOCK_TYPE_META as Record<string, unknown>)),
-    );
+    // contradiction stayed invisible.
+    //
+    // Keyed on the palette itself, never on the spec enum. This case used to
+    // filter to `specNames.includes(t)` first, meaning to exempt objectui-native
+    // blocks (`object-grid`, `grid`, …) — but those need no exemption, because
+    // the palette offers them, and the filter also skipped every NON-spec name
+    // the palette does not offer. `ai:input` sat in exactly that hole with a
+    // curated panel and no way to author it (objectui#8280). Palette membership
+    // is the question this case asks, so the palette is the only thing it
+    // reads — `TYPES_BY_CATEGORY`, the list the page canvas's picker renders.
+    const offered = new Set<string>(TYPES_BY_CATEGORY.flatMap((g) => g.types));
+    const orphanPanels = Object.keys(BLOCK_CONFIG).filter((t) => !offered.has(t));
     expect(orphanPanels, 'these expose a config panel but cannot be authored').toEqual([]);
   });
 

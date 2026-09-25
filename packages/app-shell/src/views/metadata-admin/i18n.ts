@@ -730,9 +730,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // (objectstack#6888, @objectstack/spec 17.0.0-rc.6). Its only reader was the
   // dropdown option removed from `previews/block-config.ts`; a key kept past its
   // option is dead vocabulary that the next author reads as a live surface.
-  'engine.inspector.pageBlock.field.ai:input.agentName': 'Agent',
-  'engine.inspector.pageBlock.placeholder.ai:input.agentName': 'agent name',
-  'engine.inspector.pageBlock.field.ai:input.placeholder': 'Input placeholder',
   // Report default ("home") inspector
   'engine.inspector.report.kind': 'Report',
   'engine.inspector.report.close': 'Close report',
@@ -2664,9 +2661,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // `…option.location.global_nav` retired with the location itself — see the
   // matching note in the `en` table above. Removed from BOTH tables in the same
   // edit so the two key sets stay identical.
-  'engine.inspector.pageBlock.field.ai:input.agentName': '智能体',
-  'engine.inspector.pageBlock.placeholder.ai:input.agentName': '智能体名称',
-  'engine.inspector.pageBlock.field.ai:input.placeholder': '输入框占位提示',
   // Report default ("home") inspector
   'engine.inspector.report.kind': '报表',
   'engine.inspector.report.close': '关闭报表',

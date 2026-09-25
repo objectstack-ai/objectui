@@ -13,7 +13,8 @@ objectui#8165, option A):
 import type { TranslateFn } from '@object-ui/i18n';
 ```
 
-`@object-ui/app-shell` (`writeWarningToast` and its sibling toast modules) and
+`@object-ui/app-shell` (`writeWarningToast`, which its sibling toast modules
+re-export) and
 `@object-ui/fields` (`file-size-guard`) each declared their own copy of this
 type. Both copies were byte-identical to the new declaration, and both modules
 now re-export it from `@object-ui/i18n` instead of declaring it, so every

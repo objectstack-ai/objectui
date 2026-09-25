@@ -133,7 +133,7 @@ i18n.t('common.cancel'); // "Abbrechen"
 A helper that receives `t` from its caller, rather than calling a hook itself,
 types that parameter with `TranslateFn`: i18next's `t` narrowed to
 `(key: string, options?: Record<string, unknown>) => string`. This package is
-the one place that type is declared — import it rather than declaring a local
+the one authority for that type — import it rather than declaring a local
 copy:
 
 ```ts

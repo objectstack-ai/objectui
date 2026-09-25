@@ -337,6 +337,10 @@ export interface WizardFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156, objectui#10563;
+   * the whole rule is on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034

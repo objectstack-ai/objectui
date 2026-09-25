@@ -42,14 +42,22 @@
  * - "create" asserts that a create seeded with a whole record (a copy of an
  *   existing one) posts its business columns and none of the refused ones. The
  *   simple form has always stripped a create; the three layouts did not.
+ * - "inline member" asserts the other side of the strip: with `customFields`
+ *   the object definition is not used for it, so a member the object does not
+ *   declare is still written, while the roster and the field-level verdict,
+ *   which need no definition, still apply.
+ *
+ * The last block is the master-detail header laid out `tabbed`, which reaches
+ * `TabbedForm` through the parent form's host seam.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, waitFor, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, waitFor, fireEvent, act, cleanup, screen } from '@testing-library/react';
 import React from 'react';
 
 import { MePermissionsProvider } from '@object-ui/permissions';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from './ObjectForm';
+import { MasterDetailForm } from './MasterDetailForm';
 
 registerAllFields();
 afterEach(cleanup);
@@ -100,9 +108,10 @@ const PRINCIPAL: any = {
   fields: { 'deal.score': { readable: true, editable: false } },
 };
 
-const MEMBERS = ['name', 'stage', 'total', 'score'];
-const SECTIONS = [
-  { name: 'main', label: 'Main', fields: ['name', 'stage'] },
+/** `extra` is an inline member only: the object does not declare it. */
+const members = (extra: string[]) => ['name', ...extra, 'stage', 'total', 'score'];
+const sections = (extra: string[]) => [
+  { name: 'main', label: 'Main', fields: ['name', ...extra, 'stage'] },
   { name: 'more', label: 'More', fields: ['total', 'score'] },
 ];
 
@@ -111,14 +120,14 @@ const SECTIONS = [
  * times the step form is submitted before the last one writes: the wizard
  * collects a step per submit, and the stepper here is one step of every field.
  */
-const ROUTES: Array<{ route: string; layout: Record<string, unknown>; steps: number }> = [
-  { route: 'simple (control)', layout: { fields: MEMBERS }, steps: 1 },
-  { route: 'tabbed (TabbedForm)', layout: { formType: 'tabbed', sections: SECTIONS }, steps: 1 },
-  { route: 'split (SplitForm)', layout: { formType: 'split', sections: SECTIONS }, steps: 1 },
-  { route: 'wizard (WizardForm)', layout: { formType: 'wizard', sections: SECTIONS }, steps: 2 },
+const ROUTES: Array<{ route: string; layout: (extra?: string[]) => Record<string, unknown>; steps: number }> = [
+  { route: 'simple (control)', layout: (extra = []) => ({ fields: members(extra) }), steps: 1 },
+  { route: 'tabbed (TabbedForm)', layout: (extra = []) => ({ formType: 'tabbed', sections: sections(extra) }), steps: 1 },
+  { route: 'split (SplitForm)', layout: (extra = []) => ({ formType: 'split', sections: sections(extra) }), steps: 1 },
+  { route: 'wizard (WizardForm)', layout: (extra = []) => ({ formType: 'wizard', sections: sections(extra) }), steps: 2 },
   {
     route: 'simple + mobile.stepper (WizardForm)',
-    layout: { fields: MEMBERS, mobile: { stepper: true, stepperFieldsPerStep: 99 } },
+    layout: (extra = []) => ({ fields: members(extra), mobile: { stepper: true, stepperFieldsPerStep: 99 } }),
     steps: 1,
   },
 ];
@@ -141,14 +150,21 @@ function mount(schema: Record<string, unknown>, ds: ReturnType<typeof makeDS>) {
   ).container;
 }
 
-/** The `name` input, once it shows `value` — i.e. once the record is on screen. */
-const nameInput = (root: HTMLElement, value: string) =>
+/** The `field` input, once it shows `value` — i.e. once the record is on screen. */
+const inputShowing = (root: HTMLElement, field: string, value: string) =>
   waitFor(() => {
-    const el = root.querySelector('input[name="name"]') as HTMLInputElement | null;
-    if (!el) throw new Error('name not rendered');
+    const el = root.querySelector(`input[name="${field}"]`) as HTMLInputElement | null;
+    if (!el) throw new Error(`${field} not rendered`);
     if (el.value !== value) throw new Error('record not on screen yet');
     return el;
   });
+const nameInput = (root: HTMLElement, value: string) => inputShowing(root, 'name', value);
+
+const change = async (el: HTMLElement, value: string) => {
+  await act(async () => {
+    fireEvent.change(el, { target: { value } });
+  });
+};
 
 async function submitSteps(root: HTMLElement, steps: number) {
   for (let i = 0; i < steps; i++) {
@@ -159,16 +175,14 @@ async function submitSteps(root: HTMLElement, steps: number) {
 }
 
 describe.each(ROUTES)('ObjectForm $route', ({ layout, steps }) => {
-  const editSchema = { ...layout, mode: 'edit', recordId: 'd1' };
+  const editSchema = { ...layout(), mode: 'edit', recordId: 'd1' };
 
   it('edit: changing one field writes that field alone, with the OCC token it read', async () => {
     const ds = makeDS();
     const root = mount(editSchema, ds);
 
     const input = await nameInput(root, 'Mine');
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'Mine v2' } });
-    });
+    await change(input, 'Mine v2');
     await submitSteps(root, steps);
 
     await waitFor(() => expect(ds.update).toHaveBeenCalledTimes(1));
@@ -194,9 +208,7 @@ describe.each(ROUTES)('ObjectForm $route', ({ layout, steps }) => {
     const root = mount({ ...editSchema, submitHandler }, ds);
 
     const input = await nameInput(root, 'Mine');
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'Mine v2' } });
-    });
+    await change(input, 'Mine v2');
     await submitSteps(root, steps);
 
     await waitFor(() => expect(submitHandler).toHaveBeenCalledTimes(1));
@@ -206,17 +218,87 @@ describe.each(ROUTES)('ObjectForm $route', ({ layout, steps }) => {
 
   it('create: a create seeded with a whole record posts its business columns and none of the refused ones', async () => {
     const ds = makeDS();
-    const root = mount({ ...layout, mode: 'create', initialValues: { ...STORED } }, ds);
+    const root = mount({ ...layout(), mode: 'create', initialValues: { ...STORED } }, ds);
 
     const input = await nameInput(root, 'Mine');
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'Copy of Mine' } });
-    });
+    await change(input, 'Copy of Mine');
     await submitSteps(root, steps);
 
     await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
     const payload = ds.create.mock.calls[0][1];
     for (const key of REFUSED) expect(payload).not.toHaveProperty(key);
     expect(payload).toEqual({ name: 'Copy of Mine', stage: 'open' });
+  });
+
+  it('inline member: a member the object does not declare is written; the roster and the field-level verdict still apply', async () => {
+    const ds = makeDS();
+    const root = mount(
+      {
+        ...layout(['extra']),
+        customFields: [{ name: 'extra', label: 'Extra', type: 'text' }],
+        mode: 'create',
+        initialValues: { ...STORED },
+      },
+      ds,
+    );
+
+    await nameInput(root, 'Mine');
+    await change(await inputShowing(root, 'extra', ''), 'kept');
+    await submitSteps(root, steps);
+
+    await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
+    const payload = ds.create.mock.calls[0][1];
+    expect(payload).toMatchObject({ name: 'Mine', stage: 'open', extra: 'kept' });
+    for (const key of ['id', 'score', 'owner_id', 'created_by', 'updated_at']) {
+      expect(payload).not.toHaveProperty(key);
+    }
+  });
+});
+
+describe('MasterDetailForm with a header laid out tabbed — the parent operation', () => {
+  const PO_SCHEMA = {
+    name: 'po',
+    fields: {
+      ref: { type: 'text', label: 'Ref' },
+      status: { type: 'text', label: 'Status' },
+      owner_id: { type: 'lookup', label: 'Owner', system: true },
+      updated_at: { type: 'datetime', label: 'Updated', system: true },
+    },
+  };
+  const PO = { id: 'po1', ref: 'PO-1', status: 'draft', owner_id: 'u9', updated_at: VERSION };
+
+  it('changing one header field sends only that field in the parent operation', async () => {
+    const batchTransaction = vi.fn().mockResolvedValue({ results: [{ id: 'po1' }] });
+    const ds: any = {
+      getObjectSchema: vi.fn().mockResolvedValue(PO_SCHEMA),
+      findOne: vi.fn().mockResolvedValue({ ...PO }),
+      find: vi.fn().mockResolvedValue({ data: [] }),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      batchTransaction,
+    };
+    const { container } = render(
+      <MasterDetailForm
+        schema={{
+          objectName: 'po',
+          mode: 'edit',
+          recordId: 'po1',
+          formType: 'tabbed',
+          sections: [{ name: 'main', label: 'Main', fields: ['ref', 'status'] }],
+          details: [
+            { childObject: 'po_line', relationshipField: 'po', columns: [{ key: 'qty', label: 'Qty', type: 'number' } as any] },
+          ],
+        } as any}
+        dataSource={ds}
+      />,
+    );
+
+    await change(await inputShowing(container, 'ref', 'PO-1'), 'PO-2');
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => expect(batchTransaction).toHaveBeenCalledTimes(1));
+    const ops = batchTransaction.mock.calls[0][0];
+    expect(ops[0]).toEqual({ object: 'po', action: 'update', id: 'po1', data: { ref: 'PO-2' } });
   });
 });

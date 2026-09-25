@@ -873,14 +873,19 @@ said it owns the write is never bypassed for want of an adapter it never needed.
 
 An `object-form` in `mode: 'edit'` with a `recordId` reads the record with
 `dataSource.findOne`, and its save writes **only the fields that differ from
-that read** (objectui#10156). The simple form, the `modal` and the `drawer`
-variants do this, and so does the parent operation of a master-detail form,
-whose header is a simple form. A master-detail child row already worked this
-way (objectui#10108), and all of them use the same comparison. The `tabbed`,
-`wizard` and `split` variants are not covered. That includes a master-detail
-header laid out `tabbed`, and a simple form whose mobile `stepper` option shows it
-one step at a time through the wizard. They still send every value the form
-holds.
+that read** (objectui#10156). Every layout does this: the simple form and the
+`tabbed`, `wizard`, `split`, `modal` and `drawer` variants (objectui#10563). So
+does a simple form whose mobile `stepper` option shows it one step at a time
+through the wizard, and the parent operation of a master-detail form, whose
+header is a simple or a `tabbed` form. A master-detail child row already worked
+this way (objectui#10108), and all of them use the same comparison.
+
+Before that comparison, every layout strips what a form never writes: the
+server-owned columns (record identity, audit provenance, ownership and tenancy
+— the roster in `sanitize.ts`, plus any field the object marks `system`),
+computed, formula and read-only columns, keys the object does not declare, and
+every field the caller's field-level security refuses. A create is stripped the
+same way.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still

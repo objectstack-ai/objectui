@@ -52,12 +52,11 @@ import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse
 import { mergeCustomFields } from './customFieldsMerge';
 import { hasSectionGroupReference, resolveSectionGroupReferences } from './sectionGroups';
 import {
-  sanitizeFormData,
-  dirtyEditPayload,
   snapshotLoadedRecord,
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
+import { formWritePayload } from './writePayload';
 import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
@@ -66,7 +65,6 @@ import {
   schemaDefaultValues,
   isCreateFormMode,
   isRequiredInForm,
-  omitServerResolvedDefaults,
 } from './schemaDefaults';
 import { useOccSave } from './occSave';
 
@@ -1105,40 +1103,23 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       return formData;
     }
 
-    // Strip server-managed and computed / read-only fields from the payload
-    // before persisting. react-hook-form retains state for unmounted/disabled
-    // fields (see ModalForm), so an edit form seeded from a full record read
-    // round-trips computed columns it never rendered — formula/summary/rollup
-    // values, flattened lookups, id/timestamps — which the server rejects as
-    // unknown or non-writable fields. Mirrors ModalForm/DrawerForm. For inline
-    // forms `objectSchema` is a field-less stub, so pass null to strip only the
-    // server-managed keys rather than dropping every (schema-less) value.
-    // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
-    // retains state for unmounted/disabled fields, so a field the caller may
-    // read but not edit is in `formData` even though the gate above rendered
-    // it non-editable. The verdict is the resolver's, adapted by
-    // `fieldWriteGate` — ⛔ never a second implementation of it, and ⛔ never a
-    // strip loop beside this call (objectui#10120).
-    let payload = sanitizeFormData(formData, hasInlineFields ? null : objectSchema, {
+    // What this save writes — the ONE outbound sequence, shared with the
+    // `tabbed`, `split` and `wizard` layouts (objectui#10563): strip what a form never
+    // writes (server-owned, computed, read-only, unknown to the object, and
+    // refused by the caller's field-level security through `fieldWriteGate`,
+    // objectui#10108 / objectui#10120), omit the producer-owned defaults on a
+    // create (#4069), and on an EDIT keep only the fields that differ from the
+    // record this form read (objectui#10156). `writePayload` goes to BOTH write
+    // routes below: the host-owned seam, which is how a master-detail form's
+    // parent operation is built, and the plain OCC-guarded update. See
+    // `formWritePayload` for the whole rule, including the inline-members
+    // case. The full `payload` stays the submit-redirect scope below: it is
+    // the record as the form now holds it, whether or not a field was written.
+    const { payload, writePayload } = formWritePayload(formData, schema, {
+      objectSchema,
       canEdit: fieldWriteGate(perms, schema.objectName),
+      snapshot: loadedRecordRef.current,
     });
-    // A CREATE payload omits the fields the producer owns (#4069): a rendered
-    // control registers even when nothing seeded it, so an untouched
-    // runtime-default field would ride along as `undefined`/`''` and defeat
-    // `applyFieldDefaults`, which only resolves a field that arrives absent or
-    // null. Create only — on an edit form a cleared column is a real removal.
-    if (isCreateFormMode(schema)) {
-      payload = omitServerResolvedDefaults(payload, hasInlineFields ? null : objectSchema);
-    }
-    // An EDIT writes only the fields that differ from the record this form
-    // read (objectui#10156) — on BOTH write routes below: the host-owned seam,
-    // which is how a master-detail form's parent operation is built, and the
-    // plain OCC-guarded update. Anything that cannot be settled is sent; see
-    // `dirtyEditPayload` for the whole rule, including why an empty diff sends
-    // the full payload. Every other mode gets `payload` back unchanged. The
-    // full `payload` stays the submit-redirect scope below: it is the record as
-    // the form now holds it, whether or not a field was written.
-    const writePayload = dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
     try {
       let result;

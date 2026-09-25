@@ -1644,15 +1644,15 @@ export interface ObjectFormSchema extends BaseSchema {
    * the parent + child line items into one atomic server transaction). The
    * returned record is passed on to `onSuccess`.
    *
-   * In `edit` mode, for a record the form read itself, the simple, `modal` and
-   * `drawer` layouts hand over what the form would have written
-   * (objectui#10156): the fields that differ from the record it read, or the
+   * In `edit` mode, for a record the form read itself, every layout — the
+   * simple form, `tabbed`, `wizard`, `split`, `modal` and `drawer`, and a
+   * simple form that the mobile `stepper` option routes through the wizard —
+   * hands over what the form would have written (objectui#10156,
+   * objectui#10563): the fields that differ from the record it read, or the
    * full sanitized payload when nothing changed — every value except the ones
    * the form never writes (server-owned, computed, read-only, refused by
    * field-level security, or unknown to the object). A field whose sameness
-   * cannot be settled counts as changed, so it is handed over. The `tabbed`,
-   * `wizard` and `split` layouts, and a simple form that the mobile `stepper`
-   * option routes through the wizard, still hand over every collected value.
+   * cannot be settled counts as changed, so it is handed over.
    */
   submitHandler?: (values: Record<string, any>) => any | Promise<any>;
 

@@ -7,9 +7,16 @@ feat(types): `FilterOperatorSchema` is the protocol's operator set, and normalis
 `FilterOperatorSchema` — the validator for a `filter-builder` condition's `operator` —
 was a 14-member local list that had fallen six members behind `@objectstack/spec`
 (`icontains`, `is_empty`, `is_not_empty`, `before`, `after`, `between`) and refused every
-legacy spelling the protocol accepts. So `safeValidateSchema` (and `objectui check` /
-`objectui validate`) refused filters that the protocol's own `ViewFilterRuleSchema` and
-the runtime both accept (objectui#9559, ruling B).
+legacy spelling the protocol accepts. So `safeValidateSchema` (and `objectui validate`)
+refused filters that the protocol's own `ViewFilterRuleSchema` and the runtime both
+accept (objectui#9559, ruling B).
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` did not refuse them — objectui#10524.**
+This entry first listed `objectui check` beside `objectui validate`. `check` is an
+advisory sweep: it never parses against the schema a file whose root carries a structural key (`children`,
+`className`, `body`, …), it lists a file with none of those keys by name when the file
+does not validate, and it exits non-zero on unreadable JSON only. The verdict is
+`objectui validate`'s.
 
 It is now the spec rule's own `operator` member — `VIEW_FILTER_OPERATORS` plus the spec's
 alias fold, taken from `@objectstack/spec/ui` instead of copied — so it cannot fall behind

@@ -13,7 +13,7 @@ so a `nav` favorite handed to it rendered anyway. `FavoriteItem['type']` also ha
 translated one.
 
 `StarredApps` now filters `items` to `type !== 'nav'` before rendering — the same
-exclusion already applied to the sidebar Favorites list in `AppSidebar.tsx` and
-`UnifiedSidebar.tsx` — restoring declared-equals-enforced behaviour and making the
-missing locale key correct by construction. No locale packs were touched, and the
+exclusion already applied to the sidebar Favorites list in `UnifiedSidebar.tsx` —
+restoring declared-equals-enforced behaviour and making the missing locale key
+correct by construction. No locale packs were touched, and the
 `FavoriteItem` / `RecentItem` union types are unchanged.

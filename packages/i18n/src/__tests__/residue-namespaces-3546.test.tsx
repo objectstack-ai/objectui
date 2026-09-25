@@ -160,7 +160,6 @@ const DETAIL_VIEW = 'packages/plugin-detail/src/DetailView.tsx';
 const INTERFACE_LIST = 'packages/app-shell/src/views/InterfaceListPage.tsx';
 const KANBAN = 'packages/plugin-kanban/src/KanbanImpl.tsx';
 const UNIFIED_SIDEBAR = 'packages/app-shell/src/layout/UnifiedSidebar.tsx';
-const APP_SIDEBAR = 'packages/app-shell/src/layout/AppSidebar.tsx';
 const CREATE_WORKSPACE = 'packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx';
 const GANTT_VIEW = 'packages/plugin-gantt/src/GanttView.tsx';
 const GANTT_HOOK = 'packages/plugin-gantt/src/useGanttTranslation.ts';
@@ -340,7 +339,9 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
         'This interface page references "{{name}}", which is not available.',
       ],
       ['layout.systemNav.administration', UNIFIED_SIDEBAR, 'Administration'],
-      ['layout.systemNav.datasources', APP_SIDEBAR, 'Datasources'],
+      // Owned by `AppSidebar` until objectui#5817 removed it; the surviving
+      // call site is `UnifiedSidebar`'s, held to the same string.
+      ['layout.systemNav.datasources', UNIFIED_SIDEBAR, 'Datasources'],
       ['layout.systemNav.documentation', UNIFIED_SIDEBAR, 'Documentation'],
       ['workspace.multiOrgDisabled', CREATE_WORKSPACE, 'Creating new organizations is disabled on this instance.'],
     ];
@@ -369,7 +370,9 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
       ['common.record', 'Record', [APP_CONTENT]],
       ['common.retry', 'Retry', [APP_CONTENT, INVITATIONS, MEMBERS]],
       ['detail.add', 'Add', [RELATED_LIST]],
-      ['layout.systemNav.datasources', 'Datasources', [APP_SIDEBAR, UNIFIED_SIDEBAR]],
+      // A second site lived in `AppSidebar` until objectui#5817 removed it; the
+      // row stays so the remaining site is still held to the same string.
+      ['layout.systemNav.datasources', 'Datasources', [UNIFIED_SIDEBAR]],
     ];
     for (const [key, value, files] of MULTI) {
       for (const rel of files) {
@@ -957,7 +960,7 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
 
     it('every owning file still binds t the way this suite assumes', () => {
       // The premise of mounting a provider, per family of binding — asserted, not
-      // assumed. Nine files take i18next directly; four go through a
+      // assumed. Eight files take i18next directly; four go through a
       // `createSafeTranslation` hook that hands i18next's `t` over once its probe
       // key resolves (which it does, since the probe keys are in the packs); one
       // uses the per-call `useSafeTranslate`; one uses gantt's per-key wrapper.
@@ -969,14 +972,13 @@ describe('objectui#3546 slice seven — the ratchet residue', () => {
         MEMBERS,
         INTERFACE_LIST,
         UNIFIED_SIDEBAR,
-        APP_SIDEBAR,
         CREATE_WORKSPACE,
       ]) {
         expect(sourceOf(rel), `${rel} no longer binds the pack hook`).toContain('useObjectTranslation');
         // `t` must come out of the hook's destructuring — but it need not be the
         // ONLY thing destructured. The literal `const { t } = …` this used to
         // match broke the moment a file legitimately also took `language`, which
-        // both sidebars now do to resolve the spec's inline per-locale
+        // `UnifiedSidebar` now does to resolve the spec's inline per-locale
         // `I18nLabel` (widened in @objectstack/spec 17.0.0-rc.6). What this
         // suite actually depends on is that `t` is i18next's, bound from this
         // hook, so the pattern asserts exactly that and stays blind to which

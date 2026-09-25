@@ -1665,7 +1665,7 @@ export interface PageSlotMap {
  * They are registered, live renderers carrying nine catalog fixtures under
  * `examples/schema-catalog/src/schemas/components-layout-semantic/`, and until
  * objectui#8499 no arm of `AnyComponentSchema` named any of them — so a document
- * that rendered correctly in the browser was refused by `objectui check`.
+ * that rendered correctly in the browser was refused by `objectui validate`.
  *
  * The renderer is one factory over all seven tags: it renders
  * `renderChildren(schema.children)` inside the tag and declares exactly one

@@ -290,16 +290,30 @@ export interface RecordPickerDialogProps {
 
   /** Columns to display. Defaults to [displayField, descriptionField]. */
   columns?: Array<string | LookupColumnDef>;
-  /** Primary display field (default: 'name') */
+  /**
+   * The display field as the lookup DECLARES it. The display column is keyed on
+   * it, or on `'name'` when it is omitted. With `objectSchema` given, a declared
+   * value is also the first rung of the column's title (the resolver's
+   * `titleField`); the `'name'` default never is, because it is a guess and a
+   * guess never outranks the referenced object's own declarations. So pass
+   * `undefined` when the field declares none, never a pre-filled `'name'`.
+   */
   displayField?: string;
   /**
-   * Optional `titleFormat` template (e.g. `"{full_name}"` or
-   * `"{case_number} - {subject}"`). When set and the displayField column is
-   * auto-inferred, the column renders via the template instead of reading
-   * a possibly-missing field. Mirrors how DetailView/ObjectCalendar resolve
-   * record titles.
+   * The referenced object's schema (objectui#10486). When given, the display
+   * column renders each record's title through `@object-ui/core`'s
+   * `getRecordDisplayName`, the call LookupField's dropdown option label and
+   * the read cell make: the declared `displayField`, then the object's
+   * `nameField`, then its deprecated `titleFormat` template, then type-aware
+   * derivation (ADR-0079). The title reads the row with its relations
+   * collapsed to ids and the fields the loaded policy denies removed, exactly
+   * as the dropdown's option label does.
+   *
+   * Replaces the retired `titleFormat` prop: a bare template cut out of the
+   * schema ranked above the `nameField` beside it, so the picker and the
+   * dropdown labelled one record two ways.
    */
-  titleFormat?: string | null;
+  objectSchema?: Record<string, unknown> | null;
   /** Record id field (default: 'id') */
   idField?: string;
 
@@ -468,8 +482,8 @@ export function RecordPickerDialog({
   dataSource,
   objectName,
   columns: columnsProp,
-  displayField = 'name',
-  titleFormat,
+  displayField: declaredDisplayField,
+  objectSchema,
   idField = 'id',
   pageSize = DEFAULT_PAGE_SIZE,
   value,
@@ -483,6 +497,9 @@ export function RecordPickerDialog({
   renderFilterBar,
   renderGrid,
 }: RecordPickerDialogProps) {
+  // The column the record title stands in for. The `'name'` default only keys
+  // that column; `declaredDisplayField` is what the title resolver ranks.
+  const displayField = declaredDisplayField ?? 'name';
   const { t } = useFieldTranslation();
   const { translateOptions } = useSafeFieldLabel();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -543,8 +560,8 @@ export function RecordPickerDialog({
    * raw, so it must stay the key it always was.
    *
    * The table renders the rows as served. What leaves it — the records
-   * `onSelectRecords` hands a host, and the `titleFormat` template's reading
-   * of a row — sees the row with its relations collapsed to ids
+   * `onSelectRecords` hands a host, and the display column's reading of a
+   * row's title — sees the row with its relations collapsed to ids
    * (`toPredicateRecord`), as it did before any column was expanded.
    *
    * Field-level security gates the OUTPUT, in the objectui#7429 sweep's shape
@@ -864,30 +881,33 @@ export function RecordPickerDialog({
   // very same function, so this table and that popover cannot answer one
   // `lookup_columns` declaration two different ways.
   //
-  // The display column's `titleFormat` template reads the row with its
-  // relations collapsed to ids, so an expanded reference it names prints what
-  // it printed before `$expand` rather than an object (objectui#10223).
+  // The display column's title (objectui#10486) is built from the row the
+  // dropdown's option label is built from: relations collapsed to ids, so an
+  // expanded reference a `titleFormat` names prints what it printed before
+  // `$expand` rather than an object (objectui#10223).
   //
-  // That template can name any field of the row, not only the column's own, so
-  // it reads the row with the fields the loaded policy denies removed
-  // (objectui#10373) — the row ObjectStack's `FieldMasker` already serves. A
-  // denied field it names renders as an empty slot, exactly as for that row.
+  // The title can name any field of the row, not only the column's own (a
+  // `titleFormat` template, a `nameField`), so it reads the row with the fields
+  // the loaded policy denies removed (objectui#10373) — the row ObjectStack's
+  // `FieldMasker` already serves. A denied field falls through the resolver
+  // exactly as it does for that row.
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
       renderLookupColumnValue(
-        titleFormat && col.field === displayField
+        objectSchema && col.field === displayField
           ? withoutDeniedFields(toPredicateRecord(record, fieldsMeta), perms, objectName, idField)
           : record,
         col,
         {
           descriptors: columnFieldDescriptors,
           cellRenderer,
-          titleFormat,
+          objectSchema,
+          titleField: declaredDisplayField,
           displayField,
           displayLocale,
         },
       ),
-    [cellRenderer, titleFormat, displayField, fieldsMeta, columnFieldDescriptors, displayLocale, perms, objectName, idField],
+    [cellRenderer, objectSchema, declaredDisplayField, displayField, fieldsMeta, columnFieldDescriptors, displayLocale, perms, objectName, idField],
   );
 
   // Render sort indicator for a column

@@ -467,8 +467,8 @@ export function SystemRedirect() {
   // file (objectui#6507). It does carry the null-render shape on a first
   // navigation — but it is the one site here that ALSO fires with the console
   // already painted: `SettingsView.tsx` navigates to `/system/settings` from a
-  // button, and `AppSidebar.tsx` links to `/system`. Neither is gated on
-  // anything, so both are live in exactly the runtimes this component serves.
+  // button. That is gated on nothing, so it is live in exactly the runtimes this
+  // component serves.
   // The #6507 triage ruling is explicit that a redirect firing under an
   // already-painted layout must KEEP that layout rather than gain a splash, so
   // converting this one would trade a boot-path blank for a full-screen splash

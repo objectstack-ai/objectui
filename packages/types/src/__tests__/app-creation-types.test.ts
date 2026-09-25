@@ -112,7 +112,7 @@ describe('App Creation Types', () => {
       };
 
       const schema = wizardDraftToAppSchema(draft);
-      // These fields are critical for AppSidebar and app switcher
+      // These fields are critical for the app switcher and the shell's branding
       expect(schema.icon).toBe('TrendingUp');
       expect(schema.label).toBe('Sales CRM');
       expect(schema.branding).toEqual({

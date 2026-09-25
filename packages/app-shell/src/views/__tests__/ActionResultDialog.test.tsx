@@ -15,7 +15,7 @@ const i18nState = vi.hoisted(() => ({ language: 'en' }));
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/i18n')>()),
   // `language` is the source every other `resolveI18nLabel` caller in this
-  // package threads (`AppSidebar`, `UnifiedSidebar`, `resolveActionParams`, and
+  // package threads (`UnifiedSidebar`, `resolveActionParams`, and
   // metadata-admin's `useMetadataLocale`), so the stub carries it too.
   useObjectTranslation: () => ({ t: (key: string) => key, language: i18nState.language }),
 }));

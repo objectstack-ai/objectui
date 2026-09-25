@@ -46,31 +46,27 @@ function calendarUnder(displayLocale: string, props: { locale?: string } = {}) {
 }
 
 interface MonthFaces {
-  /** The toolbar's month label. */
-  header: string
+  /** The whole rendered text, which carries the toolbar's month label. */
+  text: string
   /** The seven weekday column headers. */
   weekdays: string[]
-  /** The accessible name of the 4 March day cell. */
-  dayCell: string
+  /** The accessible names of the day cells. */
+  cells: string[]
 }
 
+/** The RAW readings off the DOM: expectations are built by the cases, never in here. */
 function facesUnder(displayLocale: string, props: { locale?: string } = {}): MonthFaces {
   const { container } = render(calendarUnder(displayLocale, props))
   const text = container.textContent ?? ''
   const weekdays = [...container.querySelectorAll('[role="columnheader"]')].map((el) => el.textContent ?? '')
-  const cells = [...container.querySelectorAll('[role="gridcell"]')]
-    .map((el) => el.getAttribute('aria-label') ?? '')
-    .filter((l) => l.includes('2020'))
+  const cells = [...container.querySelectorAll('[role="gridcell"]')].map((el) => el.getAttribute('aria-label') ?? '')
   cleanup()
-  const tag = props.locale ?? displayLocale
-  const header = DAY.toLocaleDateString(tag, { month: 'long', year: 'numeric' })
-  const dayLabel = DAY.toLocaleDateString(tag, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-  return {
-    header: text.includes(header) ? header : `(no "${header}" in: ${text.slice(0, 200)})`,
-    weekdays,
-    dayCell: cells.find((l) => l.startsWith(dayLabel)) ?? `(no cell starting "${dayLabel}" in: ${JSON.stringify(cells.slice(0, 3))})`,
-  }
+  return { text, weekdays, cells }
 }
+
+/** The 4 March cell's accessible name starts with the day label in `locale`. */
+const dayLabelIn = (locale: string) =>
+  DAY.toLocaleDateString(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
 const weekdaysIn = (locale: string) =>
   Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 7 + i).toLocaleDateString(locale, { weekday: 'short' }))
@@ -78,28 +74,34 @@ const weekdaysIn = (locale: string) =>
 describe('CalendarView — the default locale is the display locale (objectui#10442)', () => {
   it('renders the month as de-CH under an English UI with a de-CH display locale', () => {
     const faces = facesUnder('de-CH')
-    expect(faces.header).toBe('März 2020')
+    expect(faces.text, `got: ${faces.text.slice(0, 200)}`).toContain('März 2020')
     expect(faces.weekdays).toEqual(weekdaysIn('de-CH'))
-    expect(faces.dayCell).toMatch(/^Mittwoch, 4\. März 2020/)
+    expect(dayLabelIn('de-CH')).toBe('Mittwoch, 4. März 2020')
+    expect(faces.cells.some((l) => l.startsWith(dayLabelIn('de-CH'))), `saw: ${JSON.stringify(faces.cells.slice(0, 3))}`).toBe(true)
   })
 
   it('control: renders the month as en-US under an en-US display locale', () => {
     const faces = facesUnder('en-US')
-    expect(faces.header).toBe('March 2020')
+    expect(faces.text, `got: ${faces.text.slice(0, 200)}`).toContain('March 2020')
     expect(faces.weekdays).toEqual(weekdaysIn('en-US'))
-    expect(faces.dayCell).toMatch(/^Wednesday, March 4, 2020/)
+    expect(dayLabelIn('en-US')).toBe('Wednesday, March 4, 2020')
+    expect(faces.cells.some((l) => l.startsWith(dayLabelIn('en-US'))), `saw: ${JSON.stringify(faces.cells.slice(0, 3))}`).toBe(true)
   })
 
   /** ⭐ THE PIN: no runner locale can make both readings equal. */
   it('is a reading of the session, not of the machine', () => {
-    expect(facesUnder('de-CH')).not.toEqual(facesUnder('en-US'))
+    const de = facesUnder('de-CH')
+    const en = facesUnder('en-US')
+    expect(de.weekdays).not.toEqual(en.weekdays)
+    expect(de.cells).not.toEqual(en.cells)
+    expect(de.text).not.toBe(en.text)
   })
 
   it('an explicit `locale` prop still wins over the display locale', () => {
     const faces = facesUnder('de-CH', { locale: 'fr-FR' })
-    expect(faces.header).toBe('mars 2020')
+    expect(faces.text, `got: ${faces.text.slice(0, 200)}`).toContain('mars 2020')
     expect(faces.weekdays).toEqual(weekdaysIn('fr-FR'))
-    expect(faces.dayCell).toMatch(/^mercredi 4 mars 2020/)
+    expect(faces.cells.some((l) => l.startsWith(dayLabelIn('fr-FR'))), `saw: ${JSON.stringify(faces.cells.slice(0, 3))}`).toBe(true)
   })
 
   it('every locale-taking call receives the declared tag', () => {

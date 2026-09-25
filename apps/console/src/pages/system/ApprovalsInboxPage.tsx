@@ -635,7 +635,7 @@ function InlineActions({
 }
 
 export function ApprovalsInboxPage() {
-  const { t, language } = useObjectTranslation();
+  const { t } = useObjectTranslation();
   // Every date and number face on this page is formatted in the display
   // locale; the module helpers above take it as a required argument.
   const displayLocale = useDisplayLocale();
@@ -738,8 +738,11 @@ export function ApprovalsInboxPage() {
     if (hr < 24) return tr('hoursAgo', '{{count}}h ago', { count: hr });
     const day = Math.round(hr / 24);
     if (day < 30) return tr('daysAgo', '{{count}}d ago', { count: day });
-    try { return new Date(s).toLocaleDateString(language); } catch { return s; }
-  }, [tr, language, now]);
+    // Past 30 days the face is a DATE, not words, so it takes the display
+    // locale, never the UI language `tr` speaks: a regional locale (`de-CH`
+    // under an English UI) must reach it (objectui#10375).
+    try { return new Date(s).toLocaleDateString(displayLocale); } catch { return s; }
+  }, [tr, displayLocale, now]);
 
   const statusLabel = useCallback((status: string): string => {
     switch (status) {

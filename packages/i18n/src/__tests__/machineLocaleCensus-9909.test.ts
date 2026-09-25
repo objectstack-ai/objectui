@@ -234,9 +234,10 @@ const DECLARED: Exemption[] = [
     count: 1,
     verdict: 'deliberate fallback',
     reason:
-      'the `catch` of `formatAbsoluteDate`, whose `try` already passes the session language: it fires only on the ' +
-      '`RangeError` a structurally malformed tag raises, and restores the pre-localisation face instead of letting ' +
-      'the raw ISO string reach the reader.',
+      'the `catch` of `formatAbsoluteDate`, whose `try` already passes the display locale (`useDisplayLocale()`, ' +
+      'objectui#10375; the session language before that): it fires only on the `RangeError` a structurally ' +
+      'malformed tag raises, and restores the pre-localisation face instead of letting the raw ISO string reach the ' +
+      'reader.',
   },
   {
     file: 'packages/fields/src/currency.ts',

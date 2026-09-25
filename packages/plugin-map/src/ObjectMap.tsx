@@ -33,6 +33,7 @@ import {
   buildExpandFields,
   convertSortToQueryParams,
   getRecordDisplayName,
+  recordDisplayValueAt,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
@@ -974,8 +975,8 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         }
 
         // ADR-0079's unified record display-name resolver — the same one
-        // `ObjectKanban` (:301), `ObjectCalendar` (:356) and `ObjectGantt`
-        // (:600) already title their items through. `ObjectMap` was the fourth
+        // `ObjectKanban`, `ObjectCalendar` and `ObjectGantt` already title
+        // their items through. `ObjectMap` was the fourth
         // renderer and the only one still doing a bare property read against a
         // hard-coded `'name'` key, so every object whose display field is not
         // literally `name` titled EVERY marker popup `undefined` (objectui#5953).
@@ -1001,7 +1002,22 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           titleField: mapConfig.titleField,
           fallback: 'Marker',
         });
-        const description = mapConfig.descriptionField ? record[mapConfig.descriptionField] : undefined;
+        // The description is derived as a display STRING, once, here
+        // (objectui#10456). The popup, the mobile record sheet and the search
+        // filter all read this one value, and all three treat it as text: the
+        // two faces put it in JSX, and the search calls `.toLowerCase()` on it.
+        // The raw field value is not text whenever `descriptionField` names a
+        // lookup: this component's own object fetch expands every declared
+        // relation, so the row carries `{ id, name }`, and React throws
+        // `Objects are not valid as a React child` on the first marker click.
+        // A number or a boolean made the search throw the same way.
+        //
+        // `recordDisplayValueAt` is the resolver the title above already uses
+        // for an authored `titleField` (step 0 of `getRecordDisplayName`), so
+        // the two text slots of one marker share one rule: an expanded lookup
+        // reads as its display name, a bare id as itself, a number or a boolean
+        // as its string, and an empty value as no description line.
+        const description = recordDisplayValueAt(record, mapConfig.descriptionField);
 
         // Ensure lat/lng are within valid ranges
         const [lat, lng] = coordinates;

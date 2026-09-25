@@ -30,6 +30,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { I18nProvider } from '@object-ui/i18n';
+import type { FileFieldMetadata } from '@object-ui/types';
 
 import { getCellRenderer } from '../index';
 
@@ -37,7 +38,7 @@ const BARE_PERCENT = 'https://cdn.example.com/100%.png';
 const INVALID_ESCAPE = { url: 'https://cdn.example.com/a%zz.pdf' };
 const VALID_ESCAPE = 'https://cdn.example.com/report%20q3.pdf';
 
-const fileField = { name: 'attachment', label: 'Attachment', type: 'file', multiple: true } as any;
+const fileField: FileFieldMetadata = { name: 'attachment', label: 'Attachment', type: 'file', multiple: true };
 
 function renderFileCell(value: unknown) {
   const CellRenderer = getCellRenderer('file');

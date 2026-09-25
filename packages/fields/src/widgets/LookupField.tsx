@@ -86,52 +86,41 @@ function isUserFacingReference(reference: string | undefined): boolean {
 }
 
 /**
- * Render a record title from a `titleFormat` template (e.g. `{full_name}` or
- * `{case_number} - {subject}`). When a templated key resolves to an empty
- * value, the surrounding separator (`-/|·,:` plus em/en dashes) is stripped
- * so we never produce orphan glyphs like `" - foo"`.
- *
- * Mirrors the implementation in `@object-ui/plugin-detail`'s
- * `resolveDisplayTitle` and `@object-ui/plugin-calendar`'s event-title
- * renderer so labels stay consistent across the product.
+ * The record field a lookup reads when the field declares no `displayField`:
+ * the quick-create payload key, the pickers' display column, and the option
+ * label's first rung when the referenced object's schema is not available.
+ * It is a guess, not a declaration, so it never outranks what the referenced
+ * object declares (see `recordToOption`).
  */
-function formatRecordTitle(record: any, titleFormat: string): string | null {
-  if (!record || typeof record !== 'object' || !titleFormat) return null;
-  const EMPTY = '\u0000';
-  const SEP = '[-\\u2013\\u2014|/·,:]';
-  let any = false;
-  const raw = titleFormat.replace(/\{([^{}]+)\}/g, (_m, key) => {
-    const v = (record as any)[key.trim()];
-    if (v !== null && v !== undefined && v !== '') {
-      any = true;
-      return String(v);
-    }
-    return EMPTY;
-  });
-  if (!any) return null;
-  const out = raw
-    .replace(new RegExp(`\\s*${SEP}\\s*${EMPTY}`, 'g'), '')
-    .replace(new RegExp(`${EMPTY}\\s*${SEP}\\s*`, 'g'), '')
-    .replace(new RegExp(EMPTY, 'g'), '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return out || null;
-}
+const DEFAULT_DISPLAY_FIELD = 'name';
 
 /**
  * Map a raw record to a LookupOption using a display field and an id field.
  *
- * Label precedence (ADR-0079):
- *   1. `titleFormat` template (when supplied, derived from the referenced
- *      object's schema) — e.g. `"Acme - John Doe"`.
- *   2. the explicit `displayField` value on the record.
- *   3. the unified `@object-ui/core#getRecordDisplayName` against the referenced
- *      object's schema (`objectDef`) — adds `displayNameField` + type-aware
- *      field derivation, so a lookup to an object whose name lives in e.g.
- *      `activity_name` resolves a real name instead of the raw id. We stop short
- *      of the resolver's `Record #<id>` floor here so the chip still falls
- *      through to the bare id when nothing nameable exists.
- *   4. the legacy hard-coded name list, then the raw id.
+ * Label precedence (ADR-0079; objectui#10343, the lookup branch of
+ * objectui#9436's ruling C1):
+ *   1. with the referenced object's schema (`objectDef`): the unified
+ *      `@object-ui/core#getRecordDisplayName`, with the field's DECLARED
+ *      `displayField` as its `titleField` — the same call the read cell's
+ *      `LookupCellRenderer` makes, so the dropdown, the chip and the record
+ *      page agree:
+ *        a. the field's own declared `displayField` (the author's explicit
+ *           choice for this field),
+ *        b. the object's declared `nameField` (then its deprecated aliases),
+ *        c. the object's deprecated `titleFormat` template,
+ *        d. type-aware derivation, then name-ish keys on the record.
+ *      We stop short of the resolver's `Record #<id>` floor here so the chip
+ *      still falls through to the bare id when nothing nameable exists.
+ *   2. the display field on the record — the declared one, else
+ *      {@link DEFAULT_DISPLAY_FIELD}. Without a schema this is the first rung;
+ *      with one, the `name` guess sits BELOW the object's declarations, which
+ *      is what `@objectstack/spec` means by the field "defaults to the
+ *      referenced object's name/title".
+ *   3. the legacy hard-coded name list, then the raw id.
+ *
+ * The template is not rendered here: `getRecordDisplayName` renders
+ * `objectDef.titleFormat` itself (the shared `formatTitleTemplate`), at its
+ * ADR-0079 rung.
  *
  * The label is a DISPLAY value, so it is built from the row as the user may
  * read it (objectui#10373): with `readable` given (a loaded permission policy),
@@ -139,25 +128,28 @@ function formatRecordTitle(record: any, titleFormat: string): string | null {
  * already serves — and the chain above falls through exactly as it does for
  * that row. Nothing else moves: the value, the description and the record the
  * option carries (what `onSelectRecord` receives) are the row as served.
+ *
+ * @param displayField the lookup field's DECLARED `displayField` (or
+ *   `reference_field`), `undefined` when it declares none — never the
+ *   {@link DEFAULT_DISPLAY_FIELD} fallback, which would rank a guess above the
+ *   referenced object's `nameField`.
  */
 function recordToOption(
   record: any,
-  displayField: string,
+  displayField: string | undefined,
   idField: string,
   descriptionField?: string,
-  titleFormat?: string | null,
   objectDef?: any,
   readable?: FieldReadGate,
 ): LookupOption {
   const val = record[idField] ?? record.id ?? record._id ?? record.externalId;
   const shown = withoutDeniedFields(record, readable);
-  const templated = titleFormat ? formatRecordTitle(shown, titleFormat) : null;
 
-  // Object-level resolver fallback (displayNameField + derivation), excluding
-  // its id floor so we don't shadow the explicit `String(val)` tail.
+  // Object-level resolver, excluding its id floor so we don't shadow the
+  // explicit `String(val)` tail.
   let unified: string | undefined;
   if (objectDef) {
-    const resolved = getRecordDisplayName(objectDef, shown);
+    const resolved = getRecordDisplayName(objectDef, shown, { titleField: displayField });
     const id = record?.id ?? record?._id;
     const isFloor =
       resolved === 'Untitled' ||
@@ -166,9 +158,8 @@ function recordToOption(
   }
 
   const label =
-    templated ??
-    shown[displayField] ??
     unified ??
+    shown[displayField ?? DEFAULT_DISPLAY_FIELD] ??
     shown.label ??
     shown.name ??
     shown.full_name ??
@@ -317,7 +308,12 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
   const staticOptions: LookupOption[] = fieldMeta?.options || [];
   const multiple = fieldMeta?.multiple || false;
-  const displayField = fieldMeta?.displayField || fieldMeta?.reference_field || 'name';
+  // The field's OWN display field, as declared — what `recordToOption` ranks
+  // above the referenced object's declarations (objectui#10343). Read exactly as
+  // the read cell (`LookupCellRenderer`) reads it.
+  const declaredDisplayField: string | undefined =
+    fieldMeta?.displayField || fieldMeta?.reference_field || undefined;
+  const displayField = declaredDisplayField || DEFAULT_DISPLAY_FIELD;
   const descriptionField: string | undefined = fieldMeta?.descriptionField;
   const idField = fieldMeta?.idField || 'id';
   // ObjectStack convention uses `reference`; types define `reference_to` — support both
@@ -458,10 +454,10 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
 
   const hasDataSource = dataSource != null && typeof dataSource.find === 'function' && !!referenceTo;
 
-  // Fetch the referenced object's schema so we can render option labels via
-  // its `titleFormat` template (e.g. `{full_name}`, `{case_number} - {subject}`).
-  // Without this the label fell back to a non-existent `name` field and
-  // ultimately to the raw record id.
+  // Fetch the referenced object's schema so option labels resolve through its
+  // declarations (`nameField`, then the deprecated `titleFormat` template —
+  // `recordToOption`, ADR-0079). Without this the label fell back to a
+  // non-existent `name` field and ultimately to the raw record id.
   const [refObjectSchema, setRefObjectSchema] = useState<any>(null);
   useEffect(() => {
     if (!dataSource || !referenceTo) return;
@@ -474,6 +470,9 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
     return () => { alive = false; };
   }, [dataSource, referenceTo]);
 
+  // Feeds the browse-all picker (`RecordPickerDialog`) only. The option label
+  // does not read it: `recordToOption` hands the whole schema to the unified
+  // resolver, which renders `titleFormat` at its own ADR-0079 rung.
   const refTitleFormat: string | null = useMemo(() => {
     const raw = refObjectSchema?.titleFormat;
     if (typeof raw === 'string') return raw;
@@ -692,11 +691,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       popoverQuery.records.map(r =>
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
-          displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+          declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
           fieldReadGate(perms, referenceTo, idField),
         ),
       ),
-    [popoverQuery.records, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
+    [popoverQuery.records, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
   );
 
   const allOptions = hasDataSource ? fetchedOptions : staticOptions;
@@ -779,14 +778,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           const id = unresolved[0];
           if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {
             const rec = await (dataSource as any).findOne(referenceTo, id);
-            if (rec) fetched.push(recordToOption(rec, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
+            if (rec) fetched.push(recordToOption(rec, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
           } else {
             const res = await dataSource.find(referenceTo, {
               $filter: { [idField]: id },
               $top: 1,
             } as QueryParams);
             const rows = (res as any)?.data ?? res ?? [];
-            if (rows[0]) fetched.push(recordToOption(rows[0], displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
+            if (rows[0]) fetched.push(recordToOption(rows[0], declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
           }
         } else {
           // SEVERAL unresolved ids: one `$in` query per chunk. A multi-value
@@ -811,7 +810,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
             const rows = (res as any)?.data ?? res ?? [];
             if (!Array.isArray(rows)) continue;
             for (const row of rows) {
-              fetched.push(recordToOption(row, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
+              fetched.push(recordToOption(row, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
             }
           }
         }
@@ -841,7 +840,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, hasDataSource, referenceTo, displayField, idField, effectiveDescriptionField, multiple]);
+  }, [value, hasDataSource, referenceTo, declaredDisplayField, idField, effectiveDescriptionField, multiple]);
 
   // Get selected option(s) — check static, fetched, and picker-resolved options
   const findOption = useCallback(
@@ -903,14 +902,14 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       // mapped directly, mirroring the read cell (`LookupCellRenderer`).
       const asObject = typeof raw === 'object' ? raw : parseReferenceObjectString(raw);
       if (asObject) {
-        return recordToOption(asObject, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+        return recordToOption(asObject, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
       }
       // Bare id: strict match first, then a String()-coerced fallback so a
       // numeric cell value still resolves against a string-keyed option (and
       // vice versa) — matching the read cell's tolerant comparison.
       return findOption(raw) ?? findOptionLoose(raw);
     },
-    [findOption, findOptionLoose, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
+    [findOption, findOptionLoose, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
   );
 
   // A value can hold bare ids that no option list resolves YET — the batch
@@ -998,11 +997,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
   const handlePickerSelectRecords = useCallback(
     (records: any[]) => {
       const readable = fieldReadGate(perms, referenceTo, idField);
-      const mapped = records.map(r => recordToOption(r, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, readable));
+      const mapped = records.map(r => recordToOption(r, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, readable));
       if (referenceTo) mapped.forEach((o) => pushRecentLookupId(referenceTo, o.value));
       setPickerResolvedRecords(mapped);
     },
-    [displayField, idField, effectiveDescriptionField, refTitleFormat, referenceTo, perms],
+    [declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, referenceTo, perms],
   );
 
   // ── Recently-used, quick-create, combined option list ────────────────────
@@ -1081,11 +1080,11 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       recentRows.map((r) =>
         recordToOption(
           toPredicateRecord(r, refObjectSchema?.fields),
-          displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema,
+          declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema,
           fieldReadGate(perms, referenceTo, idField),
         ),
       ),
-    [recentRows, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, perms, referenceTo],
+    [recentRows, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, perms, referenceTo],
   );
 
   /**
@@ -1155,7 +1154,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
           modal: { objectName: referenceTo, mode: 'create' },
         } as any);
         if (result?.success && result.data) {
-          const opt = recordToOption(result.data, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+          const opt = recordToOption(result.data, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
           setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
           handleSelect(opt);
           return;
@@ -1172,7 +1171,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
       setCreating(true);
       try {
         const created = await (dataSource as any).create(referenceTo, { [displayField]: label });
-        const opt = recordToOption(created, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
+        const opt = recordToOption(created, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, fieldReadGate(perms, referenceTo, idField));
         setPickerResolvedRecords((prev) => [opt, ...prev.filter((o) => o.value !== opt.value)]);
         handleSelect(opt);
       } catch (err) {
@@ -1181,7 +1180,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         setCreating(false);
       }
     },
-    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, idField, effectiveDescriptionField, refTitleFormat, refObjectSchema, handleSelect, perms],
+    [onCreateNew, allowCreate, referenceTo, hasActionProvider, execute, dataSource, displayField, declaredDisplayField, idField, effectiveDescriptionField, refObjectSchema, handleSelect, perms],
   );
 
   /**

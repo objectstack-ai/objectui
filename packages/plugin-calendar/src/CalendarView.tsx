@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@object-ui/components"
-import { createSafeTranslation } from "@object-ui/i18n"
+import { createSafeTranslation, useDisplayLocale } from "@object-ui/i18n"
 
 const DEFAULT_EVENT_COLOR = "bg-blue-100 text-blue-900 border border-blue-200"
 const STABLE_DEFAULT_DATE = new Date()
@@ -177,8 +177,12 @@ function CalendarView({
 }: CalendarViewProps) {
   const [selectedView, setSelectedView] = React.useState(view)
   const [selectedDate, setSelectedDate] = React.useState(currentDate)
-  const { t, language } = useCalendarTranslation()
-  const effectiveLocale = locale !== "default" ? locale : language
+  const { t } = useCalendarTranslation()
+  // An explicit `locale` prop is the host's choice and still wins. Only the
+  // `"default"` branch reads the session, and it reads the DISPLAY locale,
+  // never the UI language (objectui#10442).
+  const displayLocale = useDisplayLocale()
+  const effectiveLocale = locale !== "default" ? locale : displayLocale
 
   // Sync state if props change
   React.useEffect(() => {

@@ -1050,7 +1050,9 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
 
   return (
     <div className={cn('relative', className)}>
-      <RefreshIndicator active={loading && finalData.length > 0} />
+      {/* The bar's name comes from the pack alone (objectui#10580): no English
+          default here, unlike `noDataSourceLabel` above. */}
+      <RefreshIndicator active={loading && finalData.length > 0} ariaLabel={t('dashboard.refreshing')} />
       <SchemaRenderer schema={tableSchema} className={className} />
       {recordDrillEnabled && (
         <RecordDetailDrawer

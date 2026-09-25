@@ -1124,6 +1124,7 @@ const de = {
   },
   chart: {
     loading: "Diagramm wird geladen…",
+    refreshing: "Wird aktualisiert…",
     nullCategory: "(Ohne Angabe)",
     scatterOneMeasure: "Ein Streudiagramm zeichnet genau eine Kennzahl. Behalten Sie nur eine Datenreihe:",
     unconfigured: {
@@ -1145,6 +1146,7 @@ const de = {
       sourceLabel: "Datenquelle:",
     },
     loading: "Wird geladen…",
+    refreshing: "Wird aktualisiert…",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
     details: "Details",

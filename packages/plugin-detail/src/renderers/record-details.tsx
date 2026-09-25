@@ -422,7 +422,9 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // (objectui#8351). They are NOT symmetric and only ONE is answered here:
   //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
   //     the template's rendered output is compared against the candidates'
-  //     values, and a composite that is no field's value hides no row.
+  //     values, then against the fields the template rendered
+  //     (objectui#10360), and a composite that is no field's value hides no
+  //     row.
   //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
   //     from this package: it is a key on the HEADER schema, which
   //     `record:details` never receives. Same shape, its own card.
@@ -516,13 +518,14 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
   //     about what the template produces on a given record.
   //   - `recordDisplayValueAt` then answers the only question a dedupe has:
-  //     is that string some candidate's value?
+  //     is that string some candidate's value, or the value of a field the
+  //     template rendered (objectui#10360, see the note on the scan below)?
   //
   // Three outcomes, and the two that are NOT the ruled case are what keep this
   // honest:
-  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
-  //     case: "the H1 is not any single field's value, so there is no row to
-  //     hide".
+  //   - composite (no compared field's value equals it) → hide NOTHING. The
+  //     ruled case: "the H1 is not any single field's value, so there is no
+  //     row to hide".
   //   - empty (no placeholder resolved on this record) → the header walks on
   //     past this rung to the unified resolver, so the value-keyed walk below
   //     runs unchanged. Suppressing on the mere PRESENCE of a `titleFormat`
@@ -547,6 +550,31 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // the H1 is `subject`'s value. Stopping early would hide the wrong row AND
   // leave the real duplicate.
   //
+  // ⭐ The "collapsed" outcome is matched against EVERY field the template
+  // rendered, not only the candidates (objectui#10360). The candidates are the
+  // resolver rungs and six literal names, so a template that collapsed onto
+  // any other field — `{contract_no} - {name}` with a blank `name` renders
+  // exactly `contract_no`'s value — matched none of them, and that row printed
+  // directly under an H1 showing the same value. The comparison is ruling B's,
+  // unchanged: equality with the rendered string, never the presence of a
+  // template. Only the set compared is wider, and in a fixed order:
+  //   1. the candidate scan, exactly as before, so a candidate match still
+  //      wins and no row that was hidden before moves;
+  //   2. only then, each record field whose value equals the H1 AND that the
+  //      template actually rendered. At most one row goes (the first in record
+  //      key order), as in step 1.
+  //
+  // ⛔ "Actually rendered" is asked of `formatTitleTemplate` ITSELF, never of a
+  // second placeholder parser: blank that one field, render again, and see
+  // whether the title changed. So this agrees with the renderer on every token
+  // shape it accepts (`{{…}}`, whitespace inside the braces, dotted lookup
+  // paths), and cannot drift from it. It is also stricter than "a field the
+  // template names", and that is on purpose: `{owner.nickname} - {rep}` with a
+  // blank nickname renders `rep`'s value, and an `owner` lookup whose display
+  // name happens to equal it is named by the template yet rendered nothing.
+  // Hiding `owner` there would leave the real duplicate printed. Pinned in
+  // `__tests__/record-details.titleFormatPlaceholderDedupe-10360.test.tsx`.
+  //
   // The declared pointer is read through core's one exported spelling,
   // `declaredNameField`, exactly as `PageHeaderRenderer` reads it: the same
   // expression on both halves, never a re-typed `??` chain.
@@ -554,11 +582,18 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
     hideFieldNames.add(declaredTitleField);
   } else {
-    const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
+    const titleFormat = objSchema?.titleFormat;
+    const interpolatedTitle = formatTitleTemplate(titleFormat, data);
     if (interpolatedTitle) {
-      const shownAs = titleCandidates.find(
-        (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
-      );
+      const showsTitle = (field: string) =>
+        recordDisplayValueAt(data, field) === interpolatedTitle;
+      const shownAs =
+        titleCandidates.find(showsTitle) ??
+        Object.keys(data).find(
+          (field) =>
+            showsTitle(field) &&
+            formatTitleTemplate(titleFormat, { ...data, [field]: undefined }) !== interpolatedTitle,
+        );
       if (shownAs) hideFieldNames.add(shownAs);
     } else {
       for (const candidate of titleCandidates) {

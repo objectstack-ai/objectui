@@ -1304,6 +1304,79 @@ const ViewKindEnum = SpecListViewSchema.shape.type.removeDefault();
  */
 export const UserActionsSchema = stripImportedDefaults(SpecUserActionsConfigSchema);
 
+/**
+ * The refusal text for a view filter on a dataset-bound `chart` view, per
+ * written key. Its last sentence is the remedy ruling 5825582592 wrote, and the
+ * pin asserts it.
+ */
+const datasetChartViewFilterRefusal = (key: 'filter' | 'filters'): string =>
+  `\`${key}\` is refused on a \`chart\` view bound to a semantic \`dataset\`: ` +
+  'the chart queries the dataset, not the list object, so a view filter here is never applied ' +
+  'and the chart would draw unfiltered totals. Remove it — ' +
+  "a dataset chart's scope is written in the dataset.";
+
+/**
+ * objectui#10327 — a view filter on a `chart` view bound to a semantic
+ * `dataset` is REFUSED at authoring (ruling 5825582592, letter A: a dataset
+ * chart takes its scope from the dataset).
+ *
+ * ## Why
+ *
+ * `ListView`'s `case 'chart'` builds the dataset shape's `object-chart` node
+ * with NO `filter`: `ObjectChart` hands `queryDataset` the dimensions and the
+ * measures and nothing else, and a dataset's field namespace need not be the
+ * list object's, so the list's filter has no door into that query. The ruling
+ * refused the mapping that would build one (option B). An authored filter here
+ * was accepted and silently dropped, and the chart drew unfiltered totals that
+ * read as filtered ones. At runtime the toolbar withholds its filter controls
+ * on such a view (`ListView`'s `datasetChartOnScreen`).
+ *
+ * ## Why here, on objectui's face — the location the ruling left to the dev
+ *
+ * Both operand keys are the spec's own, imported by reference below: `filter`,
+ * and the `chart` block (`ListChartConfigSchema`, whose `dataset` is required).
+ * The CONDITION is not: on this node the view kind rides as objectui's
+ * `viewType` (the spec's `type` is spent here on the component discriminator),
+ * and two objectui-owned spellings reach the same render branch — the legacy
+ * `filters` alias (folded into `filter` by `normalizeListViewSchema`) and the
+ * legacy `options.chart` bag (read by `resolveListChartBinding` when no `chart`
+ * block is declared). A spec-door check reads none of the three; that is the
+ * reason `checkListViewPageMount` was not attachable here (objectui#7715). So
+ * this node's refusal is objectui's. A stored `view` row spelled `type: 'chart'`
+ * passes the SPEC's door, which is a second door and not this one.
+ *
+ * ## What it judges — the runtime's own reading, one leg each
+ *
+ *   - view kind: `viewType === 'chart'`, the value `ListView`'s `currentView`
+ *     starts from;
+ *   - binding: the effective chart block — `chart` WHOLESALE, else
+ *     `options.chart`, `resolveListChartBinding`'s precedence — names a
+ *     `dataset`;
+ *   - filter: `filter`, and the legacy `filters`, each a non-empty array. An
+ *     empty array is no filter and passes.
+ *
+ * One `custom` issue per written filter key, at that key. ⛔ Not judged: a view
+ * of another kind that only OFFERS a switch to a dataset chart
+ * (`appearance.allowedVisualizations`). Its filter scopes the view it is
+ * authored on, so refusing it would refuse a working grid.
+ */
+function checkListViewDatasetChartFilter(
+  view: { viewType?: unknown; chart?: unknown; options?: unknown; filter?: unknown; filters?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  if (view.viewType !== 'chart') return;
+  const legacyBag = view.options && typeof view.options === 'object'
+    ? (view.options as Record<string, unknown>).chart
+    : undefined;
+  const block = view.chart || legacyBag;
+  if (!block || typeof block !== 'object' || !(block as Record<string, unknown>).dataset) return;
+  for (const key of ['filter', 'filters'] as const) {
+    const written = view[key];
+    if (!Array.isArray(written) || written.length === 0) continue;
+    ctx.addIssue({ code: 'custom', path: [key], message: datasetChartViewFilterRefusal(key), input: written });
+  }
+}
+
 export const ListViewSchema = BaseSchema
   // Spec-owned fields by reference. `specFieldsExcept` reads the spec object's
   // `.shape` rather than calling `.omit()`, which zod 4 refuses on a schema
@@ -1580,7 +1653,9 @@ export const ListViewSchema = BaseSchema
   // `__tests__/spec-object-refinements-7715.test.ts` re-derives that split from
   // the spec object's own check count, so a check the spec adds to this object
   // later reddens there instead of being dropped here in silence.
-  .superRefine(checkListViewCalendarVisualization);
+  .superRefine(checkListViewCalendarVisualization)
+  // objectui's OWN object-level check, not a spec one: see its doc above.
+  .superRefine(checkListViewDatasetChartFilter);
 
 /**
  * TS type for the ListView component node (spec-derived; issue #2231).

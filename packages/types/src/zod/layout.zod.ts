@@ -865,7 +865,7 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
  * These seven are REGISTERED, LIVE renderers with nine catalog fixtures of
  * their own under `examples/schema-catalog/src/schemas/components-layout-semantic/`,
  * and `AnyComponentSchema` had no arm for any of them. So a document that
- * renders correctly in the browser was REFUSED by `objectui check` — the
+ * renders correctly in the browser was REFUSED by `objectui validate` — the
  * expensive direction, because the author's likely reaction is to stop trusting
  * the validator rather than to fix the document (objectui#8499 triage).
  *

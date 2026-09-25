@@ -3,7 +3,7 @@
 ---
 
 **`ObjectGanttSchema` now declares the `gantt` BLOCK face — and the spec's
-required trio enforces at validate/check time.**
+required trio enforces at validate time.**
 
 The `gantt` nested-block spelling of a gantt config (`{ type: 'object-gantt',
 gantt: { … } }`) had **no mirror entry at all**: it rode through
@@ -30,10 +30,18 @@ gantt: SpecGanttConfigSchema.extend(GanttConfigExtensionFields).optional(),
 
 **What the CLI now refuses that it accepted before:** `ObjectGanttSchema` is a
 member of `AnyComponentSchema`, so it reaches `safeValidateSchema` and
-therefore the CLI's `validate` and `check` commands. A `gantt` block missing
+therefore the CLI's `validate` command. A `gantt` block missing
 any of the three required fields — previously accepted silently — is now
 **refused**, naming the missing field. A block carrying all three, or a
 schema with no `gantt` block at all, is accepted exactly as before.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
+objectui#10524.** This entry first named the CLI's `check` command beside
+`validate`, here and in its heading. `check` is an advisory sweep: it never
+parses a file whose root carries a structural key (`children`, `className`,
+`body`, …), it lists a file with none of those keys by name when the file does
+not validate, without naming the missing field, and it exits non-zero on
+unreadable JSON only. The refusal is `objectui validate`'s.
 
 **This is a `declared = enforced` restoration, not new requiredness.**
 `getGanttConfig`'s block branch already fed the block to

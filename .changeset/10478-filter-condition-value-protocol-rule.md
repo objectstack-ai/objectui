@@ -30,7 +30,15 @@ out of the projection, so it is still required and still accepted. A condition r
 for its `field`, `operator` or `id` reports only that issue.
 
 **Breaking in semantics:** a document with a condition the protocol already refused, and
-that used to validate, now fails `safeValidateSchema`, `objectui check` and
-`objectui validate`. The fix is to author the value the operator takes. Released as
-`minor` under this repository's version-alignment rule. The TypeScript types do not
-change: `FilterBuilderCondition.value` stays `any`.
+that used to validate, now fails `safeValidateSchema` and `objectui validate`. The fix is
+to author the value the operator takes. Released as `minor` under this repository's
+version-alignment rule. The TypeScript types do not change: `FilterBuilderCondition.value`
+stays `any`.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not fail such a document —
+objectui#10524.** This entry first listed `objectui check` beside `objectui validate`.
+`check` is an advisory sweep: it never parses a file whose root carries a structural key
+(`children`, `className`, `body`, …), it lists a file with none of those keys by name when
+the file does not validate, and it exits non-zero on unreadable JSON only. The verdict is
+`objectui validate`'s. The "answered green" sentence at the top of this entry stays true
+of `check`, before this change and after it.

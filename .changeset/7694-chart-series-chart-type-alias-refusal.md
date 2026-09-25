@@ -27,12 +27,19 @@ it is named here in the words a release reader can act on:
   key is not folded onto `type` and no precedence is minted between the two spellings.
 - **Which documents to scan.** The narrowing does not stop at `ChartDataSeriesSchema`; it reaches
   every document through the parents that embed it — `ChartSchema.series`
-  (`zod/data-display.zod.ts:622`, `z.array(ChartDataSeriesSchema)`) and, one level further out,
-  `ReportSectionSchema.chart` (`zod/reports.zod.ts:105`, `ChartSchema.optional()`). Authors meet it
-  through `safeValidateSchema()` (`zod/index.zod.ts:434`, which parses `AnyComponentSchema`) and
-  through the CLI's `objectui check` and `objectui validate` commands (`packages/cli/src/cli.ts:211`
-  and `:223`). In practice: every `chart` node's `series[]`, and every report section whose `chart`
-  carries one.
+  (`zod/data-display.zod.ts`, `z.array(ChartDataSeriesSchema)`) and, one level further out,
+  `ReportSectionSchema.chart` (`zod/reports.zod.ts`, `ChartSchema.optional()`). Authors meet it
+  through `safeValidateSchema()` (`zod/index.zod.ts`, which parses `AnyComponentSchema`) and
+  through the CLI's `objectui validate` command (`packages/cli/src/cli.ts`). In practice: every
+  `chart` node's `series[]`, and every report section whose `chart` carries one.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal — objectui#10524.**
+This entry first named the CLI's `objectui check` command beside `objectui validate` as a place
+authors meet the refusal. `check` is an advisory sweep: it never parses a file whose root carries a
+structural key (`children`, `className`, `body`, …), it lists a file with none of those keys by
+name when the file does not validate, without the issue, and it exits non-zero on unreadable JSON
+only. The refusal is `objectui validate`'s. The source citations in this entry now name files
+rather than line numbers.
 
 This repository's `major` is a cross-repo pin to `@objectstack`'s major, not a severity dial; the
 break is announced here, which is the channel that carries it.
@@ -40,7 +47,7 @@ break is announced here, which is the channel that carries it.
 ## Why a refusal, and not the two alternatives
 
 `chartType` is the renderer's INTERNAL spelling of `type`: the first limb of `normalizeSeries`'
-`str(raw.chartType) ?? str(raw.type)` (`@object-ui/plugin-charts`, `normalizeChartSchema.ts:244`),
+`str(raw.chartType) ?? str(raw.type)` (`@object-ui/plugin-charts`, `normalizeChartSchema.ts`),
 written by the internal-shape producers that hand `dataKey`-shaped arrays straight to
 `ChartRenderer` (`ObjectChart`, `DatasetWidget`; `core/utils/chart-presentation` translates authored
 `type` *into* it) and by nothing an author writes. Re-measured at implementation time, series-level,

@@ -14,6 +14,7 @@ import {
   InspectorNumberField,
   InspectorSelectField,
   InspectorCheckboxField,
+  flagUnknownValue,
 } from './_shared.js';
 import { Button, Label } from '@object-ui/components';
 import { FlowKeyValueField } from './FlowKeyValueField.js';
@@ -304,7 +305,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               value={current}
               options={opts}
               placeholder={declaredDefault}
-              unknownValueLabel={(v) => `${v} (deprecated)`}
+              unknownValueLabel={(v) =>
+                flagUnknownValue(v, t('engine.form.deprecated', locale), locale)
+              }
               onCommit={(v) => onCommit(v)}
               disabled={disabled}
             />

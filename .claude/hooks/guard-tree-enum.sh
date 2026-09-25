@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
 # guard-tree-enum.sh — PreToolUse guard: the `origin/main` reading rule covers file
 # CONTENTS but not file ENUMERATION. Blocks a Bash command that takes its file LIST from
 # the working tree and its file CONTENTS from `origin/main`, and lets either half alone —

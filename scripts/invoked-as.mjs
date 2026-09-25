@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// copied from objectstack@bf10debd587f6ba891be9eadc2b76c91e15bd82b
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**

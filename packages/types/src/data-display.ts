@@ -737,7 +737,7 @@ export interface TableColumn {
    * the cell's own mask depend on the object schema, which the grid fetches
    * after first paint, so until it arrives, and for good if that read fails,
    * an untyped view column over a `password` / `secret` field draws and hands
-   * out the raw value (objectui#10706); the server-streamed export (`exportDownload`) sends the masked columns as
+   * out the raw value (objectui#10657, which folded objectui#10706); the server-streamed export (`exportDownload`) sends the masked columns as
    * before and relies on the server's masking; the client JSON export, and
    * this table's CSV export of a lookup column, write an expanded lookup
    * record whole, so a credential field of the related object is not pruned;

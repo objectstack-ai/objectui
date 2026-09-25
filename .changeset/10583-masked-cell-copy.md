@@ -61,7 +61,7 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
   do), the grid's guards and the cell's own mask depend on the object schema, which the
   grid fetches after first paint. Until it arrives, and for good if that read fails (the
   grid swallows the failure and keeps its heuristic column types), an untyped view column
-  over a `password` / `secret` field draws and hands out the raw value (objectui#10706).
+  over a `password` / `secret` field draws and hands out the raw value (objectui#10657, which folded objectui#10706).
 - The server-streamed export (`exportDownload`) sends the masked columns as before and
   relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential field

@@ -74,6 +74,11 @@ export { createSafeTranslation, useSafeTranslate } from './useSafeTranslation.js
 // handed to core's `buildChartSeries` as `builtinAggregateLabels`.
 export { builtinAggregateLabels, type SafeTranslate } from './builtinAggregateLabels.js';
 
+// objectui#8261 — the ONE authority for i18next's `t` narrowed to
+// `(key, options?) => string`. `@object-ui/app-shell` and `@object-ui/fields`
+// re-export it from here rather than declaring their own copies.
+export type { TranslateFn } from './translateFn.js';
+
 // Convention-based object/field label i18n
 export { useObjectLabel, useSafeFieldLabel } from './useObjectLabel.js';
 

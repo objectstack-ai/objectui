@@ -50,4 +50,13 @@ should be migrated there.
 The `@object-ui/plugin-map` README now describes one registered type, and its
 sentence claiming a bare array under `data` reaches the in-memory adapter is
 corrected: a bare array under `data` is not a record source on the map
-(objectui#8348), so inline rows belong under `staticData`.
+(objectui#8348), so inline rows belong under `staticData`. The same false claim
+is corrected on the two docs pages that carried it, `plugins/plugin-map.mdx`
+and `fields/location.mdx`.
+
+**One pending entry in this same release is superseded in part.** The
+objectui#10392 / #10394 entry (`10392-registration-record-source-inputs.md`)
+says `object-map`, `map` and `object-gantt` gained `data` / `staticData`
+inputs. It now reads as of its own change and carries a dated note naming this
+card: `map` declares nothing after this retirement, while `object-map` and
+`object-gantt` keep both inputs.

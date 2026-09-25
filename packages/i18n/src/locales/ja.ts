@@ -773,6 +773,7 @@ const ja = {
     },
     aria: {
       taskList: "タスク一覧",
+      refreshing: "更新中…",
     },
     tooltip: {
       days: "日",

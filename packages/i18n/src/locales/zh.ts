@@ -825,6 +825,7 @@ const zh = {
     },
     aria: {
       taskList: '任务列表',
+      refreshing: '刷新中…',
     },
     tooltip: {
       days: '天',

@@ -773,6 +773,7 @@ const de = {
     },
     aria: {
       taskList: "Vorgangsliste",
+      refreshing: "Aktualisiere…",
     },
     tooltip: {
       days: "T",

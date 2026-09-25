@@ -36,11 +36,11 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
 
   Columns without the flag copy, show, export and edit exactly as before.
 - **`@object-ui/plugin-grid`: `ObjectGrid` sets the flag** at its column emit seam, from
-  `isMaskedFieldType()` (objectui#8686). It reads the column's type and the
-  object-declared type as a narrow-only union, the same shape as the detail page's
-  `isMaskedDetailFieldType`. So a view that authors `type: 'text'` over a `secret` field
-  keeps the refusal, and a view that authors `type: 'password'` masks a field the object
-  declares as text. Once the object schema has loaded, the same rule leaves every masked
+  `isMaskedFieldType()` (objectui#8686). It reads the column's type and, once the object
+  schema has loaded, the object-declared type as a narrow-only union, the same shape as
+  the detail page's `isMaskedDetailFieldType`. So a view that authors `type: 'password'`
+  masks a field the object declares as text from first paint, and a view that authors
+  `type: 'text'` over a `secret` field keeps the refusal once the schema has loaded. Once the object schema has loaded, the same rule leaves every masked
   field of the grid's object out of the grid's client export (CSV and JSON, used when the
   data source has no server export) and draws a masked field through its cell on the
   mobile card. Once the object schema has loaded, it also refuses a masked field as a
@@ -59,8 +59,9 @@ This is the grid face of the disclosure the detail page closed in objectui#8440.
   which folded objectui#10658).
 - On the host-fetched path (rows handed down as `data`, as `ListView` and `ObjectView`
   do), the grid's guards and the cell's own mask depend on the object schema, which the
-  grid fetches after first paint. Until it settles, an untyped view column over a
-  `password` / `secret` field draws and hands out the raw value (objectui#10706).
+  grid fetches after first paint. Until it arrives, and for good if that read fails (the
+  grid swallows the failure and keeps its heuristic column types), an untyped view column
+  over a `password` / `secret` field draws and hands out the raw value (objectui#10706).
 - The server-streamed export (`exportDownload`) sends the masked columns as before and
   relies on the server's masking.
 - The client JSON export writes an expanded lookup record whole, so a credential field

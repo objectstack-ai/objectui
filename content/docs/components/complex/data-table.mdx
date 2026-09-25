@@ -161,16 +161,16 @@ producer's `cell` renderer, and the table draws a column with no `cell` as its v
 You rarely set the flag by hand: `object-grid` sets it for every column whose field
 type is drawn as a mask (`password`, `secret`, or a type registered with the mask),
 from `isMaskedFieldType()` in `@object-ui/fields`. It reads both the view's column
-`type` and the object's field type, so a view that shows a `secret` field as `text`
-keeps the flag. Once the object schema has loaded, the same rule leaves every masked
+`type` and, once the object schema has loaded, the object's field type, so a view that
+shows a `secret` field as `text` keeps the flag once that schema has loaded. Once the object schema has loaded, the same rule leaves every masked
 field of the grid's object out of `object-grid`'s own client export (CSV and JSON),
 draws those fields through their `cell` on its mobile card, and refuses them as
 grouping keys (the entry is ignored with a console warning). What `object-grid` does
 not cover: on the host-fetched path (rows handed down as `data`, as `ListView` and
 `ObjectView` do), the grid's guards and the cell's own mask depend on the object
-schema, which the grid fetches after first paint, so until it settles an untyped
-view column over a `password` / `secret` field draws and hands out the raw value
-(objectui#10706). The server-streamed export (`exportDownload`) sends the masked
+schema, which the grid fetches after first paint, so until it arrives, and for good
+if that read fails, an untyped view column over a `password` / `secret` field draws
+and hands out the raw value (objectui#10706). The server-streamed export (`exportDownload`) sends the masked
 columns as before and relies on the server's masking, and the client JSON export
 writes an expanded lookup record whole, so a credential field of the related object
 is not pruned. Other producers of

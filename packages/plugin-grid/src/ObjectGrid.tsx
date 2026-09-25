@@ -2669,14 +2669,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the object-declared type.
   const groupingFieldsRaw = schema.grouping?.fields;
   const maskedGroupingSignature = React.useMemo(() => {
-    const cols = normalizeColumns(schema.columns) as any[] | undefined;
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    const columnTypeOf = (field: string) =>
+      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
     return JSON.stringify(
       usableGroupingFields(groupingFieldsRaw)
         .map((gf) => gf.field)
-        .filter((field) => isMaskedGridColumn(
-          cols?.find?.((c) => typeof c === 'object' && c?.field === field)?.type,
-          objectSchema?.fields?.[field]?.type,
-        )),
+        .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectSchema?.fields?.[field]?.type)),
     );
   }, [groupingFieldsRaw, schema.columns, objectSchema]);
   // Keyed on the authored array and the signature STRING, never on a memo's

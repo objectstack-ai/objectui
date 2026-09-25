@@ -83,9 +83,11 @@ function flowCelScope(variables: Record<string, unknown>): {
  * 3. Value: `ExpressionEngine.evaluate` against {@link flowCelScope}.
  *
  * {@link evalCondition}'s `ExpressionEvaluator` is not used for this. Its
- * bare-expression path is not CEL: it has no CEL stdlib (`joinNonEmpty`,
- * `size`), no macros (`rows.map(r, …)`) and no `in`, and it divides `7 / 2`
- * to `3.5`. The runtime answers every one of those differently.
+ * bare-expression path is not CEL: when this landed it had no CEL stdlib
+ * (`joinNonEmpty`, `size`), no macros (`rows.map(r, …)`) and no `in`, and it
+ * bound `data` where the runtime binds `vars`. The engine and scope pins in
+ * `__tests__/flow-simulator.valueEnvelope-10537.test.ts` go red if this
+ * evaluation is moved onto it.
  *
  * A failure is returned, never swallowed to a value. The runtime throws at
  * this point, so the run fails on the node.

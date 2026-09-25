@@ -16,6 +16,7 @@
  * ceiling guards cycles.
  */
 
+import { isExpressionEnvelopeShaped } from '@objectstack/spec/automation';
 import type {
   MockResults,
   SimEdge,
@@ -25,7 +26,6 @@ import type {
   SimStep,
   SimStepStatus,
 } from './flow-sim-types.js';
-import { isExpressionEnvelopeShaped } from '@objectstack/spec/automation';
 import { evalCondition, evalValueEnvelope, validateFlowDraft } from './flow-sim-validate.js';
 import { conditionText } from '../flow-canvas-layout.js';
 import { isValueEnvelopeSlot } from '../../inspectors/flow-value-envelope.js';

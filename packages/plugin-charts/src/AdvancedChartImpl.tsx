@@ -614,6 +614,33 @@ function onSide(side: 'left' | 'right' | 'top' | 'bottom'): string {
 }
 
 /**
+ * The value axis a chart's grid and annotations are measured against
+ * (objectui#10654).
+ *
+ * Recharts binds a `<CartesianGrid>`, `<ReferenceLine>` or `<ReferenceArea>`
+ * to axis id `0` on both sides unless told otherwise. A branch that renders
+ * its value axes WITH ids — a combo always, bar / line / area /
+ * horizontal-bar when two `yAxis` entries are declared — renders no value axis
+ * `0`, and what was bound to it did not draw: measured at base on a two-entry
+ * bar chart, the horizontal grid collapsed to 2 lines (5 with one entry) and an
+ * `axis: 'x'` annotation was dropped; on a two-entry horizontal-bar an
+ * `axis: 'y'` annotation, bound to a `yAxisId` its category axis does not
+ * carry, was dropped. They bind to the `'left'` slot: a `<YAxis>` up the side
+ * of the plot, an `<XAxis>` across it on horizontal-bar, whose category axis
+ * carries no id. A lone value axis carries no id, so nothing is bound.
+ *
+ * Module constants, so a caller that spreads the answer is handed the same
+ * object every render.
+ */
+const NO_VALUE_AXIS_ID = {} as const;
+const LEFT_Y_VALUE_AXIS_ID = { yAxisId: 'left' } as const;
+const LEFT_X_VALUE_AXIS_ID = { xAxisId: 'left' } as const;
+function valueAxisIdFor(valueAxesHaveIds: boolean, valueAxesRunAcross: boolean) {
+  if (!valueAxesHaveIds) return NO_VALUE_AXIS_ID;
+  return valueAxesRunAcross ? LEFT_X_VALUE_AXIS_ID : LEFT_Y_VALUE_AXIS_ID;
+}
+
+/**
  * The notes a cartesian chart carries for each `yAxis` entry whose `position`
  * was not honoured — see `placeYAxes`. `null` when every entry was drawn where
  * it asked (or asked nothing), which keeps that chart's DOM unchanged.
@@ -1688,6 +1715,9 @@ function AdvancedChartImplInner({
   // axis, drawn in the slot it named (`soleYSlot`) — `position: 'right'` on it
   // moves the axis, it does not add a second one.
   const hasDualAxis = !!leftY && !!rightY;
+  // A combo always renders both value axes with ids; the other cartesian
+  // branches do only when two entries are declared (see `valueAxisIdFor`).
+  const valueAxesHaveIds = chartType === 'combo' || hasDualAxis;
   const soleYSlot: ValueAxisSlot = yPlacement.slotOf[0] ?? 'left';
   const yPositionNote = yAxisPositionNotes(yPlacement, categoriesRunDown);
   /** The entry a series' marks are measured against — for its value labels. */
@@ -1794,13 +1824,8 @@ function AdvancedChartImplInner({
   const annotationEls = React.useMemo(() => {
     if (!Array.isArray(annotations) || annotations.length === 0) return null;
     const DASH: Record<string, string | undefined> = { solid: undefined, dashed: '4 4', dotted: '1 4' };
-    // With two value axes an annotation is measured against the `'left'` slot.
-    // Up the side of the plot that slot is a `<YAxis yAxisId>`; on
-    // horizontal-bar the value axes are `<XAxis xAxisId>`s and the y axis is
-    // the category axis, which carries no id (objectui#10654) — an id naming an
-    // axis the branch does not render would drop the annotation.
-    const valueAxisId = (onX: boolean) =>
-      !hasDualAxis ? {} : categoriesRunDown ? (onX ? { xAxisId: 'left' } : {}) : onX ? {} : { yAxisId: 'left' };
+    // Measured against the rendered `'left'` value axis — see `valueAxisIdFor`.
+    const axisId = valueAxisIdFor(valueAxesHaveIds, categoriesRunDown);
     return annotations.map((a, i) => {
       const onX = a?.axis === 'x';
       const stroke = resolveColor(String(a?.color || 'hsl(var(--muted-foreground))'));
@@ -1813,7 +1838,7 @@ function AdvancedChartImplInner({
           <ReferenceArea
             key={`ann-${i}`}
             {...range}
-            {...valueAxisId(onX)}
+            {...axisId}
             fill={stroke}
             fillOpacity={0.12}
             stroke={stroke}
@@ -1826,14 +1851,14 @@ function AdvancedChartImplInner({
         <ReferenceLine
           key={`ann-${i}`}
           {...(onX ? { x: a?.value } : { y: a?.value })}
-          {...valueAxisId(onX)}
+          {...axisId}
           stroke={stroke}
           strokeDasharray={strokeDasharray}
           {...labelProp}
         />
       );
     });
-  }, [annotations, hasDualAxis, categoriesRunDown]);
+  }, [annotations, valueAxesHaveIds, categoriesRunDown]);
 
   // ── Spec ChartConfig.interaction (objectui#2880 S3) ─────────────────────
   // `tooltips: false` suppresses the hover card; `brush: true` adds the range
@@ -2511,7 +2536,7 @@ function AdvancedChartImplInner({
             is known — a line/area item handler is handed the curve's props and
             no datum. */}
         <ComposedChart data={data} {...comboClickProps}>
-          <CartesianGrid {...gridProps} />
+          <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
           <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
           {/* A combo always draws both value axes (an authored combo binds an
               un-annotated line to the right one). Each carries the entry
@@ -2613,7 +2638,7 @@ function AdvancedChartImplInner({
             </React.Fragment>
           ))}
         </defs>
-        <CartesianGrid {...gridProps} />
+        <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
         {isHorizontal ? (
           <>
             {/* Horizontal bars swap the axis roles: the VALUE axes are x, so the

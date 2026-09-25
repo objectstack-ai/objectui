@@ -32,8 +32,9 @@
  *   behaviour and is deliberately preserved: `context` is documented as an
  *   "Override context for this specific action".
  *
- *   `...paramsPayload` (`action:button` only) can carry only `params` or
- *   `actionParams`, and NEITHER is an explicit key of the surrounding literal —
+ *   `...paramsPayload` (`action:button`, and `action:icon` since
+ *   objectui#10289) can carry only `params` or `actionParams`, and NEITHER is
+ *   an explicit key of the surrounding literal —
  *   the two key sets are disjoint, so its position cannot decide a collision.
  *   It is nonetheless kept in its original position, so the resulting key ORDER
  *   is unchanged too, and that is asserted rather than argued.
@@ -61,8 +62,10 @@ import '../action-icon';
 
 /**
  * A declaration touching every key whose FORWARD ORDER the hoist could have
- * disturbed. `params` is a plain object (a values map), so `action:button` takes
- * the `{ params }` branch of `paramsPayload` — the branch that sits mid-literal.
+ * disturbed. The static values ride `properties.params` (objectui#10289, ruling
+ * A: `params` itself is only the `ActionParam[]` input list), so both surfaces
+ * take the `{ params }` branch of `paramsPayload` — the branch that sits
+ * mid-literal.
  */
 const ACTION = {
   name: 'create_environment',
@@ -76,7 +79,7 @@ const ACTION = {
   openIn: 'new-tab',
   endpoint: '/api/v1/environments',
   method: 'POST',
-  params: { region: 'eu-west-1' },
+  properties: { params: { region: 'eu-west-1' } },
   bodyExtra: { source: 'console' },
   bodyShape: { wrap: 'data' },
   locations: ['list_toolbar'],
@@ -110,7 +113,11 @@ const BUTTON_ORDER = [
   'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
-/** `action:icon` has no `paramsPayload`; `params` is an ordinary explicit key. */
+/**
+ * `action:icon` routes `params` through the same `...paramsPayload` as
+ * `action:button` (objectui#10289); the spread sits where its explicit
+ * `params` key used to, so the order is unchanged.
+ */
 const ICON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',

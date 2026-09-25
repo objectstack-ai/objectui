@@ -26,6 +26,7 @@ import { Loader2 } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { useAutoTriggerOnce } from './auto-trigger';
+import { readStaticParamValues } from './static-params';
 
 /**
  * The declared props. `schema` is `UIActionSchema` (objectui#4418) for the same
@@ -126,6 +127,10 @@ const ActionIconRenderer = forwardRef<
         // keys while `action:group` / `action:menu` rejected them
         // (objectui#4281). `...localContext` is still merged last, so the object
         // reaching `execute` is unchanged.
+        const staticValues = readStaticParamValues(schema, 'action:icon');
+        const paramsPayload: ActionDef = Array.isArray(schema.params)
+          ? { actionParams: schema.params as any, params: staticValues }
+          : { params: staticValues };
         const forwarded: ActionDef = {
           // The declared input (objectui#7415). It used to be spelled `type`,
           // which collides with the SDUI envelope's component discriminator:
@@ -150,7 +155,10 @@ const ActionIconRenderer = forwardRef<
           openIn: (schema as any).openIn,
           endpoint: schema.endpoint,
           method: schema.method,
-          params: schema.params as Record<string, any> | undefined,
+          // The same two-channel routing as `action:button` (objectui#10289,
+          // ruling A): `params` is only the `ActionParam[]` input list, and the
+          // static values come from `properties.params`. See `./static-params`.
+          ...paramsPayload,
           // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
           bodyExtra: schema.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).

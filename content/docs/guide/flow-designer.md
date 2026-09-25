@@ -123,16 +123,13 @@ edges.
 
 An **Assignment** node's Assignments editor sets one variable per row. Each
 value is either text or a CEL expression, chosen with the row's *Write as a CEL
-expression* toggle:
+expression* toggle. The node's `config` then reads:
 
 ```json
 {
-  "type": "assignment",
-  "config": {
-    "assignments": {
-      "label": "{record.name}",
-      "digest": { "dialect": "cel", "source": "joinNonEmpty(names, \", \")" }
-    }
+  "assignments": {
+    "label": "{record.name}",
+    "digest": { "dialect": "cel", "source": "joinNonEmpty(names, \", \")" }
   }
 }
 ```

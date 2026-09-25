@@ -21,6 +21,15 @@
  *   defaultFilters       | filter                                  | NO
  *   defaultSort          | sort                                    | NO
  *
+ * ⚠️ objectui#5861 RETIRED the fourth pair's legacy half. `defaultSort` is an
+ * ADR-0049 tombstone — `@objectstack/spec` 17.3.0 refuses it by name on
+ * `object-grid` — and every reader dropped it together: ObjectView no longer
+ * forwards it on the grid path, no longer lowers it on the non-grid fetch or
+ * into the delegated `renderListView` sort, and ObjectGrid no longer reads it.
+ * The cells below that pinned it as a WORKING alias were flipped, not deleted:
+ * each now asserts the key is inert on its path, beside a canonical `sort`
+ * control on the same path. The other three pairs are untouched.
+ *
  * So an author writing the shape the type recommends — `table: { pagination:
  * { pageSize: 25 } }` — got a view that compiled, read correctly, and did
  * NOTHING. There was no failure signal anywhere: the key is declared on
@@ -200,9 +209,16 @@ describe('grid path: the legacy spellings still work', () => {
     expect(grid.defaultFilters).toEqual({ status: 'active' });
   });
 
-  it('still forwards table.defaultSort', () => {
+  it('no longer forwards a retired table.defaultSort — and does not rescue it into `sort` (objectui#5861)', () => {
+    // Flipped from `still forwards table.defaultSort`. Neither slot carries it:
+    // re-emitting the value into the canonical `sort` would be the tolerant
+    // alias the retirement exists to end, just moved one hop.
     const grid = forwardedGridSchema({ table: { defaultSort: { field: 'name', order: 'asc' } } as any });
-    expect(grid.defaultSort).toEqual({ field: 'name', order: 'asc' });
+    expect(grid.defaultSort).toBeUndefined();
+    expect(grid.sort).toBeUndefined();
+    // CONTROL, same path: the canonical spelling still arrives.
+    expect(forwardedGridSchema({ table: { sort: [{ field: 'name', order: 'asc' }] } as any }).sort)
+      .toEqual([{ field: 'name', order: 'asc' }]);
   });
 
   it('leaves a canonical slot empty when only the legacy key is written', () => {
@@ -244,7 +260,9 @@ describe('grid path: both spellings written — each rides its own slot', () => 
     expect(grid.filter).toEqual([['stage', '=', 'won']]);
     expect(grid.defaultFilters).toEqual({ stage: 'lost' });
     expect(grid.sort).toEqual([{ field: 'name', order: 'desc' }]);
-    expect(grid.defaultSort).toEqual({ field: 'created', order: 'asc' });
+    // objectui#5861 — the sort pair has no legacy slot any more: the retired
+    // `defaultSort` is dropped, not forwarded beside the canonical value.
+    expect(grid.defaultSort).toBeUndefined();
   });
 });
 
@@ -296,16 +314,16 @@ describe('grid path: a named view still outranks the table segment', () => {
     expect(grid.defaultSort).toBeUndefined();
   });
 
-  it('keeps the named view sort in force over a legacy table.defaultSort too', () => {
-    // The other side of the same precedence: the `table` segment holds the
-    // legacy slot alone, and ObjectGrid prefers the canonical one, so the view
-    // still wins. Without this the move could have inverted the pair silently.
+  it('keeps the named view sort in force, and a retired table.defaultSort beside it is not forwarded (objectui#5861)', () => {
+    // This used to assert the `table` segment rode the legacy slot beside the
+    // view's canonical one. The legacy slot is gone: the view sort still wins,
+    // and the retired key reaches ObjectGrid in neither slot.
     const grid = forwardedGridSchema({
       ...namedView,
       table: { defaultSort: { field: 'created', order: 'asc' } } as any,
     } as any);
     expect(grid.sort).toEqual([{ field: 'name', order: 'desc' }]);
-    expect(grid.defaultSort).toEqual({ field: 'created', order: 'asc' });
+    expect(grid.defaultSort).toBeUndefined();
   });
 });
 
@@ -325,11 +343,13 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
   // normalized shape every other object-bound block already sends.
   //
   // What objectui#5102 put here is NOT weakened by that: each expectation is
-  // still an exact `toEqual` on a fully specified map, so both halves of every
-  // pair — canonical `table.sort` and legacy `table.defaultSort` — are still
-  // pinned as WORKING, and the PRECEDENCE between them is still pinned. What
-  // changed is the shape they arrive in, which is the defect objectui#4869
-  // fixed. See `ObjectView.sortSink.test.tsx` for the read-site evidence.
+  // still an exact `toEqual` on a fully specified map. What changed is the
+  // shape they arrive in, which is the defect objectui#4869 fixed. See
+  // `ObjectView.sortSink.test.tsx` for the read-site evidence.
+  //
+  // ⚠️ objectui#5861 then RETIRED the legacy half of the sort pair: the two
+  // cells below that pinned `table.defaultSort` as working now pin it inert —
+  // no `$orderby` from it alone, and no effect beside a canonical `table.sort`.
   it('queries with a canonical table.filter', async () => {
     const params = await queryParams(nonGridFind({ table: { filter: [['stage', '=', 'won']] } as any }));
     expect(params.$filter).toEqual([['stage', '=', 'won']]);
@@ -363,7 +383,7 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
     expect(params.$orderby).toEqual({ name: 'desc' });
   });
 
-  it('prefers table.sort over table.defaultSort', async () => {
+  it('orders by table.sort alone when a retired table.defaultSort is written beside it', async () => {
     const params = await queryParams(
       nonGridFind({
         table: { sort: [{ field: 'name', order: 'desc' }], defaultSort: { field: 'created', order: 'asc' } } as any,
@@ -372,18 +392,18 @@ describe('non-grid path: ObjectView resolves the pair itself, canonical first', 
     expect(params.$orderby).toEqual({ name: 'desc' });
   });
 
-  it('still orders by table.defaultSort alone', async () => {
+  it('a retired table.defaultSort alone orders NOTHING (objectui#5861)', async () => {
+    // Flipped from `still orders by table.defaultSort alone`, which asserted
+    // `{ created: 'asc' }`. The key is an ADR-0049 tombstone the protocol
+    // refuses by name, so this read site no longer lowers it: the query goes
+    // out unsorted. The canonical control is `orders by a canonical
+    // table.sort` above, on this same path.
     const params = await queryParams(nonGridFind({ table: { defaultSort: { field: 'created', order: 'asc' } } as any }));
-    // objectui#4869: `{ field: 'created', order: 'asc' }` — the value this line
-    // used to assert — is what the server answered `400 INVALID_SORT` for. The
-    // legacy spelling is still HONOURED (that is objectui#5102's half, and it
-    // is what this exact-value assertion keeps pinned); it is now honoured in
-    // the shape the query can carry.
-    expect(params.$orderby).toEqual({ created: 'asc' });
+    expect(params.$orderby).toBeUndefined();
   });
 });
 
-describe('delegated renderListView: canonical first, alias still working', () => {
+describe('delegated renderListView: canonical first, filter alias still working, sort alias retired', () => {
   it('hands over a canonical table.filter', () => {
     expect(delegatedSchema({ table: { filter: [['stage', '=', 'won']] } as any }).filter)
       .toEqual([['stage', '=', 'won']]);
@@ -401,7 +421,7 @@ describe('delegated renderListView: canonical first, alias still working', () =>
       .toEqual({ status: 'active' });
   });
 
-  it('hands over a canonical table.sort and prefers it over table.defaultSort', () => {
+  it('hands over a canonical table.sort, and a retired table.defaultSort beside it changes nothing', () => {
     const SORT = [{ field: 'name', order: 'desc' }];
     expect(delegatedSchema({ table: { sort: SORT } as any }).sort).toEqual(SORT);
     const s = delegatedSchema({
@@ -410,20 +430,14 @@ describe('delegated renderListView: canonical first, alias still working', () =>
     expect(s.sort).toEqual(SORT);
   });
 
-  it('still hands over table.defaultSort alone — WRAPPED', () => {
-    // objectui#6235, and the same transition the `$orderby` assertion above
-    // made for the fetch path: the legacy spelling is still HONOURED when it
-    // is the only source (that is objectui#5102's half, and it is what this
-    // exact-value assertion keeps pinned); it is now honoured in the shape the
-    // delegated slot declares.
-    //
-    // This used to read `{ field: 'created', order: 'asc' }` — the bare object,
-    // handed to `list-view`'s `sort`, declared `string | SortConfig[]`. Every
-    // reader of that slot dropped it silently: `ListView.parseSortConfig` and
-    // `ObjectGrid.parseSchemaSort` return `[]` for a non-array, and the shared
-    // sink returns `undefined`. So this cell was green while the forwarded
-    // value could not be read by anything downstream.
+  it('hands over NO sort for a retired table.defaultSort alone (objectui#5861)', () => {
+    // Flipped from `still hands over table.defaultSort alone — WRAPPED`, which
+    // asserted `[{ field: 'created', order: 'asc' }]` (objectui#6235's wrap of
+    // the legacy single entry into the `SortConfig[]` the slot declares). The
+    // key is retired, so there is nothing to wrap: the delegated node gets no
+    // `sort`, exactly as if none had been authored. Canonical control: the
+    // cell above, on this same path.
     expect(delegatedSchema({ table: { defaultSort: { field: 'created', order: 'asc' } } as any }).sort)
-      .toEqual([{ field: 'created', order: 'asc' }]);
+      .toBeUndefined();
   });
 });

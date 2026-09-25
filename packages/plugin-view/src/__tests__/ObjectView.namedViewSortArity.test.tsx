@@ -265,16 +265,42 @@ describe("objectui#5270 — a named view's sort reaches the grid", () => {
     expect(headerCell(container, 'Name').querySelector('[class*="chevron-down"]')).not.toBeNull();
   });
 
-  it("still honours a table.defaultSort when no view supplies one", async () => {
-    // The legacy `table` slot keeps working: it is the one shape `defaultSort`
-    // was always declared to hold, and this fix narrows what is written into
-    // it rather than retiring it.
+  it("a retired table.defaultSort sorts NOTHING on the real grid path — no $orderby, no arrow (objectui#5861)", async () => {
+    // Flipped from `still honours a table.defaultSort when no view supplies
+    // one`, which asserted `$orderby: 'name desc'` and a descending arrow. The
+    // key is an ADR-0049 tombstone — `@objectstack/spec` refuses it by name on
+    // `object-grid` — and objectui#5861 removed the forwarding here together
+    // with `ObjectGrid`'s own fetch and header reads, so neither half of the
+    // grid honours it. Driven through the REAL `ObjectGrid`, as this file's
+    // header explains, because the forwarded object alone cannot show it.
     const ds = makeDataSource();
     const { container } = renderView(
       {
         type: 'object-view',
         objectName: 'task',
         table: { columns: ['name', 'status'], defaultSort: { field: 'name', order: 'desc' } },
+      } as unknown as ObjectViewSchema,
+      ds,
+    );
+    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+    const params = lastFindParams(ds);
+    expect(Object.prototype.hasOwnProperty.call(params, '$orderby')).toBe(false);
+    const name = headerCell(container, 'Name');
+    expect(name.querySelector('[class*="chevron-down"]')).toBeNull();
+    expect(name.querySelector('[class*="chevron-up"]')).toBeNull();
+  });
+
+  it("CONTROL — the canonical table.sort still sorts on the same real grid path", async () => {
+    // Same view, the retired key's canonical successor. Green on both sides of
+    // objectui#5861, which is what makes the cell above a statement about the
+    // retired key rather than about sorting having stopped.
+    const ds = makeDataSource();
+    const { container } = renderView(
+      {
+        type: 'object-view',
+        objectName: 'task',
+        table: { columns: ['name', 'status'], sort: [{ field: 'name', order: 'desc' }] },
       } as unknown as ObjectViewSchema,
       ds,
     );

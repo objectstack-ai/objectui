@@ -209,7 +209,7 @@ program
 
 program
   .command('check')
-  .description('Validate schema files')
+  .description('Advisory JSON file sweep; run objectui validate for a verdict')
   .action(async () => {
     try {
       await check();

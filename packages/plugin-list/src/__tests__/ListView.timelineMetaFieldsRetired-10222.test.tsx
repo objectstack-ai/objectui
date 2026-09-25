@@ -95,33 +95,34 @@ const TIMELINE = { startDateField: 'start_date', titleField: 'name' };
 
 /** Mount a timeline list view and return the params of its last `find`. */
 async function paramsFor(schemaExtra: Record<string, unknown>) {
-  const find = vi.fn(async () => ({ data: [], total: 0 }));
-  const dataSource: any = {
+  const find = vi.fn(async (..._args: unknown[]) => ({ data: [], total: 0 }));
+  // Cast at the prop: a stub, and a schema that carries a key the type refuses.
+  const dataSource = {
     find,
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
     getObjectSchema: vi.fn(async () => objectDef),
-  };
-  const schema: any = {
+  } as unknown as React.ComponentProps<typeof ListView>['dataSource'];
+  const schema = {
     type: 'list-view',
     objectName: OBJECT,
     viewType: 'timeline',
     columns: ['name'],
     timeline: TIMELINE,
     ...schemaExtra,
-  };
+  } as unknown as React.ComponentProps<typeof ListView>['schema'];
   render(
     <SchemaRendererProvider dataSource={dataSource}>
       <ListView schema={schema} dataSource={dataSource} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(find).toHaveBeenCalled());
-  const call: any = (find.mock.calls.at(-1) as unknown[] | undefined)?.[1] ?? {};
+  const call = (find.mock.calls.at(-1)?.[1] ?? {}) as { $select?: string[]; $expand?: string[] };
   return {
-    select: (call.$select ?? []) as string[],
-    expand: (call.$expand ?? []) as string[],
+    select: call.$select ?? [],
+    expand: call.$expand ?? [],
   };
 }
 

@@ -101,13 +101,29 @@
  * value, which is the whole meaning of the declaration. It is the submit half
  * of the fence {@link readPrefill} put on seeding for objectui#5727, and the
  * sibling of `@object-ui/plugin-form`'s `omitServerResolvedDefaults`.
+ *
+ * ## One field layer, not two (objectui#10179, objectui#10177)
+ *
+ * The page shell above is this file's own; the FIELD layer is not. Each row
+ * renders the widget the shared resolver names for it — `resolveFormWidgetType`
+ * + `getLazyFieldWidget`, the ADR-0059 door — including the two axes a
+ * type-keyed switch cannot see: an authored `widget` (which wins over `type`,
+ * exactly as `form.tsx` resolves `f?.widget || f?.field?.widget || f?.type`)
+ * and arity (`select` + `multiple: true` is the multiselect widget). Until
+ * #10179 a hand-rolled `switch (field.type)` stood here that knew a subset of
+ * the declared types and rendered every other one as a text box, silently.
+ * See {@link resolveFieldWidgetKey} for the decision and {@link FieldInput} for
+ * the host half (ids, label association, required, uploads).
  */
 
 import { Suspense, useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
+  CASCADE_OPTION_WIDGET_TYPES,
+  EXPANDABLE_FIELD_TYPES,
   evalFieldPredicate,
+  isMissingForRequired,
   isRuntimeDefault,
   isServerOwnedValue,
   resolveFieldRuleState,
@@ -119,9 +135,14 @@ import { omitServerResolvedDefaults, resolveSectionGroupReferences } from '@obje
 // very component `@object-ui/fields` registers for the form, so a host built on
 // this seam "can never drift behind the form surface" (that resolver's own
 // docblock). `@object-ui/app-shell`'s `ActionParamDialog` is the other host on
-// it. Reached here for ONE type — see the `file` arm of {@link FieldInput} and
-// the note above it about the arms this switch still spells by hand.
-import { getLazyFieldWidget } from '@object-ui/fields';
+// it. Since objectui#10179 EVERY row of this page goes through it — see
+// {@link resolveFieldWidgetKey} and {@link FieldInput}.
+import {
+  FIELD_WIDGET_LABELLING,
+  getLazyFieldWidget,
+  mapFieldTypeToFormType,
+  resolveFormWidgetType,
+} from '@object-ui/fields';
 import { usePredicateScope } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
@@ -185,14 +206,21 @@ interface ObjectFieldDef {
    * `multiple` / `accept` / `maxSize`); only this app's narrowed view of the
    * payload dropped them.
    *
-   * ⛔ Not read by any other arm of {@link FieldInput}: `multiple` on a
-   * `select` would select a DIFFERENT widget on the sibling chain
-   * (`MULTI_VALUE_FORM_TYPES`), and this switch has no such arm. Carrying the
-   * key here is not a claim that the hand-rolled arms honour it.
+   * `multiple` is also the ARITY half of the widget decision: on a `select`
+   * it selects a DIFFERENT widget (the multiselect chip picker), which
+   * {@link resolveFieldWidgetKey} reads through the shared
+   * `mapFieldTypeToFormType` table rather than a local copy (objectui#10179).
    */
   multiple?: boolean;
   accept?: string[];
   maxSize?: number;
+  /**
+   * The spec's field-level render hint (`FieldSchema.widget`) — the object
+   * field's own, read as the fallback for a form view that declares none
+   * (objectui#10177). Three widget keys (`object-ref`, `filter-condition`,
+   * `recipient-picker`) are reachable ONLY through this key.
+   */
+  widget?: string;
   options?: Array<{ value: string; label?: string }> | string[];
   placeholder?: string;
   helpText?: string;
@@ -493,13 +521,29 @@ interface RenderableField {
   maxLength?: number;
   /**
    * The upload configuration, copied straight off the object field — see
-   * {@link ObjectFieldDef.multiple}. Read by exactly one arm of
-   * {@link FieldInput}, the `file` one, and handed on to the shared widget
-   * whole rather than re-interpreted here.
+   * {@link ObjectFieldDef.multiple} — and handed on to the shared widget whole
+   * rather than re-interpreted here. `multiple` is the EFFECTIVE one (the form
+   * view's, else the object's), because it also decides WHICH widget renders.
    */
   multiple?: boolean;
   accept?: string[];
   maxSize?: number;
+  /**
+   * The authored render hint — the form view field's `widget`, else the object
+   * field's (objectui#10177). Same precedence as the sibling chain
+   * (`sectionFields.ts` copies `fd.widget` over the object field; `form.tsx`
+   * resolves `f?.widget || f?.field?.widget || f?.type`).
+   */
+  widget?: string;
+  /**
+   * The object field exactly as the server served it — every key, not only the
+   * ones {@link ObjectFieldDef} names — so the widget handed this row finds
+   * what it reads off its metadata (a lookup's `reference_to`, a currency's
+   * `currency`, a code editor's `language`). See {@link widgetFieldOf}.
+   * Absent on a row built without an object field behind it. Typed as the
+   * slice this file names; at runtime it is the whole served object.
+   */
+  meta?: ObjectFieldDef;
   colSpan: 1 | 2 | 3 | 4;
 }
 
@@ -575,6 +619,62 @@ export function normalizeOptions(opts: unknown): Array<{ value: string; label: s
     }
     return { value: String(o), label: String(o) };
   });
+}
+
+/**
+ * The registered widget key a row renders (objectui#10179, objectui#10177).
+ *
+ * ⛔ No mapping lives here. Every step is the shared chain's own answer, in the
+ * order the sibling renderer applies them:
+ *
+ *  1. an authored `widget` wins over `type` outright, un-arity'd — `form.tsx`
+ *     resolves `f?.widget || f?.field?.widget || f?.type`, where only the
+ *     `type` leg was produced by `mapFieldTypeToFormType(type, { multiple })`;
+ *  2. otherwise ARITY: `mapFieldTypeToFormType` is asked for the multi-value
+ *     answer, and it is taken only where the shared table says the arity MOVES
+ *     the widget (`select` + `multiple` → `multiselect`). Every other
+ *     multi-capable type (`lookup`, `file`, `image`, `user`) renders both
+ *     arities inside one widget, so it keeps the key the resolver gives the
+ *     bare type — the membership of that table is `@object-ui/fields`'s, not
+ *     restated here;
+ *  3. `resolveFormWidgetType` for the rest — aliases, retired spellings (a
+ *     tombstone that refuses visibly) and the documented `text` fallback for
+ *     a spelling nothing registers.
+ */
+function resolveFieldWidgetKey(field: {
+  type: string;
+  widget?: string;
+  multiple?: boolean;
+}): string {
+  if (field.widget) return resolveFormWidgetType(field.widget);
+  if (field.multiple) {
+    const multi = mapFieldTypeToFormType(field.type, { multiple: true });
+    if (multi !== mapFieldTypeToFormType(field.type)) {
+      return resolveFormWidgetType(multi.replace(/^field:/, ''));
+    }
+  }
+  return resolveFormWidgetType(field.type);
+}
+
+/**
+ * How a row's visible label reaches the widget with this key — the widget's
+ * own `labelling` declaration (`FIELD_WIDGET_LABELLING`, objectui#3961 /
+ * #4857), never a guess made here:
+ *
+ *  - `'control'` — the widget renders a labelable element carrying the host
+ *    id, so a plain `<label for>` names it;
+ *  - `'group'` — a composite or a non-labelable control (a radio group, a chip
+ *    row, a dropzone); the label publishes an `id` and the WIDGET answers with
+ *    `aria-labelledby`;
+ *  - `'display'` — a pure display with no control at all; the HOST wraps it in
+ *    a named group, as `form.tsx` does.
+ *
+ * A key the table does not hold (a retired spelling's tombstone) is
+ * `'control'`, the same default every host reads for an absent declaration.
+ */
+function widgetLabelling(widgetKey: string): 'control' | 'group' | 'display' {
+  return (FIELD_WIDGET_LABELLING as Record<string, 'control' | 'group' | 'display' | undefined>)[widgetKey]
+    ?? 'control';
 }
 
 /**
@@ -671,13 +771,21 @@ export function buildSections(
         // override can only NARROW what the author sees at the input; the
         // object's storage ceiling still decides at submit time.
         maxLength: override.maxLength ?? def.maxLength,
-        // The object's upload configuration, `def` alone: the FormView field
-        // override (`FormFieldSpec`) declares none of these three, so there is
-        // no per-form ceiling to prefer here the way `maxLength` has one.
-        multiple: def.multiple,
+        // The object's upload configuration. `accept` / `maxSize` read `def`
+        // alone: the FormView field override (`FormFieldSpec`) declares
+        // neither. `multiple` IS declared there, and it is the arity half of
+        // the widget decision, so the override wins as for every sibling key
+        // above — the precedence `sectionFields.ts` applies (objectui#10179).
+        multiple: override.multiple ?? def.multiple,
         accept: def.accept,
         maxSize: def.maxSize,
+        // objectui#10177 — the authored render hint, view over object.
+        widget: override.widget ?? def.widget,
         colSpan: override.colSpan ?? 1,
+        // Carried whole for the widget — see `RenderableField.meta`. Only the
+        // served object field, never a synthesized stand-in: the `text`
+        // fallback above describes a missing definition, not metadata.
+        meta: objFields[override.field],
       });
     }
     return {
@@ -1146,14 +1254,14 @@ export function readPrefill(
  *
  * ## What "empty" means here, and why it is not spelled out
  *
- * The arms of {@link FieldInput} do not agree on what a cleared control writes,
- * and the filter's notion of empty is the whole fix. Measured on this
- * renderer's own controls: the text / email / url / date / time / datetime /
- * textarea / select arms write `''`; the number family writes `null` (the arm
- * spells `e.target.value === '' ? null : Number(...)`, so no `NaN` is
- * reachable); the boolean and radio arms have no "cleared" state at all —
- * `false` and a picked option are real values. A filter testing for `''` would
- * therefore have left the number arm behind.
+ * The controls do not agree on what a cleared control writes, and the
+ * filter's notion of empty is the whole fix. Measured when this page still
+ * hand-rolled its controls (before objectui#10179 routed every row through the
+ * shared widgets, which differ the same way): text-like controls write `''`;
+ * the number family writes `null` (no `NaN` is reachable); a multi-value
+ * control writes an array, possibly empty; the boolean and radio controls have
+ * no "cleared" state at all — `false` and a picked option are real values. A
+ * filter testing for `''` would therefore have left the number family behind.
  *
  * So emptiness is `@object-ui/core`'s {@link isMissingForRequired} — the same
  * PRESENCE predicate the `required` rule reads, which covers `undefined`,
@@ -1508,22 +1616,61 @@ async function submitInternal(
 
 // ─── Field renderers ─────────────────────────────────────────────────
 
-const FIELD_CLASS =
-  'w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50';
+/** The DOM id of a row's control — the host owns it (objectui#3962). */
+function controlIdOf(fieldName: string): string {
+  return `f_${fieldName}`;
+}
+
+/** The id a row's visible label publishes when it is associated by IDREF. */
+function labelIdOf(fieldName: string): string {
+  return `f_${fieldName}-label`;
+}
 
 /**
- * The shared `file` control, resolved once (objectui#10167).
+ * The attributes a row's visible `<label>` carries, from the widget's own
+ * labelling declaration ({@link widgetLabelling}) — ONE association channel
+ * per label, never two:
  *
- * Module scope, not inside the arm that renders it, for two reasons that point
- * the same way. `react-hooks/static-components` refuses a component value
- * produced during render — a fresh component identity remounts its subtree and
- * loses its state — and the type is pinned at `'file'` here, so there is
- * nothing per-render to resolve anyway. The resolver caches per type, and the
- * chunk itself is still lazy: `React.lazy` defers the import until the arm
- * first renders, so hoisting the lookup does not eagerly pull the widget into
- * this route's bundle.
+ *  - `'control'` → `for` the host id the widget puts on its labelable element;
+ *  - `'group'` / `'display'` → an `id`, and NO `for`: the surface that answers
+ *    is not labelable (a `radiogroup`, a chip row, a display), so a `for`
+ *    beside the IDREF would be a second, dangling channel. The widget (group)
+ *    or the host's wrapper (display) answers with `aria-labelledby`.
+ *
+ * This is what fixed the two a11y defects objectui#10178 measured on the old
+ * hand-rolled arms: the radio arm's `for` named no element (so the group had
+ * no name and no required state), and the checkbox arm's own wrapping label
+ * doubled the name (`Agree * Agree`).
  */
-const FileWidget = getLazyFieldWidget('file');
+function rowLabelProps(
+  field: Pick<RenderableField, 'name' | 'type' | 'widget' | 'multiple'>,
+): { htmlFor: string } | { id: string } {
+  return widgetLabelling(resolveFieldWidgetKey(field)) === 'control'
+    ? { htmlFor: controlIdOf(field.name) }
+    : { id: labelIdOf(field.name) };
+}
+
+/**
+ * The metadata a row's widget is handed as its `field` prop: the object field
+ * as served ({@link RenderableField.meta}), with this row's MERGED values laid
+ * over it — the form view's label, placeholder, options, ceiling, arity and
+ * render hint win, exactly as they win everywhere else on the row.
+ */
+function widgetFieldOf(field: RenderableField): Record<string, unknown> {
+  return {
+    ...(field.meta ?? {}),
+    name: field.name,
+    label: field.label,
+    type: field.type,
+    widget: field.widget,
+    placeholder: field.placeholder,
+    options: field.options,
+    maxLength: field.maxLength,
+    multiple: field.multiple,
+    accept: field.accept,
+    maxSize: field.maxSize,
+  };
+}
 
 interface FieldInputProps {
   field: RenderableField;
@@ -1543,7 +1690,12 @@ interface FieldInputProps {
   value: unknown;
   onChange: (v: unknown) => void;
   /**
-   * Upload-in-progress signal, forwarded by the `file` arm alone.
+   * The form's live values, handed to the widgets that re-resolve against the
+   * record — see {@link needsDependentValues}.
+   */
+  values: Record<string, unknown>;
+  /**
+   * Upload-in-progress signal, forwarded to the upload widgets alone.
    *
    * The widget contract states what this is for outright — upload widgets fire
    * it "so a host can block submit until a presigned upload settles", because
@@ -1551,206 +1703,141 @@ interface FieldInputProps {
    * that submits mid-flight therefore stores nothing for the field while
    * reporting success, which is the same silent-empty-file class objectui#10131
    * measured on the dialog host.
-   *
-   * ⛔ Deliberately NOT spread onto the other arms: they render DOM elements
-   * directly, and an unknown prop on one would reach the DOM as an attribute
-   * (the same reason `ActionParamDialog` gates it on the widget type).
    */
   onUploadingChange?: (uploading: boolean) => void;
 }
 
-function FieldInput({ field, state, value, onChange, onUploadingChange }: FieldInputProps) {
-  const common = {
-    id: `f_${field.name}`,
-    name: field.name,
-    required: state.required,
-    disabled: state.readonly,
-    placeholder: field.placeholder,
-    className: FIELD_CLASS,
-  };
+/**
+ * The widgets that emit upload-in-progress — the only ones handed
+ * `onUploadingChange`, exactly as `ActionParamDialog` gates it, so no other
+ * widget receives a prop it does not declare.
+ */
+function isUploadWidget(widgetKey: string): boolean {
+  return widgetKey === 'file' || widgetKey === 'image';
+}
 
-  const v = value == null ? '' : (value as any);
+/**
+ * Which widgets are handed the form's live values as `dependentValues` — the
+ * two shared families, OR'd, as the object form and `ActionParamDialog` both
+ * do: the option widgets whose OFFERED set re-resolves per option
+ * `visibleWhen` / `dependsOn` (`CASCADE_OPTION_WIDGET_TYPES`), and the
+ * reference pickers whose QUERY narrows by `dependsOn`
+ * (`EXPANDABLE_FIELD_TYPES`). ⛔ Never merged into one local set: both tables
+ * are shared, and a copy re-forks them.
+ */
+function needsDependentValues(widgetKey: string): boolean {
+  return CASCADE_OPTION_WIDGET_TYPES.has(widgetKey) || EXPANDABLE_FIELD_TYPES.has(widgetKey);
+}
 
-  switch (field.type) {
-    case 'textarea':
-    case 'paragraph':
-    case 'long_text':
-      return (
-        <textarea
-          {...common}
-          rows={5}
-          maxLength={field.maxLength}
-          value={String(v)}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case 'number':
-    case 'integer':
-    case 'decimal':
-    case 'currency':
-      return (
-        <input
-          {...common}
-          type="number"
-          value={v === '' ? '' : Number(v)}
-          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
-        />
-      );
-    case 'email':
-      return (
-        <input {...common} type="email" value={String(v)} onChange={(e) => onChange(e.target.value)} />
-      );
-    case 'url':
-      return (
-        <input {...common} type="url" value={String(v)} onChange={(e) => onChange(e.target.value)} />
-      );
-    case 'password':
-      return (
-        <input {...common} type="password" value={String(v)} onChange={(e) => onChange(e.target.value)} />
-      );
-    case 'date':
-      return (
-        <input {...common} type="date" value={String(v)} onChange={(e) => onChange(e.target.value)} />
-      );
-    case 'time':
-      return (
-        <input {...common} type="time" value={String(v)} onChange={(e) => onChange(e.target.value)} />
-      );
-    case 'datetime':
-    case 'timestamp':
-      return (
-        <input
-          {...common}
-          type="datetime-local"
-          value={String(v)}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-    case 'boolean':
-    case 'toggle':
-    case 'checkbox':
-      return (
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input
-            id={common.id}
-            name={common.name}
-            type="checkbox"
-            disabled={state.readonly}
-            // The announced channel for required once the row's `*` is hidden
-            // (objectui#3299). Not native `required`: on a checkbox that means
-            // "must be checked", while the required rule counts `false` as a
-            // value (`isMissingForRequired`).
-            aria-required={state.required || undefined}
-            checked={Boolean(v)}
-            onChange={(e) => onChange(e.target.checked)}
-            className="h-4 w-4 rounded border-input"
-          />
-          <span>{field.placeholder ?? field.label}</span>
-        </label>
-      );
-    case 'select':
-    case 'picklist':
-    case 'enum': {
-      const opts = field.options ?? [];
-      return (
-        <select
-          {...common}
-          value={String(v)}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="" disabled={state.required}>
-            {field.placeholder ?? '— Select —'}
-          </option>
-          {opts.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      );
-    }
-    case 'radio': {
-      const opts = field.options ?? [];
-      return (
-        <div className="flex flex-wrap gap-3">
-          {opts.map((o) => (
-            <label key={o.value} className="inline-flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name={field.name}
-                value={o.value}
-                checked={String(v) === o.value}
-                disabled={state.readonly}
-                onChange={() => onChange(o.value)}
-              />
-              <span>{o.label}</span>
-            </label>
-          ))}
+/**
+ * One row's control: the widget the shared resolver names, hosted
+ * (objectui#10179, which replaced the hand-rolled `switch (field.type)` that
+ * stood here — see the file header).
+ *
+ * What the HOST owns, and nothing more:
+ *
+ *  - the control id (`f_NAME`), so the row's `<label for>` names the control
+ *    a `'control'` widget renders; `'group'` widgets are handed the label's id
+ *    as `aria-labelledby` instead, and a `'display'` widget is wrapped in a
+ *    named `role="group"` of the host's own (the `form.tsx` shape);
+ *  - required, on the STATE channel — `aria-required`, ⛔ never the native
+ *    attribute. The widget contract refuses a `required` boolean by name so the
+ *    asterisk keeps one author, and arming the browser's constraint bubble
+ *    would put a second validator beside this page's own submit check (see
+ *    {@link findMissingRequired});
+ *  - readonly as `disabled`: the control stays on screen, labelled and inert,
+ *    which is what this page's rows have always done. A widget's `readonly`
+ *    branch renders a replacement display that drops the host id, and the
+ *    label's `for` would dangle.
+ *
+ * `value` is passed RAW: each widget owns its value shape (a date string, a
+ * number or `null`, an array for a multiselect, a reference id for a lookup,
+ * a `sys_file` id for an upload) and `handleSubmit` sends what it emits.
+ *
+ * The widget is lazy by construction, hence the boundary. The fallback is a
+ * neutral, unannounced placeholder of the control's height.
+ */
+function FieldInput({ field, state, value, onChange, values, onUploadingChange }: FieldInputProps) {
+  // `getLazyFieldWidget` caches ONE lazy component per key, so this identity is
+  // stable across renders of the same row — the component is looked up, not
+  // created during render. The memo only keeps the lookup off the hot path;
+  // nothing depends on ITS identity (AGENTS.md #10).
+  // The SAME function the row's label association calls (`rowLabelProps`), on
+  // the same row, so the label and the control cannot name different widgets.
+  const widgetKey = resolveFieldWidgetKey(field);
+  const Widget = useMemo(() => getLazyFieldWidget(widgetKey), [widgetKey]);
+  // Recomputed only when the row itself changes; a fresh object is harmless
+  // (nothing keys on its identity), the memo only spares a spread per keystroke.
+  const widgetField = useMemo(() => widgetFieldOf(field), [field]);
+  const labelling = widgetLabelling(widgetKey);
+  const controlId = controlIdOf(field.name);
+  const labelId = labelIdOf(field.name);
+
+  const widget = (
+    // eslint-disable-next-line react-hooks/static-components -- getLazyFieldWidget returns a per-key cached lazy component (stable identity), not a component created during render
+    <Widget
+      // A display is named by the host's wrapper below, which carries the id;
+      // the widget itself renders no control to put it on.
+      {...(labelling === 'display' ? null : { id: controlId })}
+      name={field.name}
+      value={value ?? null}
+      onChange={onChange}
+      field={widgetField}
+      disabled={state.readonly}
+      aria-required={state.required || undefined}
+      {...(labelling === 'group' ? { 'aria-labelledby': labelId } : null)}
+      {...(needsDependentValues(widgetKey) ? { dependentValues: values } : null)}
+      {...(isUploadWidget(widgetKey) ? { onUploadingChange } : null)}
+    />
+  );
+
+  return (
+    <Suspense
+      fallback={<div className="h-9 w-full animate-pulse rounded-md bg-muted/40" aria-hidden="true" />}
+    >
+      {labelling === 'display' ? (
+        <div id={controlId} role="group" aria-labelledby={labelId}>
+          {widget}
         </div>
-      );
+      ) : (
+        widget
+      )}
+    </Suspense>
+  );
+}
+
+/**
+ * The rows that would submit EMPTY while their effective verdict says required
+ * — the page's own required check (objectui#10179).
+ *
+ * The hand-rolled controls this page used to render carried the NATIVE
+ * `required` attribute, so the browser refused such a submit on the text-like
+ * rows. The shared widgets announce required on the state channel instead
+ * (`aria-required`) and never arm native validation, so without this check the
+ * page would have lost its only client-side refusal. It reads the same verdict
+ * the asterisk does ({@link resolveRowState}), the same emptiness predicate
+ * the `required` rule reads everywhere (`isMissingForRequired`: `false` and
+ * `0` are values), and skips exactly what a browser skips — a row that is not
+ * on screen, and a locked one.
+ */
+function findMissingRequired(
+  sections: RenderableSection[],
+  values: Record<string, unknown>,
+  previous: Record<string, unknown> | null | undefined,
+  isCreateForm: boolean,
+  predicateScope?: Record<string, unknown>,
+): RenderableField[] {
+  const missing: RenderableField[] = [];
+  for (const sec of sections) {
+    if (!isSectionVisible(sec, values, previous, predicateScope)) continue;
+    for (const f of sec.fields) {
+      const state = resolveRowState(f, values, previous, isCreateForm, predicateScope);
+      if (state.visible && state.required && !state.readonly && isMissingForRequired(values[f.name])) {
+        missing.push(f);
+      }
     }
-    /**
-     * The one arm that does NOT hand-roll its control (objectui#10167).
-     *
-     * `file` is a declared field type whose control already exists and already
-     * works on the sibling chain, so an `input type="file"` written out here
-     * would be a second upload pipeline beside the shared one: a second size
-     * guard, a second progress surface, and — the part that actually breaks —
-     * a second answer to what a submitted file VALUE is. The shared widget
-     * uploads through the ambient `UploadProvider` adapter and stores the
-     * reference form (a bare `sys_file` id) when the adapter surfaces one,
-     * falling back to the legacy inline blob when it does not; a hand-rolled
-     * control would put a raw `File` into `values` and the engine would answer
-     * `expected string, received object` (the shape objectui#10131 measured).
-     *
-     * So this arm asks ADR-0059's resolver for the SAME component the record
-     * form renders, and gets out of the way. The seam is lazy by construction,
-     * hence the boundary; `ActionParamDialog` is the other host on it.
-     *
-     * ⚠️ `common` is deliberately NOT spread. It carries `required`,
-     * `placeholder` and a text-input `className` — none of which is on the
-     * widget contract (`required` is refused there by name, so that the
-     * required marker keeps a single author), and spreading it would push
-     * them at the widget's DOM. `value` is passed RAW for the same kind of
-     * reason: the `v` coercion above turns `null` into `''`, while this
-     * widget's value is a reference id, an expanded file object, or an array
-     * of either — never a string to render.
-     */
-    case 'file':
-      return (
-        <Suspense
-          fallback={
-            <div
-              className="h-24 w-full animate-pulse rounded-md border border-dashed border-input bg-muted/40"
-              aria-hidden="true"
-            />
-          }
-        >
-          <FileWidget
-            id={common.id}
-            name={common.name}
-            value={value ?? null}
-            onChange={onChange}
-            field={field}
-            readonly={state.readonly}
-            // The announced channel for required, not the native attribute:
-            // this page draws the marker beside the label itself, and arming
-            // the browser's constraint bubble as well would put two validators
-            // on one field (the ruling `ActionParamDialog` records).
-            aria-required={state.required || undefined}
-            onUploadingChange={onUploadingChange}
-          />
-        </Suspense>
-      );
-    default:
-      return (
-        <input
-          {...common}
-          type="text"
-          maxLength={field.maxLength}
-          value={String(v)}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
   }
+  return missing;
 }
 
 // ─── Main component ─────────────────────────────────────────────────
@@ -1870,7 +1957,8 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   const [submitting, setSubmitting] = useState(false);
   /**
    * Which rows currently have an upload in flight, keyed by field name
-   * (objectui#10167). Only the `file` arm ever writes here.
+   * (objectui#10167). Only the upload widgets (`file`, `image`) ever write
+   * here — see {@link isUploadWidget}.
    *
    * Per NAME rather than a single counter so two upload rows cannot cancel each
    * other out: a counter incremented and decremented by two widgets that
@@ -1984,6 +2072,18 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!loaded) return;
+    // The client-side required refusal the native attribute used to give the
+    // hand-rolled controls (objectui#10179) — see `findMissingRequired`. It
+    // goes out on the page's failure channel and the outcome toast id, so a
+    // retry that succeeds supersedes it exactly as it supersedes a refused
+    // write (objectui#7252).
+    const missing = findMissingRequired(sections, values, loaded.record, isCreateForm, predicateScope);
+    if (missing.length > 0) {
+      const msg = `Required: ${missing.map((f) => fieldLabel(loaded.object, f.name, f.label)).join(', ')}`;
+      setError(msg);
+      toast.error(msg, { id: outcomeToastId });
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -2247,7 +2347,9 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
                   }
                 >
                   <label
-                    htmlFor={`f_${f.name}`}
+                    // `for` the control, or an `id` the group / display answers
+                    // to — the widget's declaration decides (objectui#10179).
+                    {...rowLabelProps(f)}
                     className="mb-1 block text-xs font-medium text-foreground"
                   >
                     {/*
@@ -2272,6 +2374,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
                     field={f}
                     state={state}
                     value={values[f.name]}
+                    values={values}
                     onChange={(v) => setValues((prev) => ({ ...prev, [f.name]: v }))}
                     onUploadingChange={(u) =>
                       setUploading((prev) => (prev[f.name] === u ? prev : { ...prev, [f.name]: u }))

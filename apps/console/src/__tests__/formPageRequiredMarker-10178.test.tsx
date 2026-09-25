@@ -21,8 +21,9 @@
  * - Hiding the marker is only half the rule. The other half is that the
  *   requirement still reaches the control as a state, so every required case
  *   also asserts that. The text arms carry it through the native `required`
- *   attribute they already had. The checkbox arm had neither channel, so it
- *   now carries `aria-required`.
+ *   attribute they had then, the shared widgets (objectui#10179) through
+ *   `aria-required`; the checkbox arm had neither channel, so it got
+ *   `aria-required` first.
  * - The checkbox gets `aria-required` and NOT native `required`. On a checkbox,
  *   native `required` means "must be checked". The required rule here treats
  *   `false` as a real value (`isMissingForRequired` in `@object-ui/core`), so
@@ -131,11 +132,13 @@ describe('objectui#10178 — FormPage keeps the required `*` out of the accessib
 
   it('a required checkbox has no `*` in its name and announces required via aria-required', async () => {
     await renderForm();
-    const checkbox = document.getElementById('f_agree')!;
-    expect(checkbox).toHaveAttribute('type', 'checkbox');
-    // Not an exact name: the arm also wraps the box in its own label, which
-    // this card does not touch. The claim here is only that no `*` is in it.
-    expect(checkbox).toHaveAccessibleName(expect.not.stringContaining('*'));
+    // Since objectui#10179 a `boolean` row renders the shared `BooleanField`
+    // (a switch), and the row's `<label for>` is its ONLY name — the hand-rolled
+    // arm's own wrapping label, which doubled the name to `Agree * Agree`, is
+    // gone. So the name is now asserted EXACTLY, not merely `*`-free.
+    const checkbox = await waitFor(() => screen.getByRole('switch', { name: 'Agree' }));
+    expect(checkbox.id).toBe('f_agree');
+    expect(checkbox).toHaveAccessibleName('Agree');
     expect(checkbox).toHaveAttribute('aria-required', 'true');
     // `false` is a real value for the required rule, so the checkbox must not
     // arm the browser's "must be checked" constraint.
@@ -156,7 +159,7 @@ describe('objectui#10178 — FormPage keeps the required `*` out of the accessib
 
   it('CONTROL — an optional checkbox has no marker and carries no aria-required', async () => {
     await renderForm();
-    const checkbox = document.getElementById('f_optin')!;
+    const checkbox = await waitFor(() => screen.getByRole('switch', { name: 'Opt in' }));
     expect(markerFor('f_optin')).toBeNull();
     expect(checkbox).not.toHaveAttribute('aria-required');
     expect(checkbox).not.toHaveAttribute('required');

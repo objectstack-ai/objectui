@@ -138,7 +138,7 @@ const readSites: Array<{ file: string; text: string; why: string }> = [
   },
   {
     file: 'packages/fields/src/widgets/LookupField.tsx',
-    text: 'return { value: val, label: String(label), description, ...record };',
+    text: 'const option = { value: val, label: String(label), description, ...record };',
     why: 'recordToOption emits the same key for fetched records',
   },
 ];

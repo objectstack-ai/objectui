@@ -287,7 +287,7 @@ export interface ColumnWidthConfig {
 /**
  * Calendar view mode — the registered `calendar-view` renderer's rendered set.
  *
- * `'agenda'` was retired from this union (objectui#5740): no view ever
+ * `'agenda'` was retired from this union (`b55a34647`): no view ever
  * rendered it — the renderer resolved it to the `'month'` default — and no
  * measured app authors it (ADR-0049 enforce-or-remove, the value-level
  * residue of objectui#5667's key-level convergence).
@@ -389,7 +389,7 @@ export interface CalendarViewSchema extends BaseSchema {
    * Calendar view mode.
    *
    * {@link CalendarViewMode} equals the renderer's rendered set since
-   * objectui#5740 retired `'agenda'`; at runtime the renderer still resolves
+   * `b55a34647` retired `'agenda'`; at runtime the renderer still resolves
    * any off-union value in raw metadata to the `'month'` default.
    * @default 'month'
    */

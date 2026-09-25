@@ -260,7 +260,11 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
    * objectui#10663 — which run of the fetch effect below is the CURRENT one.
    * Every run takes the next number, so a run a newer one has superseded can
    * tell, and it may then neither clear the current run's `error` nor raise its
-   * own. Read only by the two `error` writes; nothing renders from it.
+   * own. objectui#10684 — nor commit its rows or release `loading`: an earlier
+   * answer that lands after the current one answers a query nobody is asking
+   * any more, and a superseded run that settles first would otherwise drop the
+   * skeleton while the current read is still in flight. Read by those four
+   * writes only; nothing renders from it.
    */
   const fetchSeqRef = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -439,7 +443,11 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             });
             const data = extractRecords(results);
-            setFetchedData(data);
+            // objectui#10684 — only the CURRENT run commits rows. A superseded
+            // answer (the filter, sort or object changed, or a bus re-read
+            // started, while this read was in flight) is dropped on arrival,
+            // so it can no longer land after the current answer and replace it.
+            //
             // objectui#10663 — `error` is an early return in the render, so a
             // report nothing clears kept the canvas off screen until a remount,
             // and since objectui#10623 one failed data-invalidation re-read was
@@ -448,7 +456,10 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             // failure describes the screen any more (objectui#10578's rule on
             // `ObjectGantt`). ⛔ Not when a run starts: until rows land, the
             // report stays.
-            if (isCurrent()) setError(null);
+            if (isCurrent()) {
+                setFetchedData(data);
+                setError(null);
+            }
         } catch (e) {
             console.error(e);
             // A superseded run's failure no longer describes the screen, so it
@@ -457,7 +468,11 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             // block has no silent mode.
             if (isCurrent()) setError(e as Error);
         } finally {
-            setLoading(false);
+            // objectui#10684 — only the current run owns the flag. A superseded
+            // run that settles first leaves the skeleton up for the read still
+            // in flight; the current run clears it on every exit, a throw
+            // included, so it is never left on.
+            if (isCurrent()) setLoading(false);
         }
     };
 

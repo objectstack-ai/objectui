@@ -26,6 +26,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useNavigationOverlay,
   useSafeTranslate,
@@ -347,6 +348,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // the provider-less fallback the same way (objectui#6219), so the label is
   // correct whether or not an `I18nProvider` is mounted.
   const { t } = useObjectTranslation();
+  // The locale the quick-create dialog formats its date and time with: the
+  // month grid's own rule (`CalendarView`'s `effectiveLocale`), so the dialog
+  // never disagrees with the cell it opened from. A set `locale` prop is the
+  // host's choice and still wins; unset (or the grid's `"default"` spelling),
+  // it is the DISPLAY locale, never the machine's (objectui#10668).
+  const displayLocale = useDisplayLocale();
+  const dialogLocale = locale !== undefined && locale !== 'default' ? locale : displayLocale;
   // When the parent (e.g. ObjectView) pre-fetches data and passes it via the `data` prop,
   // we must not trigger a second fetch. Detect external data by checking for an array.
   const hasExternalData = Array.isArray(externalData);
@@ -1457,9 +1465,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
-                const datePart = quickCreate.start.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+                const datePart = quickCreate.start.toLocaleDateString(dialogLocale, { year: 'numeric', month: 'long', day: 'numeric' });
                 if (hasRange) {
-                  const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+                  const fmt = (d: Date) => d.toLocaleTimeString(dialogLocale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
                 return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;

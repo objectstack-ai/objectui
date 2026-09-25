@@ -446,6 +446,22 @@ export interface YAxisPositionNote {
   drawn: ValueAxisSlot;
 }
 
+/**
+ * A `yAxis` entry drawn on no axis — every entry after the second
+ * (objectui#10691). The spec's `ChartConfig.yAxis` is an uncapped list, so such
+ * an entry validates; a chart draws at most two value axes, one per slot.
+ */
+export interface YAxisUndrawnNote {
+  /** Index of the entry in `yAxis` — 2 or more. */
+  index: number;
+  /**
+   * The slot a series derived from the entry binds to (the chart declares
+   * neither `series` nor `categories`), and so the axis its `field` is
+   * plotted against.
+   */
+  boundTo: ValueAxisSlot;
+}
+
 export interface YAxisPlacement {
   /** Index of the `yAxis` entry drawn in each slot; absent when none is. */
   left?: number;
@@ -453,6 +469,8 @@ export interface YAxisPlacement {
   /** The slot of each placed entry, by index (the first two entries). */
   slotOf: ValueAxisSlot[];
   notes: YAxisPositionNote[];
+  /** Every entry after the second, in index order: drawn on no axis. */
+  undrawn: YAxisUndrawnNote[];
 }
 
 /**
@@ -480,6 +498,13 @@ export interface YAxisPlacement {
  *   4. An entry that names no side takes the side the other entry left free;
  *      with neither naming one, the first is drawn in the `'left'` slot and
  *      the second in the `'right'` slot, exactly as before `position` was read.
+ *
+ * Every entry after the second is listed in `undrawn` (objectui#10691): it is
+ * drawn on no axis, so none of its keys — `position` included — is read, and
+ * the chart carries a note naming `yAxis[N]`. A series derived from it binds
+ * to the `'right'` slot, as it did before this list existed. ⛔ The count is
+ * not narrowed: the spec declares `yAxis` uncapped, so the entry stays valid
+ * and the note is the answer.
  *
  * `valueAxesRunAcross` is `true` on `horizontal-bar` (see
  * {@link ValueAxisSlot}): there `bottom` / `top` are the open sides.
@@ -514,7 +539,10 @@ export function placeYAxes(
       notes.push({ index, position: entry.position, reason: 'taken', drawn: slotOf[index] });
     }
   });
-  const placement: YAxisPlacement = { slotOf, notes };
+  const undrawn = (yAxes ?? [])
+    .slice(entries.length)
+    .map<YAxisUndrawnNote>((_entry, offset) => ({ index: entries.length + offset, boundTo: 'right' }));
+  const placement: YAxisPlacement = { slotOf, notes, undrawn };
   slotOf.forEach((slot, index) => {
     placement[slot] = index;
   });
@@ -631,12 +659,17 @@ export function normalizeChartSchema(
   // the second entry's series on the left, instead of binding both to the
   // right-hand axis. An entry drawn in the `'left'` slot after the first says
   // so explicitly, because an authored `combo` reads an unbound series by its
-  // index. Entries past the second are placed on no axis and keep binding to
-  // the right, as they did before.
+  // index. Entries past the second are drawn on no axis; the slot a series
+  // derived from one binds to is `placeYAxes`'s answer too (its `undrawn`
+  // list, objectui#10691), so the note the chart carries for that entry names
+  // the axis this series is plotted against.
   if (!series?.length) {
     const placement = placeYAxes(yAxes, chartType === 'horizontal-bar');
+    // One slot per entry, by index: `undrawn` lists every entry after the
+    // placed ones, in index order.
+    const slotOfEntry = [...placement.slotOf, ...placement.undrawn.map((note) => note.boundTo)];
     const fromAxes = yAxes
-      .map((a, i) => ({ a, slot: placement.slotOf[i] ?? ('right' as const), i }))
+      .map((a, i) => ({ a, slot: slotOfEntry[i], i }))
       .filter(({ a }) => a.field)
       .map<NormalizedSeries>(({ a, slot, i }) => ({
         dataKey: a.field!,

@@ -3,7 +3,7 @@
 ---
 
 `'agenda'` leaves `CalendarViewMode` and the zod `CalendarViewModeSchema`
-(objectui#5740 — the value-level residue of objectui#5667's key-level
+(the value-level residue of objectui#5667's key-level
 convergence of `CalendarViewSchema` on the registered `calendar-view`
 renderer's measured read set; ADR-0049 enforce-or-remove).
 

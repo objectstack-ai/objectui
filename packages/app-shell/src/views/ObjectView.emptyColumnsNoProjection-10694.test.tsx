@@ -1,0 +1,207 @@
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * objectui#10694 — on the object route, a view that declares no `columns`
+ * applies neither `hiddenFields` nor `fieldOrder`.
+ *
+ * ## The contract
+ *
+ * `ListViewSchema.columns` in `@objectstack/spec` source at objectstack
+ * `origin/main` (objectstack#19598, not yet in the released 17.4.0): "An empty
+ * list declares no projection, so neither of them applies: which columns show
+ * is then left to the renderer". The composition docblock says the same: "An
+ * EMPTY `columns` declares no projection, so steps 2 and 3 do not apply".
+ * `InterfaceListPage` already reads a source view that way (objectui#10638).
+ *
+ * ## The defect this pins
+ *
+ * The views memo draws the object's default columns into a grid-like view that
+ * declares none. The relay then applied that view's `hiddenFields` and
+ * `fieldOrder` over those defaults, so the defaults came out subtracted and
+ * re-sorted.
+ *
+ * ## What this file measures
+ *
+ * The column list the grid is handed, from a real `ObjectView` mount: the
+ * real `plugin-view` host, the real `ListView`, and only `object-grid` stubbed
+ * so it records its `columns`. The renderer's own columns are read off a view
+ * that declares no projection and carries neither key, so the defaults are
+ * never restated here.
+ */
+
+import * as React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
+import { render, cleanup, screen } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { ComponentRegistry } from '@object-ui/core';
+
+vi.mock('@object-ui/permissions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@object-ui/permissions')>();
+  // Stable identities — `ListView` names `perms` in its fetch dependencies.
+  const perms = {
+    check: () => ({ allowed: true }),
+    checkField: () => true,
+    getFieldPermissions: () => [],
+    getRowFilter: () => undefined,
+    getObjectApiOperations: () => undefined,
+    roles: [],
+    isLoaded: false,
+    hasCapabilities: () => true,
+    can: () => true,
+    cannot: () => false,
+  };
+  const fieldPerms = { canRead: () => true, canWrite: () => true, permissions: [] };
+  return { ...actual, usePermissions: () => perms, useFieldPermissions: () => fieldPerms };
+});
+
+vi.mock('@object-ui/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAuth: () => ({ user: { id: 'u1', name: 'Ada' }, activeOrganization: null }),
+  useWorkspaceAdminStatus: () => ({ isAdmin: false, isResolved: true }),
+  createAuthenticatedFetch: () => vi.fn(),
+}));
+
+vi.mock('@object-ui/collaboration', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useRealtimeSubscription: () => ({ lastMessage: null }),
+  useConflictResolution: () => ({ hasConflicts: false, resolveAllConflicts: () => {} }),
+}));
+
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), {
+    success: vi.fn(), error: vi.fn(), info: vi.fn(),
+    warning: vi.fn(), loading: vi.fn(), dismiss: vi.fn(),
+  }),
+}));
+
+vi.mock('./MetadataInspector', () => ({
+  MetadataPanel: () => null,
+  useMetadataInspector: () => ({ showDebug: false, toggle: () => {} }),
+}));
+vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
+
+import { ObjectView } from './ObjectView';
+import { ExpressionProvider } from '../providers/ExpressionProvider';
+
+const OBJECT_NAME = 'duly_task';
+
+/** The column identities the grid was last handed. */
+let drawn: string[] | undefined;
+
+// `ListView` draws its rows through `object-grid`. The stub records what it is
+// handed and nothing else, so what the grid would derive on its own stays out
+// of the measurement.
+let prevObjectGrid: unknown;
+beforeAll(() => {
+  prevObjectGrid = ComponentRegistry.get('object-grid');
+  ComponentRegistry.register('object-grid', ((props: { schema?: { columns?: unknown } }) => {
+    const cols = props.schema?.columns;
+    drawn = Array.isArray(cols)
+      ? cols.map((c: any) => (typeof c === 'string' ? c : (c?.field ?? c?.name)))
+      : undefined;
+    return <div data-testid="grid-stub" />;
+  }) as never);
+});
+afterAll(() => {
+  if (prevObjectGrid) ComponentRegistry.register('object-grid', prevObjectGrid as never);
+  else ComponentRegistry.unregister('object-grid');
+});
+
+const FIELDS = {
+  id: { type: 'text', label: 'Id' },
+  name: { type: 'text', label: 'Name' },
+  stage: { type: 'text', label: 'Stage' },
+  owner: { type: 'text', label: 'Owner' },
+  amount: { type: 'number', label: 'Amount' },
+  region: { type: 'text', label: 'Region' },
+};
+
+/** Both composition keys. Each would change the defaults if applied. */
+const KEYS = { hiddenFields: ['stage'], fieldOrder: ['owner', 'name'] };
+
+/** Draw one list view on the object route; return the columns the grid got. */
+async function drawView(view: Record<string, unknown>): Promise<string[] | undefined> {
+  const id = `${OBJECT_NAME}.probe`;
+  const objects = [
+    {
+      name: OBJECT_NAME,
+      label: 'Task',
+      fields: FIELDS,
+      listViews: { [id]: { name: id, label: 'Probe', type: 'grid', ...view } },
+    },
+  ];
+  // One row, so `ListView` draws the grid rather than its empty state.
+  const dataSource = {
+    find: vi.fn(async () => ({ data: [{ id: 'r1', name: 'Row one' }], total: 1 })),
+    findOne: vi.fn(async () => null),
+    create: vi.fn(async () => ({})),
+    update: vi.fn(async () => ({})),
+    delete: vi.fn(async () => ({})),
+  } as never;
+  drawn = undefined;
+  render(
+    <ExpressionProvider user={{ id: 'u1', name: 'Ada', profile: 'user' }}>
+      <MemoryRouter initialEntries={[`/apps/demo/${OBJECT_NAME}/view/${id}`]}>
+        <Routes>
+          <Route
+            path="/apps/:appName/:objectName/view/:viewId"
+            element={<ObjectView dataSource={dataSource} objects={objects} onEdit={() => {}} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </ExpressionProvider>,
+  );
+  await screen.findByTestId('grid-stub', undefined, { timeout: 8000 });
+  const got = drawn;
+  cleanup();
+  return got;
+}
+
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    ),
+  );
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe('an unprojected view applies neither hiddenFields nor fieldOrder on the object route (objectui#10694)', () => {
+  it('THE FIX: `columns: []` with both keys draws the renderer\'s own columns', async () => {
+    const own = await drawView({ columns: [] });
+    // The fixture discriminates: applying `hiddenFields` would drop `stage`,
+    // and applying `fieldOrder` would put `owner` ahead of `name`.
+    expect(own).toContain('stage');
+    expect(own!.indexOf('name')).toBeLessThan(own!.indexOf('owner'));
+
+    expect(await drawView({ columns: [], ...KEYS })).toEqual(own);
+  });
+
+  it('THE FIX: an ABSENT `columns` reads as an empty one', async () => {
+    // The spec requires the key, so a view without it declares no projection
+    // either. The shape still reaches this route from a stored view body.
+    const own = await drawView({ columns: [] });
+    expect(await drawView({ ...KEYS })).toEqual(own);
+  });
+
+  it('CONTROL: a declared projection is subtracted and sorted, as before', async () => {
+    // `columns` projects, `hiddenFields` removes `stage`, `fieldOrder` sorts
+    // `owner` and `name` first and leaves the unlisted `amount` last.
+    expect(await drawView({ columns: ['name', 'stage', 'owner', 'amount'], ...KEYS }))
+      .toEqual(['owner', 'name', 'amount']);
+  });
+});

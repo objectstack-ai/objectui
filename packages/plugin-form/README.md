@@ -885,7 +885,8 @@ server-owned columns (record identity, audit provenance, ownership and tenancy
 — the roster in `sanitize.ts`, plus any field the object marks `system`),
 computed, formula and read-only columns, keys the object does not declare, and
 every field the caller's field-level security refuses. A create is stripped the
-same way.
+same way. Every layout also renders a field the caller may read but not edit as
+a disabled input, so nothing is typed into a field the save would leave out.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still

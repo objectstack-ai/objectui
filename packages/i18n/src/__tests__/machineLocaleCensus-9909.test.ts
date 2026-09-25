@@ -290,7 +290,7 @@ const DECLARED: Exemption[] = [
     count: 2,
     verdict: 'deliberate fallback',
     reason:
-      'the same ISO-8601 formatter feeding the inline editor\'s `<input type="date">` value (double-click and ' +
+      'an ISO-8601 formatter, not a display locale: it feeds the inline editor\'s `<input type="date">` value (double-click and ' +
       'context-menu edit both seed it).',
   },
   {

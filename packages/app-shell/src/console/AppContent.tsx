@@ -936,10 +936,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               `/apps/setup/<anything>` it builds `/apps/setup/<anything>/create-app`,
               which matches no route and renders a blank screen. `/apps/<segment>`
               is the platform's canonical app URL (ADR-0048) and is what every
-              other navigation in this file — and AppSidebar's own add-app entry —
-              builds, so build it here too. (This branch is only reachable under
-              `/apps/setup…`: it requires `isSetupRoute`, the one pseudo-route the
-              guard above does not exclude — so `appName` is always present here.) */}
+              other navigation in this file builds, so build it here too. (This
+              branch is only reachable under `/apps/setup…`: it requires
+              `isSetupRoute`, the one pseudo-route the guard above does not
+              exclude — so `appName` is always present here.) */}
           <Button onClick={() => navigate(`/apps/${appName}/create-app`)} data-testid="create-first-app-btn">
             {t('empty.createFirstApp')}
           </Button>

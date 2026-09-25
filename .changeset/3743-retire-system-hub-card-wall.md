@@ -11,13 +11,13 @@ queries and badge text that each needed a manual update whenever the object or
 permission model changed. The page (`SystemHubPage`) and its two test suites
 are deleted.
 
-Every link that used to open the hub still works: the "System Settings" entries
-in both sidebars, the "System Settings" button on the "No Apps Configured"
-screen, the home Quick Action, the sidebar header and user menu, and the legacy
-`/system` bookmark all now land on the settings hub. The Setup app's
-navigation ("All Settings") and both sidebars' "Configuration" entry already
-declare that page. It lists the settings manifests the server returns for the
-signed-in user. The landing works with no apps configured as well.
+Every link that used to open the hub and still ships now lands on the settings
+hub: the sidebar's "System Settings" entry, the "System Settings" button on the
+"No Apps Configured" screen, the home Quick Action and the legacy `/system`
+bookmark. The Setup app's navigation ("All Settings") and the sidebar's
+"Configuration" entry already declare that page. It lists the settings
+manifests the server returns for the signed-in user. The landing works with no
+apps configured as well.
 
 The `/apps/:app/system/{users,organizations,roles,positions,permissions}`
 redirects are unchanged.

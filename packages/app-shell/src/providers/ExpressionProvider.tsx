@@ -9,7 +9,7 @@
  * @example
  * ```tsx
  * <ExpressionProvider user={currentUser} app={activeApp}>
- *   <AppSidebar />
+ *   <UnifiedSidebar activeAppName={activeApp.name} />
  * </ExpressionProvider>
  * ```
  */

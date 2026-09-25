@@ -1948,8 +1948,15 @@ ComponentRegistry.register('form',
         // guard — this effect is an independent second clear on the form host,
         // and the widgets' fix does not reach it.
         if (gated) continue;
+        // A cleared scalar is `null`, never `undefined` (objectui#10291) — the
+        // reasoning the clear-on-hide effect below spells out at length:
+        // `undefined` vanishes from `JSON.stringify`, and an absent key tells
+        // the write contract "leave the stored value unchanged". This clear
+        // runs on its own wherever no option widget prunes first — a field
+        // `visibleWhen` keeps unmounted, the built-in `select` branch — so
+        // `undefined` here saved the stale pair this effect exists to drop.
         if (!isValueStillOffered(current, visible)) {
-          form.setValue(name, Array.isArray(current) ? [] : undefined, {
+          form.setValue(name, Array.isArray(current) ? [] : null, {
             shouldValidate: false,
             shouldDirty: true,
           });

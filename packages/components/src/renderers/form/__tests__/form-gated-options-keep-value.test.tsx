@@ -11,7 +11,8 @@
  *
  * The form renderer runs its OWN cascade clear (#2284) alongside the widgets':
  * for every option field it resolves the offered set and `form.setValue(name,
- * undefined)` when the current value is no longer offered. `resolveCascadingOptions`
+ * null)` when the current value is no longer offered (a scalar; an array is
+ * emptied to `[]`). `resolveCascadingOptions`
  * returns an EMPTY set whenever the list is gated — a declared `dependsOn`
  * parent is still empty — so a record that simply ARRIVES with the parent empty
  * (a later-cleared parent, an import, a partially-migrated row) had its
@@ -99,7 +100,7 @@ describe('control — a RESOLVED list still prunes what it does not offer (ADR-0
     });
 
     const payload = await submitAndRead(onSubmit);
-    expect(payload.province).toBeUndefined();
+    expect(payload.province).toBeNull();
     expect(payload.provinces).toEqual([]);
   });
 
@@ -136,7 +137,7 @@ describe('transition — the gate lifting is what converges the value (#4247)', 
     );
 
     const payload = await submitAndRead(onSubmit);
-    expect(payload.province).toBeUndefined();
+    expect(payload.province).toBeNull();
     expect(payload.provinces).toEqual([]);
   });
 });

@@ -68,11 +68,11 @@
  * ## The prune path must SETTLE
  *
  * Handing the record to an option widget arms its cascade clear: a stored value
- * the current parent no longer offers is dropped with `onChange(undefined)` as
+ * the current parent no longer offers is dropped with `onChange(null)` as
  * soon as inline edit is entered. That stages exactly one prune — IF the host
  * then hands the widget the pruned value. A host that reads a field's own value
  * by a different rule than the record it passes (the saved value whenever the
- * draft entry is `undefined`) prunes again on every render, forever; the strip
+ * draft entry is empty) prunes again on every render, forever; the strip
  * did exactly that at `cfd1f8c5`. The last describe pins one prune per field at
  * both call sites, through a probe whose circuit breaker makes the regression a
  * bounded failure rather than a hung runner.
@@ -111,7 +111,7 @@ vi.mock('./MetadataInspector', () => ({
 
 /**
  * The prune probe. An option widget drops a stored value its current parent no
- * longer admits by calling `onChange(undefined)` from an effect keyed on its
+ * longer admits by calling `onChange(null)` from an effect keyed on its
  * offered `options`. If the host then hands the widget the SAVED value again,
  * the next render prunes again — forever, synchronously inside `act`, which
  * hangs the runner instead of failing it (measured on the highlights strip at
@@ -139,7 +139,10 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
       const name = String(props.field?.name ?? '');
       probe.lastValue[name] = props.value;
       const onChange = (v: unknown) => {
-        if (v === undefined) {
+        // `null` since objectui#10291 (it was `undefined`, which the wire
+        // dropped). Both are counted, so a regression back to `undefined` still
+        // trips the breaker instead of hanging the runner.
+        if (v === null || v === undefined) {
           probe.prunes[name] = (probe.prunes[name] ?? 0) + 1;
           if (probe.prunes[name] > PRUNE_CIRCUIT_BREAKER) return;
         }
@@ -581,7 +584,7 @@ describe('objectui#7190 — a stored option the current parent no longer admits'
     // The host now hands each widget the pruned value: the single-select branch
     // spells an empty value `''`, the `FieldEditWidget` branch passes it as is.
     expect(probe.lastValue.tier).toBe('');
-    expect(probe.lastValue.band).toBeUndefined();
+    expect(probe.lastValue.band).toBeNull();
   });
 
   it('HIGHLIGHTS STRIP control: an ADMISSIBLE stored value is never pruned', async () => {
@@ -607,6 +610,10 @@ describe('objectui#7190 — a stored option the current parent no longer admits'
     expect(probe.prunes.tier).toBe(1);
     expect(probe.prunes.band).toBe(1);
     expect(probe.lastValue.tier).toBe('');
+    // The body reads a field's value as `data[name] ?? field.value`, so the
+    // staged `null` reaches the radio as `undefined` — empty either way, which
+    // is what stops the second prune. The WRITE still carries `null`: that is
+    // pinned on the wire in plugin-detail (objectui#10291).
     expect(probe.lastValue.band).toBeUndefined();
   });
 });

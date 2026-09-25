@@ -1923,6 +1923,7 @@ const de = {
       title: "Titel",
       viewType: "Ansichtstyp",
       recordCount: "{{count}} Datensätze",
+      recordCountOne: "{{count}} Datensatz",
       save: "Speichern",
       discard: "Verwerfen",
       createView: "Ansicht erstellen",

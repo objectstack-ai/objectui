@@ -3419,7 +3419,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                                 </div>
                                 {typeof recordCount === 'number' && (
                                     <div data-testid="record-count-footer" className="border-t px-3 sm:px-4 py-1.5 text-xs text-muted-foreground bg-muted/5 shrink-0">
-                                        {t('console.objectView.recordCount', { count: recordCount })}
+                                        {/* The two-key switch of `ListView`'s record-count bar
+                                            (objectui#10636). Packs whose plurals have more forms
+                                            than two write the count-not-one half as a count label
+                                            (objectui#10425). */}
+                                        {recordCount === 1
+                                            ? t('console.objectView.recordCountOne', { count: recordCount })
+                                            : t('console.objectView.recordCount', { count: recordCount })}
                                     </div>
                                 )}
                             </div>

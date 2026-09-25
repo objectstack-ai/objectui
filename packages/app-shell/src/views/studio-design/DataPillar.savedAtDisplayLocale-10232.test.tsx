@@ -58,12 +58,20 @@ vi.mock('./packages-io', async (importOriginal) => {
   return { ...mod, fetchPackages: vi.fn(async () => []) };
 });
 
+// objectui#8620: the records grid calls `find()` on this adapter. `{}` had no
+// `find()`, so `ListView`'s fetch threw and its `catch` swallowed the error.
+// `dataSource` is an empty-backend `DataSource`, created once below the imports
+// so every render gets the same object.
 vi.mock('@object-ui/react', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@object-ui/react')>();
-  return { ...mod, useAdapter: () => ({}) };
+  return { ...mod, useAdapter: () => dataSource };
 });
 
 import { DataPillar } from './StudioDesignSurface';
+import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
+
+const dataSource = createEmptyDataSource();
+failOnAbsorbedFetchError();
 
 afterEach(cleanup);
 

@@ -737,6 +737,16 @@ function mergeInboxRows(rows: unknown[], receipts: unknown[]): InboxNotification
       action_url: (m.action_url as string) ?? null,
       is_read: rec ? READ_STATES.has(rec.state) : false,
       created_at: m.created_at as string | undefined,
+      // A bare `sys_user` id (objectui#8667). The column is a lookup, and a
+      // lookup arrives as the referenced RECORD only when the read asks for it
+      // with `$expand`; the `sys_inbox_message` read in `useSharedInboxFeed`
+      // passes none, so what arrives is the id the inbox channel stored, or
+      // `null` on a digest row (a collapsed group has no single actor). Only a
+      // string is an id, the same test the upstream dispatcher applies before
+      // it lets an actor through. A server older than the column
+      // (objectstack#16974) sends no key at all, and that maps to `null` too:
+      // "no known actor", which announces exactly as it did before.
+      actor_id: typeof m.actor_id === 'string' ? m.actor_id : null,
     } satisfies InboxNotification;
   });
 }

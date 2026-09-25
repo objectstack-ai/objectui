@@ -31,8 +31,10 @@ bars and range areas), every chart with a STACKED bar or area series (the stack 
 as numbers, and unparseable strings, `NaN`, objects and arrays as full-height bars), a series that
 is all boolean beside a numeric one, a dual-axis chart with one live axis, and any axis whose
 spec declares both a numeric `min` and a numeric `max` (the chart builds that scale from the spec
-and places booleans on it). A `min` or `max` alone, `logarithmic` alone, `stepSize` or an
-annotation does not build a scale, so those tiles are still refused. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
+and places booleans on it), and any axis whose spec declares a `stepSize` (with one declared
+bound, the chart's tick builder reads booleans as 0 and 1 and supplies the other end; a `stepSize`
+alone is left silent too, erring toward silence). A `min` or `max` alone, `logarithmic` alone
+or an annotation does not build a scale, so those tiles are still refused. `''` counts as a value at zero: a line, area or scatter draws it, and a bar,
 horizontal-bar or combo paints the same zero-height picture as all-zero data, silently, exactly
 as before. A bound series key that is not a plain property of any row (a dotted path such as
 `a.b`, which Recharts resolves into nested rows, or a column no row carries) keeps the chart

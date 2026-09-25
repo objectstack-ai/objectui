@@ -192,6 +192,23 @@ describe('objectui#7195 — scatter: what must keep DRAWING, silently', () => {
 });
 
 describe('objectui#7195 — scatter: a DECLARED domain builds the scale, so booleans draw', () => {
+  for (const [label, axis] of [
+    ['stepSize + min', { stepSize: 2, min: 0 }],
+    ['stepSize + max', { stepSize: 2, max: 10 }],
+  ] as Array<[string, Record<string, unknown>]>) {
+    it(`x all-boolean with xAxis ${label}: draws, no refusal`, () => {
+      const { container } = renderScatter([{ xm: true, ym: 1 }, { xm: false, ym: 2 }], { xAxis: axis });
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+
+    it(`y all-boolean with yAxes[0] ${label}: draws, no refusal`, () => {
+      const { container } = renderScatter([{ xm: 1, ym: true }, { xm: 2, ym: false }], { yAxes: [axis] });
+      expect(marksOf(container)).toBeGreaterThan(0);
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
+
   it('x all-boolean with xAxis min AND max: draws, no refusal', () => {
     const { container } = renderScatter([{ xm: true, ym: 1 }, { xm: false, ym: 2 }], { xAxis: { min: 0, max: 10 } });
     expect(marksOf(container)).toBe(2);
@@ -259,11 +276,10 @@ describe('objectui#7195 — series families: no series has a numeric value on an
       ['min alone', { yAxes: [{ min: 0 }] }],
       ['max alone', { yAxes: [{ max: 10 }] }],
       ['logarithmic', { yAxes: [{ logarithmic: true }] }],
-      ['stepSize', { yAxes: [{ stepSize: 1 }] }],
       ['a line annotation', { annotations: [{ type: 'line', value: 5 }] }],
       ['a region annotation', { annotations: [{ type: 'region', value: 1, endValue: 5 }] }],
     ] as Array<[string, Record<string, unknown>]>) {
-      it(`${family}, all-boolean with ${label} (no full domain): still refused`, () => {
+      it(`${family}, all-boolean with ${label} (no declared scale): still refused`, () => {
         const { container } = renderFamily(family, [{ k: 'a', v: true }, { k: 'b', v: false }], [{ dataKey: 'v' }], extra);
         expect(refusalOf(container)).not.toBeNull();
       });
@@ -421,6 +437,29 @@ describe('objectui#7195 — series families: what must keep DRAWING, silently', 
     expect(marksOf(container)).toBeGreaterThan(0);
     expect(anyRefusalOf(container)).toBeNull();
   });
+
+  for (const family of ['bar', 'column', 'line', 'area', 'horizontal-bar', 'combo']) {
+    for (const [label, axis] of [
+      ['stepSize + min', { stepSize: 2, min: 0 }],
+      ['stepSize + max', { stepSize: 2, max: 10 }],
+    ] as Array<[string, Record<string, unknown>]>) {
+      it(`${family}: an all-boolean series on a ${label} axis draws — ticksFor supplies the other end`, () => {
+        const { container } = renderFamily(
+          family,
+          [{ k: 'a', v: true }, { k: 'b', v: false }],
+          [{ dataKey: 'v' }],
+          { yAxes: [axis] },
+        );
+        expect(marksOf(container)).toBeGreaterThan(0);
+        expect(anyRefusalOf(container)).toBeNull();
+      });
+    }
+
+    it(`${family}: a stepSize ALONE keeps the tile silent — any finite stepSize counts, erring to silence`, () => {
+      const { container } = renderFamily(family, [{ k: 'a', v: true }, { k: 'b', v: false }], [{ dataKey: 'v' }], { yAxes: [{ stepSize: 1 }] });
+      expect(anyRefusalOf(container)).toBeNull();
+    });
+  }
 
   for (const family of ['bar', 'line', 'area', 'horizontal-bar', 'combo']) {
     it(`${family}: an all-boolean series on a DECLARED domain (min AND max) draws — the spec builds the scale`, () => {

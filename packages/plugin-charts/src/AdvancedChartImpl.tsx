@@ -964,20 +964,30 @@ function isDomainScalar(v: unknown): boolean {
 }
 
 /**
- * Whether the author DECLARED an axis's whole domain — a finite numeric `min`
- * AND `max`. Recharts then builds the scale from the spec alone (no data value
- * needed) and d3 coerces booleans onto it, so the tile draws: measured, an
- * all-boolean bar with `min: 0, max: 10` drew a rectangle, a line / area their
- * path, and a scatter with `xAxis: { min: 0, max: 10 }` 2 symbols. An axis
- * declared that way always has a scale, so it is never refused. `min` alone,
- * `max` alone, `logarithmic`, `stepSize` and annotations do not build a scale
- * (0 marks, measured) and do not count.
+ * Whether the author DECLARED enough of an axis for it to have a scale
+ * without any row. Two shapes count:
+ *
+ *   - a finite numeric `min` AND `max`: Recharts builds the scale from the
+ *     spec alone and d3 coerces booleans onto it, so the tile draws —
+ *     measured, an all-boolean bar with `min: 0, max: 10` drew a rectangle, a
+ *     line / area their path, and a scatter with `xAxis: { min: 0, max: 10 }`
+ *     2 symbols;
+ *   - ANY finite `stepSize`. `ticksFor` reads the rows through `Number()`, so
+ *     booleans become 0 / 1 there, and with one declared bound it returns a
+ *     tick array Recharts resolves the `'auto'` end from — measured,
+ *     `{ stepSize: 2, min: 0 }` and `{ stepSize: 2, max: 10 }` each drew a
+ *     rectangle over all-boolean rows (review round 5). Only the stepSize-plus-
+ *     bound shape was measured drawing; ANY finite `stepSize` counts, `stepSize`
+ *     alone included, because that is the rule that is simplest to keep true
+ *     and it errs to silence (seat ruling, round 5).
+ *
+ * Such an axis is never refused. `min` alone, `max` alone, `logarithmic`
+ * alone and annotations do not build a scale (0 marks, measured) and do not
+ * count.
  */
-function declaresFullDomain(axis: NormalizedAxis | undefined): boolean {
-  return (
-    typeof axis?.min === 'number' && Number.isFinite(axis.min) &&
-    typeof axis?.max === 'number' && Number.isFinite(axis.max)
-  );
+function declaresScale(axis: NormalizedAxis | undefined): boolean {
+  const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+  return (finite(axis?.min) && finite(axis?.max)) || finite(axis?.stepSize);
 }
 
 /** Whether ANY row gives `key` a value that can anchor its axis. */
@@ -2131,13 +2141,13 @@ function AdvancedChartImplInner({
     // (measured: 0 of N marks, silent, or under a footnote claiming some drew).
     // Before the footnote, which would otherwise count booleans as placed.
     if (points.total > 0) {
-      // An axis whose spec declares both ends has a scale without any row, so
-      // it is never dead: x reads the spec `xAxis`, y the primary `yAxes[0]` —
+      // An axis whose spec declares both ends, or any `stepSize`, has a scale
+      // without any row (`declaresScale`), so it is never dead: x reads the spec `xAxis`, y the primary `yAxes[0]` —
       // the same specs the two `<XAxis>` / `<YAxis>` below are handed.
       const deadAxes = (
         [[xAxisKey, xAxisSpec], [scatterYKey, yAxes?.[0]]] as Array<[string, NormalizedAxis | undefined]>
       )
-        .filter(([key, axis]) => !declaresFullDomain(axis) && !axisHasScale(data, key))
+        .filter(([key, axis]) => !declaresScale(axis) && !axisHasScale(data, key))
         .map(([key]) => key)
         .filter((key, i, all) => all.indexOf(key) === i);
       if (deadAxes.length > 0) {
@@ -2655,9 +2665,9 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * own render pins keep it silent until it is re-decided as its own question —
  * out of this answer. For both shapes the gate errs to silence.
  *
- * ## A series on an axis with a declared domain is live
+ * ## A series on an axis with a declared scale is live
  *
- * See `declaresFullDomain`: such an axis has a scale whatever the rows carry,
+ * See `declaresScale`: such an axis has a scale whatever the rows carry,
  * so booleans are coerced onto it and draw. A series' axis is read the way the
  * renderer binds it, over-approximated toward silence: `yAxis: 'left'` binds
  * the primary `yAxes[0]`; anything else may land on the primary or on the
@@ -2680,7 +2690,7 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
   const primary = yAxes[0];
   const secondary = yAxes.length > 1 ? yAxes[1] : primary?.position === 'right' ? primary : undefined;
   const declared = (s: NormalizedSeries) =>
-    declaresFullDomain(primary) || (s.yAxis !== 'left' && declaresFullDomain(secondary));
+    declaresScale(primary) || (s.yAxis !== 'left' && declaresScale(secondary));
   const live = series.some(
     (s, i) =>
       stackModeOf(chartType, series, i) !== 'none' || declared(s) || axisHasScale(rows, String(s.dataKey)),

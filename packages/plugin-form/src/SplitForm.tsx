@@ -74,6 +74,13 @@ export interface SplitFormSchema {
   /** Record ID (for edit/view modes). A string, per the one record-id rule on `DataSource` (objectui#9511) — `ObjectForm` builds this schema from the authorable `ObjectFormSchema.recordId`, which is a string, and `findOne` takes a string. */
   recordId?: string;
   sections: SplitFormSectionConfig[];
+  /**
+   * Inline field definitions (`object-form.customFields`). A member naming a
+   * field a section lists is that field's definition, as on every other
+   * `formType` (objectui#10254); `ObjectForm` hands the key over in its
+   * `{...schema}` spread.
+   */
+  customFields?: FormField[];
   
   /**
    * Split direction.
@@ -240,8 +247,11 @@ export const SplitForm: React.FC<SplitFormProps> = ({
         // `defaultValue` excuses a field from `required` (#4069).
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is on every other arm (objectui#10254).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // Handle form submission

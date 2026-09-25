@@ -225,6 +225,14 @@ export interface WizardFormSchema {
    * Wizard step sections
    */
   sections: WizardStepConfig[];
+
+  /**
+   * Inline field definitions (`object-form.customFields`). A member naming a
+   * field a section lists is that field's definition, as on every other
+   * `formType` (objectui#10254); `ObjectForm` hands the key over in its
+   * `{...schema}` spread.
+   */
+  customFields?: FormField[];
   
   /**
    * Allow navigation to any step (not just sequential).
@@ -531,8 +539,11 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // this produces, so it agrees with the renderer for free.
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is on every other arm (objectui#10254).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // The same "no persisted record" test the seeding and the create-mode

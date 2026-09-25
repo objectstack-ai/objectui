@@ -7,33 +7,38 @@
  */
 
 /**
- * `object-form.customFields` under explicit `sections`, on the `drawer` and
- * `modal` arms (objectui#10254).
+ * `object-form.customFields` under explicit `sections`, on every arm that
+ * takes them (objectui#10254).
  *
  * The registered description of `customFields` is one sentence for every
  * `formType`: "Field definitions merged over the set generated from object
  * metadata." objectui#10073 brought the drawer and modal to the default arm's
  * merge for a form with NO sections (`drawerModalCustomFieldsMerge-10073`).
- * With explicit `sections`, both arms still rebuilt every section member from
- * the object schema alone, so the authored member was dropped: same schema,
- * `INLINE NOTE` on the default arm, `Note` on the other two.
+ * With explicit `sections`, the `drawer`, `modal`, `tabbed`, `wizard` and
+ * `split` arms still rebuilt every section member from the object schema
+ * alone, so the authored member was dropped: same schema, `INLINE NOTE` on the
+ * default arm, `Note` on the other five.
  *
  * What this card unifies is the BASE definition a section member starts from:
  * a member naming the field supplies the whole definition, in place of the
  * generated one, through the one lookup the default arm's merge uses
  * (`findCustomFieldMember`). What it deliberately does NOT unify is each arm's
  * section-entry override rules, which differ (the default arm copies only
- * `visibleOn` / `colSpan` / `span` from a spec entry; the drawer and modal
- * apply `normalizeSectionField`'s full set) — no row below authors an override
- * the two rule sets answer differently.
+ * `visibleOn` / `colSpan` / `span` from a spec entry; the other five apply
+ * `normalizeSectionField`'s full set) — no row below authors an override the
+ * two rule sets answer differently.
  *
  * Every row mounts the real `ObjectForm` with the arm's `formType`, the path an
  * author reaches. The `simple` rows are the default-arm control: that arm
  * already resolved section members against its merged pool, and they stay
- * green on the pre-fix tree. On that tree the `drawer` / `modal` rows of LABEL,
- * REQUIRED, SPEC ENTRY and UNDECLARED NAME are red; UNNAMED MEMBER is green on
- * every arm both before and after (the arms already agreed there, and it pins
- * that the fix did not start drawing members no section lists).
+ * green without the fix. Every schema below has ONE section, so the wizard's
+ * rendered step is the section under test — and a wizard draws only its
+ * current step's fields, which the `drawnFields()` equalities pin. On a tree
+ * where an arm's `buildSectionFields` context does not carry `customFields`,
+ * that arm's LABEL, REQUIRED, SPEC ENTRY and UNDECLARED NAME rows are red;
+ * UNNAMED MEMBER is green on every arm either way (the arms already agreed
+ * there, and it pins that the fix did not start drawing members no section
+ * lists).
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -61,7 +66,7 @@ const makeDataSource = () =>
     update: vi.fn(),
   }) as any;
 
-const ARMS = ['simple', 'drawer', 'modal'] as const;
+const ARMS = ['simple', 'drawer', 'modal', 'tabbed', 'wizard', 'split'] as const;
 type Arm = (typeof ARMS)[number];
 
 /** The drawer and modal portal their content, so every read is off `document.body`. */

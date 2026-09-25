@@ -9,10 +9,10 @@
 The hook's effect makes two branded writes to the document: `document.title` and the
 `href` of the page's icon link. The title write was scoped to the mount; the favicon
 write was not, so a branded `favicon` stayed on the icon link after the shell went
-away unless something else happened to re-apply an icon. In the console that something is
-`FaviconSync`, which only writes when an operator favicon is configured — so on a
-deployment without one, the icon link kept a branded app's URL after the user left
-the app.
+away unless something else happened to re-apply an icon. In the console that something was
+`FaviconSync`, which wrote the icon only when an operator favicon was configured (until
+objectui#10379 removed that write) — so on a deployment without one, the icon link kept
+a branded app's URL after the user left the app.
 
 When `branding.favicon` is set and the page has an icon link (`#favicon`, otherwise
 `link[rel="icon"]`), the hook now records that link and its `href` attribute before

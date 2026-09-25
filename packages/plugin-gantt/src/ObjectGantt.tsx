@@ -790,7 +790,9 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   //   - `silent` decides what a FAILURE does. A background re-read of the SAME
   //     query (write-readback, the toolbar refresh, an invalidation; #2436
   //     items 6 and 7) logs it and keeps the last good rows, which still
-  //     answer that query. A silent reload is always in place.
+  //     answer that query. A silent reload is always in place. One exception:
+  //     a silent run that overtakes a changed query still in flight reports
+  //     like it (objectui#10633, `reportOwedRef`).
   //
   // Concurrent reloads are sequenced: only the newest request may commit its
   // result, so a slow earlier response can't clobber a fresher one.
@@ -806,9 +808,31 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * true.
    */
   const loadedOnceRef = useRef(false);
+  /**
+   * Does the run in flight owe a report if it fails? (objectui#10633)
+   *
+   * A non-silent run owes one: its query changed. A silent run owes one only
+   * when it SUPERSEDES a run that still owes one. The data-invalidation bus,
+   * the toolbar refresh or a write-readback can start a silent re-read while a
+   * changed query is in flight. That re-read reads the changed query and makes
+   * the changed run stale, so the changed run's answer and its failure are both
+   * discarded. If the re-read then failed quietly, the previous query's rows
+   * would stay up with nothing saying so. The re-read therefore inherits the
+   * report, and passes it on if another silent run overtakes it. The current
+   * run releases the obligation when it settles. A standalone silent re-read,
+   * with nothing pending, owes nothing and stays quiet.
+   *
+   * Inherited here, in the run sequence, and not by re-issuing the re-read as
+   * non-silent at its call site: every silent caller overtakes the same way,
+   * and a non-silent re-issue would also drop `inPlace` unless it were carried
+   * over by hand.
+   */
+  const reportOwedRef = useRef(false);
   const reload = useCallback(async ({ silent = false, inPlace = silent }: { silent?: boolean; inPlace?: boolean } = {}) => {
     const seq = ++reloadSeqRef.current;
     const isCurrent = () => reloadSeqRef.current === seq;
+    const reportsFailure = !silent || reportOwedRef.current;
+    reportOwedRef.current = reportsFailure;
     try {
       if (inPlace) setRefreshing(true);
       else setLoading(true);
@@ -927,13 +951,15 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         loadedOnceRef.current = true;
       }
     } catch (err) {
-      if (silent) {
+      if (!reportsFailure) {
         // Background refresh failure keeps the last good data on screen.
         console.error('[ObjectGantt] Failed to refresh data:', err);
       } else if (isCurrent()) {
         // A failed query that CHANGED (in place or not) is reported. The rows
         // on screen answer the previous query, and once the refreshing state
-        // clears nothing would tell the user that (objectui#7237).
+        // clears nothing would tell the user that (objectui#7237). A silent
+        // run that took over a changed query's report reports here too
+        // (objectui#10633, `reportOwedRef`).
         setError(err as Error);
       }
     } finally {
@@ -952,6 +978,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // overtaken by a query change before the first paint would leave
       // `refreshing` on for the life of the component).
       if (isCurrent()) {
+        reportOwedRef.current = false;
         setRefreshing(false);
         setLoading(false);
       }

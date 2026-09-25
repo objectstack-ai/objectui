@@ -2023,8 +2023,10 @@ ComponentRegistry.register('form',
     // is what makes it retire like the form's other outcome messages: a later
     // submit refusal replaces it, and the next accepted attempt dismisses it.
     //
-    // Only a value this pass actually changed is named: an empty list is
-    // rewritten as itself, so it is not reported as cleared.
+    // Only a field that held something is named. An empty list is rewritten
+    // as itself, and `false` on a two-state control is that control's EMPTY
+    // state (see `BOOLEAN_WIDGET_TYPES`; a create form seeds it), so the box
+    // reads unchecked before and after: neither is reported as cleared.
     //
     // A clear can hide a second field — one whose `visibleWhen` reads the
     // field just cleared — and that second clear runs on the NEXT pass. Naming
@@ -2055,7 +2057,13 @@ ComponentRegistry.register('form',
           shouldValidate: false,
           shouldDirty: true,
         });
-        if (!(Array.isArray(current) && current.length === 0)) cleared.push(name);
+        const heldNothing = Array.isArray(current)
+          ? current.length === 0
+          : current === false &&
+            BOOLEAN_WIDGET_TYPES.has(
+              resolveWidgetType((fields as FormFieldConfig[]).find((f) => f?.name === name)),
+            );
+        if (!heldNothing) cleared.push(name);
       }
       if (cleared.length === 0) return;
       const names = chained && prior ? [...prior.names, ...cleared] : cleared;

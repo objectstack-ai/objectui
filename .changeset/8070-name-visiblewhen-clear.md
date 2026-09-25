@@ -16,8 +16,9 @@ surface, and the clear itself is unchanged.
 - When a transition clears one or more fields, the form raises one notice that
   names them by the labels the form draws, joined by the locale's
   `validation.formInvalidJoiner`, and says they no longer apply given the
-  current values. A field that was already empty is not named, and neither is
-  the first render of a record, which only records the baseline.
+  current values. A field that was already empty is not named (an unchecked
+  two-state control counts as empty), and neither is the first render of a
+  record, which only records the baseline.
 - The notice is published under the form's outcome-toast id. A later submit
   refusal replaces it, and the next attempt that passes client validation
   dismisses it, like the form's other outcome messages.

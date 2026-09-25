@@ -24,6 +24,10 @@
  * form's other outcome messages: a later submit outcome supersedes it, and the
  * dismissal at the next attempt takes it down.
  *
+ * Only a field that HELD something is named: an already-empty value, an empty
+ * list and an unchecked two-state control (whose empty state is `false`) are
+ * not, and neither is the first render, which only records the baseline.
+ *
  * What is asserted, and what deliberately is not: the named SUBJECTS (the
  * labels the form draws), the locale JOINER between them, the toast id, and
  * that the pack key is the one read. The sentence itself is copy and is not
@@ -112,6 +116,21 @@ describe('#8070 — a visibleWhen clear is named to the user', () => {
     expect(notices()[0]).not.toContain('crm_contact');
     // Published under the form's outcome-toast id, so it retires like its siblings.
     expect(warningSpy.mock.calls[0][1]).toMatchObject({ id: expect.stringMatching(/^form-outcome:/) });
+  });
+
+  it('a CHECKED two-state control held a value — hiding it is named', async () => {
+    renderForm({
+      fields: [
+        { name: 'plan', label: 'Plan', type: 'input' },
+        { name: 'priority_support', label: 'Priority Support', type: 'checkbox', visibleWhen: cel("record.plan == 'pro'") },
+      ],
+      defaultValues: { plan: 'pro', priority_support: true },
+    });
+
+    fireEvent.change(screen.getByLabelText(/plan/i), { target: { value: 'basic' } });
+
+    await waitFor(() => expect(warningSpy).toHaveBeenCalledTimes(1));
+    expect(notices()[0]).toContain('Priority Support');
   });
 
   it('two fields cleared by one transition are named in ONE notice, joined by the locale joiner (en)', async () => {
@@ -222,6 +241,21 @@ describe('#8070 — nothing cleared, nothing named', () => {
     retype('lead');
 
     await waitFor(() => expect(screen.queryByLabelText(/^contact$/i)).toBeNull());
+    expect(warningSpy).not.toHaveBeenCalled();
+  });
+
+  it('an UNCHECKED two-state control is empty — hiding the create form\'s seeded `false` raises no notice', async () => {
+    renderForm({
+      fields: [
+        { name: 'plan', label: 'Plan', type: 'input' },
+        { name: 'priority_support', label: 'Priority Support', type: 'checkbox', visibleWhen: cel("record.plan == 'pro'") },
+      ],
+      defaultValues: { plan: 'pro' },
+    });
+
+    fireEvent.change(screen.getByLabelText(/plan/i), { target: { value: 'basic' } });
+
+    await waitFor(() => expect(screen.queryByLabelText(/priority support/i)).toBeNull());
     expect(warningSpy).not.toHaveBeenCalled();
   });
 

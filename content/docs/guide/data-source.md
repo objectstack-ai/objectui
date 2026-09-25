@@ -230,7 +230,9 @@ the binding from the props it spreads for exactly this reason.
 size are applied to the render, so a page never has to keep a second copy of a
 view's configuration. `filter` is *additional* criteria — it AND-combines with the
 view's filter rather than replacing it — while `sort` and `limit` override the
-view's. A `view` name that does not resolve is reported as a configuration error;
+view's. Only a usable `limit` overrides: a binding cap the contract refuses (`0`,
+a negative, a non-integer) is treated as not authored and yields to the view's
+cap exactly as an absent one would, and the view's cap is held to the same rule. A `view` name that does not resolve is reported as a configuration error;
 it never degrades into an unfiltered query for the object.
 
 `@object-ui/react` exposes `useElementDataSource(schema, dataSource?)` for

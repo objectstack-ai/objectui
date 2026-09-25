@@ -258,6 +258,25 @@ describe('element:record_picker — registry inputs vs @objectstack/spec', () =>
     expect(description).toMatch(/\$filter/);
   });
 
+  it('the `limit` description states the composer\'s precedence, not the pre-objectui#10016 one (objectui#10399)', () => {
+    // The description used to end "PRECEDENCE: `dataSource.limit ?? limit ??
+    // 50` — a node-level binding wins outright". Two things made that false:
+    // it skipped the named view's cap, and under ruling A on objectui#10016 a
+    // binding cap the contract refuses is not authored and falls through
+    // (`bindingLimit` in `@object-ui/core`'s `composeElementDataSource`). It
+    // also cited the renderer by a line address that had already drifted.
+    // Non-vacuity first: an unregistered `limit` would make every negative
+    // assertion below pass on an empty string.
+    const description = input('limit')?.description;
+    expect(description).toEqual(expect.any(String));
+    expect(description).not.toContain('dataSource.limit ?? limit ?? 50');
+    expect(description).not.toMatch(/wins outright/);
+    expect(description).not.toMatch(/record-picker\.tsx:\d+/);
+    // The fall-through itself, by concept rather than by sentence.
+    expect(description).toMatch(/dataSource\.view/);
+    expect(description).toMatch(/not authored/i);
+  });
+
   it('declares no default for `filter` — the spec parses none in', () => {
     // A filter's default is not "empty object", it is "no filter at all", which
     // `undefined` already is, and the spec declares no default. (This used to

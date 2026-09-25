@@ -52,10 +52,11 @@ import { cn } from '../../lib/utils';
 // A conflict is per VARIANT: `h-20` replaces `h-14` and leaves `sm:h-16` in
 // place, so an author who wants one height at every width writes `h-20 sm:h-20`.
 //
-// `schema.className` is the one channel read. On the `SchemaRenderer` path the
-// `className` prop carries the same string (the renderer hands both the same
-// merged value), and tailwind-merge does not collapse a repeated non-Tailwind
-// class, so reading both would print every custom class twice.
+// `schema.className` is the one channel read. `SchemaRenderer` hands a node's
+// className to the component twice, on `schema` and as the `className` prop,
+// with the same value (its `responsiveStyles` scope class included), so that a
+// renderer honours ONE of them. tailwind-merge does not collapse a repeated
+// non-Tailwind class, so reading both would print every custom class twice.
 const HEADER_BAR_CLASS = 'flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4';
 
 function BreadcrumbLabel({ crumb, isLast }: { crumb: BreadcrumbItemType; isLast: boolean }) {

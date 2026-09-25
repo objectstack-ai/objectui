@@ -11,6 +11,11 @@ the only part of it this package ever shipped. The `KanbanEnhanced` component
 itself was never in `dist/index.js` or `dist/index.umd.cjs`, because nothing the
 entry point imports reached it.
 
+`@object-ui/plugin-kanban/style.css` also loses three utility rules that no other
+file in this package uses: `border-border/50`, `text-yellow-500` and `shadow-xl`.
+If your own markup relied on this sheet for any of the three, generate them in
+your own Tailwind build.
+
 **No supported import changes.** This package's `exports` map has exactly two
 entries, `.` and `./style.css`, and the entry point never re-exported
 `KanbanEnhanced`, so `@object-ui/plugin-kanban/KanbanEnhanced` was never a

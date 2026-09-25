@@ -33,13 +33,15 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useObjectLabel: () => ({
-    fieldLabel: (_o: any, _n: any, l: any) => l,
-    fieldOptionLabel: (_o: any, _f: any, _v: any, l: any) => l,
-    actionParamText: (_o: any, _a: any, _p: any, _attr: any, fallback: any) => fallback,
-    actionParamOptionLabel: (_o: any, _a: any, _p: any, _v: any, fallback: any) => fallback,
-    actionDescription: (_o: any, _a: any, fallback: any) => fallback,
+    fieldLabel: (_o: unknown, _n: unknown, l: unknown) => l,
+    fieldOptionLabel: (_o: unknown, _f: unknown, _v: unknown, l: unknown) => l,
+    actionParamText: (_o: unknown, _a: unknown, _p: unknown, _attr: unknown, fallback: unknown) => fallback,
+    actionParamOptionLabel: (_o: unknown, _a: unknown, _p: unknown, _v: unknown, fallback: unknown) => fallback,
+    actionDescription: (_o: unknown, _a: unknown, fallback: unknown) => fallback,
   }),
-  useObjectTranslation: () => ({ t: (key: string, options?: any) => String(options?.defaultValue ?? key) }),
+  useObjectTranslation: () => ({
+    t: (key: string, options?: { defaultValue?: string }) => String(options?.defaultValue ?? key),
+  }),
 }));
 
 // Imported for real these drag in the modal/form graph; nothing here renders them.
@@ -55,13 +57,9 @@ vi.mock('../../views/ActionConfirmDialog', () => ({ ActionConfirmDialog: () => n
 vi.mock('../../views/ActionParamDialog', () => ({ ActionParamDialog: () => null }));
 vi.mock('../../views/ActionResultDialog', () => ({ ActionResultDialog: () => null }));
 vi.mock('../../views/FlowRunner', () => ({ FlowRunner: () => null }));
-vi.mock('sonner', () => {
-  const fn: any = vi.fn();
-  fn.error = vi.fn();
-  fn.success = vi.fn();
-  return { toast: fn };
-});
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 
+import type { ActionDef, ActionResult } from '@object-ui/core';
 import { useConsoleActionRuntime } from '../useConsoleActionRuntime';
 
 let warn: ReturnType<typeof vi.spyOn>;
@@ -76,7 +74,7 @@ async function closeTask(row: Record<string, unknown>, extra: Record<string, unk
   const { result } = renderHook(() =>
     useConsoleActionRuntime({ dataSource, objects: [], objectName: 'task' }),
   );
-  let res: any;
+  let res: ActionResult = { success: false };
   await act(async () => {
     res = await result.current.apiHandler({
       type: 'api',
@@ -87,7 +85,7 @@ async function closeTask(row: Record<string, unknown>, extra: Record<string, unk
       bodyExtra: { status: 'closed' },
       params: { _rowRecord: row },
       ...extra,
-    } as any);
+    } as ActionDef);
   });
   return { res, dataSource };
 }

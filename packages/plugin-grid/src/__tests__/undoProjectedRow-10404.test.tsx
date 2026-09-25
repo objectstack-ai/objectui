@@ -62,12 +62,12 @@ const { permsStub, policy } = vi.hoisted(() => {
 
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
-  return { ...actual, usePermissions: () => permsStub as any };
+  return { ...actual, usePermissions: () => permsStub as never };
 });
 
 import { ObjectGrid } from '../ObjectGrid';
 import { registerAllFields } from '@object-ui/fields';
-import { ActionProvider, SchemaRendererProvider, useGlobalUndo } from '@object-ui/react';
+import { ActionProvider, SchemaRendererProvider, useGlobalUndo, type UseGlobalUndoOptions } from '@object-ui/react';
 import { globalUndoManager } from '@object-ui/core';
 
 registerAllFields();
@@ -118,7 +118,10 @@ function makeWorld() {
 }
 
 /** Exposes the real `useGlobalUndo` executor — the one the console's Undo button calls. */
-function UndoHandle({ dataSource, onReady }: { dataSource: any; onReady: (undo: () => Promise<void>) => void }) {
+function UndoHandle({ dataSource, onReady }: {
+  dataSource: UseGlobalUndoOptions['dataSource'];
+  onReady: (undo: () => Promise<void>) => void;
+}) {
   const { undo } = useGlobalUndo({ dataSource });
   onReady(undo);
   return null;

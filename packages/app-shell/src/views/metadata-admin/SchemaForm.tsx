@@ -1776,7 +1776,8 @@ function FieldControl({
    * scalar chain and the JSON editor) carries `aria-required` from it, and a
    * REGISTERED widget receives it as `WidgetProps.required`, which each
    * `labelling: 'control'` widget except `filter-builder` (a plain `button`)
-   * emits through `controlNaming`.
+   * emits through `controlNaming`, and which `color-picker` puts on its
+   * `radiogroup`.
    *
    * ⚠️ The structured faces (composite / repeater / record / nested form)
    * render a `role="group"`, where ARIA 1.2 does not support `aria-required`.

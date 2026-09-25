@@ -31,6 +31,9 @@ renderer's marker uses.
   `field-selector`, `field-ref`, `view-ref`, `icon`, `color-input`,
   `string-tags` and `secret`. `filter-builder` does not, because its control is
   a plain button, where ARIA does not allow `aria-required`.
+- Colour picker: `ColorVariantPicker` takes an optional `required` and puts
+  `aria-required` on its radio group, and the `color-picker` widget passes the
+  field's flag through. Its other callers pass nothing, so they are unchanged.
 - `AppCreationWizard`: the App name and Title inputs carry `aria-required`.
 
 Native `required` is not added anywhere, so no browser validation appears beside

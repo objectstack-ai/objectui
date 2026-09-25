@@ -294,8 +294,10 @@ export interface WidgetProps {
    * puts it on its primary control as `aria-required`, through
    * {@link controlNaming}, next to the naming props. `filter-builder` is the
    * one `'control'` widget that does not: its face is a plain `button`, and
-   * ARIA 1.2 does not support `aria-required` on role `button`. No `'group'`
-   * widget reads it today.
+   * ARIA 1.2 does not support `aria-required` on role `button`. Of the
+   * `'group'` widgets only `color-picker` reads it: its surface is a
+   * `radiogroup`, which does support the state, so it hands the flag to
+   * `ColorVariantPicker`. The rest render `role="group"`, which does not.
    */
   required?: boolean;
   schema: Record<string, any>;
@@ -2596,7 +2598,7 @@ export function visibleColorPaletteOptions(
  * publishes an id and this surface answers it by IDREF (objectui#4010 named the
  * group; objectui#4871 is what finally removed the host's dangling `for`).
  */
-function ColorSwatchGroupWidget({ value, onChange, readOnly, schema, fieldSpec, formData, ariaLabelledBy }: WidgetProps) {
+function ColorSwatchGroupWidget({ value, onChange, readOnly, schema, fieldSpec, formData, ariaLabelledBy, required }: WidgetProps) {
   const locale = useMetadataLocale();
   const hostScope = usePredicateScope();
   // Exactly one naming channel, chosen by which one the caller can supply
@@ -2616,6 +2618,9 @@ function ColorSwatchGroupWidget({ value, onChange, readOnly, schema, fieldSpec, 
   return (
     <ColorVariantPicker
       {...naming}
+      // The one `'group'` widget whose surface ARIA 1.2 gives a required state:
+      // `aria-required` on its `radiogroup` (objectui#10367).
+      required={required}
       value={value == null ? undefined : String(value)}
       onChange={(v) => onChange(v)}
       disabled={readOnly}

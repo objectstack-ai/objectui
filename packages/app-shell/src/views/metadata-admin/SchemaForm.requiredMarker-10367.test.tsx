@@ -18,7 +18,8 @@
  * `FieldControl` puts `aria-required` on the controls it renders itself, from
  * the same flag that draws the marker, and hands that flag to a registered
  * `labelling: 'control'` widget, which emits it through `controlNaming()` in
- * `widgets.tsx`. `aria-required`, not native `required`,
+ * `widgets.tsx`, and to `color-picker`, whose `radiogroup` carries it.
+ * `aria-required`, not native `required`,
  * so a host `<form>` gains no browser verdict — each case asserts native
  * `required` stays absent.
  *
@@ -210,6 +211,49 @@ describe('objectui#10367 — SchemaForm keeps the required `*` out of the access
     const cell = grid.container.querySelector('td input') as HTMLElement;
     expect(cell).toHaveAccessibleName('Tags');
     expect(cell).toHaveAttribute('aria-required', 'true');
+  });
+
+  it('the `color-picker` radiogroup is named without `*` and carries aria-required', () => {
+    // A `'group'` widget, but its surface is a `radiogroup`, where ARIA 1.2
+    // supports `aria-required`: `ColorSwatchGroupWidget` hands the flag to
+    // `ColorVariantPicker`. A declared palette (`enum`) is what makes the host
+    // resolve `color-picker` rather than `color-input`.
+    render(
+      <SchemaForm
+        schema={
+          {
+            type: 'object',
+            properties: {
+              accent: { type: 'string', enum: ['red', 'blue'] },
+              tint: { type: 'string', enum: ['red', 'blue'] },
+            },
+            required: ['accent'],
+          } as never
+        }
+        form={
+          {
+            type: 'simple',
+            sections: [
+              {
+                label: 'S',
+                fields: [
+                  { field: 'accent', widget: 'color-picker' },
+                  { field: 'tint', widget: 'color-picker' },
+                ],
+              },
+            ],
+          } as never
+        }
+        value={{}}
+        onChange={() => {}}
+      />,
+    );
+
+    const accent = screen.getByRole('radiogroup', { name: 'Accent' });
+    expect(accent).toHaveAccessibleName('Accent');
+    expect(accent).toHaveAttribute('aria-required', 'true');
+    // The optional picker beside it is the in-render control.
+    expect(screen.getByRole('radiogroup', { name: 'Tint' })).not.toHaveAttribute('aria-required');
   });
 
   it('CONTROL — an optional string property shows no marker and carries no aria-required', () => {

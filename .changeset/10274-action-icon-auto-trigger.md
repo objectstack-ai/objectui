@@ -5,8 +5,9 @@
 An `action:icon` now runs an action it receives with `autoTrigger` set, the same
 way `action:button` and `action:menu` do (objectui#10274).
 
-`action:bar` renders each inline action with the renderer its `component` names.
-So an action authored with `component: 'action:icon'` reached `action:icon` with
+`action:bar` renders an inline action authored `component: 'action:button'` or
+`'action:icon'` with the renderer that value names. So an action authored with
+`component: 'action:icon'` reached `action:icon` with
 the host's `autoTrigger` flag on it, and `action:icon` ignored the flag. A
 `?runAction=` deep link to a list toolbar action shown as an icon was therefore
 consumed (removed from the URL) and ran nothing, with no notice.

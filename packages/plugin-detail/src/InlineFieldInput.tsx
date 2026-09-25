@@ -13,6 +13,7 @@ import {
   LookupField,
   UserField,
   NumberField,
+  DateField,
   CurrencyField,
   PercentField,
   ImageField,
@@ -494,8 +495,8 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   // how a chip row renders — are `FieldEditWidget`'s to make, and it already
   // makes them for the grid's inline cell editor; asking it here is the point of
   // delegating rather than routing type by type. `date`/`datetime` are excluded
-  // because they ARE routed (the native date input below) and a working path
-  // does not get churned. Types the hosts gate out entirely (containers,
+  // because they ARE routed (to `DateField` below, objectui#10625) and a
+  // working path does not get churned. Types the hosts gate out entirely (containers,
   // credentials, computed — #4228 / #3355) never arrive here at all, and none of
   // them has a widget anyway, so this branch cannot re-open those.
   //
@@ -515,48 +516,54 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
       />
     );
   }
-  const inputType = isDate ? 'date' : 'text';
-  // <input type="date"> needs a YYYY-MM-DD string; raw ISO timestamps
-  // ("2026-02-14T14:46:20.862Z") leave the picker blank. Slice down to the date
-  // portion so existing values round-trip correctly.
+  if (isDate) {
+    // The routed date editor is `@object-ui/fields`' own `DateField`, for
+    // `date` AND `datetime` fields alike (objectui#10625). That is the widget
+    // whose answer to a stored day that does not exist (`2026-02-30`, or
+    // `2026-02-30T10:00:00Z` on a `datetime` field) is objectui#10026
+    // direction A: an `<input type="date">` can only paint such a day blank
+    // (the browser sanitises it to `""`), so the control is handed `""`,
+    // marked `aria-invalid`, and described by a notice NAMING the stored
+    // string (`isImpossibleStoredDay` + `fields.date.impossibleDay`,
+    // objectui#10567). The hand-rolled input this replaces sliced the stored
+    // value into the control and nothing else, which is the silent blank.
+    //
+    // The read side is `toDateInputValue`: a leading `YYYY-MM-DD` passes
+    // through verbatim (an ISO timestamp is sliced to its date, as before),
+    // anything else goes through local calendar getters. The write side stays
+    // this editor's own: the widget hands back the control's `YYYY-MM-DD`,
+    // re-emitted as full ISO at local midnight so backend validation that
+    // expects ISO timestamps keeps working. Only a user edit emits.
+    return (
+      <DateField
+        field={field as any}
+        value={value}
+        onChange={(v: any) => onChange(v ? new Date(v + 'T00:00:00').toISOString() : v)}
+        autoFocus={autoFocus}
+        error={error}
+      />
+    );
+  }
+  // Only the raw text fallback remains below.
+  // Coerce objects (e.g. an unexpanded reference that slipped through type
+  // detection) to a readable label rather than leaking "[object Object]".
   const inputValue = value == null
     ? ''
-    : isDate
-      ? (() => {
-          const s = String(value);
-          if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-          const d = new Date(s);
-          return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-CA');
-        })()
-      // Coerce objects (e.g. an unexpanded reference that slipped through type
-      // detection) to a readable label rather than leaking "[object Object]".
-      : typeof value === 'object'
-        ? String(coerceToSafeValue(value) ?? '')
-        : String(value);
+    : typeof value === 'object'
+      ? String(coerceToSafeValue(value) ?? '')
+      : String(value);
   return (
     <input
-      type={inputType}
-      // Marks the RAW TEXT fallback only. The `date`/`datetime` branch shares
-      // this element but is a routed editor (a native date picker with ISO
-      // coercion on both sides), not the lossy fallback the guard hunts for.
-      data-testid={isDate ? undefined : INLINE_PLAIN_TEXT_INPUT_TESTID}
+      type="text"
+      // Marks the RAW TEXT fallback, the lossy path the guard hunts for.
+      data-testid={INLINE_PLAIN_TEXT_INPUT_TESTID}
       autoFocus={autoFocus}
       // No widget sits behind this branch to honour the #3222 slot, so the
       // refusal marking is applied to the element itself.
       aria-invalid={error ? true : undefined}
       className="w-full px-2 py-1.5 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
       value={inputValue}
-      onChange={(e) => {
-        const v = e.target.value;
-        // Re-emit dates as full ISO so backend validation that expects ISO
-        // timestamps keeps working.
-        if (isDate && v) {
-          const iso = new Date(v + 'T00:00:00').toISOString();
-          onChange(iso);
-        } else {
-          onChange(v);
-        }
-      }}
+      onChange={(e) => onChange(e.target.value)}
     />
   );
 };

@@ -36,6 +36,7 @@ import {
   useSettledSchema,
   SchemaRendererContext,
   NonGridRowCeilingNote,
+  useDataInvalidation,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import {
@@ -972,6 +973,35 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
     reloadRef.current();
   }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+
+  /**
+   * objectui#10035 — the refresh input this gantt had none of, so a host could
+   * show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+   * data, don't rebuild UI). The nonce moves when the data-invalidation bus
+   * reports a change to the object this gantt reads.
+   *
+   * ⭐ A SILENT reload, deliberately not the fetch effect above. That effect's
+   * reload flips `loading`, which swaps `GanttView` for the placeholder — the
+   * same loss of scroll, collapsed groups and zoom a remount causes, one level
+   * down. `reload({ silent: true })` is the path the toolbar refresh and every
+   * write-readback here already take for exactly that reason, and it keeps
+   * `reload`'s sequencing, so an invalidation that lands mid-load cannot let a
+   * stale answer win.
+   *
+   * Subscribed only when the rows come from an adapter this gantt queries
+   * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
+   * set are not ours to refresh. The first load gate is respected through a
+   * ref rather than a dependency: re-running this effect when the object
+   * schema settles would add a second query beside the gated first load,
+   * which already reads rows written before it.
+   */
+  const invalidationNonce = useDataInvalidation(recordQueryDerivesExpand && resource ? resource : undefined);
+  const firstLoadGateOpenRef = useRef(false);
+  firstLoadGateOpenRef.current = !recordQueryDerivesExpand || objectSchemaReady;
+  useEffect(() => {
+    if (invalidationNonce === 0 || !firstLoadGateOpenRef.current) return;
+    void reloadRef.current({ silent: true });
+  }, [invalidationNonce]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {

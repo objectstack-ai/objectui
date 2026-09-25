@@ -22,9 +22,11 @@ Field-level security gates that list the way it gates the other
 `buildExpandFields` call sites: once the permission policy has loaded, a
 reference column the user may not read on the referenced object is left out of
 `$expand`; before the policy loads, nothing is filtered. `@object-ui/fields`
-now depends on `@object-ui/permissions` for that check. A column left out of
-`$expand`, like any column from a backend that ignores the parameter, still
-arrives as a bare id and is resolved one by one as before.
+now depends on `@object-ui/permissions` for that check. A reference column
+from a backend that ignores the parameter still arrives as a bare id and is
+resolved one by one as before. A column the policy denies is not drawn at all,
+and a field it denies is not shown in an option's label or in the picker's
+title column (objectui#10373).
 
 `buildExpandFields` covers `user` columns as well as `lookup`,
 `master_detail` and `tree`. A previewed `user` column therefore now shows the

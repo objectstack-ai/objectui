@@ -33,9 +33,12 @@ at the time neither surface's request carried populate: the picker resolved a
 foreign-key id to a name client-side, in the lookup cell renderer, and the
 dropdown inherited exactly that. A later change (objectui#10223) has both
 requests ask for `$expand` on the reference columns they display, minus any
-the loaded permission policy denies; a value that still arrives as a bare id
-is resolved by that same cell renderer. An unresolved reference therefore renders
-what the picker renders for it, and keeps its column: a slot is dropped only
-when the record holds no value for the field, decided on the raw value and
-never on what the renderer makes of it, so an unresolved id can never degrade
-into a silently empty column.
+the loaded permission policy denies, and another (objectui#10373) stops both
+surfaces from drawing a column that policy denies or showing a field it denies
+in a record's title. A readable value that still arrives as a bare id is
+resolved by that same cell renderer. An unresolved reference therefore renders
+what the picker renders for it, and keeps its column: among the columns the
+policy lets the user read, a slot is dropped only when the record holds no
+value for the field, decided on the raw value and never on what the renderer
+makes of it, so an unresolved id can never degrade into a silently empty
+column.

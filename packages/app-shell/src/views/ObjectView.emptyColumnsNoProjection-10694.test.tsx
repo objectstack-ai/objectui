@@ -36,6 +36,13 @@
  * view, drawn `columns` included, so it keeps persisting and the reload
  * applies it.
  *
+ * ## A config-panel draft is not a declaration
+ *
+ * `ViewConfigPanel` seeds its draft from the active view, whose `columns` on an
+ * unprojected tab are the defaults the views memo drew, and it relays every
+ * field on every edit and again on Discard. Those drawn defaults do not count
+ * as a declared projection; only `columns` the admin changed do.
+ *
  * ## What this file measures
  *
  * The column list the grid is handed, from a real `ObjectView` mount: the
@@ -74,7 +81,8 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useAuth: () => ({ user: { id: 'u1', name: 'Ada' }, activeOrganization: null }),
-  useWorkspaceAdminStatus: () => ({ isAdmin: false, isResolved: true }),
+  // The view config panel is admin-only.
+  useWorkspaceAdminStatus: () => ({ isAdmin: true, isResolved: true }),
   createAuthenticatedFetch: () => vi.fn(),
 }));
 
@@ -97,6 +105,51 @@ vi.mock('./MetadataInspector', () => ({
 }));
 vi.mock('./RecordDetailView', () => ({ RecordDetailView: () => null }));
 
+// The real `ViewConfigPanel` runs (its draft seeding, its relay of every flat
+// field, its Discard); only its heavy spec-driven inspector is swapped for two
+// edits: one to an unrelated field, one to `columns`.
+vi.mock('./metadata-admin/inspectors/ViewVariantInspector', () => ({
+  ViewVariantInspector: ({ draft, onPatch }: any) => (
+    <div>
+      <button
+        type="button"
+        data-testid="inspector-edit-unrelated"
+        onClick={() => onPatch({ config: { ...(draft?.config ?? {}), wrapHeaders: true } })}
+      >
+        unrelated
+      </button>
+      <button
+        type="button"
+        data-testid="inspector-edit-columns"
+        onClick={() => onPatch({ config: { ...(draft?.config ?? {}), columns: ['name', 'stage', 'owner'] } })}
+      >
+        columns
+      </button>
+    </div>
+  ),
+}));
+// The ADR-0034 draft/publish chrome does its own metadata reads.
+vi.mock('./RuntimeDraftBar', () => ({ RuntimeDraftBar: () => null }));
+
+// The host opens the panel from the plugin's `settings` view action. The plugin
+// draws that action only inside its view switcher, so a button here calls the
+// host's own `onViewAction` handler, and the real plugin view renders beside it.
+vi.mock('@object-ui/plugin-view', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@object-ui/plugin-view')>();
+  const Real = actual.ObjectView as React.ComponentType<any>;
+  return {
+    ...actual,
+    ObjectView: (props: any) => (
+      <>
+        <button type="button" data-testid="open-view-settings" onClick={() => props.onViewAction?.('settings', 'grid')}>
+          settings
+        </button>
+        <Real {...props} />
+      </>
+    ),
+  };
+});
+
 import { ObjectView } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
@@ -104,6 +157,8 @@ const OBJECT_NAME = 'duly_task';
 
 /** The column identities the grid was last handed. */
 let drawn: string[] | undefined;
+/** The `wrapHeaders` the grid was last handed: the panel's unrelated edit. */
+let drawnWrapHeaders: unknown;
 
 // `ListView` draws its rows through `object-grid`. The stub records what it is
 // handed and nothing else, so what the grid would derive on its own stays out
@@ -111,8 +166,9 @@ let drawn: string[] | undefined;
 let prevObjectGrid: unknown;
 beforeAll(() => {
   prevObjectGrid = ComponentRegistry.get('object-grid');
-  ComponentRegistry.register('object-grid', ((props: { schema?: { columns?: unknown } }) => {
+  ComponentRegistry.register('object-grid', ((props: { schema?: { columns?: unknown; wrapHeaders?: unknown } }) => {
     const cols = props.schema?.columns;
+    drawnWrapHeaders = props.schema?.wrapHeaders;
     drawn = Array.isArray(cols)
       ? cols.map((c: any) => (typeof c === 'string' ? c : (c?.field ?? c?.name)))
       : undefined;
@@ -191,6 +247,40 @@ const hiddenFieldsWrites = (dataSource: any) =>
 
 /** Longer than `persistViewPatch`'s 300ms debounce, with room to spare. */
 const PAST_DEBOUNCE_MS = 900;
+
+/** Open the view config panel on the active view, as the host's `settings` action does. */
+async function openPanel(): Promise<void> {
+  fireEvent.click(screen.getByTestId('open-view-settings'));
+  await screen.findByTestId('inspector-edit-unrelated');
+}
+
+/** Edit a field that is not `columns`, and wait until the edit reaches the grid. */
+async function editUnrelatedField(): Promise<void> {
+  fireEvent.click(screen.getByTestId('inspector-edit-unrelated'));
+  await waitFor(() => expect(drawnWrapHeaders).toBe(true));
+}
+
+/** Discard the panel, and wait until the revert reaches the grid. */
+async function discardPanel(): Promise<void> {
+  fireEvent.click(screen.getByTestId('view-config-discard'));
+  await waitFor(() => expect(drawnWrapHeaders).toBeUndefined());
+}
+
+/** The unprojected view the panel cases edit: both keys, and the hide toggle on. */
+const UNPROJECTED_WITH_TOGGLE = {
+  [PROBE_ID]: {
+    name: PROBE_ID, label: 'Probe', type: 'grid',
+    columns: [], ...KEYS, userActions: { hideFields: true },
+  },
+};
+
+/** The toggle on an unprojected system view hides in-session and writes nothing. */
+async function expectSessionOnlyToggle(dataSource: any, own: string[] | undefined): Promise<void> {
+  await hideThroughToggle('region');
+  await waitFor(() => expect(drawn).toEqual(own!.filter((c) => c !== 'region')));
+  await new Promise((resolve) => setTimeout(resolve, PAST_DEBOUNCE_MS));
+  expect(hiddenFieldsWrites(dataSource)).toEqual([]);
+}
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -302,5 +392,41 @@ describe('an unprojected view applies neither hiddenFields nor fieldOrder on the
     const reloaded = makeDataSource({ listViews: vi.fn(async () => [body]) });
     await mountRoute(systemViews, savedId, reloaded);
     await waitFor(() => expect(drawn).toEqual(body.columns.filter((c: string) => c !== 'region')), { timeout: 5000 });
+  });
+
+  it('THE FIX: after a panel edit of an unrelated field, the view stays unprojected and its toggle session-only', async () => {
+    const own = await drawView({ columns: [] });
+    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
+    expect(drawn).toEqual(own);
+
+    await openPanel();
+    await editUnrelatedField();
+    // The panel's draft now carries the drawn defaults as `columns`.
+    expect(drawn).toEqual(own);
+
+    await expectSessionOnlyToggle(dataSource, own);
+  });
+
+  it('THE FIX: after a panel edit and Discard, the view stays unprojected and its toggle session-only', async () => {
+    const own = await drawView({ columns: [] });
+    const dataSource = makeDataSource({ updateViewConfig: vi.fn(async () => ({})) });
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, dataSource);
+
+    await openPanel();
+    await editUnrelatedField();
+    await discardPanel();
+    // Discard replays the opening fields, drawn `columns` included.
+    expect(drawn).toEqual(own);
+
+    await expectSessionOnlyToggle(dataSource, own);
+  });
+
+  it('CONTROL: `columns` the admin changed in the panel answer for themselves, and the keys apply', async () => {
+    await mountRoute(UNPROJECTED_WITH_TOGGLE, PROBE_ID, makeDataSource());
+    await openPanel();
+    fireEvent.click(screen.getByTestId('inspector-edit-columns'));
+    // [name, stage, owner] projected; `stage` hidden; `owner` sorted first.
+    await waitFor(() => expect(drawn).toEqual(['owner', 'name']));
   });
 });

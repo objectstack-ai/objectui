@@ -1973,14 +1973,23 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         ? { ...baseView, ...viewDraft }
         : baseView;
     // objectui#10694 — does the active view, as AUTHORED, declare a non-empty
-    // `columns`? A draft that carries `columns` answers for itself; otherwise
-    // the tab does, unless the views memo filled its columns with defaults.
-    // A boolean, so the relay keys on a value and not on the memo's Set
-    // (AGENTS.md #10).
-    const activeViewDeclaresColumns = viewDraft && viewDraft.id === baseView?.id && 'columns' in viewDraft
-        ? Array.isArray(viewDraft.columns) && viewDraft.columns.length > 0
-        : !!baseView && !derivedColumnViewIds.has(baseView.id)
-            && Array.isArray(baseView.columns) && baseView.columns.length > 0;
+    // `columns`? Booleans, so the relay keys on values and not on the memo's
+    // Set (AGENTS.md #10).
+    //
+    // The TAB answers from its stored body: its own non-empty `columns`, never
+    // the defaults the views memo drew into it.
+    const activeTabDeclaresColumns = !!baseView && !derivedColumnViewIds.has(baseView.id)
+        && Array.isArray(baseView.columns) && baseView.columns.length > 0;
+    // A config-panel DRAFT answers only with `columns` the admin changed. The
+    // panel seeds its draft from `activeView` and relays every field on every
+    // edit (and again on Discard), so an untouched draft carries the tab's
+    // columns verbatim — on an unprojected tab, the memo's drawn defaults.
+    // Compared by content, never by identity (AGENTS.md #10).
+    const draftColumnsEdited = !!viewDraft && viewDraft.id === baseView?.id && 'columns' in viewDraft
+        && !isSameOptionsValue(viewDraft.columns, baseView?.columns);
+    const activeViewDeclaresColumns = draftColumnsEdited
+        ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
+        : activeTabDeclaresColumns;
 
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {

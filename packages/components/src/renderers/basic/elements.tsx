@@ -40,6 +40,7 @@ import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { Button, Separator } from '../../ui';
 import { readProps } from './readProps';
+import { readActionEntryParamValues } from '../action/static-params';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -233,7 +234,9 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     setRunning(true);
     try {
       // Mirror action:button's param routing: an array of {name,type,…} defs is
-      // forwarded for in-dialog collection; a plain object is passed as values.
+      // forwarded for in-dialog collection. A plain object is passed as values
+      // only for `type: 'api'` (the objectstack#5777 payload window); on any
+      // other type it is not forwarded (objectui#10462, ruling A on #10289).
       //
       // Annotated `ActionDef`, not bare: a spread SOURCE's own keys are not
       // excess-property checked THROUGH the spread (objectui#4281 probe Q —
@@ -242,7 +245,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       // does not cover these two branches; this annotation is what does.
       const paramsPayload: ActionDef = Array.isArray(action.params)
         ? { actionParams: action.params }
-        : { params: action.params };
+        : { params: readActionEntryParamValues(action, action.actionType || action.type, 'element:button') };
       // ── Why there is no `as any` here (objectui#4321) ────────────────────
       //
       // This literal used to close with `as any`. An assertion asks only for

@@ -18,6 +18,7 @@
 
 import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
 import { actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
@@ -34,6 +35,7 @@ import { cn } from '../../lib/utils';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
+import { readActionEntryParamValues } from './static-params';
 
 export interface ActionGroupSchema {
   type: 'action:group';
@@ -255,6 +257,13 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           await action.onClick();
           return;
         }
+        // `params` is the `ActionParam[]` input list (ruling A on objectui#10289):
+        // an array is forwarded as `actionParams`, as `action:button` does. An
+        // object is forwarded as values only for `type: 'api'`, the objectstack#5777
+        // payload window; any other type drops it (objectui#10462).
+        const paramsPayload: ActionDef = Array.isArray(action.params)
+          ? { actionParams: action.params as any }
+          : { params: readActionEntryParamValues(action, action.type, 'action:group') };
         await execute({
           type: action.type,
           name: action.name,
@@ -267,7 +276,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           openIn: (action as any).openIn,
           endpoint: action.endpoint,
           method: action.method,
-          params: action.params as Record<string, any> | undefined,
+          ...paramsPayload,
           // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
           bodyExtra: action.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).

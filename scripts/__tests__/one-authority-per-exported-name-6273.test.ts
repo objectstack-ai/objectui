@@ -394,7 +394,9 @@ const KNOWN_COLLISIONS: ReadonlyMap<string, readonly string[]> = new Map([
   // a derived declaration is still an authority. That contrast is why #6298
   // took the re-export route rather than the derive route.
   ['ComponentMeta', ['packages/core/src/registry/Registry.ts', 'packages/types/src/base.ts']],
-  ['ConditionalFormattingRule', ['packages/plugin-kanban/src/KanbanEnhanced.tsx', 'packages/plugin-kanban/src/KanbanImpl.tsx', 'packages/types/src/objectql.ts']],
+  // `ConditionalFormattingRule` had a THIRD site, `packages/plugin-kanban/src/KanbanEnhanced.tsx`,
+  // which left the tree when objectui#8932 deleted that module; the two below still collide.
+  ['ConditionalFormattingRule', ['packages/plugin-kanban/src/KanbanImpl.tsx', 'packages/types/src/objectql.ts']],
   ['ConfirmDialogState', ['packages/app-shell/src/views/ActionConfirmDialog.tsx', 'packages/plugin-designer/src/hooks/useConfirmDialog.ts']],
   ['ConnectionState', ['packages/collaboration/src/useRealtimeSubscription.ts', 'packages/data-objectstack/src/index.ts']],
   ['DataSource', ['packages/app-shell/src/types.ts', 'packages/types/src/data.ts']],

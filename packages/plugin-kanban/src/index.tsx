@@ -278,22 +278,17 @@ export interface KanbanRendererProps {
    * `resolveConditionalFormatting` verbatim. Nothing declared it on any schema
    * face, so nothing judged it either.
    *
-   * ⚠️ THE MOVE CLOSES THE `kanban` ARM, NOT THE KEY — measured through the
-   * real `SchemaRenderer`, so do NOT read this prop as proof that only
-   * `ObjectKanban` can write it. `ObjectKanbanRenderer` serves `type: 'kanban'`
-   * and discards its rest-spread (`void _props;`), so an authored `objectFields`
-   * on a `'kanban'` node reaches nothing — that arm is genuinely closed. But
-   * `objectFields` is NOT on `SchemaRenderer`'s stripped-metadata list (the
-   * destructure that feeds its `...componentProps` rest), so on the `kanban-ui`
-   * registration below — which THIS component serves — an authored
-   * `objectFields` survives the generic prop spread and lands right here, and
-   * still reaches `resolveConditionalFormatting` exactly as it did before.
-   * Stripping the key at that entry is a separate change, not made here.
-   *
-   * `ObjectKanban` supplies nothing on the schema-only `kanban-ui` entry — it
-   * has no object schema to offer — so unless an author wrote the key and it
-   * arrived by the spread above, conditional formatting there reads the card
-   * payload as before.
+   * ⚠️ THE MOVE CLOSED THE `kanban` ARM; THE KEY IS CLOSED AT THE RENDERER
+   * BOUNDARY. `ObjectKanbanRenderer` forwards its rest-spread to
+   * `ObjectKanban`, which discards it (`void _props;`), so an authored
+   * `objectFields` on a node it serves reaches nothing. The KEY is
+   * closed one layer up: since objectui#8818, `objectFields` is on
+   * `SchemaRenderer`'s stripped-metadata list (the destructure that feeds its
+   * `...componentProps` rest), and the legacy `props` alias bag drops it too,
+   * so an authored value reaches no component prop on any type key. The
+   * schema-only `kanban-ui` registration that once served THIS component is
+   * retired (objectui#8257), so no registry key resolves here at all:
+   * `ObjectKanban` is the one caller, and it passes this prop.
    *
    * ⚠️ `countsAreWindowed` above is the SAME shape and the same argument, and
    * the batch #70 ruling did not name it — it stays on the schema bag, recorded
@@ -396,21 +391,21 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFi
  * its Zod mirror). There is no arm to convert into a named refusal.
  * ⇒ Registration-only retirement.
  *
- * ## ⭐ What this closes as a side effect — objectui#8818
+ * ## ⭐ What this closed as a side effect — objectui#8818
  *
  * `SchemaRenderer` strips a fixed, enumerated metadata list and spreads the
- * REST as React props. `objectFields` is not on that list, and `KanbanRenderer`
- * — registered here for `kanban-ui` — declares `objectFields` as a real prop
- * (objectui#7742). So an AUTHORED `objectFields` reached the predicate layer
- * verbatim on this entry, with no schema face declaring or judging it.
- * Retiring this registration closes that path: nothing resolves `kanban-ui` any
- * more, so no authored node reaches `KanbanRenderer` through the registry.
+ * REST as React props. When this registration was retired `objectFields` was
+ * not on that list, and `KanbanRenderer` — then registered here for
+ * `kanban-ui` — declares `objectFields` as a real prop (objectui#7742). So an
+ * AUTHORED `objectFields` reached the predicate layer verbatim on this entry,
+ * with no schema face declaring or judging it. Retiring this registration
+ * closed that ENTRY: nothing resolves `kanban-ui` any more, so no authored node
+ * reaches `KanbanRenderer` through the registry.
  *
- * ⚠️ This closes the ENTRY, ⛔ not the CLASS. `SchemaRenderer` still spreads
- * every unstripped key; if another renderer ever declares an `objectFields`
- * prop the hole returns. objectui#8818's option (a) — stripping at the
- * `SchemaRenderer` boundary — is the one that would close the class, and it is
- * still open.
+ * The CLASS is closed as well, at the boundary: since objectui#8818
+ * `objectFields` is on `SchemaRenderer`'s stripped-metadata list, and the
+ * legacy `props` alias bag drops it too, so an authored value reaches no
+ * component prop on any type key, whichever renderer declares the prop next.
  *
  * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
  */
@@ -452,20 +447,25 @@ export const kanbanComponents = {
  * the same firing control (`object-grid`, 2 JSON / 128 TS) and silent control
  * (`zzz-not-a-type`, 0) the `kanban-ui` note above cites.
  *
- * `KanbanEnhanced.tsx` itself is untouched on disk. ⛔ It is NOT, and never
- * was, reachable from outside this package: `package.json` `exports` publishes
- * exactly two entries — `.` and `./style.css` — and this barrel does not
- * re-export the component, so `@object-ui/plugin-kanban/KanbanEnhanced` has
- * never been a resolvable specifier for a consumer. (An earlier revision of
- * this note claimed it was; that claim was wrong and is corrected here rather
- * than deleted, because it is what a reader would otherwise copy.) What this
- * card removes is the registry key and the `React.lazy` wrapper that existed
- * only to serve it; what it leaves behind is a module with zero non-test
- * importers — `cardPredicateScope.test.tsx` reaches it by relative path.
- * ⛔ Deleting the file is a FURTHER narrowing of published source and needs its
- * own maintainer ruling, which this card does not carry, so it stays.
+ * `KanbanEnhanced` was NOT, and never had been, reachable from outside this
+ * package: `package.json` `exports` publishes exactly two entries — `.` and
+ * `./style.css` — and this barrel never re-exported the component, so
+ * `@object-ui/plugin-kanban/KanbanEnhanced` was never a resolvable specifier
+ * for a consumer. (An earlier revision of this note claimed it was; that claim
+ * was wrong and is corrected here rather than deleted, because it is what a
+ * reader would otherwise copy.) What this card removed is the registry key and
+ * the `React.lazy` wrapper that existed only to serve it. It left the module
+ * itself on disk, with zero non-test importers, because deleting published
+ * source is a further narrowing that needed its own maintainer ruling.
  *
- * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
+ * ⚠️ That ruling came: objectui#8932 (2026-09-11, ratified 2026-09-24) deleted
+ * `KanbanEnhanced.tsx`, the two test references it had left, and with them the
+ * `dist/KanbanEnhanced.d.ts` typings the package still emitted for it. (Through
+ * 17.6.0 the component itself was also bundled into `dist/index.js`, behind the
+ * `kanban-enhanced` key; it left the bundle with this card's retirement.)
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
+ * (the key) and `src/__tests__/kanbanEnhancedRetired-8932.test.ts` (the file).
  */
 
 /**

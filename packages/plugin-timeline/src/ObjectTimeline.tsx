@@ -10,7 +10,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
-import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver } from '@object-ui/core';
+import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
@@ -573,12 +573,23 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         }
       }
 
+      // The title and the description are derived as display STRINGS, once,
+      // here (objectui#10530). The renderer puts both in JSX as children, and
+      // the raw field value is not text whenever `titleField` or
+      // `descriptionField` names a lookup: the object fetch above expands
+      // every declared relation, so the row carries `{ id, name }`, and React
+      // throws `Objects are not valid as a React child` for the whole rail.
+      //
+      // `recordDisplayValueAt` is the resolver `ObjectMap` uses for the same
+      // two slots (objectui#10456), so one rule answers both: an expanded
+      // lookup reads as its display name, a bare id as itself, a number or a
+      // boolean as its string, and an empty value as no line at all.
       return {
-        title: item[titleField],
+        title: recordDisplayValueAt(item, titleField),
         time: startRaw,
         startDate: startRaw,
         endDate: endRaw,
-        description: item[descField],
+        description: recordDisplayValueAt(item, descField),
         variant: item[variantField] || 'default',
         color: resolveColor(colorRaw),
         group: groupRaw,

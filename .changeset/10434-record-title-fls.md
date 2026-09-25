@@ -23,11 +23,12 @@ renders what it renders when that field is empty.
 makes that choice from the same row. With the block's own header
 (`showHeader: true`), the heading and that choice therefore read the same
 record, and a denied title field no longer leaves the fallen-through title's
-row printed directly under the heading. ⚠️ Under a
-`page:header`, which still builds its heading from the record as served, the
-body now matches what a stripping backend renders. The heading can still
-print the denied value there, and the row hidden is then the one a stripping
-backend's heading would show.
+row printed directly under the heading. On the record page, `page:header`
+now builds its heading from the same gated row (objectui#10499). ⚠️ Under a
+`page:header` whose host hands it the record as served, the body now matches
+what a stripping backend renders. The heading can still print the denied value
+there, and the row hidden is then the one a stripping backend's heading would
+show.
 
 Before a permission policy loads, and with no permission provider mounted,
 nothing is removed and every title is unchanged.

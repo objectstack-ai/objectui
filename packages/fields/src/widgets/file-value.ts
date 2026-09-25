@@ -35,7 +35,12 @@ import { isFileIdToken } from '@objectstack/spec/data';
 export interface FileValueView {
   /** `sys_file` id, when the value carries one. */
   id?: string;
-  /** Best available display name. Never empty. */
+  /**
+   * Best available display name: the value's own, else the caller's
+   * `fallbackName`. Empty only when the caller passed an empty fallback to ask
+   * for "no name" (the image cell does, so a nameless image reaches its
+   * translated alt — objectui#10493).
+   */
   name: string;
   /** Resolvable URL, when the value carries one. A bare reference does not. */
   url?: string;
@@ -102,8 +107,19 @@ export function fileUrlFromId(id: string): string {
   return `${FILE_STORAGE_BASE_PATH}/files/${encodeURIComponent(id)}`;
 }
 
-/** Last path segment of a URL, used as a display name of last resort. */
-function nameFromUrl(url: string): string {
+/**
+ * Last path segment of a URL, used as a display name of last resort, or
+ * `undefined` when the URL carries no file name at all.
+ *
+ * A `data:` URI has no path: its "last segment" is the MIME tail plus the
+ * payload (`png;base64,…`, or a payload fragment when the base64 holds a `/`),
+ * which named an image cell's `<img>` with kilobytes of base64 — every
+ * signature is one (objectui#10493). It names nothing, so the caller's
+ * fallback applies. The scheme is matched case-insensitively, as URL schemes
+ * are.
+ */
+function nameFromUrl(url: string): string | undefined {
+  if (/^data:/i.test(url)) return undefined;
   const path = url.split(/[?#]/)[0] ?? url;
   const seg = path.split('/').filter(Boolean).pop();
   return seg ? decodeURIComponent(seg) : url;
@@ -125,7 +141,7 @@ export function readFileValue(value: unknown, fallbackName = 'File'): FileValueV
     // of a broken `<img src="">`.
     if (isFileIdToken(value)) return { id: value, name: fallbackName, url: fileUrlFromId(value), raw: value };
     // Otherwise it is a URL (legacy external link, data:, blob:).
-    return { url: value, name: nameFromUrl(value), raw: value };
+    return { url: value, name: nameFromUrl(value) ?? fallbackName, raw: value };
   }
 
   if (typeof value === 'object') {

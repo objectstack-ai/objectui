@@ -19,6 +19,7 @@ import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark } from 'luc
 import { useObjectTranslation } from '@object-ui/react';
 import { SchemaRendererContext as _SchemaRendererContext } from '@object-ui/react';
 import { useRelatedRecordActions } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
@@ -33,10 +34,14 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
-// only trigger one network call. Keyed by `${objectName}:${id}`.
+// only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
+// fetched RECORD and the referenced object's schema, not a resolved name: the
+// name is a display value, resolved per render from the row the viewer may
+// read (objectui#10501), so it follows the permission policy of the render
+// that shows it rather than the one in force when the record arrived.
 type LookupCacheEntry =
   | { state: 'pending'; promise: Promise<void> }
-  | { state: 'ok'; name: string | undefined }
+  | { state: 'ok'; record: Record<string, unknown> | null | undefined; schema: unknown }
   | { state: 'err' };
 const lookupNameCache: Map<string, LookupCacheEntry> = new Map();
 
@@ -169,23 +174,62 @@ function useRefObjectSchema(referenceTo: string | undefined): any {
  * which excludes autonumber). Only when no schema is available does it fall
  * back to {@link pickRecordDisplayName}, whose `_number`/`_code` suffix scan
  * can otherwise surface an autonumber (`0001`) over the record's real name.
+ *
+ * The name is a DISPLAY value, so every rung above reads the row as the viewer
+ * may read it on the referenced object `referenceTo` (objectui#10501): with a
+ * loaded `policy`, the fields it denies are removed first (see
+ * {@link withoutDeniedFields}), and the ladder falls through exactly as it does
+ * for the row a stripping backend serves. `policy` is required, so no caller
+ * can resolve a name from the row as served by leaving it out.
  */
 function resolveLookupRecordName(
   record: Record<string, unknown> | null | undefined,
-  refSchema?: any,
-  displayField?: string,
+  refSchema: any,
+  displayField: string | undefined,
+  policy: FieldReadPolicy,
+  referenceTo: string | undefined,
 ): string | undefined {
   if (!record || typeof record !== 'object') return undefined;
+  const shown = withoutDeniedFields(record, policy, referenceTo);
   if (refSchema) {
-    const resolved = getRecordDisplayName(refSchema, record, { titleField: displayField });
+    const resolved = getRecordDisplayName(refSchema, shown, { titleField: displayField });
     // Stop short of the resolver's `Record #<id>` / `Untitled` floor so the
     // cell keeps its own id-placeholder handling for nameless records.
-    const id = (record as any).id ?? (record as any)._id;
+    const id = (shown as any).id ?? (shown as any)._id;
     const isFloor =
       resolved === 'Untitled' || (id != null && resolved === `Record #${id}`);
     if (!isFloor && resolved) return resolved;
   }
-  return pickRecordDisplayName(record, displayField);
+  return pickRecordDisplayName(shown, displayField);
+}
+
+/** The two members of the permission context the lookup cell's read gate asks. */
+type FieldReadPolicy = Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>;
+
+/**
+ * `record` as the viewer may READ it on `objectName`, for naming a referenced
+ * record in the lookup cell (objectui#10501). Every field the loaded `policy`
+ * denies is removed, which leaves the row ObjectStack's `FieldMasker` already
+ * serves. `id` and `_id` are never judged: the id addresses the record and is
+ * not a field value the policy withholds. Before a policy loads (also the
+ * answer with no provider mounted), with no object to judge against, or with
+ * nothing withheld, the SAME object comes back.
+ *
+ * The lookup editor's option label and the record picker (objectui#10411) and
+ * the record title (objectui#10434) apply the same rule, and no copy of it is
+ * a package export. This one is module-private too: `LookupField`'s copy is
+ * not in reach without widening that module's exports, and the package entry
+ * re-exports that module whole.
+ */
+function withoutDeniedFields<T>(record: T, policy: FieldReadPolicy, objectName: string | undefined): T {
+  if (!policy.isLoaded || !objectName || !record || typeof record !== 'object') return record;
+  const shown: Record<string, unknown> = {};
+  let withheld = false;
+  for (const [key, value] of Object.entries(record)) {
+    if (key === 'id' || key === '_id' || policy.checkField(objectName, key, 'read')) shown[key] = value;
+    else withheld = true;
+  }
+  return withheld ? (shown as T) : record;
 }
 
 /**
@@ -220,11 +264,20 @@ export function isLikelyOpaqueId(v: unknown): boolean {
  * server. Reads `dataSource` from SchemaRendererContext; safely no-ops if
  * the context isn't installed. Returns the resolved display name or
  * `undefined` while pending or unresolvable.
+ *
+ * The effect only FETCHES: the record and the referenced object's schema are
+ * cached, and the name is resolved from them on every render with the
+ * caller's `policy` (objectui#10501). A policy that loads or changes after the
+ * record arrived therefore relabels the cell on the render it causes, with no
+ * second read — a name resolved inside the effect would be fixed by the policy
+ * of the render that STARTED the fetch, and re-running the effect could not
+ * move it, because a settled entry returns early below.
  */
 function useLookupName(
   referenceTo: string | undefined,
   value: unknown,
-  displayField?: string,
+  displayField: string | undefined,
+  policy: FieldReadPolicy,
 ): string | undefined {
   const ctx = React.useContext(_SchemaRendererContext);
   const dataSource = ctx?.dataSource;
@@ -236,9 +289,10 @@ function useLookupName(
     typeof dataSource.find === 'function' &&
     (typeof value === 'string' || typeof value === 'number') &&
     value !== '';
-  // The preferred display field is part of the cache identity: two columns
-  // targeting the same record with different `displayField`s must not
-  // serve each other's cached name (#2926 ⑧).
+  // The preferred display field is part of the cache identity (#2926 ⑧). The
+  // entry now holds the record, not a name, so two columns with different
+  // `displayField`s could share one; the key is left as it was so that this
+  // change does not alter how many reads a screen makes.
   const cacheKey = isResolvable
     ? `${referenceTo}:${String(value)}:${displayField ?? ''}`
     : '';
@@ -280,8 +334,7 @@ function useLookupName(
         // titleFormat) so the chip agrees with the picker — the bare key
         // heuristic alone can surface an autonumber over the real name.
         const schema = await fetchRefObjectSchema(dataSource, referenceTo!);
-        const name = resolveLookupRecordName(record, schema, displayField);
-        lookupNameCache.set(cacheKey, { state: 'ok', name });
+        lookupNameCache.set(cacheKey, { state: 'ok', record, schema });
       } catch {
         lookupNameCache.set(cacheKey, { state: 'err' });
       }
@@ -289,11 +342,13 @@ function useLookupName(
     })();
 
     lookupNameCache.set(cacheKey, { state: 'pending', promise });
-  }, [cacheKey, isResolvable, referenceTo, value, displayField, dataSource]);
+  }, [cacheKey, isResolvable, referenceTo, value, dataSource]);
 
   if (!isResolvable) return undefined;
   const entry = lookupNameCache.get(cacheKey);
-  return entry?.state === 'ok' ? entry.name : undefined;
+  return entry?.state === 'ok'
+    ? resolveLookupRecordName(entry.record, entry.schema, displayField, policy, referenceTo)
+    : undefined;
 }
 
 /**
@@ -2195,11 +2250,17 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
  * never disagree about what "drawable" means: were the signature cell to route
  * a value here that this list then drops, it would draw "No value" again —
  * the defect objectui#8677 removed, returning by drift.
+ *
+ * An image whose value carries no name of its own (a `data:` URI, a bare id)
+ * comes back NAMELESS, so the cell's alt and its lightbox fall through to the
+ * translated `fields.image.imageAlt` (objectui#10493). The literal `'Image'`
+ * this passed as the fallback name used to fill that gap, which named every
+ * such image `Image` on every locale and left the translated alt unreachable.
  */
-function displayableImagesOf(value: unknown): Array<{ url: string; name: string }> {
-  return readFileValues(value, 'Image')
+function displayableImagesOf(value: unknown): Array<{ url: string; name?: string }> {
+  return readFileValues(value, '')
     .filter((v) => v.url)
-    .map((v) => ({ url: v.url as string, name: v.name }));
+    .map((v) => ({ url: v.url as string, name: v.name || undefined }));
 }
 
 /**
@@ -2434,7 +2495,9 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * Record → name resolution (1 and 3) goes through the referenced object's
  * schema when the data source exposes it (`displayField` → nameField/titleFormat
  * → derivation, see {@link resolveLookupRecordName}), so the chip and the
- * picker agree (issue #2357).
+ * picker agree (issue #2357) — and, like the picker's option label, it reads
+ * only the fields the viewer may read on the referenced object
+ * (objectui#10501).
  */
 export function LookupCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   // ObjectStack object metadata uses `reference` for the lookup target while the
@@ -2458,6 +2521,12 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   // resolve through the same unified resolver as the picker (issue #2357).
   const refSchema = useRefObjectSchema(referenceTo);
 
+  // The permission policy the referenced record is named under: every name
+  // below is resolved from the row with the fields it denies on
+  // `referenceTo` removed (objectui#10501). A policy that loads or changes
+  // re-renders this cell through the context, and the names follow it.
+  const perms = usePermissions();
+
   // Pick the FIRST primitive id we see (for arrays, only the first one is auto-resolved
   // to keep the cell cheap; multi-value lookups should generally be expanded server-side).
   const primaryPrimitiveId = (() => {
@@ -2479,7 +2548,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   })();
 
   // Always call the hook (rules of hooks). It safely no-ops when inputs are missing.
-  const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField);
+  const resolvedName = useLookupName(referenceTo, primaryPrimitiveId, displayField, perms);
 
   // THE FLOOR by name and nothing more (objectui#8496). Same childless-container
   // defect as `SelectCellRenderer` above: the array branch further down opens a
@@ -2500,7 +2569,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
         const parsed = JSON.parse(s) as Record<string, unknown>;
         if (parsed && typeof parsed === 'object') {
           parsedDisplay =
-            resolveLookupRecordName(parsed, refSchema, displayField) ||
+            resolveLookupRecordName(parsed, refSchema, displayField, perms, referenceTo) ||
             String(parsed.externalId ?? parsed.id ?? parsed._id ?? '');
           // An external-id reference has no record id yet — stays unlinked.
           parsedId = referencedRecordId(parsed);
@@ -2521,7 +2590,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
   if (!Array.isArray(value) && typeof value === 'object') {
     const obj = value as Record<string, unknown>;
     const display =
-      resolveLookupRecordName(obj, refSchema, displayField) || String(obj.id || obj._id || '');
+      resolveLookupRecordName(obj, refSchema, displayField, perms, referenceTo) || String(obj.id || obj._id || '');
     if (display) {
       return (
         <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(obj)}>
@@ -2577,7 +2646,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
       if (item != null && typeof item === 'object') {
         return {
           label:
-            resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField) ||
+            resolveLookupRecordName(item as Record<string, unknown>, refSchema, displayField, perms, referenceTo) ||
             String((item as any).id || (item as any)._id || '[Object]'),
           unresolved: false,
         };
@@ -2640,7 +2709,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 
   if (typeof value === 'object' && value !== null) {
     const label =
-      resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField) ||
+      resolveLookupRecordName(value as Record<string, unknown>, refSchema, displayField, perms, referenceTo) ||
       String((value as any).id || (value as any)._id || '[Object]');
     return (
       <ReferencedRecordLink objectName={referenceTo} recordId={referencedRecordId(value)}>
@@ -3277,6 +3346,70 @@ function MaskedCellRenderer({ value }: CellRendererProps): React.ReactElement {
 }
 
 /**
+ * The field types this package DECLARES masked: their standard cell is
+ * {@link MaskedCellRenderer}, which draws `••••••` in place of the value
+ * (objectui#8686). The read-side twin of the credential entry in
+ * `INLINE_EXCLUDED_FIELD_TYPES`, which lives in `FieldEditWidget`.
+ *
+ * ⭐ This set BUILDS the table's masked entries — `buildStandardCellRendererMap`
+ * spreads one {@link MaskedCellRenderer} entry per member — so adding a type
+ * here masks its cell AND makes {@link isMaskedFieldType} answer `true` for it,
+ * in one edit. There is no second list to keep in step.
+ *
+ * ⚠️ Membership answers "what ships masked", ⛔ not "what is masked right now":
+ * `registerFieldRenderer` can add or replace a masked type at runtime, and a
+ * set cannot see that. Consumers deciding what to do with a cell's value ask
+ * {@link isMaskedFieldType}.
+ *
+ * RAW spellings, deliberately: the cell path does not resolve form aliases
+ * (`getCellRenderer` is an exact-key lookup), so `field:password` renders in
+ * the clear and is not a member.
+ *
+ * Owned here for now. The objectui#8686 ruling made the protocol the first
+ * place to look: if `@objectstack/spec` comes to declare which field types are
+ * credentials, this set derives from that declaration instead of listing types.
+ */
+export const MASKED_FIELD_TYPES: ReadonlySet<string> = new Set<string>(['password', 'secret']);
+
+/**
+ * Is a cell of this field type drawn as a mask instead of as its value? The
+ * one authority for that question (objectui#8686): ask it rather than keep a
+ * list of types. The read-side twin of `isInlineExcludedFieldType()`.
+ *
+ * A LIVE reading of the cell registry, taken at call time, in the order
+ * {@link getCellRenderer} resolves: the runtime registry first, then the
+ * standard table.
+ *
+ *  1. The type resolves to THE mask ({@link MaskedCellRenderer}) → `true`,
+ *     declared or not. That is how a host adds a masked type:
+ *     `registerFieldRenderer('api_token', getCellRenderer('password'))`.
+ *  2. Otherwise, a type outside {@link MASKED_FIELD_TYPES} → `false`.
+ *  3. A declared type whose mask a host REPLACED at runtime
+ *     (`registerFieldRenderer('password', X)`) → the override is read:
+ *     - X is one of this package's own cell renderers → `false`. None of them
+ *       is the mask, so the predicate answers `false` and the cell draws what
+ *       X draws (for `TextCellRenderer`, the value).
+ *     - X is the host's own component → `true`, the declared answer. Nothing
+ *       here can tell whether an opaque component masks. Answering `false`
+ *       would offer a credential to anything that trusts this predicate
+ *       (the detail page's copy affordance, objectui#8440) while a custom mask
+ *       hides it on screen. So an unreadable override falls back to the
+ *       declared set, on the side that withholds.
+ *
+ * RAW spelling, no alias resolution, for the reason {@link MASKED_FIELD_TYPES}
+ * states. Side-effect free, like `isInlineExcludedFieldType()`: unlike
+ * {@link getCellRenderer}, it never reports a retired spelling.
+ */
+export function isMaskedFieldType(fieldType: string | undefined): boolean {
+  if (!fieldType) return false;
+  const standardMap = buildStandardCellRendererMap();
+  const live = fieldRegistry.has(fieldType) ? fieldRegistry.get(fieldType) : standardMap[fieldType];
+  if (live === MaskedCellRenderer) return true;
+  if (!MASKED_FIELD_TYPES.has(fieldType)) return false;
+  return !Object.values(standardMap).some((standard) => standard === live);
+}
+
+/**
  * `vector` / `grid` cell renderers: the placeholder literal for a value that is
  * stored, and the shared affordance for none (objectui#8678). Before this, both
  * were argument-less arrows that printed their literal for every input. Neither
@@ -3374,8 +3507,10 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,
     user: UserCellRenderer,
-    password: MaskedCellRenderer,
-    secret: MaskedCellRenderer,
+    // `password` / `secret` — spread from THE declared set, so the table that
+    // draws the mask and the set `isMaskedFieldType` falls back to are one
+    // fact (objectui#8686).
+    ...Object.fromEntries([...MASKED_FIELD_TYPES].map((type) => [type, MaskedCellRenderer])),
     location: LocationCellRenderer,
     geolocation: LocationCellRenderer,
     address: AddressCellRenderer,

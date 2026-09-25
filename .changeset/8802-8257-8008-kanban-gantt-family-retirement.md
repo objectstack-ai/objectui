@@ -52,6 +52,12 @@ hole returns the moment another registered renderer declares an `objectFields`
 prop. objectui#8818's option (a) — stripping at the `SchemaRenderer` boundary —
 is what would close the class.
 
+Superseded in this release by objectui#8818: option (a) landed, so the class
+is closed as well. `objectFields` is now on `SchemaRenderer`'s stripped-metadata
+list, and the legacy `props` alias bag drops it too, so an authored
+`objectFields` reaches no component prop on any type key. The paragraph above
+describes the tree this entry was written against.
+
 **⚠️ What the `kanban` arm took with it, stated because it is the cost of this
 change.** That arm was the only schema face that ever declared `columns`,
 `cardTitle`, `swimlaneField`, `grouping` and `navigation`, the only one that
@@ -138,10 +144,17 @@ is a different case, and the earlier draft of this note stated it wrongly: this
 package's `exports` map has exactly two entries — `.` and `./style.css` — and
 the barrel never re-exported the component, so
 `@object-ui/plugin-kanban/KanbanEnhanced` has never been a resolvable specifier
-for a consumer. With `kanban-enhanced` unregistered, `KanbanEnhanced.tsx` has
-zero non-test importers. ⛔ The file is deliberately left in place: deleting
-published-but-unreachable source is a further narrowing and needs its own
-maintainer ruling, which this change does not have.
+for a consumer. At this change, with `kanban-enhanced` unregistered,
+`KanbanEnhanced.tsx` had zero non-test importers, and the file was deliberately
+left in place: deleting published-but-unreachable source is a further narrowing
+and needed its own maintainer ruling, which this change did not have.
+
+⚠️ **Dated note, 2026-09-25 — that ruling came, and the file has since been
+deleted — objectui#8932.** Later in this same release
+`packages/plugin-kanban/src/KanbanEnhanced.tsx` was deleted, and with it the
+`dist/KanbanEnhanced.d.ts` typings this package shipped for it. The rest of this
+entry is kept as the reading of this change; the objectui#8932 entry states what
+ships.
 
 **⚠️ `@object-ui/sdui-parser`: `QUICK_ADD_HOST_TYPES` loses `kanban` with the
 registration.** The `inert-quick-add` diagnostic (objectui#8285) named the two

@@ -150,6 +150,15 @@ vi.mock('../pages/settings/SettingsHub', () => ({
   SettingsHub: () => <div data-testid="settings-hub-page">settings hub</div>,
 }));
 
+/**
+ * One of the retired Developer Hub's destinations (objectui#10520), stubbed
+ * for the same reason: it sits behind `React.lazy`, and its real body fetches
+ * the object list.
+ */
+vi.mock('../pages/developer/IntegrationsPage', () => ({
+  IntegrationsPage: () => <div data-testid="integrations-page">integrations</div>,
+}));
+
 /** Echoes `:objectName` — this is the probe the whole fix is measured against. */
 vi.mock('../../../../packages/app-shell/src/views/ObjectView', () => ({
   ObjectView: () => {
@@ -437,5 +446,52 @@ describe('the bare system landing forwards onto the settings hub (objectui#3743)
     expect(await screen.findByTestId('settings-hub-page')).toBeInTheDocument();
     expect(chain).toEqual(['/apps/setup', '/apps/setup/system', '/apps/setup/system/settings']);
     expect(screen.queryByTestId('create-first-app-btn')).not.toBeInTheDocument();
+  });
+});
+
+describe('the retired Developer Hub URL (objectui#10520)', () => {
+  /**
+   * `/apps/:app/developer` rendered `DeveloperHubPage`, a card wall of four
+   * links whose only in-app link was a card on the System Hub. objectui#10520
+   * retired it once all four destinations were `developer:*` registry keys, and
+   * deliberately added no redirect in its place: the URL was never blank
+   * without it. With the host's `developer` route gone, the segment falls
+   * through to app-shell's generic `:objectName` route, i.e. the URL now means
+   * what `/apps/:app/<name>` means everywhere else. The `ObjectView` probe
+   * above echoes the name it was handed; the real `ObjectView` answers a name
+   * that is not an object with its own "object not found" empty state.
+   *
+   * Put the `developer` route (and its page) back and this pin goes red: the
+   * hub renders, and the `ObjectView` probe never does.
+   */
+  it('with an active app, a /developer bookmark lands on the generic object route in place, never a blank screen', async () => {
+    renderConsoleAt('/apps/setup/developer');
+
+    expect(await screen.findByTestId('object-view')).toHaveTextContent('developer');
+    expect(chain).toEqual(['/apps/setup/developer']);
+    expect(screen.getByTestId('console-layout')).toHaveAttribute('data-active-app', 'setup');
+    expect(screen.queryByText('Page not found')).not.toBeInTheDocument();
+  });
+
+  it('MEASUREMENT: with zero apps, the bookmark reaches the no-apps empty state, as it did before the retirement', async () => {
+    // Not a consequence of this change: `isSystemRoute` keys on a `system`
+    // segment, so on a zero-app deployment `/developer` never reached the host
+    // fragment, and the hub route was unreachable there all along.
+    metadataApps = [];
+    renderConsoleAt('/apps/setup/developer');
+
+    expect(await screen.findByTestId('create-first-app-btn')).toBeInTheDocument();
+    expect(chain).toEqual(['/apps/setup/developer']);
+  });
+
+  it('the sub-page routes it linked to still resolve (bookmarks and deep links carry them)', async () => {
+    // One of the four, driven end to end: the rest share the same fragment and
+    // the same shape. It must NOT fall through to the object route the bare
+    // segment now reaches.
+    renderConsoleAt('/apps/setup/developer/integrations');
+
+    expect(await screen.findByTestId('integrations-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('object-view')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('record-detail-view')).not.toBeInTheDocument();
   });
 });

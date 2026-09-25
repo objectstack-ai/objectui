@@ -7,7 +7,7 @@ import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregat
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import type { DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
+import type { BaseSchema, DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
 
 /**
  * Humanize a snake_case or kebab-case string into Title Case.
@@ -1546,18 +1546,44 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
  * spec documents rendered an empty frame with no error and no request. Lives
  * here, beside the registration, rather than in `ChartContainerImpl` — the
  * binding is a registry-boundary concern, not a rendering one.
+ *
+ * ## Its props type — the node BEFORE the gate (objectui#8885)
+ *
+ * This shell used to be published as `(props: any)`. `schema` is now
+ * `BaseSchema`, the node `SchemaRenderer` hands every registered renderer, and
+ * ⛔ NOT `ObjectChartSchema`. The node arrives here before the gate has mapped
+ * its `dataSource` binding, and nothing has validated it as a chart. Typing it
+ * post-gate would claim a validation that has not happened, and that type's
+ * `type: 'object-chart'` literal is also false for the `chart` alias that
+ * `index.tsx` registers this same shell under.
+ *
+ * Every other prop is `ObjectChart`'s own, taken from `ObjectChartProps`, so
+ * the type is CLOSED: a misspelled prop name is an excess-property error, not
+ * an `any` passed straight through. Both halves are existing exported names;
+ * no new type is minted. Pinned by
+ * `__tests__/ObjectChartBlock.props-8885.test.tsx`.
  */
-export const ObjectChartBlock = elementDataSourceBlock((props: any) => (
-  <ElementDataSourceGate
-    schema={props.schema}
-    mapping={OBJECT_CHART_DATA_SOURCE}
-    dataSource={props.dataSource}
-    testId="object-chart"
-    errorTitle="This chart’s data source could not be resolved"
-  >
-    {(bound) => <ObjectChart {...props} schema={bound} />}
-  </ElementDataSourceGate>
-));
+export const ObjectChartBlock = elementDataSourceBlock(
+  (props: Omit<ObjectChartProps, 'schema'> & { schema: BaseSchema }) => (
+    <ElementDataSourceGate
+      schema={props.schema}
+      mapping={OBJECT_CHART_DATA_SOURCE}
+      dataSource={props.dataSource}
+      testId="object-chart"
+      errorTitle="This chart’s data source could not be resolved"
+    >
+      {(bound) => (
+        // The ONE loose member of this signature, kept on purpose. This is
+        // where the pre-gate node becomes the component's post-gate schema,
+        // and `ObjectChart` is where the post-gate claim belongs. The gate
+        // maps the binding and does not validate, so the claim has to be
+        // made here, at one line, instead of on the published signature
+        // above.
+        <ObjectChart {...props} schema={bound as ObjectChartSchema} />
+      )}
+    </ElementDataSourceGate>
+  ),
+);
 
 // Register it
 ComponentRegistry.register('object-chart', ObjectChartBlock, {

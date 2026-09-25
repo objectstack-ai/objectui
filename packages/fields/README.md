@@ -125,6 +125,34 @@ every type draws — reconcile their tables against this reading so a newly
 registered type fails them by name instead of slipping past a frozen
 population (objectui#8734).
 
+### Asking whether a cell is masked
+
+`isMaskedFieldType(type)` answers whether a cell of that field type is drawn
+as a mask (`••••••`) instead of its value. It is the read-side twin of
+`isInlineExcludedFieldType()`, and a consumer that acts on a cell's value asks
+it rather than keeping its own list. The detail page's copy affordance in
+`@object-ui/plugin-detail` is one such consumer: it refuses to copy a masked
+row (objectui#8686). `MASKED_FIELD_TYPES` is the declared set behind it,
+`password` and `secret`. The standard cell of each member draws the mask, and
+the predicate answers `true` for it. Like `listCellRendererTypes()`, the
+answer is a live reading of the cell registry taken when you call it, and,
+with nothing overridden at runtime, it agrees with what `getCellRenderer`
+resolves for every type that function lists. To add a masked type, register
+the package's own mask under it with
+`registerFieldRenderer('api_token', getCellRenderer('password'))`, while
+`password` still resolves to the shipped mask. The predicate then answers
+`true` with no change to the declared set, and the detail page refuses to copy
+that row. Overriding a declared type with one of this package's own renderers
+makes the predicate answer `false`, since none of them is the mask, and the
+cell draws what that renderer draws: after
+`registerFieldRenderer('password', TextCellRenderer)` the cell shows the value
+and the detail row copies again. Overriding a declared type with a component
+of your own keeps the declared answer, `true`, because the package cannot
+tell whether an opaque component hides the value, so it errs toward
+withholding it. Your own component under an undeclared type answers `false`.
+Spellings are matched raw, the way `getCellRenderer` looks them up:
+`field:password` renders in the clear and is not masked.
+
 ### File uploads in line-item grids
 
 `GridField` (the master-detail line-items grid) supports `type: 'file'` columns:

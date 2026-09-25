@@ -93,3 +93,46 @@ export function readStaticParamValues(
   }
   return values;
 }
+
+/**
+ * The same ruling on a spec ACTION ENTRY (objectui#10462): `element:button`'s
+ * inline `action`, `action:group` / `action:menu` items and `page:header`'s
+ * actions. An entry is not an SDUI node, so it has no `properties.params` bag;
+ * `params` is its `ActionParam[]` input list and nothing else.
+ *
+ * One type is still different: `api`. The objectstack#5777 window keeps the
+ * runner reading an object `params` as the request payload (with its own
+ * development warning, naming `bodyExtra`) until 18, so for `api` the object is
+ * returned unchanged. For every other type it is not returned, and a
+ * development build says so once per action.
+ *
+ * `type` is the executor the surface dispatches the entry as. Call this on the
+ * non-array branch only; an array `params` is the input list, forwarded as
+ * `actionParams`.
+ */
+export function readActionEntryParamValues(
+  entry: StaticParamsSubject,
+  type: unknown,
+  where: string,
+): Record<string, unknown> | undefined {
+  const params = entry.params;
+  if (params == null || Array.isArray(params)) return undefined;
+  // objectstack#5777: unchanged for `api` until the window closes at 18.
+  if (type === 'api') return params as Record<string, unknown>;
+  if (isConfigBag(params)) warnEntryObjectParams(entry, type, where);
+  return undefined;
+}
+
+function warnEntryObjectParams(entry: StaticParamsSubject, type: unknown, where: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+  const name = String(entry.name ?? entry.label ?? '(unnamed)');
+  const memo = `entry:${where}:${name}`;
+  if (warned.has(memo)) return;
+  warned.add(memo);
+  console.warn(
+    `[${where}] action "${name}" (type "${String(type)}") carries an OBJECT under \`params\`; ` +
+      'it is not forwarded. `params` is only the `ActionParam[]` list of inputs to collect ' +
+      'from the user. Only a `type: "api"` action still reads an object `params`, as its ' +
+      'request payload, until 18 (use `bodyExtra`). See objectui#10462.',
+  );
+}

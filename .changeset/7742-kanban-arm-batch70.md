@@ -78,3 +78,10 @@ generic prop spread and arrives on the very prop this change adds — an authore
 `objectFields` still reaches `resolveConditionalFormatting` there, as it did
 before, and no schema face declares or judges it. Closing that entry is a
 separate change and is not made here.
+
+Superseded in this release by objectui#8818: `objectFields` is now on
+`SchemaRenderer`'s stripped-metadata list, and the legacy `props` alias bag
+drops it too, so an authored `objectFields` reaches no component prop on any
+type key. The `'kanban-ui'` entry itself was also retired in this release
+(objectui#8257). The paragraph above describes the tree this entry was written
+against.

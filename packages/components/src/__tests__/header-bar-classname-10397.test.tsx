@@ -112,9 +112,18 @@ describe('ui:header-bar merges the authored className onto its root (objectui#10
     expect(classes).toContain(scopeClassFor('hb-10397'));
   });
 
-  it('control: without className the root is exactly what it was before the repair', () => {
+  it('control: without className the root class is exactly what it was before the repair, beside `data-obj-type` only', () => {
     const header = headerFor({});
     expect(header.getAttribute('class')).toBe(PRE_REPAIR_ROOT_CLASS);
-    expect(header.getAttributeNames()).toEqual(['class']);
+    // Was exactly `['class']` until objectui#10496 routed the root's props
+    // through `toDomProps`. `SchemaRenderer` hands every component
+    // `data-obj-type` unconditionally, and the whitelist forwards the open
+    // `data-*` family, so it is the one attribute that joins on an unauthored
+    // node. The other channels it now forwards (`id`, `data-obj-id`,
+    // `aria-label`, `data-testid`, `style`) arrive only when authored, and are
+    // pinned in `header-bar-root-dom-props-10496.test.tsx`. Sorted, because
+    // the order React sets attributes in is not the contract.
+    expect([...header.getAttributeNames()].sort()).toEqual(['class', 'data-obj-type']);
+    expect(header.getAttribute('data-obj-type')).toBe('header-bar');
   });
 });

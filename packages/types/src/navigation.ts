@@ -62,7 +62,7 @@ export interface HeaderBarSchema extends BaseSchema {
    * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
    * site the truth, and there is none: the renderer's one function reads
    * `actions`, `crumbs`, `rightContent`, `search` and the inherited
-   * `className` off `schema` and takes no spread props. Through the real `SchemaRenderer` an authored title drew the
+   * `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496). Through the real `SchemaRenderer` an authored title drew the
    * header byte-identical to its absence. For the current page name, use the
    * last entry of `crumbs`.
    *
@@ -86,7 +86,7 @@ export interface HeaderBarSchema extends BaseSchema {
    * Not in `@objectstack/spec`, so the objectui#7759 ruling makes the read
    * site the truth, and there is none: the renderer's one function reads
    * `actions`, `crumbs`, `rightContent`, `search` and the inherited
-   * `className` off `schema` and takes no spread props. Through the real `SchemaRenderer` an authored link list drew
+   * `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496). Through the real `SchemaRenderer` an authored link list drew
    * the header byte-identical to its absence. No in-tree document authored it.
    * For links, use `crumbs` here, or a `navigation-menu` / `sidebar` node.
    *
@@ -113,8 +113,8 @@ export interface HeaderBarSchema extends BaseSchema {
    * RETIRED (objectui#10387, ADR-0049) — `header-bar` has no left slot.
    *
    * Not in `@objectstack/spec`; the renderer reads only `actions`, `crumbs`,
-   * `rightContent`, `search` and the inherited `className`, and takes no spread
-   * props, so an authored node rendered nothing. No in-tree document authored it. For custom content use
+   * `rightContent`, `search` and the inherited `className`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496),
+   * so an authored node rendered nothing. No in-tree document authored it. For custom content use
    * `rightContent` or `actions`.
    *
    * @deprecated Nothing renders it; the zod mirror refuses it by name.
@@ -166,7 +166,7 @@ export interface HeaderBarSchema extends BaseSchema {
    * The key is not in `@objectstack/spec`, so the objectui#7759 ruling makes
    * the read site the truth, and the read site has none: the renderer's one
    * function reads `actions`, `crumbs`, `rightContent`, `search` and the
-   * inherited `className` off `schema` and takes no spread props, so every
+   * inherited `className` off `schema`, and forwards to its root only what the shared DOM whitelist (`toDomProps`) admits plus `style` (objectui#10496), so every
    * spelling rendered the same header. The two faces had also drifted apart on the way there — this
    * declaration offered `floating`, the zod mirror `transparent` — and
    * neither word had ever reached a class name.

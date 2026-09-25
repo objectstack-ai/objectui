@@ -653,7 +653,10 @@ const ru = {
     },
     refresh: "Обновить",
     loading: "Загрузка записей…",
-    recordCount: "{{count}} записей",
+    // objectui#10425 — the record-count bar picks this half at every count but
+    // 1, which spans one (21), few (2-4) and many (5-20); a count label reads
+    // right at all three, the same form as `lookup.recordCount`.
+    recordCount: "Записей: {{count}}",
     recordCountOne: "{{count}} запись",
     addRecord: "Добавить запись",
     tabs: "Вкладки",

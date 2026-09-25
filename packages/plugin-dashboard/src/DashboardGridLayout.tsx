@@ -376,16 +376,29 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     if (dispatch.family === 'table') {
       const widgetData = (widget as any).data || options.data;
 
-      // provider: 'object' — pass through object config for async data loading
+      // provider: 'object' — ObjectDataTable fetches the rows (objectui#10528).
+      // This arm used to emit a STATIC `data-table` with `data: []` and an
+      // `objectName` that `data-table` never reads, so the tile drew an empty
+      // table and issued no query, while `DashboardRenderer` fetched and drew
+      // the same stored widget. It now emits the node that renderer's table arm
+      // emits, prop for prop: the self-fetching `object-data-table`, the
+      // provider's `filter`, the declared `searchable` / `pagination` (never on
+      // a `list`), and default-on drill-to-record. The drill cannot fight the
+      // editor: dragging starts only from the `.drag-handle` element (see
+      // `dragConfig` below), and this grid has no widget selection. The two
+      // copies are held equal by
+      // `DashboardGridLayout.objectProviderFetch-10528.test.tsx`.
       if (isObjectProvider(widgetData)) {
+        const isList = widgetType === 'list';
         const { data: _data, ...restOptions } = options;
         return {
-          type: 'data-table',
+          type: 'object-data-table',
           ...restOptions,
           objectName: widgetData.object,
-          data: [],
-          searchable: false,
-          pagination: false,
+          filter: widgetData.filter || widget.filter,
+          searchable: isList ? false : (widget.searchable ?? false),
+          pagination: isList ? false : (widget.pagination ?? false),
+          drillDown: options.drillDown ?? { enabled: true, mode: 'record' as const },
           className: "border-0"
         };
       }

@@ -25,13 +25,18 @@ failure objectui#7664's own first cut shipped at `onCardClick`.
   including tests: 0 hits / 0 files each, with `groupBy` (85 hits / 27 files),
   `cardTitle` (18/9) and `coverImageField` (17/3) firing as controls on the same
   instrument. An author who wrote `allowCollapse: true` validated green and got
-  a board that never collapsed off that key. Each capability exists on a
-  *different* channel, and the refusal message names it: a lane's own
-  `columns[].collapsed` for collapsing, a `templates` component prop for card
-  templates, a `useColumnWidths` hook option for widths. Wiring a board-level
-  switch to any of them would be new behaviour and is not ordered here.
-  `CardTemplate` and `ColumnWidthConfig` stay exported — the prop and the hook
-  still consume the types.
+  a board that never collapsed off that key. At this change, each capability
+  existed on a *different* channel, and the refusal message named it: a lane's
+  own `columns[].collapsed` for collapsing, a `templates` component prop for
+  card templates, a `useColumnWidths` hook option for widths. Wiring a
+  board-level switch to any of them would be new behaviour and is not ordered
+  here. `CardTemplate` and `ColumnWidthConfig` stay exported — at this change,
+  the prop and the hook consumed the types.
+
+  ⚠️ **Dated note, 2026-09-25 — the `useColumnWidths` hook has since been
+  retired (objectui#8522), so the widths channel named above no longer exists
+  and `ColumnWidthConfig` has no `plugin-kanban` reader. `CardTemplate` is still
+  consumed, by the `CardTemplates` component's `templates` prop.**
 - **`titleField`** — ⚠️ **not** an inertness retirement, and reading it as one
   gets the mechanism backwards. `ObjectKanban` still reads the key and the read
   stays, because the **sibling `object-kanban` arm declares it and keeps it**

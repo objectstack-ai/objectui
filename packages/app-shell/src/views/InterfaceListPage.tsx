@@ -7,9 +7,10 @@
  * surface is deliberately closed:
  *
  *   • the page REFERENCES one view (`interfaceConfig.sourceView`) as a
- *     fallback — its columns (with its `hiddenFields` / `fieldOrder`), base
- *     filter and sort are inherited unless the page defines its own
- *     `columns` / `filterBy` / `sort` (ADR-0047 revised);
+ *     fallback — its columns (with its `hiddenFields` / `fieldOrder`) and
+ *     sort are inherited unless the page defines its own `columns` /
+ *     `sort`; its base filter is always inherited, with the page's
+ *     `filterBy` appended (ADR-0047 revised);
  *   • end users get exactly the `userFilters` the author enabled;
  *   • the visualization comes from `appearance.allowedVisualizations`
  *     (a single entry renders no switcher);

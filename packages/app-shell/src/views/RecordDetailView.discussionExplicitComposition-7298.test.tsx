@@ -103,7 +103,8 @@ const COMMENT_MARKER = 'A comment on the record';
 /** The panel's own chrome — present whenever it mounts, empty feed or not. */
 const PANEL_HEADING = 'Discussion';
 const PANEL_EMPTY = 'No comments yet';
-/** `CommentInput`'s textarea — the write surface the ruling is about. Read by
+/** The composer's textarea (`RichTextCommentInput`, as `RecordActivityTimeline`
+ *  mounts it) — the write surface the ruling is about. Read by
  *  PLACEHOLDER, not by the submit button: that button mounts only once the box
  *  has text, so counting it reads zero on a panel that is fully open for
  *  writes. */

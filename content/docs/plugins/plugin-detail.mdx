@@ -25,9 +25,7 @@ The Feed & Chatter system provides Airtable-style record-level collaboration. It
 |-----------|---------|
 | `RecordChatterPanel` | Main wrapper panel (bottom/right/left positioning, collapsible) |
 | `RecordActivityTimeline` | Core activity feed renderer (filter, pagination, actor display) |
-| `CommentInput` | Comment submission with Ctrl+Enter shortcut |
 | `FieldChangeItem` | Field change history display (old → new values) |
-| `MentionAutocomplete` | @mention suggestion dropdown |
 | `ReactionPicker` | Emoji reaction selector |
 | `ThreadedReplies` | Collapsible reply threading |
 | `SubscriptionToggle` | Bell notification toggle |
@@ -444,15 +442,6 @@ decision as a defect is how a warning channel gets ignored:
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `className` | `string` | `''` | Additional CSS classes |
 
-### CommentInput
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `onSubmit` | `(text: string) => void` | required | Comment submit callback |
-| `placeholder` | `string` | `'Add a comment...'` | Input placeholder text |
-| `disabled` | `boolean` | `false` | Disable input |
-| `className` | `string` | `''` | Additional CSS classes |
-
 ### ReactionPicker
 
 | Property | Type | Default | Description |
@@ -517,7 +506,6 @@ import type {
 import type {
   RecordChatterPanelProps,
   RecordActivityTimelineProps,
-  CommentInputProps,
   FieldChangeItemProps,
   ReactionPickerProps,
   ThreadedRepliesProps,

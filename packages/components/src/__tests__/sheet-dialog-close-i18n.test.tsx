@@ -28,7 +28,7 @@
  *
  * A large amount of existing coverage addresses these controls by their
  * English name with NO `I18nProvider` mounted (`discardGuard.test.tsx`,
- * `InlineCreateRelated.closeButtonName.test.tsx`, e2e specs). The safe
+ * e2e specs). The safe
  * translation's English fallback is what keeps those green, so it is pinned
  * here explicitly rather than assumed.
  */

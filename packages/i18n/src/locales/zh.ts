@@ -2017,6 +2017,7 @@ const zh = {
       title: '标题',
       viewType: '视图类型',
       recordCount: '{{count}} 条记录',
+      recordCountOne: '{{count}} 条记录',
       save: '保存',
       discard: '丢弃',
       createView: '创建视图',

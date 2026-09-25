@@ -1925,6 +1925,7 @@ const es = {
       title: "Título",
       viewType: "Tipo de vista",
       recordCount: "{{count}} registros",
+      recordCountOne: "{{count}} registro",
       save: "Guardar",
       discard: "Descartar",
       createView: "Crear vista",

@@ -1923,6 +1923,7 @@ const ja = {
       title: "タイトル",
       viewType: "ビュータイプ",
       recordCount: "{{count}} 件のレコード",
+      recordCountOne: "{{count}} 件のレコード",
       save: "保存",
       discard: "破棄",
       createView: "ビューを作成",

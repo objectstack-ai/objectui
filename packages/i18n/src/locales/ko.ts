@@ -1921,6 +1921,7 @@ const ko = {
       title: "제목",
       viewType: "뷰 유형",
       recordCount: "{{count}}개 레코드",
+      recordCountOne: "{{count}}개 레코드",
       save: "저장",
       discard: "취소",
       createView: "뷰 생성",

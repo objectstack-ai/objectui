@@ -1920,6 +1920,7 @@ const pt = {
       title: "Título",
       viewType: "Tipo de visualização",
       recordCount: "{{count}} registros",
+      recordCountOne: "{{count}} registro",
       save: "Salvar",
       discard: "Descartar",
       createView: "Criar visualização",

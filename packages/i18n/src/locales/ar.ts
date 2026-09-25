@@ -1940,7 +1940,11 @@ const ar = {
       searchFields: "البحث في الحقول…",
       title: "العنوان",
       viewType: "نوع العرض",
-      recordCount: "{{count}} سجل",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // zero, two (2), few (3-10), many (11-99) and other (100+); a count label reads
+      // right at all of them, the same form as `list.recordCount`.
+      recordCount: "عدد السجلات: {{count}}",
+      recordCountOne: "{{count}} سجل",
       save: "حفظ",
       discard: "تجاهل",
       createView: "إنشاء عرض",

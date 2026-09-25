@@ -794,6 +794,30 @@ function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
 }
 
 /**
+ * The legacy `props` alias bag, minus an authored `objectFields`
+ * (objectui#8818, completing decision batch #70 / objectui#7742).
+ *
+ * `objectFields` is the object's field catalogue — the predicate layer reads it
+ * to decide how a conditional-formatting rule compares a relation field — and
+ * batch #70 ruled it a RUNTIME React prop a host injects, never authorable
+ * metadata. The metadata strip in `SchemaRenderer` closes the top-level and
+ * hoisted `properties` spellings; this closes the third, because the alias bag
+ * is spread as its own bag after that strip and never passes through it.
+ *
+ * Every arm, unconditionally — unlike {@link withoutAuthoredDataKey}, the key
+ * has no authorable reading on any type. Identity is preserved when the bag
+ * declares no `objectFields`, so the common node allocates nothing.
+ *
+ * ⛔ The HOST path is NOT routed through here: `...props`, spread LAST, is how
+ * a host hands the catalogue down, and it still arrives.
+ */
+function withoutAuthoredObjectFields<T extends object>(bag: T): T {
+  if (!('objectFields' in bag)) return bag;
+  const { objectFields: _runtimeOnlyObjectFields, ...rest } = bag as Record<string, unknown>;
+  return rest as T;
+}
+
+/**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
  *
  * ## Why `schema` is spelled as this union and not as a `SchemaNode`
@@ -1967,6 +1991,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // dev warning told the author to spell it `testid` — steering them further
     // from the documented `data-testid`.
     testId: _testId,
+    // stripped: a RUNTIME prop a host injects, never authorable metadata —
+    // decision batch #70 (objectui#7742); objectui#8818 closes the key here.
+    // The `props` alias carrier is closed by `withoutAuthoredObjectFields`.
+    objectFields: _objectFields,
     _hidden: __hidden,    // stripped: internal visibility flag
     _disabled: __disabled, // stripped: internal disabled flag
     responsiveStyles: _responsiveStyles, // stripped: compiled to scoped CSS, not a DOM prop
@@ -2033,9 +2061,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // question is the shape that let the alias keep the seat in the first place.
   const refusesAuthoredDataProp =
     recordSourceDataArmForType(evaluatedSchema.type) === 'view-data';
-  const aliasBagAsAuthored = propsWithoutCanonicalKeys(
-    evaluatedSchema.props,
-    evaluatedSchema.properties
+  // objectui#8818 strips `objectFields` HERE, before the `data` strip below:
+  // that strip's diagnostic decides by identity, so it must compare against a
+  // bag this strip has already settled.
+  const aliasBagAsAuthored = withoutAuthoredObjectFields(
+    propsWithoutCanonicalKeys(evaluatedSchema.props, evaluatedSchema.properties)
   );
   const outgoingPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
   if (__DEV__ && outgoingPropsBag !== aliasBagAsAuthored) {

@@ -907,7 +907,7 @@ A complete object management interface combining grid, form, search, filters, an
 }
 ```
 
-`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the host that renders the list resolves it to the signed-in user's id before the query runs, and resolving it on the `object-view` node path itself is tracked in objectui#10506.
+`{current_user_id}` in the `my-deals` filter is the spec's context token (`CONTEXT_TOKENS` in `@objectstack/spec/data`): the `object-view` node resolves it to the signed-in user's id before the query runs (objectui#10506), through the same `resolveFilterPlaceholders` from `@object-ui/core` that every other surface calls, with the user taken from the nearest `FilterScopeProvider` (`@object-ui/react`; the console shell mounts one). With no provider mounted the token is left as written, so the view matches no record rather than every record.
 
 | Property | Type | Description |
 |----------|------|-------------|

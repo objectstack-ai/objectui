@@ -253,7 +253,20 @@ predates this change: an **active named view's own** `filter` / `sort`
 `table`. In order, highest first: the active named view's `filter`/`sort`,
 then `table.filter`/`table.sort`, then `table.defaultFilters` (filter only —
 `sort` has no legacy tier since `table.defaultSort` was retired). (If you
-never write `listViews`, that first tier never applies.) `pagination` and `selection` have no such tier, and no effect
+never write `listViews`, that first tier never applies.)
+
+Whichever tier wins, its filter goes through `resolveFilterPlaceholders` from
+`@object-ui/core` before it leaves `ObjectView` (objectui#10506), on all three
+paths: the query a non-grid view issues, the grid, and a host's
+`renderListView`. So the spec's context tokens (`{current_user_id}`,
+`{current_org_id}`) and the relative-date macros (`{today}`,
+`{current_quarter_start}`, …) arrive as real values. The user and organization
+come from the nearest `FilterScopeProvider` (`@object-ui/react`), which the
+console shell mounts; with none mounted a context token is left as written and
+the resolver warns, so the view matches no record rather than every record.
+`src/__tests__/ObjectView.namedViewContextTokens-10506.test.tsx` pins each path.
+
+`pagination` and `selection` have no such tier, and no effect
 outside the grid — the non-grid renderers don't page or multi-select, so
 `ObjectView` never forwards either spelling to them.
 

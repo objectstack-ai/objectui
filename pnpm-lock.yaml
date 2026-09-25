@@ -2204,9 +2204,6 @@ importers:
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
-      '@tanstack/react-virtual':
-        specifier: ^3.14.9
-        version: 3.14.9(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       lucide-react:
         specifier: ^1.31.0
         version: 1.35.0(react@19.2.8)

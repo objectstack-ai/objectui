@@ -26,3 +26,8 @@ now it reaches nothing. Render the one registered board, `object-kanban`, instea
 exported from `@object-ui/plugin-kanban`. The card-formatting rule type it
 aliased is `KanbanConditionalFormattingRule` in `@object-ui/types`.
 `KanbanEnhancedProps` is gone along with the component.
+
+**One dependency leaves with it.** `@tanstack/react-virtual` is no longer in this
+package's `dependencies`: the deleted module was the only file in the package
+that imported it. If your code imports `@tanstack/react-virtual` and got it only
+through `@object-ui/plugin-kanban`, declare it in your own `package.json`.

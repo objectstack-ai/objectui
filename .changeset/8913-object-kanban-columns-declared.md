@@ -35,16 +35,21 @@ strings**. Both arms are admitted whole — `columns` is `string[] | Lane[]`, a
 union of two ARRAY shapes rather than an array of a per-element union — and on the
 lane arm **`cards` is optional**. The alternative — reusing `KanbanColumn`, whose
 `cards` is required — was measured and rejected: it is the RUNTIME lane
-(`bucketCardsIntoColumns` fills `cards` before either board implementation sees
-one), and as the authoring element it would have refused the protocol's own
+(at this change, `bucketCardsIntoColumns` filled `cards` before either board
+implementation saw one), and as the authoring element it would have refused the protocol's own
 gate-validated `{ id, title }` example, the lanes the renderer materializes from a
 picklist, and this repository's own typed board fixtures.
 
 **What is judged again.** A lane has `id` (**string**) and `title`, optionally
 carrying `cards`, `limit`, `className` and `collapsed` — exactly the members the
-two board implementations read. When a lane carries `cards`, each card is judged
-by the one card authority (`KanbanCardSchema`), which is what restores
-objectui#6939's finding: **a card with no `title` is refused again**.
+two board implementations read at this change. When a lane carries `cards`, each
+card is judged by the one card authority (`KanbanCardSchema`), which is what
+restores objectui#6939's finding: **a card with no `title` is refused again**.
+
+⚠️ **Dated note, 2026-09-25 — one board implementation remains —
+objectui#8932.** Later in this same release `KanbanEnhanced`, the second of the
+two, was deleted. `KanbanImpl` alone reads all six lane members, so the judged set
+above is unchanged. The objectui#8932 entry states what ships.
 
 **Two shapes the protocol's literal `z.unknown()` would take are refused, because
 the renderer mishandles them.** A declaration that admits a shape nothing can

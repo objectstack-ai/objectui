@@ -43,7 +43,6 @@
     "@object-ui/plugin-detail": "workspace:*",
     "@object-ui/react": "workspace:*",
     "@object-ui/types": "workspace:*",
-    "@tanstack/react-virtual": "^3.14.9",
     "lucide-react": "^1.31.0"
   },
   "peerDependencies": {

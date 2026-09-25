@@ -36,7 +36,12 @@ extended, so it was always inherited rather than added by the plugin.
 one.** `KanbanImpl.tsx` and `KanbanEnhanced.tsx` each redeclared both names. A
 TypeScript-AST comparison found them strict-SUBSET copies of `./types` with
 nothing typed differently, so their extra members moved onto the one
-declaration and both files now re-point at it.
+declaration and, at this change, both files re-pointed at it.
+
+⚠️ **Dated note, 2026-09-25 — `KanbanEnhanced.tsx` has since been deleted —
+objectui#8932.** Later in this same release that module left the package, so
+`KanbanImpl.tsx` is the one file of the two that remains. The convergence above
+is unaffected; the objectui#8932 entry states what ships.
 
 Additive for consumers: `KanbanCard` gains `cardSubtitle`, `cardFieldCells` and
 `coverImage`; `KanbanColumn` gains `collapsed`. All four are optional, so every

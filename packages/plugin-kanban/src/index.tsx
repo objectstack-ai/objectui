@@ -452,20 +452,25 @@ export const kanbanComponents = {
  * the same firing control (`object-grid`, 2 JSON / 128 TS) and silent control
  * (`zzz-not-a-type`, 0) the `kanban-ui` note above cites.
  *
- * `KanbanEnhanced.tsx` itself is untouched on disk. ⛔ It is NOT, and never
- * was, reachable from outside this package: `package.json` `exports` publishes
- * exactly two entries — `.` and `./style.css` — and this barrel does not
- * re-export the component, so `@object-ui/plugin-kanban/KanbanEnhanced` has
- * never been a resolvable specifier for a consumer. (An earlier revision of
- * this note claimed it was; that claim was wrong and is corrected here rather
- * than deleted, because it is what a reader would otherwise copy.) What this
- * card removes is the registry key and the `React.lazy` wrapper that existed
- * only to serve it; what it leaves behind is a module with zero non-test
- * importers — `cardPredicateScope.test.tsx` reaches it by relative path.
- * ⛔ Deleting the file is a FURTHER narrowing of published source and needs its
- * own maintainer ruling, which this card does not carry, so it stays.
+ * `KanbanEnhanced` was NOT, and never had been, reachable from outside this
+ * package: `package.json` `exports` publishes exactly two entries — `.` and
+ * `./style.css` — and this barrel never re-exported the component, so
+ * `@object-ui/plugin-kanban/KanbanEnhanced` was never a resolvable specifier
+ * for a consumer. (An earlier revision of this note claimed it was; that claim
+ * was wrong and is corrected here rather than deleted, because it is what a
+ * reader would otherwise copy.) What this card removed is the registry key and
+ * the `React.lazy` wrapper that existed only to serve it. It left the module
+ * itself on disk, with zero non-test importers, because deleting published
+ * source is a further narrowing that needed its own maintainer ruling.
  *
- * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`.
+ * ⚠️ That ruling came: objectui#8932 (2026-09-11, ratified 2026-09-24) deleted
+ * `KanbanEnhanced.tsx`, the two test references it had left, and with them the
+ * `dist/KanbanEnhanced.d.ts` typings the package still emitted for it. (Through
+ * 17.6.0 the component itself was also bundled into `dist/index.js`, behind the
+ * `kanban-enhanced` key; it left the bundle with this card's retirement.)
+ *
+ * Pinned in `src/__tests__/kanban-family-registry-keys-retired-8257.test.ts`
+ * (the key) and `src/__tests__/kanbanEnhancedRetired-8932.test.ts` (the file).
  */
 
 /**

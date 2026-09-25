@@ -95,33 +95,45 @@ export interface FilterBuilderProps {
 // `label` is the English fallback; the actual rendered text comes from
 // `filterBuilder.operators.<value>` so operators are translated like the rest
 // of the builder. Keep the two in sync when adding operators.
+//
+// The ids ARE the protocol's operator ids (objectui#9306): every one of the
+// twenty members of `@objectstack/spec`'s `VIEW_FILTER_OPERATORS`, spelled as
+// the spec spells them, plus the two opt-in existence ids the protocol has no
+// member for (`exists` / `notExists`, see `OPT_IN_OPERATORS`). The camelCase
+// spellings this list used to carry (`notEquals`, `greaterOrEqual`, …) are the
+// spec's DEPRECATED alias form (objectui#7993): a stored filter carrying one is
+// still read — {@link normalizeFilterBuilderOperator} folds it onto the id below
+// — and the next write the author makes stores the canonical id instead.
+// `filter-builder-protocol-ids-9306.test.tsx` pins the twenty against the spec
+// itself, so this list cannot drift behind the protocol again.
 const defaultOperators = [
   { value: "equals", label: "Equals" },
-  { value: "notEquals", label: "Does not equal" },
+  { value: "not_equals", label: "Does not equal" },
   { value: "contains", label: "Contains" },
-  // Case-insensitive `contains` — the spec's `$icontains` (objectui#4023).
-  // OPT-IN: see `OPT_IN_OPERATORS` below for why it is not offered everywhere.
-  { value: "containsCaseInsensitive", label: "Contains (ignore case)" },
-  { value: "notContains", label: "Does not contain" },
-  { value: "isEmpty", label: "Is empty" },
-  { value: "isNotEmpty", label: "Is not empty" },
-  { value: "greaterThan", label: "Greater than" },
-  { value: "lessThan", label: "Less than" },
-  { value: "greaterOrEqual", label: "Greater than or equal" },
-  { value: "lessOrEqual", label: "Less than or equal" },
+  // Case-insensitive `contains` — the spec's `$icontains` (objectui#4023), and
+  // its own member of the protocol set: `contains` and `icontains` are two
+  // operators, never one with a flag (objectui#7379).
+  { value: "icontains", label: "Contains (ignore case)" },
+  { value: "not_contains", label: "Does not contain" },
+  { value: "is_empty", label: "Is empty" },
+  { value: "is_not_empty", label: "Is not empty" },
+  { value: "greater_than", label: "Greater than" },
+  { value: "less_than", label: "Less than" },
+  { value: "greater_than_or_equal", label: "Greater than or equal" },
+  { value: "less_than_or_equal", label: "Less than or equal" },
   { value: "before", label: "Before" },
   { value: "after", label: "After" },
   { value: "between", label: "Between" },
   { value: "in", label: "In" },
-  { value: "notIn", label: "Not in" },
+  { value: "not_in", label: "Not in" },
   // String-specific spec operators ($startsWith / $endsWith) — they validated
   // at the data layer but were unreachable from this dropdown (#2942).
-  { value: "startsWith", label: "Starts with" },
-  { value: "endsWith", label: "Ends with" },
+  { value: "starts_with", label: "Starts with" },
+  { value: "ends_with", label: "Ends with" },
   // Null / existence spec operators ($null / $exists). Distinct from
-  // isEmpty/isNotEmpty, which also treat '' as empty.
-  { value: "isNull", label: "Is null" },
-  { value: "isNotNull", label: "Is not null" },
+  // is_empty/is_not_empty, which also treat '' as empty.
+  { value: "is_null", label: "Is null" },
+  { value: "is_not_null", label: "Is not null" },
   { value: "exists", label: "Is set" },
   { value: "notExists", label: "Is not set" },
 ] as const
@@ -156,7 +168,7 @@ const defaultOperators = [
  * that speaks that dialect. Mapping it onto a near-equivalent in the others is
  * NOT the alternative: that is a different question silently answered — the
  * same reason `view-operator-builder-parity.test.ts` refuses to map `is_null`
- * onto `isEmpty`.
+ * onto `is_empty`.
  *
  * Which side of the line an id falls on is not left to this comment.
  * `plugin-list`'s `list-offered-operator-expressible-parity.test.ts` forces the
@@ -164,13 +176,21 @@ const defaultOperators = [
  * both directions: an unexpressible id that stays offered fails, and an id that
  * becomes expressible while still withheld fails too.
  *
- * ### `containsCaseInsensitive` — the spec's `$icontains` (objectui#4023)
+ * ### `icontains` — opt-in no longer (objectui#4023, objectui#9306)
  *
- * Carried by the Mongo criteria dialect, where every driver and evaluation face
- * the platform ships executes it (objectstack#5702 + objectstack#6520). The
- * other two vocabularies have no case-insensitive contains at all, so offering
- * it everywhere is the exact hazard objectui#4023 was held blocked over,
- * relocated from the drivers to this repo's own bridges.
+ * It was opt-in under its old id `containsCaseInsensitive`, on the ground that
+ * only the Mongo criteria dialect could carry a case-insensitive contains. That
+ * ground is gone, and it went before this entry did: `VIEW_FILTER_OPERATORS`
+ * has declared `icontains` since `@objectstack/spec` 17.1.0 (objectui#5328),
+ * `VALID_AST_OPERATORS` carries it, and `ListView`'s `mapOperator` has its own
+ * arm for it. The parity test above could not see that while the dropdown's id
+ * was `containsCaseInsensitive` — a spelling the spec's alias table does not
+ * fold, so it read as unexpressible on both dialects. Once the dropdown spoke
+ * the protocol's id, the same test measured it expressible on both and withheld,
+ * which is exactly the "delete the entry" event the last paragraph of this
+ * docblock describes. So it is an ordinary operator now, offered on the text
+ * bucket to every consumer; `app-shell`'s dataset bridge maps it to the spec's
+ * `$icontains`, the token `FilterConditionField` has always written for it.
  *
  * ### `exists` / `notExists` — the spec's `$exists` (objectui#4736)
  *
@@ -182,13 +202,14 @@ const defaultOperators = [
  * members matching `/exist/`. So there was nothing to map onto and the id went
  * out verbatim.
  *
- * Collapsing them onto `isNotNull` / `isNull` would be a semantic claim, not a
- * bridge, and it is refused on three counts:
+ * Collapsing them onto `is_not_null` / `is_null` would be a semantic claim, not
+ * a bridge, and it is refused on three counts (and ruled so again for
+ * objectui#9306, by objectui#9559's ruling B: they stay opt-in, unfolded):
  *
- *   1. The builder already offers `isNull` / `isNotNull` as their own rows, so
- *      the collapse would draw two labels for one wire predicate.
+ *   1. The builder already offers `is_null` / `is_not_null` as their own rows,
+ *      so the collapse would draw two labels for one wire predicate.
  *   2. The round trip is lossy: a saved `exists` reads back through
- *      `specToBuilderOperator('is_not_null')` as `isNotNull`, silently
+ *      `specToBuilderOperator('is_not_null')` as `is_not_null`, silently
  *      rewriting the author's choice on reopen.
  *   3. The equivalence is not this repo's to declare. `@objectstack/spec`'s own
  *      `data/index.d.ts` records `$exists` = has-value (`!= null`) as settled
@@ -197,12 +218,11 @@ const defaultOperators = [
  *      KEY-PRESENCE, both frozen by objectstack#5499 — which is why upstream
  *      cannot enrol a `$exists` conformance row yet either.
  *
- * The lasting fix for both families is upstream — the view and AST vocabularies
- * gaining the operator — at which point the entry below is deleted, the parity
- * test flips it back on by itself, and the operator becomes ordinary.
+ * The lasting fix is upstream — the view and AST vocabularies gaining the
+ * operator — at which point the entry below is deleted, the parity test flips
+ * it back on by itself, and the operator becomes ordinary.
  */
 const OPT_IN_OPERATORS = new Set<string>([
-  "containsCaseInsensitive",
   "exists",
   "notExists",
 ])
@@ -212,35 +232,104 @@ const OPT_IN_OPERATORS = new Set<string>([
  * hold, derived from the operators it actually renders. Includes the opt-in
  * ids: they are drawable, just not offered unconditionally.
  *
- * Exported because several translation tables map an external vocabulary
- * (the spec's `VIEW_FILTER_OPERATORS`, Mongo `$`-tokens) *onto* this one, and
- * a value that is not in this list produces a condition row whose operator
- * select has nothing to select. Those tables assert against this export
- * rather than restating it, so adding an operator here is the only edit
- * needed to widen them.
+ * Since objectui#9306 these ARE the protocol's ids — the twenty members of the
+ * spec's `VIEW_FILTER_OPERATORS`, plus the opt-in `exists` / `notExists` the
+ * protocol has no member for — so a table that maps the spec's vocabulary onto
+ * this one is an identity over the twenty. It is still exported because those
+ * tables, and the parity pins over them, assert against this list rather than
+ * restating it: a value that is not in it produces a condition row whose
+ * operator select has nothing to select.
  */
 export const FILTER_BUILDER_OPERATORS = defaultOperators.map(o => o.value)
 
-/** An operator id the FilterBuilder can render. */
+/**
+ * An operator id the FilterBuilder can render: the spec's `ViewFilterOperator`
+ * plus the two opt-in existence ids (objectui#9306). A type-level pin in
+ * `filter-builder-protocol-ids-9306.test.tsx` holds it EQUAL to that union, so
+ * a protocol member added upstream fails to compile there until the dropdown
+ * offers it.
+ */
 export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
 
 /**
- * Operator ids — this dropdown's OWN camelCase ids — for which this builder
- * renders no value input, so "no value" is the row's FINISHED state, not an
- * unfinished one (objectui#4744).
+ * The one stored spelling the builder reads that the spec's alias table does
+ * NOT fold (objectui#9306).
+ *
+ * Every other camelCase id this dropdown used to write — `notEquals`,
+ * `greaterOrEqual`, `isNull`, … — is a row of `VIEW_FILTER_OPERATOR_ALIASES`,
+ * so `normalizeFilterOperator` already folds it onto the protocol id and this
+ * file does not restate it. `containsCaseInsensitive` is the exception,
+ * measured: `normalizeFilterOperator('containsCaseInsensitive')` returns its
+ * input unchanged, because the spec's table has no row for it. A filter the
+ * builder saved under that id (a sharing rule's `FilterConditionField`, the one
+ * consumer it was offered to) must still load as the operator it is, so this
+ * row is the builder's own — the ONE local alias, not a second vocabulary. The
+ * spec-side row is objectstack-ai/objectstack#20092; when the spec's table
+ * gains it, this map is deleted and the fold below is the spec's alone.
+ */
+const UNFOLDED_LEGACY_OPERATOR_IDS: ReadonlyMap<string, FilterBuilderOperator> = new Map<string, FilterBuilderOperator>([
+  ["containsCaseInsensitive", "icontains"],
+])
+
+/**
+ * The spelling a stored operator is READ as — the protocol id for every
+ * spelling the spec or this builder ever wrote (objectui#9306).
+ *
+ * The ruling this executes: camelCase is the deprecated alias form
+ * (objectui#7993), accepted on read and rewritten on write. So a filter stored
+ * as `{ operator: 'greaterOrEqual' }` keeps loading — it is folded here, through
+ * the spec's own `normalizeFilterOperator`, onto `greater_than_or_equal` — and
+ * the builder holds and emits that canonical id from then on, so the next write
+ * the author makes stores it. A lossless conversion on the read side, ⛔ not a
+ * second vocabulary: nothing this builder EMITS is ever a camelCase id.
+ *
+ * An id nothing folds (`exists`, `notExists`, a spelling from no vocabulary)
+ * comes back unchanged, exactly as the spec's normalizer returns it: inventing
+ * a mapping for a word the protocol does not contain would be a claim, not a
+ * repair.
+ */
+export function normalizeFilterBuilderOperator(operator: string): string {
+  return UNFOLDED_LEGACY_OPERATOR_IDS.get(operator) ?? normalizeFilterOperator(operator)
+}
+
+/**
+ * A group with every row's operator read through
+ * {@link normalizeFilterBuilderOperator} — the builder's read boundary.
+ *
+ * Returns the SAME object when no row's spelling moved, so a group that is
+ * already canonical (every group this builder emitted itself) is not re-created
+ * on each prop pass.
+ */
+function normalizeGroupOperators(group: FilterGroup): FilterGroup {
+  let moved = false
+  const conditions = group.conditions.map((c) => {
+    if (!c || typeof c.operator !== "string") return c
+    const operator = normalizeFilterBuilderOperator(c.operator)
+    if (operator === c.operator) return c
+    moved = true
+    return { ...c, operator }
+  })
+  return moved ? { ...group, conditions } : group
+}
+
+/**
+ * Operator ids — this dropdown's own ids, which are the protocol's canonical
+ * spellings since objectui#9306 — for which this builder renders no value
+ * input, so "no value" is the row's FINISHED state, not an unfinished one
+ * (objectui#4744).
  *
  * This is the source of truth for that distinction, and it lives here because
  * this component is the thing that decides it. But membership here is not the
- * whole question: `needsValueInput` below is the complement of this set's
- * FOLD-CLOSURE under the spec's `normalizeFilterOperator`, not of this set
- * itself (objectui#9302), so the gate answers "no value" for spellings that
- * are NOT members — the canonical form `foldFilterGroupToSpecRules` persists,
- * and the alias rows the spec publishes for those same operators. A consumer
- * holding a spelling that did not come from this dropdown must therefore ask
- * that FOLD-CLOSURE, not this set: fold this set's own members through
- * `normalizeFilterOperator` as well as the spelling, and ask the result —
- * the same fold the gate applies to BOTH sides. How much wider the gate's
- * preimage is is NOT restated here: the pin
+ * whole question: `needsValueInput` below asks it of the row's spelling AFTER
+ * {@link normalizeFilterBuilderOperator} (objectui#9302), so the gate answers
+ * "no value" for spellings that are NOT members — the deprecated camelCase ids
+ * a stored filter may still carry, and the alias rows the spec publishes for
+ * those same operators. A consumer holding a spelling that did not come from
+ * this dropdown must therefore fold it before asking, and fold this set's own
+ * members through the same normalizer too — the spec's `normalizeFilterOperator`
+ * is the identity on them, so that fold costs nothing and keeps the consumer
+ * correct whichever vocabulary this set is written in. How much wider the
+ * gate's preimage is is NOT restated here: the pin
  * `filter-builder-valueless-canonical-spelling-9302.test.tsx` walks the
  * spec's two published tables and names every row it measures, which is the
  * only form of that answer that moves when those tables do (AGENTS.md #9).
@@ -249,9 +338,7 @@ export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
  * one reads the membership FROM here rather than restating it:
  *
  *   - `plugin-list`'s `convertFilterGroupToAST` — what the live grid QUERIES;
- *   - `app-shell`'s `foldFilterGroupToSpecRules` — what a saved view PERSISTS
- *     (its `VALUELESS_FILTER_OPERATORS` is this set plus the canonical spec
- *     spellings, which only that layer sees).
+ *   - `app-shell`'s `foldFilterGroupToSpecRules` — what a saved view PERSISTS.
  *
  * Placement is forced by the dependency graph — `app-shell` depends on
  * `plugin-list` depends on this package, so this is the only module all three
@@ -259,11 +346,12 @@ export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
  * states is a fact about what this dropdown draws.
  *
  * Why it exists at all: each consumer used to keep its own copy, and the
- * live-grid copy listed only `isEmpty`/`isNotEmpty`. A fresh row is seeded
- * `{ operator: 'equals', value: '' }` and the operator dropdown preserves
- * `value`, so picking **Is null** as the first action left `value: ''` — the
- * grid read that as an unfinished row, dropped it, and applied NO filter at
- * all while the panel showed one. Silent, and every record came back.
+ * live-grid copy listed only the two empty-string operators. A fresh row is
+ * seeded `{ operator: 'equals', value: '' }` and the operator dropdown
+ * preserves `value`, so picking **Is null** as the first action left
+ * `value: ''` — the grid read that as an unfinished row, dropped it, and
+ * applied NO filter at all while the panel showed one. Silent, and every
+ * record came back.
  *
  * `exists` / `notExists` stay listed even though `OPT_IN_OPERATORS` withholds
  * them from most consumers (objectui#4736): the builder still draws them
@@ -272,41 +360,13 @@ export type FilterBuilderOperator = (typeof defaultOperators)[number]['value']
  * question, answered by `OPT_IN_OPERATORS` and by each consumer's parity test.
  */
 export const VALUELESS_FILTER_BUILDER_OPERATORS: ReadonlySet<string> = new Set([
-  "isEmpty",
-  "isNotEmpty",
-  "isNull",
-  "isNotNull",
+  "is_empty",
+  "is_not_empty",
+  "is_null",
+  "is_not_null",
   "exists",
   "notExists",
 ])
-
-/**
- * The same six operators, keyed by the spelling `normalizeFilterOperator`
- * folds each of them to — the lookup table the value-input gate below reads
- * (objectui#9302).
- *
- * DERIVED, never a second literal: a hand-kept canonical copy beside the
- * exported set is exactly how the two could come to disagree, and the
- * disagreement would be invisible — a row that draws an input the label says
- * it does not take.
- *
- * Why it exists separately instead of widening the export: the exported set
- * states a fact about what THIS DROPDOWN draws, and its members are this
- * builder's own camelCase ids. Two other layers read it — `plugin-list`'s
- * `convertFilterGroupToAST` and `app-shell`'s `foldFilterGroupToSpecRules`,
- * the latter already documented as this set PLUS the canonical spellings only
- * that layer sees. Folding the canonical spellings INTO the export would make
- * that layer's deliberate compensation redundant by side effect, in a file
- * nobody is editing. The defect was never a set missing members; it was a
- * reader that forgot to normalize its input.
- *
- * `exists` / `notExists` fold to themselves — the spec's vocabulary has no
- * member for either and its alias table deliberately has no row for them — so
- * this set is the same size as the one it derives from.
- */
-const VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL: ReadonlySet<string> = new Set(
-  [...VALUELESS_FILTER_BUILDER_OPERATORS].map(normalizeFilterOperator),
-)
 
 /**
  * The SHAPE an operator's `value` must have — the question
@@ -337,18 +397,19 @@ const LIST_VALUE_OPERATORS: ReadonlySet<string> = new Set(VIEW_FILTER_LIST_VALUE
 const PAIR_VALUE_OPERATORS: ReadonlySet<string> = new Set(VIEW_FILTER_PAIR_VALUE_OPERATORS)
 
 /**
- * Which value shape `operator` takes, in EITHER dialect.
+ * Which value shape `operator` takes, whichever spelling it arrives in.
  *
- * The argument is folded through the spec's own `normalizeFilterOperator`
- * first, so the builder's camelCase dropdown ids (`notIn`) and the canonical
- * spellings a stored rule carries (`not_in`) land on the same answer. That
- * fold is the whole point: one vocabulary, declared upstream, consulted here —
- * not a second local dialect that has to be kept in sync by hand.
+ * The argument is folded through {@link normalizeFilterBuilderOperator} — the
+ * spec's own `normalizeFilterOperator` plus the builder's one unfolded legacy
+ * id — first, so the canonical id this dropdown emits (`not_in`) and the
+ * deprecated alias a stored filter may still carry (`notIn`) land on the same
+ * answer. That fold is the whole point: one vocabulary, declared upstream,
+ * consulted here — not a second local dialect kept in sync by hand.
  *
  * @internal exported for tests
  */
 export function filterValueArity(operator: string): FilterValueArity {
-  const canonical = normalizeFilterOperator(operator)
+  const canonical = normalizeFilterBuilderOperator(operator)
   if (LIST_VALUE_OPERATORS.has(canonical)) return "list"
   if (PAIR_VALUE_OPERATORS.has(canonical)) return "pair"
   return "scalar"
@@ -395,7 +456,7 @@ export function reshapeFilterValue(
  * NEW field offers (objectui#4768).
  *
  * Each field type has its own operator bucket, and the buckets are not nested:
- * a `select` column offers `in` / `notIn`, a `text` column does not. Changing
+ * a `select` column offers `in` / `not_in`, a `text` column does not. Changing
  * the field used to write `{ field }` alone, so the row's operator survived
  * into a bucket that no longer contains it — `in` on a text column. The Radix
  * trigger then had nothing to render (its `SelectValue` matches against the
@@ -408,16 +469,16 @@ export function reshapeFilterValue(
  * entry (`equals` for every bucket this builder draws), and the caller then
  * re-shapes the value for that operator's family.
  *
- * Membership is decided CANONICALLY, through the spec's own
- * `normalizeFilterOperator` — the same fold `filterValueArity` uses. A stored
- * rule can reach this builder spelled `not_in` while the dropdown lists the
- * alias `notIn`; those are one operator, so a select→lookup switch must not
- * silently rewrite the author's operator to `equals` just because the two
- * spellings differ. The fold is safe to compare through because it is
- * INJECTIVE over this builder's vocabulary — all 22 ids in `defaultOperators`
- * normalize to 22 distinct canonical operators, pinned in
- * `filter-builder-field-switch-operator.test.tsx` — so no two OFFERED
- * operators can ever collapse onto one another.
+ * Membership is decided CANONICALLY, through
+ * {@link normalizeFilterBuilderOperator} — the same fold `filterValueArity`
+ * uses. A caller can hand this helper a row spelled with the deprecated alias
+ * `notIn` while the dropdown lists the protocol id `not_in`; those are one
+ * operator, so a select→lookup switch must not silently rewrite the author's
+ * operator to `equals` just because the two spellings differ. The fold is safe
+ * to compare through because it is INJECTIVE over this builder's vocabulary —
+ * all 22 ids in `defaultOperators` normalize to 22 distinct canonical
+ * operators, pinned in `filter-builder-field-switch-operator.test.tsx` — so no
+ * two OFFERED operators can ever collapse onto one another.
  *
  * @internal exported for tests
  */
@@ -425,9 +486,9 @@ export function reconcileOperatorForField(
   operator: string,
   offeredOperators: ReadonlyArray<{ value: string }>,
 ): string {
-  const canonical = normalizeFilterOperator(operator)
+  const canonical = normalizeFilterBuilderOperator(operator)
   const stillOffered = offeredOperators.some(
-    (op) => normalizeFilterOperator(op.value) === canonical,
+    (op) => normalizeFilterBuilderOperator(op.value) === canonical,
   )
   // Kept in the row's OWN spelling: a field switch is not a spelling migration.
   if (stillOffered) return operator
@@ -440,17 +501,20 @@ export function reconcileOperatorForField(
  * fold (objectui#7561).
  *
  * Radix matches `SelectValue` against the `SelectItem`s actually MOUNTED, and
- * the mounted ids are this builder's own camelCase vocabulary. A row can hold
- * the operator under another spelling of the SAME operator and still be
- * perfectly valid:
+ * the mounted ids are this builder's own vocabulary — the protocol's canonical
+ * ids since objectui#9306 (they were camelCase when this helper was written). A
+ * row can hold the operator under another spelling of the SAME operator and
+ * still be perfectly valid:
  *
- *   - the spec's canonical `greater_than`, which is what `FilterOperatorSchema`
- *     accepts and what `foldFilterGroupToSpecRules` persists;
+ *   - a deprecated camelCase alias such as `greaterThan`, which a filter saved
+ *     before objectui#9306 still carries;
  *   - the spec's alias table `gt` / `lt` / `eq`, which three schema-catalog
  *     entries author today.
  *
- * Neither matched `greaterThan` literally, so the trigger drew BLANK over a row
- * that filtered correctly — the user's own operator, invisible and unreachable.
+ * When this helper was written the mounted id was `greaterThan` and the stored
+ * spelling `greater_than`; neither matched the other literally, so the trigger
+ * drew BLANK over a row that filtered correctly — the user's own operator,
+ * invisible and unreachable.
  * Everywhere the operator's MEANING matters this component already folds first
  * ({@link filterValueArity}, {@link reconcileOperatorForField}); this was the
  * one place it did not, and that omission — not the vocabulary divergence — is
@@ -462,7 +526,12 @@ export function reconcileOperatorForField(
  *
  *   1. it does not rewrite `condition.operator` — the row keeps the spelling it
  *      arrived with, exactly as {@link reconcileOperatorForField} keeps it, and
- *      nothing is written back on render;
+ *      nothing is written back on render. (Since objectui#9306 the BUILDER
+ *      folds a row's spelling once, at its read boundary — see
+ *      {@link normalizeFilterBuilderOperator} — so the rows it renders already
+ *      hold protocol ids. This helper still folds both sides, because it is
+ *      exported and its caller's rows need not have come through that
+ *      boundary.)
  *   2. it does not mount a new `SelectItem`, so the vocabulary the dropdown
  *      EMITS is byte-identical — contrast the value select above, where
  *      objectui#4874 ruling C mounts the outside-options value as its own
@@ -485,9 +554,9 @@ export function mountedOperatorValue(
   operator: string,
   offeredOperators: ReadonlyArray<{ value: string }>,
 ): string {
-  const canonical = normalizeFilterOperator(operator)
+  const canonical = normalizeFilterBuilderOperator(operator)
   const mounted = offeredOperators.find(
-    (op) => normalizeFilterOperator(op.value) === canonical,
+    (op) => normalizeFilterBuilderOperator(op.value) === canonical,
   )
   return mounted?.value ?? operator
 }
@@ -695,7 +764,7 @@ function convertScalarToFamily(
  *   - `scalar` — converted, or `""`.
  *   - `list` — converted ENTRY BY ENTRY, keeping the ones that carry:
  *     `["42", "acme"]` → `[42]`, and `[]` when none do. Reachable today only
- *     between the two buckets that offer `in`/`notIn` (`select` ↔ `lookup`),
+ *     between the two buckets that offer `in`/`not_in` (`select` ↔ `lookup`),
  *     which are both text-family, so the conversion is the identity there; it
  *     is written for the family the operator lands in rather than for today's
  *     buckets, and pinned directly on this helper.
@@ -983,25 +1052,25 @@ const useSafeFilterTranslation = createSafeTranslation(
     'filterBuilder.rangeStart': 'From',
     'filterBuilder.rangeEnd': 'To',
     'filterBuilder.operators.equals': 'Equals',
-    'filterBuilder.operators.notEquals': 'Does not equal',
+    'filterBuilder.operators.not_equals': 'Does not equal',
     'filterBuilder.operators.contains': 'Contains',
-    'filterBuilder.operators.containsCaseInsensitive': 'Contains (ignore case)',
-    'filterBuilder.operators.notContains': 'Does not contain',
-    'filterBuilder.operators.isEmpty': 'Is empty',
-    'filterBuilder.operators.isNotEmpty': 'Is not empty',
-    'filterBuilder.operators.greaterThan': 'Greater than',
-    'filterBuilder.operators.lessThan': 'Less than',
-    'filterBuilder.operators.greaterOrEqual': 'Greater than or equal',
-    'filterBuilder.operators.lessOrEqual': 'Less than or equal',
+    'filterBuilder.operators.icontains': 'Contains (ignore case)',
+    'filterBuilder.operators.not_contains': 'Does not contain',
+    'filterBuilder.operators.is_empty': 'Is empty',
+    'filterBuilder.operators.is_not_empty': 'Is not empty',
+    'filterBuilder.operators.greater_than': 'Greater than',
+    'filterBuilder.operators.less_than': 'Less than',
+    'filterBuilder.operators.greater_than_or_equal': 'Greater than or equal',
+    'filterBuilder.operators.less_than_or_equal': 'Less than or equal',
     'filterBuilder.operators.before': 'Before',
     'filterBuilder.operators.after': 'After',
     'filterBuilder.operators.between': 'Between',
     'filterBuilder.operators.in': 'In',
-    'filterBuilder.operators.notIn': 'Not in',
-    'filterBuilder.operators.startsWith': 'Starts with',
-    'filterBuilder.operators.endsWith': 'Ends with',
-    'filterBuilder.operators.isNull': 'Is null',
-    'filterBuilder.operators.isNotNull': 'Is not null',
+    'filterBuilder.operators.not_in': 'Not in',
+    'filterBuilder.operators.starts_with': 'Starts with',
+    'filterBuilder.operators.ends_with': 'Ends with',
+    'filterBuilder.operators.is_null': 'Is null',
+    'filterBuilder.operators.is_not_null': 'Is not null',
     'filterBuilder.operators.exists': 'Is set',
     'filterBuilder.operators.notExists': 'Is not set',
     // The half-filled range's description, read from the SHARED `validation`
@@ -1020,22 +1089,25 @@ const useSafeFilterTranslation = createSafeTranslation(
   'filterBuilder.where',
 )
 
-const NULLNESS_OPERATORS = ["isNull", "isNotNull", "exists", "notExists"]
-const textOperators = ["equals", "notEquals", "contains", "containsCaseInsensitive", "notContains", "startsWith", "endsWith", "isEmpty", "isNotEmpty", ...NULLNESS_OPERATORS]
-const numberOperators = ["equals", "notEquals", "greaterThan", "lessThan", "greaterOrEqual", "lessOrEqual", "isEmpty", "isNotEmpty", ...NULLNESS_OPERATORS]
-const booleanOperators = ["equals", "notEquals"]
-const dateOperators = ["equals", "notEquals", "before", "after", "between", "isEmpty", "isNotEmpty", ...NULLNESS_OPERATORS]
-const selectOperators = ["equals", "notEquals", "in", "notIn", "isEmpty", "isNotEmpty", ...NULLNESS_OPERATORS]
-const lookupOperators = ["equals", "notEquals", "in", "notIn", "isEmpty", "isNotEmpty", ...NULLNESS_OPERATORS]
+// Typed as the dropdown's own id union, so a bucket naming an id the dropdown
+// does not draw — a stale camelCase spelling, say — fails to compile instead of
+// silently offering nothing (objectui#9306).
+const NULLNESS_OPERATORS: readonly FilterBuilderOperator[] = ["is_null", "is_not_null", "exists", "notExists"]
+const textOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals", "contains", "icontains", "not_contains", "starts_with", "ends_with", "is_empty", "is_not_empty", ...NULLNESS_OPERATORS]
+const numberOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals", "greater_than", "less_than", "greater_than_or_equal", "less_than_or_equal", "is_empty", "is_not_empty", ...NULLNESS_OPERATORS]
+const booleanOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals"]
+const dateOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals", "before", "after", "between", "is_empty", "is_not_empty", ...NULLNESS_OPERATORS]
+const selectOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty", ...NULLNESS_OPERATORS]
+const lookupOperators: readonly FilterBuilderOperator[] = ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty", ...NULLNESS_OPERATORS]
 
 /** Field types that share the same operator/input behavior as number (numeric comparison operators, number input) */
 const numberLikeTypes = ["number", "currency", "percent", "rating"]
 /** Field types that share the same operator/input behavior as date (before/after operators, date/datetime/time input) */
 const dateLikeTypes = ["date", "datetime", "time"]
-/** Field types that use select operators (equals/in/notIn) and render dropdown or checkbox list when options provided */
+/** Field types that use select operators (equals/in/not_in) and render dropdown or checkbox list when options provided */
 const selectLikeTypes = ["select", "status"]
 /**
- * Relational/reference field types that use lookup operators (equals/in/notIn)
+ * Relational/reference field types that use lookup operators (equals/in/not_in)
  * and render dropdown or checkbox list when options provided.
  *
  * `owner` left this list with objectui#4914: it is a RETIRED spelling, and
@@ -1178,14 +1250,23 @@ function FilterBuilder({
   extraOperators,
 }: FilterBuilderProps) {
   const { t } = useSafeFilterTranslation()
+  // THE READ BOUNDARY (objectui#9306). A group arriving from the host is held
+  // with every row's operator folded onto its protocol id, so a filter stored
+  // under a deprecated camelCase id loads as the operator it is — and since
+  // every emit below spreads this state, the host's NEXT write carries the
+  // canonical id. Nothing is emitted here on read: opening a stored filter
+  // must not dirty the form that holds it, so the rewrite rides the author's
+  // own next edit, exactly as the ruling orders ("accepted on read and
+  // rewritten on write").
   const [filterGroup, setFilterGroup] = React.useState<FilterGroup>(
-    isValidGroup(value) ? value : EMPTY_GROUP,
+    isValidGroup(value) ? normalizeGroupOperators(value) : EMPTY_GROUP,
   )
 
   React.useEffect(() => {
     if (!isValidGroup(value)) return
-    if (JSON.stringify(value) !== JSON.stringify(filterGroup)) {
-      setFilterGroup(value)
+    const next = normalizeGroupOperators(value)
+    if (JSON.stringify(next) !== JSON.stringify(filterGroup)) {
+      setFilterGroup(next)
     }
   }, [value])
 
@@ -1319,23 +1400,22 @@ function FilterBuilder({
     })
   }
 
-  // The complement of the exported set's FOLD-CLOSURE, never a second literal
-  // beside it:
+  // The complement of the exported set, never a second literal beside it:
   // that set's whole job is to let other layers know which rows this builder
   // leaves value-less, and a hand-kept copy here is how they drifted apart.
   //
-  // BOTH sides are folded through the spec's `normalizeFilterOperator` — the
-  // same fold `filterValueArity` and `reconcileOperatorForField` already
-  // perform, so this is one more site joining a fold this file does rather
-  // than a new dialect. The gate used to do a raw `has()` on whatever spelling
-  // the row carried, and the set's members are the dropdown's camelCase ids:
-  // a stored rule spelled `is_null` — the spec's CANONICAL form, which is what
-  // `foldFilterGroupToSpecRules` persists and what any spec-side producer
-  // emits — missed the set and was treated as value-taking. The row then drew
-  // a box to type a value into, directly beside a trigger reading `Is null`
-  // (objectui#9302). One operator, two spellings, two different rows.
+  // The row's spelling is folded through `normalizeFilterBuilderOperator`
+  // before the lookup — the same fold `filterValueArity` and
+  // `reconcileOperatorForField` perform — and the set's members are already
+  // the folded (protocol) ids, so one spelling of an operator can never get a
+  // different answer from another. The gate used to do a raw `has()` on
+  // whatever spelling the row carried while the set held the dropdown's then
+  // camelCase ids: a stored rule spelled `is_null` missed the set and was
+  // treated as value-taking, drawing a box to type a value into beside a
+  // trigger reading `Is null` (objectui#9302). One operator, two spellings,
+  // two different rows — which the fold rules out in either direction.
   const needsValueInput = (operator: string) => {
-    return !VALUELESS_FILTER_BUILDER_OPERATORS_CANONICAL.has(normalizeFilterOperator(operator))
+    return !VALUELESS_FILTER_BUILDER_OPERATORS.has(normalizeFilterBuilderOperator(operator))
   }
 
   // Derived from the value FAMILY rather than from a second branch ladder over
@@ -1351,8 +1431,8 @@ function FilterBuilder({
   const renderValueInput = (condition: FilterBuilderCondition) => {
     const field = fields.find((f) => f.value === condition.field)
     // The spec's vocabulary, not a local literal — and folded through
-    // `normalizeFilterOperator`, so a stored `not_in` read back in canonical
-    // form gets the multi-value input its alias `notIn` already got.
+    // `normalizeFilterBuilderOperator`, so the deprecated alias `notIn` gets
+    // the multi-value input the protocol id `not_in` gets.
     const arity = filterValueArity(condition.operator)
     const isMultiOperator = arity === "list"
     // THE GATE (objectui#4914, ruling B), ahead of the control choice.
@@ -1398,7 +1478,7 @@ function FilterBuilder({
       )
     }
 
-    // For select/lookup fields with options and multi-select operator (in/notIn)
+    // For select/lookup fields with options and multi-select operator (in/not_in)
     if (field?.options && isMultiOperator) {
       const selectedValues = normalizeToArray(condition.value)
       // The list face of the same invisible value (objectui#4874). A selected

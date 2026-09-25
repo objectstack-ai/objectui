@@ -1,5 +1,6 @@
 ---
 '@object-ui/plugin-view': patch
+'@object-ui/core': patch
 ---
 
 `ObjectView` resolves the spec's context tokens in the filters it hands on (objectui#10506).
@@ -28,3 +29,8 @@ re-renders without changing anything does not trigger a refetch, and a `{now}` m
 produce a new value on every render. The app-shell host resolves the delegated filter a second
 time in its own `renderListView`; a resolved id no longer matches the placeholder pattern, so
 that pass changes nothing.
+
+`@object-ui/core`'s two placeholder walks (`resolveContextTokens` and `resolveDateMacros`, both behind
+`resolveFilterPlaceholders`) now return a non-plain object as the same instance instead of rebuilding
+it from its own keys, so a `Date` comparand, which the spec admits, no longer comes back as `{}`;
+plain and null-prototype objects are still walked.

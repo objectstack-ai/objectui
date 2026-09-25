@@ -132,6 +132,21 @@ describe('named view filter → the non-grid query this component issues (object
     expect(await queriedFilter(ds.find)).toEqual([['owner', 'equals', 'usr_literal']]);
   });
 
+  it('keeps a Date comparand a Date on its way to find() (the resolver returns non-plain objects as leaves)', async () => {
+    // The spec admits `Date` as a comparand. Before `@object-ui/core`'s walks
+    // treated a non-plain object as a leaf, routing this filter through the
+    // shared resolver rebuilt the Date from its (zero) own keys into `{}`.
+    const ds = makeAdapter();
+    const due = new Date('2026-01-01T00:00:00Z');
+    const schema = namedView('calendar', [['due', '>=', due], ['owner', '=', '{current_user_id}']]);
+    render(<Scoped><ObjectView schema={schema} dataSource={ds as any} /></Scoped>);
+    const filter = await queriedFilter(ds.find);
+    const leaf = Array.isArray(filter?.[0]) ? filter[0][2] : filter?.[2];
+    expect(leaf).toBeInstanceOf(Date);
+    expect((leaf as Date).getTime()).toBe(due.getTime());
+    expect(JSON.stringify(filter)).toContain(USER);
+  });
+
   it('keeps an unresolvable token literal with no scope mounted, and the shared resolver names it', async () => {
     // The resolver's own rule, not a fallback invented here: a known token with
     // no value in scope is left intact (the query matches nothing rather than

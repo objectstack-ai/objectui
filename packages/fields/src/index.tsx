@@ -2184,6 +2184,23 @@ export function FileCellRenderer({ value, field }: CellRendererProps): React.Rea
 }
 
 /**
+ * The images an image cell can actually draw for `value` — every entry that
+ * resolves to a URL (objectui#8677).
+ *
+ * `ImageCellRenderer` draws exactly these and answers an empty list with the
+ * shared affordance; `SignatureCellRenderer` asks the same question to decide
+ * whether a value is an image at all. ONE predicate for both, so the two can
+ * never disagree about what "drawable" means: were the signature cell to route
+ * a value here that this list then drops, it would draw "No value" again —
+ * the defect objectui#8677 removed, returning by drift.
+ */
+function displayableImagesOf(value: unknown): Array<{ url: string; name: string }> {
+  return readFileValues(value, 'Image')
+    .filter((v) => v.url)
+    .map((v) => ({ url: v.url as string, name: v.name }));
+}
+
+/**
  * Image field cell renderer (with thumbnails + click-to-zoom).
  *
  * An image value may be a plain URL string, an object ({ url | src | href … }),
@@ -2200,13 +2217,7 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
   const { t } = useObjectTranslation();
   const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
 
-  const imgs = React.useMemo(
-    () =>
-      readFileValues(value, 'Image')
-        .filter((v) => v.url)
-        .map((v) => ({ url: v.url as string, name: v.name })),
-    [value],
-  );
+  const imgs = React.useMemo(() => displayableImagesOf(value), [value]);
 
   // THE FLOOR, EXTENDED twice (objectui#8496): every falsy scalar, and every
   // value that resolves to no displayable image. `[]` is covered by the second
@@ -2270,6 +2281,46 @@ export function ImageCellRenderer({ value }: CellRendererProps): React.ReactElem
       />
       {lightbox}
     </>
+  );
+}
+
+/**
+ * Signature field cell renderer — an image when there is one to draw, and
+ * otherwise the answer of the value class the spec puts `signature` in
+ * (objectui#8677).
+ *
+ * `@objectstack/spec` places `signature` in `STRING_VALUE_TYPES` ("Value is a
+ * plain string"; the write seam is `z.string()` — the stored value is a
+ * data-URI PNG), NOT in `FILE_REFERENCE_TYPES` with `image` / `avatar`. It was
+ * nonetheless registered straight to `ImageCellRenderer`, whose "nothing to
+ * draw" answer is the MEDIA rule: the spec's file value requires `url`, so a
+ * value with none holds no file and "No value" is TRUE of it. That rule is
+ * right for `image` / `avatar` and wrong here. objectui#8580 ruled the string
+ * class's empty-shaped values and objectui#8596 applied the ruling to the rest
+ * of the class: `{}` is something the record stores, so the cell prints
+ * `coerceToSafeValue`'s answer exactly as `text` prints it, and "No value"
+ * would be false. `signature` was the one member still drawing the affordance
+ * for `{}`.
+ *
+ * ⇒ Two arms, and the image arm keeps every populated signature it drew:
+ *  - a value `ImageCellRenderer` can draw (the stored data-URI string, and the
+ *    URL / reference shapes that renderer already resolves) goes to it,
+ *    unchanged;
+ *  - anything else is read the way the string class reads it: `[]`, `''` and
+ *    `null` reach the shared affordance through the same floor `text` uses,
+ *    and `{}` prints `[Object]`.
+ *
+ * ⛔ `ImageCellRenderer` is NOT changed for `image` / `avatar` — they are
+ * `FILE_REFERENCE_TYPES`, and "No value" is their correct answer to `{}`.
+ * ⛔ Deliberately NOT exported, like `RepeaterCellRenderer`: the published
+ * surface of `@object-ui/fields` does not move; tests reach it the way every
+ * call site does — `getCellRenderer('signature')`.
+ */
+function SignatureCellRenderer(props: CellRendererProps): React.ReactElement {
+  return displayableImagesOf(props.value).length > 0 ? (
+    <ImageCellRenderer {...props} />
+  ) : (
+    <TextCellRenderer {...props} />
   );
 }
 
@@ -3243,7 +3294,9 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     audio: FileCellRenderer,
     image: ImageCellRenderer,
     avatar: ImageCellRenderer,
-    signature: ImageCellRenderer,
+    // A `STRING_VALUE_TYPES` member, not a media type (objectui#8677): the
+    // image when there is one, otherwise the string class's answer.
+    signature: SignatureCellRenderer,
     formula: FormulaCellRenderer,
     summary: FormulaCellRenderer,
     auto_number: TextCellRenderer,

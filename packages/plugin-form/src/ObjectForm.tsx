@@ -15,7 +15,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@object-ui/types';
-import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
+import { SchemaRenderer, useSafeFieldLabel, useDataInvalidation } from '@object-ui/react';
 import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
 import { useIsMobile, toast } from '@object-ui/components';
 import { resolveEffectiveCrudAffordances } from '@object-ui/core';
@@ -714,8 +714,62 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     }
   }, [schema.objectName, dataSource, hasInlineFields]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way for the record this form
+  // READS (edit/view mode, no inline fields): the nonce moves on a change to
+  // this record, to its object as a whole, or `'*'`. A change scoped to another
+  // record of the object does not move it.
+  //
+  // Unlike a list, a form holds the user's in-progress input, and a re-read
+  // replaces `initialData` — which the form renderer resets to BY VALUE and
+  // which supplies the OCC token a save sends. So the re-read is GATED ON
+  // PRISTINE (the seat's ruling on the objectui#10572 fork, option A):
+  //   - pristine → re-read in place (no loading branch, so no remount);
+  //   - dirty → HOLD the change: the typed values and the OCC token the edit
+  //     started from both stay, so a real conflict still surfaces at save
+  //     through the conflict dialog; ONE re-read is replayed when the form is
+  //     pristine again (the renderer's `onDirtyChange(false)` after a reset or
+  //     a revert) or when this form's save lands.
+  // Dirtiness is read from the form renderer's existing `onDirtyChange`
+  // channel into a private ref; nothing new is declared on any schema.
+  const readsRecord = !!schema.recordId && schema.mode !== 'create' && !hasInlineFields;
+  const busNonce = useDataInvalidation(
+    readsRecord ? schema.objectName || undefined : undefined,
+    readsRecord ? String(schema.recordId) : undefined,
+  );
+  const formDirtyRef = React.useRef(false);
+  const heldChangeRef = React.useRef(false);
+  const seenBusNonceRef = React.useRef(busNonce);
+  // Bumped once per re-read this form decides to run; the fetch effect names it.
+  const [recordRefetch, setRecordRefetch] = useState(0);
+  // The `recordRefetch` value the fetch effect last ran for — a run that moved
+  // it is a re-read IN PLACE and must not enter the loading branch.
+  const appliedRecordRefetchRef = React.useRef(0);
+  useEffect(() => {
+    if (busNonce === seenBusNonceRef.current) return;
+    seenBusNonceRef.current = busNonce;
+    if (formDirtyRef.current) {
+      heldChangeRef.current = true;
+      return;
+    }
+    setRecordRefetch((n) => n + 1);
+  }, [busNonce]);
+  const replayHeldChange = useCallback(() => {
+    if (!heldChangeRef.current) return;
+    heldChangeRef.current = false;
+    setRecordRefetch((n) => n + 1);
+  }, []);
+  // Memoised for cost only (the renderer re-subscribes on a new identity);
+  // nothing here depends on the identity it returns.
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    formDirtyRef.current = dirty;
+    if (!dirty) replayHeldChange();
+  }, [replayHeldChange]);
+
   // Fetch initial data for edit/view modes (skip if using inline data)
   useEffect(() => {
+    const inPlace = recordRefetch !== appliedRecordRefetchRef.current;
+    appliedRecordRefetchRef.current = recordRefetch;
     const fetchInitialData = async () => {
       if (!schema.recordId || schema.mode === 'create') {
         // Seeded from something other than a read: no baseline to diff against.
@@ -736,7 +790,9 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         return;
       }
 
-      setLoading(true);
+      // A bus re-read keeps the form mounted (objectui#10572): the loading
+      // branch would unmount it and drop the fields' own UI state.
+      if (!inPlace) setLoading(true);
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         // Tagged with the object and record it was read for, so a save that
@@ -754,7 +810,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (objectSchema && !hasInlineFields) {
       fetchInitialData();
     }
-  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields]);
+  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, recordRefetch]);
 
   // FormField `visibleOn` (spec FormFieldSchema CEL expression) is consumed
   // directly by the form renderer via the canonical engine — it accepts both
@@ -1156,6 +1212,13 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       // The write landed: the next save from this still-mounted form diffs
       // against the record as it now stands, not as first read.
       loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+      // objectui#10572 — the edit has landed, so what the form shows is what the
+      // server holds: a change held while it was dirty (its own write's bus
+      // echo included) is replayed now, and a later echo re-reads in place
+      // instead of being held behind input that is no longer unsaved. The next
+      // keystroke reports dirty again through `onDirtyChange`.
+      formDirtyRef.current = false;
+      replayHeldChange();
 
       // Call success callback if provided, else give default feedback. Skip the
       // default when a `submitHandler` owns persistence (e.g. MasterDetailForm
@@ -1296,7 +1359,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, replayHeldChange]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1626,6 +1689,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
               cancelLabel: schema.cancelText,
               onSubmit: handleSubmit,
               onCancel: handleCancel,
+              onDirtyChange: handleDirtyChange,
             } as FormSchema}
           />
           <UploadInFlightNotice gate={uploadGate} />
@@ -1781,6 +1845,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     previousValues,
     onSubmit: handleSubmit,
     onCancel: handleCancel,
+    onDirtyChange: handleDirtyChange,
     className: schema.className,
     mobileStickyActions: Boolean(mobileOpts?.stickyActions),
   };

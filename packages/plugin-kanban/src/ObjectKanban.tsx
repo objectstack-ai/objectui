@@ -17,6 +17,7 @@ import {
   isPermissionError,
   declaredUserMessage,
   useSettledSchema,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -560,6 +561,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // below re-keys on what it says, never on which array it is.
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this board QUERIES is declared, and the fetch effect
+  // below names it, so the cards are re-read in place. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only when the board
+  // fetches for itself — external, bound or inline cards are the host's.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && !boundData && !schema.data ? schema.objectName || undefined : undefined,
+  );
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -726,7 +738,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `ObjectTimeline` spelling: an array rebuilt with the same members must not
     // refetch the board.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.sort` is tracked by CONTENT (sortKey) on purpose; see above
-  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce]);
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;

@@ -877,8 +877,10 @@ that read** (objectui#10156). The simple form, the `modal` and the `drawer`
 variants do this, and so does the parent operation of a master-detail form,
 whose header is a simple form. A master-detail child row already worked this
 way (objectui#10108), and all of them use the same comparison. The `tabbed`,
-`wizard` and `split` variants are not covered, including a master-detail header
-laid out `tabbed`. They still send every value the form holds.
+`wizard` and `split` variants are not covered. That includes a master-detail
+header laid out `tabbed`, and a simple form whose mobile `stepper` option shows it
+one step at a time through the wizard. They still send every value the form
+holds.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still

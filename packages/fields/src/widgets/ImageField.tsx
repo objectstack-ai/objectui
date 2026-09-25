@@ -81,7 +81,15 @@ export function ImageField({ value, onChange, field, readonly, onUploadingChange
   // Derived value + memoized handlers must run before the readonly early return
   // so hook order stays stable across renders.
   const images = value ? (Array.isArray(value) ? value : [value]) : [];
-  const views = withRecentUploads(readFileValues(value, 'Image'), recent);
+  // An EMPTY fallback name, as the image cell's `displayableImagesOf` passes:
+  // a value that carries no name of its own (a bare id, a `data:` URI) stays
+  // nameless, so every reader below falls through to its own fallback — the
+  // translated `fields.image.imageAlt` for the alt, the enlarge label and the
+  // lightbox, and `image-${index}.png` for the cropper's output file name.
+  // The literal `'Image'` passed here used to name every such image
+  // `Image` on every locale, leaving the translated alt unreachable
+  // (objectui#10637).
+  const views = withRecentUploads(readFileValues(value, ''), recent);
 
   const remember = useCallback((result: any, originalName: string) => {
     const view = uploadResultView(result, originalName);

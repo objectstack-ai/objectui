@@ -251,6 +251,7 @@ export type {
   PivotAggregation,
   PivotTableSchema,
   DrillDownConfig,
+  ObjectMetricDrillDownConfig,
   TimelineEvent,
   TimelineScale,
   TimelineSchema,

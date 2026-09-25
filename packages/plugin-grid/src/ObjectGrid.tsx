@@ -5805,7 +5805,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
-      <RefreshIndicator active={loading && data.length > 0} />
+      <RefreshIndicator active={loading && data.length > 0} ariaLabel={t('grid.refreshing')} />
       {pullDistance > 0 && (
         <div
           className="flex items-center justify-center text-xs text-muted-foreground"

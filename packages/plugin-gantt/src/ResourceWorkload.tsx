@@ -19,6 +19,7 @@ import * as React from 'react';
 import { type GanttTask, type GanttViewMode, startOfUnit, addUnits } from './GanttView';
 import { computeWorkload, type WorkloadColumn } from './workload';
 import { useGanttTranslation } from './useGanttTranslation';
+import { useDisplayLocale } from '@object-ui/i18n';
 
 export interface ResourceWorkloadProps {
   tasks: GanttTask[];
@@ -47,7 +48,7 @@ const ROW_HEIGHT = 48;
 const HIST_HEIGHT = 34; // drawable height for the tallest bar
 const LABEL_WIDTH = 180;
 
-function columnLabel(date: Date, mode: GanttViewMode, locale?: string): string {
+function columnLabel(date: Date, mode: GanttViewMode, locale: string): string {
   if (mode === 'day') return String(date.getDate());
   if (mode === 'week') return date.toLocaleDateString(locale, { month: 'numeric', day: 'numeric' });
   if (mode === 'month') return date.toLocaleDateString(locale, { month: 'short' });
@@ -64,8 +65,11 @@ export function ResourceWorkload({
   unassignedLabel = 'Unassigned',
   className,
 }: ResourceWorkloadProps) {
-  const { t, language } = useGanttTranslation();
-  const locale = language || undefined;
+  const { t } = useGanttTranslation();
+  // The DISPLAY locale, never the UI language, and never `undefined`: the old
+  // `language || undefined` handed an empty language to the MACHINE's locale
+  // (objectui#10442).
+  const locale = useDisplayLocale();
   const colWidth = DEFAULT_COL_WIDTH[viewMode];
 
   // Build columns over the task span (snapped to unit boundaries), mirroring

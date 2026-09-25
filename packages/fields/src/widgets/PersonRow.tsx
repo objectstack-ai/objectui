@@ -28,6 +28,12 @@ import {
 export interface PersonRowProps {
   record: any;
   displayField?: string;
+  /**
+   * The fields the name is read from, in order; defaults to the ladder of
+   * `displayField` (`getPersonNameFields`). PeoplePicker passes the fields of
+   * that ladder the loaded policy lets the viewer read (objectui#10535).
+   */
+  nameFields?: string[];
   subtitleFields?: string[];
   /**
    * Avatar image field (default `image`). `null` draws no image, only the
@@ -66,6 +72,7 @@ function Highlighted({ text, query }: { text: string; query?: string }): React.R
 export function PersonRow({
   record,
   displayField = 'name',
+  nameFields,
   subtitleFields,
   avatarField = 'image',
   selected = false,
@@ -74,7 +81,7 @@ export function PersonRow({
   onSelect,
   className,
 }: PersonRowProps) {
-  const name = getPersonName(record, displayField);
+  const name = getPersonName(record, nameFields ?? displayField);
   const subtitle = getPersonSubtitle(record, subtitleFields);
   const avatarUrl = getPersonAvatarUrl(record, avatarField);
   const initials = getPersonInitials(name);

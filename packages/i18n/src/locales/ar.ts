@@ -121,7 +121,11 @@ const ar = {
     closeChat: "إغلاق المحادثة",
     closePanel: "إغلاق اللوحة",
     resizeDrawer: "تغيير عرض اللوحة",
-    itemCount: "{{count}} عناصر",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves two (2), few (3-10), many (11-99) and other (100+),
+    // which need different noun forms. A count label («عدد …: {{count}}», as
+    // `search.resultsCountPlural` does) reads correctly at every one of them.
+    itemCount: "عدد العناصر: {{count}}",
     itemCountOne: "{{count}} عنصر",
     toggleSidebar: "تبديل الشريط الجانبي",
     package: "الحزمة",
@@ -3639,7 +3643,10 @@ const ar = {
     removeSort: "إزالة الترتيب",
   },
   collaboration: {
-    commentCount: "{{count}} تعليقات",
+    // objectui#10242 — `commentCount` and `reactionCount` below serve every
+    // count but 1 (zero, two, few, many, other), so each is a count label
+    // («عدد …: {{count}}») rather than one noun form that fits only 3-10.
+    commentCount: "عدد التعليقات: {{count}}",
     commentCountOne: "{{count}} تعليق",
     resolvedSuffix: " · تم الحل",
     sortComments: "ترتيب التعليقات",
@@ -3652,7 +3659,7 @@ const ar = {
     hoursAgo: "قبل {{count}} ساعة",
     daysAgo: "قبل {{count}} يوم",
     edited: "(تم التعديل)",
-    reactionCount: "{{count}} تفاعلات",
+    reactionCount: "عدد التفاعلات: {{count}}",
     reactionCountOne: "{{count}} تفاعل",
     addThumbsUp: "إضافة إعجاب",
     reply: "رد",
